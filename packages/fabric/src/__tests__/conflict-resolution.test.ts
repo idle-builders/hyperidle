@@ -1,6 +1,6 @@
 import { createTestDb, type HyperIdleDb, knowledgeConflicts } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
 	type ConcurrentEdit,
 	canPromote,
@@ -12,10 +12,12 @@ import {
 import { setupFts } from "../fts.js";
 import { create, getById } from "../knowledge-repository.js";
 
-function makeDb(): HyperIdleDb {
-	const db = createTestDb();
-	setupFts(db);
-	return db;
+let handle: Awaited<ReturnType<typeof createTestDb>>;
+
+async function makeDb(): Promise<HyperIdleDb> {
+	handle = await createTestDb();
+	await setupFts(handle.db);
+	return handle.db;
 }
 
 const structuredBase = {
@@ -42,14 +44,17 @@ const proseBase = {
 describe("conflict-resolution", () => {
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = makeDb();
+	beforeEach(async () => {
+		db = await makeDb();
 	});
 
-	// AC1: Two edits to different fields of structured practice: both apply, no conflict record.
+	afterEach(async () => {
+		await handle.close();
+	});
+
 	describe("AC1: structured item, different fields", () => {
-		it("applies both edits with no conflict record", () => {
-			const item = create(db, structuredBase);
+		it("applies both edits with no conflict record", async () => {
+			const item = await create(db, structuredBase);
 
 			const edits: ConcurrentEdit[] = [
 				{
@@ -66,26 +71,23 @@ describe("conflict-resolution", () => {
 				},
 			];
 
-			const result = resolveConflict(db, item.id, edits);
-
+			const result = await resolveConflict(db, item.id, edits);
 			expect(result.merged).toBe(true);
 			expect(result.conflicts).toHaveLength(0);
 
-			const updated = getById(db, item.id);
+			const updated = await getById(db, item.id);
 			expect(updated?.title).toBe("Updated Title");
 			expect(updated?.body).toBe("Updated Body");
 
-			// No conflict records in DB
-			const conflicts = db
+			const conflicts = await db
 				.select()
 				.from(knowledgeConflicts)
-				.where(eq(knowledgeConflicts.itemId, item.id))
-				.all();
+				.where(eq(knowledgeConflicts.itemId, item.id));
 			expect(conflicts).toHaveLength(0);
 		});
 
-		it("applies different meta fields without conflict", () => {
-			const item = create(db, {
+		it("applies different meta fields without conflict", async () => {
+			const item = await create(db, {
 				...structuredBase,
 				meta: JSON.stringify({ tags: ["old"], evidence: "old evidence" }),
 			});
@@ -105,20 +107,19 @@ describe("conflict-resolution", () => {
 				},
 			];
 
-			const result = resolveConflict(db, item.id, edits);
+			const result = await resolveConflict(db, item.id, edits);
 			expect(result.merged).toBe(true);
 			expect(result.conflicts).toHaveLength(0);
 
-			const updated = getById(db, item.id);
+			const updated = await getById(db, item.id);
 			expect(updated?.title).toBe("New Title");
 			expect(updated?.topic).toBe("new-topic");
 		});
 	});
 
-	// AC2: Two edits to same field of structured practice: last writer wins, conflict record created.
 	describe("AC2: structured item, same field", () => {
-		it("last writer wins for same field with conflict record", () => {
-			const item = create(db, structuredBase);
+		it("last writer wins for same field with conflict record", async () => {
+			const item = await create(db, structuredBase);
 
 			const edits: ConcurrentEdit[] = [
 				{
@@ -135,30 +136,26 @@ describe("conflict-resolution", () => {
 				},
 			];
 
-			const result = resolveConflict(db, item.id, edits);
-
+			const result = await resolveConflict(db, item.id, edits);
 			expect(result.merged).toBe(true);
 			expect(result.conflicts).toHaveLength(1);
 			expect(result.conflicts[0]?.field).toBe("title");
 
-			const updated = getById(db, item.id);
-			// B is later, so B wins
+			const updated = await getById(db, item.id);
 			expect(updated?.title).toBe("Title from B");
 
-			// Conflict record created in DB
-			const conflicts = db
+			const conflicts = await db
 				.select()
 				.from(knowledgeConflicts)
-				.where(eq(knowledgeConflicts.itemId, item.id))
-				.all();
+				.where(eq(knowledgeConflicts.itemId, item.id));
 			expect(conflicts).toHaveLength(1);
 			expect(conflicts[0]?.status).toBe("resolved");
 			expect(conflicts[0]?.proposedBy).toBe("agent-A");
 			expect(conflicts[0]?.proposedBody).toContain("Title from A");
 		});
 
-		it("handles mix of conflicting and non-conflicting fields", () => {
-			const item = create(db, structuredBase);
+		it("handles mix of conflicting and non-conflicting fields", async () => {
+			const item = await create(db, structuredBase);
 
 			const edits: ConcurrentEdit[] = [
 				{
@@ -175,23 +172,20 @@ describe("conflict-resolution", () => {
 				},
 			];
 
-			const result = resolveConflict(db, item.id, edits);
-
+			const result = await resolveConflict(db, item.id, edits);
 			expect(result.merged).toBe(true);
-			// title conflicted (same field)
 			expect(result.conflicts).toHaveLength(1);
 
-			const updated = getById(db, item.id);
-			expect(updated?.title).toBe("Title from B"); // LWW
-			expect(updated?.topic).toBe("topic-A"); // no conflict, applied
-			expect(updated?.body).toBe("Body from B"); // no conflict, applied
+			const updated = await getById(db, item.id);
+			expect(updated?.title).toBe("Title from B");
+			expect(updated?.topic).toBe("topic-A");
+			expect(updated?.body).toBe("Body from B");
 		});
 	});
 
-	// AC3: Two edits to prose item: both versions stored, conflict record with status 'open', older version remains active.
 	describe("AC3: prose item conflicts", () => {
-		it("creates open conflict record and keeps older version active", () => {
-			const item = create(db, proseBase);
+		it("creates open conflict record and keeps older version active", async () => {
+			const item = await create(db, proseBase);
 
 			const edits: ConcurrentEdit[] = [
 				{
@@ -208,31 +202,29 @@ describe("conflict-resolution", () => {
 				},
 			];
 
-			const result = resolveConflict(db, item.id, edits);
-
+			const result = await resolveConflict(db, item.id, edits);
 			expect(result.merged).toBe(false);
 			expect(result.conflicts).toHaveLength(1);
 
-			// Older version (A, earlier timestamp) remains active
-			const updated = getById(db, item.id);
+			const updated = await getById(db, item.id);
 			expect(updated?.body).toBe("Reflection version A");
 
-			// Conflict record with status 'open'
-			const conflicts = db
+			const conflicts = await db
 				.select()
 				.from(knowledgeConflicts)
-				.where(eq(knowledgeConflicts.itemId, item.id))
-				.all();
+				.where(eq(knowledgeConflicts.itemId, item.id));
 			expect(conflicts).toHaveLength(1);
 			expect(conflicts[0]?.status).toBe("open");
 			expect(conflicts[0]?.proposedBody).toBe("Reflection version B");
 			expect(conflicts[0]?.proposedBy).toBe("agent-B");
 		});
 
-		it("handles prose kinds: brief, principle, focus", () => {
+		it("handles prose kinds: brief, principle, focus", async () => {
 			for (const kind of ["brief", "principle", "focus"] as const) {
-				const localDb = makeDb();
-				const item = create(localDb, { ...proseBase, kind });
+				const localHandle = await createTestDb();
+				const localDb = localHandle.db;
+				await setupFts(localDb);
+				const item = await create(localDb, { ...proseBase, kind });
 
 				const edits: ConcurrentEdit[] = [
 					{
@@ -249,24 +241,24 @@ describe("conflict-resolution", () => {
 					},
 				];
 
-				const result = resolveConflict(localDb, item.id, edits);
+				const result = await resolveConflict(localDb, item.id, edits);
 				expect(result.merged).toBe(false);
 
-				const conflicts = localDb
+				const conflicts = await localDb
 					.select()
 					.from(knowledgeConflicts)
-					.where(eq(knowledgeConflicts.itemId, item.id))
-					.all();
+					.where(eq(knowledgeConflicts.itemId, item.id));
 				expect(conflicts).toHaveLength(1);
 				expect(conflicts[0]?.status).toBe("open");
+
+				await localHandle.close();
 			}
 		});
 	});
 
-	// AC4: Conflict record contains version_base, version_current, proposed_body, proposed_by.
 	describe("AC4: conflict record fields", () => {
-		it("has all required fields for structured conflict", () => {
-			const item = create(db, structuredBase);
+		it("has all required fields for structured conflict", async () => {
+			const item = await create(db, structuredBase);
 
 			const edits: ConcurrentEdit[] = [
 				{
@@ -283,13 +275,12 @@ describe("conflict-resolution", () => {
 				},
 			];
 
-			resolveConflict(db, item.id, edits);
+			await resolveConflict(db, item.id, edits);
 
-			const conflicts = db
+			const conflicts = await db
 				.select()
 				.from(knowledgeConflicts)
-				.where(eq(knowledgeConflicts.itemId, item.id))
-				.all();
+				.where(eq(knowledgeConflicts.itemId, item.id));
 			expect(conflicts).toHaveLength(1);
 			const conflict = conflicts[0];
 			expect(conflict?.versionBase).toBe(item.version);
@@ -298,8 +289,8 @@ describe("conflict-resolution", () => {
 			expect(conflict?.proposedBy).toBe("agent-A");
 		});
 
-		it("has all required fields for prose conflict", () => {
-			const item = create(db, proseBase);
+		it("has all required fields for prose conflict", async () => {
+			const item = await create(db, proseBase);
 
 			const edits: ConcurrentEdit[] = [
 				{
@@ -316,13 +307,12 @@ describe("conflict-resolution", () => {
 				},
 			];
 
-			resolveConflict(db, item.id, edits);
+			await resolveConflict(db, item.id, edits);
 
-			const conflicts = db
+			const conflicts = await db
 				.select()
 				.from(knowledgeConflicts)
-				.where(eq(knowledgeConflicts.itemId, item.id))
-				.all();
+				.where(eq(knowledgeConflicts.itemId, item.id));
 			expect(conflicts).toHaveLength(1);
 			const conflict = conflicts[0];
 			expect(conflict?.versionBase).toBe(item.version);
@@ -332,10 +322,9 @@ describe("conflict-resolution", () => {
 		});
 	});
 
-	// AC5: Open conflict prevents promotion to VALIDATED status.
 	describe("AC5: open conflict prevents promotion", () => {
-		it("canPromote returns false when open conflicts exist", () => {
-			const item = create(db, proseBase);
+		it("canPromote returns false when open conflicts exist", async () => {
+			const item = await create(db, proseBase);
 
 			const edits: ConcurrentEdit[] = [
 				{
@@ -352,13 +341,12 @@ describe("conflict-resolution", () => {
 				},
 			];
 
-			resolveConflict(db, item.id, edits);
-
-			expect(canPromote(db, item.id)).toBe(false);
+			await resolveConflict(db, item.id, edits);
+			expect(await canPromote(db, item.id)).toBe(false);
 		});
 
-		it("promote throws when open conflicts exist", () => {
-			const item = create(db, proseBase);
+		it("promote throws when open conflicts exist", async () => {
+			const item = await create(db, proseBase);
 
 			const edits: ConcurrentEdit[] = [
 				{
@@ -375,21 +363,19 @@ describe("conflict-resolution", () => {
 				},
 			];
 
-			resolveConflict(db, item.id, edits);
-
-			expect(() => promote(db, item.id, "validated")).toThrow(/open conflict/i);
+			await resolveConflict(db, item.id, edits);
+			await expect(promote(db, item.id, "validated")).rejects.toThrow(/open conflict/i);
 		});
 
-		it("canPromote returns true when no conflicts", () => {
-			const item = create(db, structuredBase);
-			expect(canPromote(db, item.id)).toBe(true);
+		it("canPromote returns true when no conflicts", async () => {
+			const item = await create(db, structuredBase);
+			expect(await canPromote(db, item.id)).toBe(true);
 		});
 	});
 
-	// AC6: Resolving conflict (status 'resolved') allows promotion.
 	describe("AC6: resolving conflict allows promotion", () => {
-		it("allows promotion after conflict is resolved", () => {
-			const item = create(db, proseBase);
+		it("allows promotion after conflict is resolved", async () => {
+			const item = await create(db, proseBase);
 
 			const edits: ConcurrentEdit[] = [
 				{
@@ -406,35 +392,28 @@ describe("conflict-resolution", () => {
 				},
 			];
 
-			resolveConflict(db, item.id, edits);
+			await resolveConflict(db, item.id, edits);
+			expect(await canPromote(db, item.id)).toBe(false);
 
-			// Should not be promotable yet
-			expect(canPromote(db, item.id)).toBe(false);
-
-			// Find and resolve the conflict
-			const conflicts = db
+			const conflicts = await db
 				.select()
 				.from(knowledgeConflicts)
-				.where(eq(knowledgeConflicts.itemId, item.id))
-				.all();
+				.where(eq(knowledgeConflicts.itemId, item.id));
 			const conflictId = conflicts[0]?.id;
 			expect(conflictId).toBeTruthy();
 
 			if (!conflictId) throw new Error("Expected conflict to exist");
-			resolveConflictRecord(db, conflictId, "accepted");
+			await resolveConflictRecord(db, conflictId, "accepted");
+			expect(await canPromote(db, item.id)).toBe(true);
 
-			// Now should be promotable
-			expect(canPromote(db, item.id)).toBe(true);
-
-			// And promote should succeed
-			const currentItem = getById(db, item.id);
-			const promoted = promote(db, item.id, "validated");
+			const currentItem = await getById(db, item.id);
+			const promoted = await promote(db, item.id, "validated");
 			expect(promoted.status).toBe("validated");
 			expect(promoted.version).toBe((currentItem?.version ?? 0) + 1);
 		});
 
-		it("resolveConflictRecord updates status to resolved", () => {
-			const item = create(db, proseBase);
+		it("resolveConflictRecord updates status to resolved", async () => {
+			const item = await create(db, proseBase);
 
 			const edits: ConcurrentEdit[] = [
 				{
@@ -451,28 +430,24 @@ describe("conflict-resolution", () => {
 				},
 			];
 
-			resolveConflict(db, item.id, edits);
+			await resolveConflict(db, item.id, edits);
 
-			const conflicts = db
+			const conflicts = await db
 				.select()
 				.from(knowledgeConflicts)
-				.where(eq(knowledgeConflicts.itemId, item.id))
-				.all();
-
+				.where(eq(knowledgeConflicts.itemId, item.id));
 			const conflictId = conflicts[0]?.id;
 			if (!conflictId) throw new Error("Expected conflict to exist");
-			resolveConflictRecord(db, conflictId, "accepted");
+			await resolveConflictRecord(db, conflictId, "accepted");
 
-			const updated = db
+			const [updated] = await db
 				.select()
 				.from(knowledgeConflicts)
-				.where(eq(knowledgeConflicts.id, conflictId))
-				.get();
+				.where(eq(knowledgeConflicts.id, conflictId));
 			expect(updated?.status).toBe("resolved");
 		});
 	});
 
-	// mergeStructuredEdits unit tests
 	describe("mergeStructuredEdits", () => {
 		it("merges non-overlapping fields", () => {
 			const result = mergeStructuredEdits(
@@ -497,16 +472,8 @@ describe("conflict-resolution", () => {
 
 		it("picks last writer for overlapping fields", () => {
 			const result = mergeStructuredEdits({ title: "Original" }, [
-				{
-					changes: { title: "A" },
-					editor: "agent-A",
-					timestamp: "2026-04-15T10:00:00.000Z",
-				},
-				{
-					changes: { title: "B" },
-					editor: "agent-B",
-					timestamp: "2026-04-15T10:01:00.000Z",
-				},
+				{ changes: { title: "A" }, editor: "agent-A", timestamp: "2026-04-15T10:00:00.000Z" },
+				{ changes: { title: "B" }, editor: "agent-B", timestamp: "2026-04-15T10:01:00.000Z" },
 			]);
 
 			expect(result.merged).toEqual({ title: "B" });

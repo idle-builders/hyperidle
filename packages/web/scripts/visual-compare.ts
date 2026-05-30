@@ -6,12 +6,12 @@
  * served via a local HTTP server. The live app runs on localhost:5173.
  *
  * Usage:
- *   bun run scripts/visual-compare.ts [reference-name|all]
- *   bun run scripts/visual-compare.ts shell_conversations
- *   bun run scripts/visual-compare.ts all
+ *   npx tsx scripts/visual-compare.ts [reference-name|all]
+ *   npx tsx scripts/visual-compare.ts shell_conversations
+ *   npx tsx scripts/visual-compare.ts all
  *
  * Prerequisites:
- *   - Dev server running (bun dev)
+ *   - Dev server running (npm run dev)
  *   - Reference server started automatically (python3 -m http.server)
  *
  * Output (per reference):
@@ -236,7 +236,7 @@ async function main(): Promise<void> {
 	try {
 		await fetch(APP_URL);
 	} catch {
-		console.error(`App server not running at ${APP_URL}. Start with: bun dev`);
+		console.error(`App server not running at ${APP_URL}. Start with: npm run dev`);
 		refServer.kill();
 		process.exit(1);
 	}

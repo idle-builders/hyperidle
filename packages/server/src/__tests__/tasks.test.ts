@@ -19,15 +19,17 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("Task Endpoints (E3)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		// Seed product, team, and a bet
 		const now = new Date().toISOString();
@@ -48,19 +50,29 @@ describe("Task Endpoints (E3)", () => {
 			})
 			.run();
 		// Seed agents for FK references
-		db.insert(users)
-			.values({ id: "agent-1", name: "Agent 1", role: "builder", status: "active", createdAt: now })
-			.run();
-		db.insert(users)
-			.values({ id: "agent-2", name: "Agent 2", role: "builder", status: "active", createdAt: now })
-			.run();
+		await db.insert(users).values({
+			id: "agent-1",
+			name: "Agent 1",
+			role: "builder",
+			status: "active",
+			createdAt: now,
+		});
+
+		await db.insert(users).values({
+			id: "agent-2",
+			name: "Agent 2",
+			role: "builder",
+			status: "active",
+			createdAt: now,
+		});
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
-	function seedTask(id: string, overrides?: Record<string, unknown>): void {
+	async function seedTask(id: string, overrides?: Record<string, unknown>): Promise<void> {
 		const now = new Date().toISOString();
 		db.insert(tasks)
 			.values({
@@ -79,8 +91,8 @@ describe("Task Endpoints (E3)", () => {
 	// AC8: GET /api/tasks — list, filterable by bet_id, state, owner
 	describe("AC8: GET /api/tasks — list with filters", () => {
 		it("returns all tasks", async () => {
-			seedTask("t1");
-			seedTask("t2");
+			await seedTask("t1");
+			await seedTask("t2");
 
 			const res = await app.request("/api/tasks", { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -89,7 +101,7 @@ describe("Task Endpoints (E3)", () => {
 		});
 
 		it("filters by bet_id", async () => {
-			seedTask("t1");
+			await seedTask("t1");
 			// Create another bet and task
 			db.insert(bets)
 				.values({
@@ -110,8 +122,8 @@ describe("Task Endpoints (E3)", () => {
 		});
 
 		it("filters by state", async () => {
-			seedTask("t1", { state: "proposed" });
-			seedTask("t2", { state: "in_progress" });
+			await seedTask("t1", { state: "proposed" });
+			await seedTask("t2", { state: "in_progress" });
 
 			const res = await app.request("/api/tasks?state=in_progress", { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -120,8 +132,8 @@ describe("Task Endpoints (E3)", () => {
 		});
 
 		it("filters by owner", async () => {
-			seedTask("t1", { ownerAgentId: "agent-1" });
-			seedTask("t2", { ownerAgentId: "agent-2" });
+			await seedTask("t1", { ownerAgentId: "agent-1" });
+			await seedTask("t2", { ownerAgentId: "agent-2" });
 
 			const res = await app.request("/api/tasks?owner=agent-1", { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -140,7 +152,7 @@ describe("Task Endpoints (E3)", () => {
 	// AC9: PATCH /api/tasks/:id — update
 	describe("AC9: PATCH /api/tasks/:id — update fields", () => {
 		it("updates task title", async () => {
-			seedTask("t1");
+			await seedTask("t1");
 
 			const res = await app.request("/api/tasks/t1", {
 				method: "PATCH",
@@ -154,7 +166,7 @@ describe("Task Endpoints (E3)", () => {
 		});
 
 		it("updates multiple fields at once", async () => {
-			seedTask("t1");
+			await seedTask("t1");
 
 			const res = await app.request("/api/tasks/t1", {
 				method: "PATCH",
@@ -181,7 +193,7 @@ describe("Task Endpoints (E3)", () => {
 	// AC10: POST /api/tasks/:id/transition — state transition (validates)
 	describe("AC10: POST /api/tasks/:id/transition — state transition", () => {
 		it("transitions proposed→accepted", async () => {
-			seedTask("t1", { state: "proposed" });
+			await seedTask("t1", { state: "proposed" });
 
 			const res = await app.request("/api/tasks/t1/transition", {
 				method: "POST",
@@ -195,7 +207,7 @@ describe("Task Endpoints (E3)", () => {
 		});
 
 		it("emits task_state_changed event", async () => {
-			seedTask("t1", { state: "proposed" });
+			await seedTask("t1", { state: "proposed" });
 			const events: unknown[] = [];
 			eventBus.on("task_state_changed", (e) => events.push(e));
 
@@ -209,7 +221,7 @@ describe("Task Endpoints (E3)", () => {
 		});
 
 		it("rejects invalid transition (409)", async () => {
-			seedTask("t1", { state: "proposed" });
+			await seedTask("t1", { state: "proposed" });
 
 			const res = await app.request("/api/tasks/t1/transition", {
 				method: "POST",
@@ -232,7 +244,7 @@ describe("Task Endpoints (E3)", () => {
 		});
 
 		it("returns 400 for missing state in body", async () => {
-			seedTask("t1");
+			await seedTask("t1");
 
 			const res = await app.request("/api/tasks/t1/transition", {
 				method: "POST",

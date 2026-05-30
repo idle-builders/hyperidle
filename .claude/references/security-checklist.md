@@ -44,6 +44,6 @@ Progressive disclosure checklist — load when reviewing security-sensitive code
 
 ## Dependency Audit
 
-- [ ] `bun audit` run with zero critical/high vulnerabilities
+- [ ] `npm audit` run with zero critical/high vulnerabilities
 - [ ] Reachability analysis for medium vulnerabilities (is the vulnerable code path actually used?)
 - [ ] No `npm:` imports from untrusted sources

@@ -20,7 +20,7 @@
 
 ### F-2: The Five Process Primitives
 
-**F-2.1 Bet.** A shaped, committed, time-boxed unit of work owned by a team. Required fields: product, team, pitch, appetite (1w/2w/6w), done_condition, hypothesis, status (shaped → committed → in_progress → behind → blocked → paused → shipped → killed), revision_log with timestamped reasoning for every change. The done_condition is non-negotiable: a bet cannot enter `in_progress` without one. Bets are allowed to change as the team learns — done condition, hypothesis, and appetite revisions are first-class events, each requiring a review thread to the founder.
+**F-2.1 Bet.** A shaped, committed, time-boxed unit of work owned by a team. Required fields: product, team, pitch, appetite (1w/2w/6w), done_condition, hypothesis, status (shaped → committed → in_progress → behind → blocked → paused → shipped → killed), revision_log with timestamped reasoning for every change. The done_condition is non-negotiable: a bet cannot enter `in_progress` without one. Bets are allowed to change as the team learns — done condition, hypothesis, and appetite revisions are first-class events, each requiring a review thread to the responsible human.
 
 **F-2.2 Task.** A unit of work picked up by an agent. Required fields: bet, product, team, owner, done_condition, state (proposed → accepted → hold → in_progress → blocked → review → done → killed), dependencies (list of Task IDs), sessions, artifacts (with file leases), cost_cap, cost_actual, risk_tier (low/medium/high), attention_score. The `hold` state is for tasks with unmet upstream dependencies — the Dependency Watcher automatically transitions them to `accepted` when all upstream tasks reach `done`. `blocked` is distinct: runtime blocks discovered during execution (human reply needed, external service, design question). Optional thread attachment (only when there's something to discuss). Optional cross_team flag for tasks owned by agents from a different team than the bet's owning team.
 
@@ -82,15 +82,15 @@
 
 **F-6.3** When in doubt, route to the less interruptive view. Conversations is the most expensive view (can interrupt the human's day).
 
-**F-6.4** Founder responsibility routing: the Chief of Staff knows which founder to route to based on domain (market/growth/portfolio → CEO; product/design/tech/content → CPO; strategic decisions → both).
+**F-6.4** Responsibility routing: the Chief of Staff knows which human to route to based on domain and org_edges configuration.
 
 ### F-7: Top-Down and Bottom-Up Knowledge Flow
 
-**F-7.1** Top-down: founders set direction through PRINCIPLES.md, FOCUS.md (edited via Coach thread → review thread → approval), and bet commitment in the Work view. Every agent reads L4 factory memory at session start.
+**F-7.1** Top-down: humans set direction through PRINCIPLES.md, FOCUS.md (edited via Coach thread → review thread → approval), and bet commitment in the Work view. Every agent reads L4 factory memory at session start.
 
-**F-7.2** Bottom-up: agents accumulate findings during sessions and contribute them to their practice at the next practice meeting. Practice Facilitators synthesize findings into knowledge items. Retros route surprises and patterns to the Practice layer and the Coach thread. Any agent can post a chat thread to the founders directly.
+**F-7.2** Bottom-up: agents accumulate findings during sessions and contribute them to their practice at the next practice meeting. Practice Facilitators synthesize findings into knowledge items. Retros route surprises and patterns to the Practice layer and the Coach thread. Any agent can post a chat thread to humans directly.
 
-**F-7.3** The two flows meet at the bet. Bets start as top-down commitments (founder picked them) but evolve as bottom-up learning changes the team's understanding. Revisions are logged in the bet's revision_log with reasoning.
+**F-7.3** The two flows meet at the bet. Bets start as top-down commitments (humans picked them) but evolve as bottom-up learning changes the team's understanding. Revisions are logged in the bet's revision_log with reasoning.
 
 ### F-8: Practice Contribution Cycle
 

@@ -4,6 +4,7 @@ import {
 	type HyperIdleDb,
 	routines,
 	sessions,
+	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
@@ -29,32 +30,32 @@ function seedProduct(db: HyperIdleDb): void {
 		.run();
 }
 
-function seedAgent(db: HyperIdleDb, id: string): void {
-	db.insert(users)
-		.values({
-			id,
-			name: `Agent-${id}`,
-			role: "builder",
-			status: "active",
-			maxConcurrentSessions: 1,
-			createdAt: NOW,
-		})
-		.run();
+async function seedAgent(db: HyperIdleDb, id: string): Promise<void> {
+	await db.insert(users).values({
+		id,
+		name: `Agent-${id}`,
+		role: "builder",
+		status: "active",
+		maxConcurrentSessions: 1,
+		createdAt: NOW,
+	});
 }
 
 describe("C4: Team Management", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = createTestDb();
-		seedProduct(db);
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
+		await seedProduct(db);
 	});
 
 	describe("createTeam", () => {
-		it("creates a team with 3 agents and sets their team_id", () => {
-			seedAgent(db, "a1");
-			seedAgent(db, "a2");
-			seedAgent(db, "a3");
+		it("creates a team with 3 agents and sets their team_id", async () => {
+			await seedAgent(db, "a1");
+			await seedAgent(db, "a2");
+			await seedAgent(db, "a3");
 
 			const team = createTeam(db, {
 				teamId: "prod-1",
@@ -69,17 +70,17 @@ describe("C4: Team Management", () => {
 			expect(team.activeBets).toBe(0);
 			expect(team.dissolvedAt).toBeNull();
 
-			const a1 = db.select().from(users).where(eq(users.id, "a1")).get();
-			const a2 = db.select().from(users).where(eq(users.id, "a2")).get();
-			const a3 = db.select().from(users).where(eq(users.id, "a3")).get();
+			const [a1] = await db.select().from(users).where(eq(users.id, "a1"));
+			const [a2] = await db.select().from(users).where(eq(users.id, "a2"));
+			const [a3] = await db.select().from(users).where(eq(users.id, "a3"));
 
 			expect(a1?.teamId).toBe(team.id);
 			expect(a2?.teamId).toBe(team.id);
 			expect(a3?.teamId).toBe(team.id);
 		});
 
-		it("sets leadAgentId when provided", () => {
-			seedAgent(db, "a1");
+		it("sets leadAgentId when provided", async () => {
+			await seedAgent(db, "a1");
 
 			const team = createTeam(db, {
 				teamId: "prod-1",
@@ -101,9 +102,9 @@ describe("C4: Team Management", () => {
 				agentIds: [],
 			});
 
-			addMember(db, team.id, "a1");
+			await addMember(db, team.id, "a1");
 
-			const agent = db.select().from(users).where(eq(users.id, "a1")).get();
+			const [agent] = await db.select().from(users).where(eq(users.id, "a1"));
 			expect(agent?.teamId).toBe(team.id);
 		});
 	});
@@ -117,16 +118,14 @@ describe("C4: Team Management", () => {
 				agentIds: ["a1"],
 			});
 
-			db.insert(routines)
-				.values({
-					id: "routine-1",
-					ownerAgentId: "a1",
-					triggerType: "heartbeat",
-					active: 1,
-				})
-				.run();
+			await db.insert(routines).values({
+				id: "routine-1",
+				ownerAgentId: "a1",
+				triggerType: "heartbeat",
+				active: true,
+			});
 
-			expect(() => removeMember(db, team.id, "a1")).toThrow(ActiveRoutinesError);
+			await expect(removeMember(db, team.id, "a1")).rejects.toThrow(ActiveRoutinesError);
 		});
 
 		it("removes member successfully when no active routines", () => {
@@ -137,9 +136,9 @@ describe("C4: Team Management", () => {
 				agentIds: ["a1"],
 			});
 
-			removeMember(db, team.id, "a1");
+			await removeMember(db, team.id, "a1");
 
-			const agent = db.select().from(users).where(eq(users.id, "a1")).get();
+			const [agent] = await db.select().from(users).where(eq(users.id, "a1"));
 			expect(agent?.teamId).toBeNull();
 		});
 
@@ -151,18 +150,16 @@ describe("C4: Team Management", () => {
 				agentIds: ["a1"],
 			});
 
-			db.insert(routines)
-				.values({
-					id: "routine-1",
-					ownerAgentId: "a1",
-					triggerType: "heartbeat",
-					active: 0,
-				})
-				.run();
+			await db.insert(routines).values({
+				id: "routine-1",
+				ownerAgentId: "a1",
+				triggerType: "heartbeat",
+				active: false,
+			});
 
-			removeMember(db, team.id, "a1");
+			await removeMember(db, team.id, "a1");
 
-			const agent = db.select().from(users).where(eq(users.id, "a1")).get();
+			const [agent] = await db.select().from(users).where(eq(users.id, "a1"));
 			expect(agent?.teamId).toBeNull();
 		});
 	});
@@ -176,12 +173,12 @@ describe("C4: Team Management", () => {
 				agentIds: ["a1"],
 			});
 
-			expect(getAvailableCapacity(db, team.id)).toBe(5);
+			expect(await getAvailableCapacity(db, team.id)).toBe(5);
 
 			// @lore U1: activeBets is on teamMembers (membership group), not teams (domain entity)
 			db.update(teamMembers).set({ activeBets: 3 }).where(eq(teamMembers.id, team.id)).run();
 
-			expect(getAvailableCapacity(db, team.id)).toBe(2);
+			expect(await getAvailableCapacity(db, team.id)).toBe(2);
 		});
 
 		it("returns 0 when at capacity", () => {
@@ -194,7 +191,7 @@ describe("C4: Team Management", () => {
 			// @lore U1: activeBets is on teamMembers (membership group), not teams (domain entity)
 			db.update(teamMembers).set({ activeBets: 2 }).where(eq(teamMembers.id, team.id)).run();
 
-			expect(getAvailableCapacity(db, team.id)).toBe(0);
+			expect(await getAvailableCapacity(db, team.id)).toBe(0);
 		});
 	});
 
@@ -208,14 +205,14 @@ describe("C4: Team Management", () => {
 				agentIds: ["a1", "a2"],
 			});
 
-			dissolveTeam(db, team.id);
+			await dissolveTeam(db, team.id);
 
 			// @lore U1: dissolvedAt is on teamMembers (membership group), not teams (domain entity)
 			const dissolved = db.select().from(teamMembers).where(eq(teamMembers.id, team.id)).get();
 			expect(dissolved?.dissolvedAt).not.toBeNull();
 
-			const a1 = db.select().from(users).where(eq(users.id, "a1")).get();
-			const a2 = db.select().from(users).where(eq(users.id, "a2")).get();
+			const [a1] = await db.select().from(users).where(eq(users.id, "a1"));
+			const [a2] = await db.select().from(users).where(eq(users.id, "a2"));
 			expect(a1?.teamId).toBeNull();
 			expect(a2?.teamId).toBeNull();
 		});
@@ -258,28 +255,25 @@ describe("C4: Team Management", () => {
 
 			// O2: sessions.cost column stripped — cost tracking is strategy/fabric concern.
 			// getTeamCost now returns 0. Sessions still seeded for FK integrity.
-			db.insert(sessions)
-				.values({
-					id: "sess-1",
-					taskId: "task-1",
-					agentId: "a1",
-					modelTier: "workhorse",
-					startedAt: "2026-04-10T00:00:00.000Z",
-					state: "completed",
-				})
-				.run();
-			db.insert(sessions)
-				.values({
-					id: "sess-2",
-					taskId: "task-1",
-					agentId: "a2",
-					modelTier: "workhorse",
-					startedAt: "2026-04-12T00:00:00.000Z",
-					state: "completed",
-				})
-				.run();
+			await db.insert(sessions).values({
+				id: "sess-1",
+				taskId: "task-1",
+				agentId: "a1",
+				modelTier: "workhorse",
+				startedAt: "2026-04-10T00:00:00.000Z",
+				state: "completed",
+			});
 
-			const cost = getTeamCost(db, team.id, "2026-04-01T00:00:00.000Z");
+			await db.insert(sessions).values({
+				id: "sess-2",
+				taskId: "task-1",
+				agentId: "a2",
+				modelTier: "workhorse",
+				startedAt: "2026-04-12T00:00:00.000Z",
+				state: "completed",
+			});
+
+			const cost = await getTeamCost(db, team.id, "2026-04-01T00:00:00.000Z");
 			expect(cost).toBe(0);
 		});
 
@@ -290,7 +284,7 @@ describe("C4: Team Management", () => {
 				agentIds: [],
 			});
 
-			const cost = getTeamCost(db, team.id, "2026-04-01T00:00:00.000Z");
+			const cost = await getTeamCost(db, team.id, "2026-04-01T00:00:00.000Z");
 			expect(cost).toBe(0);
 		});
 	});
@@ -303,7 +297,7 @@ describe("C4: Team Management", () => {
 				agentIds: [],
 			});
 
-			expect(getAvailableCapacity(db, team.id)).toBe(0);
+			expect(await getAvailableCapacity(db, team.id)).toBe(0);
 		});
 
 		it("full capacity returns 0 available", () => {
@@ -316,7 +310,7 @@ describe("C4: Team Management", () => {
 			// @lore U1: activeBets is on teamMembers (membership group), not teams (domain entity)
 			db.update(teamMembers).set({ activeBets: 3 }).where(eq(teamMembers.id, team.id)).run();
 
-			expect(getAvailableCapacity(db, team.id)).toBe(0);
+			expect(await getAvailableCapacity(db, team.id)).toBe(0);
 		});
 	});
 });

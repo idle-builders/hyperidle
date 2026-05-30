@@ -1,56 +1,39 @@
-import { sql } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { HyperIdleDb } from "../connection.js";
-import { createTestDb } from "../test-utils.js";
+import { createTestDb, type TestDbHandle } from "../test-utils.js";
 
 /**
  * I3 — secondary index acceptance tests.
  *
- * Each test runs `EXPLAIN QUERY PLAN` for a representative query against the
- * indexed column and asserts the planner picked an index (the plan output
- * mentions `USING INDEX`) rather than a full table scan (`SCAN TABLE`).
- *
- * SQLite EXPLAIN QUERY PLAN docs:
- *   https://www.sqlite.org/eqp.html
- *
- * Plan rows have shape `{ id, parent, notused, detail }`. We only assert on
- * `detail`. Examples:
- *   "SEARCH tasks USING INDEX tasks_bet_id_idx (bet_id=?)"
- *   "SCAN TABLE tasks"
+ * Each test checks whether the expected index exists in pg_indexes.
+ * PGlite runs real Postgres semantics so index presence is authoritative.
  */
 
-interface ExplainRow {
-	id: number;
-	parent: number;
-	notused: number;
-	detail: string;
-}
-
-function explainPlan(db: HyperIdleDb, query: string): ExplainRow[] {
-	return db.all<ExplainRow>(sql.raw(`EXPLAIN QUERY PLAN ${query}`));
-}
-
-function assertUsesIndex(rows: ExplainRow[], hint: string): void {
-	const detailJoined = rows.map((r) => r.detail).join("\n");
-	expect(detailJoined, `expected query plan to USE INDEX (${hint}), got:\n${detailJoined}`).toMatch(
-		/USING INDEX/i,
-	);
-	expect(
-		detailJoined,
-		`expected query plan NOT to be a full SCAN TABLE (${hint}), got:\n${detailJoined}`,
-	).not.toMatch(/SCAN\s+TABLE\s+\w/i);
-}
-
 describe("I3: secondary index coverage", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
+	}, 30_000);
+
+	afterEach(async () => {
+		await handle.close();
 	});
 
-	it("uses an index for tasks lookup by bet_id", () => {
-		const plan = explainPlan(db, "SELECT * FROM tasks WHERE bet_id = 'b1'");
-		assertUsesIndex(plan, "tasks.bet_id");
+	async function indexesFor(table: string): Promise<string[]> {
+		const result = await db.execute(
+			`SELECT indexname FROM pg_indexes WHERE tablename = '${table}' AND schemaname = 'public'` as Parameters<
+				typeof db.execute
+			>[0],
+		);
+		return (result as { rows: Array<{ indexname: string }> }).rows.map((r) => r.indexname);
+	}
+
+	it("tasks has an index for bet_id", async () => {
+		const indexes = await indexesFor("tasks");
+		expect(indexes.some((i) => i.includes("bet_id"))).toBe(true);
 	});
 
 	// @lore U1: tasks.product_id dropped; tasks.team_id now references `teams` (formerly `products`).
@@ -65,24 +48,24 @@ describe("I3: secondary index coverage", () => {
 		assertUsesIndex(plan, "sessions.task_id");
 	});
 
-	it("uses an index for sessions lookup by agent_id", () => {
-		const plan = explainPlan(db, "SELECT * FROM sessions WHERE agent_id = 'agent-1'");
-		assertUsesIndex(plan, "sessions.agent_id");
+	it("sessions has an index for agent_id", async () => {
+		const indexes = await indexesFor("sessions");
+		expect(indexes.some((i) => i.includes("agent_id"))).toBe(true);
 	});
 
-	it("uses an index for sessions lookup by state", () => {
-		const plan = explainPlan(db, "SELECT * FROM sessions WHERE state = 'active'");
-		assertUsesIndex(plan, "sessions.state");
+	it("sessions has an index for state", async () => {
+		const indexes = await indexesFor("sessions");
+		expect(indexes.some((i) => i.includes("state"))).toBe(true);
 	});
 
-	it("uses an index for items lookup by thread_id", () => {
-		const plan = explainPlan(db, "SELECT * FROM items WHERE thread_id = 'thread-1'");
-		assertUsesIndex(plan, "items.thread_id");
+	it("items has an index for thread_id", async () => {
+		const indexes = await indexesFor("items");
+		expect(indexes.some((i) => i.includes("thread_id"))).toBe(true);
 	});
 
-	it("uses an index for messages lookup by thread_id", () => {
-		const plan = explainPlan(db, "SELECT * FROM messages WHERE thread_id = 'thread-1'");
-		assertUsesIndex(plan, "messages.thread_id");
+	it("messages has an index for thread_id", async () => {
+		const indexes = await indexesFor("messages");
+		expect(indexes.some((i) => i.includes("thread_id"))).toBe(true);
 	});
 
 	// @lore U1: bets.product_id dropped; bets.team_id now references `teams` (formerly `products`).
@@ -92,8 +75,8 @@ describe("I3: secondary index coverage", () => {
 		assertUsesIndex(plan, "bets.team_id");
 	});
 
-	it("uses an index for bets lookup by status", () => {
-		const plan = explainPlan(db, "SELECT * FROM bets WHERE status = 'committed'");
-		assertUsesIndex(plan, "bets.status");
+	it("bets has an index for status", async () => {
+		const indexes = await indexesFor("bets");
+		expect(indexes.some((i) => i.includes("status"))).toBe(true);
 	});
 });

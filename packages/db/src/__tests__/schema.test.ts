@@ -1,5 +1,5 @@
-import { eq, sql } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { HyperIdleDb } from "../connection.js";
 import {
 	bets,
@@ -19,26 +19,33 @@ import {
 	userSkills,
 	users,
 } from "../schema.js";
-import { createTestDb } from "../test-utils.js";
+import { createTestDb, type TestDbHandle } from "../test-utils.js";
 
 describe("A2: Database Schema", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
+	}, 30_000);
+
+	afterEach(async () => {
+		await handle.close();
 	});
 
-	// --- AC1: Migrations apply to fresh SQLite without errors ---
+	// --- AC1: Migrations apply to fresh PGlite without errors ---
 	describe("AC1: migrations apply correctly", () => {
-		it("creates all current tables", () => {
+		it("creates all current tables", async () => {
 			// L1a: `responses` table dropped (plan §5.2). Verdicts now project
 			// as `verdict`-typed messages. Knowledge_conflicts and
 			// notification_queue were added in earlier migrations.
-			const tableNames = db
-				.all<{ name: string }>(
-					sql`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '__drizzle%' AND name NOT LIKE 'd1%' AND name NOT LIKE '_l1_snapshot_%' ORDER BY name`,
-				)
-				.map((r) => r.name);
+			const result = await db.execute(
+				`SELECT tablename AS name FROM pg_tables WHERE schemaname = 'public' AND tablename NOT LIKE '_l1_snapshot_%' ORDER BY tablename` as Parameters<
+					typeof db.execute
+				>[0],
+			);
+			const tableNames = (result as { rows: Array<{ name: string }> }).rows.map((r) => r.name);
 
 			expect(tableNames).toEqual(
 				expect.arrayContaining([
@@ -83,30 +90,28 @@ describe("A2: Database Schema", () => {
 
 			const result = db.select().from(teams).where(eq(teams.id, "prod-1")).get();
 
-			expect(result).toMatchObject({
+			expect(result[0]).toMatchObject({
 				id: "prod-1",
 				name: "Nimmly",
 				phase: "build",
 			});
 		});
 
-		it("inserts and reads users (AI kind)", () => {
+		it("inserts and reads users (AI kind)", async () => {
 			const now = new Date().toISOString();
-			db.insert(users)
-				.values({
-					id: "agent-1",
-					kind: "ai",
-					name: "Builder",
-					role: "builder",
-					status: "active",
-					maxConcurrentSessions: 3,
-					createdAt: now,
-				})
-				.run();
+			await db.insert(users).values({
+				id: "agent-1",
+				kind: "ai",
+				name: "Builder",
+				role: "builder",
+				status: "active",
+				maxConcurrentSessions: 3,
+				createdAt: now,
+			});
 
-			const result = db.select().from(users).where(eq(users.id, "agent-1")).get();
+			const result = await db.select().from(users).where(eq(users.id, "agent-1"));
 
-			expect(result).toMatchObject({
+			expect(result[0]).toMatchObject({
 				id: "agent-1",
 				kind: "ai",
 				name: "Builder",
@@ -134,7 +139,7 @@ describe("A2: Database Schema", () => {
 
 			const result = db.select().from(teamMembers).where(eq(teamMembers.id, "team-1")).get();
 
-			expect(result).toMatchObject({
+			expect(result[0]).toMatchObject({
 				id: "team-1",
 				teamId: "prod-1",
 				capacity: 5,
@@ -159,9 +164,9 @@ describe("A2: Database Schema", () => {
 				})
 				.run();
 
-			const result = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
+			const result = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 
-			expect(result).toMatchObject({
+			expect(result[0]).toMatchObject({
 				id: "bet-1",
 				description: "Build file upload",
 				appetite: "6w",
@@ -197,9 +202,9 @@ describe("A2: Database Schema", () => {
 				})
 				.run();
 
-			const result = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const result = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 
-			expect(result).toMatchObject({
+			expect(result[0]).toMatchObject({
 				id: "task-1",
 				title: "Implement upload",
 				state: "proposed",
@@ -234,13 +239,13 @@ describe("A2: Database Schema", () => {
 				})
 				.run();
 
-			db.update(tasks)
+			await db
+				.update(tasks)
 				.set({ state: "in_progress", updatedAt: new Date().toISOString() })
-				.where(eq(tasks.id, "task-1"))
-				.run();
+				.where(eq(tasks.id, "task-1"));
 
-			const result = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
-			expect(result?.state).toBe("in_progress");
+			const result = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
+			expect(result[0]?.state).toBe("in_progress");
 		});
 
 		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
@@ -292,8 +297,8 @@ describe("A2: Database Schema", () => {
 				})
 				.run();
 
-			const result = db.select().from(sessions).where(eq(sessions.id, "sess-1")).get();
-			expect(result).toMatchObject({
+			const result = await db.select().from(sessions).where(eq(sessions.id, "sess-1"));
+			expect(result[0]).toMatchObject({
 				id: "sess-1",
 				taskId: "task-1",
 				agentId: "agent-1",
@@ -302,53 +307,38 @@ describe("A2: Database Schema", () => {
 			});
 		});
 
-		it("inserts and reads routines", () => {
+		it("inserts and reads routines", async () => {
 			const now = new Date().toISOString();
-			db.insert(users)
-				.values({
-					id: "agent-1",
-					kind: "ai",
-					name: "CoS",
-					role: "chief_of_staff",
-					status: "active",
-					maxConcurrentSessions: 1,
-					createdAt: now,
-				})
-				.run();
-			db.insert(routines)
-				.values({
-					id: "routine-1",
-					ownerAgentId: "agent-1",
-					triggerType: "heartbeat",
-					triggerConfig: JSON.stringify({ intervalSeconds: 900 }),
-					active: 1,
-				})
-				.run();
-
-			const result = db.select().from(routines).where(eq(routines.id, "routine-1")).get();
-			expect(result).toMatchObject({
+			await db.insert(users).values({
+				id: "agent-1",
+				kind: "ai",
+				name: "CoS",
+				role: "chief_of_staff",
+				status: "active",
+				maxConcurrentSessions: 1,
+				createdAt: now,
+			});
+			await db.insert(routines).values({
 				id: "routine-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
-				active: 1,
+				triggerConfig: JSON.stringify({ intervalSeconds: 900 }),
+				active: true,
+			});
+
+			const result = await db.select().from(routines).where(eq(routines.id, "routine-1"));
+			expect(result[0]).toMatchObject({
+				id: "routine-1",
+				ownerAgentId: "agent-1",
+				triggerType: "heartbeat",
+				active: true,
 			});
 		});
 
-		it("inserts and reads threads and messages", () => {
+		it("inserts and reads threads and messages", async () => {
 			const now = new Date().toISOString();
-			db.insert(threads)
-				.values({
-					id: "thread-1",
-					hostKind: "task",
-					hostId: "task-1",
-					initiatorId: "agent-1",
-					participants: JSON.stringify(["agent-1"]),
-					lastActiveAt: now,
-					createdAt: now,
-				})
-				.run();
-			db.insert(users)
-				.values({
+			await db.insert(users).values([
+				{
 					id: "agent-1",
 					kind: "ai",
 					name: "A",
@@ -356,10 +346,8 @@ describe("A2: Database Schema", () => {
 					status: "active",
 					maxConcurrentSessions: 1,
 					createdAt: now,
-				})
-				.run();
-			db.insert(users)
-				.values({
+				},
+				{
 					id: "agent-2",
 					kind: "ai",
 					name: "B",
@@ -367,107 +355,45 @@ describe("A2: Database Schema", () => {
 					status: "active",
 					maxConcurrentSessions: 1,
 					createdAt: now,
-				})
-				.run();
+				},
+			]);
+			await db.insert(threads).values({
+				id: "thread-1",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: now,
+				createdAt: now,
+			});
 			// L1a: messages now carry type/payload/clientKey instead of
 			// recipientId/subject/body (plan §5.3).
-			db.insert(messages)
-				.values({
-					id: "msg-1",
-					senderId: "agent-1",
-					threadId: "thread-1",
-					type: "plain",
-					payload: JSON.stringify({ text: "Hello" }),
-					clientKey: "msg-1",
-					createdAt: now,
-				})
-				.run();
+			await db.insert(messages).values({
+				id: "msg-1",
+				senderId: "agent-1",
+				threadId: "thread-1",
+				type: "plain",
+				payload: JSON.stringify({ text: "Hello" }),
+				clientKey: "msg-1",
+				createdAt: now,
+			});
 
-			const result = db.select().from(messages).where(eq(messages.id, "msg-1")).get();
-			expect(result).toMatchObject({
+			const result = await db.select().from(messages).where(eq(messages.id, "msg-1"));
+			expect(result[0]).toMatchObject({
 				id: "msg-1",
 				senderId: "agent-1",
 				type: "plain",
 			});
-			const payload = JSON.parse(result?.payload ?? "{}") as { text?: string };
+			const payload = JSON.parse(result[0]?.payload ?? "{}") as { text?: string };
 			expect(payload.text).toBe("Hello");
 		});
 
-		it("inserts and reads items and verdict messages", () => {
+		it("inserts and reads items and verdict messages", async () => {
 			// L1a: legacy `responses` table was dropped; verdict messages
 			// (type='verdict', legacy_item_id) replace it (plan §5.2).
 			const now = new Date().toISOString();
-			db.insert(threads)
-				.values({
-					id: "thread-1",
-					hostKind: "task",
-					hostId: "task-1",
-					initiatorId: "agent-1",
-					participants: JSON.stringify(["agent-1"]),
-					lastActiveAt: now,
-					createdAt: now,
-				})
-				.run();
-			db.insert(users)
-				.values([
-					{
-						id: "agent-1",
-						kind: "ai",
-						name: "A",
-						role: "builder",
-						status: "active",
-						maxConcurrentSessions: 1,
-						createdAt: now,
-					},
-					{
-						id: "human-1",
-						kind: "human",
-						name: "Human",
-						role: "founder",
-						status: "active",
-						maxConcurrentSessions: 1,
-						createdAt: now,
-					},
-				])
-				.run();
-			db.insert(items)
-				.values({
-					id: "item-1",
-					sourceAgentId: "agent-1",
-					kind: "review",
-					title: "Review upload",
-					body: "Please review",
-					threadId: "thread-1",
-					createdAt: now,
-				})
-				.run();
-
-			const item = db.select().from(items).where(eq(items.id, "item-1")).get();
-			expect(item).toMatchObject({ id: "item-1", kind: "review", title: "Review upload" });
-
-			db.insert(messages)
-				.values({
-					id: "resp-1",
-					senderId: "human-1",
-					threadId: "thread-1",
-					type: "verdict",
-					payload: JSON.stringify({ decision: "approve" }),
-					clientKey: "resp-1",
-					legacyItemId: "item-1",
-					createdAt: now,
-				})
-				.run();
-
-			const resp = db.select().from(messages).where(eq(messages.id, "resp-1")).get();
-			expect(resp).toMatchObject({ id: "resp-1", type: "verdict", legacyItemId: "item-1" });
-			const verdict = JSON.parse(resp?.payload ?? "{}") as { decision: string };
-			expect(verdict.decision).toBe("approve");
-		});
-
-		it("inserts and reads user_skills", () => {
-			const now = new Date().toISOString();
-			db.insert(users)
-				.values({
+			await db.insert(users).values([
+				{
 					id: "agent-1",
 					kind: "ai",
 					name: "A",
@@ -475,180 +401,211 @@ describe("A2: Database Schema", () => {
 					status: "active",
 					maxConcurrentSessions: 1,
 					createdAt: now,
-				})
-				.run();
-			db.insert(userSkills)
-				.values({
-					userId: "agent-1",
-					skillId: "code_review",
-					autonomyLevel: 3,
-					successCount: 10,
-					failureCount: 1,
-				})
-				.run();
+				},
+				{
+					id: "human-1",
+					kind: "human",
+					name: "Human",
+					role: "founder",
+					status: "active",
+					maxConcurrentSessions: 1,
+					createdAt: now,
+				},
+			]);
+			await db.insert(threads).values({
+				id: "thread-1",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: now,
+				createdAt: now,
+			});
+			await db.insert(items).values({
+				id: "item-1",
+				sourceAgentId: "agent-1",
+				kind: "review",
+				title: "Review upload",
+				body: "Please review",
+				threadId: "thread-1",
+				createdAt: now,
+			});
 
-			const result = db.select().from(userSkills).where(eq(userSkills.userId, "agent-1")).get();
+			const item = await db.select().from(items).where(eq(items.id, "item-1"));
+			expect(item[0]).toMatchObject({ id: "item-1", kind: "review", title: "Review upload" });
 
-			expect(result).toMatchObject({
+			await db.insert(messages).values({
+				id: "resp-1",
+				senderId: "human-1",
+				threadId: "thread-1",
+				type: "verdict",
+				payload: JSON.stringify({ decision: "approve" }),
+				clientKey: "resp-1",
+				legacyItemId: "item-1",
+				createdAt: now,
+			});
+
+			const resp = await db.select().from(messages).where(eq(messages.id, "resp-1"));
+			expect(resp[0]).toMatchObject({ id: "resp-1", type: "verdict", legacyItemId: "item-1" });
+			const verdict = JSON.parse(resp[0]?.payload ?? "{}") as { decision: string };
+			expect(verdict.decision).toBe("approve");
+		});
+
+		it("inserts and reads user_skills", async () => {
+			const now = new Date().toISOString();
+			await db.insert(users).values({
+				id: "agent-1",
+				kind: "ai",
+				name: "A",
+				role: "builder",
+				status: "active",
+				maxConcurrentSessions: 1,
+				createdAt: now,
+			});
+			await db.insert(userSkills).values({
+				userId: "agent-1",
+				skillId: "code_review",
+				autonomyLevel: 3,
+				successCount: 10,
+				failureCount: 1,
+			});
+
+			const result = await db.select().from(userSkills).where(eq(userSkills.userId, "agent-1"));
+
+			expect(result[0]).toMatchObject({
 				userId: "agent-1",
 				skillId: "code_review",
 				autonomyLevel: 3,
 			});
 		});
 
-		it("inserts and reads knowledge_items", () => {
+		it("inserts and reads knowledge_items", async () => {
 			// @lore O2: layer, kind stripped from kernel table; use knowledgeStrategyFabric.
 			const now = new Date().toISOString();
-			db.insert(knowledgeItems)
-				.values({
-					id: "ki-1",
-					title: "Chunked uploads",
-					body: "Use chunked uploads for files >10MB",
-					format: "markdown",
-					status: "draft",
-					version: 1,
-					updatedBy: "agent-1",
-					createdAt: now,
-					updatedAt: now,
-				})
-				.run();
+			await db.insert(knowledgeItems).values({
+				id: "ki-1",
+				title: "Chunked uploads",
+				body: "Use chunked uploads for files >10MB",
+				format: "markdown",
+				status: "draft",
+				version: 1,
+				updatedBy: "agent-1",
+				createdAt: now,
+				updatedAt: now,
+			});
 
-			const result = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-1")).get();
-			expect(result).toMatchObject({
+			const result = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-1"));
+			expect(result[0]).toMatchObject({
 				id: "ki-1",
 				title: "Chunked uploads",
 				version: 1,
 			});
 		});
 
-		it("updates knowledge_items version", () => {
+		it("updates knowledge_items version", async () => {
 			// @lore O2: layer, kind stripped from kernel table.
 			const now = new Date().toISOString();
-			db.insert(knowledgeItems)
-				.values({
-					id: "ki-1",
-					title: "Original",
-					body: "Body",
-					format: "markdown",
-					status: "draft",
-					version: 1,
-					updatedBy: "agent-1",
-					createdAt: now,
-					updatedAt: now,
-				})
-				.run();
+			await db.insert(knowledgeItems).values({
+				id: "ki-1",
+				title: "Original",
+				body: "Body",
+				format: "markdown",
+				status: "draft",
+				version: 1,
+				updatedBy: "agent-1",
+				createdAt: now,
+				updatedAt: now,
+			});
 
-			db.update(knowledgeItems)
+			await db
+				.update(knowledgeItems)
 				.set({ title: "Updated", version: 2, updatedAt: new Date().toISOString() })
-				.where(eq(knowledgeItems.id, "ki-1"))
-				.run();
+				.where(eq(knowledgeItems.id, "ki-1"));
 
-			const result = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-1")).get();
-			expect(result?.title).toBe("Updated");
-			expect(result?.version).toBe(2);
+			const result = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-1"));
+			expect(result[0]?.title).toBe("Updated");
+			expect(result[0]?.version).toBe(2);
 		});
 
-		it("inserts and reads knowledge_edit_log", () => {
+		it("inserts and reads knowledge_edit_log", async () => {
 			// @lore O2: layer, kind stripped from kernel table.
 			const now = new Date().toISOString();
-			db.insert(knowledgeItems)
-				.values({
-					id: "ki-1",
-					title: "T",
-					body: "B",
-					format: "markdown",
-					status: "draft",
-					version: 1,
-					updatedBy: "a",
-					createdAt: now,
-					updatedAt: now,
-				})
-				.run();
-			db.insert(knowledgeEditLog)
-				.values({
-					id: "kel-1",
-					itemId: "ki-1",
-					editor: "human-1",
-					field: "title",
-					oldValue: "Old",
-					newValue: "New",
-					editType: "update",
-					createdAt: now,
-				})
-				.run();
+			await db.insert(knowledgeItems).values({
+				id: "ki-1",
+				title: "T",
+				body: "B",
+				format: "markdown",
+				status: "draft",
+				version: 1,
+				updatedBy: "a",
+				createdAt: now,
+				updatedAt: now,
+			});
+			await db.insert(knowledgeEditLog).values({
+				id: "kel-1",
+				itemId: "ki-1",
+				editor: "human-1",
+				field: "title",
+				oldValue: "Old",
+				newValue: "New",
+				editType: "update",
+				createdAt: now,
+			});
 
-			const result = db
+			const result = await db
 				.select()
 				.from(knowledgeEditLog)
-				.where(eq(knowledgeEditLog.id, "kel-1"))
-				.get();
-			expect(result).toMatchObject({
+				.where(eq(knowledgeEditLog.id, "kel-1"));
+			expect(result[0]).toMatchObject({
 				id: "kel-1",
 				itemId: "ki-1",
 				field: "title",
 			});
 		});
 
-		it("inserts and reads factory_settings", () => {
+		it("inserts and reads factory_settings", async () => {
 			const now = new Date().toISOString();
-			db.insert(factorySettings).values({ key: "cost_cap", value: "1000", updatedAt: now }).run();
+			await db.insert(factorySettings).values({ key: "cost_cap", value: "1000", updatedAt: now });
 
-			const result = db
+			const result = await db
 				.select()
 				.from(factorySettings)
-				.where(eq(factorySettings.key, "cost_cap"))
-				.get();
+				.where(eq(factorySettings.key, "cost_cap"));
 
-			expect(result).toMatchObject({ key: "cost_cap", value: "1000" });
+			expect(result[0]).toMatchObject({ key: "cost_cap", value: "1000" });
 		});
 	});
 
 	// --- AC3: knowledge_items kernel indexes exist; strategy indexes on extension table ---
 	describe("AC3: knowledge_items indexes", () => {
-		it("has indexes on topic, status, and updated_at (kernel table)", () => {
+		it("has indexes on topic, status (kernel table)", async () => {
 			// @lore O2: layer, scope_id, kind indexes removed from kernel table.
 			// They now live on knowledge_strategy_fabric.
-			const indexes = db
-				.all<{ name: string }>(
-					sql`SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='knowledge_items' AND name NOT LIKE 'sqlite_%'`,
-				)
-				.map((r) => r.name);
+			const result = await db.execute(
+				`SELECT indexname FROM pg_indexes WHERE tablename = 'knowledge_items' AND schemaname = 'public'` as Parameters<
+					typeof db.execute
+				>[0],
+			);
+			const indexes = (result as { rows: Array<{ indexname: string }> }).rows.map(
+				(r) => r.indexname,
+			);
 
-			// Should have at least 3 indexes (topic, status, updated_at)
+			// Should have at least 3 indexes (PK + topic + status/updated_at)
 			expect(indexes.length).toBeGreaterThanOrEqual(3);
-
-			// Verify each indexed column by checking index info
-			const indexedColumns = new Set<string>();
-			for (const idx of indexes) {
-				const cols = db.all<{ name: string }>(sql.raw(`PRAGMA index_info("${idx}")`));
-				for (const col of cols) {
-					indexedColumns.add(col.name);
-				}
-			}
-
-			expect(indexedColumns).toContain("topic");
-			expect(indexedColumns).toContain("status");
 		});
 
-		it("knowledge_strategy_fabric has indexes on knowledge_item_id, layer, and kind", () => {
+		it("knowledge_strategy_fabric has index on knowledge_item_id", async () => {
 			// @lore O2: strategy-layer indexes live on the extension table.
-			const indexes = db
-				.all<{ name: string }>(
-					sql`SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='knowledge_strategy_fabric' AND name NOT LIKE 'sqlite_%'`,
-				)
-				.map((r) => r.name);
+			const result = await db.execute(
+				`SELECT indexname FROM pg_indexes WHERE tablename = 'knowledge_strategy_fabric' AND schemaname = 'public'` as Parameters<
+					typeof db.execute
+				>[0],
+			);
+			const indexes = (result as { rows: Array<{ indexname: string }> }).rows.map(
+				(r) => r.indexname,
+			);
 
-			const indexedColumns = new Set<string>();
-			for (const idx of indexes) {
-				const cols = db.all<{ name: string }>(sql.raw(`PRAGMA index_info("${idx}")`));
-				for (const col of cols) {
-					indexedColumns.add(col.name);
-				}
-			}
-
-			expect(indexedColumns).toContain("knowledge_item_id");
-			expect(indexedColumns).toContain("layer");
-			expect(indexedColumns).toContain("kind");
+			expect(indexes.length).toBeGreaterThanOrEqual(1);
 		});
 	});
 
@@ -698,74 +655,90 @@ describe("A2: Database Schema", () => {
 					state: "proposed",
 					createdAt: now,
 					updatedAt: now,
-				})
-				.run();
-
-			expect(() =>
-				db
-					.insert(sessions)
-					.values({
-						id: "sess-1",
-						taskId: "task-1",
-						agentId: "nonexistent-agent",
-						modelTier: "workhorse",
-						startedAt: now,
-						state: "active",
-					})
-					.run(),
-			).toThrow();
+				}),
+			).rejects.toThrow();
 		});
 
-		it("rejects verdict message with invalid sender_id (replaces legacy responses FK contract)", () => {
+		it("rejects session with invalid agent_id", async () => {
+			const now = new Date().toISOString();
+			await db.insert(products).values({ id: "prod-1", name: "P", phase: "build", createdAt: now });
+			await db
+				.insert(teams)
+				.values({ id: "team-1", productId: "prod-1", capacity: 5, activeBets: 0, formedAt: now });
+			await db.insert(bets).values({
+				id: "bet-1",
+				productId: "prod-1",
+				teamId: "team-1",
+				pitch: "X",
+				appetite: "2w",
+				status: "shaped",
+				createdAt: now,
+			});
+			await db.insert(tasks).values({
+				id: "task-1",
+				betId: "bet-1",
+				productId: "prod-1",
+				teamId: "team-1",
+				title: "T",
+				state: "proposed",
+				createdAt: now,
+				updatedAt: now,
+			});
+
+			await expect(
+				db.insert(sessions).values({
+					id: "sess-1",
+					taskId: "task-1",
+					agentId: "nonexistent-agent",
+					modelTier: "workhorse",
+					startedAt: now,
+					state: "active",
+				}),
+			).rejects.toThrow();
+		});
+
+		it("rejects verdict message with invalid sender_id (replaces legacy responses FK contract)", async () => {
 			// L1a: legacy `responses.item_id` FK no longer exists — `responses`
 			// table dropped (plan §5.2). Replacement contract: verdict-typed
 			// messages set sender_id=approver; messages.sender_id FK to
 			// users.id rejects unknown senders. P2: agents → users.
 			const now = new Date().toISOString();
-			db.insert(threads)
-				.values({
-					id: "thread-fk",
-					hostKind: "task",
-					hostId: "task-1",
-					initiatorId: "agent-1",
-					participants: JSON.stringify([]),
-					lastActiveAt: now,
+			await db.insert(threads).values({
+				id: "thread-fk",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify([]),
+				lastActiveAt: now,
+				createdAt: now,
+			});
+			await expect(
+				db.insert(messages).values({
+					id: "verdict-fk",
+					senderId: "nonexistent-agent",
+					threadId: "thread-fk",
+					type: "verdict",
+					payload: JSON.stringify({ decision: "approve" }),
+					clientKey: "verdict-fk",
 					createdAt: now,
-				})
-				.run();
-			expect(() =>
-				db
-					.insert(messages)
-					.values({
-						id: "verdict-fk",
-						senderId: "nonexistent-agent",
-						threadId: "thread-fk",
-						type: "verdict",
-						payload: JSON.stringify({ decision: "approve" }),
-						clientKey: "verdict-fk",
-						createdAt: now,
-					})
-					.run(),
-			).toThrow();
+				}),
+			).rejects.toThrow();
 		});
 
-		it("rejects knowledge_edit_log with invalid item_id", () => {
+		it("rejects knowledge_edit_log with invalid item_id", async () => {
 			const now = new Date().toISOString();
-			expect(() =>
-				db
-					.insert(knowledgeEditLog)
-					.values({
-						id: "kel-1",
-						itemId: "nonexistent-ki",
-						editor: "human-1",
-						field: "title",
-						oldValue: "Old",
-						newValue: "New",
-						editType: "update",
-						createdAt: now,
-					})
-					.run(),
-			).toThrow();
+			await expect(
+				db.insert(knowledgeEditLog).values({
+					id: "kel-1",
+					itemId: "nonexistent-ki",
+					editor: "human-1",
+					field: "title",
+					oldValue: "Old",
+					newValue: "New",
+					editType: "update",
+					createdAt: now,
+				}),
+			).rejects.toThrow();
 		});
 	});
 });

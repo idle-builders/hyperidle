@@ -18,18 +18,17 @@ import { and, eq } from "drizzle-orm";
  * @param recipientKind - Determines the `hostKind` on the created thread.
  *   Defaults to `"agent"` for backward compatibility (Q1 §3.1).
  */
-export function findOrCreateDirectThread(
+export async function findOrCreateDirectThread(
 	db: HyperIdleDb,
 	senderId: string,
 	recipientId: string,
 	now: string,
 	recipientKind: "agent" | "user" = "agent",
-): string {
-	const directThreads = db
+): Promise<string> {
+	const directThreads = await db
 		.select()
 		.from(threads)
-		.where(and(eq(threads.hostKind, recipientKind), eq(threads.hostId, recipientId)))
-		.all();
+		.where(and(eq(threads.hostKind, recipientKind), eq(threads.hostId, recipientId)));
 	for (const thread of directThreads) {
 		const parsed = JSON.parse(thread.participants);
 		if (!Array.isArray(parsed)) continue;
@@ -39,16 +38,14 @@ export function findOrCreateDirectThread(
 		}
 	}
 	const threadId = crypto.randomUUID();
-	db.insert(threads)
-		.values({
-			id: threadId,
-			hostKind: recipientKind,
-			hostId: recipientId,
-			initiatorId: senderId,
-			participants: JSON.stringify([senderId, recipientId]),
-			lastActiveAt: now,
-			createdAt: now,
-		})
-		.run();
+	await db.insert(threads).values({
+		id: threadId,
+		hostKind: recipientKind,
+		hostId: recipientId,
+		initiatorId: senderId,
+		participants: JSON.stringify([senderId, recipientId]),
+		lastActiveAt: now,
+		createdAt: now,
+	});
 	return threadId;
 }

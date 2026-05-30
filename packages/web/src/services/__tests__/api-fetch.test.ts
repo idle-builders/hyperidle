@@ -106,20 +106,17 @@ describe("apiFetch (N2)", () => {
 		expect(headers.get("X-API-Key")).toBe(callerKey);
 	});
 
-	it("passes through without X-API-Key header when no key is available", async () => {
+	it("falls back to dev default key when no explicit key is configured", async () => {
 		// Arrange: no env var, no window key (cleared in afterEach)
-		// vi.stubEnv with undefined is not needed — the env var is simply absent
 
 		// Act
 		await apiFetch("/api/teams");
 
-		// Assert: fetch was still called (no throw), but without X-API-Key
+		// Assert: dev default key is injected
 		expect(fetchSpy).toHaveBeenCalledOnce();
 		const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit | undefined];
-		if (init?.headers) {
-			const headers = new Headers(init.headers);
-			expect(headers.has("X-API-Key")).toBe(false);
-		}
+		const headers = new Headers(init?.headers);
+		expect(headers.get("X-API-Key")).toBe("hyperidle-dev-local");
 	});
 
 	it("preserves method, body, and signal from init", async () => {

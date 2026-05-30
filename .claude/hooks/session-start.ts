@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env tsx
 /**
  * SessionStart hook — injects runner-owned durable state into the system
  * prompt. Reads `.pipeline/active-story` to discover the current story id,

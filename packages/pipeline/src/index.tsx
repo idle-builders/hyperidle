@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env tsx
 import { render } from "ink";
 import React from "react";
 import { runPipeline } from "./scheduler.js";

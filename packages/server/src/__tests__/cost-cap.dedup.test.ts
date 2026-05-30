@@ -3,6 +3,7 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	sessions,
+	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
@@ -37,7 +38,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 const NOW = new Date().toISOString();
 
-function seedAgentWithCap(
+async function seedAgentWithCap(
 	db: HyperIdleDb,
 	{
 		agentId,
@@ -61,9 +62,10 @@ function seedAgentWithCap(
 			costActual: 0,
 			formedAt: NOW,
 		})
-		.onConflictDoNothing()
-		.run();
-	db.insert(users)
+		.onConflictDoNothing();
+
+	await db
+		.insert(users)
 		.values({
 			id: agentId,
 			name: `A-${agentId}`,
@@ -75,11 +77,10 @@ function seedAgentWithCap(
 			costActual: 0,
 			createdAt: NOW,
 		})
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
 }
 
-function seedSession(
+async function seedSession(
 	db: HyperIdleDb,
 	{
 		sessionId,
@@ -111,9 +112,10 @@ function seedSession(
 			createdAt: NOW,
 			updatedAt: NOW,
 		})
-		.onConflictDoNothing()
-		.run();
-	db.insert(sessions)
+		.onConflictDoNothing();
+
+	await db
+		.insert(sessions)
 		.values({
 			id: sessionId,
 			taskId: `task-${sessionId}`,
@@ -122,28 +124,29 @@ function seedSession(
 			startedAt: NOW,
 			state: "active",
 		})
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
 }
 
 describe("I3: cost-cap dedup cache bounded", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		clearDeduplicationCache();
 	});
 
 	it("dedup cache size for one session stays small after 1000 cost checks", async () => {
-		seedAgentWithCap(db, {
+		await seedAgentWithCap(db, {
 			agentId: "agent-1",
 			teamId: "team-1",
 			productId: "prod-1",
 			costCap: 100,
 		});
-		seedSession(db, {
+		await seedSession(db, {
 			sessionId: "sess-1",
 			agentId: "agent-1",
 			teamId: "team-1",
@@ -170,13 +173,13 @@ describe("I3: cost-cap dedup cache bounded", () => {
 	});
 
 	it("releaseSessionDedup() drops the per-session entry to zero", async () => {
-		seedAgentWithCap(db, {
+		await seedAgentWithCap(db, {
 			agentId: "agent-1",
 			teamId: "team-1",
 			productId: "prod-1",
 			costCap: 100,
 		});
-		seedSession(db, {
+		await seedSession(db, {
 			sessionId: "sess-1",
 			agentId: "agent-1",
 			teamId: "team-1",
@@ -198,25 +201,25 @@ describe("I3: cost-cap dedup cache bounded", () => {
 	});
 
 	it("releasing one session does not poison another session's dedup state", async () => {
-		seedAgentWithCap(db, {
+		await seedAgentWithCap(db, {
 			agentId: "agent-1",
 			teamId: "team-1",
 			productId: "prod-1",
 			costCap: 100,
 		});
-		seedAgentWithCap(db, {
+		await seedAgentWithCap(db, {
 			agentId: "agent-2",
 			teamId: "team-2",
 			productId: "prod-2",
 			costCap: 100,
 		});
-		seedSession(db, {
+		await seedSession(db, {
 			sessionId: "sess-1",
 			agentId: "agent-1",
 			teamId: "team-1",
 			productId: "prod-1",
 		});
-		seedSession(db, {
+		await seedSession(db, {
 			sessionId: "sess-2",
 			agentId: "agent-2",
 			teamId: "team-2",
@@ -250,8 +253,8 @@ describe("I3: cost-cap dedup cache bounded", () => {
 		// And sess-2 still suppresses duplicates: re-emitting must not
 		// trigger a new event on the bus (proxy: count emissions).
 		const events: Array<{ type: string }> = [];
-		eventBus.on("cost_cap_breached", (e) => events.push(e));
-		eventBus.on("cost_cap_warning", (e) => events.push(e));
+		eventBus.on("cost_cap_breached", (e: { type: string }) => events.push(e));
+		eventBus.on("cost_cap_warning", (e: { type: string }) => events.push(e));
 		await recordCostAndCheck(db, eventBus, {
 			sessionId: "sess-2",
 			cost: 200,
@@ -271,13 +274,13 @@ describe("I3: cost-cap dedup cache bounded", () => {
 		// enough that 1000 * 10 = 10_000 stays below the 80% warning threshold
 		// (0.8 * 100_000 = 80_000). The old test used 10_000 which would breach
 		// after 1000 iterations.
-		seedAgentWithCap(db, {
+		await seedAgentWithCap(db, {
 			agentId: "agent-x",
 			teamId: "team-x",
 			productId: "prod-x",
 			costCap: 100_000,
 		});
-		seedSession(db, {
+		await seedSession(db, {
 			sessionId: "sess-x",
 			agentId: "agent-x",
 			teamId: "team-x",
@@ -305,8 +308,8 @@ describe("I3: cost-cap dedup cache bounded", () => {
 			const teamId = `team-${i}`;
 			const agentId = `agent-${i}`;
 			const sessionId = `sess-${i}`;
-			seedAgentWithCap(db, { agentId, teamId, productId, costCap: 100 });
-			seedSession(db, { sessionId, agentId, teamId, productId });
+			await seedAgentWithCap(db, { agentId, teamId, productId, costCap: 100 });
+			await seedSession(db, { sessionId, agentId, teamId, productId });
 
 			await recordCostAndCheck(db, eventBus, {
 				sessionId,

@@ -39,10 +39,11 @@ interface AppCtx {
 	db: HyperIdleDb;
 }
 
-function setupApp(): AppCtx {
-	const db = createTestDb();
+async function setupApp(): Promise<AppCtx> {
+	const handle = await createTestDb();
+	const db = handle.db;
 	const eventBus = new EventBus();
-	const app = createTestApp({ db, eventBus });
+	const app = await createTestApp({ db, eventBus });
 
 	const now = new Date().toISOString();
 
@@ -68,9 +69,9 @@ const NOW = new Date().toISOString();
 describe("L19 — GET /api/bets/:id — session enrichment", () => {
 	let ctx: AppCtx;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = setupApp();
+		ctx = await setupApp();
 	});
 
 	afterEach(() => {
@@ -114,17 +115,15 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 			})
 			.run();
 
-		db.insert(sessions)
-			.values({
-				id: "session-1",
-				taskId: "task-with-session",
-				agentId: "agent-1",
-				modelTier: "sonnet",
-				startedAt: NOW,
-				state: "done",
-				outcome: "completed",
-			})
-			.run();
+		await db.insert(sessions).values({
+			id: "session-1",
+			taskId: "task-with-session",
+			agentId: "agent-1",
+			modelTier: "sonnet",
+			startedAt: NOW,
+			state: "done",
+			outcome: "completed",
+		});
 
 		const res = await ctx.app.request("/api/bets/bet-enriched", {
 			method: "GET",
@@ -232,17 +231,15 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 			})
 			.run();
 
-		db.insert(sessions)
-			.values({
-				id: "session-mixed-1",
-				taskId: "task-has-session",
-				agentId: "agent-1",
-				modelTier: "haiku",
-				startedAt: NOW,
-				state: "done",
-				outcome: "completed",
-			})
-			.run();
+		await db.insert(sessions).values({
+			id: "session-mixed-1",
+			taskId: "task-has-session",
+			agentId: "agent-1",
+			modelTier: "haiku",
+			startedAt: NOW,
+			state: "done",
+			outcome: "completed",
+		});
 
 		const res = await ctx.app.request("/api/bets/bet-mixed", {
 			method: "GET",
@@ -296,30 +293,26 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 			.run();
 
 		// Older session (earlier startedAt)
-		db.insert(sessions)
-			.values({
-				id: "session-older",
-				taskId: "task-multi-session",
-				agentId: "agent-1",
-				modelTier: "haiku",
-				startedAt: "2026-05-01T10:00:00Z",
-				state: "done",
-				outcome: "failed",
-			})
-			.run();
+		await db.insert(sessions).values({
+			id: "session-older",
+			taskId: "task-multi-session",
+			agentId: "agent-1",
+			modelTier: "haiku",
+			startedAt: "2026-05-01T10:00:00Z",
+			state: "done",
+			outcome: "failed",
+		});
 
 		// Newer session (later startedAt) — this one should be returned
-		db.insert(sessions)
-			.values({
-				id: "session-newer",
-				taskId: "task-multi-session",
-				agentId: "agent-1",
-				modelTier: "sonnet",
-				startedAt: "2026-05-05T10:00:00Z",
-				state: "done",
-				outcome: "completed",
-			})
-			.run();
+		await db.insert(sessions).values({
+			id: "session-newer",
+			taskId: "task-multi-session",
+			agentId: "agent-1",
+			modelTier: "sonnet",
+			startedAt: "2026-05-05T10:00:00Z",
+			state: "done",
+			outcome: "completed",
+		});
 
 		const res = await ctx.app.request("/api/bets/bet-multi-session", {
 			method: "GET",

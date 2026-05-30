@@ -214,11 +214,11 @@ export function scoreAttentionBatch(
  * support varies; we filter in-app rather than risk adapter quirks. The
  * outer GROUP BY runs server-side; the subset-of-batch filter happens in JS.
  */
-export function buildAttentionContext(
+export async function buildAttentionContext(
 	db: HyperIdleDb,
 	items: readonly KnowledgeItemWithFabric[],
 	now?: number,
-): AttentionScoringContext {
+): Promise<AttentionScoringContext> {
 	const nowMs = now ?? Date.now();
 
 	if (items.length === 0) {
@@ -245,11 +245,10 @@ export function buildAttentionContext(
 	}
 
 	// 1) Open conflicts
-	const conflictRows = db
+	const conflictRows = await db
 		.select({ itemId: knowledgeConflicts.itemId })
 		.from(knowledgeConflicts)
-		.where(and(eq(knowledgeConflicts.status, "open"), inArray(knowledgeConflicts.itemId, ids)))
-		.all();
+		.where(and(eq(knowledgeConflicts.status, "open"), inArray(knowledgeConflicts.itemId, ids)));
 	const conflictedIds = new Set<string>(conflictRows.map((r) => r.itemId));
 
 	// 2) Cohort sizes — JOIN with strategy fabric to get layer/kind/scopeId.
@@ -263,7 +262,7 @@ export function buildAttentionContext(
 	// Only query if we have layers to filter on; otherwise cohort counts are 0.
 	const cohortRows =
 		distinctLayers.size > 0
-			? db
+			? await db
 					.select({
 						layer: knowledgeStrategyFabric.layer,
 						scopeId: knowledgeStrategyFabric.scopeId,
@@ -281,7 +280,6 @@ export function buildAttentionContext(
 							inArray(knowledgeStrategyFabric.layer, Array.from(distinctLayers)),
 						),
 					)
-					.all()
 			: [];
 
 	const cohortSizeByKey = new Map<string, number>();
@@ -308,14 +306,13 @@ export function buildAttentionContext(
 	}
 
 	// 3) Human edit log — per item, most recent timestamp.
-	const editRows = db
+	const editRows = await db
 		.select({
 			itemId: knowledgeEditLog.itemId,
 			createdAt: knowledgeEditLog.createdAt,
 		})
 		.from(knowledgeEditLog)
-		.where(and(eq(knowledgeEditLog.editor, "human"), inArray(knowledgeEditLog.itemId, ids)))
-		.all();
+		.where(and(eq(knowledgeEditLog.editor, "human"), inArray(knowledgeEditLog.itemId, ids)));
 
 	const lastHumanEditAt = new Map<string, number>();
 	for (const r of editRows) {

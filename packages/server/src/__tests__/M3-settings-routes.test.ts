@@ -23,9 +23,10 @@ function authHeaders(): Record<string, string> {
  * @lore P2: Profile now comes from `users WHERE kind='human'` instead of
  * factorySettings founder_name/email keys. Seed a human user for profile tests.
  */
-function seedFounderProfile(db: HyperIdleDb): void {
+async function seedFounderProfile(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	db.insert(users)
+	await db
+		.insert(users)
 		.values({
 			id: "test-founder-1",
 			kind: "human",
@@ -36,23 +37,24 @@ function seedFounderProfile(db: HyperIdleDb): void {
 			maxConcurrentSessions: 0,
 			createdAt: now,
 		})
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
 }
 
 describe("M3 — GET /api/settings (B1)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		const now = new Date().toISOString();
-		seedFounderProfile(db);
+		await seedFounderProfile(db);
 
 		// Seed 2 products
 		db.insert(teams)
@@ -63,30 +65,28 @@ describe("M3 — GET /api/settings (B1)", () => {
 			.run();
 
 		// Seed 2 AI users (formerly agents)
-		db.insert(users)
-			.values({
-				id: "agent-1",
-				kind: "ai",
-				name: "Builder Bot",
-				role: "builder",
-				status: "idle",
-				createdAt: now,
-			})
-			.run();
-		db.insert(users)
-			.values({
-				id: "agent-2",
-				kind: "ai",
-				name: "Reviewer Bot",
-				role: "reviewer",
-				status: "paused",
-				createdAt: now,
-			})
-			.run();
+		await db.insert(users).values({
+			id: "agent-1",
+			kind: "ai",
+			name: "Builder Bot",
+			role: "builder",
+			status: "idle",
+			createdAt: now,
+		});
+
+		await db.insert(users).values({
+			id: "agent-2",
+			kind: "ai",
+			name: "Reviewer Bot",
+			role: "reviewer",
+			status: "paused",
+			createdAt: now,
+		});
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	it("returns 200 with profile, products, users, notifications", async () => {
@@ -151,20 +151,23 @@ describe("M3 — GET /api/settings (B1)", () => {
 });
 
 describe("M3 — PATCH /api/settings persists notification preferences (B1)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
-		seedFounderProfile(db);
+		app = await createTestApp({ db, eventBus });
+		await seedFounderProfile(db);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	it("PATCH with notifications.reviewAlerts=false persists and re-GET reflects change", async () => {

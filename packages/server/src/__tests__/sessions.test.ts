@@ -17,6 +17,7 @@ import { type DomainEvent, EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { disposeApp } from "../app.js";
 import { createTestApp } from "../test-utils.js";
 
 const TEST_API_KEY = "test-key-sessions";
@@ -26,13 +27,15 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("Session Endpoints (E6)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		// I3 review C1 / arch H-2: cost-cap dedup map is module-level state.
 		// Reset before each test to avoid bleed between Vitest runs.
@@ -40,7 +43,7 @@ describe("Session Endpoints (E6)", () => {
 		// @lore O3: strategyBootstrap is required for cost-cap dedup releaser to
 		// fire on session_ended. Before O3, app.ts hardwired all 7 register* calls
 		// unconditionally; now they are injected via strategyBootstrap.
-		app = createTestApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
+		app = await createTestApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
 
 		// Seed required data
 		db.insert(teams)
@@ -93,8 +96,10 @@ describe("Session Endpoints (E6)", () => {
 			.run();
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		disposeApp(app);
+		await handle?.close();
 	});
 
 	// AC10: POST /api/sessions — create session
@@ -223,7 +228,7 @@ describe("Session Endpoints (E6)", () => {
 			// Force a dedup-map entry to exist for this session by recording
 			// a cost above the agent cap. This pins the entry the PATCH
 			// must later reclaim.
-			db.update(users).set({ costCap: 100 }).where(eq(users.id, "agent-1")).run();
+			await db.update(users).set({ costCap: 100 }).where(eq(users.id, "agent-1"));
 			await recordCostAndCheck(db, eventBus, {
 				sessionId,
 				cost: 200,
@@ -244,7 +249,7 @@ describe("Session Endpoints (E6)", () => {
 
 		it("PATCH state=crashed releases the cost-cap dedup entry", async () => {
 			const sessionId = await createSession();
-			db.update(users).set({ costCap: 100 }).where(eq(users.id, "agent-1")).run();
+			await db.update(users).set({ costCap: 100 }).where(eq(users.id, "agent-1"));
 			await recordCostAndCheck(db, eventBus, {
 				sessionId,
 				cost: 200,

@@ -3,12 +3,10 @@
 ### Unit & Integration Tests (Vitest)
 
 ```bash
-bun run test                     # run all tests
-bun run test -- <path>           # run a specific test file
-bun run test:coverage            # with coverage report
+npm run test                     # run all tests
+npm run test -- <path>           # run a specific test file
+npm run test:coverage            # with coverage report
 ```
-
-**Important:** Always use `bun run test`, never bare `bun test` (which invokes Bun's native test runner instead of Vitest).
 
 Tests use `createTestDb()` for in-memory SQLite databases and `createTestApp()` for Hono app instances — prefer these over mocks.
 
@@ -16,10 +14,10 @@ Tests use `createTestDb()` for in-memory SQLite databases and `createTestApp()` 
 
 ```bash
 # Ensure dev server is running first
-bun dev &
+npm run dev &
 
 # Run E2E tests
-bun run --filter @hyperidle/web test:e2e
+npm run -w @hyperidle/web test:e2e
 ```
 
 Playwright config is in `packages/web/playwright.config.ts`. It runs Chromium only.

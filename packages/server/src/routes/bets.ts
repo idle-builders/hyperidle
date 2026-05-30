@@ -119,8 +119,8 @@ const startBetSchema = z.object({
  * reusable across the detail endpoint and the new aggregate endpoints without
  * repeating the 404 guard.
  */
-function assertBetReadable(db: HyperIdleDb, betId: string): { id: string } | null {
-	const row = db.select({ id: bets.id }).from(bets).where(eq(bets.id, betId)).get();
+async function assertBetReadable(db: HyperIdleDb, betId: string): Promise<{ id: string } | null> {
+	const [row] = await db.select({ id: bets.id }).from(bets).where(eq(bets.id, betId)).limit(1);
 	return row ?? null;
 }
 
@@ -137,7 +137,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		const limit = Math.min(Number.parseInt(c.req.query("limit") ?? "50", 10) || 50, 200);
 		const offset = Number.parseInt(c.req.query("offset") ?? "0", 10) || 0;
 
-		const allBets = db.select().from(bets).limit(limit).offset(offset).all();
+		const allBets = await db.select().from(bets).limit(limit).offset(offset);
 
 		const grouped = {
 			draft: allBets.filter((b) => b.status === "draft"),
@@ -215,7 +215,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	// @lore U1: `description` (formerly `pitch`), `teamId`, `completedAt` (formerly `shippedAt`).
 	router.get("/:id", (c) => {
 		const betId = c.req.param("id");
-		const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
+		const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 
 		if (!bet) {
 			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
@@ -253,8 +253,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				),
 			})
 			.from(tasks)
-			.where(eq(tasks.betId, betId))
-			.all();
+			.where(eq(tasks.betId, betId));
 
 		// @lore U1: `description` (formerly `pitch`), `teamId` (formerly `productId`).
 		const title = deriveTitle(bet.description, bet.id);
@@ -366,7 +365,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			})
 			.run();
 
-		const created = db.select().from(bets).where(eq(bets.id, id)).get();
+		const [created] = await db.select().from(bets).where(eq(bets.id, id)).limit(1);
 		if (!created) {
 			return c.json({ error: "Failed to create bet", code: "INTERNAL_ERROR" }, 500);
 		}
@@ -418,14 +417,14 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				reason: body.reason,
 				actor: c.get("userId"),
 			});
-			db.update(bets)
+			await db
+				.update(bets)
 				.set({
 					description: body.value,
 					revisionLog: JSON.stringify(revisionLog),
 				})
-				.where(eq(bets.id, betId))
-				.run();
-			const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
+				.where(eq(bets.id, betId));
+			const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 			return c.json(updated);
 		}
 
@@ -434,7 +433,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		// costAppetiteMinor + costAppetiteCurrency directly and add a revision entry.
 		// @lore U1: mutable in 'active' status (formerly in_progress, paused, behind, blocked).
 		if (body.field === "cost_appetite") {
-			const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
+			const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 			if (!bet) {
 				return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 			}
@@ -463,22 +462,22 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				reason: body.reason,
 				actor: c.get("userId"),
 			});
-			db.update(bets)
+			await db
+				.update(bets)
 				.set({
 					costAppetiteMinor: body.value?.minor ?? null,
 					costAppetiteCurrency: body.value?.currency ?? null,
 					revisionLog: JSON.stringify(revisionLog),
 				})
-				.where(eq(bets.id, betId))
-				.run();
+				.where(eq(bets.id, betId));
 
-			const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
+			const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 			return c.json(updated);
 		}
 
 		await updateBetField(db, eventBus, betId, body.field, body.value, body.reason, c.get("userId"));
 
-		const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
+		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 		return c.json(updated);
 	});
 
@@ -539,7 +538,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	// POST /bets/:id/kill — kill with reason (required)
 	router.post("/:id/kill", validateBody(killBetSchema), async (c) => {
 		const betId = c.req.param("id");
-		if (!assertBetReadable(db, betId)) {
+		if (!(await assertBetReadable(db, betId))) {
 			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 		}
 		const body = c.req.valid("json" as never) as z.infer<typeof killBetSchema>;
@@ -547,7 +546,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			reason: body.reason,
 			actor: c.get("userId"),
 		});
-		const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
+		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 		return c.json(updated);
 	});
 
@@ -560,15 +559,15 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	// fetches the last message in one pass. SQLite handles this efficiently at
 	// expected volumes (< 100 artifacts per bet). The server-enforced cap of 10
 	// bounds the worst-case payload and query cost.
-	router.get("/:id/artifact-thread-summary", (c) => {
+	router.get("/:id/artifact-thread-summary", async (c) => {
 		const betId = c.req.param("id");
 
-		if (!assertBetReadable(db, betId)) {
+		if (!(await assertBetReadable(db, betId))) {
 			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 		}
 
 		// 1. Collect all task ids for this bet (fan-out guard: bets have bounded tasks).
-		const taskRows = db.select({ id: tasks.id }).from(tasks).where(eq(tasks.betId, betId)).all();
+		const taskRows = await db.select({ id: tasks.id }).from(tasks).where(eq(tasks.betId, betId));
 		const taskIds = taskRows.map((r) => r.id);
 
 		if (taskIds.length === 0) {
@@ -608,8 +607,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			.from(artifacts)
 			.innerJoin(tasks, eq(tasks.id, artifacts.producingTaskId))
 			.leftJoin(threads, and(eq(threads.hostKind, "artifact"), eq(threads.hostId, artifacts.id)))
-			.where(inArray(artifacts.producingTaskId, taskIds))
-			.all();
+			.where(inArray(artifacts.producingTaskId, taskIds));
 
 		// 3. Filter to only artifacts with at least one message.
 		const withMessages = rows.filter((r) => r.threadId !== null && (r.messageCount ?? 0) >= 1);

@@ -13,7 +13,6 @@ const writeSessionNotesInputSchema = z.object({
 
 type WriteSessionNotesInput = z.infer<typeof writeSessionNotesInputSchema>;
 
-// biome-ignore lint/suspicious/useAwait: ToolDefinition.handler requires async signature
 async function handler(args: WriteSessionNotesInput, ctx: ToolContext): Promise<ToolResult> {
 	const parsed = writeSessionNotesInputSchema.safeParse(args);
 	if (!parsed.success) {
@@ -35,7 +34,7 @@ async function handler(args: WriteSessionNotesInput, ctx: ToolContext): Promise<
 	// Mirror to DB so the tool is observable in tests without spinning up
 	// the file watcher (B4). The watcher's writeback handler is idempotent,
 	// so a redundant write from a running watcher is harmless.
-	ctx.db.update(sessions).set({ notes: bodyOnDisk }).where(eq(sessions.id, ctx.sessionId)).run();
+	await ctx.db.update(sessions).set({ notes: bodyOnDisk }).where(eq(sessions.id, ctx.sessionId));
 
 	const bytesWritten = Buffer.byteLength(bodyOnDisk, "utf-8");
 	return ok({ sessionId: ctx.sessionId, bytesWritten });

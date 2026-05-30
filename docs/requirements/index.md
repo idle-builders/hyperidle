@@ -4,7 +4,7 @@
 
 Version 0.3 — April 2026
 
-HyperIdle is the platform that runs the Product Factory: a meta layer on top of agent harnesses that turns AI agents into persistent employees organized in product teams, with structured knowledge management and a human interface designed for two founders running a portfolio of digital products.
+HyperIdle is the platform that runs the Product Factory: a meta layer on top of agent harnesses that turns AI agents into persistent team members organized in product teams, with structured knowledge management and a human interface designed for flat teams in AI-first companies.
 
 This document captures the usability requirements (what the experience must feel like), the functional requirements (what the platform must do), the system requirements (what the infrastructure must support), and the non-functional requirements (how well it must do all of the above).
 

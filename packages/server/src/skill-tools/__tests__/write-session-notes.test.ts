@@ -18,7 +18,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ToolContext } from "../tool-registry.js";
 import { writeSessionNotesTool } from "../write-session-notes.js";
 
-function seed(db: HyperIdleDb): void {
+async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now }).run();
 	db.insert(teamMembers)
@@ -98,9 +98,10 @@ describe("write_session_notes tool", () => {
 		};
 	}
 
-	beforeEach(() => {
-		db = createTestDb();
-		seed(db);
+	beforeEach(async () => {
+		const handle = await createTestDb();
+		db = handle.db;
+		await seed(db);
 		workspacePath = fs.mkdtempSync(path.join(os.tmpdir(), "hi-d4-notes-"));
 	});
 
@@ -124,7 +125,7 @@ describe("write_session_notes tool", () => {
 			const result = await writeSessionNotesTool.handler({ notes: "Reflection X" }, makeContext());
 			expect(result.success).toBe(true);
 
-			const session = db.select().from(sessions).where(eq(sessions.id, "session-1")).get();
+			const [session] = await db.select().from(sessions).where(eq(sessions.id, "session-1"));
 			expect(session?.notes).toBe("Reflection X");
 		});
 

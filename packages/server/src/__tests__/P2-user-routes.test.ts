@@ -32,16 +32,18 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("P2 — /api/users endpoints (AC4, AC10)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 	const NOW = new Date().toISOString();
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		// Seed prerequisite data
 		db.insert(teams)
@@ -58,40 +60,37 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 			.run();
 
 		// Seed users (AI kind)
-		db.insert(users)
-			.values([
-				{
-					id: "user-p2-1",
-					kind: "ai",
-					name: "Builder Bot",
-					role: "builder",
-					status: "active",
-					teamId: "team-p2",
-					createdAt: NOW,
-				},
-				{
-					id: "user-p2-2",
-					kind: "ai",
-					name: "Growth Bot",
-					role: "growth",
-					status: "active",
-					teamId: "team-p2",
-					createdAt: NOW,
-				},
-			])
-			.run();
+		await db.insert(users).values([
+			{
+				id: "user-p2-1",
+				kind: "ai",
+				name: "Builder Bot",
+				role: "builder",
+				status: "active",
+				teamId: "team-p2",
+				createdAt: NOW,
+			},
+			{
+				id: "user-p2-2",
+				kind: "ai",
+				name: "Growth Bot",
+				role: "growth",
+				status: "active",
+				teamId: "team-p2",
+				createdAt: NOW,
+			},
+		]);
 
 		// Seed user skills
-		db.insert(userSkills)
-			.values([
-				{ userId: "user-p2-1", skillId: "coding", autonomyLevel: 2 },
-				{ userId: "user-p2-1", skillId: "testing", autonomyLevel: 3 },
-			])
-			.run();
+		await db.insert(userSkills).values([
+			{ userId: "user-p2-1", skillId: "coding", autonomyLevel: 2 },
+			{ userId: "user-p2-1", skillId: "testing", autonomyLevel: 3 },
+		]);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	// -------------------------------------------------------------------------

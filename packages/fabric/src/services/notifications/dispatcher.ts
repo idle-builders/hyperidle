@@ -62,7 +62,7 @@ const QUEUE_CAP = 10_000;
 const LEASE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes — rollback stuck "sending" rows
 
 function classifyItem(item: Pick<Item, "blocking" | "riskTier">): Classification {
-	if ((item.blocking ?? 0) !== 0) return { kind: "push", severity: "blocking" };
+	if (item.blocking) return { kind: "push", severity: "blocking" };
 	if (item.riskTier === "high") return { kind: "push", severity: "blocking" };
 	if (item.riskTier === "medium") return { kind: "digest", severity: "digest" };
 	return { kind: "drop", reason: "low-risk non-blocking item" };
@@ -127,16 +127,16 @@ function buildCostWarningNotification(
 	};
 }
 
-function queueCount(db: HyperIdleDb, status: QueueStatus): number {
-	const row = db
+async function queueCount(db: HyperIdleDb, status: QueueStatus): Promise<number> {
+	const [row] = await db
 		.select({ count: sql<number>`count(*)` })
 		.from(notificationQueue)
 		.where(eq(notificationQueue.status, status))
-		.get();
+		.limit(1);
 	return row?.count ?? 0;
 }
 
-export function enqueueNotification(
+export async function enqueueNotification(
 	db: HyperIdleDb,
 	params: {
 		eventType: string;
@@ -149,56 +149,54 @@ export function enqueueNotification(
 		now: Date;
 	},
 	cap: number = QUEUE_CAP,
-): void {
+): Promise<void> {
 	// Defense-in-depth queue cap. Digest rows are silently dropped when
 	// the queue is full so blocking + cost_breach always have room. If
 	// we cannot evict a digest row, we still must not exceed the cap —
 	// drop the incoming non-digest row and surface a last-error entry
 	// through the adapter retry path instead.
-	while (queueCount(db, "pending") >= cap) {
+	while ((await queueCount(db, "pending")) >= cap) {
 		if (params.severity === "digest") return;
-		const oldestDigest = db
+		const [oldestDigest] = await db
 			.select()
 			.from(notificationQueue)
 			.where(and(eq(notificationQueue.status, "pending"), eq(notificationQueue.severity, "digest")))
 			.orderBy(asc(notificationQueue.createdAt))
-			.get();
+			.limit(1);
 		if (!oldestDigest) {
 			// No digest row to evict. Drop the oldest pending row of any
 			// severity rather than exceed the cap.
-			const oldest = db
+			const [oldest] = await db
 				.select()
 				.from(notificationQueue)
 				.where(eq(notificationQueue.status, "pending"))
 				.orderBy(asc(notificationQueue.createdAt))
-				.get();
+				.limit(1);
 			if (!oldest) break; // queue empty somehow — insert safely
-			db.update(notificationQueue)
+			await db
+				.update(notificationQueue)
 				.set({ status: "dropped" })
-				.where(eq(notificationQueue.id, oldest.id))
-				.run();
+				.where(eq(notificationQueue.id, oldest.id));
 			continue;
 		}
-		db.update(notificationQueue)
+		await db
+			.update(notificationQueue)
 			.set({ status: "dropped" })
-			.where(eq(notificationQueue.id, oldestDigest.id))
-			.run();
+			.where(eq(notificationQueue.id, oldestDigest.id));
 	}
-	db.insert(notificationQueue)
-		.values({
-			id: crypto.randomUUID(),
-			eventType: params.eventType,
-			subjectId: params.subjectId,
-			severity: params.severity,
-			title: params.title,
-			body: params.body,
-			reason: params.reason,
-			channel: params.channel,
-			status: "pending",
-			attempts: 0,
-			createdAt: params.now.toISOString(),
-		})
-		.run();
+	await db.insert(notificationQueue).values({
+		id: crypto.randomUUID(),
+		eventType: params.eventType,
+		subjectId: params.subjectId,
+		severity: params.severity,
+		title: params.title,
+		body: params.body,
+		reason: params.reason,
+		channel: params.channel,
+		status: "pending",
+		attempts: 0,
+		createdAt: params.now.toISOString(),
+	});
 }
 
 async function sendWithAdapter(
@@ -229,18 +227,17 @@ async function sendWithAdapter(
  * LEASE_TIMEOUT_MS ago — typically a process crash mid-send. Runs at
  * the top of every flush so a restart can recover stuck work.
  */
-export function recoverStuckLeases(db: HyperIdleDb, now: Date): number {
+export async function recoverStuckLeases(db: HyperIdleDb, now: Date): Promise<number> {
 	const cutoff = new Date(now.getTime() - LEASE_TIMEOUT_MS).toISOString();
-	const stuck = db
+	const stuck = await db
 		.select()
 		.from(notificationQueue)
-		.where(and(eq(notificationQueue.status, "sending"), lt(notificationQueue.claimedAt, cutoff)))
-		.all();
+		.where(and(eq(notificationQueue.status, "sending"), lt(notificationQueue.claimedAt, cutoff)));
 	for (const row of stuck) {
-		db.update(notificationQueue)
+		await db
+			.update(notificationQueue)
 			.set({ status: "pending", claimedAt: null })
-			.where(eq(notificationQueue.id, row.id))
-			.run();
+			.where(eq(notificationQueue.id, row.id));
 	}
 	return stuck.length;
 }
@@ -251,16 +248,13 @@ export function recoverStuckLeases(db: HyperIdleDb, now: Date): number {
  * The WHERE clause guards against a concurrent flush claiming the same
  * row.
  */
-function claimRow(db: HyperIdleDb, rowId: string, now: Date): boolean {
-	const res = db
+async function claimRow(db: HyperIdleDb, rowId: string, now: Date): Promise<boolean> {
+	const res = await db
 		.update(notificationQueue)
 		.set({ status: "sending", claimedAt: now.toISOString() })
 		.where(and(eq(notificationQueue.id, rowId), eq(notificationQueue.status, "pending")))
-		.run();
-	// `run()` returns `{ changes: number }` in better-sqlite3; drizzle-sqlite
-	// propagates that. A zero-change claim means a concurrent worker took it.
-	const changes = (res as { changes?: number }).changes;
-	return typeof changes === "number" ? changes > 0 : true;
+		.returning({ id: notificationQueue.id });
+	return res.length > 0;
 }
 
 /**
@@ -302,17 +296,16 @@ export async function flushQueue(
 	cfg: NotificationConfig,
 	now: Date,
 ): Promise<{ flushed: number; failed: number; deferred: number }> {
-	recoverStuckLeases(db, now);
-	const rows = db
+	await recoverStuckLeases(db, now);
+	const rows = await db
 		.select()
 		.from(notificationQueue)
 		.where(eq(notificationQueue.status, "pending"))
-		.orderBy(asc(notificationQueue.createdAt))
-		.all();
+		.orderBy(asc(notificationQueue.createdAt));
 	let flushed = 0;
 	let failed = 0;
 	let deferred = 0;
-	const silenced = isSilenced(db, { sourceAgentId: null }, now);
+	const silenced = await isSilenced(db, { sourceAgentId: null }, now);
 	for (const row of rows) {
 		const severity = row.severity as NotificationSeverity;
 		// Silence-aware flush: blocking rows are held; cost_breach + digest
@@ -322,22 +315,22 @@ export async function flushQueue(
 			deferred += 1;
 			continue;
 		}
-		if (!claimRow(db, row.id, now)) {
+		if (!(await claimRow(db, row.id, now))) {
 			// A concurrent flush took this row; skip.
 			continue;
 		}
 		const { adapter, channel } = adapterForRow(factory, cfg, row.channel, severity);
 		const recipient = pickRecipient(cfg, channel, severity === "digest" ? "digest" : "push");
 		if (!recipient) {
-			db.update(notificationQueue)
+			await db
+				.update(notificationQueue)
 				.set({
 					status: "failed",
 					lastError: `no recipient configured for channel '${channel}'`,
 					attempts: row.attempts + 1,
 					claimedAt: null,
 				})
-				.where(eq(notificationQueue.id, row.id))
-				.run();
+				.where(eq(notificationQueue.id, row.id));
 			failed += 1;
 			continue;
 		}
@@ -349,18 +342,19 @@ export async function flushQueue(
 		};
 		const result = await sendWithAdapter(adapter, recipient, notification, cfg);
 		if (result.ok) {
-			db.update(notificationQueue)
+			await db
+				.update(notificationQueue)
 				.set({
 					status: "sent",
 					sentAt: now.toISOString(),
 					attempts: row.attempts + 1,
 					claimedAt: null,
 				})
-				.where(eq(notificationQueue.id, row.id))
-				.run();
+				.where(eq(notificationQueue.id, row.id));
 			flushed += 1;
 		} else {
-			db.update(notificationQueue)
+			await db
+				.update(notificationQueue)
 				.set({
 					status: "failed",
 					lastError: scrubErrorMessage(result.error, {
@@ -371,8 +365,7 @@ export async function flushQueue(
 					attempts: row.attempts + 1,
 					claimedAt: null,
 				})
-				.where(eq(notificationQueue.id, row.id))
-				.run();
+				.where(eq(notificationQueue.id, row.id));
 			failed += 1;
 		}
 	}
@@ -490,22 +483,20 @@ export function registerNotificationDispatcher(
 				channel,
 				eventType,
 			});
-			db.insert(notificationQueue)
-				.values({
-					id: crypto.randomUUID(),
-					eventType,
-					subjectId,
-					severity: notification.severity,
-					title: notification.title,
-					body: notification.body,
-					reason: "retry",
-					channel,
-					status: "failed",
-					attempts: 0,
-					lastError: `no recipient configured for channel '${channel}'`,
-					createdAt: nowFn().toISOString(),
-				})
-				.run();
+			await db.insert(notificationQueue).values({
+				id: crypto.randomUUID(),
+				eventType,
+				subjectId,
+				severity: notification.severity,
+				title: notification.title,
+				body: notification.body,
+				reason: "retry",
+				channel,
+				status: "failed",
+				attempts: 0,
+				lastError: `no recipient configured for channel '${channel}'`,
+				createdAt: nowFn().toISOString(),
+			});
 			return;
 		}
 		const result = await sendWithAdapter(adapter, recipient, notification, cfg);
@@ -519,7 +510,7 @@ export function registerNotificationDispatcher(
 				retriable: result.retriable,
 				channel,
 			});
-			enqueueNotification(db, {
+			await enqueueNotification(db, {
 				eventType,
 				subjectId,
 				severity: notification.severity,
@@ -532,15 +523,15 @@ export function registerNotificationDispatcher(
 		}
 	}
 
-	function route(
+	async function route(
 		classification: Classification,
 		notification: Notification | null,
 		eventType: string,
 		subjectId: string | null,
 		sourceAgentId: string | null,
-	): void {
+	): Promise<void> {
 		if (state.disposed) return;
-		const cfg = loadNotificationConfig(db);
+		const cfg = await loadNotificationConfig(db);
 		if (!cfg) return;
 		if (classification.kind === "drop") return;
 		if (notification === null) return;
@@ -549,8 +540,8 @@ export function registerNotificationDispatcher(
 
 		// Silence check (except for hard cost_breach which still pages).
 		if (classification.severity !== "cost_breach") {
-			if (isSilenced(db, { sourceAgentId }, now)) {
-				enqueueNotification(db, {
+			if (await isSilenced(db, { sourceAgentId }, now)) {
+				await enqueueNotification(db, {
 					eventType,
 					subjectId,
 					severity: classification.severity,
@@ -565,7 +556,7 @@ export function registerNotificationDispatcher(
 		}
 
 		if (classification.kind === "digest") {
-			enqueueNotification(db, {
+			await enqueueNotification(db, {
 				eventType,
 				subjectId,
 				severity: "digest",
@@ -585,7 +576,7 @@ export function registerNotificationDispatcher(
 			now.getTime(),
 		);
 		if (!allowed) {
-			enqueueNotification(db, {
+			await enqueueNotification(db, {
 				eventType,
 				subjectId,
 				severity: classification.severity,
@@ -603,14 +594,20 @@ export function registerNotificationDispatcher(
 
 	const unsubItemCreated = bus.on("item_created", (event: ItemCreatedEvent): void => {
 		if (state.disposed) return;
-		const item = db.select().from(itemsTable).where(eq(itemsTable.id, event.itemId)).get();
-		if (!item) return;
-		const classification = classifyItem(item);
-		const notification =
-			classification.kind === "drop"
-				? null
-				: buildItemNotification(item, classification.severity, nowFn());
-		route(classification, notification, "item_created", event.itemId, item.sourceAgentId);
+		void (async () => {
+			const [item] = await db
+				.select()
+				.from(itemsTable)
+				.where(eq(itemsTable.id, event.itemId))
+				.limit(1);
+			if (!item) return;
+			const classification = classifyItem(item);
+			const notification =
+				classification.kind === "drop"
+					? null
+					: buildItemNotification(item, classification.severity, nowFn());
+			await route(classification, notification, "item_created", event.itemId, item.sourceAgentId);
+		})();
 	});
 
 	const unsubCostBreach = bus.on("cost_cap_breached", (event: CostCapBreachedEvent): void => {
@@ -620,7 +617,7 @@ export function registerNotificationDispatcher(
 			classification.kind === "drop"
 				? null
 				: buildCostBreachNotification(event, classification.severity, nowFn());
-		route(classification, notification, "cost_cap_breached", event.entityId, null);
+		void route(classification, notification, "cost_cap_breached", event.entityId, null);
 	});
 
 	const unsubCostWarning = bus.on("cost_cap_warning", (event: CostCapWarningEvent): void => {
@@ -630,7 +627,7 @@ export function registerNotificationDispatcher(
 			classification.kind === "drop"
 				? null
 				: buildCostWarningNotification(event, classification.severity, nowFn());
-		route(classification, notification, "cost_cap_warning", event.entityId, null);
+		void route(classification, notification, "cost_cap_warning", event.entityId, null);
 	});
 
 	const unsubRoutine = bus.on("routine_fired", (event: RoutineFiredEvent): void => {
@@ -640,17 +637,19 @@ export function registerNotificationDispatcher(
 		// `seed-routine-daily_digest`; substring match keeps us decoupled
 		// from the concrete id format.
 		if (!event.routineId.includes("daily_digest")) return;
-		const cfg = loadNotificationConfig(db);
-		if (!cfg) return;
-		const adapter = getCachedAdapter(state, deps.adapterFactory, cfg);
-		queueMicrotask(() => {
-			if (state.disposed) return;
-			void runDailyDigest(db, adapter, cfg, nowFn()).catch((err) => {
-				logger.error("dispatcher: daily digest failed", {
-					error: err instanceof Error ? err.message : String(err),
+		void (async () => {
+			const cfg = await loadNotificationConfig(db);
+			if (!cfg) return;
+			const adapter = getCachedAdapter(state, deps.adapterFactory, cfg);
+			queueMicrotask(() => {
+				if (state.disposed) return;
+				void runDailyDigest(db, adapter, cfg, nowFn()).catch((err) => {
+					logger.error("dispatcher: daily digest failed", {
+						error: err instanceof Error ? err.message : String(err),
+					});
 				});
 			});
-		});
+		})();
 	});
 
 	return (): void => {
@@ -683,7 +682,7 @@ export async function dispatchDigest(
 	const logger = deps.logger ?? createLogger({ pkg: "notifications.dispatcher" });
 	const nowFn = deps.now ?? ((): Date => new Date());
 	const now = nowOverride ?? nowFn();
-	const cfg = loadNotificationConfig(db);
+	const cfg = await loadNotificationConfig(db);
 	if (!cfg) {
 		return { status: "noop", notificationsIncluded: 0 };
 	}

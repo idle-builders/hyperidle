@@ -11,88 +11,84 @@ import { scoreAttentionTool } from "../score-attention.js";
 import { buildToolRegistry } from "../tool-registry.js";
 import { makeContext, NOW, seedBase } from "./_helpers.js";
 
-function seedKnowledgeItemWithScore(db: HyperIdleDb, id: string, score: number | null): void {
-	db.insert(knowledgeItems)
-		.values({
-			id,
-			topic: "brand",
-			title: "Crossable KI",
-			body: "Body",
-			format: "markdown",
-			status: "active",
-			version: 1,
-			updatedBy: "agent:seed",
-			createdAt: NOW,
-			updatedAt: NOW,
-		})
-		.run();
-	db.insert(knowledgeStrategyFabric)
-		.values({
-			id: `ksf-${id}`,
-			knowledgeItemId: id,
-			layer: "L3",
-			kind: "brief",
-			attentionScore: score != null ? String(score) : null,
-			confidence: "0.1",
-		})
-		.run();
+async function seedKnowledgeItemWithScore(
+	db: HyperIdleDb,
+	id: string,
+	score: number | null,
+): Promise<void> {
+	await db.insert(knowledgeItems).values({
+		id,
+		topic: "brand",
+		title: "Crossable KI",
+		body: "Body",
+		format: "markdown",
+		status: "active",
+		version: 1,
+		updatedBy: "agent:seed",
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
+	await db.insert(knowledgeStrategyFabric).values({
+		id: `ksf-${id}`,
+		knowledgeItemId: id,
+		layer: "L3",
+		kind: "brief",
+		attentionScore: score != null ? String(score) : null,
+		confidence: "0.1",
+	});
 }
 
-function seedKnowledgeItem(db: HyperIdleDb, id: string): void {
-	db.insert(knowledgeItems)
-		.values({
-			id,
-			title: "Test KI",
-			body: "Body",
-			format: "markdown",
-			status: "active",
-			version: 1,
-			updatedBy: "agent:seed",
-			createdAt: NOW,
-			updatedAt: NOW,
-		})
-		.run();
+async function seedKnowledgeItem(db: HyperIdleDb, id: string): Promise<void> {
+	await db.insert(knowledgeItems).values({
+		id,
+		title: "Test KI",
+		body: "Body",
+		format: "markdown",
+		status: "active",
+		version: 1,
+		updatedBy: "agent:seed",
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
 }
 
-function seedItem(db: HyperIdleDb, id: string): void {
-	db.insert(items)
-		.values({
-			id,
-			sourceAgentId: "agent-fac",
-			title: "Some item",
-			threadId: "th1",
-			createdAt: NOW,
-		})
-		.run();
+async function seedItem(db: HyperIdleDb, id: string): Promise<void> {
+	await db.insert(items).values({
+		id,
+		sourceAgentId: "agent-fac",
+		title: "Some item",
+		threadId: "th1",
+		createdAt: NOW,
+	});
 }
 
 describe("score_attention tool", () => {
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = createTestDb();
-		seedBase(db);
+	beforeEach(async () => {
+		const handle = await createTestDb();
+		db = handle.db;
+		await seedBase(db);
 	});
 
 	it("sets attention_score on a knowledge_item (target=knowledge_item)", async () => {
-		seedKnowledgeItem(db, "ki-1");
+		await seedKnowledgeItem(db, "ki-1");
 		const result = await scoreAttentionTool.handler(
 			{ target: "knowledge_item", id: "ki-1", score: 0.42 },
 			makeContext(db),
 		);
 		expect(result.success).toBe(true);
 		// O2: attentionScore moved to knowledgeStrategyFabric extension table
-		const fabricRow = db
+		const [fabricRow] = await db
 			.select()
 			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, "ki-1"))
-			.get();
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, "ki-1"));
 		expect(Number(fabricRow?.attentionScore)).toBeCloseTo(0.42, 5);
 	});
 
 	it("score on items row is a no-op after O2 (attentionScore stripped)", async () => {
 		// O2: items.attentionScore stripped from kernel. Score writes are no-op.
-		seedItem(db, "it-1");
+		await seedItem(db, "it-1");
 		const result = await scoreAttentionTool.handler(
 			{ target: "item", id: "it-1", score: 0.5 },
 			makeContext(db),
@@ -101,21 +97,20 @@ describe("score_attention tool", () => {
 	});
 
 	it("does NOT bump knowledge_items.version", async () => {
-		seedKnowledgeItem(db, "ki-2");
-		const before = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-2")).get();
+		await seedKnowledgeItem(db, "ki-2");
+		const [before] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-2"));
 		const versionBefore = before?.version;
 		await scoreAttentionTool.handler(
 			{ target: "knowledge_item", id: "ki-2", score: 0.7 },
 			makeContext(db),
 		);
-		const after = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-2")).get();
+		const [after] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-2"));
 		expect(after?.version).toBe(versionBefore);
 		// But fabric row should exist with the score
-		const fabricRow = db
+		const [fabricRow] = await db
 			.select()
 			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, "ki-2"))
-			.get();
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, "ki-2"));
 		expect(Number(fabricRow?.attentionScore)).toBeCloseTo(0.7, 5);
 	});
 
@@ -138,7 +133,7 @@ describe("score_attention tool", () => {
 	});
 
 	it("returns INVALID_INPUT for score < 0 or > 1 via registry dispatch", async () => {
-		seedKnowledgeItem(db, "ki-3");
+		await seedKnowledgeItem(db, "ki-3");
 		// I2 B1-B4: registry now requires explicit role. score_attention is
 		// facilitator-only — use chief_of_staff so it stays visible.
 		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
@@ -163,22 +158,21 @@ describe("score_attention tool", () => {
 	});
 
 	it("mode: 'override' (default) keeps G1 behavior (uses provided score verbatim)", async () => {
-		seedKnowledgeItem(db, "ki-override");
+		await seedKnowledgeItem(db, "ki-override");
 		const result = await scoreAttentionTool.handler(
 			{ target: "knowledge_item", id: "ki-override", score: 0.42, mode: "override" },
 			makeContext(db),
 		);
 		expect(result.success).toBe(true);
-		const fabricRow = db
+		const [fabricRow] = await db
 			.select()
 			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, "ki-override"))
-			.get();
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, "ki-override"));
 		expect(Number(fabricRow?.attentionScore)).toBeCloseTo(0.42, 5);
 	});
 
 	it("mode: 'recompute' with target=knowledge_item invokes the engine (score arg omitted)", async () => {
-		seedKnowledgeItemWithScore(db, "ki-recompute", 0.05);
+		await seedKnowledgeItemWithScore(db, "ki-recompute", 0.05);
 		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
 		const result = await registry.invoke("score_attention", {
 			target: "knowledge_item",
@@ -194,7 +188,7 @@ describe("score_attention tool", () => {
 	});
 
 	it("mode: 'recompute' rejects a provided `score` via registry-level validation", async () => {
-		seedKnowledgeItemWithScore(db, "ki-reject", 0.05);
+		await seedKnowledgeItemWithScore(db, "ki-reject", 0.05);
 		// I2 B1-B4: registry now requires explicit role. score_attention is
 		// facilitator-only — use chief_of_staff so it stays visible.
 		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
@@ -210,7 +204,7 @@ describe("score_attention tool", () => {
 	});
 
 	it("mode: 'override' requires `score` — rejects missing score via registry validation", async () => {
-		seedKnowledgeItem(db, "ki-need-score");
+		await seedKnowledgeItem(db, "ki-need-score");
 		// I2 B1-B4: registry now requires explicit role. score_attention is
 		// facilitator-only — use chief_of_staff so it stays visible.
 		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
@@ -225,7 +219,7 @@ describe("score_attention tool", () => {
 	});
 
 	it("mode: 'recompute' with target=item returns INVALID_INPUT", async () => {
-		seedItem(db, "it-recompute");
+		await seedItem(db, "it-recompute");
 		const result = await scoreAttentionTool.handler(
 			{ target: "item", id: "it-recompute", mode: "recompute" },
 			makeContext(db),

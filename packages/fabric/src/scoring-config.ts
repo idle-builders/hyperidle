@@ -55,12 +55,16 @@ const WEIGHT_KEYS: ReadonlyArray<keyof ScoringWeights> = [
 const SETTING_PREFIX = "scoring.weight.";
 
 /** Load scoring weights from factory_settings table, falling back to defaults. */
-export function loadScoringWeights(db: HyperIdleDb): ScoringWeights {
+export async function loadScoringWeights(db: HyperIdleDb): Promise<ScoringWeights> {
 	const weights: ScoringWeights = { ...DEFAULT_WEIGHTS };
 
 	for (const key of WEIGHT_KEYS) {
 		const settingKey = `${SETTING_PREFIX}${key}`;
-		const row = db.select().from(factorySettings).where(eq(factorySettings.key, settingKey)).get();
+		const [row] = await db
+			.select()
+			.from(factorySettings)
+			.where(eq(factorySettings.key, settingKey))
+			.limit(1);
 
 		if (row) {
 			const parsed = Number.parseFloat(row.value);
@@ -145,12 +149,16 @@ const ATTENTION_WEIGHT_MAX = 1;
  * defense-in-depth: values outside `[0, 1]` fall back to the default so a
  * bad write (e.g. all zeros) can never silently neutralize the engine.
  */
-export function loadAttentionWeights(db: HyperIdleDb): AttentionWeights {
+export async function loadAttentionWeights(db: HyperIdleDb): Promise<AttentionWeights> {
 	const weights: Record<keyof AttentionWeights, number> = { ...DEFAULT_ATTENTION_WEIGHTS };
 
 	for (const key of ATTENTION_WEIGHT_KEYS) {
 		const settingKey = `${ATTENTION_SETTING_PREFIX}${key}`;
-		const row = db.select().from(factorySettings).where(eq(factorySettings.key, settingKey)).get();
+		const [row] = await db
+			.select()
+			.from(factorySettings)
+			.where(eq(factorySettings.key, settingKey))
+			.limit(1);
 		if (row) {
 			const parsed = Number.parseFloat(row.value);
 			if (
@@ -209,7 +217,7 @@ const RELEVANCE_SHAPE_KEYS = [
  * be positive finite numbers. Invalid values fall back to defaults (defense in
  * depth so a bad write can never silently break the relevance engine).
  */
-export function loadRelevanceConfig(db: HyperIdleDb): RelevanceConfig {
+export async function loadRelevanceConfig(db: HyperIdleDb): Promise<RelevanceConfig> {
 	const weights = { ...DEFAULT_RELEVANCE_WEIGHTS } as {
 		recency: number;
 		frequency: number;
@@ -224,7 +232,11 @@ export function loadRelevanceConfig(db: HyperIdleDb): RelevanceConfig {
 
 	// Load weight overrides
 	for (const settingKey of RELEVANCE_WEIGHT_KEYS) {
-		const row = db.select().from(factorySettings).where(eq(factorySettings.key, settingKey)).get();
+		const [row] = await db
+			.select()
+			.from(factorySettings)
+			.where(eq(factorySettings.key, settingKey))
+			.limit(1);
 		if (row) {
 			const parsed = Number.parseFloat(row.value);
 			if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 1) {
@@ -236,7 +248,11 @@ export function loadRelevanceConfig(db: HyperIdleDb): RelevanceConfig {
 
 	// Load shape overrides
 	for (const settingKey of RELEVANCE_SHAPE_KEYS) {
-		const row = db.select().from(factorySettings).where(eq(factorySettings.key, settingKey)).get();
+		const [row] = await db
+			.select()
+			.from(factorySettings)
+			.where(eq(factorySettings.key, settingKey))
+			.limit(1);
 		if (row) {
 			const parsed = Number.parseFloat(row.value);
 			if (Number.isFinite(parsed) && parsed > 0) {

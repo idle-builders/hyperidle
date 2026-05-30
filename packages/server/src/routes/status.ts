@@ -75,10 +75,10 @@ export function createStatusRoutes(db: HyperIdleDb): Hono {
 	});
 
 	// GET / — Factory-wide status
-	router.get("/", (c) => {
-		const activeSessions = db.select().from(sessions).where(eq(sessions.state, "active")).all();
+	router.get("/", async (c) => {
+		const activeSessions = await db.select().from(sessions).where(eq(sessions.state, "active"));
 
-		const allAgents = db.select().from(users).all();
+		const allAgents = await db.select().from(users);
 
 		const agentStates: Record<string, number> = {};
 		for (const agent of allAgents) {
@@ -88,11 +88,11 @@ export function createStatusRoutes(db: HyperIdleDb): Hono {
 		const totalCost = allAgents.reduce((sum, a) => sum + (a.costActual ?? 0), 0);
 
 		// Get uptime from factory settings, fallback to server start time
-		const uptimeSetting = db
+		const [uptimeSetting] = await db
 			.select()
 			.from(factorySettings)
 			.where(eq(factorySettings.key, "factory_start_time"))
-			.get();
+			.limit(1);
 
 		const uptime = uptimeSetting?.value ?? SERVER_START_TIME;
 
@@ -107,8 +107,8 @@ export function createStatusRoutes(db: HyperIdleDb): Hono {
 	// GET /settings — List all factory settings. Credentials in
 	// SECRET_SETTING_KEYS are redacted before the response leaves the
 	// process (I1 security-H1).
-	router.get("/settings", (c) => {
-		const allSettings = db.select().from(factorySettings).all();
+	router.get("/settings", async (c) => {
+		const allSettings = await db.select().from(factorySettings);
 		return c.json(allSettings.map(redactSettingRow));
 	});
 
@@ -119,7 +119,7 @@ export function createStatusRoutes(db: HyperIdleDb): Hono {
 	// I2 V5: keys with reserved namespace prefixes are routed to their
 	// domain-specific config endpoints; this generic write rejects them
 	// with 400 so structured-config invariants stay intact.
-	router.patch("/settings", validateBody(updateSettingSchema), (c) => {
+	router.patch("/settings", validateBody(updateSettingSchema), async (c) => {
 		const body = c.req.valid("json" as never) as z.infer<typeof updateSettingSchema>;
 
 		if (isBlockedSettingKey(body.key)) {
@@ -132,7 +132,8 @@ export function createStatusRoutes(db: HyperIdleDb): Hono {
 
 		const now = new Date().toISOString();
 
-		db.insert(factorySettings)
+		await db
+			.insert(factorySettings)
 			.values({
 				key: body.key,
 				value: body.value,
@@ -141,21 +142,20 @@ export function createStatusRoutes(db: HyperIdleDb): Hono {
 			.onConflictDoUpdate({
 				target: factorySettings.key,
 				set: { value: body.value, updatedAt: now },
-			})
-			.run();
+			});
 
-		const updated = db
+		const [updated] = await db
 			.select()
 			.from(factorySettings)
 			.where(eq(factorySettings.key, body.key))
-			.get();
+			.limit(1);
 
 		return c.json(updated ? redactSettingRow(updated) : updated);
 	});
 
 	// GET /digest — Daily digest of queued items from past 24h
-	router.get("/digest", (c) => {
-		const digest = getDailyDigest(db);
+	router.get("/digest", async (c) => {
+		const digest = await getDailyDigest(db);
 		return c.json(digest);
 	});
 

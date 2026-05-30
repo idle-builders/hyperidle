@@ -2,13 +2,18 @@
  * Programmatic migration runner and downgrade protection.
  * Extracted from setup-cli so both the CLI and the Electron desktop share
  * a single migration code path.
+ *
+ * @lore Phase 2 PGlite migration: applyMigrations() is now async and uses
+ * PGlite instead of better-sqlite3. The `dataDir` argument is a filesystem
+ * path that PGlite uses as its data directory (equivalent to the old dbPath).
+ * `isDowngrade()` queries the drizzle migrations table via PGlite.
  */
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import { PGlite } from "@electric-sql/pglite";
+import { drizzle } from "drizzle-orm/pglite";
+import { migrate } from "drizzle-orm/pglite/migrator";
 
 export interface MigrationResult {
 	readonly applied: number;
@@ -16,35 +21,38 @@ export interface MigrationResult {
 }
 
 /**
- * Count applied migrations from the __drizzle_migrations table.
+ * Count applied migrations from the drizzle_migrations table.
  * Returns 0 if the table does not exist.
  */
-function countAppliedMigrations(sqlite: InstanceType<typeof Database>): number {
-	// Check if the migrations table exists
-	const tableExists = sqlite
-		.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='__drizzle_migrations'")
-		.get() as { name: string } | undefined;
+async function countAppliedMigrations(client: PGlite): Promise<number> {
+	const checkResult = await client.query<{ exists: boolean }>(
+		`SELECT EXISTS (
+			SELECT 1 FROM information_schema.tables
+			WHERE table_schema = 'drizzle'
+			AND table_name = '__drizzle_migrations'
+		) AS exists`,
+	);
+	const exists = checkResult.rows[0]?.exists ?? false;
+	if (!exists) return 0;
 
-	if (!tableExists) {
-		return 0;
-	}
-
-	const row = sqlite.prepare("SELECT COUNT(*) as count FROM __drizzle_migrations").get() as {
-		count: number;
-	};
-
-	return row.count;
+	const countResult = await client.query<{ count: string }>(
+		`SELECT COUNT(*) AS count FROM drizzle.__drizzle_migrations`,
+	);
+	return Number(countResult.rows[0]?.count ?? 0);
 }
 
 /**
- * Run all pending Drizzle migrations against the SQLite database at dbPath.
+ * Run all pending Drizzle migrations against the PGlite database at dataDir.
  *
- * Opens a dedicated connection, runs migrations, then closes it.
+ * Opens a dedicated PGlite instance, runs migrations, then closes it.
  * Does NOT seed — seeding is only for the setup-cli development workflow.
  *
- * @throws if the database cannot be opened or migrations fail.
+ * @throws if the data directory does not contain a valid migrations journal.
  */
-export function applyMigrations(dbPath: string, migrationsFolder: string): MigrationResult {
+export async function applyMigrations(
+	dataDir: string,
+	migrationsFolder: string,
+): Promise<MigrationResult> {
 	// Validate the migrations folder exists before opening the DB
 	const journalPath = path.join(migrationsFolder, "meta", "_journal.json");
 	if (!fs.existsSync(migrationsFolder)) {
@@ -54,23 +62,19 @@ export function applyMigrations(dbPath: string, migrationsFolder: string): Migra
 		throw new Error(`ENOENT: no such file or directory, open '${journalPath}'`);
 	}
 
-	const sqlite = new Database(dbPath);
+	const client = new PGlite(dataDir);
+	await client.waitReady;
+
 	try {
-		sqlite.pragma("journal_mode = WAL");
-		sqlite.pragma("foreign_keys = ON");
-
-		const countBefore = countAppliedMigrations(sqlite);
-
-		const db = drizzle(sqlite);
-		migrate(db, { migrationsFolder });
-
-		const countAfter = countAppliedMigrations(sqlite);
+		const countBefore = await countAppliedMigrations(client);
+		const db = drizzle(client);
+		await migrate(db, { migrationsFolder });
+		const countAfter = await countAppliedMigrations(client);
 		const applied = countAfter - countBefore;
 		const schemaVersion = countAfter;
-
 		return { applied, schemaVersion };
 	} finally {
-		sqlite.close();
+		await client.close();
 	}
 }
 
@@ -79,11 +83,11 @@ export function applyMigrations(dbPath: string, migrationsFolder: string): Migra
  * Returns true if a downgrade is detected (DB has migrations the app
  * does not know about).
  *
- * Returns false if the database does not exist (fresh install).
+ * Returns false if the data directory does not exist (fresh install).
  */
-export function isDowngrade(dbPath: string, migrationsFolder: string): boolean {
-	// Fresh install: no DB file yet
-	if (!fs.existsSync(dbPath)) {
+export async function isDowngrade(dataDir: string, migrationsFolder: string): Promise<boolean> {
+	// Fresh install: no data directory yet
+	if (!fs.existsSync(dataDir)) {
 		return false;
 	}
 
@@ -100,11 +104,12 @@ export function isDowngrade(dbPath: string, migrationsFolder: string): boolean {
 		return false;
 	}
 
-	const sqlite = new Database(dbPath, { readonly: true });
+	const client = new PGlite(dataDir);
+	await client.waitReady;
 	try {
-		const dbCount = countAppliedMigrations(sqlite);
+		const dbCount = await countAppliedMigrations(client);
 		return dbCount > bundledCount;
 	} finally {
-		sqlite.close();
+		await client.close();
 	}
 }

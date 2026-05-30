@@ -29,15 +29,17 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		// Seed product and team
 		db.insert(teams)
@@ -59,40 +61,37 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			.run();
 
 		// Seed AI users (formerly agents)
-		db.insert(users)
-			.values([
-				{
-					id: "agent-1",
-					kind: "ai",
-					name: "Builder Bot",
-					role: "builder",
-					status: "idle",
-					teamId: "team-1",
-					createdAt: NOW,
-				},
-				{
-					id: "agent-2",
-					kind: "ai",
-					name: "Growth Bot",
-					role: "growth",
-					status: "active",
-					teamId: "team-1",
-					createdAt: NOW,
-				},
-			])
-			.run();
+		await db.insert(users).values([
+			{
+				id: "agent-1",
+				kind: "ai",
+				name: "Builder Bot",
+				role: "builder",
+				status: "idle",
+				teamId: "team-1",
+				createdAt: NOW,
+			},
+			{
+				id: "agent-2",
+				kind: "ai",
+				name: "Growth Bot",
+				role: "growth",
+				status: "active",
+				teamId: "team-1",
+				createdAt: NOW,
+			},
+		]);
 
 		// Seed user skills (formerly agent skills)
-		db.insert(userSkills)
-			.values([
-				{ userId: "agent-1", skillId: "coding", autonomyLevel: 2 },
-				{ userId: "agent-1", skillId: "testing", autonomyLevel: 3 },
-			])
-			.run();
+		await db.insert(userSkills).values([
+			{ userId: "agent-1", skillId: "coding", autonomyLevel: 2 },
+			{ userId: "agent-1", skillId: "testing", autonomyLevel: 3 },
+		]);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	// AC1: GET /api/users — list all with status, team, role, current sessions
@@ -167,12 +166,12 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			// @lore L1a: legacy `kind='review'` projects to host_kind='agent' for an
 			// agent-scoped autonomy review (plan §5.3). Find the thread by
 			// the agent host and the linked autonomy_change item.
-			const allThreads = db.select().from(threads).all();
+			const allThreads = await db.select().from(threads);
 			const reviewThread = allThreads.find((t) => t.hostKind === "agent" && t.hostId === "agent-1");
 			expect(reviewThread).toBeDefined();
 
 			// Verify item was created
-			const allItems = db.select().from(items).all();
+			const allItems = await db.select().from(items);
 			expect(allItems).toHaveLength(1);
 			expect(allItems[0].kind).toBe("autonomy_change");
 
@@ -191,7 +190,7 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 				body: JSON.stringify({ autonomyLevel: 2 }), // same as current
 			});
 
-			const allItems = db.select().from(items).all();
+			const allItems = await db.select().from(items);
 			expect(allItems).toHaveLength(0);
 			expect(emitted).toHaveLength(0);
 		});
@@ -219,28 +218,25 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 	describe("AC8: GET /api/users/:id/inbox", () => {
 		it("returns messages for the user", async () => {
 			// Seed a thread and message
-			db.insert(threads)
-				.values({
-					id: "thread-1",
-					hostKind: "agent",
-					hostId: "agent-1",
-					initiatorId: "agent-2",
-					participants: JSON.stringify(["agent-2", "agent-1"]),
-					lastActiveAt: NOW,
-					createdAt: NOW,
-				})
-				.run();
-			db.insert(messages)
-				.values({
-					id: "msg-1",
-					senderId: "agent-2",
-					threadId: "thread-1",
-					type: "plain",
-					payload: JSON.stringify({ text: "Hello!" }),
-					clientKey: "msg-1",
-					createdAt: NOW,
-				})
-				.run();
+			await db.insert(threads).values({
+				id: "thread-1",
+				hostKind: "agent",
+				hostId: "agent-1",
+				initiatorId: "agent-2",
+				participants: JSON.stringify(["agent-2", "agent-1"]),
+				lastActiveAt: NOW,
+				createdAt: NOW,
+			});
+
+			await db.insert(messages).values({
+				id: "msg-1",
+				senderId: "agent-2",
+				threadId: "thread-1",
+				type: "plain",
+				payload: JSON.stringify({ text: "Hello!" }),
+				clientKey: "msg-1",
+				createdAt: NOW,
+			});
 
 			const res = await app.request("/api/users/agent-1/inbox", { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -278,7 +274,7 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			expect(body.senderId).toBe("agent-2");
 
 			// Verify thread was created with the new shape.
-			const allThreads = db.select().from(threads).all();
+			const allThreads = await db.select().from(threads);
 			expect(allThreads).toHaveLength(1);
 			expect(allThreads[0].hostKind).toBe("agent");
 			expect(allThreads[0].hostId).toBe("agent-1");
@@ -299,10 +295,10 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 				body: JSON.stringify({ body: "Second" }),
 			});
 
-			const allThreads = db.select().from(threads).all();
+			const allThreads = await db.select().from(threads);
 			expect(allThreads).toHaveLength(1); // Still just one thread
 
-			const allMessages = db.select().from(messages).all();
+			const allMessages = await db.select().from(messages);
 			expect(allMessages).toHaveLength(2);
 		});
 

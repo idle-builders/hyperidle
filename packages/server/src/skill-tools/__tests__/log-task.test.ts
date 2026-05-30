@@ -16,7 +16,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { logTaskTool } from "../log-task.js";
 import type { ToolContext } from "../tool-registry.js";
 
-function seed(db: HyperIdleDb): void {
+async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now }).run();
 	db.insert(teamMembers)
@@ -84,9 +84,10 @@ function makeContext(db: HyperIdleDb): ToolContext {
 describe("log_task tool", () => {
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = createTestDb();
-		seed(db);
+	beforeEach(async () => {
+		const handle = await createTestDb();
+		db = handle.db;
+		await seed(db);
 	});
 
 	describe("AC3: appends 'Discovered X' to task.notes", () => {
@@ -101,7 +102,7 @@ describe("log_task tool", () => {
 			if (!result.success) return;
 			expect((result.data as { taskId: string }).taskId).toBe("task-1");
 
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.notes ?? "").toContain("Discovered X");
 		});
 
@@ -111,12 +112,12 @@ describe("log_task tool", () => {
 			// C2's plain-text lane; if the impl keeps JSON, the assertions
 			// still hold via substring match.
 			const priorNote = "earlier thought";
-			db.update(tasks).set({ notes: priorNote }).where(eq(tasks.id, "task-1")).run();
+			await db.update(tasks).set({ notes: priorNote }).where(eq(tasks.id, "task-1"));
 
 			const result = await logTaskTool.handler({ note: "Another note" }, makeContext(db));
 			expect(result.success).toBe(true);
 
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			const notesText = task?.notes ?? "";
 			expect(notesText).toContain(priorNote);
 			expect(notesText).toContain("Another note");
@@ -127,7 +128,7 @@ describe("log_task tool", () => {
 			await logTaskTool.handler({ note: "Second" }, makeContext(db));
 			await logTaskTool.handler({ note: "Third" }, makeContext(db));
 
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			const notesText = task?.notes ?? "";
 			// All three must appear, in order.
 			const posFirst = notesText.indexOf("First");
@@ -142,27 +143,27 @@ describe("log_task tool", () => {
 	// ---------------- I1 C2/C3: log_task must never touch auditTrail ----------------
 	describe("I1 C2/C3: log_task never writes to tasks.auditTrail", () => {
 		it("leaves auditTrail untouched when appending a note", async () => {
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			const auditBefore = task?.auditTrail ?? null;
 
 			const result = await logTaskTool.handler({ note: "Discovered Y" }, makeContext(db));
 			expect(result.success).toBe(true);
 
-			const after = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [after] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(after?.auditTrail ?? null).toBe(auditBefore);
 		});
 
 		it("does not corrupt a pre-existing auditTrail entry (state transition)", async () => {
 			const now = new Date().toISOString();
 			const existing = [{ from: "accepted", to: "in_progress", timestamp: now }];
-			db.update(tasks)
+			await db
+				.update(tasks)
 				.set({ auditTrail: JSON.stringify(existing) })
-				.where(eq(tasks.id, "task-1"))
-				.run();
+				.where(eq(tasks.id, "task-1"));
 
 			await logTaskTool.handler({ note: "Another note" }, makeContext(db));
 
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			// auditTrail is still the pristine state transition — log_task
 			// did not append its note to the wrong column.
 			const audit = JSON.parse(task?.auditTrail ?? "[]") as Array<Record<string, unknown>>;

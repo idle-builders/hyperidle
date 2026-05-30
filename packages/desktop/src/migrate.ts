@@ -49,17 +49,17 @@ export function resolveMigrationsFolder(): string {
  *
  * @throws if schema downgrade detected or migration fails.
  */
-export function runMigrations(
+export async function runMigrations(
 	dbPath: string,
 	migrationsFolder: string,
-): MigrationOrchestrationResult {
-	if (isDowngrade(dbPath, migrationsFolder)) {
+): Promise<MigrationOrchestrationResult> {
+	if (await isDowngrade(dbPath, migrationsFolder)) {
 		throw new Error(
 			`Schema downgrade detected: the database at ${dbPath} was created by a newer version of the app. ` +
 				"Please update the application or restore from a backup.",
 		);
 	}
 
-	const result = applyMigrations(dbPath, migrationsFolder);
+	const result = await applyMigrations(dbPath, migrationsFolder);
 	return { applied: result.applied, schemaVersion: result.schemaVersion };
 }

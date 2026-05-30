@@ -7,6 +7,6 @@
 		".": "./src/index.ts"
 	},
 	"dependencies": {
-		"@hyperidle/shared": "workspace:*"
+		"@hyperidle/shared": "*"
 	}
 }

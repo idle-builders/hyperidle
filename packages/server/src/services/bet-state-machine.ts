@@ -96,7 +96,7 @@ export async function transitionBet(
 	toState: BetStatus,
 	options?: TransitionOptions,
 ): Promise<void> {
-	const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
+	const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 	if (!bet) {
 		throw new Error(`Bet '${betId}' not found`);
 	}
@@ -173,16 +173,16 @@ export async function transitionBet(
 			}
 		}
 
-		const updateResult = db
+		const updateResult = await tx
 			.update(bets)
 			.set(updates as Record<string, string>)
 			.where(and(eq(bets.id, betId), eq(bets.status, fromState)))
-			.run();
+			.returning({ id: bets.id });
 
 		// Lost the race: another concurrent transitionBet already moved the
 		// bet out of `fromState`. Roll back (throwing exits the tx callback
 		// and rolls the transaction) and surface as an invalid transition.
-		if (updateResult.changes === 0) {
+		if (updateResult.length === 0) {
 			throw new InvalidTransitionError(fromState, toState);
 		}
 
@@ -249,7 +249,6 @@ const MUTABLE_IN_STATUSES = new Set(["active"]);
  * @lore L14: `actor` is optional — callers that don't pass it leave actor
  * undefined in the log entry (backward-compatible with pre-L14 call sites).
  */
-// biome-ignore lint/suspicious/useAwait: callers expect Promise return for consistency with async service layer
 export async function updateBetField(
 	db: HyperIdleDb,
 	eventBus: EventBus,
@@ -263,7 +262,7 @@ export async function updateBetField(
 		throw new Error(`Field '${field}' is not mutable on an active bet`);
 	}
 
-	const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
+	const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 	if (!bet) {
 		throw new Error(`Bet '${betId}' not found`);
 	}
@@ -287,10 +286,10 @@ export async function updateBetField(
 	const revisionLog = parseRevisionLog(bet.revisionLog);
 	const updatedLog = addRevisionEntry(revisionLog, field, oldValue, newValue, reason, actor);
 
-	db.update(bets)
+	await db
+		.update(bets)
 		.set({ [columnKey]: newValue, revisionLog: updatedLog } as Record<string, string>)
-		.where(eq(bets.id, betId))
-		.run();
+		.where(eq(bets.id, betId));
 
 	// If done_condition changed, emit item_created for human review
 	if (field === "done_condition") {

@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env tsx
 // OTLP/HTTP-JSON receiver. Appends each span as a JSONL row to
 // .pipeline/traces.jsonl. Reports query the file via DuckDB
 // read_json_auto — no lock contention because the file is append-only.
@@ -10,14 +10,15 @@
 // (read_json_auto + json_extract), and stays inspectable with jq / tail.
 //
 // Usage:
-//   bun run obs:collector                 # foreground; Ctrl-C to stop
-//   HYPERIDLE_TRACE_PORT=4318 bun ...     # custom port (default 4318)
+//   npm run obs:collector                 # foreground; Ctrl-C to stop
+//   HYPERIDLE_TRACE_PORT=4318 npx tsx scripts/trace-collector.ts  # custom port
 //   HYPERIDLE_TRACE_FILE=./trace.jsonl …  # custom path
 //
 // On the SDK side, point OTEL_EXPORTER_OTLP_ENDPOINT at http://localhost:4318
 // and set OTEL_EXPORTER_OTLP_PROTOCOL=http/json. otel.env already does both.
 
 import { appendFileSync, mkdirSync } from "node:fs";
+import { createServer } from "node:http";
 import { dirname } from "node:path";
 
 const PORT = Number(process.env.HYPERIDLE_TRACE_PORT ?? 4318);
@@ -192,58 +193,75 @@ function ingest(req: OtlpTraceRequest): number {
 	return flat.length;
 }
 
-const server = Bun.serve({
-	port: PORT,
-	async fetch(req: Request): Promise<Response> {
-		const url = new URL(req.url);
+const server = createServer((req, res) => {
+	const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);
+	const chunks: Buffer[] = [];
+
+	req.on("data", (chunk: Buffer) => chunks.push(chunk));
+	req.on("end", () => {
+		const bodyStr = Buffer.concat(chunks).toString("utf-8");
 
 		if (req.method === "POST" && url.pathname === "/v1/traces") {
-			const ct = req.headers.get("content-type") ?? "";
+			const ct = req.headers["content-type"] ?? "";
 			if (!ct.includes("json")) {
-				return new Response(
+				res.writeHead(415, { "Content-Type": "text/plain" });
+				res.end(
 					`Only OTLP/HTTP-JSON is supported. Set OTEL_EXPORTER_OTLP_PROTOCOL=http/json (got Content-Type: ${ct}).`,
-					{ status: 415 },
 				);
+				return;
 			}
 			let body: OtlpTraceRequest;
 			try {
-				body = (await req.json()) as OtlpTraceRequest;
+				body = JSON.parse(bodyStr) as OtlpTraceRequest;
 			} catch (err) {
-				return new Response(`bad json: ${err}`, { status: 400 });
+				res.writeHead(400, { "Content-Type": "text/plain" });
+				res.end(`bad json: ${err}`);
+				return;
 			}
 			let ingested = 0;
 			try {
 				ingested = ingest(body);
 			} catch (err) {
 				console.error("ingest failed:", err);
-				return new Response(`ingest error: ${err}`, { status: 500 });
+				res.writeHead(500, { "Content-Type": "text/plain" });
+				res.end(`ingest error: ${err}`);
+				return;
 			}
 			console.log(`ingested ${ingested} span(s) (total ${totalSpansIngested})`);
-			return Response.json({ partialSuccess: {} });
+			res.writeHead(200, { "Content-Type": "application/json" });
+			res.end(JSON.stringify({ partialSuccess: {} }));
+			return;
 		}
 
 		// Anything else under /v1/* (metrics, logs) — accept and drop, so SDKs
 		// that chatter at us don't error out the parent process.
 		if (req.method === "POST" && url.pathname.startsWith("/v1/")) {
-			return Response.json({ partialSuccess: {} });
+			res.writeHead(200, { "Content-Type": "application/json" });
+			res.end(JSON.stringify({ partialSuccess: {} }));
+			return;
 		}
 
 		if (req.method === "GET" && url.pathname === "/healthz") {
-			return new Response("ok", { status: 200 });
+			res.writeHead(200, { "Content-Type": "text/plain" });
+			res.end("ok");
+			return;
 		}
 
-		return new Response("not found", { status: 404 });
-	},
+		res.writeHead(404, { "Content-Type": "text/plain" });
+		res.end("not found");
+	});
 });
 
-console.log(`trace collector listening on http://localhost:${server.port}`);
-console.log(`  endpoint: POST /v1/traces (OTLP/HTTP-JSON)`);
-console.log(`  file:     ${TRACE_FILE}`);
-console.log(`  query:    bun run obs:report   (DuckDB over read_json_auto)`);
+server.listen(PORT, () => {
+	console.log(`trace collector listening on http://localhost:${PORT}`);
+	console.log(`  endpoint: POST /v1/traces (OTLP/HTTP-JSON)`);
+	console.log(`  file:     ${TRACE_FILE}`);
+	console.log(`  query:    npm run obs:report   (DuckDB over read_json_auto)`);
+});
 
 const stop = (): void => {
 	console.log("\nshutting down…");
-	server.stop();
+	server.close();
 	process.exit(0);
 };
 process.on("SIGINT", stop);

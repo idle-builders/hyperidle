@@ -1,11 +1,12 @@
 import {
+	boolean,
 	index,
 	integer,
+	pgTable,
 	primaryKey,
-	sqliteTable,
 	text,
 	uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+} from "drizzle-orm/pg-core";
 
 // --- Core tables ---
 
@@ -24,7 +25,7 @@ export const teams = sqliteTable("teams", {
 	createdAt: text("created_at").notNull(),
 });
 
-export const users = sqliteTable("users", {
+export const users = pgTable("users", {
 	id: text("id").primaryKey(),
 	/** "human" | "ai" — P2: kind column distinguishes human founders from AI agents. */
 	kind: text("kind").notNull().default("ai"),
@@ -75,7 +76,7 @@ export const teamMembers = sqliteTable("team_members", {
 
 // --- Process primitives ---
 
-export const bets = sqliteTable(
+export const bets = pgTable(
 	"bets",
 	{
 		id: text("id").primaryKey(),
@@ -120,7 +121,7 @@ export const bets = sqliteTable(
 	],
 );
 
-export const tasks = sqliteTable(
+export const tasks = pgTable(
 	"tasks",
 	{
 		id: text("id").primaryKey(),
@@ -151,11 +152,11 @@ export const tasks = sqliteTable(
 		index("tasks_bet_id_idx").on(table.betId),
 		index("tasks_team_id_idx").on(table.teamId),
 		// @lore I3 review O1: `tasks_state_idx` was dropped — state has too
-		// few distinct values to be selective. Migration 0006_drop_tasks_state_idx.
+		// few distinct values to be selective.
 	],
 );
 
-export const sessions = sqliteTable(
+export const sessions = pgTable(
 	"sessions",
 	{
 		id: text("id").primaryKey(),
@@ -180,7 +181,7 @@ export const sessions = sqliteTable(
 	],
 );
 
-export const routines = sqliteTable("routines", {
+export const routines = pgTable("routines", {
 	id: text("id").primaryKey(),
 	ownerAgentId: text("owner_agent_id")
 		.notNull()
@@ -195,23 +196,23 @@ export const routines = sqliteTable("routines", {
 	 * execution to a sub-agent. Kernel-only concern (identity of who executes).
 	 * Separate from strategy signals like riskTier.
 	 */
-	delegationAllowed: integer("delegation_allowed").default(0),
+	delegationAllowed: boolean("delegation_allowed").default(false),
 	/**
 	 * @lore O2: `humanReview` marks routines that must pause for human approval
 	 * before completing. Kernel-only: determines the execution handoff path,
 	 * not a strategy metric.
 	 */
-	humanReview: integer("human_review").default(0),
+	humanReview: boolean("human_review").default(false),
 	autonomyLevel: integer("autonomy_level"),
-	silent: integer("silent").default(0),
-	active: integer("active").notNull().default(1),
+	silent: boolean("silent").default(false),
+	active: boolean("active").notNull().default(true),
 	lastRunAt: text("last_run_at"),
 	nextRunAt: text("next_run_at"),
 });
 
 // --- Messaging (L1a Thread primitive) ---
 
-export const threads = sqliteTable(
+export const threads = pgTable(
 	"threads",
 	{
 		id: text("id").primaryKey(),
@@ -219,7 +220,7 @@ export const threads = sqliteTable(
 		hostId: text("host_id").notNull(),
 		initiatorId: text("initiator_id").notNull(),
 		participants: text("participants").notNull(),
-		pinned: integer("pinned").notNull().default(0),
+		pinned: boolean("pinned").notNull().default(false),
 		resolvedAt: text("resolved_at"),
 		lastActiveAt: text("last_active_at").notNull(),
 		createdAt: text("created_at").notNull(),
@@ -230,7 +231,7 @@ export const threads = sqliteTable(
 	],
 );
 
-export const messages = sqliteTable(
+export const messages = pgTable(
 	"messages",
 	{
 		id: text("id").primaryKey(),
@@ -247,10 +248,6 @@ export const messages = sqliteTable(
 		redactedAt: text("redacted_at"),
 		resolvedAt: text("resolved_at"),
 		createdAt: text("created_at").notNull(),
-		// `legacy_item_id` — migration-only audit column (plan §5.1).
-		// Populated on rows generated FROM the L1a migration; NULL on
-		// every row created post-migration. Eligible for drop after the
-		// 30-day snapshot retention window in a follow-up cleanup story.
 		legacyItemId: text("legacy_item_id"),
 	},
 	(table) => [
@@ -262,7 +259,7 @@ export const messages = sqliteTable(
 
 // --- Items & Responses (human interface contract) ---
 
-export const items = sqliteTable(
+export const items = pgTable(
 	"items",
 	{
 		id: text("id").primaryKey(),
@@ -276,7 +273,7 @@ export const items = sqliteTable(
 		proposedAction: text("proposed_action"),
 		options: text("options"),
 		riskTier: text("risk_tier"),
-		blocking: integer("blocking").default(0),
+		blocking: boolean("blocking").default(false),
 		reasoning: text("reasoning"),
 		auditTrail: text("audit_trail"),
 		threadId: text("thread_id")
@@ -292,7 +289,7 @@ export const items = sqliteTable(
 
 // --- User skills ---
 
-export const userSkills = sqliteTable(
+export const userSkills = pgTable(
 	"user_skills",
 	{
 		userId: text("user_id")
@@ -321,7 +318,7 @@ export const userSkills = sqliteTable(
  * The composite UNIQUE prevents duplicate edges; the UUID `id` is for REST
  * addressing.
  */
-export const orgEdges = sqliteTable(
+export const orgEdges = pgTable(
 	"org_edges",
 	{
 		id: text("id").primaryKey(),
@@ -340,7 +337,7 @@ export const orgEdges = sqliteTable(
 
 // --- Factory settings ---
 
-export const factorySettings = sqliteTable("factory_settings", {
+export const factorySettings = pgTable("factory_settings", {
 	key: text("key").primaryKey(),
 	value: text("value").notNull(),
 	updatedAt: text("updated_at").notNull(),
@@ -348,7 +345,12 @@ export const factorySettings = sqliteTable("factory_settings", {
 
 // --- Knowledge ---
 
-export const knowledgeItems = sqliteTable(
+/**
+ * @lore O2: kernel/strategy separation. Strategy fields (layer, scopeId, kind,
+ * attentionScore, relevanceScore, citationCount, lastCitedAt, confidence, meta)
+ * moved to knowledgeStrategyFabric extension table.
+ */
+export const knowledgeItems = pgTable(
 	"knowledge_items",
 	{
 		id: text("id").primaryKey(),
@@ -377,7 +379,7 @@ export const knowledgeItems = sqliteTable(
 	],
 );
 
-export const knowledgeEditLog = sqliteTable("knowledge_edit_log", {
+export const knowledgeEditLog = pgTable("knowledge_edit_log", {
 	id: text("id").primaryKey(),
 	// @lore I3 review sec HIGH-2: edit log MUST outlive its subject. Cascade
 	// would let any agent with delete-on-knowledge_items wipe their own
@@ -409,7 +411,7 @@ export const knowledgeEditLog = sqliteTable("knowledge_edit_log", {
  * not wired into the knowledge routes. The real accessor comes from the
  * auth middleware — wiring it is out of L22 scope.
  */
-export const knowledgeAccessLog = sqliteTable(
+export const knowledgeAccessLog = pgTable(
 	"knowledge_access_log",
 	{
 		id: text("id").primaryKey(),
@@ -427,7 +429,7 @@ export const knowledgeAccessLog = sqliteTable(
 
 // --- Knowledge conflicts ---
 
-export const knowledgeConflicts = sqliteTable("knowledge_conflicts", {
+export const knowledgeConflicts = pgTable("knowledge_conflicts", {
 	id: text("id").primaryKey(),
 	// @lore I3 review sec HIGH-2: conflict resolution evidence MUST outlive
 	// its subject — same reasoning as knowledge_edit_log above.
@@ -458,7 +460,7 @@ export const knowledgeConflicts = sqliteTable("knowledge_conflicts", {
  * table retains only identity + content columns. No `strategy` discriminator
  * column: multiple strategies can coexist in the same row.
  */
-export const knowledgeStrategyFabric = sqliteTable(
+export const knowledgeStrategyFabric = pgTable(
 	"knowledge_strategy_fabric",
 	{
 		id: text("id").primaryKey(),
@@ -491,7 +493,7 @@ export const knowledgeStrategyFabric = sqliteTable(
  * on tasks (riskTier, attentionScore, durability, crossTeam) are moved here.
  * The kernel tasks table retains only identity + work columns.
  */
-export const taskStrategyFabric = sqliteTable(
+export const taskStrategyFabric = pgTable(
 	"task_strategy_fabric",
 	{
 		id: text("id").primaryKey(),
@@ -510,7 +512,7 @@ export const taskStrategyFabric = sqliteTable(
 
 // --- Notification queue (H2) ---
 
-export const notificationQueue = sqliteTable(
+export const notificationQueue = pgTable(
 	"notification_queue",
 	{
 		id: text("id").primaryKey(),
@@ -555,7 +557,7 @@ export const notificationQueue = sqliteTable(
  * At current expected volumes (~10 propagations/day) a year's worth is ~3,650
  * rows — negligible. Revisit if bet/task throughput increases 100x.
  */
-export const propagationLog = sqliteTable(
+export const propagationLog = pgTable(
 	"propagation_log",
 	{
 		id: text("id").primaryKey(),
@@ -595,7 +597,7 @@ export const propagationLog = sqliteTable(
 // @lore O2: cost columns (costMoneyMicros, costTokensInput, costTokensOutput,
 // costSettledAt) stripped from the kernel artifacts table as part of
 // kernel/strategy separation. Cost is a strategy concern.
-export const artifacts = sqliteTable(
+export const artifacts = pgTable(
 	"artifacts",
 	{
 		id: text("id").primaryKey(),
@@ -622,7 +624,7 @@ export const artifacts = sqliteTable(
  * safeStorage on the desktop. The name column is constrained to the
  * CREDENTIAL_NAMES catalog at the application layer (not the DB layer).
  */
-export const serverCredentials = sqliteTable("server_credentials", {
+export const serverCredentials = pgTable("server_credentials", {
 	/** CredentialName from catalog — anthropic_api_key | openrouter_api_key | shared_backend_key */
 	name: text("name").primaryKey(),
 	/** AES-256-GCM encrypted value. Format: base64(iv + ciphertext + authTag). */
@@ -641,11 +643,9 @@ export const serverCredentials = sqliteTable("server_credentials", {
  * config. The config column holds a Zod-validated JSON blob.
  *
  * @lore P3: Single-row table (id = "default") holds all server config as a
- * JSON blob. SQLite serializes writes so no concurrent-write conflicts.
- * Zod validation on read/write provides type safety. See architecture.md
- * Decision 2.
+ * JSON blob. Zod validation on read/write provides type safety.
  */
-export const serverConfig = sqliteTable("server_config", {
+export const serverConfig = pgTable("server_config", {
 	/** Singleton row. Always "default". */
 	id: text("id").primaryKey().default("default"),
 	/** JSON blob validated by Zod on read/write. */
@@ -664,7 +664,7 @@ export const serverConfig = sqliteTable("server_config", {
  * The hint catalog lives in @hyperidle/shared; this table only stores
  * the userId + hintId + seenAt dismissal record.
  */
-export const hintProgress = sqliteTable(
+export const hintProgress = pgTable(
 	"hint_progress",
 	{
 		userId: text("user_id")

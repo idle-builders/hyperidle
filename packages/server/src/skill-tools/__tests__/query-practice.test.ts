@@ -7,10 +7,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { queryPracticeTool } from "../query-practice.js";
 import type { ToolContext } from "../tool-registry.js";
 
-function makeDb(): HyperIdleDb {
-	const db = createTestDb();
-	setupFts(db);
-	return db;
+async function makeDb(): Promise<HyperIdleDb> {
+	const handle = await createTestDb();
+	await setupFts(handle.db);
+	return handle.db;
 }
 
 function makeContext(db: HyperIdleDb): ToolContext {
@@ -28,13 +28,13 @@ function makeContext(db: HyperIdleDb): ToolContext {
 describe("query_practice tool", () => {
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = makeDb();
+	beforeEach(async () => {
+		db = await makeDb();
 	});
 
 	describe("AC4: searches 'file handling' returns matching L3 practices", () => {
 		it("returns L3 patterns whose body matches the query", async () => {
-			createKnowledgeItem(db, {
+			await createKnowledgeItem(db, {
 				layer: "L3",
 				kind: "pattern",
 				topic: "io",
@@ -44,7 +44,7 @@ describe("query_practice tool", () => {
 				status: "active",
 				updatedBy: "human",
 			});
-			createKnowledgeItem(db, {
+			await createKnowledgeItem(db, {
 				layer: "L3",
 				kind: "pattern",
 				topic: "io",
@@ -66,7 +66,7 @@ describe("query_practice tool", () => {
 		});
 
 		it("excludes L1 items by default (default layer filter is L3)", async () => {
-			createKnowledgeItem(db, {
+			await createKnowledgeItem(db, {
 				layer: "L3",
 				kind: "pattern",
 				topic: "io",
@@ -76,7 +76,7 @@ describe("query_practice tool", () => {
 				status: "active",
 				updatedBy: "human",
 			});
-			createKnowledgeItem(db, {
+			await createKnowledgeItem(db, {
 				layer: "L1",
 				kind: "pattern",
 				topic: "io",
@@ -108,7 +108,7 @@ describe("query_practice tool", () => {
 		});
 
 		it("respects explicit layer override", async () => {
-			createKnowledgeItem(db, {
+			await createKnowledgeItem(db, {
 				layer: "L1",
 				kind: "pattern",
 				topic: "io",

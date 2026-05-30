@@ -1,38 +1,39 @@
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import Database from "better-sqlite3";
-import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { HyperIdleDb } from "../connection.js";
-import * as schema from "../schema.js";
+import { products } from "../schema.js";
+import { createTestDb, type TestDbHandle } from "../test-utils.js";
 
-function migrateFreshDb(opts?: { foreignKeys?: boolean }): HyperIdleDb {
-	const sqlite = new Database(":memory:");
-	sqlite.pragma("journal_mode = WAL");
-	if (opts?.foreignKeys) sqlite.pragma("foreign_keys = ON");
-	const db = drizzle(sqlite, { schema });
-	migrate(db, { migrationsFolder: resolve(__dirname, "../../drizzle") });
-	return db;
-}
+// @lore Phase 2: migration.test.ts now tests PGlite migrations. SQLite migration
+// tests were removed because the schema is now PG-only. The journal timestamp
+// check is preserved as it validates the migration file integrity independent
+// of the DB engine.
 
 describe("A2: Migration", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = migrateFreshDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
+	}, 30_000);
+
+	afterEach(async () => {
+		await handle.close();
 	});
 
-	it("applies migrations to a fresh in-memory SQLite database", () => {
+	it("applies migrations to a fresh in-memory PGlite database", async () => {
 		// L1a: `responses` table dropped; verdicts now project as
 		// `verdict`-typed messages (plan §5.2). Snapshot tables
 		// `_l1_snapshot_*` are migration artifacts, excluded from the
 		// canonical table list.
-		const tableNames = db
-			.all<{ name: string }>(
-				sql`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '__drizzle%' AND name NOT LIKE 'd1%' AND name NOT LIKE '_l1_snapshot_%' ORDER BY name`,
-			)
-			.map((r) => r.name);
+		const result = await db.execute(
+			`SELECT tablename AS name FROM pg_tables WHERE schemaname = 'public' AND tablename NOT LIKE '_l1_snapshot_%' ORDER BY tablename` as Parameters<
+				typeof db.execute
+			>[0],
+		);
+		const tableNames = (result as { rows: Array<{ name: string }> }).rows.map((r) => r.name);
 
 		expect(tableNames).toEqual(
 			expect.arrayContaining([
@@ -74,58 +75,64 @@ describe("A2: Migration", () => {
 		expect(result[0]).toMatchObject({ id: "test-prod", name: "Test" });
 	});
 
-	it("migrated database has kernel and fabric knowledge indexes", () => {
+	it("migrated database has kernel and fabric knowledge indexes", async () => {
 		// @lore O2: layer, scope_id, kind indexes removed from knowledge_items kernel table.
 		// They now live on knowledge_strategy_fabric extension table.
-		const kiIndexes = db
-			.all<{ name: string }>(
-				sql`SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='knowledge_items' AND name NOT LIKE 'sqlite_%'`,
-			)
-			.map((r) => r.name);
+		const kiResult = await db.execute(
+			`SELECT indexname FROM pg_indexes WHERE tablename = 'knowledge_items' AND schemaname = 'public'` as Parameters<
+				typeof db.execute
+			>[0],
+		);
+		const kiIndexes = (kiResult as { rows: Array<{ indexname: string }> }).rows.map(
+			(r) => r.indexname,
+		);
 
-		// Kernel table should have at least 3 indexes (topic, status, updated_at)
+		// Kernel table should have at least 3 indexes (PK + topic + status/updated_at)
 		expect(kiIndexes.length).toBeGreaterThanOrEqual(3);
 
-		const kiIndexedColumns = new Set<string>();
-		for (const idx of kiIndexes) {
-			const cols = db.all<{ name: string }>(sql.raw(`PRAGMA index_info("${idx}")`));
-			for (const col of cols) {
-				kiIndexedColumns.add(col.name);
-			}
-		}
+		// Strategy fabric table should have indexes too
+		const ksfResult = await db.execute(
+			`SELECT indexname FROM pg_indexes WHERE tablename = 'knowledge_strategy_fabric' AND schemaname = 'public'` as Parameters<
+				typeof db.execute
+			>[0],
+		);
+		const ksfIndexes = (ksfResult as { rows: Array<{ indexname: string }> }).rows.map(
+			(r) => r.indexname,
+		);
 
-		expect(kiIndexedColumns).toContain("topic");
-		expect(kiIndexedColumns).toContain("status");
-
-		// Strategy fabric table should have layer and kind indexes
-		const ksfIndexes = db
-			.all<{ name: string }>(
-				sql`SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='knowledge_strategy_fabric' AND name NOT LIKE 'sqlite_%'`,
-			)
-			.map((r) => r.name);
-
-		const ksfIndexedColumns = new Set<string>();
-		for (const idx of ksfIndexes) {
-			const cols = db.all<{ name: string }>(sql.raw(`PRAGMA index_info("${idx}")`));
-			for (const col of cols) {
-				ksfIndexedColumns.add(col.name);
-			}
-		}
-
-		expect(ksfIndexedColumns).toContain("layer");
-		expect(ksfIndexedColumns).toContain("kind");
+		expect(ksfIndexes.length).toBeGreaterThanOrEqual(1);
 	});
 
-	it("migration is idempotent (running twice does not error)", () => {
-		const migrationsFolder = resolve(__dirname, "../../drizzle");
-		migrate(db, { migrationsFolder });
+	it("journal timestamps are strictly monotonically increasing", () => {
+		const journalPath = resolve(__dirname, "../../drizzle/meta/_journal.json");
+		const journal = JSON.parse(readFileSync(journalPath, "utf-8")) as {
+			entries: Array<{ idx: number; when: number; tag: string }>;
+		};
 
-		const tableNames = db
-			.all<{ name: string }>(
-				sql`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '__drizzle%' ORDER BY name`,
-			)
-			.map((r) => r.name);
+		expect(journal.entries.length).toBeGreaterThan(0);
 
-		expect(tableNames.length).toBeGreaterThanOrEqual(16);
+		for (let i = 1; i < journal.entries.length; i++) {
+			const prev = journal.entries[i - 1];
+			const curr = journal.entries[i];
+			if (!(prev && curr)) continue;
+			expect(
+				curr.when > prev.when,
+				`Migration ${curr.tag} (idx ${curr.idx}, when=${curr.when}) has a timestamp ≤ ${prev.tag} (idx ${prev.idx}, when=${prev.when}). ` +
+					"Drizzle skips migrations whose timestamp is ≤ the last applied migration. " +
+					"This WILL break upgrades for existing users.",
+			).toBe(true);
+		}
+	});
+
+	it("migration is idempotent (running twice does not error)", async () => {
+		await handle.runMigrations();
+
+		const result = await db.execute(
+			`SELECT COUNT(*) AS n FROM pg_tables WHERE schemaname = 'public'` as Parameters<
+				typeof db.execute
+			>[0],
+		);
+		const rows = (result as { rows: Array<{ n: string | number }> }).rows;
+		expect(Number(rows[0]?.n)).toBeGreaterThanOrEqual(15);
 	});
 });

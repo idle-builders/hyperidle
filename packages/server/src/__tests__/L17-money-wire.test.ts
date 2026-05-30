@@ -16,6 +16,7 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	sessions,
+	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
@@ -43,11 +44,13 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 // ── AC13: Cost-cap service with new column names ──────────────────────────────
 
 describe("Cost-cap service with Money columns (AC13)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		clearDeduplicationCache();
 
@@ -94,35 +97,31 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 			})
 			.run();
 
-		db.insert(users)
-			.values({
-				id: "agent-1",
-				name: "Builder Agent",
-				role: "builder",
-				status: "active",
-				teamId: "t1",
-				maxConcurrentSessions: 2,
-				// New column: cost_cap_minor (was costCap)
-				costCapMinor: 1000, // $10.00 in cents
-				costCapCurrency: "USD",
-				createdAt: NOW,
-			})
-			.run();
+		await db.insert(users).values({
+			id: "agent-1",
+			name: "Builder Agent",
+			role: "builder",
+			status: "active",
+			teamId: "t1",
+			maxConcurrentSessions: 2,
+			// New column: cost_cap_minor (was costCap)
+			costCapMinor: 1000, // $10.00 in cents
+			costCapCurrency: "USD",
+			createdAt: NOW,
+		});
 	});
 
-	function insertSession(id: string, agentId: string): void {
+	async function insertSession(id: string, agentId: string): Promise<void> {
 		// @lore O2: session cost columns (costMinor, costCurrency) stripped from
 		// the kernel sessions table. Sessions no longer carry cost data directly.
-		db.insert(sessions)
-			.values({
-				id,
-				taskId: "task-1",
-				agentId,
-				modelTier: "workhorse",
-				startedAt: NOW,
-				state: "done",
-			})
-			.run();
+		await db.insert(sessions).values({
+			id,
+			taskId: "task-1",
+			agentId,
+			modelTier: "workhorse",
+			startedAt: NOW,
+			state: "done",
+		});
 	}
 
 	it("reads costCapMinor from agents table (not old costCap)", async () => {
@@ -166,7 +165,7 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 		});
 
 		// Session should still be readable; cost data is not in the kernel table
-		const session = db.select().from(sessions).where(eq(sessions.id, "s1")).get();
+		const [session] = await db.select().from(sessions).where(eq(sessions.id, "s1"));
 		expect(session).toBeDefined();
 		// The kernel table doesn't have costMinor; verifying the session exists is sufficient
 		expect(session?.id).toBe("s1");
@@ -190,15 +189,17 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 // ── AC14: Token accumulation by tier ─────────────────────────────────────────
 
 describe("Session token accumulation by tier (AC14)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		// @lore U1: teams is the domain entity; teamMembers is the membership group.
 		db.insert(teams)
@@ -209,8 +210,9 @@ describe("Session token accumulation by tier (AC14)", () => {
 			.run();
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	it("session row contains tokensJson after task completes with tier breakdown", async () => {
@@ -246,15 +248,17 @@ describe("Session token accumulation by tier (AC14)", () => {
 // ── AC15: Bet create API ──────────────────────────────────────────────────────
 
 describe("Bet create API — structured costAppetite (AC15)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		// @lore U1: teams is domain entity; teamMembers is membership group.
 		db.insert(teams)
@@ -265,8 +269,9 @@ describe("Bet create API — structured costAppetite (AC15)", () => {
 			.run();
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	// @lore U1: API uses `teamId` (references `teams` domain entity); `description` replaces `pitch`.
@@ -347,15 +352,17 @@ describe("Bet create API — structured costAppetite (AC15)", () => {
 // ── AC16: Bet detail returns structured cost fields ───────────────────────────
 
 describe("Bet detail API — structured cost fields (AC16)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		// @lore U1: teams is domain entity; teamMembers is membership group.
 		db.insert(teams)
@@ -380,8 +387,9 @@ describe("Bet detail API — structured cost fields (AC16)", () => {
 			.run();
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	it("GET /bets/:id returns costAppetite as WireMoney object", async () => {

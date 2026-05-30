@@ -4,6 +4,7 @@ import {
 	type HyperIdleDb,
 	items,
 	sessions,
+	type TestDbHandle,
 	taskStrategyFabric,
 	tasks,
 	teamMembers,
@@ -18,11 +19,13 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("registerSessionReviewCreator", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 
 		// Seed base data
@@ -64,11 +67,11 @@ describe("registerSessionReviewCreator", () => {
 			.run();
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.restoreAllMocks();
 	});
 
-	it("creates review item for high-risk task on session_ended", () => {
+	it("creates review item for high-risk task on session_ended", async () => {
 		const unsubscribe = registerSessionReviewCreator(db, eventBus);
 
 		// Create high-risk task with a thread
@@ -126,20 +129,21 @@ describe("registerSessionReviewCreator", () => {
 		};
 		eventBus.emit(event);
 
-		// Verify item was created
-		const createdItems = db.select().from(items).where(eq(items.threadId, "thread-1")).all();
-		expect(createdItems).toHaveLength(1);
-		expect(createdItems[0].kind).toBe("review");
-		expect(createdItems[0].title).toBe("Session completed: success");
+		// Handler is async — wait for it to complete
+		await vi.waitFor(async () => {
+			const createdItems = await db.select().from(items).where(eq(items.threadId, "thread-1"));
+			expect(createdItems).toHaveLength(1);
+			expect(createdItems[0].kind).toBe("review");
+			expect(createdItems[0].title).toBe("Session completed: success");
+		});
 
-		// Verify event was emitted
 		expect(emittedEvents).toHaveLength(1);
 		expect(emittedEvents[0].kind).toBe("review");
 
 		unsubscribe();
 	});
 
-	it("does not create review item for low-risk task", () => {
+	it("does not create review item for low-risk task", async () => {
 		const unsubscribe = registerSessionReviewCreator(db, eventBus);
 
 		db.insert(tasks)
@@ -178,14 +182,15 @@ describe("registerSessionReviewCreator", () => {
 		};
 		eventBus.emit(event);
 
-		// No items created
-		const allItems = db.select().from(items).all();
+		// Handler is async — give it a tick to run, then confirm nothing was created
+		await new Promise((r) => setTimeout(r, 50));
+		const allItems = await db.select().from(items);
 		expect(allItems).toHaveLength(0);
 
 		unsubscribe();
 	});
 
-	it("auto-creates thread when task has no threadId", () => {
+	it("auto-creates thread when task has no threadId", async () => {
 		const unsubscribe = registerSessionReviewCreator(db, eventBus);
 
 		db.insert(tasks)
@@ -225,27 +230,27 @@ describe("registerSessionReviewCreator", () => {
 		};
 		eventBus.emit(event);
 
-		// L1a: thread shape is host_kind/host_id; legacy review threads
-		// project to host_kind='task' with host_id=task.id (plan §5.3).
-		const allThreads = db.select().from(threads).all();
-		expect(allThreads).toHaveLength(1);
-		expect(allThreads[0].hostKind).toBe("task");
-		expect(allThreads[0].hostId).toBe("task-no-thread");
+		// Handler is async — wait for it to complete
+		await vi.waitFor(async () => {
+			const allThreads = await db.select().from(threads);
+			expect(allThreads).toHaveLength(1);
+			expect(allThreads[0].hostKind).toBe("task");
+			expect(allThreads[0].hostId).toBe("task-no-thread");
+		});
 
-		// Verify item was created in the new thread
-		const allItems = db.select().from(items).all();
+		const allThreads = await db.select().from(threads);
+		const allItems = await db.select().from(items);
 		expect(allItems).toHaveLength(1);
 		expect(allItems[0].threadId).toBe(allThreads[0].id);
 		expect(allItems[0].title).toBe("Session completed: partial");
 
-		// Verify task was updated with new threadId
-		const updatedTask = db.select().from(tasks).where(eq(tasks.id, "task-no-thread")).get();
+		const [updatedTask] = await db.select().from(tasks).where(eq(tasks.id, "task-no-thread"));
 		expect(updatedTask?.threadId).toBe(allThreads[0].id);
 
 		unsubscribe();
 	});
 
-	it("returns an unsubscribe function that stops handling events", () => {
+	it("returns an unsubscribe function that stops handling events", async () => {
 		const unsubscribe = registerSessionReviewCreator(db, eventBus);
 
 		db.insert(tasks)
@@ -287,8 +292,8 @@ describe("registerSessionReviewCreator", () => {
 		};
 		eventBus.emit(event);
 
-		// No items created
-		const allItems = db.select().from(items).all();
+		await new Promise((r) => setTimeout(r, 50));
+		const allItems = await db.select().from(items);
 		expect(allItems).toHaveLength(0);
 	});
 });

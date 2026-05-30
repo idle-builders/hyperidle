@@ -18,7 +18,7 @@ For each acceptance criterion, write a test that proves it. Use:
 - **API:** success, error, and edge case tests
 - **Data:** queries, mutations, validation, constraint violations
 
-Run `bun run verify` to confirm tests compile and lint cleanly, then run the test suite. Confirm the new tests **fail** (red phase). Do NOT write implementation code.
+Run `npm run verify` to confirm tests compile and lint cleanly, then run the test suite. Confirm the new tests **fail** (red phase). Do NOT write implementation code.
 
 **Don't rationalize skipping this:**
 - "Too simple to need tests" — simple workpackages have the highest regression rate

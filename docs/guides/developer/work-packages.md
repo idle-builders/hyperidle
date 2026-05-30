@@ -6,4 +6,4 @@ Stories are defined in `plans/work-packages/TRACK-*.md` files (A through J). Eac
 2. Write failing tests (red)
 3. Implement until tests pass (green)
 4. Simplify (refactor)
-5. Verify: `bun run check && bun run lint && bun run test`
+5. Verify: `npm run check && npm run lint && npm run test`

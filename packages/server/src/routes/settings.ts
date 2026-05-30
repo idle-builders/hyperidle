@@ -58,12 +58,8 @@ type SettingsPatchBody = z.infer<typeof settingsPatchSchema>;
 export function createSettingsRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
-	function readSettings(): ReturnType<typeof buildSettingsResponse> {
-		return buildSettingsResponse(db);
-	}
-
-	router.get("/", (c) => {
-		return c.json(readSettings());
+	router.get("/", async (c) => {
+		return c.json(await buildSettingsResponse(db));
 	});
 
 	router.patch("/", async (c) => {
@@ -86,10 +82,10 @@ export function createSettingsRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono
 
 		// @lore P3: Write notifications to server_config instead of factorySettings.
 		if (body.notifications) {
-			updateServerConfig(db, { notifications: body.notifications });
+			await updateServerConfig(db, { notifications: body.notifications });
 		}
 
-		return c.json(readSettings());
+		return c.json(await buildSettingsResponse(db));
 	});
 
 	return router;
@@ -105,7 +101,7 @@ export function createSettingsRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono
  * @lore P3: notifications now read from server_config table via readServerConfig.
  * @lore U1: `products` -> `teams`, `mutedProducts` -> `mutedTeams`.
  */
-function buildSettingsResponse(db: HyperIdleDb): {
+async function buildSettingsResponse(db: HyperIdleDb): Promise<{
 	profile: { name: string; email: string; avatarUrl: null };
 	teams: Array<{ id: string; name: string; active: boolean }>;
 	users: Array<{ id: string; name: string; autonomyLevel: string; paused: boolean }>;
@@ -117,17 +113,17 @@ function buildSettingsResponse(db: HyperIdleDb): {
 		quietHoursEnd: string;
 		mutedTeams: string[];
 	};
-} {
+}> {
 	// P2: Read founder profile from users table (kind = 'human')
-	const humanUser = db.select().from(users).where(eq(users.kind, "human")).limit(1).get();
+	const [humanUser] = await db.select().from(users).where(eq(users.kind, "human")).limit(1);
 
 	// P3: Read notification settings from server_config (defaults if not configured)
-	const serverCfg = readServerConfig(db);
+	const serverCfg = await readServerConfig(db);
 
 	// Teams — active derived from phase !== "archived"
 	const teamRows = db.select().from(teams).all();
 	// AI Users — paused derived from status === "paused" (kind = 'ai' for the agents panel)
-	const aiUserRows = db.select().from(users).where(eq(users.kind, "ai")).all();
+	const aiUserRows = await db.select().from(users).where(eq(users.kind, "ai"));
 
 	return {
 		profile: {

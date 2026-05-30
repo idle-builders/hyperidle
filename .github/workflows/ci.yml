@@ -13,12 +13,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# CI validates a locally-signed attestation from `bun run verify` instead of
+# CI validates a locally-signed attestation from `npm run verify` instead of
 # re-running all tools. The HMAC secret (VERIFY_SECRET) must match the one at
 # ~/.config/hyperidle/verify-secret on the developer's machine.
 jobs:
   verify:
-    name: bun run verify
+    name: npm run verify
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -26,11 +26,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: oven-sh/setup-bun@v2.2.0
+      - uses: actions/setup-node@v4
         with:
-          bun-version: latest
+          node-version: 26
+          cache: npm
 
       - name: Check attestation
-        run: bun run scripts/check-attestation.ts
+        run: npx tsx scripts/check-attestation.ts
         env:
           VERIFY_SECRET: ${{ secrets.VERIFY_SECRET }}

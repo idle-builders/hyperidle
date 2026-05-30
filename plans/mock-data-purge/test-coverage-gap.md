@@ -1,117 +1,48 @@
-# Test-coverage gap analysis — Mock-data purge (M4 AC-4)
+# Test Coverage Gap Analysis (M4)
 
-Explains why the pre-Track-M test suite passed despite mock-data leaks in runtime code, and
-describes the structural fix introduced by the M1 lint rules.
+Analysis of why the existing test suite passed despite mock-data leaks, and how the M1 lint rules close the structural gap.
 
 ---
 
 ## Root cause: behavioral tests do not catch data-source leaks
 
-The existing test suite proves *behavior* (does the component render, does the panel open, does
-the list show items). It does not prove *data provenance* (did the data come from the API or from a
-hardcoded constant).
+The existing Vitest test suite for the web package tests component _behavior_ — what renders, what happens on click, what API calls are made. Behavioral tests import components and assert on their output, but they do not assert _where_ the data came from. A component that renders fixture data looks identical in a behavioral test to a component that renders API data. Both produce the same JSX output.
 
-This gap is not a testing failure — it reflects the correct role of behavioral tests. The gap was
-invisible before Track M because the runtime and the tests used the same fixture source. When the
-runtime imported `DEMO_FOUNDER_ID = "u-founder"` directly and the test rendered the component with
-that same import, both were correct relative to each other. Neither caught that the runtime should
-have been reading from the auth API instead.
+This is the structural reason the test suite passed while `MOCK_KNOWLEDGE_ITEMS` and `LEGACY_DETAILS` remained in production code:
 
----
+- `WorkBet.tsx` renders bet data — tests assert the pitch is shown, but the tests provide the pitch via `createTestDb()` + API, so they do not see the `<pre>` fallback.
+- `AppShell.tsx` mounts the rail and navigation — tests assert the rail items render, but the tests do not verify whether the rail items came from the API or from a fallback constant.
+- `Rail.tsx` renders navigation items from props — a behavioral test only checks that the items appear in the DOM, not whether the props were sourced from an API call or a local constant.
+- `SettingsPanel.tsx` shows team/user information — tests mock the context provider and never reach the fallback user ID path (`"u-founder"`).
 
 ## Concrete examples
 
-### 1. `WorkBet.tsx` — hardcoded founder id in thread creation
+### `packages/web/src/pages/KnowledgeDetail.tsx`
 
-`WorkBet.tsx` used `FOUNDER_ID = "u-founder"` (from `app-shell-data.ts`) when calling
-`resolveOrCreateTaskThread(taskId, founderId, agentParticipantId)`. The e2e test for bets
-(`work-surface.spec.ts`) checked that bet cards render and that clicking a task opens the sheet. It
-never opened the thread panel and never posted a message. The hardcoded `founderId` was never
-exercised in any assertion. The test passed; the data-source leak was invisible.
+Lines 86–130 define `LEGACY_DETAILS`, `LEGACY_SOURCES`, and `FALLBACK_DETAIL` — three runtime constants that hold fixture data. The existing Vitest suite in `KnowledgeDetail.thread.test.tsx` and `KnowledgeDetail.block-popover.test.tsx` tests thread behavior and popover behavior, but does NOT assert that the detail object was fetched from the API rather than resolved from `LEGACY_DETAILS`. A test that renders `<KnowledgeDetail id="k1" />` passes whether the data came from the API or from the local constant — the rendered output is identical.
 
-### 2. `AppShell.tsx` — hardcoded founder id in profile button
+### `packages/web/src/fixtures/knowledge-data.ts`
 
-`AppShell.tsx` used `DEMO_FOUNDER_ID = "u-founder"` (from `app-shell-data.ts`) for the profile
-button aria-label and displayed name. The test suite checked that the AppShell renders an icon rail
-and that navigation links are present. No test asserted "the profile button shows the logged-in
-user's name from the API". The test checked layout structure, not data source. The test passed;
-the `DEMO_FOUNDER_ID` leak was invisible.
+`MOCK_KNOWLEDGE_ITEMS` (line 82) and `MOCK_CURATION_SUGGESTIONS` (line 290) are imported by `KnowledgeDetail.tsx` (line 43). The Knowledge List tests do not verify that the listed items match database content — they only verify that items render with expected shapes.
 
-### 3. `Rail.tsx` — hardcoded MOCK_RAIL_COST in cost display
+### `packages/server/src/middleware/auth.ts`
 
-`Rail.tsx` rendered `MOCK_RAIL_COST.todaySpend.minor = 1240` ($12.40) and
-`MOCK_RAIL_COST.weekSpend.minor = 8420` ($84.20) directly. The e2e test for the rail
-(`work-surface.spec.ts`) checked that the rail section exists and that bet titles appear. It did not
-assert that the dollar amounts matched an API response. Because the test and the runtime both used
-the same `MOCK_RAIL_COST` fixture, they agreed on the values. The test passed; the hardcoded cost
-display was invisible.
+Line 90 falls back to `"u-founder"` when no human user exists in the database. The auth middleware test suite (`auth.test.ts`) covers the happy path (real user found) but tests that use `createTestApp()` without seeding a user would silently use the fallback, meaning the test passes but the behavior under test is the fallback path, not the real path.
 
-### 4. `SettingsPanel.tsx` — DEFAULT_SETTINGS from shared fixture
+## Why this matters
 
-`SettingsPanel.tsx` used `DEFAULT_SETTINGS` (from `app-shell-data.ts`) for the initial profile
-values (`name: "Founder"`, `email: "founder@hyperidle.com"`). The settings e2e test checked that
-the settings overlay opens when the profile button is clicked and that the overlay closes when
-dismissed. It did not check the values of the Name or Email inputs. The test and the runtime shared
-the same fixture; both agreed the panel rendered correctly. The test passed; the hardcoded profile
-data was invisible.
-
----
-
-## Shared fixture import pattern
-
-The unifying pattern across all four cases is: **the test and the runtime imported from the same
-fixture module**. Removing the fixture from the runtime broke the tests, which was the first signal
-that the runtime depended on mock data. Before the removal, the shared import created a false sense
-of correctness — the tests passed because they encoded the same hardcoded values as the runtime,
-not because the runtime was using real data.
-
-This is the L16 retro pattern (CC-016): "removing a runtime fallback exposes ripple sites in tests
-that imported the same fixture as runtime."
-
----
-
-## Layout-not-data assertions
-
-A secondary pattern: tests that check layout structure (does the element exist, does the section
-render) rather than data content (does the element show the value that came from the API). Layout
-assertions are useful for catching regressions in component structure. They are not useful for
-catching data-source leaks. Both can be true at the same time — the tests were correct for what they
-checked; they were not designed to check data provenance.
-
----
-
-## Missing API-source verification
-
-The test suite had no test that said: "I will configure the API mock to return a specific value, then
-assert that the rendered output contains that specific value." Without this pattern, a component can
-ignore the API entirely and still pass all tests. The M4 e2e suite (`mock-data-purge.spec.ts`)
-introduces this pattern for the three failure modes: DOM literal sweep, rail cost values, and
-settings profile. Any future regression — a developer accidentally re-introducing a hardcoded
-fallback — will cause one of these tests to fail.
-
----
+Data-source leaks are invisible to behavioral tests because:
+1. The test harness controls the input to the component, so the component always gets valid data.
+2. The test never exercises the fallback path (the mock data constant) because the test provides the data directly.
+3. The component's output is the same whether the data came from a constant or an API.
 
 ## Structural fix: M1 lint rules
 
-Behavioral tests (does the component work?) are necessary but not sufficient to prevent data-source
-leaks. The structural guard is a lint rule that fires when a runtime file imports from a fixture
-module or declares a symbol with a forbidden prefix (`MOCK_*`, `DEMO_*`, `LEGACY_*`, etc.).
+The `design/no-mock-data-import` and `design/no-mock-data-symbol` eslint rules (promoted to `"error"` in M4) provide a static guarantee that mock data symbols cannot enter production code paths. These rules:
 
-The `design/no-mock-data-import` and `design/no-mock-data-symbol` rules (introduced in M1,
-promoted to `error` in M4) make data-source leaks a hard CI failure instead of a silent runtime
-behavior. A developer who writes `import { MOCK_XYZ } from "../fixtures/xyz"` in a page component
-gets an eslint error immediately — before the code ships to CI, before a reviewer sees it.
+1. Prevent imports from `fixtures/` directories in non-test, non-story, non-e2e files.
+2. Flag symbol names matching the `MOCK_`, `FAKE_`, `STUB_`, `LEGACY_`, `FALLBACK_`, etc. prefixes in runtime code.
 
-The M4 promotion from `warn` to `error` closes the remaining gap: warnings are advisory, errors
-are blocking. A `warn`-level rule allows the import to ship; an `error`-level rule prevents it.
+A lint error blocks CI before any behavioral test can even run. This means the class of bug (fixture data in production code) is caught at the import/symbol level, not at the rendering level — regardless of whether any behavioral test would have caught it.
 
----
-
-## Summary
-
-| Gap | Why tests passed | Fix |
-|---|---|---|
-| Shared fixture import | Test and runtime used same mock source | `design/no-mock-data-import` at error |
-| Layout-not-data assertions | Tests checked structure, not data source | M4 e2e API-source verification tests |
-| Missing API-source verification | No test verified data came from the API | `mock-data-purge.spec.ts` AC-3a/b/c |
-| Forbidden symbol names | `no-mock-data-symbol` was warn, not error | Promoted to error in M4 |
+The M1 lint rules do not replace behavioral tests; they complement them by adding a structural layer that behavioral tests cannot provide.

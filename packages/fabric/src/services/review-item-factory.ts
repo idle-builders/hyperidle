@@ -47,27 +47,25 @@ export function attentionReviewReasoningMarker(knowledgeItemId: string): string 
  * for human review. The marker embedded in `reasoning` enables idempotent
  * reuse by the attention service.
  */
-export function createReviewItemForKnowledge(
+export async function createReviewItemForKnowledge(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	input: CreateReviewItemForKnowledgeInput,
-): CreateReviewItemForKnowledgeResult {
+): Promise<CreateReviewItemForKnowledgeResult> {
 	const threadId = randomUUID();
 	const isoNow = new Date(input.nowMs).toISOString();
 
 	// L1a: thread now carries host_kind/host_id; for knowledge-review the
 	// host is the knowledge item being reviewed.
-	db.insert(threads)
-		.values({
-			id: threadId,
-			hostKind: "knowledge_item",
-			hostId: input.knowledgeItemId,
-			initiatorId: ATTENTION_REVIEW_SOURCE,
-			participants: JSON.stringify([ATTENTION_REVIEW_SOURCE]),
-			lastActiveAt: isoNow,
-			createdAt: isoNow,
-		})
-		.run();
+	await db.insert(threads).values({
+		id: threadId,
+		hostKind: "knowledge_item",
+		hostId: input.knowledgeItemId,
+		initiatorId: ATTENTION_REVIEW_SOURCE,
+		participants: JSON.stringify([ATTENTION_REVIEW_SOURCE]),
+		lastActiveAt: isoNow,
+		createdAt: isoNow,
+	});
 
 	const itemId = randomUUID();
 	const reasoningBlob = {
@@ -82,24 +80,22 @@ export function createReviewItemForKnowledge(
 	// kernel table. The riskTier remains on items; attentionScore is persisted
 	// on knowledgeStrategyFabric instead. Embed attentionScore in reasoningBlob
 	// for traceability rather than as a first-class column.
-	db.insert(items)
-		.values({
-			id: itemId,
-			sourceAgentId: null,
-			layer: input.layer,
-			verb: "review",
-			kind: "knowledge",
-			title: input.title,
-			body: input.body,
-			proposedAction: null,
-			options: null,
-			riskTier: input.riskTier,
-			blocking: 0,
-			reasoning: JSON.stringify(reasoningBlob),
-			threadId,
-			createdAt: isoNow,
-		})
-		.run();
+	await db.insert(items).values({
+		id: itemId,
+		sourceAgentId: null,
+		layer: input.layer,
+		verb: "review",
+		kind: "knowledge",
+		title: input.title,
+		body: input.body,
+		proposedAction: null,
+		options: null,
+		riskTier: input.riskTier,
+		blocking: false,
+		reasoning: JSON.stringify(reasoningBlob),
+		threadId,
+		createdAt: isoNow,
+	});
 
 	const event: ItemCreatedEvent = {
 		type: "item_created",

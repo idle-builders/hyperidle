@@ -4,7 +4,7 @@ import type { Hono } from "hono";
 import type { AppOptions } from "./app.js";
 import { createApp } from "./app.js";
 
-export function createTestApp(options?: AppOptions): Hono {
+export async function createTestApp(options?: AppOptions): Promise<Hono> {
 	return createApp(options);
 }
 

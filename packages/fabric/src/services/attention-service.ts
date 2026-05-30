@@ -116,7 +116,6 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 	const loadWeights = deps.loadWeights ?? loadAttentionWeights;
 	const now = deps.now ?? ((): number => Date.now());
 
-	// biome-ignore lint/suspicious/useAwait: callers expect Promise return for consistency with async service layer
 	async function recomputeMany(
 		ids: readonly string[],
 	): Promise<ReadonlyArray<AttentionRecomputeResult>> {
@@ -124,15 +123,14 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 
 		// @lore O2: JOIN with knowledgeStrategyFabric to get strategy fields
 		// (layer, scopeId, kind, attentionScore, confidence) needed for scoring.
-		const rows = db
+		const rows = await db
 			.select({ item: knowledgeItems, fabric: knowledgeStrategyFabric })
 			.from(knowledgeItems)
 			.leftJoin(
 				knowledgeStrategyFabric,
 				eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
 			)
-			.where(inArray(knowledgeItems.id, Array.from(ids)))
-			.all();
+			.where(inArray(knowledgeItems.id, Array.from(ids)));
 
 		if (rows.length === 0) return [];
 
@@ -148,8 +146,8 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 		}));
 
 		const nowMs = now();
-		const weights = loadWeights(db);
-		const context = buildAttentionContext(db, loadedItems, nowMs);
+		const weights = await loadWeights(db);
+		const context = await buildAttentionContext(db, loadedItems, nowMs);
 		const scored = scoreAttentionBatch(loadedItems, context, weights);
 
 		const results: AttentionRecomputeResult[] = [];
@@ -159,7 +157,7 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 			const row = scored[i];
 			if (!(item && row)) continue;
 
-			const result = applyRecomputeForItem(item, row.score, nowMs);
+			const result = await applyRecomputeForItem(item, row.score, nowMs);
 			results.push(result);
 		}
 
@@ -178,49 +176,47 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 	 * new score both touch the extension table. The kernel table is not updated
 	 * by attention recomputes — only content edits bump knowledgeItems.updatedAt.
 	 */
-	function applyRecomputeForItem(
+	async function applyRecomputeForItem(
 		item: KnowledgeItemWithFabric,
 		currentScore: number,
 		nowMs: number,
-	): AttentionRecomputeResult {
-		const txResult = db.transaction(
-			(
+	): Promise<AttentionRecomputeResult> {
+		const txResult = await db.transaction(
+			async (
 				tx,
-			): {
+			): Promise<{
 				prior: number | null;
 				crossed: boolean;
 				reviewItemCreated: boolean;
-			} => {
+			}> => {
 				// @lore O2: read prior attentionScore from the extension table.
 				// parseFloat safely converts the stored string to a number.
-				const fabricRow = tx
+				const [fabricRow] = await tx
 					.select({ attentionScore: knowledgeStrategyFabric.attentionScore })
 					.from(knowledgeStrategyFabric)
 					.where(eq(knowledgeStrategyFabric.knowledgeItemId, item.id))
-					.get();
+					.limit(1);
 				const priorStr = fabricRow?.attentionScore ?? null;
 				const prior = priorStr != null ? Number.parseFloat(priorStr) : null;
 
 				// @lore O2: write attentionScore to the extension table.
 				// Upsert: update if row exists, insert if not.
-				const existingFabric = tx
+				const [existingFabric] = await tx
 					.select({ id: knowledgeStrategyFabric.id })
 					.from(knowledgeStrategyFabric)
 					.where(eq(knowledgeStrategyFabric.knowledgeItemId, item.id))
-					.get();
+					.limit(1);
 				if (existingFabric) {
-					tx.update(knowledgeStrategyFabric)
+					await tx
+						.update(knowledgeStrategyFabric)
 						.set({ attentionScore: String(currentScore) })
-						.where(eq(knowledgeStrategyFabric.knowledgeItemId, item.id))
-						.run();
+						.where(eq(knowledgeStrategyFabric.knowledgeItemId, item.id));
 				} else {
-					tx.insert(knowledgeStrategyFabric)
-						.values({
-							id: randomUUID(),
-							knowledgeItemId: item.id,
-							attentionScore: String(currentScore),
-						})
-						.run();
+					await tx.insert(knowledgeStrategyFabric).values({
+						id: randomUUID(),
+						knowledgeItemId: item.id,
+						attentionScore: String(currentScore),
+					});
 				}
 
 				// @lore G2 threshold interval: the crossing predicate is half-open
@@ -232,17 +228,17 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 				let reviewItemCreated = false;
 				if (crossed) {
 					const marker = attentionReviewReasoningMarker(item.id);
-					const existing = tx
+					const [existing] = await tx
 						.select({ id: items.id })
 						.from(items)
 						.where(like(items.reasoning, `%${marker}%`))
-						.get();
+						.limit(1);
 					if (!existing) {
-						const hasConflict = hasOpenConflict(tx, item.id);
+						const hasConflict = await hasOpenConflict(tx, item.id);
 						const riskTier = hasConflict ? "medium" : "low";
 						const bodySummary = item.body.length > 500 ? `${item.body.slice(0, 500)}…` : item.body;
 
-						createReviewItemForKnowledge(tx, eventBus, {
+						await createReviewItemForKnowledge(tx, eventBus, {
 							knowledgeItemId: item.id,
 							// @lore O2: layer comes from the fabric item (may be null)
 							layer: item.layer ?? null,
@@ -329,21 +325,19 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 		if (hasFabricFilter) {
 			// Need JOIN when filtering by strategy fields
 			const allConditions = [...kernelConditions, ...fabricConditions];
-			rows = db
+			rows = await db
 				.select({ id: knowledgeItems.id })
 				.from(knowledgeItems)
 				.innerJoin(
 					knowledgeStrategyFabric,
 					eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
 				)
-				.where(and(...allConditions))
-				.all();
+				.where(and(...allConditions));
 		} else {
-			rows = db
+			rows = await db
 				.select({ id: knowledgeItems.id })
 				.from(knowledgeItems)
-				.where(and(...kernelConditions))
-				.all();
+				.where(and(...kernelConditions));
 		}
 
 		if (rows.length > MAX_RECOMPUTE_BATCH) {
@@ -373,13 +367,13 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 	return { recomputeOne, recomputeMany, recomputeScope };
 }
 
-function hasOpenConflict(db: HyperIdleDb, knowledgeItemId: string): boolean {
-	const row = db
+async function hasOpenConflict(db: HyperIdleDb, knowledgeItemId: string): Promise<boolean> {
+	const [row] = await db
 		.select({ id: knowledgeConflicts.id })
 		.from(knowledgeConflicts)
 		.where(
 			and(eq(knowledgeConflicts.itemId, knowledgeItemId), eq(knowledgeConflicts.status, "open")),
 		)
-		.get();
+		.limit(1);
 	return Boolean(row);
 }

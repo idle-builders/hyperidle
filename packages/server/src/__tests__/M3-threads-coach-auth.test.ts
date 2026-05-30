@@ -22,9 +22,10 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
  * P2: seed a human founder user row (replaces factorySettings.founder_id lookup).
  * The auth middleware queries `users WHERE kind = 'human' LIMIT 1`.
  */
-function seedFounderUser(db: HyperIdleDb, founderId: string): void {
+async function seedFounderUser(db: HyperIdleDb, founderId: string): Promise<void> {
 	const now = new Date().toISOString();
-	db.insert(users)
+	await db
+		.insert(users)
 		.values({
 			id: founderId,
 			kind: "human",
@@ -34,38 +35,38 @@ function seedFounderUser(db: HyperIdleDb, founderId: string): void {
 			status: "active",
 			createdAt: now,
 		})
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
 }
 
 describe("M3 — Coach route readSenderId uses auth context, not DEFAULT_FOUNDER_ID (A6)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		const now = new Date().toISOString();
-		seedFounderUser(db, "test-founder-1");
+		await seedFounderUser(db, "test-founder-1");
 
 		// Seed the CoC agent (required for coach route)
-		db.insert(users)
-			.values({
-				id: "seed-agent-cos",
-				name: "Chief of Staff",
-				role: "chief_of_staff",
-				status: "active",
-				createdAt: now,
-			})
-			.run();
+		await db.insert(users).values({
+			id: "seed-agent-cos",
+			name: "Chief of Staff",
+			role: "chief_of_staff",
+			status: "active",
+			createdAt: now,
+		});
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	it("coach thread has initiatorId from auth context, not hardcoded 'u-founder'", async () => {
@@ -82,19 +83,33 @@ describe("M3 — Coach route readSenderId uses auth context, not DEFAULT_FOUNDER
 });
 
 describe("M3 — Thread route readSenderId + readInitialSenderId use auth context (A7 + C3)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		const now = new Date().toISOString();
 		// P2: seedFounderUser seeds kind='human' so auth middleware resolves this user
-		seedFounderUser(db, "test-founder-1");
+		await seedFounderUser(db, "test-founder-1");
+
+		await db
+			.insert(products)
+			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
+
+		await db.insert(teams).values({
+			id: "team-1",
+			productId: "prod-1",
+			capacity: 3,
+			activeBets: 0,
+			formedAt: now,
+		});
 
 		db.insert(teams)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now })
@@ -111,8 +126,9 @@ describe("M3 — Thread route readSenderId + readInitialSenderId use auth contex
 		// Note: "test-founder-1" is already seeded by seedFounderUser above — no duplicate insert.
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	it("POST /api/threads without X-Identity uses auth context userId, not 'u-founder'", async () => {
@@ -148,15 +164,13 @@ describe("M3 — Thread route readSenderId + readInitialSenderId use auth contex
 		// A review-type message triggers the readInitialSenderId code path.
 		// Seed an agent participant so the agent lookup inside readInitialSenderId can find a non-founder
 		const now = new Date().toISOString();
-		db.insert(users)
-			.values({
-				id: "agent-builder-1",
-				name: "Builder Agent",
-				role: "builder",
-				status: "active",
-				createdAt: now,
-			})
-			.run();
+		await db.insert(users).values({
+			id: "agent-builder-1",
+			name: "Builder Agent",
+			role: "builder",
+			status: "active",
+			createdAt: now,
+		});
 
 		const res = await app.request("/api/threads", {
 			method: "POST",

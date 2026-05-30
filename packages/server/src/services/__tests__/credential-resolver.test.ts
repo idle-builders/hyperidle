@@ -68,13 +68,14 @@ describe("P3 AC-15 — CredentialResolver interface", () => {
 		const SERVER_SECRET = "test-server-secret-resolver";
 
 		it("resolves a stored credential by decrypting from DB", async () => {
-			const db = createTestDb();
+			const handle = await createTestDb();
+			const db = handle.db;
 			const original = "sk-ant-api03-test-key";
 			const encrypted = encryptCredentialValue(original, SERVER_SECRET);
 			const now = new Date().toISOString();
 
 			// Insert encrypted credential into server_credentials table
-			db.run(
+			await db.execute(
 				`INSERT INTO server_credentials (name, encrypted_value, validation_state, updated_at)
 				 VALUES ('anthropic_api_key', '${encrypted}', 'present_untested', '${now}')`,
 			);
@@ -82,21 +83,25 @@ describe("P3 AC-15 — CredentialResolver interface", () => {
 			const resolver = new DbCredentialResolver(db, SERVER_SECRET);
 			const result = await resolver.resolve("anthropic_api_key");
 			expect(result).toBe(original);
+			await handle.close();
 		});
 
 		it("returns null for an absent credential", async () => {
-			const db = createTestDb();
+			const handle = await createTestDb();
+			const db = handle.db;
 			const resolver = new DbCredentialResolver(db, SERVER_SECRET);
 			const result = await resolver.resolve("anthropic_api_key");
 			expect(result).toBeNull();
+			await handle.close();
 		});
 
 		it("returns null when decryption fails (wrong secret)", async () => {
-			const db = createTestDb();
+			const handle = await createTestDb();
+			const db = handle.db;
 			const encrypted = encryptCredentialValue("my-key", "correct-secret");
 			const now = new Date().toISOString();
 
-			db.run(
+			await db.execute(
 				`INSERT INTO server_credentials (name, encrypted_value, validation_state, updated_at)
 				 VALUES ('anthropic_api_key', '${encrypted}', 'present_untested', '${now}')`,
 			);
@@ -105,17 +110,19 @@ describe("P3 AC-15 — CredentialResolver interface", () => {
 			const resolver = new DbCredentialResolver(db, "wrong-secret");
 			const result = await resolver.resolve("anthropic_api_key");
 			expect(result).toBeNull();
+			await handle.close();
 		});
 
 		it("resolves openrouter_api_key separately from anthropic_api_key", async () => {
-			const db = createTestDb();
+			const handle = await createTestDb();
+			const db = handle.db;
 			const now = new Date().toISOString();
 
-			db.run(
+			await db.execute(
 				`INSERT INTO server_credentials (name, encrypted_value, validation_state, updated_at)
 				 VALUES ('anthropic_api_key', '${encryptCredentialValue("ant-key", SERVER_SECRET)}', 'valid', '${now}')`,
 			);
-			db.run(
+			await db.execute(
 				`INSERT INTO server_credentials (name, encrypted_value, validation_state, updated_at)
 				 VALUES ('openrouter_api_key', '${encryptCredentialValue("or-key", SERVER_SECRET)}', 'valid', '${now}')`,
 			);
@@ -124,6 +131,7 @@ describe("P3 AC-15 — CredentialResolver interface", () => {
 			expect(await resolver.resolve("anthropic_api_key")).toBe("ant-key");
 			expect(await resolver.resolve("openrouter_api_key")).toBe("or-key");
 			expect(await resolver.resolve("shared_backend_key")).toBeNull();
+			await handle.close();
 		});
 	});
 });

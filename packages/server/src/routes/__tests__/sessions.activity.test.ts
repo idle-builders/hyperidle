@@ -32,11 +32,12 @@ describe("GET /api/sessions/:id/activity (Q1 §3.2)", () => {
 	let app: Hono;
 	const NOW = new Date().toISOString();
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		const handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		// Seed required data
 		db.insert(teams)

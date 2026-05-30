@@ -44,11 +44,11 @@ function writeTestManifest(workspace: string, manifest: Manifest): void {
 	writeManifest(path.join(workspace, ".fabric/manifest.json"), manifest);
 }
 
-function setupSessionData(db: HyperIdleDb): {
+async function setupSessionData(db: HyperIdleDb): Promise<{
 	sessionId: string;
 	agentId: string;
 	taskId: string;
-} {
+}> {
 	const now = new Date().toISOString();
 	const productId = "test-product";
 	const teamId = "test-team";
@@ -123,23 +123,23 @@ function setupSessionData(db: HyperIdleDb): {
 }
 
 describe("writeback utilities", () => {
-	it("getRelativePath returns relative path", () => {
+	it("getRelativePath returns relative path", async () => {
 		expect(getRelativePath("/workspace", "/workspace/knowledge/foo.md")).toBe("knowledge/foo.md");
 	});
 
-	it("isKnowledgePath detects knowledge paths", () => {
+	it("isKnowledgePath detects knowledge paths", async () => {
 		expect(isKnowledgePath("knowledge/foo.md")).toBe(true);
 		expect(isKnowledgePath("work/foo.md")).toBe(false);
 		expect(isKnowledgePath("context/foo.md")).toBe(false);
 	});
 
-	it("isSessionNotesPath detects session notes", () => {
+	it("isSessionNotesPath detects session notes", async () => {
 		expect(isSessionNotesPath("work/session-notes.md")).toBe(true);
 		expect(isSessionNotesPath("work/task-notes.md")).toBe(true);
 		expect(isSessionNotesPath("work/other.md")).toBe(false);
 	});
 
-	it("isWatchedPath detects watched paths", () => {
+	it("isWatchedPath detects watched paths", async () => {
 		expect(isWatchedPath("knowledge/foo.md")).toBe(true);
 		expect(isWatchedPath("work/bar.md")).toBe(true);
 		expect(isWatchedPath("context/foo.md")).toBe(false);
@@ -151,17 +151,20 @@ describe("processWriteback", () => {
 	let tmpDir: string;
 	let workspace: string;
 	let db: HyperIdleDb;
-	let sessionData: ReturnType<typeof setupSessionData>;
+	let handle: Awaited<ReturnType<typeof createTestDb>>;
+	let sessionData: Awaited<ReturnType<typeof setupSessionData>>;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		tmpDir = fs.mkdtempSync(path.join("/tmp", "writeback-test-"));
 		workspace = createWorkspace(tmpDir);
-		db = createTestDb();
-		sessionData = setupSessionData(db);
+		handle = await createTestDb();
+		db = handle.db;
+		sessionData = await setupSessionData(db);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		fs.rmSync(tmpDir, { recursive: true, force: true });
+		await handle.close();
 	});
 
 	function makeConfig(): WritebackConfig {
@@ -174,7 +177,7 @@ describe("processWriteback", () => {
 	}
 
 	// AC1: New file in knowledge/ creates knowledge_items row with status CAPTURED
-	it("AC1: new file creates knowledge_items row with status captured", () => {
+	it("AC1: new file creates knowledge_items row with status captured", async () => {
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
 			materialized_at: new Date().toISOString(),
@@ -186,7 +189,7 @@ describe("processWriteback", () => {
 		const filePath = path.join(workspace, "knowledge/practices/my-pattern.md");
 		fs.writeFileSync(filePath, "# My Pattern\nSome content here");
 
-		const result = processWriteback(makeConfig(), [
+		const result = await processWriteback(makeConfig(), [
 			{
 				type: "create",
 				relativePath: "knowledge/practices/my-pattern.md",
@@ -197,42 +200,43 @@ describe("processWriteback", () => {
 		expect(result.created).toBe(1);
 
 		// Verify row was created
-		const items = db.select().from(knowledgeItems).all();
+		const items = await db.select().from(knowledgeItems);
 		expect(items).toHaveLength(1);
 		expect(items[0].status).toBe("captured");
 		expect(items[0].body).toBe("# My Pattern\nSome content here");
 		expect(items[0].version).toBe(1);
 		// @lore O2: layer moved to knowledgeStrategyFabric extension table
-		const fabric = db
+		const [fabric] = await db
 			.select()
 			.from(knowledgeStrategyFabric)
 			.where(eq(knowledgeStrategyFabric.knowledgeItemId, items[0].id))
-			.get();
+			.limit(1);
 		expect(fabric?.layer).toBe("L1");
 	});
 
 	// AC2: Modified file updates corresponding row, version increments
-	it("AC2: modified file updates row and increments version", () => {
+	it("AC2: modified file updates row and increments version", async () => {
 		// Pre-create a knowledge item
 		const itemId = "existing-item-1";
 		const now = new Date().toISOString();
 		// @lore O2: kernel table no longer has layer/kind; those go to knowledgeStrategyFabric
-		db.insert(knowledgeItems)
-			.values({
-				id: itemId,
-				title: "existing pattern",
-				body: "original body",
-				format: "markdown",
-				status: "captured",
-				version: 1,
-				updatedBy: "test",
-				createdAt: now,
-				updatedAt: now,
-			})
-			.run();
-		db.insert(knowledgeStrategyFabric)
-			.values({ id: `ksf-${itemId}`, knowledgeItemId: itemId, layer: "L1", kind: "pattern" })
-			.run();
+		await db.insert(knowledgeItems).values({
+			id: itemId,
+			title: "existing pattern",
+			body: "original body",
+			format: "markdown",
+			status: "captured",
+			version: 1,
+			updatedBy: "test",
+			createdAt: now,
+			updatedAt: now,
+		});
+		await db.insert(knowledgeStrategyFabric).values({
+			id: `ksf-${itemId}`,
+			knowledgeItemId: itemId,
+			layer: "L1",
+			kind: "pattern",
+		});
 
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
@@ -251,7 +255,7 @@ describe("processWriteback", () => {
 		const filePath = path.join(workspace, "knowledge/practices/existing-pattern.md");
 		fs.writeFileSync(filePath, "updated body content");
 
-		const result = processWriteback(makeConfig(), [
+		const result = await processWriteback(makeConfig(), [
 			{
 				type: "modify",
 				relativePath: "knowledge/practices/existing-pattern.md",
@@ -261,33 +265,38 @@ describe("processWriteback", () => {
 
 		expect(result.updated).toBe(1);
 
-		const item = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, itemId)).get();
+		const [item] = await db
+			.select()
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.id, itemId))
+			.limit(1);
 		expect(item).toBeDefined();
 		expect(item?.body).toBe("updated body content");
 		expect(item?.version).toBe(2);
 	});
 
 	// AC3: Deleted file flags for facilitator review, NOT auto-deleted
-	it("AC3: deleted file flags for review, not auto-deleted", () => {
+	it("AC3: deleted file flags for review, not auto-deleted", async () => {
 		const itemId = "delete-item-1";
 		const now = new Date().toISOString();
 		// @lore O2: kernel table no longer has layer/kind; those go to knowledgeStrategyFabric
-		db.insert(knowledgeItems)
-			.values({
-				id: itemId,
-				title: "to be deleted",
-				body: "some body",
-				format: "markdown",
-				status: "captured",
-				version: 1,
-				updatedBy: "test",
-				createdAt: now,
-				updatedAt: now,
-			})
-			.run();
-		db.insert(knowledgeStrategyFabric)
-			.values({ id: `ksf-${itemId}`, knowledgeItemId: itemId, layer: "L1", kind: "pattern" })
-			.run();
+		await db.insert(knowledgeItems).values({
+			id: itemId,
+			title: "to be deleted",
+			body: "some body",
+			format: "markdown",
+			status: "captured",
+			version: 1,
+			updatedBy: "test",
+			createdAt: now,
+			updatedAt: now,
+		});
+		await db.insert(knowledgeStrategyFabric).values({
+			id: `ksf-${itemId}`,
+			knowledgeItemId: itemId,
+			layer: "L1",
+			kind: "pattern",
+		});
 
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
@@ -302,7 +311,7 @@ describe("processWriteback", () => {
 		};
 		writeTestManifest(workspace, manifest);
 
-		const result = processWriteback(makeConfig(), [
+		const result = await processWriteback(makeConfig(), [
 			{
 				type: "delete",
 				relativePath: "knowledge/practices/to-be-deleted.md",
@@ -313,11 +322,15 @@ describe("processWriteback", () => {
 		expect(result.deleted).toBe(1);
 
 		// Item still exists in DB (not auto-deleted)
-		const item = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, itemId)).get();
+		const [item] = await db
+			.select()
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.id, itemId))
+			.limit(1);
 		expect(item).toBeDefined();
 
 		// A conflict/review item was created
-		const conflicts = db.select().from(knowledgeConflicts).all();
+		const conflicts = await db.select().from(knowledgeConflicts);
 		expect(conflicts).toHaveLength(1);
 		expect(conflicts[0].itemId).toBe(itemId);
 		expect(conflicts[0].proposedBody).toBe("[DELETED]");
@@ -325,26 +338,27 @@ describe("processWriteback", () => {
 	});
 
 	// AC5: Version conflict creates knowledge_conflicts row
-	it("AC5: version conflict creates knowledge_conflicts row", () => {
+	it("AC5: version conflict creates knowledge_conflicts row", async () => {
 		const itemId = "conflict-item-1";
 		const now = new Date().toISOString();
 		// @lore O2: kernel table no longer has layer/kind; those go to knowledgeStrategyFabric
-		db.insert(knowledgeItems)
-			.values({
-				id: itemId,
-				title: "conflict item",
-				body: "original body",
-				format: "markdown",
-				status: "captured",
-				version: 3, // DB has version 3
-				updatedBy: "external-editor",
-				createdAt: now,
-				updatedAt: now,
-			})
-			.run();
-		db.insert(knowledgeStrategyFabric)
-			.values({ id: `ksf-${itemId}`, knowledgeItemId: itemId, layer: "L1", kind: "pattern" })
-			.run();
+		await db.insert(knowledgeItems).values({
+			id: itemId,
+			title: "conflict item",
+			body: "original body",
+			format: "markdown",
+			status: "captured",
+			version: 3, // DB has version 3
+			updatedBy: "external-editor",
+			createdAt: now,
+			updatedAt: now,
+		});
+		await db.insert(knowledgeStrategyFabric).values({
+			id: `ksf-${itemId}`,
+			knowledgeItemId: itemId,
+			layer: "L1",
+			kind: "pattern",
+		});
 
 		// Manifest thinks version is 1 (stale)
 		const manifest: Manifest = {
@@ -363,7 +377,7 @@ describe("processWriteback", () => {
 		const filePath = path.join(workspace, "knowledge/practices/conflict-item.md");
 		fs.writeFileSync(filePath, "agent's proposed content");
 
-		const result = processWriteback(makeConfig(), [
+		const result = await processWriteback(makeConfig(), [
 			{
 				type: "modify",
 				relativePath: "knowledge/practices/conflict-item.md",
@@ -373,7 +387,7 @@ describe("processWriteback", () => {
 
 		expect(result.conflicts).toBe(1);
 
-		const conflicts = db.select().from(knowledgeConflicts).all();
+		const conflicts = await db.select().from(knowledgeConflicts);
 		expect(conflicts).toHaveLength(1);
 		expect(conflicts[0].itemId).toBe(itemId);
 		expect(conflicts[0].versionBase).toBe(1);
@@ -383,7 +397,7 @@ describe("processWriteback", () => {
 	});
 
 	// AC7: Manifest updated after each writeback
-	it("AC7: manifest updated after each writeback", () => {
+	it("AC7: manifest updated after each writeback", async () => {
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
 			materialized_at: new Date().toISOString(),
@@ -394,7 +408,7 @@ describe("processWriteback", () => {
 		const filePath = path.join(workspace, "knowledge/practices/new-item.md");
 		fs.writeFileSync(filePath, "content");
 
-		processWriteback(makeConfig(), [
+		await processWriteback(makeConfig(), [
 			{
 				type: "create",
 				relativePath: "knowledge/practices/new-item.md",
@@ -411,7 +425,7 @@ describe("processWriteback", () => {
 	});
 
 	// AC8: work/session-notes.md changes reflected in sessions.notes
-	it("AC8: session-notes.md changes reflected in sessions.notes", () => {
+	it("AC8: session-notes.md changes reflected in sessions.notes", async () => {
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
 			materialized_at: new Date().toISOString(),
@@ -422,7 +436,7 @@ describe("processWriteback", () => {
 		const notesPath = path.join(workspace, "work/session-notes.md");
 		fs.writeFileSync(notesPath, "# Session Notes\nImportant finding here.");
 
-		processWriteback(makeConfig(), [
+		await processWriteback(makeConfig(), [
 			{
 				type: "modify",
 				relativePath: "work/session-notes.md",
@@ -430,34 +444,39 @@ describe("processWriteback", () => {
 			},
 		]);
 
-		const session = db.select().from(sessions).where(eq(sessions.id, sessionData.sessionId)).get();
+		const [session] = await db
+			.select()
+			.from(sessions)
+			.where(eq(sessions.id, sessionData.sessionId))
+			.limit(1);
 		expect(session).toBeDefined();
 		expect(session?.notes).toBe("# Session Notes\nImportant finding here.");
 	});
 
 	// AC10: Last-writer-wins with conflict flagged
-	it("AC10: last-writer-wins scenario flags conflict", () => {
+	it("AC10: last-writer-wins scenario flags conflict", async () => {
 		const itemId = "lww-item-1";
 		const now = new Date().toISOString();
 
 		// Agent write at T=0: create item with version 1
 		// @lore O2: kernel table no longer has layer/kind; those go to knowledgeStrategyFabric
-		db.insert(knowledgeItems)
-			.values({
-				id: itemId,
-				title: "lww item",
-				body: "agent original",
-				format: "markdown",
-				status: "captured",
-				version: 1,
-				updatedBy: "agent",
-				createdAt: now,
-				updatedAt: now,
-			})
-			.run();
-		db.insert(knowledgeStrategyFabric)
-			.values({ id: `ksf-${itemId}`, knowledgeItemId: itemId, layer: "L1", kind: "pattern" })
-			.run();
+		await db.insert(knowledgeItems).values({
+			id: itemId,
+			title: "lww item",
+			body: "agent original",
+			format: "markdown",
+			status: "captured",
+			version: 1,
+			updatedBy: "agent",
+			createdAt: now,
+			updatedAt: now,
+		});
+		await db.insert(knowledgeStrategyFabric).values({
+			id: `ksf-${itemId}`,
+			knowledgeItemId: itemId,
+			layer: "L1",
+			kind: "pattern",
+		});
 
 		// Manifest tracks version 1
 		const manifest: Manifest = {
@@ -474,16 +493,16 @@ describe("processWriteback", () => {
 		writeTestManifest(workspace, manifest);
 
 		// Human patches at T=250ms (simulated): DB version bumped to 2
-		db.update(knowledgeItems)
+		await db
+			.update(knowledgeItems)
 			.set({ body: "human patched", version: 2, updatedBy: "human" })
-			.where(eq(knowledgeItems.id, itemId))
-			.run();
+			.where(eq(knowledgeItems.id, itemId));
 
 		// Now agent's file change comes in with its version still at 1
 		const filePath = path.join(workspace, "knowledge/practices/lww-item.md");
 		fs.writeFileSync(filePath, "agent updated content");
 
-		const result = processWriteback(makeConfig(), [
+		const result = await processWriteback(makeConfig(), [
 			{
 				type: "modify",
 				relativePath: "knowledge/practices/lww-item.md",
@@ -495,17 +514,21 @@ describe("processWriteback", () => {
 		expect(result.conflicts).toBe(1);
 
 		// Human change wins (still version 2 in DB)
-		const item = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, itemId)).get();
+		const [item] = await db
+			.select()
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.id, itemId))
+			.limit(1);
 		expect(item?.body).toBe("human patched");
 		expect(item?.version).toBe(2);
 
 		// Conflict was flagged
-		const conflicts = db.select().from(knowledgeConflicts).all();
+		const conflicts = await db.select().from(knowledgeConflicts);
 		expect(conflicts).toHaveLength(1);
 		expect(conflicts[0].proposedBody).toBe("agent updated content");
 	});
 
-	it("modify on unknown file treats as create", () => {
+	it("modify on unknown file treats as create", async () => {
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
 			materialized_at: new Date().toISOString(),
@@ -516,7 +539,7 @@ describe("processWriteback", () => {
 		const filePath = path.join(workspace, "knowledge/practices/unknown.md");
 		fs.writeFileSync(filePath, "new content");
 
-		const result = processWriteback(makeConfig(), [
+		const result = await processWriteback(makeConfig(), [
 			{
 				type: "modify",
 				relativePath: "knowledge/practices/unknown.md",
@@ -527,11 +550,11 @@ describe("processWriteback", () => {
 		// Treated as create since not in manifest
 		expect(result.created).toBe(1);
 
-		const items = db.select().from(knowledgeItems).all();
+		const items = await db.select().from(knowledgeItems);
 		expect(items).toHaveLength(1);
 	});
 
-	it("delete on unknown file is a no-op", () => {
+	it("delete on unknown file is a no-op", async () => {
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
 			materialized_at: new Date().toISOString(),
@@ -539,7 +562,7 @@ describe("processWriteback", () => {
 		};
 		writeTestManifest(workspace, manifest);
 
-		const result = processWriteback(makeConfig(), [
+		const result = await processWriteback(makeConfig(), [
 			{
 				type: "delete",
 				relativePath: "knowledge/practices/nonexistent.md",
@@ -550,7 +573,7 @@ describe("processWriteback", () => {
 		expect(result.deleted).toBe(0);
 	});
 
-	it("non-knowledge paths are skipped", () => {
+	it("non-knowledge paths are skipped", async () => {
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
 			materialized_at: new Date().toISOString(),
@@ -562,7 +585,7 @@ describe("processWriteback", () => {
 		fs.mkdirSync(path.dirname(filePath), { recursive: true });
 		fs.writeFileSync(filePath, "content");
 
-		const result = processWriteback(makeConfig(), [
+		const result = await processWriteback(makeConfig(), [
 			{
 				type: "create",
 				relativePath: "context/something.md",
@@ -571,11 +594,11 @@ describe("processWriteback", () => {
 		]);
 
 		expect(result.created).toBe(0);
-		const items = db.select().from(knowledgeItems).all();
+		const items = await db.select().from(knowledgeItems);
 		expect(items).toHaveLength(0);
 	});
 
-	it("processes batch of multiple changes", () => {
+	it("processes batch of multiple changes", async () => {
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
 			materialized_at: new Date().toISOString(),
@@ -598,10 +621,10 @@ describe("processWriteback", () => {
 			});
 		}
 
-		const result = processWriteback(makeConfig(), changes);
+		const result = await processWriteback(makeConfig(), changes);
 		expect(result.created).toBe(5);
 
-		const items = db.select().from(knowledgeItems).all();
+		const items = await db.select().from(knowledgeItems);
 		expect(items).toHaveLength(5);
 	});
 });

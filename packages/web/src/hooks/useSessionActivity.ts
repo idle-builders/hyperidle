@@ -20,6 +20,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { apiFetch } from "../services/api-fetch.js";
 import { getWsClient } from "../services/ws-client.js";
 
 // Q1 review issue #9: discriminated union for ActivityEntry data payloads
@@ -162,7 +163,7 @@ type FetchSuccess = {
 type FetchResult = FetchFailure | FetchSuccess;
 
 async function fetchSessionActivity(sessionId: string, signal: AbortSignal): Promise<FetchResult> {
-	const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/activity`, { signal });
+	const res = await apiFetch(`/api/sessions/${encodeURIComponent(sessionId)}/activity`, { signal });
 	if (!res.ok) {
 		return { ok: false, error: `HTTP ${res.status}` };
 	}

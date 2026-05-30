@@ -31,7 +31,7 @@ export function createTeam(db: HyperIdleDb, opts: CreateTeamMembersOpts): TeamMe
 		.run();
 
 	for (const agentId of opts.agentIds) {
-		db.update(users).set({ teamId: id }).where(eq(users.id, agentId)).run();
+		await db.update(users).set({ teamId: id }).where(eq(users.id, agentId));
 	}
 
 	const memberGroup = db.select().from(teamMembers).where(eq(teamMembers.id, id)).get();
@@ -49,8 +49,7 @@ export function removeMember(db: HyperIdleDb, teamMembersId: string, agentId: st
 	const activeRoutines = db
 		.select()
 		.from(routines)
-		.where(and(eq(routines.ownerAgentId, agentId), eq(routines.active, 1)))
-		.all();
+		.where(and(eq(routines.ownerAgentId, agentId), eq(routines.active, true)));
 
 	if (activeRoutines.length > 0) {
 		throw new ActiveRoutinesError(
@@ -58,7 +57,8 @@ export function removeMember(db: HyperIdleDb, teamMembersId: string, agentId: st
 		);
 	}
 
-	db.update(users)
+	await db
+		.update(users)
 		.set({ teamId: null })
 		.where(and(eq(users.id, agentId), eq(users.teamId, teamMembersId)))
 		.run();

@@ -154,7 +154,7 @@ const appLogger = createLogger({ pkg: "server.app" });
  * WebSocket routes are registered separately via registerWsRoute(), injected
  * through the `registerWebSocket` option so the app remains runtime-agnostic.
  */
-function createApp(options?: AppOptions): Hono {
+async function createApp(options?: AppOptions): Promise<Hono> {
 	const app = new Hono();
 
 	// Backward-compat: /health without auth
@@ -379,7 +379,7 @@ function createApp(options?: AppOptions): Hono {
 			}
 		}
 
-		const obsCfg = readObservabilityConfig(db);
+		const obsCfg = await readObservabilityConfig(db);
 		wireObservability(obsCfg);
 
 		api.route(

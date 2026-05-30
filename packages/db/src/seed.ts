@@ -1,7 +1,5 @@
 import { eq } from "drizzle-orm";
-import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
 import type { HyperIdleDb } from "./connection.js";
-import type * as schema from "./schema.js";
 import {
 	bets,
 	factorySettings,
@@ -14,33 +12,28 @@ import {
 	users,
 } from "./schema.js";
 import {
-	asBit01,
 	BUILTIN_ROUTINE_SEEDS,
 	COMMUNITY_DISPLAY_NAMES,
 	FACILITATOR_TOOLS,
 	PRACTICE_COMMUNITIES,
 } from "./seed-fixtures.js";
 
-// @lore N1: `seed` accepts any synchronous SQLite Drizzle instance over our
-// schema. `TRunResult` is `unknown` because different Drizzle drivers
-// return different types; the seed discards the value.
-export type SeedableDb = BaseSQLiteDatabase<"sync", unknown, typeof schema>;
-
-// @lore: Facilitator agents encode their scope in the `skills` JSON blob
-// (shape: {"scope": "<community|product_id|null>", "tools": [...]}) because
-// `agents` has no first-class `scope_id` column. See plans/work-packages/G1-plan.md §2.
-// FACILITATOR_TOOLS / PRACTICE_COMMUNITIES / COMMUNITY_DISPLAY_NAMES live in
-// `seed-fixtures.ts` so the PG seed can share them.
-
-/** Idempotent seed: ≥1 row per major table. */
-export function seed(db: SeedableDb | HyperIdleDb): void {
+/**
+ * @lore Phase 2 PGlite migration: seed() is now async and uses PG semantics
+ * (true/false booleans, await, no .run()). The SQLite seed was replaced
+ * because the schema is now PG-only (pgTable). See I3 / TRACK-I.md L161-164.
+ *
+ * The function accepts any PG-flavoured Drizzle instance (postgres-js,
+ * pglite). Each statement uses `.onConflictDoNothing()` for idempotency so
+ * `seed(db)` can be called repeatedly without error.
+ */
+export async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 
 	// @lore U1: insert into `teams` (formerly `products`).
 	db.insert(teams)
 		.values({ id: "seed-product-1", name: "Nimmly", phase: "build", createdAt: now })
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
 
 	// @lore U1: insert into `teamMembers` (formerly `teams`). Column `teamId` (formerly `productId`).
 	db.insert(teamMembers)
@@ -51,12 +44,12 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 			activeBets: 0,
 			formedAt: now,
 		})
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
 
 	// P2: Seed the human founder user row. This is the authenticated identity for
 	// the auth middleware (users WHERE kind = 'human' LIMIT 1).
-	db.insert(users)
+	await db
+		.insert(users)
 		.values({
 			id: "u-founder",
 			kind: "human",
@@ -67,10 +60,10 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 			maxConcurrentSessions: 0,
 			createdAt: now,
 		})
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
 
-	db.insert(users)
+	await db
+		.insert(users)
 		.values({
 			id: "seed-agent-builder",
 			kind: "ai",
@@ -81,10 +74,10 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 			teamId: "seed-team-1",
 			createdAt: now,
 		})
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
 
-	db.insert(users)
+	await db
+		.insert(users)
 		.values({
 			id: "seed-agent-cos",
 			kind: "ai",
@@ -94,13 +87,13 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 			maxConcurrentSessions: 1,
 			createdAt: now,
 		})
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
 
 	// L20: system:propagation user — authors review threads when bets enter review.
 	// FK constraint: messages.senderId references users.id. This user must exist
 	// before any propagation-triggered review thread can be created.
-	db.insert(users)
+	await db
+		.insert(users)
 		.values({
 			id: "system:propagation",
 			kind: "ai",
@@ -110,21 +103,21 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 			maxConcurrentSessions: 1,
 			createdAt: now,
 		})
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
 
 	// Patch the existing Chief of Staff row with G1 facilitator metadata.
 	// Idempotent: a second run writes the same values.
-	db.update(users)
+	await db
+		.update(users)
 		.set({
 			soulPromptPath: "docs/souls/chief-of-staff.md",
 			skills: JSON.stringify({ scope: null, tools: FACILITATOR_TOOLS }),
 		})
-		.where(eq(users.id, "seed-agent-cos"))
-		.run();
+		.where(eq(users.id, "seed-agent-cos"));
 
 	// Product Manager — scoped to seed-product-1.
-	db.insert(users)
+	await db
+		.insert(users)
 		.values({
 			id: "seed-agent-pm-nimmly",
 			kind: "ai",
@@ -140,12 +133,12 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 			}),
 			createdAt: now,
 		})
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
 
 	// Practice Facilitators — one per community of practice.
 	for (const community of PRACTICE_COMMUNITIES) {
-		db.insert(users)
+		await db
+			.insert(users)
 			.values({
 				id: `seed-agent-pf-${community}`,
 				kind: "ai",
@@ -161,8 +154,7 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 				}),
 				createdAt: now,
 			})
-			.onConflictDoNothing()
-			.run();
+			.onConflictDoNothing();
 	}
 
 	// @lore U1: update teamMembers (formerly teams) via the new export name.
@@ -174,7 +166,9 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 	// @lore O2: kernel/strategy separation. Kernel table only gets identity+content.
 	// Strategy fields (layer, kind) go to knowledgeStrategyFabric extension table.
 	// @lore Q2: scopeKind defaults to "factory" (factory-level principle applies to all).
-	db.insert(knowledgeItems)
+	// @lore F2 (architecture critique): explicit scopeKind="factory" required; do not rely on DB default.
+	await db
+		.insert(knowledgeItems)
 		.values({
 			id: "seed-ki-1",
 			scopeKind: "factory",
@@ -188,28 +182,26 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 			createdAt: now,
 			updatedAt: now,
 		})
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
 
-	db.insert(knowledgeStrategyFabric)
+	await db
+		.insert(knowledgeStrategyFabric)
 		.values({
 			id: "seed-ksf-1",
 			knowledgeItemId: "seed-ki-1",
 			layer: "L4",
 			kind: "principle",
 		})
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
 
-	db.insert(factorySettings)
+	await db
+		.insert(factorySettings)
 		.values({ key: "cost_cap", value: "20000", updatedAt: now })
-		.onConflictDoNothing()
-		.run();
-
-	db.insert(factorySettings)
+		.onConflictDoNothing();
+	await db
+		.insert(factorySettings)
 		.values({ key: "cost_cycle", value: "daily", updatedAt: now })
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
 
 	// P2: founder_id, founder_name, founder_email factorySettings keys removed.
 	// The human founder identity now lives in the users table (kind = 'human').
@@ -231,8 +223,7 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 			status: "draft",
 			createdAt: now,
 		})
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
 
 	// @lore U1: `teamId` (formerly `productId`). Old `teamId` (pointing at team_members) dropped.
 	db.insert(tasks)
@@ -247,10 +238,10 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 			createdAt: now,
 			updatedAt: now,
 		})
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
 
-	db.insert(routines)
+	await db
+		.insert(routines)
 		.values({
 			id: "seed-routine-daily_digest",
 			ownerAgentId: "seed-agent-cos",
@@ -259,13 +250,12 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 				cron: "0 8 * * *",
 				taskId: "seed-task-daily-digest",
 			}),
-			active: 0,
-			delegationAllowed: 0,
-			humanReview: 0,
-			silent: 1,
+			active: false,
+			delegationAllowed: false,
+			humanReview: false,
+			silent: true,
 		})
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
 
 	// G4: built-in routines. Inserted directly (rather than calling
 	// `seedBuiltinRoutines` from `@hyperidle/server`) because `@hyperidle/db`
@@ -275,12 +265,9 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 	// keep them in sync. A schema test in
 	// `packages/db/src/__tests__/seed.test.ts` pins the trigger_type per id
 	// so drift is caught by CI.
-	seedBuiltinRoutines(db, now);
-}
-
-function seedBuiltinRoutines(db: SeedableDb | HyperIdleDb, _now: string): void {
 	for (const spec of BUILTIN_ROUTINE_SEEDS) {
-		db.insert(routines)
+		await db
+			.insert(routines)
 			.values({
 				id: spec.id,
 				ownerAgentId: spec.ownerAgentId,
@@ -288,12 +275,11 @@ function seedBuiltinRoutines(db: SeedableDb | HyperIdleDb, _now: string): void {
 				triggerConfig: JSON.stringify(spec.triggerConfig),
 				skillId: spec.skillId,
 				doneCondition: spec.doneCondition,
-				delegationAllowed: 0,
-				humanReview: asBit01(spec.humanReview),
-				silent: asBit01(spec.silent),
-				active: 1,
+				delegationAllowed: false,
+				humanReview: spec.humanReview,
+				silent: spec.silent,
+				active: true,
 			})
-			.onConflictDoNothing()
-			.run();
+			.onConflictDoNothing();
 	}
 }
