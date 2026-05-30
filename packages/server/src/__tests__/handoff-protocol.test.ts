@@ -23,20 +23,19 @@ import type { SessionContext } from "../services/session-lifecycle.js";
 
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: now }).run();
-	db.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-		.run();
-	db.insert(bets)
-		.values({
-			id: "b1",
-			teamId: "p1",
-			description: "Test bet",
-			appetite: "small",
-			status: "active",
-			createdAt: now,
-		})
-		.run();
+	await db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: now });
+	await db
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+
+	await db.insert(bets).values({
+		id: "b1",
+		teamId: "p1",
+		description: "Test bet",
+		appetite: "small",
+		status: "active",
+		createdAt: now,
+	});
 }
 
 async function insertAgent(
@@ -66,30 +65,27 @@ async function insertTask(
 ): Promise<void> {
 	const now = new Date().toISOString();
 	const threadId = `thread-${id}`;
-	db.insert(threads)
-		.values({
-			id: threadId,
-			hostKind: "task",
-			hostId: "task-1",
-			initiatorId: "agent-1",
-			participants: JSON.stringify(["agent-1"]),
-			lastActiveAt: now,
-			createdAt: now,
-		})
-		.run();
-	db.insert(tasks)
-		.values({
-			id,
-			betId: "b1",
-			teamId: "p1",
-			ownerAgentId: ownerAgentId ?? null,
-			title: `Task ${id}`,
-			state,
-			threadId,
-			createdAt: now,
-			updatedAt: now,
-		})
-		.run();
+	await db.insert(threads).values({
+		id: threadId,
+		hostKind: "task",
+		hostId: "task-1",
+		initiatorId: "agent-1",
+		participants: JSON.stringify(["agent-1"]),
+		lastActiveAt: now,
+		createdAt: now,
+	});
+
+	await db.insert(tasks).values({
+		id,
+		betId: "b1",
+		teamId: "p1",
+		ownerAgentId: ownerAgentId ?? null,
+		title: `Task ${id}`,
+		state,
+		threadId,
+		createdAt: now,
+		updatedAt: now,
+	});
 }
 
 async function insertSession(
@@ -396,32 +392,30 @@ describe("Handoff Protocol", () => {
 			const existingAudit = [{ from: "proposed", to: "accepted", timestamp: now }];
 			const agentProse = "Pre-handoff agent note prose.";
 			const threadId = "thread-task-2";
-			db.insert(threads)
-				.values({
-					id: threadId,
-					hostKind: "task",
-					hostId: "task-1",
-					initiatorId: "agent-1",
-					participants: JSON.stringify(["agent-1"]),
-					lastActiveAt: now,
-					createdAt: now,
-				})
-				.run();
-			db.insert(tasks)
-				.values({
-					id: "task-2",
-					betId: "b1",
-					teamId: "p1",
-					ownerAgentId: "agent-a",
-					title: "Task 2",
-					state: "in_progress",
-					threadId,
-					notes: agentProse,
-					auditTrail: JSON.stringify(existingAudit),
-					createdAt: now,
-					updatedAt: now,
-				})
-				.run();
+			await db.insert(threads).values({
+				id: threadId,
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: now,
+				createdAt: now,
+			});
+
+			await db.insert(tasks).values({
+				id: "task-2",
+				betId: "b1",
+				teamId: "p1",
+				ownerAgentId: "agent-a",
+				title: "Task 2",
+				state: "in_progress",
+				threadId,
+				notes: agentProse,
+				auditTrail: JSON.stringify(existingAudit),
+				createdAt: now,
+				updatedAt: now,
+			});
+
 			insertSession(db, "session-a2", "task-2", "agent-a");
 
 			const ctx = makeSessionContext("session-a2", "agent-a", "task-2");
@@ -489,31 +483,29 @@ describe("Handoff Protocol", () => {
 			const now = new Date().toISOString();
 			const agentProse = "Scribbled thought: feature is almost done.";
 			const threadId = "thread-h1";
-			db.insert(threads)
-				.values({
-					id: threadId,
-					hostKind: "task",
-					hostId: "task-1",
-					initiatorId: "agent-1",
-					participants: JSON.stringify(["agent-1"]),
-					lastActiveAt: now,
-					createdAt: now,
-				})
-				.run();
-			db.insert(tasks)
-				.values({
-					id: "task-h1",
-					betId: "b1",
-					teamId: "p1",
-					ownerAgentId: "agent-a",
-					title: "H1 task",
-					state: "in_progress",
-					threadId,
-					notes: agentProse,
-					createdAt: now,
-					updatedAt: now,
-				})
-				.run();
+			await db.insert(threads).values({
+				id: threadId,
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: now,
+				createdAt: now,
+			});
+
+			await db.insert(tasks).values({
+				id: "task-h1",
+				betId: "b1",
+				teamId: "p1",
+				ownerAgentId: "agent-a",
+				title: "H1 task",
+				state: "in_progress",
+				threadId,
+				notes: agentProse,
+				createdAt: now,
+				updatedAt: now,
+			});
+
 			insertSession(db, "session-h1", "task-h1", "agent-a");
 
 			const ctx = makeSessionContext("session-h1", "agent-a", "task-h1");

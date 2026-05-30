@@ -41,23 +41,20 @@ describe("Bet Endpoints (Q3)", () => {
 		app = await createTestApp({ db, eventBus });
 
 		// Seed domain entity (teams) and membership group (teamMembers)
-		db.insert(teams)
-			.values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			})
-			.run();
-		db.insert(teamMembers)
-			.values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			})
-			.run();
+		await db.insert(teams).values({
+			id: "prod-1",
+			name: "Test Product",
+			phase: "build",
+			createdAt: new Date().toISOString(),
+		});
+
+		await db.insert(teamMembers).values({
+			id: "team-1",
+			teamId: "prod-1",
+			capacity: 2,
+			activeBets: 0,
+			formedAt: new Date().toISOString(),
+		});
 	});
 
 	afterEach(async () => {

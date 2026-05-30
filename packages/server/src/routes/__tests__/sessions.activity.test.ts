@@ -40,54 +40,51 @@ describe("GET /api/sessions/:id/activity (Q1 §3.2)", () => {
 		app = await createTestApp({ db, eventBus });
 
 		// Seed required data
-		db.insert(teams)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW })
-			.run();
-		db.insert(teamMembers)
-			.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: NOW })
-			.run();
-		db.insert(users)
-			.values({
-				id: "agent-1",
-				name: "Builder",
-				role: "builder",
-				status: "active",
-				kind: "ai",
-				teamId: "team-1",
-				createdAt: NOW,
-			})
-			.run();
-		db.insert(bets)
-			.values({
-				id: "bet-1",
-				teamId: "prod-1",
-				description: "Test",
-				appetite: "small",
-				status: "active",
-				createdAt: NOW,
-			})
-			.run();
-		db.insert(tasks)
-			.values({
-				id: "task-1",
-				betId: "bet-1",
-				teamId: "prod-1",
-				title: "Task 1",
-				state: "in_progress",
-				createdAt: NOW,
-				updatedAt: NOW,
-			})
-			.run();
-		db.insert(sessions)
-			.values({
-				id: "sess-1",
-				agentId: "agent-1",
-				taskId: "task-1",
-				modelTier: "workhorse",
-				state: "active",
-				startedAt: NOW,
-			})
-			.run();
+		await db
+			.insert(teams)
+			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW });
+
+		await db
+			.insert(teamMembers)
+			.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: NOW });
+
+		await db.insert(users).values({
+			id: "agent-1",
+			name: "Builder",
+			role: "builder",
+			status: "active",
+			kind: "ai",
+			teamId: "team-1",
+			createdAt: NOW,
+		});
+
+		await db.insert(bets).values({
+			id: "bet-1",
+			teamId: "prod-1",
+			description: "Test",
+			appetite: "small",
+			status: "active",
+			createdAt: NOW,
+		});
+
+		await db.insert(tasks).values({
+			id: "task-1",
+			betId: "bet-1",
+			teamId: "prod-1",
+			title: "Task 1",
+			state: "in_progress",
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
+
+		await db.insert(sessions).values({
+			id: "sess-1",
+			agentId: "agent-1",
+			taskId: "task-1",
+			modelTier: "workhorse",
+			state: "active",
+			startedAt: NOW,
+		});
 	});
 
 	afterEach(() => {

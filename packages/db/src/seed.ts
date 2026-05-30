@@ -31,12 +31,14 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 
 	// @lore U1: insert into `teams` (formerly `products`).
-	db.insert(teams)
+	await db
+		.insert(teams)
 		.values({ id: "seed-product-1", name: "Nimmly", phase: "build", createdAt: now })
 		.onConflictDoNothing();
 
 	// @lore U1: insert into `teamMembers` (formerly `teams`). Column `teamId` (formerly `productId`).
-	db.insert(teamMembers)
+	await db
+		.insert(teamMembers)
 		.values({
 			id: "seed-team-1",
 			teamId: "seed-product-1",
@@ -158,10 +160,10 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 	}
 
 	// @lore U1: update teamMembers (formerly teams) via the new export name.
-	db.update(teamMembers)
+	await db
+		.update(teamMembers)
 		.set({ leadAgentId: "seed-agent-builder" })
-		.where(eq(teamMembers.id, "seed-team-1"))
-		.run();
+		.where(eq(teamMembers.id, "seed-team-1"));
 
 	// @lore O2: kernel/strategy separation. Kernel table only gets identity+content.
 	// Strategy fields (layer, kind) go to knowledgeStrategyFabric extension table.
@@ -214,7 +216,8 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 	// factory from sending a 08:00 UTC digest the first time it boots.
 	// @lore U1: `teamId` (formerly `productId`), `description` (formerly `pitch`),
 	// status 'draft' (formerly 'shaped').
-	db.insert(bets)
+	await db
+		.insert(bets)
 		.values({
 			id: "seed-bet-daily-digest",
 			teamId: "seed-product-1",
@@ -226,7 +229,8 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 		.onConflictDoNothing();
 
 	// @lore U1: `teamId` (formerly `productId`). Old `teamId` (pointing at team_members) dropped.
-	db.insert(tasks)
+	await db
+		.insert(tasks)
 		.values({
 			id: "seed-task-daily-digest",
 			betId: "seed-bet-daily-digest",

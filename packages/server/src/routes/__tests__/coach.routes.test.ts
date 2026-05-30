@@ -46,10 +46,10 @@ async function setupApp(): Promise<AppCtx> {
 	const now = new Date().toISOString();
 
 	// Seed base product/team
-	db.insert(teams).values({ id: "p1", name: "TestProduct", phase: "build", createdAt: now }).run();
-	db.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-		.run();
+	await db.insert(teams).values({ id: "p1", name: "TestProduct", phase: "build", createdAt: now });
+	await db
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
 
 	// Seed founder user
 	await db.insert(users).values({

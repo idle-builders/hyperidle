@@ -63,21 +63,19 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		}
 
 		const taskId = crypto.randomUUID();
-		db.insert(tasks)
-			.values({
-				id: taskId,
-				betId: body.betId,
-				teamId: bet.teamId,
-				title: body.title,
-				description: body.description ?? null,
-				doneCondition: body.doneCondition ?? null,
-				ownerAgentId: body.ownerAgentId ?? null,
-				state: "proposed",
-				costCap: body.costCap ?? null,
-				createdAt: now,
-				updatedAt: now,
-			})
-			.run();
+		await db.insert(tasks).values({
+			id: taskId,
+			betId: body.betId,
+			teamId: bet.teamId,
+			title: body.title,
+			description: body.description ?? null,
+			doneCondition: body.doneCondition ?? null,
+			ownerAgentId: body.ownerAgentId ?? null,
+			state: "proposed",
+			costCap: body.costCap ?? null,
+			createdAt: now,
+			updatedAt: now,
+		});
 
 		const [created] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
 		return c.json(created, 201);

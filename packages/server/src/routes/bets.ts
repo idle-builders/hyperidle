@@ -133,7 +133,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 
 	// GET /bets — list all bets grouped by status, with pagination
 	// @lore U1: grouped by new simplified statuses (draft, active, completed, killed).
-	router.get("/", (c) => {
+	router.get("/", async (c) => {
 		const limit = Math.min(Number.parseInt(c.req.query("limit") ?? "50", 10) || 50, 200);
 		const offset = Number.parseInt(c.req.query("offset") ?? "0", 10) || 0;
 
@@ -155,15 +155,15 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	// formatted appetite string. Uses a Map for batch team lookup to avoid
 	// N+1 queries (Q3 arch critique W-4).
 	// @lore U1: uses `teams` (domain entity, formerly `products`) and `teamMembers`.
-	router.get("/canvas", (c) => {
-		const allBets = db.select().from(bets).all();
-		const allTeamMembers = db.select().from(teamMembers).all();
+	router.get("/canvas", async (c) => {
+		const allBets = await db.select().from(bets);
+		const allTeamMembers = await db.select().from(teamMembers);
 
 		const totalCapacity = allTeamMembers.reduce((sum, t) => sum + t.capacity, 0);
 		const totalUsed = allTeamMembers.reduce((sum, t) => sum + t.activeBets, 0);
 
 		// Batch team lookup — one query, then a Map for O(1) access.
-		const allTeams = db.select({ id: teams.id, name: teams.name }).from(teams).all();
+		const allTeams = await db.select({ id: teams.id, name: teams.name }).from(teams);
 		const teamMap = new Map(allTeams.map((t) => [t.id, t.name]));
 
 		/** Shape a bet row into the CanvasBetWire format. */
@@ -213,7 +213,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	//   - progress: { done, total } computed from the tasks already fetched.
 	// Keeping enrichment in the API layer preserves the three-layer boundary.
 	// @lore U1: `description` (formerly `pitch`), `teamId`, `completedAt` (formerly `shippedAt`).
-	router.get("/:id", (c) => {
+	router.get("/:id", async (c) => {
 		const betId = c.req.param("id");
 		const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 
@@ -227,7 +227,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		// crossTeam) removed from select. Session cost/token/harness columns also
 		// stripped — those are strategy concerns now in the fabric layer.
 		// @lore U1: tasks.teamId now references `teams` (formerly `products`). No more productId.
-		const betTasks = db
+		const betTasks = await db
 			.select({
 				id: tasks.id,
 				betId: tasks.betId,
@@ -258,11 +258,11 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		// @lore U1: `description` (formerly `pitch`), `teamId` (formerly `productId`).
 		const title = deriveTitle(bet.description, bet.id);
 
-		const teamRow = db
+		const [teamRow] = await db
 			.select({ name: teams.name })
 			.from(teams)
 			.where(eq(teams.id, bet.teamId))
-			.get();
+			.limit(1);
 		const team = teamRow?.name ?? bet.teamId;
 
 		const done = betTasks.filter((t) => t.state === "done").length;
@@ -325,11 +325,15 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	// @lore Q3 T2: the server creates the bet in 'draft' status.
 	// @lore U1: `teamId` (formerly `productId`), `description` (formerly `pitch`),
 	// status 'draft' (formerly 'shaped').
-	router.post("/", validateBody(createBetSchema), (c) => {
+	router.post("/", validateBody(createBetSchema), async (c) => {
 		const body = c.req.valid("json" as never) as z.infer<typeof createBetSchema>;
 
 		// Check team existence before team_members lookup.
-		const teamRow = db.select({ id: teams.id }).from(teams).where(eq(teams.id, body.teamId)).get();
+		const [teamRow] = await db
+			.select({ id: teams.id })
+			.from(teams)
+			.where(eq(teams.id, body.teamId))
+			.limit(1);
 		if (!teamRow) {
 			return c.json({ error: `Team '${body.teamId}' not found`, code: "VALIDATION_ERROR" }, 400);
 		}
@@ -350,20 +354,18 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			},
 		];
 
-		db.insert(bets)
-			.values({
-				id,
-				teamId: body.teamId,
-				description: body.description,
-				doneCondition: body.doneCondition ?? null,
-				hypothesis: body.hypothesis ?? null,
-				status: "draft",
-				createdAt: now,
-				costAppetiteMinor: body.costAppetite?.minor ?? null,
-				costAppetiteCurrency: body.costAppetite?.currency ?? null,
-				revisionLog: JSON.stringify(initialLog),
-			})
-			.run();
+		await db.insert(bets).values({
+			id,
+			teamId: body.teamId,
+			description: body.description,
+			doneCondition: body.doneCondition ?? null,
+			hypothesis: body.hypothesis ?? null,
+			status: "draft",
+			createdAt: now,
+			costAppetiteMinor: body.costAppetite?.minor ?? null,
+			costAppetiteCurrency: body.costAppetite?.currency ?? null,
+			revisionLog: JSON.stringify(initialLog),
+		});
 
 		const [created] = await db.select().from(bets).where(eq(bets.id, id)).limit(1);
 		if (!created) {
@@ -393,7 +395,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 
 		// @lore U1: `description` (formerly `pitch`) is mutable in draft/active.
 		if (body.field === "description") {
-			const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
+			const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 			if (!bet) {
 				return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 			}
@@ -504,7 +506,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		}
 
 		// Check capacity before transitioning
-		const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
+		const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 		if (!bet) {
 			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 		}
@@ -522,7 +524,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			reason: reason ?? "Bet activated",
 			actor: c.get("userId"),
 		});
-		const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
+		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 		return c.json(updated);
 	});
 
@@ -531,7 +533,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	router.post("/:id/ship", async (c) => {
 		const betId = c.req.param("id");
 		await transitionBet(db, eventBus, betId, "completed");
-		const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
+		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 		return c.json(updated);
 	});
 
@@ -578,7 +580,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		//    - thread id (if any) via LEFT JOIN threads WHERE host_kind='artifact'
 		//    - messageCount, lastMessageAt, lastMessageSnippet via correlated subquery on messages
 		//    - hasUnresolvedReview: whether any review-type message in the thread has resolvedAt IS NULL
-		const rows = db
+		const rows = await db
 			.select({
 				artifactId: artifacts.id,
 				artifactKind: artifacts.kind,
@@ -633,10 +635,10 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			if (r.artifactPreviewJson) {
 				try {
 					const preview = JSON.parse(r.artifactPreviewJson) as Record<string, unknown>;
-					if (typeof preview["file"] === "string" && preview["file"]) {
-						artifactTitle = preview["file"];
-					} else if (typeof preview["title"] === "string" && preview["title"]) {
-						artifactTitle = preview["title"];
+					if (typeof preview.file === "string" && preview.file) {
+						artifactTitle = preview.file;
+					} else if (typeof preview.title === "string" && preview.title) {
+						artifactTitle = preview.title;
 					}
 				} catch {
 					// ignore malformed previewJson; fall back to task title
@@ -654,7 +656,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			if (r.lastMessagePayload) {
 				try {
 					const payload = JSON.parse(r.lastMessagePayload) as Record<string, unknown>;
-					const text = payload["text"];
+					const text = payload.text;
 					if (typeof text === "string" && text) {
 						lastMessageSnippet = text.slice(0, 80);
 					}

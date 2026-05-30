@@ -46,18 +46,17 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 		app = await createTestApp({ db, eventBus });
 
 		// Seed prerequisite data
-		db.insert(teams)
-			.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW })
-			.run();
-		db.insert(teamMembers)
-			.values({
-				id: "team-p2",
-				teamId: "prod-p2",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: NOW,
-			})
-			.run();
+		await db
+			.insert(teams)
+			.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW });
+
+		await db.insert(teamMembers).values({
+			id: "team-p2",
+			teamId: "prod-p2",
+			capacity: 5,
+			activeBets: 0,
+			formedAt: NOW,
+		});
 
 		// Seed users (AI kind)
 		await db.insert(users).values([

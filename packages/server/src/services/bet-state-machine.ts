@@ -113,7 +113,11 @@ export async function transitionBet(
 	}
 
 	// @lore U1: Look up teamMembers via bet.teamId (1:1 invariant: one teamMembers per team).
-	const memberGroup = db.select().from(teamMembers).where(eq(teamMembers.teamId, bet.teamId)).get();
+	const [memberGroup] = await db
+		.select()
+		.from(teamMembers)
+		.where(eq(teamMembers.teamId, bet.teamId))
+		.limit(1);
 	if (!memberGroup) {
 		throw new Error(`TeamMembers for team '${bet.teamId}' not found`);
 	}
@@ -155,14 +159,14 @@ export async function transitionBet(
 	// @lore O1: `bet_shipped` was a redundant event. Consumers that need to
 	// react to completion subscribe to `bet_state_changed` and filter
 	// `event.toState === "completed"` instead.
-	const transitioned = db.transaction((): boolean => {
+	const transitioned = await db.transaction(async (tx): Promise<boolean> => {
 		// Capacity check: re-read the teamMembers inside the tx so two concurrent
 		// commits cannot both observe `activeBets < capacity` against a stale snapshot.
-		const freshMemberGroup = db
+		const [freshMemberGroup] = await tx
 			.select()
 			.from(teamMembers)
 			.where(eq(teamMembers.teamId, bet.teamId))
-			.get();
+			.limit(1);
 		if (!freshMemberGroup) {
 			throw new Error(`TeamMembers for team '${bet.teamId}' not found`);
 		}
@@ -187,17 +191,17 @@ export async function transitionBet(
 		}
 
 		if (toState === "active") {
-			db.update(teamMembers)
+			await tx
+				.update(teamMembers)
 				.set({ activeBets: freshMemberGroup.activeBets + 1 })
-				.where(eq(teamMembers.id, freshMemberGroup.id))
-				.run();
+				.where(eq(teamMembers.id, freshMemberGroup.id));
 		}
 
 		if (toState === "completed") {
-			db.update(teamMembers)
+			await tx
+				.update(teamMembers)
 				.set({ activeBets: Math.max(0, freshMemberGroup.activeBets - 1) })
-				.where(eq(teamMembers.id, freshMemberGroup.id))
-				.run();
+				.where(eq(teamMembers.id, freshMemberGroup.id));
 		}
 
 		if (
@@ -206,10 +210,10 @@ export async function transitionBet(
 			fromState !== "completed" &&
 			fromState !== "killed"
 		) {
-			db.update(teamMembers)
+			await tx
+				.update(teamMembers)
 				.set({ activeBets: Math.max(0, freshMemberGroup.activeBets - 1) })
-				.where(eq(teamMembers.id, freshMemberGroup.id))
-				.run();
+				.where(eq(teamMembers.id, freshMemberGroup.id));
 		}
 
 		return true;

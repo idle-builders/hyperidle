@@ -1,4 +1,11 @@
-import { bets, createTestDb, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
+import {
+	bets,
+	createTestDb,
+	type HyperIdleDb,
+	type TestDbHandle,
+	teamMembers,
+	teams,
+} from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -29,23 +36,19 @@ describe("Bet Endpoints (E3)", () => {
 		app = await createTestApp({ db, eventBus });
 
 		// Seed a product (domain entity) and teamMembers (membership group)
-		db.insert(teams)
-			.values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			})
-			.run();
-		db.insert(teamMembers)
-			.values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			})
-			.run();
+		await db.insert(teams).values({
+			id: "prod-1",
+			name: "Test Product",
+			phase: "build",
+			createdAt: new Date().toISOString(),
+		});
+		await db.insert(teamMembers).values({
+			id: "team-1",
+			teamId: "prod-1",
+			capacity: 2,
+			activeBets: 0,
+			formedAt: new Date().toISOString(),
+		});
 	});
 
 	afterEach(async () => {
@@ -114,17 +117,15 @@ describe("Bet Endpoints (E3)", () => {
 
 			// Seed a task for this bet
 			const { tasks } = await import("@hyperidle/db");
-			db.insert(tasks)
-				.values({
-					id: "task-1",
-					betId,
-					teamId: "prod-1",
-					title: "Implement X",
-					state: "proposed",
-					createdAt: new Date().toISOString(),
-					updatedAt: new Date().toISOString(),
-				})
-				.run();
+			await db.insert(tasks).values({
+				id: "task-1",
+				betId,
+				teamId: "prod-1",
+				title: "Implement X",
+				state: "proposed",
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			});
 
 			const res = await app.request(`/api/bets/${betId}`, { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -371,12 +372,14 @@ describe("Bet Endpoints (E3)", () => {
 
 		it("returns zero capacity when no teamMembers exist", async () => {
 			// Use a fresh db with only teams/products (no teamMembers)
-			const freshDb = createTestDb();
-			const freshApp = createTestApp({ db: freshDb, eventBus });
-			freshDb
-				.insert(teams)
-				.values({ id: "prod-1", name: "Test", phase: "build", createdAt: new Date().toISOString() })
-				.run();
+			const freshHandle = await createTestDb();
+			const freshApp = await createTestApp({ db: freshHandle.db, eventBus });
+			await freshHandle.db.insert(teams).values({
+				id: "prod-1",
+				name: "Test",
+				phase: "build",
+				createdAt: new Date().toISOString(),
+			});
 
 			const res = await freshApp.request("/api/bets/canvas", { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -392,7 +395,7 @@ describe("Bet Endpoints (E3)", () => {
 		it("first commit succeeds, second rejected 409 (no race)", async () => {
 			// @lore U1: capacity is on teamMembers, not teams (domain entity)
 			// eslint-disable-next-line drizzle/enforce-update-with-where -- test setup: single teamMembers in test DB
-			db.update(teamMembers).set({ capacity: 1 }).run();
+			await db.update(teamMembers).set({ capacity: 1 });
 
 			const bet1 = await createBet({ description: "Bet 1" });
 			const bet2 = await createBet({ description: "Bet 2" });

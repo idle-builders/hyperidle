@@ -55,47 +55,41 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 		clearDeduplicationCache();
 
 		// @lore U1: Seed base entities using new schema (teams, teamMembers).
-		db.insert(teams)
-			.values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW })
-			.run();
+		await db
+			.insert(teams)
+			.values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
 
-		db.insert(teamMembers)
-			.values({
-				id: "t1",
-				teamId: "p1",
-				capacity: 5,
-				activeBets: 0,
-				// New column: cost_cap_minor (was costCap)
-				costCapMinor: 5000, // $50.00 in cents
-				costCapCurrency: "USD",
-				formedAt: NOW,
-			})
-			.run();
+		await db.insert(teamMembers).values({
+			id: "t1",
+			teamId: "p1",
+			capacity: 5,
+			activeBets: 0,
+			// New column: cost_cap_minor (was costCap)
+			costCapMinor: 5000, // $50.00 in cents
+			costCapCurrency: "USD",
+			formedAt: NOW,
+		});
 
-		db.insert(bets)
-			.values({
-				id: "b1",
-				// @lore U1: teamId references `teams` (domain entity); pitch → description
-				teamId: "p1",
-				description: "Test bet",
-				// appetite_legacy column still exists for rollback but is not used
-				status: "active",
-				createdAt: NOW,
-			})
-			.run();
+		await db.insert(bets).values({
+			id: "b1",
+			// @lore U1: teamId references `teams` (domain entity); pitch → description
+			teamId: "p1",
+			description: "Test bet",
+			// appetite_legacy column still exists for rollback but is not used
+			status: "active",
+			createdAt: NOW,
+		});
 
-		db.insert(tasks)
-			.values({
-				id: "task-1",
-				betId: "b1",
-				// @lore U1: tasks.productId removed; tasks.teamId references `teams`.
-				teamId: "p1",
-				title: "Test task",
-				state: "in_progress",
-				createdAt: NOW,
-				updatedAt: NOW,
-			})
-			.run();
+		await db.insert(tasks).values({
+			id: "task-1",
+			betId: "b1",
+			// @lore U1: tasks.productId removed; tasks.teamId references `teams`.
+			teamId: "p1",
+			title: "Test task",
+			state: "in_progress",
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
 
 		await db.insert(users).values({
 			id: "agent-1",
@@ -202,12 +196,13 @@ describe("Session token accumulation by tier (AC14)", () => {
 		app = await createTestApp({ db, eventBus });
 
 		// @lore U1: teams is the domain entity; teamMembers is the membership group.
-		db.insert(teams)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW })
-			.run();
-		db.insert(teamMembers)
-			.values({ id: "team-1", teamId: "prod-1", capacity: 2, activeBets: 0, formedAt: NOW })
-			.run();
+		await db
+			.insert(teams)
+			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW });
+
+		await db
+			.insert(teamMembers)
+			.values({ id: "team-1", teamId: "prod-1", capacity: 2, activeBets: 0, formedAt: NOW });
 	});
 
 	afterEach(async () => {
@@ -261,12 +256,13 @@ describe("Bet create API — structured costAppetite (AC15)", () => {
 		app = await createTestApp({ db, eventBus });
 
 		// @lore U1: teams is domain entity; teamMembers is membership group.
-		db.insert(teams)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW })
-			.run();
-		db.insert(teamMembers)
-			.values({ id: "team-1", teamId: "prod-1", capacity: 2, activeBets: 0, formedAt: NOW })
-			.run();
+		await db
+			.insert(teams)
+			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW });
+
+		await db
+			.insert(teamMembers)
+			.values({ id: "team-1", teamId: "prod-1", capacity: 2, activeBets: 0, formedAt: NOW });
 	});
 
 	afterEach(async () => {
@@ -365,26 +361,25 @@ describe("Bet detail API — structured cost fields (AC16)", () => {
 		app = await createTestApp({ db, eventBus });
 
 		// @lore U1: teams is domain entity; teamMembers is membership group.
-		db.insert(teams)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW })
-			.run();
-		db.insert(teamMembers)
-			.values({ id: "team-1", teamId: "prod-1", capacity: 2, activeBets: 0, formedAt: NOW })
-			.run();
+		await db
+			.insert(teams)
+			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW });
+
+		await db
+			.insert(teamMembers)
+			.values({ id: "team-1", teamId: "prod-1", capacity: 2, activeBets: 0, formedAt: NOW });
 
 		// Seed a bet with structured costAppetite directly in DB
 		// @lore U1: teamId references `teams`; description replaces pitch; status "active" replaces "in_progress".
-		db.insert(bets)
-			.values({
-				id: "bet-detail-1",
-				teamId: "prod-1",
-				description: "Structured cost test",
-				costAppetiteMinor: 50000,
-				costAppetiteCurrency: "USD",
-				status: "active",
-				createdAt: NOW,
-			})
-			.run();
+		await db.insert(bets).values({
+			id: "bet-detail-1",
+			teamId: "prod-1",
+			description: "Structured cost test",
+			costAppetiteMinor: 50000,
+			costAppetiteCurrency: "USD",
+			status: "active",
+			createdAt: NOW,
+		});
 	});
 
 	afterEach(async () => {

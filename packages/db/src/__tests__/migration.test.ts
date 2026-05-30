@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { HyperIdleDb } from "../connection.js";
-import { products } from "../schema.js";
+import { teams } from "../schema.js";
 import { createTestDb, type TestDbHandle } from "../test-utils.js";
 
 // @lore Phase 2: migration.test.ts now tests PGlite migrations. SQLite migration
@@ -62,15 +62,14 @@ describe("A2: Migration", () => {
 		expect(tableNames.length).toBeGreaterThanOrEqual(15);
 	});
 
-	it("migrated database supports CRUD with Drizzle ORM", () => {
+	it("migrated database supports CRUD with Drizzle ORM", async () => {
 		// @lore U1: `schema.products` renamed to `schema.teams` (domain entity).
-		db = migrateFreshDb({ foreignKeys: true });
 		const now = new Date().toISOString();
-		db.insert(schema.teams)
-			.values({ id: "test-prod", name: "Test", phase: "build", createdAt: now })
-			.run();
+		await db
+			.insert(teams)
+			.values({ id: "test-prod", name: "Test", phase: "build", createdAt: now });
 
-		const result = db.select().from(schema.teams).all();
+		const result = await db.select().from(teams);
 		expect(result).toHaveLength(1);
 		expect(result[0]).toMatchObject({ id: "test-prod", name: "Test" });
 	});

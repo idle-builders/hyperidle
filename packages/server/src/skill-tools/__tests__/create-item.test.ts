@@ -18,21 +18,20 @@ import type { ToolContext } from "../tool-registry.js";
 
 async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now }).run();
-	db.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-		.run();
-	db.insert(users)
-		.values({
-			id: "agent-a",
-			name: "A",
-			role: "builder",
-			teamId: "t1",
-			status: "active",
-			maxConcurrentSessions: 2,
-			createdAt: now,
-		})
-		.run();
+	await db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
+	await db
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+
+	await db.insert(users).values({
+		id: "agent-a",
+		name: "A",
+		role: "builder",
+		teamId: "t1",
+		status: "active",
+		maxConcurrentSessions: 2,
+		createdAt: now,
+	});
 }
 
 function makeContext(db: HyperIdleDb, eventBus: EventBus): ToolContext {

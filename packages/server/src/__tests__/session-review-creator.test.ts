@@ -29,42 +29,37 @@ describe("registerSessionReviewCreator", () => {
 		eventBus = new EventBus();
 
 		// Seed base data
-		db.insert(teams)
-			.values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			})
-			.run();
-		db.insert(teamMembers)
-			.values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 3,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			})
-			.run();
-		db.insert(bets)
-			.values({
-				id: "bet-1",
-				teamId: "prod-1",
-				description: "Test bet",
-				appetite: "small",
-				status: "active",
-				createdAt: new Date().toISOString(),
-			})
-			.run();
-		db.insert(users)
-			.values({
-				id: "agent-1",
-				name: "Test Agent",
-				role: "builder",
-				status: "active",
-				createdAt: new Date().toISOString(),
-			})
-			.run();
+		await db.insert(teams).values({
+			id: "prod-1",
+			name: "Test Product",
+			phase: "build",
+			createdAt: new Date().toISOString(),
+		});
+
+		await db.insert(teamMembers).values({
+			id: "team-1",
+			teamId: "prod-1",
+			capacity: 3,
+			activeBets: 0,
+			formedAt: new Date().toISOString(),
+		});
+
+		await db.insert(bets).values({
+			id: "bet-1",
+			teamId: "prod-1",
+			description: "Test bet",
+			appetite: "small",
+			status: "active",
+			createdAt: new Date().toISOString(),
+		});
+
+		await db.insert(users).values({
+			id: "agent-1",
+			name: "Test Agent",
+			role: "builder",
+			status: "active",
+			createdAt: new Date().toISOString(),
+		});
 	});
 
 	afterEach(async () => {
@@ -75,43 +70,40 @@ describe("registerSessionReviewCreator", () => {
 		const unsubscribe = registerSessionReviewCreator(db, eventBus);
 
 		// Create high-risk task with a thread
-		db.insert(threads)
-			.values({
-				id: "thread-1",
-				hostKind: "task",
-				hostId: "task-1",
-				initiatorId: "agent-1",
-				participants: JSON.stringify(["agent-1"]),
-				lastActiveAt: new Date().toISOString(),
-				createdAt: new Date().toISOString(),
-			})
-			.run();
-		db.insert(tasks)
-			.values({
-				id: "task-1",
-				betId: "bet-1",
-				teamId: "prod-1",
-				title: "High risk task",
-				state: "in_progress",
-				threadId: "thread-1",
-				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString(),
-			})
-			.run();
-		db.insert(taskStrategyFabric)
-			.values({ id: "tsf-task-1", taskId: "task-1", riskTier: "high" })
-			.run();
-		db.insert(sessions)
-			.values({
-				id: "session-1",
-				taskId: "task-1",
-				agentId: "agent-1",
-				modelTier: "capable",
-				startedAt: new Date().toISOString(),
-				state: "ended",
-				outcome: "success",
-			})
-			.run();
+		await db.insert(threads).values({
+			id: "thread-1",
+			hostKind: "task",
+			hostId: "task-1",
+			initiatorId: "agent-1",
+			participants: JSON.stringify(["agent-1"]),
+			lastActiveAt: new Date().toISOString(),
+			createdAt: new Date().toISOString(),
+		});
+
+		await db.insert(tasks).values({
+			id: "task-1",
+			betId: "bet-1",
+			teamId: "prod-1",
+			title: "High risk task",
+			state: "in_progress",
+			threadId: "thread-1",
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		});
+
+		await db
+			.insert(taskStrategyFabric)
+			.values({ id: "tsf-task-1", taskId: "task-1", riskTier: "high" });
+
+		await db.insert(sessions).values({
+			id: "session-1",
+			taskId: "task-1",
+			agentId: "agent-1",
+			modelTier: "capable",
+			startedAt: new Date().toISOString(),
+			state: "ended",
+			outcome: "success",
+		});
 
 		// Track emitted events
 		const emittedEvents: ItemCreatedEvent[] = [];
@@ -146,30 +138,28 @@ describe("registerSessionReviewCreator", () => {
 	it("does not create review item for low-risk task", async () => {
 		const unsubscribe = registerSessionReviewCreator(db, eventBus);
 
-		db.insert(tasks)
-			.values({
-				id: "task-low",
-				betId: "bet-1",
-				teamId: "prod-1",
-				title: "Low risk task",
-				state: "in_progress",
-				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString(),
-			})
-			.run();
-		db.insert(taskStrategyFabric)
-			.values({ id: "tsf-task-low", taskId: "task-low", riskTier: "low" })
-			.run();
-		db.insert(sessions)
-			.values({
-				id: "session-low",
-				taskId: "task-low",
-				agentId: "agent-1",
-				modelTier: "capable",
-				startedAt: new Date().toISOString(),
-				state: "ended",
-			})
-			.run();
+		await db.insert(tasks).values({
+			id: "task-low",
+			betId: "bet-1",
+			teamId: "prod-1",
+			title: "Low risk task",
+			state: "in_progress",
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		});
+
+		await db
+			.insert(taskStrategyFabric)
+			.values({ id: "tsf-task-low", taskId: "task-low", riskTier: "low" });
+
+		await db.insert(sessions).values({
+			id: "session-low",
+			taskId: "task-low",
+			agentId: "agent-1",
+			modelTier: "capable",
+			startedAt: new Date().toISOString(),
+			state: "ended",
+		});
 
 		const event: SessionEndedEvent = {
 			type: "session_ended",
@@ -193,31 +183,29 @@ describe("registerSessionReviewCreator", () => {
 	it("auto-creates thread when task has no threadId", async () => {
 		const unsubscribe = registerSessionReviewCreator(db, eventBus);
 
-		db.insert(tasks)
-			.values({
-				id: "task-no-thread",
-				betId: "bet-1",
-				teamId: "prod-1",
-				title: "No thread task",
-				state: "in_progress",
-				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString(),
-			})
-			.run();
-		db.insert(taskStrategyFabric)
-			.values({ id: "tsf-task-no-thread", taskId: "task-no-thread", riskTier: "medium" })
-			.run();
-		db.insert(sessions)
-			.values({
-				id: "session-no-thread",
-				taskId: "task-no-thread",
-				agentId: "agent-1",
-				modelTier: "capable",
-				startedAt: new Date().toISOString(),
-				state: "ended",
-				outcome: "partial",
-			})
-			.run();
+		await db.insert(tasks).values({
+			id: "task-no-thread",
+			betId: "bet-1",
+			teamId: "prod-1",
+			title: "No thread task",
+			state: "in_progress",
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		});
+
+		await db
+			.insert(taskStrategyFabric)
+			.values({ id: "tsf-task-no-thread", taskId: "task-no-thread", riskTier: "medium" });
+
+		await db.insert(sessions).values({
+			id: "session-no-thread",
+			taskId: "task-no-thread",
+			agentId: "agent-1",
+			modelTier: "capable",
+			startedAt: new Date().toISOString(),
+			state: "ended",
+			outcome: "partial",
+		});
 
 		const event: SessionEndedEvent = {
 			type: "session_ended",
@@ -253,30 +241,28 @@ describe("registerSessionReviewCreator", () => {
 	it("returns an unsubscribe function that stops handling events", async () => {
 		const unsubscribe = registerSessionReviewCreator(db, eventBus);
 
-		db.insert(tasks)
-			.values({
-				id: "task-unsub",
-				betId: "bet-1",
-				teamId: "prod-1",
-				title: "Unsub task",
-				state: "in_progress",
-				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString(),
-			})
-			.run();
-		db.insert(taskStrategyFabric)
-			.values({ id: "tsf-task-unsub", taskId: "task-unsub", riskTier: "high" })
-			.run();
-		db.insert(sessions)
-			.values({
-				id: "session-unsub",
-				taskId: "task-unsub",
-				agentId: "agent-1",
-				modelTier: "capable",
-				startedAt: new Date().toISOString(),
-				state: "ended",
-			})
-			.run();
+		await db.insert(tasks).values({
+			id: "task-unsub",
+			betId: "bet-1",
+			teamId: "prod-1",
+			title: "Unsub task",
+			state: "in_progress",
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		});
+
+		await db
+			.insert(taskStrategyFabric)
+			.values({ id: "tsf-task-unsub", taskId: "task-unsub", riskTier: "high" });
+
+		await db.insert(sessions).values({
+			id: "session-unsub",
+			taskId: "task-unsub",
+			agentId: "agent-1",
+			modelTier: "capable",
+			startedAt: new Date().toISOString(),
+			state: "ended",
+		});
 
 		// Unsubscribe before emitting
 		unsubscribe();

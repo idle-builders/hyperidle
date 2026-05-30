@@ -20,62 +20,35 @@ import type { ToolContext } from "../tool-registry.js";
 
 async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now }).run();
-	db.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-		.run();
-	db.insert(bets)
-		.values({
-			id: "b1",
-			teamId: "p1",
-			description: "Test",
-			appetite: "small",
+	await db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
+	await db
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+	await db.insert(bets).values({
+		id: "b1",
+		teamId: "p1",
+		description: "Test",
+		appetite: "small",
+		status: "active",
+		createdAt: now,
+	});
+	await db.insert(users).values([
+		{
+			id: "agent-a",
+			name: "A",
+			role: "builder",
+			teamId: "t1",
 			status: "active",
+			maxConcurrentSessions: 2,
 			createdAt: now,
-		})
-		.run();
-	db.insert(users)
-		.values([
-			{
-				id: "agent-a",
-				name: "A",
-				role: "builder",
-				teamId: "t1",
-				status: "active",
-				maxConcurrentSessions: 2,
-				createdAt: now,
-			},
-			{
-				id: "agent-b",
-				name: "B",
-				role: "builder",
-				teamId: "t1",
-				status: "active",
-				maxConcurrentSessions: 2,
-				createdAt: now,
-			},
-		])
-		.run();
-	db.insert(threads)
-		.values({
-			id: "thread-task-1",
-			hostKind: "task",
-			hostId: "task-1",
-			initiatorId: "agent-1",
-			participants: JSON.stringify(["agent-1"]),
-			lastActiveAt: now,
-			createdAt: now,
-		})
-		.run();
-	db.insert(tasks)
-		.values({
-			id: "task-1",
-			betId: "b1",
-			teamId: "p1",
-			ownerAgentId: "agent-a",
-			title: "T",
-			state: "in_progress",
-			threadId: "thread-task-1",
+		},
+		{
+			id: "agent-b",
+			name: "B",
+			role: "builder",
+			teamId: "t1",
+			status: "active",
+			maxConcurrentSessions: 2,
 			createdAt: now,
 		},
 	]);
@@ -83,16 +56,15 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		id: "thread-task-1",
 		hostKind: "task",
 		hostId: "task-1",
-		initiatorId: "agent-1",
-		participants: JSON.stringify(["agent-1"]),
+		initiatorId: "agent-a",
+		participants: JSON.stringify(["agent-a"]),
 		lastActiveAt: now,
 		createdAt: now,
 	});
 	await db.insert(tasks).values({
 		id: "task-1",
 		betId: "b1",
-		productId: "p1",
-		teamId: "t1",
+		teamId: "p1",
 		ownerAgentId: "agent-a",
 		title: "T",
 		state: "in_progress",
@@ -107,7 +79,6 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		modelTier: "workhorse",
 		startedAt: now,
 		state: "active",
-		cost: 0,
 	});
 }
 

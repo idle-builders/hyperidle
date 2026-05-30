@@ -81,8 +81,7 @@ export function createRailRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 			.select()
 			.from(bets)
 			// @lore U1: status simplified: "active" replaces committed/in_progress.
-			.where(inArray(bets.status, ["active"]))
-			.all();
+			.where(inArray(bets.status, ["active"]));
 
 		const allTasks = await db.select().from(tasks);
 

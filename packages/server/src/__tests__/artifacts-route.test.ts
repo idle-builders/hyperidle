@@ -28,7 +28,7 @@ interface SeedScope {
 	taskId: string;
 }
 
-function seed(db: HyperIdleDb, suffix = ""): SeedScope {
+async function seed(db: HyperIdleDb, suffix = ""): Promise<SeedScope> {
 	// @lore U1: productId is actually teamId (domain entity id), not productId.
 	// Kept as "productId" in SeedScope for backward compat with test axis queries.
 	const productId = `prod${suffix}`;
@@ -36,35 +36,34 @@ function seed(db: HyperIdleDb, suffix = ""): SeedScope {
 	const betId = `bet${suffix}`;
 	const taskId = `task${suffix}`;
 	// Insert domain entity (teams table, formerly products)
-	db.insert(teams).values({ id: productId, name: "P", phase: "build", createdAt: NOW }).run();
+	await db.insert(teams).values({ id: productId, name: "P", phase: "build", createdAt: NOW });
 	// Insert membership group (teamMembers table, formerly teams)
-	db.insert(teamMembers)
-		.values({ id: teamMembersId, teamId: productId, capacity: 1, activeBets: 0, formedAt: NOW })
-		.run();
+	await db
+		.insert(teamMembers)
+		.values({ id: teamMembersId, teamId: productId, capacity: 1, activeBets: 0, formedAt: NOW });
+
 	// @lore U1: bets.teamId references teams.id (domain entity), not teamMembers.id
-	db.insert(bets)
-		.values({
-			id: betId,
-			teamId: productId,
-			description: "p",
-			appetite: "1w",
-			status: "draft",
-			createdAt: NOW,
-			updatedAt: NOW,
-		})
-		.run();
+	await db.insert(bets).values({
+		id: betId,
+		teamId: productId,
+		description: "p",
+		appetite: "1w",
+		status: "draft",
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
+
 	// @lore U1: tasks.teamId references teams.id (domain entity), not teamMembers.id
-	db.insert(tasks)
-		.values({
-			id: taskId,
-			betId,
-			teamId: productId,
-			title: "T",
-			state: "pending",
-			createdAt: NOW,
-			updatedAt: NOW,
-		})
-		.run();
+	await db.insert(tasks).values({
+		id: taskId,
+		betId,
+		teamId: productId,
+		title: "T",
+		state: "pending",
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
+
 	return { productId, betId, taskId };
 }
 
@@ -144,18 +143,17 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 	it("axis=bet aggregates artifacts across the bet's tasks", async () => {
 		const s = await seed(db);
 		// add a second task to the same bet
-		db.insert(tasks)
-			.values({
-				id: "task2",
-				betId: s.betId,
-				// @lore U1: teamId references teams.id (domain entity = s.productId)
-				teamId: s.productId,
-				title: "T2",
-				state: "pending",
-				createdAt: NOW,
-				updatedAt: NOW,
-			})
-			.run();
+		await db.insert(tasks).values({
+			id: "task2",
+			betId: s.betId,
+			// @lore U1: teamId references teams.id (domain entity = s.productId)
+			teamId: s.productId,
+			title: "T2",
+			state: "pending",
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
+
 		insertArtifact(db, "art_x", s.taskId);
 		insertArtifact(db, "art_y", "task2");
 		const res = await app.request(`/api/artifacts?axis=bet&betId=${s.betId}`, {

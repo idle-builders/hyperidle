@@ -57,12 +57,13 @@ describe("M3 — GET /api/settings (B1)", () => {
 		await seedFounderProfile(db);
 
 		// Seed 2 products
-		db.insert(teams)
-			.values({ id: "prod-1", name: "Product Alpha", phase: "build", createdAt: now })
-			.run();
-		db.insert(teams)
-			.values({ id: "prod-2", name: "Product Beta", phase: "archived", createdAt: now })
-			.run();
+		await db
+			.insert(teams)
+			.values({ id: "prod-1", name: "Product Alpha", phase: "build", createdAt: now });
+
+		await db
+			.insert(teams)
+			.values({ id: "prod-2", name: "Product Beta", phase: "archived", createdAt: now });
 
 		// Seed 2 AI users (formerly agents)
 		await db.insert(users).values({

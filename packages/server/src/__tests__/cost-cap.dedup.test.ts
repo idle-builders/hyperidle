@@ -48,11 +48,13 @@ async function seedAgentWithCap(
 	}: { agentId: string; teamId: string; productId: string; costCap: number },
 ): void {
 	// @lore U1: teams = domain entity (formerly products), teamMembers = membership group.
-	db.insert(teams)
+	await db
+		.insert(teams)
 		.values({ id: productId, name: `P-${productId}`, phase: "build", createdAt: NOW })
-		.onConflictDoNothing()
-		.run();
-	db.insert(teamMembers)
+		.onConflictDoNothing();
+
+	await db
+		.insert(teamMembers)
 		.values({
 			id: teamId,
 			teamId: productId,
@@ -90,7 +92,8 @@ async function seedSession(
 	}: { sessionId: string; agentId: string; teamId: string; productId: string },
 ): void {
 	// @lore U1: bets.teamId references teams.id (domain entity = productId), not teamMembers.id.
-	db.insert(bets)
+	await db
+		.insert(bets)
 		.values({
 			id: `bet-${sessionId}`,
 			teamId: productId,
@@ -99,10 +102,11 @@ async function seedSession(
 			status: "active",
 			createdAt: NOW,
 		})
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
+
 	// @lore U1: tasks.teamId references teams.id (domain entity = productId), not teamMembers.id.
-	db.insert(tasks)
+	await db
+		.insert(tasks)
 		.values({
 			id: `task-${sessionId}`,
 			betId: `bet-${sessionId}`,

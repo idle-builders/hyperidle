@@ -41,23 +41,20 @@ describe("Rail Endpoint (E5)", () => {
 		app = await createTestApp({ db, eventBus });
 
 		// Seed base data
-		db.insert(teams)
-			.values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			})
-			.run();
-		db.insert(teamMembers)
-			.values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 3,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			})
-			.run();
+		await db.insert(teams).values({
+			id: "prod-1",
+			name: "Test Product",
+			phase: "build",
+			createdAt: new Date().toISOString(),
+		});
+
+		await db.insert(teamMembers).values({
+			id: "team-1",
+			teamId: "prod-1",
+			capacity: 3,
+			activeBets: 0,
+			formedAt: new Date().toISOString(),
+		});
 	});
 
 	afterEach(async () => {
@@ -79,27 +76,23 @@ describe("Rail Endpoint (E5)", () => {
 
 		it("returns bets with status, blockers, items, and cost burn rate", async () => {
 			// Create bets
-			db.insert(bets)
-				.values({
-					id: "bet-1",
-					teamId: "prod-1",
-					description: "Build feature X",
-					appetite: "small",
-					status: "active",
-					createdAt: new Date().toISOString(),
-				})
-				.run();
+			await db.insert(bets).values({
+				id: "bet-1",
+				teamId: "prod-1",
+				description: "Build feature X",
+				appetite: "small",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			});
 
-			db.insert(bets)
-				.values({
-					id: "bet-2",
-					teamId: "prod-1",
-					description: "Build feature Y",
-					appetite: "medium",
-					status: "active",
-					createdAt: new Date().toISOString(),
-				})
-				.run();
+			await db.insert(bets).values({
+				id: "bet-2",
+				teamId: "prod-1",
+				description: "Build feature Y",
+				appetite: "medium",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			});
 
 			// Create agent for owner
 			await db.insert(users).values({
@@ -112,31 +105,27 @@ describe("Rail Endpoint (E5)", () => {
 
 			// Create a blocked task
 			const blockedAt = new Date(Date.now() - 3600_000).toISOString(); // 1 hour ago
-			db.insert(tasks)
-				.values({
-					id: "task-blocked-1",
-					betId: "bet-2",
-					teamId: "prod-1",
-					ownerAgentId: "agent-1",
-					title: "Blocked task",
-					state: "blocked",
-					createdAt: blockedAt,
-					updatedAt: blockedAt,
-				})
-				.run();
+			await db.insert(tasks).values({
+				id: "task-blocked-1",
+				betId: "bet-2",
+				teamId: "prod-1",
+				ownerAgentId: "agent-1",
+				title: "Blocked task",
+				state: "blocked",
+				createdAt: blockedAt,
+				updatedAt: blockedAt,
+			});
 
 			// Create a non-blocked task
-			db.insert(tasks)
-				.values({
-					id: "task-ok-1",
-					betId: "bet-2",
-					teamId: "prod-1",
-					title: "Normal task",
-					state: "in_progress",
-					createdAt: new Date().toISOString(),
-					updatedAt: new Date().toISOString(),
-				})
-				.run();
+			await db.insert(tasks).values({
+				id: "task-ok-1",
+				betId: "bet-2",
+				teamId: "prod-1",
+				title: "Normal task",
+				state: "in_progress",
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			});
 
 			// L1a: thread shape now uses host_kind/host_id/initiator/participants/
 			// last_active_at instead of `kind`. Legacy `kind='review'` projects
@@ -202,40 +191,35 @@ describe("Rail Endpoint (E5)", () => {
 	// AC5: Bets returned with one-liner: id, title, status, progress
 	describe("AC5: Bets with one-liner fields", () => {
 		it("returns id, title (pitch), status, and progress for each bet", async () => {
-			db.insert(bets)
-				.values({
-					id: "bet-a",
-					teamId: "prod-1",
-					description: "Feature A",
-					appetite: "small",
-					status: "active",
-					createdAt: new Date().toISOString(),
-				})
-				.run();
+			await db.insert(bets).values({
+				id: "bet-a",
+				teamId: "prod-1",
+				description: "Feature A",
+				appetite: "small",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			});
 
 			// Create tasks for progress calculation
-			db.insert(tasks)
-				.values({
-					id: "t1",
-					betId: "bet-a",
-					teamId: "prod-1",
-					title: "Done task",
-					state: "done",
-					createdAt: new Date().toISOString(),
-					updatedAt: new Date().toISOString(),
-				})
-				.run();
-			db.insert(tasks)
-				.values({
-					id: "t2",
-					betId: "bet-a",
-					teamId: "prod-1",
-					title: "In progress task",
-					state: "in_progress",
-					createdAt: new Date().toISOString(),
-					updatedAt: new Date().toISOString(),
-				})
-				.run();
+			await db.insert(tasks).values({
+				id: "t1",
+				betId: "bet-a",
+				teamId: "prod-1",
+				title: "Done task",
+				state: "done",
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			});
+
+			await db.insert(tasks).values({
+				id: "t2",
+				betId: "bet-a",
+				teamId: "prod-1",
+				title: "In progress task",
+				state: "in_progress",
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			});
 
 			const res = await app.request("/api/rail", { headers: authHeaders() });
 			const body = (await res.json()) as Record<string, unknown>;
@@ -254,16 +238,14 @@ describe("Rail Endpoint (E5)", () => {
 	// AC6: Blockers include: task id, title, owner, duration blocked
 	describe("AC6: Blockers include required fields", () => {
 		it("returns task id, title, owner, and duration blocked", async () => {
-			db.insert(bets)
-				.values({
-					id: "bet-b",
-					teamId: "prod-1",
-					description: "Feature B",
-					appetite: "small",
-					status: "active",
-					createdAt: new Date().toISOString(),
-				})
-				.run();
+			await db.insert(bets).values({
+				id: "bet-b",
+				teamId: "prod-1",
+				description: "Feature B",
+				appetite: "small",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			});
 
 			await db.insert(users).values({
 				id: "agent-owner",
@@ -274,18 +256,16 @@ describe("Rail Endpoint (E5)", () => {
 			});
 
 			const blockedSince = new Date(Date.now() - 7200_000).toISOString(); // 2 hours ago
-			db.insert(tasks)
-				.values({
-					id: "task-blocked-x",
-					betId: "bet-b",
-					teamId: "prod-1",
-					ownerAgentId: "agent-owner",
-					title: "Blocked on external",
-					state: "blocked",
-					createdAt: new Date().toISOString(),
-					updatedAt: blockedSince,
-				})
-				.run();
+			await db.insert(tasks).values({
+				id: "task-blocked-x",
+				betId: "bet-b",
+				teamId: "prod-1",
+				ownerAgentId: "agent-owner",
+				title: "Blocked on external",
+				state: "blocked",
+				createdAt: new Date().toISOString(),
+				updatedAt: blockedSince,
+			});
 
 			const res = await app.request("/api/rail", { headers: authHeaders() });
 			const body = (await res.json()) as Record<string, unknown>;

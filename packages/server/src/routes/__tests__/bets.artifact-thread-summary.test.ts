@@ -62,59 +62,53 @@ async function setupApp(): Promise<AppCtx> {
 
 	const now = new Date().toISOString();
 
-	db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now }).run();
-	db.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-		.run();
-	db.insert(users)
-		.values({
-			id: "u-founder",
-			name: "Founder",
-			role: "founder",
-			status: "active",
-			createdAt: now,
-		})
-		.run();
-	db.insert(users)
-		.values({
-			id: "agent-1",
-			name: "Agent",
-			role: "builder",
-			status: "active",
-			createdAt: now,
-		})
-		.run();
+	await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now });
+	await db
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+
+	await db.insert(users).values({
+		id: "u-founder",
+		name: "Founder",
+		role: "founder",
+		status: "active",
+		createdAt: now,
+	});
+
+	await db.insert(users).values({
+		id: "agent-1",
+		name: "Agent",
+		role: "builder",
+		status: "active",
+		createdAt: now,
+	});
 
 	return { app, db, eventBus, events };
 }
 
 async function insertBet(db: HyperIdleDb, betId: string): Promise<void> {
 	const now = new Date().toISOString();
-	db.insert(bets)
-		.values({
-			id: betId,
-			teamId: "p1",
-			description: "test pitch",
-			appetite: "small",
-			status: "active",
-			createdAt: now,
-		})
-		.run();
+	await db.insert(bets).values({
+		id: betId,
+		teamId: "p1",
+		description: "test pitch",
+		appetite: "small",
+		status: "active",
+		createdAt: now,
+	});
 }
 
 async function insertTask(db: HyperIdleDb, taskId: string, betId: string): Promise<void> {
 	const now = new Date().toISOString();
-	db.insert(tasks)
-		.values({
-			id: taskId,
-			betId,
-			teamId: "p1",
-			title: `Task ${taskId}`,
-			state: "in_progress",
-			createdAt: now,
-			updatedAt: now,
-		})
-		.run();
+	await db.insert(tasks).values({
+		id: taskId,
+		betId,
+		teamId: "p1",
+		title: `Task ${taskId}`,
+		state: "in_progress",
+		createdAt: now,
+		updatedAt: now,
+	});
 }
 
 async function insertArtifact(

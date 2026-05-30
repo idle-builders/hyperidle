@@ -121,7 +121,7 @@ async function buildSettingsResponse(db: HyperIdleDb): Promise<{
 	const serverCfg = await readServerConfig(db);
 
 	// Teams — active derived from phase !== "archived"
-	const teamRows = db.select().from(teams).all();
+	const teamRows = await db.select().from(teams);
 	// AI Users — paused derived from status === "paused" (kind = 'ai' for the agents panel)
 	const aiUserRows = await db.select().from(users).where(eq(users.kind, "ai"));
 

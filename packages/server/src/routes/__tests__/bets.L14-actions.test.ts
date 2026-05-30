@@ -46,22 +46,21 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 
 		const now = new Date().toISOString();
 		// @lore U1: teams = domain entity (formerly products); teamMembers = membership group.
-		db.insert(teams).values({ id: "p1", name: "Alpha", phase: "build", createdAt: now }).run();
-		db.insert(teamMembers)
-			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-			.run();
-		db.insert(bets)
-			.values({
-				id: "bet1",
-				// @lore U1: bets.teamId references teams.id (domain entity), NOT teamMembers.id
-				teamId: "p1",
-				description: "# Hello\nBody text",
-				appetite: "2 weeks",
-				// @lore U1: status is "draft" (formerly "shaped")
-				status: "draft",
-				createdAt: now,
-			})
-			.run();
+		await db.insert(teams).values({ id: "p1", name: "Alpha", phase: "build", createdAt: now });
+		await db
+			.insert(teamMembers)
+			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+
+		await db.insert(bets).values({
+			id: "bet1",
+			// @lore U1: bets.teamId references teams.id (domain entity), NOT teamMembers.id
+			teamId: "p1",
+			description: "# Hello\nBody text",
+			appetite: "2 weeks",
+			// @lore U1: status is "draft" (formerly "shaped")
+			status: "draft",
+			createdAt: now,
+		});
 	});
 
 	afterEach(() => {
@@ -314,30 +313,27 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 		it("returns progress with done and total computed from tasks", async () => {
 			const now = new Date().toISOString();
 			// Seed two tasks: one done, one in_progress
-			db.insert(tasks)
-				.values({
-					id: "task-done",
-					betId: "bet1",
-					teamId: "p1",
-					title: "Done task",
-					state: "done",
-					priority: 0,
-					createdAt: now,
-					updatedAt: now,
-				})
-				.run();
-			db.insert(tasks)
-				.values({
-					id: "task-wip",
-					betId: "bet1",
-					teamId: "p1",
-					title: "WIP task",
-					state: "in_progress",
-					priority: 1,
-					createdAt: now,
-					updatedAt: now,
-				})
-				.run();
+			await db.insert(tasks).values({
+				id: "task-done",
+				betId: "bet1",
+				teamId: "p1",
+				title: "Done task",
+				state: "done",
+				priority: 0,
+				createdAt: now,
+				updatedAt: now,
+			});
+
+			await db.insert(tasks).values({
+				id: "task-wip",
+				betId: "bet1",
+				teamId: "p1",
+				title: "WIP task",
+				state: "in_progress",
+				priority: 1,
+				createdAt: now,
+				updatedAt: now,
+			});
 
 			const res = await app.request("/api/bets/bet1", {
 				method: "GET",
@@ -358,16 +354,14 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 
 		it("falls back to bet id when description has no heading", async () => {
 			const now = new Date().toISOString();
-			db.insert(bets)
-				.values({
-					id: "bet-noheading",
-					teamId: "p1",
-					description: "Just some prose with no heading",
-					appetite: "1 week",
-					status: "draft",
-					createdAt: now,
-				})
-				.run();
+			await db.insert(bets).values({
+				id: "bet-noheading",
+				teamId: "p1",
+				description: "Just some prose with no heading",
+				appetite: "1 week",
+				status: "draft",
+				createdAt: now,
+			});
 
 			const res = await app.request("/api/bets/bet-noheading", {
 				method: "GET",

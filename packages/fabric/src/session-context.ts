@@ -65,7 +65,7 @@ export async function buildSessionContext(
 	}
 
 	// @lore U1: productId now holds a teams.id value (the domain entity id).
-	const team = db.select().from(teams).where(eq(teams.id, config.productId)).get();
+	const [team] = await db.select().from(teams).where(eq(teams.id, config.productId)).limit(1);
 	if (!team) {
 		throw new Error(`Team ${config.productId} not found`);
 	}

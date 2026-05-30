@@ -156,8 +156,12 @@ const PROPAGATABLE_BET_STATES: ReadonlySet<BetStatus> = new Set(["active"]);
  * @lore U1: Status simplified. `active` → `completed` (formerly active → review).
  * `bet.productId` → `bet.teamId`.
  */
-function transitionBetToCompletedSync(db: HyperIdleDb, eventBus: EventBus, betId: string): void {
-	const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
+async function transitionBetToCompletedAsync(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	betId: string,
+): Promise<void> {
+	const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 	if (!bet) throw new Error(`Bet '${betId}' not found`);
 
 	const fromState = bet.status as BetStatus;
@@ -188,7 +192,7 @@ function transitionBetToCompletedSync(db: HyperIdleDb, eventBus: EventBus, betId
 		.where(and(eq(bets.id, betId), eq(bets.status, fromState)))
 		.returning({ id: bets.id });
 
-	if (result.changes === 0) {
+	if (updateRows.length === 0) {
 		throw new SharedInvalidTransitionError(fromState, "completed");
 	}
 
@@ -442,7 +446,7 @@ async function propagateTaskToBet(
 
 	try {
 		// @lore U1: `active` → `completed` (formerly active → review).
-		transitionBetToCompletedSync(db, eventBus, betId);
+		await transitionBetToCompletedAsync(db, eventBus, betId);
 
 		await logPropagation(db, {
 			sourceLevel: "task",
@@ -547,14 +551,14 @@ async function createShipConfirmationThread(
  * @lore U1: Renamed from logBetToProductPropagation. `"product"` level → `"team"`.
  * `bet.productId` → `bet.teamId`. Team status is derived on read — no write needed.
  */
-function logBetToTeamPropagation(
+async function logBetToTeamPropagation(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	betId: string,
 	newStatus: string,
-): void {
+): Promise<void> {
 	// Look up the bet to find its teamId
-	const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
+	const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 	// @lore U1: `teamId` replaces `productId`.
 	const teamId = bet?.teamId ?? betId; // fallback to betId if bet not found (shouldn't happen)
 
@@ -681,7 +685,7 @@ export function registerLifecyclePropagation(db: HyperIdleDb, eventBus: EventBus
 	// @lore U1: "shipped" → "completed"; logBetToProductPropagation → logBetToTeamPropagation.
 	const unsubBetChanged = eventBus.on("bet_state_changed", (event) => {
 		if (event.toState === "completed" || event.toState === "killed") {
-			logBetToTeamPropagation(db, eventBus, event.betId, event.toState);
+			void logBetToTeamPropagation(db, eventBus, event.betId, event.toState);
 		}
 	});
 

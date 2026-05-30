@@ -102,7 +102,11 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 			}
 		} else if (mechanism === "team") {
 			// @lore U1: `mechanism: "team"` targets a teamMembers row (agent membership group).
-			const targetTeam = db.select().from(teamMembers).where(eq(teamMembers.id, target)).get();
+			const [targetTeam] = await db
+				.select()
+				.from(teamMembers)
+				.where(eq(teamMembers.id, target))
+				.limit(1);
 			if (!targetTeam) {
 				return c.json(
 					{ error: `target teamId not found: ${target}`, code: "VALIDATION_ERROR" },

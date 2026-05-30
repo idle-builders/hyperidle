@@ -36,46 +36,42 @@ describe("E2E API Integration (I5)", () => {
 		app = await createTestApp({ db, eventBus });
 
 		// Seed base entities
-		db.insert(teams)
-			.values({
-				id: "prod-1",
-				name: "E2E Product",
-				phase: "build",
+		await db.insert(teams).values({
+			id: "prod-1",
+			name: "E2E Product",
+			phase: "build",
+			createdAt: new Date().toISOString(),
+		});
+
+		await db.insert(teamMembers).values({
+			id: "team-1",
+			teamId: "prod-1",
+			capacity: 5,
+			activeBets: 0,
+			formedAt: new Date().toISOString(),
+		});
+
+		await db.insert(users).values([
+			{
+				id: "agent-1",
+				name: "Test Agent",
+				role: "builder",
+				status: "active",
+				teamId: "team-1",
 				createdAt: new Date().toISOString(),
-			})
-			.run();
-		db.insert(teamMembers)
-			.values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			})
-			.run();
-		db.insert(users)
-			.values([
-				{
-					id: "agent-1",
-					name: "Test Agent",
-					role: "builder",
-					status: "active",
-					teamId: "team-1",
-					createdAt: new Date().toISOString(),
-				},
-				// L1a: synthetic sender for verdict-typed messages emitted by
-				// the legacy `POST /responses` route (plan §6.4 wraps the new
-				// repo path). The new `messages.sender_id` FK requires the
-				// row to exist.
-				{
-					id: "policy_engine",
-					name: "Policy Engine",
-					role: "system",
-					status: "active",
-					createdAt: new Date().toISOString(),
-				},
-			])
-			.run();
+			},
+			// L1a: synthetic sender for verdict-typed messages emitted by
+			// the legacy `POST /responses` route (plan §6.4 wraps the new
+			// repo path). The new `messages.sender_id` FK requires the
+			// row to exist.
+			{
+				id: "policy_engine",
+				name: "Policy Engine",
+				role: "system",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			},
+		]);
 	});
 
 	afterEach(async () => {
@@ -215,30 +211,27 @@ describe("E2E API Integration (I5)", () => {
 	// 4. Tasks
 	// -------------------------------------------------------
 	describe("Tasks", () => {
-		beforeEach(() => {
+		beforeEach(async () => {
 			// @lore U1: teamId references `teams` domain entity (not teamMembers).
-			db.insert(bets)
-				.values({
-					id: "bet-1",
-					teamId: "prod-1",
-					description: "Test bet",
-					costAppetiteMinor: 20000,
-					costAppetiteCurrency: "USD",
-					status: "active",
-					createdAt: new Date().toISOString(),
-				})
-				.run();
-			db.insert(tasks)
-				.values({
-					id: "task-1",
-					betId: "bet-1",
-					teamId: "prod-1",
-					title: "Task A",
-					state: "proposed",
-					createdAt: new Date().toISOString(),
-					updatedAt: new Date().toISOString(),
-				})
-				.run();
+			await db.insert(bets).values({
+				id: "bet-1",
+				teamId: "prod-1",
+				description: "Test bet",
+				costAppetiteMinor: 20000,
+				costAppetiteCurrency: "USD",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			});
+
+			await db.insert(tasks).values({
+				id: "task-1",
+				betId: "bet-1",
+				teamId: "prod-1",
+				title: "Task A",
+				state: "proposed",
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			});
 		});
 
 		it("GET /api/tasks lists all tasks", async () => {
@@ -541,30 +534,27 @@ describe("E2E API Integration (I5)", () => {
 	// 8. Sessions
 	// -------------------------------------------------------
 	describe("Sessions", () => {
-		beforeEach(() => {
+		beforeEach(async () => {
 			// @lore U1: teamId references `teams` domain entity (not teamMembers).
-			db.insert(bets)
-				.values({
-					id: "bet-s",
-					teamId: "prod-1",
-					description: "Session bet",
-					costAppetiteMinor: 20000,
-					costAppetiteCurrency: "USD",
-					status: "active",
-					createdAt: new Date().toISOString(),
-				})
-				.run();
-			db.insert(tasks)
-				.values({
-					id: "task-s",
-					betId: "bet-s",
-					teamId: "prod-1",
-					title: "Session task",
-					state: "in_progress",
-					createdAt: new Date().toISOString(),
-					updatedAt: new Date().toISOString(),
-				})
-				.run();
+			await db.insert(bets).values({
+				id: "bet-s",
+				teamId: "prod-1",
+				description: "Session bet",
+				costAppetiteMinor: 20000,
+				costAppetiteCurrency: "USD",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			});
+
+			await db.insert(tasks).values({
+				id: "task-s",
+				betId: "bet-s",
+				teamId: "prod-1",
+				title: "Session task",
+				state: "in_progress",
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			});
 		});
 
 		it("GET /api/sessions returns session list", async () => {

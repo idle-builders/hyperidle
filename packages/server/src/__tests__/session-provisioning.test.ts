@@ -175,23 +175,21 @@ interface SeedOverrides {
 
 const NOW = "2026-04-16T00:00:00.000Z";
 
-function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): void {
-	db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW }).run();
+async function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): Promise<void> {
+	await db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
 
-	db.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
-		.run();
+	await db
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 
-	db.insert(bets)
-		.values({
-			id: "b1",
-			teamId: "p1",
-			description: "Test bet",
-			appetite: "small",
-			status: "active",
-			createdAt: NOW,
-		})
-		.run();
+	await db.insert(bets).values({
+		id: "b1",
+		teamId: "p1",
+		description: "Test bet",
+		appetite: "small",
+		status: "active",
+		createdAt: NOW,
+	});
 
 	await db.insert(users).values({
 		id: "agent-1",
@@ -206,17 +204,15 @@ function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): void {
 	});
 
 	const mainTaskState = overrides.taskState ?? "accepted";
-	db.insert(tasks)
-		.values({
-			id: "task-1",
-			betId: "b1",
-			teamId: "p1",
-			title: "Test task",
-			state: mainTaskState,
-			createdAt: NOW,
-			updatedAt: NOW,
-		})
-		.run();
+	await db.insert(tasks).values({
+		id: "task-1",
+		betId: "b1",
+		teamId: "p1",
+		title: "Test task",
+		state: mainTaskState,
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
 
 	// @lore O2: riskTier moved to taskStrategyFabric extension table
 	if (overrides.taskRiskTier != null) {
@@ -229,17 +225,15 @@ function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): void {
 
 	for (let i = 2; i <= (overrides.extraTasks ?? 1) + 1; i++) {
 		if (i === 2 && (overrides.extraTasks ?? 0) === 0) continue;
-		db.insert(tasks)
-			.values({
-				id: `task-${i}`,
-				betId: "b1",
-				teamId: "p1",
-				title: `Task ${i}`,
-				state: "accepted",
-				createdAt: NOW,
-				updatedAt: NOW,
-			})
-			.run();
+		await db.insert(tasks).values({
+			id: `task-${i}`,
+			betId: "b1",
+			teamId: "p1",
+			title: `Task ${i}`,
+			state: "accepted",
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
 	}
 
 	// Seed a knowledge item so materialize has something to write.
@@ -986,33 +980,30 @@ describe("Session Provisioning (D5)", () => {
 			await db.delete(tasks).where(eq(tasks.id, "task-1"));
 			await db.delete(users).where(eq(users.id, "agent-1"));
 
-			db.insert(users)
-				.values({
-					id: "agent-fac",
-					name: "Ops Practice Facilitator",
-					role: "practice_facilitator",
-					status: "active",
-					teamId: null,
-					maxConcurrentSessions: 1,
-					costCap: null,
-					costActual: 0,
-					soulPromptPath: "docs/souls/practice-facilitator.md",
-					skills:
-						'{"scope":"ops","tools":["route_item","score_attention","promote_knowledge","create_conflict_review"]}',
-					createdAt: NOW,
-				})
-				.run();
-			db.insert(tasks)
-				.values({
-					id: "task-fac",
-					betId: "b1",
-					teamId: "p1",
-					title: "Facilitator task",
-					state: "accepted",
-					createdAt: NOW,
-					updatedAt: NOW,
-				})
-				.run();
+			await db.insert(users).values({
+				id: "agent-fac",
+				name: "Ops Practice Facilitator",
+				role: "practice_facilitator",
+				status: "active",
+				teamId: null,
+				maxConcurrentSessions: 1,
+				costCap: null,
+				costActual: 0,
+				soulPromptPath: "docs/souls/practice-facilitator.md",
+				skills:
+					'{"scope":"ops","tools":["route_item","score_attention","promote_knowledge","create_conflict_review"]}',
+				createdAt: NOW,
+			});
+
+			await db.insert(tasks).values({
+				id: "task-fac",
+				betId: "b1",
+				teamId: "p1",
+				title: "Facilitator task",
+				state: "accepted",
+				createdAt: NOW,
+				updatedAt: NOW,
+			});
 
 			const harness = new ScriptedHarnessAdapter({
 				events: [

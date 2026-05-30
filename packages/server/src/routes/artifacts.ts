@@ -210,8 +210,7 @@ export function createArtifactRoutes(db: HyperIdleDb): Hono {
 				.select({ id: tasks.id })
 				.from(tasks)
 				.where(eq(tasks.teamId, teamId))
-				.limit(MAX_TASK_ID_FANOUT + 1)
-				.all();
+				.limit(MAX_TASK_ID_FANOUT + 1);
 			if (rows.length > MAX_TASK_ID_FANOUT) {
 				return c.json({ error: "Task fan-out too large", code: "FANOUT_TOO_LARGE" }, 400);
 			}

@@ -42,23 +42,20 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 		app = await createTestApp({ db, eventBus });
 
 		// Seed product and team
-		db.insert(teams)
-			.values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: NOW,
-			})
-			.run();
-		db.insert(teamMembers)
-			.values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 3,
-				activeBets: 0,
-				formedAt: NOW,
-			})
-			.run();
+		await db.insert(teams).values({
+			id: "prod-1",
+			name: "Test Product",
+			phase: "build",
+			createdAt: NOW,
+		});
+
+		await db.insert(teamMembers).values({
+			id: "team-1",
+			teamId: "prod-1",
+			capacity: 3,
+			activeBets: 0,
+			formedAt: NOW,
+		});
 
 		// Seed AI users (formerly agents)
 		await db.insert(users).values([

@@ -128,23 +128,21 @@ async function seedDomain(
 		agentMaxConcurrentSessions?: number;
 	} = {},
 ): void {
-	db.insert(teams).values({ id: "p1", name: "R1 Product", phase: "build", createdAt: NOW }).run();
+	await db.insert(teams).values({ id: "p1", name: "R1 Product", phase: "build", createdAt: NOW });
 
-	db.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
-		.run();
+	await db
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 
 	// @lore U1: bets.teamId and tasks.teamId reference `teams` (domain entity "p1"), not teamMembers.
-	db.insert(bets)
-		.values({
-			id: "b1",
-			teamId: "p1",
-			description: "R1 bet",
-			appetite: "small",
-			status: "active",
-			createdAt: NOW,
-		})
-		.run();
+	await db.insert(bets).values({
+		id: "b1",
+		teamId: "p1",
+		description: "R1 bet",
+		appetite: "small",
+		status: "active",
+		createdAt: NOW,
+	});
 
 	await db.insert(users).values({
 		id: "agent-r1",
@@ -158,17 +156,15 @@ async function seedDomain(
 		createdAt: NOW,
 	});
 
-	db.insert(tasks)
-		.values({
-			id: "task-r1",
-			betId: "b1",
-			teamId: "p1",
-			title: "R1 test task",
-			state: "accepted",
-			createdAt: NOW,
-			updatedAt: NOW,
-		})
-		.run();
+	await db.insert(tasks).values({
+		id: "task-r1",
+		betId: "b1",
+		teamId: "p1",
+		title: "R1 test task",
+		state: "accepted",
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
 
 	// Seed a knowledge item so materialize has something to write during provisioning.
 	await db.insert(knowledgeItems).values({
@@ -375,44 +371,42 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 	describe("Backward compat: POST /api/sessions without adapters falls back to bare insert", () => {
 		it("returns 201 with bare session row when no harnessAdapter is provided", async () => {
 			// Seed only the minimum needed for the bare insert path.
-			db.insert(teams)
-				.values({ id: "p-bare", name: "Bare Product", phase: "build", createdAt: NOW })
-				.run();
-			db.insert(teamMembers)
-				.values({ id: "t-bare", teamId: "p-bare", capacity: 3, activeBets: 0, formedAt: NOW })
-				.run();
-			db.insert(users)
-				.values({
-					id: "agent-bare",
-					name: "Bare Agent",
-					role: "builder",
-					status: "idle",
-					teamId: "t-bare",
-					createdAt: NOW,
-				})
-				.run();
+			await db
+				.insert(teams)
+				.values({ id: "p-bare", name: "Bare Product", phase: "build", createdAt: NOW });
+
+			await db
+				.insert(teamMembers)
+				.values({ id: "t-bare", teamId: "p-bare", capacity: 3, activeBets: 0, formedAt: NOW });
+
+			await db.insert(users).values({
+				id: "agent-bare",
+				name: "Bare Agent",
+				role: "builder",
+				status: "idle",
+				teamId: "t-bare",
+				createdAt: NOW,
+			});
+
 			// @lore U1: bets.teamId and tasks.teamId reference `teams` (domain entity), not teamMembers.
-			db.insert(bets)
-				.values({
-					id: "b-bare",
-					teamId: "p-bare",
-					description: "Bare bet",
-					appetite: "small",
-					status: "active",
-					createdAt: NOW,
-				})
-				.run();
-			db.insert(tasks)
-				.values({
-					id: "task-bare",
-					betId: "b-bare",
-					teamId: "p-bare",
-					title: "Bare task",
-					state: "in_progress",
-					createdAt: NOW,
-					updatedAt: NOW,
-				})
-				.run();
+			await db.insert(bets).values({
+				id: "b-bare",
+				teamId: "p-bare",
+				description: "Bare bet",
+				appetite: "small",
+				status: "active",
+				createdAt: NOW,
+			});
+
+			await db.insert(tasks).values({
+				id: "task-bare",
+				betId: "b-bare",
+				teamId: "p-bare",
+				title: "Bare task",
+				state: "in_progress",
+				createdAt: NOW,
+				updatedAt: NOW,
+			});
 
 			// No harnessAdapter/workspaceAdapter — existing behavior (bare insert).
 			app = await createTestApp({ db, eventBus });

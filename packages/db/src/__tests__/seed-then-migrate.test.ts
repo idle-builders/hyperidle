@@ -35,71 +35,63 @@ describe("I3 review C3: migration idempotency on a populated PGlite DB", () => {
 		// Seed a cross-FK fixture using the post-migration schema.
 		// @lore U1: `teams` is the domain entity (formerly `products`).
 		const NOW = "2026-04-18T00:00:00Z";
-		db.insert(schema.teams).values({ id: "p1", name: "P1", phase: "build", createdAt: NOW }).run();
-		db.insert(schema.teamMembers)
-			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
-			.run();
+		await db.insert(schema.teams).values({ id: "p1", name: "P1", phase: "build", createdAt: NOW });
+		await db
+			.insert(schema.teamMembers)
+			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 		// @lore P2: agents → users table. kind: "ai" required.
-		db.insert(schema.users)
-			.values({
-				id: "a1",
-				kind: "ai",
-				name: "A1",
-				role: "builder",
-				status: "active",
-				maxConcurrentSessions: 1,
-				createdAt: NOW,
-			})
-			.run();
-		db.insert(schema.bets)
-			.values({
-				id: "b1",
-				teamId: "p1",
-				description: "x",
-				appetite: "small",
-				status: "draft",
-				createdAt: NOW,
-			})
-			.run();
-		db.insert(schema.tasks)
-			.values({
-				id: "task-1",
-				betId: "b1",
-				teamId: "p1",
-				title: "T1",
-				state: "proposed",
-				createdAt: NOW,
-				updatedAt: NOW,
-			})
-			.run();
-		db.insert(schema.sessions)
-			.values({
-				id: "s1",
-				taskId: "task-1",
-				agentId: "a1",
-				modelTier: "workhorse",
-				startedAt: NOW,
-				state: "active",
-			})
-			.run();
+		await db.insert(schema.users).values({
+			id: "a1",
+			kind: "ai",
+			name: "A1",
+			role: "builder",
+			status: "active",
+			maxConcurrentSessions: 1,
+			createdAt: NOW,
+		});
+		await db.insert(schema.bets).values({
+			id: "b1",
+			teamId: "p1",
+			description: "x",
+			appetite: "small",
+			status: "draft",
+			createdAt: NOW,
+		});
+		await db.insert(schema.tasks).values({
+			id: "task-1",
+			betId: "b1",
+			teamId: "p1",
+			title: "T1",
+			state: "proposed",
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
+		await db.insert(schema.sessions).values({
+			id: "s1",
+			taskId: "task-1",
+			agentId: "a1",
+			modelTier: "workhorse",
+			startedAt: NOW,
+			state: "active",
+		});
 
 		// Re-run migrations: idempotent + must not error on a populated DB.
 		await runMigrations();
 
 		// All rows must survive.
 		// @lore U1: `schema.teams` is the domain entity (formerly `products`).
-		expect(db.select().from(schema.teams).all()).toHaveLength(1);
-		expect(db.select().from(schema.teamMembers).all()).toHaveLength(1);
-		expect(db.select().from(schema.users).all()).toHaveLength(1);
-		expect(db.select().from(schema.bets).all()).toHaveLength(1);
-		expect(db.select().from(schema.tasks).all()).toHaveLength(1);
-		expect(db.select().from(schema.sessions).all()).toHaveLength(1);
-
-		// And FK enforcement must still be on after the migration.
-		const fkOn = sqlite.pragma("foreign_keys", { simple: true });
-		expect(fkOn).toBe(1);
-
-		sqlite.close();
+		const teamRows = await db.select().from(schema.teams);
+		expect(teamRows).toHaveLength(1);
+		const memberRows = await db.select().from(schema.teamMembers);
+		expect(memberRows).toHaveLength(1);
+		const userRows = await db.select().from(schema.users);
+		expect(userRows).toHaveLength(1);
+		const betRows = await db.select().from(schema.bets);
+		expect(betRows).toHaveLength(1);
+		const taskRows = await db.select().from(schema.tasks);
+		expect(taskRows).toHaveLength(1);
+		const sessionRows = await db.select().from(schema.sessions);
+		expect(sessionRows).toHaveLength(1);
 	});
 
 	it("tasks_state_idx no longer exists (dropped in migration 0006)", {
@@ -120,7 +112,5 @@ describe("I3 review C3: migration idempotency on a populated PGlite DB", () => {
 		// The new index is `tasks_team_id_idx`.
 		expect(indexes).toContain("tasks_bet_id_idx");
 		expect(indexes).toContain("tasks_team_id_idx");
-
-		sqlite.close();
 	});
 });

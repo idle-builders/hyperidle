@@ -99,30 +99,17 @@ describe("M3 — Thread route readSenderId + readInitialSenderId use auth contex
 		// P2: seedFounderUser seeds kind='human' so auth middleware resolves this user
 		await seedFounderUser(db, "test-founder-1");
 
+		// @lore U1: `teams` is the domain entity (formerly `products`); `teamMembers` is the membership group.
 		await db
-			.insert(products)
+			.insert(teams)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
-
-		await db.insert(teams).values({
+		await db.insert(teamMembers).values({
 			id: "team-1",
-			productId: "prod-1",
+			teamId: "prod-1",
 			capacity: 3,
 			activeBets: 0,
 			formedAt: now,
 		});
-
-		db.insert(teams)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now })
-			.run();
-		db.insert(teamMembers)
-			.values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 3,
-				activeBets: 0,
-				formedAt: now,
-			})
-			.run();
 		// Note: "test-founder-1" is already seeded by seedFounderUser above — no duplicate insert.
 	});
 

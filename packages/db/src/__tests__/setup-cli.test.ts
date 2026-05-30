@@ -49,8 +49,8 @@ describe("H4 AC1: `bun run setup --profile laptop`", () => {
 		await client.waitReady;
 		try {
 			// @lore U1: `products` table renamed to `teams`
-			const teams = raw.prepare("SELECT id FROM teams").all() as Array<{ id: string }>;
-			expect(teams.length).toBeGreaterThan(0);
+			const teamsResult = await client.query<{ id: string }>("SELECT id FROM teams");
+			expect(teamsResult.rows.length).toBeGreaterThan(0);
 
 			const usersResult = await client.query<{ id: string }>("SELECT id FROM users");
 			expect(usersResult.rows.length).toBeGreaterThan(0);
@@ -189,13 +189,13 @@ describe("H4 idempotency: laptop setup is safe to run twice", () => {
 		await client.waitReady;
 		try {
 			// @lore P2: agents → users table
-			const agents = raw.prepare("SELECT id FROM users").all() as Array<{ id: string }>;
-			expect(agents.length).toBeGreaterThan(0);
+			const agentsResult = await client.query<{ id: string }>("SELECT id FROM users");
+			expect(agentsResult.rows.length).toBeGreaterThan(0);
 			// @lore U1: `products` renamed to `teams`; seed row id stays 'seed-product-1'
-			const teams = raw
-				.prepare("SELECT COUNT(*) AS n FROM teams WHERE id = 'seed-product-1'")
-				.get() as { n: number };
-			expect(teams.n).toBe(1);
+			const teamsResult = await client.query<{ n: string }>(
+				"SELECT COUNT(*) AS n FROM teams WHERE id = 'seed-product-1'",
+			);
+			expect(Number(teamsResult.rows[0]?.n)).toBe(1);
 		} finally {
 			await client.close();
 		}

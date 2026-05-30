@@ -36,90 +36,82 @@ import type { SessionContext } from "../services/session-lifecycle.js";
 
 const NOW = new Date().toISOString();
 
-function seed(db: HyperIdleDb): void {
-	db.insert(teams).values({ id: "p1", name: "P1", phase: "build", createdAt: NOW }).run();
-	db.insert(teamMembers)
-		.values({
-			id: "t1",
-			teamId: "p1",
-			capacity: 5,
-			activeBets: 0,
-			costCap: 1_000_000,
-			costActual: 0,
-			formedAt: NOW,
-		})
-		.run();
-	db.insert(users)
-		.values({
-			id: "a1",
-			name: "A1",
-			role: "builder",
-			status: "active",
-			maxConcurrentSessions: 1,
-			teamId: "t1",
-			costCap: 100,
-			costActual: 0,
-			createdAt: NOW,
-		})
-		.run();
-	db.insert(users)
-		.values({
-			id: "a2",
-			name: "A2",
-			role: "builder",
-			status: "active",
-			maxConcurrentSessions: 1,
-			teamId: "t1",
-			costCap: 100,
-			costActual: 0,
-			createdAt: NOW,
-		})
-		.run();
-	db.insert(bets)
-		.values({
-			id: "b1",
-			teamId: "p1",
-			description: "x",
-			appetite: "small",
-			status: "active",
-			createdAt: NOW,
-		})
-		.run();
+async function seed(db: HyperIdleDb): Promise<void> {
+	await db.insert(teams).values({ id: "p1", name: "P1", phase: "build", createdAt: NOW });
+	await db.insert(teamMembers).values({
+		id: "t1",
+		teamId: "p1",
+		capacity: 5,
+		activeBets: 0,
+		costCap: 1_000_000,
+		costActual: 0,
+		formedAt: NOW,
+	});
+
+	await db.insert(users).values({
+		id: "a1",
+		name: "A1",
+		role: "builder",
+		status: "active",
+		maxConcurrentSessions: 1,
+		teamId: "t1",
+		costCap: 100,
+		costActual: 0,
+		createdAt: NOW,
+	});
+
+	await db.insert(users).values({
+		id: "a2",
+		name: "A2",
+		role: "builder",
+		status: "active",
+		maxConcurrentSessions: 1,
+		teamId: "t1",
+		costCap: 100,
+		costActual: 0,
+		createdAt: NOW,
+	});
+
+	await db.insert(bets).values({
+		id: "b1",
+		teamId: "p1",
+		description: "x",
+		appetite: "small",
+		status: "active",
+		createdAt: NOW,
+	});
+
 	const taskThreadId = "thread-task-1";
-	db.insert(threads)
-		.values({
-			id: taskThreadId,
-			hostKind: "task",
-			hostId: "task-1",
-			initiatorId: "agent-1",
-			participants: JSON.stringify(["agent-1"]),
-			lastActiveAt: NOW,
-			createdAt: NOW,
-		})
-		.run();
-	db.insert(tasks)
-		.values({
-			id: "task-1",
-			betId: "b1",
-			teamId: "p1",
-			ownerAgentId: "a1",
-			title: "T1",
-			state: "in_progress",
-			threadId: taskThreadId,
-			createdAt: NOW,
-			updatedAt: NOW,
-		})
-		.run();
-	db.insert(sessions)
-		.values({
-			id: "sess-1",
-			taskId: "task-1",
-			agentId: "a1",
-			modelTier: "workhorse",
-			startedAt: NOW,
-			state: "active",
-		})
-		.run();
+	await db.insert(threads).values({
+		id: taskThreadId,
+		hostKind: "task",
+		hostId: "task-1",
+		initiatorId: "agent-1",
+		participants: JSON.stringify(["agent-1"]),
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
+
+	await db.insert(tasks).values({
+		id: "task-1",
+		betId: "b1",
+		teamId: "p1",
+		ownerAgentId: "a1",
+		title: "T1",
+		state: "in_progress",
+		threadId: taskThreadId,
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
+
+	await db.insert(sessions).values({
+		id: "sess-1",
+		taskId: "task-1",
+		agentId: "a1",
+		modelTier: "workhorse",
+		startedAt: NOW,
+		state: "active",
+	});
 }
 
 describe("I3 review C1: session_ended releases cost-cap dedup", () => {

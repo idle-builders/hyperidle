@@ -9,10 +9,17 @@
  * bets.teamId references teams.id = "prod-1", NOT teamMembers.id = "team-1".
  */
 
-import { bets, createTestDb, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
+import {
+	bets,
+	createTestDb,
+	type HyperIdleDb,
+	type TestDbHandle,
+	teamMembers,
+	teams,
+} from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
 	type RevisionLogEntry,
 	transitionBet,
@@ -58,13 +65,17 @@ describe("L14 — RevisionLogEntry actor field (T1)", () => {
 		handle = await createTestDb();
 		db = handle.db;
 		eventBus = new EventBus();
-		db.insert(teams).values(makeProduct()).run();
-		db.insert(teamMembers).values(makeTeamMembers()).run();
+		await db.insert(teams).values(makeProduct());
+		await db.insert(teamMembers).values(makeTeamMembers());
+	});
+
+	afterEach(async () => {
+		await handle.close();
 	});
 
 	describe("transitionBet with actor option", () => {
 		it("writes actor to the revision log when actor is provided", async () => {
-			db.insert(bets).values(makeBet("draft")).run();
+			await db.insert(bets).values(makeBet("draft"));
 
 			await transitionBet(db, eventBus, "bet-1", "active", { actor: "u-founder" });
 
@@ -74,7 +85,7 @@ describe("L14 — RevisionLogEntry actor field (T1)", () => {
 		});
 
 		it("actor is undefined in log when no actor is provided (backward compat)", async () => {
-			db.insert(bets).values(makeBet("draft")).run();
+			await db.insert(bets).values(makeBet("draft"));
 
 			await transitionBet(db, eventBus, "bet-1", "active");
 
@@ -85,7 +96,7 @@ describe("L14 — RevisionLogEntry actor field (T1)", () => {
 		});
 
 		it("passes actor through kill transition (draft → killed)", async () => {
-			db.insert(bets).values(makeBet("draft")).run();
+			await db.insert(bets).values(makeBet("draft"));
 
 			await transitionBet(db, eventBus, "bet-1", "killed", {
 				reason: "Not viable",
@@ -97,25 +108,25 @@ describe("L14 — RevisionLogEntry actor field (T1)", () => {
 		});
 
 		it("passes actor through completed transition (active → completed)", async () => {
-			db.insert(bets).values(makeBet("active")).run();
+			await db.insert(bets).values(makeBet("active"));
 			await transitionBet(db, eventBus, "bet-1", "completed", {
 				actor: "u-founder",
 			});
 
-			const log = getLog(db, "bet-1");
+			const log = await getLog(db, "bet-1");
 			const completedEntry = log.find((e) => e.new_value === "completed");
 			expect(completedEntry).toBeDefined();
 			expect(completedEntry?.actor).toBe("u-founder");
 		});
 
 		it("passes actor through active transition (draft → active)", async () => {
-			db.insert(bets).values(makeBet("draft")).run();
+			await db.insert(bets).values(makeBet("draft"));
 
 			await transitionBet(db, eventBus, "bet-1", "active", {
 				actor: "u-founder",
 			});
 
-			const log = getLog(db, "bet-1");
+			const log = await getLog(db, "bet-1");
 			const activeEntry = log.find((e) => e.new_value === "active" && e.actor === "u-founder");
 			expect(activeEntry).toBeDefined();
 		});
@@ -123,7 +134,7 @@ describe("L14 — RevisionLogEntry actor field (T1)", () => {
 
 	describe("updateBetField with actor option", () => {
 		it("writes actor to revision log when actor is provided", async () => {
-			db.insert(bets).values(makeBet("active")).run();
+			await db.insert(bets).values(makeBet("active"));
 
 			await updateBetField(
 				db,
@@ -141,7 +152,7 @@ describe("L14 — RevisionLogEntry actor field (T1)", () => {
 		});
 
 		it("actor is undefined when not provided (backward compat)", async () => {
-			db.insert(bets).values(makeBet("active")).run();
+			await db.insert(bets).values(makeBet("active"));
 
 			await updateBetField(db, eventBus, "bet-1", "hypothesis", "New", "reason");
 
