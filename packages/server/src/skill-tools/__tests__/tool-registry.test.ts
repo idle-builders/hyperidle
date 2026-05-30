@@ -48,9 +48,12 @@ describe("buildToolRegistry", () => {
 				"score_attention",
 				"promote_knowledge",
 				"create_conflict_review",
+				// R6 artifact tools
+				"create_artifact",
 			].sort(),
 		);
-		expect(registry.definitions).toHaveLength(14);
+		// 12 base tools + create_task (R5) + submit_review (R5) + create_artifact (R6) = 15
+		expect(registry.definitions).toHaveLength(15);
 	});
 
 	it("each definition has a non-empty description and a Zod input schema", () => {

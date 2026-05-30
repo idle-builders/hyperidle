@@ -22,6 +22,8 @@ const EXPECTED_TOOL_NAMES = [
 	"score_attention",
 	"promote_knowledge",
 	"create_conflict_review",
+	// R6 artifact tools
+	"create_artifact",
 ];
 
 function makeContext(db: HyperIdleDb): ToolContext {

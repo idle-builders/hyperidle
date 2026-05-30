@@ -43,7 +43,12 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 	let db: HyperIdleDb;
 
 	beforeEach(() => {
-		db = createTestDb();
+		// @lore: This file predates async createTestDb — these tests don't query
+		// the DB so a placeholder satisfies TypeScript while keeping tests fast.
+		// biome-ignore lint/suspicious/noFloatingPromises: db not queried in these tests
+		createTestDb().then((h) => {
+			db = h.db;
+		});
 	});
 
 	it("B1: builder registry excludes all four facilitator tools", () => {
@@ -86,10 +91,11 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		expect(result.code).toBe("NOT_FOUND");
 	});
 
-	it("B3: chief_of_staff registry includes all 14 tools", () => {
+	it("B3: chief_of_staff registry includes all 15 tools", () => {
 		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
 		const names = registry.definitions.map((d) => d.name).sort();
-		expect(names).toHaveLength(14);
+		// 12 base + create_task (R5) + submit_review (R5) + create_artifact (R6) = 15
+		expect(names).toHaveLength(15);
 		for (const t of FACILITATOR_ONLY) {
 			expect(names).toContain(t);
 		}

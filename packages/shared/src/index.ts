@@ -48,6 +48,7 @@ export {
 } from "./errors.js";
 export { EventBus } from "./event-bus.js";
 export type {
+	ArtifactCreatedEvent,
 	BetRevisedEvent,
 	BetStateChangedEvent,
 	CostCapBreachedEvent,

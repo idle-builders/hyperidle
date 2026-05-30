@@ -2,6 +2,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { FileWatcher } from "@hyperidle/fabric";
 import type { EventBus, UserRole } from "@hyperidle/shared";
 import z from "zod";
+import { createArtifactTool } from "./create-artifact.js";
 import { createConflictReviewTool } from "./create-conflict-review.js";
 import { createItemTool } from "./create-item.js";
 import { createTaskTool } from "./create-task.js";
@@ -118,6 +119,8 @@ export const ALL_TOOL_DEFINITIONS: readonly ToolDefinition[] = [
 	// R5: new agent work loop tools — available to all roles.
 	createTaskTool,
 	submitReviewTool,
+	// R6: create_artifact is available to all agent roles — no `roles` filter.
+	createArtifactTool,
 	// G1 facilitator tools — restricted to facilitator roles.
 	routeItemTool,
 	scoreAttentionTool,

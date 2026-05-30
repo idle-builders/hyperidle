@@ -457,6 +457,9 @@ export function registerObservabilityDispatcher(
 			case "bet_committed":
 			case "bet_revised":
 			case "notification":
+			// R6: artifact_created is a kernel event forwarded to WsBroadcaster
+			// for UI invalidation but not translated to an observability event.
+			case "artifact_created":
 				return false;
 			default: {
 				// Exhaustiveness check — if a new DomainEvent kind is added
