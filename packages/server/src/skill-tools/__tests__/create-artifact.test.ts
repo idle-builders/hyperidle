@@ -26,10 +26,10 @@ import {
 	bets,
 	createTestDb,
 	type HyperIdleDb,
+	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
-	type TestDbHandle,
 } from "@hyperidle/db";
 import type { ArtifactCreatedEvent } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
@@ -119,10 +119,7 @@ describe("create_artifact tool", () => {
 			expect(data.kind).toBe("verification");
 
 			// Verify the row was actually inserted into the database.
-			const [row] = await db
-				.select()
-				.from(artifacts)
-				.where(eq(artifacts.id, data.artifactId));
+			const [row] = await db.select().from(artifacts).where(eq(artifacts.id, data.artifactId));
 
 			expect(row).toBeDefined();
 			expect(row?.kind).toBe("verification");
@@ -142,10 +139,7 @@ describe("create_artifact tool", () => {
 			const data = result.data as { artifactId: string; kind: string };
 			expect(data.kind).toBe("decision");
 
-			const [row] = await db
-				.select()
-				.from(artifacts)
-				.where(eq(artifacts.id, data.artifactId));
+			const [row] = await db.select().from(artifacts).where(eq(artifacts.id, data.artifactId));
 
 			expect(row).toBeDefined();
 			expect(row?.kind).toBe("decision");
@@ -201,10 +195,7 @@ describe("create_artifact tool", () => {
 			if (!result.success) return;
 
 			const data = result.data as { artifactId: string };
-			const [row] = await db
-				.select()
-				.from(artifacts)
-				.where(eq(artifacts.id, data.artifactId));
+			const [row] = await db.select().from(artifacts).where(eq(artifacts.id, data.artifactId));
 
 			expect(row?.producingTaskId).toBe("task-1");
 		});
@@ -230,10 +221,7 @@ describe("create_artifact tool", () => {
 			if (!result.success) return;
 
 			const data = result.data as { artifactId: string };
-			const [row] = await db
-				.select()
-				.from(artifacts)
-				.where(eq(artifacts.id, data.artifactId));
+			const [row] = await db.select().from(artifacts).where(eq(artifacts.id, data.artifactId));
 
 			expect(row?.producingTaskId).toBe("task-other");
 		});
@@ -401,10 +389,7 @@ describe("create_artifact tool", () => {
 			if (!result.success) return;
 
 			const data = result.data as { artifactId: string };
-			const [row] = await db
-				.select()
-				.from(artifacts)
-				.where(eq(artifacts.id, data.artifactId));
+			const [row] = await db.select().from(artifacts).where(eq(artifacts.id, data.artifactId));
 
 			expect(row?.createdAt).toBeDefined();
 			// Must be a valid ISO date string
@@ -423,10 +408,7 @@ describe("create_artifact tool", () => {
 			if (!result.success) return;
 
 			const data = result.data as { artifactId: string };
-			const [row] = await db
-				.select()
-				.from(artifacts)
-				.where(eq(artifacts.id, data.artifactId));
+			const [row] = await db.select().from(artifacts).where(eq(artifacts.id, data.artifactId));
 
 			expect(row?.previewJson).not.toBeNull();
 			const parsed: unknown = JSON.parse(row?.previewJson ?? "null");

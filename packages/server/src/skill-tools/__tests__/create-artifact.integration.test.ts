@@ -22,18 +22,18 @@ import {
 	bets,
 	createTestDb,
 	type HyperIdleDb,
+	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
-	type TestDbHandle,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createTestApp } from "../../test-utils.js";
 // Will fail until create-artifact.ts exists
 import { createArtifactTool } from "../create-artifact.js";
 import type { ToolContext } from "../tool-registry.js";
-import { createTestApp } from "../../test-utils.js";
 
 const TEST_API_KEY = "test-key-r6-integration";
 const NOW = "2026-05-30T00:00:00.000Z";
@@ -144,10 +144,7 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 		const { taskId } = await seed(db, "_portfolio");
 		const ctx = makeContext(db, eventBus, taskId);
 
-		const result = await createArtifactTool.handler(
-			{ kind: "decision", preview: null },
-			ctx,
-		);
+		const result = await createArtifactTool.handler({ kind: "decision", preview: null }, ctx);
 
 		expect(result.success).toBe(true);
 		if (!result.success) return;
@@ -251,10 +248,7 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 		const scopeB = await seed(db, "_iso-b");
 
 		const ctxA = makeContext(db, eventBus, scopeA.taskId);
-		const resultA = await createArtifactTool.handler(
-			{ kind: "decision", preview: null },
-			ctxA,
-		);
+		const resultA = await createArtifactTool.handler({ kind: "decision", preview: null }, ctxA);
 		expect(resultA.success).toBe(true);
 		if (!resultA.success) return;
 		const { artifactId: artifactA } = resultA.data as { artifactId: string };
