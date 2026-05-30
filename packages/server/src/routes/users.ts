@@ -45,10 +45,13 @@ const patchUserSchema = z.object({
  * Auth bypass: when no human user exists (fresh install), allow creation
  * without API key. Once a human user exists, require auth.
  * This prevents unauthorized user creation after setup is complete.
+ *
+ * @lore R2: email is optional — setup flow no longer requires it.
+ * The email column is nullable in the DB schema.
  */
 const createHumanUserSchema = z.object({
 	name: z.string().min(1).max(200),
-	email: z.string().email().max(200),
+	email: z.string().email().max(200).optional(),
 });
 
 /**

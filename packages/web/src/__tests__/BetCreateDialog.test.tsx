@@ -1,10 +1,26 @@
 /**
- * Q3 — BetCreateDialog component tests.
+ * R2 — BetCreateDialog component tests (updated from Q3)
  *
- * Covers:
- *   T5: BetCreateDialog fields (product select, pitch textarea, title preview, appetite)
+ * R2 AC coverage:
+ * AC-6: BetCreateDialog requires only title and pitch. Product picker is removed (uses default product).
+ *   - Hides product select when only one product is provided
+ *   - Shows product select when multiple products are provided
+ *   - Create button enabled with pitch only (single product)
+ *   - Does not render appetite fields
  *
- * AC covered: AC2, AC9, AC10
+ * Q3 tests retained:
+ *   - Title preview tests (unchanged)
+ *   - "renders a pitch textarea" (unchanged)
+ *   - Cancel / close tests (unchanged)
+ *   - Touch target tests (unchanged)
+ *
+ * Q3 tests removed per R2 architecture:
+ *   - "renders a product select field" → hidden when single product (AC-6)
+ *   - "renders all provided products in the product select" → hidden when single product
+ *   - "renders optional appetite amount input" → appetite removed (AC-6)
+ *   - "renders optional appetite currency select" → appetite removed (AC-6)
+ *   - "Create button is disabled when no product selected" → no longer applies for single product
+ *   - "appetite amount field accepts decimal values" → appetite removed
  */
 
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -16,7 +32,9 @@ vi.mock("../services/api-fetch.js", () => ({
 	apiFetch: vi.fn(),
 }));
 
-const MOCK_PRODUCTS = [
+const SINGLE_PRODUCT = [{ id: "prod-1", name: "Test Product" }];
+
+const MULTIPLE_PRODUCTS = [
 	{ id: "prod-1", name: "Test Product" },
 	{ id: "prod-2", name: "Another Product" },
 ];
@@ -29,21 +47,72 @@ function openDialog(
 			open={true}
 			onClose={vi.fn()}
 			onCreated={vi.fn()}
-			products={MOCK_PRODUCTS}
+			products={SINGLE_PRODUCT}
 			{...overrides}
 		/>,
 	);
 }
 
-describe("BetCreateDialog", () => {
-	// AC2: Fields present
-	describe("AC2 — form fields are present", () => {
-		it("renders a product select field", () => {
-			openDialog();
-			// label wraps the select
+describe("BetCreateDialog (R2)", () => {
+	// AC-6: Product select hidden when only one product provided
+	describe("AC6 — single product: product select is hidden", () => {
+		it("hides product select when only one product provided", () => {
+			openDialog({ products: SINGLE_PRODUCT });
+			// Product select must NOT be present when only one product
+			expect(screen.queryByLabelText(/product/i)).not.toBeInTheDocument();
+		});
+
+		it("Create button enabled with pitch only (single product — no product selection needed)", () => {
+			openDialog({ products: SINGLE_PRODUCT });
+
+			// Fill only pitch — no product selection required
+			const pitchTextarea = screen.getByLabelText(/pitch/i);
+			fireEvent.change(pitchTextarea, { target: { value: "A valid pitch" } });
+
+			const createBtn = screen.getByRole("button", { name: /create/i });
+			expect(createBtn).not.toBeDisabled();
+		});
+	});
+
+	// AC-6: Product select shows when multiple products provided
+	describe("AC6 — multiple products: product select is shown", () => {
+		it("shows product select when multiple products provided", () => {
+			openDialog({ products: MULTIPLE_PRODUCTS });
 			expect(screen.getByLabelText(/product/i)).toBeInTheDocument();
 		});
 
+		it("renders all provided products in the product select when multiple products", () => {
+			openDialog({ products: MULTIPLE_PRODUCTS });
+			expect(screen.getByRole("option", { name: "Test Product" })).toBeInTheDocument();
+			expect(screen.getByRole("option", { name: "Another Product" })).toBeInTheDocument();
+		});
+
+		it("Create button disabled when multiple products but none selected", () => {
+			openDialog({ products: MULTIPLE_PRODUCTS });
+			const pitchTextarea = screen.getByLabelText(/pitch/i);
+			fireEvent.change(pitchTextarea, { target: { value: "A valid pitch" } });
+
+			// No product selected yet — create should be disabled
+			const createBtn = screen.getByRole("button", { name: /create/i });
+			expect(createBtn).toBeDisabled();
+		});
+	});
+
+	// AC-6: Appetite fields are removed
+	describe("AC6 — appetite fields are not rendered", () => {
+		it("does not render appetite amount input", () => {
+			openDialog();
+			expect(screen.queryByLabelText(/appetite amount/i)).not.toBeInTheDocument();
+		});
+
+		it("does not render appetite currency select", () => {
+			openDialog();
+			expect(screen.queryByLabelText(/currency/i)).not.toBeInTheDocument();
+		});
+	});
+
+	// Pitch textarea still required
+	describe("fields present", () => {
 		it("renders a pitch textarea", () => {
 			openDialog();
 			expect(screen.getByLabelText(/pitch/i)).toBeInTheDocument();
@@ -52,16 +121,6 @@ describe("BetCreateDialog", () => {
 		it("renders title preview area", () => {
 			openDialog();
 			expect(screen.getByTestId("bet-title-preview")).toBeInTheDocument();
-		});
-
-		it("renders optional appetite amount input", () => {
-			openDialog();
-			expect(screen.getByLabelText(/appetite amount/i)).toBeInTheDocument();
-		});
-
-		it("renders optional appetite currency select", () => {
-			openDialog();
-			expect(screen.getByLabelText(/currency/i)).toBeInTheDocument();
 		});
 
 		it("renders Create button", () => {
@@ -74,56 +133,23 @@ describe("BetCreateDialog", () => {
 			expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument();
 		});
 
-		it("renders all provided products in the product select", () => {
-			openDialog();
-			expect(screen.getByRole("option", { name: "Test Product" })).toBeInTheDocument();
-			expect(screen.getByRole("option", { name: "Another Product" })).toBeInTheDocument();
-		});
-
-		it("uses <label> elements for field labels (W-2 design critique)", () => {
+		it("uses <label> elements for field labels", () => {
 			const { container } = openDialog();
-			// Every field input/textarea/select must have a label ancestor or aria-label
 			const labels = container.querySelectorAll("label");
 			expect(labels.length).toBeGreaterThan(0);
 		});
 	});
 
-	// AC10: Validation — empty pitch → error
-	describe("AC10 — validation: empty pitch shows error", () => {
-		it("Create button is disabled when pitch is empty", () => {
-			openDialog();
-			// Select a product first
-			const select = screen.getByLabelText(/product/i);
-			fireEvent.change(select, { target: { value: "prod-1" } });
-
+	// Validation: empty pitch → Create disabled
+	describe("validation: empty pitch", () => {
+		it("Create button is disabled when pitch is empty (single product)", () => {
+			openDialog({ products: SINGLE_PRODUCT });
 			const createBtn = screen.getByRole("button", { name: /create/i });
 			expect(createBtn).toBeDisabled();
-		});
-
-		it("Create button is disabled when no product selected", () => {
-			openDialog();
-			// Fill pitch but no product
-			const pitchTextarea = screen.getByLabelText(/pitch/i);
-			fireEvent.change(pitchTextarea, { target: { value: "A valid pitch" } });
-
-			const createBtn = screen.getByRole("button", { name: /create/i });
-			expect(createBtn).toBeDisabled();
-		});
-
-		it("Create button is enabled when both product and pitch are filled", () => {
-			openDialog();
-			const select = screen.getByLabelText(/product/i);
-			fireEvent.change(select, { target: { value: "prod-1" } });
-
-			const pitchTextarea = screen.getByLabelText(/pitch/i);
-			fireEvent.change(pitchTextarea, { target: { value: "A valid pitch" } });
-
-			const createBtn = screen.getByRole("button", { name: /create/i });
-			expect(createBtn).not.toBeDisabled();
 		});
 	});
 
-	// Title preview derives from pitch (W-3 design critique — shared deriveTitleFromPitch)
+	// Title preview derives from pitch
 	describe("Title preview updates from pitch", () => {
 		it("shows derived title when pitch has a heading", () => {
 			openDialog();
@@ -146,22 +172,7 @@ describe("BetCreateDialog", () => {
 		it("shows placeholder when pitch is empty", () => {
 			openDialog();
 			const preview = screen.getByTestId("bet-title-preview");
-			// Should show some placeholder or be empty/fallback
 			expect(preview).toBeInTheDocument();
-		});
-	});
-
-	// AC9: No appetite → shows "—" on submission (the field itself)
-	describe("AC9 — appetite is optional", () => {
-		it("appetite amount field accepts decimal values (S-4 step='any' or step='0.01')", () => {
-			const { container } = openDialog();
-			const amountInput = container.querySelector(
-				"input[name='appetite-amount'], input[type='number']",
-			);
-			expect(amountInput).not.toBeNull();
-			// step must not be "1" (blocks $12.50 style values)
-			const step = amountInput?.getAttribute("step");
-			expect(step).not.toBe("1");
 		});
 	});
 
@@ -171,7 +182,6 @@ describe("BetCreateDialog", () => {
 			const { container } = openDialog();
 			const buttons = container.querySelectorAll("button");
 			for (const btn of buttons) {
-				// btn-xs is forbidden per AQ-015
 				expect(btn.className).not.toContain("btn-xs");
 			}
 		});
@@ -185,13 +195,10 @@ describe("BetCreateDialog", () => {
 					open={false}
 					onClose={vi.fn()}
 					onCreated={vi.fn()}
-					products={MOCK_PRODUCTS}
+					products={SINGLE_PRODUCT}
 				/>,
 			);
-			// In closed state the dialog exists in DOM but should not show fields visually
-			// We check for aria-hidden or just that the Create button is not visible
 			const createBtn = screen.queryByRole("button", { name: /create/i });
-			// Either not in DOM or not visible
 			if (createBtn) {
 				expect(createBtn).not.toBeVisible();
 			} else {
