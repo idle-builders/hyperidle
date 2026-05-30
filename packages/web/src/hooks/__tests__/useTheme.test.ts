@@ -99,7 +99,7 @@ describe("useTheme", () => {
 			const { result } = renderHook(() => useTheme());
 			expect(result.current.theme).toBe("system");
 			expect(result.current.resolvedTheme).toBe("dark");
-			expect(document.documentElement.dataset.theme).toBe("lucid-dark");
+			expect(document.documentElement.dataset.theme).toBe("hearth-dark");
 		});
 
 		it("treats unknown stored value as 'system'", () => {
@@ -121,13 +121,13 @@ describe("useTheme", () => {
 			expect(result.current.theme).toBe("dark");
 			expect(result.current.resolvedTheme).toBe("dark");
 			expect(window.localStorage.getItem(STORAGE_KEY)).toBe("dark");
-			expect(document.documentElement.dataset.theme).toBe("lucid-dark");
+			expect(document.documentElement.dataset.theme).toBe("hearth-dark");
 
 			act(() => {
 				result.current.setTheme("light");
 			});
 			expect(result.current.resolvedTheme).toBe("light");
-			expect(document.documentElement.dataset.theme).toBe("lucid-light");
+			expect(document.documentElement.dataset.theme).toBe("hearth-light");
 			expect(window.localStorage.getItem(STORAGE_KEY)).toBe("light");
 		});
 
@@ -146,7 +146,7 @@ describe("useTheme", () => {
 			});
 
 			expect(result.current.resolvedTheme).toBe("dark");
-			expect(document.documentElement.dataset.theme).toBe("lucid-dark");
+			expect(document.documentElement.dataset.theme).toBe("hearth-dark");
 		});
 
 		it("does NOT update resolvedTheme via matchMedia when theme is explicit", () => {
@@ -164,7 +164,7 @@ describe("useTheme", () => {
 
 			// Explicit light overrides OS — must remain light.
 			expect(result.current.resolvedTheme).toBe("light");
-			expect(document.documentElement.dataset.theme).toBe("lucid-light");
+			expect(document.documentElement.dataset.theme).toBe("hearth-light");
 		});
 
 		it("cleans up matchMedia subscription on unmount", () => {

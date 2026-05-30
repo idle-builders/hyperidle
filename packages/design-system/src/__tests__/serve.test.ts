@@ -58,7 +58,8 @@ describe("design system display server", () => {
 	});
 
 	it("serves theme CSS files", async () => {
-		for (const theme of ["lucid-dark", "lucid-light"]) {
+		// U4: renamed from lucid-* to hearth-*
+		for (const theme of ["hearth-dark", "hearth-light"]) {
 			const res = await fetch(`http://localhost:${PORT}/themes/${theme}.css`);
 			expect(res.status, `${theme}.css should return 200`).toBe(200);
 			expect(res.headers.get("content-type")).toBe("text/css");

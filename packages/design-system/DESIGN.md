@@ -2,7 +2,7 @@
 
 Single source of truth for all design tokens. Both `.tsx` (Tailwind) and `.html` representations derive from these values.
 
-**Current theme:** Lucid (light + dark modes). A unified theme system with two modes — Lucid Dark and Lucid Light — switchable via `data-theme` attribute or `prefers-color-scheme`. All components use semantic tokens (`var(--surface-3)`, not `#1a1a1c`) so either mode can be applied by swapping the token sheet.
+**Current theme:** Hearth (light + dark modes). A unified theme system with two modes — Hearth Dark and Hearth Light — switchable via `data-theme` attribute or `prefers-color-scheme`. All components use semantic tokens (`var(--surface-elevated)`, not `#ffffff`) so either mode can be applied by swapping the token sheet. Hearth is light-first: the default mode is `hearth-light`.
 
 **Design principles:** See `PRINCIPLES.md` for the universal design principles that guide all component decisions regardless of theme mode.
 
@@ -10,89 +10,90 @@ Single source of truth for all design tokens. Both `.tsx` (Tailwind) and `.html`
 
 ## Theme Switching
 
-The Lucid theme supports two modes:
+The Hearth theme supports two modes:
 
 | Mode | Attribute | Base Surface |
 |------|-----------|-------------|
-| Lucid Dark | `data-theme="lucid-dark"` | `#111113` |
-| Lucid Light | `data-theme="lucid-light"` | `#fafaf9` |
+| Hearth Light | `data-theme="hearth-light"` | `#f5f0e6` |
+| Hearth Dark | `data-theme="hearth-dark"` | `#1a1510` |
 
-The app respects `prefers-color-scheme` by default. Users can override via the settings panel. The `data-theme` attribute on the `<html>` element controls which mode is active.
+The app respects `prefers-color-scheme` by default. Users can override via the settings panel. The `data-theme` attribute on the `<html>` element controls which mode is active. Hearth is light-first — the unset default maps to `hearth-light`.
 
 ---
 
 ## Color
 
-### Surfaces — Lucid Dark (tonal layering + borders)
+### Surfaces — Hearth Light (warm cream tones)
 
 | Token | Hex | Usage |
 |-------|-----|-------|
-| `--surface-0` | `#111113` | App chrome, body background |
-| `--surface-1` | `#19191c` | IconRail, Rail, sidebar backgrounds |
-| `--surface-2` | `#1e1e22` | Submenu, sheets |
-| `--surface-3` | `#27272b` | Main content area |
-| `--surface-4` | `#323237` | Cards, selected nav items |
-| `--surface-5` | `#3e3e44` | Card hover, button backgrounds |
-| `--surface-6` | `#4a4a52` | Elevated surfaces, button hover |
-| `--surface-ghost` | `rgba(255,255,255,0.05)` | Chip fills, kbd hints |
+| `--surface-page` | `#f5f0e6` | App chrome, body background |
+| `--surface-container` | `#ede7db` | Rail, sidebar, nav backgrounds |
+| `--surface-elevated` | `#ffffff` | Cards, panels, elevated content |
+| `--surface-overlay` | `#ffffff` | Modals, popovers, dialogs |
 
-### Surfaces — Lucid Light
+### Surfaces — Hearth Dark (deep warm earth)
 
 | Token | Hex | Usage |
 |-------|-----|-------|
-| `--surface-0` | `#fafaf9` | App chrome, body background |
-| `--surface-1` | `#ffffff` | IconRail, Rail, sidebar backgrounds |
-| `--surface-2` | `#f4f4f2` | Submenu, sheets |
-| `--surface-3` | `#eaeae8` | Main content area, cards |
-| `--surface-4` | `#ddddd9` | Selected nav items, row hover |
-| `--surface-5` | `#d0d0cc` | Button backgrounds |
-| `--surface-6` | `#c4c4be` | Elevated surfaces, button hover |
-| `--surface-ghost` | `rgba(0,0,0,0.04)` | Chip fills, kbd hints |
+| `--surface-page` | `#1a1510` | App chrome, body background |
+| `--surface-container` | `#231e16` | Rail, sidebar, nav backgrounds |
+| `--surface-elevated` | `#2c261c` | Cards, panels |
+| `--surface-overlay` | `#352e23` | Modals, popovers, dialogs |
 
-### Accents (state-driven — not decorative)
+### Accents (forest green — state-driven, not decorative)
 
-| Token | Dark | Light | Usage |
-|-------|------|-------|-------|
-| `--primary` | `#e0e7ff` | `#4f46e5` | Links, selection, active indicators |
-| `--primary-dim` | `rgba(224,231,255,0.08)` | `rgba(79,70,229,0.08)` | Primary tint fills |
-| `--primary-hover` | `rgba(224,231,255,0.14)` | `rgba(79,70,229,0.12)` | Primary hover fills |
-| `--warn` | `#a8a8b0` | `#78787e` | Behind schedule, attention needed (gray — monochrome) |
-| `--ok` | `#c8c8d0` | `#8e8e94` | Healthy, approved, done (gray — monochrome) |
-| `--danger` | `#f87171` | `#dc2626` | Blocked, errors, rejected (red — the only color) |
+| Token | Light | Dark | Usage |
+|-------|-------|------|-------|
+| `--accent-primary` | `#16764f` | `#2eaa7a` | Links, selection, active indicators |
+| `--accent-primary-dim` | `rgba(22,118,79,0.08)` | `rgba(46,170,122,0.1)` | Primary tint fills |
+| `--accent-primary-hover` | `#105e3f` | `#20a070` | Primary hover fills |
+| `--accent-secondary` | `#d97706` | `#d97706` | Secondary accent (amber) |
 
-#### Monochrome Status Philosophy
+### Status Tokens
 
-Warn and ok are intentionally neutral grays. Only danger carries chromatic color (red). This enforces the principle that color is reserved for "act now" situations. Status is communicated through shape, position, and text — not color — except when something is genuinely wrong.
+| Token | Light | Dark | Usage |
+|-------|-------|------|-------|
+| `--status-success` | `#16764f` | `#2eaa7a` | Healthy, approved, done |
+| `--status-warning` | `#d97706` | `#d97706` | Behind schedule, attention needed |
+| `--status-error` | `#dc4a3a` | `#ee6a5a` | Blocked, errors, rejected |
+| `--status-info` | `#2e7dba` | `#4498d4` | Informational indicators |
 
-### Text — Lucid Dark (3-step grayscale)
-
-| Token | Hex | Usage | Contrast |
-|-------|-----|-------|----------|
-| `--text-hi` | `#ededef` | Titles, values, active nav | 15:1 on surface-0 |
-| `--text-mid` | `#a0a0a6` | Body, captions, inactive nav | 8.5:1 on surface-0 |
-| `--text-lo` | `#6e6e76` | Mono labels, timestamps, hints | 4.5:1 on surface-0 (WCAG AA) |
-
-### Text — Lucid Light
+### Text — Hearth Light (warm dark tones)
 
 | Token | Hex | Usage | Contrast |
 |-------|-----|-------|----------|
-| `--text-hi` | `#1a1a1e` | Titles, values, active nav | 16:1 on surface-0 |
-| `--text-mid` | `#6b6b70` | Body, captions, inactive nav | 7.5:1 on surface-0 |
-| `--text-lo` | `#737378` | Mono labels, timestamps, hints | 4.5:1 on surface-0 (WCAG AA) |
+| `--text-primary` | `#2c241a` | Titles, values, active nav | 13.45:1 on surface-page |
+| `--text-secondary` | `#6b5d4d` | Body, captions, inactive nav | 5.61:1 on surface-page |
+| `--text-tertiary` | `#9a8d7e` | Timestamps, hints (decorative/hint only) | 2.85:1 on page — WCAG-exempt hint role |
+| `--text-placeholder` | `#bfb5a5` | Input placeholders | Placeholder-only, exempt from AA |
+| `--text-on-accent` | `#ffffff` | Text on accent-primary buttons | 5.62:1 on accent-primary |
+
+### Text — Hearth Dark (lightened warm tones, WCAG AA)
+
+| Token | Hex | Usage | Contrast |
+|-------|-----|-------|----------|
+| `--text-primary` | `#ede5d8` | Titles, values, active nav | 14.50:1 on surface-page |
+| `--text-secondary` | `#a89880` | Body, captions, inactive nav | 6.45:1 on surface-page |
+| `--text-tertiary` | `#9a8e7e` | Timestamps, hints | 5.65:1 on surface-page — AA pass |
+| `--text-placeholder` | `#5a5048` | Input placeholders | Placeholder-only |
+| `--text-on-accent` | `#ffffff` | Text on accent-primary buttons | |
 
 ### Shadow
 
-| Token | Dark | Light | Usage |
-|-------|------|-------|-------|
-| `--float` | `0 2px 16px rgba(0,0,0,0.5)` | `0 4px 16px rgba(0,0,0,0.1)` | Floating surfaces only (modals, popovers) |
+| Token | Light | Dark | Usage |
+|-------|-------|------|-------|
+| `--shadow-subtle` | `0 1px 4px rgba(44,36,26,0.06)` | `0 1px 4px rgba(0,0,0,0.3)` | Subtle elevation |
+| `--shadow-default` | `0 4px 12px rgba(44,36,26,0.08)` | `0 4px 12px rgba(0,0,0,0.4)` | Cards, panels |
+| `--shadow-elevated` | `0 8px 24px rgba(44,36,26,0.1)` | `0 8px 24px rgba(0,0,0,0.5)` | Floating surfaces (modals, popovers) |
 
 ### Borders
 
-| Token | Dark | Light | Usage |
-|-------|------|-------|-------|
-| `--border-subtle` | `rgba(255,255,255,0.06)` | `rgba(0,0,0,0.06)` | Decorative dividers, section separators |
-| `--border-default` | `rgba(255,255,255,0.10)` | `rgba(0,0,0,0.10)` | Card borders, panel edges, input borders |
-| `--border-emphasis` | `rgba(255,255,255,0.16)` | `rgba(0,0,0,0.16)` | Active panels, focused inputs, emphasized sections |
+| Token | Light | Dark | Usage |
+|-------|-------|------|-------|
+| `--border-subtle` | `#e8e0d0` | `#3d342a` | Decorative dividers, section separators |
+| `--border-default` | `#d5cbb8` | `#554a3c` | Card borders, panel edges, input borders |
+| `--border-strong` | `#b5a890` | `#756850` | Active panels, focused inputs, emphasized sections |
 
 ---
 
@@ -102,9 +103,8 @@ Warn and ok are intentionally neutral grays. Only danger carries chromatic color
 
 | Token | Font | Usage |
 |-------|------|-------|
-| `--ui` / `font-sans` | Geist (400/500/600) | All UI text |
-| `--mono` / `font-mono` | Geist Mono (400/500) | Data labels, numeric values, uppercase tags |
-| `font-heading` | Geist Mono (500/600) | Section headers (uppercase, tracking-wider) |
+| `--font-sans` / `font-sans` | system-ui, -apple-system, Segoe UI | All UI text |
+| `--font-mono` / `font-mono` | ui-monospace, SF Mono, Cascadia Code | Data labels, numeric values, code |
 
 ### Scale
 
@@ -112,41 +112,38 @@ Source of truth: `AESTHETICS.md § Typography` recommendations table. Allowlist 
 
 | Size | Weight | Line Height | Usage |
 |------|--------|-------------|-------|
-| 24px | 600 (`--fw-emphasis`) | 1.2 (`--leading-heading-lg`) | Page titles (rare) |
-| 20px | 600 | 1.25 (`--leading-heading`) | Section headings (intermediate; designer-call per AESTHETICS.md) |
-| 18px | 600 | 1.25 (`--leading-heading`) | Section headings |
-| 16px | 400 / 500 | 1.6 (`--leading-body` under `[data-density="comfortable"]`) | Body text (comfortable density) AND mobile inputs (iOS Safari zoom mitigation, ≤ 768px viewport) |
-| 15px | 400 | 1.55 (`--leading-body` under `[data-density="default"]`) | Body text (default density, K9 re-tier) |
-| 14px | 600 (`--fw-emphasis`) | 1.5 (`--leading-body`) | Mono — section headers (`font-heading` uppercase tracking-wider) |
+| 24px | 600 (`--fw-semibold`) | 1.2 (`--leading-tight`) | Page titles (rare) |
+| 20px | 600 | 1.25 | Section headings (intermediate) |
+| 18px | 600 | 1.25 | Section headings |
+| 16px | 400 / 500 | 1.6 (`--leading-body` under `[data-density="comfortable"]`) | Body text (comfortable density) AND mobile inputs |
+| 15px | 400 | 1.55 (`--leading-body` under `[data-density="default"]`) | Body text (default density) |
+| 14px | 600 (`--fw-semibold`) | 1.5 | Mono section headers (uppercase tracking-wider) |
 | 14px | 500 (`--fw-medium`) | 1.5 | Subheadings, nav labels |
-| 14px | 400 (`--fw-regular`) | 1.5 (`--leading-body` under `[data-density="compact"]`) | Body text (compact density, K9 re-tier — was the K7 default) |
-| 13px | 400 / 500 | 1.4 | Mono — data values (Geist Mono) |
+| 14px | 400 (`--fw-normal`) | 1.5 (`--leading-body` under `[data-density="compact"]`) | Body text (compact density) |
+| 13px | 400 / 500 | 1.4 | Mono — data values |
 | 12px | 600 | 1.4 | Mono — small section headers |
 | 12px | 500 | 1.4 | Small labels, metadata |
-| 11px | 500 | 1.3 | Mono — uppercase tags, timestamps (+ `--tracking-caps` 0.02em on uppercase Tag/KeyValue labels; StatusChip retains 0.05em — designer-call) |
+| 11px | 500 | 1.3 | Mono — uppercase tags, timestamps |
 
 ### Tracking and weight tokens
 
 | Token | Value | Usage |
 |---|---|---|
-| `--tracking-caps` | 0.02em (compact / default) / 0.015em (comfortable) | Letter-spacing for uppercase labels (Tag, KeyValue label) per AESTHETICS.md row "Letter-spacing for caps". K9 — slightly tighter under comfortable because uppercase labels at 16 px don't need the same wedge to feel airy. |
-| `--leading-body` | 1.5 (compact) / 1.55 (default) / 1.6 (comfortable) | Body line-height per AESTHETICS.md rows "Body line-height" — K9 re-tiered. |
-| `--leading-heading` | 1.25 | Heading line-height for ≤ 20px headings |
-| `--leading-heading-lg` | 1.2 | Heading line-height for 24px+ headings |
-| `--fw-regular` | 400 | Body weight |
+| `--tracking-caps` | 0.02em (compact / default) / 0.015em (comfortable) | Letter-spacing for uppercase labels |
+| `--leading-body` | 1.5 (compact) / 1.55 (default) / 1.6 (comfortable) | Body line-height |
+| `--leading-tight` | 1.25 | Heading line-height |
+| `--fw-normal` | 400 | Body weight |
 | `--fw-medium` | 500 | Label / heading weight |
-| `--fw-emphasis` | 600 | Bold heading / emphasis weight |
+| `--fw-semibold` | 600 | Bold heading / emphasis weight |
 
 ### Heading-scale density tokens (K9)
 
-`--density-text-h1` and `--density-text-h2` scope the H1/H2 type scale per density tier so the toggle reads at the page-heading level, not just at the body level. Components that render a scale-with-density heading consume these via `var(--density-text-h*)`. Components that use a one-off display heading (e.g. a marketing banner or a fixed-size login title) stay literal — flag the exception inline.
+`--density-text-h1` and `--density-text-h2` scope the H1/H2 type scale per density tier.
 
 | Token | Compact | Default | Comfortable |
 |---|---|---|---|
 | `--density-text-h1` | 1.5rem (24px) | 1.625rem (26px) | 1.75rem (28px) |
 | `--density-text-h2` | 1.125rem (18px) | 1.25rem (20px) | 1.375rem (22px) |
-
-Note: HyperIdle's productivity-page chrome currently uses uppercase mono labels (`text-sm font-heading uppercase tracking-wider`) as page H1s rather than display-scale headings. Those labels are intentional — they are chrome, not type-scale display text — and stay literal. The new tokens are wired for any future display heading and for the design-system viewer.
 
 ---
 
@@ -159,8 +156,6 @@ Note: HyperIdle's productivity-page chrome currently uses uppercase mono labels 
 ### Density Presets
 
 Three presets cascaded via `[data-density]` attribute on the app shell root.
-
-The compact / comfortable tiers are derived from the default tier per AESTHETICS.md § Spacing & Density rows "Density tier ratio" — `compact = default × 0.75; comfortable = default × 1.5` (K9 re-tier; was 1.25× under K7), each rounded to the nearest 4 px multiple. `--density-row-h` is exempt from the upper-bound rule: comfortable's 56 px is a designer call (>= AQ-015's 44 px floor, < strict 1.5× cap of 66 → 64). The new `default` (44 px) already meets the AQ-015 touch-target floor, so K8's mobile auto-density flip is now an aesthetic choice rather than an a11y requirement.
 
 | Token | Default | Compact (default × 0.75) | Comfortable (default × 1.5) |
 |-------|---------|---------|-------------|
@@ -176,7 +171,7 @@ The compact / comfortable tiers are derived from the default tier per AESTHETICS
 
 ### Density preference state
 
-Settings exposes a tri-state `appearance.density` value: `"auto" | "default" | "compact" | "comfortable"`. `"auto"` is the factory default and the only state that fires viewport-driven density auto-switching: at viewport ≤ 1024px the AppShell sets `[data-density="comfortable"]` (per AESTHETICS.md § Mobile & Touch row "Auto-density behavior"). When the user explicitly picks `default`/`compact`/`comfortable`, that choice persists across breakpoint changes. Server-side persistence is deferred (J3/J8).
+Settings exposes a tri-state `appearance.density` value: `"auto" | "default" | "compact" | "comfortable"`. `"auto"` is the factory default and the only state that fires viewport-driven density auto-switching.
 
 ### Common Spacing Values
 
@@ -196,28 +191,25 @@ Closed set — no arbitrary values.
 
 | Token | Value | Usage |
 |-------|-------|-------|
-| `--r0` | 0 | No rounding |
-| `--r1` | 4px | Buttons, chips, badges |
-| `--r2` | 8px | Cards, panels, boxes |
-| `--r3` | 12px | Modals, overlays |
-| `--r-pill` | 999px | Scrollbar thumbs, pill shapes |
+| `--r-none` | 0 | No rounding |
+| `--r-subtle` | 10px | Subtle rounding |
+| `--r-default` | 16px | Cards, panels, boxes |
+| `--r-pill` | 9999px | Buttons, badges, scrollbar thumbs, pill shapes |
 
-Tailwind/DaisyUI overrides: `--rounded-btn: 4px`, `--rounded-box: 8px`, `--rounded-badge: 4px`.
+Tailwind/DaisyUI overrides: `--rounded-btn: 9999px`, `--rounded-box: 16px`, `--rounded-badge: 9999px`.
 
 ---
 
 ## Motion
 
-Three duration tiers and a single easing curve. All motion durations honor `prefers-reduced-motion: reduce` (`tokens.css` collapses durations to 1ms and pauses the skeleton-pulse animation under the media query).
+Three duration tiers and a single easing curve. All motion durations honor `prefers-reduced-motion: reduce`.
 
 | Token | Value | Usage |
 |-------|-------|-------|
-| `--motion-fast` | 80ms | Instant feedback — hover, focus ring, chip state |
-| `--motion-medium` | 150ms | Disclosure changes — Rail expand, tab swaps |
-| `--motion-slow` | 250ms | Overlay open/close — Settings, Global Search |
-| `--motion-ease` | `cubic-bezier(0.2, 0, 0, 1)` | Standard easing curve (Material standard / cluster anchor across Material / Carbon / Atlassian per AESTHETICS.md § Motion row "Easing curve") |
-
-Tuned for crisp responsiveness. Longer feels sluggish; shorter drops the transition entirely.
+| `--motion-fast` | 120ms | Instant feedback — hover, focus ring, chip state |
+| `--motion-default` | 240ms | Disclosure changes — Rail expand, tab swaps |
+| `--motion-slow` | 450ms | Overlay open/close — Settings, Global Search |
+| `--motion-ease` | `cubic-bezier(0.25, 0.1, 0.25, 1)` | Standard easing curve (CSS `ease`) |
 
 ---
 
@@ -246,7 +238,7 @@ NOT used (wrong tone): hero, card, chat-bubble, carousel, steps, timeline, ratin
 
 ## Anti-Patterns (The "AI Aesthetic" Blacklist)
 
-- No purple/indigo palettes in dark mode (indigo primary in Lucid Light is intentional and controlled)
+- No purple/indigo palettes
 - No excessive gradients
 - No `rounded-2xl` everywhere
 - No `p-8`/`p-12` oversized padding

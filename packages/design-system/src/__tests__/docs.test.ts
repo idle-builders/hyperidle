@@ -11,37 +11,42 @@ describe("DESIGN.md", () => {
 		expect(content.length).toBeGreaterThan(500);
 	});
 
-	it("documents Lucid theme system with light and dark modes", () => {
-		expect(content).toContain("Lucid");
-		expect(content).toContain("lucid-dark");
-		expect(content).toContain("lucid-light");
+	// U4: Updated from Lucid to Hearth
+	it("documents Hearth theme system with light and dark modes", () => {
+		expect(content).toContain("Hearth");
+		expect(content).toContain("hearth-dark");
+		expect(content).toContain("hearth-light");
 	});
 
 	it("references PRINCIPLES.md", () => {
 		expect(content).toContain("PRINCIPLES.md");
 	});
 
-	it("documents surface tokens", () => {
-		expect(content).toContain("--surface-0");
-		expect(content).toContain("--surface-6");
+	// U4: Updated from --surface-0/--surface-6 to Hearth surface tokens
+	it("documents Hearth surface tokens", () => {
+		expect(content).toContain("--surface-page");
+		expect(content).toContain("--surface-overlay");
 	});
 
-	it("documents accent tokens", () => {
-		expect(content).toContain("--primary");
-		expect(content).toContain("--warn");
-		expect(content).toContain("--ok");
-		expect(content).toContain("--danger");
+	// U4: Updated from --primary/--warn/--ok/--danger to Hearth accent/status tokens
+	it("documents Hearth accent tokens", () => {
+		expect(content).toContain("--accent-primary");
+		expect(content).toContain("--accent-secondary");
+		expect(content).toContain("--status-success");
+		expect(content).toContain("--status-error");
 	});
 
-	it("documents border tokens", () => {
+	// U4: Updated from --border-emphasis to --border-strong
+	it("documents Hearth border tokens including border-strong", () => {
 		expect(content).toContain("--border-subtle");
 		expect(content).toContain("--border-default");
-		expect(content).toContain("--border-emphasis");
+		expect(content).toContain("--border-strong");
 	});
 
-	it("documents typography", () => {
-		expect(content).toContain("Geist");
-		expect(content).toContain("Geist Mono");
+	// U4: Updated from Geist to system-ui
+	it("documents system-ui typography (not Geist)", () => {
+		expect(content).toContain("system-ui");
+		expect(content).not.toContain("Geist");
 	});
 
 	it("documents density presets", () => {
@@ -98,19 +103,22 @@ describe("THEMES.md", () => {
 
 	const content = existsSync(path) ? readFileSync(path, "utf-8") : "";
 
-	it("documents Lucid Dark and Lucid Light themes", () => {
-		expect(content).toContain("Lucid Dark");
-		expect(content).toContain("Lucid Light");
+	// U4: Updated from Lucid Dark/Light to Hearth Dark/Light
+	it("documents Hearth Dark and Hearth Light themes", () => {
+		expect(content).toContain("Hearth Dark");
+		expect(content).toContain("Hearth Light");
 	});
 
 	it("documents shared properties and per-mode token tables", () => {
 		expect(content).toContain("Shared Properties");
-		expect(content).toContain("--surface-0");
+		// U4: --surface-page replaces --surface-0
+		expect(content).toContain("--surface-page");
 	});
 
-	it("references theme CSS files", () => {
-		expect(content).toContain("lucid-dark.css");
-		expect(content).toContain("lucid-light.css");
+	// U4: Updated from lucid-dark.css/lucid-light.css to hearth-dark.css/hearth-light.css
+	it("references Hearth theme CSS files", () => {
+		expect(content).toContain("hearth-dark.css");
+		expect(content).toContain("hearth-light.css");
 	});
 });
 
