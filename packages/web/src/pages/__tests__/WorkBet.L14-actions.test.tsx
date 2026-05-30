@@ -5,7 +5,11 @@
  * AC-8: ConsequencePreviewDialog is non-skippable (Escape doesn't close; Cancel closes).
  * AC-9: ConsequencePreview confirm button is disabled when reason is empty.
  * AC-10: AppetiteDialog — current appetite is pre-selected; Save disabled without reason.
- * AC-11: Unblock button is present for in_progress/paused/behind/blocked statuses.
+ * AC-11: Unblock button is present for active status.
+ *
+ * @lore U1: Updated from old statuses (in_progress, paused, behind, blocked, shipped)
+ * to new statuses (active, draft, completed, killed). Resume button removed (no paused
+ * status in new enum). Tests reflect new BetActionsBar behavior.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -54,52 +58,39 @@ function renderBet(bet: BetDetail): ReturnType<typeof render> {
 }
 
 describe("L14 — BetActionsBar (AC-7)", () => {
-	it("shows Pause and Kill bet for in_progress status", () => {
-		renderBet(makeBet("in_progress"));
+	it("shows Pause and Kill bet for active status", () => {
+		renderBet(makeBet("active"));
 		expect(screen.getByRole("button", { name: /pause/i })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: /kill bet/i })).toBeInTheDocument();
 	});
 
-	it("shows Adjust appetite for in_progress status", () => {
-		renderBet(makeBet("in_progress"));
+	it("shows Adjust appetite for active status", () => {
+		renderBet(makeBet("active"));
 		expect(screen.getByRole("button", { name: /adjust appetite/i })).toBeInTheDocument();
 	});
 
-	it("shows Unblock button for in_progress status", () => {
-		renderBet(makeBet("in_progress"));
+	it("shows Unblock button for active status", () => {
+		renderBet(makeBet("active"));
 		expect(screen.getByRole("button", { name: /unblock/i })).toBeInTheDocument();
 	});
 
-	it("shows Resume (not Pause) for paused status", () => {
-		renderBet(makeBet("paused"));
-		expect(screen.getByRole("button", { name: /resume/i })).toBeInTheDocument();
+	it("does NOT show Pause button for draft status", () => {
+		renderBet(makeBet("draft"));
 		expect(screen.queryByRole("button", { name: /^pause$/i })).not.toBeInTheDocument();
 	});
 
-	it("shows Kill bet for paused status", () => {
-		renderBet(makeBet("paused"));
+	it("shows Kill bet for draft status", () => {
+		renderBet(makeBet("draft"));
 		expect(screen.getByRole("button", { name: /kill bet/i })).toBeInTheDocument();
 	});
 
-	it("shows Adjust appetite for paused status", () => {
-		renderBet(makeBet("paused"));
+	it("shows Adjust appetite for draft status", () => {
+		renderBet(makeBet("draft"));
 		expect(screen.getByRole("button", { name: /adjust appetite/i })).toBeInTheDocument();
 	});
 
-	it("shows Kill bet for behind status (no Pause button)", () => {
-		renderBet(makeBet("behind"));
-		expect(screen.getByRole("button", { name: /kill bet/i })).toBeInTheDocument();
-	});
-
-	it("shows Kill bet for blocked status (no Pause, no Resume)", () => {
-		renderBet(makeBet("blocked"));
-		expect(screen.getByRole("button", { name: /kill bet/i })).toBeInTheDocument();
-		expect(screen.queryByRole("button", { name: /^pause$/i })).not.toBeInTheDocument();
-		expect(screen.queryByRole("button", { name: /resume/i })).not.toBeInTheDocument();
-	});
-
-	it("renders no action bar for shipped status", () => {
-		renderBet(makeBet("shipped"));
+	it("renders no action bar for completed status", () => {
+		renderBet(makeBet("completed"));
 		expect(screen.queryByRole("button", { name: /pause/i })).not.toBeInTheDocument();
 		expect(screen.queryByRole("button", { name: /kill bet/i })).not.toBeInTheDocument();
 		expect(screen.queryByRole("button", { name: /resume/i })).not.toBeInTheDocument();
@@ -111,16 +102,16 @@ describe("L14 — BetActionsBar (AC-7)", () => {
 		expect(screen.queryByRole("button", { name: /kill bet/i })).not.toBeInTheDocument();
 	});
 
-	it("does NOT show Pause button for blocked status (critique fix)", () => {
-		renderBet(makeBet("blocked"));
-		expect(screen.queryByRole("button", { name: /^pause$/i })).not.toBeInTheDocument();
+	it("does NOT show Resume button for any status (no paused status in new enum)", () => {
+		renderBet(makeBet("active"));
+		expect(screen.queryByRole("button", { name: /resume/i })).not.toBeInTheDocument();
 	});
 });
 
 describe("L14 — ConsequencePreviewDialog (AC-8, AC-9)", () => {
 	it("dialog opens when Kill bet is clicked", async () => {
 		const user = userEvent.setup();
-		renderBet(makeBet("in_progress"));
+		renderBet(makeBet("active"));
 
 		const killBtn = screen.getByRole("button", { name: /kill bet/i });
 		await user.click(killBtn);
@@ -131,7 +122,7 @@ describe("L14 — ConsequencePreviewDialog (AC-8, AC-9)", () => {
 
 	it("Confirm button is disabled when reason textarea is empty", async () => {
 		const user = userEvent.setup();
-		renderBet(makeBet("in_progress"));
+		renderBet(makeBet("active"));
 
 		await user.click(screen.getByRole("button", { name: /kill bet/i }));
 
@@ -148,7 +139,7 @@ describe("L14 — ConsequencePreviewDialog (AC-8, AC-9)", () => {
 
 	it("Cancel button closes the dialog", async () => {
 		const user = userEvent.setup();
-		renderBet(makeBet("in_progress"));
+		renderBet(makeBet("active"));
 
 		await user.click(screen.getByRole("button", { name: /kill bet/i }));
 		expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -161,7 +152,7 @@ describe("L14 — ConsequencePreviewDialog (AC-8, AC-9)", () => {
 
 	it("dialog also opens for Pause action", async () => {
 		const user = userEvent.setup();
-		renderBet(makeBet("in_progress"));
+		renderBet(makeBet("active"));
 
 		await user.click(screen.getByRole("button", { name: /^pause$/i }));
 
@@ -172,7 +163,7 @@ describe("L14 — ConsequencePreviewDialog (AC-8, AC-9)", () => {
 describe("L14 — AppetiteDialog (AC-10)", () => {
 	it("dialog opens when Adjust appetite is clicked", async () => {
 		const user = userEvent.setup();
-		renderBet(makeBet("in_progress", { appetite: "2 weeks" }));
+		renderBet(makeBet("active", { appetite: "2 weeks" }));
 
 		await user.click(screen.getByRole("button", { name: /adjust appetite/i }));
 
@@ -181,7 +172,7 @@ describe("L14 — AppetiteDialog (AC-10)", () => {
 
 	it("current appetite is pre-selected in the select element", async () => {
 		const user = userEvent.setup();
-		renderBet(makeBet("in_progress", { appetite: "2 weeks" }));
+		renderBet(makeBet("active", { appetite: "2 weeks" }));
 
 		await user.click(screen.getByRole("button", { name: /adjust appetite/i }));
 
@@ -191,7 +182,7 @@ describe("L14 — AppetiteDialog (AC-10)", () => {
 
 	it("Save button is disabled when reason is empty", async () => {
 		const user = userEvent.setup();
-		renderBet(makeBet("in_progress", { appetite: "1 week" }));
+		renderBet(makeBet("active", { appetite: "1 week" }));
 
 		await user.click(screen.getByRole("button", { name: /adjust appetite/i }));
 
@@ -205,7 +196,7 @@ describe("L14 — AppetiteDialog (AC-10)", () => {
 
 	it("Save button becomes enabled when reason is filled", async () => {
 		const user = userEvent.setup();
-		renderBet(makeBet("in_progress", { appetite: "1 week" }));
+		renderBet(makeBet("active", { appetite: "1 week" }));
 
 		await user.click(screen.getByRole("button", { name: /adjust appetite/i }));
 
@@ -224,7 +215,7 @@ describe("L14 — AppetiteDialog (AC-10)", () => {
 
 	it("AppetiteDialog Cancel closes the dialog", async () => {
 		const user = userEvent.setup();
-		renderBet(makeBet("in_progress"));
+		renderBet(makeBet("active"));
 
 		await user.click(screen.getByRole("button", { name: /adjust appetite/i }));
 		expect(screen.getByRole("dialog")).toBeInTheDocument();

@@ -2,14 +2,19 @@ import {
 	bets,
 	createTestDb,
 	type HyperIdleDb,
-	products,
 	type TestDbHandle,
+	teamMembers,
 	teams,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestApp } from "../test-utils.js";
+
+// @lore U1: teams = domain entity (formerly products); teamMembers = membership group.
+// POST /api/bets accepts teamId referencing teams.id (NOT teamMembers.id).
+// Status map: shaped->draft, committed|in_progress->active, shipped->completed.
+// pitch -> description, productId -> teamId, shippedAt -> completedAt.
 
 const TEST_API_KEY = "test-key-bets";
 
@@ -30,16 +35,16 @@ describe("Bet Endpoints (E3)", () => {
 		eventBus = new EventBus();
 		app = await createTestApp({ db, eventBus });
 
-		// Seed a product and team
-		await db.insert(products).values({
+		// Seed a product (domain entity) and teamMembers (membership group)
+		await db.insert(teams).values({
 			id: "prod-1",
 			name: "Test Product",
 			phase: "build",
 			createdAt: new Date().toISOString(),
 		});
-		await db.insert(teams).values({
+		await db.insert(teamMembers).values({
 			id: "team-1",
-			productId: "prod-1",
+			teamId: "prod-1",
 			capacity: 2,
 			activeBets: 0,
 			formedAt: new Date().toISOString(),
@@ -52,14 +57,14 @@ describe("Bet Endpoints (E3)", () => {
 	});
 
 	// Helper to create a bet via API
+	// @lore U1: POST /api/bets uses teamId (references teams.id = "prod-1"), not teamMembers.id.
 	async function createBet(overrides?: Record<string, unknown>): Promise<Record<string, unknown>> {
 		const res = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				productId: "prod-1",
-				teamId: "team-1",
-				pitch: "Build feature X",
+				teamId: "prod-1",
+				description: "Build feature X",
 				// L17: costAppetite replaces the old `appetite` string
 				costAppetite: { minor: 10000, currency: "USD" },
 				...overrides,
@@ -73,8 +78,8 @@ describe("Bet Endpoints (E3)", () => {
 		it("returns bets grouped by status", async () => {
 			// Arrange: create bets with different statuses
 			await createBet();
-			const bet2 = await createBet({ pitch: "Build feature Y" });
-			// Commit bet2 to make it committed
+			const bet2 = await createBet({ description: "Build feature Y" });
+			// Commit bet2 to make it active (draft → active)
 			await app.request(`/api/bets/${bet2.id}/commit`, {
 				method: "POST",
 				headers: authHeaders(),
@@ -86,20 +91,21 @@ describe("Bet Endpoints (E3)", () => {
 			// Assert
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Record<string, unknown[]>;
-			expect(body.shaped).toHaveLength(1);
-			expect(body.committed).toHaveLength(1);
-			expect(body.in_progress).toHaveLength(0);
-			expect(body.shipped).toHaveLength(0);
+			// @lore U1: status groups are now draft/active/completed/killed
+			expect(body.draft).toHaveLength(1);
+			expect(body.active).toHaveLength(1);
+			expect(body.completed).toHaveLength(0);
+			expect(body.killed).toHaveLength(0);
 		});
 
 		it("returns empty groups when no bets exist", async () => {
 			const res = await app.request("/api/bets", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Record<string, unknown[]>;
-			expect(body.shaped).toHaveLength(0);
-			expect(body.committed).toHaveLength(0);
-			expect(body.in_progress).toHaveLength(0);
-			expect(body.shipped).toHaveLength(0);
+			expect(body.draft).toHaveLength(0);
+			expect(body.active).toHaveLength(0);
+			expect(body.completed).toHaveLength(0);
+			expect(body.killed).toHaveLength(0);
 		});
 	});
 
@@ -114,8 +120,7 @@ describe("Bet Endpoints (E3)", () => {
 			await db.insert(tasks).values({
 				id: "task-1",
 				betId,
-				productId: "prod-1",
-				teamId: "team-1",
+				teamId: "prod-1",
 				title: "Implement X",
 				state: "proposed",
 				createdAt: new Date().toISOString(),
@@ -126,7 +131,8 @@ describe("Bet Endpoints (E3)", () => {
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Record<string, unknown>;
 			expect(body.id).toBe(betId);
-			expect(body.pitch).toBe("Build feature X");
+			// @lore U1: `description` (formerly `pitch`)
+			expect(body.description).toBe("Build feature X");
 			expect(Array.isArray(body.tasks)).toBe(true);
 			expect((body.tasks as unknown[]).length).toBe(1);
 		});
@@ -137,16 +143,16 @@ describe("Bet Endpoints (E3)", () => {
 		});
 	});
 
-	// AC3: POST /api/bets — create shaped bet
+	// AC3: POST /api/bets — create draft bet (formerly "shaped")
 	describe("AC3: POST /api/bets — create shaped bet", () => {
-		it("creates a bet with status shaped", async () => {
+		it("creates a bet with status draft", async () => {
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					productId: "prod-1",
-					teamId: "team-1",
-					pitch: "New bet pitch",
+					// @lore U1: teamId references teams.id (domain entity), not teamMembers.id
+					teamId: "prod-1",
+					description: "New bet pitch",
 					// L17: costAppetite replaces old `appetite` duration string
 					costAppetite: { minor: 20000, currency: "USD" },
 					hypothesis: "Users will engage more",
@@ -155,8 +161,10 @@ describe("Bet Endpoints (E3)", () => {
 
 			expect(res.status).toBe(201);
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.status).toBe("shaped");
-			expect(body.pitch).toBe("New bet pitch");
+			// @lore U1: status is "draft" (formerly "shaped")
+			expect(body.status).toBe("draft");
+			// @lore U1: field is "description" (formerly "pitch")
+			expect(body.description).toBe("New bet pitch");
 			expect(body.hypothesis).toBe("Users will engage more");
 			expect(body.id).toBeTruthy();
 			expect(body.createdAt).toBeTruthy();
@@ -166,7 +174,7 @@ describe("Bet Endpoints (E3)", () => {
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
-				body: JSON.stringify({ productId: "prod-1" }),
+				body: JSON.stringify({ teamId: "prod-1" }),
 			});
 			expect(res.status).toBe(400);
 		});
@@ -174,22 +182,18 @@ describe("Bet Endpoints (E3)", () => {
 
 	// AC4: PATCH /api/bets/:id — update fields (triggers revision logging)
 	describe("AC4: PATCH /api/bets/:id — update fields with revision logging", () => {
-		it("updates a field on an in_progress bet", async () => {
-			// Create, commit, then transition to in_progress manually
+		it("updates a field on an active bet", async () => {
+			// Create, commit to active
 			const bet = await createBet();
 			const betId = bet.id as string;
 
-			// shaped -> committed
+			// draft -> active via /commit
 			await app.request(`/api/bets/${betId}/commit`, {
 				method: "POST",
 				headers: authHeaders(),
 			});
 
-			// committed -> in_progress (directly in DB since we don't have an endpoint for this)
-			const { transitionBet } = await import("../services/bet-state-machine.js");
-			await transitionBet(db, eventBus, betId, "in_progress");
-
-			// Now update
+			// Now update done_condition
 			const res = await app.request(`/api/bets/${betId}`, {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -211,7 +215,7 @@ describe("Bet Endpoints (E3)", () => {
 			expect(revisionLog.length).toBeGreaterThan(0);
 		});
 
-		it("returns 500 for non-in_progress bet", async () => {
+		it("returns 500 for non-active bet", async () => {
 			const bet = await createBet();
 			const res = await app.request(`/api/bets/${bet.id}`, {
 				method: "PATCH",
@@ -222,14 +226,14 @@ describe("Bet Endpoints (E3)", () => {
 					reason: "Change",
 				}),
 			});
-			// updateBetField throws for non-in_progress which maps to 500
+			// updateBetField throws for non-active which maps to 500
 			expect(res.status).toBe(500);
 		});
 	});
 
-	// AC5: POST /api/bets/:id/commit — shaped→committed (capacity enforced)
+	// AC5: POST /api/bets/:id/commit — draft→active (formerly shaped→committed)
 	describe("AC5: POST /api/bets/:id/commit — capacity enforced", () => {
-		it("transitions shaped bet to committed", async () => {
+		it("transitions draft bet to active", async () => {
 			const bet = await createBet();
 			const res = await app.request(`/api/bets/${bet.id}/commit`, {
 				method: "POST",
@@ -238,7 +242,8 @@ describe("Bet Endpoints (E3)", () => {
 
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.status).toBe("committed");
+			// @lore U1: status is "active" (formerly "committed")
+			expect(body.status).toBe("active");
 		});
 
 		it("emits bet_state_changed event on commit", async () => {
@@ -256,13 +261,13 @@ describe("Bet Endpoints (E3)", () => {
 
 		it("rejects commit when team is at capacity (409)", async () => {
 			// Fill capacity: capacity=2, create and commit 2 bets
-			const bet1 = await createBet({ pitch: "Bet 1" });
-			const bet2 = await createBet({ pitch: "Bet 2" });
+			const bet1 = await createBet({ description: "Bet 1" });
+			const bet2 = await createBet({ description: "Bet 2" });
 			await app.request(`/api/bets/${bet1.id}/commit`, { method: "POST", headers: authHeaders() });
 			await app.request(`/api/bets/${bet2.id}/commit`, { method: "POST", headers: authHeaders() });
 
 			// Third bet should be rejected
-			const bet3 = await createBet({ pitch: "Bet 3" });
+			const bet3 = await createBet({ description: "Bet 3" });
 			const res = await app.request(`/api/bets/${bet3.id}/commit`, {
 				method: "POST",
 				headers: authHeaders(),
@@ -274,16 +279,14 @@ describe("Bet Endpoints (E3)", () => {
 		});
 	});
 
-	// AC6: POST /api/bets/:id/ship — in_progress→shipped
+	// AC6: POST /api/bets/:id/ship — active→completed (formerly in_progress→shipped)
 	describe("AC6: POST /api/bets/:id/ship", () => {
-		it("transitions in_progress bet to shipped", async () => {
+		it("transitions active bet to completed", async () => {
 			const bet = await createBet();
 			const betId = bet.id as string;
 
-			// shaped -> committed -> in_progress
+			// draft -> active via /commit
 			await app.request(`/api/bets/${betId}/commit`, { method: "POST", headers: authHeaders() });
-			const { transitionBet } = await import("../services/bet-state-machine.js");
-			await transitionBet(db, eventBus, betId, "in_progress");
 
 			const res = await app.request(`/api/bets/${betId}/ship`, {
 				method: "POST",
@@ -292,11 +295,12 @@ describe("Bet Endpoints (E3)", () => {
 
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.status).toBe("shipped");
-			expect(body.shippedAt).toBeTruthy();
+			// @lore U1: "completed" (formerly "shipped"), "completedAt" (formerly "shippedAt")
+			expect(body.status).toBe("completed");
+			expect(body.completedAt).toBeTruthy();
 		});
 
-		it("rejects ship from shaped (invalid transition 409)", async () => {
+		it("rejects ship from draft (invalid transition 409)", async () => {
 			const bet = await createBet();
 			const res = await app.request(`/api/bets/${bet.id}/ship`, {
 				method: "POST",
@@ -309,7 +313,7 @@ describe("Bet Endpoints (E3)", () => {
 
 	// AC7: POST /api/bets/:id/kill — kill with reason (required)
 	describe("AC7: POST /api/bets/:id/kill", () => {
-		it("kills a shaped bet with reason", async () => {
+		it("kills a draft bet with reason", async () => {
 			const bet = await createBet();
 			const res = await app.request(`/api/bets/${bet.id}/kill`, {
 				method: "POST",
@@ -347,31 +351,30 @@ describe("Bet Endpoints (E3)", () => {
 
 	// AC11: GET /api/bets/canvas — canvas data with capacity info
 	describe("AC11: GET /api/bets/canvas — canvas region data", () => {
-		it("returns shaped, committed, and capacity info", async () => {
-			await createBet({ pitch: "Shaped bet" });
-			const bet2 = await createBet({ pitch: "Committed bet" });
+		it("returns draft, active, and capacity info", async () => {
+			await createBet({ description: "Draft bet" });
+			const bet2 = await createBet({ description: "Active bet" });
 			await app.request(`/api/bets/${bet2.id}/commit`, { method: "POST", headers: authHeaders() });
 
 			const res = await app.request("/api/bets/canvas", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as {
-				shaped: unknown[];
-				committed: unknown[];
+				draft: unknown[];
+				active: unknown[];
 				capacity: { used: number; max: number };
 			};
 
-			expect(body.shaped).toHaveLength(1);
-			expect(body.committed).toHaveLength(1);
+			expect(body.draft).toHaveLength(1);
+			expect(body.active).toHaveLength(1);
 			expect(body.capacity.max).toBe(2);
 			expect(body.capacity.used).toBe(1);
 		});
 
-		it("returns zero capacity when no teams exist", async () => {
-			// Use a fresh db with only products (no teams)
+		it("returns zero capacity when no teamMembers exist", async () => {
+			// Use a fresh db with only teams/products (no teamMembers)
 			const freshHandle = await createTestDb();
-			const freshDb = freshHandle.db;
-			const freshApp = await createTestApp({ db: freshDb, eventBus });
-			await freshDb.insert(products).values({
+			const freshApp = await createTestApp({ db: freshHandle.db, eventBus });
+			await freshHandle.db.insert(teams).values({
 				id: "prod-1",
 				name: "Test",
 				phase: "build",
@@ -390,11 +393,12 @@ describe("Bet Endpoints (E3)", () => {
 	// AC12: Concurrent commit at capacity — first succeeds, second rejected 409
 	describe("AC12: Concurrent commit at capacity", () => {
 		it("first commit succeeds, second rejected 409 (no race)", async () => {
-			// eslint-disable-next-line drizzle/enforce-update-with-where -- test setup: single team in test DB
-			await db.update(teams).set({ capacity: 1 });
+			// @lore U1: capacity is on teamMembers, not teams (domain entity)
+			// eslint-disable-next-line drizzle/enforce-update-with-where -- test setup: single teamMembers in test DB
+			await db.update(teamMembers).set({ capacity: 1 });
 
-			const bet1 = await createBet({ pitch: "Bet 1" });
-			const bet2 = await createBet({ pitch: "Bet 2" });
+			const bet1 = await createBet({ description: "Bet 1" });
+			const bet2 = await createBet({ description: "Bet 2" });
 
 			// Commit both concurrently
 			const [res1, res2] = await Promise.all([

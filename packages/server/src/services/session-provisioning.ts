@@ -129,6 +129,7 @@ export interface ProvisionSessionDeps {
 export interface ProvisionSessionParams {
 	readonly taskId: string;
 	readonly agentId: string;
+	/** @lore U1: field name kept for backward compat; value is now a teams.id (formerly products.id). */
 	readonly productId: string;
 	readonly workspaceBasePath: string;
 	readonly factoryCap?: number;

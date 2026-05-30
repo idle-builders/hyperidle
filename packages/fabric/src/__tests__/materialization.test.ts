@@ -4,9 +4,9 @@ import {
 	bets,
 	createTestDb,
 	type HyperIdleDb,
-	products,
 	sessions,
 	tasks,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -36,16 +36,19 @@ async function seedTestData(db: HyperIdleDb): Promise<{
 	const threadId = "thread-1";
 	const sessionId = "sess-1";
 
+	// @lore U1: teams is the domain entity; teamMembers is the membership group.
 	await db
-		.insert(products)
+		.insert(teams)
 		.values({ id: productId, name: "TestProduct", phase: "build", createdAt: now });
-	await db.insert(teams).values({
+
+	await db.insert(teamMembers).values({
 		id: teamId,
-		productId,
+		teamId: productId,
 		capacity: 3,
 		activeBets: 1,
 		formedAt: now,
 	});
+
 	await db.insert(users).values({
 		id: agentId,
 		name: "BuilderBot",
@@ -54,16 +57,18 @@ async function seedTestData(db: HyperIdleDb): Promise<{
 		teamId,
 		createdAt: now,
 	});
+
+	// @lore U1: bets.teamId references teams (domain entity); description replaces pitch.
 	await db.insert(bets).values({
 		id: betId,
-		productId,
-		teamId,
-		pitch: "Build the thing",
+		teamId: productId,
+		description: "Build the thing",
 		appetite: "small",
 		doneCondition: "Tests pass",
-		status: "in_progress",
+		status: "active",
 		createdAt: now,
 	});
+
 	await db.insert(threads).values({
 		id: threadId,
 		hostKind: "task",
@@ -73,11 +78,12 @@ async function seedTestData(db: HyperIdleDb): Promise<{
 		lastActiveAt: now,
 		createdAt: now,
 	});
+
 	await db.insert(tasks).values({
 		id: taskId,
 		betId,
-		productId,
-		teamId,
+		// @lore U1: tasks.teamId references teams (domain entity); productId removed.
+		teamId: productId,
 		ownerAgentId: agentId,
 		title: "Implement feature X",
 		description: "Build the materialization engine",
@@ -87,6 +93,7 @@ async function seedTestData(db: HyperIdleDb): Promise<{
 		createdAt: now,
 		updatedAt: now,
 	});
+
 	await db.insert(sessions).values({
 		id: sessionId,
 		taskId,
@@ -364,7 +371,8 @@ describe("materialize", () => {
 		expect(parsed.bet).toBeDefined();
 		const bet = parsed.bet as Record<string, unknown>;
 		expect(bet.id).toBe("bet-1");
-		expect(bet.pitch).toBe("Build the thing");
+		// @lore U1: `description` replaces `pitch` in SessionContextData.bet.
+		expect(bet.description).toBe("Build the thing");
 
 		// Verify agent context
 		expect(parsed.agent).toBeDefined();
@@ -372,9 +380,9 @@ describe("materialize", () => {
 		expect(agent.id).toBe(agentId);
 		expect(agent.role).toBe("builder");
 
-		// Verify product context
-		expect(parsed.product).toBeDefined();
-		const product = parsed.product as Record<string, unknown>;
+		// Verify team context (@lore U1: formerly `product`, now `team` in session context)
+		expect(parsed.team).toBeDefined();
+		const product = parsed.team as Record<string, unknown>;
 		expect(product.id).toBe(productId);
 		expect(product.name).toBe("TestProduct");
 	});

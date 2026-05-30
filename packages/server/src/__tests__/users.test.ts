@@ -10,8 +10,7 @@ import {
 	type HyperIdleDb,
 	items,
 	messages,
-	products,
-	type TestDbHandle,
+	teamMembers,
 	teams,
 	threads,
 	userSkills,
@@ -43,16 +42,16 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 		app = await createTestApp({ db, eventBus });
 
 		// Seed product and team
-		await db.insert(products).values({
+		await db.insert(teams).values({
 			id: "prod-1",
 			name: "Test Product",
 			phase: "build",
 			createdAt: NOW,
 		});
 
-		await db.insert(teams).values({
+		await db.insert(teamMembers).values({
 			id: "team-1",
-			productId: "prod-1",
+			teamId: "prod-1",
 			capacity: 3,
 			activeBets: 0,
 			formedAt: NOW,

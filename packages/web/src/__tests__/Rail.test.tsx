@@ -11,9 +11,10 @@ function renderInRouter(ui: ReactElement): ReturnType<typeof render> {
 	return render(<MemoryRouter>{ui}</MemoryRouter>);
 }
 
+// @lore U1: "committed"/"behind" merged into "active"
 const sampleBets: BetItem[] = [
-	{ id: "bet-1", title: "Launch MVP", progress: { done: 1, total: 3 }, status: "committed" },
-	{ id: "bet-2", title: "User Onboarding", progress: { done: 0, total: 5 }, status: "behind" },
+	{ id: "bet-1", title: "Launch MVP", progress: { done: 1, total: 3 }, status: "active" },
+	{ id: "bet-2", title: "User Onboarding", progress: { done: 0, total: 5 }, status: "active" },
 ];
 
 const sampleBlockers: BlockerItem[] = [
@@ -252,45 +253,44 @@ describe("Rail", () => {
 		});
 	});
 
-	describe("BetStatus chip rendering (I4 S4)", () => {
-		// After the mapping duplicate is removed and the shared status-mapping
-		// module is used, a bet with status "behind" must render the BEHIND
-		// chip (not the HEALTHY fallback the old duplicate used as default).
-		it("renders the BEHIND chip for a behind bet", () => {
-			const behindBets: BetItem[] = [
-				{ id: "b", title: "Behind Bet", progress: { done: 0, total: 2 }, status: "behind" },
+	/**
+	 * @lore U1: BetStatus simplified to draft|active|completed|killed.
+	 * "behind", "blocked", "paused", "review" no longer exist — all map to "active".
+	 * Tests updated to reflect the simplified status set.
+	 */
+	describe("BetStatus chip rendering (I4 S4 — U1 simplified)", () => {
+		it("renders the HEALTHY chip for an active bet", () => {
+			const activeBets: BetItem[] = [
+				{ id: "b", title: "Active Bet", progress: { done: 0, total: 2 }, status: "active" },
 			];
-			// Empty blockers so the only chip is the bet's chip — severities
-			// also render StatusChip and would otherwise collide.
-			renderInRouter(<Rail {...defaultProps} bets={behindBets} blockers={[]} />);
-			// StatusChip uppercases the status text.
-			expect(screen.getByText("BEHIND")).toBeInTheDocument();
-			// Must NOT fall through to HEALTHY.
-			expect(screen.queryByText("HEALTHY")).not.toBeInTheDocument();
+			renderInRouter(<Rail {...defaultProps} bets={activeBets} blockers={[]} />);
+			expect(screen.getByText("HEALTHY")).toBeInTheDocument();
 		});
 
-		it("renders the BLOCKED chip for a blocked bet", () => {
-			const blockedBets: BetItem[] = [
-				{ id: "b", title: "Blocked Bet", progress: { done: 1, total: 3 }, status: "blocked" },
+		it("renders the PAUSED chip for a draft bet", () => {
+			// @lore U1: "draft" (formerly "shaped") maps to "paused"
+			const draftBets: BetItem[] = [
+				{ id: "b", title: "Draft Bet", progress: { done: 0, total: 1 }, status: "draft" },
 			];
-			renderInRouter(<Rail {...defaultProps} bets={blockedBets} blockers={[]} />);
-			expect(screen.getByText("BLOCKED")).toBeInTheDocument();
-		});
-
-		it("renders the PAUSED chip for a paused bet", () => {
-			const pausedBets: BetItem[] = [
-				{ id: "b", title: "Paused Bet", progress: { done: 0, total: 1 }, status: "paused" },
-			];
-			renderInRouter(<Rail {...defaultProps} bets={pausedBets} blockers={[]} />);
+			renderInRouter(<Rail {...defaultProps} bets={draftBets} blockers={[]} />);
 			expect(screen.getByText("PAUSED")).toBeInTheDocument();
 		});
 
-		it("renders a non-HEALTHY chip for a review bet", () => {
-			const reviewBets: BetItem[] = [
-				{ id: "b", title: "Review Bet", progress: { done: 2, total: 2 }, status: "review" },
+		it("renders the DONE chip for a completed bet", () => {
+			// @lore U1: "completed" (formerly "shipped") maps to "done"
+			const completedBets: BetItem[] = [
+				{ id: "b", title: "Completed Bet", progress: { done: 2, total: 2 }, status: "completed" },
 			];
-			renderInRouter(<Rail {...defaultProps} bets={reviewBets} />);
-			expect(screen.queryByText("HEALTHY")).not.toBeInTheDocument();
+			renderInRouter(<Rail {...defaultProps} bets={completedBets} blockers={[]} />);
+			expect(screen.getByText("DONE")).toBeInTheDocument();
+		});
+
+		it("renders the ERROR chip for a killed bet", () => {
+			const killedBets: BetItem[] = [
+				{ id: "b", title: "Killed Bet", progress: { done: 0, total: 2 }, status: "killed" },
+			];
+			renderInRouter(<Rail {...defaultProps} bets={killedBets} blockers={[]} />);
+			expect(screen.getByText("ERROR")).toBeInTheDocument();
 		});
 	});
 });

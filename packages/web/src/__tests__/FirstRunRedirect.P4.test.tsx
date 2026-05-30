@@ -57,10 +57,10 @@ describe("FirstRunRedirect (P4) — setup completion check", () => {
 						json: async () => ({ error: "Unauthorized" }),
 					});
 				}
-				if (url.includes("/api/products")) {
+				if (url.includes("/api/teams")) {
 					return Promise.resolve({
 						ok: true,
-						json: async () => ({ products: [{ id: "p1", name: "My App" }] }),
+						json: async () => ({ teams: [{ id: "t1", name: "My App" }] }),
 					});
 				}
 				return Promise.resolve({ ok: true, json: async () => ({}) });
@@ -74,7 +74,7 @@ describe("FirstRunRedirect (P4) — setup completion check", () => {
 		});
 	});
 
-	// AC-10: when no products, redirect to /setup
+	// AC-10: when no teams, redirect to /setup
 	it("redirects to /setup when products list is empty (DB with user but no products)", async () => {
 		vi.stubGlobal(
 			"fetch",
@@ -90,10 +90,10 @@ describe("FirstRunRedirect (P4) — setup completion check", () => {
 						}),
 					});
 				}
-				if (url.includes("/api/products")) {
+				if (url.includes("/api/teams")) {
 					return Promise.resolve({
 						ok: true,
-						json: async () => ({ products: [] }),
+						json: async () => ({ teams: [] }),
 					});
 				}
 				return Promise.resolve({ ok: true, json: async () => ({}) });
@@ -123,10 +123,11 @@ describe("FirstRunRedirect (P4) — setup completion check", () => {
 						}),
 					});
 				}
-				if (url.includes("/api/products")) {
+				if (url.includes("/api/teams")) {
 					return Promise.resolve({
 						ok: true,
-						json: async () => ({ products: [{ id: "p1", name: "My App" }] }),
+						// @lore U1: /api/products now returns { teams: [...] } (renamed from { products: [...] })
+						json: async () => ({ teams: [{ id: "p1", name: "My App" }] }),
 					});
 				}
 				return Promise.resolve({ ok: true, json: async () => ({}) });
@@ -158,7 +159,7 @@ describe("FirstRunRedirect (P4) — setup completion check", () => {
 			vi.fn().mockImplementation(() =>
 				Promise.resolve({
 					ok: true,
-					json: async () => ({ products: [] }),
+					json: async () => ({ teams: [] }),
 				}),
 			),
 		);

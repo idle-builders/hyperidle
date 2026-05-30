@@ -10,9 +10,8 @@ import {
 	bets,
 	createTestDb,
 	type HyperIdleDb,
-	products,
-	type TestDbHandle,
 	tasks,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -41,19 +40,19 @@ async function seedBase(db: HyperIdleDb, founderId = "test-founder-1"): Promise<
 		.onConflictDoNothing();
 
 	await db
-		.insert(products)
+		.insert(teams)
 		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
 
 	await db
-		.insert(teams)
-		.values({ id: "team-1", productId: "prod-1", capacity: 5, activeBets: 1, formedAt: now });
+		.insert(teamMembers)
+		.values({ id: "team-1", teamId: "prod-1", capacity: 5, activeBets: 1, formedAt: now });
 
+	// @lore U1: bets.teamId references `teams` (domain entity), not `teamMembers`.
 	await db.insert(bets).values({
 		id: "bet-1",
-		productId: "prod-1",
-		teamId: "team-1",
-		pitch: "Test bet",
-		status: "in_progress",
+		teamId: "prod-1",
+		description: "Test bet",
+		status: "active",
 		createdAt: now,
 	});
 
@@ -76,11 +75,11 @@ async function seedBase(db: HyperIdleDb, founderId = "test-founder-1"): Promise<
 
 async function seedDoneTasks(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
+	// @lore U1: tasks.teamId references `teams` (domain entity), not `teamMembers`.
 	await db.insert(tasks).values({
 		id: "task-1",
 		betId: "bet-1",
-		productId: "prod-1",
-		teamId: "team-1",
+		teamId: "prod-1",
 		ownerAgentId: "agent-1",
 		title: "Done task 1",
 		state: "done",
@@ -91,8 +90,7 @@ async function seedDoneTasks(db: HyperIdleDb): Promise<void> {
 	await db.insert(tasks).values({
 		id: "task-2",
 		betId: "bet-1",
-		productId: "prod-1",
-		teamId: "team-1",
+		teamId: "prod-1",
 		ownerAgentId: "agent-1",
 		title: "Done task 2",
 		state: "done",

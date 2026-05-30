@@ -1,50 +1,41 @@
 /**
- * L13 — /api/products routes: composite product+team detail endpoint.
+ * L13 — /api/products routes: composite team+teamMembers detail endpoint.
  *
- * GET /products         — list of all products with portfolio counters
- * GET /products/:id     — full ProductDetail for a single product
+ * GET /products         — list of all teams with portfolio counters
+ * GET /products/:id     — full TeamDetail for a single team
  *
- * @lore L13: No /api/teams resource. The team facet is reached through the
- * product, never as a standalone collection. The product id is the public
- * identifier; team_id is an internal join key only.
+ * @lore L13: No /api/teams resource as a standalone collection. The team facet is
+ * reached through the product URL, never as a standalone collection. The team id
+ * is the public identifier (formerly product id).
  *
- * @lore L13: The 500 on missing team (loadProductTeam) is intentional. A
- * product without a team is a programming bug. It surfaces loudly via the
- * standard ApiErrorResponse envelope. The Product page renders an ErrorState
- * for it. See services/product-team.ts.
+ * @lore L13: The 500 on missing team_members (loadTeamMembers) is intentional. A
+ * team without a team_members row is a programming bug. It surfaces loudly via the
+ * standard ApiErrorResponse envelope.
+ *
+ * @lore U1: Renamed from products.ts. All `products` references -> `teams`.
+ * All `Product*` types -> `Team*`. `loadProductTeam` -> `loadTeamMembers`.
+ * `pitchTitle` -> `descriptionTitle`. `deriveTitleFromPitch` -> `deriveTitle`.
  */
 
-import { bets, type HyperIdleDb, products, tasks, teams, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import type {
 	BetCardSummary,
-	CreateProductRequest,
-	CreateProductResponse,
+	CreateTeamRequest,
+	CreateTeamResponse,
 	CurrencyCode,
 	EventBus,
-	ProductDetail,
-	ProductListItem,
 	RosterMember,
+	TeamDetail,
+	TeamListItem,
 	WireMoney,
 } from "@hyperidle/shared";
-import { and, count, eq, inArray } from "drizzle-orm";
+import { deriveTitle } from "@hyperidle/shared";
+import { and, count, eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { ApiError, loadProductTeam } from "../services/product-team.js";
+import { ApiError, loadTeamMembers } from "../services/team-lookup.js";
 
 /**
- * Derive the pitch title from the first non-empty line of the markdown pitch.
- * Strips leading `#` characters (headings). Falls back to the bet id.
- */
-function derivePitchTitle(pitch: string, betId: string): string {
-	const lines = pitch.split("\n");
-	for (const line of lines) {
-		const trimmed = line.replace(/^#+\s*/, "").trim();
-		if (trimmed.length > 0) return trimmed;
-	}
-	return betId;
-}
-
-/**
- * Derive product status from team and active bet states.
+ * Derive team status from team_members and active bet states.
  *
  * - "blocked" if any active bet has any task in state = 'blocked'
  * - "behind" if active_bets > capacity OR cost_actual >= cost_cap (when cap is set)
@@ -52,8 +43,8 @@ function derivePitchTitle(pitch: string, betId: string): string {
  *
  * L17: compares minor-unit values (costCapMinor prefers over legacy costCap).
  */
-function deriveProductStatus(
-	team: {
+function deriveTeamStatus(
+	memberGroup: {
 		activeBets: number;
 		capacity: number;
 		costActualMinor: number | null;
@@ -62,9 +53,9 @@ function deriveProductStatus(
 	hasBlockedTask: boolean,
 ): "healthy" | "behind" | "blocked" {
 	if (hasBlockedTask) return "blocked";
-	const costActual = team.costActualMinor ?? 0;
-	const overCapacity = team.activeBets > team.capacity;
-	const overBudget = team.costCapMinor !== null && costActual >= team.costCapMinor;
+	const costActual = memberGroup.costActualMinor ?? 0;
+	const overCapacity = memberGroup.activeBets > memberGroup.capacity;
+	const overBudget = memberGroup.costCapMinor !== null && costActual >= memberGroup.costCapMinor;
 	if (overCapacity || overBudget) return "behind";
 	return "healthy";
 }
@@ -80,50 +71,44 @@ function toWireMoney(
 	return { minor, currency: (currency ?? "USD") as CurrencyCode };
 }
 
-export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
+export function createTeamRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 	const router = new Hono();
 
-	// GET / — list all products with portfolio counters
+	// GET / — list all teams with portfolio counters
 	router.get("/", async (c) => {
-		const allProducts = await db.select().from(products);
+		const allTeams = await db.select().from(teams);
 
-		const result: ProductListItem[] = await Promise.all(
-			allProducts.map(async (product) => {
-				// Fetch the team for this product (may be missing — tolerate gracefully here)
-				const [team] = await db
+		const result: TeamListItem[] = await Promise.all(
+			allTeams.map(async (team) => {
+				// Fetch the team_members for this team (may be missing — tolerate gracefully here)
+				const [memberGroup] = await db
 					.select()
-					.from(teams)
-					.where(eq(teams.productId, product.id))
+					.from(teamMembers)
+					.where(eq(teamMembers.teamId, team.id))
 					.limit(1);
 
-				// Count active and shipped bets
+				// Count active and completed bets
 				const [activeBetCountRow] = await db
 					.select({ count: count() })
 					.from(bets)
-					.where(
-						and(eq(bets.productId, product.id), inArray(bets.status, ["committed", "in_progress"])),
-					)
-					.limit(1);
+					.where(and(eq(bets.teamId, team.id), eq(bets.status, "active")));
 				const activeBetCount = activeBetCountRow?.count ?? 0;
 
-				const [shippedCountRow] = await db
+				const [completedCountRow] = await db
 					.select({ count: count() })
 					.from(bets)
-					.where(and(eq(bets.productId, product.id), eq(bets.status, "shipped")))
-					.limit(1);
-				const shippedCount = shippedCountRow?.count ?? 0;
+					.where(and(eq(bets.teamId, team.id), eq(bets.status, "completed")));
+				const completedCount = completedCountRow?.count ?? 0;
 
-				// Ship rate = shipped / (shipped + active), expressed as percentage
-				const total = shippedCount + activeBetCount;
-				const shipRate = total === 0 ? "—" : `${Math.round((shippedCount / total) * 100)}%`;
+				// Ship rate = completed / (completed + active), expressed as percentage
+				const total = completedCount + activeBetCount;
+				const shipRate = total === 0 ? "—" : `${Math.round((completedCount / total) * 100)}%`;
 
 				// Progress: sum done/total tasks across active bets
 				const activeBetRows = await db
 					.select({ id: bets.id })
 					.from(bets)
-					.where(
-						and(eq(bets.productId, product.id), inArray(bets.status, ["committed", "in_progress"])),
-					);
+					.where(and(eq(bets.teamId, team.id), eq(bets.status, "active")));
 
 				let progressDone = 0;
 				let progressTotal = 0;
@@ -136,38 +121,38 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 					progressDone += taskRows.filter((t) => t.state === "done").length;
 				}
 
-				const leadAgentId = team?.leadAgentId ?? null;
-				const status = team
-					? deriveProductStatus(
+				const leadAgentId = memberGroup?.leadAgentId ?? null;
+				const status = memberGroup
+					? deriveTeamStatus(
 							{
-								activeBets: team.activeBets,
-								capacity: team.capacity,
+								activeBets: memberGroup.activeBets,
+								capacity: memberGroup.capacity,
 								// L17: prefer costCapMinor over legacy costCap
 								costActualMinor: null, // list route doesn't compute actual spend
-								costCapMinor: team.costCapMinor ?? team.costCap ?? null,
+								costCapMinor: memberGroup.costCapMinor ?? memberGroup.costCap ?? null,
 							},
 							false,
 						)
 					: ("healthy" as const);
 
 				return {
-					id: product.id,
-					name: product.name,
-					phase: product.phase,
+					id: team.id,
+					name: team.name,
+					phase: team.phase,
 					status,
 					leadAgentId,
 					activeBets: activeBetCount,
-					shipped: shippedCount,
+					shipped: completedCount,
 					shipRate,
 					progress: { done: progressDone, total: progressTotal },
 				};
 			}),
 		);
 
-		return c.json({ products: result });
+		return c.json({ teams: result });
 	});
 
-	// POST / — create a new product with a team and default agents
+	// POST / — create a new team with a team_members row and default agents
 	router.post("/", async (c) => {
 		let body: unknown;
 		try {
@@ -176,28 +161,28 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 			return c.json({ error: "Invalid JSON", code: "validation_error" }, 400);
 		}
 
-		const { name, repoPath } = body as CreateProductRequest;
+		const { name, repoPath } = body as CreateTeamRequest;
 		if (!name || typeof name !== "string" || name.trim().length === 0) {
 			return c.json({ error: "name is required", code: "validation_error" }, 400);
 		}
 
 		const now = new Date().toISOString();
-		const productId = `product-${crypto.randomUUID()}`;
-		const teamId = `team-${crypto.randomUUID()}`;
+		const teamId = `product-${crypto.randomUUID()}`;
+		const teamMembersId = `team-${crypto.randomUUID()}`;
 		const builderId = `agent-builder-${crypto.randomUUID()}`;
 		const pmId = `agent-pm-${crypto.randomUUID()}`;
 
-		await db.insert(products).values({
-			id: productId,
+		await db.insert(teams).values({
+			id: teamId,
 			name: name.trim(),
 			phase: "build",
 			factoryDbPath: typeof repoPath === "string" ? repoPath.trim() || null : null,
 			createdAt: now,
 		});
 
-		await db.insert(teams).values({
-			id: teamId,
-			productId,
+		await db.insert(teamMembers).values({
+			id: teamMembersId,
+			teamId,
 			capacity: 5,
 			activeBets: 0,
 			formedAt: now,
@@ -210,7 +195,7 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 			role: "builder",
 			status: "active",
 			maxConcurrentSessions: 3,
-			teamId,
+			teamId: teamMembersId,
 			createdAt: now,
 		});
 
@@ -221,28 +206,31 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 			role: "product_manager",
 			status: "active",
 			maxConcurrentSessions: 1,
-			teamId,
+			teamId: teamMembersId,
 			createdAt: now,
 		});
 
-		await db.update(teams).set({ leadAgentId: builderId }).where(eq(teams.id, teamId));
+		await db
+			.update(teamMembers)
+			.set({ leadAgentId: builderId })
+			.where(eq(teamMembers.id, teamMembersId));
 
-		const result: CreateProductResponse = {
-			product: { id: productId, name: name.trim(), phase: "build" },
-			team: { id: teamId },
+		const result: CreateTeamResponse = {
+			team: { id: teamId, name: name.trim(), phase: "build" },
+			teamMembers: { id: teamMembersId },
 		};
 
 		return c.json(result, 201);
 	});
 
-	// PATCH /:productId — update product phase (active ↔ archived)
-	// P4 AC-18: SettingsProducts needs to toggle product active/archived state.
-	router.patch("/:productId", async (c) => {
-		const productId = c.req.param("productId");
+	// PATCH /:teamId — update team phase (active ↔ archived)
+	// P4 AC-18: SettingsTeams needs to toggle team active/archived state.
+	router.patch("/:teamId", async (c) => {
+		const teamId = c.req.param("teamId");
 
-		const [product] = await db.select().from(products).where(eq(products.id, productId)).limit(1);
-		if (!product) {
-			return c.json({ error: "Product not found", code: "not_found" }, 404);
+		const [team] = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1);
+		if (!team) {
+			return c.json({ error: "Team not found", code: "not_found" }, 404);
 		}
 
 		let body: unknown;
@@ -254,7 +242,7 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 
 		const { phase } = body as { phase?: string };
 		const VALID_PHASES = ["build", "live", "archived"] as const;
-		type ProductPhase = (typeof VALID_PHASES)[number];
+		type TeamPhase = (typeof VALID_PHASES)[number];
 		if (!(phase && (VALID_PHASES as readonly string[]).includes(phase))) {
 			return c.json(
 				{ error: `phase must be one of: ${VALID_PHASES.join(", ")}`, code: "validation_error" },
@@ -263,38 +251,38 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 		}
 
 		await db
-			.update(products)
-			.set({ phase: phase as ProductPhase })
-			.where(eq(products.id, productId));
+			.update(teams)
+			.set({ phase: phase as TeamPhase })
+			.where(eq(teams.id, teamId));
 
-		const [updated] = await db.select().from(products).where(eq(products.id, productId)).limit(1);
+		const [updated] = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1);
 		if (!updated) {
-			return c.json({ error: "Product not found after update", code: "internal_error" }, 500);
+			return c.json({ error: "Team not found after update", code: "internal_error" }, 500);
 		}
 		return c.json({ id: updated.id, name: updated.name, phase: updated.phase });
 	});
 
-	// GET /:productId — full ProductDetail
-	router.get("/:productId", async (c) => {
-		const productId = c.req.param("productId");
+	// GET /:teamId — full TeamDetail
+	router.get("/:teamId", async (c) => {
+		const teamId = c.req.param("teamId");
 
-		// 1. Look up the product
-		const [product] = await db.select().from(products).where(eq(products.id, productId)).limit(1);
-		if (!product) {
-			return c.json({ error: "Product not found", code: "not_found" }, 404);
+		// 1. Look up the team
+		const [team] = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1);
+		if (!team) {
+			return c.json({ error: "Team not found", code: "not_found" }, 404);
 		}
 
-		// 2. Load the team (enforces 1:1 invariant — throws ApiError(500) if broken)
+		// 2. Load the team_members row (enforces 1:1 invariant — throws ApiError(500) if broken)
 		try {
-			const teamRow = await loadProductTeam(db, productId);
+			const memberGroup = await loadTeamMembers(db, teamId);
 			// 3. Load roster
-			const agentRows = await db.select().from(users).where(eq(users.teamId, teamRow.id));
+			const agentRows = await db.select().from(users).where(eq(users.teamId, memberGroup.id));
 
 			const roster: RosterMember[] = agentRows.map((agent) => ({
 				agentId: agent.id,
 				name: agent.name,
 				role: agent.role,
-				isLead: agent.id === teamRow.leadAgentId,
+				isLead: agent.id === memberGroup.leadAgentId,
 			}));
 
 			// Lead first, then by name asc
@@ -308,9 +296,7 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 			const activeBetRows = await db
 				.select()
 				.from(bets)
-				.where(
-					and(eq(bets.productId, productId), inArray(bets.status, ["committed", "in_progress"])),
-				);
+				.where(and(eq(bets.teamId, teamId), eq(bets.status, "active")));
 
 			// 5. Per active bet, count tasks done/total
 			let hasBlockedTask = false;
@@ -327,10 +313,11 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 
 					return {
 						id: bet.id,
-						pitchTitle: derivePitchTitle(bet.pitch, bet.id),
+						// @lore U1: `descriptionTitle` was formerly `pitchTitle`.
+						descriptionTitle: deriveTitle(bet.description, bet.id),
 						// L17: costAppetite as WireMoney (replaces appetite duration string)
 						costAppetite: toWireMoney(bet.costAppetiteMinor, bet.costAppetiteCurrency),
-						status: bet.status as "committed" | "in_progress",
+						status: bet.status as "active",
 						progressDone,
 						progressTotal,
 					};
@@ -345,15 +332,15 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 				return bRow.createdAt.localeCompare(aRow.createdAt);
 			});
 
-			// 6. Derive product status
+			// 6. Derive team status
 			// L17: prefer costCapMinor over legacy costCap
-			const teamCostCapMinor = teamRow.costCapMinor ?? teamRow.costCap ?? null;
+			const teamCostCapMinor = memberGroup.costCapMinor ?? memberGroup.costCap ?? null;
 			// Compute team actual spend from sessions (via legacy costActual for now)
-			const teamCostActualMinor = teamRow.costActual ?? null;
-			const productStatus = deriveProductStatus(
+			const teamCostActualMinor = memberGroup.costActual ?? null;
+			const teamStatus = deriveTeamStatus(
 				{
-					activeBets: teamRow.activeBets,
-					capacity: teamRow.capacity,
+					activeBets: memberGroup.activeBets,
+					capacity: memberGroup.capacity,
 					costActualMinor: teamCostActualMinor,
 					costCapMinor: teamCostCapMinor,
 				},
@@ -361,20 +348,20 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 			);
 
 			// L17: currency for the team defaults to costCapCurrency or "USD"
-			const teamCurrency = teamRow.costCapCurrency ?? "USD";
+			const teamCurrency = memberGroup.costCapCurrency ?? "USD";
 
-			const detail: ProductDetail = {
-				product: {
-					id: product.id,
-					name: product.name,
-					phase: product.phase,
-					status: productStatus,
-					leadAgentId: teamRow.leadAgentId ?? null,
-				},
+			const detail: TeamDetail = {
 				team: {
-					id: teamRow.id,
-					formedAt: teamRow.formedAt,
-					dissolvedAt: teamRow.dissolvedAt ?? null,
+					id: team.id,
+					name: team.name,
+					phase: team.phase,
+					status: teamStatus,
+					leadAgentId: memberGroup.leadAgentId ?? null,
+				},
+				teamMembers: {
+					id: memberGroup.id,
+					formedAt: memberGroup.formedAt,
+					dissolvedAt: memberGroup.dissolvedAt ?? null,
 				},
 				roster,
 				burn: {
@@ -384,8 +371,8 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 							? { minor: teamCostActualMinor, currency: teamCurrency as CurrencyCode }
 							: null,
 					costCap: toWireMoney(teamCostCapMinor, teamCurrency),
-					capacity: teamRow.capacity,
-					activeBets: teamRow.activeBets,
+					capacity: memberGroup.capacity,
+					activeBets: memberGroup.activeBets,
 				},
 				activeBets,
 			};

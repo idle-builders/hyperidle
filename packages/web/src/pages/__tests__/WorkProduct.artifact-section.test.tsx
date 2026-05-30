@@ -8,7 +8,8 @@
  *  - heading "Artifacts" is rendered
  */
 
-import type { ProductDetail } from "@hyperidle/shared";
+// @lore U1: ProductDetail → TeamDetail; `product` → `team`; `team` → `teamMembers`.
+import type { TeamDetail } from "@hyperidle/shared";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -16,6 +17,7 @@ import { WorkProduct } from "../../pages/WorkProduct";
 
 // Mock ArtifactSection to capture props.
 // useArtifactOpen must also be exported since WorkProductLoaded calls it.
+// @lore U1: ArtifactFilterAxis for "product" axis uses `teamId` (not `productId`).
 vi.mock("../../components/ArtifactSection", () => ({
 	ArtifactSection: ({
 		filter,
@@ -23,7 +25,7 @@ vi.mock("../../components/ArtifactSection", () => ({
 		limit,
 		heading,
 	}: {
-		filter: { axis: string; productId?: string };
+		filter: { axis: string; teamId?: string };
 		layout: string;
 		limit?: number;
 		heading?: string;
@@ -31,7 +33,7 @@ vi.mock("../../components/ArtifactSection", () => ({
 		<div
 			data-testid="artifact-section"
 			data-filter-axis={filter.axis}
-			data-filter-product-id={filter.axis === "product" ? filter.productId : ""}
+			data-filter-product-id={filter.axis === "product" ? filter.teamId : ""}
 			data-layout={layout}
 			data-limit={limit !== undefined ? String(limit) : ""}
 			data-heading={heading ?? ""}
@@ -42,18 +44,18 @@ vi.mock("../../components/ArtifactSection", () => ({
 	useArtifactOpen: () => vi.fn(),
 }));
 
-const MOCK_PRODUCT: ProductDetail = {
-	product: {
+// @lore U1: TeamDetail replaces ProductDetail. `team` (TeamSummary) replaces
+// `product` (ProductSummary). `teamMembers` replaces `team` (membership group).
+const MOCK_PRODUCT: TeamDetail = {
+	team: {
 		id: "prod-l12",
 		name: "L12 Test Product",
-		status: "active",
+		// @lore U1: TeamStatus = "healthy"|"behind"|"blocked"; "active" is not valid.
+		status: "healthy",
 		phase: "build",
 		leadAgentId: null,
-		activeBets: 1,
-		shipped: 2,
-		shipRate: "50%",
-		progress: { done: 2, total: 4 },
 	},
+	teamMembers: { id: "tm-l12", formedAt: "2024-01-01T00:00:00.000Z", dissolvedAt: null },
 	roster: [],
 	burn: {
 		costActual: { minor: 100, currency: "USD" },

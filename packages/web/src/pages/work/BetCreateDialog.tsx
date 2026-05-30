@@ -1,10 +1,10 @@
 /**
  * BetCreateDialog — bet creation flow.
  *
- * Opens as a native <dialog>. Fields: optional product select (shown only when
- * multiple products exist), pitch textarea, title preview.
- * The dialog validates: product required (auto-resolved for single product),
- * pitch non-empty.
+ * Opens as a native <dialog>. Fields: optional team select (shown only when
+ * multiple teams exist), description textarea, title preview.
+ * The dialog validates: team required (auto-resolved for single team),
+ * description non-empty.
  *
  * @lore Q3 W-1: buttons use btn-sm with min-h-[44px] to meet AQ-015 44px touch
  * target floor. btn-xs is forbidden.
@@ -15,16 +15,19 @@
  * @lore Q3 W-3: deriveTitleFromPitch imported from @hyperidle/shared to share
  * the same logic with the server canvas endpoint.
  *
- * @lore R2: appetite fields removed per spec. Product select hidden when only
- * one product exists — productId auto-resolved to the single product.
+ * @lore R2: appetite fields removed per spec. Team select hidden when only
+ * one team exists — teamId auto-resolved to the single team.
  * Submit payload no longer includes costAppetite.
+ *
+ * @lore U1: Renamed `products`/`productId` → `teams`/`teamId`; `pitch` →
+ * `description` in the submit payload to match the U1 schema rename.
  */
 
 import { deriveTitleFromPitch } from "@hyperidle/shared";
 import { type JSX, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../../services/api-fetch.js";
 
-export interface BetProduct {
+export interface BetTeam {
 	id: string;
 	name: string;
 }
@@ -33,30 +36,31 @@ export interface BetCreateDialogProps {
 	open: boolean;
 	onClose: () => void;
 	onCreated: () => void;
-	/** List of products to display in the product select. */
-	products: BetProduct[];
+	/** List of teams to display in the team select. */
+	teams: BetTeam[];
 }
 
 export function BetCreateDialog({
 	open,
 	onClose,
 	onCreated,
-	products,
+	teams,
 }: BetCreateDialogProps): JSX.Element | null {
 	const dialogRef = useRef<HTMLDialogElement>(null);
 
-	// R2: productId only needed when multiple products exist
-	const [productId, setProductId] = useState("");
-	const [pitch, setPitch] = useState("");
+	// R2: teamId only needed when multiple teams exist
+	const [teamId, setTeamId] = useState("");
+	const [description, setDescription] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	// R2: when only one product, auto-resolve; otherwise use the select value
-	const singleProduct = products.length === 1;
-	const resolvedProductId = singleProduct ? (products[0]?.id ?? "") : productId;
+	// R2: when only one team, auto-resolve; otherwise use the select value
+	const singleTeam = teams.length === 1;
+	const resolvedTeamId = singleTeam ? (teams[0]?.id ?? "") : teamId;
 
-	const derivedTitle = pitch.trim() ? deriveTitleFromPitch(pitch, "") : "";
-	const canCreate = resolvedProductId.trim().length > 0 && pitch.trim().length > 0 && !submitting;
+	const derivedTitle = description.trim() ? deriveTitleFromPitch(description, "") : "";
+	const canCreate =
+		resolvedTeamId.trim().length > 0 && description.trim().length > 0 && !submitting;
 
 	// Sync the native dialog open/closed state with the `open` prop.
 	// @lore Q3: same JSDOM guard as KnowledgeCreateDialog — showModal() is not
@@ -65,8 +69,8 @@ export function BetCreateDialog({
 		if (!dialogRef.current) return;
 		if (open) {
 			// Reset form state on open.
-			setProductId("");
-			setPitch("");
+			setTeamId("");
+			setDescription("");
 			setError(null);
 			setSubmitting(false);
 			if (!dialogRef.current.open) {
@@ -86,15 +90,15 @@ export function BetCreateDialog({
 	}, [open]);
 
 	const handleSubmit = async (): Promise<void> => {
-		const trimmedPitch = pitch.trim();
-		if (!trimmedPitch || !resolvedProductId.trim()) return;
+		const trimmedDescription = description.trim();
+		if (!(trimmedDescription && resolvedTeamId.trim())) return;
 
 		setSubmitting(true);
 		setError(null);
 
 		const payload: Record<string, unknown> = {
-			productId: resolvedProductId,
-			pitch: trimmedPitch,
+			teamId: resolvedTeamId,
+			description: trimmedDescription,
 		};
 
 		const res = await apiFetch("/api/bets", {
@@ -127,40 +131,40 @@ export function BetCreateDialog({
 			    cause `getByText` to find duplicate text in tests. */}
 			{open && (
 				<div className="p-4 flex flex-col gap-3 min-w-[320px] max-w-[480px] w-full">
-					<h2 className="text-sm font-heading font-semibold uppercase tracking-wider">New pitch</h2>
+					<h2 className="text-sm font-heading font-semibold uppercase tracking-wider">New bet</h2>
 
-					{/* R2: Product select — only shown when multiple products exist */}
-					{products.length > 1 && (
+					{/* R2: Team select — only shown when multiple teams exist */}
+					{teams.length > 1 && (
 						<label className="flex flex-col gap-1">
 							<span className="text-xs text-[var(--text-lo)]">
-								Product <span aria-hidden>(required)</span>
+								Team <span aria-hidden>(required)</span>
 							</span>
 							<select
 								className="select select-bordered select-sm text-base w-full"
-								value={productId}
-								onChange={(e) => setProductId(e.target.value)}
+								value={teamId}
+								onChange={(e) => setTeamId(e.target.value)}
 								disabled={submitting}
 							>
-								<option value="">Select a product…</option>
-								{products.map((p) => (
-									<option key={p.id} value={p.id}>
-										{p.name}
+								<option value="">Select a team…</option>
+								{teams.map((t) => (
+									<option key={t.id} value={t.id}>
+										{t.name}
 									</option>
 								))}
 							</select>
 						</label>
 					)}
 
-					{/* Pitch textarea */}
+					{/* Description textarea */}
 					<label className="flex flex-col gap-1">
 						<span className="text-xs text-[var(--text-lo)]">
-							Pitch <span aria-hidden>(required)</span>
+							Description <span aria-hidden>(required)</span>
 						</span>
 						<textarea
 							className="textarea textarea-bordered text-base resize-none h-40 w-full"
 							placeholder="Describe the bet in markdown…"
-							value={pitch}
-							onChange={(e) => setPitch(e.target.value)}
+							value={description}
+							onChange={(e) => setDescription(e.target.value)}
 							disabled={submitting}
 						/>
 					</label>

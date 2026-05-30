@@ -1,11 +1,8 @@
 /**
  * B. Composite Schema Tests — bet schemas
  *
- * These tests verify that `packages/server/src/schemas/bet.schema.ts`
- * (not yet created) exports composite Zod schemas for bet API responses.
- *
- * @lore api-typesafety RED phase: this file will fail until bet.schema.ts
- * is created. The tests define the wire shapes the frontend consumes.
+ * @lore U1: Status simplified to draft|active|completed|killed.
+ * pitch -> description, productId -> teamId, shippedAt -> completedAt.
  */
 
 import { describe, expect, it } from "vitest";
@@ -22,13 +19,15 @@ describe("B1. betDetailResponseSchema", () => {
 		title: "Build feature X",
 		product: "My Product",
 		team: "Team Alpha",
-		status: "shaped",
+		// @lore U1: status is "draft" (formerly "shaped")
+		status: "draft",
 		costAppetite: { minor: 10000, currency: "USD" },
 		tokenAppetite: null,
 		costActual: null,
 		tokensActual: null,
 		progress: { done: 0, total: 3 },
-		pitch: "# Build feature X\n\nThis is the pitch.",
+		// @lore U1: `description` (formerly `pitch`)
+		description: "# Build feature X\n\nThis is the description.",
 		tasks: [
 			{
 				id: "task-1",
@@ -66,7 +65,7 @@ describe("B1. betDetailResponseSchema", () => {
 	it("rejects payload missing required fields", () => {
 		const result = betDetailResponseSchema.safeParse({
 			id: "bet-1",
-			// missing title, product, team, status, progress, pitch, tasks
+			// missing title, product, team, status, progress, description, tasks
 		});
 		expect(result.success).toBe(false);
 	});
@@ -106,11 +105,11 @@ describe("B1. betDetailResponseSchema", () => {
 });
 
 describe("B2. betListResponseSchema", () => {
+	// @lore U1: Status groups simplified: shaped->draft, committed|in_progress->active, shipped->completed.
 	const validList = {
-		shaped: [],
-		committed: [],
-		in_progress: [],
-		shipped: [],
+		draft: [],
+		active: [],
+		completed: [],
 		killed: [],
 	};
 
@@ -127,19 +126,21 @@ describe("B2. betListResponseSchema", () => {
 
 	it("accepts a list with bets in each group", () => {
 		const result = betListResponseSchema.safeParse({
-			shaped: [
+			draft: [
 				{
 					id: "bet-2",
-					productId: "prod-1",
-					teamId: "team-1",
-					pitch: "Pitch",
+					teamId: "prod-1",
+					description: "Description",
 					appetite: null,
 					doneCondition: null,
 					hypothesis: null,
-					status: "shaped",
+					// @lore U1: status is "draft" (formerly "shaped")
+					status: "draft",
 					revisionLog: null,
 					createdAt: "2025-01-01T00:00:00.000Z",
-					shippedAt: null,
+					completedAt: null,
+					// @lore U1: atRisk is notNull().default(0) — use 0 not null
+					atRisk: 0,
 					costAppetiteMinor: null,
 					costAppetiteCurrency: null,
 					costActualMinor: null,
@@ -147,9 +148,8 @@ describe("B2. betListResponseSchema", () => {
 					tokensActualJson: null,
 				},
 			],
-			committed: [],
-			in_progress: [],
-			shipped: [],
+			active: [],
+			completed: [],
 			killed: [],
 		});
 		expect(result.success).toBe(true);
@@ -157,9 +157,9 @@ describe("B2. betListResponseSchema", () => {
 
 	it("rejects payload missing a group", () => {
 		const result = betListResponseSchema.safeParse({
-			shaped: [],
-			committed: [],
-			// missing in_progress, shipped, killed
+			draft: [],
+			active: [],
+			// missing completed, killed
 		});
 		expect(result.success).toBe(false);
 	});

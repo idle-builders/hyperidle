@@ -16,7 +16,7 @@ const pitchWithDetail: PitchSelectorPitch = {
 	title: "Mobile App V2",
 	hypothesis: "Users want mobile access",
 	proposer: "Alice",
-	status: "shaped",
+	status: "draft",
 	appetite: "6 weeks",
 	problem: "Users drop off on desktop-only sign up.",
 	solution: "Responsive layout with a mobile-first flow.",
@@ -28,7 +28,7 @@ const pitchNoDetail: PitchSelectorPitch = {
 	title: "CLI Tool",
 	hypothesis: "Developers prefer terminals",
 	proposer: "Bob",
-	status: "shaped",
+	status: "draft",
 	appetite: "2 weeks",
 };
 

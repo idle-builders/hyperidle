@@ -93,7 +93,8 @@ export type AutonomyLevel = 1 | 2 | 3 | 4;
 
 // --- Lifecycle propagation types ---
 
-export type PropagationLevel = "session" | "task" | "bet" | "product" | "portfolio";
+/** @lore U1: `"product"` renamed to `"team"` to match the new domain entity name. */
+export type PropagationLevel = "session" | "task" | "bet" | "team" | "portfolio";
 export type PropagationStatus = "applied" | "skipped" | "failed" | "pending_retry";
 
 export interface PropagationResult {

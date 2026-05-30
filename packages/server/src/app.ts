@@ -24,7 +24,6 @@ import { createKnowledgeRoutes, createTeamsRoutes } from "./routes/knowledge.js"
 import { createNotificationRoutes } from "./routes/notifications-routes.js";
 import { createObservabilityRoutes } from "./routes/observability-routes.js";
 import { createOrgRoutes } from "./routes/org.js";
-import { createProductRoutes } from "./routes/products.js";
 import { createRailRoutes } from "./routes/rail.js";
 import { createRecipientRoutes } from "./routes/recipients.js";
 import { createRoutineRoutes } from "./routes/routines-routes.js";
@@ -32,6 +31,7 @@ import { createSessionRoutes } from "./routes/sessions-routes.js";
 import { createSettingsRoutes } from "./routes/settings.js";
 import { createStatusRoutes } from "./routes/status.js";
 import { createTaskRoutes } from "./routes/tasks.js";
+import { createTeamRoutes } from "./routes/teams-routes.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
@@ -336,7 +336,8 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 	// Register work endpoints if db is provided
 	if (options?.db) {
 		const eventBus = options.eventBus ?? new EventBus();
-		api.route("/products", createProductRoutes(options.db, eventBus));
+		// @lore U1: `/products` URL path kept for backward compat; served by createTeamRoutes.
+		api.route("/products", createTeamRoutes(options.db, eventBus));
 		api.route("/bets", createBetRoutes(options.db, eventBus));
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));
 		api.route("/artifacts", createArtifactRoutes(options.db));

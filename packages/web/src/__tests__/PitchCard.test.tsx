@@ -1,3 +1,8 @@
+/**
+ * @lore U1: BetStatus simplified from 9 to 4 values.
+ * shaped → draft, committed|in_progress → active, shipped → completed.
+ * Tests updated to use new status values.
+ */
 import { PitchCard } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -7,7 +12,8 @@ describe("PitchCard", () => {
 		title: "AI-Powered Onboarding",
 		hypothesis: "Reducing onboarding steps from 8 to 3 will increase activation by 40%",
 		proposer: "Alice Chen",
-		status: "shaped" as const,
+		// @lore U1: "draft" replaces "shaped"
+		status: "draft" as const,
 		appetite: "2 weeks",
 	};
 
@@ -27,8 +33,8 @@ describe("PitchCard", () => {
 	});
 
 	it("renders status as StatusChip via betStatusToStatus mapping", () => {
-		render(<PitchCard {...defaultProps} status="shaped" />);
-		// shaped maps to paused
+		// @lore U1: "draft" (formerly "shaped") maps to "paused"
+		render(<PitchCard {...defaultProps} status="draft" />);
 		expect(screen.getByText("PAUSED")).toBeInTheDocument();
 	});
 
@@ -69,8 +75,9 @@ describe("PitchCard", () => {
 		expect(handleClick).toHaveBeenCalledOnce();
 	});
 
-	it("renders committed status as HEALTHY chip", () => {
-		render(<PitchCard {...defaultProps} status="committed" />);
+	it("renders active status as HEALTHY chip", () => {
+		// @lore U1: "active" (formerly "committed"/"in_progress") maps to "healthy"
+		render(<PitchCard {...defaultProps} status="active" />);
 		expect(screen.getByText("HEALTHY")).toBeInTheDocument();
 	});
 
@@ -83,7 +90,7 @@ describe("PitchCard", () => {
 		render(<PitchCard {...defaultProps} kind="exploration" />);
 		// Tag for kind
 		expect(screen.getByText("exploration")).toHaveClass("inline-flex", "rounded-[var(--r2)]");
-		// StatusChip
+		// StatusChip for status (draft → PAUSED)
 		expect(screen.getByText("PAUSED")).toHaveClass("inline-flex", "rounded-full");
 		// KeyValue for appetite
 		expect(screen.getByText("2 weeks")).toBeInTheDocument();

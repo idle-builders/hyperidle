@@ -52,7 +52,7 @@ describe("AppShell — P4 Settings overlay", () => {
 					avatarUrl: null,
 					// settings response
 					profile: { name: "Test Founder", email: "test@example.com", avatarUrl: null },
-					products: [],
+					teams: [],
 					users: [],
 					notifications: {
 						reviewAlerts: true,
@@ -60,7 +60,8 @@ describe("AppShell — P4 Settings overlay", () => {
 						blockerAlerts: true,
 						quietHoursStart: "22:00",
 						quietHoursEnd: "08:00",
-						mutedProducts: [],
+						// @lore U1: mutedProducts renamed to mutedTeams
+						mutedTeams: [],
 					},
 					// rail response
 					bets: [],
@@ -115,7 +116,8 @@ describe("AppShell — P4 Settings overlay", () => {
 			expect(screen.getByText("Credentials")).toBeInTheDocument();
 			expect(screen.getByText("Notifications")).toBeInTheDocument();
 			expect(screen.getByText("Appearance")).toBeInTheDocument();
-			expect(screen.getByText("Products")).toBeInTheDocument();
+			// @lore U1: "Products" renamed to "Teams" in settings menu
+			expect(screen.getByText("Teams")).toBeInTheDocument();
 			expect(screen.getByText("Backend")).toBeInTheDocument();
 		});
 	});

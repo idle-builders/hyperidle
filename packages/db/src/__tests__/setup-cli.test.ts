@@ -48,8 +48,9 @@ describe("H4 AC1: `bun run setup --profile laptop`", () => {
 		const client = new PGlite(dataDir);
 		await client.waitReady;
 		try {
-			const productsResult = await client.query<{ id: string }>("SELECT id FROM products");
-			expect(productsResult.rows.length).toBeGreaterThan(0);
+			// @lore U1: `products` table renamed to `teams`
+			const teamsResult = await client.query<{ id: string }>("SELECT id FROM teams");
+			expect(teamsResult.rows.length).toBeGreaterThan(0);
 
 			const usersResult = await client.query<{ id: string }>("SELECT id FROM users");
 			expect(usersResult.rows.length).toBeGreaterThan(0);
@@ -187,12 +188,14 @@ describe("H4 idempotency: laptop setup is safe to run twice", () => {
 		const client = new PGlite(dataDir);
 		await client.waitReady;
 		try {
-			const usersResult = await client.query<{ id: string }>("SELECT id FROM users");
-			expect(usersResult.rows.length).toBeGreaterThan(0);
-			const productsResult = await client.query<{ n: string }>(
-				"SELECT COUNT(*) AS n FROM products WHERE id = 'seed-product-1'",
+			// @lore P2: agents → users table
+			const agentsResult = await client.query<{ id: string }>("SELECT id FROM users");
+			expect(agentsResult.rows.length).toBeGreaterThan(0);
+			// @lore U1: `products` renamed to `teams`; seed row id stays 'seed-product-1'
+			const teamsResult = await client.query<{ n: string }>(
+				"SELECT COUNT(*) AS n FROM teams WHERE id = 'seed-product-1'",
 			);
-			expect(Number(productsResult.rows[0]?.n)).toBe(1);
+			expect(Number(teamsResult.rows[0]?.n)).toBe(1);
 		} finally {
 			await client.close();
 		}

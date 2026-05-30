@@ -4,16 +4,16 @@ export default {
 	title: "PitchCard",
 	tier: "2" as const,
 	uses: ["StatusChip", "Tag", "KeyValue"],
-	order: ["Shaped", "WithKind", "Killed"],
+	order: ["Draft", "WithKind", "Killed"],
 };
 
-export const Shaped = (): React.JSX.Element => (
+export const Draft = (): React.JSX.Element => (
 	<div className="max-w-[320px]">
 		<PitchCard
 			title="AI-Powered Onboarding"
 			hypothesis="Reducing onboarding steps from 8 to 3 will increase activation by 40%"
 			proposer="Alice Chen"
-			status="shaped"
+			status="draft"
 			appetite="2 weeks"
 		/>
 	</div>
@@ -25,7 +25,7 @@ export const WithKind = (): React.JSX.Element => (
 			title="Cost Prediction Model"
 			hypothesis="ML-based cost prediction will reduce overruns by 60%"
 			proposer="Bob Smith"
-			status="committed"
+			status="active"
 			appetite="4 weeks"
 			kind="exploration"
 		/>

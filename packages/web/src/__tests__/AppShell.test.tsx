@@ -7,7 +7,7 @@ import { AppShell } from "../layouts/AppShell";
 // Minimal settings response (no appearance field — Contract 2).
 const STUB_SETTINGS = {
 	profile: { name: "Founder", email: "", avatarUrl: null },
-	products: [],
+	teams: [],
 	users: [],
 	notifications: {
 		reviewAlerts: true,
@@ -15,7 +15,7 @@ const STUB_SETTINGS = {
 		blockerAlerts: true,
 		quietHoursStart: "22:00",
 		quietHoursEnd: "08:00",
-		mutedProducts: [],
+		mutedTeams: [],
 	},
 };
 
@@ -314,7 +314,8 @@ describe("AppShell", () => {
 								id: "b42",
 								title: "Bet Fortytwo",
 								product: "HyperIdle",
-								status: "committed",
+								// @lore U1: "committed" merged into "active"
+								status: "active",
 								appetite: "2 weeks",
 							},
 						],

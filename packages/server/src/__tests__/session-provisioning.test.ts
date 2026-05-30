@@ -31,11 +31,11 @@ import {
 	type HyperIdleDb,
 	items,
 	knowledgeItems,
-	products,
 	sessions,
 	type TestDbHandle,
 	taskStrategyFabric,
 	tasks,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -195,21 +195,18 @@ interface SeedOverrides {
 const NOW = "2026-04-16T00:00:00.000Z";
 
 async function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): Promise<void> {
-	await db
-		.insert(products)
-		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
+	await db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
 
 	await db
-		.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 
 	await db.insert(bets).values({
 		id: "b1",
-		productId: "p1",
-		teamId: "t1",
-		pitch: "Test bet",
+		teamId: "p1",
+		description: "Test bet",
 		appetite: "small",
-		status: "committed",
+		status: "active",
 		createdAt: NOW,
 	});
 
@@ -229,8 +226,7 @@ async function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): Promi
 	await db.insert(tasks).values({
 		id: "task-1",
 		betId: "b1",
-		productId: "p1",
-		teamId: "t1",
+		teamId: "p1",
 		title: "Test task",
 		state: mainTaskState,
 		createdAt: NOW,
@@ -251,8 +247,7 @@ async function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): Promi
 		await db.insert(tasks).values({
 			id: `task-${i}`,
 			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
+			teamId: "p1",
 			title: `Task ${i}`,
 			state: "accepted",
 			createdAt: NOW,
@@ -1121,8 +1116,7 @@ describe("Session Provisioning (D5)", () => {
 			await db.insert(tasks).values({
 				id: "task-fac",
 				betId: "b1",
-				productId: "p1",
-				teamId: "t1",
+				teamId: "p1",
 				title: "Facilitator task",
 				state: "accepted",
 				createdAt: NOW,

@@ -21,6 +21,7 @@ export interface CreateSessionParams {
 	taskId: string;
 	agentId: string;
 	agentRole: UserRole;
+	/** @lore U1: formerly `productId` — now references `teams.id`. */
 	productId: string;
 	modelTier: ModelTier;
 	workspaceBasePath: string;

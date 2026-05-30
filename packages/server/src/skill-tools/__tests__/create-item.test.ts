@@ -4,7 +4,7 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	items,
-	products,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -18,10 +18,11 @@ import type { ToolContext } from "../tool-registry.js";
 
 async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(products).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
 	await db
-		.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+
 	await db.insert(users).values({
 		id: "agent-a",
 		name: "A",

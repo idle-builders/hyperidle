@@ -10,14 +10,15 @@
  * These tests will FAIL until Tasks 2-4 implementation ships.
  */
 
+// @lore U1: `products` renamed to `teams`; old `teams` (membership) renamed to `teamMembers`.
 import {
 	bets,
 	createTestDb,
 	type HyperIdleDb,
-	products,
 	sessions,
 	type TestDbHandle,
 	tasks,
+	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -53,14 +54,14 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 		eventBus = new EventBus();
 		clearDeduplicationCache();
 
-		// Seed base entities using new column names from migration 0010
+		// @lore U1: Seed base entities using new schema (teams, teamMembers).
 		await db
-			.insert(products)
+			.insert(teams)
 			.values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
 
-		await db.insert(teams).values({
+		await db.insert(teamMembers).values({
 			id: "t1",
-			productId: "p1",
+			teamId: "p1",
 			capacity: 5,
 			activeBets: 0,
 			// New column: cost_cap_minor (was costCap)
@@ -71,19 +72,19 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 
 		await db.insert(bets).values({
 			id: "b1",
-			productId: "p1",
-			teamId: "t1",
-			pitch: "Test bet",
+			// @lore U1: teamId references `teams` (domain entity); pitch → description
+			teamId: "p1",
+			description: "Test bet",
 			// appetite_legacy column still exists for rollback but is not used
-			status: "committed",
+			status: "active",
 			createdAt: NOW,
 		});
 
 		await db.insert(tasks).values({
 			id: "task-1",
 			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
+			// @lore U1: tasks.productId removed; tasks.teamId references `teams`.
+			teamId: "p1",
 			title: "Test task",
 			state: "in_progress",
 			createdAt: NOW,
@@ -194,13 +195,14 @@ describe("Session token accumulation by tier (AC14)", () => {
 		eventBus = new EventBus();
 		app = await createTestApp({ db, eventBus });
 
+		// @lore U1: teams is the domain entity; teamMembers is the membership group.
 		await db
-			.insert(products)
+			.insert(teams)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW });
 
 		await db
-			.insert(teams)
-			.values({ id: "team-1", productId: "prod-1", capacity: 2, activeBets: 0, formedAt: NOW });
+			.insert(teamMembers)
+			.values({ id: "team-1", teamId: "prod-1", capacity: 2, activeBets: 0, formedAt: NOW });
 	});
 
 	afterEach(async () => {
@@ -214,13 +216,13 @@ describe("Session token accumulation by tier (AC14)", () => {
 		// The provisioning drain loop must accumulate tokens by tier from token_usage events
 
 		// Create a bet and task via API
+		// @lore U1: API uses `teamId` (references `teams`); `description` replaces `pitch`.
 		const betRes = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				productId: "prod-1",
-				teamId: "team-1",
-				pitch: "Token test bet",
+				teamId: "prod-1",
+				description: "Token test bet",
 				costAppetite: { minor: 5000, currency: "USD" },
 			}),
 		});
@@ -253,13 +255,14 @@ describe("Bet create API — structured costAppetite (AC15)", () => {
 		eventBus = new EventBus();
 		app = await createTestApp({ db, eventBus });
 
+		// @lore U1: teams is domain entity; teamMembers is membership group.
 		await db
-			.insert(products)
+			.insert(teams)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW });
 
 		await db
-			.insert(teams)
-			.values({ id: "team-1", productId: "prod-1", capacity: 2, activeBets: 0, formedAt: NOW });
+			.insert(teamMembers)
+			.values({ id: "team-1", teamId: "prod-1", capacity: 2, activeBets: 0, formedAt: NOW });
 	});
 
 	afterEach(async () => {
@@ -267,14 +270,14 @@ describe("Bet create API — structured costAppetite (AC15)", () => {
 		await handle?.close();
 	});
 
+	// @lore U1: API uses `teamId` (references `teams` domain entity); `description` replaces `pitch`.
 	it("accepts costAppetite with minor + currency (structured Money)", async () => {
 		const res = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				productId: "prod-1",
-				teamId: "team-1",
-				pitch: "Build feature X",
+				teamId: "prod-1",
+				description: "Build feature X",
 				costAppetite: { minor: 50000, currency: "USD" }, // $500 budget
 			}),
 		});
@@ -292,9 +295,8 @@ describe("Bet create API — structured costAppetite (AC15)", () => {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				productId: "prod-1",
-				teamId: "team-1",
-				pitch: "Build feature X",
+				teamId: "prod-1",
+				description: "Build feature X",
 				appetite: "2 weeks", // old format — must be rejected
 			}),
 		});
@@ -308,9 +310,8 @@ describe("Bet create API — structured costAppetite (AC15)", () => {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				productId: "prod-1",
-				teamId: "team-1",
-				pitch: "Build feature Y",
+				teamId: "prod-1",
+				description: "Build feature Y",
 				costAppetite: null,
 			}),
 		});
@@ -322,9 +323,8 @@ describe("Bet create API — structured costAppetite (AC15)", () => {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				productId: "prod-1",
-				teamId: "team-1",
-				pitch: "Build feature Z",
+				teamId: "prod-1",
+				description: "Build feature Z",
 				costAppetite: { minor: 5000, currency: "INVALID" },
 			}),
 		});
@@ -336,9 +336,8 @@ describe("Bet create API — structured costAppetite (AC15)", () => {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				productId: "prod-1",
-				teamId: "team-1",
-				pitch: "Build feature W",
+				teamId: "prod-1",
+				description: "Build feature W",
 				costAppetite: { minor: -100, currency: "USD" },
 			}),
 		});
@@ -361,23 +360,24 @@ describe("Bet detail API — structured cost fields (AC16)", () => {
 		eventBus = new EventBus();
 		app = await createTestApp({ db, eventBus });
 
+		// @lore U1: teams is domain entity; teamMembers is membership group.
 		await db
-			.insert(products)
+			.insert(teams)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW });
 
 		await db
-			.insert(teams)
-			.values({ id: "team-1", productId: "prod-1", capacity: 2, activeBets: 0, formedAt: NOW });
+			.insert(teamMembers)
+			.values({ id: "team-1", teamId: "prod-1", capacity: 2, activeBets: 0, formedAt: NOW });
 
 		// Seed a bet with structured costAppetite directly in DB
+		// @lore U1: teamId references `teams`; description replaces pitch; status "active" replaces "in_progress".
 		await db.insert(bets).values({
 			id: "bet-detail-1",
-			productId: "prod-1",
-			teamId: "team-1",
-			pitch: "Structured cost test",
+			teamId: "prod-1",
+			description: "Structured cost test",
 			costAppetiteMinor: 50000,
 			costAppetiteCurrency: "USD",
-			status: "in_progress",
+			status: "active",
 			createdAt: NOW,
 		});
 	});

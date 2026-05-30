@@ -10,7 +10,8 @@ function buildUrl(filter: ArtifactFilterAxis, query?: Pick<ArtifactQuery, "limit
 	const params = new URLSearchParams({ axis: filter.axis });
 	if (filter.axis === "task") params.set("taskId", filter.taskId);
 	else if (filter.axis === "bet") params.set("betId", filter.betId);
-	else if (filter.axis === "product") params.set("productId", filter.productId);
+	// @lore U1: `productId` → `teamId` in ArtifactFilterAxis and server query param.
+	else if (filter.axis === "product") params.set("teamId", filter.teamId);
 	if (query?.limit !== undefined) params.set("limit", String(query.limit));
 	return `/api/artifacts?${params.toString()}`;
 }

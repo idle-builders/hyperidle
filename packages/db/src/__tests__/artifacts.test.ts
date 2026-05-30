@@ -4,38 +4,41 @@
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { HyperIdleDb } from "../connection.js";
-import { artifacts, bets, products, tasks, teams } from "../schema.js";
-import { createTestDb, type TestDbHandle } from "../test-utils.js";
+// @lore U1: `products` renamed to `teams`; old `teams` (membership) renamed to `teamMembers`.
+import { artifacts, bets, tasks, teamMembers, teams } from "../schema.js";
+import { createTestDb } from "../test-utils.js";
 
 const NOW = "2026-04-28T00:00:00.000Z";
 
+// @lore U1: seedTask now uses `teams` (formerly `products`) and `teamMembers` (formerly `teams`).
 async function seedTask(
 	db: HyperIdleDb,
-): Promise<{ taskId: string; betId: string; productId: string }> {
-	await db.insert(products).values({ id: "p1", name: "P", phase: "build", createdAt: NOW });
+): Promise<{ taskId: string; betId: string; teamId: string }> {
+	await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: NOW });
 	await db
-		.insert(teams)
-		.values({ id: "tm1", productId: "p1", capacity: 1, activeBets: 0, formedAt: NOW });
+		.insert(teamMembers)
+		.values({ id: "tm1", teamId: "p1", capacity: 1, activeBets: 0, formedAt: NOW });
+
 	await db.insert(bets).values({
 		id: "b1",
-		productId: "p1",
-		teamId: "tm1",
-		pitch: "x",
+		teamId: "p1",
+		description: "x",
 		appetite: "1w",
-		status: "shaped",
+		status: "draft",
 		createdAt: NOW,
 	});
+
 	await db.insert(tasks).values({
 		id: "task1",
 		betId: "b1",
-		productId: "p1",
-		teamId: "tm1",
+		teamId: "p1",
 		title: "T",
 		state: "pending",
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
-	return { taskId: "task1", betId: "b1", productId: "p1" };
+
+	return { taskId: "task1", betId: "b1", teamId: "p1" };
 }
 
 describe("L3 artifacts schema", () => {
@@ -152,6 +155,7 @@ describe("L3 artifacts schema", () => {
 				typeof db.execute
 			>[0],
 		);
+		// biome-ignore lint/style/useNamingConvention: SQL column names from information_schema use snake_case
 		const cols = (result as { rows: Array<{ column_name: string }> }).rows.map(
 			(r) => r.column_name,
 		);
@@ -166,6 +170,7 @@ describe("L3 artifacts schema", () => {
 				typeof db.execute
 			>[0],
 		);
+		// biome-ignore lint/style/useNamingConvention: SQL column names from information_schema use snake_case
 		const rows = (result as { rows: Array<{ column_name: string; is_nullable: string }> }).rows;
 		expect(rows[0]).toBeDefined();
 		expect(rows[0]?.is_nullable).toBe("YES");
@@ -180,6 +185,7 @@ describe("L3 artifacts schema", () => {
 				typeof db.execute
 			>[0],
 		);
+		// biome-ignore lint/style/useNamingConvention: SQL column names from information_schema use snake_case
 		const cols = (result as { rows: Array<{ column_name: string }> }).rows.map(
 			(r) => r.column_name,
 		);
@@ -195,6 +201,7 @@ describe("L3 artifacts schema", () => {
 				typeof db.execute
 			>[0],
 		);
+		// biome-ignore lint/style/useNamingConvention: SQL column names from information_schema use snake_case
 		const rows = (result as { rows: Array<{ column_name: string; is_nullable: string }> }).rows;
 		expect(rows[0]?.is_nullable).toBe("NO");
 	});

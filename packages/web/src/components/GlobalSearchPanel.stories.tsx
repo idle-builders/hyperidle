@@ -29,7 +29,7 @@ const mockWork = [
 		id: "w1",
 		title: "Mobile App V2",
 		product: "HyperIdle",
-		status: "committed" as const,
+		status: "active" as const,
 		appetite: "6 weeks",
 	},
 ];
