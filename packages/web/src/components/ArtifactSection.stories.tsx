@@ -217,7 +217,7 @@ export const GalleryWithOverflow = (): React.JSX.Element => (
 export const StackLoading = (): React.JSX.Element => (
 	<ControlledArtifactSection fetchResponse="loading">
 		<ArtifactSection
-			filter={{ axis: "product", productId: "prod-story" }}
+			filter={{ axis: "product", teamId: "prod-story" }}
 			layout="stack"
 			limit={10}
 			heading="Artifacts"
@@ -229,7 +229,7 @@ export const StackLoading = (): React.JSX.Element => (
 export const StackError = (): React.JSX.Element => (
 	<ControlledArtifactSection fetchResponse="error">
 		<ArtifactSection
-			filter={{ axis: "product", productId: "prod-story" }}
+			filter={{ axis: "product", teamId: "prod-story" }}
 			layout="stack"
 			limit={10}
 			heading="Artifacts"
@@ -241,7 +241,7 @@ export const StackError = (): React.JSX.Element => (
 export const StackEmpty = (): React.JSX.Element => (
 	<ControlledArtifactSection fetchResponse={EMPTY_PAGE}>
 		<ArtifactSection
-			filter={{ axis: "product", productId: "prod-story" }}
+			filter={{ axis: "product", teamId: "prod-story" }}
 			layout="stack"
 			limit={10}
 			heading="Artifacts"
@@ -255,7 +255,7 @@ export const StackPopulated = (): React.JSX.Element => (
 		fetchResponse={{ items: [CODE_DIFF_ARTIFACT, DECK_ARTIFACT], nextCursor: null }}
 	>
 		<ArtifactSection
-			filter={{ axis: "product", productId: "prod-story" }}
+			filter={{ axis: "product", teamId: "prod-story" }}
 			layout="stack"
 			limit={10}
 			heading="Artifacts"

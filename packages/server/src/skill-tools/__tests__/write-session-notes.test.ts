@@ -5,9 +5,9 @@ import {
 	bets,
 	createTestDb,
 	type HyperIdleDb,
-	products,
 	sessions,
 	tasks,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -20,19 +20,20 @@ import { writeSessionNotesTool } from "../write-session-notes.js";
 
 async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(products).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
 	await db
-		.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+
 	await db.insert(bets).values({
 		id: "b1",
-		productId: "p1",
-		teamId: "t1",
-		pitch: "Test",
+		teamId: "p1",
+		description: "Test",
 		appetite: "small",
-		status: "committed",
+		status: "active",
 		createdAt: now,
 	});
+
 	await db.insert(users).values({
 		id: "agent-a",
 		name: "A",
@@ -42,6 +43,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		maxConcurrentSessions: 2,
 		createdAt: now,
 	});
+
 	await db.insert(threads).values({
 		id: "thread-task-1",
 		hostKind: "task",
@@ -51,11 +53,11 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		lastActiveAt: now,
 		createdAt: now,
 	});
+
 	await db.insert(tasks).values({
 		id: "task-1",
 		betId: "b1",
-		productId: "p1",
-		teamId: "t1",
+		teamId: "p1",
 		ownerAgentId: "agent-a",
 		title: "T",
 		state: "in_progress",
@@ -63,6 +65,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		createdAt: now,
 		updatedAt: now,
 	});
+
 	await db.insert(sessions).values({
 		id: "session-1",
 		taskId: "task-1",

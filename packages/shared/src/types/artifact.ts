@@ -75,7 +75,8 @@ export interface ArtifactPage {
 export type ArtifactFilterAxis =
 	| { axis: "task"; taskId: string }
 	| { axis: "bet"; betId: string }
-	| { axis: "product"; productId: string }
+	// @lore U1: `productId` renamed to `teamId` (references `teams.id`, domain entity).
+	| { axis: "product"; teamId: string }
 	| { axis: "portfolio" };
 
 export interface ArtifactQuery {

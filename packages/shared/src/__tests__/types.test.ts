@@ -35,22 +35,15 @@ describe("status-union runtime constants", () => {
 			expect(Array.isArray(BET_STATUSES)).toBe(true);
 		});
 
-		it("has 9 bet statuses matching the BetStatus union", () => {
-			expect(BET_STATUSES).toHaveLength(9);
+		// @lore U1: Simplified from 9 statuses to 4 (draft | active | completed | killed).
+		// Old statuses: shaped->draft, committed|in_progress|behind|blocked|paused|review->active,
+		// shipped->completed.
+		it("has 4 bet statuses matching the BetStatus union (U1 simplified)", () => {
+			expect(BET_STATUSES).toHaveLength(4);
 		});
 
 		it("includes every BetStatus value", () => {
-			const expected: readonly BetStatus[] = [
-				"shaped",
-				"committed",
-				"in_progress",
-				"behind",
-				"blocked",
-				"paused",
-				"review",
-				"shipped",
-				"killed",
-			];
+			const expected: readonly BetStatus[] = ["draft", "active", "completed", "killed"];
 			for (const status of expected) {
 				expect(BET_STATUSES).toContain(status);
 			}

@@ -1,5 +1,5 @@
 /**
- * Drizzle-Zod generated base schemas for all 19 HyperIdle tables.
+ * Drizzle-Zod generated base schemas for all HyperIdle tables.
  *
  * These are generated from the Drizzle table definitions via `drizzle-zod`.
  * They provide base-level validation for select and insert operations.
@@ -8,6 +8,10 @@
  * rather than handwriting Zod schemas. The generated schemas stay in sync with
  * the Drizzle table definitions automatically — no drift between DB types and
  * validation.
+ *
+ * @lore U1: selectTeamSchema now maps to the `teams` table (formerly `products`).
+ * selectTeamMemberSchema replaces the old selectTeamSchema (formerly `teams` agent membership).
+ * insertTeamSchema replaces insertProductSchema. insertTeamMemberSchema replaces insertTeamSchema.
  */
 
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
@@ -22,11 +26,11 @@ import {
 	knowledgeItems,
 	messages,
 	notificationQueue,
-	products,
 	propagationLog,
 	routines,
 	sessions,
 	tasks,
+	teamMembers,
 	teams,
 	threads,
 	userSkills,
@@ -35,9 +39,9 @@ import {
 
 // ─── Select schemas ───────────────────────────────────────────────────────────
 
-export const selectProductSchema = createSelectSchema(products);
-export const selectUserSchema = createSelectSchema(users);
 export const selectTeamSchema = createSelectSchema(teams);
+export const selectUserSchema = createSelectSchema(users);
+export const selectTeamMemberSchema = createSelectSchema(teamMembers);
 export const selectBetSchema = createSelectSchema(bets);
 export const selectTaskSchema = createSelectSchema(tasks);
 export const selectSessionSchema = createSelectSchema(sessions);
@@ -57,9 +61,9 @@ export const selectArtifactSchema = createSelectSchema(artifacts);
 
 // ─── Insert schemas ───────────────────────────────────────────────────────────
 
-export const insertProductSchema = createInsertSchema(products);
-export const insertUserSchema = createInsertSchema(users);
 export const insertTeamSchema = createInsertSchema(teams);
+export const insertUserSchema = createInsertSchema(users);
+export const insertTeamMemberSchema = createInsertSchema(teamMembers);
 
 export const insertBetSchema = createInsertSchema(bets);
 export const insertTaskSchema = createInsertSchema(tasks);

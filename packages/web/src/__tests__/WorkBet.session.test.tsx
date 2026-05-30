@@ -40,7 +40,7 @@ function makeBet(taskOverrides: Partial<BetDetail["tasks"][number]>[] = []): Bet
 		title: "Session Test Bet",
 		product: "Alpha",
 		team: "Core",
-		status: "in_progress",
+		status: "active",
 		appetite: "1 week",
 		progress: { done: 0, total: 1 },
 		pitch: "# Problem\n\nTest.",

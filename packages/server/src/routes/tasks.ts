@@ -66,7 +66,6 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		await db.insert(tasks).values({
 			id: taskId,
 			betId: body.betId,
-			productId: bet.productId,
 			teamId: bet.teamId,
 			title: body.title,
 			description: body.description ?? null,

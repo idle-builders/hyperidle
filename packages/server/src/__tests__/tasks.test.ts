@@ -2,9 +2,8 @@ import {
 	bets,
 	createTestDb,
 	type HyperIdleDb,
-	products,
-	type TestDbHandle,
 	tasks,
+	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -35,20 +34,19 @@ describe("Task Endpoints (E3)", () => {
 		// Seed product, team, and a bet
 		const now = new Date().toISOString();
 		await db
-			.insert(products)
+			.insert(teams)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
 
 		await db
-			.insert(teams)
-			.values({ id: "team-1", productId: "prod-1", capacity: 5, activeBets: 0, formedAt: now });
+			.insert(teamMembers)
+			.values({ id: "team-1", teamId: "prod-1", capacity: 5, activeBets: 0, formedAt: now });
 
 		await db.insert(bets).values({
 			id: "bet-1",
-			productId: "prod-1",
-			teamId: "team-1",
-			pitch: "Test bet",
+			teamId: "prod-1",
+			description: "Test bet",
 			appetite: "small",
-			status: "in_progress",
+			status: "active",
 			createdAt: now,
 		});
 
@@ -80,8 +78,7 @@ describe("Task Endpoints (E3)", () => {
 		await db.insert(tasks).values({
 			id,
 			betId: "bet-1",
-			productId: "prod-1",
-			teamId: "team-1",
+			teamId: "prod-1",
 			title: `Task ${id}`,
 			state: "proposed",
 			createdAt: now,
@@ -107,15 +104,14 @@ describe("Task Endpoints (E3)", () => {
 			// Create another bet and task
 			await db.insert(bets).values({
 				id: "bet-2",
-				productId: "prod-1",
-				teamId: "team-1",
-				pitch: "Other bet",
+				teamId: "prod-1",
+				description: "Other bet",
 				appetite: "medium",
-				status: "shaped",
+				status: "draft",
 				createdAt: new Date().toISOString(),
 			});
 
-			await seedTask("t2", { betId: "bet-2" });
+			seedTask("t2", { betId: "bet-2" });
 
 			const res = await app.request("/api/tasks?bet_id=bet-1", { headers: authHeaders() });
 			expect(res.status).toBe(200);

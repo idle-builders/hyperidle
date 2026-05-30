@@ -29,6 +29,9 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 			// are migration artifacts.
 			expect(tableNames).toEqual(
 				expect.arrayContaining([
+					// @lore P2: agents → users, agent_skills → user_skills
+					// @lore U1: `products` → `teams`; old `teams` → `team_members`
+					// @lore: `file_leases` was dropped in older migrations
 					"users",
 					"user_skills",
 					"bets",
@@ -40,17 +43,19 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 					"knowledge_items",
 					"login_sessions",
 					"messages",
-					"products",
 					"routines",
 					"server_config",
 					"server_credentials",
 					"sessions",
 					"tasks",
+					"team_members",
 					"teams",
 					"threads",
 				]),
 			);
 			expect(tableNames).not.toContain("responses");
+			// @lore U1: `products` renamed to `teams`
+			expect(tableNames).not.toContain("products");
 			expect(tableNames.length).toBeGreaterThanOrEqual(19);
 		} finally {
 			await close();

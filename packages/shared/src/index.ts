@@ -84,7 +84,7 @@ export type {
 } from "./events.js";
 export type { ArtifactCostInput } from "./format/artifact-cost.js";
 export { formatArtifactCost } from "./format/artifact-cost.js";
-export { deriveTitleFromPitch } from "./format/bet.js";
+export { deriveTitle, deriveTitleFromPitch } from "./format/bet.js";
 export { formatMoney, formatTokenCount } from "./format/money.js";
 export type {
 	CompletionEvent,
@@ -110,19 +110,6 @@ export { createLogger, type Logger } from "./logger.js";
 // Server code imports them via "@hyperidle/shared/net" subpath export instead.
 export type { ResolveResult, SanitizeResult, SanitizeUrlOptions } from "./net/ssrf.js";
 export type { ObservabilityEvent } from "./observability/events.js";
-// ── Product primitive (L13) ──
-export type {
-	BetCardSummary,
-	CreateProductRequest,
-	CreateProductResponse,
-	ProductBurn,
-	ProductDetail,
-	ProductListItem,
-	ProductListResponse,
-	ProductStatus,
-	ProductSummary,
-	RosterMember,
-} from "./product.js";
 export {
 	AWS_AKIA_RE,
 	BEARER_TOKEN_RE,
@@ -141,6 +128,19 @@ export {
 	scrubInlineTokens,
 	TK_TOKEN_RE,
 } from "./redact.js";
+// ── Team primitive (L13, formerly Product) ──
+export type {
+	BetCardSummary,
+	CreateTeamRequest,
+	CreateTeamResponse,
+	RosterMember,
+	TeamBurn,
+	TeamDetail,
+	TeamListItem,
+	TeamListResponse,
+	TeamStatus,
+	TeamSummary,
+} from "./team.js";
 export type {
 	AgentSessionStateSnapshot,
 	ArtifactRef,

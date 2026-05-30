@@ -89,7 +89,8 @@ export function SettingsNotifications(): JSX.Element {
 		);
 	}
 
-	const products = settings.products;
+	// @lore U1: `teams` replaces `products`.
+	const teams = settings.teams;
 
 	return (
 		<div className="flex flex-col gap-3">
@@ -158,24 +159,25 @@ export function SettingsNotifications(): JSX.Element {
 				</div>
 			</div>
 
-			{/* Product mutes */}
-			{products.length > 0 && (
+			{/* Team mutes — @lore U1: formerly "Product mutes" */}
+			{teams.length > 0 && (
 				<>
-					<div className="divider text-xs text-[var(--text-lo)]">Mute by Product</div>
-					{products.map((p) => (
-						<div key={p.id} className="flex items-center justify-between py-1">
-							<span className="text-sm">{p.name}</span>
+					<div className="divider text-xs text-[var(--text-lo)]">Mute by Team</div>
+					{teams.map((t) => (
+						<div key={t.id} className="flex items-center justify-between py-1">
+							<span className="text-sm">{t.name}</span>
 							<input
 								type="checkbox"
 								className="toggle toggle-sm"
-								checked={draft.mutedProducts.includes(p.id)}
+								checked={draft.mutedTeams.includes(t.id)}
 								onChange={(e) => {
 									const next = e.target.checked
-										? [...draft.mutedProducts, p.id]
-										: draft.mutedProducts.filter((id) => id !== p.id);
-									updateField("mutedProducts", next);
+										? [...draft.mutedTeams, t.id]
+										: draft.mutedTeams.filter((id) => id !== t.id);
+									// @lore U1: `mutedTeams` replaces `mutedProducts`.
+									updateField("mutedTeams", next);
 								}}
-								aria-label={`Mute ${p.name}`}
+								aria-label={`Mute ${t.name}`}
 							/>
 						</div>
 					))}

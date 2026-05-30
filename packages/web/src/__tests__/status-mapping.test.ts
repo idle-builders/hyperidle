@@ -5,7 +5,7 @@ import {
 	taskStateToStatus,
 } from "@hyperidle/design-system";
 import { KNOWLEDGE_STATUSES, type KnowledgeStatus } from "@hyperidle/fabric/types";
-import { BET_STATUSES, type BetStatus, TASK_STATES, type TaskState } from "@hyperidle/shared";
+import { BET_STATUSES, TASK_STATES, type TaskState } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
 
 /** All legal presentation Status values, used to assert exhaustive coverage. */
@@ -140,68 +140,36 @@ describe("knowledgeStatusToStatus", () => {
 	});
 });
 
+/**
+ * @lore U1: BetStatus simplified from 9 to 4 values.
+ * shaped → draft, committed|in_progress|behind|blocked|paused|review → active,
+ * shipped → completed.
+ */
 describe("betStatusToStatus", () => {
-	it("maps shaped to paused", () => {
-		expect(betStatusToStatus("shaped")).toBe("paused" satisfies Status);
+	it("maps draft to paused", () => {
+		// @lore U1: draft (formerly shaped) → paused (not-yet-started)
+		expect(betStatusToStatus("draft")).toBe("paused" satisfies Status);
 	});
 
-	it("maps committed to healthy", () => {
-		expect(betStatusToStatus("committed")).toBe("healthy" satisfies Status);
+	it("maps active to healthy", () => {
+		// @lore U1: active (covers committed/in_progress) → healthy
+		expect(betStatusToStatus("active")).toBe("healthy" satisfies Status);
 	});
 
-	it("maps in_progress to healthy", () => {
-		expect(betStatusToStatus("in_progress")).toBe("healthy" satisfies Status);
-	});
-
-	it("maps shipped to done", () => {
-		expect(betStatusToStatus("shipped")).toBe("done" satisfies Status);
+	it("maps completed to done", () => {
+		// @lore U1: completed (formerly shipped) → done
+		expect(betStatusToStatus("completed")).toBe("done" satisfies Status);
 	});
 
 	it("maps killed to error", () => {
 		expect(betStatusToStatus("killed")).toBe("error" satisfies Status);
 	});
 
-	it("covers all BetStatus values (9 total including behind/blocked/paused/review)", () => {
-		const allStatuses: BetStatus[] = [
-			"shaped",
-			"committed",
-			"in_progress",
-			"behind",
-			"blocked",
-			"paused",
-			"review",
-			"shipped",
-			"killed",
-		];
-		for (const bs of allStatuses) {
-			const result = betStatusToStatus(bs);
-			expect(typeof result).toBe("string");
-		}
-	});
-
-	it("maps behind to behind", () => {
-		// I4 S1: `behind` bets must not fall through to undefined badge class.
-		expect(betStatusToStatus("behind")).toBe("behind" satisfies Status);
-	});
-
-	it("maps blocked to blocked", () => {
-		expect(betStatusToStatus("blocked")).toBe("blocked" satisfies Status);
-	});
-
-	it("maps paused to paused", () => {
-		expect(betStatusToStatus("paused")).toBe("paused" satisfies Status);
-	});
-
-	it("maps review to a defined non-healthy Status", () => {
-		const result = betStatusToStatus("review");
-		expect(VALID_STATUSES).toContain(result);
-		expect(result).not.toBe("healthy");
-	});
-
 	it("exhaustively maps every BET_STATUSES value to a valid Status", () => {
 		// I4 S1/S6: runtime iteration over the shared BET_STATUSES array
 		// — every future addition must be mapped or this test fails.
-		expect(BET_STATUSES).toHaveLength(9);
+		// @lore U1: 4 statuses (was 9 before simplification).
+		expect(BET_STATUSES).toHaveLength(4);
 		for (const bs of BET_STATUSES) {
 			const result = betStatusToStatus(bs);
 			expect(VALID_STATUSES).toContain(result);

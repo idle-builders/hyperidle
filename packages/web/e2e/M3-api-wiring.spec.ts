@@ -15,15 +15,15 @@ import { expect, test } from "./fixtures";
 // Minimal settings response — what GET /api/settings returns after M3 (no appearance field).
 const SETTINGS_API_RESPONSE = {
 	profile: { name: "Test Founder M3", email: "m3test@hyperidle.dev", avatarUrl: null },
-	products: [{ id: "prod-m3", name: "M3 Test Product", active: true }],
-	agents: [{ id: "agent-m3", name: "M3 Builder", autonomyLevel: "supervised", paused: false }],
+	teams: [{ id: "team-m3", name: "M3 Test Team", active: true }],
+	users: [{ id: "agent-m3", name: "M3 Builder", autonomyLevel: "supervised", paused: false }],
 	notifications: {
 		reviewAlerts: true,
 		costAlerts: false,
 		blockerAlerts: true,
 		quietHoursStart: "23:00",
 		quietHoursEnd: "07:00",
-		mutedProducts: [],
+		mutedTeams: [],
 	},
 };
 
@@ -193,12 +193,12 @@ test.describe("M3 — Portfolio: empty state when no products", () => {
 	test("portfolio renders empty state when API returns no products", async ({ page }) => {
 		await setupApiMocks(page);
 
-		// Override with empty products
-		await page.route("**/api/products", async (route) => {
+		// Override with empty teams
+		await page.route("**/api/teams", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({ products: [] }),
+				body: JSON.stringify({ teams: [] }),
 			});
 		});
 

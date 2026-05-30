@@ -1,16 +1,19 @@
 /**
  * I3 review C3 / arch C-1: Migration idempotency on a populated DB.
  *
- * This test exercises the seeded-then-migrate path: it applies migrations
- * to a fresh PGlite DB, seeds a representative cross-FK fixture (products →
- * teams → bets → tasks → sessions, with users), then re-applies migrations.
- * All rows must survive the re-migration.
+ * This test exercises the seeded-then-migrate path the original test
+ * suite missed: it applies all migrations to a fresh DB, seeds
+ * a representative cross-FK fixture (teams → bets → tasks → sessions,
+ * with users), then applies migrations again idempotently. All rows
+ * must survive the rebuild.
  *
- * @lore Phase 2: rewritten from SQLite (better-sqlite3) to PGlite since
- * the schema is now PG-only (pgTable). The original test verified that
- * migration 0005 was safe on a populated SQLite DB; the PG equivalent
- * verifies that re-running Drizzle's pglite migrator is idempotent on
- * a populated DB.
+ * @lore U1: Updated to use new schema:
+ * - `teams` (formerly `products`) for the domain entity
+ * - `teamMembers` (formerly `teams`) for agent-membership group
+ * - `bets.description` (formerly `bets.pitch`)
+ * - `bets.teamId` references `teams.id` (no more `bets.productId`)
+ * - `tasks.teamId` references `teams.id` (no more `tasks.productId`)
+ * - `sessions.cost` was dropped in O2 migration
  */
 import { afterEach, describe, expect, it } from "vitest";
 import * as schema from "../schema.js";
@@ -30,13 +33,12 @@ describe("I3 review C3: migration idempotency on a populated PGlite DB", () => {
 		const { db, runMigrations } = handle;
 
 		// Seed a cross-FK fixture using the post-migration schema.
+		// @lore U1: `teams` is the domain entity (formerly `products`).
 		const NOW = "2026-04-18T00:00:00Z";
+		await db.insert(schema.teams).values({ id: "p1", name: "P1", phase: "build", createdAt: NOW });
 		await db
-			.insert(schema.products)
-			.values({ id: "p1", name: "P1", phase: "build", createdAt: NOW });
-		await db
-			.insert(schema.teams)
-			.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+			.insert(schema.teamMembers)
+			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 		// @lore P2: agents → users table. kind: "ai" required.
 		await db.insert(schema.users).values({
 			id: "a1",
@@ -45,23 +47,20 @@ describe("I3 review C3: migration idempotency on a populated PGlite DB", () => {
 			role: "builder",
 			status: "active",
 			maxConcurrentSessions: 1,
-			teamId: "t1",
 			createdAt: NOW,
 		});
 		await db.insert(schema.bets).values({
 			id: "b1",
-			productId: "p1",
-			teamId: "t1",
-			pitch: "x",
+			teamId: "p1",
+			description: "x",
 			appetite: "small",
-			status: "shaped",
+			status: "draft",
 			createdAt: NOW,
 		});
 		await db.insert(schema.tasks).values({
 			id: "task-1",
 			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
+			teamId: "p1",
 			title: "T1",
 			state: "proposed",
 			createdAt: NOW,
@@ -80,12 +79,19 @@ describe("I3 review C3: migration idempotency on a populated PGlite DB", () => {
 		await runMigrations();
 
 		// All rows must survive.
-		expect(await db.select().from(schema.products)).toHaveLength(1);
-		expect(await db.select().from(schema.teams)).toHaveLength(1);
-		expect(await db.select().from(schema.users)).toHaveLength(1);
-		expect(await db.select().from(schema.bets)).toHaveLength(1);
-		expect(await db.select().from(schema.tasks)).toHaveLength(1);
-		expect(await db.select().from(schema.sessions)).toHaveLength(1);
+		// @lore U1: `schema.teams` is the domain entity (formerly `products`).
+		const teamRows = await db.select().from(schema.teams);
+		expect(teamRows).toHaveLength(1);
+		const memberRows = await db.select().from(schema.teamMembers);
+		expect(memberRows).toHaveLength(1);
+		const userRows = await db.select().from(schema.users);
+		expect(userRows).toHaveLength(1);
+		const betRows = await db.select().from(schema.bets);
+		expect(betRows).toHaveLength(1);
+		const taskRows = await db.select().from(schema.tasks);
+		expect(taskRows).toHaveLength(1);
+		const sessionRows = await db.select().from(schema.sessions);
+		expect(sessionRows).toHaveLength(1);
 	});
 
 	it("tasks_state_idx no longer exists (dropped in migration 0006)", {
@@ -102,8 +108,9 @@ describe("I3 review C3: migration idempotency on a populated PGlite DB", () => {
 		const indexes = (result as { rows: Array<{ indexname: string }> }).rows.map((r) => r.indexname);
 		expect(indexes).not.toContain("tasks_state_idx");
 		// But other tasks_*_idx must remain.
+		// @lore U1: `tasks_product_id_idx` was dropped in U1 migration (column renamed to team_id).
+		// The new index is `tasks_team_id_idx`.
 		expect(indexes).toContain("tasks_bet_id_idx");
 		expect(indexes).toContain("tasks_team_id_idx");
-		expect(indexes).toContain("tasks_product_id_idx");
 	});
 });

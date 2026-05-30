@@ -20,9 +20,8 @@
 import {
 	createTestDb,
 	type HyperIdleDb,
-	products,
-	type TestDbHandle,
 	// P2: import new symbol — compile error until implementation done
+	teams,
 	users,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
@@ -221,7 +220,7 @@ describe("P2 — Auth middleware resolves user from users table (AC7)", () => {
 
 			// Also seed a product so settings works
 			await db
-				.insert(products)
+				.insert(teams)
 				.values({ id: "prod-auth", name: "Auth Product", phase: "build", createdAt: NOW });
 
 			const res = await app.request("/api/settings", { headers: authHeaders() });

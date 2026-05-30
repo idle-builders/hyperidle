@@ -3,10 +3,10 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	items,
-	products,
 	sessions,
 	type TestDbHandle,
 	tasks,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -24,13 +24,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 const NOW = new Date().toISOString();
 
 async function seedBase(db: HyperIdleDb): Promise<void> {
-	await db
-		.insert(products)
-		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
+	await db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
 
-	await db.insert(teams).values({
+	await db.insert(teamMembers).values({
 		id: "t1",
-		productId: "p1",
+		teamId: "p1",
 		capacity: 5,
 		activeBets: 0,
 		costCap: 5000, // $50 in cents
@@ -40,19 +38,17 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 
 	await db.insert(bets).values({
 		id: "b1",
-		productId: "p1",
-		teamId: "t1",
-		pitch: "Test bet",
+		teamId: "p1",
+		description: "Test bet",
 		appetite: "small",
-		status: "committed",
+		status: "active",
 		createdAt: NOW,
 	});
 
 	await db.insert(tasks).values({
 		id: "task-1",
 		betId: "b1",
-		productId: "p1",
-		teamId: "t1",
+		teamId: "p1",
 		title: "Test task",
 		state: "in_progress",
 		createdAt: NOW,
@@ -111,13 +107,14 @@ async function insertSession(
 		const [agent] = await db
 			.select({ teamId: users.teamId })
 			.from(users)
-			.where(eq(users.id, agentId))
-			.limit(1);
+			.where(eq(users.id, agentId));
+		// @lore U1: users.teamId references teamMembers.id (membership group), not teams.id.
+		// costActual is on teamMembers, not teams.
 		if (agent?.teamId) {
 			await db
-				.update(teams)
+				.update(teamMembers)
 				.set({ costActual: sql`coalesce(cost_actual, 0) + ${cost}` })
-				.where(eq(teams.id, agent.teamId));
+				.where(eq(teamMembers.id, agent.teamId));
 		}
 	}
 }

@@ -19,15 +19,19 @@ const sampleCost: CostInfo = {
 /**
  * J2: the collapsed Rail presents up to three semantic pills —
  *   BLK (blockers, error tone)
- *   REV (review bets, primary tone)
- *   PSD (paused bets, neutral tone)
+ *   REV (draft bets — awaiting commitment, primary tone)
+ *   PSD (completed bets — finished, neutral tone)
  * Each pill only renders when its count > 0. The expand chevron is always present.
+ *
+ * @lore U1: REV pill now maps to "draft" bets (formerly "review" status),
+ * PSD pill now maps to "completed" bets (formerly "paused" status).
+ * Old "review" and "paused" statuses were removed in the U1 bet status migration.
  */
 describe("Rail — collapsed pills (J2)", () => {
 	it("renders BLK and REV pills when counts are positive, omits PSD when count is 0", () => {
 		const bets: BetItem[] = [
-			{ id: "r1", title: "Review bet", progress: { done: 1, total: 2 }, status: "review" },
-			{ id: "c1", title: "Committed", progress: { done: 0, total: 1 }, status: "committed" },
+			{ id: "r1", title: "Draft bet", progress: { done: 1, total: 2 }, status: "draft" },
+			{ id: "c1", title: "Active", progress: { done: 0, total: 1 }, status: "active" },
 		];
 		const blockers: BlockerItem[] = [
 			{ taskId: "b1", owner: "A", title: "r", durationBlockedMs: 90_000_000 },
@@ -46,7 +50,7 @@ describe("Rail — collapsed pills (J2)", () => {
 		expect(screen.getByLabelText(/2 blockers/i)).toBeInTheDocument();
 		// REV pill: aria-label "1 review" (singular for N=1, review W1).
 		expect(screen.getByLabelText(/^1 review$/i)).toBeInTheDocument();
-		// PSD pill: must not be in the DOM when there are zero paused bets.
+		// PSD pill: must not be in the DOM when there are zero completed bets.
 		expect(screen.queryByLabelText(/paused/i)).not.toBeInTheDocument();
 	});
 
@@ -61,11 +65,11 @@ describe("Rail — collapsed pills (J2)", () => {
 		expect(screen.getByRole("button", { name: /expand/i })).toBeInTheDocument();
 	});
 
-	it("renders only the PSD pill when only paused bets exist", () => {
+	it("renders only the PSD pill when only completed bets exist", () => {
 		const bets: BetItem[] = [
-			{ id: "p1", title: "Paused", progress: { done: 0, total: 1 }, status: "paused" },
-			{ id: "p2", title: "Paused 2", progress: { done: 0, total: 1 }, status: "paused" },
-			{ id: "p3", title: "Paused 3", progress: { done: 0, total: 1 }, status: "paused" },
+			{ id: "p1", title: "Completed 1", progress: { done: 3, total: 3 }, status: "completed" },
+			{ id: "p2", title: "Completed 2", progress: { done: 2, total: 2 }, status: "completed" },
+			{ id: "p3", title: "Completed 3", progress: { done: 1, total: 1 }, status: "completed" },
 		];
 		renderInRouter(
 			<Rail
@@ -83,8 +87,8 @@ describe("Rail — collapsed pills (J2)", () => {
 
 	it("pills use the correct semantic color classes (BLK=error, REV=primary, PSD=neutral)", () => {
 		const bets: BetItem[] = [
-			{ id: "r1", title: "Review", progress: { done: 1, total: 2 }, status: "review" },
-			{ id: "p1", title: "Paused", progress: { done: 0, total: 1 }, status: "paused" },
+			{ id: "r1", title: "Draft", progress: { done: 1, total: 2 }, status: "draft" },
+			{ id: "p1", title: "Completed", progress: { done: 1, total: 1 }, status: "completed" },
 		];
 		const blockers: BlockerItem[] = [
 			{ taskId: "b1", owner: "A", title: "r", durationBlockedMs: 90_000_000 },
@@ -113,8 +117,8 @@ describe("Rail — collapsed pills (J2)", () => {
 
 	it("uses singular noun forms when count === 1 (review W1)", () => {
 		const bets: BetItem[] = [
-			{ id: "r1", title: "Review", progress: { done: 1, total: 2 }, status: "review" },
-			{ id: "p1", title: "Paused", progress: { done: 0, total: 1 }, status: "paused" },
+			{ id: "r1", title: "Draft", progress: { done: 1, total: 2 }, status: "draft" },
+			{ id: "p1", title: "Completed", progress: { done: 1, total: 1 }, status: "completed" },
 		];
 		const blockers: BlockerItem[] = [
 			{ taskId: "b1", owner: "A", title: "r", durationBlockedMs: 90_000_000 },
@@ -140,9 +144,9 @@ describe("Rail — collapsed pills (J2)", () => {
 	it("caps pill counts > 99 at '99+' (review O5)", () => {
 		const bets: BetItem[] = Array.from({ length: 150 }, (_, i) => ({
 			id: `p${i}`,
-			title: `Paused ${i}`,
-			progress: { done: 0, total: 1 },
-			status: "paused" as const,
+			title: `Completed ${i}`,
+			progress: { done: 1, total: 1 },
+			status: "completed" as const,
 		}));
 		renderInRouter(
 			<Rail

@@ -36,14 +36,11 @@ describe("I3: secondary index coverage", () => {
 		expect(indexes.some((i) => i.includes("bet_id"))).toBe(true);
 	});
 
-	it("tasks has an index for team_id", async () => {
+	// @lore U1: tasks.product_id dropped; tasks.team_id now references `teams` (formerly `products`).
+	// The tasks_team_id_idx covers queries by both team_id and the former product_id lookup path.
+	it("tasks has an index for team_id (covers both team_id and former product_id)", async () => {
 		const indexes = await indexesFor("tasks");
 		expect(indexes.some((i) => i.includes("team_id"))).toBe(true);
-	});
-
-	it("tasks has an index for product_id", async () => {
-		const indexes = await indexesFor("tasks");
-		expect(indexes.some((i) => i.includes("product_id"))).toBe(true);
 	});
 
 	it("sessions has an index for task_id", async () => {
@@ -71,9 +68,11 @@ describe("I3: secondary index coverage", () => {
 		expect(indexes.some((i) => i.includes("thread_id"))).toBe(true);
 	});
 
-	it("bets has an index for product_id", async () => {
+	// @lore U1: bets.product_id dropped; bets.team_id now references `teams` (formerly `products`).
+	// The bets_team_id_idx covers this query path.
+	it("bets has an index for team_id (formerly product_id)", async () => {
 		const indexes = await indexesFor("bets");
-		expect(indexes.some((i) => i.includes("product_id"))).toBe(true);
+		expect(indexes.some((i) => i.includes("team_id"))).toBe(true);
 	});
 
 	it("bets has an index for status", async () => {

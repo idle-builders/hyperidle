@@ -201,14 +201,15 @@ export function createArtifactRoutes(db: HyperIdleDb): Hono {
 			}
 			taskIds = rows.map((r) => r.id);
 		} else if (axis === "product") {
-			const productId = c.req.query("productId");
-			if (!productId) {
-				return c.json({ error: "productId required", code: "INVALID_QUERY" }, 400);
+			// @lore U1: `productId` query param renamed to `teamId`; `tasks.productId` column dropped.
+			const teamId = c.req.query("teamId") ?? c.req.query("productId");
+			if (!teamId) {
+				return c.json({ error: "teamId required", code: "INVALID_QUERY" }, 400);
 			}
 			const rows = await db
 				.select({ id: tasks.id })
 				.from(tasks)
-				.where(eq(tasks.productId, productId))
+				.where(eq(tasks.teamId, teamId))
 				.limit(MAX_TASK_ID_FANOUT + 1);
 			if (rows.length > MAX_TASK_ID_FANOUT) {
 				return c.json({ error: "Task fan-out too large", code: "FANOUT_TOO_LARGE" }, 400);

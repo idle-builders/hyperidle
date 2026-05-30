@@ -137,25 +137,26 @@ function isInvalidTransitionError(err: unknown): boolean {
 	return err instanceof Error && err.name === "InvalidTransitionError";
 }
 
-/** Valid bet states that can transition to 'review' via propagation. */
-const PROPAGATABLE_BET_STATES: ReadonlySet<BetStatus> = new Set([
-	"in_progress",
-	"behind",
-	"blocked",
-	"paused",
-]);
+/**
+ * Valid bet states that can transition to 'review' via propagation.
+ * @lore U1: simplified from {in_progress,behind,blocked,paused} to {active}.
+ */
+const PROPAGATABLE_BET_STATES: ReadonlySet<BetStatus> = new Set(["active"]);
 
 /**
- * Synchronously transition a bet to 'review' for propagation purposes.
+ * Synchronously transition a bet to 'completed' for propagation purposes.
  *
- * @lore L20: Duplicates the minimal bet-to-review transition logic from
- * transitionBet() for use in EventBus handlers where we fire-and-forget.
- * See architecture trade-off §12.1.
+ * @lore L20: We cannot call transitionBet() (which is async) from a
+ * synchronous EventBus handler without losing synchronous execution semantics.
+ * transitionBet() has no real async work (uses synchronous better-sqlite3),
+ * but its async signature means .then() executes in the microtask queue —
+ * after tests assert results. This synchronous version duplicates the minimal
+ * bet-to-completed transition logic. See architecture trade-off §12.1.
  *
- * We handle the compare-and-set (CAS) pattern the same way transitionBet does:
- * WHERE status = fromState — if 0 rows updated, throw InvalidTransitionError.
+ * @lore U1: Status simplified. `active` → `completed` (formerly active → review).
+ * `bet.productId` → `bet.teamId`.
  */
-async function transitionBetToReview(
+async function transitionBetToCompletedAsync(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	betId: string,
@@ -166,7 +167,7 @@ async function transitionBetToReview(
 	const fromState = bet.status as BetStatus;
 
 	if (!PROPAGATABLE_BET_STATES.has(fromState)) {
-		throw new SharedInvalidTransitionError(fromState, "review");
+		throw new SharedInvalidTransitionError(fromState, "completed");
 	}
 
 	// Build revision log entry
@@ -178,7 +179,7 @@ async function transitionBetToReview(
 		timestamp: new Date().toISOString(),
 		field: "status",
 		old_value: fromState,
-		new_value: "review",
+		new_value: "completed",
 		reason: "All tasks completed — system propagation",
 		actor: SYSTEM_PROPAGATION_AGENT_ID,
 	};
@@ -187,21 +188,22 @@ async function transitionBetToReview(
 	// CAS update — only if still in fromState
 	const updateRows = await db
 		.update(bets)
-		.set({ status: "review", revisionLog: updatedLog } as Record<string, string>)
+		.set({ status: "completed", revisionLog: updatedLog } as Record<string, string>)
 		.where(and(eq(bets.id, betId), eq(bets.status, fromState)))
 		.returning({ id: bets.id });
 
 	if (updateRows.length === 0) {
-		throw new SharedInvalidTransitionError(fromState, "review");
+		throw new SharedInvalidTransitionError(fromState, "completed");
 	}
 
 	// Emit bet_state_changed (same as transitionBet does)
+	// @lore U1: streamId is now bet.teamId (formerly bet.productId).
 	eventBus.emit({
 		type: "bet_state_changed",
-		streamId: bet.productId,
+		streamId: bet.teamId,
 		betId,
 		fromState,
-		toState: "review",
+		toState: "completed",
 		timestamp: Date.now(),
 	});
 }
@@ -400,7 +402,8 @@ async function propagateTaskToBet(
 	const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 	if (!bet) return;
 
-	const TERMINAL_BET_STATES = new Set(["shipped", "killed", "review"]);
+	// @lore U1: statuses simplified: "shipped" → "completed", "review" dropped.
+	const TERMINAL_BET_STATES = new Set(["completed", "killed"]);
 	if (TERMINAL_BET_STATES.has(bet.status)) {
 		// Bet is already terminal or in review — nothing to do
 		await logPropagation(db, {
@@ -442,7 +445,8 @@ async function propagateTaskToBet(
 	const fromStatus = bet.status;
 
 	try {
-		await transitionBetToReview(db, eventBus, betId);
+		// @lore U1: `active` → `completed` (formerly active → review).
+		await transitionBetToCompletedAsync(db, eventBus, betId);
 
 		await logPropagation(db, {
 			sourceLevel: "task",
@@ -541,37 +545,42 @@ async function createShipConfirmationThread(
 	});
 }
 
-// ─── Bet -> Product propagation ───────────────────────────────────────────────
+// ─── Bet -> Team propagation ──────────────────────────────────────────────────
 
-async function logBetToProductPropagation(
+/**
+ * @lore U1: Renamed from logBetToProductPropagation. `"product"` level → `"team"`.
+ * `bet.productId` → `bet.teamId`. Team status is derived on read — no write needed.
+ */
+async function logBetToTeamPropagation(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	betId: string,
 	newStatus: string,
 ): Promise<void> {
-	// Look up the bet to find its productId
+	// Look up the bet to find its teamId
 	const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
-	const productId = bet?.productId ?? betId; // fallback to betId if bet not found (shouldn't happen)
+	// @lore U1: `teamId` replaces `productId`.
+	const teamId = bet?.teamId ?? betId; // fallback to betId if bet not found (shouldn't happen)
 
-	// Product status is derived on read — no write-time propagation needed.
+	// Team status is derived on read — no write-time propagation needed.
 	// We log the event for audit and emit propagation_applied.
 	await logPropagation(db, {
 		sourceLevel: "bet",
 		sourceId: betId,
 		sourceEvent: "bet_state_changed",
-		targetLevel: "product",
-		targetId: productId,
-		targetTransition: null, // product status is derived, no explicit transition
+		targetLevel: "team",
+		targetId: teamId,
+		targetTransition: null, // team status is derived, no explicit transition
 		status: "applied",
 	});
 
 	const appliedEvent: PropagationAppliedEvent = {
 		type: "propagation_applied",
-		streamId: productId,
+		streamId: teamId,
 		sourceLevel: "bet" as PropagationLevel,
 		sourceId: betId,
-		targetLevel: "product" as PropagationLevel,
-		targetId: productId,
+		targetLevel: "team" as PropagationLevel,
+		targetId: teamId,
 		targetTransition: `bet -> ${newStatus}`,
 		timestamp: Date.now(),
 	};
@@ -672,12 +681,11 @@ export function registerLifecyclePropagation(db: HyperIdleDb, eventBus: EventBus
 		}
 	});
 
-	// Handler 3: bet_state_changed -> log bet->product propagation (derived on read)
+	// Handler 3: bet_state_changed -> log bet->team propagation (derived on read)
+	// @lore U1: "shipped" → "completed"; logBetToProductPropagation → logBetToTeamPropagation.
 	const unsubBetChanged = eventBus.on("bet_state_changed", (event) => {
-		if (event.toState === "shipped" || event.toState === "killed") {
-			void (async () => {
-				await logBetToProductPropagation(db, eventBus, event.betId, event.toState);
-			})();
+		if (event.toState === "completed" || event.toState === "killed") {
+			void logBetToTeamPropagation(db, eventBus, event.betId, event.toState);
 		}
 	});
 

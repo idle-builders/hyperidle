@@ -3,8 +3,7 @@ import {
 	type HyperIdleDb,
 	items,
 	messages,
-	products,
-	type TestDbHandle,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -20,12 +19,12 @@ describe("Daily Digest (E7)", () => {
 	async function seedBase(): Promise<void> {
 		const ts = now.toISOString();
 		await db
-			.insert(products)
+			.insert(teams)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: ts });
 
 		await db
-			.insert(teams)
-			.values({ id: "team-1", productId: "prod-1", capacity: 3, activeBets: 0, formedAt: ts });
+			.insert(teamMembers)
+			.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: ts });
 
 		await db.insert(users).values({
 			id: "agent-1",

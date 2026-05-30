@@ -24,21 +24,25 @@ import {
 	SkeletonCard,
 	StatusChip,
 } from "@hyperidle/design-system";
-import type { BetCardSummary, ProductDetail } from "@hyperidle/shared";
+// @lore U1: `ProductDetail` → `TeamDetail`, `BetCardSummary.pitchTitle` → `descriptionTitle`.
+import type { BetCardSummary, TeamDetail } from "@hyperidle/shared";
 import { formatMoney } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
 import { useHint } from "../hooks/useHints";
+// @lore U1: useProduct → useTeam (backward-compat re-export from useProduct.ts).
 import { useProduct } from "../hooks/useProduct";
 
 export interface WorkProductProps {
 	/**
-	 * Override the product detail with directly injected data. When set,
+	 * Override the product/team detail with directly injected data. When set,
 	 * the useProduct hook is not called. Used by stories and tests.
 	 * Pass `null` to simulate a resolved-but-empty fetch (e.g. 404/500 path).
+	 *
+	 * @lore U1: Type changed from ProductDetail to TeamDetail.
 	 */
-	overrideData?: ProductDetail | null;
+	overrideData?: TeamDetail | null;
 	/**
 	 * Override the loading state. When true, skeleton placeholders are shown.
 	 */
@@ -71,10 +75,11 @@ export function WorkProduct({
 	const { productId } = useParams<{ productId: string }>();
 
 	// Only call useProduct when there is no override (mirrors WorkBet pattern).
+	// @lore U1: useProduct now returns UseTeamResult (TeamDetail). Backward-compat re-export.
 	const fetched = useProduct(overrideData !== undefined ? undefined : productId);
 
 	const error = overrideError !== undefined ? (overrideError ?? null) : fetched.error;
-	const data = overrideData !== undefined ? overrideData : fetched.data;
+	const data = overrideData !== undefined ? overrideData : (fetched.data as TeamDetail | null);
 
 	// Loading state
 	if (overrideLoading === true || (overrideData === undefined && fetched.loading)) {
@@ -142,7 +147,8 @@ function WorkProductLoaded({
 	data,
 	skipArtifacts = false,
 }: {
-	data: ProductDetail;
+	// @lore U1: TeamDetail replaces ProductDetail.
+	data: TeamDetail;
 	/**
 	 * When true, the ArtifactSection is not rendered. Used by test overrides
 	 * (overrideData prop) to prevent ArtifactSection from calling fetch and
@@ -155,7 +161,8 @@ function WorkProductLoaded({
 	skipArtifacts?: boolean;
 }): JSX.Element {
 	const navigate = useNavigate();
-	const { product, roster, burn, activeBets } = data;
+	// @lore U1: `team` replaces `product` in TeamDetail.
+	const { team: product, roster, burn, activeBets } = data;
 	const onOpenArtifact = useArtifactOpen();
 	const hintCreateBet = useHint("create-bet");
 
@@ -317,7 +324,8 @@ function WorkProductLoaded({
 			{/* L12: Artifact stack — product axis, limit=10, replaces placeholder */}
 			{!skipArtifacts && (
 				<ArtifactSection
-					filter={{ axis: "product", productId: product.id }}
+					// @lore U1: `productId` → `teamId` in ArtifactSection filter.
+					filter={{ axis: "product", teamId: product.id }}
 					layout="stack"
 					limit={10}
 					heading="Artifacts"
@@ -341,7 +349,8 @@ function BetRow({ bet, onNavigate }: { bet: BetCardSummary; onNavigate: () => vo
 		>
 			<div className="flex items-center gap-[var(--density-gap)] flex-wrap">
 				<span className="flex-1 text-xs font-medium text-[var(--text-hi)] truncate">
-					{bet.pitchTitle}
+					{/* @lore U1: descriptionTitle replaces pitchTitle */}
+					{bet.descriptionTitle}
 				</span>
 				<StatusChip status={betStatusToStatus(bet.status)} />
 				<span className="text-[10px] font-mono text-[var(--text-lo)]">

@@ -1,11 +1,12 @@
-import type { ProductListResponse } from "@hyperidle/shared";
+// @lore U1: `ProductListResponse` → `TeamListResponse`.
+import type { TeamListResponse } from "@hyperidle/shared";
 import { type JSX, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { apiFetch } from "../services/api-fetch.js";
 
 /**
  * @lore P4: Updated to check both human user existence (GET /api/auth/me) AND
- * products existence (GET /api/products) in parallel. Redirects to /setup if
+ * teams existence (GET /api/teams) in parallel. Redirects to /setup if
  * either check fails. This replaces the P3 single-check logic that only checked
  * products and redirected to /onboarding (which no longer exists).
  *
@@ -23,12 +24,11 @@ export function FirstRunRedirect(): JSX.Element {
 		// P4: Run both checks in parallel (architecture Q3 decision).
 		Promise.all([
 			apiFetch("/api/auth/me").then((res) => res.ok),
-			apiFetch("/api/products")
+			apiFetch("/api/teams")
 				.then((res) => {
 					if (!res.ok) return false;
-					return (res.json() as Promise<ProductListResponse>).then(
-						(data) => data.products.length > 0,
-					);
+					// @lore U1: TeamListResponse uses `teams` array.
+					return (res.json() as Promise<TeamListResponse>).then((data) => data.teams.length > 0);
 				})
 				.catch(() => false),
 		])

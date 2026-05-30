@@ -24,7 +24,7 @@ function renderInRouter(ui: ReactElement): ReturnType<typeof render> {
 }
 
 const sampleBets: BetItem[] = [
-	{ id: "bet-1", title: "Launch MVP", progress: { done: 2, total: 4 }, status: "committed" },
+	{ id: "bet-1", title: "Launch MVP", progress: { done: 2, total: 4 }, status: "active" },
 ];
 
 const sampleBlockers: BlockerItem[] = [];
