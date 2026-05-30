@@ -8,6 +8,7 @@
 
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, shell } from "electron";
@@ -657,13 +658,25 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 			saveClientConfig(ctx.configPath, { workerDeviceId: deviceId });
 		}
 
+		// Detect model providers from stored credentials.
+		// @lore S4: Map credential names to provider identifiers — anthropic_api_key →
+		// "anthropic", openrouter_api_key → "openrouter". If no keys found, the
+		// worker advertises no providers and the server will not dispatch sessions to it.
+		const modelProviders: string[] = [];
+		if (readCredentialFromStore("anthropic_api_key") !== null) {
+			modelProviders.push("anthropic");
+		}
+		if (readCredentialFromStore("openrouter_api_key") !== null) {
+			modelProviders.push("openrouter");
+		}
+
 		const client = new DesktopWorkerClient({
 			serverUrl,
 			credentialsPath: ctx.credentialsPath,
 			authKey,
 			deviceId,
-			machineName: require("node:os").hostname() as string,
-			modelProviders: ["anthropic"],
+			machineName: os.hostname(),
+			modelProviders,
 			maxConcurrent,
 		});
 

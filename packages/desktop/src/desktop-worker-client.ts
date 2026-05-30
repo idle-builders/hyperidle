@@ -18,6 +18,17 @@
  * is concurrent-safe.
  */
 
+import type {
+	HarnessAdapter,
+	ServerDispatchMessage,
+	ServerStopMessage,
+	ServerToWorkerMessage,
+	SessionHandle,
+	WorkerErrorMessage,
+	WorkerEventMessage,
+	WorkerSessionResultMessage,
+} from "@hyperidle/shared";
+
 export interface DesktopWorkerClientOptions {
 	serverUrl: string;
 	credentialsPath: string;
@@ -26,6 +37,13 @@ export interface DesktopWorkerClientOptions {
 	machineName: string;
 	modelProviders: string[];
 	maxConcurrent: number;
+	/**
+	 * How long disconnect() waits for active sessions to complete before force-stopping them.
+	 * Defaults to 60_000ms (60s) in production. Injectable for tests.
+	 *
+	 * @lore S4: injectable for testing — 60s real-time wait is not acceptable in unit tests.
+	 */
+	disconnectTimeoutMs?: number;
 }
 
 /**
@@ -60,20 +78,28 @@ export class DesktopWorkerClient {
 		url: string,
 		// biome-ignore lint/suspicious/noExplicitAny: supports both real WebSocket constructor and vi.fn() mocks
 	) => any;
+	private readonly adapter: HarnessAdapter | null;
 
 	private ws: WebSocket | null = null;
 	private connected = false;
 	private paused = false;
 	private activeSessions = 0;
+	/** Track active session handles so disconnect() can stop them on timeout. */
+	private readonly sessionHandles = new Map<string, SessionHandle>();
 	private readonly listeners = new Set<(status: WorkerStatus) => void>();
 
-	constructor(options: DesktopWorkerClientOptions, wsConstructorOverride?: typeof WebSocket) {
+	constructor(
+		options: DesktopWorkerClientOptions,
+		wsConstructorOverride?: typeof WebSocket,
+		adapter?: HarnessAdapter,
+	) {
 		this.options = options;
 		// Use provided WebSocket constructor or the global one
 		this.wsConstructor = (wsConstructorOverride ?? WebSocket) as unknown as new (
 			url: string,
 			// biome-ignore lint/suspicious/noExplicitAny: cast for vi.fn() mock compatibility
 		) => any;
+		this.adapter = adapter ?? null;
 	}
 
 	/**
@@ -139,13 +165,23 @@ export class DesktopWorkerClient {
 					return;
 				}
 
-				const typed = msg as { type: string };
+				const typed = msg as ServerToWorkerMessage;
 
 				if (typed.type === "registered") {
 					// Step 4: registration acknowledged
 					this.connected = true;
 					this.notifyListeners();
 					resolve();
+					return;
+				}
+
+				// Handle dispatch/stop only after registered (adapter may be null in tests)
+				if (!this.adapter) return;
+
+				if (typed.type === "dispatch") {
+					void this.handleDispatch(typed as ServerDispatchMessage);
+				} else if (typed.type === "stop") {
+					void this.handleStop(typed as ServerStopMessage);
 				}
 			};
 
@@ -168,10 +204,90 @@ export class DesktopWorkerClient {
 	}
 
 	/**
+	 * Handle a dispatch message from the server:
+	 * 1. Start the session via the adapter.
+	 * 2. Stream all events back as WorkerEventMessage.
+	 * 3. On completion, send WorkerSessionResultMessage.
+	 * 4. Decrement activeSessions.
+	 */
+	private async handleDispatch(msg: ServerDispatchMessage): Promise<void> {
+		if (!this.adapter) return;
+		const { sessionId, config } = msg;
+
+		this.activeSessions++;
+		this.notifyListeners();
+
+		try {
+			const handle = await this.adapter.startSession(config);
+			this.sessionHandles.set(sessionId, handle);
+
+			for await (const event of this.adapter.streamEvents(handle)) {
+				const eventMsg: WorkerEventMessage = { type: "event", sessionId, event };
+				this.ws?.send(JSON.stringify(eventMsg));
+			}
+
+			const result = await this.adapter.stopSession(handle);
+			this.sessionHandles.delete(sessionId);
+
+			const resultMsg: WorkerSessionResultMessage = {
+				type: "session_result",
+				sessionId,
+				result,
+			};
+			this.ws?.send(JSON.stringify(resultMsg));
+		} catch (err: unknown) {
+			this.sessionHandles.delete(sessionId);
+			const errorMsg: WorkerErrorMessage = {
+				type: "error",
+				sessionId,
+				message: err instanceof Error ? err.message : String(err),
+			};
+			this.ws?.send(JSON.stringify(errorMsg));
+		} finally {
+			this.activeSessions = Math.max(0, this.activeSessions - 1);
+			this.notifyListeners();
+		}
+	}
+
+	/**
+	 * Handle a stop message from the server:
+	 * Stop the running session and send back the result.
+	 */
+	private async handleStop(msg: ServerStopMessage): Promise<void> {
+		if (!this.adapter) return;
+		const { sessionId } = msg;
+		const handle = this.sessionHandles.get(sessionId);
+		if (!handle) return;
+
+		try {
+			const result = await this.adapter.stopSession(handle);
+			this.sessionHandles.delete(sessionId);
+			const resultMsg: WorkerSessionResultMessage = {
+				type: "session_result",
+				sessionId,
+				result,
+			};
+			this.ws?.send(JSON.stringify(resultMsg));
+		} catch (err: unknown) {
+			this.sessionHandles.delete(sessionId);
+			const errorMsg: WorkerErrorMessage = {
+				type: "error",
+				sessionId,
+				message: err instanceof Error ? err.message : String(err),
+			};
+			this.ws?.send(JSON.stringify(errorMsg));
+		} finally {
+			this.activeSessions = Math.max(0, this.activeSessions - 1);
+			this.notifyListeners();
+		}
+	}
+
+	/**
 	 * Gracefully disconnect:
 	 * 1. Stop accepting new work.
 	 * 2. Wait up to 60s for active sessions to complete.
-	 * 3. Close WebSocket.
+	 * 3. If sessions still running after timeout, force-stop them.
+	 * 4. Close WebSocket.
 	 */
 	async disconnect(): Promise<void> {
 		if (!this.ws) {
@@ -187,10 +303,25 @@ export class DesktopWorkerClient {
 			return;
 		}
 
-		// Wait up to 60s for active sessions to complete
-		const deadline = Date.now() + 60_000;
+		// Wait up to the configured timeout (default 60s) for active sessions to complete
+		const timeoutMs = this.options.disconnectTimeoutMs ?? 60_000;
+		const deadline = Date.now() + timeoutMs;
 		while (this.activeSessions > 0 && Date.now() < deadline) {
 			await new Promise<void>((res) => setTimeout(res, 100));
+		}
+
+		// Force-stop any remaining sessions that didn't complete within the timeout
+		if (this.activeSessions > 0 && this.adapter) {
+			const stopPromises: Promise<void>[] = [];
+			for (const [sessionId, handle] of this.sessionHandles) {
+				stopPromises.push(
+					this.adapter.stopSession(handle).then(() => {
+						this.sessionHandles.delete(sessionId);
+					}),
+				);
+			}
+			await Promise.allSettled(stopPromises);
+			this.activeSessions = 0;
 		}
 
 		if (this.ws) {

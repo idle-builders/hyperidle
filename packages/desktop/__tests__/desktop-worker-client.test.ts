@@ -7,6 +7,7 @@
  *  - disconnect() with no active sessions: closes WS immediately
  *  - disconnect() with mock active session completing within timeout: waits then closes
  *  - disconnect() with session exceeding 60s: calls stopSession then closes WS
+ *  - dispatch: activeSessions incremented, events forwarded, session_result sent
  *  - pause(): sends { type: "pause" } via WS
  *  - resume(): sends { type: "resume" } via WS
  *  - getStatus(): returns correct snapshot (enabled, connected, paused, activeSessions, etc.)
@@ -15,6 +16,13 @@
  *  - connect() fails if WS connection fails → throws
  */
 
+import type {
+	HarnessAdapter,
+	HarnessEvent,
+	SessionConfig,
+	SessionHandle,
+	SessionResult,
+} from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock electron (needed transitively through safe-credential-resolver if imported)
@@ -121,6 +129,63 @@ async function waitForWsInstance(): Promise<MockWsInstance> {
 	throw new Error("WS instance was not created within timeout");
 }
 
+// ── Mock HarnessAdapter builder ───────────────────────────────────────────────
+
+interface MockAdapterOptions {
+	/** Events to yield from streamEvents (simulated). */
+	events?: HarnessEvent[];
+	/** Custom stopSession result. */
+	stopResult?: SessionResult;
+	/** If true, streamEvents never resolves (simulates long-running session). */
+	blockForever?: boolean;
+}
+
+const DEFAULT_STOP_RESULT: SessionResult = {
+	outcome: "completed",
+	cost: { minor: 0, currency: "USD" },
+	tokenUsage: { byTier: {} },
+};
+
+function makeMockAdapter(opts: MockAdapterOptions = {}): HarnessAdapter & {
+	startSession: ReturnType<typeof vi.fn>;
+	stopSession: ReturnType<typeof vi.fn>;
+} {
+	let sessionCounter = 0;
+	const stopResult = opts.stopResult ?? DEFAULT_STOP_RESULT;
+
+	const startSession = vi
+		.fn()
+		.mockImplementation(async (_config: SessionConfig): Promise<SessionHandle> => {
+			sessionCounter++;
+			return { sessionId: `mock-session-${sessionCounter}` };
+		});
+
+	const stopSession = vi.fn().mockResolvedValue(stopResult);
+
+	const streamEvents = vi.fn().mockImplementation(async function* (_handle: SessionHandle) {
+		if (opts.blockForever) {
+			// Never resolves — simulates a long-running session
+			await new Promise<void>(() => {}); // intentionally never resolves
+			return;
+		}
+		const events = opts.events ?? [];
+		for (const evt of events) {
+			yield evt;
+		}
+	});
+
+	return {
+		startSession,
+		stopSession,
+		streamEvents,
+		getCapabilities: vi.fn().mockReturnValue({
+			preCompactionTrigger: true,
+			subAgents: true,
+			modelProviders: ["anthropic"],
+		}),
+	};
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe("S4 AC-2/AC-3 — DesktopWorkerClient connect/disconnect", () => {
@@ -169,7 +234,6 @@ describe("S4 AC-2/AC-3 — DesktopWorkerClient connect/disconnect", () => {
 	it("connect() sends WorkerRegisterMessage with correct fields after WS opens", async () => {
 		const { DesktopWorkerClient } = await getClient();
 
-		// @lore S4: vi.fn mock must use regular function (not arrow) so `new MockWebSocket()` works
 		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
 		const MockWebSocket = vi.fn().mockImplementation(function () {
 			return makeWsInstance();
@@ -222,7 +286,6 @@ describe("S4 AC-2/AC-3 — DesktopWorkerClient connect/disconnect", () => {
 		const { DesktopWorkerClient } = await getClient();
 
 		fetchResponses = [{ ok: false, status: 404, json: async () => ({ error: "not found" }) }];
-		// @lore S4: vi.fn mock must use regular function (not arrow) so `new MockWebSocket()` works
 		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
 		const MockWebSocket = vi.fn().mockImplementation(function () {
 			return makeWsInstance();
@@ -246,7 +309,6 @@ describe("S4 AC-2/AC-3 — DesktopWorkerClient connect/disconnect", () => {
 	it("disconnect() with no active sessions closes WS immediately", async () => {
 		const { DesktopWorkerClient } = await getClient();
 
-		// @lore S4: vi.fn mock must use regular function (not arrow) so `new MockWebSocket()` works
 		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
 		const MockWebSocket = vi.fn().mockImplementation(function () {
 			return makeWsInstance();
@@ -277,6 +339,296 @@ describe("S4 AC-2/AC-3 — DesktopWorkerClient connect/disconnect", () => {
 	});
 });
 
+describe("S4 AC-5 — DesktopWorkerClient dispatch", () => {
+	async function makeConnectedClientWithAdapter(
+		MockWebSocket: ReturnType<typeof vi.fn>,
+		adapter: HarnessAdapter,
+	) {
+		const { DesktopWorkerClient } = await getClient();
+
+		const client = new DesktopWorkerClient(
+			{
+				serverUrl: "http://localhost:3001",
+				credentialsPath: "/tmp/creds.json",
+				authKey: "key",
+				deviceId: "d1",
+				machineName: "m1",
+				modelProviders: ["anthropic"],
+				maxConcurrent: 2,
+			},
+			MockWebSocket as unknown as typeof WebSocket,
+			adapter,
+		);
+
+		const connectPromise = client.connect();
+		const wsInst = await waitForWsInstance();
+		wsInst.readyState = 1;
+		wsInst.onopen?.();
+		simulateRegisteredAck(wsInst);
+		await connectPromise;
+
+		return { client, wsInst };
+	}
+
+	it("dispatch message: activeSessions increments during session, decrements after", async () => {
+		const statusChanges: { activeSessions: number }[] = [];
+		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
+		const MockWebSocket = vi.fn().mockImplementation(function () {
+			return makeWsInstance();
+		});
+
+		// Adapter that yields one event then completes
+		const adapter = makeMockAdapter({ events: [{ type: "completion", text: "done" }] });
+		const { client, wsInst } = await makeConnectedClientWithAdapter(MockWebSocket, adapter);
+
+		client.onStatusChange((s) => {
+			statusChanges.push({ activeSessions: s.activeSessions });
+		});
+
+		// Simulate server dispatching a session
+		const dispatchMsg = JSON.stringify({
+			type: "dispatch",
+			sessionId: "srv-session-1",
+			config: {
+				workspacePath: "/tmp/ws",
+				soulPromptPath: "/tmp/soul.md",
+				modelTier: "fast",
+				tools: [],
+			},
+		});
+
+		wsInst.onmessage?.({ data: dispatchMsg });
+
+		// Wait for session to complete (adapter has events, so it will finish quickly)
+		await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+		// Should have seen activeSessions = 1 then back to 0
+		const incremented = statusChanges.some((s) => s.activeSessions === 1);
+		const decremented = statusChanges.some((s) => s.activeSessions === 0);
+		expect(incremented).toBe(true);
+		expect(decremented).toBe(true);
+	});
+
+	it("dispatch message: events forwarded as WorkerEventMessage", async () => {
+		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
+		const MockWebSocket = vi.fn().mockImplementation(function () {
+			return makeWsInstance();
+		});
+
+		const adapter = makeMockAdapter({
+			events: [{ type: "completion", text: "hello" }],
+		});
+		const { wsInst } = await makeConnectedClientWithAdapter(MockWebSocket, adapter);
+
+		wsInst.onmessage?.({
+			data: JSON.stringify({
+				type: "dispatch",
+				sessionId: "srv-session-2",
+				config: {
+					workspacePath: "/tmp/ws",
+					soulPromptPath: "/tmp/soul.md",
+					modelTier: "fast",
+					tools: [],
+				},
+			}),
+		});
+
+		// Wait for async dispatch to process
+		await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+		const sentParsed = wsInst.sent.map(
+			(s) => JSON.parse(s) as { type: string; sessionId?: string },
+		);
+		const eventMsgs = sentParsed.filter((m) => m.type === "event");
+		expect(eventMsgs.length).toBeGreaterThan(0);
+		expect(eventMsgs[0]?.sessionId).toBe("srv-session-2");
+	});
+
+	it("dispatch message: session_result sent after session completes", async () => {
+		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
+		const MockWebSocket = vi.fn().mockImplementation(function () {
+			return makeWsInstance();
+		});
+
+		const adapter = makeMockAdapter({ events: [] });
+		const { wsInst } = await makeConnectedClientWithAdapter(MockWebSocket, adapter);
+
+		wsInst.onmessage?.({
+			data: JSON.stringify({
+				type: "dispatch",
+				sessionId: "srv-session-3",
+				config: {
+					workspacePath: "/tmp/ws",
+					soulPromptPath: "/tmp/soul.md",
+					modelTier: "fast",
+					tools: [],
+				},
+			}),
+		});
+
+		await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+		const sentParsed = wsInst.sent.map(
+			(s) => JSON.parse(s) as { type: string; sessionId?: string },
+		);
+		const resultMsg = sentParsed.find((m) => m.type === "session_result");
+		expect(resultMsg).toBeDefined();
+		expect(resultMsg?.sessionId).toBe("srv-session-3");
+	});
+});
+
+describe("S4 AC-8 — DesktopWorkerClient graceful shutdown", () => {
+	it("disconnect() waits for active session completing within timeout then closes", async () => {
+		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
+		const MockWebSocket = vi.fn().mockImplementation(function () {
+			return makeWsInstance();
+		});
+
+		// Session that blocks until we manually resolve it
+		let resolveStream: (() => void) | null = null;
+		const streamPromise = new Promise<void>((resolve) => {
+			resolveStream = resolve;
+		});
+
+		const adapter: HarnessAdapter = {
+			startSession: vi.fn().mockResolvedValue({ sessionId: "slow-session" }),
+			stopSession: vi.fn().mockResolvedValue(DEFAULT_STOP_RESULT),
+			getCapabilities: vi.fn().mockReturnValue({
+				preCompactionTrigger: false,
+				subAgents: false,
+				modelProviders: ["anthropic"],
+			}),
+			// biome-ignore lint/correctness/useYield: generator intentionally yields nothing — blocks until stream resolves
+			streamEvents: vi.fn().mockImplementation(async function* () {
+				await streamPromise; // blocks until resolved
+			}),
+		};
+
+		const { DesktopWorkerClient } = await getClient();
+		const client = new DesktopWorkerClient(
+			{
+				serverUrl: "http://localhost:3001",
+				credentialsPath: "/tmp/creds.json",
+				authKey: "key",
+				deviceId: "d1",
+				machineName: "m1",
+				modelProviders: ["anthropic"],
+				maxConcurrent: 1,
+				disconnectTimeoutMs: 5_000,
+			},
+			MockWebSocket as unknown as typeof WebSocket,
+			adapter,
+		);
+
+		const connectPromise = client.connect();
+		const wsInst = await waitForWsInstance();
+		wsInst.readyState = 1;
+		wsInst.onopen?.();
+		simulateRegisteredAck(wsInst);
+		await connectPromise;
+
+		// Dispatch the session
+		wsInst.onmessage?.({
+			data: JSON.stringify({
+				type: "dispatch",
+				sessionId: "slow-session",
+				config: {
+					workspacePath: "/tmp/ws",
+					soulPromptPath: "/tmp/soul.md",
+					modelTier: "fast",
+					tools: [],
+				},
+			}),
+		});
+
+		// Give dispatch time to start (activeSessions should be 1)
+		await new Promise<void>((res) => setTimeout(res, 10));
+		expect(client.getStatus().activeSessions).toBe(1);
+
+		// Start disconnect — will poll waiting for session to finish
+		const disconnectPromise = client.disconnect();
+
+		// Resolve the stream so the session can complete
+		resolveStream?.();
+
+		await disconnectPromise;
+
+		expect(wsInst.readyState).toBe(3); // WS should be closed
+	}, 10_000);
+
+	it("disconnect() force-stops sessions that exceed the timeout", async () => {
+		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
+		const MockWebSocket = vi.fn().mockImplementation(function () {
+			return makeWsInstance();
+		});
+
+		const stopSession = vi.fn().mockResolvedValue(DEFAULT_STOP_RESULT);
+
+		const adapter: HarnessAdapter = {
+			startSession: vi.fn().mockResolvedValue({ sessionId: "forever-session" }),
+			stopSession,
+			getCapabilities: vi.fn().mockReturnValue({
+				preCompactionTrigger: false,
+				subAgents: false,
+				modelProviders: ["anthropic"],
+			}),
+			streamEvents: vi.fn().mockImplementation(async function* () {
+				// Never yields — blocks indefinitely
+				await new Promise<void>(() => {});
+			}),
+		};
+
+		const { DesktopWorkerClient } = await getClient();
+		const client = new DesktopWorkerClient(
+			{
+				serverUrl: "http://localhost:3001",
+				credentialsPath: "/tmp/creds.json",
+				authKey: "key",
+				deviceId: "d1",
+				machineName: "m1",
+				modelProviders: ["anthropic"],
+				maxConcurrent: 1,
+				// Very short timeout so force-stop triggers quickly in tests
+				disconnectTimeoutMs: 300,
+			},
+			MockWebSocket as unknown as typeof WebSocket,
+			adapter,
+		);
+
+		const connectPromise = client.connect();
+		const wsInst = await waitForWsInstance();
+		wsInst.readyState = 1;
+		wsInst.onopen?.();
+		simulateRegisteredAck(wsInst);
+		await connectPromise;
+
+		// Dispatch a session that will never complete on its own
+		wsInst.onmessage?.({
+			data: JSON.stringify({
+				type: "dispatch",
+				sessionId: "forever-session",
+				config: {
+					workspacePath: "/tmp/ws",
+					soulPromptPath: "/tmp/soul.md",
+					modelTier: "fast",
+					tools: [],
+				},
+			}),
+		});
+
+		// Give dispatch time to start
+		await new Promise<void>((res) => setTimeout(res, 10));
+		expect(client.getStatus().activeSessions).toBe(1);
+
+		// disconnect() will poll for 300ms, then force-stop
+		await client.disconnect();
+
+		// stopSession should have been called to force-stop the hung session
+		expect(stopSession).toHaveBeenCalled();
+		expect(wsInst.readyState).toBe(3); // WS should be closed
+	}, 5_000);
+});
+
 describe("S4 AC-7 — DesktopWorkerClient pause/resume", () => {
 	async function makeConnectedClient(MockWebSocket: ReturnType<typeof vi.fn>) {
 		const { DesktopWorkerClient } = await getClient();
@@ -305,7 +657,6 @@ describe("S4 AC-7 — DesktopWorkerClient pause/resume", () => {
 	}
 
 	it("pause() sends { type: 'pause' } via WS", async () => {
-		// @lore S4: vi.fn mock must use regular function (not arrow) so `new MockWebSocket()` works
 		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
 		const MockWebSocket = vi.fn().mockImplementation(function () {
 			return makeWsInstance();
@@ -322,7 +673,6 @@ describe("S4 AC-7 — DesktopWorkerClient pause/resume", () => {
 	});
 
 	it("resume() sends { type: 'resume' } via WS", async () => {
-		// @lore S4: vi.fn mock must use regular function (not arrow) so `new MockWebSocket()` works
 		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
 		const MockWebSocket = vi.fn().mockImplementation(function () {
 			return makeWsInstance();
@@ -343,7 +693,6 @@ describe("S4 AC-7 — DesktopWorkerClient pause/resume", () => {
 describe("S4 AC-6 — DesktopWorkerClient getStatus()", () => {
 	it("getStatus() returns not-connected when not yet connected", async () => {
 		const { DesktopWorkerClient } = await getClient();
-		// @lore S4: vi.fn mock must use regular function (not arrow) so `new MockWebSocket()` works
 		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
 		const MockWebSocket = vi.fn().mockImplementation(function () {
 			return makeWsInstance();
@@ -373,7 +722,6 @@ describe("S4 AC-6 — DesktopWorkerClient getStatus()", () => {
 
 	it("getStatus().connected is true after connect()", async () => {
 		const { DesktopWorkerClient } = await getClient();
-		// @lore S4: vi.fn mock must use regular function (not arrow) so `new MockWebSocket()` works
 		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
 		const MockWebSocket = vi.fn().mockImplementation(function () {
 			return makeWsInstance();
@@ -405,7 +753,6 @@ describe("S4 AC-6 — DesktopWorkerClient getStatus()", () => {
 
 	it("getStatus().paused is true after pause(), false after resume()", async () => {
 		const { DesktopWorkerClient } = await getClient();
-		// @lore S4: vi.fn mock must use regular function (not arrow) so `new MockWebSocket()` works
 		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
 		const MockWebSocket = vi.fn().mockImplementation(function () {
 			return makeWsInstance();
@@ -442,7 +789,6 @@ describe("S4 AC-6 — DesktopWorkerClient getStatus()", () => {
 describe("S4 — DesktopWorkerClient onStatusChange()", () => {
 	it("onStatusChange() callback fired when status changes", async () => {
 		const { DesktopWorkerClient } = await getClient();
-		// @lore S4: vi.fn mock must use regular function (not arrow) so `new MockWebSocket()` works
 		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
 		const MockWebSocket = vi.fn().mockImplementation(function () {
 			return makeWsInstance();
@@ -481,7 +827,6 @@ describe("S4 — DesktopWorkerClient onStatusChange()", () => {
 
 	it("unsubscribe() stops further callbacks", async () => {
 		const { DesktopWorkerClient } = await getClient();
-		// @lore S4: vi.fn mock must use regular function (not arrow) so `new MockWebSocket()` works
 		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
 		const MockWebSocket = vi.fn().mockImplementation(function () {
 			return makeWsInstance();

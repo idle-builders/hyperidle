@@ -6,11 +6,10 @@
  * - Electron, local mode: show "requires shared backend mode"
  * - Electron, shared mode: show worker toggle, status, pause/resume
  *
- * @lore S4 architecture-critique W3: The worker nav item is always rendered
- * in SETTINGS_SECTIONS but the content is conditionally rendered based on
- * bridge presence and backend mode. This is simpler than filtering SETTINGS_SECTIONS
- * (which would require adding visibility logic to the section type) and matches
- * the pattern used by SettingsBackend for non-electron environments.
+ * @lore S4 architecture-critique W3: The worker nav item is filtered out of
+ * SETTINGS_SECTIONS in AppShell.tsx when the worker bridge is unavailable or
+ * the app is in local mode. The content here guards the same conditions for
+ * safety, but the nav item itself is not always rendered.
  */
 
 import { type JSX, useEffect, useState } from "react";
@@ -43,13 +42,24 @@ const DEFAULT_STATUS: WorkerStatus = {
 	modelProviders: [],
 };
 
+type ConnectionState = "connected" | "connecting" | "disconnected";
+
 /**
  * Status badge for the worker connection state.
+ * Three states: connected (green), connecting (warning), disconnected (ghost).
  */
-function ConnectionBadge({ connected }: { connected: boolean }): JSX.Element {
+function ConnectionBadge({ state }: { state: ConnectionState }): JSX.Element {
+	const badgeClass =
+		state === "connected"
+			? "badge-success"
+			: state === "connecting"
+				? "badge-warning"
+				: "badge-ghost";
+	const label =
+		state === "connected" ? "Connected" : state === "connecting" ? "Connecting" : "Disconnected";
 	return (
-		<span className={`badge badge-sm ${connected ? "badge-success" : "badge-ghost"}`} role="status">
-			{connected ? "Connected" : "Disconnected"}
+		<span className={`badge badge-sm ${badgeClass}`} role="status">
+			{label}
 		</span>
 	);
 }
@@ -175,7 +185,11 @@ export function SettingsWorker(): JSX.Element {
 					{/* Connection status */}
 					<div className="flex items-center gap-3">
 						<span className="text-sm text-[var(--text-mid)]">Status</span>
-						<ConnectionBadge connected={status.connected} />
+						<ConnectionBadge
+							state={
+								status.connected ? "connected" : status.enabled ? "connecting" : "disconnected"
+							}
+						/>
 					</div>
 
 					{/* Active sessions */}

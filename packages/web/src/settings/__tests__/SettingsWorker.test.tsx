@@ -341,6 +341,29 @@ describe("S4 AC-1/AC-7 — SettingsWorker: interactions", () => {
 	});
 });
 
+describe("S4 AC-3 — SettingsWorker: connecting state", () => {
+	let workerBridge: ReturnType<typeof makeWorkerBridge>;
+
+	beforeEach(() => {
+		// Enabled but NOT yet connected → "Connecting"
+		workerBridge = makeWorkerBridge({ enabled: true, connected: false, paused: false });
+		mockBridgeOnWindow(workerBridge, "shared");
+	});
+
+	afterEach(() => {
+		clearBridgeFromWindow();
+		vi.restoreAllMocks();
+	});
+
+	it("renders 'Connecting' badge when enabled but not yet connected", async () => {
+		render(<SettingsWorker />);
+
+		await waitFor(() => {
+			expect(screen.getByText(/connecting/i)).toBeInTheDocument();
+		});
+	});
+});
+
 describe("S4 AC-6 — SettingsWorker: status change subscription", () => {
 	let workerBridge: ReturnType<typeof makeWorkerBridge>;
 
@@ -357,9 +380,9 @@ describe("S4 AC-6 — SettingsWorker: status change subscription", () => {
 	it("re-renders with updated status when onStatusChange fires", async () => {
 		render(<SettingsWorker />);
 
-		// Initially disconnected
+		// Initially enabled but not yet connected → "Connecting" state
 		await waitFor(() => {
-			expect(screen.getByText(/disconnected/i)).toBeInTheDocument();
+			expect(screen.getByText(/connecting/i)).toBeInTheDocument();
 		});
 
 		// Trigger a status change to connected
