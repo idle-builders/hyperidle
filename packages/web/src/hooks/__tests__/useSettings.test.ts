@@ -12,7 +12,8 @@ import { useSettings } from "../../hooks/useSettings";
 
 type ApiSettingsResponse = {
 	profile: { name: string; email: string; avatarUrl: string | null };
-	products: Array<{ id: string; name: string; active: boolean }>;
+	// @lore U1: renamed from `products` to `teams`
+	teams: Array<{ id: string; name: string; active: boolean }>;
 	/** @lore P2: renamed from agents. */
 	users: Array<{ id: string; name: string; autonomyLevel: string; paused: boolean }>;
 	notifications: {
@@ -21,15 +22,16 @@ type ApiSettingsResponse = {
 		blockerAlerts: boolean;
 		quietHoursStart: string;
 		quietHoursEnd: string;
-		mutedProducts: string[];
+		// @lore U1: renamed from mutedProducts
+		mutedTeams: string[];
 	};
 };
 
 const FIXTURE_API_SETTINGS: ApiSettingsResponse = {
 	profile: { name: "Test Founder", email: "test@hyperidle.dev", avatarUrl: null },
-	products: [
-		{ id: "p1", name: "Product A", active: true },
-		{ id: "p2", name: "Product B", active: false },
+	teams: [
+		{ id: "t1", name: "Team A", active: true },
+		{ id: "t2", name: "Team B", active: false },
 	],
 	users: [{ id: "a1", name: "Builder", autonomyLevel: "supervised", paused: false }],
 	notifications: {
@@ -38,7 +40,7 @@ const FIXTURE_API_SETTINGS: ApiSettingsResponse = {
 		blockerAlerts: false,
 		quietHoursStart: "22:00",
 		quietHoursEnd: "08:00",
-		mutedProducts: [],
+		mutedTeams: [],
 	},
 };
 
@@ -71,7 +73,7 @@ describe("useSettings (M3 B3)", () => {
 		expect(result.current.settings).toBeNull();
 	});
 
-	it("returns settings on success with profile, products, users, notifications", async () => {
+	it("returns settings on success with profile, teams, users, notifications", async () => {
 		fetchSpy.mockResolvedValueOnce(makeOkResponse(FIXTURE_API_SETTINGS));
 
 		const { result } = renderHook(() => useSettings());
@@ -82,7 +84,7 @@ describe("useSettings (M3 B3)", () => {
 
 		expect(result.current.settings).not.toBeNull();
 		expect(result.current.settings?.profile.name).toBe("Test Founder");
-		expect(result.current.settings?.products).toHaveLength(2);
+		expect(result.current.settings?.teams).toHaveLength(2);
 		expect(result.current.settings?.users).toHaveLength(1);
 		expect(result.current.settings?.notifications.reviewAlerts).toBe(true);
 	});

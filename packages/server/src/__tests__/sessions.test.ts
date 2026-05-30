@@ -2,9 +2,8 @@ import {
 	bets,
 	createTestDb,
 	type HyperIdleDb,
-	products,
-	type TestDbHandle,
 	tasks,
+	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -47,16 +46,16 @@ describe("Session Endpoints (E6)", () => {
 		app = await createTestApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
 
 		// Seed required data
-		await db.insert(products).values({
+		await db.insert(teams).values({
 			id: "prod-1",
 			name: "Test Product",
 			phase: "build",
 			createdAt: new Date().toISOString(),
 		});
 
-		await db.insert(teams).values({
+		await db.insert(teamMembers).values({
 			id: "team-1",
-			productId: "prod-1",
+			teamId: "prod-1",
 			capacity: 3,
 			activeBets: 0,
 			formedAt: new Date().toISOString(),
@@ -73,19 +72,17 @@ describe("Session Endpoints (E6)", () => {
 
 		await db.insert(bets).values({
 			id: "bet-1",
-			productId: "prod-1",
-			teamId: "team-1",
-			pitch: "Test",
+			teamId: "prod-1",
+			description: "Test",
 			appetite: "small",
-			status: "committed",
+			status: "active",
 			createdAt: new Date().toISOString(),
 		});
 
 		await db.insert(tasks).values({
 			id: "task-1",
 			betId: "bet-1",
-			productId: "prod-1",
-			teamId: "team-1",
+			teamId: "prod-1",
 			title: "Test Task",
 			state: "in_progress",
 			createdAt: new Date().toISOString(),

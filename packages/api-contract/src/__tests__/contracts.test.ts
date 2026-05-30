@@ -23,9 +23,9 @@ import type {
 	RailResponse,
 	SettingsAgent,
 	SettingsNotifications,
-	SettingsProduct,
 	SettingsProfile,
 	SettingsResponse,
+	SettingsTeam,
 } from "../index.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -116,22 +116,22 @@ describe("SettingsProfile (cluster 2 — settings)", () => {
 	});
 });
 
-describe("SettingsProduct (cluster 2 — settings)", () => {
+describe("SettingsTeam (cluster 2 — settings)", () => {
 	it("has id, name, active fields", () => {
-		const product: SettingsProduct = {
+		const team: SettingsTeam = {
 			id: "p1",
-			name: "Product Alpha",
+			name: "Team Alpha",
 			active: true,
 		};
-		assertShape<SettingsProduct>(product);
+		assertShape<SettingsTeam>(team);
 	});
 
 	it("active is boolean", () => {
-		expectTypeOf<SettingsProduct["active"]>().toEqualTypeOf<boolean>();
+		expectTypeOf<SettingsTeam["active"]>().toEqualTypeOf<boolean>();
 	});
 
-	it("inactive product is valid", () => {
-		const inactive: SettingsProduct = { id: "p2", name: "Product Beta", active: false };
+	it("inactive team is valid", () => {
+		const inactive: SettingsTeam = { id: "p2", name: "Team Beta", active: false };
 		expect(inactive.active).toBe(false);
 	});
 });
@@ -164,7 +164,7 @@ describe("SettingsNotifications (cluster 2 — settings)", () => {
 			blockerAlerts: true,
 			quietHoursStart: "22:00",
 			quietHoursEnd: "08:00",
-			mutedProducts: [],
+			mutedTeams: [],
 		};
 		assertShape<SettingsNotifications>(notifications);
 	});
@@ -189,26 +189,26 @@ describe("SettingsNotifications (cluster 2 — settings)", () => {
 		expectTypeOf<SettingsNotifications["quietHoursEnd"]>().toEqualTypeOf<string>();
 	});
 
-	it("mutedProducts is readonly string[]", () => {
-		expectTypeOf<SettingsNotifications["mutedProducts"]>().toEqualTypeOf<readonly string[]>();
+	it("mutedTeams is readonly string[]", () => {
+		expectTypeOf<SettingsNotifications["mutedTeams"]>().toEqualTypeOf<readonly string[]>();
 	});
 
-	it("accepts non-empty mutedProducts", () => {
+	it("accepts non-empty mutedTeams", () => {
 		const n: SettingsNotifications = {
 			reviewAlerts: false,
 			costAlerts: false,
 			blockerAlerts: false,
 			quietHoursStart: "23:00",
 			quietHoursEnd: "07:00",
-			mutedProducts: ["p1", "p2"],
+			mutedTeams: ["t1", "t2"],
 		};
-		expect(n.mutedProducts).toHaveLength(2);
+		expect(n.mutedTeams).toHaveLength(2);
 	});
 });
 
 describe("SettingsResponse (cluster 2 — settings)", () => {
-	it("has profile, products, agents, notifications — matches DEFAULT_SETTINGS minus appearance", () => {
-		// DEFAULT_SETTINGS in app-shell-data.ts has: profile, products, agents, notifications, appearance.
+	it("has profile, teams, users, notifications — matches DEFAULT_SETTINGS minus appearance", () => {
+		// DEFAULT_SETTINGS in app-shell-data.ts has: profile, teams, users, notifications, appearance.
 		// appearance is client-only (localStorage); the API contract omits it.
 		const response: SettingsResponse = {
 			profile: {
@@ -216,11 +216,11 @@ describe("SettingsResponse (cluster 2 — settings)", () => {
 				email: "founder@hyperidle.com",
 				avatarUrl: null,
 			},
-			products: [
-				{ id: "p1", name: "Product Alpha", active: true },
-				{ id: "p2", name: "Product Beta", active: false },
+			teams: [
+				{ id: "t1", name: "Team Alpha", active: true },
+				{ id: "t2", name: "Team Beta", active: false },
 			],
-			agents: [
+			users: [
 				{ id: "a1", name: "Architect", autonomyLevel: "supervised", paused: false },
 				{ id: "a2", name: "Developer", autonomyLevel: "autonomous", paused: false },
 			],
@@ -230,18 +230,18 @@ describe("SettingsResponse (cluster 2 — settings)", () => {
 				blockerAlerts: true,
 				quietHoursStart: "22:00",
 				quietHoursEnd: "08:00",
-				mutedProducts: [],
+				mutedTeams: [],
 			},
 		};
 		assertShape<SettingsResponse>(response);
 	});
 
-	it("products is readonly array of SettingsProduct", () => {
-		expectTypeOf<SettingsResponse["products"]>().toEqualTypeOf<readonly SettingsProduct[]>();
+	it("teams is readonly array of SettingsTeam", () => {
+		expectTypeOf<SettingsResponse["teams"]>().toEqualTypeOf<readonly SettingsTeam[]>();
 	});
 
 	it("agents is readonly array of SettingsAgent", () => {
-		expectTypeOf<SettingsResponse["agents"]>().toEqualTypeOf<readonly SettingsAgent[]>();
+		expectTypeOf<SettingsResponse["users"]>().toEqualTypeOf<readonly SettingsAgent[]>();
 	});
 
 	it("does NOT include appearance (client-side only)", () => {
@@ -490,15 +490,15 @@ describe("index.ts re-exports", () => {
 	it("exports SettingsResponse", () => {
 		const check: SettingsResponse = {
 			profile: { name: "T", email: "t@t.com", avatarUrl: null },
-			products: [],
-			agents: [],
+			teams: [],
+			users: [],
 			notifications: {
 				reviewAlerts: false,
 				costAlerts: false,
 				blockerAlerts: false,
 				quietHoursStart: "00:00",
 				quietHoursEnd: "00:00",
-				mutedProducts: [],
+				mutedTeams: [],
 			},
 		};
 		expect(check.profile.name).toBe("T");

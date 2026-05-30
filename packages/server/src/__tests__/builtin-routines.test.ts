@@ -6,10 +6,8 @@ import {
 	items,
 	knowledgeItems,
 	knowledgeStrategyFabric,
-	products,
-	type Routine,
 	routines,
-	type TestDbHandle,
+	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -35,15 +33,17 @@ const NOW_ISO = "2026-04-18T10:00:00.000Z";
 /** Seed the owner agents the G4 builtins reference. */
 async function seedOwners(db: HyperIdleDb): Promise<void> {
 	await db
-		.insert(products)
+		.insert(teams)
 		.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: NOW_ISO });
-	await db.insert(teams).values({
+
+	await db.insert(teamMembers).values({
 		id: "team-1",
-		productId: "prod-1",
+		teamId: "prod-1",
 		capacity: 5,
 		activeBets: 0,
 		formedAt: NOW_ISO,
 	});
+
 	await db.insert(users).values({
 		id: "seed-agent-cos",
 		name: "Chief of Staff",
@@ -52,6 +52,7 @@ async function seedOwners(db: HyperIdleDb): Promise<void> {
 		maxConcurrentSessions: 1,
 		createdAt: NOW_ISO,
 	});
+
 	await db.insert(users).values({
 		id: "seed-agent-pf-facilitation",
 		name: "Facilitation Practice Facilitator",
@@ -60,6 +61,7 @@ async function seedOwners(db: HyperIdleDb): Promise<void> {
 		maxConcurrentSessions: 1,
 		createdAt: NOW_ISO,
 	});
+
 	await db.insert(users).values({
 		id: "seed-agent-pm-nimmly",
 		name: "Nimmly Product Manager",
@@ -336,21 +338,20 @@ describe("G4: Built-in Routines", () => {
 	});
 
 	// ------------------------------------------------------------------
-	// AC3: Post-Bet Retro — compares hypothesis vs reality for shipped bet
+	// AC3: Post-Bet Retro — compares hypothesis vs reality for completed bet
 	// ------------------------------------------------------------------
 	describe("AC3: Post-Bet Retro", () => {
 		async function seedShippedBet(): Promise<void> {
 			await db.insert(bets).values({
 				id: "bet-shipped-1",
-				productId: "prod-1",
-				teamId: "team-1",
-				pitch: "Ship onboarding flow",
+				teamId: "prod-1",
+				description: "Ship onboarding flow",
 				appetite: "small",
 				hypothesis: "Users will complete onboarding in <3 minutes.",
-				status: "shipped",
-				revisionLog: JSON.stringify([{ field: "status", to: "shipped" }]),
+				status: "completed",
+				revisionLog: JSON.stringify([{ field: "status", to: "completed" }]),
 				createdAt: NOW_ISO,
-				shippedAt: NOW_ISO,
+				completedAt: NOW_ISO,
 			});
 		}
 
@@ -385,7 +386,7 @@ describe("G4: Built-in Routines", () => {
 			expect(itemEvents).toHaveLength(1);
 		});
 
-		it("fires on bet_state_changed(toState=shipped) event when handler is registered", async () => {
+		it("fires on bet_state_changed(toState=completed) event when handler is registered", async () => {
 			await seedBuiltinRoutines(db);
 			await seedShippedBet();
 
@@ -395,8 +396,8 @@ describe("G4: Built-in Routines", () => {
 					type: "bet_state_changed",
 					streamId: "bet-shipped-1",
 					betId: "bet-shipped-1",
-					fromState: "review",
-					toState: "shipped",
+					fromState: "active",
+					toState: "completed",
 					timestamp: Date.now(),
 				};
 				eventBus.emit(shipped);
@@ -432,7 +433,7 @@ describe("G4: Built-in Routines", () => {
 			expect(reviewRows).toHaveLength(1);
 		});
 
-		it("dedupes across consecutive bet_state_changed(toState=shipped) events for same betId", async () => {
+		it("dedupes across consecutive bet_state_changed(toState=completed) events for same betId", async () => {
 			await seedBuiltinRoutines(db);
 			await seedShippedBet();
 
@@ -442,8 +443,8 @@ describe("G4: Built-in Routines", () => {
 					type: "bet_state_changed",
 					streamId: "bet-shipped-1",
 					betId: "bet-shipped-1",
-					fromState: "review",
-					toState: "shipped",
+					fromState: "active",
+					toState: "completed",
 					timestamp: Date.now(),
 				};
 				eventBus.emit(shipped);
@@ -458,22 +459,22 @@ describe("G4: Built-in Routines", () => {
 			}
 		});
 
-		it("does NOT fire on non-shipped bet_state_changed transitions", async () => {
+		it("does NOT fire on non-completed bet_state_changed transitions", async () => {
 			await seedBuiltinRoutines(db);
 			await seedShippedBet();
 
 			const unsub = registerBuiltinRoutineHandlers(db, eventBus);
 			try {
-				// Emit a non-shipped transition — should be ignored
-				const nonShipped: BetStateChangedEvent = {
+				// Emit a non-completed transition — should be ignored
+				const nonCompleted: BetStateChangedEvent = {
 					type: "bet_state_changed",
 					streamId: "bet-shipped-1",
 					betId: "bet-shipped-1",
-					fromState: "shaped",
-					toState: "committed",
+					fromState: "draft",
+					toState: "active",
 					timestamp: Date.now(),
 				};
-				eventBus.emit(nonShipped);
+				eventBus.emit(nonCompleted);
 				await new Promise((r) => setTimeout(r, 20));
 
 				const reviewRows = await db.select().from(items);
@@ -688,12 +689,11 @@ describe("G4: Built-in Routines", () => {
 				.where(eq(routines.id, "builtin:post-bet-retro"));
 			await db.insert(bets).values({
 				id: "bet-inactive-1",
-				productId: "prod-1",
-				teamId: "team-1",
-				pitch: "Ship X",
+				teamId: "prod-1",
+				description: "Ship X",
 				appetite: "small",
 				hypothesis: "Will work",
-				status: "shipped",
+				status: "completed",
 				createdAt: NOW_ISO,
 			});
 
@@ -703,8 +703,8 @@ describe("G4: Built-in Routines", () => {
 					type: "bet_state_changed",
 					streamId: "bet-inactive-1",
 					betId: "bet-inactive-1",
-					fromState: "review",
-					toState: "shipped",
+					fromState: "active",
+					toState: "completed",
 					timestamp: Date.now(),
 				};
 				eventBus.emit(shipped);

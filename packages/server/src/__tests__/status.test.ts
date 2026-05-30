@@ -3,10 +3,10 @@ import {
 	createTestDb,
 	factorySettings,
 	type HyperIdleDb,
-	products,
 	sessions,
 	type TestDbHandle,
 	tasks,
+	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -35,21 +35,20 @@ describe("Status & Settings Endpoints (E6)", () => {
 		app = await createTestApp({ db, eventBus });
 
 		// Seed required data
-		await db.insert(products).values({
+		const now = new Date().toISOString();
+		await db.insert(teams).values({
 			id: "prod-1",
 			name: "Test Product",
 			phase: "build",
-			createdAt: new Date().toISOString(),
+			createdAt: now,
 		});
-
-		await db.insert(teams).values({
+		await db.insert(teamMembers).values({
 			id: "team-1",
-			productId: "prod-1",
+			teamId: "prod-1",
 			capacity: 3,
 			activeBets: 0,
-			formedAt: new Date().toISOString(),
+			formedAt: now,
 		});
-
 		await db.insert(users).values([
 			{
 				id: "agent-1",
@@ -58,7 +57,7 @@ describe("Status & Settings Endpoints (E6)", () => {
 				status: "idle",
 				teamId: "team-1",
 				costActual: 100,
-				createdAt: new Date().toISOString(),
+				createdAt: now,
 			},
 			{
 				id: "agent-2",
@@ -67,29 +66,25 @@ describe("Status & Settings Endpoints (E6)", () => {
 				status: "active",
 				teamId: "team-1",
 				costActual: 200,
-				createdAt: new Date().toISOString(),
+				createdAt: now,
 			},
 		]);
-
 		await db.insert(bets).values({
 			id: "bet-1",
-			productId: "prod-1",
-			teamId: "team-1",
-			pitch: "Test",
+			teamId: "prod-1",
+			description: "Test",
 			appetite: "small",
-			status: "committed",
-			createdAt: new Date().toISOString(),
+			status: "active",
+			createdAt: now,
 		});
-
 		await db.insert(tasks).values({
 			id: "task-1",
 			betId: "bet-1",
-			productId: "prod-1",
-			teamId: "team-1",
+			teamId: "prod-1",
 			title: "Test Task",
 			state: "in_progress",
-			createdAt: new Date().toISOString(),
-			updatedAt: new Date().toISOString(),
+			createdAt: now,
+			updatedAt: now,
 		});
 	});
 

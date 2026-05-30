@@ -15,11 +15,11 @@ import {
 	type HyperIdleDb,
 	messages,
 	notificationQueue,
-	products,
 	propagationLog,
 	sessions,
 	type TestDbHandle,
 	tasks,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -36,19 +36,18 @@ const SYSTEM_PROPAGATION_ID = "system:propagation";
 async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db
-		.insert(products)
+		.insert(teams)
 		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
 
 	await db
-		.insert(teams)
-		.values({ id: "team-1", productId: "prod-1", capacity: 5, activeBets: 1, formedAt: now });
+		.insert(teamMembers)
+		.values({ id: "team-1", teamId: "prod-1", capacity: 5, activeBets: 1, formedAt: now });
 
 	await db.insert(bets).values({
 		id: "bet-1",
-		productId: "prod-1",
-		teamId: "team-1",
-		pitch: "Test bet",
-		status: "in_progress",
+		teamId: "prod-1",
+		description: "Test bet",
+		status: "active",
 		createdAt: now,
 	});
 
@@ -80,8 +79,7 @@ async function seedTask(
 	await db.insert(tasks).values({
 		id,
 		betId,
-		productId: "prod-1",
-		teamId: "team-1",
+		teamId: "prod-1",
 		title: `Task ${id}`,
 		state,
 		createdAt: now,
@@ -377,10 +375,10 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 			timestamp: Date.now(),
 		});
 
-		// Assert: bet is now in review — use vi.waitFor because the handler is async fire-and-forget
+		// Assert: bet is now completed (U1: review status removed, transitions to completed when all tasks done)
 		await vi.waitFor(async () => {
 			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
-			expect(bet?.status).toBe("review");
+			expect(bet?.status).toBe("completed");
 		});
 	});
 
@@ -400,16 +398,17 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 			timestamp: Date.now(),
 		});
 
-		// Assert: bet stays in_progress — wait for handler to finish (skipped log entry appears)
+		// Give handler time to run, then assert bet is still active
 		await vi.waitFor(async () => {
 			const logs = await db
 				.select()
 				.from(propagationLog)
-				.where(eq(propagationLog.status, "skipped"));
+				.where(eq(propagationLog.sourceId, "task-1"));
 			expect(logs.length).toBeGreaterThanOrEqual(1);
 		});
+		// Assert: bet stays active (U1: in_progress merged into active)
 		const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
-		expect(bet?.status).toBe("in_progress");
+		expect(bet?.status).toBe("active");
 	});
 
 	it("transitions bet to review when last task is killed (all remaining terminal)", async () => {
@@ -433,10 +432,10 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 			timestamp: Date.now(),
 		});
 
-		// Assert: bet transitions to review — use vi.waitFor because the handler is async fire-and-forget
+		// Assert: bet transitions to completed (U1: "review" removed)
 		await vi.waitFor(async () => {
 			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
-			expect(bet?.status).toBe("review");
+			expect(bet?.status).toBe("completed");
 		});
 	});
 
@@ -492,8 +491,9 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 			.set({ status: "killed", revisionLog: JSON.stringify([]) })
 			.where(eq(bets.id, "bet-1"));
 
-		// Also decrement activeBets on team (simulate full kill)
-		await db.update(teams).set({ activeBets: 0 }).where(eq(teams.id, "team-1"));
+		// Also decrement activeBets on teamMembers (simulate full kill)
+		// @lore U1: activeBets is on teamMembers (membership group), not teams (domain entity)
+		await db.update(teamMembers).set({ activeBets: 0 }).where(eq(teamMembers.id, "team-1"));
 
 		// Move task-2 to done and fire event (propagation will try review but bet is killed)
 		await db
@@ -543,7 +543,7 @@ describe("registerLifecyclePropagation — re-entrant cascade", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("session_ended cascades: session->task review, then task->bet review when task goes done (F4)", async () => {
+	it("session_ended cascades: session->task review, then task->bet completed when task goes done (F4)", async () => {
 		// Arrange: one task in_progress, one active session
 		await seedTask(db, "task-1", "in_progress");
 		await seedSession(db, "session-1", "task-1", "active");
@@ -591,15 +591,15 @@ describe("registerLifecyclePropagation — re-entrant cascade", () => {
 			type: "task_state_changed",
 			streamId: "task-1",
 			taskId: "task-1",
-			fromState: "review",
+			fromState: "active",
 			toState: "done",
 			timestamp: Date.now(),
 		});
 
-		// Assert: bet is now in review — use vi.waitFor
+		// Assert: bet is now completed (U1: "review" status removed, task->bet propagation transitions to "completed")
 		await vi.waitFor(async () => {
 			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
-			expect(bet?.status).toBe("review");
+			expect(bet?.status).toBe("completed");
 		});
 
 		// Verify hop 2 logged separately
@@ -621,7 +621,7 @@ describe("registerLifecyclePropagation — re-entrant cascade", () => {
 
 // ─── Bet -> Product propagation ───────────────────────────────────────────────
 
-describe("registerLifecyclePropagation — bet -> product", () => {
+describe("registerLifecyclePropagation — bet -> team", () => {
 	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
@@ -636,10 +636,11 @@ describe("registerLifecyclePropagation — bet -> product", () => {
 
 	afterEach(async () => {
 		unsubscribe?.();
+		await handle.close();
 		vi.restoreAllMocks();
 	});
 
-	it("logs propagation_applied entry when bet transitions to shipped", async () => {
+	it("logs propagation_applied entry when bet transitions to completed", async () => {
 		// Arrange
 		unsubscribe = registerLifecyclePropagation(db, eventBus);
 		const propagationEvents: PropagationAppliedEvent[] = [];
@@ -650,24 +651,24 @@ describe("registerLifecyclePropagation — bet -> product", () => {
 			type: "bet_state_changed",
 			streamId: "prod-1",
 			betId: "bet-1",
-			fromState: "review",
-			toState: "shipped",
+			fromState: "active",
+			toState: "completed",
 			timestamp: Date.now(),
 		});
 
-		// Assert: propagation_log records the event — use vi.waitFor because the handler is async fire-and-forget
+		// Assert: propagation_log records the event — use vi.waitFor because handler is async fire-and-forget
 		await vi.waitFor(async () => {
 			const logs = await db
 				.select()
 				.from(propagationLog)
 				.where(and(eq(propagationLog.sourceId, "bet-1"), eq(propagationLog.sourceLevel, "bet")));
 			expect(logs.length).toBeGreaterThanOrEqual(1);
-			expect(logs[0].targetLevel).toBe("product");
+			expect(logs[0].targetLevel).toBe("team"); // @lore U1: renamed from "product" to "team"
 			expect(logs[0].status).toBe("applied");
 		});
 	});
 
-	it("emits propagation_applied event when bet transitions to shipped", async () => {
+	it("emits propagation_applied event when bet transitions to completed", async () => {
 		// Arrange
 		unsubscribe = registerLifecyclePropagation(db, eventBus);
 		const propagationEvents: PropagationAppliedEvent[] = [];
@@ -678,17 +679,17 @@ describe("registerLifecyclePropagation — bet -> product", () => {
 			type: "bet_state_changed",
 			streamId: "prod-1",
 			betId: "bet-1",
-			fromState: "review",
-			toState: "shipped",
+			fromState: "active",
+			toState: "completed",
 			timestamp: Date.now(),
 		});
 
-		// Assert: propagation_applied event emitted — use vi.waitFor because the handler is async fire-and-forget
-		await vi.waitFor(() => {
+		// Assert: propagation_applied event emitted — use vi.waitFor because handler is async fire-and-forget
+		await vi.waitFor(async () => {
 			expect(propagationEvents).toHaveLength(1);
-			expect(propagationEvents[0].sourceId).toBe("bet-1");
-			expect(propagationEvents[0].targetLevel).toBe("product");
 		});
+		expect(propagationEvents[0].sourceId).toBe("bet-1");
+		expect(propagationEvents[0].targetLevel).toBe("team"); // @lore U1: renamed from "product" to "team"
 	});
 
 	it("logs propagation entry when bet transitions to killed", async () => {

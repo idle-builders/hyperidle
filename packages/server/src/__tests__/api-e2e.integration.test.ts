@@ -3,10 +3,10 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	items,
-	products,
 	routines,
 	type TestDbHandle,
 	tasks,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -36,16 +36,16 @@ describe("E2E API Integration (I5)", () => {
 		app = await createTestApp({ db, eventBus });
 
 		// Seed base entities
-		await db.insert(products).values({
+		await db.insert(teams).values({
 			id: "prod-1",
 			name: "E2E Product",
 			phase: "build",
 			createdAt: new Date().toISOString(),
 		});
 
-		await db.insert(teams).values({
+		await db.insert(teamMembers).values({
 			id: "team-1",
-			productId: "prod-1",
+			teamId: "prod-1",
 			capacity: 5,
 			activeBets: 0,
 			formedAt: new Date().toISOString(),
@@ -128,25 +128,25 @@ describe("E2E API Integration (I5)", () => {
 	// 3. Bets
 	// -------------------------------------------------------
 	describe("Bets", () => {
+		// @lore U1: teamId references `teams` domain entity; status "draft" replaces "shaped".
 		it("POST /api/bets creates a shaped bet and GET /api/bets lists it", async () => {
 			const createRes = await app.request("/api/bets", {
 				method: "POST",
 				headers: auth(),
 				body: JSON.stringify({
-					productId: "prod-1",
-					teamId: "team-1",
-					pitch: "E2E integration bet",
+					teamId: "prod-1",
+					description: "E2E integration bet",
 					costAppetite: { minor: 20000, currency: "USD" },
 				}),
 			});
 			expect(createRes.status).toBe(201);
 			const created = (await createRes.json()) as { id: string; status: string };
-			expect(created.status).toBe("shaped");
+			expect(created.status).toBe("draft");
 
 			const listRes = await app.request("/api/bets", { headers: auth() });
 			expect(listRes.status).toBe(200);
-			const list = (await listRes.json()) as { shaped: Array<{ id: string }> };
-			expect(list.shaped.some((b) => b.id === created.id)).toBe(true);
+			const list = (await listRes.json()) as { draft: Array<{ id: string }> };
+			expect(list.draft.some((b) => b.id === created.id)).toBe(true);
 		});
 
 		it("POST /api/bets returns 400 for missing required fields", async () => {
@@ -178,23 +178,23 @@ describe("E2E API Integration (I5)", () => {
 			expect(body.capacity.max).toBe(5);
 		});
 
+		// @lore U1: commit transitions draft→active (formerly shaped→committed).
 		it("POST /api/bets/:id/commit transitions a shaped bet to committed", async () => {
-			// Create a shaped bet first
+			// Create a draft bet first
 			const createRes = await app.request("/api/bets", {
 				method: "POST",
 				headers: auth(),
 				body: JSON.stringify({
-					productId: "prod-1",
-					teamId: "team-1",
-					pitch: "Bet to commit",
+					teamId: "prod-1",
+					description: "Bet to commit",
 					costAppetite: { minor: 20000, currency: "USD" },
 				}),
 			});
 			expect(createRes.status).toBe(201);
 			const created = (await createRes.json()) as { id: string; status: string };
-			expect(created.status).toBe("shaped");
+			expect(created.status).toBe("draft");
 
-			// Commit the bet
+			// Commit the bet (transitions draft→active)
 			const commitRes = await app.request(`/api/bets/${created.id}/commit`, {
 				method: "POST",
 				headers: auth(),
@@ -202,7 +202,8 @@ describe("E2E API Integration (I5)", () => {
 			expect(commitRes.status).toBe(200);
 			const committed = (await commitRes.json()) as { id: string; status: string };
 			expect(committed.id).toBe(created.id);
-			expect(committed.status).toBe("committed");
+			// @lore U1: status "active" replaces "committed"
+			expect(committed.status).toBe("active");
 		});
 	});
 
@@ -211,21 +212,21 @@ describe("E2E API Integration (I5)", () => {
 	// -------------------------------------------------------
 	describe("Tasks", () => {
 		beforeEach(async () => {
+			// @lore U1: teamId references `teams` domain entity (not teamMembers).
 			await db.insert(bets).values({
 				id: "bet-1",
-				productId: "prod-1",
-				teamId: "team-1",
-				pitch: "Test bet",
-				costAppetite: { minor: 20000, currency: "USD" },
-				status: "in_progress",
+				teamId: "prod-1",
+				description: "Test bet",
+				costAppetiteMinor: 20000,
+				costAppetiteCurrency: "USD",
+				status: "active",
 				createdAt: new Date().toISOString(),
 			});
 
 			await db.insert(tasks).values({
 				id: "task-1",
 				betId: "bet-1",
-				productId: "prod-1",
-				teamId: "team-1",
+				teamId: "prod-1",
 				title: "Task A",
 				state: "proposed",
 				createdAt: new Date().toISOString(),
@@ -534,21 +535,21 @@ describe("E2E API Integration (I5)", () => {
 	// -------------------------------------------------------
 	describe("Sessions", () => {
 		beforeEach(async () => {
+			// @lore U1: teamId references `teams` domain entity (not teamMembers).
 			await db.insert(bets).values({
 				id: "bet-s",
-				productId: "prod-1",
-				teamId: "team-1",
-				pitch: "Session bet",
-				costAppetite: { minor: 20000, currency: "USD" },
-				status: "in_progress",
+				teamId: "prod-1",
+				description: "Session bet",
+				costAppetiteMinor: 20000,
+				costAppetiteCurrency: "USD",
+				status: "active",
 				createdAt: new Date().toISOString(),
 			});
 
 			await db.insert(tasks).values({
 				id: "task-s",
 				betId: "bet-s",
-				productId: "prod-1",
-				teamId: "team-1",
+				teamId: "prod-1",
 				title: "Session task",
 				state: "in_progress",
 				createdAt: new Date().toISOString(),

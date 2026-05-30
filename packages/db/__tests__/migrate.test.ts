@@ -64,13 +64,15 @@ describe("applyMigrations", () => {
 		const dataDir = path.join(tmpDir, "pgdata");
 		await applyMigrations(dataDir, REAL_MIGRATIONS_FOLDER);
 
+		// Verify that the teams table is empty (no seed data).
+		// @lore U1: `products` table was renamed to `teams` in migration 0021.
+		// Use PGlite directly (no better-sqlite3 after PGLite migration).
 		const client = new PGlite(dataDir);
 		await client.waitReady;
 		try {
-			const result = await client.query<{ count: string }>(
-				"SELECT COUNT(*) as count FROM products",
-			);
-			expect(Number(result.rows[0]?.count)).toBe(0);
+			const result = await client.query<{ count: string }>("SELECT COUNT(*) as count FROM teams");
+			const count = Number.parseInt(result.rows[0].count, 10);
+			expect(count).toBe(0);
 		} finally {
 			await client.close();
 		}

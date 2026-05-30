@@ -6,7 +6,8 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import { type HyperIdleDb, products, teams, threads, users } from "@hyperidle/db";
+// @lore U1: `products` renamed to `teams`; old `teams` (membership) renamed to `teamMembers`.
+import { type HyperIdleDb, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { ToolContext } from "../tool-registry.js";
 
@@ -44,10 +45,12 @@ export function makeContext(db: HyperIdleDb, overrides: MakeContextOverrides = {
  * product, team, an active practice_facilitator agent, and an item thread.
  */
 export async function seedBase(db: HyperIdleDb): Promise<void> {
-	await db.insert(products).values({ id: "p1", name: "Test", phase: "build", createdAt: NOW });
+	// @lore U1: teams is the domain entity (formerly products); teamMembers is the membership group.
+	await db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: NOW });
 	await db
-		.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+
 	await db.insert(users).values({
 		id: "agent-fac",
 		name: "Facilitator",
@@ -56,6 +59,7 @@ export async function seedBase(db: HyperIdleDb): Promise<void> {
 		maxConcurrentSessions: 1,
 		createdAt: NOW,
 	});
+
 	await db.insert(threads).values({
 		id: "th1",
 		hostKind: "task",

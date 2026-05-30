@@ -128,7 +128,7 @@ describe("ArtifactCostChip renders money via formatMoney (AC20)", () => {
 describe("Rail renders with WireMoney CostInfo (AC23)", () => {
 	// M3 C2: BetItem.product removed, BetItem.progress added
 	const sampleBets: BetItem[] = [
-		{ id: "bet-1", title: "Launch MVP", progress: { done: 2, total: 4 }, status: "committed" },
+		{ id: "bet-1", title: "Launch MVP", progress: { done: 2, total: 4 }, status: "active" },
 	];
 
 	const sampleBlockers: BlockerItem[] = [];

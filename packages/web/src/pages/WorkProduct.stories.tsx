@@ -25,7 +25,7 @@ const MOCK_DETAIL = {
 			id: "b1",
 			pitchTitle: "Auth migration",
 			appetite: "2 weeks",
-			status: "committed" as const,
+			status: "active" as const,
 			progressDone: 1,
 			progressTotal: 2,
 		},

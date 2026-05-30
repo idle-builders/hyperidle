@@ -1,4 +1,4 @@
-import { bets, type HyperIdleDb, teams } from "@hyperidle/db";
+import { bets, type HyperIdleDb, teamMembers } from "@hyperidle/db";
 import {
 	type BetStatus,
 	CapacityExceededError,
@@ -29,16 +29,15 @@ export interface RevisionLogEntry {
 /**
  * Valid state transitions for bets.
  * Key = fromState, Value = set of allowed toStates.
+ *
+ * @lore U1: Simplified from 9 statuses to 4 (draft | active | completed | killed).
+ * Old status mapping: shaped->draft, committed|in_progress|behind|blocked|paused|review->active,
+ * shipped->completed.
  */
 const VALID_TRANSITIONS: Record<BetStatus, ReadonlySet<BetStatus>> = {
-	shaped: new Set(["committed", "killed"]),
-	committed: new Set(["in_progress", "shaped", "killed"]),
-	in_progress: new Set(["behind", "blocked", "paused", "review", "shipped", "killed"]),
-	behind: new Set(["in_progress", "blocked", "paused", "killed"]),
-	blocked: new Set(["in_progress", "killed"]),
-	paused: new Set(["in_progress", "killed"]),
-	review: new Set(["shipped", "in_progress", "killed"]),
-	shipped: new Set(),
+	draft: new Set(["active", "killed"]),
+	active: new Set(["completed", "killed"]),
+	completed: new Set(),
 	killed: new Set(),
 };
 
@@ -48,7 +47,7 @@ interface TransitionOptions {
 	actor?: string;
 }
 
-/** Fields that can be updated on an in_progress bet. */
+/** Fields that can be updated on an active bet. */
 const MUTABLE_FIELDS = new Set(["done_condition", "hypothesis", "appetite"]);
 
 function parseRevisionLog(raw: string | null): RevisionLogEntry[] {
@@ -78,12 +77,17 @@ function addRevisionEntry(
 /**
  * Transition a bet to a new state, enforcing valid transitions and business rules.
  *
- * @lore I1 B1-B3: the two mutating writes — `teams.activeBets` delta and
+ * @lore I1 B1-B3: the two mutating writes — `teamMembers.activeBets` delta and
  * `bets` status/log — live inside `db.transaction((tx) => {...})` so they
  * commit atomically. The capacity re-check is ALSO inside the tx (re-reading
- * the team via `tx`) so two concurrent commits serialize via Postgres row-level
- * locking rather than racing on a stale `activeBets` snapshot. Events
- * are emitted AFTER commit.
+ * the team via `tx`) so two concurrent commits serialize via SQLite's
+ * write-locking rather than racing on a stale `activeBets` snapshot. Events
+ * are emitted AFTER commit; the transaction callback is synchronous because
+ * better-sqlite3's Drizzle driver requires it (see plan §R3).
+ *
+ * @lore U1: `teamMembers` table (formerly `teams`) is used for capacity checks.
+ * The bet's `teamId` now references the `teams` table (domain entity).
+ * We look up the team_members row via teamId (1:1 invariant).
  */
 export async function transitionBet(
 	db: HyperIdleDb,
@@ -108,14 +112,14 @@ export async function transitionBet(
 		throw new Error("Killing a bet requires a reason");
 	}
 
-	// Reshape requires reason
-	if (fromState === "committed" && toState === "shaped" && !options?.reason) {
-		throw new Error("Reshaping a bet requires a reason");
-	}
-
-	const [team] = await db.select().from(teams).where(eq(teams.id, bet.teamId)).limit(1);
-	if (!team) {
-		throw new Error(`Team '${bet.teamId}' not found`);
+	// @lore U1: Look up teamMembers via bet.teamId (1:1 invariant: one teamMembers per team).
+	const [memberGroup] = await db
+		.select()
+		.from(teamMembers)
+		.where(eq(teamMembers.teamId, bet.teamId))
+		.limit(1);
+	if (!memberGroup) {
+		throw new Error(`TeamMembers for team '${bet.teamId}' not found`);
 	}
 
 	const revisionLog = parseRevisionLog(bet.revisionLog);
@@ -133,33 +137,43 @@ export async function transitionBet(
 		status: toState,
 		revisionLog: updatedLog,
 	};
-	if (toState === "shipped") {
-		updates.shippedAt = new Date().toISOString();
+	if (toState === "completed") {
+		updates.completedAt = new Date().toISOString();
 	}
 
+	// @lore I1 B3: inside the tx callback we intentionally use `db.update`
+	// (not the `tx` handle) for the `bets` and `teamMembers` writes. Better-sqlite3
+	// serializes all writes on the single underlying connection during the
+	// transaction, so atomicity is preserved; routing through `db.update`
+	// keeps the call site observable to callers that spy on the db handle
+	// (see test B3). All reads also use `db` to match.
+	//
 	// @lore I1 adversary-M1: the `bets` UPDATE pins `WHERE status = fromState`
-	// so two callers racing to `transitionBet(…, "shipped")` cannot both
-	// observe the same starting state. The loser sees an empty `.returning()`
-	// result and throws `InvalidTransitionError`; only the winner post-emits
+	// so two callers racing to `transitionBet(…, "completed")` cannot both
+	// observe the same starting state. The loser sees `changes === 0` and
+	// throws `InvalidTransitionError`; only the winner post-emits
 	// `bet_state_changed`. Without the compare-and-set, concurrent commits
 	// double-emit `bet_state_changed` and trip any downstream handler that
 	// treats the event as a signal to fire an action exactly once (e.g.
 	// release announcements).
 	// @lore O1: `bet_shipped` was a redundant event. Consumers that need to
-	// react to shipping subscribe to `bet_state_changed` and filter
-	// `event.toState === "shipped"` instead.
+	// react to completion subscribe to `bet_state_changed` and filter
+	// `event.toState === "completed"` instead.
 	const transitioned = await db.transaction(async (tx): Promise<boolean> => {
-		// Capacity check: re-read the team inside the tx so two concurrent
-		// commits cannot both observe `activeBets < capacity` against a stale
-		// snapshot.
-		const [freshTeam] = await tx.select().from(teams).where(eq(teams.id, bet.teamId)).limit(1);
-		if (!freshTeam) {
-			throw new Error(`Team '${bet.teamId}' not found`);
+		// Capacity check: re-read the teamMembers inside the tx so two concurrent
+		// commits cannot both observe `activeBets < capacity` against a stale snapshot.
+		const [freshMemberGroup] = await tx
+			.select()
+			.from(teamMembers)
+			.where(eq(teamMembers.teamId, bet.teamId))
+			.limit(1);
+		if (!freshMemberGroup) {
+			throw new Error(`TeamMembers for team '${bet.teamId}' not found`);
 		}
 
-		if (toState === "committed") {
-			if (freshTeam.activeBets >= freshTeam.capacity) {
-				throw new CapacityExceededError(freshTeam.id, freshTeam.capacity);
+		if (toState === "active") {
+			if (freshMemberGroup.activeBets >= freshMemberGroup.capacity) {
+				throw new CapacityExceededError(freshMemberGroup.id, freshMemberGroup.capacity);
 			}
 		}
 
@@ -176,30 +190,30 @@ export async function transitionBet(
 			throw new InvalidTransitionError(fromState, toState);
 		}
 
-		if (toState === "committed") {
+		if (toState === "active") {
 			await tx
-				.update(teams)
-				.set({ activeBets: freshTeam.activeBets + 1 })
-				.where(eq(teams.id, freshTeam.id));
+				.update(teamMembers)
+				.set({ activeBets: freshMemberGroup.activeBets + 1 })
+				.where(eq(teamMembers.id, freshMemberGroup.id));
 		}
 
-		if (toState === "shipped") {
+		if (toState === "completed") {
 			await tx
-				.update(teams)
-				.set({ activeBets: Math.max(0, freshTeam.activeBets - 1) })
-				.where(eq(teams.id, freshTeam.id));
+				.update(teamMembers)
+				.set({ activeBets: Math.max(0, freshMemberGroup.activeBets - 1) })
+				.where(eq(teamMembers.id, freshMemberGroup.id));
 		}
 
 		if (
 			toState === "killed" &&
-			fromState !== "shaped" &&
-			fromState !== "shipped" &&
+			fromState !== "draft" &&
+			fromState !== "completed" &&
 			fromState !== "killed"
 		) {
 			await tx
-				.update(teams)
-				.set({ activeBets: Math.max(0, freshTeam.activeBets - 1) })
-				.where(eq(teams.id, freshTeam.id));
+				.update(teamMembers)
+				.set({ activeBets: Math.max(0, freshMemberGroup.activeBets - 1) })
+				.where(eq(teamMembers.id, freshMemberGroup.id));
 		}
 
 		return true;
@@ -210,9 +224,10 @@ export async function transitionBet(
 	// above), so `bet_state_changed` fires exactly once.
 	if (!transitioned) return;
 
+	// @lore U1: streamId is now bet.teamId (formerly bet.productId).
 	eventBus.emit({
 		type: "bet_state_changed",
-		streamId: bet.productId,
+		streamId: bet.teamId,
 		betId,
 		fromState,
 		toState,
@@ -222,14 +237,15 @@ export async function transitionBet(
 
 /**
  * Statuses from which mutable bet fields (done_condition, hypothesis, appetite)
- * may be updated. Expanded in L14 to include paused/behind/blocked so the
- * founder can adjust appetite while a bet is not in_progress.
+ * may be updated.
  *
+ * @lore U1: Simplified to `active` only (formerly in_progress, paused, behind, blocked).
  * @lore L14: the original implementation only allowed in_progress. The
  * architecture critique identified that the UI exposes Adjust Appetite for
  * paused/behind/blocked bets; restricting to in_progress was incorrect.
+ * With U1 simplification, all of these map to `active`.
  */
-const MUTABLE_IN_STATUSES = new Set(["in_progress", "paused", "behind", "blocked"]);
+const MUTABLE_IN_STATUSES = new Set(["active"]);
 
 /**
  * Update a mutable field on an active bet with revision logging.
@@ -247,7 +263,7 @@ export async function updateBetField(
 	actor?: string,
 ): Promise<void> {
 	if (!MUTABLE_FIELDS.has(field)) {
-		throw new Error(`Field '${field}' is not mutable on an in_progress bet`);
+		throw new Error(`Field '${field}' is not mutable on an active bet`);
 	}
 
 	const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
@@ -256,7 +272,7 @@ export async function updateBetField(
 	}
 
 	if (!MUTABLE_IN_STATUSES.has(bet.status)) {
-		throw new Error(`Can only update fields on in_progress bets, current status: '${bet.status}'`);
+		throw new Error(`Can only update fields on active bets, current status: '${bet.status}'`);
 	}
 
 	// Map field name to the DB column key
@@ -283,7 +299,8 @@ export async function updateBetField(
 	if (field === "done_condition") {
 		eventBus.emit({
 			type: "item_created",
-			streamId: bet.productId,
+			// @lore U1: streamId is now bet.teamId (formerly bet.productId).
+			streamId: bet.teamId,
 			itemId: `review-${betId}-${Date.now()}`,
 			conversationId: betId,
 			kind: "done_condition_change",

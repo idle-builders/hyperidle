@@ -1,3 +1,8 @@
+/**
+ * @lore U1: BetStatus simplified from 9 to 4 values.
+ * shaped → draft, committed|in_progress → active, shipped → completed.
+ * Tests updated to use new status values.
+ */
 import { BetCard } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -6,7 +11,8 @@ describe("BetCard", () => {
 	const defaultProps = {
 		title: "Mobile App V2",
 		product: "HyperIdle",
-		status: "committed" as const,
+		// @lore U1: "active" replaces "committed" and "in_progress"
+		status: "active" as const,
 		appetite: "6 weeks",
 	};
 
@@ -23,8 +29,8 @@ describe("BetCard", () => {
 	});
 
 	it("renders status as StatusChip via betStatusToStatus mapping", () => {
-		render(<BetCard {...defaultProps} status="committed" />);
-		// committed maps to healthy
+		// @lore U1: "active" maps to "healthy"
+		render(<BetCard {...defaultProps} status="active" />);
 		expect(screen.getByText("HEALTHY")).toBeInTheDocument();
 	});
 
@@ -39,18 +45,21 @@ describe("BetCard", () => {
 		expect(appetiteValue).toBeVisible();
 	});
 
-	it("renders shaped status as PAUSED chip", () => {
-		render(<BetCard {...defaultProps} status="shaped" />);
+	it("renders draft status as PAUSED chip", () => {
+		// @lore U1: "draft" (formerly "shaped") maps to "paused"
+		render(<BetCard {...defaultProps} status="draft" />);
 		expect(screen.getByText("PAUSED")).toBeInTheDocument();
 	});
 
-	it("renders in_progress status as HEALTHY chip", () => {
-		render(<BetCard {...defaultProps} status="in_progress" />);
+	it("renders active status as HEALTHY chip", () => {
+		// @lore U1: "active" covers committed + in_progress
+		render(<BetCard {...defaultProps} status="active" />);
 		expect(screen.getByText("HEALTHY")).toBeInTheDocument();
 	});
 
-	it("renders shipped status as DONE chip", () => {
-		render(<BetCard {...defaultProps} status="shipped" />);
+	it("renders completed status as DONE chip", () => {
+		// @lore U1: "completed" (formerly "shipped") maps to "done"
+		render(<BetCard {...defaultProps} status="completed" />);
 		expect(screen.getByText("DONE")).toBeInTheDocument();
 	});
 
@@ -87,15 +96,16 @@ describe("BetCard", () => {
 		render(<BetCard {...defaultProps} />);
 		// Tag for product
 		expect(screen.getByText("HyperIdle")).toHaveClass("inline-flex", "rounded-[var(--r2)]");
-		// StatusChip for status
+		// StatusChip for status (active → HEALTHY)
 		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-full");
 		// KeyValue for appetite
 		expect(screen.getByText("6 weeks")).toBeInTheDocument();
 	});
 
-	it("all 5 BetStatus values produce visually distinct chips", () => {
-		const statuses = ["shaped", "committed", "in_progress", "shipped", "killed"] as const;
-		const expectedChips = ["PAUSED", "HEALTHY", "HEALTHY", "DONE", "ERROR"];
+	it("all 4 BetStatus values (U1) produce visually distinct chips", () => {
+		// @lore U1: 4 statuses — draft, active, completed, killed
+		const statuses = ["draft", "active", "completed", "killed"] as const;
+		const expectedChips = ["PAUSED", "HEALTHY", "DONE", "ERROR"];
 		for (let i = 0; i < statuses.length; i++) {
 			const { unmount } = render(<BetCard {...defaultProps} status={statuses[i]} />);
 			expect(screen.getByText(expectedChips[i])).toBeInTheDocument();

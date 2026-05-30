@@ -17,10 +17,10 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	knowledgeItems,
-	products,
 	sessions,
 	type TestDbHandle,
 	tasks,
+	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -37,20 +37,19 @@ const NOW = "2026-04-16T00:00:00.000Z";
 
 async function seedDomain(db: HyperIdleDb): Promise<void> {
 	await db
-		.insert(products)
+		.insert(teams)
 		.values({ id: "p1", name: "Integration Product", phase: "build", createdAt: NOW });
 
 	await db
-		.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 
 	await db.insert(bets).values({
 		id: "b1",
-		productId: "p1",
-		teamId: "t1",
-		pitch: "Integration bet",
+		teamId: "p1",
+		description: "Integration bet",
 		appetite: "small",
-		status: "committed",
+		status: "active",
 		createdAt: NOW,
 	});
 
@@ -68,8 +67,7 @@ async function seedDomain(db: HyperIdleDb): Promise<void> {
 	await db.insert(tasks).values({
 		id: "task-1",
 		betId: "b1",
-		productId: "p1",
-		teamId: "t1",
+		teamId: "p1",
 		title: "Integration task",
 		state: "accepted",
 		createdAt: NOW,

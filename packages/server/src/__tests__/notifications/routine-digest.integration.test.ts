@@ -18,10 +18,10 @@ import {
 	factorySettings,
 	type HyperIdleDb,
 	notificationQueue,
-	products,
 	routines,
 	type TestDbHandle,
 	tasks,
+	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -73,10 +73,11 @@ async function enable(db: HyperIdleDb): Promise<void> {
 
 async function seedFixture(db: HyperIdleDb): Promise<void> {
 	const now = "2026-04-18T00:00:00.000Z";
-	await db.insert(products).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
-	await db.insert(teams).values({
+	await db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
+	// @lore U1: teamMembers.teamId references teams.id (domain entity, formerly productId)
+	await db.insert(teamMembers).values({
 		id: "t1",
-		productId: "p1",
+		teamId: "p1",
 		capacity: 5,
 		activeBets: 0,
 		formedAt: now,
@@ -93,22 +94,24 @@ async function seedFixture(db: HyperIdleDb): Promise<void> {
 
 	await db.insert(bets).values({
 		id: "b1",
-		productId: "p1",
-		teamId: "t1",
-		pitch: "seed",
+		// @lore U1: bets.teamId references teams.id (domain entity = "p1"), not teamMembers.id
+		teamId: "p1",
+		// @lore U1: pitch renamed to description, shaped renamed to draft
+		description: "seed",
 		appetite: "small",
-		status: "shaped",
+		status: "draft",
 		createdAt: now,
 	});
 
 	await db.insert(tasks).values({
 		id: "task-daily-digest",
 		betId: "b1",
-		productId: "p1",
-		teamId: "t1",
+		// @lore U1: tasks.teamId references teams.id (domain entity = "p1"), not teamMembers.id
+		teamId: "p1",
 		ownerAgentId: "agent-cos",
 		title: "Digest anchor",
-		state: "ready",
+		// @lore U1: "ready" is not a valid task state; use "accepted" for not-yet-started
+		state: "accepted",
 		createdAt: now,
 		updatedAt: now,
 	});

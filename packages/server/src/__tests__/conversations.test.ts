@@ -2,8 +2,7 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	items,
-	products,
-	type TestDbHandle,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -34,16 +33,16 @@ describe("Conversations Endpoints (E2)", () => {
 		app = await createTestApp({ db, eventBus });
 
 		// Seed base data
-		await db.insert(products).values({
+		await db.insert(teams).values({
 			id: "prod-1",
 			name: "Test Product",
 			phase: "build",
 			createdAt: new Date().toISOString(),
 		});
 
-		await db.insert(teams).values({
+		await db.insert(teamMembers).values({
 			id: "team-1",
-			productId: "prod-1",
+			teamId: "prod-1",
 			capacity: 3,
 			activeBets: 0,
 			formedAt: new Date().toISOString(),

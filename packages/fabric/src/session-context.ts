@@ -1,4 +1,10 @@
-import { bets, type HyperIdleDb, products, tasks, users } from "@hyperidle/db";
+/**
+ * @lore U1: `products` table renamed to `teams`. `bet.pitch` renamed to `bet.description`.
+ * Interface field `productId` kept for backward compat (value is now a teams.id).
+ * `SessionContextData.bet.pitch` renamed to `description`.
+ * `SessionContextData.product` renamed to `team`.
+ */
+import { bets, type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
 import type { UserRole } from "@hyperidle/shared";
 import { encode } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
@@ -8,6 +14,7 @@ export interface SessionContextConfig {
 	taskId: string;
 	agentId: string;
 	agentRole: UserRole;
+	/** @lore U1: formerly referenced products.id; now references teams.id. */
 	productId: string;
 }
 
@@ -20,7 +27,8 @@ export interface SessionContextData {
 	};
 	bet: {
 		id: string;
-		pitch: string;
+		/** @lore U1: formerly `pitch`, now `description`. */
+		description: string;
 		appetite: string;
 		doneCondition: string | null;
 	};
@@ -29,7 +37,8 @@ export interface SessionContextData {
 		name: string;
 		role: string;
 	};
-	product: {
+	/** @lore U1: formerly `product`, now `team` (domain entity). */
+	team: {
 		id: string;
 		name: string;
 	};
@@ -55,13 +64,10 @@ export async function buildSessionContext(
 		throw new Error(`Agent ${config.agentId} not found`);
 	}
 
-	const [product] = await db
-		.select()
-		.from(products)
-		.where(eq(products.id, config.productId))
-		.limit(1);
-	if (!product) {
-		throw new Error(`Product ${config.productId} not found`);
+	// @lore U1: productId now holds a teams.id value (the domain entity id).
+	const [team] = await db.select().from(teams).where(eq(teams.id, config.productId)).limit(1);
+	if (!team) {
+		throw new Error(`Team ${config.productId} not found`);
 	}
 
 	const data: SessionContextData = {
@@ -73,7 +79,8 @@ export async function buildSessionContext(
 		},
 		bet: {
 			id: bet.id,
-			pitch: bet.pitch,
+			// @lore U1: `description` replaces `pitch`.
+			description: bet.description,
 			appetite: bet.appetite,
 			doneCondition: bet.doneCondition,
 		},
@@ -82,9 +89,10 @@ export async function buildSessionContext(
 			name: agent.name,
 			role: agent.role,
 		},
-		product: {
-			id: product.id,
-			name: product.name,
+		// @lore U1: `team` replaces `product` in the session context data.
+		team: {
+			id: team.id,
+			name: team.name,
 		},
 	};
 

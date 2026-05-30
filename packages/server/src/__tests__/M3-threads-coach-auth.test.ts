@@ -6,14 +6,7 @@
  * Tests seed a human user row to drive identity resolution.
  */
 
-import {
-	createTestDb,
-	type HyperIdleDb,
-	products,
-	type TestDbHandle,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -106,18 +99,17 @@ describe("M3 — Thread route readSenderId + readInitialSenderId use auth contex
 		// P2: seedFounderUser seeds kind='human' so auth middleware resolves this user
 		await seedFounderUser(db, "test-founder-1");
 
+		// @lore U1: `teams` is the domain entity (formerly `products`); `teamMembers` is the membership group.
 		await db
-			.insert(products)
+			.insert(teams)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
-
-		await db.insert(teams).values({
+		await db.insert(teamMembers).values({
 			id: "team-1",
-			productId: "prod-1",
+			teamId: "prod-1",
 			capacity: 3,
 			activeBets: 0,
 			formedAt: now,
 		});
-
 		// Note: "test-founder-1" is already seeded by seedFounderUser above — no duplicate insert.
 	});
 

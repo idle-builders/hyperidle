@@ -221,8 +221,12 @@ export interface ThreadArchivedEvent {
  * @lore O1: PropagationLevel moved to @hyperidle/fabric. This inline literal
  * union avoids importing from fabric in shared (boundary rule: kernel never
  * imports from strategy). The canonical definition is in @hyperidle/fabric.
+ *
+ * @lore U1: "product" renamed to "team" in propagation levels. The propagation
+ * hierarchy is: session -> task -> bet -> team -> portfolio.
+ * Note: "product" scope kind in knowledge_items is UNCHANGED (different taxonomy).
  */
-type PropagationLevelLiteral = "session" | "task" | "bet" | "product" | "portfolio";
+type PropagationLevelLiteral = "session" | "task" | "bet" | "team" | "portfolio";
 
 /** L20: Emitted when lifecycle propagation successfully applies a transition. */
 export interface PropagationAppliedEvent {

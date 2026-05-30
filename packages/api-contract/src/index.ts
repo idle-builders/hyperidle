@@ -17,7 +17,8 @@ export type {
 	AutonomyLevel,
 	SettingsAgent,
 	SettingsNotifications,
-	SettingsProduct,
 	SettingsProfile,
 	SettingsResponse,
+	SettingsTeam,
+	SettingsUser,
 } from "./settings.js";

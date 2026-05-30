@@ -1,12 +1,16 @@
 /**
- * L13 — Read-side types for the Product page composite endpoint.
+ * L13 — Read-side types for the Team page composite endpoint.
  *
  * These are wire types returned by GET /api/products and GET /api/products/:id.
- * The ProductDetail shape drives the WorkProduct page composition.
+ * The TeamDetail shape drives the WorkTeam page composition.
  *
  * @lore L13: Product = Team 1:1 invariant. The public identifier is always the
- * product id; team_id is an internal join key not surfaced in URLs or copy.
+ * team id (formerly product id); the agent-membership group is an internal join key.
  * See plans/L13/concept.md §"What 1:1 actually means".
+ *
+ * @lore U1: File renamed from product.ts to team.ts. All Product* types renamed
+ * to Team*. BetCardSummary.pitchTitle renamed to BetCardSummary.descriptionTitle.
+ * deriveTitleFromPitch renamed to deriveTitle in format/bet.ts.
  */
 
 import type { WireMoney } from "./types/money.js";
@@ -22,14 +26,14 @@ import type { BetStatus } from "./types.js";
  * relevant subset here to keep the wire contract in shared without a circular
  * dep. Both must stay in sync if the StatusChip type ever widens.
  */
-export type ProductStatus = "healthy" | "behind" | "blocked";
+export type TeamStatus = "healthy" | "behind" | "blocked";
 
-export interface ProductSummary {
+export interface TeamSummary {
 	id: string;
 	name: string;
 	phase: string; // "shape" | "build" | "cool-down" | …
-	status: ProductStatus; // derived server-side
-	leadAgentId: string | null; // teams.lead_agent_id; null on a freshly-created team
+	status: TeamStatus; // derived server-side
+	leadAgentId: string | null; // team_members.lead_agent_id; null on a freshly-created team
 }
 
 export interface RosterMember {
@@ -39,53 +43,55 @@ export interface RosterMember {
 	isLead: boolean; // matches leadAgentId on the team
 }
 
-export interface ProductBurn {
+export interface TeamBurn {
 	// L17: changed from number to WireMoney|null to support structured money.
 	costActual: WireMoney | null;
 	costCap: WireMoney | null;
-	capacity: number; // teams.capacity (max parallel bets)
-	activeBets: number; // teams.active_bets cached counter
+	capacity: number; // team_members.capacity (max parallel bets)
+	activeBets: number; // team_members.active_bets cached counter
 }
 
 export interface BetCardSummary {
 	id: string;
-	pitchTitle: string; // first non-empty line of bets.pitch
+	// @lore U1: `descriptionTitle` was formerly `pitchTitle`. Derives a display
+	// title from bets.description (formerly bets.pitch).
+	descriptionTitle: string;
 	// L17: replaced appetite: string with structured WireMoney.
 	costAppetite: WireMoney | null;
-	status: BetStatus; // "committed" | "in_progress"
+	status: BetStatus; // "active" in new lifecycle
 	progressDone: number; // count(tasks where state='done')
 	progressTotal: number; // count(tasks)
 }
 
-export interface ProductDetail {
-	product: ProductSummary;
-	team: { id: string; formedAt: string; dissolvedAt: string | null };
+export interface TeamDetail {
+	team: TeamSummary;
+	teamMembers: { id: string; formedAt: string; dissolvedAt: string | null };
 	roster: RosterMember[]; // sorted: lead first, then by name asc
-	burn: ProductBurn;
-	activeBets: BetCardSummary[]; // bets WHERE product_id = :id AND status IN ('committed','in_progress')
+	burn: TeamBurn;
+	activeBets: BetCardSummary[]; // bets WHERE team_id = :id AND status = 'active'
 }
 
 /**
  * Shape returned by GET /api/products (the list endpoint used by Portfolio).
- * Extends ProductSummary with portfolio-level counters.
+ * Extends TeamSummary with portfolio-level counters.
  */
-export interface ProductListItem extends ProductSummary {
-	activeBets: number; // count of committed+in_progress bets
-	shipped: number; // count of shipped bets
+export interface TeamListItem extends TeamSummary {
+	activeBets: number; // count of active bets
+	shipped: number; // count of completed bets
 	shipRate: string; // percentage string, e.g. "67%" or "—" when no history
 	progress: { done: number; total: number }; // sum across active bets
 }
 
-export interface ProductListResponse {
-	products: ProductListItem[];
+export interface TeamListResponse {
+	teams: TeamListItem[];
 }
 
-export interface CreateProductRequest {
+export interface CreateTeamRequest {
 	name: string;
 	repoPath?: string;
 }
 
-export interface CreateProductResponse {
-	product: { id: string; name: string; phase: string };
-	team: { id: string };
+export interface CreateTeamResponse {
+	team: { id: string; name: string; phase: string };
+	teamMembers: { id: string };
 }

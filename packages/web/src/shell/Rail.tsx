@@ -258,11 +258,12 @@ export function Rail({
 	if (!expanded) {
 		// @lore J2 AC 51: collapsed Rail surfaces three semantic pills
 		// (BLK/REV/PSD). Pills only render when count > 0 — silent when nothing.
-		// PSD derives from bets.filter(status==="paused") until paused agents
-		// land as a first-class entity (see J2 plan §3 CONFUSION).
+		// @lore U1: old "review" and "paused" statuses no longer exist. REV now
+		// maps to "draft" (bets awaiting commitment), PSD maps to "completed"
+		// (bets finished — quiet signal). "active" bets are the committed set.
 		const blkCount = blockers.length;
-		const revCount = bets.filter((b) => b.status === "review").length;
-		const psdCount = bets.filter((b) => b.status === "paused").length;
+		const revCount = bets.filter((b) => b.status === "draft").length;
+		const psdCount = bets.filter((b) => b.status === "completed").length;
 		const totalBets = bets.length;
 		// @lore Design system mandates GPU-only animations (transform, opacity). Width
 		// transitions are not GPU-accelerated but are necessary here because the Rail

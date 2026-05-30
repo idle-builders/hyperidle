@@ -82,6 +82,7 @@ describe("P2 — org_edges table (AC5)", () => {
 				>[0],
 			);
 			const cols = new Set(
+				// biome-ignore lint/style/useNamingConvention: SQL column names from information_schema use snake_case
 				(result as { rows: Array<{ column_name: string }> }).rows.map((r) => r.column_name),
 			);
 

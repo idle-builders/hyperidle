@@ -2,13 +2,13 @@ import {
 	createTestDb,
 	factorySettings,
 	type HyperIdleDb,
-	products,
 	type TestDbHandle,
+	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
 import { isInSilenceWindow, isSilenced } from "@hyperidle/fabric";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 describe("isInSilenceWindow", () => {
 	it("returns true when now is exactly at window start", () => {
@@ -95,29 +95,32 @@ describe("isSilenced", () => {
 	beforeEach(async () => {
 		handle = await createTestDb();
 		db = handle.db;
-		await db.insert(products).values({
+		await db.insert(teams).values({
 			id: "prod-1",
 			name: "Test Product",
 			phase: "build",
 			createdAt: new Date().toISOString(),
 		});
-
-		await db.insert(teams).values({
+		await db.insert(teamMembers).values({
 			id: "team-1",
-			productId: "prod-1",
+			teamId: "prod-1",
 			capacity: 3,
 			activeBets: 0,
 			formedAt: new Date().toISOString(),
 		});
-
 		await db.insert(users).values({
 			id: "agent-1",
+			kind: "ai",
 			name: "Test Agent",
 			role: "builder",
 			status: "active",
 			teamId: "team-1",
 			createdAt: new Date().toISOString(),
 		});
+	});
+
+	afterEach(async () => {
+		await handle.close();
 	});
 
 	it("returns true when factory-wide silence_mode is enabled", async () => {

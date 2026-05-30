@@ -9,9 +9,9 @@ import {
 	bets,
 	createTestDb,
 	type HyperIdleDb,
-	products,
 	sessions,
 	tasks,
+	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -41,11 +41,13 @@ describe("GET /api/sessions/:id/activity (Q1 §3.2)", () => {
 
 		// Seed required data
 		await db
-			.insert(products)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW });
-		await db
 			.insert(teams)
-			.values({ id: "team-1", productId: "prod-1", capacity: 3, activeBets: 0, formedAt: NOW });
+			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW });
+
+		await db
+			.insert(teamMembers)
+			.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: NOW });
+
 		await db.insert(users).values({
 			id: "agent-1",
 			name: "Builder",
@@ -55,25 +57,26 @@ describe("GET /api/sessions/:id/activity (Q1 §3.2)", () => {
 			teamId: "team-1",
 			createdAt: NOW,
 		});
+
 		await db.insert(bets).values({
 			id: "bet-1",
-			productId: "prod-1",
-			teamId: "team-1",
-			pitch: "Test",
+			teamId: "prod-1",
+			description: "Test",
 			appetite: "small",
-			status: "committed",
+			status: "active",
 			createdAt: NOW,
 		});
+
 		await db.insert(tasks).values({
 			id: "task-1",
 			betId: "bet-1",
-			productId: "prod-1",
-			teamId: "team-1",
+			teamId: "prod-1",
 			title: "Task 1",
 			state: "in_progress",
 			createdAt: NOW,
 			updatedAt: NOW,
 		});
+
 		await db.insert(sessions).values({
 			id: "sess-1",
 			agentId: "agent-1",

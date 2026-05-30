@@ -2,25 +2,28 @@
  * R2 — BetCreateDialog component tests (updated from Q3)
  *
  * R2 AC coverage:
- * AC-6: BetCreateDialog requires only title and pitch. Product picker is removed (uses default product).
- *   - Hides product select when only one product is provided
- *   - Shows product select when multiple products are provided
- *   - Create button enabled with pitch only (single product)
+ * AC-6: BetCreateDialog requires only title and description. Team picker is removed (uses default team).
+ *   - Hides team select when only one team is provided
+ *   - Shows team select when multiple teams are provided
+ *   - Create button enabled with description only (single team)
  *   - Does not render appetite fields
  *
  * Q3 tests retained:
  *   - Title preview tests (unchanged)
- *   - "renders a pitch textarea" (unchanged)
+ *   - "renders a description textarea" (unchanged)
  *   - Cancel / close tests (unchanged)
  *   - Touch target tests (unchanged)
  *
  * Q3 tests removed per R2 architecture:
- *   - "renders a product select field" → hidden when single product (AC-6)
- *   - "renders all provided products in the product select" → hidden when single product
+ *   - "renders a team select field" → hidden when single team (AC-6)
+ *   - "renders all provided teams in the team select" → hidden when single team
  *   - "renders optional appetite amount input" → appetite removed (AC-6)
  *   - "renders optional appetite currency select" → appetite removed (AC-6)
- *   - "Create button is disabled when no product selected" → no longer applies for single product
+ *   - "Create button is disabled when no team selected" → no longer applies for single team
  *   - "appetite amount field accepts decimal values" → appetite removed
+ *
+ * @lore U1: Renamed `products` prop → `teams`, `MOCK_PRODUCTS` → `MOCK_TEAMS`,
+ * label queries updated from /product/i → /team/i to match the F3 rename.
  */
 
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -32,11 +35,11 @@ vi.mock("../services/api-fetch.js", () => ({
 	apiFetch: vi.fn(),
 }));
 
-const SINGLE_PRODUCT = [{ id: "prod-1", name: "Test Product" }];
+const SINGLE_TEAM = [{ id: "team-1", name: "Test Team" }];
 
-const MULTIPLE_PRODUCTS = [
-	{ id: "prod-1", name: "Test Product" },
-	{ id: "prod-2", name: "Another Product" },
+const MULTIPLE_TEAMS = [
+	{ id: "team-1", name: "Test Team" },
+	{ id: "team-2", name: "Another Team" },
 ];
 
 function openDialog(
@@ -47,52 +50,52 @@ function openDialog(
 			open={true}
 			onClose={vi.fn()}
 			onCreated={vi.fn()}
-			products={SINGLE_PRODUCT}
+			teams={SINGLE_TEAM}
 			{...overrides}
 		/>,
 	);
 }
 
 describe("BetCreateDialog (R2)", () => {
-	// AC-6: Product select hidden when only one product provided
-	describe("AC6 — single product: product select is hidden", () => {
-		it("hides product select when only one product provided", () => {
-			openDialog({ products: SINGLE_PRODUCT });
-			// Product select must NOT be present when only one product
-			expect(screen.queryByLabelText(/product/i)).not.toBeInTheDocument();
+	// AC-6: Team select hidden when only one team provided
+	describe("AC6 — single team: team select is hidden", () => {
+		it("hides team select when only one team provided", () => {
+			openDialog({ teams: SINGLE_TEAM });
+			// Team select must NOT be present when only one team
+			expect(screen.queryByLabelText(/team/i)).not.toBeInTheDocument();
 		});
 
-		it("Create button enabled with pitch only (single product — no product selection needed)", () => {
-			openDialog({ products: SINGLE_PRODUCT });
+		it("Create button enabled with description only (single team — no team selection needed)", () => {
+			openDialog({ teams: SINGLE_TEAM });
 
-			// Fill only pitch — no product selection required
-			const pitchTextarea = screen.getByLabelText(/pitch/i);
-			fireEvent.change(pitchTextarea, { target: { value: "A valid pitch" } });
+			// Fill only description — no team selection required
+			const descriptionTextarea = screen.getByLabelText(/description/i);
+			fireEvent.change(descriptionTextarea, { target: { value: "A valid description" } });
 
 			const createBtn = screen.getByRole("button", { name: /create/i });
 			expect(createBtn).not.toBeDisabled();
 		});
 	});
 
-	// AC-6: Product select shows when multiple products provided
-	describe("AC6 — multiple products: product select is shown", () => {
-		it("shows product select when multiple products provided", () => {
-			openDialog({ products: MULTIPLE_PRODUCTS });
-			expect(screen.getByLabelText(/product/i)).toBeInTheDocument();
+	// AC-6: Team select shows when multiple teams provided
+	describe("AC6 — multiple teams: team select is shown", () => {
+		it("shows team select when multiple teams provided", () => {
+			openDialog({ teams: MULTIPLE_TEAMS });
+			expect(screen.getByLabelText(/team/i)).toBeInTheDocument();
 		});
 
-		it("renders all provided products in the product select when multiple products", () => {
-			openDialog({ products: MULTIPLE_PRODUCTS });
-			expect(screen.getByRole("option", { name: "Test Product" })).toBeInTheDocument();
-			expect(screen.getByRole("option", { name: "Another Product" })).toBeInTheDocument();
+		it("renders all provided teams in the team select when multiple teams", () => {
+			openDialog({ teams: MULTIPLE_TEAMS });
+			expect(screen.getByRole("option", { name: "Test Team" })).toBeInTheDocument();
+			expect(screen.getByRole("option", { name: "Another Team" })).toBeInTheDocument();
 		});
 
-		it("Create button disabled when multiple products but none selected", () => {
-			openDialog({ products: MULTIPLE_PRODUCTS });
-			const pitchTextarea = screen.getByLabelText(/pitch/i);
-			fireEvent.change(pitchTextarea, { target: { value: "A valid pitch" } });
+		it("Create button disabled when multiple teams but none selected", () => {
+			openDialog({ teams: MULTIPLE_TEAMS });
+			const descriptionTextarea = screen.getByLabelText(/description/i);
+			fireEvent.change(descriptionTextarea, { target: { value: "A valid description" } });
 
-			// No product selected yet — create should be disabled
+			// No team selected yet — create should be disabled
 			const createBtn = screen.getByRole("button", { name: /create/i });
 			expect(createBtn).toBeDisabled();
 		});
@@ -111,11 +114,11 @@ describe("BetCreateDialog (R2)", () => {
 		});
 	});
 
-	// Pitch textarea still required
+	// Description textarea still required
 	describe("fields present", () => {
-		it("renders a pitch textarea", () => {
+		it("renders a description textarea", () => {
 			openDialog();
-			expect(screen.getByLabelText(/pitch/i)).toBeInTheDocument();
+			expect(screen.getByLabelText(/description/i)).toBeInTheDocument();
 		});
 
 		it("renders title preview area", () => {
@@ -133,28 +136,30 @@ describe("BetCreateDialog (R2)", () => {
 			expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument();
 		});
 
-		it("uses <label> elements for field labels", () => {
+		it("uses <label> elements for field labels (W-2 design critique)", () => {
 			const { container } = openDialog();
 			const labels = container.querySelectorAll("label");
 			expect(labels.length).toBeGreaterThan(0);
 		});
 	});
 
-	// Validation: empty pitch → Create disabled
-	describe("validation: empty pitch", () => {
-		it("Create button is disabled when pitch is empty (single product)", () => {
-			openDialog({ products: SINGLE_PRODUCT });
+	// Validation: empty description → Create disabled
+	describe("validation: empty description", () => {
+		it("Create button is disabled when description is empty (single team)", () => {
+			openDialog({ teams: SINGLE_TEAM });
 			const createBtn = screen.getByRole("button", { name: /create/i });
 			expect(createBtn).toBeDisabled();
 		});
 	});
 
-	// Title preview derives from pitch
-	describe("Title preview updates from pitch", () => {
-		it("shows derived title when pitch has a heading", () => {
+	// Title preview derives from description
+	describe("Title preview updates from description", () => {
+		it("shows derived title when description has a heading", () => {
 			openDialog();
-			const pitchTextarea = screen.getByLabelText(/pitch/i);
-			fireEvent.change(pitchTextarea, { target: { value: "# My Feature\n\nSome body text." } });
+			const descriptionTextarea = screen.getByLabelText(/description/i);
+			fireEvent.change(descriptionTextarea, {
+				target: { value: "# My Feature\n\nSome body text." },
+			});
 
 			const preview = screen.getByTestId("bet-title-preview");
 			expect(preview.textContent).toContain("My Feature");
@@ -162,14 +167,14 @@ describe("BetCreateDialog (R2)", () => {
 
 		it("shows first line as title when no heading marker", () => {
 			openDialog();
-			const pitchTextarea = screen.getByLabelText(/pitch/i);
-			fireEvent.change(pitchTextarea, { target: { value: "Plain first line" } });
+			const descriptionTextarea = screen.getByLabelText(/description/i);
+			fireEvent.change(descriptionTextarea, { target: { value: "Plain first line" } });
 
 			const preview = screen.getByTestId("bet-title-preview");
 			expect(preview.textContent).toContain("Plain first line");
 		});
 
-		it("shows placeholder when pitch is empty", () => {
+		it("shows placeholder when description is empty", () => {
 			openDialog();
 			const preview = screen.getByTestId("bet-title-preview");
 			expect(preview).toBeInTheDocument();
@@ -191,12 +196,7 @@ describe("BetCreateDialog (R2)", () => {
 	describe("open=false — dialog is not mounted or not open", () => {
 		it("does not render form fields when open=false", () => {
 			render(
-				<BetCreateDialog
-					open={false}
-					onClose={vi.fn()}
-					onCreated={vi.fn()}
-					products={SINGLE_PRODUCT}
-				/>,
+				<BetCreateDialog open={false} onClose={vi.fn()} onCreated={vi.fn()} teams={SINGLE_TEAM} />,
 			);
 			const createBtn = screen.queryByRole("button", { name: /create/i });
 			if (createBtn) {
