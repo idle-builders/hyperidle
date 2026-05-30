@@ -18,7 +18,13 @@
  */
 
 import * as crypto from "node:crypto";
-import { type HyperIdleDb, type Item, items as itemsTable, notificationQueue } from "@hyperidle/db";
+import {
+	type HyperIdleDb,
+	type Item,
+	items as itemsTable,
+	notificationQueue,
+	serverConfig as serverConfigTable,
+} from "@hyperidle/db";
 import {
 	type CostCapBreachedEvent,
 	type CostCapWarningEvent,
@@ -29,7 +35,7 @@ import {
 	type RoutineFiredEvent,
 } from "@hyperidle/shared";
 import { and, asc, eq, lt, sql } from "drizzle-orm";
-import { isSilenced } from "../silence-policy.js";
+import { isInSilenceWindow, isSilenced } from "../silence-policy.js";
 import { loadNotificationConfig, type NotificationConfig, pickRecipient } from "./config.js";
 import { type DigestResult, runDailyDigest } from "./digest.js";
 import { scrubErrorMessage } from "./redact.js";
@@ -44,6 +50,108 @@ import type {
 	Recipient,
 	SendResult,
 } from "./types.js";
+
+/**
+ * @lore R8: Alert preferences read from server_config. All default true so
+ * the system is fail-open: if the config is missing or unparseable, all
+ * alerts are delivered. Hard cost breaches bypass all preferences — they
+ * are safety-critical and cannot be disabled by operator configuration.
+ */
+export interface AlertPreferences {
+	readonly blockerAlerts: boolean;
+	readonly costAlerts: boolean;
+	readonly reviewAlerts: boolean;
+	readonly quietHoursEnabled: boolean;
+	readonly quietHoursStart: string;
+	readonly quietHoursEnd: string;
+}
+
+const ALERT_PREFS_DEFAULTS: AlertPreferences = {
+	blockerAlerts: true,
+	costAlerts: true,
+	reviewAlerts: true,
+	quietHoursEnabled: false,
+	quietHoursStart: "22:00",
+	quietHoursEnd: "08:00",
+};
+
+/**
+ * Read alert preferences from server_config. Fail-open: if the table is
+ * empty or the JSON is corrupt, return all-alerts-ON defaults.
+ *
+ * @lore R8: Dispatcher reads server_config directly (not via server package)
+ * because fabric cannot depend on server. Both share the @hyperidle/db
+ * package which exports the serverConfig table — the raw JSON is parsed
+ * inline with the same shape that server-config.ts would produce.
+ */
+async function readAlertPrefs(db: HyperIdleDb): Promise<AlertPreferences> {
+	try {
+		const [row] = await db
+			.select()
+			.from(serverConfigTable)
+			.where(eq(serverConfigTable.id, "default"))
+			.limit(1);
+		if (!row) return ALERT_PREFS_DEFAULTS;
+
+		const json: unknown = JSON.parse(row.config);
+		if (typeof json !== "object" || json === null) return ALERT_PREFS_DEFAULTS;
+
+		const notifications = (json as Record<string, unknown>).notifications;
+		if (typeof notifications !== "object" || notifications === null) return ALERT_PREFS_DEFAULTS;
+
+		const n = notifications as Record<string, unknown>;
+		return {
+			blockerAlerts: typeof n.blockerAlerts === "boolean" ? n.blockerAlerts : true,
+			costAlerts: typeof n.costAlerts === "boolean" ? n.costAlerts : true,
+			reviewAlerts: typeof n.reviewAlerts === "boolean" ? n.reviewAlerts : true,
+			quietHoursEnabled: typeof n.quietHoursEnabled === "boolean" ? n.quietHoursEnabled : false,
+			quietHoursStart: typeof n.quietHoursStart === "string" ? n.quietHoursStart : "22:00",
+			quietHoursEnd: typeof n.quietHoursEnd === "string" ? n.quietHoursEnd : "08:00",
+		};
+	} catch {
+		return ALERT_PREFS_DEFAULTS;
+	}
+}
+
+/**
+ * Apply alert preferences to determine if an event should be dropped.
+ *
+ * Returns true when the event should be dropped (not delivered).
+ *
+ * Rules:
+ * - blockerAlerts=false → drop blocking items (severity="blocking")
+ * - costAlerts=false → drop cost-related events (isCostEvent=true), EXCEPT hard cost breaches
+ * - reviewAlerts=false → drop events where itemKind="review"
+ * - Hard cost breaches (isHardCostBreach=true) ALWAYS push — safety override.
+ *
+ * @lore R8: Quiet hours is a silence/enqueue operation (not a drop) — it is
+ * handled separately in route() using the existing enqueueNotification path.
+ * This function is pure drop logic only.
+ */
+export function applyAlertPreferences(
+	classification: Classification,
+	prefs: AlertPreferences,
+	meta: { isHardCostBreach?: boolean; isCostEvent?: boolean; itemKind?: string },
+): boolean {
+	// Hard cost breaches bypass ALL preferences — safety override.
+	if (meta.isHardCostBreach) return false;
+
+	// costAlerts=false: drop cost-related events (non-hard-breach)
+	if (!prefs.costAlerts && meta.isCostEvent) return true;
+
+	// reviewAlerts=false: drop review-kind items
+	if (!prefs.reviewAlerts && meta.itemKind === "review") return true;
+
+	// blockerAlerts=false: drop blocking items (severity="blocking")
+	if (
+		!prefs.blockerAlerts &&
+		classification.kind === "push" &&
+		classification.severity === "blocking"
+	)
+		return true;
+
+	return false;
+}
 
 export type AdapterFactory = (cfg: NotificationConfig) => NotificationAdapter;
 
@@ -529,6 +637,7 @@ export function registerNotificationDispatcher(
 		eventType: string,
 		subjectId: string | null,
 		sourceAgentId: string | null,
+		prefMeta: { isHardCostBreach?: boolean; isCostEvent?: boolean; itemKind?: string },
 	): Promise<void> {
 		if (state.disposed) return;
 		const cfg = await loadNotificationConfig(db);
@@ -536,9 +645,34 @@ export function registerNotificationDispatcher(
 		if (classification.kind === "drop") return;
 		if (notification === null) return;
 
+		// Apply alert preferences (fail-open: errors default to all-alerts-ON).
+		const prefs = await readAlertPrefs(db);
+		if (applyAlertPreferences(classification, prefs, prefMeta)) return;
+
 		const now = nowFn();
 
-		// Silence check (except for hard cost_breach which still pages).
+		// Quiet hours check — only when quietHoursEnabled=true.
+		// Hard cost breaches bypass quiet hours (same as factory-level silence).
+		// @lore R8: quietHoursEnabled is the gate. When false, start/end are
+		// irrelevant even if they cover the current time. This is a separate check
+		// from isSilenced() which reads factorySettings silence_window_*.
+		if (!prefMeta.isHardCostBreach && prefs.quietHoursEnabled) {
+			if (isInSilenceWindow(prefs.quietHoursStart, prefs.quietHoursEnd, now)) {
+				await enqueueNotification(db, {
+					eventType,
+					subjectId,
+					severity: classification.severity,
+					title: notification.title,
+					body: notification.body,
+					reason: "silence",
+					channel: null,
+					now,
+				});
+				return;
+			}
+		}
+
+		// Factory-level silence check (except for hard cost_breach which still pages).
 		if (classification.severity !== "cost_breach") {
 			if (await isSilenced(db, { sourceAgentId }, now)) {
 				await enqueueNotification(db, {
@@ -606,7 +740,9 @@ export function registerNotificationDispatcher(
 				classification.kind === "drop"
 					? null
 					: buildItemNotification(item, classification.severity, nowFn());
-			await route(classification, notification, "item_created", event.itemId, item.sourceAgentId);
+			await route(classification, notification, "item_created", event.itemId, item.sourceAgentId, {
+				itemKind: item.kind,
+			});
 		})();
 	});
 
@@ -617,7 +753,10 @@ export function registerNotificationDispatcher(
 			classification.kind === "drop"
 				? null
 				: buildCostBreachNotification(event, classification.severity, nowFn());
-		void route(classification, notification, "cost_cap_breached", event.entityId, null);
+		void route(classification, notification, "cost_cap_breached", event.entityId, null, {
+			isCostEvent: true,
+			isHardCostBreach: event.level === "hard",
+		});
 	});
 
 	const unsubCostWarning = bus.on("cost_cap_warning", (event: CostCapWarningEvent): void => {
@@ -627,7 +766,9 @@ export function registerNotificationDispatcher(
 			classification.kind === "drop"
 				? null
 				: buildCostWarningNotification(event, classification.severity, nowFn());
-		void route(classification, notification, "cost_cap_warning", event.entityId, null);
+		void route(classification, notification, "cost_cap_warning", event.entityId, null, {
+			isCostEvent: true,
+		});
 	});
 
 	const unsubRoutine = bus.on("routine_fired", (event: RoutineFiredEvent): void => {

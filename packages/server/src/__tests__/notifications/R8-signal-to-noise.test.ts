@@ -27,15 +27,15 @@ import {
 import {
 	type Notification,
 	type NotificationAdapter,
-	registerNotificationDispatcher,
 	type Recipient,
+	registerNotificationDispatcher,
 	type SendResult,
 } from "@hyperidle/fabric";
 import {
 	type CostCapBreachedEvent,
 	type CostCapWarningEvent,
-	type EventType,
 	EventBus,
+	type EventType,
 	type ItemCreatedEvent,
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
@@ -826,7 +826,7 @@ describe("R8 Settings API — quietHoursEnabled field", () => {
 	it("GET /api/settings response includes quietHoursEnabled field", async () => {
 		const cfg = await readServerConfig(db);
 		// The settings response is built from readServerConfig — verify the field exists
-		expect(Object.prototype.hasOwnProperty.call(cfg.notifications, "quietHoursEnabled")).toBe(true);
+		expect(Object.hasOwn(cfg.notifications, "quietHoursEnabled")).toBe(true);
 	});
 
 	it("partial update preserves existing quietHoursEnabled", async () => {
