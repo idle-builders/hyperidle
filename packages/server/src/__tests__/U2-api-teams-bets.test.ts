@@ -272,6 +272,31 @@ describe("AC-2: Bet status values in responses", () => {
 		const detailBody = (await detailRes.json()) as { status: string };
 		expect(oldStatuses).not.toContain(detailBody.status);
 	});
+
+	// CRITICAL (W-1): at_risk must be boolean on the wire in the LIST endpoint too
+	it("GET /api/bets list response normalizes atRisk to boolean (not 0/1 integer)", async () => {
+		// Insert a bet with atRisk = 1 (raw DB integer representation)
+		await ctx.db.insert(bets).values({
+			id: "b-at-risk",
+			teamId: "p1",
+			description: "# At risk bet",
+			appetite: "small",
+			status: "active",
+			atRisk: 1,
+			createdAt: NOW,
+		});
+
+		const res = await ctx.app.request("/api/bets", { headers: authHeaders() });
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as Record<string, Array<{ atRisk: unknown }>>;
+
+		const activeBets = body.active ?? [];
+		const atRiskBet = activeBets.find((b) => (b as { id?: string }).id === "b-at-risk");
+		expect(atRiskBet).toBeDefined();
+		// CRITICAL: atRisk must be boolean true, not integer 1
+		expect(typeof atRiskBet?.atRisk).toBe("boolean");
+		expect(atRiskBet?.atRisk).toBe(true);
+	});
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -693,6 +718,68 @@ describe("AC-5: Bet lifecycle transitions with 400 on invalid", () => {
 		expect(res.status).toBe(400);
 		const body = (await res.json()) as { code?: string };
 		expect(body.code).toBe("VALIDATION_ERROR");
+	});
+
+	// CRITICAL (W-1): transition responses must also normalize atRisk to boolean
+	it("POST /commit response normalizes atRisk to boolean (not integer)", async () => {
+		await ctx.db.insert(bets).values({
+			id: "b-commit-atrisk",
+			teamId: "p1",
+			description: "# Commit atRisk",
+			appetite: "small",
+			status: "draft",
+			atRisk: 1,
+			createdAt: NOW,
+		});
+		const res = await ctx.app.request("/api/bets/b-commit-atrisk/commit", {
+			method: "POST",
+			headers: authHeaders(),
+		});
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { atRisk: unknown };
+		expect(typeof body.atRisk).toBe("boolean");
+		expect(body.atRisk).toBe(true);
+	});
+
+	it("POST /ship response normalizes atRisk to boolean (not integer)", async () => {
+		await ctx.db.insert(bets).values({
+			id: "b-ship-atrisk",
+			teamId: "p1",
+			description: "# Ship atRisk",
+			appetite: "small",
+			status: "active",
+			atRisk: 1,
+			createdAt: NOW,
+		});
+		const res = await ctx.app.request("/api/bets/b-ship-atrisk/ship", {
+			method: "POST",
+			headers: authHeaders(),
+		});
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { atRisk: unknown };
+		expect(typeof body.atRisk).toBe("boolean");
+		expect(body.atRisk).toBe(true);
+	});
+
+	it("POST /kill response normalizes atRisk to boolean (not integer)", async () => {
+		await ctx.db.insert(bets).values({
+			id: "b-kill-atrisk",
+			teamId: "p1",
+			description: "# Kill atRisk",
+			appetite: "small",
+			status: "active",
+			atRisk: 1,
+			createdAt: NOW,
+		});
+		const res = await ctx.app.request("/api/bets/b-kill-atrisk/kill", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({ reason: "Abandoning" }),
+		});
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { atRisk: unknown };
+		expect(typeof body.atRisk).toBe("boolean");
+		expect(body.atRisk).toBe(true);
 	});
 });
 

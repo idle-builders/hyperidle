@@ -342,11 +342,18 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 
 		const allBets = await db.select().from(bets).limit(limit).offset(offset);
 
+		// @lore U2: normalize atRisk 0/1 to boolean on the wire for all list items,
+		// consistent with the detail endpoint (architecture-critique W-1).
+		const normalizeBet = <T extends { atRisk: number | null }>(b: T) => ({
+			...b,
+			atRisk: b.atRisk === 1,
+		});
+
 		const grouped = {
-			draft: allBets.filter((b) => b.status === "draft"),
-			active: allBets.filter((b) => b.status === "active"),
-			completed: allBets.filter((b) => b.status === "completed"),
-			killed: allBets.filter((b) => b.status === "killed"),
+			draft: allBets.filter((b) => b.status === "draft").map(normalizeBet),
+			active: allBets.filter((b) => b.status === "active").map(normalizeBet),
+			completed: allBets.filter((b) => b.status === "completed").map(normalizeBet),
+			killed: allBets.filter((b) => b.status === "killed").map(normalizeBet),
 		};
 
 		return c.json(grouped);
@@ -679,7 +686,8 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			throw err;
 		}
 		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
-		return c.json(updated);
+		// @lore U2: normalize atRisk 0/1 to boolean on the wire (architecture-critique W-1).
+		return c.json({ ...updated, atRisk: updated.atRisk === 1 });
 	});
 
 	// POST /bets/:id/ship — transition active→completed
@@ -696,7 +704,8 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			throw err;
 		}
 		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
-		return c.json(updated);
+		// @lore U2: normalize atRisk 0/1 to boolean on the wire (architecture-critique W-1).
+		return c.json({ ...updated, atRisk: updated.atRisk === 1 });
 	});
 
 	// POST /bets/:id/kill — kill with reason (required)
@@ -719,7 +728,8 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			throw err;
 		}
 		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
-		return c.json(updated);
+		// @lore U2: normalize atRisk 0/1 to boolean on the wire (architecture-critique W-1).
+		return c.json({ ...updated, atRisk: updated.atRisk === 1 });
 	});
 
 	// GET /bets/:id/artifact-thread-summary — per-bet aggregate of artifact threads.
