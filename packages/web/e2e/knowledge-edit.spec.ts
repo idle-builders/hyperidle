@@ -8,18 +8,15 @@
  *   4. Conflict banner: edit → simulate 409 response → conflict banner appears
  *
  * @lore T2 E2E: BodyEditor (TipTap) requires a real browser DOM, so the real
- * component runs in Playwright. However, TipTap's contenteditable is not a
- * standard textarea — typing into it requires page.keyboard or
- * locator.pressSequentially. In these tests we rely on the BodyEditor mock
- * approach that exists in unit tests, which is NOT available here (Playwright
- * runs the real app). Instead we verify the surrounding shell behaviour:
- *   - the edit panel exists after clicking Edit
- *   - the save indicator responds to API calls
- *   - Done exits edit mode
- * TipTap typing is skipped for the auto-save test because
- * page.keyboard.type into a ProseMirror editor is fragile without a stable
- * test-id on the contenteditable; that granular interaction is covered by
- * unit tests in KnowledgeDetail.edit.test.tsx.
+ * component runs in Playwright. TipTap's contenteditable is not a standard form
+ * element — typing requires locator.pressSequentially(), not .fill(). TipTap's
+ * placeholder is a CSS pseudo-element, not a native placeholder attribute, so
+ * Playwright's getByPlaceholder() cannot find it.
+ *
+ * Scenarios 2 and 4 type into the editor via pressSequentially(). Scenario 1
+ * verifies the structural shell behaviour (panel shows/hides, save indicator
+ * reachable, Done exits) without typing because the auto-save assertions are
+ * already covered in the unit tests (KnowledgeDetail.edit.test.tsx).
  *
  * @lore T2 E2E: The app does NOT require a running backend for these E2E tests.
  * All /api/* calls are intercepted via page.route(). The fixtures/ module
@@ -150,9 +147,16 @@ test.describe("T2 AC-1: Edit flow — Edit panel shows, auto-save wired, Done ex
 // ---------------------------------------------------------------------------
 // Scenario 2 — Create with BodyEditor: open dialog → fill → create → item created
 //
-// @lore T2 E2E create: KnowledgeCreateDialog uses a plain <textarea> for the
-// body (not BodyEditor) so we can fill it directly. BodyEditor is only used in
-// the detail-page edit mode.
+// @lore T2 E2E create: KnowledgeCreateDialog was updated in T2 to use BodyEditor
+// (TipTap) for the body field. TipTap's placeholder is rendered via CSS
+// pseudo-element (::before on .is-editor-empty) using @tiptap/extension-placeholder
+// — NOT a native HTML placeholder attribute. Playwright's getByPlaceholder() won't
+// find it. Instead we locate the TipTap contenteditable div inside the dialog and
+// use pressSequentially() to type into it.
+//
+// @lore T2 E2E create POST: The POST fires from handleSubmit after Create is clicked.
+// The route intercept in beforeEach catches it and returns 201. The dialog closes
+// on onCreated() → onClose().
 // ---------------------------------------------------------------------------
 
 test.describe("T2 AC-2: Create dialog — fill and create knowledge item", () => {
@@ -184,11 +188,18 @@ test.describe("T2 AC-2: Create dialog — fill and create knowledge item", () =>
 		const dialog = page.getByRole("dialog");
 		await expect(dialog).toBeVisible();
 
-		// Fill title and body
+		// Fill title — title uses a native input with a placeholder attribute
 		await dialog.getByPlaceholder("What did you learn?").fill("New test item title");
-		await dialog.getByPlaceholder("Describe it in markdown...").fill("New test body content");
 
-		// Create button should be enabled
+		// Fill body — T2 replaced the textarea with BodyEditor (TipTap).
+		// TipTap renders a [contenteditable="true"] div; use pressSequentially()
+		// because .fill() is for form elements, not contenteditable.
+		const bodyEditor = dialog.locator('[contenteditable="true"]').first();
+		await expect(bodyEditor).toBeVisible();
+		await bodyEditor.click();
+		await bodyEditor.pressSequentially("New test body content");
+
+		// Create button should be enabled (body state is set via BodyEditor's onChange)
 		const createBtn = dialog.getByRole("button", { name: "Create" });
 		await expect(createBtn).not.toBeDisabled();
 		await createBtn.click();
@@ -243,15 +254,26 @@ test.describe("T2 AC-3: Factory-scoped item is read-only", () => {
 
 // ---------------------------------------------------------------------------
 // Scenario 4 — Conflict banner: edit → 409 response → conflict banner appears
+//
+// @lore T2 E2E conflict: TipTap's ProseMirror contenteditable requires .click()
+// + pressSequentially() to type. We assert editorEl is visible before typing —
+// if it is not, the test fails explicitly (no silent skip). The PATCH 409 is
+// triggered by the auto-save debounce (1.5s) after content changes. We use
+// MOCK_ITEM (not k1 fixture) so the GET returns a live API item with a version
+// number, giving useAutoSave the data it needs to send PATCH requests.
 // ---------------------------------------------------------------------------
 
 test.describe("T2 AC-4: Conflict banner on 409 auto-save response", () => {
 	test("conflict banner appears when PATCH returns 409", async ({ page }) => {
-		// GET returns the item; PATCH returns 409
-		await page.route(`**/api/knowledge/k1`, async (route) => {
+		// Use MOCK_ITEM (practice-scope, version 1) so useAutoSave fires PATCH.
+		// GET returns the item; PATCH returns 409.
+		await page.route(`**/api/knowledge/${MOCK_ITEM.id}`, async (route) => {
 			if (route.request().method() === "GET") {
-				// Fall through to fixture — k1 exists in fixtures, API 404 triggers fallback
-				await route.fulfill({ status: 404, body: "Not Found" });
+				await route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify(MOCK_ITEM),
+				});
 			} else if (route.request().method() === "PATCH") {
 				await route.fulfill({
 					status: 409,
@@ -275,33 +297,25 @@ test.describe("T2 AC-4: Conflict banner on 409 auto-save response", () => {
 			});
 		});
 
-		// Navigate to k1 — which is a practice-scope fixture item (not factory)
-		await page.goto("/knowledge/k1");
+		// Navigate to the mock item (practice-scope, not factory)
+		await page.goto(`/knowledge/${MOCK_ITEM.id}`);
 		await page.waitForSelector("[data-testid='knowledge-detail-page']");
 
 		// Enter edit mode
 		await page.getByRole("button", { name: /edit/i }).click();
 		await expect(page.getByTestId("knowledge-edit-panel")).toBeVisible();
 
-		// Type into TipTap editor via keyboard (ProseMirror contenteditable)
-		// Focus the editor region and type
+		// Type into TipTap editor — assert editor is visible (no silent skip).
+		// @lore T2 E2E conflict: pressSequentially() works with contenteditable;
+		// .fill() does not because TipTap is not a form element.
 		const editPanel = page.getByTestId("knowledge-edit-panel");
 		const editorEl = editPanel.locator('[contenteditable="true"]').first();
+		await expect(editorEl).toBeVisible();
+		await editorEl.click();
+		await editorEl.pressSequentially("conflict test content");
 
-		if (await editorEl.isVisible()) {
-			await editorEl.click();
-			await page.keyboard.type("conflict test content");
-		} else {
-			// Fallback: if TipTap does not render contenteditable (e.g. JS not loaded),
-			// use the panel itself to trigger some interaction. The important assertion
-			// is the banner, not the typing.
-			// @lore T2 E2E conflict: If TipTap is not loaded, we cannot trigger the
-			// auto-save by typing. We skip the typing step and note this limitation —
-			// the unit test (KnowledgeDetail.edit.test.tsx) fully covers the 409 path.
-		}
-
-		// Wait for conflict banner — debounce is 1.5s in production
-		// Playwright waits up to 5s by default; the auto-save debounce fires after 1.5s
+		// Wait for conflict banner — debounce is 1.5s in production.
+		// Playwright default timeout is 5s; we extend to 8s to cover the debounce.
 		await expect(page.getByTestId("conflict-banner")).toBeVisible({ timeout: 8000 });
 		await expect(page.getByTestId("conflict-banner")).toContainText(/conflict/i);
 	});
