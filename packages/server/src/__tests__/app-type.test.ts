@@ -20,6 +20,9 @@ import { hc } from "hono/client";
 import { describe, expect, it } from "vitest";
 
 describe("E1. AppType is exported from app.ts", () => {
+	// @lore S1: app.ts has many transitive imports (routes, services, middleware)
+	// so the first dynamic import in a test run takes >5s to transform+load.
+	// Timeout raised to 30s to prevent flaky CI failures on cold module caches.
 	it("app.ts module exports AppType type identifier", async () => {
 		// At runtime we verify the module loads and has expected exports.
 		// AppType is a `typeof apiRoutes` export — the implementation
@@ -33,7 +36,7 @@ describe("E1. AppType is exported from app.ts", () => {
 		// The implementation will add: export type AppType = typeof apiRoutes
 		// We can't assert a type at runtime — the type-level test is in the
 		// TypeScript compilation (bun run check).
-	});
+	}, 30_000);
 });
 
 describe("E2. hc<AppType> client constructs typed requests", () => {

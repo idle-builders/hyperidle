@@ -18,3 +18,15 @@ export type {
 } from "./harness-events.js";
 
 export { MockHarnessAdapter } from "./mock-harness-adapter.js";
+
+export type {
+	ServerDispatchMessage,
+	ServerRegisteredMessage,
+	ServerStopMessage,
+	ServerToWorkerMessage,
+	WorkerErrorMessage,
+	WorkerEventMessage,
+	WorkerRegisterMessage,
+	WorkerSessionResultMessage,
+	WorkerToServerMessage,
+} from "./worker-protocol.js";

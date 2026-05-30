@@ -72,6 +72,15 @@ export interface ThreadShellProps {
 	agentSessionState?: AgentSessionStateSnapshot;
 	hostTitle?: string;
 	hostHref?: string;
+	/**
+	 * Optional HTML sanitizer (e.g. DOMPurify). Threaded through to
+	 * `CommentRow` so that raw HTML blocks in plain messages are sanitized
+	 * before rendering. When absent, html payloads degrade to UnknownPayload.
+	 *
+	 * @lore R3 C-1 (reviewer): web consumer (Conversations.tsx) passes
+	 * DOMPurify here; design-system stays free of DOMPurify dependency.
+	 */
+	sanitizeHtml?: (raw: string) => string;
 }
 
 interface SenderGroupedMessage {
@@ -204,6 +213,7 @@ export function ThreadShell({
 	agentSessionState,
 	hostTitle,
 	hostHref,
+	sanitizeHtml,
 }: ThreadShellProps): JSX.Element {
 	// Sort ASC by createdAt with id as a stability tiebreaker.
 	const ordered = useMemo(
@@ -432,6 +442,7 @@ export function ThreadShell({
 													richHeader={slots.header}
 													richBody={slots.body}
 													richActions={slots.actions}
+													sanitizeHtml={sanitizeHtml}
 												/>
 											);
 										}
@@ -446,6 +457,7 @@ export function ThreadShell({
 												role: identityFor(identities, message.senderId).role,
 											}}
 											showSenderHeader={showSenderHeader}
+											sanitizeHtml={sanitizeHtml}
 										/>
 									);
 								})}

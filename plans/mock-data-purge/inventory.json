@@ -1,7 +1,7 @@
 [
   {
     "path": "packages/server/src/middleware/auth.ts",
-    "line": 60,
+    "line": 162,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -10,7 +10,7 @@
   },
   {
     "path": "packages/server/src/middleware/auth.ts",
-    "line": 86,
+    "line": 198,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -19,7 +19,16 @@
   },
   {
     "path": "packages/server/src/middleware/auth.ts",
-    "line": 90,
+    "line": 225,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "packages/server/src/middleware/auth.ts",
+    "line": 229,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -28,7 +37,7 @@
   },
   {
     "path": "packages/server/src/routes/auth.ts",
-    "line": 50,
+    "line": 61,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",

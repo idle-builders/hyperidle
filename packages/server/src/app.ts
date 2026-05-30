@@ -1,9 +1,10 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { defaultNotificationAdapterFactory } from "@hyperidle/fabric";
-import type { ApiErrorResponse, HarnessAdapter } from "@hyperidle/shared";
+import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { createUpgradeTokenStore, type UpgradeTokenStore } from "./auth/upgrade-token-store.js";
+import type { AdapterPool } from "./harness/adapter-pool.js";
 import type { WorkspaceAdapter } from "./harness/workspace-adapter.js";
 import { authMiddleware, createAuthMiddleware } from "./middleware/auth.js";
 import { createBodyLimit } from "./middleware/body-limit.js";
@@ -12,6 +13,7 @@ import { errorHandler } from "./middleware/error-handler.js";
 import { createRateLimiter } from "./middleware/rate-limit.js";
 import { createArtifactRoutes } from "./routes/artifacts.js";
 import { createAuthRoutes } from "./routes/auth.js";
+import { createPublicAuthRoutes } from "./routes/auth-public.js";
 import { createBetRoutes } from "./routes/bets.js";
 import { createConversationRoutes } from "./routes/conversations.js";
 import { createCredentialRoutes } from "./routes/credentials.js";
@@ -33,6 +35,7 @@ import { createTeamRoutes } from "./routes/teams-routes.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
+import { createWorkersRoutes } from "./routes/workers.js";
 import type { CredentialResolver } from "./services/credential-resolver.js";
 import {
 	type ObservabilityConfig,
@@ -105,17 +108,29 @@ interface AppOptions {
 	 */
 	registerWebSocket?: (apiRouter: Hono, tokenStore: UpgradeTokenStore) => void;
 	/**
+	 * Optional worker WebSocket registration hook. When provided,
+	 * `createApp` invokes it with the `/api` sub-router at the same point as
+	 * `registerWebSocket` — BEFORE the auth middleware — so workers can
+	 * authenticate via query token without requiring a user API key.
+	 *
+	 * @lore S2-F01: worker WS route must be registered before auth middleware
+	 * (same pattern as user WS route). Production createServer passes this hook
+	 * so dead-code paths are eliminated.
+	 */
+	registerWorkerWebSocket?: (apiRouter: Hono) => void;
+	/**
 	 * Override the upgrade-token store used by `/api/auth/ws-token` and the
 	 * WebSocket auth middleware. Tests inject a custom store with a tiny
 	 * TTL; production wiring uses `createUpgradeTokenStore()`.
 	 */
 	upgradeTokenStore?: UpgradeTokenStore;
 	/**
-	 * Harness adapter for running agent sessions. When provided alongside
+	 * Adapter pool for running agent sessions. When provided alongside
 	 * `workspaceAdapter`, POST /api/sessions routes through `provisionSession`
 	 * instead of a bare DB insert (R1).
+	 * @lore S2: renamed from harnessAdapter to adapterPool.
 	 */
-	harnessAdapter?: HarnessAdapter;
+	adapterPool?: AdapterPool;
 	/**
 	 * Workspace adapter for provisioning/destroying agent workspaces (R1).
 	 */
@@ -129,6 +144,18 @@ interface AppOptions {
 	 * Credential resolver for pre-flight API key checks (R1).
 	 */
 	credentialResolver?: CredentialResolver;
+	/**
+	 * Enable shared-mode authentication (S1). When true, the auth middleware
+	 * accepts Bearer tokens from LoginSessions in addition to X-API-Key.
+	 * Also mounts the public /api/auth/claim endpoint (pre-auth).
+	 *
+	 * Defaults to false (local mode — unchanged X-API-Key behavior).
+	 *
+	 * @lore S1: Derived from HYPERIDLE_SHARED_MODE env var at app construction
+	 * time in production. Tests pass this directly to control the mode without
+	 * setting environment variables.
+	 */
+	sharedMode?: boolean;
 }
 
 function buildObservabilityAdapter(cfg: ObservabilityConfig): ObservabilityAdapter | null {
@@ -156,6 +183,13 @@ const appLogger = createLogger({ pkg: "server.app" });
  */
 async function createApp(options?: AppOptions): Promise<Hono> {
 	const app = new Hono();
+
+	// S1: shared mode — read from options (test-injectable) or env var (production).
+	// @lore S1: The env var is read once at app construction time, not per-request.
+	// This avoids per-request env lookups and is consistent with how HYPERIDLE_API_KEY
+	// is used (read at middleware invocation time, but the middleware itself is
+	// constructed once at startup).
+	const sharedMode = options?.sharedMode ?? process.env.HYPERIDLE_SHARED_MODE === "true";
 
 	// Backward-compat: /health without auth
 	app.route("/", health);
@@ -209,6 +243,14 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route("/users", createUserSetupRoute(options.db));
 	}
 
+	// S1: Public: POST /api/auth/claim (invite claim — no auth required).
+	// @lore S1: Mounted BEFORE the auth middleware so unauthenticated users can
+	// claim invites. Only mounted in shared mode — claim is meaningless in local
+	// desktop mode where there are no invite flows.
+	if (options?.db && sharedMode) {
+		api.route("/auth", createPublicAuthRoutes(options.db));
+	}
+
 	// I2 review O6 / arch H-1: the WS-token mint endpoint gets its OWN
 	// rate-limit bucket so a WS reconnect storm cannot starve the API
 	// budget (or vice-versa). Larger budget than the API path because
@@ -245,12 +287,20 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		options.registerWebSocket(api, tokenStore);
 	}
 
+	// Register worker WS route BEFORE auth middleware — workers authenticate
+	// via HYPERIDLE_WORKER_TOKEN query param, not via the user API key.
+	if (options?.registerWorkerWebSocket) {
+		options.registerWorkerWebSocket(api);
+	}
+
 	// Auth middleware for all other /api routes (except /health above).
-	// M3 A3: when db is available, use createAuthMiddleware(db) to set userId
-	// from factorySettings. Without db, fall back to the stateless middleware
-	// (used only by non-db app instances in tests).
+	// M3 A3: when db is available, use createAuthMiddleware({ db, sharedMode })
+	// to set userId from users table. Without db, fall back to the stateless
+	// middleware (used only by non-db app instances in tests).
+	// @lore S1 SF-2: createAuthMiddleware signature changed from (db) to
+	// ({ db, sharedMode }). All callers updated here.
 	if (options?.db) {
-		api.use("*", createAuthMiddleware(options.db));
+		api.use("*", createAuthMiddleware({ db: options.db, sharedMode }));
 	} else {
 		api.use("*", authMiddleware);
 	}
@@ -266,10 +316,13 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 	// M3 A4: /api/auth/me is always mounted (regardless of tokenStore).
 	// The /ws-token endpoint is conditionally mounted only when WS support exists.
 	// This restructuring allows /me to be available in all deployments.
+	// @lore S1: createAuthRoutes now takes sharedMode to conditionally mount
+	// /invite and /logout (shared mode only) and to bind ws-token identity
+	// from auth context rather than X-Identity header.
 	if (options?.db) {
-		api.route("/auth", createAuthRoutes(options.db, tokenStore ?? null));
+		api.route("/auth", createAuthRoutes(options.db, tokenStore ?? null, sharedMode));
 	} else if (tokenStore) {
-		api.route("/auth", createAuthRoutes(null, tokenStore));
+		api.route("/auth", createAuthRoutes(null, tokenStore, sharedMode));
 	}
 
 	// Register test routes only in non-production environments
@@ -309,13 +362,20 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route(
 			"/sessions",
 			createSessionRoutes(options.db, eventBus, activityBuffer, {
-				harnessAdapter: options.harnessAdapter,
+				adapterPool: options.adapterPool,
 				workspaceAdapter: options.workspaceAdapter,
 				workspaceBasePath: options.workspaceBasePath,
 				credentialResolver: options.credentialResolver,
 			}),
 		);
 		api.route("/status", createStatusRoutes(options.db));
+
+		// S2: worker admin visibility — GET /api/workers lists registered adapters.
+		// Requires X-API-Key matching HYPERIDLE_API_KEY (admin-level auth inside route).
+		// Only mounted when adapterPool is provided so kernel-only mode is unaffected.
+		if (options.adapterPool) {
+			api.route("/workers", createWorkersRoutes(options.adapterPool));
+		}
 		api.route("/git-export", createGitExportRoutes(options.db));
 		api.route("/credentials", createCredentialRoutes(options.db));
 		api.route("/hint-progress", createHintRoutes(options.db));

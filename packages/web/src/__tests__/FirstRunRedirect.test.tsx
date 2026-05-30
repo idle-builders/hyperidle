@@ -32,6 +32,10 @@ function ConversationsStub(): React.JSX.Element {
 	return <div data-testid="landing">conversations</div>;
 }
 
+function WorkPortfolioStub(): React.JSX.Element {
+	return <div data-testid="landing">work-portfolio</div>;
+}
+
 function renderFirstRunRedirect(): typeof screen {
 	render(
 		<MemoryRouter initialEntries={["/"]}>
@@ -39,6 +43,7 @@ function renderFirstRunRedirect(): typeof screen {
 				<Route path="/" element={<FirstRunRedirect />} />
 				<Route path="/setup" element={<SetupStub />} />
 				<Route path="/conversations" element={<ConversationsStub />} />
+				<Route path="/work/portfolio" element={<WorkPortfolioStub />} />
 			</Routes>
 		</MemoryRouter>,
 	);
@@ -76,8 +81,8 @@ describe("FirstRunRedirect (N5 + P4)", () => {
 		});
 	});
 
-	// Both user and products exist → /conversations
-	it("redirects to /conversations when user and products exist", async () => {
+	// R2 AC-5: Both user and products exist → /work/portfolio (was /conversations)
+	it("redirects to /work/portfolio when user and products exist", async () => {
 		vi.stubGlobal(
 			"fetch",
 			vi.fn().mockImplementation((url: string) => {
@@ -95,7 +100,7 @@ describe("FirstRunRedirect (N5 + P4)", () => {
 		renderFirstRunRedirect();
 
 		await waitFor(() => {
-			expect(screen.getByTestId("landing")).toHaveTextContent("conversations");
+			expect(screen.getByTestId("landing")).toHaveTextContent("work-portfolio");
 		});
 	});
 

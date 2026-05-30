@@ -7,8 +7,9 @@ import { bootstrapFabric } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
-import { ClaudeAgentSdkAdapter } from "./harness/claude-agent-sdk-adapter.js";
+import { createLocalAdapterPool } from "./harness/adapter-pool.js";
 import { LocalWorkspaceAdapter } from "./harness/local-workspace-adapter.js";
+import { registerWorkerWsRoute } from "./routes/worker-ws.js";
 import { registerWsRoute } from "./routes/ws.js";
 import { EnvCredentialResolver } from "./services/credential-resolver.js";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "./services/ws-broadcaster.js";
@@ -115,7 +116,7 @@ export async function createServer(port: number): Promise<ServerHandle> {
 	const eventBus = new EventBus();
 
 	const credentialResolver = new EnvCredentialResolver();
-	const harnessAdapter = new ClaudeAgentSdkAdapter({ credentialResolver });
+	const adapterPool = createLocalAdapterPool();
 	const workspaceAdapter = new LocalWorkspaceAdapter();
 	const workspaceBasePath =
 		process.env.HYPERIDLE_WORKSPACES_DIR ?? path.join(os.tmpdir(), "hyperidle-workspaces");
@@ -125,7 +126,7 @@ export async function createServer(port: number): Promise<ServerHandle> {
 		db,
 		eventBus,
 		strategyBootstrap: bootstrapFabric,
-		harnessAdapter,
+		adapterPool,
 		workspaceAdapter,
 		workspaceBasePath,
 		credentialResolver,
@@ -136,6 +137,14 @@ export async function createServer(port: number): Promise<ServerHandle> {
 			const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db));
 			broadcaster.start();
 			wsDispose = registerWsRoute(apiRouter, eventBus, tokenStore, upgradeWebSocket, broadcaster);
+		},
+		/**
+		 * @lore S2-F01: Worker WS route registered BEFORE auth middleware so remote
+		 * workers can authenticate via HYPERIDLE_WORKER_TOKEN query param without
+		 * needing a user API key. Same placement pattern as the user WS route.
+		 */
+		registerWorkerWebSocket: (apiRouter) => {
+			registerWorkerWsRoute(apiRouter, adapterPool, upgradeWebSocket);
 		},
 	});
 
