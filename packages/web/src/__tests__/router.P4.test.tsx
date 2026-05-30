@@ -33,34 +33,39 @@ describe("Router (P4) — /setup route", () => {
 	// The router should not have /onboarding in its route table
 	// @lore R3: router.tsx imports many page components causing the dynamic import
 	// to take 10-20s under full suite load. 30s avoids false-positive flakes.
-	it("router.tsx does not reference the /onboarding path", { timeout: 60_000 }, async () => {
-		// We test this by reading the router module's exported router
-		// and verifying that navigating to /onboarding does not render Onboarding content
-		const { router } = await import("../router");
-		expect(router).toBeDefined();
+	it(
+		"router.tsx does not reference the /onboarding path",
+		{ timeout: 60_000 },
+		async () => {
+			// We test this by reading the router module's exported router
+			// and verifying that navigating to /onboarding does not render Onboarding content
+			const { router } = await import("../router");
+			expect(router).toBeDefined();
 
-		// Navigate to /onboarding in the router — should not match OnboardingStub
-		// If the route doesn't exist, it would render the 404 page
-		const routes = router.routes;
-		const flattenRoutes = (rs: typeof routes): string[] => {
-			return rs.flatMap((r) => {
-				const paths: string[] = [];
-				if ("path" in r && typeof r.path === "string") {
-					paths.push(r.path);
-				}
-				if ("children" in r && Array.isArray(r.children)) {
-					paths.push(...flattenRoutes(r.children));
-				}
-				return paths;
-			});
-		};
+			// Navigate to /onboarding in the router — should not match OnboardingStub
+			// If the route doesn't exist, it would render the 404 page
+			const routes = router.routes;
+			const flattenRoutes = (rs: typeof routes): string[] => {
+				return rs.flatMap((r) => {
+					const paths: string[] = [];
+					if ("path" in r && typeof r.path === "string") {
+						paths.push(r.path);
+					}
+					if ("children" in r && Array.isArray(r.children)) {
+						paths.push(...flattenRoutes(r.children));
+					}
+					return paths;
+				});
+			};
 
-		const allPaths = flattenRoutes(routes);
-		expect(allPaths).not.toContain("/onboarding");
-		expect(allPaths).not.toContain("onboarding");
-		// @lore: 15s was too tight under 10x CI load; bumped to 60s to match
-		// the global web testTimeout increase for heavy-load machines.
-	}, 60_000);
+			const allPaths = flattenRoutes(routes);
+			expect(allPaths).not.toContain("/onboarding");
+			expect(allPaths).not.toContain("onboarding");
+			// @lore: 15s was too tight under 10x CI load; bumped to 60s to match
+			// the global web testTimeout increase for heavy-load machines.
+		},
+		60_000,
+	);
 
 	// /setup route exists in the router
 	it("router.tsx includes /setup path", { timeout: 60_000 }, async () => {
