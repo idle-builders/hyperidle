@@ -29,6 +29,9 @@ export type {
 export { BlockActionsPopover } from "./BlockActionsPopover.js";
 export type { BlockHandleProps } from "./BlockHandle.js";
 export { BlockHandle } from "./BlockHandle.js";
+// ── T1: BodyEditor — TipTap WYSIWYG editor ──
+export type { BodyEditorProps } from "./BodyEditor.js";
+export { BodyEditor } from "./BodyEditor.js";
 export type { CommentRowProps, CommentRowSender } from "./CommentRow.js";
 export { CommentRow } from "./CommentRow.js";
 export type { ComposerProps, ComposerSubmitInput } from "./Composer.js";
