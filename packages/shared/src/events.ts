@@ -218,6 +218,24 @@ export interface ThreadArchivedEvent {
 }
 
 /**
+ * R6: Emitted by the create_artifact skill tool after a new artifact row is
+ * inserted into the kernel artifacts table.
+ *
+ * @lore R6: producingTaskId is carried as `taskId` (not producingTaskId) to
+ * keep the event shape consistent with other task-scoped events where the
+ * field is called `taskId`. The WsBroadcaster forwards this to the "work"
+ * topic so the UI can invalidate artifact galleries.
+ */
+export interface ArtifactCreatedEvent {
+	type: "artifact_created";
+	streamId: string;
+	artifactId: string;
+	taskId: string;
+	kind: string;
+	timestamp: number;
+}
+
+/**
  * @lore O1: PropagationLevel moved to @hyperidle/fabric. This inline literal
  * union avoids importing from fabric in shared (boundary rule: kernel never
  * imports from strategy). The canonical definition is in @hyperidle/fabric.
@@ -281,7 +299,8 @@ export type KernelEvent =
 	| KnowledgeCreatedEvent
 	| KnowledgeUpdatedEvent
 	| KnowledgeArchivedEvent
-	| KnowledgeAccessedEvent;
+	| KnowledgeAccessedEvent
+	| ArtifactCreatedEvent;
 
 /** Strategy events: automation reactions and strategy-layer observations. */
 export type StrategyEvent =

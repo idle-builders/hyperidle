@@ -17,6 +17,7 @@ import { Hono } from "hono";
 import z from "zod";
 import { createBodyLimit } from "../middleware/body-limit.js";
 import { validateBody } from "../middleware/validate.js";
+import { artifactPreviewSchema } from "../schemas/artifact-preview.js";
 
 const RECOGNISED_KIND_VALUES = ARTIFACT_KINDS as readonly string[];
 const PREVIEW_BODY_LIMIT = 64 * 1024;
@@ -30,76 +31,7 @@ const MAX_TASK_ID_FANOUT = 1000;
 //   SELECT COUNT(*) FROM threads
 //   WHERE attached_host_type='artifact' AND attached_host_id=artifacts.id
 
-const artifactPreviewSchema = z.discriminatedUnion("kind", [
-	z.object({
-		kind: z.literal("code_diff"),
-		file: z.string(),
-		hunks: z.array(
-			z.object({
-				header: z.string(),
-				lines: z.array(z.object({ kind: z.enum(["add", "del", "ctx"]), text: z.string() })),
-			}),
-		),
-	}),
-	z.object({
-		kind: z.literal("deck"),
-		slideCount: z.number(),
-		firstSlideTitle: z.string(),
-	}),
-	z.object({
-		kind: z.literal("contract"),
-		parties: z.array(z.string()),
-		title: z.string(),
-	}),
-	z.object({
-		kind: z.literal("dashboard"),
-		metrics: z.array(z.object({ label: z.string(), value: z.string() })),
-	}),
-	z.object({
-		kind: z.literal("screenshot"),
-		imageUrl: z.string(),
-		width: z.number(),
-		height: z.number(),
-	}),
-	z.object({
-		kind: z.literal("drafted_email"),
-		to: z.array(z.string()),
-		subject: z.string(),
-		bodyExcerpt: z.string(),
-	}),
-	z.object({
-		kind: z.literal("design"),
-		imageUrl: z.string(),
-		width: z.number(),
-		height: z.number(),
-	}),
-	z.object({
-		kind: z.literal("data_analysis"),
-		findings: z.array(z.string()),
-	}),
-	z.object({
-		kind: z.literal("decision"),
-		claim: z.string(),
-		rationale: z.string(),
-	}),
-	z.object({
-		kind: z.literal("running_service"),
-		url: z.string(),
-		status: z.enum(["ok", "degraded", "down"]),
-		statusLabel: z.string(),
-	}),
-	z.object({
-		kind: z.literal("comm_draft"),
-		channel: z.string(),
-		firstMessage: z.string(),
-	}),
-	z.object({
-		kind: z.literal("verification"),
-		suite: z.string(),
-		passed: z.number(),
-		failed: z.number(),
-	}),
-]);
+// artifactPreviewSchema is imported from ../schemas/artifact-preview.js
 
 const createArtifactSchema = z.object({
 	producingTaskId: z.string().min(1),

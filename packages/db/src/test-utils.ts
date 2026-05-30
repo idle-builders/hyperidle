@@ -26,6 +26,16 @@ import * as schema from "./schema.js";
 // - In-memory PGlite instances are GC'd with the worker — they do not leak.
 // - TRUNCATE uses pg_tables with CASCADE so FK-ordered teardown is automatic.
 
+// @lore R6: An earlier version of this file attempted to reclaim still-open
+// ("stale live") PGlite instances when the pool was empty, to avoid PGlite's
+// internal WASM global lock. That approach broke per-user isolation tests
+// (e.g. hints.test.ts AC8) which hold two live db handles simultaneously —
+// reclaiming one handle and giving it to the second caller merged both apps
+// onto the same physical database, defeating isolation. The simpler correct
+// approach: always allocate fresh when the pool is empty. Tests that don't
+// call close() leave their instance alive until the worker is GC'd — acceptable
+// because PGlite in-memory instances are tiny and worker lifetime is bounded.
+
 /** Folder where the Postgres migration set lives. */
 function migrationsFolder(): string {
 	return resolve(__dirname, "../drizzle");
@@ -108,7 +118,23 @@ async function truncateAllTables(db: HyperIdleDb): Promise<void> {
 export async function createTestDb(): Promise<TestDbHandle> {
 	// Take from pool if available (already TRUNCATED and ready)
 	const pooled = pool.pop();
-	const instance: PooledInstance = pooled ?? (await allocateInstance());
+
+	let instance: PooledInstance;
+	if (pooled) {
+		// Fast path: clean pooled instance, no WASM allocation needed.
+		instance = pooled;
+	} else {
+		// No clean pooled instance — allocate fresh.
+		// @lore R6: We intentionally do NOT reclaim stale live instances here.
+		// The original approach tried to reclaim open instances to avoid a PGlite
+		// WASM global lock, but that breaks per-user isolation tests that hold two
+		// live db handles simultaneously (e.g. hints.test.ts AC8). The simpler
+		// correct approach is to always allocate fresh when the pool is empty.
+		// Tests that don't call close() just leak the instance until the worker
+		// is GC'd — acceptable because PGlite in-memory instances are tiny and
+		// the worker lifetime is bounded by the test run.
+		instance = await allocateInstance();
+	}
 
 	const { db } = instance;
 	return {
@@ -117,7 +143,7 @@ export async function createTestDb(): Promise<TestDbHandle> {
 			await migrate(db, { migrationsFolder: migrationsFolder() });
 		},
 		close: async () => {
-			// TRUNCATE and return to pool for reuse by the next test
+			// TRUNCATE and return to pool for reuse by the next test.
 			await truncateAllTables(instance.db);
 			pool.push(instance);
 		},
