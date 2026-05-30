@@ -20,7 +20,7 @@ import { createCredentialRoutes } from "./routes/credentials.js";
 import { createGitExportRoutes } from "./routes/git-export-routes.js";
 import { authHealth, health } from "./routes/health.js";
 import { createHintRoutes } from "./routes/hints.js";
-import { createKnowledgeRoutes, createTeamsRoutes } from "./routes/knowledge.js";
+import { createKnowledgeRoutes, createTeamMembersRoutes } from "./routes/knowledge.js";
 import { createNotificationRoutes } from "./routes/notifications-routes.js";
 import { createObservabilityRoutes } from "./routes/observability-routes.js";
 import { createOrgRoutes } from "./routes/org.js";
@@ -336,13 +336,14 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 	// Register work endpoints if db is provided
 	if (options?.db) {
 		const eventBus = options.eventBus ?? new EventBus();
-		// @lore U1: `/products` URL path kept for backward compat; served by createTeamRoutes.
-		api.route("/products", createTeamRoutes(options.db, eventBus));
+		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
+		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
+		api.route("/teams", createTeamRoutes(options.db, eventBus));
 		api.route("/bets", createBetRoutes(options.db, eventBus));
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));
 		api.route("/artifacts", createArtifactRoutes(options.db));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
-		api.route("/teams", createTeamsRoutes(options.db));
+		api.route("/team-members", createTeamMembersRoutes(options.db));
 		api.route("/rail", createRailRoutes(options.db, eventBus));
 		api.route("/settings", createSettingsRoutes(options.db, eventBus));
 		api.route("/conversations", createConversationRoutes(options.db, eventBus));

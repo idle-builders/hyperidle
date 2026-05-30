@@ -300,14 +300,16 @@ describe("Bet Endpoints (E3)", () => {
 			expect(body.completedAt).toBeTruthy();
 		});
 
-		it("rejects ship from draft (invalid transition 409)", async () => {
+		// @lore U2: Invalid bet transitions return 400 (not 409). 409 is reserved for
+		// capacity conflicts (ApiError CONFLICT). InvalidTransitionError -> 400 VALIDATION_ERROR.
+		it("rejects ship from draft (invalid transition 400)", async () => {
 			const bet = await createBet();
 			const res = await app.request(`/api/bets/${bet.id}/ship`, {
 				method: "POST",
 				headers: authHeaders(),
 			});
 
-			expect(res.status).toBe(409);
+			expect(res.status).toBe(400);
 		});
 	});
 

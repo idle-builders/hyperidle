@@ -29,7 +29,13 @@ export type TaskState = (typeof TASK_STATES)[number];
  * bad `field` value is rejected by Zod (400) instead of falling through to
  * the service layer (which would throw a generic 500).
  */
-export const MUTABLE_BET_FIELDS = ["done_condition", "hypothesis", "cost_appetite"] as const;
+export const MUTABLE_BET_FIELDS = [
+	"done_condition",
+	"hypothesis",
+	"cost_appetite",
+	"description",
+	"at_risk",
+] as const;
 
 export type MutableBetField = (typeof MUTABLE_BET_FIELDS)[number];
 
