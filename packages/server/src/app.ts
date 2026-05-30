@@ -1,9 +1,10 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { defaultNotificationAdapterFactory } from "@hyperidle/fabric";
-import type { ApiErrorResponse, HarnessAdapter } from "@hyperidle/shared";
+import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { createUpgradeTokenStore, type UpgradeTokenStore } from "./auth/upgrade-token-store.js";
+import type { AdapterPool } from "./harness/adapter-pool.js";
 import type { WorkspaceAdapter } from "./harness/workspace-adapter.js";
 import { authMiddleware, createAuthMiddleware } from "./middleware/auth.js";
 import { createBodyLimit } from "./middleware/body-limit.js";
@@ -34,6 +35,7 @@ import { createTaskRoutes } from "./routes/tasks.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
+import { createWorkersRoutes } from "./routes/workers.js";
 import type { CredentialResolver } from "./services/credential-resolver.js";
 import {
 	type ObservabilityConfig,
@@ -106,17 +108,29 @@ interface AppOptions {
 	 */
 	registerWebSocket?: (apiRouter: Hono, tokenStore: UpgradeTokenStore) => void;
 	/**
+	 * Optional worker WebSocket registration hook. When provided,
+	 * `createApp` invokes it with the `/api` sub-router at the same point as
+	 * `registerWebSocket` — BEFORE the auth middleware — so workers can
+	 * authenticate via query token without requiring a user API key.
+	 *
+	 * @lore S2-F01: worker WS route must be registered before auth middleware
+	 * (same pattern as user WS route). Production createServer passes this hook
+	 * so dead-code paths are eliminated.
+	 */
+	registerWorkerWebSocket?: (apiRouter: Hono) => void;
+	/**
 	 * Override the upgrade-token store used by `/api/auth/ws-token` and the
 	 * WebSocket auth middleware. Tests inject a custom store with a tiny
 	 * TTL; production wiring uses `createUpgradeTokenStore()`.
 	 */
 	upgradeTokenStore?: UpgradeTokenStore;
 	/**
-	 * Harness adapter for running agent sessions. When provided alongside
+	 * Adapter pool for running agent sessions. When provided alongside
 	 * `workspaceAdapter`, POST /api/sessions routes through `provisionSession`
 	 * instead of a bare DB insert (R1).
+	 * @lore S2: renamed from harnessAdapter to adapterPool.
 	 */
-	harnessAdapter?: HarnessAdapter;
+	adapterPool?: AdapterPool;
 	/**
 	 * Workspace adapter for provisioning/destroying agent workspaces (R1).
 	 */
@@ -273,6 +287,12 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		options.registerWebSocket(api, tokenStore);
 	}
 
+	// Register worker WS route BEFORE auth middleware — workers authenticate
+	// via HYPERIDLE_WORKER_TOKEN query param, not via the user API key.
+	if (options?.registerWorkerWebSocket) {
+		options.registerWorkerWebSocket(api);
+	}
+
 	// Auth middleware for all other /api routes (except /health above).
 	// M3 A3: when db is available, use createAuthMiddleware({ db, sharedMode })
 	// to set userId from users table. Without db, fall back to the stateless
@@ -341,13 +361,20 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route(
 			"/sessions",
 			createSessionRoutes(options.db, eventBus, activityBuffer, {
-				harnessAdapter: options.harnessAdapter,
+				adapterPool: options.adapterPool,
 				workspaceAdapter: options.workspaceAdapter,
 				workspaceBasePath: options.workspaceBasePath,
 				credentialResolver: options.credentialResolver,
 			}),
 		);
 		api.route("/status", createStatusRoutes(options.db));
+
+		// S2: worker admin visibility — GET /api/workers lists registered adapters.
+		// Requires X-API-Key matching HYPERIDLE_API_KEY (admin-level auth inside route).
+		// Only mounted when adapterPool is provided so kernel-only mode is unaffected.
+		if (options.adapterPool) {
+			api.route("/workers", createWorkersRoutes(options.adapterPool));
+		}
 		api.route("/git-export", createGitExportRoutes(options.db));
 		api.route("/credentials", createCredentialRoutes(options.db));
 		api.route("/hint-progress", createHintRoutes(options.db));

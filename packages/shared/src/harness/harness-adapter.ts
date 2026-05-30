@@ -33,6 +33,11 @@ export interface SessionResult {
 export interface HarnessCapabilities {
 	readonly preCompactionTrigger: boolean;
 	readonly subAgents: boolean;
+	/**
+	 * S2: model provider identifiers this adapter can run (e.g. ["anthropic"]).
+	 * Used by AdapterPool to filter eligible adapters for a given session.
+	 */
+	readonly modelProviders: readonly string[];
 }
 
 export interface HarnessAdapter {
