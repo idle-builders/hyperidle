@@ -3,7 +3,7 @@ import {
 	type HyperIdleDb,
 	items,
 	messages,
-	products,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -17,11 +17,11 @@ describe("Daily Digest (E7)", () => {
 
 	function seedBase(): void {
 		const ts = now.toISOString();
-		db.insert(products)
+		db.insert(teams)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: ts })
 			.run();
-		db.insert(teams)
-			.values({ id: "team-1", productId: "prod-1", capacity: 3, activeBets: 0, formedAt: ts })
+		db.insert(teamMembers)
+			.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: ts })
 			.run();
 		db.insert(users)
 			.values({

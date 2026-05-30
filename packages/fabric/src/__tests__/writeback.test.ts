@@ -7,9 +7,9 @@ import {
 	knowledgeConflicts,
 	knowledgeItems,
 	knowledgeStrategyFabric,
-	products,
 	sessions,
 	tasks,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -58,8 +58,11 @@ function setupSessionData(db: HyperIdleDb): {
 	const threadId = "test-thread";
 	const sessionId = "test-session";
 
-	db.insert(products).values({ id: productId, name: "Test", phase: "build", createdAt: now }).run();
-	db.insert(teams).values({ id: teamId, productId, capacity: 5, formedAt: now }).run();
+	// @lore U1: teams is the domain entity; teamMembers is the membership group.
+	db.insert(teams).values({ id: productId, name: "Test", phase: "build", createdAt: now }).run();
+	db.insert(teamMembers)
+		.values({ id: teamId, teamId: productId, capacity: 5, formedAt: now })
+		.run();
 	db.insert(users)
 		.values({
 			id: agentId,
@@ -81,12 +84,12 @@ function setupSessionData(db: HyperIdleDb): {
 			createdAt: now,
 		})
 		.run();
+	// @lore U1: bets.teamId references `teams` (domain entity); description replaces pitch.
 	db.insert(bets)
 		.values({
 			id: betId,
-			productId,
-			teamId,
-			pitch: "test",
+			teamId: productId,
+			description: "test",
 			appetite: "1w",
 			status: "active",
 			createdAt: now,
@@ -96,8 +99,8 @@ function setupSessionData(db: HyperIdleDb): {
 		.values({
 			id: taskId,
 			betId,
-			productId,
-			teamId,
+			// @lore U1: tasks.teamId references `teams` (domain entity); productId removed.
+			teamId: productId,
 			title: "Test Task",
 			state: "active",
 			threadId,

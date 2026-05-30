@@ -20,8 +20,8 @@
 import {
 	createTestDb,
 	type HyperIdleDb,
-	products,
 	// P2: import new symbol — compile error until implementation done
+	teams,
 	users,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
@@ -228,7 +228,7 @@ describe("P2 — Auth middleware resolves user from users table (AC7)", () => {
 				.run();
 
 			// Also seed a product so settings works
-			db.insert(products)
+			db.insert(teams)
 				.values({ id: "prod-auth", name: "Auth Product", phase: "build", createdAt: NOW })
 				.run();
 

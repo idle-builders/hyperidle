@@ -2,15 +2,18 @@
  * Q3 — Human-created bets: API tests.
  *
  * Covers:
- *   T2: teamId optional (derived from product), revisionLog seeded on create, pitch .min(1)
- *   T3: GET /api/bets/canvas enriched with product name + derived title + appetite display
- *   T4: PATCH field="pitch" — mutable on shaped/committed/in_progress/paused/behind/blocked/review;
- *       NOT mutable on shipped/killed.
+ *   T2: teamId required, revisionLog seeded on create, description .min(1)
+ *   T3: GET /api/bets/canvas enriched with team name + derived title + appetite display
+ *   T4: PATCH field="description" — mutable on draft/active;
+ *       NOT mutable on completed/killed.
  *
  * AC covered: AC3, AC6, AC7, AC8, AC10
+ *
+ * @lore U1: productId -> teamId (references teams domain entity, not teamMembers).
+ * pitch -> description. shaped -> draft. committed|in_progress -> active. shipped -> completed.
  */
 
-import { bets, createTestDb, type HyperIdleDb, products, teams } from "@hyperidle/db";
+import { bets, createTestDb, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
@@ -35,8 +38,8 @@ describe("Bet Endpoints (Q3)", () => {
 		eventBus = new EventBus();
 		app = createTestApp({ db, eventBus });
 
-		// Seed product and team
-		db.insert(products)
+		// Seed domain entity (teams) and membership group (teamMembers)
+		db.insert(teams)
 			.values({
 				id: "prod-1",
 				name: "Test Product",
@@ -44,10 +47,10 @@ describe("Bet Endpoints (Q3)", () => {
 				createdAt: new Date().toISOString(),
 			})
 			.run();
-		db.insert(teams)
+		db.insert(teamMembers)
 			.values({
 				id: "team-1",
-				productId: "prod-1",
+				teamId: "prod-1",
 				capacity: 2,
 				activeBets: 0,
 				formedAt: new Date().toISOString(),
@@ -59,48 +62,34 @@ describe("Bet Endpoints (Q3)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	// ── T2: teamId optional, revisionLog seeded, pitch .min(1) ──────────────────
+	// ── T2: teamId, revisionLog seeded, description .min(1) ─────────────────────
 
-	describe("T2: AC8 — teamId auto-assigned from product's team", () => {
-		it("creates a bet without explicit teamId, derives team from productId", async () => {
+	describe("T2: AC8 — teamId required", () => {
+		it("creates a bet with teamId referencing teams domain entity", async () => {
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					productId: "prod-1",
-					pitch: "Build feature Z",
+					// @lore U1: teamId references teams.id (domain entity), not teamMembers.id
+					teamId: "prod-1",
+					description: "Build feature Z",
 				}),
 			});
 
 			expect(res.status).toBe(201);
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.teamId).toBe("team-1");
-			expect(body.status).toBe("shaped");
+			expect(body.teamId).toBe("prod-1");
+			// @lore U1: status is "draft" (formerly "shaped")
+			expect(body.status).toBe("draft");
 		});
 
-		it("still accepts explicit teamId when provided", async () => {
+		it("returns 400 when teamId does not exist", async () => {
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					productId: "prod-1",
-					teamId: "team-1",
-					pitch: "Build feature W",
-				}),
-			});
-
-			expect(res.status).toBe(201);
-			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.teamId).toBe("team-1");
-		});
-
-		it("returns 400 when productId does not exist", async () => {
-			const res = await app.request("/api/bets", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					productId: "nonexistent-product",
-					pitch: "Build feature V",
+					teamId: "nonexistent-team",
+					description: "Build feature V",
 				}),
 			});
 
@@ -108,27 +97,27 @@ describe("Bet Endpoints (Q3)", () => {
 		});
 	});
 
-	describe("T2: AC10 — pitch validation (.min(1))", () => {
-		it("returns 400 when pitch is empty string", async () => {
+	describe("T2: AC10 — description validation (.min(1))", () => {
+		it("returns 400 when description is empty string", async () => {
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					productId: "prod-1",
-					pitch: "",
+					teamId: "prod-1",
+					description: "",
 				}),
 			});
 
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 201 with non-empty pitch", async () => {
+		it("returns 201 with non-empty description", async () => {
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					productId: "prod-1",
-					pitch: "A valid pitch",
+					teamId: "prod-1",
+					description: "A valid description",
 				}),
 			});
 
@@ -137,13 +126,13 @@ describe("Bet Endpoints (Q3)", () => {
 	});
 
 	describe("T2: AC3 — revisionLog seeded on creation", () => {
-		it("creates bet with initial revisionLog entry containing creator actor", async () => {
+		it("creates bet with initial revisionLog entry containing status=draft", async () => {
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					productId: "prod-1",
-					pitch: "Build feature X",
+					teamId: "prod-1",
+					description: "Build feature X",
 				}),
 			});
 
@@ -156,20 +145,21 @@ describe("Bet Endpoints (Q3)", () => {
 			const revisionLog = JSON.parse(betRow?.revisionLog ?? "[]") as Array<Record<string, unknown>>;
 			expect(revisionLog).toHaveLength(1);
 			expect(revisionLog[0]?.field).toBe("status");
-			expect(revisionLog[0]?.new_value).toBe("shaped");
+			// @lore U1: initial status is "draft" (formerly "shaped")
+			expect(revisionLog[0]?.new_value).toBe("draft");
 		});
 	});
 
 	// ── T3: GET /api/bets/canvas enriched ────────────────────────────────────────
 
 	describe("T3: canvas endpoint enrichment", () => {
-		it("returns bets with product name in canvas response", async () => {
+		it("returns bets with team name in canvas response", async () => {
 			await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					productId: "prod-1",
-					pitch: "# Canvas Feature\n\nThis is the pitch body.",
+					teamId: "prod-1",
+					description: "# Canvas Feature\n\nThis is the description body.",
 				}),
 			});
 
@@ -177,24 +167,24 @@ describe("Bet Endpoints (Q3)", () => {
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as {
-				shaped: Array<Record<string, unknown>>;
-				committed: Array<Record<string, unknown>>;
+				draft: Array<Record<string, unknown>>;
+				active: Array<Record<string, unknown>>;
 				capacity: { used: number; max: number };
 			};
 
-			expect(body.shaped).toHaveLength(1);
-			const bet = body.shaped[0];
-			// T3: must include product name
-			expect(bet?.product).toBe("Test Product");
+			expect(body.draft).toHaveLength(1);
+			const bet = body.draft[0];
+			// T3: must include team name (U1: field is "team" not "product")
+			expect(bet?.team).toBe("Test Product");
 		});
 
-		it("returns derived title from pitch first line in canvas response", async () => {
+		it("returns derived title from description first line in canvas response", async () => {
 			await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					productId: "prod-1",
-					pitch: "# My Feature Title\n\nThis is the pitch body.",
+					teamId: "prod-1",
+					description: "# My Feature Title\n\nThis is the description body.",
 				}),
 			});
 
@@ -202,10 +192,10 @@ describe("Bet Endpoints (Q3)", () => {
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as {
-				shaped: Array<Record<string, unknown>>;
+				draft: Array<Record<string, unknown>>;
 			};
 
-			const bet = body.shaped[0];
+			const bet = body.draft[0];
 			// title derived from first line, stripping "# "
 			expect(bet?.title).toBe("My Feature Title");
 		});
@@ -216,17 +206,17 @@ describe("Bet Endpoints (Q3)", () => {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					productId: "prod-1",
-					pitch: "Pitch without appetite",
+					teamId: "prod-1",
+					description: "Description without appetite",
 				}),
 			});
 
 			const res = await app.request("/api/bets/canvas", { headers: authHeaders() });
 			const body = (await res.json()) as {
-				shaped: Array<Record<string, unknown>>;
+				draft: Array<Record<string, unknown>>;
 			};
 
-			const bet = body.shaped[0];
+			const bet = body.draft[0];
 			expect(bet?.appetite).toBe("—");
 		});
 
@@ -235,142 +225,146 @@ describe("Bet Endpoints (Q3)", () => {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					productId: "prod-1",
-					pitch: "Pitch with appetite",
+					teamId: "prod-1",
+					description: "Description with appetite",
 					costAppetite: { minor: 10000, currency: "USD" },
 				}),
 			});
 
 			const res = await app.request("/api/bets/canvas", { headers: authHeaders() });
 			const body = (await res.json()) as {
-				shaped: Array<Record<string, unknown>>;
+				draft: Array<Record<string, unknown>>;
 			};
 
-			const bet = body.shaped[0];
+			const bet = body.draft[0];
 			// appetite should be a non-empty string (formatted money display)
 			expect(typeof bet?.appetite).toBe("string");
 			expect(bet?.appetite).not.toBe("—");
 		});
 
-		it("returns productId in canvas bet shape", async () => {
+		it("returns teamId in canvas bet shape", async () => {
 			await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					productId: "prod-1",
-					pitch: "Pitch for productId check",
+					teamId: "prod-1",
+					description: "Description for teamId check",
 				}),
 			});
 
 			const res = await app.request("/api/bets/canvas", { headers: authHeaders() });
 			const body = (await res.json()) as {
-				shaped: Array<Record<string, unknown>>;
+				draft: Array<Record<string, unknown>>;
 			};
 
-			const bet = body.shaped[0];
-			expect(bet?.productId).toBe("prod-1");
+			const bet = body.draft[0];
+			// @lore U1: teamId references teams.id (domain entity)
+			expect(bet?.teamId).toBe("prod-1");
 		});
 
-		it("uses batch product lookup — does not include undefined product entries", async () => {
-			// Two bets for the same product — product name must appear on both
+		it("uses batch team lookup — does not include undefined team entries", async () => {
+			// Two bets for the same team — team name must appear on both
 			await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
-				body: JSON.stringify({ productId: "prod-1", pitch: "Bet A" }),
+				body: JSON.stringify({ teamId: "prod-1", description: "Bet A" }),
 			});
 			await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
-				body: JSON.stringify({ productId: "prod-1", pitch: "Bet B" }),
+				body: JSON.stringify({ teamId: "prod-1", description: "Bet B" }),
 			});
 
 			const res = await app.request("/api/bets/canvas", { headers: authHeaders() });
-			const body = (await res.json()) as { shaped: Array<Record<string, unknown>> };
+			const body = (await res.json()) as { draft: Array<Record<string, unknown>> };
 
-			for (const bet of body.shaped) {
-				expect(bet.product).toBe("Test Product");
+			for (const bet of body.draft) {
+				// @lore U1: field is "team" not "product"
+				expect(bet.team).toBe("Test Product");
 			}
 		});
 	});
 
-	// ── T4: PATCH field="pitch" ───────────────────────────────────────────────────
+	// ── T4: PATCH field="description" ────────────────────────────────────────────
 
-	describe("T4: AC6 — PATCH pitch field", () => {
+	describe("T4: AC6 — PATCH description field", () => {
 		async function createBetAndGetId(): Promise<string> {
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					productId: "prod-1",
-					pitch: "Original pitch",
+					teamId: "prod-1",
+					description: "Original description",
 				}),
 			});
 			const body = (await res.json()) as { id: string };
 			return body.id;
 		}
 
-		it("returns 200 and updated pitch on shaped bet", async () => {
+		it("returns 200 and updated description on draft bet", async () => {
 			const betId = await createBetAndGetId();
 
 			const res = await app.request(`/api/bets/${betId}`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					field: "pitch",
-					value: "Updated pitch content",
+					// @lore U1: field is "description" (formerly "pitch")
+					field: "description",
+					value: "Updated description content",
 					reason: "Refined after feedback",
 				}),
 			});
 
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.pitch).toBe("Updated pitch content");
+			// @lore U1: response uses "description" (formerly "pitch")
+			expect(body.description).toBe("Updated description content");
 		});
 
-		it("adds revisionLog entry on pitch PATCH", async () => {
+		it("adds revisionLog entry on description PATCH", async () => {
 			const betId = await createBetAndGetId();
 
 			await app.request(`/api/bets/${betId}`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					field: "pitch",
-					value: "Updated pitch content",
+					field: "description",
+					value: "Updated description content",
 					reason: "Refined after feedback",
 				}),
 			});
 
 			const betRow = db.select().from(bets).where(eq(bets.id, betId)).get();
 			const revisionLog = JSON.parse(betRow?.revisionLog ?? "[]") as Array<Record<string, unknown>>;
-			// At least 2 entries: creation + pitch update
+			// At least 2 entries: creation + description update
 			expect(revisionLog.length).toBeGreaterThanOrEqual(2);
 
-			const pitchEntry = revisionLog.find((e) => e.field === "pitch");
-			expect(pitchEntry).toBeTruthy();
-			expect(pitchEntry?.old_value).toBe("Original pitch");
-			expect(pitchEntry?.new_value).toBe("Updated pitch content");
-			expect(pitchEntry?.reason).toBe("Refined after feedback");
+			const descEntry = revisionLog.find((e) => e.field === "description");
+			expect(descEntry).toBeTruthy();
+			expect(descEntry?.old_value).toBe("Original description");
+			expect(descEntry?.new_value).toBe("Updated description content");
+			expect(descEntry?.reason).toBe("Refined after feedback");
 		});
 
-		it("returns 400 when pitch value is empty string", async () => {
+		it("returns 400 when description value is empty string", async () => {
 			const betId = await createBetAndGetId();
 
 			const res = await app.request(`/api/bets/${betId}`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					field: "pitch",
+					field: "description",
 					value: "",
-					reason: "Trying to clear pitch",
+					reason: "Trying to clear description",
 				}),
 			});
 
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 200 when patching pitch on committed bet", async () => {
+		it("returns 200 when patching description on active bet", async () => {
 			const betId = await createBetAndGetId();
-			// shaped -> committed
+			// draft -> active via /commit
 			await app.request(`/api/bets/${betId}/commit`, {
 				method: "POST",
 				headers: authHeaders(),
@@ -380,55 +374,37 @@ describe("Bet Endpoints (Q3)", () => {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					field: "pitch",
-					value: "Updated in committed state",
-					reason: "Post-commit refinement",
+					field: "description",
+					value: "Updated in active state",
+					reason: "Post-activation refinement",
 				}),
 			});
 
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.pitch).toBe("Updated in committed state");
+			expect(body.description).toBe("Updated in active state");
 		});
 
-		it("returns 200 when patching pitch on in_progress bet", async () => {
+		it("returns 400 when patching description on completed bet", async () => {
 			const betId = await createBetAndGetId();
 			await app.request(`/api/bets/${betId}/commit`, { method: "POST", headers: authHeaders() });
-			await transitionBet(db, eventBus, betId, "in_progress");
+			// active -> completed via /ship
+			await transitionBet(db, eventBus, betId, "completed");
 
 			const res = await app.request(`/api/bets/${betId}`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					field: "pitch",
-					value: "Updated in in_progress",
-					reason: "Ongoing refinement",
-				}),
-			});
-
-			expect(res.status).toBe(200);
-		});
-
-		it("returns 400 when patching pitch on shipped bet", async () => {
-			const betId = await createBetAndGetId();
-			await app.request(`/api/bets/${betId}/commit`, { method: "POST", headers: authHeaders() });
-			await transitionBet(db, eventBus, betId, "in_progress");
-			await transitionBet(db, eventBus, betId, "shipped");
-
-			const res = await app.request(`/api/bets/${betId}`, {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					field: "pitch",
-					value: "Can't update shipped bet",
-					reason: "Attempt after ship",
+					field: "description",
+					value: "Can't update completed bet",
+					reason: "Attempt after completion",
 				}),
 			});
 
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 when patching pitch on killed bet", async () => {
+		it("returns 400 when patching description on killed bet", async () => {
 			const betId = await createBetAndGetId();
 			await app.request(`/api/bets/${betId}/kill`, {
 				method: "POST",
@@ -440,7 +416,7 @@ describe("Bet Endpoints (Q3)", () => {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					field: "pitch",
+					field: "description",
 					value: "Can't update killed bet",
 					reason: "Attempt after kill",
 				}),
@@ -454,13 +430,13 @@ describe("Bet Endpoints (Q3)", () => {
 
 	describe("T4: AC7 — revision history tracks multiple actors", () => {
 		it("revisionLog records actor from auth context", async () => {
-			// Create a bet (actor = the userId from auth context)
+			// Create a bet
 			const createRes = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					productId: "prod-1",
-					pitch: "Initial pitch",
+					teamId: "prod-1",
+					description: "Initial description",
 				}),
 			});
 			expect(createRes.status).toBe(201);
@@ -471,8 +447,8 @@ describe("Bet Endpoints (Q3)", () => {
 				method: "PATCH",
 				headers: { ...authHeaders(), "X-User-Id": "agent-001" },
 				body: JSON.stringify({
-					field: "pitch",
-					value: "Agent-updated pitch",
+					field: "description",
+					value: "Agent-updated description",
 					reason: "Agent improvement",
 				}),
 			});

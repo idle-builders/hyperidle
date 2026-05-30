@@ -136,7 +136,8 @@ export function createSessionRoutes(
 					{
 						agentId: body.agentId,
 						taskId: body.taskId,
-						productId: task.productId,
+						// @lore U1: `teamId` replaces `productId` (tasks.productId column dropped).
+						productId: task.teamId,
 						modelTier: body.modelTier,
 						workspaceBasePath,
 					},

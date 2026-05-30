@@ -63,7 +63,9 @@ const tokenUsageSchema = z.record(z.unknown());
 
 /**
  * Detailed bet response from GET /api/bets/:id.
- * Enriched with title (derived from pitch), product name, team id, and progress.
+ * Enriched with title (derived from description), product name, team id, and progress.
+ *
+ * @lore U1: `pitch` renamed to `description`.
  */
 export const betDetailResponseSchema = z.object({
 	id: z.string(),
@@ -79,7 +81,8 @@ export const betDetailResponseSchema = z.object({
 	costActual: wireMoneySchema.nullable(),
 	tokensActual: tokenUsageSchema.nullable(),
 	progress: betProgressSchema,
-	pitch: z.string(),
+	// @lore U1: `description` (formerly `pitch`)
+	description: z.string(),
 	tasks: z.array(betTaskRowSchema),
 });
 
@@ -92,11 +95,14 @@ export const betListItemSchema = selectBetSchema;
 /**
  * Grouped bet list response from GET /api/bets.
  * Bets are bucketed by status.
+ *
+ * @lore U1: Status groups simplified from 9 to 4: draft | active | completed | killed.
+ * Old mapping: shaped->draft, committed|in_progress|behind|blocked|paused|review->active,
+ * shipped->completed.
  */
 export const betListResponseSchema = z.object({
-	shaped: z.array(betListItemSchema),
-	committed: z.array(betListItemSchema),
-	in_progress: z.array(betListItemSchema),
-	shipped: z.array(betListItemSchema),
+	draft: z.array(betListItemSchema),
+	active: z.array(betListItemSchema),
+	completed: z.array(betListItemSchema),
 	killed: z.array(betListItemSchema),
 });

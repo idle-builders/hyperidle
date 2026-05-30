@@ -15,11 +15,18 @@ import * as schema from "../schema.js";
  * and defers FK enforcement until COMMIT.
  *
  * This test exercises the seeded-then-migrate path the original test
- * suite missed: it applies migrations 0000..0004 to a fresh DB, seeds
- * a representative cross-FK fixture (products → teams → bets → tasks →
- * sessions, with agents → file_leases / messages / responses), then
- * applies the remaining migrations (0005, 0006). All rows must survive
- * the rebuild and FK action changes.
+ * suite missed: it applies all migrations to a fresh DB, seeds
+ * a representative cross-FK fixture (teams → bets → tasks → sessions,
+ * with users), then applies migrations again idempotently. All rows
+ * must survive the rebuild.
+ *
+ * @lore U1: Updated to use new schema:
+ * - `teams` (formerly `products`) for the domain entity
+ * - `teamMembers` (formerly `teams`) for agent-membership group
+ * - `bets.description` (formerly `bets.pitch`)
+ * - `bets.teamId` references `teams.id` (no more `bets.productId`)
+ * - `tasks.teamId` references `teams.id` (no more `tasks.productId`)
+ * - `sessions.cost` was dropped in O2 migration
  */
 describe("I3 review C3: migration 0005 is safe on a populated DB", () => {
 	it("seeded fixture survives the FK-action-change rebuild", () => {
@@ -35,12 +42,11 @@ describe("I3 review C3: migration 0005 is safe on a populated DB", () => {
 		migrate(db, { migrationsFolder: resolve(__dirname, "../../drizzle") });
 
 		// Seed a cross-FK fixture using the post-migration schema.
+		// @lore U1: `teams` is the domain entity (formerly `products`).
 		const NOW = "2026-04-18T00:00:00Z";
-		db.insert(schema.products)
-			.values({ id: "p1", name: "P1", phase: "build", createdAt: NOW })
-			.run();
-		db.insert(schema.teams)
-			.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
+		db.insert(schema.teams).values({ id: "p1", name: "P1", phase: "build", createdAt: NOW }).run();
+		db.insert(schema.teamMembers)
+			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
 			.run();
 		// @lore P2: agents → users table. kind: "ai" required.
 		db.insert(schema.users)
@@ -51,18 +57,16 @@ describe("I3 review C3: migration 0005 is safe on a populated DB", () => {
 				role: "builder",
 				status: "active",
 				maxConcurrentSessions: 1,
-				teamId: "t1",
 				createdAt: NOW,
 			})
 			.run();
 		db.insert(schema.bets)
 			.values({
 				id: "b1",
-				productId: "p1",
-				teamId: "t1",
-				pitch: "x",
+				teamId: "p1",
+				description: "x",
 				appetite: "small",
-				status: "shaped",
+				status: "draft",
 				createdAt: NOW,
 			})
 			.run();
@@ -70,8 +74,7 @@ describe("I3 review C3: migration 0005 is safe on a populated DB", () => {
 			.values({
 				id: "task-1",
 				betId: "b1",
-				productId: "p1",
-				teamId: "t1",
+				teamId: "p1",
 				title: "T1",
 				state: "proposed",
 				createdAt: NOW,
@@ -86,7 +89,6 @@ describe("I3 review C3: migration 0005 is safe on a populated DB", () => {
 				modelTier: "workhorse",
 				startedAt: NOW,
 				state: "active",
-				cost: 0,
 			})
 			.run();
 
@@ -95,8 +97,9 @@ describe("I3 review C3: migration 0005 is safe on a populated DB", () => {
 		migrate(db, { migrationsFolder: resolve(__dirname, "../../drizzle") });
 
 		// All rows must survive.
-		expect(db.select().from(schema.products).all()).toHaveLength(1);
+		// @lore U1: `schema.teams` is the domain entity (formerly `products`).
 		expect(db.select().from(schema.teams).all()).toHaveLength(1);
+		expect(db.select().from(schema.teamMembers).all()).toHaveLength(1);
 		expect(db.select().from(schema.users).all()).toHaveLength(1);
 		expect(db.select().from(schema.bets).all()).toHaveLength(1);
 		expect(db.select().from(schema.tasks).all()).toHaveLength(1);
@@ -121,9 +124,10 @@ describe("I3 review C3: migration 0005 is safe on a populated DB", () => {
 			.map((r) => r.name);
 		expect(indexes).not.toContain("tasks_state_idx");
 		// But other tasks_*_idx must remain.
+		// @lore U1: `tasks_product_id_idx` was dropped in U1 migration (column renamed to team_id).
+		// The new index is `tasks_team_id_idx`.
 		expect(indexes).toContain("tasks_bet_id_idx");
 		expect(indexes).toContain("tasks_team_id_idx");
-		expect(indexes).toContain("tasks_product_id_idx");
 
 		sqlite.close();
 	});

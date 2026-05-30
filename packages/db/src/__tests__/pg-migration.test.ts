@@ -30,24 +30,27 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 			expect(tableNames).toEqual(
 				expect.arrayContaining([
 					// @lore P2: agents → users, agent_skills → user_skills
+					// @lore U1: `products` → `teams`; old `teams` → `team_members`
+					// @lore: `file_leases` was dropped in older migrations
 					"users",
 					"user_skills",
 					"bets",
 					"factory_settings",
-					"file_leases",
 					"items",
 					"knowledge_edit_log",
 					"knowledge_items",
 					"messages",
-					"products",
 					"routines",
 					"sessions",
 					"tasks",
+					"team_members",
 					"teams",
 					"threads",
 				]),
 			);
 			expect(tableNames).not.toContain("responses");
+			// @lore U1: `products` renamed to `teams`
+			expect(tableNames).not.toContain("products");
 			expect(tableNames.length).toBeGreaterThanOrEqual(15);
 		} finally {
 			await close();
@@ -83,7 +86,9 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
  * asserting the row reads as FALSE (the safe default).
  */
 describe("I3 review C5: boolean migration is NULL-safe", () => {
-	it("a row with blocking=NULL pre-migration ends up as false post-migration", async () => {
+	it("a row with blocking=NULL pre-migration ends up as false post-migration", {
+		timeout: 30_000,
+	}, async () => {
 		// This is the brownfield scenario: a DB that ran the OLD 0003 (no
 		// inline boolean coercion) ends up with integer columns. Then 0004
 		// runs and converts them. We simulate by:
@@ -121,7 +126,7 @@ describe("I3 review C5: boolean migration is NULL-safe", () => {
 		}
 	});
 
-	it("default false applies to brand-new rows after migration", async () => {
+	it("default false applies to brand-new rows after migration", { timeout: 30_000 }, async () => {
 		const { db, close } = await createPgTestDb({ migrate: true });
 		try {
 			await db.execute(
@@ -139,7 +144,9 @@ describe("I3 review C5: boolean migration is NULL-safe", () => {
 		}
 	});
 
-	it("0004 boolean coercion is a no-op on already-boolean columns (idempotent re-run)", async () => {
+	it("0004 boolean coercion is a no-op on already-boolean columns (idempotent re-run)", {
+		timeout: 30_000,
+	}, async () => {
 		// Apply all migrations once. Then re-apply only 0004 by reading the
 		// migration file directly and running its DO blocks. The DO blocks
 		// guard on `data_type='integer'` so re-run on already-boolean

@@ -3,10 +3,10 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	items,
-	products,
 	sessions,
 	taskStrategyFabric,
 	tasks,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -26,7 +26,7 @@ describe("registerSessionReviewCreator", () => {
 		eventBus = new EventBus();
 
 		// Seed base data
-		db.insert(products)
+		db.insert(teams)
 			.values({
 				id: "prod-1",
 				name: "Test Product",
@@ -34,10 +34,10 @@ describe("registerSessionReviewCreator", () => {
 				createdAt: new Date().toISOString(),
 			})
 			.run();
-		db.insert(teams)
+		db.insert(teamMembers)
 			.values({
 				id: "team-1",
-				productId: "prod-1",
+				teamId: "prod-1",
 				capacity: 3,
 				activeBets: 0,
 				formedAt: new Date().toISOString(),
@@ -46,11 +46,10 @@ describe("registerSessionReviewCreator", () => {
 		db.insert(bets)
 			.values({
 				id: "bet-1",
-				productId: "prod-1",
-				teamId: "team-1",
-				pitch: "Test bet",
+				teamId: "prod-1",
+				description: "Test bet",
 				appetite: "small",
-				status: "in_progress",
+				status: "active",
 				createdAt: new Date().toISOString(),
 			})
 			.run();
@@ -88,8 +87,7 @@ describe("registerSessionReviewCreator", () => {
 			.values({
 				id: "task-1",
 				betId: "bet-1",
-				productId: "prod-1",
-				teamId: "team-1",
+				teamId: "prod-1",
 				title: "High risk task",
 				state: "in_progress",
 				threadId: "thread-1",
@@ -148,8 +146,7 @@ describe("registerSessionReviewCreator", () => {
 			.values({
 				id: "task-low",
 				betId: "bet-1",
-				productId: "prod-1",
-				teamId: "team-1",
+				teamId: "prod-1",
 				title: "Low risk task",
 				state: "in_progress",
 				createdAt: new Date().toISOString(),
@@ -195,8 +192,7 @@ describe("registerSessionReviewCreator", () => {
 			.values({
 				id: "task-no-thread",
 				betId: "bet-1",
-				productId: "prod-1",
-				teamId: "team-1",
+				teamId: "prod-1",
 				title: "No thread task",
 				state: "in_progress",
 				createdAt: new Date().toISOString(),
@@ -256,8 +252,7 @@ describe("registerSessionReviewCreator", () => {
 			.values({
 				id: "task-unsub",
 				betId: "bet-1",
-				productId: "prod-1",
-				teamId: "team-1",
+				teamId: "prod-1",
 				title: "Unsub task",
 				state: "in_progress",
 				createdAt: new Date().toISOString(),

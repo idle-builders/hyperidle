@@ -4,10 +4,10 @@ import {
 	factorySettings,
 	type HyperIdleDb,
 	items,
-	products,
 	routines,
 	sessions,
 	tasks,
+	teamMembers,
 	teams,
 	threads,
 	userSkills,
@@ -28,22 +28,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 function seedBase(db: HyperIdleDb): void {
 	const now = new Date().toISOString();
 
-	db.insert(products)
-		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: now })
-		.run();
+	db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: now }).run();
 
-	db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
+	db.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now })
 		.run();
 
 	db.insert(bets)
 		.values({
 			id: "b1",
-			productId: "p1",
-			teamId: "t1",
-			pitch: "Test bet",
+			teamId: "p1",
+			description: "Test bet",
 			appetite: "small",
-			status: "committed",
+			status: "active",
 			createdAt: now,
 		})
 		.run();
@@ -52,8 +49,7 @@ function seedBase(db: HyperIdleDb): void {
 		.values({
 			id: "task-1",
 			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
+			teamId: "p1",
 			title: "Test task",
 			state: "in_progress",
 			createdAt: now,

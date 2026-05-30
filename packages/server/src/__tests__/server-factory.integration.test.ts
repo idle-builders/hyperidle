@@ -34,7 +34,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { resolve } from "node:path";
-import { bets, createDb, products, teams, threads, users } from "@hyperidle/db";
+import { bets, createDb, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { authHeaders, waitForReady } from "./integration-helpers.js";
@@ -54,20 +54,17 @@ async function createAndSeedDb(dbPath: string): Promise<void> {
 	migrate(db, { migrationsFolder });
 
 	const now = new Date().toISOString();
-	db.insert(products)
-		.values({ id: "p-sf", name: "SF Product", phase: "build", createdAt: now })
-		.run();
-	db.insert(teams)
-		.values({ id: "t-sf", productId: "p-sf", capacity: 5, activeBets: 0, formedAt: now })
+	db.insert(teams).values({ id: "p-sf", name: "SF Product", phase: "build", createdAt: now }).run();
+	db.insert(teamMembers)
+		.values({ id: "t-sf", teamId: "p-sf", capacity: 5, activeBets: 0, formedAt: now })
 		.run();
 	db.insert(bets)
 		.values({
 			id: "bet-sf",
-			productId: "p-sf",
-			teamId: "t-sf",
-			pitch: "Ship the thing",
+			teamId: "p-sf",
+			description: "Ship the thing",
 			appetite: "small",
-			status: "shaped",
+			status: "draft",
 			createdAt: now,
 		})
 		.run();

@@ -2,7 +2,7 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	items,
-	products,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -31,7 +31,7 @@ describe("Conversations Endpoints (E2)", () => {
 		app = createTestApp({ db, eventBus });
 
 		// Seed base data
-		db.insert(products)
+		db.insert(teams)
 			.values({
 				id: "prod-1",
 				name: "Test Product",
@@ -39,10 +39,10 @@ describe("Conversations Endpoints (E2)", () => {
 				createdAt: new Date().toISOString(),
 			})
 			.run();
-		db.insert(teams)
+		db.insert(teamMembers)
 			.values({
 				id: "team-1",
-				productId: "prod-1",
+				teamId: "prod-1",
 				capacity: 3,
 				activeBets: 0,
 				formedAt: new Date().toISOString(),

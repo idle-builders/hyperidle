@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { HyperIdleDb } from "../connection.js";
+// @lore U1: `products` renamed to `teams`; old `teams` (membership) renamed to `teamMembers`.
 import {
 	bets,
 	items,
@@ -8,10 +9,10 @@ import {
 	knowledgeEditLog,
 	knowledgeItems,
 	messages,
-	products,
 	routines,
 	sessions,
 	tasks,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -41,10 +42,11 @@ import { createTestDb } from "../test-utils.js";
 
 const NOW = new Date().toISOString();
 
+// @lore U1: `products` renamed to `teams`; old `teams` → `teamMembers`. Updated all references.
 function seedProductTeamBetTaskAgent(db: HyperIdleDb): void {
-	db.insert(products).values({ id: "p1", name: "P", phase: "build", createdAt: NOW }).run();
-	db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
+	db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: NOW }).run();
+	db.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
 		.run();
 	// @lore P2: agents → users table. kind: "ai" required.
 	db.insert(users)
@@ -62,11 +64,10 @@ function seedProductTeamBetTaskAgent(db: HyperIdleDb): void {
 	db.insert(bets)
 		.values({
 			id: "b1",
-			productId: "p1",
-			teamId: "t1",
-			pitch: "x",
+			teamId: "p1",
+			description: "x",
 			appetite: "small",
-			status: "shaped",
+			status: "draft",
 			createdAt: NOW,
 		})
 		.run();
@@ -74,8 +75,7 @@ function seedProductTeamBetTaskAgent(db: HyperIdleDb): void {
 		.values({
 			id: "task-1",
 			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
+			teamId: "p1",
 			title: "T",
 			state: "proposed",
 			createdAt: NOW,
@@ -91,38 +91,41 @@ describe("I3: FK actions — RESTRICT on reference data", () => {
 		db = createTestDb();
 	});
 
-	it("rejects deleting a product while a team references it", () => {
+	// @lore U1: `products` renamed to `teams`; `teams` (membership) renamed to `teamMembers`.
+	it("rejects deleting a team while a teamMembers row references it", () => {
 		seedProductTeamBetTaskAgent(db);
-		expect(() => db.delete(products).where(eq(products.id, "p1")).run()).toThrow(/constraint/i);
+		expect(() => db.delete(teams).where(eq(teams.id, "p1")).run()).toThrow(/constraint/i);
+	});
+
+	it("rejects deleting a teamMembers row while a user references it", () => {
+		seedProductTeamBetTaskAgent(db);
+		// Remove tasks/bets first so only the user still references teamMembers.
+		db.delete(tasks).where(eq(tasks.id, "task-1")).run();
+		db.delete(bets).where(eq(bets.id, "b1")).run();
+		// users.team_id → team_members.id must block
+		expect(() => db.delete(teamMembers).where(eq(teamMembers.id, "t1")).run()).toThrow(
+			/constraint/i,
+		);
 	});
 
 	it("rejects deleting a team while a bet references it", () => {
-		seedProductTeamBetTaskAgent(db);
-		// Remove tasks first so only the bet still references the team.
-		db.delete(tasks).where(eq(tasks.id, "task-1")).run();
-		expect(() => db.delete(teams).where(eq(teams.id, "t1")).run()).toThrow(/constraint/i);
-	});
-
-	it("rejects deleting a product while a bet references it", () => {
-		// Minimal seed so only the bet references the product (no tasks or
-		// agents getting in the way of the assertion path).
-		db.insert(products).values({ id: "p1", name: "P", phase: "build", createdAt: NOW }).run();
-		db.insert(teams)
-			.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
+		// Minimal seed so only the bet references the team.
+		db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: NOW }).run();
+		db.insert(teamMembers)
+			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
 			.run();
 		db.insert(bets)
 			.values({
 				id: "b1",
-				productId: "p1",
-				teamId: "t1",
-				pitch: "x",
+				teamId: "p1",
+				description: "x",
 				appetite: "small",
-				status: "shaped",
+				status: "draft",
 				createdAt: NOW,
 			})
 			.run();
-		// `bets.product_id → products.id` must block (independent of teams.product_id → products.id).
-		expect(() => db.delete(products).where(eq(products.id, "p1")).run()).toThrow(/constraint/i);
+		// `bets.team_id → teams.id` must block
+		expect(() => db.delete(teams).where(eq(teams.id, "p1")).run()).toThrow(/constraint/i);
 	});
 
 	it("rejects deleting an agent while a session references it", () => {

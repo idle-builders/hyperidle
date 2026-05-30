@@ -56,7 +56,6 @@ export {
 	type NewMessage,
 	type NewNotificationQueueRow,
 	type NewOrgEdge,
-	type NewProduct,
 	type NewPropagationLogRow,
 	type NewRoutine,
 	type NewServerConfigRow,
@@ -64,7 +63,10 @@ export {
 	type NewSession,
 	type NewTask,
 	type NewTaskStrategyFabricRow,
+	// @lore U1: NewTeam (formerly NewProduct) is the domain entity insert type.
 	type NewTeam,
+	// @lore U1: NewTeamMember (formerly NewTeam) is the agent-membership insert type.
+	type NewTeamMember,
 	type NewThread,
 	type NewUser,
 	type NewUserSkill,
@@ -72,11 +74,7 @@ export {
 	notificationQueue,
 	type OrgEdge,
 	orgEdges,
-	// Types
-	type Product,
 	type PropagationLogRow,
-	// Tables
-	products,
 	propagationLog,
 	type Routine,
 	routines,
@@ -88,10 +86,16 @@ export {
 	sessions,
 	type Task,
 	type TaskStrategyFabricRow,
+	// @lore U1: Team (formerly Product) is the domain entity select type.
 	type Team,
+	// @lore U1: TeamMember (formerly Team) is the agent-membership select type.
+	type TeamMember,
 	type Thread,
 	taskStrategyFabric,
 	tasks,
+	// @lore U1: teamMembers table (formerly teams agent-membership table).
+	teamMembers,
+	// @lore U1: teams table (formerly products table).
 	teams,
 	threads,
 	type User,

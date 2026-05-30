@@ -1,4 +1,12 @@
-import { bets, createTestDb, type HyperIdleDb, products, tasks, teams, users } from "@hyperidle/db";
+import {
+	bets,
+	createTestDb,
+	type HyperIdleDb,
+	tasks,
+	teamMembers,
+	teams,
+	users,
+} from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -23,20 +31,19 @@ describe("Task Endpoints (E3)", () => {
 
 		// Seed product, team, and a bet
 		const now = new Date().toISOString();
-		db.insert(products)
+		db.insert(teams)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now })
 			.run();
-		db.insert(teams)
-			.values({ id: "team-1", productId: "prod-1", capacity: 5, activeBets: 0, formedAt: now })
+		db.insert(teamMembers)
+			.values({ id: "team-1", teamId: "prod-1", capacity: 5, activeBets: 0, formedAt: now })
 			.run();
 		db.insert(bets)
 			.values({
 				id: "bet-1",
-				productId: "prod-1",
-				teamId: "team-1",
-				pitch: "Test bet",
+				teamId: "prod-1",
+				description: "Test bet",
 				appetite: "small",
-				status: "in_progress",
+				status: "active",
 				createdAt: now,
 			})
 			.run();
@@ -59,8 +66,7 @@ describe("Task Endpoints (E3)", () => {
 			.values({
 				id,
 				betId: "bet-1",
-				productId: "prod-1",
-				teamId: "team-1",
+				teamId: "prod-1",
 				title: `Task ${id}`,
 				state: "proposed",
 				createdAt: now,
@@ -88,11 +94,10 @@ describe("Task Endpoints (E3)", () => {
 			db.insert(bets)
 				.values({
 					id: "bet-2",
-					productId: "prod-1",
-					teamId: "team-1",
-					pitch: "Other bet",
+					teamId: "prod-1",
+					description: "Other bet",
 					appetite: "medium",
-					status: "shaped",
+					status: "draft",
 					createdAt: new Date().toISOString(),
 				})
 				.run();

@@ -1,5 +1,8 @@
 import * as crypto from "node:crypto";
-import { type HyperIdleDb, items, teams, users } from "@hyperidle/db";
+// @lore U1: `teams` is the domain entity (no costActual/costCap columns).
+// Cost tracking uses `teamMembers` (the agent-membership group) which has costActual/costCap.
+// params.teamId in cost-cap service refers to the teamMembers.id, not teams.id.
+import { type HyperIdleDb, items, teamMembers, users } from "@hyperidle/db";
 import type { EventBus, SessionEndedEvent } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
 
@@ -118,14 +121,15 @@ function getAgentSpend(db: HyperIdleDb, agentId: string): number {
 /**
  * Sum session costs for all users in a team.
  *
- * @lore O2: reads teams.costActual, which is the running minor-unit total
+ * @lore O2: reads teamMembers.costActual, which is the running minor-unit total
  * accumulated across all users in the team for the current billing cycle.
+ * @lore U1: teamId here refers to teamMembers.id (the membership group), not teams.id (domain entity).
  */
 function getTeamSpend(db: HyperIdleDb, teamId: string): number {
 	const row = db
-		.select({ costActual: teams.costActual })
-		.from(teams)
-		.where(eq(teams.id, teamId))
+		.select({ costActual: teamMembers.costActual })
+		.from(teamMembers)
+		.where(eq(teamMembers.id, teamId))
 		.get();
 	return row?.costActual ?? 0;
 }
@@ -170,8 +174,9 @@ export async function checkCostCap(
 	}
 
 	// 2. Check team cap
+	// @lore U1: params.teamId is a teamMembers.id (membership group), not teams.id (domain entity).
 	if (params.teamId) {
-		const team = db.select().from(teams).where(eq(teams.id, params.teamId)).get();
+		const team = db.select().from(teamMembers).where(eq(teamMembers.id, params.teamId)).get();
 		// L17: prefer costCapMinor (new column) over costCap (legacy)
 		const teamCap = team?.costCapMinor ?? team?.costCap;
 		if (teamCap != null) {
@@ -226,10 +231,11 @@ export async function recordCostAndCheck(
 			.run();
 
 		// Accumulate on team if provided
+		// @lore U1: params.teamId is a teamMembers.id (membership group), not teams.id (domain entity).
 		if (params.teamId) {
-			db.update(teams)
-				.set({ costActual: sql`coalesce(${teams.costActual}, 0) + ${effectiveCostMinor}` })
-				.where(eq(teams.id, params.teamId))
+			db.update(teamMembers)
+				.set({ costActual: sql`coalesce(${teamMembers.costActual}, 0) + ${effectiveCostMinor}` })
+				.where(eq(teamMembers.id, params.teamId))
 				.run();
 		}
 	}
@@ -261,8 +267,9 @@ export async function recordCostAndCheck(
 	}
 
 	// Check team cap
+	// @lore U1: params.teamId is a teamMembers.id (membership group), not teams.id (domain entity).
 	if (params.teamId) {
-		const team = db.select().from(teams).where(eq(teams.id, params.teamId)).get();
+		const team = db.select().from(teamMembers).where(eq(teamMembers.id, params.teamId)).get();
 		// L17: prefer costCapMinor (new column) over costCap (legacy)
 		const teamCap = team?.costCapMinor ?? team?.costCap;
 		if (teamCap != null) {
@@ -439,14 +446,18 @@ export async function resetCosts(
 		}
 		case "team": {
 			if (!normalizedParams.id) throw new Error("Team ID required for team reset");
-			db.update(teams).set({ costActual: 0 }).where(eq(teams.id, normalizedParams.id)).run();
+			// @lore U1: teamId here is a teamMembers.id (membership group), not teams.id (domain entity).
+			db.update(teamMembers)
+				.set({ costActual: 0 })
+				.where(eq(teamMembers.id, normalizedParams.id))
+				.run();
 			break;
 		}
 		case "factory": {
 			// eslint-disable-next-line drizzle/enforce-update-with-where -- intentional: factory reset clears ALL rows
 			db.update(users).set({ costActual: 0 }).run();
 			// eslint-disable-next-line drizzle/enforce-update-with-where -- intentional: factory reset clears ALL rows
-			db.update(teams).set({ costActual: 0 }).run();
+			db.update(teamMembers).set({ costActual: 0 }).run();
 			break;
 		}
 	}

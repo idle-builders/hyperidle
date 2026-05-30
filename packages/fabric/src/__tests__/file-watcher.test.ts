@@ -8,9 +8,9 @@ import {
 	knowledgeConflicts,
 	knowledgeItems,
 	knowledgeStrategyFabric,
-	products,
 	sessions,
 	tasks,
+	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -46,13 +46,15 @@ function createManifest(workspace: string, sessionId: string): string {
 
 function seedSession(db: HyperIdleDb, sessionId: string): void {
 	const now = new Date().toISOString();
-	db.insert(products)
+	// @lore U1: teams is the domain entity (formerly products).
+	db.insert(teams)
 		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now })
 		.run();
-	db.insert(teams)
+	// @lore U1: teamMembers uses teamId (refs `teams` domain entity).
+	db.insert(teamMembers)
 		.values({
 			id: "team-1",
-			productId: "prod-1",
+			teamId: "prod-1",
 			capacity: 5,
 			activeBets: 0,
 			formedAt: now,
@@ -68,14 +70,14 @@ function seedSession(db: HyperIdleDb, sessionId: string): void {
 			createdAt: now,
 		})
 		.run();
+	// @lore U1: bets.teamId references `teams`; description replaces pitch; status simplified.
 	db.insert(bets)
 		.values({
 			id: "bet-1",
-			productId: "prod-1",
-			teamId: "team-1",
-			pitch: "Test",
+			teamId: "prod-1",
+			description: "Test",
 			appetite: "2w",
-			status: "committed",
+			status: "active",
 			createdAt: now,
 		})
 		.run();
@@ -83,8 +85,8 @@ function seedSession(db: HyperIdleDb, sessionId: string): void {
 		.values({
 			id: "task-1",
 			betId: "bet-1",
-			productId: "prod-1",
-			teamId: "team-1",
+			// @lore U1: tasks.teamId references `teams`; productId removed.
+			teamId: "prod-1",
 			title: "Test Task",
 			state: "in_progress",
 			createdAt: now,

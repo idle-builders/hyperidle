@@ -14,7 +14,7 @@
 import {
 	createTestDb,
 	type HyperIdleDb,
-	products,
+	teamMembers,
 	teams,
 	userSkills,
 	// P2: import new symbols — compile error until implementation done
@@ -44,13 +44,13 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 		app = createTestApp({ db, eventBus });
 
 		// Seed prerequisite data
-		db.insert(products)
+		db.insert(teams)
 			.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW })
 			.run();
-		db.insert(teams)
+		db.insert(teamMembers)
 			.values({
 				id: "team-p2",
-				productId: "prod-p2",
+				teamId: "prod-p2",
 				capacity: 5,
 				activeBets: 0,
 				formedAt: NOW,

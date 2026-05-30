@@ -7,7 +7,7 @@
  *  - factorySettings are seeded with founder profile keys
  */
 
-import { createTestDb, type HyperIdleDb, products, users } from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -55,10 +55,10 @@ describe("M3 — GET /api/settings (B1)", () => {
 		seedFounderProfile(db);
 
 		// Seed 2 products
-		db.insert(products)
+		db.insert(teams)
 			.values({ id: "prod-1", name: "Product Alpha", phase: "build", createdAt: now })
 			.run();
-		db.insert(products)
+		db.insert(teams)
 			.values({ id: "prod-2", name: "Product Beta", phase: "archived", createdAt: now })
 			.run();
 
@@ -95,7 +95,8 @@ describe("M3 — GET /api/settings (B1)", () => {
 
 		const body = (await res.json()) as {
 			profile: { name: string; email: string; avatarUrl: string | null };
-			products: Array<{ id: string; name: string; active: boolean }>;
+			// @lore U1: `products` renamed to `teams` in the settings response.
+			teams: Array<{ id: string; name: string; active: boolean }>;
 			/** @lore P2: renamed from agents. Contains AI users only. */
 			users: Array<{
 				id: string;
@@ -113,19 +114,20 @@ describe("M3 — GET /api/settings (B1)", () => {
 		expect(body.profile.name).toBe("Test Founder");
 		expect(body.profile.email).toBe("test@hyperidle.dev");
 		expect(body.profile.avatarUrl).toBeNull();
-		expect(body.products).toHaveLength(2);
+		expect(body.teams).toHaveLength(2);
 		expect(body.users).toHaveLength(2);
 		expect(body.notifications).toBeDefined();
 	});
 
 	it("products include active flag derived from phase (archived=inactive)", async () => {
 		const res = await app.request("/api/settings", { headers: authHeaders() });
+		// @lore U1: `products` renamed to `teams` in the settings response.
 		const body = (await res.json()) as {
-			products: Array<{ id: string; active: boolean }>;
+			teams: Array<{ id: string; active: boolean }>;
 		};
 
-		const prod1 = body.products.find((p) => p.id === "prod-1");
-		const prod2 = body.products.find((p) => p.id === "prod-2");
+		const prod1 = body.teams.find((p) => p.id === "prod-1");
+		const prod2 = body.teams.find((p) => p.id === "prod-2");
 		expect(prod1?.active).toBe(true); // phase "build" → active
 		expect(prod2?.active).toBe(false); // phase "archived" → inactive
 	});

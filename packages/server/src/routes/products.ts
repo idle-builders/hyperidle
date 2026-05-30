@@ -14,7 +14,7 @@
  * for it. See services/product-team.ts.
  */
 
-import { bets, type HyperIdleDb, products, tasks, teams, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
 import type {
 	BetCardSummary,
 	CreateProductRequest,
@@ -85,7 +85,7 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 
 	// GET / — list all products with portfolio counters
 	router.get("/", (c) => {
-		const allProducts = db.select().from(products).all();
+		const allProducts = db.select().from(teams).all();
 
 		const result: ProductListItem[] = allProducts.map((product) => {
 			// Fetch the team for this product (may be missing — tolerate gracefully here)
@@ -183,7 +183,7 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 		const builderId = `agent-builder-${crypto.randomUUID()}`;
 		const pmId = `agent-pm-${crypto.randomUUID()}`;
 
-		db.insert(products)
+		db.insert(teams)
 			.values({
 				id: productId,
 				name: name.trim(),
@@ -244,7 +244,7 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 	router.patch("/:productId", async (c) => {
 		const productId = c.req.param("productId");
 
-		const product = db.select().from(products).where(eq(products.id, productId)).get();
+		const product = db.select().from(teams).where(eq(teams.id, productId)).get();
 		if (!product) {
 			return c.json({ error: "Product not found", code: "not_found" }, 404);
 		}
@@ -266,12 +266,12 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 			);
 		}
 
-		db.update(products)
+		db.update(teams)
 			.set({ phase: phase as ProductPhase })
-			.where(eq(products.id, productId))
+			.where(eq(teams.id, productId))
 			.run();
 
-		const updated = db.select().from(products).where(eq(products.id, productId)).get();
+		const updated = db.select().from(teams).where(eq(teams.id, productId)).get();
 		if (!updated) {
 			return c.json({ error: "Product not found after update", code: "internal_error" }, 500);
 		}
@@ -283,7 +283,7 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 		const productId = c.req.param("productId");
 
 		// 1. Look up the product
-		const product = db.select().from(products).where(eq(products.id, productId)).get();
+		const product = db.select().from(teams).where(eq(teams.id, productId)).get();
 		if (!product) {
 			return c.json({ error: "Product not found", code: "not_found" }, 404);
 		}

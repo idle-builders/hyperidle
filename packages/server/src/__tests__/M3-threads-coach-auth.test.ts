@@ -6,7 +6,7 @@
  * Tests seed a human user row to drive identity resolution.
  */
 
-import { createTestDb, type HyperIdleDb, products, teams, users } from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -96,13 +96,13 @@ describe("M3 — Thread route readSenderId + readInitialSenderId use auth contex
 		// P2: seedFounderUser seeds kind='human' so auth middleware resolves this user
 		seedFounderUser(db, "test-founder-1");
 
-		db.insert(products)
+		db.insert(teams)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now })
 			.run();
-		db.insert(teams)
+		db.insert(teamMembers)
 			.values({
 				id: "team-1",
-				productId: "prod-1",
+				teamId: "prod-1",
 				capacity: 3,
 				activeBets: 0,
 				formedAt: now,

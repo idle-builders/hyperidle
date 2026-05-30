@@ -7,7 +7,15 @@
  * `transitionTask(...)` and return 409 (InvalidTransitionError) — not 400.
  */
 
-import { bets, createTestDb, type HyperIdleDb, products, tasks, teams, users } from "@hyperidle/db";
+import {
+	bets,
+	createTestDb,
+	type HyperIdleDb,
+	tasks,
+	teamMembers,
+	teams,
+	users,
+} from "@hyperidle/db";
 import { API_ERROR_CODES, EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -31,18 +39,17 @@ describe("I2 V1 — POST /api/tasks/:id/transition Zod enum", () => {
 		app = createTestApp({ db, eventBus });
 
 		const now = new Date().toISOString();
-		db.insert(products).values({ id: "p1", name: "P", phase: "build", createdAt: now }).run();
-		db.insert(teams)
-			.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
+		db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now }).run();
+		db.insert(teamMembers)
+			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now })
 			.run();
 		db.insert(bets)
 			.values({
 				id: "bet1",
-				productId: "p1",
-				teamId: "t1",
-				pitch: "x",
+				teamId: "p1",
+				description: "x",
 				appetite: "small",
-				status: "in_progress",
+				status: "active",
 				createdAt: now,
 			})
 			.run();
@@ -53,8 +60,7 @@ describe("I2 V1 — POST /api/tasks/:id/transition Zod enum", () => {
 			.values({
 				id: "task1",
 				betId: "bet1",
-				productId: "p1",
-				teamId: "t1",
+				teamId: "p1",
 				title: "Task",
 				state: "proposed",
 				createdAt: now,

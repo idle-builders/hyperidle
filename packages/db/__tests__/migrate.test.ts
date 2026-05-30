@@ -73,13 +73,14 @@ describe("applyMigrations", () => {
 		const dbPath = path.join(tmpDir, "test.db");
 		applyMigrations(dbPath, REAL_MIGRATIONS_FOLDER);
 
-		// Verify that the products table is empty (no seed data)
+		// Verify that the teams table is empty (no seed data).
+		// @lore U1: `products` table was renamed to `teams` in migration 0021.
 		// We do this by opening a direct better-sqlite3 connection
 		// biome-ignore lint/suspicious/noExplicitAny: dynamic import for test introspection
 		const BetterSqlite = require("better-sqlite3") as any;
 		const db = new BetterSqlite(dbPath, { readonly: true });
 		try {
-			const row = db.prepare("SELECT COUNT(*) as count FROM products").get() as {
+			const row = db.prepare("SELECT COUNT(*) as count FROM teams").get() as {
 				count: number;
 			};
 			expect(row.count).toBe(0);

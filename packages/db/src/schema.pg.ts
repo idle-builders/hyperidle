@@ -10,7 +10,10 @@ import {
 
 // --- Core tables ---
 
-export const products = pgTable("products", {
+// @lore U1: `teams` is the domain entity (formerly `products`). The old agent-membership
+// table (formerly `teams`) is now `teamMembers`. Migration 0014_U1_schema_migration.sql
+// renames both tables. See architecture U1 §2.3 for the 1:1 Product=Team invariant.
+export const teams = pgTable("teams", {
 	id: text("id").primaryKey(),
 	name: text("name").notNull(),
 	phase: text("phase").notNull(),
@@ -28,7 +31,8 @@ export const users = pgTable("users", {
 	kind: text("kind").notNull().default("ai"),
 	name: text("name").notNull(),
 	soulPromptPath: text("soul_prompt_path"),
-	teamId: text("team_id").references(() => teams.id, { onDelete: "restrict" }),
+	// @lore U1: users.team_id still references team_members.id (agent membership group).
+	teamId: text("team_id").references(() => teamMembers.id, { onDelete: "restrict" }),
 	role: text("role").notNull(),
 	skills: text("skills"),
 	status: text("status").notNull(),
@@ -44,11 +48,12 @@ export const users = pgTable("users", {
 	createdAt: text("created_at").notNull(),
 });
 
-export const teams = pgTable("teams", {
+// @lore U1: `teamMembers` is the agent-membership group (formerly `teams`).
+export const teamMembers = pgTable("team_members", {
 	id: text("id").primaryKey(),
-	productId: text("product_id")
+	teamId: text("team_id")
 		.notNull()
-		.references(() => products.id, { onDelete: "restrict" }),
+		.references(() => teams.id, { onDelete: "restrict" }),
 	members: text("members"),
 	leadAgentId: text("lead_agent_id"),
 	capacity: integer("capacity").notNull(),
@@ -68,20 +73,23 @@ export const bets = pgTable(
 	"bets",
 	{
 		id: text("id").primaryKey(),
-		productId: text("product_id")
-			.notNull()
-			.references(() => products.id, { onDelete: "restrict" }),
+		// @lore U1: teamId references the new `teams` table (formerly `products`).
 		teamId: text("team_id")
 			.notNull()
 			.references(() => teams.id, { onDelete: "restrict" }),
-		pitch: text("pitch").notNull(),
+		// @lore U1: `description` was formerly `pitch`.
+		description: text("description").notNull(),
 		appetite: text("appetite"),
 		doneCondition: text("done_condition"),
 		hypothesis: text("hypothesis"),
+		// @lore U1: Status enum simplified to draft | active | completed | killed.
 		status: text("status").notNull(),
 		revisionLog: text("revision_log"),
 		createdAt: text("created_at").notNull(),
-		shippedAt: text("shipped_at"),
+		// @lore U1: `completedAt` was formerly `shippedAt`.
+		completedAt: text("completed_at"),
+		// @lore U1: `atRisk` boolean (PG native boolean) replaces old `behind` status.
+		atRisk: boolean("at_risk").notNull().default(false),
 		/** L17: structured cost appetite — minor units + currency code. */
 		costAppetiteMinor: integer("cost_appetite_minor"),
 		costAppetiteCurrency: text("cost_appetite_currency"),
@@ -92,7 +100,7 @@ export const bets = pgTable(
 		tokensActualJson: text("tokens_actual_json"),
 	},
 	(table) => [
-		index("bets_product_id_idx").on(table.productId),
+		index("bets_team_id_idx").on(table.teamId),
 		index("bets_status_idx").on(table.status),
 	],
 );
@@ -104,9 +112,8 @@ export const tasks = pgTable(
 		betId: text("bet_id")
 			.notNull()
 			.references(() => bets.id, { onDelete: "restrict" }),
-		productId: text("product_id")
-			.notNull()
-			.references(() => products.id, { onDelete: "restrict" }),
+		// @lore U1: teamId references the new `teams` table (formerly `products`).
+		// The old teamId (pointing at team_members) was dropped.
 		teamId: text("team_id")
 			.notNull()
 			.references(() => teams.id, { onDelete: "restrict" }),
@@ -128,7 +135,6 @@ export const tasks = pgTable(
 	(table) => [
 		index("tasks_bet_id_idx").on(table.betId),
 		index("tasks_team_id_idx").on(table.teamId),
-		index("tasks_product_id_idx").on(table.productId),
 		// @lore I3 review O1: `tasks_state_idx` was dropped — state has too
 		// few distinct values to be selective. Migration drizzle-pg/0005_drop_tasks_state_idx.
 	],
@@ -534,14 +540,16 @@ export const taskStrategyFabric = pgTable(
 
 // --- Inferred types ---
 
-export type Product = typeof products.$inferSelect;
-export type NewProduct = typeof products.$inferInsert;
+// @lore U1: Team (formerly Product) is the domain entity. TeamMember (formerly Team)
+// is the agent-membership group. See architecture U1 §4.2.
+export type Team = typeof teams.$inferSelect;
+export type NewTeam = typeof teams.$inferInsert;
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 
-export type Team = typeof teams.$inferSelect;
-export type NewTeam = typeof teams.$inferInsert;
+export type TeamMember = typeof teamMembers.$inferSelect;
+export type NewTeamMember = typeof teamMembers.$inferInsert;
 
 export type Bet = typeof bets.$inferSelect;
 export type NewBet = typeof bets.$inferInsert;

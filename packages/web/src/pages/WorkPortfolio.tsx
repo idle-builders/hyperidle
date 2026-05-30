@@ -67,6 +67,7 @@ export interface WorkPortfolioProps {
 
 export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps = {}): JSX.Element {
 	const navigate = useNavigate();
+	// @lore U1: `useProducts` now returns `TeamListResponse` with `teams` array.
 	const { data: productsData } = useProducts();
 	const onOpenArtifact = useArtifactOpen();
 	const { bets: canvasBets, capacity: canvasCapacity, refresh: refreshCanvas } = useCanvasBets();
@@ -78,7 +79,8 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 	// the only production data path.
 	const items: PortfolioProduct[] =
 		products ??
-		productsData?.products.map((p) => ({
+		// @lore U1: TeamListResponse uses `teams` array (not `products`).
+		productsData?.teams.map((p) => ({
 			id: p.id,
 			name: p.name,
 			status: p.status as PortfolioProduct["status"],
@@ -221,7 +223,8 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 					// Optimistic: trigger background refetch of canvas data.
 					refreshCanvas();
 				}}
-				products={productsData?.products.map((p) => ({ id: p.id, name: p.name })) ?? []}
+				// @lore U1: TeamListResponse uses `teams` array (not `products`).
+				products={productsData?.teams.map((p) => ({ id: p.id, name: p.name })) ?? []}
 			/>
 
 			{/* L12: Artifact gallery — portfolio axis, limit=12, BELOW cycle-stripe per design.

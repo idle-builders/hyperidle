@@ -1,4 +1,5 @@
-import type { ProductListResponse } from "@hyperidle/shared";
+// @lore U1: `ProductListResponse` → `TeamListResponse`.
+import type { TeamListResponse } from "@hyperidle/shared";
 import { type JSX, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { apiFetch } from "../services/api-fetch.js";
@@ -26,9 +27,8 @@ export function FirstRunRedirect(): JSX.Element {
 			apiFetch("/api/products")
 				.then((res) => {
 					if (!res.ok) return false;
-					return (res.json() as Promise<ProductListResponse>).then(
-						(data) => data.products.length > 0,
-					);
+					// @lore U1: TeamListResponse uses `teams` array.
+					return (res.json() as Promise<TeamListResponse>).then((data) => data.teams.length > 0);
 				})
 				.catch(() => false),
 		])

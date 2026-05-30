@@ -58,18 +58,13 @@ export type KernelKnowledgeStatus = (typeof KERNEL_KNOWLEDGE_STATUSES)[number];
  *
  * @lore I4 cross-cutting: required so `BET_STATUS_MAP` can be exhaustively
  * verified at runtime without drifting from the type-checked union.
+ *
+ * @lore U1: Simplified from 9 statuses to 4. Old status mapping:
+ * shaped->draft, committed|in_progress|behind|blocked|paused|review->active,
+ * shipped->completed, killed->killed. The `at_risk` boolean on bets replaces
+ * the old `behind` sub-state.
  */
-export const BET_STATUSES = [
-	"shaped",
-	"committed",
-	"in_progress",
-	"behind",
-	"blocked",
-	"paused",
-	"review",
-	"shipped",
-	"killed",
-] as const;
+export const BET_STATUSES = ["draft", "active", "completed", "killed"] as const;
 
 export type BetStatus = (typeof BET_STATUSES)[number];
 

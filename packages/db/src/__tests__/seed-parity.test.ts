@@ -69,6 +69,7 @@ describe("I3: SQLite/PG seed parity", () => {
 	let sqliteDb: HyperIdleDb;
 	let pgHandle: Awaited<ReturnType<typeof createPgTestDb>>;
 
+	// pglite WASM migration on cold-start takes up to 15s; raise beforeEach timeout accordingly.
 	beforeEach(async () => {
 		sqliteDb = createTestDb();
 		seed(sqliteDb);
@@ -77,7 +78,7 @@ describe("I3: SQLite/PG seed parity", () => {
 		return async () => {
 			await pgHandle.close();
 		};
-	});
+	}, 30_000);
 
 	it("produces the same set of user IDs", async () => {
 		// @lore P2: agents → users table
@@ -117,15 +118,17 @@ describe("I3: SQLite/PG seed parity", () => {
 		expect(pg).toBeGreaterThanOrEqual(1);
 	});
 
-	it("produces the same number of products", async () => {
-		const sq = sqliteCount(sqliteDb, "products");
-		const pg = await pgCount(pgHandle, "products");
+	// @lore U1: `products` renamed to `teams`. Test updated.
+	it("produces the same number of teams (formerly products)", async () => {
+		const sq = sqliteCount(sqliteDb, "teams");
+		const pg = await pgCount(pgHandle, "teams");
 		expect(pg).toBe(sq);
 	});
 
 	it("produces ≥1 row in each major reference table on the PG side", async () => {
 		// @lore P2: agents → users
-		for (const table of ["users", "teams", "products", "bets", "tasks", "routines"]) {
+		// @lore U1: `products` → `teams`; `teams` (old) → `team_members`
+		for (const table of ["users", "teams", "team_members", "bets", "tasks", "routines"]) {
 			const n = await pgCount(pgHandle, table);
 			expect(n, `${table} should have ≥1 row`).toBeGreaterThanOrEqual(1);
 		}
