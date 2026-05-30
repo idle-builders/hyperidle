@@ -5,8 +5,11 @@ import {
 	StatusChip,
 	Tag,
 } from "@hyperidle/design-system";
-import { KNOWLEDGE_STATUSES } from "@hyperidle/fabric";
-import type { KnowledgeScope, KnowledgeStatus } from "@hyperidle/fabric/types";
+import {
+	KNOWLEDGE_STATUSES,
+	type KnowledgeScope,
+	type KnowledgeStatus,
+} from "@hyperidle/fabric/types";
 /**
  * Knowledge/Detail page (J7) — metadata bar, markdown body, observation log,
  * related-items sidebar. Edit mode is a React state toggle, NOT a route.
