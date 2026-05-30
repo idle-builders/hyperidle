@@ -47,9 +47,3 @@ export async function loadTeamMembers(db: HyperIdleDb, teamId: string): Promise<
 	return rows[0];
 }
 
-/**
- * @deprecated Use `loadTeamMembers` instead. Kept for backward compatibility during U1 migration.
- */
-export async function loadProductTeam(db: HyperIdleDb, productId: string): Promise<TeamMember> {
-	return loadTeamMembers(db, productId);
-}
