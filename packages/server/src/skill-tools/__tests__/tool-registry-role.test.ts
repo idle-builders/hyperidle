@@ -42,13 +42,11 @@ function makeContext(db: HyperIdleDb): ToolContext {
 describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		// @lore: This file predates async createTestDb — these tests don't query
-		// the DB so a placeholder satisfies TypeScript while keeping tests fast.
-		// biome-ignore lint/suspicious/noFloatingPromises: db not queried in these tests
-		createTestDb().then((h) => {
-			db = h.db;
-		});
+	beforeEach(async () => {
+		// These tests don't query the DB — they only test role filtering logic.
+		// createTestDb is called to satisfy the ToolContext type.
+		const handle = await createTestDb();
+		db = handle.db;
 	});
 
 	it("B1: builder registry excludes all four facilitator tools", () => {
