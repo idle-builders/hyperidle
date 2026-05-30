@@ -21,4 +21,4 @@ logs/
 .claude/scheduled_tasks.lock
 test-output.toon
 plans/*
-.worktrees/
+packages/design-system/03-hearth.html

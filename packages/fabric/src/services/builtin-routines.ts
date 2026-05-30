@@ -269,7 +269,7 @@ export function registerBuiltinRoutineHandlers(db: HyperIdleDb, eventBus: EventB
 				.from(routines)
 				.where(eq(routines.id, "builtin:post-bet-retro"))
 				.limit(1);
-			if (!routine || !routine.active) return;
+			if (!(routine && routine.active)) return;
 			// Best-effort fire-and-forget: the EventBus emit contract is synchronous.
 			// runBuiltinRoutine is async; we await it inside the void wrapper.
 			await runBuiltinRoutine(db, eventBus, "builtin:post-bet-retro", { betId: event.betId });

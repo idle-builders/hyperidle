@@ -34,7 +34,8 @@ export function FirstRunRedirect(): JSX.Element {
 		])
 			.then(([hasUser, hasProducts]) => {
 				if (cancelled) return;
-				setTarget(hasUser && hasProducts ? "/conversations" : "/setup");
+				// @lore R2: redirect to /work/portfolio (was /conversations)
+				setTarget(hasUser && hasProducts ? "/work/portfolio" : "/setup");
 			})
 			.catch(() => {
 				// @lore P4: On any API failure, default to /setup (not /conversations).

@@ -201,6 +201,25 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 			    server (deferred follow-up). The stripe is hidden when no real cycle
 			    data is available rather than showing mock "Cycle 12". */}
 
+			{/* R2 AC-7: "Create bet" CTA when products exist but no bets yet.
+			    The CTA auto-hides once the first bet appears on the canvas. */}
+			{items.length > 0 && canvasBets.length === 0 && (
+				<EmptyState
+					title="Ready to shape your first bet"
+					description="A bet is a time-boxed commitment. Pitch what you want built."
+					action={
+						<button
+							type="button"
+							className="btn btn-primary btn-sm min-h-[44px]"
+							onClick={() => setDialogOpen(true)}
+						>
+							Create bet
+						</button>
+					}
+					dataTestId="create-bet-cta"
+				/>
+			)}
+
 			{/* Q3 T1/T6: Bet Canvas — shaped + committed columns with capacity badge.
 			    onNewPitch opens BetCreateDialog. onMoveBet POSTs to /api/bets/:id/commit.
 			    @lore Q3: Canvas is mounted below product grid. useCanvasBets provides data. */}

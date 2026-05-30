@@ -18,7 +18,10 @@
 		"packages/db": {},
 		"packages/fabric": {},
 		"packages/api-contract": {},
-		"packages/server": {},
+		"packages/server": {
+			"entry": ["src/harness/isolated-session-worker.ts"],
+			"ignoreDependencies": ["ws", "@types/ws"]
+		},
 		"packages/design-system": {
 			"entry": [
 				"src/**/*.stories.tsx",

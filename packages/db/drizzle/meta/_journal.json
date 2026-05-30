@@ -122,10 +122,17 @@
 			"breakpoints": true
 		},
 		{
-			"idx": 21,
+			"idx": 17,
 			"version": "7",
 			"when": 1782960900000,
-			"tag": "0021_U1_schema_migration",
+			"tag": "0017_S1_login_sessions",
+			"breakpoints": true
+		},
+		{
+			"idx": 18,
+			"version": "7",
+			"when": 1782961000000,
+			"tag": "0018_U1_schema_migration",
 			"breakpoints": true
 		}
 	]
