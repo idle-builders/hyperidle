@@ -28,10 +28,9 @@ import { clearDeduplicationCache } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { AdapterPool } from "../harness/adapter-pool.js";
 import { ClaudeAgentSdkAdapter } from "../harness/claude-agent-sdk-adapter.js";
 import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
-// Imported from a not-yet-written module. Until the green phase creates
-// session-provisioning.ts this suite fails with a module-not-found error.
 import { type ProvisionSessionDeps, provisionSession } from "../services/session-provisioning.js";
 
 const NOW = "2026-04-16T00:00:00.000Z";
@@ -116,10 +115,16 @@ describe("Session Provisioning — Claude integration (D5/AC2)", () => {
 	it.skipIf(!process.env.ANTHROPIC_API_KEY)(
 		"provisions a real Claude session and completes with cost > 0",
 		async () => {
-			const harness = new ClaudeAgentSdkAdapter();
 			const workspace = new LocalWorkspaceAdapter();
+			const adapterPool = new AdapterPool();
+			adapterPool.register("local", new ClaudeAgentSdkAdapter(), {
+				name: "local",
+				kind: "local",
+				modelProviders: ["anthropic"],
+				maxConcurrent: 4,
+			});
 
-			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
+			const deps: ProvisionSessionDeps = { db, eventBus, adapterPool, workspace };
 			const result = await provisionSession(deps, {
 				taskId: "task-1",
 				agentId: "agent-1",

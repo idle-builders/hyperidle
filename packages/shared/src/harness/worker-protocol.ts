@@ -1,0 +1,78 @@
+/**
+ * S2: Wire protocol types for server ↔ worker communication.
+ *
+ * WorkerToServerMessage — sent from remote worker to server.
+ * ServerToWorkerMessage — sent from server to remote worker.
+ *
+ * Both are discriminated unions keyed on `type`.
+ */
+
+import type { SessionConfig, SessionResult } from "./harness-adapter.js";
+import type { HarnessEvent } from "./harness-events.js";
+
+// ── Worker → Server ───────────────────────────────────────────────────────────
+
+export interface WorkerRegisterMessage {
+	readonly type: "register";
+	/** Stable worker identity (used as pool key). */
+	readonly id: string;
+	/** Human-readable name (e.g. "macbook-pro"). */
+	readonly name: string;
+	/** Model providers this worker can run (e.g. ["anthropic"]). */
+	readonly modelProviders: readonly string[];
+	/** Maximum concurrent sessions. */
+	readonly maxConcurrent: number;
+}
+
+export interface WorkerEventMessage {
+	readonly type: "event";
+	readonly sessionId: string;
+	readonly event: HarnessEvent;
+}
+
+export interface WorkerSessionResultMessage {
+	readonly type: "session_result";
+	readonly sessionId: string;
+	readonly result: SessionResult;
+}
+
+export interface WorkerErrorMessage {
+	readonly type: "error";
+	readonly sessionId: string;
+	readonly message: string;
+}
+
+export type WorkerToServerMessage =
+	| WorkerRegisterMessage
+	| WorkerEventMessage
+	| WorkerSessionResultMessage
+	| WorkerErrorMessage;
+
+// ── Server → Worker ───────────────────────────────────────────────────────────
+
+export interface ServerDispatchMessage {
+	readonly type: "dispatch";
+	readonly sessionId: string;
+	readonly config: SessionConfig;
+}
+
+export interface ServerStopMessage {
+	readonly type: "stop";
+	readonly sessionId: string;
+}
+
+/**
+ * Sent by the server to acknowledge a WorkerRegisterMessage.
+ *
+ * @lore S2 reviewer warning: this message was missing from the original union
+ * draft. The worker blocks after sending register until it receives "registered"
+ * so that it knows the pool entry is live before accepting sessions.
+ */
+export interface ServerRegisteredMessage {
+	readonly type: "registered";
+}
+
+export type ServerToWorkerMessage =
+	| ServerDispatchMessage
+	| ServerStopMessage
+	| ServerRegisteredMessage;

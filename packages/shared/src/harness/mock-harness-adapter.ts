@@ -52,6 +52,6 @@ export class MockHarnessAdapter implements HarnessAdapter {
 	}
 
 	getCapabilities(): HarnessCapabilities {
-		return { preCompactionTrigger: true, subAgents: true };
+		return { preCompactionTrigger: true, subAgents: true, modelProviders: ["anthropic"] };
 	}
 }
