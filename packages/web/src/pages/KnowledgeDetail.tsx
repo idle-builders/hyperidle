@@ -5,6 +5,7 @@ import {
 	StatusChip,
 	Tag,
 } from "@hyperidle/design-system";
+import { KNOWLEDGE_STATUSES } from "@hyperidle/fabric";
 import type { KnowledgeScope, KnowledgeStatus } from "@hyperidle/fabric/types";
 /**
  * Knowledge/Detail page (J7) — metadata bar, markdown body, observation log,
@@ -47,9 +48,9 @@ import type { KnowledgeScope, KnowledgeStatus } from "@hyperidle/fabric/types";
  * content matches editContent to prevent spurious saves on BodyEditor mount
  * (TipTap fires onChange with initial content on mount).
  */
-import type { Message, ScopeKind } from "@hyperidle/shared";
-import { isRedactedPayload } from "@hyperidle/shared";
-import { type JSX, useMemo, useState } from "react";
+import type { Message, PlainPayloadWithBlockId, ScopeKind } from "@hyperidle/shared";
+import { isRedactedPayload, SCOPE_KINDS } from "@hyperidle/shared";
+import { type JSX, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 // eslint-disable-next-line design/no-mock-data-import -- tracked in #93
 import { knowledgeItems, type MockKnowledgeItem } from "../fixtures/knowledge-data";
@@ -157,6 +158,24 @@ function formatConfidence(score: number | undefined): string {
 	return `${Math.round(score * 100)}%`;
 }
 
+/**
+ * Narrows a raw string from the API to KnowledgeStatus.
+ * Falls back to "provisional" so the render never crashes on unknown values.
+ */
+function toKnowledgeStatus(raw: string): KnowledgeStatus {
+	const statuses: ReadonlyArray<string> = KNOWLEDGE_STATUSES;
+	return statuses.includes(raw) ? (raw as KnowledgeStatus) : "provisional";
+}
+
+/**
+ * Narrows a raw string from the API to ScopeKind.
+ * Falls back to "factory" so the render defaults to the most restrictive scope.
+ */
+function toScopeKind(raw: string): ScopeKind {
+	const kinds: ReadonlyArray<string> = SCOPE_KINDS;
+	return kinds.includes(raw) ? (raw as ScopeKind) : "factory";
+}
+
 function fromFixture(item: MockKnowledgeItem): DetailItem {
 	return {
 		id: item.id,
@@ -225,11 +244,11 @@ export function KnowledgeDetail({ overrideKnowledgeId }: KnowledgeDetailProps = 
 			title: apiItem.title,
 			layer: "unknown",
 			kind: "unknown",
-			status: apiItem.status as KnowledgeStatus,
+			status: toKnowledgeStatus(apiItem.status),
 			timestamp: apiItem.updatedAt,
 			content: apiItem.body,
 			versionNum: apiItem.version,
-			scopeKind: apiItem.scopeKind as ScopeKind,
+			scopeKind: toScopeKind(apiItem.scopeKind),
 		};
 	} else {
 		item = fixtureItem ?? FALLBACK_DETAIL;
@@ -282,6 +301,19 @@ function KnowledgeDetailView({
 	const [version, setVersion] = useState<number>(item.versionNum ?? 1);
 	const [conflictVersion, setConflictVersion] = useState<number | null>(null);
 
+	/**
+	 * T2 F-ARCH-1: Track the latest editor content in a ref so onSaved can use
+	 * the actually-saved value rather than the edit-start snapshot in editContent.
+	 * editContent is set once in startEdit() and never updated during editing,
+	 * so using it in onSaved would put stale content into savedContent.
+	 *
+	 * @lore T2 F-ARCH-1: The reviewer found that onSaved was calling
+	 * setSavedContent(editContent) where editContent is a closure over the
+	 * edit-start snapshot. latestContentRef always holds the most-recent onChange
+	 * value so Done shows the user what was actually persisted.
+	 */
+	const latestContentRef = useRef<string>("");
+
 	// T2: Current user for updatedBy
 	const { user } = useCurrentUser();
 
@@ -292,7 +324,7 @@ function KnowledgeDetailView({
 		updatedBy: user?.id ?? "human",
 		onSaved: (newVersion) => {
 			setVersion(newVersion);
-			setSavedContent(editContent);
+			setSavedContent(latestContentRef.current);
 		},
 		onConflict: ({ currentVersion }) => setConflictVersion(currentVersion),
 	});
@@ -303,7 +335,7 @@ function KnowledgeDetailView({
 		for (const msg of threadData.messages) {
 			if (msg.type !== "plain") continue;
 			if (isRedactedPayload(msg.payload)) continue;
-			const blockId = (msg.payload as { blockId?: string }).blockId;
+			const blockId = (msg.payload as PlainPayloadWithBlockId).blockId;
 			if (!blockId) continue;
 			const existing = map.get(blockId) ?? [];
 			map.set(blockId, [...existing, msg]);
@@ -314,6 +346,7 @@ function KnowledgeDetailView({
 	const related = useMemo(() => findRelated(item), [item]);
 
 	function startEdit(): void {
+		latestContentRef.current = savedContent;
 		setEditContent(savedContent);
 		setEditing(true);
 		setConflictVersion(null);
@@ -328,8 +361,11 @@ function KnowledgeDetailView({
 	 * @lore T2 F3: dirty-check — skip triggerSave when markdown matches
 	 * editContent to prevent auto-save on BodyEditor mount (TipTap fires
 	 * onChange with initial content on first render).
+	 * @lore T2 F-ARCH-1: always update latestContentRef so onSaved can
+	 * setSavedContent with the actually-typed value, not the edit-start snapshot.
 	 */
 	function handleContentChange(markdown: string): void {
+		latestContentRef.current = markdown;
 		if (markdown === editContent) return;
 		triggerSave(markdown);
 	}

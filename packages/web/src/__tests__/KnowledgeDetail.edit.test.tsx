@@ -199,6 +199,44 @@ describe("KnowledgeDetail — T2 edit mode (BodyEditor + auto-save)", () => {
 		});
 	});
 
+	it("after auto-save + Done, read view shows the edited content (not the edit-start snapshot)", async () => {
+		// F-ARCH-1 regression test: onSaved must use latestContentRef.current,
+		// not the editContent state variable (which is the edit-start snapshot).
+		fetchSpy.mockImplementation((url: string) => {
+			if (url.includes("/api/knowledge/k1")) {
+				return Promise.resolve(new Response(JSON.stringify({ version: 2 }), { status: 200 }));
+			}
+			return Promise.resolve(new Response("Not Found", { status: 404 }));
+		});
+
+		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+		renderPage("k1");
+
+		// Enter edit mode
+		await user.click(screen.getByRole("button", { name: /edit/i }));
+
+		// Type new content into the mocked textarea
+		const editorTextarea = screen.getByTestId("body-editor-textarea");
+		await user.clear(editorTextarea);
+		await user.type(editorTextarea, "brand new edited content");
+
+		// Advance past debounce to trigger auto-save
+		vi.advanceTimersByTime(1600);
+
+		// Wait for Saved indicator to confirm onSaved fired
+		await waitFor(() => {
+			expect(screen.getByTestId("save-indicator")).toHaveTextContent("Saved");
+		});
+
+		// Click Done to exit edit mode
+		await user.click(screen.getByRole("button", { name: /done/i }));
+
+		// Read view must show the EDITED content, not the original fixture text
+		const knowledgeBody = screen.getByTestId("knowledge-body");
+		expect(knowledgeBody).toHaveTextContent("brand new edited content");
+		expect(knowledgeBody).not.toHaveTextContent("JWT-based authentication");
+	});
+
 	it("factory items do NOT show an Edit button", () => {
 		// k11 is factory-scope
 		renderPage("k11");
