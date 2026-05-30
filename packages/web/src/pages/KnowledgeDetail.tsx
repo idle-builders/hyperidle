@@ -1,10 +1,15 @@
 import {
 	BlockActionsPopover,
+	BodyEditor,
 	knowledgeStatusToStatus,
 	StatusChip,
 	Tag,
 } from "@hyperidle/design-system";
-import type { KnowledgeScope, KnowledgeStatus } from "@hyperidle/fabric/types";
+import {
+	KNOWLEDGE_STATUSES,
+	type KnowledgeScope,
+	type KnowledgeStatus,
+} from "@hyperidle/fabric/types";
 /**
  * Knowledge/Detail page (J7) — metadata bar, markdown body, observation log,
  * related-items sidebar. Edit mode is a React state toggle, NOT a route.
@@ -34,14 +39,28 @@ import type { KnowledgeScope, KnowledgeStatus } from "@hyperidle/fabric/types";
  * @lore L18: ObservationLog replaced by HostThreadSection. Block popover wiring
  * added (same pattern as WorkBet). KnowledgeBody extended with onOpenBlockActions
  * and messagesByBlockId for inline anchored messages.
+ *
+ * @lore T2: textarea+preview editing replaced by BodyEditor with auto-save via
+ * PATCH /api/knowledge/:id. Save/Cancel replaced by Done button. useAutoSave
+ * manages the debounce, status machine (idle/saving/saved/error/conflict) and
+ * version tracking. useKnowledgeItem fetches live data; falls back to fixtures
+ * so existing protected tests stay green. BodyEditor is mocked in page-level
+ * tests because TipTap requires DOM APIs unavailable in JSDOM.
+ *
+ * @lore T2 F3: dirty-check in handleContentChange — skip triggerSave when
+ * content matches editContent to prevent spurious saves on BodyEditor mount
+ * (TipTap fires onChange with initial content on mount).
  */
-import type { Message, ScopeKind } from "@hyperidle/shared";
-import { isRedactedPayload } from "@hyperidle/shared";
-import { type JSX, useMemo, useState } from "react";
+import type { Message, PlainPayloadWithBlockId, ScopeKind } from "@hyperidle/shared";
+import { isRedactedPayload, SCOPE_KINDS } from "@hyperidle/shared";
+import { type JSX, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 // eslint-disable-next-line design/no-mock-data-import -- tracked in #93
 import { knowledgeItems, type MockKnowledgeItem } from "../fixtures/knowledge-data";
+import { useAutoSave } from "../hooks/useAutoSave.js";
+import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useHostThread } from "../hooks/useHostThread.js";
+import { useKnowledgeItem } from "../hooks/useKnowledgeItem.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
 import { KnowledgeBody } from "./knowledge/KnowledgeBody";
 import { ScopeChangeDialog } from "./knowledge/ScopeChangeDialog";
@@ -142,6 +161,24 @@ function formatConfidence(score: number | undefined): string {
 	return `${Math.round(score * 100)}%`;
 }
 
+/**
+ * Narrows a raw string from the API to KnowledgeStatus.
+ * Falls back to "provisional" so the render never crashes on unknown values.
+ */
+function toKnowledgeStatus(raw: string): KnowledgeStatus {
+	const statuses: ReadonlyArray<string> = KNOWLEDGE_STATUSES;
+	return statuses.includes(raw) ? (raw as KnowledgeStatus) : "provisional";
+}
+
+/**
+ * Narrows a raw string from the API to ScopeKind.
+ * Falls back to "factory" so the render defaults to the most restrictive scope.
+ */
+function toScopeKind(raw: string): ScopeKind {
+	const kinds: ReadonlyArray<string> = SCOPE_KINDS;
+	return kinds.includes(raw) ? (raw as ScopeKind) : "factory";
+}
+
 function fromFixture(item: MockKnowledgeItem): DetailItem {
 	return {
 		id: item.id,
@@ -194,13 +231,38 @@ export interface KnowledgeDetailProps {
 export function KnowledgeDetail({ overrideKnowledgeId }: KnowledgeDetailProps = {}): JSX.Element {
 	const { knowledgeId: routeKnowledgeId } = useParams<{ knowledgeId: string }>();
 	const knowledgeId = overrideKnowledgeId ?? routeKnowledgeId;
-	const detail = findDetail(knowledgeId) ?? FALLBACK_DETAIL;
+
+	// T2: Fetch from API, fall back to fixture data so existing tests stay green.
+	// @lore T2: Dual data source — API item takes priority over fixture. Fixture
+	// items (k1, k2, k11, k12) are used when the API returns null (test env or
+	// when item doesn't exist in the DB). Full fixture removal deferred to a
+	// future workpackage once tests are migrated to seeded DB data.
+	const { data: apiItem } = useKnowledgeItem(knowledgeId);
+	const fixtureItem = findDetail(knowledgeId);
+
+	let item: DetailItem;
+	if (apiItem) {
+		item = {
+			id: apiItem.id,
+			title: apiItem.title,
+			layer: "unknown",
+			kind: "unknown",
+			status: toKnowledgeStatus(apiItem.status),
+			timestamp: apiItem.updatedAt,
+			content: apiItem.body,
+			versionNum: apiItem.version,
+			scopeKind: toScopeKind(apiItem.scopeKind),
+		};
+	} else {
+		item = fixtureItem ?? FALLBACK_DETAIL;
+	}
+
 	const legacySource = knowledgeId !== undefined ? LEGACY_SOURCES[knowledgeId] : undefined;
 	// Q2: Pass the route-resolved knowledgeId to the view so ScopeChangeDialog
 	// uses the actual route param for the PATCH URL, not item.id from fixture data
 	// (FALLBACK_DETAIL.id would be "unknown" for non-fixture item IDs).
 	return (
-		<KnowledgeDetailView item={detail} legacySource={legacySource} routeKnowledgeId={knowledgeId} />
+		<KnowledgeDetailView item={item} legacySource={legacySource} routeKnowledgeId={knowledgeId} />
 	);
 }
 
@@ -218,12 +280,13 @@ function KnowledgeDetailView({
 }: KnowledgeDetailViewProps): JSX.Element {
 	// Q2: Use the route-resolved id for API calls to avoid FALLBACK_DETAIL.id = "unknown"
 	const effectiveKnowledgeId = routeKnowledgeId ?? item.id;
-	const isFactory = item.scope === "factory";
+	const isFactory = item.scope === "factory" || item.scopeKind === "factory";
 	const amendableBanner = isFactory && item.status === "needs_human";
 	const initialContent = item.content ?? "";
 	const [savedContent, setSavedContent] = useState<string>(initialContent);
 	const [editing, setEditing] = useState(false);
-	const [draft, setDraft] = useState<string>(initialContent);
+	// T2: editContent captures body at edit-start time (consumed once by BodyEditor on mount)
+	const [editContent, setEditContent] = useState<string>(initialContent);
 
 	// Q2: Scope change dialog state.
 	const [scopeChangeOpen, setScopeChangeOpen] = useState(false);
@@ -237,13 +300,45 @@ function KnowledgeDetailView({
 	// L18: Fetch the host thread for inline anchored messages
 	const { data: threadData } = useHostThread("knowledge_item", item.id);
 
+	// T2: Auto-save version tracking
+	const [version, setVersion] = useState<number>(item.versionNum ?? 1);
+	const [conflictVersion, setConflictVersion] = useState<number | null>(null);
+
+	/**
+	 * T2 F-ARCH-1: Track the latest editor content in a ref so onSaved can use
+	 * the actually-saved value rather than the edit-start snapshot in editContent.
+	 * editContent is set once in startEdit() and never updated during editing,
+	 * so using it in onSaved would put stale content into savedContent.
+	 *
+	 * @lore T2 F-ARCH-1: The reviewer found that onSaved was calling
+	 * setSavedContent(editContent) where editContent is a closure over the
+	 * edit-start snapshot. latestContentRef always holds the most-recent onChange
+	 * value so Done shows the user what was actually persisted.
+	 */
+	const latestContentRef = useRef<string>("");
+
+	// T2: Current user for updatedBy
+	const { user } = useCurrentUser();
+
+	// T2: Auto-save hook wiring
+	const { status: saveStatus, save: triggerSave } = useAutoSave({
+		endpoint: `/api/knowledge/${effectiveKnowledgeId}`,
+		version,
+		updatedBy: user?.id ?? "human",
+		onSaved: (newVersion) => {
+			setVersion(newVersion);
+			setSavedContent(latestContentRef.current);
+		},
+		onConflict: ({ currentVersion }) => setConflictVersion(currentVersion),
+	});
+
 	const messagesByBlockId = useMemo((): ReadonlyMap<string, ReadonlyArray<Message>> => {
 		const map = new Map<string, Message[]>();
 		if (!threadData?.messages) return map;
 		for (const msg of threadData.messages) {
 			if (msg.type !== "plain") continue;
 			if (isRedactedPayload(msg.payload)) continue;
-			const blockId = (msg.payload as { blockId?: string }).blockId;
+			const blockId = (msg.payload as PlainPayloadWithBlockId).blockId;
 			if (!blockId) continue;
 			const existing = map.get(blockId) ?? [];
 			map.set(blockId, [...existing, msg]);
@@ -254,18 +349,28 @@ function KnowledgeDetailView({
 	const related = useMemo(() => findRelated(item), [item]);
 
 	function startEdit(): void {
-		setDraft(savedContent);
+		latestContentRef.current = savedContent;
+		setEditContent(savedContent);
 		setEditing(true);
+		setConflictVersion(null);
 	}
 
-	function cancelEdit(): void {
-		setDraft(savedContent);
+	function exitEdit(): void {
 		setEditing(false);
 	}
 
-	function saveEdit(): void {
-		setSavedContent(draft);
-		setEditing(false);
+	/**
+	 * T2: onChange handler for BodyEditor.
+	 * @lore T2 F3: dirty-check — skip triggerSave when markdown matches
+	 * editContent to prevent auto-save on BodyEditor mount (TipTap fires
+	 * onChange with initial content on first render).
+	 * @lore T2 F-ARCH-1: always update latestContentRef so onSaved can
+	 * setSavedContent with the actually-typed value, not the edit-start snapshot.
+	 */
+	function handleContentChange(markdown: string): void {
+		latestContentRef.current = markdown;
+		if (markdown === editContent) return;
+		triggerSave(markdown);
 	}
 
 	/**
@@ -297,6 +402,11 @@ function KnowledgeDetailView({
 					{!(isFactory || editing) && (
 						<button type="button" className="btn btn-xs btn-ghost" onClick={startEdit}>
 							Edit
+						</button>
+					)}
+					{editing && (
+						<button type="button" className="btn btn-xs btn-ghost" onClick={exitEdit}>
+							Done
 						</button>
 					)}
 					{/* Q2: Change scope button — visible when not in edit mode */}
@@ -342,6 +452,28 @@ function KnowledgeDetailView({
 			</div>
 			{legacySource && <p className="text-xs text-[var(--text-lo)]">{legacySource}</p>}
 
+			{/* T2: Conflict banner — shown when PATCH returns 409 */}
+			{conflictVersion !== null && (
+				<div
+					role="alert"
+					className="flex items-center justify-between gap-2 px-3 py-2 text-xs
+					           bg-[var(--surface-4)] border border-[var(--border-subtle)]
+					           rounded-[var(--r2)]"
+					data-testid="conflict-banner"
+				>
+					<span className="text-[var(--text-mid)]">
+						Version conflict — someone else saved this item. Reload to see their changes.
+					</span>
+					<button
+						type="button"
+						className="btn btn-xs btn-ghost"
+						onClick={() => window.location.reload()}
+					>
+						Reload
+					</button>
+				</div>
+			)}
+
 			{/* L18: Block actions popover */}
 			{openBlockId !== null && (
 				<BlockActionsPopover
@@ -363,23 +495,26 @@ function KnowledgeDetailView({
 				<div className="flex flex-col gap-3 min-w-0">
 					{editing ? (
 						<div className="flex flex-col gap-2" data-testid="knowledge-edit-panel">
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-								<textarea
-									className="textarea textarea-bordered w-full text-sm font-mono min-h-40"
-									data-testid="knowledge-edit-textarea"
-									value={draft}
-									onChange={(e) => setDraft(e.target.value)}
-									aria-label="Edit knowledge body"
-								/>
-								<KnowledgeBody body={draft} hostId={item.id} testId="knowledge-edit-preview" />
-							</div>
+							<BodyEditor
+								initialContent={editContent}
+								onChange={handleContentChange}
+								placeholder="Start writing..."
+								autoFocus
+								minHeight="200px"
+								variant="full"
+							/>
 							<div className="flex items-center gap-2">
-								<button type="button" className="btn btn-xs btn-primary" onClick={saveEdit}>
-									Save
-								</button>
-								<button type="button" className="btn btn-xs btn-ghost" onClick={cancelEdit}>
-									Cancel
-								</button>
+								<span
+									className="text-xs text-[var(--text-lo)]"
+									aria-live="polite"
+									data-testid="save-indicator"
+								>
+									{saveStatus === "saving" && "Saving..."}
+									{saveStatus === "saved" && "Saved"}
+									{saveStatus === "error" && (
+										<span className="text-[var(--danger)]">Save failed</span>
+									)}
+								</span>
 							</div>
 						</div>
 					) : (

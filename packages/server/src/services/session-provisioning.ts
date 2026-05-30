@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import * as path from "node:path";
-import { type HyperIdleDb, sessions, tasks, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, sessions, tasks, users } from "@hyperidle/db";
 import {
 	checkCostCap,
 	type FileWatcher,
@@ -117,6 +117,64 @@ async function revertTaskToAccepted(
 		toState,
 		timestamp: Date.now(),
 	});
+}
+
+/**
+ * Merge the session's accumulated token counts into bets.tokensActualJson.
+ *
+ * Uses a read-modify-write pattern (not atomic at the DB level) which is
+ * acceptable for single-founder usage. Tokens are informational — budget
+ * gating uses costActualMinor which IS atomic.
+ *
+ * @lore R5 D4: Token accumulation happens at session teardown (not per-event)
+ * because tokens arrive as token_usage events (separate from cost_update) and
+ * batching them at session end is far cheaper than a per-event read-modify-write.
+ * Cost accumulation is per-event (recordCostAndCheck); token accumulation is
+ * per-session. Do NOT re-increment costActualMinor here — that is done by
+ * recordCostAndCheck per-event (D3). This function ONLY writes tokensActualJson.
+ */
+async function accumulateSessionTokensOnBet(
+	db: HyperIdleDb,
+	taskId: string,
+	accumulatedTokens: Partial<Record<string, { prompt: number; completion: number }>>,
+): Promise<void> {
+	if (Object.keys(accumulatedTokens).length === 0) return;
+
+	const [task] = await db
+		.select({ betId: tasks.betId })
+		.from(tasks)
+		.where(eq(tasks.id, taskId))
+		.limit(1);
+	if (!task?.betId) return;
+
+	const [bet] = await db
+		.select({ tokensActualJson: bets.tokensActualJson })
+		.from(bets)
+		.where(eq(bets.id, task.betId))
+		.limit(1);
+
+	const existing: Record<string, { prompt: number; completion: number }> = bet?.tokensActualJson
+		? ((
+				JSON.parse(bet.tokensActualJson) as {
+					byTier: Record<string, { prompt: number; completion: number }>;
+				}
+			).byTier ?? {})
+		: {};
+
+	const merged: Record<string, { prompt: number; completion: number }> = { ...existing };
+	for (const [tier, counts] of Object.entries(accumulatedTokens)) {
+		if (!counts) continue;
+		const ex = merged[tier] ?? { prompt: 0, completion: 0 };
+		merged[tier] = {
+			prompt: ex.prompt + counts.prompt,
+			completion: ex.completion + counts.completion,
+		};
+	}
+
+	await db
+		.update(bets)
+		.set({ tokensActualJson: JSON.stringify({ byTier: merged }) })
+		.where(eq(bets.id, task.betId));
 }
 
 export interface ProvisionSessionDeps {
@@ -345,12 +403,14 @@ export async function provisionSession(
 					totalCostCents += Math.round(delta * scale);
 					// Forward to C7: updates agents/teams.costActual and emits
 					// cost_cap_warning / cost_cap_breached when thresholds cross.
+					// R5: taskId is passed so bet cost accumulates per-event.
 					await recordCostAndCheck(db, eventBus, {
 						sessionId,
 						costMinor: totalCostCents,
 						currency,
 						agentId: params.agentId,
 						teamId,
+						taskId: params.taskId,
 						factoryCap: params.factoryCap,
 						factorySpend: params.factorySpend,
 						reviewThreadId: params.reviewThreadId,
@@ -423,6 +483,7 @@ export async function provisionSession(
 
 	if (crashed) {
 		await crashSession(db, eventBus, sessionContext, totalCostCents, 0);
+		await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens);
 		return {
 			sessionId,
 			outcome: "crashed",
@@ -432,6 +493,7 @@ export async function provisionSession(
 	}
 
 	await endSession(db, eventBus, sessionContext, totalCostCents, 0);
+	await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens);
 	// Also destroy the workspace via the adapter to keep its internal map
 	// consistent. `rm({ force: true })` is a no-op on the already-removed
 	// directory, so no additional error handling is needed.

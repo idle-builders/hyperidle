@@ -2,7 +2,8 @@ import * as crypto from "node:crypto";
 // @lore U1: `teams` is the domain entity (no costActual/costCap columns).
 // Cost tracking uses `teamMembers` (the agent-membership group) which has costActual/costCap.
 // params.teamId in cost-cap service refers to the teamMembers.id, not teams.id.
-import { type HyperIdleDb, items, teamMembers, users } from "@hyperidle/db";
+// @lore R5: `bets` and `tasks` added for bet cost accumulation via taskId lookup.
+import { bets, type HyperIdleDb, items, tasks, teamMembers, users } from "@hyperidle/db";
 import type { EventBus, SessionEndedEvent } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
 
@@ -33,6 +34,12 @@ export interface RecordCostAndCheckParams {
 	currency?: string;
 	agentId: string;
 	teamId?: string;
+	/**
+	 * R5: Optional task id. When provided, cost is also accumulated on the
+	 * task's parent bet (via tasks.betId lookup). This keeps bet cost in sync
+	 * with every cost_update event, including partial-session crashes.
+	 */
+	taskId?: string;
 	factoryCap?: number;
 	factorySpend?: number;
 	reviewThreadId?: string;
@@ -239,6 +246,26 @@ export async function recordCostAndCheck(
 				.update(teamMembers)
 				.set({ costActual: sql`coalesce(${teamMembers.costActual}, 0) + ${effectiveCostMinor}` })
 				.where(eq(teamMembers.id, params.teamId));
+		}
+
+		// R5: Accumulate on bet (via task.betId lookup) if taskId is provided.
+		// Uses the same atomic SQL pattern as agent/team accumulation to prevent
+		// lost updates under concurrent sessions on the same bet.
+		if (params.taskId) {
+			const [task] = await db
+				.select({ betId: tasks.betId })
+				.from(tasks)
+				.where(eq(tasks.id, params.taskId))
+				.limit(1);
+			if (task?.betId) {
+				await db
+					.update(bets)
+					.set({
+						costActualMinor: sql`coalesce(${bets.costActualMinor}, 0) + ${effectiveCostMinor}`,
+						costActualCurrency: params.currency ?? "USD",
+					})
+					.where(eq(bets.id, task.betId));
+			}
 		}
 	}
 
