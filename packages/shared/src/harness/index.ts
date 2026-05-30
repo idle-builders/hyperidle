@@ -26,7 +26,9 @@ export type {
 	ServerToWorkerMessage,
 	WorkerErrorMessage,
 	WorkerEventMessage,
+	WorkerPauseMessage,
 	WorkerRegisterMessage,
+	WorkerResumeMessage,
 	WorkerSessionResultMessage,
 	WorkerToServerMessage,
 } from "./worker-protocol.js";

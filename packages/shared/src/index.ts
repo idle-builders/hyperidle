@@ -96,11 +96,22 @@ export type {
 	HarnessEvent,
 	HarnessEventType,
 	PreCompactionEvent,
+	ServerDispatchMessage,
+	ServerRegisteredMessage,
+	ServerStopMessage,
+	ServerToWorkerMessage,
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
 	TokenUsageEvent,
 	ToolCallEvent,
+	WorkerErrorMessage,
+	WorkerEventMessage,
+	WorkerPauseMessage,
+	WorkerRegisterMessage,
+	WorkerResumeMessage,
+	WorkerSessionResultMessage,
+	WorkerToServerMessage,
 } from "./harness/index.js";
 export { MockHarnessAdapter } from "./harness/index.js";
 // ── Hint catalog (P5) ──

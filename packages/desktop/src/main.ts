@@ -8,6 +8,7 @@
 
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, shell } from "electron";
@@ -19,10 +20,11 @@ const Dirname =
 import { buildAppMenuTemplate } from "./app-menu.js";
 import { getPort, startServer, waitForHealth } from "./boot-server.js";
 import { loadClientConfig, migrateWindowState, saveClientConfig } from "./client-config.js";
+import { DesktopWorkerClient } from "./desktop-worker-client.js";
 import type { LogRotator } from "./log-rotation.js";
 import { createLogRotator } from "./log-rotation.js";
 import { resolveMigrationsFolder, runMigrations } from "./migrate.js";
-import { createSafeCredentialsManager } from "./safe-credentials.js";
+import { createSafeCredentialsManager, decryptCredential } from "./safe-credentials.js";
 
 function log(message: string, data?: Record<string, unknown>): void {
 	const ts = new Date().toISOString();
@@ -480,7 +482,7 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 			preload: preloadPath,
 			contextIsolation: true,
 			sandbox: true,
-			additionalArguments: [`--api-key=${apiKey}`],
+			additionalArguments: [`--api-key=${apiKey}`, "--backend-mode=local"],
 		},
 		show: false,
 	});
@@ -580,7 +582,8 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 			preload: preloadPath,
 			contextIsolation: true,
 			sandbox: true,
-			additionalArguments: [],
+			// S4: pass backend mode so preload can expose it via __HYPERIDLE__.backendMode
+			additionalArguments: ["--backend-mode=shared"],
 		},
 		show: false,
 	});
@@ -615,6 +618,134 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 	credManager.registerHandlers();
 	registerCommonIpcHandlers(mainWindow, ctx);
 
+	// S4: Worker client — initialized if config.workerEnabled is true
+	let workerClient: DesktopWorkerClient | null = null;
+	const workerIpcChannels = [
+		"worker:enable",
+		"worker:disable",
+		"worker:pause",
+		"worker:resume",
+		"worker:status",
+	] as const;
+
+	/**
+	 * Read a credential from the encrypted safeStorage store.
+	 * Returns null if not found or decryption fails.
+	 */
+	function readCredentialFromStore(name: string): string | null {
+		try {
+			const raw = fs.readFileSync(ctx.credentialsPath, "utf-8");
+			const store = JSON.parse(raw) as Record<string, string>;
+			const encoded = store[name];
+			if (encoded === undefined) return null;
+			return decryptCredential(encoded);
+		} catch {
+			return null;
+		}
+	}
+
+	function createWorkerClient(maxConcurrent: number): DesktopWorkerClient | null {
+		const config = loadClientConfig(ctx.configPath);
+		const authKey = readCredentialFromStore("shared_backend_key");
+		if (!authKey) {
+			log("worker:enable — shared_backend_key not found in safeStorage; skipping");
+			return null;
+		}
+
+		let deviceId = config.workerDeviceId;
+		if (!deviceId) {
+			deviceId = crypto.randomUUID();
+			saveClientConfig(ctx.configPath, { workerDeviceId: deviceId });
+		}
+
+		// Detect model providers from stored credentials.
+		// @lore S4: Map credential names to provider identifiers — anthropic_api_key →
+		// "anthropic", openrouter_api_key → "openrouter". If no keys found, the
+		// worker advertises no providers and the server will not dispatch sessions to it.
+		const modelProviders: string[] = [];
+		if (readCredentialFromStore("anthropic_api_key") !== null) {
+			modelProviders.push("anthropic");
+		}
+		if (readCredentialFromStore("openrouter_api_key") !== null) {
+			modelProviders.push("openrouter");
+		}
+
+		const client = new DesktopWorkerClient({
+			serverUrl,
+			credentialsPath: ctx.credentialsPath,
+			authKey,
+			deviceId,
+			machineName: os.hostname(),
+			modelProviders,
+			maxConcurrent,
+		});
+
+		client.onStatusChange((status) => {
+			if (!mainWindow.isDestroyed()) {
+				mainWindow.webContents.send("worker:status-changed", status);
+			}
+		});
+
+		return client;
+	}
+
+	// Register worker IPC handlers
+	ipcMain.handle("worker:enable", async (_event: unknown, maxConcurrent: number): Promise<void> => {
+		if (workerClient) {
+			await workerClient.disconnect();
+		}
+		saveClientConfig(ctx.configPath, { workerEnabled: true, workerMaxConcurrent: maxConcurrent });
+		workerClient = createWorkerClient(maxConcurrent);
+		if (workerClient) {
+			await workerClient.connect();
+		}
+	});
+
+	ipcMain.handle("worker:disable", async (): Promise<void> => {
+		if (workerClient) {
+			await workerClient.disconnect();
+			workerClient = null;
+		}
+		saveClientConfig(ctx.configPath, { workerEnabled: false });
+	});
+
+	ipcMain.handle("worker:pause", async (): Promise<void> => {
+		workerClient?.pause();
+	});
+
+	ipcMain.handle("worker:resume", async (): Promise<void> => {
+		workerClient?.resume();
+	});
+
+	ipcMain.handle("worker:status", (): unknown => {
+		if (workerClient) {
+			return workerClient.getStatus();
+		}
+		const config = loadClientConfig(ctx.configPath);
+		return {
+			enabled: config.workerEnabled,
+			connected: false,
+			paused: false,
+			activeSessions: 0,
+			maxConcurrent: config.workerMaxConcurrent,
+			deviceId: config.workerDeviceId,
+			modelProviders: [],
+		};
+	});
+
+	// Auto-start worker on boot if configured
+	{
+		const config = loadClientConfig(ctx.configPath);
+		if (config.workerEnabled && config.workerDeviceId) {
+			workerClient = createWorkerClient(config.workerMaxConcurrent);
+			if (workerClient) {
+				void workerClient.connect().catch((err: unknown) => {
+					log("worker:auto-start failed", { error: (err as Error).message });
+				});
+			}
+		}
+	}
+
 	const menu = buildAppMenuTemplate({
 		isDev: IS_DEV,
 		logDir: ctx.logDir,
@@ -625,7 +756,21 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 	});
 	Menu.setApplicationMenu(menu as unknown as Electron.Menu);
 	// No server handle in shared mode
-	app.on("before-quit", getBeforeQuitHandler(null, logRotator));
+	// S4: include worker client shutdown in before-quit handler
+	app.on("before-quit", (event) => {
+		if (workerClient) {
+			event.preventDefault();
+			void workerClient.disconnect().finally(() => {
+				workerClient = null;
+				for (const channel of workerIpcChannels) {
+					ipcMain.removeHandler(channel);
+				}
+				app.quit();
+			});
+		} else {
+			getBeforeQuitHandler(null, logRotator)();
+		}
+	});
 	app.on("activate", (): void => {
 		if (BrowserWindow.getAllWindows().length === 0) void startApp();
 	});

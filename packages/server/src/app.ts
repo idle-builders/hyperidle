@@ -319,10 +319,15 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 	// @lore S1: createAuthRoutes now takes sharedMode to conditionally mount
 	// /invite and /logout (shared mode only) and to bind ws-token identity
 	// from auth context rather than X-Identity header.
+	// @lore S4: worker-token endpoint requires auth routes even without db or
+	// tokenStore — always mount when at least one of them is truthy, or when
+	// there's no db but we still want worker-token available (e.g. test apps).
 	if (options?.db) {
 		api.route("/auth", createAuthRoutes(options.db, tokenStore ?? null, sharedMode));
-	} else if (tokenStore) {
-		api.route("/auth", createAuthRoutes(null, tokenStore, sharedMode));
+	} else {
+		// Mount auth routes even without db so /worker-token is available.
+		// createAuthRoutes handles null db gracefully (skips db-dependent routes).
+		api.route("/auth", createAuthRoutes(null, tokenStore ?? null, sharedMode));
 	}
 
 	// Register test routes only in non-production environments

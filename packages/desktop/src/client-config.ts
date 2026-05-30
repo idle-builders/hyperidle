@@ -36,6 +36,13 @@ const ClientConfigSchema = z.object({
 	lastView: z.string().nullable().default(null),
 	/** Window bounds and state. */
 	windowState: WindowStateSchema.optional(),
+	// S4: Worker registration fields
+	/** Whether this desktop is registered as a worker. Default false. */
+	workerEnabled: z.boolean().default(false),
+	/** Maximum concurrent sessions this worker handles. Default 1, max 8. */
+	workerMaxConcurrent: z.number().int().min(1).max(8).default(1),
+	/** Stable UUID for worker pool identity. Generated on first enable, persisted. */
+	workerDeviceId: z.string().nullable().default(null),
 });
 
 export type ClientConfig = {
@@ -43,18 +50,29 @@ export type ClientConfig = {
 	serverUrl: string | null;
 	lastView: string | null;
 	windowState: WindowState;
+	/** S4: Whether this desktop is registered as a worker. */
+	workerEnabled: boolean;
+	/** S4: Maximum concurrent sessions. */
+	workerMaxConcurrent: number;
+	/** S4: Stable UUID for the worker pool entry. */
+	workerDeviceId: string | null;
 };
 
 /**
  * @lore P3: DEFAULTS constructed explicitly to avoid Zod v4 nested .default({})
  * behavior where the literal {} is used without re-parsing through the sub-schema.
  * WindowStateSchema.parse({}) correctly applies all inner defaults (width: 1280, etc.).
+ * @lore S4: Worker fields added with safe defaults — workerEnabled=false ensures
+ * no worker is started by default. workerDeviceId=null is generated on first enable.
  */
 const DEFAULTS: ClientConfig = {
 	backendMode: null,
 	serverUrl: null,
 	lastView: null,
 	windowState: WindowStateSchema.parse({}),
+	workerEnabled: false,
+	workerMaxConcurrent: 1,
+	workerDeviceId: null,
 };
 
 /**
@@ -68,6 +86,9 @@ function applyConfigDefaults(raw: z.infer<typeof ClientConfigSchema>): ClientCon
 		serverUrl: raw.serverUrl ?? null,
 		lastView: raw.lastView ?? null,
 		windowState: WindowStateSchema.parse(raw.windowState ?? {}),
+		workerEnabled: raw.workerEnabled ?? false,
+		workerMaxConcurrent: raw.workerMaxConcurrent ?? 1,
+		workerDeviceId: raw.workerDeviceId ?? null,
 	};
 }
 
