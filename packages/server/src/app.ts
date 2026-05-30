@@ -12,6 +12,7 @@ import { errorHandler } from "./middleware/error-handler.js";
 import { createRateLimiter } from "./middleware/rate-limit.js";
 import { createArtifactRoutes } from "./routes/artifacts.js";
 import { createAuthRoutes } from "./routes/auth.js";
+import { createPublicAuthRoutes } from "./routes/auth-public.js";
 import { createBetRoutes } from "./routes/bets.js";
 import { createConversationRoutes } from "./routes/conversations.js";
 import { createCredentialRoutes } from "./routes/credentials.js";
@@ -129,6 +130,18 @@ interface AppOptions {
 	 * Credential resolver for pre-flight API key checks (R1).
 	 */
 	credentialResolver?: CredentialResolver;
+	/**
+	 * Enable shared-mode authentication (S1). When true, the auth middleware
+	 * accepts Bearer tokens from LoginSessions in addition to X-API-Key.
+	 * Also mounts the public /api/auth/claim endpoint (pre-auth).
+	 *
+	 * Defaults to false (local mode — unchanged X-API-Key behavior).
+	 *
+	 * @lore S1: Derived from HYPERIDLE_SHARED_MODE env var at app construction
+	 * time in production. Tests pass this directly to control the mode without
+	 * setting environment variables.
+	 */
+	sharedMode?: boolean;
 }
 
 function buildObservabilityAdapter(cfg: ObservabilityConfig): ObservabilityAdapter | null {
@@ -156,6 +169,13 @@ const appLogger = createLogger({ pkg: "server.app" });
  */
 async function createApp(options?: AppOptions): Promise<Hono> {
 	const app = new Hono();
+
+	// S1: shared mode — read from options (test-injectable) or env var (production).
+	// @lore S1: The env var is read once at app construction time, not per-request.
+	// This avoids per-request env lookups and is consistent with how HYPERIDLE_API_KEY
+	// is used (read at middleware invocation time, but the middleware itself is
+	// constructed once at startup).
+	const sharedMode = options?.sharedMode ?? process.env.HYPERIDLE_SHARED_MODE === "true";
 
 	// Backward-compat: /health without auth
 	app.route("/", health);
@@ -209,6 +229,14 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route("/users", createUserSetupRoute(options.db));
 	}
 
+	// S1: Public: POST /api/auth/claim (invite claim — no auth required).
+	// @lore S1: Mounted BEFORE the auth middleware so unauthenticated users can
+	// claim invites. Only mounted in shared mode — claim is meaningless in local
+	// desktop mode where there are no invite flows.
+	if (options?.db && sharedMode) {
+		api.route("/auth", createPublicAuthRoutes(options.db));
+	}
+
 	// I2 review O6 / arch H-1: the WS-token mint endpoint gets its OWN
 	// rate-limit bucket so a WS reconnect storm cannot starve the API
 	// budget (or vice-versa). Larger budget than the API path because
@@ -246,11 +274,13 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 	}
 
 	// Auth middleware for all other /api routes (except /health above).
-	// M3 A3: when db is available, use createAuthMiddleware(db) to set userId
-	// from factorySettings. Without db, fall back to the stateless middleware
-	// (used only by non-db app instances in tests).
+	// M3 A3: when db is available, use createAuthMiddleware({ db, sharedMode })
+	// to set userId from users table. Without db, fall back to the stateless
+	// middleware (used only by non-db app instances in tests).
+	// @lore S1 SF-2: createAuthMiddleware signature changed from (db) to
+	// ({ db, sharedMode }). All callers updated here.
 	if (options?.db) {
-		api.use("*", createAuthMiddleware(options.db));
+		api.use("*", createAuthMiddleware({ db: options.db, sharedMode }));
 	} else {
 		api.use("*", authMiddleware);
 	}
@@ -266,10 +296,13 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 	// M3 A4: /api/auth/me is always mounted (regardless of tokenStore).
 	// The /ws-token endpoint is conditionally mounted only when WS support exists.
 	// This restructuring allows /me to be available in all deployments.
+	// @lore S1: createAuthRoutes now takes sharedMode to conditionally mount
+	// /invite and /logout (shared mode only) and to bind ws-token identity
+	// from auth context rather than X-Identity header.
 	if (options?.db) {
-		api.route("/auth", createAuthRoutes(options.db, tokenStore ?? null));
+		api.route("/auth", createAuthRoutes(options.db, tokenStore ?? null, sharedMode));
 	} else if (tokenStore) {
-		api.route("/auth", createAuthRoutes(null, tokenStore));
+		api.route("/auth", createAuthRoutes(null, tokenStore, sharedMode));
 	}
 
 	// Register test routes only in non-production environments

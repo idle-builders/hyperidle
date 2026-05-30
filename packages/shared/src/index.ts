@@ -1,5 +1,8 @@
 export type { ApiErrorCode, ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
+// ── S1: Per-user auth types ──
+export type { InviteRole } from "./auth.js";
+export { INVITE_CODE_TTL_MS, INVITE_ROLES, LOGIN_SESSION_TTL_MS } from "./auth.js";
 // ── Block primitive (L2) ──
 export type {
 	Block,

@@ -34,9 +34,11 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 					"bets",
 					"factory_settings",
 					"hint_progress",
+					"invite_codes",
 					"items",
 					"knowledge_edit_log",
 					"knowledge_items",
+					"login_sessions",
 					"messages",
 					"products",
 					"routines",
@@ -49,7 +51,7 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 				]),
 			);
 			expect(tableNames).not.toContain("responses");
-			expect(tableNames.length).toBeGreaterThanOrEqual(17);
+			expect(tableNames.length).toBeGreaterThanOrEqual(19);
 		} finally {
 			await close();
 		}
@@ -84,6 +86,9 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
  * asserting the row reads as FALSE (the safe default).
  */
 describe("I3 review C5: boolean migration is NULL-safe", () => {
+	// @lore S1: This test creates its own raw PGlite() instance (not pooled) to simulate
+	// the brownfield migration scenario. Even with warm WASM, PGlite instance init +
+	// DDL operations can take 30-60s. Timeout raised to 60s to prevent flaky failures.
 	it("a row with blocking=NULL pre-migration ends up as false post-migration", async () => {
 		// This is the brownfield scenario: a DB that ran the OLD 0003 (no
 		// inline boolean coercion) ends up with integer columns. Then 0004
@@ -120,7 +125,7 @@ describe("I3 review C5: boolean migration is NULL-safe", () => {
 		} finally {
 			await client.close();
 		}
-	});
+	}, 60_000);
 
 	it("default false applies to brand-new rows after migration", { timeout: 30_000 }, async () => {
 		const { db, close } = await createTestDb();
