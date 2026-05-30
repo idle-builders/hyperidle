@@ -46,7 +46,7 @@ test.describe("Theme persistence", () => {
 		await page.waitForSelector("[data-testid='main-content']");
 
 		const theme = await page.evaluate(() => document.documentElement.dataset.theme);
-		expect(theme).toBe("lucid-dark");
+		expect(theme).toBe("hearth-dark");
 
 		const stored = await page.evaluate(() => window.localStorage.getItem("hyperidle-theme"));
 		// Nothing was written — system is the implicit default.
@@ -62,7 +62,7 @@ test.describe("Theme persistence", () => {
 		await page.waitForSelector("[data-testid='main-content']");
 
 		const theme = await page.evaluate(() => document.documentElement.dataset.theme);
-		expect(theme).toBe("lucid-light");
+		expect(theme).toBe("hearth-light");
 		await ctx.close();
 	});
 
@@ -91,7 +91,7 @@ test.describe("Theme persistence", () => {
 
 		await expect
 			.poll(async () => page.evaluate(() => document.documentElement.dataset.theme))
-			.toBe("lucid-dark");
+			.toBe("hearth-dark");
 
 		const stored = await page.evaluate(() => window.localStorage.getItem("hyperidle-theme"));
 		expect(stored).toBe("dark");
@@ -101,7 +101,7 @@ test.describe("Theme persistence", () => {
 		await page.reload();
 		await page.waitForSelector("[data-testid='main-content']");
 		const themeAfterReload = await page.evaluate(() => document.documentElement.dataset.theme);
-		expect(themeAfterReload).toBe("lucid-dark");
+		expect(themeAfterReload).toBe("hearth-dark");
 
 		// Prove data-theme was set before paint by inspecting the synchronous
 		// boot script's effect on the documentElement *attribute* (not just
@@ -125,14 +125,14 @@ test.describe("Theme persistence", () => {
 		await page.waitForSelector("[data-testid='main-content']");
 
 		const initial = await page.evaluate(() => document.documentElement.dataset.theme);
-		expect(initial).toBe("lucid-light");
+		expect(initial).toBe("hearth-light");
 
 		// Emulate the OS flipping to dark — the matchMedia subscription must fire.
 		await page.emulateMedia({ colorScheme: "dark" });
 
 		await expect
 			.poll(async () => page.evaluate(() => document.documentElement.dataset.theme))
-			.toBe("lucid-dark");
+			.toBe("hearth-dark");
 		await ctx.close();
 	});
 

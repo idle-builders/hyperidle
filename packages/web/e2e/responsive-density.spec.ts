@@ -443,23 +443,23 @@ test.describe("K8 — Theme persistence across breakpoint changes", () => {
 
 		await expect
 			.poll(async () => page.evaluate(() => document.documentElement.dataset.theme))
-			.toBe("lucid-dark");
+			.toBe("hearth-dark");
 
 		// Resize to mobile — theme must hold.
 		await page.setViewportSize(MOBILE);
 		await page.waitForTimeout(200);
-		expect((await readShellAttrs(page)).theme).toBe("lucid-dark");
+		expect((await readShellAttrs(page)).theme).toBe("hearth-dark");
 
 		// Resize back to desktop — still dark.
 		await page.setViewportSize(DESKTOP);
 		await page.waitForTimeout(200);
-		expect((await readShellAttrs(page)).theme).toBe("lucid-dark");
+		expect((await readShellAttrs(page)).theme).toBe("hearth-dark");
 
 		// Reload at mobile viewport — boot script must re-paint dark.
 		await page.setViewportSize(MOBILE);
 		await page.reload();
 		await page.waitForSelector("[data-testid='main-content']");
-		expect((await readShellAttrs(page)).theme).toBe("lucid-dark");
+		expect((await readShellAttrs(page)).theme).toBe("hearth-dark");
 		await ctx.close();
 	});
 });

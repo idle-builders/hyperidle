@@ -20,7 +20,7 @@ Components live in `packages/design-system` (Tier 1 primitives + Tier 2 blocks).
 
 **Design principles:** `packages/design-system/PRINCIPLES.md` — seven universals + surprise principles from world-class design systems.
 
-**Theme variants:** Two theme modes: Lucid Dark + Lucid Light, in `html/themes/` (`lucid-dark.css`, `lucid-light.css`). See `THEMES.md`. All HTML component pages have a theme switcher in the top-right corner.
+**Theme variants:** Two theme modes: Hearth Dark + Hearth Light, in `html/themes/` (`hearth-dark.css`, `hearth-light.css`). See `THEMES.md`. All HTML component pages have a theme switcher in the top-right corner. Hearth is light-first: default is `hearth-light`.
 
 **Design critique:** runs in-session inside `/design` (Phase 2) — evaluates components on 9 dimensions (hierarchy, spacing, typography, color, coherence, states, a11y, anti-slop, premium polish) with a 0-10 score. The previously separate `/design-critique` skill was collapsed into `/design` in block-1b.
 
