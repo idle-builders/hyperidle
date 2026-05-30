@@ -10,7 +10,7 @@ import {
 	type HyperIdleDb,
 	items,
 	messages,
-	products,
+	teamMembers,
 	teams,
 	threads,
 	userSkills,
@@ -40,7 +40,7 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 		app = createTestApp({ db, eventBus });
 
 		// Seed product and team
-		db.insert(products)
+		db.insert(teams)
 			.values({
 				id: "prod-1",
 				name: "Test Product",
@@ -48,10 +48,10 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 				createdAt: NOW,
 			})
 			.run();
-		db.insert(teams)
+		db.insert(teamMembers)
 			.values({
 				id: "team-1",
-				productId: "prod-1",
+				teamId: "prod-1",
 				capacity: 3,
 				activeBets: 0,
 				formedAt: NOW,

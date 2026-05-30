@@ -99,6 +99,13 @@
 			"when": 1748400000000,
 			"tag": "0013_P2_rename_agents_to_users",
 			"breakpoints": true
+		},
+		{
+			"idx": 14,
+			"version": "7",
+			"when": 1748700000000,
+			"tag": "0014_U1_schema_migration",
+			"breakpoints": true
 		}
 	]
 }

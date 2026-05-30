@@ -86,7 +86,8 @@ describe("FirstRunRedirect (N5 + P4)", () => {
 				}
 				return Promise.resolve({
 					ok: true,
-					json: async () => ({ products: [{ id: "p1", name: "My App" }] }),
+					// @lore U1: /api/products now returns { teams: [...] } not { products: [...] }
+					json: async () => ({ teams: [{ id: "p1", name: "My App" }] }),
 				});
 			}),
 		);

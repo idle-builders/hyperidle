@@ -497,8 +497,9 @@ function runPostBetRetro(
 	// source arrives (B-track), expand this to include it.
 	const hypothesis = bet.hypothesis ?? "(no hypothesis recorded)";
 	const realityLines: string[] = [];
-	if (bet.shippedAt) {
-		realityLines.push(`Shipped at: ${bet.shippedAt}`);
+	// @lore U1: `completedAt` replaces `shippedAt`.
+	if (bet.completedAt) {
+		realityLines.push(`Completed at: ${bet.completedAt}`);
 	}
 	if (bet.revisionLog) {
 		realityLines.push(`Revision log: ${bet.revisionLog}`);
@@ -530,7 +531,8 @@ function runPostBetRetro(
 				sourceAgentId: routine.ownerAgentId,
 				layer: "meta",
 				kind: "review",
-				title: `Post-bet retro: ${bet.pitch}`,
+				// @lore U1: `description` replaces `pitch`.
+				title: `Post-bet retro: ${bet.description}`,
 				body: [marker, `Hypothesis: ${hypothesis}`, "", "Reality:", ...realityLines].join("\n"),
 				threadId,
 				riskTier: "medium",

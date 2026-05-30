@@ -8,10 +8,12 @@ import {
 	knowledgeEditLog,
 	knowledgeItems,
 	messages,
-	products,
 	routines,
 	sessions,
 	tasks,
+	// @lore U1: `teams` is the domain entity (formerly `products`).
+	// `teamMembers` is the agent-membership group (formerly `teams`).
+	teamMembers,
 	teams,
 	threads,
 	userSkills,
@@ -41,6 +43,7 @@ describe("A2: Database Schema", () => {
 			expect(tableNames).toEqual(
 				expect.arrayContaining([
 					// @lore P2: agents → users, agent_skills → user_skills
+					// @lore U1: `products` → `teams`; old `teams` → `team_members`
 					"users",
 					"user_skills",
 					"bets",
@@ -49,24 +52,27 @@ describe("A2: Database Schema", () => {
 					"knowledge_edit_log",
 					"knowledge_items",
 					"messages",
-					"products",
 					"routines",
 					"sessions",
 					"tasks",
+					"team_members",
 					"teams",
 					"threads",
 				]),
 			);
 			expect(tableNames).not.toContain("responses");
+			// @lore U1: `products` table was renamed to `teams`
+			expect(tableNames).not.toContain("products");
 			expect(tableNames.length).toBeGreaterThanOrEqual(15);
 		});
 	});
 
 	// --- AC2: All tables insert/read/update correctly with full type safety ---
 	describe("AC2: CRUD operations", () => {
-		it("inserts and reads products", () => {
+		// @lore U1: `products` renamed to `teams`.
+		it("inserts and reads teams (formerly products)", () => {
 			const now = new Date().toISOString();
-			db.insert(products)
+			db.insert(teams)
 				.values({
 					id: "prod-1",
 					name: "Nimmly",
@@ -75,7 +81,7 @@ describe("A2: Database Schema", () => {
 				})
 				.run();
 
-			const result = db.select().from(products).where(eq(products.id, "prod-1")).get();
+			const result = db.select().from(teams).where(eq(teams.id, "prod-1")).get();
 
 			expect(result).toMatchObject({
 				id: "prod-1",
@@ -110,47 +116,45 @@ describe("A2: Database Schema", () => {
 			});
 		});
 
-		it("inserts and reads teams", () => {
+		// @lore U1: old `teams` (agent membership) renamed to `teamMembers`.
+		it("inserts and reads teamMembers (formerly teams)", () => {
 			const now = new Date().toISOString();
-			db.insert(products)
+			db.insert(teams)
 				.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: now })
 				.run();
-			db.insert(teams)
+			db.insert(teamMembers)
 				.values({
 					id: "team-1",
-					productId: "prod-1",
+					teamId: "prod-1",
 					capacity: 5,
 					activeBets: 0,
 					formedAt: now,
 				})
 				.run();
 
-			const result = db.select().from(teams).where(eq(teams.id, "team-1")).get();
+			const result = db.select().from(teamMembers).where(eq(teamMembers.id, "team-1")).get();
 
 			expect(result).toMatchObject({
 				id: "team-1",
-				productId: "prod-1",
+				teamId: "prod-1",
 				capacity: 5,
 				activeBets: 0,
 			});
 		});
 
+		// @lore U1: bets.productId/pitch/status simplified; teamId now refs `teams` (formerly products).
 		it("inserts and reads bets", () => {
 			const now = new Date().toISOString();
-			db.insert(products)
-				.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: now })
-				.run();
 			db.insert(teams)
-				.values({ id: "team-1", productId: "prod-1", capacity: 5, activeBets: 0, formedAt: now })
+				.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: now })
 				.run();
 			db.insert(bets)
 				.values({
 					id: "bet-1",
-					productId: "prod-1",
-					teamId: "team-1",
-					pitch: "Build file upload",
+					teamId: "prod-1",
+					description: "Build file upload",
 					appetite: "6w",
-					status: "shaped",
+					status: "draft",
 					createdAt: now,
 				})
 				.run();
@@ -159,28 +163,25 @@ describe("A2: Database Schema", () => {
 
 			expect(result).toMatchObject({
 				id: "bet-1",
-				pitch: "Build file upload",
+				description: "Build file upload",
 				appetite: "6w",
-				status: "shaped",
+				status: "draft",
 			});
 		});
 
+		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
 		it("inserts and reads tasks", () => {
 			const now = new Date().toISOString();
-			db.insert(products)
-				.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: now })
-				.run();
 			db.insert(teams)
-				.values({ id: "team-1", productId: "prod-1", capacity: 5, activeBets: 0, formedAt: now })
+				.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: now })
 				.run();
 			db.insert(bets)
 				.values({
 					id: "bet-1",
-					productId: "prod-1",
-					teamId: "team-1",
-					pitch: "X",
+					teamId: "prod-1",
+					description: "X",
 					appetite: "2w",
-					status: "shaped",
+					status: "draft",
 					createdAt: now,
 				})
 				.run();
@@ -188,8 +189,7 @@ describe("A2: Database Schema", () => {
 				.values({
 					id: "task-1",
 					betId: "bet-1",
-					productId: "prod-1",
-					teamId: "team-1",
+					teamId: "prod-1",
 					title: "Implement upload",
 					state: "proposed",
 					createdAt: now,
@@ -206,22 +206,19 @@ describe("A2: Database Schema", () => {
 			});
 		});
 
+		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
 		it("updates tasks correctly", () => {
 			const now = new Date().toISOString();
-			db.insert(products)
-				.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: now })
-				.run();
 			db.insert(teams)
-				.values({ id: "team-1", productId: "prod-1", capacity: 5, activeBets: 0, formedAt: now })
+				.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: now })
 				.run();
 			db.insert(bets)
 				.values({
 					id: "bet-1",
-					productId: "prod-1",
-					teamId: "team-1",
-					pitch: "X",
+					teamId: "prod-1",
+					description: "X",
 					appetite: "2w",
-					status: "shaped",
+					status: "draft",
 					createdAt: now,
 				})
 				.run();
@@ -229,8 +226,7 @@ describe("A2: Database Schema", () => {
 				.values({
 					id: "task-1",
 					betId: "bet-1",
-					productId: "prod-1",
-					teamId: "team-1",
+					teamId: "prod-1",
 					title: "Original",
 					state: "proposed",
 					createdAt: now,
@@ -247,13 +243,11 @@ describe("A2: Database Schema", () => {
 			expect(result?.state).toBe("in_progress");
 		});
 
+		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
 		it("inserts and reads sessions", () => {
 			const now = new Date().toISOString();
-			db.insert(products)
-				.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: now })
-				.run();
 			db.insert(teams)
-				.values({ id: "team-1", productId: "prod-1", capacity: 5, activeBets: 0, formedAt: now })
+				.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: now })
 				.run();
 			db.insert(users)
 				.values({
@@ -269,11 +263,10 @@ describe("A2: Database Schema", () => {
 			db.insert(bets)
 				.values({
 					id: "bet-1",
-					productId: "prod-1",
-					teamId: "team-1",
-					pitch: "X",
+					teamId: "prod-1",
+					description: "X",
 					appetite: "2w",
-					status: "shaped",
+					status: "draft",
 					createdAt: now,
 				})
 				.run();
@@ -281,8 +274,7 @@ describe("A2: Database Schema", () => {
 				.values({
 					id: "task-1",
 					betId: "bet-1",
-					productId: "prod-1",
-					teamId: "team-1",
+					teamId: "prod-1",
 					title: "T",
 					state: "proposed",
 					createdAt: now,
@@ -662,12 +654,10 @@ describe("A2: Database Schema", () => {
 
 	// --- AC6: Foreign key constraints enforced ---
 	describe("AC6: foreign key constraints", () => {
+		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
 		it("rejects task with invalid bet_id", () => {
 			const now = new Date().toISOString();
-			db.insert(products).values({ id: "prod-1", name: "P", phase: "build", createdAt: now }).run();
-			db.insert(teams)
-				.values({ id: "team-1", productId: "prod-1", capacity: 5, activeBets: 0, formedAt: now })
-				.run();
+			db.insert(teams).values({ id: "prod-1", name: "P", phase: "build", createdAt: now }).run();
 
 			expect(() =>
 				db
@@ -675,8 +665,7 @@ describe("A2: Database Schema", () => {
 					.values({
 						id: "task-1",
 						betId: "nonexistent-bet",
-						productId: "prod-1",
-						teamId: "team-1",
+						teamId: "prod-1",
 						title: "T",
 						state: "proposed",
 						createdAt: now,
@@ -686,20 +675,17 @@ describe("A2: Database Schema", () => {
 			).toThrow();
 		});
 
+		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
 		it("rejects session with invalid agent_id", () => {
 			const now = new Date().toISOString();
-			db.insert(products).values({ id: "prod-1", name: "P", phase: "build", createdAt: now }).run();
-			db.insert(teams)
-				.values({ id: "team-1", productId: "prod-1", capacity: 5, activeBets: 0, formedAt: now })
-				.run();
+			db.insert(teams).values({ id: "prod-1", name: "P", phase: "build", createdAt: now }).run();
 			db.insert(bets)
 				.values({
 					id: "bet-1",
-					productId: "prod-1",
-					teamId: "team-1",
-					pitch: "X",
+					teamId: "prod-1",
+					description: "X",
 					appetite: "2w",
-					status: "shaped",
+					status: "draft",
 					createdAt: now,
 				})
 				.run();
@@ -707,8 +693,7 @@ describe("A2: Database Schema", () => {
 				.values({
 					id: "task-1",
 					betId: "bet-1",
-					productId: "prod-1",
-					teamId: "team-1",
+					teamId: "prod-1",
 					title: "T",
 					state: "proposed",
 					createdAt: now,

@@ -74,7 +74,8 @@ describe("M3 — WorkPortfolio: empty state renders 'No products' (G1)", () => {
 
 	it("renders empty state when useProducts returns empty products array", async () => {
 		vi.mocked(useProducts).mockReturnValue({
-			data: { products: [] },
+			// @lore U1: TeamListResponse uses `teams` array (renamed from `products`)
+			data: { teams: [] },
 		} as unknown as ReturnType<typeof useProducts>);
 
 		renderPage();
@@ -96,7 +97,8 @@ describe("M3 — WorkPortfolio: renders real data from useProducts (G1)", () => 
 	it("renders products from useProducts hook data", async () => {
 		vi.mocked(useProducts).mockReturnValue({
 			data: {
-				products: [
+				// @lore U1: TeamListResponse uses `teams` array (renamed from `products`)
+				teams: [
 					{
 						id: "p-real-1",
 						name: "Real Product One",
@@ -129,7 +131,8 @@ describe("M3 — WorkPortfolio: MOCK_CYCLE removed — no 'Cycle 12' fallback (G
 
 	it("does not render 'Cycle 12' when no cycle data exists", async () => {
 		vi.mocked(useProducts).mockReturnValue({
-			data: { products: [] },
+			// @lore U1: TeamListResponse uses `teams` array (renamed from `products`)
+			data: { teams: [] },
 		} as unknown as ReturnType<typeof useProducts>);
 
 		renderPage();

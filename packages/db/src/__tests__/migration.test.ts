@@ -37,35 +37,39 @@ describe("A2: Migration", () => {
 		expect(tableNames).toEqual(
 			expect.arrayContaining([
 				// @lore P2: agents → users, agent_skills → user_skills
+				// @lore U1: `products` → `teams`; old `teams` → `team_members`
+				// @lore: file_leases was dropped in earlier migrations
 				"users",
 				"user_skills",
 				"bets",
 				"factory_settings",
-				"file_leases",
 				"items",
 				"knowledge_edit_log",
 				"knowledge_items",
 				"messages",
-				"products",
 				"routines",
 				"sessions",
 				"tasks",
+				"team_members",
 				"teams",
 				"threads",
 			]),
 		);
 		expect(tableNames).not.toContain("responses");
+		// @lore U1: `products` table renamed to `teams`
+		expect(tableNames).not.toContain("products");
 		expect(tableNames.length).toBeGreaterThanOrEqual(15);
 	});
 
 	it("migrated database supports CRUD with Drizzle ORM", () => {
+		// @lore U1: `schema.products` renamed to `schema.teams` (domain entity).
 		db = migrateFreshDb({ foreignKeys: true });
 		const now = new Date().toISOString();
-		db.insert(schema.products)
+		db.insert(schema.teams)
 			.values({ id: "test-prod", name: "Test", phase: "build", createdAt: now })
 			.run();
 
-		const result = db.select().from(schema.products).all();
+		const result = db.select().from(schema.teams).all();
 		expect(result).toHaveLength(1);
 		expect(result[0]).toMatchObject({ id: "test-prod", name: "Test" });
 	});

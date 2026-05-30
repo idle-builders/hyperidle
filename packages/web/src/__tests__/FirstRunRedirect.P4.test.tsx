@@ -121,7 +121,8 @@ describe("FirstRunRedirect (P4) — setup completion check", () => {
 				if (url.includes("/api/products")) {
 					return Promise.resolve({
 						ok: true,
-						json: async () => ({ products: [{ id: "p1", name: "My App" }] }),
+						// @lore U1: /api/products now returns { teams: [...] } (renamed from { products: [...] })
+						json: async () => ({ teams: [{ id: "p1", name: "My App" }] }),
 					});
 				}
 				return Promise.resolve({ ok: true, json: async () => ({}) });

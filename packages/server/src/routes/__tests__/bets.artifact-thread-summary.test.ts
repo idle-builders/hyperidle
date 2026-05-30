@@ -21,8 +21,8 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	messages,
-	products,
 	tasks,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -61,9 +61,9 @@ function setupApp(): AppCtx {
 
 	const now = new Date().toISOString();
 
-	db.insert(products).values({ id: "p1", name: "P", phase: "build", createdAt: now }).run();
-	db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
+	db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now }).run();
+	db.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now })
 		.run();
 	db.insert(users)
 		.values({
@@ -92,11 +92,10 @@ function insertBet(db: HyperIdleDb, betId: string): void {
 	db.insert(bets)
 		.values({
 			id: betId,
-			productId: "p1",
-			teamId: "t1",
-			pitch: "test pitch",
+			teamId: "p1",
+			description: "test pitch",
 			appetite: "small",
-			status: "in_progress",
+			status: "active",
 			createdAt: now,
 		})
 		.run();
@@ -108,8 +107,7 @@ function insertTask(db: HyperIdleDb, taskId: string, betId: string): void {
 		.values({
 			id: taskId,
 			betId,
-			productId: "p1",
-			teamId: "t1",
+			teamId: "p1",
 			title: `Task ${taskId}`,
 			state: "in_progress",
 			createdAt: now,

@@ -13,9 +13,9 @@ import {
 	bets,
 	createTestDb,
 	type HyperIdleDb,
-	products,
 	sessions,
 	tasks,
+	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -46,11 +46,9 @@ function setupApp(): AppCtx {
 
 	const now = new Date().toISOString();
 
-	db.insert(products)
-		.values({ id: "p1", name: "TestProduct", phase: "build", createdAt: now })
-		.run();
-	db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
+	db.insert(teams).values({ id: "p1", name: "TestProduct", phase: "build", createdAt: now }).run();
+	db.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now })
 		.run();
 	db.insert(users)
 		.values({
@@ -96,11 +94,10 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 		db.insert(bets)
 			.values({
 				id: "bet-enriched",
-				productId: "p1",
-				teamId: "t1",
-				pitch: "Test pitch",
+				teamId: "p1",
+				description: "Test pitch",
 				appetite: "1 week",
-				status: "in_progress",
+				status: "active",
 				createdAt: NOW,
 			})
 			.run();
@@ -109,8 +106,7 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 			.values({
 				id: "task-with-session",
 				betId: "bet-enriched",
-				productId: "p1",
-				teamId: "t1",
+				teamId: "p1",
 				title: "Task with session",
 				state: "in_progress",
 				createdAt: NOW,
@@ -158,11 +154,10 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 		db.insert(bets)
 			.values({
 				id: "bet-no-session",
-				productId: "p1",
-				teamId: "t1",
-				pitch: "No session pitch",
+				teamId: "p1",
+				description: "No session pitch",
 				appetite: "2 weeks",
-				status: "in_progress",
+				status: "active",
 				createdAt: NOW,
 			})
 			.run();
@@ -171,8 +166,7 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 			.values({
 				id: "task-no-session",
 				betId: "bet-no-session",
-				productId: "p1",
-				teamId: "t1",
+				teamId: "p1",
 				title: "Task without session",
 				state: "queued",
 				createdAt: NOW,
@@ -206,11 +200,10 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 		db.insert(bets)
 			.values({
 				id: "bet-mixed",
-				productId: "p1",
-				teamId: "t1",
-				pitch: "Mixed tasks pitch",
+				teamId: "p1",
+				description: "Mixed tasks pitch",
 				appetite: "6 weeks",
-				status: "in_progress",
+				status: "active",
 				createdAt: NOW,
 			})
 			.run();
@@ -219,8 +212,7 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 			.values({
 				id: "task-has-session",
 				betId: "bet-mixed",
-				productId: "p1",
-				teamId: "t1",
+				teamId: "p1",
 				title: "Task with session",
 				state: "done",
 				createdAt: NOW,
@@ -232,8 +224,7 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 			.values({
 				id: "task-lacks-session",
 				betId: "bet-mixed",
-				productId: "p1",
-				teamId: "t1",
+				teamId: "p1",
 				title: "Task without session",
 				state: "queued",
 				createdAt: NOW,
@@ -284,11 +275,10 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 		db.insert(bets)
 			.values({
 				id: "bet-multi-session",
-				productId: "p1",
-				teamId: "t1",
-				pitch: "Multi-session pitch",
+				teamId: "p1",
+				description: "Multi-session pitch",
 				appetite: "1 week",
-				status: "in_progress",
+				status: "active",
 				createdAt: NOW,
 			})
 			.run();
@@ -297,8 +287,7 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 			.values({
 				id: "task-multi-session",
 				betId: "bet-multi-session",
-				productId: "p1",
-				teamId: "t1",
+				teamId: "p1",
 				title: "Task with multiple sessions",
 				state: "in_progress",
 				createdAt: NOW,

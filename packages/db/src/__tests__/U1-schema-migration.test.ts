@@ -19,8 +19,9 @@
  */
 
 import { resolve } from "node:path";
+import { BET_STATUSES } from "@hyperidle/shared";
 import Database from "better-sqlite3";
-import { sql } from "drizzle-orm";
+import { getTableName, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -28,7 +29,6 @@ import type { HyperIdleDb } from "../connection.js";
 import * as schema from "../schema.js";
 import { seed } from "../seed.js";
 import * as zodSchemas from "../zod-schemas.js";
-import { BET_STATUSES } from "@hyperidle/shared";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -60,9 +60,7 @@ function columnNamesOf(db: HyperIdleDb, table: string): string[] {
 
 function tableExists(db: HyperIdleDb, tableName: string): boolean {
 	const row = db.get<{ name: string }>(
-		sql.raw(
-			`SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName}'`,
-		),
+		sql.raw(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName}'`),
 	);
 	return row !== undefined;
 }
@@ -150,10 +148,18 @@ describe("U1 AC1: FK renames on bets and tasks", () => {
 		const now = new Date().toISOString();
 
 		// Insert into the new teams table (formerly products)
-		db.run(sql.raw(`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-p1', 'MyTeam', 'build', '${now}')`));
+		db.run(
+			sql.raw(
+				`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-p1', 'MyTeam', 'build', '${now}')`,
+			),
+		);
 
 		// Insert a bet with team_id pointing at the new teams table
-		db.run(sql.raw(`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-fk-1', 't-p1', 'Test bet', 'draft', '${now}')`));
+		db.run(
+			sql.raw(
+				`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-fk-1', 't-p1', 'Test bet', 'draft', '${now}')`,
+			),
+		);
 
 		const row = db.get<{ id: string; team_id: string }>(
 			sql.raw(`SELECT id, team_id FROM bets WHERE id='bet-fk-1'`),
@@ -164,9 +170,21 @@ describe("U1 AC1: FK renames on bets and tasks", () => {
 	it("tasks.team_id FK integrity: insert task referencing teams.id succeeds", () => {
 		const now = new Date().toISOString();
 
-		db.run(sql.raw(`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-p2', 'MyTeam', 'build', '${now}')`));
-		db.run(sql.raw(`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-task-fk', 't-p2', 'Bet for task', 'active', '${now}')`));
-		db.run(sql.raw(`INSERT INTO tasks (id, bet_id, team_id, title, state, created_at, updated_at) VALUES ('task-fk-1', 'bet-task-fk', 't-p2', 'Test task', 'proposed', '${now}', '${now}')`));
+		db.run(
+			sql.raw(
+				`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-p2', 'MyTeam', 'build', '${now}')`,
+			),
+		);
+		db.run(
+			sql.raw(
+				`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-task-fk', 't-p2', 'Bet for task', 'active', '${now}')`,
+			),
+		);
+		db.run(
+			sql.raw(
+				`INSERT INTO tasks (id, bet_id, team_id, title, state, created_at, updated_at) VALUES ('task-fk-1', 'bet-task-fk', 't-p2', 'Test task', 'proposed', '${now}', '${now}')`,
+			),
+		);
 
 		const row = db.get<{ id: string; team_id: string }>(
 			sql.raw(`SELECT id, team_id FROM tasks WHERE id='task-fk-1'`),
@@ -190,10 +208,18 @@ describe("U1 AC3: Bet status enum simplification", () => {
 		const now = new Date().toISOString();
 
 		// Simulate a pre-migration bet by inserting with the raw SQL (bypasses Drizzle schema validation)
-		db.run(sql.raw(`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-s1', 'T', 'build', '${now}')`));
+		db.run(
+			sql.raw(
+				`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-s1', 'T', 'build', '${now}')`,
+			),
+		);
 		// Insert using new column name (description) and new status value
 		// This test verifies we can INSERT with the new status and it's stored correctly
-		db.run(sql.raw(`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-draft', 't-s1', 'Test', 'draft', '${now}')`));
+		db.run(
+			sql.raw(
+				`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-draft', 't-s1', 'Test', 'draft', '${now}')`,
+			),
+		);
 
 		const row = db.get<{ status: string }>(sql.raw(`SELECT status FROM bets WHERE id='bet-draft'`));
 		expect(row?.status).toBe("draft");
@@ -202,7 +228,11 @@ describe("U1 AC3: Bet status enum simplification", () => {
 	it("bet with old status 'in_progress' is not valid in the new schema", () => {
 		const now = new Date().toISOString();
 
-		db.run(sql.raw(`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-ip', 'T', 'build', '${now}')`));
+		db.run(
+			sql.raw(
+				`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-ip', 'T', 'build', '${now}')`,
+			),
+		);
 
 		// We can insert any text in the status column (SQLite doesn't enforce enums at DB level)
 		// but the important check is the migration transforms old values
@@ -284,8 +314,16 @@ describe("U1 AC4: Bet column renames", () => {
 	it("description column preserves data after rename", () => {
 		const now = new Date().toISOString();
 
-		db.run(sql.raw(`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-d1', 'T', 'build', '${now}')`));
-		db.run(sql.raw(`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-desc', 't-d1', 'Build the feature', 'active', '${now}')`));
+		db.run(
+			sql.raw(
+				`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-d1', 'T', 'build', '${now}')`,
+			),
+		);
+		db.run(
+			sql.raw(
+				`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-desc', 't-d1', 'Build the feature', 'active', '${now}')`,
+			),
+		);
 
 		const row = db.get<{ description: string }>(
 			sql.raw(`SELECT description FROM bets WHERE id='bet-desc'`),
@@ -331,10 +369,20 @@ describe("U1 AC5: at_risk column on bets", () => {
 	it("at_risk defaults to 0 when inserting a bet without specifying at_risk", () => {
 		const now = new Date().toISOString();
 
-		db.run(sql.raw(`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-ar', 'T', 'build', '${now}')`));
-		db.run(sql.raw(`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-at-risk', 't-ar', 'Some bet', 'draft', '${now}')`));
+		db.run(
+			sql.raw(
+				`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-ar', 'T', 'build', '${now}')`,
+			),
+		);
+		db.run(
+			sql.raw(
+				`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-at-risk', 't-ar', 'Some bet', 'draft', '${now}')`,
+			),
+		);
 
-		const row = db.get<{ at_risk: number }>(sql.raw(`SELECT at_risk FROM bets WHERE id='bet-at-risk'`));
+		const row = db.get<{ at_risk: number }>(
+			sql.raw(`SELECT at_risk FROM bets WHERE id='bet-at-risk'`),
+		);
 		expect(row?.at_risk).toBe(0);
 	});
 });
@@ -465,9 +513,10 @@ describe("U1 AC7: TypeScript type exports updated", () => {
 		expect(schema.teams).toBeDefined();
 
 		// The teams table should have "teams" as its backing SQL table name
-		// Access internal Drizzle table config via the _ property
-		const tableInternal = schema.teams as unknown as { _: { name: string } };
-		expect(tableInternal?._?.name).toBe("teams");
+		// @lore U1: In Drizzle 0.39+, the `_` property is a TypeScript-only type
+		// accessor (not a runtime property). The SQL table name is stored as
+		// Symbol(drizzle:Name). Use getTableName from drizzle-orm to access it.
+		expect(getTableName(schema.teams)).toBe("teams");
 	});
 
 	it("schema exports teamMembers table (formerly teams)", () => {
@@ -509,18 +558,14 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 	it("after seeding, teams table has at least 1 row (formerly products)", () => {
 		seed(db);
 
-		const count = db.get<{ count: number }>(
-			sql`SELECT COUNT(*) as count FROM teams`,
-		);
+		const count = db.get<{ count: number }>(sql`SELECT COUNT(*) as count FROM teams`);
 		expect(count?.count).toBeGreaterThanOrEqual(1);
 	});
 
 	it("after seeding, team_members table has at least 1 row (formerly teams)", () => {
 		seed(db);
 
-		const count = db.get<{ count: number }>(
-			sql`SELECT COUNT(*) as count FROM team_members`,
-		);
+		const count = db.get<{ count: number }>(sql`SELECT COUNT(*) as count FROM team_members`);
 		expect(count?.count).toBeGreaterThanOrEqual(1);
 	});
 
@@ -582,12 +627,18 @@ describe("U1: Bet status migration scenarios (data transformation)", () => {
 		const db = migrateFreshDb();
 		const now = new Date().toISOString();
 
-		db.run(sql.raw(`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-st', 'T', 'build', '${now}')`));
+		db.run(
+			sql.raw(
+				`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-st', 'T', 'build', '${now}')`,
+			),
+		);
 
 		for (const status of ["draft", "active", "completed", "killed"]) {
-			db.run(sql.raw(
-				`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-${status}', 't-st', 'Bet ${status}', '${status}', '${now}')`,
-			));
+			db.run(
+				sql.raw(
+					`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-${status}', 't-st', 'Bet ${status}', '${status}', '${now}')`,
+				),
+			);
 		}
 
 		const rows = db.all<{ status: string }>(
@@ -603,7 +654,16 @@ describe("U1: Bet status migration scenarios (data transformation)", () => {
 	it("no bets with status 'shaped', 'committed', 'in_progress', 'behind', 'blocked', 'paused', 'review', or 'shipped' exist after migration", () => {
 		const db = migrateFreshDb();
 
-		const oldStatuses = ["shaped", "committed", "in_progress", "behind", "blocked", "paused", "review", "shipped"];
+		const oldStatuses = [
+			"shaped",
+			"committed",
+			"in_progress",
+			"behind",
+			"blocked",
+			"paused",
+			"review",
+			"shipped",
+		];
 		for (const status of oldStatuses) {
 			const row = db.get<{ count: number }>(
 				sql.raw(`SELECT COUNT(*) as count FROM bets WHERE status='${status}'`),
@@ -626,14 +686,7 @@ describe("U1: Full table schema shape assertions", () => {
 
 	it("teams table schema matches architecture spec §4.1 (formerly products)", () => {
 		const cols = columnNamesOf(db, "teams");
-		expect(cols).toEqual(
-			expect.arrayContaining([
-				"id",
-				"name",
-				"phase",
-				"created_at",
-			]),
-		);
+		expect(cols).toEqual(expect.arrayContaining(["id", "name", "phase", "created_at"]));
 	});
 
 	it("team_members table schema has team_id (not product_id)", () => {
@@ -662,18 +715,22 @@ describe("U1: Full table schema shape assertions", () => {
 	});
 
 	it("bets_team_id_idx index exists (recreated from bets_product_id_idx)", () => {
-		const indexes = db.all<{ name: string }>(
-			sql.raw(`SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='bets'`),
-		).map((r) => r.name);
+		const indexes = db
+			.all<{ name: string }>(
+				sql.raw(`SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='bets'`),
+			)
+			.map((r) => r.name);
 
 		expect(indexes).toContain("bets_team_id_idx");
 		expect(indexes).not.toContain("bets_product_id_idx");
 	});
 
 	it("tasks_team_id_idx index exists (recreated from tasks_product_id_idx)", () => {
-		const indexes = db.all<{ name: string }>(
-			sql.raw(`SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='tasks'`),
-		).map((r) => r.name);
+		const indexes = db
+			.all<{ name: string }>(
+				sql.raw(`SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='tasks'`),
+			)
+			.map((r) => r.name);
 
 		expect(indexes).toContain("tasks_team_id_idx");
 		expect(indexes).not.toContain("tasks_product_id_idx");

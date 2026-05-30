@@ -3,21 +3,23 @@
  * PATCH /api/settings — persist notification preferences to server_config.
  *
  * @lore M3 B1: This endpoint replaces the DEFAULT_SETTINGS hardcoded mock in
- * the web client. It reads from factorySettings and the agents/products tables
+ * the web client. It reads from factorySettings and the agents/teams tables
  * to build a SettingsData response. NotificationSettings and AppearanceSettings
- * are read from factorySettings keys; products/agents come from their tables.
+ * are read from factorySettings keys; teams/agents come from their tables.
  *
  * @lore M3 B1: avatarUrl is null (not "") since no avatar upload exists yet.
- * active is derived from product.phase !== "archived". paused is derived from
+ * active is derived from team.phase !== "archived". paused is derived from
  * agent.status === "paused".
  *
  * @lore P3: Notification prefs migrated from factorySettings to server_config.
  * The factorySettings table is not dropped — it still serves observability config,
  * git-export, and other consumers. The settings route now reads/writes notifications
  * via readServerConfig/updateServerConfig.
+ *
+ * @lore U1: `products` table reference -> `teams`. `mutedProducts` -> `mutedTeams`.
  */
 
-import { type HyperIdleDb, products, users } from "@hyperidle/db";
+import { type HyperIdleDb, teams, users } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
@@ -28,6 +30,8 @@ import { readServerConfig, updateServerConfig } from "../services/server-config.
 /**
  * @lore M3 review W2: Zod validation for the PATCH body so we reject malformed
  * payloads with a 400 before touching the database.
+ *
+ * @lore U1: `mutedProducts` renamed to `mutedTeams`.
  */
 const notificationPatchSchema = z.object({
 	reviewAlerts: z.boolean().optional(),
@@ -41,7 +45,8 @@ const notificationPatchSchema = z.object({
 		.string()
 		.regex(/^\d{2}:\d{2}$/, "Expected HH:MM format")
 		.optional(),
-	mutedProducts: z.array(z.string()).optional(),
+	// @lore U1: renamed from mutedProducts.
+	mutedTeams: z.array(z.string()).optional(),
 });
 
 const settingsPatchSchema = z.object({
@@ -98,10 +103,11 @@ export function createSettingsRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono
  * factorySettings founder_name/founder_email. The `agents` field renamed to `users`
  * but returns only AI users (kind = 'ai') for the settings panel display.
  * @lore P3: notifications now read from server_config table via readServerConfig.
+ * @lore U1: `products` -> `teams`, `mutedProducts` -> `mutedTeams`.
  */
 function buildSettingsResponse(db: HyperIdleDb): {
 	profile: { name: string; email: string; avatarUrl: null };
-	products: Array<{ id: string; name: string; active: boolean }>;
+	teams: Array<{ id: string; name: string; active: boolean }>;
 	users: Array<{ id: string; name: string; autonomyLevel: string; paused: boolean }>;
 	notifications: {
 		reviewAlerts: boolean;
@@ -109,7 +115,7 @@ function buildSettingsResponse(db: HyperIdleDb): {
 		blockerAlerts: boolean;
 		quietHoursStart: string;
 		quietHoursEnd: string;
-		mutedProducts: string[];
+		mutedTeams: string[];
 	};
 } {
 	// P2: Read founder profile from users table (kind = 'human')
@@ -118,8 +124,8 @@ function buildSettingsResponse(db: HyperIdleDb): {
 	// P3: Read notification settings from server_config (defaults if not configured)
 	const serverCfg = readServerConfig(db);
 
-	// Products — active derived from phase !== "archived"
-	const productRows = db.select().from(products).all();
+	// Teams — active derived from phase !== "archived"
+	const teamRows = db.select().from(teams).all();
 	// AI Users — paused derived from status === "paused" (kind = 'ai' for the agents panel)
 	const aiUserRows = db.select().from(users).where(eq(users.kind, "ai")).all();
 
@@ -129,10 +135,10 @@ function buildSettingsResponse(db: HyperIdleDb): {
 			email: humanUser?.email ?? "",
 			avatarUrl: null,
 		},
-		products: productRows.map((p) => ({
-			id: p.id,
-			name: p.name,
-			active: p.phase !== "archived",
+		teams: teamRows.map((t) => ({
+			id: t.id,
+			name: t.name,
+			active: t.phase !== "archived",
 		})),
 		users: aiUserRows.map((u) => ({
 			id: u.id,
@@ -146,7 +152,7 @@ function buildSettingsResponse(db: HyperIdleDb): {
 			blockerAlerts: serverCfg.notifications.blockerAlerts,
 			quietHoursStart: serverCfg.notifications.quietHoursStart,
 			quietHoursEnd: serverCfg.notifications.quietHoursEnd,
-			mutedProducts: serverCfg.notifications.mutedProducts,
+			mutedTeams: serverCfg.notifications.mutedTeams,
 		},
 	};
 }

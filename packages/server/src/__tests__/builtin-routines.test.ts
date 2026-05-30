@@ -6,8 +6,8 @@ import {
 	items,
 	knowledgeItems,
 	knowledgeStrategyFabric,
-	products,
 	routines,
+	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -32,13 +32,13 @@ const NOW_ISO = "2026-04-18T10:00:00.000Z";
 
 /** Seed the owner agents the G4 builtins reference. */
 function seedOwners(db: HyperIdleDb): void {
-	db.insert(products)
+	db.insert(teams)
 		.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: NOW_ISO })
 		.run();
-	db.insert(teams)
+	db.insert(teamMembers)
 		.values({
 			id: "team-1",
-			productId: "prod-1",
+			teamId: "prod-1",
 			capacity: 5,
 			activeBets: 0,
 			formedAt: NOW_ISO,
@@ -341,15 +341,14 @@ describe("G4: Built-in Routines", () => {
 			db.insert(bets)
 				.values({
 					id: "bet-shipped-1",
-					productId: "prod-1",
-					teamId: "team-1",
-					pitch: "Ship onboarding flow",
+					teamId: "prod-1",
+					description: "Ship onboarding flow",
 					appetite: "small",
 					hypothesis: "Users will complete onboarding in <3 minutes.",
-					status: "shipped",
+					status: "completed",
 					revisionLog: JSON.stringify([{ field: "status", to: "shipped" }]),
 					createdAt: NOW_ISO,
-					shippedAt: NOW_ISO,
+					completedAt: NOW_ISO,
 				})
 				.run();
 		}
@@ -697,12 +696,11 @@ describe("G4: Built-in Routines", () => {
 			db.insert(bets)
 				.values({
 					id: "bet-inactive-1",
-					productId: "prod-1",
-					teamId: "team-1",
-					pitch: "Ship X",
+					teamId: "prod-1",
+					description: "Ship X",
 					appetite: "small",
 					hypothesis: "Will work",
-					status: "shipped",
+					status: "completed",
 					createdAt: NOW_ISO,
 				})
 				.run();

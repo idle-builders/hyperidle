@@ -4,9 +4,9 @@ import {
 	type HyperIdleDb,
 	items,
 	messages,
-	products,
 	sessions,
 	tasks,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -22,20 +22,17 @@ import type { SessionContext } from "../services/session-lifecycle.js";
 
 function seedPrerequisites(db: HyperIdleDb): void {
 	const now = new Date().toISOString();
-	db.insert(products)
-		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: now })
-		.run();
-	db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
+	db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: now }).run();
+	db.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now })
 		.run();
 	db.insert(bets)
 		.values({
 			id: "b1",
-			productId: "p1",
-			teamId: "t1",
-			pitch: "Test bet",
+			teamId: "p1",
+			description: "Test bet",
 			appetite: "small",
-			status: "committed",
+			status: "active",
 			createdAt: now,
 		})
 		.run();
@@ -80,8 +77,7 @@ function insertTask(db: HyperIdleDb, id: string, state: string, ownerAgentId?: s
 		.values({
 			id,
 			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
+			teamId: "p1",
 			ownerAgentId: ownerAgentId ?? null,
 			title: `Task ${id}`,
 			state,
@@ -409,8 +405,7 @@ describe("Handoff Protocol", () => {
 				.values({
 					id: "task-2",
 					betId: "b1",
-					productId: "p1",
-					teamId: "t1",
+					teamId: "p1",
 					ownerAgentId: "agent-a",
 					title: "Task 2",
 					state: "in_progress",
@@ -503,8 +498,7 @@ describe("Handoff Protocol", () => {
 				.values({
 					id: "task-h1",
 					betId: "b1",
-					productId: "p1",
-					teamId: "t1",
+					teamId: "p1",
 					ownerAgentId: "agent-a",
 					title: "H1 task",
 					state: "in_progress",

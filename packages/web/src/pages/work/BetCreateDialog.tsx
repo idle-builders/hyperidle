@@ -25,6 +25,7 @@ import {
 	CURRENCY_CODES,
 	CURRENCY_SCALE,
 	type CurrencyCode,
+	// @lore U1: `deriveTitle` replaces `deriveTitleFromPitch`. Backward-compat alias kept.
 	deriveTitleFromPitch,
 } from "@hyperidle/shared";
 import { type JSX, useEffect, useRef, useState } from "react";
@@ -107,9 +108,10 @@ export function BetCreateDialog({
 			costAppetite = { minor, currency: appetiteCurrency };
 		}
 
+		// @lore U1: `teamId` replaces `productId`, `description` replaces `pitch`.
 		const payload: Record<string, unknown> = {
-			productId: trimmedProductId,
-			pitch: trimmedPitch,
+			teamId: trimmedProductId,
+			description: trimmedPitch,
 		};
 		if (costAppetite) {
 			payload.costAppetite = costAppetite;

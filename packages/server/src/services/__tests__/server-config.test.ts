@@ -28,7 +28,7 @@ describe("P3 AC-10 — Server config read/write", () => {
 			expect(config.notifications.blockerAlerts).toBe(true);
 			expect(config.notifications.quietHoursStart).toBe("22:00");
 			expect(config.notifications.quietHoursEnd).toBe("08:00");
-			expect(config.notifications.mutedProducts).toEqual([]);
+			expect(config.notifications.mutedTeams).toEqual([]);
 		});
 
 		it("returns correct notification defaults shape", () => {
@@ -40,7 +40,7 @@ describe("P3 AC-10 — Server config read/write", () => {
 			expect(typeof config.notifications.blockerAlerts).toBe("boolean");
 			expect(typeof config.notifications.quietHoursStart).toBe("string");
 			expect(typeof config.notifications.quietHoursEnd).toBe("string");
-			expect(Array.isArray(config.notifications.mutedProducts)).toBe(true);
+			expect(Array.isArray(config.notifications.mutedTeams)).toBe(true);
 		});
 	});
 
@@ -76,12 +76,12 @@ describe("P3 AC-10 — Server config read/write", () => {
 			expect(config.notifications.quietHoursStart).toBe("23:00");
 		});
 
-		it("can update mutedProducts", () => {
+		it("can update mutedTeams", () => {
 			const db = createTestDb();
-			updateServerConfig(db, { notifications: { mutedProducts: ["prod-1", "prod-2"] } });
+			updateServerConfig(db, { notifications: { mutedTeams: ["prod-1", "prod-2"] } });
 
 			const config = readServerConfig(db);
-			expect(config.notifications.mutedProducts).toEqual(["prod-1", "prod-2"]);
+			expect(config.notifications.mutedTeams).toEqual(["prod-1", "prod-2"]);
 		});
 
 		it("successive updates are cumulative", () => {

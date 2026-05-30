@@ -754,21 +754,23 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 		it("deleting a task cascades to task_strategy_fabric rows", () => {
 			const now = new Date().toISOString();
 
+			// @lore U1: products→teams, teams→team_members, bets.pitch→description, bets removes product_id
 			// Seed required FK ancestors
 			db.run(
-				`INSERT INTO products (id, name, phase, created_at) VALUES ('p1-cascade', 'Prod', 'build', '${now}')`,
+				`INSERT INTO teams (id, name, phase, created_at) VALUES ('p1-cascade', 'Prod', 'build', '${now}')`,
 			);
 			db.run(
-				`INSERT INTO teams (id, product_id, capacity, active_bets, formed_at) VALUES ('t1-cascade', 'p1-cascade', 3, 0, '${now}')`,
+				`INSERT INTO team_members (id, team_id, capacity, active_bets, formed_at) VALUES ('t1-cascade', 'p1-cascade', 3, 0, '${now}')`,
 			);
 			db.run(
-				`INSERT INTO bets (id, product_id, team_id, pitch, status, created_at) VALUES ('b1-cascade', 'p1-cascade', 't1-cascade', 'Pitch', 'committed', '${now}')`,
+				`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('b1-cascade', 'p1-cascade', 'Pitch', 'active', '${now}')`,
 			);
 			const taskId = crypto.randomUUID();
 			// After O2: tasks has no riskTier/attentionScore/durability/crossTeam columns
+			// After U1: tasks has no product_id column
 			db.run(
-				`INSERT INTO tasks (id, bet_id, product_id, team_id, title, state, created_at, updated_at)
-				 VALUES ('${taskId}', 'b1-cascade', 'p1-cascade', 't1-cascade', 'Task', 'pending', '${now}', '${now}')`,
+				`INSERT INTO tasks (id, bet_id, team_id, title, state, created_at, updated_at)
+				 VALUES ('${taskId}', 'b1-cascade', 'p1-cascade', 'Task', 'pending', '${now}', '${now}')`,
 			);
 
 			// Insert extension row — table must exist with FK cascade
@@ -798,12 +800,13 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	describe("11. Route purity — conversations POST /items works without routing", () => {
 		beforeEach(() => {
 			// Seed required data for conversations/items
+			// @lore U1: products→teams, teams→team_members
 			const now = new Date().toISOString();
 			db.run(
-				`INSERT INTO products (id, name, phase, created_at) VALUES ('prod-conv', 'Prod', 'build', '${now}')`,
+				`INSERT INTO teams (id, name, phase, created_at) VALUES ('prod-conv', 'Prod', 'build', '${now}')`,
 			);
 			db.run(
-				`INSERT INTO teams (id, product_id, capacity, active_bets, formed_at) VALUES ('team-conv', 'prod-conv', 3, 0, '${now}')`,
+				`INSERT INTO team_members (id, team_id, capacity, active_bets, formed_at) VALUES ('team-conv', 'prod-conv', 3, 0, '${now}')`,
 			);
 			db.run(
 				`INSERT INTO users (id, name, role, status, created_at) VALUES ('agent-conv', 'Agent', 'builder', 'idle', '${now}')`,
@@ -860,22 +863,23 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 
 	describe("12. Sessions work without stripped schema fields", () => {
 		beforeEach(() => {
+			// @lore U1: products→teams, teams→team_members, bets.pitch→description, tasks removes product_id
 			const now = new Date().toISOString();
 			db.run(
-				`INSERT INTO products (id, name, phase, created_at) VALUES ('prod-sess', 'Prod', 'build', '${now}')`,
+				`INSERT INTO teams (id, name, phase, created_at) VALUES ('prod-sess', 'Prod', 'build', '${now}')`,
 			);
 			db.run(
-				`INSERT INTO teams (id, product_id, capacity, active_bets, formed_at) VALUES ('team-sess', 'prod-sess', 3, 0, '${now}')`,
+				`INSERT INTO team_members (id, team_id, capacity, active_bets, formed_at) VALUES ('team-sess', 'prod-sess', 3, 0, '${now}')`,
 			);
 			db.run(
 				`INSERT INTO users (id, name, role, status, created_at) VALUES ('agent-sess', 'Agent', 'builder', 'idle', '${now}')`,
 			);
 			db.run(
-				`INSERT INTO bets (id, product_id, team_id, pitch, status, created_at) VALUES ('bet-sess', 'prod-sess', 'team-sess', 'Pitch', 'committed', '${now}')`,
+				`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-sess', 'prod-sess', 'Pitch', 'active', '${now}')`,
 			);
 			db.run(
-				`INSERT INTO tasks (id, bet_id, product_id, team_id, title, state, created_at, updated_at)
-				 VALUES ('task-sess', 'bet-sess', 'prod-sess', 'team-sess', 'Task', 'in_progress', '${now}', '${now}')`,
+				`INSERT INTO tasks (id, bet_id, team_id, title, state, created_at, updated_at)
+				 VALUES ('task-sess', 'bet-sess', 'prod-sess', 'Task', 'in_progress', '${now}', '${now}')`,
 			);
 		});
 

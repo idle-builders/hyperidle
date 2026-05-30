@@ -2,9 +2,9 @@ import {
 	bets,
 	createTestDb,
 	type HyperIdleDb,
-	products,
 	sessions,
 	tasks,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -36,11 +36,11 @@ import type { SessionContext } from "../services/session-lifecycle.js";
 const NOW = new Date().toISOString();
 
 function seed(db: HyperIdleDb): void {
-	db.insert(products).values({ id: "p1", name: "P1", phase: "build", createdAt: NOW }).run();
-	db.insert(teams)
+	db.insert(teams).values({ id: "p1", name: "P1", phase: "build", createdAt: NOW }).run();
+	db.insert(teamMembers)
 		.values({
 			id: "t1",
-			productId: "p1",
+			teamId: "p1",
 			capacity: 5,
 			activeBets: 0,
 			costCap: 1_000_000,
@@ -77,11 +77,10 @@ function seed(db: HyperIdleDb): void {
 	db.insert(bets)
 		.values({
 			id: "b1",
-			productId: "p1",
-			teamId: "t1",
-			pitch: "x",
+			teamId: "p1",
+			description: "x",
 			appetite: "small",
-			status: "committed",
+			status: "active",
 			createdAt: NOW,
 		})
 		.run();
@@ -101,8 +100,7 @@ function seed(db: HyperIdleDb): void {
 		.values({
 			id: "task-1",
 			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
+			teamId: "p1",
 			ownerAgentId: "a1",
 			title: "T1",
 			state: "in_progress",

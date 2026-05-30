@@ -1,4 +1,4 @@
-import { bets, createTestDb, type HyperIdleDb, products, tasks, teams } from "@hyperidle/db";
+import { bets, createTestDb, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
 import {
 	EventBus,
 	type NotificationEvent,
@@ -13,20 +13,17 @@ import { InvalidTransitionError, transitionTask } from "../services/task-state-m
 
 function seedPrerequisites(db: HyperIdleDb): void {
 	const now = new Date().toISOString();
-	db.insert(products)
-		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: now })
-		.run();
-	db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
+	db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: now }).run();
+	db.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now })
 		.run();
 	db.insert(bets)
 		.values({
 			id: "b1",
-			productId: "p1",
-			teamId: "t1",
-			pitch: "Test bet",
+			teamId: "p1",
+			description: "Test bet",
 			appetite: "small",
-			status: "committed",
+			status: "active",
 			createdAt: now,
 		})
 		.run();
@@ -38,8 +35,7 @@ function insertTask(db: HyperIdleDb, id: string, state: TaskState, dependencies?
 		.values({
 			id,
 			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
+			teamId: "p1",
 			title: `Task ${id}`,
 			state,
 			dependencies: dependencies ? JSON.stringify(dependencies) : null,
@@ -248,8 +244,7 @@ describe("Task State Machine", () => {
 				.values({
 					id: "task-existing",
 					betId: "b1",
-					productId: "p1",
-					teamId: "t1",
+					teamId: "p1",
 					title: "Existing task",
 					state: "proposed",
 					auditTrail: JSON.stringify(existingAudit),

@@ -32,7 +32,9 @@ const NotificationsSchema = z.object({
 		.string()
 		.regex(/^\d{2}:\d{2}$/)
 		.default("08:00"),
-	mutedProducts: z.array(z.string()).default([]),
+	// @lore U1: renamed from mutedProducts. Old stored JSON with mutedProducts key
+	// gracefully degrades to empty array via .default([]).
+	mutedTeams: z.array(z.string()).default([]),
 });
 
 /**
@@ -61,7 +63,8 @@ type DeepPartialNotifications = {
 	blockerAlerts?: boolean;
 	quietHoursStart?: string;
 	quietHoursEnd?: string;
-	mutedProducts?: string[];
+	// @lore U1: renamed from mutedProducts.
+	mutedTeams?: string[];
 };
 
 type ServerConfigPatch = {

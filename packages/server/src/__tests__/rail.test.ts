@@ -4,8 +4,8 @@ import {
 	factorySettings,
 	type HyperIdleDb,
 	items,
-	products,
 	tasks,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -39,7 +39,7 @@ describe("Rail Endpoint (E5)", () => {
 		app = createTestApp({ db, eventBus });
 
 		// Seed base data
-		db.insert(products)
+		db.insert(teams)
 			.values({
 				id: "prod-1",
 				name: "Test Product",
@@ -47,10 +47,10 @@ describe("Rail Endpoint (E5)", () => {
 				createdAt: new Date().toISOString(),
 			})
 			.run();
-		db.insert(teams)
+		db.insert(teamMembers)
 			.values({
 				id: "team-1",
-				productId: "prod-1",
+				teamId: "prod-1",
 				capacity: 3,
 				activeBets: 0,
 				formedAt: new Date().toISOString(),
@@ -79,11 +79,10 @@ describe("Rail Endpoint (E5)", () => {
 			db.insert(bets)
 				.values({
 					id: "bet-1",
-					productId: "prod-1",
-					teamId: "team-1",
-					pitch: "Build feature X",
+					teamId: "prod-1",
+					description: "Build feature X",
 					appetite: "small",
-					status: "committed",
+					status: "active",
 					createdAt: new Date().toISOString(),
 				})
 				.run();
@@ -91,11 +90,10 @@ describe("Rail Endpoint (E5)", () => {
 			db.insert(bets)
 				.values({
 					id: "bet-2",
-					productId: "prod-1",
-					teamId: "team-1",
-					pitch: "Build feature Y",
+					teamId: "prod-1",
+					description: "Build feature Y",
 					appetite: "medium",
-					status: "in_progress",
+					status: "active",
 					createdAt: new Date().toISOString(),
 				})
 				.run();
@@ -117,8 +115,7 @@ describe("Rail Endpoint (E5)", () => {
 				.values({
 					id: "task-blocked-1",
 					betId: "bet-2",
-					productId: "prod-1",
-					teamId: "team-1",
+					teamId: "prod-1",
 					ownerAgentId: "agent-1",
 					title: "Blocked task",
 					state: "blocked",
@@ -132,8 +129,7 @@ describe("Rail Endpoint (E5)", () => {
 				.values({
 					id: "task-ok-1",
 					betId: "bet-2",
-					productId: "prod-1",
-					teamId: "team-1",
+					teamId: "prod-1",
 					title: "Normal task",
 					state: "in_progress",
 					createdAt: new Date().toISOString(),
@@ -214,11 +210,10 @@ describe("Rail Endpoint (E5)", () => {
 			db.insert(bets)
 				.values({
 					id: "bet-a",
-					productId: "prod-1",
-					teamId: "team-1",
-					pitch: "Feature A",
+					teamId: "prod-1",
+					description: "Feature A",
 					appetite: "small",
-					status: "in_progress",
+					status: "active",
 					createdAt: new Date().toISOString(),
 				})
 				.run();
@@ -228,8 +223,7 @@ describe("Rail Endpoint (E5)", () => {
 				.values({
 					id: "t1",
 					betId: "bet-a",
-					productId: "prod-1",
-					teamId: "team-1",
+					teamId: "prod-1",
 					title: "Done task",
 					state: "done",
 					createdAt: new Date().toISOString(),
@@ -240,8 +234,7 @@ describe("Rail Endpoint (E5)", () => {
 				.values({
 					id: "t2",
 					betId: "bet-a",
-					productId: "prod-1",
-					teamId: "team-1",
+					teamId: "prod-1",
 					title: "In progress task",
 					state: "in_progress",
 					createdAt: new Date().toISOString(),
@@ -257,7 +250,8 @@ describe("Rail Endpoint (E5)", () => {
 			const bet = railBets[0];
 			expect(bet.id).toBe("bet-a");
 			expect(bet.title).toBe("Feature A");
-			expect(bet.status).toBe("in_progress");
+			// @lore U1: status simplified — "in_progress" merged into "active"
+			expect(bet.status).toBe("active");
 			expect(bet.progress).toEqual({ done: 1, total: 2 });
 		});
 	});
@@ -268,11 +262,10 @@ describe("Rail Endpoint (E5)", () => {
 			db.insert(bets)
 				.values({
 					id: "bet-b",
-					productId: "prod-1",
-					teamId: "team-1",
-					pitch: "Feature B",
+					teamId: "prod-1",
+					description: "Feature B",
 					appetite: "small",
-					status: "in_progress",
+					status: "active",
 					createdAt: new Date().toISOString(),
 				})
 				.run();
@@ -292,8 +285,7 @@ describe("Rail Endpoint (E5)", () => {
 				.values({
 					id: "task-blocked-x",
 					betId: "bet-b",
-					productId: "prod-1",
-					teamId: "team-1",
+					teamId: "prod-1",
 					ownerAgentId: "agent-owner",
 					title: "Blocked on external",
 					state: "blocked",

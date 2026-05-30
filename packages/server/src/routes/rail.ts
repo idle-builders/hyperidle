@@ -76,7 +76,8 @@ export function createRailRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 		const activeBets = db
 			.select()
 			.from(bets)
-			.where(inArray(bets.status, ["committed", "in_progress"]))
+			// @lore U1: status simplified: "active" replaces committed/in_progress.
+			.where(inArray(bets.status, ["active"]))
 			.all();
 
 		const allTasks = db.select().from(tasks).all();
@@ -86,7 +87,8 @@ export function createRailRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 			const doneTasks = betTasks.filter((t) => t.state === "done");
 			return {
 				id: b.id,
-				title: b.pitch,
+				// @lore U1: `description` replaces `pitch`.
+				title: b.description,
 				status: b.status,
 				progress: { done: doneTasks.length, total: betTasks.length },
 			};

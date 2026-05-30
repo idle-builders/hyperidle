@@ -17,9 +17,9 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	knowledgeItems,
-	products,
 	sessions,
 	tasks,
+	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -36,20 +36,19 @@ import { type ProvisionSessionDeps, provisionSession } from "../services/session
 const NOW = "2026-04-16T00:00:00.000Z";
 
 function seedDomain(db: HyperIdleDb): void {
-	db.insert(products)
+	db.insert(teams)
 		.values({ id: "p1", name: "Integration Product", phase: "build", createdAt: NOW })
 		.run();
-	db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
+	db.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
 		.run();
 	db.insert(bets)
 		.values({
 			id: "b1",
-			productId: "p1",
-			teamId: "t1",
-			pitch: "Integration bet",
+			teamId: "p1",
+			description: "Integration bet",
 			appetite: "small",
-			status: "committed",
+			status: "active",
 			createdAt: NOW,
 		})
 		.run();
@@ -69,8 +68,7 @@ function seedDomain(db: HyperIdleDb): void {
 		.values({
 			id: "task-1",
 			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
+			teamId: "p1",
 			title: "Integration task",
 			state: "accepted",
 			createdAt: NOW,

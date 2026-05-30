@@ -11,7 +11,15 @@
  * 7. GET /api/products/:id with teams.cost_cap = null returns burn.costCap: null.
  */
 
-import { bets, createTestDb, type HyperIdleDb, products, tasks, teams, users } from "@hyperidle/db";
+import {
+	bets,
+	createTestDb,
+	type HyperIdleDb,
+	tasks,
+	teamMembers,
+	teams,
+	users,
+} from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -60,41 +68,40 @@ describe("GET /api/products", () => {
 		});
 
 		expect(res.status).toBe(200);
-		const body = await res.json();
-		expect(body).toHaveProperty("products");
-		expect(body.products).toEqual([]);
+		const body = (await res.json()) as Record<string, unknown>;
+		// @lore U1: route now returns { teams: [] } (renamed from { products: [] })
+		expect(body).toHaveProperty("teams");
+		expect((body.teams as unknown[]).length).toBe(0);
 	});
 
 	it("returns one row with derived activeBets, shipped, shipRate for a seeded product+team+bet+task fixture", async () => {
 		const { db } = ctx;
 
-		db.insert(products)
+		db.insert(teams)
 			.values({ id: "p1", name: "HyperIdle Core", phase: "build", createdAt: NOW })
 			.run();
-		db.insert(teams)
-			.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
+		db.insert(teamMembers)
+			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
 			.run();
 		db.insert(bets)
 			.values({
 				id: "b1",
-				productId: "p1",
-				teamId: "t1",
-				pitch: "# Active\n\ncommitted bet",
+				teamId: "p1",
+				description: "# Active\n\ncommitted bet",
 				appetite: "2 weeks",
-				status: "committed",
+				status: "active",
 				createdAt: NOW,
 			})
 			.run();
 		db.insert(bets)
 			.values({
 				id: "b2",
-				productId: "p1",
-				teamId: "t1",
-				pitch: "# Shipped\n\nshipped bet",
+				teamId: "p1",
+				description: "# Shipped\n\nshipped bet",
 				appetite: "1 week",
-				status: "shipped",
+				status: "completed",
 				createdAt: NOW,
-				shippedAt: NOW,
+				completedAt: NOW,
 			})
 			.run();
 
@@ -104,8 +111,9 @@ describe("GET /api/products", () => {
 		});
 
 		expect(res.status).toBe(200);
+		// @lore U1: route now returns { teams: [...] } (renamed from { products: [...] })
 		const body = (await res.json()) as {
-			products: Array<{
+			teams: Array<{
 				id: string;
 				name: string;
 				activeBets: number;
@@ -113,8 +121,8 @@ describe("GET /api/products", () => {
 				shipRate: string;
 			}>;
 		};
-		expect(body.products).toHaveLength(1);
-		const product = body.products[0];
+		expect(body.teams).toHaveLength(1);
+		const product = body.teams[0];
 		expect(product.id).toBe("p1");
 		expect(product.name).toBe("HyperIdle Core");
 		expect(product.activeBets).toBe(1);
@@ -147,7 +155,7 @@ describe("GET /api/products/:id", () => {
 	it("returns 500 with code 'team_missing' when the team for a product is absent", async () => {
 		const { db } = ctx;
 
-		db.insert(products)
+		db.insert(teams)
 			.values({ id: "p-no-team", name: "Orphan Product", phase: "build", createdAt: NOW })
 			.run();
 
@@ -158,19 +166,20 @@ describe("GET /api/products/:id", () => {
 
 		expect(res.status).toBe(500);
 		const body = (await res.json()) as { code?: string };
-		expect(body.code).toBe("team_missing");
+		// @lore U1: error code renamed from "team_missing" to "team_members_missing"
+		expect(body.code).toBe("team_members_missing");
 	});
 
 	it("returns populated ProductDetail for a seeded product+team+roster+bets", async () => {
 		const { db } = ctx;
 
-		db.insert(products)
+		db.insert(teams)
 			.values({ id: "p1", name: "HyperIdle Core", phase: "build", createdAt: NOW })
 			.run();
-		db.insert(teams)
+		db.insert(teamMembers)
 			.values({
 				id: "t1",
-				productId: "p1",
+				teamId: "p1",
 				capacity: 5,
 				activeBets: 0,
 				formedAt: NOW,
@@ -201,35 +210,32 @@ describe("GET /api/products/:id", () => {
 		db.insert(bets)
 			.values({
 				id: "b1",
-				productId: "p1",
-				teamId: "t1",
-				pitch: "# Active\n\ncommitted bet",
+				teamId: "p1",
+				description: "# Active\n\ncommitted bet",
 				appetite: "2 weeks",
-				status: "committed",
+				status: "active",
 				createdAt: NOW,
 			})
 			.run();
 		db.insert(bets)
 			.values({
 				id: "b2",
-				productId: "p1",
-				teamId: "t1",
-				pitch: "# In progress\n\nin progress bet",
+				teamId: "p1",
+				description: "# In progress\n\nin progress bet",
 				appetite: "6 weeks",
-				status: "in_progress",
+				status: "active",
 				createdAt: NOW,
 			})
 			.run();
 		db.insert(bets)
 			.values({
 				id: "b-shipped",
-				productId: "p1",
-				teamId: "t1",
-				pitch: "# Shipped\n\nshipped bet",
+				teamId: "p1",
+				description: "# Shipped\n\nshipped bet",
 				appetite: "1 week",
-				status: "shipped",
+				status: "completed",
 				createdAt: NOW,
-				shippedAt: NOW,
+				completedAt: NOW,
 			})
 			.run();
 		// Tasks for b1
@@ -237,8 +243,7 @@ describe("GET /api/products/:id", () => {
 			.values({
 				id: "task-1",
 				betId: "b1",
-				productId: "p1",
-				teamId: "t1",
+				teamId: "p1",
 				title: "Task 1",
 				state: "done",
 				createdAt: NOW,
@@ -249,8 +254,7 @@ describe("GET /api/products/:id", () => {
 			.values({
 				id: "task-2",
 				betId: "b1",
-				productId: "p1",
-				teamId: "t1",
+				teamId: "p1",
 				title: "Task 2",
 				state: "in_progress",
 				createdAt: NOW,
@@ -267,9 +271,10 @@ describe("GET /api/products/:id", () => {
 		});
 
 		expect(res.status).toBe(200);
+		// @lore U1: response shape changed: product+team → team+teamMembers
 		const body = (await res.json()) as {
-			product: { id: string; name: string };
-			team: { id: string };
+			team: { id: string; name: string };
+			teamMembers: { id: string };
 			roster: Array<{ agentId: string; name: string; isLead: boolean }>;
 			burn: {
 				costActual: { minor: number; currency: string } | null;
@@ -285,12 +290,12 @@ describe("GET /api/products/:id", () => {
 			}>;
 		};
 
-		// Product summary
-		expect(body.product.id).toBe("p1");
-		expect(body.product.name).toBe("HyperIdle Core");
+		// Team (formerly Product) summary
+		expect(body.team.id).toBe("p1");
+		expect(body.team.name).toBe("HyperIdle Core");
 
-		// Team
-		expect(body.team.id).toBe("t1");
+		// TeamMembers (formerly Team)
+		expect(body.teamMembers.id).toBe("t1");
 
 		// Roster — 2 members
 		expect(body.roster).toHaveLength(2);
@@ -318,22 +323,21 @@ describe("GET /api/products/:id", () => {
 	it("returns activeBets: [] for a product whose bets are all shipped", async () => {
 		const { db } = ctx;
 
-		db.insert(products)
+		db.insert(teams)
 			.values({ id: "p2", name: "Shipped Product", phase: "cool-down", createdAt: NOW })
 			.run();
-		db.insert(teams)
-			.values({ id: "t2", productId: "p2", capacity: 3, activeBets: 0, formedAt: NOW })
+		db.insert(teamMembers)
+			.values({ id: "t2", teamId: "p2", capacity: 3, activeBets: 0, formedAt: NOW })
 			.run();
 		db.insert(bets)
 			.values({
 				id: "b-s1",
-				productId: "p2",
-				teamId: "t2",
-				pitch: "# Shipped\n\nshipped bet",
+				teamId: "p2",
+				description: "# Shipped\n\nshipped bet",
 				appetite: "1 week",
-				status: "shipped",
+				status: "completed",
 				createdAt: NOW,
-				shippedAt: NOW,
+				completedAt: NOW,
 			})
 			.run();
 
@@ -350,13 +354,13 @@ describe("GET /api/products/:id", () => {
 	it("returns burn.costCap: null when teams.cost_cap is null", async () => {
 		const { db } = ctx;
 
-		db.insert(products)
+		db.insert(teams)
 			.values({ id: "p3", name: "No Cap Product", phase: "shape", createdAt: NOW })
 			.run();
-		db.insert(teams)
+		db.insert(teamMembers)
 			.values({
 				id: "t3",
-				productId: "p3",
+				teamId: "p3",
 				capacity: 2,
 				activeBets: 0,
 				formedAt: NOW,

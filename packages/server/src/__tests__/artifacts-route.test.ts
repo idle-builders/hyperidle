@@ -6,8 +6,8 @@ import {
 	bets,
 	createTestDb,
 	type HyperIdleDb,
-	products,
 	tasks,
+	teamMembers,
 	teams,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
@@ -29,32 +29,36 @@ interface SeedScope {
 }
 
 function seed(db: HyperIdleDb, suffix = ""): SeedScope {
+	// @lore U1: productId is actually teamId (domain entity id), not productId.
+	// Kept as "productId" in SeedScope for backward compat with test axis queries.
 	const productId = `prod${suffix}`;
-	const teamId = `team${suffix}`;
+	const teamMembersId = `team${suffix}`;
 	const betId = `bet${suffix}`;
 	const taskId = `task${suffix}`;
-	db.insert(products).values({ id: productId, name: "P", phase: "build", createdAt: NOW }).run();
-	db.insert(teams)
-		.values({ id: teamId, productId, capacity: 1, activeBets: 0, formedAt: NOW })
+	// Insert domain entity (teams table, formerly products)
+	db.insert(teams).values({ id: productId, name: "P", phase: "build", createdAt: NOW }).run();
+	// Insert membership group (teamMembers table, formerly teams)
+	db.insert(teamMembers)
+		.values({ id: teamMembersId, teamId: productId, capacity: 1, activeBets: 0, formedAt: NOW })
 		.run();
+	// @lore U1: bets.teamId references teams.id (domain entity), not teamMembers.id
 	db.insert(bets)
 		.values({
 			id: betId,
-			productId,
-			teamId,
-			pitch: "p",
+			teamId: productId,
+			description: "p",
 			appetite: "1w",
-			status: "shaped",
+			status: "draft",
 			createdAt: NOW,
 			updatedAt: NOW,
 		})
 		.run();
+	// @lore U1: tasks.teamId references teams.id (domain entity), not teamMembers.id
 	db.insert(tasks)
 		.values({
 			id: taskId,
 			betId,
-			productId,
-			teamId,
+			teamId: productId,
 			title: "T",
 			state: "pending",
 			createdAt: NOW,
@@ -143,8 +147,8 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 			.values({
 				id: "task2",
 				betId: s.betId,
-				productId: s.productId,
-				teamId: "team",
+				// @lore U1: teamId references teams.id (domain entity = s.productId)
+				teamId: s.productId,
 				title: "T2",
 				state: "pending",
 				createdAt: NOW,

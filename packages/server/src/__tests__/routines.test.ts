@@ -2,10 +2,10 @@ import {
 	bets,
 	createTestDb,
 	type HyperIdleDb,
-	products,
 	routines,
 	sessions,
 	tasks,
+	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -33,7 +33,7 @@ describe("Routine Endpoints (E6)", () => {
 		app = createTestApp({ db, eventBus });
 
 		// Seed required data
-		db.insert(products)
+		db.insert(teams)
 			.values({
 				id: "prod-1",
 				name: "Test Product",
@@ -41,10 +41,10 @@ describe("Routine Endpoints (E6)", () => {
 				createdAt: new Date().toISOString(),
 			})
 			.run();
-		db.insert(teams)
+		db.insert(teamMembers)
 			.values({
 				id: "team-1",
-				productId: "prod-1",
+				teamId: "prod-1",
 				capacity: 3,
 				activeBets: 0,
 				formedAt: new Date().toISOString(),
@@ -65,11 +65,10 @@ describe("Routine Endpoints (E6)", () => {
 		db.insert(bets)
 			.values({
 				id: "bet-1",
-				productId: "prod-1",
-				teamId: "team-1",
-				pitch: "Test",
+				teamId: "prod-1",
+				description: "Test",
 				appetite: "small",
-				status: "committed",
+				status: "active",
 				createdAt: new Date().toISOString(),
 			})
 			.run();
@@ -77,8 +76,7 @@ describe("Routine Endpoints (E6)", () => {
 			.values({
 				id: "task-1",
 				betId: "bet-1",
-				productId: "prod-1",
-				teamId: "team-1",
+				teamId: "prod-1",
 				title: "Test Task",
 				state: "in_progress",
 				createdAt: new Date().toISOString(),

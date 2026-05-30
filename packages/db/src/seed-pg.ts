@@ -5,9 +5,9 @@ import {
 	factorySettings,
 	knowledgeItems,
 	knowledgeStrategyFabric,
-	products,
 	routines,
 	tasks,
+	teamMembers,
 	teams,
 	users,
 } from "./schema.pg.js";
@@ -27,22 +27,28 @@ import {
  * The function accepts any PG-flavoured Drizzle instance (postgres-js,
  * pglite). Each statement uses `.onConflictDoNothing()` for idempotency so
  * `seedPg(db)` can be called repeatedly without error.
+ *
+ * @lore U1: Updated to use `teams` (formerly `products`) and `teamMembers`
+ * (formerly `teams`). `description` (formerly `pitch`), `teamId` (formerly `productId`),
+ * status 'draft' (formerly 'shaped').
  */
 export type SeedablePgDb = PgDatabase<PgQueryResultHKT, Record<string, never>>;
 
 export async function seedPg(db: SeedablePgDb): Promise<void> {
 	const now = new Date().toISOString();
 
+	// @lore U1: insert into `teams` (formerly `products`).
 	await db
-		.insert(products)
+		.insert(teams)
 		.values({ id: "seed-product-1", name: "Nimmly", phase: "build", createdAt: now })
 		.onConflictDoNothing();
 
+	// @lore U1: insert into `teamMembers` (formerly `teams`). Column `teamId` (formerly `productId`).
 	await db
-		.insert(teams)
+		.insert(teamMembers)
 		.values({
 			id: "seed-team-1",
-			productId: "seed-product-1",
+			teamId: "seed-product-1",
 			capacity: 5,
 			activeBets: 0,
 			formedAt: now,
@@ -158,10 +164,11 @@ export async function seedPg(db: SeedablePgDb): Promise<void> {
 			.onConflictDoNothing();
 	}
 
+	// @lore U1: update teamMembers (formerly teams).
 	await db
-		.update(teams)
+		.update(teamMembers)
 		.set({ leadAgentId: "seed-agent-builder" })
-		.where(eq(teams.id, "seed-team-1"));
+		.where(eq(teamMembers.id, "seed-team-1"));
 
 	// @lore O2: kernel/strategy separation. Kernel table gets identity+content only.
 	// Strategy fields (layer, kind) go to knowledgeStrategyFabric extension table.
@@ -203,15 +210,16 @@ export async function seedPg(db: SeedablePgDb): Promise<void> {
 	// The human founder identity now lives in the users table (kind = 'human').
 
 	// --- H2: daily-digest scaffolding bet/task/routine ---
+	// @lore U1: `teamId` (formerly `productId`), `description` (formerly `pitch`),
+	// status 'draft' (formerly 'shaped'). Old `teamId` (pointing at team_members) dropped.
 	await db
 		.insert(bets)
 		.values({
 			id: "seed-bet-daily-digest",
-			productId: "seed-product-1",
-			teamId: "seed-team-1",
-			pitch: "Internal: daily digest scaffolding bet",
+			teamId: "seed-product-1",
+			description: "Internal: daily digest scaffolding bet",
 			appetite: "small",
-			status: "shaped",
+			status: "draft",
 			createdAt: now,
 		})
 		.onConflictDoNothing();
@@ -221,8 +229,7 @@ export async function seedPg(db: SeedablePgDb): Promise<void> {
 		.values({
 			id: "seed-task-daily-digest",
 			betId: "seed-bet-daily-digest",
-			productId: "seed-product-1",
-			teamId: "seed-team-1",
+			teamId: "seed-product-1",
 			ownerAgentId: "seed-agent-cos",
 			title: "Daily digest anchor task",
 			description: "Anchor task for the daily digest routine — emits routine_fired.",

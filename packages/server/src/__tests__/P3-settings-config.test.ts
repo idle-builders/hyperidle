@@ -14,7 +14,7 @@
  * tests only the P3-specific behavior (server_config backing, not factorySettings).
  */
 
-import { createTestDb, type HyperIdleDb, products, users } from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -179,18 +179,19 @@ describe("P3 AC-10 — Settings route: server_config backing", () => {
 	describe("Products and users still returned (AC-17 compatibility)", () => {
 		it("GET /api/settings still returns profile section", async () => {
 			const now = new Date().toISOString();
-			db.insert(products)
+			db.insert(teams)
 				.values({ id: "p3-prod-1", name: "P3 Test Product", phase: "build", createdAt: now })
 				.run();
 
 			const res = await app.request("/api/settings", { headers: authHeaders() });
+			// @lore U1: `products` renamed to `teams` in the settings response.
 			const body = (await res.json()) as {
 				profile: { name: string };
-				products: Array<{ id: string }>;
+				teams: Array<{ id: string }>;
 			};
 
 			expect(body.profile).toBeDefined();
-			expect(body.products).toBeDefined();
+			expect(body.teams).toBeDefined();
 		});
 	});
 });

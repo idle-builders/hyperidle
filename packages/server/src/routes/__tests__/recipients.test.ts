@@ -9,9 +9,9 @@ import {
 	bets,
 	createTestDb,
 	type HyperIdleDb,
-	products,
 	sessions,
 	tasks,
+	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -40,20 +40,19 @@ describe("GET /api/recipients (Q1 §3.3)", () => {
 		const NOW = new Date().toISOString();
 
 		// Seed required FK chain for sessions
-		db.insert(products)
+		db.insert(teams)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW })
 			.run();
-		db.insert(teams)
-			.values({ id: "team-1", productId: "prod-1", capacity: 3, activeBets: 0, formedAt: NOW })
+		db.insert(teamMembers)
+			.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: NOW })
 			.run();
 		db.insert(bets)
 			.values({
 				id: "bet-1",
-				productId: "prod-1",
-				teamId: "team-1",
-				pitch: "Test",
+				teamId: "prod-1",
+				description: "Test",
 				appetite: "small",
-				status: "committed",
+				status: "active",
 				createdAt: NOW,
 			})
 			.run();
@@ -61,8 +60,7 @@ describe("GET /api/recipients (Q1 §3.3)", () => {
 			.values({
 				id: "task-1",
 				betId: "bet-1",
-				productId: "prod-1",
-				teamId: "team-1",
+				teamId: "prod-1",
 				title: "Task 1",
 				state: "in_progress",
 				createdAt: NOW,

@@ -4,9 +4,9 @@ import {
 	bets,
 	createTestDb,
 	type HyperIdleDb,
-	products,
 	sessions,
 	tasks,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -36,13 +36,14 @@ function seedTestData(db: HyperIdleDb): {
 	const threadId = "thread-1";
 	const sessionId = "sess-1";
 
-	db.insert(products)
+	// @lore U1: teams is the domain entity; teamMembers is the membership group.
+	db.insert(teams)
 		.values({ id: productId, name: "TestProduct", phase: "build", createdAt: now })
 		.run();
-	db.insert(teams)
+	db.insert(teamMembers)
 		.values({
 			id: teamId,
-			productId,
+			teamId: productId,
 			capacity: 3,
 			activeBets: 1,
 			formedAt: now,
@@ -58,15 +59,15 @@ function seedTestData(db: HyperIdleDb): {
 			createdAt: now,
 		})
 		.run();
+	// @lore U1: bets.teamId references teams (domain entity); description replaces pitch.
 	db.insert(bets)
 		.values({
 			id: betId,
-			productId,
-			teamId,
-			pitch: "Build the thing",
+			teamId: productId,
+			description: "Build the thing",
 			appetite: "small",
 			doneCondition: "Tests pass",
-			status: "in_progress",
+			status: "active",
 			createdAt: now,
 		})
 		.run();
@@ -85,8 +86,8 @@ function seedTestData(db: HyperIdleDb): {
 		.values({
 			id: taskId,
 			betId,
-			productId,
-			teamId,
+			// @lore U1: tasks.teamId references teams (domain entity); productId removed.
+			teamId: productId,
 			ownerAgentId: agentId,
 			title: "Implement feature X",
 			description: "Build the materialization engine",
@@ -373,7 +374,8 @@ describe("materialize", () => {
 		expect(parsed.bet).toBeDefined();
 		const bet = parsed.bet as Record<string, unknown>;
 		expect(bet.id).toBe("bet-1");
-		expect(bet.pitch).toBe("Build the thing");
+		// @lore U1: `description` replaces `pitch` in SessionContextData.bet.
+		expect(bet.description).toBe("Build the thing");
 
 		// Verify agent context
 		expect(parsed.agent).toBeDefined();
@@ -381,9 +383,9 @@ describe("materialize", () => {
 		expect(agent.id).toBe(agentId);
 		expect(agent.role).toBe("builder");
 
-		// Verify product context
-		expect(parsed.product).toBeDefined();
-		const product = parsed.product as Record<string, unknown>;
+		// Verify team context (@lore U1: formerly `product`, now `team` in session context)
+		expect(parsed.team).toBeDefined();
+		const product = parsed.team as Record<string, unknown>;
 		expect(product.id).toBe(productId);
 		expect(product.name).toBe("TestProduct");
 	});

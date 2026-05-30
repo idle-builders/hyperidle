@@ -4,7 +4,7 @@ import {
 	type HyperIdleDb,
 	items,
 	messages,
-	products,
+	teamMembers,
 	teams,
 	threads,
 	userSkills,
@@ -53,11 +53,11 @@ describe("Policy Engine (E7)", () => {
 	const now = new Date().toISOString();
 
 	function seedBase(): void {
-		db.insert(products)
+		db.insert(teams)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now })
 			.run();
-		db.insert(teams)
-			.values({ id: "team-1", productId: "prod-1", capacity: 3, activeBets: 0, formedAt: now })
+		db.insert(teamMembers)
+			.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: now })
 			.run();
 		db.insert(users)
 			.values([

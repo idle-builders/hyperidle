@@ -8,7 +8,7 @@
  * handler maps to 500.
  */
 
-import { bets, createTestDb, type HyperIdleDb, products, teams } from "@hyperidle/db";
+import { bets, createTestDb, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
 import { API_ERROR_CODES, EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -33,24 +33,22 @@ describe("I2 V2 — PATCH /api/bets/:id field enum", () => {
 		app = createTestApp({ db, eventBus });
 
 		const now = new Date().toISOString();
-		db.insert(products).values({ id: "p1", name: "P", phase: "build", createdAt: now }).run();
-		db.insert(teams)
-			.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
+		db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now }).run();
+		db.insert(teamMembers)
+			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now })
 			.run();
 		db.insert(bets)
 			.values({
 				id: "bet1",
-				productId: "p1",
-				teamId: "t1",
-				pitch: "x",
+				teamId: "p1",
+				description: "x",
 				appetite: "small",
-				status: "shaped",
+				status: "draft",
 				createdAt: now,
 			})
 			.run();
-		// Move into in_progress so updateBetField doesn't reject on state.
-		await transitionBet(db, eventBus, "bet1", "committed");
-		await transitionBet(db, eventBus, "bet1", "in_progress");
+		// @lore U1: Move into active (formerly in_progress) so updateBetField doesn't reject on state.
+		await transitionBet(db, eventBus, "bet1", "active");
 	});
 
 	afterEach(() => {

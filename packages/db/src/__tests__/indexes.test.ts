@@ -53,14 +53,11 @@ describe("I3: secondary index coverage", () => {
 		assertUsesIndex(plan, "tasks.bet_id");
 	});
 
-	it("uses an index for tasks lookup by team_id", () => {
+	// @lore U1: tasks.product_id dropped; tasks.team_id now references `teams` (formerly `products`).
+	// The tasks_team_id_idx covers queries by both team_id and the former product_id lookup path.
+	it("uses an index for tasks lookup by team_id (covers both team_id and former product_id)", () => {
 		const plan = explainPlan(db, "SELECT * FROM tasks WHERE team_id = 't1'");
 		assertUsesIndex(plan, "tasks.team_id");
-	});
-
-	it("uses an index for tasks lookup by product_id", () => {
-		const plan = explainPlan(db, "SELECT * FROM tasks WHERE product_id = 'p1'");
-		assertUsesIndex(plan, "tasks.product_id");
 	});
 
 	it("uses an index for sessions lookup by task_id", () => {
@@ -88,9 +85,11 @@ describe("I3: secondary index coverage", () => {
 		assertUsesIndex(plan, "messages.thread_id");
 	});
 
-	it("uses an index for bets lookup by product_id", () => {
-		const plan = explainPlan(db, "SELECT * FROM bets WHERE product_id = 'p1'");
-		assertUsesIndex(plan, "bets.product_id");
+	// @lore U1: bets.product_id dropped; bets.team_id now references `teams` (formerly `products`).
+	// The bets_team_id_idx covers this query path.
+	it("uses an index for bets lookup by team_id (formerly product_id)", () => {
+		const plan = explainPlan(db, "SELECT * FROM bets WHERE team_id = 'p1'");
+		assertUsesIndex(plan, "bets.team_id");
 	});
 
 	it("uses an index for bets lookup by status", () => {

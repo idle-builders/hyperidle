@@ -10,7 +10,9 @@
  * dependency direction look like a reach-across-subfolder.
  */
 
-import { factorySettings, type HyperIdleDb, teams, users } from "@hyperidle/db";
+// @lore U1: `teams` is now the domain entity. `teamMembers` is the agent membership group.
+// `users.teamId` references `teamMembers.id`; silence keys use `teamMembers.teamId` (domains.id).
+import { factorySettings, type HyperIdleDb, teamMembers, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 
 interface SilenceItem {
@@ -35,16 +37,21 @@ export function isSilenced(db: HyperIdleDb, item: SilenceItem, now: Date): boole
 		.get();
 	if (silenceMode?.value === "true") return true;
 
-	// 2. Per-product silence
+	// 2. Per-product (per-team) silence
+	// @lore U1: agent.teamId → teamMembers.id → teamMembers.teamId (= teams.id, domain entity).
 	if (item.sourceAgentId) {
 		const agent = db.select().from(users).where(eq(users.id, item.sourceAgentId)).get();
 		if (agent?.teamId) {
-			const team = db.select().from(teams).where(eq(teams.id, agent.teamId)).get();
-			if (team) {
+			const memberGroup = db
+				.select()
+				.from(teamMembers)
+				.where(eq(teamMembers.id, agent.teamId))
+				.get();
+			if (memberGroup) {
 				const productSilence = db
 					.select()
 					.from(factorySettings)
-					.where(eq(factorySettings.key, `silence_product_${team.productId}`))
+					.where(eq(factorySettings.key, `silence_product_${memberGroup.teamId}`))
 					.get();
 				if (productSilence?.value === "true") return true;
 			}

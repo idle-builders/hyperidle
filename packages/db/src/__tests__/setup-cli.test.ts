@@ -45,8 +45,9 @@ describe("H4 AC1: `bun run setup --profile laptop`", () => {
 		// Tables + seed rows present
 		const raw = new Database(dbPath);
 		try {
-			const products = raw.prepare("SELECT id FROM products").all() as Array<{ id: string }>;
-			expect(products.length).toBeGreaterThan(0);
+			// @lore U1: `products` table renamed to `teams`
+			const teams = raw.prepare("SELECT id FROM teams").all() as Array<{ id: string }>;
+			expect(teams.length).toBeGreaterThan(0);
 
 			// @lore P2: agents → users table
 			const agents = raw.prepare("SELECT id FROM users").all() as Array<{ id: string }>;
@@ -185,10 +186,11 @@ describe("H4 idempotency: laptop setup is safe to run twice", () => {
 			// @lore P2: agents → users table
 			const agents = raw.prepare("SELECT id FROM users").all() as Array<{ id: string }>;
 			expect(agents.length).toBeGreaterThan(0);
-			const products = raw
-				.prepare("SELECT COUNT(*) AS n FROM products WHERE id = 'seed-product-1'")
+			// @lore U1: `products` renamed to `teams`; seed row id stays 'seed-product-1'
+			const teams = raw
+				.prepare("SELECT COUNT(*) AS n FROM teams WHERE id = 'seed-product-1'")
 				.get() as { n: number };
-			expect(products.n).toBe(1);
+			expect(teams.n).toBe(1);
 		} finally {
 			raw.close();
 		}

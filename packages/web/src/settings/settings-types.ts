@@ -19,7 +19,7 @@ export type SettingsSectionId =
 	| "credentials"
 	| "notifications"
 	| "appearance"
-	| "products"
+	| "teams"
 	| "backend";
 
 export interface SettingsSection {
@@ -33,7 +33,8 @@ export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
 	{ id: "credentials", label: "Credentials" },
 	{ id: "notifications", label: "Notifications" },
 	{ id: "appearance", label: "Appearance" },
-	{ id: "products", label: "Products" },
+	// @lore U1: "products" renamed to "teams".
+	{ id: "teams", label: "Teams" },
 	{ id: "backend", label: "Backend" },
 ];
 
@@ -45,11 +46,15 @@ export interface ProfileSettings {
 	avatarUrl: string;
 }
 
-export interface ProductSetting {
+/** @lore U1: Renamed from ProductSetting. */
+export interface TeamSetting {
 	id: string;
 	name: string;
 	active: boolean;
 }
+
+/** @deprecated Use TeamSetting. */
+export type ProductSetting = TeamSetting;
 
 export type AutonomyLevel = "manual" | "supervised" | "autonomous";
 
@@ -66,7 +71,8 @@ export interface NotificationSettings {
 	blockerAlerts: boolean;
 	quietHoursStart: string;
 	quietHoursEnd: string;
-	mutedProducts: string[];
+	/** @lore U1: renamed from mutedProducts. */
+	mutedTeams: string[];
 }
 
 /**
@@ -87,7 +93,8 @@ export interface AppearanceSettings {
 
 export interface SettingsData {
 	profile: ProfileSettings;
-	products: ProductSetting[];
+	/** @lore U1: renamed from `products`. */
+	teams: TeamSetting[];
 	/** @lore P2: renamed from `agents`. Contains AI users only. */
 	users: UserSetting[];
 	notifications: NotificationSettings;

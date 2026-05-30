@@ -4,10 +4,11 @@ import { describe, expect, it, vi } from "vitest";
 import { WorkPortfolio } from "../pages/WorkPortfolio";
 
 // M3 G1: MOCK_PRODUCTS removed — mock useProducts for tests that need product cards.
+// @lore U1: TeamListResponse uses `teams` array (renamed from `products`).
 vi.mock("../hooks/useProducts", () => ({
 	useProducts: vi.fn().mockReturnValue({
 		data: {
-			products: [
+			teams: [
 				{
 					id: "p1",
 					name: "HyperIdle Core",

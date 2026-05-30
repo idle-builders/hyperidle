@@ -5,9 +5,9 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	items,
-	products,
 	sessions,
 	tasks,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -20,18 +20,17 @@ import type { ToolContext } from "../tool-registry.js";
 
 function seed(db: HyperIdleDb): void {
 	const now = new Date().toISOString();
-	db.insert(products).values({ id: "p1", name: "Test", phase: "build", createdAt: now }).run();
-	db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
+	db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now }).run();
+	db.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now })
 		.run();
 	db.insert(bets)
 		.values({
 			id: "b1",
-			productId: "p1",
-			teamId: "t1",
-			pitch: "Test",
+			teamId: "p1",
+			description: "Test",
 			appetite: "small",
-			status: "committed",
+			status: "active",
 			createdAt: now,
 		})
 		.run();
@@ -72,8 +71,7 @@ function seed(db: HyperIdleDb): void {
 		.values({
 			id: "task-1",
 			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
+			teamId: "p1",
 			ownerAgentId: "agent-a",
 			title: "T",
 			state: "in_progress",

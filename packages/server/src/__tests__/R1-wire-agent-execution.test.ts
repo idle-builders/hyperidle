@@ -27,9 +27,9 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	knowledgeItems,
-	products,
 	sessions,
 	tasks,
+	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -127,22 +127,20 @@ function seedDomain(
 		agentMaxConcurrentSessions?: number;
 	} = {},
 ): void {
-	db.insert(products)
-		.values({ id: "p1", name: "R1 Product", phase: "build", createdAt: NOW })
+	db.insert(teams).values({ id: "p1", name: "R1 Product", phase: "build", createdAt: NOW }).run();
+
+	db.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
 		.run();
 
-	db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
-		.run();
-
+	// @lore U1: bets.teamId and tasks.teamId reference `teams` (domain entity "p1"), not teamMembers.
 	db.insert(bets)
 		.values({
 			id: "b1",
-			productId: "p1",
-			teamId: "t1",
-			pitch: "R1 bet",
+			teamId: "p1",
+			description: "R1 bet",
 			appetite: "small",
-			status: "committed",
+			status: "active",
 			createdAt: NOW,
 		})
 		.run();
@@ -165,8 +163,7 @@ function seedDomain(
 		.values({
 			id: "task-r1",
 			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
+			teamId: "p1",
 			title: "R1 test task",
 			state: "accepted",
 			createdAt: NOW,
@@ -378,11 +375,11 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 	describe("Backward compat: POST /api/sessions without adapters falls back to bare insert", () => {
 		it("returns 201 with bare session row when no harnessAdapter is provided", async () => {
 			// Seed only the minimum needed for the bare insert path.
-			db.insert(products)
+			db.insert(teams)
 				.values({ id: "p-bare", name: "Bare Product", phase: "build", createdAt: NOW })
 				.run();
-			db.insert(teams)
-				.values({ id: "t-bare", productId: "p-bare", capacity: 3, activeBets: 0, formedAt: NOW })
+			db.insert(teamMembers)
+				.values({ id: "t-bare", teamId: "p-bare", capacity: 3, activeBets: 0, formedAt: NOW })
 				.run();
 			db.insert(users)
 				.values({
@@ -394,14 +391,14 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 					createdAt: NOW,
 				})
 				.run();
+			// @lore U1: bets.teamId and tasks.teamId reference `teams` (domain entity), not teamMembers.
 			db.insert(bets)
 				.values({
 					id: "b-bare",
-					productId: "p-bare",
-					teamId: "t-bare",
-					pitch: "Bare bet",
+					teamId: "p-bare",
+					description: "Bare bet",
 					appetite: "small",
-					status: "committed",
+					status: "active",
 					createdAt: NOW,
 				})
 				.run();
@@ -409,8 +406,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 				.values({
 					id: "task-bare",
 					betId: "b-bare",
-					productId: "p-bare",
-					teamId: "t-bare",
+					teamId: "p-bare",
 					title: "Bare task",
 					state: "in_progress",
 					createdAt: NOW,

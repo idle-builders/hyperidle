@@ -147,6 +147,13 @@
 			"when": 1748600000000,
 			"tag": "0020_P5_hint_progress",
 			"breakpoints": true
+		},
+		{
+			"idx": 21,
+			"version": "6",
+			"when": 1748700000000,
+			"tag": "0021_U1_schema_migration",
+			"breakpoints": true
 		}
 	]
 }

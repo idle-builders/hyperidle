@@ -11,7 +11,7 @@
  * The integration tests use createTestDb/createTestApp which need a real DB.
  */
 
-import { bets, createTestDb, type HyperIdleDb, products, teams } from "@hyperidle/db";
+import { bets, createTestDb, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
 import { API_ERROR_CODES, EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -63,11 +63,11 @@ describe("D2. GET /api/bets returns betListResponseSchema-conforming response", 
 		app = createTestApp({ db, eventBus });
 
 		const now = new Date().toISOString();
-		db.insert(products)
+		db.insert(teams)
 			.values({ id: "prod-d2", name: "Product D2", phase: "build", createdAt: now })
 			.run();
-		db.insert(teams)
-			.values({ id: "team-d2", productId: "prod-d2", capacity: 3, activeBets: 0, formedAt: now })
+		db.insert(teamMembers)
+			.values({ id: "team-d2", teamId: "prod-d2", capacity: 3, activeBets: 0, formedAt: now })
 			.run();
 	});
 
@@ -85,21 +85,21 @@ describe("D2. GET /api/bets returns betListResponseSchema-conforming response", 
 		expect(validation.success).toBe(true);
 	});
 
-	it("returns each status group (shaped, committed, in_progress, shipped, killed)", async () => {
+	// @lore U1: Status groups simplified to draft|active|completed|killed.
+	it("returns each status group (draft, active, completed, killed)", async () => {
 		const res = await app.request("/api/bets", { headers: authHeaders() });
 		const body = (await res.json()) as Record<string, unknown>;
-		expect(body).toHaveProperty("shaped");
-		expect(body).toHaveProperty("committed");
-		expect(body).toHaveProperty("in_progress");
-		expect(body).toHaveProperty("shipped");
+		expect(body).toHaveProperty("draft");
+		expect(body).toHaveProperty("active");
+		expect(body).toHaveProperty("completed");
 		expect(body).toHaveProperty("killed");
 	});
 
 	it("returns empty arrays when no bets exist", async () => {
 		const res = await app.request("/api/bets", { headers: authHeaders() });
-		const body = (await res.json()) as { shaped: unknown[] };
-		expect(Array.isArray(body.shaped)).toBe(true);
-		expect(body.shaped.length).toBe(0);
+		const body = (await res.json()) as { draft: unknown[] };
+		expect(Array.isArray(body.draft)).toBe(true);
+		expect(body.draft.length).toBe(0);
 	});
 });
 
@@ -117,19 +117,18 @@ describe("D3. GET /api/bets/:id returns betDetailResponseSchema-conforming respo
 		app = createTestApp({ db, eventBus });
 
 		const now = new Date().toISOString();
-		db.insert(products)
+		db.insert(teams)
 			.values({ id: "prod-d3", name: "Product D3", phase: "build", createdAt: now })
 			.run();
-		db.insert(teams)
-			.values({ id: "team-d3", productId: "prod-d3", capacity: 3, activeBets: 0, formedAt: now })
+		db.insert(teamMembers)
+			.values({ id: "team-d3", teamId: "prod-d3", capacity: 3, activeBets: 0, formedAt: now })
 			.run();
 		db.insert(bets)
 			.values({
 				id: "bet-d3",
-				productId: "prod-d3",
-				teamId: "team-d3",
-				pitch: "# Bet D3\n\nThis is a test bet.",
-				status: "shaped",
+				teamId: "prod-d3",
+				description: "# Bet D3\n\nThis is a test bet.",
+				status: "draft",
 				createdAt: now,
 			})
 			.run();
@@ -194,7 +193,7 @@ describe("D4. POST /api/bets with invalid body returns 400 VALIDATION_ERROR", ()
 			body: JSON.stringify({
 				productId: "prod-1",
 				teamId: "team-1",
-				pitch: "Pitch text",
+				description: "Pitch text",
 				appetite: "2 weeks", // old deprecated field — should be rejected
 			}),
 		});

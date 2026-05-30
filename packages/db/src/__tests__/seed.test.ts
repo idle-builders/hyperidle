@@ -25,8 +25,9 @@ describe("A2: Seed script", () => {
 	it("populates at least 1 row per major table", () => {
 		seed(db);
 
+		// @lore U1: `products` renamed to `teams`; old `teams` renamed to `team_members`.
 		// @lore P2: agents → users table
-		const majorTables = ["users", "teams", "products", "knowledge_items", "factory_settings"];
+		const majorTables = ["users", "teams", "team_members", "knowledge_items", "factory_settings"];
 
 		for (const table of majorTables) {
 			const result = db.get<{ count: number }>(sql.raw(`SELECT COUNT(*) as count FROM ${table}`));
@@ -37,10 +38,9 @@ describe("A2: Seed script", () => {
 	it("seed data is well-formed (queryable without errors)", () => {
 		seed(db);
 
-		// Verify we can read back with all fields
-		const product = db.get<{ id: string; name: string }>(
-			sql`SELECT id, name FROM products LIMIT 1`,
-		);
+		// Verify we can read back with all fields.
+		// @lore U1: `products` table renamed to `teams`.
+		const product = db.get<{ id: string; name: string }>(sql`SELECT id, name FROM teams LIMIT 1`);
 		expect(product?.id).toBeTruthy();
 		expect(product?.name).toBeTruthy();
 
@@ -52,11 +52,13 @@ describe("A2: Seed script", () => {
 		expect(agent?.name).toBeTruthy();
 		expect(agent?.role).toBeTruthy();
 
-		const team = db.get<{ id: string; capacity: number }>(
-			sql`SELECT id, capacity FROM teams LIMIT 1`,
+		// @lore U1: old `teams` (agent membership) renamed to `team_members`.
+		// `capacity` column lives on `team_members`, not on the new `teams`.
+		const teamMember = db.get<{ id: string; capacity: number }>(
+			sql`SELECT id, capacity FROM team_members LIMIT 1`,
 		);
-		expect(team?.id).toBeTruthy();
-		expect(team?.capacity).toBeGreaterThan(0);
+		expect(teamMember?.id).toBeTruthy();
+		expect(teamMember?.capacity).toBeGreaterThan(0);
 
 		// @lore O2: layer moved to knowledgeStrategyFabric; query via JOIN.
 		const ki = db.get<{ id: string; version: number }>(

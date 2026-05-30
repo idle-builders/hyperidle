@@ -2,7 +2,7 @@ import {
 	createTestDb,
 	factorySettings,
 	type HyperIdleDb,
-	products,
+	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -92,7 +92,7 @@ describe("isSilenced", () => {
 
 	beforeEach(() => {
 		db = createTestDb();
-		db.insert(products)
+		db.insert(teams)
 			.values({
 				id: "prod-1",
 				name: "Test Product",
@@ -100,10 +100,10 @@ describe("isSilenced", () => {
 				createdAt: new Date().toISOString(),
 			})
 			.run();
-		db.insert(teams)
+		db.insert(teamMembers)
 			.values({
 				id: "team-1",
-				productId: "prod-1",
+				teamId: "prod-1",
 				capacity: 3,
 				activeBets: 0,
 				formedAt: new Date().toISOString(),

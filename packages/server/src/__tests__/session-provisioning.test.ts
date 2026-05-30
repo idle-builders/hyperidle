@@ -31,10 +31,10 @@ import {
 	type HyperIdleDb,
 	items,
 	knowledgeItems,
-	products,
 	sessions,
 	taskStrategyFabric,
 	tasks,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -175,22 +175,19 @@ interface SeedOverrides {
 const NOW = "2026-04-16T00:00:00.000Z";
 
 function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): void {
-	db.insert(products)
-		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW })
-		.run();
+	db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW }).run();
 
-	db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
+	db.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
 		.run();
 
 	db.insert(bets)
 		.values({
 			id: "b1",
-			productId: "p1",
-			teamId: "t1",
-			pitch: "Test bet",
+			teamId: "p1",
+			description: "Test bet",
 			appetite: "small",
-			status: "committed",
+			status: "active",
 			createdAt: NOW,
 		})
 		.run();
@@ -214,8 +211,7 @@ function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): void {
 		.values({
 			id: "task-1",
 			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
+			teamId: "p1",
 			title: "Test task",
 			state: mainTaskState,
 			createdAt: NOW,
@@ -240,8 +236,7 @@ function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): void {
 			.values({
 				id: `task-${i}`,
 				betId: "b1",
-				productId: "p1",
-				teamId: "t1",
+				teamId: "p1",
 				title: `Task ${i}`,
 				state: "accepted",
 				createdAt: NOW,
@@ -1015,8 +1010,7 @@ describe("Session Provisioning (D5)", () => {
 				.values({
 					id: "task-fac",
 					betId: "b1",
-					productId: "p1",
-					teamId: "t1",
+					teamId: "p1",
 					title: "Facilitator task",
 					state: "accepted",
 					createdAt: NOW,
