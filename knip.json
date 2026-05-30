@@ -30,7 +30,7 @@
 				"viewer/tailwind.config.ts",
 				"viewer/postcss.config.ts"
 			],
-			"ignoreDependencies": ["autoprefixer", "postcss"],
+			"ignoreDependencies": ["autoprefixer", "postcss", "@tiptap/pm"],
 			"playwright": {
 				"config": [
 					"playwright.config.ts",
