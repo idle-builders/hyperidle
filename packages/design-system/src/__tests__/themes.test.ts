@@ -4,40 +4,43 @@ import { describe, expect, it } from "vitest";
 
 const THEMES_DIR = resolve(__dirname, "../../html/themes");
 
-const THEME_FILES = ["lucid-dark.css", "lucid-light.css"];
+// U4: Renamed from lucid-* to hearth-*
+const THEME_FILES = ["hearth-dark.css", "hearth-light.css"];
 
+// U4: Updated from Lucid token names to Hearth token names
 const REQUIRED_TOKENS = [
-	"--surface-0",
-	"--surface-1",
-	"--surface-2",
-	"--surface-3",
-	"--surface-4",
-	"--surface-5",
-	"--surface-6",
-	"--surface-ghost",
-	"--primary",
-	"--primary-dim",
-	"--primary-hover",
-	"--warn",
-	"--ok",
-	"--danger",
-	"--text-hi",
-	"--text-mid",
-	"--text-lo",
-	"--float",
-	"--r0",
-	"--r1",
-	"--r2",
-	"--r3",
-	"--r-pill",
+	"--surface-page",
+	"--surface-container",
+	"--surface-elevated",
+	"--surface-overlay",
+	"--text-primary",
+	"--text-secondary",
+	"--text-tertiary",
+	"--text-placeholder",
+	"--text-on-accent",
+	"--accent-primary",
+	"--accent-primary-dim",
+	"--accent-primary-hover",
+	"--accent-secondary",
+	"--status-success",
+	"--status-warning",
+	"--status-error",
+	"--status-info",
 	"--border-subtle",
 	"--border-default",
-	"--border-emphasis",
+	"--border-strong",
+	"--shadow-subtle",
+	"--shadow-default",
+	"--shadow-elevated",
+	"--r-none",
+	"--r-subtle",
+	"--r-default",
+	"--r-pill",
 	"--motion-fast",
-	"--motion-medium",
+	"--motion-default",
 	"--motion-slow",
-	"--ui",
-	"--mono",
+	"--font-sans",
+	"--font-mono",
 ];
 
 function extractCustomProperties(css: string): string[] {
@@ -46,10 +49,15 @@ function extractCustomProperties(css: string): string[] {
 }
 
 describe("theme files", () => {
-	it("both theme CSS files exist", () => {
+	it("both theme CSS files exist (hearth-dark.css and hearth-light.css)", () => {
 		for (const file of THEME_FILES) {
 			expect(existsSync(resolve(THEMES_DIR, file))).toBe(true);
 		}
+	});
+
+	it("lucid-dark.css and lucid-light.css do NOT exist (U4: renamed to hearth-*)", () => {
+		expect(existsSync(resolve(THEMES_DIR, "lucid-dark.css"))).toBe(false);
+		expect(existsSync(resolve(THEMES_DIR, "lucid-light.css"))).toBe(false);
 	});
 
 	it("theme switcher JS exists", () => {
@@ -62,12 +70,12 @@ describe("theme files", () => {
 			const css = existsSync(cssPath) ? readFileSync(cssPath, "utf-8") : "";
 			const props = extractCustomProperties(css);
 
-			it("defines all required tokens", () => {
+			it("defines all required Hearth tokens", () => {
 				const missing = REQUIRED_TOKENS.filter((t) => !props.includes(t));
 				expect(missing).toEqual([]);
 			});
 
-			it("uses a data-theme selector", () => {
+			it("uses a data-theme selector with hearth- prefix", () => {
 				const themeName = file.replace(".css", "");
 				expect(css).toContain(`[data-theme="${themeName}"]`);
 			});
@@ -78,10 +86,18 @@ describe("theme files", () => {
 
 			it("has no hardcoded px values in surface tokens", () => {
 				// Surface tokens should be hex or rgba, not px values
-				const surfaceMatches = css.match(/--surface-\d\s*:\s*[^;]+/g) ?? [];
+				const surfaceMatches = css.match(/--surface-[\w]+\s*:\s*[^;]+/g) ?? [];
 				for (const match of surfaceMatches) {
 					expect(match).not.toContain("px");
 				}
+			});
+
+			it("does NOT use Lucid token names (--surface-0 through surface-6, --text-hi, etc.)", () => {
+				expect(css).not.toContain("--surface-0");
+				expect(css).not.toContain("--text-hi");
+				expect(css).not.toContain("--text-mid");
+				expect(css).not.toContain("--text-lo");
+				expect(css).not.toContain("--border-emphasis");
 			});
 		});
 	}
@@ -91,10 +107,11 @@ describe("theme switcher (_switcher.js)", () => {
 	const switcherPath = resolve(THEMES_DIR, "_switcher.js");
 	const js = existsSync(switcherPath) ? readFileSync(switcherPath, "utf-8") : "";
 
-	it("references both theme files", () => {
-		for (const file of THEME_FILES) {
-			expect(js).toContain(file);
-		}
+	it("references hearth theme files (not lucid)", () => {
+		expect(js).toContain("hearth-dark.css");
+		expect(js).toContain("hearth-light.css");
+		expect(js).not.toContain("lucid-dark");
+		expect(js).not.toContain("lucid-light");
 	});
 
 	it("uses localStorage for persistence", () => {
@@ -104,12 +121,17 @@ describe("theme switcher (_switcher.js)", () => {
 	it("sets data-theme attribute", () => {
 		expect(js).toContain("data-theme");
 	});
+
+	it("defaults to hearth-light (Hearth is light-first)", () => {
+		expect(js).toContain("hearth-light");
+	});
 });
 
 describe("theme token consistency", () => {
 	const themes: Record<string, string[]> = {};
 	for (const file of THEME_FILES) {
-		const css = readFileSync(resolve(THEMES_DIR, file), "utf-8");
+		const cssPath = resolve(THEMES_DIR, file);
+		const css = existsSync(cssPath) ? readFileSync(cssPath, "utf-8") : "";
 		themes[file] = extractCustomProperties(css);
 	}
 
