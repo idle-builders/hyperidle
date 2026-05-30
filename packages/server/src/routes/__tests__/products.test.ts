@@ -78,33 +78,32 @@ describe("GET /api/products", () => {
 	it("returns one row with derived activeBets, shipped, shipRate for a seeded product+team+bet+task fixture", async () => {
 		const { db } = ctx;
 
-		db.insert(teams)
-			.values({ id: "p1", name: "HyperIdle Core", phase: "build", createdAt: NOW })
-			.run();
-		db.insert(teamMembers)
-			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
-			.run();
-		db.insert(bets)
-			.values({
-				id: "b1",
-				teamId: "p1",
-				description: "# Active\n\ncommitted bet",
-				appetite: "2 weeks",
-				status: "active",
-				createdAt: NOW,
-			})
-			.run();
-		db.insert(bets)
-			.values({
-				id: "b2",
-				teamId: "p1",
-				description: "# Shipped\n\nshipped bet",
-				appetite: "1 week",
-				status: "completed",
-				createdAt: NOW,
-				completedAt: NOW,
-			})
-			.run();
+		await db
+			.insert(teams)
+			.values({ id: "p1", name: "HyperIdle Core", phase: "build", createdAt: NOW });
+
+		await db
+			.insert(teamMembers)
+			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+
+		await db.insert(bets).values({
+			id: "b1",
+			teamId: "p1",
+			description: "# Active\n\ncommitted bet",
+			appetite: "2 weeks",
+			status: "active",
+			createdAt: NOW,
+		});
+
+		await db.insert(bets).values({
+			id: "b2",
+			teamId: "p1",
+			description: "# Shipped\n\nshipped bet",
+			appetite: "1 week",
+			status: "completed",
+			createdAt: NOW,
+			completedAt: NOW,
+		});
 
 		const res = await ctx.app.request("/api/products", {
 			method: "GET",
@@ -156,9 +155,9 @@ describe("GET /api/products/:id", () => {
 	it("returns 500 with code 'team_missing' when the team for a product is absent", async () => {
 		const { db } = ctx;
 
-		db.insert(teams)
-			.values({ id: "p-no-team", name: "Orphan Product", phase: "build", createdAt: NOW })
-			.run();
+		await db
+			.insert(teams)
+			.values({ id: "p-no-team", name: "Orphan Product", phase: "build", createdAt: NOW });
 
 		const res = await ctx.app.request("/api/products/p-no-team", {
 			method: "GET",
@@ -174,94 +173,86 @@ describe("GET /api/products/:id", () => {
 	it("returns populated ProductDetail for a seeded product+team+roster+bets", async () => {
 		const { db } = ctx;
 
-		db.insert(teams)
-			.values({ id: "p1", name: "HyperIdle Core", phase: "build", createdAt: NOW })
-			.run();
-		db.insert(teamMembers)
-			.values({
-				id: "t1",
-				teamId: "p1",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: NOW,
-				costCap: 10000,
-				costActual: 4200,
-			})
-			.run();
-		db.insert(users)
-			.values({
-				id: "agent-lead",
-				name: "Lead Agent",
-				role: "lead",
-				status: "active",
-				teamId: "t1",
-				createdAt: NOW,
-			})
-			.run();
-		db.insert(users)
-			.values({
-				id: "agent-member",
-				name: "Alice Agent",
-				role: "member",
-				status: "active",
-				teamId: "t1",
-				createdAt: NOW,
-			})
-			.run();
-		db.insert(bets)
-			.values({
-				id: "b1",
-				teamId: "p1",
-				description: "# Active\n\ncommitted bet",
-				appetite: "2 weeks",
-				status: "active",
-				createdAt: NOW,
-			})
-			.run();
-		db.insert(bets)
-			.values({
-				id: "b2",
-				teamId: "p1",
-				description: "# In progress\n\nin progress bet",
-				appetite: "6 weeks",
-				status: "active",
-				createdAt: NOW,
-			})
-			.run();
-		db.insert(bets)
-			.values({
-				id: "b-shipped",
-				teamId: "p1",
-				description: "# Shipped\n\nshipped bet",
-				appetite: "1 week",
-				status: "completed",
-				createdAt: NOW,
-				completedAt: NOW,
-			})
-			.run();
+		await db
+			.insert(teams)
+			.values({ id: "p1", name: "HyperIdle Core", phase: "build", createdAt: NOW });
+
+		await db.insert(teamMembers).values({
+			id: "t1",
+			teamId: "p1",
+			capacity: 5,
+			activeBets: 0,
+			formedAt: NOW,
+			costCap: 10000,
+			costActual: 4200,
+		});
+
+		await db.insert(users).values({
+			id: "agent-lead",
+			name: "Lead Agent",
+			role: "lead",
+			status: "active",
+			teamId: "t1",
+			createdAt: NOW,
+		});
+
+		await db.insert(users).values({
+			id: "agent-member",
+			name: "Alice Agent",
+			role: "member",
+			status: "active",
+			teamId: "t1",
+			createdAt: NOW,
+		});
+
+		await db.insert(bets).values({
+			id: "b1",
+			teamId: "p1",
+			description: "# Active\n\ncommitted bet",
+			appetite: "2 weeks",
+			status: "active",
+			createdAt: NOW,
+		});
+
+		await db.insert(bets).values({
+			id: "b2",
+			teamId: "p1",
+			description: "# In progress\n\nin progress bet",
+			appetite: "6 weeks",
+			status: "active",
+			createdAt: NOW,
+		});
+
+		await db.insert(bets).values({
+			id: "b-shipped",
+			teamId: "p1",
+			description: "# Shipped\n\nshipped bet",
+			appetite: "1 week",
+			status: "completed",
+			createdAt: NOW,
+			completedAt: NOW,
+		});
+
 		// Tasks for b1
-		db.insert(tasks)
-			.values({
-				id: "task-1",
-				betId: "b1",
-				teamId: "p1",
-				title: "Task 1",
-				state: "done",
-				createdAt: NOW,
-				updatedAt: NOW,
-			})
-			.run();
-		db.insert(tasks)
-			.values({
-				id: "task-2",
-				betId: "b1",
-				teamId: "p1",
-				title: "Task 2",
-				state: "in_progress",
-				createdAt: NOW,
-				updatedAt: NOW,
-			})
-			.run();
+		await db.insert(tasks).values({
+			id: "task-1",
+			betId: "b1",
+			teamId: "p1",
+			title: "Task 1",
+			state: "done",
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
+
+		await db.insert(tasks).values({
+			id: "task-2",
+			betId: "b1",
+			teamId: "p1",
+			title: "Task 2",
+			state: "in_progress",
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
 
 		// Update the team to reference lead agent
 		// (teams.leadAgentId is set separately)
@@ -324,23 +315,23 @@ describe("GET /api/products/:id", () => {
 	it("returns activeBets: [] for a product whose bets are all shipped", async () => {
 		const { db } = ctx;
 
-		db.insert(teams)
-			.values({ id: "p2", name: "Shipped Product", phase: "cool-down", createdAt: NOW })
-			.run();
-		db.insert(teamMembers)
-			.values({ id: "t2", teamId: "p2", capacity: 3, activeBets: 0, formedAt: NOW })
-			.run();
-		db.insert(bets)
-			.values({
-				id: "b-s1",
-				teamId: "p2",
-				description: "# Shipped\n\nshipped bet",
-				appetite: "1 week",
-				status: "completed",
-				createdAt: NOW,
-				completedAt: NOW,
-			})
-			.run();
+		await db
+			.insert(teams)
+			.values({ id: "p2", name: "Shipped Product", phase: "cool-down", createdAt: NOW });
+
+		await db
+			.insert(teamMembers)
+			.values({ id: "t2", teamId: "p2", capacity: 3, activeBets: 0, formedAt: NOW });
+
+		await db.insert(bets).values({
+			id: "b-s1",
+			teamId: "p2",
+			description: "# Shipped\n\nshipped bet",
+			appetite: "1 week",
+			status: "completed",
+			createdAt: NOW,
+			completedAt: NOW,
+		});
 
 		const res = await ctx.app.request("/api/products/p2", {
 			method: "GET",
@@ -355,19 +346,18 @@ describe("GET /api/products/:id", () => {
 	it("returns burn.costCap: null when teams.cost_cap is null", async () => {
 		const { db } = ctx;
 
-		db.insert(teams)
-			.values({ id: "p3", name: "No Cap Product", phase: "shape", createdAt: NOW })
-			.run();
-		db.insert(teamMembers)
-			.values({
-				id: "t3",
-				teamId: "p3",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: NOW,
-				// costCap not set — null
-			})
-			.run();
+		await db
+			.insert(teams)
+			.values({ id: "p3", name: "No Cap Product", phase: "shape", createdAt: NOW });
+
+		await db.insert(teamMembers).values({
+			id: "t3",
+			teamId: "p3",
+			capacity: 2,
+			activeBets: 0,
+			formedAt: NOW,
+			// costCap not set — null
+		});
 
 		const res = await ctx.app.request("/api/products/p3", {
 			method: "GET",

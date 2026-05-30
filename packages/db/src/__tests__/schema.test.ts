@@ -77,18 +77,16 @@ describe("A2: Database Schema", () => {
 	// --- AC2: All tables insert/read/update correctly with full type safety ---
 	describe("AC2: CRUD operations", () => {
 		// @lore U1: `products` renamed to `teams`.
-		it("inserts and reads teams (formerly products)", () => {
+		it("inserts and reads teams (formerly products)", async () => {
 			const now = new Date().toISOString();
-			db.insert(teams)
-				.values({
-					id: "prod-1",
-					name: "Nimmly",
-					phase: "build",
-					createdAt: now,
-				})
-				.run();
+			await db.insert(teams).values({
+				id: "prod-1",
+				name: "Nimmly",
+				phase: "build",
+				createdAt: now,
+			});
 
-			const result = db.select().from(teams).where(eq(teams.id, "prod-1")).get();
+			const result = await db.select().from(teams).where(eq(teams.id, "prod-1"));
 
 			expect(result[0]).toMatchObject({
 				id: "prod-1",
@@ -122,22 +120,20 @@ describe("A2: Database Schema", () => {
 		});
 
 		// @lore U1: old `teams` (agent membership) renamed to `teamMembers`.
-		it("inserts and reads teamMembers (formerly teams)", () => {
+		it("inserts and reads teamMembers (formerly teams)", async () => {
 			const now = new Date().toISOString();
-			db.insert(teams)
-				.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: now })
-				.run();
-			db.insert(teamMembers)
-				.values({
-					id: "team-1",
-					teamId: "prod-1",
-					capacity: 5,
-					activeBets: 0,
-					formedAt: now,
-				})
-				.run();
+			await db
+				.insert(teams)
+				.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: now });
+			await db.insert(teamMembers).values({
+				id: "team-1",
+				teamId: "prod-1",
+				capacity: 5,
+				activeBets: 0,
+				formedAt: now,
+			});
 
-			const result = db.select().from(teamMembers).where(eq(teamMembers.id, "team-1")).get();
+			const result = await db.select().from(teamMembers).where(eq(teamMembers.id, "team-1"));
 
 			expect(result[0]).toMatchObject({
 				id: "team-1",
@@ -148,21 +144,19 @@ describe("A2: Database Schema", () => {
 		});
 
 		// @lore U1: bets.productId/pitch/status simplified; teamId now refs `teams` (formerly products).
-		it("inserts and reads bets", () => {
+		it("inserts and reads bets", async () => {
 			const now = new Date().toISOString();
-			db.insert(teams)
-				.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: now })
-				.run();
-			db.insert(bets)
-				.values({
-					id: "bet-1",
-					teamId: "prod-1",
-					description: "Build file upload",
-					appetite: "6w",
-					status: "draft",
-					createdAt: now,
-				})
-				.run();
+			await db
+				.insert(teams)
+				.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: now });
+			await db.insert(bets).values({
+				id: "bet-1",
+				teamId: "prod-1",
+				description: "Build file upload",
+				appetite: "6w",
+				status: "draft",
+				createdAt: now,
+			});
 
 			const result = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 
@@ -175,32 +169,28 @@ describe("A2: Database Schema", () => {
 		});
 
 		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
-		it("inserts and reads tasks", () => {
+		it("inserts and reads tasks", async () => {
 			const now = new Date().toISOString();
-			db.insert(teams)
-				.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: now })
-				.run();
-			db.insert(bets)
-				.values({
-					id: "bet-1",
-					teamId: "prod-1",
-					description: "X",
-					appetite: "2w",
-					status: "draft",
-					createdAt: now,
-				})
-				.run();
-			db.insert(tasks)
-				.values({
-					id: "task-1",
-					betId: "bet-1",
-					teamId: "prod-1",
-					title: "Implement upload",
-					state: "proposed",
-					createdAt: now,
-					updatedAt: now,
-				})
-				.run();
+			await db
+				.insert(teams)
+				.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: now });
+			await db.insert(bets).values({
+				id: "bet-1",
+				teamId: "prod-1",
+				description: "X",
+				appetite: "2w",
+				status: "draft",
+				createdAt: now,
+			});
+			await db.insert(tasks).values({
+				id: "task-1",
+				betId: "bet-1",
+				teamId: "prod-1",
+				title: "Implement upload",
+				state: "proposed",
+				createdAt: now,
+				updatedAt: now,
+			});
 
 			const result = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 
@@ -212,32 +202,28 @@ describe("A2: Database Schema", () => {
 		});
 
 		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
-		it("updates tasks correctly", () => {
+		it("updates tasks correctly", async () => {
 			const now = new Date().toISOString();
-			db.insert(teams)
-				.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: now })
-				.run();
-			db.insert(bets)
-				.values({
-					id: "bet-1",
-					teamId: "prod-1",
-					description: "X",
-					appetite: "2w",
-					status: "draft",
-					createdAt: now,
-				})
-				.run();
-			db.insert(tasks)
-				.values({
-					id: "task-1",
-					betId: "bet-1",
-					teamId: "prod-1",
-					title: "Original",
-					state: "proposed",
-					createdAt: now,
-					updatedAt: now,
-				})
-				.run();
+			await db
+				.insert(teams)
+				.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: now });
+			await db.insert(bets).values({
+				id: "bet-1",
+				teamId: "prod-1",
+				description: "X",
+				appetite: "2w",
+				status: "draft",
+				createdAt: now,
+			});
+			await db.insert(tasks).values({
+				id: "task-1",
+				betId: "bet-1",
+				teamId: "prod-1",
+				title: "Original",
+				state: "proposed",
+				createdAt: now,
+				updatedAt: now,
+			});
 
 			await db
 				.update(tasks)
@@ -249,53 +235,45 @@ describe("A2: Database Schema", () => {
 		});
 
 		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
-		it("inserts and reads sessions", () => {
+		it("inserts and reads sessions", async () => {
 			const now = new Date().toISOString();
-			db.insert(teams)
-				.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: now })
-				.run();
-			db.insert(users)
-				.values({
-					id: "agent-1",
-					kind: "ai",
-					name: "Builder",
-					role: "builder",
-					status: "active",
-					maxConcurrentSessions: 3,
-					createdAt: now,
-				})
-				.run();
-			db.insert(bets)
-				.values({
-					id: "bet-1",
-					teamId: "prod-1",
-					description: "X",
-					appetite: "2w",
-					status: "draft",
-					createdAt: now,
-				})
-				.run();
-			db.insert(tasks)
-				.values({
-					id: "task-1",
-					betId: "bet-1",
-					teamId: "prod-1",
-					title: "T",
-					state: "proposed",
-					createdAt: now,
-					updatedAt: now,
-				})
-				.run();
-			db.insert(sessions)
-				.values({
-					id: "sess-1",
-					taskId: "task-1",
-					agentId: "agent-1",
-					modelTier: "workhorse",
-					startedAt: now,
-					state: "active",
-				})
-				.run();
+			await db
+				.insert(teams)
+				.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: now });
+			await db.insert(users).values({
+				id: "agent-1",
+				kind: "ai",
+				name: "Builder",
+				role: "builder",
+				status: "active",
+				maxConcurrentSessions: 3,
+				createdAt: now,
+			});
+			await db.insert(bets).values({
+				id: "bet-1",
+				teamId: "prod-1",
+				description: "X",
+				appetite: "2w",
+				status: "draft",
+				createdAt: now,
+			});
+			await db.insert(tasks).values({
+				id: "task-1",
+				betId: "bet-1",
+				teamId: "prod-1",
+				title: "T",
+				state: "proposed",
+				createdAt: now,
+				updatedAt: now,
+			});
+			await db.insert(sessions).values({
+				id: "sess-1",
+				taskId: "task-1",
+				agentId: "agent-1",
+				modelTier: "workhorse",
+				startedAt: now,
+				state: "active",
+			});
 
 			const result = await db.select().from(sessions).where(eq(sessions.id, "sess-1"));
 			expect(result[0]).toMatchObject({
@@ -612,44 +590,14 @@ describe("A2: Database Schema", () => {
 	// --- AC6: Foreign key constraints enforced ---
 	describe("AC6: foreign key constraints", () => {
 		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
-		it("rejects task with invalid bet_id", () => {
+		it("rejects task with invalid bet_id", async () => {
 			const now = new Date().toISOString();
-			db.insert(teams).values({ id: "prod-1", name: "P", phase: "build", createdAt: now }).run();
+			await db.insert(teams).values({ id: "prod-1", name: "P", phase: "build", createdAt: now });
 
-			expect(() =>
-				db
-					.insert(tasks)
-					.values({
-						id: "task-1",
-						betId: "nonexistent-bet",
-						teamId: "prod-1",
-						title: "T",
-						state: "proposed",
-						createdAt: now,
-						updatedAt: now,
-					})
-					.run(),
-			).toThrow();
-		});
-
-		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
-		it("rejects session with invalid agent_id", () => {
-			const now = new Date().toISOString();
-			db.insert(teams).values({ id: "prod-1", name: "P", phase: "build", createdAt: now }).run();
-			db.insert(bets)
-				.values({
-					id: "bet-1",
-					teamId: "prod-1",
-					description: "X",
-					appetite: "2w",
-					status: "draft",
-					createdAt: now,
-				})
-				.run();
-			db.insert(tasks)
-				.values({
+			await expect(
+				db.insert(tasks).values({
 					id: "task-1",
-					betId: "bet-1",
+					betId: "nonexistent-bet",
 					teamId: "prod-1",
 					title: "T",
 					state: "proposed",
@@ -659,26 +607,22 @@ describe("A2: Database Schema", () => {
 			).rejects.toThrow();
 		});
 
+		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
 		it("rejects session with invalid agent_id", async () => {
 			const now = new Date().toISOString();
-			await db.insert(products).values({ id: "prod-1", name: "P", phase: "build", createdAt: now });
-			await db
-				.insert(teams)
-				.values({ id: "team-1", productId: "prod-1", capacity: 5, activeBets: 0, formedAt: now });
+			await db.insert(teams).values({ id: "prod-1", name: "P", phase: "build", createdAt: now });
 			await db.insert(bets).values({
 				id: "bet-1",
-				productId: "prod-1",
-				teamId: "team-1",
-				pitch: "X",
+				teamId: "prod-1",
+				description: "X",
 				appetite: "2w",
-				status: "shaped",
+				status: "draft",
 				createdAt: now,
 			});
 			await db.insert(tasks).values({
 				id: "task-1",
 				betId: "bet-1",
-				productId: "prod-1",
-				teamId: "team-1",
+				teamId: "prod-1",
 				title: "T",
 				state: "proposed",
 				createdAt: now,

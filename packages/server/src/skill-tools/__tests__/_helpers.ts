@@ -44,31 +44,29 @@ export function makeContext(db: HyperIdleDb, overrides: MakeContextOverrides = {
  * Seed the minimum domain needed by every G1 facilitator tool suite:
  * product, team, an active practice_facilitator agent, and an item thread.
  */
-export function seedBase(db: HyperIdleDb): void {
+export async function seedBase(db: HyperIdleDb): Promise<void> {
 	// @lore U1: teams is the domain entity (formerly products); teamMembers is the membership group.
-	db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: NOW }).run();
-	db.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
-		.run();
-	db.insert(users)
-		.values({
-			id: "agent-fac",
-			name: "Facilitator",
-			role: "practice_facilitator",
-			status: "active",
-			maxConcurrentSessions: 1,
-			createdAt: NOW,
-		})
-		.run();
-	db.insert(threads)
-		.values({
-			id: "th1",
-			hostKind: "task",
-			hostId: "task-1",
-			initiatorId: "agent-fac",
-			participants: JSON.stringify(["agent-fac"]),
-			lastActiveAt: NOW,
-			createdAt: NOW,
-		})
-		.run();
+	await db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: NOW });
+	await db
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+
+	await db.insert(users).values({
+		id: "agent-fac",
+		name: "Facilitator",
+		role: "practice_facilitator",
+		status: "active",
+		maxConcurrentSessions: 1,
+		createdAt: NOW,
+	});
+
+	await db.insert(threads).values({
+		id: "th1",
+		hostKind: "task",
+		hostId: "task-1",
+		initiatorId: "agent-fac",
+		participants: JSON.stringify(["agent-fac"]),
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
 }

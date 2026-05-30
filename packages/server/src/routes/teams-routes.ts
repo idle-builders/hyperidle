@@ -75,81 +75,79 @@ export function createTeamRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 	const router = new Hono();
 
 	// GET / — list all teams with portfolio counters
-	router.get("/", (c) => {
-		const allTeams = db.select().from(teams).all();
+	router.get("/", async (c) => {
+		const allTeams = await db.select().from(teams);
 
-		const result: TeamListItem[] = allTeams.map((team) => {
-			// Fetch the team_members for this team (may be missing — tolerate gracefully here)
-			const memberGroup = db
-				.select()
-				.from(teamMembers)
-				.where(eq(teamMembers.teamId, team.id))
-				.get();
+		const result: TeamListItem[] = await Promise.all(
+			allTeams.map(async (team) => {
+				// Fetch the team_members for this team (may be missing — tolerate gracefully here)
+				const [memberGroup] = await db
+					.select()
+					.from(teamMembers)
+					.where(eq(teamMembers.teamId, team.id))
+					.limit(1);
 
-			// Count active and completed bets
-			const activeBetCount =
-				db
+				// Count active and completed bets
+				const [activeBetCountRow] = await db
 					.select({ count: count() })
 					.from(bets)
-					.where(and(eq(bets.teamId, team.id), eq(bets.status, "active")))
-					.get()?.count ?? 0;
+					.where(and(eq(bets.teamId, team.id), eq(bets.status, "active")));
+				const activeBetCount = activeBetCountRow?.count ?? 0;
 
-			const completedCount =
-				db
+				const [completedCountRow] = await db
 					.select({ count: count() })
 					.from(bets)
-					.where(and(eq(bets.teamId, team.id), eq(bets.status, "completed")))
-					.get()?.count ?? 0;
+					.where(and(eq(bets.teamId, team.id), eq(bets.status, "completed")));
+				const completedCount = completedCountRow?.count ?? 0;
 
-			// Ship rate = completed / (completed + active), expressed as percentage
-			const total = completedCount + activeBetCount;
-			const shipRate = total === 0 ? "—" : `${Math.round((completedCount / total) * 100)}%`;
+				// Ship rate = completed / (completed + active), expressed as percentage
+				const total = completedCount + activeBetCount;
+				const shipRate = total === 0 ? "—" : `${Math.round((completedCount / total) * 100)}%`;
 
-			// Progress: sum done/total tasks across active bets
-			const activeBetRows = db
-				.select({ id: bets.id })
-				.from(bets)
-				.where(and(eq(bets.teamId, team.id), eq(bets.status, "active")))
-				.all();
+				// Progress: sum done/total tasks across active bets
+				const activeBetRows = await db
+					.select({ id: bets.id })
+					.from(bets)
+					.where(and(eq(bets.teamId, team.id), eq(bets.status, "active")));
 
-			let progressDone = 0;
-			let progressTotal = 0;
-			for (const bet of activeBetRows) {
-				const taskRows = db
-					.select({ state: tasks.state })
-					.from(tasks)
-					.where(eq(tasks.betId, bet.id))
-					.all();
-				progressTotal += taskRows.length;
-				progressDone += taskRows.filter((t) => t.state === "done").length;
-			}
+				let progressDone = 0;
+				let progressTotal = 0;
+				for (const bet of activeBetRows) {
+					const taskRows = await db
+						.select({ state: tasks.state })
+						.from(tasks)
+						.where(eq(tasks.betId, bet.id));
+					progressTotal += taskRows.length;
+					progressDone += taskRows.filter((t) => t.state === "done").length;
+				}
 
-			const leadAgentId = memberGroup?.leadAgentId ?? null;
-			const status = memberGroup
-				? deriveTeamStatus(
-						{
-							activeBets: memberGroup.activeBets,
-							capacity: memberGroup.capacity,
-							// L17: prefer costCapMinor over legacy costCap
-							costActualMinor: null, // list route doesn't compute actual spend
-							costCapMinor: memberGroup.costCapMinor ?? memberGroup.costCap ?? null,
-						},
-						false,
-					)
-				: ("healthy" as const);
+				const leadAgentId = memberGroup?.leadAgentId ?? null;
+				const status = memberGroup
+					? deriveTeamStatus(
+							{
+								activeBets: memberGroup.activeBets,
+								capacity: memberGroup.capacity,
+								// L17: prefer costCapMinor over legacy costCap
+								costActualMinor: null, // list route doesn't compute actual spend
+								costCapMinor: memberGroup.costCapMinor ?? memberGroup.costCap ?? null,
+							},
+							false,
+						)
+					: ("healthy" as const);
 
-			return {
-				id: team.id,
-				name: team.name,
-				phase: team.phase,
-				status,
-				leadAgentId,
-				activeBets: activeBetCount,
-				shipped: completedCount,
-				shipRate,
-				progress: { done: progressDone, total: progressTotal },
-			};
-		});
+				return {
+					id: team.id,
+					name: team.name,
+					phase: team.phase,
+					status,
+					leadAgentId,
+					activeBets: activeBetCount,
+					shipped: completedCount,
+					shipRate,
+					progress: { done: progressDone, total: progressTotal },
+				};
+			}),
+		);
 
 		return c.json({ teams: result });
 	});
@@ -174,56 +172,48 @@ export function createTeamRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 		const builderId = `agent-builder-${crypto.randomUUID()}`;
 		const pmId = `agent-pm-${crypto.randomUUID()}`;
 
-		db.insert(teams)
-			.values({
-				id: teamId,
-				name: name.trim(),
-				phase: "build",
-				factoryDbPath: typeof repoPath === "string" ? repoPath.trim() || null : null,
-				createdAt: now,
-			})
-			.run();
+		await db.insert(teams).values({
+			id: teamId,
+			name: name.trim(),
+			phase: "build",
+			factoryDbPath: typeof repoPath === "string" ? repoPath.trim() || null : null,
+			createdAt: now,
+		});
 
-		db.insert(teamMembers)
-			.values({
-				id: teamMembersId,
-				teamId,
-				capacity: 5,
-				activeBets: 0,
-				formedAt: now,
-			})
-			.run();
+		await db.insert(teamMembers).values({
+			id: teamMembersId,
+			teamId,
+			capacity: 5,
+			activeBets: 0,
+			formedAt: now,
+		});
 
-		db.insert(users)
-			.values({
-				id: builderId,
-				kind: "ai",
-				name: `${name.trim()} Builder`,
-				role: "builder",
-				status: "active",
-				maxConcurrentSessions: 3,
-				teamId: teamMembersId,
-				createdAt: now,
-			})
-			.run();
+		await db.insert(users).values({
+			id: builderId,
+			kind: "ai",
+			name: `${name.trim()} Builder`,
+			role: "builder",
+			status: "active",
+			maxConcurrentSessions: 3,
+			teamId: teamMembersId,
+			createdAt: now,
+		});
 
-		db.insert(users)
-			.values({
-				id: pmId,
-				kind: "ai",
-				name: `${name.trim()} Product Manager`,
-				role: "product_manager",
-				status: "active",
-				maxConcurrentSessions: 1,
-				teamId: teamMembersId,
-				createdAt: now,
-			})
-			.run();
+		await db.insert(users).values({
+			id: pmId,
+			kind: "ai",
+			name: `${name.trim()} Product Manager`,
+			role: "product_manager",
+			status: "active",
+			maxConcurrentSessions: 1,
+			teamId: teamMembersId,
+			createdAt: now,
+		});
 
-		db.update(teamMembers)
+		await db
+			.update(teamMembers)
 			.set({ leadAgentId: builderId })
-			.where(eq(teamMembers.id, teamMembersId))
-			.run();
+			.where(eq(teamMembers.id, teamMembersId));
 
 		const result: CreateTeamResponse = {
 			team: { id: teamId, name: name.trim(), phase: "build" },
@@ -238,7 +228,7 @@ export function createTeamRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 	router.patch("/:teamId", async (c) => {
 		const teamId = c.req.param("teamId");
 
-		const team = db.select().from(teams).where(eq(teams.id, teamId)).get();
+		const [team] = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1);
 		if (!team) {
 			return c.json({ error: "Team not found", code: "not_found" }, 404);
 		}
@@ -260,12 +250,12 @@ export function createTeamRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 			);
 		}
 
-		db.update(teams)
+		await db
+			.update(teams)
 			.set({ phase: phase as TeamPhase })
-			.where(eq(teams.id, teamId))
-			.run();
+			.where(eq(teams.id, teamId));
 
-		const updated = db.select().from(teams).where(eq(teams.id, teamId)).get();
+		const [updated] = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1);
 		if (!updated) {
 			return c.json({ error: "Team not found after update", code: "internal_error" }, 500);
 		}
@@ -273,20 +263,20 @@ export function createTeamRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 	});
 
 	// GET /:teamId — full TeamDetail
-	router.get("/:teamId", (c) => {
+	router.get("/:teamId", async (c) => {
 		const teamId = c.req.param("teamId");
 
 		// 1. Look up the team
-		const team = db.select().from(teams).where(eq(teams.id, teamId)).get();
+		const [team] = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1);
 		if (!team) {
 			return c.json({ error: "Team not found", code: "not_found" }, 404);
 		}
 
 		// 2. Load the team_members row (enforces 1:1 invariant — throws ApiError(500) if broken)
 		try {
-			const memberGroup = loadTeamMembers(db, teamId);
+			const memberGroup = await loadTeamMembers(db, teamId);
 			// 3. Load roster
-			const agentRows = db.select().from(users).where(eq(users.teamId, memberGroup.id)).all();
+			const agentRows = await db.select().from(users).where(eq(users.teamId, memberGroup.id));
 
 			const roster: RosterMember[] = agentRows.map((agent) => ({
 				agentId: agent.id,
@@ -303,36 +293,36 @@ export function createTeamRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 			});
 
 			// 4. Load active bets
-			const activeBetRows = db
+			const activeBetRows = await db
 				.select()
 				.from(bets)
-				.where(and(eq(bets.teamId, teamId), eq(bets.status, "active")))
-				.all();
+				.where(and(eq(bets.teamId, teamId), eq(bets.status, "active")));
 
 			// 5. Per active bet, count tasks done/total
 			let hasBlockedTask = false;
-			const activeBets: BetCardSummary[] = activeBetRows.map((bet) => {
-				const taskRows = db
-					.select({ state: tasks.state })
-					.from(tasks)
-					.where(eq(tasks.betId, bet.id))
-					.all();
+			const activeBets: BetCardSummary[] = await Promise.all(
+				activeBetRows.map(async (bet) => {
+					const taskRows = await db
+						.select({ state: tasks.state })
+						.from(tasks)
+						.where(eq(tasks.betId, bet.id));
 
-				const progressTotal = taskRows.length;
-				const progressDone = taskRows.filter((t) => t.state === "done").length;
-				if (taskRows.some((t) => t.state === "blocked")) hasBlockedTask = true;
+					const progressTotal = taskRows.length;
+					const progressDone = taskRows.filter((t) => t.state === "done").length;
+					if (taskRows.some((t) => t.state === "blocked")) hasBlockedTask = true;
 
-				return {
-					id: bet.id,
-					// @lore U1: `descriptionTitle` was formerly `pitchTitle`.
-					descriptionTitle: deriveTitle(bet.description, bet.id),
-					// L17: costAppetite as WireMoney (replaces appetite duration string)
-					costAppetite: toWireMoney(bet.costAppetiteMinor, bet.costAppetiteCurrency),
-					status: bet.status as "active",
-					progressDone,
-					progressTotal,
-				};
-			});
+					return {
+						id: bet.id,
+						// @lore U1: `descriptionTitle` was formerly `pitchTitle`.
+						descriptionTitle: deriveTitle(bet.description, bet.id),
+						// L17: costAppetite as WireMoney (replaces appetite duration string)
+						costAppetite: toWireMoney(bet.costAppetiteMinor, bet.costAppetiteCurrency),
+						status: bet.status as "active",
+						progressDone,
+						progressTotal,
+					};
+				}),
+			);
 
 			// Sort bets by createdAt desc
 			activeBets.sort((a, b) => {

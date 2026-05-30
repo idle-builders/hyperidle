@@ -41,33 +41,32 @@ describe("GET /api/recipients (Q1 §3.3)", () => {
 		const NOW = new Date().toISOString();
 
 		// Seed required FK chain for sessions
-		db.insert(teams)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW })
-			.run();
-		db.insert(teamMembers)
-			.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: NOW })
-			.run();
-		db.insert(bets)
-			.values({
-				id: "bet-1",
-				teamId: "prod-1",
-				description: "Test",
-				appetite: "small",
-				status: "active",
-				createdAt: NOW,
-			})
-			.run();
-		db.insert(tasks)
-			.values({
-				id: "task-1",
-				betId: "bet-1",
-				teamId: "prod-1",
-				title: "Task 1",
-				state: "in_progress",
-				createdAt: NOW,
-				updatedAt: NOW,
-			})
-			.run();
+		await db
+			.insert(teams)
+			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW });
+
+		await db
+			.insert(teamMembers)
+			.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: NOW });
+
+		await db.insert(bets).values({
+			id: "bet-1",
+			teamId: "prod-1",
+			description: "Test",
+			appetite: "small",
+			status: "active",
+			createdAt: NOW,
+		});
+
+		await db.insert(tasks).values({
+			id: "task-1",
+			betId: "bet-1",
+			teamId: "prod-1",
+			title: "Task 1",
+			state: "in_progress",
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
 
 		// Seed users (P2: agents → users table; kind:"ai" for AI agents)
 		await db.insert(users).values({

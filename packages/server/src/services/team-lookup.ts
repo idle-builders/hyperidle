@@ -32,8 +32,8 @@ export class ApiError extends Error {
  * @throws ApiError(500, 'team_members_missing') if no team_members row exists for the team.
  * @throws ApiError(500, 'invariant_broken') if more than one team_members row exists.
  */
-export function loadTeamMembers(db: HyperIdleDb, teamId: string): TeamMember {
-	const rows = db.select().from(teamMembers).where(eq(teamMembers.teamId, teamId)).all();
+export async function loadTeamMembers(db: HyperIdleDb, teamId: string): Promise<TeamMember> {
+	const rows = await db.select().from(teamMembers).where(eq(teamMembers.teamId, teamId));
 	if (rows.length === 0) {
 		throw new ApiError(500, "team_members_missing", `Team ${teamId} has no team_members row`);
 	}
@@ -50,6 +50,6 @@ export function loadTeamMembers(db: HyperIdleDb, teamId: string): TeamMember {
 /**
  * @deprecated Use `loadTeamMembers` instead. Kept for backward compatibility during U1 migration.
  */
-export function loadProductTeam(db: HyperIdleDb, productId: string): TeamMember {
+export async function loadProductTeam(db: HyperIdleDb, productId: string): Promise<TeamMember> {
 	return loadTeamMembers(db, productId);
 }

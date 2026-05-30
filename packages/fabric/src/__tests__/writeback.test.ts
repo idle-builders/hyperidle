@@ -59,65 +59,60 @@ async function setupSessionData(db: HyperIdleDb): Promise<{
 	const sessionId = "test-session";
 
 	// @lore U1: teams is the domain entity; teamMembers is the membership group.
-	db.insert(teams).values({ id: productId, name: "Test", phase: "build", createdAt: now }).run();
-	db.insert(teamMembers)
-		.values({ id: teamId, teamId: productId, capacity: 5, formedAt: now })
-		.run();
-	db.insert(users)
-		.values({
-			id: agentId,
-			name: "Test Agent",
-			role: "builder",
-			status: "active",
-			createdAt: now,
-			teamId,
-		})
-		.run();
-	db.insert(threads)
-		.values({
-			id: threadId,
-			hostKind: "task",
-			hostId: "task-1",
-			initiatorId: "agent-1",
-			participants: JSON.stringify(["agent-1"]),
-			lastActiveAt: now,
-			createdAt: now,
-		})
-		.run();
+	await db.insert(teams).values({ id: productId, name: "Test", phase: "build", createdAt: now });
+	await db
+		.insert(teamMembers)
+		.values({ id: teamId, teamId: productId, capacity: 5, formedAt: now });
+
+	await db.insert(users).values({
+		id: agentId,
+		name: "Test Agent",
+		role: "builder",
+		status: "active",
+		createdAt: now,
+		teamId,
+	});
+
+	await db.insert(threads).values({
+		id: threadId,
+		hostKind: "task",
+		hostId: "task-1",
+		initiatorId: "agent-1",
+		participants: JSON.stringify(["agent-1"]),
+		lastActiveAt: now,
+		createdAt: now,
+	});
+
 	// @lore U1: bets.teamId references `teams` (domain entity); description replaces pitch.
-	db.insert(bets)
-		.values({
-			id: betId,
-			teamId: productId,
-			description: "test",
-			appetite: "1w",
-			status: "active",
-			createdAt: now,
-		})
-		.run();
-	db.insert(tasks)
-		.values({
-			id: taskId,
-			betId,
-			// @lore U1: tasks.teamId references `teams` (domain entity); productId removed.
-			teamId: productId,
-			title: "Test Task",
-			state: "active",
-			threadId,
-			createdAt: now,
-			updatedAt: now,
-		})
-		.run();
-	db.insert(sessions)
-		.values({
-			id: sessionId,
-			taskId,
-			agentId,
-			modelTier: "standard",
-			startedAt: now,
-			state: "active",
-		})
-		.run();
+	await db.insert(bets).values({
+		id: betId,
+		teamId: productId,
+		description: "test",
+		appetite: "1w",
+		status: "active",
+		createdAt: now,
+	});
+
+	await db.insert(tasks).values({
+		id: taskId,
+		betId,
+		// @lore U1: tasks.teamId references `teams` (domain entity); productId removed.
+		teamId: productId,
+		title: "Test Task",
+		state: "active",
+		threadId,
+		createdAt: now,
+		updatedAt: now,
+	});
+
+	await db.insert(sessions).values({
+		id: sessionId,
+		taskId,
+		agentId,
+		modelTier: "standard",
+		startedAt: now,
+		state: "active",
+	});
 
 	return { sessionId, agentId, taskId };
 }

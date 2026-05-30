@@ -23,43 +23,37 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 const NOW = new Date().toISOString();
 
-function seedBase(db: HyperIdleDb): void {
-	db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW }).run();
+async function seedBase(db: HyperIdleDb): Promise<void> {
+	await db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
 
-	db.insert(teamMembers)
-		.values({
-			id: "t1",
-			teamId: "p1",
-			capacity: 5,
-			activeBets: 0,
-			costCap: 5000, // $50 in cents
-			costActual: 0,
-			formedAt: NOW,
-		})
-		.run();
+	await db.insert(teamMembers).values({
+		id: "t1",
+		teamId: "p1",
+		capacity: 5,
+		activeBets: 0,
+		costCap: 5000, // $50 in cents
+		costActual: 0,
+		formedAt: NOW,
+	});
 
-	db.insert(bets)
-		.values({
-			id: "b1",
-			teamId: "p1",
-			description: "Test bet",
-			appetite: "small",
-			status: "active",
-			createdAt: NOW,
-		})
-		.run();
+	await db.insert(bets).values({
+		id: "b1",
+		teamId: "p1",
+		description: "Test bet",
+		appetite: "small",
+		status: "active",
+		createdAt: NOW,
+	});
 
-	db.insert(tasks)
-		.values({
-			id: "task-1",
-			betId: "b1",
-			teamId: "p1",
-			title: "Test task",
-			state: "in_progress",
-			createdAt: NOW,
-			updatedAt: NOW,
-		})
-		.run();
+	await db.insert(tasks).values({
+		id: "task-1",
+		betId: "b1",
+		teamId: "p1",
+		title: "Test task",
+		state: "in_progress",
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
 
 	await db.insert(users).values({
 		id: "agent-1",
@@ -113,15 +107,14 @@ async function insertSession(
 		const [agent] = await db
 			.select({ teamId: users.teamId })
 			.from(users)
-			.where(eq(users.id, agentId))
-			.get();
+			.where(eq(users.id, agentId));
 		// @lore U1: users.teamId references teamMembers.id (membership group), not teams.id.
 		// costActual is on teamMembers, not teams.
 		if (agent?.teamId) {
-			db.update(teamMembers)
+			await db
+				.update(teamMembers)
 				.set({ costActual: sql`coalesce(cost_actual, 0) + ${cost}` })
-				.where(eq(teamMembers.id, agent.teamId))
-				.run();
+				.where(eq(teamMembers.id, agent.teamId));
 		}
 	}
 }

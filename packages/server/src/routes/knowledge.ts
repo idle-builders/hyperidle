@@ -895,8 +895,7 @@ export function createTeamsRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 				formedAt: teamMembers.formedAt,
 				dissolvedAt: teamMembers.dissolvedAt,
 			})
-			.from(teamMembers)
-			.all();
+			.from(teamMembers);
 
 		return c.json({ teams: rows });
 	});

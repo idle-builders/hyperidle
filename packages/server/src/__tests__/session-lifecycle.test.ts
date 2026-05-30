@@ -32,34 +32,30 @@ import {
 async function seedAll(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 
-	db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: now }).run();
+	await db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: now });
 
-	db.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-		.run();
+	await db
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
 
-	db.insert(bets)
-		.values({
-			id: "b1",
-			teamId: "p1",
-			description: "Test bet",
-			appetite: "small",
-			status: "active",
-			createdAt: now,
-		})
-		.run();
+	await db.insert(bets).values({
+		id: "b1",
+		teamId: "p1",
+		description: "Test bet",
+		appetite: "small",
+		status: "active",
+		createdAt: now,
+	});
 
-	db.insert(tasks)
-		.values({
-			id: "task-1",
-			betId: "b1",
-			teamId: "p1",
-			title: "Test task",
-			state: "in_progress",
-			createdAt: now,
-			updatedAt: now,
-		})
-		.run();
+	await db.insert(tasks).values({
+		id: "task-1",
+		betId: "b1",
+		teamId: "p1",
+		title: "Test task",
+		state: "in_progress",
+		createdAt: now,
+		updatedAt: now,
+	});
 
 	await db.insert(users).values({
 		id: "agent-1",

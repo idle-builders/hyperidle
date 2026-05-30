@@ -47,62 +47,57 @@ function createManifest(workspace: string, sessionId: string): string {
 async function seedSession(db: HyperIdleDb, sessionId: string): Promise<void> {
 	const now = new Date().toISOString();
 	// @lore U1: teams is the domain entity (formerly products).
-	db.insert(teams)
-		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now })
-		.run();
+	await db
+		.insert(teams)
+		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
+
 	// @lore U1: teamMembers uses teamId (refs `teams` domain entity).
-	db.insert(teamMembers)
-		.values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 5,
-			activeBets: 0,
-			formedAt: now,
-		})
-		.run();
-	db.insert(users)
-		.values({
-			id: "agent-1",
-			name: "TestBot",
-			role: "builder",
-			status: "active",
-			maxConcurrentSessions: 1,
-			createdAt: now,
-		})
-		.run();
+	await db.insert(teamMembers).values({
+		id: "team-1",
+		teamId: "prod-1",
+		capacity: 5,
+		activeBets: 0,
+		formedAt: now,
+	});
+
+	await db.insert(users).values({
+		id: "agent-1",
+		name: "TestBot",
+		role: "builder",
+		status: "active",
+		maxConcurrentSessions: 1,
+		createdAt: now,
+	});
+
 	// @lore U1: bets.teamId references `teams`; description replaces pitch; status simplified.
-	db.insert(bets)
-		.values({
-			id: "bet-1",
-			teamId: "prod-1",
-			description: "Test",
-			appetite: "2w",
-			status: "active",
-			createdAt: now,
-		})
-		.run();
-	db.insert(tasks)
-		.values({
-			id: "task-1",
-			betId: "bet-1",
-			// @lore U1: tasks.teamId references `teams`; productId removed.
-			teamId: "prod-1",
-			title: "Test Task",
-			state: "in_progress",
-			createdAt: now,
-			updatedAt: now,
-		})
-		.run();
-	db.insert(sessions)
-		.values({
-			id: sessionId,
-			taskId: "task-1",
-			agentId: "agent-1",
-			modelTier: "workhorse",
-			startedAt: now,
-			state: "active",
-		})
-		.run();
+	await db.insert(bets).values({
+		id: "bet-1",
+		teamId: "prod-1",
+		description: "Test",
+		appetite: "2w",
+		status: "active",
+		createdAt: now,
+	});
+
+	await db.insert(tasks).values({
+		id: "task-1",
+		betId: "bet-1",
+		// @lore U1: tasks.teamId references `teams`; productId removed.
+		teamId: "prod-1",
+		title: "Test Task",
+		state: "in_progress",
+		createdAt: now,
+		updatedAt: now,
+	});
+
+	await db.insert(sessions).values({
+		id: sessionId,
+		taskId: "task-1",
+		agentId: "agent-1",
+		modelTier: "workhorse",
+		startedAt: now,
+		state: "active",
+	});
 }
 
 function sleep(ms: number): Promise<void> {

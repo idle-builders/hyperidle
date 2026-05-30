@@ -132,28 +132,26 @@ describe("M3 — Bets routes: revision log actor comes from auth context (A5)", 
 		app = await createTestApp({ db, eventBus });
 
 		const now = new Date().toISOString();
-		db.insert(teams)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now })
-			.run();
-		db.insert(teamMembers)
-			.values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 3,
-				activeBets: 0,
-				formedAt: now,
-			})
-			.run();
+		await db
+			.insert(teams)
+			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
+
+		await db.insert(teamMembers).values({
+			id: "team-1",
+			teamId: "prod-1",
+			capacity: 3,
+			activeBets: 0,
+			formedAt: now,
+		});
+
 		// @lore U1: bets.teamId references `teams` (domain entity), not `teamMembers`.
-		db.insert(bets)
-			.values({
-				id: "bet-1",
-				teamId: "prod-1",
-				description: "Test bet",
-				status: "active",
-				createdAt: now,
-			})
-			.run();
+		await db.insert(bets).values({
+			id: "bet-1",
+			teamId: "prod-1",
+			description: "Test bet",
+			status: "active",
+			createdAt: now,
+		});
 	});
 
 	afterEach(async () => {

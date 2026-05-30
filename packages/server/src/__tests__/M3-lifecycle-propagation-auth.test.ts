@@ -39,69 +39,64 @@ async function seedBase(db: HyperIdleDb, founderId = "test-founder-1"): Promise<
 		})
 		.onConflictDoNothing();
 
-	db.insert(teams)
-		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now })
-		.run();
-	db.insert(teamMembers)
-		.values({ id: "team-1", teamId: "prod-1", capacity: 5, activeBets: 1, formedAt: now })
-		.run();
+	await db
+		.insert(teams)
+		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
+
+	await db
+		.insert(teamMembers)
+		.values({ id: "team-1", teamId: "prod-1", capacity: 5, activeBets: 1, formedAt: now });
+
 	// @lore U1: bets.teamId references `teams` (domain entity), not `teamMembers`.
-	db.insert(bets)
-		.values({
-			id: "bet-1",
-			teamId: "prod-1",
-			description: "Test bet",
-			status: "active",
-			createdAt: now,
-		})
-		.run();
-	db.insert(users)
-		.values({
-			id: "agent-1",
-			name: "Builder Agent",
-			role: "builder",
-			status: "active",
-			createdAt: now,
-		})
-		.run();
-	db.insert(users)
-		.values({
-			id: SYSTEM_PROPAGATION_ID,
-			name: "Propagation System",
-			role: "system",
-			status: "active",
-			createdAt: now,
-		})
-		.run();
+	await db.insert(bets).values({
+		id: "bet-1",
+		teamId: "prod-1",
+		description: "Test bet",
+		status: "active",
+		createdAt: now,
+	});
+
+	await db.insert(users).values({
+		id: "agent-1",
+		name: "Builder Agent",
+		role: "builder",
+		status: "active",
+		createdAt: now,
+	});
+
+	await db.insert(users).values({
+		id: SYSTEM_PROPAGATION_ID,
+		name: "Propagation System",
+		role: "system",
+		status: "active",
+		createdAt: now,
+	});
 }
 
 async function seedDoneTasks(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	// @lore U1: tasks.teamId references `teams` (domain entity), not `teamMembers`.
-	db.insert(tasks)
-		.values({
-			id: "task-1",
-			betId: "bet-1",
-			teamId: "prod-1",
-			ownerAgentId: "agent-1",
-			title: "Done task 1",
-			state: "done",
-			createdAt: now,
-			updatedAt: now,
-		})
-		.run();
-	db.insert(tasks)
-		.values({
-			id: "task-2",
-			betId: "bet-1",
-			teamId: "prod-1",
-			ownerAgentId: "agent-1",
-			title: "Done task 2",
-			state: "done",
-			createdAt: now,
-			updatedAt: now,
-		})
-		.run();
+	await db.insert(tasks).values({
+		id: "task-1",
+		betId: "bet-1",
+		teamId: "prod-1",
+		ownerAgentId: "agent-1",
+		title: "Done task 1",
+		state: "done",
+		createdAt: now,
+		updatedAt: now,
+	});
+
+	await db.insert(tasks).values({
+		id: "task-2",
+		betId: "bet-1",
+		teamId: "prod-1",
+		ownerAgentId: "agent-1",
+		title: "Done task 2",
+		state: "done",
+		createdAt: now,
+		updatedAt: now,
+	});
 }
 
 describe("M3 — lifecycle-propagation: thread participants use users-table founder id (A9)", () => {

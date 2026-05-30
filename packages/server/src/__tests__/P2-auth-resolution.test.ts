@@ -219,9 +219,9 @@ describe("P2 — Auth middleware resolves user from users table (AC7)", () => {
 			});
 
 			// Also seed a product so settings works
-			db.insert(teams)
-				.values({ id: "prod-auth", name: "Auth Product", phase: "build", createdAt: NOW })
-				.run();
+			await db
+				.insert(teams)
+				.values({ id: "prod-auth", name: "Auth Product", phase: "build", createdAt: NOW });
 
 			const res = await app.request("/api/settings", { headers: authHeaders() });
 			expect(res.status).toBe(200);

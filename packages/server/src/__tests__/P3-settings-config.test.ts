@@ -182,9 +182,9 @@ describe("P3 AC-10 — Settings route: server_config backing", () => {
 	describe("Products and users still returned (AC-17 compatibility)", () => {
 		it("GET /api/settings still returns profile section", async () => {
 			const now = new Date().toISOString();
-			db.insert(teams)
-				.values({ id: "p3-prod-1", name: "P3 Test Product", phase: "build", createdAt: now })
-				.run();
+			await db
+				.insert(teams)
+				.values({ id: "p3-prod-1", name: "P3 Test Product", phase: "build", createdAt: now });
 
 			const res = await app.request("/api/settings", { headers: authHeaders() });
 			// @lore U1: `products` renamed to `teams` in the settings response.

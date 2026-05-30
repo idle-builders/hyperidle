@@ -73,65 +73,59 @@ async function enable(db: HyperIdleDb): Promise<void> {
 
 async function seedFixture(db: HyperIdleDb): Promise<void> {
 	const now = "2026-04-18T00:00:00.000Z";
-	db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now }).run();
+	await db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
 	// @lore U1: teamMembers.teamId references teams.id (domain entity, formerly productId)
-	db.insert(teamMembers)
-		.values({
-			id: "t1",
-			teamId: "p1",
-			capacity: 5,
-			activeBets: 0,
-			formedAt: now,
-		})
-		.run();
-	db.insert(users)
-		.values({
-			id: "agent-cos",
-			name: "Chief of Staff",
-			role: "chief_of_staff",
-			status: "active",
-			maxConcurrentSessions: 5,
-			createdAt: now,
-		})
-		.run();
-	db.insert(bets)
-		.values({
-			id: "b1",
-			// @lore U1: bets.teamId references teams.id (domain entity = "p1"), not teamMembers.id
-			teamId: "p1",
-			// @lore U1: pitch renamed to description, shaped renamed to draft
-			description: "seed",
-			appetite: "small",
-			status: "draft",
-			createdAt: now,
-		})
-		.run();
-	db.insert(tasks)
-		.values({
-			id: "task-daily-digest",
-			betId: "b1",
-			// @lore U1: tasks.teamId references teams.id (domain entity = "p1"), not teamMembers.id
-			teamId: "p1",
-			ownerAgentId: "agent-cos",
-			title: "Digest anchor",
-			// @lore U1: "ready" is not a valid task state; use "accepted" for not-yet-started
-			state: "accepted",
-			createdAt: now,
-			updatedAt: now,
-		})
-		.run();
-	db.insert(routines)
-		.values({
-			id: "routine-daily_digest",
-			ownerAgentId: "agent-cos",
-			triggerType: "calendar",
-			triggerConfig: JSON.stringify({
-				cron: "0 8 * * *",
-				taskId: "task-daily-digest",
-			}),
-			active: 1,
-		})
-		.run();
+	await db.insert(teamMembers).values({
+		id: "t1",
+		teamId: "p1",
+		capacity: 5,
+		activeBets: 0,
+		formedAt: now,
+	});
+
+	await db.insert(users).values({
+		id: "agent-cos",
+		name: "Chief of Staff",
+		role: "chief_of_staff",
+		status: "active",
+		maxConcurrentSessions: 5,
+		createdAt: now,
+	});
+
+	await db.insert(bets).values({
+		id: "b1",
+		// @lore U1: bets.teamId references teams.id (domain entity = "p1"), not teamMembers.id
+		teamId: "p1",
+		// @lore U1: pitch renamed to description, shaped renamed to draft
+		description: "seed",
+		appetite: "small",
+		status: "draft",
+		createdAt: now,
+	});
+
+	await db.insert(tasks).values({
+		id: "task-daily-digest",
+		betId: "b1",
+		// @lore U1: tasks.teamId references teams.id (domain entity = "p1"), not teamMembers.id
+		teamId: "p1",
+		ownerAgentId: "agent-cos",
+		title: "Digest anchor",
+		// @lore U1: "ready" is not a valid task state; use "accepted" for not-yet-started
+		state: "accepted",
+		createdAt: now,
+		updatedAt: now,
+	});
+
+	await db.insert(routines).values({
+		id: "routine-daily_digest",
+		ownerAgentId: "agent-cos",
+		triggerType: "calendar",
+		triggerConfig: JSON.stringify({
+			cron: "0 8 * * *",
+			taskId: "task-daily-digest",
+		}),
+		active: true,
+	});
 }
 
 describe("scheduler → routine_fired → daily digest (AC6 end-to-end)", () => {

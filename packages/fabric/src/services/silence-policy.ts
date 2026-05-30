@@ -42,17 +42,17 @@ export async function isSilenced(db: HyperIdleDb, item: SilenceItem, now: Date):
 	if (item.sourceAgentId) {
 		const [agent] = await db.select().from(users).where(eq(users.id, item.sourceAgentId)).limit(1);
 		if (agent?.teamId) {
-			const memberGroup = db
+			const [memberGroup] = await db
 				.select()
 				.from(teamMembers)
 				.where(eq(teamMembers.id, agent.teamId))
-				.get();
+				.limit(1);
 			if (memberGroup) {
-				const productSilence = db
+				const [productSilence] = await db
 					.select()
 					.from(factorySettings)
 					.where(eq(factorySettings.key, `silence_product_${memberGroup.teamId}`))
-					.get();
+					.limit(1);
 				if (productSilence?.value === "true") return true;
 			}
 		}

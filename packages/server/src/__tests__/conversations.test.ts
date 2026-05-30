@@ -33,23 +33,21 @@ describe("Conversations Endpoints (E2)", () => {
 		app = await createTestApp({ db, eventBus });
 
 		// Seed base data
-		db.insert(teams)
-			.values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			})
-			.run();
-		db.insert(teamMembers)
-			.values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 3,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			})
-			.run();
+		await db.insert(teams).values({
+			id: "prod-1",
+			name: "Test Product",
+			phase: "build",
+			createdAt: new Date().toISOString(),
+		});
+
+		await db.insert(teamMembers).values({
+			id: "team-1",
+			teamId: "prod-1",
+			capacity: 3,
+			activeBets: 0,
+			formedAt: new Date().toISOString(),
+		});
+
 		// L1a: verdict messages set sender_id='policy_engine' as the synthetic
 		// sender for system-recorded verdicts. The new `messages.sender_id` FK
 		// requires the agent to exist (legacy `responses.approver_id` had no

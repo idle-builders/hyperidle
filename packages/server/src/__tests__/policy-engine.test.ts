@@ -51,46 +51,21 @@ describe("Policy Engine (E7)", () => {
 	let unsubscribe: () => void;
 	const now = new Date().toISOString();
 
-	function seedBase(): void {
-		db.insert(teams)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now })
-			.run();
-		db.insert(teamMembers)
-			.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: now })
-			.run();
-		db.insert(users)
-			.values([
-				{
-					id: "agent-1",
-					kind: "ai",
-					name: "Builder",
-					role: "builder",
-					status: "idle",
-					teamId: "team-1",
-					createdAt: now,
-				},
-				// @lore L1a: synthetic sender for verdict-typed messages emitted by
-				// the policy engine. The new `messages.sender_id` FK requires
-				// the user row to exist (legacy `responses.approver_id` had
-				// no FK). P2: agents → users table.
-				{
-					id: "policy_engine",
-					kind: "ai",
-					name: "Policy Engine",
-					role: "system",
-					status: "active",
-					createdAt: now,
-				},
-			])
-			.run();
-		db.insert(threads)
-			.values({
-				id: "thread-1",
-				hostKind: "task",
-				hostId: "task-1",
-				initiatorId: "agent-1",
-				participants: JSON.stringify(["agent-1"]),
-				lastActiveAt: now,
+	async function seedBase(): Promise<void> {
+		await db
+			.insert(teams)
+			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
+		await db
+			.insert(teamMembers)
+			.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: now });
+		await db.insert(users).values([
+			{
+				id: "agent-1",
+				kind: "ai",
+				name: "Builder",
+				role: "builder",
+				status: "idle",
+				teamId: "team-1",
 				createdAt: now,
 			},
 			// @lore L1a: synthetic sender for verdict-typed messages emitted by
@@ -106,7 +81,6 @@ describe("Policy Engine (E7)", () => {
 				createdAt: now,
 			},
 		]);
-
 		await db.insert(threads).values({
 			id: "thread-1",
 			hostKind: "task",

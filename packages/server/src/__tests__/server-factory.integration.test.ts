@@ -13,7 +13,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { resolve } from "node:path";
-import { bets, createDb, teamMembers, teams, threads, users } from "@hyperidle/db";
+import { bets, createPgliteDb, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { authHeaders, waitForReady } from "./integration-helpers.js";
@@ -21,50 +21,40 @@ import { authHeaders, waitForReady } from "./integration-helpers.js";
 const TEST_API_KEY = "test-server-factory-I1-key";
 
 async function createAndSeedDb(dataDir: string): Promise<void> {
-	const migrationsFolder = resolve(__dirname, "../../../db/drizzle");
-	const client = new PGlite(dataDir);
-	await client.waitReady;
-	const db = drizzle(client, { schema });
-	await migrate(db, { migrationsFolder });
+	const { db } = await createPgliteDb(dataDir);
 
 	const now = new Date().toISOString();
-	db.insert(teams).values({ id: "p-sf", name: "SF Product", phase: "build", createdAt: now }).run();
-	db.insert(teamMembers)
-		.values({ id: "t-sf", teamId: "p-sf", capacity: 5, activeBets: 0, formedAt: now })
-		.run();
-	db.insert(bets)
-		.values({
-			id: "bet-sf",
-			teamId: "p-sf",
-			description: "Ship the thing",
-			appetite: "small",
-			status: "draft",
-			createdAt: now,
-		})
-		.run();
-	db.insert(users)
-		.values({
-			id: "agent-sf",
-			kind: "ai",
-			name: "SF Agent",
-			role: "builder",
-			teamId: "t-sf",
-			status: "active",
-			maxConcurrentSessions: 2,
-			createdAt: now,
-		})
-		.run();
-	db.insert(threads)
-		.values({
-			id: "thread-sf",
-			hostKind: "task",
-			hostId: "task-1",
-			initiatorId: "agent-1",
-			participants: JSON.stringify(["agent-1"]),
-			lastActiveAt: now,
-			createdAt: now,
-		})
-		.run();
+	await db.insert(teams).values({ id: "p-sf", name: "SF Product", phase: "build", createdAt: now });
+	await db
+		.insert(teamMembers)
+		.values({ id: "t-sf", teamId: "p-sf", capacity: 5, activeBets: 0, formedAt: now });
+	await db.insert(bets).values({
+		id: "bet-sf",
+		teamId: "p-sf",
+		description: "Ship the thing",
+		appetite: "small",
+		status: "draft",
+		createdAt: now,
+	});
+	await db.insert(users).values({
+		id: "agent-sf",
+		kind: "ai",
+		name: "SF Agent",
+		role: "builder",
+		teamId: "t-sf",
+		status: "active",
+		maxConcurrentSessions: 2,
+		createdAt: now,
+	});
+	await db.insert(threads).values({
+		id: "thread-sf",
+		hostKind: "task",
+		hostId: "task-1",
+		initiatorId: "agent-1",
+		participants: JSON.stringify(["agent-1"]),
+		lastActiveAt: now,
+		createdAt: now,
+	});
 }
 
 describe("server-factory — I1 integration (S1–S5)", () => {

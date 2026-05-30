@@ -64,12 +64,13 @@ describe("D2. GET /api/bets returns betListResponseSchema-conforming response", 
 		app = await createTestApp({ db, eventBus });
 
 		const now = new Date().toISOString();
-		db.insert(teams)
-			.values({ id: "prod-d2", name: "Product D2", phase: "build", createdAt: now })
-			.run();
-		db.insert(teamMembers)
-			.values({ id: "team-d2", teamId: "prod-d2", capacity: 3, activeBets: 0, formedAt: now })
-			.run();
+		await db
+			.insert(teams)
+			.values({ id: "prod-d2", name: "Product D2", phase: "build", createdAt: now });
+
+		await db
+			.insert(teamMembers)
+			.values({ id: "team-d2", teamId: "prod-d2", capacity: 3, activeBets: 0, formedAt: now });
 	});
 
 	afterEach(() => {
@@ -119,21 +120,21 @@ describe("D3. GET /api/bets/:id returns betDetailResponseSchema-conforming respo
 		app = await createTestApp({ db, eventBus });
 
 		const now = new Date().toISOString();
-		db.insert(teams)
-			.values({ id: "prod-d3", name: "Product D3", phase: "build", createdAt: now })
-			.run();
-		db.insert(teamMembers)
-			.values({ id: "team-d3", teamId: "prod-d3", capacity: 3, activeBets: 0, formedAt: now })
-			.run();
-		db.insert(bets)
-			.values({
-				id: "bet-d3",
-				teamId: "prod-d3",
-				description: "# Bet D3\n\nThis is a test bet.",
-				status: "draft",
-				createdAt: now,
-			})
-			.run();
+		await db
+			.insert(teams)
+			.values({ id: "prod-d3", name: "Product D3", phase: "build", createdAt: now });
+
+		await db
+			.insert(teamMembers)
+			.values({ id: "team-d3", teamId: "prod-d3", capacity: 3, activeBets: 0, formedAt: now });
+
+		await db.insert(bets).values({
+			id: "bet-d3",
+			teamId: "prod-d3",
+			description: "# Bet D3\n\nThis is a test bet.",
+			status: "draft",
+			createdAt: now,
+		});
 	});
 
 	afterEach(() => {

@@ -37,77 +37,71 @@ async function seedTestData(db: HyperIdleDb): Promise<{
 	const sessionId = "sess-1";
 
 	// @lore U1: teams is the domain entity; teamMembers is the membership group.
-	db.insert(teams)
-		.values({ id: productId, name: "TestProduct", phase: "build", createdAt: now })
-		.run();
-	db.insert(teamMembers)
-		.values({
-			id: teamId,
-			teamId: productId,
-			capacity: 3,
-			activeBets: 1,
-			formedAt: now,
-		})
-		.run();
-	db.insert(users)
-		.values({
-			id: agentId,
-			name: "BuilderBot",
-			role: "builder",
-			status: "active",
-			teamId,
-			createdAt: now,
-		})
-		.run();
+	await db
+		.insert(teams)
+		.values({ id: productId, name: "TestProduct", phase: "build", createdAt: now });
+
+	await db.insert(teamMembers).values({
+		id: teamId,
+		teamId: productId,
+		capacity: 3,
+		activeBets: 1,
+		formedAt: now,
+	});
+
+	await db.insert(users).values({
+		id: agentId,
+		name: "BuilderBot",
+		role: "builder",
+		status: "active",
+		teamId,
+		createdAt: now,
+	});
+
 	// @lore U1: bets.teamId references teams (domain entity); description replaces pitch.
-	db.insert(bets)
-		.values({
-			id: betId,
-			teamId: productId,
-			description: "Build the thing",
-			appetite: "small",
-			doneCondition: "Tests pass",
-			status: "active",
-			createdAt: now,
-		})
-		.run();
-	db.insert(threads)
-		.values({
-			id: threadId,
-			hostKind: "task",
-			hostId: "task-1",
-			initiatorId: "agent-1",
-			participants: JSON.stringify(["agent-1"]),
-			lastActiveAt: now,
-			createdAt: now,
-		})
-		.run();
-	db.insert(tasks)
-		.values({
-			id: taskId,
-			betId,
-			// @lore U1: tasks.teamId references teams (domain entity); productId removed.
-			teamId: productId,
-			ownerAgentId: agentId,
-			title: "Implement feature X",
-			description: "Build the materialization engine",
-			doneCondition: "All tests pass",
-			state: "in_progress",
-			threadId,
-			createdAt: now,
-			updatedAt: now,
-		})
-		.run();
-	db.insert(sessions)
-		.values({
-			id: sessionId,
-			taskId,
-			agentId,
-			modelTier: "workhorse",
-			startedAt: now,
-			state: "active",
-		})
-		.run();
+	await db.insert(bets).values({
+		id: betId,
+		teamId: productId,
+		description: "Build the thing",
+		appetite: "small",
+		doneCondition: "Tests pass",
+		status: "active",
+		createdAt: now,
+	});
+
+	await db.insert(threads).values({
+		id: threadId,
+		hostKind: "task",
+		hostId: "task-1",
+		initiatorId: "agent-1",
+		participants: JSON.stringify(["agent-1"]),
+		lastActiveAt: now,
+		createdAt: now,
+	});
+
+	await db.insert(tasks).values({
+		id: taskId,
+		betId,
+		// @lore U1: tasks.teamId references teams (domain entity); productId removed.
+		teamId: productId,
+		ownerAgentId: agentId,
+		title: "Implement feature X",
+		description: "Build the materialization engine",
+		doneCondition: "All tests pass",
+		state: "in_progress",
+		threadId,
+		createdAt: now,
+		updatedAt: now,
+	});
+
+	await db.insert(sessions).values({
+		id: sessionId,
+		taskId,
+		agentId,
+		modelTier: "workhorse",
+		startedAt: now,
+		state: "active",
+	});
 
 	return { productId, agentId, sessionId, taskId };
 }

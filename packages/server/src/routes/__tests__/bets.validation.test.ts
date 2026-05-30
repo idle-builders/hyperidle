@@ -34,20 +34,20 @@ describe("I2 V2 — PATCH /api/bets/:id field enum", () => {
 		app = await createTestApp({ db, eventBus });
 
 		const now = new Date().toISOString();
-		db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now }).run();
-		db.insert(teamMembers)
-			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-			.run();
-		db.insert(bets)
-			.values({
-				id: "bet1",
-				teamId: "p1",
-				description: "x",
-				appetite: "small",
-				status: "draft",
-				createdAt: now,
-			})
-			.run();
+		await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now });
+		await db
+			.insert(teamMembers)
+			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+
+		await db.insert(bets).values({
+			id: "bet1",
+			teamId: "p1",
+			description: "x",
+			appetite: "small",
+			status: "draft",
+			createdAt: now,
+		});
+
 		// @lore U1: Move into active (formerly in_progress) so updateBetField doesn't reject on state.
 		await transitionBet(db, eventBus, "bet1", "active");
 	});

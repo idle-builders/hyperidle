@@ -18,33 +18,32 @@ describe("Daily Digest (E7)", () => {
 
 	async function seedBase(): Promise<void> {
 		const ts = now.toISOString();
-		db.insert(teams)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: ts })
-			.run();
-		db.insert(teamMembers)
-			.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: ts })
-			.run();
-		db.insert(users)
-			.values({
-				id: "agent-1",
-				name: "Builder",
-				role: "builder",
-				status: "idle",
-				teamId: "team-1",
-				createdAt: ts,
-			})
-			.run();
-		db.insert(threads)
-			.values({
-				id: "thread-1",
-				hostKind: "task",
-				hostId: "task-1",
-				initiatorId: "agent-1",
-				participants: JSON.stringify(["agent-1"]),
-				lastActiveAt: ts,
-				createdAt: ts,
-			})
-			.run();
+		await db
+			.insert(teams)
+			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: ts });
+
+		await db
+			.insert(teamMembers)
+			.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: ts });
+
+		await db.insert(users).values({
+			id: "agent-1",
+			name: "Builder",
+			role: "builder",
+			status: "idle",
+			teamId: "team-1",
+			createdAt: ts,
+		});
+
+		await db.insert(threads).values({
+			id: "thread-1",
+			hostKind: "task",
+			hostId: "task-1",
+			initiatorId: "agent-1",
+			participants: JSON.stringify(["agent-1"]),
+			lastActiveAt: ts,
+			createdAt: ts,
+		});
 	}
 
 	async function createQueuedItem(id: string, createdAt: Date): Promise<void> {

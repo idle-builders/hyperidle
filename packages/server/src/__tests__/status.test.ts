@@ -35,85 +35,56 @@ describe("Status & Settings Endpoints (E6)", () => {
 		app = await createTestApp({ db, eventBus });
 
 		// Seed required data
-		db.insert(teams)
-			.values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			})
-			.run();
-		db.insert(teamMembers)
-			.values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 3,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			})
-			.run();
-		db.insert(users)
-			.values([
-				{
-					id: "agent-1",
-					name: "Builder Bot",
-					role: "builder",
-					status: "idle",
-					teamId: "team-1",
-					costActual: 100,
-					createdAt: new Date().toISOString(),
-				},
-				{
-					id: "agent-2",
-					name: "Growth Bot",
-					role: "growth",
-					status: "active",
-					teamId: "team-1",
-					costActual: 200,
-					createdAt: new Date().toISOString(),
-				},
-			])
-			.run();
-		db.insert(bets)
-			.values({
-				id: "bet-1",
-				teamId: "prod-1",
-				description: "Test",
-				appetite: "small",
+		const now = new Date().toISOString();
+		await db.insert(teams).values({
+			id: "prod-1",
+			name: "Test Product",
+			phase: "build",
+			createdAt: now,
+		});
+		await db.insert(teamMembers).values({
+			id: "team-1",
+			teamId: "prod-1",
+			capacity: 3,
+			activeBets: 0,
+			formedAt: now,
+		});
+		await db.insert(users).values([
+			{
+				id: "agent-1",
+				name: "Builder Bot",
+				role: "builder",
+				status: "idle",
+				teamId: "team-1",
+				costActual: 100,
+				createdAt: now,
+			},
+			{
+				id: "agent-2",
+				name: "Growth Bot",
+				role: "growth",
 				status: "active",
-				createdAt: new Date().toISOString(),
-			})
-			.run();
-		db.insert(tasks)
-			.values({
-				id: "task-1",
-				betId: "bet-1",
-				teamId: "prod-1",
-				title: "Test Task",
-				state: "in_progress",
-				createdAt: new Date().toISOString(),
+				teamId: "team-1",
+				costActual: 200,
+				createdAt: now,
 			},
 		]);
-
 		await db.insert(bets).values({
 			id: "bet-1",
-			productId: "prod-1",
-			teamId: "team-1",
-			pitch: "Test",
+			teamId: "prod-1",
+			description: "Test",
 			appetite: "small",
-			status: "committed",
-			createdAt: new Date().toISOString(),
+			status: "active",
+			createdAt: now,
 		});
-
 		await db.insert(tasks).values({
 			id: "task-1",
 			betId: "bet-1",
-			productId: "prod-1",
-			teamId: "team-1",
+			teamId: "prod-1",
 			title: "Test Task",
 			state: "in_progress",
-			createdAt: new Date().toISOString(),
-			updatedAt: new Date().toISOString(),
+			createdAt: now,
+			updatedAt: now,
 		});
 	});
 

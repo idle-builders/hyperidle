@@ -33,22 +33,23 @@ describe("Task Endpoints (E3)", () => {
 
 		// Seed product, team, and a bet
 		const now = new Date().toISOString();
-		db.insert(teams)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now })
-			.run();
-		db.insert(teamMembers)
-			.values({ id: "team-1", teamId: "prod-1", capacity: 5, activeBets: 0, formedAt: now })
-			.run();
-		db.insert(bets)
-			.values({
-				id: "bet-1",
-				teamId: "prod-1",
-				description: "Test bet",
-				appetite: "small",
-				status: "active",
-				createdAt: now,
-			})
-			.run();
+		await db
+			.insert(teams)
+			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
+
+		await db
+			.insert(teamMembers)
+			.values({ id: "team-1", teamId: "prod-1", capacity: 5, activeBets: 0, formedAt: now });
+
+		await db.insert(bets).values({
+			id: "bet-1",
+			teamId: "prod-1",
+			description: "Test bet",
+			appetite: "small",
+			status: "active",
+			createdAt: now,
+		});
+
 		// Seed agents for FK references
 		await db.insert(users).values({
 			id: "agent-1",
@@ -74,18 +75,16 @@ describe("Task Endpoints (E3)", () => {
 
 	async function seedTask(id: string, overrides?: Record<string, unknown>): Promise<void> {
 		const now = new Date().toISOString();
-		db.insert(tasks)
-			.values({
-				id,
-				betId: "bet-1",
-				teamId: "prod-1",
-				title: `Task ${id}`,
-				state: "proposed",
-				createdAt: now,
-				updatedAt: now,
-				...overrides,
-			} as Record<string, unknown>)
-			.run();
+		await db.insert(tasks).values({
+			id,
+			betId: "bet-1",
+			teamId: "prod-1",
+			title: `Task ${id}`,
+			state: "proposed",
+			createdAt: now,
+			updatedAt: now,
+			...overrides,
+		} as Record<string, unknown>);
 	}
 
 	// AC8: GET /api/tasks — list, filterable by bet_id, state, owner
@@ -103,16 +102,15 @@ describe("Task Endpoints (E3)", () => {
 		it("filters by bet_id", async () => {
 			await seedTask("t1");
 			// Create another bet and task
-			db.insert(bets)
-				.values({
-					id: "bet-2",
-					teamId: "prod-1",
-					description: "Other bet",
-					appetite: "medium",
-					status: "draft",
-					createdAt: new Date().toISOString(),
-				})
-				.run();
+			await db.insert(bets).values({
+				id: "bet-2",
+				teamId: "prod-1",
+				description: "Other bet",
+				appetite: "medium",
+				status: "draft",
+				createdAt: new Date().toISOString(),
+			});
+
 			seedTask("t2", { betId: "bet-2" });
 
 			const res = await app.request("/api/tasks?bet_id=bet-1", { headers: authHeaders() });

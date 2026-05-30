@@ -38,8 +38,8 @@ describe("A2: Seed script", () => {
 	});
 
 	// --- AC4: Seed populates ≥1 row per major table ---
-	it("populates at least 1 row per major table", () => {
-		seed(db);
+	it("populates at least 1 row per major table", async () => {
+		await seed(db);
 
 		// @lore U1: `products` renamed to `teams`; old `teams` renamed to `team_members`.
 		// @lore P2: agents → users table
@@ -51,14 +51,17 @@ describe("A2: Seed script", () => {
 		}
 	});
 
-	it("seed data is well-formed (queryable without errors)", () => {
-		seed(db);
+	it("seed data is well-formed (queryable without errors)", async () => {
+		await seed(db);
 
 		// Verify we can read back with all fields.
 		// @lore U1: `products` table renamed to `teams`.
-		const product = db.get<{ id: string; name: string }>(sql`SELECT id, name FROM teams LIMIT 1`);
-		expect(product?.id).toBeTruthy();
-		expect(product?.name).toBeTruthy();
+		const products = await queryRows<{ id: string; name: string }>(
+			db,
+			"SELECT id, name FROM teams LIMIT 1",
+		);
+		expect(products[0]?.id).toBeTruthy();
+		expect(products[0]?.name).toBeTruthy();
 
 		// @lore P2: agents → users table
 		const agents = await queryRows<{ id: string; name: string; role: string }>(
@@ -71,11 +74,12 @@ describe("A2: Seed script", () => {
 
 		// @lore U1: old `teams` (agent membership) renamed to `team_members`.
 		// `capacity` column lives on `team_members`, not on the new `teams`.
-		const teamMember = db.get<{ id: string; capacity: number }>(
-			sql`SELECT id, capacity FROM team_members LIMIT 1`,
+		const teamMembers = await queryRows<{ id: string; capacity: number }>(
+			db,
+			"SELECT id, capacity FROM team_members LIMIT 1",
 		);
-		expect(teamMember?.id).toBeTruthy();
-		expect(teamMember?.capacity).toBeGreaterThan(0);
+		expect(teamMembers[0]?.id).toBeTruthy();
+		expect(teamMembers[0]?.capacity).toBeGreaterThan(0);
 
 		// @lore O2: layer moved to knowledgeStrategyFabric; query via JOIN.
 		const kiRows = await queryRows<{ id: string; version: number }>(
@@ -123,6 +127,7 @@ describe("A2: Seed script", () => {
 	// --- G1 AC2: every facilitator carries a non-empty soul_prompt_path ---
 	it("every seeded facilitator has a non-empty soul_prompt_path (AC2)", async () => {
 		const rolesList = FACILITATOR_ROLES.map((r) => `'${r}'`).join(", ");
+		// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case column names
 		const rows = await queryRows<{ id: string; role: string; soul_prompt_path: string | null }>(
 			db,
 			`SELECT id, role, soul_prompt_path FROM users WHERE role IN (${rolesList})`,
@@ -136,6 +141,7 @@ describe("A2: Seed script", () => {
 
 	it("soul_prompt_path files exist on disk", async () => {
 		const rolesList = FACILITATOR_ROLES.map((r) => `'${r}'`).join(", ");
+		// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case column names
 		const rows = await queryRows<{ id: string; soul_prompt_path: string | null }>(
 			db,
 			`SELECT id, soul_prompt_path FROM users WHERE role IN (${rolesList})`,
@@ -162,13 +168,17 @@ describe("A2: Seed script", () => {
 			"builtin:knowledge-decay",
 		] as const;
 
-		const rows = await queryRows<{
+		type RoutineRow = {
 			id: string;
+			// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case
 			trigger_type: string;
+			// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case
 			trigger_config: string | null;
+			// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case
 			owner_agent_id: string;
 			active: boolean;
-		}>(
+		};
+		const rows = await queryRows<RoutineRow>(
 			db,
 			"SELECT id, trigger_type, trigger_config, owner_agent_id, active FROM routines WHERE id LIKE 'builtin:%' ORDER BY id",
 		);
@@ -251,15 +261,21 @@ describe("A2: Seed script", () => {
 			},
 		];
 
-		const rows = await queryRows<{
+		type RoutineDetailRow = {
 			id: string;
+			// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case
 			trigger_type: string;
+			// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case
 			trigger_config: string | null;
+			// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case
 			owner_agent_id: string;
+			// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case
 			skill_id: string | null;
+			// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case
 			human_review: boolean;
 			silent: boolean;
-		}>(
+		};
+		const rows = await queryRows<RoutineDetailRow>(
 			db,
 			"SELECT id, trigger_type, trigger_config, owner_agent_id, skill_id, human_review, silent FROM routines WHERE id LIKE 'builtin:%' ORDER BY id",
 		);

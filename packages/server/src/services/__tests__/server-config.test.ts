@@ -86,11 +86,13 @@ describe("P3 AC-10 — Server config read/write", () => {
 			expect(config.notifications.quietHoursStart).toBe("23:00");
 		});
 
-		it("can update mutedTeams", () => {
-			const db = createTestDb();
-			updateServerConfig(db, { notifications: { mutedTeams: ["prod-1", "prod-2"] } });
+		it("can update mutedTeams", async () => {
+			const handle = await createTestDb();
+			const db: HyperIdleDb = handle.db;
+			await updateServerConfig(db, { notifications: { mutedTeams: ["prod-1", "prod-2"] } });
 
-			const config = readServerConfig(db);
+			const config = await readServerConfig(db);
+			await handle.close();
 			expect(config.notifications.mutedTeams).toEqual(["prod-1", "prod-2"]);
 		});
 

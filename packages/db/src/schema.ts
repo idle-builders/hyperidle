@@ -13,7 +13,7 @@ import {
 // @lore U1: `teams` is the domain entity (formerly `products`). The old agent-membership
 // table (formerly `teams`) is now `teamMembers`. Migration 0021_U1_schema_migration.sql
 // renames both tables. See architecture U1 §2.3 for the 1:1 Product=Team invariant.
-export const teams = sqliteTable("teams", {
+export const teams = pgTable("teams", {
 	id: text("id").primaryKey(),
 	name: text("name").notNull(),
 	phase: text("phase").notNull(),
@@ -55,7 +55,7 @@ export const users = pgTable("users", {
 // @lore U1: `teamMembers` is the agent-membership group (formerly `teams`).
 // The 1:1 Product=Team invariant means one teamMembers row per teams row.
 // See architecture U1 §2.3.
-export const teamMembers = sqliteTable("team_members", {
+export const teamMembers = pgTable("team_members", {
 	id: text("id").primaryKey(),
 	teamId: text("team_id")
 		.notNull()

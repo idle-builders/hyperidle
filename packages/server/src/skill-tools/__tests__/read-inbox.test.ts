@@ -16,32 +16,32 @@ import type { ToolContext } from "../tool-registry.js";
 
 async function seedFactory(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now }).run();
-	db.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-		.run();
-	db.insert(users)
-		.values([
-			{
-				id: "agent-a",
-				name: "Agent A",
-				role: "builder",
-				teamId: "t1",
-				status: "active",
-				maxConcurrentSessions: 2,
-				createdAt: now,
-			},
-			{
-				id: "agent-b",
-				name: "Agent B",
-				role: "builder",
-				teamId: "t1",
-				status: "active",
-				maxConcurrentSessions: 2,
-				createdAt: now,
-			},
-		])
-		.run();
+	await db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
+	await db
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+
+	await db.insert(users).values([
+		{
+			id: "agent-a",
+			name: "Agent A",
+			role: "builder",
+			teamId: "t1",
+			status: "active",
+			maxConcurrentSessions: 2,
+			createdAt: now,
+		},
+		{
+			id: "agent-b",
+			name: "Agent B",
+			role: "builder",
+			teamId: "t1",
+			status: "active",
+			maxConcurrentSessions: 2,
+			createdAt: now,
+		},
+	]);
+
 	// L1a: thread participants now drive inbox routing (no more
 	// messages.recipient_id). Thread A↔B serves the agent-a and agent-b
 	// inboxes; thread A↔(orphan) is for the "addressed to other agents" test.

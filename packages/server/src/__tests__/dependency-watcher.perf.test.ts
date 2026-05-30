@@ -21,20 +21,19 @@ import { checkAndUnblockDependents } from "../services/dependency-watcher.js";
 
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: now }).run();
-	db.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-		.run();
-	db.insert(bets)
-		.values({
-			id: "b1",
-			teamId: "p1",
-			description: "Test bet",
-			appetite: "small",
-			status: "active",
-			createdAt: now,
-		})
-		.run();
+	await db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: now });
+	await db
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+
+	await db.insert(bets).values({
+		id: "b1",
+		teamId: "p1",
+		description: "Test bet",
+		appetite: "small",
+		status: "active",
+		createdAt: now,
+	});
 }
 
 async function insertTask(
@@ -44,18 +43,16 @@ async function insertTask(
 	dependencies?: string[],
 ): Promise<void> {
 	const now = new Date().toISOString();
-	db.insert(tasks)
-		.values({
-			id,
-			betId: "b1",
-			teamId: "p1",
-			title: `Task ${id}`,
-			state,
-			dependencies: dependencies ? JSON.stringify(dependencies) : null,
-			createdAt: now,
-			updatedAt: now,
-		})
-		.run();
+	await db.insert(tasks).values({
+		id,
+		betId: "b1",
+		teamId: "p1",
+		title: `Task ${id}`,
+		state,
+		dependencies: dependencies ? JSON.stringify(dependencies) : null,
+		createdAt: now,
+		updatedAt: now,
+	});
 }
 
 describe("I3: dependency-watcher SQL filter benchmark", () => {
@@ -113,18 +110,16 @@ describe("I3: dependency-watcher SQL filter benchmark", () => {
 		// A naive load-all-rows implementation calls JSON.parse on every row
 		// and throws on this one.
 		const now = new Date().toISOString();
-		db.insert(tasks)
-			.values({
-				id: "malformed",
-				betId: "b1",
-				teamId: "p1",
-				title: "Malformed deps",
-				state: "hold",
-				dependencies: "this-is-not-json",
-				createdAt: now,
-				updatedAt: now,
-			})
-			.run();
+		await db.insert(tasks).values({
+			id: "malformed",
+			betId: "b1",
+			teamId: "p1",
+			title: "Malformed deps",
+			state: "hold",
+			dependencies: "this-is-not-json",
+			createdAt: now,
+			updatedAt: now,
+		});
 
 		await expect(checkAndUnblockDependents(db, eventBus, "target")).resolves.not.toThrow();
 		const [dependent] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));

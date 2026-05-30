@@ -184,15 +184,14 @@ export async function handoff(
 			// @lore U1: users.teamId references teamMembers.id (membership group),
 			// but task.teamId references teams.id (domain entity). To find agents
 			// for the same domain team, join through teamMembers.
-			const memberGroups = tx
+			const memberGroups = await tx
 				.select({ id: teamMembers.id })
 				.from(teamMembers)
-				.where(eq(teamMembers.teamId, task.teamId))
-				.all();
+				.where(eq(teamMembers.teamId, task.teamId));
 			const memberGroupIds = memberGroups.map((m) => m.id);
-			const availableAgent =
+			const [availableAgent] =
 				memberGroupIds.length > 0
-					? tx
+					? await tx
 							.select()
 							.from(users)
 							.where(
@@ -203,8 +202,8 @@ export async function handoff(
 									ne(users.id, sessionContext.agentId),
 								),
 							)
-							.get()
-					: undefined;
+							.limit(1)
+					: [undefined];
 
 			if (availableAgent) {
 				await tx

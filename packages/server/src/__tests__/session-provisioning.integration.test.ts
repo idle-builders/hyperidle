@@ -36,61 +36,58 @@ import { type ProvisionSessionDeps, provisionSession } from "../services/session
 
 const NOW = "2026-04-16T00:00:00.000Z";
 
-function seedDomain(db: HyperIdleDb): void {
-	db.insert(teams)
-		.values({ id: "p1", name: "Integration Product", phase: "build", createdAt: NOW })
-		.run();
-	db.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
-		.run();
-	db.insert(bets)
-		.values({
-			id: "b1",
-			teamId: "p1",
-			description: "Integration bet",
-			appetite: "small",
-			status: "active",
-			createdAt: NOW,
-		})
-		.run();
-	db.insert(users)
-		.values({
-			id: "agent-1",
-			name: "Integration Agent",
-			role: "builder",
-			status: "active",
-			teamId: "t1",
-			maxConcurrentSessions: 1,
-			costCap: null,
-			createdAt: NOW,
-		})
-		.run();
-	db.insert(tasks)
-		.values({
-			id: "task-1",
-			betId: "b1",
-			teamId: "p1",
-			title: "Integration task",
-			state: "accepted",
-			createdAt: NOW,
-			updatedAt: NOW,
-		})
-		.run();
-	db.insert(knowledgeItems)
-		.values({
-			id: "ki-seed-1",
-			layer: "L4",
-			kind: "principle",
-			title: "Integration Principle",
-			body: "Integration body.",
-			format: "markdown",
-			status: "active",
-			version: 1,
-			updatedBy: "system",
-			createdAt: NOW,
-			updatedAt: NOW,
-		})
-		.run();
+async function seedDomain(db: HyperIdleDb): Promise<void> {
+	await db
+		.insert(teams)
+		.values({ id: "p1", name: "Integration Product", phase: "build", createdAt: NOW });
+
+	await db
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+
+	await db.insert(bets).values({
+		id: "b1",
+		teamId: "p1",
+		description: "Integration bet",
+		appetite: "small",
+		status: "active",
+		createdAt: NOW,
+	});
+
+	await db.insert(users).values({
+		id: "agent-1",
+		name: "Integration Agent",
+		role: "builder",
+		status: "active",
+		teamId: "t1",
+		maxConcurrentSessions: 1,
+		costCap: null,
+		createdAt: NOW,
+	});
+
+	await db.insert(tasks).values({
+		id: "task-1",
+		betId: "b1",
+		teamId: "p1",
+		title: "Integration task",
+		state: "accepted",
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
+
+	await db.insert(knowledgeItems).values({
+		id: "ki-seed-1",
+		layer: "L4",
+		kind: "principle",
+		title: "Integration Principle",
+		body: "Integration body.",
+		format: "markdown",
+		status: "active",
+		version: 1,
+		updatedBy: "system",
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
 }
 
 describe("Session Provisioning — Claude integration (D5/AC2)", () => {

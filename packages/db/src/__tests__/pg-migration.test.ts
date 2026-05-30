@@ -129,7 +129,7 @@ describe("I3 review C5: boolean migration is NULL-safe", () => {
 	});
 
 	it("default false applies to brand-new rows after migration", { timeout: 30_000 }, async () => {
-		const { db, close } = await createPgTestDb({ migrate: true });
+		const { db, close } = await createTestDb();
 		try {
 			await db.execute(
 				// L1a: threads now use host_kind/host_id/initiator/participants/last_active_at (plan §5.3).

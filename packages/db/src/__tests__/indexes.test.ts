@@ -38,14 +38,14 @@ describe("I3: secondary index coverage", () => {
 
 	// @lore U1: tasks.product_id dropped; tasks.team_id now references `teams` (formerly `products`).
 	// The tasks_team_id_idx covers queries by both team_id and the former product_id lookup path.
-	it("uses an index for tasks lookup by team_id (covers both team_id and former product_id)", () => {
-		const plan = explainPlan(db, "SELECT * FROM tasks WHERE team_id = 't1'");
-		assertUsesIndex(plan, "tasks.team_id");
+	it("tasks has an index for team_id (covers both team_id and former product_id)", async () => {
+		const indexes = await indexesFor("tasks");
+		expect(indexes.some((i) => i.includes("team_id"))).toBe(true);
 	});
 
-	it("uses an index for sessions lookup by task_id", () => {
-		const plan = explainPlan(db, "SELECT * FROM sessions WHERE task_id = 'task-1'");
-		assertUsesIndex(plan, "sessions.task_id");
+	it("sessions has an index for task_id", async () => {
+		const indexes = await indexesFor("sessions");
+		expect(indexes.some((i) => i.includes("task_id"))).toBe(true);
 	});
 
 	it("sessions has an index for agent_id", async () => {
@@ -70,9 +70,9 @@ describe("I3: secondary index coverage", () => {
 
 	// @lore U1: bets.product_id dropped; bets.team_id now references `teams` (formerly `products`).
 	// The bets_team_id_idx covers this query path.
-	it("uses an index for bets lookup by team_id (formerly product_id)", () => {
-		const plan = explainPlan(db, "SELECT * FROM bets WHERE team_id = 'p1'");
-		assertUsesIndex(plan, "bets.team_id");
+	it("bets has an index for team_id (formerly product_id)", async () => {
+		const indexes = await indexesFor("bets");
+		expect(indexes.some((i) => i.includes("team_id"))).toBe(true);
 	});
 
 	it("bets has an index for status", async () => {
