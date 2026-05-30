@@ -1,14 +1,14 @@
 /**
- * L13 — GET /api/products and GET /api/products/:id integration tests (red phase).
+ * L13 — GET /api/teams and GET /api/teams/:id integration tests (red phase).
  *
  * AC coverage:
- * 1. GET /api/products returns { products: [] } when the table is empty.
- * 2. GET /api/products returns one row with derived activeBets, shipped, shipRate for seeded fixture.
- * 3. GET /api/products/:id returns 404 for an unknown id.
- * 4. GET /api/products/:id returns 500 with code 'team_missing' when the team for a product is absent.
- * 5. GET /api/products/:id returns populated ProductDetail for a seeded product+team+roster+bets.
- * 6. GET /api/products/:id returns activeBets: [] for a product whose bets are all shipped.
- * 7. GET /api/products/:id with teams.cost_cap = null returns burn.costCap: null.
+ * 1. GET /api/teams returns { products: [] } when the table is empty.
+ * 2. GET /api/teams returns one row with derived activeBets, shipped, shipRate for seeded fixture.
+ * 3. GET /api/teams/:id returns 404 for an unknown id.
+ * 4. GET /api/teams/:id returns 500 with code 'team_missing' when the team for a product is absent.
+ * 5. GET /api/teams/:id returns populated ProductDetail for a seeded product+team+roster+bets.
+ * 6. GET /api/teams/:id returns activeBets: [] for a product whose bets are all shipped.
+ * 7. GET /api/teams/:id with teams.cost_cap = null returns burn.costCap: null.
  */
 
 import {
@@ -50,7 +50,7 @@ async function setupApp(): Promise<AppCtx> {
 
 const NOW = new Date().toISOString();
 
-describe("GET /api/products", () => {
+describe("GET /api/teams", () => {
 	let ctx: AppCtx;
 
 	beforeEach(async () => {
@@ -63,7 +63,7 @@ describe("GET /api/products", () => {
 	});
 
 	it("returns { teams: [] } when the table is empty", async () => {
-		const res = await ctx.app.request("/api/products", {
+		const res = await ctx.app.request("/api/teams", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -105,7 +105,7 @@ describe("GET /api/products", () => {
 			completedAt: NOW,
 		});
 
-		const res = await ctx.app.request("/api/products", {
+		const res = await ctx.app.request("/api/teams", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -131,7 +131,7 @@ describe("GET /api/products", () => {
 	});
 });
 
-describe("GET /api/products/:id", () => {
+describe("GET /api/teams/:id", () => {
 	let ctx: AppCtx;
 
 	beforeEach(async () => {
@@ -144,7 +144,7 @@ describe("GET /api/products/:id", () => {
 	});
 
 	it("returns 404 for an unknown id", async () => {
-		const res = await ctx.app.request("/api/products/does-not-exist", {
+		const res = await ctx.app.request("/api/teams/does-not-exist", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -159,7 +159,7 @@ describe("GET /api/products/:id", () => {
 			.insert(teams)
 			.values({ id: "p-no-team", name: "Orphan Product", phase: "build", createdAt: NOW });
 
-		const res = await ctx.app.request("/api/products/p-no-team", {
+		const res = await ctx.app.request("/api/teams/p-no-team", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -257,7 +257,7 @@ describe("GET /api/products/:id", () => {
 		// Update the team to reference lead agent
 		// (teams.leadAgentId is set separately)
 
-		const res = await ctx.app.request("/api/products/p1", {
+		const res = await ctx.app.request("/api/teams/p1", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -333,7 +333,7 @@ describe("GET /api/products/:id", () => {
 			completedAt: NOW,
 		});
 
-		const res = await ctx.app.request("/api/products/p2", {
+		const res = await ctx.app.request("/api/teams/p2", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -359,7 +359,7 @@ describe("GET /api/products/:id", () => {
 			// costCap not set — null
 		});
 
-		const res = await ctx.app.request("/api/products/p3", {
+		const res = await ctx.app.request("/api/teams/p3", {
 			method: "GET",
 			headers: authHeaders(),
 		});
