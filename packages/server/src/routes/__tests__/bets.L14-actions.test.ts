@@ -290,13 +290,14 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			expect(body.title).toBe("Hello");
 		});
 
-		it("returns product name joined from products table", async () => {
+		// @lore U2: `product` field removed (clean cut). Now returns `team` only.
+		it("returns team name joined from teams table (formerly product name)", async () => {
 			const res = await app.request("/api/bets/bet1", {
 				method: "GET",
 				headers: authHeaders(),
 			});
-			const body = (await res.json()) as { product?: string };
-			expect(body.product).toBe("Alpha");
+			const body = (await res.json()) as { team?: string };
+			expect(body.team).toBe("Alpha");
 		});
 
 		it("returns team identifier joined from teams table", async () => {

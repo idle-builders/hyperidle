@@ -134,6 +134,13 @@
 			"when": 1782961000000,
 			"tag": "0018_U1_schema_migration",
 			"breakpoints": true
+		},
+		{
+			"idx": 19,
+			"version": "7",
+			"when": 1782961100000,
+			"tag": "0019_U2_at_risk_integer",
+			"breakpoints": true
 		}
 	]
 }

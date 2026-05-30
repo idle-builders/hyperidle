@@ -1,12 +1,10 @@
 /**
- * L13 — /api/products routes: composite team+teamMembers detail endpoint.
+ * U2 — /api/teams routes: composite team+teamMembers detail endpoint.
  *
- * GET /products         — list of all teams with portfolio counters
- * GET /products/:id     — full TeamDetail for a single team
- *
- * @lore L13: No /api/teams resource as a standalone collection. The team facet is
- * reached through the product URL, never as a standalone collection. The team id
- * is the public identifier (formerly product id).
+ * GET /teams         — list of all teams with portfolio counters
+ * GET /teams/:id     — full TeamDetail for a single team
+ * POST /teams        — create a new team with teamMembers + default agents
+ * PATCH /teams/:id   — update team phase
  *
  * @lore L13: The 500 on missing team_members (loadTeamMembers) is intentional. A
  * team without a team_members row is a programming bug. It surfaces loudly via the
@@ -15,6 +13,9 @@
  * @lore U1: Renamed from products.ts. All `products` references -> `teams`.
  * All `Product*` types -> `Team*`. `loadProductTeam` -> `loadTeamMembers`.
  * `pitchTitle` -> `descriptionTitle`. `deriveTitleFromPitch` -> `deriveTitle`.
+ *
+ * @lore U2: Mounted at /api/teams (renamed from /api/products). ID prefix changed
+ * from `product-` to `team-` for consistency with the domain rename.
  */
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
@@ -167,7 +168,8 @@ export function createTeamRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 		}
 
 		const now = new Date().toISOString();
-		const teamId = `product-${crypto.randomUUID()}`;
+		// @lore U2: ID prefix changed from `product-` to `team-` (domain rename).
+		const teamId = `team-${crypto.randomUUID()}`;
 		const teamMembersId = `team-${crypto.randomUUID()}`;
 		const builderId = `agent-builder-${crypto.randomUUID()}`;
 		const pmId = `agent-pm-${crypto.randomUUID()}`;
@@ -241,7 +243,9 @@ export function createTeamRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 		}
 
 		const { phase } = body as { phase?: string };
-		const VALID_PHASES = ["build", "live", "archived"] as const;
+		// @lore U2: valid phases per shared/team.ts and docs/requirements.
+		// "shape" | "build" | "cool-down" | "live" | "archived"
+		const VALID_PHASES = ["shape", "build", "cool-down", "live", "archived"] as const;
 		type TeamPhase = (typeof VALID_PHASES)[number];
 		if (!(phase && (VALID_PHASES as readonly string[]).includes(phase))) {
 			return c.json(
@@ -259,7 +263,8 @@ export function createTeamRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 		if (!updated) {
 			return c.json({ error: "Team not found after update", code: "internal_error" }, 500);
 		}
-		return c.json({ id: updated.id, name: updated.name, phase: updated.phase });
+		// @lore U2: wrap in { team } to match the expected response shape.
+		return c.json({ team: { id: updated.id, name: updated.name, phase: updated.phase } });
 	});
 
 	// GET /:teamId — full TeamDetail
