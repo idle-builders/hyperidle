@@ -31,6 +31,7 @@ import { SettingsNotifications } from "../settings/SettingsNotifications.js";
 import { SettingsOrgChart } from "../settings/SettingsOrgChart.js";
 import { SettingsProducts } from "../settings/SettingsProducts.js";
 import { SettingsProfile } from "../settings/SettingsProfile.js";
+import { SettingsWorker } from "../settings/SettingsWorker.js";
 import { SETTINGS_SECTIONS, type SettingsSectionId } from "../settings/settings-types.js";
 import { CocOverlay } from "../shell/CocOverlay";
 import { IconRail } from "../shell/IconRail";
@@ -248,6 +249,19 @@ export function AppShell(): JSX.Element {
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	// P4: active settings section — defaults to "profile" when settings opens.
 	const [activeSettingsSection, setActiveSettingsSection] = useState<SettingsSectionId>("profile");
+
+	// S4: worker section only visible in shared-mode Electron (architecture-critique W3).
+	// Filter SETTINGS_SECTIONS so "worker" only appears when the bridge reports shared mode.
+	const visibleSettingsSections = SETTINGS_SECTIONS.filter((section) => {
+		if (section.id === "worker") {
+			return (
+				typeof window !== "undefined" &&
+				window.__HYPERIDLE__ !== undefined &&
+				window.__HYPERIDLE__?.backendMode === "shared"
+			);
+		}
+		return true;
+	});
 
 	// L21: CoC overlay state.
 	const [cocOverlayOpen, setCocOverlayOpen] = useState(false);
@@ -626,9 +640,10 @@ export function AppShell(): JSX.Element {
 					filtersDisabled={settingsOpen ? false : filtersDisabled}
 				>
 					{settingsOpen ? (
-						// P4 AC-12: 7 settings section NavItems when settings overlay is open
+						// P4 AC-12: settings section NavItems when settings overlay is open
+						// S4: "worker" section filtered to shared-mode Electron only
 						<ul className="menu menu-sm">
-							{SETTINGS_SECTIONS.map((section) => (
+							{visibleSettingsSections.map((section) => (
 								<NavItem
 									key={section.id}
 									label={section.label}
@@ -742,6 +757,7 @@ export function AppShell(): JSX.Element {
 							{/* @lore U1: "products" section renamed to "teams". */}
 							{activeSettingsSection === "teams" && <SettingsProducts />}
 							{activeSettingsSection === "backend" && <SettingsBackend />}
+							{activeSettingsSection === "worker" && <SettingsWorker />}
 						</ErrorBoundary>
 					) : (
 						<CocContext.Provider value={cocContextValue}>

@@ -8,7 +8,8 @@
 		"./server-factory": "./src/server-factory.ts",
 		"./test-utils": "./src/test-utils.ts",
 		"./skill-tools": "./src/skill-tools/index.ts",
-		"./schemas": "./src/schemas/index.ts"
+		"./schemas": "./src/schemas/index.ts",
+		"./harness": "./src/harness/claude-agent-sdk-adapter.ts"
 	},
 	"scripts": {
 		"check": "tsc --noEmit",

@@ -20,7 +20,8 @@ export type SettingsSectionId =
 	| "notifications"
 	| "appearance"
 	| "teams"
-	| "backend";
+	| "backend"
+	| "worker";
 
 export interface SettingsSection {
 	id: SettingsSectionId;
@@ -36,6 +37,7 @@ export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
 	// @lore U1: "products" renamed to "teams".
 	{ id: "teams", label: "Teams" },
 	{ id: "backend", label: "Backend" },
+	{ id: "worker", label: "Worker" },
 ];
 
 // --- Settings data types ---
