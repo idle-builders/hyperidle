@@ -29,27 +29,34 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 			// are migration artifacts.
 			expect(tableNames).toEqual(
 				expect.arrayContaining([
+					// @lore P2: agents → users, agent_skills → user_skills
+					// @lore U1: `products` → `teams`; old `teams` → `team_members`
+					// @lore: `file_leases` was dropped in older migrations
 					"users",
 					"user_skills",
 					"bets",
 					"factory_settings",
 					"hint_progress",
+					"invite_codes",
 					"items",
 					"knowledge_edit_log",
 					"knowledge_items",
+					"login_sessions",
 					"messages",
-					"products",
 					"routines",
 					"server_config",
 					"server_credentials",
 					"sessions",
 					"tasks",
+					"team_members",
 					"teams",
 					"threads",
 				]),
 			);
 			expect(tableNames).not.toContain("responses");
-			expect(tableNames.length).toBeGreaterThanOrEqual(17);
+			// @lore U1: `products` renamed to `teams`
+			expect(tableNames).not.toContain("products");
+			expect(tableNames.length).toBeGreaterThanOrEqual(19);
 		} finally {
 			await close();
 		}
@@ -84,6 +91,9 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
  * asserting the row reads as FALSE (the safe default).
  */
 describe("I3 review C5: boolean migration is NULL-safe", () => {
+	// @lore S1: This test creates its own raw PGlite() instance (not pooled) to simulate
+	// the brownfield migration scenario. Even with warm WASM, PGlite instance init +
+	// DDL operations can take 30-60s. Timeout raised to 60s to prevent flaky failures.
 	it("a row with blocking=NULL pre-migration ends up as false post-migration", async () => {
 		// This is the brownfield scenario: a DB that ran the OLD 0003 (no
 		// inline boolean coercion) ends up with integer columns. Then 0004
@@ -120,9 +130,9 @@ describe("I3 review C5: boolean migration is NULL-safe", () => {
 		} finally {
 			await client.close();
 		}
-	});
+	}, 60_000);
 
-	it("default false applies to brand-new rows after migration", async () => {
+	it("default false applies to brand-new rows after migration", { timeout: 30_000 }, async () => {
 		const { db, close } = await createTestDb();
 		try {
 			await db.execute(
@@ -140,7 +150,9 @@ describe("I3 review C5: boolean migration is NULL-safe", () => {
 		}
 	});
 
-	it("0004 boolean coercion is a no-op on already-boolean columns (idempotent re-run)", async () => {
+	it("0004 boolean coercion is a no-op on already-boolean columns (idempotent re-run)", {
+		timeout: 30_000,
+	}, async () => {
 		// Apply all migrations once. Then re-apply only 0004 by reading the
 		// migration file directly and running its DO blocks. The DO blocks
 		// guard on `data_type='integer'` so re-run on already-boolean

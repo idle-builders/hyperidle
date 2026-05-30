@@ -31,11 +31,11 @@ import {
 	type HyperIdleDb,
 	items,
 	knowledgeItems,
-	products,
 	sessions,
 	type TestDbHandle,
 	taskStrategyFabric,
 	tasks,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -59,10 +59,9 @@ import {
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { AdapterPool } from "../harness/adapter-pool.js";
 import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
 import type { WorkspaceAdapter } from "../harness/workspace-adapter.js";
-// Importing from a not-yet-written module — RED phase. The green phase will
-// create this file; until then every test in this suite fails at import time.
 import {
 	type ProvisionSessionDeps,
 	type ProvisionSessionParams,
@@ -155,12 +154,32 @@ class ScriptedHarnessAdapter implements HarnessAdapter {
 
 	async stopSession(handle: SessionHandle): Promise<SessionResult> {
 		this.stoppedHandles.push(handle);
-		return this.config.stopResult ?? { outcome: "completed", totalTokens: 0, totalCost: 0 };
+		return (
+			this.config.stopResult ?? {
+				outcome: "completed",
+				cost: { minor: 0, currency: "USD" },
+				tokenUsage: { byTier: {} },
+			}
+		);
 	}
 
 	getCapabilities(): HarnessCapabilities {
-		return { preCompactionTrigger: true, subAgents: true };
+		return { preCompactionTrigger: true, subAgents: true, modelProviders: ["anthropic"] };
 	}
+}
+
+// --- Helper: wrap a HarnessAdapter in a single-adapter pool ------------------
+
+/** S2: wrap a HarnessAdapter in an AdapterPool for use in deps.adapterPool. */
+function makePool(adapter: HarnessAdapter): AdapterPool {
+	const pool = new AdapterPool();
+	pool.register("local", adapter, {
+		name: "local",
+		kind: "local",
+		modelProviders: ["anthropic"],
+		maxConcurrent: 4,
+	});
+	return pool;
 }
 
 // --- Fixture builders --------------------------------------------------------
@@ -176,21 +195,18 @@ interface SeedOverrides {
 const NOW = "2026-04-16T00:00:00.000Z";
 
 async function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): Promise<void> {
-	await db
-		.insert(products)
-		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
+	await db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
 
 	await db
-		.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 
 	await db.insert(bets).values({
 		id: "b1",
-		productId: "p1",
-		teamId: "t1",
-		pitch: "Test bet",
+		teamId: "p1",
+		description: "Test bet",
 		appetite: "small",
-		status: "committed",
+		status: "active",
 		createdAt: NOW,
 	});
 
@@ -210,8 +226,7 @@ async function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): Promi
 	await db.insert(tasks).values({
 		id: "task-1",
 		betId: "b1",
-		productId: "p1",
-		teamId: "t1",
+		teamId: "p1",
 		title: "Test task",
 		state: mainTaskState,
 		createdAt: NOW,
@@ -232,8 +247,7 @@ async function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): Promi
 		await db.insert(tasks).values({
 			id: `task-${i}`,
 			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
+			teamId: "p1",
 			title: `Task ${i}`,
 			state: "accepted",
 			createdAt: NOW,
@@ -335,10 +349,19 @@ describe("Session Provisioning (D5)", () => {
 						],
 					);
 				},
-				stopResult: { outcome: "completed", totalTokens: 70, totalCost: 0.01 },
+				stopResult: {
+					outcome: "completed",
+					cost: { minor: 1, currency: "USD" },
+					tokenUsage: { byTier: { workhorse: { prompt: 50, completion: 20 } } },
+				},
 			});
 
-			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
+			const deps: ProvisionSessionDeps = {
+				db,
+				eventBus,
+				adapterPool: makePool(harness),
+				workspace,
+			};
 			const result = await provisionSession(deps, baseParams(tmpDir));
 
 			// (a) session.state = 'done', outcome = 'completed'
@@ -415,7 +438,12 @@ describe("Session Provisioning (D5)", () => {
 				throwAfter: 1,
 			});
 
-			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
+			const deps: ProvisionSessionDeps = {
+				db,
+				eventBus,
+				adapterPool: makePool(harness),
+				workspace,
+			};
 			const result = await provisionSession(deps, baseParams(tmpDir));
 
 			expect(result.outcome).toBe("crashed");
@@ -451,7 +479,12 @@ describe("Session Provisioning (D5)", () => {
 			await seedDomain(db, { agentCostCap: 0 });
 
 			const harness = new ScriptedHarnessAdapter({ events: [] });
-			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
+			const deps: ProvisionSessionDeps = {
+				db,
+				eventBus,
+				adapterPool: makePool(harness),
+				workspace,
+			};
 
 			await expect(provisionSession(deps, baseParams(tmpDir))).rejects.toBeInstanceOf(
 				CostCapExceededError,
@@ -528,7 +561,11 @@ describe("Session Provisioning (D5)", () => {
 							],
 						);
 					},
-					stopResult: { outcome: "completed", totalTokens: 10, totalCost: 0.001 },
+					stopResult: {
+						outcome: "completed",
+						cost: { minor: 0, currency: "USD" },
+						tokenUsage: { byTier: { workhorse: { prompt: 7, completion: 3 } } },
+					},
 				});
 			}
 
@@ -541,10 +578,12 @@ describe("Session Provisioning (D5)", () => {
 			// start) overlap — we verify that independence holds.
 			const results: ProvisionSessionResult[] = await Promise.all(
 				taskIds.map((taskId, i) => {
+					const h = harnesses[i];
+					if (!h) throw new Error(`No harness at index ${i}`);
 					const deps: ProvisionSessionDeps = {
 						db,
 						eventBus,
-						harness: harnesses[i],
+						adapterPool: makePool(h),
 						workspace,
 					};
 					return provisionSession(deps, baseParams(tmpDir, { taskId }));
@@ -618,7 +657,12 @@ describe("Session Provisioning (D5)", () => {
 				transitions.push({ from: e.fromState, to: e.toState }),
 			);
 
-			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
+			const deps: ProvisionSessionDeps = {
+				db,
+				eventBus,
+				adapterPool: makePool(harness),
+				workspace,
+			};
 			await provisionSession(deps, baseParams(tmpDir));
 
 			// By the time startSession fires, the task must already be in_progress.
@@ -643,10 +687,19 @@ describe("Session Provisioning (D5)", () => {
 					{ type: "cost_update", totalCost: 0.03, deltaCost: 0.02 },
 					{ type: "cost_update", totalCost: 0.06, deltaCost: 0.03 },
 				],
-				stopResult: { outcome: "completed", totalTokens: 30, totalCost: 0.06 },
+				stopResult: {
+					outcome: "completed",
+					cost: { minor: 6, currency: "USD" },
+					tokenUsage: { byTier: { workhorse: { prompt: 20, completion: 10 } } },
+				},
 			});
 
-			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
+			const deps: ProvisionSessionDeps = {
+				db,
+				eventBus,
+				adapterPool: makePool(harness),
+				workspace,
+			};
 			const result = await provisionSession(deps, baseParams(tmpDir));
 
 			const [session] = await db.select().from(sessions).where(eq(sessions.id, result.sessionId));
@@ -672,10 +725,19 @@ describe("Session Provisioning (D5)", () => {
 					{ type: "cost_update", totalCost: 0.05, deltaCost: 0.05 },
 					{ type: "completion", text: "done" },
 				],
-				stopResult: { outcome: "completed", totalTokens: 0, totalCost: 0.05 },
+				stopResult: {
+					outcome: "completed",
+					cost: { minor: 5, currency: "USD" },
+					tokenUsage: { byTier: {} },
+				},
 			});
 
-			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
+			const deps: ProvisionSessionDeps = {
+				db,
+				eventBus,
+				adapterPool: makePool(harness),
+				workspace,
+			};
 			const result = await provisionSession(deps, baseParams(tmpDir));
 
 			// Exactly one breach event — agent-level.
@@ -701,10 +763,19 @@ describe("Session Provisioning (D5)", () => {
 					{ type: "cost_update", totalCost: 0.05, deltaCost: 0.05 },
 					{ type: "completion", text: "done" },
 				],
-				stopResult: { outcome: "completed", totalTokens: 0, totalCost: 0.05 },
+				stopResult: {
+					outcome: "completed",
+					cost: { minor: 5, currency: "USD" },
+					tokenUsage: { byTier: {} },
+				},
 			});
 
-			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
+			const deps: ProvisionSessionDeps = {
+				db,
+				eventBus,
+				adapterPool: makePool(harness),
+				workspace,
+			};
 			const result = await provisionSession(deps, baseParams(tmpDir));
 
 			expect(received).toHaveLength(1);
@@ -728,7 +799,12 @@ describe("Session Provisioning (D5)", () => {
 				throwAfter: 1,
 			});
 
-			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
+			const deps: ProvisionSessionDeps = {
+				db,
+				eventBus,
+				adapterPool: makePool(harness),
+				workspace,
+			};
 			await provisionSession(deps, baseParams(tmpDir));
 
 			expect(received).toHaveLength(1);
@@ -765,9 +841,18 @@ describe("Session Provisioning (D5)", () => {
 					{ type: "cost_update", totalCost: 0, deltaCost: 0 },
 					{ type: "completion", text: "done" },
 				],
-				stopResult: { outcome: "completed", totalTokens: 0, totalCost: 0 },
+				stopResult: {
+					outcome: "completed",
+					cost: { minor: 0, currency: "USD" },
+					tokenUsage: { byTier: {} },
+				},
 			});
-			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
+			const deps: ProvisionSessionDeps = {
+				db,
+				eventBus,
+				adapterPool: makePool(harness),
+				workspace,
+			};
 			// Invoking a non-existent tool throws inside registry.invoke →
 			// orchestrator marks crashed; the tool_call_recorded emit
 			// happens BEFORE the invoke, so the event is still fired.
@@ -802,10 +887,19 @@ describe("Session Provisioning (D5)", () => {
 						{ type: "cost_update", totalCost: 0.0, deltaCost: 0.0 },
 						{ type: "completion", text: "ok" },
 					],
-					stopResult: { outcome: "completed", totalTokens: 0, totalCost: 0 },
+					stopResult: {
+						outcome: "completed",
+						cost: { minor: 0, currency: "USD" },
+						tokenUsage: { byTier: {} },
+					},
 				});
 
-				const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
+				const deps: ProvisionSessionDeps = {
+					db,
+					eventBus,
+					adapterPool: makePool(harness),
+					workspace,
+				};
 				await provisionSession(deps, baseParams(tmpDir));
 
 				const reviewItems = await db.select().from(items).where(eq(items.threadId, "thread-1"));
@@ -842,7 +936,12 @@ describe("Session Provisioning (D5)", () => {
 			);
 
 			const harness = new ScriptedHarnessAdapter({ events: [] });
-			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace: failingWorkspace };
+			const deps: ProvisionSessionDeps = {
+				db,
+				eventBus,
+				adapterPool: makePool(harness),
+				workspace: failingWorkspace,
+			};
 
 			await expect(provisionSession(deps, baseParams(tmpDir))).rejects.toThrow(/ENOSPC/);
 
@@ -904,7 +1003,7 @@ describe("Session Provisioning (D5)", () => {
 			const deps: ProvisionSessionDeps = {
 				db,
 				eventBus,
-				harness,
+				adapterPool: makePool(harness),
 				workspace: failingWorkspace,
 			};
 
@@ -936,10 +1035,19 @@ describe("Session Provisioning (D5)", () => {
 					{ type: "cost_update", totalCost: 0.03, deltaCost: 0.03 },
 					{ type: "completion", text: "done" },
 				],
-				stopResult: { outcome: "completed", totalTokens: 0, totalCost: 0.03 },
+				stopResult: {
+					outcome: "completed",
+					cost: { minor: 3, currency: "USD" },
+					tokenUsage: { byTier: {} },
+				},
 			});
 
-			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
+			const deps: ProvisionSessionDeps = {
+				db,
+				eventBus,
+				adapterPool: makePool(harness),
+				workspace,
+			};
 			const result = await provisionSession(deps, baseParams(tmpDir));
 
 			const [session] = await db.select().from(sessions).where(eq(sessions.id, result.sessionId));
@@ -968,7 +1076,12 @@ describe("Session Provisioning (D5)", () => {
 				],
 			});
 
-			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
+			const deps: ProvisionSessionDeps = {
+				db,
+				eventBus,
+				adapterPool: makePool(harness),
+				workspace,
+			};
 			await expect(provisionSession(deps, baseParams(tmpDir))).rejects.toThrow(
 				/stopSession exploded/,
 			);
@@ -1003,8 +1116,7 @@ describe("Session Provisioning (D5)", () => {
 			await db.insert(tasks).values({
 				id: "task-fac",
 				betId: "b1",
-				productId: "p1",
-				teamId: "t1",
+				teamId: "p1",
 				title: "Facilitator task",
 				state: "accepted",
 				createdAt: NOW,
@@ -1016,10 +1128,19 @@ describe("Session Provisioning (D5)", () => {
 					{ type: "cost_update", totalCost: 0.0, deltaCost: 0.0 },
 					{ type: "completion", text: "ok" },
 				],
-				stopResult: { outcome: "completed", totalTokens: 0, totalCost: 0 },
+				stopResult: {
+					outcome: "completed",
+					cost: { minor: 0, currency: "USD" },
+					tokenUsage: { byTier: {} },
+				},
 			});
 
-			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
+			const deps: ProvisionSessionDeps = {
+				db,
+				eventBus,
+				adapterPool: makePool(harness),
+				workspace,
+			};
 			await provisionSession(
 				deps,
 				baseParams(tmpDir, { taskId: "task-fac", agentId: "agent-fac" }),
@@ -1045,10 +1166,19 @@ describe("Session Provisioning (D5)", () => {
 					{ type: "cost_update", totalCost: 0.0, deltaCost: 0.0 },
 					{ type: "completion", text: "ok" },
 				],
-				stopResult: { outcome: "completed", totalTokens: 0, totalCost: 0 },
+				stopResult: {
+					outcome: "completed",
+					cost: { minor: 0, currency: "USD" },
+					tokenUsage: { byTier: {} },
+				},
 			});
 
-			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
+			const deps: ProvisionSessionDeps = {
+				db,
+				eventBus,
+				adapterPool: makePool(harness),
+				workspace,
+			};
 			await provisionSession(deps, baseParams(tmpDir));
 
 			expect(harness.startedConfigs.length).toBe(1);
@@ -1081,7 +1211,12 @@ describe("Session Provisioning (D5)", () => {
 				.where(eq(users.id, "agent-1"));
 
 			const harness = new ScriptedHarnessAdapter({ events: [] });
-			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
+			const deps: ProvisionSessionDeps = {
+				db,
+				eventBus,
+				adapterPool: makePool(harness),
+				workspace,
+			};
 
 			await expect(provisionSession(deps, baseParams(tmpDir))).rejects.toThrow(
 				/soul_prompt_path escapes/,

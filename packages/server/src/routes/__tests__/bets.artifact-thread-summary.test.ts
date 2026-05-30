@@ -21,8 +21,8 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	messages,
-	products,
 	tasks,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -62,10 +62,11 @@ async function setupApp(): Promise<AppCtx> {
 
 	const now = new Date().toISOString();
 
-	await db.insert(products).values({ id: "p1", name: "P", phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now });
 	await db
-		.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+
 	await db.insert(users).values({
 		id: "u-founder",
 		name: "Founder",
@@ -73,6 +74,7 @@ async function setupApp(): Promise<AppCtx> {
 		status: "active",
 		createdAt: now,
 	});
+
 	await db.insert(users).values({
 		id: "agent-1",
 		name: "Agent",
@@ -88,11 +90,10 @@ async function insertBet(db: HyperIdleDb, betId: string): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(bets).values({
 		id: betId,
-		productId: "p1",
-		teamId: "t1",
-		pitch: "test pitch",
+		teamId: "p1",
+		description: "test pitch",
 		appetite: "small",
-		status: "in_progress",
+		status: "active",
 		createdAt: now,
 	});
 }
@@ -102,8 +103,7 @@ async function insertTask(db: HyperIdleDb, taskId: string, betId: string): Promi
 	await db.insert(tasks).values({
 		id: taskId,
 		betId,
-		productId: "p1",
-		teamId: "t1",
+		teamId: "p1",
 		title: `Task ${taskId}`,
 		state: "in_progress",
 		createdAt: now,

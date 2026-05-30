@@ -1,5 +1,8 @@
 import * as crypto from "node:crypto";
-import { type HyperIdleDb, items, teams, users } from "@hyperidle/db";
+// @lore U1: `teams` is the domain entity (no costActual/costCap columns).
+// Cost tracking uses `teamMembers` (the agent-membership group) which has costActual/costCap.
+// params.teamId in cost-cap service refers to the teamMembers.id, not teams.id.
+import { type HyperIdleDb, items, teamMembers, users } from "@hyperidle/db";
 import type { EventBus, SessionEndedEvent } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
 
@@ -118,14 +121,15 @@ async function getAgentSpend(db: HyperIdleDb, agentId: string): Promise<number> 
 /**
  * Sum session costs for all users in a team.
  *
- * @lore O2: reads teams.costActual, which is the running minor-unit total
+ * @lore O2: reads teamMembers.costActual, which is the running minor-unit total
  * accumulated across all users in the team for the current billing cycle.
+ * @lore U1: teamId here refers to teamMembers.id (the membership group), not teams.id (domain entity).
  */
 async function getTeamSpend(db: HyperIdleDb, teamId: string): Promise<number> {
 	const [row] = await db
-		.select({ costActual: teams.costActual })
-		.from(teams)
-		.where(eq(teams.id, teamId))
+		.select({ costActual: teamMembers.costActual })
+		.from(teamMembers)
+		.where(eq(teamMembers.id, teamId))
 		.limit(1);
 	return row?.costActual ?? 0;
 }
@@ -169,8 +173,13 @@ export async function checkCostCap(
 	}
 
 	// 2. Check team cap
+	// @lore U1: params.teamId is a teamMembers.id (membership group), not teams.id (domain entity).
 	if (params.teamId) {
-		const [team] = await db.select().from(teams).where(eq(teams.id, params.teamId)).limit(1);
+		const [team] = await db
+			.select()
+			.from(teamMembers)
+			.where(eq(teamMembers.id, params.teamId))
+			.limit(1);
 		// L17: prefer costCapMinor (new column) over costCap (legacy)
 		const teamCap = team?.costCapMinor ?? team?.costCap;
 		if (teamCap != null) {
@@ -224,11 +233,12 @@ export async function recordCostAndCheck(
 			.where(eq(users.id, params.agentId));
 
 		// Accumulate on team if provided
+		// @lore U1: params.teamId is a teamMembers.id (membership group), not teams.id (domain entity).
 		if (params.teamId) {
 			await db
-				.update(teams)
-				.set({ costActual: sql`coalesce(${teams.costActual}, 0) + ${effectiveCostMinor}` })
-				.where(eq(teams.id, params.teamId));
+				.update(teamMembers)
+				.set({ costActual: sql`coalesce(${teamMembers.costActual}, 0) + ${effectiveCostMinor}` })
+				.where(eq(teamMembers.id, params.teamId));
 		}
 	}
 
@@ -259,8 +269,13 @@ export async function recordCostAndCheck(
 	}
 
 	// Check team cap
+	// @lore U1: params.teamId is a teamMembers.id (membership group), not teams.id (domain entity).
 	if (params.teamId) {
-		const [team] = await db.select().from(teams).where(eq(teams.id, params.teamId)).limit(1);
+		const [team] = await db
+			.select()
+			.from(teamMembers)
+			.where(eq(teamMembers.id, params.teamId))
+			.limit(1);
 		// L17: prefer costCapMinor (new column) over costCap (legacy)
 		const teamCap = team?.costCapMinor ?? team?.costCap;
 		if (teamCap != null) {
@@ -404,7 +419,6 @@ async function createReviewItem(
  * teamId string (new simplified API). The string form is equivalent to
  * `{ level: "team", id: teamId }` and resets both costMinor and cost columns.
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: cost reset branching across agent/team/factory scopes with dedup cleanup
 export async function resetCosts(
 	db: HyperIdleDb,
 	params: ResetCostsParams | string,
@@ -443,14 +457,18 @@ export async function resetCosts(
 		}
 		case "team": {
 			if (!normalizedParams.id) throw new Error("Team ID required for team reset");
-			await db.update(teams).set({ costActual: 0 }).where(eq(teams.id, normalizedParams.id));
+			// @lore U1: teamId here is a teamMembers.id (membership group), not teams.id (domain entity).
+			await db
+				.update(teamMembers)
+				.set({ costActual: 0 })
+				.where(eq(teamMembers.id, normalizedParams.id));
 			break;
 		}
 		case "factory": {
 			// eslint-disable-next-line drizzle/enforce-update-with-where -- intentional: factory reset clears ALL rows
 			await db.update(users).set({ costActual: 0 });
 			// eslint-disable-next-line drizzle/enforce-update-with-where -- intentional: factory reset clears ALL rows
-			await db.update(teams).set({ costActual: 0 });
+			await db.update(teamMembers).set({ costActual: 0 });
 			break;
 		}
 	}

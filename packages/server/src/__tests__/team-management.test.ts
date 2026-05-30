@@ -2,11 +2,11 @@ import {
 	bets,
 	createTestDb,
 	type HyperIdleDb,
-	products,
 	routines,
 	sessions,
 	type TestDbHandle,
 	tasks,
+	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -26,7 +26,7 @@ const NOW = "2026-04-15T00:00:00.000Z";
 
 async function seedProduct(db: HyperIdleDb): Promise<void> {
 	await db
-		.insert(products)
+		.insert(teams)
 		.values({ id: "prod-1", name: "TestProduct", phase: "build", createdAt: NOW });
 }
 
@@ -58,13 +58,14 @@ describe("C4: Team Management", () => {
 			await seedAgent(db, "a3");
 
 			const team = await createTeam(db, {
-				productId: "prod-1",
+				teamId: "prod-1",
 				capacity: 5,
 				agentIds: ["a1", "a2", "a3"],
 			});
 
 			expect(team).toBeDefined();
-			expect(team.productId).toBe("prod-1");
+			// @lore U1: teamMembers.teamId references teams.id (domain entity, formerly productId)
+			expect(team.teamId).toBe("prod-1");
 			expect(team.capacity).toBe(5);
 			expect(team.activeBets).toBe(0);
 			expect(team.dissolvedAt).toBeNull();
@@ -82,7 +83,7 @@ describe("C4: Team Management", () => {
 			await seedAgent(db, "a1");
 
 			const team = await createTeam(db, {
-				productId: "prod-1",
+				teamId: "prod-1",
 				capacity: 3,
 				leadAgentId: "a1",
 				agentIds: ["a1"],
@@ -96,7 +97,7 @@ describe("C4: Team Management", () => {
 		it("updates agent team_id to the target team", async () => {
 			await seedAgent(db, "a1");
 			const team = await createTeam(db, {
-				productId: "prod-1",
+				teamId: "prod-1",
 				capacity: 5,
 				agentIds: [],
 			});
@@ -112,7 +113,7 @@ describe("C4: Team Management", () => {
 		it("throws ActiveRoutinesError when agent has active routines", async () => {
 			await seedAgent(db, "a1");
 			const team = await createTeam(db, {
-				productId: "prod-1",
+				teamId: "prod-1",
 				capacity: 5,
 				agentIds: ["a1"],
 			});
@@ -130,7 +131,7 @@ describe("C4: Team Management", () => {
 		it("removes member successfully when no active routines", async () => {
 			await seedAgent(db, "a1");
 			const team = await createTeam(db, {
-				productId: "prod-1",
+				teamId: "prod-1",
 				capacity: 5,
 				agentIds: ["a1"],
 			});
@@ -144,7 +145,7 @@ describe("C4: Team Management", () => {
 		it("allows removal when agent has only inactive routines", async () => {
 			await seedAgent(db, "a1");
 			const team = await createTeam(db, {
-				productId: "prod-1",
+				teamId: "prod-1",
 				capacity: 5,
 				agentIds: ["a1"],
 			});
@@ -167,26 +168,28 @@ describe("C4: Team Management", () => {
 		it("returns capacity - activeBets", async () => {
 			await seedAgent(db, "a1");
 			const team = await createTeam(db, {
-				productId: "prod-1",
+				teamId: "prod-1",
 				capacity: 5,
 				agentIds: ["a1"],
 			});
 
 			expect(await getAvailableCapacity(db, team.id)).toBe(5);
 
-			await db.update(teams).set({ activeBets: 3 }).where(eq(teams.id, team.id));
+			// @lore U1: activeBets is on teamMembers (membership group), not teams (domain entity)
+			await db.update(teamMembers).set({ activeBets: 3 }).where(eq(teamMembers.id, team.id));
 
 			expect(await getAvailableCapacity(db, team.id)).toBe(2);
 		});
 
 		it("returns 0 when at capacity", async () => {
 			const team = await createTeam(db, {
-				productId: "prod-1",
+				teamId: "prod-1",
 				capacity: 2,
 				agentIds: [],
 			});
 
-			await db.update(teams).set({ activeBets: 2 }).where(eq(teams.id, team.id));
+			// @lore U1: activeBets is on teamMembers (membership group), not teams (domain entity)
+			await db.update(teamMembers).set({ activeBets: 2 }).where(eq(teamMembers.id, team.id));
 
 			expect(await getAvailableCapacity(db, team.id)).toBe(0);
 		});
@@ -197,14 +200,19 @@ describe("C4: Team Management", () => {
 			await seedAgent(db, "a1");
 			await seedAgent(db, "a2");
 			const team = await createTeam(db, {
-				productId: "prod-1",
+				teamId: "prod-1",
 				capacity: 5,
 				agentIds: ["a1", "a2"],
 			});
 
 			await dissolveTeam(db, team.id);
 
-			const [dissolved] = await db.select().from(teams).where(eq(teams.id, team.id));
+			// @lore U1: dissolvedAt is on teamMembers (membership group), not teams (domain entity)
+			const [dissolved] = await db
+				.select()
+				.from(teamMembers)
+				.where(eq(teamMembers.id, team.id))
+				.limit(1);
 			expect(dissolved?.dissolvedAt).not.toBeNull();
 
 			const [a1] = await db.select().from(users).where(eq(users.id, "a1"));
@@ -219,27 +227,26 @@ describe("C4: Team Management", () => {
 			await seedAgent(db, "a1");
 			await seedAgent(db, "a2");
 			const team = await createTeam(db, {
-				productId: "prod-1",
+				teamId: "prod-1",
 				capacity: 5,
 				agentIds: ["a1", "a2"],
 			});
 
 			// Need a bet and task for sessions (FK constraints)
+			// @lore U1: bets.teamId and tasks.teamId reference teams.id (domain entity = "prod-1"),
+			// NOT teamMembers.id (membership group = team.id)
 			await db.insert(bets).values({
 				id: "bet-1",
-				productId: "prod-1",
-				teamId: team.id,
-				pitch: "Test bet",
+				teamId: "prod-1",
+				description: "Test bet",
 				appetite: "2w",
-				status: "shaped",
+				status: "draft",
 				createdAt: NOW,
 			});
-
 			await db.insert(tasks).values({
 				id: "task-1",
 				betId: "bet-1",
-				productId: "prod-1",
-				teamId: team.id,
+				teamId: "prod-1",
 				title: "Test task",
 				state: "in_progress",
 				createdAt: NOW,
@@ -272,7 +279,7 @@ describe("C4: Team Management", () => {
 
 		it("returns 0 when no agents in team", async () => {
 			const team = await createTeam(db, {
-				productId: "prod-1",
+				teamId: "prod-1",
 				capacity: 5,
 				agentIds: [],
 			});
@@ -285,7 +292,7 @@ describe("C4: Team Management", () => {
 	describe("capacity enforcement", () => {
 		it("capacity 0 means no availability for new bets", async () => {
 			const team = await createTeam(db, {
-				productId: "prod-1",
+				teamId: "prod-1",
 				capacity: 0,
 				agentIds: [],
 			});
@@ -295,12 +302,13 @@ describe("C4: Team Management", () => {
 
 		it("full capacity returns 0 available", async () => {
 			const team = await createTeam(db, {
-				productId: "prod-1",
+				teamId: "prod-1",
 				capacity: 3,
 				agentIds: [],
 			});
 
-			await db.update(teams).set({ activeBets: 3 }).where(eq(teams.id, team.id));
+			// @lore U1: activeBets is on teamMembers (membership group), not teams (domain entity)
+			await db.update(teamMembers).set({ activeBets: 3 }).where(eq(teamMembers.id, team.id));
 
 			expect(await getAvailableCapacity(db, team.id)).toBe(0);
 		});

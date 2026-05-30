@@ -21,11 +21,16 @@ export interface SettingsProfile {
 	readonly avatarUrl: string | null;
 }
 
-/** Product entry in settings response. */
-export interface SettingsProduct {
+/**
+ * Team entry in settings response (formerly SettingsProduct).
+ *
+ * @lore U1: Renamed from SettingsProduct to SettingsTeam. The underlying data
+ * is still fetched from the `teams` table (formerly `products`).
+ */
+export interface SettingsTeam {
 	readonly id: string;
 	readonly name: string;
-	/** Derived from product.phase !== "archived". */
+	/** Derived from team.phase !== "archived". */
 	readonly active: boolean;
 }
 
@@ -52,13 +57,16 @@ export interface SettingsNotifications {
 	readonly quietHoursStart: string;
 	/** "HH:MM" format. */
 	readonly quietHoursEnd: string;
-	readonly mutedProducts: readonly string[];
+	// @lore U1: renamed from mutedProducts. Zod default([]) means old stored JSON
+	// with mutedProducts key gracefully degrades to empty array.
+	readonly mutedTeams: readonly string[];
 }
 
 /** Response shape for GET /api/settings. */
 export interface SettingsResponse {
 	readonly profile: SettingsProfile;
-	readonly products: readonly SettingsProduct[];
+	// @lore U1: renamed from `products` to `teams`.
+	readonly teams: readonly SettingsTeam[];
 	/** P2: renamed from `agents`. Contains AI users only. */
 	readonly users: readonly SettingsUser[];
 	readonly notifications: SettingsNotifications;

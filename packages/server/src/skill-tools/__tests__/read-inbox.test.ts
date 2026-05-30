@@ -4,7 +4,7 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	messages,
-	products,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -16,10 +16,11 @@ import type { ToolContext } from "../tool-registry.js";
 
 async function seedFactory(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(products).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
 	await db
-		.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+
 	await db.insert(users).values([
 		{
 			id: "agent-a",
@@ -40,6 +41,7 @@ async function seedFactory(db: HyperIdleDb): Promise<void> {
 			createdAt: now,
 		},
 	]);
+
 	// L1a: thread participants now drive inbox routing (no more
 	// messages.recipient_id). Thread A↔B serves the agent-a and agent-b
 	// inboxes; thread A↔(orphan) is for the "addressed to other agents" test.

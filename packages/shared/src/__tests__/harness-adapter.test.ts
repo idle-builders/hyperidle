@@ -107,6 +107,7 @@ describe("HarnessAdapter interface (D1)", () => {
 			expect(caps).toEqual({
 				preCompactionTrigger: true,
 				subAgents: true,
+				modelProviders: ["anthropic"],
 			});
 		});
 

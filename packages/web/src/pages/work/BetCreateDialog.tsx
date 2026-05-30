@@ -1,9 +1,10 @@
 /**
- * BetCreateDialog — Q3 bet creation flow.
+ * BetCreateDialog — bet creation flow.
  *
- * Opens as a native <dialog> (same pattern as KnowledgeCreateDialog in Q2).
- * Fields: product select, pitch textarea (h-40), title preview, optional appetite
- * (amount + currency). The dialog validates: product required, pitch non-empty.
+ * Opens as a native <dialog>. Fields: optional team select (shown only when
+ * multiple teams exist), description textarea, title preview.
+ * The dialog validates: team required (auto-resolved for single team),
+ * description non-empty.
  *
  * @lore Q3 W-1: buttons use btn-sm with min-h-[44px] to meet AQ-015 44px touch
  * target floor. btn-xs is forbidden.
@@ -14,23 +15,19 @@
  * @lore Q3 W-3: deriveTitleFromPitch imported from @hyperidle/shared to share
  * the same logic with the server canvas endpoint.
  *
- * @lore Q3 S-4: appetite amount input uses step="any" (not step="1") to allow
- * decimal amounts like $12.50. Major-to-minor conversion: minor = amount * 10^scale.
+ * @lore R2: appetite fields removed per spec. Team select hidden when only
+ * one team exists — teamId auto-resolved to the single team.
+ * Submit payload no longer includes costAppetite.
  *
- * @lore Q3 reviewer: mobile dialog sizing — min-w-[320px] max-w-[480px] w-full.
- * Inputs are text-base (16px) to prevent iOS Safari zoom on focus.
+ * @lore U1: Renamed `products`/`productId` → `teams`/`teamId`; `pitch` →
+ * `description` in the submit payload to match the U1 schema rename.
  */
 
-import {
-	CURRENCY_CODES,
-	CURRENCY_SCALE,
-	type CurrencyCode,
-	deriveTitleFromPitch,
-} from "@hyperidle/shared";
+import { deriveTitleFromPitch } from "@hyperidle/shared";
 import { type JSX, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../../services/api-fetch.js";
 
-export interface BetProduct {
+export interface BetTeam {
 	id: string;
 	name: string;
 }
@@ -39,27 +36,31 @@ export interface BetCreateDialogProps {
 	open: boolean;
 	onClose: () => void;
 	onCreated: () => void;
-	/** List of products to display in the product select. */
-	products: BetProduct[];
+	/** List of teams to display in the team select. */
+	teams: BetTeam[];
 }
 
 export function BetCreateDialog({
 	open,
 	onClose,
 	onCreated,
-	products,
+	teams,
 }: BetCreateDialogProps): JSX.Element | null {
 	const dialogRef = useRef<HTMLDialogElement>(null);
 
-	const [productId, setProductId] = useState("");
-	const [pitch, setPitch] = useState("");
-	const [appetiteAmount, setAppetiteAmount] = useState("");
-	const [appetiteCurrency, setAppetiteCurrency] = useState<CurrencyCode>("USD");
+	// R2: teamId only needed when multiple teams exist
+	const [teamId, setTeamId] = useState("");
+	const [description, setDescription] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	const derivedTitle = pitch.trim() ? deriveTitleFromPitch(pitch, "") : "";
-	const canCreate = productId.trim().length > 0 && pitch.trim().length > 0 && !submitting;
+	// R2: when only one team, auto-resolve; otherwise use the select value
+	const singleTeam = teams.length === 1;
+	const resolvedTeamId = singleTeam ? (teams[0]?.id ?? "") : teamId;
+
+	const derivedTitle = description.trim() ? deriveTitleFromPitch(description, "") : "";
+	const canCreate =
+		resolvedTeamId.trim().length > 0 && description.trim().length > 0 && !submitting;
 
 	// Sync the native dialog open/closed state with the `open` prop.
 	// @lore Q3: same JSDOM guard as KnowledgeCreateDialog — showModal() is not
@@ -68,10 +69,8 @@ export function BetCreateDialog({
 		if (!dialogRef.current) return;
 		if (open) {
 			// Reset form state on open.
-			setProductId("");
-			setPitch("");
-			setAppetiteAmount("");
-			setAppetiteCurrency("USD");
+			setTeamId("");
+			setDescription("");
 			setError(null);
 			setSubmitting(false);
 			if (!dialogRef.current.open) {
@@ -91,29 +90,16 @@ export function BetCreateDialog({
 	}, [open]);
 
 	const handleSubmit = async (): Promise<void> => {
-		const trimmedPitch = pitch.trim();
-		const trimmedProductId = productId.trim();
-		if (!(trimmedPitch && trimmedProductId)) return;
+		const trimmedDescription = description.trim();
+		if (!(trimmedDescription && resolvedTeamId.trim())) return;
 
 		setSubmitting(true);
 		setError(null);
 
-		// Build costAppetite payload — omit when amount is empty or zero.
-		let costAppetite: { minor: number; currency: CurrencyCode } | undefined;
-		const parsedAmount = Number.parseFloat(appetiteAmount);
-		if (appetiteAmount.trim() && !Number.isNaN(parsedAmount) && parsedAmount > 0) {
-			const scale = CURRENCY_SCALE[appetiteCurrency];
-			const minor = Math.round(parsedAmount * 10 ** scale);
-			costAppetite = { minor, currency: appetiteCurrency };
-		}
-
 		const payload: Record<string, unknown> = {
-			productId: trimmedProductId,
-			pitch: trimmedPitch,
+			teamId: resolvedTeamId,
+			description: trimmedDescription,
 		};
-		if (costAppetite) {
-			payload.costAppetite = costAppetite;
-		}
 
 		const res = await apiFetch("/api/bets", {
 			method: "POST",
@@ -145,38 +131,40 @@ export function BetCreateDialog({
 			    cause `getByText` to find duplicate text in tests. */}
 			{open && (
 				<div className="p-4 flex flex-col gap-3 min-w-[320px] max-w-[480px] w-full">
-					<h2 className="text-sm font-heading font-semibold uppercase tracking-wider">New pitch</h2>
+					<h2 className="text-sm font-heading font-semibold uppercase tracking-wider">New bet</h2>
 
-					{/* Product select */}
+					{/* R2: Team select — only shown when multiple teams exist */}
+					{teams.length > 1 && (
+						<label className="flex flex-col gap-1">
+							<span className="text-xs text-[var(--text-lo)]">
+								Team <span aria-hidden>(required)</span>
+							</span>
+							<select
+								className="select select-bordered select-sm text-base w-full"
+								value={teamId}
+								onChange={(e) => setTeamId(e.target.value)}
+								disabled={submitting}
+							>
+								<option value="">Select a team…</option>
+								{teams.map((t) => (
+									<option key={t.id} value={t.id}>
+										{t.name}
+									</option>
+								))}
+							</select>
+						</label>
+					)}
+
+					{/* Description textarea */}
 					<label className="flex flex-col gap-1">
 						<span className="text-xs text-[var(--text-lo)]">
-							Product <span aria-hidden>(required)</span>
-						</span>
-						<select
-							className="select select-bordered select-sm text-base w-full"
-							value={productId}
-							onChange={(e) => setProductId(e.target.value)}
-							disabled={submitting}
-						>
-							<option value="">Select a product…</option>
-							{products.map((p) => (
-								<option key={p.id} value={p.id}>
-									{p.name}
-								</option>
-							))}
-						</select>
-					</label>
-
-					{/* Pitch textarea */}
-					<label className="flex flex-col gap-1">
-						<span className="text-xs text-[var(--text-lo)]">
-							Pitch <span aria-hidden>(required)</span>
+							Description <span aria-hidden>(required)</span>
 						</span>
 						<textarea
 							className="textarea textarea-bordered text-base resize-none h-40 w-full"
 							placeholder="Describe the bet in markdown…"
-							value={pitch}
-							onChange={(e) => setPitch(e.target.value)}
+							value={description}
+							onChange={(e) => setDescription(e.target.value)}
 							disabled={submitting}
 						/>
 					</label>
@@ -190,41 +178,6 @@ export function BetCreateDialog({
 						>
 							{derivedTitle || "—"}
 						</p>
-					</div>
-
-					{/* Appetite — optional */}
-					<div className="flex gap-2">
-						<label className="flex flex-col gap-1 flex-1">
-							<span className="text-xs text-[var(--text-lo)]">Appetite amount</span>
-							<input
-								type="number"
-								name="appetite-amount"
-								className="input input-bordered input-sm text-base w-full"
-								placeholder="0.00"
-								aria-label="Appetite amount"
-								value={appetiteAmount}
-								step="any"
-								min="0"
-								onChange={(e) => setAppetiteAmount(e.target.value)}
-								disabled={submitting}
-							/>
-						</label>
-						<label className="flex flex-col gap-1">
-							<span className="text-xs text-[var(--text-lo)]">Currency</span>
-							<select
-								className="select select-bordered select-sm text-base"
-								aria-label="Currency"
-								value={appetiteCurrency}
-								onChange={(e) => setAppetiteCurrency(e.target.value as CurrencyCode)}
-								disabled={submitting}
-							>
-								{CURRENCY_CODES.map((code) => (
-									<option key={code} value={code}>
-										{code}
-									</option>
-								))}
-							</select>
-						</label>
 					</div>
 
 					{error && (

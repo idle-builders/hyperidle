@@ -2,10 +2,10 @@ import {
 	bets,
 	createTestDb,
 	type HyperIdleDb,
-	products,
 	sessions,
 	type TestDbHandle,
 	tasks,
+	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -46,17 +46,18 @@ async function seedAgentWithCap(
 		productId,
 		costCap,
 	}: { agentId: string; teamId: string; productId: string; costCap: number },
-): Promise<void> {
+): void {
+	// @lore U1: teams = domain entity (formerly products), teamMembers = membership group.
 	await db
-		.insert(products)
+		.insert(teams)
 		.values({ id: productId, name: `P-${productId}`, phase: "build", createdAt: NOW })
 		.onConflictDoNothing();
 
 	await db
-		.insert(teams)
+		.insert(teamMembers)
 		.values({
 			id: teamId,
-			productId,
+			teamId: productId,
 			capacity: 5,
 			activeBets: 0,
 			costCap: 1_000_000, // very high so team breach doesn't dominate
@@ -89,27 +90,27 @@ async function seedSession(
 		teamId,
 		productId,
 	}: { sessionId: string; agentId: string; teamId: string; productId: string },
-): Promise<void> {
+): void {
+	// @lore U1: bets.teamId references teams.id (domain entity = productId), not teamMembers.id.
 	await db
 		.insert(bets)
 		.values({
 			id: `bet-${sessionId}`,
-			productId,
-			teamId,
-			pitch: "x",
+			teamId: productId,
+			description: "x",
 			appetite: "small",
-			status: "committed",
+			status: "active",
 			createdAt: NOW,
 		})
 		.onConflictDoNothing();
 
+	// @lore U1: tasks.teamId references teams.id (domain entity = productId), not teamMembers.id.
 	await db
 		.insert(tasks)
 		.values({
 			id: `task-${sessionId}`,
 			betId: `bet-${sessionId}`,
-			productId,
-			teamId,
+			teamId: productId,
 			title: "T",
 			state: "in_progress",
 			createdAt: NOW,

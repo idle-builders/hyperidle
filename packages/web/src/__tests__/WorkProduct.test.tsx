@@ -12,15 +12,22 @@ import { describe, expect, it } from "vitest";
 // Import the page — it doesn't exist yet so this test will fail until green phase.
 import { WorkProduct } from "../pages/WorkProduct";
 
+/**
+ * @lore U1: TeamDetail shape replaces ProductDetail.
+ * - `product` → `team` (TeamSummary)
+ * - `team` → `teamMembers` (membership group)
+ * - `pitchTitle` → `descriptionTitle`
+ * - `status: "committed"` → `status: "active"`
+ */
 const MOCK_PRODUCT_DETAIL = {
-	product: {
+	team: {
 		id: "p1",
 		name: "HyperIdle Core",
 		phase: "build",
 		status: "healthy",
 		leadAgentId: "agent-lead",
 	},
-	team: { id: "t1", formedAt: "2024-01-01T00:00:00.000Z", dissolvedAt: null },
+	teamMembers: { id: "t1", formedAt: "2024-01-01T00:00:00.000Z", dissolvedAt: null },
 	roster: [
 		{ agentId: "agent-lead", name: "Lead Agent", role: "lead", isLead: true },
 		{ agentId: "agent-member", name: "Alice Agent", role: "member", isLead: false },
@@ -35,9 +42,11 @@ const MOCK_PRODUCT_DETAIL = {
 	activeBets: [
 		{
 			id: "b1",
-			pitchTitle: "Auth migration",
+			// @lore U1: descriptionTitle (formerly pitchTitle)
+			descriptionTitle: "Auth migration",
 			costAppetite: { minor: 20000, currency: "USD" },
-			status: "committed",
+			// @lore U1: "committed" merged into "active"
+			status: "active",
 			progressDone: 1,
 			progressTotal: 2,
 		},

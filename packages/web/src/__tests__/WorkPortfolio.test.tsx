@@ -1,13 +1,15 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkPortfolio } from "../pages/WorkPortfolio";
 
 // M3 G1: MOCK_PRODUCTS removed — mock useProducts for tests that need product cards.
+// @lore U1: TeamListResponse uses `teams` array (renamed from `products`).
 vi.mock("../hooks/useProducts", () => ({
 	useProducts: vi.fn().mockReturnValue({
 		data: {
-			products: [
+			teams: [
 				{
 					id: "p1",
 					name: "HyperIdle Core",
@@ -33,6 +35,30 @@ vi.mock("../hooks/useProducts", () => ({
 	}),
 }));
 
+// R2: mock useCanvasBets so we can control empty vs non-empty state
+const mockUseCanvasBets = vi.fn().mockReturnValue({
+	bets: [],
+	capacity: { used: 0, max: 2 },
+	loading: false,
+	error: null,
+	refresh: vi.fn(),
+});
+vi.mock("../hooks/useCanvasBets", () => ({
+	useCanvasBets: (...args: unknown[]) => mockUseCanvasBets(...args),
+}));
+
+afterEach(() => {
+	vi.clearAllMocks();
+	// Reset to empty bets (default)
+	mockUseCanvasBets.mockReturnValue({
+		bets: [],
+		capacity: { used: 0, max: 2 },
+		loading: false,
+		error: null,
+		refresh: vi.fn(),
+	});
+});
+
 function renderPage(): ReturnType<typeof render> {
 	return render(
 		<MemoryRouter>
@@ -47,22 +73,14 @@ describe("WorkPortfolio", () => {
 		expect(screen.getByTestId("work-portfolio-page")).toBeInTheDocument();
 	});
 
-	// I4 P1 supersedes the previous "Portfolio Canvas" tests — Portfolio is
-	// now a product overview, not a bet canvas. The detailed assertions live
-	// in the spec-alignment block below.
 	it("renders a Portfolio heading", () => {
 		renderPage();
 		expect(screen.getByRole("heading", { name: /^portfolio$/i })).toBeInTheDocument();
 	});
 
 	describe("spec alignment (I4 P1)", () => {
-		// WorkPortfolio must render a portfolio overview (product status cards
-		// and portfolio metrics), NOT the bet Canvas directly.
 		it("renders a Portfolio heading (not 'Portfolio Canvas')", () => {
 			renderPage();
-			// Either plain "Portfolio" or something containing it, but
-			// explicitly not the "Portfolio Canvas" phrase that the old page
-			// used.
 			expect(screen.queryByText(/portfolio canvas/i)).not.toBeInTheDocument();
 			expect(screen.getByText(/^portfolio$/i)).toBeInTheDocument();
 		});
@@ -73,25 +91,63 @@ describe("WorkPortfolio", () => {
 			expect(cards.length).toBeGreaterThan(0);
 		});
 
-		it("does not render the bet Canvas", () => {
-			// I4 P1: the Canvas belongs in WorkTeam, not WorkPortfolio.
-			const { container } = render(
-				<MemoryRouter>
-					<WorkPortfolio />
-				</MemoryRouter>,
-			);
-			// Canvas emits a DroppableColumn with data-droppable="shaped".
-			expect(container.querySelector("[data-droppable='shaped']")).toBeNull();
-			expect(container.querySelector("[data-droppable='committed']")).toBeNull();
-		});
-
 		it("each product card exposes a name and a StatusChip", () => {
 			renderPage();
 			const cards = screen.getAllByTestId("product-card");
 			for (const card of cards) {
-				// Each card must contain a StatusChip (renders .rounded-full)
 				expect(card.querySelector(".rounded-full")).not.toBeNull();
 			}
+		});
+	});
+
+	// R2 AC-7: "Create bet" CTA visible and prominent when no bets exist
+	describe("R2 AC7 — Create bet CTA", () => {
+		it("renders Create bet CTA when products exist but no bets", () => {
+			// useCanvasBets returns empty bets (default mock — bets: [])
+			// useProducts returns 2 products (default mock above)
+			renderPage();
+			expect(screen.getByTestId("create-bet-cta")).toBeInTheDocument();
+		});
+
+		it("Create bet CTA contains a 'Create bet' button", () => {
+			renderPage();
+			expect(screen.getByRole("button", { name: /create bet/i })).toBeInTheDocument();
+		});
+
+		it("Create bet CTA opens BetCreateDialog when clicked", async () => {
+			const user = userEvent.setup();
+			renderPage();
+
+			const createBetBtn = screen.getByRole("button", { name: /create bet/i });
+			await user.click(createBetBtn);
+
+			// Dialog should be open — look for the dialog element
+			const dialog = screen.getByRole("dialog");
+			expect(dialog).toBeInTheDocument();
+		});
+
+		it("Create bet CTA is hidden when bets exist", () => {
+			// Override: canvas has a bet
+			mockUseCanvasBets.mockReturnValueOnce({
+				bets: [
+					{
+						id: "bet-1",
+						title: "Existing Bet",
+						product: "HyperIdle Core",
+						productId: "p1",
+						status: "shaped",
+						appetite: "—",
+					},
+				],
+				capacity: { used: 1, max: 2 },
+				loading: false,
+				error: null,
+				refresh: vi.fn(),
+			});
+
+			renderPage();
+			// CTA should not be present when bets exist
+			expect(screen.queryByTestId("create-bet-cta")).not.toBeInTheDocument();
 		});
 	});
 });

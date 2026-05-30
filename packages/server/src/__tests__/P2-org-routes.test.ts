@@ -16,8 +16,7 @@ import {
 	type HyperIdleDb,
 	// P2: import new symbols — compile error until implementation done
 	orgEdges,
-	products,
-	type TestDbHandle,
+	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -47,12 +46,14 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 		app = await createTestApp({ db, eventBus });
 
 		// Seed prerequisite data
+		// @lore U1: teams is the domain entity (formerly products).
 		await db
-			.insert(products)
+			.insert(teams)
 			.values({ id: "prod-org", name: "Org Product", phase: "build", createdAt: NOW });
-		await db.insert(teams).values({
+
+		await db.insert(teamMembers).values({
 			id: "team-org",
-			productId: "prod-org",
+			teamId: "prod-org",
 			capacity: 5,
 			activeBets: 0,
 			formedAt: NOW,

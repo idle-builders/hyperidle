@@ -4,8 +4,7 @@ import {
 	type HyperIdleDb,
 	items,
 	messages,
-	products,
-	type TestDbHandle,
+	teamMembers,
 	teams,
 	threads,
 	userSkills,
@@ -54,13 +53,11 @@ describe("Policy Engine (E7)", () => {
 
 	async function seedBase(): Promise<void> {
 		await db
-			.insert(products)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
-
-		await db
 			.insert(teams)
-			.values({ id: "team-1", productId: "prod-1", capacity: 3, activeBets: 0, formedAt: now });
-
+			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
+		await db
+			.insert(teamMembers)
+			.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: now });
 		await db.insert(users).values([
 			{
 				id: "agent-1",
@@ -84,7 +81,6 @@ describe("Policy Engine (E7)", () => {
 				createdAt: now,
 			},
 		]);
-
 		await db.insert(threads).values({
 			id: "thread-1",
 			hostKind: "task",

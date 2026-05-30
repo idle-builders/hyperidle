@@ -14,7 +14,9 @@
  * resolve names.
  */
 
-import { type HyperIdleDb, orgEdges, teams, users } from "@hyperidle/db";
+// @lore U1: `teams` renamed to `teamMembers` (membership group); `products` renamed to `teams` (domain entity).
+// `mechanism: "team"` targets the agent membership group → check `teamMembers`.
+import { type HyperIdleDb, orgEdges, teamMembers, users } from "@hyperidle/db";
 import { ORG_EDGE_MECHANISMS, USER_ROLES } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
@@ -99,7 +101,12 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 				);
 			}
 		} else if (mechanism === "team") {
-			const [targetTeam] = await db.select().from(teams).where(eq(teams.id, target)).limit(1);
+			// @lore U1: `mechanism: "team"` targets a teamMembers row (agent membership group).
+			const [targetTeam] = await db
+				.select()
+				.from(teamMembers)
+				.where(eq(teamMembers.id, target))
+				.limit(1);
 			if (!targetTeam) {
 				return c.json(
 					{ error: `target teamId not found: ${target}`, code: "VALIDATION_ERROR" },

@@ -7,9 +7,9 @@ import {
 	knowledgeConflicts,
 	knowledgeItems,
 	knowledgeStrategyFabric,
-	products,
 	sessions,
 	tasks,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -58,8 +58,12 @@ async function setupSessionData(db: HyperIdleDb): Promise<{
 	const threadId = "test-thread";
 	const sessionId = "test-session";
 
-	await db.insert(products).values({ id: productId, name: "Test", phase: "build", createdAt: now });
-	await db.insert(teams).values({ id: teamId, productId, capacity: 5, formedAt: now });
+	// @lore U1: teams is the domain entity; teamMembers is the membership group.
+	await db.insert(teams).values({ id: productId, name: "Test", phase: "build", createdAt: now });
+	await db
+		.insert(teamMembers)
+		.values({ id: teamId, teamId: productId, capacity: 5, formedAt: now });
+
 	await db.insert(users).values({
 		id: agentId,
 		name: "Test Agent",
@@ -68,6 +72,7 @@ async function setupSessionData(db: HyperIdleDb): Promise<{
 		createdAt: now,
 		teamId,
 	});
+
 	await db.insert(threads).values({
 		id: threadId,
 		hostKind: "task",
@@ -77,26 +82,29 @@ async function setupSessionData(db: HyperIdleDb): Promise<{
 		lastActiveAt: now,
 		createdAt: now,
 	});
+
+	// @lore U1: bets.teamId references `teams` (domain entity); description replaces pitch.
 	await db.insert(bets).values({
 		id: betId,
-		productId,
-		teamId,
-		pitch: "test",
+		teamId: productId,
+		description: "test",
 		appetite: "1w",
 		status: "active",
 		createdAt: now,
 	});
+
 	await db.insert(tasks).values({
 		id: taskId,
 		betId,
-		productId,
-		teamId,
+		// @lore U1: tasks.teamId references `teams` (domain entity); productId removed.
+		teamId: productId,
 		title: "Test Task",
 		state: "active",
 		threadId,
 		createdAt: now,
 		updatedAt: now,
 	});
+
 	await db.insert(sessions).values({
 		id: sessionId,
 		taskId,

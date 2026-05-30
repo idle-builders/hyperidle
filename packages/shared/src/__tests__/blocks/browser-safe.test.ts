@@ -9,11 +9,16 @@
 import { describe, expect, it } from "vitest";
 
 describe("@hyperidle/shared/blocks browser safety", () => {
-	it("imports without error under jsdom", async () => {
+	// @lore R3: remark/unified WASM cold-start under jsdom takes 10-30s.
+	// The 5s default vitest timeout is too short. 60s matches the pattern
+	// used in packages/db for PGlite WASM tests.
+	it("imports without error under jsdom", { timeout: 60_000 }, async () => {
 		await expect(import("../../blocks/index.js")).resolves.toBeTruthy();
 	});
 
-	it("the main barrel re-exports the blocks API and stays browser-safe", async () => {
+	it("the main barrel re-exports the blocks API and stays browser-safe", {
+		timeout: 60_000,
+	}, async () => {
 		const mod = (await import("../../index.js")) as Record<string, unknown>;
 		expect(mod.deriveBlocks).toBeDefined();
 		expect(mod.BLOCK_KINDS).toBeDefined();

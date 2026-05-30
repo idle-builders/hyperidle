@@ -196,7 +196,7 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 	}
 
 	getCapabilities(): HarnessCapabilities {
-		return { preCompactionTrigger: true, subAgents: true };
+		return { preCompactionTrigger: true, subAgents: true, modelProviders: ["anthropic"] };
 	}
 
 	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: SDK message translation requires branching on message type/subtype

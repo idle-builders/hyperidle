@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { HyperIdleDb } from "../connection.js";
-import { products } from "../schema.js";
+import { teams } from "../schema.js";
 import { createTestDb, type TestDbHandle } from "../test-utils.js";
 
 // @lore Phase 2: migration.test.ts now tests PGlite migrations. SQLite migration
@@ -38,6 +38,8 @@ describe("A2: Migration", () => {
 		expect(tableNames).toEqual(
 			expect.arrayContaining([
 				// @lore P2: agents → users, agent_skills → user_skills
+				// @lore U1: `products` → `teams`; old `teams` → `team_members`
+				// @lore: file_leases was dropped in earlier migrations
 				"users",
 				"user_skills",
 				"bets",
@@ -46,25 +48,28 @@ describe("A2: Migration", () => {
 				"knowledge_edit_log",
 				"knowledge_items",
 				"messages",
-				"products",
 				"routines",
 				"sessions",
 				"tasks",
+				"team_members",
 				"teams",
 				"threads",
 			]),
 		);
 		expect(tableNames).not.toContain("responses");
+		// @lore U1: `products` table renamed to `teams`
+		expect(tableNames).not.toContain("products");
 		expect(tableNames.length).toBeGreaterThanOrEqual(15);
 	});
 
 	it("migrated database supports CRUD with Drizzle ORM", async () => {
+		// @lore U1: `schema.products` renamed to `schema.teams` (domain entity).
 		const now = new Date().toISOString();
 		await db
-			.insert(products)
+			.insert(teams)
 			.values({ id: "test-prod", name: "Test", phase: "build", createdAt: now });
 
-		const result = await db.select().from(products);
+		const result = await db.select().from(teams);
 		expect(result).toHaveLength(1);
 		expect(result[0]).toMatchObject({ id: "test-prod", name: "Test" });
 	});

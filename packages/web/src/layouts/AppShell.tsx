@@ -739,7 +739,8 @@ export function AppShell(): JSX.Element {
 							{activeSettingsSection === "credentials" && <SettingsCredentials />}
 							{activeSettingsSection === "notifications" && <SettingsNotifications />}
 							{activeSettingsSection === "appearance" && <SettingsAppearance />}
-							{activeSettingsSection === "products" && <SettingsProducts />}
+							{/* @lore U1: "products" section renamed to "teams". */}
+							{activeSettingsSection === "teams" && <SettingsProducts />}
 							{activeSettingsSection === "backend" && <SettingsBackend />}
 						</ErrorBoundary>
 					) : (

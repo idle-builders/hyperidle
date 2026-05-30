@@ -8,7 +8,7 @@
  * Reviewer WARNING: POST must set role, status, and other required columns
  */
 
-import { createTestDb, type HyperIdleDb, users } from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, type TestDbHandle, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -33,17 +33,19 @@ const NOW = new Date().toISOString();
 describe("POST /api/users — setup user creation", () => {
 	let app: Hono;
 	let db: HyperIdleDb;
+	let handle: TestDbHandle;
 
 	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const handle = await createTestDb();
+		handle = await createTestDb();
 		db = handle.db;
 		const eventBus = new EventBus();
 		app = await createTestApp({ db, eventBus });
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	// AC-28: POST creates human user with 201
@@ -130,15 +132,19 @@ describe("POST /api/users — setup user creation", () => {
 		expect(res.status).toBe(400);
 	});
 
-	// Validation: missing email returns 400
-	it("returns 400 when email is missing", async () => {
+	// R2: email is optional — creates user without email (email omitted)
+	it("creates user without email (email omitted) — R2: email is optional", async () => {
 		const res = await app.request("/api/users", {
 			method: "POST",
 			headers: noAuthHeaders(),
 			body: JSON.stringify({ name: "Alice" }),
 		});
 
-		expect(res.status).toBe(400);
+		expect(res.status).toBe(201);
+		const body = (await res.json()) as Record<string, unknown>;
+		expect(body.name).toBe("Alice");
+		expect(body.kind).toBe("human");
+		expect(typeof body.id).toBe("string");
 	});
 
 	// Validation: invalid email returns 400

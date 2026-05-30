@@ -5,9 +5,9 @@ import {
 	factorySettings,
 	knowledgeItems,
 	knowledgeStrategyFabric,
-	products,
 	routines,
 	tasks,
+	teamMembers,
 	teams,
 	users,
 } from "./schema.js";
@@ -30,16 +30,18 @@ import {
 export async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 
+	// @lore U1: insert into `teams` (formerly `products`).
 	await db
-		.insert(products)
+		.insert(teams)
 		.values({ id: "seed-product-1", name: "Nimmly", phase: "build", createdAt: now })
 		.onConflictDoNothing();
 
+	// @lore U1: insert into `teamMembers` (formerly `teams`). Column `teamId` (formerly `productId`).
 	await db
-		.insert(teams)
+		.insert(teamMembers)
 		.values({
 			id: "seed-team-1",
-			productId: "seed-product-1",
+			teamId: "seed-product-1",
 			capacity: 5,
 			activeBets: 0,
 			formedAt: now,
@@ -157,10 +159,11 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 			.onConflictDoNothing();
 	}
 
+	// @lore U1: update teamMembers (formerly teams) via the new export name.
 	await db
-		.update(teams)
+		.update(teamMembers)
 		.set({ leadAgentId: "seed-agent-builder" })
-		.where(eq(teams.id, "seed-team-1"));
+		.where(eq(teamMembers.id, "seed-team-1"));
 
 	// @lore O2: kernel/strategy separation. Kernel table only gets identity+content.
 	// Strategy fields (layer, kind) go to knowledgeStrategyFabric extension table.
@@ -208,28 +211,30 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 
 	// --- H2: daily digest routine (disabled by default — operator enables) ---
 	// @lore The routine lives at the seed level so the scheduler picks it up
-	// without extra provisioning. `active: false` means the scheduler will NOT
-	// fire it until the operator flips the row.
+	// without extra provisioning. `active: 0` means the scheduler will NOT
+	// fire it until the operator flips the row; this prevents a fresh
+	// factory from sending a 08:00 UTC digest the first time it boots.
+	// @lore U1: `teamId` (formerly `productId`), `description` (formerly `pitch`),
+	// status 'draft' (formerly 'shaped').
 	await db
 		.insert(bets)
 		.values({
 			id: "seed-bet-daily-digest",
-			productId: "seed-product-1",
-			teamId: "seed-team-1",
-			pitch: "Internal: daily digest scaffolding bet",
+			teamId: "seed-product-1",
+			description: "Internal: daily digest scaffolding bet",
 			appetite: "small",
-			status: "shaped",
+			status: "draft",
 			createdAt: now,
 		})
 		.onConflictDoNothing();
 
+	// @lore U1: `teamId` (formerly `productId`). Old `teamId` (pointing at team_members) dropped.
 	await db
 		.insert(tasks)
 		.values({
 			id: "seed-task-daily-digest",
 			betId: "seed-bet-daily-digest",
-			productId: "seed-product-1",
-			teamId: "seed-team-1",
+			teamId: "seed-product-1",
 			ownerAgentId: "seed-agent-cos",
 			title: "Daily digest anchor task",
 			description: "Anchor task for the daily digest routine — emits routine_fired.",

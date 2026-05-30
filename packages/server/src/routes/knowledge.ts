@@ -27,7 +27,8 @@ import {
 	knowledgeEditLog,
 	knowledgeItems,
 	knowledgeStrategyFabric,
-	teams,
+	// @lore U1: `teamMembers` is the agent membership group (formerly `teams`).
+	teamMembers,
 } from "@hyperidle/db";
 import { scopeToLayer } from "@hyperidle/fabric";
 import type { ApiErrorResponse } from "@hyperidle/shared";
@@ -874,8 +875,12 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 /**
  * Q2 T13: Lightweight GET /api/teams endpoint.
- * Returns teams with their associated product name.
+ * Returns team_members rows (agent membership groups) with capacity/activeBets.
  * Used by the KnowledgeCreateDialog to populate the scope selector.
+ *
+ * @lore U1: Previously selected from old `teams` table (now renamed to `team_members`).
+ * Updated to select from `teamMembers` (agent membership group). `productId` column
+ * dropped — `teamId` is now the FK to the domain entity.
  */
 export function createTeamsRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
@@ -883,14 +888,14 @@ export function createTeamsRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	router.get("/", async (c) => {
 		const rows = await db
 			.select({
-				id: teams.id,
-				productId: teams.productId,
-				capacity: teams.capacity,
-				activeBets: teams.activeBets,
-				formedAt: teams.formedAt,
-				dissolvedAt: teams.dissolvedAt,
+				id: teamMembers.id,
+				teamId: teamMembers.teamId,
+				capacity: teamMembers.capacity,
+				activeBets: teamMembers.activeBets,
+				formedAt: teamMembers.formedAt,
+				dissolvedAt: teamMembers.dissolvedAt,
 			})
-			.from(teams);
+			.from(teamMembers);
 
 		return c.json({ teams: rows });
 	});

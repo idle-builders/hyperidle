@@ -7,15 +7,7 @@
  * The fallback to "u-founder" is preserved for unseeded DBs.
  */
 
-import {
-	bets,
-	createTestDb,
-	type HyperIdleDb,
-	products,
-	type TestDbHandle,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { bets, createTestDb, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -141,17 +133,23 @@ describe("M3 — Bets routes: revision log actor comes from auth context (A5)", 
 
 		const now = new Date().toISOString();
 		await db
-			.insert(products)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
-		await db
 			.insert(teams)
-			.values({ id: "team-1", productId: "prod-1", capacity: 3, activeBets: 0, formedAt: now });
+			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
+
+		await db.insert(teamMembers).values({
+			id: "team-1",
+			teamId: "prod-1",
+			capacity: 3,
+			activeBets: 0,
+			formedAt: now,
+		});
+
+		// @lore U1: bets.teamId references `teams` (domain entity), not `teamMembers`.
 		await db.insert(bets).values({
 			id: "bet-1",
-			productId: "prod-1",
-			teamId: "team-1",
-			pitch: "Test bet",
-			status: "in_progress",
+			teamId: "prod-1",
+			description: "Test bet",
+			status: "active",
 			createdAt: now,
 		});
 	});

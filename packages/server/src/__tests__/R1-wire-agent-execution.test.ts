@@ -27,10 +27,10 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	knowledgeItems,
-	products,
 	sessions,
 	type TestDbHandle,
 	tasks,
+	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -48,6 +48,7 @@ import {
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AdapterPool } from "../harness/adapter-pool.js";
 import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
 import type { CredentialResolver } from "../services/credential-resolver.js";
 import { createTestApp } from "../test-utils.js";
@@ -105,8 +106,21 @@ class ScriptedHarnessAdapter implements HarnessAdapter {
 	}
 
 	getCapabilities(): HarnessCapabilities {
-		return { preCompactionTrigger: false, subAgents: false };
+		return { preCompactionTrigger: false, subAgents: false, modelProviders: ["anthropic"] };
 	}
+}
+
+// --- Helper: wrap a HarnessAdapter in a single-adapter pool ------------------
+
+function makePool(adapter: HarnessAdapter): AdapterPool {
+	const pool = new AdapterPool();
+	pool.register("local", adapter, {
+		name: "local",
+		kind: "local",
+		modelProviders: ["anthropic"],
+		maxConcurrent: 4,
+	});
+	return pool;
 }
 
 // --- Null credential resolver (simulates missing API key) -------------------
@@ -127,22 +141,20 @@ async function seedDomain(
 		agentCostCap?: number | null;
 		agentMaxConcurrentSessions?: number;
 	} = {},
-): Promise<void> {
-	await db
-		.insert(products)
-		.values({ id: "p1", name: "R1 Product", phase: "build", createdAt: NOW });
+): void {
+	await db.insert(teams).values({ id: "p1", name: "R1 Product", phase: "build", createdAt: NOW });
 
 	await db
-		.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 
+	// @lore U1: bets.teamId and tasks.teamId reference `teams` (domain entity "p1"), not teamMembers.
 	await db.insert(bets).values({
 		id: "b1",
-		productId: "p1",
-		teamId: "t1",
-		pitch: "R1 bet",
+		teamId: "p1",
+		description: "R1 bet",
 		appetite: "small",
-		status: "committed",
+		status: "active",
 		createdAt: NOW,
 	});
 
@@ -161,8 +173,7 @@ async function seedDomain(
 	await db.insert(tasks).values({
 		id: "task-r1",
 		betId: "b1",
-		productId: "p1",
-		teamId: "t1",
+		teamId: "p1",
 		title: "R1 test task",
 		state: "accepted",
 		createdAt: NOW,
@@ -238,7 +249,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 				eventBus,
 				// These new AppOptions fields don't exist yet — TypeScript will
 				// error here until the green phase adds them to AppOptions.
-				harnessAdapter: harness,
+				adapterPool: makePool(harness),
 				workspaceAdapter,
 				workspaceBasePath: tmpDir,
 				credentialResolver: validResolver,
@@ -294,7 +305,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 			app = await createTestApp({
 				db,
 				eventBus,
-				harnessAdapter: harness,
+				adapterPool: makePool(harness),
 				workspaceAdapter,
 				workspaceBasePath: tmpDir,
 				// NullCredentialResolver: resolve() always returns null.
@@ -346,7 +357,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 			app = await createTestApp({
 				db,
 				eventBus,
-				harnessAdapter: harness,
+				adapterPool: makePool(harness),
 				workspaceAdapter,
 				workspaceBasePath: tmpDir,
 				credentialResolver: validResolver,
@@ -375,11 +386,13 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 		it("returns 201 with bare session row when no harnessAdapter is provided", async () => {
 			// Seed only the minimum needed for the bare insert path.
 			await db
-				.insert(products)
-				.values({ id: "p-bare", name: "Bare Product", phase: "build", createdAt: NOW });
-			await db
 				.insert(teams)
-				.values({ id: "t-bare", productId: "p-bare", capacity: 3, activeBets: 0, formedAt: NOW });
+				.values({ id: "p-bare", name: "Bare Product", phase: "build", createdAt: NOW });
+
+			await db
+				.insert(teamMembers)
+				.values({ id: "t-bare", teamId: "p-bare", capacity: 3, activeBets: 0, formedAt: NOW });
+
 			await db.insert(users).values({
 				id: "agent-bare",
 				name: "Bare Agent",
@@ -388,20 +401,21 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 				teamId: "t-bare",
 				createdAt: NOW,
 			});
+
+			// @lore U1: bets.teamId and tasks.teamId reference `teams` (domain entity), not teamMembers.
 			await db.insert(bets).values({
 				id: "b-bare",
-				productId: "p-bare",
-				teamId: "t-bare",
-				pitch: "Bare bet",
+				teamId: "p-bare",
+				description: "Bare bet",
 				appetite: "small",
-				status: "committed",
+				status: "active",
 				createdAt: NOW,
 			});
+
 			await db.insert(tasks).values({
 				id: "task-bare",
 				betId: "b-bare",
-				productId: "p-bare",
-				teamId: "t-bare",
+				teamId: "p-bare",
 				title: "Bare task",
 				state: "in_progress",
 				createdAt: NOW,
@@ -445,7 +459,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 			app = await createTestApp({
 				db,
 				eventBus,
-				harnessAdapter: harness,
+				adapterPool: makePool(harness),
 				workspaceAdapter,
 				workspaceBasePath: tmpDir,
 				credentialResolver: validResolver,
@@ -482,7 +496,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 			app = await createTestApp({
 				db,
 				eventBus,
-				harnessAdapter: harness,
+				adapterPool: makePool(harness),
 				workspaceAdapter,
 				workspaceBasePath: tmpDir,
 				credentialResolver: validResolver,

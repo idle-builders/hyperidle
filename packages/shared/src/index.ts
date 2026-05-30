@@ -1,5 +1,8 @@
 export type { ApiErrorCode, ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
+// ── S1: Per-user auth types ──
+export type { InviteRole } from "./auth.js";
+export { INVITE_CODE_TTL_MS, INVITE_ROLES, LOGIN_SESSION_TTL_MS } from "./auth.js";
 // ── Block primitive (L2) ──
 export type {
 	Block,
@@ -19,6 +22,7 @@ export {
 	BLOCK_KINDS,
 	blockId,
 	deriveBlocks,
+	derivePayloads,
 	IMAGE_URL_SAFE_SCHEMES,
 	LINK_URL_SAFE_SCHEMES,
 	MAX_BODY_BYTES,
@@ -80,7 +84,7 @@ export type {
 } from "./events.js";
 export type { ArtifactCostInput } from "./format/artifact-cost.js";
 export { formatArtifactCost } from "./format/artifact-cost.js";
-export { deriveTitleFromPitch } from "./format/bet.js";
+export { deriveTitle, deriveTitleFromPitch } from "./format/bet.js";
 export { formatMoney, formatTokenCount } from "./format/money.js";
 export type {
 	CompletionEvent,
@@ -106,19 +110,6 @@ export { createLogger, type Logger } from "./logger.js";
 // Server code imports them via "@hyperidle/shared/net" subpath export instead.
 export type { ResolveResult, SanitizeResult, SanitizeUrlOptions } from "./net/ssrf.js";
 export type { ObservabilityEvent } from "./observability/events.js";
-// ── Product primitive (L13) ──
-export type {
-	BetCardSummary,
-	CreateProductRequest,
-	CreateProductResponse,
-	ProductBurn,
-	ProductDetail,
-	ProductListItem,
-	ProductListResponse,
-	ProductStatus,
-	ProductSummary,
-	RosterMember,
-} from "./product.js";
 export {
 	AWS_AKIA_RE,
 	BEARER_TOKEN_RE,
@@ -137,6 +128,19 @@ export {
 	scrubInlineTokens,
 	TK_TOKEN_RE,
 } from "./redact.js";
+// ── Team primitive (L13, formerly Product) ──
+export type {
+	BetCardSummary,
+	CreateTeamRequest,
+	CreateTeamResponse,
+	RosterMember,
+	TeamBurn,
+	TeamDetail,
+	TeamListItem,
+	TeamListResponse,
+	TeamStatus,
+	TeamSummary,
+} from "./team.js";
 export type {
 	AgentSessionStateSnapshot,
 	ArtifactRef,

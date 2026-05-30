@@ -17,8 +17,8 @@ import {
 	bets,
 	createTestDb,
 	type HyperIdleDb,
-	products,
 	tasks,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -56,14 +56,15 @@ async function setupApp(): Promise<AppCtx> {
 	const app = await createTestApp({ db, eventBus });
 
 	const now = new Date().toISOString();
-	await db.insert(products).values({ id: "p1", name: "P", phase: "build", createdAt: now });
-	await db.insert(teams).values({
+	await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now });
+	await db.insert(teamMembers).values({
 		id: "t1",
-		productId: "p1",
+		teamId: "p1",
 		capacity: 5,
 		activeBets: 0,
 		formedAt: now,
 	});
+
 	// "u-founder" is the founder participant; "agent-1" is an agent.
 	await db.insert(users).values({
 		id: "u-founder",
@@ -89,18 +90,17 @@ async function setupApp(): Promise<AppCtx> {
 	// A bet + task for host_kind='task' threads.
 	await db.insert(bets).values({
 		id: "bet-x",
-		productId: "p1",
-		teamId: "t1",
-		pitch: "x",
+		teamId: "p1",
+		description: "x",
 		appetite: "small",
-		status: "in_progress",
+		status: "active",
 		createdAt: now,
 	});
+
 	await db.insert(tasks).values({
 		id: "task-1",
 		betId: "bet-x",
-		productId: "p1",
-		teamId: "t1",
+		teamId: "p1",
 		title: "T",
 		state: "in_progress",
 		createdAt: now,

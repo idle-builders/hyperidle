@@ -13,37 +13,46 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { resolve } from "node:path";
-import { PGlite } from "@electric-sql/pglite";
-import { bets, products, schema, teams, threads, users } from "@hyperidle/db";
-import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
+import {
+	applyMigrations,
+	bets,
+	createPgliteDb,
+	teamMembers,
+	teams,
+	threads,
+	users,
+} from "@hyperidle/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { authHeaders, waitForReady } from "./integration-helpers.js";
 
 const TEST_API_KEY = "test-server-factory-I1-key";
 
+/** Resolve the path to the Drizzle migrations folder from within the server package. */
+function dbMigrationsFolder(): string {
+	// @lore server-factory-test: The server package doesn't embed migrations.
+	// They live in packages/db/drizzle. Resolve relative to this file's location:
+	// packages/server/src/__tests__/ → ../../../../packages/db/drizzle
+	return resolve(__dirname, "../../../../packages/db/drizzle");
+}
+
 async function createAndSeedDb(dataDir: string): Promise<void> {
-	const migrationsFolder = resolve(__dirname, "../../../db/drizzle");
-	const client = new PGlite(dataDir);
-	await client.waitReady;
-	const db = drizzle(client, { schema });
-	await migrate(db, { migrationsFolder });
+	// @lore U1: createPgliteDb does NOT run migrations. We must run them manually
+	// before seeding so the renamed tables (teams, team_members) exist.
+	await applyMigrations(dataDir, dbMigrationsFolder());
+	const { db } = await createPgliteDb(dataDir);
 
 	const now = new Date().toISOString();
+	await db.insert(teams).values({ id: "p-sf", name: "SF Product", phase: "build", createdAt: now });
 	await db
-		.insert(products)
-		.values({ id: "p-sf", name: "SF Product", phase: "build", createdAt: now });
-	await db
-		.insert(teams)
-		.values({ id: "t-sf", productId: "p-sf", capacity: 5, activeBets: 0, formedAt: now });
+		.insert(teamMembers)
+		.values({ id: "t-sf", teamId: "p-sf", capacity: 5, activeBets: 0, formedAt: now });
 	await db.insert(bets).values({
 		id: "bet-sf",
-		productId: "p-sf",
-		teamId: "t-sf",
-		pitch: "Ship the thing",
+		teamId: "p-sf",
+		description: "Ship the thing",
 		appetite: "small",
-		status: "shaped",
+		status: "draft",
 		createdAt: now,
 	});
 	await db.insert(users).values({
@@ -65,8 +74,6 @@ async function createAndSeedDb(dataDir: string): Promise<void> {
 		lastActiveAt: now,
 		createdAt: now,
 	});
-
-	await client.close();
 }
 
 describe("server-factory — I1 integration (S1–S5)", () => {
@@ -96,8 +103,11 @@ describe("server-factory — I1 integration (S1–S5)", () => {
 			stdio: ["ignore", "pipe", "pipe"],
 		});
 
-		await waitForReady(serverProcess, port, 8000);
-	}, 15000);
+		// @lore: Under heavy CI load (10+ parallel worktrees on 10-core machine),
+		// spawning a real tsx server subprocess can take >15s. 90s for waitForReady
+		// and 120s for the beforeAll hook handle worst-case multi-worktree contention.
+		await waitForReady(serverProcess, port, 90_000);
+	}, 120_000);
 
 	afterAll(() => {
 		serverProcess?.kill();

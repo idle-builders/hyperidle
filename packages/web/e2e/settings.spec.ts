@@ -10,15 +10,15 @@ import { expect, test } from "./fixtures";
 
 const SETTINGS_FIXTURE = {
 	profile: { name: "Test Founder", email: "test@hyperidle.dev", avatarUrl: null },
-	products: [{ id: "prod-alpha", name: "Product Alpha", active: true }],
-	agents: [],
+	teams: [{ id: "team-alpha", name: "Team Alpha", active: true }],
+	users: [],
 	notifications: {
 		reviewAlerts: true,
 		costAlerts: false,
 		blockerAlerts: true,
 		quietHoursStart: "22:00",
 		quietHoursEnd: "08:00",
-		mutedProducts: [],
+		mutedTeams: [],
 	},
 };
 

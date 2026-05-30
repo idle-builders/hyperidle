@@ -37,19 +37,17 @@ export const KNOWLEDGE_STATUS_MAP: Record<KnowledgeStatus, Status> = {
 };
 
 /**
- * Bet lifecycle status → presentation Status. Exhaustive over all 9
- * BetStatus values. `behind`, `blocked`, `paused` map to their like-named
- * presentation values; `review` maps to `behind` (action-required).
+ * Bet lifecycle status → presentation Status. Exhaustive over all 4
+ * BetStatus values post-U1 simplification.
+ *
+ * @lore U1: status simplified from 9 values to 4:
+ *   shaped → draft, committed|in_progress|behind|blocked|paused|review → active,
+ *   shipped → completed.
  */
 export const BET_STATUS_MAP: Record<BetStatus, Status> = {
-	shaped: "paused",
-	committed: "healthy",
-	in_progress: "healthy",
-	behind: "behind",
-	blocked: "blocked",
-	paused: "paused",
-	review: "behind",
-	shipped: "done",
+	draft: "paused",
+	active: "healthy",
+	completed: "done",
 	killed: "error",
 };
 

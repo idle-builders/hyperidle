@@ -33,15 +33,15 @@ const DEFAULT_AUTH_ME = {
 /** Default mock response for GET /api/settings */
 const DEFAULT_SETTINGS = {
 	profile: { name: "Test Founder", email: "test@hyperidle.dev", avatarUrl: null },
-	products: [],
-	agents: [],
+	teams: [],
+	users: [],
 	notifications: {
 		reviewAlerts: true,
 		costAlerts: true,
 		blockerAlerts: true,
 		quietHoursStart: "22:00",
 		quietHoursEnd: "08:00",
-		mutedProducts: [],
+		mutedTeams: [],
 	},
 };
 

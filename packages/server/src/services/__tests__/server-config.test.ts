@@ -30,7 +30,7 @@ describe("P3 AC-10 — Server config read/write", () => {
 			expect(config.notifications.blockerAlerts).toBe(true);
 			expect(config.notifications.quietHoursStart).toBe("22:00");
 			expect(config.notifications.quietHoursEnd).toBe("08:00");
-			expect(config.notifications.mutedProducts).toEqual([]);
+			expect(config.notifications.mutedTeams).toEqual([]);
 		});
 
 		it("returns correct notification defaults shape", async () => {
@@ -44,7 +44,7 @@ describe("P3 AC-10 — Server config read/write", () => {
 			expect(typeof config.notifications.blockerAlerts).toBe("boolean");
 			expect(typeof config.notifications.quietHoursStart).toBe("string");
 			expect(typeof config.notifications.quietHoursEnd).toBe("string");
-			expect(Array.isArray(config.notifications.mutedProducts)).toBe(true);
+			expect(Array.isArray(config.notifications.mutedTeams)).toBe(true);
 		});
 	});
 
@@ -86,14 +86,14 @@ describe("P3 AC-10 — Server config read/write", () => {
 			expect(config.notifications.quietHoursStart).toBe("23:00");
 		});
 
-		it("can update mutedProducts", async () => {
+		it("can update mutedTeams", async () => {
 			const handle = await createTestDb();
 			const db: HyperIdleDb = handle.db;
-			await updateServerConfig(db, { notifications: { mutedProducts: ["prod-1", "prod-2"] } });
+			await updateServerConfig(db, { notifications: { mutedTeams: ["prod-1", "prod-2"] } });
 
 			const config = await readServerConfig(db);
 			await handle.close();
-			expect(config.notifications.mutedProducts).toEqual(["prod-1", "prod-2"]);
+			expect(config.notifications.mutedTeams).toEqual(["prod-1", "prod-2"]);
 		});
 
 		it("successive updates are cumulative", async () => {

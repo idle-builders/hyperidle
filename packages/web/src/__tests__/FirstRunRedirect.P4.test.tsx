@@ -22,6 +22,10 @@ function ConversationsStub(): React.JSX.Element {
 	return <div data-testid="landing">conversations</div>;
 }
 
+function WorkPortfolioStub(): React.JSX.Element {
+	return <div data-testid="landing">work-portfolio</div>;
+}
+
 function renderFirstRunRedirect(): typeof screen {
 	render(
 		<MemoryRouter initialEntries={["/"]}>
@@ -29,6 +33,7 @@ function renderFirstRunRedirect(): typeof screen {
 				<Route path="/" element={<FirstRunRedirect />} />
 				<Route path="/setup" element={<SetupStub />} />
 				<Route path="/conversations" element={<ConversationsStub />} />
+				<Route path="/work/portfolio" element={<WorkPortfolioStub />} />
 			</Routes>
 		</MemoryRouter>,
 	);
@@ -52,10 +57,10 @@ describe("FirstRunRedirect (P4) — setup completion check", () => {
 						json: async () => ({ error: "Unauthorized" }),
 					});
 				}
-				if (url.includes("/api/products")) {
+				if (url.includes("/api/teams")) {
 					return Promise.resolve({
 						ok: true,
-						json: async () => ({ products: [{ id: "p1", name: "My App" }] }),
+						json: async () => ({ teams: [{ id: "t1", name: "My App" }] }),
 					});
 				}
 				return Promise.resolve({ ok: true, json: async () => ({}) });
@@ -69,7 +74,7 @@ describe("FirstRunRedirect (P4) — setup completion check", () => {
 		});
 	});
 
-	// AC-10: when no products, redirect to /setup
+	// AC-10: when no teams, redirect to /setup
 	it("redirects to /setup when products list is empty (DB with user but no products)", async () => {
 		vi.stubGlobal(
 			"fetch",
@@ -85,10 +90,10 @@ describe("FirstRunRedirect (P4) — setup completion check", () => {
 						}),
 					});
 				}
-				if (url.includes("/api/products")) {
+				if (url.includes("/api/teams")) {
 					return Promise.resolve({
 						ok: true,
-						json: async () => ({ products: [] }),
+						json: async () => ({ teams: [] }),
 					});
 				}
 				return Promise.resolve({ ok: true, json: async () => ({}) });
@@ -102,8 +107,8 @@ describe("FirstRunRedirect (P4) — setup completion check", () => {
 		});
 	});
 
-	// AC-10: when user exists + products exist, redirect to /conversations
-	it("redirects to /conversations when human user exists and products exist", async () => {
+	// R2 AC-5: when user exists + products exist, redirect to /work/portfolio (was /conversations)
+	it("redirects to /work/portfolio when human user exists and products exist", async () => {
 		vi.stubGlobal(
 			"fetch",
 			vi.fn().mockImplementation((url: string) => {
@@ -118,10 +123,11 @@ describe("FirstRunRedirect (P4) — setup completion check", () => {
 						}),
 					});
 				}
-				if (url.includes("/api/products")) {
+				if (url.includes("/api/teams")) {
 					return Promise.resolve({
 						ok: true,
-						json: async () => ({ products: [{ id: "p1", name: "My App" }] }),
+						// @lore U1: /api/products now returns { teams: [...] } (renamed from { products: [...] })
+						json: async () => ({ teams: [{ id: "p1", name: "My App" }] }),
 					});
 				}
 				return Promise.resolve({ ok: true, json: async () => ({}) });
@@ -131,7 +137,7 @@ describe("FirstRunRedirect (P4) — setup completion check", () => {
 		renderFirstRunRedirect();
 
 		await waitFor(() => {
-			expect(screen.getByTestId("landing")).toHaveTextContent("conversations");
+			expect(screen.getByTestId("landing")).toHaveTextContent("work-portfolio");
 		});
 	});
 
@@ -153,7 +159,7 @@ describe("FirstRunRedirect (P4) — setup completion check", () => {
 			vi.fn().mockImplementation(() =>
 				Promise.resolve({
 					ok: true,
-					json: async () => ({ products: [] }),
+					json: async () => ({ teams: [] }),
 				}),
 			),
 		);

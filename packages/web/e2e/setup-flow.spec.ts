@@ -1,20 +1,27 @@
 /**
- * P4 — SetupFlow E2E tests (Tasks 12, AC-1 through AC-10)
+ * R2 — SetupFlow E2E tests (updated from P4)
  *
- * AC-1: On first launch (no human user exists), app shows SetupFlow at /setup
- * AC-2: BackendMode select with "Run locally" (default) and "Connect to shared backend"
- * AC-3: Shared backend selection shows URL + key fields and "Test Connection" button
- * AC-4: Name and email fields for user identity
- * AC-5: Product name (required) + repo path (optional)
- * AC-6: Anthropic API Key field (optional) with "Skip credentials" and "Start HyperIdle" buttons
- * AC-7: Start button disabled until name + email + product name are filled
- * AC-8: After completing setup, main UI renders at /conversations
- * AC-10: FirstRunRedirect checks for human user + product (not just products)
+ * R2 AC coverage:
+ * AC-1: Setup flow has two required fields: name and API key. Repo path is optional.
+ * AC-2: Backend mode selection is removed from the setup flow.
+ * AC-3: Email field is removed from setup.
+ * AC-4: No "First Product" section — product created silently.
+ * AC-5: After setup completion, app routes to /work/portfolio (not /conversations).
+ * AC-10: FirstRunRedirect checks for human user + product (not just products).
+ *
+ * P4 tests removed/updated:
+ * - AC-2 BackendMode select test → removed (backend mode removed in R2)
+ * - AC-3 Shared backend fields → removed (backend mode removed in R2)
+ * - AC-4 Name and email fields → updated (email removed in R2)
+ * - AC-5 Product name and repo path fields → updated (product name removed in R2)
+ * - AC-6 Skip credentials button → removed (skip button removed in R2)
+ * - AC-7 Start button enabled when name+email+product name → updated (now name+API key)
+ * - AC-8 Navigates to /conversations → updated (now /work/portfolio)
  */
 
 import { expect, test } from "./fixtures";
 
-test.describe("SetupFlow (P4)", () => {
+test.describe("SetupFlow (R2)", () => {
 	// Register additional API mocks for setup
 	test.beforeEach(async ({ page }) => {
 		// No human user — auth/me returns 401
@@ -43,7 +50,7 @@ test.describe("SetupFlow (P4)", () => {
 			}
 		});
 
-		// POST /api/users — create human user
+		// POST /api/users — create human user (no email required)
 		await page.route("**/api/users", async (route) => {
 			if (route.request().method() === "POST") {
 				await route.fulfill({
@@ -52,7 +59,6 @@ test.describe("SetupFlow (P4)", () => {
 					body: JSON.stringify({
 						id: "u-new-founder",
 						name: "Alice",
-						email: "alice@example.com",
 						kind: "human",
 						role: "founder",
 						status: "active",
@@ -63,7 +69,6 @@ test.describe("SetupFlow (P4)", () => {
 			}
 		});
 
-		// Mock post-setup auth/me (after user creation)
 		// POST /api/products
 		await page.route("**/api/products", async (route) => {
 			const method = route.request().method();
@@ -73,7 +78,7 @@ test.describe("SetupFlow (P4)", () => {
 					contentType: "application/json",
 					body: JSON.stringify({
 						id: "p-new-product",
-						name: "My First Product",
+						name: "My Product",
 						phase: "build",
 					}),
 				});
@@ -89,65 +94,40 @@ test.describe("SetupFlow (P4)", () => {
 		await expect(page).toHaveURL(/\/setup/);
 	});
 
-	// AC-2: BackendMode select with correct options and default
-	test("BackendMode select has correct options with 'Run locally' as default", async ({ page }) => {
-		await page.goto("/setup");
-		await page.waitForSelector("select");
-
-		const backendSelect = page.getByRole("combobox", { name: /backend mode/i });
-		await expect(backendSelect).toBeVisible();
-		await expect(backendSelect.getByRole("option", { name: /run locally/i })).toBeAttached();
-		await expect(
-			backendSelect.getByRole("option", { name: /connect to shared backend/i }),
-		).toBeAttached();
-
-		// Default is "Run locally"
-		const selectedValue = await backendSelect.evaluate(
-			(el: HTMLSelectElement) => el.options[el.selectedIndex].text,
-		);
-		expect(selectedValue).toMatch(/run locally/i);
-	});
-
-	// AC-3: Shared backend fields appear when selected
-	test("shared backend fields appear when 'Connect to shared backend' selected", async ({
-		page,
-	}) => {
-		await page.goto("/setup");
-
-		const backendSelect = page.getByRole("combobox", { name: /backend mode/i });
-		await backendSelect.selectOption({ label: /connect to shared backend/i });
-
-		await expect(page.getByLabel(/server url/i)).toBeVisible();
-		await expect(page.getByLabel(/shared backend key/i)).toBeVisible();
-		await expect(page.getByRole("button", { name: /test connection/i })).toBeVisible();
-	});
-
-	// AC-4: Name and email fields exist
-	test("renders name and email fields for user identity", async ({ page }) => {
+	// AC-1: Name and API key fields exist (required). Repo path optional.
+	test("renders name and API key fields; repo path optional", async ({ page }) => {
 		await page.goto("/setup");
 
 		await expect(page.getByLabel(/^name/i)).toBeVisible();
-		await expect(page.getByLabel(/^email/i)).toBeVisible();
-	});
-
-	// AC-5: Product name and repo path fields exist
-	test("renders product name and repo path fields", async ({ page }) => {
-		await page.goto("/setup");
-
-		await expect(page.getByLabel(/product name/i)).toBeVisible();
-		await expect(page.getByLabel(/repo/i)).toBeVisible();
-	});
-
-	// AC-6: API key field and buttons exist
-	test("renders API credentials field, skip button, and start button", async ({ page }) => {
-		await page.goto("/setup");
-
 		await expect(page.getByLabel(/anthropic api key/i)).toBeVisible();
-		await expect(page.getByRole("button", { name: /skip credentials/i })).toBeVisible();
-		await expect(page.getByRole("button", { name: /start hyperidle/i })).toBeVisible();
+		await expect(page.getByLabel(/project folder/i)).toBeVisible();
 	});
 
-	// AC-7: Start button disabled initially
+	// AC-2: Backend mode selector is NOT present
+	test("does not render backend mode selector", async ({ page }) => {
+		await page.goto("/setup");
+		await expect(page.getByRole("combobox", { name: /backend mode/i })).not.toBeVisible();
+	});
+
+	// AC-3: Email field is NOT present
+	test("does not render email field", async ({ page }) => {
+		await page.goto("/setup");
+		await expect(page.getByLabel(/^email/i)).not.toBeVisible();
+	});
+
+	// AC-4: Product name field is NOT present
+	test("does not render product name field", async ({ page }) => {
+		await page.goto("/setup");
+		await expect(page.getByLabel(/product name/i)).not.toBeVisible();
+	});
+
+	// AC-6: No "Skip credentials" button
+	test("does not render skip credentials button", async ({ page }) => {
+		await page.goto("/setup");
+		await expect(page.getByRole("button", { name: /skip credentials/i })).not.toBeVisible();
+	});
+
+	// AC-1: Start button disabled initially
 	test("Start button is disabled when required fields are empty", async ({ page }) => {
 		await page.goto("/setup");
 
@@ -155,22 +135,19 @@ test.describe("SetupFlow (P4)", () => {
 		await expect(startBtn).toBeDisabled();
 	});
 
-	// AC-7: Start button enabled when all required fields filled
-	test("Start button becomes enabled when name, email, and product name are filled", async ({
-		page,
-	}) => {
+	// AC-1: Start button enabled when name and API key are filled (not email+product)
+	test("Start button becomes enabled when name and API key are filled", async ({ page }) => {
 		await page.goto("/setup");
 
 		await page.getByLabel(/^name/i).fill("Alice Founder");
-		await page.getByLabel(/^email/i).fill("alice@example.com");
-		await page.getByLabel(/product name/i).fill("My First Product");
+		await page.getByLabel(/anthropic api key/i).fill("sk-ant-test");
 
 		const startBtn = page.getByRole("button", { name: /start hyperidle/i });
 		await expect(startBtn).toBeEnabled();
 	});
 
-	// AC-8: After completing setup, navigates to /conversations
-	test("navigates to /conversations after successful setup", async ({ page }) => {
+	// AC-5: After completing setup, navigates to /work/portfolio
+	test("navigates to /work/portfolio after successful setup", async ({ page }) => {
 		// After setup, auth/me should return a user
 		await page.route("**/api/auth/me", async (route) => {
 			await route.fulfill({
@@ -179,7 +156,6 @@ test.describe("SetupFlow (P4)", () => {
 				body: JSON.stringify({
 					id: "u-new-founder",
 					name: "Alice",
-					email: "alice@example.com",
 					avatarUrl: null,
 				}),
 			});
@@ -188,12 +164,11 @@ test.describe("SetupFlow (P4)", () => {
 		await page.goto("/setup");
 
 		await page.getByLabel(/^name/i).fill("Alice Founder");
-		await page.getByLabel(/^email/i).fill("alice@example.com");
-		await page.getByLabel(/product name/i).fill("My First Product");
+		await page.getByLabel(/anthropic api key/i).fill("sk-ant-test");
 
 		await page.getByRole("button", { name: /start hyperidle/i }).click();
 
-		await expect(page).toHaveURL(/\/conversations/, { timeout: 10_000 });
+		await expect(page).toHaveURL(/\/work\/portfolio/, { timeout: 10_000 });
 	});
 
 	// AC-10: FirstRunRedirect checks both user + products
@@ -206,7 +181,6 @@ test.describe("SetupFlow (P4)", () => {
 				body: JSON.stringify({
 					id: "u-existing",
 					name: "Existing User",
-					email: "existing@example.com",
 					avatarUrl: null,
 				}),
 			});

@@ -4,7 +4,6 @@ import {
 	ConcurrencyLimitError,
 	CostCapExceededError,
 	type EventBus,
-	type HarnessAdapter,
 	type SessionEndedEvent,
 	type SessionOutcome,
 	type SessionStartedEvent,
@@ -12,6 +11,7 @@ import {
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { WorkspaceAdapter } from "../harness/workspace-adapter.js";
 import { validateBody } from "../middleware/validate.js";
 import type { CredentialResolver } from "../services/credential-resolver.js";
@@ -36,15 +36,16 @@ const updateSessionSchema = z.object({
 
 /**
  * Optional dependency injection for session route provisioning (R1).
- * When `harnessAdapter` and `workspaceAdapter` are both present, POST /sessions
+ * When `adapterPool` and `workspaceAdapter` are both present, POST /sessions
  * routes through `provisionSession` instead of a bare DB insert.
  *
  * @lore R1: The adapters are injected via this interface rather than being
  * constructed inside the route handler so tests can supply scripted mocks
  * without touching process.env or module internals.
+ * @lore S2: renamed harnessAdapter → adapterPool (S2 migration).
  */
 export interface SessionRouteDeps {
-	readonly harnessAdapter?: HarnessAdapter;
+	readonly adapterPool?: AdapterPool;
 	readonly workspaceAdapter?: WorkspaceAdapter;
 	readonly workspaceBasePath?: string;
 	readonly credentialResolver?: CredentialResolver;
@@ -102,7 +103,7 @@ export function createSessionRoutes(
 		const body = c.req.valid("json" as never) as z.infer<typeof createSessionSchema>;
 
 		// ── Full provisionSession path (adapters present) ─────────────────────
-		if (deps?.harnessAdapter && deps.workspaceAdapter) {
+		if (deps?.adapterPool && deps.workspaceAdapter) {
 			// AC6/AC7: credential pre-flight — must fail BEFORE any DB write.
 			const apiKey = await deps.credentialResolver?.resolve("anthropic_api_key");
 			if (apiKey == null) {
@@ -128,13 +129,14 @@ export function createSessionRoutes(
 					{
 						db,
 						eventBus,
-						harness: deps.harnessAdapter,
+						adapterPool: deps.adapterPool,
 						workspace: deps.workspaceAdapter,
 					},
 					{
 						agentId: body.agentId,
 						taskId: body.taskId,
-						productId: task.productId,
+						// @lore U1: `teamId` replaces `productId` (tasks.productId column dropped).
+						productId: task.teamId,
 						modelTier: body.modelTier,
 						workspaceBasePath,
 					},

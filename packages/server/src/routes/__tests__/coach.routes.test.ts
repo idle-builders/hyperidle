@@ -14,7 +14,7 @@
  * /api/threads/coach route (not yet mounted — will FAIL until green phase).
  */
 
-import { createTestDb, type HyperIdleDb, products, teams, threads, users } from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { classifyThreadConfiguration, EventBus } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
@@ -46,12 +46,10 @@ async function setupApp(): Promise<AppCtx> {
 	const now = new Date().toISOString();
 
 	// Seed base product/team
+	await db.insert(teams).values({ id: "p1", name: "TestProduct", phase: "build", createdAt: now });
 	await db
-		.insert(products)
-		.values({ id: "p1", name: "TestProduct", phase: "build", createdAt: now });
-	await db
-		.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
 
 	// Seed founder user
 	await db.insert(users).values({
