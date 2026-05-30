@@ -116,22 +116,22 @@ describe("SettingsProfile (cluster 2 — settings)", () => {
 	});
 });
 
-describe("SettingsProduct (cluster 2 — settings)", () => {
+describe("SettingsTeam (cluster 2 — settings)", () => {
 	it("has id, name, active fields", () => {
-		const product: SettingsProduct = {
+		const team: SettingsTeam = {
 			id: "p1",
-			name: "Product Alpha",
+			name: "Team Alpha",
 			active: true,
 		};
-		assertShape<SettingsProduct>(product);
+		assertShape<SettingsTeam>(team);
 	});
 
 	it("active is boolean", () => {
-		expectTypeOf<SettingsProduct["active"]>().toEqualTypeOf<boolean>();
+		expectTypeOf<SettingsTeam["active"]>().toEqualTypeOf<boolean>();
 	});
 
-	it("inactive product is valid", () => {
-		const inactive: SettingsProduct = { id: "p2", name: "Product Beta", active: false };
+	it("inactive team is valid", () => {
+		const inactive: SettingsTeam = { id: "p2", name: "Team Beta", active: false };
 		expect(inactive.active).toBe(false);
 	});
 });
