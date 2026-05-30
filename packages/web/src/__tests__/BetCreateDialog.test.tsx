@@ -157,7 +157,9 @@ describe("BetCreateDialog (R2)", () => {
 		it("shows derived title when description has a heading", () => {
 			openDialog();
 			const descriptionTextarea = screen.getByLabelText(/description/i);
-			fireEvent.change(descriptionTextarea, { target: { value: "# My Feature\n\nSome body text." } });
+			fireEvent.change(descriptionTextarea, {
+				target: { value: "# My Feature\n\nSome body text." },
+			});
 
 			const preview = screen.getByTestId("bet-title-preview");
 			expect(preview.textContent).toContain("My Feature");
@@ -194,12 +196,7 @@ describe("BetCreateDialog (R2)", () => {
 	describe("open=false — dialog is not mounted or not open", () => {
 		it("does not render form fields when open=false", () => {
 			render(
-				<BetCreateDialog
-					open={false}
-					onClose={vi.fn()}
-					onCreated={vi.fn()}
-					teams={SINGLE_TEAM}
-				/>,
+				<BetCreateDialog open={false} onClose={vi.fn()} onCreated={vi.fn()} teams={SINGLE_TEAM} />,
 			);
 			const createBtn = screen.queryByRole("button", { name: /create/i });
 			if (createBtn) {

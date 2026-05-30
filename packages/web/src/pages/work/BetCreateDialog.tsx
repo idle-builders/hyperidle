@@ -59,7 +59,8 @@ export function BetCreateDialog({
 	const resolvedTeamId = singleTeam ? (teams[0]?.id ?? "") : teamId;
 
 	const derivedTitle = description.trim() ? deriveTitleFromPitch(description, "") : "";
-	const canCreate = resolvedTeamId.trim().length > 0 && description.trim().length > 0 && !submitting;
+	const canCreate =
+		resolvedTeamId.trim().length > 0 && description.trim().length > 0 && !submitting;
 
 	// Sync the native dialog open/closed state with the `open` prop.
 	// @lore Q3: same JSDOM guard as KnowledgeCreateDialog — showModal() is not
@@ -90,7 +91,7 @@ export function BetCreateDialog({
 
 	const handleSubmit = async (): Promise<void> => {
 		const trimmedDescription = description.trim();
-		if (!trimmedDescription || !resolvedTeamId.trim()) return;
+		if (!(trimmedDescription && resolvedTeamId.trim())) return;
 
 		setSubmitting(true);
 		setError(null);

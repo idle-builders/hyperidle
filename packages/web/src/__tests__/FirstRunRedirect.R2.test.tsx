@@ -62,10 +62,11 @@ describe("FirstRunRedirect (R2) — /work/portfolio redirect", () => {
 						}),
 					});
 				}
-				if (url.includes("/api/products")) {
+				if (url.includes("/api/teams")) {
 					return Promise.resolve({
 						ok: true,
-						json: async () => ({ products: [{ id: "p1", name: "My App" }] }),
+						// @lore U1: endpoint renamed /api/products → /api/teams, response shape { teams: [...] }
+						json: async () => ({ teams: [{ id: "p1", name: "My App" }] }),
 					});
 				}
 				return Promise.resolve({ ok: true, json: async () => ({}) });
@@ -91,10 +92,10 @@ describe("FirstRunRedirect (R2) — /work/portfolio redirect", () => {
 						json: async () => ({ id: "u-1", name: "Founder", avatarUrl: null }),
 					});
 				}
-				if (url.includes("/api/products")) {
+				if (url.includes("/api/teams")) {
 					return Promise.resolve({
 						ok: true,
-						json: async () => ({ products: [{ id: "p1", name: "My App" }] }),
+						json: async () => ({ teams: [{ id: "p1", name: "My App" }] }),
 					});
 				}
 				return Promise.resolve({ ok: true, json: async () => ({}) });
@@ -120,10 +121,10 @@ describe("FirstRunRedirect (R2) — /work/portfolio redirect", () => {
 						json: async () => ({ error: "Unauthorized" }),
 					});
 				}
-				if (url.includes("/api/products")) {
+				if (url.includes("/api/teams")) {
 					return Promise.resolve({
 						ok: true,
-						json: async () => ({ products: [{ id: "p1", name: "My App" }] }),
+						json: async () => ({ teams: [{ id: "p1", name: "My App" }] }),
 					});
 				}
 				return Promise.resolve({ ok: true, json: async () => ({}) });
@@ -148,10 +149,10 @@ describe("FirstRunRedirect (R2) — /work/portfolio redirect", () => {
 						json: async () => ({ id: "u-1", name: "Founder", avatarUrl: null }),
 					});
 				}
-				if (url.includes("/api/products")) {
+				if (url.includes("/api/teams")) {
 					return Promise.resolve({
 						ok: true,
-						json: async () => ({ products: [] }),
+						json: async () => ({ teams: [] }),
 					});
 				}
 				return Promise.resolve({ ok: true, json: async () => ({}) });

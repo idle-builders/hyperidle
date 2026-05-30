@@ -22,8 +22,8 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	messages,
-	products,
 	tasks,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -57,10 +57,10 @@ async function setupApp(): Promise<AppCtx> {
 
 	const now = new Date().toISOString();
 
-	await db.insert(products).values({ id: "p1", name: "P", phase: "build", createdAt: now });
-	await db.insert(teams).values({
+	await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now });
+	await db.insert(teamMembers).values({
 		id: "t1",
-		productId: "p1",
+		teamId: "p1",
 		capacity: 5,
 		activeBets: 0,
 		formedAt: now,
@@ -89,18 +89,16 @@ async function setupApp(): Promise<AppCtx> {
 	// A bet + task so we can host a thread on a task.
 	await db.insert(bets).values({
 		id: "bet-1",
-		productId: "p1",
-		teamId: "t1",
-		pitch: "p",
+		teamId: "p1",
+		description: "p",
 		appetite: "small",
-		status: "in_progress",
+		status: "active",
 		createdAt: now,
 	});
 	await db.insert(tasks).values({
 		id: "task-1",
 		betId: "bet-1",
-		productId: "p1",
-		teamId: "t1",
+		teamId: "p1",
 		title: "T",
 		state: "in_progress",
 		createdAt: now,

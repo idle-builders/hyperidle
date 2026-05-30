@@ -53,9 +53,6 @@ export interface TeamSetting {
 	active: boolean;
 }
 
-/** @deprecated Use TeamSetting. */
-export type ProductSetting = TeamSetting;
-
 export type AutonomyLevel = "manual" | "supervised" | "autonomous";
 
 export interface UserSetting {

@@ -46,4 +46,3 @@ export async function loadTeamMembers(db: HyperIdleDb, teamId: string): Promise<
 	}
 	return rows[0];
 }
-
