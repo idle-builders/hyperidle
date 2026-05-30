@@ -62,7 +62,7 @@ describe("GET /api/products", () => {
 		vi.unstubAllEnvs();
 	});
 
-	it("returns { products: [] } when the table is empty", async () => {
+	it("returns { teams: [] } when the table is empty", async () => {
 		const res = await ctx.app.request("/api/products", {
 			method: "GET",
 			headers: authHeaders(),

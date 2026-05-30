@@ -63,7 +63,7 @@ const BASE_BET: BetDetail = {
 	title: "Test Bet",
 	product: "Test Product",
 	team: "Test Team",
-	status: "shaped",
+	status: "draft",
 	appetite: "2 weeks",
 	progress: { done: 0, total: 0 },
 	pitch: RICH_PITCH,

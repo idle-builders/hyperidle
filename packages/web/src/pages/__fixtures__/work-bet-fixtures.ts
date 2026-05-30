@@ -20,7 +20,7 @@ export const MOCK_BETS: Record<string, BetDetail> = {
 		title: "User auth flow",
 		product: "Alpha",
 		team: "Alpha Core",
-		status: "committed",
+		status: "active",
 		// L17: costAppetite replaces appetite string; cost/token actuals added.
 		costAppetite: { minor: 20000, currency: "USD" }, // $200.00
 		tokenAppetite: null,
@@ -67,7 +67,7 @@ Migrate to JWT with refresh rotation.
 		title: "Dashboard redesign",
 		product: "Beta",
 		team: "Beta Surface",
-		status: "shaped",
+		status: "draft",
 		costAppetite: { minor: 30000, currency: "USD" }, // $300.00
 		tokenAppetite: null,
 		costActual: null,
@@ -155,7 +155,7 @@ Replace the grid with a three-column layout driven by user roles.
 		title: "Rich Pitch Example",
 		product: "Alpha",
 		team: "Alpha Core",
-		status: "shaped",
+		status: "draft",
 		costAppetite: null,
 		tokenAppetite: null,
 		costActual: null,
@@ -196,7 +196,7 @@ export const FALLBACK_BET: BetDetail = {
 	title: "Unknown Bet",
 	product: "Unknown",
 	team: "Unknown Team",
-	status: "shaped",
+	status: "draft",
 	costAppetite: null,
 	tokenAppetite: null,
 	costActual: null,

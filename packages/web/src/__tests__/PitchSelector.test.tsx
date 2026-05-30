@@ -10,7 +10,7 @@ const samplePitches: PitchSelectorPitch[] = [
 		title: "Mobile App V2",
 		hypothesis: "Users want mobile access",
 		proposer: "Alice",
-		status: "shaped",
+		status: "draft",
 		appetite: "6 weeks",
 	},
 	{
@@ -18,7 +18,7 @@ const samplePitches: PitchSelectorPitch[] = [
 		title: "Analytics Dashboard",
 		hypothesis: "Data drives decisions",
 		proposer: "Bob",
-		status: "shaped",
+		status: "draft",
 		appetite: "4 weeks",
 	},
 	{
@@ -26,7 +26,7 @@ const samplePitches: PitchSelectorPitch[] = [
 		title: "CLI Tool",
 		hypothesis: "Developers prefer terminals",
 		proposer: "Charlie",
-		status: "shaped",
+		status: "draft",
 		appetite: "2 weeks",
 	},
 ];

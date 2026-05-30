@@ -208,7 +208,8 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 				bets={canvasBets}
 				capacity={canvasCapacity.max}
 				onMoveBet={(betId, targetStatus) => {
-					if (targetStatus === "committed") {
+					// @lore U1: "committed" → "active"; drag to Active column triggers commit endpoint
+					if (targetStatus === "active") {
 						void apiFetch(`/api/bets/${betId}/commit`, { method: "POST" }).then(() =>
 							refreshCanvas(),
 						);
@@ -226,8 +227,7 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 					// Optimistic: trigger background refetch of canvas data.
 					refreshCanvas();
 				}}
-				// @lore U1: TeamListResponse uses `teams` array (not `products`).
-				products={productsData?.teams.map((p) => ({ id: p.id, name: p.name })) ?? []}
+				teams={productsData?.teams.map((p) => ({ id: p.id, name: p.name })) ?? []}
 			/>
 
 			{/* L12: Artifact gallery — portfolio axis, limit=12, BELOW cycle-stripe per design.

@@ -17,27 +17,28 @@ vi.mock("../../services/api-fetch.js", () => ({
 
 import { useCanvasBets } from "../useCanvasBets";
 
-const MOCK_SHAPED_BET: CanvasBet = {
+// @lore U1: "shaped" → "draft", "committed" → "active"
+const MOCK_DRAFT_BET: CanvasBet = {
 	id: "bet-1",
 	title: "Feature Alpha",
-	product: "Test Product",
-	productId: "prod-1",
-	status: "shaped",
+	team: "Test Team",
+	teamId: "team-1",
+	status: "draft",
 	appetite: "—",
 };
 
-const MOCK_COMMITTED_BET: CanvasBet = {
+const MOCK_ACTIVE_BET: CanvasBet = {
 	id: "bet-2",
 	title: "Feature Beta",
-	product: "Test Product",
-	productId: "prod-1",
-	status: "committed",
+	team: "Test Team",
+	teamId: "team-1",
+	status: "active",
 	appetite: "$100.00",
 };
 
 const MOCK_CANVAS_RESPONSE = {
-	shaped: [MOCK_SHAPED_BET],
-	committed: [MOCK_COMMITTED_BET],
+	draft: [MOCK_DRAFT_BET],
+	active: [MOCK_ACTIVE_BET],
 	capacity: { used: 1, max: 2 },
 };
 
@@ -74,7 +75,7 @@ describe("useCanvasBets", () => {
 		});
 	});
 
-	it("returns shaped and committed bets merged into a flat bets array", async () => {
+	it("returns draft and active bets merged into a flat bets array", async () => {
 		fetchSpy.mockResolvedValueOnce(
 			new Response(JSON.stringify(MOCK_CANVAS_RESPONSE), { status: 200 }),
 		);
@@ -133,7 +134,7 @@ describe("useCanvasBets", () => {
 				new Response(
 					JSON.stringify({
 						...MOCK_CANVAS_RESPONSE,
-						shaped: [{ ...MOCK_SHAPED_BET, id: "bet-3" }],
+						draft: [{ ...MOCK_DRAFT_BET, id: "bet-3" }],
 					}),
 					{ status: 200 },
 				),

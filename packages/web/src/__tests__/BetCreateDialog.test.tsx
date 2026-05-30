@@ -2,9 +2,12 @@
  * Q3 — BetCreateDialog component tests.
  *
  * Covers:
- *   T5: BetCreateDialog fields (product select, pitch textarea, title preview, appetite)
+ *   T5: BetCreateDialog fields (team select, pitch textarea, title preview, appetite)
  *
  * AC covered: AC2, AC9, AC10
+ *
+ * @lore U1: Renamed `products` prop → `teams`, `MOCK_PRODUCTS` → `MOCK_TEAMS`,
+ * label queries updated from /product/i → /team/i to match the F3 rename.
  */
 
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -16,9 +19,9 @@ vi.mock("../services/api-fetch.js", () => ({
 	apiFetch: vi.fn(),
 }));
 
-const MOCK_PRODUCTS = [
-	{ id: "prod-1", name: "Test Product" },
-	{ id: "prod-2", name: "Another Product" },
+const MOCK_TEAMS = [
+	{ id: "team-1", name: "Test Team" },
+	{ id: "team-2", name: "Another Team" },
 ];
 
 function openDialog(
@@ -29,7 +32,7 @@ function openDialog(
 			open={true}
 			onClose={vi.fn()}
 			onCreated={vi.fn()}
-			products={MOCK_PRODUCTS}
+			teams={MOCK_TEAMS}
 			{...overrides}
 		/>,
 	);
@@ -40,8 +43,8 @@ describe("BetCreateDialog", () => {
 	describe("AC2 — form fields are present", () => {
 		it("renders a product select field", () => {
 			openDialog();
-			// label wraps the select
-			expect(screen.getByLabelText(/product/i)).toBeInTheDocument();
+			// label wraps the select — now labelled "Team"
+			expect(screen.getByLabelText(/team/i)).toBeInTheDocument();
 		});
 
 		it("renders a pitch textarea", () => {
@@ -74,10 +77,10 @@ describe("BetCreateDialog", () => {
 			expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument();
 		});
 
-		it("renders all provided products in the product select", () => {
+		it("renders all provided teams in the team select", () => {
 			openDialog();
-			expect(screen.getByRole("option", { name: "Test Product" })).toBeInTheDocument();
-			expect(screen.getByRole("option", { name: "Another Product" })).toBeInTheDocument();
+			expect(screen.getByRole("option", { name: "Test Team" })).toBeInTheDocument();
+			expect(screen.getByRole("option", { name: "Another Team" })).toBeInTheDocument();
 		});
 
 		it("uses <label> elements for field labels (W-2 design critique)", () => {
@@ -92,9 +95,9 @@ describe("BetCreateDialog", () => {
 	describe("AC10 — validation: empty pitch shows error", () => {
 		it("Create button is disabled when pitch is empty", () => {
 			openDialog();
-			// Select a product first
-			const select = screen.getByLabelText(/product/i);
-			fireEvent.change(select, { target: { value: "prod-1" } });
+			// Select a team first
+			const select = screen.getByLabelText(/team/i);
+			fireEvent.change(select, { target: { value: "team-1" } });
 
 			const createBtn = screen.getByRole("button", { name: /create/i });
 			expect(createBtn).toBeDisabled();
@@ -102,7 +105,7 @@ describe("BetCreateDialog", () => {
 
 		it("Create button is disabled when no product selected", () => {
 			openDialog();
-			// Fill pitch but no product
+			// Fill pitch but no team
 			const pitchTextarea = screen.getByLabelText(/pitch/i);
 			fireEvent.change(pitchTextarea, { target: { value: "A valid pitch" } });
 
@@ -112,8 +115,8 @@ describe("BetCreateDialog", () => {
 
 		it("Create button is enabled when both product and pitch are filled", () => {
 			openDialog();
-			const select = screen.getByLabelText(/product/i);
-			fireEvent.change(select, { target: { value: "prod-1" } });
+			const select = screen.getByLabelText(/team/i);
+			fireEvent.change(select, { target: { value: "team-1" } });
 
 			const pitchTextarea = screen.getByLabelText(/pitch/i);
 			fireEvent.change(pitchTextarea, { target: { value: "A valid pitch" } });
@@ -181,12 +184,7 @@ describe("BetCreateDialog", () => {
 	describe("open=false — dialog is not mounted or not open", () => {
 		it("does not render form fields when open=false", () => {
 			render(
-				<BetCreateDialog
-					open={false}
-					onClose={vi.fn()}
-					onCreated={vi.fn()}
-					products={MOCK_PRODUCTS}
-				/>,
+				<BetCreateDialog open={false} onClose={vi.fn()} onCreated={vi.fn()} teams={MOCK_TEAMS} />,
 			);
 			// In closed state the dialog exists in DOM but should not show fields visually
 			// We check for aria-hidden or just that the Create button is not visible

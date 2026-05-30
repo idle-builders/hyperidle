@@ -7,7 +7,7 @@ import { AppShell } from "../layouts/AppShell";
 // Minimal settings response (no appearance field — Contract 2).
 const STUB_SETTINGS = {
 	profile: { name: "Founder", email: "", avatarUrl: null },
-	products: [],
+	teams: [],
 	users: [],
 	notifications: {
 		reviewAlerts: true,
@@ -15,7 +15,7 @@ const STUB_SETTINGS = {
 		blockerAlerts: true,
 		quietHoursStart: "22:00",
 		quietHoursEnd: "08:00",
-		mutedProducts: [],
+		mutedTeams: [],
 	},
 };
 

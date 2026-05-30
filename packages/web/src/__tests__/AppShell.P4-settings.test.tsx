@@ -52,7 +52,7 @@ describe("AppShell — P4 Settings overlay", () => {
 					avatarUrl: null,
 					// settings response
 					profile: { name: "Test Founder", email: "test@example.com", avatarUrl: null },
-					products: [],
+					teams: [],
 					users: [],
 					notifications: {
 						reviewAlerts: true,

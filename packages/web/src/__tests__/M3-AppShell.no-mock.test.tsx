@@ -47,7 +47,7 @@ describe("M3 — AppShell: no 'u-founder' in DOM (A11)", () => {
 					avatarUrl: null,
 					// /api/settings response (for other fetch calls)
 					profile: { name: "Real User", email: "real@hyperidle.dev", avatarUrl: null },
-					products: [],
+					teams: [],
 					users: [],
 					notifications: {
 						reviewAlerts: true,
@@ -55,7 +55,7 @@ describe("M3 — AppShell: no 'u-founder' in DOM (A11)", () => {
 						blockerAlerts: false,
 						quietHoursStart: "22:00",
 						quietHoursEnd: "08:00",
-						mutedProducts: [],
+						mutedTeams: [],
 					},
 					// /api/rail response
 					bets: [],

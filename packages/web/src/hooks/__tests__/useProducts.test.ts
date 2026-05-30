@@ -21,8 +21,9 @@ vi.mock("../../services/api-fetch.js", () => ({
 
 import { useProducts } from "../useProducts";
 
+// @lore U1: renamed from products → teams in the API response
 const MOCK_PRODUCTS_RESPONSE = {
-	products: [
+	teams: [
 		{
 			id: "p1",
 			name: "HyperIdle Core",
@@ -68,7 +69,7 @@ describe("useProducts", () => {
 			expect(result.current.loading).toBe(false);
 		});
 
-		expect(result.current.data).toMatchObject({ products: [{ id: "p1" }] });
+		expect(result.current.data).toMatchObject({ teams: [{ id: "p1" }] });
 		expect(result.current.error).toBeNull();
 	});
 
