@@ -19,6 +19,7 @@ export {
 	BLOCK_KINDS,
 	blockId,
 	deriveBlocks,
+	derivePayloads,
 	IMAGE_URL_SAFE_SCHEMES,
 	LINK_URL_SAFE_SCHEMES,
 	MAX_BODY_BYTES,

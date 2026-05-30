@@ -9,12 +9,15 @@
 
 import type { Message } from "@hyperidle/shared";
 import {
+	derivePayloads,
 	exhaustiveAssert,
 	isRedactedPayload,
 	verdictDecisionLabel,
 	verdictDecisionToStatus,
 } from "@hyperidle/shared";
 import type { JSX, ReactNode } from "react";
+import { useMemo } from "react";
+import { renderPayload } from "./block/render-payload.js";
 import { dsProps } from "./ds-attrs.js";
 import { StatusChip } from "./StatusChip.js";
 
@@ -48,6 +51,46 @@ export interface CommentRowProps extends CommentRowRichSlots {
 	sender: CommentRowSender;
 	showSenderHeader: boolean;
 	inlineAnchor?: string;
+	/**
+	 * Optional HTML sanitizer (e.g. DOMPurify). When provided, raw HTML block
+	 * payloads are sanitized and rendered as HTML. When absent, html payloads
+	 * degrade to UnknownPayload (shows raw source, no DOM injection).
+	 *
+	 * @lore R3 C-1 (reviewer): threaded from web consumer → ThreadShell →
+	 * CommentRow. Tests verify the prop contract at the CommentRow level.
+	 */
+	sanitizeHtml?: (raw: string) => string;
+}
+
+/**
+ * Renders the payloads for a plain message through the block payload pipeline.
+ *
+ * @lore R3: plain messages are rendered through derivePayloads() → renderPayload()
+ * so that markdown formatting (bold, code, lists, headings) is displayed correctly.
+ * Previously plain messages were rendered as a single <p> with whitespace-pre-wrap.
+ */
+function MessagePayloads({
+	text,
+	sanitizeHtml,
+}: {
+	text: string;
+	sanitizeHtml?: (raw: string) => string;
+}): JSX.Element {
+	const payloads = useMemo(() => derivePayloads(text), [text]);
+	if (payloads.length === 0) {
+		// Fall back to plain text rendering for empty-after-parse inputs.
+		return (
+			<p className="text-[13px] text-[var(--text-mid)] whitespace-pre-wrap break-words">{text}</p>
+		);
+	}
+	return (
+		<div className="flex flex-col gap-[8px] text-[13px] text-[var(--text-mid)]">
+			{payloads.map((payload, i) => (
+				// biome-ignore lint/suspicious/noArrayIndexKey: payloads are position-stable within a single message render
+				<div key={i}>{renderPayload(payload, sanitizeHtml)}</div>
+			))}
+		</div>
+	);
 }
 
 /**
@@ -61,7 +104,7 @@ export interface CommentRowProps extends CommentRowRichSlots {
  * and silently render nothing. The switch + `exhaustiveAssert` pattern
  * surfaces the omission at the type system level.
  */
-function renderBody(message: Message): ReactNode {
+function renderBody(message: Message, sanitizeHtml?: (raw: string) => string): ReactNode {
 	const { payload } = message;
 	if (isRedactedPayload(payload)) {
 		return (
@@ -80,11 +123,7 @@ function renderBody(message: Message): ReactNode {
 				</div>
 			);
 		case "plain":
-			return (
-				<p className="text-[13px] text-[var(--text-mid)] whitespace-pre-wrap break-words">
-					{payload.text}
-				</p>
-			);
+			return <MessagePayloads text={payload.text} sanitizeHtml={sanitizeHtml} />;
 		case "review":
 		case "questionnaire":
 			// review/questionnaire substance lives in the rich slots; standard body is null.
@@ -102,6 +141,7 @@ export function CommentRow({
 	richHeader,
 	richBody,
 	richActions,
+	sanitizeHtml,
 }: CommentRowProps): JSX.Element {
 	const isRich = message.type === "review" || message.type === "questionnaire";
 	const richSupplied = isRich && (richHeader || richBody || richActions);
@@ -145,7 +185,7 @@ export function CommentRow({
 						) : null}
 					</>
 				) : (
-					renderBody(message)
+					renderBody(message, sanitizeHtml)
 				)}
 			</div>
 		</li>
