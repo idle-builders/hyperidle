@@ -36,15 +36,45 @@ describe("NavItem", () => {
 	it("applies selected styles when selected", () => {
 		render(<NavItem label="Active" selected />);
 		const btn = screen.getByRole("button", { name: /Active/ });
-		expect(btn.className).toContain("bg-[var(--surface-4)]");
+		expect(btn.className).toContain("bg-[var(--surface-elevated)]");
 		expect(btn).toHaveClass("border-l-2");
-		expect(btn.className).toContain("border-l-[var(--primary)]");
+		expect(btn.className).toContain("border-l-[var(--accent-primary)]");
 	});
 
 	it("does not apply selected styles when not selected", () => {
 		render(<NavItem label="Inactive" />);
 		const btn = screen.getByRole("button", { name: /Inactive/ });
-		expect(btn).not.toHaveClass("bg-[var(--surface-4)]");
+		expect(btn).not.toHaveClass("bg-[var(--surface-elevated)]");
+	});
+
+	it("renders statusDot with success color when statusDot='success'", () => {
+		const { container } = render(<NavItem label="Dashboard" statusDot="success" />);
+		const dot = container.querySelector("[class*='bg-[var(--status-success)]']");
+		expect(dot).toBeInTheDocument();
+	});
+
+	it("renders statusDot with warning color when statusDot='warning'", () => {
+		const { container } = render(<NavItem label="Dashboard" statusDot="warning" />);
+		const dot = container.querySelector("[class*='bg-[var(--status-warning)]']");
+		expect(dot).toBeInTheDocument();
+	});
+
+	it("renders statusDot with error color when statusDot='error'", () => {
+		const { container } = render(<NavItem label="Dashboard" statusDot="error" />);
+		const dot = container.querySelector("[class*='bg-[var(--status-error)]']");
+		expect(dot).toBeInTheDocument();
+	});
+
+	it("renders statusDot with info color when statusDot='info'", () => {
+		const { container } = render(<NavItem label="Dashboard" statusDot="info" />);
+		const dot = container.querySelector("[class*='bg-[var(--status-info)]']");
+		expect(dot).toBeInTheDocument();
+	});
+
+	it("does not render statusDot when statusDot prop is not provided", () => {
+		const { container } = render(<NavItem label="Dashboard" />);
+		const dot = container.querySelector("[class*='status-']");
+		expect(dot).not.toBeInTheDocument();
 	});
 
 	it("calls onClick when clicked", async () => {

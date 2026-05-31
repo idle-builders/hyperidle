@@ -53,7 +53,7 @@ export const InteractiveTypeToTest = (): React.JSX.Element => {
 };
 
 export const InContextDemoCard = (): React.JSX.Element => (
-	<div className="max-w-[360px] rounded-lg bg-[var(--surface-3)] p-4">
+	<div className="max-w-[360px] rounded-lg bg-[var(--surface-container)] p-4">
 		<SearchField placeholder="Search knowledge base..." shortcutKey="/" />
 	</div>
 );

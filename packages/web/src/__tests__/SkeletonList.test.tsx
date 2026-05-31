@@ -32,4 +32,19 @@ describe("SkeletonCard", () => {
 		expect(bars).not.toHaveLength(0);
 		expect(bars.length).toBeGreaterThanOrEqual(3);
 	});
+
+	it("skeleton bars use --surface-container background", () => {
+		render(<SkeletonCard ariaLabel="Loading bet" />);
+		const card = screen.getByTestId("skeleton-card");
+		const bars = card.querySelectorAll("[class*='skeleton-pulse']");
+		for (const bar of bars) {
+			expect(bar.className).toContain("bg-[var(--surface-container)]");
+		}
+	});
+
+	it("SkeletonCard wrapper uses --surface-elevated background", () => {
+		render(<SkeletonCard ariaLabel="Loading bet" />);
+		const card = screen.getByTestId("skeleton-card");
+		expect(card.className).toContain("bg-[var(--surface-elevated)]");
+	});
 });

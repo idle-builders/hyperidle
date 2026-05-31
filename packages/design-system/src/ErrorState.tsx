@@ -36,18 +36,18 @@ export function ErrorState({
 			 * button stays DaisyUI primitive (chip rule, see § 5.2);
 			 * text-left is INTENTIONAL — see § 5.1.
 			 */
-			className="flex flex-col items-start gap-[var(--density-card-gap)] px-[var(--density-pad-x)] py-[var(--density-card-pad)] text-left"
+			className="flex flex-col items-start gap-[var(--density-card-gap)] px-[var(--density-pad-x)] py-[var(--density-card-pad)] text-left bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-subtle)]"
 		>
-			<p className="text-[length:var(--density-text)] font-medium text-[var(--danger)] leading-[1.4]">
+			<p className="text-[length:var(--density-text)] font-medium text-[var(--status-error)] leading-[1.4]">
 				{title}
 			</p>
-			<p className="text-[12px] text-[var(--text-lo)] leading-[1.4]">{description}</p>
+			<p className="text-[12px] text-[var(--text-tertiary)] leading-[1.4]">{description}</p>
 			{onRetry && (
 				<button
 					type="button"
 					/* @lore K7 / AESTHETICS.md § Spacing & Density row "Grid base unit": 4px hard rule.
 					   px-[10px] → px-[8px] (10 was off-grid). Easing: --motion-ease (Material standard). */
-					className="inline-flex items-center justify-center px-[8px] py-[4px] text-[12px] font-medium text-[var(--surface-0)] bg-[var(--primary)] rounded-[var(--r2)] cursor-pointer leading-[1.4] transition-opacity duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:opacity-85 active:opacity-70"
+					className="inline-flex items-center justify-center px-[8px] py-[4px] text-[12px] font-medium text-[var(--text-on-accent)] bg-[var(--accent-primary)] rounded-[var(--r-default)] cursor-pointer leading-[1.4] transition-opacity duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:opacity-85 active:opacity-70"
 					onClick={onRetry}
 					data-testid="error-state-retry"
 				>

@@ -16,19 +16,22 @@
       gap: var(--density-card-gap);
       padding: var(--density-card-pad) var(--density-pad-x);
       text-align: left;
+      background: var(--surface-elevated);
+      border-radius: var(--r-default);
+      box-shadow: var(--shadow-subtle);
     }
 
     .empty-state__title {
       /* K11: title font scales with density per § 3.2.7. */
       font-size: var(--density-text);
       font-weight: 500;
-      color: var(--text-hi);
+      color: var(--text-primary);
       line-height: 1.4;
     }
 
     .empty-state__description {
       font-size: 12px;
-      color: var(--text-lo);
+      color: var(--text-tertiary);
       line-height: 1.4;
     }
 
@@ -115,7 +118,7 @@
                 title="No knowledge items yet"
                 description="Agents will populate this as they learn."
                 action={
-                  <span style={{ fontSize: "12px", color: "var(--primary)", cursor: "pointer" }}>
+                  <span style={{ fontSize: "12px", color: "var(--accent-primary)", cursor: "pointer" }}>
                     Import knowledge manually
                   </span>
                 }

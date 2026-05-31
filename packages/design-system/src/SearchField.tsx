@@ -15,9 +15,9 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 ): JSX.Element {
 	return (
 		<div {...dsProps("SearchField", "1")} className="relative flex w-full items-center">
-			<span className="pointer-events-none absolute left-[8px] flex items-center text-[var(--text-lo)]">
+			<span className="pointer-events-none absolute left-[8px] flex items-center text-[var(--text-tertiary)]">
 				{loading ? (
-					<span className="inline-block h-[14px] w-[14px] rounded-full border-2 border-[var(--surface-5)] border-t-[var(--primary)] animate-spin" />
+					<span className="inline-block h-[14px] w-[14px] rounded-full border-2 border-[var(--border-default)] border-t-[var(--accent-primary)] animate-spin" />
 				) : (
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -38,7 +38,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 			<input
 				ref={ref}
 				type="text"
-				className="w-full h-[32px] pl-[32px] pr-[56px] bg-[var(--surface-3)] border border-transparent rounded-[var(--r2)] font-[var(--ui)] text-[13px] text-[var(--text-hi)] placeholder:text-[var(--text-lo)] transition-[border-color,background] duration-[var(--motion-fast)] ease-[ease] focus:border-[var(--primary)] focus:bg-[var(--surface-2)] focus:outline-none"
+				className="w-full h-[32px] pl-[32px] pr-[56px] bg-[var(--surface-container)] border border-[var(--border-default)] rounded-[var(--r-default)] font-[family-name:var(--font-sans)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,background,box-shadow] duration-[var(--motion-fast)] ease-[ease] focus:border-[var(--accent-primary)] focus:bg-[var(--surface-page)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-none"
 				placeholder={placeholder}
 				value={value}
 				onChange={(e) => onChange?.(e.target.value)}
@@ -47,7 +47,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 				{value && (
 					<button
 						type="button"
-						className="inline-flex items-center justify-center w-[18px] h-[18px] rounded-[var(--r1)] bg-transparent text-[var(--text-lo)] text-[12px] cursor-pointer border-none p-0 transition-[background,color] duration-[var(--motion-fast)] ease-[ease] hover:bg-[var(--surface-ghost)] hover:text-[var(--text-mid)]"
+						className="inline-flex items-center justify-center w-[18px] h-[18px] rounded-[var(--r-subtle)] bg-transparent text-[var(--text-tertiary)] text-[12px] cursor-pointer border-none p-0 transition-[background,color] duration-[var(--motion-fast)] ease-[ease] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] hover:text-[var(--text-secondary)]"
 						aria-label="clear"
 						onClick={() => onChange?.("")}
 					>
@@ -59,7 +59,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 					   text-[10px] → text-[11px] (off-scale). The 56px right-inset on the
 					   input above is a designer-call exception (audit B.1.5) — it is the
 					   geometric minimum required to clear the clear-button + gap + kbd. */
-					<kbd className="inline-flex items-center justify-center min-w-[20px] h-[18px] px-[4px] rounded-[var(--r1)] bg-[var(--surface-5)] text-[var(--text-lo)] font-[var(--mono)] text-[11px] font-medium">
+					<kbd className="inline-flex items-center justify-center min-w-[20px] h-[18px] px-[4px] rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] text-[var(--text-tertiary)] font-[family-name:var(--font-mono)] text-[11px] font-medium">
 						{shortcutKey}
 					</kbd>
 				)}

@@ -27,16 +27,16 @@ describe("NotificationRow", () => {
 	it("renders source as Tag when provided", () => {
 		render(<NotificationRow {...defaultProps} source="CI/CD" />);
 		const tag = screen.getByText("CI/CD");
-		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r2)]");
-		expect(tag.className).toContain("bg-[var(--surface-ghost)]");
+		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
+		expect(tag.className).toContain("text-secondary");
 	});
 
 	it("does not render source Tag when omitted", () => {
 		const { container } = render(<NotificationRow {...defaultProps} />);
 		// No Tag elements should be rendered when source is omitted.
-		// Tags carry bg-[var(--surface-ghost)] class.
+		// Tags carry rounded-[var(--r-pill)] class.
 		const tags = Array.from(container.querySelectorAll("span")).filter((el) =>
-			el.className.includes("rounded-[var(--r2)]"),
+			el.className.includes("rounded-[var(--r-pill)]"),
 		);
 		expect(tags.length).toBe(0);
 	});
@@ -83,7 +83,7 @@ describe("NotificationRow", () => {
 		// StatusChip for severity
 		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-full");
 		// Tag for source
-		expect(screen.getByText("system")).toHaveClass("inline-flex", "rounded-[var(--r2)]");
+		expect(screen.getByText("system")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 	});
 
 	it("all severity levels produce visually distinct chips", () => {

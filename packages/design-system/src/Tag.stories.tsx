@@ -43,10 +43,10 @@ export const TagCloud = (): React.JSX.Element => (
 );
 
 export const InContextDemoCard = (): React.JSX.Element => (
-	<div className="rounded-lg bg-[var(--surface-3)] p-4">
+	<div className="rounded-lg bg-[var(--surface-container)] p-4">
 		<div className="flex flex-col gap-2">
 			<div className="flex flex-wrap items-center gap-1.5">
-				<span className="font-heading text-[11px] uppercase tracking-wider text-[var(--text-lo)]">
+				<span className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-wider text-[var(--text-tertiary)]">
 					Tags:
 				</span>
 				<Tag label="api-refactor" />
@@ -54,7 +54,7 @@ export const InContextDemoCard = (): React.JSX.Element => (
 				<Tag label="approved" kind="decision" />
 			</div>
 			<div className="flex flex-wrap items-center gap-1.5">
-				<span className="font-heading text-[11px] uppercase tracking-wider text-[var(--text-lo)]">
+				<span className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-wider text-[var(--text-tertiary)]">
 					Issues:
 				</span>
 				<Tag label="timeout on deploy" kind="failure" />

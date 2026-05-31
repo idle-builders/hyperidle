@@ -19,14 +19,14 @@ describe("KnowledgeRow", () => {
 	it("renders layer as Tag", () => {
 		render(<KnowledgeRow {...defaultProps} />);
 		const tag = screen.getByText("L2");
-		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r2)]");
-		expect(tag.className).toContain("bg-[var(--surface-ghost)]");
+		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
+		expect(tag.className).toContain("text-secondary");
 	});
 
 	it("renders kind as Tag", () => {
 		render(<KnowledgeRow {...defaultProps} />);
 		// "pattern" matches TagKind so gets tint class instead of neutral bg
-		expect(screen.getByText("pattern")).toHaveClass("inline-flex", "rounded-[var(--r2)]");
+		expect(screen.getByText("pattern")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 	});
 
 	it("renders status as StatusChip via knowledgeStatusToStatus mapping", () => {
@@ -85,8 +85,8 @@ describe("KnowledgeRow", () => {
 		for (const layer of layers) {
 			const { unmount } = render(<KnowledgeRow {...defaultProps} layer={layer} />);
 			const tag = screen.getByText(layer);
-			expect(tag).toHaveClass("inline-flex", "rounded-[var(--r2)]");
-			expect(tag.className).toContain("bg-[var(--surface-ghost)]");
+			expect(tag).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
+			expect(tag.className).toContain("text-secondary");
 			unmount();
 		}
 	});
@@ -107,9 +107,9 @@ describe("KnowledgeRow", () => {
 		for (const kind of kinds) {
 			const { unmount } = render(<KnowledgeRow {...defaultProps} kind={kind} />);
 			const el = screen.getByText(kind);
-			expect(el).toHaveClass("inline-flex", "rounded-[var(--r2)]");
+			expect(el).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 			if (!tintedKinds.has(kind)) {
-				expect(el.className).toContain("bg-[var(--surface-ghost)]");
+				expect(el.className).toContain("text-secondary");
 			}
 			unmount();
 		}
@@ -134,9 +134,9 @@ describe("KnowledgeRow", () => {
 	it("composes at least 2 Tier 1 primitives (Tag + StatusChip)", () => {
 		render(<KnowledgeRow {...defaultProps} />);
 		// Tag for layer
-		expect(screen.getByText("L2")).toHaveClass("inline-flex", "rounded-[var(--r2)]");
+		expect(screen.getByText("L2")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 		// Tag for kind — "pattern" matches TagKind so gets tint class
-		expect(screen.getByText("pattern")).toHaveClass("inline-flex", "rounded-[var(--r2)]");
+		expect(screen.getByText("pattern")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 		// StatusChip for status
 		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-full");
 	});

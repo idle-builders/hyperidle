@@ -45,11 +45,11 @@ export const ShortLabels = (): React.JSX.Element => (
 
 export const SideBySideComparison = (): React.JSX.Element => (
 	<div className="flex gap-4">
-		<div className="flex w-60 flex-col gap-2 rounded-lg bg-[var(--surface-3)] p-4">
+		<div className="flex w-60 flex-col gap-2 rounded-lg bg-[var(--surface-container)] p-4">
 			<KeyValue label="Owner" value="Architect Agent" />
 			<KeyValue label="Sprint" value="Cycle 7" />
 		</div>
-		<div className="flex w-60 flex-col gap-3 rounded-lg bg-[var(--surface-3)] p-4">
+		<div className="flex w-60 flex-col gap-3 rounded-lg bg-[var(--surface-container)] p-4">
 			<KeyValue label="Owner" value="Architect Agent" layout="stacked" />
 			<KeyValue label="Sprint" value="Cycle 7" layout="stacked" />
 		</div>

@@ -24,8 +24,8 @@ describe("BetCard", () => {
 	it("renders product as Tag", () => {
 		render(<BetCard {...defaultProps} />);
 		const tag = screen.getByText("HyperIdle");
-		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r2)]");
-		expect(tag.className).toContain("bg-[var(--surface-ghost)]");
+		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
+		expect(tag.className).toContain("text-secondary");
 	});
 
 	it("renders status as StatusChip via betStatusToStatus mapping", () => {
@@ -95,7 +95,7 @@ describe("BetCard", () => {
 	it("composes at least 2 Tier 1 primitives (Tag + StatusChip + KeyValue)", () => {
 		render(<BetCard {...defaultProps} />);
 		// Tag for product
-		expect(screen.getByText("HyperIdle")).toHaveClass("inline-flex", "rounded-[var(--r2)]");
+		expect(screen.getByText("HyperIdle")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 		// StatusChip for status (active → HEALTHY)
 		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-full");
 		// KeyValue for appetite

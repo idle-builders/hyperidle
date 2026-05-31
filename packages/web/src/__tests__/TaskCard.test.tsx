@@ -33,8 +33,8 @@ describe("TaskCard", () => {
 	it("renders betTag as Tag when provided", () => {
 		render(<TaskCard {...defaultProps} betTag="Mobile V2" />);
 		const tag = screen.getByText("Mobile V2");
-		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r2)]");
-		expect(tag.className).toContain("bg-[var(--surface-ghost)]");
+		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
+		expect(tag.className).toContain("text-secondary");
 	});
 
 	it("renders actions slot content", () => {
@@ -105,7 +105,7 @@ describe("TaskCard", () => {
 		// StatusChip
 		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-full");
 		// Tag for betTag
-		expect(screen.getByText("Sprint 1")).toHaveClass("inline-flex", "rounded-[var(--r2)]");
+		expect(screen.getByText("Sprint 1")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 		// KeyValue for cost
 		expect(screen.getByText("$2.00")).toBeInTheDocument();
 	});

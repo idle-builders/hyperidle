@@ -21,18 +21,31 @@ describe("KeyValue", () => {
 		expect(wrapper).toHaveClass("flex", "flex-col");
 	});
 
-	it("label has uppercase styling and font-heading", () => {
+	it("label has uppercase styling and font-[family-name:var(--font-mono)]", () => {
 		render(<KeyValue label="Owner" value="Alice" />);
 		const label = screen.getByText("Owner");
 		// K7: tracking-[0.05em] → tracking-[var(--tracking-caps)] per AESTHETICS.md
 		// § Typography row "Letter-spacing for caps" (designer-call: +0.02em).
+		// U7: font-heading replaced with font-[family-name:var(--font-mono)] for Hearth token parity.
 		expect(label).toHaveClass(
 			"uppercase",
-			"font-heading",
 			"text-[11px]",
 			"tracking-[var(--tracking-caps)]",
 			"font-medium",
 		);
+		expect(label.className).toContain("font-[family-name:var(--font-mono)]");
+	});
+
+	it("label uses --text-tertiary for color", () => {
+		render(<KeyValue label="Owner" value="Alice" />);
+		const label = screen.getByText("Owner");
+		expect(label.className).toContain("text-[var(--text-tertiary)]");
+	});
+
+	it("value uses --text-primary for color", () => {
+		render(<KeyValue label="Owner" value="Alice" />);
+		const value = screen.getByText("Alice");
+		expect(value.className).toContain("text-[var(--text-primary)]");
 	});
 
 	it("value has text-[14px] styling", () => {

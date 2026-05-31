@@ -46,16 +46,16 @@ describe("PitchCard", () => {
 	it("renders kind as Tag when provided", () => {
 		render(<PitchCard {...defaultProps} kind="feature" />);
 		const tag = screen.getByText("feature");
-		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r2)]");
-		expect(tag.className).toContain("bg-[var(--surface-ghost)]");
+		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
+		expect(tag.className).toContain("text-secondary");
 	});
 
 	it("does not render kind Tag when omitted", () => {
 		const { container } = render(<PitchCard {...defaultProps} />);
 		// When kind is omitted, no neutral Tag is rendered (only the StatusChip).
-		// Tags use rounded-[var(--r2)]; StatusChip uses rounded-full.
+		// Tags use rounded-[var(--r-pill)]; StatusChip uses rounded-full.
 		const tags = Array.from(container.querySelectorAll("span")).filter((el) =>
-			el.className.includes("rounded-[var(--r2)]"),
+			el.className.includes("rounded-[var(--r-pill)]"),
 		);
 		expect(tags.length).toBe(0);
 	});
@@ -89,7 +89,7 @@ describe("PitchCard", () => {
 	it("composes at least 2 Tier 1 primitives (Tag + StatusChip + KeyValue)", () => {
 		render(<PitchCard {...defaultProps} kind="exploration" />);
 		// Tag for kind
-		expect(screen.getByText("exploration")).toHaveClass("inline-flex", "rounded-[var(--r2)]");
+		expect(screen.getByText("exploration")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 		// StatusChip for status (draft → PAUSED)
 		expect(screen.getByText("PAUSED")).toHaveClass("inline-flex", "rounded-full");
 		// KeyValue for appetite

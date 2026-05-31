@@ -12,45 +12,45 @@ describe("StatusChip", () => {
 		render(<StatusChip status="healthy" />);
 		const chip = screen.getByText("HEALTHY");
 		expect(chip).toHaveClass("inline-flex", "rounded-full");
-		expect(chip.className).toContain("text-[var(--ok)]");
+		expect(chip.className).toContain("text-[var(--status-success)]");
 	});
 
 	it("applies color-mix background for behind status", () => {
 		render(<StatusChip status="behind" />);
 		const chip = screen.getByText("BEHIND");
 		expect(chip).toHaveClass("inline-flex", "rounded-full");
-		expect(chip.className).toContain("text-[var(--warn)]");
+		expect(chip.className).toContain("text-[var(--status-warning)]");
 	});
 
 	it("applies color-mix background for blocked status", () => {
 		// I4 S7: blocked must be visually distinct from error.
-		// `blocked` = waiting/recoverable → danger bg with danger text.
-		// `error` = broken/intervention required → also danger but distinct at data-status level.
+		// `blocked` = waiting/recoverable → status-error bg with status-error text.
+		// `error` = broken/intervention required → also status-error but distinct at data-status level.
 		render(<StatusChip status="blocked" />);
 		const chip = screen.getByText("BLOCKED");
 		expect(chip).toHaveClass("inline-flex", "rounded-full");
-		expect(chip.className).toContain("text-[var(--danger)]");
+		expect(chip.className).toContain("text-[var(--status-error)]");
 	});
 
 	it("applies color-mix background for paused status", () => {
 		render(<StatusChip status="paused" />);
 		const chip = screen.getByText("PAUSED");
 		expect(chip).toHaveClass("inline-flex", "rounded-full");
-		expect(chip.className).toContain("text-[var(--text-lo)]");
+		expect(chip.className).toContain("text-[var(--status-info)]");
 	});
 
 	it("applies color-mix background for done status", () => {
 		render(<StatusChip status="done" />);
 		const chip = screen.getByText("DONE");
 		expect(chip).toHaveClass("inline-flex", "rounded-full");
-		expect(chip.className).toContain("text-[var(--ok)]");
+		expect(chip.className).toContain("text-[var(--status-success)]");
 	});
 
 	it("applies color-mix background for error status", () => {
 		render(<StatusChip status="error" />);
 		const chip = screen.getByText("ERROR");
 		expect(chip).toHaveClass("inline-flex", "rounded-full");
-		expect(chip.className).toContain("text-[var(--danger)]");
+		expect(chip.className).toContain("text-[var(--status-error)]");
 	});
 
 	it("has tooltip with status text", () => {
@@ -87,10 +87,11 @@ describe("StatusChip", () => {
 		}
 	});
 
-	it("uses font-heading and text-[11px] classes for terminal aesthetic", () => {
+	it("uses font-[family-name:var(--font-mono)] and text-[11px] classes for terminal aesthetic", () => {
 		render(<StatusChip status="healthy" />);
 		const chip = screen.getByText("HEALTHY");
-		expect(chip).toHaveClass("font-heading", "uppercase");
+		expect(chip).toHaveClass("uppercase");
+		expect(chip.className).toContain("font-[family-name:var(--font-mono)]");
 		expect(chip.className).toContain("text-[11px]");
 	});
 
