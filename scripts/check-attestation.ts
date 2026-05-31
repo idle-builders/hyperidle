@@ -5,10 +5,14 @@
 //
 // Attestation files are stored per-commit in .verify-attestations/<sha>.json
 // to avoid merge conflicts between concurrent branches.
+//
+// In CI, GitHub checks out a merge commit (PR branch merged into target) whose
+// SHA differs from the branch tip. We find the attestation by scanning the
+// directory for any .json file rather than requiring an exact HEAD match.
 
 import { execSync } from "node:child_process";
 import { createHmac } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const ATTESTATION_DIR = ".verify-attestations";
@@ -29,30 +33,35 @@ function fail(msg: string): never {
 	process.exit(1);
 }
 
+function findAttestation(): string {
+	const dir = resolve(process.cwd(), ATTESTATION_DIR);
+
+	// Scan directory for any attestation file
+	if (existsSync(dir)) {
+		const files = readdirSync(dir).filter((f) => f.endsWith(".json"));
+		if (files.length > 0) {
+			return readFileSync(join(dir, files[0]), "utf-8");
+		}
+	}
+
+	// Fall back to legacy single-file format
+	const legacyPath = resolve(process.cwd(), ".verify-attestation.json");
+	if (existsSync(legacyPath)) {
+		return readFileSync(legacyPath, "utf-8");
+	}
+
+	fail(
+		`no attestation found in ${ATTESTATION_DIR}/ — run \`npm run verify\`, then commit the attestation`,
+	);
+}
+
 function main(): void {
 	const secret = process.env.VERIFY_SECRET;
 	if (!secret) {
 		fail("VERIFY_SECRET env var not set — add it as a GitHub Actions secret");
 	}
 
-	const sha = execSync("git rev-parse HEAD", { encoding: "utf-8" }).trim();
-
-	// Look for per-SHA attestation file
-	const perShaPath = resolve(process.cwd(), join(ATTESTATION_DIR, `${sha}.json`));
-
-	// Fall back to legacy single-file format for backward compat
-	const legacyPath = resolve(process.cwd(), ".verify-attestation.json");
-
-	let raw: string;
-	if (existsSync(perShaPath)) {
-		raw = readFileSync(perShaPath, "utf-8");
-	} else if (existsSync(legacyPath)) {
-		raw = readFileSync(legacyPath, "utf-8");
-	} else {
-		fail(
-			`no attestation found for ${sha.slice(0, 12)} — run \`npm run verify\`, then commit the attestation`,
-		);
-	}
+	const raw = findAttestation();
 
 	let attestation: Attestation;
 	try {
