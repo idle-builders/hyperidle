@@ -33,12 +33,28 @@ function fail(msg: string): never {
 	process.exit(1);
 }
 
+function isReachable(sha: string): boolean {
+	try {
+		execSync(`git cat-file -t ${sha}`, { encoding: "utf-8", stdio: "pipe" });
+		return true;
+	} catch {
+		return false;
+	}
+}
+
 function findAttestation(): string {
 	const dir = resolve(process.cwd(), ATTESTATION_DIR);
 
-	// Scan directory for any attestation file
 	if (existsSync(dir)) {
 		const files = readdirSync(dir).filter((f) => f.endsWith(".json"));
+		// When multiple attestation files exist (e.g. from merging main),
+		// pick the one whose SHA is reachable in the current git history.
+		for (const f of files) {
+			const sha = f.replace(".json", "");
+			if (isReachable(sha)) {
+				return readFileSync(join(dir, f), "utf-8");
+			}
+		}
 		if (files.length > 0) {
 			return readFileSync(join(dir, files[0]), "utf-8");
 		}
