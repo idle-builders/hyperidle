@@ -154,9 +154,11 @@ export { runDailyDigest } from "./services/notifications/digest.js";
 // notifications/dispatcher
 export type {
 	AdapterFactory,
+	AlertPreferences,
 	DispatcherDeps,
 } from "./services/notifications/dispatcher.js";
 export {
+	applyAlertPreferences,
 	dispatchDigest,
 	enqueueNotification,
 	flushQueue,

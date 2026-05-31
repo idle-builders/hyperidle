@@ -68,6 +68,8 @@ export interface NotificationSettings {
 	reviewAlerts: boolean;
 	costAlerts: boolean;
 	blockerAlerts: boolean;
+	/** @lore R8: defaults to false — quiet hours only take effect when this is true. */
+	quietHoursEnabled: boolean;
 	quietHoursStart: string;
 	quietHoursEnd: string;
 	/** @lore U1: renamed from mutedProducts. */

@@ -16,6 +16,7 @@ const SETTINGS_FIXTURE = {
 		reviewAlerts: true,
 		costAlerts: false,
 		blockerAlerts: true,
+		quietHoursEnabled: false,
 		quietHoursStart: "22:00",
 		quietHoursEnd: "08:00",
 		mutedTeams: [],

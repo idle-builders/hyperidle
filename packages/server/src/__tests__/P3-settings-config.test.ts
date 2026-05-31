@@ -14,7 +14,7 @@
  * tests only the P3-specific behavior (server_config backing, not factorySettings).
  */
 
-import { createTestDb, type HyperIdleDb, teams, users } from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, type TestDbHandle, teams, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

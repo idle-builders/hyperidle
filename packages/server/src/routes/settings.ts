@@ -37,6 +37,7 @@ const notificationPatchSchema = z.object({
 	reviewAlerts: z.boolean().optional(),
 	costAlerts: z.boolean().optional(),
 	blockerAlerts: z.boolean().optional(),
+	quietHoursEnabled: z.boolean().optional(),
 	quietHoursStart: z
 		.string()
 		.regex(/^\d{2}:\d{2}$/, "Expected HH:MM format")
@@ -109,6 +110,7 @@ async function buildSettingsResponse(db: HyperIdleDb): Promise<{
 		reviewAlerts: boolean;
 		costAlerts: boolean;
 		blockerAlerts: boolean;
+		quietHoursEnabled: boolean;
 		quietHoursStart: string;
 		quietHoursEnd: string;
 		mutedTeams: string[];
@@ -146,6 +148,7 @@ async function buildSettingsResponse(db: HyperIdleDb): Promise<{
 			reviewAlerts: serverCfg.notifications.reviewAlerts,
 			costAlerts: serverCfg.notifications.costAlerts,
 			blockerAlerts: serverCfg.notifications.blockerAlerts,
+			quietHoursEnabled: serverCfg.notifications.quietHoursEnabled,
 			quietHoursStart: serverCfg.notifications.quietHoursStart,
 			quietHoursEnd: serverCfg.notifications.quietHoursEnd,
 			mutedTeams: serverCfg.notifications.mutedTeams,

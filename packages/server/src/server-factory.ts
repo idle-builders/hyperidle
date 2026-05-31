@@ -12,6 +12,7 @@ import { LocalWorkspaceAdapter } from "./harness/local-workspace-adapter.js";
 import { registerWorkerWsRoute } from "./routes/worker-ws.js";
 import { registerWsRoute } from "./routes/ws.js";
 import { EnvCredentialResolver } from "./services/credential-resolver.js";
+import { readServerConfig } from "./services/server-config.js";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "./services/ws-broadcaster.js";
 
 /**
@@ -125,7 +126,27 @@ export async function createServer(port: number): Promise<ServerHandle> {
 	const app = await createApp({
 		db,
 		eventBus,
-		strategyBootstrap: bootstrapFabric,
+		/**
+		 * @lore R8: Wrap bootstrapFabric to inject readAlertPreferences from
+		 * server-config. bootstrapFabric is in the fabric package and cannot depend
+		 * on the server package — the implementation is provided here and closes
+		 * over the db reference. This satisfies F-01 from the R8 review.
+		 */
+		strategyBootstrap: (ctx) =>
+			bootstrapFabric({
+				...ctx,
+				readAlertPreferences: async () => {
+					const cfg = await readServerConfig(db);
+					return {
+						blockerAlerts: cfg.notifications.blockerAlerts,
+						costAlerts: cfg.notifications.costAlerts,
+						reviewAlerts: cfg.notifications.reviewAlerts,
+						quietHoursEnabled: cfg.notifications.quietHoursEnabled,
+						quietHoursStart: cfg.notifications.quietHoursStart,
+						quietHoursEnd: cfg.notifications.quietHoursEnd,
+					};
+				},
+			}),
 		adapterPool,
 		workspaceAdapter,
 		workspaceBasePath,

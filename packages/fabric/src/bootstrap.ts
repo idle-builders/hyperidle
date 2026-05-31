@@ -6,7 +6,10 @@ import { registerGitExportHandler } from "./services/git-export.js";
 import { createGitRunner } from "./services/git-export-runner.js";
 import { registerLifecyclePropagation } from "./services/lifecycle-propagation.js";
 import { defaultNotificationAdapterFactory } from "./services/notifications/adapter-factory.js";
-import { registerNotificationDispatcher } from "./services/notifications/dispatcher.js";
+import {
+	type AlertPreferences,
+	registerNotificationDispatcher,
+} from "./services/notifications/dispatcher.js";
 import { registerPolicyEngine } from "./services/policy-engine.js";
 import { registerSessionReviewCreator } from "./services/session-review-creator.js";
 
@@ -22,10 +25,16 @@ import { registerSessionReviewCreator } from "./services/session-review-creator.
  * internalized here with defaults (read from factory_settings at runtime).
  * Tests that need custom adapters construct their own strategyBootstrap
  * function that calls individual register* functions with custom factories.
+ *
+ * @lore R8: readAlertPreferences is injected from the server layer via the
+ * bootstrap context so fabric does not depend on server. Server-factory.ts
+ * provides the implementation backed by readServerConfig(db). Fail-open: if
+ * not provided, the dispatcher defaults to all-alerts-ON.
  */
 export function bootstrapFabric(ctx: {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
+	readonly readAlertPreferences?: () => Promise<AlertPreferences>;
 }): Array<() => void> {
 	const { db, eventBus } = ctx;
 	const disposers: Array<() => void> = [];
@@ -43,6 +52,7 @@ export function bootstrapFabric(ctx: {
 	disposers.push(
 		registerNotificationDispatcher(db, eventBus, {
 			adapterFactory: defaultNotificationAdapterFactory,
+			readAlertPreferences: ctx.readAlertPreferences,
 		}),
 	);
 
