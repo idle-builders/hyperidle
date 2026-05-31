@@ -15,16 +15,22 @@
  * servers do not dedupe, so the operator may see two rows. The
  * alternative (exactly-once) requires adapter-side idempotency keys,
  * which neither transport provides.
+ *
+ * @lore R8: Event-to-notification subscription mapping.
+ * Events the dispatcher subscribes to:
+ *   item_created       → classifyItem (blocking→push, high→push, medium→digest, low→drop)
+ *   cost_cap_breached  → classifyCostBreach (hard→push+bypass_silence, soft→digest)
+ *   cost_cap_warning   → classifyCostWarning (critical→push, warning→digest)
+ *   routine_fired      → daily_digest trigger only (not a notification)
+ *
+ * Events the dispatcher does NOT subscribe to (intentionally silent):
+ *   task_state_changed  → WS "work" topic for UI updates only
+ *   bet_state_changed   → WS "work" topic for UI updates only
+ *   Thread/session/knowledge events → WS per-topic for UI updates only
  */
 
 import * as crypto from "node:crypto";
-import {
-	type HyperIdleDb,
-	type Item,
-	items as itemsTable,
-	notificationQueue,
-	serverConfig as serverConfigTable,
-} from "@hyperidle/db";
+import { type HyperIdleDb, type Item, items as itemsTable, notificationQueue } from "@hyperidle/db";
 import {
 	type CostCapBreachedEvent,
 	type CostCapWarningEvent,
@@ -76,44 +82,6 @@ const ALERT_PREFS_DEFAULTS: AlertPreferences = {
 };
 
 /**
- * Read alert preferences from server_config. Fail-open: if the table is
- * empty or the JSON is corrupt, return all-alerts-ON defaults.
- *
- * @lore R8: Dispatcher reads server_config directly (not via server package)
- * because fabric cannot depend on server. Both share the @hyperidle/db
- * package which exports the serverConfig table — the raw JSON is parsed
- * inline with the same shape that server-config.ts would produce.
- */
-async function readAlertPrefs(db: HyperIdleDb): Promise<AlertPreferences> {
-	try {
-		const [row] = await db
-			.select()
-			.from(serverConfigTable)
-			.where(eq(serverConfigTable.id, "default"))
-			.limit(1);
-		if (!row) return ALERT_PREFS_DEFAULTS;
-
-		const json: unknown = JSON.parse(row.config);
-		if (typeof json !== "object" || json === null) return ALERT_PREFS_DEFAULTS;
-
-		const notifications = (json as Record<string, unknown>).notifications;
-		if (typeof notifications !== "object" || notifications === null) return ALERT_PREFS_DEFAULTS;
-
-		const n = notifications as Record<string, unknown>;
-		return {
-			blockerAlerts: typeof n.blockerAlerts === "boolean" ? n.blockerAlerts : true,
-			costAlerts: typeof n.costAlerts === "boolean" ? n.costAlerts : true,
-			reviewAlerts: typeof n.reviewAlerts === "boolean" ? n.reviewAlerts : true,
-			quietHoursEnabled: typeof n.quietHoursEnabled === "boolean" ? n.quietHoursEnabled : false,
-			quietHoursStart: typeof n.quietHoursStart === "string" ? n.quietHoursStart : "22:00",
-			quietHoursEnd: typeof n.quietHoursEnd === "string" ? n.quietHoursEnd : "08:00",
-		};
-	} catch {
-		return ALERT_PREFS_DEFAULTS;
-	}
-}
-
-/**
  * Apply alert preferences to determine if an event should be dropped.
  *
  * Returns true when the event should be dropped (not delivered).
@@ -159,6 +127,16 @@ export interface DispatcherDeps {
 	adapterFactory: AdapterFactory;
 	now?: () => Date;
 	logger?: Logger;
+	/**
+	 * Inject alert preferences reader. Fail-open: if not provided or if it
+	 * throws, the dispatcher defaults to all-alerts-ON.
+	 *
+	 * @lore R8: Option A from the architecture plan — inject readAlertPreferences
+	 * via DispatcherDeps so fabric does not read server_config directly (avoiding
+	 * a dependency inversion violation). The server package provides the
+	 * implementation in bootstrapFabric via readServerConfig(db).
+	 */
+	readAlertPreferences?: () => Promise<AlertPreferences>;
 }
 
 interface FloodState {
@@ -553,6 +531,24 @@ function getCachedAdapter(
 }
 
 /**
+ * Read alert preferences via the injected reader, failing open to all-alerts-ON
+ * defaults if the reader is not provided or throws.
+ *
+ * Extracted from route() to reduce its cognitive complexity.
+ */
+async function readPrefs(
+	readAlertPreferences: (() => Promise<AlertPreferences>) | undefined,
+): Promise<AlertPreferences> {
+	if (!readAlertPreferences) return ALERT_PREFS_DEFAULTS;
+	try {
+		return await readAlertPreferences();
+	} catch {
+		// Fail-open: treat errors as all-alerts-ON defaults.
+		return ALERT_PREFS_DEFAULTS;
+	}
+}
+
+/**
  * Register the dispatcher on the event bus. Returns a disposer that
  * unsubscribes + marks the handler disposed so pending microtasks exit
  * cleanly.
@@ -645,8 +641,8 @@ export function registerNotificationDispatcher(
 		if (classification.kind === "drop") return;
 		if (notification === null) return;
 
-		// Apply alert preferences (fail-open: errors default to all-alerts-ON).
-		const prefs = await readAlertPrefs(db);
+		// Apply alert preferences (fail-open: if not injected or throws, use all-alerts-ON defaults).
+		const prefs = await readPrefs(deps.readAlertPreferences);
 		if (applyAlertPreferences(classification, prefs, prefMeta)) return;
 
 		const now = nowFn();

@@ -25,6 +25,7 @@ import {
 	threads,
 } from "@hyperidle/db";
 import {
+	type AlertPreferences,
 	type Notification,
 	type NotificationAdapter,
 	type Recipient,
@@ -35,7 +36,6 @@ import {
 	type CostCapBreachedEvent,
 	type CostCapWarningEvent,
 	EventBus,
-	type EventType,
 	type ItemCreatedEvent,
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
@@ -142,69 +142,179 @@ function emitTaskStateChanged(
 	bus.emit(event);
 }
 
+/**
+ * Register the notification dispatcher with alert preferences wired to
+ * readServerConfig. This mirrors the production bootstrap (server-factory.ts)
+ * where readAlertPreferences is injected via DispatcherDeps so fabric does not
+ * read server_config directly.
+ *
+ * @lore R8 F-01: Tests that verify preference-driven behaviour (blockerAlerts,
+ * costAlerts, reviewAlerts, quietHoursEnabled) must inject readAlertPreferences
+ * so the dispatcher reads from server_config rather than falling back to
+ * all-alerts-ON defaults.
+ */
+function registerWithPrefs(
+	db: HyperIdleDb,
+	bus: EventBus,
+	adapter: NotificationAdapter,
+	extraDeps: Partial<{ now: () => Date }> = {},
+): () => void {
+	return registerNotificationDispatcher(db, bus, {
+		adapterFactory: () => adapter,
+		readAlertPreferences: async (): Promise<AlertPreferences> => {
+			const cfg = await readServerConfig(db);
+			return {
+				blockerAlerts: cfg.notifications.blockerAlerts,
+				costAlerts: cfg.notifications.costAlerts,
+				reviewAlerts: cfg.notifications.reviewAlerts,
+				quietHoursEnabled: cfg.notifications.quietHoursEnabled,
+				quietHoursStart: cfg.notifications.quietHoursStart,
+				quietHoursEnd: cfg.notifications.quietHoursEnd,
+			};
+		},
+		...extraDeps,
+	});
+}
+
 // ---------------------------------------------------------------------------
-// AC1: Event subscription mapping
+// AC1: Event subscription mapping — behavioral verification
 // ---------------------------------------------------------------------------
 
-describe("R8 AC1 — Event subscription mapping", () => {
+describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 	/**
-	 * The dispatcher subscribes to a known set of events and ignores others.
-	 * This test documents the contract so future changes to the event bus
-	 * subscriptions are deliberate, not accidental.
+	 * Behavioral tests that verify the dispatcher ACTUALLY subscribes to the
+	 * expected events at runtime by emitting each event and checking whether
+	 * the adapter fires (subscribed) or stays silent (not subscribed).
+	 *
+	 * @lore R8: These replaced the previous tautological documentation tests
+	 * (F-06) that only asserted values of arrays they themselves constructed.
+	 * True behavioral coverage requires emitting events and observing outcomes.
 	 */
-	it("documents which event types the dispatcher subscribes to (notification-generating)", () => {
-		// These are the events that CAN generate notifications when the conditions are met.
-		// Any change to this set must be intentional and reflected in tests.
-		const SUBSCRIBED_EVENTS: EventType[] = [
-			"item_created", // blocking items / high-risk items
-			"cost_cap_breached", // hard cap breaches
-			"cost_cap_warning", // critical warnings
-			"routine_fired", // daily digest trigger
-		];
+	let handle: TestDbHandle;
+	let db: HyperIdleDb;
+	let bus: EventBus;
+	let adapter: ReturnType<typeof createFakeAdapter>;
+	let unsubscribe: () => void;
 
-		// This is a documentation test: assert the set is exactly what we expect.
-		// If the dispatcher gains or loses subscriptions, this test catches it.
-		expect(SUBSCRIBED_EVENTS).toContain("item_created");
-		expect(SUBSCRIBED_EVENTS).toContain("cost_cap_breached");
-		expect(SUBSCRIBED_EVENTS).toContain("cost_cap_warning");
-		expect(SUBSCRIBED_EVENTS).toContain("routine_fired");
-		expect(SUBSCRIBED_EVENTS).toHaveLength(4);
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
+		bus = new EventBus();
+		adapter = createFakeAdapter();
 	});
 
-	it("documents which event types are SILENT (never generate notifications)", () => {
-		// These events are handled by other parts of the system (WS broadcaster, UI)
-		// but the notification dispatcher ignores them entirely.
-		const SILENT_EVENTS: EventType[] = [
-			"task_state_changed", // AC2: routine task changes are silent
-			"bet_state_changed", // state changes don't page the operator
-			"bet_revised", // operational, not urgent
-			"session_started", // expected normal operation
-			"session_ended", // expected normal operation
-			"thread_created", // structural, not alertable
-			"thread_message_appended", // messages handled by UI in real-time
-			"thread_resolved", // positive outcome, not alertable
-			"thread_reopened", // handled by unresolved review indicator
-			"thread_archived", // archival action
-			"dependency_met", // positive state change
-			"knowledge_created", // background sync
-			"knowledge_updated", // background sync
-			"knowledge_archived", // background archival
-			"knowledge_accessed", // observability, not alertable
-			"artifact_created", // UI gallery update via WS
-			"propagation_applied", // internal lifecycle automation
-			"propagation_failed", // covered by item creation if needed
-			"notification", // meta-event, not re-notified
-			"tool_call_recorded", // observability
-		];
+	afterEach(async () => {
+		unsubscribe?.();
+		await handle?.close();
+	});
 
-		// task_state_changed is explicitly silent per AC2
-		expect(SILENT_EVENTS).toContain("task_state_changed");
-		// session events are silent — normal agent operation
-		expect(SILENT_EVENTS).toContain("session_started");
-		expect(SILENT_EVENTS).toContain("session_ended");
-		// knowledge and thread events are silent
-		expect(SILENT_EVENTS).toContain("knowledge_created");
-		expect(SILENT_EVENTS).toContain("knowledge_updated");
+	it("item_created with blocking item → dispatcher handler fires (subscribed)", async () => {
+		await enableNotifications(db);
+		const threadId = await seedThread(db, "thread-ac1-item");
+		await createItem(db, { id: "ac1-blocking", blocking: true, riskTier: "medium", threadId });
+		unsubscribe = registerNotificationDispatcher(db, bus, { adapterFactory: () => adapter });
+
+		const event: ItemCreatedEvent = {
+			type: "item_created",
+			streamId: "stream-ac1",
+			itemId: "ac1-blocking",
+			conversationId: threadId,
+			kind: "approval",
+			timestamp: Date.now(),
+		};
+		bus.emit(event);
+
+		// Handler is subscribed — adapter should receive the notification
+		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
+		expect(adapter.calls[0].notification.severity).toBe("blocking");
+	});
+
+	it("cost_cap_breached (hard) → dispatcher handler fires (subscribed)", async () => {
+		await enableNotifications(db);
+		unsubscribe = registerNotificationDispatcher(db, bus, { adapterFactory: () => adapter });
+
+		const event: CostCapBreachedEvent = {
+			type: "cost_cap_breached",
+			streamId: "stream-ac1",
+			level: "hard",
+			capLevel: "factory",
+			entityId: "factory",
+			spend: 200,
+			cap: 100,
+			timestamp: Date.now(),
+		};
+		bus.emit(event);
+
+		// Handler is subscribed — cost_breach severity pushed
+		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
+		expect(adapter.calls[0].notification.severity).toBe("cost_breach");
+	});
+
+	it("cost_cap_warning (critical) → dispatcher handler fires (subscribed)", async () => {
+		await enableNotifications(db);
+		unsubscribe = registerNotificationDispatcher(db, bus, { adapterFactory: () => adapter });
+
+		const event: CostCapWarningEvent = {
+			type: "cost_cap_warning",
+			streamId: "stream-ac1",
+			level: "critical",
+			capLevel: "factory",
+			entityId: "factory",
+			spend: 90,
+			cap: 100,
+			timestamp: Date.now(),
+		};
+		bus.emit(event);
+
+		// Critical warning → push (cost_breach severity)
+		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
+		expect(adapter.calls[0].notification.severity).toBe("cost_breach");
+	});
+
+	it("task_state_changed → dispatcher does NOT fire (not subscribed — intentionally silent)", async () => {
+		// AC2: task_state_changed is explicitly not subscribed by the dispatcher.
+		// Emitting it should produce no notifications and no queue rows.
+		await enableNotifications(db);
+		unsubscribe = registerNotificationDispatcher(db, bus, { adapterFactory: () => adapter });
+
+		emitTaskStateChanged(bus, "pending", "in_progress");
+		emitTaskStateChanged(bus, "in_progress", "done");
+
+		// Allow async event handlers to fully settle
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(adapter.calls).toHaveLength(0);
+		const rows = await db.select().from(notificationQueue);
+		expect(rows).toHaveLength(0);
+	});
+
+	it("cost_cap_warning (warning level) → enqueued as digest (subscribed, digest path)", async () => {
+		// cost_cap_warning with level=warning produces a digest row, not a push.
+		// This verifies the subscription exists but the classification is digest.
+		await enableNotifications(db);
+		unsubscribe = registerNotificationDispatcher(db, bus, { adapterFactory: () => adapter });
+
+		const event: CostCapWarningEvent = {
+			type: "cost_cap_warning",
+			streamId: "stream-ac1",
+			level: "warning",
+			capLevel: "team",
+			entityId: "team-1",
+			spend: 80,
+			cap: 100,
+			timestamp: Date.now(),
+		};
+		bus.emit(event);
+
+		// Handler is subscribed — digest row appears, no push
+		await vi.waitFor(async () => {
+			const rows = await db.select().from(notificationQueue);
+			expect(rows).toHaveLength(1);
+		});
+		const rows = await db.select().from(notificationQueue);
+		expect(rows[0].severity).toBe("digest");
+		expect(adapter.calls).toHaveLength(0);
 	});
 });
 
@@ -315,9 +425,7 @@ describe("R8 AC3 — Blocker alerts respect blockerAlerts preference", () => {
 		const threadId = await seedThread(db);
 		await createItem(db, { id: "blocker-off", blocking: true, riskTier: "high", threadId });
 
-		unsubscribe = registerNotificationDispatcher(db, bus, {
-			adapterFactory: () => adapter,
-		});
+		unsubscribe = registerWithPrefs(db, bus, adapter);
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
@@ -344,9 +452,7 @@ describe("R8 AC3 — Blocker alerts respect blockerAlerts preference", () => {
 		const threadId = await seedThread(db);
 		await createItem(db, { id: "blocker-on", blocking: true, riskTier: "medium", threadId });
 
-		unsubscribe = registerNotificationDispatcher(db, bus, {
-			adapterFactory: () => adapter,
-		});
+		unsubscribe = registerWithPrefs(db, bus, adapter);
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
@@ -385,9 +491,7 @@ describe("R8 AC3 — Cost alerts respect costAlerts preference", () => {
 		await enableNotifications(db);
 		await updateServerConfig(db, { notifications: { costAlerts: false } });
 
-		unsubscribe = registerNotificationDispatcher(db, bus, {
-			adapterFactory: () => adapter,
-		});
+		unsubscribe = registerWithPrefs(db, bus, adapter);
 
 		const event: CostCapWarningEvent = {
 			type: "cost_cap_warning",
@@ -413,9 +517,7 @@ describe("R8 AC3 — Cost alerts respect costAlerts preference", () => {
 		await enableNotifications(db);
 		await updateServerConfig(db, { notifications: { costAlerts: false } });
 
-		unsubscribe = registerNotificationDispatcher(db, bus, {
-			adapterFactory: () => adapter,
-		});
+		unsubscribe = registerWithPrefs(db, bus, adapter);
 
 		const event: CostCapBreachedEvent = {
 			type: "cost_cap_breached",
@@ -444,9 +546,7 @@ describe("R8 AC3 — Cost alerts respect costAlerts preference", () => {
 		await enableNotifications(db);
 		await updateServerConfig(db, { notifications: { costAlerts: false } });
 
-		unsubscribe = registerNotificationDispatcher(db, bus, {
-			adapterFactory: () => adapter,
-		});
+		unsubscribe = registerWithPrefs(db, bus, adapter);
 
 		const event: CostCapBreachedEvent = {
 			type: "cost_cap_breached",
@@ -468,9 +568,7 @@ describe("R8 AC3 — Cost alerts respect costAlerts preference", () => {
 		await enableNotifications(db);
 		// Default: costAlerts=true
 
-		unsubscribe = registerNotificationDispatcher(db, bus, {
-			adapterFactory: () => adapter,
-		});
+		unsubscribe = registerWithPrefs(db, bus, adapter);
 
 		const event: CostCapWarningEvent = {
 			type: "cost_cap_warning",
@@ -525,9 +623,7 @@ describe("R8 AC4 — Review alerts respect reviewAlerts preference", () => {
 			threadId,
 		});
 
-		unsubscribe = registerNotificationDispatcher(db, bus, {
-			adapterFactory: () => adapter,
-		});
+		unsubscribe = registerWithPrefs(db, bus, adapter);
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
@@ -559,9 +655,7 @@ describe("R8 AC4 — Review alerts respect reviewAlerts preference", () => {
 			threadId,
 		});
 
-		unsubscribe = registerNotificationDispatcher(db, bus, {
-			adapterFactory: () => adapter,
-		});
+		unsubscribe = registerWithPrefs(db, bus, adapter);
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
@@ -592,9 +686,7 @@ describe("R8 AC4 — Review alerts respect reviewAlerts preference", () => {
 			threadId,
 		});
 
-		unsubscribe = registerNotificationDispatcher(db, bus, {
-			adapterFactory: () => adapter,
-		});
+		unsubscribe = registerWithPrefs(db, bus, adapter);
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
@@ -718,10 +810,7 @@ describe("R8 AC5 — Quiet hours dispatcher integration", () => {
 
 		// Use a fixed "now" that falls inside the 00:00–23:59 window
 		const fixedNow = new Date("2026-05-30T12:00:00.000Z");
-		unsubscribe = registerNotificationDispatcher(db, bus, {
-			adapterFactory: () => adapter,
-			now: () => fixedNow,
-		});
+		unsubscribe = registerWithPrefs(db, bus, adapter, { now: () => fixedNow });
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
@@ -761,10 +850,7 @@ describe("R8 AC5 — Quiet hours dispatcher integration", () => {
 		await createItem(db, { id: "qh-on-blocking", blocking: true, riskTier: "medium", threadId });
 
 		const fixedNow = new Date("2026-05-30T12:00:00.000Z"); // 12:00 UTC — inside 10:00–14:00
-		unsubscribe = registerNotificationDispatcher(db, bus, {
-			adapterFactory: () => adapter,
-			now: () => fixedNow,
-		});
+		unsubscribe = registerWithPrefs(db, bus, adapter, { now: () => fixedNow });
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
@@ -869,9 +955,7 @@ describe("R8 Preferences wiring — server_config drives dispatcher", () => {
 		const threadId = await seedThread(db);
 		await createItem(db, { id: "pref-blocker", blocking: true, riskTier: "high", threadId });
 
-		unsubscribe = registerNotificationDispatcher(db, bus, {
-			adapterFactory: () => adapter,
-		});
+		unsubscribe = registerWithPrefs(db, bus, adapter);
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",

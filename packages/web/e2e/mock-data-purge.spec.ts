@@ -68,6 +68,7 @@ const OVERRIDE_SETTINGS = {
 		reviewAlerts: true,
 		costAlerts: true,
 		blockerAlerts: true,
+		quietHoursEnabled: false,
 		quietHoursStart: "22:00",
 		quietHoursEnd: "08:00",
 		mutedTeams: [],

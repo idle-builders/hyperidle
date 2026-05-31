@@ -21,6 +21,7 @@ const SETTINGS_API_RESPONSE = {
 		reviewAlerts: true,
 		costAlerts: false,
 		blockerAlerts: true,
+		quietHoursEnabled: false,
 		quietHoursStart: "23:00",
 		quietHoursEnd: "07:00",
 		mutedTeams: [],
