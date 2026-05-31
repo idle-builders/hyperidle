@@ -167,11 +167,7 @@ describe("AC-5 — filterBlockId prop shows only matching messages", () => {
 		});
 
 		render(
-			<HostThreadSection
-				hostKind="knowledge_item"
-				hostId="k-filter-001"
-				title="Discussion"
-			/>,
+			<HostThreadSection hostKind="knowledge_item" hostId="k-filter-001" title="Discussion" />,
 		);
 
 		expect(screen.getByText("Block A message 1")).toBeInTheDocument();
@@ -207,9 +203,7 @@ describe("AC-5 — 'Show all messages' toggle when filter is active", () => {
 		);
 
 		// A "Show all" affordance must be present when filtering is active
-		expect(
-			screen.getByRole("button", { name: /show all messages/i }),
-		).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /show all messages/i })).toBeInTheDocument();
 	});
 
 	it("does NOT render a 'Show all messages' toggle when filterBlockId is not set", () => {
@@ -221,16 +215,10 @@ describe("AC-5 — 'Show all messages' toggle when filter is active", () => {
 		});
 
 		render(
-			<HostThreadSection
-				hostKind="knowledge_item"
-				hostId="k-filter-001"
-				title="Discussion"
-			/>,
+			<HostThreadSection hostKind="knowledge_item" hostId="k-filter-001" title="Discussion" />,
 		);
 
-		expect(
-			screen.queryByRole("button", { name: /show all messages/i }),
-		).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /show all messages/i })).not.toBeInTheDocument();
 	});
 });
 
@@ -297,8 +285,6 @@ describe("AC-5 — clicking 'Show all messages' reveals all messages", () => {
 		await user.click(showAllButton);
 
 		// Once "show all" is active, the filter toggle is gone
-		expect(
-			screen.queryByRole("button", { name: /show all messages/i }),
-		).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /show all messages/i })).not.toBeInTheDocument();
 	});
 });

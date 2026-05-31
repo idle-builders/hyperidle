@@ -29,7 +29,7 @@
  */
 
 import { ErrorState, SkeletonList } from "@hyperidle/design-system";
-import type { HostKind, Message } from "@hyperidle/shared";
+import type { HostKind, Message, PlainPayloadWithBlockId } from "@hyperidle/shared";
 import { isRedactedPayload } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
@@ -67,6 +67,14 @@ export interface HostThreadSectionProps {
 	 * bet's lead agent), or null when no agent is yet assigned.
 	 */
 	agentId?: string | null;
+	/**
+	 * T5: When set, filters the displayed messages to only those anchored to
+	 * this blockId. A "Show all messages" toggle allows the user to exit the filter.
+	 *
+	 * @lore T5: Client-side filter — all messages are already fetched. The server-side
+	 * GET ?block_id=X endpoint is available for future use when thread volume grows.
+	 */
+	filterBlockId?: string;
 }
 
 /**
@@ -87,6 +95,7 @@ export function HostThreadSection({
 	onClearPrefill,
 	onMessagePosted,
 	agentId = null,
+	filterBlockId,
 }: HostThreadSectionProps): JSX.Element {
 	const { user } = useCurrentUser();
 	const { data, error, isLoading, refresh } = useHostThread(hostKind, hostId);
@@ -94,6 +103,8 @@ export function HostThreadSection({
 	const [sending, setSending] = useState(false);
 	const [postError, setPostError] = useState<string | null>(null);
 	const composerRef = useRef<HTMLTextAreaElement>(null);
+	// T5: when filterBlockId is set, user can toggle "show all" to exit the filter.
+	const [showAll, setShowAll] = useState(false);
 
 	// F5: when prefill is set, scroll composer into view and focus it.
 	// @lore L18 (M1): scrollIntoView may be undefined in JSDOM test environments
@@ -161,7 +172,17 @@ export function HostThreadSection({
 		);
 	}
 
-	const messages: ReadonlyArray<Message> = data?.messages ?? [];
+	const allMessages: ReadonlyArray<Message> = data?.messages ?? [];
+
+	// T5: Apply block-scoped filter unless user has toggled "show all".
+	const isFiltering = filterBlockId !== undefined && !showAll;
+	const messages: ReadonlyArray<Message> = isFiltering
+		? allMessages.filter((msg) => {
+				if (msg.type !== "plain") return false;
+				if (isRedactedPayload(msg.payload)) return false;
+				return (msg.payload as PlainPayloadWithBlockId).blockId === filterBlockId;
+			})
+		: allMessages;
 
 	const content = (
 		<div data-testid="host-thread-section" className="flex flex-col gap-2">
@@ -192,6 +213,17 @@ export function HostThreadSection({
 						</div>
 					))}
 				</div>
+			)}
+
+			{/* T5: "Show all messages" toggle when block-scoped filter is active */}
+			{isFiltering && (
+				<button
+					type="button"
+					className="text-xs text-[var(--text-lo)] underline self-start"
+					onClick={() => setShowAll(true)}
+				>
+					Show all messages
+				</button>
 			)}
 
 			{/* Post error alert */}
