@@ -374,6 +374,23 @@ describe("AC-5 — GET /api/threads/:id?block_id=X returns only matching message
 		// The architecture critique mandates rejection, so we assert 400.
 		expect(res.status).toBe(400);
 	});
+
+	it("GET with ?block_id exceeding 128 chars returns 400 (T5 max-length guard)", async () => {
+		// BlockIds are Blake2s hashes (~64 chars). Reject any value over 128 chars
+		// to prevent storage/index abuse with oversized input.
+		const oversizedBlockId = "x".repeat(129);
+		const res = await ctx.app.request(
+			`/api/threads/${threadId}?block_id=${oversizedBlockId}`,
+			{
+				method: "GET",
+				headers: authHeaders(),
+			},
+		);
+
+		expect(res.status).toBe(400);
+		const body = (await res.json()) as { code: string };
+		expect(body.code).toBe("validation_error");
+	});
 });
 
 // ── AC-4: Anchored messages persist independently (no cascade) ──

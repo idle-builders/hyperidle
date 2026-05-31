@@ -78,6 +78,22 @@ export interface HostThreadSectionProps {
 }
 
 /**
+ * Type guard: checks whether a plain message payload carries a blockId.
+ *
+ * @lore T5: Replaces the unsafe `as PlainPayloadWithBlockId` cast. The
+ * PlainPayloadWithBlockId interface has `text: string` and optional `blockId`.
+ * We check for the shape rather than casting so TypeScript can narrow safely.
+ */
+function isPlainPayloadWithBlockId(payload: unknown): payload is PlainPayloadWithBlockId {
+	return (
+		typeof payload === "object" &&
+		payload !== null &&
+		"text" in payload &&
+		typeof (payload as { text: unknown }).text === "string"
+	);
+}
+
+/**
  * Render a plain-message payload text, handling redacted state and other types.
  */
 function messageText(msg: Message): string {
@@ -105,6 +121,15 @@ export function HostThreadSection({
 	const composerRef = useRef<HTMLTextAreaElement>(null);
 	// T5: when filterBlockId is set, user can toggle "show all" to exit the filter.
 	const [showAll, setShowAll] = useState(false);
+
+	// T5: reset showAll when the block filter changes so the new block's messages
+	// are immediately shown in filtered mode (not the previous block's "show all" state).
+	// @lore T5: Without this reset, clicking "Discuss" on a second block after having
+	// expanded "show all" on the first block would leave showAll=true, defeating the filter.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: filterBlockId is intentionally a dep — it triggers the reset when the selected block changes.
+	useEffect(() => {
+		setShowAll(false);
+	}, [filterBlockId]);
 
 	// F5: when prefill is set, scroll composer into view and focus it.
 	// @lore L18 (M1): scrollIntoView may be undefined in JSDOM test environments
@@ -180,7 +205,9 @@ export function HostThreadSection({
 		? allMessages.filter((msg) => {
 				if (msg.type !== "plain") return false;
 				if (isRedactedPayload(msg.payload)) return false;
-				return (msg.payload as PlainPayloadWithBlockId).blockId === filterBlockId;
+				// T5: safe type narrowing — no unsafe `as` cast.
+				if (!isPlainPayloadWithBlockId(msg.payload)) return false;
+				return msg.payload.blockId === filterBlockId;
 			})
 		: allMessages;
 

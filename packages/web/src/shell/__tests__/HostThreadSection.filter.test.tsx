@@ -287,4 +287,50 @@ describe("AC-5 — clicking 'Show all messages' reveals all messages", () => {
 		// Once "show all" is active, the filter toggle is gone
 		expect(screen.queryByRole("button", { name: /show all messages/i })).not.toBeInTheDocument();
 	});
+
+	it("resets showAll to false when filterBlockId changes (T5 review finding #5)", async () => {
+		// When user clicks Discuss on block-A, showAll resets so the filter
+		// immediately applies to block-A's messages instead of remaining expanded.
+		const user = userEvent.setup();
+		vi.mocked(useHostThread).mockReturnValue({
+			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE },
+			error: null,
+			isLoading: false,
+			refresh: vi.fn(),
+		});
+
+		const { rerender } = render(
+			<HostThreadSection
+				hostKind="knowledge_item"
+				hostId="k-filter-001"
+				title="Discussion"
+				filterBlockId="block-filter-A"
+			/>,
+		);
+
+		// Expand show-all on block-A's filter
+		const showAllButton = screen.getByRole("button", { name: /show all messages/i });
+		await user.click(showAllButton);
+
+		// All 5 messages visible (filter expanded)
+		expect(screen.getByText("Block A message 1")).toBeInTheDocument();
+		expect(screen.getByText("Block B message 1")).toBeInTheDocument();
+
+		// Switch to block-B's filter — showAll must reset
+		rerender(
+			<HostThreadSection
+				hostKind="knowledge_item"
+				hostId="k-filter-001"
+				title="Discussion"
+				filterBlockId="block-filter-B"
+			/>,
+		);
+
+		// Now only block-B messages should be visible (filter reset)
+		expect(screen.getByText("Block B message 1")).toBeInTheDocument();
+		expect(screen.queryByText("Block A message 1")).not.toBeInTheDocument();
+
+		// Toggle is visible again (showAll was reset)
+		expect(screen.getByRole("button", { name: /show all messages/i })).toBeInTheDocument();
+	});
 });

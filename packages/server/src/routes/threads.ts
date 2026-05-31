@@ -283,10 +283,15 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 	router.get("/:id", async (c) => {
 		const id = c.req.param("id");
 
-		// T5: optional block_id filter. Reject empty strings (AC-5 security).
+		// T5: optional block_id filter. Reject empty strings and oversized values (AC-5 security).
+		// BlockIds are Blake2s hashes (~64 chars); cap at 128 to reject clearly-bogus input.
 		const rawBlockId = c.req.query("block_id");
 		if (rawBlockId !== undefined && rawBlockId === "") {
 			const e = err("validation_error", "block_id must not be empty", 400);
+			return c.json(e.body, e.status);
+		}
+		if (rawBlockId !== undefined && rawBlockId.length > 128) {
+			const e = err("validation_error", "block_id must not exceed 128 characters", 400);
 			return c.json(e.body, e.status);
 		}
 		const blockIdFilter = rawBlockId ?? null;
