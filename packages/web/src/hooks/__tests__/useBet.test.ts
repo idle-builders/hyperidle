@@ -28,11 +28,13 @@ const MOCK_BET: BetDetail = {
 	product: "Alpha",
 	team: "Alpha Core",
 	status: "active",
-	appetite: "2 weeks",
+	costAppetite: null,
+	tokenAppetite: null,
+	costActual: null,
+	tokensActual: null,
 	progress: { done: 1, total: 3 },
-	pitch: "# Problem\n\nAuth is broken.\n",
+	description: "# Problem\n\nAuth is broken.\n",
 	tasks: [],
-	comments: [],
 };
 
 describe("useBet", () => {

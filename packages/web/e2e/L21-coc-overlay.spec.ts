@@ -51,12 +51,12 @@ const BET_FIXTURE = {
 	title: "Daily Digest",
 	product: "Nimmly",
 	team: "Alpha Core",
-	status: "shaped",
+	status: "draft",
 	costAppetite: { minor: 25000, currency: "USD" },
 	costActual: null,
 	tokensActual: null,
 	progress: { done: 0, total: 1 },
-	pitch: "A bet about daily digest.",
+	description: "A bet about daily digest.",
 	tasks: [],
 };
 

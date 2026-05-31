@@ -32,10 +32,13 @@ const BET_WITH_PITCH: BetDetail = {
 	title: "Popover Test Bet",
 	product: "Alpha",
 	team: "Alpha Core",
-	status: "in_progress",
-	appetite: "2 weeks",
+	status: "completed",
+	costAppetite: null,
+	tokenAppetite: null,
+	costActual: null,
+	tokensActual: null,
 	progress: { done: 0, total: 1 },
-	pitch: `# Problem\n\nThis is a test paragraph for popover testing.`,
+	description: `# Problem\n\nThis is a test paragraph for popover testing.`,
 	tasks: [],
 };
 

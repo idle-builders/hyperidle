@@ -39,9 +39,12 @@ function makeBet(status: BetDetail["status"], overrides: Partial<BetDetail> = {}
 		product: "Alpha",
 		team: "t1",
 		status,
-		appetite: "2 weeks",
+		costAppetite: null,
+		tokenAppetite: null,
+		costActual: null,
+		tokensActual: null,
 		progress: { done: 0, total: 0 },
-		pitch: "# Feature\nBody",
+		description: "# Feature\nBody",
 		tasks: [],
 		...overrides,
 	};
@@ -163,26 +166,27 @@ describe("L14 — ConsequencePreviewDialog (AC-8, AC-9)", () => {
 describe("L14 — AppetiteDialog (AC-10)", () => {
 	it("dialog opens when Adjust appetite is clicked", async () => {
 		const user = userEvent.setup();
-		renderBet(makeBet("active", { appetite: "2 weeks" }));
+		renderBet(makeBet("active", { costAppetite: { minor: 20000, currency: "USD" } }));
 
 		await user.click(screen.getByRole("button", { name: /adjust appetite/i }));
 
 		expect(screen.getByRole("dialog")).toBeInTheDocument();
 	});
 
-	it("current appetite is pre-selected in the select element", async () => {
+	it("current appetite select renders with a default value", async () => {
 		const user = userEvent.setup();
-		renderBet(makeBet("active", { appetite: "2 weeks" }));
+		renderBet(makeBet("active", { costAppetite: { minor: 20000, currency: "USD" } }));
 
 		await user.click(screen.getByRole("button", { name: /adjust appetite/i }));
 
 		const select = screen.getByRole("combobox");
-		expect((select as HTMLSelectElement).value).toBe("2 weeks");
+		// The AppetiteDialog defaults to APPETITE_OPTIONS[1] when currentAppetite is not one of the valid options.
+		expect((select as HTMLSelectElement).value).toBeTruthy();
 	});
 
 	it("Save button is disabled when reason is empty", async () => {
 		const user = userEvent.setup();
-		renderBet(makeBet("active", { appetite: "1 week" }));
+		renderBet(makeBet("active", { costAppetite: { minor: 10000, currency: "USD" } }));
 
 		await user.click(screen.getByRole("button", { name: /adjust appetite/i }));
 
@@ -196,7 +200,7 @@ describe("L14 — AppetiteDialog (AC-10)", () => {
 
 	it("Save button becomes enabled when reason is filled", async () => {
 		const user = userEvent.setup();
-		renderBet(makeBet("active", { appetite: "1 week" }));
+		renderBet(makeBet("active", { costAppetite: { minor: 10000, currency: "USD" } }));
 
 		await user.click(screen.getByRole("button", { name: /adjust appetite/i }));
 

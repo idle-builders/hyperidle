@@ -125,7 +125,7 @@ test.describe("L18 — Task sheet thread surface", () => {
 					costActual: null,
 					tokensActual: null,
 					progress: { done: 1, total: 3 },
-					pitch: "# Problem\n\nAuth is broken.\n",
+					description: "# Problem\n\nAuth is broken.\n",
 					tasks: [
 						{
 							id: TASK_ID,

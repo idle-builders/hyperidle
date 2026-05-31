@@ -23,6 +23,7 @@
  * `description` in the submit payload to match the U1 schema rename.
  */
 
+import { BodyEditor } from "@hyperidle/design-system";
 import { deriveTitleFromPitch } from "@hyperidle/shared";
 import { type JSX, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../../services/api-fetch.js";
@@ -155,19 +156,23 @@ export function BetCreateDialog({
 						</label>
 					)}
 
-					{/* Description textarea */}
-					<label className="flex flex-col gap-1">
+					{/* Description editor */}
+					{/* @lore T3: <div> instead of <label> — BodyEditor renders a ProseMirror contenteditable
+					    which is not a labelable element; <label> with no associated control triggers
+					    lint/a11y/noLabelWithoutControl. Matches pattern in KnowledgeCreateDialog. */}
+					<div className="flex flex-col gap-1">
 						<span className="text-xs text-[var(--text-lo)]">
 							Description <span aria-hidden>(required)</span>
 						</span>
-						<textarea
-							className="textarea textarea-bordered text-base resize-none h-40 w-full"
-							placeholder="Describe the bet in markdown…"
-							value={description}
-							onChange={(e) => setDescription(e.target.value)}
-							disabled={submitting}
+						<BodyEditor
+							initialContent=""
+							onChange={(md) => setDescription(md)}
+							placeholder="Describe the bet..."
+							variant="full"
+							minHeight="160px"
+							editable={!submitting}
 						/>
-					</label>
+					</div>
 
 					{/* Title preview */}
 					<div className="flex flex-col gap-1">

@@ -28,7 +28,7 @@ function makeBetResponse(status = "in_progress") {
 		costActual: null,
 		tokensActual: null,
 		progress: { done: 1, total: 3 },
-		pitch: "# Problem\n\nThis bet needs action bar testing.\n",
+		description: "# Problem\n\nThis bet needs action bar testing.\n",
 		tasks: [],
 		revisionLog: null,
 	};

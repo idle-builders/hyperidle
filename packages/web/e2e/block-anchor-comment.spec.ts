@@ -25,7 +25,7 @@ function makeBetResponse() {
 		costActual: null,
 		tokensActual: null,
 		progress: { done: 0, total: 1 },
-		pitch:
+		description:
 			"# Problem\n\nThis paragraph block will receive an anchored comment.\n\n## Solution\n\nAnother block here.",
 		tasks: [],
 	};
