@@ -24,6 +24,13 @@ const NotificationsSchema = z.object({
 	reviewAlerts: z.boolean().default(true),
 	costAlerts: z.boolean().default(true),
 	blockerAlerts: z.boolean().default(true),
+	/**
+	 * @lore R8: Quiet hours gate defaults to OFF so notifications are never
+	 * silenced on a fresh install. The start/end fields still persist but the
+	 * dispatcher only consults them when quietHoursEnabled=true. This separates
+	 * "has the user configured a window?" from "is the window active?".
+	 */
+	quietHoursEnabled: z.boolean().default(false),
 	quietHoursStart: z
 		.string()
 		.regex(/^\d{2}:\d{2}$/)
@@ -61,6 +68,7 @@ type DeepPartialNotifications = {
 	reviewAlerts?: boolean;
 	costAlerts?: boolean;
 	blockerAlerts?: boolean;
+	quietHoursEnabled?: boolean;
 	quietHoursStart?: string;
 	quietHoursEnd?: string;
 	// @lore U1: renamed from mutedProducts.

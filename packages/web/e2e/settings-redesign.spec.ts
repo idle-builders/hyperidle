@@ -36,6 +36,7 @@ const DEFAULT_SETTINGS = {
 		reviewAlerts: true,
 		costAlerts: true,
 		blockerAlerts: true,
+		quietHoursEnabled: false,
 		quietHoursStart: "22:00",
 		quietHoursEnd: "08:00",
 		mutedTeams: [],
@@ -365,5 +366,44 @@ test.describe("Settings Overlay (P4)", () => {
 
 		// Should show the Add Edge button
 		await expect(page.getByRole("button", { name: /add edge/i })).toBeVisible();
+	});
+
+	// R8 AC5: Quiet hours toggle renders in OFF state by default; time inputs disabled when OFF
+	test("R8: quiet hours toggle renders OFF by default; time inputs disabled when toggle is OFF", async ({
+		page,
+	}) => {
+		// DEFAULT_SETTINGS has quietHoursEnabled=false
+		await openSettings(page);
+		await page.getByRole("button", { name: /notifications/i }).click();
+
+		// Toggle should be rendered and unchecked (OFF state)
+		const toggle = page.getByRole("checkbox", { name: /enable quiet hours/i });
+		await expect(toggle).toBeVisible();
+		await expect(toggle).not.toBeChecked();
+
+		// Time inputs should be disabled when toggle is OFF
+		const startInput = page.getByLabel(/quiet hours start/i);
+		const endInput = page.getByLabel(/quiet hours end/i);
+		await expect(startInput).toBeDisabled();
+		await expect(endInput).toBeDisabled();
+	});
+
+	// R8 AC5: Toggling quiet hours ON makes time inputs editable
+	test("R8: toggling quiet hours ON enables time inputs", async ({ page }) => {
+		await openSettings(page);
+		await page.getByRole("button", { name: /notifications/i }).click();
+
+		const toggle = page.getByRole("checkbox", { name: /enable quiet hours/i });
+		await expect(toggle).not.toBeChecked();
+
+		// Toggle ON
+		await toggle.click();
+		await expect(toggle).toBeChecked();
+
+		// Time inputs should now be enabled
+		const startInput = page.getByLabel(/quiet hours start/i);
+		const endInput = page.getByLabel(/quiet hours end/i);
+		await expect(startInput).toBeEnabled();
+		await expect(endInput).toBeEnabled();
 	});
 });

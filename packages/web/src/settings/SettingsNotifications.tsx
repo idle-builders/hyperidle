@@ -45,11 +45,15 @@ export function SettingsNotifications(): JSX.Element {
 	const handleSave = useCallback(async (): Promise<void> => {
 		if (!draft) return;
 		const errors: string[] = [];
-		if (!isValid24hTime(draft.quietHoursStart)) {
-			errors.push("Invalid time format for quiet hours start (use HH:MM)");
-		}
-		if (!isValid24hTime(draft.quietHoursEnd)) {
-			errors.push("Invalid time format for quiet hours end (use HH:MM)");
+		// Only validate time format when quiet hours are enabled — start/end are
+		// irrelevant when quietHoursEnabled=false so we skip the format check.
+		if (draft.quietHoursEnabled) {
+			if (!isValid24hTime(draft.quietHoursStart)) {
+				errors.push("Invalid time format for quiet hours start (use HH:MM)");
+			}
+			if (!isValid24hTime(draft.quietHoursEnd)) {
+				errors.push("Invalid time format for quiet hours end (use HH:MM)");
+			}
 		}
 		if (errors.length > 0) {
 			setValidationErrors(errors);
@@ -128,10 +132,24 @@ export function SettingsNotifications(): JSX.Element {
 
 			{/* Quiet hours */}
 			<div className="divider text-xs text-[var(--text-lo)]">Quiet Hours</div>
+			<div className="flex items-center justify-between py-1">
+				<span className="text-sm">Enable quiet hours</span>
+				<input
+					type="checkbox"
+					className="toggle toggle-sm toggle-primary"
+					checked={draft.quietHoursEnabled}
+					onChange={(e) => updateField("quietHoursEnabled", e.target.checked)}
+					aria-label="Enable quiet hours"
+				/>
+			</div>
 			<div className="flex gap-3">
 				<div className="form-control flex-1">
 					<label className="label" htmlFor="quiet-start">
-						<span className="label-text text-[var(--text-mid)]">Start</span>
+						<span
+							className={`label-text ${draft.quietHoursEnabled ? "text-[var(--text-mid)]" : "text-[var(--text-lo)]"}`}
+						>
+							Start
+						</span>
 					</label>
 					<input
 						id="quiet-start"
@@ -141,11 +159,16 @@ export function SettingsNotifications(): JSX.Element {
 						value={draft.quietHoursStart}
 						onChange={(e) => updateField("quietHoursStart", e.target.value)}
 						aria-label="Quiet hours start"
+						disabled={!draft.quietHoursEnabled}
 					/>
 				</div>
 				<div className="form-control flex-1">
 					<label className="label" htmlFor="quiet-end">
-						<span className="label-text text-[var(--text-mid)]">End</span>
+						<span
+							className={`label-text ${draft.quietHoursEnabled ? "text-[var(--text-mid)]" : "text-[var(--text-lo)]"}`}
+						>
+							End
+						</span>
 					</label>
 					<input
 						id="quiet-end"
@@ -155,6 +178,7 @@ export function SettingsNotifications(): JSX.Element {
 						value={draft.quietHoursEnd}
 						onChange={(e) => updateField("quietHoursEnd", e.target.value)}
 						aria-label="Quiet hours end"
+						disabled={!draft.quietHoursEnabled}
 					/>
 				</div>
 			</div>
