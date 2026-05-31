@@ -16,10 +16,9 @@
  * to inject fixture data without crossing the __fixtures__/ import boundary.
  *
  * @lore U5: Renamed from WorkProduct → WorkTeam. Component name, props, and
- * data-testids updated. Route path rename (/work/product/:productId →
- * /work/team/:teamId) is deferred to U6. Until then, useParams aliases the
- * route param: `const { productId: teamId } = useParams<{ productId: string }>()`.
- * See plans/U5/review.md B1.
+ * data-testids updated.
+ * @lore U6: Route path renamed from /work/product/:productId to /work/team/:teamId.
+ * useParams now reads `teamId` directly (no more productId alias).
  */
 
 import {
@@ -77,9 +76,9 @@ export function WorkTeam({
 	overrideError,
 	skipArtifacts = false,
 }: WorkTeamProps = {}): JSX.Element {
-	// @lore U5: Route path stays /work/product/:productId until U6 renames it.
-	// Alias the param here so downstream code uses the semantic name `teamId`.
-	const { productId: teamId } = useParams<{ productId: string }>();
+	// @lore U6: Route renamed from work/product/:productId to work/team/:teamId.
+	// Now reads the param directly by the semantic name.
+	const { teamId } = useParams<{ teamId: string }>();
 
 	// Only call useTeam when there is no override (mirrors WorkBet pattern).
 	const fetched = useTeam(overrideData !== undefined ? undefined : teamId);
@@ -122,6 +121,22 @@ export function WorkTeam({
 
 	// Null data after loading/error — 404 from overrideData=null path
 	if (data === null) {
+		return (
+			<div className="flex flex-col gap-[var(--density-gap)] h-full" data-testid="work-team-page">
+				<EmptyState
+					title="Team not found"
+					description="The team you are looking for does not exist or has been removed."
+					dataTestId="team-not-found"
+				/>
+			</div>
+		);
+	}
+
+	// @lore U6: Defensive guard against malformed API responses (e.g. stubs that return
+	// { threads: [], nextCursor: null } for unrecognised URLs in tests). When data does
+	// not carry the expected TeamDetail shape, render the not-found EmptyState rather
+	// than crashing in WorkTeamLoaded at `data.team.leadAgentId`.
+	if (!data.team) {
 		return (
 			<div className="flex flex-col gap-[var(--density-gap)] h-full" data-testid="work-team-page">
 				<EmptyState

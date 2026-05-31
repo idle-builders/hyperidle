@@ -1,4 +1,12 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+/**
+ * @lore U6: Knowledge scope browser moved from Submenu to Sidebar.
+ * The Sidebar shows static Practices/Products/Factory scope items as buttons
+ * in the Knowledge section. Clicking a scope item navigates to /knowledge?scope=<scope>.
+ *
+ * Old test (J6) looked for [data-testid="knowledge-submenu"] and scope tabs inside
+ * a dedicated knowledge submenu panel. U6 replaces this with sidebar buttons.
+ */
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -24,19 +32,6 @@ beforeEach(() => {
 							updatedAt: "2025-01-01",
 							signals: null,
 						},
-						{
-							id: "k2",
-							topic: "Architecture",
-							title: "DB",
-							body: "",
-							format: "markdown",
-							status: "active",
-							version: 1,
-							updatedBy: "agent",
-							createdAt: "2025-01-01",
-							updatedAt: "2025-01-01",
-							signals: null,
-						},
 					],
 				}),
 			};
@@ -49,13 +44,11 @@ beforeEach(() => {
 });
 
 import { AppShell } from "../layouts/AppShell";
-import { KnowledgeList } from "../pages/KnowledgeList";
 
 /**
- * J6: the Knowledge submenu hosts a scope browser (Practice/Product/Factory)
- * and a list of topic NavItems with health dots. Switching scope navigates
- * to /knowledge?scope=<next>, which is what the KnowledgeList page reads to
- * derive its scoped view.
+ * J6 U6: Knowledge scope browser is now in the Sidebar as static scope buttons.
+ * The sidebar navigation for knowledge renders Practices, Products, Factory as
+ * clickable buttons that navigate to /knowledge?scope=<scope>.
  */
 function renderShellAt(initialPath: string): ReturnType<typeof createMemoryRouter> {
 	const router = createMemoryRouter(
@@ -65,7 +58,7 @@ function renderShellAt(initialPath: string): ReturnType<typeof createMemoryRoute
 				element: <AppShell />,
 				children: [
 					{ path: "conversations", element: <div>Conversations Page</div> },
-					{ path: "knowledge", element: <KnowledgeList /> },
+					{ path: "knowledge", element: <div data-testid="knowledge-page">Knowledge Page</div> },
 					{ path: "knowledge/:knowledgeId", element: <div>Detail</div> },
 				],
 			},
@@ -76,64 +69,62 @@ function renderShellAt(initialPath: string): ReturnType<typeof createMemoryRoute
 	return router;
 }
 
-describe("AppShell — Knowledge scope browser (J6)", () => {
-	it("renders the three-scope segmented control inside the Knowledge submenu", async () => {
+describe("AppShell — Knowledge scope browser in Sidebar (U6/J6)", () => {
+	it("renders Practices, Products, Factory scope items in the Knowledge sidebar section", async () => {
+		// Navigate to /knowledge so sidebar activates the knowledge section
 		renderShellAt("/knowledge");
-		const submenu = await screen.findByTestId("knowledge-submenu");
-		const browser = within(submenu).getByTestId("knowledge-scope-browser");
-		expect(within(browser).getByRole("tab", { name: "Practice" })).toBeInTheDocument();
-		expect(within(browser).getByRole("tab", { name: "Product" })).toBeInTheDocument();
-		expect(within(browser).getByRole("tab", { name: "Factory" })).toBeInTheDocument();
+		// Wait for sidebar to render
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: /knowledge/i })).toBeInTheDocument();
+		});
+		// Knowledge scope items should be visible
+		expect(screen.getByText("Practices")).toBeInTheDocument();
+		expect(screen.getByText("Products")).toBeInTheDocument();
+		expect(screen.getByText("Factory")).toBeInTheDocument();
 	});
 
-	it("defaults to Practice when no ?scope= param", async () => {
-		renderShellAt("/knowledge");
-		const submenu = await screen.findByTestId("knowledge-submenu");
-		expect(within(submenu).getByRole("tab", { name: "Practice" })).toHaveAttribute(
-			"aria-selected",
-			"true",
-		);
-	});
-
-	it("reflects the ?scope= param in the selected tab", async () => {
-		renderShellAt("/knowledge?scope=factory");
-		const submenu = await screen.findByTestId("knowledge-submenu");
-		expect(within(submenu).getByRole("tab", { name: "Factory" })).toHaveAttribute(
-			"aria-selected",
-			"true",
-		);
-	});
-
-	it("shows empty state when no topics exist for the current scope", async () => {
-		renderShellAt("/knowledge");
-		const submenu = await screen.findByTestId("knowledge-submenu");
-		expect(within(submenu).getByText("No topics yet")).toBeInTheDocument();
-	});
-
-	it("switching scope navigates to /knowledge?scope=<next>", async () => {
+	it("clicking Practices scope item navigates to /knowledge?scope=practices", async () => {
 		const user = userEvent.setup();
 		const router = renderShellAt("/knowledge");
-		const submenu = await screen.findByTestId("knowledge-submenu");
-		await user.click(within(submenu).getByRole("tab", { name: "Factory" }));
+
+		await waitFor(() => {
+			expect(screen.getByText("Practices")).toBeInTheDocument();
+		});
+
+		await user.click(screen.getByText("Practices"));
+
+		await waitFor(() => {
+			expect(router.state.location.pathname).toBe("/knowledge");
+			expect(router.state.location.search).toBe("?scope=practices");
+		});
+	});
+
+	it("clicking Factory scope item navigates to /knowledge?scope=factory", async () => {
+		const user = userEvent.setup();
+		const router = renderShellAt("/knowledge");
+
+		await waitFor(() => {
+			expect(screen.getByText("Factory")).toBeInTheDocument();
+		});
+
+		await user.click(screen.getByText("Factory"));
+
 		await waitFor(() => {
 			expect(router.state.location.pathname).toBe("/knowledge");
 			expect(router.state.location.search).toBe("?scope=factory");
 		});
 	});
 
-	it("resets the list tab to the new scope default on scope switch", async () => {
-		// Both practice and product scopes have needs_human => default Triage.
-		// We validate resetting by flipping the list tab to Curated manually,
-		// then clicking Product scope, and confirming Triage is re-selected.
-		const user = userEvent.setup();
-		renderShellAt("/knowledge?scope=practice");
-		await user.click(screen.getByRole("tab", { name: "Curated" }));
-		expect(screen.getByRole("tab", { name: "Curated" })).toHaveAttribute("aria-selected", "true");
+	it("sidebar knowledge section is active when on /knowledge route", async () => {
+		renderShellAt("/knowledge");
 
-		const submenu = await screen.findByTestId("knowledge-submenu");
-		await user.click(within(submenu).getByRole("tab", { name: "Product" }));
 		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: "Triage" })).toHaveAttribute("aria-selected", "true");
+			expect(screen.getByTestId("knowledge-page")).toBeInTheDocument();
 		});
+
+		// Knowledge section header button should be active
+		// @lore U6: data-section="knowledge" data-active="true" is on the section header button
+		const knowledgeBtn = document.querySelector("[data-section='knowledge'][data-active='true']");
+		expect(knowledgeBtn).toBeInTheDocument();
 	});
 });

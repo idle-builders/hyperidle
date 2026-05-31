@@ -99,7 +99,9 @@ describe("Sidebar — AC-1: section header icons", () => {
 	it("renders an icon alongside the CONVERSATIONS section header", () => {
 		const { container } = render(<Sidebar {...defaultProps} />);
 		// Icons are SVG elements. Conversations section should have at least one.
-		const conversationsSection = screen.getByText(/conversations/i).closest("[data-section]") as HTMLElement | null;
+		const conversationsSection = screen
+			.getByText(/conversations/i)
+			.closest("[data-section]") as HTMLElement | null;
 		// The sidebar root should contain SVG icons
 		const svgs = container.querySelectorAll("svg");
 		expect(svgs.length).toBeGreaterThan(0);
@@ -209,30 +211,36 @@ describe("Sidebar — AC-6: Active view highlighting", () => {
 		const { container } = render(<Sidebar {...defaultProps} activeView="conversations" />);
 		// The active section should have text-primary / fw-semibold or equivalent active class
 		// Look for the conversations header element with active class attribute
-		const header = screen.getByText(/^conversations$/i).closest("[data-section-header]") as HTMLElement | null;
+		const header = screen
+			.getByText(/^conversations$/i)
+			.closest("[data-section-header]") as HTMLElement | null;
 		// Check active indicator exists somewhere in the conversations section
-		const activeEl = container.querySelector("[data-section='conversations'][data-active='true']") ??
+		const activeEl =
+			container.querySelector("[data-section='conversations'][data-active='true']") ??
 			container.querySelector("[data-active-view='conversations']");
 		expect(activeEl).toBeInTheDocument();
 	});
 
 	it("Work section header does NOT have active styling when activeView='conversations'", () => {
 		const { container } = render(<Sidebar {...defaultProps} activeView="conversations" />);
-		const inactiveEl = container.querySelector("[data-section='work'][data-active='true']") ??
+		const inactiveEl =
+			container.querySelector("[data-section='work'][data-active='true']") ??
 			container.querySelector("[data-active-view='work']");
 		expect(inactiveEl).not.toBeInTheDocument();
 	});
 
 	it("Work section header has active styling when activeView='work'", () => {
 		const { container } = render(<Sidebar {...defaultProps} activeView="work" />);
-		const activeEl = container.querySelector("[data-section='work'][data-active='true']") ??
+		const activeEl =
+			container.querySelector("[data-section='work'][data-active='true']") ??
 			container.querySelector("[data-active-view='work']");
 		expect(activeEl).toBeInTheDocument();
 	});
 
 	it("Knowledge section header has active styling when activeView='knowledge'", () => {
 		const { container } = render(<Sidebar {...defaultProps} activeView="knowledge" />);
-		const activeEl = container.querySelector("[data-section='knowledge'][data-active='true']") ??
+		const activeEl =
+			container.querySelector("[data-section='knowledge'][data-active='true']") ??
 			container.querySelector("[data-active-view='knowledge']");
 		expect(activeEl).toBeInTheDocument();
 	});
@@ -296,7 +304,8 @@ describe("Sidebar — AC-9: CoC trigger", () => {
 		const { container } = render(<Sidebar {...defaultProps} />);
 		const bottomStrip = container.querySelector("[data-sidebar-bottom]");
 		expect(bottomStrip).toBeInTheDocument();
-		const cocButton = bottomStrip?.querySelector("[aria-label*='Chief of Staff']") ??
+		const cocButton =
+			bottomStrip?.querySelector("[aria-label*='Chief of Staff']") ??
 			bottomStrip?.querySelector("[aria-label*='chief of staff']");
 		expect(cocButton).toBeInTheDocument();
 	});

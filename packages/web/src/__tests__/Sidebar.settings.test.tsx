@@ -56,24 +56,12 @@ describe("Sidebar — AC-8: Settings overlay in sidebar", () => {
 	});
 
 	it("renders settingsNavItems in the sidebar body when settingsOpen=true", () => {
-		render(
-			<Sidebar
-				{...baseProps}
-				settingsOpen={true}
-				settingsNavItems={<SettingsNavStub />}
-			/>,
-		);
+		render(<Sidebar {...baseProps} settingsOpen={true} settingsNavItems={<SettingsNavStub />} />);
 		expect(screen.getByTestId("settings-nav-stub")).toBeInTheDocument();
 	});
 
 	it("does NOT render settingsNavItems when settingsOpen=false", () => {
-		render(
-			<Sidebar
-				{...baseProps}
-				settingsOpen={false}
-				settingsNavItems={<SettingsNavStub />}
-			/>,
-		);
+		render(<Sidebar {...baseProps} settingsOpen={false} settingsNavItems={<SettingsNavStub />} />);
 		expect(screen.queryByTestId("settings-nav-stub")).not.toBeInTheDocument();
 	});
 
@@ -92,13 +80,7 @@ describe("Sidebar — AC-8: Settings overlay in sidebar", () => {
 	});
 
 	it("shows 'Settings' heading in the sidebar body when settingsOpen=true", () => {
-		render(
-			<Sidebar
-				{...baseProps}
-				settingsOpen={true}
-				settingsNavItems={<SettingsNavStub />}
-			/>,
-		);
+		render(<Sidebar {...baseProps} settingsOpen={true} settingsNavItems={<SettingsNavStub />} />);
 		// Settings heading should be visible in the sidebar
 		expect(screen.getByText(/^settings$/i)).toBeInTheDocument();
 	});
