@@ -22,7 +22,7 @@
  * SessionActivityPanel on the right (flex-[2]).
  */
 import { EmptyState, ErrorState, SkeletonList, ThreadShell } from "@hyperidle/design-system";
-import type { ArtifactRef, ArtifactViewShape } from "@hyperidle/shared";
+import type { ArtifactRef, ArtifactViewShape, BlockRef, InlineRef } from "@hyperidle/shared";
 import {
 	type JSX,
 	type ReactNode,
@@ -32,7 +32,32 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { BlockRefEmbed } from "../components/BlockRefEmbed.js";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
+
+/**
+ * T4: renderRefEmbeds for Conversations — builds BlockRefEmbed cards for block refs.
+ *
+ * @lore T4: Wired in Conversations.tsx (not HostThreadSection) per reviewer critique.
+ * Conversations is a ThreadShell consumer and the right place to inject the
+ * web-layer BlockRefEmbed component.
+ */
+function renderRefEmbedsForConversations(refs: ReadonlyArray<InlineRef>): ReactNode {
+	const blockRefs = refs.filter((r): r is BlockRef => r.kind === "block");
+	if (blockRefs.length === 0) return null;
+	return (
+		<div className="flex flex-col gap-1 mt-1">
+			{blockRefs.map((r) => (
+				<BlockRefEmbed
+					key={`${r.blockId}-${r.hostId}`}
+					blockId={r.blockId}
+					hostKind={r.hostKind}
+					hostId={r.hostId}
+				/>
+			))}
+		</div>
+	);
+}
 import { SessionActivityPanel } from "../components/SessionActivityPanel";
 import type { ConversationsFilter } from "../components/ThreadSections";
 import { ThreadSections } from "../components/ThreadSections";
@@ -355,6 +380,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 						identities={data.identities}
 						artifactSlot={resolveArtifactSlot}
 						onAppendMessage={onAppend}
+						renderRefEmbeds={renderRefEmbedsForConversations}
 					/>
 				</div>
 				<div className="flex-[2] min-w-0 flex flex-col">
@@ -401,6 +427,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 				identities={data.identities}
 				artifactSlot={resolveArtifactSlot}
 				onAppendMessage={onAppend}
+				renderRefEmbeds={renderRefEmbedsForConversations}
 			/>
 		</div>
 	);

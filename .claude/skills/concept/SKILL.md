@@ -14,7 +14,7 @@ Upstream of `/design` and `/architecture`. Answers "what IS this thing?" — the
 
 ## Required reading
 
-1. Workpackage in `plans/work-packages/TRACK-<letter>.md` — central vs incidental nouns.
+1. Workpackage in `.pipeline/work-packages/TRACK-<letter>.md` — central vs incidental nouns.
 2. Existing canonical-shapes / contract docs under `docs/<topic>/` (e.g. `docs/blocks/canonical-shapes.md`, `docs/process-layer/canonical-shapes.md`, `docs/process-layer/artifact-primitive.md`, `docs/human-interface-layer/thread-primitive.md`, `docs/architecture/event-bus-guarantees.md`, `docs/agent-layer/harness-error-taxonomy.md`) — does the noun already have a contract?
 3. `ls docs/` to identify relevant topic folders, then read `index.md` and drill into the specific `docs/<topic>/<file>.md` sections that match the noun.
 

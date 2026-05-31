@@ -10,11 +10,15 @@ min_tool_calls: 18
 
 **Why:** With failing tests already in place, implementation has a clear target. Writing the minimum code to pass keeps the codebase lean and prevents scope creep. Every line of code exists because a test demands it.
 
-Read the plan for `<target>` (check tasks or the workpackage in the relevant track file under `plans/work-packages/`). Read the existing failing tests.
+Read the plan for `<target>` (check tasks or the workpackage in the relevant track file under `.pipeline/work-packages/`). Read the existing failing tests.
 
 Implement each task in dependency order. Write the minimum code to make tests pass. For UI components, create a `.stories.tsx` file rendering key states. After each logical unit, run the relevant tests. Once all tests are green, run `npm run verify` to confirm the full gate passes (types, lint, tests). **Verify must pass before pushing.** No broken code reaches reviewers — verification is the builder's responsibility, not the reviewer's.
 
 Never weaken a test to make it pass. If a test reveals a design flaw, fix the implementation.
+
+**Regression ownership:** `npm run test` runs affected tests — if pre-existing tests break because of your changes, you own the fix. "Outside scope" is not valid for tests you broke.
+
+**Rename sweep:** When your changes rename, remove, or replace a symbol (field, type, token, status value, route), grep the full codebase for the old name before pushing: `grep -rn 'OLD_NAME' packages/ --include='*.ts' --include='*.tsx'`. Zero matches required (excluding test assertions that verify absence).
 
 **Doc sync:** If your implementation changes behavior documented in `docs/` (API shapes, state machines, UI layouts, lifecycles, data models, decision records), update the relevant doc section in the same commit. Docs are part of the deliverable, not a follow-up task. The reviewer will flag stale docs as CRITICAL.
 

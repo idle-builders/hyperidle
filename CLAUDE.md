@@ -2,7 +2,7 @@
 
 HyperIdle is an agentic operating system for AI-first companies. Flat teams of humans and AI agents collaborate through conversations, manage work as time-boxed bets, and build shared knowledge — like Slack + Linear + Notion + GitHub in one app, with AI agents as first-class participants.
 
-**Status:** Pre-implementation. Architecture docs are complete. Code is being built workpackage-by-workpackage from `plans/work-packages/` (per-track files).
+**Status:** Pre-implementation. Architecture docs are complete. Code is being built workpackage-by-workpackage from `.pipeline/work-packages/` (per-track files).
 
 **Builder philosophy:** Read `ETHOS.md` — three principles (Boil the Lake, Search Before Building, User Sovereignty) that guide all agent behavior.
 
@@ -19,7 +19,7 @@ HyperIdle is an agentic operating system for AI-first companies. Flat teams of h
 
 **No code is written until the definition of done and validation setup exist.** This is non-negotiable. For every work package or task:
 
-1. Extract the acceptance criteria from the relevant track file in `plans/work-packages/`.
+1. Extract the acceptance criteria from the relevant track file in `.pipeline/work-packages/`.
 2. Define the verification method for each criterion (automated test, Playwright E2E, eval, screenshot, inspection).
 3. Write the failing tests that prove the criteria (red phase).
 4. Only then begin implementation.
@@ -84,9 +84,14 @@ Three-layer system with strict downward dependency: Human Interface → Meta Lay
 
 Each folder has an `index.md` with section links. `/concept` and `/architecture` identify which docs are relevant for a workpackage — downstream skills read the plan, not docs directly.
 
+**Pipeline** — `.pipeline/` (tracked durable pipeline state):
+
+- `work-packages/` — track-level files (`TRACK-*.md` workpackage specs, `pipeline-manifest.yaml`)
+- `progress/` — per-workpackage progress JSON files
+- `retro-log.jsonl` — cross-workpackage retro observations (feeds `/compound`)
+
 **Transitive** — `plans/` (intermediate pipeline artifacts, may be regenerated):
 
-- `work-packages/` — track-level files (`TRACK-*.md` workpackage specs, `WORK_PACKAGES.md`, `dependency-graph.md`, `pipeline-manifest.yaml`, `follow-ups.md`)
 - `<workpackage-id>/` — per-workpackage artifacts grouped together. Each workpackage gets its own folder (e.g., `plans/L10/`) containing `concept.md`, `architecture.md`, `architecture-critique.md`, `dod.md`, `design/approved.md`, `*-review.md`, `*-scan.md`, etc. Skills write artifacts to `plans/<workpackage-id>/<artifact>.md`.
 - `reviews/` — cross-cutting research (area-/journey-/improvements-/reference- files, not workpackage-specific)
 

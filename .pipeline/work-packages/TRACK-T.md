@@ -6,7 +6,7 @@ Notion-like WYSIWYG editing everywhere blocks render. Block references as cross-
 
 **Constraint:** `deriveBlocks()` is unchanged — it remains the read-mode rendering pipeline. The editor serializes to GFM markdown; blocks re-derive on read. No new markdown dialect. No block persistence table. `npm run dev` works at every merge boundary.
 
-See `CLAUDE.md` for tech stack and `plans/work-packages/pipeline-manifest.yaml` for the dependency graph.
+See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.yaml` for the dependency graph.
 
 ---
 

@@ -17,11 +17,36 @@
  */
 
 import { ThreadShell } from "@hyperidle/design-system";
-import type { Message } from "@hyperidle/shared";
-import { type JSX, type RefObject, useCallback, useEffect, useRef } from "react";
+import type { BlockRef, InlineRef, Message } from "@hyperidle/shared";
+import { type JSX, type ReactNode, type RefObject, useCallback, useEffect, useRef } from "react";
+import { BlockRefEmbed } from "../components/BlockRefEmbed.js";
 import type { CocContextRef } from "../contexts/CocContext";
 import { useCocThread } from "../hooks/useCocThread";
 import { apiFetch } from "../services/api-fetch.js";
+
+/**
+ * T4: renderRefEmbeds for CocOverlay — builds BlockRefEmbed cards for block refs.
+ *
+ * @lore T4: Wired in CocOverlay (not HostThreadSection) per reviewer critique:
+ * the reviewer found that plan §4.6 wiring was in HostThreadSection/WorkBet.tsx,
+ * but those are not ThreadShell consumers — only CocOverlay and Conversations are.
+ */
+function renderRefEmbedsForCoc(refs: ReadonlyArray<InlineRef>): ReactNode {
+	const blockRefs = refs.filter((r): r is BlockRef => r.kind === "block");
+	if (blockRefs.length === 0) return null;
+	return (
+		<div className="flex flex-col gap-1 mt-1">
+			{blockRefs.map((r) => (
+				<BlockRefEmbed
+					key={`${r.blockId}-${r.hostId}`}
+					blockId={r.blockId}
+					hostKind={r.hostKind}
+					hostId={r.hostId}
+				/>
+			))}
+		</div>
+	);
+}
 
 export interface CocOverlayProps {
 	open: boolean;
@@ -77,7 +102,17 @@ function CocOverlayInner({
 	const handleAppendMessage = useCallback(
 		async (input: { type: string; payload: unknown; clientKey: string }): Promise<void> => {
 			if (!data?.thread) return;
-			const refsToSend = contextRefs.map(({ kind, id }) => ({ kind, id }));
+			// T4: serialize block refs with their full triple; entity refs with kind+id only.
+			const refsToSend = contextRefs.map((ref) =>
+				ref.kind === "block"
+					? ({
+							kind: "block" as const,
+							blockId: ref.blockId,
+							hostKind: ref.hostKind,
+							hostId: ref.hostId,
+						} satisfies { kind: "block"; blockId: string; hostKind: string; hostId: string })
+					: { kind: ref.kind, id: ref.id },
+			);
 			const payload =
 				input.type === "plain" && typeof input.payload === "object" && input.payload !== null
 					? {
@@ -138,7 +173,11 @@ function CocOverlayInner({
 				>
 					{contextRefs.map((cocRef, i) => (
 						<ContextChip
-							key={`${cocRef.kind}-${cocRef.id}`}
+							key={
+								cocRef.kind === "block"
+									? `${cocRef.kind}-${cocRef.blockId}-${cocRef.hostId}`
+									: `${cocRef.kind}-${cocRef.id}`
+							}
 							ref={cocRef}
 							index={i}
 							onRemove={onRemoveContextRef}
@@ -152,6 +191,7 @@ function CocOverlayInner({
 				identities={identities}
 				onAppendMessage={handleAppendMessage}
 				hostTitle="Chief of Staff"
+				renderRefEmbeds={renderRefEmbedsForCoc}
 			/>
 		</>
 	);

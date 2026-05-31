@@ -8,7 +8,10 @@ playwright-report/
 test-results/
 visual-reports/
 sync-reports/
-.pipeline/
+.pipeline/*
+!.pipeline/work-packages/
+!.pipeline/progress/
+!.pipeline/retro-log.jsonl
 .env
 !infrastructure/langfuse/.env
 .worktrees/

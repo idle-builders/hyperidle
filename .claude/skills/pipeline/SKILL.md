@@ -32,7 +32,7 @@ Cross-track or cross-complexity batches are NEVER dispatched. If you receive a m
 - NEVER read or write progress files for IDs you weren't given. Other agents own those.
 - The legacy `.pipeline/progress.json` is gone — do not create it.
 
-`plans/work-packages/TRACK-<letter>.md` and `plans/work-packages/dependency-graph.md` remain your reference for spec and dependency graph.
+`.pipeline/work-packages/TRACK-<letter>.md` and `.pipeline/work-packages/dependency-graph.md` remain your reference for spec and dependency graph.
 
 Record session start time.
 
