@@ -27,6 +27,8 @@ import type { Message } from "@hyperidle/shared";
 import { deriveBlocks, isRedactedPayload } from "@hyperidle/shared";
 import DOMPurify from "dompurify";
 import { type JSX, useMemo } from "react";
+import { CocAttachButton } from "../../components/CocAttachButton.js";
+import { blockExcerptFromPayload } from "../../utils/block-excerpt.js";
 
 export interface KnowledgeBodyProps {
 	/** Raw markdown body text. May be empty. */
@@ -109,20 +111,32 @@ export function KnowledgeBody({
 				<p className="text-[var(--text-lo)] text-sm m-0">(no content yet)</p>
 			) : (
 				blocks.map((block) => (
-					<Block
-						key={block.id}
-						id={block.id}
-						payload={block.payload}
-						sanitizeHtml={sanitizeHtml}
-						onOpenActions={
-							onOpenBlockActions !== undefined ? () => onOpenBlockActions(block.id) : undefined
-						}
-						slots={{
-							inlineAfterPayload: messagesByBlockId ? (
-								<AnchoredMessages messages={messagesByBlockId.get(block.id) ?? []} />
-							) : undefined,
-						}}
-					/>
+					// T4: relative wrapper so CocAttachButton can be positioned in the gutter.
+					<div key={block.id} className="relative group/block-attach">
+						<Block
+							id={block.id}
+							payload={block.payload}
+							sanitizeHtml={sanitizeHtml}
+							onOpenActions={
+								onOpenBlockActions !== undefined ? () => onOpenBlockActions(block.id) : undefined
+							}
+							slots={{
+								inlineAfterPayload: messagesByBlockId ? (
+									<AnchoredMessages messages={messagesByBlockId.get(block.id) ?? []} />
+								) : undefined,
+							}}
+						/>
+						{/* T4: CocAttachButton — shows when CoC overlay is open */}
+						<CocAttachButton
+							ref={{
+								kind: "block",
+								blockId: block.id,
+								hostKind: "knowledge_item",
+								hostId: hostId,
+								label: blockExcerptFromPayload(block.payload),
+							}}
+						/>
+					</div>
 				))
 			)}
 			{/* Catch-all: anchored messages whose block no longer exists in the body */}

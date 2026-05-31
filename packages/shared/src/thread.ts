@@ -12,6 +12,8 @@
  * `plans/L1/architecture.md` §4.
  */
 
+import type { BlockHostKind } from "./blocks/types.js";
+
 // ── Closed enums ────────────────────────────────────────────────
 
 export const HOST_KINDS = [
@@ -77,10 +79,30 @@ export interface Thread {
 
 // ── Message payloads (discriminated union) ──────────────────────
 
-export interface InlineRef {
+/**
+ * T4: InlineRef is a discriminated union of EntityRef and BlockRef.
+ * The discriminant is `kind` — entity refs use 5 entity kinds; block refs use "block".
+ *
+ * @lore T4: InlineRef was previously a flat interface (kind + id). Refactored to
+ * discriminated union so block refs can carry the full (blockId, hostKind, hostId)
+ * triple without optional fields on the entity path. Narrowing on `ref.kind !== "block"`
+ * gives you an EntityRef with `id`; narrowing on `ref.kind === "block"` gives BlockRef.
+ */
+export type InlineRefKind = "knowledge_item" | "task" | "artifact" | "bet" | "message" | "block";
+
+export interface EntityRef {
 	readonly kind: "knowledge_item" | "task" | "artifact" | "bet" | "message";
 	readonly id: string;
 }
+
+export interface BlockRef {
+	readonly kind: "block";
+	readonly blockId: string;
+	readonly hostKind: BlockHostKind;
+	readonly hostId: string;
+}
+
+export type InlineRef = EntityRef | BlockRef;
 
 export interface ArtifactRef {
 	readonly id: string;
