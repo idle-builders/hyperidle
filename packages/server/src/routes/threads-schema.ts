@@ -6,6 +6,7 @@
 
 import {
 	ARTIFACT_VIEW_SHAPES,
+	BLOCK_HOST_KINDS,
 	HOST_KINDS,
 	type MESSAGE_TYPES,
 	VERDICT_DECISIONS,
@@ -21,10 +22,35 @@ import z from "zod";
 const CLIENT_KEY_RE = /^[A-Za-z0-9_\-:.]+$/;
 const clientKeySchema = z.string().min(8).max(128).regex(CLIENT_KEY_RE);
 
-const inlineRefSchema = z.object({
+/**
+ * T4: entityRefSchema validates entity refs (kind, id).
+ * Exported for testing.
+ */
+export const entityRefSchema = z.object({
 	kind: z.enum(["knowledge_item", "task", "artifact", "bet", "message"]),
 	id: z.string(),
 });
+
+/**
+ * T4: blockRefSchema validates block refs (kind, blockId, hostKind, hostId).
+ * Exported for testing.
+ *
+ * @lore T4: z.discriminatedUnion requires the discriminator key to be shared
+ * by all members. Both entityRefSchema (z.enum) and blockRefSchema (z.literal)
+ * use "kind". Zod v3 handles z.enum as a set of literals in discriminatedUnion.
+ */
+export const blockRefSchema = z.object({
+	kind: z.literal("block"),
+	blockId: z.string().min(1),
+	hostKind: z.enum(BLOCK_HOST_KINDS),
+	hostId: z.string().min(1),
+});
+
+/**
+ * T4: inlineRefSchema is a discriminated union on "kind".
+ * Exported for testing.
+ */
+export const inlineRefSchema = z.discriminatedUnion("kind", [entityRefSchema, blockRefSchema]);
 
 const artifactRefSchema = z.object({
 	id: z.string(),
