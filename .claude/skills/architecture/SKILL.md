@@ -47,7 +47,7 @@ Produce a `Plan reconciliation:` block in the plan listing every spec assumption
 
 ## Phase 2 — Acceptance criteria + tasks
 
-Read the workpackage `$ARGUMENTS` in the relevant track file under `plans/work-packages/` (e.g., `TRACK-A.md` for A-workpackages). Read existing code in affected packages and the relevant doc sections identified in doc discovery above.
+Read the workpackage `$ARGUMENTS` in the relevant track file under `.pipeline/work-packages/` (e.g., `TRACK-A.md` for A-workpackages). Read existing code in affected packages and the relevant doc sections identified in doc discovery above.
 
 If the workpackage has a UI surface and `/design` produced an approved spec (under `plans/<workpackage-id>/design/approved.md` or wherever the design step wrote it), read it. The visual contract, component vocabulary, and interaction states are inputs — do not re-litigate them.
 

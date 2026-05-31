@@ -2,7 +2,7 @@
 
 Agentic operating system for managing product teams of AI agents. Two founders (CEO + CPO) run a "Product Factory" — a portfolio of digital products where AI agents do the implementation work.
 
-See `ETHOS.md` for the builder philosophy and `CLAUDE.md` for the absolute rules. Architecture lives in `docs/architecture/`; user stories in `plans/work-packages/`.
+See `ETHOS.md` for the builder philosophy and `CLAUDE.md` for the absolute rules. Architecture lives in `docs/architecture/`; user stories in `.pipeline/work-packages/`.
 
 ---
 
@@ -21,7 +21,7 @@ Open <http://localhost:5173>.
 
 ## Pipeline (autonomous batch story execution)
 
-Two entry points drive the same loop — `plan → tests → code → reviews → DoD → verify → ship → retro` — over the manifest at `plans/work-packages/pipeline-manifest.yaml`. Both checkpoint to `.pipeline/progress/<story-id>.json` (one file per story, atomic writes, race-free across parallel agents) plus `.pipeline/run.json` for run-level metadata, so they can hand off to each other.
+Two entry points drive the same loop — `plan → tests → code → reviews → DoD → verify → ship → retro` — over the manifest at `.pipeline/work-packages/pipeline-manifest.yaml`. Both checkpoint to `.pipeline/progress/<story-id>.json` (one file per story, atomic writes, race-free across parallel agents) plus `.pipeline/run.json` for run-level metadata, so they can hand off to each other.
 
 | Entry point | Runs as | When to use |
 |---|---|---|
@@ -146,6 +146,6 @@ hyperidle/
 - `docs/guides/user/` — using HyperIdle as an end user
 - `docs/deployment/` — VPS / cloud deployment
 - `docs/architecture/` — three-layer system overview
-- `plans/work-packages/` — per-track user stories
+- `.pipeline/work-packages/` — per-track user stories
 - `CLAUDE.md` — rules for AI agents working in this repo
 - `ETHOS.md` — builder philosophy

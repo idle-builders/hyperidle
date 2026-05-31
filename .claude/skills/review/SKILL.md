@@ -16,7 +16,7 @@ Six lenses + AC completeness audit, one session. Three positive lenses check the
 
 ## Required reading (do ALL before reviewing code)
 
-1. The workpackage in the relevant track file under `plans/work-packages/TRACK-*.md` — extract every acceptance criterion
+1. The workpackage in the relevant track file under `.pipeline/work-packages/TRACK-*.md` — extract every acceptance criterion
 2. `plans/<workpackage-id>/architecture.md` — the technical plan (always start here), especially its "Security & abuse cases" block
 3. The specific authoritative files named in the plan's **Required reading** section — read each end-to-end
 4. `plans/<workpackage-id>/concept.md` — the locked concept output, if present

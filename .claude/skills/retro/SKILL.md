@@ -12,7 +12,7 @@ min_tool_calls: 8
 
 Collect insights about `<target>` from every available source:
 
-1. **Pipeline progress** — read `.pipeline/progress.json` for attempts, step failures, blocked workpackages
+1. **Pipeline progress** — read `.pipeline/progress/<id>.json` for attempts, step failures, blocked workpackages
 2. **Git history** — `git log` for commits, reverts, fixups. How many commits? Any rework?
 3. **Lore** — `grep -r @lore` in changed files for decisions and workarounds captured during implementation
 4. **Test results** — any tests that were hard to write, kept failing, or had to be rewritten?
