@@ -44,9 +44,9 @@ const MOCK_DETAIL = {
 
 function wrap(element: React.JSX.Element): React.JSX.Element {
 	return (
-		<MemoryRouter initialEntries={["/work/product/p1"]}>
+		<MemoryRouter initialEntries={["/work/team/p1"]}>
 			<Routes>
-				<Route path="/work/product/:productId" element={element} />
+				<Route path="/work/team/:teamId" element={element} />
 				<Route path="/work/portfolio" element={<div>Portfolio</div>} />
 				<Route path="/work/bet/:betId" element={<div>Bet detail</div>} />
 			</Routes>

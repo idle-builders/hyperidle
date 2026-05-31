@@ -61,23 +61,24 @@ test.describe("Responsive Layout", () => {
 		await expect(page.getByTestId("main-content")).toBeVisible();
 	});
 
-	test("Submenu collapses by default at 768px viewport (I4 R1/R4)", async ({ page }) => {
+	// @lore U6: Submenu and Rail were deleted. The Sidebar is always visible as a
+	// fixed 200px column on desktop. At mobile viewports (<=768px) the Sidebar
+	// may be hidden — but the current implementation does not collapse it.
+	// These responsive tests verify the core layout remains functional.
+	test("Sidebar is present in the layout at 768px viewport", async ({ page }) => {
 		await page.setViewportSize({ width: 768, height: 800 });
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
-		// Submenu collapsed => its navigation items are not visible.
-		// The Review Queue link lives inside Submenu; when collapsed (`w-0
-		// overflow-hidden`), it is hidden from the viewport.
-		await expect(page.getByText("Review Queue")).not.toBeVisible();
+		// The Sidebar should be present in the DOM (may or may not be visible
+		// depending on mobile layout handling).
+		await expect(page.locator("[data-ds-shell='Sidebar']")).toBeAttached();
 	});
 
-	test("Rail collapses by default below 1280px (I4 R2)", async ({ page }) => {
+	test("main content area is visible at 1200px viewport", async ({ page }) => {
 		await page.setViewportSize({ width: 1200, height: 800 });
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
-		// Collapsed Rail hides the Active Bets heading (replaces with
-		// icon-only strip).
-		await expect(page.getByText("Active Bets")).not.toBeVisible();
+		await expect(page.getByTestId("main-content")).toBeVisible();
 	});
 });
 

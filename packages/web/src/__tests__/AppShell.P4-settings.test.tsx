@@ -1,12 +1,14 @@
 /**
  * P4 — AppShell settings overlay tests (Tasks 9, 11, AC-11 through AC-23)
  *
- * AC-11: Avatar click opens settings overlay (Submenu shows settings sections, Main shows profile form)
- * AC-12: Settings has 7 sections navigable via Submenu NavItems
+ * AC-11: Settings button opens settings overlay (Sidebar shows settings sections, Main shows profile form)
+ * AC-12: Settings has 7 sections navigable via Sidebar NavItems
  * AC-20: Old tab-based SettingsPanel modal is deleted
  * AC-21: Escape key closes settings overlay
- * AC-22: Clicking view icon while settings open closes settings and navigates
- * AC-23: Rail is dimmed while settings is open
+ *
+ * @lore U6: Settings is opened via the Settings button (aria-label="Settings") in the
+ * Sidebar bottom strip. The old "user profile" / "avatar" button was in the deleted IconRail.
+ * Rail-related AC-22 and AC-23 tests are removed (Rail deleted in U6).
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -63,17 +65,6 @@ describe("AppShell — P4 Settings overlay", () => {
 						// @lore U1: mutedProducts renamed to mutedTeams
 						mutedTeams: [],
 					},
-					// rail response
-					bets: [],
-					blockers: [],
-					awaitingOrdering: [],
-					costBurnRate: {
-						todaySpend: null,
-						todayCap: null,
-						weekSpend: null,
-						weekCap: null,
-						weekTokens: null,
-					},
 				}),
 		}) as typeof fetch;
 	});
@@ -82,16 +73,16 @@ describe("AppShell — P4 Settings overlay", () => {
 		vi.restoreAllMocks();
 	});
 
-	// AC-11: Avatar click opens settings overlay showing settings in Submenu
-	it("avatar click shows 'Settings' title in Submenu", async () => {
+	// AC-11: Settings button opens settings overlay showing settings nav in Sidebar
+	it("settings button shows 'Settings' title in Sidebar body", async () => {
 		const user = userEvent.setup();
 		renderShell();
 
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: /user profile/i })).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
 		});
 
-		await user.click(screen.getByRole("button", { name: /user profile/i }));
+		await user.click(screen.getByRole("button", { name: /settings/i }));
 
 		await waitFor(() => {
 			expect(screen.getByText("Settings")).toBeInTheDocument();
@@ -99,15 +90,15 @@ describe("AppShell — P4 Settings overlay", () => {
 	});
 
 	// AC-12: Settings has 7 sections
-	it("shows 7 settings section NavItems in Submenu when settings is open", async () => {
+	it("shows 7 settings section NavItems in Sidebar when settings is open", async () => {
 		const user = userEvent.setup();
 		renderShell();
 
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: /user profile/i })).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
 		});
 
-		await user.click(screen.getByRole("button", { name: /user profile/i }));
+		await user.click(screen.getByRole("button", { name: /settings/i }));
 
 		await waitFor(() => {
 			// All 7 sections should be visible
@@ -128,17 +119,17 @@ describe("AppShell — P4 Settings overlay", () => {
 		renderShell();
 
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: /user profile/i })).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
 		});
 
-		await user.click(screen.getByRole("button", { name: /user profile/i }));
+		await user.click(screen.getByRole("button", { name: /settings/i }));
 
 		await waitFor(() => {
 			expect(screen.getByText("Settings")).toBeInTheDocument();
 		});
 
 		// The new overlay should NOT be a modal dialog — it's an AppShell state change
-		// Old SettingsPanel used role="dialog"; new overlay uses Submenu content swap
+		// Old SettingsPanel used role="dialog"; new overlay uses Sidebar content swap
 		const dialogs = screen.queryAllByRole("dialog", { name: /settings/i });
 		// Should either have no settings dialog, or the dialog is the shell-level one
 		// The key is: no standalone modal with tabs (old SettingsPanel)
@@ -154,10 +145,10 @@ describe("AppShell — P4 Settings overlay", () => {
 		renderShell();
 
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: /user profile/i })).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
 		});
 
-		await user.click(screen.getByRole("button", { name: /user profile/i }));
+		await user.click(screen.getByRole("button", { name: /settings/i }));
 
 		await waitFor(() => {
 			expect(screen.getByText("Settings")).toBeInTheDocument();
@@ -166,31 +157,13 @@ describe("AppShell — P4 Settings overlay", () => {
 		await user.keyboard("{Escape}");
 
 		await waitFor(() => {
-			// "Settings" heading in Submenu should be gone
+			// "Settings" heading in Sidebar body should be gone
 			expect(screen.queryByText("Settings")).not.toBeInTheDocument();
 		});
 	});
 
-	// AC-23: Rail is dimmed when settings is open
-	it("rail wrapper has opacity-60 class when settings is open", async () => {
-		const user = userEvent.setup();
-		renderShell();
-
-		await waitFor(() => {
-			expect(screen.getByRole("button", { name: /user profile/i })).toBeInTheDocument();
-		});
-
-		await user.click(screen.getByRole("button", { name: /user profile/i }));
-
-		await waitFor(() => {
-			expect(screen.getByText("Settings")).toBeInTheDocument();
-		});
-
-		// The rail wrapper is dimmed (pointer-events-none opacity-60) when settings is open.
-		// The main-content pane is NOT dimmed — it shows settings content and must be interactive.
-		const railWrapper = screen.getByTestId("rail-wrapper");
-		expect(railWrapper.getAttribute("aria-hidden")).toBe("true");
-	});
+	// @lore U6: AC-23 (rail wrapper opacity-60) removed — Rail deleted in U6.
+	// The Sidebar does not have a rail wrapper to dim.
 
 	// AC-11: Main pane shows Profile form when settings opened
 	it("shows Profile section content in main pane when settings opened", async () => {
@@ -198,10 +171,10 @@ describe("AppShell — P4 Settings overlay", () => {
 		renderShell();
 
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: /user profile/i })).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
 		});
 
-		await user.click(screen.getByRole("button", { name: /user profile/i }));
+		await user.click(screen.getByRole("button", { name: /settings/i }));
 
 		await waitFor(() => {
 			// Profile section should be active by default

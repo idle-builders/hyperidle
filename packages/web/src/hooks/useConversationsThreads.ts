@@ -1,5 +1,5 @@
 /**
- * L8 — Conversations Submenu thread list hook.
+ * L8 — Conversations thread list hook.
  *
  * Fetches `GET /api/threads?participant_id=<id>&limit=50` and maps the
  * `ThreadListRow[]` server payload into `ThreadItem[]` (the shape consumed

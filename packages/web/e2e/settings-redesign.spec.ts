@@ -2,7 +2,7 @@
  * P4 — Settings overlay E2E tests (Task 13, AC-11 through AC-26)
  *
  * AC-11: Avatar click opens settings overlay
- * AC-12: Settings has 7 sections navigable via Submenu
+ * AC-12: Settings has 7 sections navigable via Sidebar
  * AC-13: Profile section persists via PATCH /api/users/:id
  * AC-14: OrgChart section: table of edges, Add Edge form, Delete button
  * AC-15: Credentials section: reuses existing CredentialsTab
@@ -116,13 +116,13 @@ test.describe("Settings Overlay (P4)", () => {
 	}
 
 	// AC-11: Avatar click opens settings overlay
-	test("avatar click shows Settings title in Submenu", async ({ page }) => {
+	test("avatar click shows Settings title in Sidebar", async ({ page }) => {
 		await page.getByRole("button", { name: /user profile/i }).click();
 		await expect(page.getByText("Settings")).toBeVisible();
 	});
 
 	// AC-12: 7 sections visible
-	test("shows 7 settings sections in Submenu", async ({ page }) => {
+	test("shows 7 settings sections in Sidebar", async ({ page }) => {
 		await openSettings(page);
 
 		await expect(page.getByText("Profile")).toBeVisible();

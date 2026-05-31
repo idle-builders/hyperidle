@@ -2,7 +2,7 @@ import type { JSX } from "react";
 import type { RouteObject } from "react-router-dom";
 /**
  * @lore React Router v7 uses createBrowserRouter + RouterProvider pattern.
- * All routes are nested under AppShell layout which provides IconRail | Submenu | Main | Rail.
+ * All routes are nested under AppShell layout which provides Sidebar | Main.
  * The index route redirects to /conversations (queue) as the default landing page.
  *
  * @lore L9: /conversations/review and /conversations/chat are legacy routes;
@@ -12,7 +12,7 @@ import type { RouteObject } from "react-router-dom";
  * @lore I6: /designsystem is integrated into the React Router tree (DEV only)
  * instead of being routed via window.location.pathname in App.tsx.
  */
-import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, Navigate, RouterProvider, useParams } from "react-router-dom";
 import { AppShell } from "./layouts/AppShell";
 import { ArtifactPermalink } from "./pages/ArtifactPermalink";
 import { Conversations } from "./pages/Conversations";
@@ -25,6 +25,16 @@ import { SetupFlow } from "./pages/SetupFlow";
 import { WorkBet } from "./pages/WorkBet";
 import { WorkPortfolio } from "./pages/WorkPortfolio";
 import { WorkTeam } from "./pages/WorkTeam";
+
+/**
+ * @lore U6: React Router's Navigate element cannot forward route params directly
+ * (Navigate's `to` prop is a string literal, not a pattern). This wrapper reads
+ * the old `productId` param and redirects to the new `/work/team/:teamId` path.
+ */
+function RedirectProductToTeam(): JSX.Element {
+	const { productId } = useParams<{ productId: string }>();
+	return <Navigate to={`/work/team/${productId ?? ""}`} replace />;
+}
 
 function buildRoutes(): RouteObject[] {
 	const routes: RouteObject[] = [
@@ -55,14 +65,11 @@ function buildRoutes(): RouteObject[] {
 					element: <RedirectLegacyConversation paramName="thread" />,
 				},
 				{ path: "work/portfolio", element: <WorkPortfolio /> },
-				// @lore U5: URL path kept as work/product/:productId for backward compat.
-				// Route path rename to work/team/:teamId is deferred to U6.
-				{ path: "work/product/:productId", element: <WorkTeam /> },
-				// L13: Legacy /work/team redirects to /work/portfolio (WorkTeam deleted)
-				{
-					path: "work/team",
-					element: <Navigate to="/work/portfolio" replace />,
-				},
+				// @lore U6: Route renamed from work/product/:productId to work/team/:teamId.
+				// Old path redirects via RedirectProductToTeam wrapper (Navigate cannot
+				// forward params directly in React Router v7).
+				{ path: "work/team/:teamId", element: <WorkTeam /> },
+				{ path: "work/product/:productId", element: <RedirectProductToTeam /> },
 				{ path: "work/bet/:betId", element: <WorkBet /> },
 				{ path: "knowledge", element: <KnowledgeList /> },
 				{ path: "knowledge/:knowledgeId", element: <KnowledgeDetail /> },

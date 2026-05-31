@@ -92,8 +92,8 @@ globalThis.Request = PatchedRequest as typeof Request;
 
 /**
  * @lore I4 R1/R2: jsdom does not implement `window.matchMedia`. The
- * `useViewportBreakpoint` hook uses it to compute whether Submenu/Rail should
- * collapse by default. Without this polyfill the hook throws on mount.
+ * `useViewportBreakpoint` hook uses it to determine the sidebar mobile
+ * breakpoint. Without this polyfill the hook throws on mount.
  *
  * We install a configurable mock so individual tests can override the return
  * value by setting `window.innerWidth` and re-stubbing the function; by
@@ -101,10 +101,10 @@ globalThis.Request = PatchedRequest as typeof Request;
  * `window.innerWidth` so responsive tests "just work" when they set the
  * viewport size via `Object.defineProperty(window, 'innerWidth', ...)`.
  */
-// jsdom defaults `window.innerWidth` to 1024, which lands the AppShell in
-// the Rail-collapsed layout (the breakpoint is >=1280). Force a desktop
-// viewport so legacy tests that assume the expanded layout keep passing;
-// individual tests can override via `Object.defineProperty(window, ...)`.
+// jsdom defaults `window.innerWidth` to 1024, which is below the 1280px
+// desktop breakpoint. Force a desktop viewport so tests that assume
+// the sidebar-visible layout keep passing; individual tests can override
+// via `Object.defineProperty(window, ...)`.
 Object.defineProperty(window, "innerWidth", {
 	writable: true,
 	configurable: true,
