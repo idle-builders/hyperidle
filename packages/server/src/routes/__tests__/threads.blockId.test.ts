@@ -11,16 +11,9 @@
  * dual-write logic.
  */
 
-import {
-	createTestDb,
-	type HyperIdleDb,
-	messages,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
-import { eq } from "drizzle-orm";
+import { createTestDb, type HyperIdleDb, messages, teamMembers, teams, users } from "@hyperidle/db";
 import { type DomainEvent, EventBus } from "@hyperidle/shared";
+import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestApp } from "../../test-utils.js";
@@ -63,6 +56,7 @@ async function setupApp(): Promise<AppCtx> {
 	});
 	await db.insert(users).values({
 		id: "u-t5-founder",
+		kind: "human",
 		name: "Founder T5",
 		role: "founder",
 		status: "active",
@@ -314,13 +308,10 @@ describe("AC-5 — GET /api/threads/:id?block_id=X returns only matching message
 	});
 
 	it("GET with ?block_id=block-filter-A returns only 2 messages anchored to block-A", async () => {
-		const res = await ctx.app.request(
-			`/api/threads/${threadId}?block_id=block-filter-A`,
-			{
-				method: "GET",
-				headers: authHeaders(),
-			},
-		);
+		const res = await ctx.app.request(`/api/threads/${threadId}?block_id=block-filter-A`, {
+			method: "GET",
+			headers: authHeaders(),
+		});
 
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as {
@@ -347,13 +338,10 @@ describe("AC-5 — GET /api/threads/:id?block_id=X returns only matching message
 	});
 
 	it("GET with ?block_id=block-filter-B returns only 1 message anchored to block-B", async () => {
-		const res = await ctx.app.request(
-			`/api/threads/${threadId}?block_id=block-filter-B`,
-			{
-				method: "GET",
-				headers: authHeaders(),
-			},
-		);
+		const res = await ctx.app.request(`/api/threads/${threadId}?block_id=block-filter-B`, {
+			method: "GET",
+			headers: authHeaders(),
+		});
 
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { messages: Array<unknown> };
@@ -362,13 +350,10 @@ describe("AC-5 — GET /api/threads/:id?block_id=X returns only matching message
 	});
 
 	it("GET with ?block_id=block-nonexistent returns 0 messages", async () => {
-		const res = await ctx.app.request(
-			`/api/threads/${threadId}?block_id=block-nonexistent`,
-			{
-				method: "GET",
-				headers: authHeaders(),
-			},
-		);
+		const res = await ctx.app.request(`/api/threads/${threadId}?block_id=block-nonexistent`, {
+			method: "GET",
+			headers: authHeaders(),
+		});
 
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { messages: Array<unknown> };
@@ -378,13 +363,10 @@ describe("AC-5 — GET /api/threads/:id?block_id=X returns only matching message
 
 	it("GET with ?block_id= (empty string) returns 400 or ignores the filter (security: rejects empty)", async () => {
 		// The architecture critique requires empty-string block_id to be rejected (Zod validation).
-		const res = await ctx.app.request(
-			`/api/threads/${threadId}?block_id=`,
-			{
-				method: "GET",
-				headers: authHeaders(),
-			},
-		);
+		const res = await ctx.app.request(`/api/threads/${threadId}?block_id=`, {
+			method: "GET",
+			headers: authHeaders(),
+		});
 
 		// Must either reject with 400 (strict validation) or return all messages
 		// (empty string treated as absent). Either is acceptable; what is NOT acceptable
@@ -436,10 +418,7 @@ describe("AC-4 — anchored messages outlive their block (no cascade delete)", (
 
 		// The blockId field on the message has no FK to any blocks table
 		// (blocks are derived, not stored). The message row must persist as-is.
-		const messageRows = await ctx.db
-			.select()
-			.from(messages)
-			.where(eq(messages.id, messageId));
+		const messageRows = await ctx.db.select().from(messages).where(eq(messages.id, messageId));
 
 		expect(messageRows).toHaveLength(1);
 		expect(messageRows[0].blockId).toBe(blockId);
