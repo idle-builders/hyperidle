@@ -46,7 +46,7 @@ function isAnyKnowledgeStatus(value: string): value is AnyKnowledgeStatus {
  */
 const ALLOWED_TRANSITIONS: Record<AnyKnowledgeStatus, readonly AnyKnowledgeStatus[]> = {
 	// Kernel triage statuses (R7)
-	draft: ["active", "archived"],
+	draft: ["active", "captured", "archived"],
 	// Fabric promotion pipeline statuses
 	captured: ["provisional"],
 	provisional: ["validated", "archived", "needs_human"],

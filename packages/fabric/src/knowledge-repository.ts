@@ -15,7 +15,9 @@ import {
 	knowledgeItems,
 	knowledgeStrategyFabric,
 } from "@hyperidle/db";
+
 import type { KernelKnowledgeStatus, KnowledgeFormat } from "@hyperidle/shared";
+
 import { and, eq } from "drizzle-orm";
 import { ItemDeletedError, VersionConflictError } from "./errors.js";
 import { getKnowledgeEvents, KnowledgeEventType } from "./events.js";
@@ -24,7 +26,9 @@ import type { KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "./types.js"
 
 export interface CreateKnowledgeItemInput {
 	layer: KnowledgeLayer;
-	/** @lore R7: scopeKind/scopeId written to the kernel table for scope queries without a JOIN. */
+	/** @lore R7: scopeKind written to the kernel table so items are queryable by
+	 * scope without a JOIN against the extension table. Defaults to "factory"
+	 * when not provided (preserves existing behavior for callers that don't set scope). */
 	scopeKind?: string | null;
 	scopeId?: string | null;
 	kind: KnowledgeKind;
@@ -32,7 +36,13 @@ export interface CreateKnowledgeItemInput {
 	title: string;
 	body: string;
 	format: KnowledgeFormat;
-	/** @lore R7: widened to include KernelKnowledgeStatus ("draft") for agent triage items. */
+	/**
+	 * @lore R7: widened to `KnowledgeStatus | KernelKnowledgeStatus` so
+	 * agent-created items (write_memory) can be created with status="draft"
+	 * (a kernel status) without polluting the fabric's 7-state promotion
+	 * pipeline enum. "draft" items are triage items that live on the kernel
+	 * until promoted to fabric statuses (active/captured/...) by a facilitator.
+	 */
 	status: KnowledgeStatus | KernelKnowledgeStatus;
 	updatedBy: string;
 	attentionScore?: number | null;

@@ -63,12 +63,14 @@ function renderRoute(initialPath: string): ReturnType<typeof render> {
 
 describe("Router (L9)", () => {
 	it("renders Conversations page at /conversations (queue — no thread selected)", async () => {
+		// @lore U6: State A is now the thread list with filter bar + ThreadSections.
+		// The old "open a thread" empty state was replaced by the thread queue view.
 		renderRoute("/conversations");
 		await waitFor(() => {
-			expect(screen.getByTestId("conversations-page")).toBeInTheDocument();
+			expect(screen.getByTestId("main-content")).toBeInTheDocument();
 		});
-		// State A: no thread selected → empty state
-		expect(screen.getByTestId("conversations-empty")).toBeInTheDocument();
+		// The conversations page renders inside main-content
+		expect(screen.getByTestId("conversations-filter-bar")).toBeInTheDocument();
 	});
 
 	it("renders Conversations page at /conversations/:threadId (detail state — fetch loading)", async () => {
@@ -77,7 +79,11 @@ describe("Router (L9)", () => {
 		// the thread-detail endpoint returns empty thread list body).
 		renderRoute("/conversations/t-test-router");
 		await waitFor(() => {
-			expect(screen.getByTestId("conversations-page")).toBeInTheDocument();
+			// conversations-page appears multiple times (outer Conversations wrapper +
+			// ConversationsDetail inner wrapper) — use getAllByTestId to avoid the
+			// "multiple elements" error that getByTestId throws.
+			const pages = screen.getAllByTestId("conversations-page");
+			expect(pages.length).toBeGreaterThan(0);
 		});
 	});
 
@@ -117,9 +123,12 @@ describe("Router (L9)", () => {
 		});
 	});
 
-	it("shell layout has IconRail, Submenu, main content, and Rail", async () => {
+	it("shell layout has Sidebar and main content area", async () => {
+		// @lore U6: IconRail | Submenu | Rail replaced by a single Sidebar.
+		// The layout is now Sidebar (200px) | Main (flex-1).
 		renderRoute("/conversations");
 		await waitFor(() => {
+			// Sidebar renders as aside[data-ds-shell="Sidebar"] with role navigation
 			expect(screen.getByRole("navigation", { name: "Main navigation" })).toBeInTheDocument();
 			expect(screen.getByTestId("main-content")).toBeInTheDocument();
 		});

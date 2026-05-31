@@ -210,12 +210,9 @@ describe("Sidebar — AC-5: Knowledge section scope sub-items", () => {
 describe("Sidebar — AC-6: Active view highlighting", () => {
 	it("Conversations section header has active styling when activeView='conversations'", () => {
 		const { container } = render(<Sidebar {...defaultProps} activeView="conversations" />);
-		// The active section should have text-primary / fw-semibold or equivalent active class
-		// Look for the conversations header element with active class attribute
-		// biome-ignore lint/correctness/noUnusedVariables: query used for its side-effect (throws if not found)
-		const header = screen
-			.getByText(/^conversations$/i)
-			.closest("[data-section-header]") as HTMLElement | null;
+		// @lore U6: The conversations section header has NO visible text — only aria-label.
+		// This is intentional to avoid getByText(/conversations/i) finding both the header
+		// and the "No recent conversations" empty state. Use data attributes to check active state.
 		// Check active indicator exists somewhere in the conversations section
 		const activeEl =
 			container.querySelector("[data-section='conversations'][data-active='true']") ??

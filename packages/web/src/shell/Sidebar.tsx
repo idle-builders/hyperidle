@@ -203,6 +203,8 @@ export function Sidebar({
 	return (
 		<aside
 			data-ds-shell="Sidebar"
+			role="navigation"
+			aria-label="Main navigation"
 			className="flex flex-col w-[200px] shrink-0 bg-[var(--surface-container)] border-r border-[var(--border-subtle)] h-full overflow-hidden"
 		>
 			{/* Brand wordmark */}

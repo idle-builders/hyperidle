@@ -150,71 +150,8 @@ describe("M3 — AppShell: knowledge submenu count:12 removed (F1)", () => {
 	});
 });
 
-describe("M3 — AppShell: uses useRail hook instead of MOCK_RAIL_* (C4)", () => {
-	beforeEach(() => {
-		global.fetch = vi.fn().mockImplementation((url: string) => {
-			if ((url as string).includes("/api/rail")) {
-				return Promise.resolve({
-					ok: true,
-					json: () =>
-						Promise.resolve({
-							bets: [
-								{
-									id: "b-real",
-									title: "Real Bet from API",
-									status: "in_progress",
-									progress: { done: 1, total: 3 },
-								},
-							],
-							blockers: [],
-							awaitingOrdering: [],
-							costBurnRate: {
-								todaySpend: null,
-								todayCap: null,
-								weekSpend: null,
-								weekCap: null,
-								weekTokens: null,
-							},
-						}),
-				});
-			}
-			return Promise.resolve({
-				ok: true,
-				json: () =>
-					Promise.resolve({
-						id: "real-user-id",
-						name: "Real User",
-						email: "real@hyperidle.dev",
-						avatarUrl: null,
-						threads: [],
-						nextCursor: null,
-					}),
-			});
-		}) as typeof fetch;
-	});
-
-	afterEach(() => {
-		vi.restoreAllMocks();
-	});
-
-	it("renders bet title from API response (not from MOCK_RAIL_BETS)", async () => {
-		renderShell();
-
-		// "Real Bet from API" comes from the mocked /api/rail, not from MOCK_RAIL_BETS
-		await waitFor(() => {
-			expect(screen.getByText("Real Bet from API")).toBeInTheDocument();
-		});
-	});
-
-	it("does NOT render mock bet titles ('User auth flow', 'Dashboard redesign')", async () => {
-		renderShell();
-
-		await waitFor(() => {
-			expect(screen.getByTestId("main-content")).toBeInTheDocument();
-		});
-
-		// MOCK_RAIL_BETS titles must not appear
-		expect(screen.queryByText("User auth flow")).not.toBeInTheDocument();
-		expect(screen.queryByText("Dashboard redesign")).not.toBeInTheDocument();
-	});
-});
+// @lore U6: useRail hook and Rail component were deleted in U6.
+// The C4 test ("renders bet title from API response") tested that the AppShell used
+// useRail() instead of MOCK_RAIL_BETS. Since the Rail component no longer exists,
+// the test is no longer applicable. The AppShell now uses a Sidebar with thread list
+// and team sub-items — there is no bet-title rail in the layout.
