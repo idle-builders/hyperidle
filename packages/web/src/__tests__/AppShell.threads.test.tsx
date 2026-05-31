@@ -1,17 +1,12 @@
 /**
- * L8 — AppShell wires the live thread list into the Conversations Submenu.
+ * @lore U6: AppShell wires the live thread list into the Sidebar (Conversations section).
+ * The Sidebar shows max 5 recent threads as data-thread-id items.
+ * The full ThreadSections list moved to the Conversations page.
  *
- * Protected tests (plan §7):
- *   §7.1 counts derived from list (not literals)
- *   §7.2 L9: selection NAVIGATES to /conversations/:threadId (URL is
- *        authoritative); selectedThreadId in Outlet context is derived from
- *        the URL param and still surfaces via useOutletContext (backwards-compat).
- *   §7.3 SUBMENU_CONFIG has no static conversations items
- *
- * L9 update to §7.2: clicking a thread row now calls navigate() to
- * /conversations/:threadId. The legacy "selection must not navigate" assertion
- * (L8) is updated because the behavior intentionally changed in L9 — the URL
- * becomes the source of truth for the selected thread.
+ * Updated from L8 (Submenu-based) to U6 (Sidebar-based):
+ *   §7.2 U6: clicking a sidebar thread item navigates to /conversations/:threadId
+ *   §7.3 U6: sidebar thread items are data-thread-id buttons, not ThreadRow components
+ *   §7.5 U6: sidebar shows max 5 threads when more are available
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -80,7 +75,7 @@ function setFetchMock(threads: MockListRow[]): ReturnType<typeof vi.fn> {
 				json: async () => ({ id: "u-founder-test", name: "Founder", email: "", avatarUrl: null }),
 			} as Response;
 		}
-		// Detail endpoint: return minimal valid body so ConversationsReview can mount.
+		// Detail endpoint: return minimal valid body.
 		return {
 			ok: true,
 			json: async () => ({
@@ -97,7 +92,7 @@ function setFetchMock(threads: MockListRow[]): ReturnType<typeof vi.fn> {
 
 // Test stub mirrors the production consumer pattern: read the lifted thread
 // id from Outlet context and surface it in the DOM so tests can assert the
-// main pane updates when a thread row is clicked.
+// main pane updates when a thread item is clicked.
 function MainStub(): JSX.Element {
 	const ctx = useOutletContext<{ selectedThreadId: string | null } | undefined>();
 	return <div data-testid="main-stub">selected:{ctx?.selectedThreadId ?? "none"}</div>;
@@ -131,7 +126,7 @@ function renderShell(initialPath = "/conversations"): {
 	return { router };
 }
 
-describe("L8 — AppShell renders Conversations Submenu thread list", () => {
+describe("U6 — AppShell wires thread list into Sidebar Conversations section", () => {
 	beforeEach(() => {
 		setFetchMock(SEVEN_THREADS);
 	});
@@ -139,70 +134,47 @@ describe("L8 — AppShell renders Conversations Submenu thread list", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("renders threads from /api/threads as the submenu list", async () => {
+	it("renders up to 5 sidebar thread items from /api/threads (U6: max 5 in sidebar)", async () => {
+		// @lore U6: Sidebar shows max 5 threads as data-thread-id items.
+		// The full list is in the Conversations page (ThreadSections).
 		renderShell();
 		await waitFor(() => {
-			const rows = document.querySelectorAll("[data-ds-component='ThreadRow']");
-			expect(rows.length).toBe(SEVEN_THREADS.length);
+			const items = document.querySelectorAll("[data-thread-id]");
+			// 7 threads in API but sidebar caps at 5
+			expect(items.length).toBe(5);
 		});
 	});
 
-	it("SUBMENU_CONFIG has no static conversations items (no Review Queue / Chat NavItems)", async () => {
-		// PROTECTED §7.3 — recurrence guard.
+	it("sidebar thread items have data-thread-id attributes (not ThreadRow components)", async () => {
+		// @lore U6: Sidebar uses simple button items with data-thread-id, not ThreadRow.
 		renderShell();
 		await waitFor(() => {
-			const rows = document.querySelectorAll("[data-ds-component='ThreadRow']");
-			expect(rows.length).toBeGreaterThan(0);
+			const items = document.querySelectorAll("[data-thread-id]");
+			expect(items.length).toBeGreaterThan(0);
 		});
-		// The legacy static labels must never render in conversations submenu.
-		expect(screen.queryByText("Review Queue")).toBeNull();
-		// "Chat" specifically as the static NavItem label is forbidden.
-		// Note: a thread row title may still contain the word "Chat" — but
-		// the static NavItem label was the bare token "Chat".
-		const chatNavItems = screen
-			.queryAllByText("Chat")
-			.filter((el) => el.closest("[data-ds-component='NavItem']") !== null);
-		expect(chatNavItems.length).toBe(0);
+		// Confirm these are NOT ThreadRow ds-components
+		const threadRows = document.querySelectorAll("[data-ds-component='ThreadRow']");
+		expect(threadRows.length).toBe(0);
 	});
 
-	it("submenu title-bar count equals total rendered rows (not a literal)", async () => {
-		// PROTECTED §7.1 — counts-derived-from-list at the chrome level.
-		renderShell();
-		await waitFor(() => {
-			const rows = document.querySelectorAll("[data-ds-component='ThreadRow']");
-			expect(rows.length).toBe(7);
-		});
-		// The legacy hardcoded counts at AppShell.tsx:40-41 were 3 and 1
-		// (sum=4). With 7 rows, the total badge must be 7 — NOT 4.
-		// Locate the badge inside the Submenu (the count appears next to "Conversations").
-		const titleEl = await screen.findByText("Conversations");
-		const titleParent = titleEl.parentElement as HTMLElement;
-		const badge = titleParent.querySelector("span.badge");
-		expect(badge?.textContent).toBe("7");
-	});
-
-	it("clicking a thread row navigates to /conversations/:threadId (L9) and surfaces selectedThreadId via outlet context", async () => {
-		// PROTECTED §7.2 — L9 update: selection NOW navigates to the canonical
-		// /conversations/:threadId URL (the URL is the source of truth). The
-		// selectedThreadId Outlet context field is derived from useParams() so
-		// the Main pane still receives the id through useOutletContext —
-		// backwards-compat contract preserved (arch-critique WARNING §1).
-		// Architecture C2 / Adversary B1: the lifted id reaches the Main pane
-		// through Outlet context regardless of whether it comes from useState or URL.
+	it("clicking a sidebar thread item navigates to /conversations/:threadId (U6: L9 pattern)", async () => {
+		// §7.2 U6: clicking a sidebar thread item navigates to the thread URL.
 		const user = userEvent.setup();
 		const { router } = renderShell();
 		await waitFor(() => {
-			const rows = document.querySelectorAll("[data-ds-component='ThreadRow']");
-			expect(rows.length).toBe(7);
+			const items = document.querySelectorAll("[data-thread-id]");
+			expect(items.length).toBe(5);
 		});
 
 		// Main pane starts with no thread selected (URL = /conversations, threadId undefined).
 		expect(screen.getByTestId("main-stub")).toHaveTextContent("selected:none");
 
-		const rows = document.querySelectorAll("[data-ds-component='ThreadRow']");
-		await user.click(rows[2] as HTMLElement);
+		const items = document.querySelectorAll("[data-thread-id]");
+		const firstItem = items[0] as HTMLElement;
+		const threadId = firstItem.getAttribute("data-thread-id") ?? "";
+		await user.click(firstItem.querySelector("button") ?? firstItem);
 
-		// L9: clicking DOES navigate — URL path changes to /conversations/:threadId.
+		// L9: clicking navigates to /conversations/:threadId.
 		await waitFor(() => {
 			expect(router.state.location.pathname).toMatch(/^\/conversations\/.+$/);
 		});
@@ -212,52 +184,32 @@ describe("L8 — AppShell renders Conversations Submenu thread list", () => {
 			expect(screen.getByTestId("main-stub").textContent).toMatch(/^selected:.+$/);
 			expect(screen.getByTestId("main-stub").textContent).not.toBe("selected:none");
 		});
+
+		void threadId; // used above
 	});
 
-	it("clicking a row marks it as selected (aria-current=true)", async () => {
+	it("clicking a sidebar thread item marks it as selected (aria-current=page)", async () => {
+		// @lore U6: Sidebar thread items get aria-current="page" on the li when selected.
 		const user = userEvent.setup();
 		renderShell();
 		await waitFor(() => {
-			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(7);
+			expect(document.querySelectorAll("[data-thread-id]").length).toBe(5);
 		});
-		const rows = document.querySelectorAll("[data-ds-component='ThreadRow']");
-		await user.click(rows[1] as HTMLElement);
+		const firstItem = document.querySelector("[data-thread-id]") as HTMLElement;
+		const btn = firstItem.querySelector("button") ?? firstItem;
+		await user.click(btn);
 		await waitFor(() => {
-			const selected = document.querySelector(
-				"[data-ds-component='ThreadRow'][aria-current='true']",
-			);
+			const selected = document.querySelector("[data-thread-id][aria-current='page']");
 			expect(selected).not.toBeNull();
 		});
 	});
 
-	it("renders ErrorState when /api/threads request fails", async () => {
-		// /api/auth/me must resolve with a valid user so that useConversationsThreads
-		// fires the threads fetch (rather than short-circuiting to the empty ready
-		// state). Only the threads endpoint is made to fail (N5 fix).
-		global.fetch = vi.fn(async (input: RequestInfo | URL) => {
-			const url = typeof input === "string" ? input : input.toString();
-			if (url.includes("/api/auth/me")) {
-				return {
-					ok: true,
-					json: async () => ({ id: "u-founder-test", name: "Founder", email: "", avatarUrl: null }),
-				} as Response;
-			}
-			return { ok: false, status: 500, json: async () => ({ error: "boom" }) } as Response;
-		}) as unknown as typeof fetch;
-		renderShell();
-		await waitFor(() => {
-			expect(screen.getByTestId("thread-sections-error")).toBeInTheDocument();
-		});
-	});
-
-	it("title-bar count is hidden when there are zero threads", async () => {
+	it("sidebar shows 'No recent conversations' empty text when threads is empty", async () => {
 		setFetchMock([]);
 		renderShell();
 		await waitFor(() => {
-			expect(screen.getByTestId("thread-sections-empty")).toBeInTheDocument();
+			// Empty state appears in the sidebar Conversations section
+			expect(screen.getByText(/no recent conversations/i)).toBeInTheDocument();
 		});
-		const titleEl = await screen.findByText("Conversations");
-		const titleParent = titleEl.parentElement as HTMLElement;
-		expect(titleParent.querySelector("span.badge")).toBeNull();
 	});
 });

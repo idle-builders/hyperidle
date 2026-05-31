@@ -1,18 +1,22 @@
 /**
- * L13 — Playwright e2e: Product drill-down from Portfolio.
+ * L13 — Playwright e2e: Team (product) drill-down from Portfolio.
  *
  * Strategy: hermetic page.route() mocks for all /api/products/* calls.
  * No DB seeding required — the dev server serves the SPA bundle.
  *
+ * @lore U6: Route renamed from /work/product/:productId to /work/team/:teamId.
+ * The API URL path stays /api/products/:id for backward compat (server not renamed).
+ * The "product" concept maps 1:1 to a team in the current model.
+ *
  * Flow covered:
- * 1. Drill-down: Portfolio → click product card → URL becomes /work/product/:id
- *    → product header / roster / active-bets / burn-vs-cap all visible.
- * 2. Empty state: product with zero active bets shows product-active-bets-empty.
- * 3. Roster + bets visible: seeded product has roster rows + bet cards.
+ * 1. Drill-down: Portfolio → click product card → URL becomes /work/team/:id
+ *    → team header / roster / active-bets / burn-vs-cap all visible.
+ * 2. Empty state: team with zero active bets shows product-active-bets-empty.
+ * 3. Roster + bets visible: seeded team has roster rows + bet cards.
  * 4. Breadcrumb: click breadcrumb chip → URL returns to /work/portfolio.
- * 5. Legacy redirect: /work/team → /work/portfolio.
- * 6. Unknown product: /work/product/does-not-exist → product-not-found empty state.
- * 7. No-Kanban: negative assertion — no Kanban region on the Product page.
+ * 5. Legacy redirect: /work/product/:id → /work/team/:id.
+ * 6. Unknown team: /work/team/does-not-exist → product-not-found empty state.
+ * 7. No-Kanban: negative assertion — no Kanban region on the Team page.
  */
 
 import { expect, test } from "./fixtures";
@@ -109,7 +113,7 @@ test.describe("L13 — Product drill-down", () => {
 		});
 	});
 
-	test("(1) drill-down: Portfolio → click product card → product page with all regions", async ({
+	test("(1) drill-down: Portfolio → click product card → team page with all regions", async ({
 		page,
 	}) => {
 		await page.goto("/work/portfolio");
@@ -120,11 +124,11 @@ test.describe("L13 — Product drill-down", () => {
 		await expect(cards.first()).toBeVisible();
 		await cards.first().click();
 
-		// URL should become /work/product/:id
-		await expect(page).toHaveURL(/\/work\/product\//, { timeout: 5000 });
+		// URL should become /work/team/:id (U6: renamed from /work/product/:id)
+		await expect(page).toHaveURL(/\/work\/team\//, { timeout: 5000 });
 
-		// Product page should be visible
-		await page.waitForSelector("[data-testid='work-product-page']");
+		// Team page should be visible
+		await page.waitForSelector("[data-testid='work-team-page']");
 
 		// Product header (name) visible
 		await expect(page.getByText("HyperIdle Core")).toBeVisible();
@@ -139,7 +143,7 @@ test.describe("L13 — Product drill-down", () => {
 		await expect(page.getByTestId("product-burn-vs-cap")).toBeVisible();
 	});
 
-	test("(2) empty state: product with zero active bets shows product-active-bets-empty", async ({
+	test("(2) empty state: team with zero active bets shows product-active-bets-empty", async ({
 		page,
 	}) => {
 		const emptyProductId = "p-empty";
@@ -153,15 +157,15 @@ test.describe("L13 — Product drill-down", () => {
 			});
 		});
 
-		await page.goto(`/work/product/${emptyProductId}`);
-		await page.waitForSelector("[data-testid='work-product-page']");
+		await page.goto(`/work/team/${emptyProductId}`);
+		await page.waitForSelector("[data-testid='work-team-page']");
 
 		await expect(page.getByTestId("product-active-bets-empty")).toBeVisible();
 	});
 
 	test("(3) roster + bets visible with seeded data", async ({ page }) => {
-		await page.goto(`/work/product/${PRODUCT_ID}`);
-		await page.waitForSelector("[data-testid='work-product-page']");
+		await page.goto(`/work/team/${PRODUCT_ID}`);
+		await page.waitForSelector("[data-testid='work-team-page']");
 
 		// At least one roster row
 		const rosterRows = page.getByTestId("product-roster-row");
@@ -174,8 +178,8 @@ test.describe("L13 — Product drill-down", () => {
 	});
 
 	test("(4) breadcrumb click returns to /work/portfolio", async ({ page }) => {
-		await page.goto(`/work/product/${PRODUCT_ID}`);
-		await page.waitForSelector("[data-testid='work-product-page']");
+		await page.goto(`/work/team/${PRODUCT_ID}`);
+		await page.waitForSelector("[data-testid='work-team-page']");
 
 		// Click the breadcrumb chip
 		await page.getByTestId("product-breadcrumb-back").click();
@@ -184,18 +188,17 @@ test.describe("L13 — Product drill-down", () => {
 		await expect(page.getByTestId("work-portfolio-page")).toBeVisible();
 	});
 
-	test("(5) legacy /work/team redirects to /work/portfolio", async ({ page }) => {
-		await page.goto("/work/team");
+	test("(5) legacy /work/product/:id redirects to /work/team/:id", async ({ page }) => {
+		// @lore U6: /work/product/:productId now redirects to /work/team/:productId.
+		await page.goto(`/work/product/${PRODUCT_ID}`);
 
-		// Should redirect to portfolio
-		await expect(page).toHaveURL(/\/work\/portfolio/, { timeout: 5000 });
-		await expect(page.getByTestId("work-portfolio-page")).toBeVisible();
+		// Should redirect to /work/team/:id
+		await expect(page).toHaveURL(/\/work\/team\//, { timeout: 5000 });
+		await expect(page.getByTestId("work-team-page")).toBeVisible();
 	});
 
-	test("(6) unknown product /work/product/does-not-exist shows 404 empty state", async ({
-		page,
-	}) => {
-		// Mock 404 for unknown product
+	test("(6) unknown team /work/team/does-not-exist shows 404 empty state", async ({ page }) => {
+		// Mock 404 for unknown team
 		await page.route("**/api/products/does-not-exist", async (route) => {
 			await route.fulfill({
 				status: 404,
@@ -204,15 +207,15 @@ test.describe("L13 — Product drill-down", () => {
 			});
 		});
 
-		await page.goto("/work/product/does-not-exist");
-		await page.waitForSelector("[data-testid='work-product-page']");
+		await page.goto("/work/team/does-not-exist");
+		await page.waitForSelector("[data-testid='work-team-page']");
 
 		await expect(page.getByTestId("product-not-found")).toBeVisible();
 	});
 
-	test("(7) no Kanban region on the Product page", async ({ page }) => {
-		await page.goto(`/work/product/${PRODUCT_ID}`);
-		await page.waitForSelector("[data-testid='work-product-page']");
+	test("(7) no Kanban region on the Team page", async ({ page }) => {
+		await page.goto(`/work/team/${PRODUCT_ID}`);
+		await page.waitForSelector("[data-testid='work-team-page']");
 
 		// Negative: no Kanban surface (tasks-across-bets view is gone per v3)
 		await expect(page.locator("[data-testid='work-team-kanban']")).toHaveCount(0);

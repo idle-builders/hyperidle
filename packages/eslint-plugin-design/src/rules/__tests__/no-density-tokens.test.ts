@@ -52,11 +52,14 @@ ruleTester.run("no-density-tokens", noDensityTokens, {
 			code: 'const J = <span className="px-[var(--density-pad-x)]" />;',
 			errors: [{ messageId: "densityVarOnStatic" }],
 		},
-		// INVALID #2 — IconRail consuming a density token — the canonical
-		// density-static shell per § 5.6.
+		// INVALID #2 — Tag consuming a density token — density-static per § 3.1.2.
+		// @lore U6: This test previously used IconRail.tsx (deleted in U6 when Sidebar
+		// replaced the Rail layout). Tag is equally canonical: same densityStatic
+		// bucket, same enforcement. IconRail was never added to density-allowlist.json
+		// which caused this test to silently not fire.
 		{
-			filename: path("packages/web/src/shell/IconRail.tsx"),
-			code: 'const J = <nav className="w-[var(--density-row-h)]" />;',
+			filename: path("packages/design-system/src/Tag.tsx"),
+			code: 'const J = <span className="gap-[var(--density-row-h)]" />;',
 			errors: [{ messageId: "densityVarOnStatic" }],
 		},
 		// INVALID #3 — Tag consuming both a known token and one of K11's new

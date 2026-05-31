@@ -220,6 +220,13 @@ function isDomainProductLine(line: string, filePath: string): boolean {
 	if (/\bproductId\s*:\s*teamId\b/.test(codePart)) return false;
 	if (/useParams<\{\s*productId\s*:/.test(codePart)) return false;
 
+	// - U6 backward-compat redirect: RedirectProductToTeam reads the old :productId
+	// param and forwards to /work/team/:teamId. The productId destructure and usage
+	// in the Navigate element are legitimate URL-param reads, not domain references.
+	if (/RedirectProductToTeam/.test(codePart)) return false;
+	if (filePath.includes("router.tsx") && /\bproductId\b/.test(codePart)) return false;
+	if (filePath.includes("U6-router.test.tsx") && /\bproductId\b/.test(codePart)) return false;
+
 	// - "My Team" string literal in SetupFlow (renamed from "My Product" in U5)
 	if (/["']My Team["']/.test(codePart)) return false;
 

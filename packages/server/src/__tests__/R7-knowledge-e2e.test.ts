@@ -281,6 +281,37 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 		expect(row?.status).toBe("active");
 	});
 
+	it("promote_knowledge succeeds for 'draft' now that ALLOWED_TRANSITIONS includes 'draft' key", async () => {
+		// R7 fix applied: "draft" is now in KNOWLEDGE_STATUSES and ALLOWED_TRANSITIONS
+		// so isKnowledgeStatus("draft") returns true and draft → active succeeds.
+		// Previously documented the INVALID_STATE failure mode; updated in write-code phase.
+		const { randomUUID } = await import("node:crypto");
+		const itemId = randomUUID();
+		await db.insert(knowledgeItems).values({
+			id: itemId,
+			title: "Draft item — post-fix behavior check",
+			body: "Testing post-fix behavior: draft is now a valid status.",
+			format: "markdown",
+			status: "draft",
+			version: 1,
+			updatedBy: "agent:agent-fac-r7",
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
+
+		const result = await promoteKnowledgeTool.handler(
+			{
+				knowledgeItemId: itemId,
+				toStatus: "active",
+				reason: "Promoting a draft item to active",
+			},
+			ctx,
+		);
+
+		// After R7 fix: draft is a valid status and draft → active is an allowed transition
+		expect(result.success).toBe(true);
+	});
+
 	it("full triage-to-curated flow: write_memory then promote_knowledge", async () => {
 		// End-to-end: agent writes item (lands in triage as "draft"), facilitator promotes to "active" (curated)
 
@@ -404,7 +435,10 @@ describe("R7 AC-5: write_memory items materialize into subsequent sessions", () 
 	});
 
 	it("write_memory items ARE materialized even without explicit teamId in ToolContext (R7 fix verified)", async () => {
-		// teamId is derived from the task when ctx.teamId is absent
+		// R7 fix: write_memory now derives teamId from the task when ctx.teamId
+		// is absent, ensuring scopeId is always set for items tied to a team task.
+		// Previously documented the null-scopeId broken state; updated in write-code phase.
+
 		// Write an item without explicit teamId in ctx (derived from task instead)
 		const writeResult = await writeMemoryTool.handler(
 			{

@@ -32,7 +32,24 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
 import { BlockRefEmbed } from "../components/BlockRefEmbed.js";
+import { SessionActivityPanel } from "../components/SessionActivityPanel";
+import type { ConversationsFilter } from "../components/ThreadSections";
+import { ThreadSections } from "../components/ThreadSections";
+import { useHint } from "../hooks/useHints";
+import { useThreadDetail } from "../hooks/useThreadDetail";
+import type { AppShellOutletContext } from "../layouts/AppShell";
+import { apiFetch } from "../services/api-fetch.js";
+import {
+	type ActionSummaryData,
+	ArtifactView,
+	type ContentPreviewData,
+	type DataMetricsData,
+	type TextDiffData,
+	type VisualComparisonData,
+} from "../shell/ArtifactView";
+import { ToastContext } from "../shell/ToastRegion";
 
 /**
  * T4: renderRefEmbeds for Conversations — builds BlockRefEmbed cards for block refs.
@@ -57,21 +74,6 @@ function renderRefEmbedsForConversations(refs: ReadonlyArray<InlineRef>): ReactN
 		</div>
 	);
 }
-
-import { Link, useParams } from "react-router-dom";
-import { SessionActivityPanel } from "../components/SessionActivityPanel";
-import { useHint } from "../hooks/useHints";
-import { useThreadDetail } from "../hooks/useThreadDetail";
-import { apiFetch } from "../services/api-fetch.js";
-import {
-	type ActionSummaryData,
-	ArtifactView,
-	type ContentPreviewData,
-	type DataMetricsData,
-	type TextDiffData,
-	type VisualComparisonData,
-} from "../shell/ArtifactView";
-import { ToastContext } from "../shell/ToastRegion";
 
 // ---------------------------------------------------------------------------
 // Artifact slot resolver (carried from ConversationsReview.tsx unchanged)
@@ -435,6 +437,73 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 // Page component
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Filter pill bar (All / Blocking / Async) — AC-16
+// ---------------------------------------------------------------------------
+
+const FILTER_OPTIONS: ReadonlyArray<{ id: ConversationsFilter; label: string }> = [
+	{ id: "all", label: "All" },
+	{ id: "blocking", label: "Blocking" },
+	{ id: "async", label: "Async" },
+];
+
+function FilterPillBar({
+	activeFilter,
+	onFilterChange,
+	onClearFilter,
+	disabled = false,
+}: {
+	activeFilter: ConversationsFilter;
+	onFilterChange: (f: ConversationsFilter) => void;
+	onClearFilter: () => void;
+	/** When true, all filter chips are aria-disabled (e.g. during error state). */
+	disabled?: boolean;
+}): JSX.Element {
+	return (
+		<div className="flex items-center gap-1 mb-2 shrink-0" data-testid="conversations-filter-bar">
+			<div role="tablist" aria-label="Conversations filter" className="flex gap-1">
+				{FILTER_OPTIONS.map((opt) => (
+					<button
+						key={opt.id}
+						type="button"
+						role="tab"
+						aria-selected={opt.id === activeFilter}
+						aria-disabled={disabled ? "true" : undefined}
+						onClick={disabled ? undefined : () => onFilterChange(opt.id)}
+						className={[
+							"btn btn-xs",
+							opt.id === activeFilter ? "btn-neutral" : "btn-ghost",
+							disabled ? "opacity-50 cursor-not-allowed" : "",
+						].join(" ")}
+					>
+						{opt.label}
+					</button>
+				))}
+			</div>
+			{/*
+			 * @lore U6: Inline × Clear button appears when filter is non-default.
+			 * Uses data-testid="submenu-filter-clear" for backwards-compat with
+			 * the l10-filter tests that expect this testid (previously in Submenu).
+			 */}
+			{activeFilter !== "all" && (
+				<button
+					type="button"
+					data-testid="submenu-filter-clear"
+					onClick={onClearFilter}
+					className="btn btn-xs btn-ghost text-[var(--text-lo)]"
+					aria-label="Clear filter"
+				>
+					× Clear
+				</button>
+			)}
+		</div>
+	);
+}
+
+// ---------------------------------------------------------------------------
+// Page component
+// ---------------------------------------------------------------------------
+
 export function Conversations(): JSX.Element {
 	// @lore L9 WARNING (arch-critique): useParams() inside AppShell's child
 	// route receives merged params from the matched child route via React
@@ -443,17 +512,65 @@ export function Conversations(): JSX.Element {
 	// When mounted at /conversations/:threadId, threadId is the path segment.
 	const { threadId } = useParams<{ threadId?: string }>();
 
+	// @lore U6 AC-16: filter state lives in AppShell and is passed via OutletContext.
+	// useOutletContext may return undefined when Conversations is rendered outside
+	// AppShell (e.g., tests that mount Conversations directly). Fallback to "all".
+	const ctx = useOutletContext<AppShellOutletContext | undefined>();
+	const conversationsFilter: ConversationsFilter = ctx?.conversationsFilter ?? "all";
+	const onFilterChange = ctx?.onFilterChange ?? (() => undefined);
+	const onClearFilter = ctx?.onClearFilter ?? (() => undefined);
+
+	// @lore U6 review V1: Thread data is sourced from AppShell's OutletContext
+	// (single useConversationsThreads call in AppShell). Conversations.tsx no
+	// longer calls useConversationsThreads independently, avoiding the duplicate
+	// API fetch that previously occurred on every Conversations page mount.
+	// Fallback values handle the case where Conversations is rendered outside
+	// AppShell (tests that provide a partial context or no context at all).
+	const conversationsThreads = {
+		threads: ctx?.threads ?? [],
+		status: ctx?.threadsStatus ?? ("loading" as const),
+		error: ctx?.threadsError ?? null,
+		retry: ctx?.onRetryThreads ?? (() => undefined),
+	};
+	const navigate = useNavigate();
+
+	const handleSelectThread = useCallback(
+		(id: string): void => {
+			navigate(`/conversations/${encodeURIComponent(id)}`);
+		},
+		[navigate],
+	);
+
 	if (!threadId) {
 		return (
 			<div className="flex flex-col h-full" data-testid="conversations-page">
-				<EmptyState
-					title="Open a thread to see it here"
-					description="Pick a thread from the list to read it."
-					dataTestId="conversations-empty"
+				<FilterPillBar
+					activeFilter={conversationsFilter}
+					onFilterChange={onFilterChange}
+					onClearFilter={onClearFilter}
+					disabled={conversationsThreads.status === "error"}
+				/>
+				<ThreadSections
+					threads={conversationsThreads.threads}
+					selectedId={ctx?.selectedThreadId ?? null}
+					onSelect={handleSelectThread}
+					loading={conversationsThreads.status === "loading"}
+					errorMessage={
+						conversationsThreads.status === "error"
+							? (conversationsThreads.error ?? "Network error")
+							: null
+					}
+					onRetry={conversationsThreads.retry}
+					activeFilter={conversationsFilter}
+					onClearFilter={onClearFilter}
 				/>
 			</div>
 		);
 	}
 
-	return <ConversationsDetail threadId={threadId} />;
+	return (
+		<div className="flex flex-col h-full" data-testid="conversations-page">
+			<ConversationsDetail threadId={threadId} />
+		</div>
+	);
 }

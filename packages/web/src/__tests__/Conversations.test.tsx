@@ -109,11 +109,15 @@ describe("Conversations page (L9)", () => {
 	// -----------------------------------------------------------------------
 	// State A — no :threadId
 	// -----------------------------------------------------------------------
-	it("State A: renders 'open a thread' empty state when no :threadId param", () => {
+	it("State A: renders thread list (filter bar + ThreadSections) when no :threadId param", () => {
+		// @lore U6: State A is now the thread list (filter bar + ThreadSections), NOT a static
+		// "open a thread" empty state. The Conversations page renders the thread queue when no
+		// threadId is present. Since no fetch mock is provided, ThreadSections shows a loading state.
 		renderNoThreadId();
-		expect(screen.getByTestId("conversations-empty")).toBeInTheDocument();
-		expect(screen.getByText(/open a thread to see it here/i)).toBeInTheDocument();
-		expect(screen.getByText(/pick a thread from the list to read it/i)).toBeInTheDocument();
+		expect(screen.getByTestId("conversations-page")).toBeInTheDocument();
+		expect(screen.getByTestId("conversations-filter-bar")).toBeInTheDocument();
+		// ThreadSections renders loading skeleton when no threads are fetched
+		expect(screen.getByTestId("thread-sections-loading")).toBeInTheDocument();
 	});
 
 	// -----------------------------------------------------------------------

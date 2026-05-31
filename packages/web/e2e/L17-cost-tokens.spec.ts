@@ -138,7 +138,7 @@ test.describe("L17 — BetCard shows formatted Money appetite (AC21)", () => {
 				body: JSON.stringify(PRODUCT_DETAIL_FIXTURE),
 			}),
 		);
-		await page.goto(`/work/product/${PRODUCT_ID}`);
+		await page.goto(`/work/team/${PRODUCT_ID}`);
 	});
 
 	test("BetCard appetite shows dollar-formatted money (not '2 weeks')", async ({ page }) => {
@@ -248,7 +248,7 @@ test.describe("L17 — WorkProduct burn shows formatted Money (AC24)", () => {
 				body: JSON.stringify(PRODUCT_DETAIL_FIXTURE),
 			}),
 		);
-		await page.goto(`/work/product/${PRODUCT_ID}`);
+		await page.goto(`/work/team/${PRODUCT_ID}`);
 	});
 
 	test("product burn shows formatted '$214.30' (not raw 21430)", async ({ page }) => {

@@ -19,10 +19,9 @@ const STUB_SETTINGS = {
 	},
 };
 
-// L8: AppShell fetches /api/threads, /api/settings, /api/rail, /api/auth/me
-// on mount. Route-aware stub so all API paths resolve rather than triggering
-// unhandled rejections. Applied unconditionally (jsdom 20+ provides native
-// fetch which would cause real network errors in test; we always override).
+// L8: AppShell fetches /api/threads, /api/settings, /api/auth/me on mount.
+// @lore U6: /api/rail is no longer fetched (Rail component deleted). Stub covers
+// all routes that AppShell uses.
 // @lore M3 review C2: stub must cover PATCH /api/settings so handleSettingsSave
 // succeeds and the density-wiring tests can assert the dialog closes.
 function stubApiFetch(): void {
@@ -36,13 +35,6 @@ function stubApiFetch(): void {
 		// /api/settings (GET and PATCH) — return ok so SettingsPanel closes on save
 		if (url.includes("/api/settings")) {
 			return { ok: true, json: async () => STUB_SETTINGS } as unknown as Response;
-		}
-		// GET /api/rail
-		if (url.includes("/api/rail")) {
-			return {
-				ok: true,
-				json: async () => ({ bets: [], blockers: [], cost: null }),
-			} as unknown as Response;
 		}
 		// GET /api/auth/me
 		if (url.includes("/api/auth/me")) {
@@ -85,11 +77,13 @@ function renderShell(
 }
 
 describe("AppShell", () => {
-	it("renders the shell layout with four regions", async () => {
-		renderShell();
+	// @lore U6: AppShell now uses Sidebar (data-ds-shell="Sidebar") instead of
+	// IconRail + Submenu + Rail. The test asserts the new layout structure.
+	it("renders the shell layout with Sidebar + main regions", async () => {
+		const { container } = renderShell();
 		await waitFor(() => {
-			// IconRail
-			expect(screen.getByRole("navigation", { name: "Main navigation" })).toBeInTheDocument();
+			// Sidebar present
+			expect(container.querySelector("[data-ds-shell='Sidebar']")).toBeInTheDocument();
 			// Main content area
 			expect(screen.getByTestId("main-content")).toBeInTheDocument();
 			// Outlet content
@@ -97,17 +91,17 @@ describe("AppShell", () => {
 		});
 	});
 
-	it("shows the Conversations submenu title", async () => {
-		// L8: the legacy static "Review Queue" + "Chat" NavItems are removed.
-		// The submenu now renders a live thread list (covered by
-		// AppShell.threads.test.tsx); here we only assert the title bar.
+	it("renders the Conversations section in the sidebar", async () => {
+		// @lore U6: The sidebar section header for Conversations uses only aria-label
+		// (no visible text) to avoid collision with the empty-state "No recent conversations".
+		// Use getByRole with name to find the section button.
 		renderShell("/conversations");
 		await waitFor(() => {
-			expect(screen.getByText("Conversations")).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: /conversations/i })).toBeInTheDocument();
 		});
 	});
 
-	it("switches views when clicking IconRail buttons", async () => {
+	it("switches views when clicking sidebar section buttons", async () => {
 		const user = userEvent.setup();
 		renderShell("/conversations");
 
@@ -115,7 +109,7 @@ describe("AppShell", () => {
 			expect(screen.getByText("Test Page Content")).toBeInTheDocument();
 		});
 
-		// Click Work view button
+		// Click Work view button in sidebar
 		const workButton = screen.getByRole("button", { name: /work/i });
 		await user.click(workButton);
 
@@ -124,61 +118,30 @@ describe("AppShell", () => {
 		});
 	});
 
-	it("opens settings panel when avatar is clicked", async () => {
+	// @lore U6: Settings is accessed via the Settings button (gear icon) in the Sidebar bottom strip.
+	// The old "user profile" button was part of the deleted IconRail.
+	it("opens settings panel when settings button is clicked", async () => {
 		const user = userEvent.setup();
 		renderShell("/conversations");
 
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: /user profile/i })).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
 		});
 
-		await user.click(screen.getByRole("button", { name: /user profile/i }));
+		await user.click(screen.getByRole("button", { name: /settings/i }));
 
 		// P4: SettingsPanel modal removed. Settings overlay is now a shell-state
-		// content swap — Submenu shows "Settings" heading + 7 section nav items.
+		// content swap — Sidebar shows settings nav items, Main shows the active section.
 		await waitFor(() => {
 			expect(screen.getByText("Settings")).toBeInTheDocument();
 		});
 	});
 
-	it("shows the Rail with active bets and blockers", async () => {
-		renderShell();
-		await waitFor(() => {
-			expect(screen.getByText("Active Bets")).toBeInTheDocument();
-			expect(screen.getByText("Blockers")).toBeInTheDocument();
-			expect(screen.getByText("Cost")).toBeInTheDocument();
-		});
-	});
+	// @lore U6: The Rail is deleted. Tests for "Active Bets", "Blockers", "Cost"
+	// in the Rail are removed. Those values are now part of the WorkTeam page context.
 
-	describe("responsive live updates (Arch M4)", () => {
-		// Helper to drive window.innerWidth + dispatch resize.
-		function setViewport(width: number): void {
-			Object.defineProperty(window, "innerWidth", {
-				configurable: true,
-				writable: true,
-				value: width,
-			});
-			window.dispatchEvent(new Event("resize"));
-		}
-
-		it("re-collapses Submenu live when the viewport shrinks below 1024px", async () => {
-			// L8: the legacy "Review Queue" NavItem is gone. Use the filter
-			// chips tablist (rendered only when Submenu is expanded — see
-			// Submenu.tsx) as the visibility probe.
-			setViewport(1920);
-			renderShell();
-			await waitFor(() => {
-				expect(screen.getByRole("tablist", { name: /Filter Conversations/i })).toBeInTheDocument();
-			});
-			setViewport(800);
-			await waitFor(() => {
-				expect(
-					screen.queryByRole("tablist", { name: /Filter Conversations/i }),
-				).not.toBeInTheDocument();
-			});
-			setViewport(1920);
-		});
-	});
+	// @lore U6: The Submenu collapse/expand behavior is removed (Submenu deleted).
+	// The Sidebar is always visible. Responsive tests for Submenu collapse are removed.
 
 	describe("density wiring (J1)", () => {
 		// @lore AppShell applies data-density on its root so [data-density="..."] CSS vars cascade.
@@ -204,21 +167,23 @@ describe("AppShell", () => {
 			expect(root?.getAttribute("data-density")).toBe("default");
 		});
 
+		// @lore U6: Settings is opened via the Settings button (aria-label="Settings") in the
+		// Sidebar bottom strip, not via "user profile" button which was in the deleted IconRail.
 		it('changing density to "compact" via SettingsAppearance updates data-density on the shell root', async () => {
 			const user = userEvent.setup();
 			const { container } = renderShell("/conversations");
 
-			// Open settings via avatar button.
+			// Open settings via the Settings button.
 			await waitFor(() => {
-				expect(screen.getByRole("button", { name: /user profile/i })).toBeInTheDocument();
+				expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
 			});
-			await user.click(screen.getByRole("button", { name: /user profile/i }));
+			await user.click(screen.getByRole("button", { name: /settings/i }));
 
 			// P4: navigate to Appearance section in new settings overlay.
 			await waitFor(() => {
 				expect(screen.getByText("Appearance")).toBeInTheDocument();
 			});
-			// Click the Appearance NavItem in the settings Submenu
+			// Click the Appearance NavItem in the settings Sidebar
 			await user.click(screen.getByText("Appearance"));
 
 			// Pick Compact density in the SettingsAppearance select
@@ -240,9 +205,9 @@ describe("AppShell", () => {
 			const { container } = renderShell("/conversations");
 
 			await waitFor(() => {
-				expect(screen.getByRole("button", { name: /user profile/i })).toBeInTheDocument();
+				expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
 			});
-			await user.click(screen.getByRole("button", { name: /user profile/i }));
+			await user.click(screen.getByRole("button", { name: /settings/i }));
 
 			// P4: navigate to Appearance section in new settings overlay.
 			await waitFor(() => {
