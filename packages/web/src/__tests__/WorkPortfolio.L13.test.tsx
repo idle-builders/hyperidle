@@ -12,10 +12,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { WorkPortfolio } from "../pages/WorkPortfolio";
 
-// M3 G1: MOCK_PRODUCTS removed — mock useProducts for tests that need product cards.
+// M3 G1: MOCK_PRODUCTS removed — mock useTeams for tests that need product cards.
 // @lore U1: TeamListResponse uses `teams` array (renamed from `products`).
-vi.mock("../hooks/useProducts", () => ({
-	useProducts: vi.fn().mockReturnValue({
+vi.mock("../hooks/useTeams", () => ({
+	useTeams: vi.fn().mockReturnValue({
 		data: {
 			teams: [
 				{
@@ -52,8 +52,8 @@ describe("WorkPortfolio — L13 drill-down", () => {
 		const user = userEvent.setup();
 		renderPortfolioWithRouter();
 
-		// The product cards are rendered with data-testid="product-card"
-		const cards = screen.getAllByTestId("product-card");
+		// The product cards are rendered with data-testid="team-card"
+		const cards = screen.getAllByTestId("team-card");
 		expect(cards.length).toBeGreaterThan(0);
 
 		// Click the first card

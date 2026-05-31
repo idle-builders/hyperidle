@@ -27,7 +27,8 @@ export interface BetCardLeadAvatar {
 
 export interface BetCardProps {
 	title: string;
-	product: string;
+	/** @lore U5: Renamed from `product` to `team`. Represents the team name this bet belongs to. */
+	team: string;
 	status: BetStatus;
 	appetite: string;
 	actions?: ReactNode;
@@ -40,7 +41,7 @@ export interface BetCardProps {
 
 export function BetCard({
 	title,
-	product,
+	team,
 	status,
 	appetite,
 	actions,
@@ -89,7 +90,7 @@ export function BetCard({
 				</span>
 			</div>
 			<div className="flex items-center gap-[var(--density-gap)]">
-				<Tag label={product} />
+				<Tag label={team} />
 				<StatusChip status={betStatusToStatus(status)} />
 			</div>
 			<KeyValue label="Appetite" value={appetite} />

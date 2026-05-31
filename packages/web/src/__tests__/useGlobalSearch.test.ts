@@ -16,7 +16,7 @@ const mockWork = [
 	{
 		id: "w1",
 		title: "Mobile App V2",
-		product: "HyperIdle",
+		team: "HyperIdle",
 		// @lore U1: "committed" merged into "active"
 		status: "active" as const,
 		appetite: "6 weeks",

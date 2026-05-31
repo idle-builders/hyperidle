@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 describe("BetCard — portfolio mode (J5)", () => {
 	const baseProps = {
 		title: "HyperIdle Core",
-		product: "HyperIdle",
+		team: "HyperIdle",
 		status: "active" as const,
 		appetite: "—",
 	};

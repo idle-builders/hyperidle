@@ -873,7 +873,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 				<ol className="flex items-center gap-1">
 					<li>
 						<Link className="hover:text-[var(--text-hi)]" to="/work/portfolio">
-							{bet.product}
+							{bet.team}
 						</Link>
 					</li>
 					<li aria-hidden>›</li>
@@ -893,7 +893,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 			<div className="relative">
 				<BetCard
 					title={bet.title}
-					product={bet.product}
+					team={bet.team}
 					status={bet.status}
 					appetite={formatMoney(bet.costAppetite)}
 					progress={bet.progress}

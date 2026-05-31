@@ -20,9 +20,10 @@ import type {
 export interface BetDetail {
 	id: string;
 	title: string;
-	product: string;
 	team: string;
 	status: BetStatus;
+	/** @lore U5: atRisk boolean added; signals the bet is at risk of missing its appetite. */
+	atRisk: boolean;
 	// L17: replaced appetite: string with structured WireMoney; added costActual and token fields.
 	costAppetite: WireMoney | null;
 	tokenAppetite: TokenUsage | null;

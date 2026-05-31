@@ -51,9 +51,9 @@ vi.mock("../hooks/useArtifacts", () => ({
 const MOCK_BET_WITH_TASKS: BetDetail = {
 	id: "b1",
 	title: "User auth flow",
-	product: "HyperIdle Core",
 	team: "Core Team",
 	status: "active",
+	atRisk: false,
 	costAppetite: null,
 	tokenAppetite: null,
 	costActual: null,
@@ -67,6 +67,8 @@ const MOCK_BET_WITH_TASKS: BetDetail = {
 			owner: "Dev Agent 1",
 			state: "in_progress",
 			costActual: { minor: 420, currency: "USD" },
+			latestSessionOutcome: null,
+			latestSessionHarnessUrl: null,
 		},
 		{
 			id: "t2",
@@ -74,6 +76,8 @@ const MOCK_BET_WITH_TASKS: BetDetail = {
 			owner: "Dev Agent 2",
 			state: "accepted",
 			costActual: { minor: 180, currency: "USD" },
+			latestSessionOutcome: null,
+			latestSessionHarnessUrl: null,
 		},
 	],
 };

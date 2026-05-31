@@ -16,7 +16,8 @@ interface ConversationResult {
 interface WorkResult {
 	id: string;
 	title: string;
-	product: string;
+	/** @lore U5: Renamed from `product` to `team`. */
+	team: string;
 	status: BetStatus;
 	appetite: string;
 }
@@ -131,13 +132,18 @@ function parseConversation(value: unknown): ConversationResult | null {
 
 function parseWork(value: unknown): WorkResult | null {
 	if (!isRecord(value)) return null;
-	const fields = readStringFields(value, ["id", "title", "product", "status", "appetite"] as const);
+	// @lore U5: API may send `team` (new) or `product` (old/compat). Prefer `team`, fall back to `product`.
+	const fields = readStringFields(value, ["id", "title", "status", "appetite"] as const);
 	if (!fields) return null;
 	if (!isBetStatus(fields.status)) return null;
+	const teamValue =
+		(typeof value.team === "string" && value.team.length > 0 ? value.team : null) ??
+		(typeof value.product === "string" && value.product.length > 0 ? value.product : null) ??
+		"";
 	return {
 		id: fields.id,
 		title: fields.title,
-		product: fields.product,
+		team: teamValue,
 		status: fields.status,
 		appetite: fields.appetite,
 	};

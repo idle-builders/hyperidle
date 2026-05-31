@@ -24,7 +24,7 @@ import { RedirectLegacyConversation } from "./pages/RedirectLegacyConversation";
 import { SetupFlow } from "./pages/SetupFlow";
 import { WorkBet } from "./pages/WorkBet";
 import { WorkPortfolio } from "./pages/WorkPortfolio";
-import { WorkProduct } from "./pages/WorkProduct";
+import { WorkTeam } from "./pages/WorkTeam";
 
 function buildRoutes(): RouteObject[] {
 	const routes: RouteObject[] = [
@@ -55,8 +55,9 @@ function buildRoutes(): RouteObject[] {
 					element: <RedirectLegacyConversation paramName="thread" />,
 				},
 				{ path: "work/portfolio", element: <WorkPortfolio /> },
-				// L13: New product drill-down route
-				{ path: "work/product/:productId", element: <WorkProduct /> },
+				// @lore U5: URL path kept as work/product/:productId for backward compat.
+				// Route path rename to work/team/:teamId is deferred to U6.
+				{ path: "work/product/:productId", element: <WorkTeam /> },
 				// L13: Legacy /work/team redirects to /work/portfolio (WorkTeam deleted)
 				{
 					path: "work/team",

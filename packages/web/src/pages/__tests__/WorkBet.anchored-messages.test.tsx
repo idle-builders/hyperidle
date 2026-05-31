@@ -39,9 +39,9 @@ const BLOCK_ID = "block-id-test-1";
 const BET_WITH_PITCH: BetDetail = {
 	id: "b-anchored",
 	title: "Anchored Messages Test",
-	product: "Alpha",
 	team: "Alpha Core",
 	status: "completed",
+	atRisk: false,
 	costAppetite: null,
 	tokenAppetite: null,
 	costActual: null,

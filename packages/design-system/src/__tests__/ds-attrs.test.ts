@@ -68,7 +68,7 @@ const TIER_2: ComponentCase[] = [
 		render: () =>
 			createElement(BetCard, {
 				title: "Bet",
-				product: "Product",
+				team: "Team",
 				status: "draft",
 				appetite: "2 weeks",
 			}),

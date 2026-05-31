@@ -4,10 +4,10 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkPortfolio } from "../pages/WorkPortfolio";
 
-// M3 G1: MOCK_PRODUCTS removed — mock useProducts for tests that need product cards.
+// M3 G1: MOCK_PRODUCTS removed — mock useTeams for tests that need product cards.
 // @lore U1: TeamListResponse uses `teams` array (renamed from `products`).
-vi.mock("../hooks/useProducts", () => ({
-	useProducts: vi.fn().mockReturnValue({
+vi.mock("../hooks/useTeams", () => ({
+	useTeams: vi.fn().mockReturnValue({
 		data: {
 			teams: [
 				{
@@ -87,13 +87,13 @@ describe("WorkPortfolio", () => {
 
 		it("renders at least one product status card", () => {
 			renderPage();
-			const cards = screen.getAllByTestId("product-card");
+			const cards = screen.getAllByTestId("team-card");
 			expect(cards.length).toBeGreaterThan(0);
 		});
 
 		it("each product card exposes a name and a StatusChip", () => {
 			renderPage();
-			const cards = screen.getAllByTestId("product-card");
+			const cards = screen.getAllByTestId("team-card");
 			for (const card of cards) {
 				expect(card.querySelector(".rounded-full")).not.toBeNull();
 			}
@@ -104,7 +104,7 @@ describe("WorkPortfolio", () => {
 	describe("R2 AC7 — Create bet CTA", () => {
 		it("renders Create bet CTA when products exist but no bets", () => {
 			// useCanvasBets returns empty bets (default mock — bets: [])
-			// useProducts returns 2 products (default mock above)
+			// useTeams returns 2 products (default mock above)
 			renderPage();
 			expect(screen.getByTestId("create-bet-cta")).toBeInTheDocument();
 		});
@@ -133,8 +133,8 @@ describe("WorkPortfolio", () => {
 					{
 						id: "bet-1",
 						title: "Existing Bet",
-						product: "HyperIdle Core",
-						productId: "p1",
+						team: "HyperIdle Core",
+						teamId: "p1",
 						status: "shaped",
 						appetite: "—",
 					},

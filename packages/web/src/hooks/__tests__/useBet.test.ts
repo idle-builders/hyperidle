@@ -25,9 +25,9 @@ import { useBet } from "../useBet";
 const MOCK_BET: BetDetail = {
 	id: "b1",
 	title: "Auth flow",
-	product: "Alpha",
 	team: "Alpha Core",
 	status: "active",
+	atRisk: false,
 	costAppetite: null,
 	tokenAppetite: null,
 	costActual: null,
