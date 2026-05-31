@@ -16,7 +16,6 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { flushSync } from "react-dom";
 import { apiFetch } from "../services/api-fetch.js";
 
 export type BetSaveStatus = "idle" | "saving" | "saved" | "error";
@@ -80,7 +79,7 @@ export function useBetDescriptionSave({
 
 			debounceTimerRef.current = setTimeout(() => {
 				if (unmountedRef.current) return;
-				flushSync(() => setStatus("saving"));
+				setStatus("saving");
 
 				apiFetch(`/api/bets/${betIdRef.current}`, {
 					method: "PATCH",

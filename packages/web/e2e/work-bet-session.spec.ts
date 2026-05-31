@@ -36,7 +36,7 @@ function makeBetResponse() {
 		costActual: null,
 		tokensActual: null,
 		progress: { done: 0, total: 2 },
-		pitch: "# Problem\n\nTest session metadata display.",
+		description: "# Problem\n\nTest session metadata display.",
 		tasks: [
 			{
 				id: TASK_WITH_SESSION_ID,

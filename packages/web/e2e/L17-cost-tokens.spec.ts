@@ -38,7 +38,7 @@ const BET_DETAIL_FIXTURE = {
 		},
 	},
 	progress: { done: 2, total: 5 },
-	pitch: "Build the cost tracking feature.",
+	description: "Build the cost tracking feature.",
 	tasks: [
 		{
 			id: "task-l17-1",

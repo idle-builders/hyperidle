@@ -46,7 +46,7 @@ test.describe("axe-core — zero WCAG 2.1 AA violations", () => {
 					costActual: { minor: 4200, currency: "USD" },
 					tokensActual: null,
 					progress: { done: 3, total: 8 },
-					pitch: "# Problem\n\nAuth is broken.\n",
+					description: "# Problem\n\nAuth is broken.\n",
 					tasks: [
 						{
 							id: "t1",

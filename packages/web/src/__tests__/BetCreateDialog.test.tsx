@@ -173,10 +173,18 @@ describe("BetCreateDialog (R2)", () => {
 			expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument();
 		});
 
-		it("uses <label> elements for field labels (W-2 design critique)", () => {
-			const { container } = openDialog();
+		it("description field uses a <span> label (not <label>) since BodyEditor is not a labelable element (T3 lore)", () => {
+			// @lore T3: BetCreateDialog uses <div>/<span> instead of <label> for the description
+			// field because BodyEditor (TipTap ProseMirror) renders a contenteditable, not a native
+			// form control. A <label> with no associated form control violates lint/a11y rules.
+			// This test asserts the accessible label is a <span>, not a <label>.
+			const { container } = openDialog({ teams: SINGLE_TEAM });
+			// With single team: no team <label>, description uses <div>/<span> — zero <label> elements.
 			const labels = container.querySelectorAll("label");
-			expect(labels.length).toBeGreaterThan(0);
+			expect(labels.length).toBe(0);
+			// The description section is identified by its <span> label
+			const descriptionSpan = container.querySelector("span");
+			expect(descriptionSpan).not.toBeNull();
 		});
 	});
 

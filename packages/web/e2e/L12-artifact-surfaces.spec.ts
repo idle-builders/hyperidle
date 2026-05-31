@@ -247,7 +247,7 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 					costActual: null,
 					tokensActual: null,
 					progress: { done: 1, total: 3 },
-					pitch: "# Problem\nTest.",
+					description: "# Problem\nTest.",
 					tasks: [],
 				}),
 			});
@@ -285,7 +285,7 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 					costActual: null,
 					tokensActual: null,
 					progress: { done: 0, total: 1 },
-					pitch: "# Problem\nTest order.",
+					description: "# Problem\nTest order.",
 					tasks: [],
 				}),
 			});
@@ -434,7 +434,7 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 					costActual: null,
 					tokensActual: null,
 					progress: { done: 0, total: 1 },
-					pitch: "# Test",
+					description: "# Test",
 					tasks: [
 						{
 							id: "task-ts-1",

@@ -60,7 +60,7 @@ const MOCK_BET_DETAIL = {
 	costActual: null,
 	tokensActual: null,
 	progress: { done: 0, total: 0 },
-	pitch: "**Bold text** in pitch",
+	description: "**Bold text** in pitch",
 	tasks: [],
 };
 
@@ -68,7 +68,7 @@ const MOCK_CREATE_RESPONSE = {
 	id: "new-bet-id",
 	productId: "test-product-1",
 	teamId: "test-team-1",
-	pitch: "My New Feature",
+	description: "My New Feature",
 	status: "shaped",
 	createdAt: new Date().toISOString(),
 	costAppetite: null,

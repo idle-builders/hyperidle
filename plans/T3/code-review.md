@@ -1,8 +1,8 @@
 # T3 Code Review -- Bet Pitch WYSIWYG Editing
 
-**Verdict: NOT DONE**
+**Verdict: DONE** (updated round 2)
 
-Two issues block: a failing test (W-2 label regression in BetCreateDialog) and the E2E fixture field-name mismatch (`pitch:` not renamed to `description:` in 20+ E2E files). All six ACs are functionally implemented -- these are completeness gaps in the test and migration scope.
+Round 1 verdict was NOT DONE (2 critical, 4 warnings). All findings resolved in round 2. See Round 2 section below for resolution details.
 
 ---
 
@@ -79,3 +79,41 @@ The `flushSync` import and usage can be removed (W-1). The `useFetch.ts` `Promis
 
 ### AI Slop
 No significant slop detected. Comments are substantive and reference workpackage IDs. Lore comments document real decisions. No `console.log`, no `any`, no `as` casts (except the pre-existing `as` casts in `sortTasks` and `useBet`). No dead code introduced. The test for "does NOT have a conflict status" (line 288-303 of the test file) is somewhat ceremonial -- it asserts `status !== "conflict"` which is trivially true since the type does not include it -- but the architecture plan requested this test and the overhead is negligible.
+
+---
+
+## Round 2 Re-review
+
+**Verdict: DONE**
+
+All 2 critical findings and 4 warnings from round 1 are resolved. 50/50 T3-related unit tests pass.
+
+### Finding Resolution
+
+| Finding | Status | Evidence |
+|---|---|---|
+| C-1: Failing BetCreateDialog test | RESOLVED | Test at line 176 updated: asserts `labels.length === 0` for single-team mode and verifies `<span>` label exists for description. Lore comment explains rationale. Test passes. |
+| C-2: E2E fixtures pitch: not migrated | RESOLVED | `grep -rn "pitch:" packages/web/e2e/` returns zero matches. All 19 E2E files updated. |
+| W-1: Remove flushSync | RESOLVED | `grep -n "flushSync" packages/web/src/hooks/useBetDescriptionSave.ts` returns empty. `setStatus("saving")` is now plain. WorkBet.description.test.tsx wraps `advanceTimersByTimeAsync` in `act()` to flush batched state updates, which is the correct React testing pattern. |
+| W-2: Revert useFetch.ts | RESOLVED | `git diff main -- packages/web/src/hooks/useFetch.ts` returns empty diff. Production code is identical to main. |
+| W-3: No T3-specific E2E tests | RESOLVED | `packages/web/e2e/bet-description-edit.spec.ts` created with 5 tests covering AC-1 (draft + active), AC-2 (completed + killed), and AC-5 (PATCH payload verification with saving indicator). |
+| W-4: KnowledgeCreateDialog unrelated changes | RESOLVED | `git diff main -- packages/web/src/pages/knowledge/KnowledgeCreateDialog.tsx` returns empty diff. File is identical to main. |
+
+### AC Completeness (Round 2)
+
+| AC | Status | Evidence |
+|---|---|---|
+| AC-1: BodyEditor for mutable statuses | PASS | `WorkBet.tsx:993-1001` renders BodyEditor for draft/active. Unit tests (4) + E2E tests (2) confirm. |
+| AC-2: Read-only blocks for immutable statuses | PASS | `WorkBet.tsx:1012-1025` renders BetPitch for completed/killed. Unit tests (2) + E2E tests (2) confirm. |
+| AC-3: BetCreateDialog uses BodyEditor | PASS | `BetCreateDialog.tsx:167` renders BodyEditor. Unit tests (4) confirm. Label test updated for T3 pattern. |
+| AC-4: Auto-save via PATCH with correct payload | PASS | `useBetDescriptionSave.ts:84-91` sends `{ field: "description", value, reason: "Edited by user" }`. Hook unit tests + E2E AC-5 test verify payload shape. |
+| AC-5: Saving indicator | PASS | `WorkBet.tsx:1002-1010` renders status-driven indicator with `aria-live="polite"`. Unit tests (5) confirm idle/saving/saved/error/absent states. |
+| AC-6: Block actions in read-only mode | PASS | Immutable bets render BetPitch with `onOpenBlockActions` and `messagesByBlockId`. Unit tests (2) verify block rendering with data attributes. |
+
+### New Code Quality
+
+The fix commit is clean. The `apiFetch` mock in `WorkBet.description.test.tsx` now returns `new Promise(() => {})` by default (a pending promise) instead of `undefined`, which correctly prevents `useFetch` from crashing on `.then()`. This is a proper fix -- the mock now matches the real `apiFetch` return type without modifying production code (W-2 revert). The `KnowledgeCreateDialog` mock prevents duplicate `BodyEditor` test-id collisions, which is the right isolation approach.
+
+### Note
+
+`Q3-bet-creation.spec.ts` still uses `status: "shaped"` (4 occurrences) and `R2-work-first-landing.spec.ts` has 1 occurrence. These are pre-existing on main (verified via `git show main:`) and outside T3 scope. They should be addressed in a follow-up.

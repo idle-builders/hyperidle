@@ -24,7 +24,7 @@ function makeBetResponse() {
 		costActual: null,
 		tokensActual: null,
 		progress: { done: 2, total: 5 },
-		pitch: "# Problem\n\nThis bet has a discussion thread.\n",
+		description: "# Problem\n\nThis bet has a discussion thread.\n",
 		tasks: [],
 	};
 }

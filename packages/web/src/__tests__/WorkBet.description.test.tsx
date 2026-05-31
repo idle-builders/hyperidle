@@ -15,7 +15,7 @@
  * @lore T3: same BodyEditor mock pattern as T2 (KnowledgeDetail tests).
  */
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BetDetail } from "../types/bet";
@@ -47,14 +47,26 @@ vi.mock("@hyperidle/design-system", async () => {
 	};
 });
 
-// Mock apiFetch for auto-save tests
+// Mock apiFetch for auto-save tests.
+// @lore T3: WorkBet uses useHostThread → useFetch → apiFetch for thread/message GETs.
+// We mock apiFetch to return a pending Promise by default so useFetch does not crash
+// with "Cannot read properties of undefined (reading 'then')". Specific tests that need
+// a resolved/rejected response set their own mockImplementation.
 vi.mock("../services/api-fetch.js", () => ({
-	apiFetch: vi.fn(),
+	apiFetch: vi.fn(() => new Promise(() => {})),
 }));
 
 // Mock useBet (used for non-override path; most tests use overrideBet)
 vi.mock("../hooks/useBet", () => ({
 	useBet: vi.fn(() => ({ data: null, loading: false, error: null })),
+}));
+
+// Mock KnowledgeCreateDialog — WorkBet renders it but it also uses BodyEditor.
+// Without this mock, two BodyEditor instances appear in the DOM (one for bet description,
+// one inside KnowledgeCreateDialog) which causes getByTestId("mock-body-editor") to
+// fail with "Found multiple elements". KnowledgeCreateDialog is out of T3 scope.
+vi.mock("../pages/knowledge/KnowledgeCreateDialog", () => ({
+	KnowledgeCreateDialog: () => null,
 }));
 
 import { WorkBet } from "../pages/WorkBet";
@@ -162,7 +174,11 @@ describe("T3 — WorkBet description editing", () => {
 			vi.useFakeTimers();
 			const { apiFetch } = await import("../services/api-fetch.js");
 			fetchSpy = vi.mocked(apiFetch);
+			// Reset to remove any previous implementation, then set a default pending
+			// Promise so useFetch (used by useHostThread inside WorkBet) does not crash
+			// with "Cannot read properties of undefined (reading 'then')".
 			fetchSpy.mockReset();
+			fetchSpy.mockImplementation(() => new Promise(() => {}));
 		});
 
 		afterEach(() => {
@@ -190,8 +206,13 @@ describe("T3 — WorkBet description editing", () => {
 			const editor = screen.getByTestId("mock-body-editor");
 			fireEvent.change(editor, { target: { value: "New content" } });
 
-			// Advance past debounce to trigger the PATCH
-			await vi.advanceTimersByTimeAsync(1500);
+			// Advance past debounce and flush React state updates.
+			// @lore T3: Without flushSync (removed in W-1 fix), setStatus("saving") is
+			// batched by React. We must wrap advanceTimersByTimeAsync in act() so the
+			// state update flushes before we assert the indicator text.
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(1500);
+			});
 
 			const indicator = screen.getByTestId("bet-save-indicator");
 			expect(indicator.textContent).toContain("Saving...");

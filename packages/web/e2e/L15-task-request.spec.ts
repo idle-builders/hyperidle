@@ -36,7 +36,7 @@ function makeBetDetailResponse() {
 		costActual: { minor: 6000, currency: "USD" },
 		tokensActual: null,
 		progress: { done: 1, total: 2 },
-		pitch: "# Problem\n\nAuth needs work.\n",
+		description: "# Problem\n\nAuth needs work.\n",
 		tasks: [
 			{
 				id: TASK_ID,

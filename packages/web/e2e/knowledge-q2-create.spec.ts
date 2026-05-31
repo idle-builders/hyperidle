@@ -48,7 +48,7 @@ const MOCK_BET = {
 	status: "in_progress",
 	appetite: "2 weeks",
 	progress: { done: 1, total: 2 },
-	pitch: "# Problem\n\nWe need better auth.\n",
+	description: "# Problem\n\nWe need better auth.\n",
 	tasks: [],
 	consequences: null,
 	pitch_text: "We need better auth",
