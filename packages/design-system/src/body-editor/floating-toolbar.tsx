@@ -41,10 +41,10 @@ function ToolbarButton({
 			onClick={onClick}
 			aria-label={ariaLabel}
 			aria-pressed={isActive}
-			className={`w-[28px] h-[28px] flex items-center justify-center rounded-[var(--r1)] text-[13px] font-medium cursor-pointer transition-colors ${
+			className={`w-[28px] h-[28px] flex items-center justify-center rounded-[var(--r-subtle)] text-[13px] font-medium cursor-pointer transition-colors ${
 				isActive
-					? "bg-[var(--primary-dim)] text-[var(--primary)]"
-					: "text-[var(--text-mid)] hover:bg-[var(--surface-ghost)]"
+					? "bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
+					: "text-[var(--text-secondary)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)]"
 			}`}
 		>
 			{children}
@@ -84,7 +84,7 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps): JSX.Element {
 			<div
 				role="toolbar"
 				aria-label="Text formatting"
-				className="flex items-center gap-[4px] bg-[var(--surface-2)] border border-[var(--border-default)] rounded-[var(--r1)] shadow-[var(--float)] px-[4px] py-[2px]"
+				className="flex items-center gap-[4px] bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)] shadow-[var(--shadow-elevated)] px-[4px] py-[2px]"
 			>
 				<ToolbarButton
 					onClick={() => editor.chain().focus().toggleBold().run()}

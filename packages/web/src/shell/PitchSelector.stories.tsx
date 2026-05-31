@@ -5,7 +5,8 @@ import { PitchSelector } from "./PitchSelector";
 export default {
 	title: "PitchSelector",
 	tier: "3" as const,
-	uses: ["PitchCard", "SearchField"],
+	// U8: PitchCard deleted — pitch card rendering is now inlined in PitchSelector.
+	uses: ["SearchField", "StatusChip", "Tag", "KeyValue"],
 };
 
 const samplePitches: PitchSelectorPitch[] = [

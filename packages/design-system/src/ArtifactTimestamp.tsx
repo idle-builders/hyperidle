@@ -6,7 +6,8 @@ export interface ArtifactTimestampProps {
 	format?: "relative" | "absolute";
 }
 
-const BASE = "font-mono text-[11px] text-[var(--text-mid)] [font-variant-numeric:tabular-nums]";
+const BASE =
+	"font-mono text-[11px] text-[var(--text-secondary)] [font-variant-numeric:tabular-nums]";
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;

@@ -110,12 +110,26 @@ function sortTasks(
  */
 interface AnchoredMessagesProps {
 	messages: ReadonlyArray<Message>;
+	/**
+	 * T5: When true, renders an "anchor lost" indicator above the messages.
+	 * Used for orphaned messages whose block no longer exists in the pitch.
+	 * @lore T5: same pattern as KnowledgeBody.tsx AnchoredMessages.
+	 */
+	anchorLost?: boolean;
 }
 
-function AnchoredMessages({ messages }: AnchoredMessagesProps): JSX.Element | null {
+function AnchoredMessages({
+	messages,
+	anchorLost = false,
+}: AnchoredMessagesProps): JSX.Element | null {
 	if (messages.length === 0) return null;
 	return (
 		<div data-testid="anchored-messages" className="flex flex-col gap-1 mt-1">
+			{anchorLost && (
+				<span data-testid="anchor-lost-indicator" className="text-xs text-[var(--text-lo)] italic">
+					anchor lost
+				</span>
+			)}
 			{messages.map((msg) => {
 				if (msg.type !== "plain") return null;
 				const text = isRedactedPayload(msg.payload) ? "[redacted]" : msg.payload.text;
@@ -213,7 +227,8 @@ function BetPitch({
 				</div>
 			))}
 			{/* Fallback: anchored messages whose block no longer exists in the pitch */}
-			<AnchoredMessages messages={allAnchoredMessages} />
+			{/* T5: anchorLost={true} renders the honest indicator for orphaned messages */}
+			<AnchoredMessages messages={allAnchoredMessages} anchorLost />
 		</section>
 	);
 }

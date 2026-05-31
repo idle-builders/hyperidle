@@ -61,7 +61,7 @@ export function Composer({ threadId, onSubmit, unresolvedReviewLink }: ComposerP
 	return (
 		<div
 			{...dsProps("Composer", "2")}
-			className="flex flex-col gap-[6px] py-[var(--density-pad-y,8px)] px-[var(--density-pad-x,12px)] border-t border-[var(--border-subtle)] bg-[var(--surface-1)]"
+			className="flex flex-col gap-[6px] py-[var(--density-pad-y,8px)] px-[var(--density-pad-x,12px)] border-t border-[var(--border-subtle)] bg-[var(--surface-container)]"
 			data-thread-id={threadId}
 		>
 			{unresolvedReviewLink ? (
@@ -71,18 +71,18 @@ export function Composer({ threadId, onSubmit, unresolvedReviewLink }: ComposerP
 					// L1 step9 (Design-C4): minimum 44px touch target at viewport
 					// ≤1024px (AQ-015). The `min-h-[44px]` floor honors the rule
 					// without inflating the visual padding.
-					className="text-left text-[12px] text-[var(--accent)] hover:underline min-h-[44px] flex items-center focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)]"
+					className="text-left text-[12px] text-[var(--accent-primary)] hover:underline min-h-[44px] flex items-center focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]"
 				>
 					Unresolved review · acting required ↑
 				</button>
 			) : null}
 			{error ? (
-				<div className="text-[12px] text-[var(--danger)]" role="alert">
+				<div className="text-[12px] text-[var(--status-error)]" role="alert">
 					{error}
 				</div>
 			) : null}
 			<textarea
-				className="w-full min-h-[44px] resize-y bg-[var(--surface-2)] text-[var(--text-mid)] placeholder:text-[var(--text-lo)] border border-[var(--border-subtle)] rounded-[var(--r1)] px-[10px] py-[8px] text-[13px] focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)] focus:border-[var(--accent)]"
+				className="w-full min-h-[44px] resize-y bg-[var(--surface-elevated)] text-[var(--text-secondary)] placeholder:text-[var(--text-placeholder)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-[10px] py-[8px] text-[13px] focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]"
 				placeholder="Reply to thread…"
 				value={text}
 				onChange={(e): void => setText(e.target.value)}
@@ -90,7 +90,7 @@ export function Composer({ threadId, onSubmit, unresolvedReviewLink }: ComposerP
 				disabled={submitting}
 			/>
 			<div className="flex items-center justify-end gap-[8px]">
-				<span className="text-[11px] text-[var(--text-lo)]">⌘+Enter to send</span>
+				<span className="text-[11px] text-[var(--text-tertiary)]">⌘+Enter to send</span>
 				<button
 					type="button"
 					onClick={(): void => {
@@ -98,7 +98,8 @@ export function Composer({ threadId, onSubmit, unresolvedReviewLink }: ComposerP
 					}}
 					disabled={submitting || !text.trim()}
 					// L1 step9 (Design-C4): 44px minimum touch target.
-					className="px-[12px] py-[6px] min-h-[44px] rounded-[var(--r1)] text-[13px] font-medium bg-[var(--accent)] text-[var(--accent-on)] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)]"
+					// U8: pill shape (r-pill) per Hearth send button spec; accent-primary background.
+					className="px-[12px] py-[6px] min-h-[44px] rounded-[var(--r-pill)] text-[13px] font-medium bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]"
 				>
 					{submitting ? "Sending…" : "Send"}
 				</button>

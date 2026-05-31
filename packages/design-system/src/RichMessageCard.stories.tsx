@@ -76,7 +76,7 @@ const mockArtifact = (
 	<div
 		data-component="ArtifactView"
 		data-shape="text_diff"
-		className="border border-[var(--border-subtle)] rounded-[var(--r1)] bg-[var(--surface-1)] px-[10px] py-[8px] text-[12px] text-[var(--text-mid)] font-mono"
+		className="border border-[var(--border-subtle)] rounded-[var(--r-subtle)] bg-[var(--surface-container)] px-[10px] py-[8px] text-[12px] text-[var(--text-secondary)] font-mono"
 	>
 		mock-artifact (text_diff)
 	</div>

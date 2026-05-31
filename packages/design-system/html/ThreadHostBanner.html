@@ -13,7 +13,7 @@
       gap: 12px;
       padding: var(--density-pad-y) var(--density-pad-x);
       border-bottom: 1px solid var(--border-subtle);
-      background: var(--surface-1);
+      background: var(--surface-container);
     }
     .host-banner__main {
       display: flex;
@@ -23,7 +23,7 @@
       flex: 1;
     }
     .host-banner__title {
-      color: var(--text-hi);
+      color: var(--text-primary);
       font-weight: 500;
       white-space: nowrap;
       overflow: hidden;
@@ -45,8 +45,8 @@
       width: 24px;
       height: 24px;
       border-radius: 50%;
-      background: var(--surface-2);
-      color: var(--text-lo);
+      background: var(--surface-elevated);
+      color: var(--text-tertiary);
       font-size: 11px;
       font-weight: 500;
       border: 1px solid var(--border-subtle);
@@ -63,8 +63,8 @@
       font-family: var(--mono);
       letter-spacing: 0.03em;
       white-space: nowrap;
-      background: var(--surface-ghost);
-      color: var(--text-mid);
+      background: color-mix(in oklab, var(--text-secondary) 8%, transparent);
+      color: var(--text-secondary);
       flex-shrink: 0;
     }
 
@@ -91,10 +91,10 @@
       flex-shrink: 0;
     }
     .status-chip--blocked {
-      background: color-mix(in oklab, var(--danger) 14%, transparent);
-      color: var(--danger);
+      background: color-mix(in oklab, var(--status-error) 14%, transparent);
+      color: var(--status-error);
     }
-    .status-chip--blocked .dot { background: var(--danger); }
+    .status-chip--blocked .dot { background: var(--status-error); }
   </style>
 </head>
 <body>
@@ -118,7 +118,7 @@
 
     function PinIcon() {
       return (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-lo)", flexShrink: 0 }} aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-tertiary)", flexShrink: 0 }} aria-hidden="true">
           <path d="M12 17v5" />
           <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
         </svg>

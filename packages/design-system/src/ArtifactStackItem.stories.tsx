@@ -21,7 +21,7 @@ const FIXTURE: Artifact = {
 };
 
 export const Populated = (): React.JSX.Element => (
-	<div className="bg-[var(--surface-2)] w-[720px]">
+	<div className="bg-[var(--surface-elevated)] w-[720px]">
 		<ArtifactStackItem data={FIXTURE} onOpen={() => undefined} />
 		<ArtifactStackItem
 			data={{

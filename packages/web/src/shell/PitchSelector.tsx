@@ -1,10 +1,17 @@
 import {
+	betStatusToStatus,
+	clickableProps,
 	dsShellProps,
 	EmptyState,
 	KeyValue,
-	PitchCard,
 	SearchField,
+	StatusChip,
+	Tag,
 } from "@hyperidle/design-system";
+// U8: PitchCard deleted from design-system. Inline card rendering here.
+// @lore U8: PitchCard was deleted from design-system as it had no reuse beyond
+// PitchSelector. The pitch card rendering is now inlined in PitchSelector to
+// avoid a public-API primitive that's consumed by exactly one shell component.
 /**
  * @lore J5: PitchSelector now hosts an inline detail pane. Clicking a
  * pitch both toggles selection (preserved for existing tests) AND sets
@@ -123,15 +130,29 @@ export function PitchSelector({
 										✓
 									</span>
 								)}
-								<PitchCard
-									title={pitch.title}
-									hypothesis={pitch.hypothesis}
-									proposer={pitch.proposer}
-									status={pitch.status}
-									appetite={pitch.appetite}
-									kind={pitch.kind}
-									onClick={() => handlePitchClick(pitch.id)}
-								/>
+								{/* Inlined pitch card (PitchCard deleted from design-system in U8) */}
+								<div
+									{...clickableProps(
+										() => handlePitchClick(pitch.id),
+										"bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)] max-w-[320px] shadow-[var(--shadow-default)] border border-[var(--border-subtle)]",
+									)}
+								>
+									<span
+										className="text-[length:var(--density-text)] font-medium truncate text-[var(--text-primary)]"
+										aria-label={`Pitch: ${pitch.title}`}
+									>
+										{pitch.title}
+									</span>
+									<div className="flex items-center gap-[var(--density-gap)]">
+										{pitch.kind && <Tag label={pitch.kind} />}
+										<StatusChip status={betStatusToStatus(pitch.status)} />
+									</div>
+									<p className="text-[length:var(--density-text)] text-[var(--text-secondary)] line-clamp-2">
+										{pitch.hypothesis}
+									</p>
+									<span className="text-[12px] text-[var(--text-tertiary)]">{pitch.proposer}</span>
+									<KeyValue label="Appetite" value={pitch.appetite} />
+								</div>
 							</div>
 						);
 					})
