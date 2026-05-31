@@ -17,6 +17,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
+import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestApp } from "../../test-utils.js";
@@ -50,7 +51,10 @@ async function seedTeam(
 		teamId: teamMembersId,
 		createdAt: now,
 	});
-	await db.update(teamMembers).set({ leadAgentId: agentId });
+	await db
+		.update(teamMembers)
+		.set({ leadAgentId: agentId })
+		.where(eq(teamMembers.id, teamMembersId));
 
 	return { teamId, teamMembersId, agentId };
 }
