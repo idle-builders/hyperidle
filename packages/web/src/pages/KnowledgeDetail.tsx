@@ -53,8 +53,9 @@ import {
  */
 import type { Message, PlainPayloadWithBlockId, ScopeKind } from "@hyperidle/shared";
 import { isRedactedPayload, SCOPE_KINDS } from "@hyperidle/shared";
-import { type JSX, useMemo, useRef, useState } from "react";
+import { type JSX, useContext, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { CocContext } from "../contexts/CocContext.js";
 // eslint-disable-next-line design/no-mock-data-import -- tracked in #93
 import { knowledgeItems, type MockKnowledgeItem } from "../fixtures/knowledge-data";
 import { useAutoSave } from "../hooks/useAutoSave.js";
@@ -280,6 +281,8 @@ function KnowledgeDetailView({
 }: KnowledgeDetailViewProps): JSX.Element {
 	// Q2: Use the route-resolved id for API calls to avoid FALLBACK_DETAIL.id = "unknown"
 	const effectiveKnowledgeId = routeKnowledgeId ?? item.id;
+	// T4: CocContext for block share action
+	const { overlayOpen, attachContext } = useContext(CocContext);
 	const isFactory = item.scope === "factory" || item.scopeKind === "factory";
 	const amendableBanner = isFactory && item.status === "needs_human";
 	const initialContent = item.content ?? "";
@@ -385,6 +388,24 @@ function KnowledgeDetailView({
 		setOpenBlockId(null);
 	}
 
+	/**
+	 * T4: "Share" handler — attaches the block as a context ref in the CoC overlay.
+	 * @lore T4: Only included as a menu item when overlayOpen=true (reviewer critique).
+	 */
+	function handleShareBlock(blockId: string): void {
+		const blockEl = document.querySelector<HTMLElement>(`[data-block-id="${blockId}"]`);
+		const rawText = blockEl?.textContent?.trim() ?? "";
+		const blockExcerpt = rawText.slice(0, 60) || blockId;
+		attachContext({
+			kind: "block",
+			blockId,
+			hostKind: "knowledge_item",
+			hostId: item.id,
+			label: blockExcerpt,
+		});
+		setOpenBlockId(null);
+	}
+
 	return (
 		<div className="flex flex-col gap-3 h-full" data-testid="knowledge-detail-page">
 			{amendableBanner && (
@@ -474,7 +495,8 @@ function KnowledgeDetailView({
 				</div>
 			)}
 
-			{/* L18: Block actions popover */}
+			{/* L18 + T4: Block actions popover.
+			    T4: "Share" action added conditionally when CoC overlay is open. */}
 			{openBlockId !== null && (
 				<BlockActionsPopover
 					id={`block-popover-knowledge-${openBlockId}`}
@@ -487,6 +509,15 @@ function KnowledgeDetailView({
 							label: "Discuss",
 							onSelect: () => handleDiscussBlock(openBlockId),
 						},
+						...(overlayOpen
+							? [
+									{
+										id: "share-block",
+										label: "Share",
+										onSelect: () => handleShareBlock(openBlockId),
+									},
+								]
+							: []),
 					]}
 				/>
 			)}

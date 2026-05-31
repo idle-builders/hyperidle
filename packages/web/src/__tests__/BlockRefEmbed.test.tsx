@@ -5,14 +5,11 @@
  * states of the BlockRefEmbed component.
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// These imports will FAIL until the green phase creates the module.
-// That is expected — RED phase.
-// biome-ignore lint/style/useImportType: needed for JSX
 import { BlockRefEmbed } from "../components/BlockRefEmbed";
 
 // ---------------------------------------------------------------------------

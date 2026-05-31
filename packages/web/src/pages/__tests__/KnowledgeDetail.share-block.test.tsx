@@ -127,7 +127,9 @@ describe("T4 — KnowledgeDetail: clicking '+' calls attachContext (AC-5)", () =
 		const attachButtons = screen.queryAllByTestId("coc-attach-button");
 		if (attachButtons.length === 0) return; // no blocks rendered from k1 content
 
-		await user.click(attachButtons[0]!);
+		const firstBtn = attachButtons[0];
+		if (!firstBtn) return;
+		await user.click(firstBtn);
 
 		expect(attachContext).toHaveBeenCalledOnce();
 		const calledRef = attachContext.mock.calls[0][0] as CocContextRef;

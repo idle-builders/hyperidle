@@ -10,11 +10,7 @@ import { describe, expect, it } from "vitest";
 // @lore T4: These imports will fail until the implementation exports the
 // schemas from threads-schema.ts. That is expected — RED phase.
 // biome-ignore lint/style/useImportType: runtime values needed for parse calls
-import {
-	blockRefSchema,
-	entityRefSchema,
-	inlineRefSchema,
-} from "../threads-schema.js";
+import { blockRefSchema, entityRefSchema, inlineRefSchema } from "../threads-schema.js";
 
 describe("T4 — entityRefSchema", () => {
 	it("accepts a valid entity ref with kind knowledge_item", () => {

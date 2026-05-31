@@ -48,10 +48,7 @@ vi.mock("../services/api-fetch.js", () => ({
 	apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
-function renderOverlay(
-	contextRefs: ReadonlyArray<CocContextRef>,
-	onRemoveContextRef = vi.fn(),
-) {
+function renderOverlay(contextRefs: ReadonlyArray<CocContextRef>, onRemoveContextRef = vi.fn()) {
 	return render(
 		<MemoryRouter>
 			<CocOverlay
@@ -150,11 +147,11 @@ describe("T4 — CocOverlay wire serialization for block refs (AC-5)", () => {
 		};
 		renderOverlay([blockRef]);
 
-		// Type and submit a message
+		// Type and submit a message (Composer uses Cmd+Enter to submit)
 		const composer = screen.getByPlaceholderText(/reply to thread/i);
 		await user.click(composer);
 		await user.type(composer, "Testing block ref");
-		await user.keyboard("{Enter}");
+		await user.keyboard("{Meta>}{Enter}{/Meta}");
 
 		// Verify the API call was made with the correct block ref shape in refs
 		expect(mockApiFetch).toHaveBeenCalled();
@@ -184,7 +181,7 @@ describe("T4 — CocOverlay wire serialization for block refs (AC-5)", () => {
 		const composer = screen.getByPlaceholderText(/reply to thread/i);
 		await user.click(composer);
 		await user.type(composer, "Entity ref test");
-		await user.keyboard("{Enter}");
+		await user.keyboard("{Meta>}{Enter}{/Meta}");
 
 		expect(mockApiFetch).toHaveBeenCalled();
 		const callArgs = mockApiFetch.mock.calls[0];

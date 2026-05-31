@@ -64,7 +64,8 @@ describe("T4 — InlineRef discriminated union (AC-1)", () => {
 
 		const blockRefs = refs.filter((r): r is BlockRef => r.kind === "block");
 		expect(blockRefs).toHaveLength(1);
-		expect(blockRefs[0]!.blockId).toBe("blk:v1:abc");
+		const blockRef = blockRefs[0];
+		expect(blockRef?.blockId).toBe("blk:v1:abc");
 	});
 
 	it("can narrow InlineRef to EntityRef via kind discriminant", () => {
@@ -80,7 +81,8 @@ describe("T4 — InlineRef discriminated union (AC-1)", () => {
 
 		const entityRefs = refs.filter((r): r is EntityRef => r.kind !== "block");
 		expect(entityRefs).toHaveLength(1);
-		expect(entityRefs[0]!.id).toBe("bet-1");
+		const entityRef = entityRefs[0];
+		expect(entityRef?.id).toBe("bet-1");
 	});
 
 	it("all entity ref kinds are accepted by EntityRef", () => {
