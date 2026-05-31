@@ -48,7 +48,7 @@ If a workpackage is dispatched to the pipeline and `/concept` work is missing fo
 
 ## For each story (any order within a batched group, sequential within yours)
 
-Set status to `in_progress`. Run the worktree + draft-PR setup once, then dispatch the five phases.
+Set status to `in_progress`. Run the worktree + draft-PR setup once, then dispatch the six phases.
 
 ### Worktree + draft-PR setup (TE-21)
 
@@ -81,16 +81,19 @@ Each persona phase **commits its output and pushes** before returning:
 | 3 — builder /write-code (green) | implementation (verified) | run |
 | 4 — builder (apply review fixes) | one commit per applied finding batch | run |
 | 5 — Explore agent /retro | prose | `[skip ci]` |
+| 6 — builder /ship | attestation | run |
 
 Local `npm run verify` is the gate. Builder runs it (check, lint:biome, lint:eslint, test, e2e — identical tools to CI) and must pass before pushing. On green, verify writes `.verify-attestation.json` (HMAC-signed with `~/.config/hyperidle/verify-secret`). Builder commits the attestation as the last commit before pushing. CI validates the attestation signature (~30s) instead of re-running the full suite (~10min). See `/ship` for the complete commit → verify → attestation → push flow.
 
 Stories touching authentication, schema migrations, or `packages/server/src/agent-runtime/` set `gate: ci-required` in the workpackage spec; Reviewer holds the ready-flip until CI is green. Default for everything else is `gate: local-green`.
 
-**Squash before flipping ready.** Builder squashes the persona-prose commits before Reviewer's DONE triggers `gh pr ready`. Implementation commits stay atomic; prose commits collapse into one `chore(<id>): pipeline artifacts`. Squash at flip time, not before — Researcher's retro still needs the per-phase history to extract cost signals.
+**Squash before flipping ready.** Builder squashes the persona-prose commits before `/ship` flips `gh pr ready`. Implementation commits stay atomic; prose commits collapse into one `chore(<id>): pipeline artifacts`. Squash at ship time, not before — the retro (Phase 5) still needs the per-phase history to extract cost signals.
 
-### Ship (after reviewer DONE)
+### Ship (after retro — Phase 6)
 
-When Reviewer's `/review` pass emits `Verdict: DONE` (after fix cycle), the builder runs `/ship`:
+Ship runs AFTER retro so that the retro prose commit is included in the verified tree. If ship runs before retro, the retro commit invalidates the attestation (check-attestation rejects "source files changed after verify ran").
+
+When Reviewer's `/review` pass emits `Verdict: DONE` (after fix cycle) and retro is complete, the builder runs `/ship`:
 
 1. Builder commits all remaining code changes.
 2. Builder runs `/ship <id>` — this merges `origin/main`, runs `npm run verify`, commits attestation, pushes, flips draft PR ready, and **waits for CI green**.
@@ -102,16 +105,17 @@ In A/B mode (`PIPELINE_AB_MODE=1`), the builder still runs `/ship` but skips `gh
 
 Then dispatch the persona sessions below, in order. Update `currentStep` in the progress file before each persona dispatch.
 
-### The 5-phase pipeline
+### The 6-phase pipeline
 
 | Phase | Persona | Effort | Skills | Why |
 |---|---|---|---|---|
 | 1 | **designer** | high | `/concept` → `/design` → `/architecture` | Production only. Concept doc + variant exploration + technical plan. |
 | 2 | **reviewer** | high | `/design-critique` → `/architecture-critique` | Evaluates designer output. True producer/evaluator separation — different agent, not just different mode. Context carries to Phase 4. |
 | 3 | **builder** | medium | `/write-tests` → `/write-code` | TDD red then green. Must pass `npm run verify` before pushing. No broken code reaches the reviewer. |
-| 4 | **reviewer** + **builder** | high | `/review` → `/ship` | Same reviewer from Phase 2 (warm on design/arch). 6 lenses + AC audit. Builder applies fixes. On DONE, builder runs `/ship` (merge main → verify → attest → push → PR ready → CI green). |
-| 5 | **Explore** | low | `/retro` | Fresh-context retro with cost signals. Built-in Explore agent, not a custom persona. |
-| — | scripts | — | CI + PR | `npm run verify --raw` runs as CI on every push. Draft PR opens at worktree setup; `/ship` flips ready + waits for CI green after Reviewer's DONE. |
+| 4 | **reviewer** + **builder** | high | `/review` | Same reviewer from Phase 2 (warm on design/arch). 6 lenses + AC audit. Builder applies fixes. Verdict DONE required before proceeding. |
+| 5 | **Explore** | low | `/retro` | Fresh-context retro with cost signals. Must run before ship so retro prose is included in the verified tree. |
+| 6 | **builder** | medium | `/ship` | Merge main → verify → attest → push → PR ready → CI green. Runs after retro so the attestation covers all commits. |
+| — | scripts | — | CI + PR | `npm run verify --raw` runs as CI on every push. Draft PR opens at worktree setup; `/ship` flips ready + waits for CI green after retro. |
 
 **Durable agent sessions per story: 3** (designer, reviewer, builder). Spawned once each with named handles (`designer-<id>`, `reviewer-<id>`, `builder-<id>`). After initial spawn, all subsequent communication uses `SendMessage(to=<name>)` to reuse the live session — no re-spawn, no cache-creation cost. Explore agent for retro is ephemeral.
 
@@ -159,7 +163,7 @@ Phase 3 — builder (TDD):
   If Builder hits a plan-vs-reality conflict, it raises a BLOCKER rather
   than redesigning in-flight (TE-22).
 
-Phase 4 — review + ship:
+Phase 4 — review:
   SEND: SendMessage(to="reviewer-<id>") — reuses Phase 2 session.
   Same reviewer runs /review (warm on design/arch context).
     Six lenses: 3 positive (architecture, design, security) +
@@ -172,16 +176,22 @@ Phase 4 — review + ship:
     Builder applies findings; commits + pushes; runs npm run verify.
     SEND back to reviewer for re-review. Max 3 attempts.
 
-  If DONE:
-    SEND: SendMessage(to="builder-<id>") with /ship <id>.
-    Builder runs /ship: merges origin/main, runs npm run verify,
-    commits attestation, pushes, flips PR ready (unless AB mode),
-    and waits for CI green. If CI red, builder fixes and re-ships
-    (max 3 attempts). /ship is not done until CI green.
+  If DONE: proceed to Phase 5 (retro), then Phase 6 (ship).
 
 Phase 5 — retro:
   Launch Explore agent with /retro (ephemeral, no reuse needed).
-  Writes docs/retro/<id>.md with cost signals the A/B harness reads.
+  Writes plans/<id>/retro.md with cost signals the A/B harness reads.
+  Commits and pushes with [skip ci].
+  Must complete BEFORE Phase 6 — retro prose must be in the tree
+  when /ship runs verify, otherwise the attestation is invalidated
+  by the post-verify retro commit.
+
+Phase 6 — ship:
+  SEND: SendMessage(to="builder-<id>") with /ship <id>.
+  Builder runs /ship: merges origin/main, runs npm run verify,
+  commits attestation, pushes, flips PR ready (unless AB mode),
+  and waits for CI green. If CI red, builder fixes and re-ships
+  (max 3 attempts). /ship is not done until CI green.
 ```
 
 ### Loop rules
@@ -191,7 +201,7 @@ Phase 5 — retro:
 - If CI fails after a Builder push: Builder fixes locally and pushes again. Max 3 attempts per push series.
 - If Reviewer's critique (`/design-critique` or `/architecture-critique`) fails to reach ≥7 after the cap: pause, mark `blocked` with reason `concept-or-spec-misalignment`. The concept itself may need upstream `/concept` work.
 
-After Phase 5: set status to `done`. Move to next story.
+After Phase 6: set status to `done`. Move to next story.
 
 ---
 
@@ -205,9 +215,11 @@ Author / critic boundaries are enforced by persona separation: (a) the **designe
 
 The agent that created the design cannot objectively score it. Moving critique to the reviewer gives true producer/evaluator separation — different agents, not just a "cognitive mode switch" on the same agent. Bonus: the reviewer's Phase 2 context (design decisions, architecture contracts) carries into Phase 4's code review, so it arrives warm on the spec it's checking code against.
 
-### Why /ship is the final gate
+### Why /ship is Phase 6 (after retro)
 
-`/ship` owns the full sequence: merge main → verify → attest → push → PR ready → CI green. It exists as a separate skill because the sequence is error-prone (attestation conflicts from stale main, dirty tree, CI divergence) and must be followed exactly. The pipeline delegates to `/ship` rather than inlining this logic because every inline attempt has produced a different subset of the steps.
+`/ship` owns the full sequence: merge main → verify → attest → push → PR ready → CI green. It runs after retro (Phase 5) so that the retro prose commit is included in the verified tree. If ship ran before retro, the retro commit would invalidate the attestation — check-attestation rejects "source files changed after verify ran." This ordering was learned from U8 where the post-ship retro commit caused three CI failures and required a full re-verify cycle (~12 minutes).
+
+`/ship` exists as a separate skill because the sequence is error-prone (attestation conflicts from stale main, dirty tree, CI divergence) and must be followed exactly. The pipeline delegates to `/ship` rather than inlining this logic because every inline attempt has produced a different subset of the steps.
 
 ### Why /design's variant count is now conditional (TE-18)
 
@@ -231,7 +243,7 @@ Routine UI (existing component family, known layout) gets 1 variant + a "did we 
 
 **Don't rationalize skipping personas:**
 - "Concept work isn't done but I'll figure it out" → no. Fail fast with `blocked: concept-missing`; the founder runs `/concept` upstream.
-- "The plan is done, I can stop" → planning is Phase 1 of 5. You haven't built anything yet.
+- "The plan is done, I can stop" → planning is Phase 1 of 6. You haven't built anything yet.
 - "This story is simple, skip the review" → simple stories have the highest skip rate and highest regression rate.
 - "The reviewer is redundant, tests passed" → tests prove behavior, the reviewer proves the RIGHT thing was built against the spec, in *fresh context*. The boundary is the value.
 - "The retro is navel-gazing" → without the cost signals it emits, the A/B harness can't prove block-1b actually saved tokens, and `/compound` can't propose the next round.
