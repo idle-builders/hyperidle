@@ -336,8 +336,9 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 		adapter = createFakeAdapter();
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		unsubscribe?.();
+		await handle?.close();
 	});
 
 	it("task_state_changed pending→in_progress does NOT generate a notification or queue row", async () => {
@@ -413,8 +414,9 @@ describe("R8 AC3 — Blocker alerts respect blockerAlerts preference", () => {
 		adapter = createFakeAdapter();
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		unsubscribe?.();
+		await handle?.close();
 	});
 
 	it("blockerAlerts=false drops blocking item notification", async () => {
@@ -483,8 +485,9 @@ describe("R8 AC3 — Cost alerts respect costAlerts preference", () => {
 		adapter = createFakeAdapter();
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		unsubscribe?.();
+		await handle?.close();
 	});
 
 	it("costAlerts=false drops cost_cap_warning (critical)", async () => {
@@ -605,8 +608,9 @@ describe("R8 AC4 — Review alerts respect reviewAlerts preference", () => {
 		adapter = createFakeAdapter();
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		unsubscribe?.();
+		await handle?.close();
 	});
 
 	it("reviewAlerts=false drops review item (kind=review, riskTier=high)", async () => {
@@ -789,8 +793,9 @@ describe("R8 AC5 — Quiet hours dispatcher integration", () => {
 		adapter = createFakeAdapter();
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		unsubscribe?.();
+		await handle?.close();
 	});
 
 	it("quietHoursEnabled=false — blocking item pushes regardless of time", async () => {
@@ -944,8 +949,9 @@ describe("R8 Preferences wiring — server_config drives dispatcher", () => {
 		adapter = createFakeAdapter();
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		unsubscribe?.();
+		await handle?.close();
 	});
 
 	it("blockerAlerts=false in server_config → emit blocking item event → no notification sent", async () => {
