@@ -1,15 +1,14 @@
 #!/usr/bin/env tsx
-// Block 1a — TE-3: single global verify orchestrator.
+// TE-3: single global verify orchestrator.
 //
-// Runs check + lint:biome + lint:eslint + test in parallel-friendly order,
-// captures each tool's structured output, finishes all of them (even if one
-// fails), and prints one TOON summary at the end. On failure, raw stderr
-// tail of the failing tool is preserved (TE-4 — silent on green, transparent
-// on red).
+// Runs tools in two parallel phases, captures each tool's structured output,
+// finishes all of them (even if one fails), and prints one TOON summary at
+// the end. On failure, raw stderr tail of the failing tool is preserved
+// (TE-4 — silent on green, transparent on red).
 //
 // Usage:
-//   npm run verify           # full: check + lint + test (TOON summary)
-//   npm run verify --quick   # quick: check + lint only (no tests)
+//   npm run verify           # full: all tools in parallel phases (TOON summary)
+//   npm run verify --quick   # quick: static analysis only (phase 1)
 //   npm run verify --raw     # forward each tool's full stdout/stderr
 //   npm run verify --only=test,lint:eslint
 //
@@ -17,7 +16,14 @@
 
 import { spawn, execSync } from "node:child_process";
 import { createHmac, randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+	existsSync,
+	mkdirSync,
+	readdirSync,
+	readFileSync,
+	unlinkSync,
+	writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { encode } from "../packages/shared/src/toon-codec.js";
@@ -29,6 +35,7 @@ interface Tool {
 	env?: Record<string, string>;
 	cwd?: string;
 	timeoutMs?: number;
+	phase: 1 | 2;
 }
 
 interface ToolResult {
@@ -46,50 +53,69 @@ interface ToolResult {
 const RAW_TAIL_LINES = 60;
 const TEST_OUTPUT_FILE = "test-output.toon";
 
+// Phase 1: static analysis (all independent, run in parallel)
+// Phase 2: runtime validation (test + builds + e2e, run in parallel)
 const TOOLS: Tool[] = [
-	{ name: "check", cmd: "tsc", args: ["--noEmit", "-p", "tsconfig.json"], timeoutMs: 60_000 },
-	{ name: "lint:biome", cmd: "npm", args: ["run", "lint:biome"], timeoutMs: 60_000 },
-	{ name: "lint:eslint", cmd: "npx", args: ["eslint", ".", "--quiet"], timeoutMs: 180_000 },
-	{ name: "knip", cmd: "npx", args: ["knip"], timeoutMs: 60_000 },
+	{
+		name: "check",
+		cmd: "tsc",
+		args: ["--noEmit", "-p", "tsconfig.json"],
+		timeoutMs: 120_000,
+		phase: 1,
+	},
+	{ name: "lint:biome", cmd: "npm", args: ["run", "lint:biome"], timeoutMs: 120_000, phase: 1 },
+	{
+		name: "lint:eslint",
+		cmd: "npx",
+		args: ["eslint", ".", "--quiet"],
+		timeoutMs: 300_000,
+		phase: 1,
+	},
+	{ name: "knip", cmd: "npx", args: ["knip"], timeoutMs: 120_000, phase: 1 },
 	{
 		name: "mock-inventory",
 		cmd: "npx",
 		args: ["tsx", "scripts/mock-inventory.ts", "--check"],
-		timeoutMs: 30_000,
+		timeoutMs: 60_000,
+		phase: 1,
 	},
 	{
 		name: "test",
 		cmd: "npm",
-		args: ["run", "test:raw"],
+		args: ["run", "test", "--", "--all"],
 		env: { VITEST_TOON_OUTPUT: TEST_OUTPUT_FILE },
-		// @lore: Under heavy CI load (10+ parallel worktrees on 10-core machine),
-		// the full test suite can take 1000s+. 1800s (30min) handles worst-case
-		// multi-worktree contention while still providing a reasonable upper bound.
 		timeoutMs: 1_800_000,
+		phase: 2,
 	},
-	{ name: "build", cmd: "npm", args: ["run", "build"], timeoutMs: 60_000 },
+	{ name: "build", cmd: "npm", args: ["run", "build"], timeoutMs: 120_000, phase: 2 },
 	{
 		name: "build:desktop",
 		cmd: "npm",
 		args: ["run", "-w", "@hyperidle/desktop", "build"],
-		timeoutMs: 60_000,
+		timeoutMs: 120_000,
+		phase: 2,
 	},
 	{
 		name: "server:load",
 		cmd: "node",
 		args: [
-			"--import", "tsx",
-			"-e", "import('./packages/server/src/server-factory.ts').then(() => { process.exit(0); })",
+			"--import",
+			"tsx",
+			"-e",
+			"import('./packages/server/src/server-factory.ts').then(() => { process.exit(0); })",
 		],
-		timeoutMs: 60_000,
+		timeoutMs: 120_000,
+		phase: 2,
 	},
-	// e2e disabled — needs full rebuild of Playwright fixture/server setup
+	// e2e excluded from default verify — Playwright fixture/server setup needs
+	// rebuild (vite proxy ECONNREFUSED). Run standalone: npm run test:e2e
 	// {
 	// 	name: "e2e",
 	// 	cmd: "npx",
 	// 	args: ["playwright", "test", "--reporter=list"],
 	// 	cwd: "packages/web",
 	// 	timeoutMs: 600_000,
+	// 	phase: 2,
 	// },
 ];
 
@@ -98,6 +124,35 @@ interface CliFlags {
 	quick: boolean;
 	only: Set<string> | null;
 }
+
+// ---------------------------------------------------------------------------
+// Process cleanup
+// ---------------------------------------------------------------------------
+
+const activeChildren = new Set<number>();
+
+function killActiveChildren(): void {
+	for (const pid of activeChildren) {
+		try {
+			process.kill(-pid, "SIGTERM");
+		} catch {}
+	}
+	activeChildren.clear();
+}
+
+process.on("SIGTERM", () => {
+	killActiveChildren();
+	process.exit(1);
+});
+process.on("SIGINT", () => {
+	killActiveChildren();
+	process.exit(1);
+});
+process.on("exit", killActiveChildren);
+
+// ---------------------------------------------------------------------------
+// CLI parsing
+// ---------------------------------------------------------------------------
 
 function parseFlags(argv: readonly string[]): CliFlags {
 	let raw = false;
@@ -113,6 +168,10 @@ function parseFlags(argv: readonly string[]): CliFlags {
 	return { raw, quick, only };
 }
 
+// ---------------------------------------------------------------------------
+// Tool runner
+// ---------------------------------------------------------------------------
+
 function runTool(tool: Tool, raw: boolean): Promise<ToolResult> {
 	const startedAt = Date.now();
 	const stdoutChunks: string[] = [];
@@ -123,16 +182,25 @@ function runTool(tool: Tool, raw: boolean): Promise<ToolResult> {
 			env: { ...process.env, ...tool.env },
 			cwd: tool.cwd ? resolve(process.cwd(), tool.cwd) : undefined,
 			stdio: raw ? "inherit" : ["ignore", "pipe", "pipe"],
+			detached: true,
 		});
+
+		if (child.pid) activeChildren.add(child.pid);
 
 		let timedOut = false;
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		if (tool.timeoutMs) {
 			timer = setTimeout(() => {
 				timedOut = true;
-				child.kill("SIGTERM");
+				try {
+					process.kill(-child.pid!, "SIGTERM");
+				} catch {
+					child.kill("SIGTERM");
+				}
 				setTimeout(() => {
-					if (!child.killed) child.kill("SIGKILL");
+					try {
+						process.kill(-child.pid!, "SIGKILL");
+					} catch {}
 				}, 5_000);
 			}, tool.timeoutMs);
 		}
@@ -143,6 +211,7 @@ function runTool(tool: Tool, raw: boolean): Promise<ToolResult> {
 		}
 
 		child.on("close", (code) => {
+			if (child.pid) activeChildren.delete(child.pid);
 			if (timer) clearTimeout(timer);
 			const stdout = stdoutChunks.join("");
 			const stderr = stderrChunks.join("");
@@ -163,6 +232,10 @@ function runTool(tool: Tool, raw: boolean): Promise<ToolResult> {
 		});
 	});
 }
+
+// ---------------------------------------------------------------------------
+// Output helpers
+// ---------------------------------------------------------------------------
 
 function tail(text: string, lines: number): string {
 	if (!text) return "";
@@ -237,7 +310,6 @@ function printSummary(summary: VerifySummary): void {
 		process.stdout.write(`${out}\n`);
 		return;
 	}
-	// TE-4 — failure path: TOON summary first, then raw tail per failing tool.
 	process.stderr.write(`${out}\n\n`);
 	for (const f of summary.failures) {
 		process.stderr.write(`=== ${f.name} (exit ${f.exitCode}) ===\n`);
@@ -250,7 +322,11 @@ function printSummary(summary: VerifySummary): void {
 	}
 }
 
-const ATTESTATION_FILE = ".verify-attestation.json";
+// ---------------------------------------------------------------------------
+// Attestation — per-SHA files in .verify-attestations/ to avoid merge conflicts
+// ---------------------------------------------------------------------------
+
+const ATTESTATION_DIR = ".verify-attestations";
 const SECRET_DIR = join(homedir(), ".config", "hyperidle");
 const SECRET_PATH = join(SECRET_DIR, "verify-secret");
 
@@ -277,8 +353,7 @@ function writeAttestation(summary: VerifySummary, toolNames: string[]): void {
 	if (!secret) return;
 
 	const sha = execSync("git rev-parse HEAD", { encoding: "utf-8" }).trim();
-	const dirty =
-		execSync("git status --porcelain", { encoding: "utf-8" }).trim().length > 0;
+	const dirty = execSync("git status --porcelain", { encoding: "utf-8" }).trim().length > 0;
 
 	const payload = {
 		sha,
@@ -290,28 +365,39 @@ function writeAttestation(summary: VerifySummary, toolNames: string[]): void {
 		timestamp: new Date().toISOString(),
 	};
 
-	const hmac = createHmac("sha256", secret)
-		.update(JSON.stringify(payload))
-		.digest("hex");
+	const hmac = createHmac("sha256", secret).update(JSON.stringify(payload)).digest("hex");
 
-	writeFileSync(
-		resolve(process.cwd(), ATTESTATION_FILE),
-		JSON.stringify({ ...payload, hmac }, null, "\t") + "\n",
-	);
-	process.stderr.write(`verify: attestation written → ${ATTESTATION_FILE}\n`);
+	const dir = resolve(process.cwd(), ATTESTATION_DIR);
+	mkdirSync(dir, { recursive: true });
+
+	// Remove stale attestation files from previous commits
+	for (const file of readdirSync(dir)) {
+		if (file.endsWith(".json") && file !== `${sha}.json`) {
+			try {
+				unlinkSync(join(dir, file));
+			} catch {}
+		}
+	}
+
+	const filePath = join(dir, `${sha}.json`);
+	writeFileSync(filePath, JSON.stringify({ ...payload, hmac }, null, "\t") + "\n");
+	process.stderr.write(`verify: attestation written → ${ATTESTATION_DIR}/${sha}.json\n`);
 	if (dirty) {
 		process.stderr.write("verify: WARNING — working tree is dirty, commit first for CI\n");
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
 async function main(): Promise<void> {
 	const flags = parseFlags(process.argv.slice(2));
-	const QUICK_TOOLS = new Set(["check", "lint:biome", "lint:eslint", "knip"]);
 	let tools: Tool[];
 	if (flags.only) {
 		tools = TOOLS.filter((t) => flags.only?.has(t.name));
 	} else if (flags.quick) {
-		tools = TOOLS.filter((t) => QUICK_TOOLS.has(t.name));
+		tools = TOOLS.filter((t) => t.phase === 1);
 	} else {
 		tools = TOOLS;
 	}
@@ -321,14 +407,19 @@ async function main(): Promise<void> {
 	}
 
 	const startedAt = Date.now();
-	// Run sequentially to keep CPU contention predictable and stdout
-	// interleaving deterministic. Sub-tools (vitest, eslint) already use
-	// their own internal parallelism.
+
+	// Run tools in parallel phases. Phase 1 (static analysis) completes before
+	// phase 2 (runtime validation) starts. Within each phase, tools run in parallel.
+	const phases = [1, 2] as const;
 	const results: ToolResult[] = [];
-	for (const tool of tools) {
-		const result = await runTool(tool, flags.raw);
-		results.push(result);
+
+	for (const phase of phases) {
+		const phaseTools = tools.filter((t) => t.phase === phase);
+		if (phaseTools.length === 0) continue;
+		const phaseResults = await Promise.all(phaseTools.map((t) => runTool(t, flags.raw)));
+		results.push(...phaseResults);
 	}
+
 	const totalDurationMs = Date.now() - startedAt;
 	const summary = buildSummary(results, totalDurationMs);
 	if (!flags.raw) {

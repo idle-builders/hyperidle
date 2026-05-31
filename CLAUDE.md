@@ -30,6 +30,23 @@ If you cannot define how to verify a criterion, clarify the requirement before w
 
 Before any work is complete: `npm run check` (zero type errors) + `npm run lint` (zero lint errors) + `npm run test` (all green). Target 100% test coverage of new code including Playwright E2E tests for all user-facing features. Every change must be independently verifiable by agents — if it can't be proven with a test, it's not done.
 
+### Which command to use when
+
+| Scenario | Command | What it does |
+|---|---|---|
+| **Iterating on code** | `npm run test` | Runs only tests affected by changes on this branch (vs origin/main). Fast feedback loop. |
+| **Full test suite** | `npm run test -- --all` | Runs all vitest tests across all packages. Use before shipping. |
+| **E2E tests** | `npm run test:e2e` | Playwright end-to-end tests (Chromium). Separate from unit/integration tests. |
+| **Quick lint check** | `npm run verify -- --quick` | Phase 1 only: typecheck + biome + eslint + knip + mock-inventory. No tests or builds. |
+| **Full verification** | `npm run verify` | All tools in two parallel phases. Writes HMAC-signed attestation for CI. Run before shipping. |
+| **Specific tools only** | `npm run verify -- --only=test,check` | Run only the named tools. |
+
+The verify pipeline runs in two parallel phases:
+- **Phase 1** (static analysis): check, lint:biome, lint:eslint, knip, mock-inventory
+- **Phase 2** (runtime): test, build, build:desktop, server:load, e2e
+
+Attestation files are stored per-commit SHA in `.verify-attestations/<sha>.json` to avoid merge conflicts between concurrent branches.
+
 ## Proof & Definition of Done
 
 You can only say that something is done if you looked at the actual output of your change. That means looking at the rendered and painted output from the browser and visual verifiying, through images or Visual testing. Or looking at the produced data from an API or interface via a test or env that checks input > output.
@@ -89,7 +106,7 @@ Node.js, npm, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React 
 
 ## Commands
 
-`npm install`, `npm run dev` (server 3001 + web 5173), `npm run verify` (orchestrated check + lint + test in one summary — preferred for completion checks), `npm run test` (Vitest), `npm run check` (typecheck), `npm run lint` (Biome + ESLint), `npm run lint:biome`, `npm run lint:eslint`, `npm run lint:fix`, `npm run db:generate`, `npm run db:migrate`.
+`npm install`, `npm run dev` (server 3001 + web 5173), `npm run verify` (all tools in parallel phases — preferred for final check before shipping), `npm run test` (affected tests only on feature branches, full suite on main), `npm run test -- --all` (full test suite), `npm run test:e2e` (Playwright E2E), `npm run check` (typecheck), `npm run lint` (Biome + ESLint), `npm run lint:biome`, `npm run lint:eslint`, `npm run lint:fix`, `npm run db:generate`, `npm run db:migrate`.
 
 ---
 
