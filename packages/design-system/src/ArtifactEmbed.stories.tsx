@@ -21,7 +21,7 @@ const FIXTURE: Artifact = {
 };
 
 export const InReviewMessage = (): React.JSX.Element => (
-	<div className="bg-[var(--surface-2)] rounded-[var(--r1)] p-4 max-w-[720px]">
+	<div className="bg-[var(--surface-elevated)] rounded-[var(--r-subtle)] p-4 max-w-[720px]">
 		<p className="mb-2">Here is the diff for review:</p>
 		<ArtifactEmbed data={FIXTURE} onOpen={() => undefined} />
 		<p className="mt-2">Mostly clean — one nit on naming.</p>

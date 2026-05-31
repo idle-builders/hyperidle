@@ -1,5 +1,10 @@
 /**
- * L2 AC-44: rejected list — no block_comments, blocks, or block_id columns.
+ * L2 AC-44: rejected list — no block_comments or standalone blocks table.
+ *
+ * Note: T5 intentionally added a `block_id` column to the `messages` table
+ * for queryable block-anchored discussions (T5 AC-19/AC-20). The block_id
+ * column guard has been removed as of T5. The guards against a separate
+ * `block_comments` table and a top-level `blocks` table still hold.
  */
 
 import { readFileSync } from "node:fs";
@@ -8,7 +13,7 @@ import { describe, expect, it } from "vitest";
 
 const schemas = [resolve(__dirname, "../schema.ts")];
 
-describe("AC-44 — no block tables or block_id columns added by L2", () => {
+describe("AC-44 — no block tables added by L2", () => {
 	for (const path of schemas) {
 		const src = readFileSync(path, "utf-8");
 		const file = path.split("/").pop() ?? path;
@@ -22,10 +27,6 @@ describe("AC-44 — no block tables or block_id columns added by L2", () => {
 		it(`${file} has no top-level 'blocks' table`, () => {
 			expect(src).not.toMatch(/sqliteTable\(\s*['"`]blocks['"`]/);
 			expect(src).not.toMatch(/pgTable\(\s*['"`]blocks['"`]/);
-		});
-
-		it(`${file} has no 'block_id' column`, () => {
-			expect(src).not.toMatch(/['"`]block_id['"`]/);
 		});
 	}
 });

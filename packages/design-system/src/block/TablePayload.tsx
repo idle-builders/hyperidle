@@ -12,16 +12,16 @@ export interface TablePayloadProps {
 
 export function TablePayload({ align, header, rows }: TablePayloadProps): JSX.Element {
 	return (
-		<div className="overflow-x-auto rounded-[var(--r2)] border border-[var(--border-subtle)]">
+		<div className="overflow-x-auto rounded-[var(--r-default)] border border-[var(--border-subtle)]">
 			<table className="w-full border-collapse text-[13px]">
-				<thead className="sticky top-0 bg-[var(--surface-3)]">
+				<thead className="sticky top-0 bg-[var(--surface-container)]">
 					<tr>
 						{header.map((cell, i) => (
 							<th
 								key={i}
 								scope="col"
 								style={{ textAlign: align[i] ?? "left" }}
-								className="font-mono text-[11px] uppercase tracking-[0.05em] text-[var(--text-mid)] px-[12px] py-[8px] border-b border-[var(--border-subtle)]"
+								className="font-mono text-[11px] uppercase tracking-[0.05em] text-[var(--text-secondary)] px-[12px] py-[8px] border-b border-[var(--border-subtle)]"
 							>
 								{renderInline(cell)}
 							</th>

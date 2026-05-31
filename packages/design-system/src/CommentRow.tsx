@@ -86,11 +86,13 @@ function MessagePayloads({
 	if (payloads.length === 0) {
 		// Fall back to plain text rendering for empty-after-parse inputs.
 		return (
-			<p className="text-[13px] text-[var(--text-mid)] whitespace-pre-wrap break-words">{text}</p>
+			<p className="text-[13px] text-[var(--text-secondary)] whitespace-pre-wrap break-words">
+				{text}
+			</p>
 		);
 	}
 	return (
-		<div className="flex flex-col gap-[8px] text-[13px] text-[var(--text-mid)]">
+		<div className="flex flex-col gap-[8px] text-[13px] text-[var(--text-secondary)]">
 			{payloads.map((payload, i) => (
 				// biome-ignore lint/suspicious/noArrayIndexKey: payloads are position-stable within a single message render
 				<div key={i}>{renderPayload(payload, sanitizeHtml)}</div>
@@ -114,7 +116,7 @@ function renderBody(message: Message, sanitizeHtml?: (raw: string) => string): R
 	const { payload } = message;
 	if (isRedactedPayload(payload)) {
 		return (
-			<div className="italic text-[var(--text-lo)] text-[13px]">
+			<div className="italic text-[var(--text-tertiary)] text-[13px]">
 				Redacted by {payload.redactedBy} — {payload.reason}
 			</div>
 		);
@@ -124,8 +126,12 @@ function renderBody(message: Message, sanitizeHtml?: (raw: string) => string): R
 			return (
 				<div className="flex items-center gap-[8px] text-[13px]">
 					<StatusChip status={verdictDecisionToStatus(payload.decision)} />
-					<span className="text-[var(--text-mid)]">{verdictDecisionLabel(payload.decision)}</span>
-					{payload.note ? <span className="text-[var(--text-lo)]">— {payload.note}</span> : null}
+					<span className="text-[var(--text-secondary)]">
+						{verdictDecisionLabel(payload.decision)}
+					</span>
+					{payload.note ? (
+						<span className="text-[var(--text-tertiary)]">— {payload.note}</span>
+					) : null}
 				</div>
 			);
 		case "plain":
@@ -165,7 +171,7 @@ export function CommentRow({
 			className="flex gap-[8px] py-[6px] px-[var(--density-pad-x,12px)]"
 		>
 			{showSenderHeader ? (
-				<span className="inline-flex items-center justify-center w-[28px] h-[28px] rounded-full bg-[var(--surface-2)] text-[var(--text-lo)] text-[11px] font-medium border border-[var(--border-subtle)] shrink-0">
+				<span className="inline-flex items-center justify-center w-[28px] h-[28px] rounded-full bg-[var(--surface-container)] text-[var(--text-tertiary)] text-[11px] font-medium border border-[var(--border-subtle)] shrink-0">
 					{sender.name.charAt(0).toUpperCase()}
 				</span>
 			) : (
@@ -174,13 +180,15 @@ export function CommentRow({
 			<div className="flex flex-col gap-[2px] min-w-0 flex-1">
 				{showSenderHeader ? (
 					<div className="flex items-center gap-[6px] text-[12px]">
-						<span className="text-[var(--text-hi)] font-medium">{sender.name}</span>
-						{sender.role ? <span className="text-[var(--text-lo)]">· {sender.role}</span> : null}
+						<span className="text-[var(--text-primary)] font-medium">{sender.name}</span>
+						{sender.role ? (
+							<span className="text-[var(--text-tertiary)]">· {sender.role}</span>
+						) : null}
 					</div>
 				) : null}
 				{inlineAnchor ? (
-					<div className="text-[11px] text-[var(--text-lo)] uppercase tracking-[0.05em]">
-						INLINE COMMENT ON <span className="text-[var(--text-mid)]">{inlineAnchor}</span>
+					<div className="text-[11px] text-[var(--text-tertiary)] uppercase tracking-[0.05em]">
+						INLINE COMMENT ON <span className="text-[var(--text-secondary)]">{inlineAnchor}</span>
 					</div>
 				) : null}
 				{richSupplied ? (

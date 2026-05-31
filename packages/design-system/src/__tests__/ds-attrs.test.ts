@@ -15,7 +15,7 @@ import { KeyValue } from "../KeyValue";
 import { KnowledgeRow } from "../KnowledgeRow";
 import { NavItem } from "../NavItem";
 import { NotificationRow } from "../NotificationRow";
-import { PitchCard } from "../PitchCard";
+// U8: PitchCard deleted from design-system — import removed.
 import { SearchField } from "../SearchField";
 import { SkeletonCard, SkeletonList } from "../Skeleton";
 import { StatusChip } from "../StatusChip";
@@ -106,18 +106,7 @@ const TIER_2: ComponentCase[] = [
 				timestamp: "now",
 			}),
 	},
-	{
-		name: "PitchCard",
-		tier: "2",
-		render: () =>
-			createElement(PitchCard, {
-				title: "Pitch",
-				hypothesis: "Hypothesis",
-				proposer: "Alice",
-				status: "draft",
-				appetite: "1 week",
-			}),
-	},
+	// U8: PitchCard deleted from design-system — removed from ds-attrs test.
 	{
 		name: "SkeletonCard",
 		tier: "2",

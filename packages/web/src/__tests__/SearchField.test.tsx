@@ -22,10 +22,10 @@ describe("SearchField", () => {
 		expect(input.className).toContain("rounded-[var(--r-default)]");
 	});
 
-	it("has visible border using --border-default token", () => {
+	it("has visible border using --border-subtle token", () => {
 		render(<SearchField placeholder="Search..." />);
 		const input = screen.getByPlaceholderText("Search...");
-		expect(input.className).toContain("border-[var(--border-default)]");
+		expect(input.className).toContain("border-[var(--border-subtle)]");
 	});
 
 	it("has focus border using --accent-primary token", () => {

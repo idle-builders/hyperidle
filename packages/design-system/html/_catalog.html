@@ -15,14 +15,14 @@ h1 {
   font-weight: 500;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--text-hi);
+  color: var(--text-primary);
   margin-bottom: 8px;
 }
 
 .catalog-version {
   font-family: var(--mono);
   font-size: 11px;
-  color: var(--text-lo);
+  color: var(--text-tertiary);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   margin-bottom: 32px;
@@ -34,9 +34,9 @@ h1 {
   font-weight: 500;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--text-lo);
+  color: var(--text-tertiary);
   padding-bottom: 8px;
-  border-bottom: 1px solid var(--surface-4);
+  border-bottom: 1px solid var(--surface-elevated);
   margin-bottom: 12px;
   margin-top: 32px;
 }
@@ -55,14 +55,14 @@ h1 {
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: var(--surface-3);
-  border-radius: var(--r2);
-  color: var(--text-hi);
+  background: var(--surface-container);
+  border-radius: var(--r-default);
+  color: var(--text-primary);
   text-decoration: none;
   transition: background var(--motion-fast) ease;
 }
 .component-link:hover {
-  background: var(--surface-4);
+  background: var(--surface-elevated);
 }
 
 .component-name {
@@ -73,14 +73,14 @@ h1 {
 .component-meta {
   font-family: var(--mono);
   font-size: 11px;
-  color: var(--text-lo);
+  color: var(--text-tertiary);
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
 .component-uses {
   font-size: 12px;
-  color: var(--text-mid);
+  color: var(--text-secondary);
   margin-top: 2px;
 }
 
@@ -91,18 +91,18 @@ h1 {
 .dep-graph {
   font-family: var(--mono);
   font-size: 12px;
-  color: var(--text-mid);
+  color: var(--text-secondary);
   line-height: 1.8;
-  background: var(--surface-2);
+  background: var(--surface-elevated);
   padding: 16px;
-  border-radius: var(--r2);
+  border-radius: var(--r-default);
   white-space: pre;
   overflow-x: auto;
 }
 
-.dep-graph .tier-label { color: var(--text-lo); }
-.dep-graph .arrow { color: var(--text-lo); }
-.dep-graph .name { color: var(--primary); }
+.dep-graph .tier-label { color: var(--text-tertiary); }
+.dep-graph .arrow { color: var(--text-tertiary); }
+.dep-graph .name { color: var(--accent-primary); }
 </style>
 </head>
 <body>
@@ -116,21 +116,21 @@ h1 {
       <div>
         <div class="component-name">StatusChip</div>
         <div class="component-meta">6 states</div>
-        <div class="component-uses">Used by: ThreadRow, BetCard, PitchCard, TaskCard, KnowledgeRow, NotificationRow, Rail</div>
+        <div class="component-uses">Used by: ThreadRow, BetCard, TaskCard, KnowledgeRow, NotificationRow, Rail</div>
       </div>
     </a>
     <a class="component-link" href="Tag.html">
       <div>
         <div class="component-name">Tag</div>
         <div class="component-meta">plain + 3 kinds</div>
-        <div class="component-uses">Used by: ThreadRow, BetCard, PitchCard, TaskCard, KnowledgeRow, NotificationRow</div>
+        <div class="component-uses">Used by: ThreadRow, BetCard, TaskCard, KnowledgeRow, NotificationRow</div>
       </div>
     </a>
     <a class="component-link" href="KeyValue.html">
       <div>
         <div class="component-name">KeyValue</div>
         <div class="component-meta">inline / stacked</div>
-        <div class="component-uses">Used by: BetCard, PitchCard, TaskCard, Rail</div>
+        <div class="component-uses">Used by: BetCard, TaskCard, Rail</div>
       </div>
     </a>
     <a class="component-link" href="NavItem.html">
@@ -162,13 +162,6 @@ h1 {
       <div>
         <div class="component-name">BetCard</div>
         <div class="component-meta">product + progress</div>
-        <div class="component-uses">Uses: StatusChip, Tag, KeyValue</div>
-      </div>
-    </a>
-    <a class="component-link" href="PitchCard.html">
-      <div>
-        <div class="component-name">PitchCard</div>
-        <div class="component-meta">kind + appetite</div>
         <div class="component-uses">Uses: StatusChip, Tag, KeyValue</div>
       </div>
     </a>
@@ -223,7 +216,7 @@ h1 {
 
 <span class="name">Canvas</span>         <span class="arrow">&rarr;</span> <span class="name">BetCard</span>         <span class="arrow">&rarr;</span> <span class="name">StatusChip</span>, <span class="name">Tag</span>, <span class="name">KeyValue</span>
 <span class="name">Kanban</span>         <span class="arrow">&rarr;</span> <span class="name">TaskCard</span>        <span class="arrow">&rarr;</span> <span class="name">StatusChip</span>, <span class="name">Tag</span>, <span class="name">KeyValue</span>
-<span class="name">PitchSelector</span>  <span class="arrow">&rarr;</span> <span class="name">PitchCard</span>       <span class="arrow">&rarr;</span> <span class="name">StatusChip</span>, <span class="name">Tag</span>, <span class="name">KeyValue</span>
+<span class="name">PitchSelector</span>  <span class="arrow">&rarr;</span> <span class="name">StatusChip</span>, <span class="name">Tag</span>, <span class="name">KeyValue</span> (inline card)
 <span class="name">Submenu</span>        <span class="arrow">&rarr;</span> <span class="name">ThreadRow</span>       <span class="arrow">&rarr;</span> <span class="name">StatusChip</span>, <span class="name">Tag</span>
 <span class="name">Rail</span>           <span class="arrow">&rarr;</span> <span class="name">NotificationRow</span> <span class="arrow">&rarr;</span> <span class="name">StatusChip</span>, <span class="name">Tag</span>
 <span class="name">Submenu</span>        <span class="arrow">&rarr;</span> <span class="name">SearchField</span>
