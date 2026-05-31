@@ -29,7 +29,7 @@ Inspired by:
 
 Read all of the following in one parallel batch of Read calls — these files are independent (anchor-scoped where possible):
 
-1. The workpackage in `plans/work-packages/TRACK-<letter>.md`.
+1. The workpackage in `.pipeline/work-packages/TRACK-<letter>.md`.
 2. The per-workpackage concept output at `plans/<workpackage-id>/concept.md` and the specific `docs/<topic>/<file>.md` files it cites in its **Required reading**. The concept tells you which existing layout/component-budget files matter — do not browse `docs/` directly.
 3. `packages/design-system/PRINCIPLES.md`, `AESTHETICS.md`, `DESIGN.md`, `src/tokens.css`.
 4. `.claude/rules/aesthetic-quality.md`, `.claude/rules/visual-parity.md`.

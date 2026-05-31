@@ -1,6 +1,6 @@
 ## Work Packages
 
-Stories are defined in `plans/work-packages/TRACK-*.md` files (A through J). Each track has numbered stories with acceptance criteria. Implementation follows TDD:
+Stories are defined in `.pipeline/work-packages/TRACK-*.md` files (A through J). Each track has numbered stories with acceptance criteria. Implementation follows TDD:
 
 1. Read the acceptance criteria from the track file
 2. Write failing tests (red)

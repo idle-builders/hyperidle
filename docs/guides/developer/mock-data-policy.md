@@ -119,6 +119,6 @@ The first command (forbidden-prefix symbols) must return zero matches from runti
 ## Cross-references
 
 - Concept: `plans/mock-data-purge/concept.md`
-- Track: `plans/work-packages/TRACK-M.md`
+- Track: `.pipeline/work-packages/TRACK-M.md`
 - Existing precedent (fixtures import boundary): `eslint.config.js` block tagged "L16 AC-3"
 - Testing guide: `docs/guides/developer/testing.md`
