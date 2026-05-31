@@ -31,4 +31,28 @@ describe("EmptyState", () => {
 		);
 		expect(screen.getByTestId("conv-empty")).toBeInTheDocument();
 	});
+
+	it("has warm card styling with surface-elevated background", () => {
+		const { container } = render(
+			<EmptyState title="No items" description="Nothing here." />,
+		);
+		const outer = container.firstElementChild;
+		expect(outer?.className).toContain("bg-[var(--surface-elevated)]");
+	});
+
+	it("has --r-default radius for card shape", () => {
+		const { container } = render(
+			<EmptyState title="No items" description="Nothing here." />,
+		);
+		const outer = container.firstElementChild;
+		expect(outer?.className).toContain("rounded-[var(--r-default)]");
+	});
+
+	it("has --shadow-subtle shadow for card depth", () => {
+		const { container } = render(
+			<EmptyState title="No items" description="Nothing here." />,
+		);
+		const outer = container.firstElementChild;
+		expect(outer?.className).toContain("shadow-[var(--shadow-subtle)]");
+	});
 });

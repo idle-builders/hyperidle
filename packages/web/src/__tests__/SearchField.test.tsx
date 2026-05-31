@@ -13,7 +13,31 @@ describe("SearchField", () => {
 		render(<SearchField placeholder="Search..." />);
 		const input = screen.getByPlaceholderText("Search...");
 		expect(input).toHaveClass("w-full", "h-[32px]");
-		expect(input.className).toContain("bg-[var(--surface-3)]");
+		expect(input.className).toContain("bg-[var(--surface-container)]");
+	});
+
+	it("has rounded-[var(--r-default)] radius", () => {
+		render(<SearchField placeholder="Search..." />);
+		const input = screen.getByPlaceholderText("Search...");
+		expect(input.className).toContain("rounded-[var(--r-default)]");
+	});
+
+	it("has visible border using --border-default token", () => {
+		render(<SearchField placeholder="Search..." />);
+		const input = screen.getByPlaceholderText("Search...");
+		expect(input.className).toContain("border-[var(--border-default)]");
+	});
+
+	it("has focus border using --accent-primary token", () => {
+		render(<SearchField placeholder="Search..." />);
+		const input = screen.getByPlaceholderText("Search...");
+		expect(input.className).toContain("focus:border-[var(--accent-primary)]");
+	});
+
+	it("has focus shadow using accent-primary-dim token", () => {
+		render(<SearchField placeholder="Search..." />);
+		const input = screen.getByPlaceholderText("Search...");
+		expect(input.className).toContain("accent-primary-dim");
 	});
 
 	it("shows shortcut key hint when provided", () => {
