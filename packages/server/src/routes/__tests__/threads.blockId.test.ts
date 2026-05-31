@@ -379,13 +379,10 @@ describe("AC-5 — GET /api/threads/:id?block_id=X returns only matching message
 		// BlockIds are Blake2s hashes (~64 chars). Reject any value over 128 chars
 		// to prevent storage/index abuse with oversized input.
 		const oversizedBlockId = "x".repeat(129);
-		const res = await ctx.app.request(
-			`/api/threads/${threadId}?block_id=${oversizedBlockId}`,
-			{
-				method: "GET",
-				headers: authHeaders(),
-			},
-		);
+		const res = await ctx.app.request(`/api/threads/${threadId}?block_id=${oversizedBlockId}`, {
+			method: "GET",
+			headers: authHeaders(),
+		});
 
 		expect(res.status).toBe(400);
 		const body = (await res.json()) as { code: string };
