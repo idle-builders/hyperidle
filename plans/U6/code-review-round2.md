@@ -104,3 +104,4 @@ All 19 ACs remain at their round 1 status. The fixes did not regress any AC.
 One must-fix remains: the U5 domain-sense sweep test fails due to `productId` in the new `RedirectProductToTeam` component and its test. This is a real test regression introduced by U6 that prevents `npm run verify` from passing.
 
 Once N1 is resolved, the branch is ready for `/ship`.
+
