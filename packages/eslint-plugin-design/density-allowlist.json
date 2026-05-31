@@ -18,12 +18,6 @@
 				"matrix": "§ 3.1.2"
 			},
 			{
-				"name": "IconRail",
-				"file": "packages/web/src/shell/IconRail.tsx",
-				"reason": "Brand chrome — Material 3 NavRail / Carbon UI Shell / Slack / Linear all fix the nav-rail width across all density modes. Muscle memory + visual identity outweigh comfort.",
-				"matrix": "§ 3.3.K1 + § 5.6"
-			},
-			{
 				"name": "NotFound",
 				"file": "packages/web/src/pages/NotFound.tsx",
 				"reason": "Error page — user is recovering from a navigation mistake, not reading. One-off chrome surface.",
@@ -163,31 +157,6 @@
 				"matrix": "§ 3.2.9 / § 3.2.10"
 			},
 			{
-				"name": "Submenu",
-				"file": "packages/web/src/shell/Submenu.tsx",
-				"axes": ["page-gutter", "gap", "pad-x"],
-				"literalAxes": [
-					{
-						"axis": "width",
-						"reason": "Linear/Atlassian/Notion all fix secondary-nav width — 240 px."
-					},
-					{ "axis": "header-chrome", "reason": "Uppercase mono 12 px." },
-					{ "axis": "filter-chips", "reason": "DaisyUI btn-xs (chip rule)." }
-				],
-				"matrix": "§ 3.3.K2"
-			},
-			{
-				"name": "Rail",
-				"file": "packages/web/src/shell/Rail.tsx",
-				"axes": ["page-gutter (expanded)", "section-gap"],
-				"literalAxes": [
-					{ "axis": "width", "reason": "Right-edge chrome — 360 px expanded, 56 px collapsed." },
-					{ "axis": "section-header", "reason": "Uppercase mono 12 px." },
-					{ "axis": "pill-chrome", "reason": "DaisyUI badge-sm." }
-				],
-				"matrix": "§ 3.3.K3"
-			},
-			{
 				"name": "ArtifactView",
 				"file": "packages/web/src/shell/ArtifactView.tsx",
 				"axes": ["content-pad"],
@@ -240,18 +209,6 @@
 					{ "axis": "group-header", "reason": "Uppercase mono 12 px chrome." }
 				],
 				"matrix": "§ 3.3.K7"
-			},
-			{
-				"name": "PitchSelector",
-				"file": "packages/web/src/shell/PitchSelector.tsx",
-				"axes": ["card-pad", "section-gap", "detail-pane-pad"],
-				"literalAxes": [
-					{ "axis": "max-h", "reason": "Overlay budget 480 px." },
-					{ "axis": "header-chrome", "reason": "text-sm font-semibold." },
-					{ "axis": "close-button", "reason": "DaisyUI btn-xs." },
-					{ "axis": "Add-to-canvas", "reason": "DaisyUI btn-xs btn-primary." }
-				],
-				"matrix": "§ 3.3.K8"
 			},
 			{
 				"name": "WorkPortfolio",

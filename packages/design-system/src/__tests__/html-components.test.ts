@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 
 const HTML_DIR = resolve(__dirname, "../../html");
 
+// U8: PitchCard removed from design-system exports and HTML files (deleted).
+// The list is now 13 components.
 const EXPECTED_COMPONENTS = [
 	"StatusChip",
 	"Tag",
@@ -12,7 +14,6 @@ const EXPECTED_COMPONENTS = [
 	"SearchField",
 	"ThreadRow",
 	"BetCard",
-	"PitchCard",
 	"TaskCard",
 	"KnowledgeRow",
 	"NotificationRow",
@@ -22,7 +23,7 @@ const EXPECTED_COMPONENTS = [
 ];
 
 describe("HTML component files", () => {
-	it("all 14 component HTML files exist", () => {
+	it("all 13 component HTML files exist", () => {
 		for (const name of EXPECTED_COMPONENTS) {
 			const filePath = resolve(HTML_DIR, `${name}.html`);
 			expect(existsSync(filePath), `${name}.html missing`).toBe(true);
@@ -94,7 +95,7 @@ describe("catalog (_catalog.html)", () => {
 	const catalogPath = resolve(HTML_DIR, "_catalog.html");
 	const html = existsSync(catalogPath) ? readFileSync(catalogPath, "utf-8") : "";
 
-	it("links to all 14 component files", () => {
+	it("links to all 13 component files", () => {
 		for (const name of EXPECTED_COMPONENTS) {
 			expect(html).toContain(`${name}.html`);
 		}

@@ -4,6 +4,11 @@
  *
  * Skipped: depends on seeded knowledge data that no longer ships as fixtures.
  * Re-enable once a proper E2E seed layer exists.
+ *
+ * @lore U6: Knowledge scope switching previously used a `knowledge-submenu`
+ * testid on a separate Submenu component. The Submenu is deleted in U6 and
+ * replaced by static scope sub-items in the Sidebar. The tests below reference
+ * the old testid and need a rewrite once the seed layer is available.
  */
 import { expect, test } from "./fixtures";
 

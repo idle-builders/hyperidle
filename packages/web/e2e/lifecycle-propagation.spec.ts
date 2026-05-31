@@ -268,11 +268,11 @@ test("L20: product page shows bet in review state after propagation", async ({ p
 	// Arrange: bet is in review state
 	await setupCommonRoutes(page, "review", "done");
 
-	// Act: navigate to the product page
-	await page.goto(`/work/product/${PRODUCT_ID}`);
+	// Act: navigate to the team page (U6: route renamed from /work/product/ to /work/team/)
+	await page.goto(`/work/team/${PRODUCT_ID}`);
 
-	// Assert: the product page renders
-	const productPage = page.locator('[data-testid="work-product-page"]').first();
+	// Assert: the team page renders
+	const productPage = page.locator('[data-testid="work-team-page"]').first();
 	await expect(productPage).toBeVisible({ timeout: 10000 });
 
 	// Assert: the page body contains "L20" (from product name or bet title in the response)

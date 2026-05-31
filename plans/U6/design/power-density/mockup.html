@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="hearth-light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>U6 Variant B — Power Density</title>
+<link rel="stylesheet" href="../../../../packages/design-system/src/tokens.css" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--surface-page);
+    color: var(--text-primary);
+    height: 100vh;
+    display: flex;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: 200px;
+    min-width: 200px;
+    height: 100vh;
+    background: var(--surface-container);
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border-subtle);
+  }
+
+  /* Brand — single H letterform */
+  .brand {
+    padding: 10px 16px;
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: var(--fw-semibold);
+    color: var(--text-tertiary);
+  }
+
+  /* Scrollable body */
+  .sidebar-body {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 4px 0;
+  }
+
+  /* Section */
+  .section {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Section header (clickable nav) */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: var(--fw-medium);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-caps);
+    color: var(--text-secondary);
+    border: none;
+    background: none;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    transition: color var(--motion-fast) var(--motion-ease);
+  }
+  .section-header:hover {
+    color: var(--text-primary);
+  }
+  .section-header.active {
+    color: var(--text-primary);
+    font-weight: var(--fw-semibold);
+  }
+  .section-header .count {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--text-tertiary);
+    background: color-mix(in oklab, var(--text-secondary) 8%, transparent);
+    padding: 0 5px;
+    border-radius: var(--r-pill);
+    min-width: 16px;
+    text-align: center;
+  }
+
+  /* Sub-item (compact text-only) */
+  .sub-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 16px;
+    min-height: 24px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    border: none;
+    background: none;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    transition: background var(--motion-fast) var(--motion-ease);
+  }
+  .sub-item:hover {
+    background: var(--accent-primary-dim);
+  }
+  .sub-item.active {
+    background: var(--surface-elevated);
+    border-radius: var(--r-subtle);
+    box-shadow: var(--shadow-subtle);
+    color: var(--text-primary);
+    font-weight: var(--fw-medium);
+    margin: 0 6px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .sub-item .label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+  .sub-item .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dot-warning { background: var(--status-warning); }
+  .dot-error { background: var(--status-error); }
+  .dot-success { background: var(--status-success); }
+
+  /* Bottom strip */
+  .bottom-strip {
+    border-top: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 16px;
+  }
+  .icon-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: none;
+    border-radius: var(--r-subtle);
+    color: var(--text-tertiary);
+    cursor: pointer;
+    transition: background var(--motion-fast) var(--motion-ease),
+                color var(--motion-fast) var(--motion-ease);
+  }
+  .icon-btn:hover {
+    background: var(--accent-primary-dim);
+    color: var(--text-secondary);
+  }
+
+  /* Main */
+  .main {
+    flex: 1;
+    padding: 16px;
+    overflow-y: auto;
+  }
+  .main-header {
+    font-size: 20px;
+    font-weight: var(--fw-semibold);
+    color: var(--text-primary);
+    margin-bottom: 12px;
+  }
+  .pill-bar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  .pill {
+    padding: 4px 12px;
+    font-size: 13px;
+    font-weight: var(--fw-medium);
+    border-radius: var(--r-pill);
+    border: 1px solid var(--border-default);
+    background: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background var(--motion-fast) var(--motion-ease);
+  }
+  .pill:hover { background: var(--accent-primary-dim); }
+  .pill.active {
+    background: var(--surface-elevated);
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+    font-weight: var(--fw-semibold);
+    box-shadow: var(--shadow-subtle);
+  }
+  .content-placeholder {
+    color: var(--text-tertiary);
+    font-size: 14px;
+    line-height: var(--leading-normal);
+  }
+</style>
+</head>
+<body>
+  <nav class="sidebar" aria-label="Main navigation">
+    <div class="brand">H</div>
+
+    <div class="sidebar-body">
+      <!-- Conversations section (dominant) -->
+      <div class="section">
+        <button class="section-header active">
+          <span>Conversations</span>
+          <span class="count">12</span>
+        </button>
+        <button class="sub-item active">
+          <span class="dot dot-error"></span>
+          <span class="label">Review: Agent refactoring PR</span>
+        </button>
+        <button class="sub-item">
+          <span class="dot dot-warning"></span>
+          <span class="label">Deploy pipeline stuck on staging</span>
+        </button>
+        <button class="sub-item">
+          <span class="label">Weekly planning with Aria</span>
+        </button>
+        <button class="sub-item">
+          <span class="label">Knowledge indexing progress</span>
+        </button>
+        <button class="sub-item">
+          <span class="label">Cost optimization discussion</span>
+        </button>
+      </div>
+
+      <!-- Work section (compact) -->
+      <div class="section">
+        <button class="section-header">
+          <span>Work</span>
+          <span class="count">3</span>
+        </button>
+        <button class="sub-item">
+          <span class="label">Platform</span>
+        </button>
+        <button class="sub-item">
+          <span class="label">Growth</span>
+        </button>
+        <button class="sub-item">
+          <span class="label">Infrastructure</span>
+        </button>
+      </div>
+
+      <!-- Knowledge section (compact) -->
+      <div class="section">
+        <button class="section-header">
+          <span>Knowledge</span>
+        </button>
+        <button class="sub-item">
+          <span class="dot dot-success"></span>
+          <span class="label">Practices</span>
+        </button>
+        <button class="sub-item">
+          <span class="dot dot-warning"></span>
+          <span class="label">Teams</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Bottom strip: icon-only buttons -->
+    <div class="bottom-strip">
+      <button class="icon-btn" aria-label="Chief of Staff" title="Chief of Staff">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 3.5H2.5A1 1 0 001.5 4.5v6A1 1 0 002.5 11.5h2l2 2 2-2h4.5a1 1 0 001-1v-6a1 1 0 00-1-1z"/></svg>
+      </button>
+      <button class="icon-btn" aria-label="Settings" title="Settings">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a1 1 0 01.993.883L9 1v.5a5.002 5.002 0 013.5 3.5h.5a1 1 0 010 2H12.5a5 5 0 01-3.5 3.5V11a1 1 0 01-2 0v-.5A5 5 0 013.5 7H3a1 1 0 010-2h.5A5 5 0 017 1.5V1a1 1 0 011-1zM8 4a3 3 0 100 6 3 3 0 000-6z"/></svg>
+      </button>
+    </div>
+  </nav>
+
+  <main class="main">
+    <h1 class="main-header">Conversations</h1>
+    <div class="pill-bar">
+      <button class="pill active">All</button>
+      <button class="pill">Blocking</button>
+      <button class="pill">Async</button>
+    </div>
+    <div class="content-placeholder">
+      Thread list renders here. Conversations section dominates the sidebar — power users spend 80% of time here.
+    </div>
+  </main>
+</body>
+</html>

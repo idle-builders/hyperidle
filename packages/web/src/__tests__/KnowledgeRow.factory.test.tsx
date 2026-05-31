@@ -32,12 +32,12 @@ describe("KnowledgeRow — J7 factory mode", () => {
 		expect(factoryRow.className).not.toContain("py-[16px]");
 	});
 
-	it("applies bold Geist Mono font to the title in factory mode", () => {
+	it("applies bold font to the title in factory mode", () => {
 		render(<KnowledgeRow {...defaultProps} factoryMode version="v2.1" />);
 		const title = screen.getByLabelText(`Knowledge: ${defaultProps.title}`);
-		// font-heading == Geist Mono, font-bold applied.
+		// U8: font-heading removed (Hearth uses system-ui everywhere); factoryMode uses font-bold only.
 		expect(title.className).toContain("font-bold");
-		expect(title.className).toContain("font-heading");
+		expect(title.className).not.toContain("font-heading");
 		// Must NOT be serif — AC: "NOT serif"
 		expect(title.className).not.toContain("font-serif");
 	});
@@ -47,7 +47,9 @@ describe("KnowledgeRow — J7 factory mode", () => {
 		const pill = screen.getByTestId("knowledge-version-pill");
 		expect(pill).toHaveTextContent("v2.1");
 		expect(pill).toHaveClass("inline-flex");
-		expect(pill.className).toContain("bg-[var(--surface-ghost)]");
+		expect(pill.className).toContain(
+			"bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)]",
+		);
 	});
 
 	it("does NOT render the version pill when factoryMode is omitted", () => {

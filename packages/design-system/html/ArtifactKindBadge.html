@@ -6,14 +6,14 @@
   <title>ArtifactKindBadge — HyperIdle Design System</title>
   <link rel="stylesheet" href="_tokens.css" />
   <style>
-    body { background: var(--surface-1); color: var(--text-hi); font-family: var(--ui); padding: 24px; }
+    body { background: var(--surface-container); color: var(--text-primary); font-family: var(--ui); padding: 24px; }
     .artifact-kind-badge {
       display: inline-flex;
       align-items: center;
       padding: 2px 8px;
-      border-radius: var(--r2);
-      background: var(--surface-ghost);
-      color: var(--text-mid);
+      border-radius: var(--r-default);
+      background: color-mix(in oklab, var(--text-secondary) 8%, transparent);
+      color: var(--text-secondary);
       font-family: var(--mono);
       font-size: 11px;
       letter-spacing: 0.02em;

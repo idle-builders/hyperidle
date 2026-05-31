@@ -85,7 +85,8 @@ describe("design system display server", () => {
 		expect(res.status).toBe(404);
 	});
 
-	it("serves all 14 component files", async () => {
+	// U8: PitchCard deleted — removed from served component list (now 13 components).
+	it("serves all 13 component files", async () => {
 		const components = [
 			"StatusChip",
 			"Tag",
@@ -94,7 +95,6 @@ describe("design system display server", () => {
 			"SearchField",
 			"ThreadRow",
 			"BetCard",
-			"PitchCard",
 			"TaskCard",
 			"KnowledgeRow",
 			"NotificationRow",

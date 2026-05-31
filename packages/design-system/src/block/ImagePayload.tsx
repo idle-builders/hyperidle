@@ -34,12 +34,12 @@ export function ImagePayload({ alt, url, title }: ImagePayloadProps): JSX.Elemen
 		return <UnknownPayload raw={`![${alt}](${url})`} reason="parser-unrecognised" />;
 	}
 	return (
-		<figure className="m-0 relative rounded-[var(--r2)] border border-[var(--border-subtle)] overflow-hidden">
+		<figure className="m-0 relative rounded-[var(--r-default)] border border-[var(--border-subtle)] overflow-hidden">
 			<img src={url} alt={alt} title={title ?? undefined} className="block max-w-full h-auto" />
 			<button
 				type="button"
 				aria-label="Zoom image"
-				className="absolute top-[8px] right-[8px] w-[28px] h-[28px] rounded-[var(--r2)] bg-[color-mix(in_oklab,var(--surface-0)_75%,transparent)] text-[var(--text-mid)] flex items-center justify-center focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--primary)] focus-visible:[outline-offset:-1px]"
+				className="absolute top-[8px] right-[8px] w-[28px] h-[28px] rounded-[var(--r-default)] bg-[color-mix(in_oklab,var(--surface-page)_75%,transparent)] text-[var(--text-secondary)] flex items-center justify-center focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px]"
 			>
 				<svg
 					width="14"
@@ -55,7 +55,7 @@ export function ImagePayload({ alt, url, title }: ImagePayloadProps): JSX.Elemen
 				</svg>
 			</button>
 			{alt ? (
-				<figcaption className="text-[12px] text-[var(--text-lo)] px-[12px] py-[6px]">
+				<figcaption className="text-[12px] text-[var(--text-tertiary)] px-[12px] py-[6px]">
 					{alt}
 				</figcaption>
 			) : null}

@@ -33,14 +33,16 @@ vi.mock("../hooks/useTeams", () => ({
 	}),
 }));
 
+// @lore U6 AC-15: WorkPortfolio navigates to /work/team/:id (not /work/product/:id).
+// The old path /work/product/:productId was renamed to /work/team/:teamId in U6.
 function renderPortfolioWithRouter(): ReturnType<typeof render> {
 	return render(
 		<MemoryRouter initialEntries={["/work/portfolio"]}>
 			<Routes>
 				<Route path="/work/portfolio" element={<WorkPortfolio />} />
 				<Route
-					path="/work/product/:productId"
-					element={<div data-testid="work-product-page">Product Page</div>}
+					path="/work/team/:teamId"
+					element={<div data-testid="work-team-page">Team Page</div>}
 				/>
 			</Routes>
 		</MemoryRouter>,
@@ -48,7 +50,7 @@ function renderPortfolioWithRouter(): ReturnType<typeof render> {
 }
 
 describe("WorkPortfolio — L13 drill-down", () => {
-	it("14. click on a product card navigates to /work/product/:id", async () => {
+	it("14. click on a product card navigates to /work/team/:id", async () => {
 		const user = userEvent.setup();
 		renderPortfolioWithRouter();
 
@@ -60,7 +62,7 @@ describe("WorkPortfolio — L13 drill-down", () => {
 		await user.click(cards[0]);
 
 		await waitFor(() => {
-			expect(screen.getByTestId("work-product-page")).toBeInTheDocument();
+			expect(screen.getByTestId("work-team-page")).toBeInTheDocument();
 		});
 	});
 });

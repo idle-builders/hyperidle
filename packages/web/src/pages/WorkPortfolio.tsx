@@ -13,7 +13,7 @@
  * hook is loading or the API is unavailable, it shows an empty/loading state
  * rather than falling back to a fixture. Real data drives all product cards.
  * Each product card is clickable
- * and navigates to /work/product/:id (N1 drill-down pattern).
+ * and navigates to /work/team/:id (N1 drill-down pattern).
  *
  * @lore M3 review C1: PortfolioProduct type moved here from
  * fixtures/portfolio-data.ts (which has been deleted). The type is a
@@ -162,7 +162,7 @@ export function WorkPortfolio({ loading = false, teams }: WorkPortfolioProps = {
 							key={teamItem.id}
 							type="button"
 							data-testid="team-card"
-							onClick={() => navigate(`/work/product/${encodeURIComponent(teamItem.id)}`)}
+							onClick={() => navigate(`/work/team/${encodeURIComponent(teamItem.id)}`)}
 							className="bg-base-200 rounded-lg p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)] text-left w-full cursor-pointer hover:bg-base-300 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--primary)]"
 						>
 							<div className="flex items-center gap-[var(--density-gap)]">

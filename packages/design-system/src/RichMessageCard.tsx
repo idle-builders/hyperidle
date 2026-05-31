@@ -89,16 +89,16 @@ const VERDICT_BUTTONS: ReadonlyArray<VerdictButtonSpec> = [
 function toneClass(tone: VerdictButtonSpec["tone"]): string {
 	switch (tone) {
 		case "primary":
-			return "bg-[var(--primary)] text-[var(--surface-0)] border-transparent hover:brightness-110";
+			return "bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-transparent hover:bg-[var(--accent-primary-hover)]";
 		case "danger":
-			return "bg-transparent text-[var(--danger)] border-[color-mix(in_oklab,var(--danger)_30%,transparent)] hover:bg-[color-mix(in_oklab,var(--danger)_8%,transparent)]";
+			return "bg-transparent text-[var(--status-error)] border-[color-mix(in_oklab,var(--status-error)_30%,transparent)] hover:bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)]";
 		case "ghost":
-			return "bg-transparent text-[var(--text-mid)] border-[var(--border-default)] hover:bg-[var(--surface-ghost)] hover:text-[var(--text-hi)]";
+			return "bg-transparent text-[var(--text-secondary)] border-[var(--border-subtle)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] hover:text-[var(--text-primary)]";
 	}
 }
 
 const BUTTON_CLASS_BASE =
-	"px-[12px] py-[6px] min-h-[44px] rounded-[var(--r1)] text-[13px] font-medium border focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--primary)] disabled:opacity-50 disabled:cursor-not-allowed";
+	"px-[12px] py-[6px] min-h-[44px] rounded-[var(--r-subtle)] text-[13px] font-medium border focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] disabled:opacity-50 disabled:cursor-not-allowed";
 
 const REASONING_INLINE_THRESHOLD = 80;
 
@@ -169,7 +169,7 @@ function ChevronDown({ open }: { open: boolean }): JSX.Element {
 			strokeWidth={2}
 			style={{
 				transform: open ? "rotate(0deg)" : "rotate(-90deg)",
-				transition: "transform var(--motion-medium) var(--motion-ease)",
+				transition: "transform var(--motion-default) var(--motion-ease)",
 			}}
 			aria-hidden="true"
 		>
@@ -198,27 +198,27 @@ function ResolvedView({
 			data-blocking={blocking ? "true" : "false"}
 			data-sticky-footer="true"
 			aria-labelledby={titleId}
-			className="ml-[36px] bg-[var(--surface-2)] border border-[var(--border-default)] rounded-[var(--r2)] overflow-hidden"
+			className="ml-[36px] bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-default)] overflow-hidden"
 		>
-			<div className="flex items-center gap-[8px] px-[12px] py-[10px] text-[13px] text-[var(--text-mid)] flex-wrap">
-				<span className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-pill)] text-[11px] font-mono tracking-[0.03em] bg-[var(--surface-ghost)] text-[var(--text-mid)]">
+			<div className="flex items-center gap-[8px] px-[12px] py-[10px] text-[13px] text-[var(--text-secondary)] flex-wrap">
+				<span className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-pill)] text-[11px] font-mono tracking-[0.03em] bg-[color-mix(in oklab,var(--text-secondary) 8%,transparent)] text-[var(--text-secondary)]">
 					RESOLVED
 				</span>
-				<span className="font-mono text-[11px] tracking-[0.05em] uppercase font-medium text-[var(--ok)]">
+				<span className="font-mono text-[11px] tracking-[0.05em] uppercase font-medium text-[var(--status-success)]">
 					{verdictDecisionLabel(resolved.decision)}
 				</span>
-				<span id={titleId} className="text-[var(--text-hi)]">
+				<span id={titleId} className="text-[var(--text-primary)]">
 					{title}
 				</span>
-				<span className="text-[var(--text-lo)] ml-[4px] text-[12px]">— {resolved.actor}</span>
-				<span className="text-[var(--text-lo)] text-[11px] tabular-nums">
+				<span className="text-[var(--text-tertiary)] ml-[4px] text-[12px]">— {resolved.actor}</span>
+				<span className="text-[var(--text-tertiary)] text-[11px] tabular-nums">
 					· {resolved.timestamp}
 				</span>
 				<button
 					type="button"
 					aria-expanded={resolved.reExpanded}
 					onClick={resolved.onReexpandToggle}
-					className="ml-auto bg-transparent border-none text-[var(--text-lo)] text-[12px] hover:text-[var(--text-hi)] cursor-pointer"
+					className="ml-auto bg-transparent border-none text-[var(--text-tertiary)] text-[12px] hover:text-[var(--text-primary)] cursor-pointer"
 				>
 					Re-expand
 				</button>
@@ -247,9 +247,12 @@ function RedactedView({
 			data-blocking={blocking ? "true" : "false"}
 			data-sticky-footer="true"
 			aria-labelledby={titleId}
-			className={`ml-[36px] bg-[var(--surface-2)] border border-[var(--border-default)] rounded-[var(--r2)] overflow-hidden ${blocking ? "border-l-2 border-l-[var(--danger)]" : ""}`}
+			className={`ml-[36px] bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-default)] overflow-hidden ${blocking ? "border-l-2 border-l-[var(--status-error)]" : ""}`}
 		>
-			<div id={titleId} className="px-[12px] py-[10px] italic text-[var(--text-lo)] text-[13px]">
+			<div
+				id={titleId}
+				className="px-[12px] py-[10px] italic text-[var(--text-tertiary)] text-[13px]"
+			>
 				{label} redacted by {payload.redactedBy} — {payload.reason}
 			</div>
 		</section>
@@ -342,7 +345,7 @@ export function RichMessageCard({
 			return (
 				<div
 					data-sticky="bottom"
-					className="sticky bottom-0 flex items-center gap-[8px] px-[12px] py-[10px] bg-[var(--surface-2)] border-t border-[var(--border-subtle)] text-[13px] text-[var(--text-mid)]"
+					className="sticky bottom-0 flex items-center gap-[8px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-t border-[var(--border-subtle)] text-[13px] text-[var(--text-secondary)]"
 					aria-live="polite"
 				>
 					Saving…
@@ -354,7 +357,7 @@ export function RichMessageCard({
 				<div
 					role="alert"
 					data-sticky="bottom"
-					className="sticky bottom-0 flex items-center gap-[8px] px-[12px] py-[10px] bg-[var(--surface-2)] border-t border-[var(--border-subtle)] text-[13px] text-[var(--danger)]"
+					className="sticky bottom-0 flex items-center gap-[8px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-t border-[var(--border-subtle)] text-[13px] text-[var(--status-error)]"
 				>
 					<span>{state.reason}</span>
 					<button
@@ -373,7 +376,7 @@ export function RichMessageCard({
 					role="toolbar"
 					aria-label="Verdict actions"
 					data-sticky="bottom"
-					className="sticky bottom-0 flex flex-wrap gap-[8px] px-[12px] py-[10px] bg-[var(--surface-2)] border-t border-[var(--border-subtle)]"
+					className="sticky bottom-0 flex flex-wrap gap-[8px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-t border-[var(--border-subtle)]"
 				>
 					{VERDICT_BUTTONS.map((b) => (
 						<button
@@ -394,7 +397,7 @@ export function RichMessageCard({
 					role="toolbar"
 					aria-label="Answer options"
 					data-sticky="bottom"
-					className="sticky bottom-0 flex flex-wrap gap-[8px] px-[12px] py-[10px] bg-[var(--surface-2)] border-t border-[var(--border-subtle)]"
+					className="sticky bottom-0 flex flex-wrap gap-[8px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-t border-[var(--border-subtle)]"
 				>
 					{/* @lore L11 step9 (S11): all-ghost on questionnaire answers —
 					    no spec-required preferred option, so a primary on
@@ -421,7 +424,9 @@ export function RichMessageCard({
 		if (reasoning.length === 0) return null;
 		if (isShortReasoning(reasoning)) {
 			return (
-				<p className="px-[12px] pb-[8px] text-[13px] text-[var(--text-mid)] m-0">{reasoning[0]}</p>
+				<p className="px-[12px] pb-[8px] text-[13px] text-[var(--text-secondary)] m-0">
+					{reasoning[0]}
+				</p>
 			);
 		}
 		return (
@@ -430,13 +435,13 @@ export function RichMessageCard({
 					type="button"
 					onClick={(): void => setReasoningOpen((p) => !p)}
 					aria-expanded={reasoningOpen}
-					className="inline-flex items-center gap-[6px] mx-[12px] mb-[8px] px-[8px] py-[4px] bg-[var(--surface-3)] rounded-[var(--r1)] text-[12px] text-[var(--text-mid)] cursor-pointer border-none w-fit hover:bg-[var(--surface-4)] hover:text-[var(--text-hi)]"
+					className="inline-flex items-center gap-[6px] mx-[12px] mb-[8px] px-[8px] py-[4px] bg-[var(--surface-container)] rounded-[var(--r-subtle)] text-[12px] text-[var(--text-secondary)] cursor-pointer border-none w-fit hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)]"
 				>
 					<ChevronDown open={reasoningOpen} />
 					{reasoningOpen ? "Hide reasoning" : `${reasoning.length} reasons`}
 				</button>
 				{reasoningOpen ? (
-					<ol className="px-[12px] pb-[8px] pl-[36px] list-decimal text-[13px] text-[var(--text-mid)] m-0">
+					<ol className="px-[12px] pb-[8px] pl-[36px] list-decimal text-[13px] text-[var(--text-secondary)] m-0">
 						{reasoning.map((line, i) => (
 							// biome-ignore lint/suspicious/noArrayIndexKey: reasoning entries are immutable once sent.
 							<li key={`${message.id}-r-${i}`} className="my-[2px]">
@@ -452,7 +457,7 @@ export function RichMessageCard({
 	const renderQuestionnaireBody = (): ReactNode => {
 		if (!isQuestionnaire || questionnaire.redacted) return null;
 		return (
-			<p className="px-[12px] pb-[8px] text-[13px] text-[var(--text-mid)] m-0">
+			<p className="px-[12px] pb-[8px] text-[13px] text-[var(--text-secondary)] m-0">
 				{questionnaire.question}
 			</p>
 		);
@@ -469,14 +474,14 @@ export function RichMessageCard({
 			data-sticky-footer="true"
 			aria-labelledby={titleId}
 			style={{ maxHeight: "min(var(--card-max-h), max-content)" }}
-			className={`ml-[36px] bg-[var(--surface-2)] border border-[var(--border-default)] rounded-[var(--r2)] overflow-hidden flex flex-col ${blocking ? "border-l-2 border-l-[var(--danger)]" : ""}`}
+			className={`ml-[36px] bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-default)] overflow-hidden flex flex-col ${blocking ? "border-l-2 border-l-[var(--status-error)]" : ""}`}
 		>
-			<div className="flex items-center gap-[8px] px-[12px] pt-[8px] pb-[6px] text-[12px] text-[var(--text-mid)] flex-wrap">
-				<span className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-pill)] text-[11px] font-mono tracking-[0.03em] bg-[color-mix(in_oklab,var(--primary)_18%,transparent)] text-[var(--primary)]">
+			<div className="flex items-center gap-[8px] px-[12px] pt-[8px] pb-[6px] text-[12px] text-[var(--text-secondary)] flex-wrap">
+				<span className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-pill)] text-[11px] font-mono tracking-[0.03em] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-primary)]">
 					{tagLabel}
 				</span>
-				<span className="text-[var(--text-hi)] font-medium">{sender.name}</span>
-				{sender.role ? <span className="text-[var(--text-lo)]">· {sender.role}</span> : null}
+				<span className="text-[var(--text-primary)] font-medium">{sender.name}</span>
+				{sender.role ? <span className="text-[var(--text-tertiary)]">· {sender.role}</span> : null}
 				{blocking ? (
 					<span className="ml-auto text-[11px] font-mono tracking-[0.05em] uppercase">
 						<StatusChip status="blocked" />
@@ -485,7 +490,7 @@ export function RichMessageCard({
 			</div>
 			<h3
 				id={titleId}
-				className="px-[12px] pb-[6px] text-[16px] font-semibold text-[var(--text-hi)] m-0"
+				className="px-[12px] pb-[6px] text-[16px] font-semibold text-[var(--text-primary)] m-0"
 			>
 				{title}
 			</h3>

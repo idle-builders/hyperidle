@@ -7,8 +7,8 @@
   <link rel="stylesheet" href="_tokens.css" />
   <style>
     .bet-card {
-      background: var(--surface-4);
-      border-radius: var(--r2);
+      background: var(--surface-elevated);
+      border-radius: var(--r-default);
       /* K11: outer pad → --density-card-pad, section gap →
          --density-card-gap per density-audit.md § 3.2.4. The card a user
          sees most often, currently density-static. */
@@ -21,10 +21,10 @@
       max-width: 320px;
     }
     .bet-card:hover {
-      background: var(--surface-5);
+      background: var(--surface-elevated);
     }
     .bet-card:focus-visible {
-      outline: 1px solid var(--primary);
+      outline: 1px solid var(--accent-primary);
       outline-offset: -1px;
     }
 
@@ -42,8 +42,8 @@
       align-items: center;
       justify-content: center;
       border-radius: 50%;
-      background: var(--surface-6);
-      color: var(--text-hi);
+      background: var(--surface-container);
+      color: var(--text-primary);
       font-size: 11px;
       font-weight: 600;
     }
@@ -51,7 +51,7 @@
       /* K11: title font scales with density per § 3.2.4 (title font ✓). */
       font-size: var(--density-text);
       font-weight: 500;
-      color: var(--text-hi);
+      color: var(--text-primary);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -73,19 +73,19 @@
     .bet-card__progress-bar {
       width: 64px;
       height: 6px;
-      background: var(--surface-6);
+      background: var(--surface-container);
       border-radius: var(--r-pill);
       overflow: hidden;
     }
     .bet-card__progress-fill {
       height: 100%;
-      background: var(--primary);
+      background: var(--accent-primary);
       border-radius: var(--r-pill);
-      transition: width var(--motion-medium);
+      transition: width var(--motion-default);
     }
     .bet-card__progress-label {
       font-size: 12px;
-      color: var(--text-mid);
+      color: var(--text-secondary);
     }
 
     /* --- Tier 1: StatusChip --- */
@@ -110,18 +110,18 @@
       border-radius: 50%;
       flex-shrink: 0;
     }
-    .status-chip--healthy { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
-    .status-chip--healthy .dot { background: var(--ok); }
-    .status-chip--behind { background: color-mix(in oklab, var(--warn) 14%, transparent); color: var(--warn); }
-    .status-chip--behind .dot { background: var(--warn); }
-    .status-chip--blocked { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); }
-    .status-chip--blocked .dot { background: var(--danger); }
-    .status-chip--paused { background: color-mix(in oklab, var(--text-lo) 14%, transparent); color: var(--text-lo); }
-    .status-chip--paused .dot { background: var(--text-lo); }
-    .status-chip--done { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
-    .status-chip--done .dot { background: var(--ok); }
-    .status-chip--error { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); }
-    .status-chip--error .dot { background: var(--danger); }
+    .status-chip--healthy { background: color-mix(in oklab, var(--status-success) 14%, transparent); color: var(--status-success); }
+    .status-chip--healthy .dot { background: var(--status-success); }
+    .status-chip--behind { background: color-mix(in oklab, var(--status-warning) 14%, transparent); color: var(--status-warning); }
+    .status-chip--behind .dot { background: var(--status-warning); }
+    .status-chip--blocked { background: color-mix(in oklab, var(--status-error) 14%, transparent); color: var(--status-error); }
+    .status-chip--blocked .dot { background: var(--status-error); }
+    .status-chip--paused { background: color-mix(in oklab, var(--text-tertiary) 14%, transparent); color: var(--text-tertiary); }
+    .status-chip--paused .dot { background: var(--text-tertiary); }
+    .status-chip--done { background: color-mix(in oklab, var(--status-success) 14%, transparent); color: var(--status-success); }
+    .status-chip--done .dot { background: var(--status-success); }
+    .status-chip--error { background: color-mix(in oklab, var(--status-error) 14%, transparent); color: var(--status-error); }
+    .status-chip--error .dot { background: var(--status-error); }
 
     /* --- Tier 1: Tag --- */
     .tag {
@@ -134,8 +134,8 @@
       font-family: var(--mono);
       letter-spacing: 0.03em;
       white-space: nowrap;
-      background: var(--surface-ghost);
-      color: var(--text-mid);
+      background: color-mix(in oklab, var(--text-secondary) 8%, transparent);
+      color: var(--text-secondary);
       flex-shrink: 0;
     }
 
@@ -153,11 +153,11 @@
       letter-spacing: 0.05em;
       text-transform: uppercase;
       font-weight: 500;
-      color: var(--text-lo);
+      color: var(--text-tertiary);
     }
     .key-value__value {
       font-size: var(--density-text);
-      color: var(--text-hi);
+      color: var(--text-primary);
     }
   </style>
 </head>

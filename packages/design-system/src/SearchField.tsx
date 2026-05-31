@@ -17,7 +17,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 		<div {...dsProps("SearchField", "1")} className="relative flex w-full items-center">
 			<span className="pointer-events-none absolute left-[8px] flex items-center text-[var(--text-tertiary)]">
 				{loading ? (
-					<span className="inline-block h-[14px] w-[14px] rounded-full border-2 border-[var(--border-default)] border-t-[var(--accent-primary)] animate-spin" />
+					<span className="inline-block h-[14px] w-[14px] rounded-full border-2 border-[var(--border-subtle)] border-t-[var(--accent-primary)] animate-spin" />
 				) : (
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -38,7 +38,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 			<input
 				ref={ref}
 				type="text"
-				className="w-full h-[32px] pl-[32px] pr-[56px] bg-[var(--surface-container)] border border-[var(--border-default)] rounded-[var(--r-default)] font-[family-name:var(--font-sans)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,background,box-shadow] duration-[var(--motion-fast)] ease-[ease] focus:border-[var(--accent-primary)] focus:bg-[var(--surface-page)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-none"
+				className="w-full h-[32px] pl-[32px] pr-[56px] bg-[var(--surface-container)] border border-[var(--border-subtle)] rounded-[var(--r-default)] font-[family-name:var(--font-sans)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,background,box-shadow] duration-[var(--motion-fast)] ease-[ease] focus:border-[var(--accent-primary)] focus:bg-[var(--surface-page)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-none"
 				placeholder={placeholder}
 				value={value}
 				onChange={(e) => onChange?.(e.target.value)}
