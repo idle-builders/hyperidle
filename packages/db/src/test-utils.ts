@@ -60,6 +60,26 @@ interface PooledInstance {
 /** Available (TRUNCATED, ready-to-use) instances. */
 const pool: PooledInstance[] = [];
 
+/** All allocated PGlite clients, for cleanup on worker exit. */
+const allClients: PGlite[] = [];
+
+// @lore: PGlite WASM keeps the Node event loop alive even after all tests
+// finish, preventing vitest fork workers from exiting. Without this handler,
+// workers become orphaned processes (100+ observed after multi-worktree runs).
+// Detect parent exit via IPC disconnect and force-shutdown.
+if (typeof process.send === "function") {
+	process.on("disconnect", () => {
+		for (const client of allClients) {
+			try {
+				client.close();
+			} catch {
+				// Best-effort — process is exiting anyway
+			}
+		}
+		process.exit(0);
+	});
+}
+
 /**
  * Create a new PGlite instance and run all migrations.
  * First call cold-starts the WASM (~850ms). Subsequent calls reuse the
@@ -68,6 +88,7 @@ const pool: PooledInstance[] = [];
 async function allocateInstance(): Promise<PooledInstance> {
 	const client = new PGlite();
 	await client.waitReady;
+	allClients.push(client);
 	const db = drizzle(client, { schema });
 	await migrate(db, { migrationsFolder: migrationsFolder() });
 	return { client, db };
@@ -115,6 +136,16 @@ async function truncateAllTables(db: HyperIdleDb): Promise<void> {
  * Signature is identical to the original per-call factory so no test files
  * need changes.
  */
+/**
+ * Close all PGlite instances allocated by this worker.
+ * Drains the pool and terminates every client so the event loop can exit.
+ */
+export async function closeAllInstances(): Promise<void> {
+	const clients = allClients.splice(0);
+	pool.length = 0;
+	await Promise.allSettled(clients.map((c) => c.close()));
+}
+
 export async function createTestDb(): Promise<TestDbHandle> {
 	// Take from pool if available (already TRUNCATED and ready)
 	const pooled = pool.pop();
