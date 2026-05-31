@@ -99,6 +99,7 @@ describe("Sidebar — AC-1: section header icons", () => {
 	it("renders an icon alongside the CONVERSATIONS section header", () => {
 		const { container } = render(<Sidebar {...defaultProps} />);
 		// Icons are SVG elements. Conversations section should have at least one.
+		// biome-ignore lint/correctness/noUnusedVariables: query result used for its side-effect (throws if not found)
 		const conversationsSection = screen
 			.getByText(/conversations/i)
 			.closest("[data-section]") as HTMLElement | null;
@@ -211,6 +212,7 @@ describe("Sidebar — AC-6: Active view highlighting", () => {
 		const { container } = render(<Sidebar {...defaultProps} activeView="conversations" />);
 		// The active section should have text-primary / fw-semibold or equivalent active class
 		// Look for the conversations header element with active class attribute
+		// biome-ignore lint/correctness/noUnusedVariables: query used for its side-effect (throws if not found)
 		const header = screen
 			.getByText(/^conversations$/i)
 			.closest("[data-section-header]") as HTMLElement | null;

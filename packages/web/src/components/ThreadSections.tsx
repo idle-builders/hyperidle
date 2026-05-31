@@ -10,7 +10,7 @@ import type { CSSProperties, JSX } from "react";
 
 /**
  * @lore L1a (T17) / L8 §3.2: ThreadItem carries `hostKind` + the derived
- * `hasUnresolvedReview` flag. The Conversations Submenu (L8) renders three
+ * `hasUnresolvedReview` flag. The Conversations section (L8) renders three
  * buckets only — blocking | active | resolved — per approved.md §2.
  */
 export interface ThreadItem {

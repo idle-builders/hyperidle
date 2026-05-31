@@ -13,7 +13,7 @@
  * hook is loading or the API is unavailable, it shows an empty/loading state
  * rather than falling back to a fixture. Real data drives all product cards.
  * Each product card is clickable
- * and navigates to /work/product/:id (N1 drill-down pattern).
+ * and navigates to /work/team/:id (N1 drill-down pattern).
  *
  * @lore M3 review C1: PortfolioProduct type moved here from
  * fixtures/portfolio-data.ts (which has been deleted). The type is a

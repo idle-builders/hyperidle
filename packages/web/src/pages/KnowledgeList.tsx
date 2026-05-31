@@ -4,7 +4,7 @@ import { EmptyState, ErrorState, KnowledgeRow, SkeletonList } from "@hyperidle/d
  * draft-item Triage view.
  *
  * @lore J6: the page reads scope from the URL search param `scope` so the
- * AppShell's Submenu scope browser can drive it without lifting state out
+ * AppShell's Sidebar scope selector can drive it without lifting state out
  * of the page. Tab memory (Triage/Curated) stays in component state only —
  * AC explicitly forbids localStorage persistence here.
  *

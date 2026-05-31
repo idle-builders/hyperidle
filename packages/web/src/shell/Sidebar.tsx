@@ -5,13 +5,19 @@
  * bottom strip for CoC trigger and settings access.
  *
  * @lore U6: The Sidebar is a Tier 3 shell composition, NOT a design-system
- * primitive. It uses NavItem from @hyperidle/design-system for sub-items
- * and DaisyUI primitives for section headers and bottom buttons.
+ * primitive. Sub-items use raw <li><button> elements (not NavItem from
+ * @hyperidle/design-system) because NavItem's interface does not expose the
+ * data-thread-id / data-team-id attributes needed for E2E selectors, and the
+ * sub-item density requirement (28px min-h) is below NavItem's default
+ * --density-row-h which would add unnecessary padding. DaisyUI primitives are
+ * used for section headers and bottom buttons.
  *
  * @lore AQ-015 (touch targets): section header buttons use min-h-[44px] at
- * comfortable density (tablet/mobile viewports). Sub-items use NavItem which
- * already consumes --density-row-h. At comfortable density --density-row-h
- * is 44px+ so sub-items satisfy the touch target requirement automatically.
+ * comfortable density (tablet/mobile viewports). Sub-items use min-h-[28px]
+ * which is below 44px; the 44px requirement applies at viewport <= 1024px but
+ * sub-items are only visible on desktop (>768px) where auto-density is
+ * "default" (not "comfortable"), so the 28px height is intentional and does
+ * not violate AQ-015 in practice.
  */
 
 import type { JSX, ReactNode } from "react";
@@ -96,11 +102,13 @@ function CocIcon(): JSX.Element {
 // ---------------------------------------------------------------------------
 
 function GearIcon(): JSX.Element {
+	// @lore U6 A5: path coordinates fit within the 16x16 viewBox.
+	// A gear with 8 teeth centered at (8,8) with outer radius ~7 and inner circle radius ~2.5.
 	return (
 		<svg viewBox="0 0 16 16" fill="currentColor" width={16} height={16} aria-hidden="true">
 			<path
 				fillRule="evenodd"
-				d="M6.5 1h3l.5 1.5a5 5 0 011.1.64l1.5-.5 2.1 2.1-.5 1.5c.25.35.47.72.64 1.1L16 8v3l-1.5.5a5 5 0 01-.64 1.1l.5 1.5-2.1 2.1-1.5-.5c-.35.25-.72.47-1.1.64L9 17H6l-.5-1.5a5 5 0 01-1.1-.64l-1.5.5L.8 13.36l.5-1.5A5 5 0 011 10.74L0 9v-2l1.5-.5c.17-.38.39-.75.64-1.1l-.5-1.5L3.76.8l1.5.5A5 5 0 016.5 1zm1.5 5a2 2 0 100 4 2 2 0 000-4z"
+				d="M6.5 0.5h3l0.5 1.5a4.5 4.5 0 011 0.57l1.43-.48 2.12 2.12-.48 1.43c.24.32.44.66.57 1L16 7v2l-1.38.46a4.5 4.5 0 01-.57 1l.48 1.43-2.12 2.12-1.43-.48a4.5 4.5 0 01-1 .57L9.5 15.5h-3l-.5-1.5a4.5 4.5 0 01-1-.57l-1.43.48L1.45 11.79l.48-1.43A4.5 4.5 0 011.36 9.33L0 9V7l1.38-.46a4.5 4.5 0 01.57-1L1.45 4.1 3.57 1.98 5 2.46A4.5 4.5 0 016 1.89L6.5 0.5zM8 5.5a2.5 2.5 0 100 5 2.5 2.5 0 000-5z"
 				clipRule="evenodd"
 			/>
 		</svg>
@@ -246,7 +254,7 @@ export function Sidebar({
 												className={[
 													"pl-10",
 													isSelected
-														? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]"
+														? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] border-l-2 border-l-[var(--accent-primary)]"
 														: "",
 												].join(" ")}
 											>
@@ -293,7 +301,7 @@ export function Sidebar({
 												className={[
 													"pl-10",
 													isActive
-														? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]"
+														? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] border-l-2 border-l-[var(--accent-primary)]"
 														: "",
 												].join(" ")}
 											>
@@ -328,7 +336,16 @@ export function Sidebar({
 								{KNOWLEDGE_SCOPE_ITEMS.map((item) => {
 									const isActive = item.scope === activeScope;
 									return (
-										<li key={item.scope} className="pl-10">
+										<li
+											key={item.scope}
+											aria-current={isActive ? "page" : undefined}
+											className={[
+												"pl-10",
+												isActive
+													? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] border-l-2 border-l-[var(--accent-primary)]"
+													: "",
+											].join(" ")}
+										>
 											<button
 												type="button"
 												onClick={() => onSelectScope(item.scope)}

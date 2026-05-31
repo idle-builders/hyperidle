@@ -187,9 +187,6 @@
 					"suspicious": {
 						"noEmptyBlockStatements": "off",
 						"useAwait": "off"
-					},
-					"correctness": {
-						"noUnusedVariables": "off"
 					}
 				}
 			}

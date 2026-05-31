@@ -36,12 +36,10 @@ import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom
 import { SessionActivityPanel } from "../components/SessionActivityPanel";
 import type { ConversationsFilter } from "../components/ThreadSections";
 import { ThreadSections } from "../components/ThreadSections";
-import { useCurrentUser } from "../hooks/useCurrentUser.js";
-import { useConversationsThreads } from "../hooks/useConversationsThreads";
 import { useHint } from "../hooks/useHints";
 import { useThreadDetail } from "../hooks/useThreadDetail";
-import { apiFetch } from "../services/api-fetch.js";
 import type { AppShellOutletContext } from "../layouts/AppShell";
+import { apiFetch } from "../services/api-fetch.js";
 import {
 	type ActionSummaryData,
 	ArtifactView,
@@ -495,12 +493,18 @@ export function Conversations(): JSX.Element {
 	const onFilterChange = ctx?.onFilterChange ?? (() => undefined);
 	const onClearFilter = ctx?.onClearFilter ?? (() => undefined);
 
-	// @lore U6: Conversations page calls useConversationsThreads directly so the
-	// main pane thread list (ThreadSections) is independent of AppShell's
-	// sidebar thread list. Both subscribe to the same API endpoint; the stub in
-	// tests satisfies both calls.
-	const { user } = useCurrentUser();
-	const conversationsThreads = useConversationsThreads(user?.id);
+	// @lore U6 review V1: Thread data is sourced from AppShell's OutletContext
+	// (single useConversationsThreads call in AppShell). Conversations.tsx no
+	// longer calls useConversationsThreads independently, avoiding the duplicate
+	// API fetch that previously occurred on every Conversations page mount.
+	// Fallback values handle the case where Conversations is rendered outside
+	// AppShell (tests that provide a partial context or no context at all).
+	const conversationsThreads = {
+		threads: ctx?.threads ?? [],
+		status: ctx?.threadsStatus ?? ("loading" as const),
+		error: ctx?.threadsError ?? null,
+		retry: ctx?.onRetryThreads ?? (() => undefined),
+	};
 	const navigate = useNavigate();
 
 	const handleSelectThread = useCallback(
