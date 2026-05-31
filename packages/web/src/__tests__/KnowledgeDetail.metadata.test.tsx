@@ -19,8 +19,8 @@ describe("KnowledgeDetail — J7 metadata bar", () => {
 		renderPage("k6");
 		const bar = screen.getByTestId("knowledge-metadata-bar");
 		const tag = within(bar).getByText("principle");
-		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r2)]");
-		expect(tag.className).toContain("bg-[var(--surface-ghost)]");
+		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
+		expect(tag.className).toContain("text-secondary");
 	});
 
 	it("renders status StatusChip in the metadata bar (active→HEALTHY)", () => {
@@ -34,8 +34,8 @@ describe("KnowledgeDetail — J7 metadata bar", () => {
 		renderPage("k6");
 		const bar = screen.getByTestId("knowledge-metadata-bar");
 		const tag = within(bar).getByText("L1");
-		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r2)]");
-		expect(tag.className).toContain("bg-[var(--surface-ghost)]");
+		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
+		expect(tag.className).toContain("text-secondary");
 	});
 
 	it("renders decision kind + active status from fixture data", () => {
@@ -45,7 +45,7 @@ describe("KnowledgeDetail — J7 metadata bar", () => {
 		const bar = screen.getByTestId("knowledge-metadata-bar");
 		// "decision" is a TagKind with its own tint, so it won't have badge-neutral
 		const decisionTag = within(bar).getByText("decision");
-		expect(decisionTag).toHaveClass("inline-flex", "rounded-[var(--r2)]");
+		expect(decisionTag).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 		expect(within(bar).getByText("HEALTHY")).toBeInTheDocument();
 	});
 
