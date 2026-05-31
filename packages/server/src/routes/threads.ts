@@ -282,15 +282,35 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 	// --- GET /api/threads/:id -----------------------------------------------
 	router.get("/:id", async (c) => {
 		const id = c.req.param("id");
+
+		// T5: optional block_id filter. Reject empty strings and oversized values (AC-5 security).
+		// BlockIds are Blake2s hashes (~64 chars); cap at 128 to reject clearly-bogus input.
+		const rawBlockId = c.req.query("block_id");
+		if (rawBlockId !== undefined && rawBlockId === "") {
+			const e = err("validation_error", "block_id must not be empty", 400);
+			return c.json(e.body, e.status);
+		}
+		if (rawBlockId !== undefined && rawBlockId.length > 128) {
+			const e = err("validation_error", "block_id must not exceed 128 characters", 400);
+			return c.json(e.body, e.status);
+		}
+		const blockIdFilter = rawBlockId ?? null;
+
 		const [row] = await db.select().from(threads).where(eq(threads.id, id)).limit(1);
 		if (!row) {
 			const e = err(API_ERROR_CODES.NOT_FOUND, "Thread not found", 404);
 			return c.json(e.body, e.status);
 		}
+
+		// Build message query — optionally filter by block_id column.
+		const msgConditions = blockIdFilter
+			? and(eq(messages.threadId, id), eq(messages.blockId, blockIdFilter))
+			: eq(messages.threadId, id);
+
 		const messageRows = await db
 			.select()
 			.from(messages)
-			.where(eq(messages.threadId, id))
+			.where(msgConditions)
 			.orderBy(desc(messages.createdAt), desc(messages.id));
 		const msgsDesc = messageRows.map(rowToMessage);
 		// headCollapsePredicate operates on ASC-sorted messages (concept §4.5.5).
@@ -358,6 +378,11 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 					lastActiveAt: now,
 					createdAt: now,
 				});
+				// T5: dual-write blockId to the structured column (safe narrowing — no `as` cast).
+				const initBlockId =
+					input.initialMessage.type === "plain"
+						? (input.initialMessage.payload.blockId ?? null)
+						: null;
 				await tx.insert(messages).values({
 					id: messageId,
 					senderId,
@@ -365,6 +390,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 					type: input.initialMessage.type,
 					payload: JSON.stringify(input.initialMessage.payload),
 					clientKey: input.initialMessage.clientKey,
+					blockId: initBlockId,
 					createdAt: now,
 				});
 			});
@@ -520,6 +546,8 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 
 			try {
 				await db.transaction(async (tx) => {
+					// T5: dual-write blockId to the structured column (safe narrowing — no `as` cast).
+					const appendBlockId = input.type === "plain" ? (input.payload.blockId ?? null) : null;
 					await tx.insert(messages).values({
 						id: messageId,
 						senderId,
@@ -527,6 +555,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 						type: input.type,
 						payload: JSON.stringify(input.payload),
 						clientKey: input.clientKey,
+						blockId: appendBlockId,
 						createdAt: now,
 					});
 

@@ -55,11 +55,24 @@ const sanitizeHtml = (raw: string): string => DOMPurify.sanitize(raw);
 /**
  * Inline anchored messages — shown below a block's payload.
  * @lore L18: same catch-all pattern as BetPitch/WorkBet.
+ * @lore T5: `anchorLost` renders an honest indicator when the block this message
+ * was anchored to no longer resolves (edited or deleted). Same signal for both cases.
  */
-function AnchoredMessages({ messages }: { messages: ReadonlyArray<Message> }): JSX.Element | null {
+function AnchoredMessages({
+	messages,
+	anchorLost = false,
+}: {
+	messages: ReadonlyArray<Message>;
+	anchorLost?: boolean;
+}): JSX.Element | null {
 	if (messages.length === 0) return null;
 	return (
 		<div data-testid="anchored-messages" className="flex flex-col gap-1 mt-1">
+			{anchorLost && (
+				<span data-testid="anchor-lost-indicator" className="text-xs text-[var(--text-lo)] italic">
+					anchor lost
+				</span>
+			)}
 			{messages.map((msg) => {
 				if (msg.type !== "plain") return null;
 				const text = isRedactedPayload(msg.payload) ? "[redacted]" : msg.payload.text;
@@ -140,7 +153,8 @@ export function KnowledgeBody({
 				))
 			)}
 			{/* Catch-all: anchored messages whose block no longer exists in the body */}
-			<AnchoredMessages messages={orphanMessages} />
+			{/* T5: anchorLost={true} renders the honest indicator for orphaned messages */}
+			<AnchoredMessages messages={orphanMessages} anchorLost />
 		</div>
 	);
 }
