@@ -92,7 +92,7 @@ function MessagePayloads({
 		);
 	}
 	return (
-		<div className="flex flex-col gap-[8px] text-[13px] text-[var(--text-secondary)]">
+		<div className="flex flex-col gap-[9px] text-[13px] text-[var(--text-secondary)]">
 			{payloads.map((payload, i) => (
 				// biome-ignore lint/suspicious/noArrayIndexKey: payloads are position-stable within a single message render
 				<div key={i}>{renderPayload(payload, sanitizeHtml)}</div>
@@ -124,7 +124,7 @@ function renderBody(message: Message, sanitizeHtml?: (raw: string) => string): R
 	switch (message.type) {
 		case "verdict":
 			return (
-				<div className="flex items-center gap-[8px] text-[13px]">
+				<div className="flex items-center gap-[9px] text-[13px]">
 					<StatusChip status={verdictDecisionToStatus(payload.decision)} />
 					<span className="text-[var(--text-secondary)]">
 						{verdictDecisionLabel(payload.decision)}
@@ -168,7 +168,7 @@ export function CommentRow({
 			{...dsProps("CommentRow", "2")}
 			data-testid="comment-row"
 			{...(variant ? { "data-variant": variant } : {})}
-			className="flex gap-[8px] py-[6px] px-[var(--density-pad-x,12px)]"
+			className="flex gap-[9px] py-[6px] px-[var(--density-pad-x,12px)]"
 		>
 			{showSenderHeader ? (
 				<span className="inline-flex items-center justify-center w-[28px] h-[28px] rounded-full bg-[var(--surface-container)] text-[var(--text-tertiary)] text-[11px] font-medium border border-[var(--border-subtle)] shrink-0">
@@ -177,7 +177,7 @@ export function CommentRow({
 			) : (
 				<span className="w-[28px] shrink-0" aria-hidden="true" />
 			)}
-			<div className="flex flex-col gap-[2px] min-w-0 flex-1">
+			<div className="flex flex-col gap-[3px] min-w-0 flex-1">
 				{showSenderHeader ? (
 					<div className="flex items-center gap-[6px] text-[12px]">
 						<span className="text-[var(--text-primary)] font-medium">{sender.name}</span>
@@ -194,15 +194,15 @@ export function CommentRow({
 				{richSupplied ? (
 					<>
 						{richHeader ? <div className="flex flex-col gap-[6px]">{richHeader}</div> : null}
-						{richBody ? <div className="mt-[2px]">{richBody}</div> : null}
+						{richBody ? <div className="mt-[3px]">{richBody}</div> : null}
 						{richActions ? (
-							<div className="flex flex-wrap gap-[8px] mt-[4px]">{richActions}</div>
+							<div className="flex flex-wrap gap-[9px] mt-[3px]">{richActions}</div>
 						) : null}
 					</>
 				) : (
 					renderBody(message, sanitizeHtml)
 				)}
-				{afterBody ? <div className="mt-[4px]">{afterBody}</div> : null}
+				{afterBody ? <div className="mt-[3px]">{afterBody}</div> : null}
 			</div>
 		</li>
 	);

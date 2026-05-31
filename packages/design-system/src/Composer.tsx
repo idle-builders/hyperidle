@@ -82,14 +82,14 @@ export function Composer({ threadId, onSubmit, unresolvedReviewLink }: ComposerP
 				</div>
 			) : null}
 			<textarea
-				className="w-full min-h-[44px] resize-y bg-[var(--surface-elevated)] text-[var(--text-secondary)] placeholder:text-[var(--text-placeholder)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-[10px] py-[8px] text-[13px] focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]"
+				className="w-full min-h-[44px] resize-y bg-[var(--surface-elevated)] text-[var(--text-secondary)] placeholder:text-[var(--text-placeholder)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-[9px] py-[9px] text-[13px] focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]"
 				placeholder="Reply to thread…"
 				value={text}
 				onChange={(e): void => setText(e.target.value)}
 				onKeyDown={handleKeyDown}
 				disabled={submitting}
 			/>
-			<div className="flex items-center justify-end gap-[8px]">
+			<div className="flex items-center justify-end gap-[9px]">
 				<span className="text-[11px] text-[var(--text-tertiary)]">⌘+Enter to send</span>
 				<button
 					type="button"
