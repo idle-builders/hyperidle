@@ -15,8 +15,11 @@
  * mirror WorkBet's `overrideBet` / `loading` props — used by stories and tests
  * to inject fixture data without crossing the __fixtures__/ import boundary.
  *
- * @lore U5: Renamed from WorkProduct → WorkTeam. Route path /work/product/:productId
- * → /work/team/:teamId (U5). The component name, props, and data-testids updated.
+ * @lore U5: Renamed from WorkProduct → WorkTeam. Component name, props, and
+ * data-testids updated. Route path rename (/work/product/:productId →
+ * /work/team/:teamId) is deferred to U6. Until then, useParams aliases the
+ * route param: `const { productId: teamId } = useParams<{ productId: string }>()`.
+ * See plans/U5/review.md B1.
  */
 
 import {
@@ -74,7 +77,9 @@ export function WorkTeam({
 	overrideError,
 	skipArtifacts = false,
 }: WorkTeamProps = {}): JSX.Element {
-	const { teamId } = useParams<{ teamId: string }>();
+	// @lore U5: Route path stays /work/product/:productId until U6 renames it.
+	// Alias the param here so downstream code uses the semantic name `teamId`.
+	const { productId: teamId } = useParams<{ productId: string }>();
 
 	// Only call useTeam when there is no override (mirrors WorkBet pattern).
 	const fetched = useTeam(overrideData !== undefined ? undefined : teamId);

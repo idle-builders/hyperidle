@@ -214,8 +214,14 @@ function isDomainProductLine(line: string, filePath: string): boolean {
 	// - Route path strings /work/product/:productId (URL rename is U6 scope per F1)
 	if (/['"]\/work\/product/.test(codePart)) return false;
 
-	// - "My Product" string literal in SetupFlow (UI copy, not renamed in U5)
-	if (/["']My Product["']/.test(codePart)) return false;
+	// - useParams alias in WorkTeam.tsx: `{ productId: teamId }` — the route param name
+	// stays :productId until U6 renames it; only the local variable is aliased to teamId.
+	// See plans/U5/review.md B1.
+	if (/\bproductId\s*:\s*teamId\b/.test(codePart)) return false;
+	if (/useParams<\{\s*productId\s*:/.test(codePart)) return false;
+
+	// - "My Team" string literal in SetupFlow (renamed from "My Product" in U5)
+	if (/["']My Team["']/.test(codePart)) return false;
 
 	// - KnowledgeScope SCOPE_LABELS record key `product:` — not the domain entity
 	if (/SCOPE_LABELS|KnowledgeScope/.test(codePart)) return false;

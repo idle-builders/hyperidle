@@ -73,7 +73,7 @@ describe("M3 — WorkPortfolio: empty state renders 'No products' (G1)", () => {
 		vi.clearAllMocks();
 	});
 
-	it("renders empty state when useTeams returns empty products array", async () => {
+	it("renders empty state when useTeams returns empty teams array", async () => {
 		vi.mocked(useTeams).mockReturnValue({
 			// @lore U1: TeamListResponse uses `teams` array (renamed from `products`)
 			data: { teams: [] },
