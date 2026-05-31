@@ -88,3 +88,35 @@ This is critical because the lint rule will flag every button and input as off-g
 Score 8/10. The design is strong and faithfully captures the Hearth aesthetic vision. The two CRITICAL findings (off-grid padding values and off-scale checkbox radius in the founding reference) are real contradictions that the builder will hit. The designer must resolve them before implementation by either adding documented exceptions or snapping the reference values. These are specification-level contradictions, not design quality issues -- the design itself is thorough and well-reasoned.
 
 **Recommendation:** Pass with conditions. Address CRITICALs #1 and #2 by adding a note about "component-internal padding exemptions" to AQ-001 (the same pattern Carbon uses). Address WARNING #6 by updating AQ-004's weight list. The remaining warnings and suggestions can be addressed during implementation without a design revision.
+
+---
+
+## Round 2: PASS
+
+**Date:** 2026-05-31
+**Score:** 9/10 (up from 8/10)
+
+All 6 findings from Round 1 have been addressed in the amended `plans/U10/design/approved.md`:
+
+| # | Severity | Finding | Resolution | Status |
+|---|---|---|---|---|
+| 1 | CRITICAL | Checkbox radius 6px off scale | Form control chrome exemption added to Principle 3 + AQ-011 with DaisyUI lint skip | RESOLVED |
+| 2 | CRITICAL | Button/input padding off grid | Component-internal padding exemption added to AQ-001 citing Carbon/Material precedent | RESOLVED |
+| 3 | WARNING | 10px/9px font sizes missing | Both added to allowlist: 9px (count badges only), 10px (micro-typography) | RESOLVED |
+| 4 | WARNING | Letter-spacing 0.08em vs 0.02em | --tracking-caps updated to 0.08em, --tracking-caps-sm: 0.06em added | RESOLVED |
+| 5 | WARNING | gap 2px/4px off grid | Covered by AQ-001 component-internal exemption (same as CRITICAL 2) | RESOLVED |
+| 6 | WARNING | AQ-004 font-weight {400,500,600} | Expanded to {400,500,600,700} with 700 for page titles | RESOLVED |
+
+### Architecture Plan Note
+
+The architecture plan (`plans/U10/architecture.md`) has a minor inconsistency: the Plan Reconciliation table (line 36) and AC-8 summary (line 120) specify `FONT_SIZE_ALLOWLIST` as `{11,12,13,14,15,16,17,18,20,24,30}` -- missing 9 and 10 that were added in the WARNING 3 resolution. The design document's own Section 8 code block (lines 305-308) contains the correct full allowlist `{9,10,11,12,13,14,15,16,17,18,20,24,30}`. The builder should follow the design document's Section 8 code block, which is authoritative. This does not block implementation.
+
+### Suggestions from Round 1
+
+All three suggestions (S-7 OKLCH validation, S-8 "Card" naming, S-9 expressive easing lint) remain open as implementation-time considerations. None are design defects.
+
+### Quality of Amendments
+
+The Critique Resolutions section (approved.md Section 12) is well-structured -- each resolution restates the finding, states the decision, provides rationale, and cross-references the fix location in the document. The exemptions are documented at principle, rule, and lint-implementation levels, reducing misinterpretation risk.
+
+**Verdict: PASS.** The design is ready for implementation.
