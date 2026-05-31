@@ -2,7 +2,7 @@
 
 ### 3.1 Technology Stack
 
-**Framework.** React (TypeScript) with **Tailwind CSS + DaisyUI** and a custom Lucid theme (dark/light/system), plus `focus-trap-react` and `@floating-ui/react` for behavior gaps. See `UI_DESIGN.md` for the canonical component tree. One codebase, desktop-only.
+**Framework.** React (TypeScript) with **Tailwind CSS + DaisyUI** and the Hearth theme (light/dark/system), plus `focus-trap-react` and `@floating-ui/react` for behavior gaps. See `UI_DESIGN.md` for the canonical component tree. One codebase, desktop-only.
 
 **Rendering.** Three views plus ambient awareness and global overlays:
 - **Conversations view:** Rich messages inline — review messages embed an artifact reference + verdict affordance, plain messages are text. ArtifactView dispatches to one of 5 shapes: `text_diff`, `content_preview`, `visual_comparison`, `action_summary`, `data_metrics`. Supports the full verdict grammar (approve / approve with comments / comment / inline comment / request changes / edit / reject / reply / snooze / escalate). Humans can initiate conversations (RecipientPicker) and dial into live sessions.
