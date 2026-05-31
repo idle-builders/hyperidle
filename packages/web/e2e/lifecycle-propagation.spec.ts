@@ -60,7 +60,7 @@ function makeBetResponse(betStatus: string, taskState: string) {
 			done: taskState === "done" ? 1 : 0,
 			total: 1,
 		},
-		pitch: "# Problem\n\nTest lifecycle propagation.",
+		description: "# Problem\n\nTest lifecycle propagation.",
 		tasks: [makeTask(taskState)],
 		revisionLog: null,
 	};

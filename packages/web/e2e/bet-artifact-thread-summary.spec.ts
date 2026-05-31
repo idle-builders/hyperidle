@@ -26,7 +26,7 @@ function makeBetResponse() {
 		costActual: null,
 		tokensActual: null,
 		progress: { done: 1, total: 3 },
-		pitch: "# Problem\n\nThis bet has artifact threads.",
+		description: "# Problem\n\nThis bet has artifact threads.",
 		tasks: [],
 	};
 }

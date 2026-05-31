@@ -250,7 +250,7 @@ test.describe("L9 — single Conversations detail surface", () => {
 					costActual: null,
 					tokensActual: null,
 					progress: { done: 0, total: 1 },
-					pitch: "# Test\nL9 bet for e2e.",
+					description: "# Test\nL9 bet for e2e.",
 					tasks: [],
 				}),
 			});

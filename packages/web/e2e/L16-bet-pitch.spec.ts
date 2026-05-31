@@ -26,12 +26,12 @@ const RICH_BET_FIXTURE = {
 	title: "Daily Digest",
 	product: "Nimmly",
 	team: "Alpha Core",
-	status: "shaped",
+	status: "completed",
 	costAppetite: { minor: 50000, currency: "USD" },
 	costActual: null,
 	tokensActual: null,
 	progress: { done: 0, total: 1 },
-	pitch: `# Problem
+	description: `# Problem
 The daily digest is missing.
 
 ## Appetite

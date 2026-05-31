@@ -14,18 +14,20 @@ export const UnknownBet = (): React.JSX.Element => <WorkBet overrideBet={FALLBAC
 export const Loading = (): React.JSX.Element => <WorkBet loading />;
 
 /**
- * WithRichPitch — exercises H1, H2, paragraph, unordered list,
- * fenced code block, blockquote, table, and divider in a single pitch.
+ * WithRichDescription — exercises H1, H2, paragraph, unordered list,
+ * fenced code block, blockquote, table, and divider in a single description.
  */
-export const WithRichPitch = (): React.JSX.Element => <WorkBet overrideBet={MOCK_BETS.b_rich} />;
+export const WithRichDescription = (): React.JSX.Element => (
+	<WorkBet overrideBet={MOCK_BETS.b_rich} />
+);
 
-/** EmptyPitch — pitch field is empty string; the pitch section must not render. */
-export const EmptyPitch = (): React.JSX.Element => (
-	<WorkBet overrideBet={{ ...MOCK_BETS.b1, pitch: "" }} />
+/** EmptyDescription — description field is empty string; the pitch section must not render. */
+export const EmptyDescription = (): React.JSX.Element => (
+	<WorkBet overrideBet={{ ...MOCK_BETS.b1, description: "" }} />
 );
 
 /**
- * MalformedPitch — pitch content that maps to an unknown block kind.
+ * MalformedDescription — description content that maps to an unknown block kind.
  * Uses content sized over MAX_BODY_BYTES to trigger the body-too-large
  * unknown block path, exercising the UnknownPayload fallback visually.
  * Sized at cap + 1 byte to stay as small as possible while reliably
@@ -34,35 +36,16 @@ export const EmptyPitch = (): React.JSX.Element => (
 const MALFORMED_BET: BetDetail = {
 	...MOCK_BETS.b1,
 	id: "b_malformed",
-	title: "Malformed Pitch (body-too-large fallback)",
+	title: "Malformed Description (body-too-large fallback)",
 	// Slightly over MAX_BODY_BYTES triggers the body-too-large unknown block.
-	pitch: "x".repeat(MAX_BODY_BYTES + 1),
+	description: "x".repeat(MAX_BODY_BYTES + 1),
 };
 
-export const MalformedPitch = (): React.JSX.Element => <WorkBet overrideBet={MALFORMED_BET} />;
-
-/**
- * L14 action bar stories — verify each status exposes the correct set of action buttons.
- *
- * @lore L14: BetActionsBar is co-located in WorkBet.tsx. These stories exercise
- * each status bucket so the action bar states can be verified visually at /designsystem.
- */
-
-/** InProgress — Pause, Kill, Adjust Appetite are shown. Resume is hidden. */
-export const InProgressActions = (): React.JSX.Element => (
-	<WorkBet overrideBet={MOCK_BETS.b_in_progress} />
+export const MalformedDescription = (): React.JSX.Element => (
+	<WorkBet overrideBet={MALFORMED_BET} />
 );
 
-/** Paused — Resume, Kill, Adjust Appetite are shown. Pause is hidden. */
-export const PausedActions = (): React.JSX.Element => <WorkBet overrideBet={MOCK_BETS.b_paused} />;
-
 /**
- * Blocked — Unblock, Kill, Adjust Appetite are shown. Pause is NOT shown.
- * @lore L14: blocked → paused is not a valid state machine transition.
+ * @lore U1: Active bet — shows Pause, Kill, Adjust Appetite, Unblock buttons.
  */
-export const BlockedActions = (): React.JSX.Element => (
-	<WorkBet overrideBet={MOCK_BETS.b_blocked} />
-);
-
-/** Behind — Pause, Kill, Adjust Appetite are shown (same as in_progress). */
-export const BehindActions = (): React.JSX.Element => <WorkBet overrideBet={MOCK_BETS.b_behind} />;
+export const ActiveActions = (): React.JSX.Element => <WorkBet overrideBet={MOCK_BETS.b_active} />;

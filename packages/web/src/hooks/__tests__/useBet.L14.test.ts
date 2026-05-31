@@ -23,16 +23,19 @@ const MOCK_BET: BetDetail = {
 	title: "Auth flow",
 	product: "Alpha",
 	team: "t1",
-	status: "in_progress",
-	appetite: "2 weeks",
+	status: "active",
+	costAppetite: null,
+	tokenAppetite: null,
+	costActual: null,
+	tokensActual: null,
 	progress: { done: 1, total: 3 },
-	pitch: "# Problem\n\nAuth is broken.\n",
+	description: "# Problem\n\nAuth is broken.\n",
 	tasks: [],
 };
 
 const UPDATED_BET: BetDetail = {
 	...MOCK_BET,
-	status: "paused",
+	status: "completed",
 };
 
 describe("L14 — useBet refresh", () => {
@@ -65,12 +68,12 @@ describe("L14 — useBet refresh", () => {
 		const { result } = renderHook(() => useBet("b1"));
 
 		await waitFor(() => expect(result.current.loading).toBe(false));
-		expect(result.current.data?.status).toBe("in_progress");
+		expect(result.current.data?.status).toBe("active");
 
 		// Trigger refresh
 		result.current.refresh();
 
-		await waitFor(() => expect(result.current.data?.status).toBe("paused"));
+		await waitFor(() => expect(result.current.data?.status).toBe("completed"));
 		expect(fetchSpy).toHaveBeenCalledTimes(2);
 	});
 

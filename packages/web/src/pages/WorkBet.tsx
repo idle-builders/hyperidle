@@ -19,6 +19,7 @@ import {
 	BetCard,
 	Block,
 	BlockActionsPopover,
+	BodyEditor,
 	EmptyState,
 	ErrorState,
 	KeyValue,
@@ -28,7 +29,7 @@ import {
 	sessionOutcomeToStatus,
 	taskStateToStatus,
 } from "@hyperidle/design-system";
-import type { Message } from "@hyperidle/shared";
+import type { BetStatus, Message } from "@hyperidle/shared";
 import {
 	deriveBlocks,
 	formatMoney,
@@ -42,6 +43,7 @@ import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.
 import { ArtifactThreadsSummary } from "../components/ArtifactThreadsSummary.js";
 import { CocAttachButton } from "../components/CocAttachButton";
 import { useBet } from "../hooks/useBet";
+import { useBetDescriptionSave } from "../hooks/useBetDescriptionSave.js";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useHint } from "../hooks/useHints";
 import { useHostThread } from "../hooks/useHostThread.js";
@@ -57,6 +59,15 @@ import { KnowledgeCreateDialog } from "./knowledge/KnowledgeCreateDialog";
 // L19: "outcome" column added for latest session outcome sort.
 type SortColumn = "title" | "status" | "owner" | "costActual" | "outcome";
 type SortDirection = "asc" | "desc";
+
+/**
+ * T3: Bet statuses where the description is mutable (editable via BodyEditor).
+ * Immutable statuses (completed, killed) render the read-only BetPitch (block view).
+ *
+ * @lore T3: Mirrors server-side DESCRIPTION_MUTABLE_IN_STATUSES in bets.ts.
+ * The frontend check is defense-in-depth; the server enforces the constraint too.
+ */
+const BET_DESCRIPTION_MUTABLE_STATUSES = new Set<BetStatus>(["draft", "active"]);
 
 function sortTasks(
 	tasks: BetDetail["tasks"],
@@ -130,7 +141,7 @@ function AnchoredMessages({ messages }: AnchoredMessagesProps): JSX.Element | nu
  * wire the L2 block popover and inline anchored messages.
  */
 interface BetPitchProps {
-	pitch: string;
+	description: string;
 	betId: string;
 	/** Called when the user opens a block's actions menu (Space/Enter on block). Sets openBlockId. */
 	onOpenBlockActions?: (blockId: string) => void;
@@ -138,12 +149,15 @@ interface BetPitchProps {
 }
 
 function BetPitch({
-	pitch,
+	description,
 	betId,
 	onOpenBlockActions,
 	messagesByBlockId,
 }: BetPitchProps): JSX.Element | null {
-	const { blocks } = useMemo(() => deriveBlocks(pitch, { kind: "bet", id: betId }), [pitch, betId]);
+	const { blocks } = useMemo(
+		() => deriveBlocks(description, { kind: "bet", id: betId }),
+		[description, betId],
+	);
 
 	// Collect all messages that have a blockId — including those whose blockId
 	// doesn't match any rendered block (e.g. from a previous revision of the pitch).
@@ -223,6 +237,7 @@ function BetActionsBar({ bet, onAction }: BetActionsBarProps): JSX.Element | nul
 		<div
 			className="flex flex-wrap gap-2 items-center"
 			data-testid="bet-actions-bar"
+			role="group"
 			aria-label="Bet actions"
 		>
 			{showPause && (
@@ -643,6 +658,31 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	// Q2: Add knowledge dialog state.
 	const [addKnowledgeOpen, setAddKnowledgeOpen] = useState(false);
 
+	// T3: Status-based description editability.
+	// @lore T3: canEditDescription derives from bet.status. BodyEditor is always
+	// mounted for draft/active bets (no Edit/Done toggle). Block actions are only
+	// available in immutable statuses (completed/killed) via BetPitch.
+	const canEditDescription = bet ? BET_DESCRIPTION_MUTABLE_STATUSES.has(bet.status) : false;
+
+	// T3: Track the initial description content for dirty-check in handleDescriptionChange.
+	// useRef so it doesn't cause re-renders and survives across the debounce.
+	const initialDescriptionRef = useRef<string>(bet?.description ?? "");
+
+	// T3: Auto-save hook for bet description.
+	const { status: saveStatus, save: triggerSave } = useBetDescriptionSave({
+		betId: bet?.id ?? "",
+		onSaved: () => fetched.refresh?.(),
+	});
+
+	const handleDescriptionChange = useCallback(
+		(markdown: string): void => {
+			// T3 dirty check (T2 F3 pattern): skip save when content matches initial
+			if (markdown === initialDescriptionRef.current) return;
+			triggerSave(markdown);
+		},
+		[triggerSave],
+	);
+
 	// L18: Fetch the host thread directly to derive messagesByBlockId for the
 	// inline anchored-message slots. HostThreadSection uses its own fetch for
 	// the chronological view.
@@ -945,16 +985,44 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 				</section>
 			)}
 
-			{/* L18: Block popover wiring — onOpenBlockActions opens the page-level
-			    block actions popover. The popover's "Discuss" item then calls
-			    handleDiscussBlock. messagesByBlockId flows anchored messages inline
-			    after each block's payload. */}
-			<BetPitch
-				pitch={bet.pitch}
-				betId={bet.id}
-				onOpenBlockActions={(blockId) => setOpenBlockId(blockId)}
-				messagesByBlockId={messagesByBlockId}
-			/>
+			{/* T3: Conditional rendering based on bet status mutability.
+			    - Mutable (draft, active): BodyEditor with auto-save + saving indicator.
+			    - Immutable (completed, killed): BetPitch (read-only blocks + block actions).
+			    @lore T3: No Edit/Done toggle. BodyEditor is always mounted for mutable bets.
+			    Block actions are only available in immutable statuses. */}
+			{canEditDescription ? (
+				<div className="flex flex-col gap-2" data-testid="bet-description-editor">
+					<BodyEditor
+						initialContent={bet.description}
+						onChange={handleDescriptionChange}
+						placeholder="Describe this bet..."
+						variant="full"
+						minHeight="200px"
+					/>
+					<span
+						className="text-xs text-[var(--text-lo)]"
+						aria-live="polite"
+						data-testid="bet-save-indicator"
+					>
+						{saveStatus === "saving" && "Saving..."}
+						{saveStatus === "saved" && "Saved"}
+						{saveStatus === "error" && <span className="text-[var(--danger)]">Save failed</span>}
+					</span>
+				</div>
+			) : (
+				<>
+					{/* L18: Block popover wiring — onOpenBlockActions opens the page-level
+					    block actions popover. The popover's "Discuss" item then calls
+					    handleDiscussBlock. messagesByBlockId flows anchored messages inline
+					    after each block's payload. */}
+					<BetPitch
+						description={bet.description}
+						betId={bet.id}
+						onOpenBlockActions={(blockId) => setOpenBlockId(blockId)}
+						messagesByBlockId={messagesByBlockId}
+					/>
+				</>
+			)}
 
 			{/* L18: Block actions popover — rendered at page level, opened from any block */}
 			{openBlockId !== null && (

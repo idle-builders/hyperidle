@@ -1,5 +1,6 @@
 /**
  * R2 — BetCreateDialog component tests (updated from Q3)
+ * T3 — Updated to assert BodyEditor is used instead of textarea.
  *
  * R2 AC coverage:
  * AC-6: BetCreateDialog requires only title and description. Team picker is removed (uses default team).
@@ -8,9 +9,13 @@
  *   - Create button enabled with description only (single team)
  *   - Does not render appetite fields
  *
+ * T3 AC coverage (AC-3):
+ *   - BetCreateDialog uses BodyEditor instead of plain textarea for the pitch field
+ *   - BodyEditor onChange updates description state (title preview updates)
+ *   - BodyEditor disabled during submission (editable={false})
+ *
  * Q3 tests retained:
- *   - Title preview tests (unchanged)
- *   - "renders a description textarea" (unchanged)
+ *   - Title preview tests (unchanged — now driven by BodyEditor mock onChange)
  *   - Cancel / close tests (unchanged)
  *   - Touch target tests (unchanged)
  *
@@ -24,6 +29,10 @@
  *
  * @lore U1: Renamed `products` prop → `teams`, `MOCK_PRODUCTS` → `MOCK_TEAMS`,
  * label queries updated from /product/i → /team/i to match the F3 rename.
+ *
+ * @lore T3: BodyEditor (TipTap) cannot run in JSDOM. Mocked at module level
+ * using a textarea with data-testid="mock-body-editor". The mock preserves
+ * the onChange/initialContent/editable interface so existing tests remain valid.
  */
 
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -34,6 +43,34 @@ import { BetCreateDialog } from "../pages/work/BetCreateDialog";
 vi.mock("../services/api-fetch.js", () => ({
 	apiFetch: vi.fn(),
 }));
+
+// T3: Mock BodyEditor — TipTap cannot run in JSDOM
+vi.mock("@hyperidle/design-system", async () => {
+	const actual = await vi.importActual("@hyperidle/design-system");
+	return {
+		...(actual as Record<string, unknown>),
+		BodyEditor: ({
+			onChange,
+			initialContent,
+			placeholder,
+			editable,
+		}: {
+			onChange?: (md: string) => void;
+			initialContent?: string;
+			placeholder?: string;
+			editable?: boolean;
+		}) => (
+			<textarea
+				aria-label="Description"
+				data-testid="mock-body-editor"
+				defaultValue={initialContent}
+				placeholder={placeholder}
+				disabled={editable === false}
+				onChange={(e) => onChange?.(e.target.value)}
+			/>
+		),
+	};
+});
 
 const SINGLE_TEAM = [{ id: "team-1", name: "Test Team" }];
 
@@ -136,10 +173,18 @@ describe("BetCreateDialog (R2)", () => {
 			expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument();
 		});
 
-		it("uses <label> elements for field labels (W-2 design critique)", () => {
-			const { container } = openDialog();
+		it("description field uses a <span> label (not <label>) since BodyEditor is not a labelable element (T3 lore)", () => {
+			// @lore T3: BetCreateDialog uses <div>/<span> instead of <label> for the description
+			// field because BodyEditor (TipTap ProseMirror) renders a contenteditable, not a native
+			// form control. A <label> with no associated form control violates lint/a11y rules.
+			// This test asserts the accessible label is a <span>, not a <label>.
+			const { container } = openDialog({ teams: SINGLE_TEAM });
+			// With single team: no team <label>, description uses <div>/<span> — zero <label> elements.
 			const labels = container.querySelectorAll("label");
-			expect(labels.length).toBeGreaterThan(0);
+			expect(labels.length).toBe(0);
+			// The description section is identified by its <span> label
+			const descriptionSpan = container.querySelector("span");
+			expect(descriptionSpan).not.toBeNull();
 		});
 	});
 
@@ -214,6 +259,55 @@ describe("BetCreateDialog (R2)", () => {
 			openDialog({ onClose });
 			fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
 			expect(onClose).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	// T3 AC-3: BetCreateDialog uses BodyEditor instead of textarea
+	describe("T3 AC-3 — BodyEditor replaces textarea", () => {
+		it("renders BodyEditor (mock-body-editor) instead of a plain textarea", () => {
+			openDialog();
+			// BodyEditor mock must be present
+			expect(screen.getByTestId("mock-body-editor")).toBeInTheDocument();
+		});
+
+		it("does NOT render a plain <textarea> element for the description field", () => {
+			const { container } = openDialog();
+			// After T3, there is no plain textarea — only the BodyEditor (rendered as mock textarea with specific testid)
+			// The textarea rendered by the mock is the BodyEditor; no additional unrelated textareas should exist
+			const textareas = container.querySelectorAll("textarea");
+			// If there is a textarea, it must be the mock BodyEditor (not a separate plain textarea)
+			for (const ta of textareas) {
+				expect(ta.getAttribute("data-testid")).toBe("mock-body-editor");
+			}
+		});
+
+		it("BodyEditor onChange updates description state (title preview updates)", () => {
+			openDialog();
+			const editor = screen.getByTestId("mock-body-editor");
+			fireEvent.change(editor, { target: { value: "# My Bet\n\nSome content." } });
+
+			const preview = screen.getByTestId("bet-title-preview");
+			expect(preview.textContent).toContain("My Bet");
+		});
+
+		it("BodyEditor is disabled (editable=false) when submitting", async () => {
+			const { apiFetch } = await import("../services/api-fetch.js");
+			const fetchSpy = vi.mocked(apiFetch);
+			// Keep the request pending so the submitting state persists
+			fetchSpy.mockImplementation(() => new Promise(() => {}));
+
+			openDialog({ teams: SINGLE_TEAM });
+
+			// Enter content to enable the Create button
+			const editor = screen.getByTestId("mock-body-editor");
+			fireEvent.change(editor, { target: { value: "# Bet Description\n\nContent." } });
+
+			// Click Create to submit
+			const createBtn = screen.getByRole("button", { name: /create/i });
+			fireEvent.click(createBtn);
+
+			// BodyEditor must be disabled (editable=false passed as disabled prop in mock)
+			expect(screen.getByTestId("mock-body-editor")).toBeDisabled();
 		});
 	});
 });

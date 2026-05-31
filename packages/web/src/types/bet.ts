@@ -29,8 +29,8 @@ export interface BetDetail {
 	costActual: WireMoney | null;
 	tokensActual: TokenUsage | null;
 	progress: { done: number; total: number };
-	/** Markdown pitch body (renamed from 'body' in L16). */
-	pitch: string;
+	/** Markdown description body (renamed from 'pitch' in L16, aligned with API in T3). */
+	description: string;
 	tasks: Array<{
 		id: string;
 		title: string;
