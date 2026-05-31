@@ -1,38 +1,40 @@
 /**
- * L13 — WorkProduct page stories. Renders key states at /designsystem.
+ * L13 — WorkTeam page stories. Renders key states at /designsystem.
+ *
+ * @lore U5: Renamed from WorkProduct.stories.tsx → WorkTeam.stories.tsx.
  */
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { WorkProduct } from "./WorkProduct";
+import { WorkTeam } from "./WorkTeam";
 
-export default { title: "WorkProduct" };
+export default { title: "WorkTeam" };
 
 const MOCK_DETAIL = {
-	product: {
+	team: {
 		id: "p1",
 		name: "HyperIdle Core",
 		phase: "build",
 		status: "healthy" as const,
 		leadAgentId: "agent-lead",
 	},
-	team: { id: "t1", formedAt: "2024-01-01T00:00:00.000Z", dissolvedAt: null },
+	teamMembers: { id: "t1", formedAt: "2024-01-01T00:00:00.000Z", dissolvedAt: null },
 	roster: [
 		{ agentId: "agent-lead", name: "Lead Agent", role: "lead", isLead: true },
 		{ agentId: "agent-member", name: "Alice Agent", role: "member", isLead: false },
 	],
-	burn: { costActual: 4200, costCap: 10000, capacity: 5, activeBets: 2 },
+	burn: { costActual: null, costCap: null, capacity: 5, activeBets: 2 },
 	activeBets: [
 		{
 			id: "b1",
-			pitchTitle: "Auth migration",
-			appetite: "2 weeks",
+			descriptionTitle: "Auth migration",
+			costAppetite: null,
 			status: "active" as const,
 			progressDone: 1,
 			progressTotal: 2,
 		},
 		{
 			id: "b2",
-			pitchTitle: "Onboarding revamp",
-			appetite: "6 weeks",
+			descriptionTitle: "Onboarding revamp",
+			costAppetite: null,
 			status: "in_progress" as const,
 			progressDone: 0,
 			progressTotal: 5,
@@ -52,17 +54,17 @@ function wrap(element: React.JSX.Element): React.JSX.Element {
 	);
 }
 
-export const Populated = (): React.JSX.Element => wrap(<WorkProduct overrideData={MOCK_DETAIL} />);
+export const Populated = (): React.JSX.Element => wrap(<WorkTeam overrideData={MOCK_DETAIL} />);
 
 export const EmptyBets = (): React.JSX.Element =>
-	wrap(<WorkProduct overrideData={{ ...MOCK_DETAIL, activeBets: [] }} />);
+	wrap(<WorkTeam overrideData={{ ...MOCK_DETAIL, activeBets: [] }} />);
 
 export const EmptyRoster = (): React.JSX.Element =>
-	wrap(<WorkProduct overrideData={{ ...MOCK_DETAIL, roster: [] }} />);
+	wrap(<WorkTeam overrideData={{ ...MOCK_DETAIL, roster: [] }} />);
 
 export const NoCap = (): React.JSX.Element =>
 	wrap(
-		<WorkProduct
+		<WorkTeam
 			overrideData={{
 				...MOCK_DETAIL,
 				burn: { ...MOCK_DETAIL.burn, costCap: null },
@@ -70,9 +72,9 @@ export const NoCap = (): React.JSX.Element =>
 		/>,
 	);
 
-export const Loading = (): React.JSX.Element => wrap(<WorkProduct overrideLoading />);
+export const Loading = (): React.JSX.Element => wrap(<WorkTeam overrideLoading />);
 
-export const NotFound = (): React.JSX.Element => wrap(<WorkProduct overrideData={null} />);
+export const NotFound = (): React.JSX.Element => wrap(<WorkTeam overrideData={null} />);
 
-export const ErrorProduct = (): React.JSX.Element =>
-	wrap(<WorkProduct overrideError={new Error("Product fetch failed: 500")} />);
+export const ErrorTeam = (): React.JSX.Element =>
+	wrap(<WorkTeam overrideError={new Error("Team fetch failed: 500")} />);

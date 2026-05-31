@@ -11,9 +11,9 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkPortfolio } from "../../pages/WorkPortfolio";
 
-// Mock useProducts so the page renders without API
-vi.mock("../../hooks/useProducts", () => ({
-	useProducts: vi.fn(() => ({ data: null, error: null, isLoading: false })),
+// Mock useTeams so the page renders without API
+vi.mock("../../hooks/useTeams", () => ({
+	useTeams: vi.fn(() => ({ data: null, error: null, isLoading: false })),
 }));
 
 // Mock useArtifacts — controlled state for ArtifactSection

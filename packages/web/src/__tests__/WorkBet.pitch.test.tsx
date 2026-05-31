@@ -61,9 +61,9 @@ const x = 1;
 const BASE_BET: BetDetail = {
 	id: "b-test",
 	title: "Test Bet",
-	product: "Test Product",
 	team: "Test Team",
 	status: "completed",
+	atRisk: false,
 	costAppetite: null,
 	tokenAppetite: null,
 	costActual: null,

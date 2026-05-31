@@ -98,7 +98,7 @@ function DraggableBetCard({ bet }: { bet: CanvasBet }): JSX.Element {
 		<div ref={setNodeRef} {...listeners} {...attributes} style={{ opacity: isDragging ? 0.4 : 1 }}>
 			<BetCard
 				title={bet.title}
-				product={bet.team}
+				team={bet.team}
 				status={bet.status}
 				appetite={bet.appetite}
 				progress={bet.progress}
@@ -222,7 +222,7 @@ export function Canvas({ bets, capacity, onMoveBet, onNewPitch }: CanvasProps): 
 				{activeBet ? (
 					<BetCard
 						title={activeBet.title}
-						product={activeBet.team}
+						team={activeBet.team}
 						status={activeBet.status}
 						appetite={activeBet.appetite}
 						progress={activeBet.progress}

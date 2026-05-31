@@ -2,7 +2,7 @@
  * P5 — Hint view integration tests (Task 5/6, AC5 + AC6 + AC7)
  *
  * AC coverage:
- * AC5a: Hint #1 ("create-bet") appears on WorkProduct when activeBets is empty
+ * AC5a: Hint #1 ("create-bet") appears on WorkTeam when activeBets is empty
  *   and hint is not dismissed. Element has correct data-testid.
  * AC5b: Hint #1 text matches the catalog copy.
  * AC5c: Hint does not appear when trigger condition is false (activeBets exist).
@@ -10,10 +10,12 @@
  * AC6: Hint disappears after clicking "Got it" button.
  *
  * Tests use HintProvider with mocked fetch to control dismissed state.
- * WorkProduct is rendered with fixture data (overrideData) to control trigger.
+ * WorkTeam is rendered with fixture data (overrideData) to control trigger.
+ *
+ * @lore U5: Updated from WorkProduct/ProductDetail → WorkTeam/TeamDetail.
  */
 
-import type { ProductDetail } from "@hyperidle/shared";
+import type { TeamDetail } from "@hyperidle/shared";
 import { HINT_CATALOG } from "@hyperidle/shared";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -21,19 +23,19 @@ import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HintProvider } from "../hooks/useHints";
-import { WorkProduct } from "../pages/WorkProduct";
+import { WorkTeam } from "../pages/WorkTeam";
 
 // --- Fixtures ---
 
-const BASE_PRODUCT_DETAIL: ProductDetail = {
-	product: {
+const BASE_TEAM_DETAIL: TeamDetail = {
+	team: {
 		id: "p1",
-		name: "Test Product",
+		name: "Test Team",
 		phase: "build",
 		status: "healthy",
 		leadAgentId: null,
 	},
-	team: {
+	teamMembers: {
 		id: "t1",
 		formedAt: "2026-01-01T00:00:00.000Z",
 		dissolvedAt: null,
@@ -48,16 +50,16 @@ const BASE_PRODUCT_DETAIL: ProductDetail = {
 	activeBets: [],
 };
 
-const PRODUCT_WITH_ACTIVE_BET: ProductDetail = {
-	...BASE_PRODUCT_DETAIL,
+const TEAM_WITH_ACTIVE_BET: TeamDetail = {
+	...BASE_TEAM_DETAIL,
 	burn: {
-		...BASE_PRODUCT_DETAIL.burn,
+		...BASE_TEAM_DETAIL.burn,
 		activeBets: 1,
 	},
 	activeBets: [
 		{
 			id: "b1",
-			pitchTitle: "Active bet",
+			descriptionTitle: "Active bet",
 			costAppetite: null,
 			status: "active",
 			progressDone: 0,
@@ -87,7 +89,7 @@ const CREATE_BET_HINT = CREATE_BET_HINT_ENTRY;
 
 // --- Tests ---
 
-describe("P5 AC5: Hint #1 (create-bet) on WorkProduct", () => {
+describe("P5 AC5: Hint #1 (create-bet) on WorkTeam", () => {
 	let fetchSpy: ReturnType<typeof vi.fn>;
 
 	beforeEach(() => {
@@ -105,7 +107,7 @@ describe("P5 AC5: Hint #1 (create-bet) on WorkProduct", () => {
 			new Response(JSON.stringify({ dismissed: [] }), { status: 200 }),
 		);
 
-		renderWithHints(<WorkProduct overrideData={BASE_PRODUCT_DETAIL} skipArtifacts />);
+		renderWithHints(<WorkTeam overrideData={BASE_TEAM_DETAIL} skipArtifacts />);
 
 		await waitFor(() => {
 			expect(screen.getByTestId("hint-create-bet")).toBeInTheDocument();
@@ -118,7 +120,7 @@ describe("P5 AC5: Hint #1 (create-bet) on WorkProduct", () => {
 			new Response(JSON.stringify({ dismissed: [] }), { status: 200 }),
 		);
 
-		renderWithHints(<WorkProduct overrideData={BASE_PRODUCT_DETAIL} skipArtifacts />);
+		renderWithHints(<WorkTeam overrideData={BASE_TEAM_DETAIL} skipArtifacts />);
 
 		await waitFor(() => {
 			expect(screen.getByTestId("hint-create-bet")).toBeInTheDocument();
@@ -133,7 +135,7 @@ describe("P5 AC5: Hint #1 (create-bet) on WorkProduct", () => {
 			new Response(JSON.stringify({ dismissed: [] }), { status: 200 }),
 		);
 
-		renderWithHints(<WorkProduct overrideData={PRODUCT_WITH_ACTIVE_BET} skipArtifacts />);
+		renderWithHints(<WorkTeam overrideData={TEAM_WITH_ACTIVE_BET} skipArtifacts />);
 
 		await waitFor(() => {
 			// Wait for the API fetch to complete
@@ -154,7 +156,7 @@ describe("P5 AC5: Hint #1 (create-bet) on WorkProduct", () => {
 			),
 		);
 
-		renderWithHints(<WorkProduct overrideData={BASE_PRODUCT_DETAIL} skipArtifacts />);
+		renderWithHints(<WorkTeam overrideData={BASE_TEAM_DETAIL} skipArtifacts />);
 
 		await waitFor(() => {
 			expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -174,7 +176,7 @@ describe("P5 AC5: Hint #1 (create-bet) on WorkProduct", () => {
 		// POST dismiss fire-and-forget response
 		fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
 
-		renderWithHints(<WorkProduct overrideData={BASE_PRODUCT_DETAIL} skipArtifacts />);
+		renderWithHints(<WorkTeam overrideData={BASE_TEAM_DETAIL} skipArtifacts />);
 
 		// Wait for hint to appear
 		await waitFor(() => {
@@ -195,7 +197,7 @@ describe("P5 AC5: Hint #1 (create-bet) on WorkProduct", () => {
 			new Response(JSON.stringify({ dismissed: [] }), { status: 200 }),
 		);
 
-		renderWithHints(<WorkProduct overrideData={BASE_PRODUCT_DETAIL} skipArtifacts />);
+		renderWithHints(<WorkTeam overrideData={BASE_TEAM_DETAIL} skipArtifacts />);
 
 		await waitFor(() => {
 			expect(screen.getByTestId("hint-create-bet")).toBeInTheDocument();
@@ -220,7 +222,7 @@ describe("P5 AC5: Hint #1 (create-bet) on WorkProduct", () => {
 			),
 		);
 
-		renderWithHints(<WorkProduct overrideData={BASE_PRODUCT_DETAIL} skipArtifacts />);
+		renderWithHints(<WorkTeam overrideData={BASE_TEAM_DETAIL} skipArtifacts />);
 
 		await waitFor(() => {
 			expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -235,7 +237,7 @@ describe("P5 AC5: Hint #1 (create-bet) on WorkProduct", () => {
 			new Response(JSON.stringify({ error: "Server error" }), { status: 500 }),
 		);
 
-		renderWithHints(<WorkProduct overrideData={BASE_PRODUCT_DETAIL} skipArtifacts />);
+		renderWithHints(<WorkTeam overrideData={BASE_TEAM_DETAIL} skipArtifacts />);
 
 		await waitFor(() => {
 			expect(fetchSpy).toHaveBeenCalledTimes(1);

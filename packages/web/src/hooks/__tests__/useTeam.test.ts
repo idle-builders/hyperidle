@@ -1,11 +1,13 @@
 /**
- * L13 — useProduct hook unit tests.
+ * L13 — useTeam hook unit tests.
+ *
+ * @lore U5: Renamed from useProduct.test.ts → useTeam.test.ts.
  *
  * Covers:
- *   - Initial loading state when productId is defined.
+ *   - Initial loading state when teamId is defined.
  *   - Successful fetch → data populated, loading false, error null.
  *   - Failed fetch (non-ok response) → error populated, data null, loading false.
- *   - undefined productId → no fetch, loading false, data null.
+ *   - undefined teamId → no fetch, loading false, data null.
  *   - Unmount during in-flight cancels the update (state never sets after unmount).
  */
 
@@ -19,27 +21,27 @@ vi.mock("../../services/api-fetch.js", () => ({
 	apiFetch: vi.fn(),
 }));
 
-import { useProduct } from "../useProduct";
+import { useTeam } from "../useTeam";
 
-const MOCK_PRODUCT_DETAIL = {
-	product: {
+const MOCK_TEAM_DETAIL = {
+	team: {
 		id: "p1",
 		name: "HyperIdle Core",
 		phase: "build",
 		status: "healthy",
 		leadAgentId: "agent-lead",
 	},
-	team: { id: "t1", formedAt: "2024-01-01T00:00:00.000Z", dissolvedAt: null },
+	teamMembers: { id: "t1", formedAt: "2024-01-01T00:00:00.000Z", dissolvedAt: null },
 	roster: [
 		{ agentId: "agent-lead", name: "Lead Agent", role: "lead", isLead: true },
 		{ agentId: "agent-member", name: "Alice Agent", role: "member", isLead: false },
 	],
-	burn: { costActual: 4200, costCap: 10000, capacity: 5, activeBets: 2 },
+	burn: { costActual: null, costCap: null, capacity: 5, activeBets: 2 },
 	activeBets: [
 		{
 			id: "b1",
-			pitchTitle: "Auth migration",
-			appetite: "2 weeks",
+			descriptionTitle: "Auth migration",
+			costAppetite: null,
 			status: "active",
 			progressDone: 1,
 			progressTotal: 2,
@@ -47,7 +49,7 @@ const MOCK_PRODUCT_DETAIL = {
 	],
 };
 
-describe("useProduct", () => {
+describe("useTeam", () => {
 	let fetchSpy: ReturnType<typeof vi.fn>;
 
 	beforeEach(async () => {
@@ -60,38 +62,36 @@ describe("useProduct", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("starts in loading state when productId is defined", () => {
+	it("starts in loading state when teamId is defined", () => {
 		fetchSpy.mockImplementation(() => new Promise(() => {})); // never resolves
-		const { result } = renderHook(() => useProduct("p1"));
+		const { result } = renderHook(() => useTeam("p1"));
 		expect(result.current.loading).toBe(true);
 		expect(result.current.data).toBeNull();
 		expect(result.current.error).toBeNull();
 	});
 
-	it("returns data=null, loading=false when productId is undefined", () => {
-		const { result } = renderHook(() => useProduct(undefined));
+	it("returns data=null, loading=false when teamId is undefined", () => {
+		const { result } = renderHook(() => useTeam(undefined));
 		expect(result.current.loading).toBe(false);
 		expect(result.current.data).toBeNull();
 		expect(result.current.error).toBeNull();
 	});
 
 	it("populates data on successful fetch", async () => {
-		fetchSpy.mockResolvedValueOnce(
-			new Response(JSON.stringify(MOCK_PRODUCT_DETAIL), { status: 200 }),
-		);
-		const { result } = renderHook(() => useProduct("p1"));
+		fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify(MOCK_TEAM_DETAIL), { status: 200 }));
+		const { result } = renderHook(() => useTeam("p1"));
 
 		await waitFor(() => {
 			expect(result.current.loading).toBe(false);
 		});
 
-		expect(result.current.data).toMatchObject({ product: { id: "p1", name: "HyperIdle Core" } });
+		expect(result.current.data).toMatchObject({ team: { id: "p1", name: "HyperIdle Core" } });
 		expect(result.current.error).toBeNull();
 	});
 
 	it("populates error on non-ok response", async () => {
 		fetchSpy.mockResolvedValueOnce(new Response("Not Found", { status: 404 }));
-		const { result } = renderHook(() => useProduct("missing"));
+		const { result } = renderHook(() => useTeam("missing"));
 
 		await waitFor(() => {
 			expect(result.current.loading).toBe(false);
@@ -104,7 +104,7 @@ describe("useProduct", () => {
 
 	it("populates error on network failure", async () => {
 		fetchSpy.mockRejectedValueOnce(new Error("Network error"));
-		const { result } = renderHook(() => useProduct("p1"));
+		const { result } = renderHook(() => useTeam("p1"));
 
 		await waitFor(() => {
 			expect(result.current.loading).toBe(false);
@@ -116,10 +116,8 @@ describe("useProduct", () => {
 	});
 
 	it("calls apiFetch with the correct URL", async () => {
-		fetchSpy.mockResolvedValueOnce(
-			new Response(JSON.stringify(MOCK_PRODUCT_DETAIL), { status: 200 }),
-		);
-		renderHook(() => useProduct("p1"));
+		fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify(MOCK_TEAM_DETAIL), { status: 200 }));
+		renderHook(() => useTeam("p1"));
 
 		await waitFor(() => {
 			expect(fetchSpy).toHaveBeenCalledWith("/api/products/p1");
@@ -133,14 +131,14 @@ describe("useProduct", () => {
 		});
 		fetchSpy.mockReturnValueOnce(pending);
 
-		const { result, unmount } = renderHook(() => useProduct("p1"));
+		const { result, unmount } = renderHook(() => useTeam("p1"));
 		expect(result.current.loading).toBe(true);
 
 		// Unmount before fetch resolves
 		unmount();
 
 		// Resolve the fetch — should not cause a state update
-		resolve(new Response(JSON.stringify(MOCK_PRODUCT_DETAIL), { status: 200 }));
+		resolve(new Response(JSON.stringify(MOCK_TEAM_DETAIL), { status: 200 }));
 
 		// No assertion on result.current after unmount — the point is it doesn't throw
 		// (React strict mode guards against state updates on unmounted components)

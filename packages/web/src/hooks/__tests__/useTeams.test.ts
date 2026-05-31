@@ -1,5 +1,7 @@
 /**
- * L13 — useProducts hook unit tests.
+ * L13 — useTeams hook unit tests.
+ *
+ * @lore U5: Renamed from useProducts.test.ts → useTeams.test.ts.
  *
  * Covers:
  *   - Initial loading state.
@@ -19,10 +21,9 @@ vi.mock("../../services/api-fetch.js", () => ({
 	apiFetch: vi.fn(),
 }));
 
-import { useProducts } from "../useProducts";
+import { useTeams } from "../useTeams";
 
-// @lore U1: renamed from products → teams in the API response
-const MOCK_PRODUCTS_RESPONSE = {
+const MOCK_TEAMS_RESPONSE = {
 	teams: [
 		{
 			id: "p1",
@@ -38,7 +39,7 @@ const MOCK_PRODUCTS_RESPONSE = {
 	],
 };
 
-describe("useProducts", () => {
+describe("useTeams", () => {
 	let fetchSpy: ReturnType<typeof vi.fn>;
 
 	beforeEach(async () => {
@@ -53,7 +54,7 @@ describe("useProducts", () => {
 
 	it("starts in loading state", () => {
 		fetchSpy.mockImplementation(() => new Promise(() => {})); // never resolves
-		const { result } = renderHook(() => useProducts());
+		const { result } = renderHook(() => useTeams());
 		expect(result.current.loading).toBe(true);
 		expect(result.current.data).toBeNull();
 		expect(result.current.error).toBeNull();
@@ -61,9 +62,9 @@ describe("useProducts", () => {
 
 	it("populates data on successful fetch", async () => {
 		fetchSpy.mockResolvedValueOnce(
-			new Response(JSON.stringify(MOCK_PRODUCTS_RESPONSE), { status: 200 }),
+			new Response(JSON.stringify(MOCK_TEAMS_RESPONSE), { status: 200 }),
 		);
-		const { result } = renderHook(() => useProducts());
+		const { result } = renderHook(() => useTeams());
 
 		await waitFor(() => {
 			expect(result.current.loading).toBe(false);
@@ -75,7 +76,7 @@ describe("useProducts", () => {
 
 	it("populates error on non-ok response", async () => {
 		fetchSpy.mockResolvedValueOnce(new Response("Server Error", { status: 500 }));
-		const { result } = renderHook(() => useProducts());
+		const { result } = renderHook(() => useTeams());
 
 		await waitFor(() => {
 			expect(result.current.loading).toBe(false);
@@ -88,7 +89,7 @@ describe("useProducts", () => {
 
 	it("populates error on network failure", async () => {
 		fetchSpy.mockRejectedValueOnce(new Error("Network error"));
-		const { result } = renderHook(() => useProducts());
+		const { result } = renderHook(() => useTeams());
 
 		await waitFor(() => {
 			expect(result.current.loading).toBe(false);
@@ -100,9 +101,9 @@ describe("useProducts", () => {
 
 	it("calls apiFetch with the correct URL", async () => {
 		fetchSpy.mockResolvedValueOnce(
-			new Response(JSON.stringify(MOCK_PRODUCTS_RESPONSE), { status: 200 }),
+			new Response(JSON.stringify(MOCK_TEAMS_RESPONSE), { status: 200 }),
 		);
-		renderHook(() => useProducts());
+		renderHook(() => useTeams());
 
 		await waitFor(() => {
 			expect(fetchSpy).toHaveBeenCalledWith("/api/products");
@@ -116,9 +117,9 @@ describe("useProducts", () => {
 		});
 		fetchSpy.mockReturnValueOnce(pending);
 
-		const { unmount } = renderHook(() => useProducts());
+		const { unmount } = renderHook(() => useTeams());
 		unmount();
-		resolve(new Response(JSON.stringify(MOCK_PRODUCTS_RESPONSE), { status: 200 }));
+		resolve(new Response(JSON.stringify(MOCK_TEAMS_RESPONSE), { status: 200 }));
 		// No assertion — verifying no throw on unmounted state update
 	});
 });
