@@ -9,8 +9,8 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
-// Import the page — it doesn't exist yet so this test will fail until green phase.
-import { WorkProduct } from "../pages/WorkProduct";
+// @lore U5: WorkProduct renamed to WorkTeam; import updated.
+import { WorkTeam } from "../pages/WorkTeam";
 
 /**
  * @lore U1: TeamDetail shape replaces ProductDetail.
@@ -58,23 +58,20 @@ const MOCK_PRODUCT_EMPTY_BETS = {
 	activeBets: [],
 };
 
+// @lore U5: Route path /work/product/:productId is F1 scope (U6). Local var renamed teamId.
 function renderPage(
-	productId = "p1",
+	teamId = "p1",
 	overrideData?: typeof MOCK_PRODUCT_DETAIL | null,
 	loading = false,
 	error: Error | null = null,
 ): ReturnType<typeof render> {
 	return render(
-		<MemoryRouter initialEntries={[`/work/product/${productId}`]}>
+		<MemoryRouter initialEntries={[`/work/product/${teamId}`]}>
 			<Routes>
 				<Route
 					path="/work/product/:productId"
 					element={
-						<WorkProduct
-							overrideData={overrideData}
-							overrideLoading={loading}
-							overrideError={error}
-						/>
+						<WorkTeam overrideData={overrideData} overrideLoading={loading} overrideError={error} />
 					}
 				/>
 				<Route
@@ -87,16 +84,17 @@ function renderPage(
 	);
 }
 
-describe("WorkProduct", () => {
-	it("1. renders the page H1 with the product name when the fetch resolves", () => {
+// @lore U5: describe renamed from WorkProduct → WorkTeam; testids use team-* prefix.
+describe("WorkTeam", () => {
+	it("1. renders the page H1 with the team name when the fetch resolves", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
-		expect(screen.getByTestId("work-product-page")).toBeInTheDocument();
+		expect(screen.getByTestId("work-team-page")).toBeInTheDocument();
 		expect(screen.getByText("HyperIdle Core")).toBeInTheDocument();
 	});
 
 	it("2. renders one BetCard row per active bet", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
-		const betsRegion = screen.getByTestId("product-active-bets");
+		const betsRegion = screen.getByTestId("team-active-bets");
 		expect(betsRegion).toBeInTheDocument();
 		// Should render the bet title
 		expect(screen.getByText("Auth migration")).toBeInTheDocument();
@@ -104,12 +102,12 @@ describe("WorkProduct", () => {
 
 	it("3. renders the empty-state when active bets list is empty", () => {
 		renderPage("p1", MOCK_PRODUCT_EMPTY_BETS);
-		expect(screen.getByTestId("product-active-bets-empty")).toBeInTheDocument();
+		expect(screen.getByTestId("team-active-bets-empty")).toBeInTheDocument();
 	});
 
 	it("4. renders one roster row per agent; lead row has data-is-lead='true'", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
-		const rosterRows = screen.getAllByTestId("product-roster-row");
+		const rosterRows = screen.getAllByTestId("team-roster-row");
 		expect(rosterRows).toHaveLength(2);
 		// Lead row has data-is-lead
 		const leadRow = rosterRows.find((row) => row.getAttribute("data-is-lead") === "true");
@@ -118,7 +116,7 @@ describe("WorkProduct", () => {
 
 	it("5. renders the burn-vs-cap with a progress element", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
-		const burnRegion = screen.getByTestId("product-burn-vs-cap");
+		const burnRegion = screen.getByTestId("team-burn-vs-cap");
 		expect(burnRegion).toBeInTheDocument();
 		expect(burnRegion.querySelector("progress")).not.toBeNull();
 	});
@@ -127,7 +125,7 @@ describe("WorkProduct", () => {
 		const user = userEvent.setup();
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
 
-		const breadcrumb = screen.getByTestId("product-breadcrumb-back");
+		const breadcrumb = screen.getByTestId("team-breadcrumb-back");
 		await user.click(breadcrumb);
 
 		await waitFor(() => {
@@ -149,27 +147,27 @@ describe("WorkProduct", () => {
 	});
 
 	it("8. renders the 404 empty state when the fetch returns 404", () => {
-		const err = new Error("Product fetch failed: 404");
+		const err = new Error("Team fetch failed: 404");
 		renderPage("does-not-exist", null, false, err);
-		expect(screen.getByTestId("product-not-found")).toBeInTheDocument();
+		expect(screen.getByTestId("team-not-found")).toBeInTheDocument();
 	});
 
 	it("9. renders an ErrorState when the fetch returns 500", () => {
-		const err = new Error("Product fetch failed: 500");
+		const err = new Error("Team fetch failed: 500");
 		renderPage("p1", null, false, err);
 		// Any error state rendered (not the 404-specific one)
 		// The page should show some error indication
-		expect(screen.queryByTestId("work-product-page")).toBeInTheDocument();
-		expect(screen.queryByTestId("product-not-found")).not.toBeInTheDocument();
+		expect(screen.queryByTestId("work-team-page")).toBeInTheDocument();
+		expect(screen.queryByTestId("team-not-found")).not.toBeInTheDocument();
 	});
 
-	it("10. loading state: while useProduct is in-flight, renders SkeletonCard placeholders and NOT EmptyState", () => {
+	it("10. loading state: while useTeam is in-flight, renders SkeletonCard placeholders and NOT EmptyState", () => {
 		renderPage("p1", null, true, null);
-		expect(screen.getByTestId("work-product-page")).toBeInTheDocument();
+		expect(screen.getByTestId("work-team-page")).toBeInTheDocument();
 		// Skeleton placeholders should be visible
 		expect(screen.queryAllByRole("status").length).toBeGreaterThanOrEqual(0); // skeletons may use aria
 		// Most importantly: empty state for active bets must NOT appear during loading
-		expect(screen.queryByTestId("product-active-bets-empty")).not.toBeInTheDocument();
+		expect(screen.queryByTestId("team-active-bets-empty")).not.toBeInTheDocument();
 	});
 
 	// D1 regression guard: a committed bet must not show the BEHIND status chip.
@@ -180,12 +178,12 @@ describe("WorkProduct", () => {
 		// The bet title should be visible
 		expect(screen.getByText("Auth migration")).toBeInTheDocument();
 		// The StatusChip for a committed bet should not say BEHIND
-		const betsRegion = screen.getByTestId("product-active-bets");
+		const betsRegion = screen.getByTestId("team-active-bets");
 		expect(betsRegion.textContent).not.toContain("BEHIND");
 	});
 
 	// D2 regression guard: the lead name (not the agent id) must appear in the header.
-	it("12. renders lead display name (not agent id) in the product header", () => {
+	it("12. renders lead display name (not agent id) in the team header", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
 		// The roster has leadAgentId="agent-lead" → name "Lead Agent".
 		// The header should show the name, not the raw id.

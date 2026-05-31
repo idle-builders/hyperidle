@@ -29,8 +29,8 @@ import { SettingsBackend } from "../settings/SettingsBackend.js";
 import { SettingsCredentials } from "../settings/SettingsCredentials.js";
 import { SettingsNotifications } from "../settings/SettingsNotifications.js";
 import { SettingsOrgChart } from "../settings/SettingsOrgChart.js";
-import { SettingsProducts } from "../settings/SettingsProducts.js";
 import { SettingsProfile } from "../settings/SettingsProfile.js";
+import { SettingsTeams } from "../settings/SettingsTeams.js";
 import { SettingsWorker } from "../settings/SettingsWorker.js";
 import { SETTINGS_SECTIONS, type SettingsSectionId } from "../settings/settings-types.js";
 import { CocOverlay } from "../shell/CocOverlay";
@@ -221,7 +221,7 @@ export function AppShell(): JSX.Element {
 	const railData = useRail();
 	// settingsData removed: each section component uses useSettings() directly.
 	// @lore P4: useSettings() call removed from AppShell; SettingsNotifications
-	// and SettingsProducts fetch their own data via the hook.
+	// and SettingsTeams fetch their own data via the hook.
 
 	const activeView = useMemo(() => deriveViewFromPath(location.pathname), [location.pathname]);
 
@@ -755,7 +755,7 @@ export function AppShell(): JSX.Element {
 							{activeSettingsSection === "notifications" && <SettingsNotifications />}
 							{activeSettingsSection === "appearance" && <SettingsAppearance />}
 							{/* @lore U1: "products" section renamed to "teams". */}
-							{activeSettingsSection === "teams" && <SettingsProducts />}
+							{activeSettingsSection === "teams" && <SettingsTeams />}
 							{activeSettingsSection === "backend" && <SettingsBackend />}
 							{activeSettingsSection === "worker" && <SettingsWorker />}
 						</ErrorBoundary>

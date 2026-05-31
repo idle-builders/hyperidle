@@ -1,19 +1,25 @@
 /**
- * L13 — Work/Product page: unified product team view.
+ * L13 — Work/Team page: unified team view.
  *
  * Layout (V1 — Stacked single column, per design/approved.md):
- *   R1 — Product header (breadcrumb + name + status + phase + lead)
+ *   R1 — Team header (breadcrumb + name + status + phase + lead)
  *   R4 — Team burn vs cap
  *   R2 — Active bets
  *   R3 — Roster
  *   Artifact slot (placeholder for L12)
  *
- * @lore L13: Product = Team 1:1 invariant. The page is addressed by productId
- * (the public identifier), never by teamId. See plans/L13/concept.md.
+ * @lore L13: Product = Team 1:1 invariant. The page is addressed by teamId
+ * (the public identifier). See plans/L13/concept.md.
  *
  * @lore L13: The `overrideData` / `overrideLoading` / `overrideError` props
  * mirror WorkBet's `overrideBet` / `loading` props — used by stories and tests
  * to inject fixture data without crossing the __fixtures__/ import boundary.
+ *
+ * @lore U5: Renamed from WorkProduct → WorkTeam. Component name, props, and
+ * data-testids updated. Route path rename (/work/product/:productId →
+ * /work/team/:teamId) is deferred to U6. Until then, useParams aliases the
+ * route param: `const { productId: teamId } = useParams<{ productId: string }>()`.
+ * See plans/U5/review.md B1.
  */
 
 import {
@@ -31,13 +37,12 @@ import type { JSX } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
 import { useHint } from "../hooks/useHints";
-// @lore U1: useProduct → useTeam (backward-compat re-export from useProduct.ts).
-import { useProduct } from "../hooks/useProduct";
+import { useTeam } from "../hooks/useTeam";
 
-export interface WorkProductProps {
+export interface WorkTeamProps {
 	/**
-	 * Override the product/team detail with directly injected data. When set,
-	 * the useProduct hook is not called. Used by stories and tests.
+	 * Override the team detail with directly injected data. When set,
+	 * the useTeam hook is not called. Used by stories and tests.
 	 * Pass `null` to simulate a resolved-but-empty fetch (e.g. 404/500 path).
 	 *
 	 * @lore U1: Type changed from ProductDetail to TeamDetail.
@@ -66,17 +71,18 @@ export interface WorkProductProps {
 	skipArtifacts?: boolean;
 }
 
-export function WorkProduct({
+export function WorkTeam({
 	overrideData,
 	overrideLoading,
 	overrideError,
 	skipArtifacts = false,
-}: WorkProductProps = {}): JSX.Element {
-	const { productId } = useParams<{ productId: string }>();
+}: WorkTeamProps = {}): JSX.Element {
+	// @lore U5: Route path stays /work/product/:productId until U6 renames it.
+	// Alias the param here so downstream code uses the semantic name `teamId`.
+	const { productId: teamId } = useParams<{ productId: string }>();
 
-	// Only call useProduct when there is no override (mirrors WorkBet pattern).
-	// @lore U1: useProduct now returns UseTeamResult (TeamDetail). Backward-compat re-export.
-	const fetched = useProduct(overrideData !== undefined ? undefined : productId);
+	// Only call useTeam when there is no override (mirrors WorkBet pattern).
+	const fetched = useTeam(overrideData !== undefined ? undefined : teamId);
 
 	const error = overrideError !== undefined ? (overrideError ?? null) : fetched.error;
 	const data = overrideData !== undefined ? overrideData : (fetched.data as TeamDetail | null);
@@ -84,11 +90,8 @@ export function WorkProduct({
 	// Loading state
 	if (overrideLoading === true || (overrideData === undefined && fetched.loading)) {
 		return (
-			<div
-				className="flex flex-col gap-[var(--density-gap)] h-full"
-				data-testid="work-product-page"
-			>
-				<SkeletonCard ariaLabel="Loading product header" />
+			<div className="flex flex-col gap-[var(--density-gap)] h-full" data-testid="work-team-page">
+				<SkeletonCard ariaLabel="Loading team header" />
 				<SkeletonCard ariaLabel="Loading burn vs cap" />
 				<SkeletonCard ariaLabel="Loading active bets" />
 				<SkeletonCard ariaLabel="Loading roster" />
@@ -101,24 +104,18 @@ export function WorkProduct({
 		const is404 = error.message.includes("404");
 		if (is404) {
 			return (
-				<div
-					className="flex flex-col gap-[var(--density-gap)] h-full"
-					data-testid="work-product-page"
-				>
+				<div className="flex flex-col gap-[var(--density-gap)] h-full" data-testid="work-team-page">
 					<EmptyState
-						title="Product not found"
-						description="The product you are looking for does not exist or has been removed."
-						dataTestId="product-not-found"
+						title="Team not found"
+						description="The team you are looking for does not exist or has been removed."
+						dataTestId="team-not-found"
 					/>
 				</div>
 			);
 		}
 		return (
-			<div
-				className="flex flex-col gap-[var(--density-gap)] h-full"
-				data-testid="work-product-page"
-			>
-				<ErrorState title="Failed to load product" description={error.message} />
+			<div className="flex flex-col gap-[var(--density-gap)] h-full" data-testid="work-team-page">
+				<ErrorState title="Failed to load team" description={error.message} />
 			</div>
 		);
 	}
@@ -126,24 +123,21 @@ export function WorkProduct({
 	// Null data after loading/error — 404 from overrideData=null path
 	if (data === null) {
 		return (
-			<div
-				className="flex flex-col gap-[var(--density-gap)] h-full"
-				data-testid="work-product-page"
-			>
+			<div className="flex flex-col gap-[var(--density-gap)] h-full" data-testid="work-team-page">
 				<EmptyState
-					title="Product not found"
-					description="The product you are looking for does not exist or has been removed."
-					dataTestId="product-not-found"
+					title="Team not found"
+					description="The team you are looking for does not exist or has been removed."
+					dataTestId="team-not-found"
 				/>
 			</div>
 		);
 	}
 
-	return <WorkProductLoaded data={data} skipArtifacts={skipArtifacts} />;
+	return <WorkTeamLoaded data={data} skipArtifacts={skipArtifacts} />;
 }
 
 /** Internal component rendered when data is fully resolved. */
-function WorkProductLoaded({
+function WorkTeamLoaded({
 	data,
 	skipArtifacts = false,
 }: {
@@ -162,14 +156,14 @@ function WorkProductLoaded({
 }): JSX.Element {
 	const navigate = useNavigate();
 	// @lore U1: `team` replaces `product` in TeamDetail.
-	const { team: product, roster, burn, activeBets } = data;
+	const { team, roster, burn, activeBets } = data;
 	const onOpenArtifact = useArtifactOpen();
 	const hintCreateBet = useHint("create-bet");
 
 	// D2: Resolve lead display name from roster instead of showing the agent id.
 	const leadName =
-		product.leadAgentId !== null
-			? (roster.find((m) => m.agentId === product.leadAgentId)?.name ?? product.leadAgentId)
+		team.leadAgentId !== null
+			? (roster.find((m) => m.agentId === team.leadAgentId)?.name ?? team.leadAgentId)
 			: null;
 
 	// L17: burn.costActual and burn.costCap are now WireMoney|null.
@@ -179,14 +173,14 @@ function WorkProductLoaded({
 			: 0;
 
 	return (
-		<div className="flex flex-col gap-[var(--density-gap)] h-full" data-testid="work-product-page">
-			{/* R1 — Product header */}
-			<section aria-label="Product header">
+		<div className="flex flex-col gap-[var(--density-gap)] h-full" data-testid="work-team-page">
+			{/* R1 — Team header */}
+			<section aria-label="Team header">
 				{/* Breadcrumb chip (N1 design) */}
 				<div className="mb-1">
 					<Link
 						to="/work/portfolio"
-						data-testid="product-breadcrumb-back"
+						data-testid="team-breadcrumb-back"
 						className="btn btn-ghost btn-xs"
 					>
 						← Portfolio
@@ -194,12 +188,12 @@ function WorkProductLoaded({
 				</div>
 				<div className="flex items-center gap-[var(--density-gap)] flex-wrap">
 					<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-hi)] flex-1">
-						{product.name}
+						{team.name}
 					</h1>
-					<StatusChip status={product.status} />
+					<StatusChip status={team.status} />
 				</div>
 				<div className="mt-1 text-xs text-[var(--text-lo)]">
-					<span>Phase: {product.phase}</span>
+					<span>Phase: {team.phase}</span>
 					{leadName && <span className="ml-3">Lead: {leadName}</span>}
 				</div>
 			</section>
@@ -207,7 +201,7 @@ function WorkProductLoaded({
 			{/* R4 — Team burn vs cap */}
 			<section
 				aria-label="Team burn vs cap"
-				data-testid="product-burn-vs-cap"
+				data-testid="team-burn-vs-cap"
 				className="rounded-[var(--r1)] bg-[var(--surface-2)] p-[var(--density-card-pad)]"
 			>
 				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)] mb-2">
@@ -237,7 +231,7 @@ function WorkProductLoaded({
 			</section>
 
 			{/* R2 — Active bets */}
-			<section aria-label="Active bets" data-testid="product-active-bets">
+			<section aria-label="Active bets" data-testid="team-active-bets">
 				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)] mb-2">
 					Active Bets
 				</h2>
@@ -245,8 +239,8 @@ function WorkProductLoaded({
 					<>
 						<EmptyState
 							title="No active bets"
-							description="This product team has no bets in flight."
-							dataTestId="product-active-bets-empty"
+							description="This team has no bets in flight."
+							dataTestId="team-active-bets-empty"
 						/>
 						{hintCreateBet.visible && (
 							<div
@@ -285,21 +279,21 @@ function WorkProductLoaded({
 			</section>
 
 			{/* R3 — Roster */}
-			<section aria-label="Team roster" data-testid="product-roster">
+			<section aria-label="Team roster" data-testid="team-roster">
 				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)] mb-2">
 					Roster
 				</h2>
 				{roster.length === 0 ? (
 					<EmptyState
 						title="Roster not configured"
-						description="No agents are assigned to this product team."
+						description="No agents are assigned to this team."
 					/>
 				) : (
 					<div className="flex flex-col gap-1">
 						{roster.map((member) => (
 							<div
 								key={member.agentId}
-								data-testid="product-roster-row"
+								data-testid="team-roster-row"
 								data-is-lead={member.isLead ? "true" : "false"}
 								className="flex items-center gap-[var(--density-gap)] py-1 px-2 rounded-[var(--r0)] bg-[var(--surface-2)]"
 							>
@@ -325,11 +319,11 @@ function WorkProductLoaded({
 			{!skipArtifacts && (
 				<ArtifactSection
 					// @lore U1: `productId` → `teamId` in ArtifactSection filter.
-					filter={{ axis: "product", teamId: product.id }}
+					filter={{ axis: "product", teamId: team.id }}
 					layout="stack"
 					limit={10}
 					heading="Artifacts"
-					emptyDescription="Artifacts appear as agents complete tasks for this product."
+					emptyDescription="Artifacts appear as agents complete tasks for this team."
 					onOpen={onOpenArtifact}
 				/>
 			)}

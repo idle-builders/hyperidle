@@ -3,7 +3,7 @@
  *
  * Renders artifacts fetched from useArtifacts in one of three layouts:
  *  - "gallery": ArtifactGalleryCard grid (WorkPortfolio)
- *  - "stack":   ArtifactStackItem list (WorkProduct, WorkBet)
+ *  - "stack":   ArtifactStackItem list (WorkTeam, WorkBet)
  *  - "single":  ArtifactPreview for items[0] (TaskSheet)
  *
  * State machine:

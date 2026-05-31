@@ -10,7 +10,7 @@ import { describe, expect, it, vi } from "vitest";
 describe("BetCard", () => {
 	const defaultProps = {
 		title: "Mobile App V2",
-		product: "HyperIdle",
+		team: "HyperIdle",
 		// @lore U1: "active" replaces "committed" and "in_progress"
 		status: "active" as const,
 		appetite: "6 weeks",
@@ -21,7 +21,7 @@ describe("BetCard", () => {
 		expect(screen.getByText("Mobile App V2")).toBeInTheDocument();
 	});
 
-	it("renders product as Tag", () => {
+	it("renders team as Tag", () => {
 		render(<BetCard {...defaultProps} />);
 		const tag = screen.getByText("HyperIdle");
 		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
@@ -94,7 +94,7 @@ describe("BetCard", () => {
 
 	it("composes at least 2 Tier 1 primitives (Tag + StatusChip + KeyValue)", () => {
 		render(<BetCard {...defaultProps} />);
-		// Tag for product
+		// Tag for team
 		expect(screen.getByText("HyperIdle")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 		// StatusChip for status (active → HEALTHY)
 		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-full");

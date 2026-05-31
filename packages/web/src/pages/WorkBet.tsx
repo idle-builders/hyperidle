@@ -866,14 +866,14 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 
 	return (
 		<div className="flex flex-col gap-3 h-full" data-testid="work-bet-page">
-			{/* J5: breadcrumb Product → Team → Bet. The leaf node uses the
+			{/* J5: breadcrumb Team → Bet. The leaf node uses the
 			    bet id rather than the title so the enriched BetCard below
 			    remains the single rendered instance of `bet.title`. */}
 			<nav aria-label="Breadcrumb" className="text-xs text-[var(--text-lo)]">
 				<ol className="flex items-center gap-1">
 					<li>
 						<Link className="hover:text-[var(--text-hi)]" to="/work/portfolio">
-							{bet.product}
+							{bet.team}
 						</Link>
 					</li>
 					<li aria-hidden>›</li>
@@ -893,7 +893,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 			<div className="relative">
 				<BetCard
 					title={bet.title}
-					product={bet.product}
+					team={bet.team}
 					status={bet.status}
 					appetite={formatMoney(bet.costAppetite)}
 					progress={bet.progress}

@@ -313,7 +313,7 @@ describe("AppShell", () => {
 							{
 								id: "b42",
 								title: "Bet Fortytwo",
-								product: "HyperIdle",
+								team: "HyperIdle",
 								// @lore U1: "committed" merged into "active"
 								status: "active",
 								appetite: "2 weeks",

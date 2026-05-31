@@ -2,18 +2,19 @@
  * SetupFlow — initial setup page at /setup.
  *
  * Simplified single-scroll form. Two required fields (name + API key) and one
- * optional field (repo path). Product is created silently with defaults.
+ * optional field (repo path). Team is created silently with defaults.
  * "Start HyperIdle" button disabled until name + API key are filled.
  *
  * Submits:
  * 1. POST /api/users — create human user (name only, no email)
- * 2. POST /api/products — create first product (name derived from repo path or "My Product")
+ * 2. POST /api/products — create first team (name derived from repo path or "My Team")
+ *    @lore U5: API path stays /api/products (backward compat, renamed to teams in U6).
  * 3. Set credential via bridge (window.__HYPERIDLE__.credentials.set)
  * On success: navigate to /work/portfolio.
  *
  * @lore P4: Replaces Onboarding.tsx. Single-scroll layout from approved design.
- * @lore R2: Simplified from P4 — removed email, backend mode, product name fields.
- * Product name is derived from repo folder basename or defaults to "My Product".
+ * @lore R2: Simplified from P4 — removed email, backend mode, team name fields.
+ * Team name is derived from repo folder basename or defaults to "My Team".
  * Navigates to /work/portfolio (was /conversations).
  */
 
@@ -62,25 +63,27 @@ export function SetupFlow(): JSX.Element {
 					throw new Error(body?.error ?? `Failed to create user (${userRes.status})`);
 				}
 
-				// Step 2: Create first product — derive name from repo path or default
-				// @lore R2: product name is not user-visible in setup. Derive from repo
-				// folder basename if a path was given; otherwise use "My Product".
-				const derivedProductName = repoPath.trim()
-					? (repoPath.trim().split("/").filter(Boolean).pop() ?? "My Product")
-					: "My Product";
+				// Step 2: Create first team — derive name from repo path or default
+				// @lore R2: team name is not user-visible in setup. Derive from repo
+				// folder basename if a path was given; otherwise use "My Team".
+				// @lore U5: API path stays /api/products (backward compat); only the
+				// local variable names were updated from "product" to "team".
+				const derivedTeamName = repoPath.trim()
+					? (repoPath.trim().split("/").filter(Boolean).pop() ?? "My Team")
+					: "My Team";
 
-				const productRes = await apiFetch("/api/products", {
+				const teamRes = await apiFetch("/api/products", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
-						name: derivedProductName,
+						name: derivedTeamName,
 						repoPath: repoPath.trim() || undefined,
 					}),
 				});
 
-				if (!productRes.ok) {
-					const body = (await productRes.json().catch(() => null)) as { error?: string } | null;
-					throw new Error(body?.error ?? `Failed to create product (${productRes.status})`);
+				if (!teamRes.ok) {
+					const body = (await teamRes.json().catch(() => null)) as { error?: string } | null;
+					throw new Error(body?.error ?? `Failed to create team (${teamRes.status})`);
 				}
 
 				// Step 3: Optionally set API credential via bridge

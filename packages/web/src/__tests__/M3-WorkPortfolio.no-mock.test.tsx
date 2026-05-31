@@ -14,12 +14,13 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkPortfolio } from "../pages/WorkPortfolio";
 
-// Mock useProducts to control returned data
-vi.mock("../hooks/useProducts", () => ({
-	useProducts: vi.fn(),
+// Mock useTeams to control returned data
+// @lore U5: useProducts deleted; useTeams is the canonical hook
+vi.mock("../hooks/useTeams", () => ({
+	useTeams: vi.fn(),
 }));
 
-import { useProducts } from "../hooks/useProducts";
+import { useTeams } from "../hooks/useTeams";
 
 function renderPage(
 	props: { loading?: boolean; products?: unknown } = {},
@@ -37,22 +38,22 @@ describe("M3 — WorkPortfolio: loading state renders skeleton (G1)", () => {
 	});
 
 	it("renders skeleton when loading=true prop is passed", () => {
-		vi.mocked(useProducts).mockReturnValue({
+		vi.mocked(useTeams).mockReturnValue({
 			data: null,
-		} as unknown as ReturnType<typeof useProducts>);
+		} as unknown as ReturnType<typeof useTeams>);
 
 		renderPage({ loading: true });
 
 		// Skeleton should be rendered, not product cards
 		expect(screen.getByTestId("work-portfolio-page")).toBeInTheDocument();
 		// No product cards when loading
-		expect(screen.queryAllByTestId("product-card")).toHaveLength(0);
+		expect(screen.queryAllByTestId("team-card")).toHaveLength(0);
 	});
 
-	it("renders skeleton when useProducts is still loading", () => {
-		vi.mocked(useProducts).mockReturnValue({
+	it("renders skeleton when useTeams is still loading", () => {
+		vi.mocked(useTeams).mockReturnValue({
 			data: null,
-		} as unknown as ReturnType<typeof useProducts>);
+		} as unknown as ReturnType<typeof useTeams>);
 
 		// When hook returns null data and no explicit loading prop,
 		// the page should NOT fall back to MOCK_PRODUCTS
@@ -72,11 +73,11 @@ describe("M3 — WorkPortfolio: empty state renders 'No products' (G1)", () => {
 		vi.clearAllMocks();
 	});
 
-	it("renders empty state when useProducts returns empty products array", async () => {
-		vi.mocked(useProducts).mockReturnValue({
+	it("renders empty state when useTeams returns empty teams array", async () => {
+		vi.mocked(useTeams).mockReturnValue({
 			// @lore U1: TeamListResponse uses `teams` array (renamed from `products`)
 			data: { teams: [] },
-		} as unknown as ReturnType<typeof useProducts>);
+		} as unknown as ReturnType<typeof useTeams>);
 
 		renderPage();
 
@@ -89,13 +90,13 @@ describe("M3 — WorkPortfolio: empty state renders 'No products' (G1)", () => {
 	});
 });
 
-describe("M3 — WorkPortfolio: renders real data from useProducts (G1)", () => {
+describe("M3 — WorkPortfolio: renders real data from useTeams (G1)", () => {
 	afterEach(() => {
 		vi.clearAllMocks();
 	});
 
-	it("renders products from useProducts hook data", async () => {
-		vi.mocked(useProducts).mockReturnValue({
+	it("renders products from useTeams hook data", async () => {
+		vi.mocked(useTeams).mockReturnValue({
 			data: {
 				// @lore U1: TeamListResponse uses `teams` array (renamed from `products`)
 				teams: [
@@ -111,7 +112,7 @@ describe("M3 — WorkPortfolio: renders real data from useProducts (G1)", () => 
 					},
 				],
 			},
-		} as unknown as ReturnType<typeof useProducts>);
+		} as unknown as ReturnType<typeof useTeams>);
 
 		renderPage();
 
@@ -130,10 +131,10 @@ describe("M3 — WorkPortfolio: MOCK_CYCLE removed — no 'Cycle 12' fallback (G
 	});
 
 	it("does not render 'Cycle 12' when no cycle data exists", async () => {
-		vi.mocked(useProducts).mockReturnValue({
+		vi.mocked(useTeams).mockReturnValue({
 			// @lore U1: TeamListResponse uses `teams` array (renamed from `products`)
 			data: { teams: [] },
-		} as unknown as ReturnType<typeof useProducts>);
+		} as unknown as ReturnType<typeof useTeams>);
 
 		renderPage();
 
@@ -152,9 +153,9 @@ describe("M3 — WorkPortfolio: MOCK_PRODUCTS never appears in rendered output",
 	});
 
 	it("no MOCK_PRODUCTS content in DOM when products prop is null and hook returns null", async () => {
-		vi.mocked(useProducts).mockReturnValue({
+		vi.mocked(useTeams).mockReturnValue({
 			data: null,
-		} as unknown as ReturnType<typeof useProducts>);
+		} as unknown as ReturnType<typeof useTeams>);
 
 		const { container } = renderPage();
 

@@ -28,9 +28,9 @@ vi.mock("../../components/ArtifactThreadsSummary", () => ({
 const BET_WITH_PITCH: BetDetail = {
 	id: "b-discuss",
 	title: "Discuss Block Test Bet",
-	product: "Alpha",
 	team: "Alpha Core",
 	status: "completed",
+	atRisk: false,
 	costAppetite: null,
 	tokenAppetite: null,
 	costActual: null,

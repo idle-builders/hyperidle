@@ -190,7 +190,7 @@ export function GlobalSearchPanel({
 										>
 											<BetCard
 												title={w.title}
-												product={w.product}
+												team={w.team}
 												status={w.status}
 												appetite={w.appetite}
 												onClick={() => onNavigate("work", w.id)}

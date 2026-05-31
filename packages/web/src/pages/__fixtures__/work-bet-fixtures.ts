@@ -9,6 +9,9 @@
  *   - Any *.spec.ts Playwright file under packages/web/e2e/
  *
  * Forbidden importers: all other production source files in packages/web/src/.
+ *
+ * @lore U5: Removed `product` field (renamed to `team`). Renamed `pitch` → `description`.
+ * Added `atRisk` boolean. L14 fixtures updated to include required WireMoney fields.
  */
 
 // @lore L18: BetComment type is deprecated; BetDetail.comments field removed.
@@ -19,12 +22,12 @@ export const MOCK_BETS: Record<string, BetDetail> = {
 	b1: {
 		id: "b1",
 		title: "User auth flow",
-		product: "Alpha",
 		team: "Alpha Core",
 		// @lore T3: status is "completed" so WorkBet.detail.test.tsx (L16) can assert
 		// that BetPitch (data-testid="bet-pitch") renders. With T3, only immutable bets
 		// (completed/killed) show BetPitch. Mutable bets (draft/active) show BodyEditor.
 		status: "completed",
+		atRisk: false,
 		// L17: costAppetite replaces appetite string; cost/token actuals added.
 		costAppetite: { minor: 20000, currency: "USD" }, // $200.00
 		tokenAppetite: null,
@@ -69,9 +72,9 @@ Migrate to JWT with refresh rotation.
 	b2: {
 		id: "b2",
 		title: "Dashboard redesign",
-		product: "Beta",
 		team: "Beta Surface",
 		status: "draft",
+		atRisk: false,
 		costAppetite: { minor: 30000, currency: "USD" }, // $300.00
 		tokenAppetite: null,
 		costActual: null,
@@ -109,9 +112,9 @@ Replace the grid with a three-column layout driven by user roles.
 	b_active: {
 		id: "b_active",
 		title: "Payment Gateway Integration",
-		product: "Alpha",
 		team: "Alpha Core",
 		status: "active",
+		atRisk: false,
 		costAppetite: null,
 		tokenAppetite: null,
 		costActual: null,
@@ -120,13 +123,13 @@ Replace the grid with a three-column layout driven by user roles.
 		description: "# Problem\nPayments are handled manually.\n\n## Solution\nIntegrate Stripe.",
 		tasks: [],
 	},
-	/** WithRichPitch story fixture — exercises H1, H2, paragraph, list, code, blockquote. */
+	/** WithRichDescription story fixture — exercises H1, H2, paragraph, list, code, blockquote. */
 	b_rich: {
 		id: "b_rich",
 		title: "Rich Description Example",
-		product: "Alpha",
 		team: "Alpha Core",
 		status: "draft",
+		atRisk: false,
 		costAppetite: null,
 		tokenAppetite: null,
 		costActual: null,
@@ -165,9 +168,9 @@ Replace the grid with a three-column layout driven by user roles.
 export const FALLBACK_BET: BetDetail = {
 	id: "unknown",
 	title: "Unknown Bet",
-	product: "Unknown",
 	team: "Unknown Team",
 	status: "draft",
+	atRisk: false,
 	costAppetite: null,
 	tokenAppetite: null,
 	costActual: null,
