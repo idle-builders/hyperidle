@@ -26,6 +26,7 @@
 import type {
 	AgentSessionStateSnapshot,
 	ArtifactRef,
+	InlineRef,
 	Message,
 	MessageType,
 	Thread,
@@ -81,6 +82,16 @@ export interface ThreadShellProps {
 	 * DOMPurify here; design-system stays free of DOMPurify dependency.
 	 */
 	sanitizeHtml?: (raw: string) => string;
+	/**
+	 * T4: Optional render function for inline ref embeds. Called per-message
+	 * with the message's refs array. The web consumer provides BlockRefEmbed
+	 * instances; the design-system stays free of data-fetching components.
+	 *
+	 * @lore T4: ThreadShell cannot import BlockRefEmbed (web-layer) directly.
+	 * The render prop keeps the design-system pure while enabling inline embeds
+	 * in any ThreadShell consumer (CocOverlay, Conversations).
+	 */
+	renderRefEmbeds?: (refs: ReadonlyArray<InlineRef>) => ReactNode;
 }
 
 interface SenderGroupedMessage {
@@ -216,6 +227,7 @@ export function ThreadShell({
 	hostTitle,
 	hostHref,
 	sanitizeHtml,
+	renderRefEmbeds,
 }: ThreadShellProps): JSX.Element {
 	// Sort ASC by createdAt with id as a stability tiebreaker.
 	const ordered = useMemo(
@@ -449,6 +461,15 @@ export function ThreadShell({
 											);
 										}
 									}
+									// T4: compute afterBody for plain messages with refs.
+									const afterBody =
+										renderRefEmbeds &&
+										message.type === "plain" &&
+										!isRedactedPayload(message.payload) &&
+										message.payload.refs &&
+										message.payload.refs.length > 0
+											? renderRefEmbeds(message.payload.refs)
+											: undefined;
 									return (
 										<CommentRow
 											key={message.id}
@@ -460,6 +481,7 @@ export function ThreadShell({
 											}}
 											showSenderHeader={showSenderHeader}
 											sanitizeHtml={sanitizeHtml}
+											{...(afterBody !== undefined ? { afterBody } : {})}
 										/>
 									);
 								})}

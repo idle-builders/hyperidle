@@ -37,11 +37,12 @@ import {
 	isRedactedPayload,
 	totalTokens,
 } from "@hyperidle/shared";
-import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
 import { ArtifactThreadsSummary } from "../components/ArtifactThreadsSummary.js";
 import { CocAttachButton } from "../components/CocAttachButton";
+import { CocContext } from "../contexts/CocContext.js";
 import { useBet } from "../hooks/useBet";
 import { useBetDescriptionSave } from "../hooks/useBetDescriptionSave.js";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
@@ -53,6 +54,7 @@ import { postRequestMessage, resolveOrCreateTaskThread } from "../services/task-
 import { HostThreadSection } from "../shell/HostThreadSection.js";
 import { TaskSheet } from "../shell/TaskSheet";
 import type { BetDetail } from "../types/bet";
+import { blockExcerptFromPayload } from "../utils/block-excerpt.js";
 import { KnowledgeCreateDialog } from "./knowledge/KnowledgeCreateDialog";
 
 // L17: "cost" column maps to costActual (WireMoney|null); sort by minor units.
@@ -146,6 +148,8 @@ interface BetPitchProps {
 	/** Called when the user opens a block's actions menu (Space/Enter on block). Sets openBlockId. */
 	onOpenBlockActions?: (blockId: string) => void;
 	messagesByBlockId?: ReadonlyMap<string, ReadonlyArray<Message>>;
+	/** T4: Called when the user clicks "Share" on a block. Attaches as context ref in CoC. */
+	onShareBlock?: (blockId: string) => void;
 }
 
 function BetPitch({
@@ -153,6 +157,7 @@ function BetPitch({
 	betId,
 	onOpenBlockActions,
 	messagesByBlockId,
+	onShareBlock,
 }: BetPitchProps): JSX.Element | null {
 	const { blocks } = useMemo(
 		() => deriveBlocks(description, { kind: "bet", id: betId }),
@@ -181,19 +186,31 @@ function BetPitch({
 	return (
 		<section aria-label="Bet pitch" data-testid="bet-pitch">
 			{blocks.map((b) => (
-				<Block
-					key={b.id}
-					id={b.id}
-					payload={b.payload}
-					onOpenActions={
-						onOpenBlockActions !== undefined ? () => onOpenBlockActions(b.id) : undefined
-					}
-					slots={{
-						inlineAfterPayload: messagesByBlockId ? (
-							<AnchoredMessages messages={messagesByBlockId.get(b.id) ?? []} />
-						) : undefined,
-					}}
-				/>
+				// T4: relative wrapper so CocAttachButton can be absolutely positioned in the gutter.
+				<div key={b.id} className="relative group/block-attach">
+					<Block
+						id={b.id}
+						payload={b.payload}
+						onOpenActions={
+							onOpenBlockActions !== undefined ? () => onOpenBlockActions(b.id) : undefined
+						}
+						slots={{
+							inlineAfterPayload: messagesByBlockId ? (
+								<AnchoredMessages messages={messagesByBlockId.get(b.id) ?? []} />
+							) : undefined,
+						}}
+					/>
+					{/* T4: CocAttachButton — shows when overlay is open, attaches block ref */}
+					<CocAttachButton
+						ref={{
+							kind: "block",
+							blockId: b.id,
+							hostKind: "bet",
+							hostId: betId,
+							label: blockExcerptFromPayload(b.payload),
+						}}
+					/>
+				</div>
 			))}
 			{/* Fallback: anchored messages whose block no longer exists in the pitch */}
 			<AnchoredMessages messages={allAnchoredMessages} />
@@ -625,6 +642,8 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	const { user } = useCurrentUser();
 	const onOpenArtifact = useArtifactOpen();
 	const hintAddCredential = useHint("add-credential");
+	// T4: CocContext for block share action
+	const { overlayOpen, attachContext } = useContext(CocContext);
 
 	// Only call useBet when there is no override. When overrideBet is provided,
 	// pass undefined so the hook short-circuits to { data: null, loading: false, error: null }.
@@ -864,6 +883,29 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 		setOpenBlockId(null);
 	}
 
+	/**
+	 * T4: "Share" handler — attaches the block as a context ref in the CoC overlay.
+	 * Only available when the CoC overlay is open (per reviewer critique: Share action
+	 * must handle the case where overlay is not open).
+	 *
+	 * @lore T4: Uses CocContext.attachContext which is a no-op when overlayOpen=false.
+	 * The "Share" menu item is conditionally included so it only appears when the
+	 * overlay is open — matching the CocAttachButton behavior.
+	 */
+	function handleShareBlock(blockId: string): void {
+		const blockEl = document.querySelector<HTMLElement>(`[data-block-id="${blockId}"]`);
+		const rawText = blockEl?.textContent?.trim() ?? "";
+		const blockExcerpt = rawText.slice(0, 60) || blockId;
+		attachContext({
+			kind: "block",
+			blockId,
+			hostKind: "bet",
+			hostId: bet.id,
+			label: blockExcerpt,
+		});
+		setOpenBlockId(null);
+	}
+
 	return (
 		<div className="flex flex-col gap-3 h-full" data-testid="work-bet-page">
 			{/* J5: breadcrumb Team → Bet. The leaf node uses the
@@ -989,7 +1031,8 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 			    - Mutable (draft, active): BodyEditor with auto-save + saving indicator.
 			    - Immutable (completed, killed): BetPitch (read-only blocks + block actions).
 			    @lore T3: No Edit/Done toggle. BodyEditor is always mounted for mutable bets.
-			    Block actions are only available in immutable statuses. */}
+			    Block actions are only available in immutable statuses.
+			    T4: onShareBlock added to BetPitch for attaching blocks as CoC context refs. */}
 			{canEditDescription ? (
 				<div className="flex flex-col gap-2" data-testid="bet-description-editor">
 					<BodyEditor
@@ -1020,11 +1063,14 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 						betId={bet.id}
 						onOpenBlockActions={(blockId) => setOpenBlockId(blockId)}
 						messagesByBlockId={messagesByBlockId}
+						onShareBlock={handleShareBlock}
 					/>
 				</>
 			)}
 
-			{/* L18: Block actions popover — rendered at page level, opened from any block */}
+			{/* L18 + T4: Block actions popover — rendered at page level, opened from any block.
+			    T4: "Share" action added; only shown when CoC overlay is open (per reviewer
+			    critique: Share must not be shown when overlay is closed). */}
 			{openBlockId !== null && (
 				<BlockActionsPopover
 					id={`block-popover-${openBlockId}`}
@@ -1037,6 +1083,15 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 							label: "Discuss",
 							onSelect: () => handleDiscussBlock(openBlockId),
 						},
+						...(overlayOpen
+							? [
+									{
+										id: "share-block",
+										label: "Share",
+										onSelect: () => handleShareBlock(openBlockId),
+									},
+								]
+							: []),
 					]}
 				/>
 			)}

@@ -60,6 +60,12 @@ export interface CommentRowProps extends CommentRowRichSlots {
 	 * CommentRow. Tests verify the prop contract at the CommentRow level.
 	 */
 	sanitizeHtml?: (raw: string) => string;
+	/**
+	 * T4: Optional slot rendered after the message body — used for inline ref
+	 * embeds (BlockRefEmbed). Assembeld by the ThreadShell consumer via
+	 * the `renderRefEmbeds` render prop.
+	 */
+	afterBody?: ReactNode;
 }
 
 /**
@@ -148,6 +154,7 @@ export function CommentRow({
 	richBody,
 	richActions,
 	sanitizeHtml,
+	afterBody,
 }: CommentRowProps): JSX.Element {
 	const isRich = message.type === "review" || message.type === "questionnaire";
 	const richSupplied = isRich && (richHeader || richBody || richActions);
@@ -195,6 +202,7 @@ export function CommentRow({
 				) : (
 					renderBody(message, sanitizeHtml)
 				)}
+				{afterBody ? <div className="mt-[4px]">{afterBody}</div> : null}
 			</div>
 		</li>
 	);

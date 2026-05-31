@@ -32,6 +32,9 @@ export { BlockHandle } from "./BlockHandle.js";
 // ── T1: BodyEditor — TipTap WYSIWYG editor ──
 export type { BodyEditorProps } from "./BodyEditor.js";
 export { BodyEditor } from "./BodyEditor.js";
+// T4: renderPayload exported for use in web-layer BlockRefEmbed (cannot import
+// from a sub-path because the design-system package.json only exports ".").
+export { renderPayload } from "./block/render-payload.js";
 export type { CommentRowProps, CommentRowSender } from "./CommentRow.js";
 export { CommentRow } from "./CommentRow.js";
 export type { ComposerProps, ComposerSubmitInput } from "./Composer.js";
