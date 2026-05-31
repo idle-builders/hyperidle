@@ -11,8 +11,8 @@
  * `AnchoredMessages` inside KnowledgeBody.tsx.
  */
 
-import { deriveBlocks } from "@hyperidle/shared";
 import type { Message } from "@hyperidle/shared";
+import { deriveBlocks } from "@hyperidle/shared";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { KnowledgeBody } from "../KnowledgeBody";
@@ -41,7 +41,9 @@ function makeMessage(id: string, blockId?: string): Message {
 		threadId: "t-anchor-test",
 		senderId: "u-founder",
 		type: "plain",
-		payload: blockId ? { text: `Message anchored to ${blockId}`, blockId } : { text: "Plain message" },
+		payload: blockId
+			? { text: `Message anchored to ${blockId}`, blockId }
+			: { text: "Plain message" },
 		clientKey: `ck-${id}`,
 		deletedAt: null,
 		redactedAt: null,
