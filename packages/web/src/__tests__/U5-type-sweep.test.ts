@@ -127,7 +127,7 @@ describe("U5 AC4: settings-types exports TeamSetting", () => {
 		const lines = content.split("\n");
 		const codeLines = lines.filter((line) => {
 			const t = line.trim();
-			return !t.startsWith("*") && !t.startsWith("//") && !t.startsWith("/**");
+			return !(t.startsWith("*") || t.startsWith("//") || t.startsWith("/**"));
 		});
 		const hasProductSetting = codeLines.some((line) => line.includes("ProductSetting"));
 		expect(hasProductSetting).toBe(false);
@@ -142,7 +142,7 @@ describe("U5 AC4: settings-types exports TeamSetting", () => {
 		const lines = content.split("\n");
 		const codeLines = lines.filter((line) => {
 			const t = line.trim();
-			return !t.startsWith("*") && !t.startsWith("//") && !t.startsWith("/**");
+			return !(t.startsWith("*") || t.startsWith("//") || t.startsWith("/**"));
 		});
 		const hasMutedProducts = codeLines.some((line) => line.includes("mutedProducts"));
 		expect(hasMutedProducts).toBe(false);
@@ -268,7 +268,7 @@ describe("U5 AC5: no domain-sense 'product' references in packages/web/src", () 
 			lines.forEach((line, idx) => {
 				if (isDomainProductLine(line, filePath)) {
 					violations.push({
-						file: filePath.replace(SRC + "/", ""),
+						file: filePath.replace(`${SRC}/`, ""),
 						line: idx + 1,
 						content: line.trim(),
 					});
@@ -298,7 +298,7 @@ describe("U5 AC6: design-system BetCard uses 'team' prop", () => {
 		// The old prop name should not appear in code (allow lore comments)
 		const lines = content.split("\n");
 		const codeLines = lines.filter(
-			(line) => !line.trim().startsWith("*") && !line.trim().startsWith("//"),
+			(line) => !(line.trim().startsWith("*") || line.trim().startsWith("//")),
 		);
 		const hasProductProp = codeLines.some(
 			(line) => /\bproduct\s*:/.test(line) || /\bproduct\s*,/.test(line),
