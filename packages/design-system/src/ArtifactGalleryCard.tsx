@@ -13,17 +13,16 @@ export interface ArtifactGalleryCardProps {
 	state?: "populated" | "loading" | "error";
 }
 
-// @lore L3 review fix D-B1: focus ring uses --primary; --accent is not a token.
 const CARD_BASE =
-	"bg-[var(--surface-4)] rounded-[var(--r2)] p-[12px] flex flex-col gap-[8px] cursor-pointer hover:bg-[var(--surface-5)] focus:outline focus:outline-2 focus:outline-[var(--primary)]";
+	"bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[12px] flex flex-col gap-[8px] cursor-pointer shadow-[var(--shadow-default)] border border-[var(--border-subtle)] hover:translate-y-[-2px] hover:shadow-[var(--shadow-elevated)] transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus:outline focus:outline-2 focus:outline-[var(--accent-primary)]";
 const HEADER =
-	"flex items-center gap-[6px] font-mono text-[11px] tracking-[0.02em] uppercase text-[var(--text-mid)]";
-// @lore L3 review fix D-B2: derived title row per approved.md §2 + HTML ref line 29
-// (15px / weight 500 / --text-hi / line-height 1.3).
-const TITLE = "text-[15px] font-medium text-[var(--text-hi)] leading-[1.3]";
-const FOOTER = "flex items-center justify-between font-mono text-[11px] text-[var(--text-mid)]";
+	"flex items-center gap-[6px] font-mono text-[11px] tracking-[0.02em] uppercase text-[var(--text-secondary)]";
+// @lore L3 review fix D-B2: derived title row per approved.md §2 + HTML ref line 29.
+const TITLE = "text-[15px] font-medium text-[var(--text-primary)] leading-[1.3]";
+const FOOTER =
+	"flex items-center justify-between font-mono text-[11px] text-[var(--text-secondary)]";
 const PILL =
-	"bg-[var(--surface-ghost)] text-[var(--text-mid)] rounded-[var(--r-pill)] px-[8px] py-[2px]";
+	"bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)] rounded-[var(--r-pill)] px-[8px] py-[2px]";
 
 export function ArtifactGalleryCard({
 	data,
@@ -42,7 +41,7 @@ export function ArtifactGalleryCard({
 		>
 			<div className={HEADER}>
 				<ArtifactKindBadge kind={data.kind} />
-				<span className="text-[var(--text-lo)]">·</span>
+				<span className="text-[var(--text-tertiary)]">·</span>
 				<span>{data.producingTaskTitle}</span>
 			</div>
 			<div className={TITLE}>{artifactDisplayTitle(data)}</div>
@@ -50,7 +49,7 @@ export function ArtifactGalleryCard({
 			<div className={FOOTER}>
 				<span className="flex items-center gap-[6px]">
 					<ArtifactCostChip cost={data.cost} variant="compact" />
-					<span className="text-[var(--text-lo)]">·</span>
+					<span className="text-[var(--text-tertiary)]">·</span>
 					<ArtifactTimestamp value={data.createdAt} />
 				</span>
 				{count > 0 ? (

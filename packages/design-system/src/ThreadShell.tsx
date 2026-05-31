@@ -137,14 +137,16 @@ function buildRichSlots(
 		return {
 			header: (
 				<>
-					<div className="flex items-center gap-[6px] font-mono text-[11px] tracking-[0.05em] uppercase text-[var(--text-lo)]">
-						<span className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--primary)_18%,transparent)] text-[var(--primary)]">
+					<div className="flex items-center gap-[6px] font-mono text-[11px] tracking-[0.05em] uppercase text-[var(--text-tertiary)]">
+						<span className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-primary)]">
 							REVIEW
 						</span>
 					</div>
-					<h3 className="text-[14px] font-semibold text-[var(--text-hi)] m-0">{payload.title}</h3>
+					<h3 className="text-[14px] font-semibold text-[var(--text-primary)] m-0">
+						{payload.title}
+					</h3>
 					{payload.reasoning.length > 0 ? (
-						<ol className="list-decimal pl-[20px] text-[13px] text-[var(--text-mid)] m-0">
+						<ol className="list-decimal pl-[20px] text-[13px] text-[var(--text-secondary)] m-0">
 							{payload.reasoning.map((line, i) => (
 								// biome-ignore lint/suspicious/noArrayIndexKey: reasoning entries are immutable once sent.
 								<li key={`${message.id}-r-${i}`} className="my-[2px]">
@@ -165,13 +167,15 @@ function buildRichSlots(
 		return {
 			header: (
 				<>
-					<div className="flex items-center gap-[6px] font-mono text-[11px] tracking-[0.05em] uppercase text-[var(--text-lo)]">
-						<span className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--primary)_18%,transparent)] text-[var(--primary)]">
+					<div className="flex items-center gap-[6px] font-mono text-[11px] tracking-[0.05em] uppercase text-[var(--text-tertiary)]">
+						<span className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-primary)]">
 							QUESTION
 						</span>
 					</div>
-					<h3 className="text-[14px] font-semibold text-[var(--text-hi)] m-0">{payload.title}</h3>
-					<p className="text-[13px] text-[var(--text-mid)] m-0">{payload.question}</p>
+					<h3 className="text-[14px] font-semibold text-[var(--text-primary)] m-0">
+						{payload.title}
+					</h3>
+					<p className="text-[13px] text-[var(--text-secondary)] m-0">{payload.question}</p>
 				</>
 			),
 			body: null,
@@ -181,22 +185,20 @@ function buildRichSlots(
 			// user gets honest feedback instead of a dead-click. All-ghost
 			// styling — no false hierarchy on neutral-choice questionnaires.
 			actions:
-				payload.options.length > 0 ? (
-					<>
-						{payload.options.map((opt) => (
+				payload.options.length > 0
+					? payload.options.map((opt) => (
 							<button
 								key={`${message.id}-opt-${opt}`}
 								type="button"
 								disabled
 								aria-disabled="true"
 								title="Answer dispatch lands in a follow-up"
-								className="px-[10px] py-[5px] min-h-[44px] rounded-[var(--r1)] text-[12px] font-medium border bg-transparent text-[var(--text-mid)] border-[var(--border-default)] disabled:opacity-50 disabled:cursor-not-allowed"
+								className="px-[10px] py-[5px] min-h-[44px] rounded-[var(--r-subtle)] text-[12px] font-medium border bg-transparent text-[var(--text-secondary)] border-[var(--border-subtle)] disabled:opacity-50 disabled:cursor-not-allowed"
 							>
 								{opt}
 							</button>
-						))}
-					</>
-				) : null,
+						))
+					: null,
 		};
 	}
 	return null;
@@ -356,7 +358,7 @@ export function ThreadShell({
 			{...dsProps("ThreadShell", "3")}
 			data-testid="thread-shell"
 			aria-live="polite"
-			className="flex flex-col h-full bg-[var(--surface-1)] focus-within:outline-none"
+			className="flex flex-col h-full bg-[var(--surface-container)] focus-within:outline-none"
 		>
 			{banner}
 			{error ? (

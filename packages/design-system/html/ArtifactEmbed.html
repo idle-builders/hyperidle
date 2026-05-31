@@ -5,12 +5,12 @@
   <title>ArtifactEmbed — HyperIdle Design System</title>
   <link rel="stylesheet" href="_tokens.css" />
   <style>
-    body { background: var(--surface-3); color: var(--text-hi); font-family: var(--ui); padding: 24px; }
+    body { background: var(--surface-container); color: var(--text-primary); font-family: var(--ui); padding: 24px; }
     /* The review-message container owns the chrome (background, border, radius).
        Embed itself MUST NOT contribute bg/border/rounded/shadow. */
     .review-message {
-      background: var(--surface-2);
-      border-radius: var(--r1);
+      background: var(--surface-elevated);
+      border-radius: var(--r-subtle);
       padding: 12px 16px;
     }
     .artifact-embed { display: flex; flex-direction: column; gap: 4px; }
@@ -20,15 +20,15 @@
       gap: 6px;
       font-family: var(--mono);
       font-size: 11px;
-      color: var(--text-lo);
+      color: var(--text-tertiary);
       letter-spacing: 0.02em;
       text-transform: uppercase;
     }
     .embed-identity .arrow { margin-left: auto; cursor: pointer; padding: 4px 6px; }
-    .embed-identity .arrow:hover { color: var(--text-hi); }
-    .embed-view { color: var(--text-mid); font-family: var(--ui); font-size: 13px; text-transform: none; letter-spacing: 0; }
-    .sep { color: var(--text-lo); }
-    .artifact-kind-badge { display: inline-flex; padding: 2px 8px; border-radius: var(--r2); background: var(--surface-ghost); color: var(--text-mid); font-family: var(--mono); font-size: 11px; letter-spacing: 0.02em; text-transform: uppercase; }
+    .embed-identity .arrow:hover { color: var(--text-primary); }
+    .embed-view { color: var(--text-secondary); font-family: var(--ui); font-size: 13px; text-transform: none; letter-spacing: 0; }
+    .sep { color: var(--text-tertiary); }
+    .artifact-kind-badge { display: inline-flex; padding: 2px 8px; border-radius: var(--r-default); background: color-mix(in oklab, var(--text-secondary) 8%, transparent); color: var(--text-secondary); font-family: var(--mono); font-size: 11px; letter-spacing: 0.02em; text-transform: uppercase; }
   </style>
 </head>
 <body>

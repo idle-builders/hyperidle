@@ -52,17 +52,17 @@ describe("TaskCard", () => {
 		expect(handleClick).toHaveBeenCalledOnce();
 	});
 
-	// Acceptance criterion: TaskCard in blocked state has red border (border-[var(--danger)])
-	it("applies border-[var(--danger)] class when state is blocked", () => {
+	// Acceptance criterion: TaskCard in blocked state has red border (border-[var(--status-error)])
+	it("applies border-[var(--status-error)] class when state is blocked", () => {
 		const { container } = render(<TaskCard {...defaultProps} state="blocked" />);
 		const root = container.firstElementChild;
-		expect(root?.className).toContain("border-[var(--danger)]");
+		expect(root?.className).toContain("border-[var(--status-error)]");
 	});
 
-	it("does not apply border-[var(--danger)] class when state is not blocked", () => {
+	it("does not apply border-[var(--status-error)] class when state is not blocked", () => {
 		const { container } = render(<TaskCard {...defaultProps} state="in_progress" />);
 		const root = container.firstElementChild;
-		expect(root?.className).not.toContain("border-[var(--danger)]");
+		expect(root?.className).not.toContain("border-[var(--status-error)]");
 	});
 
 	it("renders blocked state as BLOCKED chip", () => {

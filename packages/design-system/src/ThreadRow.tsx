@@ -60,18 +60,19 @@ export function ThreadRow({
 }: ThreadRowProps): JSX.Element {
 	// Selected border wins over blocking border when both flags are true.
 	const borderClass = selected
-		? "border-l-2 border-[var(--primary)]"
+		? "border-l-[var(--bw-strong)] border-[var(--accent-primary)]"
 		: blocking
-			? "border-l-2 border-[var(--danger)]"
+			? "border-l-[var(--bw-strong)] border-[var(--status-error)]"
 			: "";
 
 	const baseClassName = [
-		"flex items-center gap-[var(--density-gap)] px-[var(--density-pad-x)] py-[var(--density-pad-y)] text-[length:var(--density-text)] rounded-[var(--r1)]",
-		"hover:bg-[var(--surface-4)] transition-colors duration-[var(--motion-fast)]",
-		"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--primary)] focus-visible:-outline-offset-1",
+		"flex items-center gap-[var(--density-gap)] px-[var(--density-pad-x)] py-[var(--density-pad-y)] text-[length:var(--density-text)] rounded-[var(--r-subtle)]",
+		"hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))] transition-colors duration-[var(--motion-fast)]",
+		"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:-outline-offset-1",
 		onClick ? "cursor-pointer" : "",
 		unread ? "font-bold" : "",
-		selected ? "bg-[var(--surface-4)]" : "",
+		// selected state: elevated bg + subtle shadow per design spec advisory finding #4
+		selected ? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]" : "",
 		borderClass,
 	]
 		.filter(Boolean)
@@ -84,6 +85,14 @@ export function ThreadRow({
 			aria-current={selected ? "true" : undefined}
 			className={baseClassName}
 		>
+			{unread && (
+				// Unread dot: 6px green circle before title area per Hearth design
+				<span
+					data-testid="unread-dot"
+					aria-hidden="true"
+					className="w-[6px] h-[6px] rounded-full bg-[var(--status-success)] shrink-0"
+				/>
+			)}
 			{avatarUrl !== null ? (
 				<img
 					src={avatarUrl}
@@ -95,7 +104,7 @@ export function ThreadRow({
 				// Falls back to a neutral chip when title is empty or undefined.
 				<span
 					aria-hidden="true"
-					className="flex h-[var(--density-avatar-size)] w-[var(--density-avatar-size)] items-center justify-center rounded-full bg-[var(--surface-4)] text-[var(--text-mid)] text-[11px] font-mono font-bold uppercase shrink-0"
+					className="flex h-[var(--density-avatar-size)] w-[var(--density-avatar-size)] items-center justify-center rounded-full bg-[var(--surface-elevated)] text-[var(--text-secondary)] text-[11px] font-mono font-bold uppercase shrink-0"
 				>
 					{title.slice(0, 2).toUpperCase() || "??"}
 				</span>
@@ -110,7 +119,7 @@ export function ThreadRow({
 							width={12}
 							height={12}
 							fill="currentColor"
-							className="text-[var(--text-mid)] shrink-0"
+							className="text-[var(--text-secondary)] shrink-0"
 						>
 							<path d="M6 1l1.5 3 3.5.5-2.5 2.5.5 3.5-3-1.5-3 1.5.5-3.5L1 4.5l3.5-.5L6 1z" />
 						</svg>
@@ -131,7 +140,7 @@ export function ThreadRow({
 						<span
 							data-testid="thread-row-host-pill"
 							// eslint-disable-next-line design/no-off-scale-font-size -- L8 §5.6 mandates 10px mono for the host pill; documented waiver in packages/eslint-plugin-design/waivers.md.
-							className="inline-flex items-center px-[6px] py-[1px] rounded-[var(--r-pill)] font-mono text-[10px] leading-[1.4] bg-[var(--surface-ghost)] text-[var(--text-mid)] whitespace-nowrap"
+							className="inline-flex items-center px-[6px] py-[1px] rounded-[var(--r-pill)] font-mono text-[10px] leading-[1.4] bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)] whitespace-nowrap"
 						>
 							{hostTag}
 						</span>
@@ -140,9 +149,9 @@ export function ThreadRow({
 					{tag && <Tag label={tag} />}
 					{kind && <Tag label={kind} kind={kind as TagKind} />}
 				</div>
-				<p className="text-[12px] text-[var(--text-mid)] truncate">{snippet}</p>
+				<p className="text-[12px] text-[var(--text-secondary)] truncate">{snippet}</p>
 			</div>
-			<span className="text-[12px] text-[var(--text-lo)] whitespace-nowrap">{timestamp}</span>
+			<span className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap">{timestamp}</span>
 			{actions}
 		</div>
 	);

@@ -26,7 +26,7 @@ function PinIcon(): JSX.Element {
 			strokeWidth="2"
 			strokeLinecap="round"
 			strokeLinejoin="round"
-			className="text-[var(--text-lo)] shrink-0"
+			className="text-[var(--text-tertiary)] shrink-0"
 			aria-label="Pinned"
 		>
 			<title>Pinned</title>
@@ -73,17 +73,20 @@ export function ThreadHostBanner({
 	return (
 		<div
 			{...dsProps("ThreadHostBanner", "2")}
-			className="flex items-center gap-[12px] py-[var(--density-pad-y,8px)] px-[var(--density-pad-x,12px)] border-b border-[var(--border-subtle)] bg-[var(--surface-1)]"
+			className="flex items-center gap-[12px] py-[var(--density-pad-y,8px)] px-[var(--density-pad-x,12px)] border-b border-[var(--border-subtle)] bg-[var(--surface-container)]"
 		>
 			{/* Host label */}
 			<div className="flex items-center gap-[8px] min-w-0 flex-1">
 				<Tag label={hostKind} />
 				{hostHref ? (
-					<a href={hostHref} className="text-[var(--text-hi)] truncate font-medium hover:underline">
+					<a
+						href={hostHref}
+						className="text-[var(--text-primary)] truncate font-medium hover:underline"
+					>
 						{hostTitle}
 					</a>
 				) : (
-					<span className="text-[var(--text-hi)] truncate font-medium">{hostTitle}</span>
+					<span className="text-[var(--text-primary)] truncate font-medium">{hostTitle}</span>
 				)}
 				{pinned ? <PinIcon /> : null}
 			</div>
@@ -100,13 +103,13 @@ export function ThreadHostBanner({
 					<span
 						key={p.id}
 						title={p.name}
-						className="inline-flex items-center justify-center w-[24px] h-[24px] rounded-full bg-[var(--surface-2)] text-[var(--text-lo)] text-[11px] font-medium border border-[var(--border-subtle)]"
+						className="inline-flex items-center justify-center w-[24px] h-[24px] rounded-full bg-[var(--surface-elevated)] text-[var(--text-tertiary)] text-[11px] font-medium border border-[var(--border-subtle)]"
 					>
 						{p.name.charAt(0).toUpperCase()}
 					</span>
 				))}
 				{overflow > 0 ? (
-					<span className="inline-flex items-center justify-center w-[24px] h-[24px] rounded-full bg-[var(--surface-2)] text-[var(--text-lo)] text-[11px] font-medium border border-[var(--border-subtle)]">
+					<span className="inline-flex items-center justify-center w-[24px] h-[24px] rounded-full bg-[var(--surface-elevated)] text-[var(--text-tertiary)] text-[11px] font-medium border border-[var(--border-subtle)]">
 						+{overflow}
 					</span>
 				) : null}
