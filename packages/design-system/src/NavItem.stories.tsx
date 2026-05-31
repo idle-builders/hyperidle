@@ -8,6 +8,7 @@ export default {
 		"SelectedState",
 		"WithIcons",
 		"WithCountBadge",
+		"WithStatusDot",
 		"FullNavigationInteractive",
 	],
 };
@@ -86,6 +87,16 @@ export const WithCountBadge = (): React.JSX.Element => (
 		<NavItem label="Notifications" count={12} />
 		<NavItem label="Tasks" count={3} />
 		<NavItem label="Errors" count={0} />
+	</ul>
+);
+
+export const WithStatusDot = (): React.JSX.Element => (
+	<ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 2, width: 220 }}>
+		<NavItem label="Healthy Agent" statusDot="success" />
+		<NavItem label="Delayed Task" statusDot="warning" />
+		<NavItem label="Blocked Item" statusDot="error" />
+		<NavItem label="Paused Routine" statusDot="info" />
+		<NavItem label="No Status" />
 	</ul>
 );
 

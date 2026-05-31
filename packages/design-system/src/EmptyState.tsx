@@ -40,12 +40,12 @@ export function EmptyState({
 			 * INTENTIONAL — must NOT switch to items-center under comfortable
 			 * (#1 AI-aesthetic tell, see § 5.1).
 			 */
-			className="flex flex-col items-start gap-[var(--density-card-gap)] px-[var(--density-pad-x)] py-[var(--density-card-pad)] text-left"
+			className="flex flex-col items-start gap-[var(--density-card-gap)] px-[var(--density-pad-x)] py-[var(--density-card-pad)] text-left bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-subtle)]"
 		>
-			<p className="text-[length:var(--density-text)] font-medium text-[var(--text-hi)] leading-[1.4]">
+			<p className="text-[length:var(--density-text)] font-medium text-[var(--text-primary)] leading-[1.4]">
 				{title}
 			</p>
-			<p className="text-[12px] text-[var(--text-lo)] leading-[1.4]">{description}</p>
+			<p className="text-[12px] text-[var(--text-tertiary)] leading-[1.4]">{description}</p>
 			{/* @lore K11: action offset → --density-card-gap so the slot
 			    breathes consistently with the title↔description rhythm. */}
 			{action && <div className="mt-[var(--density-card-gap)]">{action}</div>}

@@ -50,8 +50,8 @@ describe("ThreadRow", () => {
 
 	it("does not render Tag when tag is omitted", () => {
 		const { container } = render(<ThreadRow {...defaultProps} />);
-		// Tags use bg-[var(--surface-ghost)]; none should be present when no tag is given
-		const tags = container.querySelectorAll("[class*='bg-\\[var\\(--surface-ghost\\)\\]']");
+		// Tags use rounded-[var(--r-pill)]; none should be present when no tag is given
+		const tags = container.querySelectorAll("[class*='rounded-\\[var\\(--r-pill\\)\\]']");
 		expect(tags.length).toBe(0);
 	});
 
@@ -76,8 +76,8 @@ describe("ThreadRow", () => {
 		render(<ThreadRow {...defaultProps} status="healthy" tag="ops" />);
 		// StatusChip renders uppercase status text with rounded-full
 		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-full");
-		// Tag renders label with rounded-[var(--r2)] and neutral bg
-		expect(screen.getByText("ops")).toHaveClass("inline-flex", "rounded-[var(--r2)]");
+		// Tag renders label with rounded-[var(--r-pill)] and neutral bg
+		expect(screen.getByText("ops")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 	});
 
 	it("calls onClick when row is clicked", () => {
@@ -104,12 +104,12 @@ describe("ThreadRow", () => {
 
 	it("renders kind as Tag when provided", () => {
 		render(<ThreadRow {...defaultProps} kind="review" />);
-		expect(screen.getByText("review")).toHaveClass("inline-flex", "rounded-[var(--r2)]");
+		expect(screen.getByText("review")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 	});
 
 	it("renders chat kind as Tag", () => {
 		render(<ThreadRow {...defaultProps} kind="chat" />);
-		expect(screen.getByText("chat")).toHaveClass("inline-flex", "rounded-[var(--r2)]");
+		expect(screen.getByText("chat")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 	});
 
 	it("has aria-label on title", () => {

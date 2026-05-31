@@ -27,19 +27,23 @@ export const UnknownFallback = (): React.JSX.Element => (
 );
 
 export const InContextDemoCard = (): React.JSX.Element => (
-	<div className="rounded-lg bg-[var(--surface-3)] p-4">
+	<div className="rounded-lg bg-[var(--surface-container)] p-4">
 		<div className="flex flex-col gap-2">
 			<div className="flex items-center gap-2">
 				<StatusChip status="healthy" />
-				<span className="text-[13px] text-[var(--text-mid)]">Agent is running normally</span>
+				<span className="text-[13px] text-[var(--text-secondary)]">Agent is running normally</span>
 			</div>
 			<div className="flex items-center gap-2">
 				<StatusChip status="blocked" />
-				<span className="text-[13px] text-[var(--text-mid)]">Waiting on external dependency</span>
+				<span className="text-[13px] text-[var(--text-secondary)]">
+					Waiting on external dependency
+				</span>
 			</div>
 			<div className="flex items-center gap-2">
 				<StatusChip status="error" />
-				<span className="text-[13px] text-[var(--text-mid)]">Build failed, needs intervention</span>
+				<span className="text-[13px] text-[var(--text-secondary)]">
+					Build failed, needs intervention
+				</span>
 			</div>
 		</div>
 	</div>

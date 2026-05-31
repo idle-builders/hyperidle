@@ -19,14 +19,14 @@ export const WithoutRetry = (): React.JSX.Element => (
 );
 
 export const InContextStackedErrors = (): React.JSX.Element => (
-	<div className="rounded-lg bg-[var(--surface-3)] p-4">
+	<div className="rounded-lg bg-[var(--surface-container)] p-4">
 		<div className="flex flex-col gap-4">
 			<ErrorState
 				title="Network unreachable"
 				description="Check your internet connection and try again."
 				onRetry={() => undefined}
 			/>
-			<div className="border-t border-[var(--surface-4)]" />
+			<div className="border-t border-[var(--surface-elevated)]" />
 			<ErrorState title="Permission denied" description="You don't have access to this resource." />
 		</div>
 	</div>

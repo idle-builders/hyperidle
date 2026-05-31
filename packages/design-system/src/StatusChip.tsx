@@ -43,32 +43,32 @@ interface StatusStyle {
 
 const STATUS_STYLES: Record<Status | "unknown", StatusStyle> = {
 	healthy: {
-		chip: "bg-[color-mix(in_oklab,var(--ok)_14%,transparent)] text-[var(--ok)]",
-		dot: "bg-[var(--ok)]",
+		chip: "bg-[color-mix(in_oklab,var(--status-success)_14%,transparent)] text-[var(--status-success)]",
+		dot: "bg-[var(--status-success)]",
 	},
 	behind: {
-		chip: "bg-[color-mix(in_oklab,var(--warn)_14%,transparent)] text-[var(--warn)]",
-		dot: "bg-[var(--warn)]",
+		chip: "bg-[color-mix(in_oklab,var(--status-warning)_14%,transparent)] text-[var(--status-warning)]",
+		dot: "bg-[var(--status-warning)]",
 	},
 	blocked: {
-		chip: "bg-[color-mix(in_oklab,var(--danger)_14%,transparent)] text-[var(--danger)]",
-		dot: "bg-[var(--danger)]",
+		chip: "bg-[color-mix(in_oklab,var(--status-error)_14%,transparent)] text-[var(--status-error)]",
+		dot: "bg-[var(--status-error)]",
 	},
 	paused: {
-		chip: "bg-[color-mix(in_oklab,var(--text-lo)_14%,transparent)] text-[var(--text-lo)]",
-		dot: "bg-[var(--text-lo)]",
+		chip: "bg-[color-mix(in_oklab,var(--status-info)_14%,transparent)] text-[var(--status-info)]",
+		dot: "bg-[var(--status-info)]",
 	},
 	done: {
-		chip: "bg-[color-mix(in_oklab,var(--ok)_14%,transparent)] text-[var(--ok)]",
-		dot: "bg-[var(--ok)]",
+		chip: "bg-[color-mix(in_oklab,var(--status-success)_14%,transparent)] text-[var(--status-success)]",
+		dot: "bg-[var(--status-success)]",
 	},
 	error: {
-		chip: "bg-[color-mix(in_oklab,var(--danger)_14%,transparent)] text-[var(--danger)]",
-		dot: "bg-[var(--danger)]",
+		chip: "bg-[color-mix(in_oklab,var(--status-error)_14%,transparent)] text-[var(--status-error)]",
+		dot: "bg-[var(--status-error)]",
 	},
 	unknown: {
-		chip: "bg-[color-mix(in_oklab,var(--text-lo)_14%,transparent)] text-[var(--text-lo)]",
-		dot: "bg-[var(--text-lo)]",
+		chip: "bg-[color-mix(in_oklab,var(--text-tertiary)_14%,transparent)] text-[var(--text-tertiary)]",
+		dot: "bg-[var(--text-tertiary)]",
 	},
 };
 
@@ -82,7 +82,7 @@ const KNOWN_STATUSES: ReadonlySet<string> = new Set<Status>([
 ]);
 
 const CHIP_BASE =
-	"inline-flex items-center gap-[6px] px-[8px] py-[2px] rounded-full font-heading text-[11px] tracking-[0.05em] uppercase font-medium leading-[1.4] whitespace-nowrap shrink-0";
+	"inline-flex items-center gap-[6px] px-[8px] py-[2px] rounded-full font-[family-name:var(--font-mono)] text-[11px] tracking-[0.05em] uppercase font-medium leading-[1.4] whitespace-nowrap shrink-0";
 
 export function StatusChip({ status }: StatusChipProps): JSX.Element {
 	const safeStatus: Status | "unknown" =
