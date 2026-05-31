@@ -11,16 +11,16 @@
        row chrome as plain messages. The action surface is a property
        of the rich message, not of the thread. */
 
-    body { background: var(--surface-0); padding: 24px; }
+    body { background: var(--surface-page); padding: 24px; }
 
     .pane {
       display: flex;
       flex-direction: column;
       max-width: 880px;
       margin: 0 auto;
-      background: var(--surface-1);
+      background: var(--surface-container);
       border: 1px solid var(--border-subtle);
-      border-radius: var(--r2);
+      border-radius: var(--r-default);
       overflow: hidden;
     }
 
@@ -31,7 +31,7 @@
       gap: 12px;
       padding: var(--density-pad-y) var(--density-pad-x);
       border-bottom: 1px solid var(--border-subtle);
-      background: var(--surface-1);
+      background: var(--surface-container);
     }
     .host-banner__back {
       display: inline-flex;
@@ -39,13 +39,13 @@
       justify-content: center;
       width: 28px;
       height: 28px;
-      border-radius: var(--r1);
-      color: var(--text-mid);
+      border-radius: var(--r-subtle);
+      color: var(--text-secondary);
       flex-shrink: 0;
     }
-    .host-banner__back:hover { background: var(--surface-ghost); color: var(--text-hi); }
+    .host-banner__back:hover { background: color-mix(in oklab, var(--text-secondary) 8%, transparent); color: var(--text-primary); }
     .host-banner__main { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
-    .host-banner__title { color: var(--text-hi); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .host-banner__title { color: var(--text-primary); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     /* Tag / StatusChip — copied from primitives */
     .tag {
@@ -56,13 +56,13 @@
       font-family: var(--mono);
       letter-spacing: 0.03em;
       white-space: nowrap;
-      background: var(--surface-ghost);
-      color: var(--text-mid);
+      background: color-mix(in oklab, var(--text-secondary) 8%, transparent);
+      color: var(--text-secondary);
       flex-shrink: 0;
     }
     .tag--decision {
-      background: color-mix(in oklab, var(--primary) 14%, transparent);
-      color: var(--primary);
+      background: color-mix(in oklab, var(--accent-primary) 14%, transparent);
+      color: var(--accent-primary);
     }
     .status-chip {
       display: inline-flex; align-items: center; gap: 6px;
@@ -77,20 +77,20 @@
     }
     .status-chip .dot { width: 6px; height: 6px; border-radius: 50%; }
     .status-chip--blocked {
-      background: color-mix(in oklab, var(--danger) 14%, transparent);
-      color: var(--danger);
+      background: color-mix(in oklab, var(--status-error) 14%, transparent);
+      color: var(--status-error);
     }
-    .status-chip--blocked .dot { background: var(--danger); }
+    .status-chip--blocked .dot { background: var(--status-error); }
     .status-chip--done {
-      background: color-mix(in oklab, var(--ok) 14%, transparent);
-      color: var(--ok);
+      background: color-mix(in oklab, var(--status-success) 14%, transparent);
+      color: var(--status-success);
     }
-    .status-chip--done .dot { background: var(--ok); }
+    .status-chip--done .dot { background: var(--status-success); }
     .status-chip--resolved {
-      background: var(--surface-ghost);
-      color: var(--text-mid);
+      background: color-mix(in oklab, var(--text-secondary) 8%, transparent);
+      color: var(--text-secondary);
     }
-    .status-chip--resolved .dot { background: var(--text-lo); }
+    .status-chip--resolved .dot { background: var(--text-tertiary); }
 
     /* CommentRow (the row primitive) — Tier 2.
        Plain messages use header + text. Rich messages use
@@ -108,8 +108,8 @@
     .row__avatar {
       width: 28px; height: 28px;
       border-radius: 50%;
-      background: var(--surface-2);
-      color: var(--text-mid);
+      background: var(--surface-elevated);
+      color: var(--text-secondary);
       font-size: 11px; font-weight: 500;
       border: 1px solid var(--border-subtle);
       display: inline-flex; align-items: center; justify-content: center;
@@ -125,12 +125,12 @@
       display: flex; align-items: center; gap: 6px;
       font-size: 12px;
     }
-    .row__sender { color: var(--text-hi); font-weight: 500; }
-    .row__role { color: var(--text-lo); }
-    .row__time { color: var(--text-lo); margin-left: auto; font-size: 11px; }
+    .row__sender { color: var(--text-primary); font-weight: 500; }
+    .row__role { color: var(--text-tertiary); }
+    .row__time { color: var(--text-tertiary); margin-left: auto; font-size: 11px; }
     .row__text {
       font-size: 13px;
-      color: var(--text-mid);
+      color: var(--text-secondary);
       margin: 0;
     }
 
@@ -144,11 +144,11 @@
       font-size: 11px;
       letter-spacing: 0.05em;
       text-transform: uppercase;
-      color: var(--text-lo);
+      color: var(--text-tertiary);
     }
     .row__rich-title {
       font-size: 15px; font-weight: 600;
-      color: var(--text-hi);
+      color: var(--text-primary);
       margin: 0;
     }
     .row__reasoning-label {
@@ -156,14 +156,14 @@
       font-size: 11px;
       letter-spacing: 0.05em;
       text-transform: uppercase;
-      color: var(--text-lo);
+      color: var(--text-tertiary);
       margin-top: 2px;
     }
     .row__reasoning {
       list-style: decimal;
       padding-left: 20px;
       font-size: 13px;
-      color: var(--text-mid);
+      color: var(--text-secondary);
       margin: 0;
     }
     .row__reasoning li { margin: 2px 0; }
@@ -175,9 +175,9 @@
 
     /* ArtifactView surrogate — content_preview shape */
     .artifact {
-      background: var(--surface-2);
+      background: var(--surface-elevated);
       border: 1px solid var(--border-subtle);
-      border-radius: var(--r2);
+      border-radius: var(--r-default);
       overflow: hidden;
     }
     .artifact__strip {
@@ -187,16 +187,16 @@
       font-size: 11px;
       letter-spacing: 0.05em;
       border-bottom: 1px solid var(--border-subtle);
-      color: var(--text-mid);
+      color: var(--text-secondary);
     }
     .artifact__kind {
       padding: 1px 6px;
-      border: 1px solid var(--border-default);
-      border-radius: var(--r1);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r-subtle);
       text-transform: uppercase;
     }
-    .artifact__label { color: var(--text-lo); }
-    .artifact__value { color: var(--text-hi); }
+    .artifact__label { color: var(--text-tertiary); }
+    .artifact__value { color: var(--text-primary); }
     .artifact__routing { margin-left: auto; }
     .artifact__body { padding: 12px; }
 
@@ -209,20 +209,20 @@
       overflow-x: auto;
     }
     .diff__hunk-header {
-      color: var(--text-lo);
+      color: var(--text-tertiary);
       padding: 2px 0;
     }
     .diff__line { display: block; padding: 0 4px; }
     .diff__line--add {
-      background: color-mix(in oklab, var(--ok) 14%, transparent);
-      color: var(--text-hi);
+      background: color-mix(in oklab, var(--status-success) 14%, transparent);
+      color: var(--text-primary);
     }
     .diff__line--del {
-      background: color-mix(in oklab, var(--danger) 14%, transparent);
-      color: var(--text-hi);
+      background: color-mix(in oklab, var(--status-error) 14%, transparent);
+      color: var(--text-primary);
     }
     .diff__prefix {
-      color: var(--text-lo);
+      color: var(--text-tertiary);
       user-select: none;
       margin-right: 6px;
     }
@@ -235,7 +235,7 @@
     }
     .btn {
       padding: 6px 12px;
-      border-radius: var(--r1);
+      border-radius: var(--r-subtle);
       font-size: 13px;
       font-weight: 500;
       border: 1px solid transparent;
@@ -244,28 +244,28 @@
       font-family: inherit;
     }
     .btn--primary {
-      background: var(--primary);
-      color: var(--surface-0);
+      background: var(--accent-primary);
+      color: var(--surface-page);
     }
     .btn--primary:hover {
       filter: brightness(1.05);
     }
     .btn--ghost {
       background: transparent;
-      color: var(--text-mid);
-      border-color: var(--border-default);
+      color: var(--text-secondary);
+      border-color: var(--border-subtle);
     }
     .btn--ghost:hover {
-      background: var(--surface-ghost);
-      color: var(--text-hi);
+      background: color-mix(in oklab, var(--text-secondary) 8%, transparent);
+      color: var(--text-primary);
     }
     .btn--danger {
       background: transparent;
-      color: var(--danger);
-      border-color: color-mix(in oklab, var(--danger) 30%, transparent);
+      color: var(--status-error);
+      border-color: color-mix(in oklab, var(--status-error) 30%, transparent);
     }
     .btn--danger:hover {
-      background: color-mix(in oklab, var(--danger) 8%, transparent);
+      background: color-mix(in oklab, var(--status-error) 8%, transparent);
     }
 
     /* Resolved strip (replaces richActions on resolved messages) */
@@ -275,18 +275,18 @@
       font-size: 11px;
       letter-spacing: 0.05em;
       text-transform: uppercase;
-      color: var(--text-lo);
+      color: var(--text-tertiary);
       margin-top: 4px;
       padding: 6px 0;
     }
-    .row__resolved-strip strong { color: var(--text-mid); font-weight: 500; }
+    .row__resolved-strip strong { color: var(--text-secondary); font-weight: 500; }
 
     /* Verdict message row (uses CommentRow's verdict branch) */
     .row__verdict {
       display: flex; align-items: center; gap: 8px;
       font-size: 13px;
     }
-    .row__verdict-note { color: var(--text-lo); margin-left: 4px; }
+    .row__verdict-note { color: var(--text-tertiary); margin-left: 4px; }
 
     /* Composer (existing primitive) — kept thin */
     .composer {
@@ -295,15 +295,15 @@
       gap: 8px;
       padding: var(--density-pad-y) var(--density-pad-x);
       border-top: 1px solid var(--border-subtle);
-      background: var(--surface-1);
+      background: var(--surface-container);
     }
     .composer__textarea {
       flex: 1;
       min-height: 36px;
-      background: var(--surface-2);
-      color: var(--text-mid);
+      background: var(--surface-elevated);
+      color: var(--text-secondary);
       border: 1px solid var(--border-subtle);
-      border-radius: var(--r1);
+      border-radius: var(--r-subtle);
       padding: 8px 10px;
       font-size: 13px;
       font-family: var(--ui);
@@ -312,11 +312,11 @@
     .composer__send {
       align-self: flex-end;
       padding: 6px 14px;
-      border-radius: var(--r1);
+      border-radius: var(--r-subtle);
       font-size: 13px;
       font-weight: 500;
-      background: var(--primary);
-      color: var(--surface-0);
+      background: var(--accent-primary);
+      color: var(--surface-page);
       border: none;
       cursor: pointer;
     }

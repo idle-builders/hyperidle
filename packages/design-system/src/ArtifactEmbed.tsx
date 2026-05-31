@@ -28,11 +28,10 @@ export interface ArtifactEmbedProps {
 
 const WRAP = "flex flex-col gap-[4px]";
 const IDENTITY =
-	"flex items-center gap-[6px] font-mono text-[11px] text-[var(--text-lo)] tracking-[0.02em] uppercase";
-const VIEW = "text-[var(--text-mid)] font-sans text-[13px] normal-case [letter-spacing:0]";
-// @lore L3 review fix D-B1: focus ring uses --primary; --accent is not a token.
+	"flex items-center gap-[6px] font-mono text-[11px] text-[var(--text-tertiary)] tracking-[0.02em] uppercase";
+const VIEW = "text-[var(--text-secondary)] font-sans text-[13px] normal-case [letter-spacing:0]";
 const ARROW =
-	"ml-auto cursor-pointer px-[6px] py-[4px] hover:text-[var(--text-hi)] focus:outline focus:outline-2 focus:outline-[var(--primary)]";
+	"ml-auto cursor-pointer px-[6px] py-[4px] hover:text-[var(--text-primary)] focus:outline focus:outline-2 focus:outline-[var(--accent-primary)]";
 
 export function ArtifactEmbed({ data, onOpen, viewSlot }: ArtifactEmbedProps): JSX.Element {
 	const summary = summarizePreview(data.preview) ?? "[ no preview ]";
@@ -40,11 +39,11 @@ export function ArtifactEmbed({ data, onOpen, viewSlot }: ArtifactEmbedProps): J
 		<div {...dsProps("ArtifactEmbed", "2")} className={WRAP}>
 			<div className={IDENTITY}>
 				<ArtifactKindBadge kind={data.kind} />
-				<span className="text-[var(--text-lo)]">·</span>
+				<span className="text-[var(--text-tertiary)]">·</span>
 				<span>{data.producingTaskTitle}</span>
-				<span className="text-[var(--text-lo)]">·</span>
+				<span className="text-[var(--text-tertiary)]">·</span>
 				<ArtifactCostChip cost={data.cost} variant="compact" />
-				<span className="text-[var(--text-lo)]">·</span>
+				<span className="text-[var(--text-tertiary)]">·</span>
 				<ArtifactTimestamp value={data.createdAt} />
 				<button type="button" aria-label="Open artifact" className={ARROW} onClick={onOpen}>
 					→

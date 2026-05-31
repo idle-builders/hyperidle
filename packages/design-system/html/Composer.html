@@ -14,7 +14,7 @@
       gap: 6px;
       padding: var(--density-pad-y) var(--density-pad-x);
       border-top: 1px solid var(--border-subtle);
-      background: var(--surface-1);
+      background: var(--surface-container);
     }
     .composer__hint {
       text-align: left;
@@ -31,16 +31,16 @@
       width: 100%;
       min-height: 44px;
       resize: vertical;
-      background: var(--surface-2);
-      color: var(--text-mid);
+      background: var(--surface-elevated);
+      color: var(--text-secondary);
       border: 1px solid var(--border-subtle);
-      border-radius: var(--r1);
+      border-radius: var(--r-subtle);
       padding: 8px 10px;
       font-size: 13px;
       font-family: var(--ui);
     }
     .composer__textarea::placeholder {
-      color: var(--text-lo);
+      color: var(--text-tertiary);
     }
     .composer__textarea:focus {
       outline: none;
@@ -55,15 +55,15 @@
     }
     .composer__shortcut {
       font-size: 11px;
-      color: var(--text-lo);
+      color: var(--text-tertiary);
     }
     .composer__send {
       padding: 6px 12px;
-      border-radius: var(--r1);
+      border-radius: var(--r-subtle);
       font-size: 13px;
       font-weight: 500;
       background: var(--accent);
-      color: var(--accent-on);
+      color: var(--text-on-accent);
       border: none;
       cursor: pointer;
     }

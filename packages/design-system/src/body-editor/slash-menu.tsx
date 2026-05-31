@@ -188,9 +188,9 @@ const SlashMenuDropdown = forwardRef<SlashMenuDropdownRef, SlashMenuDropdownProp
 					ref={containerRef}
 					role="listbox"
 					aria-label="Slash commands"
-					className="bg-[var(--surface-2)] border border-[var(--border-default)] rounded-[var(--r2)] py-[4px] min-w-[200px] max-h-[320px] overflow-y-auto shadow-[var(--float)]"
+					className="bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-default)] py-[4px] min-w-[200px] max-h-[320px] overflow-y-auto shadow-[var(--shadow-elevated)]"
 				>
-					<div className="px-[12px] py-[8px] text-[var(--text-lo)] text-[var(--density-text)]">
+					<div className="px-[12px] py-[8px] text-[var(--text-tertiary)] text-[var(--density-text)]">
 						No results
 					</div>
 				</div>
@@ -202,7 +202,7 @@ const SlashMenuDropdown = forwardRef<SlashMenuDropdownRef, SlashMenuDropdownProp
 				ref={containerRef}
 				role="listbox"
 				aria-label="Slash commands"
-				className="bg-[var(--surface-2)] border border-[var(--border-default)] rounded-[var(--r2)] py-[4px] min-w-[200px] max-h-[320px] overflow-y-auto shadow-[var(--float)]"
+				className="bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-default)] py-[4px] min-w-[200px] max-h-[320px] overflow-y-auto shadow-[var(--shadow-elevated)]"
 			>
 				{props.items.map((item, index) => (
 					<button
@@ -212,16 +212,16 @@ const SlashMenuDropdown = forwardRef<SlashMenuDropdownRef, SlashMenuDropdownProp
 						aria-selected={index === selectedIndex}
 						className={`w-full text-left px-[12px] py-[8px] flex flex-col gap-[4px] cursor-pointer ${
 							index === selectedIndex
-								? "bg-[var(--surface-ghost)]"
-								: "hover:bg-[var(--surface-ghost)]"
+								? "bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)]"
+								: "hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)]"
 						}`}
 						onClick={() => selectItem(index)}
 						onMouseEnter={() => setSelectedIndex(index)}
 					>
-						<span className="text-[var(--text-hi)] text-[var(--density-text)] leading-tight">
+						<span className="text-[var(--text-primary)] text-[var(--density-text)] leading-tight">
 							{item.title}
 						</span>
-						<span className="text-[var(--text-lo)] text-[0.8125rem] leading-tight">
+						<span className="text-[var(--text-tertiary)] text-[0.8125rem] leading-tight">
 							{item.description}
 						</span>
 					</button>

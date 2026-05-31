@@ -9,7 +9,7 @@ export interface ArtifactCostChipProps {
 }
 
 const CHIP_BASE =
-	"inline-flex items-center gap-[6px] font-mono text-[11px] text-[var(--text-mid)] [font-variant-numeric:tabular-nums]";
+	"inline-flex items-center gap-[6px] font-mono text-[11px] text-[var(--text-secondary)] [font-variant-numeric:tabular-nums]";
 
 export function ArtifactCostChip({ cost, variant = "full" }: ArtifactCostChipProps): JSX.Element {
 	// @lore L17: show em dash (—) when money is null — this is the "pending / not recorded" signal.
@@ -32,7 +32,7 @@ export function ArtifactCostChip({ cost, variant = "full" }: ArtifactCostChipPro
 			<span>{moneyText}</span>
 			{showTokens ? (
 				<>
-					<span className="text-[var(--text-lo)]">·</span>
+					<span className="text-[var(--text-tertiary)]">·</span>
 					<span>{tokenText}</span>
 				</>
 			) : null}

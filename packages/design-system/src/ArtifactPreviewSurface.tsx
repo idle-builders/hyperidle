@@ -9,7 +9,7 @@ export interface ArtifactPreviewSurfaceProps {
 }
 
 const SURFACE_BASE =
-	"bg-[var(--surface-3)] rounded-[var(--r1)] p-[12px] flex items-center justify-center text-[var(--text-lo)] font-mono text-[11px] tracking-[0.02em] uppercase";
+	"bg-[var(--surface-container)] rounded-[var(--r-subtle)] p-[12px] flex items-center justify-center text-[var(--text-tertiary)] font-mono text-[11px] tracking-[0.02em] uppercase";
 const SURFACE_GALLERY = "min-h-[96px]";
 const SURFACE_FULL = "min-h-[240px]";
 

@@ -90,16 +90,16 @@ describe("ThreadRow", () => {
 		expect(handleClick).toHaveBeenCalledOnce();
 	});
 
-	it("applies border-[var(--danger)] when blocking is true", () => {
+	it("applies border-[var(--status-error)] when blocking is true", () => {
 		const { container } = render(<ThreadRow {...defaultProps} blocking={true} />);
 		const root = container.firstElementChild;
-		expect(root?.className).toContain("border-[var(--danger)]");
+		expect(root?.className).toContain("border-[var(--status-error)]");
 	});
 
-	it("does not apply border-[var(--danger)] when blocking is false", () => {
+	it("does not apply border-[var(--status-error)] when blocking is false", () => {
 		const { container } = render(<ThreadRow {...defaultProps} blocking={false} />);
 		const root = container.firstElementChild;
-		expect(root?.className).not.toContain("border-[var(--danger)]");
+		expect(root?.className).not.toContain("border-[var(--status-error)]");
 	});
 
 	it("renders kind as Tag when provided", () => {
@@ -145,11 +145,11 @@ describe("ThreadRow", () => {
 		expect(screen.getByText("bet")).toBeInTheDocument();
 	});
 
-	it("selected state stacks with blocking — primary border-left wins", () => {
+	it("selected state stacks with blocking — accent-primary border-left wins", () => {
 		const { container } = render(<ThreadRow {...defaultProps} blocking={true} selected={true} />);
 		const root = container.firstElementChild;
-		// Selected applies a primary border-left; blocking applies a danger border-left.
-		// When both are true, the selected primary border must win.
-		expect(root?.className).toContain("border-[var(--primary)]");
+		// Selected applies an accent-primary border-left; blocking applies a status-error border-left.
+		// When both are true, the selected accent-primary border must win.
+		expect(root?.className).toContain("border-[var(--accent-primary)]");
 	});
 });

@@ -44,6 +44,7 @@ const FREEZE_CSS = `
   }
 `;
 
+// U8: PitchCard deleted from design-system — removed from visual regression.
 /** Component names — must match both HTML filenames and story titles. */
 const COMPONENTS = [
 	"StatusChip",
@@ -53,7 +54,6 @@ const COMPONENTS = [
 	"SearchField",
 	"ThreadRow",
 	"BetCard",
-	"PitchCard",
 	"TaskCard",
 	"KnowledgeRow",
 	"NotificationRow",
@@ -70,6 +70,7 @@ const COMPONENTS = [
  * multiple components (e.g. Skeleton.html → SkeletonList + SkeletonCard), so the
  * value is a list. Each name MUST resolve to ≥ 1 marker on the page.
  */
+// U8: PitchCard deleted — removed from EXPECTED_MARKERS.
 const EXPECTED_MARKERS: Record<string, string[]> = {
 	StatusChip: ["StatusChip"],
 	Tag: ["Tag"],
@@ -78,7 +79,6 @@ const EXPECTED_MARKERS: Record<string, string[]> = {
 	SearchField: ["SearchField"],
 	ThreadRow: ["ThreadRow"],
 	BetCard: ["BetCard"],
-	PitchCard: ["PitchCard"],
 	TaskCard: ["TaskCard"],
 	KnowledgeRow: ["KnowledgeRow"],
 	NotificationRow: ["NotificationRow"],
@@ -97,6 +97,7 @@ const EXPECTED_MARKERS: Record<string, string[]> = {
  * the TSX only adds it via clickableProps when onClick is present. We use
  * the component's root element selector and force: true for hover.
  */
+// U8: PitchCard deleted — removed from INTERACTIVE_COMPONENTS.
 const INTERACTIVE_COMPONENTS: Record<
 	string,
 	{ htmlSelector: string; tsxSelector: string; sectionIndex: number }
@@ -105,7 +106,6 @@ const INTERACTIVE_COMPONENTS: Record<
 	SearchField: { htmlSelector: "input", tsxSelector: "input", sectionIndex: 0 },
 	ThreadRow: { htmlSelector: "[role='button'], button", tsxSelector: "div > div", sectionIndex: 0 },
 	BetCard: { htmlSelector: "[role='button']", tsxSelector: "div > div", sectionIndex: 0 },
-	PitchCard: { htmlSelector: "[role='button']", tsxSelector: "div > div", sectionIndex: 0 },
 	TaskCard: { htmlSelector: "[role='button']", tsxSelector: "div > div", sectionIndex: 0 },
 	KnowledgeRow: {
 		htmlSelector: "[role='button'], button",
