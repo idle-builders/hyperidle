@@ -76,7 +76,6 @@ function makeBet(status: BetDetail["status"], overrides?: Partial<BetDetail>): B
 	return {
 		id: "b-test",
 		title: "Test Bet",
-		product: "Test Product",
 		team: "Test Team",
 		status,
 		costAppetite: null,
