@@ -563,6 +563,7 @@ function KnowledgeDetailView({
 						title="Discussion"
 						prefill={threadPrefill}
 						onClearPrefill={() => setThreadPrefill(undefined)}
+						filterBlockId={threadPrefill?.blockId}
 					/>
 				</div>
 				<RelatedSidebar items={related} />
