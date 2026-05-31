@@ -1,12 +1,12 @@
 import {
+	betStatusToStatus,
+	clickableProps,
 	dsShellProps,
 	EmptyState,
 	KeyValue,
 	SearchField,
 	StatusChip,
 	Tag,
-	betStatusToStatus,
-	clickableProps,
 } from "@hyperidle/design-system";
 // U8: PitchCard deleted from design-system. Inline card rendering here.
 // @lore U8: PitchCard was deleted from design-system as it had no reuse beyond
