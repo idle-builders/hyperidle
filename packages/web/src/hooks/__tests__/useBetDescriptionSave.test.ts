@@ -51,7 +51,9 @@ describe("useBetDescriptionSave", () => {
 	it("debounces multiple rapid save calls into one PATCH", async () => {
 		fetchSpy.mockResolvedValueOnce(new Response("{}", { status: 200 }));
 
-		const { result } = renderHook(() => useBetDescriptionSave({ ...DEFAULT_OPTS, debounceMs: 1500 }));
+		const { result } = renderHook(() =>
+			useBetDescriptionSave({ ...DEFAULT_OPTS, debounceMs: 1500 }),
+		);
 
 		// Fire three rapid saves
 		act(() => {
@@ -99,7 +101,7 @@ describe("useBetDescriptionSave", () => {
 		});
 	});
 
-	it("sends PATCH to correct URL /api/bets/${betId}", async () => {
+	it("sends PATCH to correct URL /api/bets/:betId", async () => {
 		fetchSpy.mockResolvedValueOnce(new Response("{}", { status: 200 }));
 		const customBetId = "custom-bet-42";
 

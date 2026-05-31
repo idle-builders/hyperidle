@@ -63,12 +63,14 @@ const BASE_BET: BetDetail = {
 	title: "Test Bet",
 	product: "Test Product",
 	team: "Test Team",
-	status: "draft",
-	appetite: "2 weeks",
+	status: "completed",
+	costAppetite: null,
+	tokenAppetite: null,
+	costActual: null,
+	tokensActual: null,
 	progress: { done: 0, total: 0 },
-	pitch: RICH_PITCH,
+	description: RICH_PITCH,
 	tasks: [],
-	comments: [],
 };
 
 function renderWithBet(bet: BetDetail): ReturnType<typeof render> {
@@ -199,7 +201,7 @@ describe("L16 — WorkBet pitch as L2 blocks", () => {
 	// Case 5: empty pitch renders nothing
 	// ----------------------------------------------------------------
 	it("case 5: empty pitch renders no bet-pitch section", () => {
-		renderWithBet({ ...BASE_BET, pitch: "" });
+		renderWithBet({ ...BASE_BET, description: "" });
 		expect(document.querySelector("[data-testid='bet-pitch']")).toBeNull();
 	});
 
@@ -207,7 +209,7 @@ describe("L16 — WorkBet pitch as L2 blocks", () => {
 	// Case 6: whitespace-only pitch renders nothing
 	// ----------------------------------------------------------------
 	it("case 6: whitespace-only pitch renders no bet-pitch section", () => {
-		renderWithBet({ ...BASE_BET, pitch: "   \n\n  " });
+		renderWithBet({ ...BASE_BET, description: "   \n\n  " });
 		expect(document.querySelector("[data-testid='bet-pitch']")).toBeNull();
 	});
 
@@ -224,7 +226,7 @@ describe("L16 — WorkBet pitch as L2 blocks", () => {
 		expect(blocks[0].payload.kind).toBe("unknown");
 
 		// Render the page — it must not crash.
-		renderWithBet({ ...BASE_BET, pitch: oversize });
+		renderWithBet({ ...BASE_BET, description: oversize });
 		const section = document.querySelector("[data-testid='bet-pitch']");
 		expect(section).toBeTruthy();
 		const unknownBlock = section?.querySelector("[data-ds-kind='unknown']");
@@ -238,7 +240,7 @@ describe("L16 — WorkBet pitch as L2 blocks", () => {
 		const shapedBet: BetDetail = {
 			...BASE_BET,
 			id: "api-bet",
-			pitch: "# API Heading\n\nAPI paragraph.\n",
+			description: "# API Heading\n\nAPI paragraph.\n",
 		};
 
 		// Override the module-level mock for this test.

@@ -53,27 +53,29 @@ const MOCK_BET_WITH_TASKS: BetDetail = {
 	title: "User auth flow",
 	product: "HyperIdle Core",
 	team: "Core Team",
-	status: "in_progress",
-	appetite: "2 weeks",
+	status: "active",
+	costAppetite: null,
+	tokenAppetite: null,
+	costActual: null,
+	tokensActual: null,
 	progress: { done: 1, total: 2 },
-	pitch: "# Problem\n\nAuth needs work.\n",
+	description: "# Problem\n\nAuth needs work.\n",
 	tasks: [
 		{
 			id: "t1",
 			title: "Implement login endpoint",
 			owner: "Dev Agent 1",
 			state: "in_progress",
-			cost: "$4.20",
+			costActual: { minor: 420, currency: "USD" },
 		},
 		{
 			id: "t2",
 			title: "Design signup form",
 			owner: "Dev Agent 2",
 			state: "accepted",
-			cost: "$1.80",
+			costActual: { minor: 180, currency: "USD" },
 		},
 	],
-	comments: [],
 };
 
 function renderPage(bet = MOCK_BET_WITH_TASKS): ReturnType<typeof render> {

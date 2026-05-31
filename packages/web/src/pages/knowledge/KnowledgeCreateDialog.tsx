@@ -129,110 +129,117 @@ export function KnowledgeCreateDialog({
 
 	return (
 		<dialog ref={dialogRef} aria-modal="true" aria-label="New knowledge item">
-			<div className="p-4 flex flex-col gap-3 min-w-[320px] max-w-[480px] w-full">
-				<h2 className="text-sm font-heading font-semibold uppercase tracking-wider">
-					New knowledge item
-				</h2>
+			{/* @lore T3: open guard prevents BodyEditor (and other dialog content) from
+			    rendering when the dialog is closed. Without this guard, WorkBet tests
+			    that mock @hyperidle/design-system find two mock-body-editor elements
+			    (one from the WorkBet description editor, one from here). Matches the
+			    pattern already used in BetCreateDialog. */}
+			{open && (
+				<div className="p-4 flex flex-col gap-3 min-w-[320px] max-w-[480px] w-full">
+					<h2 className="text-sm font-heading font-semibold uppercase tracking-wider">
+						New knowledge item
+					</h2>
 
-				{/* Title input */}
-				<label className="flex flex-col gap-1">
-					<span className="text-xs text-[var(--text-lo)]">
-						Title <span aria-hidden>(required)</span>
-					</span>
-					<input
-						type="text"
-						className="input input-bordered input-sm text-base w-full"
-						placeholder="What did you learn?"
-						value={title}
-						onChange={(e) => setTitle(e.target.value)}
-						disabled={submitting}
-						maxLength={500}
-					/>
-				</label>
-
-				{/* Body field — T2: replaced textarea with BodyEditor */}
-				{/* @lore T2: <div> instead of <label> — BodyEditor renders a ProseMirror contenteditable
-				    which is not a labelable element; <label> with no associated control triggers
-				    lint/a11y/noLabelWithoutControl. The inner ProseMirror sets its own aria role. */}
-				<div className="flex flex-col gap-1">
-					<span className="text-xs text-[var(--text-lo)]">
-						Body <span aria-hidden>(required)</span>
-					</span>
-					<BodyEditor
-						initialContent=""
-						onChange={(md) => setBody(md)}
-						placeholder="Describe it in markdown..."
-						variant="full"
-						minHeight="128px"
-						editable={!submitting}
-					/>
-				</div>
-
-				{/* Scope kind — locked (read-only Tag) or open combobox */}
-				<div className="flex flex-col gap-1">
-					<span className="text-xs text-[var(--text-lo)]">Scope</span>
-					{isLocked ? (
-						<span className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r2)] text-[12px] bg-[var(--surface-ghost)] text-[var(--text-mid)] w-fit">
-							{lockedScopeKind}
-						</span>
-					) : (
-						<select
-							className="select select-bordered select-sm"
-							aria-label="Scope kind"
-							value={scopeKind}
-							onChange={(e) => setScopeKind(e.target.value as ScopeKind)}
-							disabled={submitting}
-						>
-							{SCOPE_KINDS.map((kind) => (
-								<option key={kind} value={kind}>
-									{kind}
-								</option>
-							))}
-						</select>
-					)}
-				</div>
-
-				{/* Scope ID — shown when the selected scope requires an external id
-				    and the scope is not locked (locked scopes pass lockedScopeId). */}
-				{needsScopeId && !isLocked && (
+					{/* Title input */}
 					<label className="flex flex-col gap-1">
-						<span className="text-xs text-[var(--text-lo)]">Scope ID</span>
+						<span className="text-xs text-[var(--text-lo)]">
+							Title <span aria-hidden>(required)</span>
+						</span>
 						<input
 							type="text"
 							className="input input-bordered input-sm text-base w-full"
-							placeholder={`${effectiveScopeKind} ID`}
-							value={scopeId}
-							onChange={(e) => setScopeId(e.target.value)}
+							placeholder="What did you learn?"
+							value={title}
+							onChange={(e) => setTitle(e.target.value)}
 							disabled={submitting}
+							maxLength={500}
 						/>
 					</label>
-				)}
 
-				{error && (
-					<p role="alert" className="text-xs text-error">
-						{error}
-					</p>
-				)}
+					{/* Body field — T2: replaced textarea with BodyEditor */}
+					{/* @lore T2: <div> instead of <label> — BodyEditor renders a ProseMirror contenteditable
+				    which is not a labelable element; <label> with no associated control triggers
+				    lint/a11y/noLabelWithoutControl. The inner ProseMirror sets its own aria role. */}
+					<div className="flex flex-col gap-1">
+						<span className="text-xs text-[var(--text-lo)]">
+							Body <span aria-hidden>(required)</span>
+						</span>
+						<BodyEditor
+							initialContent=""
+							onChange={(md) => setBody(md)}
+							placeholder="Describe it in markdown..."
+							variant="full"
+							minHeight="128px"
+							editable={!submitting}
+						/>
+					</div>
 
-				<div className="flex gap-2 justify-end">
-					<button
-						type="button"
-						className="btn btn-xs btn-ghost"
-						onClick={handleCancel}
-						disabled={submitting}
-					>
-						Cancel
-					</button>
-					<button
-						type="button"
-						className="btn btn-xs btn-primary"
-						onClick={() => void handleSubmit()}
-						disabled={!canCreate}
-					>
-						{submitting ? "…" : "Create"}
-					</button>
+					{/* Scope kind — locked (read-only Tag) or open combobox */}
+					<div className="flex flex-col gap-1">
+						<span className="text-xs text-[var(--text-lo)]">Scope</span>
+						{isLocked ? (
+							<span className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r2)] text-[12px] bg-[var(--surface-ghost)] text-[var(--text-mid)] w-fit">
+								{lockedScopeKind}
+							</span>
+						) : (
+							<select
+								className="select select-bordered select-sm"
+								aria-label="Scope kind"
+								value={scopeKind}
+								onChange={(e) => setScopeKind(e.target.value as ScopeKind)}
+								disabled={submitting}
+							>
+								{SCOPE_KINDS.map((kind) => (
+									<option key={kind} value={kind}>
+										{kind}
+									</option>
+								))}
+							</select>
+						)}
+					</div>
+
+					{/* Scope ID — shown when the selected scope requires an external id
+				    and the scope is not locked (locked scopes pass lockedScopeId). */}
+					{needsScopeId && !isLocked && (
+						<label className="flex flex-col gap-1">
+							<span className="text-xs text-[var(--text-lo)]">Scope ID</span>
+							<input
+								type="text"
+								className="input input-bordered input-sm text-base w-full"
+								placeholder={`${effectiveScopeKind} ID`}
+								value={scopeId}
+								onChange={(e) => setScopeId(e.target.value)}
+								disabled={submitting}
+							/>
+						</label>
+					)}
+
+					{error && (
+						<p role="alert" className="text-xs text-error">
+							{error}
+						</p>
+					)}
+
+					<div className="flex gap-2 justify-end">
+						<button
+							type="button"
+							className="btn btn-xs btn-ghost"
+							onClick={handleCancel}
+							disabled={submitting}
+						>
+							Cancel
+						</button>
+						<button
+							type="button"
+							className="btn btn-xs btn-primary"
+							onClick={() => void handleSubmit()}
+							disabled={!canCreate}
+						>
+							{submitting ? "…" : "Create"}
+						</button>
+					</div>
 				</div>
-			</div>
+			)}
 		</dialog>
 	);
 }
