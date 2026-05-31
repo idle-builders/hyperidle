@@ -82,7 +82,12 @@
 		 */
 		--leading-normal: 1.55;
 		--leading-relaxed: 1.7;
-		--tracking-caps: 0.02em;
+		/* @lore U10: Hearth wide-tracking uppercase signature. 0.08em for section
+		 * titles; 0.06em for smaller labels (subtitles, sidebar categories).
+		 * Previous Lucid-era value 0.02em was too tight for the warm, generous
+		 * Hearth aesthetic. */
+		--tracking-caps: 0.08em;
+		--tracking-caps-sm: 0.06em;
 
 		/* Spacing — 6px grid (all values are multiples of 3px) */
 		--space-1: 3px;
@@ -344,7 +349,9 @@
 		--density-text-h1: 28px;
 		--density-text-h2: 22px;
 		--leading-body: 1.6;
-		--tracking-caps: 0.015em;
+		/* @lore U10: Hearth tracking-caps is uniform across all density tiers (0.08em).
+		 * The K9 comfortable-density value of 0.015em is replaced. */
+		--tracking-caps: 0.08em;
 
 		/* K11 density tokens */
 		--density-card-pad: 16px;

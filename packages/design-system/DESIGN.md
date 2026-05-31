@@ -108,13 +108,15 @@ The app respects `prefers-color-scheme` by default. Users can override via the s
 
 ### Scale
 
-Source of truth: `AESTHETICS.md § Typography` recommendations table. Allowlist `{11, 12, 13, 14, 15, 16, 18, 20, 24}` — anything outside this set is off-scale and lints under `design/no-off-scale-font-size`.
+Source of truth: `AESTHETICS.md § Typography` recommendations table — U10 Hearth override. Allowlist `{9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 24, 30}` — anything outside this set is off-scale and lints under `design/no-off-scale-font-size`.
 
 | Size | Weight | Line Height | Usage |
 |------|--------|-------------|-------|
-| 24px | 600 (`--fw-semibold`) | 1.2 (`--leading-tight`) | Page titles (rare) |
+| 30px | 700 (`--fw-bold`) | 1.2 | Page title, brand heading (Hearth `--text-3xl`) |
+| 24px | 600 (`--fw-semibold`) | 1.2 (`--leading-tight`) | Section titles |
 | 20px | 600 | 1.25 | Section headings (intermediate) |
 | 18px | 600 | 1.25 | Section headings |
+| 17px | 500 / 600 | 1.4 | Large labels, card titles (Hearth `--text-lg`) |
 | 16px | 400 / 500 | 1.6 (`--leading-body` under `[data-density="comfortable"]`) | Body text (comfortable density) AND mobile inputs |
 | 15px | 400 | 1.55 (`--leading-body` under `[data-density="default"]`) | Body text (default density) |
 | 14px | 600 (`--fw-semibold`) | 1.5 | Mono section headers (uppercase tracking-wider) |
@@ -124,17 +126,21 @@ Source of truth: `AESTHETICS.md § Typography` recommendations table. Allowlist 
 | 12px | 600 | 1.4 | Mono — small section headers |
 | 12px | 500 | 1.4 | Small labels, metadata |
 | 11px | 500 | 1.3 | Mono — uppercase tags, timestamps |
+| 10px | 500 | 1.3 | Micro-typography — badge-agent labels, avatar-sm initials, swatch labels |
+| 9px | 500 | 1.2 | Count badges only (numeric counters — type scale floor) |
 
 ### Tracking and weight tokens
 
 | Token | Value | Usage |
 |---|---|---|
-| `--tracking-caps` | 0.02em (compact / default) / 0.015em (comfortable) | Letter-spacing for uppercase labels |
+| `--tracking-caps` | 0.08em | Letter-spacing for uppercase section titles (Hearth wide-tracking signature) |
+| `--tracking-caps-sm` | 0.06em | Letter-spacing for smaller uppercase labels (subtitles, sidebar categories) |
 | `--leading-body` | 1.5 (compact) / 1.55 (default) / 1.6 (comfortable) | Body line-height |
 | `--leading-tight` | 1.25 | Heading line-height |
 | `--fw-normal` | 400 | Body weight |
 | `--fw-medium` | 500 | Label / heading weight |
 | `--fw-semibold` | 600 | Bold heading / emphasis weight |
+| `--fw-bold` | 700 | Page title / brand heading weight |
 
 ### Heading-scale density tokens (K9)
 
@@ -151,7 +157,7 @@ Source of truth: `AESTHETICS.md § Typography` recommendations table. Allowlist 
 
 ### Grid
 
-4px baseline grid. All spacing values are multiples of 4px.
+6px baseline grid. All layout spacing values are from the Hearth `--space-*` scale.
 
 ### Density Presets
 
@@ -167,7 +173,7 @@ Three presets cascaded via `[data-density]` attribute on the app shell root.
 | `--density-text-h1` | 1.625rem (26px) | 1.5rem (24px) | 1.75rem (28px) |
 | `--density-text-h2` | 1.25rem (20px) | 1.125rem (18px) | 1.375rem (22px) |
 | `--leading-body` | 1.55 | 1.5 | 1.6 |
-| `--tracking-caps` | 0.02em | 0.02em | 0.015em |
+| `--tracking-caps` | 0.08em | 0.08em | 0.08em |
 
 ### Density preference state
 
@@ -175,13 +181,18 @@ Settings exposes a tri-state `appearance.density` value: `"auto" | "default" | "
 
 ### Common Spacing Values
 
-| Value | Usage |
-|-------|-------|
-| 4px | Icon gap, tight grouping |
-| 8px | Default padding, component gap |
-| 12px | Horizontal padding (default density) |
-| 16px | Section gap, comfortable padding |
-| 24px | Major section separation |
+Hearth 6px grid — the `--space-*` token scale:
+
+| Value | Token | Usage |
+|-------|-------|-------|
+| 3px | `--space-1` | Tight grouping, minimum gap |
+| 6px | `--space-2` | Default gap, icon gap |
+| 9px | `--space-3` | Small padding |
+| 12px | `--space-4` | Default padding, small element padding |
+| 18px | `--space-6` | Card padding, section gap |
+| 24px | `--space-8` | Major section separation |
+| 36px | `--space-12` | Large section padding |
+| 48px | `--space-16` | Page margin (maximum layout grid value) |
 
 ---
 
@@ -216,15 +227,16 @@ Three duration tiers and a single easing curve. All motion durations honor `pref
 ## Grid (Shell Layout)
 
 ```
-┌──────────┬──────────────┬─────────────────────────┬──────────────┐
-│ IconRail │   Submenu    │         Main            │    Rail      │
-│   48px   │    240px     │         1fr             │  56/360px    │
-└──────────┴──────────────┴─────────────────────────┴──────────────┘
+┌────────────────────────┬─────────────────────────────────────────┐
+│        Sidebar         │                  Main                   │
+│        240px           │                  1fr                    │
+└────────────────────────┴─────────────────────────────────────────┘
 ```
 
-- `grid-template-columns: 48px 240px 1fr auto`
-- Rail collapsed: 56px (icon buttons + count badges)
-- Rail expanded: 360px (searchable notification feed)
+- `grid-template-columns: 240px 1fr`
+- Sidebar uses `--surface-container` background (warm linen)
+- Main uses `--surface-page` background (warm cream)
+- Sidebar collapses to icon-only on narrow viewports
 
 ---
 
@@ -240,9 +252,11 @@ NOT used (wrong tone): hero, card, chat-bubble, carousel, steps, timeline, ratin
 
 - No purple/indigo palettes
 - No excessive gradients
-- No `rounded-2xl` everywhere
+- No `rounded-3xl` or arbitrary large radii beyond the Hearth 4-value scale (0/10/16/9999). Note: `rounded-2xl` (16px) IS the Hearth default card radius — do not avoid it.
 - No `p-8`/`p-12` oversized padding
 - No stock 3-column card grids
 - No hero sections
 - No decorative icons on every element
 - No glass morphism / frosted glass effects
+- No cool grays — all neutrals must be warm-tinted (use Hearth surface/text/border tokens)
+- No external font imports — system fonts only (`--font-sans`, `--font-mono`)

@@ -97,6 +97,15 @@ K13 added no new tokens, retired no existing tokens, and adjusted no per-tier va
 
 Adjacent recommendations (out of K13 token-tune scope; logged for K14): a `Composer` Tier 2 primitive that would replace the literal-min-height composer in `packages/web/src/pages/ConversationsChat.tsx`; a Submenu width fix so NavItem labels do not wrap at comfortable; a future tier-coherence rule (proposed AQ-018) that catches density-aware components placed adjacent to density-static neighbors. The skill+rule audit at `packages/design-system/research/density-skill-audit-K13.md` lists the full TODO set.
 
+#### U10 Hearth changelog (Spacing & Density)
+
+U10 adopts the Hearth design language, which uses a **6px base grid** replacing the K1 4px grid. The Hearth reference implementation (`packages/design-system/03-hearth.html`) defines `--ds-space-*` on a 3px/6px progression. This is an explicit aesthetic choice — the 6px grid produces wider spacing increments matching the generous-rounding philosophy.
+
+Rows overridden by U10:
+
+- **Grid base unit**: K1 verdict `no change` (4px) → U10 **6px** (designer-call). Allowlist becomes `{0,3,6,9,12,18,24,36,48}`. The 4px grid is retired.
+- **Sub-grid 2px allowance**: K1 `2px allowed only inside StatusChip and Tag` → U10 **deleted as a general grid value**. Hearth's smallest grid spacing is 3px (`--space-1`). There is no 2px value in the Hearth grid. However, 2px and 4px survive inside component internals per the AQ-001 component-internal exemption: the `gap: 2px` in `.toggle-text` (vertical space between label and description) and `gap: 4px` in `.badge` (horizontal space between status dot and badge text) are optically-tuned sub-element gaps, not compositional layout values.
+
 ### Findings
 
 The 4px grid is universal across reference systems. Material 3, IBM Carbon, Atlassian, Shopify Polaris and Tailwind all build their spacing scales as multiples of 4px (Carbon and Atlassian permit a single 2px sub-step for fine adjustments inside small interactive elements). Productivity-tool defaults cluster at 8-12px vertical padding, 12-16px horizontal padding, and 32-40px row heights for dense list views. HyperIdle's current default density (8 / 12 / 8 / 32 / 14) sits at the lower end of the productivity cluster. See `research/spacing-density.md` for the per-source numbers.
@@ -175,6 +184,16 @@ Mono is for code, IDs, timestamps, and tabular numerics. Tabular numerals (`font
 
 Disagreements: see Appendix B.2.
 
+#### U10 Hearth changelog (Typography)
+
+U10 Hearth overrides the following typography rows:
+
+- **Font families**: K1 verdict `no change` (Geist + Geist Mono) → U10 **system-ui + ui-monospace** (designer-call). Hearth eliminates external font dependencies. system-ui provides the native UI font on each platform (SF Pro on macOS, Segoe UI on Windows, Roboto on Android/ChromeOS). ui-monospace provides SF Mono / Cascadia Code / similar. AQ-019 enforces no external font imports.
+- **Body size (default)**: K9 verdict 15px — **no change**. Hearth's `--ds-font-size-base` is 0.9375rem = 15px. Confirmed.
+- **Type scale additions**: Add **9px** (count badges — numeric counters only; type scale floor), **10px** (micro-typography: badge-agent labels, avatar-sm initials, swatch labels), **17px** (Hearth `--text-lg` / `--ds-font-size-lg`), **30px** (Hearth `--text-3xl` for page titles and brand headings). Full Hearth allowlist: `{9,10,11,12,13,14,15,16,17,18,20,24,30}`.
+- **Font-weight scale**: K1 verdict `400/500/600` → U10 **400/500/600/700**. Hearth adds 700 (bold) for page titles and brand headings. The tokens.css already defines `--fw-bold: 700`. AQ-004 updated.
+- **Letter-spacing for caps**: K9 verdict `+0.02em` → U10 **`--tracking-caps: 0.08em`** (designer-call). The 0.08em tracking on uppercase section titles is part of the Hearth visual signature — wide-tracked uppercase labels create a calm, editorial feel pairing with the warm palette. Add `--tracking-caps-sm: 0.06em` for smaller uppercase labels (subtitles, sidebar categories). Both values are intentional overrides, not showcase-only.
+
 ---
 
 ## Color & Dark Mode
@@ -209,6 +228,14 @@ See `research/color-dark.md`.
 
 Disagreements: see Appendix B.3.
 
+#### U10 Hearth changelog (Color & Dark Mode)
+
+U10 Hearth overrides the following color rows:
+
+- **Dark base surface**: K1 verdict `no change` (#111113) → U10 **#1a1510** (designer-call). Warm earth base, not cool neutral. All surface tokens are warm-tinted.
+- **Surface temperature**: K1 verdict `hold cool-neutral` → U10 **warm** (designer-call). All neutrals are warm-tinted. No cool grays anywhere. AQ-018 enforces this.
+- **Status colors (warn/ok monochrome)**: K1 verdict `no change` (gray) → U10 **chromatic** (designer-call). Hearth uses semantic chromatic status: green (#16764f light / #2eaa7a dark) for success, amber (#d97706) for warning, red (#dc4a3a light / #ee6a5a dark) for error, blue (#2e7dba light / #4498d4 dark) for info.
+
 ---
 
 ## Borders/Radii/Shadows
@@ -237,6 +264,16 @@ See `research/borders-radii-shadows.md`.
 | `shadow-lg`/`-xl` cards | not blocked | no change at token level; K6 sub-rule restricts to overlay surfaces (see Appendix B.4) | Material 3, Atlassian, Tailwind all reserve heavy shadow for overlays only | S6 S25 S33 | yes | regex: `/\bshadow-(lg\|xl\|2xl)\b/` outside files matching `/Modal\|Dialog\|Popover\|Tooltip/` |
 
 Disagreements: see Appendix B.4.
+
+#### U10 Hearth changelog (Borders/Radii/Shadows)
+
+U10 Hearth overrides the following radius and shadow rows:
+
+- **Radius scale**: K1 verdict `no change` (0/4/8/12 + pill) → U10 **0/10/16/9999** (designer-call). The Hearth generous-rounding principle uses larger default radii. Four-value scale: none (0), subtle (10px), default (16px), pill (9999px). The 4/8/12 productivity sub-band is retired.
+- **`rounded-2xl` and above**: K1 verdict `block in component code via K6 sub-rule` → U10 **`rounded-2xl` (16px) is ON-SCALE** (maps to `--r-default`). `rounded-3xl` (24px) remains off-scale. The K6 sub-rule is updated to block only `rounded-3xl`. Form control chrome (checkboxes, radio buttons) may use off-scale radii per AQ-011 exemption.
+- **Dark-mode shadow tier**: K1 verdict `--float only` → U10 **three shadow tiers**: `--shadow-subtle` (1px blur, 0.06 opacity), `--shadow-default` (4-12px blur, 0.08 opacity), `--shadow-elevated` (8-24px blur, 0.1 opacity). Cards use `--shadow-default`. Overlays use `--shadow-elevated`. The old `--float` token is renamed to `--shadow-elevated`.
+- **`shadow-lg`/`-xl` cards**: K1 verdict `K6 sub-rule restricts to overlay surfaces` → U10 **Tailwind's `shadow-lg`/`shadow-xl`/`shadow-2xl` remain restricted** because they use cool-tinted default shadows. Use Hearth shadow tokens (`--shadow-subtle`/`--shadow-default`/`--shadow-elevated`) instead. Hearth cards DO receive shadow (`--shadow-default`) — the concern shifts from "no shadow on cards" to "no COOL shadow on cards".
+- **Border widths** (new row): `--bw-thin` (1px), `--bw-default` (1.5px), `--bw-strong` (2.5px). Hearth uses thicker, more visible borders. The 1.5px default border is a signature — it reads clearly in both light and dark modes.
 
 ---
 
@@ -267,6 +304,15 @@ See `research/motion.md`.
 | Animated property allowlist | not enforced | restrict to `transform`, `opacity`, `filter`, `backdrop-filter` only | Material 3, Carbon and Atlassian all warn against layout-triggering animations | S8 S19 S26 | partial | regex: `/\btransition-(width\|height\|top\|left\|right\|bottom\|margin\|padding\|inset)\b/` flagged |
 
 Disagreements: see Appendix B.5.
+
+#### U10 Hearth changelog (Motion)
+
+U10 Hearth overrides all motion timing rows:
+
+- **`--motion-fast`**: K1 verdict `no change` (80ms) → U10 **120ms** (designer-call). Hearth uses slower, gentler micro-interactions matching the warm aesthetic.
+- **`--motion-medium` (renamed `--motion-default`)**: K1 verdict `no change` (150ms) → U10 **240ms** (designer-call). Renamed from `--motion-medium` to `--motion-default`.
+- **`--motion-slow`**: K1 verdict `no change` (250ms) → U10 **450ms** (designer-call). Hearth uses slower overlay transitions.
+- **Easing curve**: K1 verdict `cubic-bezier(0.2, 0, 0, 1)` → U10 **`cubic-bezier(0.25, 0.1, 0.25, 1)`** = CSS `ease` (designer-call). Softer, more organic feel than the Material standard curve. Stored in `--motion-ease`. Additionally, Hearth defines an expressive easing `cubic-bezier(0.34, 1.56, 0.64, 1)` for spring-like micro-interactions (toggle thumb transitions).
 
 ---
 
@@ -361,6 +407,13 @@ The following list contains 15 catalogued tells. Three or more **screenshot-dete
 | #15 Over-iconification | not blocked | NavItem / KeyValue / row primitives must allow zero-icon variants; reject leading icon on every row | Refactoring UI, Carbon and Polaris all warn against decorative iconography in dense lists | S47 S17 S28 | partial | ast: list-row primitive components must accept `icon` as optional and not render a placeholder when omitted |
 
 Disagreements: see Appendix B.7.
+
+#### U10 Hearth changelog (AI-Aesthetic Anti-Patterns)
+
+U10 Hearth overrides two key rows in the AI-aesthetic catalog:
+
+- **Item #1 (`rounded-2xl` everywhere)**: K6 verdict `block in component code` → U10 **RETIRED for Hearth**. 16px IS the Hearth default card radius (`--r-default`). The concern remains valid for radii ABOVE 16px: `rounded-3xl` (24px) and arbitrary large values are still AI-aesthetic tells. Pill shapes (9999px) are intentional for buttons and badges. The lint rule (`no-ai-aesthetic`) is updated to match only `rounded-3xl`.
+- **Item #10 (`shadow-lg`/`shadow-xl` on cards)**: K6 verdict `heavy drop shadow on every card = AI-aesthetic tell` → U10 **updated for Hearth**. Cards DO receive shadow (`--shadow-default`). The distinction: use Hearth warm-tinted shadow tokens, not Tailwind's cool default `shadow-lg`/`shadow-xl`. The concern shifts from "no shadow on cards" to "no COOL shadow on cards."
 
 ---
 
