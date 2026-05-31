@@ -1,13 +1,28 @@
 import { randomUUID } from "node:crypto";
 import { knowledgeConflicts, knowledgeEditLog, knowledgeItems } from "@hyperidle/db";
 import { KNOWLEDGE_STATUSES, type KnowledgeStatus } from "@hyperidle/fabric";
+import { KERNEL_KNOWLEDGE_STATUSES, type KernelKnowledgeStatus } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import z from "zod";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
-function isKnowledgeStatus(value: string): value is KnowledgeStatus {
-	return (KNOWLEDGE_STATUSES as readonly string[]).includes(value);
+/**
+ * A knowledge item's current DB status is either a fabric strategy status
+ * (the 7-value promotion pipeline) or a kernel status ("draft", "active",
+ * "archived" from KERNEL_KNOWLEDGE_STATUSES).
+ *
+ * @lore R7: write_memory creates items with status="draft" (a KernelKnowledgeStatus).
+ * promote_knowledge must accept "draft" as a valid from-status so facilitators
+ * can move triage items into the curated knowledge base.
+ */
+type AnyKnowledgeStatus = KnowledgeStatus | KernelKnowledgeStatus;
+
+function isAnyKnowledgeStatus(value: string): value is AnyKnowledgeStatus {
+	return (
+		(KNOWLEDGE_STATUSES as readonly string[]).includes(value) ||
+		(KERNEL_KNOWLEDGE_STATUSES as readonly string[]).includes(value)
+	);
 }
 
 /**
@@ -22,8 +37,17 @@ function isKnowledgeStatus(value: string): value is KnowledgeStatus {
  * API), not by this auto-promote tool. Keeping the outbound list empty
  * means an agent-driven promote call against a `needs_human` item returns
  * INVALID_TRANSITION rather than silently bypassing the human gate.
+ *
+ * @lore R7: "draft" is the triage entry point for agent-created knowledge
+ * items (write_memory defaults to "draft"). A facilitator uses promote_knowledge
+ * to move draft → active (bypassing the captured/provisional/validated pipeline
+ * when the item is already reviewed and ready). Draft items may also be archived
+ * directly (rejected during triage) or moved into the captured pipeline.
  */
-const ALLOWED_TRANSITIONS: Record<KnowledgeStatus, readonly KnowledgeStatus[]> = {
+const ALLOWED_TRANSITIONS: Record<AnyKnowledgeStatus, readonly AnyKnowledgeStatus[]> = {
+	// Kernel triage statuses (R7)
+	draft: ["active", "archived"],
+	// Fabric promotion pipeline statuses
 	captured: ["provisional"],
 	provisional: ["validated", "archived", "needs_human"],
 	validated: ["active", "archived"],
@@ -65,10 +89,12 @@ async function handler(
 
 	// Narrow rather than cast — a row with an unexpected status value points to
 	// an upstream bug or schema drift, not a user input problem.
-	if (!isKnowledgeStatus(row.status)) {
+	// isAnyKnowledgeStatus accepts both fabric pipeline statuses AND kernel triage
+	// statuses (e.g. "draft" from write_memory) — see R7 lore above.
+	if (!isAnyKnowledgeStatus(row.status)) {
 		return err("INVALID_STATE", `unknown current status: ${row.status}`);
 	}
-	const fromStatus: KnowledgeStatus = row.status;
+	const fromStatus: AnyKnowledgeStatus = row.status;
 
 	const allowed = ALLOWED_TRANSITIONS[fromStatus] ?? [];
 	if (!allowed.includes(toStatus)) {

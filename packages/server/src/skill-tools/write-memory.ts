@@ -1,4 +1,4 @@
-import { users } from "@hyperidle/db";
+import { tasks, users } from "@hyperidle/db";
 import {
 	create as createKnowledgeItem,
 	KNOWLEDGE_LAYERS,
@@ -67,6 +67,27 @@ async function handler(args: WriteMemoryInput, ctx: ToolContext): Promise<ToolRe
 		}
 	}
 
+	// @lore R7: Agent-created items default to "draft" (triage) so a facilitator
+	// must explicitly promote them to "active" (curated) before they enter the
+	// shared knowledge base. Previously defaulted to "active", which bypassed
+	// the triage queue and made agent noise indistinguishable from curated facts.
+	//
+	// scopeKind/scopeId: prefer ctx.teamId (harness-provided); fall back to
+	// querying the task's teamId via ctx.taskId. This ensures the item is scoped
+	// to the correct product scope even when the harness omits teamId explicitly.
+	// materialize() filters L2 items by scopeId == productId, so the scopeId
+	// must match the team's id for items to appear in the next session's workspace.
+	const teamId =
+		ctx.teamId ??
+		(await ctx.db
+			.select({ teamId: tasks.teamId })
+			.from(tasks)
+			.where(eq(tasks.id, ctx.taskId))
+			.limit(1)
+			.then((rows) => rows[0]?.teamId ?? null));
+	const scopeKind = teamId ? "product" : "factory";
+	const scopeId = teamId;
+
 	const created = await createKnowledgeItem(ctx.db, {
 		layer,
 		kind,
@@ -74,7 +95,9 @@ async function handler(args: WriteMemoryInput, ctx: ToolContext): Promise<ToolRe
 		body,
 		topic: topic ?? null,
 		format: format ?? "markdown",
-		status: status ?? "active",
+		status: status ?? "draft",
+		scopeKind,
+		scopeId,
 		updatedBy: `agent:${ctx.agentId}`,
 	});
 

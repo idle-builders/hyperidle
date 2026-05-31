@@ -353,6 +353,7 @@ export async function provisionSession(
 		agentId: params.agentId,
 		sessionId,
 		taskId: params.taskId,
+		teamId,
 		workspacePath,
 		watcher,
 	};

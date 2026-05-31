@@ -25,6 +25,11 @@ import { writeSessionNotesTool } from "./write-session-notes.js";
  *
  * Tools that need workspace IO (e.g. `write_session_notes`) read `workspacePath`
  * — the same materialized workspace the file watcher is observing.
+ *
+ * @lore R7: `teamId` is optional because it is not available in all call sites
+ * (e.g. unit tests that construct ToolContext directly). When present, tools
+ * such as `write_memory` use it to set scopeKind/scopeId on created knowledge
+ * items so they appear in the correct materialization scope (L2 = product).
  */
 export interface ToolContext {
 	readonly db: HyperIdleDb;
@@ -32,6 +37,7 @@ export interface ToolContext {
 	readonly agentId: string;
 	readonly sessionId: string;
 	readonly taskId: string;
+	readonly teamId?: string;
 	readonly workspacePath: string;
 	readonly watcher: FileWatcher;
 }

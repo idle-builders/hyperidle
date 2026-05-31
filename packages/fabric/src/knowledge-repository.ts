@@ -15,7 +15,7 @@ import {
 	knowledgeItems,
 	knowledgeStrategyFabric,
 } from "@hyperidle/db";
-import type { KnowledgeFormat } from "@hyperidle/shared";
+import type { KernelKnowledgeStatus, KnowledgeFormat } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { ItemDeletedError, VersionConflictError } from "./errors.js";
 import { getKnowledgeEvents, KnowledgeEventType } from "./events.js";
@@ -24,13 +24,16 @@ import type { KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "./types.js"
 
 export interface CreateKnowledgeItemInput {
 	layer: KnowledgeLayer;
+	/** @lore R7: scopeKind/scopeId written to the kernel table for scope queries without a JOIN. */
+	scopeKind?: string | null;
 	scopeId?: string | null;
 	kind: KnowledgeKind;
 	topic?: string | null;
 	title: string;
 	body: string;
 	format: KnowledgeFormat;
-	status: KnowledgeStatus;
+	/** @lore R7: widened to include KernelKnowledgeStatus ("draft") for agent triage items. */
+	status: KnowledgeStatus | KernelKnowledgeStatus;
 	updatedBy: string;
 	attentionScore?: number | null;
 	confidence?: number | null;
@@ -123,9 +126,12 @@ export async function create(
 	const id = generateId();
 	const timestamp = now();
 
-	// Insert into kernel table (strategy fields excluded)
+	// Insert into kernel table (strategy fields excluded, except scopeKind/scopeId
+	// which live on the kernel for efficient scope queries without a JOIN)
 	await db.insert(knowledgeItems).values({
 		id,
+		scopeKind: input.scopeKind ?? "factory",
+		scopeId: input.scopeId ?? null,
 		topic: input.topic ?? null,
 		title: input.title,
 		body: input.body,
