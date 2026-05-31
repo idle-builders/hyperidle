@@ -78,13 +78,14 @@ vi.mock("../../pages/knowledge/KnowledgeCreateDialog", () => ({
 
 const betWithPitch: BetDetail = {
 	id: "bet-pitch-1",
-	title: "Ambrovia Bet",
-	product: "Ambrovia",
+	title: "Test Bet",
 	team: "Core Team",
 	status: "active",
-	progress: 50,
-	pitch: "This is the first paragraph of the pitch.\n\nThis is the second paragraph.",
+	atRisk: false,
+	progress: { done: 0, total: 2 },
+	description: "This is the first paragraph of the pitch.\n\nThis is the second paragraph.",
 	costAppetite: null,
+	tokenAppetite: null,
 	costActual: null,
 	tokensActual: null,
 	tasks: [],
