@@ -22,8 +22,8 @@
       width: 28px;
       height: 28px;
       border-radius: 50%;
-      background: var(--surface-2);
-      color: var(--text-lo);
+      background: var(--surface-elevated);
+      color: var(--text-tertiary);
       font-size: 11px;
       font-weight: 500;
       border: 1px solid var(--border-subtle);
@@ -47,25 +47,25 @@
       font-size: 12px;
     }
     .comment-row__sender-name {
-      color: var(--text-hi);
+      color: var(--text-primary);
       font-weight: 500;
     }
     .comment-row__sender-role {
-      color: var(--text-lo);
+      color: var(--text-tertiary);
     }
     .comment-row__inline-anchor {
       font-size: 11px;
-      color: var(--text-lo);
+      color: var(--text-tertiary);
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
     .comment-row__inline-anchor strong {
-      color: var(--text-mid);
+      color: var(--text-secondary);
       font-weight: 500;
     }
     .comment-row__text {
       font-size: 13px;
-      color: var(--text-mid);
+      color: var(--text-secondary);
       white-space: pre-wrap;
       word-wrap: break-word;
       margin: 0;
@@ -77,11 +77,11 @@
       font-size: 13px;
     }
     .comment-row__verdict-note {
-      color: var(--text-lo);
+      color: var(--text-tertiary);
     }
     .comment-row__redacted {
       font-style: italic;
-      color: var(--text-lo);
+      color: var(--text-tertiary);
       font-size: 13px;
     }
 
@@ -108,20 +108,20 @@
       flex-shrink: 0;
     }
     .status-chip--done {
-      background: color-mix(in oklab, var(--ok) 14%, transparent);
-      color: var(--ok);
+      background: color-mix(in oklab, var(--status-success) 14%, transparent);
+      color: var(--status-success);
     }
-    .status-chip--done .dot { background: var(--ok); }
+    .status-chip--done .dot { background: var(--status-success); }
     .status-chip--blocked {
-      background: color-mix(in oklab, var(--danger) 14%, transparent);
-      color: var(--danger);
+      background: color-mix(in oklab, var(--status-error) 14%, transparent);
+      color: var(--status-error);
     }
-    .status-chip--blocked .dot { background: var(--danger); }
+    .status-chip--blocked .dot { background: var(--status-error); }
     .status-chip--behind {
-      background: color-mix(in oklab, var(--warn) 14%, transparent);
-      color: var(--warn);
+      background: color-mix(in oklab, var(--status-warning) 14%, transparent);
+      color: var(--status-warning);
     }
-    .status-chip--behind .dot { background: var(--warn); }
+    .status-chip--behind .dot { background: var(--status-warning); }
 
     .stream { padding: 8px 0; }
   </style>
@@ -174,7 +174,7 @@
             {isVerdict ? (
               <div className="comment-row__verdict">
                 <StatusChip status="done" />
-                <span style={{ color: "var(--text-mid)" }}>APPROVED</span>
+                <span style={{ color: "var(--text-secondary)" }}>APPROVED</span>
                 {message.payload.note ? (
                   <span className="comment-row__verdict-note">— {message.payload.note}</span>
                 ) : null}

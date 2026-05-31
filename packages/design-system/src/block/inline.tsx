@@ -12,7 +12,7 @@ function renderNode(node: InlineNode, key: number): JSX.Element | string {
 			return node.value;
 		case "strong":
 			return (
-				<strong key={key} className="text-[var(--text-strong)] font-semibold">
+				<strong key={key} className="text-[var(--text-primary)] font-semibold">
 					{renderInline(node.children)}
 				</strong>
 			);
@@ -26,7 +26,7 @@ function renderNode(node: InlineNode, key: number): JSX.Element | string {
 			return (
 				<code
 					key={key}
-					className="font-mono text-[0.92em] px-[4px] py-[1px] rounded-[var(--r1)] bg-[var(--surface-2)] text-[var(--text)]"
+					className="font-mono text-[0.92em] px-[4px] py-[1px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[var(--text-primary)]"
 				>
 					{node.value}
 				</code>
@@ -36,7 +36,7 @@ function renderNode(node: InlineNode, key: number): JSX.Element | string {
 				<a
 					key={key}
 					href={node.href}
-					className="text-[var(--primary)] underline underline-offset-2"
+					className="text-[var(--accent-primary)] underline underline-offset-2"
 					rel="noopener noreferrer"
 				>
 					{renderInline(node.children)}

@@ -73,7 +73,7 @@ export function BlockActionsPopover({
 			data-ds-tier="2"
 			data-ds-source="design-system"
 			role="menu"
-			className="absolute z-50 min-w-[200px] bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-[var(--r2)] shadow-lg p-[4px] flex flex-col gap-[4px]"
+			className="absolute z-50 min-w-[200px] bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-default)] shadow-[var(--shadow-elevated)] p-[4px] flex flex-col gap-[4px]"
 		>
 			{items.map((item) => {
 				const isCopyItem = item.id === "copy";
@@ -98,12 +98,14 @@ export function BlockActionsPopover({
 								}, COPY_FEEDBACK_MS);
 							}
 						}}
-						className="text-left text-[length:var(--text-sm,13px)] text-[var(--text)] px-[12px] py-[8px] rounded-[var(--r1)] hover:bg-[var(--surface-ghost)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--primary)] focus-visible:[outline-offset:-1px] disabled:opacity-50 flex items-center justify-between gap-[12px]"
-						style={isCopyItem && isCopied ? { color: "var(--ok)" } : undefined}
+						className="text-left text-[length:var(--text-sm,13px)] text-[var(--text-primary)] px-[12px] py-[8px] rounded-[var(--r-subtle)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] disabled:opacity-50 flex items-center justify-between gap-[12px]"
+						style={isCopyItem && isCopied ? { color: "var(--status-success)" } : undefined}
 					>
 						<span>{label}</span>
 						{item.shortcut ? (
-							<span className="font-mono text-[11px] text-[var(--text-lo)]">{item.shortcut}</span>
+							<span className="font-mono text-[11px] text-[var(--text-tertiary)]">
+								{item.shortcut}
+							</span>
 						) : null}
 					</button>
 				);

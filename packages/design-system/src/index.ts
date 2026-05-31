@@ -57,8 +57,7 @@ export type { NavItemProps } from "./NavItem.js";
 export { NavItem } from "./NavItem.js";
 export type { NotificationRowProps } from "./NotificationRow.js";
 export { NotificationRow } from "./NotificationRow.js";
-export type { PitchCardProps } from "./PitchCard.js";
-export { PitchCard } from "./PitchCard.js";
+// U8: PitchCard deleted from design-system exports.
 export type {
 	RichMessageCardAction,
 	RichMessageCardProps,

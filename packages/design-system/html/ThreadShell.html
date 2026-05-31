@@ -10,7 +10,7 @@
        L11 surface regions: ThreadHostBanner / CommentStream (with the
        promoted RichMessageCard inline) / Composer. Tier 3 (region). */
     body {
-      background: var(--surface-0);
+      background: var(--surface-page);
       padding: 24px;
     }
     .thread-shell {
@@ -19,9 +19,9 @@
       height: 720px;
       max-width: 880px;
       margin: 0 auto;
-      background: var(--surface-1);
+      background: var(--surface-container);
       border: 1px solid var(--border-subtle);
-      border-radius: var(--r2);
+      border-radius: var(--r-default);
       overflow: hidden;
     }
 
@@ -32,7 +32,7 @@
       gap: 12px;
       padding: var(--density-pad-y) var(--density-pad-x);
       border-bottom: 1px solid var(--border-subtle);
-      background: var(--surface-1);
+      background: var(--surface-container);
     }
     .host-banner__main {
       display: flex;
@@ -42,7 +42,7 @@
       flex: 1;
     }
     .host-banner__title {
-      color: var(--text-hi);
+      color: var(--text-primary);
       font-weight: 500;
       white-space: nowrap;
       overflow: hidden;
@@ -60,8 +60,8 @@
       font-family: var(--mono);
       letter-spacing: 0.03em;
       white-space: nowrap;
-      background: var(--surface-ghost);
-      color: var(--text-mid);
+      background: color-mix(in oklab, var(--text-secondary) 8%, transparent);
+      color: var(--text-secondary);
       flex-shrink: 0;
     }
     .status-chip {
@@ -79,15 +79,15 @@
     }
     .status-chip .dot { width: 6px; height: 6px; border-radius: 50%; }
     .status-chip--blocked {
-      background: color-mix(in oklab, var(--danger) 14%, transparent);
-      color: var(--danger);
+      background: color-mix(in oklab, var(--status-error) 14%, transparent);
+      color: var(--status-error);
     }
-    .status-chip--blocked .dot { background: var(--danger); }
+    .status-chip--blocked .dot { background: var(--status-error); }
     .status-chip--done {
-      background: color-mix(in oklab, var(--ok) 14%, transparent);
-      color: var(--ok);
+      background: color-mix(in oklab, var(--status-success) 14%, transparent);
+      color: var(--status-success);
     }
-    .status-chip--done .dot { background: var(--ok); }
+    .status-chip--done .dot { background: var(--status-success); }
 
     /* Head */
     .thread-head {
@@ -96,25 +96,25 @@
       gap: var(--density-gap);
       padding: var(--density-card-pad) var(--density-pad-x);
       border-bottom: 1px solid var(--border-subtle);
-      background: var(--surface-1);
+      background: var(--surface-container);
     }
     .thread-head__title {
       font-size: 15px;
       font-weight: 600;
-      color: var(--text-hi);
+      color: var(--text-primary);
       margin: 0;
     }
     .thread-head__label {
       font-size: 11px;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: var(--text-lo);
+      color: var(--text-tertiary);
     }
     .thread-head__reasoning {
       list-style: decimal;
       padding-left: 20px;
       font-size: 13px;
-      color: var(--text-mid);
+      color: var(--text-secondary);
       margin: 0;
     }
 
@@ -135,8 +135,8 @@
       width: 28px;
       height: 28px;
       border-radius: 50%;
-      background: var(--surface-2);
-      color: var(--text-lo);
+      background: var(--surface-elevated);
+      color: var(--text-tertiary);
       font-size: 11px;
       font-weight: 500;
       border: 1px solid var(--border-subtle);
@@ -153,13 +153,13 @@
       flex: 1;
     }
     .comment-row__sender {
-      color: var(--text-hi);
+      color: var(--text-primary);
       font-weight: 500;
       font-size: 12px;
     }
     .comment-row__text {
       font-size: 13px;
-      color: var(--text-mid);
+      color: var(--text-secondary);
       margin: 0;
     }
 
@@ -171,21 +171,21 @@
       gap: 8px;
       padding: var(--density-pad-y) var(--density-pad-x);
       border-top: 1px solid var(--border-subtle);
-      background: var(--surface-1);
+      background: var(--surface-container);
     }
     .btn {
       padding: 6px 10px;
-      border-radius: var(--r1);
+      border-radius: var(--r-subtle);
       font-size: 13px;
       font-weight: 500;
       border: none;
       cursor: pointer;
     }
-    .btn--primary { background: var(--accent); color: var(--accent-on); }
-    .btn--neutral { background: var(--surface-2); color: var(--text-mid); }
+    .btn--primary { background: var(--accent-primary); color: var(--text-on-accent); }
+    .btn--neutral { background: var(--surface-elevated); color: var(--text-secondary); }
     .btn--danger {
-      background: color-mix(in oklab, var(--danger) 14%, transparent);
-      color: var(--danger);
+      background: color-mix(in oklab, var(--status-error) 14%, transparent);
+      color: var(--status-error);
     }
 
     /* Composer */
@@ -195,15 +195,15 @@
       gap: 6px;
       padding: var(--density-pad-y) var(--density-pad-x);
       border-top: 1px solid var(--border-subtle);
-      background: var(--surface-1);
+      background: var(--surface-container);
     }
     .composer__textarea {
       width: 100%;
       min-height: 44px;
-      background: var(--surface-2);
-      color: var(--text-mid);
+      background: var(--surface-elevated);
+      color: var(--text-secondary);
       border: 1px solid var(--border-subtle);
-      border-radius: var(--r1);
+      border-radius: var(--r-subtle);
       padding: 8px 10px;
       font-size: 13px;
       font-family: var(--ui);
@@ -215,14 +215,14 @@
       justify-content: flex-end;
       gap: 8px;
     }
-    .composer__shortcut { font-size: 11px; color: var(--text-lo); }
+    .composer__shortcut { font-size: 11px; color: var(--text-tertiary); }
     .composer__send {
       padding: 6px 12px;
-      border-radius: var(--r1);
+      border-radius: var(--r-subtle);
       font-size: 13px;
       font-weight: 500;
-      background: var(--accent);
-      color: var(--accent-on);
+      background: var(--accent-primary);
+      color: var(--text-on-accent);
       border: none;
       cursor: pointer;
     }

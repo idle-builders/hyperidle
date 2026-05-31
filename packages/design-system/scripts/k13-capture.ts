@@ -37,7 +37,6 @@ const PRIMITIVES = [
 	"KnowledgeRow",
 	"NavItem",
 	"NotificationRow",
-	"PitchCard",
 	"SearchField",
 	"Skeleton",
 	"StatusChip",

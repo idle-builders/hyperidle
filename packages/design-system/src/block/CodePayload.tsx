@@ -18,11 +18,11 @@ export function CodePayload({ lang, text }: CodePayloadProps): JSX.Element {
 	return (
 		<div className="flex flex-col gap-[6px]">
 			{lang ? (
-				<div className="font-mono text-[11px] uppercase tracking-[0.05em] text-[var(--text-lo)]">
+				<div className="font-mono text-[11px] uppercase tracking-[0.05em] text-[var(--text-tertiary)]">
 					{lang}
 				</div>
 			) : null}
-			<pre className="font-mono text-[12px] leading-[1.5] bg-[var(--surface-2)] text-[var(--text)] p-[12px] rounded-[var(--r2)] overflow-x-auto m-0">
+			<pre className="font-mono text-[12px] leading-[1.5] bg-[var(--surface-container)] text-[var(--text-primary)] p-[12px] rounded-[var(--r-default)] overflow-x-auto m-0">
 				<code style={{ tabSize: 2 }}>{display}</code>
 			</pre>
 			{overflows ? (
@@ -30,7 +30,7 @@ export function CodePayload({ lang, text }: CodePayloadProps): JSX.Element {
 					type="button"
 					onClick={() => setExpanded((v) => !v)}
 					aria-expanded={expanded}
-					className="self-start text-[12px] text-[var(--text-mid)] underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--primary)] focus-visible:[outline-offset:2px] rounded-[var(--r1)]"
+					className="self-start text-[12px] text-[var(--text-secondary)] underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:2px] rounded-[var(--r-subtle)]"
 				>
 					{expanded ? "Collapse" : `Expand ${hidden} more lines`}
 				</button>

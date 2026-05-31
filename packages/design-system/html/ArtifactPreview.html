@@ -5,10 +5,10 @@
   <title>ArtifactPreview — HyperIdle Design System</title>
   <link rel="stylesheet" href="_tokens.css" />
   <style>
-    body { background: var(--surface-1); color: var(--text-hi); font-family: var(--ui); padding: 24px; }
+    body { background: var(--surface-container); color: var(--text-primary); font-family: var(--ui); padding: 24px; }
     .artifact-preview {
-      background: var(--surface-3);
-      border-radius: var(--r2);
+      background: var(--surface-container);
+      border-radius: var(--r-default);
       padding: 24px;
       display: grid;
       grid-template-columns: 1fr 320px;
@@ -16,13 +16,13 @@
     }
     @media (max-width: 1024px) { .artifact-preview { grid-template-columns: 1fr; } }
     .preview-header { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; }
-    .preview-meta { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; color: var(--text-mid); text-transform: uppercase; letter-spacing: 0.02em; }
-    .preview-meta .id { margin-left: auto; color: var(--text-lo); }
-    .preview-title { font-size: 20px; font-weight: 600; color: var(--text-hi); line-height: 1.2; }
-    .preview-body { background: var(--surface-2); border-radius: var(--r1); min-height: 240px; padding: 16px; }
-    .preview-discussion { background: var(--surface-2); border-radius: var(--r1); padding: 16px; color: var(--text-lo); font-size: 12px; }
-    .sep { color: var(--text-lo); }
-    .artifact-kind-badge { display: inline-flex; padding: 2px 8px; border-radius: var(--r2); background: var(--surface-ghost); color: var(--text-mid); font-family: var(--mono); font-size: 11px; letter-spacing: 0.02em; text-transform: uppercase; }
+    .preview-meta { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.02em; }
+    .preview-meta .id { margin-left: auto; color: var(--text-tertiary); }
+    .preview-title { font-size: 20px; font-weight: 600; color: var(--text-primary); line-height: 1.2; }
+    .preview-body { background: var(--surface-elevated); border-radius: var(--r-subtle); min-height: 240px; padding: 16px; }
+    .preview-discussion { background: var(--surface-elevated); border-radius: var(--r-subtle); padding: 16px; color: var(--text-tertiary); font-size: 12px; }
+    .sep { color: var(--text-tertiary); }
+    .artifact-kind-badge { display: inline-flex; padding: 2px 8px; border-radius: var(--r-default); background: color-mix(in oklab, var(--text-secondary) 8%, transparent); color: var(--text-secondary); font-family: var(--mono); font-size: 11px; letter-spacing: 0.02em; text-transform: uppercase; }
   </style>
 </head>
 <body>

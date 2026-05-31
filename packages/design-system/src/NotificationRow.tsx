@@ -11,6 +11,27 @@ export interface NotificationRowProps {
 	actions?: ReactNode;
 }
 
+/**
+ * Map Status severity to a CSS variable for the colored left border + icon circle.
+ * @lore U8: NotificationRow gains a colored left border and icon circle per
+ * Hearth design spec. The severity-to-color mapping uses semantic status tokens.
+ */
+function severityColor(severity: Status): string {
+	switch (severity) {
+		case "error":
+			return "var(--status-error)";
+		case "healthy":
+			return "var(--status-success)";
+		case "paused":
+		case "behind":
+			return "var(--status-warning)";
+		case "info":
+			return "var(--status-info)";
+		default:
+			return "var(--status-info)";
+	}
+}
+
 export function NotificationRow({
 	severity,
 	message,
@@ -18,6 +39,7 @@ export function NotificationRow({
 	source,
 	actions,
 }: NotificationRowProps): JSX.Element {
+	const color = severityColor(severity);
 	return (
 		<div
 			{...dsProps("NotificationRow", "2")}
@@ -25,9 +47,19 @@ export function NotificationRow({
 			 * @lore K11: pad/gap/body text consume density tokens per
 			 * density-audit.md § 3.2.3. Same shape as ThreadRow but no
 			 * avatar. Trailing timestamp stays literal 12 px (chrome).
+			 * @lore U8: left colored border (3px) and icon circle added per Hearth restyle.
 			 */
-			className="flex items-center gap-[var(--density-gap)] py-[var(--density-pad-y)] px-[var(--density-pad-x)] rounded-[var(--r1)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-4)]"
+			className="flex items-center gap-[var(--density-gap)] py-[var(--density-pad-y)] px-[var(--density-pad-x)] rounded-[var(--r-subtle)] transition-colors duration-[var(--motion-fast)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))] border-l-[3px]"
+			style={{ borderLeftColor: color }}
+			data-testid="severity-border"
 		>
+			{/* Icon circle before StatusChip — 24px circle tinted with severity color */}
+			<span
+				data-testid="severity-icon-circle"
+				aria-hidden="true"
+				className="inline-flex w-[24px] h-[24px] rounded-full shrink-0 items-center justify-center"
+				style={{ backgroundColor: `color-mix(in oklab, ${color} 14%, transparent)` }}
+			/>
 			<StatusChip status={severity} />
 			<span
 				className="flex-1 text-[length:var(--density-text)] truncate"
@@ -36,7 +68,7 @@ export function NotificationRow({
 				{message}
 			</span>
 			{source && <Tag label={source} />}
-			<span className="text-[12px] text-[var(--text-lo)] whitespace-nowrap">{timestamp}</span>
+			<span className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap">{timestamp}</span>
 			{actions}
 		</div>
 	);
