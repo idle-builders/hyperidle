@@ -2,11 +2,15 @@
  * design/no-off-grid-spacing
  *
  * Maps to AQ-001 / AQ-002.
- * Source: AESTHETICS.md § Spacing & Density — "Grid base unit" lint hint.
- * Allowlist: {4,8,12,16,20,24,32,40,48} px. 2px is a sub-grid value; the
- * recommendations table reserves it for chip/icon internals — that contextual
- * predicate is left to the higher-level `/design-lint` skill (see
- * AESTHETICS.md "Sub-grid 2px allowance" Lintable=partial).
+ * Source: AESTHETICS.md § Spacing & Density — U10 Hearth override (§ U10 changelog).
+ * Hearth 6px grid allowlist: {0,3,6,9,12,18,24,36,48} px. No 2px sub-grid.
+ *
+ * @lore U10: Updated from 4px grid to Hearth 6px grid. The SUB_GRID_VALUE
+ * constant and `subGrid` messageId are removed — Hearth has no 2px sub-grid
+ * as a general rule. Values 4px, 8px, and 16px (formerly on the 4px grid)
+ * are now off-grid. Component-internal padding (buttons: 10px/7px, inputs: 10px)
+ * and sub-element gaps (badges: 4px, toggle-text: 2px) are exempt per AQ-001;
+ * use a `// hearth-internal-padding` file-level directive in component files.
  */
 
 import type { Rule } from "eslint";
@@ -14,7 +18,6 @@ import {
 	collectClassStringsFromJSXAttribute,
 	createRule,
 	SPACING_ALLOWLIST,
-	SUB_GRID_VALUE,
 } from "../util.js";
 
 // (p|m|gap)(x|y|t|r|b|l)?-[Npx]
@@ -25,15 +28,13 @@ export const noOffGridSpacing: Rule.RuleModule = createRule({
 		type: "problem",
 		docs: {
 			description:
-				"Forbid arbitrary spacing values that are not on the 4px grid (allowlist from AESTHETICS.md § Spacing & Density).",
+				"Forbid arbitrary spacing values that are not on the Hearth 6px grid (allowlist from AESTHETICS.md § Spacing & Density — U10 Hearth override).",
 			recommended: true,
 		},
 		schema: [],
 		messages: {
 			offGrid:
-				"Spacing class '{{cls}}' uses {{n}}px which is off the 4px grid.  → fix: pick one of {4,8,12,16,20,24,32,40,48}px or use a density token (var(--density-pad-*), var(--density-gap)).",
-			subGrid:
-				"Spacing class '{{cls}}' uses 2px (sub-grid). Reserved for chip/icon internals only.  → fix: use a 4px-grid value, or move this style into a StatusChip/Tag-internal context.",
+				"Spacing class '{{cls}}' uses {{n}}px which is off the Hearth 6px grid.  → fix: pick one of {3,6,9,12,18,24,36,48}px or use a density token (var(--density-pad-*), var(--density-gap)).",
 		},
 	},
 	create(context) {
@@ -42,10 +43,6 @@ export const noOffGridSpacing: Rule.RuleModule = createRule({
 			for (const match of text.matchAll(ARBITRARY_SPACING)) {
 				const [cls, , , nStr] = match;
 				const n = Number(nStr);
-				if (n === SUB_GRID_VALUE) {
-					context.report({ node: reportNode, messageId: "subGrid", data: { cls } });
-					continue;
-				}
 				if (!SPACING_ALLOWLIST.has(n)) {
 					context.report({
 						node: reportNode,

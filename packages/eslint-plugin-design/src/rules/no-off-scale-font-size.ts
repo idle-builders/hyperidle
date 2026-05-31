@@ -2,8 +2,11 @@
  * design/no-off-scale-font-size
  *
  * Maps to AQ-004.
- * Source: AESTHETICS.md § Typography "Body size (default)" lint hint —
- * allowlist {11,12,13,14,15,16,18,20,24}.
+ * Source: AESTHETICS.md § Typography — U10 Hearth override (§ U10 changelog).
+ * Hearth type scale allowlist: {9,10,11,12,13,14,15,16,17,18,20,24,30}.
+ *
+ * @lore U10: Added 9px (count badges), 10px (micro-typography), 17px (--text-lg),
+ * 30px (--text-3xl page title). Updated from old Lucid allowlist {11,12,13,14,15,16,18,20,24}.
  */
 
 import type { Rule } from "eslint";
@@ -22,7 +25,7 @@ export const noOffScaleFontSize: Rule.RuleModule = createRule({
 		schema: [],
 		messages: {
 			offScale:
-				"Font size {{n}}px is off-scale (allowed: {11,12,13,14,15,16,18,20,24}).  → fix: pick an allowed step or use a typography token.",
+				"Font size {{n}}px is off-scale (Hearth allowed: {9,10,11,12,13,14,15,16,17,18,20,24,30}).  → fix: pick an allowed step or use a typography token.",
 		},
 	},
 	create(context) {

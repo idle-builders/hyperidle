@@ -2,16 +2,20 @@
  * design/no-off-scale-radius
  *
  * Maps to AQ-011.
- * Source: tokens.css `--r0:0 --r1:4px --r2:8px --r3:12px --r-pill:999px`.
- * Closed scale: {0,4,8,12,9999}. `rounded-full` is permitted (pill).
+ * Source: tokens.css `--r-none:0 --r-subtle:10px --r-default:16px --r-pill:9999px`.
+ * Hearth closed scale: {0,10,16,9999}.
+ *
+ * @lore U10: Significant reversal from K6. Old Lucid scale {0,4,8,12,999};
+ * new Hearth scale {0,10,16,9999}. rounded-2xl (16px) is now ON-SCALE — it maps
+ * to --r-default (the Hearth default card radius). rounded-lg (8px) and rounded-xl
+ * (12px) are now OFF-SCALE. Form control chrome (checkboxes, radio buttons) may
+ * use off-scale radii per AQ-011 exemption — DaisyUI manages these in production.
  *
  * Two detection paths:
- *   1. Arbitrary `rounded-[Npx]` — N must be in {0,4,8,12,>=999}.
+ *   1. Arbitrary `rounded-[Npx]` — N must be in {0,10,16,>=9999}.
  *   2. Named Tailwind radii (`rounded`, `rounded-sm`, `rounded-md`, etc.) — only
- *      the named classes whose default Tailwind v3 px value lands on the
- *      closed scale are allowed (rounded-none/rounded/rounded-lg/rounded-xl/
- *      rounded-full). `rounded-sm` (2px), `rounded-md` (6px), `rounded-2xl`
- *      (16px), `rounded-3xl` (24px) all fire here.
+ *      the named classes whose Tailwind v3 px value lands on the Hearth closed
+ *      scale are allowed (rounded-none/rounded-2xl/rounded-full). All others fire.
  */
 
 import type { Rule } from "eslint";
@@ -24,26 +28,29 @@ import {
 
 const ARBITRARY_RADIUS = /\brounded(?:-[a-z]+)?-\[(\d+)px\]/g;
 // Named radii: `rounded`, `rounded-sm`, `rounded-md`, ... but NOT `rounded-[...]`
-// (that's the arbitrary path) and NOT corner-specific arbitraries like
-// `rounded-tl-[6px]`. We capture the named suffix (or empty for plain `rounded`).
-// Excludes corner shorthands (rounded-t/r/b/l, rounded-tl/tr/bl/br) — those
-// take the named radius from the same scale via Tailwind defaults.
-const NAMED_RADIUS = /\brounded(-(?:none|sm|md|lg|xl|2xl|3xl|full))?\b(?!-\[)/g;
+// (that's the arbitrary path) and NOT corner-specific shorthands like
+// `rounded-tl`, `rounded-t`, `rounded-bl`, etc.
+// We capture the named suffix (or empty for plain `rounded`).
+// The negative lookahead `(?!-(?:tl|tr|bl|br|t|r|b|l)\b)` excludes corner/side
+// shorthands that take the named scale via Tailwind defaults.
+// The `(?!-\[)` excludes arbitrary-value forms like `rounded-[Npx]`.
+const NAMED_RADIUS =
+	/\brounded(-(?:none|sm|md|lg|xl|2xl|3xl|full))?\b(?!-(?:tl|tr|bl|br|t|r|b|l)\b)(?!-\[)/g;
 
 export const noOffScaleRadius: Rule.RuleModule = createRule({
 	meta: {
 		type: "problem",
 		docs: {
 			description:
-				"Forbid border-radius values not in the closed scale (tokens.css --r0..r3 + pill). Catches both arbitrary `rounded-[Npx]` and named Tailwind radii whose default value is off-scale (e.g., `rounded-sm` = 2px, `rounded-md` = 6px, `rounded-2xl` = 16px).",
+				"Forbid border-radius values not in the Hearth closed scale (tokens.css --r-none/--r-subtle/--r-default/--r-pill = 0/10/16/9999px). Catches both arbitrary `rounded-[Npx]` and named Tailwind radii off-scale (e.g., `rounded` = 4px, `rounded-lg` = 8px, `rounded-xl` = 12px).",
 			recommended: true,
 		},
 		schema: [],
 		messages: {
 			offScale:
-				"Radius {{n}}px is off-scale (allowed: {0,4,8,12,999}).  → fix: use rounded-none / rounded-[4px] / rounded-[8px] / rounded-[12px] / rounded-full, or the design-system token (var(--r0..r3), var(--r-pill)).",
+				"Radius {{n}}px is off-scale (Hearth allowed: {0,10,16,9999}).  → fix: use rounded-none / rounded-[10px] / rounded-2xl / rounded-full, or the design-system token (var(--r-none), var(--r-subtle), var(--r-default), var(--r-pill)).",
 			namedOffScale:
-				"Tailwind radius '{{cls}}' ({{n}}px) is off the closed scale {0,4,8,12,999}.  → fix: use rounded-none / rounded (4px) / rounded-lg (8px) / rounded-xl (12px) / rounded-full, or a tokens.css var(--r0..r3, --r-pill).",
+				"Tailwind radius '{{cls}}' ({{n}}px) is off the Hearth closed scale {0,10,16,9999}.  → fix: use rounded-none (0) / rounded-2xl (16px) / rounded-full (9999px), or a tokens.css var(--r-none, --r-subtle, --r-default, --r-pill).",
 		},
 	},
 	create(context) {
@@ -63,7 +70,7 @@ export const noOffScaleRadius: Rule.RuleModule = createRule({
 			const reportNode = node as Rule.Node;
 			for (const match of text.matchAll(ARBITRARY_RADIUS)) {
 				const n = Number(match[1]);
-				if (n >= 999) continue;
+				if (n >= 9999) continue;
 				if (!RADIUS_ALLOWLIST.has(n)) {
 					context.report({
 						node: reportNode,

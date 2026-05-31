@@ -9,6 +9,9 @@
  * design/require-ds-attribute and design/require-stories-sibling are
  * filename-scoped and exercised by their own unit tests + the dedicated
  * sibling-fixtures directory.
+ *
+ * U10 Hearth update: rounded-2xl is now ON-SCALE — uses rounded-3xl here instead.
+ * The no-off-scale-radius arbitrary case uses rounded-[4px] (now off-scale in Hearth).
  */
 
 export const Bad = (): JSX.Element => (
@@ -17,11 +20,11 @@ export const Bad = (): JSX.Element => (
 		{/* expect: design/require-focus-on-interactive */}
 		<span style={{ color: "#ff00aa" }} /> {/* expect: design/no-hardcoded-color */}
 		<span className="p-[5px]" /> {/* expect: design/no-off-grid-spacing */}
-		<span className="rounded-[10px]" /> {/* expect: design/no-off-scale-radius (arbitrary) */}
-		<span className="rounded-md" /> {/* expect: design/no-off-scale-radius (named) */}
-		<span className="text-[17px]" /> {/* expect: design/no-off-scale-font-size */}
-		<span className="rounded-2xl" />{" "}
-		{/* expect: design/no-ai-aesthetic (rounded2xl) + no-off-scale-radius */}
+		<span className="rounded-[4px]" /> {/* expect: design/no-off-scale-radius (arbitrary — off Hearth scale) */}
+		<span className="rounded-md" /> {/* expect: design/no-off-scale-radius (named — off Hearth scale) */}
+		<span className="text-[22px]" /> {/* expect: design/no-off-scale-font-size */}
+		<span className="rounded-3xl" />{" "}
+		{/* expect: design/no-ai-aesthetic (rounded3xl) + no-off-scale-radius */}
 		<span className="backdrop-blur-md" /> {/* expect: design/no-ai-aesthetic (backdropBlur) */}
 		<h1 className="bg-clip-text text-transparent" />{" "}
 		{/* expect: design/no-ai-aesthetic (gradientText) */}
