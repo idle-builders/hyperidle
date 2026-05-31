@@ -1,19 +1,12 @@
 /**
- * R7 — Knowledge & Bet Cycles: end-to-end knowledge flow tests (red phase).
+ * R7 — Knowledge & Bet Cycles: end-to-end knowledge flow tests.
  *
  * AC-1: Agent's write_memory creates items in KnowledgeList (status: "draft", triage tab)
  * AC-2: Agent's promote_knowledge moves items from draft → active (triage → curated)
  * AC-5: Knowledge items from session N materialize into session N+1 workspace
  *
- * These tests FAIL in the red phase because:
- *  - write_memory defaults to "active", not "draft" (needs fix)
- *  - promote_knowledge ALLOWED_TRANSITIONS has no "draft" key (needs fix)
- *  - write_memory does not set scopeKind/scopeId on kernel table (needs fix)
- *
- * @lore R7: status mismatch — fabric KNOWLEDGE_STATUSES does not include "draft",
- * but the knowledge route and KnowledgeList use "draft" as the triage status.
- * write_memory must default to "draft" (not "active") and promote_knowledge must
- * allow draft → active so triage items can graduate to curated.
+ * @lore R7: write_memory defaults to "draft" so agent-created items land in triage.
+ * promote_knowledge allows draft → active so facilitators can graduate items to curated.
  */
 
 import * as fs from "node:fs";
@@ -106,8 +99,6 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 	});
 
 	it("write_memory creates a knowledge item with status='draft' by default (not 'active')", async () => {
-		// R7 fix: write_memory must default to "draft" so agents create triage items.
-		// Currently defaults to "active" — this test FAILS until that default is changed.
 		const result = await writeMemoryTool.handler(
 			{
 				layer: "L2",
@@ -133,9 +124,6 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 	});
 
 	it("write_memory sets scopeKind='product' and scopeId=teamId on the kernel table", async () => {
-		// R7 fix: write_memory must pass scopeKind/scopeId through to the kernel table
-		// so materialization (which reads from knowledgeStrategyFabric by scopeId) finds them.
-		// Currently, scopeKind is NOT set — this test FAILS until that is fixed.
 		const result = await writeMemoryTool.handler(
 			{
 				layer: "L2",
@@ -253,9 +241,6 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 	});
 
 	it("promote_knowledge transitions a draft item to active status", async () => {
-		// R7 fix: ALLOWED_TRANSITIONS in promote-knowledge.ts must include "draft" → ["active"]
-		// Currently "draft" is not a key in ALLOWED_TRANSITIONS — this test FAILS until fixed.
-
 		// Arrange: create a draft item directly in the DB
 		const { randomUUID } = await import("node:crypto");
 		const itemId = randomUUID();
@@ -296,40 +281,8 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 		expect(row?.status).toBe("active");
 	});
 
-	it("promote_knowledge succeeds for 'draft' now that ALLOWED_TRANSITIONS includes 'draft' key", async () => {
-		// R7 fix applied: "draft" is now in isAnyKnowledgeStatus() and ALLOWED_TRANSITIONS
-		// so draft → active succeeds. Previously documented the INVALID_STATE failure mode;
-		// updated in write-code phase as the test file directed.
-		const { randomUUID } = await import("node:crypto");
-		const itemId = randomUUID();
-		await db.insert(knowledgeItems).values({
-			id: itemId,
-			title: "Draft item — post-fix behavior check",
-			body: "Testing post-fix behavior: draft is now a valid status.",
-			format: "markdown",
-			status: "draft",
-			version: 1,
-			updatedBy: "agent:agent-fac-r7",
-			createdAt: NOW,
-			updatedAt: NOW,
-		});
-
-		const result = await promoteKnowledgeTool.handler(
-			{
-				knowledgeItemId: itemId,
-				toStatus: "active",
-				reason: "Promoting a draft item to active",
-			},
-			ctx,
-		);
-
-		// After R7 fix: draft is accepted by isAnyKnowledgeStatus() and draft → active is allowed
-		expect(result.success).toBe(true);
-	});
-
 	it("full triage-to-curated flow: write_memory then promote_knowledge", async () => {
 		// End-to-end: agent writes item (lands in triage as "draft"), facilitator promotes to "active" (curated)
-		// After R7 fixes: both write_memory default and promote_knowledge draft→active must work.
 
 		// Step 1: write_memory → expect "draft"
 		const writeCtx: ToolContext = {
@@ -407,10 +360,6 @@ describe("R7 AC-5: write_memory items materialize into subsequent sessions", () 
 	});
 
 	it("an item written by write_memory with layer=L2 appears in materialize() output for the same productId", async () => {
-		// R7 fix: write_memory must pass scopeId (teamId) to the fabric extension table.
-		// fetchAllForLayer(db, "L2", productId) will then find it.
-		// Currently scopeId is NOT set — so materialize() will miss the item.
-		// This test FAILS until write_memory passes scopeId.
 		const { materialize } = await import("@hyperidle/fabric");
 
 		// Arrange: write a knowledge item via write_memory
@@ -455,11 +404,7 @@ describe("R7 AC-5: write_memory items materialize into subsequent sessions", () 
 	});
 
 	it("write_memory items ARE materialized even without explicit teamId in ToolContext (R7 fix verified)", async () => {
-		// R7 fix: write_memory now derives teamId from the task when ctx.teamId
-		// is absent, ensuring scopeId is always set for items tied to a team task.
-		// Previously documented the null-scopeId broken state; updated in write-code phase
-		// as the test file directed.
-
+		// teamId is derived from the task when ctx.teamId is absent
 		// Write an item without explicit teamId in ctx (derived from task instead)
 		const writeResult = await writeMemoryTool.handler(
 			{
