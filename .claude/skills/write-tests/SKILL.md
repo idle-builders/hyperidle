@@ -10,7 +10,7 @@ min_tool_calls: 12
 
 **Why:** Tests written before code define the requirement, not the implementation. They catch when the wrong thing gets built. Tests written after code just confirm what exists — they encode bugs as expected behavior.
 
-Read the plan for `<target>` (check tasks or the workpackage in the relevant track file under `plans/work-packages/`).
+Read the plan for `<target>` (check tasks or the workpackage in the relevant track file under `.pipeline/work-packages/`).
 
 For each acceptance criterion, write a test that proves it. Use:
 - **Backend:** unit tests with `createTestDb()`, integration tests with `createTestApp()`

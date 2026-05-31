@@ -10,7 +10,7 @@ min_tool_calls: 18
 
 **Why:** With failing tests already in place, implementation has a clear target. Writing the minimum code to pass keeps the codebase lean and prevents scope creep. Every line of code exists because a test demands it.
 
-Read the plan for `<target>` (check tasks or the workpackage in the relevant track file under `plans/work-packages/`). Read the existing failing tests.
+Read the plan for `<target>` (check tasks or the workpackage in the relevant track file under `.pipeline/work-packages/`). Read the existing failing tests.
 
 Implement each task in dependency order. Write the minimum code to make tests pass. For UI components, create a `.stories.tsx` file rendering key states. After each logical unit, run the relevant tests. Once all tests are green, run `npm run verify` to confirm the full gate passes (types, lint, tests). **Verify must pass before pushing.** No broken code reaches reviewers — verification is the builder's responsibility, not the reviewer's.
 
