@@ -296,19 +296,18 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 		expect(row?.status).toBe("active");
 	});
 
-	it("promote_knowledge returns INVALID_STATE for 'draft' when ALLOWED_TRANSITIONS lacks 'draft' key", async () => {
-		// This is the CURRENT behavior before the fix — "draft" is not in KNOWLEDGE_STATUSES
-		// so isKnowledgeStatus("draft") returns false and the tool returns INVALID_STATE.
-		// After the fix, this test should be replaced by the success test above.
-		// We include this to document the current failure mode.
+	it("promote_knowledge succeeds for 'draft' now that ALLOWED_TRANSITIONS includes 'draft' key", async () => {
+		// R7 fix applied: "draft" is now in isAnyKnowledgeStatus() and ALLOWED_TRANSITIONS
+		// so draft → active succeeds. Previously documented the INVALID_STATE failure mode;
+		// updated in write-code phase as the test file directed.
 		const { randomUUID } = await import("node:crypto");
 		const itemId = randomUUID();
 		await db.insert(knowledgeItems).values({
 			id: itemId,
-			title: "Draft item — current behavior check",
-			body: "Testing current failure mode.",
+			title: "Draft item — post-fix behavior check",
+			body: "Testing post-fix behavior: draft is now a valid status.",
 			format: "markdown",
-			status: "draft", // Not in KNOWLEDGE_STATUSES — triggers INVALID_STATE
+			status: "draft",
 			version: 1,
 			updatedBy: "agent:agent-fac-r7",
 			createdAt: NOW,
@@ -319,15 +318,13 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 			{
 				knowledgeItemId: itemId,
 				toStatus: "active",
-				reason: "Trying to promote a draft item",
+				reason: "Promoting a draft item to active",
 			},
 			ctx,
 		);
 
-		// Before fix: fails with INVALID_STATE (because "draft" not in KNOWLEDGE_STATUSES type guard)
-		// After fix: this should return success — but we keep this test to document the current state
-		// The pipeline write-code phase will update this test when fixing.
-		expect(result.success).toBe(false);
+		// After R7 fix: draft is accepted by isAnyKnowledgeStatus() and draft → active is allowed
+		expect(result.success).toBe(true);
 	});
 
 	it("full triage-to-curated flow: write_memory then promote_knowledge", async () => {
@@ -457,19 +454,19 @@ describe("R7 AC-5: write_memory items materialize into subsequent sessions", () 
 		expect(found).toBe(true);
 	});
 
-	it("write_memory items are NOT materialized when teamId is missing from ToolContext (regression guard)", async () => {
-		// This is a regression guard: if teamId is absent from ToolContext,
-		// scopeId won't be set and the item won't be found by materialize().
-		// Documents the CURRENT (broken) behavior for the red phase.
-		const { materialize } = await import("@hyperidle/fabric");
+	it("write_memory items ARE materialized even without explicit teamId in ToolContext (R7 fix verified)", async () => {
+		// R7 fix: write_memory now derives teamId from the task when ctx.teamId
+		// is absent, ensuring scopeId is always set for items tied to a team task.
+		// Previously documented the null-scopeId broken state; updated in write-code phase
+		// as the test file directed.
 
-		// Write an item (currently: no scopeId set because teamId not in ToolContext)
+		// Write an item without explicit teamId in ctx (derived from task instead)
 		const writeResult = await writeMemoryTool.handler(
 			{
 				layer: "L2",
 				kind: "anti_pattern",
-				title: "Orphaned knowledge item",
-				body: "This item has no scopeId and should NOT materialize.",
+				title: "Scoped knowledge item via task lookup",
+				body: "This item has scopeId derived from the task's teamId.",
 			},
 			ctx,
 		);
@@ -477,7 +474,7 @@ describe("R7 AC-5: write_memory items materialize into subsequent sessions", () 
 		expect(writeResult.success).toBe(true);
 		if (!writeResult.success) return;
 
-		// Verify the fabric row has no scopeId (current broken state)
+		// After R7 fix: scopeId is set to TEAM_ID (derived from task-r7's teamId)
 		const data = writeResult.data as { knowledgeItemId: string };
 		const [fabricRow] = await db
 			.select({ scopeId: knowledgeStrategyFabric.scopeId })
@@ -485,10 +482,7 @@ describe("R7 AC-5: write_memory items materialize into subsequent sessions", () 
 			.where(eq(knowledgeStrategyFabric.knowledgeItemId, data.knowledgeItemId))
 			.limit(1);
 
-		// Before fix: scopeId is null (item is "lost" — won't materialize)
-		// After fix: scopeId = TEAM_ID
-		// This assertion documents the current state — will fail after fix is applied
-		// (which is fine — the previous test will be green)
-		expect(fabricRow?.scopeId).toBeNull();
+		// After R7 fix: scopeId is TEAM_ID (items are now properly scoped via task lookup)
+		expect(fabricRow?.scopeId).toBe(TEAM_ID);
 	});
 });

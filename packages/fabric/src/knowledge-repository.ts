@@ -15,7 +15,7 @@ import {
 	knowledgeItems,
 	knowledgeStrategyFabric,
 } from "@hyperidle/db";
-import type { KnowledgeFormat } from "@hyperidle/shared";
+import type { KernelKnowledgeStatus, KnowledgeFormat } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { ItemDeletedError, VersionConflictError } from "./errors.js";
 import { getKnowledgeEvents, KnowledgeEventType } from "./events.js";
@@ -24,13 +24,24 @@ import type { KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "./types.js"
 
 export interface CreateKnowledgeItemInput {
 	layer: KnowledgeLayer;
+	/** @lore R7: scopeKind written to the kernel table so items are queryable by
+	 * scope without a JOIN against the extension table. Defaults to "factory"
+	 * when not provided (preserves existing behavior for callers that don't set scope). */
+	scopeKind?: string | null;
 	scopeId?: string | null;
 	kind: KnowledgeKind;
 	topic?: string | null;
 	title: string;
 	body: string;
 	format: KnowledgeFormat;
-	status: KnowledgeStatus;
+	/**
+	 * @lore R7: widened to `KnowledgeStatus | KernelKnowledgeStatus` so
+	 * agent-created items (write_memory) can be created with status="draft"
+	 * (a kernel status) without polluting the fabric's 7-state promotion
+	 * pipeline enum. "draft" items are triage items that live on the kernel
+	 * until promoted to fabric statuses (active/captured/...) by a facilitator.
+	 */
+	status: KnowledgeStatus | KernelKnowledgeStatus;
 	updatedBy: string;
 	attentionScore?: number | null;
 	confidence?: number | null;
@@ -123,9 +134,12 @@ export async function create(
 	const id = generateId();
 	const timestamp = now();
 
-	// Insert into kernel table (strategy fields excluded)
+	// Insert into kernel table (strategy fields excluded, except scopeKind/scopeId
+	// which live on the kernel for efficient scope queries without a JOIN)
 	await db.insert(knowledgeItems).values({
 		id,
+		scopeKind: input.scopeKind ?? "factory",
+		scopeId: input.scopeId ?? null,
 		topic: input.topic ?? null,
 		title: input.title,
 		body: input.body,
