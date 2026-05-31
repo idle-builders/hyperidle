@@ -31,9 +31,7 @@ import type { Rule } from "eslint";
  * zero case the spec table omits because nobody writes it explicitly, but it
  * is a real value a developer may type). Added per K6-adversary.md SEV-1 #4.
  */
-export const SPACING_ALLOWLIST: ReadonlySet<number> = new Set([
-	0, 3, 6, 9, 12, 18, 24, 36, 48,
-]);
+export const SPACING_ALLOWLIST: ReadonlySet<number> = new Set([0, 3, 6, 9, 12, 18, 24, 36, 48]);
 
 /**
  * Closed Hearth radius scale from `packages/design-system/src/tokens.css`:

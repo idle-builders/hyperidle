@@ -14,11 +14,7 @@
  */
 
 import type { Rule } from "eslint";
-import {
-	collectClassStringsFromJSXAttribute,
-	createRule,
-	SPACING_ALLOWLIST,
-} from "../util.js";
+import { collectClassStringsFromJSXAttribute, createRule, SPACING_ALLOWLIST } from "../util.js";
 
 // (p|m|gap)(x|y|t|r|b|l)?-[Npx]
 const ARBITRARY_SPACING = /\b(p|m|gap)([xytrbl])?-\[(\d+)px\]/g;
