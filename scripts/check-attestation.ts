@@ -1,17 +1,17 @@
 #!/usr/bin/env tsx
-// @lore: CI-side attestation checker. Validates that `npm run verify` passed
-// locally for the code in this PR. Uses HMAC-SHA256 with a shared secret
-// (VERIFY_SECRET) to prevent forgery — the secret lives outside the repo
-// (~/.config/hyperidle/verify-secret locally, GitHub Actions secret in CI).
-// An AI agent CAN find the secret, but computing the HMAC is more work than
-// just running `npm run verify`, which is the design intent.
+// CI-side attestation checker. Validates that `npm run verify` passed locally
+// for the code in this PR. Uses HMAC-SHA256 with a shared secret (VERIFY_SECRET)
+// to prevent forgery.
+//
+// Attestation files are stored per-commit in .verify-attestations/<sha>.json
+// to avoid merge conflicts between concurrent branches.
 
 import { execSync } from "node:child_process";
 import { createHmac } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 
-const ATTESTATION_FILE = ".verify-attestation.json";
+const ATTESTATION_DIR = ".verify-attestations";
 
 interface Attestation {
 	sha: string;
@@ -35,12 +35,22 @@ function main(): void {
 		fail("VERIFY_SECRET env var not set — add it as a GitHub Actions secret");
 	}
 
+	const sha = execSync("git rev-parse HEAD", { encoding: "utf-8" }).trim();
+
+	// Look for per-SHA attestation file
+	const perShaPath = resolve(process.cwd(), join(ATTESTATION_DIR, `${sha}.json`));
+
+	// Fall back to legacy single-file format for backward compat
+	const legacyPath = resolve(process.cwd(), ".verify-attestation.json");
+
 	let raw: string;
-	try {
-		raw = readFileSync(resolve(process.cwd(), ATTESTATION_FILE), "utf-8");
-	} catch {
+	if (existsSync(perShaPath)) {
+		raw = readFileSync(perShaPath, "utf-8");
+	} else if (existsSync(legacyPath)) {
+		raw = readFileSync(legacyPath, "utf-8");
+	} else {
 		fail(
-			`${ATTESTATION_FILE} not found — run \`npm run verify\` locally, then commit the attestation`,
+			`no attestation found for ${sha.slice(0, 12)} — run \`npm run verify\`, then commit the attestation`,
 		);
 	}
 
@@ -48,13 +58,11 @@ function main(): void {
 	try {
 		attestation = JSON.parse(raw) as Attestation;
 	} catch {
-		fail(`${ATTESTATION_FILE} is not valid JSON`);
+		fail("attestation file is not valid JSON");
 	}
 
 	const { hmac, ...payload } = attestation;
-	const expected = createHmac("sha256", secret)
-		.update(JSON.stringify(payload))
-		.digest("hex");
+	const expected = createHmac("sha256", secret).update(JSON.stringify(payload)).digest("hex");
 
 	if (hmac !== expected) {
 		fail("HMAC signature invalid — attestation may be forged or secret mismatch");
@@ -80,7 +88,7 @@ function main(): void {
 	}).trim();
 	const sneakedFiles = changedFiles
 		.split("\n")
-		.filter((f) => f && f !== ATTESTATION_FILE);
+		.filter((f) => f && !f.startsWith(ATTESTATION_DIR) && f !== ".verify-attestation.json");
 
 	if (sneakedFiles.length > 0) {
 		fail(

@@ -20,5 +20,6 @@ logs/
 **/.fuse_*
 .claude/scheduled_tasks.lock
 test-output.toon
+.verify-attestation.json
 plans/*
 packages/design-system/03-hearth.html
