@@ -21,7 +21,7 @@ Cream surfaces, warm shadows, and earthy tones create an inviting atmosphere. So
 Colored dots, pill badges, and text color carry meaning -- not thick structural borders. Cards stay structurally uniform. Status is communicated through what is inside the card, not welded to its edges. The exception: toasts use a thin left-border accent (1.5px) as the only structural status signal.
 
 **3. Generous rounding.**
-16px default radius and pill-shaped buttons create a soft, approachable feel. Containers hold content gently, not boxing it in. Even small elements get 10px radius. The radius scale is deliberately sparse: none (0), subtle (10px), default (16px), pill (9999px). There is no 4px or 8px step.
+16px default radius and pill-shaped buttons create a soft, approachable feel. Containers hold content gently, not boxing it in. Even small elements get 10px radius. The radius scale is deliberately sparse: none (0), subtle (10px), default (16px), pill (9999px). There is no 4px or 8px step. **Exception:** Form control chrome (checkboxes, radio buttons) may use off-scale radii because their radius is an intrinsic physical property of a small control, not a compositional design decision. The 03-hearth.html reference uses 6px on a 20px checkbox -- snapping to 10px would make it look like a lozenge. DaisyUI controls these radii in production, so the lint rule exempts elements with DaisyUI form control classes.
 
 **4. Mixed hierarchy.**
 Shadows AND borders AND tints work together. Different elements use different strategies depending on their role -- no single dogmatic approach. Cards get shadow-default. Flat cards use border + container background. Toast uses left-border accent. This variety is the signature, not inconsistency.
@@ -56,8 +56,9 @@ The AI Aesthetic Blacklist section in PRINCIPLES.md should remain a pointer to t
 **AQ-001 -- Off-grid spacing.**
 - OLD: "Padding/gap/margin must be a 4px multiple from the closed allowlist; 2px is reserved for chip/icon internals only."
 - NEW: "Padding/gap/margin must use values from the 6px grid: {3, 6, 9, 12, 18, 24, 36, 48}. These correspond to `--space-1` through `--space-16`. Values outside this set are off-grid. 2px is NOT on the grid -- use 3px (--space-1) for the smallest increment."
-- LINT: The spacing allowlist in `util.ts` changes from `{0, 4, 8, 12, 16, 20, 24, 32, 40, 48}` to `{0, 3, 6, 9, 12, 18, 24, 36, 48}`.
-- NOTE: The 2px sub-grid allowance for chips is removed. Hearth's smallest increment is 3px.
+- **EXEMPTION -- Component-internal padding and sub-element gaps.** Vertical padding inside buttons (10px, 7px) and inputs (10px) is optically tuned to line-height and font metrics, not to the layout grid. Sub-element gaps inside badges (4px) and toggle label stacks (2px) are similarly driven by optical alignment within a single component. These values are exempt from the grid rule. This follows Carbon Design System and Material Design precedent: the spacing grid constrains compositional layout (margins between elements, gaps in flex/grid containers, section padding), not the distance between a text baseline and a component edge. The 03-hearth.html reference uses these values intentionally and they are not errors.
+- LINT: The spacing allowlist in `util.ts` changes from `{0, 4, 8, 12, 16, 20, 24, 32, 40, 48}` to `{0, 3, 6, 9, 12, 18, 24, 36, 48}`. The lint rule must NOT flag padding/gap values inside DaisyUI component internals (`.btn`, `.input`, `.badge`, `.toggle` and their children). Implementation: the ESLint rule should skip nodes whose nearest component ancestor has a DaisyUI or Hearth component class, OR the rule should accept a per-file `/* hearth-internal-padding */` directive for component definition files.
+- NOTE: The 2px sub-grid allowance for chips is removed as a general rule. Hearth's smallest grid increment is 3px. However, 2px and 4px survive inside component internals per the exemption above.
 
 **AQ-003 -- Density tier ladder.**
 - OLD: "Compact = default x 0.75; comfortable = default x 1.25 (designer-call)."
@@ -66,6 +67,7 @@ The AI Aesthetic Blacklist section in PRINCIPLES.md should remain a pointer to t
 **AQ-011 -- Closed radius scale.**
 - OLD: "`--r0`/`--r1`/`--r2`/`--r3` + `--r-pill`. `rounded-2xl`/`rounded-3xl` are screenshot-detectable AI tells."
 - NEW: "`--r-none` (0) / `--r-subtle` (10px) / `--r-default` (16px) / `--r-pill` (9999px). This is a 4-value scale with no 4px or 8px step. The old `--r0..r3` naming is replaced. `rounded-2xl` (16px) is now ON-scale because `--r-default` IS 16px. `rounded-3xl` (24px) remains off-scale."
+- **EXEMPTION -- Form control chrome.** Checkboxes, radio buttons, and similar small form controls may use off-scale radii (e.g., 6px on a 20px checkbox). These radii are intrinsic to the control's physical proportions and are typically managed by DaisyUI. The lint rule should not flag radius values on elements with DaisyUI form control classes (`.checkbox`, `.radio`, `.toggle`). Rationale: forcing a 20px checkbox to the nearest on-scale value (10px) would make it look like a lozenge; forcing it to 0 would contradict the generous-rounding principle.
 - LINT: Radius allowlist in `util.ts` changes from `{0, 4, 8, 12, 999}` to `{0, 10, 16, 9999}`. Named Tailwind mapping must be updated: `rounded-none` (0) = allowed, `rounded` (4px) = OFF-scale, `rounded-sm` (2px) = OFF-scale, `rounded-md` (6px) = OFF-scale, `rounded-lg` (8px) = OFF-scale, `rounded-xl` (12px) = OFF-scale, `rounded-2xl` (16px) = ALLOWED (maps to --r-default), `rounded-3xl` (24px) = off-scale, `rounded-full` (9999px) = allowed. NOTE: This is a significant reversal -- `rounded-2xl` was previously an AI-aesthetic tell and is now the default Hearth card radius.
 
 **AQ-012 -- Shadow restriction.**
@@ -97,7 +99,7 @@ The AI Aesthetic Blacklist section in PRINCIPLES.md should remain a pointer to t
 ### Rules that STAY (with minor wording updates)
 
 - **AQ-002** -- Density tokens: stays, but update example token names from `--density-pad-*` etc. (unchanged).
-- **AQ-004** -- Type scale: stays. Update the allowlist to include the Hearth sizes. The 03-hearth.html type scale is: 12px (xs), 13px (sm), 15px (base), 17px (lg), 20px (xl), 24px (2xl), 30px (3xl). The allowlist becomes `{11, 12, 13, 14, 15, 16, 17, 18, 20, 24, 30}`. Note: 14px stays allowed (compact density body), 17px and 30px are added.
+- **AQ-004** -- Type scale: stays. Update the allowlist to include the Hearth sizes. The 03-hearth.html type scale is: 12px (xs), 13px (sm), 15px (base), 17px (lg), 20px (xl), 24px (2xl), 30px (3xl). The allowlist becomes `{9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 24, 30}`. Note: 14px stays allowed (compact density body), 17px and 30px are added. **10px** is added for micro-typography: badge-agent labels, avatar-sm initials, swatch labels (used 4 times in the reference). **9px** is added for count badges (used 2 times in the reference) -- this is the floor of the type scale and should only be used for numeric counters inside badges. Font-weight allowlist expands from `{400, 500, 600}` to **`{400, 500, 600, 700}`**. 700 (bold) is used for the 30px page title and brand headings per 03-hearth.html (`--ds-font-weight-bold: 700`).
 - **AQ-005** through **AQ-010** -- stay unchanged. Update wording from "Lucid" to "Hearth" where referenced.
 - **AQ-014** through **AQ-017** -- stay unchanged.
 - **AQ-101** -- No `rounded-2xl`/`rounded-3xl`: MUST BE UPDATED. `rounded-2xl` (16px) is now on-scale per Hearth. Change to: "No `rounded-3xl` (24px). `rounded-2xl` (16px) is permitted -- it maps to `--r-default`."
@@ -144,7 +146,7 @@ DESIGN.md is already substantially Hearth-native (it was updated in earlier U-tr
 - Currently shows warm-tinted shadows. Correct.
 
 ### Typography section
-- Currently references allowlist `{11, 12, 13, 14, 15, 16, 18, 20, 24}`. Must add 17px (lg) and 30px (3xl) from the Hearth reference.
+- Currently references allowlist `{11, 12, 13, 14, 15, 16, 18, 20, 24}`. Must add 9px (count badges), 10px (micro-typography), 17px (lg), and 30px (3xl) from the Hearth reference. Full allowlist: `{9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 24, 30}`.
 - Font families currently say `--font-sans` / `font-sans` | system-ui etc. Correct -- no Geist reference.
 
 ### Anti-Patterns section
@@ -175,7 +177,7 @@ This is the largest and most delicate update. The K-track research infrastructur
 
 **Sub-grid 2px allowance row:**
 - OLD: "2px allowed only inside StatusChip and Tag"
-- NEW: "Deleted. Hearth's smallest spacing is 3px (`--space-1`). There is no 2px value in the Hearth grid."
+- NEW: "Deleted as a general grid value. Hearth's smallest grid spacing is 3px (`--space-1`). There is no 2px value in the Hearth grid. However, 2px and 4px survive inside component internals per the AQ-001 component-internal exemption (see below). The 03-hearth.html reference uses `gap: 2px` inside toggle label stacks and `gap: 4px` inside badges -- these are optically-tuned sub-element gaps, not compositional layout values."
 
 **Density tokens:** The density token values (pad-x, pad-y, gap, row-h) were updated by K9/K11. These need re-evaluation against the 6px grid -- values should snap to 6px multiples where possible. However, density tokens are implementation details that U10 does not change (the tokens themselves live in tokens.css, managed by U3). U10 only updates the documentation to reflect that the grid is 6px.
 
@@ -190,13 +192,20 @@ This is the largest and most delicate update. The K-track research infrastructur
 - NEW: "15px -- no change. Hearth's `--ds-font-size-base` is 0.9375rem = 15px. Confirmed."
 
 **Type scale addenda:**
+- Add 9px for count badges (numeric counters only -- this is the type scale floor).
+- Add 10px for micro-typography (badge-agent labels, avatar-sm initials, swatch labels).
 - Add 17px (Hearth `--text-lg` / `--ds-font-size-lg`) to the allowlist.
 - Add 30px (Hearth `--text-3xl` / `--ds-font-size-3xl`) to the allowlist.
-- The full Hearth type scale: 12, 13, 15, 17, 20, 24, 30. Plus 11px and 14px retained for compact density and data labels.
+- The full Hearth type scale: 9, 10, 12, 13, 15, 17, 20, 24, 30. Plus 11px and 14px retained for compact density and data labels. Full allowlist: {9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 24, 30}.
 
 **Font-weight scale row:**
 - OLD: "400 / 500 / 600 codified"
 - NEW: "400 / 500 / 600 / 700. Hearth adds 700 (bold) for page titles and brand heading (03-hearth.html uses `--ds-font-weight-bold: 700` for the 30px page title). The tokens.css already defines `--fw-bold: 700`."
+
+**Letter-spacing / tracking row:**
+- OLD: "`--tracking-caps: 0.02em`"
+- NEW: "`--tracking-caps: 0.08em` (Hearth designer-call). The 03-hearth.html reference uses 0.08em letter-spacing for uppercase section titles -- this is a Hearth visual signature. The current tokens.css value of 0.02em is a Lucid-era holdover that produces too-tight uppercase tracking for the warm, generous Hearth aesthetic. Add `--tracking-caps-sm: 0.06em` for smaller uppercase labels (subtitles, sidebar categories). Both values are intentional overrides, not showcase-only."
+- TOKENS UPDATE: In `tokens.css`, change `--tracking-caps: 0.02em` to `--tracking-caps: 0.08em` and add `--tracking-caps-sm: 0.06em`.
 
 #### Color & Dark Mode
 
@@ -270,14 +279,17 @@ This is the largest and most delicate update. The K-track research infrastructur
 **SPACING_ALLOWLIST:**
 ```typescript
 // OLD: {0, 4, 8, 12, 16, 20, 24, 32, 40, 48}
-// NEW: Hearth 6px grid
+// NEW: Hearth 6px grid (compositional layout values only)
 export const SPACING_ALLOWLIST: ReadonlySet<number> = new Set([
   0, 3, 6, 9, 12, 18, 24, 36, 48,
 ]);
+// Component-internal padding (buttons: 10px/7px, inputs: 10px) and
+// sub-element gaps (badges: 4px, toggle-text: 2px) are exempt from
+// this allowlist. The lint rule must skip these contexts.
 ```
 
 **SUB_GRID_VALUE:**
-- DELETE this constant. Hearth has no 2px sub-grid.
+- DELETE this constant. Hearth has no 2px sub-grid as a general rule. The 2px and 4px values that appear in component internals are handled by the lint exemption, not by a sub-grid constant.
 
 **RADIUS_ALLOWLIST:**
 ```typescript
@@ -289,10 +301,11 @@ export const RADIUS_ALLOWLIST: ReadonlySet<number> = new Set([0, 10, 16, 9999]);
 **FONT_SIZE_ALLOWLIST:**
 ```typescript
 // OLD: {11, 12, 13, 14, 15, 16, 18, 20, 24}
-// NEW: Hearth type scale (add 17, 30; keep 11, 14 for density)
+// NEW: Hearth type scale (add 9, 10, 17, 30; keep 11, 14 for density)
 export const FONT_SIZE_ALLOWLIST: ReadonlySet<number> = new Set([
-  11, 12, 13, 14, 15, 16, 17, 18, 20, 24, 30,
+  9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 24, 30,
 ]);
+// 9px: count badges only. 10px: micro-typography (badge labels, avatar initials).
 ```
 
 **ALLOWED_NAMED_RADIUS:**
@@ -316,6 +329,7 @@ Must be updated to reflect Hearth scale. The mapping of named Tailwind radii to 
 - Update docs description from "4px grid" to "6px grid."
 - Update error messages to reference `{3, 6, 9, 12, 18, 24, 36, 48}` instead of `{4, 8, 12, 16, 20, 24, 32, 40, 48}`.
 - Remove the 2px sub-grid handling (the `subGrid` messageId and the `SUB_GRID_VALUE` check).
+- Add component-internal exemption: the rule should not flag padding/gap values inside component definition files for DaisyUI/Hearth component internals. Implementation approach: accept a `/* hearth-internal-padding */` file-level directive that disables the rule for the file, OR detect when the CSS property is inside a selector that matches a known component class (`.btn`, `.btn-sm`, `.input`, `.badge`, `.toggle-text`, `.checkbox-box`). The directive approach is simpler and recommended.
 
 ### `packages/eslint-plugin-design/src/rules/no-off-scale-radius.ts`
 
@@ -325,14 +339,14 @@ Must be updated to reflect Hearth scale. The mapping of named Tailwind radii to 
 
 ### `packages/eslint-plugin-design/src/rules/no-off-scale-font-size.ts`
 
-- Update the allowlist reference to include 17px and 30px.
+- Update the allowlist reference to include 9px, 10px, 17px, and 30px.
 
 ### Tests
 
 All test files in `packages/eslint-plugin-design/src/rules/__tests__/` must be updated:
 - Spacing tests: change valid/invalid cases for 6px grid.
 - Radius tests: change valid/invalid cases for Hearth scale.
-- Font size tests: add 17px and 30px as valid.
+- Font size tests: add 9px, 10px, 17px, and 30px as valid.
 
 ---
 
@@ -387,3 +401,55 @@ These decisions were made and should not be re-litigated:
 1. **Density token values vs 6px grid:** The existing density tokens use values from the 4px grid (e.g., `--density-pad-y: 0.75rem = 12px`, `--density-gap: 0.75rem = 12px`). 12px IS on the 6px grid (12 = 2 x 6). But some density values may be off the 6px grid (e.g., 8px compact values). The architect must decide: (a) snap all density values to the 6px grid, or (b) accept that density tokens are exempt from the spacing grid rule because they existed before the 6px grid. Recommendation: (b) -- density tokens are their own system.
 2. **Test file updates scope:** How many test files need updating? The architect should enumerate them.
 3. **docs/ files with Rail/Pitch references:** Some docs reference architectural concepts (Rail, IconRail, Submenu, Pitch) that are superseded by the Hearth/U-track redesign. Updating these is technically in scope per the AC ("docs/ files referencing products, pitches, rail, or Lucid updated") but the changes go beyond just "find/replace Lucid->Hearth" -- they require understanding the new navigation model. The architect should scope which docs get a full rewrite vs a targeted Lucid->Hearth find/replace.
+
+---
+
+## Critique Resolutions (post design-critique)
+
+Resolutions to findings from `plans/U10/design-critique.md` (2026-05-31, score 8/10).
+
+### CRITICAL 1 -- Checkbox radius 6px off the 4-value scale
+
+**Decision:** Add a documented exemption for form control chrome.
+
+The 6px radius on a 20px checkbox is proportionally correct (~30% of the element width). Snapping to 10px (the nearest on-scale value) would be 50% of the width -- visually a lozenge, not a checkbox. Snapping to 0 contradicts the generous-rounding principle. The real issue is that checkboxes, radio buttons, and toggles are small physical controls where radius is an intrinsic proportion, not a compositional design choice. DaisyUI manages these radii in production.
+
+**Resolution:** Exemption documented in Hearth Principle 3 (generous rounding) and AQ-011 (closed radius scale). Lint rule exempts elements with DaisyUI form control classes.
+
+### CRITICAL 2 -- Button/input padding (10px, 7px) off the 6px grid
+
+**Decision:** Document that component-internal vertical padding is exempt from the grid rule.
+
+The 10px vertical padding on buttons is tuned to the 13px font at line-height 1 -- it produces a 33px total button height that aligns to the visual rhythm. Changing to 9px (nearest grid value) produces 31px; changing to 12px produces 37px. Neither feels right. This is the same pattern Carbon Design System and Material Design use: the spacing grid constrains compositional layout (margins, gaps, section padding), not the distance between a text baseline and a component edge. Internal component padding is optically tuned, period.
+
+**Resolution:** Exemption documented in AQ-001 with specific values called out (buttons: 10px/7px, inputs: 10px, badges: 4px gap, toggle-text: 2px gap). Lint implementation uses either a file-level directive or component class detection.
+
+### WARNING 3 -- 10px and 9px font sizes not on type scale
+
+**Decision:** Add both to the allowlist.
+
+10px appears 4 times in 03-hearth.html for real UI elements (badge-agent labels, avatar-sm initials, swatch labels) -- these are not demo-only. 9px appears 2 times for count badges. Both are legitimate micro-typography sizes for information-dense UIs. 9px is documented as the type scale floor, restricted to numeric counters inside badges.
+
+**Resolution:** AQ-004 allowlist updated to `{9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 24, 30}`. FONT_SIZE_ALLOWLIST in util.ts updated. AESTHETICS.md type scale addenda updated.
+
+### WARNING 4 -- Letter-spacing 0.08em vs 0.02em
+
+**Decision:** Update `--tracking-caps` to 0.08em. This is intentional Hearth aesthetic, not showcase-only.
+
+The 0.08em tracking on uppercase section titles is part of the Hearth visual signature -- wide-tracked uppercase labels create a calm, editorial feel that pairs with the warm palette. The 0.02em value in tokens.css is a Lucid-era holdover. The 4x difference is deliberate: Hearth is generous with space, not tight. Add `--tracking-caps-sm: 0.06em` for smaller uppercase labels (subtitles, sidebar categories) where the full 0.08em would be too loose.
+
+**Resolution:** New tracking row added to AESTHETICS.md Typography section. tokens.css update specified: `--tracking-caps: 0.08em`, new `--tracking-caps-sm: 0.06em`.
+
+### WARNING 5 -- gap: 2px and gap: 4px off the 6px grid
+
+**Decision:** Covered by the AQ-001 component-internal exemption (same resolution as CRITICAL 2).
+
+The `gap: 2px` in `.toggle-text` is the vertical space between a toggle's label and description text. The `gap: 4px` in `.badge` is the horizontal space between a status dot and badge text. Both are sub-element optical adjustments inside a single component, not compositional layout values. They fall under the same exemption as button padding.
+
+**Resolution:** Sub-grid 2px allowance row in AESTHETICS.md updated to document the component-internal survival of 2px/4px. AQ-001 exemption clause covers these.
+
+### WARNING 6 -- AQ-004 font-weight must expand to {400,500,600,700}
+
+**Decision:** Expand. No controversy.
+
+**Resolution:** AQ-004 rule text updated in Section 2 to include 700. AESTHETICS.md font-weight row updated.
