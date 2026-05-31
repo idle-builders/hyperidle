@@ -1,5 +1,5 @@
 {
-	"sha": "9a2d2f2ab27e7680f93a9551407880335e58f7cc",
+	"sha": "90a1c66653f9bb1036b0ef494b2fed7657ef8168",
 	"status": "passed",
 	"dirty": false,
 	"tools": [
@@ -7,6 +7,7 @@
 		"lint:biome",
 		"lint:eslint",
 		"knip",
+		"test-coverage",
 		"mock-inventory",
 		"test",
 		"build",
@@ -18,6 +19,7 @@
 		"lint:biome",
 		"lint:eslint",
 		"knip",
+		"test-coverage",
 		"mock-inventory",
 		"test",
 		"build",
@@ -25,6 +27,6 @@
 		"server:load"
 	],
 	"partial": false,
-	"timestamp": "2026-05-31T17:26:13.826Z",
-	"hmac": "2f84d00ccdff97dcf4d08c051c5d2c4c320e0433854ae07ac83fe16c05f5e9a5"
+	"timestamp": "2026-05-31T20:23:56.285Z",
+	"hmac": "b7406099b5e839d987c2b70bea3f5f89e7b9badd28a365b40e7d969a82c4515a"
 }
