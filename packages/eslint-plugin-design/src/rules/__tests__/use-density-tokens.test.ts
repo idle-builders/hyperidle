@@ -75,9 +75,12 @@ ruleTester.run("use-density-tokens", useDensityTokens, {
 			code: 'const J = <span className="text-[14px]" />;',
 			errors: [{ messageId: "literalFont" }],
 		},
-		// INVALID #3 — Submenu (density-aware shell) using literal padding.
+		// INVALID #3 — Canvas (density-aware shell) using literal padding.
+		// @lore U6: This test previously used Submenu.tsx (deleted in U6 when Sidebar
+		// replaced the IconRail+Submenu layout). Canvas is equally canonical: same
+		// densityAware bucket, same enforcement.
 		{
-			filename: path("packages/web/src/shell/Submenu.tsx"),
+			filename: path("packages/web/src/shell/Canvas.tsx"),
 			code: 'const J = <div className="p-[16px]" />;',
 			errors: [{ messageId: "literalPad" }],
 		},

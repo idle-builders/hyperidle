@@ -32,8 +32,24 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { BlockRefEmbed } from "../components/BlockRefEmbed.js";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
+import { BlockRefEmbed } from "../components/BlockRefEmbed.js";
+import { SessionActivityPanel } from "../components/SessionActivityPanel";
+import type { ConversationsFilter } from "../components/ThreadSections";
+import { ThreadSections } from "../components/ThreadSections";
+import { useHint } from "../hooks/useHints";
+import { useThreadDetail } from "../hooks/useThreadDetail";
+import type { AppShellOutletContext } from "../layouts/AppShell";
+import { apiFetch } from "../services/api-fetch.js";
+import {
+	type ActionSummaryData,
+	ArtifactView,
+	type ContentPreviewData,
+	type DataMetricsData,
+	type TextDiffData,
+	type VisualComparisonData,
+} from "../shell/ArtifactView";
+import { ToastContext } from "../shell/ToastRegion";
 
 /**
  * T4: renderRefEmbeds for Conversations — builds BlockRefEmbed cards for block refs.
@@ -58,22 +74,6 @@ function renderRefEmbedsForConversations(refs: ReadonlyArray<InlineRef>): ReactN
 		</div>
 	);
 }
-import { SessionActivityPanel } from "../components/SessionActivityPanel";
-import type { ConversationsFilter } from "../components/ThreadSections";
-import { ThreadSections } from "../components/ThreadSections";
-import { useHint } from "../hooks/useHints";
-import { useThreadDetail } from "../hooks/useThreadDetail";
-import type { AppShellOutletContext } from "../layouts/AppShell";
-import { apiFetch } from "../services/api-fetch.js";
-import {
-	type ActionSummaryData,
-	ArtifactView,
-	type ContentPreviewData,
-	type DataMetricsData,
-	type TextDiffData,
-	type VisualComparisonData,
-} from "../shell/ArtifactView";
-import { ToastContext } from "../shell/ToastRegion";
 
 // ---------------------------------------------------------------------------
 // Artifact slot resolver (carried from ConversationsReview.tsx unchanged)

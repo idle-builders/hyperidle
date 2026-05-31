@@ -3,23 +3,24 @@
  * Shows key states: populated, empty sections, active view variants.
  */
 
-import { fn } from "@storybook/test";
 import type { JSX } from "react";
 import { Sidebar } from "./Sidebar";
 
 export default { title: "Shell/Sidebar" };
 
+const noop = (): void => undefined;
+
 const commonProps = {
-	onViewChange: fn(),
+	onViewChange: noop,
 	selectedThreadId: null,
-	onSelectThread: fn(),
+	onSelectThread: noop,
 	activeTeamId: null,
-	onSelectTeam: fn(),
+	onSelectTeam: noop,
 	activeScope: null,
-	onSelectScope: fn(),
-	onCocClick: fn(),
+	onSelectScope: noop,
+	onCocClick: noop,
 	cocOverlayOpen: false,
-	onSettingsClick: fn(),
+	onSettingsClick: noop,
 	settingsOpen: false,
 };
 
