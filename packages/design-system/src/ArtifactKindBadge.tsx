@@ -7,7 +7,7 @@ export interface ArtifactKindBadgeProps {
 }
 
 const BADGE_BASE =
-	"inline-flex items-center px-[8px] py-[2px] rounded-[var(--r2)] bg-[var(--surface-ghost)] text-[var(--text-mid)] font-mono text-[11px] tracking-[0.02em] uppercase whitespace-nowrap";
+	"inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-default)] bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)] font-mono text-[11px] tracking-[0.02em] uppercase whitespace-nowrap";
 
 function kindLabel(kind: ArtifactKind): string {
 	return kind.replace(/_/g, " ").toUpperCase();

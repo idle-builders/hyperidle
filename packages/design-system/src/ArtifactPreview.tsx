@@ -14,13 +14,13 @@ export interface ArtifactPreviewProps {
 }
 
 const WRAP =
-	"bg-[var(--surface-3)] rounded-[var(--r2)] p-[24px] grid grid-cols-1 [@media(min-width:1024px)]:grid-cols-[1fr_320px] gap-[24px]";
+	"bg-[var(--surface-container)] rounded-[var(--r-default)] p-[24px] grid grid-cols-1 [@media(min-width:1024px)]:grid-cols-[1fr_320px] gap-[24px]";
 const HEADER = "[grid-column:1/-1] flex flex-col gap-[8px]";
 const META =
-	"flex items-center gap-[6px] font-mono text-[11px] text-[var(--text-mid)] uppercase tracking-[0.02em] flex-wrap";
-const TITLE = "text-[20px] font-semibold text-[var(--text-hi)] leading-[1.2] normal-case";
+	"flex items-center gap-[6px] font-mono text-[11px] text-[var(--text-secondary)] uppercase tracking-[0.02em] flex-wrap";
+const TITLE = "text-[20px] font-semibold text-[var(--text-primary)] leading-[1.2] normal-case";
 const DISCUSSION =
-	"bg-[var(--surface-2)] rounded-[var(--r1)] p-[16px] text-[var(--text-lo)] text-[12px]";
+	"bg-[var(--surface-elevated)] rounded-[var(--r-subtle)] p-[16px] text-[var(--text-tertiary)] text-[12px]";
 
 export function ArtifactPreview({
 	data,
@@ -32,13 +32,13 @@ export function ArtifactPreview({
 			<div className={HEADER}>
 				<div className={META}>
 					<ArtifactKindBadge kind={data.kind} />
-					<span className="text-[var(--text-lo)]">·</span>
+					<span className="text-[var(--text-tertiary)]">·</span>
 					<span>{data.producingTaskTitle}</span>
-					<span className="text-[var(--text-lo)]">·</span>
+					<span className="text-[var(--text-tertiary)]">·</span>
 					<ArtifactCostChip cost={data.cost} variant="full" />
-					<span className="text-[var(--text-lo)]">·</span>
+					<span className="text-[var(--text-tertiary)]">·</span>
 					<ArtifactTimestamp value={data.createdAt} />
-					<span className="ml-auto text-[var(--text-lo)] normal-case">{data.id}</span>
+					<span className="ml-auto text-[var(--text-tertiary)] normal-case">{data.id}</span>
 				</div>
 				<div className={TITLE}>{artifactDisplayTitle(data)}</div>
 			</div>

@@ -38,11 +38,11 @@ export function TaskCard({
 			 */
 			{...clickableProps(
 				onClick,
-				`bg-[var(--surface-4)] rounded-[var(--r2)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)] max-w-[320px] ${state === "blocked" ? "border border-[var(--danger)]" : ""}`,
+				`bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)] max-w-[320px] shadow-[var(--shadow-default)] border hover:translate-y-[-2px] hover:shadow-[var(--shadow-elevated)] transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)] ${state === "blocked" ? "border-[var(--status-error)]" : "border-[var(--border-subtle)]"}`,
 			)}
 		>
 			<span
-				className="text-[length:var(--density-text)] font-medium truncate text-[var(--text-hi)]"
+				className="text-[length:var(--density-text)] font-medium truncate text-[var(--text-primary)]"
 				aria-label={`Task: ${title}`}
 			>
 				{title}
@@ -51,7 +51,7 @@ export function TaskCard({
 				{betTag && <Tag label={betTag} />}
 				<StatusChip status={taskStateToStatus(state)} />
 			</div>
-			<span className="text-[12px] text-[var(--text-hi)]">{owner}</span>
+			<span className="text-[12px] text-[var(--text-primary)]">{owner}</span>
 			{cost && <KeyValue label="Cost" value={cost} />}
 			{actions}
 		</div>

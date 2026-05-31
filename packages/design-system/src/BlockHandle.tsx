@@ -57,7 +57,7 @@ export function BlockHandle({
 			aria-label={`Block actions${threadCount > 0 ? ` (${threadCount} threads)` : ""}`}
 			onClick={handleClick}
 			onKeyDown={handleKeyDown}
-			className={`inline-flex items-center gap-[4px] w-[20px] h-[20px] justify-center rounded-[var(--r1)] text-[var(--text-mid)] hover:bg-[var(--surface-2)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--primary)] [@media(pointer:coarse)]:min-w-[44px] [@media(pointer:coarse)]:min-h-[44px] ${className ?? ""}`}
+			className={`inline-flex items-center gap-[4px] w-[20px] h-[20px] justify-center rounded-[var(--r-subtle)] text-[var(--text-secondary)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] [@media(pointer:coarse)]:min-w-[44px] [@media(pointer:coarse)]:min-h-[44px] ${className ?? ""}`}
 			style={{ opacity: open ? 1 : undefined }}
 		>
 			<svg
@@ -79,7 +79,7 @@ export function BlockHandle({
 				<polyline points="9 18 15 12 9 6" />
 			</svg>
 			{threadCount > 0 ? (
-				<span className="text-[11px] font-mono text-[var(--text-mid)]">{threadCount}</span>
+				<span className="text-[11px] font-mono text-[var(--text-secondary)]">{threadCount}</span>
 			) : null}
 		</button>
 	);

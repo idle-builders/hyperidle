@@ -24,7 +24,7 @@ export function HtmlPayload({ raw, sanitizeHtml }: HtmlPayloadProps): JSX.Elemen
 	}
 	return (
 		<div
-			className="bg-[var(--surface-2)] p-[12px] rounded-[var(--r2)]"
+			className="bg-[var(--surface-container)] p-[12px] rounded-[var(--r-default)]"
 			// biome-ignore lint/security/noDangerouslySetInnerHtml: caller provides a sanitiser; AC-49 contract.
 			dangerouslySetInnerHTML={{ __html: safe }}
 		/>

@@ -86,9 +86,9 @@ describe("BetCard", () => {
 	it("renders progress bar and text when provided", () => {
 		render(<BetCard {...defaultProps} progress={{ done: 3, total: 5 }} />);
 		expect(screen.getByText("3/5")).toBeInTheDocument();
-		// Progress bar is a custom div with bg-[var(--primary)] fill
+		// Progress bar is a custom div with bg-[var(--status-success)] fill
 		const { container } = render(<BetCard {...defaultProps} progress={{ done: 3, total: 5 }} />);
-		const fill = container.querySelector("[class*='bg-[var(--primary)]']");
+		const fill = container.querySelector("[class*='bg-[var(--status-success)]']");
 		expect(fill).toBeInTheDocument();
 	});
 

@@ -56,14 +56,14 @@ describe("clickableProps", () => {
 			expect(result.className ?? "").toContain("cursor-pointer");
 		});
 
-		it("returned className includes focus-visible:ring-1 focus-visible:ring-primary", () => {
-			// I4 KB2: focus-visible ring so keyboard users see the focused
+		it("returned className includes focus-visible outline utilities (Hearth pattern)", () => {
+			// I4 KB2: focus-visible outline so keyboard users see the focused
 			// element. These are composable Tailwind utilities and must come
 			// from clickableProps (single source of truth).
 			const result = clickableProps(() => {});
 			const cls = result.className ?? "";
-			expect(cls).toContain("focus-visible:ring-1");
-			expect(cls).toContain("focus-visible:ring-primary");
+			expect(cls).toContain("focus-visible:outline");
+			expect(cls).toContain("focus-visible:outline-[var(--accent-primary)]");
 		});
 
 		it("merges caller-provided className with the default focus utilities", () => {
@@ -73,8 +73,8 @@ describe("clickableProps", () => {
 			expect(cls).toContain("bg-base-200");
 			expect(cls).toContain("p-2");
 			expect(cls).toContain("cursor-pointer");
-			expect(cls).toContain("focus-visible:ring-1");
-			expect(cls).toContain("focus-visible:ring-primary");
+			expect(cls).toContain("focus-visible:outline");
+			expect(cls).toContain("focus-visible:outline-[var(--accent-primary)]");
 		});
 
 		it("empty-result branch (no onClick) does NOT emit the focus utilities", () => {

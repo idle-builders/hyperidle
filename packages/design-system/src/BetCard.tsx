@@ -65,7 +65,7 @@ export function BetCard({
 			 */
 			{...clickableProps(
 				onClick,
-				"bg-[var(--surface-4)] rounded-[var(--r2)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)]",
+				"bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)] shadow-[var(--shadow-default)] border border-[var(--border-subtle)] hover:translate-y-[-2px] hover:shadow-[var(--shadow-elevated)] transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
 			)}
 		>
 			<div className="flex items-center gap-[var(--density-gap)]">
@@ -76,7 +76,7 @@ export function BetCard({
 						   the avatar token is for row-anchor avatars only
 						   (ThreadRow). Card-internal avatars are
 						   decorative inside the card, not the row anchor. */
-						className="inline-flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full bg-[var(--surface-6)] text-[var(--text-hi)] text-[11px] font-semibold"
+						className="inline-flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full bg-[var(--surface-container)] text-[var(--text-primary)] text-[11px] font-semibold"
 						aria-label={`Lead agent: ${leadAvatar.name}`}
 					>
 						{leadAvatar.initials}
@@ -107,13 +107,13 @@ export function BetCard({
 					    metric per density-audit.md § 3.2.4. Linear/Datadog/Vercel
 					    all hold sparkline/progress strokes at 4-6 px regardless of
 					    zoom; growing under comfortable would turn it into a button. */}
-					<div className="w-[64px] h-[6px] bg-[var(--surface-6)] rounded-[var(--r-pill)] overflow-hidden">
+					<div className="w-[64px] h-[6px] bg-[var(--surface-container)] rounded-[var(--r-pill)] overflow-hidden">
 						<div
-							className="h-full bg-[var(--primary)] rounded-[var(--r-pill)] transition-[width] duration-[var(--motion-medium)]"
+							className="h-full bg-[var(--status-success)] rounded-[var(--r-pill)] transition-[width] duration-[var(--motion-default)]"
 							style={{ width: `${(progress.done / progress.total) * 100}%` }}
 						/>
 					</div>
-					<span className="text-[12px] text-[var(--text-mid)]">
+					<span className="text-[12px] text-[var(--text-secondary)]">
 						{progress.done}/{progress.total}
 					</span>
 				</div>
