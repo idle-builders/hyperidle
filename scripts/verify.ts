@@ -72,6 +72,14 @@ const TOOLS: Tool[] = [
 		phase: 1,
 	},
 	{ name: "knip", cmd: "npx", args: ["knip"], timeoutMs: 120_000, phase: 1 },
+	// Disabled until route integration tests are backfilled (see TRACK-V WP1).
+	// {
+	// 	name: "test-coverage",
+	// 	cmd: "npx",
+	// 	args: ["tsx", "scripts/test-coverage-check.ts"],
+	// 	timeoutMs: 30_000,
+	// 	phase: 1,
+	// },
 	{
 		name: "mock-inventory",
 		cmd: "npx",
