@@ -20,7 +20,7 @@
 		"test:raw": "vitest run",
 		"test:verbose": "vitest run --reporter=verbose",
 		"test:coverage": "vitest run --coverage",
-		"test:e2e": "npx playwright test --reporter=list -c packages/web/playwright.config.ts",
+		"test:e2e": "npm run -w @hyperidle/web test:e2e",
 		"check": "npx tsx scripts/check.ts",
 		"check:raw": "tsc --noEmit -p tsconfig.json",
 		"lint": "npx tsx scripts/lint.ts",
