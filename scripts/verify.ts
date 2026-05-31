@@ -99,6 +99,28 @@ interface CliFlags {
 	only: Set<string> | null;
 }
 
+// Track active child PIDs for cleanup on unexpected exit
+const activeChildren = new Set<number>();
+
+function killActiveChildren(): void {
+	for (const pid of activeChildren) {
+		try {
+			process.kill(-pid, "SIGTERM");
+		} catch {}
+	}
+	activeChildren.clear();
+}
+
+process.on("SIGTERM", () => {
+	killActiveChildren();
+	process.exit(1);
+});
+process.on("SIGINT", () => {
+	killActiveChildren();
+	process.exit(1);
+});
+process.on("exit", killActiveChildren);
+
 function parseFlags(argv: readonly string[]): CliFlags {
 	let raw = false;
 	let quick = false;
@@ -123,16 +145,26 @@ function runTool(tool: Tool, raw: boolean): Promise<ToolResult> {
 			env: { ...process.env, ...tool.env },
 			cwd: tool.cwd ? resolve(process.cwd(), tool.cwd) : undefined,
 			stdio: raw ? "inherit" : ["ignore", "pipe", "pipe"],
+			detached: true,
 		});
+
+		if (child.pid) activeChildren.add(child.pid);
 
 		let timedOut = false;
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		if (tool.timeoutMs) {
 			timer = setTimeout(() => {
 				timedOut = true;
-				child.kill("SIGTERM");
+				// Kill the entire process group (vitest + fork workers), not just the parent
+				try {
+					process.kill(-child.pid!, "SIGTERM");
+				} catch {
+					child.kill("SIGTERM");
+				}
 				setTimeout(() => {
-					if (!child.killed) child.kill("SIGKILL");
+					try {
+						process.kill(-child.pid!, "SIGKILL");
+					} catch {}
 				}, 5_000);
 			}, tool.timeoutMs);
 		}
@@ -143,6 +175,7 @@ function runTool(tool: Tool, raw: boolean): Promise<ToolResult> {
 		}
 
 		child.on("close", (code) => {
+			if (child.pid) activeChildren.delete(child.pid);
 			if (timer) clearTimeout(timer);
 			const stdout = stdoutChunks.join("");
 			const stderr = stderrChunks.join("");

@@ -11,6 +11,12 @@ export default defineConfig({
 		// inherit these root values — each project vitest.config.ts must set its own.
 		hookTimeout: 120_000,
 		testTimeout: 120_000,
+		// @lore: Vitest 4.x defaults to forks pool (child processes). With 5+
+		// concurrent worktree agents on a 10-core machine, unlimited workers
+		// (default = CPU count) causes 50+ processes fighting for 10 cores.
+		// Cap at 4 workers per instance to balance parallelism vs contention.
+		maxWorkers: 4,
+		minWorkers: 1,
 		exclude: ["**/node_modules/**", "**/.git/**", "**/dist/**", "**/.worktrees/**"],
 		reporters: [["dot"], new VitestToonReporter()],
 		projects: [

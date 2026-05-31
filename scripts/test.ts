@@ -14,6 +14,23 @@ const extraArgs = process.argv.slice(2);
 const child = spawn("npm", ["run", "test:raw", ...extraArgs], {
 	stdio: ["ignore", "pipe", "pipe"],
 	env: { ...process.env, VITEST_TOON_OUTPUT: TEST_OUTPUT_FILE },
+	detached: true,
+});
+
+// Ensure all child processes (vitest fork workers) are killed when this script exits
+function killProcessGroup(): void {
+	try {
+		process.kill(-child.pid!, "SIGTERM");
+	} catch {}
+}
+process.on("exit", killProcessGroup);
+process.on("SIGTERM", () => {
+	killProcessGroup();
+	process.exit(1);
+});
+process.on("SIGINT", () => {
+	killProcessGroup();
+	process.exit(1);
 });
 
 const stdoutChunks: string[] = [];
