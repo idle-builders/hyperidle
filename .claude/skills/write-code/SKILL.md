@@ -16,6 +16,10 @@ Implement each task in dependency order. Write the minimum code to make tests pa
 
 Never weaken a test to make it pass. If a test reveals a design flaw, fix the implementation.
 
+**Regression ownership:** `npm run test` runs affected tests — if pre-existing tests break because of your changes, you own the fix. "Outside scope" is not valid for tests you broke.
+
+**Rename sweep:** When your changes rename, remove, or replace a symbol (field, type, token, status value, route), grep the full codebase for the old name before pushing: `grep -rn 'OLD_NAME' packages/ --include='*.ts' --include='*.tsx'`. Zero matches required (excluding test assertions that verify absence).
+
 **Doc sync:** If your implementation changes behavior documented in `docs/` (API shapes, state machines, UI layouts, lifecycles, data models, decision records), update the relevant doc section in the same commit. Docs are part of the deliverable, not a follow-up task. The reviewer will flag stale docs as CRITICAL.
 
 **Don't rationalize shortcuts:**
