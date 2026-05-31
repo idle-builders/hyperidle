@@ -34,25 +34,19 @@ describe("ErrorState", () => {
 	});
 
 	it("has warm card styling with surface-elevated background", () => {
-		const { container } = render(
-			<ErrorState title="Error" description="Something went wrong." />,
-		);
+		const { container } = render(<ErrorState title="Error" description="Something went wrong." />);
 		const outer = container.firstElementChild;
 		expect(outer?.className).toContain("bg-[var(--surface-elevated)]");
 	});
 
 	it("has --r-default radius for card shape", () => {
-		const { container } = render(
-			<ErrorState title="Error" description="Something went wrong." />,
-		);
+		const { container } = render(<ErrorState title="Error" description="Something went wrong." />);
 		const outer = container.firstElementChild;
 		expect(outer?.className).toContain("rounded-[var(--r-default)]");
 	});
 
 	it("has --shadow-subtle shadow for card depth", () => {
-		const { container } = render(
-			<ErrorState title="Error" description="Something went wrong." />,
-		);
+		const { container } = render(<ErrorState title="Error" description="Something went wrong." />);
 		const outer = container.firstElementChild;
 		expect(outer?.className).toContain("shadow-[var(--shadow-subtle)]");
 	});

@@ -17,13 +17,13 @@ export function KeyValue({ label, value, layout = "inline" }: KeyValueProps): JS
 		>
 			{/* @lore K7 / AESTHETICS.md § Typography row "Letter-spacing for caps":
 			    +0.02em (designer-call) on uppercase labels. tracking-[0.05em] → tracking-[var(--tracking-caps)]. */}
-			<span className="uppercase font-heading text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-lo)]">
+			<span className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]">
 				{label}
 			</span>
 			{/* @lore J1→px-fix: text-[14px] replaces text-sm so the fallback font-size is correct
 			    under 14px-base viewers. text-[length:var(--density-text)] still wins at runtime
 			    for density-aware sizing. Tests updated to assert text-[14px]. */}
-			<span className="text-[14px] text-[length:var(--density-text)] text-[var(--text-hi)]">
+			<span className="text-[14px] text-[length:var(--density-text)] text-[var(--text-primary)]">
 				{value}
 			</span>
 		</div>

@@ -19,29 +19,30 @@
       display: flex;
       align-items: center;
       pointer-events: none;
-      color: var(--text-lo);
+      color: var(--text-tertiary);
     }
 
     .search-field__input {
       width: 100%;
       height: 32px;
       padding: 0 56px 0 32px;
-      background: var(--surface-3);
-      border: 1px solid transparent;
-      border-radius: var(--r2);
-      font-family: var(--ui);
+      background: var(--surface-container);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r-default);
+      font-family: var(--font-sans);
       font-size: 13px;
-      color: var(--text-hi);
-      transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease;
+      color: var(--text-primary);
+      transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
     }
 
     .search-field__input::placeholder {
-      color: var(--text-lo);
+      color: var(--text-placeholder);
     }
 
     .search-field__input:focus {
-      border-color: var(--primary);
-      background: var(--surface-2);
+      border-color: var(--accent-primary);
+      background: var(--surface-page);
+      box-shadow: 0 0 0 3px var(--accent-primary-dim);
       outline: none;
     }
 
@@ -59,9 +60,9 @@
       justify-content: center;
       width: 18px;
       height: 18px;
-      border-radius: var(--r1);
+      border-radius: var(--r-subtle);
       background: transparent;
-      color: var(--text-lo);
+      color: var(--text-tertiary);
       font-size: 12px;
       cursor: pointer;
       border: none;
@@ -70,8 +71,8 @@
     }
 
     .search-field__clear:hover {
-      background: var(--surface-ghost);
-      color: var(--text-mid);
+      background: color-mix(in oklab, var(--text-secondary) 8%, transparent);
+      color: var(--text-secondary);
     }
 
     /* @lore K7 / AESTHETICS.md § Typography "Body size (default)": font-size 10 → 11. */
@@ -82,10 +83,10 @@
       min-width: 20px;
       height: 18px;
       padding: 0 4px;
-      border-radius: var(--r1);
-      background: var(--surface-5);
-      color: var(--text-lo);
-      font-family: var(--mono);
+      border-radius: var(--r-subtle);
+      background: var(--surface-elevated);
+      color: var(--text-tertiary);
+      font-family: var(--font-mono);
       font-size: 11px;
       font-weight: 500;
     }
@@ -98,8 +99,8 @@
     .search-field__spinner {
       width: 14px;
       height: 14px;
-      border: 2px solid var(--surface-5);
-      border-top-color: var(--primary);
+      border: 2px solid var(--border-default);
+      border-top-color: var(--accent-primary);
       border-radius: 50%;
       animation: spin 0.6s linear infinite;
     }
@@ -220,7 +221,7 @@
                   onChange={setInteractiveValue}
                   shortcutKey="/"
                 />
-                <div style={{ fontSize: "12px", color: "var(--text-lo)" }}>
+                <div style={{ fontSize: "12px", color: "var(--text-tertiary)" }}>
                   {interactiveValue ? `Searching for "${interactiveValue}"...` : "Type to search"}
                 </div>
               </div>

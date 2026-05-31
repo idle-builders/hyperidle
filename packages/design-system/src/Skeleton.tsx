@@ -27,7 +27,7 @@ const DEFAULT_ROWS = 3;
  * reference uses hardcoded pixel values, so we must match exactly.
  */
 const SKELETON_BAR =
-	"bg-[var(--surface-5)] rounded-[var(--r2)] animate-[skeleton-pulse_1.8s_ease-in-out_infinite]";
+	"bg-[var(--surface-container)] rounded-[var(--r-default)] animate-[skeleton-pulse_1.8s_ease-in-out_infinite]";
 
 export function SkeletonList({
 	rows = DEFAULT_ROWS,
@@ -79,7 +79,7 @@ export function SkeletonCard({ ariaLabel, dataTestId }: SkeletonCardProps): JSX.
 			 * literal — abstract content placeholders not subject to the
 			 * type scale.
 			 */
-			className="flex flex-col gap-[var(--density-card-gap)] bg-[var(--surface-3)] rounded-[var(--r2)] p-[var(--density-card-pad)]"
+			className="flex flex-col gap-[var(--density-card-gap)] bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[var(--density-card-pad)]"
 		>
 			<div className={`${SKELETON_BAR} h-[20px] w-[66%]`} />
 			<div className={`${SKELETON_BAR} h-[16px] w-full`} />

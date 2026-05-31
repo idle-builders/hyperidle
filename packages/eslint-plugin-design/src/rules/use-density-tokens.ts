@@ -153,9 +153,12 @@ export const useDensityTokens: Rule.RuleModule = createRule({
 		// Button-shaped chrome (Retry button, DaisyUI btn) stays literal per
 		// K10 § 3.2.8 + § 5.2 (verdict buttons) + § 5.5. Detect by either
 		// the DaisyUI `btn` class family or a bare-Tailwind button signature
-		// (cursor-pointer + bg-[var(--primary)] OR bg-[var(--surface-*)]).
+		// (cursor-pointer + bg-[var(--primary|--accent-primary)] OR bg-[var(--surface-*)]).
+		// @lore U7: --primary was renamed to --accent-primary in Hearth tokens. Both
+		// forms must be recognised so U7-migrated components (ErrorState retry button)
+		// retain their button-shaped-chrome exemption from the density pad rule.
 		const BUTTON_SHAPED =
-			/\bbtn\b|cursor-pointer.*bg-\[var\(--primary\)\]|bg-\[var\(--primary\)\].*cursor-pointer/;
+			/\bbtn\b|cursor-pointer.*bg-\[var\(--(?:primary|accent-primary)\)\]|bg-\[var\(--(?:primary|accent-primary)\)\].*cursor-pointer/;
 
 		function checkClassString(text: string, node: unknown): void {
 			const reportNode = node as Rule.Node;

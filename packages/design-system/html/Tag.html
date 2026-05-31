@@ -11,8 +11,8 @@
       align-items: center;
       gap: 4px;
       padding: 2px 8px;
-      border-radius: var(--r2);
-      font-family: var(--ui);
+      border-radius: var(--r-pill);
+      font-family: var(--font-sans);
       font-size: 12px;
       line-height: 1.4;
       white-space: nowrap;
@@ -20,20 +20,20 @@
     }
 
     .tag--neutral {
-      background: var(--surface-ghost);
-      color: var(--text-mid);
+      background: color-mix(in oklab, var(--text-secondary) 8%, transparent);
+      color: var(--text-secondary);
     }
 
     .tag--pattern {
-      color: var(--text-mid);
+      color: var(--text-secondary);
     }
 
     .tag--decision {
-      color: var(--primary);
+      color: var(--accent-primary);
     }
 
     .tag--failure {
-      color: var(--danger);
+      color: var(--status-error);
     }
 
     .tag .tag-icon {

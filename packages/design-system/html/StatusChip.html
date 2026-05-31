@@ -12,7 +12,7 @@
       gap: 6px;
       padding: 2px 8px;
       border-radius: var(--r-pill);
-      font-family: var(--mono);
+      font-family: var(--font-mono);
       font-size: 11px;
       letter-spacing: 0.05em;
       text-transform: uppercase;
@@ -30,46 +30,46 @@
 
     /* Status variants */
     .status-chip--healthy {
-      background: color-mix(in oklab, var(--ok) 14%, transparent);
-      color: var(--ok);
+      background: color-mix(in oklab, var(--status-success) 14%, transparent);
+      color: var(--status-success);
     }
-    .status-chip--healthy .dot { background: var(--ok); }
+    .status-chip--healthy .dot { background: var(--status-success); }
 
     .status-chip--behind {
-      background: color-mix(in oklab, var(--warn) 14%, transparent);
-      color: var(--warn);
+      background: color-mix(in oklab, var(--status-warning) 14%, transparent);
+      color: var(--status-warning);
     }
-    .status-chip--behind .dot { background: var(--warn); }
+    .status-chip--behind .dot { background: var(--status-warning); }
 
     .status-chip--blocked {
-      background: color-mix(in oklab, var(--danger) 14%, transparent);
-      color: var(--danger);
+      background: color-mix(in oklab, var(--status-error) 14%, transparent);
+      color: var(--status-error);
     }
-    .status-chip--blocked .dot { background: var(--danger); }
+    .status-chip--blocked .dot { background: var(--status-error); }
 
     .status-chip--paused {
-      background: color-mix(in oklab, var(--text-lo) 14%, transparent);
-      color: var(--text-lo);
+      background: color-mix(in oklab, var(--status-info) 14%, transparent);
+      color: var(--status-info);
     }
-    .status-chip--paused .dot { background: var(--text-lo); }
+    .status-chip--paused .dot { background: var(--status-info); }
 
     .status-chip--done {
-      background: color-mix(in oklab, var(--ok) 14%, transparent);
-      color: var(--ok);
+      background: color-mix(in oklab, var(--status-success) 14%, transparent);
+      color: var(--status-success);
     }
-    .status-chip--done .dot { background: var(--ok); }
+    .status-chip--done .dot { background: var(--status-success); }
 
     .status-chip--error {
-      background: color-mix(in oklab, var(--danger) 14%, transparent);
-      color: var(--danger);
+      background: color-mix(in oklab, var(--status-error) 14%, transparent);
+      color: var(--status-error);
     }
-    .status-chip--error .dot { background: var(--danger); }
+    .status-chip--error .dot { background: var(--status-error); }
 
     .status-chip--unknown {
-      background: color-mix(in oklab, var(--text-lo) 14%, transparent);
-      color: var(--text-lo);
+      background: color-mix(in oklab, var(--text-tertiary) 14%, transparent);
+      color: var(--text-tertiary);
     }
-    .status-chip--unknown .dot { background: var(--text-lo); }
+    .status-chip--unknown .dot { background: var(--text-tertiary); }
   </style>
 </head>
 <body>
@@ -132,15 +132,15 @@
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <StatusChip status="healthy" />
-                  <span style={{ color: "var(--text-mid)", fontSize: "13px" }}>Agent is running normally</span>
+                  <span style={{ color: "var(--text-secondary)", fontSize: "13px" }}>Agent is running normally</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <StatusChip status="blocked" />
-                  <span style={{ color: "var(--text-mid)", fontSize: "13px" }}>Waiting on external dependency</span>
+                  <span style={{ color: "var(--text-secondary)", fontSize: "13px" }}>Waiting on external dependency</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <StatusChip status="error" />
-                  <span style={{ color: "var(--text-mid)", fontSize: "13px" }}>Build failed, needs intervention</span>
+                  <span style={{ color: "var(--text-secondary)", fontSize: "13px" }}>Build failed, needs intervention</span>
                 </div>
               </div>
             </div>

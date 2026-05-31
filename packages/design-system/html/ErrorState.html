@@ -16,19 +16,22 @@
       gap: var(--density-card-gap);
       padding: var(--density-card-pad) var(--density-pad-x);
       text-align: left;
+      background: var(--surface-elevated);
+      border-radius: var(--r-default);
+      box-shadow: var(--shadow-subtle);
     }
 
     .error-state__title {
       /* K11: title font scales with density per § 3.2.8. */
       font-size: var(--density-text);
       font-weight: 500;
-      color: var(--danger);
+      color: var(--status-error);
       line-height: 1.4;
     }
 
     .error-state__description {
       font-size: 12px;
-      color: var(--text-lo);
+      color: var(--text-tertiary);
       line-height: 1.4;
     }
 
@@ -41,9 +44,9 @@
       padding: 4px 8px;
       font-size: 12px;
       font-weight: 500;
-      color: var(--surface-0);
-      background: var(--primary);
-      border-radius: var(--r2);
+      color: var(--text-on-accent);
+      background: var(--accent-primary);
+      border-radius: var(--r-default);
       cursor: pointer;
       transition: opacity var(--motion-fast) var(--motion-ease);
       line-height: 1.4;
@@ -126,7 +129,7 @@
                   description="Check your internet connection and try again."
                   onRetry={() => undefined}
                 />
-                <div style={{ borderTop: "1px solid var(--surface-4)" }} />
+                <div style={{ borderTop: "1px solid var(--surface-elevated)" }} />
                 <ErrorState
                   title="Permission denied"
                   description="You don't have access to this resource."
