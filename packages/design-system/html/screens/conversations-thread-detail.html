@@ -237,12 +237,40 @@
     .action-status--success { color: var(--status-success); }
     .action-status--warning { color: var(--status-warning); }
 
+    /* ── Secondary Button + Live Dot ── */
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 7px 12px;
+      border-radius: var(--r-pill);
+      border: 1.5px solid var(--border-default);
+      cursor: pointer;
+      background: var(--surface-elevated);
+      color: var(--text-primary);
+    }
+    .live-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: var(--r-pill);
+      background: var(--accent-primary);
+      display: inline-block;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
     /* ── Composer ── */
     .thread-composer {
       padding: 12px 24px 18px;
       display: flex;
       gap: 9px;
-      align-items: flex-end;
+      align-items: stretch;
       max-width: 720px;
       margin: 0 auto;
       width: 100%;
@@ -255,9 +283,10 @@
       border: 1.5px solid var(--border-default);
       border-radius: var(--r-default);
       background: var(--surface-page);
-      color: var(--text-placeholder);
+      color: var(--text-primary);
       outline: none;
     }
+    .composer-input::placeholder { color: var(--text-placeholder); }
     .btn {
       display: inline-flex;
       align-items: center;
@@ -320,10 +349,13 @@
           <div className="main">
             <div className="main-header">
               <h2>Passkey rollout plan</h2>
-              <div className="header-badges">
-                <span className="badge badge--green">Product</span>
-                <span className="badge badge--amber">$2,400 budget</span>
-                <span className="badge badge--green">Active</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                <div className="header-badges">
+                  <span className="badge badge--green">Product</span>
+                  <span className="badge badge--amber">$2,400 budget</span>
+                  <span className="badge badge--green">Active</span>
+                </div>
+                <button className="btn-secondary"><span className="live-dot"></span> Dial in</button>
               </div>
             </div>
             <div className="thread-messages">
@@ -378,12 +410,17 @@
                     <span className="message-time">2:42 PM</span>
                   </div>
                   <div className="message-text">Good call. Updated the plan: phase 1 uses lazy enrollment — users get prompted on next login, not forced. Current sessions remain valid with existing cookies until natural expiry (30 days).</div>
-                  <div className="message-action">
-                    <span className="message-action-label">
-                      <span className="message-action-dot"></span>
-                      Session migration strategy
-                    </span>
-                    <span className="action-status action-status--warning">Updated</span>
+                  <div className="message-action" style={{ flexDirection: 'column', gap: 9, alignItems: 'stretch' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span className="message-action-label">
+                        <span className="message-action-dot"></span>
+                        Session migration strategy — review requested
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button className="btn" style={{ fontSize: 12, padding: '7px 12px' }}>Approve</button>
+                      <button className="btn-secondary">Reject</button>
+                    </div>
                   </div>
                 </div>
               </div>

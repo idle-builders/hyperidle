@@ -243,6 +243,39 @@
       color: var(--accent-primary);
     }
 
+    /* ── Button ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 7px 12px;
+      border-radius: var(--r-pill);
+      border: 1.5px solid transparent;
+      cursor: pointer;
+      background: var(--accent-primary);
+      color: var(--text-on-accent);
+    }
+
+    /* ── Thread Section Headers ── */
+    .thread-section-header {
+      padding: 9px 24px 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .thread-section-count {
+      font-size: 11px;
+      font-weight: 400;
+    }
+
     /* Badge */
     .badge {
       display: inline-flex;
@@ -318,14 +351,18 @@
           {/* Main: Thread List */}
           <div className="main">
             <div className="main-header">
-              <h2>Auth migration</h2>
-              <div className="tab-bar-pill">
-                <button className="tab-pill tab-pill--active">All</button>
-                <button className="tab-pill">Blocking</button>
-                <button className="tab-pill">Async</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <h2>Auth migration</h2>
+                <div className="tab-bar-pill">
+                  <button className="tab-pill tab-pill--active">All</button>
+                  <button className="tab-pill">Blocking</button>
+                  <button className="tab-pill">Async</button>
+                </div>
               </div>
+              <button className="btn">New thread</button>
             </div>
             <div className="thread-list">
+              <div className="thread-section-header"><span>Active</span><span className="thread-section-count">2</span></div>
               {/* Thread 1: unread */}
               <div className="thread-row thread-row--unread">
                 <div className="thread-unread-dot"></div>
@@ -358,6 +395,7 @@
                   <span className="thread-time">1:22 PM</span>
                 </div>
               </div>
+              <div className="thread-section-header"><span>Resolved</span><span className="thread-section-count">4</span></div>
               {/* Thread 3: read */}
               <div className="thread-row">
                 <div className="thread-unread-dot thread-unread-dot--read"></div>

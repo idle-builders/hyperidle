@@ -94,10 +94,11 @@
             <hr className="sidebar-divider" />
             <div className="settings-label" style={{ marginBottom: 6 }}>Settings</div>
             <div className="settings-item settings-item--active">Profile</div>
-            <div className="settings-item">Teams</div>
+            <div className="settings-item">Org chart</div>
             <div className="settings-item">Appearance</div>
             <div className="settings-item">Credentials</div>
             <div className="settings-item">Notifications</div>
+            <div className="settings-item">Backend</div>
           </div>
 
           <div className="settings-main">
@@ -119,13 +120,13 @@
                   <span className="form-hint">Used for notifications and login.</span>
                 </div>
                 <div>
-                  <button className="btn btn--sm">Save changes</button>
+                  <button className="btn btn--sm">Save profile</button>
                 </div>
               </div>
 
-              {/* Teams */}
+              {/* Org chart */}
               <div className="form-section">
-                <div className="form-section-title">Teams</div>
+                <div className="form-section-title">Org chart</div>
                 <div className="team-row">
                   <div className="team-avatar">P</div>
                   <div className="team-info">
@@ -222,6 +223,15 @@
                       <span className="toggle-desc">Receive a daily email summary of unread threads</span>
                     </div>
                   </div>
+                </div>
+              </div>
+              {/* Backend */}
+              <div className="form-section">
+                <div className="form-section-title">Backend</div>
+                <div className="form-group">
+                  <label className="form-label">Mode</label>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Local (laptop)</div>
+                  <span className="form-hint">Agent sessions run locally on this machine.</span>
                 </div>
               </div>
             </div>

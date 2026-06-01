@@ -62,7 +62,8 @@
     .description { font-size: 15px; color: var(--text-secondary); line-height: 1.7; }
 
     /* Task list */
-    .task-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border-subtle); }
+    .task-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border-subtle); cursor: pointer; transition: background 240ms ease; }
+    .task-row:hover { background: rgba(44, 36, 26, 0.02); }
     .task-row:last-child { border-bottom: none; }
     .task-dot { width: 8px; height: 8px; border-radius: var(--r-pill); flex-shrink: 0; }
     .task-info { flex: 1; min-width: 0; }
@@ -70,7 +71,10 @@
     .task-meta { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
 
     /* Composer */
-    .comment-input { width: 100%; font-family: var(--font-sans); font-size: 15px; padding: 9px 12px; border: 1.5px solid var(--border-default); border-radius: var(--r-default); background: var(--surface-page); color: var(--text-placeholder); outline: none; }
+    .comment-input { flex: 1; font-family: var(--font-sans); font-size: 15px; padding: 9px 12px; border: 1.5px solid var(--border-default); border-radius: var(--r-default); background: var(--surface-page); color: var(--text-placeholder); outline: none; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-sans); font-size: 12px; font-weight: 500; padding: 7px 12px; border-radius: var(--r-pill); border: 1.5px solid transparent; cursor: pointer; background: var(--accent-primary); color: var(--text-on-accent); }
+    .btn-ghost { display: inline-flex; align-items: center; font-family: var(--font-sans); font-size: 12px; font-weight: 500; padding: 4px 9px; border-radius: var(--r-pill); border: 1.5px solid var(--border-default); cursor: pointer; background: transparent; color: var(--text-secondary); }
+    .btn-ghost:hover { color: var(--text-primary); border-color: var(--accent-primary); }
   </style>
 </head>
 <body>
@@ -153,7 +157,10 @@
 
               {/* Description */}
               <div>
-                <div className="section-title">Pitch</div>
+                <div className="section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>Pitch</span>
+                  <button className="btn-ghost" style={{ textTransform: 'none', letterSpacing: 'normal' }}>Edit</button>
+                </div>
                 <div className="description">
                   Replace password-based auth with WebAuthn passkeys. Target: 60% reduction in auth support tickets. Three phases: shadow enrollment (users prompted on next login), dual-auth window (both methods accepted), then password deprecation. Current sessions remain valid through phase 2.
                 </div>
@@ -207,7 +214,10 @@
               {/* Comment area */}
               <div>
                 <div className="section-title">Discussion</div>
-                <input className="comment-input" type="text" placeholder="Add a comment..." disabled />
+                <div style={{ display: 'flex', gap: 9, alignItems: 'stretch' }}>
+                  <input className="comment-input" type="text" placeholder="Write a message..." />
+                  <button className="btn">Send</button>
+                </div>
               </div>
             </div>
           </div>
