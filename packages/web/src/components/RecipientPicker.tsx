@@ -141,7 +141,7 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 	return (
 		<div
 			data-testid="recipient-picker"
-			className="flex flex-col gap-[8px] p-[12px] bg-[var(--surface-2)] rounded-[var(--r2)] border border-[var(--border-default)]"
+			className="flex flex-col gap-[8px] p-[12px] bg-[var(--surface-container)] rounded-[var(--r-subtle)] border border-[var(--border-default)]"
 			onKeyDown={handleKeyDown}
 		>
 			{pickerState === "browsing" && (
@@ -158,12 +158,12 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 						aria-label="Recipients"
 					>
 						{status === "loading" && (
-							<div className="py-[8px] text-center text-[var(--text-lo)] text-[13px]">
+							<div className="py-[8px] text-center text-[var(--text-tertiary)] text-[13px]">
 								Loading...
 							</div>
 						)}
 						{status === "ready" && filteredRecipients.length === 0 && (
-							<div className="py-[8px] text-center text-[var(--text-lo)] text-[13px]">
+							<div className="py-[8px] text-center text-[var(--text-tertiary)] text-[13px]">
 								No recipients found
 							</div>
 						)}
@@ -174,29 +174,29 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 									type="button"
 									role="option"
 									aria-selected={false}
-									className="flex items-center gap-[8px] px-[8px] py-[6px] rounded-[var(--r1)] text-left cursor-pointer bg-transparent border-none transition-[background] duration-[var(--motion-fast)] hover:bg-[var(--surface-ghost)] focus:outline-none focus:bg-[var(--surface-ghost)]"
+									className="flex items-center gap-[8px] px-[8px] py-[6px] rounded-[var(--r-subtle)] text-left cursor-pointer bg-transparent border-none transition-[background] duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] focus:outline-none focus:bg-[var(--surface-container)]"
 									onClick={() => handleSelectRecipient(recipient)}
 								>
 									{/* Avatar initials chip */}
-									<span className="flex-shrink-0 inline-flex items-center justify-center w-[28px] h-[28px] rounded-full bg-[var(--surface-4)] text-[var(--text-mid)] text-[11px] font-medium uppercase">
+									<span className="flex-shrink-0 inline-flex items-center justify-center w-[28px] h-[28px] rounded-full bg-[var(--surface-container)] text-[var(--text-secondary)] text-[11px] font-medium uppercase">
 										{recipient.name.slice(0, 2)}
 									</span>
 									<span className="flex-1 min-w-0">
 										<span className="flex items-center gap-[6px]">
-											<span className="text-[13px] text-[var(--text-hi)] font-medium truncate">
+											<span className="text-[13px] text-[var(--text-primary)] font-medium truncate">
 												{recipient.name}
 											</span>
 											{recipient.hasActiveSession && (
 												<span
-													className="inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-full bg-[color-mix(in_oklab,var(--ok)_14%,transparent)] text-[var(--ok)] text-[10px] font-medium uppercase tracking-[0.05em]"
+													className="inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-full bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-primary)] text-[10px] font-medium uppercase tracking-[0.05em]"
 													aria-label="Live session"
 												>
-													<span className="w-[5px] h-[5px] rounded-full bg-[var(--ok)] animate-pulse" />
+													<span className="w-[5px] h-[5px] rounded-full bg-[var(--accent-primary)] animate-pulse" />
 													Live
 												</span>
 											)}
 										</span>
-										<span className="text-[11px] text-[var(--text-lo)]">
+										<span className="text-[11px] text-[var(--text-tertiary)]">
 											<Tag label={recipient.role} />
 										</span>
 									</span>
@@ -210,13 +210,15 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 			{(pickerState === "selected" || pickerState === "sending") && selected && (
 				<>
 					<div className="flex items-center gap-[8px] mb-[4px]">
-						<span className="flex-shrink-0 inline-flex items-center justify-center w-[28px] h-[28px] rounded-full bg-[var(--surface-4)] text-[var(--text-mid)] text-[11px] font-medium uppercase">
+						<span className="flex-shrink-0 inline-flex items-center justify-center w-[28px] h-[28px] rounded-full bg-[var(--surface-container)] text-[var(--text-secondary)] text-[11px] font-medium uppercase">
 							{selected.name.slice(0, 2)}
 						</span>
-						<span className="text-[13px] text-[var(--text-hi)] font-medium">{selected.name}</span>
+						<span className="text-[13px] text-[var(--text-primary)] font-medium">
+							{selected.name}
+						</span>
 						<button
 							type="button"
-							className="ml-auto text-[11px] text-[var(--text-lo)] hover:text-[var(--text-mid)] bg-transparent border-none cursor-pointer"
+							className="ml-auto text-[11px] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] bg-transparent border-none cursor-pointer"
 							onClick={() => {
 								setPickerState("browsing");
 								setSelected(null);
@@ -228,7 +230,7 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 					</div>
 					<textarea
 						ref={messageRef}
-						className="w-full min-h-[80px] p-[8px] bg-[var(--surface-3)] border border-[var(--border-default)] rounded-[var(--r1)] text-[13px] text-[var(--text-hi)] placeholder:text-[var(--text-lo)] resize-none focus:outline-none focus:border-[var(--primary)] transition-[border-color] duration-[var(--motion-fast)]"
+						className="w-full min-h-[80px] p-[8px] bg-[var(--surface-elevated)] border border-[var(--border-default)] rounded-[var(--r-subtle)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] resize-none focus:outline-none focus:border-[var(--accent-primary)] transition-[border-color] duration-[var(--motion-fast)]"
 						placeholder="Type a message..."
 						value={message}
 						onChange={(e) => setMessage(e.target.value)}
@@ -236,14 +238,14 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 						disabled={pickerState === "sending"}
 					/>
 					{sendError && (
-						<p className="text-[12px] text-[var(--danger)]" role="alert">
+						<p className="text-[12px] text-[var(--status-error)]" role="alert">
 							{sendError}
 						</p>
 					)}
 					<div className="flex justify-end gap-[8px]">
 						<button
 							type="button"
-							className="btn btn-sm btn-ghost text-[var(--text-lo)]"
+							className="btn btn-sm btn-ghost text-[var(--text-tertiary)]"
 							onClick={onCancel}
 							disabled={pickerState === "sending"}
 						>

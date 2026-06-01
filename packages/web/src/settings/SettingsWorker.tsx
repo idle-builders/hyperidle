@@ -102,8 +102,10 @@ export function SettingsWorker(): JSX.Element {
 	if (!electron) {
 		return (
 			<div className="flex flex-col gap-3">
-				<p className="text-sm text-[var(--text-mid)]">Worker mode requires the desktop app.</p>
-				<p className="text-xs text-[var(--text-lo)]">
+				<p className="text-sm text-[var(--text-secondary)]">
+					Worker mode requires the desktop app.
+				</p>
+				<p className="text-xs text-[var(--text-tertiary)]">
 					Install HyperIdle on your machine to register it as a worker.
 				</p>
 			</div>
@@ -114,10 +116,10 @@ export function SettingsWorker(): JSX.Element {
 	if (!sharedMode) {
 		return (
 			<div className="flex flex-col gap-3">
-				<p className="text-sm text-[var(--text-mid)]">
+				<p className="text-sm text-[var(--text-secondary)]">
 					Worker mode is only available in shared backend mode.
 				</p>
-				<p className="text-xs text-[var(--text-lo)]">
+				<p className="text-xs text-[var(--text-tertiary)]">
 					Switch to a shared backend server to register this device as a worker.
 				</p>
 			</div>
@@ -161,13 +163,15 @@ export function SettingsWorker(): JSX.Element {
 						onChange={() => void handleToggle()}
 						aria-label="Register this device as a worker"
 					/>
-					<span className="text-sm text-[var(--text-mid)]">Register this device as a worker</span>
+					<span className="text-sm text-[var(--text-secondary)]">
+						Register this device as a worker
+					</span>
 				</label>
 			</div>
 
 			{/* Max concurrent sessions */}
 			<div className="flex items-center gap-3">
-				<span className="text-sm text-[var(--text-mid)]">Max concurrent sessions</span>
+				<span className="text-sm text-[var(--text-secondary)]">Max concurrent sessions</span>
 				<input
 					type="number"
 					className="input input-xs input-bordered w-16"
@@ -184,7 +188,7 @@ export function SettingsWorker(): JSX.Element {
 				<div className="flex flex-col gap-3 border-t border-base-300 pt-3">
 					{/* Connection status */}
 					<div className="flex items-center gap-3">
-						<span className="text-sm text-[var(--text-mid)]">Status</span>
+						<span className="text-sm text-[var(--text-secondary)]">Status</span>
 						<ConnectionBadge
 							state={
 								status.connected ? "connected" : status.enabled ? "connecting" : "disconnected"
@@ -194,8 +198,8 @@ export function SettingsWorker(): JSX.Element {
 
 					{/* Active sessions */}
 					<div className="flex items-center gap-3">
-						<span className="text-sm text-[var(--text-mid)]">Active sessions</span>
-						<span className="text-sm font-mono text-[var(--text-hi)]">
+						<span className="text-sm text-[var(--text-secondary)]">Active sessions</span>
+						<span className="text-sm font-mono text-[var(--text-primary)]">
 							{status.activeSessions} / {status.maxConcurrent}
 						</span>
 					</div>

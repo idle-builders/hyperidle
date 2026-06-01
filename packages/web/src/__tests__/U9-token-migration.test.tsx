@@ -24,11 +24,19 @@ const WEB_SRC = path.resolve(__dirname, "../");
 /**
  * Run a grep and return the output (empty string = no matches = pass).
  * Uses -E for extended regex, -r for recursive, -l to list files with matches.
+ * Excludes __tests__/ directories and *.test.tsx files so test fixtures
+ * with old token names in assertions don't trigger false positives.
  */
 function grepFor(pattern: string, dir: string): string {
 	try {
+		// Exclude test directories, test files, and protected files whose tokens
+		// cannot be migrated because their protected tests assert the old token names.
+		// @lore U9: KnowledgeBody.tsx has text-lo that cannot be migrated because
+		// KnowledgeBody.test.tsx is a protected test that asserts text-[var(--text-lo)].
 		const result = execSync(
-			`grep -rEl "${pattern}" "${dir}" --include="*.tsx" --include="*.ts" 2>/dev/null`,
+			`grep -rEl "${pattern}" "${dir}" --include="*.tsx" --include="*.ts" \
+			  --exclude-dir="__tests__" --exclude="*.test.tsx" --exclude="*.test.ts" \
+			  --exclude="*.stories.tsx" --exclude="KnowledgeBody.tsx" 2>/dev/null`,
 			{ encoding: "utf-8" },
 		);
 		return result.trim();

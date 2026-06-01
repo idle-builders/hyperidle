@@ -218,10 +218,10 @@ export function ThreadSections({
 						// L10 Design C2 / approved mockup: flat text-link, not a solid button.
 						// Mirrors `.empty-state__action-btn` in
 						// plans/L10/design/variant-a-pure-axis/mockup.html
-						// (color: var(--primary); background: transparent; border: 0; padding: 0).
+						// (color: var(--accent-primary); background: transparent; border: 0; padding: 0).
 						<button
 							type="button"
-							className="bg-transparent border-0 p-0 text-[12px] text-[var(--primary)] hover:underline cursor-pointer"
+							className="bg-transparent border-0 p-0 text-[12px] text-[var(--accent-primary)] hover:underline cursor-pointer"
 							aria-label="Clear filter"
 							onClick={onClearFilter}
 						>
@@ -247,12 +247,15 @@ export function ThreadSections({
 					if (activeFilter === "blocking") return null;
 				}
 				const headerToneClass =
-					section.tone === "danger" ? "text-[var(--danger)]" : "text-[var(--text-lo)]";
+					section.tone === "danger" ? "text-[var(--danger)]" : "text-[var(--text-tertiary)]";
 				// @lore L8 review (Design B1+B2 / approved.md §2 + §5.6 + §7):
 				// the Blocking section gets a sticky header (top:0, z:2), a
 				// 10% danger-tinted background, and a 3px left-edge danger
 				// accent. Tint + accent encode danger without relying on color
 				// alone — approved.md §7 (a11y).
+				// @lore U9: --danger NOT migrated to --status-error here because
+				// ThreadSections.conversations.test.tsx is a protected test that
+				// asserts var(--danger) in inline styles. Protected tests cannot change.
 				const isBlocking = section.id === "blocking";
 				const sectionStyle: CSSProperties | undefined = isBlocking
 					? {
@@ -273,7 +276,7 @@ export function ThreadSections({
 						</h3>
 						{section.items.length === 0 ? (
 							<p
-								className="px-3 py-2 text-[12px] text-[var(--text-lo)]"
+								className="px-3 py-2 text-[12px] text-[var(--text-tertiary)]"
 								data-testid="thread-section-active-quiet"
 							>
 								Quiet — nothing in flight.

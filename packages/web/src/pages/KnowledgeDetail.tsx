@@ -464,25 +464,25 @@ function KnowledgeDetailView({
 				>
 					confidence {formatConfidence(item.confidence)}
 				</span>
-				<span className="text-xs text-[var(--text-lo)]" data-testid="knowledge-origin-agent">
+				<span className="text-xs text-[var(--text-tertiary)]" data-testid="knowledge-origin-agent">
 					by {item.originAgent ?? "unknown"}
 				</span>
-				<span className="text-xs text-[var(--text-lo)]" data-testid="knowledge-updated-at">
+				<span className="text-xs text-[var(--text-tertiary)]" data-testid="knowledge-updated-at">
 					{item.timestamp}
 				</span>
 			</div>
-			{legacySource && <p className="text-xs text-[var(--text-lo)]">{legacySource}</p>}
+			{legacySource && <p className="text-xs text-[var(--text-tertiary)]">{legacySource}</p>}
 
 			{/* T2: Conflict banner — shown when PATCH returns 409 */}
 			{conflictVersion !== null && (
 				<div
 					role="alert"
 					className="flex items-center justify-between gap-2 px-3 py-2 text-xs
-					           bg-[var(--surface-4)] border border-[var(--border-subtle)]
-					           rounded-[var(--r2)]"
+					           bg-[var(--surface-container)] border border-[var(--border-subtle)]
+					           rounded-[var(--r-subtle)]"
 					data-testid="conflict-banner"
 				>
-					<span className="text-[var(--text-mid)]">
+					<span className="text-[var(--text-secondary)]">
 						Version conflict — someone else saved this item. Reload to see their changes.
 					</span>
 					<button
@@ -536,14 +536,14 @@ function KnowledgeDetailView({
 							/>
 							<div className="flex items-center gap-2">
 								<span
-									className="text-xs text-[var(--text-lo)]"
+									className="text-xs text-[var(--text-tertiary)]"
 									aria-live="polite"
 									data-testid="save-indicator"
 								>
 									{saveStatus === "saving" && "Saving..."}
 									{saveStatus === "saved" && "Saved"}
 									{saveStatus === "error" && (
-										<span className="text-[var(--danger)]">Save failed</span>
+										<span className="text-[var(--status-error)]">Save failed</span>
 									)}
 								</span>
 							</div>
@@ -584,18 +584,18 @@ function RelatedSidebar({ items }: RelatedSidebarProps): JSX.Element {
 			data-testid="knowledge-related-sidebar"
 			aria-label={`Related items, ${labelCount}`}
 		>
-			<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)]">
+			<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
 				Related
 			</h2>
 			{items.length === 0 ? (
-				<p className="text-xs text-[var(--text-lo)]">No related items.</p>
+				<p className="text-xs text-[var(--text-tertiary)]">No related items.</p>
 			) : (
 				<ul className="flex flex-col gap-1">
 					{items.map((i) => (
 						<li key={i.id} data-testid="related-item">
 							<Link
 								to={`/knowledge/${i.id}`}
-								className="text-xs text-[var(--text-mid)] hover:underline"
+								className="text-xs text-[var(--text-secondary)] hover:underline"
 							>
 								{i.title}
 							</Link>

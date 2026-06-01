@@ -94,7 +94,7 @@ const DIFF_LINE_PREFIX: Record<DiffLine["type"], string> = {
 
 function TextDiffView({ data }: { data: TextDiffData }): JSX.Element {
 	if (data.hunks.length === 0) {
-		return <p className="text-sm text-[var(--text-lo)]">No diff available</p>;
+		return <p className="text-sm text-[var(--text-tertiary)]">No diff available</p>;
 	}
 
 	return (
@@ -102,14 +102,14 @@ function TextDiffView({ data }: { data: TextDiffData }): JSX.Element {
 			<pre className="overflow-x-auto text-xs font-mono leading-[1.4]">
 				{data.hunks.map((hunk) => (
 					<div key={hunk.header}>
-						<div className="text-[var(--text-lo)] select-none px-2 py-1">{hunk.header}</div>
+						<div className="text-[var(--text-tertiary)] select-none px-2 py-1">{hunk.header}</div>
 						{hunk.lines.map((line, li) => (
 							<div
 								key={`${hunk.header}-${li}-${line.type}`}
 								data-diff-type={line.type}
 								className={`px-2 py-1 ${DIFF_LINE_CLASSES[line.type]}`}
 							>
-								<span className="select-none text-[var(--text-lo)] mr-2">
+								<span className="select-none text-[var(--text-tertiary)] mr-2">
 									{DIFF_LINE_PREFIX[line.type]}
 								</span>
 								<code>{line.content}</code>
@@ -148,8 +148,8 @@ function VisualComparisonView({ data }: { data: VisualComparisonData }): JSX.Ele
 	return (
 		<section aria-label="Visual comparison">
 			<div className="grid grid-cols-2 gap-3">
-				<div className="bg-[var(--surface-4)] rounded-lg p-3">
-					<span className="block text-xs font-mono uppercase text-[var(--text-lo)] mb-2">
+				<div className="bg-[var(--surface-container)] rounded-lg p-3">
+					<span className="block text-xs font-mono uppercase text-[var(--text-tertiary)] mb-2">
 						{data.before.label}
 					</span>
 					<img
@@ -158,8 +158,8 @@ function VisualComparisonView({ data }: { data: VisualComparisonData }): JSX.Ele
 						className="w-full rounded"
 					/>
 				</div>
-				<div className="bg-[var(--surface-4)] rounded-lg p-3">
-					<span className="block text-xs font-mono uppercase text-[var(--text-lo)] mb-2">
+				<div className="bg-[var(--surface-container)] rounded-lg p-3">
+					<span className="block text-xs font-mono uppercase text-[var(--text-tertiary)] mb-2">
 						{data.after.label}
 					</span>
 					<img
@@ -177,7 +177,7 @@ function ActionSummaryView({ data }: { data: ActionSummaryData }): JSX.Element {
 	if (data.actions.length === 0) {
 		return (
 			<section aria-label="Action summary">
-				<p className="text-sm text-[var(--text-lo)]">No actions to display</p>
+				<p className="text-sm text-[var(--text-tertiary)]">No actions to display</p>
 			</section>
 		);
 	}
@@ -226,7 +226,7 @@ function Sparkline({ values, label }: { values: number[]; label: string }): JSX.
 			viewBox={`0 0 ${width} ${height}`}
 			className="inline-block"
 		>
-			<polyline fill="none" stroke="var(--primary)" strokeWidth="1.5" points={points} />
+			<polyline fill="none" stroke="var(--accent-primary)" strokeWidth="1.5" points={points} />
 		</svg>
 	);
 }
@@ -235,7 +235,7 @@ function DataMetricsView({ data }: { data: DataMetricsData }): JSX.Element {
 	if (data.headlines.length === 0 && data.charts.length === 0) {
 		return (
 			<section aria-label="Data metrics">
-				<p className="text-sm text-[var(--text-lo)]">No metrics available</p>
+				<p className="text-sm text-[var(--text-tertiary)]">No metrics available</p>
 			</section>
 		);
 	}
@@ -253,7 +253,7 @@ function DataMetricsView({ data }: { data: DataMetricsData }): JSX.Element {
 				<div className="flex flex-col gap-2">
 					{data.charts.map((chart) => (
 						<div key={chart.label} className="flex items-center gap-2">
-							<span className="text-xs text-[var(--text-lo)] font-mono uppercase w-32 shrink-0">
+							<span className="text-xs text-[var(--text-tertiary)] font-mono uppercase w-32 shrink-0">
 								{chart.label}
 							</span>
 							<Sparkline values={chart.values} label={chart.label} />
@@ -277,7 +277,7 @@ function MetadataStrip({
 	return (
 		<div
 			data-testid="artifact-metadata-strip"
-			className="flex items-center gap-2 px-3 py-1 text-xs font-mono border-b border-[var(--border-subtle)] text-[var(--text-mid)]"
+			className="flex items-center gap-2 px-3 py-1 text-xs font-mono border-b border-[var(--border-subtle)] text-[var(--text-secondary)]"
 		>
 			<span
 				data-testid="artifact-kind-badge"
@@ -285,18 +285,18 @@ function MetadataStrip({
 			>
 				{shape}
 			</span>
-			<span className="text-[var(--text-lo)]">status</span>
-			<span className="text-[var(--text-hi)]">{metadata.status}</span>
+			<span className="text-[var(--text-tertiary)]">status</span>
+			<span className="text-[var(--text-primary)]">{metadata.status}</span>
 			{metadata.sla && (
 				<>
-					<span className="text-[var(--text-lo)]">sla</span>
-					<span className="text-[var(--text-hi)]">{metadata.sla}</span>
+					<span className="text-[var(--text-tertiary)]">sla</span>
+					<span className="text-[var(--text-primary)]">{metadata.sla}</span>
 				</>
 			)}
 			{metadata.routing && (
 				<>
-					<span className="text-[var(--text-lo)] ml-auto">routing</span>
-					<span className="text-[var(--text-hi)]">{metadata.routing}</span>
+					<span className="text-[var(--text-tertiary)] ml-auto">routing</span>
+					<span className="text-[var(--text-primary)]">{metadata.routing}</span>
 				</>
 			)}
 		</div>
@@ -309,14 +309,14 @@ function RelatedHistorySection({ entries }: { entries: RelatedHistoryEntry[] }):
 			aria-label="Related history"
 			className="border-t border-[var(--border-subtle)] px-3 py-2 mt-3"
 		>
-			<h4 className="text-[11px] font-mono uppercase tracking-wider text-[var(--text-lo)] mb-1">
+			<h4 className="text-[11px] font-mono uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
 				Related history
 			</h4>
 			<ul className="flex flex-col gap-1 text-xs">
 				{entries.map((e) => (
 					<li key={e.id} className="flex justify-between gap-2">
-						<span className="text-[var(--text-hi)]">{e.label}</span>
-						<span className="text-[var(--text-lo)] font-mono">{e.timestamp}</span>
+						<span className="text-[var(--text-primary)]">{e.label}</span>
+						<span className="text-[var(--text-tertiary)] font-mono">{e.timestamp}</span>
 					</li>
 				))}
 			</ul>

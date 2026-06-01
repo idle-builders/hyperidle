@@ -22,6 +22,7 @@ vi.mock("react-router-dom", async (importOriginal) => {
 			conversationsFilter: "all",
 			onFilterChange: vi.fn(),
 			onClearFilter: vi.fn(),
+			onNewThread: vi.fn(),
 			threads: [],
 			threadsStatus: "idle",
 			threadsError: null,

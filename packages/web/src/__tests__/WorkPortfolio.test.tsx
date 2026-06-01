@@ -4,8 +4,12 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkPortfolio } from "../pages/WorkPortfolio";
 
-// M3 G1: MOCK_PRODUCTS removed — mock useTeams for tests that need product cards.
-// @lore U1: TeamListResponse uses `teams` array (renamed from `products`).
+/**
+ * @lore U9: WorkPortfolio restructured to bet grid. Old team-card grid, Canvas,
+ * useCanvasBets, and "Portfolio" heading removed. Now uses useBets hook.
+ * Tests updated to reflect new bet grid structure.
+ */
+
 vi.mock("../hooks/useTeams", () => ({
 	useTeams: vi.fn().mockReturnValue({
 		data: {
@@ -35,24 +39,21 @@ vi.mock("../hooks/useTeams", () => ({
 	}),
 }));
 
-// R2: mock useCanvasBets so we can control empty vs non-empty state
-const mockUseCanvasBets = vi.fn().mockReturnValue({
+// U9: useBets replaces useCanvasBets
+const mockUseBets = vi.fn().mockReturnValue({
 	bets: [],
-	capacity: { used: 0, max: 2 },
 	loading: false,
 	error: null,
 	refresh: vi.fn(),
 });
-vi.mock("../hooks/useCanvasBets", () => ({
-	useCanvasBets: (...args: unknown[]) => mockUseCanvasBets(...args),
+vi.mock("../hooks/useBets", () => ({
+	useBets: (...args: unknown[]) => mockUseBets(...args),
 }));
 
 afterEach(() => {
 	vi.clearAllMocks();
-	// Reset to empty bets (default)
-	mockUseCanvasBets.mockReturnValue({
+	mockUseBets.mockReturnValue({
 		bets: [],
-		capacity: { used: 0, max: 2 },
 		loading: false,
 		error: null,
 		refresh: vi.fn(),
@@ -73,81 +74,68 @@ describe("WorkPortfolio", () => {
 		expect(screen.getByTestId("work-portfolio-page")).toBeInTheDocument();
 	});
 
-	it("renders a Portfolio heading", () => {
+	it('renders "All bets" heading (U9: replaces old "Portfolio" heading)', () => {
 		renderPage();
-		expect(screen.getByRole("heading", { name: /^portfolio$/i })).toBeInTheDocument();
+		expect(screen.getByText(/all bets/i)).toBeInTheDocument();
 	});
 
-	describe("spec alignment (I4 P1)", () => {
-		it("renders a Portfolio heading (not 'Portfolio Canvas')", () => {
+	describe("spec alignment (U9 AC-2)", () => {
+		it('renders "All bets" heading (not "Portfolio Canvas")', () => {
 			renderPage();
 			expect(screen.queryByText(/portfolio canvas/i)).not.toBeInTheDocument();
-			expect(screen.getByText(/^portfolio$/i)).toBeInTheDocument();
+			expect(screen.getByText(/all bets/i)).toBeInTheDocument();
 		});
 
-		it("renders at least one product status card", () => {
+		it("does NOT render old team card grid", () => {
 			renderPage();
-			const cards = screen.getAllByTestId("team-card");
-			expect(cards.length).toBeGreaterThan(0);
+			expect(screen.queryByTestId("team-card")).not.toBeInTheDocument();
 		});
 
-		it("each product card exposes a name and a StatusChip", () => {
-			renderPage();
-			const cards = screen.getAllByTestId("team-card");
-			for (const card of cards) {
-				expect(card.querySelector(".rounded-full")).not.toBeNull();
-			}
-		});
-	});
-
-	// R2 AC-7: "Create bet" CTA visible and prominent when no bets exist
-	describe("R2 AC7 — Create bet CTA", () => {
-		it("renders Create bet CTA when products exist but no bets", () => {
-			// useCanvasBets returns empty bets (default mock — bets: [])
-			// useTeams returns 2 products (default mock above)
-			renderPage();
-			expect(screen.getByTestId("create-bet-cta")).toBeInTheDocument();
-		});
-
-		it("Create bet CTA contains a 'Create bet' button", () => {
-			renderPage();
-			expect(screen.getByRole("button", { name: /create bet/i })).toBeInTheDocument();
-		});
-
-		it("Create bet CTA opens BetCreateDialog when clicked", async () => {
-			const user = userEvent.setup();
-			renderPage();
-
-			const createBetBtn = screen.getByRole("button", { name: /create bet/i });
-			await user.click(createBetBtn);
-
-			// Dialog should be open — look for the dialog element
-			const dialog = screen.getByRole("dialog");
-			expect(dialog).toBeInTheDocument();
-		});
-
-		it("Create bet CTA is hidden when bets exist", () => {
-			// Override: canvas has a bet
-			mockUseCanvasBets.mockReturnValueOnce({
+		it("renders bet grid when bets exist", () => {
+			mockUseBets.mockReturnValue({
 				bets: [
 					{
 						id: "bet-1",
-						title: "Existing Bet",
-						team: "HyperIdle Core",
+						title: "Bet One",
 						teamId: "p1",
-						status: "shaped",
-						appetite: "—",
+						status: "active",
+						description: "First bet",
+						costAppetite: null,
+						atRisk: false,
 					},
 				],
-				capacity: { used: 1, max: 2 },
 				loading: false,
 				error: null,
 				refresh: vi.fn(),
 			});
-
 			renderPage();
-			// CTA should not be present when bets exist
-			expect(screen.queryByTestId("create-bet-cta")).not.toBeInTheDocument();
+			const grid = screen.getByTestId("bet-grid");
+			expect(grid).toBeInTheDocument();
+			expect(screen.getByText("Bet One")).toBeInTheDocument();
+		});
+	});
+
+	// R2 AC-7 behaviour replaced in U9: "New bet" btn-primary triggers dialog
+	describe("U9 AC-2 — New bet button", () => {
+		it('renders "New bet" button with btn-primary', () => {
+			renderPage();
+			const btn = screen.getByRole("button", { name: /new bet/i });
+			expect(btn).toBeInTheDocument();
+			expect(btn.className).toContain("btn-primary");
+		});
+
+		it('"New bet" opens BetCreateDialog when clicked', async () => {
+			const user = userEvent.setup();
+			renderPage();
+			await user.click(screen.getByRole("button", { name: /new bet/i }));
+			// Dialog should be open
+			expect(screen.getByRole("dialog")).toBeInTheDocument();
+		});
+
+		it("shows empty state when no bets exist", () => {
+			// Default mock: bets: []
+			renderPage();
+			expect(screen.getByTestId("portfolio-empty")).toBeInTheDocument();
 		});
 	});
 });

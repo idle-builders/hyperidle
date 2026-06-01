@@ -146,8 +146,10 @@ function CatalogModeCredentials({ bridge }: CatalogModeProps): JSX.Element {
 					>
 						<div className="flex items-center justify-between gap-3">
 							<div className="flex flex-col gap-0.5">
-								<span className="text-sm font-medium text-[var(--text-hi)]">{entry.label}</span>
-								<span className="text-xs text-[var(--text-lo)]">
+								<span className="text-sm font-medium text-[var(--text-primary)]">
+									{entry.label}
+								</span>
+								<span className="text-xs text-[var(--text-tertiary)]">
 									{state === "absent" ? "Absent" : stateLabel(state)}
 								</span>
 							</div>
@@ -296,8 +298,8 @@ function LegacyModeCredentials({ bridge }: LegacyModeProps): JSX.Element {
 				<div className="flex flex-col gap-2">
 					{credentials.map((cred) => (
 						<div key={cred.name} className="flex items-center justify-between py-1 gap-3">
-							<span className="text-sm font-medium text-[var(--text-hi)]">{cred.name}</span>
-							<span className="text-sm font-mono text-[var(--text-lo)] flex-1">••••••••</span>
+							<span className="text-sm font-medium text-[var(--text-primary)]">{cred.name}</span>
+							<span className="text-sm font-mono text-[var(--text-tertiary)] flex-1">••••••••</span>
 							<button
 								type="button"
 								className="btn btn-ghost btn-xs text-error"
@@ -314,12 +316,12 @@ function LegacyModeCredentials({ bridge }: LegacyModeProps): JSX.Element {
 			<div className="flex flex-col gap-3">
 				<div className="form-control">
 					<label className="label" htmlFor="cred-name">
-						<span className="label-text text-[var(--text-mid)]">Credential name</span>
+						<span className="label-text text-[var(--text-secondary)]">Credential name</span>
 					</label>
 					<input
 						id="cred-name"
 						type="text"
-						className="input input-sm input-bordered w-full text-[var(--text-hi)]"
+						className="input input-sm input-bordered w-full text-[var(--text-primary)]"
 						value={name}
 						onChange={(e) => setName(e.target.value)}
 						placeholder="MY_API_KEY"
@@ -327,7 +329,7 @@ function LegacyModeCredentials({ bridge }: LegacyModeProps): JSX.Element {
 				</div>
 				<div className="form-control">
 					<label className="label" htmlFor="cred-value">
-						<span className="label-text text-[var(--text-mid)]">Credential value</span>
+						<span className="label-text text-[var(--text-secondary)]">Credential value</span>
 					</label>
 					<input
 						id="cred-value"
@@ -362,7 +364,7 @@ export function CredentialsTab(): JSX.Element {
 	if (!bridge) {
 		return (
 			<div className="flex flex-col gap-3">
-				<p className="text-sm text-[var(--text-mid)]">
+				<p className="text-sm text-[var(--text-secondary)]">
 					Credential storage is available in the desktop app only.
 				</p>
 			</div>

@@ -119,7 +119,7 @@ describe("U9 AC-6: KnowledgeList scope pills", () => {
 		expect(activeTab?.className).not.toContain("btn-neutral");
 	});
 
-	it('sort radio buttons use btn-primary for active (not btn-neutral)', async () => {
+	it("sort radio buttons use btn-primary for active (not btn-neutral)", async () => {
 		// We need triage to be active to see sort controls
 		// The mock returns only active items so curated is default
 		// We'll force triage by clicking it
