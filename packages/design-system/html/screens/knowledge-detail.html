@@ -60,6 +60,7 @@
     /* Actions */
     .btn-bar { display: flex; gap: 6px; }
     .btn-ghost { display: inline-flex; align-items: center; font-family: var(--font-sans); font-size: 12px; font-weight: 500; padding: 7px 12px; border-radius: var(--r-pill); border: 1.5px solid var(--border-default); cursor: pointer; background: var(--surface-elevated); color: var(--text-primary); }
+    .btn-primary { display: inline-flex; align-items: center; font-family: var(--font-sans); font-size: 12px; font-weight: 500; padding: 7px 12px; border-radius: var(--r-pill); border: 1.5px solid transparent; cursor: pointer; background: var(--accent-primary); color: var(--text-on-accent); }
   </style>
 </head>
 <body>
@@ -105,6 +106,7 @@
                 </div>
               </div>
               <div className="btn-bar">
+                <button className="btn-primary">Edit</button>
                 <button className="btn-ghost">Flag</button>
                 <button className="btn-ghost">Archive</button>
               </div>

@@ -55,6 +55,8 @@
     .search-input { font-family: var(--font-sans); font-size: 13px; padding: 7px 12px; border: 1.5px solid var(--border-default); border-radius: var(--r-pill); background: var(--surface-page); color: var(--text-primary); outline: none; width: 200px; }
     .search-input::placeholder { color: var(--text-placeholder); }
     .search-input:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px rgba(22, 118, 79, 0.1); }
+
+    .btn { display: inline-flex; align-items: center; font-family: var(--font-sans); font-size: 12px; font-weight: 500; padding: 7px 12px; border-radius: var(--r-pill); border: 1.5px solid transparent; cursor: pointer; background: var(--accent-primary); color: var(--text-on-accent); }
   </style>
 </head>
 <body>
@@ -96,6 +98,7 @@
                 </div>
               </div>
               <input className="search-input" type="text" placeholder="Search knowledge..." />
+              <button className="btn">+ New</button>
             </div>
             <div className="knowledge-list">
               <div className="topic-header">

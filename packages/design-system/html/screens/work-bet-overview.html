@@ -294,6 +294,25 @@
       font-family: var(--font-mono);
       color: var(--text-tertiary);
     }
+
+    /* Team pill filters */
+    .team-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 4px 12px;
+      border-radius: var(--r-pill);
+      border: 1.5px solid var(--border-default);
+      cursor: pointer;
+      background: transparent;
+      color: var(--text-secondary);
+      font-family: var(--font-sans);
+      transition: all 240ms ease;
+    }
+    .team-pill:hover { border-color: var(--accent-primary); color: var(--text-primary); }
+    .team-pill--active { border-color: var(--accent-primary); background: rgba(22, 118, 79, 0.08); color: var(--accent-primary); }
   </style>
 </head>
 <body>
@@ -354,6 +373,11 @@
                   <button className="tab-pill">Completed</button>
                   <button className="tab-pill">Draft</button>
                 </div>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button className="team-pill team-pill--active">Product</button>
+                <button className="team-pill">Infrastructure</button>
+                <button className="team-pill">Growth</button>
               </div>
               <button className="btn">New bet</button>
             </div>
