@@ -130,10 +130,29 @@
       font-weight: 600;
     }
 
+    /* ── Sidebar View Headers ── */
+    .sidebar-view {
+      padding: 6px 12px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      border-radius: var(--r-subtle);
+      margin-bottom: 3px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .sidebar-view:hover { background: rgba(44, 36, 26, 0.04); }
+    .sidebar-view--active { color: var(--text-primary); }
+
     /* ── Thread List ── */
     .thread-list {
       flex: 1;
       overflow-y: auto;
+      max-width: 800px;
+      margin: 0 auto;
+      width: 100%;
     }
     .thread-row {
       display: flex;
@@ -268,7 +287,7 @@
           <div className="sidebar">
             <div className="sidebar-brand">HyperIdle</div>
             <div className="sidebar-section">
-              <div className="sidebar-label">Bets</div>
+              <div className="sidebar-view sidebar-view--active">Conversations</div>
               <div className="sidebar-item sidebar-item--active">
                 <span className="sidebar-dot" style={{ background: 'var(--accent-primary)' }}></span>
                 Auth migration
@@ -286,14 +305,14 @@
                 Billing overhaul
               </div>
             </div>
-            <hr className="sidebar-divider" />
             <div className="sidebar-section">
-              <div className="sidebar-label">Teams</div>
-              <div className="sidebar-item">Product</div>
-              <div className="sidebar-item">Infrastructure</div>
-              <div className="sidebar-item">Growth</div>
-              <div className="sidebar-item">Design</div>
+              <div className="sidebar-view">Work</div>
             </div>
+            <div className="sidebar-section">
+              <div className="sidebar-view">Knowledge</div>
+            </div>
+            <hr className="sidebar-divider" />
+            <div className="sidebar-item">Settings</div>
           </div>
 
           {/* Main: Thread List */}

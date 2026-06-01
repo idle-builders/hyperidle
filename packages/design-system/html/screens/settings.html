@@ -16,12 +16,16 @@
     .settings-label { font-size: 12px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 9px; padding: 0 12px; }
     .settings-item { padding: 6px 12px; font-size: 13px; color: var(--text-secondary); border-radius: var(--r-subtle); margin-bottom: 3px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
     .settings-item--active { background: var(--surface-elevated); color: var(--text-primary); font-weight: 500; box-shadow: var(--shadow-subtle); }
+    .sidebar-view { padding: 6px 12px; font-size: 14px; font-weight: 600; color: var(--text-secondary); border-radius: var(--r-subtle); margin-bottom: 3px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+    .sidebar-view:hover { background: rgba(44, 36, 26, 0.04); }
+    .sidebar-view--active { color: var(--text-primary); }
+    .sidebar-divider { border: none; border-top: 1px solid var(--border-subtle); margin: 12px 12px; }
 
-    .settings-main { flex: 1; background: var(--surface-elevated); border-radius: var(--r-subtle); box-shadow: var(--shadow-subtle); display: flex; flex-direction: column; overflow: hidden; }
+    .settings-main { flex: 1; background: var(--surface-elevated); border-radius: var(--r-subtle); box-shadow: var(--shadow-subtle); display: flex; flex-direction: column; overflow-y: auto; }
     .settings-header { padding: 18px 24px; border-bottom: 1px solid var(--border-subtle); }
     .settings-header h2 { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
     .settings-header p { font-size: 13px; color: var(--text-tertiary); margin-top: 3px; }
-    .settings-body { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 24px; }
+    .settings-body { padding: 24px; display: flex; flex-direction: column; gap: 24px; max-width: 680px; margin: 0 auto; width: 100%; }
 
     /* Form elements */
     .form-section { display: flex; flex-direction: column; gap: 18px; }
@@ -84,7 +88,11 @@
         <div className="app-shell">
           <div className="settings-nav">
             <div className="settings-brand">HyperIdle</div>
-            <div className="settings-label">Settings</div>
+            <div className="sidebar-view">Conversations</div>
+            <div className="sidebar-view">Work</div>
+            <div className="sidebar-view">Knowledge</div>
+            <hr className="sidebar-divider" />
+            <div className="settings-label" style={{ marginBottom: 6 }}>Settings</div>
             <div className="settings-item settings-item--active">Profile</div>
             <div className="settings-item">Teams</div>
             <div className="settings-item">Appearance</div>

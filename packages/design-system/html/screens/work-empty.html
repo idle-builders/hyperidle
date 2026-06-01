@@ -17,6 +17,9 @@
     .sidebar-item--active { background: var(--surface-elevated); color: var(--text-primary); font-weight: 500; box-shadow: var(--shadow-subtle); }
     .sidebar-dot { display: inline-block; width: 8px; height: 8px; border-radius: var(--r-pill); flex-shrink: 0; }
     .sidebar-divider { border: none; border-top: 1px solid var(--border-subtle); margin: 12px 12px; }
+    .sidebar-view { padding: 6px 12px; font-size: 14px; font-weight: 600; color: var(--text-secondary); border-radius: var(--r-subtle); margin-bottom: 3px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+    .sidebar-view:hover { background: rgba(44, 36, 26, 0.04); }
+    .sidebar-view--active { color: var(--text-primary); }
     .main { flex: 1; background: var(--surface-elevated); border-radius: var(--r-subtle); box-shadow: var(--shadow-subtle); display: flex; flex-direction: column; overflow: hidden; }
     .main-header { padding: 18px 24px; border-bottom: 1px solid var(--border-subtle); }
     .main-header h2 { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
@@ -40,17 +43,16 @@
           <div className="sidebar">
             <div className="sidebar-brand">HyperIdle</div>
             <div className="sidebar-section">
-              <div className="sidebar-label">Bets</div>
+              <div className="sidebar-view">Conversations</div>
+              <div className="sidebar-view sidebar-view--active">Work</div>
               <div className="sidebar-item sidebar-item--active">
                 <span className="sidebar-dot" style={{ background: 'var(--accent-primary)' }}></span>
                 All bets
               </div>
+              <div className="sidebar-view">Knowledge</div>
             </div>
             <hr className="sidebar-divider" />
-            <div className="sidebar-section">
-              <div className="sidebar-label">Teams</div>
-              <div className="sidebar-item">Product</div>
-            </div>
+            <div className="sidebar-item">Settings</div>
           </div>
           <div className="main">
             <div className="main-header"><h2>All bets</h2></div>
