@@ -53,7 +53,7 @@ const PRIMITIVE_CASES: ComponentCase[] = [
 	},
 	{
 		name: "Button",
-		render: () => createElement(Button, { children: "Click me" }),
+		render: () => createElement(Button, null, "Click me"),
 	},
 	{
 		name: "Input",
@@ -246,7 +246,7 @@ describe("W2 — Button variants (AC-3)", () => {
 	for (const variant of variants) {
 		it(`Button variant="${variant}" renders`, async () => {
 			await act(async () => {
-				root.render(createElement(Button, { variant, children: variant }));
+				root.render(createElement(Button, { variant }, variant));
 			});
 			const el = container.querySelector("[data-ds-component='Button']");
 			expect(el).not.toBeNull();
@@ -255,7 +255,7 @@ describe("W2 — Button variants (AC-3)", () => {
 
 	it("Button is a button element with type attribute", async () => {
 		await act(async () => {
-			root.render(createElement(Button, { children: "Submit", type: "submit" }));
+			root.render(createElement(Button, { type: "submit" }, "Submit"));
 		});
 		const btn = container.querySelector("button");
 		expect(btn).not.toBeNull();
