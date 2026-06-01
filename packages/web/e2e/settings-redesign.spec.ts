@@ -7,7 +7,7 @@
  * AC-14: OrgChart section: table of edges, Add Edge form, Delete button
  * AC-15: Credentials section: reuses existing CredentialsTab
  * AC-16: Notifications section: persisted via PATCH /api/settings
- * AC-17: Appearance section: theme + density selects, applied immediately
+ * AC-17: Appearance section: theme select only (density toggle removed per R9)
  * AC-18: Products section: list with active/archived toggle
  * AC-19: BackendMode section: shows current mode, switch button with restart warning
  * AC-21: Escape key closes settings overlay
@@ -15,7 +15,6 @@
  * AC-23: Rail is dimmed while settings is open
  * AC-24: Settings save feedback via toast
  * AC-25: Profile edits do NOT silently revert
- * AC-26: Density preference persists across page reload
  */
 
 import { expect, test } from "./fixtures";
@@ -236,44 +235,12 @@ test.describe("Settings Overlay (P4)", () => {
 		await expect.poll(() => patchCalled, { timeout: 5_000 }).toBe(true);
 	});
 
-	// AC-17: Appearance section applies density immediately
-	test("Appearance section applies density immediately on change", async ({ page }) => {
-		await openSettings(page);
-
-		// Navigate to Appearance
-		await page.getByRole("button", { name: /appearance/i }).click();
-
-		// Change density
-		const densitySelect = page.getByLabel(/density/i);
-		await densitySelect.selectOption("compact");
-
-		// Should be applied immediately (no save button needed)
-		const root = page.locator("[data-density]");
-		await expect(root).toHaveAttribute("data-density", "compact");
-	});
-
 	// AC-17: No save button in Appearance section
 	test("Appearance section has no save button", async ({ page }) => {
 		await openSettings(page);
 		await page.getByRole("button", { name: /appearance/i }).click();
 
 		await expect(page.getByRole("button", { name: /save appearance/i })).not.toBeVisible();
-	});
-
-	// AC-26: Density persists across reload
-	test("density preference persists across page reload", async ({ page }) => {
-		await openSettings(page);
-		await page.getByRole("button", { name: /appearance/i }).click();
-
-		await page.getByLabel(/density/i).selectOption("compact");
-
-		// Reload page
-		await page.reload();
-		await page.waitForSelector("[data-testid='main-content']");
-
-		// Density should still be compact
-		const root = page.locator("[data-density]");
-		await expect(root).toHaveAttribute("data-density", "compact");
 	});
 
 	// AC-25: Profile edits persist (not reverted)
