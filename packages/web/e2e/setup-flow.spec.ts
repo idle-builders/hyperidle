@@ -38,12 +38,12 @@ test.describe("SetupFlow (R2)", () => {
 		});
 
 		// No products — fresh install
-		await page.route("**/api/products", async (route) => {
+		await page.route("**/api/teams", async (route) => {
 			if (route.request().method() === "GET") {
 				await route.fulfill({
 					status: 200,
 					contentType: "application/json",
-					body: JSON.stringify({ products: [] }),
+					body: JSON.stringify({ teams: [] }),
 				});
 			} else {
 				await route.continue();
@@ -69,8 +69,8 @@ test.describe("SetupFlow (R2)", () => {
 			}
 		});
 
-		// POST /api/products
-		await page.route("**/api/products", async (route) => {
+		// POST /api/teams
+		await page.route("**/api/teams", async (route) => {
 			const method = route.request().method();
 			if (method === "POST") {
 				await route.fulfill({
@@ -187,12 +187,12 @@ test.describe("SetupFlow (R2)", () => {
 		});
 
 		// But no products
-		await page.route("**/api/products", async (route) => {
+		await page.route("**/api/teams", async (route) => {
 			if (route.request().method() === "GET") {
 				await route.fulfill({
 					status: 200,
 					contentType: "application/json",
-					body: JSON.stringify({ products: [] }),
+					body: JSON.stringify({ teams: [] }),
 				});
 			} else {
 				await route.continue();

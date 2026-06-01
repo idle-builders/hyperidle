@@ -2,7 +2,7 @@
  * Shared Playwright test fixtures for HyperIdle e2e tests.
  *
  * @lore M3: M3 wired real API calls for /api/auth/me, /api/settings, /api/rail,
- * /api/threads, and /api/products. Every page load now makes these requests. In
+ * /api/threads, and /api/teams. Every page load now makes these requests. In
  * CI there is no backend server — only Vite serves the SPA bundle. Without mocks
  * every test would get ECONNREFUSED on the proxied /api/* calls.
  *
@@ -63,19 +63,14 @@ const DEFAULT_RAIL = {
 /** Default mock response for GET /api/threads (list) */
 const DEFAULT_THREADS = { threads: [] };
 
-/** Default mock response for GET /api/products */
-const DEFAULT_PRODUCTS = {
-	products: [
+/** Default mock response for GET /api/teams */
+const DEFAULT_TEAMS = {
+	teams: [
 		{
-			id: "test-product-1",
-			name: "Test Product",
+			id: "test-team-1",
+			name: "Test Team",
 			phase: "build",
-			status: "healthy",
-			leadAgentId: "test-agent-1",
-			activeBets: 0,
-			shipped: 0,
-			shipRate: "—",
-			progress: { done: 0, total: 0 },
+			active: true,
 		},
 	],
 };
@@ -160,13 +155,13 @@ export const test = base.extend<CoreApiFixtures>({
 				}
 			});
 
-			// GET /api/products — product list for work portfolio
-			await page.route("**/api/products", async (route) => {
+			// GET /api/teams — team list for work portfolio
+			await page.route("**/api/teams", async (route) => {
 				if (route.request().method() === "GET") {
 					await route.fulfill({
 						status: 200,
 						contentType: "application/json",
-						body: JSON.stringify(DEFAULT_PRODUCTS),
+						body: JSON.stringify(DEFAULT_TEAMS),
 					});
 				} else {
 					await route.continue();
@@ -233,12 +228,12 @@ export async function registerCoreMocks(page: import("@playwright/test").Page): 
 			await route.continue();
 		}
 	});
-	await page.route("**/api/products", async (route) => {
+	await page.route("**/api/teams", async (route) => {
 		if (route.request().method() === "GET") {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify(DEFAULT_PRODUCTS),
+				body: JSON.stringify(DEFAULT_TEAMS),
 			});
 		} else {
 			await route.continue();

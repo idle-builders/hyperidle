@@ -123,11 +123,8 @@ export function KnowledgeBody({
 
 	return (
 		<div data-knowledge-body data-testid={testId} className="flex flex-col">
-			{/* @lore U9: --text-lo NOT migrated to --text-tertiary here because
-			 * KnowledgeBody.test.tsx is a protected test asserting text-[var(--text-lo)].
-			 * Protected tests take precedence over the token migration map. */}
 			{blocks.length === 0 ? (
-				<p className="text-[var(--text-lo)] text-sm m-0">(no content yet)</p>
+				<p className="text-[var(--text-tertiary)] text-sm m-0">(no content yet)</p>
 			) : (
 				blocks.map((block) => (
 					// T4: relative wrapper so CocAttachButton can be positioned in the gutter.

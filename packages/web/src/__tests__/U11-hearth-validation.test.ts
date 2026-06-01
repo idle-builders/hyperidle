@@ -59,26 +59,6 @@ function grepFiles(
 	}
 }
 
-/**
- * Same as grepFiles but includes test/E2E files (used for E2E audit).
- */
-function grepFilesAll(
-	pattern: string,
-	dir: string,
-	includes: string[] = ["*.ts", "*.tsx"],
-): string {
-	const includeFlags = includes.map((i) => `--include="${i}"`).join(" ");
-	try {
-		const result = execSync(
-			`grep -rEl "${pattern}" "${dir}" ${includeFlags} 2>/dev/null`,
-			{ encoding: "utf-8" },
-		);
-		return result.trim();
-	} catch {
-		return "";
-	}
-}
-
 // ---------------------------------------------------------------------------
 // AC1 — No old Lucid tokens in production code
 // ---------------------------------------------------------------------------
@@ -113,11 +93,12 @@ describe("U11 AC1: No old Lucid tokens in packages/web/src/ production code", ()
 	});
 
 	it("no old Lucid surface/text tokens in packages/design-system/src/ (body-editor.css)", () => {
-		const result = grepFiles(OLD_TOKEN_PATTERN, DESIGN_SYSTEM_SRC, ["*.css", "*.tsx", "*.ts"], [
-			"*.test.tsx",
-			"*.test.ts",
-			"*.stories.tsx",
-		]);
+		const result = grepFiles(
+			OLD_TOKEN_PATTERN,
+			DESIGN_SYSTEM_SRC,
+			["*.css", "*.tsx", "*.ts"],
+			["*.test.tsx", "*.test.ts", "*.stories.tsx"],
+		);
 		// NavItem.tsx has old tokens in @lore comments only — that is allowed.
 		// The test should catch actual CSS/style usage.
 		// We exclude NavItem.tsx from the count to avoid false positives from lore comments.
@@ -173,7 +154,8 @@ describe("U11 AC2: No functional references to deleted components in production 
 					// Skip lines containing @lore annotation
 					if (line.includes("@lore")) return false;
 					// Skip lines that are only comment text about old names
-					if (code.includes("deleted") || code.includes("removed") || code.includes("replaced")) return false;
+					if (code.includes("deleted") || code.includes("removed") || code.includes("replaced"))
+						return false;
 					return true;
 				});
 			return nonCommentLines.join("\n");
@@ -295,7 +277,10 @@ describe("U11 AC4: No /api/products mocks in e2e/ test files", () => {
 				.filter((l) => l.length > 0)
 				.filter((l) => !l.trim().startsWith("*"))
 				.filter((l) => !l.trim().startsWith("//"));
-			expect(lines.join("\n"), `fixtures.ts still references /api/products:\n${lines.join("\n")}`).toBe("");
+			expect(
+				lines.join("\n"),
+				`fixtures.ts still references /api/products:\n${lines.join("\n")}`,
+			).toBe("");
 		} catch {
 			// grep exit 1 = no match = pass
 		}
@@ -314,7 +299,10 @@ describe("U11: E2E settings specs use correct 'Teams' tab label (not 'Products')
 				{ encoding: "utf-8" },
 			);
 			const lines = result.split("\n").filter((l) => l.length > 0);
-			expect(lines.join("\n"), `settings.spec.ts still asserts "Products" tab:\n${lines.join("\n")}`).toBe("");
+			expect(
+				lines.join("\n"),
+				`settings.spec.ts still asserts "Products" tab:\n${lines.join("\n")}`,
+			).toBe("");
 		} catch {
 			// grep exit 1 = no match = pass
 		}
@@ -352,17 +340,19 @@ describe("U11: KnowledgeBody.test.tsx uses updated token --text-tertiary", () =>
 			"pages/knowledge/__tests__/KnowledgeBody.test.tsx",
 		);
 		try {
-			const result = execSync(
-				`grep -n "text-lo" "${KNOWLEDGE_TEST}" 2>/dev/null`,
-				{ encoding: "utf-8" },
-			);
+			const result = execSync(`grep -n "text-lo" "${KNOWLEDGE_TEST}" 2>/dev/null`, {
+				encoding: "utf-8",
+			});
 			const lines = result
 				.split("\n")
 				.filter((l) => l.length > 0)
 				.filter((l) => !l.trim().startsWith("//"))
 				.filter((l) => !l.trim().startsWith("*"))
 				.filter((l) => !l.includes("@lore"));
-			expect(lines.join("\n"), `KnowledgeBody.test.tsx still asserts --text-lo:\n${lines.join("\n")}`).toBe("");
+			expect(
+				lines.join("\n"),
+				`KnowledgeBody.test.tsx still asserts --text-lo:\n${lines.join("\n")}`,
+			).toBe("");
 		} catch {
 			// grep exit 1 = no match = pass
 		}

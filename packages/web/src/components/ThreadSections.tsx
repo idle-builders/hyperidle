@@ -259,11 +259,13 @@ export function ThreadSections({
 				const isBlocking = section.id === "blocking";
 				const sectionStyle: CSSProperties | undefined = isBlocking
 					? {
-							background: "color-mix(in srgb, var(--danger) 10%, var(--surface-1))",
+							background: "color-mix(in srgb, var(--danger) 10%, var(--surface-container))",
 							borderLeft: "3px solid var(--danger)",
 						}
 					: undefined;
-				const headerStickyClass = isBlocking ? "sticky top-0 z-[2] bg-[var(--surface-1)]" : "";
+				const headerStickyClass = isBlocking
+					? "sticky top-0 z-[2] bg-[var(--surface-container)]"
+					: "";
 				return (
 					<section key={section.id} data-thread-section={section.id} style={sectionStyle}>
 						<h3

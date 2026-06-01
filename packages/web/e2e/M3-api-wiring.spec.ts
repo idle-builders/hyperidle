@@ -218,11 +218,11 @@ test.describe("M3 — Portfolio: empty state when no products", () => {
 	}) => {
 		await setupApiMocks(page);
 
-		await page.route("**/api/products", async (route) => {
+		await page.route("**/api/teams", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({ products: [] }),
+				body: JSON.stringify({ teams: [] }),
 			});
 		});
 

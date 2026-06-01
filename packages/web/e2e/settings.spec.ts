@@ -3,8 +3,9 @@
  * form inputs.
  *
  * @lore M3: Settings data now comes from /api/settings. We mock the endpoint
- * here to ensure deterministic product names in the Products tab and to allow
+ * here to ensure deterministic team names in the Teams tab and to allow
  * the PATCH endpoint (called on Save) to succeed so the dialog closes.
+ * @lore U11: Tab label renamed from "Products" to "Teams" (settings-types.ts U1).
  */
 import { expect, test } from "./fixtures";
 
@@ -55,7 +56,8 @@ test.describe("Settings", () => {
 	test("Settings panel shows five tabs", async ({ page }) => {
 		await page.getByRole("button", { name: /^user profile$/i }).click();
 		await expect(page.getByRole("tab", { name: "Profile" })).toBeVisible();
-		await expect(page.getByRole("tab", { name: "Products" })).toBeVisible();
+		// @lore U11: Tab label renamed from "Products" to "Teams" (settings-types.ts).
+		await expect(page.getByRole("tab", { name: "Teams" })).toBeVisible();
 		await expect(page.getByRole("tab", { name: "Agents" })).toBeVisible();
 		await expect(page.getByRole("tab", { name: "Notifications" })).toBeVisible();
 		await expect(page.getByRole("tab", { name: "Appearance" })).toBeVisible();
@@ -69,8 +71,9 @@ test.describe("Settings", () => {
 
 	test("switching tabs shows different content", async ({ page }) => {
 		await page.getByRole("button", { name: /^user profile$/i }).click();
-		await page.getByRole("tab", { name: "Products" }).click();
-		await expect(page.getByText("Product Alpha")).toBeVisible();
+		// @lore U11: Tab renamed from "Products" to "Teams". Content shows team name.
+		await page.getByRole("tab", { name: "Teams" }).click();
+		await expect(page.getByText("Team Alpha")).toBeVisible();
 	});
 
 	test("Escape closes the settings panel", async ({ page }) => {

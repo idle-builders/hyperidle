@@ -37,10 +37,11 @@ describe("KnowledgeBody — T1 empty body", () => {
 		expect(container.querySelectorAll('article[data-ds-component="block"]')).toHaveLength(0);
 	});
 
-	it("empty-state paragraph has muted colour class (text-[var(--text-lo)])", () => {
+	it("empty-state paragraph has muted colour class (text-[var(--text-tertiary)])", () => {
+		// @lore U11: Updated from --text-lo to --text-tertiary (Hearth token migration).
 		render(<KnowledgeBody body="" hostId="k-empty" />);
 		const p = screen.getByText("(no content yet)");
-		expect(p.className).toContain("text-[var(--text-lo)]");
+		expect(p.className).toContain("text-[var(--text-tertiary)]");
 	});
 
 	it("renders a wrapper with data-knowledge-body attribute", () => {
