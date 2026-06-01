@@ -49,10 +49,14 @@ describe("DESIGN.md", () => {
 		expect(content).not.toContain("Geist");
 	});
 
-	it("documents density presets", () => {
-		expect(content).toContain("--density-pad-x");
-		expect(content).toContain("Compact");
-		expect(content).toContain("Comfortable");
+	// W1: Density system removed from DESIGN.md per TRACK-W.md AC.
+	// DESIGN.md now documents "one size per component" (AQ-003) — no density presets.
+	// This test was updated from the old U4 density check to the W1 no-density check.
+	it("documents no-density single-size-per-component rule", () => {
+		// DESIGN.md must not contain density tokens or preset names
+		expect(content).not.toContain("--density-pad-x");
+		// Must explicitly state that density does not exist (DESIGN.md mentions "No density toggles" or similar)
+		expect(content.toLowerCase()).toMatch(/no density|one size|density system/);
 	});
 });
 

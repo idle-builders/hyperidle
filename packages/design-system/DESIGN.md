@@ -27,6 +27,7 @@ Hearth names its surfaces after physical materials. These names appear in conver
 | **Paper** | `--surface-page` | `#f5f0e6` | `#1a1510` | App background. The canvas. |
 | **Linen** | `--surface-container` | `#ede7db` | `#231e16` | Sidebar, nav, inset areas. |
 | **Card** | `--surface-elevated` | `#ffffff` | `#2c261c` | Cards, panels, main content. Floats above Paper. |
+| **Scrim** | `--surface-overlay` | `rgba(26,21,16,0.55)` | `rgba(0,0,0,0.65)` | Modal backdrops, drawer scrims. |
 | **Forest** | `--accent-primary` | `#16764f` | `#2eaa7a` | Buttons, links, active states. The interaction color. |
 | **Amber** | `--accent-secondary` | `#d97706` | `#d97706` | Budget badges, warnings, attention-drawing elements. |
 | **Earth** | `--text-primary` | `#2c241a` | `#ede5d8` | Primary text. The darkest value in light mode. |
@@ -203,3 +204,11 @@ Components are organized in tiers. Each tier builds on the one below.
 Every component has two representations:
 - **HTML** (`packages/design-system/html/`) -- the design reference, edited by the designer
 - **TSX** (`packages/design-system/src/`) -- the production implementation, must match HTML within 5% pixel diff
+
+---
+
+## Further Reading
+
+- **PRINCIPLES.md** -- the seven universals (Clarity, Hierarchy, Restraint, Content First, Consistency, Feedback, Accessibility) + surprise principles that govern every design decision in Hearth.
+- **AESTHETICS.md** -- 19 rules (AQ-001 through AQ-019) that protect the Hearth feeling. Every rule should make you nod "yes, obviously."
+- **THEMES.md** -- the hearth-light.css and hearth-dark.css token files, how modes work, and how to apply them.
