@@ -6,158 +6,136 @@
   <title>BetCard — HyperIdle Design System</title>
   <link rel="stylesheet" href="_tokens.css" />
   <style>
+    /* ── BetCard ──
+       Hearth bet card: elevated with warm shadow, 18px padding, 9px gap.
+       Status through colored dots + pill badges. Description text. Full-width
+       progress bar. Overlapping avatar group. Budget badge.
+       Hover: shadow lifts, translateY(-2px). From 03-hearth.html. */
+
     .bet-card {
       background: var(--surface-elevated);
       border-radius: var(--r-default);
-      /* K11: outer pad → --density-card-pad, section gap →
-         --density-card-gap per density-audit.md § 3.2.4. The card a user
-         sees most often, currently density-static. */
-      padding: var(--density-card-pad);
+      box-shadow: var(--shadow-default);
+      padding: 18px;
       display: flex;
       flex-direction: column;
-      gap: var(--density-card-gap);
+      gap: 9px;
       cursor: pointer;
-      transition: background var(--motion-fast);
-      max-width: 320px;
+      transition: box-shadow 240ms ease, transform 240ms ease;
+      max-width: 380px;
     }
     .bet-card:hover {
-      background: var(--surface-elevated);
+      box-shadow: var(--shadow-elevated);
+      transform: translateY(-2px);
     }
     .bet-card:focus-visible {
-      outline: 1px solid var(--accent-primary);
-      outline-offset: -1px;
+      outline: 2px solid var(--accent-primary);
+      outline-offset: 2px;
     }
+    .bet-card--completed { opacity: 0.75; }
 
-    .bet-card__header {
+    .bet-card__top {
       display: flex;
-      align-items: center;
-      /* K11: inner-row gap → --density-gap. */
-      gap: var(--density-gap);
-    }
-    .bet-card__avatar {
-      display: inline-flex;
-      width: 24px;
-      height: 24px;
-      flex-shrink: 0;
-      align-items: center;
-      justify-content: center;
-      border-radius: 50%;
-      background: var(--surface-container);
-      color: var(--text-primary);
-      font-size: 11px;
-      font-weight: 600;
-    }
-    .bet-card__title {
-      /* K11: title font scales with density per § 3.2.4 (title font ✓). */
-      font-size: var(--density-text);
-      font-weight: 500;
-      color: var(--text-primary);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      flex: 1;
-      min-width: 0;
-    }
-
-    .bet-card__meta {
-      display: flex;
-      align-items: center;
-      gap: var(--density-gap);
-    }
-
-    .bet-card__progress {
-      display: flex;
-      align-items: center;
-      gap: var(--density-gap);
-    }
-    .bet-card__progress-bar {
-      width: 64px;
-      height: 6px;
-      background: var(--surface-container);
-      border-radius: var(--r-pill);
-      overflow: hidden;
-    }
-    .bet-card__progress-fill {
-      height: 100%;
-      background: var(--accent-primary);
-      border-radius: var(--r-pill);
-      transition: width var(--motion-default);
-    }
-    .bet-card__progress-label {
-      font-size: 12px;
-      color: var(--text-secondary);
-    }
-
-    /* --- Tier 1: StatusChip --- */
-    .status-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 2px 8px;
-      border-radius: var(--r-pill);
-      font-family: var(--mono);
-      font-size: 11px;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      font-weight: 500;
-      line-height: 1.4;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-    .status-chip .dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-    .status-chip--healthy { background: color-mix(in oklab, var(--status-success) 14%, transparent); color: var(--status-success); }
-    .status-chip--healthy .dot { background: var(--status-success); }
-    .status-chip--behind { background: color-mix(in oklab, var(--status-warning) 14%, transparent); color: var(--status-warning); }
-    .status-chip--behind .dot { background: var(--status-warning); }
-    .status-chip--blocked { background: color-mix(in oklab, var(--status-error) 14%, transparent); color: var(--status-error); }
-    .status-chip--blocked .dot { background: var(--status-error); }
-    .status-chip--paused { background: color-mix(in oklab, var(--text-tertiary) 14%, transparent); color: var(--text-tertiary); }
-    .status-chip--paused .dot { background: var(--text-tertiary); }
-    .status-chip--done { background: color-mix(in oklab, var(--status-success) 14%, transparent); color: var(--status-success); }
-    .status-chip--done .dot { background: var(--status-success); }
-    .status-chip--error { background: color-mix(in oklab, var(--status-error) 14%, transparent); color: var(--status-error); }
-    .status-chip--error .dot { background: var(--status-error); }
-
-    /* --- Tier 1: Tag --- */
-    .tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 8px;
-      border-radius: var(--r-pill);
-      font-size: 11px;
-      font-family: var(--mono);
-      letter-spacing: 0.03em;
-      white-space: nowrap;
-      background: color-mix(in oklab, var(--text-secondary) 8%, transparent);
-      color: var(--text-secondary);
-      flex-shrink: 0;
-    }
-
-    /* --- Tier 1: KeyValue --- */
-    .key-value {
-      display: flex;
-      flex-direction: row;
       align-items: center;
       justify-content: space-between;
-      gap: 4px;
     }
-    .key-value__label {
-      font-family: var(--mono);
-      font-size: 11px;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      font-weight: 500;
-      color: var(--text-tertiary);
+    .bet-card__status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
-    .key-value__value {
-      font-size: var(--density-text);
+    .bet-card__title {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
       color: var(--text-primary);
+    }
+    .bet-card__desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+    .bet-card__footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 3px;
+    }
+
+    /* Status dot */
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: var(--r-pill);
+      flex-shrink: 0;
+    }
+
+    /* Badge */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 3px 9px;
+      border-radius: var(--r-pill);
+      line-height: 1.4;
+      white-space: nowrap;
+    }
+    .badge--green { background: rgba(22, 118, 79, 0.08); color: var(--accent-primary); }
+    .badge--amber { background: rgba(217, 119, 6, 0.1); color: var(--accent-secondary); }
+    .badge--blue { background: rgba(46, 125, 186, 0.08); color: var(--status-info); }
+    .badge--default { background: var(--surface-container); color: var(--text-secondary); }
+
+    /* Progress */
+    .progress-track {
+      height: 8px;
+      background: var(--surface-container);
+      border-radius: var(--r-pill);
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: var(--r-pill);
+    }
+    .progress-fill--green { background: var(--accent-primary); }
+    .progress-fill--amber { background: var(--accent-secondary); }
+
+    /* Avatar in cards */
+    .avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: var(--r-pill);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 600;
+      background: var(--surface-page);
+      color: var(--text-secondary);
+      flex-shrink: 0;
+      font-family: var(--font-sans);
+      line-height: 1;
+      user-select: none;
+      border: 1.5px solid var(--border-default);
+    }
+    .avatar--agent {
+      background: rgba(22, 118, 79, 0.08);
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+    }
+    .avatar-group { display: flex; }
+    .avatar-group .avatar {
+      margin-left: -6px;
+      border: 2px solid var(--surface-elevated);
+    }
+    .avatar-group .avatar:first-child { margin-left: 0; }
+
+    .percent-label {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: var(--text-tertiary);
     }
   </style>
 </head>
@@ -167,96 +145,40 @@
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
   <script type="text/babel" data-presets="env,react">
-    const BET_STATUS_MAP = {
-      shaped: "paused",
-      committed: "healthy",
-      in_progress: "healthy",
-      behind: "behind",
-      blocked: "blocked",
-      paused: "paused",
-      review: "behind",
-      shipped: "done",
-      killed: "error",
-    };
-
-    function StatusChip({ status }) {
-      return (
-        <span
-          className={`status-chip status-chip--${status}`}
-          title={status}
-          data-component="StatusChip"
-          data-tier="1"
-        >
-          <span className="dot" />
-          {status.toUpperCase()}
-        </span>
-      );
+    function Avatar({ initials, agent }) {
+      return <div className={`avatar ${agent ? 'avatar--agent' : ''}`}>{initials}</div>;
     }
 
-    function Tag({ label }) {
-      return (
-        <span className="tag" data-component="Tag" data-tier="1">
-          {label}
-        </span>
-      );
-    }
-
-    function KeyValue({ label, value }) {
-      return (
-        <div className="key-value" data-component="KeyValue" data-tier="1">
-          <span className="key-value__label">{label}</span>
-          <span className="key-value__value">{value}</span>
-        </div>
-      );
-    }
-
-    function BetCard({ title, product, status, appetite, progress, leadAvatar, activeBets, shipped }) {
-      const presentationStatus = BET_STATUS_MAP[status] || "paused";
-
+    function BetCard({ title, desc, status, statusColor, statusBadge, budget, progress, progressVariant, team, completed }) {
       return (
         <div
-          className="bet-card"
+          className={`bet-card ${completed ? 'bet-card--completed' : ''}`}
           role="button"
           tabIndex={0}
           data-component="BetCard"
           data-tier="2"
-          data-uses="StatusChip,Tag,KeyValue"
-          data-daisyui="badge"
-          data-used-by="Canvas"
-          data-ds-component="BetCard"
-          data-ds-tier="2"
-          data-ds-source="design-system"
+          data-uses="Avatar,AvatarGroup,Progress,Badge"
+          data-daisyui=""
+          data-used-by="Canvas,WorkBetOverview"
         >
-          <div className="bet-card__header">
-            {leadAvatar && (
-              <span className="bet-card__avatar" aria-label={`Lead agent: ${leadAvatar.name}`}>
-                {leadAvatar.initials}
-              </span>
-            )}
-            <span className="bet-card__title" aria-label={`Bet: ${title}`}>{title}</span>
-          </div>
-          <div className="bet-card__meta">
-            <Tag label={product} />
-            <StatusChip status={presentationStatus} />
-          </div>
-          <KeyValue label="Appetite" value={appetite} />
-          {activeBets !== undefined && (
-            <KeyValue label={activeBets === 1 ? "Active bet" : "Active bets"} value={String(activeBets)} />
-          )}
-          {shipped !== undefined && (
-            <KeyValue label="Shipped" value={String(shipped)} />
-          )}
-          {progress && (
-            <div className="bet-card__progress">
-              <div className="bet-card__progress-bar">
-                <div
-                  className="bet-card__progress-fill"
-                  style={{ width: `${(progress.done / progress.total) * 100}%` }}
-                />
-              </div>
-              <span className="bet-card__progress-label">{progress.done}/{progress.total}</span>
+          <div className="bet-card__top">
+            <div className="bet-card__status">
+              <span className="status-dot" style={{ background: statusColor }}></span>
+              <span className={`badge badge--${statusBadge}`}>{status}</span>
             </div>
-          )}
+            {budget && <span className="badge badge--amber">{budget}</span>}
+          </div>
+          <div className="bet-card__title">{title}</div>
+          {desc && <div className="bet-card__desc">{desc}</div>}
+          <div className="progress-track">
+            <div className={`progress-fill progress-fill--${progressVariant || 'green'}`} style={{ width: `${progress}%` }}></div>
+          </div>
+          <div className="bet-card__footer">
+            <div className="avatar-group">
+              {team.map((m, i) => <Avatar key={i} initials={m.initials} agent={m.agent} />)}
+            </div>
+            <span className="percent-label">{progress}%</span>
+          </div>
         </div>
       );
     }
@@ -265,53 +187,60 @@
       return (
         <div className="demo-grid">
           <div className="demo-section">
-            <div className="demo-section-title">Committed</div>
-            <BetCard title="Mobile App V2" product="HyperIdle" status="committed" appetite="6 weeks" />
-          </div>
-
-          <div className="demo-section">
-            <div className="demo-section-title">With Progress</div>
+            <div className="demo-section-title">Active</div>
             <BetCard
-              title="Knowledge Graph Rebuild"
-              product="Fabric"
-              status="in_progress"
-              appetite="4 weeks"
-              progress={{ done: 3, total: 8 }}
+              title="Auth migration"
+              desc="Replace password-based auth with WebAuthn passkeys. Target: 60% reduction in auth support tickets."
+              status="Active"
+              statusColor="var(--accent-primary)"
+              statusBadge="green"
+              budget="$2,400"
+              progress={35}
+              team={[{ initials: 'TG' }, { initials: 'KL' }, { initials: 'AT', agent: true }]}
             />
           </div>
 
           <div className="demo-section">
-            <div className="demo-section-title">Shipped</div>
-            <BetCard title="Agent Cost Controls" product="Runtime" status="shipped" appetite="2 weeks" />
-          </div>
-
-          <div className="demo-section">
-            <div className="demo-section-title">Killed</div>
-            <BetCard title="Deprecated Feature" product="Legacy" status="killed" appetite="1 week" />
-          </div>
-
-          <div className="demo-section">
-            <div className="demo-section-title">All Statuses</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              <BetCard title="Shaped Bet" product="App" status="shaped" appetite="6 weeks" />
-              <BetCard title="Committed Bet" product="App" status="committed" appetite="4 weeks" />
-              <BetCard title="In Progress Bet" product="App" status="in_progress" appetite="3 weeks" progress={{ done: 2, total: 5 }} />
-              <BetCard title="Shipped Bet" product="App" status="shipped" appetite="2 weeks" />
-              <BetCard title="Killed Bet" product="App" status="killed" appetite="1 week" />
-            </div>
-          </div>
-
-          <div className="demo-section">
-            <div className="demo-section-title">Portfolio Mode</div>
+            <div className="demo-section-title">At Risk</div>
             <BetCard
-              title="HyperIdle Core"
-              product="HyperIdle"
-              status="committed"
-              appetite="Cycle 12"
-              leadAvatar={{ name: "CEO Agent", initials: "CE" }}
-              activeBets={4}
-              shipped={12}
-              progress={{ done: 3, total: 5 }}
+              title="Search rewrite"
+              desc="Replace Elasticsearch with a hybrid vector + keyword search. Sub-200ms p95 latency target."
+              status="At risk"
+              statusColor="var(--accent-secondary)"
+              statusBadge="amber"
+              budget="$5,000"
+              progress={68}
+              progressVariant="amber"
+              team={[{ initials: 'JS' }, { initials: 'AT', agent: true }, { initials: 'MR' }]}
+            />
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Draft</div>
+            <BetCard
+              title="Billing overhaul"
+              desc="Usage-based billing with agent compute metering. Replace flat-rate plans with per-token pricing."
+              status="Draft"
+              statusColor="var(--status-info)"
+              statusBadge="blue"
+              budget="$3,800"
+              progress={0}
+              team={[{ initials: 'JS' }]}
+            />
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Completed</div>
+            <BetCard
+              title="Onboarding v3"
+              desc="New guided onboarding flow with agent introduction. Reduced time-to-value from 8 min to 2 min."
+              status="Completed"
+              statusColor="var(--border-strong)"
+              statusBadge="default"
+              budget="$1,200"
+              progress={100}
+              completed
+              team={[{ initials: 'TG' }, { initials: 'KL' }]}
             />
           </div>
         </div>

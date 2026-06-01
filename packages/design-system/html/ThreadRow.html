@@ -6,149 +6,140 @@
   <title>ThreadRow — HyperIdle Design System</title>
   <link rel="stylesheet" href="_tokens.css" />
   <style>
+    /* ── ThreadRow ──
+       Hearth thread list item: unread dot, title + preview, overlapping
+       small avatars, message count badge, timestamp. Bottom border divider.
+       Fixed Hearth spacing. From 03-hearth.html Thread List screen. */
+
     .thread-row {
       display: flex;
       align-items: center;
-      /* K11: gap and pad-x consume density tokens. Per density-audit.md
-         § 3.2.1 the row is the flagship list-row primitive that scales
-         on every axis except the trailing timestamp (chrome). */
-      gap: var(--density-gap);
-      padding: 0 var(--density-pad-x);
-      padding-top: var(--density-pad-y);
-      padding-bottom: var(--density-pad-y);
-      font-size: var(--density-text);
-      border-radius: var(--r-subtle);
-      transition: background var(--motion-fast);
+      gap: 12px;
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--border-subtle);
       cursor: pointer;
+      transition: background 240ms ease;
     }
     .thread-row:hover {
-      background: var(--surface-elevated);
+      background: rgba(44, 36, 26, 0.02);
+    }
+    .thread-row:last-child {
+      border-bottom: none;
     }
     .thread-row:focus-visible {
-      outline: 1px solid var(--accent-primary);
-      outline-offset: -1px;
-    }
-    .thread-row--unread .thread-row__title {
-      font-weight: 700;
-    }
-    .thread-row--blocking {
-      border-left: 2px solid var(--status-error);
+      outline: 2px solid var(--accent-primary);
+      outline-offset: -2px;
     }
 
-    .thread-row__avatar {
-      /* K11: row-anchor avatar consumes --density-avatar-size (24/32/40).
-         Per density-audit.md § 4.4 — without scaling, ThreadRow looks
-         identical at compact vs comfortable. */
-      width: var(--density-avatar-size);
-      height: var(--density-avatar-size);
-      border-radius: 50%;
+    /* Unread indicator */
+    .thread-row__dot {
+      width: 8px;
+      height: 8px;
+      border-radius: var(--r-pill);
+      background: var(--accent-primary);
       flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-primary);
+    }
+    .thread-row__dot--read {
+      background: transparent;
     }
 
-    .thread-row__body {
+    /* Title + preview */
+    .thread-row__info {
       flex: 1;
       min-width: 0;
     }
-    .thread-row__header {
-      display: flex;
-      align-items: center;
-      /* K11: inner-header gap → --density-gap per § 3.2.1. */
-      gap: var(--density-gap);
-    }
     .thread-row__title {
-      /* K11: title body text scales with density per § 3.2.1. */
-      font-size: var(--density-text);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      font-size: 15px;
+      font-weight: 400;
       color: var(--text-primary);
-    }
-    .thread-row__snippet {
-      font-size: 12px;
-      color: var(--text-secondary);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+    .thread-row--unread .thread-row__title {
+      font-weight: 600;
+    }
+    .thread-row__preview {
+      font-size: 13px;
+      color: var(--text-tertiary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 1px;
+    }
+    .thread-row--unread .thread-row__preview {
+      color: var(--text-secondary);
     }
 
-    .thread-row__timestamp {
+    /* Right side: avatars, count, time */
+    .thread-row__meta {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      flex-shrink: 0;
+    }
+    .thread-row__time {
       font-size: 12px;
       color: var(--text-tertiary);
       white-space: nowrap;
-      flex-shrink: 0;
     }
 
-    .thread-row__actions {
-      flex-shrink: 0;
+    /* Overlapping small avatars */
+    .thread-avatars {
+      display: flex;
     }
-    .thread-row__actions button {
-      font-size: 11px;
-      padding: 2px 8px;
-      border-radius: var(--r-subtle);
-      color: var(--text-secondary);
-      background: color-mix(in oklab, var(--text-secondary) 8%, transparent);
-      transition: background var(--motion-fast);
+    .thread-avatars .avatar {
+      width: 24px;
+      height: 24px;
+      font-size: 9px;
+      margin-left: -6px;
+      border: 2px solid var(--surface-elevated);
     }
-    .thread-row__actions button:hover {
-      background: var(--surface-elevated);
-      color: var(--text-primary);
+    .thread-avatars .avatar:first-child {
+      margin-left: 0;
     }
 
-    /* --- Tier 1: StatusChip --- */
-    .status-chip {
+    /* Avatar base */
+    .avatar {
+      border-radius: var(--r-pill);
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      padding: 2px 8px;
-      border-radius: var(--r-pill);
-      font-family: var(--mono);
-      font-size: 11px;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
+      justify-content: center;
+      font-weight: 600;
+      background: var(--surface-page);
+      color: var(--text-secondary);
+      flex-shrink: 0;
+      font-family: var(--font-sans);
+      line-height: 1;
+      user-select: none;
+      border: 1.5px solid var(--border-default);
+    }
+    .avatar--agent {
+      background: rgba(22, 118, 79, 0.08);
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+    }
+
+    /* Badge */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 12px;
       font-weight: 500;
-      line-height: 1.4;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-    .status-chip .dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-    .status-chip--healthy { background: color-mix(in oklab, var(--status-success) 14%, transparent); color: var(--status-success); }
-    .status-chip--healthy .dot { background: var(--status-success); }
-    .status-chip--behind { background: color-mix(in oklab, var(--status-warning) 14%, transparent); color: var(--status-warning); }
-    .status-chip--behind .dot { background: var(--status-warning); }
-    .status-chip--blocked { background: color-mix(in oklab, var(--status-error) 14%, transparent); color: var(--status-error); }
-    .status-chip--blocked .dot { background: var(--status-error); }
-    .status-chip--paused { background: color-mix(in oklab, var(--text-tertiary) 14%, transparent); color: var(--text-tertiary); }
-    .status-chip--paused .dot { background: var(--text-tertiary); }
-    .status-chip--done { background: color-mix(in oklab, var(--status-success) 14%, transparent); color: var(--status-success); }
-    .status-chip--done .dot { background: var(--status-success); }
-    .status-chip--error { background: color-mix(in oklab, var(--status-error) 14%, transparent); color: var(--status-error); }
-    .status-chip--error .dot { background: var(--status-error); }
-
-    /* --- Tier 1: Tag --- */
-    .tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 8px;
+      padding: 3px 6px;
       border-radius: var(--r-pill);
-      font-size: 11px;
-      font-family: var(--mono);
-      letter-spacing: 0.03em;
-      white-space: nowrap;
-      background: color-mix(in oklab, var(--text-secondary) 8%, transparent);
+      line-height: 1.4;
+      min-width: 20px;
+      text-align: center;
+      justify-content: center;
+    }
+    .badge--green {
+      background: rgba(22, 118, 79, 0.08);
+      color: var(--accent-primary);
+    }
+    .badge--default {
+      background: var(--surface-container);
       color: var(--text-secondary);
-      flex-shrink: 0;
     }
   </style>
 </head>
@@ -158,64 +149,34 @@
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
   <script type="text/babel" data-presets="env,react">
-    function StatusChip({ status }) {
-      return (
-        <span
-          className={`status-chip status-chip--${status}`}
-          title={status}
-          data-component="StatusChip"
-          data-tier="1"
-        >
-          <span className="dot" />
-          {status.toUpperCase()}
-        </span>
-      );
+    function Avatar({ initials, agent }) {
+      return <div className={`avatar ${agent ? 'avatar--agent' : ''}`}>{initials}</div>;
     }
 
-    function Tag({ label }) {
-      return (
-        <span className="tag" data-component="Tag" data-tier="1">
-          {label}
-        </span>
-      );
-    }
-
-    function ThreadRow({ avatarUrl, avatarBg, initials, title, snippet, timestamp, status, tag, kind, actions, unread, blocking, onClick }) {
-      const cls = [
-        "thread-row",
-        unread ? "thread-row--unread" : "",
-        blocking ? "thread-row--blocking" : "",
-      ].filter(Boolean).join(" ");
-
+    function ThreadRow({ unread, title, preview, avatars, count, countVariant, time }) {
       return (
         <div
-          className={cls}
+          className={`thread-row ${unread ? 'thread-row--unread' : ''}`}
           role="button"
           tabIndex={0}
-          onClick={onClick}
           data-component="ThreadRow"
           data-tier="2"
-          data-uses="StatusChip,Tag"
+          data-uses="Avatar,AvatarGroup,Badge"
           data-daisyui=""
-          data-used-by="Submenu,ThreadSections,GlobalSearchPanel"
-          data-ds-component="ThreadRow"
-          data-ds-tier="2"
-          data-ds-source="design-system"
+          data-used-by="ConversationsChat,ThreadList"
         >
-          <span className="thread-row__avatar" style={{ background: avatarBg || "#374151" }}>
-            {initials}
-          </span>
-          <div className="thread-row__body">
-            <div className="thread-row__header">
-              <span className="thread-row__title" aria-label={`Thread: ${title}`}>{title}</span>
-              {status && <StatusChip status={status} />}
-              {tag && <Tag label={tag} />}
-              {kind && <Tag label={kind} />}
-            </div>
-            <p className="thread-row__snippet">{snippet}</p>
+          <div className={`thread-row__dot ${!unread ? 'thread-row__dot--read' : ''}`}></div>
+          <div className="thread-row__info">
+            <div className="thread-row__title">{title}</div>
+            <div className="thread-row__preview">{preview}</div>
           </div>
-          <span className="thread-row__timestamp">{timestamp}</span>
-          {actions && <span className="thread-row__actions">{actions}</span>}
+          <div className="thread-row__meta">
+            <div className="thread-avatars">
+              {avatars.map((a, i) => <Avatar key={i} initials={a.initials} agent={a.agent} />)}
+            </div>
+            <span className={`badge badge--${countVariant || 'default'}`}>{count}</span>
+            <span className="thread-row__time">{time}</span>
+          </div>
         </div>
       );
     }
@@ -224,67 +185,40 @@
       return (
         <div className="demo-grid">
           <div className="demo-section">
-            <div className="demo-section-title">Default</div>
-            <ThreadRow
-              initials="1"
-              avatarBg="#374151"
-              title="Deploy pipeline stuck"
-              snippet="The CI build has been hanging for 20 minutes..."
-              timestamp="2 min ago"
-            />
-          </div>
-
-          <div className="demo-section">
-            <div className="demo-section-title">With Status and Tag</div>
-            <ThreadRow
-              initials="2"
-              avatarBg="#065f46"
-              title="Cost cap approaching"
-              snippet="Agent session-42 is at 85% of its cost cap..."
-              timestamp="5 min ago"
-              status="blocked"
-              tag="ops"
-            />
-          </div>
-
-          <div className="demo-section">
-            <div className="demo-section-title">Unread</div>
-            <ThreadRow
-              initials="3"
-              avatarBg="#713f12"
-              title="New pitch submitted"
-              snippet="AI-Powered Onboarding has been submitted for review"
-              timestamp="Just now"
-              unread={true}
-              status="healthy"
-            />
-          </div>
-
-          <div className="demo-section">
-            <div className="demo-section-title">Blocking</div>
-            <ThreadRow
-              initials="B"
-              avatarBg="#991b1b"
-              title="Agent blocked on API key"
-              snippet="Cannot proceed without credentials..."
-              timestamp="5 min ago"
-              status="blocked"
-              blocking={true}
-              kind="review"
-            />
-          </div>
-
-          <div className="demo-section">
-            <div className="demo-section-title">With Actions</div>
-            <ThreadRow
-              initials="4"
-              avatarBg="#581c87"
-              title="Session completed"
-              snippet="Builder agent finished implementing login flow"
-              timestamp="1 hour ago"
-              status="done"
-              actions={<button type="button">View</button>}
-            />
+            <div className="demo-section-title">Thread List</div>
+            <div style={{ background: 'var(--surface-elevated)', borderRadius: 'var(--r-default)', overflow: 'hidden' }}>
+              <ThreadRow
+                unread
+                title="Passkey rollout plan — phase 1 scope"
+                preview="Atlas: Drafted 3-phase plan. Shadow enrollment starts Monday."
+                avatars={[{ initials: 'TG' }, { initials: 'AT', agent: true }]}
+                count={8}
+                countVariant="green"
+                time="2:38 PM"
+              />
+              <ThreadRow
+                unread
+                title="Session migration risk assessment"
+                preview="Kim: We need to handle the 12k active sessions before switching..."
+                avatars={[{ initials: 'KL' }, { initials: 'JS' }]}
+                count={5}
+                time="1:22 PM"
+              />
+              <ThreadRow
+                title="WebAuthn browser compatibility matrix"
+                preview="Atlas: Coverage across target browsers is 96.3%. Safari 16+ required."
+                avatars={[{ initials: 'AT', agent: true }]}
+                count={3}
+                time="11:05 AM"
+              />
+              <ThreadRow
+                title="Password deprecation timeline"
+                preview="Tobias: Let's target end of Q2. Need comms plan for existing users."
+                avatars={[{ initials: 'TG' }, { initials: 'MR' }, { initials: 'AT', agent: true }]}
+                count={14}
+                time="Yesterday"
+              />
+            </div>
           </div>
         </div>
       );

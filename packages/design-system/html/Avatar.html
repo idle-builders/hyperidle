@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Avatar — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    /* ── Avatar ──
+       Three sizes (sm/28, md/36, lg/48). Two roles: human (page bg, border-default)
+       and agent (accent tint bg, accent border, accent text). Pill-shaped always.
+       From 03-hearth.html component library. */
+
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--r-pill);
+      border: 1.5px solid var(--border-default);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      background: var(--surface-page);
+      color: var(--text-secondary);
+      flex-shrink: 0;
+      font-family: var(--font-sans);
+      line-height: 1;
+      user-select: none;
+    }
+
+    .avatar--sm {
+      width: 28px;
+      height: 28px;
+      font-size: 10px;
+    }
+
+    .avatar--lg {
+      width: 48px;
+      height: 48px;
+      font-size: 13px;
+    }
+
+    .avatar--agent {
+      background: rgba(22, 118, 79, 0.08);
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+    }
+
+    /* ── AvatarGroup ──
+       Overlapping stack. Each avatar gets a white (elevated) border to create
+       the cut-out overlap effect. Negative margin pulls them together. */
+
+    .avatar-group {
+      display: flex;
+    }
+    .avatar-group .avatar {
+      margin-left: -8px;
+      border: 2px solid var(--surface-elevated);
+    }
+    .avatar-group .avatar:first-child {
+      margin-left: 0;
+    }
+
+    /* Small avatar group variant (24px avatars for thread rows / bet cards) */
+    .avatar-group--sm .avatar {
+      width: 24px;
+      height: 24px;
+      font-size: 9px;
+      margin-left: -6px;
+      border: 2px solid var(--surface-elevated);
+    }
+    .avatar-group--sm .avatar:first-child {
+      margin-left: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    function Avatar({ initials, size, agent }) {
+      const cls = [
+        'avatar',
+        size === 'sm' && 'avatar--sm',
+        size === 'lg' && 'avatar--lg',
+        agent && 'avatar--agent',
+      ].filter(Boolean).join(' ');
+      return (
+        <div
+          className={cls}
+          data-component="Avatar"
+          data-tier="0"
+          data-uses=""
+          data-daisyui=""
+        >
+          {initials}
+        </div>
+      );
+    }
+
+    function AvatarGroup({ children, small }) {
+      const cls = ['avatar-group', small && 'avatar-group--sm'].filter(Boolean).join(' ');
+      return (
+        <div
+          className={cls}
+          data-component="AvatarGroup"
+          data-tier="0"
+          data-uses="Avatar"
+          data-daisyui=""
+        >
+          {children}
+        </div>
+      );
+    }
+
+    function Demo() {
+      return (
+        <div className="demo-grid">
+          <div className="demo-section">
+            <div className="demo-section-title">Sizes</div>
+            <div className="demo-row">
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                <Avatar initials="TG" size="sm" />
+                <span className="mono-sm">sm/28</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                <Avatar initials="JS" />
+                <span className="mono-sm">md/36</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                <Avatar initials="KL" size="lg" />
+                <span className="mono-sm">lg/48</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Agent Variant</div>
+            <div className="demo-row">
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                <Avatar initials="AT" agent size="sm" />
+                <span className="mono-sm">agent sm</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                <Avatar initials="AT" agent />
+                <span className="mono-sm">agent md</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                <Avatar initials="MX" agent size="lg" />
+                <span className="mono-sm">agent lg</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Avatar Group — Default (36px)</div>
+            <div className="demo-row">
+              <AvatarGroup>
+                <Avatar initials="TG" />
+                <Avatar initials="JS" />
+                <Avatar initials="AT" agent />
+                <Avatar initials="KL" />
+                <Avatar initials="MR" />
+              </AvatarGroup>
+            </div>
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Avatar Group — Small (24px, for thread rows)</div>
+            <div className="demo-row">
+              <AvatarGroup small>
+                <Avatar initials="TG" size="sm" />
+                <Avatar initials="JS" size="sm" />
+                <Avatar initials="AT" agent size="sm" />
+              </AvatarGroup>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<Demo />, document.getElementById('root'));
+  </script>
+  <script src="themes/_switcher.js"></script>
+</body>
+</html>
