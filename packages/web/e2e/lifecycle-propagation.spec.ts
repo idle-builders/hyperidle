@@ -170,7 +170,7 @@ async function setupCommonRoutes(
 		});
 	});
 
-	// Products: handle both detail (/api/products/:id) and list (/api/products or /api/products?...)
+	// Products: handle both detail (/api/teams/:id) and list (/api/teams or /api/teams?...)
 	// in a single handler. Playwright evaluates the last-registered route first, so merging
 	// avoids the ambiguity of route.continue() falling through to the network instead of the
 	// earlier specific handler.
@@ -178,22 +178,22 @@ async function setupCommonRoutes(
 	// specific pattern will be evaluated FIRST, and route.continue() from the wildcard falls through
 	// to subsequent handlers — but can hit the network if no later handler matches. Consolidating
 	// into one handler is the safest pattern for URL-dispatch in Playwright mocks.
-	await page.route("**/api/products**", (route) => {
+	await page.route("**/api/teams**", (route) => {
 		if (route.request().method() !== "GET") return route.continue();
 		const url = route.request().url();
 		if (url.includes(`/${PRODUCT_ID}`)) {
-			// Detail route: /api/products/:id
+			// Detail route: /api/teams/:id
 			return route.fulfill({
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify(makeProductResponse(betStatus)),
 			});
 		}
-		// List route: /api/products or /api/products?...
+		// List route: /api/teams or /api/teams?...
 		return route.fulfill({
 			status: 200,
 			contentType: "application/json",
-			body: JSON.stringify({ products: [] }),
+			body: JSON.stringify({ teams: [] }),
 		});
 	});
 

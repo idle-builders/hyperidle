@@ -105,7 +105,7 @@ const PRODUCT_DETAIL_FIXTURE = {
 };
 
 const PRODUCTS_LIST_FIXTURE = {
-	products: [
+	teams: [
 		{
 			id: PRODUCT_ID,
 			name: "Nimmly",
@@ -124,14 +124,14 @@ const PRODUCTS_LIST_FIXTURE = {
 
 test.describe("L17 — BetCard shows formatted Money appetite (AC21)", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/products", (route) =>
+		await page.route("**/api/teams", (route) =>
 			route.fulfill({
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify(PRODUCTS_LIST_FIXTURE),
 			}),
 		);
-		await page.route(`**/api/products/${PRODUCT_ID}`, (route) =>
+		await page.route(`**/api/teams/${PRODUCT_ID}`, (route) =>
 			route.fulfill({
 				status: 200,
 				contentType: "application/json",
@@ -241,7 +241,7 @@ test.describe("L17 — Bet detail shows spend-vs-cap (AC22)", () => {
 
 test.describe("L17 — WorkProduct burn shows formatted Money (AC24)", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route(`**/api/products/${PRODUCT_ID}`, (route) =>
+		await page.route(`**/api/teams/${PRODUCT_ID}`, (route) =>
 			route.fulfill({
 				status: 200,
 				contentType: "application/json",

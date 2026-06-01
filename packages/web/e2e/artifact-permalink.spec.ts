@@ -30,11 +30,11 @@ async function mockAppShell(page: Page): Promise<void> {
 			body: JSON.stringify({ threads: [], nextCursor: null }),
 		});
 	});
-	await page.route("**/api/products**", async (route: Route) => {
+	await page.route("**/api/teams**", async (route: Route) => {
 		await route.fulfill({
 			status: 200,
 			contentType: "application/json",
-			body: JSON.stringify({ products: [] }),
+			body: JSON.stringify({ teams: [] }),
 		});
 	});
 	await page.route("**/api/threads?**host_kind=artifact**", async (route: Route) => {

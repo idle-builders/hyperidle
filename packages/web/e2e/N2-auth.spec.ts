@@ -9,7 +9,7 @@
  * apiFetch reads this from import.meta.env and injects it as X-API-Key.
  *
  * AC-7a: /api/health succeeds (health endpoint does not require X-API-Key)
- * AC-7b: /api/products request carries X-API-Key header injected by apiFetch
+ * AC-7b: /api/teams request carries X-API-Key header injected by apiFetch
  *        (WorkPortfolio navigates to /work/portfolio and calls useProducts())
  *
  */
@@ -23,7 +23,7 @@ const PLAYWRIGHT_TEST_KEY = "playwright-test-key";
 const HEALTH_FIXTURE = { status: "ok" };
 
 const PRODUCTS_LIST_FIXTURE = {
-	products: [],
+	teams: [],
 };
 
 // ── AC-7a: /api/health succeeds without X-API-Key ────────────────────────────
@@ -65,16 +65,16 @@ test.describe("N2 — /api/health endpoint (AC-7a)", () => {
 
 // ── AC-7b: apiFetch injects X-API-Key on real app navigations ────────────────
 
-test.describe("N2 — apiFetch injects X-API-Key on /api/products (AC-7b)", () => {
-	test("app navigation to /work/portfolio carries X-API-Key on /api/products via apiFetch", async ({
+test.describe("N2 — apiFetch injects X-API-Key on /api/teams (AC-7b)", () => {
+	test("app navigation to /work/portfolio carries X-API-Key on /api/teams via apiFetch", async ({
 		page,
 	}) => {
 		// Arrange: intercept ALL /api/* requests, capture the X-API-Key from each.
-		// WorkPortfolio calls useProducts() → apiFetch("/api/products") on mount,
+		// WorkPortfolio calls useProducts() → apiFetch("/api/teams") on mount,
 		// which must inject the key from VITE_HYPERIDLE_API_KEY (set in playwright.config.ts).
 		//
 		// @lore N2: Route handler registered as catch-all to avoid Playwright's FIFO
-		// route-matching behaviour — specific patterns like **/api/products can be
+		// route-matching behaviour — specific patterns like **/api/teams can be
 		// skipped in favour of earlier-registered patterns depending on glob resolution.
 		// A single catch-all handler with URL discrimination is the most reliable pattern.
 		// See: https://playwright.dev/docs/network#handle-requests
@@ -84,13 +84,13 @@ test.describe("N2 — apiFetch injects X-API-Key on /api/products (AC-7b)", () =
 			const url = route.request().url();
 			const key = route.request().headers()["x-api-key"] ?? null;
 
-			// Capture the header from the /api/products request specifically
-			if (url.includes("/api/products") && !url.includes("/api/products/")) {
+			// Capture the header from the /api/teams request specifically
+			if (url.includes("/api/teams") && !url.includes("/api/teams/")) {
 				capturedApiKey = key;
 			}
 
 			// Return an appropriate fixture response for each route
-			if (url.includes("/api/products")) {
+			if (url.includes("/api/teams")) {
 				return route.fulfill({
 					status: 200,
 					contentType: "application/json",

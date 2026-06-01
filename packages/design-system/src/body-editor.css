@@ -2,7 +2,7 @@
  * body-editor.css — scoped ProseMirror content styles for the BodyEditor.
  *
  * All styles are scoped under .body-editor to prevent global style pollution.
- * All values use semantic Lucid tokens — no hex values, no raw Tailwind palette.
+ * All values use semantic Hearth tokens — no hex values, no raw Tailwind palette.
  *
  * @lore T1: h3 uses calc(var(--density-text-h2) * 0.9) instead of
  * calc(var(--density-text) * 1.1) as recommended by architecture-critique I4.
@@ -19,7 +19,7 @@
 	font-family: var(--ui);
 	font-size: var(--density-text);
 	line-height: var(--leading-body);
-	color: var(--text-hi);
+	color: var(--text-primary);
 }
 
 /* Headings */
@@ -27,7 +27,7 @@
 	font-size: var(--density-text-h1);
 	line-height: var(--leading-heading);
 	font-weight: var(--fw-emphasis);
-	color: var(--text-hi);
+	color: var(--text-primary);
 	margin-top: 1.5em;
 	margin-bottom: 0.5em;
 }
@@ -36,7 +36,7 @@
 	font-size: var(--density-text-h2);
 	line-height: var(--leading-heading);
 	font-weight: var(--fw-emphasis);
-	color: var(--text-hi);
+	color: var(--text-primary);
 	margin-top: 1.25em;
 	margin-bottom: 0.5em;
 }
@@ -46,7 +46,7 @@
 	font-size: calc(var(--density-text-h2) * 0.9);
 	line-height: var(--leading-heading);
 	font-weight: var(--fw-medium);
-	color: var(--text-hi);
+	color: var(--text-primary);
 	margin-top: 1em;
 	margin-bottom: 0.5em;
 }
@@ -82,7 +82,7 @@
 .body-editor .ProseMirror blockquote {
 	border-left: 2px solid var(--border-emphasis);
 	padding-left: 1em;
-	color: var(--text-mid);
+	color: var(--text-secondary);
 	margin-bottom: 0.5em;
 }
 
@@ -93,12 +93,12 @@
 	background: var(--surface-ghost);
 	padding: 0.125em 0.375em;
 	border-radius: var(--r1);
-	color: var(--text-hi);
+	color: var(--text-primary);
 }
 
 /* Code blocks */
 .body-editor .ProseMirror pre {
-	background: var(--surface-1);
+	background: var(--surface-container);
 	border: 1px solid var(--border-subtle);
 	border-radius: var(--r1);
 	padding: 0.75em 1em;
@@ -112,7 +112,7 @@
 .body-editor .ProseMirror pre code {
 	font-family: var(--mono);
 	font-size: 0.875em;
-	color: var(--text-hi);
+	color: var(--text-primary);
 	background: none;
 	padding: 0;
 	border: none;
@@ -136,13 +136,13 @@
 }
 
 .body-editor .ProseMirror th {
-	background: var(--surface-1);
+	background: var(--surface-container);
 	font-weight: var(--fw-medium);
-	color: var(--text-hi);
+	color: var(--text-primary);
 }
 
 .body-editor .ProseMirror td {
-	color: var(--text-mid);
+	color: var(--text-secondary);
 }
 
 /* Horizontal rule */
@@ -174,14 +174,14 @@
 /* Strikethrough */
 .body-editor .ProseMirror s {
 	text-decoration: line-through;
-	color: var(--text-lo);
+	color: var(--text-tertiary);
 }
 
 /* Placeholder */
 .body-editor .ProseMirror p.is-editor-empty:first-child::before {
 	content: attr(data-placeholder);
 	float: left;
-	color: var(--text-lo);
+	color: var(--text-tertiary);
 	pointer-events: none;
 	height: 0;
 }

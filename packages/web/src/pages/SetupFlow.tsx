@@ -7,8 +7,7 @@
  *
  * Submits:
  * 1. POST /api/users — create human user (name only, no email)
- * 2. POST /api/products — create first team (name derived from repo path or "My Team")
- *    @lore U5: API path stays /api/products (backward compat, renamed to teams in U6).
+ * 2. POST /api/teams — create first team (name derived from repo path or "My Team")
  * 3. Set credential via bridge (window.__HYPERIDLE__.credentials.set)
  * On success: navigate to /work/portfolio.
  *
@@ -66,13 +65,11 @@ export function SetupFlow(): JSX.Element {
 				// Step 2: Create first team — derive name from repo path or default
 				// @lore R2: team name is not user-visible in setup. Derive from repo
 				// folder basename if a path was given; otherwise use "My Team".
-				// @lore U5: API path stays /api/products (backward compat); only the
-				// local variable names were updated from "product" to "team".
 				const derivedTeamName = repoPath.trim()
 					? (repoPath.trim().split("/").filter(Boolean).pop() ?? "My Team")
 					: "My Team";
 
-				const teamRes = await apiFetch("/api/products", {
+				const teamRes = await apiFetch("/api/teams", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
@@ -102,7 +99,7 @@ export function SetupFlow(): JSX.Element {
 	);
 
 	return (
-		<div className="flex items-start justify-center min-h-screen bg-[var(--surface-0)]">
+		<div className="flex items-start justify-center min-h-screen bg-[var(--surface-page)]">
 			<div className="w-full max-w-md py-16 px-[var(--density-page-gutter)]">
 				<h1 className="text-[length:var(--density-text-h1)] font-medium text-[var(--text-primary)] mb-8">
 					HyperIdle Setup

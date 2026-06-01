@@ -106,7 +106,8 @@ describe("useTeams", () => {
 		renderHook(() => useTeams());
 
 		await waitFor(() => {
-			expect(fetchSpy).toHaveBeenCalledWith("/api/products");
+			// @lore U11: Migrated from /api/products to /api/teams (server route renamed in U2).
+			expect(fetchSpy).toHaveBeenCalledWith("/api/teams");
 		});
 	});
 

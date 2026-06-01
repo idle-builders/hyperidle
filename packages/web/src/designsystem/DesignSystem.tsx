@@ -116,8 +116,8 @@ export function DesignSystem(): React.JSX.Element {
 	return (
 		<div className="min-h-screen bg-base-100 flex">
 			{/* Sidebar */}
-			<nav className="w-56 shrink-0 border-r border-[var(--surface-4)] bg-[var(--surface-1)] p-3 flex flex-col gap-1">
-				<h1 className="font-heading text-sm font-medium text-[var(--text-hi)] mb-3 px-2">
+			<nav className="w-56 shrink-0 border-r border-[var(--border-default)] bg-[var(--surface-container)] p-3 flex flex-col gap-1">
+				<h1 className="font-heading text-sm font-medium text-[var(--text-primary)] mb-3 px-2">
 					Design System
 				</h1>
 				{modules.map((mod) => (
@@ -126,8 +126,8 @@ export function DesignSystem(): React.JSX.Element {
 						type="button"
 						className={`text-left text-sm px-2 py-1.5 rounded transition-colors ${
 							activeComponent === mod.meta.title
-								? "bg-[var(--surface-4)] text-[var(--text-hi)]"
-								: "text-[var(--text-mid)] hover:text-[var(--text-hi)] hover:bg-[var(--surface-2)]"
+								? "bg-[var(--surface-overlay)] text-[var(--text-primary)]"
+								: "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-elevated)]"
 						}`}
 						onClick={() => navigate(mod.meta.title)}
 					>
@@ -145,7 +145,7 @@ export function DesignSystem(): React.JSX.Element {
 						onSelectVariant={(v) => navigate(activeModule.meta.title, v)}
 					/>
 				) : (
-					<p className="text-[var(--text-lo)] text-sm">No components found.</p>
+					<p className="text-[var(--text-tertiary)] text-sm">No components found.</p>
 				)}
 			</main>
 		</div>
@@ -166,12 +166,12 @@ function ComponentView({
 
 	return (
 		<div>
-			<h2 className="font-heading text-lg font-medium text-[var(--text-hi)] mb-4">
+			<h2 className="font-heading text-lg font-medium text-[var(--text-primary)] mb-4">
 				{module.meta.title}
 			</h2>
 
 			{/* Variant tabs */}
-			<div className="flex flex-wrap gap-1 mb-6 border-b border-[var(--surface-4)] pb-2">
+			<div className="flex flex-wrap gap-1 mb-6 border-b border-[var(--border-default)] pb-2">
 				<TabButton label="All" active={showAll} onClick={() => onSelectVariant("All")} />
 				{module.variants.map((v) => (
 					<TabButton
@@ -211,8 +211,8 @@ function TabButton({
 			type="button"
 			className={`text-xs px-2 py-1 rounded transition-colors ${
 				active
-					? "bg-[var(--surface-4)] text-[var(--text-hi)]"
-					: "text-[var(--text-lo)] hover:text-[var(--text-mid)]"
+					? "bg-[var(--surface-overlay)] text-[var(--text-primary)]"
+					: "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
 			}`}
 			onClick={onClick}
 		>
@@ -230,9 +230,9 @@ function VariantCard({
 	Component: ComponentType;
 }): React.JSX.Element {
 	return (
-		<div className="border border-[var(--surface-4)] rounded">
-			<div className="px-3 py-1.5 border-b border-[var(--surface-4)] bg-[var(--surface-1)]">
-				<span className="text-xs font-mono text-[var(--text-lo)]">{name}</span>
+		<div className="border border-[var(--border-default)] rounded">
+			<div className="px-3 py-1.5 border-b border-[var(--border-default)] bg-[var(--surface-container)]">
+				<span className="text-xs font-mono text-[var(--text-tertiary)]">{name}</span>
 			</div>
 			<div className="p-4">
 				<Component />

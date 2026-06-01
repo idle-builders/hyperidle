@@ -51,7 +51,7 @@ export function BlockRefEmbed({ blockId, hostKind, hostId }: BlockRefEmbedProps)
 		return (
 			<div
 				data-testid="block-ref-embed-degraded"
-				className="border border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-3 py-2 bg-[var(--surface-1)]"
+				className="border border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-3 py-2 bg-[var(--surface-container)]"
 			>
 				<div className="text-[10px] uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
 					Block from {hostLabel ?? hostKind}
@@ -67,7 +67,7 @@ export function BlockRefEmbed({ blockId, hostKind, hostId }: BlockRefEmbedProps)
 		return (
 			<div
 				data-testid="block-ref-embed-error"
-				className="border border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-3 py-2 bg-[var(--surface-1)] flex items-center justify-between gap-2"
+				className="border border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-3 py-2 bg-[var(--surface-container)] flex items-center justify-between gap-2"
 			>
 				<span className="text-[12px] text-[var(--text-tertiary)]">
 					{error ?? "Could not load referenced content"}
@@ -85,7 +85,7 @@ export function BlockRefEmbed({ blockId, hostKind, hostId }: BlockRefEmbedProps)
 	return (
 		<div
 			data-testid="block-ref-embed-resolved"
-			className="border border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-3 py-2 bg-[var(--surface-1)]"
+			className="border border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-3 py-2 bg-[var(--surface-container)]"
 		>
 			<div className="text-[10px] uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
 				Block from {hostLabel ?? hostKind}

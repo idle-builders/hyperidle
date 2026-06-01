@@ -4,7 +4,7 @@
  * P4 Task 10: Settings section (AC-12, AC-18)
  * Lists teams with active/archived toggle.
  *
- * Toggling calls PATCH /api/products/:id to update phase (build ↔ archived).
+ * Toggling calls PATCH /api/teams/:id to update phase (build ↔ archived).
  * Active teams are those with phase !== "archived".
  *
  * @lore U1: Renamed from SettingsProducts. `products` → `teams`, `ProductSetting` → `TeamSetting`.
@@ -38,7 +38,7 @@ export function SettingsTeams(): JSX.Element {
 			);
 			setTogglingId(teamId);
 			try {
-				const res = await apiFetch(`/api/products/${encodeURIComponent(teamId)}`, {
+				const res = await apiFetch(`/api/teams/${encodeURIComponent(teamId)}`, {
 					method: "PATCH",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ phase: newPhase }),

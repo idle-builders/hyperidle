@@ -51,12 +51,12 @@ test.describe("R2 — Work-First Landing", () => {
 				}
 			});
 
-			await page.route("**/api/products", async (route) => {
+			await page.route("**/api/teams", async (route) => {
 				if (route.request().method() === "GET") {
 					await route.fulfill({
 						status: 200,
 						contentType: "application/json",
-						body: JSON.stringify({ products: [] }),
+						body: JSON.stringify({ teams: [] }),
 					});
 				} else if (route.request().method() === "POST") {
 					await route.fulfill({
@@ -283,7 +283,7 @@ test.describe("R2 — Work-First Landing", () => {
 									id: "bet-1",
 									title: "Existing Bet",
 									product: "Test Product",
-									productId: "test-product-1",
+									teamId: "test-team-1",
 									status: "shaped",
 									appetite: "—",
 								},

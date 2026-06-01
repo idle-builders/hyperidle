@@ -84,11 +84,11 @@ test.describe("L18 — Artifact permalink thread surface", () => {
 				body: JSON.stringify({ threads: [], nextCursor: null }),
 			});
 		});
-		await page.route("**/api/products**", async (route) => {
+		await page.route("**/api/teams**", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({ products: [] }),
+				body: JSON.stringify({ teams: [] }),
 			});
 		});
 

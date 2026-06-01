@@ -111,13 +111,14 @@ async function mockAppShellEndpoints(page: Page): Promise<void> {
 		});
 	});
 
-	await page.route("**/api/products**", async (route: Route) => {
+	await page.route("**/api/teams**", async (route: Route) => {
 		const url = route.request().url();
-		if (url.match(/\/products\/?(\?|$)/)) {
+		// Match /api/teams list endpoint (not a team detail like /api/teams/:id)
+		if (url.match(/\/api\/teams\/?(\?|$)/)) {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({ products: [] }),
+				body: JSON.stringify({ teams: [] }),
 			});
 			return;
 		}
@@ -196,7 +197,7 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 	// ── WorkProduct ───────────────────────────────────────────────────────────
 
 	test("WorkProduct: ArtifactStackItem renders when artifacts exist", async ({ page }) => {
-		await page.route("**/api/products/**", async (route: Route) => {
+		await page.route("**/api/teams/**", async (route: Route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
