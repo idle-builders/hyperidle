@@ -40,32 +40,54 @@ const MOBILE = { width: 1024, height: 800 }; // ≤ 1024 per K1 mobile breakpoin
 const NARROW = { width: 390, height: 800 }; // iPhone-ish
 
 /**
- * Stub GET /api/products with a single product so product cards render on
- * /work/portfolio. Required by density tests that assert product-card padding.
+ * Stub GET /api/teams and GET /api/bets so bet cards render on /work/portfolio.
+ * Required by density tests that assert BetCard padding.
  * @lore M3: MOCK_PRODUCTS was deleted — tests visiting /work/portfolio need
- * to mock the endpoint to get deterministic product card rendering.
+ * to mock endpoints to get deterministic card rendering.
+ * @lore U11: WorkPortfolio (U9) renders BetCards from useBets(), not team cards.
+ * stubProductsApi now also stubs /api/bets to produce a visible BetCard.
  */
 async function stubProductsApi(page: import("@playwright/test").Page): Promise<void> {
-	await page.route("**/api/products", async (route) => {
+	await page.route("**/api/teams", async (route) => {
 		await route.fulfill({
 			status: 200,
 			contentType: "application/json",
 			body: JSON.stringify({
-				products: [
+				teams: [
 					{
-						id: "p1",
-						name: "Portfolio Product",
-						phase: "growth",
-						status: "healthy",
-						leadAgentId: "agent-lead",
-						activeBets: 1,
-						shipped: 2,
-						shipRate: "67%",
-						progress: { done: 2, total: 4 },
+						id: "team-1",
+						name: "Portfolio Team",
+						phase: "build",
+						active: true,
 					},
 				],
 			}),
 		});
+	});
+	// Also stub /api/bets so BetCards render (WorkPortfolio uses useBets())
+	await page.route("**/api/bets**", async (route) => {
+		if (route.request().method() === "GET") {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					bets: [
+						{
+							id: "bet-1",
+							title: "Density Test Bet",
+							description: "A bet for density testing",
+							teamId: "team-1",
+							status: "active",
+							costAppetite: "medium",
+							atRisk: false,
+						},
+					],
+					nextCursor: null,
+				}),
+			});
+		} else {
+			await route.continue();
+		}
 	});
 }
 
@@ -344,7 +366,7 @@ test.describe("K11 — Density tokens flow into rendered primitives across all 3
 		// @lore K11: BetCard is the canonical density-test surface per the
 		// spec. The Portfolio page hand-rolled product cards adopt the same
 		// density shape (--density-card-pad) per § 3.4.P1. We assert the
-		// rendered padding-left on the first product-card matches the
+		// rendered padding-left on the first BetCard matches the
 		// expected per-tier pixel value within 1 px tolerance.
 		const expectedPaddingPx: Record<string, number> = {
 			compact: 8,
@@ -368,15 +390,16 @@ test.describe("K11 — Density tokens flow into rendered primitives across all 3
 			await expect(page.getByRole("dialog", { name: /settings/i })).not.toBeVisible();
 			await expect.poll(async () => (await readShellAttrs(page)).density).toBe(preference);
 
+			// @lore U11: product-card testid removed in U9. BetCard uses data-ds-component.
 			const cardPaddingLeft = await page.evaluate(() => {
-				const card = document.querySelector("[data-testid='product-card']");
+				const card = document.querySelector("[data-ds-component='BetCard']");
 				if (!card) return null;
 				return Number.parseFloat(window.getComputedStyle(card).paddingLeft);
 			});
 			expect(cardPaddingLeft).not.toBeNull();
 			expect(
 				Math.abs((cardPaddingLeft ?? 0) - expectedPaddingPx[preference]),
-				`product-card paddingLeft at ${preference}: got ${cardPaddingLeft}px, want ≈ ${expectedPaddingPx[preference]}px`,
+				`BetCard paddingLeft at ${preference}: got ${cardPaddingLeft}px, want ≈ ${expectedPaddingPx[preference]}px`,
 			).toBeLessThanOrEqual(1);
 			await ctx.close();
 		}

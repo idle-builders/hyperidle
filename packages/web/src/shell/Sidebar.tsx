@@ -79,6 +79,13 @@ export interface SidebarProps {
 // Static knowledge scope sub-items (Practices, Products, Factory)
 // ---------------------------------------------------------------------------
 
+/**
+ * @lore U11: "Products" is a legitimate knowledge scope label, not stale
+ * vocabulary. The three scopes — Practices, Products, Factory — represent the
+ * three org-level knowledge domains defined in docs/knowledge-architecture/.
+ * "Products" refers to product-level knowledge (decisions, specs, strategy),
+ * distinct from the "Teams" primitive in the Work surface. Do not rename.
+ */
 const KNOWLEDGE_SCOPE_ITEMS = [
 	{ label: "Practices", scope: "practices" },
 	{ label: "Products", scope: "products" },

@@ -1,10 +1,8 @@
 /**
- * useTeams — thin one-shot fetch hook for GET /api/products.
+ * useTeams — thin one-shot fetch hook for GET /api/teams.
  *
  * @lore U1: Replaces useProducts. `ProductListResponse` → `TeamListResponse`.
- * The API URL path stays `/api/products` for backward compat (server mounts
- * createTeamRoutes at that path).
- *
+ * @lore U11: Migrated from /api/products to /api/teams (server route renamed in U2).
  * @lore L13: No caching, no retry — same pattern as useBet and useTeam.
  */
 
@@ -28,7 +26,7 @@ export function useTeams(): UseTeamsResult {
 	useEffect(() => {
 		let cancelled = false;
 		setState({ data: null, loading: true, error: null });
-		apiFetch("/api/products")
+		apiFetch("/api/teams")
 			.then((res) => {
 				if (!res.ok) throw new Error(`Teams fetch failed: ${res.status}`);
 				return res.json() as Promise<TeamListResponse>;

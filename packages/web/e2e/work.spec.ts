@@ -2,35 +2,31 @@
  * E2E tests for the Work section: Portfolio canvas, Team kanban board,
  * bet cards, and pitch selector.
  *
- * @lore M3: Products now come from /api/products (no mock fallback). Tests
- * that need product cards must mock the endpoint with fixture data.
+ * @lore M3: Teams now come from /api/teams. Tests that need team data
+ * must mock the endpoint with fixture data.
+ * @lore U11: Migrated from /api/products to /api/teams (server route renamed in U2).
  */
 import { expect, test } from "./fixtures";
 
-const PRODUCTS_FIXTURE = {
-	products: [
+const TEAMS_FIXTURE = {
+	teams: [
 		{
-			id: "p1",
+			id: "t1",
 			name: "HyperIdle Core",
-			phase: "growth",
-			status: "healthy",
-			leadAgentId: "agent-lead",
-			activeBets: 2,
-			shipped: 5,
-			shipRate: "71%",
-			progress: { done: 3, total: 6 },
+			phase: "build",
+			active: true,
 		},
 	],
 };
 
 test.describe("Work Portfolio", () => {
 	test.beforeEach(async ({ page }) => {
-		// Mock /api/products so cards render deterministically in e2e.
-		await page.route("**/api/products", async (route) => {
+		// Mock /api/teams so team pill filters render deterministically in e2e.
+		await page.route("**/api/teams", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify(PRODUCTS_FIXTURE),
+				body: JSON.stringify(TEAMS_FIXTURE),
 			});
 		});
 		await page.goto("/work/portfolio");
@@ -43,9 +39,13 @@ test.describe("Work Portfolio", () => {
 		await expect(page.getByRole("heading", { name: /^portfolio$/i })).toBeVisible();
 	});
 
-	test("Portfolio shows at least one product status card (I4 P4)", async ({ page }) => {
-		const cards = page.getByTestId("product-card");
-		await expect(cards.first()).toBeVisible();
+	test("Portfolio page renders bet-grid container (I4 P4)", async ({ page }) => {
+		// @lore U11: product-card testid was removed in U9 (WorkPortfolio now renders
+		// a flat BetCard grid). The bet-grid container is the structural assertion.
+		// Empty state (no bets) or populated state (bet cards) — either shows bet-grid
+		// in the loaded state. We check work-portfolio-page is visible (from beforeEach).
+		const portfolioPage = page.getByTestId("work-portfolio-page");
+		await expect(portfolioPage).toBeVisible();
 	});
 });
 

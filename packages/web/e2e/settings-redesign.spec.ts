@@ -130,7 +130,8 @@ test.describe("Settings Overlay (P4)", () => {
 		await expect(page.getByText("Credentials")).toBeVisible();
 		await expect(page.getByText("Notifications")).toBeVisible();
 		await expect(page.getByText("Appearance")).toBeVisible();
-		await expect(page.getByText("Products")).toBeVisible();
+		// @lore U11: Section label renamed from "Products" to "Teams" (U1 rename).
+		await expect(page.getByText("Teams")).toBeVisible();
 		await expect(page.getByText("Backend")).toBeVisible();
 	});
 
@@ -319,12 +320,13 @@ test.describe("Settings Overlay (P4)", () => {
 		await expect(page.getByLabel(/^name/i)).toHaveValue("Saved Name");
 	});
 
-	// AC-18: Products section shows products with toggles
-	test("Products section shows product list with active/archived toggles", async ({ page }) => {
+	// AC-18: Teams section shows teams with toggles
+	test("Teams section shows team list with active/archived toggles", async ({ page }) => {
 		await openSettings(page);
-		await page.getByRole("button", { name: /products/i }).click();
+		// @lore U11: Navigation button renamed from "Products" to "Teams" (U1 rename).
+		await page.getByRole("button", { name: /teams/i }).click();
 
-		await expect(page.getByText("My Product")).toBeVisible();
+		await expect(page.getByText("My Team")).toBeVisible();
 	});
 
 	// AC-19: Backend section shows current mode

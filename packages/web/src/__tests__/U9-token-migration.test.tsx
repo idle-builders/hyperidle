@@ -29,14 +29,13 @@ const WEB_SRC = path.resolve(__dirname, "../");
  */
 function grepFor(pattern: string, dir: string): string {
 	try {
-		// Exclude test directories, test files, and protected files whose tokens
-		// cannot be migrated because their protected tests assert the old token names.
-		// @lore U9: KnowledgeBody.tsx has text-lo that cannot be migrated because
-		// KnowledgeBody.test.tsx is a protected test that asserts text-[var(--text-lo)].
+		// Exclude test directories and test files.
+		// @lore U11: KnowledgeBody.tsx exclusion removed — text-lo was migrated to
+		// text-tertiary in U11. The protected test assertion was updated to match.
 		const result = execSync(
 			`grep -rEl "${pattern}" "${dir}" --include="*.tsx" --include="*.ts" \
 			  --exclude-dir="__tests__" --exclude="*.test.tsx" --exclude="*.test.ts" \
-			  --exclude="*.stories.tsx" --exclude="KnowledgeBody.tsx" 2>/dev/null`,
+			  --exclude="*.stories.tsx" 2>/dev/null`,
 			{ encoding: "utf-8" },
 		);
 		return result.trim();
