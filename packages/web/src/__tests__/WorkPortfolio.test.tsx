@@ -116,10 +116,13 @@ describe("WorkPortfolio", () => {
 	});
 
 	// R2 AC-7 behaviour replaced in U9: "New bet" btn-primary triggers dialog
+	// R9: EmptyState CTA also renders a "New bet" button when bets list is empty.
+	// Use data-testid="new-bet-btn" to target the header button specifically.
 	describe("U9 AC-2 — New bet button", () => {
 		it('renders "New bet" button with btn-primary', () => {
 			renderPage();
-			const btn = screen.getByRole("button", { name: /new bet/i });
+			// data-testid targets the header button (not the EmptyState CTA)
+			const btn = screen.getByTestId("new-bet-btn");
 			expect(btn).toBeInTheDocument();
 			expect(btn.className).toContain("btn-primary");
 		});
@@ -127,7 +130,8 @@ describe("WorkPortfolio", () => {
 		it('"New bet" opens BetCreateDialog when clicked', async () => {
 			const user = userEvent.setup();
 			renderPage();
-			await user.click(screen.getByRole("button", { name: /new bet/i }));
+			// data-testid targets the header button (not the EmptyState CTA)
+			await user.click(screen.getByTestId("new-bet-btn"));
 			// Dialog should be open
 			expect(screen.getByRole("dialog")).toBeInTheDocument();
 		});

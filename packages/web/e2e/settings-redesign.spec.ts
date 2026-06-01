@@ -7,7 +7,7 @@
  * AC-14: OrgChart section: table of edges, Add Edge form, Delete button
  * AC-15: Credentials section: reuses existing CredentialsTab
  * AC-16: Notifications section: persisted via PATCH /api/settings
- * AC-17: Appearance section: theme + density selects, applied immediately
+ * AC-17: Appearance section: theme select only (density toggle removed per R9)
  * AC-18: Products section: list with active/archived toggle
  * AC-19: BackendMode section: shows current mode, switch button with restart warning
  * AC-21: Escape key closes settings overlay
@@ -15,7 +15,6 @@
  * AC-23: Rail is dimmed while settings is open
  * AC-24: Settings save feedback via toast
  * AC-25: Profile edits do NOT silently revert
- * AC-26: Density preference persists across page reload
  */
 
 import { expect, test } from "./fixtures";
@@ -239,6 +238,7 @@ test.describe("Settings Overlay (P4)", () => {
 	// @lore W2: density tests removed. Density system completely stripped in W2.
 	// "Appearance section applies density immediately on change" — deleted.
 	// "density preference persists across page reload" — deleted.
+
 
 	// AC-17: No save button in Appearance section
 	test("Appearance section has no save button", async ({ page }) => {

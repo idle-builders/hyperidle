@@ -304,7 +304,7 @@ export function KnowledgeList({
 				<div className="flex items-center gap-2">
 					<button
 						type="button"
-						className="btn btn-xs btn-primary"
+						className="btn btn-sm btn-primary"
 						onClick={() => setCreateDialogOpen(true)}
 					>
 						+ New

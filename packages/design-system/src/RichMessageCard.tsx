@@ -98,7 +98,7 @@ function toneClass(tone: VerdictButtonSpec["tone"]): string {
 }
 
 const BUTTON_CLASS_BASE =
-	"px-[12px] py-[6px] min-h-[44px] rounded-[var(--r-subtle)] text-[13px] font-medium border focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] disabled:opacity-50 disabled:cursor-not-allowed";
+	"px-[18px] py-[9px] min-h-[44px] rounded-[var(--r-subtle)] text-[14px] font-semibold border focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] disabled:opacity-50 disabled:cursor-not-allowed";
 
 const REASONING_INLINE_THRESHOLD = 80;
 
@@ -198,7 +198,7 @@ function ResolvedView({
 			data-blocking={blocking ? "true" : "false"}
 			data-sticky-footer="true"
 			aria-labelledby={titleId}
-			className="ml-[36px] bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-default)] overflow-hidden"
+			className="ml-[36px] bg-[var(--surface-elevated)] border border-[var(--border-strong)] rounded-[var(--r-default)] overflow-hidden"
 		>
 			<div className="flex items-center gap-[9px] px-[12px] py-[9px] text-[13px] text-[var(--text-secondary)] flex-wrap">
 				<span className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[11px] font-mono tracking-[0.03em] bg-[color-mix(in oklab,var(--text-secondary) 8%,transparent)] text-[var(--text-secondary)]">
@@ -247,7 +247,7 @@ function RedactedView({
 			data-blocking={blocking ? "true" : "false"}
 			data-sticky-footer="true"
 			aria-labelledby={titleId}
-			className={`ml-[36px] bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-default)] overflow-hidden ${blocking ? "border-l-2 border-l-[var(--status-error)]" : ""}`}
+			className={`ml-[36px] bg-[var(--surface-elevated)] border border-[var(--border-strong)] rounded-[var(--r-default)] overflow-hidden ${blocking ? "border-l-2 border-l-[var(--status-error)]" : ""}`}
 		>
 			<div
 				id={titleId}
@@ -474,7 +474,7 @@ export function RichMessageCard({
 			data-sticky-footer="true"
 			aria-labelledby={titleId}
 			style={{ maxHeight: "min(var(--card-max-h), max-content)" }}
-			className={`ml-[36px] bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-default)] overflow-hidden flex flex-col ${blocking ? "border-l-2 border-l-[var(--status-error)]" : ""}`}
+			className={`ml-[36px] bg-[var(--surface-elevated)] border border-[var(--border-strong)] rounded-[var(--r-default)] overflow-hidden flex flex-col ${blocking ? "border-l-2 border-l-[var(--status-error)]" : ""}`}
 		>
 			<div className="flex items-center gap-[9px] px-[12px] pt-[9px] pb-[6px] text-[12px] text-[var(--text-secondary)] flex-wrap">
 				<span className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[11px] font-mono tracking-[0.03em] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-primary)]">
