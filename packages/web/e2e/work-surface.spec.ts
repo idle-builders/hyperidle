@@ -14,7 +14,7 @@
  */
 import { expect, test } from "./fixtures";
 
-const PRODUCTS_FIXTURE = {
+const TEAMS_FIXTURE = {
 	teams: [
 		{
 			id: "p1",
@@ -74,7 +74,7 @@ test.describe("J5 — Work Surface", () => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify(PRODUCTS_FIXTURE),
+				body: JSON.stringify(TEAMS_FIXTURE),
 			});
 		});
 

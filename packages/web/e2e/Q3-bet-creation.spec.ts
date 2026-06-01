@@ -66,7 +66,6 @@ const MOCK_BET_DETAIL = {
 
 const MOCK_CREATE_RESPONSE = {
 	id: "new-bet-id",
-	productId: "test-product-1",
 	teamId: "test-team-1",
 	description: "My New Feature",
 	status: "shaped",

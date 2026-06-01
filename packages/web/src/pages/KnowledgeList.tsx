@@ -334,6 +334,11 @@ export function KnowledgeList({
 					[
 						{ id: "all", label: "All", scopeValue: null },
 						{ id: "practices", label: "Practices", scopeValue: "practice" },
+						// @lore U11: "Products" is a legitimate knowledge scope label.
+						// The three scopes (Practices, Products, Factory) are org-level
+						// knowledge domains per docs/knowledge-architecture/. "Products"
+						// covers product-level knowledge (decisions, specs, strategy)
+						// and is distinct from the "Teams" primitive in the Work surface.
 						{ id: "products", label: "Products", scopeValue: "product" },
 						{ id: "factory", label: "Factory", scopeValue: "factory" },
 					] as const

@@ -113,7 +113,8 @@ async function mockAppShellEndpoints(page: Page): Promise<void> {
 
 	await page.route("**/api/teams**", async (route: Route) => {
 		const url = route.request().url();
-		if (url.match(/\/products\/?(\?|$)/)) {
+		// Match /api/teams list endpoint (not a team detail like /api/teams/:id)
+		if (url.match(/\/api\/teams\/?(\?|$)/)) {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
