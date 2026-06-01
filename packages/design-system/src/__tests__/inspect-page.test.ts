@@ -37,11 +37,11 @@ describe("inspectPage (programmatic API)", () => {
 	it("lists known design-system components used by WorkPortfolio", () => {
 		const report = inspectPage(FIXTURE_PAGE);
 		const dsNames = new Set(report.designSystem.map((e) => e.component));
-		// WorkPortfolio.tsx imports these from @hyperidle/design-system
+		// @lore U9: WorkPortfolio restructured to bet grid. Old team cards removed.
+		// Updated imports: BetCard, EmptyState, SkeletonCard (KeyValue/StatusChip removed).
 		expect(dsNames.has("EmptyState")).toBe(true);
-		expect(dsNames.has("KeyValue")).toBe(true);
+		expect(dsNames.has("BetCard")).toBe(true);
 		expect(dsNames.has("SkeletonCard")).toBe(true);
-		expect(dsNames.has("StatusChip")).toBe(true);
 	});
 
 	it("design-system entries carry tier + source provenance", () => {

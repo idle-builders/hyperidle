@@ -66,7 +66,7 @@ export function KnowledgeTopicGroup({
 					data-testid={`topic-health-${topic}`}
 					data-health={health}
 				/>
-				<span className="font-mono text-xs uppercase tracking-wider text-[var(--text-lo)]">
+				<span className="font-mono text-xs uppercase tracking-wider text-[var(--text-tertiary)]">
 					{topic}
 				</span>
 				<span className="badge badge-sm badge-ghost font-mono" aria-label={`${itemCount} items`}>

@@ -55,7 +55,7 @@ export function WithContextRefs(): JSX.Element {
 export function Closed(): JSX.Element {
 	return (
 		<div style={{ height: "600px", position: "relative" }}>
-			<p style={{ color: "var(--text-lo)" }}>CocOverlay is closed — nothing renders.</p>
+			<p style={{ color: "var(--text-tertiary)" }}>CocOverlay is closed — nothing renders.</p>
 			<CocOverlay
 				open={false}
 				onClose={noop}

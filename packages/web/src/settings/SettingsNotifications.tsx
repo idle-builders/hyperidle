@@ -131,7 +131,7 @@ export function SettingsNotifications(): JSX.Element {
 			</div>
 
 			{/* Quiet hours */}
-			<div className="divider text-xs text-[var(--text-lo)]">Quiet Hours</div>
+			<div className="divider text-xs text-[var(--text-tertiary)]">Quiet Hours</div>
 			<div className="flex items-center justify-between py-1">
 				<span className="text-sm">Enable quiet hours</span>
 				<input
@@ -146,7 +146,7 @@ export function SettingsNotifications(): JSX.Element {
 				<div className="form-control flex-1">
 					<label className="label" htmlFor="quiet-start">
 						<span
-							className={`label-text ${draft.quietHoursEnabled ? "text-[var(--text-mid)]" : "text-[var(--text-lo)]"}`}
+							className={`label-text ${draft.quietHoursEnabled ? "text-[var(--text-secondary)]" : "text-[var(--text-tertiary)]"}`}
 						>
 							Start
 						</span>
@@ -165,7 +165,7 @@ export function SettingsNotifications(): JSX.Element {
 				<div className="form-control flex-1">
 					<label className="label" htmlFor="quiet-end">
 						<span
-							className={`label-text ${draft.quietHoursEnabled ? "text-[var(--text-mid)]" : "text-[var(--text-lo)]"}`}
+							className={`label-text ${draft.quietHoursEnabled ? "text-[var(--text-secondary)]" : "text-[var(--text-tertiary)]"}`}
 						>
 							End
 						</span>
@@ -186,7 +186,7 @@ export function SettingsNotifications(): JSX.Element {
 			{/* Team mutes — @lore U1: formerly "Product mutes" */}
 			{teams.length > 0 && (
 				<>
-					<div className="divider text-xs text-[var(--text-lo)]">Mute by Team</div>
+					<div className="divider text-xs text-[var(--text-tertiary)]">Mute by Team</div>
 					{teams.map((t) => (
 						<div key={t.id} className="flex items-center justify-between py-1">
 							<span className="text-sm">{t.name}</span>

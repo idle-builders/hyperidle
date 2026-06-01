@@ -19,7 +19,7 @@ export default { title: "ArtifactThreadsSummary", tier: "component" as const };
 export const Loading = (): React.JSX.Element => (
 	<MemoryRouter>
 		<div data-testid="artifact-threads-summary-loading" className="p-3">
-			<div className="animate-pulse h-4 bg-[var(--surface-3)] rounded w-1/3" />
+			<div className="animate-pulse h-4 bg-[var(--surface-elevated)] rounded w-1/3" />
 		</div>
 	</MemoryRouter>
 );
@@ -33,12 +33,12 @@ export const Empty = (): React.JSX.Element => (
 			aria-label="Artifact threads"
 			className="flex flex-col gap-2"
 		>
-			<h3 className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-lo)]">
+			<h3 className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
 				Artifact threads
 			</h3>
 			<div
 				data-testid="artifact-threads-summary-empty"
-				className="text-sm text-[var(--text-lo)] px-3 py-2"
+				className="text-sm text-[var(--text-tertiary)] px-3 py-2"
 			>
 				No artifact discussions yet.
 			</div>
@@ -55,7 +55,7 @@ export const WithRows = (): React.JSX.Element => (
 			aria-label="Artifact threads"
 			className="flex flex-col gap-2"
 		>
-			<h3 className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-lo)]">
+			<h3 className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
 				Artifact threads
 			</h3>
 			<ul className="flex flex-col gap-1">
@@ -78,16 +78,18 @@ export const WithRows = (): React.JSX.Element => (
 					<li key={item.id}>
 						<a
 							href={`/artifacts/${item.id}`}
-							className="flex flex-col gap-0.5 px-3 py-2 rounded hover:bg-[var(--surface-2)] text-sm"
+							className="flex flex-col gap-0.5 px-3 py-2 rounded hover:bg-[var(--surface-container)] text-sm"
 						>
 							<div className="flex items-center justify-between gap-2">
-								<span className="font-medium text-[var(--text-hi)] truncate">{item.title}</span>
-								<div className="flex items-center gap-2 shrink-0 text-xs text-[var(--text-lo)]">
+								<span className="font-medium text-[var(--text-primary)] truncate">
+									{item.title}
+								</span>
+								<div className="flex items-center gap-2 shrink-0 text-xs text-[var(--text-tertiary)]">
 									<span>{item.time}</span>
 									<span>{item.count}</span>
 								</div>
 							</div>
-							<span className="text-xs text-[var(--text-lo)] truncate">{item.snippet}</span>
+							<span className="text-xs text-[var(--text-tertiary)] truncate">{item.snippet}</span>
 						</a>
 					</li>
 				))}
@@ -105,7 +107,7 @@ export const Truncated = (): React.JSX.Element => (
 			aria-label="Artifact threads"
 			className="flex flex-col gap-2"
 		>
-			<h3 className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-lo)]">
+			<h3 className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
 				Artifact threads
 			</h3>
 			<ul className="flex flex-col gap-1">
@@ -113,16 +115,18 @@ export const Truncated = (): React.JSX.Element => (
 					<li key={i}>
 						<a
 							href={`/artifacts/art-${i}`}
-							className="flex flex-col gap-0.5 px-3 py-2 rounded hover:bg-[var(--surface-2)] text-sm"
+							className="flex flex-col gap-0.5 px-3 py-2 rounded hover:bg-[var(--surface-container)] text-sm"
 						>
 							<div className="flex items-center justify-between gap-2">
-								<span className="font-medium text-[var(--text-hi)] truncate">file-{i + 1}.ts</span>
-								<div className="flex items-center gap-2 shrink-0 text-xs text-[var(--text-lo)]">
+								<span className="font-medium text-[var(--text-primary)] truncate">
+									file-{i + 1}.ts
+								</span>
+								<div className="flex items-center gap-2 shrink-0 text-xs text-[var(--text-tertiary)]">
 									<span>1h ago</span>
 									<span>{i + 1}</span>
 								</div>
 							</div>
-							<span className="text-xs text-[var(--text-lo)] truncate">
+							<span className="text-xs text-[var(--text-tertiary)] truncate">
 								Discussion about this artifact
 							</span>
 						</a>
@@ -132,7 +136,7 @@ export const Truncated = (): React.JSX.Element => (
 			<a
 				data-testid="artifact-threads-summary-more"
 				href="/artifacts?betId=bet-1"
-				className="text-xs text-[var(--text-lo)] px-3 py-1 hover:text-[var(--text-hi)]"
+				className="text-xs text-[var(--text-tertiary)] px-3 py-1 hover:text-[var(--text-primary)]"
 			>
 				+2 more
 			</a>

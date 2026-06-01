@@ -8,7 +8,7 @@ function Trigger({ message }: { message: string }): React.JSX.Element {
 	return (
 		<button
 			type="button"
-			className="px-[12px] py-[6px] rounded-[var(--r1)] bg-[var(--accent)] text-[var(--accent-on)] text-[13px]"
+			className="px-[12px] py-[6px] rounded-[var(--r-subtle)] bg-[var(--accent)] text-[var(--accent-on)] text-[13px]"
 			onClick={(): void => showToast(message)}
 		>
 			Fire toast

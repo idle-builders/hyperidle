@@ -202,12 +202,12 @@ function WorkTeamLoaded({
 					</Link>
 				</div>
 				<div className="flex items-center gap-[var(--density-gap)] flex-wrap">
-					<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-hi)] flex-1">
+					<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-primary)] flex-1">
 						{team.name}
 					</h1>
 					<StatusChip status={team.status} />
 				</div>
-				<div className="mt-1 text-xs text-[var(--text-lo)]">
+				<div className="mt-1 text-xs text-[var(--text-tertiary)]">
 					<span>Phase: {team.phase}</span>
 					{leadName && <span className="ml-3">Lead: {leadName}</span>}
 				</div>
@@ -217,9 +217,9 @@ function WorkTeamLoaded({
 			<section
 				aria-label="Team burn vs cap"
 				data-testid="team-burn-vs-cap"
-				className="rounded-[var(--r1)] bg-[var(--surface-2)] p-[var(--density-card-pad)]"
+				className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[var(--density-card-pad)]"
 			>
-				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)] mb-2">
+				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
 					Burn vs Cap
 				</h2>
 				<div className="flex flex-col gap-1">
@@ -247,7 +247,7 @@ function WorkTeamLoaded({
 
 			{/* R2 — Active bets */}
 			<section aria-label="Active bets" data-testid="team-active-bets">
-				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)] mb-2">
+				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
 					Active Bets
 				</h2>
 				{activeBets.length === 0 ? (
@@ -261,15 +261,15 @@ function WorkTeamLoaded({
 							<div
 								role="status"
 								data-testid={hintCreateBet.testId}
-								className="rounded-[var(--r1)] bg-[var(--surface-2)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)] mt-2"
+								className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)] mt-2"
 							>
-								<p className="text-[length:var(--density-text)] text-[var(--text-mid)] leading-[var(--leading-body)]">
+								<p className="text-[length:var(--density-text)] text-[var(--text-secondary)] leading-[var(--leading-body)]">
 									{hintCreateBet.copy}
 								</p>
 								<div className="flex gap-2">
 									<button
 										type="button"
-										className="btn btn-ghost btn-xs text-[var(--text-lo)] min-h-[44px]"
+										className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
 										onClick={hintCreateBet.dismiss}
 									>
 										Got it
@@ -295,7 +295,7 @@ function WorkTeamLoaded({
 
 			{/* R3 — Roster */}
 			<section aria-label="Team roster" data-testid="team-roster">
-				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)] mb-2">
+				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
 					Roster
 				</h2>
 				{roster.length === 0 ? (
@@ -310,18 +310,20 @@ function WorkTeamLoaded({
 								key={member.agentId}
 								data-testid="team-roster-row"
 								data-is-lead={member.isLead ? "true" : "false"}
-								className="flex items-center gap-[var(--density-gap)] py-1 px-2 rounded-[var(--r0)] bg-[var(--surface-2)]"
+								className="flex items-center gap-[var(--density-gap)] py-1 px-2 rounded-[var(--r-none)] bg-[var(--surface-container)]"
 							>
-								<div className="flex-none w-7 h-7 rounded-full bg-[var(--surface-3)] flex items-center justify-center text-[10px] font-mono text-[var(--text-hi)] uppercase">
+								<div className="flex-none w-7 h-7 rounded-full bg-[var(--surface-elevated)] flex items-center justify-center text-[10px] font-mono text-[var(--text-primary)] uppercase">
 									{member.name.slice(0, 2)}
 								</div>
 								<div className="flex-1 min-w-0">
-									<div className="text-xs font-medium text-[var(--text-hi)] truncate">
+									<div className="text-xs font-medium text-[var(--text-primary)] truncate">
 										{member.name}
 									</div>
-									<div className="text-[10px] text-[var(--text-lo)] truncate">
+									<div className="text-[10px] text-[var(--text-tertiary)] truncate">
 										{member.role}
-										{member.isLead && <span className="ml-1 text-[var(--ok)]">· Lead</span>}
+										{member.isLead && (
+											<span className="ml-1 text-[var(--accent-primary)]">· Lead</span>
+										)}
 									</div>
 								</div>
 							</div>
@@ -354,18 +356,18 @@ function BetRow({ bet, onNavigate }: { bet: BetCardSummary; onNavigate: () => vo
 		<button
 			type="button"
 			onClick={onNavigate}
-			className="w-full text-left rounded-[var(--r1)] bg-[var(--surface-2)] p-[var(--density-card-pad)] hover:bg-[var(--surface-3)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--primary)]"
+			className="w-full text-left rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[var(--density-card-pad)] hover:bg-[var(--surface-elevated)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)]"
 		>
 			<div className="flex items-center gap-[var(--density-gap)] flex-wrap">
-				<span className="flex-1 text-xs font-medium text-[var(--text-hi)] truncate">
+				<span className="flex-1 text-xs font-medium text-[var(--text-primary)] truncate">
 					{/* @lore U1: descriptionTitle replaces pitchTitle */}
 					{bet.descriptionTitle}
 				</span>
 				<StatusChip status={betStatusToStatus(bet.status)} />
-				<span className="text-[10px] font-mono text-[var(--text-lo)]">
+				<span className="text-[10px] font-mono text-[var(--text-tertiary)]">
 					{formatMoney(bet.costAppetite)}
 				</span>
-				<span className="text-[10px] font-mono text-[var(--text-lo)]">{progressText}</span>
+				<span className="text-[10px] font-mono text-[var(--text-tertiary)]">{progressText}</span>
 			</div>
 		</button>
 	);

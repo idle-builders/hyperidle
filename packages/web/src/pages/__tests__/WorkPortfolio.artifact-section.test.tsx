@@ -16,6 +16,17 @@ vi.mock("../../hooks/useTeams", () => ({
 	useTeams: vi.fn(() => ({ data: null, error: null, isLoading: false })),
 }));
 
+// @lore U9: useBets replaces useCanvasBets. Mock with empty bets so the
+// page renders the empty state + ArtifactSection (not loading skeleton).
+vi.mock("../../hooks/useBets", () => ({
+	useBets: vi.fn(() => ({
+		bets: [],
+		loading: false,
+		error: null,
+		refresh: vi.fn(),
+	})),
+}));
+
 // Mock useArtifacts — controlled state for ArtifactSection
 vi.mock("../../hooks/useArtifacts", () => ({
 	useArtifacts: vi.fn(() => ({

@@ -50,8 +50,8 @@ function ActivityEntryRow({ entry }: { entry: ActivityEntry }): JSX.Element | nu
 	if (entry.type === "tool_call") {
 		const { toolName, argsSummary } = entry.data;
 		return (
-			<div className="flex items-start gap-[8px] py-[6px] px-[8px] rounded-[var(--r1)] hover:bg-[var(--surface-ghost)]">
-				<span className="flex-shrink-0 mt-[2px] inline-flex items-center justify-center w-[20px] h-[20px] rounded-[var(--r1)] bg-[var(--surface-4)] text-[var(--text-lo)]">
+			<div className="flex items-start gap-[8px] py-[6px] px-[8px] rounded-[var(--r-subtle)] hover:bg-[var(--surface-container)]">
+				<span className="flex-shrink-0 mt-[2px] inline-flex items-center justify-center w-[20px] h-[20px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[var(--text-tertiary)]">
 					<svg
 						viewBox="0 0 16 16"
 						fill="currentColor"
@@ -62,14 +62,16 @@ function ActivityEntryRow({ entry }: { entry: ActivityEntry }): JSX.Element | nu
 					</svg>
 				</span>
 				<div className="flex-1 min-w-0">
-					<span className="text-[12px] font-medium text-[var(--text-hi)] font-mono">
+					<span className="text-[12px] font-medium text-[var(--text-primary)] font-mono">
 						{toolName}
 					</span>
 					{argsSummary && (
-						<p className="text-[11px] text-[var(--text-lo)] truncate">{argsSummary}</p>
+						<p className="text-[11px] text-[var(--text-tertiary)] truncate">{argsSummary}</p>
 					)}
 				</div>
-				<span className="flex-shrink-0 text-[10px] text-[var(--text-lo)] font-mono">{time}</span>
+				<span className="flex-shrink-0 text-[10px] text-[var(--text-tertiary)] font-mono">
+					{time}
+				</span>
 			</div>
 		);
 	}
@@ -77,13 +79,15 @@ function ActivityEntryRow({ entry }: { entry: ActivityEntry }): JSX.Element | nu
 	if (entry.type === "reasoning") {
 		const { excerpt } = entry.data;
 		return (
-			<div className="flex items-start gap-[8px] py-[6px] px-[8px] rounded-[var(--r1)] hover:bg-[var(--surface-ghost)]">
+			<div className="flex items-start gap-[8px] py-[6px] px-[8px] rounded-[var(--r-subtle)] hover:bg-[var(--surface-container)]">
 				{/* Q1 review issue #12: SVG icon instead of emoji 💭 */}
-				<span className="flex-shrink-0 mt-[2px] inline-flex items-center justify-center w-[20px] h-[20px] rounded-[var(--r1)] bg-[var(--surface-4)] text-[var(--text-lo)]">
+				<span className="flex-shrink-0 mt-[2px] inline-flex items-center justify-center w-[20px] h-[20px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[var(--text-tertiary)]">
 					<ReasoningIcon />
 				</span>
-				<p className="flex-1 text-[12px] text-[var(--text-mid)] italic">{excerpt}</p>
-				<span className="flex-shrink-0 text-[10px] text-[var(--text-lo)] font-mono">{time}</span>
+				<p className="flex-1 text-[12px] text-[var(--text-secondary)] italic">{excerpt}</p>
+				<span className="flex-shrink-0 text-[10px] text-[var(--text-tertiary)] font-mono">
+					{time}
+				</span>
 			</div>
 		);
 	}
@@ -91,11 +95,11 @@ function ActivityEntryRow({ entry }: { entry: ActivityEntry }): JSX.Element | nu
 	if (entry.type === "cost_tick") {
 		const { deltaMinor, totalMinor } = entry.data;
 		return (
-			<div className="flex items-center gap-[8px] py-[4px] px-[8px] rounded-[var(--r1)] hover:bg-[var(--surface-ghost)]">
-				<span className="text-[11px] text-[var(--text-lo)] tabular-nums">
+			<div className="flex items-center gap-[8px] py-[4px] px-[8px] rounded-[var(--r-subtle)] hover:bg-[var(--surface-container)]">
+				<span className="text-[11px] text-[var(--text-tertiary)] tabular-nums">
 					+{(deltaMinor / 100).toFixed(4)} / total {(totalMinor / 100).toFixed(2)}
 				</span>
-				<span className="ml-auto text-[10px] text-[var(--text-lo)] font-mono">{time}</span>
+				<span className="ml-auto text-[10px] text-[var(--text-tertiary)] font-mono">{time}</span>
 			</div>
 		);
 	}
@@ -164,37 +168,37 @@ export function SessionActivityPanel({
 		<aside
 			aria-label={`Session activity for ${agentName}`}
 			data-testid="session-activity-panel"
-			className="flex flex-col h-full bg-[var(--surface-2)] border-l border-[var(--border-subtle)]"
+			className="flex flex-col h-full bg-[var(--surface-container)] border-l border-[var(--border-subtle)]"
 		>
 			{/* Header */}
 			<div className="flex items-center gap-[8px] px-[12px] py-[10px] border-b border-[var(--border-subtle)] flex-shrink-0">
 				<div className="flex-1 min-w-0">
 					<div className="flex items-center gap-[6px]">
-						<span className="text-[13px] font-medium text-[var(--text-hi)] truncate">
+						<span className="text-[13px] font-medium text-[var(--text-primary)] truncate">
 							{agentName}
 						</span>
 						{isLive && (
 							<span
 								role="status"
-								className="inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-full bg-[color-mix(in_oklab,var(--ok)_14%,transparent)] text-[var(--ok)] text-[10px] font-medium uppercase tracking-[0.05em]"
+								className="inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-full bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-primary)] text-[10px] font-medium uppercase tracking-[0.05em]"
 								aria-label="Live session"
 							>
-								<span className="w-[5px] h-[5px] rounded-full bg-[var(--ok)] animate-pulse" />
+								<span className="w-[5px] h-[5px] rounded-full bg-[var(--accent-primary)] animate-pulse" />
 								Live
 							</span>
 						)}
 						{status === "ended" && (
-							<span className="text-[10px] text-[var(--text-lo)] uppercase tracking-[0.05em]">
+							<span className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-[0.05em]">
 								Ended
 							</span>
 						)}
 					</div>
-					<p className="text-[11px] text-[var(--text-lo)] truncate">{taskTitle}</p>
+					<p className="text-[11px] text-[var(--text-tertiary)] truncate">{taskTitle}</p>
 				</div>
 				<button
 					type="button"
 					aria-label="Close activity panel"
-					className="flex-shrink-0 inline-flex items-center justify-center w-[24px] h-[24px] rounded-[var(--r1)] bg-transparent text-[var(--text-lo)] border-none cursor-pointer transition-[background,color] duration-[var(--motion-fast)] hover:bg-[var(--surface-ghost)] hover:text-[var(--text-mid)]"
+					className="flex-shrink-0 inline-flex items-center justify-center w-[24px] h-[24px] rounded-[var(--r-subtle)] bg-transparent text-[var(--text-tertiary)] border-none cursor-pointer transition-[background,color] duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
 					onClick={onClose}
 				>
 					<svg
@@ -237,19 +241,19 @@ export function SessionActivityPanel({
 				onScroll={handleScroll}
 			>
 				{status === "connecting" && (
-					<div className="py-[16px] text-center text-[var(--text-lo)] text-[12px]">
+					<div className="py-[16px] text-center text-[var(--text-tertiary)] text-[12px]">
 						Connecting...
 					</div>
 				)}
 
 				{status === "error" && (
-					<div className="py-[16px] text-center text-[var(--danger)] text-[12px]">
+					<div className="py-[16px] text-center text-[var(--status-error)] text-[12px]">
 						{error ?? "Failed to load activity"}
 					</div>
 				)}
 
 				{(status === "streaming" || status === "ended") && filteredEntries.length === 0 && (
-					<div className="py-[16px] text-center text-[var(--text-lo)] text-[12px]">
+					<div className="py-[16px] text-center text-[var(--text-tertiary)] text-[12px]">
 						No activity yet
 					</div>
 				)}
@@ -264,7 +268,7 @@ export function SessionActivityPanel({
 					<div className="sticky bottom-0 flex justify-center pb-[4px]">
 						<button
 							type="button"
-							className="btn btn-xs btn-ghost text-[var(--text-lo)] text-[10px]"
+							className="btn btn-xs btn-ghost text-[var(--text-tertiary)] text-[10px]"
 							onClick={() => {
 								if (scrollRef.current) {
 									scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -280,7 +284,7 @@ export function SessionActivityPanel({
 
 			{/* Summary / footer */}
 			{status === "ended" && (
-				<div className="flex-shrink-0 px-[12px] py-[8px] border-t border-[var(--border-subtle)] text-[12px] text-[var(--text-lo)]">
+				<div className="flex-shrink-0 px-[12px] py-[8px] border-t border-[var(--border-subtle)] text-[12px] text-[var(--text-tertiary)]">
 					Session complete — {entries.length} events recorded
 				</div>
 			)}

@@ -1,8 +1,10 @@
 /**
- * L13 — WorkPortfolio test extension: product card click navigates to /work/product/:id.
+ * L13 — WorkPortfolio test extension: bet card click navigates to /work/bet/:id.
  *
- * AC coverage:
- * - 14. Click on a product card navigates to /work/product/:id (productId from fixture).
+ * @lore U9: Old "product card" (team-card) navigation replaced with BetCard navigation
+ * to /work/bet/:id. The L13 AC was "click on a product card navigates to /work/team/:id" —
+ * in U9 the portfolio no longer shows team cards, it shows bet cards.
+ * Updated AC: click on a bet card navigates to /work/bet/:id.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -12,8 +14,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import { WorkPortfolio } from "../pages/WorkPortfolio";
 
-// M3 G1: MOCK_PRODUCTS removed — mock useTeams for tests that need product cards.
-// @lore U1: TeamListResponse uses `teams` array (renamed from `products`).
 vi.mock("../hooks/useTeams", () => ({
 	useTeams: vi.fn().mockReturnValue({
 		data: {
@@ -33,36 +33,58 @@ vi.mock("../hooks/useTeams", () => ({
 	}),
 }));
 
-// @lore U6 AC-15: WorkPortfolio navigates to /work/team/:id (not /work/product/:id).
-// The old path /work/product/:productId was renamed to /work/team/:teamId in U6.
+vi.mock("../hooks/useBets", () => ({
+	useBets: vi.fn().mockReturnValue({
+		bets: [
+			{
+				id: "bet-drill-1",
+				title: "Drill-Down Bet",
+				teamId: "p-drill-1",
+				status: "active",
+				description: "Drill-down bet description",
+				costAppetite: null,
+				atRisk: false,
+			},
+		],
+		loading: false,
+		error: null,
+		refresh: vi.fn(),
+	}),
+}));
+
+// @lore U9: BetCard navigation goes to /work/bet/:id
 function renderPortfolioWithRouter(): ReturnType<typeof render> {
 	return render(
 		<MemoryRouter initialEntries={["/work/portfolio"]}>
 			<Routes>
 				<Route path="/work/portfolio" element={<WorkPortfolio />} />
-				<Route
-					path="/work/team/:teamId"
-					element={<div data-testid="work-team-page">Team Page</div>}
-				/>
+				<Route path="/work/bet/:betId" element={<div data-testid="work-bet-page">Bet Page</div>} />
 			</Routes>
 		</MemoryRouter>,
 	);
 }
 
 describe("WorkPortfolio — L13 drill-down", () => {
-	it("14. click on a product card navigates to /work/team/:id", async () => {
+	it("14. click on a bet card navigates to /work/bet/:id", async () => {
 		const user = userEvent.setup();
 		renderPortfolioWithRouter();
 
-		// The product cards are rendered with data-testid="team-card"
-		const cards = screen.getAllByTestId("team-card");
-		expect(cards.length).toBeGreaterThan(0);
+		// Bet cards are rendered in the bet-grid
+		const grid = screen.getByTestId("bet-grid");
+		expect(grid).toBeInTheDocument();
+		expect(screen.getByText("Drill-Down Bet")).toBeInTheDocument();
 
-		// Click the first card
-		await user.click(cards[0]);
+		// Click the bet card — BetCard is a div with onClick
+		const betCard = grid.querySelector("[data-testid='bet-card']") as HTMLElement | null;
+		if (betCard) {
+			await user.click(betCard);
+		} else {
+			// BetCard may render as a button or div — find by text
+			await user.click(screen.getByText("Drill-Down Bet"));
+		}
 
 		await waitFor(() => {
-			expect(screen.getByTestId("work-team-page")).toBeInTheDocument();
+			expect(screen.getByTestId("work-bet-page")).toBeInTheDocument();
 		});
 	});
 });

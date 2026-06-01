@@ -9,7 +9,7 @@
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { KanbanTask } from "../../shell/Kanban";
+import type { KanbanTask } from "../../shell/TaskSheet";
 import { TaskSheet } from "../../shell/TaskSheet";
 
 // Mock useHostThread so HostThreadSection renders without fetch calls.
