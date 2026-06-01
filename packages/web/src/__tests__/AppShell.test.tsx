@@ -167,65 +167,10 @@ describe("AppShell", () => {
 			expect(root?.getAttribute("data-density")).toBe("default");
 		});
 
-		// @lore U6: Settings is opened via the Settings button (aria-label="Settings") in the
-		// Sidebar bottom strip, not via "user profile" button which was in the deleted IconRail.
-		it('changing density to "compact" via SettingsAppearance updates data-density on the shell root', async () => {
-			const user = userEvent.setup();
-			const { container } = renderShell("/conversations");
-
-			// Open settings via the Settings button.
-			await waitFor(() => {
-				expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
-			});
-			await user.click(screen.getByRole("button", { name: /settings/i }));
-
-			// P4: navigate to Appearance section in new settings overlay.
-			await waitFor(() => {
-				expect(screen.getByText("Appearance")).toBeInTheDocument();
-			});
-			// Click the Appearance NavItem in the settings Sidebar
-			await user.click(screen.getByText("Appearance"));
-
-			// Pick Compact density in the SettingsAppearance select
-			await waitFor(() => {
-				expect(screen.getByLabelText("Density")).toBeInTheDocument();
-			});
-			const densitySelect = screen.getByLabelText("Density");
-			await user.selectOptions(densitySelect, "compact");
-
-			// After selecting, the shell root's data-density should reflect the new value.
-			await waitFor(() => {
-				const root = getDensityRoot(container);
-				expect(root?.getAttribute("data-density")).toBe("compact");
-			});
-		});
-
-		it('changing density to "comfortable" via SettingsAppearance updates data-density to comfortable', async () => {
-			const user = userEvent.setup();
-			const { container } = renderShell("/conversations");
-
-			await waitFor(() => {
-				expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
-			});
-			await user.click(screen.getByRole("button", { name: /settings/i }));
-
-			// P4: navigate to Appearance section in new settings overlay.
-			await waitFor(() => {
-				expect(screen.getByText("Appearance")).toBeInTheDocument();
-			});
-			await user.click(screen.getByText("Appearance"));
-
-			await waitFor(() => {
-				expect(screen.getByLabelText("Density")).toBeInTheDocument();
-			});
-			const densitySelect = screen.getByLabelText("Density");
-			await user.selectOptions(densitySelect, "comfortable");
-
-			await waitFor(() => {
-				const root = getDensityRoot(container);
-				expect(root?.getAttribute("data-density")).toBe("comfortable");
-			});
-		});
+		// @lore R9: The density selector was removed from SettingsAppearance per the R9 action
+		// prominence audit. The auto-density system (AQ-016) still functions at narrow viewports.
+		// Tests that exercised the density UI control are removed; the data-density attribute
+		// remains on the shell root for the auto-density CSS cascade.
 	});
 
 	describe("global search navigation by type", () => {

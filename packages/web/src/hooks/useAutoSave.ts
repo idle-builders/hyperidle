@@ -106,8 +106,13 @@ export function useAutoSave({
 		onConflictRef.current = onConflict;
 	}, [onConflict]);
 
-	// Cleanup on unmount
+	// Cleanup on unmount.
+	// @lore R9: React 18 StrictMode runs effect cleanup + re-run on first mount.
+	// The cleanup sets unmountedRef.current = true but the re-run must reset it to
+	// false, otherwise all debounce callbacks bail out immediately after StrictMode.
+	// Setting unmountedRef.current = false in setup ensures the flag resets on remount.
 	useEffect(() => {
+		unmountedRef.current = false;
 		return (): void => {
 			unmountedRef.current = true;
 			if (debounceTimerRef.current !== null) {
