@@ -265,22 +265,8 @@ describe("tokens.css (TSX source) — Hearth token names", () => {
 		}
 	});
 
-	it("defines Hearth density tokens", () => {
-		for (const token of [
-			"--density-pad-x",
-			"--density-pad-y",
-			"--density-gap",
-			"--density-row-h",
-			"--density-text",
-			"--density-card-pad",
-			"--density-page-gutter",
-			"--density-icon-size",
-			"--density-avatar-size",
-			"--density-card-gap",
-		]) {
-			expect(props, `expected density token ${token}`).toContain(token);
-		}
-	});
+	// @lore W2: "defines Hearth density tokens" test removed. Density tokens
+	// (--density-pad-x, --density-pad-y, etc.) stripped from tokens.css in W2.
 
 	it("uses @layer base for Tailwind integration", () => {
 		expect(SRC_TOKENS).toContain("@layer base");
@@ -612,62 +598,13 @@ describe("tokens.css — spacing tokens on 3px half-grid", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SECTION 7 — Density grid compliance
+// SECTION 7 — Density grid compliance (REMOVED W2)
 // ─────────────────────────────────────────────────────────────────────────────
-
-describe("tokens.css — density tokens (K9/K11 spec)", () => {
-	/**
-	 * Density values are owned by K9 and K11 workpackages. U3 (Hearth) only
-	 * changes colour tokens — density values must match K9/K11 spec exactly.
-	 *
-	 * @lore U3 — an earlier draft of U3 rebuilt density on a 6px grid, but
-	 * density-tier.test.ts (K9) and the K11 spec pin exact px values that are
-	 * not all 6px-grid multiples (row-h=44, text=15, page-gutter=16, etc.).
-	 * The 6px-grid lore was reverted to preserve K9/K11 AC compliance. Any
-	 * density-grid redesign must go through a K9/K11 update first.
-	 */
-
-	const defaultDensity: Record<string, number> = {
-		"--density-pad-x": 16,
-		"--density-pad-y": 12,
-		"--density-gap": 12,
-		"--density-row-h": 44,
-		"--density-card-pad": 12,
-		"--density-page-gutter": 16,
-		"--density-icon-size": 16,
-		"--density-avatar-size": 32,
-		"--density-card-gap": 8,
-	};
-
-	it("default density values are correct px values (K9/K11 spec)", () => {
-		// The :root,[data-density="default"] block must have K9/K11 spec values.
-		for (const [token, expectedPx] of Object.entries(defaultDensity)) {
-			const val = extractTokenValue(SRC_TOKENS, token);
-			expect(val, `${token} must be defined`).not.toBeNull();
-			// Verify it contains a px value
-			const px = parsePx(val ?? "");
-			expect(px, `${token} must have a px value — got: ${val}`).not.toBeNull();
-			expect(px, `${token} must equal ${expectedPx}px (K9/K11 spec)`).toBe(expectedPx);
-		}
-	});
-
-	it("--density-row-h default is 44px (AQ-015 touch-target floor)", () => {
-		// K9 requires default row-h >= 44px for AQ-015 touch-target compliance.
-		const val = extractTokenValue(SRC_TOKENS, "--density-row-h");
-		expect(val, "--density-row-h must be defined").not.toBeNull();
-		expect(val, "--density-row-h must be 44px").toBe("44px");
-	});
-
-	it("compact density --density-card-gap is 4px (K11 spec)", () => {
-		// K11 spec: compact card-gap = 4px (within 0.5× of default 8px).
-		const compactIdx = SRC_TOKENS.indexOf('[data-density="compact"]');
-		expect(compactIdx, "compact density block must exist").toBeGreaterThan(-1);
-		const compactBlock = SRC_TOKENS.substring(compactIdx);
-		const val = extractTokenValue(compactBlock, "--density-card-gap");
-		expect(val, "--density-card-gap in compact must be defined").not.toBeNull();
-		expect(val, "--density-card-gap in compact must be 4px").toBe("4px");
-	});
-});
+// @lore W2: Density system removed. The K9/K11 density tokens (--density-pad-x,
+// --density-pad-y, --density-gap, --density-row-h, etc.) and their [data-density]
+// CSS blocks have been stripped from tokens.css. Tests that verified those tokens
+// are removed here. Touch-target compliance (AQ-015 ≥44px) is now enforced via
+// literal values on interactive components, not density tokens.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SECTION 8 — html/_tokens.css (HTML components) — Hearth tokens

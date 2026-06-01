@@ -142,10 +142,9 @@ describe("W2 AC-2 — shared token values must match between files", () => {
 				htmlVal,
 				`${token} in html/_tokens.css: expected "${expected}", got "${htmlVal}"`,
 			).toBe(expected);
-			expect(
-				srcVal,
-				`${token} in src/tokens.css: expected "${expected}", got "${srcVal}"`,
-			).toBe(expected);
+			expect(srcVal, `${token} in src/tokens.css: expected "${expected}", got "${srcVal}"`).toBe(
+				expected,
+			);
 		});
 	}
 });
@@ -162,7 +161,9 @@ describe("W2 AC-3 — --easing-expressive token", () => {
 
 	it("--easing-expressive exists in html/_tokens.css", () => {
 		const names = extractCustomPropertyNames(HTML_TOKENS);
-		expect(names, "--easing-expressive must be in html/_tokens.css").toContain("--easing-expressive");
+		expect(names, "--easing-expressive must be in html/_tokens.css").toContain(
+			"--easing-expressive",
+		);
 	});
 
 	it(`--easing-expressive is "${EASING_VALUE}" in tokens.css`, () => {
@@ -221,7 +222,10 @@ describe("W2 AC-1 — density blocks removed from tokens.css", () => {
 	it("tokens.css contains no --density- custom properties", () => {
 		// After density strip, no --density-* tokens should remain in tokens.css
 		const hasAnyDensityToken = /--density-/.test(SRC_TOKENS);
-		expect(hasAnyDensityToken, "tokens.css must not contain any --density-* tokens after W2 strip").toBe(false);
+		expect(
+			hasAnyDensityToken,
+			"tokens.css must not contain any --density-* tokens after W2 strip",
+		).toBe(false);
 	});
 });
 

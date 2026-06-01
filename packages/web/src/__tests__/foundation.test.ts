@@ -242,53 +242,9 @@ describe("index.css has no custom CSS", () => {
 	});
 });
 
-// ---------- c. Density CSS variables (J1) ----------
-
-describe("index.css density tokens", () => {
-	const cssPath = resolve(__dirname, "../../../design-system/src/tokens.css");
-	const cssContent = readFileSync(cssPath, "utf-8");
-
-	const REQUIRED_VARS = [
-		"--density-pad-x",
-		"--density-pad-y",
-		"--density-gap",
-		"--density-row-h",
-		"--density-text",
-	];
-
-	it.each(["compact", "default", "comfortable"])('defines a [data-density="%s"] block', (name) => {
-		// Selector must literally appear so the cascade can apply when
-		// AppShell sets data-density on the root.
-		const selector = `[data-density="${name}"]`;
-		expect(cssContent).toContain(selector);
-	});
-
-	it.each([
-		"compact",
-		"default",
-		"comfortable",
-	])('the [data-density="%s"] block declares all five density variables', (name) => {
-		// Pull out the body of the block for this density value.
-		const blockRe = new RegExp(`\\[data-density="${name}"\\]\\s*\\{([^}]*)\\}`, "s");
-		const match = cssContent.match(blockRe);
-		expect(match, `expected block for [data-density="${name}"]`).not.toBeNull();
-		const body = match?.[1] ?? "";
-		for (const v of REQUIRED_VARS) {
-			expect(body).toContain(v);
-		}
-	});
-
-	it("the default density block also targets :root so vars resolve before AppShell mounts", () => {
-		// J1 review: anything rendered before the AppShell sets [data-density]
-		// on the shell root (e.g. error fallbacks, the loading splash) still
-		// needs the density vars to resolve. Verify the default block selector
-		// list contains :root.
-		const defaultBlockRe = /(:root[^{]*|[^{};]*)\[data-density="default"\][^{]*\{/;
-		const match = cssContent.match(defaultBlockRe);
-		expect(match, "default density block should be reachable").not.toBeNull();
-		expect(match?.[0]).toContain(":root");
-	});
-});
+// ---------- c. (W2 REMOVED) Density CSS variables (J1) ----------
+// @lore W2: The density system was completely stripped. [data-density] blocks removed
+// from tokens.css. These tests were removed in W2 — see plans/W2/architecture.md.
 
 // ---------- d. Focus ring configuration ----------
 

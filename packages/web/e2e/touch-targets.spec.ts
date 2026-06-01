@@ -7,9 +7,9 @@
  * a mobile viewport, measures `getBoundingClientRect()` on every visible
  * interactive element, and fails if any element falls under the threshold.
  *
- * @lore We measure the LIVE bounding box, not source CSS, because density
- * tokens, `min-height`, line-height, padding, and parent flex/grid all
- * affect the painted dimensions. Static analysis cannot prove the rendered
+ * @lore We measure the LIVE bounding box, not source CSS, because
+ * `min-height`, line-height, padding, and parent flex/grid all affect
+ * the painted dimensions. Static analysis cannot prove the rendered
  * value; only `getBoundingClientRect()` can.
  *
  * @lore Disabled / aria-hidden / off-screen elements are excluded — they
@@ -61,17 +61,13 @@ async function findUndersizedTargets(page: Page): Promise<Undersized[]> {
 			"[role='checkbox']",
 			"[role='radio']",
 		];
-		// @lore K8 — scope the audit to Tier 1+2 design-system primitives
+		// @lore K8 / W2 — scope the audit to Tier 0+1+2 design-system primitives
 		// (NavItem, KeyValue, KnowledgeRow, ThreadRow, BetCard, TaskCard,
-		// PitchCard, NotificationRow, EmptyState, etc.). Tier 3 shells
+		// NotificationRow, EmptyState, etc.). Tier 3 shells
 		// (`[data-ds-shell]`) and page chrome use DaisyUI `btn-xs` /
-		// `btn-sm` / `tab-xs` widgets that pin sub-44px sizes irrespective
-		// of the density cascade — that is the F3 chrome refactor backlog
-		// in `packages/design-system/research/critique-results.md`. K7
-		// owns the density cascade for the primitives below, and the K8
-		// fix (`--density-row-h: 2.75rem` for comfortable) makes them pass
-		// AQ-015 at the mobile breakpoint. The assertion turns red the
-		// moment a density-aware primitive regresses.
+		// `btn-sm` / `tab-xs` widgets that pin sub-44px sizes —
+		// that is the F3 chrome refactor backlog. W2: density removed;
+		// primitives use min-h-[44px] directly to meet AQ-015.
 		const dsSubtrees = Array.from(document.querySelectorAll<HTMLElement>("[data-ds-component]"));
 		const nodeSet = new Set<HTMLElement>();
 		for (const subtree of dsSubtrees) {
@@ -217,14 +213,14 @@ test.describe("K8 — Touch-target audit at mobile viewport (≤ 1024px)", () =>
 
 	for (const route of ROUTES) {
 		/**
-		 * @lore K8 — assertion runs against `[data-density]`-controlled
-		 * design-system primitives (NavItem, KeyValue, KnowledgeRow,
-		 * ThreadRow, etc.) rather than the full interactive surface.
+		 * @lore K8 — assertion runs against design-system primitives
+		 * (NavItem, KeyValue, KnowledgeRow, ThreadRow, etc.) rather than
+		 * the full interactive surface.
 		 *
-		 *  - K8 fixed `--density-row-h` for `comfortable` to 2.75rem (44px)
-		 *    so every density-aware primitive now meets AQ-015 at the
-		 *    mobile breakpoint (auto-density resolves to comfortable at
-		 *    viewport ≤ 1024px).
+		 * @lore W2 — density system removed. Hearth default sizes apply.
+		 * NavItem and list-row primitives use min-h-[44px] to meet AQ-015
+		 * at mobile viewports without density tokens.
+		 *
 		 *  - Page-level chrome (`btn-xs`, `btn-sm`, `tab-xs` in
 		 *    `pages/**`) is still a follow-on chrome refactor (F3 in
 		 *    `packages/design-system/research/critique-results.md`); when
@@ -232,9 +228,7 @@ test.describe("K8 — Touch-target audit at mobile viewport (≤ 1024px)", () =>
 		 *    by removing the `[data-ds-*]` filter in
 		 *    `findUndersizedTargets`.
 		 */
-		test(`every density-controlled primitive ≥ ${MIN_TOUCH_PX}px on ${route.path}`, async ({
-			page,
-		}) => {
+		test(`every design-system primitive ≥ ${MIN_TOUCH_PX}px on ${route.path}`, async ({ page }) => {
 			// L8: /conversations/* now fetches threads from /api/threads. In
 			// e2e the dev API is up but the test DB has no threads, so the
 			// request settles to an empty list — fine. We mock to ensure the
@@ -252,7 +246,7 @@ test.describe("K8 — Touch-target audit at mobile viewport (≤ 1024px)", () =>
 			}
 			await page.goto(route.path);
 			await page.waitForSelector(route.selector);
-			// Let layout settle (fonts, density vars).
+			// Let layout settle (fonts, paint).
 			await page.waitForTimeout(200);
 
 			const offenders = await findUndersizedTargets(page);
@@ -273,40 +267,18 @@ test.describe("K8 — Touch-target audit at mobile viewport (≤ 1024px)", () =>
 		});
 	}
 
-	/**
-	 * @lore K8 — the design-system primitives that K7 actually refreshed do
-	 * read the density cascade and DO reach the 44 px floor when rendered
-	 * inside a `[data-density="comfortable"]` shell at the mobile viewport.
-	 * This narrower test validates the K7-touched primitives in isolation
-	 * via the design-system viewer, proving the K7 token sweep is correct
-	 * and pinning the regression to the chrome-refactor backlog above.
-	 */
-	// L8: the Conversations Submenu no longer contains static NavItem rows
-	// (items array is empty; thread rows render instead). The first NavItem
-	// in the painted DOM is still in the IconRail / KnowledgeSubmenu — but
-	// addressing it specifically requires a different selector. Skip until
-	// the K-track refactor of touch-targets to assert on a route that is
-	// guaranteed to have NavItems independent of L8.
-	test.skip("K7-refreshed NavItem grows with the comfortable density preset", async ({ page }) => {
-		// Use the live app shell at the mobile breakpoint so `useAutoDensity`
-		// picks `comfortable` automatically. Then measure the NavItem button
-		// height in the nav rail (the canonical density consumer).
+	// @lore W2: density preset NavItem test removed. The density system was stripped.
+	// NavItem now uses min-h-[44px] directly to meet AQ-015 without density tokens.
+	test.skip("NavItem meets 44px touch target at mobile viewport (W2: skip, verify via main audit)", async ({
+		page,
+	}) => {
 		await page.goto("/conversations");
 		await page.waitForSelector("[data-testid='conversations-page']");
-		// Verify the shell did resolve to comfortable at the mobile viewport.
-		const density = await page.evaluate(() =>
-			document.querySelector("[data-density]")?.getAttribute("data-density"),
-		);
-		expect(density).toBe("comfortable");
-
 		const navButton = page.locator("[data-ds-component='NavItem'] button").first();
 		await navButton.waitFor({ state: "visible" });
 		const navItemHeight = await navButton.evaluate((el) =>
 			Math.round(el.getBoundingClientRect().height),
 		);
-		// K8: comfortable row-h was raised to 2.75rem (44px) to clear the
-		// AQ-015 floor. NavItem reads `--density-row-h` via `min-height`,
-		// so its painted height must reach the touch-target minimum.
 		expect(navItemHeight).toBeGreaterThanOrEqual(MIN_TOUCH_PX);
 	});
 });

@@ -236,21 +236,9 @@ test.describe("Settings Overlay (P4)", () => {
 		await expect.poll(() => patchCalled, { timeout: 5_000 }).toBe(true);
 	});
 
-	// AC-17: Appearance section applies density immediately
-	test("Appearance section applies density immediately on change", async ({ page }) => {
-		await openSettings(page);
-
-		// Navigate to Appearance
-		await page.getByRole("button", { name: /appearance/i }).click();
-
-		// Change density
-		const densitySelect = page.getByLabel(/density/i);
-		await densitySelect.selectOption("compact");
-
-		// Should be applied immediately (no save button needed)
-		const root = page.locator("[data-density]");
-		await expect(root).toHaveAttribute("data-density", "compact");
-	});
+	// @lore W2: density tests removed. Density system completely stripped in W2.
+	// "Appearance section applies density immediately on change" — deleted.
+	// "density preference persists across page reload" — deleted.
 
 	// AC-17: No save button in Appearance section
 	test("Appearance section has no save button", async ({ page }) => {
@@ -258,22 +246,6 @@ test.describe("Settings Overlay (P4)", () => {
 		await page.getByRole("button", { name: /appearance/i }).click();
 
 		await expect(page.getByRole("button", { name: /save appearance/i })).not.toBeVisible();
-	});
-
-	// AC-26: Density persists across reload
-	test("density preference persists across page reload", async ({ page }) => {
-		await openSettings(page);
-		await page.getByRole("button", { name: /appearance/i }).click();
-
-		await page.getByLabel(/density/i).selectOption("compact");
-
-		// Reload page
-		await page.reload();
-		await page.waitForSelector("[data-testid='main-content']");
-
-		// Density should still be compact
-		const root = page.locator("[data-density]");
-		await expect(root).toHaveAttribute("data-density", "compact");
 	});
 
 	// AC-25: Profile edits persist (not reverted)

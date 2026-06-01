@@ -143,90 +143,9 @@ describe("AppShell", () => {
 	// @lore U6: The Submenu collapse/expand behavior is removed (Submenu deleted).
 	// The Sidebar is always visible. Responsive tests for Submenu collapse are removed.
 
-	describe("density wiring (J1)", () => {
-		// @lore AppShell applies data-density on its root so [data-density="..."] CSS vars cascade.
-		function getDensityRoot(container: HTMLElement): HTMLElement | null {
-			return container.querySelector<HTMLElement>("[data-density]");
-		}
-
-		it("renders a root element carrying data-density", async () => {
-			const { container } = renderShell();
-			await waitFor(() => {
-				expect(screen.getByTestId("main-content")).toBeInTheDocument();
-			});
-			const root = getDensityRoot(container);
-			expect(root).not.toBeNull();
-		});
-
-		it('default data-density is "default" (matches DEFAULT_SETTINGS baseline)', async () => {
-			const { container } = renderShell();
-			await waitFor(() => {
-				expect(screen.getByTestId("main-content")).toBeInTheDocument();
-			});
-			const root = getDensityRoot(container);
-			expect(root?.getAttribute("data-density")).toBe("default");
-		});
-
-		// @lore U6: Settings is opened via the Settings button (aria-label="Settings") in the
-		// Sidebar bottom strip, not via "user profile" button which was in the deleted IconRail.
-		it('changing density to "compact" via SettingsAppearance updates data-density on the shell root', async () => {
-			const user = userEvent.setup();
-			const { container } = renderShell("/conversations");
-
-			// Open settings via the Settings button.
-			await waitFor(() => {
-				expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
-			});
-			await user.click(screen.getByRole("button", { name: /settings/i }));
-
-			// P4: navigate to Appearance section in new settings overlay.
-			await waitFor(() => {
-				expect(screen.getByText("Appearance")).toBeInTheDocument();
-			});
-			// Click the Appearance NavItem in the settings Sidebar
-			await user.click(screen.getByText("Appearance"));
-
-			// Pick Compact density in the SettingsAppearance select
-			await waitFor(() => {
-				expect(screen.getByLabelText("Density")).toBeInTheDocument();
-			});
-			const densitySelect = screen.getByLabelText("Density");
-			await user.selectOptions(densitySelect, "compact");
-
-			// After selecting, the shell root's data-density should reflect the new value.
-			await waitFor(() => {
-				const root = getDensityRoot(container);
-				expect(root?.getAttribute("data-density")).toBe("compact");
-			});
-		});
-
-		it('changing density to "comfortable" via SettingsAppearance updates data-density to comfortable', async () => {
-			const user = userEvent.setup();
-			const { container } = renderShell("/conversations");
-
-			await waitFor(() => {
-				expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
-			});
-			await user.click(screen.getByRole("button", { name: /settings/i }));
-
-			// P4: navigate to Appearance section in new settings overlay.
-			await waitFor(() => {
-				expect(screen.getByText("Appearance")).toBeInTheDocument();
-			});
-			await user.click(screen.getByText("Appearance"));
-
-			await waitFor(() => {
-				expect(screen.getByLabelText("Density")).toBeInTheDocument();
-			});
-			const densitySelect = screen.getByLabelText("Density");
-			await user.selectOptions(densitySelect, "comfortable");
-
-			await waitFor(() => {
-				const root = getDensityRoot(container);
-				expect(root?.getAttribute("data-density")).toBe("comfortable");
-			});
-		});
-	});
+	// @lore W2: density wiring tests removed. The density system was completely
+	// stripped in W2. AppShell no longer sets [data-density] on the root element.
+	// See plans/W2/architecture.md for the full density strip inventory.
 
 	describe("global search navigation by type", () => {
 		// I4 N1: `handleSearchNavigate` must route by result type.

@@ -39,44 +39,33 @@ const PLUGIN_ROOT = resolve(__dirname, "../../../eslint-plugin-design");
 describe("W2 AC-1 — density hook files deleted", () => {
 	it("packages/web/src/hooks/useDensity.ts does not exist", () => {
 		const filePath = resolve(WEB_ROOT, "src/hooks/useDensity.ts");
-		expect(
-			existsSync(filePath),
-			"useDensity.ts must be deleted as part of density strip",
-		).toBe(false);
+		expect(existsSync(filePath), "useDensity.ts must be deleted as part of density strip").toBe(
+			false,
+		);
 	});
 
 	it("packages/web/src/hooks/useAutoDensity.ts does not exist", () => {
 		const filePath = resolve(WEB_ROOT, "src/hooks/useAutoDensity.ts");
-		expect(
-			existsSync(filePath),
-			"useAutoDensity.ts must be deleted as part of density strip",
-		).toBe(false);
+		expect(existsSync(filePath), "useAutoDensity.ts must be deleted as part of density strip").toBe(
+			false,
+		);
 	});
 });
 
 describe("W2 AC-8 — ESLint density rule files deleted", () => {
 	it("packages/eslint-plugin-design/density-allowlist.json does not exist", () => {
 		const filePath = resolve(PLUGIN_ROOT, "density-allowlist.json");
-		expect(
-			existsSync(filePath),
-			"density-allowlist.json must be deleted",
-		).toBe(false);
+		expect(existsSync(filePath), "density-allowlist.json must be deleted").toBe(false);
 	});
 
 	it("packages/eslint-plugin-design/src/rules/use-density-tokens.ts does not exist", () => {
 		const filePath = resolve(PLUGIN_ROOT, "src/rules/use-density-tokens.ts");
-		expect(
-			existsSync(filePath),
-			"use-density-tokens.ts must be deleted",
-		).toBe(false);
+		expect(existsSync(filePath), "use-density-tokens.ts must be deleted").toBe(false);
 	});
 
 	it("packages/eslint-plugin-design/src/rules/no-density-tokens.ts does not exist", () => {
 		const filePath = resolve(PLUGIN_ROOT, "src/rules/no-density-tokens.ts");
-		expect(
-			existsSync(filePath),
-			"no-density-tokens.ts must be deleted",
-		).toBe(false);
+		expect(existsSync(filePath), "no-density-tokens.ts must be deleted").toBe(false);
 	});
 });
 
@@ -112,16 +101,12 @@ describe("W2 AC-1 — density E2E test files deleted", () => {
 // ── AC-1: Density type removed from settings-types.ts ──────────────────────
 
 describe("W2 AC-1 — Density type removed from settings-types.ts", () => {
-	const settingsTypes = readFileSync(
-		resolve(WEB_ROOT, "src/settings/settings-types.ts"),
-		"utf-8",
-	);
+	const settingsTypes = readFileSync(resolve(WEB_ROOT, "src/settings/settings-types.ts"), "utf-8");
 
 	it("settings-types.ts does not export Density type", () => {
-		expect(
-			settingsTypes,
-			"Density type must be removed from settings-types.ts",
-		).not.toContain("export type Density");
+		expect(settingsTypes, "Density type must be removed from settings-types.ts").not.toContain(
+			"export type Density",
+		);
 	});
 
 	it("settings-types.ts does not export ResolvedDensity type", () => {
@@ -133,10 +118,9 @@ describe("W2 AC-1 — Density type removed from settings-types.ts", () => {
 
 	it("AppearanceSettings interface does not have a density field", () => {
 		// After removal, the AppearanceSettings interface only has theme
-		expect(
-			settingsTypes,
-			"AppearanceSettings must not have a density field",
-		).not.toContain("density:");
+		expect(settingsTypes, "AppearanceSettings must not have a density field").not.toContain(
+			"density:",
+		);
 	});
 });
 
@@ -242,10 +226,9 @@ describe("W2 AC-7 — SettingsAppearance has no density UI", () => {
 	);
 
 	it("SettingsAppearance.tsx does not import useDensity", () => {
-		expect(
-			settingsAppearance,
-			"SettingsAppearance must not import useDensity",
-		).not.toContain("useDensity");
+		expect(settingsAppearance, "SettingsAppearance must not import useDensity").not.toContain(
+			"useDensity",
+		);
 	});
 
 	it("SettingsAppearance.tsx does not reference density-select", () => {
@@ -256,16 +239,14 @@ describe("W2 AC-7 — SettingsAppearance has no density UI", () => {
 	});
 
 	it("SettingsAppearance.tsx does not import Density type", () => {
-		expect(
-			settingsAppearance,
-			"SettingsAppearance must not import Density type",
-		).not.toContain("import.*Density");
+		expect(settingsAppearance, "SettingsAppearance must not import Density type").not.toContain(
+			"import.*Density",
+		);
 	});
 
 	it("SettingsAppearance.tsx does not contain DENSITY_OPTIONS constant", () => {
-		expect(
-			settingsAppearance,
-			"SettingsAppearance must not define DENSITY_OPTIONS",
-		).not.toContain("DENSITY_OPTIONS");
+		expect(settingsAppearance, "SettingsAppearance must not define DENSITY_OPTIONS").not.toContain(
+			"DENSITY_OPTIONS",
+		);
 	});
 });
