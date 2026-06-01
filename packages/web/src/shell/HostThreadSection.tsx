@@ -225,17 +225,17 @@ export function HostThreadSection({
 					data-testid="host-thread-section-empty"
 					className="flex flex-col items-start gap-[var(--density-card-gap)] px-[var(--density-pad-x)] py-[var(--density-card-pad)] text-left"
 				>
-					<p className="text-[length:var(--density-text)] font-medium text-[var(--text-hi)] leading-[1.4]">
+					<p className="text-[length:var(--density-text)] font-medium text-[var(--text-primary)] leading-[1.4]">
 						No discussion yet.
 					</p>
-					<p className="text-[12px] text-[var(--text-lo)] leading-[1.4]">
+					<p className="text-[12px] text-[var(--text-tertiary)] leading-[1.4]">
 						Be the first to post in this thread.
 					</p>
 				</div>
 			) : (
-				<div className="flex flex-col gap-2 text-sm text-[var(--text-hi)]">
+				<div className="flex flex-col gap-2 text-sm text-[var(--text-primary)]">
 					{messages.map((msg) => (
-						<div key={msg.id} className="px-3 py-2 rounded bg-[var(--surface-2)]">
+						<div key={msg.id} className="px-3 py-2 rounded bg-[var(--surface-container)]">
 							{messageText(msg)}
 						</div>
 					))}
@@ -246,7 +246,7 @@ export function HostThreadSection({
 			{isFiltering && (
 				<button
 					type="button"
-					className="text-xs text-[var(--text-lo)] underline self-start"
+					className="text-xs text-[var(--text-tertiary)] underline self-start"
 					onClick={() => setShowAll(true)}
 				>
 					Show all messages
@@ -268,7 +268,7 @@ export function HostThreadSection({
 			{prefill && (
 				<div
 					data-testid="host-thread-prefill-chip"
-					className="flex items-center gap-1 px-2 py-1 text-xs bg-[var(--surface-3)] rounded text-[var(--text-lo)]"
+					className="flex items-center gap-1 px-2 py-1 text-xs bg-[var(--surface-elevated)] rounded text-[var(--text-tertiary)]"
 				>
 					<span>Re:</span>
 					<span className="truncate">{prefill.blockExcerpt}</span>
@@ -314,7 +314,7 @@ export function HostThreadSection({
 
 	return (
 		<section aria-label={title} className="flex flex-col gap-3 p-3">
-			<h3 className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-lo)]">
+			<h3 className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
 				{title}
 			</h3>
 			{content}

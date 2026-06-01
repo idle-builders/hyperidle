@@ -23,14 +23,14 @@ export function ReasoningBlockView({
 	const countLabel = `${count} ${count === 1 ? "step" : "steps"}`;
 	const panelId = "reasoning-block-panel";
 	return (
-		<section className="border-b border-[var(--border-subtle)] bg-[var(--surface-ghost)]">
+		<section className="border-b border-[var(--border-subtle)] bg-[var(--surface-container)]">
 			<button
 				type="button"
 				aria-expanded={open}
 				aria-controls={panelId}
 				aria-label={`Reasoning (${countLabel})`}
 				onClick={() => setOpen((p) => !p)}
-				className="flex items-center gap-2 w-full text-left px-3 py-1 text-xs font-mono uppercase tracking-wider text-[var(--text-lo)] hover:text-[var(--text-hi)]"
+				className="flex items-center gap-2 w-full text-left px-3 py-1 text-xs font-mono uppercase tracking-wider text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
 			>
 				<span aria-hidden="true">{open ? "v" : ">"}</span>
 				<span>Reasoning</span>
@@ -42,7 +42,7 @@ export function ReasoningBlockView({
 				<ol
 					id={panelId}
 					aria-label="Reasoning steps"
-					className="list-decimal list-inside px-5 pb-2 text-sm leading-5 text-[var(--text-mid)] flex flex-col gap-1"
+					className="list-decimal list-inside px-5 pb-2 text-sm leading-5 text-[var(--text-secondary)] flex flex-col gap-1"
 				>
 					{steps.map((step, i) => (
 						<li key={`step-${i}-${step.slice(0, 16)}`}>{step}</li>

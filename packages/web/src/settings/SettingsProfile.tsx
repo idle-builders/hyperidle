@@ -77,12 +77,12 @@ export function SettingsProfile(): JSX.Element {
 		<div className="flex flex-col gap-3">
 			<div className="form-control">
 				<label className="label" htmlFor="profile-name">
-					<span className="label-text text-[var(--text-mid)]">Name</span>
+					<span className="label-text text-[var(--text-secondary)]">Name</span>
 				</label>
 				<input
 					id="profile-name"
 					type="text"
-					className="input input-sm input-bordered w-full text-[var(--text-hi)]"
+					className="input input-sm input-bordered w-full text-[var(--text-primary)]"
 					value={name}
 					onChange={(e) => setName(e.target.value)}
 					aria-label="Name"
@@ -91,12 +91,12 @@ export function SettingsProfile(): JSX.Element {
 
 			<div className="form-control">
 				<label className="label" htmlFor="profile-email">
-					<span className="label-text text-[var(--text-mid)]">Email</span>
+					<span className="label-text text-[var(--text-secondary)]">Email</span>
 				</label>
 				<input
 					id="profile-email"
 					type="email"
-					className="input input-sm input-bordered w-full text-[var(--text-hi)]"
+					className="input input-sm input-bordered w-full text-[var(--text-primary)]"
 					value={email}
 					onChange={(e) => setEmail(e.target.value)}
 					aria-label="Email"

@@ -129,7 +129,7 @@ export function ScopeChangeDialog({
 
 				{/* Scope kind select */}
 				<label className="flex flex-col gap-1">
-					<span className="text-xs text-[var(--text-lo)]">New scope</span>
+					<span className="text-xs text-[var(--text-tertiary)]">New scope</span>
 					<select
 						className="select select-bordered select-sm"
 						aria-label="Scope kind"
@@ -151,7 +151,7 @@ export function ScopeChangeDialog({
 				{/* Scope ID — free text for scopes that need an external id. */}
 				{needsScopeId && (
 					<label className="flex flex-col gap-1">
-						<span className="text-xs text-[var(--text-lo)]">Scope ID</span>
+						<span className="text-xs text-[var(--text-tertiary)]">Scope ID</span>
 						<input
 							type="text"
 							className="input input-bordered input-sm text-base w-full"
@@ -165,7 +165,7 @@ export function ScopeChangeDialog({
 
 				{/* Reason — required */}
 				<label className="flex flex-col gap-1">
-					<span className="text-xs text-[var(--text-lo)]">
+					<span className="text-xs text-[var(--text-tertiary)]">
 						Reason <span aria-hidden>(required)</span>
 					</span>
 					<textarea

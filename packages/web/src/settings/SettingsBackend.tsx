@@ -25,10 +25,10 @@ export function SettingsBackend(): JSX.Element {
 	if (!electron) {
 		return (
 			<div className="flex flex-col gap-3">
-				<p className="text-sm text-[var(--text-mid)]">
+				<p className="text-sm text-[var(--text-secondary)]">
 					Backend mode can only be changed in the desktop app.
 				</p>
-				<p className="text-xs text-[var(--text-lo)]">
+				<p className="text-xs text-[var(--text-tertiary)]">
 					The web version always connects to the embedded local server.
 				</p>
 			</div>
@@ -50,11 +50,11 @@ export function SettingsBackend(): JSX.Element {
 	return (
 		<div className="flex flex-col gap-3">
 			<div className="flex items-center gap-3">
-				<span className="text-sm text-[var(--text-mid)]">Current mode</span>
+				<span className="text-sm text-[var(--text-secondary)]">Current mode</span>
 				<span className="badge badge-sm badge-ghost font-mono">{modeLabel}</span>
 			</div>
 
-			<p className="text-sm text-[var(--text-mid)]">{modeDescription}</p>
+			<p className="text-sm text-[var(--text-secondary)]">{modeDescription}</p>
 
 			<div className="flex items-center gap-3">
 				<button
@@ -67,7 +67,7 @@ export function SettingsBackend(): JSX.Element {
 				</button>
 			</div>
 
-			<p className="text-xs text-[var(--text-lo)]">Switching requires a restart.</p>
+			<p className="text-xs text-[var(--text-tertiary)]">Switching requires a restart.</p>
 		</div>
 	);
 }

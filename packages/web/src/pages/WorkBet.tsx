@@ -126,7 +126,10 @@ function AnchoredMessages({
 	return (
 		<div data-testid="anchored-messages" className="flex flex-col gap-1 mt-1">
 			{anchorLost && (
-				<span data-testid="anchor-lost-indicator" className="text-xs text-[var(--text-lo)] italic">
+				<span
+					data-testid="anchor-lost-indicator"
+					className="text-xs text-[var(--text-tertiary)] italic"
+				>
 					anchor lost
 				</span>
 			)}
@@ -136,7 +139,7 @@ function AnchoredMessages({
 				return (
 					<div
 						key={msg.id}
-						className="text-xs text-[var(--text-lo)] px-2 py-1 bg-[var(--surface-2)] rounded"
+						className="text-xs text-[var(--text-tertiary)] px-2 py-1 bg-[var(--surface-container)] rounded"
 					>
 						{text}
 					</div>
@@ -407,7 +410,7 @@ function ConsequencePreviewDialog({
 			<div className="p-4 flex flex-col gap-3 min-w-[320px] max-w-[480px]">
 				<h2 className="text-sm font-heading font-semibold uppercase tracking-wider">{title}</h2>
 
-				<div className="text-xs text-[var(--text-lo)] space-y-1">
+				<div className="text-xs text-[var(--text-tertiary)] space-y-1">
 					{isKill ? (
 						<>
 							<p>
@@ -415,12 +418,12 @@ function ConsequencePreviewDialog({
 								halted.
 							</p>
 							<p>
-								<span className="font-semibold text-[var(--text-hi)]">CONTINUES:</span> Existing
-								artifacts are preserved.
+								<span className="font-semibold text-[var(--text-primary)]">CONTINUES:</span>{" "}
+								Existing artifacts are preserved.
 							</p>
 							<p>
-								<span className="font-semibold text-[var(--text-hi)]">SAVED:</span> Team capacity is
-								freed immediately.
+								<span className="font-semibold text-[var(--text-primary)]">SAVED:</span> Team
+								capacity is freed immediately.
 							</p>
 						</>
 					) : (
@@ -430,20 +433,20 @@ function ConsequencePreviewDialog({
 								suspended. No new tasks will start.
 							</p>
 							<p>
-								<span className="font-semibold text-[var(--text-hi)]">CONTINUES:</span> The bet
+								<span className="font-semibold text-[var(--text-primary)]">CONTINUES:</span> The bet
 								remains in your portfolio.
 							</p>
 							<p>
-								<span className="font-semibold text-[var(--text-hi)]">SAVED:</span> All completed
-								tasks and artifacts are unaffected. The bet, its tasks, and revision log are
-								preserved in full.
+								<span className="font-semibold text-[var(--text-primary)]">SAVED:</span> All
+								completed tasks and artifacts are unaffected. The bet, its tasks, and revision log
+								are preserved in full.
 							</p>
 						</>
 					)}
 				</div>
 
 				<label className="flex flex-col gap-1">
-					<span className="text-xs text-[var(--text-lo)]">
+					<span className="text-xs text-[var(--text-tertiary)]">
 						Reason <span aria-hidden>(required)</span>
 					</span>
 					<textarea
@@ -575,7 +578,7 @@ function AppetiteDialog({
 				</h2>
 
 				<label className="flex flex-col gap-1">
-					<span className="text-xs text-[var(--text-lo)]">New appetite</span>
+					<span className="text-xs text-[var(--text-tertiary)]">New appetite</span>
 					<select
 						className="select select-bordered select-sm"
 						value={selected}
@@ -591,7 +594,7 @@ function AppetiteDialog({
 				</label>
 
 				<label className="flex flex-col gap-1">
-					<span className="text-xs text-[var(--text-lo)]">
+					<span className="text-xs text-[var(--text-tertiary)]">
 						Reason <span aria-hidden>(required)</span>
 					</span>
 					<textarea
@@ -926,21 +929,21 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 			{/* J5: breadcrumb Team → Bet. The leaf node uses the
 			    bet id rather than the title so the enriched BetCard below
 			    remains the single rendered instance of `bet.title`. */}
-			<nav aria-label="Breadcrumb" className="text-xs text-[var(--text-lo)]">
+			<nav aria-label="Breadcrumb" className="text-xs text-[var(--text-tertiary)]">
 				<ol className="flex items-center gap-1">
 					<li>
-						<Link className="hover:text-[var(--text-hi)]" to="/work/portfolio">
+						<Link className="hover:text-[var(--text-primary)]" to="/work/portfolio">
 							{bet.team}
 						</Link>
 					</li>
 					<li aria-hidden>›</li>
 					<li>
-						<Link className="hover:text-[var(--text-hi)]" to="/work/team">
+						<Link className="hover:text-[var(--text-primary)]" to="/work/team">
 							{bet.team}
 						</Link>
 					</li>
 					<li aria-hidden>›</li>
-					<li className="text-[var(--text-hi)] font-medium" aria-current="page">
+					<li className="text-[var(--text-primary)] font-medium" aria-current="page">
 						<span className="uppercase font-mono">{bet.id}</span>
 						<span className="sr-only">: {bet.title}</span>
 					</li>
@@ -966,15 +969,15 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 				<div
 					role="status"
 					data-testid={hintAddCredential.testId}
-					className="rounded-[var(--r1)] bg-[var(--surface-2)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)]"
+					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)]"
 				>
-					<p className="text-[length:var(--density-text)] text-[var(--text-mid)] leading-[var(--leading-body)]">
+					<p className="text-[length:var(--density-text)] text-[var(--text-secondary)] leading-[var(--leading-body)]">
 						{hintAddCredential.copy}
 					</p>
 					<div className="flex gap-2">
 						<button
 							type="button"
-							className="btn btn-ghost btn-xs text-[var(--text-lo)] min-h-[44px]"
+							className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
 							onClick={hintAddCredential.dismiss}
 						>
 							Got it
@@ -1023,9 +1026,9 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 				<section
 					aria-label="Bet cost"
 					data-testid="bet-cost-section"
-					className="rounded-[var(--r1)] bg-[var(--surface-2)] p-[var(--density-card-pad)]"
+					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[var(--density-card-pad)]"
 				>
-					<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)] mb-2">
+					<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
 						Cost
 					</h2>
 					<div className="flex flex-col gap-1">
@@ -1058,13 +1061,15 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 						minHeight="200px"
 					/>
 					<span
-						className="text-xs text-[var(--text-lo)]"
+						className="text-xs text-[var(--text-tertiary)]"
 						aria-live="polite"
 						data-testid="bet-save-indicator"
 					>
 						{saveStatus === "saving" && "Saving..."}
 						{saveStatus === "saved" && "Saved"}
-						{saveStatus === "error" && <span className="text-[var(--danger)]">Save failed</span>}
+						{saveStatus === "error" && (
+							<span className="text-[var(--status-error)]">Save failed</span>
+						)}
 					</span>
 				</div>
 			) : (
@@ -1111,7 +1116,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 				/>
 			)}
 
-			<h2 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)]">
+			<h2 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
 				Tasks
 			</h2>
 
@@ -1164,7 +1169,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 								/>
 								{/* L19: Session column — non-sortable, contains jump-out link */}
 								<th scope="col">
-									<span className="uppercase font-heading text-xs tracking-wider text-[var(--text-lo)]">
+									<span className="uppercase font-heading text-xs tracking-wider text-[var(--text-tertiary)]">
 										Session
 									</span>
 								</th>
@@ -1178,7 +1183,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 								<tr
 									key={task.id}
 									data-testid="bet-task-row"
-									className="cursor-pointer hover:bg-[var(--surface-2)]"
+									className="cursor-pointer hover:bg-[var(--surface-container)]"
 									onClick={() => setSelectedTaskId(task.id)}
 									onKeyDown={(e) => {
 										if (e.key === "Enter" || e.key === " ") {
@@ -1208,7 +1213,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 												href={task.latestSessionHarnessUrl}
 												target="_blank"
 												rel="noopener noreferrer"
-												className="font-mono text-xs text-[var(--primary)] hover:underline"
+												className="font-mono text-xs text-[var(--accent-primary)] hover:underline"
 												aria-label="Open session in harness (opens in new tab)"
 												onClick={(e) => e.stopPropagation()}
 											>
@@ -1286,7 +1291,7 @@ function SortableHeader({
 		<th aria-sort={ariaSort} scope="col">
 			<button
 				type="button"
-				className="flex items-center gap-1 uppercase font-heading text-xs tracking-wider text-[var(--text-lo)] hover:text-[var(--text-hi)]"
+				className="flex items-center gap-1 uppercase font-heading text-xs tracking-wider text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
 				onClick={() => onSort(column)}
 			>
 				<span>{label}</span>

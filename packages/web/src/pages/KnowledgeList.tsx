@@ -298,19 +298,13 @@ export function KnowledgeList({
 	return (
 		<div className="flex flex-col gap-3 h-full" data-testid="knowledge-list-page">
 			<div className="flex items-center justify-between">
-				<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)]">
+				<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
 					Knowledge Base
 				</h1>
 				<div className="flex items-center gap-2">
-					<span
-						className="badge badge-sm badge-ghost font-mono"
-						data-testid="knowledge-scope-indicator"
-					>
-						{scope}
-					</span>
 					<button
 						type="button"
-						className="btn btn-xs btn-ghost"
+						className="btn btn-xs btn-primary"
 						onClick={() => setCreateDialogOpen(true)}
 					>
 						+ New
@@ -325,6 +319,59 @@ export function KnowledgeList({
 				onCreated={handleCreated}
 			/>
 
+			{/*
+			 * @lore U9 AC-6: Scope pill filter bar above Triage/Curated tabs.
+			 * "All" shows everything. Practices/Products/Factory match the sidebar
+			 * KNOWLEDGE_SCOPE_ITEMS. Active pill uses btn-primary.
+			 */}
+			<div
+				className="flex items-center gap-1 flex-wrap"
+				data-testid="knowledge-scope-pills"
+				role="group"
+				aria-label="Filter by scope"
+			>
+				{(
+					[
+						{ id: "all", label: "All", scopeValue: null },
+						{ id: "practices", label: "Practices", scopeValue: "practice" },
+						{ id: "products", label: "Products", scopeValue: "product" },
+						{ id: "factory", label: "Factory", scopeValue: "factory" },
+					] as const
+				).map((pill) => {
+					// "All" is active when no scope param is set
+					// Others match the URL scope param value
+					const rawScope = searchParams.get("scope");
+					const isActive = pill.id === "all" ? !rawScope : rawScope === pill.scopeValue;
+					return (
+						<button
+							key={pill.id}
+							type="button"
+							data-testid={`scope-pill-${pill.id}`}
+							className={`btn btn-xs ${isActive ? "btn-primary" : "btn-ghost"}`}
+							onClick={() => {
+								const next = new URLSearchParams(searchParams);
+								if (pill.id === "all" || pill.scopeValue === null) {
+									next.delete("scope");
+								} else {
+									next.set("scope", pill.scopeValue);
+								}
+								setSearchParams(next, { replace: true });
+							}}
+						>
+							{pill.label}
+						</button>
+					);
+				})}
+			</div>
+
+			{/*
+			 * @lore U9/J6: hidden machine-readable scope indicator preserved for
+			 * J6 test backward-compat. Visual scope is shown by the active pill above.
+			 */}
+			<span data-testid="knowledge-scope-indicator" className="sr-only">
+				{scope}
+			</span>
+
 			<div
 				role="tablist"
 				aria-label="Knowledge view"
@@ -335,7 +382,7 @@ export function KnowledgeList({
 					type="button"
 					role="tab"
 					aria-selected={tab === "triage"}
-					className={tab === "triage" ? "btn btn-xs btn-neutral" : "btn btn-xs btn-ghost"}
+					className={tab === "triage" ? "btn btn-xs btn-primary" : "btn btn-xs btn-ghost"}
 					onClick={() => setTab("triage")}
 				>
 					Triage
@@ -344,7 +391,7 @@ export function KnowledgeList({
 					type="button"
 					role="tab"
 					aria-selected={tab === "curated"}
-					className={tab === "curated" ? "btn btn-xs btn-neutral" : "btn btn-xs btn-ghost"}
+					className={tab === "curated" ? "btn btn-xs btn-primary" : "btn btn-xs btn-ghost"}
 					onClick={() => setTab("curated")}
 				>
 					Curated
@@ -371,7 +418,7 @@ export function KnowledgeList({
 									onClick={() => handleSortChange(option)}
 									className={
 										isActive
-											? "btn btn-xs btn-neutral capitalize"
+											? "btn btn-xs btn-primary capitalize"
 											: "btn btn-xs btn-ghost capitalize"
 									}
 								>
@@ -415,7 +462,7 @@ export function KnowledgeList({
 										    which would cause getByText('Private') to resolve to 2 elements. */}
 										{isPrivate && (
 											<span
-												className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r2)] text-[12px] bg-[var(--surface-ghost)] text-[var(--text-mid)] whitespace-nowrap"
+												className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-subtle)] text-[12px] bg-[var(--surface-container)] text-[var(--text-secondary)] whitespace-nowrap"
 												aria-label="Private — only visible to you"
 												data-testid="private-badge"
 											>
@@ -449,15 +496,15 @@ export function KnowledgeList({
 								<div
 									role="status"
 									data-testid={hintKnowledgeEmpty.testId}
-									className="rounded-[var(--r1)] bg-[var(--surface-2)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)] mt-2"
+									className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)] mt-2"
 								>
-									<p className="text-[length:var(--density-text)] text-[var(--text-mid)] leading-[var(--leading-body)]">
+									<p className="text-[length:var(--density-text)] text-[var(--text-secondary)] leading-[var(--leading-body)]">
 										{hintKnowledgeEmpty.copy}
 									</p>
 									<div className="flex gap-2">
 										<button
 											type="button"
-											className="btn btn-ghost btn-xs text-[var(--text-lo)] min-h-[44px]"
+											className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
 											onClick={hintKnowledgeEmpty.dismiss}
 										>
 											Got it
@@ -489,7 +536,7 @@ export function KnowledgeList({
 											/>
 											{isPrivate && (
 												<span
-													className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r2)] text-[12px] bg-[var(--surface-ghost)] text-[var(--text-mid)] whitespace-nowrap"
+													className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-subtle)] text-[12px] bg-[var(--surface-container)] text-[var(--text-secondary)] whitespace-nowrap"
 													aria-label="Private — only visible to you"
 													data-testid="private-badge"
 												>

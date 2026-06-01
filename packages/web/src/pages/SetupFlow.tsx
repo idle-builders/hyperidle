@@ -104,7 +104,7 @@ export function SetupFlow(): JSX.Element {
 	return (
 		<div className="flex items-start justify-center min-h-screen bg-[var(--surface-0)]">
 			<div className="w-full max-w-md py-16 px-[var(--density-page-gutter)]">
-				<h1 className="text-[length:var(--density-text-h1)] font-medium text-[var(--text-hi)] mb-8">
+				<h1 className="text-[length:var(--density-text-h1)] font-medium text-[var(--text-primary)] mb-8">
 					HyperIdle Setup
 				</h1>
 
@@ -112,12 +112,12 @@ export function SetupFlow(): JSX.Element {
 					{/* Name field */}
 					<div className="form-control">
 						<label className="label" htmlFor="setup-name">
-							<span className="label-text text-[var(--text-mid)]">Name</span>
+							<span className="label-text text-[var(--text-secondary)]">Name</span>
 						</label>
 						<input
 							id="setup-name"
 							type="text"
-							className="input input-sm input-bordered w-full text-[var(--text-hi)]"
+							className="input input-sm input-bordered w-full text-[var(--text-primary)]"
 							placeholder="Your name"
 							value={name}
 							onChange={(e) => setName(e.target.value)}
@@ -130,30 +130,34 @@ export function SetupFlow(): JSX.Element {
 					{/* Anthropic API Key field */}
 					<div className="form-control">
 						<label className="label" htmlFor="setup-api-key">
-							<span className="label-text text-[var(--text-mid)]">Anthropic API Key</span>
+							<span className="label-text text-[var(--text-secondary)]">Anthropic API Key</span>
 						</label>
 						<input
 							id="setup-api-key"
 							type="password"
-							className="input input-sm input-bordered w-full text-[var(--text-hi)]"
+							className="input input-sm input-bordered w-full text-[var(--text-primary)]"
 							placeholder="sk-ant-..."
 							value={apiKey}
 							onChange={(e) => setApiKey(e.target.value)}
 						/>
-						<p className="text-sm text-[var(--text-lo)] mt-2">Your agents need this to work.</p>
+						<p className="text-sm text-[var(--text-tertiary)] mt-2">
+							Your agents need this to work.
+						</p>
 					</div>
 
 					{/* Repo path (optional) */}
 					<div className="form-control">
 						<label className="label" htmlFor="setup-repo">
-							<span className="label-text text-[var(--text-mid)]">Project folder (optional)</span>
+							<span className="label-text text-[var(--text-secondary)]">
+								Project folder (optional)
+							</span>
 						</label>
 						<div className="relative">
 							{window.__HYPERIDLE__?.shell?.selectFolder && (
 								<button
 									type="button"
 									aria-label="Browse for folder"
-									className="absolute inset-y-0 left-0 flex items-center pl-2 text-[var(--text-lo)] hover:text-[var(--text-mid)] cursor-pointer"
+									className="absolute inset-y-0 left-0 flex items-center pl-2 text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] cursor-pointer"
 									onClick={handleFolderPick}
 								>
 									<svg
@@ -175,7 +179,7 @@ export function SetupFlow(): JSX.Element {
 							<input
 								id="setup-repo"
 								type="text"
-								className={`input input-sm input-bordered w-full text-[var(--text-hi)]${window.__HYPERIDLE__?.shell?.selectFolder ? " pl-7" : ""}`}
+								className={`input input-sm input-bordered w-full text-[var(--text-primary)]${window.__HYPERIDLE__?.shell?.selectFolder ? " pl-7" : ""}`}
 								placeholder="/Users/you/projects/my-app"
 								value={repoPath}
 								onChange={(e) => setRepoPath(e.target.value)}

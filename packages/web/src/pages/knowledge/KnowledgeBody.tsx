@@ -69,7 +69,10 @@ function AnchoredMessages({
 	return (
 		<div data-testid="anchored-messages" className="flex flex-col gap-1 mt-1">
 			{anchorLost && (
-				<span data-testid="anchor-lost-indicator" className="text-xs text-[var(--text-lo)] italic">
+				<span
+					data-testid="anchor-lost-indicator"
+					className="text-xs text-[var(--text-tertiary)] italic"
+				>
 					anchor lost
 				</span>
 			)}
@@ -79,7 +82,7 @@ function AnchoredMessages({
 				return (
 					<div
 						key={msg.id}
-						className="text-xs text-[var(--text-lo)] px-2 py-1 bg-[var(--surface-2)] rounded"
+						className="text-xs text-[var(--text-tertiary)] px-2 py-1 bg-[var(--surface-container)] rounded"
 					>
 						{text}
 					</div>
@@ -120,6 +123,9 @@ export function KnowledgeBody({
 
 	return (
 		<div data-knowledge-body data-testid={testId} className="flex flex-col">
+			{/* @lore U9: --text-lo NOT migrated to --text-tertiary here because
+			 * KnowledgeBody.test.tsx is a protected test asserting text-[var(--text-lo)].
+			 * Protected tests take precedence over the token migration map. */}
 			{blocks.length === 0 ? (
 				<p className="text-[var(--text-lo)] text-sm m-0">(no content yet)</p>
 			) : (

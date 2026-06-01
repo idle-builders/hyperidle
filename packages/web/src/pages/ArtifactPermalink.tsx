@@ -15,7 +15,7 @@ export function ArtifactPermalink(): JSX.Element {
 	const { data, error, isLoading } = useArtifact(id);
 
 	if (isLoading) {
-		return <div className="p-3 text-[var(--text-mid)]">Loading…</div>;
+		return <div className="p-3 text-[var(--text-secondary)]">Loading…</div>;
 	}
 	if (error || !data) {
 		if (error?.includes("404")) {

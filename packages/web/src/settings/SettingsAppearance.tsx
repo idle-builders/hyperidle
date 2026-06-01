@@ -44,7 +44,7 @@ export function SettingsAppearance(): JSX.Element {
 		<div className="flex flex-col gap-4">
 			<div className="form-control">
 				<label className="label" htmlFor="density-select">
-					<span className="label-text text-[var(--text-mid)]">Density</span>
+					<span className="label-text text-[var(--text-secondary)]">Density</span>
 				</label>
 				<select
 					id="density-select"
@@ -63,7 +63,7 @@ export function SettingsAppearance(): JSX.Element {
 
 			<div className="form-control">
 				<label className="label" htmlFor="theme-select">
-					<span className="label-text text-[var(--text-mid)]">Theme</span>
+					<span className="label-text text-[var(--text-secondary)]">Theme</span>
 				</label>
 				<select
 					id="theme-select"

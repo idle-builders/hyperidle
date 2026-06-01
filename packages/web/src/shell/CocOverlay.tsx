@@ -73,13 +73,15 @@ function ContextChip({
 	onRemove: (i: number) => void;
 }): JSX.Element {
 	return (
-		<span className="inline-flex items-center gap-1 rounded-[var(--r1)] border border-[var(--border-subtle)] bg-[var(--surface-3)] px-2 py-0.5 text-xs text-[var(--text-mid)]">
-			<span className="font-mono text-[var(--text-lo)] uppercase text-[10px]">{cocRef.kind}</span>
+		<span className="inline-flex items-center gap-1 rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-2 py-0.5 text-xs text-[var(--text-secondary)]">
+			<span className="font-mono text-[var(--text-tertiary)] uppercase text-[10px]">
+				{cocRef.kind}
+			</span>
 			<span className="max-w-[120px] truncate">{cocRef.label}</span>
 			<button
 				type="button"
 				aria-label={`Remove ${cocRef.label}`}
-				className="ml-1 text-[var(--text-lo)] hover:text-[var(--text-hi)]"
+				className="ml-1 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
 				onClick={() => onRemove(index)}
 			>
 				×
@@ -89,11 +91,9 @@ function ContextChip({
 }
 
 function CocOverlayInner({
-	onClose,
 	contextRefs,
 	onRemoveContextRef,
 }: {
-	onClose: () => void;
 	contextRefs: ReadonlyArray<CocContextRef>;
 	onRemoveContextRef: (index: number) => void;
 }): JSX.Element {
@@ -141,7 +141,7 @@ function CocOverlayInner({
 	if (status === "loading" || (!data && status !== "error")) {
 		return (
 			<div className="flex flex-1 items-center justify-center p-4">
-				<span className="loading loading-spinner loading-sm text-[var(--text-lo)]" />
+				<span className="loading loading-spinner loading-sm text-[var(--text-tertiary)]" />
 			</div>
 		);
 	}
@@ -149,7 +149,9 @@ function CocOverlayInner({
 	if (status === "error" || !data) {
 		return (
 			<div className="flex flex-1 flex-col items-center justify-center gap-2 p-4">
-				<p className="text-sm text-[var(--text-mid)]">{error ?? "Failed to load coach thread"}</p>
+				<p className="text-sm text-[var(--text-secondary)]">
+					{error ?? "Failed to load coach thread"}
+				</p>
 				<button type="button" className="btn btn-xs btn-ghost" onClick={retry}>
 					Retry
 				</button>
@@ -256,7 +258,7 @@ export function CocOverlay({
 				"w-[360px] min-h-[200px] max-h-[70vh]",
 				// Surface + border + shadow per design spec.
 				"flex flex-col overflow-hidden",
-				"rounded-[var(--r2)] border border-[var(--border-default)] bg-[var(--surface-2)]",
+				"rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-[var(--surface-container)]",
 				"shadow-[var(--float)]",
 				// z-index: above Main (z-0), below Settings (z-40).
 				"z-30",
@@ -268,11 +270,7 @@ export function CocOverlay({
 			<h2 className="sr-only" id="coc-overlay-title">
 				Chief of Staff
 			</h2>
-			<CocOverlayInner
-				onClose={onClose}
-				contextRefs={contextRefs}
-				onRemoveContextRef={onRemoveContextRef}
-			/>
+			<CocOverlayInner contextRefs={contextRefs} onRemoveContextRef={onRemoveContextRef} />
 		</div>
 	);
 }

@@ -70,16 +70,16 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 			return (
 				<div
 					role="alert"
-					className="flex flex-col items-start gap-2 p-3 rounded-lg bg-base-200"
+					className="flex flex-col items-start gap-2 p-3 rounded-lg bg-[var(--surface-container)]"
 					data-testid="error-boundary-fallback"
 				>
 					<h2 className="text-sm font-semibold text-error">Something went wrong</h2>
-					<p className="text-xs text-[var(--text-mid)]">
+					<p className="text-xs text-[var(--text-secondary)]">
 						An unexpected error occurred. Please reload the page.
 					</p>
 					{isDev && (
 						<p
-							className="text-xs text-[var(--text-lo)] font-mono break-all"
+							className="text-xs text-[var(--text-tertiary)] font-mono break-all"
 							data-testid="error-boundary-dev-message"
 						>
 							{error.message}

@@ -11,7 +11,7 @@
  *
  * RED PHASE: these tests are written before implementation.
  */
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -130,7 +130,7 @@ describe("U9 AC-2: WorkPortfolio bet grid", () => {
 		expect(screen.queryByTestId("team-card")).not.toBeInTheDocument();
 	});
 
-	it('does NOT render Canvas component', () => {
+	it("does NOT render Canvas component", () => {
 		renderPage();
 		// Canvas had data-testid="canvas-board"
 		expect(screen.queryByTestId("canvas-board")).not.toBeInTheDocument();
@@ -152,8 +152,14 @@ describe("U9 AC-3: WorkPortfolio team pill filters", () => {
 
 	it("renders one pill per team", () => {
 		renderPage();
-		expect(screen.getByRole("button", { name: /alpha team/i })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /beta team/i })).toBeInTheDocument();
+		// Find pills within the team-pill-filters group specifically
+		const pillBar = screen.getByTestId("team-pill-filters");
+		expect(pillBar.querySelector('[class*="btn"]')).not.toBeNull();
+		// Check for team names in the pill bar buttons (not BetCard)
+		const buttons = Array.from(pillBar.querySelectorAll("button"));
+		const names = buttons.map((b) => b.textContent);
+		expect(names.some((n) => /alpha team/i.test(n ?? ""))).toBe(true);
+		expect(names.some((n) => /beta team/i.test(n ?? ""))).toBe(true);
 	});
 
 	it('"All teams" pill uses btn-primary when active (default state)', () => {
@@ -164,8 +170,11 @@ describe("U9 AC-3: WorkPortfolio team pill filters", () => {
 
 	it("team pills use btn-ghost when inactive", () => {
 		renderPage();
-		const alphaTeamBtn = screen.getByRole("button", { name: /alpha team/i });
-		expect(alphaTeamBtn.className).toContain("btn-ghost");
+		const pillBar = screen.getByTestId("team-pill-filters");
+		const buttons = Array.from(pillBar.querySelectorAll("button"));
+		const alphaTeamBtn = buttons.find((b) => /alpha team/i.test(b.textContent ?? ""));
+		expect(alphaTeamBtn).toBeDefined();
+		expect(alphaTeamBtn?.className).toContain("btn-ghost");
 	});
 
 	it("clicking a team pill filters bets by that team", async () => {
@@ -177,8 +186,14 @@ describe("U9 AC-3: WorkPortfolio team pill filters", () => {
 		expect(screen.getByText("Bet Two")).toBeInTheDocument();
 		expect(screen.getByText("Bet Three")).toBeInTheDocument();
 
-		// Click "Alpha Team" pill
-		await user.click(screen.getByRole("button", { name: /alpha team/i }));
+		// Click "Alpha Team" pill — use the pill bar to disambiguate from BetCard
+		const pillBar = screen.getByTestId("team-pill-filters");
+		const alphaBtn = Array.from(pillBar.querySelectorAll("button")).find((b) =>
+			/alpha team/i.test(b.textContent ?? ""),
+		);
+		expect(alphaBtn).toBeDefined();
+		if (!alphaBtn) throw new Error("alphaBtn not found");
+		await user.click(alphaBtn);
 
 		// Now only Alpha Team bets (bet-1, bet-3) visible; bet-2 (team-2) hidden
 		await waitFor(() => {
@@ -192,10 +207,17 @@ describe("U9 AC-3: WorkPortfolio team pill filters", () => {
 		const user = userEvent.setup();
 		renderPage();
 
+		const pillBar = screen.getByTestId("team-pill-filters");
+		const alphaBtn = Array.from(pillBar.querySelectorAll("button")).find((b) =>
+			/alpha team/i.test(b.textContent ?? ""),
+		);
+		if (!alphaBtn) throw new Error("alphaBtn not found");
+		const allTeamsBtn = screen.getByRole("button", { name: /all teams/i });
+
 		// Click "Alpha Team" to filter
-		await user.click(screen.getByRole("button", { name: /alpha team/i }));
+		await user.click(alphaBtn);
 		// Click "All teams" to deselect
-		await user.click(screen.getByRole("button", { name: /all teams/i }));
+		await user.click(allTeamsBtn);
 
 		await waitFor(() => {
 			expect(screen.getByText("Bet Two")).toBeInTheDocument();
@@ -206,11 +228,19 @@ describe("U9 AC-3: WorkPortfolio team pill filters", () => {
 		const user = userEvent.setup();
 		renderPage();
 
-		await user.click(screen.getByRole("button", { name: /alpha team/i }));
+		const pillBar = screen.getByTestId("team-pill-filters");
+		const alphaBtn = Array.from(pillBar.querySelectorAll("button")).find((b) =>
+			/alpha team/i.test(b.textContent ?? ""),
+		);
+		if (!alphaBtn) throw new Error("alphaBtn not found");
+		await user.click(alphaBtn);
 
 		await waitFor(() => {
-			const alphaBtn = screen.getByRole("button", { name: /alpha team/i });
-			expect(alphaBtn.className).toContain("btn-primary");
+			const updatedPillBar = screen.getByTestId("team-pill-filters");
+			const updatedAlphaBtn = Array.from(updatedPillBar.querySelectorAll("button")).find((b) =>
+				/alpha team/i.test(b.textContent ?? ""),
+			);
+			expect(updatedAlphaBtn?.className).toContain("btn-primary");
 		});
 	});
 });
