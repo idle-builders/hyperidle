@@ -587,17 +587,20 @@ describe("W1 — Foundation primitive data attributes", () => {
 	 * Architecture plan: "All components carry: data-component, data-tier,
 	 * data-uses, data-daisyui, data-used-by."
 	 *
-	 * We check the minimum required: data-component and data-tier.
+	 * W2 review C1: Foundation primitives (Tier 0) use data-ds-component
+	 * (the canonical marker for the visual regression gate). Rewritten
+	 * components (Tier 1-2) retain data-component as their legacy attribute.
+	 * We check the minimum required: data-ds-component (primitives) and data-tier.
 	 */
 
-	it("each foundation primitive includes data-component attribute", () => {
+	it("each foundation primitive includes data-ds-component attribute", () => {
 		const failures: string[] = [];
 		for (const file of FOUNDATION_PRIMITIVES) {
 			const path = resolve(HTML_DIR, file);
 			if (!existsSync(path)) continue;
 			const html = readHtml(path);
-			if (!html.includes("data-component")) {
-				failures.push(`${file}: missing data-component attribute`);
+			if (!html.includes("data-ds-component")) {
+				failures.push(`${file}: missing data-ds-component attribute`);
 			}
 		}
 		expect(failures, failures.join("\n")).toEqual([]);

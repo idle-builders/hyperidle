@@ -223,7 +223,7 @@ export function HostThreadSection({
 			{messages.length === 0 ? (
 				<div
 					data-testid="host-thread-section-empty"
-					className="flex flex-col items-start gap-[6px] px-[12px] py-[18px] text-left"
+					className="flex flex-col items-start gap-[6px] px-[12px] py-[12px] text-left"
 				>
 					<p className="text-[15px] font-medium text-[var(--text-primary)] leading-[1.4]">
 						No discussion yet.

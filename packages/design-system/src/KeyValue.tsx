@@ -20,10 +20,7 @@ export function KeyValue({ label, value, layout = "inline" }: KeyValueProps): JS
 			<span className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]">
 				{label}
 			</span>
-			{/* @lore J1→px-fix: text-[14px] replaces text-sm so the fallback font-size is correct
-			    under 14px-base viewers. text-[15px] still wins at runtime
-			    for density-aware sizing. Tests updated to assert text-[14px]. */}
-			<span className="text-[14px] text-[15px] text-[var(--text-primary)]">{value}</span>
+			<span className="text-[15px] text-[var(--text-primary)]">{value}</span>
 		</div>
 	);
 }

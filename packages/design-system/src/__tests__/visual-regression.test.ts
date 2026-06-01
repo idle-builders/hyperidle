@@ -138,6 +138,15 @@ const INTERACTIVE_COMPONENTS: Record<
 	NotificationRow: { htmlSelector: "div > div", tsxSelector: "div > div", sectionIndex: 0 },
 	// W2: Button is the primary form primitive with interactive states
 	Button: { htmlSelector: "button", tsxSelector: "button", sectionIndex: 0 },
+	// W2 review D2: remaining Tier 0 form primitives with interactive states
+	Input: { htmlSelector: "input", tsxSelector: "input", sectionIndex: 0 },
+	Select: { htmlSelector: "select", tsxSelector: "select", sectionIndex: 0 },
+	Toggle: { htmlSelector: ".toggle", tsxSelector: "[data-ds-component='Toggle']", sectionIndex: 0 },
+	Checkbox: {
+		htmlSelector: ".checkbox",
+		tsxSelector: "[data-ds-component='Checkbox']",
+		sectionIndex: 0,
+	},
 };
 
 /** Normalise a section title for matching: lowercase, strip non-alnum. */

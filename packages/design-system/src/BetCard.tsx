@@ -54,15 +54,6 @@ export function BetCard({
 	return (
 		<div
 			{...dsProps("BetCard", "2")}
-			/*
-			 * @lore K11: outer pad → --density-card-pad, section gap →
-			 * --density-card-gap, inner-row gap → --density-gap, title font →
-			 * --density-text per density-audit.md § 3.2.4. The 6 px progress
-			 * bar height stays literal (instrument metric); the 24 px lead
-			 * avatar stays literal (card-internal, not row-anchor — see
-			 * density-audit.md § 4.4 last paragraph). StatusChip + Tag stay
-			 * literal (chip rule — § 3.1.1, § 3.1.2).
-			 */
 			{...clickableProps(
 				onClick,
 				"bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] shadow-[var(--shadow-default)] border border-[var(--border-subtle)] hover:translate-y-[-2px] hover:shadow-[var(--shadow-elevated)] transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
@@ -71,11 +62,6 @@ export function BetCard({
 			<div className="flex items-center gap-[12px]">
 				{leadAvatar && (
 					<span
-						/* @lore K10: card-internal lead avatar stays literal 24 px
-						   (not --density-avatar-size). Per density-audit.md § 4.4
-						   the avatar token is for row-anchor avatars only
-						   (ThreadRow). Card-internal avatars are
-						   decorative inside the card, not the row anchor. */
 						className="inline-flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full bg-[var(--surface-container)] text-[var(--text-primary)] text-[11px] font-semibold"
 						aria-label={`Lead agent: ${leadAvatar.name}`}
 					>
@@ -103,10 +89,6 @@ export function BetCard({
 			{shipped !== undefined && <KeyValue label="Shipped" value={String(shipped)} />}
 			{progress && (
 				<div className="flex items-center gap-[12px]">
-					{/* @lore K10: progress-bar height stays literal 6 px — instrument
-					    metric per density-audit.md § 3.2.4. Linear/Datadog/Vercel
-					    all hold sparkline/progress strokes at 4-6 px regardless of
-					    zoom; growing under comfortable would turn it into a button. */}
 					<div className="w-[64px] h-[6px] bg-[var(--surface-container)] rounded-[var(--r-pill)] overflow-hidden">
 						<div
 							className="h-full bg-[var(--status-success)] rounded-[var(--r-pill)] transition-[width] duration-[var(--motion-default)]"

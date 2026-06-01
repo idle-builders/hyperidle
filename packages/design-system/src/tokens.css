@@ -118,6 +118,13 @@
 		--card-max-h: 70vh;
 	}
 
+	/* ── Mobile override: tighter card height cap on small viewports ── */
+	@media (max-width: 768px) {
+		:root {
+			--card-max-h: 60vh;
+		}
+	}
+
 	/* ── Hearth Light (default) ── */
 	:root,
 	[data-theme="hearth-light"] {

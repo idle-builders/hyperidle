@@ -29,13 +29,6 @@ export function TaskCard({
 	return (
 		<div
 			{...dsProps("TaskCard", "2")}
-			/*
-			 * @lore K11: outer pad → --density-card-pad, inner gap →
-			 * --density-card-gap, row gap → --density-gap, title →
-			 * --density-text per density-audit.md § 3.2.5. The max-w-[320px]
-			 * stays literal — Kanban-column geometry (per § 3.2.5 + § 3.3.K7).
-			 * Owner font stays literal 12 px (chrome).
-			 */
 			{...clickableProps(
 				onClick,
 				`bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] max-w-[320px] shadow-[var(--shadow-default)] border hover:translate-y-[-2px] hover:shadow-[var(--shadow-elevated)] transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)] ${state === "blocked" ? "border-[var(--status-error)]" : "border-[var(--border-subtle)]"}`,
