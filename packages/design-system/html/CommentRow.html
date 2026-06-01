@@ -6,124 +6,122 @@
   <title>CommentRow — HyperIdle Design System</title>
   <link rel="stylesheet" href="_tokens.css" />
   <style>
-    /* Layout mirrors CommentRow.tsx — list item with avatar, sender header,
-       inline-anchor label, and body. Density tokens for horizontal pad
-       per AQ-002. */
+    /* ── CommentRow ──
+       Thread message row. 36px avatar, sender name + optional agent badge,
+       message text at 15px, action blocks with green tint. Matches
+       03-hearth.html Thread Detail screen messages. No density tokens. */
+
     .comment-row {
       display: flex;
-      gap: 8px;
-      padding: 6px var(--density-pad-x);
+      gap: 12px;
+      padding: 0;
       list-style: none;
     }
     .comment-row__avatar {
-      display: inline-flex;
+      width: 36px;
+      height: 36px;
+      border-radius: var(--r-pill);
+      background: var(--surface-page);
+      flex-shrink: 0;
+      display: flex;
       align-items: center;
       justify-content: center;
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      background: var(--surface-elevated);
-      color: var(--text-tertiary);
-      font-size: 11px;
-      font-weight: 500;
-      border: 1px solid var(--border-subtle);
-      flex-shrink: 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      border: 1.5px solid var(--border-subtle);
+    }
+    .comment-row__avatar--agent {
+      background: rgba(22, 118, 79, 0.08);
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
     }
     .comment-row__avatar-spacer {
-      width: 28px;
+      width: 36px;
       flex-shrink: 0;
     }
+
     .comment-row__body {
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 3px;
       min-width: 0;
       flex: 1;
     }
     .comment-row__header {
       display: flex;
-      align-items: center;
+      align-items: baseline;
       gap: 6px;
-      font-size: 12px;
     }
     .comment-row__sender-name {
-      color: var(--text-primary);
-      font-weight: 500;
-    }
-    .comment-row__sender-role {
-      color: var(--text-tertiary);
-    }
-    .comment-row__inline-anchor {
-      font-size: 11px;
-      color: var(--text-tertiary);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    .comment-row__inline-anchor strong {
-      color: var(--text-secondary);
-      font-weight: 500;
-    }
-    .comment-row__text {
       font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .comment-row__time {
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+    .comment-row__badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      padding: 3px 9px;
+      border-radius: var(--r-pill);
+      background: rgba(22, 118, 79, 0.08);
+      color: var(--accent-primary);
+    }
+
+    .comment-row__text {
+      font-size: 15px;
       color: var(--text-secondary);
+      line-height: 1.7;
       white-space: pre-wrap;
       word-wrap: break-word;
       margin: 0;
     }
-    .comment-row__verdict {
+
+    /* Action block */
+    .comment-row__action {
+      margin-top: 9px;
+      background: rgba(22, 118, 79, 0.03);
+      border-radius: var(--r-subtle);
+      padding: 9px 12px;
+      font-size: 13px;
       display: flex;
       align-items: center;
-      gap: 8px;
-      font-size: 13px;
+      justify-content: space-between;
     }
-    .comment-row__verdict-note {
-      color: var(--text-tertiary);
-    }
-    .comment-row__redacted {
-      font-style: italic;
-      color: var(--text-tertiary);
-      font-size: 13px;
-    }
-
-    /* StatusChip — mirrored from html/StatusChip.html */
-    .status-chip {
-      display: inline-flex;
+    .comment-row__action-label {
+      color: var(--text-secondary);
+      font-weight: 500;
+      display: flex;
       align-items: center;
       gap: 6px;
-      padding: 2px 8px;
-      border-radius: var(--r-pill);
-      font-family: var(--mono);
-      font-size: 11px;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      font-weight: 500;
-      line-height: 1.4;
-      white-space: nowrap;
-      flex-shrink: 0;
     }
-    .status-chip .dot {
+    .comment-row__action-dot {
+      display: inline-block;
       width: 6px;
       height: 6px;
-      border-radius: 50%;
+      border-radius: var(--r-pill);
+      background: var(--accent-primary);
       flex-shrink: 0;
     }
-    .status-chip--done {
-      background: color-mix(in oklab, var(--status-success) 14%, transparent);
-      color: var(--status-success);
+    .comment-row__action-status {
+      font-size: 12px;
+      font-weight: 600;
     }
-    .status-chip--done .dot { background: var(--status-success); }
-    .status-chip--blocked {
-      background: color-mix(in oklab, var(--status-error) 14%, transparent);
-      color: var(--status-error);
-    }
-    .status-chip--blocked .dot { background: var(--status-error); }
-    .status-chip--behind {
-      background: color-mix(in oklab, var(--status-warning) 14%, transparent);
-      color: var(--status-warning);
-    }
-    .status-chip--behind .dot { background: var(--status-warning); }
+    .comment-row__action-status--success { color: var(--status-success); }
+    .comment-row__action-status--warning { color: var(--status-warning); }
 
-    .stream { padding: 8px 0; }
+    .stream {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      padding: 18px 24px;
+    }
   </style>
 </head>
 <body>
@@ -132,56 +130,43 @@
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
   <script type="text/babel" data-presets="env,react">
-    function StatusChip({ status }) {
-      return (
-        <span className={`status-chip status-chip--${status}`}>
-          <span className="dot" />
-          {status.toUpperCase()}
-        </span>
-      );
-    }
-
-    function CommentRow({ message, sender, showSenderHeader, inlineAnchor }) {
-      const isVerdict = message.type === "verdict";
+    function CommentRow({ sender, agent, time, text, action, showHeader = true }) {
       return (
         <li
           className="comment-row"
           data-component="CommentRow"
           data-tier="2"
-          data-uses="StatusChip"
+          data-uses="Avatar,Badge"
+          data-daisyui=""
+          data-used-by="ThreadDetail,BetDetail"
         >
-          {showSenderHeader ? (
-            <span className="comment-row__avatar">
-              {sender.name.charAt(0).toUpperCase()}
+          {showHeader ? (
+            <span className={`comment-row__avatar ${agent ? 'comment-row__avatar--agent' : ''}`}>
+              {sender.charAt(0).toUpperCase() + (sender.charAt(1) || '').toUpperCase()}
             </span>
           ) : (
             <span className="comment-row__avatar-spacer" aria-hidden="true" />
           )}
           <div className="comment-row__body">
-            {showSenderHeader ? (
+            {showHeader && (
               <div className="comment-row__header">
-                <span className="comment-row__sender-name">{sender.name}</span>
-                {sender.role ? (
-                  <span className="comment-row__sender-role">· {sender.role}</span>
-                ) : null}
+                <span className="comment-row__sender-name">{sender}</span>
+                {agent && <span className="comment-row__badge">Agent</span>}
+                <span className="comment-row__time">{time}</span>
               </div>
-            ) : null}
-            {inlineAnchor ? (
-              <div className="comment-row__inline-anchor">
-                INLINE COMMENT ON <strong>{inlineAnchor}</strong>
+            )}
+            <p className="comment-row__text">{text}</p>
+            {action && (
+              <div className="comment-row__action">
+                <span className="comment-row__action-label">
+                  <span className="comment-row__action-dot"></span>
+                  {action.label}
+                </span>
+                <span className={`comment-row__action-status comment-row__action-status--${action.variant}`}>
+                  {action.status}
+                </span>
               </div>
-            ) : null}
-            {isVerdict ? (
-              <div className="comment-row__verdict">
-                <StatusChip status="done" />
-                <span style={{ color: "var(--text-secondary)" }}>APPROVED</span>
-                {message.payload.note ? (
-                  <span className="comment-row__verdict-note">— {message.payload.note}</span>
-                ) : null}
-              </div>
-            ) : message.type === "plain" ? (
-              <p className="comment-row__text">{message.payload.text}</p>
-            ) : null}
+            )}
           </div>
         </li>
       );
@@ -189,28 +174,43 @@
 
     function Demo() {
       return (
-        <ul className="stream" style={{ margin: 0, padding: "8px 0" }}>
-          <CommentRow
-            message={{ id: "m1", type: "plain", payload: { text: "Looks good — running deploy now." } }}
-            sender={{ id: "u1", name: "Alice", role: "Founder" }}
-            showSenderHeader={true}
-          />
-          <CommentRow
-            message={{ id: "m2", type: "plain", payload: { text: "Holding for cost-cap approval." } }}
-            sender={{ id: "u2", name: "Bob", role: "Builder" }}
-            showSenderHeader={true}
-            inlineAnchor="line 42"
-          />
-          <CommentRow
-            message={{ id: "m3", type: "verdict", payload: { decision: "approve", note: "Good to ship." } }}
-            sender={{ id: "u1", name: "Alice", role: "Founder" }}
-            showSenderHeader={true}
-          />
-        </ul>
+        <div className="demo-grid">
+          <div className="demo-section">
+            <div className="demo-section-title">Thread Messages</div>
+            <div style={{ background: 'var(--surface-elevated)', borderRadius: 'var(--r-default)', overflow: 'hidden' }}>
+              <ul className="stream" style={{ margin: 0 }}>
+                <CommentRow
+                  sender="Tobias"
+                  time="2:34 PM"
+                  text="Let's start the passkey migration. Can you draft a rollout plan that doesn't break existing sessions?"
+                />
+                <CommentRow
+                  sender="Atlas"
+                  agent
+                  time="2:35 PM"
+                  text="I've drafted a 3-phase plan: shadow enrollment, dual-auth window, then password deprecation. Existing sessions stay valid through phase 2."
+                  action={{ label: 'Deployment plan — 3 phases', status: 'Ready', variant: 'success' }}
+                />
+                <CommentRow
+                  sender="Kim"
+                  time="2:41 PM"
+                  text="What about the 12k active sessions? We need a migration path that doesn't force re-auth for everyone at once."
+                />
+                <CommentRow
+                  sender="Atlas"
+                  agent
+                  time="2:42 PM"
+                  text="Good call. Updated the plan: phase 1 uses lazy enrollment — users get prompted on next login, not forced."
+                  action={{ label: 'Session migration strategy', status: 'Updated', variant: 'warning' }}
+                />
+              </ul>
+            </div>
+          </div>
+        </div>
       );
     }
 
-    ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+    ReactDOM.render(<Demo />, document.getElementById('root'));
   </script>
   <script src="themes/_switcher.js"></script>
 </body>

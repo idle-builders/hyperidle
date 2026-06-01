@@ -6,84 +6,90 @@
   <title>NavItem — HyperIdle Design System</title>
   <link rel="stylesheet" href="_tokens.css" />
   <style>
+    /* ── NavItem ──
+       Sidebar navigation item. Matches 03-hearth.html sidebar: no left-border
+       accent, active uses elevated bg + subtle shadow, 13px font, 6px 12px
+       padding. Status dot (8px) for bets. No density tokens. */
+
     .nav-list {
       list-style: none;
       display: flex;
       flex-direction: column;
-      gap: 2px;
-      width: 220px;
+      gap: 3px;
+      width: 200px;
+      padding: 0 12px;
     }
 
     .nav-item {
       display: flex;
       width: 100%;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       text-align: left;
-      min-height: var(--density-row-h);
-      padding: var(--density-pad-y) var(--density-pad-x);
-      font-size: var(--density-text);
-      color: var(--text-primary);
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-secondary);
       border-radius: var(--r-subtle);
       border: none;
       background: none;
       cursor: pointer;
-      transition: background var(--motion-fast) ease;
-      position: relative;
+      transition: background 240ms ease;
+      font-family: var(--font-sans);
     }
 
     .nav-item:hover {
-      background: var(--accent-primary-dim);
+      background: rgba(44, 36, 26, 0.04);
     }
 
-    .nav-item--selected {
+    .nav-item--active {
       background: var(--surface-elevated);
-      border-left: 2px solid var(--accent-primary);
+      color: var(--text-primary);
+      font-weight: 500;
+      box-shadow: var(--shadow-subtle);
     }
 
-    .nav-item__icon {
-      display: inline-flex;
-      align-items: center;
+    .nav-item__dot {
+      width: 8px;
+      height: 8px;
+      border-radius: var(--r-pill);
       flex-shrink: 0;
-      color: var(--text-tertiary);
-    }
-
-    .nav-item--selected .nav-item__icon {
-      color: var(--accent-primary);
     }
 
     .nav-item__label {
       flex: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    .nav-item__status-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-
-    .nav-item__status-dot--success { background: var(--status-success); }
-    .nav-item__status-dot--warning { background: var(--status-warning); }
-    .nav-item__status-dot--error { background: var(--status-error); }
-    .nav-item__status-dot--info { background: var(--status-info); }
-
-    /* @lore K7 / AESTHETICS.md § Spacing & Density "Grid base unit" + § Typography
-       "Body size (default)": padding 0 5px → 0 4px (off-grid), font-size 10px → 11px
-       (off-scale). 18px width retained — chip-internal sub-grid per same row. */
     .nav-item__count {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 18px;
-      height: 18px;
-      padding: 0 4px;
-      border-radius: var(--r-pill);
-      background: color-mix(in oklab, var(--text-secondary) 8%, transparent);
-      font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 500;
-      color: var(--text-secondary);
+      padding: 2px 6px;
+      border-radius: var(--r-pill);
+      background: rgba(22, 118, 79, 0.08);
+      color: var(--accent-primary);
+      min-width: 18px;
+      text-align: center;
+    }
+
+    /* Section label */
+    .nav-section-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 9px;
+      padding: 0 12px;
+    }
+
+    .nav-divider {
+      border: none;
+      border-top: 1px solid var(--border-subtle);
+      margin: 12px 12px;
     }
   </style>
 </head>
@@ -93,131 +99,50 @@
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
   <script type="text/babel" data-presets="env,react">
-    const FolderIcon = () => (
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-        <path d="M3.75 3A1.75 1.75 0 002 4.75v3.26a3.235 3.235 0 011.75-.51h12.5c.644 0 1.245.188 1.75.51V6.75A1.75 1.75 0 0016.25 5h-4.836a.25.25 0 01-.177-.073L9.823 3.513A1.75 1.75 0 008.586 3H3.75z" />
-        <path d="M3.75 9A1.75 1.75 0 002 10.75v4.5c0 .966.784 1.75 1.75 1.75h12.5A1.75 1.75 0 0018 15.25v-4.5A1.75 1.75 0 0016.25 9H3.75z" />
-      </svg>
-    );
-
-    const AgentIcon = () => (
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-        <path fillRule="evenodd" d="M10 2a6 6 0 00-6 6c0 1.887-.454 3.665-1.257 5.234a.75.75 0 00.515 1.076 32.91 32.91 0 003.256.508 3.5 3.5 0 006.972 0 32.903 32.903 0 003.256-.508.75.75 0 00.515-1.076A11.448 11.448 0 0116 8a6 6 0 00-6-6z" clipRule="evenodd" />
-      </svg>
-    );
-
-    const GearIcon = () => (
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-        <path fillRule="evenodd" d="M7.84 1.804A1 1 0 018.82 1h2.36a1 1 0 01.98.804l.331 1.652a6.993 6.993 0 011.929 1.115l1.598-.54a1 1 0 011.186.447l1.18 2.044a1 1 0 01-.205 1.251l-1.267 1.113a7.047 7.047 0 010 2.228l1.267 1.113a1 1 0 01.206 1.25l-1.18 2.045a1 1 0 01-1.187.447l-1.598-.54a6.993 6.993 0 01-1.929 1.115l-.33 1.652a1 1 0 01-.98.804H8.82a1 1 0 01-.98-.804l-.331-1.652a6.993 6.993 0 01-1.929-1.115l-1.598.54a1 1 0 01-1.186-.447l-1.18-2.044a1 1 0 01.205-1.251l1.267-1.114a7.05 7.05 0 010-2.227L1.821 7.773a1 1 0 01-.206-1.25l1.18-2.045a1 1 0 011.187-.447l1.598.54A6.993 6.993 0 017.51 3.456l.33-1.652zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-      </svg>
-    );
-
-    function NavItem({ label, icon, count, selected = false, onClick }) {
-      const classes = `nav-item${selected ? " nav-item--selected" : ""}`;
-
+    function NavItem({ active, dot, label, count }) {
       return (
-        <li
-          data-ds-component="NavItem"
-          data-ds-tier="1"
-          data-ds-source="design-system"
+        <button
+          className={`nav-item ${active ? 'nav-item--active' : ''}`}
+          data-component="NavItem"
+          data-tier="1"
+          data-uses=""
+          data-daisyui=""
         >
-          <button
-            type="button"
-            className={classes}
-            onClick={onClick}
-            data-component="NavItem"
-            data-tier="1"
-            data-uses=""
-            data-daisyui=""
-            data-used-by="IconRail,Submenu"
-          >
-            {icon && <span className="nav-item__icon">{icon}</span>}
-            <span className="nav-item__label">{label}</span>
-            {count != null && <span className="nav-item__count">{count}</span>}
-          </button>
-        </li>
+          {dot && <span className="nav-item__dot" style={{ background: dot }}></span>}
+          <span className="nav-item__label">{label}</span>
+          {count !== undefined && <span className="nav-item__count">{count}</span>}
+        </button>
       );
     }
 
     function Demo() {
-      const [selected, setSelected] = React.useState("Dashboard");
-
       return (
         <div className="demo-grid">
           <div className="demo-section">
-            <div className="demo-section-title">Default (Text Only)</div>
-            <ul className="nav-list">
-              <NavItem label="Projects" />
-              <NavItem label="Agents" />
-              <NavItem label="Settings" />
-            </ul>
-          </div>
-
-          <div className="demo-section">
-            <div className="demo-section-title">Selected State</div>
-            <ul className="nav-list">
-              <NavItem label="Projects" />
-              <NavItem label="Agents" selected />
-              <NavItem label="Settings" />
-            </ul>
-          </div>
-
-          <div className="demo-section">
-            <div className="demo-section-title">With Icons</div>
-            <ul className="nav-list">
-              <NavItem label="Projects" icon={<FolderIcon />} />
-              <NavItem label="Agents" icon={<AgentIcon />} />
-              <NavItem label="Settings" icon={<GearIcon />} />
-            </ul>
-          </div>
-
-          <div className="demo-section">
-            <div className="demo-section-title">With Count Badge</div>
-            <ul className="nav-list">
-              <NavItem label="Notifications" count={12} />
-              <NavItem label="Tasks" count={3} />
-              <NavItem label="Errors" count={0} />
-            </ul>
-          </div>
-
-          <div className="demo-section">
-            <div className="demo-section-title">Full Navigation (Interactive)</div>
-            <div className="demo-card">
-              <ul className="nav-list">
-                <NavItem
-                  label="Dashboard"
-                  icon={<FolderIcon />}
-                  selected={selected === "Dashboard"}
-                  onClick={() => setSelected("Dashboard")}
-                />
-                <NavItem
-                  label="Projects"
-                  icon={<FolderIcon />}
-                  count={3}
-                  selected={selected === "Projects"}
-                  onClick={() => setSelected("Projects")}
-                />
-                <NavItem
-                  label="Agents"
-                  icon={<AgentIcon />}
-                  count={7}
-                  selected={selected === "Agents"}
-                  onClick={() => setSelected("Agents")}
-                />
-                <NavItem
-                  label="Settings"
-                  icon={<GearIcon />}
-                  selected={selected === "Settings"}
-                  onClick={() => setSelected("Settings")}
-                />
-              </ul>
+            <div className="demo-section-title">Sidebar — Bets Section</div>
+            <div style={{ background: 'var(--surface-container)', borderRadius: 'var(--r-default)', padding: '12px 0' }}>
+              <div className="nav-section-label">Bets</div>
+              <div className="nav-list">
+                <NavItem active dot="var(--accent-primary)" label="Auth migration" count={3} />
+                <NavItem dot="var(--accent-secondary)" label="Search rewrite" />
+                <NavItem dot="var(--status-info)" label="Onboarding v3" />
+                <NavItem dot="var(--accent-primary)" label="Billing overhaul" />
+              </div>
+              <hr className="nav-divider" />
+              <div className="nav-section-label">Teams</div>
+              <div className="nav-list">
+                <NavItem label="Product" />
+                <NavItem label="Infrastructure" />
+                <NavItem label="Growth" />
+                <NavItem label="Design" />
+              </div>
             </div>
           </div>
         </div>
       );
     }
 
-    ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+    ReactDOM.render(<Demo />, document.getElementById('root'));
   </script>
   <script src="themes/_switcher.js"></script>
 </body>

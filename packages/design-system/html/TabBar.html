@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TabBar — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    /* ── TabBar ──
+       Two styles: Pill (container bg, elevated active) and Underline (bottom border).
+       From 03-hearth.html component library. */
+
+    /* Pill-style tabs */
+    .tab-bar-pill {
+      display: inline-flex;
+      gap: 6px;
+      background: var(--surface-container);
+      border-radius: var(--r-pill);
+      padding: 3px;
+    }
+    .tab-pill {
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      border-radius: var(--r-pill);
+      cursor: pointer;
+      transition: all 240ms cubic-bezier(0.25, 0.1, 0.25, 1);
+      white-space: nowrap;
+      border: none;
+      background: transparent;
+      font-family: var(--font-sans);
+    }
+    .tab-pill:hover {
+      color: var(--text-primary);
+    }
+    .tab-pill--active {
+      background: var(--surface-elevated);
+      color: var(--accent-primary);
+      box-shadow: 0 1px 4px rgba(44, 36, 26, 0.06);
+      font-weight: 600;
+    }
+
+    /* Underline tabs */
+    .tab-bar-underline {
+      display: flex;
+      gap: 18px;
+      border-bottom: 1px solid var(--border-default);
+    }
+    .tab-underline {
+      padding: 6px 9px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      border-radius: var(--r-subtle);
+      transition: color 240ms cubic-bezier(0.25, 0.1, 0.25, 1),
+                  background 240ms cubic-bezier(0.25, 0.1, 0.25, 1);
+      border: none;
+      background: transparent;
+      font-family: var(--font-sans);
+    }
+    .tab-underline:hover {
+      color: var(--text-primary);
+    }
+    .tab-underline--active {
+      color: var(--accent-primary);
+      font-weight: 600;
+      background: rgba(22, 118, 79, 0.06);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    function Demo() {
+      return (
+        <div className="demo-grid">
+          <div className="demo-section">
+            <div className="demo-section-title">Pill Tabs</div>
+            <div className="demo-row">
+              <div className="tab-bar-pill" data-component="TabBar" data-tier="0">
+                <button className="tab-pill tab-pill--active">All</button>
+                <button className="tab-pill">Unread</button>
+                <button className="tab-pill">Active</button>
+                <button className="tab-pill">Archived</button>
+              </div>
+            </div>
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Underline Tabs</div>
+            <div style={{ maxWidth: 500 }}>
+              <div className="tab-bar-underline" data-component="TabBar" data-tier="0">
+                <button className="tab-underline tab-underline--active">Threads</button>
+                <button className="tab-underline">Tasks</button>
+                <button className="tab-underline">Knowledge</button>
+                <button className="tab-underline">Agents</button>
+                <button className="tab-underline">Settings</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<Demo />, document.getElementById('root'));
+  </script>
+  <script src="themes/_switcher.js"></script>
+</body>
+</html>
