@@ -9,10 +9,10 @@ import { Link } from "react-router-dom";
 export function NotFound(): JSX.Element {
 	return (
 		<div className="flex flex-col items-start gap-3 p-3" data-testid="not-found-page">
-			<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)]">
+			<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
 				Page not found
 			</h1>
-			<p className="text-xs text-[var(--text-mid)]">
+			<p className="text-xs text-[var(--text-secondary)]">
 				The URL you followed does not match any known route.
 			</p>
 			<Link to="/" className="btn btn-xs btn-ghost">

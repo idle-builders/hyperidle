@@ -347,11 +347,11 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 			<div className="flex items-center gap-[8px] px-[4px] pb-[8px] flex-shrink-0">
 				<span
 					role="status"
-					className="inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-full bg-[color-mix(in_oklab,var(--ok)_14%,transparent)] text-[var(--ok)] text-[10px] font-medium uppercase tracking-[0.05em]"
+					className="inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-full bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-primary)] text-[10px] font-medium uppercase tracking-[0.05em]"
 					aria-label="Live session"
 					data-testid="live-session-badge"
 				>
-					<span className="w-[5px] h-[5px] rounded-full bg-[var(--ok)] animate-pulse" />
+					<span className="w-[5px] h-[5px] rounded-full bg-[var(--accent-primary)] animate-pulse" />
 					Live
 				</span>
 				<button
@@ -405,15 +405,15 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 				<div
 					role="status"
 					data-testid={hintReviewVerdict.testId}
-					className="rounded-[var(--r1)] bg-[var(--surface-2)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)] flex-shrink-0"
+					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)] flex-shrink-0"
 				>
-					<p className="text-[length:var(--density-text)] text-[var(--text-mid)] leading-[var(--leading-body)]">
+					<p className="text-[length:var(--density-text)] text-[var(--text-secondary)] leading-[var(--leading-body)]">
 						{hintReviewVerdict.copy}
 					</p>
 					<div className="flex gap-2">
 						<button
 							type="button"
-							className="btn btn-ghost btn-xs text-[var(--text-lo)] min-h-[44px]"
+							className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
 							onClick={hintReviewVerdict.dismiss}
 						>
 							Got it
@@ -451,17 +451,20 @@ function FilterPillBar({
 	activeFilter,
 	onFilterChange,
 	onClearFilter,
+	onNewThread,
 	disabled = false,
 }: {
 	activeFilter: ConversationsFilter;
 	onFilterChange: (f: ConversationsFilter) => void;
 	onClearFilter: () => void;
+	/** U9 AC-1: Callback to open RecipientPicker for new thread creation. */
+	onNewThread?: () => void;
 	/** When true, all filter chips are aria-disabled (e.g. during error state). */
 	disabled?: boolean;
 }): JSX.Element {
 	return (
 		<div className="flex items-center gap-1 mb-2 shrink-0" data-testid="conversations-filter-bar">
-			<div role="tablist" aria-label="Conversations filter" className="flex gap-1">
+			<div role="tablist" aria-label="Conversations filter" className="flex gap-1 flex-1">
 				{FILTER_OPTIONS.map((opt) => (
 					<button
 						key={opt.id}
@@ -472,7 +475,7 @@ function FilterPillBar({
 						onClick={disabled ? undefined : () => onFilterChange(opt.id)}
 						className={[
 							"btn btn-xs",
-							opt.id === activeFilter ? "btn-neutral" : "btn-ghost",
+							opt.id === activeFilter ? "btn-primary" : "btn-ghost",
 							disabled ? "opacity-50 cursor-not-allowed" : "",
 						].join(" ")}
 					>
@@ -490,10 +493,25 @@ function FilterPillBar({
 					type="button"
 					data-testid="submenu-filter-clear"
 					onClick={onClearFilter}
-					className="btn btn-xs btn-ghost text-[var(--text-lo)]"
+					className="btn btn-xs btn-ghost text-[var(--text-tertiary)]"
 					aria-label="Clear filter"
 				>
 					× Clear
+				</button>
+			)}
+			{/*
+			 * @lore U9 AC-1: "New Thread" button opens RecipientPicker.
+			 * Positioned at the right end of the filter bar.
+			 * Wired to onNewThread callback from OutletContext.
+			 */}
+			{onNewThread && (
+				<button
+					type="button"
+					className="btn btn-xs btn-primary"
+					onClick={onNewThread}
+					data-testid="new-thread-btn"
+				>
+					New Thread
 				</button>
 			)}
 		</div>
@@ -519,6 +537,9 @@ export function Conversations(): JSX.Element {
 	const conversationsFilter: ConversationsFilter = ctx?.conversationsFilter ?? "all";
 	const onFilterChange = ctx?.onFilterChange ?? (() => undefined);
 	const onClearFilter = ctx?.onClearFilter ?? (() => undefined);
+	// @lore U9 AC-1: onNewThread opens RecipientPicker via AppShell context.
+	// Undefined when Conversations is rendered outside AppShell (tests/stories).
+	const onNewThread = ctx?.onNewThread;
 
 	// @lore U6 review V1: Thread data is sourced from AppShell's OutletContext
 	// (single useConversationsThreads call in AppShell). Conversations.tsx no
@@ -548,6 +569,7 @@ export function Conversations(): JSX.Element {
 					activeFilter={conversationsFilter}
 					onFilterChange={onFilterChange}
 					onClearFilter={onClearFilter}
+					onNewThread={onNewThread}
 					disabled={conversationsThreads.status === "error"}
 				/>
 				<ThreadSections

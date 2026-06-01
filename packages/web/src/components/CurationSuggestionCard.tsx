@@ -37,8 +37,8 @@ export function CurationSuggestionCard({
 				Suggest
 			</span>
 			<div className="flex-1 min-w-0">
-				<p className="text-sm font-semibold text-[var(--text-hi)]">{action}</p>
-				<p className="text-xs text-[var(--text-mid)] truncate">{detail}</p>
+				<p className="text-sm font-semibold text-[var(--text-primary)]">{action}</p>
+				<p className="text-xs text-[var(--text-secondary)] truncate">{detail}</p>
 			</div>
 			<div className="flex items-center gap-1 shrink-0">
 				<button

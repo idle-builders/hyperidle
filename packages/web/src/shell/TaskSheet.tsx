@@ -27,7 +27,32 @@ import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { ArtifactSection } from "../components/ArtifactSection.js";
 import { isValidHarnessUrl } from "../lib/url-utils.js";
 import { HostThreadSection } from "./HostThreadSection.js";
-import type { KanbanTask } from "./Kanban";
+
+/**
+ * KanbanTask type — moved inline from Kanban.tsx (deleted in U9 AC-10).
+ * @lore U9: Canvas and Kanban components removed. KanbanTask is the task
+ * shape used by TaskSheet. Moved here to break the import dependency before
+ * deleting Kanban.tsx.
+ */
+export interface KanbanTask {
+	id: string;
+	title: string;
+	owner: string;
+	state: import("@hyperidle/shared").TaskState;
+	cost?: string;
+	betTag?: string;
+	// L19: latest session metadata (all optional — callers that don't have session data don't break)
+	latestSessionOutcome?: import("@hyperidle/shared").SessionOutcome | null;
+	latestSessionCost?: number | null;
+	latestSessionTokensInput?: number | null;
+	latestSessionTokensOutput?: number | null;
+	latestSessionHarnessUrl?: string | null;
+	/**
+	 * M3 D4: agent participant id for HostThreadSection on the task detail view.
+	 * Null/undefined means no agent is assigned.
+	 */
+	ownerAgentId?: string | null;
+}
 
 /**
  * L19: Formats token counts for compact display.
@@ -265,17 +290,17 @@ export function TaskSheet({
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="task-sheet-title"
-			// Mobile: bottom-sheet (inset-x-0 bottom-0 max-h-[85vh] rounded-t-[var(--r3)])
+			// Mobile: bottom-sheet (inset-x-0 bottom-0 max-h-[85vh] rounded-t-[var(--r-default)])
 			// sm+: right-anchored drawer (~360px wide)
 			// @lore The responsive classes implement the design/approved.md Mobile section:
 			// small viewports get a bottom-sheet; desktop gets a right drawer. Both share
 			// the same component — Tailwind responsive prefixes do the layout switching.
-			className="fixed inset-x-0 bottom-0 max-h-[85vh] rounded-t-[var(--r3)] flex flex-col w-full bg-[var(--surface-2)] border-t border-[var(--border-lo)] shadow-lg z-50 sm:inset-y-0 sm:right-0 sm:bottom-auto sm:left-auto sm:max-w-[min(640px,90vw)] sm:max-h-screen sm:rounded-none sm:border-t-0 sm:border-l"
+			className="fixed inset-x-0 bottom-0 max-h-[85vh] rounded-t-[var(--r-default)] flex flex-col w-full bg-[var(--surface-container)] border-t border-[var(--border-lo)] shadow-lg z-50 sm:inset-y-0 sm:right-0 sm:bottom-auto sm:left-auto sm:max-w-[min(640px,90vw)] sm:max-h-screen sm:rounded-none sm:border-t-0 sm:border-l"
 			onKeyDown={handleDialogKeyDown}
 		>
 			{/* Header */}
 			<div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-lo)]">
-				<span className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-lo)]">
+				<span className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
 					Task
 				</span>
 				<button type="button" aria-label="Close" className="btn btn-ghost btn-xs" onClick={onClose}>
@@ -287,10 +312,10 @@ export function TaskSheet({
 			<div className="flex-1 overflow-y-auto">
 				{/* Task summary */}
 				<div className="px-4 py-3 border-b border-[var(--border-lo)]">
-					<p id="task-sheet-title" className="text-base font-medium text-[var(--text-hi)]">
+					<p id="task-sheet-title" className="text-base font-medium text-[var(--text-primary)]">
 						{task.title}
 					</p>
-					<div className="flex items-center gap-2 mt-1 text-xs text-[var(--text-lo)]">
+					<div className="flex items-center gap-2 mt-1 text-xs text-[var(--text-tertiary)]">
 						<span>{task.owner}</span>
 						{task.betTag && <span>· {task.betTag}</span>}
 						{task.cost && <span>· {task.cost}</span>}
@@ -305,7 +330,7 @@ export function TaskSheet({
 				{task.latestSessionOutcome && (
 					<div
 						data-testid="task-session-metadata"
-						className="flex items-center gap-2 px-4 py-2 border-b border-[var(--border-lo)] text-xs font-mono text-[var(--text-lo)]"
+						className="flex items-center gap-2 px-4 py-2 border-b border-[var(--border-lo)] text-xs font-mono text-[var(--text-tertiary)]"
 					>
 						<StatusChip status={sessionOutcomeToStatus(task.latestSessionOutcome)} />
 						{task.latestSessionCost != null && (
@@ -330,7 +355,7 @@ export function TaskSheet({
 									href={task.latestSessionHarnessUrl}
 									target="_blank"
 									rel="noopener noreferrer"
-									className="text-[var(--primary)] hover:underline"
+									className="text-[var(--accent-primary)] hover:underline"
 									aria-label="Open session in harness (opens in new tab)"
 								>
 									Open in harness
@@ -344,7 +369,7 @@ export function TaskSheet({
 			    to the full thread view (AC §621: the L15 affordance must still work). */}
 				<div className="border-b border-[var(--border-lo)]">
 					<div className="flex items-center justify-between px-4 pt-3 pb-1">
-						<span className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-lo)]">
+						<span className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
 							Discussion
 						</span>
 						<button
@@ -367,7 +392,7 @@ export function TaskSheet({
 
 				{/* Request section */}
 				<div className="flex flex-col gap-3 px-4 py-4">
-					<p className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-lo)]">
+					<p className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
 						REQUEST
 					</p>
 
@@ -376,7 +401,7 @@ export function TaskSheet({
 						{REQUEST_INTENTS.map((intent) => (
 							<label
 								key={intent.id}
-								className="flex items-center gap-2 min-h-[44px] px-3 rounded cursor-pointer hover:bg-[var(--surface-3)]"
+								className="flex items-center gap-2 min-h-[44px] px-3 rounded cursor-pointer hover:bg-[var(--surface-elevated)]"
 							>
 								<input
 									type="radio"
@@ -387,14 +412,14 @@ export function TaskSheet({
 									disabled={submitting}
 									className="radio radio-sm"
 								/>
-								<span className="text-sm text-[var(--text-hi)]">{intent.label}</span>
+								<span className="text-sm text-[var(--text-primary)]">{intent.label}</span>
 							</label>
 						))}
 					</div>
 
 					{/* Optional note */}
 					<label className="flex flex-col gap-1">
-						<span className="text-xs text-[var(--text-lo)]">Note (optional)</span>
+						<span className="text-xs text-[var(--text-tertiary)]">Note (optional)</span>
 						<textarea
 							className="textarea textarea-bordered text-base resize-none h-20"
 							placeholder="What should the agent know?"

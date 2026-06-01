@@ -146,14 +146,14 @@ export function SettingsOrgChart(): JSX.Element {
 		<div className="flex flex-col gap-3">
 			{/* Edge table */}
 			{edges.length === 0 ? (
-				<p className="text-sm text-[var(--text-lo)]">No edges defined.</p>
+				<p className="text-sm text-[var(--text-tertiary)]">No edges defined.</p>
 			) : (
 				<table className="table table-xs w-full">
 					<thead>
 						<tr>
-							<th className="text-[var(--text-lo)]">From</th>
-							<th className="text-[var(--text-lo)]">Mechanism</th>
-							<th className="text-[var(--text-lo)]">Target</th>
+							<th className="text-[var(--text-tertiary)]">From</th>
+							<th className="text-[var(--text-tertiary)]">Mechanism</th>
+							<th className="text-[var(--text-tertiary)]">Target</th>
 							<th />
 						</tr>
 					</thead>
@@ -161,7 +161,7 @@ export function SettingsOrgChart(): JSX.Element {
 						{edges.map((edge) => (
 							<tr key={edge.id}>
 								<td className="text-sm">{userName(edge.fromUserId)}</td>
-								<td className="text-sm font-mono text-[var(--text-mid)]">{edge.mechanism}</td>
+								<td className="text-sm font-mono text-[var(--text-secondary)]">{edge.mechanism}</td>
 								<td className="text-sm">{edge.target}</td>
 								<td>
 									<button
@@ -195,11 +195,11 @@ export function SettingsOrgChart(): JSX.Element {
 					+ Add Edge
 				</button>
 			) : (
-				<div className="flex flex-col gap-2 p-3 border border-[var(--border-subtle)] rounded-[var(--r1)]">
+				<div className="flex flex-col gap-2 p-3 border border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
 					<div className="flex gap-2 flex-wrap">
 						<div className="form-control flex-1 min-w-[120px]">
 							<label className="label" htmlFor="org-from">
-								<span className="label-text text-[var(--text-mid)]">From</span>
+								<span className="label-text text-[var(--text-secondary)]">From</span>
 							</label>
 							<select
 								id="org-from"
@@ -219,7 +219,7 @@ export function SettingsOrgChart(): JSX.Element {
 
 						<div className="form-control flex-1 min-w-[120px]">
 							<label className="label" htmlFor="org-mechanism">
-								<span className="label-text text-[var(--text-mid)]">Mechanism</span>
+								<span className="label-text text-[var(--text-secondary)]">Mechanism</span>
 							</label>
 							<select
 								id="org-mechanism"
@@ -238,7 +238,7 @@ export function SettingsOrgChart(): JSX.Element {
 
 						<div className="form-control flex-1 min-w-[120px]">
 							<label className="label" htmlFor="org-target">
-								<span className="label-text text-[var(--text-mid)]">Target</span>
+								<span className="label-text text-[var(--text-secondary)]">Target</span>
 							</label>
 							<input
 								id="org-target"

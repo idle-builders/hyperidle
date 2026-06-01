@@ -137,7 +137,7 @@ export function BetCreateDialog({
 					{/* R2: Team select — only shown when multiple teams exist */}
 					{teams.length > 1 && (
 						<label className="flex flex-col gap-1">
-							<span className="text-xs text-[var(--text-lo)]">
+							<span className="text-xs text-[var(--text-tertiary)]">
 								Team <span aria-hidden>(required)</span>
 							</span>
 							<select
@@ -161,7 +161,7 @@ export function BetCreateDialog({
 					    which is not a labelable element; <label> with no associated control triggers
 					    lint/a11y/noLabelWithoutControl. Matches pattern in KnowledgeCreateDialog. */}
 					<div className="flex flex-col gap-1">
-						<span className="text-xs text-[var(--text-lo)]">
+						<span className="text-xs text-[var(--text-tertiary)]">
 							Description <span aria-hidden>(required)</span>
 						</span>
 						<BodyEditor
@@ -176,10 +176,10 @@ export function BetCreateDialog({
 
 					{/* Title preview */}
 					<div className="flex flex-col gap-1">
-						<span className="text-xs text-[var(--text-lo)]">Title preview</span>
+						<span className="text-xs text-[var(--text-tertiary)]">Title preview</span>
 						<p
 							data-testid="bet-title-preview"
-							className="text-sm text-[var(--text-mid)] italic truncate"
+							className="text-sm text-[var(--text-secondary)] italic truncate"
 						>
 							{derivedTitle || "—"}
 						</p>

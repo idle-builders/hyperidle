@@ -20,9 +20,10 @@ import type { JSX } from "react";
 import { useArtifacts } from "../../hooks/useArtifacts.js";
 
 const BANNER =
-	"bg-[var(--surface-3)] text-[var(--text-mid)] font-mono text-[11px] tracking-[0.02em] uppercase rounded-[var(--r1)] px-[12px] py-[8px]";
+	"bg-[var(--surface-elevated)] text-[var(--text-secondary)] font-mono text-[11px] tracking-[0.02em] uppercase rounded-[var(--r-subtle)] px-[12px] py-[8px]";
 const SECTION = "flex flex-col gap-[8px]";
-const SECTION_LABEL = "font-mono text-[11px] tracking-[0.02em] uppercase text-[var(--text-lo)]";
+const SECTION_LABEL =
+	"font-mono text-[11px] tracking-[0.02em] uppercase text-[var(--text-tertiary)]";
 const GRID = "grid grid-cols-2 gap-[12px]";
 
 function noop(): void {
@@ -33,7 +34,7 @@ export function ArtifactDemo(): JSX.Element {
 	const { data, error, isLoading } = useArtifacts({ axis: "portfolio" });
 
 	if (isLoading) {
-		return <div className="p-[24px] text-[var(--text-mid)]">Loading…</div>;
+		return <div className="p-[24px] text-[var(--text-secondary)]">Loading…</div>;
 	}
 	if (error) {
 		return (

@@ -136,7 +136,7 @@ export function KnowledgeCreateDialog({
 
 				{/* Title input */}
 				<label className="flex flex-col gap-1">
-					<span className="text-xs text-[var(--text-lo)]">
+					<span className="text-xs text-[var(--text-tertiary)]">
 						Title <span aria-hidden>(required)</span>
 					</span>
 					<input
@@ -155,7 +155,7 @@ export function KnowledgeCreateDialog({
 				    which is not a labelable element; <label> with no associated control triggers
 				    lint/a11y/noLabelWithoutControl. The inner ProseMirror sets its own aria role. */}
 				<div className="flex flex-col gap-1">
-					<span className="text-xs text-[var(--text-lo)]">
+					<span className="text-xs text-[var(--text-tertiary)]">
 						Body <span aria-hidden>(required)</span>
 					</span>
 					<BodyEditor
@@ -170,9 +170,9 @@ export function KnowledgeCreateDialog({
 
 				{/* Scope kind — locked (read-only Tag) or open combobox */}
 				<div className="flex flex-col gap-1">
-					<span className="text-xs text-[var(--text-lo)]">Scope</span>
+					<span className="text-xs text-[var(--text-tertiary)]">Scope</span>
 					{isLocked ? (
-						<span className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r2)] text-[12px] bg-[var(--surface-ghost)] text-[var(--text-mid)] w-fit">
+						<span className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-subtle)] text-[12px] bg-[var(--surface-container)] text-[var(--text-secondary)] w-fit">
 							{lockedScopeKind}
 						</span>
 					) : (
@@ -196,7 +196,7 @@ export function KnowledgeCreateDialog({
 				    and the scope is not locked (locked scopes pass lockedScopeId). */}
 				{needsScopeId && !isLocked && (
 					<label className="flex flex-col gap-1">
-						<span className="text-xs text-[var(--text-lo)]">Scope ID</span>
+						<span className="text-xs text-[var(--text-tertiary)]">Scope ID</span>
 						<input
 							type="text"
 							className="input input-bordered input-sm text-base w-full"

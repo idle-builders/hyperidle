@@ -42,7 +42,7 @@ export function BlockRefEmbed({ blockId, hostKind, hostId }: BlockRefEmbedProps)
 				data-testid="block-ref-embed-loading"
 				aria-busy="true"
 				aria-label="Loading block reference"
-				className="h-[32px] rounded-[var(--r1)] bg-[var(--surface-3)] animate-pulse"
+				className="h-[32px] rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] animate-pulse"
 			/>
 		);
 	}
@@ -51,12 +51,12 @@ export function BlockRefEmbed({ blockId, hostKind, hostId }: BlockRefEmbedProps)
 		return (
 			<div
 				data-testid="block-ref-embed-degraded"
-				className="border border-[var(--border-subtle)] rounded-[var(--r1)] px-3 py-2 bg-[var(--surface-1)]"
+				className="border border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-3 py-2 bg-[var(--surface-1)]"
 			>
-				<div className="text-[10px] uppercase tracking-wider text-[var(--text-lo)] mb-1">
+				<div className="text-[10px] uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
 					Block from {hostLabel ?? hostKind}
 				</div>
-				<div className="text-[12px] text-[var(--text-lo)] italic">
+				<div className="text-[12px] text-[var(--text-tertiary)] italic">
 					Source changed — the referenced block no longer exists in the source document.
 				</div>
 			</div>
@@ -67,9 +67,9 @@ export function BlockRefEmbed({ blockId, hostKind, hostId }: BlockRefEmbedProps)
 		return (
 			<div
 				data-testid="block-ref-embed-error"
-				className="border border-[var(--border-subtle)] rounded-[var(--r1)] px-3 py-2 bg-[var(--surface-1)] flex items-center justify-between gap-2"
+				className="border border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-3 py-2 bg-[var(--surface-1)] flex items-center justify-between gap-2"
 			>
-				<span className="text-[12px] text-[var(--text-lo)]">
+				<span className="text-[12px] text-[var(--text-tertiary)]">
 					{error ?? "Could not load referenced content"}
 				</span>
 				<button type="button" onClick={retry} className="btn btn-xs btn-ghost shrink-0">
@@ -85,12 +85,12 @@ export function BlockRefEmbed({ blockId, hostKind, hostId }: BlockRefEmbedProps)
 	return (
 		<div
 			data-testid="block-ref-embed-resolved"
-			className="border border-[var(--border-subtle)] rounded-[var(--r1)] px-3 py-2 bg-[var(--surface-1)]"
+			className="border border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-3 py-2 bg-[var(--surface-1)]"
 		>
-			<div className="text-[10px] uppercase tracking-wider text-[var(--text-lo)] mb-1">
+			<div className="text-[10px] uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
 				Block from {hostLabel ?? hostKind}
 			</div>
-			<div className="text-[13px] text-[var(--text-mid)]">{renderPayload(payload)}</div>
+			<div className="text-[13px] text-[var(--text-secondary)]">{renderPayload(payload)}</div>
 		</div>
 	);
 }

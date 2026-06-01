@@ -154,7 +154,7 @@ export function GlobalSearchPanel({
 					<div className="overflow-y-auto flex flex-col gap-1">
 						{search.results.conversations.length > 0 && (
 							<div>
-								<h3 className="text-xs font-semibold text-[var(--text-lo)] px-2 py-1">
+								<h3 className="text-xs font-semibold text-[var(--text-tertiary)] px-2 py-1">
 									Conversations
 								</h3>
 								{search.results.conversations.map((c) => {
@@ -162,7 +162,9 @@ export function GlobalSearchPanel({
 									return (
 										<div
 											key={c.id}
-											className={idx === nav.activeIndex ? "bg-base-300 rounded" : ""}
+											className={
+												idx === nav.activeIndex ? "bg-[var(--surface-elevated)] rounded" : ""
+											}
 										>
 											<ThreadRow
 												avatarUrl={AVATAR_PLACEHOLDER}
@@ -180,13 +182,17 @@ export function GlobalSearchPanel({
 
 						{search.results.work.length > 0 && (
 							<div>
-								<h3 className="text-xs font-semibold text-[var(--text-lo)] px-2 py-1">Work</h3>
+								<h3 className="text-xs font-semibold text-[var(--text-tertiary)] px-2 py-1">
+									Work
+								</h3>
 								{search.results.work.map((w) => {
 									const idx = itemIndex++;
 									return (
 										<div
 											key={w.id}
-											className={idx === nav.activeIndex ? "bg-base-300 rounded" : ""}
+											className={
+												idx === nav.activeIndex ? "bg-[var(--surface-elevated)] rounded" : ""
+											}
 										>
 											<BetCard
 												title={w.title}
@@ -203,13 +209,17 @@ export function GlobalSearchPanel({
 
 						{search.results.knowledge.length > 0 && (
 							<div>
-								<h3 className="text-xs font-semibold text-[var(--text-lo)] px-2 py-1">Knowledge</h3>
+								<h3 className="text-xs font-semibold text-[var(--text-tertiary)] px-2 py-1">
+									Knowledge
+								</h3>
 								{search.results.knowledge.map((k) => {
 									const idx = itemIndex++;
 									return (
 										<div
 											key={k.id}
-											className={idx === nav.activeIndex ? "bg-base-300 rounded" : ""}
+											className={
+												idx === nav.activeIndex ? "bg-[var(--surface-elevated)] rounded" : ""
+											}
 										>
 											<KnowledgeRow
 												title={k.title}
@@ -245,7 +255,7 @@ export function GlobalSearchPanel({
 					<div
 						data-testid="search-recent-queries"
 						aria-label="Recent queries"
-						className="font-mono text-xs text-[var(--text-lo)] border-t border-[var(--border-subtle)] pt-2 px-1"
+						className="font-mono text-xs text-[var(--text-tertiary)] border-t border-[var(--border-subtle)] pt-2 px-1"
 					>
 						<span>No recent queries</span>
 					</div>

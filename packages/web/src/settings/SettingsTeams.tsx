@@ -77,7 +77,7 @@ export function SettingsTeams(): JSX.Element {
 
 	if (teams.length === 0) {
 		return (
-			<p className="text-sm text-[var(--text-lo)]">
+			<p className="text-sm text-[var(--text-tertiary)]">
 				No teams configured. Add teams from the Work view.
 			</p>
 		);
@@ -87,7 +87,7 @@ export function SettingsTeams(): JSX.Element {
 		<ul className="flex flex-col gap-2">
 			{teams.map((team) => (
 				<li key={team.id} className="flex items-center justify-between gap-2 text-sm">
-					<span className="text-[var(--text-hi)]">{team.name}</span>
+					<span className="text-[var(--text-primary)]">{team.name}</span>
 					<input
 						type="checkbox"
 						className="toggle toggle-sm toggle-primary"

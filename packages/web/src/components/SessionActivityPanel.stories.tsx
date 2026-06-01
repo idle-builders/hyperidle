@@ -79,7 +79,7 @@ function Wrapper({
 	}, [sessionState, activity]);
 
 	return (
-		<div className="flex h-[500px] max-w-[360px] border border-[var(--border-default)] rounded-[var(--r2)] overflow-hidden">
+		<div className="flex h-[500px] max-w-[360px] border border-[var(--border-default)] rounded-[var(--r-subtle)] overflow-hidden">
 			<SessionActivityPanel
 				sessionId="sess-1"
 				agentName="Builder Bot"
@@ -118,7 +118,7 @@ function ErrorWrapper(): JSX.Element {
 		};
 	}, []);
 	return (
-		<div className="flex h-[500px] max-w-[360px] border border-[var(--border-default)] rounded-[var(--r2)] overflow-hidden">
+		<div className="flex h-[500px] max-w-[360px] border border-[var(--border-default)] rounded-[var(--r-subtle)] overflow-hidden">
 			<SessionActivityPanel
 				sessionId="sess-err"
 				agentName="Builder Bot"
