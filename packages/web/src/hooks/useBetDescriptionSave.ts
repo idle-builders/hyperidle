@@ -57,8 +57,14 @@ export function useBetDescriptionSave({
 		onSavedRef.current = onSaved;
 	}, [onSaved]);
 
-	// Cleanup on unmount
+	// Cleanup on unmount.
+	// @lore R9: React 18 StrictMode runs effect cleanup + re-run on first mount.
+	// The cleanup sets unmountedRef.current = true but the re-run must reset it to
+	// false, otherwise all debounce callbacks bail out immediately after StrictMode.
+	// Setting unmountedRef.current = false in the setup (not just cleanup) ensures
+	// the flag is always reset when the effect is (re-)applied.
 	useEffect(() => {
+		unmountedRef.current = false;
 		return (): void => {
 			unmountedRef.current = true;
 			if (debounceTimerRef.current !== null) {

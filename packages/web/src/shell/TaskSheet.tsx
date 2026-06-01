@@ -290,6 +290,7 @@ export function TaskSheet({
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="task-sheet-title"
+			data-testid="task-sheet"
 			// Mobile: bottom-sheet (inset-x-0 bottom-0 max-h-[85vh] rounded-t-[var(--r-default)])
 			// sm+: right-anchored drawer (~360px wide)
 			// @lore The responsive classes implement the design/approved.md Mobile section:
