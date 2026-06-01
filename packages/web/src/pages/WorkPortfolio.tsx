@@ -79,7 +79,7 @@ export function WorkPortfolio(): JSX.Element {
 				</h1>
 				<button
 					type="button"
-					className="btn btn-xs btn-primary"
+					className="btn btn-sm btn-primary"
 					onClick={() => setDialogOpen(true)}
 					data-testid="new-bet-btn"
 				>
@@ -125,6 +125,17 @@ export function WorkPortfolio(): JSX.Element {
 							: "Create your first bet to start working."
 					}
 					dataTestId="portfolio-empty"
+					action={
+						selectedTeamId ? undefined : (
+							<button
+								type="button"
+								className="btn btn-sm btn-primary"
+								onClick={() => setDialogOpen(true)}
+							>
+								New bet
+							</button>
+						)
+					}
 				/>
 			) : (
 				<div
