@@ -23,7 +23,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { KanbanTask } from "../shell/Kanban";
+import type { KanbanTask } from "../shell/TaskSheet";
 import { TaskSheet } from "../shell/TaskSheet";
 
 // L18: TaskSheet now renders HostThreadSection inline; mock useHostThread to avoid fetch calls.
