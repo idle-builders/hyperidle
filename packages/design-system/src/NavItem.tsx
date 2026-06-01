@@ -63,7 +63,7 @@ export function NavItem({
 					/* @lore K7 / AESTHETICS.md § Spacing & Density "Grid base unit" + § Typography
 					   "Body size (default)": px-[5px] → px-[4px] (off-grid), text-[10px] → text-[11px]
 					   (off-scale). 18px width retained — chip-internal sub-grid per same row. */
-					<span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-[4px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] font-[family-name:var(--font-mono)] text-[11px] font-medium text-[var(--text-secondary)]">
+					<span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-[3px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] font-[family-name:var(--font-mono)] text-[11px] font-medium text-[var(--text-secondary)]">
 						{count}
 					</span>
 				)}

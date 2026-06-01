@@ -4,6 +4,30 @@ Universal principles distilled from Apple HIG, Material Design, Linear, Stripe, 
 
 ---
 
+## Hearth Design Principles
+
+HyperIdle uses the **Hearth** design language. These four principles are the opinionated application of the universal principles below — they sit above the universals as the product's aesthetic stance, not replacing them.
+
+### 1. Warmth signals trust
+
+Cream surfaces, warm shadows, and earthy tones create an inviting atmosphere. Software used all day should feel like a place you want to be, not a sterile tool. Every color is tinted warm — no cool grays, no blue-gray neutrals, no slate. The Hearth palette vocabulary: **Paper** (surface-page #f5f0e6), **Linen** (surface-container #ede7db), **Card** (surface-elevated #ffffff), **Forest** (accent-primary #16764f), **Amber** (accent-secondary #d97706), **Earth** (text-primary #2c241a).
+
+Three variables generate the entire theme: warm cream base (#f5f0e6), forest green accent (#16764f), warm earth text (#2c241a). Everything derives from these.
+
+### 2. Status through content
+
+Colored dots, pill badges, and text color carry meaning — not thick structural borders. Cards stay structurally uniform. Status is communicated through what is inside the card, not welded to its edges. The exception: toasts use a thin left-border accent (1.5px) as the only structural status signal. Hearth uses chromatic status: green success, amber warning, red error, blue info.
+
+### 3. Generous rounding
+
+16px default radius and pill-shaped buttons create a soft, approachable feel. Containers hold content gently, not boxing it in. Even small elements get 10px radius. The radius scale is deliberately sparse: **none** (0), **subtle** (10px), **default** (16px), **pill** (9999px). There is no 4px or 8px step. **Exception:** Form control chrome (checkboxes, radio buttons) may use off-scale radii because their radius is an intrinsic physical property of a small control, not a compositional design decision.
+
+### 4. Mixed hierarchy
+
+Shadows AND borders AND tints work together. Different elements use different strategies depending on their role — no single dogmatic approach. Cards get `--shadow-default`. Flat cards use border + container background. Toast uses left-border accent. This variety is the signature, not inconsistency.
+
+---
+
 ## The Seven Universals
 
 ### 1. Clarity Above All
@@ -22,18 +46,17 @@ Use size, font weight, contrast, and spacing to create reading order. Never rely
 1. Font size and weight
 2. Text color/opacity
 3. Spacing and proximity
-4. Background contrast
-5. Borders and shadows (last resort)
+4. Background contrast / shadow / border (used flexibly per element role — in Hearth, these participate equally rather than as last resort; see Hearth Principle 4: Mixed Hierarchy)
 
 ### 3. Restraint Is the Whole Game
 
 Perfection is when there is nothing left to take away (Saint-Exupery, via Ant Design). Every element must earn its place. Decoration without function is noise.
 
 **Practical rules:**
-- One accent color for interaction. Status colors are functional, not decorative.
+- One accent color for interaction (forest green). Amber is a secondary accent for attention-drawing elements (budget badges) — it doubles as status-warning, but its role as accent-secondary is an accent role, not a status decoration.
 - Two typeface families maximum. Hierarchy through weight, not family switching.
 - Spacing from a closed scale. No arbitrary values.
-- Color reserved for meaning. Monochrome is the default state; color signals "pay attention here."
+- Color reserved for meaning. The default state is warm-neutral; color signals "pay attention here."
 
 ### 4. Content First, Chrome Last
 
@@ -87,9 +110,9 @@ Define only: base color, accent color, and contrast level. Derive all other toke
 
 "Craft and beauty are not just nice to have, but are material to increasing the utility and usability of a product." Aesthetic quality builds trust, attracts users, and motivates engagement. The MVQP (Minimum Viable Quality Product) principle: ship with refinement, not just functionality.
 
-### S4. Warm Neutrals for Long Sessions (Linear)
+### S4. Warm Neutrals for Long Sessions — This IS Hearth (Linear)
 
-Cool blue-grays become fatiguing during extended use. Warm grays feel crisp but inviting. Too warm becomes muddy. This temperature calibration is subtle but critical for dark-mode productivity tools where users spend hours.
+Cool blue-grays become fatiguing during extended use. Warm grays feel crisp but inviting. Too warm becomes muddy. This temperature calibration is subtle but critical for dark-mode productivity tools where users spend hours. **S4 is not just a surprise principle for HyperIdle — it is the materialization of Hearth.** The entire Hearth palette (warm cream surfaces, forest green accent, warm earth text) is the production expression of this principle. See Hearth Principle 1: Warmth signals trust.
 
 ### S5. Opinionated Beats Flexible (Linear, Atlassian)
 
@@ -168,7 +191,7 @@ Typography carries ~95% of web design information. It is the primary interface, 
 - A type scale creates visual rhythm. Size + weight + spacing work together for hierarchy before any other design element.
 - Line height matters enormously: 1.4-1.6 for body text. Too tight is claustrophobic; too loose breaks reading rhythm.
 - Monospace for technical content (IDs, timestamps, metrics) signals precision and enables alignment.
-- Weight range: 400 (body), 500 (emphasis/labels), 600 (headings). Using more than 3 weights in one view is a smell.
+- Weight range: 400 (body), 500 (emphasis/labels), 600 (headings), 700 (page titles / brand headings). Using more than 3-4 weights in one view is a smell.
 
 ---
 
@@ -176,8 +199,8 @@ Typography carries ~95% of web design information. It is the primary interface, 
 
 - Separate brand colors from functional colors. Brand expresses identity; functional handles usability signals.
 - Color should never be the only signal for meaning. Always pair with icon, text, or shape for accessibility.
-- In dark mode, avoid pure black (#000) backgrounds -- they cause "halation" where bright text appears to bleed. Lucid Dark uses #111113.
-- Status colors: desaturate by 10-20% in dark mode so they communicate meaning without being garish.
+- In dark mode, avoid pure black (#000) backgrounds. Hearth Dark uses #1a1510 — a warm earth base that avoids halation while maintaining the warm palette.
+- Status colors: Hearth uses chromatic status — green (#16764f light / #2eaa7a dark) for success, amber (#d97706) for warning, red (#dc4a3a light / #ee6a5a dark) for error, blue (#2e7dba light / #4498d4 dark) for info. Desaturate slightly in dark mode so they communicate meaning without being garish.
 
 ---
 

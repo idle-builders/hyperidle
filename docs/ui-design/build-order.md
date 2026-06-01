@@ -1,6 +1,6 @@
 ## Build order
 
-1. Install Tailwind + DaisyUI, author Lucid themes, load fonts. _(2 days)_
+1. Install Tailwind + DaisyUI, author Hearth themes (hearth-light + hearth-dark), configure system fonts. _(2 days)_
 2. Build Tier 1 (5 primitives) with all states in Storybook. _(3 days)_
 3. Build Tier 2 (6 blocks). _(4 days)_
 4. Build Tier 3 regions — shell first (IconRail/Submenu/Rail), then ArtifactView, then Canvas/Kanban/PitchSelector. _(1.5 weeks)_

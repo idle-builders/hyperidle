@@ -111,15 +111,15 @@ export function Block({
 			// biome-ignore lint/a11y/noNoninteractiveTabindex: Block shells are explicitly tabbable for ↑/↓ block stepping per AC-39.
 			tabIndex={0}
 			onKeyDown={onKeyDown}
-			className={`group relative grid grid-cols-[32px_1fr] gap-[8px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] ${className ?? ""}`}
+			className={`group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] ${className ?? ""}`}
 		>
 			<div
 				data-block-gutter
-				className="flex justify-end items-start pt-[2px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40"
+				className="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40"
 			>
 				{slots?.gutterLeading}
 			</div>
-			<div className="flex flex-col gap-[8px] min-w-0">
+			<div className="flex flex-col gap-[9px] min-w-0">
 				{renderPayload(payload, sanitizeHtml)}
 				{slots?.inlineAfterPayload}
 			</div>

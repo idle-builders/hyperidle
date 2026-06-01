@@ -28,7 +28,7 @@ Hearth is **light-first**: the default mode is `hearth-light`, matching most pro
 | Motion fast | 120ms |
 | Motion default | 240ms |
 | Motion slow | 450ms |
-| Spacing grid | 4px baseline |
+| Spacing grid | 6px baseline (values: 3, 6, 9, 12, 18, 24, 36, 48) |
 | DaisyUI --rounded-box | 16px |
 | DaisyUI --rounded-btn | 9999px |
 | DaisyUI --rounded-badge | 9999px |

@@ -38,12 +38,12 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 			<input
 				ref={ref}
 				type="text"
-				className="w-full h-[32px] pl-[32px] pr-[56px] bg-[var(--surface-container)] border border-[var(--border-subtle)] rounded-[var(--r-default)] font-[family-name:var(--font-sans)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,background,box-shadow] duration-[var(--motion-fast)] ease-[ease] focus:border-[var(--accent-primary)] focus:bg-[var(--surface-page)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-none"
+				className="w-full h-[32px] pl-[36px] pr-[48px] bg-[var(--surface-container)] border border-[var(--border-subtle)] rounded-[var(--r-default)] font-[family-name:var(--font-sans)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,background,box-shadow] duration-[var(--motion-fast)] ease-[ease] focus:border-[var(--accent-primary)] focus:bg-[var(--surface-page)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-none"
 				placeholder={placeholder}
 				value={value}
 				onChange={(e) => onChange?.(e.target.value)}
 			/>
-			<span className="absolute right-[8px] flex items-center gap-[4px]">
+			<span className="absolute right-[8px] flex items-center gap-[3px]">
 				{value && (
 					<button
 						type="button"
@@ -51,7 +51,21 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 						aria-label="clear"
 						onClick={() => onChange?.("")}
 					>
-						&#x2715;
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="10"
+							height="10"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="2.5"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							aria-hidden="true"
+						>
+							<line x1="18" y1="6" x2="6" y2="18" />
+							<line x1="6" y1="6" x2="18" y2="18" />
+						</svg>
 					</button>
 				)}
 				{shortcutKey && (
@@ -59,7 +73,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 					   text-[10px] → text-[11px] (off-scale). The 56px right-inset on the
 					   input above is a designer-call exception (audit B.1.5) — it is the
 					   geometric minimum required to clear the clear-button + gap + kbd. */
-					<kbd className="inline-flex items-center justify-center min-w-[20px] h-[18px] px-[4px] rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] text-[var(--text-tertiary)] font-[family-name:var(--font-mono)] text-[11px] font-medium">
+					<kbd className="inline-flex items-center justify-center min-w-[20px] h-[18px] px-[3px] rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] text-[var(--text-tertiary)] font-[family-name:var(--font-mono)] text-[11px] font-medium">
 						{shortcutKey}
 					</kbd>
 				)}

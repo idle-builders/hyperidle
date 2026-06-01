@@ -6,11 +6,13 @@ import { ruleTester } from "./setup.js";
 RuleTester.describe = describe as unknown as typeof RuleTester.describe;
 RuleTester.it = it as unknown as typeof RuleTester.it;
 
+// U10 Hearth update: rounded-2xl (16px) is now ON-SCALE (maps to --r-default).
+// Only rounded-3xl (24px) remains an AI-aesthetic tell.
 ruleTester.run("no-ai-aesthetic", noAiAesthetic, {
 	valid: [
 		{
 			filename: "Card.tsx",
-			code: 'const J = <div className="rounded-[8px] bg-surface-1 shadow-sm" />;',
+			code: 'const J = <div className="rounded-[10px] bg-surface-1 shadow-sm" />;',
 		},
 		{
 			// shadow-lg allowed inside Modal.tsx (basename match)
@@ -36,12 +38,23 @@ ruleTester.run("no-ai-aesthetic", noAiAesthetic, {
 			filename: "Foo.tsx",
 			code: "const J = <p>This was effortless to read.</p>;",
 		},
-	],
-	invalid: [
+		// U10 Hearth: rounded-2xl (16px) is NOW on-scale — must NOT fire
 		{
 			filename: "Foo.tsx",
 			code: 'const J = <div className="rounded-2xl" />;',
-			errors: [{ messageId: "rounded2xl" }],
+		},
+		{
+			// cn() variant with rounded-2xl also must NOT fire
+			filename: "Foo.tsx",
+			code: 'const J = <div className={cn("rounded-2xl", "bg-surface-1")} />;',
+		},
+	],
+	invalid: [
+		// rounded-3xl is still an AI-aesthetic tell
+		{
+			filename: "Foo.tsx",
+			code: 'const J = <div className="rounded-3xl" />;',
+			errors: [{ messageId: "rounded3xl" }],
 		},
 		{
 			filename: "Foo.tsx",
@@ -111,11 +124,11 @@ ruleTester.run("no-ai-aesthetic", noAiAesthetic, {
 			code: "const J = <button>🚀 Launch</button>;",
 			errors: [{ messageId: "leadingEmoji" }],
 		},
-		// SEV-2: cn()/clsx() arguments are walked.
+		// cn()/clsx() rounded-3xl variant fires
 		{
 			filename: "Foo.tsx",
-			code: 'const J = <div className={cn("rounded-2xl", "bg-surface-1")} />;',
-			errors: [{ messageId: "rounded2xl" }],
+			code: 'const J = <div className={cn("rounded-3xl", "bg-surface-1")} />;',
+			errors: [{ messageId: "rounded3xl" }],
 		},
 	],
 });

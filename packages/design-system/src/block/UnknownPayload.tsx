@@ -14,10 +14,10 @@ export interface UnknownPayloadProps {
  */
 export function UnknownPayload({ raw, reason }: UnknownPayloadProps): JSX.Element {
 	return (
-		<div className="border-l-2 border-[var(--status-warning)] pl-[12px] flex flex-col gap-[8px]">
-			<div className="flex items-center gap-[8px]">
+		<div className="border-l-2 border-[var(--status-warning)] pl-[12px] flex flex-col gap-[9px]">
+			<div className="flex items-center gap-[9px]">
 				<span
-					className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-pill)] uppercase tracking-[0.02em] text-[11px] font-semibold bg-[color-mix(in_oklab,var(--status-warning)_15%,var(--surface-container))] text-[var(--status-warning)] border border-[var(--status-warning)]"
+					className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] uppercase tracking-[0.02em] text-[11px] font-semibold bg-[color-mix(in_oklab,var(--status-warning)_15%,var(--surface-container))] text-[var(--status-warning)] border border-[var(--status-warning)]"
 					data-block-unknown-pill
 				>
 					UNKNOWN

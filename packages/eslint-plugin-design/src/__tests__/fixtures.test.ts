@@ -74,7 +74,7 @@ describe("eslint-plugin-design fixtures", () => {
 		];
 		// Some rules legitimately fire multiple times in the bad-fixture (e.g.
 		// no-ai-aesthetic for lorem + marketing + gradient-text + backdrop-blur,
-		// and no-off-scale-radius for arbitrary + named + rounded-2xl). Assert
+		// and no-off-scale-radius for arbitrary + named + rounded-3xl). Assert
 		// each expected rule is present at least once via the deduplicated set.
 		const unique = [...new Set(ids)].sort();
 		expect(unique, JSON.stringify(messages, null, 2)).toEqual(expected.sort());
@@ -91,8 +91,9 @@ describe("eslint-plugin-design fixtures", () => {
 			.map((m) => m.messageId);
 		// SEV-1 #1: catalogue coverage expanded — assert each major tell fires
 		// in the integration fixture.
+		// U10 Hearth: rounded2xl is now on-scale; use rounded3xl instead.
 		const expectedTells = [
-			"rounded2xl",
+			"rounded3xl",
 			"backdropBlur",
 			"gradientText",
 			"loremIpsum",

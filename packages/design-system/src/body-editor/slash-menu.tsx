@@ -188,9 +188,9 @@ const SlashMenuDropdown = forwardRef<SlashMenuDropdownRef, SlashMenuDropdownProp
 					ref={containerRef}
 					role="listbox"
 					aria-label="Slash commands"
-					className="bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-default)] py-[4px] min-w-[200px] max-h-[320px] overflow-y-auto shadow-[var(--shadow-elevated)]"
+					className="bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-default)] py-[3px] min-w-[200px] max-h-[320px] overflow-y-auto shadow-[var(--shadow-elevated)]"
 				>
-					<div className="px-[12px] py-[8px] text-[var(--text-tertiary)] text-[var(--density-text)]">
+					<div className="px-[12px] py-[9px] text-[var(--text-tertiary)] text-[var(--density-text)]">
 						No results
 					</div>
 				</div>
@@ -202,7 +202,7 @@ const SlashMenuDropdown = forwardRef<SlashMenuDropdownRef, SlashMenuDropdownProp
 				ref={containerRef}
 				role="listbox"
 				aria-label="Slash commands"
-				className="bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-default)] py-[4px] min-w-[200px] max-h-[320px] overflow-y-auto shadow-[var(--shadow-elevated)]"
+				className="bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-default)] py-[3px] min-w-[200px] max-h-[320px] overflow-y-auto shadow-[var(--shadow-elevated)]"
 			>
 				{props.items.map((item, index) => (
 					<button
@@ -210,7 +210,7 @@ const SlashMenuDropdown = forwardRef<SlashMenuDropdownRef, SlashMenuDropdownProp
 						type="button"
 						role="option"
 						aria-selected={index === selectedIndex}
-						className={`w-full text-left px-[12px] py-[8px] flex flex-col gap-[4px] cursor-pointer ${
+						className={`w-full text-left px-[12px] py-[9px] flex flex-col gap-[3px] cursor-pointer ${
 							index === selectedIndex
 								? "bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)]"
 								: "hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)]"

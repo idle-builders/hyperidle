@@ -4,49 +4,67 @@
  * @lore K6: every value here is sourced from `packages/design-system/AESTHETICS.md`
  * recommendations tables or `packages/design-system/src/tokens.css`. Do NOT add a
  * value here that is not in one of those two files — see CLAUDE.md "First Principle".
+ *
+ * @lore U10: Hearth aesthetic update. The 4px grid is replaced by a 6px grid.
+ * The radius scale changes from 0/4/8/12+pill to 0/10/16/9999. The font-size
+ * allowlist gains 9px, 10px, 17px, and 30px. The SUB_GRID_VALUE constant is
+ * removed — Hearth has no 2px sub-grid as a general rule (2px/4px survive only
+ * inside component internals via the AQ-001 component-internal exemption).
  */
 
 import { basename } from "node:path";
 import type { Rule } from "eslint";
 
 /**
- * Allowed 4px-grid spacing values used by the spacing/density rule.
- * Source: AESTHETICS.md § Spacing & Density — "Grid base unit" lint hint
- *   `allowlist {4,8,12,16,20,24,32,40,48}` (closed set).
+ * Allowed Hearth 6px-grid spacing values used by the spacing/density rule.
+ * Source: AESTHETICS.md § Spacing & Density — U10 Hearth override (§ U10 changelog).
+ *   Allowlist {0,3,6,9,12,18,24,36,48} — the Hearth `--space-*` scale.
+ *
+ * @lore U10: Changed from 4px grid {0,4,8,12,16,20,24,32,40,48} to Hearth 6px
+ * grid {0,3,6,9,12,18,24,36,48}. Note: 4px and 8px (formerly on-grid) are now
+ * off-grid. 2px is no longer a special sub-grid case — it is simply off-grid.
+ * Component-internal padding (buttons: 10px/7px, inputs: 10px) and sub-element
+ * gaps (badges: 4px, toggle-text: 2px) are exempt per AQ-001 component-internal
+ * exemption; they should use a file-level `// hearth-internal-padding` directive.
  *
  * @lore K6 review SEV-1: 0 was missing — `p-[0px]` is implicitly valid (the
  * zero case the spec table omits because nobody writes it explicitly, but it
  * is a real value a developer may type). Added per K6-adversary.md SEV-1 #4.
  */
-export const SPACING_ALLOWLIST: ReadonlySet<number> = new Set([
-	0, 4, 8, 12, 16, 20, 24, 32, 40, 48,
-]);
+export const SPACING_ALLOWLIST: ReadonlySet<number> = new Set([0, 3, 6, 9, 12, 18, 24, 36, 48]);
 
 /**
- * 2px sub-grid is allowed only inside chip / icon internals.
- * Source: AESTHETICS.md § Spacing & Density — "Sub-grid 2px allowance" row.
+ * Closed Hearth radius scale from `packages/design-system/src/tokens.css`:
+ *   --r-none:0 --r-subtle:10px --r-default:16px --r-pill:9999px
+ *
+ * @lore U10: Changed from old Lucid scale {0,4,8,12,999} to Hearth scale
+ * {0,10,16,9999}. The generous-rounding principle uses 10px as the minimum
+ * non-zero radius and 16px as the default card radius. rounded-2xl (16px) is
+ * now ON-SCALE. Form control chrome (checkboxes, radio buttons) may use
+ * off-scale radii per AQ-011 exemption — DaisyUI manages these in production.
  */
-export const SUB_GRID_VALUE = 2;
+export const RADIUS_ALLOWLIST: ReadonlySet<number> = new Set([0, 10, 16, 9999]);
 
 /**
- * Closed radius scale from `packages/design-system/src/tokens.css`:
- *   --r0:0 --r1:4px --r2:8px --r3:12px --r-pill:999px
- * pill (>=999) is permitted.
- */
-export const RADIUS_ALLOWLIST: ReadonlySet<number> = new Set([0, 4, 8, 12, 999]);
-
-/**
- * Type-scale allowlist from AESTHETICS.md § Typography "Body size (default)" lint
- * hint: `allowlist {11,12,13,14,15,16,18,20,24}`.
+ * Hearth type-scale allowlist.
+ * Source: AESTHETICS.md § Typography — U10 Hearth override (§ U10 changelog).
+ *   Full allowlist: {9,10,11,12,13,14,15,16,17,18,20,24,30}
+ *
+ * @lore U10: Added 9px (count badges — numeric counters only, type scale floor),
+ * 10px (micro-typography: badge-agent labels, avatar-sm initials, swatch labels),
+ * 17px (Hearth --text-lg / --ds-font-size-lg), 30px (Hearth --text-3xl for page
+ * titles and brand headings). Kept 11px and 14px for compact density.
  */
 export const FONT_SIZE_ALLOWLIST: ReadonlySet<number> = new Set([
-	11, 12, 13, 14, 15, 16, 18, 20, 24,
+	9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 24, 30,
 ]);
 
 /**
- * Raw Tailwind palette names that are NOT part of the Lucid semantic token set.
+ * Raw Tailwind palette names that are NOT part of the Hearth semantic token set.
  * Source: AESTHETICS.md § Color & Dark Mode — "Raw Tailwind color usage" lint hint
- * regex enumerates these palette names.
+ * regex enumerates these palette names. AQ-018 specifically calls out cool-gray
+ * palettes (slate, gray, zinc, neutral) as Hearth violations — all neutrals must
+ * be warm-tinted per the Hearth "no cool grays" principle.
  */
 export const RAW_TAILWIND_PALETTE = [
 	"slate",
@@ -94,23 +112,28 @@ export function isShadowOverlayFile(filename: string): boolean {
 }
 
 /**
- * Named Tailwind radii whose pixel value is on the closed scale {0,4,8,12,999}
- * derived from `tokens.css` (--r0..r3 + --r-pill). These named classes are
- * permitted; any other named class (e.g. `rounded-sm` = 2px, `rounded-md` = 6px,
- * `rounded-2xl` = 16px, `rounded-3xl` = 24px) must be flagged off-scale.
+ * Named Tailwind radii whose pixel value is on the Hearth closed scale {0,10,16,9999}
+ * derived from `tokens.css` (--r-none / --r-subtle / --r-default / --r-pill).
+ * These named classes are permitted; any other named class must be flagged off-scale.
+ *
+ * @lore U10: Significant reversal from K6. The old scale {0,4,8,12,999} allowed
+ * `rounded`, `rounded-lg`, `rounded-xl` as named equivalents. The Hearth scale
+ * {0,10,16,9999} does not have 4px, 8px, or 12px steps, so these are now OFF-SCALE.
+ * `rounded-2xl` (16px) is NOW ALLOWED — it maps to --r-default (the Hearth default
+ * card radius). `rounded-3xl` (24px) remains off-scale and is flagged by no-ai-aesthetic.
  *
  * Tailwind v3 named-radius pixel mapping (verified against Tailwind defaults):
- *   rounded-none = 0   ✓
- *   rounded      = 4   ✓
- *   rounded-sm   = 2   ✗ (off-scale; sub-grid)
- *   rounded-md   = 6   ✗ (off-scale)
- *   rounded-lg   = 8   ✓
- *   rounded-xl   = 12  ✓
- *   rounded-2xl  = 16  ✗ (covered by no-ai-aesthetic too)
- *   rounded-3xl  = 24  ✗ (covered by no-ai-aesthetic too)
- *   rounded-full = 9999 ✓ (pill)
+ *   rounded-none = 0    ✓ (--r-none)
+ *   rounded      = 4    ✗ (off-scale; no 4px step in Hearth)
+ *   rounded-sm   = 2    ✗ (off-scale)
+ *   rounded-md   = 6    ✗ (off-scale)
+ *   rounded-lg   = 8    ✗ (off-scale; no 8px step in Hearth)
+ *   rounded-xl   = 12   ✗ (off-scale; no 12px step in Hearth)
+ *   rounded-2xl  = 16   ✓ (--r-default)
+ *   rounded-3xl  = 24   ✗ (off-scale; also blocked by no-ai-aesthetic)
+ *   rounded-full = 9999 ✓ (--r-pill)
  */
-export const ALLOWED_NAMED_RADIUS: ReadonlySet<string> = new Set(["none", "", "lg", "xl", "full"]);
+export const ALLOWED_NAMED_RADIUS: ReadonlySet<string> = new Set(["none", "2xl", "full"]);
 
 /**
  * Class-name string extractor: returns the literal text of `className="..."`.
