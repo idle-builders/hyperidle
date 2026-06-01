@@ -1,10 +1,13 @@
 /**
- * K2 markers. `dsProps` for Tier 1+2 components, `dsShellProps` for Tier 3 shells.
+ * K2 markers. `dsProps` for Tier 0+1+2 components, `dsShellProps` for Tier 3 shells.
  *
- * @lore K2: tier values are STRINGS ("1", "2", "3") — DOM attributes are always strings.
+ * @lore K2: tier values are STRINGS ("0", "1", "2", "3") — DOM attributes are always strings.
+ * @lore W2: Tier 0 added for foundation primitives (Avatar, Button, Input, etc.). These are
+ * the lowest-level Hearth atoms that Tier 1+ components consume. Using "0" is not possible
+ * with the old DsTier type ("1"|"2") — extended here. dsProps accepts "0" for W2 primitives.
  */
 
-export type DsTier = "1" | "2" | "3";
+export type DsTier = "0" | "1" | "2" | "3";
 
 export type DsSource = "design-system" | "web-shell";
 
@@ -21,11 +24,12 @@ export interface DsShellAttrs {
 }
 
 /**
- * Tier 1+2 marker. Spread on outermost JSX element.
+ * Tier 0+1+2 marker. Spread on outermost JSX element.
  *
  * @lore K2: Tier 3 shells use `dsShellProps` — different namespace by design (K4 inspector contract).
+ * @lore W2: Tier 0 is for foundation primitives (Avatar, Button, Input, etc.).
  */
-export function dsProps(name: string, tier: "1" | "2"): DsAttrs {
+export function dsProps(name: string, tier: "0" | "1" | "2"): DsAttrs {
 	return {
 		"data-ds-component": name,
 		"data-ds-tier": tier,
