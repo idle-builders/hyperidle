@@ -12,9 +12,17 @@
  *
  * @lore T1: editor.storage.markdown.getMarkdown() is provided by the
  * tiptap-markdown extension and serializes the current document to GFM.
+ *
+ * @lore R9: TipTap registers the onUpdate listener ONCE at editor creation
+ * (inside useEditor with deps=[]). If the parent's onChange identity changes
+ * (due to React 18 StrictMode double-invocation recreating callbacks), the
+ * TipTap editor still calls the OLD closure. Using onChangeRef ensures the
+ * onUpdate handler always calls the CURRENT onChange without recreating the
+ * editor. The ref is synced on every render before useEditor runs.
  */
 
 import { type Editor, useEditor } from "@tiptap/react";
+import { useRef } from "react";
 import { buildFullExtensions, buildMiniExtensions } from "./extensions.js";
 
 export interface UseBodyEditorOptions {
@@ -39,6 +47,13 @@ export function useBodyEditor({
 	variant = "full",
 	placeholder = "Start writing...",
 }: UseBodyEditorOptions): Editor | null {
+	// @lore R9: Keep a ref to the latest onChange so TipTap's onUpdate closure
+	// (captured once at editor creation) always calls the current handler.
+	// This avoids the stale-closure issue where React 18 StrictMode recreates
+	// parent callbacks but TipTap's registered listener keeps the old reference.
+	const onChangeRef = useRef(onChange);
+	onChangeRef.current = onChange;
+
 	const extensions =
 		variant === "full" ? buildFullExtensions(placeholder) : buildMiniExtensions(placeholder);
 
@@ -50,11 +65,11 @@ export function useBodyEditor({
 		content: initialContent,
 		editable,
 		onUpdate: ({ editor: e }) => {
-			// Serialize to GFM markdown and call onChange
+			// Serialize to GFM markdown and call onChange via ref
 			// editor.storage.markdown is provided by the tiptap-markdown extension
 			const md =
 				(e.storage as { markdown?: { getMarkdown: () => string } }).markdown?.getMarkdown() ?? "";
-			onChange(md);
+			onChangeRef.current(md);
 		},
 	});
 
