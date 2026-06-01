@@ -585,3 +585,15 @@ stories:
     track: V
     depends: []
     complexity: M
+
+  # Track W: Hearth Design Fidelity
+  - id: W1
+    title: "Hearth Foundation Design: HTML References for All Missing Primitives"
+    track: W
+    depends: []
+    complexity: L
+  - id: W2
+    title: "Hearth Fidelity Build: Strip Density, Build Primitives, Fix Sizing"
+    track: W
+    depends: [W1]
+    complexity: L
