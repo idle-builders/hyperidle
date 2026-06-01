@@ -13,8 +13,8 @@ export interface HeadingPayloadProps {
 // advisory; h3-h6 use fixed pixel values from the Hearth type scale spec.
 // font-heading removed: Hearth uses system-ui everywhere via --font-sans.
 const HEADING_SIZE: Record<1 | 2 | 3 | 4 | 5 | 6, string> = {
-	1: "text-[length:var(--density-text-h1)]",
-	2: "text-[length:var(--density-text-h2)]",
+	1: "text-[24px]",
+	2: "text-[20px]",
 	3: "text-[18px]",
 	4: "text-[16px]",
 	5: "text-[15px]",

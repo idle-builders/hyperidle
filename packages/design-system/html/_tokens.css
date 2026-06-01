@@ -48,7 +48,10 @@
 	--leading-tight: 1.25;
 	--leading-normal: 1.55;
 	--leading-relaxed: 1.7;
-	--tracking-caps: 0.02em;
+	--leading-body: 1.55;
+	/* @lore U10 / W2: fixed from stale 0.02em. Hearth signature is 0.08em. */
+	--tracking-caps: 0.08em;
+	--tracking-caps-sm: 0.06em;
 
 	/* Spacing — 6px grid */
 	--space-1: 3px;
@@ -66,23 +69,15 @@
 	--bw-strong: 2.5px;
 
 	/*
-	 * Density tokens — default tier mirrored from src/tokens.css.
-	 * The HTML reference pages do not toggle density, so only the default tier
-	 * is wired; the full per-tier overrides live in src/tokens.css.
+	 * @lore W2 — --easing-expressive added for Toggle thumb spring animation.
+	 * Matches the expressive easing in Toggle.html inline CSS.
 	 */
-	--density-pad-x: 18px;
-	--density-pad-y: 12px;
-	--density-gap: 12px;
-	--density-row-h: 42px;
-	--density-text: 15px;
-	--density-text-h1: 24px;
-	--density-text-h2: 20px;
-	--leading-body: 1.55;
-	--density-card-pad: 12px;
-	--density-page-gutter: 18px;
-	--density-icon-size: 18px;
-	--density-avatar-size: 30px;
-	--density-card-gap: 6px;
+	--easing-expressive: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+	/*
+	 * @lore W2 — --card-max-h retained as shared token (not density-specific).
+	 * Caps in-stream RichMessageCard height.
+	 */
 	--card-max-h: 70vh;
 }
 

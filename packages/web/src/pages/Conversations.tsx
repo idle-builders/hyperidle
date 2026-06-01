@@ -405,9 +405,9 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 				<div
 					role="status"
 					data-testid={hintReviewVerdict.testId}
-					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)] flex-shrink-0"
+					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[12px] flex flex-col gap-[6px] flex-shrink-0"
 				>
-					<p className="text-[length:var(--density-text)] text-[var(--text-secondary)] leading-[var(--leading-body)]">
+					<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
 						{hintReviewVerdict.copy}
 					</p>
 					<div className="flex gap-2">

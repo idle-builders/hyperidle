@@ -89,7 +89,7 @@ export function WorkTeam({
 	// Loading state
 	if (overrideLoading === true || (overrideData === undefined && fetched.loading)) {
 		return (
-			<div className="flex flex-col gap-[var(--density-gap)] h-full" data-testid="work-team-page">
+			<div className="flex flex-col gap-[12px] h-full" data-testid="work-team-page">
 				<SkeletonCard ariaLabel="Loading team header" />
 				<SkeletonCard ariaLabel="Loading burn vs cap" />
 				<SkeletonCard ariaLabel="Loading active bets" />
@@ -103,7 +103,7 @@ export function WorkTeam({
 		const is404 = error.message.includes("404");
 		if (is404) {
 			return (
-				<div className="flex flex-col gap-[var(--density-gap)] h-full" data-testid="work-team-page">
+				<div className="flex flex-col gap-[12px] h-full" data-testid="work-team-page">
 					<EmptyState
 						title="Team not found"
 						description="The team you are looking for does not exist or has been removed."
@@ -113,7 +113,7 @@ export function WorkTeam({
 			);
 		}
 		return (
-			<div className="flex flex-col gap-[var(--density-gap)] h-full" data-testid="work-team-page">
+			<div className="flex flex-col gap-[12px] h-full" data-testid="work-team-page">
 				<ErrorState title="Failed to load team" description={error.message} />
 			</div>
 		);
@@ -122,7 +122,7 @@ export function WorkTeam({
 	// Null data after loading/error — 404 from overrideData=null path
 	if (data === null) {
 		return (
-			<div className="flex flex-col gap-[var(--density-gap)] h-full" data-testid="work-team-page">
+			<div className="flex flex-col gap-[12px] h-full" data-testid="work-team-page">
 				<EmptyState
 					title="Team not found"
 					description="The team you are looking for does not exist or has been removed."
@@ -138,7 +138,7 @@ export function WorkTeam({
 	// than crashing in WorkTeamLoaded at `data.team.leadAgentId`.
 	if (!data.team) {
 		return (
-			<div className="flex flex-col gap-[var(--density-gap)] h-full" data-testid="work-team-page">
+			<div className="flex flex-col gap-[12px] h-full" data-testid="work-team-page">
 				<EmptyState
 					title="Team not found"
 					description="The team you are looking for does not exist or has been removed."
@@ -188,7 +188,7 @@ function WorkTeamLoaded({
 			: 0;
 
 	return (
-		<div className="flex flex-col gap-[var(--density-gap)] h-full" data-testid="work-team-page">
+		<div className="flex flex-col gap-[12px] h-full" data-testid="work-team-page">
 			{/* R1 — Team header */}
 			<section aria-label="Team header">
 				{/* Breadcrumb chip (N1 design) */}
@@ -201,7 +201,7 @@ function WorkTeamLoaded({
 						← Portfolio
 					</Link>
 				</div>
-				<div className="flex items-center gap-[var(--density-gap)] flex-wrap">
+				<div className="flex items-center gap-[12px] flex-wrap">
 					<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-primary)] flex-1">
 						{team.name}
 					</h1>
@@ -217,7 +217,7 @@ function WorkTeamLoaded({
 			<section
 				aria-label="Team burn vs cap"
 				data-testid="team-burn-vs-cap"
-				className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[var(--density-card-pad)]"
+				className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
 			>
 				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
 					Burn vs Cap
@@ -261,9 +261,9 @@ function WorkTeamLoaded({
 							<div
 								role="status"
 								data-testid={hintCreateBet.testId}
-								className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)] mt-2"
+								className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px] mt-2"
 							>
-								<p className="text-[length:var(--density-text)] text-[var(--text-secondary)] leading-[var(--leading-body)]">
+								<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
 									{hintCreateBet.copy}
 								</p>
 								<div className="flex gap-2">
@@ -279,7 +279,7 @@ function WorkTeamLoaded({
 						)}
 					</>
 				) : (
-					<div className="flex flex-col gap-[var(--density-card-gap)]">
+					<div className="flex flex-col gap-[6px]">
 						{activeBets.map((bet) => (
 							<BetRow
 								key={bet.id}
@@ -310,7 +310,7 @@ function WorkTeamLoaded({
 								key={member.agentId}
 								data-testid="team-roster-row"
 								data-is-lead={member.isLead ? "true" : "false"}
-								className="flex items-center gap-[var(--density-gap)] py-1 px-2 rounded-[var(--r-none)] bg-[var(--surface-container)]"
+								className="flex items-center gap-[12px] py-1 px-2 rounded-[var(--r-none)] bg-[var(--surface-container)]"
 							>
 								<div className="flex-none w-7 h-7 rounded-full bg-[var(--surface-elevated)] flex items-center justify-center text-[10px] font-mono text-[var(--text-primary)] uppercase">
 									{member.name.slice(0, 2)}
@@ -356,9 +356,9 @@ function BetRow({ bet, onNavigate }: { bet: BetCardSummary; onNavigate: () => vo
 		<button
 			type="button"
 			onClick={onNavigate}
-			className="w-full text-left rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[var(--density-card-pad)] hover:bg-[var(--surface-elevated)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)]"
+			className="w-full text-left rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] hover:bg-[var(--surface-elevated)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)]"
 		>
-			<div className="flex items-center gap-[var(--density-gap)] flex-wrap">
+			<div className="flex items-center gap-[12px] flex-wrap">
 				<span className="flex-1 text-xs font-medium text-[var(--text-primary)] truncate">
 					{/* @lore U1: descriptionTitle replaces pitchTitle */}
 					{bet.descriptionTitle}

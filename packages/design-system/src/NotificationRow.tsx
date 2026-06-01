@@ -49,7 +49,7 @@ export function NotificationRow({
 			 * avatar. Trailing timestamp stays literal 12 px (chrome).
 			 * @lore U8: left colored border (3px) and icon circle added per Hearth restyle.
 			 */
-			className="flex items-center gap-[var(--density-gap)] py-[var(--density-pad-y)] px-[var(--density-pad-x)] rounded-[var(--r-subtle)] transition-colors duration-[var(--motion-fast)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))] border-l-[3px]"
+			className="flex items-center gap-[12px] py-[12px] px-[24px] rounded-[var(--r-subtle)] transition-colors duration-[var(--motion-fast)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))] border-l-[3px]"
 			style={{ borderLeftColor: color }}
 			data-testid="severity-border"
 		>
@@ -61,10 +61,7 @@ export function NotificationRow({
 				style={{ backgroundColor: `color-mix(in oklab, ${color} 14%, transparent)` }}
 			/>
 			<StatusChip status={severity} />
-			<span
-				className="flex-1 text-[length:var(--density-text)] truncate"
-				aria-label={`Notification: ${message}`}
-			>
+			<span className="flex-1 text-[15px] truncate" aria-label={`Notification: ${message}`}>
 				{message}
 			</span>
 			{source && <Tag label={source} />}

@@ -223,9 +223,9 @@ export function HostThreadSection({
 			{messages.length === 0 ? (
 				<div
 					data-testid="host-thread-section-empty"
-					className="flex flex-col items-start gap-[var(--density-card-gap)] px-[var(--density-pad-x)] py-[var(--density-card-pad)] text-left"
+					className="flex flex-col items-start gap-[6px] px-[12px] py-[12px] text-left"
 				>
-					<p className="text-[length:var(--density-text)] font-medium text-[var(--text-primary)] leading-[1.4]">
+					<p className="text-[15px] font-medium text-[var(--text-primary)] leading-[1.4]">
 						No discussion yet.
 					</p>
 					<p className="text-[12px] text-[var(--text-tertiary)] leading-[1.4]">

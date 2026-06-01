@@ -73,7 +73,7 @@ export function ThreadHostBanner({
 	return (
 		<div
 			{...dsProps("ThreadHostBanner", "2")}
-			className="flex items-center gap-[12px] py-[var(--density-pad-y,8px)] px-[var(--density-pad-x,12px)] border-b border-[var(--border-subtle)] bg-[var(--surface-container)]"
+			className="flex items-center gap-[12px] py-[12px] px-[12px] border-b border-[var(--border-subtle)] bg-[var(--surface-container)]"
 		>
 			{/* Host label */}
 			<div className="flex items-center gap-[9px] min-w-0 flex-1">

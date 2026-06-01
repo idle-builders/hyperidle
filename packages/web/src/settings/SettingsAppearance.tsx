@@ -1,12 +1,10 @@
 /**
  * SettingsAppearance — Appearance settings section.
  *
- * P4 Task 10: Settings section stubs (AC-12, AC-18, AC-26)
- * Manages theme preference with localStorage persistence.
- *
- * @lore R9: Density toggle removed per R9 action prominence audit. Hearth uses a
- * single default density. The auto-density system (AQ-016) still functions at
- * narrow viewports — only the manual user control is removed.
+ * W2: Density system removed. Only theme preference remains.
+ * @lore W2: Density selector removed per AESTHETICS.md AQ-003 ("One size per
+ * component — There is no density system"). The density system
+ * (hooks, [data-density] tokens) was completely removed in W2.
  */
 
 import { type JSX, useCallback } from "react";

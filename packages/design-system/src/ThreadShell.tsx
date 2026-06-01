@@ -379,7 +379,7 @@ export function ThreadShell({
 				<>
 					<div className="flex-1 overflow-y-auto">
 						{loading ? (
-							<div className="p-[var(--density-card-pad,12px)]">
+							<div className="p-[12px]">
 								<SkeletonList rows={3} ariaLabel="Loading messages" dataTestId="skeleton-list" />
 							</div>
 						) : ordered.length === 0 ? (
@@ -388,7 +388,7 @@ export function ThreadShell({
 								description="Be the first to post in this thread."
 							/>
 						) : (
-							<ul className="flex flex-col py-[var(--density-pad-y,8px)] gap-[12px]">
+							<ul className="flex flex-col py-[12px] gap-[12px]">
 								{cardSubject
 									? (() => {
 											const m = cardSubject.message;

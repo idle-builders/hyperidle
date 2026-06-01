@@ -1,0 +1,82 @@
+/**
+ * Input — Tier 0 foundation primitive.
+ *
+ * Label, hint, error states. textarea mode. Custom CSS matching Input.html.
+ *
+ * @lore W2: No DaisyUI — custom CSS per Input.html.
+ * @lore AQ-005: Mobile inputs need ≥16px font at ≤768px to prevent iOS Safari zoom.
+ * Input.html uses 15px; the responsive override adds 16px at mobile.
+ * @lore W2 hearth-internal-padding: input padding (10px vertical) is optically
+ * tuned, not on the 6px grid. AQ-001 form exemption applies.
+ */
+
+// hearth-internal-padding
+
+import type { JSX } from "react";
+import { dsProps } from "./ds-attrs.js";
+
+export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> {
+	label?: string;
+	hint?: string;
+	error?: string;
+	textarea?: boolean;
+}
+
+const INPUT_BASE =
+	"w-full text-[15px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-none focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_rgba(22,118,79,0.1)] disabled:opacity-50 disabled:cursor-not-allowed";
+
+const INPUT_ERROR =
+	"border-[var(--status-error)] focus:border-[var(--status-error)] focus:shadow-[0_0_0_3px_rgba(220,74,58,0.1)]";
+
+export function Input({
+	label,
+	hint,
+	error,
+	textarea = false,
+	className = "",
+	id,
+	...rest
+}: InputProps): JSX.Element {
+	const inputId = id ?? (label ? `input-${label.toLowerCase().replace(/\s+/g, "-")}` : undefined);
+	const borderClass = error ? INPUT_ERROR : "";
+
+	return (
+		<div {...dsProps("Input", "0")} className={`flex flex-col gap-[6px] ${className}`}>
+			{label && (
+				<label htmlFor={inputId} className="text-[13px] font-medium text-[var(--text-primary)]">
+					{label}
+				</label>
+			)}
+			{textarea ? (
+				<textarea
+					id={inputId}
+					className={`${INPUT_BASE} ${borderClass} resize-y min-h-[80px] leading-[1.55]`}
+					aria-describedby={hint ? `${inputId}-hint` : error ? `${inputId}-error` : undefined}
+					aria-invalid={error ? "true" : undefined}
+					{...(rest as React.TextareaHTMLAttributes<HTMLTextAreaElement>)}
+				/>
+			) : (
+				<input
+					id={inputId}
+					className={`${INPUT_BASE} ${borderClass}`}
+					aria-describedby={hint ? `${inputId}-hint` : error ? `${inputId}-error` : undefined}
+					aria-invalid={error ? "true" : undefined}
+					{...rest}
+				/>
+			)}
+			{hint && !error && (
+				<span id={`${inputId}-hint`} className="text-[12px] text-[var(--text-tertiary)]">
+					{hint}
+				</span>
+			)}
+			{error && (
+				<span
+					id={`${inputId}-error`}
+					className="text-[12px] font-medium text-[var(--status-error)]"
+				>
+					{error}
+				</span>
+			)}
+		</div>
+	);
+}

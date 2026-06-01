@@ -12,23 +12,23 @@ describe("KnowledgeRow — J7 factory mode", () => {
 	};
 
 	/*
-	 * @lore K11: padding moved from a factoryMode-conditional literal
-	 * (py-[8px] / py-[16px]) to var(--density-pad-y) per density-audit.md
-	 * § 3.2.2. The K9 ladder now drives row padding; factoryMode no longer
-	 * controls it (otherwise factoryMode + comfortable would compound).
+	 * @lore W2: Density tokens removed. Padding is now a literal Hearth value
+	 * (py-[12px]) instead of var(--density-pad-y). factoryMode does not
+	 * control row padding.
 	 */
-	it("consumes --density-pad-y for vertical padding regardless of factoryMode", () => {
+	it("uses Hearth default vertical padding (12px) regardless of factoryMode", () => {
 		const { container: plain } = render(<KnowledgeRow {...defaultProps} />);
 		const plainRow = plain.firstElementChild as HTMLElement;
-		expect(plainRow.className).toContain("py-[var(--density-pad-y)]");
+		expect(plainRow.className).toContain("py-[12px]");
 		expect(plainRow.className).not.toContain("py-[16px]");
 		expect(plainRow.className).not.toContain("py-[8px]");
+		expect(plainRow.className).not.toContain("var(--density");
 
 		const { container: factory } = render(
 			<KnowledgeRow {...defaultProps} factoryMode version="v2.1" />,
 		);
 		const factoryRow = factory.firstElementChild as HTMLElement;
-		expect(factoryRow.className).toContain("py-[var(--density-pad-y)]");
+		expect(factoryRow.className).toContain("py-[12px]");
 		expect(factoryRow.className).not.toContain("py-[16px]");
 	});
 
@@ -57,15 +57,14 @@ describe("KnowledgeRow — J7 factory mode", () => {
 		expect(screen.queryByTestId("knowledge-version-pill")).not.toBeInTheDocument();
 	});
 
-	it("renders the canonical row composition (flex + density-aware spacing)", () => {
-		// @lore K11: gap and px moved from literal 8 px to density tokens per
-		// density-audit.md § 3.2.2. The compositional structure (flex,
-		// items-center) is unchanged.
+	it("renders the canonical row composition (flex + Hearth literal spacing)", () => {
+		// @lore W2: gap and px moved from density tokens to Hearth literal values.
+		// gap-[12px] (--space-4), px-[24px] (--space-8) per density replacement table.
 		const { container } = render(<KnowledgeRow {...defaultProps} />);
 		const row = container.firstElementChild as HTMLElement;
 		expect(row.className).toContain("flex");
 		expect(row.className).toContain("items-center");
-		expect(row.className).toContain("gap-[var(--density-gap)]");
-		expect(row.className).toContain("px-[var(--density-pad-x)]");
+		expect(row.className).toContain("gap-[12px]");
+		expect(row.className).toContain("px-[24px]");
 	});
 });

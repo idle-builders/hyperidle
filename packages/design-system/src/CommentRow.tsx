@@ -168,7 +168,7 @@ export function CommentRow({
 			{...dsProps("CommentRow", "2")}
 			data-testid="comment-row"
 			{...(variant ? { "data-variant": variant } : {})}
-			className="flex gap-[9px] py-[6px] px-[var(--density-pad-x,12px)]"
+			className="flex gap-[9px] py-[6px] px-[12px]"
 		>
 			{showSenderHeader ? (
 				<span className="inline-flex items-center justify-center w-[28px] h-[28px] rounded-full bg-[var(--surface-container)] text-[var(--text-tertiary)] text-[11px] font-medium border border-[var(--border-subtle)] shrink-0">

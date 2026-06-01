@@ -969,9 +969,9 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 				<div
 					role="status"
 					data-testid={hintAddCredential.testId}
-					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)]"
+					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px]"
 				>
-					<p className="text-[length:var(--density-text)] text-[var(--text-secondary)] leading-[var(--leading-body)]">
+					<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
 						{hintAddCredential.copy}
 					</p>
 					<div className="flex gap-2">
@@ -1026,7 +1026,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 				<section
 					aria-label="Bet cost"
 					data-testid="bet-cost-section"
-					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[var(--density-card-pad)]"
+					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
 				>
 					<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
 						Cost

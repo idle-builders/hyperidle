@@ -49,11 +49,8 @@ describe("DESIGN.md", () => {
 		expect(content).not.toContain("Geist");
 	});
 
-	it("documents density presets", () => {
-		expect(content).toContain("--density-pad-x");
-		expect(content).toContain("Compact");
-		expect(content).toContain("Comfortable");
-	});
+	// @lore W2: "documents density presets" test removed. Density system stripped.
+	// DESIGN.md no longer documents --density-pad-x / Compact / Comfortable presets.
 });
 
 describe("PRINCIPLES.md", () => {

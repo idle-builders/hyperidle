@@ -190,7 +190,7 @@ const SlashMenuDropdown = forwardRef<SlashMenuDropdownRef, SlashMenuDropdownProp
 					aria-label="Slash commands"
 					className="bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-default)] py-[3px] min-w-[200px] max-h-[320px] overflow-y-auto shadow-[var(--shadow-elevated)]"
 				>
-					<div className="px-[12px] py-[9px] text-[var(--text-tertiary)] text-[var(--density-text)]">
+					<div className="px-[12px] py-[9px] text-[var(--text-tertiary)] text-[15px]">
 						No results
 					</div>
 				</div>
@@ -218,7 +218,7 @@ const SlashMenuDropdown = forwardRef<SlashMenuDropdownRef, SlashMenuDropdownProp
 						onClick={() => selectItem(index)}
 						onMouseEnter={() => setSelectedIndex(index)}
 					>
-						<span className="text-[var(--text-primary)] text-[var(--density-text)] leading-tight">
+						<span className="text-[var(--text-primary)] text-[15px] leading-tight">
 							{item.title}
 						</span>
 						<span className="text-[var(--text-tertiary)] text-[0.8125rem] leading-tight">

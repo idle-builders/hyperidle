@@ -76,19 +76,9 @@ export interface NotificationSettings {
 	mutedTeams: string[];
 }
 
-/**
- * @lore K7 / AESTHETICS.md § Mobile & Touch row "Density preference state":
- * tri-state preference. `"auto"` is the factory default and the only state
- * that fires the viewport-driven density auto-switch (≤ 1024px → comfortable).
- * Once the user picks `default` / `compact` / `comfortable`, that explicit
- * choice persists across breakpoint changes.
- */
-export type Density = "auto" | "compact" | "default" | "comfortable";
-export type ResolvedDensity = "compact" | "default" | "comfortable";
 export type Theme = "light" | "dark" | "system";
 
 export interface AppearanceSettings {
-	density: Density;
 	theme: Theme;
 }
 

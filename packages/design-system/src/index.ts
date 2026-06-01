@@ -17,6 +17,9 @@ export type { ArtifactStackItemProps } from "./ArtifactStackItem.js";
 export { ArtifactStackItem } from "./ArtifactStackItem.js";
 export type { ArtifactTimestampProps } from "./ArtifactTimestamp.js";
 export { ArtifactTimestamp } from "./ArtifactTimestamp.js";
+// ── Tier 0: Foundation primitives (W2) ──
+export type { AvatarGroupProps, AvatarProps } from "./Avatar.js";
+export { Avatar, AvatarGroup } from "./Avatar.js";
 export type { BetCardLeadAvatar, BetCardProps } from "./BetCard.js";
 export { BetCard } from "./BetCard.js";
 // ── Tier 2: Block primitive (L2) ──
@@ -32,9 +35,13 @@ export { BlockHandle } from "./BlockHandle.js";
 // ── T1: BodyEditor — TipTap WYSIWYG editor ──
 export type { BodyEditorProps } from "./BodyEditor.js";
 export { BodyEditor } from "./BodyEditor.js";
+export type { ButtonProps } from "./Button.js";
+export { Button } from "./Button.js";
 // T4: renderPayload exported for use in web-layer BlockRefEmbed (cannot import
 // from a sub-path because the design-system package.json only exports ".").
 export { renderPayload } from "./block/render-payload.js";
+export type { CheckboxProps } from "./Checkbox.js";
+export { Checkbox } from "./Checkbox.js";
 export type { CommentRowProps, CommentRowSender } from "./CommentRow.js";
 export { CommentRow } from "./CommentRow.js";
 export type { ComposerProps, ComposerSubmitInput } from "./Composer.js";
@@ -49,6 +56,8 @@ export type { EmptyStateProps } from "./EmptyState.js";
 export { EmptyState } from "./EmptyState.js";
 export type { ErrorStateProps } from "./ErrorState.js";
 export { ErrorState } from "./ErrorState.js";
+export type { InputProps } from "./Input.js";
+export { Input } from "./Input.js";
 export type { KeyValueProps } from "./KeyValue.js";
 export { KeyValue } from "./KeyValue.js";
 export type { KnowledgeRowProps } from "./KnowledgeRow.js";
@@ -57,6 +66,8 @@ export type { NavItemProps } from "./NavItem.js";
 export { NavItem } from "./NavItem.js";
 export type { NotificationRowProps } from "./NotificationRow.js";
 export { NotificationRow } from "./NotificationRow.js";
+export type { ProgressProps } from "./Progress.js";
+export { Progress } from "./Progress.js";
 // U8: PitchCard deleted from design-system exports.
 export type {
 	RichMessageCardAction,
@@ -68,6 +79,8 @@ export type {
 export { RichMessageCard } from "./RichMessageCard.js";
 export type { SearchFieldProps } from "./SearchField.js";
 export { SearchField } from "./SearchField.js";
+export type { SelectProps } from "./Select.js";
+export { Select } from "./Select.js";
 export type { SkeletonCardProps, SkeletonListProps } from "./Skeleton.js";
 export { SkeletonCard, SkeletonList } from "./Skeleton.js";
 export type { Status, StatusChipProps } from "./StatusChip.js";
@@ -83,6 +96,8 @@ export {
 	TASK_STATE_MAP,
 	taskStateToStatus,
 } from "./status-mapping.js";
+export type { TabBarProps } from "./TabBar.js";
+export { TabBar } from "./TabBar.js";
 export type { TagProps } from "./Tag.js";
 export { Tag } from "./Tag.js";
 export type { TaskCardProps } from "./TaskCard.js";
@@ -102,5 +117,9 @@ export type {
 	ThreadShellProps,
 } from "./ThreadShell.js";
 export { computeSenderGrouping, ThreadShell } from "./ThreadShell.js";
+export type { ToastProps } from "./Toast.js";
+export { Toast } from "./Toast.js";
+export type { ToggleProps } from "./Toggle.js";
+export { Toggle } from "./Toggle.js";
 export type { TagKind, TagKindMeta } from "./tag-kinds.js";
 export { TAG_KIND_ICONS } from "./tag-kinds.js";

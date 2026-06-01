@@ -45,6 +45,7 @@ const FREEZE_CSS = `
 `;
 
 // U8: PitchCard deleted from design-system — removed from visual regression.
+// W2: New Tier 0 primitives added to COMPONENTS for ds:sync gate (AC-4).
 /** Component names — must match both HTML filenames and story titles. */
 const COMPONENTS = [
 	"StatusChip",
@@ -63,6 +64,16 @@ const COMPONENTS = [
 	"Block",
 	"BlockHandle",
 	"BlockActionsPopover",
+	// W2: Tier 0 primitives
+	"Avatar",
+	"Button",
+	"Input",
+	"Select",
+	"Toggle",
+	"Checkbox",
+	"TabBar",
+	"Toast",
+	"Progress",
 ];
 
 /**
@@ -71,6 +82,7 @@ const COMPONENTS = [
  * value is a list. Each name MUST resolve to ≥ 1 marker on the page.
  */
 // U8: PitchCard deleted — removed from EXPECTED_MARKERS.
+// W2: New Tier 0 primitives added.
 const EXPECTED_MARKERS: Record<string, string[]> = {
 	StatusChip: ["StatusChip"],
 	Tag: ["Tag"],
@@ -88,6 +100,16 @@ const EXPECTED_MARKERS: Record<string, string[]> = {
 	Block: ["block"],
 	BlockHandle: ["block-handle"],
 	BlockActionsPopover: ["block-actions-popover"],
+	// W2: Tier 0 primitives
+	Avatar: ["Avatar"],
+	Button: ["Button"],
+	Input: ["Input"],
+	Select: ["Select"],
+	Toggle: ["Toggle"],
+	Checkbox: ["Checkbox"],
+	TabBar: ["TabBar"],
+	Toast: ["Toast"],
+	Progress: ["Progress"],
 };
 
 /**
@@ -98,6 +120,7 @@ const EXPECTED_MARKERS: Record<string, string[]> = {
  * the component's root element selector and force: true for hover.
  */
 // U8: PitchCard deleted — removed from INTERACTIVE_COMPONENTS.
+// W2: Button added as new form primitive (reviewer finding C6).
 const INTERACTIVE_COMPONENTS: Record<
 	string,
 	{ htmlSelector: string; tsxSelector: string; sectionIndex: number }
@@ -113,6 +136,17 @@ const INTERACTIVE_COMPONENTS: Record<
 		sectionIndex: 0,
 	},
 	NotificationRow: { htmlSelector: "div > div", tsxSelector: "div > div", sectionIndex: 0 },
+	// W2: Button is the primary form primitive with interactive states
+	Button: { htmlSelector: "button", tsxSelector: "button", sectionIndex: 0 },
+	// W2 review D2: remaining Tier 0 form primitives with interactive states
+	Input: { htmlSelector: "input", tsxSelector: "input", sectionIndex: 0 },
+	Select: { htmlSelector: "select", tsxSelector: "select", sectionIndex: 0 },
+	Toggle: { htmlSelector: ".toggle", tsxSelector: "[data-ds-component='Toggle']", sectionIndex: 0 },
+	Checkbox: {
+		htmlSelector: ".checkbox",
+		tsxSelector: "[data-ds-component='Checkbox']",
+		sectionIndex: 0,
+	},
 };
 
 /** Normalise a section title for matching: lowercase, strip non-alnum. */

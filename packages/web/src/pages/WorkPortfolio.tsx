@@ -42,19 +42,13 @@ export function WorkPortfolio(): JSX.Element {
 
 	if (betsLoading) {
 		return (
-			<div
-				className="flex flex-col gap-[var(--density-gap)] h-full"
-				data-testid="work-portfolio-page"
-			>
+			<div className="flex flex-col gap-[12px] h-full" data-testid="work-portfolio-page">
 				<div className="flex items-center justify-between">
 					<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
 						All bets
 					</h1>
 				</div>
-				<div
-					className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--density-gap)]"
-					data-testid="bet-grid"
-				>
+				<div className="grid grid-cols-1 sm:grid-cols-2 gap-[12px]" data-testid="bet-grid">
 					<SkeletonCard ariaLabel="Loading bet" />
 					<SkeletonCard ariaLabel="Loading bet" />
 					<SkeletonCard ariaLabel="Loading bet" />
@@ -69,7 +63,7 @@ export function WorkPortfolio(): JSX.Element {
 			 * @lore K11: page section gap → --density-gap per density-audit.md § 3.4.P1.
 			 * Page outer pad inherits from `<main>`'s --density-page-gutter.
 			 */
-			className="flex flex-col gap-[var(--density-gap)] h-full"
+			className="flex flex-col gap-[12px] h-full"
 			data-testid="work-portfolio-page"
 		>
 			{/* Header row: "All bets" heading + "New bet" button */}
@@ -138,10 +132,7 @@ export function WorkPortfolio(): JSX.Element {
 					}
 				/>
 			) : (
-				<div
-					className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--density-gap)]"
-					data-testid="bet-grid"
-				>
+				<div className="grid grid-cols-1 sm:grid-cols-2 gap-[12px]" data-testid="bet-grid">
 					{filteredBets.map((bet) => {
 						// Resolve team name for BetCard display
 						const teamName = teams.find((t) => t.id === bet.teamId)?.name ?? bet.teamId;

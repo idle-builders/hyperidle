@@ -75,13 +75,13 @@
 
 		/* Typography — line heights */
 		--leading-tight: 1.25;
-		/*
-		 * @lore U3 — --leading-normal (1.55) is the base value in :root (shared).
-		 * --leading-body is the density-overridable alias that each density tier
-		 * sets to 1.55/1.5/1.6. Both tokens coexist intentionally.
-		 */
 		--leading-normal: 1.55;
 		--leading-relaxed: 1.7;
+		/*
+		 * @lore W2 — --leading-body moved from density blocks to shared :root after
+		 * density system removal. Value matches Hearth default (1.55).
+		 */
+		--leading-body: 1.55;
 		/* @lore U10: Hearth wide-tracking uppercase signature. 0.08em for section
 		 * titles; 0.06em for smaller labels (subtitles, sidebar categories).
 		 * Previous Lucid-era value 0.02em was too tight for the warm, generous
@@ -103,6 +103,26 @@
 		--bw-thin: 1px;
 		--bw-default: 1.5px;
 		--bw-strong: 2.5px;
+
+		/*
+		 * @lore W2 — --easing-expressive added for spring-like micro-interactions
+		 * (toggle thumb overshoot). Matches Toggle.html inline CSS.
+		 */
+		--easing-expressive: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+		/*
+		 * @lore W2 — --card-max-h moved from density blocks to shared :root after
+		 * density system removal. Caps in-stream RichMessageCard height.
+		 * See L11 plan §5.7 lore.
+		 */
+		--card-max-h: 70vh;
+	}
+
+	/* ── Mobile override: tighter card height cap on small viewports ── */
+	@media (max-width: 768px) {
+		:root {
+			--card-max-h: 60vh;
+		}
 	}
 
 	/* ── Hearth Light (default) ── */
@@ -261,104 +281,6 @@
 
 			color-scheme: dark;
 		}
-	}
-
-	/*
-	 * ── Density presets ──
-	 * K9/K11 canonical values. Spacing tokens follow compact ≈ default × 0.75
-	 * and comfortable ≈ default × 1.5 within 4 px tolerance (K9 ratio ladder).
-	 *
-	 * @lore U3 — Hearth replaces Lucid colour tokens but KEEPS the K9/K11
-	 * density values verbatim. K9 and K11 tests pin exact pixel values; the
-	 * density spec is owned by those workpackages, not by the colour theme.
-	 * A 6px-grid rebuild would require a K9/K11 update before any change here.
-	 *
-	 * @lore K11 — density-card-pad, density-page-gutter, density-icon-size,
-	 * density-avatar-size, density-card-gap added for card/page layout
-	 * separation from component interior padding.
-	 */
-	:root,
-	[data-density="default"] {
-		--density-pad-x: 16px;
-		--density-pad-y: 12px;
-		--density-gap: 12px;
-		/*
-		 * @lore K9 — 44px satisfies AQ-015 44 CSS px touch-target floor.
-		 * The compact tier (33px) and comfortable tier (56px) are designer calls
-		 * exempt from strict ratio enforcement (see K9 AC tests).
-		 */
-		--density-row-h: 44px;
-		--density-text: 15px;
-		--density-text-h1: 26px;
-		--density-text-h2: 20px;
-		--leading-body: 1.55;
-
-		/* K11 density tokens */
-		--density-card-pad: 12px;
-		--density-page-gutter: 16px;
-		--density-icon-size: 16px;
-		--density-avatar-size: 32px;
-		--density-card-gap: 8px;
-
-		/*
-		 * @lore L11 plan §5.7 — --card-max-h caps the in-stream RichMessageCard
-		 * so a 200-line diff cannot push the action footer off-viewport. The card
-		 * body has overflow-y: auto; the action footer is position: sticky; bottom: 0.
-		 * Mobile override below.
-		 */
-		--card-max-h: 70vh;
-	}
-
-	@media (max-width: 768px) {
-		:root,
-		[data-density="default"] {
-			--card-max-h: 60vh;
-		}
-	}
-
-	[data-density="compact"] {
-		--density-pad-x: 12px;
-		--density-pad-y: 8px;
-		--density-gap: 8px;
-		--density-row-h: 33px;
-		--density-text: 14px;
-		--density-text-h1: 24px;
-		--density-text-h2: 18px;
-		--leading-body: 1.5;
-
-		/* K11 density tokens */
-		--density-card-pad: 8px;
-		--density-page-gutter: 8px;
-		--density-icon-size: 14px;
-		--density-avatar-size: 24px;
-		--density-card-gap: 4px;
-	}
-
-	[data-density="comfortable"] {
-		--density-pad-x: 24px;
-		--density-pad-y: 18px;
-		--density-gap: 18px;
-		/*
-		 * @lore K9 — row-h set to 56px instead of the strict 1.5× ratio result
-		 * (44 × 1.5 = 66 → 64 px). 56px is a designer call sized to the iOS Mail /
-		 * Notion comfort band, above AQ-015 44px floor. The density-tier vitest
-		 * exempts row-h from the upper-bound 1.5× assertion for this reason.
-		 */
-		--density-row-h: 56px;
-		--density-text: 16px;
-		--density-text-h1: 28px;
-		--density-text-h2: 22px;
-		--leading-body: 1.6;
-		/* @lore U10: Hearth tracking-caps is uniform across all density tiers (0.08em).
-		 * The K9 comfortable-density value of 0.015em is replaced. */
-		--tracking-caps: 0.08em;
-
-		/* K11 density tokens */
-		--density-card-pad: 16px;
-		--density-page-gutter: 24px;
-		--density-icon-size: 20px;
-		--density-avatar-size: 40px;
-		--density-card-gap: 12px;
 	}
 }
 

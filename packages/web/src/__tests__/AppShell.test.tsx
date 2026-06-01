@@ -143,35 +143,9 @@ describe("AppShell", () => {
 	// @lore U6: The Submenu collapse/expand behavior is removed (Submenu deleted).
 	// The Sidebar is always visible. Responsive tests for Submenu collapse are removed.
 
-	describe("density wiring (J1)", () => {
-		// @lore AppShell applies data-density on its root so [data-density="..."] CSS vars cascade.
-		function getDensityRoot(container: HTMLElement): HTMLElement | null {
-			return container.querySelector<HTMLElement>("[data-density]");
-		}
-
-		it("renders a root element carrying data-density", async () => {
-			const { container } = renderShell();
-			await waitFor(() => {
-				expect(screen.getByTestId("main-content")).toBeInTheDocument();
-			});
-			const root = getDensityRoot(container);
-			expect(root).not.toBeNull();
-		});
-
-		it('default data-density is "default" (matches DEFAULT_SETTINGS baseline)', async () => {
-			const { container } = renderShell();
-			await waitFor(() => {
-				expect(screen.getByTestId("main-content")).toBeInTheDocument();
-			});
-			const root = getDensityRoot(container);
-			expect(root?.getAttribute("data-density")).toBe("default");
-		});
-
-		// @lore R9: The density selector was removed from SettingsAppearance per the R9 action
-		// prominence audit. The auto-density system (AQ-016) still functions at narrow viewports.
-		// Tests that exercised the density UI control are removed; the data-density attribute
-		// remains on the shell root for the auto-density CSS cascade.
-	});
+	// @lore W2: density wiring tests removed. The density system was completely
+	// stripped in W2. AppShell no longer sets [data-density] on the root element.
+	// See plans/W2/architecture.md for the full density strip inventory.
 
 	describe("global search navigation by type", () => {
 		// I4 N1: `handleSearchNavigate` must route by result type.

@@ -30,7 +30,7 @@ export const noOffGridSpacing: Rule.RuleModule = createRule({
 		schema: [],
 		messages: {
 			offGrid:
-				"Spacing class '{{cls}}' uses {{n}}px which is off the Hearth 6px grid.  → fix: pick one of {3,6,9,12,18,24,36,48}px or use a density token (var(--density-pad-*), var(--density-gap)).",
+				"Spacing class '{{cls}}' uses {{n}}px which is off the Hearth 6px grid.  → fix: pick one of {3,6,9,12,18,24,36,48}px or use a Hearth spacing token (var(--space-1) through var(--space-16)).",
 		},
 	},
 	create(context) {

@@ -48,9 +48,9 @@ describe("KeyValue", () => {
 		expect(value.className).toContain("text-[var(--text-primary)]");
 	});
 
-	it("value has text-[14px] styling", () => {
+	it("value has text-[15px] styling", () => {
 		render(<KeyValue label="Owner" value="Alice" />);
 		const value = screen.getByText("Alice");
-		expect(value).toHaveClass("text-[14px]");
+		expect(value).toHaveClass("text-[15px]");
 	});
 });

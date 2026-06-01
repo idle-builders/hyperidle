@@ -235,6 +235,10 @@ test.describe("Settings Overlay (P4)", () => {
 		await expect.poll(() => patchCalled, { timeout: 5_000 }).toBe(true);
 	});
 
+	// @lore W2: density tests removed. Density system completely stripped in W2.
+	// "Appearance section applies density immediately on change" — deleted.
+	// "density preference persists across page reload" — deleted.
+
 	// AC-17: No save button in Appearance section
 	test("Appearance section has no save button", async ({ page }) => {
 		await openSettings(page);
