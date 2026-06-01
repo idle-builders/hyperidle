@@ -200,8 +200,8 @@ function ResolvedView({
 			aria-labelledby={titleId}
 			className="ml-[36px] bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-default)] overflow-hidden"
 		>
-			<div className="flex items-center gap-[8px] px-[12px] py-[10px] text-[13px] text-[var(--text-secondary)] flex-wrap">
-				<span className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-pill)] text-[11px] font-mono tracking-[0.03em] bg-[color-mix(in oklab,var(--text-secondary) 8%,transparent)] text-[var(--text-secondary)]">
+			<div className="flex items-center gap-[9px] px-[12px] py-[9px] text-[13px] text-[var(--text-secondary)] flex-wrap">
+				<span className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[11px] font-mono tracking-[0.03em] bg-[color-mix(in oklab,var(--text-secondary) 8%,transparent)] text-[var(--text-secondary)]">
 					RESOLVED
 				</span>
 				<span className="font-mono text-[11px] tracking-[0.05em] uppercase font-medium text-[var(--status-success)]">
@@ -210,7 +210,7 @@ function ResolvedView({
 				<span id={titleId} className="text-[var(--text-primary)]">
 					{title}
 				</span>
-				<span className="text-[var(--text-tertiary)] ml-[4px] text-[12px]">— {resolved.actor}</span>
+				<span className="text-[var(--text-tertiary)] ml-[3px] text-[12px]">— {resolved.actor}</span>
 				<span className="text-[var(--text-tertiary)] text-[11px] tabular-nums">
 					· {resolved.timestamp}
 				</span>
@@ -251,7 +251,7 @@ function RedactedView({
 		>
 			<div
 				id={titleId}
-				className="px-[12px] py-[10px] italic text-[var(--text-tertiary)] text-[13px]"
+				className="px-[12px] py-[9px] italic text-[var(--text-tertiary)] text-[13px]"
 			>
 				{label} redacted by {payload.redactedBy} — {payload.reason}
 			</div>
@@ -345,7 +345,7 @@ export function RichMessageCard({
 			return (
 				<div
 					data-sticky="bottom"
-					className="sticky bottom-0 flex items-center gap-[8px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-t border-[var(--border-subtle)] text-[13px] text-[var(--text-secondary)]"
+					className="sticky bottom-0 flex items-center gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)] border-t border-[var(--border-subtle)] text-[13px] text-[var(--text-secondary)]"
 					aria-live="polite"
 				>
 					Saving…
@@ -357,7 +357,7 @@ export function RichMessageCard({
 				<div
 					role="alert"
 					data-sticky="bottom"
-					className="sticky bottom-0 flex items-center gap-[8px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-t border-[var(--border-subtle)] text-[13px] text-[var(--status-error)]"
+					className="sticky bottom-0 flex items-center gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)] border-t border-[var(--border-subtle)] text-[13px] text-[var(--status-error)]"
 				>
 					<span>{state.reason}</span>
 					<button
@@ -376,7 +376,7 @@ export function RichMessageCard({
 					role="toolbar"
 					aria-label="Verdict actions"
 					data-sticky="bottom"
-					className="sticky bottom-0 flex flex-wrap gap-[8px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-t border-[var(--border-subtle)]"
+					className="sticky bottom-0 flex flex-wrap gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)] border-t border-[var(--border-subtle)]"
 				>
 					{VERDICT_BUTTONS.map((b) => (
 						<button
@@ -397,7 +397,7 @@ export function RichMessageCard({
 					role="toolbar"
 					aria-label="Answer options"
 					data-sticky="bottom"
-					className="sticky bottom-0 flex flex-wrap gap-[8px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-t border-[var(--border-subtle)]"
+					className="sticky bottom-0 flex flex-wrap gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)] border-t border-[var(--border-subtle)]"
 				>
 					{/* @lore L11 step9 (S11): all-ghost on questionnaire answers —
 					    no spec-required preferred option, so a primary on
@@ -424,7 +424,7 @@ export function RichMessageCard({
 		if (reasoning.length === 0) return null;
 		if (isShortReasoning(reasoning)) {
 			return (
-				<p className="px-[12px] pb-[8px] text-[13px] text-[var(--text-secondary)] m-0">
+				<p className="px-[12px] pb-[9px] text-[13px] text-[var(--text-secondary)] m-0">
 					{reasoning[0]}
 				</p>
 			);
@@ -435,16 +435,16 @@ export function RichMessageCard({
 					type="button"
 					onClick={(): void => setReasoningOpen((p) => !p)}
 					aria-expanded={reasoningOpen}
-					className="inline-flex items-center gap-[6px] mx-[12px] mb-[8px] px-[8px] py-[4px] bg-[var(--surface-container)] rounded-[var(--r-subtle)] text-[12px] text-[var(--text-secondary)] cursor-pointer border-none w-fit hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)]"
+					className="inline-flex items-center gap-[6px] mx-[12px] mb-[9px] px-[9px] py-[3px] bg-[var(--surface-container)] rounded-[var(--r-subtle)] text-[12px] text-[var(--text-secondary)] cursor-pointer border-none w-fit hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)]"
 				>
 					<ChevronDown open={reasoningOpen} />
 					{reasoningOpen ? "Hide reasoning" : `${reasoning.length} reasons`}
 				</button>
 				{reasoningOpen ? (
-					<ol className="px-[12px] pb-[8px] pl-[36px] list-decimal text-[13px] text-[var(--text-secondary)] m-0">
+					<ol className="px-[12px] pb-[9px] pl-[36px] list-decimal text-[13px] text-[var(--text-secondary)] m-0">
 						{reasoning.map((line, i) => (
 							// biome-ignore lint/suspicious/noArrayIndexKey: reasoning entries are immutable once sent.
-							<li key={`${message.id}-r-${i}`} className="my-[2px]">
+							<li key={`${message.id}-r-${i}`} className="my-[3px]">
 								{line}
 							</li>
 						))}
@@ -457,7 +457,7 @@ export function RichMessageCard({
 	const renderQuestionnaireBody = (): ReactNode => {
 		if (!isQuestionnaire || questionnaire.redacted) return null;
 		return (
-			<p className="px-[12px] pb-[8px] text-[13px] text-[var(--text-secondary)] m-0">
+			<p className="px-[12px] pb-[9px] text-[13px] text-[var(--text-secondary)] m-0">
 				{questionnaire.question}
 			</p>
 		);
@@ -476,8 +476,8 @@ export function RichMessageCard({
 			style={{ maxHeight: "min(var(--card-max-h), max-content)" }}
 			className={`ml-[36px] bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-default)] overflow-hidden flex flex-col ${blocking ? "border-l-2 border-l-[var(--status-error)]" : ""}`}
 		>
-			<div className="flex items-center gap-[8px] px-[12px] pt-[8px] pb-[6px] text-[12px] text-[var(--text-secondary)] flex-wrap">
-				<span className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-pill)] text-[11px] font-mono tracking-[0.03em] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-primary)]">
+			<div className="flex items-center gap-[9px] px-[12px] pt-[9px] pb-[6px] text-[12px] text-[var(--text-secondary)] flex-wrap">
+				<span className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[11px] font-mono tracking-[0.03em] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-primary)]">
 					{tagLabel}
 				</span>
 				<span className="text-[var(--text-primary)] font-medium">{sender.name}</span>

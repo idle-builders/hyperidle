@@ -26,7 +26,7 @@ function renderNode(node: InlineNode, key: number): JSX.Element | string {
 			return (
 				<code
 					key={key}
-					className="font-mono text-[0.92em] px-[4px] py-[1px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[var(--text-primary)]"
+					className="font-mono text-[0.92em] px-[3px] py-[3px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[var(--text-primary)]"
 				>
 					{node.value}
 				</code>

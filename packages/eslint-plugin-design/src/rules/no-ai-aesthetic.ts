@@ -6,7 +6,7 @@
  * regex-detectable tells from that section's recommendations table.
  *
  * Tells covered here (each row's Lint hint column):
- *   #1  rounded-2xl / rounded-3xl                       (AQ-101)
+ *   #1  rounded-3xl (AQ-101 — NOTE: rounded-2xl is now on-scale in Hearth)
  *   #2  bg-gradient-{to,from,via}-{indigo|...}-NNN      (AQ-102)
  *   #3  oversized padding p-(8|10|12|14|16)             (AQ-103)
  *   #5  decorative emoji in JSX text content            (AQ-105 — partial)
@@ -20,6 +20,11 @@
  * skill or future rules): #4 hero sections, #6 page-level text-center,
  * #8 font stack assertion, #9 3-col card grid, #14 nav-rail color,
  * #15 over-iconification.
+ *
+ * @lore U10: AQ-101 updated — rounded-2xl (16px) is now ON-SCALE in Hearth
+ * (maps to --r-default). Only rounded-3xl (24px) remains an AI-aesthetic tell.
+ * The messageId is renamed from `rounded2xl` to `rounded3xl` to reflect this.
+ * The ROUNDED_2XL_3XL regex is narrowed to match only rounded-3xl.
  */
 
 import type { Rule } from "eslint";
@@ -31,7 +36,9 @@ import {
 	isShadowOverlayFile,
 } from "../util.js";
 
-const ROUNDED_2XL_3XL = /\brounded-(2xl|3xl)\b/;
+// U10 Hearth: rounded-2xl (16px) is now ON-SCALE (maps to --r-default).
+// Only rounded-3xl (24px) remains an AI-aesthetic tell.
+const ROUNDED_3XL = /\brounded-3xl\b/;
 
 // AESTHETICS.md § AI-Aesthetic tell #2 lint hint:
 //   `\bbg-gradient-(to|from|via)-(indigo|purple|violet|fuchsia|pink)-\d{3}\b`
@@ -87,8 +94,8 @@ export const noAiAesthetic: Rule.RuleModule = createRule({
 		},
 		schema: [],
 		messages: {
-			rounded2xl:
-				"AI-aesthetic tell #1: '{{cls}}' uses oversized corner radius.  → fix: use the closed productivity scale rounded-[4px]/[8px]/[12px] or rounded-full for pills.",
+			rounded3xl:
+				"AI-aesthetic tell #1: '{{cls}}' uses off-scale corner radius (24px).  → fix: use the Hearth closed scale rounded-none (0) / rounded-2xl (16px) / rounded-full (pill), or a token (var(--r-none), var(--r-default), var(--r-pill)).",
 			gradientBg:
 				"AI-aesthetic tell #2: indigo/purple/violet/fuchsia/pink gradient background.  → fix: use a flat surface token (var(--surface-1..6)).",
 			oversizedPadding:
@@ -113,11 +120,11 @@ export const noAiAesthetic: Rule.RuleModule = createRule({
 
 		function checkClassString(text: string, node: unknown): void {
 			const reportNode = node as Rule.Node;
-			const m1 = ROUNDED_2XL_3XL.exec(text);
+			const m1 = ROUNDED_3XL.exec(text);
 			if (m1) {
 				context.report({
 					node: reportNode,
-					messageId: "rounded2xl",
+					messageId: "rounded3xl",
 					data: { cls: m1[0] },
 				});
 			}

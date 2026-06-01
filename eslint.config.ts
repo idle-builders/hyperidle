@@ -197,9 +197,9 @@ export default [
 			"design/require-ds-attribute": "error",
 			"design/require-stories-sibling": "error",
 			"design/require-focus-on-interactive": "error",
-			// Stay at warn — see waivers.md for the surviving documented exceptions.
-			"design/no-off-grid-spacing": "warn",
-			"design/no-ai-aesthetic": "warn",
+			// Promoted to error post-U10 — all design-system components now conform to the Hearth 6px grid.
+			"design/no-off-grid-spacing": "error",
+			"design/no-ai-aesthetic": "error",
 			// K11 — both density rules error in design-system per the spec
 			// ("error for packages/design-system/src/**"). Density-static
 			// primitives (StatusChip, Tag) MUST NOT consume density tokens;

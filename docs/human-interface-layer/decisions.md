@@ -1,7 +1,7 @@
 ## 13. Decisions
 
 - **Desktop shell:** Electron. Server embedded in main process. Desktop-only — no mobile form factor.
-- **Tech stack:** Tailwind CSS + DaisyUI + custom Lucid theme (dark/light/system). Behavior gaps filled by `focus-trap-react` and `@floating-ui/react`. Data utilities from `@tanstack/react-*` when needed.
+- **Tech stack:** Tailwind CSS + DaisyUI + Hearth theme (dark/light/system). Behavior gaps filled by `focus-trap-react` and `@floating-ui/react`. Data utilities from `@tanstack/react-*` when needed.
 - **Canvas tech:** symbolic UI — standard React components with a hard capacity cap. Humans create bets via BetCreateDialog, not drag-and-drop.
 - **Navigation model:** view switching + per-view sub-navigation + main content pane. Breadcrumbs within views, not across. Specific layout structure is a design-time decision.
 - **Thread primitive:** one Thread model with typed messages (plain, review, questionnaire, verdict). No "review threads" vs "chat threads" as separate types — the distinction is derived from message content. See §4.5.

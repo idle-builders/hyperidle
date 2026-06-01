@@ -84,7 +84,7 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps): JSX.Element {
 			<div
 				role="toolbar"
 				aria-label="Text formatting"
-				className="flex items-center gap-[4px] bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)] shadow-[var(--shadow-elevated)] px-[4px] py-[2px]"
+				className="flex items-center gap-[3px] bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)] shadow-[var(--shadow-elevated)] px-[3px] py-[3px]"
 			>
 				<ToolbarButton
 					onClick={() => editor.chain().focus().toggleBold().run()}

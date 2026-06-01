@@ -149,7 +149,7 @@ function buildRichSlots(
 			header: (
 				<>
 					<div className="flex items-center gap-[6px] font-mono text-[11px] tracking-[0.05em] uppercase text-[var(--text-tertiary)]">
-						<span className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-primary)]">
+						<span className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-primary)]">
 							REVIEW
 						</span>
 					</div>
@@ -157,10 +157,10 @@ function buildRichSlots(
 						{payload.title}
 					</h3>
 					{payload.reasoning.length > 0 ? (
-						<ol className="list-decimal pl-[20px] text-[13px] text-[var(--text-secondary)] m-0">
+						<ol className="list-decimal pl-[18px] text-[13px] text-[var(--text-secondary)] m-0">
 							{payload.reasoning.map((line, i) => (
 								// biome-ignore lint/suspicious/noArrayIndexKey: reasoning entries are immutable once sent.
-								<li key={`${message.id}-r-${i}`} className="my-[2px]">
+								<li key={`${message.id}-r-${i}`} className="my-[3px]">
 									{line}
 								</li>
 							))}
@@ -179,7 +179,7 @@ function buildRichSlots(
 			header: (
 				<>
 					<div className="flex items-center gap-[6px] font-mono text-[11px] tracking-[0.05em] uppercase text-[var(--text-tertiary)]">
-						<span className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-primary)]">
+						<span className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-primary)]">
 							QUESTION
 						</span>
 					</div>
@@ -204,7 +204,7 @@ function buildRichSlots(
 								disabled
 								aria-disabled="true"
 								title="Answer dispatch lands in a follow-up"
-								className="px-[10px] py-[5px] min-h-[44px] rounded-[var(--r-subtle)] text-[12px] font-medium border bg-transparent text-[var(--text-secondary)] border-[var(--border-subtle)] disabled:opacity-50 disabled:cursor-not-allowed"
+								className="px-[9px] py-[6px] min-h-[44px] rounded-[var(--r-subtle)] text-[12px] font-medium border bg-transparent text-[var(--text-secondary)] border-[var(--border-subtle)] disabled:opacity-50 disabled:cursor-not-allowed"
 							>
 								{opt}
 							</button>

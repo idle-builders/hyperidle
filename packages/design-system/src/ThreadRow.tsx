@@ -139,8 +139,7 @@ export function ThreadRow({
 						// second consumer surfaces.
 						<span
 							data-testid="thread-row-host-pill"
-							// eslint-disable-next-line design/no-off-scale-font-size -- L8 §5.6 mandates 10px mono for the host pill; documented waiver in packages/eslint-plugin-design/waivers.md.
-							className="inline-flex items-center px-[6px] py-[1px] rounded-[var(--r-pill)] font-mono text-[10px] leading-[1.4] bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)] whitespace-nowrap"
+							className="inline-flex items-center px-[6px] py-[3px] rounded-[var(--r-pill)] font-mono text-[10px] leading-[1.4] bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)] whitespace-nowrap"
 						>
 							{hostTag}
 						</span>
