@@ -105,7 +105,7 @@ export function ArtifactSection({
 					<div
 						className={
 							layout === "gallery"
-								? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[var(--density-gap)]"
+								? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[12px]"
 								: undefined
 						}
 					>
@@ -173,7 +173,7 @@ export function ArtifactSection({
 			)}
 
 			{layout === "gallery" && (
-				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[var(--density-gap)]">
+				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[12px]">
 					{items.map((artifact) => (
 						<ArtifactGalleryCard
 							key={artifact.id}

@@ -66,7 +66,7 @@ export function ThreadRow({
 			: "";
 
 	const baseClassName = [
-		"flex items-center gap-[var(--density-gap)] px-[var(--density-pad-x)] py-[var(--density-pad-y)] text-[length:var(--density-text)] rounded-[var(--r-subtle)]",
+		"flex items-center gap-[12px] px-[24px] py-[12px] text-[15px] rounded-[var(--r-subtle)]",
 		"hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))] transition-colors duration-[var(--motion-fast)]",
 		"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:-outline-offset-1",
 		onClick ? "cursor-pointer" : "",
@@ -94,23 +94,19 @@ export function ThreadRow({
 				/>
 			)}
 			{avatarUrl !== null ? (
-				<img
-					src={avatarUrl}
-					alt=""
-					className="h-[var(--density-avatar-size)] w-[var(--density-avatar-size)] rounded-full"
-				/>
+				<img src={avatarUrl} alt="" className="h-[36px] w-[36px] rounded-full" />
 			) : (
 				// M3 E2: initials chip — first two uppercase chars of the title.
 				// Falls back to a neutral chip when title is empty or undefined.
 				<span
 					aria-hidden="true"
-					className="flex h-[var(--density-avatar-size)] w-[var(--density-avatar-size)] items-center justify-center rounded-full bg-[var(--surface-elevated)] text-[var(--text-secondary)] text-[11px] font-mono font-bold uppercase shrink-0"
+					className="flex h-[36px] w-[36px] items-center justify-center rounded-full bg-[var(--surface-elevated)] text-[var(--text-secondary)] text-[11px] font-mono font-bold uppercase shrink-0"
 				>
 					{title.slice(0, 2).toUpperCase() || "??"}
 				</span>
 			)}
 			<div className="flex-1 min-w-0">
-				<div className="flex items-center gap-[var(--density-gap)]">
+				<div className="flex items-center gap-[12px]">
 					{pinned && (
 						<svg
 							aria-label="Pinned"
@@ -124,10 +120,7 @@ export function ThreadRow({
 							<path d="M6 1l1.5 3 3.5.5-2.5 2.5.5 3.5-3-1.5-3 1.5.5-3.5L1 4.5l3.5-.5L6 1z" />
 						</svg>
 					)}
-					<span
-						className="text-[length:var(--density-text)] truncate"
-						aria-label={`Thread: ${title}`}
-					>
+					<span className="text-[15px] truncate" aria-label={`Thread: ${title}`}>
 						{title}
 					</span>
 					{hostTag && (

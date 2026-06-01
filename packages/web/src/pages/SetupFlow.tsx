@@ -100,10 +100,8 @@ export function SetupFlow(): JSX.Element {
 
 	return (
 		<div className="flex items-start justify-center min-h-screen bg-[var(--surface-page)]">
-			<div className="w-full max-w-md py-16 px-[var(--density-page-gutter)]">
-				<h1 className="text-[length:var(--density-text-h1)] font-medium text-[var(--text-primary)] mb-8">
-					HyperIdle Setup
-				</h1>
+			<div className="w-full max-w-md py-16 px-[24px]">
+				<h1 className="text-[24px] font-medium text-[var(--text-primary)] mb-8">HyperIdle Setup</h1>
 
 				<form onSubmit={handleSubmit} className="space-y-6">
 					{/* Name field */}

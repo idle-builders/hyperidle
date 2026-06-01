@@ -99,7 +99,7 @@ export const noAiAesthetic: Rule.RuleModule = createRule({
 			gradientBg:
 				"AI-aesthetic tell #2: indigo/purple/violet/fuchsia/pink gradient background.  → fix: use a flat surface token (var(--surface-1..6)).",
 			oversizedPadding:
-				"AI-aesthetic tell #3: '{{cls}}' is oversized productivity padding (32-64px).  → fix: use a density token (var(--density-pad-x), var(--density-pad-y)) — productivity defaults sit at 8-16px.",
+				"AI-aesthetic tell #3: '{{cls}}' is oversized productivity padding (32-64px).  → fix: use a Hearth spacing token (var(--space-4) 12px, var(--space-6) 18px, var(--space-8) 24px) — productivity defaults sit at 12-24px.",
 			backdropBlur:
 				"AI-aesthetic tell #7: glass morphism / backdrop-blur on productivity surfaces.  → fix: use a solid surface from the 7-level surface ladder.",
 			heavyShadow:

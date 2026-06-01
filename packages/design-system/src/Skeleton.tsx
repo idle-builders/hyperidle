@@ -46,14 +46,14 @@ export function SkeletonList({
 			 * Principle 6). Row-h matches the eventual list-row height so
 			 * the loading state does not visually pop when content arrives.
 			 */
-			className="flex flex-col gap-[var(--density-gap)]"
+			className="flex flex-col gap-[12px]"
 		>
 			{Array.from({ length: rows }).map((_, i) => (
 				<div
 					// biome-ignore lint/suspicious/noArrayIndexKey: fixed-count placeholder rows.
 					key={i}
 					data-testid="skeleton-row"
-					className={`${SKELETON_BAR} h-[var(--density-row-h)] w-full`}
+					className={`${SKELETON_BAR} h-[42px] w-full`}
 				/>
 			))}
 		</div>
@@ -79,7 +79,7 @@ export function SkeletonCard({ ariaLabel, dataTestId }: SkeletonCardProps): JSX.
 			 * literal — abstract content placeholders not subject to the
 			 * type scale.
 			 */
-			className="flex flex-col gap-[var(--density-card-gap)] bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[var(--density-card-pad)]"
+			className="flex flex-col gap-[6px] bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[18px]"
 		>
 			<div className={`${SKELETON_BAR} h-[20px] w-[66%]`} />
 			<div className={`${SKELETON_BAR} h-[16px] w-full`} />

@@ -37,7 +37,7 @@ export function NavItem({
 	 * --accent-primary-dim, --text-tertiary, --font-mono, --text-secondary).
 	 */
 	const baseClasses =
-		"relative flex w-full items-center gap-2 text-left min-h-[var(--density-row-h)] py-[var(--density-pad-y)] px-[var(--density-pad-x)] text-[length:var(--density-text)] text-[var(--text-primary)] rounded-[var(--r-subtle)] border-0 cursor-pointer transition-[background] duration-[var(--motion-fast)] ease-[ease]";
+		"relative flex w-full items-center gap-2 text-left min-h-[44px] py-[12px] px-[12px] text-[15px] text-[var(--text-primary)] rounded-[var(--r-subtle)] border-0 cursor-pointer transition-[background] duration-[var(--motion-fast)] ease-[ease]";
 
 	const stateClasses = selected
 		? "bg-[var(--surface-elevated)] border-l-2 border-l-[var(--accent-primary)]"

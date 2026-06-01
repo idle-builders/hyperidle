@@ -78,10 +78,8 @@ export function KnowledgeRow({
 	 * J7 assertion that asserted `py-[16px]` was updated in lockstep.
 	 */
 	// U8: font-heading removed (Hearth uses system-ui everywhere); factoryMode uses font-bold with default sans
-	const titleClass = factoryMode
-		? "text-[length:var(--density-text)] font-bold truncate"
-		: "text-[length:var(--density-text)] truncate";
-	const baseClassName = `flex items-center gap-[var(--density-gap)] px-[var(--density-pad-x)] py-[var(--density-pad-y)] rounded-[var(--r-subtle)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:-outline-offset-1 transition-colors duration-[var(--motion-fast)]`;
+	const titleClass = factoryMode ? "text-[15px] font-bold truncate" : "text-[15px] truncate";
+	const baseClassName = `flex items-center gap-[12px] px-[24px] py-[12px] rounded-[var(--r-subtle)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:-outline-offset-1 transition-colors duration-[var(--motion-fast)]`;
 	/* clickableProps is spread without className — visual styles (hover, focus-
 	   visible) live in baseClassName unconditionally, matching the HTML reference. */
 	const { className: _clickableCls, ...interactiveProps } = clickableProps(onClick, baseClassName);
@@ -94,7 +92,7 @@ export function KnowledgeRow({
 		>
 			<div className="flex-1 min-w-0">
 				{/* @lore K11: inner-header gap → --density-gap per § 3.2.2. */}
-				<div className="flex items-center gap-[var(--density-gap)]">
+				<div className="flex items-center gap-[12px]">
 					<span className={titleClass} aria-label={`Knowledge: ${title}`}>
 						{title}
 					</span>
@@ -118,7 +116,7 @@ export function KnowledgeRow({
 					// L22 signal triad: recency / freq / impact — em dash for absent values (AC-8)
 					<div
 						data-testid="knowledge-signals"
-						className="flex items-center gap-[var(--density-gap)] text-[12px] text-[var(--text-tertiary)]"
+						className="flex items-center gap-[12px] text-[12px] text-[var(--text-tertiary)]"
 					>
 						<span>
 							<span className="text-[var(--text-tertiary)] uppercase tracking-[var(--tracking-caps)]">

@@ -65,10 +65,10 @@ export function BetCard({
 			 */
 			{...clickableProps(
 				onClick,
-				"bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)] shadow-[var(--shadow-default)] border border-[var(--border-subtle)] hover:translate-y-[-2px] hover:shadow-[var(--shadow-elevated)] transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+				"bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] shadow-[var(--shadow-default)] border border-[var(--border-subtle)] hover:translate-y-[-2px] hover:shadow-[var(--shadow-elevated)] transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
 			)}
 		>
-			<div className="flex items-center gap-[var(--density-gap)]">
+			<div className="flex items-center gap-[12px]">
 				{leadAvatar && (
 					<span
 						/* @lore K10: card-internal lead avatar stays literal 24 px
@@ -83,13 +83,13 @@ export function BetCard({
 					</span>
 				)}
 				<span
-					className="text-[length:var(--density-text)] font-medium truncate flex-1 min-w-0"
+					className="text-[15px] font-medium truncate flex-1 min-w-0"
 					aria-label={`Bet: ${title}`}
 				>
 					{title}
 				</span>
 			</div>
-			<div className="flex items-center gap-[var(--density-gap)]">
+			<div className="flex items-center gap-[12px]">
 				<Tag label={team} />
 				<StatusChip status={betStatusToStatus(status)} />
 			</div>
@@ -102,7 +102,7 @@ export function BetCard({
 			)}
 			{shipped !== undefined && <KeyValue label="Shipped" value={String(shipped)} />}
 			{progress && (
-				<div className="flex items-center gap-[var(--density-gap)]">
+				<div className="flex items-center gap-[12px]">
 					{/* @lore K10: progress-bar height stays literal 6 px — instrument
 					    metric per density-audit.md § 3.2.4. Linear/Datadog/Vercel
 					    all hold sparkline/progress strokes at 4-6 px regardless of

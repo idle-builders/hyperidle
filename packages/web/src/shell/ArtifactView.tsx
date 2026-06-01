@@ -390,7 +390,7 @@ export function ArtifactView(props: ArtifactViewProps): JSX.Element {
 			 * sparkline dimensions and visual-comparison pane padding all
 			 * stay literal — code/instrument geometry, not body text.
 			 */}
-			<div className={showMetadata ? "p-[var(--density-card-pad)]" : undefined}>{body}</div>
+			<div className={showMetadata ? "p-[12px]" : undefined}>{body}</div>
 			{showHistory && <RelatedHistorySection entries={relatedHistory} />}
 		</div>
 	);

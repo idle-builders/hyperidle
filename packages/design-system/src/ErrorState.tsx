@@ -36,11 +36,9 @@ export function ErrorState({
 			 * button stays DaisyUI primitive (chip rule, see § 5.2);
 			 * text-left is INTENTIONAL — see § 5.1.
 			 */
-			className="flex flex-col items-start gap-[var(--density-card-gap)] px-[var(--density-pad-x)] py-[var(--density-card-pad)] text-left bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-subtle)]"
+			className="flex flex-col items-start gap-[6px] px-[18px] py-[18px] text-left bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-subtle)]"
 		>
-			<p className="text-[length:var(--density-text)] font-medium text-[var(--status-error)] leading-[1.4]">
-				{title}
-			</p>
+			<p className="text-[15px] font-medium text-[var(--status-error)] leading-[1.4]">{title}</p>
 			<p className="text-[12px] text-[var(--text-tertiary)] leading-[1.4]">{description}</p>
 			{onRetry && (
 				<button

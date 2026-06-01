@@ -13,7 +13,7 @@ export function KeyValue({ label, value, layout = "inline" }: KeyValueProps): JS
 	return (
 		<div
 			{...dsProps("KeyValue", "1")}
-			className={`flex ${direction} gap-[var(--density-card-gap)] ${layout === "inline" ? "items-center justify-between" : ""}`}
+			className={`flex ${direction} gap-[6px] ${layout === "inline" ? "items-center justify-between" : ""}`}
 		>
 			{/* @lore K7 / AESTHETICS.md § Typography row "Letter-spacing for caps":
 			    +0.02em (designer-call) on uppercase labels. tracking-[0.05em] → tracking-[var(--tracking-caps)]. */}
@@ -21,11 +21,9 @@ export function KeyValue({ label, value, layout = "inline" }: KeyValueProps): JS
 				{label}
 			</span>
 			{/* @lore J1→px-fix: text-[14px] replaces text-sm so the fallback font-size is correct
-			    under 14px-base viewers. text-[length:var(--density-text)] still wins at runtime
+			    under 14px-base viewers. text-[15px] still wins at runtime
 			    for density-aware sizing. Tests updated to assert text-[14px]. */}
-			<span className="text-[14px] text-[length:var(--density-text)] text-[var(--text-primary)]">
-				{value}
-			</span>
+			<span className="text-[14px] text-[15px] text-[var(--text-primary)]">{value}</span>
 		</div>
 	);
 }

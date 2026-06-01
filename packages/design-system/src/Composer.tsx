@@ -61,7 +61,7 @@ export function Composer({ threadId, onSubmit, unresolvedReviewLink }: ComposerP
 	return (
 		<div
 			{...dsProps("Composer", "2")}
-			className="flex flex-col gap-[6px] py-[var(--density-pad-y,8px)] px-[var(--density-pad-x,12px)] border-t border-[var(--border-subtle)] bg-[var(--surface-container)]"
+			className="flex flex-col gap-[6px] py-[12px] px-[12px] border-t border-[var(--border-subtle)] bg-[var(--surface-container)]"
 			data-thread-id={threadId}
 		>
 			{unresolvedReviewLink ? (

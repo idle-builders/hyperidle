@@ -501,9 +501,9 @@ export function KnowledgeList({
 								<div
 									role="status"
 									data-testid={hintKnowledgeEmpty.testId}
-									className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)] mt-2"
+									className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px] mt-2"
 								>
-									<p className="text-[length:var(--density-text)] text-[var(--text-secondary)] leading-[var(--leading-body)]">
+									<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
 										{hintKnowledgeEmpty.copy}
 									</p>
 									<div className="flex gap-2">

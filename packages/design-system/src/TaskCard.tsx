@@ -38,16 +38,16 @@ export function TaskCard({
 			 */
 			{...clickableProps(
 				onClick,
-				`bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)] max-w-[320px] shadow-[var(--shadow-default)] border hover:translate-y-[-2px] hover:shadow-[var(--shadow-elevated)] transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)] ${state === "blocked" ? "border-[var(--status-error)]" : "border-[var(--border-subtle)]"}`,
+				`bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] max-w-[320px] shadow-[var(--shadow-default)] border hover:translate-y-[-2px] hover:shadow-[var(--shadow-elevated)] transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)] ${state === "blocked" ? "border-[var(--status-error)]" : "border-[var(--border-subtle)]"}`,
 			)}
 		>
 			<span
-				className="text-[length:var(--density-text)] font-medium truncate text-[var(--text-primary)]"
+				className="text-[15px] font-medium truncate text-[var(--text-primary)]"
 				aria-label={`Task: ${title}`}
 			>
 				{title}
 			</span>
-			<div className="flex items-center gap-[var(--density-gap)]">
+			<div className="flex items-center gap-[12px]">
 				{betTag && <Tag label={betTag} />}
 				<StatusChip status={taskStateToStatus(state)} />
 			</div>
