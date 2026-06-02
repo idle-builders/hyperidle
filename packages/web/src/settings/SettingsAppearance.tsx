@@ -10,7 +10,7 @@
  */
 
 // hearth-internal-padding
-import { type JSX, useCallback } from "react";
+import { type CSSProperties, type JSX, useCallback } from "react";
 import { useTheme } from "../hooks/useTheme.js";
 import { useToast } from "../shell/ToastRegion.js";
 
@@ -27,6 +27,30 @@ const THEME_OPTIONS: ThemeSwatch[] = [
 	{ value: "dark", label: "Dark", description: "Dark warm tones" },
 	{ value: "system", label: "System", description: "Match OS setting" },
 ];
+
+/**
+ * Returns an inline style object for the color swatch preview area at the top of
+ * each theme card. Avoids hardcoded colors where possible by using CSS variables,
+ * but the dark/light preview surfaces need fixed values since CSS variables resolve
+ * to the active theme — not the theme being previewed.
+ *
+ * @lore W3 AC-50: CSS variables like var(--bg-canvas) resolve to the CURRENT theme,
+ * so they cannot be used to preview an inactive theme. Fixed warm-toned values
+ * (matching the Hearth light/dark palette) are used here intentionally.
+ */
+function swatchStyle(value: ThemeOption): CSSProperties {
+	switch (value) {
+		case "light":
+			// Hearth light canvas: warm cream
+			return { background: "#faf8f5" };
+		case "dark":
+			// Hearth dark canvas: warm near-black
+			return { background: "#1c1a17" };
+		case "system":
+			// Diagonal split of light + dark to represent "follows OS"
+			return { background: "linear-gradient(135deg, #faf8f5 50%, #1c1a17 50%)" };
+	}
+}
 
 export function SettingsAppearance(): JSX.Element {
 	const { theme, setTheme } = useTheme();
@@ -54,7 +78,7 @@ export function SettingsAppearance(): JSX.Element {
 							aria-pressed={isActive}
 							aria-label={`${option.label} theme`}
 							className={[
-								"flex flex-col gap-1 items-start px-[12px] py-[9px] rounded-[var(--r-subtle)]",
+								"flex flex-col gap-1 items-start p-0 rounded-[var(--r-subtle)] overflow-hidden",
 								"border transition-colors duration-[var(--motion-fast)]",
 								"min-w-[100px] text-left",
 								isActive
@@ -63,10 +87,21 @@ export function SettingsAppearance(): JSX.Element {
 							].join(" ")}
 							onClick={() => handleThemeChange(option.value)}
 						>
-							<span className="text-[13px] font-medium text-[var(--text-primary)]">
-								{option.label}
-							</span>
-							<span className="text-[11px] text-[var(--text-tertiary)]">{option.description}</span>
+							{/* W3 AC-50: color swatch preview — ~60px tall, rounded top, no border */}
+							<div
+								data-testid={`theme-swatch-preview-${option.value}`}
+								aria-hidden="true"
+								className="w-full rounded-t-[var(--r-subtle)]"
+								style={{ height: "60px", ...swatchStyle(option.value) }}
+							/>
+							<div className="flex flex-col gap-[3px] px-[12px] py-[9px]">
+								<span className="text-[13px] font-medium text-[var(--text-primary)]">
+									{option.label}
+								</span>
+								<span className="text-[11px] text-[var(--text-tertiary)]">
+									{option.description}
+								</span>
+							</div>
 						</button>
 					);
 				})}

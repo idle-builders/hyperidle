@@ -48,5 +48,7 @@ export interface BetDetail {
 		 * Null means no agent assigned.
 		 */
 		ownerAgentId?: string | null;
+		/** W3 AC-28: ISO timestamp when this task was started (from API). */
+		startedAt?: string | null;
 	}>;
 }

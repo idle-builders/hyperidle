@@ -13,6 +13,10 @@
  * @lore W3: AC-26 through AC-32. Created as a new page for task drill-down
  * from the WorkBet task list rows. Follows the WorkBet pattern (overrideId
  * props for testing, useBet for bet data, useTaskSessions for session data).
+ *
+ * @lore W3 AC-28: Started cell uses a simple relative-time formatter so no
+ * external date library is needed. The Session cell counts active + completed
+ * sessions and shows a "Dial in" ghost button only when a session is active.
  */
 
 import type { Status } from "@hyperidle/design-system";
@@ -23,6 +27,25 @@ import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.
 import { useBet } from "../hooks/useBet.js";
 import { useTaskSessions } from "../hooks/useTaskSessions.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
+
+/**
+ * Format an ISO timestamp as a simple relative time label ("2 days ago", "just now", etc.).
+ * No external dependency — sufficient precision for a metadata strip.
+ *
+ * @lore W3 AC-28: Keep this local. Adding a date library for one use case is overkill.
+ */
+function formatRelativeTime(isoString: string): string {
+	const diffMs = Date.now() - new Date(isoString).getTime();
+	if (Number.isNaN(diffMs)) return "—";
+	const diffSec = Math.floor(diffMs / 1000);
+	if (diffSec < 60) return "just now";
+	const diffMin = Math.floor(diffSec / 60);
+	if (diffMin < 60) return `${diffMin}m ago`;
+	const diffH = Math.floor(diffMin / 60);
+	if (diffH < 24) return `${diffH}h ago`;
+	const diffD = Math.floor(diffH / 24);
+	return `${diffD}d ago`;
+}
 
 /**
  * Map session.status string to a display Status.
@@ -109,6 +132,9 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 	}
 
 	const sessions = sessionsData?.sessions ?? [];
+	const activeSession = sessions.find((s) => s.status === "active");
+	const activeSessions = sessions.filter((s) => s.status === "active");
+	const completedSessions = sessions.filter((s) => s.status === "done" || s.status === "completed");
 
 	return (
 		<div data-testid="task-detail-page" className="flex flex-col gap-3 h-full">
@@ -144,7 +170,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 				{/* Task title */}
 				<h1 className="text-[15px] font-semibold">{task.title}</h1>
 
-				{/* W3 AC-28: Metadata strip */}
+				{/* W3 AC-28: Metadata strip — Owner, Status, Started, Cost, Session */}
 				<div
 					data-testid="task-meta-strip"
 					className="flex items-center gap-3 flex-wrap text-[12px] text-[var(--text-secondary)]"
@@ -153,6 +179,12 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 					<span aria-hidden="true">·</span>
 					<StatusChip status={taskStateToStatus(task.state)} />
 					<span className="sr-only">{task.state.replace("_", " ")}</span>
+					{task.startedAt && (
+						<>
+							<span aria-hidden="true">·</span>
+							<span data-testid="task-started-at">{formatRelativeTime(task.startedAt)}</span>
+						</>
+					)}
 					{task.costActual !== null && (
 						<>
 							<span aria-hidden="true">·</span>
@@ -160,6 +192,20 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 								${((task.costActual.minor ?? 0) / 100).toFixed(2)}
 							</span>
 						</>
+					)}
+					<span aria-hidden="true">·</span>
+					<span data-testid="task-session-count">
+						{activeSessions.length} active / {completedSessions.length} completed
+					</span>
+					{activeSession && (
+						<button
+							type="button"
+							className="btn btn-xs btn-ghost"
+							data-testid="task-dial-in-btn"
+							aria-label="Dial in to active session"
+						>
+							Dial in
+						</button>
 					)}
 				</div>
 

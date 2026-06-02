@@ -53,7 +53,7 @@ import {
  */
 import type { Message, PlainPayloadWithBlockId, ScopeKind } from "@hyperidle/shared";
 import { isRedactedPayload, SCOPE_KINDS } from "@hyperidle/shared";
-import { type JSX, useContext, useMemo, useRef, useState } from "react";
+import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { CocContext } from "../contexts/CocContext.js";
 // eslint-disable-next-line design/no-mock-data-import -- tracked in #93
@@ -304,6 +304,30 @@ function KnowledgeDetailView({
 	// Q2: Scope change dialog state.
 	const [scopeChangeOpen, setScopeChangeOpen] = useState(false);
 
+	// W3 NB-4: overflow menu open state (click-outside + Escape to close)
+	const [overflowOpen, setOverflowOpen] = useState(false);
+	const overflowRef = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		if (!overflowOpen) return;
+		function handleDocClick(e: MouseEvent): void {
+			if (overflowRef.current && !overflowRef.current.contains(e.target as Node)) {
+				setOverflowOpen(false);
+			}
+		}
+		function handleEscape(e: KeyboardEvent): void {
+			if (e.key === "Escape") setOverflowOpen(false);
+		}
+		document.addEventListener("mousedown", handleDocClick);
+		document.addEventListener("keydown", handleEscape);
+		return () => {
+			document.removeEventListener("mousedown", handleDocClick);
+			document.removeEventListener("keydown", handleEscape);
+		};
+	}, [overflowOpen]);
+
+	const closeOverflow = useCallback((): void => setOverflowOpen(false), []);
+
 	// L18: Block popover state
 	const [openBlockId, setOpenBlockId] = useState<string | null>(null);
 	const [threadPrefill, setThreadPrefill] = useState<
@@ -453,7 +477,7 @@ function KnowledgeDetailView({
 						)}
 						{/* W3 AC-39: Edit/Done button — factory items are read-only */}
 						{!(editing || isFactory) ? (
-							<button type="button" className="btn btn-xs btn-ghost" onClick={startEdit}>
+							<button type="button" className="btn btn-xs btn-primary" onClick={startEdit}>
 								Edit
 							</button>
 						) : editing ? (
@@ -463,47 +487,55 @@ function KnowledgeDetailView({
 						) : null}
 						{/* W3 AC-39: "..." overflow dropdown replacing inline "Change scope" button */}
 						{!editing && (
-							<div className="relative" data-testid="knowledge-overflow-menu">
+							<div className="relative" ref={overflowRef} data-testid="knowledge-overflow-menu">
 								<button
 									type="button"
 									aria-label="More options"
+									aria-expanded={overflowOpen}
+									aria-haspopup="menu"
 									className="btn btn-xs btn-ghost"
-									onClick={() => {
-										const el = document.getElementById(`knowledge-overflow-${item.id}`);
-										if (el) el.toggleAttribute("open");
-									}}
+									onClick={() => setOverflowOpen((prev) => !prev)}
 								>
 									...
 								</button>
-								<div
-									id={`knowledge-overflow-${item.id}`}
-									className="absolute right-0 top-full z-10 mt-1 bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)] shadow-[var(--shadow-elevated)] py-1 min-w-[160px] hidden [&[open]]:block"
-								>
-									<button
-										type="button"
-										data-dropdown-item
-										className="w-full text-left px-3 py-2 text-[13px] hover:bg-[var(--accent-primary-dim)]"
-										onClick={() => undefined}
+								{overflowOpen && (
+									<div
+										role="menu"
+										className="absolute right-0 top-full z-10 mt-1 bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)] shadow-[var(--shadow-elevated)] py-1 min-w-[160px]"
 									>
-										Flag
-									</button>
-									<button
-										type="button"
-										data-dropdown-item
-										className="w-full text-left px-3 py-2 text-[13px] hover:bg-[var(--accent-primary-dim)]"
-										onClick={() => undefined}
-									>
-										Archive
-									</button>
-									<button
-										type="button"
-										data-dropdown-item
-										className="w-full text-left px-3 py-2 text-[13px] hover:bg-[var(--accent-primary-dim)]"
-										onClick={() => setScopeChangeOpen(true)}
-									>
-										Change scope
-									</button>
-								</div>
+										<button
+											type="button"
+											role="menuitem"
+											className="w-full text-left px-3 py-2 text-[13px] hover:bg-[var(--accent-primary-dim)]"
+											onClick={() => {
+												closeOverflow();
+											}}
+										>
+											Flag
+										</button>
+										<button
+											type="button"
+											role="menuitem"
+											className="w-full text-left px-3 py-2 text-[13px] hover:bg-[var(--accent-primary-dim)]"
+											onClick={() => {
+												closeOverflow();
+											}}
+										>
+											Archive
+										</button>
+										<button
+											type="button"
+											role="menuitem"
+											className="w-full text-left px-3 py-2 text-[13px] hover:bg-[var(--accent-primary-dim)]"
+											onClick={() => {
+												setScopeChangeOpen(true);
+												closeOverflow();
+											}}
+										>
+											Change scope
+										</button>
+									</div>
+								)}
 							</div>
 						)}
 					</div>
@@ -591,8 +623,8 @@ function KnowledgeDetailView({
 					/>
 				)}
 
-				{/* W3 AC-40: two-column layout (body + metadata aside) */}
-				<div className="grid grid-cols-1 lg:grid-cols-[1fr_14rem] gap-4">
+				{/* W3 AC-40: two-column layout (body + metadata aside) — always flex at desktop */}
+				<div className="flex flex-col md:flex-row gap-4">
 					<div className="flex flex-col gap-3 min-w-0">
 						{editing ? (
 							<div className="flex flex-col gap-2" data-testid="knowledge-edit-panel">
@@ -626,7 +658,7 @@ function KnowledgeDetailView({
 					{/* W3 AC-40: metadata aside with structured fields */}
 					<aside
 						data-testid="knowledge-metadata-aside"
-						className="flex flex-col gap-3 border-l border-[var(--border-subtle)] pl-3 min-w-0"
+						className="flex flex-col gap-3 border-l border-[var(--border-subtle)] pl-3 md:w-[14rem] md:shrink-0 min-w-0"
 						aria-label="Knowledge metadata"
 					>
 						<div className="flex flex-col gap-[6px]">
@@ -654,6 +686,14 @@ function KnowledgeDetailView({
 								Last edited
 							</span>
 							<span className="text-[13px] text-[var(--text-primary)]">{item.timestamp}</span>
+						</div>
+						<div className="flex flex-col gap-[6px]">
+							<span className="text-[11px] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+								Editor
+							</span>
+							<span className="text-[13px] text-[var(--text-primary)]">
+								{item.updatedBy ?? "Unknown"}
+							</span>
 						</div>
 						<div className="flex flex-col gap-[6px]">
 							<span className="text-[11px] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
@@ -702,40 +742,5 @@ function KnowledgeDetailView({
 				</div>
 			</div>
 		</div>
-	);
-}
-
-interface RelatedSidebarProps {
-	items: ReadonlyArray<MockKnowledgeItem>;
-}
-
-function _RelatedSidebar({ items }: RelatedSidebarProps): JSX.Element {
-	const labelCount = `${items.length} ${items.length === 1 ? "item" : "items"}`;
-	return (
-		<aside
-			className="flex flex-col gap-2 border-l border-[var(--border-subtle)] pl-3 min-w-0"
-			data-testid="knowledge-related-sidebar"
-			aria-label={`Related items, ${labelCount}`}
-		>
-			<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
-				Related
-			</h2>
-			{items.length === 0 ? (
-				<p className="text-xs text-[var(--text-tertiary)]">No related items.</p>
-			) : (
-				<ul className="flex flex-col gap-1">
-					{items.map((i) => (
-						<li key={i.id} data-testid="related-item">
-							<Link
-								to={`/knowledge/${i.id}`}
-								className="text-xs text-[var(--text-secondary)] hover:underline"
-							>
-								{i.title}
-							</Link>
-						</li>
-					))}
-				</ul>
-			)}
-		</aside>
 	);
 }

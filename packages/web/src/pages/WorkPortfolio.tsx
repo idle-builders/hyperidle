@@ -179,29 +179,16 @@ export function WorkPortfolio(): JSX.Element {
 					data-testid="bet-grid"
 				>
 					{filteredBets.map((bet) => {
-						// Resolve team name for BetCard display
-						const teamName =
-							(bet as unknown as { team?: string }).team ??
-							teams.find((t) => t.id === bet.teamId)?.name ??
-							bet.teamId;
-						const betWithExtras = bet as unknown as {
-							description?: string;
-							progress?: { done: number; total: number } | number;
-							budget?: string;
-						};
+						// Resolve team name for BetCard display — BetListItem has teamId not team.
+						const teamName = teams.find((t) => t.id === bet.teamId)?.name ?? bet.teamId;
 						return (
 							<BetCard
 								key={bet.id}
 								id={bet.id}
-								title={
-									bet.title ||
-									(typeof bet.description === "string" ? bet.description.slice(0, 60) : "")
-								}
+								title={bet.title || bet.description.slice(0, 60)}
 								team={teamName}
 								status={bet.status}
-								description={betWithExtras.description}
-								progress={betWithExtras.progress}
-								budgetLabel={betWithExtras.budget}
+								description={bet.description}
 								onClick={() => navigate(`/work/bet/${encodeURIComponent(bet.id)}`)}
 							/>
 						);

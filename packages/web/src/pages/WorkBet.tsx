@@ -233,73 +233,6 @@ function BetPitch({
 type BetActionKind = "pause" | "resume" | "kill" | "adjust-appetite" | "unblock";
 
 /**
- * BetActionsBar — co-located action bar rendered below the BetCard.
- *
- * @lore L14: co-located (not a design-system component) because this is a
- * single-call-site adapter that ties bet status to HTTP verbs. It would not
- * earn its keep as a shared component.
- *
- * @lore L14: blocked → paused is NOT in VALID_TRANSITIONS (state machine).
- * Per the architecture-critique, Pause is NOT shown for blocked bets. A blocked
- * bet cannot be paused; the Unblock action is the intended path.
- */
-interface BetActionsBarProps {
-	bet: BetDetail;
-	onAction: (action: BetActionKind) => void;
-}
-
-function _BetActionsBar({ bet, onAction }: BetActionsBarProps): JSX.Element | null {
-	const { status } = bet;
-	// @lore U1: old "shipped"/"killed" → "completed"/"killed"; old "in_progress"/"paused"/"behind"/"blocked"/"shaped" → "active"/"draft"
-	if (status === "completed" || status === "killed") return null;
-
-	const showPause = status === "active";
-	const showResume = false; // no paused status in new enum
-	const showAdjust = status === "active" || status === "draft";
-	const showUnblock = status === "active";
-	const showKill = true;
-
-	return (
-		<div
-			className="flex flex-wrap gap-2 items-center"
-			data-testid="bet-actions-bar"
-			role="group"
-			aria-label="Bet actions"
-		>
-			{showPause && (
-				<button type="button" className="btn btn-xs btn-ghost" onClick={() => onAction("pause")}>
-					Pause
-				</button>
-			)}
-			{showResume && (
-				<button type="button" className="btn btn-xs btn-ghost" onClick={() => onAction("resume")}>
-					Resume
-				</button>
-			)}
-			{showAdjust && (
-				<button
-					type="button"
-					className="btn btn-xs btn-ghost"
-					onClick={() => onAction("adjust-appetite")}
-				>
-					Adjust appetite
-				</button>
-			)}
-			{showUnblock && (
-				<button type="button" className="btn btn-xs btn-ghost" onClick={() => onAction("unblock")}>
-					Unblock
-				</button>
-			)}
-			{showKill && (
-				<button type="button" className="btn btn-xs btn-error" onClick={() => onAction("kill")}>
-					Kill bet
-				</button>
-			)}
-		</div>
-	);
-}
-
-/**
  * ConsequencePreviewDialog — non-skippable confirmation dialog for destructive
  * or pause actions. The user must explicitly Cancel or provide a reason and
  * confirm. Escape and backdrop click do not close the dialog.
@@ -1290,38 +1223,5 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 			</div>
 			{/* end bet-detail-body */}
 		</div>
-	);
-}
-
-function _SortableHeader({
-	column,
-	label,
-	sortColumn,
-	sortDirection,
-	onSort,
-}: {
-	column: SortColumn;
-	label: string;
-	sortColumn: SortColumn | null;
-	sortDirection: SortDirection;
-	onSort: (column: SortColumn) => void;
-}): JSX.Element {
-	const active = sortColumn === column;
-	const ariaSort: "none" | "ascending" | "descending" = active
-		? sortDirection === "asc"
-			? "ascending"
-			: "descending"
-		: "none";
-	return (
-		<th aria-sort={ariaSort} scope="col">
-			<button
-				type="button"
-				className="flex items-center gap-1 uppercase font-heading text-xs tracking-wider text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
-				onClick={() => onSort(column)}
-			>
-				<span>{label}</span>
-				<span aria-hidden>{active ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}</span>
-			</button>
-		</th>
 	);
 }

@@ -99,11 +99,11 @@ export function SetupFlow(): JSX.Element {
 	);
 
 	return (
-		<div className="flex items-center justify-center min-h-screen bg-[var(--surface-page)] px-[24px] py-[36px]">
+		<div className="flex items-center justify-center min-h-screen bg-[var(--surface-page)] px-[48px] py-[48px]">
 			{/* W3 AC-53: Card with shadow */}
 			<div
 				data-testid="onboarding-card"
-				className="w-full max-w-[480px] bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-elevated)] px-[24px] py-[36px] flex flex-col gap-6"
+				className="w-full max-w-[520px] bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-elevated)] px-[48px] py-[48px] flex flex-col gap-6"
 			>
 				{/* Brand + tagline */}
 				<div className="flex flex-col items-center gap-2 text-center">
