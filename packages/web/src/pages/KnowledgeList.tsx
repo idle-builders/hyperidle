@@ -33,7 +33,7 @@ import type {
 	KnowledgeTopicHealth,
 } from "@hyperidle/fabric/types";
 import { KNOWLEDGE_SORT_OPTIONS } from "@hyperidle/fabric/types";
-import { type JSX, useEffect, useMemo, useState } from "react";
+import { type JSX, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { KnowledgeTopicGroup } from "../components/KnowledgeTopicGroup";
 import { useFetch } from "../hooks/useFetch";
@@ -214,10 +214,15 @@ export function KnowledgeList({
 	// @lore J6 AC: tab choice remembered in component state only — NOT
 	// localStorage. Default recomputed below whenever API data changes.
 	const [tab, setTab] = useState<KnowledgeTab>("triage");
+	// @lore W3 AC-37: track whether the user has manually selected a tab.
+	// When true, the auto-default effect does not override the user's choice.
+	const tabManuallySelectedRef = useRef(false);
 
 	// Q2: create dialog state and refresh counter (useFetch re-fetches when URL changes)
 	const [createDialogOpen, setCreateDialogOpen] = useState(false);
 	const [fetchRevision, setFetchRevision] = useState(0);
+	// W3 AC-33: client-side scope filter (replaces hardcoded Practices/Products/Factory pills)
+	const [selectedScopeFilter, setSelectedScopeFilter] = useState<string | null>(null);
 
 	// N5: fetch all items from the real API unconditionally (both tabs need the data)
 	// Q2: fetchRevision appended as a cache-buster query param so POST→refresh works.
@@ -237,6 +242,19 @@ export function KnowledgeList({
 	}
 
 	const allItems = useMemo<ApiKnowledgeItem[]>(() => apiData?.items ?? [], [apiData]);
+
+	// W3 AC-33: data-driven scope options derived from unique scopeKind values in items.
+	// @lore W3: Replace hardcoded Practices/Products/Factory pills with pills
+	// derived from the actual scopeKind fields on items. "All" is always first.
+	const scopeOptions = useMemo<string[]>(() => {
+		const seen = new Set<string>();
+		for (const item of allItems) {
+			if (item.scopeKind && item.scopeKind !== "user") {
+				seen.add(item.scopeKind);
+			}
+		}
+		return Array.from(seen).sort();
+	}, [allItems]);
 
 	// Triage = draft items (needs human review in O2 schema)
 	const triageItems = useMemo<ApiKnowledgeItem[]>(
@@ -258,8 +276,17 @@ export function KnowledgeList({
 
 	// AC: "Default to Triage when any items have status === 'draft', else Curated."
 	// Also AC: "Switching scope resets list selection and filters."
+	// @lore W3 AC-37: when the user has manually selected a tab, skip the
+	// auto-default so their choice persists. Scope change resets the manual flag.
+	const prevScopeRef = useRef(scope);
 	useEffect(() => {
-		void scope;
+		// If scope changed, reset the manual-selection lock so the new scope
+		// gets a fresh auto-default.
+		if (prevScopeRef.current !== scope) {
+			tabManuallySelectedRef.current = false;
+			prevScopeRef.current = scope;
+		}
+		if (tabManuallySelectedRef.current) return;
 		const hasDraft = allItems.some((i) => i.status === "draft");
 		setTab(hasDraft ? "triage" : "curated");
 	}, [allItems, scope]);
@@ -297,237 +324,150 @@ export function KnowledgeList({
 
 	return (
 		<div className="flex flex-col gap-3 h-full" data-testid="knowledge-list-page">
-			<div className="flex items-center justify-between">
-				<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
-					Knowledge Base
-				</h1>
-				<div className="flex items-center gap-2">
+			{/* W3 AC-38: max-width 800px centered content container */}
+			<div className="flex flex-col gap-3 max-w-[800px] mx-auto w-full">
+				<div className="flex items-center justify-between">
+					<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
+						Knowledge Base
+					</h1>
+					<div className="flex items-center gap-2">
+						<button
+							type="button"
+							className="btn btn-sm btn-primary"
+							onClick={() => setCreateDialogOpen(true)}
+						>
+							+ New
+						</button>
+					</div>
+				</div>
+
+				{/* Q2: KnowledgeCreateDialog — factory scope (no lock) for the global list */}
+				<KnowledgeCreateDialog
+					open={createDialogOpen}
+					onClose={() => setCreateDialogOpen(false)}
+					onCreated={handleCreated}
+				/>
+
+				{/*
+				 * W3 AC-33: Data-driven scope filter pills.
+				 * "All" is always first. Additional pills come from unique scopeKind values
+				 * in the item list (not hardcoded Practices/Products/Factory).
+				 * @lore W3: Replaced hardcoded scope pills with data-derived pills.
+				 * Client-side filter (selectedScopeFilter state) replaces URL scope param.
+				 */}
+				<div
+					className="flex items-center gap-1 flex-wrap"
+					data-testid="knowledge-scope-pills"
+					role="group"
+					aria-label="Filter by scope"
+				>
 					<button
 						type="button"
-						className="btn btn-sm btn-primary"
-						onClick={() => setCreateDialogOpen(true)}
+						data-testid="scope-pill-all"
+						className={`btn btn-xs ${selectedScopeFilter === null ? "btn-primary" : "btn-ghost"}`}
+						onClick={() => setSelectedScopeFilter(null)}
 					>
-						+ New
+						All
+					</button>
+					{scopeOptions.map((scopeKind) => (
+						<button
+							key={scopeKind}
+							type="button"
+							data-testid={`scope-pill-${scopeKind.toLowerCase()}`}
+							className={`btn btn-xs ${selectedScopeFilter === scopeKind ? "btn-primary" : "btn-ghost"}`}
+							onClick={() =>
+								setSelectedScopeFilter((prev) => (prev === scopeKind ? null : scopeKind))
+							}
+						>
+							{scopeKind}
+						</button>
+					))}
+				</div>
+
+				{/*
+				 * @lore U9/J6: hidden machine-readable scope indicator preserved for
+				 * J6 test backward-compat. Visual scope is shown by the active pill above.
+				 */}
+				<span data-testid="knowledge-scope-indicator" className="sr-only">
+					{scope}
+				</span>
+
+				<div
+					role="tablist"
+					aria-label="Knowledge view"
+					className="flex gap-1"
+					data-testid="knowledge-tabs"
+				>
+					<button
+						type="button"
+						role="tab"
+						aria-selected={tab === "triage"}
+						className={tab === "triage" ? "btn btn-xs btn-primary" : "btn btn-xs btn-ghost"}
+						onClick={() => {
+							tabManuallySelectedRef.current = true;
+							setTab("triage");
+						}}
+					>
+						Triage
+					</button>
+					<button
+						type="button"
+						role="tab"
+						aria-selected={tab === "curated"}
+						className={tab === "curated" ? "btn btn-xs btn-primary" : "btn btn-xs btn-ghost"}
+						onClick={() => {
+							tabManuallySelectedRef.current = true;
+							setTab("curated");
+						}}
+					>
+						Curated
 					</button>
 				</div>
-			</div>
 
-			{/* Q2: KnowledgeCreateDialog — factory scope (no lock) for the global list */}
-			<KnowledgeCreateDialog
-				open={createDialogOpen}
-				onClose={() => setCreateDialogOpen(false)}
-				onCreated={handleCreated}
-			/>
-
-			{/*
-			 * @lore U9 AC-6: Scope pill filter bar above Triage/Curated tabs.
-			 * "All" shows everything. Practices/Products/Factory match the sidebar
-			 * KNOWLEDGE_SCOPE_ITEMS. Active pill uses btn-primary.
-			 */}
-			<div
-				className="flex items-center gap-1 flex-wrap"
-				data-testid="knowledge-scope-pills"
-				role="group"
-				aria-label="Filter by scope"
-			>
-				{(
-					[
-						{ id: "all", label: "All", scopeValue: null },
-						{ id: "practices", label: "Practices", scopeValue: "practice" },
-						// @lore U11: "Products" is a legitimate knowledge scope label.
-						// The three scopes (Practices, Products, Factory) are org-level
-						// knowledge domains per docs/knowledge-architecture/. "Products"
-						// covers product-level knowledge (decisions, specs, strategy)
-						// and is distinct from the "Teams" primitive in the Work surface.
-						{ id: "products", label: "Products", scopeValue: "product" },
-						{ id: "factory", label: "Factory", scopeValue: "factory" },
-					] as const
-				).map((pill) => {
-					// "All" is active when no scope param is set
-					// Others match the URL scope param value
-					const rawScope = searchParams.get("scope");
-					const isActive = pill.id === "all" ? !rawScope : rawScope === pill.scopeValue;
-					return (
-						<button
-							key={pill.id}
-							type="button"
-							data-testid={`scope-pill-${pill.id}`}
-							className={`btn btn-xs ${isActive ? "btn-primary" : "btn-ghost"}`}
-							onClick={() => {
-								const next = new URLSearchParams(searchParams);
-								if (pill.id === "all" || pill.scopeValue === null) {
-									next.delete("scope");
-								} else {
-									next.set("scope", pill.scopeValue);
+				{/* W3 AC-34: Sort controls always visible in both Curated and Triage tabs */}
+				<div
+					role="radiogroup"
+					aria-label="Sort order"
+					data-testid="knowledge-sort-bar"
+					className="flex items-center gap-1"
+				>
+					{KNOWLEDGE_SORT_OPTIONS.map((option) => {
+						const isActive = sort === option;
+						return (
+							<button
+								key={option}
+								type="button"
+								role="radio"
+								aria-checked={isActive}
+								onClick={() => handleSortChange(option)}
+								className={
+									isActive ? "btn btn-xs btn-primary capitalize" : "btn btn-xs btn-ghost capitalize"
 								}
-								setSearchParams(next, { replace: true });
-							}}
-						>
-							{pill.label}
-						</button>
-					);
-				})}
-			</div>
-
-			{/*
-			 * @lore U9/J6: hidden machine-readable scope indicator preserved for
-			 * J6 test backward-compat. Visual scope is shown by the active pill above.
-			 */}
-			<span data-testid="knowledge-scope-indicator" className="sr-only">
-				{scope}
-			</span>
-
-			<div
-				role="tablist"
-				aria-label="Knowledge view"
-				className="flex gap-1"
-				data-testid="knowledge-tabs"
-			>
-				<button
-					type="button"
-					role="tab"
-					aria-selected={tab === "triage"}
-					className={tab === "triage" ? "btn btn-xs btn-primary" : "btn btn-xs btn-ghost"}
-					onClick={() => setTab("triage")}
-				>
-					Triage
-				</button>
-				<button
-					type="button"
-					role="tab"
-					aria-selected={tab === "curated"}
-					className={tab === "curated" ? "btn btn-xs btn-primary" : "btn btn-xs btn-ghost"}
-					onClick={() => setTab("curated")}
-				>
-					Curated
-				</button>
-			</div>
-
-			{tab === "triage" ? (
-				<div className="flex flex-col gap-2" data-testid="knowledge-triage-view">
-					{/* L22 sort controls — radiogroup semantics per accessibility spec */}
-					<div
-						role="radiogroup"
-						aria-label="Sort order"
-						data-testid="knowledge-sort-controls"
-						className="flex items-center gap-1"
-					>
-						{KNOWLEDGE_SORT_OPTIONS.map((option) => {
-							const isActive = sort === option;
-							return (
-								<button
-									key={option}
-									type="button"
-									role="radio"
-									aria-checked={isActive}
-									onClick={() => handleSortChange(option)}
-									className={
-										isActive
-											? "btn btn-xs btn-primary capitalize"
-											: "btn btn-xs btn-ghost capitalize"
-									}
-								>
-									{option}
-								</button>
-							);
-						})}
-					</div>
-
-					{apiLoading ? (
-						<SkeletonList rows={4} ariaLabel="Loading triage items" />
-					) : apiError ? (
-						<ErrorState title="Couldn't load knowledge" description={apiError} />
-					) : triageItems.length > 0 ? (
-						<div className="flex flex-col">
-							{triageItems.map((item) => {
-								const signals = item.signals
-									? {
-											recency: item.signals.lastActivityAt
-												? relativeTime(item.signals.lastActivityAt)
-												: null,
-											frequency: item.signals.accessCount30d ?? null,
-											citation: item.signals.citationCount ?? null,
-										}
-									: undefined;
-								const isPrivate = item.scopeKind === "user";
-								return (
-									<div key={item.id}>
-										<KnowledgeRow
-											title={item.title}
-											layer={"L0" as KnowledgeLayer}
-											kind={"brief" as KnowledgeKind}
-											status={toKnowledgeStatus(item.status)}
-											timestamp={relativeTime(item.updatedAt)}
-											signals={signals}
-											onClick={() => navigate(`/knowledge/${item.id}`)}
-										/>
-										{/* Q2: Private badge is a sibling OUTSIDE KnowledgeRow[role=button]
-										    to avoid Playwright getByText strict-mode collision: KnowledgeRow
-										    titles like "My private note" contain "private" as a substring,
-										    which would cause getByText('Private') to resolve to 2 elements. */}
-										{isPrivate && (
-											<span
-												className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-subtle)] text-[12px] bg-[var(--surface-container)] text-[var(--text-secondary)] whitespace-nowrap"
-												aria-label="Private — only visible to you"
-												data-testid="private-badge"
-											>
-												Private
-											</span>
-										)}
-									</div>
-								);
-							})}
-						</div>
-					) : (
-						<EmptyState
-							title="Nothing needs attention"
-							description="Triage is clear — agents will surface draft items here as they learn."
-							dataTestId="knowledge-triage-empty"
-						/>
-					)}
-				</div>
-			) : (
-				<div className="flex flex-col gap-2" data-testid="knowledge-curated-view">
-					{apiLoading ? (
-						<SkeletonList rows={4} ariaLabel="Loading curated items" />
-					) : grouped.length === 0 ? (
-						<>
-							<EmptyState
-								title="No knowledge items yet"
-								description="Agents will populate this scope as they learn. Check back after the next review cycle."
-								dataTestId="knowledge-curated-empty"
-							/>
-							{hintKnowledgeEmpty.visible && (
-								<div
-									role="status"
-									data-testid={hintKnowledgeEmpty.testId}
-									className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px] mt-2"
-								>
-									<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
-										{hintKnowledgeEmpty.copy}
-									</p>
-									<div className="flex gap-2">
-										<button
-											type="button"
-											className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
-											onClick={hintKnowledgeEmpty.dismiss}
-										>
-											Got it
-										</button>
-									</div>
-								</div>
-							)}
-						</>
-					) : (
-						grouped.map((g) => (
-							<KnowledgeTopicGroup
-								key={g.topic}
-								topic={g.topic}
-								itemCount={g.items.length}
-								staleCount={g.staleCount}
-								health={g.health}
 							>
-								{g.items.map((item) => {
+								{option}
+							</button>
+						);
+					})}
+				</div>
+
+				{tab === "triage" ? (
+					<div className="flex flex-col gap-2" data-testid="knowledge-triage-view">
+						{apiLoading ? (
+							<SkeletonList rows={4} ariaLabel="Loading triage items" />
+						) : apiError ? (
+							<ErrorState title="Couldn't load knowledge" description={apiError} />
+						) : triageItems.length > 0 ? (
+							<div className="flex flex-col">
+								{triageItems.map((item) => {
+									const signals = item.signals
+										? {
+												recency: item.signals.lastActivityAt
+													? relativeTime(item.signals.lastActivityAt)
+													: null,
+												frequency: item.signals.accessCount30d ?? null,
+												citation: item.signals.citationCount ?? null,
+											}
+										: undefined;
 									const isPrivate = item.scopeKind === "user";
 									return (
 										<div key={item.id}>
@@ -537,8 +477,13 @@ export function KnowledgeList({
 												kind={"brief" as KnowledgeKind}
 												status={toKnowledgeStatus(item.status)}
 												timestamp={relativeTime(item.updatedAt)}
+												signals={signals}
 												onClick={() => navigate(`/knowledge/${item.id}`)}
 											/>
+											{/* Q2: Private badge is a sibling OUTSIDE KnowledgeRow[role=button]
+										    to avoid Playwright getByText strict-mode collision: KnowledgeRow
+										    titles like "My private note" contain "private" as a substring,
+										    which would cause getByText('Private') to resolve to 2 elements. */}
 											{isPrivate && (
 												<span
 													className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-subtle)] text-[12px] bg-[var(--surface-container)] text-[var(--text-secondary)] whitespace-nowrap"
@@ -551,11 +496,87 @@ export function KnowledgeList({
 										</div>
 									);
 								})}
-							</KnowledgeTopicGroup>
-						))
-					)}
-				</div>
-			)}
+							</div>
+						) : (
+							<EmptyState
+								title="Nothing needs attention"
+								description="Triage is clear — agents will surface draft items here as they learn."
+								dataTestId="knowledge-triage-empty"
+							/>
+						)}
+					</div>
+				) : (
+					<div className="flex flex-col gap-2" data-testid="knowledge-curated-view">
+						{apiLoading ? (
+							<SkeletonList rows={4} ariaLabel="Loading curated items" />
+						) : grouped.length === 0 ? (
+							<>
+								<EmptyState
+									title="No knowledge items yet"
+									description="Agents will populate this scope as they learn. Check back after the next review cycle."
+									dataTestId="knowledge-curated-empty"
+								/>
+								{hintKnowledgeEmpty.visible && (
+									<div
+										role="status"
+										data-testid={hintKnowledgeEmpty.testId}
+										className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px] mt-2"
+									>
+										<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
+											{hintKnowledgeEmpty.copy}
+										</p>
+										<div className="flex gap-2">
+											<button
+												type="button"
+												className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
+												onClick={hintKnowledgeEmpty.dismiss}
+											>
+												Got it
+											</button>
+										</div>
+									</div>
+								)}
+							</>
+						) : (
+							grouped.map((g) => (
+								<KnowledgeTopicGroup
+									key={g.topic}
+									topic={g.topic}
+									itemCount={g.items.length}
+									staleCount={g.staleCount}
+									health={g.health}
+								>
+									{g.items.map((item) => {
+										const isPrivate = item.scopeKind === "user";
+										return (
+											<div key={item.id}>
+												<KnowledgeRow
+													title={item.title}
+													layer={"L0" as KnowledgeLayer}
+													kind={"brief" as KnowledgeKind}
+													status={toKnowledgeStatus(item.status)}
+													timestamp={relativeTime(item.updatedAt)}
+													onClick={() => navigate(`/knowledge/${item.id}`)}
+												/>
+												{isPrivate && (
+													<span
+														className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-subtle)] text-[12px] bg-[var(--surface-container)] text-[var(--text-secondary)] whitespace-nowrap"
+														aria-label="Private — only visible to you"
+														data-testid="private-badge"
+													>
+														Private
+													</span>
+												)}
+											</div>
+										);
+									})}
+								</KnowledgeTopicGroup>
+							))
+						)}
+					</div>
+				)}
+			</div>
+			{/* end max-w-[800px] wrapper */}
 		</div>
 	);
 }

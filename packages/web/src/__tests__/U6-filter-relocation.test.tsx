@@ -1,15 +1,17 @@
 /**
- * U6 — Filter relocation tests (AC-16).
+ * U6 — Filter relocation tests (AC-16, updated for W3).
  *
- * AC-16: Conversations filter pill bar (All/Blocking/Async) lives in the main
- *        pane (Conversations page), NOT in the Sidebar.
+ * AC-16: Conversations filter controls live in the main pane (Conversations page),
+ *        NOT in the Sidebar.
  *
- * The Conversations page reads filter state from OutletContext and renders the
- * pill bar inline. The Sidebar must NOT contain filter chips.
+ * @lore W3: The filter pill bar (All/Blocking/Async with role="tab") was replaced
+ * by toggle buttons (Blocking/Unread with aria-pressed) in ThreadSections flat mode.
+ * These tests verify the W3 toggle pattern and that filters remain in the main pane.
  *
  * Architecture:
- *   - AppShellOutletContext extended with { conversationsFilter, onFilterChange, onClearFilter }
- *   - Conversations.tsx reads from OutletContext, renders the pill bar at the top
+ *   - AppShellOutletContext passes conversationsFilter, onFilterChange, onClearFilter
+ *   - Conversations.tsx (State A) renders ThreadSections with groupBySection=false
+ *   - ThreadSections renders Blocking/Unread toggle buttons
  *   - Sidebar has no filter chip elements
  */
 
@@ -108,33 +110,36 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-describe("Conversations page — AC-16: filter pill bar in main pane", () => {
-	it("renders the filter pill bar (All/Blocking/Async tabs) in the main pane on /conversations", async () => {
+describe("Conversations page — AC-16: filter controls in main pane (W3 toggle pattern)", () => {
+	it("renders W3 toggle buttons (Blocking, Unread) in the main pane on /conversations", async () => {
 		stubFetch(MIXED_THREADS);
 		renderShell("/conversations");
-		expect(await screen.findByRole("tab", { name: /^all$/i })).toBeInTheDocument();
-		expect(screen.getByRole("tab", { name: /^blocking$/i })).toBeInTheDocument();
-		expect(screen.getByRole("tab", { name: /^async$/i })).toBeInTheDocument();
+		// W3: toggle buttons with aria-pressed (not role="tab")
+		const blockingBtn = await screen.findByRole("button", { name: /^blocking$/i });
+		expect(blockingBtn).toHaveAttribute("aria-pressed");
+		const unreadBtn = screen.getByRole("button", { name: /^unread$/i });
+		expect(unreadBtn).toHaveAttribute("aria-pressed");
 	});
 
-	it("the filter pill bar is NOT inside the sidebar element", async () => {
+	it("the Blocking toggle is NOT inside the sidebar element", async () => {
 		stubFetch(MIXED_THREADS);
 		const { container } = renderShell("/conversations");
-		// Wait for the pill bar to appear
-		await screen.findByRole("tab", { name: /^all$/i });
+		// Wait for the toggle to appear
+		await screen.findByRole("button", { name: /^blocking$/i });
 
-		// The sidebar should not contain filter tabs
+		// The sidebar should not contain the Blocking toggle button
 		const sidebar = container.querySelector("[data-ds-shell='Sidebar']");
 		if (sidebar) {
-			const filterTabsInSidebar = sidebar.querySelectorAll("[role='tab']");
-			// Filter tabs should not be inside the sidebar
-			expect(filterTabsInSidebar.length).toBe(0);
+			const blockingInSidebar = sidebar.querySelector("[aria-pressed]");
+			expect(blockingInSidebar).toBeNull();
 		}
-		// The filter should be in the main content area
+		// The Blocking toggle should be in the main content area
 		const mainContent = container.querySelector("[data-testid='main-content']");
 		expect(mainContent).toBeInTheDocument();
-		const filterTabsInMain = mainContent?.querySelectorAll("[role='tab']");
-		expect(filterTabsInMain?.length ?? 0).toBeGreaterThan(0);
+		const blockingInMain = mainContent?.querySelector(
+			"button[aria-pressed][aria-label*='Blocking'], button[aria-pressed]",
+		);
+		expect(blockingInMain).not.toBeNull();
 	});
 
 	it("clicking 'Blocking' in the main pane filter narrows the thread list", async () => {
@@ -145,13 +150,13 @@ describe("Conversations page — AC-16: filter pill bar in main pane", () => {
 			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(5);
 		});
 
-		await user.click(screen.getByRole("tab", { name: /^blocking$/i }));
+		await user.click(await screen.findByRole("button", { name: /^blocking$/i }));
 		await waitFor(() => {
 			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(2);
 		});
 	});
 
-	it("clicking 'All' after 'Blocking' restores the full thread list", async () => {
+	it("clicking 'Blocking' again after narrowing restores the full thread list", async () => {
 		stubFetch(MIXED_THREADS);
 		const user = userEvent.setup();
 		renderShell("/conversations");
@@ -159,28 +164,25 @@ describe("Conversations page — AC-16: filter pill bar in main pane", () => {
 			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(5);
 		});
 
-		await user.click(screen.getByRole("tab", { name: /^blocking$/i }));
+		const blockingBtn = await screen.findByRole("button", { name: /^blocking$/i });
+		await user.click(blockingBtn);
 		await waitFor(() => {
 			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(2);
 		});
 
-		await user.click(screen.getByRole("tab", { name: /^all$/i }));
+		// Toggle off — restores full list (replaces clicking "All" in old UI)
+		await user.click(blockingBtn);
 		await waitFor(() => {
 			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(5);
 		});
 	});
 
-	it("clicking 'Async' narrows to non-blocking threads", async () => {
+	it("W3: no 'All' or 'Async' tabs (removed in W3 — only Blocking/Unread toggles)", async () => {
 		stubFetch(MIXED_THREADS);
-		const user = userEvent.setup();
 		renderShell("/conversations");
-		await waitFor(() => {
-			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(5);
-		});
-
-		await user.click(screen.getByRole("tab", { name: /^async$/i }));
-		await waitFor(() => {
-			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(3);
-		});
+		await screen.findByRole("button", { name: /^blocking$/i });
+		// Old tab pattern must not exist
+		expect(screen.queryByRole("tab", { name: /^all$/i })).not.toBeInTheDocument();
+		expect(screen.queryByRole("tab", { name: /^async$/i })).not.toBeInTheDocument();
 	});
 });

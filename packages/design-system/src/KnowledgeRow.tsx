@@ -21,13 +21,18 @@ export interface KnowledgeRowSignals {
 
 export interface KnowledgeRowProps {
 	title: string;
-	layer: KnowledgeLayer;
+	/** W3 AC-35: layer is optional — omit to hide the layer tag */
+	layer?: KnowledgeLayer;
 	kind: KnowledgeKind;
 	status: KnowledgeStatus;
 	timestamp: string;
 	actions?: ReactNode;
 	onClick?: () => void;
 	caption?: string;
+	/** W3 AC-35: preview text shown below title */
+	preview?: string;
+	/** id: allows caller to pass id without error */
+	id?: string;
 	/**
 	 * J7 factory-scope treatment: taller row, Space-Grotesk-bold title, and a
 	 * version pill. Additive — omitted or `false` yields byte-identical markup
@@ -67,6 +72,7 @@ export function KnowledgeRow({
 	factoryMode = false,
 	version,
 	signals,
+	preview,
 }: KnowledgeRowProps): JSX.Element {
 	// U8: font-heading removed (Hearth uses system-ui everywhere); factoryMode uses font-bold with default sans
 	const titleClass = factoryMode ? "text-[15px] font-bold truncate" : "text-[15px] truncate";
@@ -86,7 +92,7 @@ export function KnowledgeRow({
 					<span className={titleClass} aria-label={`Knowledge: ${title}`}>
 						{title}
 					</span>
-					<Tag label={layer} />
+					{layer && <Tag label={layer} />}
 					<Tag label={kind} kind={kind as TagKind} />
 					<StatusChip status={knowledgeStatusToStatus(status)} />
 					{factoryMode && version && (
@@ -134,7 +140,15 @@ export function KnowledgeRow({
 						</span>
 					</div>
 				) : (
-					caption && <p className="text-[12px] text-[var(--text-secondary)] truncate">{caption}</p>
+					<>
+						{caption && (
+							<p className="text-[12px] text-[var(--text-secondary)] truncate">{caption}</p>
+						)}
+						{/* W3 AC-35: preview text shown below title */}
+						{preview && !caption && (
+							<p className="text-[12px] text-[var(--text-secondary)] truncate">{preview}</p>
+						)}
+					</>
 				)}
 			</div>
 			<span className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap">{timestamp}</span>

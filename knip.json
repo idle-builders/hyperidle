@@ -20,7 +20,7 @@
 		"packages/api-contract": {},
 		"packages/server": {
 			"entry": ["src/harness/isolated-session-worker.ts"],
-			"ignoreDependencies": ["ws", "@types/ws"]
+			"ignoreDependencies": []
 		},
 		"packages/design-system": {
 			"entry": [
@@ -30,7 +30,7 @@
 				"viewer/tailwind.config.ts",
 				"viewer/postcss.config.ts"
 			],
-			"ignoreDependencies": ["autoprefixer", "postcss", "@tiptap/pm"],
+			"ignoreDependencies": ["autoprefixer", "postcss"],
 			"playwright": {
 				"config": [
 					"playwright.config.ts",

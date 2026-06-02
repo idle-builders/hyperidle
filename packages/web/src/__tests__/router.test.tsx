@@ -63,14 +63,16 @@ function renderRoute(initialPath: string): ReturnType<typeof render> {
 
 describe("Router (L9)", () => {
 	it("renders Conversations page at /conversations (queue — no thread selected)", async () => {
-		// @lore U6: State A is now the thread list with filter bar + ThreadSections.
-		// The old "open a thread" empty state was replaced by the thread queue view.
+		// @lore U6: State A is now the thread list with header + ThreadSections.
+		// @lore W3: The FilterPillBar was replaced by a header + toggle chips in ThreadSections.
 		renderRoute("/conversations");
 		await waitFor(() => {
 			expect(screen.getByTestId("main-content")).toBeInTheDocument();
 		});
-		// The conversations page renders inside main-content
-		expect(screen.getByTestId("conversations-filter-bar")).toBeInTheDocument();
+		// The conversations page renders inside main-content — look for the page wrapper
+		await waitFor(() => {
+			expect(screen.getByTestId("conversations-page")).toBeInTheDocument();
+		});
 	});
 
 	it("renders Conversations page at /conversations/:threadId (detail state — fetch loading)", async () => {

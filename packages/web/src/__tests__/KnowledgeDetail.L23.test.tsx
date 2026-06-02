@@ -57,9 +57,11 @@ describe("KnowledgeDetail — T8 body is not a <pre>", () => {
 	it("'company' and 'belief' tags are still rendered in the metadata bar", () => {
 		// Protected legacy assertion — these come from LEGACY_DETAILS constants
 		// and must continue to render even after the <pre> is replaced.
+		// W3: these values appear in both the metadata bar Tag and the metadata aside;
+		// use getAllByText to handle multiple occurrences.
 		renderPage("k1");
-		expect(screen.getByText("company")).toBeInTheDocument();
-		expect(screen.getByText("belief")).toBeInTheDocument();
+		expect(screen.getAllByText("company").length).toBeGreaterThanOrEqual(1);
+		expect(screen.getAllByText("belief").length).toBeGreaterThanOrEqual(1);
 	});
 });
 

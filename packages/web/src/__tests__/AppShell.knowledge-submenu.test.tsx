@@ -1,13 +1,15 @@
 /**
- * @lore U6: Knowledge scope browser moved from Submenu to Sidebar.
- * The Sidebar shows static Practices/Products/Factory scope items as buttons
- * in the Knowledge section. Clicking a scope item navigates to /knowledge?scope=<scope>.
+ * @lore U6/W3: Knowledge scope browser moved from Sidebar sub-items to
+ * inline pills on the KnowledgeList page (W3 AC-3).
  *
- * Old test (J6) looked for [data-testid="knowledge-submenu"] and scope tabs inside
- * a dedicated knowledge submenu panel. U6 replaces this with sidebar buttons.
+ * The sidebar no longer renders Practices/Products/Factory scope sub-items.
+ * The sidebar's Knowledge section header navigates to /knowledge; scope
+ * filtering happens via pills within the KnowledgeList page body.
+ *
+ * These tests verify the sidebar knowledge section still renders and activates
+ * correctly, without scope sub-items.
  */
 import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -46,9 +48,8 @@ beforeEach(() => {
 import { AppShell } from "../layouts/AppShell";
 
 /**
- * J6 U6: Knowledge scope browser is now in the Sidebar as static scope buttons.
- * The sidebar navigation for knowledge renders Practices, Products, Factory as
- * clickable buttons that navigate to /knowledge?scope=<scope>.
+ * W3 AC-3: Scope sub-items are removed from the sidebar.
+ * The sidebar knowledge section is a header only — scope pills live in the KnowledgeList page.
  */
 function renderShellAt(initialPath: string): ReturnType<typeof createMemoryRouter> {
 	const router = createMemoryRouter(
@@ -69,50 +70,16 @@ function renderShellAt(initialPath: string): ReturnType<typeof createMemoryRoute
 	return router;
 }
 
-describe("AppShell — Knowledge scope browser in Sidebar (U6/J6)", () => {
-	it("renders Practices, Products, Factory scope items in the Knowledge sidebar section", async () => {
-		// Navigate to /knowledge so sidebar activates the knowledge section
+describe("AppShell — Knowledge sidebar section (W3 AC-3)", () => {
+	it("does NOT render scope sub-items (Practices/Products/Factory) in sidebar", async () => {
 		renderShellAt("/knowledge");
-		// Wait for sidebar to render
 		await waitFor(() => {
 			expect(screen.getByRole("button", { name: /knowledge/i })).toBeInTheDocument();
 		});
-		// Knowledge scope items should be visible
-		expect(screen.getByText("Practices")).toBeInTheDocument();
-		expect(screen.getByText("Products")).toBeInTheDocument();
-		expect(screen.getByText("Factory")).toBeInTheDocument();
-	});
-
-	it("clicking Practices scope item navigates to /knowledge?scope=practices", async () => {
-		const user = userEvent.setup();
-		const router = renderShellAt("/knowledge");
-
-		await waitFor(() => {
-			expect(screen.getByText("Practices")).toBeInTheDocument();
-		});
-
-		await user.click(screen.getByText("Practices"));
-
-		await waitFor(() => {
-			expect(router.state.location.pathname).toBe("/knowledge");
-			expect(router.state.location.search).toBe("?scope=practices");
-		});
-	});
-
-	it("clicking Factory scope item navigates to /knowledge?scope=factory", async () => {
-		const user = userEvent.setup();
-		const router = renderShellAt("/knowledge");
-
-		await waitFor(() => {
-			expect(screen.getByText("Factory")).toBeInTheDocument();
-		});
-
-		await user.click(screen.getByText("Factory"));
-
-		await waitFor(() => {
-			expect(router.state.location.pathname).toBe("/knowledge");
-			expect(router.state.location.search).toBe("?scope=factory");
-		});
+		// W3 AC-3: scope sub-items removed from sidebar
+		expect(screen.queryByText("Practices")).not.toBeInTheDocument();
+		expect(screen.queryByText("Products")).not.toBeInTheDocument();
+		expect(screen.queryByText("Factory")).not.toBeInTheDocument();
 	});
 
 	it("sidebar knowledge section is active when on /knowledge route", async () => {

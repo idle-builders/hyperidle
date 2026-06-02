@@ -55,10 +55,6 @@ export interface SidebarProps {
 	/** Handler for team sub-item click */
 	onSelectTeam: (id: string) => void;
 
-	/** Knowledge scope sub-items */
-	activeScope: string | null;
-	onSelectScope: (scope: string) => void;
-
 	/** CoC trigger */
 	onCocClick: () => void;
 	cocOverlayOpen: boolean;
@@ -66,6 +62,9 @@ export interface SidebarProps {
 	/** Settings trigger */
 	onSettingsClick: () => void;
 	settingsOpen: boolean;
+
+	/** Search hint trigger — opens Cmd+K panel */
+	onSearchClick: () => void;
 
 	/** Settings mode: replaces body with settings nav */
 	settingsNavItems?: ReactNode;
@@ -76,51 +75,9 @@ export interface SidebarProps {
 }
 
 // ---------------------------------------------------------------------------
-// Static knowledge scope sub-items (Practices, Products, Factory)
+// W3 AC-3: Knowledge scope sub-items removed.
+// Scopes are now handled as inline pills on the KnowledgeList page.
 // ---------------------------------------------------------------------------
-
-/**
- * @lore U11: "Products" is a legitimate knowledge scope label, not stale
- * vocabulary. The three scopes — Practices, Products, Factory — represent the
- * three org-level knowledge domains defined in docs/knowledge-architecture/.
- * "Products" refers to product-level knowledge (decisions, specs, strategy),
- * distinct from the "Teams" primitive in the Work surface. Do not rename.
- */
-const KNOWLEDGE_SCOPE_ITEMS = [
-	{ label: "Practices", scope: "practices" },
-	{ label: "Products", scope: "products" },
-	{ label: "Factory", scope: "factory" },
-] as const;
-
-// ---------------------------------------------------------------------------
-// CoC chat-bubble icon (16x16)
-// ---------------------------------------------------------------------------
-
-function CocIcon(): JSX.Element {
-	return (
-		<svg viewBox="0 0 16 16" fill="currentColor" width={16} height={16} aria-hidden="true">
-			<path d="M2 2h12a1 1 0 011 1v8a1 1 0 01-1 1H6l-3 3v-3H2a1 1 0 01-1-1V3a1 1 0 011-1z" />
-		</svg>
-	);
-}
-
-// ---------------------------------------------------------------------------
-// Gear settings icon (16x16)
-// ---------------------------------------------------------------------------
-
-function GearIcon(): JSX.Element {
-	// @lore U6 A5: path coordinates fit within the 16x16 viewBox.
-	// A gear with 8 teeth centered at (8,8) with outer radius ~7 and inner circle radius ~2.5.
-	return (
-		<svg viewBox="0 0 16 16" fill="currentColor" width={16} height={16} aria-hidden="true">
-			<path
-				fillRule="evenodd"
-				d="M6.5 0.5h3l0.5 1.5a4.5 4.5 0 011 0.57l1.43-.48 2.12 2.12-.48 1.43c.24.32.44.66.57 1L16 7v2l-1.38.46a4.5 4.5 0 01-.57 1l.48 1.43-2.12 2.12-1.43-.48a4.5 4.5 0 01-1 .57L9.5 15.5h-3l-.5-1.5a4.5 4.5 0 01-1-.57l-1.43.48L1.45 11.79l.48-1.43A4.5 4.5 0 011.36 9.33L0 9V7l1.38-.46a4.5 4.5 0 01.57-1L1.45 4.1 3.57 1.98 5 2.46A4.5 4.5 0 016 1.89L6.5 0.5zM8 5.5a2.5 2.5 0 100 5 2.5 2.5 0 000-5z"
-				clipRule="evenodd"
-			/>
-		</svg>
-	);
-}
 
 // ---------------------------------------------------------------------------
 // Section header button
@@ -194,12 +151,11 @@ export function Sidebar({
 	teams,
 	activeTeamId,
 	onSelectTeam,
-	activeScope,
-	onSelectScope,
 	onCocClick,
 	cocOverlayOpen,
 	onSettingsClick,
 	settingsOpen,
+	onSearchClick,
 	settingsNavItems,
 	avatarUrl,
 	userInitials,
@@ -338,100 +294,80 @@ export function Sidebar({
 						{/* Divider */}
 						<hr className="border-t border-[var(--border-subtle)] mt-[6px] mb-[6px]" />
 
-						{/* Knowledge section */}
+						{/* Knowledge section — W3 AC-3: no scope sub-items */}
 						<div data-active-view={activeView === "knowledge" ? "knowledge" : undefined}>
 							<SectionHeader view="knowledge" activeView={activeView} onViewChange={onViewChange} />
-							<ul className="flex flex-col">
-								{KNOWLEDGE_SCOPE_ITEMS.map((item) => {
-									const isActive = item.scope === activeScope;
-									return (
-										<li
-											key={item.scope}
-											aria-current={isActive ? "page" : undefined}
-											className={[
-												"pl-10",
-												isActive
-													? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] border-l-2 border-l-[var(--accent-primary)]"
-													: "",
-											].join(" ")}
-										>
-											<button
-												type="button"
-												onClick={() => onSelectScope(item.scope)}
-												className={[
-													"w-full text-left px-2 py-1 text-[13px] min-h-[28px]",
-													"truncate transition-[background] duration-[var(--motion-fast)]",
-													"hover:bg-[var(--accent-primary-dim)]",
-													isActive
-														? "text-[var(--text-primary)] font-[500]"
-														: "text-[var(--text-secondary)]",
-												].join(" ")}
-											>
-												{item.label}
-											</button>
-										</li>
-									);
-								})}
-							</ul>
 						</div>
 					</>
 				)}
 			</div>
 
-			{/* Bottom strip */}
+			{/* Bottom strip — W3 AC-1: search hint + avatar + Assistant */}
 			<div data-sidebar-bottom className="shrink-0 border-t border-[var(--border-subtle)]">
-				{/* CoC trigger */}
-				<button
-					type="button"
-					onClick={onCocClick}
-					aria-label="Chief of Staff"
-					aria-expanded={cocOverlayOpen}
+				{/* Search hint row */}
+				{/* biome-ignore lint/a11y/useKeyWithClickEvents: click-only search hint; cmd+K is the canonical trigger */}
+				{/* biome-ignore lint/a11y/noStaticElementInteractions: search hint div is a keyboard affordance, not a true button — cmd+K is primary */}
+				<div
+					data-testid="sidebar-search-hint"
+					onClick={onSearchClick}
 					className={[
 						"flex w-full items-center gap-2 px-4 min-h-[44px]",
-						"text-[13px] text-[var(--text-tertiary)]",
-						"transition-[background] duration-[var(--motion-fast)]",
-						"hover:bg-[var(--accent-primary-dim)] hover:text-[var(--text-secondary)]",
-						cocOverlayOpen ? "text-[var(--accent-primary)]" : "",
-					].join(" ")}
-				>
-					<span className={cocOverlayOpen ? "text-[var(--accent-primary)]" : ""}>
-						<CocIcon />
-					</span>
-					Chief of Staff
-				</button>
-
-				{/* Settings trigger */}
-				<button
-					type="button"
-					onClick={onSettingsClick}
-					aria-label="Settings"
-					className={[
-						"flex w-full items-center gap-2 px-4 min-h-[44px]",
-						"text-[13px] text-[var(--text-tertiary)]",
+						"text-[13px] text-[var(--text-tertiary)] cursor-pointer",
 						"transition-[background] duration-[var(--motion-fast)]",
 						"hover:bg-[var(--accent-primary-dim)]",
 					].join(" ")}
 				>
-					{/* Avatar */}
-					{avatarUrl ? (
-						<img
-							src={avatarUrl}
-							alt="User avatar"
-							className="w-6 h-6 rounded-full object-cover shrink-0"
-						/>
-					) : (
-						<span className="inline-flex w-6 h-6 items-center justify-center rounded-full bg-[var(--accent-primary-dim)] text-[11px] font-mono text-[var(--text-secondary)] shrink-0 uppercase">
-							{userInitials ?? "?"}
-						</span>
-					)}
-					{/* No visible "Settings" text in the button body — aria-label handles accessibility.
-					    This avoids getByText(/^settings$/i) finding both this button and the settings
-					    heading when settingsOpen=true. */}
-					<span className="flex-1" />
-					<span className="ml-auto">
-						<GearIcon />
-					</span>
-				</button>
+					<span className="flex-1">Search</span>
+					<kbd className="inline-flex items-center px-[6px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-mono text-[var(--text-tertiary)] border border-[var(--border-subtle)]">
+						Cmd+K
+					</kbd>
+				</div>
+
+				<hr className="border-t border-[var(--border-subtle)]" />
+
+				{/* Bottom row: avatar (settings) + Assistant (CoC) */}
+				<div className="flex items-center gap-2 px-4 min-h-[44px]">
+					{/* Avatar button → settings */}
+					<button
+						type="button"
+						data-testid="sidebar-avatar-btn"
+						onClick={onSettingsClick}
+						aria-label="Settings"
+						className={[
+							"inline-flex w-7 h-7 items-center justify-center rounded-full shrink-0",
+							"bg-[var(--accent-primary-dim)] text-[11px] font-mono text-[var(--text-secondary)] uppercase",
+							"hover:bg-[var(--accent-primary)] hover:text-[var(--text-on-accent)]",
+							"transition-[background] duration-[var(--motion-fast)] cursor-pointer",
+						].join(" ")}
+					>
+						{avatarUrl ? (
+							<img
+								src={avatarUrl}
+								alt="User avatar"
+								className="w-7 h-7 rounded-full object-cover"
+							/>
+						) : (
+							(userInitials ?? "?")
+						)}
+					</button>
+
+					{/* Assistant button → CoC */}
+					<button
+						type="button"
+						onClick={onCocClick}
+						aria-expanded={cocOverlayOpen}
+						aria-label="Assistant"
+						className={[
+							"flex-1 text-left text-[13px]",
+							"transition-[color] duration-[var(--motion-fast)]",
+							cocOverlayOpen
+								? "text-[var(--accent-primary)]"
+								: "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]",
+						].join(" ")}
+					>
+						Assistant
+					</button>
+				</div>
 			</div>
 		</aside>
 	);

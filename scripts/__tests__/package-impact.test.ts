@@ -317,11 +317,13 @@ describe("getImpactedVitestProjects", () => {
 		expect(getImpactedVitestProjects(impact)).toBeNull();
 	});
 
-	it("maps impacted packages to vitest project paths", () => {
+	it("maps impacted packages to vitest project names (test.name, not path)", () => {
 		const impact = makeImpact(["web", "server"]);
 		const projects = getImpactedVitestProjects(impact);
+		// Values must match test.name in each package's vitest.config.ts, not
+		// the path — vitest --project filter matches test.name, not directory paths.
 		expect(projects).toEqual(
-			expect.arrayContaining(["packages/web", "packages/server"]),
+			expect.arrayContaining(["web", "server"]),
 		);
 		expect(projects).toHaveLength(2);
 	});
