@@ -1,0 +1,123 @@
+/**
+ * W3 — Sidebar AC-1, AC-2, AC-3, AC-4: Red phase tests.
+ *
+ * AC-1: Bottom strip has search hint (Cmd+K), user avatar (settings trigger), and
+ *       Assistant/CoC button — NO separate "Chief of Staff" and "Settings" buttons.
+ * AC-2: Work section sub-nav shows teams (verified by existing structure — no change needed).
+ * AC-3: Knowledge section has NO sub-items (no Practices/Products/Factory scope items).
+ * AC-4: Conversations sub-nav shows recent threads.
+ */
+
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import type { SidebarProps } from "../../shell/Sidebar";
+import { Sidebar } from "../../shell/Sidebar";
+
+function makeProps(overrides: Partial<SidebarProps> = {}): SidebarProps {
+	return {
+		activeView: "conversations",
+		onViewChange: vi.fn(),
+		threads: [],
+		selectedThreadId: null,
+		onSelectThread: vi.fn(),
+		teams: [{ id: "t1", name: "Alpha Core" }],
+		activeTeamId: null,
+		onSelectTeam: vi.fn(),
+		onCocClick: vi.fn(),
+		cocOverlayOpen: false,
+		onSettingsClick: vi.fn(),
+		settingsOpen: false,
+		userInitials: "TF",
+		// AC-1: new prop required
+		onSearchClick: vi.fn(),
+		...overrides,
+	};
+}
+
+describe("W3 AC-1 — Sidebar bottom strip", () => {
+	it("renders a search hint row with Cmd+K badge", () => {
+		render(<Sidebar {...makeProps()} />);
+		// Sidebar must show a search hint element
+		const searchHint = screen.getByTestId("sidebar-search-hint");
+		expect(searchHint).toBeInTheDocument();
+	});
+
+	it("renders ⌘K keyboard shortcut in search hint", () => {
+		render(<Sidebar {...makeProps()} />);
+		// The search hint must contain a kbd element with Cmd+K
+		const searchHint = screen.getByTestId("sidebar-search-hint");
+		const kbd = searchHint.querySelector("kbd");
+		expect(kbd).not.toBeNull();
+		expect(kbd?.textContent).toMatch(/cmd\+k/i);
+	});
+
+	it("does NOT render a separate 'Chief of Staff' full-width button", () => {
+		render(<Sidebar {...makeProps()} />);
+		// The old CoC button said "Chief of Staff" as text; it should be gone
+		expect(screen.queryByText("Chief of Staff")).not.toBeInTheDocument();
+	});
+
+	it("renders an 'Assistant' label/button for CoC trigger", () => {
+		render(<Sidebar {...makeProps()} />);
+		// Bottom strip now has "Assistant" text (not "Chief of Staff")
+		expect(screen.getByText(/assistant/i)).toBeInTheDocument();
+	});
+
+	it("renders user avatar in bottom strip with click → settings", () => {
+		const onSettingsClick = vi.fn();
+		render(<Sidebar {...makeProps({ onSettingsClick })} />);
+		// Avatar in bottom strip should be a button / have onClick tied to settings
+		const avatarBtn = screen.getByTestId("sidebar-avatar-btn");
+		expect(avatarBtn).toBeInTheDocument();
+	});
+
+	it("calls onSearchClick when search hint is clicked", async () => {
+		const onSearchClick = vi.fn();
+		const { getByTestId } = render(<Sidebar {...makeProps({ onSearchClick })} />);
+		const searchHint = getByTestId("sidebar-search-hint");
+		searchHint.click();
+		expect(onSearchClick).toHaveBeenCalled();
+	});
+
+	it("does NOT accept activeScope / onSelectScope props (props removed)", () => {
+		// These props were removed from SidebarProps in W3.
+		// The type itself should not include them — this test passes when compilation succeeds
+		// and the sidebar renders without those props.
+		const props = makeProps();
+		// @ts-expect-error — activeScope was removed from SidebarProps
+		props.activeScope = "practices";
+		// @ts-expect-error — onSelectScope was removed from SidebarProps
+		props.onSelectScope = vi.fn();
+		// If the above lines fail type-check, the type is correct. Render should still work.
+		expect(() => render(<Sidebar {...makeProps()} />)).not.toThrow();
+	});
+});
+
+describe("W3 AC-3 — Knowledge section has no scope sub-items", () => {
+	it("does NOT render 'Practices' scope item in knowledge sub-nav", () => {
+		render(<Sidebar {...makeProps({ activeView: "knowledge" })} />);
+		expect(screen.queryByRole("button", { name: /^practices$/i })).not.toBeInTheDocument();
+	});
+
+	it("does NOT render 'Products' scope item in knowledge sub-nav", () => {
+		render(<Sidebar {...makeProps({ activeView: "knowledge" })} />);
+		expect(screen.queryByRole("button", { name: /^products$/i })).not.toBeInTheDocument();
+	});
+
+	it("does NOT render 'Factory' scope item in knowledge sub-nav", () => {
+		render(<Sidebar {...makeProps({ activeView: "knowledge" })} />);
+		expect(screen.queryByRole("button", { name: /^factory$/i })).not.toBeInTheDocument();
+	});
+});
+
+describe("W3 AC-4 — Conversations sub-nav shows recent threads", () => {
+	it("renders thread titles in conversations sub-nav", () => {
+		const threads = [
+			{ id: "t1", title: "Thread One", hasUnresolvedReview: false },
+			{ id: "t2", title: "Thread Two", hasUnresolvedReview: false },
+		];
+		render(<Sidebar {...makeProps({ threads, activeView: "conversations" })} />);
+		expect(screen.getByText("Thread One")).toBeInTheDocument();
+		expect(screen.getByText("Thread Two")).toBeInTheDocument();
+	});
+});

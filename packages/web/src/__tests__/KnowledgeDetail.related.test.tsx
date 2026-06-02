@@ -16,13 +16,13 @@ function renderPage(knowledgeId: string): ReturnType<typeof render> {
 describe("KnowledgeDetail — J7 related items sidebar", () => {
 	it("renders a related-items sidebar", () => {
 		renderPage("k1");
-		expect(screen.getByTestId("knowledge-related-sidebar")).toBeInTheDocument();
+		expect(screen.getByTestId("knowledge-backlinks-card")).toBeInTheDocument();
 	});
 
 	it("lists related items by title", () => {
 		// k1 is related to k2 and k7 via shared Architecture topic
 		renderPage("k1");
-		const sidebar = screen.getByTestId("knowledge-related-sidebar");
+		const sidebar = screen.getByTestId("knowledge-backlinks-card");
 		const links = within(sidebar).getAllByTestId("related-item");
 		expect(links.length).toBeGreaterThanOrEqual(1);
 		// k1 explicitly lists k2 as a related item
@@ -32,7 +32,7 @@ describe("KnowledgeDetail — J7 related items sidebar", () => {
 	it("renders a friendly empty-state when there are no related items", () => {
 		// An item with no related items shows an empty-state message.
 		renderPage("k10");
-		const sidebar = screen.getByTestId("knowledge-related-sidebar");
+		const sidebar = screen.getByTestId("knowledge-backlinks-card");
 		expect(within(sidebar).getByText(/No related items/i)).toBeInTheDocument();
 	});
 });

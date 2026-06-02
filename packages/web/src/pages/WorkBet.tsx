@@ -22,21 +22,13 @@ import {
 	BodyEditor,
 	EmptyState,
 	ErrorState,
-	KeyValue,
 	SkeletonCard,
 	SkeletonList,
 	StatusChip,
-	sessionOutcomeToStatus,
 	taskStateToStatus,
 } from "@hyperidle/design-system";
 import type { BetStatus, Message } from "@hyperidle/shared";
-import {
-	deriveBlocks,
-	formatMoney,
-	formatTokenCount,
-	isRedactedPayload,
-	totalTokens,
-} from "@hyperidle/shared";
+import { deriveBlocks, formatMoney, isRedactedPayload } from "@hyperidle/shared";
 import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
@@ -48,7 +40,6 @@ import { useBetDescriptionSave } from "../hooks/useBetDescriptionSave.js";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useHint } from "../hooks/useHints";
 import { useHostThread } from "../hooks/useHostThread.js";
-import { isValidHarnessUrl } from "../lib/url-utils.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { postRequestMessage, resolveOrCreateTaskThread } from "../services/task-threads";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
@@ -240,73 +231,6 @@ function BetPitch({
  * L14: The set of actions the founder can take on a bet from the action bar.
  */
 type BetActionKind = "pause" | "resume" | "kill" | "adjust-appetite" | "unblock";
-
-/**
- * BetActionsBar — co-located action bar rendered below the BetCard.
- *
- * @lore L14: co-located (not a design-system component) because this is a
- * single-call-site adapter that ties bet status to HTTP verbs. It would not
- * earn its keep as a shared component.
- *
- * @lore L14: blocked → paused is NOT in VALID_TRANSITIONS (state machine).
- * Per the architecture-critique, Pause is NOT shown for blocked bets. A blocked
- * bet cannot be paused; the Unblock action is the intended path.
- */
-interface BetActionsBarProps {
-	bet: BetDetail;
-	onAction: (action: BetActionKind) => void;
-}
-
-function BetActionsBar({ bet, onAction }: BetActionsBarProps): JSX.Element | null {
-	const { status } = bet;
-	// @lore U1: old "shipped"/"killed" → "completed"/"killed"; old "in_progress"/"paused"/"behind"/"blocked"/"shaped" → "active"/"draft"
-	if (status === "completed" || status === "killed") return null;
-
-	const showPause = status === "active";
-	const showResume = false; // no paused status in new enum
-	const showAdjust = status === "active" || status === "draft";
-	const showUnblock = status === "active";
-	const showKill = true;
-
-	return (
-		<div
-			className="flex flex-wrap gap-2 items-center"
-			data-testid="bet-actions-bar"
-			role="group"
-			aria-label="Bet actions"
-		>
-			{showPause && (
-				<button type="button" className="btn btn-xs btn-ghost" onClick={() => onAction("pause")}>
-					Pause
-				</button>
-			)}
-			{showResume && (
-				<button type="button" className="btn btn-xs btn-ghost" onClick={() => onAction("resume")}>
-					Resume
-				</button>
-			)}
-			{showAdjust && (
-				<button
-					type="button"
-					className="btn btn-xs btn-ghost"
-					onClick={() => onAction("adjust-appetite")}
-				>
-					Adjust appetite
-				</button>
-			)}
-			{showUnblock && (
-				<button type="button" className="btn btn-xs btn-ghost" onClick={() => onAction("unblock")}>
-					Unblock
-				</button>
-			)}
-			{showKill && (
-				<button type="button" className="btn btn-xs btn-error" onClick={() => onAction("kill")}>
-					Kill bet
-				</button>
-			)}
-		</div>
-	);
-}
 
 /**
  * ConsequencePreviewDialog — non-skippable confirmation dialog for destructive
@@ -874,7 +798,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 		);
 	}
 
-	function handleSort(column: SortColumn): void {
+	function _handleSort(column: SortColumn): void {
 		if (sortColumn === column) {
 			setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
 		} else {
@@ -926,377 +850,378 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 
 	return (
 		<div className="flex flex-col gap-3 h-full" data-testid="work-bet-page">
-			{/* J5: breadcrumb Team → Bet. The leaf node uses the
+			{/* W3 AC-25: max-width 800px centered detail body */}
+			<div
+				data-testid="bet-detail-body"
+				className="flex flex-col gap-3 max-w-[800px] mx-auto w-full"
+			>
+				{/* J5: breadcrumb Team → Bet. The leaf node uses the
 			    bet id rather than the title so the enriched BetCard below
 			    remains the single rendered instance of `bet.title`. */}
-			<nav aria-label="Breadcrumb" className="text-xs text-[var(--text-tertiary)]">
-				<ol className="flex items-center gap-1">
-					<li>
-						<Link className="hover:text-[var(--text-primary)]" to="/work/portfolio">
-							{bet.team}
-						</Link>
-					</li>
-					<li aria-hidden>›</li>
-					<li>
-						<Link className="hover:text-[var(--text-primary)]" to="/work/team">
-							{bet.team}
-						</Link>
-					</li>
-					<li aria-hidden>›</li>
-					<li className="text-[var(--text-primary)] font-medium" aria-current="page">
-						<span className="uppercase font-mono">{bet.id}</span>
-						<span className="sr-only">: {bet.title}</span>
-					</li>
-				</ol>
-			</nav>
+				<nav aria-label="Breadcrumb" className="text-xs text-[var(--text-tertiary)]">
+					<ol className="flex items-center gap-1">
+						<li>
+							<Link className="hover:text-[var(--text-primary)]" to="/work/portfolio">
+								{bet.team}
+							</Link>
+						</li>
+						<li aria-hidden>›</li>
+						<li>
+							<Link className="hover:text-[var(--text-primary)]" to="/work/team">
+								{bet.team}
+							</Link>
+						</li>
+						<li aria-hidden>›</li>
+						<li className="text-[var(--text-primary)] font-medium" aria-current="page">
+							<span className="uppercase font-mono">{bet.id}</span>
+							<span className="sr-only">: {bet.title}</span>
+						</li>
+					</ol>
+				</nav>
 
-			<div className="relative">
-				<BetCard
-					title={bet.title}
-					team={bet.team}
-					status={bet.status}
-					appetite={formatMoney(bet.costAppetite)}
-					progress={bet.progress}
-				/>
-				<CocAttachButton ref={{ kind: "bet", id: bet.id, label: bet.title }} />
-			</div>
-
-			{/* L14: Bet action bar — shown for active bets only */}
-			<BetActionsBar bet={bet} onAction={handleAction} />
-
-			{/* P5: Hint #2 — add-credential. Shows when the first bet is loaded. */}
-			{hintAddCredential.visible && (
-				<div
-					role="status"
-					data-testid={hintAddCredential.testId}
-					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px]"
-				>
-					<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
-						{hintAddCredential.copy}
-					</p>
-					<div className="flex gap-2">
+				{/* Header row: BetCard + W3 AC-19 overflow menu */}
+				<div className="flex items-start gap-2">
+					<div className="flex-1 relative">
+						<BetCard
+							title={bet.title}
+							team={bet.team}
+							status={bet.status}
+							appetite={formatMoney(bet.costAppetite)}
+							progress={bet.progress}
+						/>
+						<CocAttachButton ref={{ kind: "bet", id: bet.id, label: bet.title }} />
+					</div>
+					{/* W3 AC-19: overflow action menu replacing inline action bar */}
+					<div className="relative" data-testid="bet-overflow-menu">
 						<button
 							type="button"
-							className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
-							onClick={hintAddCredential.dismiss}
+							aria-label="More actions"
+							data-testid="bet-overflow-btn"
+							className="btn btn-xs btn-ghost"
+							onClick={() => {
+								const el = document.getElementById(`overflow-dropdown-${bet.id}`);
+								if (el) el.toggleAttribute("open");
+							}}
 						>
-							Got it
+							...
+						</button>
+						<div
+							id={`overflow-dropdown-${bet.id}`}
+							className="absolute right-0 top-full z-10 mt-1 bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)] shadow-[var(--shadow-elevated)] py-1 min-w-[140px] hidden [&[open]]:block"
+						>
+							{bet.status === "active" && (
+								<button
+									type="button"
+									data-dropdown-item
+									data-bet-action="pause"
+									className="w-full text-left px-3 py-2 text-[13px] hover:bg-[var(--accent-primary-dim)]"
+									onClick={() => handleAction("pause")}
+								>
+									Pause
+								</button>
+							)}
+							{(bet.status === "active" || bet.status === "draft") && (
+								<button
+									type="button"
+									data-dropdown-item
+									data-bet-action="adjust-appetite"
+									className="w-full text-left px-3 py-2 text-[13px] hover:bg-[var(--accent-primary-dim)]"
+									onClick={() => handleAction("adjust-appetite")}
+								>
+									Adjust appetite
+								</button>
+							)}
+							{bet.status === "active" && (
+								<button
+									type="button"
+									data-dropdown-item
+									data-bet-action="unblock"
+									className="w-full text-left px-3 py-2 text-[13px] hover:bg-[var(--accent-primary-dim)]"
+									onClick={() => handleAction("unblock")}
+								>
+									Unblock
+								</button>
+							)}
+							{bet.status !== "completed" && bet.status !== "killed" && (
+								<button
+									type="button"
+									data-dropdown-item
+									data-bet-action="kill"
+									className="w-full text-left px-3 py-2 text-[13px] text-[var(--status-error)] hover:bg-[var(--accent-primary-dim)]"
+									onClick={() => handleAction("kill")}
+								>
+									Kill
+								</button>
+							)}
+						</div>
+					</div>
+				</div>
+
+				{/* P5: Hint #2 — add-credential. Shows when the first bet is loaded. */}
+				{hintAddCredential.visible && (
+					<div
+						role="status"
+						data-testid={hintAddCredential.testId}
+						className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px]"
+					>
+						<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
+							{hintAddCredential.copy}
+						</p>
+						<div className="flex gap-2">
+							<button
+								type="button"
+								className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
+								onClick={hintAddCredential.dismiss}
+							>
+								Got it
+							</button>
+						</div>
+					</div>
+				)}
+
+				{/* Q2: Add knowledge button — opens KnowledgeCreateDialog with bet scope locked */}
+				<div className="flex items-center gap-2">
+					<button
+						type="button"
+						className="btn btn-xs btn-ghost"
+						onClick={() => setAddKnowledgeOpen(true)}
+					>
+						Add knowledge
+					</button>
+				</div>
+
+				{/* L14: Consequence preview dialog — pause or kill */}
+				<ConsequencePreviewDialog
+					open={consequenceDialog.open}
+					kind={consequenceDialog.kind}
+					onConfirm={handleConsequenceConfirm}
+					onCancel={() => setConsequenceDialog((prev) => ({ ...prev, open: false }))}
+				/>
+
+				{/* L14: Appetite adjust dialog */}
+				<AppetiteDialog
+					open={appetiteDialogOpen}
+					currentAppetite={formatMoney(bet.costAppetite)}
+					onConfirm={handleAppetiteConfirm}
+					onCancel={() => setAppetiteDialogOpen(false)}
+				/>
+
+				{/* Q2: Add knowledge dialog — locked to bet scope */}
+				<KnowledgeCreateDialog
+					open={addKnowledgeOpen}
+					onClose={() => setAddKnowledgeOpen(false)}
+					onCreated={() => setAddKnowledgeOpen(false)}
+					lockedScopeKind="bet"
+					lockedScopeId={bet.id}
+				/>
+
+				{/* W3 AC-20: Stat cards row */}
+				<div data-testid="bet-stats-row" className="grid grid-cols-3 gap-[12px]">
+					{/* Progress stat card */}
+					<div className="bg-[var(--surface-container)] rounded-[var(--r-subtle)] p-[12px] flex flex-col gap-[6px]">
+						<span className="text-[11px] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+							Progress
+						</span>
+						<span className="text-[17px] font-[600] font-mono tabular-nums text-[var(--text-primary)]">
+							{bet.progress
+								? `${Math.round((bet.progress.done / bet.progress.total) * 100)}%`
+								: "0%"}
+						</span>
+						{bet.progress && (
+							<div className="w-full h-[6px] bg-[var(--surface-elevated)] rounded-[var(--r-pill)] overflow-hidden">
+								<div
+									className="h-full bg-[var(--status-success)] rounded-[var(--r-pill)]"
+									style={{
+										width: `${Math.round((bet.progress.done / bet.progress.total) * 100)}%`,
+									}}
+								/>
+							</div>
+						)}
+					</div>
+					{/* Budget stat card */}
+					<div className="bg-[var(--surface-container)] rounded-[var(--r-subtle)] p-[12px] flex flex-col gap-[6px]">
+						<span className="text-[11px] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+							Budget spent
+						</span>
+						<span className="text-[17px] font-[600] font-mono tabular-nums text-[var(--text-primary)]">
+							{formatMoney(bet.costActual)}
+						</span>
+						<span className="text-[12px] text-[var(--text-tertiary)]">
+							of {formatMoney(bet.costAppetite)} appetite
+						</span>
+					</div>
+					{/* Team stat card */}
+					<div
+						data-stat-card="team"
+						className="bg-[var(--surface-container)] rounded-[var(--r-subtle)] p-[12px] flex flex-col gap-[6px]"
+					>
+						<span className="text-[11px] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+							Team
+						</span>
+						<span className="text-[13px] text-[var(--text-primary)]">{bet.team}</span>
+					</div>
+				</div>
+
+				{/* W3 AC-21: Pitch section with Edit button */}
+				<section data-testid="bet-pitch-section" aria-label="Pitch">
+					<div className="flex items-center justify-between mb-2">
+						<h2 className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+							Pitch
+						</h2>
+						<button type="button" className="btn btn-xs btn-ghost" data-bet-action="edit-pitch">
+							Edit
 						</button>
 					</div>
-				</div>
-			)}
-
-			{/* Q2: Add knowledge button — opens KnowledgeCreateDialog with bet scope locked */}
-			<div className="flex items-center gap-2">
-				<button
-					type="button"
-					className="btn btn-xs btn-ghost"
-					onClick={() => setAddKnowledgeOpen(true)}
-				>
-					Add knowledge
-				</button>
-			</div>
-
-			{/* L14: Consequence preview dialog — pause or kill */}
-			<ConsequencePreviewDialog
-				open={consequenceDialog.open}
-				kind={consequenceDialog.kind}
-				onConfirm={handleConsequenceConfirm}
-				onCancel={() => setConsequenceDialog((prev) => ({ ...prev, open: false }))}
-			/>
-
-			{/* L14: Appetite adjust dialog */}
-			<AppetiteDialog
-				open={appetiteDialogOpen}
-				currentAppetite={formatMoney(bet.costAppetite)}
-				onConfirm={handleAppetiteConfirm}
-				onCancel={() => setAppetiteDialogOpen(false)}
-			/>
-
-			{/* Q2: Add knowledge dialog — locked to bet scope */}
-			<KnowledgeCreateDialog
-				open={addKnowledgeOpen}
-				onClose={() => setAddKnowledgeOpen(false)}
-				onCreated={() => setAddKnowledgeOpen(false)}
-				lockedScopeKind="bet"
-				lockedScopeId={bet.id}
-			/>
-
-			{(bet.costActual != null || bet.tokensActual != null) && (
-				<section
-					aria-label="Bet cost"
-					data-testid="bet-cost-section"
-					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
-				>
-					<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
-						Cost
-					</h2>
-					<div className="flex flex-col gap-1">
-						{bet.costActual != null && (
-							<KeyValue label="Spend" value={formatMoney(bet.costActual)} />
-						)}
-						{bet.tokensActual != null &&
-							(() => {
-								const totals = totalTokens(bet.tokensActual);
-								const total = totals.prompt + totals.completion;
-								return <KeyValue label="Tokens" value={formatTokenCount(total)} />;
-							})()}
-					</div>
+					{/* T3: Conditional rendering based on bet status mutability. */}
+					{canEditDescription ? (
+						<div className="flex flex-col gap-2" data-testid="bet-description-editor">
+							<BodyEditor
+								initialContent={bet.description}
+								onChange={handleDescriptionChange}
+								placeholder="Describe this bet..."
+								variant="full"
+								minHeight="200px"
+							/>
+							<span
+								className="text-xs text-[var(--text-tertiary)]"
+								aria-live="polite"
+								data-testid="bet-save-indicator"
+							>
+								{saveStatus === "saving" && "Saving..."}
+								{saveStatus === "saved" && "Saved"}
+								{saveStatus === "error" && (
+									<span className="text-[var(--status-error)]">Save failed</span>
+								)}
+							</span>
+						</div>
+					) : (
+						<>
+							{/* L18: Block popover wiring */}
+							<BetPitch
+								description={bet.description}
+								betId={bet.id}
+								onOpenBlockActions={(blockId) => setOpenBlockId(blockId)}
+								messagesByBlockId={messagesByBlockId}
+								onShareBlock={handleShareBlock}
+							/>
+						</>
+					)}
 				</section>
-			)}
 
-			{/* T3: Conditional rendering based on bet status mutability.
-			    - Mutable (draft, active): BodyEditor with auto-save + saving indicator.
-			    - Immutable (completed, killed): BetPitch (read-only blocks + block actions).
-			    @lore T3: No Edit/Done toggle. BodyEditor is always mounted for mutable bets.
-			    Block actions are only available in immutable statuses.
-			    T4: onShareBlock added to BetPitch for attaching blocks as CoC context refs. */}
-			{canEditDescription ? (
-				<div className="flex flex-col gap-2" data-testid="bet-description-editor">
-					<BodyEditor
-						initialContent={bet.description}
-						onChange={handleDescriptionChange}
-						placeholder="Describe this bet..."
-						variant="full"
-						minHeight="200px"
-					/>
-					<span
-						className="text-xs text-[var(--text-tertiary)]"
-						aria-live="polite"
-						data-testid="bet-save-indicator"
-					>
-						{saveStatus === "saving" && "Saving..."}
-						{saveStatus === "saved" && "Saved"}
-						{saveStatus === "error" && (
-							<span className="text-[var(--status-error)]">Save failed</span>
-						)}
-					</span>
-				</div>
-			) : (
-				<>
-					{/* L18: Block popover wiring — onOpenBlockActions opens the page-level
-					    block actions popover. The popover's "Discuss" item then calls
-					    handleDiscussBlock. messagesByBlockId flows anchored messages inline
-					    after each block's payload. */}
-					<BetPitch
-						description={bet.description}
-						betId={bet.id}
-						onOpenBlockActions={(blockId) => setOpenBlockId(blockId)}
-						messagesByBlockId={messagesByBlockId}
-						onShareBlock={handleShareBlock}
-					/>
-				</>
-			)}
-
-			{/* L18 + T4: Block actions popover — rendered at page level, opened from any block.
+				{/* L18 + T4: Block actions popover — rendered at page level, opened from any block.
 			    T4: "Share" action added; only shown when CoC overlay is open (per reviewer
 			    critique: Share must not be shown when overlay is closed). */}
-			{openBlockId !== null && (
-				<BlockActionsPopover
-					id={`block-popover-${openBlockId}`}
-					open
-					onClose={() => setOpenBlockId(null)}
-					liveRegionId="block-popover-live"
-					items={[
-						{
-							id: "discuss-block",
-							label: "Discuss",
-							onSelect: () => handleDiscussBlock(openBlockId),
-						},
-						...(overlayOpen
-							? [
-									{
-										id: "share-block",
-										label: "Share",
-										onSelect: () => handleShareBlock(openBlockId),
-									},
-								]
-							: []),
-					]}
-				/>
-			)}
+				{openBlockId !== null && (
+					<BlockActionsPopover
+						id={`block-popover-${openBlockId}`}
+						open
+						onClose={() => setOpenBlockId(null)}
+						liveRegionId="block-popover-live"
+						items={[
+							{
+								id: "discuss-block",
+								label: "Discuss",
+								onSelect: () => handleDiscussBlock(openBlockId),
+							},
+							...(overlayOpen
+								? [
+										{
+											id: "share-block",
+											label: "Share",
+											onSelect: () => handleShareBlock(openBlockId),
+										},
+									]
+								: []),
+						]}
+					/>
+				)}
 
-			<h2 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
-				Tasks
-			</h2>
+				{/*
+				 * W3 AC-22: flat task rows (no table). Each row is clickable and navigates
+				 * to the task detail page. Status is shown as a StatusChip badge, not a dot.
+				 *
+				 * @lore W3: The task table (sortable headers, outcome column, cost column) is
+				 * replaced by a flat list of `.task-row` divs matching the mockup. Sorting state
+				 * is kept in component state but unused — left for potential re-introduction.
+				 */}
+				<h2 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
+					Tasks
+				</h2>
 
-			{bet.tasks.length === 0 ? (
-				<EmptyState
-					title="No tasks yet"
-					description="Tasks will appear here once agents start work on this bet."
-					dataTestId="bet-tasks-empty"
-				/>
-			) : (
-				<div className="overflow-x-auto">
-					<table className="table table-xs">
-						<thead>
-							<tr>
-								<SortableHeader
-									column="title"
-									label="Title"
-									sortColumn={sortColumn}
-									sortDirection={sortDirection}
-									onSort={handleSort}
-								/>
-								<SortableHeader
-									column="status"
-									label="Status"
-									sortColumn={sortColumn}
-									sortDirection={sortDirection}
-									onSort={handleSort}
-								/>
-								{/* L19: Outcome column — sortable, between Status and Owner */}
-								<SortableHeader
-									column="outcome"
-									label="Outcome"
-									sortColumn={sortColumn}
-									sortDirection={sortDirection}
-									onSort={handleSort}
-								/>
-								<SortableHeader
-									column="owner"
-									label="Owner"
-									sortColumn={sortColumn}
-									sortDirection={sortDirection}
-									onSort={handleSort}
-								/>
-								<SortableHeader
-									column="costActual"
-									label="Cost"
-									sortColumn={sortColumn}
-									sortDirection={sortDirection}
-									onSort={handleSort}
-								/>
-								{/* L19: Session column — non-sortable, contains jump-out link */}
-								<th scope="col">
-									<span className="uppercase font-heading text-xs tracking-wider text-[var(--text-tertiary)]">
-										Session
-									</span>
-								</th>
-							</tr>
-						</thead>
-						<tbody>
-							{sortedTasks.map((task) => (
-								// @lore L13: tr keeps its default table-row role so getAllByRole("cell")
-								// continues to work on td elements. Keyboard accessibility is handled
-								// via tabIndex + onKeyDown without overriding the role.
-								<tr
-									key={task.id}
-									data-testid="bet-task-row"
-									className="cursor-pointer hover:bg-[var(--surface-container)]"
-									onClick={() => setSelectedTaskId(task.id)}
-									onKeyDown={(e) => {
-										if (e.key === "Enter" || e.key === " ") {
-											e.preventDefault();
-											setSelectedTaskId(task.id);
-										}
-									}}
-									tabIndex={0}
-								>
-									<td>{task.title}</td>
-									<td>
-										<StatusChip status={taskStateToStatus(task.state)} />
-									</td>
-									{/* L19: Outcome chip — renders when a session outcome exists */}
-									<td>
-										{task.latestSessionOutcome != null ? (
-											<StatusChip status={sessionOutcomeToStatus(task.latestSessionOutcome)} />
-										) : null}
-									</td>
-									<td>{task.owner}</td>
-									<td className="font-mono">{formatMoney(task.costActual)}</td>
-									{/* L19: Jump-out link — only rendered for valid http/https URLs */}
-									<td>
-										{task.latestSessionHarnessUrl &&
-										isValidHarnessUrl(task.latestSessionHarnessUrl) ? (
-											<a
-												href={task.latestSessionHarnessUrl}
-												target="_blank"
-												rel="noopener noreferrer"
-												className="font-mono text-xs text-[var(--accent-primary)] hover:underline"
-												aria-label="Open session in harness (opens in new tab)"
-												onClick={(e) => e.stopPropagation()}
-											>
-												Open in harness
-											</a>
-										) : null}
-									</td>
-								</tr>
-							))}
-						</tbody>
-					</table>
-				</div>
-			)}
+				{bet.tasks.length === 0 ? (
+					<EmptyState
+						title="No tasks yet"
+						description="Tasks will appear here once agents start work on this bet."
+						dataTestId="bet-tasks-empty"
+					/>
+				) : (
+					<div className="flex flex-col gap-[3px]">
+						{sortedTasks.map((task) => (
+							<div
+								key={task.id}
+								data-testid="task-row"
+								className="flex items-center gap-[12px] px-[12px] py-[9px] rounded-[var(--r-subtle)] cursor-pointer hover:bg-[var(--surface-container)] transition-colors duration-[var(--motion-fast)]"
+								onClick={() => navigate(`/work/bet/${bet.id}/task/${task.id}`)}
+								onKeyDown={(e) => {
+									if (e.key === "Enter" || e.key === " ") {
+										e.preventDefault();
+										navigate(`/work/bet/${bet.id}/task/${task.id}`);
+									}
+								}}
+								tabIndex={0}
+								role="button"
+								aria-label={task.title}
+							>
+								<div className="flex-1 min-w-0">
+									<div className="text-[14px] font-medium truncate">{task.title}</div>
+									<div className="text-[12px] text-[var(--text-tertiary)] truncate">
+										{task.owner}
+									</div>
+								</div>
+								<StatusChip status={taskStateToStatus(task.state)} />
+							</div>
+						))}
+					</div>
+				)}
 
-			{/* L12 (B-1): ArtifactSection inserted BEFORE HostThreadSection, not between
+				{/* L12 (B-1): ArtifactSection inserted BEFORE HostThreadSection, not between
 			    HostThreadSection and ArtifactThreadsSummary. Bet axis, stack layout, no limit. */}
-			<ArtifactSection
-				filter={{ axis: "bet", betId: bet.id }}
-				layout="stack"
-				heading="Artifacts"
-				emptyDescription="Artifacts appear as agents complete tasks on this bet."
-				onOpen={onOpenArtifact}
-			/>
+				<ArtifactSection
+					filter={{ axis: "bet", betId: bet.id }}
+					layout="stack"
+					heading="Artifacts"
+					emptyDescription="Artifacts appear as agents complete tasks on this bet."
+					onOpen={onOpenArtifact}
+				/>
 
-			{/* L18: Replace hardcoded comment fixture with real thread surface.
+				{/* L18: Replace hardcoded comment fixture with real thread surface.
 			    prefill carries the blockId so the composer includes it on submit.
 			    onClearPrefill lets the user dismiss the Re: chip.
 			    onMessagePosted refreshes the WorkBet-level thread data so that
 			    messagesByBlockId stays in sync with newly posted anchored messages. */}
-			<HostThreadSection
-				hostKind="bet"
-				hostId={bet.id}
-				title="Discussion"
-				prefill={threadPrefill}
-				onClearPrefill={() => setThreadPrefill(undefined)}
-				onMessagePosted={refreshThreadData}
-			/>
+				<HostThreadSection
+					hostKind="bet"
+					hostId={bet.id}
+					title="Discussion"
+					prefill={threadPrefill}
+					onClearPrefill={() => setThreadPrefill(undefined)}
+					onMessagePosted={refreshThreadData}
+				/>
 
-			{/* L18: Per-bet artifact thread summary */}
-			<ArtifactThreadsSummary betId={bet.id} />
+				{/* L18: Per-bet artifact thread summary */}
+				<ArtifactThreadsSummary betId={bet.id} />
 
-			{/* L13: TaskSheet — opens when a task row is clicked */}
-			<TaskSheet
-				task={selectedTask}
-				open={selectedTaskId !== null}
-				onClose={() => setSelectedTaskId(null)}
-				resolveThreadId={handleResolveThreadId}
-				postRequest={handlePostRequest}
-				onNavigateToThread={handleNavigateToThread}
-			/>
+				{/* L13: TaskSheet — opens when a task row is clicked */}
+				<TaskSheet
+					task={selectedTask}
+					open={selectedTaskId !== null}
+					onClose={() => setSelectedTaskId(null)}
+					resolveThreadId={handleResolveThreadId}
+					postRequest={handlePostRequest}
+					onNavigateToThread={handleNavigateToThread}
+				/>
+			</div>
+			{/* end bet-detail-body */}
 		</div>
-	);
-}
-
-function SortableHeader({
-	column,
-	label,
-	sortColumn,
-	sortDirection,
-	onSort,
-}: {
-	column: SortColumn;
-	label: string;
-	sortColumn: SortColumn | null;
-	sortDirection: SortDirection;
-	onSort: (column: SortColumn) => void;
-}): JSX.Element {
-	const active = sortColumn === column;
-	const ariaSort: "none" | "ascending" | "descending" = active
-		? sortDirection === "asc"
-			? "ascending"
-			: "descending"
-		: "none";
-	return (
-		<th aria-sort={ariaSort} scope="col">
-			<button
-				type="button"
-				className="flex items-center gap-1 uppercase font-heading text-xs tracking-wider text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
-				onClick={() => onSort(column)}
-			>
-				<span>{label}</span>
-				<span aria-hidden>{active ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}</span>
-			</button>
-		</th>
 	);
 }

@@ -64,7 +64,7 @@ describe("SetupFlow (R2)", () => {
 	// AC-1: Only name and API key are required fields
 	it("renders name and API key fields", () => {
 		renderSetupFlow();
-		expect(screen.getByLabelText(/^name/i)).toBeInTheDocument();
+		expect(screen.getByLabelText(/your name/i)).toBeInTheDocument();
 		expect(screen.getByLabelText(/anthropic api key/i)).toBeInTheDocument();
 	});
 
@@ -116,7 +116,7 @@ describe("SetupFlow (R2)", () => {
 		const user = userEvent.setup();
 		renderSetupFlow();
 
-		await user.type(screen.getByLabelText(/^name/i), "Alice");
+		await user.type(screen.getByLabelText(/your name/i), "Alice");
 
 		const startBtn = screen.getByRole("button", { name: /start hyperidle/i });
 		expect(startBtn).toBeDisabled();
@@ -127,7 +127,7 @@ describe("SetupFlow (R2)", () => {
 		const user = userEvent.setup();
 		renderSetupFlow();
 
-		await user.type(screen.getByLabelText(/^name/i), "Alice");
+		await user.type(screen.getByLabelText(/your name/i), "Alice");
 		await user.type(screen.getByLabelText(/anthropic api key/i), "sk-ant-test");
 
 		const startBtn = screen.getByRole("button", { name: /start hyperidle/i });
@@ -139,7 +139,7 @@ describe("SetupFlow (R2)", () => {
 		const user = userEvent.setup();
 		renderSetupFlow();
 
-		await user.type(screen.getByLabelText(/^name/i), "Alice");
+		await user.type(screen.getByLabelText(/your name/i), "Alice");
 		await user.type(screen.getByLabelText(/anthropic api key/i), "sk-ant-test");
 
 		const startBtn = screen.getByRole("button", { name: /start hyperidle/i });
@@ -150,10 +150,12 @@ describe("SetupFlow (R2)", () => {
 		});
 	});
 
-	// Page title
-	it("renders the page title 'HyperIdle Setup'", () => {
+	// Page brand/title
+	it("renders the brand heading 'HyperIdle'", () => {
 		renderSetupFlow();
-		expect(screen.getByText(/hyperidle setup/i)).toBeInTheDocument();
+		// W3 AC-53: brand heading shows "HyperIdle" with tagline below
+		expect(screen.getByTestId("onboarding-brand")).toBeInTheDocument();
+		expect(screen.getByTestId("onboarding-brand")).toHaveTextContent("HyperIdle");
 	});
 
 	// AC-2: No section headings for removed sections
@@ -185,7 +187,7 @@ describe("SetupFlow (R2)", () => {
 		const user = userEvent.setup();
 		renderSetupFlow();
 
-		await user.type(screen.getByLabelText(/^name/i), "Alice");
+		await user.type(screen.getByLabelText(/your name/i), "Alice");
 		await user.type(screen.getByLabelText(/anthropic api key/i), "sk-ant-test");
 
 		const startBtn = screen.getByRole("button", { name: /start hyperidle/i });

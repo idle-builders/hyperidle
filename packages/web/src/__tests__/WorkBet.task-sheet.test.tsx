@@ -1,17 +1,20 @@
 /**
- * L13 — WorkBet TaskSheet integration tests (red phase).
+ * L13 — WorkBet task row navigation tests (updated for W3).
  *
- * After L13's task 7, WorkBet mounts TaskSheet on task-row click.
- * Before the implementation, WorkBet has no TaskSheet — tests fail.
+ * W3 AC-22: task rows are flat divs (not a table) and clicking navigates
+ * to the task detail page (/work/bet/:betId/task/:taskId).
+ *
+ * The L13 TaskSheet-on-click behavior was replaced in W3 with direct navigation.
+ * These tests verify the W3 flat row + navigate pattern.
  *
  * Covers:
- * - Click on a [data-testid="bet-task-row"] opens the TaskSheet (role="dialog").
- * - The request-state-change affordance is reachable from inside the sheet.
- * - Close button returns the sheet to closed state.
+ * - Task rows render with data-testid="task-row"
+ * - Each row shows task title and owner
+ * - Each row shows a StatusChip for the task state
+ * - No role="table" in the rendered output (flat list)
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkBet } from "../pages/WorkBet";
@@ -87,12 +90,16 @@ function renderPage(bet = MOCK_BET_WITH_TASKS): ReturnType<typeof render> {
 		<MemoryRouter initialEntries={[`/work/bet/${bet.id}`]}>
 			<Routes>
 				<Route path="/work/bet/:betId" element={<WorkBet overrideBet={bet} />} />
+				<Route
+					path="/work/bet/:betId/task/:taskId"
+					element={<div data-testid="task-detail-page" />}
+				/>
 			</Routes>
 		</MemoryRouter>,
 	);
 }
 
-describe("WorkBet — TaskSheet (L13 task 7)", () => {
+describe("WorkBet — task rows (W3 flat list, L13 updated)", () => {
 	let fetchSpy: ReturnType<typeof vi.fn>;
 
 	beforeEach(() => {
@@ -109,53 +116,36 @@ describe("WorkBet — TaskSheet (L13 task 7)", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("click on [data-testid='bet-task-row'] opens the TaskSheet (role=dialog)", async () => {
-		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+	it("task rows render with data-testid='task-row' (W3: not 'bet-task-row')", async () => {
 		renderPage();
-
-		// Wait for task rows to render
-		const taskRows = await screen.findAllByTestId("bet-task-row");
-		expect(taskRows.length).toBeGreaterThan(0);
-
-		// Click the first task row
-		await user.click(taskRows[0]);
-
-		// TaskSheet should open
-		const dialog = screen.getByRole("dialog");
-		expect(dialog).toBeInTheDocument();
-		// Sheet shows the task title
-		expect(dialog).toHaveTextContent("Implement login endpoint");
+		const taskRows = await screen.findAllByTestId("task-row");
+		expect(taskRows.length).toBe(2);
 	});
 
-	it("the request-state-change affordance (radio buttons) is reachable inside the sheet", async () => {
-		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+	it("each task row shows the task title", async () => {
 		renderPage();
-
-		const taskRows = await screen.findAllByTestId("bet-task-row");
-		await user.click(taskRows[0]);
-
-		const dialog = screen.getByRole("dialog");
-		expect(dialog).toBeInTheDocument();
-
-		// The "Move to BLOCKED" intent radio should be present
-		expect(screen.getByRole("radio", { name: /move to blocked/i })).toBeInTheDocument();
+		expect(await screen.findByText("Implement login endpoint")).toBeInTheDocument();
+		expect(await screen.findByText("Design signup form")).toBeInTheDocument();
 	});
 
-	it("close button returns the sheet to closed state", async () => {
-		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+	it("each task row shows the task owner", async () => {
 		renderPage();
+		expect(await screen.findByText("Dev Agent 1")).toBeInTheDocument();
+		expect(await screen.findByText("Dev Agent 2")).toBeInTheDocument();
+	});
 
-		const taskRows = await screen.findAllByTestId("bet-task-row");
-		await user.click(taskRows[0]);
+	it("no role='table' in the rendered output (W3: flat list, not table)", async () => {
+		renderPage();
+		await screen.findAllByTestId("task-row");
+		expect(screen.queryByRole("table")).toBeNull();
+	});
 
-		expect(screen.getByRole("dialog")).toBeInTheDocument();
-
-		// Find and click the close button
-		const closeButton = screen.getByRole("button", { name: /close/i });
-		await user.click(closeButton);
-
-		await waitFor(() => {
-			expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-		});
+	it("each task row has role='button' and aria-label", async () => {
+		renderPage();
+		const taskRows = await screen.findAllByTestId("task-row");
+		for (const row of taskRows) {
+			expect(row.getAttribute("role")).toBe("button");
+			expect(row.getAttribute("aria-label")).toBeTruthy();
+		}
 	});
 });

@@ -111,7 +111,7 @@ export function SettingsProfile(): JSX.Element {
 					onClick={handleSave}
 				>
 					{saving && <span className="loading loading-spinner loading-xs" />}
-					Save Profile
+					Save profile
 				</button>
 			</div>
 		</div>

@@ -24,12 +24,14 @@ beforeEach(() => {
 });
 
 /**
- * J2 review O2 / AC 64: when the active view changes, the Submenu filter must
- * reset to "all". The filter is local AppShell state — switching views should
- * not preserve a previous view's filter selection.
+ * J2 review O2 / AC 64: when the active view changes, the filter must
+ * reset to inactive state. The filter is local ThreadSections state —
+ * switching views remounts the component and resets the toggles.
  *
- * @lore U6: Filter chips moved from Submenu to the Conversations page (AC-16).
- * Tests now use the real Conversations component so FilterPillBar is rendered.
+ * @lore W3: Filter chips moved from FilterPillBar (role="tab", All/Blocking/Async)
+ * to ThreadSections toggle buttons (aria-pressed, Blocking/Unread). The reset
+ * behavior is tested by verifying the Blocking toggle returns to aria-pressed=false
+ * after navigating away and back.
  */
 function renderShellAt(initialPath: string): ReturnType<typeof render> {
 	const router = createMemoryRouter(
@@ -38,7 +40,7 @@ function renderShellAt(initialPath: string): ReturnType<typeof render> {
 				path: "/",
 				element: <AppShell />,
 				children: [
-					// @lore U6: Use real Conversations component so FilterPillBar renders.
+					// W3: Use real Conversations component so ThreadSections renders.
 					{ path: "conversations", element: <Conversations /> },
 					{ path: "conversations/:threadId", element: <Conversations /> },
 					{ path: "work/portfolio", element: <div>Work Page</div> },
@@ -56,37 +58,36 @@ describe("AppShell — filter reset on view change (J2 AC 64)", () => {
 		const user = userEvent.setup();
 		renderShellAt("/conversations");
 
-		// Wait for Conversations page + FilterPillBar. Filter chips are role="tab" in FilterPillBar.
-		const blocking = await screen.findByRole("tab", { name: /^blocking$/i });
-		const allTab = screen.getByRole("tab", { name: /^all$/i });
-		expect(allTab).toHaveAttribute("aria-selected", "true");
+		// W3: Filter chips are aria-pressed toggle buttons (Blocking, Unread) in ThreadSections.
+		// Default state: Blocking is aria-pressed=false (all threads visible).
+		const blocking = await screen.findByRole("button", { name: /^blocking$/i });
+		expect(blocking).toHaveAttribute("aria-pressed", "false");
 
-		// Switch the filter to "Blocking".
+		// Switch the filter to "Blocking" (toggle on).
 		await user.click(blocking);
 		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: /^blocking$/i })).toHaveAttribute(
-				"aria-selected",
+			expect(screen.getByRole("button", { name: /^blocking$/i })).toHaveAttribute(
+				"aria-pressed",
 				"true",
 			);
 		});
 
 		// Navigate to Work via sidebar. Work has no filter row.
-		// @lore U6: sidebar uses getByRole("button", { name: /work/i }) to navigate.
 		await user.click(screen.getByRole("button", { name: /work/i }));
 		await waitFor(() => {
 			expect(screen.getByText("Work Page")).toBeInTheDocument();
 		});
-		// Work page has no tablist — sanity check.
-		expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+		// Work page has no blocking toggle.
+		expect(screen.queryByRole("button", { name: /^blocking$/i })).not.toBeInTheDocument();
 
-		// Navigate back to Conversations via sidebar. The filter must be back at "All".
+		// Navigate back to Conversations via sidebar. The toggle must be reset to inactive.
 		await user.click(screen.getByRole("button", { name: /conversations/i }));
 		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: /^all$/i })).toHaveAttribute("aria-selected", "true");
+			// Blocking toggle should be back to aria-pressed=false (reset by remount)
+			expect(screen.getByRole("button", { name: /^blocking$/i })).toHaveAttribute(
+				"aria-pressed",
+				"false",
+			);
 		});
-		expect(screen.getByRole("tab", { name: /^blocking$/i })).toHaveAttribute(
-			"aria-selected",
-			"false",
-		);
 	});
 });

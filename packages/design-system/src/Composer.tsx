@@ -81,16 +81,17 @@ export function Composer({ threadId, onSubmit, unresolvedReviewLink }: ComposerP
 					{error}
 				</div>
 			) : null}
-			<textarea
-				className="w-full min-h-[44px] resize-y bg-[var(--surface-elevated)] text-[var(--text-secondary)] placeholder:text-[var(--text-placeholder)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-[9px] py-[9px] text-[13px] focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]"
-				placeholder="Reply to thread…"
-				value={text}
-				onChange={(e): void => setText(e.target.value)}
-				onKeyDown={handleKeyDown}
-				disabled={submitting}
-			/>
-			<div className="flex items-center justify-end gap-[9px]">
-				<span className="text-[11px] text-[var(--text-tertiary)]">⌘+Enter to send</span>
+			{/* W3 AC-12: data-composer-row with items-stretch so textarea and button are equal height */}
+			<div data-composer-row className="flex items-stretch gap-[9px]">
+				<textarea
+					data-testid="composer-textarea"
+					className="flex-1 min-h-[44px] resize-y bg-[var(--surface-elevated)] text-[var(--text-secondary)] placeholder:text-[var(--text-placeholder)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-[9px] py-[9px] text-[13px] focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]"
+					placeholder="Reply to thread…"
+					value={text}
+					onChange={(e): void => setText(e.target.value)}
+					onKeyDown={handleKeyDown}
+					disabled={submitting}
+				/>
 				<button
 					type="button"
 					onClick={(): void => {
@@ -99,11 +100,12 @@ export function Composer({ threadId, onSubmit, unresolvedReviewLink }: ComposerP
 					disabled={submitting || !text.trim()}
 					// L1 step9 (Design-C4): 44px minimum touch target.
 					// U8: pill shape (r-pill) per Hearth send button spec; accent-primary background.
-					className="px-[12px] py-[6px] min-h-[44px] rounded-[var(--r-pill)] text-[13px] font-medium bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]"
+					className="px-[12px] min-h-[44px] rounded-[var(--r-pill)] text-[13px] font-medium bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] self-stretch"
 				>
 					{submitting ? "Sending…" : "Send"}
 				</button>
 			</div>
+			<span className="text-[11px] text-[var(--text-tertiary)] text-right">⌘+Enter to send</span>
 		</div>
 	);
 }

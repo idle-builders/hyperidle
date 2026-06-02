@@ -38,34 +38,44 @@ function renderShell(initialPath = "/conversations"): ReturnType<typeof render> 
 
 describe("AppShell — P4 Settings overlay", () => {
 	beforeEach(() => {
-		global.fetch = vi.fn().mockResolvedValue({
-			ok: true,
-			json: () =>
-				Promise.resolve({
-					conversations: [],
-					work: [],
-					knowledge: [],
-					threads: [],
-					nextCursor: null,
-					// auth/me response
-					id: "u-founder",
-					name: "Test Founder",
-					email: "test@example.com",
-					avatarUrl: null,
-					// settings response
-					profile: { name: "Test Founder", email: "test@example.com", avatarUrl: null },
-					teams: [],
-					users: [],
-					notifications: {
-						reviewAlerts: true,
-						costAlerts: true,
-						blockerAlerts: true,
-						quietHoursStart: "22:00",
-						quietHoursEnd: "08:00",
-						// @lore U1: mutedProducts renamed to mutedTeams
-						mutedTeams: [],
-					},
-				}),
+		// W3: URL-aware mock so SettingsOrgChart (/api/org) doesn't crash.
+		global.fetch = vi.fn().mockImplementation((url: unknown) => {
+			const urlStr = typeof url === "string" ? url : String(url);
+			if (urlStr.includes("/api/org")) {
+				return Promise.resolve({
+					ok: true,
+					json: () => Promise.resolve({ edges: [], users: [] }),
+				});
+			}
+			return Promise.resolve({
+				ok: true,
+				json: () =>
+					Promise.resolve({
+						conversations: [],
+						work: [],
+						knowledge: [],
+						threads: [],
+						nextCursor: null,
+						// auth/me response
+						id: "u-founder",
+						name: "Test Founder",
+						email: "test@example.com",
+						avatarUrl: null,
+						// settings response
+						profile: { name: "Test Founder", email: "test@example.com", avatarUrl: null },
+						teams: [],
+						users: [],
+						notifications: {
+							reviewAlerts: true,
+							costAlerts: true,
+							blockerAlerts: true,
+							quietHoursStart: "22:00",
+							quietHoursEnd: "08:00",
+							// @lore U1: mutedProducts renamed to mutedTeams
+							mutedTeams: [],
+						},
+					}),
+			});
 		}) as typeof fetch;
 	});
 
@@ -101,15 +111,20 @@ describe("AppShell — P4 Settings overlay", () => {
 		await user.click(screen.getByRole("button", { name: /settings/i }));
 
 		await waitFor(() => {
-			// All 7 sections should be visible
-			expect(screen.getByText("Profile")).toBeInTheDocument();
+			// W3: SettingsPage renders all sections simultaneously. Some labels
+			// appear in both the Sidebar NavItems AND the SettingsPage headings.
+			// Use getAllByText(...).length >= 1 to handle duplicates gracefully.
+			expect(screen.getAllByText("Profile").length).toBeGreaterThanOrEqual(1);
+			// These appear in sidebar NavItems even if not in SettingsPage:
 			expect(screen.getByText("Org Chart")).toBeInTheDocument();
 			expect(screen.getByText("Credentials")).toBeInTheDocument();
 			expect(screen.getByText("Notifications")).toBeInTheDocument();
-			expect(screen.getByText("Appearance")).toBeInTheDocument();
+			// "Appearance" appears in both sidebar + SettingsPage section heading
+			expect(screen.getAllByText("Appearance").length).toBeGreaterThanOrEqual(1);
 			// @lore U1: "Products" renamed to "Teams" in settings menu
 			expect(screen.getByText("Teams")).toBeInTheDocument();
-			expect(screen.getByText("Backend")).toBeInTheDocument();
+			// "Backend" appears in both sidebar + SettingsPage section heading
+			expect(screen.getAllByText("Backend").length).toBeGreaterThanOrEqual(1);
 		});
 	});
 

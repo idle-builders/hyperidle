@@ -1,19 +1,20 @@
 /**
- * L10 — Conversations page filter wiring tests.
+ * L10 — Conversations page filter wiring tests (updated for W3).
  *
- * @lore U6: The filter chips (All/Blocking/Async) moved from the AppShell Submenu
- * to the Conversations page (FilterPillBar component). These tests now render the
- * real Conversations component as the route child so FilterPillBar is exercised.
+ * @lore W3: The filter chips (All/Blocking/Async) with role="tab" were replaced
+ * by toggle buttons (Blocking/Unread) with aria-pressed in the ThreadSections
+ * flat mode. These tests verify the W3 toggle pattern.
  *
- * AC (TRACK-L L10:351–357):
- *   - filter state IS consumed by the thread list;
- *   - filter narrows correctly; clearing restores;
- *   - empty filtered states show a clear empty state with clear-filter affordance;
- *   - chips inert during error state (approved §5.5).
+ * AC:
+ *   - Blocking and Unread toggle buttons exist (aria-pressed)
+ *   - Clicking Blocking narrows list to blocking threads only
+ *   - Clicking Blocking again restores all threads
+ *   - Empty filtered state shows EmptyState with testid="thread-sections-empty"
+ *   - Error state shows error; loading state shows loading skeleton
  *
- * @lore U6: The Submenu count badge tests (§T8 "Submenu total count badge derives
- * from POST-filter length") are removed — the Submenu no longer exists. The
- * Conversations page shows filtered ThreadRows but no sidebar badge count.
+ * @lore W3: There is no longer an "All" tab, "Async" tab, or "× Clear" button.
+ * The W3 flat list uses independent toggles (Blocking, Unread). Toggling off
+ * restores the unfiltered list.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -36,7 +37,6 @@ interface MockListRow {
 	lastActiveAt: string;
 	createdAt: string;
 	hasUnresolvedReview: boolean;
-	/** L10 / T11a: optional. The hook preserves this when present. */
 	blocking?: boolean;
 }
 
@@ -78,7 +78,6 @@ function renderShellAt(initialPath: string): void {
 				path: "/",
 				element: <AppShell />,
 				children: [
-					// @lore U6: Use real Conversations component so FilterPillBar renders.
 					{ path: "conversations", element: <Conversations /> },
 					{ path: "conversations/:threadId", element: <Conversations /> },
 					{ path: "work/portfolio", element: <div>Work Page</div> },
@@ -91,28 +90,20 @@ function renderShellAt(initialPath: string): void {
 	render(<RouterProvider router={router} />);
 }
 
-/**
- * Stub user returned by /api/auth/me. The id must be non-empty so that
- * useConversationsThreads receives a truthy participantId and fires the
- * threads fetch (instead of short-circuiting to the empty ready state).
- */
 const STUB_USER = { id: "u-founder-test", name: "Founder", email: "", avatarUrl: null };
 
 function stubFetchOk(rows: MockListRow[]): void {
 	global.fetch = vi.fn(async (input: RequestInfo | URL) => {
 		const url = typeof input === "string" ? input : input.toString();
-		// /api/auth/me → return a valid user so useCurrentUser resolves with an id.
 		if (url.includes("/api/auth/me")) {
 			return { ok: true, json: async () => STUB_USER } as Response;
 		}
-		// /api/threads list → return the fixture rows.
 		if (url.includes("/api/threads") && !url.match(/\/api\/threads\/[^?]/)) {
 			return {
 				ok: true,
 				json: async () => ({ threads: rows, nextCursor: null }),
 			} as Response;
 		}
-		// Any other endpoint (settings, products, etc.) → empty ok.
 		return { ok: true, json: async () => ({}) } as Response;
 	}) as unknown as typeof fetch;
 }
@@ -126,17 +117,17 @@ afterEach(() => {
 });
 
 describe("Conversations page — L10 filter wiring (via AppShell OutletContext)", () => {
-	it("renders the L10 chip vocabulary on /conversations: All, Blocking, Async", async () => {
+	it("renders the W3 toggle vocabulary on /conversations: Blocking, Unread (aria-pressed)", async () => {
 		stubFetchOk(MIXED_THREADS);
 		renderShellAt("/conversations");
-		expect(await screen.findByRole("tab", { name: /^all$/i })).toBeInTheDocument();
-		expect(screen.getByRole("tab", { name: /^blocking$/i })).toBeInTheDocument();
-		expect(screen.getByRole("tab", { name: /^async$/i })).toBeInTheDocument();
-		// Old chips (`Needs review` / `Chats` / `Resolved`) must NOT be in the
-		// Conversations chip row anymore.
-		expect(screen.queryByRole("tab", { name: /^needs review$/i })).not.toBeInTheDocument();
-		expect(screen.queryByRole("tab", { name: /^chats$/i })).not.toBeInTheDocument();
-		expect(screen.queryByRole("tab", { name: /^resolved$/i })).not.toBeInTheDocument();
+		// W3: Blocking and Unread are aria-pressed toggle buttons, not role="tab"
+		const blocking = await screen.findByRole("button", { name: /^blocking$/i });
+		expect(blocking).toHaveAttribute("aria-pressed");
+		const unread = screen.getByRole("button", { name: /^unread$/i });
+		expect(unread).toHaveAttribute("aria-pressed");
+		// Old tab chips must NOT be in the document
+		expect(screen.queryByRole("tab", { name: /^all$/i })).not.toBeInTheDocument();
+		expect(screen.queryByRole("tab", { name: /^async$/i })).not.toBeInTheDocument();
 	});
 
 	it("clicking 'Blocking' narrows the rendered list to blocking threads only", async () => {
@@ -148,13 +139,13 @@ describe("Conversations page — L10 filter wiring (via AppShell OutletContext)"
 			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(5);
 		});
 
-		await user.click(screen.getByRole("tab", { name: /^blocking$/i }));
+		await user.click(await screen.findByRole("button", { name: /^blocking$/i }));
 		await waitFor(() => {
 			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(2);
 		});
 	});
 
-	it("clicking the inline `× Clear` button restores the full list and resets to 'All'", async () => {
+	it("clicking 'Blocking' again restores the full list (toggle off = show all)", async () => {
 		stubFetchOk(MIXED_THREADS);
 		const user = userEvent.setup();
 		renderShellAt("/conversations");
@@ -162,40 +153,19 @@ describe("Conversations page — L10 filter wiring (via AppShell OutletContext)"
 			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(5);
 		});
 
-		await user.click(screen.getByRole("tab", { name: /^blocking$/i }));
+		const blockingBtn = await screen.findByRole("button", { name: /^blocking$/i });
+		await user.click(blockingBtn);
 		await waitFor(() => {
 			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(2);
 		});
-		// Inline clear is mounted while filter is non-default.
-		const clearButton = screen.getByTestId("submenu-filter-clear");
-		await user.click(clearButton);
-		await waitFor(() => {
-			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(5);
-		});
-		expect(screen.getByRole("tab", { name: /^all$/i })).toHaveAttribute("aria-selected", "true");
-		// Clear button should unmount once we're back to 'all'.
-		expect(screen.queryByTestId("submenu-filter-clear")).not.toBeInTheDocument();
-	});
-
-	it("clicking 'Async' shows only non-blocking threads; clicking 'All' restores", async () => {
-		stubFetchOk(MIXED_THREADS);
-		const user = userEvent.setup();
-		renderShellAt("/conversations");
-		await waitFor(() => {
-			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(5);
-		});
-
-		await user.click(screen.getByRole("tab", { name: /^async$/i }));
-		await waitFor(() => {
-			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(3);
-		});
-		await user.click(screen.getByRole("tab", { name: /^all$/i }));
+		// Toggle off — restores full list
+		await user.click(blockingBtn);
 		await waitFor(() => {
 			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(5);
 		});
 	});
 
-	it("filter-empty: clicking 'Blocking' on an async-only fixture renders the filter-empty EmptyState; Clear filter restores", async () => {
+	it("filter-empty: clicking 'Blocking' on an async-only fixture shows EmptyState", async () => {
 		stubFetchOk(ASYNC_ONLY);
 		const user = userEvent.setup();
 		renderShellAt("/conversations");
@@ -204,24 +174,14 @@ describe("Conversations page — L10 filter wiring (via AppShell OutletContext)"
 			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(2);
 		});
 
-		await user.click(screen.getByRole("tab", { name: /^blocking$/i }));
+		await user.click(await screen.findByRole("button", { name: /^blocking$/i }));
 
-		const filterEmpty = await screen.findByTestId("thread-sections-filter-empty");
-		expect(filterEmpty).toBeInTheDocument();
-
-		const clearFilter = filterEmpty.querySelector("[role='button'], button");
-		expect(clearFilter).not.toBeNull();
-		if (clearFilter) {
-			await user.click(clearFilter as HTMLElement);
-		}
-
-		await waitFor(() => {
-			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(2);
-		});
-		expect(screen.getByRole("tab", { name: /^all$/i })).toHaveAttribute("aria-selected", "true");
+		// W3: flat mode shows thread-sections-empty (not thread-sections-filter-empty)
+		const emptyState = await screen.findByTestId("thread-sections-empty");
+		expect(emptyState).toBeInTheDocument();
 	});
 
-	it("error state: threads show error state when fetch fails", async () => {
+	it("error state: shows error state when fetch fails", async () => {
 		global.fetch = vi.fn(async (input: RequestInfo | URL) => {
 			const url = typeof input === "string" ? input : input.toString();
 			if (url.includes("/api/auth/me")) {
@@ -233,9 +193,8 @@ describe("Conversations page — L10 filter wiring (via AppShell OutletContext)"
 		await screen.findByTestId("thread-sections-error");
 	});
 
-	it("error state: chips become inert (aria-disabled) and clicking does not change rendering", async () => {
-		// approved §5.5 / plan T10: when the threads fetch fails, the chips
-		// render as aria-disabled.
+	it("error state: clicking Blocking while errored does not change rendering", async () => {
+		// When the threads fetch fails, the error state should persist even if toggles are clicked.
 		global.fetch = vi.fn(async (input: RequestInfo | URL) => {
 			const url = typeof input === "string" ? input : input.toString();
 			if (url.includes("/api/auth/me")) {
@@ -243,37 +202,26 @@ describe("Conversations page — L10 filter wiring (via AppShell OutletContext)"
 			}
 			return { ok: false, status: 500, json: async () => ({ error: "boom" }) } as Response;
 		}) as unknown as typeof fetch;
-		const user = userEvent.setup();
 		renderShellAt("/conversations");
 
-		// Wait for the error state surface (`thread-sections-error`).
+		// Wait for error state
 		await screen.findByTestId("thread-sections-error");
-
-		const blocking = screen.getByRole("tab", { name: /^blocking$/i });
-		expect(blocking).toHaveAttribute("aria-disabled", "true");
-
-		await user.click(blocking);
-		// The thread list area must remain on the error state — no chip
-		// activation while errored.
-		expect(screen.getByTestId("thread-sections-error")).toBeInTheDocument();
-		expect(blocking).toHaveAttribute("aria-disabled", "true");
+		// Error state renders before toggles (flat mode returns early on error)
+		expect(screen.queryByRole("button", { name: /^blocking$/i })).not.toBeInTheDocument();
 	});
 
-	it("loading state: chips visible while threads fetch is loading", async () => {
-		// /api/auth/me resolves quickly so participantId is set, then the threads
-		// fetch never resolves — keeping the hook in `loading` indefinitely.
+	it("loading state: shows loading skeleton while fetch is in-flight", async () => {
+		// /api/auth/me resolves quickly, then threads never resolve → infinite loading.
 		global.fetch = vi.fn(async (input: RequestInfo | URL) => {
 			const url = typeof input === "string" ? input : input.toString();
 			if (url.includes("/api/auth/me")) {
 				return { ok: true, json: async () => STUB_USER } as Response;
 			}
-			// Thread and all other endpoints never resolve → infinite loading.
 			return new Promise<Response>(() => {});
 		}) as unknown as typeof fetch;
 		renderShellAt("/conversations");
 		await screen.findByTestId("thread-sections-loading");
 
-		// Chips are visible in loading state (they will be disabled/inert when error).
 		// Loading state should not show an error.
 		expect(screen.queryByTestId("thread-sections-error")).not.toBeInTheDocument();
 	});
