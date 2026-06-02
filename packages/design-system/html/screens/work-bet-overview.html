@@ -22,6 +22,8 @@
       width: 200px;
       flex-shrink: 0;
       padding: 12px;
+      display: flex;
+      flex-direction: column;
     }
     .sidebar-brand {
       font-size: 15px;
@@ -295,6 +297,45 @@
       color: var(--text-tertiary);
     }
 
+    .sidebar-bottom {
+      margin-top: auto;
+      padding-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .sidebar-search-hint {
+      padding: 6px 12px;
+      font-size: 12px;
+      color: var(--text-tertiary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .kbd {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-tertiary);
+      background: var(--surface-container);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+    }
+    .sidebar-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--r-pill);
+      background: var(--surface-page);
+      border: 1.5px solid var(--border-default);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+
     /* Team pill filters */
     .team-pill {
       display: inline-flex;
@@ -337,30 +378,26 @@
 
             <div className="sidebar-section">
               <div className="sidebar-view sidebar-view--active">Work</div>
-              <div className="sidebar-item sidebar-item--active">
-                <span className="sidebar-dot" style={{ background: 'var(--accent-primary)' }}></span>
-                All bets
-              </div>
-              <div className="sidebar-item">
-                <span className="sidebar-dot" style={{ background: 'var(--accent-primary)' }}></span>
-                Active
-              </div>
-              <div className="sidebar-item">
-                <span className="sidebar-dot" style={{ background: 'var(--border-strong)' }}></span>
-                Completed
-              </div>
-              <div className="sidebar-item">
-                <span className="sidebar-dot" style={{ background: 'var(--status-info)' }}></span>
-                Draft
-              </div>
+              <div className="sidebar-item sidebar-item--active" style={{ paddingLeft: 24 }}>Product</div>
+              <div className="sidebar-item" style={{ paddingLeft: 24 }}>Infrastructure</div>
+              <div className="sidebar-item" style={{ paddingLeft: 24 }}>Growth</div>
             </div>
 
             <div className="sidebar-section">
               <div className="sidebar-view">Knowledge</div>
             </div>
 
-            <hr className="sidebar-divider" />
-            <div className="sidebar-item">Settings</div>
+            <div className="sidebar-bottom">
+              <div className="sidebar-search-hint">
+                <span>Search</span>
+                <span className="kbd">⌘K</span>
+              </div>
+              <hr className="sidebar-divider" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 12px' }}>
+                <div className="sidebar-avatar">TG</div>
+                <div className="sidebar-item" style={{ padding: 0, marginBottom: 0, flex: 1 }}>Assistant</div>
+              </div>
+            </div>
           </div>
 
           <div className="main">
@@ -386,7 +423,6 @@
               <div className="bet-card">
                 <div className="bet-card-top">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span className="status-dot" style={{ background: 'var(--accent-primary)' }}></span>
                     <span className="badge badge--green">Active</span>
                   </div>
                   <span className="badge badge--amber">$2,400</span>
@@ -408,7 +444,6 @@
               <div className="bet-card">
                 <div className="bet-card-top">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span className="status-dot" style={{ background: 'var(--accent-secondary)' }}></span>
                     <span className="badge badge--amber">At risk</span>
                   </div>
                   <span className="badge badge--amber">$5,000</span>
@@ -430,7 +465,6 @@
               <div className="bet-card">
                 <div className="bet-card-top">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span className="status-dot" style={{ background: 'var(--status-info)' }}></span>
                     <span className="badge badge--blue">Draft</span>
                   </div>
                   <span className="badge badge--amber">$3,800</span>
@@ -450,7 +484,6 @@
               <div className="bet-card bet-card--completed">
                 <div className="bet-card-top">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span className="status-dot" style={{ background: 'var(--border-strong)' }}></span>
                     <span className="badge badge--default">Completed</span>
                   </div>
                   <span className="badge badge--amber">$1,200</span>

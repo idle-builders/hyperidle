@@ -23,6 +23,8 @@
       width: 200px;
       flex-shrink: 0;
       padding: 12px;
+      display: flex;
+      flex-direction: column;
     }
     .sidebar-brand {
       font-size: 15px;
@@ -87,6 +89,44 @@
     }
     .sidebar-view:hover { background: rgba(44, 36, 26, 0.04); }
     .sidebar-view--active { color: var(--text-primary); }
+    .sidebar-bottom {
+      margin-top: auto;
+      padding-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .sidebar-search-hint {
+      padding: 6px 12px;
+      font-size: 12px;
+      color: var(--text-tertiary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .kbd {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-tertiary);
+      background: var(--surface-container);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+    }
+    .sidebar-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--r-pill);
+      background: var(--surface-page);
+      border: 1.5px solid var(--border-default);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
 
     /* ── Main Panel ── */
     .main {
@@ -237,6 +277,44 @@
     .action-status--success { color: var(--status-success); }
     .action-status--warning { color: var(--status-warning); }
 
+    /* ── Artifact Card ── */
+    .artifact-card {
+      margin-top: 9px;
+      background: var(--surface-page);
+      border-radius: var(--r-default);
+      padding: 12px;
+      border: 1px solid var(--border-subtle);
+    }
+    .artifact-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .artifact-type {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .artifact-status {
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .artifact-status--ready { color: var(--status-success); }
+    .artifact-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+    .artifact-preview {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.55;
+    }
+
     /* ── Secondary Button + Live Dot ── */
     .btn-secondary {
       display: inline-flex;
@@ -341,8 +419,17 @@
             <div className="sidebar-section">
               <div className="sidebar-view">Knowledge</div>
             </div>
-            <hr className="sidebar-divider" />
-            <div className="sidebar-item">Settings</div>
+            <div className="sidebar-bottom">
+              <div className="sidebar-search-hint">
+                <span>Search</span>
+                <span className="kbd">⌘K</span>
+              </div>
+              <hr className="sidebar-divider" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 12px' }}>
+                <div className="sidebar-avatar">TG</div>
+                <div className="sidebar-item" style={{ padding: 0, marginBottom: 0, flex: 1 }}>Assistant</div>
+              </div>
+            </div>
           </div>
 
           {/* Main: Thread Detail */}
@@ -380,12 +467,17 @@
                     <span className="message-time">2:35 PM</span>
                   </div>
                   <div className="message-text">I've drafted a 3-phase plan: shadow enrollment, dual-auth window, then password deprecation. Existing sessions stay valid through phase 2. Estimated 6 weeks end-to-end.</div>
-                  <div className="message-action">
-                    <span className="message-action-label">
-                      <span className="message-action-dot"></span>
-                      Deployment plan — 3 phases
-                    </span>
-                    <span className="action-status action-status--success">Ready</span>
+                  <div className="artifact-card">
+                    <div className="artifact-header">
+                      <span className="artifact-type">Action summary</span>
+                      <span className="artifact-status artifact-status--ready">Ready</span>
+                    </div>
+                    <div className="artifact-title">Deployment plan — 3 phases</div>
+                    <div className="artifact-preview">
+                      Phase 1: Shadow enrollment (week 1-2)<br/>
+                      Phase 2: Dual-auth window (week 3-4)<br/>
+                      Phase 3: Password deprecation (week 5-6)
+                    </div>
                   </div>
                 </div>
               </div>

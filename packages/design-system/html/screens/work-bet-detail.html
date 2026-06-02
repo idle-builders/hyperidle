@@ -9,7 +9,7 @@
     #root { max-width: none; padding: 0; }
     html, body { overflow: hidden; }
     .app-shell { display: flex; height: 100vh; background: var(--surface-container); gap: 3px; padding: 3px; }
-    .sidebar { width: 200px; flex-shrink: 0; padding: 12px; }
+    .sidebar { width: 200px; flex-shrink: 0; padding: 12px; display: flex; flex-direction: column; }
     .sidebar-brand { font-size: 15px; font-weight: 700; color: var(--text-primary); padding: 6px 12px; margin-bottom: 18px; letter-spacing: -0.01em; }
     .sidebar-section { margin-bottom: 18px; }
     .sidebar-label { font-size: 12px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 9px; padding: 0 12px; }
@@ -65,7 +65,10 @@
     .task-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border-subtle); cursor: pointer; transition: background 240ms ease; }
     .task-row:hover { background: rgba(44, 36, 26, 0.02); }
     .task-row:last-child { border-bottom: none; }
-    .task-dot { width: 8px; height: 8px; border-radius: var(--r-pill); flex-shrink: 0; }
+    .sidebar-bottom { margin-top: auto; padding-top: 12px; display: flex; flex-direction: column; gap: 3px; }
+    .sidebar-search-hint { padding: 6px 12px; font-size: 12px; color: var(--text-tertiary); display: flex; align-items: center; justify-content: space-between; }
+    .kbd { font-size: 11px; font-family: var(--font-mono); color: var(--text-tertiary); background: var(--surface-container); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-subtle); }
+    .sidebar-avatar { width: 28px; height: 28px; border-radius: var(--r-pill); background: var(--surface-page); border: 1.5px solid var(--border-default); display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
     .task-info { flex: 1; min-width: 0; }
     .task-title { font-size: 15px; color: var(--text-primary); }
     .task-meta { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
@@ -75,6 +78,49 @@
     .btn { display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-sans); font-size: 12px; font-weight: 500; padding: 7px 12px; border-radius: var(--r-pill); border: 1.5px solid transparent; cursor: pointer; background: var(--accent-primary); color: var(--text-on-accent); }
     .btn-ghost { display: inline-flex; align-items: center; font-family: var(--font-sans); font-size: 12px; font-weight: 500; padding: 4px 9px; border-radius: var(--r-pill); border: 1.5px solid var(--border-default); cursor: pointer; background: transparent; color: var(--text-secondary); }
     .btn-ghost:hover { color: var(--text-primary); border-color: var(--accent-primary); }
+
+    .btn-overflow {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: var(--r-pill);
+      border: 1.5px solid var(--border-default);
+      cursor: pointer;
+      background: var(--surface-elevated);
+      color: var(--text-secondary);
+      font-size: 16px;
+      font-family: var(--font-sans);
+      line-height: 1;
+    }
+    .btn-overflow:hover { border-color: var(--accent-primary); color: var(--text-primary); }
+
+    .artifact-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border-subtle);
+      cursor: pointer;
+      transition: background 240ms ease;
+    }
+    .artifact-row:hover { background: rgba(44, 36, 26, 0.02); }
+    .artifact-row:last-child { border-bottom: none; }
+    .artifact-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: var(--r-subtle);
+      background: var(--surface-container);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: var(--text-tertiary);
+      flex-shrink: 0;
+    }
+    .artifact-name { font-size: 14px; color: var(--text-primary); }
+    .artifact-meta { font-size: 12px; color: var(--text-tertiary); }
   </style>
 </head>
 <body>
@@ -95,22 +141,22 @@
             <div className="sidebar-section">
               <div className="sidebar-view">Conversations</div>
               <div className="sidebar-view sidebar-view--active">Work</div>
-              <div className="sidebar-item">
-                <span className="sidebar-dot" style={{ background: 'var(--accent-primary)' }}></span>
-                All bets
-              </div>
-              <div className="sidebar-item sidebar-item--active" style={{ paddingLeft: 24 }}>
-                <span className="sidebar-dot" style={{ background: 'var(--accent-primary)' }}></span>
-                Auth migration
-              </div>
-              <div className="sidebar-item" style={{ paddingLeft: 24 }}>
-                <span className="sidebar-dot" style={{ background: 'var(--accent-secondary)' }}></span>
-                Search rewrite
-              </div>
+              <div className="sidebar-item sidebar-item--active" style={{ paddingLeft: 24 }}>Product</div>
+              <div className="sidebar-item" style={{ paddingLeft: 24 }}>Infrastructure</div>
+              <div className="sidebar-item" style={{ paddingLeft: 24 }}>Growth</div>
               <div className="sidebar-view">Knowledge</div>
             </div>
-            <hr className="sidebar-divider" />
-            <div className="sidebar-item">Settings</div>
+            <div className="sidebar-bottom">
+              <div className="sidebar-search-hint">
+                <span>Search</span>
+                <span className="kbd">⌘K</span>
+              </div>
+              <hr className="sidebar-divider" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 12px' }}>
+                <div className="sidebar-avatar">TG</div>
+                <div className="sidebar-item" style={{ padding: 0, marginBottom: 0, flex: 1 }}>Assistant</div>
+              </div>
+            </div>
           </div>
 
           <div className="main">
@@ -125,6 +171,7 @@
                 <span className="badge badge--green">Active</span>
                 <span className="badge badge--amber">$2,400 budget</span>
                 <span className="badge badge--default">Week 3 of 6</span>
+                <button className="btn-overflow">···</button>
               </div>
             </div>
             <div className="detail-body">
@@ -170,7 +217,6 @@
               <div>
                 <div className="section-title">Tasks</div>
                 <div className="task-row">
-                  <span className="task-dot" style={{ background: 'var(--accent-primary)' }}></span>
                   <div className="task-info">
                     <div className="task-title">Deploy passkey shadow enrollment</div>
                     <div className="task-meta">Atlas &middot; In progress &middot; Started 2 days ago</div>
@@ -178,7 +224,6 @@
                   <span className="badge badge--green">In progress</span>
                 </div>
                 <div className="task-row">
-                  <span className="task-dot" style={{ background: 'var(--accent-primary)' }}></span>
                   <div className="task-info">
                     <div className="task-title">WebAuthn browser compatibility testing</div>
                     <div className="task-meta">Atlas &middot; Done &middot; 96.3% coverage confirmed</div>
@@ -186,7 +231,6 @@
                   <span className="badge badge--default">Done</span>
                 </div>
                 <div className="task-row">
-                  <span className="task-dot" style={{ background: 'var(--text-tertiary)' }}></span>
                   <div className="task-info">
                     <div className="task-title">Session migration handler</div>
                     <div className="task-meta">Kim &middot; Planned</div>
@@ -194,7 +238,6 @@
                   <span className="badge badge--default">Planned</span>
                 </div>
                 <div className="task-row">
-                  <span className="task-dot" style={{ background: 'var(--text-tertiary)' }}></span>
                   <div className="task-info">
                     <div className="task-title">Auth metrics dashboard</div>
                     <div className="task-meta">Atlas &middot; Planned</div>
@@ -202,12 +245,30 @@
                   <span className="badge badge--default">Planned</span>
                 </div>
                 <div className="task-row">
-                  <span className="task-dot" style={{ background: 'var(--text-tertiary)' }}></span>
                   <div className="task-info">
                     <div className="task-title">Password deprecation comms plan</div>
                     <div className="task-meta">Tobias &middot; Planned</div>
                   </div>
                   <span className="badge badge--default">Planned</span>
+                </div>
+              </div>
+
+              {/* Artifacts */}
+              <div>
+                <div className="section-title">Artifacts</div>
+                <div className="artifact-row">
+                  <div className="artifact-icon">📄</div>
+                  <div style={{ flex: 1 }}>
+                    <div className="artifact-name">Passkey enrollment — deployment plan</div>
+                    <div className="artifact-meta">Action summary · Atlas · 2 days ago</div>
+                  </div>
+                </div>
+                <div className="artifact-row">
+                  <div className="artifact-icon">📊</div>
+                  <div style={{ flex: 1 }}>
+                    <div className="artifact-name">Browser compatibility matrix</div>
+                    <div className="artifact-meta">Data metrics · Atlas · 3 days ago</div>
+                  </div>
                 </div>
               </div>
 

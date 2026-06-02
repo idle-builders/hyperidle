@@ -41,25 +41,6 @@
       margin-bottom: 36px;
     }
 
-    .step-indicator {
-      display: flex;
-      gap: 6px;
-      margin-bottom: 24px;
-    }
-    .step-dot {
-      width: 32px;
-      height: 4px;
-      border-radius: var(--r-pill);
-      background: var(--border-default);
-    }
-    .step-dot--active {
-      background: var(--accent-primary);
-    }
-    .step-dot--done {
-      background: var(--accent-primary);
-      opacity: 0.4;
-    }
-
     .step-title {
       font-size: 20px;
       font-weight: 600;
@@ -154,13 +135,6 @@
                 <div className="welcome-line welcome-line--long"></div>
                 <div className="welcome-line welcome-line--short"></div>
               </div>
-            </div>
-
-            <div className="step-indicator">
-              <div className="step-dot step-dot--done"></div>
-              <div className="step-dot step-dot--active"></div>
-              <div className="step-dot"></div>
-              <div className="step-dot"></div>
             </div>
 
             <div className="step-title">Set up your workspace</div>
