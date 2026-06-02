@@ -1,5 +1,5 @@
 {
-	"sha": "4d6c73321890f941a38f810c1334c891cb9e4b73",
+	"sha": "d6490e28ebc6006d5d583f1e91a88ff1733f7ac6",
 	"status": "passed",
 	"dirty": false,
 	"tools": [
@@ -27,6 +27,7 @@
 		"server:load"
 	],
 	"partial": false,
-	"timestamp": "2026-06-01T20:44:32.794Z",
-	"hmac": "ae2b1fb1e10710fee3a27d9056609f1adc42487f38a4c459653d7ca5b1de0c63"
+	"smartSkipped": [],
+	"timestamp": "2026-06-02T22:11:21.758Z",
+	"hmac": "4e7cb9249e85daf2a854711c14287308a778db6595babfe7e6d4303c89c53b30"
 }
