@@ -394,9 +394,14 @@ export async function provisionSession(
 				},
 			};
 			fs.writeFileSync(mcpJsonPath, JSON.stringify(mcpConfig, null, 2), "utf-8");
-		} catch {
+		} catch (bridgeErr) {
 			// Bridge creation failed — continue in event-stream fallback mode.
 			// mcpBridgeToken remains undefined; teardown will be a no-op.
+			// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
+			console.warn(
+				`[session-provisioning] MCP bridge creation failed for session ${sessionId}; falling back to event-stream mode:`,
+				bridgeErr,
+			);
 		}
 	}
 
@@ -527,8 +532,8 @@ export async function provisionSession(
 	// Both paths MUST unregister — the critique flagged crash-path cleanup as a
 	// requirement. Orphaned entries block token GC until process restart.
 	if (mcpBridgeRegistry && mcpBridgeToken) {
-		// Fire-and-forget: unregister closes transport + mcpServer async.
-		// We await here to ensure cleanup is complete before teardown continues.
+		// Await unregister to ensure cleanup is complete before teardown continues.
+		// unregister() swallows close() errors internally — this call never throws.
 		await mcpBridgeRegistry.unregister(mcpBridgeToken);
 	}
 

@@ -55,7 +55,19 @@ export function createMcpBridgeRegistry(): McpBridgeRegistry {
 		// McpServer.close() → Server.close() → transport.close() — the transport is
 		// closed transitively via the protocol layer. Calling transport.close() twice
 		// (once explicitly, once transitively) would cause unintended double-close.
-		await instance.mcpServer.close();
+		//
+		// @lore X2 W1: close() is wrapped in try-catch so that a transport error
+		// during teardown cannot propagate through session-provisioning.ts and block
+		// Phase 11. If close() throws, the bridge is already removed from the Map —
+		// the orphaned subprocess will be GC'd on process restart. Swallowing is
+		// intentional: teardown must always complete regardless of close failures.
+		try {
+			await instance.mcpServer.close();
+		} catch {
+			// Swallow: bridge already removed from registry. Teardown must complete.
+			// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
+			console.warn(`[mcp-bridge-registry] mcpServer.close() failed for token ${token}`);
+		}
 	}
 
 	async function handleRequest(token: string, request: Request): Promise<Response> {
