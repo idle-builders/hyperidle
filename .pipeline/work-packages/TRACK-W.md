@@ -146,6 +146,27 @@ The designer MUST read `ETHOS.md` before starting. First principles: what should
 
 **Complexity.** L
 
+**Reference mockups.** All in `packages/design-system/html/screens/`:
+
+| Screen | Mockup file | New/Updated |
+|--------|-------------|-------------|
+| Conversations — thread list | `conversations-thread-list.html` | Updated |
+| Conversations — thread detail | `conversations-thread-detail.html` | Updated |
+| Conversations — empty | `conversations-empty.html` | Updated |
+| Work — bet overview | `work-bet-overview.html` | Updated |
+| Work — bet detail | `work-bet-detail.html` | Updated |
+| Work — empty | `work-empty.html` | Updated |
+| Work — task detail | `task-detail.html` | **New** |
+| Knowledge — list | `knowledge-list.html` | Updated |
+| Knowledge — detail | `knowledge-detail.html` | Updated |
+| Knowledge — edit mode | `knowledge-edit.html` | **New** |
+| Knowledge — empty | `knowledge-empty.html` | Updated |
+| Settings | `settings.html` | Updated |
+| Onboarding | `onboarding.html` | Updated |
+| Error states | `error-states.html` | Unchanged (reference sheet) |
+
+The design gap audit with all decisions is at `plans/W3/design-gap-audit.md`.
+
 **Acceptance criteria.**
 
 *Sidebar (cross-cutting — affects every page):*
