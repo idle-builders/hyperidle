@@ -602,3 +602,40 @@ stories:
     track: W
     depends: [W2]
     complexity: L
+
+  # Track X: Agent Runtime Completeness
+  - id: X1
+    title: Session Prompt Composition
+    track: X
+    depends: []
+    complexity: M
+  - id: X2
+    title: MCP Bridge for Skill-Tools
+    track: X
+    depends: []
+    complexity: L
+  - id: X3
+    title: Agent Configuration (DB + UI)
+    track: X
+    depends: [X1]
+    complexity: L
+  - id: X4
+    title: Model Gateway (OpenRouter + Direct Providers)
+    track: X
+    depends: [X3]
+    complexity: M
+  - id: X5
+    title: Multi-Harness Adapter Layer
+    track: X
+    depends: [X2, X4]
+    complexity: L
+  - id: X6
+    title: Built-in Lightweight Harness
+    track: X
+    depends: [X4, X2]
+    complexity: L
+  - id: X7
+    title: E2E Eval Framework
+    track: X
+    depends: [X1, X6]
+    complexity: L
