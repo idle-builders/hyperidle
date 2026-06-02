@@ -44,9 +44,9 @@ test.describe("W3 AC-57 — Max-width centering across all screens", () => {
 		await page.goto("/conversations");
 		await page.waitForSelector("[data-testid='conversations-page']");
 
-		const threadList = page.locator(
-			"[data-testid='thread-list-container'], [data-testid='thread-sections']",
-		).first();
+		const threadList = page
+			.locator("[data-testid='thread-list-container'], [data-testid='thread-sections']")
+			.first();
 		const box = await threadList.boundingBox();
 		if (box) {
 			expect(box.width).toBeLessThanOrEqual(800);

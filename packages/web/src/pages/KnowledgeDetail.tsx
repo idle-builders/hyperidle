@@ -94,7 +94,13 @@ interface DetailItem {
 	/** Q2: scope_kind column. Defaults to "factory" for pre-Q2 items. */
 	scopeKind?: ScopeKind;
 	relatedItems?: ReadonlyArray<string>;
+	/** W3 AC-41: structured related items with title (from API) */
+	structuredRelatedItems?: ReadonlyArray<{ id: string; title: string }>;
 	topic?: string;
+	/** W3 AC-40: 30-day access count from API */
+	accessCount?: number;
+	/** W3 AC-40: last editor name */
+	updatedBy?: string;
 }
 
 /**
@@ -246,13 +252,17 @@ export function KnowledgeDetail({ overrideKnowledgeId }: KnowledgeDetailProps = 
 		item = {
 			id: apiItem.id,
 			title: apiItem.title,
-			layer: "unknown",
-			kind: "unknown",
+			layer: apiItem.layer ?? "unknown",
+			kind: apiItem.kind ?? "unknown",
 			status: toKnowledgeStatus(apiItem.status),
 			timestamp: apiItem.updatedAt,
 			content: apiItem.body,
 			versionNum: apiItem.version,
 			scopeKind: toScopeKind(apiItem.scopeKind),
+			confidence: apiItem.confidence,
+			accessCount: apiItem.accessCount,
+			updatedBy: apiItem.updatedBy,
+			structuredRelatedItems: apiItem.relatedItems,
 		};
 	} else {
 		item = fixtureItem ?? FALLBACK_DETAIL;
@@ -408,165 +418,288 @@ function KnowledgeDetailView({
 
 	return (
 		<div className="flex flex-col gap-3 h-full" data-testid="knowledge-detail-page">
-			{amendableBanner && (
-				<div
-					role="alert"
-					className="alert alert-info text-sm"
-					data-testid="factory-amendable-banner"
-				>
-					<span>Amendable under review — edits route through the review queue.</span>
+			{/* W3 AC-43: max-width 960px centered body */}
+			<div
+				data-testid="knowledge-detail-body"
+				className="flex flex-col gap-3 max-w-[960px] mx-auto w-full"
+			>
+				{amendableBanner && (
+					<div
+						role="alert"
+						className="alert alert-info text-sm"
+						data-testid="factory-amendable-banner"
+					>
+						<span>Amendable under review — edits route through the review queue.</span>
+					</div>
+				)}
+				{/* W3 AC-39: Header with Edit button + "..." overflow menu */}
+				<div className="flex items-start justify-between gap-2">
+					<h1 className="text-sm font-semibold">{item.title}</h1>
+					<div className="flex items-center gap-1">
+						{/* W3 AC-44: save indicator in header (only in edit mode) */}
+						{editing && (
+							<span
+								className="text-xs text-[var(--text-tertiary)]"
+								aria-live="polite"
+								data-testid="save-indicator"
+								data-save-status={saveStatus}
+							>
+								{saveStatus === "saving" && "Saving..."}
+								{saveStatus === "saved" && "Saved"}
+								{saveStatus === "error" && (
+									<span className="text-[var(--status-error)]">Save failed</span>
+								)}
+							</span>
+						)}
+						{/* W3 AC-39: Edit/Done button */}
+						{!editing ? (
+							<button type="button" className="btn btn-xs btn-ghost" onClick={startEdit}>
+								Edit
+							</button>
+						) : (
+							<button type="button" className="btn btn-xs btn-ghost" onClick={exitEdit}>
+								Done
+							</button>
+						)}
+						{/* W3 AC-39: "..." overflow dropdown replacing inline "Change scope" button */}
+						{!editing && (
+							<div className="relative" data-testid="knowledge-overflow-menu">
+								<button
+									type="button"
+									aria-label="More options"
+									className="btn btn-xs btn-ghost"
+									onClick={() => {
+										const el = document.getElementById(`knowledge-overflow-${item.id}`);
+										if (el) el.toggleAttribute("open");
+									}}
+								>
+									...
+								</button>
+								<div
+									id={`knowledge-overflow-${item.id}`}
+									className="absolute right-0 top-full z-10 mt-1 bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)] shadow-[var(--shadow-elevated)] py-1 min-w-[160px] hidden [&[open]]:block"
+								>
+									<button
+										type="button"
+										data-dropdown-item
+										className="w-full text-left px-3 py-2 text-[13px] hover:bg-[var(--accent-primary-dim)]"
+										onClick={() => undefined}
+									>
+										Flag
+									</button>
+									<button
+										type="button"
+										data-dropdown-item
+										className="w-full text-left px-3 py-2 text-[13px] hover:bg-[var(--accent-primary-dim)]"
+										onClick={() => undefined}
+									>
+										Archive
+									</button>
+									<button
+										type="button"
+										data-dropdown-item
+										className="w-full text-left px-3 py-2 text-[13px] hover:bg-[var(--accent-primary-dim)]"
+										onClick={() => setScopeChangeOpen(true)}
+									>
+										Change scope
+									</button>
+								</div>
+							</div>
+						)}
+					</div>
 				</div>
-			)}
-			<div className="flex items-start justify-between gap-2">
-				<h1 className="text-sm font-semibold">{item.title}</h1>
-				<div className="flex items-center gap-1">
-					{!(isFactory || editing) && (
-						<button type="button" className="btn btn-xs btn-ghost" onClick={startEdit}>
-							Edit
-						</button>
-					)}
-					{editing && (
-						<button type="button" className="btn btn-xs btn-ghost" onClick={exitEdit}>
-							Done
-						</button>
-					)}
-					{/* Q2: Change scope button — visible when not in edit mode */}
-					{!editing && (
+
+				{/* Q2: Scope change dialog — uses effectiveKnowledgeId (route param) not
+			    item.id so that FALLBACK_DETAIL cases send to the correct endpoint. */}
+				<ScopeChangeDialog
+					open={scopeChangeOpen}
+					onClose={() => setScopeChangeOpen(false)}
+					onSaved={() => setScopeChangeOpen(false)}
+					knowledgeId={effectiveKnowledgeId}
+					currentVersion={item.versionNum ?? 1}
+					currentScopeKind={item.scopeKind ?? "factory"}
+				/>
+				<div className="flex items-center gap-2 flex-wrap" data-testid="knowledge-metadata-bar">
+					<Tag label={item.kind} />
+					<StatusChip status={knowledgeStatusToStatus(item.status)} />
+					<Tag label={item.layer} />
+					<span
+						className="badge badge-ghost badge-sm font-mono"
+						data-testid="knowledge-confidence"
+						title="Confidence"
+					>
+						confidence {formatConfidence(item.confidence)}
+					</span>
+					<span
+						className="text-xs text-[var(--text-tertiary)]"
+						data-testid="knowledge-origin-agent"
+					>
+						by {item.originAgent ?? "unknown"}
+					</span>
+					<span className="text-xs text-[var(--text-tertiary)]" data-testid="knowledge-updated-at">
+						{item.timestamp}
+					</span>
+				</div>
+				{legacySource && <p className="text-xs text-[var(--text-tertiary)]">{legacySource}</p>}
+
+				{/* T2: Conflict banner — shown when PATCH returns 409 */}
+				{conflictVersion !== null && (
+					<div
+						role="alert"
+						className="flex items-center justify-between gap-2 px-3 py-2 text-xs
+					           bg-[var(--surface-container)] border border-[var(--border-subtle)]
+					           rounded-[var(--r-subtle)]"
+						data-testid="conflict-banner"
+					>
+						<span className="text-[var(--text-secondary)]">
+							Version conflict — someone else saved this item. Reload to see their changes.
+						</span>
 						<button
 							type="button"
 							className="btn btn-xs btn-ghost"
-							onClick={() => setScopeChangeOpen(true)}
+							onClick={() => window.location.reload()}
 						>
-							Change scope
+							Reload
 						</button>
-					)}
-				</div>
-			</div>
+					</div>
+				)}
 
-			{/* Q2: Scope change dialog — uses effectiveKnowledgeId (route param) not
-			    item.id so that FALLBACK_DETAIL cases send to the correct endpoint. */}
-			<ScopeChangeDialog
-				open={scopeChangeOpen}
-				onClose={() => setScopeChangeOpen(false)}
-				onSaved={() => setScopeChangeOpen(false)}
-				knowledgeId={effectiveKnowledgeId}
-				currentVersion={item.versionNum ?? 1}
-				currentScopeKind={item.scopeKind ?? "factory"}
-			/>
-			<div className="flex items-center gap-2 flex-wrap" data-testid="knowledge-metadata-bar">
-				<Tag label={item.kind} />
-				<StatusChip status={knowledgeStatusToStatus(item.status)} />
-				<Tag label={item.layer} />
-				<span
-					className="badge badge-ghost badge-sm font-mono"
-					data-testid="knowledge-confidence"
-					title="Confidence"
-				>
-					confidence {formatConfidence(item.confidence)}
-				</span>
-				<span className="text-xs text-[var(--text-tertiary)]" data-testid="knowledge-origin-agent">
-					by {item.originAgent ?? "unknown"}
-				</span>
-				<span className="text-xs text-[var(--text-tertiary)]" data-testid="knowledge-updated-at">
-					{item.timestamp}
-				</span>
-			</div>
-			{legacySource && <p className="text-xs text-[var(--text-tertiary)]">{legacySource}</p>}
-
-			{/* T2: Conflict banner — shown when PATCH returns 409 */}
-			{conflictVersion !== null && (
-				<div
-					role="alert"
-					className="flex items-center justify-between gap-2 px-3 py-2 text-xs
-					           bg-[var(--surface-container)] border border-[var(--border-subtle)]
-					           rounded-[var(--r-subtle)]"
-					data-testid="conflict-banner"
-				>
-					<span className="text-[var(--text-secondary)]">
-						Version conflict — someone else saved this item. Reload to see their changes.
-					</span>
-					<button
-						type="button"
-						className="btn btn-xs btn-ghost"
-						onClick={() => window.location.reload()}
-					>
-						Reload
-					</button>
-				</div>
-			)}
-
-			{/* L18 + T4: Block actions popover.
+				{/* L18 + T4: Block actions popover.
 			    T4: "Share" action added conditionally when CoC overlay is open. */}
-			{openBlockId !== null && (
-				<BlockActionsPopover
-					id={`block-popover-knowledge-${openBlockId}`}
-					open
-					onClose={() => setOpenBlockId(null)}
-					liveRegionId="block-popover-knowledge-live"
-					items={[
-						{
-							id: "discuss-block",
-							label: "Discuss",
-							onSelect: () => handleDiscussBlock(openBlockId),
-						},
-						...(overlayOpen
-							? [
-									{
-										id: "share-block",
-										label: "Share",
-										onSelect: () => handleShareBlock(openBlockId),
-									},
-								]
-							: []),
-					]}
-				/>
-			)}
-
-			<div className="grid grid-cols-1 lg:grid-cols-[1fr_14rem] gap-4">
-				<div className="flex flex-col gap-3 min-w-0">
-					{editing ? (
-						<div className="flex flex-col gap-2" data-testid="knowledge-edit-panel">
-							<BodyEditor
-								initialContent={editContent}
-								onChange={handleContentChange}
-								placeholder="Start writing..."
-								autoFocus
-								minHeight="200px"
-								variant="full"
-							/>
-							<div className="flex items-center gap-2">
-								<span
-									className="text-xs text-[var(--text-tertiary)]"
-									aria-live="polite"
-									data-testid="save-indicator"
-								>
-									{saveStatus === "saving" && "Saving..."}
-									{saveStatus === "saved" && "Saved"}
-									{saveStatus === "error" && (
-										<span className="text-[var(--status-error)]">Save failed</span>
-									)}
-								</span>
-							</div>
-						</div>
-					) : (
-						<KnowledgeBody
-							body={savedContent}
-							hostId={item.id}
-							onOpenBlockActions={(blockId) => setOpenBlockId(blockId)}
-							messagesByBlockId={messagesByBlockId}
-						/>
-					)}
-					{/* L18: Replace ObservationLog with HostThreadSection */}
-					<HostThreadSection
-						hostKind="knowledge_item"
-						hostId={item.id}
-						title="Discussion"
-						prefill={threadPrefill}
-						onClearPrefill={() => setThreadPrefill(undefined)}
-						filterBlockId={threadPrefill?.blockId}
+				{openBlockId !== null && (
+					<BlockActionsPopover
+						id={`block-popover-knowledge-${openBlockId}`}
+						open
+						onClose={() => setOpenBlockId(null)}
+						liveRegionId="block-popover-knowledge-live"
+						items={[
+							{
+								id: "discuss-block",
+								label: "Discuss",
+								onSelect: () => handleDiscussBlock(openBlockId),
+							},
+							...(overlayOpen
+								? [
+										{
+											id: "share-block",
+											label: "Share",
+											onSelect: () => handleShareBlock(openBlockId),
+										},
+									]
+								: []),
+						]}
 					/>
+				)}
+
+				{/* W3 AC-40: two-column layout (body + metadata aside) */}
+				<div className="grid grid-cols-1 lg:grid-cols-[1fr_14rem] gap-4">
+					<div className="flex flex-col gap-3 min-w-0">
+						{editing ? (
+							<div className="flex flex-col gap-2" data-testid="knowledge-editor-area">
+								<BodyEditor
+									initialContent={editContent}
+									onChange={handleContentChange}
+									placeholder="Start writing..."
+									autoFocus
+									minHeight="200px"
+									variant="full"
+								/>
+							</div>
+						) : (
+							<KnowledgeBody
+								body={savedContent}
+								hostId={item.id}
+								onOpenBlockActions={(blockId) => setOpenBlockId(blockId)}
+								messagesByBlockId={messagesByBlockId}
+							/>
+						)}
+						{/* L18: Replace ObservationLog with HostThreadSection */}
+						<HostThreadSection
+							hostKind="knowledge_item"
+							hostId={item.id}
+							title="Discussion"
+							prefill={threadPrefill}
+							onClearPrefill={() => setThreadPrefill(undefined)}
+							filterBlockId={threadPrefill?.blockId}
+						/>
+					</div>
+					{/* W3 AC-40: metadata aside with structured fields */}
+					<aside
+						data-testid="knowledge-metadata-aside"
+						className="flex flex-col gap-3 border-l border-[var(--border-subtle)] pl-3 min-w-0"
+						aria-label="Knowledge metadata"
+					>
+						<div className="flex flex-col gap-[6px]">
+							<span className="text-[11px] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+								Kind
+							</span>
+							<span className="text-[13px] text-[var(--text-primary)]">{item.kind}</span>
+						</div>
+						<div className="flex flex-col gap-[6px]">
+							<span className="text-[11px] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+								Status
+							</span>
+							<StatusChip status={knowledgeStatusToStatus(item.status)} />
+						</div>
+						<div className="flex flex-col gap-[6px]">
+							<span className="text-[11px] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+								Confidence
+							</span>
+							<span className="text-[13px] font-mono tabular-nums text-[var(--text-primary)]">
+								{formatConfidence(item.confidence)}
+							</span>
+						</div>
+						<div className="flex flex-col gap-[6px]">
+							<span className="text-[11px] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+								Last edited
+							</span>
+							<span className="text-[13px] text-[var(--text-primary)]">{item.timestamp}</span>
+						</div>
+						<div className="flex flex-col gap-[6px]">
+							<span className="text-[11px] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+								Access count
+							</span>
+							<span className="text-[13px] font-mono tabular-nums text-[var(--text-primary)]">
+								{item.accessCount ?? 0}
+							</span>
+						</div>
+						{/* W3 AC-41: backlinks card */}
+						<div data-testid="knowledge-backlinks-card" className="flex flex-col gap-[6px] mt-3">
+							<span className="text-[11px] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+								Related
+							</span>
+							{item.structuredRelatedItems && item.structuredRelatedItems.length > 0 ? (
+								<ul className="flex flex-col gap-1">
+									{item.structuredRelatedItems.map((ri) => (
+										<li key={ri.id}>
+											<Link
+												to={`/knowledge/${ri.id}`}
+												className="text-[12px] text-[var(--text-secondary)] hover:underline"
+											>
+												{ri.title}
+											</Link>
+										</li>
+									))}
+								</ul>
+							) : related.length > 0 ? (
+								<ul className="flex flex-col gap-1">
+									{related.map((ri) => (
+										<li key={ri.id}>
+											<Link
+												to={`/knowledge/${ri.id}`}
+												className="text-[12px] text-[var(--text-secondary)] hover:underline"
+											>
+												{ri.title}
+											</Link>
+										</li>
+									))}
+								</ul>
+							) : (
+								<p className="text-[12px] text-[var(--text-tertiary)]">No related items.</p>
+							)}
+						</div>
+					</aside>
 				</div>
-				<RelatedSidebar items={related} />
 			</div>
 		</div>
 	);

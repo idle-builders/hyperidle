@@ -6,7 +6,7 @@ import {
 	ThreadRow,
 } from "@hyperidle/design-system";
 import type { HostKind } from "@hyperidle/shared";
-import type { CSSProperties, JSX } from "react";
+import { type CSSProperties, type JSX, useState } from "react";
 
 /**
  * @lore L1a (T17) / L8 §3.2: ThreadItem carries `hostKind` + the derived
@@ -34,11 +34,23 @@ export interface ThreadItem {
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Closed vocabulary for the Conversations filter chips. Strict subset of
- * `SubmenuFilter` so `predicateFor`'s exhaustive switch fails typecheck on
- * any future addition.
+ * Closed vocabulary for the Conversations filter chips (legacy string form).
+ * Still used in AppShell OutletContext for backwards compatibility.
+ *
+ * @lore W3: The W3 test spec defines a new toggle-object form
+ * `{ blocking: boolean; unread: boolean }` used when groupBySection=false.
+ * The legacy string form is kept for the existing section-grouped path.
  */
 export type ConversationsFilter = "all" | "blocking" | "async";
+
+/**
+ * W3: New toggle-style filter type used when groupBySection=false.
+ * Each chip is independently toggleable; "all" means both are false.
+ */
+export interface ConversationsToggleFilter {
+	blocking: boolean;
+	unread: boolean;
+}
 
 /**
  * Single source of truth for the filter predicate. Reused by ThreadSections
@@ -160,6 +172,12 @@ export interface ThreadSectionsProps {
 	activeFilter?: ConversationsFilter;
 	/** Handler for the filter-empty `Clear filter` action. Only fires when `activeFilter !== 'all'`. */
 	onClearFilter?: () => void;
+	/**
+	 * W3 AC-5: when false, renders a flat chronological list with toggle chips
+	 * (Blocking, Unread) instead of the section-grouped view.
+	 * Defaults to true for backwards compatibility.
+	 */
+	groupBySection?: boolean;
 }
 
 export function ThreadSections({
@@ -172,7 +190,103 @@ export function ThreadSections({
 	loading = false,
 	activeFilter = "all",
 	onClearFilter,
+	groupBySection = true,
 }: ThreadSectionsProps): JSX.Element {
+	// W3 AC-6: toggle filter state for flat list mode
+	const [toggleFilter, setToggleFilter] = useState<ConversationsToggleFilter>({
+		blocking: false,
+		unread: false,
+	});
+
+	// Flat list mode (W3 AC-5, AC-6)
+	if (!groupBySection) {
+		if (errorMessage) {
+			return (
+				<ErrorState
+					title="Couldn't load threads"
+					description={errorMessage}
+					onRetry={onRetry}
+					dataTestId="thread-sections-error"
+				/>
+			);
+		}
+		if (loading) {
+			return (
+				<div data-testid="thread-sections-loading">
+					<SkeletonList rows={3} ariaLabel="Loading threads" />
+				</div>
+			);
+		}
+
+		// Apply toggle filters
+		let flatFiltered = [...threads];
+		if (toggleFilter.blocking) {
+			flatFiltered = flatFiltered.filter((t) => t.blocking === true);
+		}
+		if (toggleFilter.unread) {
+			flatFiltered = flatFiltered.filter((t) => t.unread === true);
+		}
+		// Sort by timestamp descending (most recent first)
+		flatFiltered.sort((a, b) => {
+			const at = Date.parse(a.timestamp);
+			const bt = Date.parse(b.timestamp);
+			if (!Number.isNaN(at) && !Number.isNaN(bt)) return bt - at;
+			return a.id.localeCompare(b.id);
+		});
+
+		return (
+			<div className="flex flex-col gap-2">
+				{/* W3 AC-6: toggle chips (Blocking, Unread) */}
+				<div className="flex items-center gap-2 mb-1">
+					<button
+						type="button"
+						aria-pressed={toggleFilter.blocking}
+						onClick={() => setToggleFilter((prev) => ({ ...prev, blocking: !prev.blocking }))}
+						className={["btn btn-xs", toggleFilter.blocking ? "btn-primary" : "btn-ghost"].join(
+							" ",
+						)}
+					>
+						Blocking
+					</button>
+					<button
+						type="button"
+						aria-pressed={toggleFilter.unread}
+						onClick={() => setToggleFilter((prev) => ({ ...prev, unread: !prev.unread }))}
+						className={["btn btn-xs", toggleFilter.unread ? "btn-primary" : "btn-ghost"].join(" ")}
+					>
+						Unread
+					</button>
+				</div>
+				{flatFiltered.length === 0 ? (
+					<EmptyState
+						title="No threads"
+						description="No threads match the current filters."
+						dataTestId="thread-sections-empty"
+					/>
+				) : (
+					<div className="flex flex-col">
+						{flatFiltered.map((t) => (
+							<ThreadRow
+								key={t.id}
+								avatarUrl={t.avatarUrl}
+								title={t.title}
+								snippet={t.snippet}
+								timestamp={t.timestamp}
+								status={t.status}
+								unread={t.unread}
+								blocking={t.blocking}
+								pinned={t.pinned}
+								hostTag={t.hostKind}
+								selected={selectedId === t.id}
+								onClick={onSelect ? () => onSelect(t.id) : undefined}
+							/>
+						))}
+					</div>
+				)}
+			</div>
+		);
+	}
+
 	if (errorMessage) {
 		return (
 			<ErrorState

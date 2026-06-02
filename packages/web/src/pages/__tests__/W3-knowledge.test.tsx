@@ -27,8 +27,8 @@ import { KnowledgeRow } from "@hyperidle/design-system";
 
 // Mock API for KnowledgeList
 vi.mock("../../hooks/useFetch", () => ({
-	useFetch: (url: string) => {
-		if (url.includes("/api/knowledge")) {
+	useFetch: (url: string | null) => {
+		if (url && url.includes("/api/knowledge")) {
 			return {
 				data: {
 					items: [
@@ -82,9 +82,7 @@ vi.mock("../../hooks/useKnowledgeItem", () => ({
 			updatedAt: "2026-01-01T10:00:00.000Z",
 			updatedBy: "Test Founder",
 			accessCount: 42,
-			relatedItems: [
-				{ id: "k3", title: "JWT Implementation Notes" },
-			],
+			relatedItems: [{ id: "k3", title: "JWT Implementation Notes" }],
 		},
 		loading: false,
 		error: null,
@@ -115,9 +113,7 @@ vi.mock("@hyperidle/design-system", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("@hyperidle/design-system")>();
 	return {
 		...actual,
-		BodyEditor: ({
-			onContentChange,
-		}: { onContentChange?: (content: string) => void }) => (
+		BodyEditor: ({ onContentChange }: { onContentChange?: (content: string) => void }) => (
 			<div data-testid="body-editor-mock">
 				<div className="formatting-toolbar" data-testid="formatting-toolbar">
 					<button type="button">Bold</button>
@@ -252,9 +248,7 @@ describe("W3 AC-35 — KnowledgeRow preview and no status dots", () => {
 				timestamp="2026-01-01"
 			/>,
 		);
-		const dot = container.querySelector(
-			"[class*='status-dot'], [data-status-dot], .dot",
-		);
+		const dot = container.querySelector("[class*='status-dot'], [data-status-dot], .dot");
 		expect(dot).toBeNull();
 	});
 });
@@ -410,7 +404,8 @@ describe("W3 AC-42 — Discussion section below body", () => {
 		renderKnowledgeDetail();
 		const threadSection = screen.getByTestId("host-thread-section");
 		expect(threadSection).toBeInTheDocument();
-		expect(threadSection).toHaveAttribute("data-host-kind", "knowledge");
+		// knowledge detail uses hostKind="knowledge_item" (the canonical HostKind value)
+		expect(threadSection).toHaveAttribute("data-host-kind", "knowledge_item");
 	});
 });
 

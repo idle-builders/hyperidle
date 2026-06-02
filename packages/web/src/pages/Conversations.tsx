@@ -565,13 +565,24 @@ export function Conversations(): JSX.Element {
 	if (!threadId) {
 		return (
 			<div className="flex flex-col h-full" data-testid="conversations-page">
-				<FilterPillBar
-					activeFilter={conversationsFilter}
-					onFilterChange={onFilterChange}
-					onClearFilter={onClearFilter}
-					onNewThread={onNewThread}
-					disabled={conversationsThreads.status === "error"}
-				/>
+				{/* W3 AC-8: header with "New thread" button */}
+				<div
+					data-conversations-header
+					className="flex items-center justify-between gap-2 mb-2 shrink-0"
+				>
+					<h2 className="text-[14px] font-[600] text-[var(--text-primary)]">Conversations</h2>
+					<div className="flex items-center gap-1">
+						{/* W3 AC-8: New thread button in header — always rendered */}
+						<button
+							type="button"
+							className="btn btn-xs btn-primary"
+							onClick={onNewThread ?? (() => undefined)}
+							data-testid="new-thread-btn"
+						>
+							New thread
+						</button>
+					</div>
+				</div>
 				<ThreadSections
 					threads={conversationsThreads.threads}
 					selectedId={ctx?.selectedThreadId ?? null}
@@ -585,6 +596,7 @@ export function Conversations(): JSX.Element {
 					onRetry={conversationsThreads.retry}
 					activeFilter={conversationsFilter}
 					onClearFilter={onClearFilter}
+					groupBySection={false}
 				/>
 			</div>
 		);

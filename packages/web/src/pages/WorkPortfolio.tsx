@@ -15,6 +15,7 @@
  * Client-side filtering by selectedTeamId.
  */
 import { BetCard, EmptyState, SkeletonCard } from "@hyperidle/design-system";
+import type { BetStatus } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -23,6 +24,9 @@ import { useBets } from "../hooks/useBets.js";
 import { useTeams } from "../hooks/useTeams";
 import { BetCreateDialog } from "./work/BetCreateDialog.js";
 
+// W3 AC-13: Status filter type
+type StatusFilter = "all" | "active" | "completed" | "draft";
+
 export function WorkPortfolio(): JSX.Element {
 	const navigate = useNavigate();
 	const { data: teamsData } = useTeams();
@@ -30,15 +34,29 @@ export function WorkPortfolio(): JSX.Element {
 	const onOpenArtifact = useArtifactOpen();
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+	// W3 AC-13: status filter state
+	const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
 	// Build team list for pills
 	const teams = useMemo(() => teamsData?.teams ?? [], [teamsData]);
 
-	// Filter bets client-side by selected team
+	// Filter bets client-side by selected team and status
 	const filteredBets = useMemo(() => {
-		if (!selectedTeamId) return bets;
-		return bets.filter((b) => b.teamId === selectedTeamId);
-	}, [bets, selectedTeamId]);
+		let result = bets;
+		if (selectedTeamId) {
+			result = result.filter((b) => b.teamId === selectedTeamId);
+		}
+		if (statusFilter !== "all") {
+			result = result.filter((b) => {
+				if (statusFilter === "completed") {
+					// "completed" filter matches both completed and killed statuses
+					return b.status === "completed" || b.status === "killed";
+				}
+				return (b.status as string) === statusFilter;
+			});
+		}
+		return result;
+	}, [bets, selectedTeamId, statusFilter]);
 
 	if (betsLoading) {
 		return (
@@ -48,7 +66,10 @@ export function WorkPortfolio(): JSX.Element {
 						All bets
 					</h1>
 				</div>
-				<div className="grid grid-cols-1 sm:grid-cols-2 gap-[12px]" data-testid="bet-grid">
+				<div
+					className="grid grid-cols-1 sm:grid-cols-2 gap-[12px] max-w-[960px] mx-auto w-full"
+					data-testid="bet-grid"
+				>
 					<SkeletonCard ariaLabel="Loading bet" />
 					<SkeletonCard ariaLabel="Loading bet" />
 					<SkeletonCard ariaLabel="Loading bet" />
@@ -56,6 +77,14 @@ export function WorkPortfolio(): JSX.Element {
 			</div>
 		);
 	}
+
+	// W3 AC-13: status filter options
+	const STATUS_FILTER_OPTIONS: ReadonlyArray<{ id: StatusFilter; label: string }> = [
+		{ id: "all", label: "All" },
+		{ id: "active", label: "Active" },
+		{ id: "completed", label: "Completed" },
+		{ id: "draft", label: "Draft" },
+	];
 
 	return (
 		<div
@@ -66,11 +95,25 @@ export function WorkPortfolio(): JSX.Element {
 			className="flex flex-col gap-[12px] h-full"
 			data-testid="work-portfolio-page"
 		>
-			{/* Header row: "All bets" heading + "New bet" button */}
-			<div className="flex items-center justify-between">
+			{/* Header row: "All bets" heading + status filter pills + "New bet" button */}
+			<div className="flex items-center gap-2 flex-wrap">
 				<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
 					All bets
 				</h1>
+				{/* W3 AC-13: status filter pills */}
+				<div className="flex items-center gap-1 flex-1" role="group" aria-label="Filter by status">
+					{STATUS_FILTER_OPTIONS.map((opt) => (
+						<button
+							key={opt.id}
+							type="button"
+							aria-pressed={statusFilter === opt.id}
+							className={`btn btn-xs ${statusFilter === opt.id ? "btn-primary" : "btn-ghost"}`}
+							onClick={() => setStatusFilter(opt.id)}
+						>
+							{opt.label}
+						</button>
+					))}
+				</div>
 				<button
 					type="button"
 					className="btn btn-sm btn-primary"
@@ -109,7 +152,7 @@ export function WorkPortfolio(): JSX.Element {
 				</div>
 			)}
 
-			{/* 2-column bet grid */}
+			{/* W3 AC-18: 2-column bet grid with max-width 960px */}
 			{filteredBets.length === 0 ? (
 				<EmptyState
 					title={selectedTeamId ? "No bets for this team" : "No bets yet"}
@@ -132,19 +175,34 @@ export function WorkPortfolio(): JSX.Element {
 					}
 				/>
 			) : (
-				<div className="grid grid-cols-1 sm:grid-cols-2 gap-[12px]" data-testid="bet-grid">
+				<div
+					className="grid grid-cols-1 sm:grid-cols-2 gap-[12px] max-w-[960px] mx-auto w-full"
+					data-testid="bet-grid"
+				>
 					{filteredBets.map((bet) => {
 						// Resolve team name for BetCard display
-						const teamName = teams.find((t) => t.id === bet.teamId)?.name ?? bet.teamId;
+						const teamName =
+							(bet as unknown as { team?: string }).team ??
+							teams.find((t) => t.id === bet.teamId)?.name ??
+							bet.teamId;
+						const betWithExtras = bet as unknown as {
+							description?: string;
+							progress?: { done: number; total: number } | number;
+							budget?: string;
+						};
 						return (
 							<BetCard
 								key={bet.id}
 								id={bet.id}
-								title={bet.title || bet.description.slice(0, 60)}
+								title={
+									bet.title ||
+									(typeof bet.description === "string" ? bet.description.slice(0, 60) : "")
+								}
 								team={teamName}
 								status={bet.status}
-								costAppetite={bet.costAppetite}
-								atRisk={bet.atRisk}
+								description={betWithExtras.description}
+								progress={betWithExtras.progress}
+								budgetLabel={betWithExtras.budget}
 								onClick={() => navigate(`/work/bet/${encodeURIComponent(bet.id)}`)}
 							/>
 						);

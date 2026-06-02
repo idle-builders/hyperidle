@@ -1,13 +1,13 @@
 {
   "id": "W3",
   "status": "in_progress",
-  "currentStep": "setup",
+  "currentStep": "phase3_build",
   "startedAt": "2026-06-02T17:45:00Z",
   "steps": {
-    "setup": "in_progress",
-    "phase1_architecture": "pending",
-    "phase2_critique": "pending",
-    "phase3_build": "pending",
+    "setup": "done",
+    "phase1_architecture": "done",
+    "phase2_critique": "done",
+    "phase3_build": "in_progress",
     "phase4_review": "pending",
     "phase5_retro": "pending",
     "phase6_ship": "pending"

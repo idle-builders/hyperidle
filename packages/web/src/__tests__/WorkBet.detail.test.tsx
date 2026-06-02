@@ -58,37 +58,21 @@ describe("WorkBet — detail page (J5)", () => {
 		expect(pitchSection?.textContent).toMatch(/problem/i);
 	});
 
-	it("renders a task table (not card list)", () => {
+	/**
+	 * @lore W3 AC-22: Table replaced by flat task rows. This test updated from
+	 * "renders a task table" to verify the new flat-row layout (no <table> element).
+	 */
+	it("renders task rows as flat clickable divs (no table — W3 AC-22)", () => {
 		renderBet(MOCK_BETS.b1);
-		const table = screen.getByRole("table");
-		expect(table).toBeInTheDocument();
-		// Column headers
-		expect(within(table).getByRole("columnheader", { name: /title/i })).toBeInTheDocument();
-		expect(within(table).getByRole("columnheader", { name: /status/i })).toBeInTheDocument();
-		expect(within(table).getByRole("columnheader", { name: /owner/i })).toBeInTheDocument();
-		expect(within(table).getByRole("columnheader", { name: /cost/i })).toBeInTheDocument();
-	});
-
-	it("task table sorts by column when clicked and sets aria-sort", async () => {
-		const user = userEvent.setup();
-		renderBet(MOCK_BETS.b1);
-		const table = screen.getByRole("table");
-		const titleHeader = within(table).getByRole("columnheader", { name: /title/i });
-		expect(titleHeader).toHaveAttribute("aria-sort", "none");
-
-		await user.click(within(titleHeader).getByRole("button"));
-
-		expect(titleHeader).toHaveAttribute("aria-sort", "ascending");
-
-		// Titles in b1: "Design signup form", "Implement login endpoint", "JWT refresh logic"
-		const rows = within(table).getAllByRole("row").slice(1); // skip thead
-		const firstCellTexts = rows.map((r) => within(r).getAllByRole("cell")[0].textContent);
-		expect(firstCellTexts[0]).toBe("Design signup form");
-		expect(firstCellTexts[1]).toBe("Implement login endpoint");
-		expect(firstCellTexts[2]).toBe("JWT refresh logic");
-
-		await user.click(within(titleHeader).getByRole("button"));
-		expect(titleHeader).toHaveAttribute("aria-sort", "descending");
+		// W3 AC-22: no table element
+		expect(screen.queryByRole("table")).not.toBeInTheDocument();
+		// Task rows render as clickable divs with data-testid="task-row"
+		const taskRows = document.querySelectorAll("[data-testid='task-row']");
+		expect(taskRows.length).toBeGreaterThan(0);
+		// Task titles are visible in the rows
+		expect(screen.getByText("Implement login endpoint")).toBeInTheDocument();
+		expect(screen.getByText("Design signup form")).toBeInTheDocument();
+		expect(screen.getByText("JWT refresh logic")).toBeInTheDocument();
 	});
 
 	// @lore L18: The old "bet-comment-thread" (hardcoded fixture comments) is replaced

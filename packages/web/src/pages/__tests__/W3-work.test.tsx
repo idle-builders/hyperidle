@@ -78,7 +78,10 @@ function renderBet(betId = "b1"): ReturnType<typeof render> {
 		<MemoryRouter initialEntries={[`/work/bet/${bet.id}`]}>
 			<Routes>
 				<Route path="/work/bet/:betId" element={<WorkBet overrideBet={bet} />} />
-				<Route path="/work/bet/:betId/task/:taskId" element={<div data-testid="task-detail-page" />} />
+				<Route
+					path="/work/bet/:betId/task/:taskId"
+					element={<div data-testid="task-detail-page" />}
+				/>
 			</Routes>
 		</MemoryRouter>,
 	);
@@ -132,9 +135,7 @@ describe("W3 AC-15 — BetCard has no status dots", () => {
 			/>,
 		);
 		// No status dot element
-		const dot = document.querySelector(
-			"[class*='status-dot'], [data-status-dot], .dot",
-		);
+		const dot = document.querySelector("[class*='status-dot'], [data-status-dot], .dot");
 		expect(dot).toBeNull();
 	});
 });
@@ -158,27 +159,17 @@ describe("W3 AC-16 — BetCard extended props", () => {
 
 	it("renders a progress bar when progress prop provided", () => {
 		const { container } = render(
-			<BetCard
-				title="Test Bet"
-				team="Alpha Core"
-				status="active"
-				appetite="$2k"
-				progress={37}
-			/>,
+			<BetCard title="Test Bet" team="Alpha Core" status="active" appetite="$2k" progress={37} />,
 		);
-		const progressBar = container.querySelector("[role='progressbar'], progress, [data-progress-bar]");
+		const progressBar = container.querySelector(
+			"[role='progressbar'], progress, [data-progress-bar]",
+		);
 		expect(progressBar).not.toBeNull();
 	});
 
 	it("renders progress percentage label", () => {
 		render(
-			<BetCard
-				title="Test Bet"
-				team="Alpha Core"
-				status="active"
-				appetite="$2k"
-				progress={37}
-			/>,
+			<BetCard title="Test Bet" team="Alpha Core" status="active" appetite="$2k" progress={37} />,
 		);
 		expect(screen.getByText("37%")).toBeInTheDocument();
 	});
@@ -190,10 +181,7 @@ describe("W3 AC-16 — BetCard extended props", () => {
 				team="Alpha Core"
 				status="active"
 				appetite="$2k"
-				avatarGroup={[
-					{ initials: "JD" },
-					{ initials: "AS", agent: true },
-				]}
+				avatarGroup={[{ initials: "JD" }, { initials: "AS", agent: true }]}
 			/>,
 		);
 		// Avatar initials visible
@@ -273,8 +261,9 @@ describe("W3 AC-19 — Bet detail overflow action menu", () => {
 		);
 		const overflowBtn = screen.getByRole("button", { name: /more actions|overflow|\.\.\.|⋯/i });
 		await user.click(overflowBtn);
-		expect(screen.getByText(/pause/i)).toBeInTheDocument();
-		expect(screen.getByText(/adjust appetite/i)).toBeInTheDocument();
+		// The dropdown shows the action buttons; use getAllByText since dialog headings share text
+		expect(screen.getAllByText(/pause/i).length).toBeGreaterThan(0);
+		expect(screen.getAllByText(/adjust appetite/i).length).toBeGreaterThan(0);
 	});
 });
 
@@ -359,14 +348,6 @@ describe("W3 AC-22 — Task rows in bet detail", () => {
 				},
 			],
 		};
-		const navigateSpy = vi.fn();
-		vi.mock("react-router-dom", async (importOriginal) => {
-			const actual = await importOriginal<typeof import("react-router-dom")>();
-			return {
-				...actual,
-				useNavigate: () => navigateSpy,
-			};
-		});
 
 		render(
 			<MemoryRouter initialEntries={[`/work/bet/${betWithTask.id}`]}>
@@ -384,8 +365,8 @@ describe("W3 AC-22 — Task rows in bet detail", () => {
 		if (taskRow) {
 			await user.click(taskRow as HTMLElement);
 		}
-		// URL should change to task detail route
-		// (MemoryRouter tracks history; task detail page should render)
+		// After clicking, MemoryRouter navigates to the task detail route
+		expect(document.querySelector("[data-testid='task-detail-page']")).toBeInTheDocument();
 	});
 });
 

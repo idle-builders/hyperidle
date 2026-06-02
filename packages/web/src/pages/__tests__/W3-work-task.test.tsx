@@ -89,19 +89,7 @@ vi.mock("../../components/ArtifactSection", () => ({
 	useArtifactOpen: () => vi.fn(),
 }));
 
-// WorkTask page does not exist yet — red phase tests will fail on import.
-// When implementation is done, replace with:
-// import { WorkTask } from "../../pages/WorkTask";
-// For now, the placeholder produces failures that prove the ACs are not met.
-function WorkTask({
-	overrideBetId: _betId,
-	overrideTaskId: _taskId,
-}: {
-	overrideBetId?: string;
-	overrideTaskId?: string;
-}): React.ReactElement {
-	return <div data-testid="worktask-not-implemented">WorkTask not implemented</div>;
-}
+import { WorkTask } from "../../pages/WorkTask";
 
 function renderTaskPage(
 	betId = "b1",

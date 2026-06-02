@@ -83,12 +83,7 @@ describe("W3 AC-5 — Flat thread list (no Active/Resolved grouping)", () => {
 			makeThread({ id: "a2" }),
 			makeThread({ id: "a3" }),
 		];
-		render(
-			<ThreadSections
-				threads={threads}
-				groupBySection={false}
-			/>,
-		);
+		render(<ThreadSections threads={threads} groupBySection={false} />);
 		const rows = document.querySelectorAll("[data-ds-component='ThreadRow']");
 		expect(rows.length).toBe(3);
 	});
@@ -100,12 +95,7 @@ describe("W3 AC-5 — Flat thread list (no Active/Resolved grouping)", () => {
 describe("W3 AC-6 — Toggle-style filter chips", () => {
 	it("renders a 'Blocking' toggle chip (not a tab)", () => {
 		const threads: ThreadItem[] = [makeThread({ id: "t1" })];
-		render(
-			<ThreadSections
-				threads={threads}
-				groupBySection={false}
-			/>,
-		);
+		render(<ThreadSections threads={threads} groupBySection={false} />);
 		// AC-6: chip is a toggle button (aria-pressed), NOT role="tab"
 		const blockingChip = screen.getByRole("button", { name: /^blocking$/i });
 		expect(blockingChip).toBeInTheDocument();
@@ -114,12 +104,7 @@ describe("W3 AC-6 — Toggle-style filter chips", () => {
 
 	it("renders an 'Unread' toggle chip", () => {
 		const threads: ThreadItem[] = [makeThread({ id: "t1" })];
-		render(
-			<ThreadSections
-				threads={threads}
-				groupBySection={false}
-			/>,
-		);
+		render(<ThreadSections threads={threads} groupBySection={false} />);
 		const unreadChip = screen.getByRole("button", { name: /^unread$/i });
 		expect(unreadChip).toBeInTheDocument();
 		expect(unreadChip).toHaveAttribute("aria-pressed");
@@ -127,24 +112,14 @@ describe("W3 AC-6 — Toggle-style filter chips", () => {
 
 	it("does NOT render an 'All' tab (not mutually exclusive)", () => {
 		const threads: ThreadItem[] = [makeThread()];
-		render(
-			<ThreadSections
-				threads={threads}
-				groupBySection={false}
-			/>,
-		);
+		render(<ThreadSections threads={threads} groupBySection={false} />);
 		// 'All' tab is gone — replaced by two independent toggles
 		expect(screen.queryByRole("tab", { name: /^all$/i })).not.toBeInTheDocument();
 	});
 
 	it("does NOT render an 'Async' tab", () => {
 		const threads: ThreadItem[] = [makeThread()];
-		render(
-			<ThreadSections
-				threads={threads}
-				groupBySection={false}
-			/>,
-		);
+		render(<ThreadSections threads={threads} groupBySection={false} />);
 		expect(screen.queryByRole("tab", { name: /^async$/i })).not.toBeInTheDocument();
 	});
 
@@ -155,12 +130,7 @@ describe("W3 AC-6 — Toggle-style filter chips", () => {
 			makeThread({ id: "a1", blocking: false }),
 			makeThread({ id: "a2", blocking: false }),
 		];
-		render(
-			<ThreadSections
-				threads={threads}
-				groupBySection={false}
-			/>,
-		);
+		render(<ThreadSections threads={threads} groupBySection={false} />);
 		// Initially shows all 3
 		expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(3);
 
@@ -247,12 +217,7 @@ describe("W3 AC-8 — New thread button in header", () => {
 // ---------------------------------------------------------------------------
 describe("W3 AC-12 — Composer stretch layout", () => {
 	it("composer inner row has items-stretch layout class", () => {
-		render(
-			<Composer
-				threadId="t1"
-				onSubmit={async () => {}}
-			/>,
-		);
+		render(<Composer threadId="t1" onSubmit={async () => {}} />);
 		// The outer flex container of the composer row (textarea + send) must use align-items: stretch
 		const composerEl = document.querySelector("[data-ds-component='Composer']");
 		expect(composerEl).not.toBeNull();

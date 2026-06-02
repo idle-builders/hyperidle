@@ -19,7 +19,9 @@ import { SettingsAppearance } from "../../settings/SettingsAppearance";
 // Mock hooks used by settings components
 vi.mock("../../hooks/useCurrentUser", () => ({
 	useCurrentUser: () => ({
-		data: { id: "u-founder", name: "Test Founder", email: "test@example.com", avatarUrl: null },
+		user: { id: "u-founder", name: "Test Founder", email: "test@example.com", avatarUrl: null },
+		status: "ready",
+		error: null,
 	}),
 }));
 
@@ -46,22 +48,12 @@ vi.mock("../../shell/ToastRegion", () => ({
 	ToastContext: { Provider: ({ children }: { children: React.ReactNode }) => children },
 }));
 
-// SettingsPage does not exist yet in the codebase.
-// These tests are the RED phase — they will fail until SettingsPage is created.
-// We define a placeholder here that will be replaced by the real component.
-// The tests below will fail because the placeholder doesn't have the required structure.
-
-// NOTE: When SettingsPage is implemented, replace this placeholder with the real import:
-// import { SettingsPage } from "../../pages/SettingsPage";
-function SettingsPagePlaceholder(): React.ReactElement {
-	// This placeholder is intentionally minimal — it will cause most AC-47 tests to fail
-	return <div>Settings Page Not Implemented</div>;
-}
+import { SettingsPage } from "../../pages/SettingsPage";
 
 function renderSettingsPage(): ReturnType<typeof render> {
 	return render(
 		<MemoryRouter>
-			<SettingsPagePlaceholder />
+			<SettingsPage />
 		</MemoryRouter>,
 	);
 }
@@ -177,7 +169,9 @@ describe("W3 AC-50 — Theme swatch cards (not select)", () => {
 				<SettingsAppearance />
 			</MemoryRouter>,
 		);
-		const systemCard = document.querySelector("[data-theme-option='system'], [data-theme='system']");
+		const systemCard = document.querySelector(
+			"[data-theme-option='system'], [data-theme='system']",
+		);
 		expect(systemCard).not.toBeNull();
 	});
 });

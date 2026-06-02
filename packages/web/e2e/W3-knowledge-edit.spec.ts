@@ -83,7 +83,9 @@ test.describe("W3 AC-44 — Knowledge edit mode transition", () => {
 		await page.getByRole("button", { name: /^edit$/i }).click();
 
 		// Toolbar should appear with Bold, Italic etc.
-		const toolbar = page.locator("[data-testid='formatting-toolbar'], .formatting-toolbar, [role='toolbar']");
+		const toolbar = page.locator(
+			"[data-testid='formatting-toolbar'], .formatting-toolbar, [role='toolbar']",
+		);
 		await expect(toolbar).toBeVisible();
 	});
 
@@ -99,9 +101,7 @@ test.describe("W3 AC-44 — Knowledge edit mode transition", () => {
 	test("edit mode shows save indicator in header", async ({ page }) => {
 		await page.getByRole("button", { name: /^edit$/i }).click();
 
-		const saveIndicator = page.locator(
-			"[data-testid='save-indicator'], [data-save-status]",
-		);
+		const saveIndicator = page.locator("[data-testid='save-indicator'], [data-save-status]");
 		await expect(saveIndicator).toBeVisible();
 	});
 });

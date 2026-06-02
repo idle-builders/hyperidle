@@ -41,6 +41,25 @@ export function ScopeChangeDialog({
 	currentVersion,
 	currentScopeKind,
 }: ScopeChangeDialogProps): JSX.Element | null {
+	if (!open) return null;
+	return (
+		<ScopeChangeDialogInner
+			onClose={onClose}
+			onSaved={onSaved}
+			knowledgeId={knowledgeId}
+			currentVersion={currentVersion}
+			currentScopeKind={currentScopeKind}
+		/>
+	);
+}
+
+function ScopeChangeDialogInner({
+	onClose,
+	onSaved,
+	knowledgeId,
+	currentVersion,
+	currentScopeKind,
+}: Omit<ScopeChangeDialogProps, "open">): JSX.Element {
 	const dialogRef = useRef<HTMLDialogElement>(null);
 	const { user } = useCurrentUser();
 
@@ -53,31 +72,19 @@ export function ScopeChangeDialog({
 	const needsScopeId = SCOPES_REQUIRING_ID.has(scopeKind);
 	const canSave = reason.trim().length > 0 && !submitting;
 
-	// Sync native dialog open/closed with `open` prop.
+	// Open the native dialog on mount.
 	// @lore Q2: JSDOM guard — same as other dialogs in the codebase.
+	// The inner component is only rendered when open=true, so we always show on mount.
 	useEffect(() => {
 		if (!dialogRef.current) return;
-		if (open) {
-			setScopeKind(currentScopeKind);
-			setScopeId("");
-			setReason("");
-			setError(null);
-			setSubmitting(false);
-			if (!dialogRef.current.open) {
-				if (typeof dialogRef.current.showModal === "function") {
-					dialogRef.current.showModal();
-				} else {
-					dialogRef.current.setAttribute("open", "");
-				}
-			}
-		} else if (dialogRef.current.open) {
-			if (typeof dialogRef.current.close === "function") {
-				dialogRef.current.close();
+		if (!dialogRef.current.open) {
+			if (typeof dialogRef.current.showModal === "function") {
+				dialogRef.current.showModal();
 			} else {
-				dialogRef.current.removeAttribute("open");
+				dialogRef.current.setAttribute("open", "");
 			}
 		}
-	}, [open, currentScopeKind]);
+	}, []);
 
 	const handleSave = async (): Promise<void> => {
 		const trimmedReason = reason.trim();

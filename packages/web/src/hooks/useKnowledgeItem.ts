@@ -25,6 +25,16 @@ export interface KnowledgeItemData {
 	topic: string | null;
 	createdAt: string;
 	updatedAt: string;
+	/** W3 AC-40: kind field from API (may be absent in older API versions) */
+	kind?: string;
+	/** W3 AC-40: layer field from API (may be absent in older API versions) */
+	layer?: string;
+	/** W3 AC-40: confidence score 0–1 */
+	confidence?: number;
+	/** W3 AC-40: 30-day access count */
+	accessCount?: number;
+	/** W3 AC-41: related items with id and title */
+	relatedItems?: ReadonlyArray<{ id: string; title: string }>;
 }
 
 export function useKnowledgeItem(id: string | undefined): FetchState<KnowledgeItemData> {

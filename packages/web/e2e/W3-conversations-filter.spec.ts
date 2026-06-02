@@ -156,9 +156,11 @@ test.describe("W3 AC-7 — Blocking badge on thread rows", () => {
 
 	test("blocking threads show a 'Blocking' text badge", async ({ page }) => {
 		// Threads t1 and t2 are blocking — they should show a badge
-		const badges = page.locator("[data-badge='blocking'], .badge--blocking, [class*='blocking']").filter({
-			hasText: "Blocking",
-		});
+		const badges = page
+			.locator("[data-badge='blocking'], .badge--blocking, [class*='blocking']")
+			.filter({
+				hasText: "Blocking",
+			});
 		// At least 2 blocking badges should be visible
 		const count = await badges.count();
 		expect(count).toBeGreaterThanOrEqual(2);

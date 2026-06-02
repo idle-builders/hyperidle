@@ -80,9 +80,7 @@ test.describe("W3 AC-26 — Task detail route", () => {
 		});
 	});
 
-	test("navigating to /work/bet/:betId/task/:taskId renders task detail page", async ({
-		page,
-	}) => {
+	test("navigating to /work/bet/:betId/task/:taskId renders task detail page", async ({ page }) => {
 		await page.goto("/work/bet/bet-e2e-1/task/task-e2e-1");
 		await expect(page.getByTestId("task-detail-page")).toBeVisible();
 	});
