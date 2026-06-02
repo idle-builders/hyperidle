@@ -709,7 +709,7 @@ interface RelatedSidebarProps {
 	items: ReadonlyArray<MockKnowledgeItem>;
 }
 
-function RelatedSidebar({ items }: RelatedSidebarProps): JSX.Element {
+function _RelatedSidebar({ items }: RelatedSidebarProps): JSX.Element {
 	const labelCount = `${items.length} ${items.length === 1 ? "item" : "items"}`;
 	return (
 		<aside

@@ -15,6 +15,7 @@
  * props for testing, useBet for bet data, useTaskSessions for session data).
  */
 
+import type { Status } from "@hyperidle/design-system";
 import { StatusChip, taskStateToStatus } from "@hyperidle/design-system";
 import type { JSX } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -22,6 +23,29 @@ import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.
 import { useBet } from "../hooks/useBet.js";
 import { useTaskSessions } from "../hooks/useTaskSessions.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
+
+/**
+ * Map session.status string to a display Status.
+ *
+ * @lore W3 WARNING-ADV4: session.status must not be hardcoded. The session API
+ * returns a status string ("active", "paused", "done", "crashed"). Map to the
+ * StatusChip Status vocabulary for display.
+ */
+function sessionStatusToStatus(status: string): Status {
+	switch (status) {
+		case "active":
+			return "healthy";
+		case "done":
+		case "completed":
+			return "done";
+		case "paused":
+			return "paused";
+		case "crashed":
+			return "error";
+		default:
+			return "healthy";
+	}
+}
 
 export interface WorkTaskProps {
 	/** Override bet ID from route params — used by tests outside the router. */
@@ -73,7 +97,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 
 	// Not found — bet loaded but task not in list
 	const task = bet?.tasks.find((t) => t.id === taskId);
-	if (!bet || !task) {
+	if (!(bet && task)) {
 		return (
 			<div
 				data-testid="task-detail-not-found"
@@ -163,7 +187,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 											${((session.cost.minor ?? 0) / 100).toFixed(2)}
 										</span>
 									)}
-									<StatusChip status={taskStateToStatus("in_progress")} />
+									<StatusChip status={sessionStatusToStatus(session.status)} />
 								</li>
 							))}
 						</ul>

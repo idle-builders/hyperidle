@@ -22,21 +22,13 @@ import {
 	BodyEditor,
 	EmptyState,
 	ErrorState,
-	KeyValue,
 	SkeletonCard,
 	SkeletonList,
 	StatusChip,
-	sessionOutcomeToStatus,
 	taskStateToStatus,
 } from "@hyperidle/design-system";
 import type { BetStatus, Message } from "@hyperidle/shared";
-import {
-	deriveBlocks,
-	formatMoney,
-	formatTokenCount,
-	isRedactedPayload,
-	totalTokens,
-} from "@hyperidle/shared";
+import { deriveBlocks, formatMoney, isRedactedPayload } from "@hyperidle/shared";
 import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
@@ -48,7 +40,6 @@ import { useBetDescriptionSave } from "../hooks/useBetDescriptionSave.js";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useHint } from "../hooks/useHints";
 import { useHostThread } from "../hooks/useHostThread.js";
-import { isValidHarnessUrl } from "../lib/url-utils.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { postRequestMessage, resolveOrCreateTaskThread } from "../services/task-threads";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
@@ -257,7 +248,7 @@ interface BetActionsBarProps {
 	onAction: (action: BetActionKind) => void;
 }
 
-function BetActionsBar({ bet, onAction }: BetActionsBarProps): JSX.Element | null {
+function _BetActionsBar({ bet, onAction }: BetActionsBarProps): JSX.Element | null {
 	const { status } = bet;
 	// @lore U1: old "shipped"/"killed" → "completed"/"killed"; old "in_progress"/"paused"/"behind"/"blocked"/"shaped" → "active"/"draft"
 	if (status === "completed" || status === "killed") return null;
@@ -874,7 +865,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 		);
 	}
 
-	function handleSort(column: SortColumn): void {
+	function _handleSort(column: SortColumn): void {
 		if (sortColumn === column) {
 			setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
 		} else {
@@ -1302,7 +1293,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	);
 }
 
-function SortableHeader({
+function _SortableHeader({
 	column,
 	label,
 	sortColumn,
