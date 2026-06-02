@@ -38,7 +38,8 @@ Before any work is complete: `npm run check` (zero type errors) + `npm run lint`
 | **Full test suite** | `npm run test -- --all` | Runs all vitest tests across all packages. Use before shipping. |
 | **E2E tests** | `npm run test:e2e` | Playwright end-to-end tests (Chromium). Separate from unit/integration tests. |
 | **Quick lint check** | `npm run verify -- --quick` | Phase 1 only: typecheck + biome + eslint + knip + mock-inventory. No tests or builds. |
-| **Full verification** | `npm run verify` | All tools in two parallel phases. Writes HMAC-signed attestation for CI. Run before shipping. |
+| **Full verification** | `npm run verify` | Smart package-aware gating (default). Skips expensive Phase 2 tools whose packages aren't impacted. Auto-derives dependency graph from workspace package.json. Forces full run on root config/scripts changes. Writes HMAC-signed attestation for CI. |
+| **Force all tools** | `npm run verify -- --full` | All tools, no smart gating. Use when you want to verify everything regardless of what changed. |
 | **Specific tools only** | `npm run verify -- --only=test,check` | Run only the named tools. |
 
 The verify pipeline runs in two parallel phases:
