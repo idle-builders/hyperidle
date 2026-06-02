@@ -13,6 +13,7 @@ import { Hono } from "hono";
 import z from "zod";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { WorkspaceAdapter } from "../harness/workspace-adapter.js";
+import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
 import { validateBody } from "../middleware/validate.js";
 import type { CredentialResolver } from "../services/credential-resolver.js";
 import type { SessionActivityBuffer } from "../services/session-activity-buffer.js";
@@ -49,6 +50,10 @@ export interface SessionRouteDeps {
 	readonly workspaceAdapter?: WorkspaceAdapter;
 	readonly workspaceBasePath?: string;
 	readonly credentialResolver?: CredentialResolver;
+	/** X2: MCP bridge registry. When present, a per-session bridge is created. */
+	readonly mcpBridgeRegistry?: McpBridgeRegistry;
+	/** X2: Base URL for MCP bridge (e.g., "http://localhost:3001"). */
+	readonly mcpBaseUrl?: string;
 }
 
 /**
@@ -131,6 +136,8 @@ export function createSessionRoutes(
 						eventBus,
 						adapterPool: deps.adapterPool,
 						workspace: deps.workspaceAdapter,
+						mcpBridgeRegistry: deps.mcpBridgeRegistry,
+						mcpBaseUrl: deps.mcpBaseUrl,
 					},
 					{
 						agentId: body.agentId,
