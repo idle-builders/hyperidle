@@ -41,6 +41,25 @@
       margin-bottom: 36px;
     }
 
+    .step-indicator {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 24px;
+    }
+    .step-dot {
+      width: 32px;
+      height: 4px;
+      border-radius: var(--r-pill);
+      background: var(--border-default);
+    }
+    .step-dot--active {
+      background: var(--accent-primary);
+    }
+    .step-dot--done {
+      background: var(--accent-primary);
+      opacity: 0.4;
+    }
+
     .step-title {
       font-size: 20px;
       font-weight: 600;
@@ -137,26 +156,34 @@
               </div>
             </div>
 
-            <div className="step-title">Set up your workspace</div>
-            <div className="step-desc">Enter your name and API key to get started. Your agents need the API key to think and act on your behalf.</div>
+            <div className="step-indicator">
+              <div className="step-dot step-dot--done"></div>
+              <div className="step-dot step-dot--active"></div>
+              <div className="step-dot"></div>
+              <div className="step-dot"></div>
+            </div>
+
+            <div className="step-title">Set up your profile</div>
+            <div className="step-desc">Tell us about yourself. Your name appears in threads and on reviews that your agents send for approval.</div>
 
             <div className="form-group">
               <label className="form-label">Your name</label>
               <input className="form-input" type="text" placeholder="Tobias Grundtner" />
             </div>
             <div className="form-group">
-              <label className="form-label">Anthropic API key</label>
-              <input className="form-input" type="password" placeholder="sk-ant-..." />
-              <span className="form-hint">Required. Your key stays on this device.</span>
+              <label className="form-label">Email</label>
+              <input className="form-input" type="email" placeholder="tobias@company.com" />
+              <span className="form-hint">Used for notifications and sign-in.</span>
             </div>
             <div className="form-group">
-              <label className="form-label">Project folder <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}>(optional)</span></label>
-              <input className="form-input" type="text" placeholder="/Users/you/my-project" />
-              <span className="form-hint">Path to a git repository for agents to work in.</span>
+              <label className="form-label">Team name</label>
+              <input className="form-input" type="text" placeholder="Product" />
+              <span className="form-hint">You can add more teams later.</span>
             </div>
 
             <div className="btn-row">
-              <button className="btn btn--primary">Start HyperIdle</button>
+              <button className="btn btn--primary">Continue</button>
+              <button className="btn btn--ghost">Skip for now</button>
             </div>
           </div>
         </div>
