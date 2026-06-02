@@ -23,6 +23,8 @@
       width: 200px;
       flex-shrink: 0;
       padding: 12px;
+      display: flex;
+      flex-direction: column;
     }
     .sidebar-brand {
       font-size: 15px;
@@ -72,6 +74,58 @@
       border: none;
       border-top: 1px solid var(--border-subtle);
       margin: 12px 12px;
+    }
+    .sidebar-view {
+      padding: 6px 12px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      border-radius: var(--r-subtle);
+      margin-bottom: 3px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .sidebar-view:hover { background: rgba(44, 36, 26, 0.04); }
+    .sidebar-view--active { color: var(--text-primary); }
+    .sidebar-bottom {
+      margin-top: auto;
+      padding-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .sidebar-search-hint {
+      padding: 6px 12px;
+      font-size: 12px;
+      color: var(--text-tertiary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .kbd {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-tertiary);
+      background: var(--surface-container);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+    }
+    .sidebar-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--r-pill);
+      background: var(--surface-page);
+      border: 1.5px solid var(--border-default);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
     }
 
     /* ── Main Panel ── */
@@ -141,6 +195,9 @@
       flex-direction: column;
       gap: 18px;
       overflow-y: auto;
+      max-width: 720px;
+      margin: 0 auto;
+      width: 100%;
     }
     .message {
       display: flex;
@@ -220,12 +277,81 @@
     .action-status--success { color: var(--status-success); }
     .action-status--warning { color: var(--status-warning); }
 
+    /* ── Artifact Card ── */
+    .artifact-card {
+      margin-top: 9px;
+      background: var(--surface-page);
+      border-radius: var(--r-default);
+      padding: 12px;
+      border: 1px solid var(--border-subtle);
+    }
+    .artifact-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .artifact-type {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .artifact-status {
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .artifact-status--ready { color: var(--status-success); }
+    .artifact-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+    .artifact-preview {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.55;
+    }
+
+    /* ── Secondary Button + Live Dot ── */
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 7px 12px;
+      border-radius: var(--r-pill);
+      border: 1.5px solid var(--border-default);
+      cursor: pointer;
+      background: var(--surface-elevated);
+      color: var(--text-primary);
+    }
+    .live-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: var(--r-pill);
+      background: var(--accent-primary);
+      display: inline-block;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
     /* ── Composer ── */
     .thread-composer {
       padding: 12px 24px 18px;
       display: flex;
       gap: 9px;
-      align-items: flex-end;
+      align-items: stretch;
+      max-width: 720px;
+      margin: 0 auto;
+      width: 100%;
     }
     .composer-input {
       flex: 1;
@@ -235,9 +361,10 @@
       border: 1.5px solid var(--border-default);
       border-radius: var(--r-default);
       background: var(--surface-page);
-      color: var(--text-placeholder);
+      color: var(--text-primary);
       outline: none;
     }
+    .composer-input::placeholder { color: var(--text-placeholder); }
     .btn {
       display: inline-flex;
       align-items: center;
@@ -268,7 +395,7 @@
           <div className="sidebar">
             <div className="sidebar-brand">HyperIdle</div>
             <div className="sidebar-section">
-              <div className="sidebar-label">Bets</div>
+              <div className="sidebar-view sidebar-view--active">Conversations</div>
               <div className="sidebar-item sidebar-item--active">
                 <span className="sidebar-dot" style={{ background: 'var(--accent-primary)' }}></span>
                 Auth migration
@@ -281,13 +408,27 @@
                 <span className="sidebar-dot" style={{ background: 'var(--status-info)' }}></span>
                 Onboarding v3
               </div>
+              <div className="sidebar-item">
+                <span className="sidebar-dot" style={{ background: 'var(--accent-primary)' }}></span>
+                Billing overhaul
+              </div>
             </div>
-            <hr className="sidebar-divider" />
             <div className="sidebar-section">
-              <div className="sidebar-label">Teams</div>
-              <div className="sidebar-item">Product</div>
-              <div className="sidebar-item">Infrastructure</div>
-              <div className="sidebar-item">Growth</div>
+              <div className="sidebar-view">Work</div>
+            </div>
+            <div className="sidebar-section">
+              <div className="sidebar-view">Knowledge</div>
+            </div>
+            <div className="sidebar-bottom">
+              <div className="sidebar-search-hint">
+                <span>Search</span>
+                <span className="kbd">⌘K</span>
+              </div>
+              <hr className="sidebar-divider" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 12px' }}>
+                <div className="sidebar-avatar">TG</div>
+                <div className="sidebar-item" style={{ padding: 0, marginBottom: 0, flex: 1 }}>Assistant</div>
+              </div>
             </div>
           </div>
 
@@ -295,10 +436,13 @@
           <div className="main">
             <div className="main-header">
               <h2>Passkey rollout plan</h2>
-              <div className="header-badges">
-                <span className="badge badge--green">Product</span>
-                <span className="badge badge--amber">$2,400 budget</span>
-                <span className="badge badge--green">Active</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                <div className="header-badges">
+                  <span className="badge badge--green">Product</span>
+                  <span className="badge badge--amber">$2,400 budget</span>
+                  <span className="badge badge--green">Active</span>
+                </div>
+                <button className="btn-secondary"><span className="live-dot"></span> Dial in</button>
               </div>
             </div>
             <div className="thread-messages">
@@ -323,12 +467,17 @@
                     <span className="message-time">2:35 PM</span>
                   </div>
                   <div className="message-text">I've drafted a 3-phase plan: shadow enrollment, dual-auth window, then password deprecation. Existing sessions stay valid through phase 2. Estimated 6 weeks end-to-end.</div>
-                  <div className="message-action">
-                    <span className="message-action-label">
-                      <span className="message-action-dot"></span>
-                      Deployment plan — 3 phases
-                    </span>
-                    <span className="action-status action-status--success">Ready</span>
+                  <div className="artifact-card">
+                    <div className="artifact-header">
+                      <span className="artifact-type">Action summary</span>
+                      <span className="artifact-status artifact-status--ready">Ready</span>
+                    </div>
+                    <div className="artifact-title">Deployment plan — 3 phases</div>
+                    <div className="artifact-preview">
+                      Phase 1: Shadow enrollment (week 1-2)<br/>
+                      Phase 2: Dual-auth window (week 3-4)<br/>
+                      Phase 3: Password deprecation (week 5-6)
+                    </div>
                   </div>
                 </div>
               </div>
@@ -353,12 +502,17 @@
                     <span className="message-time">2:42 PM</span>
                   </div>
                   <div className="message-text">Good call. Updated the plan: phase 1 uses lazy enrollment — users get prompted on next login, not forced. Current sessions remain valid with existing cookies until natural expiry (30 days).</div>
-                  <div className="message-action">
-                    <span className="message-action-label">
-                      <span className="message-action-dot"></span>
-                      Session migration strategy
-                    </span>
-                    <span className="action-status action-status--warning">Updated</span>
+                  <div className="message-action" style={{ flexDirection: 'column', gap: 9, alignItems: 'stretch' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span className="message-action-label">
+                        <span className="message-action-dot"></span>
+                        Session migration strategy — review requested
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button className="btn" style={{ fontSize: 12, padding: '7px 12px' }}>Approve</button>
+                      <button className="btn-secondary">Reject</button>
+                    </div>
                   </div>
                 </div>
               </div>

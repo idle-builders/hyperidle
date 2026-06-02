@@ -597,3 +597,8 @@ stories:
     track: W
     depends: [W1]
     complexity: L
+  - id: W3
+    title: "Screen Implementation Parity: Make TSX Match the Revised Mockups"
+    track: W
+    depends: [W2]
+    complexity: L
