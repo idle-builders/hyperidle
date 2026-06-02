@@ -102,29 +102,38 @@
       letter-spacing: -0.01em;
     }
 
-    /* ── Sidebar View Headers ── */
-    .sidebar-view {
-      padding: 6px 12px;
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-secondary);
-      border-radius: var(--r-subtle);
-      margin-bottom: 3px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
+    /* ── Tab Bar (pill style, inline) ── */
+    .tab-bar-pill {
+      display: inline-flex;
       gap: 6px;
+      background: var(--surface-container);
+      border-radius: var(--r-pill);
+      padding: 3px;
     }
-    .sidebar-view:hover { background: rgba(44, 36, 26, 0.04); }
-    .sidebar-view--active { color: var(--text-primary); }
+    .tab-pill {
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      border-radius: var(--r-pill);
+      cursor: pointer;
+      transition: all 240ms ease;
+      border: none;
+      background: transparent;
+      font-family: var(--font-sans);
+    }
+    .tab-pill:hover { color: var(--text-primary); }
+    .tab-pill--active {
+      background: var(--surface-elevated);
+      color: var(--accent-primary);
+      box-shadow: var(--shadow-subtle);
+      font-weight: 600;
+    }
 
     /* ── Thread List ── */
     .thread-list {
       flex: 1;
       overflow-y: auto;
-      max-width: 800px;
-      margin: 0 auto;
-      width: 100%;
     }
     .thread-row {
       display: flex;
@@ -215,21 +224,6 @@
       color: var(--accent-primary);
     }
 
-    /* ── Button ── */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      font-family: var(--font-sans);
-      font-size: 12px;
-      font-weight: 500;
-      padding: 7px 12px;
-      border-radius: var(--r-pill);
-      border: 1.5px solid transparent;
-      cursor: pointer;
-      background: var(--accent-primary);
-      color: var(--text-on-accent);
-    }
-
     /* Badge */
     .badge {
       display: inline-flex;
@@ -255,69 +249,6 @@
       text-align: center;
       padding: 3px 6px;
     }
-    .badge--blocking {
-      background: rgba(220, 74, 58, 0.08);
-      color: var(--status-error);
-    }
-
-    /* ── Filter Chips ── */
-    .filter-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 12px;
-      font-weight: 500;
-      padding: 4px 12px;
-      border-radius: var(--r-pill);
-      border: 1.5px solid var(--border-default);
-      cursor: pointer;
-      background: transparent;
-      color: var(--text-secondary);
-      font-family: var(--font-sans);
-    }
-    .filter-chip--active {
-      border-color: var(--accent-primary);
-      background: rgba(22, 118, 79, 0.08);
-      color: var(--accent-primary);
-    }
-    .sidebar-bottom {
-      margin-top: auto;
-      padding-top: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
-    .sidebar-search-hint {
-      padding: 6px 12px;
-      font-size: 12px;
-      color: var(--text-tertiary);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .kbd {
-      font-size: 11px;
-      font-family: var(--font-mono);
-      color: var(--text-tertiary);
-      background: var(--surface-container);
-      padding: 2px 6px;
-      border-radius: 4px;
-      border: 1px solid var(--border-subtle);
-    }
-    .sidebar-avatar {
-      width: 28px;
-      height: 28px;
-      border-radius: var(--r-pill);
-      background: var(--surface-page);
-      border: 1.5px solid var(--border-default);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 10px;
-      font-weight: 600;
-      color: var(--text-secondary);
-      cursor: pointer;
-    }
   </style>
 </head>
 <body>
@@ -337,7 +268,7 @@
           <div className="sidebar">
             <div className="sidebar-brand">HyperIdle</div>
             <div className="sidebar-section">
-              <div className="sidebar-view sidebar-view--active">Conversations</div>
+              <div className="sidebar-label">Bets</div>
               <div className="sidebar-item sidebar-item--active">
                 <span className="sidebar-dot" style={{ background: 'var(--accent-primary)' }}></span>
                 Auth migration
@@ -355,39 +286,28 @@
                 Billing overhaul
               </div>
             </div>
+            <hr className="sidebar-divider" />
             <div className="sidebar-section">
-              <div className="sidebar-view">Work</div>
-            </div>
-            <div className="sidebar-section">
-              <div className="sidebar-view">Knowledge</div>
-            </div>
-            <div className="sidebar-bottom">
-              <div className="sidebar-search-hint">
-                <span>Search</span>
-                <span className="kbd">⌘K</span>
-              </div>
-              <hr className="sidebar-divider" />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 12px' }}>
-                <div className="sidebar-avatar">TG</div>
-                <div className="sidebar-item" style={{ padding: 0, marginBottom: 0, flex: 1 }}>Assistant</div>
-              </div>
+              <div className="sidebar-label">Teams</div>
+              <div className="sidebar-item">Product</div>
+              <div className="sidebar-item">Infrastructure</div>
+              <div className="sidebar-item">Growth</div>
+              <div className="sidebar-item">Design</div>
             </div>
           </div>
 
           {/* Main: Thread List */}
           <div className="main">
             <div className="main-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <h2>Auth migration</h2>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button className="filter-chip">Blocking</button>
-                  <button className="filter-chip">Unread</button>
-                </div>
+              <h2>Auth migration</h2>
+              <div className="tab-bar-pill">
+                <button className="tab-pill tab-pill--active">All</button>
+                <button className="tab-pill">Unread</button>
+                <button className="tab-pill">Active</button>
               </div>
-              <button className="btn">New thread</button>
             </div>
             <div className="thread-list">
-              {/* Thread 1: unread + blocking */}
+              {/* Thread 1: unread */}
               <div className="thread-row thread-row--unread">
                 <div className="thread-unread-dot"></div>
                 <div className="thread-info">
@@ -395,7 +315,6 @@
                   <div className="thread-preview">Atlas: Drafted 3-phase plan. Shadow enrollment starts Monday.</div>
                 </div>
                 <div className="thread-meta">
-                  <span className="badge badge--blocking">Blocking</span>
                   <div className="thread-avatars">
                     <Avatar initials="TG" />
                     <Avatar initials="AT" agent />
