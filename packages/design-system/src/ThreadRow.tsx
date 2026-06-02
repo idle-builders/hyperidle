@@ -1,3 +1,4 @@
+// hearth-internal-padding
 import type { HostKind } from "@hyperidle/shared";
 import type { JSX, ReactNode } from "react";
 import { clickableProps } from "./clickable";
@@ -123,6 +124,15 @@ export function ThreadRow({
 					<span className="text-[15px] truncate" aria-label={`Thread: ${title}`}>
 						{title}
 					</span>
+					{/* W3 AC-7: text "Blocking" badge — visible badge, not just a border */}
+					{blocking && (
+						<span
+							data-testid="thread-row-blocking-badge"
+							className="inline-flex items-center px-[6px] py-[3px] rounded-[var(--r-pill)] text-[11px] font-medium bg-[color-mix(in_oklab,var(--status-error)_15%,transparent)] text-[var(--status-error)] whitespace-nowrap shrink-0"
+						>
+							Blocking
+						</span>
+					)}
 					{hostTag && (
 						// @lore L8 review (Design B3): host pill is rendered inline
 						// rather than via <Tag/> because the approved design (§5.6)

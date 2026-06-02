@@ -1,15 +1,19 @@
 /**
  * U9 AC-6: KnowledgeList scope pills + Hearth styling.
  *
+ * W3 AC-33: Scope pills are data-driven — derived from unique scopeKind values
+ * in the item list (not hardcoded Practices/Products/Factory). The "All" pill
+ * is always first.
+ *
  * Verifies:
  * - Scope pill filter bar appears above Triage/Curated tabs
- * - Scope pills: "All", "Practices", "Products", "Factory"
+ * - "All" pill is always present
+ * - Additional pills appear based on scopeKind values in items
  * - Active scope pill uses btn-primary
  * - Inactive scope pills use btn-ghost
  * - Triage/Curated tabs use btn-primary for active (not btn-neutral)
  * - "+ New" button uses btn-primary
- *
- * RED PHASE: these tests are written before implementation.
+ * - Sort controls use btn-primary for active (not btn-neutral)
  */
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -17,7 +21,7 @@ import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { KnowledgeList } from "../pages/KnowledgeList";
 
-// Stub useFetch so we don't need a real API
+// Stub useFetch with items that have scopeKind so data-driven pills appear
 vi.mock("../hooks/useFetch", () => ({
 	useFetch: vi.fn().mockReturnValue({
 		data: {
@@ -29,10 +33,39 @@ vi.mock("../hooks/useFetch", () => ({
 					body: "body",
 					format: "markdown",
 					status: "active",
+					scopeKind: "practice",
 					version: 1,
 					updatedBy: "agent",
 					createdAt: "2024-01-01T00:00:00Z",
 					updatedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+					signals: null,
+				},
+				{
+					id: "k2",
+					topic: "Product",
+					title: "User Onboarding Flow",
+					body: "body",
+					format: "markdown",
+					status: "active",
+					scopeKind: "product",
+					version: 1,
+					updatedBy: "agent",
+					createdAt: "2024-01-02T00:00:00Z",
+					updatedAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+					signals: null,
+				},
+				{
+					id: "k3",
+					topic: "Factory",
+					title: "Agent Autonomy Policy",
+					body: "body",
+					format: "markdown",
+					status: "active",
+					scopeKind: "factory",
+					version: 1,
+					updatedBy: "agent",
+					createdAt: "2024-01-03T00:00:00Z",
+					updatedAt: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(),
 					signals: null,
 				},
 			],
@@ -58,24 +91,24 @@ describe("U9 AC-6: KnowledgeList scope pills", () => {
 
 	it('renders "All" scope pill', () => {
 		renderPage();
-		// "All" pill should be visible in the scope filter bar
 		const scopePills = screen.getByTestId("knowledge-scope-pills");
 		expect(scopePills.querySelector('[data-testid="scope-pill-all"]')).not.toBeNull();
 	});
 
-	it('renders "Practices" scope pill', () => {
+	it('renders "practice" scope pill (data-driven from scopeKind)', () => {
 		renderPage();
 		const scopePills = screen.getByTestId("knowledge-scope-pills");
-		expect(scopePills.querySelector('[data-testid="scope-pill-practices"]')).not.toBeNull();
+		// W3 AC-33: pill testid is scope-pill-<scopeKind.toLowerCase()>
+		expect(scopePills.querySelector('[data-testid="scope-pill-practice"]')).not.toBeNull();
 	});
 
-	it('renders "Products" scope pill', () => {
+	it('renders "product" scope pill (data-driven from scopeKind)', () => {
 		renderPage();
 		const scopePills = screen.getByTestId("knowledge-scope-pills");
-		expect(scopePills.querySelector('[data-testid="scope-pill-products"]')).not.toBeNull();
+		expect(scopePills.querySelector('[data-testid="scope-pill-product"]')).not.toBeNull();
 	});
 
-	it('renders "Factory" scope pill', () => {
+	it('renders "factory" scope pill (data-driven from scopeKind)', () => {
 		renderPage();
 		const scopePills = screen.getByTestId("knowledge-scope-pills");
 		expect(scopePills.querySelector('[data-testid="scope-pill-factory"]')).not.toBeNull();
@@ -83,26 +116,25 @@ describe("U9 AC-6: KnowledgeList scope pills", () => {
 
 	it("default active scope pill (All) uses btn-primary", () => {
 		renderPage();
-		// Default should be "All" active
 		const allPill = screen.getByTestId("scope-pill-all");
 		expect(allPill.className).toContain("btn-primary");
 	});
 
 	it("inactive scope pills use btn-ghost", () => {
 		renderPage();
-		const practicesPill = screen.getByTestId("scope-pill-practices");
-		expect(practicesPill.className).toContain("btn-ghost");
+		const practicePill = screen.getByTestId("scope-pill-practice");
+		expect(practicePill.className).toContain("btn-ghost");
 	});
 
 	it("clicking a scope pill makes it active (btn-primary)", async () => {
 		const user = userEvent.setup();
 		renderPage();
 
-		await user.click(screen.getByTestId("scope-pill-practices"));
+		await user.click(screen.getByTestId("scope-pill-practice"));
 
 		await waitFor(() => {
-			const practicesPill = screen.getByTestId("scope-pill-practices");
-			expect(practicesPill.className).toContain("btn-primary");
+			const practicePill = screen.getByTestId("scope-pill-practice");
+			expect(practicePill.className).toContain("btn-primary");
 			const allPill = screen.getByTestId("scope-pill-all");
 			expect(allPill.className).toContain("btn-ghost");
 		});
@@ -110,7 +142,6 @@ describe("U9 AC-6: KnowledgeList scope pills", () => {
 
 	it("active Triage tab uses btn-primary (not btn-neutral)", () => {
 		renderPage();
-		// Triage is the default active tab (has draft items mock has active items → curated is default)
 		// Check whichever tab is active uses btn-primary
 		const tabs = screen.getByTestId("knowledge-tabs");
 		const activeTab = tabs.querySelector("[aria-selected='true']");
@@ -120,9 +151,6 @@ describe("U9 AC-6: KnowledgeList scope pills", () => {
 	});
 
 	it("sort radio buttons use btn-primary for active (not btn-neutral)", async () => {
-		// We need triage to be active to see sort controls
-		// The mock returns only active items so curated is default
-		// We'll force triage by clicking it
 		const user = userEvent.setup();
 		renderPage();
 
@@ -130,7 +158,8 @@ describe("U9 AC-6: KnowledgeList scope pills", () => {
 		await user.click(screen.getByRole("tab", { name: /triage/i }));
 
 		await waitFor(() => {
-			const sortControls = screen.getByTestId("knowledge-sort-controls");
+			// W3 AC-34: sort controls use data-testid="knowledge-sort-bar"
+			const sortControls = screen.getByTestId("knowledge-sort-bar");
 			const activeSort = sortControls.querySelector("[aria-checked='true']");
 			expect(activeSort).not.toBeNull();
 			expect(activeSort?.className).toContain("btn-primary");

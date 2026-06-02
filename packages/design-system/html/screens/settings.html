@@ -11,17 +11,26 @@
     .app-shell { display: flex; height: 100vh; background: var(--surface-container); gap: 3px; padding: 3px; }
 
     /* Settings layout: sidebar nav + content panels */
-    .settings-nav { width: 200px; flex-shrink: 0; padding: 12px; }
+    .settings-nav { width: 200px; flex-shrink: 0; padding: 12px; display: flex; flex-direction: column; }
     .settings-brand { font-size: 15px; font-weight: 700; color: var(--text-primary); padding: 6px 12px; margin-bottom: 18px; letter-spacing: -0.01em; }
     .settings-label { font-size: 12px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 9px; padding: 0 12px; }
     .settings-item { padding: 6px 12px; font-size: 13px; color: var(--text-secondary); border-radius: var(--r-subtle); margin-bottom: 3px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
     .settings-item--active { background: var(--surface-elevated); color: var(--text-primary); font-weight: 500; box-shadow: var(--shadow-subtle); }
+    .sidebar-view { padding: 6px 12px; font-size: 14px; font-weight: 600; color: var(--text-secondary); border-radius: var(--r-subtle); margin-bottom: 3px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+    .sidebar-view:hover { background: rgba(44, 36, 26, 0.04); }
+    .sidebar-view--active { color: var(--text-primary); }
+    .sidebar-divider { border: none; border-top: 1px solid var(--border-subtle); margin: 12px 12px; }
+    .sidebar-bottom { margin-top: auto; padding-top: 12px; display: flex; flex-direction: column; gap: 3px; }
+    .sidebar-search-hint { padding: 6px 12px; font-size: 12px; color: var(--text-tertiary); display: flex; align-items: center; justify-content: space-between; }
+    .kbd { font-size: 11px; font-family: var(--font-mono); color: var(--text-tertiary); background: var(--surface-container); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-subtle); }
+    .sidebar-avatar { width: 28px; height: 28px; border-radius: var(--r-pill); background: var(--surface-page); border: 1.5px solid var(--border-default); display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
+    .sidebar-item { padding: 6px 12px; font-size: 13px; color: var(--text-secondary); border-radius: var(--r-subtle); margin-bottom: 3px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
 
-    .settings-main { flex: 1; background: var(--surface-elevated); border-radius: var(--r-subtle); box-shadow: var(--shadow-subtle); display: flex; flex-direction: column; overflow: hidden; }
+    .settings-main { flex: 1; background: var(--surface-elevated); border-radius: var(--r-subtle); box-shadow: var(--shadow-subtle); display: flex; flex-direction: column; overflow-y: auto; }
     .settings-header { padding: 18px 24px; border-bottom: 1px solid var(--border-subtle); }
     .settings-header h2 { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
     .settings-header p { font-size: 13px; color: var(--text-tertiary); margin-top: 3px; }
-    .settings-body { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 24px; }
+    .settings-body { padding: 24px; display: flex; flex-direction: column; gap: 24px; max-width: 680px; margin: 0 auto; width: 100%; }
 
     /* Form elements */
     .form-section { display: flex; flex-direction: column; gap: 18px; }
@@ -84,12 +93,28 @@
         <div className="app-shell">
           <div className="settings-nav">
             <div className="settings-brand">HyperIdle</div>
-            <div className="settings-label">Settings</div>
+            <div className="sidebar-view">Conversations</div>
+            <div className="sidebar-view">Work</div>
+            <div className="sidebar-view">Knowledge</div>
+            <hr className="sidebar-divider" />
+            <div className="settings-label" style={{ marginBottom: 6 }}>Settings</div>
             <div className="settings-item settings-item--active">Profile</div>
-            <div className="settings-item">Teams</div>
+            <div className="settings-item">Org chart</div>
             <div className="settings-item">Appearance</div>
             <div className="settings-item">Credentials</div>
             <div className="settings-item">Notifications</div>
+            <div className="settings-item">Backend</div>
+            <div className="sidebar-bottom">
+              <div className="sidebar-search-hint">
+                <span>Search</span>
+                <span className="kbd">⌘K</span>
+              </div>
+              <hr className="sidebar-divider" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 12px' }}>
+                <div className="sidebar-avatar" style={{ borderColor: 'var(--accent-primary)' }}>TG</div>
+                <div className="sidebar-item" style={{ padding: 0, marginBottom: 0, flex: 1 }}>Assistant</div>
+              </div>
+            </div>
           </div>
 
           <div className="settings-main">
@@ -111,13 +136,13 @@
                   <span className="form-hint">Used for notifications and login.</span>
                 </div>
                 <div>
-                  <button className="btn btn--sm">Save changes</button>
+                  <button className="btn btn--sm">Save profile</button>
                 </div>
               </div>
 
-              {/* Teams */}
+              {/* Org chart */}
               <div className="form-section">
-                <div className="form-section-title">Teams</div>
+                <div className="form-section-title">Org chart</div>
                 <div className="team-row">
                   <div className="team-avatar">P</div>
                   <div className="team-info">
@@ -214,6 +239,15 @@
                       <span className="toggle-desc">Receive a daily email summary of unread threads</span>
                     </div>
                   </div>
+                </div>
+              </div>
+              {/* Backend */}
+              <div className="form-section">
+                <div className="form-section-title">Backend</div>
+                <div className="form-group">
+                  <label className="form-label">Mode</label>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Local (laptop)</div>
+                  <span className="form-hint">Agent sessions run locally on this machine.</span>
                 </div>
               </div>
             </div>

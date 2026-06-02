@@ -24,6 +24,7 @@ import { RedirectLegacyConversation } from "./pages/RedirectLegacyConversation";
 import { SetupFlow } from "./pages/SetupFlow";
 import { WorkBet } from "./pages/WorkBet";
 import { WorkPortfolio } from "./pages/WorkPortfolio";
+import { WorkTask } from "./pages/WorkTask";
 import { WorkTeam } from "./pages/WorkTeam";
 
 /**
@@ -71,6 +72,7 @@ function buildRoutes(): RouteObject[] {
 				{ path: "work/team/:teamId", element: <WorkTeam /> },
 				{ path: "work/product/:productId", element: <RedirectProductToTeam /> },
 				{ path: "work/bet/:betId", element: <WorkBet /> },
+				{ path: "work/bet/:betId/task/:taskId", element: <WorkTask /> },
 				{ path: "knowledge", element: <KnowledgeList /> },
 				{ path: "knowledge/:knowledgeId", element: <KnowledgeDetail /> },
 				// L3 review fix Arch-M1 / D-M4: wire the ArtifactPermalink page.

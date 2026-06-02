@@ -437,91 +437,6 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 // Page component
 // ---------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
-// Filter pill bar (All / Blocking / Async) — AC-16
-// ---------------------------------------------------------------------------
-
-const FILTER_OPTIONS: ReadonlyArray<{ id: ConversationsFilter; label: string }> = [
-	{ id: "all", label: "All" },
-	{ id: "blocking", label: "Blocking" },
-	{ id: "async", label: "Async" },
-];
-
-function FilterPillBar({
-	activeFilter,
-	onFilterChange,
-	onClearFilter,
-	onNewThread,
-	disabled = false,
-}: {
-	activeFilter: ConversationsFilter;
-	onFilterChange: (f: ConversationsFilter) => void;
-	onClearFilter: () => void;
-	/** U9 AC-1: Callback to open RecipientPicker for new thread creation. */
-	onNewThread?: () => void;
-	/** When true, all filter chips are aria-disabled (e.g. during error state). */
-	disabled?: boolean;
-}): JSX.Element {
-	return (
-		<div className="flex items-center gap-1 mb-2 shrink-0" data-testid="conversations-filter-bar">
-			<div role="tablist" aria-label="Conversations filter" className="flex gap-1 flex-1">
-				{FILTER_OPTIONS.map((opt) => (
-					<button
-						key={opt.id}
-						type="button"
-						role="tab"
-						aria-selected={opt.id === activeFilter}
-						aria-disabled={disabled ? "true" : undefined}
-						onClick={disabled ? undefined : () => onFilterChange(opt.id)}
-						className={[
-							"btn btn-xs",
-							opt.id === activeFilter ? "btn-primary" : "btn-ghost",
-							disabled ? "opacity-50 cursor-not-allowed" : "",
-						].join(" ")}
-					>
-						{opt.label}
-					</button>
-				))}
-			</div>
-			{/*
-			 * @lore U6: Inline × Clear button appears when filter is non-default.
-			 * Uses data-testid="submenu-filter-clear" for backwards-compat with
-			 * the l10-filter tests that expect this testid (previously in Submenu).
-			 */}
-			{activeFilter !== "all" && (
-				<button
-					type="button"
-					data-testid="submenu-filter-clear"
-					onClick={onClearFilter}
-					className="btn btn-xs btn-ghost text-[var(--text-tertiary)]"
-					aria-label="Clear filter"
-				>
-					× Clear
-				</button>
-			)}
-			{/*
-			 * @lore U9 AC-1: "New Thread" button opens RecipientPicker.
-			 * Positioned at the right end of the filter bar.
-			 * Wired to onNewThread callback from OutletContext.
-			 */}
-			{onNewThread && (
-				<button
-					type="button"
-					className="btn btn-xs btn-primary"
-					onClick={onNewThread}
-					data-testid="new-thread-btn"
-				>
-					New Thread
-				</button>
-			)}
-		</div>
-	);
-}
-
-// ---------------------------------------------------------------------------
-// Page component
-// ---------------------------------------------------------------------------
-
 export function Conversations(): JSX.Element {
 	// @lore L9 WARNING (arch-critique): useParams() inside AppShell's child
 	// route receives merged params from the matched child route via React
@@ -535,7 +450,7 @@ export function Conversations(): JSX.Element {
 	// AppShell (e.g., tests that mount Conversations directly). Fallback to "all".
 	const ctx = useOutletContext<AppShellOutletContext | undefined>();
 	const conversationsFilter: ConversationsFilter = ctx?.conversationsFilter ?? "all";
-	const onFilterChange = ctx?.onFilterChange ?? (() => undefined);
+	const _onFilterChange = ctx?.onFilterChange ?? (() => undefined);
 	const onClearFilter = ctx?.onClearFilter ?? (() => undefined);
 	// @lore U9 AC-1: onNewThread opens RecipientPicker via AppShell context.
 	// Undefined when Conversations is rendered outside AppShell (tests/stories).
@@ -565,13 +480,25 @@ export function Conversations(): JSX.Element {
 	if (!threadId) {
 		return (
 			<div className="flex flex-col h-full" data-testid="conversations-page">
-				<FilterPillBar
-					activeFilter={conversationsFilter}
-					onFilterChange={onFilterChange}
-					onClearFilter={onClearFilter}
-					onNewThread={onNewThread}
-					disabled={conversationsThreads.status === "error"}
-				/>
+				{/* W3 AC-8: header with "New thread" button + filter bar */}
+				<div
+					data-conversations-header
+					data-testid="conversations-filter-bar"
+					className="flex items-center justify-between gap-2 mb-2 shrink-0"
+				>
+					<h2 className="text-[14px] font-[600] text-[var(--text-primary)]">Conversations</h2>
+					<div className="flex items-center gap-1">
+						{/* W3 AC-8: New thread button in header — always rendered */}
+						<button
+							type="button"
+							className="btn btn-xs btn-primary"
+							onClick={onNewThread ?? (() => undefined)}
+							data-testid="new-thread-btn"
+						>
+							New thread
+						</button>
+					</div>
+				</div>
 				<ThreadSections
 					threads={conversationsThreads.threads}
 					selectedId={ctx?.selectedThreadId ?? null}
@@ -585,6 +512,7 @@ export function Conversations(): JSX.Element {
 					onRetry={conversationsThreads.retry}
 					activeFilter={conversationsFilter}
 					onClearFilter={onClearFilter}
+					groupBySection={false}
 				/>
 			</div>
 		);

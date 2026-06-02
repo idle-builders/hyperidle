@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Screen — Knowledge: Edit</title>
+  <link rel="stylesheet" href="../_tokens.css" />
+  <style>
+    #root { max-width: none; padding: 0; }
+    html, body { overflow: hidden; }
+    .app-shell { display: flex; height: 100vh; background: var(--surface-container); gap: 3px; padding: 3px; }
+    .sidebar { width: 200px; flex-shrink: 0; padding: 12px; display: flex; flex-direction: column; }
+    .sidebar-brand { font-size: 15px; font-weight: 700; color: var(--text-primary); padding: 6px 12px; margin-bottom: 18px; letter-spacing: -0.01em; }
+    .sidebar-section { margin-bottom: 18px; }
+    .sidebar-label { font-size: 12px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 9px; padding: 0 12px; }
+    .sidebar-item { padding: 6px 12px; font-size: 13px; color: var(--text-secondary); border-radius: var(--r-subtle); margin-bottom: 3px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+    .sidebar-item--active { background: var(--surface-elevated); color: var(--text-primary); font-weight: 500; box-shadow: var(--shadow-subtle); }
+    .sidebar-divider { border: none; border-top: 1px solid var(--border-subtle); margin: 12px 12px; }
+    .sidebar-view { padding: 6px 12px; font-size: 14px; font-weight: 600; color: var(--text-secondary); border-radius: var(--r-subtle); margin-bottom: 3px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+    .sidebar-view:hover { background: rgba(44, 36, 26, 0.04); }
+    .sidebar-view--active { color: var(--text-primary); }
+    .sidebar-bottom { margin-top: auto; padding-top: 12px; display: flex; flex-direction: column; gap: 3px; }
+    .sidebar-search-hint { padding: 6px 12px; font-size: 12px; color: var(--text-tertiary); display: flex; align-items: center; justify-content: space-between; }
+    .kbd { font-size: 11px; font-family: var(--font-mono); color: var(--text-tertiary); background: var(--surface-container); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-subtle); }
+    .sidebar-avatar { width: 28px; height: 28px; border-radius: var(--r-pill); background: var(--surface-page); border: 1.5px solid var(--border-default); display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
+    .main { flex: 1; background: var(--surface-elevated); border-radius: var(--r-subtle); box-shadow: var(--shadow-subtle); display: flex; flex-direction: column; overflow: hidden; }
+    .main-header { padding: 18px 24px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+
+    .badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; padding: 3px 9px; border-radius: var(--r-pill); line-height: 1.4; white-space: nowrap; }
+    .badge--green { background: rgba(22, 118, 79, 0.08); color: var(--accent-primary); }
+    .badge--blue { background: rgba(46, 125, 186, 0.08); color: var(--status-info); }
+    .badge--default { background: var(--surface-container); color: var(--text-secondary); }
+
+    .breadcrumb { font-size: 13px; color: var(--text-tertiary); margin-bottom: 6px; }
+    .breadcrumb a { color: var(--accent-primary); text-decoration: none; }
+    .breadcrumb a:hover { text-decoration: underline; }
+    .header-title { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+    .header-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 9px; }
+
+    .detail-body { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 24px; max-width: 960px; margin: 0 auto; width: 100%; }
+    .detail-content { flex: 1; min-width: 0; }
+    .detail-aside { width: 240px; flex-shrink: 0; display: flex; flex-direction: column; gap: 18px; }
+
+    /* Content rendering */
+    .body-text { font-size: 15px; color: var(--text-secondary); line-height: 1.7; }
+    .body-text h3 { font-size: 17px; font-weight: 600; color: var(--text-primary); margin: 24px 0 9px; }
+    .body-text p { margin-bottom: 12px; }
+    .body-text ul { margin-left: 18px; margin-bottom: 12px; }
+    .body-text li { margin-bottom: 6px; }
+    .body-text code { font-family: var(--font-mono); font-size: 13px; background: var(--surface-container); padding: 2px 6px; border-radius: 4px; }
+
+    /* Metadata card */
+    .meta-card { background: var(--surface-page); border-radius: var(--r-default); padding: 18px; }
+    .meta-card-title { font-size: 12px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
+    .meta-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border-subtle); font-size: 13px; }
+    .meta-row:last-child { border-bottom: none; }
+    .meta-key { color: var(--text-tertiary); }
+    .meta-val { color: var(--text-primary); font-weight: 500; }
+
+    /* Backlinks */
+    .backlink-row { display: flex; align-items: center; gap: 9px; padding: 6px 0; cursor: pointer; font-size: 13px; color: var(--accent-primary); }
+    .backlink-row:hover { text-decoration: underline; }
+
+    /* Actions */
+    .btn-bar { display: flex; gap: 6px; align-items: center; }
+    .btn-ghost { display: inline-flex; align-items: center; font-family: var(--font-sans); font-size: 12px; font-weight: 500; padding: 7px 12px; border-radius: var(--r-pill); border: 1.5px solid var(--border-default); cursor: pointer; background: var(--surface-elevated); color: var(--text-primary); }
+    .btn-primary { display: inline-flex; align-items: center; font-family: var(--font-sans); font-size: 12px; font-weight: 500; padding: 7px 12px; border-radius: var(--r-pill); border: 1.5px solid transparent; cursor: pointer; background: var(--accent-primary); color: var(--text-on-accent); }
+    .btn-overflow {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: var(--r-pill);
+      border: 1.5px solid var(--border-default);
+      cursor: pointer;
+      background: var(--surface-elevated);
+      color: var(--text-secondary);
+      font-size: 16px;
+      font-family: var(--font-sans);
+      line-height: 1;
+    }
+    .btn-overflow:hover { border-color: var(--accent-primary); color: var(--text-primary); }
+
+    .discussion-section {
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 24px;
+      max-width: 100%;
+    }
+    .discussion-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 12px;
+    }
+    .discussion-message {
+      display: flex;
+      gap: 9px;
+      padding: 9px 0;
+    }
+    .discussion-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--r-pill);
+      background: var(--surface-page);
+      border: 1.5px solid var(--border-default);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+    .discussion-avatar--agent {
+      background: rgba(22, 118, 79, 0.08);
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+    }
+    .discussion-body { font-size: 13px; color: var(--text-secondary); line-height: 1.55; }
+    .discussion-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+    .discussion-time { font-size: 11px; color: var(--text-tertiary); margin-left: 6px; }
+    .discussion-composer {
+      display: flex;
+      gap: 9px;
+      align-items: stretch;
+      margin-top: 12px;
+    }
+    .discussion-input {
+      flex: 1;
+      font-family: var(--font-sans);
+      font-size: 13px;
+      padding: 9px 12px;
+      border: 1.5px solid var(--border-default);
+      border-radius: var(--r-default);
+      background: var(--surface-page);
+      color: var(--text-primary);
+      outline: none;
+    }
+    .discussion-input::placeholder { color: var(--text-placeholder); }
+
+    /* Editor additions */
+    .editor-toolbar {
+      display: flex;
+      gap: 3px;
+      padding: 6px 0;
+      margin-bottom: 9px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .toolbar-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 28px;
+      border-radius: var(--r-subtle);
+      border: none;
+      cursor: pointer;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 600;
+      font-family: var(--font-sans);
+    }
+    .toolbar-btn:hover { background: rgba(44, 36, 26, 0.04); color: var(--text-primary); }
+    .editor-area {
+      border: 1px solid var(--border-default);
+      border-radius: var(--r-default);
+      padding: 18px;
+      min-height: 300px;
+    }
+    .save-indicator {
+      font-size: 12px;
+      color: var(--status-success);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    function Demo() {
+      return (
+        <div className="app-shell">
+          <div className="sidebar">
+            <div className="sidebar-brand">HyperIdle</div>
+            <div className="sidebar-section">
+              <div className="sidebar-view">Conversations</div>
+              <div className="sidebar-view">Work</div>
+              <div className="sidebar-view sidebar-view--active">Knowledge</div>
+            </div>
+            <div className="sidebar-bottom">
+              <div className="sidebar-search-hint">
+                <span>Search</span>
+                <span className="kbd">⌘K</span>
+              </div>
+              <hr className="sidebar-divider" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 12px' }}>
+                <div className="sidebar-avatar">TG</div>
+                <div className="sidebar-item" style={{ padding: 0, marginBottom: 0, flex: 1 }}>Assistant</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="main">
+            <div className="main-header">
+              <div style={{ flex: 1 }}>
+                <div className="breadcrumb">
+                  <a href="#">Knowledge</a> / <a href="#">Practice</a> / <a href="#">Authentication</a>
+                </div>
+                <div className="header-title">WebAuthn passkey enrollment flow</div>
+                <div className="header-meta">
+                  <span className="badge badge--green">Pattern</span>
+                  <span className="badge badge--green">Active</span>
+                  <span className="badge badge--default">Authentication</span>
+                </div>
+              </div>
+              <div className="btn-bar">
+                <div className="save-indicator">
+                  <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M2.5 6.5L5.5 9.5L10.5 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  Saved
+                </div>
+                <button className="btn-primary">Done</button>
+                <button className="btn-overflow">···</button>
+              </div>
+            </div>
+            <div className="detail-body">
+              <div style={{ display: 'flex', gap: 24 }}>
+                <div className="detail-content">
+                  <div className="editor-toolbar">
+                    <button className="toolbar-btn" title="Bold"><strong>B</strong></button>
+                    <button className="toolbar-btn" title="Italic"><em>I</em></button>
+                    <button className="toolbar-btn" title="Heading">H</button>
+                    <button className="toolbar-btn" title="List">&#8801;</button>
+                    <button className="toolbar-btn" title="Code" style={{ fontFamily: 'var(--font-mono)', fontWeight: 400, fontSize: 12 }}>&lt;&gt;</button>
+                  </div>
+                  <div className="editor-area">
+                    <div className="body-text">
+                      <h3>Overview</h3>
+                      <p>The WebAuthn passkey enrollment flow is our standard approach for migrating users from password-based authentication to passkey-based authentication without disrupting active sessions.</p>
+
+                      <h3>Implementation</h3>
+                      <p>The flow operates in three phases:</p>
+                      <ul>
+                        <li><strong>Shadow enrollment</strong> — Users are prompted to register a passkey on their next natural login. No forced re-authentication. Existing sessions remain valid.</li>
+                        <li><strong>Dual-auth window</strong> — Both password and passkey authentication are accepted. Users who have registered passkeys see passkey as the primary option. Analytics track adoption rate.</li>
+                        <li><strong>Password deprecation</strong> — After the adoption threshold is met (target: 80%), password login is deprecated with a 30-day sunset notice.</li>
+                      </ul>
+
+                      <h3>Key decisions</h3>
+                      <p>We chose lazy enrollment over forced enrollment because the Q1 forced re-auth attempt generated 2,400 support tickets in 48 hours. The lazy approach trades migration speed for user experience.</p>
+                      <p>The 30-day session expiry window during migration balances security requirements with the need to avoid mass disruption. Sessions that haven't been used in 30 days will expire naturally and require re-auth with the new flow.</p>
+
+                      <h3>Browser compatibility</h3>
+                      <p>WebAuthn coverage across our target browser matrix is 96.3%. Safari 16+ is required. Users on older Safari versions fall back to the password flow until they update. We track this via the <code>auth_method</code> dimension in our analytics pipeline.</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="detail-aside">
+                  <div className="meta-card">
+                    <div className="meta-card-title">Metadata</div>
+                    <div className="meta-row"><span className="meta-key">Kind</span><span className="meta-val">Pattern</span></div>
+                    <div className="meta-row"><span className="meta-key">Status</span><span className="meta-val">Active</span></div>
+                    <div className="meta-row"><span className="meta-key">Confidence</span><span className="meta-val">0.92</span></div>
+                    <div className="meta-row"><span className="meta-key">Last edited</span><span className="meta-val">2 days ago</span></div>
+                    <div className="meta-row"><span className="meta-key">Editor</span><span className="meta-val">Atlas</span></div>
+                    <div className="meta-row"><span className="meta-key">Access count</span><span className="meta-val">47</span></div>
+                  </div>
+                  <div className="meta-card">
+                    <div className="meta-card-title">Backlinks</div>
+                    <div className="backlink-row">Session token rotation strategy</div>
+                    <div className="backlink-row">Decision: Move to passkeys over TOTP</div>
+                    <div className="backlink-row">Failure: Forced re-auth in Q1</div>
+                  </div>
+                </div>
+              </div>
+              <div className="discussion-section">
+                <div className="discussion-title">Discussion</div>
+                <div className="discussion-message">
+                  <div className="discussion-avatar discussion-avatar--agent">AT</div>
+                  <div>
+                    <span className="discussion-name">Atlas</span>
+                    <span className="discussion-time">2 days ago</span>
+                    <div className="discussion-body">Updated the browser compatibility section with Safari 16+ requirement. Added the auth_method analytics dimension.</div>
+                  </div>
+                </div>
+                <div className="discussion-message">
+                  <div className="discussion-avatar">TG</div>
+                  <div>
+                    <span className="discussion-name">Tobias</span>
+                    <span className="discussion-time">1 day ago</span>
+                    <div className="discussion-body">Good. Can you also add the fallback flow for hardware token users? Jordan raised this in the separate thread.</div>
+                  </div>
+                </div>
+                <div className="discussion-composer">
+                  <input className="discussion-input" type="text" placeholder="Add to discussion..." />
+                  <button className="btn-primary" style={{ fontSize: 12, padding: '7px 12px' }}>Send</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    ReactDOM.render(<Demo />, document.getElementById('root'));
+  </script>
+  <script src="../themes/_switcher.js"></script>
+</body>
+</html>

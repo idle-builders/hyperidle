@@ -33,9 +33,11 @@ vi.mock("../hooks/useDensity.js", () => ({
 import { SettingsAppearance } from "../settings/SettingsAppearance.js";
 
 describe("W2 AC-7 — SettingsAppearance theme-only layout", () => {
-	it("renders the theme selector", () => {
-		render(<SettingsAppearance />);
-		expect(screen.getByLabelText(/theme/i)).toBeInTheDocument();
+	it("renders the theme selector as swatch cards", () => {
+		const { container } = render(<SettingsAppearance />);
+		// W3 AC-50: theme options are swatch card buttons with aria-label="<Name> theme"
+		expect(screen.getByLabelText(/light theme/i)).toBeInTheDocument();
+		expect(container.querySelectorAll("[data-theme-option]").length).toBe(3);
 	});
 
 	it("does NOT render a density selector", () => {
@@ -48,24 +50,22 @@ describe("W2 AC-7 — SettingsAppearance theme-only layout", () => {
 		expect(container.querySelector("#density-select")).toBeNull();
 	});
 
-	it("theme select has light, dark, and system options", () => {
-		render(<SettingsAppearance />);
-		const themeSelect = screen.getByLabelText(/theme/i);
-		expect(themeSelect).toBeInTheDocument();
-		// Options: Light, Dark, System
-		const options = themeSelect.querySelectorAll("option");
-		const optionValues = Array.from(options).map((o) => (o as HTMLOptionElement).value);
-		expect(optionValues).toContain("light");
-		expect(optionValues).toContain("dark");
-		expect(optionValues).toContain("system");
+	it("theme swatch cards include light, dark, and system options", () => {
+		const { container } = render(<SettingsAppearance />);
+		// W3 AC-50: theme options are swatch cards with data-theme-option attribute
+		const swatches = container.querySelectorAll("[data-theme-option]");
+		const swatchValues = Array.from(swatches).map((s) => s.getAttribute("data-theme-option"));
+		expect(swatchValues).toContain("light");
+		expect(swatchValues).toContain("dark");
+		expect(swatchValues).toContain("system");
 	});
 
-	it("renders only one select element (theme only, no density)", () => {
+	it("renders exactly three swatch cards (no select element)", () => {
 		const { container } = render(<SettingsAppearance />);
+		// W3 AC-50: swatch card pattern — no <select>, exactly 3 swatch buttons
 		const selects = container.querySelectorAll("select");
-		expect(
-			selects.length,
-			"SettingsAppearance must render exactly one select (theme only, not density+theme)",
-		).toBe(1);
+		expect(selects.length, "SettingsAppearance must not render any <select> elements").toBe(0);
+		const swatches = container.querySelectorAll("[data-theme-option]");
+		expect(swatches.length, "SettingsAppearance must render exactly 3 swatch cards").toBe(3);
 	});
 });

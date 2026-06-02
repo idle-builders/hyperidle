@@ -99,21 +99,46 @@ export function SetupFlow(): JSX.Element {
 	);
 
 	return (
-		<div className="flex items-start justify-center min-h-screen bg-[var(--surface-page)]">
-			<div className="w-full max-w-md py-16 px-[24px]">
-				<h1 className="text-[24px] font-medium text-[var(--text-primary)] mb-8">HyperIdle Setup</h1>
+		<div className="flex items-center justify-center min-h-screen bg-[var(--surface-page)] px-[48px] py-[48px]">
+			{/* W3 AC-53: Card with shadow */}
+			<div
+				data-testid="onboarding-card"
+				className="w-full max-w-[520px] bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-elevated)] px-[48px] py-[48px] flex flex-col gap-6"
+			>
+				{/* Brand + tagline */}
+				<div className="flex flex-col items-center gap-2 text-center">
+					{/* W3 AC-53: Illustration */}
+					<div
+						data-testid="onboarding-illustration"
+						aria-hidden="true"
+						className="w-12 h-12 rounded-full bg-[color-mix(in_oklab,var(--accent-primary)_16%,transparent)] flex items-center justify-center text-[24px]"
+					>
+						⬡
+					</div>
+					{/* W3 AC-53: Brand name */}
+					<h1
+						data-testid="onboarding-brand"
+						className="text-[24px] font-semibold text-[var(--text-primary)]"
+					>
+						HyperIdle
+					</h1>
+					{/* W3 AC-53: Tagline */}
+					<p className="text-[13px] text-[var(--text-secondary)]">
+						Your agentic operating system. Humans steer, agents build.
+					</p>
+				</div>
 
-				<form onSubmit={handleSubmit} className="space-y-6">
-					{/* Name field */}
+				<form onSubmit={handleSubmit} className="flex flex-col gap-4">
+					{/* W3 AC-54: "Your name" label (required) */}
 					<div className="form-control">
 						<label className="label" htmlFor="setup-name">
-							<span className="label-text text-[var(--text-secondary)]">Name</span>
+							<span className="label-text text-[var(--text-secondary)]">Your name</span>
 						</label>
 						<input
 							id="setup-name"
 							type="text"
-							className="input input-sm input-bordered w-full text-[var(--text-primary)]"
-							placeholder="Your name"
+							className="input input-sm input-bordered w-full text-[var(--text-primary)] text-base"
+							placeholder="Alice"
 							value={name}
 							onChange={(e) => setName(e.target.value)}
 							required
@@ -122,20 +147,21 @@ export function SetupFlow(): JSX.Element {
 						/>
 					</div>
 
-					{/* Anthropic API Key field */}
+					{/* Anthropic API Key field (required) */}
 					<div className="form-control">
 						<label className="label" htmlFor="setup-api-key">
-							<span className="label-text text-[var(--text-secondary)]">Anthropic API Key</span>
+							<span className="label-text text-[var(--text-secondary)]">Anthropic API key</span>
 						</label>
 						<input
 							id="setup-api-key"
 							type="password"
-							className="input input-sm input-bordered w-full text-[var(--text-primary)]"
+							className="input input-sm input-bordered w-full text-[var(--text-primary)] text-base"
 							placeholder="sk-ant-..."
 							value={apiKey}
 							onChange={(e) => setApiKey(e.target.value)}
+							required
 						/>
-						<p className="text-sm text-[var(--text-tertiary)] mt-2">
+						<p className="text-[12px] text-[var(--text-tertiary)] mt-1">
 							Your agents need this to work.
 						</p>
 					</div>
@@ -143,9 +169,7 @@ export function SetupFlow(): JSX.Element {
 					{/* Repo path (optional) */}
 					<div className="form-control">
 						<label className="label" htmlFor="setup-repo">
-							<span className="label-text text-[var(--text-secondary)]">
-								Project folder (optional)
-							</span>
+							<span className="label-text text-[var(--text-secondary)]">Project folder</span>
 						</label>
 						<div className="relative">
 							{window.__HYPERIDLE__?.shell?.selectFolder && (

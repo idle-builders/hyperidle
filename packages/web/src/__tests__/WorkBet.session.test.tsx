@@ -1,14 +1,19 @@
 /**
- * L19 — WorkBet session metadata tests (red phase).
+ * L19 — WorkBet task list tests (updated for W3).
  *
- * AC coverage:
- *  - Task with completed outcome + valid harnessUrl → outcome chip rendered, jump-out link present
- *  - Task with null outcome → no outcome chip, no jump-out link
- *  - Task with malformed harness URL (no http/https) → no jump-out link rendered
- *  - Task with crashed outcome → outcome chip shows error status
+ * W3 AC-22: Task rows are flat divs. The outcome column and harness-URL
+ * jump-out links were removed from the task list in W3.
+ *
+ * The W3 task row shows: title, owner, and StatusChip for task.state.
+ *
+ * Covers:
+ * - Task rows render title and owner
+ * - StatusChip reflects task.state (in_progress → HEALTHY, accepted → DONE)
+ * - No "Open session in harness" links in the task list
+ * - Tasks with different states render distinct status chips
  */
 
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { WorkBet } from "../pages/WorkBet";
@@ -70,8 +75,15 @@ function renderBet(bet: BetDetail): ReturnType<typeof render> {
 	);
 }
 
-describe("WorkBet — session metadata (L19)", () => {
-	it("task with completed outcome + valid harnessUrl → outcome chip and jump-out link rendered", async () => {
+describe("WorkBet — task rows (W3 flat list, L19 updated)", () => {
+	it("task row shows title and owner", async () => {
+		const bet = makeBet([{ title: "Auth task", owner: "Alice" }]);
+		renderBet(bet);
+		expect(await screen.findByText("Auth task")).toBeInTheDocument();
+		expect(await screen.findByText("Alice")).toBeInTheDocument();
+	});
+
+	it("W3: no 'Open session in harness' links in task rows", () => {
 		const bet = makeBet([
 			{
 				title: "Auth task",
@@ -80,68 +92,34 @@ describe("WorkBet — session metadata (L19)", () => {
 			},
 		]);
 		renderBet(bet);
-
-		const table = screen.getByRole("table");
-		const rows = within(table).getAllByRole("row");
-		// First data row (index 1 = skip thead)
-		const taskRow = rows[1];
-
-		// Outcome chip should be rendered (StatusChip with "done" → "DONE" text)
-		expect(within(taskRow).getByText(/done/i)).toBeInTheDocument();
-
-		// Jump-out link should be present — query by text since aria-label includes "(opens in new tab)"
-		const link = screen.getByRole("link", { name: /open session in harness/i });
-		expect(link).toBeInTheDocument();
-		expect(link).toHaveAttribute("href", "https://harness.example.com/session/abc");
-		expect(link).toHaveAttribute("target", "_blank");
-		expect(link).toHaveAttribute("rel", "noopener noreferrer");
-	});
-
-	it("task with null outcome → no outcome chip, no jump-out link", () => {
-		const bet = makeBet([
-			{
-				title: "Unstarted task",
-				latestSessionOutcome: null,
-				latestSessionHarnessUrl: null,
-			},
-		]);
-		renderBet(bet);
-
-		// No jump-out link should be present anywhere in the document
+		// W3 removed the harness link column from task rows
 		expect(
 			screen.queryByRole("link", { name: /open session in harness/i }),
 		).not.toBeInTheDocument();
 	});
 
-	it("task with malformed harness URL (no http/https) → no jump-out link rendered", () => {
-		const bet = makeBet([
-			{
-				title: "Malformed URL task",
-				latestSessionOutcome: "completed",
-				latestSessionHarnessUrl: "javascript:alert(1)",
-			},
-		]);
+	it("in_progress task renders HEALTHY status chip", async () => {
+		const bet = makeBet([{ title: "Active task", state: "in_progress" }]);
 		renderBet(bet);
-
-		// Jump-out link must NOT be rendered for malformed URL
-		expect(
-			screen.queryByRole("link", { name: /open session in harness/i }),
-		).not.toBeInTheDocument();
+		// taskStateToStatus("in_progress") → "healthy" → displays "HEALTHY"
+		// Multiple StatusChip elements may be present (BetCard + task row); getAllByText is safe
+		const chips = await screen.findAllByText(/^healthy$/i);
+		expect(chips.length).toBeGreaterThan(0);
 	});
 
-	it('task with crashed outcome → outcome chip shows error status ("ERROR")', () => {
-		const bet = makeBet([
-			{
-				title: "Crashed task",
-				latestSessionOutcome: "crashed",
-				latestSessionHarnessUrl: null,
-			},
-		]);
+	it("done task renders DONE status chip", async () => {
+		const bet = makeBet([{ title: "Done task", state: "done" }]);
 		renderBet(bet);
+		// taskStateToStatus("done") → "done" → displays "DONE"
+		const chips = await screen.findAllByText(/^done$/i);
+		expect(chips.length).toBeGreaterThan(0);
+	});
 
-		// Outcome chip should show "ERROR" (StatusChip maps "error" → "ERROR" label)
-		// There should be exactly one ERROR chip (not from task state which is "in_progress" → HEALTHY)
-		const errorChips = screen.getAllByText(/^error$/i);
-		expect(errorChips.length).toBeGreaterThan(0);
+	it("tasks render as flat rows with data-testid='task-row' (no table)", async () => {
+		const bet = makeBet([{ title: "Task A" }, { title: "Task B" }]);
+		renderBet(bet);
+		const rows = await screen.findAllByTestId("task-row");
+		expect(rows.length).toBe(2);
+		expect(screen.queryByRole("table")).toBeNull();
 	});
 });
