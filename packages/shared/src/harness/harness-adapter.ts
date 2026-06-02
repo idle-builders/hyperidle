@@ -6,7 +6,10 @@ import type { HarnessEvent } from "./harness-events.js";
 
 export interface SessionConfig {
 	readonly workspacePath: string;
+	/** @deprecated Use composedPrompt instead. Retained for path validation. */
 	readonly soulPromptPath: string;
+	/** X1: fully composed prompt text, written as CLAUDE.md in the workspace. */
+	readonly composedPrompt: string;
 	readonly modelTier: ModelTier;
 	readonly tools: readonly string[];
 }

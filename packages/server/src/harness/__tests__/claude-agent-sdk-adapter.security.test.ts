@@ -18,6 +18,7 @@ import { ClaudeAgentSdkAdapter } from "../claude-agent-sdk-adapter.js";
 const TEST_CONFIG: SessionConfig = {
 	workspacePath: "/workspace/test",
 	soulPromptPath: "/workspace/prompts/builder.md",
+	composedPrompt: "",
 	modelTier: "workhorse",
 	tools: ["Read", "Write", "Bash"],
 };

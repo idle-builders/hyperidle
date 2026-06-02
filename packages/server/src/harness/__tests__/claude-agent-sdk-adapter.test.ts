@@ -9,6 +9,7 @@ import { MODEL_TIER_MAP, resolveModel } from "../model-tier-map.js";
 const TEST_CONFIG: SessionConfig = {
 	workspacePath: "/workspace/test",
 	soulPromptPath: "/workspace/prompts/builder.md",
+	composedPrompt: "",
 	modelTier: "workhorse",
 	tools: ["Read", "Write", "Bash"],
 };
@@ -200,6 +201,20 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 
 			expect(handle.sessionId).toBeDefined();
 			expect(typeof handle.sessionId).toBe("string");
+		});
+
+		it("uses kickoff message as prompt (X1: full instructions in CLAUDE.md)", async () => {
+			const mockQuery = createMockQuery([]);
+			const queryFn = vi.fn(() => mockQuery);
+
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			await adapter.startSession(TEST_CONFIG);
+
+			expect(queryFn).toHaveBeenCalledWith(
+				expect.objectContaining({
+					prompt: "Begin working on your assigned task.",
+				}),
+			);
 		});
 
 		it("passes correct model to SDK query", async () => {

@@ -12,16 +12,18 @@ import { MockHarnessAdapter } from "../harness/index.js";
 const TEST_CONFIG: SessionConfig = {
 	workspacePath: "/workspace/test",
 	soulPromptPath: "/workspace/prompts/builder.md",
+	composedPrompt: "",
 	modelTier: "workhorse",
 	tools: ["read_file", "write_file", "run_command"],
 };
 
 describe("HarnessAdapter interface (D1)", () => {
 	describe("SessionConfig", () => {
-		it("includes workspace path, soul prompt path, model tier, and tools list", () => {
+		it("includes workspace path, soul prompt path, composed prompt, model tier, and tools list", () => {
 			const config: SessionConfig = TEST_CONFIG;
 			expect(config.workspacePath).toBe("/workspace/test");
 			expect(config.soulPromptPath).toBe("/workspace/prompts/builder.md");
+			expect(config.composedPrompt).toBe("");
 			expect(config.modelTier).toBe("workhorse");
 			expect(config.tools).toEqual(["read_file", "write_file", "run_command"]);
 		});

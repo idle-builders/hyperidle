@@ -317,11 +317,11 @@ describe("getImpactedVitestProjects", () => {
 		expect(getImpactedVitestProjects(impact)).toBeNull();
 	});
 
-	it("maps impacted packages to vitest project paths", () => {
+	it("maps impacted packages to vitest project names", () => {
 		const impact = makeImpact(["web", "server"]);
 		const projects = getImpactedVitestProjects(impact);
 		expect(projects).toEqual(
-			expect.arrayContaining(["packages/web", "packages/server"]),
+			expect.arrayContaining(["web", "server"]),
 		);
 		expect(projects).toHaveLength(2);
 	});

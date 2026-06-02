@@ -21,7 +21,6 @@ import {
 	bets,
 	createTestDb,
 	type HyperIdleDb,
-	sessions,
 	tasks,
 	teamMembers,
 	teams,
@@ -37,8 +36,8 @@ import {
 	substituteTemplateVars,
 	writeWorkspaceCLAUDEmd,
 } from "../prompt-composition.js";
-import { buildSessionContext, buildSessionContextData } from "../session-context.js";
 import type { SessionContextData } from "../session-context.js";
+import { buildSessionContext, buildSessionContextData } from "../session-context.js";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -487,8 +486,7 @@ describe("token budget enforcement", () => {
 	it("truncates oversized persona when it exceeds budget", async () => {
 		// Generate a soul prompt that exceeds 4000 tokens (whitespace-split approx: ~4000 words)
 		// We build a single word repeated enough times to exceed the budget after adding tools.
-		const bigContent =
-			"# Huge Identity Heading\n\n" + "word ".repeat(4200) + "\n\n## Another section\n\nMore words.\n";
+		const bigContent = `# Huge Identity Heading\n\n${"word ".repeat(4200)}\n\n## Another section\n\nMore words.\n`;
 		const soulPath = writeTempSoulPrompt(bigContent);
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
@@ -508,7 +506,7 @@ describe("token budget enforcement", () => {
 	});
 
 	it("truncated prompt still contains all non-persona sections", async () => {
-		const bigContent = "# Big Soul\n\n" + "word ".repeat(4200) + "\n";
+		const bigContent = `# Big Soul\n\n${"word ".repeat(4200)}\n`;
 		const soulPath = writeTempSoulPrompt(bigContent);
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
@@ -600,9 +598,10 @@ describe("buildSessionContextData", () => {
 		const betId = "bet-1";
 		const taskId = "task-1";
 		const threadId = "thread-1";
-		const sessionId = "sess-1";
 
-		await db.insert(teams).values({ id: productId, name: "TestProduct", phase: "build", createdAt: now });
+		await db
+			.insert(teams)
+			.values({ id: productId, name: "TestProduct", phase: "build", createdAt: now });
 		await db.insert(teamMembers).values({
 			id: teamMemberId,
 			teamId: productId,
@@ -649,23 +648,14 @@ describe("buildSessionContextData", () => {
 			createdAt: now,
 			updatedAt: now,
 		});
-		await db.insert(sessions).values({
-			id: sessionId,
-			taskId,
-			agentId,
-			workspacePath: "/workspace/sess-1",
-			status: "running",
-			createdAt: now,
-		});
-
-		return { productId, agentId, sessionId, taskId };
+		return { productId, agentId, taskId };
 	}
 
 	it("returns typed SessionContextData without TOON encoding", async () => {
-		const { productId, agentId, sessionId, taskId } = await seedTestData();
+		const { productId, agentId, taskId } = await seedTestData();
 
 		const data = await buildSessionContextData(db, {
-			sessionId,
+			sessionId: "placeholder",
 			taskId,
 			agentId,
 			agentRole: "builder",
@@ -681,10 +671,10 @@ describe("buildSessionContextData", () => {
 	});
 
 	it("is not a string (not TOON-encoded)", async () => {
-		const { productId, agentId, sessionId, taskId } = await seedTestData();
+		const { productId, agentId, taskId } = await seedTestData();
 
 		const data = await buildSessionContextData(db, {
-			sessionId,
+			sessionId: "placeholder",
 			taskId,
 			agentId,
 			agentRole: "builder",
@@ -721,9 +711,10 @@ describe("buildSessionContext regression", () => {
 		const betId = "reg-bet-1";
 		const taskId = "reg-task-1";
 		const threadId = "reg-thread-1";
-		const sessionId = "reg-sess-1";
 
-		await db.insert(teams).values({ id: productId, name: "RegProduct", phase: "build", createdAt: now });
+		await db
+			.insert(teams)
+			.values({ id: productId, name: "RegProduct", phase: "build", createdAt: now });
 		await db.insert(teamMembers).values({
 			id: teamMemberId,
 			teamId: productId,
@@ -770,23 +761,15 @@ describe("buildSessionContext regression", () => {
 			createdAt: now,
 			updatedAt: now,
 		});
-		await db.insert(sessions).values({
-			id: sessionId,
-			taskId,
-			agentId,
-			workspacePath: "/workspace/reg-sess-1",
-			status: "running",
-			createdAt: now,
-		});
-
-		return { productId, agentId, sessionId, taskId };
+		return { productId, agentId, taskId };
 	}
 
 	it("buildSessionContext returns same TOON as buildSessionContextData + encode would produce", async () => {
 		// This test verifies the refactor: buildSessionContext = buildSessionContextData + encode.
 		// After the refactor, calling buildSessionContext must still return a TOON-encoded string
 		// whose decoded content equals what buildSessionContextData returns.
-		const { productId, agentId, sessionId, taskId } = await seedRegTestData();
+		const { productId, agentId, taskId } = await seedRegTestData();
+		const sessionId = "reg-sess-placeholder";
 		const config = { sessionId, taskId, agentId, agentRole: "builder" as const, productId };
 
 		const toon = await buildSessionContext(db, config);

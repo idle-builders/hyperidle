@@ -269,6 +269,7 @@ describe("WorkerConnectionManager — post-registration message routing", () => 
 		const handle = await selected?.adapter.startSession({
 			workspacePath: "/workspace/test",
 			soulPromptPath: "",
+			composedPrompt: "",
 			modelTier: "workhorse",
 			tools: [],
 		});

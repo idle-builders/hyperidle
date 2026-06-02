@@ -93,6 +93,7 @@ describe("ServerToWorkerMessage", () => {
 			config: {
 				workspacePath: "/workspace/test",
 				soulPromptPath: "/workspace/prompts/builder.md",
+				composedPrompt: "",
 				modelTier: "workhorse",
 				tools: ["Read", "Write"],
 			},
@@ -171,6 +172,7 @@ describe("ServerDispatchMessage shape", () => {
 			config: {
 				workspacePath: "/tmp/ws",
 				soulPromptPath: "",
+				composedPrompt: "",
 				modelTier: "fast",
 				tools: [],
 			},

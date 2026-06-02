@@ -137,6 +137,7 @@ describe("IsolatedHarnessAdapter env allowlist", () => {
 		await adapter.startSession({
 			workspacePath: "/workspace/test",
 			soulPromptPath: "",
+			composedPrompt: "",
 			modelTier: "workhorse",
 			tools: [],
 		});
@@ -185,6 +186,7 @@ describe("IsolatedHarnessAdapter env allowlist", () => {
 		await adapter.startSession({
 			workspacePath: "/workspace/test",
 			soulPromptPath: "",
+			composedPrompt: "",
 			modelTier: "workhorse",
 			tools: [],
 		});
@@ -240,6 +242,7 @@ describe("IsolatedHarnessAdapter duration limit", () => {
 		const handle = await adapter.startSession({
 			workspacePath: "/workspace/test",
 			soulPromptPath: "",
+			composedPrompt: "",
 			modelTier: "workhorse",
 			tools: [],
 		});
@@ -297,6 +300,7 @@ describe("IsolatedHarnessAdapter stopSession SIGKILL escalation", () => {
 		const handle = await adapter.startSession({
 			workspacePath: "/workspace/test",
 			soulPromptPath: "",
+			composedPrompt: "",
 			modelTier: "workhorse",
 			tools: [],
 		});
@@ -348,6 +352,7 @@ describe("IsolatedHarnessAdapter event streaming", () => {
 		const handle = await adapter.startSession({
 			workspacePath: "/workspace/test",
 			soulPromptPath: "",
+			composedPrompt: "",
 			modelTier: "workhorse",
 			tools: [],
 		});
@@ -421,6 +426,7 @@ describe("IsolatedHarnessAdapter stopSession", () => {
 		const handle = await adapter.startSession({
 			workspacePath: "/workspace/test",
 			soulPromptPath: "",
+			composedPrompt: "",
 			modelTier: "workhorse",
 			tools: [],
 		});

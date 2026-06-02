@@ -227,18 +227,21 @@ export function shouldRunTool(
 	return trigger.some((pkg) => impact.impactedPackages.has(pkg));
 }
 
-// Vitest project names from vitest.config.ts that correspond to package dirs.
+// Map from package dir name → vitest project name (the `name` field in each
+// package's vitest.config.ts). Vitest 4.x --project flag matches on project
+// name, not on the directory path used in the root vitest.config.ts projects
+// array. Using paths here causes "No projects matched the filter" errors.
 const VITEST_PROJECT_PACKAGES: Record<string, string> = {
-	"api-contract": "packages/api-contract",
-	db: "packages/db",
-	desktop: "packages/desktop",
-	server: "packages/server",
-	fabric: "packages/fabric",
-	shared: "packages/shared",
-	web: "packages/web",
-	"design-system": "packages/design-system",
-	"eslint-plugin-design": "packages/eslint-plugin-design",
-	pipeline: "packages/pipeline",
+	"api-contract": "api-contract",
+	db: "db",
+	desktop: "desktop",
+	server: "server",
+	fabric: "fabric",
+	shared: "shared",
+	web: "web",
+	"design-system": "design-system",
+	"eslint-plugin-design": "eslint-plugin-design",
+	pipeline: "pipeline",
 };
 
 export function getImpactedVitestProjects(

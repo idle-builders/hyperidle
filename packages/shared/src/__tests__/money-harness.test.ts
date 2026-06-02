@@ -24,6 +24,7 @@ describe("SessionResult (AC9)", () => {
 		const handle = await adapter.startSession({
 			workspacePath: "/tmp/ws",
 			soulPromptPath: "/tmp/soul.md",
+			composedPrompt: "",
 			modelTier: "workhorse",
 			tools: [],
 		});
@@ -39,6 +40,7 @@ describe("SessionResult (AC9)", () => {
 		const handle = await adapter.startSession({
 			workspacePath: "/tmp/ws",
 			soulPromptPath: "/tmp/soul.md",
+			composedPrompt: "",
 			modelTier: "workhorse",
 			tools: [],
 		});

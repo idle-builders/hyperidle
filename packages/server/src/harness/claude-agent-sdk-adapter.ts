@@ -141,8 +141,13 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 			queryOptions.allowDangerouslySkipPermissions = true;
 		}
 
+		// X1: Full instructions are in CLAUDE.md which Claude Agent SDK auto-discovers
+		// from `cwd` (the workspace). The prompt is now just a kickoff message.
+		// @lore X1: CLAUDE.md as primary delivery — claude code reads CLAUDE.md from
+		// cwd and injects it as a system-reminder automatically. No systemPrompt
+		// override needed; the default system prompt is preserved.
 		const q = this.queryFn({
-			prompt: `Session workspace: ${config.workspacePath}`,
+			prompt: "Begin working on your assigned task.",
 			options: queryOptions as Parameters<typeof sdkQuery>[0]["options"],
 		});
 
