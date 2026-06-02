@@ -17,13 +17,13 @@
  * AC-46: Metadata aside stays read-only during editing.
  */
 
+import { KnowledgeRow } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
-import { KnowledgeList } from "../../pages/KnowledgeList";
 import { KnowledgeDetail } from "../../pages/KnowledgeDetail";
-import { KnowledgeRow } from "@hyperidle/design-system";
+import { KnowledgeList } from "../../pages/KnowledgeList";
 
 // Mock API for KnowledgeList
 vi.mock("../../hooks/useFetch", () => ({
@@ -77,8 +77,13 @@ vi.mock("../../hooks/useKnowledgeItem", () => ({
 			status: "active",
 			kind: "decision",
 			layer: "L2",
+			// W3: scopeKind must be "practice" so the Edit button renders (factory items are read-only)
+			scopeKind: "practice",
+			scopeId: null,
 			version: 1,
+			format: "markdown",
 			confidence: 0.9,
+			createdAt: "2026-01-01T10:00:00.000Z",
 			updatedAt: "2026-01-01T10:00:00.000Z",
 			updatedBy: "Test Founder",
 			accessCount: 42,
@@ -289,10 +294,7 @@ describe("W3 AC-37 — Curated/Triage tab switching", () => {
 describe("W3 AC-38 — Knowledge list max-width 800px", () => {
 	it("knowledge list container has max-w-[800px] and mx-auto", () => {
 		renderKnowledgeList();
-		const listContainer = document.querySelector(
-			"[data-testid='knowledge-list-page'] [data-testid='knowledge-list-body'], [data-testid='knowledge-list-container']",
-		);
-		// If these testids don't exist yet, check for max-width class pattern
+		// Check for max-width class pattern inside the page
 		const page = document.querySelector("[data-testid='knowledge-list-page']");
 		expect(page).not.toBeNull();
 		// Content container inside page should have max-width
@@ -455,8 +457,9 @@ describe("W3 AC-44 — Knowledge edit mode", () => {
 		const user = userEvent.setup();
 		renderKnowledgeDetail();
 		await user.click(screen.getByRole("button", { name: /^edit$/i }));
+		// W3: edit panel uses data-testid="knowledge-edit-panel" (renamed from knowledge-editor-area)
 		const editorArea = document.querySelector(
-			"[data-testid='knowledge-editor-area'], [class*='editor-area']",
+			"[data-testid='knowledge-edit-panel'], [class*='editor-area']",
 		);
 		expect(editorArea).not.toBeNull();
 	});

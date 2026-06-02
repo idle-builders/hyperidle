@@ -85,6 +85,14 @@ export function BetCard({
 					? Math.round((progress.done / progress.total) * 100)
 					: 0;
 
+	// W3 AC-16: label shows "done/total" for object progress, "N%" for numeric progress
+	const progressLabel: string | null =
+		progress === undefined || progress === null
+			? null
+			: typeof progress === "number"
+				? `${progress}%`
+				: `${progress.done}/${progress.total}`;
+
 	return (
 		<div
 			{...dsProps("BetCard", "2")}
@@ -172,7 +180,7 @@ export function BetCard({
 							<span />
 						)}
 						<span className="text-[12px] font-mono text-[var(--text-secondary)] tabular-nums">
-							{progressPct}%
+							{progressLabel}
 						</span>
 					</div>
 				</div>

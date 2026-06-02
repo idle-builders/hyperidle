@@ -15,7 +15,6 @@
  * Client-side filtering by selectedTeamId.
  */
 import { BetCard, EmptyState, SkeletonCard } from "@hyperidle/design-system";
-import type { BetStatus } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";

@@ -8,8 +8,7 @@
  * (the new <section>) and we check for styled block elements rather than
  * the raw testid.
  */
-import { render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { MOCK_BETS } from "../pages/__fixtures__/work-bet-fixtures";

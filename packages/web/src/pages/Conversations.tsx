@@ -565,9 +565,10 @@ export function Conversations(): JSX.Element {
 	if (!threadId) {
 		return (
 			<div className="flex flex-col h-full" data-testid="conversations-page">
-				{/* W3 AC-8: header with "New thread" button */}
+				{/* W3 AC-8: header with "New thread" button + filter bar */}
 				<div
 					data-conversations-header
+					data-testid="conversations-filter-bar"
 					className="flex items-center justify-between gap-2 mb-2 shrink-0"
 				>
 					<h2 className="text-[14px] font-[600] text-[var(--text-primary)]">Conversations</h2>

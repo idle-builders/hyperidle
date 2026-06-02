@@ -230,7 +230,7 @@ export function ThreadSections({
 		flatFiltered.sort((a, b) => {
 			const at = Date.parse(a.timestamp);
 			const bt = Date.parse(b.timestamp);
-			if (!Number.isNaN(at) && !Number.isNaN(bt)) return bt - at;
+			if (!(Number.isNaN(at) || Number.isNaN(bt))) return bt - at;
 			return a.id.localeCompare(b.id);
 		});
 

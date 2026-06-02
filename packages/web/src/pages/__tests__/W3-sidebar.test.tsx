@@ -10,8 +10,8 @@
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { Sidebar } from "../../shell/Sidebar";
 import type { SidebarProps } from "../../shell/Sidebar";
+import { Sidebar } from "../../shell/Sidebar";
 
 function makeProps(overrides: Partial<SidebarProps> = {}): SidebarProps {
 	return {

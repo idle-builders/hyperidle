@@ -32,13 +32,16 @@ describe("KnowledgeDetail", () => {
 	it("renders source and timestamp", () => {
 		renderPage("k1");
 		expect(screen.getByText("Architecture review session, Architect Agent")).toBeInTheDocument();
-		expect(screen.getByText("1d ago")).toBeInTheDocument();
+		// W3: timestamp appears in both metadata bar and metadata aside; accept multiple occurrences.
+		expect(screen.getAllByText("1d ago").length).toBeGreaterThanOrEqual(1);
 	});
 
 	it("renders layer and kind tags", () => {
 		renderPage("k1");
-		expect(screen.getByText("company")).toBeInTheDocument();
-		expect(screen.getByText("belief")).toBeInTheDocument();
+		// W3: layer and kind appear in both the metadata bar (Tag) and the metadata aside.
+		// Use getAllByText to handle multiple occurrences — at least one must exist.
+		expect(screen.getAllByText("company").length).toBeGreaterThanOrEqual(1);
+		expect(screen.getAllByText("belief").length).toBeGreaterThanOrEqual(1);
 	});
 
 	it("renders fallback for unknown knowledge item", () => {

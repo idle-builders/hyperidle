@@ -36,12 +36,12 @@ const defaultProps = {
 	teams: [] as SidebarTeam[],
 	activeTeamId: null,
 	onSelectTeam: vi.fn(),
-	activeScope: null,
-	onSelectScope: vi.fn(),
+	// W3 AC-3: activeScope/onSelectScope removed — scope pills are now in KnowledgeList
 	onCocClick: vi.fn(),
 	cocOverlayOpen: false,
 	onSettingsClick: vi.fn(),
 	settingsOpen: false,
+	onSearchClick: vi.fn(),
 };
 
 function mkThread(id: string): SidebarThread {
@@ -76,11 +76,11 @@ describe("Sidebar — AC-1: structure and brand", () => {
 		expect(separators.length).toBeGreaterThanOrEqual(2);
 	});
 
-	it("renders bottom strip with CoC trigger and Settings button", () => {
+	it("renders bottom strip with Assistant trigger and Settings (avatar) button", () => {
 		render(<Sidebar {...defaultProps} />);
-		// CoC trigger
-		expect(screen.getByRole("button", { name: /chief of staff/i })).toBeInTheDocument();
-		// Settings button
+		// Assistant button (replaces Chief of Staff per W3 AC-1)
+		expect(screen.getByRole("button", { name: /assistant/i })).toBeInTheDocument();
+		// Settings button (avatar)
 		expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
 	});
 
@@ -183,23 +183,23 @@ describe("Sidebar — AC-4: Work section team list", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-5: Knowledge section — scope sub-items
+// AC-5: Knowledge section — no scope sub-items (W3 AC-3)
+// Scope sub-items removed from sidebar per W3 AC-3. Scopes are now handled
+// as inline pills on the KnowledgeList page.
 // ---------------------------------------------------------------------------
 
 describe("Sidebar — AC-5: Knowledge section scope sub-items", () => {
-	it("renders the three knowledge scope sub-items: Practices, Products, Factory", () => {
+	it("does NOT render scope sub-items (Practices/Products/Factory) in the Knowledge section", () => {
 		render(<Sidebar {...defaultProps} />);
-		expect(screen.getByText("Practices")).toBeInTheDocument();
-		expect(screen.getByText("Products")).toBeInTheDocument();
-		expect(screen.getByText("Factory")).toBeInTheDocument();
+		// W3 AC-3: scope sub-items removed from sidebar — now inline pills on KnowledgeList
+		expect(screen.queryByText("Practices")).not.toBeInTheDocument();
+		expect(screen.queryByText("Products")).not.toBeInTheDocument();
+		expect(screen.queryByText("Factory")).not.toBeInTheDocument();
 	});
 
-	it("calls onSelectScope with the scope identifier when a scope is clicked", async () => {
-		const user = userEvent.setup();
-		const onSelectScope = vi.fn();
-		render(<Sidebar {...defaultProps} onSelectScope={onSelectScope} />);
-		await user.click(screen.getByText("Practices"));
-		expect(onSelectScope).toHaveBeenCalledWith("practices");
+	it("renders the Knowledge section header", () => {
+		render(<Sidebar {...defaultProps} />);
+		expect(screen.getByRole("button", { name: /^knowledge$/i })).toBeInTheDocument();
 	});
 });
 
@@ -286,16 +286,17 @@ describe("Sidebar — AC-7: Active sub-item styling", () => {
 // ---------------------------------------------------------------------------
 
 describe("Sidebar — AC-9: CoC trigger", () => {
-	it('CoC trigger button is present with aria-label "Chief of Staff"', () => {
+	// W3 AC-1: CoC trigger is now the "Assistant" button (label changed from "Chief of Staff")
+	it('CoC trigger button is present with aria-label "Assistant"', () => {
 		render(<Sidebar {...defaultProps} />);
-		expect(screen.getByRole("button", { name: /chief of staff/i })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /assistant/i })).toBeInTheDocument();
 	});
 
 	it("clicking CoC trigger calls onCocClick", async () => {
 		const user = userEvent.setup();
 		const onCocClick = vi.fn();
 		render(<Sidebar {...defaultProps} onCocClick={onCocClick} />);
-		await user.click(screen.getByRole("button", { name: /chief of staff/i }));
+		await user.click(screen.getByRole("button", { name: /assistant/i }));
 		expect(onCocClick).toHaveBeenCalledOnce();
 	});
 
@@ -303,9 +304,8 @@ describe("Sidebar — AC-9: CoC trigger", () => {
 		const { container } = render(<Sidebar {...defaultProps} />);
 		const bottomStrip = container.querySelector("[data-sidebar-bottom]");
 		expect(bottomStrip).toBeInTheDocument();
-		const cocButton =
-			bottomStrip?.querySelector("[aria-label*='Chief of Staff']") ??
-			bottomStrip?.querySelector("[aria-label*='chief of staff']");
+		// W3 AC-1: "Assistant" button is the CoC trigger in the bottom strip
+		const cocButton = bottomStrip?.querySelector("button[aria-label='Assistant']");
 		expect(cocButton).toBeInTheDocument();
 	});
 });

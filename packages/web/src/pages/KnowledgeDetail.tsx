@@ -451,16 +451,16 @@ function KnowledgeDetailView({
 								)}
 							</span>
 						)}
-						{/* W3 AC-39: Edit/Done button */}
-						{!editing ? (
+						{/* W3 AC-39: Edit/Done button — factory items are read-only */}
+						{!(editing || isFactory) ? (
 							<button type="button" className="btn btn-xs btn-ghost" onClick={startEdit}>
 								Edit
 							</button>
-						) : (
+						) : editing ? (
 							<button type="button" className="btn btn-xs btn-ghost" onClick={exitEdit}>
 								Done
 							</button>
-						)}
+						) : null}
 						{/* W3 AC-39: "..." overflow dropdown replacing inline "Change scope" button */}
 						{!editing && (
 							<div className="relative" data-testid="knowledge-overflow-menu">
@@ -595,7 +595,7 @@ function KnowledgeDetailView({
 				<div className="grid grid-cols-1 lg:grid-cols-[1fr_14rem] gap-4">
 					<div className="flex flex-col gap-3 min-w-0">
 						{editing ? (
-							<div className="flex flex-col gap-2" data-testid="knowledge-editor-area">
+							<div className="flex flex-col gap-2" data-testid="knowledge-edit-panel">
 								<BodyEditor
 									initialContent={editContent}
 									onChange={handleContentChange}
@@ -663,7 +663,7 @@ function KnowledgeDetailView({
 								{item.accessCount ?? 0}
 							</span>
 						</div>
-						{/* W3 AC-41: backlinks card */}
+						{/* W3 AC-41: backlinks card (data-testid="knowledge-backlinks-card") */}
 						<div data-testid="knowledge-backlinks-card" className="flex flex-col gap-[6px] mt-3">
 							<span className="text-[11px] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
 								Related
@@ -671,7 +671,7 @@ function KnowledgeDetailView({
 							{item.structuredRelatedItems && item.structuredRelatedItems.length > 0 ? (
 								<ul className="flex flex-col gap-1">
 									{item.structuredRelatedItems.map((ri) => (
-										<li key={ri.id}>
+										<li key={ri.id} data-testid="related-item">
 											<Link
 												to={`/knowledge/${ri.id}`}
 												className="text-[12px] text-[var(--text-secondary)] hover:underline"
@@ -684,7 +684,7 @@ function KnowledgeDetailView({
 							) : related.length > 0 ? (
 								<ul className="flex flex-col gap-1">
 									{related.map((ri) => (
-										<li key={ri.id}>
+										<li key={ri.id} data-testid="related-item">
 											<Link
 												to={`/knowledge/${ri.id}`}
 												className="text-[12px] text-[var(--text-secondary)] hover:underline"

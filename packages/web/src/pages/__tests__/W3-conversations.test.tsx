@@ -15,8 +15,8 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
-import { ThreadSections } from "../../components/ThreadSections";
 import type { ThreadItem } from "../../components/ThreadSections";
+import { ThreadSections } from "../../components/ThreadSections";
 import { Conversations } from "../../pages/Conversations";
 
 // Mock API hooks used by Conversations page
