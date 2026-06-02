@@ -8,6 +8,7 @@
 //
 // Usage:
 //   npm run verify           # full: all tools in parallel phases (TOON summary)
+//   npm run verify --smart   # package-aware: skip expensive tools unaffected by changes
 //   npm run verify --quick   # quick: static analysis only (phase 1)
 //   npm run verify --raw     # forward each tool's full stdout/stderr
 //   npm run verify --only=test,lint:eslint
@@ -27,6 +28,13 @@ import {
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { encode } from "../packages/shared/src/toon-codec.js";
+import {
+	analyzeImpact,
+	formatSkipMessage,
+	getImpactedVitestProjects,
+	shouldRunTool,
+	type ImpactAnalysis,
+} from "./lib/package-impact.js";
 
 interface Tool {
 	name: string;
@@ -129,6 +137,7 @@ const TOOLS: Tool[] = [
 interface CliFlags {
 	raw: boolean;
 	quick: boolean;
+	smart: boolean;
 	only: Set<string> | null;
 }
 
@@ -164,15 +173,17 @@ process.on("exit", killActiveChildren);
 function parseFlags(argv: readonly string[]): CliFlags {
 	let raw = false;
 	let quick = false;
+	let smart = false;
 	let only: Set<string> | null = null;
 	for (const arg of argv) {
 		if (arg === "--raw") raw = true;
 		else if (arg === "--quick") quick = true;
+		else if (arg === "--smart") smart = true;
 		else if (arg.startsWith("--only=")) {
 			only = new Set(arg.slice("--only=".length).split(",").filter(Boolean));
 		}
 	}
-	return { raw, quick, only };
+	return { raw, quick, smart, only };
 }
 
 // ---------------------------------------------------------------------------
@@ -398,6 +409,37 @@ function writeAttestation(summary: VerifySummary, toolNames: string[]): void {
 // Main
 // ---------------------------------------------------------------------------
 
+function applySmartGating(
+	tools: Tool[],
+	impact: ImpactAnalysis,
+): { tools: Tool[]; skipped: string[] } {
+	const kept: Tool[] = [];
+	const skipped: string[] = [];
+
+	for (const tool of tools) {
+		if (!shouldRunTool(tool.name, impact)) {
+			skipped.push(formatSkipMessage(tool.name, impact));
+			continue;
+		}
+
+		if (tool.name === "test") {
+			const projects = getImpactedVitestProjects(impact);
+			if (projects) {
+				const projectArgs = projects.flatMap((p) => ["--project", p]);
+				kept.push({
+					...tool,
+					args: ["run", "test:raw", "--", ...projectArgs],
+				});
+				continue;
+			}
+		}
+
+		kept.push(tool);
+	}
+
+	return { tools: kept, skipped };
+}
+
 async function main(): Promise<void> {
 	const flags = parseFlags(process.argv.slice(2));
 	let tools: Tool[];
@@ -411,6 +453,34 @@ async function main(): Promise<void> {
 	if (tools.length === 0) {
 		process.stderr.write("verify: no tools matched --only filter\n");
 		process.exit(2);
+	}
+
+	let skippedMessages: string[] = [];
+	if (flags.smart && !flags.only) {
+		const impact = analyzeImpact(process.cwd(), "origin/main");
+		const gated = applySmartGating(tools, impact);
+		tools = gated.tools;
+		skippedMessages = gated.skipped;
+
+		if (impact.forceFull) {
+			process.stderr.write(
+				`[smart] force-full: config/scripts changed (${impact.forceFullFiles.join(", ")})\n`,
+			);
+		} else {
+			const changed = [...impact.changedPackages];
+			const impacted = [...impact.impactedPackages];
+			if (changed.length > 0) {
+				process.stderr.write(
+					`[smart] changed: ${changed.join(", ")} → impacted: ${impacted.join(", ")}\n`,
+				);
+			} else {
+				process.stderr.write("[smart] no package changes detected\n");
+			}
+		}
+
+		for (const msg of skippedMessages) {
+			process.stderr.write(`${msg}\n`);
+		}
 	}
 
 	const startedAt = Date.now();
