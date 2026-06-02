@@ -1,9 +1,8 @@
 {
   "id": "W3",
   "status": "in_progress",
-  "currentStep": "phase5_retro",
+  "currentStep": "phase6_ship",
   "startedAt": "2026-06-02T22:00:00Z",
-  "note": "Restarting pipeline validation — existing work on branch, validating each phase",
   "steps": {
     "setup": "done",
     "phase1_design": "done",
@@ -11,7 +10,7 @@
     "phase2_critique": "done",
     "phase3_build": "done",
     "phase4_review": "done",
-    "phase5_retro": "in_progress",
-    "phase6_ship": "pending"
+    "phase5_retro": "done",
+    "phase6_ship": "in_progress"
   }
 }
