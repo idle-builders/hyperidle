@@ -116,7 +116,7 @@ export function getTransitiveDependents(
 	return result;
 }
 
-export function getChangedFiles(base: string): string[] {
+export function getChangedFiles(base: string): string[] | null {
 	try {
 		const output = execSync(`git diff --name-only ${base}`, {
 			encoding: "utf-8",
@@ -125,7 +125,7 @@ export function getChangedFiles(base: string): string[] {
 		if (!output) return [];
 		return output.split("\n").filter(Boolean);
 	} catch {
-		return [];
+		return null;
 	}
 }
 
@@ -149,6 +149,17 @@ export function analyzeImpact(
 ): ImpactAnalysis {
 	const graph = buildPackageGraph(rootDir);
 	const changedFiles = getChangedFiles(base);
+
+	// Unreachable base (e.g. no origin/main) — force full to be safe.
+	if (changedFiles === null) {
+		return {
+			changedPackages: new Set(),
+			impactedPackages: new Set(),
+			forceFull: true,
+			forceFullFiles: ["(unreachable base)"],
+			changedRootFiles: [],
+		};
+	}
 
 	const changedPackages = new Set<string>();
 	const forceFullFiles: string[] = [];

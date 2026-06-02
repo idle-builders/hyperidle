@@ -24,6 +24,7 @@ interface Attestation {
 	tools: string[];
 	allTools: string[];
 	partial: boolean;
+	smartSkipped: string[];
 	timestamp: string;
 	hmac: string;
 }
@@ -121,8 +122,12 @@ function main(): void {
 		);
 	}
 
+	const smartNote =
+		attestation.smartSkipped?.length > 0
+			? `, smart-skipped: ${attestation.smartSkipped.join(", ")}`
+			: "";
 	process.stdout.write(
-		`check-attestation: verified (${attestation.tools.join(", ")}) at ${attestation.timestamp}\n`,
+		`check-attestation: verified (${attestation.tools.join(", ")}${smartNote}) at ${attestation.timestamp}\n`,
 	);
 }
 

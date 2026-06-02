@@ -7,8 +7,8 @@
 // (TE-4 — silent on green, transparent on red).
 //
 // Usage:
-//   npm run verify           # full: all tools in parallel phases (TOON summary)
-//   npm run verify --smart   # package-aware: skip expensive tools unaffected by changes
+//   npm run verify           # smart: package-aware gating (default)
+//   npm run verify --full    # all tools, no smart gating
 //   npm run verify --quick   # quick: static analysis only (phase 1)
 //   npm run verify --raw     # forward each tool's full stdout/stderr
 //   npm run verify --only=test,lint:eslint
@@ -137,7 +137,7 @@ const TOOLS: Tool[] = [
 interface CliFlags {
 	raw: boolean;
 	quick: boolean;
-	smart: boolean;
+	full: boolean;
 	only: Set<string> | null;
 }
 
@@ -173,17 +173,17 @@ process.on("exit", killActiveChildren);
 function parseFlags(argv: readonly string[]): CliFlags {
 	let raw = false;
 	let quick = false;
-	let smart = false;
+	let full = false;
 	let only: Set<string> | null = null;
 	for (const arg of argv) {
 		if (arg === "--raw") raw = true;
 		else if (arg === "--quick") quick = true;
-		else if (arg === "--smart") smart = true;
+		else if (arg === "--full") full = true;
 		else if (arg.startsWith("--only=")) {
 			only = new Set(arg.slice("--only=".length).split(",").filter(Boolean));
 		}
 	}
-	return { raw, quick, smart, only };
+	return { raw, quick, full, only };
 }
 
 // ---------------------------------------------------------------------------
@@ -364,7 +364,13 @@ function getOrCreateSecret(): string | null {
 	return secret;
 }
 
-function writeAttestation(summary: VerifySummary, toolNames: string[]): void {
+interface AttestationOpts {
+	toolNames: string[];
+	smartSkipped: string[];
+	partial: boolean;
+}
+
+function writeAttestation(summary: VerifySummary, opts: AttestationOpts): void {
 	if (summary.status !== "passed") return;
 
 	const secret = getOrCreateSecret();
@@ -377,9 +383,10 @@ function writeAttestation(summary: VerifySummary, toolNames: string[]): void {
 		sha,
 		status: "passed" as const,
 		dirty,
-		tools: toolNames,
+		tools: opts.toolNames,
 		allTools: ALL_TOOL_NAMES,
-		partial: toolNames.length < ALL_TOOL_NAMES.length,
+		partial: opts.partial,
+		smartSkipped: opts.smartSkipped,
 		timestamp: new Date().toISOString(),
 	};
 
@@ -443,10 +450,13 @@ function applySmartGating(
 async function main(): Promise<void> {
 	const flags = parseFlags(process.argv.slice(2));
 	let tools: Tool[];
+	let isPartial = false;
 	if (flags.only) {
 		tools = TOOLS.filter((t) => flags.only?.has(t.name));
+		isPartial = true;
 	} else if (flags.quick) {
 		tools = TOOLS.filter((t) => t.phase === 1);
+		isPartial = true;
 	} else {
 		tools = TOOLS;
 	}
@@ -455,12 +465,17 @@ async function main(): Promise<void> {
 		process.exit(2);
 	}
 
-	let skippedMessages: string[] = [];
-	if (flags.smart && !flags.only) {
+	// Smart gating is the default. --full, --only, or --quick disable it.
+	const useSmart = !flags.full && !flags.only && !flags.quick;
+	let smartSkippedTools: string[] = [];
+
+	if (useSmart) {
 		const impact = analyzeImpact(process.cwd(), "origin/main");
 		const gated = applySmartGating(tools, impact);
+		smartSkippedTools = gated.tools.length < tools.length
+			? tools.filter((t) => !gated.tools.some((k) => k.name === t.name)).map((t) => t.name)
+			: [];
 		tools = gated.tools;
-		skippedMessages = gated.skipped;
 
 		if (impact.forceFull) {
 			process.stderr.write(
@@ -478,7 +493,7 @@ async function main(): Promise<void> {
 			}
 		}
 
-		for (const msg of skippedMessages) {
+		for (const msg of gated.skipped) {
 			process.stderr.write(`${msg}\n`);
 		}
 	}
@@ -505,10 +520,11 @@ async function main(): Promise<void> {
 		const names = summary.failures.map((f) => `${f.name} (exit ${f.exitCode})`).join(", ");
 		process.stderr.write(`\nverify: ${summary.failed} tool(s) failed: ${names}\n`);
 	}
-	writeAttestation(
-		summary,
-		tools.map((t) => t.name),
-	);
+	writeAttestation(summary, {
+		toolNames: tools.map((t) => t.name),
+		smartSkipped: smartSkippedTools,
+		partial: isPartial,
+	});
 	process.exit(summary.failed);
 }
 
