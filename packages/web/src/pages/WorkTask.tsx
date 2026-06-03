@@ -18,6 +18,7 @@
  * external date library is needed.
  */
 
+import { ErrorState } from "@hyperidle/design-system";
 import type { JSX } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
@@ -172,9 +173,11 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 		return (
 			<div data-testid="task-detail-error" role="alert" className="flex flex-col h-full">
 				<div className="flex-1 overflow-y-auto p-[24px]">
-					<p className="text-[13px] text-[var(--status-error)]">
-						Failed to load task: {betError.message}
-					</p>
+					<ErrorState
+						title="Failed to load task"
+						description={betError.message}
+						dataTestId="task-error-state"
+					/>
 				</div>
 			</div>
 		);

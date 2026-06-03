@@ -545,8 +545,9 @@ export function Conversations(): JSX.Element {
 
 		return (
 			<div className="flex flex-col h-full" data-testid="conversations-page">
-				{/* Visual parity: header bar — 20px/600 title, border-bottom, filter chips inline,
-				    "New thread" button on the right. Matches .main-header in the mockup. */}
+				{/* Visual parity: header bar — 20px/600 title, border-bottom.
+				    When empty: just the title (no filter chips, no "New thread" button).
+				    When populated: filter chips inline + "New thread" button on the right. */}
 				<header
 					data-conversations-header
 					data-testid="conversations-filter-bar"
@@ -556,34 +557,41 @@ export function Conversations(): JSX.Element {
 						<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] shrink-0">
 							Conversations
 						</h2>
-						{/* W3 AC-6: filter chips inline with title in header (visual parity fix).
-						    Custom chip style per mockup — not DaisyUI btn. */}
-						<div className="flex items-center gap-[6px]">
-							<FilterChip
-								label="Blocking"
-								active={toggleFilter.blocking}
-								onToggle={() => setToggleFilter((prev) => ({ ...prev, blocking: !prev.blocking }))}
-							/>
-							<FilterChip
-								label="Unread"
-								active={toggleFilter.unread}
-								onToggle={() => setToggleFilter((prev) => ({ ...prev, unread: !prev.unread }))}
-							/>
-						</div>
+						{/* W3 AC-6: filter chips inline with title in header — hidden in empty state */}
+						{!isEmpty && (
+							<div className="flex items-center gap-[6px]">
+								<FilterChip
+									label="Blocking"
+									active={toggleFilter.blocking}
+									onToggle={() =>
+										setToggleFilter((prev) => ({ ...prev, blocking: !prev.blocking }))
+									}
+								/>
+								<FilterChip
+									label="Unread"
+									active={toggleFilter.unread}
+									onToggle={() => setToggleFilter((prev) => ({ ...prev, unread: !prev.unread }))}
+								/>
+							</div>
+						)}
 					</div>
-					{/* W3 AC-8: New thread button in header — always rendered */}
-					<button
-						type="button"
-						style={{ padding: "7px 12px" }}
-						className="inline-flex items-center text-[12px] font-[500] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-[1.5px] border-transparent cursor-pointer hover:bg-[var(--accent-primary-hover)] transition-colors duration-[var(--motion-default)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] shrink-0"
-						onClick={onNewThread ?? (() => undefined)}
-						data-testid="new-thread-btn"
-					>
-						New thread
-					</button>
+					{/* W3 AC-8: New thread button in header — only shown when threads exist.
+					    In empty state the action lives inside the EmptyState card. */}
+					{!isEmpty && (
+						<button
+							type="button"
+							style={{ padding: "7px 12px" }}
+							className="inline-flex items-center text-[12px] font-[500] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-[1.5px] border-transparent cursor-pointer hover:bg-[var(--accent-primary-hover)] transition-colors duration-[var(--motion-default)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] shrink-0"
+							onClick={onNewThread ?? (() => undefined)}
+							data-testid="new-thread-btn"
+						>
+							New thread
+						</button>
+					)}
 				</header>
 				{isEmpty ? (
 					// Empty state: centered card matching mockup's .empty-center wrapper.
+					// The "New thread" action is inside the EmptyState card (not the header).
 					<div className="flex flex-1 items-center justify-center p-[48px_24px]">
 						<EmptyState
 							title="No conversations yet"

@@ -63,6 +63,12 @@ export function SettingsPage(): JSX.Element {
 						<SettingsAppearance />
 					</section>
 
+					{/* Credentials section — desktop only (CredentialsTab handles non-desktop gracefully) */}
+					<section data-testid="settings-section-credentials" className="flex flex-col gap-[18px]">
+						<SectionTitle>Credentials</SectionTitle>
+						<CredentialsTab />
+					</section>
+
 					{/* Notifications section */}
 					<section
 						data-testid="settings-section-notifications"
@@ -76,12 +82,6 @@ export function SettingsPage(): JSX.Element {
 					<section data-testid="settings-section-backend" className="flex flex-col gap-[18px]">
 						<SectionTitle>Backend</SectionTitle>
 						<SettingsBackend />
-					</section>
-
-					{/* Credentials section — desktop only (CredentialsTab handles non-desktop gracefully) */}
-					<section data-testid="settings-section-credentials" className="flex flex-col gap-[18px]">
-						<SectionTitle>Credentials</SectionTitle>
-						<CredentialsTab />
 					</section>
 				</div>
 			</div>

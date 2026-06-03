@@ -170,135 +170,121 @@ export function Sidebar({
 
 			{/* Scrollable body */}
 			<div className="flex-1 overflow-y-auto min-h-0">
-				{settingsOpen ? (
-					/* Settings mode: replace body with settings nav */
-					<div className="flex flex-col gap-1 py-2">
+				{/* Three view sections are always visible, even in settings mode.
+				 @lore visual-parity-audit: mockup shows Conversations/Work/Knowledge
+				 above the settings nav items when settings is open. Previously the
+				 body was replaced entirely; now it prepends the view sections. */}
+				{/* Conversations section */}
+				<div
+					className="mb-[18px]"
+					data-active-view={activeView === "conversations" ? "conversations" : undefined}
+				>
+					<SectionHeader view="conversations" activeView={activeView} onViewChange={onViewChange} />
+					<ul className="flex flex-col">
+						{visibleThreads.length === 0 ? (
+							<li className="px-[12px] py-1 text-[12px] text-[var(--text-tertiary)]">
+								No threads yet
+							</li>
+						) : (
+							visibleThreads.map((thread) => {
+								const isSelected = thread.id === selectedThreadId;
+								return (
+									<li
+										key={thread.id}
+										data-thread-id={thread.id}
+										aria-current={isSelected ? "page" : undefined}
+										className={[
+											"rounded-[var(--r-subtle)] mb-[3px]",
+											isSelected
+												? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]"
+												: "",
+										].join(" ")}
+									>
+										<button
+											type="button"
+											onClick={() => onSelectThread(thread.id)}
+											className={[
+												"w-full text-left px-[12px] py-[6px] text-[13px]",
+												"flex items-center gap-[6px]",
+												"truncate transition-[background] duration-[var(--motion-fast)]",
+												"hover:bg-[rgba(44,36,26,0.04)] rounded-[var(--r-subtle)]",
+												isSelected
+													? "text-[var(--text-primary)] font-[500]"
+													: "text-[var(--text-secondary)]",
+											].join(" ")}
+										>
+											<span
+												className="inline-block w-[8px] h-[8px] rounded-full shrink-0"
+												style={{ background: "var(--accent-primary)" }}
+												aria-hidden="true"
+											/>
+											<span className="truncate">{thread.title}</span>
+										</button>
+									</li>
+								);
+							})
+						)}
+					</ul>
+				</div>
+
+				{/* Work section */}
+				<div className="mb-[18px]" data-active-view={activeView === "work" ? "work" : undefined}>
+					<SectionHeader view="work" activeView={activeView} onViewChange={onViewChange} />
+					<ul className="flex flex-col">
+						{teams.map((team) => {
+							const isActive = team.id === activeTeamId;
+							return (
+								<li
+									key={team.id}
+									data-team-id={team.id}
+									aria-current={isActive ? "page" : undefined}
+									className={[
+										"rounded-[var(--r-subtle)] mb-[3px]",
+										isActive ? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]" : "",
+									].join(" ")}
+								>
+									<button
+										type="button"
+										onClick={() => onSelectTeam(team.id)}
+										className={[
+											"w-full text-left px-[12px] py-[6px] text-[13px]",
+											"flex items-center gap-[6px]",
+											"truncate transition-[background] duration-[var(--motion-fast)]",
+											"hover:bg-[rgba(44,36,26,0.04)] rounded-[var(--r-subtle)]",
+											isActive
+												? "text-[var(--text-primary)] font-[500]"
+												: "text-[var(--text-secondary)]",
+										].join(" ")}
+									>
+										<span
+											className="inline-block w-[8px] h-[8px] rounded-full shrink-0"
+											style={{ background: "var(--accent-primary)" }}
+											aria-hidden="true"
+										/>
+										<span className="truncate">{team.name}</span>
+									</button>
+								</li>
+							);
+						})}
+					</ul>
+				</div>
+
+				{/* Knowledge section — W3 AC-3: no scope sub-items */}
+				<div
+					className="mb-[18px]"
+					data-active-view={activeView === "knowledge" ? "knowledge" : undefined}
+				>
+					<SectionHeader view="knowledge" activeView={activeView} onViewChange={onViewChange} />
+				</div>
+
+				{/* Settings nav — only shown in settings mode, below the view sections */}
+				{settingsOpen && (
+					<div className="flex flex-col gap-1 py-2 border-t border-[var(--border-subtle)] mt-[6px]">
 						<p className="px-[12px] py-1 font-[family-name:var(--font-mono)] text-[12px] uppercase tracking-[var(--tracking-caps)] text-[var(--text-secondary)]">
 							Settings
 						</p>
 						{settingsNavItems}
 					</div>
-				) : (
-					/* Normal mode: three sections separated by margin, no dividers */
-					<>
-						{/* Conversations section */}
-						<div
-							className="mb-[18px]"
-							data-active-view={activeView === "conversations" ? "conversations" : undefined}
-						>
-							<SectionHeader
-								view="conversations"
-								activeView={activeView}
-								onViewChange={onViewChange}
-							/>
-							<ul className="flex flex-col">
-								{visibleThreads.length === 0 ? (
-									<li className="px-[12px] py-1 text-[12px] text-[var(--text-tertiary)]">
-										No recent conversations
-									</li>
-								) : (
-									visibleThreads.map((thread) => {
-										const isSelected = thread.id === selectedThreadId;
-										return (
-											<li
-												key={thread.id}
-												data-thread-id={thread.id}
-												aria-current={isSelected ? "page" : undefined}
-												className={[
-													"rounded-[var(--r-subtle)] mb-[3px]",
-													isSelected
-														? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]"
-														: "",
-												].join(" ")}
-											>
-												<button
-													type="button"
-													onClick={() => onSelectThread(thread.id)}
-													className={[
-														"w-full text-left px-[12px] py-[6px] text-[13px]",
-														"flex items-center gap-[6px]",
-														"truncate transition-[background] duration-[var(--motion-fast)]",
-														"hover:bg-[rgba(44,36,26,0.04)] rounded-[var(--r-subtle)]",
-														isSelected
-															? "text-[var(--text-primary)] font-[500]"
-															: "text-[var(--text-secondary)]",
-													].join(" ")}
-												>
-													<span
-														className="inline-block w-[8px] h-[8px] rounded-full shrink-0"
-														style={{ background: "var(--accent-primary)" }}
-														aria-hidden="true"
-													/>
-													<span className="truncate">{thread.title}</span>
-												</button>
-											</li>
-										);
-									})
-								)}
-							</ul>
-						</div>
-
-						{/* Work section */}
-						<div
-							className="mb-[18px]"
-							data-active-view={activeView === "work" ? "work" : undefined}
-						>
-							<SectionHeader view="work" activeView={activeView} onViewChange={onViewChange} />
-							<ul className="flex flex-col">
-								{teams.length === 0 ? (
-									<li className="px-[12px] py-1 text-[12px] text-[var(--text-tertiary)]">
-										No teams yet
-									</li>
-								) : (
-									teams.map((team) => {
-										const isActive = team.id === activeTeamId;
-										return (
-											<li
-												key={team.id}
-												data-team-id={team.id}
-												aria-current={isActive ? "page" : undefined}
-												className={[
-													"rounded-[var(--r-subtle)] mb-[3px]",
-													isActive
-														? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]"
-														: "",
-												].join(" ")}
-											>
-												<button
-													type="button"
-													onClick={() => onSelectTeam(team.id)}
-													className={[
-														"w-full text-left px-[12px] py-[6px] text-[13px]",
-														"flex items-center gap-[6px]",
-														"truncate transition-[background] duration-[var(--motion-fast)]",
-														"hover:bg-[rgba(44,36,26,0.04)] rounded-[var(--r-subtle)]",
-														isActive
-															? "text-[var(--text-primary)] font-[500]"
-															: "text-[var(--text-secondary)]",
-													].join(" ")}
-												>
-													<span
-														className="inline-block w-[8px] h-[8px] rounded-full shrink-0"
-														style={{ background: "var(--accent-primary)" }}
-														aria-hidden="true"
-													/>
-													<span className="truncate">{team.name}</span>
-												</button>
-											</li>
-										);
-									})
-								)}
-							</ul>
-						</div>
-
-						{/* Knowledge section — W3 AC-3: no scope sub-items */}
-						<div
-							className="mb-[18px]"
-							data-active-view={activeView === "knowledge" ? "knowledge" : undefined}
-						>
-							<SectionHeader view="knowledge" activeView={activeView} onViewChange={onViewChange} />
-						</div>
-					</>
 				)}
 			</div>
 

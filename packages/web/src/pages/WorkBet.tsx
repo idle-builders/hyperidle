@@ -930,10 +930,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 			{/* W3: Fixed bordered header — breadcrumb + title + badges + overflow */}
 			<header className="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
 				{/* Breadcrumb */}
-				<nav
-					aria-label="Breadcrumb"
-					className="text-[13px] text-[var(--text-tertiary)] mb-[6px]"
-				>
+				<nav aria-label="Breadcrumb" className="text-[13px] text-[var(--text-tertiary)] mb-[6px]">
 					<Link
 						to="/work"
 						className="hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]"

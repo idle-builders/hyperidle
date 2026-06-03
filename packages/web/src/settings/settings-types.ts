@@ -32,9 +32,9 @@ export interface SettingsSection {
 export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
 	{ id: "profile", label: "Profile" },
 	{ id: "orgchart", label: "Org Chart" },
+	{ id: "appearance", label: "Appearance" },
 	{ id: "credentials", label: "Credentials" },
 	{ id: "notifications", label: "Notifications" },
-	{ id: "appearance", label: "Appearance" },
 	// @lore U1: "products" renamed to "teams".
 	{ id: "teams", label: "Teams" },
 	{ id: "backend", label: "Backend" },

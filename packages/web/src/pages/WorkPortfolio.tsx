@@ -18,6 +18,7 @@
  * Header contains h2 title + tab-bar-pill status filter + team pills + "New bet".
  */
 import { BetCard, EmptyState, SkeletonCard } from "@hyperidle/design-system";
+import { formatMoney } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -100,33 +101,36 @@ export function WorkPortfolio(): JSX.Element {
 			className="flex flex-col h-full"
 			data-testid="work-portfolio-page"
 		>
-			{/* Fixed header: h2 title + tab-bar-pill status filter + team pills + "New bet" */}
+			{/* Fixed header: h2 title + tab-bar-pill status filter + team pills + "New bet"
+			    When bets.length === 0, only the title is shown (no filter controls). */}
 			<header className="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)] flex items-center gap-[12px] flex-wrap">
 				<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)]">
 					All bets
 				</h2>
 
-				{/* W3 AC-13: tab-bar-pill segmented status filter */}
-				<div className="inline-flex gap-[6px] bg-[var(--surface-container)] rounded-[var(--r-pill)] p-[3px]">
-					{STATUS_FILTER_OPTIONS.map((opt) => (
-						<button
-							key={opt.id}
-							type="button"
-							aria-pressed={statusFilter === opt.id}
-							className={`px-[12px] py-[6px] text-[13px] rounded-[var(--r-pill)] border-none cursor-pointer transition-all duration-[var(--motion-default)] ${
-								statusFilter === opt.id
-									? "bg-[var(--surface-elevated)] text-[var(--accent-primary)] font-[600] shadow-[var(--shadow-subtle)]"
-									: "font-[500] text-[var(--text-secondary)] bg-transparent"
-							}`}
-							onClick={() => setStatusFilter(opt.id)}
-						>
-							{opt.label}
-						</button>
-					))}
-				</div>
+				{/* W3 AC-13: tab-bar-pill segmented status filter — hidden when no bets */}
+				{bets.length > 0 && (
+					<div className="inline-flex gap-[6px] bg-[var(--surface-container)] rounded-[var(--r-pill)] p-[3px]">
+						{STATUS_FILTER_OPTIONS.map((opt) => (
+							<button
+								key={opt.id}
+								type="button"
+								aria-pressed={statusFilter === opt.id}
+								className={`px-[12px] py-[6px] text-[13px] rounded-[var(--r-pill)] border-none cursor-pointer transition-all duration-[var(--motion-default)] ${
+									statusFilter === opt.id
+										? "bg-[var(--surface-elevated)] text-[var(--accent-primary)] font-[600] shadow-[var(--shadow-subtle)]"
+										: "font-[500] text-[var(--text-secondary)] bg-transparent"
+								}`}
+								onClick={() => setStatusFilter(opt.id)}
+							>
+								{opt.label}
+							</button>
+						))}
+					</div>
+				)}
 
-				{/* W3 AC-14: Team pill filters — bordered style, not DaisyUI btn */}
-				{teams.length > 0 && (
+				{/* W3 AC-14: Team pill filters — bordered style, not DaisyUI btn. Hidden when no bets. */}
+				{bets.length > 0 && teams.length > 0 && (
 					<div className="flex items-center gap-[6px] flex-wrap" data-testid="team-pill-filters">
 						{teams.map((team) => (
 							<button
@@ -175,6 +179,7 @@ export function WorkPortfolio(): JSX.Element {
 									strokeWidth="2"
 									strokeLinecap="round"
 									strokeLinejoin="round"
+									aria-hidden="true"
 								>
 									<rect x="3" y="3" width="18" height="18" rx="2" />
 									<line x1="12" y1="8" x2="12" y2="16" />
@@ -218,6 +223,7 @@ export function WorkPortfolio(): JSX.Element {
 									team={teamName}
 									status={bet.status}
 									description={bet.description}
+									budgetLabel={bet.costAppetite ? formatMoney(bet.costAppetite) : undefined}
 									onClick={() => navigate(`/work/bet/${encodeURIComponent(bet.id)}`)}
 								/>
 							);
