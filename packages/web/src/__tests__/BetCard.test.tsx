@@ -28,10 +28,10 @@ describe("BetCard", () => {
 		expect(tag.className).toContain("text-secondary");
 	});
 
-	it("renders status as StatusChip via betStatusToStatus mapping", () => {
-		// @lore U1: "active" maps to "healthy"
+	it("renders status as human-readable badge label", () => {
+		// visual-parity-audit: status now renders as user-facing label, not StatusChip technical term
 		render(<BetCard {...defaultProps} status="active" />);
-		expect(screen.getByText("HEALTHY")).toBeInTheDocument();
+		expect(screen.getByText("Active")).toBeInTheDocument();
 	});
 
 	it("renders appetite as KeyValue", () => {
@@ -45,27 +45,28 @@ describe("BetCard", () => {
 		expect(appetiteValue).toBeVisible();
 	});
 
-	it("renders draft status as PAUSED chip", () => {
-		// @lore U1: "draft" (formerly "shaped") maps to "paused"
+	it("renders draft status as 'Draft' badge", () => {
+		// visual-parity-audit: human-readable label, not technical StatusChip term
 		render(<BetCard {...defaultProps} status="draft" />);
-		expect(screen.getByText("PAUSED")).toBeInTheDocument();
+		expect(screen.getByText("Draft")).toBeInTheDocument();
 	});
 
-	it("renders active status as HEALTHY chip", () => {
-		// @lore U1: "active" covers committed + in_progress
+	it("renders active status as 'Active' badge", () => {
+		// visual-parity-audit: human-readable label
 		render(<BetCard {...defaultProps} status="active" />);
-		expect(screen.getByText("HEALTHY")).toBeInTheDocument();
+		expect(screen.getByText("Active")).toBeInTheDocument();
 	});
 
-	it("renders completed status as DONE chip", () => {
-		// @lore U1: "completed" (formerly "shipped") maps to "done"
+	it("renders completed status as 'Completed' badge", () => {
+		// visual-parity-audit: human-readable label
 		render(<BetCard {...defaultProps} status="completed" />);
-		expect(screen.getByText("DONE")).toBeInTheDocument();
+		expect(screen.getByText("Completed")).toBeInTheDocument();
 	});
 
-	it("renders killed status as ERROR chip", () => {
+	it("renders killed status as 'Killed' badge", () => {
+		// visual-parity-audit: human-readable label
 		render(<BetCard {...defaultProps} status="killed" />);
-		expect(screen.getByText("ERROR")).toBeInTheDocument();
+		expect(screen.getByText("Killed")).toBeInTheDocument();
 	});
 
 	it("renders actions slot content", () => {
@@ -86,29 +87,32 @@ describe("BetCard", () => {
 	it("renders progress bar and text when provided", () => {
 		render(<BetCard {...defaultProps} progress={{ done: 3, total: 5 }} />);
 		expect(screen.getByText("3/5")).toBeInTheDocument();
-		// Progress bar is a custom div with bg-[var(--status-success)] fill
+		// visual-parity-audit: progress fill uses accent-primary (active status) via inline style
 		const { container } = render(<BetCard {...defaultProps} progress={{ done: 3, total: 5 }} />);
-		const fill = container.querySelector("[class*='bg-[var(--status-success)]']");
+		const progressBar = container.querySelector("[role='progressbar']");
+		expect(progressBar).toBeInTheDocument();
+		const fill = progressBar?.firstElementChild as HTMLElement | null;
 		expect(fill).toBeInTheDocument();
 	});
 
-	it("composes at least 2 Tier 1 primitives (Tag + StatusChip + KeyValue)", () => {
+	it("composes Tier 1 primitives (Tag + KeyValue) and status badge", () => {
+		// visual-parity-audit: status is now a simple pill badge, not StatusChip
 		render(<BetCard {...defaultProps} />);
 		// Tag for team
 		expect(screen.getByText("HyperIdle")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
-		// StatusChip for status (active → HEALTHY)
-		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-full");
+		// Status badge — human-readable label
+		expect(screen.getByText("Active")).toBeInTheDocument();
 		// KeyValue for appetite
 		expect(screen.getByText("6 weeks")).toBeInTheDocument();
 	});
 
-	it("all 4 BetStatus values (U1) produce visually distinct chips", () => {
-		// @lore U1: 4 statuses — draft, active, completed, killed
+	it("all 4 BetStatus values (U1) render human-readable badge labels", () => {
+		// visual-parity-audit: user-facing labels instead of StatusChip technical terms
 		const statuses = ["draft", "active", "completed", "killed"] as const;
-		const expectedChips = ["PAUSED", "HEALTHY", "DONE", "ERROR"];
+		const expectedLabels = ["Draft", "Active", "Completed", "Killed"];
 		for (let i = 0; i < statuses.length; i++) {
 			const { unmount } = render(<BetCard {...defaultProps} status={statuses[i]} />);
-			expect(screen.getByText(expectedChips[i])).toBeInTheDocument();
+			expect(screen.getByText(expectedLabels[i])).toBeInTheDocument();
 			unmount();
 		}
 	});

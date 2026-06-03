@@ -61,7 +61,7 @@ export function Composer({ threadId, onSubmit, unresolvedReviewLink }: ComposerP
 	return (
 		<div
 			{...dsProps("Composer", "2")}
-			className="flex flex-col gap-[6px] py-[12px] px-[12px] border-t border-[var(--border-subtle)] bg-[var(--surface-container)]"
+			className="flex flex-col gap-[6px] py-[12px] px-[24px] pb-[18px]"
 			data-thread-id={threadId}
 		>
 			{unresolvedReviewLink ? (
@@ -85,7 +85,8 @@ export function Composer({ threadId, onSubmit, unresolvedReviewLink }: ComposerP
 			<div data-composer-row className="flex items-stretch gap-[9px]">
 				<textarea
 					data-testid="composer-textarea"
-					className="flex-1 min-h-[44px] resize-y bg-[var(--surface-elevated)] text-[var(--text-secondary)] placeholder:text-[var(--text-placeholder)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-[9px] py-[9px] text-[13px] focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]"
+					rows={1}
+					className="flex-1 min-h-[44px] resize-none bg-[var(--surface-page)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px] text-[15px] focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_rgba(22,118,79,0.1)]"
 					placeholder="Reply to thread…"
 					value={text}
 					onChange={(e): void => setText(e.target.value)}
@@ -100,12 +101,11 @@ export function Composer({ threadId, onSubmit, unresolvedReviewLink }: ComposerP
 					disabled={submitting || !text.trim()}
 					// L1 step9 (Design-C4): 44px minimum touch target.
 					// U8: pill shape (r-pill) per Hearth send button spec; accent-primary background.
-					className="px-[12px] min-h-[44px] rounded-[var(--r-pill)] text-[13px] font-medium bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] self-stretch"
+					className="px-[12px] min-h-[44px] rounded-[var(--r-pill)] text-[12px] font-[500] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] self-stretch transition-all duration-[var(--motion-default)]"
 				>
 					{submitting ? "Sending…" : "Send"}
 				</button>
 			</div>
-			<span className="text-[11px] text-[var(--text-tertiary)] text-right">⌘+Enter to send</span>
 		</div>
 	);
 }

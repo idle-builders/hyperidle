@@ -33,7 +33,7 @@ describe("ErrorState", () => {
 		expect(screen.queryByRole("button", { name: /retry/i })).not.toBeInTheDocument();
 	});
 
-	it("has warm card styling with surface-elevated background", () => {
+	it("has surface-elevated background", () => {
 		const { container } = render(<ErrorState title="Error" description="Something went wrong." />);
 		const outer = container.firstElementChild;
 		expect(outer?.className).toContain("bg-[var(--surface-elevated)]");
@@ -45,22 +45,123 @@ describe("ErrorState", () => {
 		expect(outer?.className).toContain("rounded-[var(--r-default)]");
 	});
 
-	it("has --shadow-subtle shadow for card depth", () => {
+	it("has --shadow-default shadow matching mockup", () => {
 		const { container } = render(<ErrorState title="Error" description="Something went wrong." />);
 		const outer = container.firstElementChild;
-		expect(outer?.className).toContain("shadow-[var(--shadow-subtle)]");
+		expect(outer?.className).toContain("shadow-[var(--shadow-default)]");
 	});
 
-	it("renders error title in --status-error color", () => {
+	it("has 36px padding matching mockup", () => {
+		const { container } = render(<ErrorState title="Error" description="Something went wrong." />);
+		const outer = container.firstElementChild;
+		expect(outer?.className).toContain("p-[36px]");
+	});
+
+	it("has max-width of 440px matching mockup", () => {
+		const { container } = render(<ErrorState title="Error" description="Something went wrong." />);
+		const outer = container.firstElementChild;
+		expect(outer?.className).toContain("max-w-[440px]");
+	});
+
+	it("renders title at 20px/600/text-primary matching mockup", () => {
 		render(<ErrorState title="Error occurred" description="Check logs." />);
 		const title = screen.getByText("Error occurred");
-		expect(title.className).toContain("text-[var(--status-error)]");
+		expect(title.className).toContain("text-[20px]");
+		expect(title.className).toContain("font-[600]");
+		expect(title.className).toContain("text-[var(--text-primary)]");
 	});
 
-	it("renders retry button with --accent-primary background and --text-on-accent text", () => {
+	it("renders description at 15px/text-secondary/1.7 line-height", () => {
+		render(<ErrorState title="T" description="My description" />);
+		const desc = screen.getByText("My description");
+		expect(desc.className).toContain("text-[15px]");
+		expect(desc.className).toContain("text-[var(--text-secondary)]");
+		expect(desc.className).toContain("leading-[1.7]");
+	});
+
+	it("renders default warning triangle icon by default", () => {
+		const { container } = render(<ErrorState title="Error" description="Desc." />);
+		const iconContainer = container.querySelector(".w-\\[48px\\]");
+		expect(iconContainer).not.toBeNull();
+		// Icon container should have the error-tinted background
+		// Browser normalizes rgba values with spaces after commas
+		const iconEl = iconContainer as HTMLElement | null;
+		expect(iconEl?.style.background).toBe("rgba(220, 74, 58, 0.08)");
+	});
+
+	it("renders icon in status-error color", () => {
+		const { container } = render(<ErrorState title="Error" description="Desc." />);
+		const iconContainer = container.querySelector(".w-\\[48px\\]");
+		expect(iconContainer?.className).toContain("text-[var(--status-error)]");
+	});
+
+	it("suppresses icon when icon=false is passed", () => {
+		const { container } = render(<ErrorState title="Error" description="Desc." icon={false} />);
+		const iconContainer = container.querySelector(".w-\\[48px\\]");
+		expect(iconContainer).toBeNull();
+	});
+
+	it("renders custom icon when provided", () => {
+		render(
+			<ErrorState title="Error" description="Desc." icon={<svg data-testid="custom-icon" />} />,
+		);
+		expect(screen.getByTestId("custom-icon")).toBeInTheDocument();
+	});
+
+	it("uses default red-tinted iconBg", () => {
+		const { container } = render(<ErrorState title="E" description="D" />);
+		const iconContainer = container.querySelector(".w-\\[48px\\]") as HTMLElement | null;
+		// Browser normalizes rgba values with spaces after commas
+		expect(iconContainer?.style.background).toBe("rgba(220, 74, 58, 0.08)");
+	});
+
+	it("uses custom iconBg when provided", () => {
+		const { container } = render(
+			<ErrorState title="E" description="D" iconBg="rgba(217,119,6,0.08)" />,
+		);
+		const iconContainer = container.querySelector(".w-\\[48px\\]") as HTMLElement | null;
+		// Browser normalizes rgba values with spaces after commas
+		expect(iconContainer?.style.background).toBe("rgba(217, 119, 6, 0.08)");
+	});
+
+	it("renders detail block with monospace styling when detail is provided", () => {
+		render(
+			<ErrorState title="E" description="D" detail="Error 502: upstream service unavailable" />,
+		);
+		expect(screen.getByText("Error 502: upstream service unavailable")).toBeInTheDocument();
+	});
+
+	it("does not render detail block when detail is omitted", () => {
+		const { container } = render(<ErrorState title="E" description="D" />);
+		// No mono detail block
+		const monoBlock = container.querySelector(".font-\\[var\\(--font-mono\\)\\]");
+		expect(monoBlock).toBeNull();
+	});
+
+	it("renders retry button with pill shape and accent-primary background", () => {
 		render(<ErrorState title="Failed" description="Retry." onRetry={() => undefined} />);
 		const btn = screen.getByRole("button", { name: /retry/i });
 		expect(btn.className).toContain("bg-[var(--accent-primary)]");
 		expect(btn.className).toContain("text-[var(--text-on-accent)]");
+		expect(btn.className).toContain("rounded-[var(--r-pill)]");
+	});
+
+	it("renders action slot alongside retry button when both provided", () => {
+		render(
+			<ErrorState
+				title="E"
+				description="D"
+				onRetry={() => undefined}
+				action={<a href="/status">View status</a>}
+			/>,
+		);
+		expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
+		expect(screen.getByRole("link", { name: "View status" })).toBeInTheDocument();
+	});
+
+	it("renders action slot without retry button when only action is provided", () => {
+		render(<ErrorState title="E" description="D" action={<a href="/status">View status</a>} />);
+		expect(screen.queryByRole("button", { name: /retry/i })).not.toBeInTheDocument();
+		expect(screen.getByRole("link", { name: "View status" })).toBeInTheDocument();
 	});
 });

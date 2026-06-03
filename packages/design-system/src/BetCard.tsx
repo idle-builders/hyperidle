@@ -4,8 +4,6 @@ import type { JSX, ReactNode } from "react";
 import { clickableProps } from "./clickable";
 import { dsProps } from "./ds-attrs";
 import { KeyValue } from "./KeyValue";
-import { StatusChip } from "./StatusChip";
-import { betStatusToStatus } from "./status-mapping";
 import { Tag } from "./Tag";
 
 /**
@@ -20,6 +18,15 @@ import { Tag } from "./Tag";
  * design-system viewer sets html { font-size: 14px }, which makes 1rem=14px.
  * Tailwind rem classes would compute to wrong values (e.g. p-2=7px
  * instead of 8px, gap-1=3.5px instead of 4px, w-16=56px instead of 64px).
+ *
+ * @lore visual-parity-audit: Restructured to match BetCard.html mockup.
+ * Top row now contains: status dot + status badge + budget badge (right-aligned).
+ * Title moved below top row. StatusChip replaced with simple colored pill badges
+ * using human-readable labels ("Active", "At risk", "Draft", "Completed").
+ * Avatar group uses overlapping 24px circles with -6px negative margin.
+ * Progress fill uses accent-primary (green) for active / accent-secondary
+ * (amber) for at-risk statuses. Completed bets get opacity-75.
+ * Card border removed — mockup uses shadow-default only.
  */
 export interface BetCardLeadAvatar {
 	name: string;
@@ -29,6 +36,55 @@ export interface BetCardLeadAvatar {
 export interface BetCardAvatarGroup {
 	initials: string;
 	agent?: boolean;
+}
+
+/** Status dot color per BetStatus — 8px pill, colored by status */
+const STATUS_DOT_COLOR: Record<BetStatus, string> = {
+	draft: "var(--status-info)",
+	active: "var(--accent-primary)",
+	completed: "var(--border-strong)",
+	killed: "var(--status-error)",
+};
+
+/** Human-readable badge label per BetStatus */
+const STATUS_LABEL: Record<BetStatus, string> = {
+	draft: "Draft",
+	active: "Active",
+	completed: "Completed",
+	killed: "Killed",
+};
+
+/** Badge variant per BetStatus — maps to CSS color treatment */
+type BadgeVariant = "green" | "amber" | "blue" | "default";
+
+const STATUS_BADGE_VARIANT: Record<BetStatus, BadgeVariant> = {
+	draft: "blue",
+	active: "green",
+	completed: "default",
+	killed: "default",
+};
+
+/** Returns inline style classes for badge variants using semantic tokens */
+function badgeClasses(variant: BadgeVariant): string {
+	const base =
+		"inline-flex items-center text-[12px] font-[500] px-[9px] py-[3px] rounded-[var(--r-pill)] leading-[1.4] whitespace-nowrap";
+	switch (variant) {
+		case "green":
+			return `${base} bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)]`;
+		case "amber":
+			return `${base} bg-[rgba(217,119,6,0.1)] text-[var(--accent-secondary)]`;
+		case "blue":
+			return `${base} bg-[rgba(46,125,186,0.08)] text-[var(--status-info)]`;
+		case "default":
+			return `${base} bg-[var(--surface-container)] text-[var(--text-secondary)]`;
+	}
+}
+
+/** Progress fill color per BetStatus */
+function progressFillColor(status: BetStatus): string {
+	if (status === "active") return "var(--accent-primary)";
+	if (status === "draft") return "var(--status-info)";
+	return "var(--accent-secondary)";
 }
 
 export interface BetCardProps {
@@ -93,15 +149,18 @@ export function BetCard({
 				? `${progress}%`
 				: `${progress.done}/${progress.total}`;
 
+	const isCompleted = status === "completed" || status === "killed";
+
 	return (
 		<div
 			{...dsProps("BetCard", "2")}
 			{...clickableProps(
 				onClick,
-				"bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] shadow-[var(--shadow-default)] border border-[var(--border-subtle)] hover:translate-y-[-2px] hover:shadow-[var(--shadow-elevated)] transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+				`bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[9px] shadow-[var(--shadow-default)] hover:translate-y-[-2px] hover:shadow-[var(--shadow-elevated)] transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)]${isCompleted ? " opacity-75" : ""}`,
 			)}
 		>
-			<div className="flex items-center gap-[12px]">
+			{/* Top row: status dot + status badge + budget badge (right-aligned) */}
+			<div className="flex items-center gap-[6px]">
 				{leadAvatar && (
 					<span
 						className="inline-flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full bg-[var(--surface-container)] text-[var(--text-primary)] text-[11px] font-semibold"
@@ -110,28 +169,40 @@ export function BetCard({
 						{leadAvatar.initials}
 					</span>
 				)}
+				{/* 8px status dot */}
 				<span
-					className="text-[15px] font-medium truncate flex-1 min-w-0"
-					aria-label={`Bet: ${title}`}
-				>
-					{title}
+					className="inline-block w-[8px] h-[8px] rounded-[var(--r-pill)] shrink-0"
+					style={{ background: STATUS_DOT_COLOR[status] }}
+					aria-hidden="true"
+				/>
+				{/* Status badge — human-readable label */}
+				<span className={badgeClasses(STATUS_BADGE_VARIANT[status])} data-status={status}>
+					{STATUS_LABEL[status]}
 				</span>
-				{/* W3 AC-16: budget badge in header row */}
-				{budgetLabel && (
-					<span className="inline-flex items-center px-[6px] py-[3px] rounded-[var(--r-pill)] text-[11px] font-mono bg-[var(--surface-container)] text-[var(--text-secondary)] whitespace-nowrap shrink-0">
-						{budgetLabel}
-					</span>
-				)}
+				{/* Budget badge — amber, right-aligned via ml-auto */}
+				{budgetLabel && <span className={`${badgeClasses("amber")} ml-auto`}>{budgetLabel}</span>}
 			</div>
-			<div className="flex items-center gap-[12px]">
+
+			{/* Title */}
+			<span
+				className="text-[17px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] truncate"
+				aria-label={`Bet: ${title}`}
+			>
+				{title}
+			</span>
+
+			{/* Team tag row — kept for backward compat with callers checking team display */}
+			<div className="flex items-center gap-[6px]">
 				<Tag label={team} />
-				{/* W3 AC-15: StatusChip only, no status dot */}
-				<StatusChip status={betStatusToStatus(status)} />
 			</div>
-			{/* W3 AC-16: description text */}
+
+			{/* Description */}
 			{description && (
-				<p className="text-[13px] text-[var(--text-secondary)] line-clamp-3">{description}</p>
+				<p className="text-[13px] text-[var(--text-secondary)] leading-[1.7] line-clamp-3">
+					{description}
+				</p>
 			)}
+
 			{appetite && <KeyValue label="Appetite" value={appetite} />}
 			{activeBets !== undefined && (
 				<KeyValue
@@ -140,10 +211,10 @@ export function BetCard({
 				/>
 			)}
 			{shipped !== undefined && <KeyValue label="Shipped" value={String(shipped)} />}
-			{/* W3 AC-16: progress bar + percentage */}
-			{/* W3 AC-16: progress bar + percentage + avatar group */}
+
+			{/* Progress bar */}
 			{progressPct !== null && (
-				<div className="flex flex-col gap-[6px]">
+				<>
 					<div
 						role="progressbar"
 						aria-valuenow={progressPct}
@@ -153,24 +224,31 @@ export function BetCard({
 						className="w-full h-[8px] bg-[var(--surface-container)] rounded-[var(--r-pill)] overflow-hidden"
 					>
 						<div
-							className="h-full bg-[var(--status-success)] rounded-[var(--r-pill)] transition-[width] duration-[var(--motion-default)]"
-							style={{ width: `${progressPct}%` }}
+							className="h-full rounded-[var(--r-pill)] transition-[width] duration-[var(--motion-default)]"
+							style={{
+								width: `${progressPct}%`,
+								background: progressFillColor(status),
+							}}
 						/>
 					</div>
-					<div className="flex items-center justify-between">
-						{/* W3 AC-16: avatar group inside progress row */}
+
+					{/* Footer: avatar group + percentage */}
+					<div className="flex items-center justify-between mt-[3px]">
 						{avatarGroup && avatarGroup.length > 0 ? (
-							<div className="flex items-center gap-[3px]">
+							<div className="flex items-center">
 								{avatarGroup.map((a, i) => (
 									<span
 										// biome-ignore lint/suspicious/noArrayIndexKey: static display-only list
 										key={i}
 										className={[
-											"inline-flex w-[20px] h-[20px] items-center justify-center rounded-full text-[10px] font-mono uppercase",
+											"inline-flex w-[24px] h-[24px] items-center justify-center rounded-full text-[9px] font-[600] shrink-0",
+											i === 0 ? "" : "-ml-[6px]",
 											a.agent
-												? "bg-[color-mix(in_oklab,var(--accent-primary)_20%,var(--surface-elevated))] text-[var(--accent-primary)]"
-												: "bg-[var(--surface-container)] text-[var(--text-secondary)]",
-										].join(" ")}
+												? "bg-[var(--accent-primary-dim)] text-[var(--accent-primary)] border-[2px] border-[var(--surface-elevated)]"
+												: "bg-[var(--surface-page)] text-[var(--text-secondary)] border-[2px] border-[var(--surface-elevated)]",
+										]
+											.join(" ")
+											.trim()}
 									>
 										{a.initials}
 									</span>
@@ -179,31 +257,36 @@ export function BetCard({
 						) : (
 							<span />
 						)}
-						<span className="text-[12px] font-mono text-[var(--text-secondary)] tabular-nums">
+						<span className="text-[12px] font-mono text-[var(--text-tertiary)] tabular-nums">
 							{progressLabel}
 						</span>
 					</div>
-				</div>
+				</>
 			)}
-			{/* W3 AC-16: avatar group rendered standalone when no progress bar */}
+
+			{/* Avatar group standalone (no progress bar) */}
 			{progressPct === null && avatarGroup && avatarGroup.length > 0 && (
-				<div className="flex items-center gap-[3px]">
+				<div className="flex items-center">
 					{avatarGroup.map((a, i) => (
 						<span
 							// biome-ignore lint/suspicious/noArrayIndexKey: static display-only list
 							key={i}
 							className={[
-								"inline-flex w-[20px] h-[20px] items-center justify-center rounded-full text-[10px] font-mono uppercase",
+								"inline-flex w-[24px] h-[24px] items-center justify-center rounded-full text-[9px] font-[600] shrink-0",
+								i === 0 ? "" : "-ml-[6px]",
 								a.agent
-									? "bg-[color-mix(in_oklab,var(--accent-primary)_20%,var(--surface-elevated))] text-[var(--accent-primary)]"
-									: "bg-[var(--surface-container)] text-[var(--text-secondary)]",
-							].join(" ")}
+									? "bg-[var(--accent-primary-dim)] text-[var(--accent-primary)] border-[2px] border-[var(--surface-elevated)]"
+									: "bg-[var(--surface-page)] text-[var(--text-secondary)] border-[2px] border-[var(--surface-elevated)]",
+							]
+								.join(" ")
+								.trim()}
 						>
 							{a.initials}
 						</span>
 					))}
 				</div>
 			)}
+
 			{actions}
 		</div>
 	);

@@ -7,13 +7,21 @@ import { type Status, StatusChip } from "./StatusChip";
 import { Tag } from "./Tag";
 import type { TagKind } from "./tag-kinds";
 
+export interface ThreadAvatarItem {
+	initials: string;
+	agent?: boolean;
+}
+
 export interface ThreadRowProps {
 	/**
-	 * M3 E1: avatarUrl is now nullable.
-	 * - string URL → render <img>
-	 * - null → render initials chip (first two uppercase chars of title)
+	 * Kept for backwards compatibility — not rendered visually.
+	 * The mockup layout is: dot → info → meta (with small overlapping avatars
+	 * on the right). The large left-side avatar was removed in the visual
+	 * parity pass (audit L-25).
+	 *
+	 * @deprecated Pass `avatars` instead for the right-side overlapping group.
 	 */
-	avatarUrl: string | null;
+	avatarUrl?: string | null;
 	title: string;
 	snippet: string;
 	timestamp: string;
@@ -41,10 +49,19 @@ export interface ThreadRowProps {
 	 * cannot reach the renderer (Architecture M3).
 	 */
 	hostTag?: HostKind;
+	/**
+	 * Overlapping 24px participant avatar circles in the right-side meta area.
+	 * Matches the mockup's `.thread-avatars` group (audit L-21).
+	 */
+	avatars?: ThreadAvatarItem[];
+	/**
+	 * Numeric message count badge in the right-side meta area.
+	 * Green-tinted when unread, neutral when read (audit L-22).
+	 */
+	messageCount?: number;
 }
 
 export function ThreadRow({
-	avatarUrl,
 	title,
 	snippet,
 	timestamp,
@@ -58,23 +75,25 @@ export function ThreadRow({
 	selected = false,
 	pinned = false,
 	hostTag,
+	avatars,
+	messageCount,
 }: ThreadRowProps): JSX.Element {
 	// Selected border wins over blocking border when both flags are true.
-	const borderClass = selected
+	const borderLeftClass = selected
 		? "border-l-[var(--bw-strong)] border-[var(--accent-primary)]"
 		: blocking
 			? "border-l-[var(--bw-strong)] border-[var(--status-error)]"
 			: "";
 
 	const baseClassName = [
-		"flex items-center gap-[12px] px-[24px] py-[12px] text-[15px] rounded-[var(--r-subtle)]",
-		"hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))] transition-colors duration-[var(--motion-fast)]",
+		"flex items-center gap-[12px] px-[24px] py-[12px]",
+		"border-b border-[var(--border-subtle)] last:border-b-0",
+		"hover:bg-[rgba(44,36,26,0.02)] transition-colors duration-[var(--motion-default)]",
 		"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:-outline-offset-1",
 		onClick ? "cursor-pointer" : "",
-		unread ? "font-bold" : "",
-		// selected state: elevated bg + subtle shadow per design spec advisory finding #4
+		// selected state: elevated bg + subtle shadow per design spec
 		selected ? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]" : "",
-		borderClass,
+		borderLeftClass,
 	]
 		.filter(Boolean)
 		.join(" ");
@@ -86,26 +105,17 @@ export function ThreadRow({
 			aria-current={selected ? "true" : undefined}
 			className={baseClassName}
 		>
-			{unread && (
-				// Unread dot: 6px green circle before title area per Hearth design
-				<span
-					data-testid="unread-dot"
-					aria-hidden="true"
-					className="w-[6px] h-[6px] rounded-full bg-[var(--status-success)] shrink-0"
-				/>
-			)}
-			{avatarUrl !== null ? (
-				<img src={avatarUrl} alt="" className="h-[36px] w-[36px] rounded-full" />
-			) : (
-				// M3 E2: initials chip — first two uppercase chars of the title.
-				// Falls back to a neutral chip when title is empty or undefined.
-				<span
-					aria-hidden="true"
-					className="flex h-[36px] w-[36px] items-center justify-center rounded-full bg-[var(--surface-elevated)] text-[var(--text-secondary)] text-[11px] font-mono font-bold uppercase shrink-0"
-				>
-					{title.slice(0, 2).toUpperCase() || "??"}
-				</span>
-			)}
+			{/* Unread indicator — always rendered; transparent spacer for read rows (audit L-12, L-14) */}
+			<span
+				data-testid={unread ? "unread-dot" : "read-dot-spacer"}
+				aria-hidden="true"
+				className={[
+					"w-[8px] h-[8px] rounded-full shrink-0",
+					unread ? "bg-[var(--accent-primary)]" : "bg-transparent",
+				].join(" ")}
+			/>
+
+			{/* Info: title + preview */}
 			<div className="flex-1 min-w-0">
 				<div className="flex items-center gap-[12px]">
 					{pinned && (
@@ -121,18 +131,12 @@ export function ThreadRow({
 							<path d="M6 1l1.5 3 3.5.5-2.5 2.5.5 3.5-3-1.5-3 1.5.5-3.5L1 4.5l3.5-.5L6 1z" />
 						</svg>
 					)}
-					<span className="text-[15px] truncate" aria-label={`Thread: ${title}`}>
+					<span
+						className={["text-[15px] truncate", unread ? "font-[600]" : "font-[400]"].join(" ")}
+						aria-label={`Thread: ${title}`}
+					>
 						{title}
 					</span>
-					{/* W3 AC-7: text "Blocking" badge — visible badge, not just a border */}
-					{blocking && (
-						<span
-							data-testid="thread-row-blocking-badge"
-							className="inline-flex items-center px-[6px] py-[3px] rounded-[var(--r-pill)] text-[11px] font-medium bg-[color-mix(in_oklab,var(--status-error)_15%,transparent)] text-[var(--status-error)] whitespace-nowrap shrink-0"
-						>
-							Blocking
-						</span>
-					)}
 					{hostTag && (
 						// @lore L8 review (Design B3): host pill is rendered inline
 						// rather than via <Tag/> because the approved design (§5.6)
@@ -151,9 +155,73 @@ export function ThreadRow({
 					{tag && <Tag label={tag} />}
 					{kind && <Tag label={kind} kind={kind as TagKind} />}
 				</div>
-				<p className="text-[12px] text-[var(--text-secondary)] truncate">{snippet}</p>
+				{/* Preview/snippet — color differentiates read/unread (audit L-18, L-19) */}
+				<p
+					className={[
+						"text-[13px] truncate mt-[1px]",
+						unread ? "text-[var(--text-secondary)]" : "text-[var(--text-tertiary)]",
+					].join(" ")}
+				>
+					{snippet}
+				</p>
 			</div>
-			<span className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap">{timestamp}</span>
+
+			{/* Meta: blocking badge, avatars, count, timestamp */}
+			<div className="flex items-center gap-[9px] shrink-0">
+				{/* Blocking badge in the right-side meta (audit L-23, L-24) */}
+				{blocking && (
+					<span
+						data-testid="thread-row-blocking-badge"
+						className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)] text-[var(--status-error)] whitespace-nowrap shrink-0"
+					>
+						Blocking
+					</span>
+				)}
+
+				{/* Overlapping participant avatar group (audit L-21) */}
+				{avatars && avatars.length > 0 && (
+					<div className="flex">
+						{avatars.map((a, i) => (
+							<span
+								key={`${a.initials}-${i}`}
+								aria-hidden="true"
+								className={[
+									"w-[24px] h-[24px] rounded-full inline-flex items-center justify-content-center shrink-0",
+									"text-[9px] font-[600] leading-none",
+									"border-[2px] border-[var(--surface-elevated)]",
+									i > 0 ? "ml-[-6px]" : "",
+									a.agent
+										? "bg-[var(--accent-primary-dim)] border-[var(--accent-primary)] text-[var(--accent-primary)]"
+										: "bg-[var(--surface-page)] border-[var(--border-default)] text-[var(--text-secondary)]",
+								].join(" ")}
+							>
+								{a.initials}
+							</span>
+						))}
+					</div>
+				)}
+
+				{/* Message count badge (audit L-22) */}
+				{messageCount !== undefined && (
+					<span
+						data-testid="thread-row-count-badge"
+						className={[
+							"inline-flex items-center justify-center",
+							"text-[12px] font-[500] px-[6px] py-[3px] rounded-[var(--r-pill)]",
+							"min-w-[20px] text-center whitespace-nowrap",
+							unread
+								? "bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
+								: "bg-[var(--surface-container)] text-[var(--text-secondary)]",
+						].join(" ")}
+					>
+						{messageCount}
+					</span>
+				)}
+
+				<span className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap">
+					{timestamp}
+				</span>
+			</div>
 			{actions}
 		</div>
 	);

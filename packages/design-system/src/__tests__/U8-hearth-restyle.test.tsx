@@ -46,7 +46,6 @@ describe("U8 — Hearth restyle structural elements", () => {
 			act(() => {
 				root.render(
 					createElement(ThreadRow, {
-						avatarUrl: null,
 						title: "Thread title",
 						snippet: "snippet",
 						timestamp: "2h ago",
@@ -59,11 +58,12 @@ describe("U8 — Hearth restyle structural elements", () => {
 			expect(dot).not.toBeNull();
 		});
 
-		it("does NOT render an unread dot when unread=false", () => {
+		it("renders a transparent spacer dot when unread=false (alignment maintained)", () => {
+			// Mockup audit L-14: read rows must have a transparent spacer to keep
+			// column alignment consistent with unread rows that show the green dot.
 			act(() => {
 				root.render(
 					createElement(ThreadRow, {
-						avatarUrl: null,
 						title: "Thread title",
 						snippet: "snippet",
 						timestamp: "2h ago",
@@ -71,30 +71,32 @@ describe("U8 — Hearth restyle structural elements", () => {
 					}),
 				);
 			});
-			const dot = container.querySelector("[data-testid='unread-dot']");
-			expect(dot).toBeNull();
+			const spacer = container.querySelector("[data-testid='read-dot-spacer']");
+			expect(spacer).not.toBeNull();
+			expect((spacer as HTMLElement | null)?.className ?? "").toContain("bg-transparent");
 		});
 
-		it("does NOT render an unread dot by default (unread omitted)", () => {
+		it("renders a transparent spacer dot by default (unread omitted)", () => {
 			act(() => {
 				root.render(
 					createElement(ThreadRow, {
-						avatarUrl: null,
 						title: "Thread title",
 						snippet: "snippet",
 						timestamp: "2h ago",
 					}),
 				);
 			});
-			const dot = container.querySelector("[data-testid='unread-dot']");
-			expect(dot).toBeNull();
+			const spacer = container.querySelector("[data-testid='read-dot-spacer']");
+			expect(spacer).not.toBeNull();
 		});
 
-		it("unread dot uses status-success token class", () => {
+		it("unread dot uses accent-primary token class", () => {
+			// Mockup audit L-13: dot uses var(--accent-primary), not var(--status-success).
+			// Both resolve to the same forest green in Hearth Light, but the semantic
+			// token is accent-primary (active indicator) not status-success (health state).
 			act(() => {
 				root.render(
 					createElement(ThreadRow, {
-						avatarUrl: null,
 						title: "Thread title",
 						snippet: "snippet",
 						timestamp: "2h ago",
@@ -104,8 +106,8 @@ describe("U8 — Hearth restyle structural elements", () => {
 			});
 			const dot = container.querySelector("[data-testid='unread-dot']") as HTMLElement | null;
 			expect(dot).not.toBeNull();
-			// Dot must use the --status-success color token
-			expect(dot?.className ?? "").toContain("status-success");
+			// Dot must use the --accent-primary color token
+			expect(dot?.className ?? "").toContain("accent-primary");
 		});
 	});
 
@@ -241,7 +243,8 @@ describe("U8 — Hearth restyle structural elements", () => {
 			expect(card.className).toContain("shadow-default");
 		});
 
-		it("outer element has border-subtle class", () => {
+		it("outer element does NOT have explicit border (mockup uses shadow only)", () => {
+			// visual-parity-audit: BetCard.html mockup uses shadow-default only, no explicit border
 			act(() => {
 				root.render(
 					createElement(BetCard, {
@@ -253,7 +256,9 @@ describe("U8 — Hearth restyle structural elements", () => {
 				);
 			});
 			const card = container.firstElementChild as HTMLElement;
-			expect(card.className).toContain("border-subtle");
+			// Card uses shadow-default for elevation, no border needed
+			expect(card.className).toContain("shadow-default");
+			expect(card.className).not.toContain("border border-[");
 		});
 
 		it("outer element has hover translate-y lift class", () => {

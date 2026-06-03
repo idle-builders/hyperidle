@@ -44,11 +44,12 @@ describe("W3 AC-1 — Sidebar bottom strip", () => {
 
 	it("renders ⌘K keyboard shortcut in search hint", () => {
 		render(<Sidebar {...makeProps()} />);
-		// The search hint must contain a kbd element with Cmd+K
+		// The search hint must contain a kbd element with ⌘K (Unicode command symbol)
+		// visual-parity-audit: changed from "Cmd+K" text to "⌘K" Unicode to match mockup
 		const searchHint = screen.getByTestId("sidebar-search-hint");
 		const kbd = searchHint.querySelector("kbd");
 		expect(kbd).not.toBeNull();
-		expect(kbd?.textContent).toMatch(/cmd\+k/i);
+		expect(kbd?.textContent).toMatch(/⌘K|cmd\+k/i);
 	});
 
 	it("does NOT render a separate 'Chief of Staff' full-width button", () => {

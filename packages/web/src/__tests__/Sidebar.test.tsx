@@ -62,18 +62,20 @@ describe("Sidebar — AC-1: structure and brand", () => {
 		expect(screen.getByText("HyperIdle")).toBeInTheDocument();
 	});
 
-	it("renders three section headers: CONVERSATIONS, WORK, KNOWLEDGE", () => {
+	it("renders three section headers: Conversations, Work, Knowledge", () => {
 		render(<Sidebar {...defaultProps} />);
-		expect(screen.getByText(/conversations/i)).toBeInTheDocument();
-		expect(screen.getByText(/work/i)).toBeInTheDocument();
-		expect(screen.getByText(/knowledge/i)).toBeInTheDocument();
+		// All three section headers now render visible text labels (visual-parity-audit fix)
+		expect(screen.getByRole("button", { name: /^conversations$/i })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /^work$/i })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /^knowledge$/i })).toBeInTheDocument();
 	});
 
-	it("renders dividers between sections", () => {
+	it("renders a divider in the bottom strip area", () => {
 		const { container } = render(<Sidebar {...defaultProps} />);
-		// At least 2 <hr> or elements with role="separator" between sections
+		// visual-parity-audit: section dividers (hr between Conversations/Work/Knowledge)
+		// removed in favour of margin spacing. Only the divider before the user row remains.
 		const separators = container.querySelectorAll("hr, [role='separator']");
-		expect(separators.length).toBeGreaterThanOrEqual(2);
+		expect(separators.length).toBeGreaterThanOrEqual(1);
 	});
 
 	it("renders bottom strip with Assistant trigger and Settings (avatar) button", () => {
@@ -92,20 +94,18 @@ describe("Sidebar — AC-1: structure and brand", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-1 (continued): Icons on section headers
+// AC-1 (continued): Section header labels visible
+// visual-parity-audit: icons removed from section headers per mockup spec.
+// All three labels are now visible text (not icon-only).
 // ---------------------------------------------------------------------------
 
-describe("Sidebar — AC-1: section header icons", () => {
-	it("renders an icon alongside the CONVERSATIONS section header", () => {
-		const { container } = render(<Sidebar {...defaultProps} />);
-		// Icons are SVG elements. Conversations section should have at least one.
-		// biome-ignore lint/correctness/noUnusedVariables: query result used for its side-effect (throws if not found)
-		const conversationsSection = screen
-			.getByText(/conversations/i)
-			.closest("[data-section]") as HTMLElement | null;
-		// The sidebar root should contain SVG icons
-		const svgs = container.querySelectorAll("svg");
-		expect(svgs.length).toBeGreaterThan(0);
+describe("Sidebar — AC-1: section header labels", () => {
+	it("renders visible text labels on all three section headers", () => {
+		render(<Sidebar {...defaultProps} />);
+		// visual-parity-audit: section headers now use visible mixed-case text, no SVG icons
+		expect(screen.getByRole("button", { name: /^conversations$/i })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /^work$/i })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /^knowledge$/i })).toBeInTheDocument();
 	});
 });
 
@@ -210,10 +210,8 @@ describe("Sidebar — AC-5: Knowledge section scope sub-items", () => {
 describe("Sidebar — AC-6: Active view highlighting", () => {
 	it("Conversations section header has active styling when activeView='conversations'", () => {
 		const { container } = render(<Sidebar {...defaultProps} activeView="conversations" />);
-		// @lore U6: The conversations section header has NO visible text — only aria-label.
-		// This is intentional to avoid getByText(/conversations/i) finding both the header
-		// and the "No recent conversations" empty state. Use data attributes to check active state.
-		// Check active indicator exists somewhere in the conversations section
+		// visual-parity-audit: All section headers now render visible text labels.
+		// Use data attributes to check active state without relying on text content.
 		const activeEl =
 			container.querySelector("[data-section='conversations'][data-active='true']") ??
 			container.querySelector("[data-active-view='conversations']");

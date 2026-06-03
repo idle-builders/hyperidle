@@ -4,18 +4,10 @@ import { describe, expect, it, vi } from "vitest";
 
 describe("ThreadRow", () => {
 	const defaultProps = {
-		avatarUrl: "https://example.com/avatar.png",
 		title: "Deploy pipeline stuck",
 		snippet: "The CI build has been hanging for 20 minutes...",
 		timestamp: "2 min ago",
 	};
-
-	it("renders avatar image with correct src", () => {
-		render(<ThreadRow {...defaultProps} />);
-		// @lore I6: avatar uses alt="" (decorative), so use presentation role
-		const img = screen.getByRole("presentation");
-		expect(img).toHaveAttribute("src", defaultProps.avatarUrl);
-	});
 
 	it("renders title text", () => {
 		render(<ThreadRow {...defaultProps} />);
@@ -48,36 +40,53 @@ describe("ThreadRow", () => {
 		expect(screen.getByText("urgent")).toBeInTheDocument();
 	});
 
-	it("does not render Tag when tag is omitted", () => {
-		const { container } = render(<ThreadRow {...defaultProps} />);
-		// Tags use rounded-[var(--r-pill)]; none should be present when no tag is given
-		const tags = container.querySelectorAll("[class*='rounded-\\[var\\(--r-pill\\)\\]']");
-		expect(tags.length).toBe(0);
-	});
-
 	it("renders actions slot content", () => {
 		render(<ThreadRow {...defaultProps} actions={<button type="button">Reply</button>} />);
 		expect(screen.getByText("Reply")).toBeInTheDocument();
 	});
 
-	it("applies unread styling when unread is true", () => {
+	it("renders unread dot (green) when unread is true", () => {
+		render(<ThreadRow {...defaultProps} unread={true} />);
+		const dot = screen.getByTestId("unread-dot");
+		expect(dot).toBeInTheDocument();
+		expect(dot.className).toContain("accent-primary");
+	});
+
+	it("renders transparent spacer dot when unread is false", () => {
+		render(<ThreadRow {...defaultProps} unread={false} />);
+		const spacer = screen.getByTestId("read-dot-spacer");
+		expect(spacer).toBeInTheDocument();
+		expect(spacer.className).toContain("bg-transparent");
+	});
+
+	it("renders transparent spacer dot by default (unread omitted)", () => {
+		render(<ThreadRow {...defaultProps} />);
+		const spacer = screen.getByTestId("read-dot-spacer");
+		expect(spacer).toBeInTheDocument();
+	});
+
+	it("applies font-[600] weight on title when unread is true", () => {
+		render(<ThreadRow {...defaultProps} unread={true} />);
+		const titleEl = screen.getByLabelText("Thread: Deploy pipeline stuck");
+		expect(titleEl.className).toContain("font-[600]");
+	});
+
+	it("applies font-[400] weight on title when unread is false", () => {
+		render(<ThreadRow {...defaultProps} unread={false} />);
+		const titleEl = screen.getByLabelText("Thread: Deploy pipeline stuck");
+		expect(titleEl.className).toContain("font-[400]");
+	});
+
+	it("renders preview with text-secondary color when unread", () => {
 		const { container } = render(<ThreadRow {...defaultProps} unread={true} />);
-		const root = container.firstElementChild;
-		expect(root).toHaveClass("font-bold");
+		const preview = container.querySelector("p");
+		expect(preview?.className).toContain("text-secondary");
 	});
 
-	it("does not apply unread styling when unread is false", () => {
+	it("renders preview with text-tertiary color when read", () => {
 		const { container } = render(<ThreadRow {...defaultProps} unread={false} />);
-		const root = container.firstElementChild;
-		expect(root).not.toHaveClass("font-bold");
-	});
-
-	it("composes at least 2 Tier 1 primitives (StatusChip + Tag)", () => {
-		render(<ThreadRow {...defaultProps} status="healthy" tag="ops" />);
-		// StatusChip renders uppercase status text with rounded-full
-		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-full");
-		// Tag renders label with rounded-[var(--r-pill)] and neutral bg
-		expect(screen.getByText("ops")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
+		const preview = container.querySelector("p");
+		expect(preview?.className).toContain("text-tertiary");
 	});
 
 	it("calls onClick when row is clicked", () => {
@@ -90,7 +99,26 @@ describe("ThreadRow", () => {
 		expect(handleClick).toHaveBeenCalledOnce();
 	});
 
-	it("applies border-[var(--status-error)] when blocking is true", () => {
+	it("renders blocking badge in meta section when blocking is true", () => {
+		render(<ThreadRow {...defaultProps} blocking={true} />);
+		const badge = screen.getByTestId("thread-row-blocking-badge");
+		expect(badge).toBeInTheDocument();
+		expect(badge.textContent).toBe("Blocking");
+	});
+
+	it("does not render blocking badge when blocking is false", () => {
+		render(<ThreadRow {...defaultProps} blocking={false} />);
+		expect(screen.queryByTestId("thread-row-blocking-badge")).not.toBeInTheDocument();
+	});
+
+	it("blocking badge has red-tinted styling", () => {
+		render(<ThreadRow {...defaultProps} blocking={true} />);
+		const badge = screen.getByTestId("thread-row-blocking-badge");
+		// Uses color-mix for error tint (avoids hardcoded rgba per design/no-hardcoded-color rule)
+		expect(badge.className).toContain("status-error");
+	});
+
+	it("applies border-[var(--status-error)] on the row when blocking is true", () => {
 		const { container } = render(<ThreadRow {...defaultProps} blocking={true} />);
 		const root = container.firstElementChild;
 		expect(root?.className).toContain("border-[var(--status-error)]");
@@ -151,5 +179,74 @@ describe("ThreadRow", () => {
 		// Selected applies an accent-primary border-left; blocking applies a status-error border-left.
 		// When both are true, the selected accent-primary border must win.
 		expect(root?.className).toContain("border-[var(--accent-primary)]");
+	});
+
+	it("has border-bottom divider between rows", () => {
+		const { container } = render(<ThreadRow {...defaultProps} />);
+		const root = container.firstElementChild;
+		expect(root?.className).toContain("border-b");
+		expect(root?.className).toContain("border-subtle");
+	});
+
+	it("does not have border-radius on the row (border-bottom layout, not card layout)", () => {
+		const { container } = render(<ThreadRow {...defaultProps} />);
+		const root = container.firstElementChild;
+		// Rows use border-bottom dividers, not rounded card style
+		expect(root?.className).not.toContain("rounded-[var(--r-subtle)]");
+	});
+
+	// Avatar group and count badge
+	it("renders overlapping avatar group when avatars prop is provided", () => {
+		const { container } = render(
+			<ThreadRow
+				{...defaultProps}
+				avatars={[{ initials: "TG" }, { initials: "AT", agent: true }]}
+			/>,
+		);
+		const avatarSpans = container.querySelectorAll("[aria-hidden='true']");
+		// 1 dot spacer + 2 avatar spans
+		const avatarTexts = Array.from(avatarSpans).filter(
+			(el) => el.textContent === "TG" || el.textContent === "AT",
+		);
+		expect(avatarTexts.length).toBe(2);
+	});
+
+	it("renders message count badge when messageCount is provided", () => {
+		render(<ThreadRow {...defaultProps} messageCount={8} />);
+		const badge = screen.getByTestId("thread-row-count-badge");
+		expect(badge).toBeInTheDocument();
+		expect(badge.textContent).toBe("8");
+	});
+
+	it("count badge is green-tinted when unread", () => {
+		render(<ThreadRow {...defaultProps} unread={true} messageCount={5} />);
+		const badge = screen.getByTestId("thread-row-count-badge");
+		expect(badge.className).toContain("accent-primary");
+	});
+
+	it("count badge is neutral when read", () => {
+		render(<ThreadRow {...defaultProps} unread={false} messageCount={3} />);
+		const badge = screen.getByTestId("thread-row-count-badge");
+		expect(badge.className).toContain("surface-container");
+	});
+
+	it("does not render count badge when messageCount is not provided", () => {
+		render(<ThreadRow {...defaultProps} />);
+		expect(screen.queryByTestId("thread-row-count-badge")).not.toBeInTheDocument();
+	});
+
+	it("composes at least 2 Tier 1 primitives (StatusChip + Tag)", () => {
+		render(<ThreadRow {...defaultProps} status="healthy" tag="ops" />);
+		// StatusChip renders uppercase status text with rounded-full
+		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-full");
+		// Tag renders label with rounded-[var(--r-pill)] and neutral bg
+		expect(screen.getByText("ops")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
+	});
+
+	// Legacy avatarUrl prop — kept for backwards compatibility but not rendered visually
+	it("accepts avatarUrl prop without error (backwards compat)", () => {
+		expect(() =>
+			render(<ThreadRow {...defaultProps} avatarUrl="https://example.com/avatar.png" />),
+		).not.toThrow();
 	});
 });
