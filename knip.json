@@ -49,7 +49,7 @@
 		"packages/desktop": {
 			"entry": ["src/preload.ts"],
 			"ignoreBinaries": ["electron-builder"],
-			"ignoreDependencies": []
+			"ignoreDependencies": ["@electric-sql/pglite"]
 		},
 		"packages/eslint-plugin-design": {},
 		"scripts": {
