@@ -9,6 +9,8 @@ import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
 import { createLocalAdapterPool } from "./harness/adapter-pool.js";
 import { LocalWorkspaceAdapter } from "./harness/local-workspace-adapter.js";
+import { createMcpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
+import { createMcpRoute } from "./routes/mcp-route.js";
 import { registerWorkerWsRoute } from "./routes/worker-ws.js";
 import { registerWsRoute } from "./routes/ws.js";
 import { EnvCredentialResolver } from "./services/credential-resolver.js";
@@ -122,6 +124,10 @@ export async function createServer(port: number): Promise<ServerHandle> {
 	const workspaceBasePath =
 		process.env.HYPERIDLE_WORKSPACES_DIR ?? path.join(os.tmpdir(), "hyperidle-workspaces");
 
+	// X2: Create the MCP bridge registry that maps session tokens to transport instances.
+	const mcpBridgeRegistry = createMcpBridgeRegistry();
+	const mcpBaseUrl = `http://localhost:${port}`;
+
 	let wsDispose: (() => void) | null = null;
 	const app = await createApp({
 		db,
@@ -151,6 +157,8 @@ export async function createServer(port: number): Promise<ServerHandle> {
 		workspaceAdapter,
 		workspaceBasePath,
 		credentialResolver,
+		mcpBridgeRegistry,
+		mcpBaseUrl,
 		registerWebSocket: (apiRouter, tokenStore) => {
 			// L1 step9 (Adv-C1): production WS subscribe must enforce participant
 			// authz on `thread:<id>` topics. The authorizer reads the threads
@@ -166,6 +174,14 @@ export async function createServer(port: number): Promise<ServerHandle> {
 		 */
 		registerWorkerWebSocket: (apiRouter) => {
 			registerWorkerWsRoute(apiRouter, adapterPool, upgradeWebSocket);
+		},
+		/**
+		 * @lore X2: MCP route registered BEFORE auth middleware — MCP clients
+		 * authenticate via the 64-char hex session token in the URL, not X-API-Key.
+		 */
+		registerMcpRoute: (apiRouter) => {
+			const mcpRouter = createMcpRoute(mcpBridgeRegistry);
+			apiRouter.route("/", mcpRouter);
 		},
 	});
 

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import * as fs from "node:fs";
 import * as path from "node:path";
 import { bets, type HyperIdleDb, sessions, tasks, users } from "@hyperidle/db";
 import {
@@ -28,6 +29,8 @@ import {
 import { and, eq, sql } from "drizzle-orm";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { WorkspaceAdapter, WorkspaceHandle } from "../harness/workspace-adapter.js";
+import { createMcpBridge } from "../mcp/mcp-bridge.js";
+import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
 import { buildToolRegistry, type ToolContext, toolsForRole } from "../skill-tools/tool-registry.js";
 import { summarizeToolArgs } from "./observability/dispatcher.js";
 import { crashSession, endSession, type SessionContext } from "./session-lifecycle.js";
@@ -186,6 +189,10 @@ export interface ProvisionSessionDeps {
 	readonly eventBus: EventBus;
 	readonly adapterPool: AdapterPool;
 	readonly workspace: WorkspaceAdapter;
+	/** X2: MCP bridge registry. When present, a bridge is created per session. */
+	readonly mcpBridgeRegistry?: McpBridgeRegistry;
+	/** X2: Base URL for MCP bridge (e.g., "http://localhost:3001"). */
+	readonly mcpBaseUrl?: string;
 }
 
 export interface ProvisionSessionParams {
@@ -223,7 +230,7 @@ export async function provisionSession(
 	deps: ProvisionSessionDeps,
 	params: ProvisionSessionParams,
 ): Promise<ProvisionSessionResult> {
-	const { db, eventBus, adapterPool, workspace } = deps;
+	const { db, eventBus, adapterPool, workspace, mcpBridgeRegistry, mcpBaseUrl } = deps;
 
 	// ── Phase 1: load agent
 	const [agent] = await db.select().from(users).where(eq(users.id, params.agentId)).limit(1);
@@ -391,6 +398,45 @@ export async function provisionSession(
 
 	writeWorkspaceCLAUDEmd(workspacePath, composedPrompt);
 
+	// ── Phase 8b: create MCP bridge (if registry is configured).
+	//
+	// @lore X2: Bridge creation is wrapped in a try/catch for graceful degradation.
+	// If createMcpBridge fails (e.g. transport initialization error), the session
+	// continues in event-stream fallback mode — the MCP bridge is optional
+	// infrastructure, not required for a session to run. This matches the
+	// architecture critique requirement: bridge failure must NOT propagate to
+	// provisionSession and must NOT prevent the session from starting.
+	//
+	// The bridge is created BEFORE harness.startSession() so the token is written
+	// to .mcp.json before the harness reads it at startup.
+	let mcpBridgeToken: string | undefined;
+	if (mcpBridgeRegistry && mcpBaseUrl) {
+		try {
+			const bridge = await createMcpBridge({ sessionId, registry });
+			mcpBridgeRegistry.register(bridge);
+			mcpBridgeToken = bridge.token;
+			// Write .mcp.json to workspace for harness auto-discovery.
+			const mcpJsonPath = path.join(workspacePath, ".mcp.json");
+			const mcpConfig = {
+				mcpServers: {
+					hyperidle: {
+						type: "http",
+						url: `${mcpBaseUrl}/api/mcp/${bridge.token}`,
+					},
+				},
+			};
+			fs.writeFileSync(mcpJsonPath, JSON.stringify(mcpConfig, null, 2), "utf-8");
+		} catch (bridgeErr) {
+			// Bridge creation failed — continue in event-stream fallback mode.
+			// mcpBridgeToken remains undefined; teardown will be a no-op.
+			// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
+			console.warn(
+				`[session-provisioning] MCP bridge creation failed for session ${sessionId}; falling back to event-stream mode:`,
+				bridgeErr,
+			);
+		}
+	}
+
 	// ── Phase 9: start the harness session.
 	let harnessHandle: SessionHandle | null = null;
 	let totalCostCents = 0;
@@ -514,6 +560,15 @@ export async function provisionSession(
 	//
 	// @lore O2: tokensJson column stripped from sessions table.
 	// Token accumulation kept in-memory for the result object only.
+
+	// X2: Unregister the MCP bridge BEFORE calling endSession/crashSession.
+	// Both paths MUST unregister — the critique flagged crash-path cleanup as a
+	// requirement. Orphaned entries block token GC until process restart.
+	if (mcpBridgeRegistry && mcpBridgeToken) {
+		// Await unregister to ensure cleanup is complete before teardown continues.
+		// unregister() swallows close() errors internally — this call never throws.
+		await mcpBridgeRegistry.unregister(mcpBridgeToken);
+	}
 
 	if (crashed) {
 		await crashSession(db, eventBus, sessionContext, totalCostCents, 0);

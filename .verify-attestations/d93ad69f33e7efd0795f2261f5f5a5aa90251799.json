@@ -1,0 +1,42 @@
+{
+<<<<<<<< HEAD:.verify-attestations/c1dd09611594184316fd25a346e4c909870caf20.json
+	"sha": "c1dd09611594184316fd25a346e4c909870caf20",
+========
+	"sha": "d93ad69f33e7efd0795f2261f5f5a5aa90251799",
+>>>>>>>> origin/main:.verify-attestations/d93ad69f33e7efd0795f2261f5f5a5aa90251799.json
+	"status": "passed",
+	"dirty": false,
+	"tools": [
+		"check",
+		"lint:biome",
+		"lint:eslint",
+		"knip",
+		"test-coverage",
+		"mock-inventory",
+		"test",
+		"build",
+		"build:desktop",
+		"server:load"
+	],
+	"allTools": [
+		"check",
+		"lint:biome",
+		"lint:eslint",
+		"knip",
+		"test-coverage",
+		"mock-inventory",
+		"test",
+		"build",
+		"build:desktop",
+		"server:load"
+	],
+	"partial": false,
+	"smartSkipped": [],
+<<<<<<<< HEAD:.verify-attestations/c1dd09611594184316fd25a346e4c909870caf20.json
+	"timestamp": "2026-06-02T23:49:39.055Z",
+	"hmac": "01dc37d298aea866fdebb16943f0e167f42b9fbba7baaaa652a0b8a604a5bb93"
+========
+	"timestamp": "2026-06-02T23:49:16.321Z",
+	"hmac": "48bca0147a06d57655e02b253751d73582af272b401ad3c713c4353d3e6ce0ee"
+>>>>>>>> origin/main:.verify-attestations/d93ad69f33e7efd0795f2261f5f5a5aa90251799.json
+}
