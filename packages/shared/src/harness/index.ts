@@ -1,6 +1,7 @@
 export type {
 	HarnessAdapter,
 	HarnessCapabilities,
+	McpConnectionInfo,
 	SessionConfig,
 	SessionHandle,
 	SessionResult,

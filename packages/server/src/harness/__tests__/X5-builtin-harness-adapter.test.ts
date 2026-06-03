@@ -27,9 +27,7 @@ function makeSessionConfig() {
 describe("BuiltinHarnessAdapter — stub methods throw", () => {
 	it("startSession throws 'not yet implemented'", async () => {
 		const adapter = new BuiltinHarnessAdapter();
-		await expect(adapter.startSession(makeSessionConfig())).rejects.toThrow(
-			/not yet implemented/i,
-		);
+		await expect(adapter.startSession(makeSessionConfig())).rejects.toThrow(/not yet implemented/i);
 	});
 
 	it("startSession error message references X6", async () => {

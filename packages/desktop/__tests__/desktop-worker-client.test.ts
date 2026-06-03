@@ -182,6 +182,7 @@ function makeMockAdapter(opts: MockAdapterOptions = {}): HarnessAdapter & {
 			preCompactionTrigger: true,
 			subAgents: true,
 			modelProviders: ["anthropic"],
+			mcpSupport: false,
 		}),
 	};
 }
@@ -500,6 +501,7 @@ describe("S4 AC-8 — DesktopWorkerClient graceful shutdown", () => {
 				preCompactionTrigger: false,
 				subAgents: false,
 				modelProviders: ["anthropic"],
+				mcpSupport: false,
 			}),
 			// biome-ignore lint/correctness/useYield: generator intentionally yields nothing — blocks until stream resolves
 			streamEvents: vi.fn().mockImplementation(async function* () {
@@ -575,6 +577,7 @@ describe("S4 AC-8 — DesktopWorkerClient graceful shutdown", () => {
 				preCompactionTrigger: false,
 				subAgents: false,
 				modelProviders: ["anthropic"],
+				mcpSupport: false,
 			}),
 			streamEvents: vi.fn().mockImplementation(async function* () {
 				// Never yields — blocks indefinitely

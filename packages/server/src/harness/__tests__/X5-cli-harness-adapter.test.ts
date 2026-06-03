@@ -12,10 +12,10 @@
  * - W4: specific assertions, not just toBeDefined
  */
 
-import { EventEmitter } from "node:events";
 import type { ChildProcess } from "node:child_process";
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import type { SessionConfig, HarnessEvent } from "@hyperidle/shared";
+import { EventEmitter } from "node:events";
+import type { HarnessEvent, SessionConfig } from "@hyperidle/shared";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliAdapterConfig } from "../../harness/cli-harness-adapter.js";
 import { CliHarnessAdapter } from "../../harness/cli-harness-adapter.js";
 
@@ -77,8 +77,8 @@ function makeFakeChild(): {
 
 	return {
 		proc,
-		emitStdout: (line: string) => stdout.emit("data", Buffer.from(line + "\n")),
-		emitStderr: (line: string) => stderr.emit("data", Buffer.from(line + "\n")),
+		emitStdout: (line: string) => stdout.emit("data", Buffer.from(`${line}\n`)),
+		emitStderr: (line: string) => stderr.emit("data", Buffer.from(`${line}\n`)),
 		emitExit: (code: number | null, signal: string | null) => proc.emit("exit", code, signal),
 		killSpy,
 	};
@@ -92,10 +92,9 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		const adapter = new CliHarnessAdapter(
-			makeConfig({ args: ["--dir", "{{workspace}}"] }),
-			{ spawnFn: spawnSpy },
-		);
+		const adapter = new CliHarnessAdapter(makeConfig({ args: ["--dir", "{{workspace}}"] }), {
+			spawnFn: spawnSpy,
+		});
 		const sessionConfig = makeSessionConfig();
 		const handle = await adapter.startSession(sessionConfig);
 		expect(handle.sessionId).toBeTruthy();
@@ -110,10 +109,9 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		const adapter = new CliHarnessAdapter(
-			makeConfig({ args: ["--model", "{{model}}"] }),
-			{ spawnFn: spawnSpy },
-		);
+		const adapter = new CliHarnessAdapter(makeConfig({ args: ["--model", "{{model}}"] }), {
+			spawnFn: spawnSpy,
+		});
 		const handle = await adapter.startSession(makeSessionConfig());
 		expect(handle.sessionId).toBeTruthy();
 
@@ -232,7 +230,9 @@ describe("CliHarnessAdapter.checkAvailability", () => {
 
 	it("returns false when binary is not found (which throws)", async () => {
 		const whichSpy = vi.fn().mockRejectedValue(new Error("not found"));
-		const result = await CliHarnessAdapter.checkAvailability("nonexistent-tool", { whichFn: whichSpy });
+		const result = await CliHarnessAdapter.checkAvailability("nonexistent-tool", {
+			whichFn: whichSpy,
+		});
 		expect(result).toBe(false);
 	});
 });
@@ -252,7 +252,11 @@ describe("CliHarnessAdapter startSession", () => {
 		await adapter.startSession(makeSessionConfig());
 
 		expect(spawnSpy).toHaveBeenCalledTimes(1);
-		const [binary, args, options] = spawnSpy.mock.calls[0] as [string, string[], Record<string, unknown>];
+		const [binary, args, options] = spawnSpy.mock.calls[0] as [
+			string,
+			string[],
+			Record<string, unknown>,
+		];
 		// Binary is passed as first argument separately — not embedded in an array
 		expect(binary).toBe("fake-tool");
 		// args is an array (not a string)
@@ -293,15 +297,16 @@ describe("CliHarnessAdapter startSession", () => {
 			const stderr = new EventEmitter() as NodeJS.ReadableStream & EventEmitter;
 			(proc as unknown as { stdout: unknown }).stdout = stdout;
 			(proc as unknown as { stderr: unknown }).stderr = stderr;
-			// Emit error asynchronously (as node child_process does)
-			setImmediate(() => proc.emit("error", error));
+			// In real Node.js, ENOENT means pid is undefined — match that behavior.
+			// Do NOT set proc.pid so the adapter enters the "pid undefined" path.
+			// The error fires asynchronously on the next tick (process.nextTick behavior).
+			process.nextTick(() => proc.emit("error", error));
 			return proc;
 		});
 
-		const adapter = new CliHarnessAdapter(
-			makeConfig({ binary: "fake-tool", args: [] }),
-			{ spawnFn: spawnSpy },
-		);
+		const adapter = new CliHarnessAdapter(makeConfig({ binary: "fake-tool", args: [] }), {
+			spawnFn: spawnSpy,
+		});
 		await expect(adapter.startSession(makeSessionConfig())).rejects.toThrow(
 			/binary not found.*fake-tool/i,
 		);
@@ -373,10 +378,9 @@ describe("CliHarnessAdapter streamEvents — ndjson mode", () => {
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		const adapter = new CliHarnessAdapter(
-			makeConfig({ args: [], eventFormat: "ndjson" }),
-			{ spawnFn: spawnSpy },
-		);
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [], eventFormat: "ndjson" }), {
+			spawnFn: spawnSpy,
+		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
 		const toolCallEvent: HarnessEvent = {
@@ -406,10 +410,9 @@ describe("CliHarnessAdapter streamEvents — ndjson mode", () => {
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		const adapter = new CliHarnessAdapter(
-			makeConfig({ args: [], eventFormat: "ndjson" }),
-			{ spawnFn: spawnSpy },
-		);
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [], eventFormat: "ndjson" }), {
+			spawnFn: spawnSpy,
+		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
 		const events: HarnessEvent[] = [];
@@ -433,10 +436,9 @@ describe("CliHarnessAdapter streamEvents — ndjson mode", () => {
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		const adapter = new CliHarnessAdapter(
-			makeConfig({ args: [], eventFormat: "ndjson" }),
-			{ spawnFn: spawnSpy },
-		);
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [], eventFormat: "ndjson" }), {
+			spawnFn: spawnSpy,
+		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
 		const events: HarnessEvent[] = [];
@@ -463,10 +465,9 @@ describe("CliHarnessAdapter streamEvents — ndjson mode", () => {
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		const adapter = new CliHarnessAdapter(
-			makeConfig({ args: [], eventFormat: "ndjson" }),
-			{ spawnFn: spawnSpy },
-		);
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [], eventFormat: "ndjson" }), {
+			spawnFn: spawnSpy,
+		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
 		const events: HarnessEvent[] = [];
@@ -494,10 +495,9 @@ describe("CliHarnessAdapter streamEvents — text mode", () => {
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		const adapter = new CliHarnessAdapter(
-			makeConfig({ args: [], eventFormat: "text" }),
-			{ spawnFn: spawnSpy },
-		);
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [], eventFormat: "text" }), {
+			spawnFn: spawnSpy,
+		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
 		const events: HarnessEvent[] = [];
@@ -522,10 +522,9 @@ describe("CliHarnessAdapter streamEvents — text mode", () => {
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		const adapter = new CliHarnessAdapter(
-			makeConfig({ args: [], eventFormat: "text" }),
-			{ spawnFn: spawnSpy },
-		);
+		const adapter = new CliHarnessAdapter(makeConfig({ args: [], eventFormat: "text" }), {
+			spawnFn: spawnSpy,
+		});
 		const handle = await adapter.startSession(makeSessionConfig());
 
 		const events: HarnessEvent[] = [];

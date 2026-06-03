@@ -9,11 +9,7 @@
  * - Provisioner conditional tool_call interception based on mcpSupport + mcpConnectionInfo
  */
 
-import type {
-	HarnessCapabilities,
-	McpConnectionInfo,
-	SessionConfig,
-} from "@hyperidle/shared";
+import type { HarnessCapabilities, McpConnectionInfo, SessionConfig } from "@hyperidle/shared";
 import { describe, expect, it, vi } from "vitest";
 import { BuiltinHarnessAdapter } from "../../harness/builtin-harness-adapter.js";
 import { CliHarnessAdapter } from "../../harness/cli-harness-adapter.js";
@@ -88,7 +84,9 @@ describe("HarnessCapabilities includes mcpSupport", () => {
 describe("Adapter mcpSupport capability declarations", () => {
 	it("ClaudeAgentSdkAdapter declares mcpSupport: true", () => {
 		const adapter = new ClaudeAgentSdkAdapter({
-			queryFn: vi.fn() as unknown as Parameters<typeof ClaudeAgentSdkAdapter>[0] extends undefined ? never : NonNullable<ConstructorParameters<typeof ClaudeAgentSdkAdapter>[0]>["queryFn"],
+			queryFn: vi.fn() as unknown as Parameters<typeof ClaudeAgentSdkAdapter>[0] extends undefined
+				? never
+				: NonNullable<ConstructorParameters<typeof ClaudeAgentSdkAdapter>[0]>["queryFn"],
 		});
 		expect(adapter.getCapabilities().mcpSupport).toBe(true);
 	});
@@ -124,8 +122,11 @@ describe("AC6 — conditional tool_call interception based on mcpSupport + mcpBr
 	 * We test the formula directly since session-provisioning.ts is too integrated
 	 * to test the event loop in isolation here.
 	 */
-	function shouldInterceptToolCalls(mcpSupport: boolean, mcpBridgeToken: string | undefined): boolean {
-		return !mcpSupport || !mcpBridgeToken;
+	function shouldInterceptToolCalls(
+		mcpSupport: boolean,
+		mcpBridgeToken: string | undefined,
+	): boolean {
+		return !(mcpSupport && mcpBridgeToken);
 	}
 
 	it("intercepts tool_call when adapter has mcpSupport: false (regardless of bridge)", () => {
@@ -143,10 +144,7 @@ describe("AC6 — conditional tool_call interception based on mcpSupport + mcpBr
 
 	it("BuiltinHarnessAdapter (mcpSupport: false) always intercepts", () => {
 		const adapter = new BuiltinHarnessAdapter();
-		const intercepts = shouldInterceptToolCalls(
-			adapter.getCapabilities().mcpSupport,
-			"any-token",
-		);
+		const intercepts = shouldInterceptToolCalls(adapter.getCapabilities().mcpSupport, "any-token");
 		expect(intercepts).toBe(true);
 	});
 

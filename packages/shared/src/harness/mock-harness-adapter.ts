@@ -52,6 +52,12 @@ export class MockHarnessAdapter implements HarnessAdapter {
 	}
 
 	getCapabilities(): HarnessCapabilities {
-		return { preCompactionTrigger: true, subAgents: true, modelProviders: ["anthropic"] };
+		// X5: mcpSupport: false — mock adapter is test-only and does not wire MCP.
+		return {
+			preCompactionTrigger: true,
+			subAgents: true,
+			modelProviders: ["anthropic"],
+			mcpSupport: false,
+		};
 	}
 }

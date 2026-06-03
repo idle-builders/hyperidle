@@ -18,8 +18,7 @@ import type {
 	SessionResult,
 } from "@hyperidle/shared";
 import { describe, expect, it, vi } from "vitest";
-import { AdapterPool } from "../../harness/adapter-pool.js";
-import { createLocalAdapterPool } from "../../harness/adapter-pool.js";
+import { AdapterPool, createLocalAdapterPool } from "../../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../../harness/builtin-harness-adapter.js";
 import { CliHarnessAdapter } from "../../harness/cli-harness-adapter.js";
 

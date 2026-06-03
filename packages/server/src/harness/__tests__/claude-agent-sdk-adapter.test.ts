@@ -542,6 +542,7 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 				preCompactionTrigger: true,
 				subAgents: true,
 				modelProviders: ["anthropic"],
+				mcpSupport: true,
 			});
 		});
 	});

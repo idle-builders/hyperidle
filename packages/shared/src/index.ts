@@ -95,6 +95,7 @@ export type {
 	HarnessCapabilities,
 	HarnessEvent,
 	HarnessEventType,
+	McpConnectionInfo,
 	PreCompactionEvent,
 	ServerDispatchMessage,
 	ServerRegisteredMessage,

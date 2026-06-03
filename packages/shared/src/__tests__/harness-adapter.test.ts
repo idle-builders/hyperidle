@@ -110,6 +110,7 @@ describe("HarnessAdapter interface (D1)", () => {
 				preCompactionTrigger: true,
 				subAgents: true,
 				modelProviders: ["anthropic"],
+				mcpSupport: false,
 			});
 		});
 
