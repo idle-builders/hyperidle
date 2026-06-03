@@ -6,6 +6,7 @@ import { Hono } from "hono";
 import { createUpgradeTokenStore, type UpgradeTokenStore } from "./auth/upgrade-token-store.js";
 import type { AdapterPool } from "./harness/adapter-pool.js";
 import type { WorkspaceAdapter } from "./harness/workspace-adapter.js";
+import type { McpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
 import { authMiddleware, createAuthMiddleware } from "./middleware/auth.js";
 import { createBodyLimit } from "./middleware/body-limit.js";
 import { corsMiddleware } from "./middleware/cors.js";
@@ -119,6 +120,17 @@ interface AppOptions {
 	 */
 	registerWorkerWebSocket?: (apiRouter: Hono) => void;
 	/**
+	 * Optional MCP bridge route registration hook. When provided,
+	 * `createApp` invokes it with the `/api` sub-router BEFORE the auth
+	 * middleware — MCP clients authenticate via the session token in the URL
+	 * path, not via X-API-Key.
+	 *
+	 * @lore X2: The MCP route must be mounted before auth middleware so external
+	 * harnesses (e.g. Claude Code) can call skill-tools via MCP without needing
+	 * the user API key. The 64-char hex token in the URL is the credential.
+	 */
+	registerMcpRoute?: (apiRouter: Hono) => void;
+	/**
 	 * Override the upgrade-token store used by `/api/auth/ws-token` and the
 	 * WebSocket auth middleware. Tests inject a custom store with a tiny
 	 * TTL; production wiring uses `createUpgradeTokenStore()`.
@@ -144,6 +156,17 @@ interface AppOptions {
 	 * Credential resolver for pre-flight API key checks (R1).
 	 */
 	credentialResolver?: CredentialResolver;
+	/**
+	 * X2: MCP bridge registry for routing MCP requests to session transports.
+	 * When provided alongside `mcpBaseUrl`, the session provisioner creates a
+	 * per-session bridge and writes `.mcp.json` for harness auto-discovery.
+	 */
+	mcpBridgeRegistry?: McpBridgeRegistry;
+	/**
+	 * X2: Base URL for MCP bridge (e.g., "http://localhost:3001").
+	 * Used when writing `.mcp.json` to the workspace during session provisioning.
+	 */
+	mcpBaseUrl?: string;
 	/**
 	 * Enable shared-mode authentication (S1). When true, the auth middleware
 	 * accepts Bearer tokens from LoginSessions in addition to X-API-Key.
@@ -293,6 +316,12 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		options.registerWorkerWebSocket(api);
 	}
 
+	// Register MCP bridge route BEFORE auth middleware — MCP clients authenticate
+	// via the session token in the URL path, not via X-API-Key.
+	if (options?.registerMcpRoute) {
+		options.registerMcpRoute(api);
+	}
+
 	// Auth middleware for all other /api routes (except /health above).
 	// M3 A3: when db is available, use createAuthMiddleware({ db, sharedMode })
 	// to set userId from users table. Without db, fall back to the stateless
@@ -372,6 +401,8 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 				workspaceAdapter: options.workspaceAdapter,
 				workspaceBasePath: options.workspaceBasePath,
 				credentialResolver: options.credentialResolver,
+				mcpBridgeRegistry: options.mcpBridgeRegistry,
+				mcpBaseUrl: options.mcpBaseUrl,
 			}),
 		);
 		api.route("/status", createStatusRoutes(options.db));
