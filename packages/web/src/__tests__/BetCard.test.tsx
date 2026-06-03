@@ -21,11 +21,17 @@ describe("BetCard", () => {
 		expect(screen.getByText("Mobile App V2")).toBeInTheDocument();
 	});
 
-	it("renders team as Tag", () => {
+	it("does not render team name as a Tag pill (visual-parity-audit D-05: screen mockups show no tag row)", () => {
+		// The team prop is accepted but the Tag row was removed because screen mockups
+		// don't show a tag chip on bet cards. The team context lives in portfolio filters.
 		render(<BetCard {...defaultProps} />);
-		const tag = screen.getByText("HyperIdle");
-		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
-		expect(tag.className).toContain("text-secondary");
+		// "HyperIdle" should not appear as a pill element — it may appear in sr context
+		// but not as an explicit Tag chip inside the card face.
+		const tagEl = screen.queryByText("HyperIdle");
+		if (tagEl) {
+			// If rendered, must NOT be a Tag pill
+			expect(tagEl.className).not.toContain("rounded-[var(--r-pill)]");
+		}
 	});
 
 	it("renders status as human-readable badge label", () => {
@@ -95,11 +101,10 @@ describe("BetCard", () => {
 		expect(fill).toBeInTheDocument();
 	});
 
-	it("composes Tier 1 primitives (Tag + KeyValue) and status badge", () => {
-		// visual-parity-audit: status is now a simple pill badge, not StatusChip
+	it("composes KeyValue and status badge (visual-parity-audit: Tag row removed per D-05)", () => {
+		// visual-parity-audit: status is now a simple pill badge, not StatusChip.
+		// Tag row removed — screen mockups show no team tag on bet cards.
 		render(<BetCard {...defaultProps} />);
-		// Tag for team
-		expect(screen.getByText("HyperIdle")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 		// Status badge — human-readable label
 		expect(screen.getByText("Active")).toBeInTheDocument();
 		// KeyValue for appetite

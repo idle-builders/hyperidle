@@ -260,8 +260,8 @@ describe("GlobalSearchPanel", () => {
 
 		await waitFor(() => {
 			expect(screen.getByText("Mobile App V2")).toBeInTheDocument();
-			// BetCard shows product as Tag
-			expect(screen.getByText("HyperIdle")).toBeInTheDocument();
+			// visual-parity-audit D-05: BetCard no longer shows team as Tag pill
+			// (removed to match screen mockups). The title is sufficient to confirm rendering.
 		});
 	});
 

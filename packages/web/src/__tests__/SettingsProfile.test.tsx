@@ -63,7 +63,7 @@ describe("SettingsProfile", () => {
 	it("pre-fills name and email from current user", () => {
 		render(<SettingsProfile />);
 
-		expect(screen.getByLabelText(/^name/i)).toHaveValue("Alice Founder");
+		expect(screen.getByLabelText(/display name/i)).toHaveValue("Alice Founder");
 		expect(screen.getByLabelText(/^email/i)).toHaveValue("alice@example.com");
 	});
 
@@ -72,7 +72,7 @@ describe("SettingsProfile", () => {
 		const user = userEvent.setup();
 		render(<SettingsProfile />);
 
-		const nameInput = screen.getByLabelText(/^name/i);
+		const nameInput = screen.getByLabelText(/display name/i);
 		await user.clear(nameInput);
 		await user.type(nameInput, "Bob Updated");
 
@@ -98,7 +98,7 @@ describe("SettingsProfile", () => {
 		const user = userEvent.setup();
 		render(<SettingsProfile />);
 
-		const nameInput = screen.getByLabelText(/^name/i);
+		const nameInput = screen.getByLabelText(/display name/i);
 		await user.clear(nameInput);
 		await user.type(nameInput, "New Name");
 
@@ -127,7 +127,7 @@ describe("SettingsProfile", () => {
 		const user = userEvent.setup();
 		render(<SettingsProfile />);
 
-		const nameInput = screen.getByLabelText(/^name/i);
+		const nameInput = screen.getByLabelText(/display name/i);
 		await user.clear(nameInput);
 		await user.type(nameInput, "New Name");
 
@@ -152,7 +152,7 @@ describe("SettingsProfile", () => {
 		const user = userEvent.setup();
 		render(<SettingsProfile />);
 
-		const nameInput = screen.getByLabelText(/^name/i);
+		const nameInput = screen.getByLabelText(/display name/i);
 		await user.clear(nameInput);
 		await user.type(nameInput, "Different Name");
 

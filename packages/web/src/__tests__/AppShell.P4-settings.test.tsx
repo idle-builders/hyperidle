@@ -125,8 +125,10 @@ describe("AppShell — P4 Settings overlay", () => {
 			expect(screen.getAllByText("Profile").length).toBeGreaterThanOrEqual(1);
 			// These appear in sidebar NavItems even if not in SettingsPage:
 			expect(screen.getByText("Org Chart")).toBeInTheDocument();
-			expect(screen.getByText("Credentials")).toBeInTheDocument();
-			expect(screen.getByText("Notifications")).toBeInTheDocument();
+			// "Credentials" may appear in both sidebar NavItem AND SettingsPage section heading
+			expect(screen.getAllByText("Credentials").length).toBeGreaterThanOrEqual(1);
+			// "Notifications" now appears in both sidebar NavItem AND SettingsPage section heading
+			expect(screen.getAllByText("Notifications").length).toBeGreaterThanOrEqual(1);
 			// "Appearance" appears in both sidebar + SettingsPage section heading
 			expect(screen.getAllByText("Appearance").length).toBeGreaterThanOrEqual(1);
 			// @lore U1: "Products" renamed to "Teams" in settings menu
@@ -202,8 +204,8 @@ describe("AppShell — P4 Settings overlay", () => {
 		await user.click(screen.getByRole("button", { name: /settings/i }));
 
 		await waitFor(() => {
-			// Profile section should be active by default
-			expect(screen.getByLabelText(/^name/i)).toBeInTheDocument();
+			// Profile section: "Display name" label per settings.html mockup
+			expect(screen.getByLabelText(/display name/i)).toBeInTheDocument();
 		});
 	});
 });

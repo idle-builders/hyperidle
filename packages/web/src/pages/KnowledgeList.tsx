@@ -186,14 +186,50 @@ interface KnowledgeListRowProps {
 	onClick?: () => void;
 }
 
+/**
+ * Returns inline style for a knowledge kind badge.
+ * Colors per mockup: Pattern → green, Decision → blue, Failure → red.
+ */
+function kindBadgeStyle(kind: string): { background: string; color: string } {
+	const k = kind.toLowerCase();
+	if (k === "pattern") {
+		return { background: "rgba(22,118,79,0.08)", color: "rgb(22,118,79)" };
+	}
+	if (k === "decision") {
+		return { background: "rgba(46,125,186,0.08)", color: "rgb(46,125,186)" };
+	}
+	if (k === "failure") {
+		return { background: "rgba(220,74,58,0.08)", color: "rgb(220,74,58)" };
+	}
+	// fallback: neutral surface
+	return { background: "var(--surface-container)", color: "var(--text-secondary)" };
+}
+
+/**
+ * Returns inline style for a knowledge status badge.
+ * Colors per mockup: Active → green, Stale/archived → amber.
+ */
+function statusBadgeStyle(status: KnowledgeStatus): { background: string; color: string } | null {
+	if (status === "active") {
+		return { background: "rgba(22,118,79,0.08)", color: "rgb(22,118,79)" };
+	}
+	if (status === "archived") {
+		return { background: "rgba(217,119,6,0.08)", color: "rgb(217,119,6)" };
+	}
+	return null;
+}
+
 function KnowledgeListRow({
 	title,
 	preview,
 	kind,
+	status,
 	timestamp,
 	isPrivate,
 	onClick,
 }: KnowledgeListRowProps): JSX.Element {
+	const kStyle = kind ? kindBadgeStyle(kind) : null;
+	const sStyle = status ? statusBadgeStyle(status) : null;
 	return (
 		<button
 			type="button"
@@ -210,16 +246,30 @@ function KnowledgeListRow({
 			<div className="flex items-center gap-[6px] shrink-0">
 				{isPrivate && (
 					<span
-						className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] bg-[var(--surface-container)] text-[var(--text-secondary)] whitespace-nowrap"
+						className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
+						style={{ background: "var(--surface-container)", color: "var(--text-secondary)" }}
 						title="Private — only visible to you"
 						data-testid="private-badge"
 					>
 						Private
 					</span>
 				)}
-				{kind && (
-					<span className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] bg-[var(--surface-container)] text-[var(--text-secondary)] whitespace-nowrap">
+				{kind && kStyle && (
+					<span
+						className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
+						style={kStyle}
+						data-testid="kind-badge"
+					>
 						{kind}
+					</span>
+				)}
+				{status && sStyle && (
+					<span
+						className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
+						style={sStyle}
+						data-testid="status-badge"
+					>
+						{status === "archived" ? "Stale" : status.charAt(0).toUpperCase() + status.slice(1)}
 					</span>
 				)}
 				<span className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap">
@@ -251,6 +301,7 @@ interface KnowledgeListContentProps {
 	isTriageEmpty: boolean;
 	hintKnowledgeEmpty: ReturnType<typeof useHint>;
 	onNavigate: (id: string) => void;
+	searchQuery: string;
 }
 
 function KnowledgeListContent({
@@ -269,7 +320,20 @@ function KnowledgeListContent({
 	isTriageEmpty,
 	hintKnowledgeEmpty,
 	onNavigate,
+	searchQuery,
 }: KnowledgeListContentProps): JSX.Element {
+	const normalizedQuery = searchQuery.trim().toLowerCase();
+	const filteredTriageItems = normalizedQuery
+		? triageItems.filter((i) => i.title.toLowerCase().includes(normalizedQuery))
+		: triageItems;
+	const filteredGrouped = normalizedQuery
+		? grouped
+				.map((g) => ({
+					...g,
+					items: g.items.filter((i) => i.title.toLowerCase().includes(normalizedQuery)),
+				}))
+				.filter((g) => g.items.length > 0)
+		: grouped;
 	return (
 		<div className="max-w-[800px] mx-auto w-full">
 			<fieldset
@@ -356,16 +420,20 @@ function KnowledgeListContent({
 						<div className="px-[24px] py-[12px]">
 							<ErrorState title="Couldn't load knowledge" description={apiError} />
 						</div>
-					) : isTriageEmpty ? (
+					) : isTriageEmpty || filteredTriageItems.length === 0 ? (
 						<div className="flex items-center justify-center p-[48px_24px]">
 							<EmptyState
-								title="Nothing needs attention"
-								description="Triage is clear — agents will surface draft items here as they learn."
+								title={normalizedQuery ? "No results" : "Nothing needs attention"}
+								description={
+									normalizedQuery
+										? `No triage items match "${searchQuery}".`
+										: "Triage is clear — agents will surface draft items here as they learn."
+								}
 								dataTestId="knowledge-triage-empty"
 							/>
 						</div>
 					) : (
-						triageItems.map((item) => {
+						filteredTriageItems.map((item) => {
 							const isPrivate = item.scopeKind === "user";
 							return (
 								<KnowledgeListRow
@@ -416,7 +484,7 @@ function KnowledgeListContent({
 							)}
 						</div>
 					) : (
-						grouped.map((g) => (
+						filteredGrouped.map((g) => (
 							<KnowledgeTopicGroup
 								key={g.topic}
 								topic={g.topic}
@@ -467,6 +535,7 @@ export function KnowledgeList({
 	const [createDialogOpen, setCreateDialogOpen] = useState(false);
 	const [fetchRevision, setFetchRevision] = useState(0);
 	const [selectedScopeFilter, setSelectedScopeFilter] = useState<string | null>(null);
+	const [searchQuery, setSearchQuery] = useState("");
 
 	const {
 		data: apiData,
@@ -602,6 +671,26 @@ export function KnowledgeList({
 					</div>
 				</div>
 				<div className="flex items-center gap-[9px]">
+					{/* Visual parity: search input between tabs and + New button */}
+					{/* hearth-internal-padding */}
+					<input
+						type="search"
+						aria-label="Search knowledge"
+						data-testid="knowledge-search"
+						placeholder="Search…"
+						value={searchQuery}
+						onChange={(e) => setSearchQuery(e.target.value)}
+						style={{
+							width: "200px",
+							borderRadius: "var(--r-pill)",
+							border: "1.5px solid var(--border-default)",
+							padding: "7px 12px",
+							fontSize: "13px",
+							background: "var(--surface-page)",
+							color: "var(--text-primary)",
+							outline: "none",
+						}}
+					/>
 					<button
 						type="button"
 						className="inline-flex items-center text-[12px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-none cursor-pointer"
@@ -670,6 +759,7 @@ export function KnowledgeList({
 						isTriageEmpty={isTriageEmpty}
 						hintKnowledgeEmpty={hintKnowledgeEmpty}
 						onNavigate={(id) => navigate(`/knowledge/${id}`)}
+						searchQuery={searchQuery}
 					/>
 				)}
 			</div>

@@ -34,10 +34,14 @@ function WelcomeVisual(): JSX.Element {
 	] as const;
 
 	return (
-		<div className="flex gap-[9px] bg-[var(--surface-page)] rounded-[var(--r-subtle)] p-[12px] mb-[24px]">
+		<div
+			data-testid="onboarding-illustration"
+			aria-hidden="true"
+			className="flex gap-[9px] bg-[var(--surface-page)] rounded-[var(--r-subtle)] p-[12px] mb-[24px]"
+		>
 			{dotColors.map((dotColor, i) => (
+				// biome-ignore lint/suspicious/noArrayIndexKey: static array, stable order
 				<div
-					// biome-ignore lint/suspicious/noArrayIndexKey: static array, stable order
 					key={i}
 					className="flex-1 bg-[var(--surface-elevated)] rounded-[var(--r-subtle)] p-[9px]"
 				>
@@ -174,7 +178,6 @@ export function SetupFlow(): JSX.Element {
 							value={name}
 							onChange={(e) => setName(e.target.value)}
 							required
-							// biome-ignore lint/a11y/noAutofocus: Focus on page load per design spec
 							autoFocus
 						/>
 					</div>

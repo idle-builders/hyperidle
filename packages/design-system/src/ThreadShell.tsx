@@ -74,6 +74,16 @@ export interface ThreadShellProps {
 	hostTitle?: string;
 	hostHref?: string;
 	/**
+	 * When true, ThreadHostBanner is not rendered. Use when the consuming
+	 * page already renders its own header with thread title — avoids a
+	 * duplicate header above the message stream.
+	 *
+	 * @lore visual-parity-audit: Conversations.tsx renders its own <header>
+	 * with the thread title and dial-in button. Without this prop, ThreadShell
+	 * also renders ThreadHostBanner, producing two stacked headers.
+	 */
+	hideHostBanner?: boolean;
+	/**
 	 * Optional HTML sanitizer (e.g. DOMPurify). Threaded through to
 	 * `CommentRow` so that raw HTML blocks in plain messages are sanitized
 	 * before rendering. When absent, html payloads degrade to UnknownPayload.
@@ -226,6 +236,7 @@ export function ThreadShell({
 	agentSessionState,
 	hostTitle,
 	hostHref,
+	hideHostBanner = false,
 	sanitizeHtml,
 	renderRefEmbeds,
 }: ThreadShellProps): JSX.Element {
@@ -372,7 +383,7 @@ export function ThreadShell({
 			aria-live="polite"
 			className="flex flex-col h-full bg-[var(--surface-elevated)] focus-within:outline-none"
 		>
-			{banner}
+			{!hideHostBanner && banner}
 			{error ? (
 				<ErrorState title="Failed to load thread" description={error} />
 			) : (
@@ -388,7 +399,7 @@ export function ThreadShell({
 								description="Be the first to post in this thread."
 							/>
 						) : (
-							<ul className="flex flex-col py-[12px] gap-[12px]">
+							<ul className="flex flex-col px-[24px] py-[18px] gap-[18px] max-w-[720px] mx-auto">
 								{cardSubject
 									? (() => {
 											const m = cardSubject.message;
@@ -488,7 +499,9 @@ export function ThreadShell({
 							</ul>
 						)}
 					</div>
-					<Composer threadId={thread.id} onSubmit={handleComposerSubmit} />
+					<div className="max-w-[720px] mx-auto w-full px-[24px]">
+						<Composer threadId={thread.id} onSubmit={handleComposerSubmit} />
+					</div>
 				</>
 			)}
 		</div>

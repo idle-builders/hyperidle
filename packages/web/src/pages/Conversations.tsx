@@ -417,6 +417,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 						artifactSlot={resolveArtifactSlot}
 						onAppendMessage={onAppend}
 						renderRefEmbeds={renderRefEmbedsForConversations}
+						hideHostBanner={true}
 					/>
 				</div>
 				<div className="flex-[2] min-w-0 flex flex-col">
@@ -476,6 +477,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 					artifactSlot={resolveArtifactSlot}
 					onAppendMessage={onAppend}
 					renderRefEmbeds={renderRefEmbedsForConversations}
+					hideHostBanner={true}
 				/>
 			</div>
 		</div>
