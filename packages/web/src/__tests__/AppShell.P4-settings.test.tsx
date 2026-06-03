@@ -39,12 +39,19 @@ function renderShell(initialPath = "/conversations"): ReturnType<typeof render> 
 describe("AppShell — P4 Settings overlay", () => {
 	beforeEach(() => {
 		// W3: URL-aware mock so SettingsOrgChart (/api/org) doesn't crash.
+		// X3: Also mock /api/agents so SettingsAgents doesn't break the page.
 		global.fetch = vi.fn().mockImplementation((url: unknown) => {
 			const urlStr = typeof url === "string" ? url : String(url);
 			if (urlStr.includes("/api/org")) {
 				return Promise.resolve({
 					ok: true,
 					json: () => Promise.resolve({ edges: [], users: [] }),
+				});
+			}
+			if (urlStr.includes("/api/agents")) {
+				return Promise.resolve({
+					ok: true,
+					json: () => Promise.resolve([]),
 				});
 			}
 			return Promise.resolve({

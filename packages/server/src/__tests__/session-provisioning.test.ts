@@ -1107,7 +1107,8 @@ describe("Session Provisioning (D5)", () => {
 				maxConcurrentSessions: 1,
 				costCap: null,
 				costActual: 0,
-				soulPromptPath: "docs/souls/practice-facilitator.md",
+				// X3: soulPromptPath deprecated; soulPrompt holds inline text now
+				soulPrompt: "# Facilitator\n\nYou are a practice facilitator.",
 				skills:
 					'{"scope":"ops","tools":["route_item","score_attention","promote_knowledge","create_conflict_review"]}',
 				createdAt: NOW,
@@ -1198,36 +1199,7 @@ describe("Session Provisioning (D5)", () => {
 		});
 	});
 
-	// --------------- Path traversal guard: soul_prompt_path must stay under docs/souls
-	describe("path traversal guard on soul_prompt_path", () => {
-		it("rejects an agent whose soul_prompt_path escapes docs/souls", async () => {
-			await seedDomain(db);
-			// Mutate the seeded agent to point at a path that resolves outside
-			// docs/souls. The validator must throw before any DB writes or
-			// workspace spawns.
-			await db
-				.update(users)
-				.set({ soulPromptPath: "../../../etc/passwd" })
-				.where(eq(users.id, "agent-1"));
-
-			const harness = new ScriptedHarnessAdapter({ events: [] });
-			const deps: ProvisionSessionDeps = {
-				db,
-				eventBus,
-				adapterPool: makePool(harness),
-				workspace,
-			};
-
-			await expect(provisionSession(deps, baseParams(tmpDir))).rejects.toThrow(
-				/soul_prompt_path escapes/,
-			);
-
-			// No session row created, harness never started, task not transitioned.
-			const rows = await db.select().from(sessions);
-			expect(rows.length).toBe(0);
-			expect(harness.startedConfigs.length).toBe(0);
-			const [t] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
-			expect(t?.state).toBe("accepted");
-		});
-	});
+	// @lore X3: Path traversal test on soul_prompt_path removed — the attack surface was
+	// eliminated by storing soul prompts inline in the DB (soulPrompt column). The
+	// validateSoulPromptPath function and SOUL_PROMPT_DIR_RELATIVE constant were deleted.
 });

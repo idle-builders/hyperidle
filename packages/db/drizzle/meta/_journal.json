@@ -148,6 +148,13 @@
 			"when": 1782961200000,
 			"tag": "0020_T5_block_id_column",
 			"breakpoints": true
+		},
+		{
+			"idx": 21,
+			"version": "7",
+			"when": 1782961300000,
+			"tag": "0021_X3_agent_config",
+			"breakpoints": true
 		}
 	]
 }

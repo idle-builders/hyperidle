@@ -12,6 +12,7 @@
  */
 
 import type { JSX } from "react";
+import { SettingsAgents } from "../settings/SettingsAgents.js";
 import { SettingsAppearance } from "../settings/SettingsAppearance.js";
 import { SettingsBackend } from "../settings/SettingsBackend.js";
 import { SettingsOrgChart } from "../settings/SettingsOrgChart.js";
@@ -35,6 +36,12 @@ export function SettingsPage(): JSX.Element {
 				<section data-testid="settings-section-org-chart" className="flex flex-col gap-3">
 					<h2 className="text-[15px] font-semibold text-[var(--text-primary)]">Org chart</h2>
 					<SettingsOrgChart />
+				</section>
+
+				{/* X3: Agents section */}
+				<section data-testid="settings-section-agents" className="flex flex-col gap-3">
+					<h2 className="text-[15px] font-semibold text-[var(--text-primary)]">Agents</h2>
+					<SettingsAgents />
 				</section>
 
 				{/* W3 AC-47: Appearance section */}

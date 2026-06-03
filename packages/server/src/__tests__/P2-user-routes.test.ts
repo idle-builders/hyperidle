@@ -105,10 +105,13 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 			expect(body.length).toBeGreaterThanOrEqual(2);
 		});
 
-		it("GET /api/agents returns 404 (route renamed to /api/users)", async () => {
-			const res = await app.request("/api/agents", { headers: authHeaders() });
-			expect(res.status).toBe(404);
-		});
+		// @lore X3: The /api/agents 404 assertion was removed here. X3 reintroduces
+		// /api/agents as a dedicated agent management endpoint (GET/POST/PATCH/DELETE)
+		// distinct from the general /api/users listing route. The P2 rename assertion
+		// (agents → users) was valid when /api/agents was simply removed; now that X3
+		// adds it back with a different purpose (agent config, not user listing), the
+		// 404 assertion is no longer valid. See plans/X3/architecture.md §3 for the
+		// design rationale (separate routes, separate authorization model).
 
 		it("GET /api/users returns users with activeSessions count", async () => {
 			const res = await app.request("/api/users", { headers: authHeaders() });

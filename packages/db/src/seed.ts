@@ -1,3 +1,5 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { eq } from "drizzle-orm";
 import type { HyperIdleDb } from "./connection.js";
 import {
@@ -17,6 +19,34 @@ import {
 	FACILITATOR_TOOLS,
 	PRACTICE_COMMUNITIES,
 } from "./seed-fixtures.js";
+
+/**
+ * Strip YAML frontmatter from markdown content.
+ *
+ * @lore X3: This function is intentionally duplicated from
+ * packages/fabric/src/prompt-composition.ts. The reason: @hyperidle/db must NOT
+ * import from @hyperidle/fabric (wrong dependency direction — db is a leaf package
+ * that fabric depends on, not vice versa). Extracting to @hyperidle/shared would
+ * add a utility function to a types-only package. At 1 line of regex, duplication
+ * is the correct choice. The @lore comment ensures future agents understand why.
+ */
+function stripFrontmatter(content: string): string {
+	return content.replace(/^---\n[\s\S]*?\n---\n*/, "");
+}
+
+/**
+ * Read a soul prompt template from docs/souls/ and strip frontmatter.
+ * Returns null if the file does not exist (graceful degradation).
+ */
+function readSoulTemplate(docsRoot: string, filename: string): string | null {
+	const filePath = path.join(docsRoot, "souls", filename);
+	try {
+		const content = fs.readFileSync(filePath, "utf8");
+		return stripFrontmatter(content);
+	} catch {
+		return null;
+	}
+}
 
 /**
  * @lore Phase 2 PGlite migration: seed() is now async and uses PG semantics
@@ -204,6 +234,57 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 		.insert(factorySettings)
 		.values({ key: "cost_cycle", value: "daily", updatedAt: now })
 		.onConflictDoNothing();
+
+	// X3: Seed soul prompt templates from docs/souls/ into factorySettings.
+	// Templates are keyed by soul_template:<role>. Only roles with a matching
+	// docs/souls/<role>.md file get a template. Roles without a file (builder,
+	// growth, brand_voice) have no template — soul prompt textarea starts empty.
+	//
+	// @lore X3: We read files at seed time, not at runtime. The docs/ directory
+	// is part of the repo and available during `npm run db:seed`. If a file is
+	// missing, the template is silently skipped (graceful degradation). Process
+	// CWD during seeding is the monorepo root where docs/ lives.
+	const docsRoot = path.resolve(process.cwd(), "docs");
+	const soulTemplates: Array<{ role: string; filename: string }> = [
+		{ role: "product_manager", filename: "product-manager.md" },
+		{ role: "practice_facilitator", filename: "practice-facilitator.md" },
+		{ role: "chief_of_staff", filename: "chief-of-staff.md" },
+	];
+
+	const templateValues: Record<string, string> = {};
+
+	for (const { role, filename } of soulTemplates) {
+		const content = readSoulTemplate(docsRoot, filename);
+		if (content !== null) {
+			templateValues[role] = content;
+			await db
+				.insert(factorySettings)
+				.values({
+					key: `soul_template:${role}`,
+					value: content,
+					updatedAt: now,
+				})
+				.onConflictDoUpdate({
+					target: factorySettings.key,
+					set: { value: content, updatedAt: now },
+				});
+		}
+	}
+
+	// X3: Backfill soulPrompt on existing agent rows from role-based templates.
+	// Idempotent: overwrites on repeated seed runs with the same template content.
+	// Agents without a matching template (builder, growth, system) are not updated.
+	const roleToTemplate: Record<string, string | undefined> = {
+		product_manager: templateValues.product_manager,
+		practice_facilitator: templateValues.practice_facilitator,
+		chief_of_staff: templateValues.chief_of_staff,
+	};
+
+	for (const [role, template] of Object.entries(roleToTemplate)) {
+		if (template !== undefined) {
+			await db.update(users).set({ soulPrompt: template }).where(eq(users.role, role));
+		}
+	}
 
 	// P2: founder_id, founder_name, founder_email factorySettings keys removed.
 	// The human founder identity now lives in the users table (kind = 'human').

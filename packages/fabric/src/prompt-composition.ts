@@ -29,8 +29,15 @@ const logger = createLogger({ pkg: "fabric.prompt-composition" });
 
 /** Input to prompt composition. All fields come from prior provisioning phases. */
 export interface PromptCompositionInput {
-	/** Absolute path to soul prompt template file. Empty string = no persona. */
-	readonly soulPromptPath: string;
+	/**
+	 * Inline soul prompt text. Empty string = no persona section.
+	 *
+	 * @lore X3: Changed from soulPromptPath (file read) to soulPromptText (inline
+	 * from DB). The DB stores soul prompts directly, eliminating the filesystem read
+	 * attack surface. The content may still contain YAML frontmatter (seeded from
+	 * .md files) — stripFrontmatter() is called before inclusion.
+	 */
+	readonly soulPromptText: string;
 	/** Session context data (task, bet, agent, team). */
 	readonly context: SessionContextData;
 	/** Tool definitions available to this agent role. */
@@ -196,27 +203,17 @@ Your workspace is organized as follows:
 export async function composePrompt(
 	input: PromptCompositionInput,
 ): Promise<PromptCompositionResult> {
-	const { soulPromptPath, context, tools, workspacePath: _workspacePath } = input;
+	const { soulPromptText, context, tools, workspacePath: _workspacePath } = input;
 
-	// Build persona section
+	// Build persona section from inline text (no file read).
+	// @lore X3: Previously read from disk via soulPromptPath. Now uses inline text
+	// from the DB (agent.soulPrompt). stripFrontmatter is called because the DB
+	// content may have been seeded from .md files that include YAML frontmatter.
 	let personaSection = "";
-	if (soulPromptPath.length > 0) {
-		let rawContent: string;
-		try {
-			rawContent = await fs.promises.readFile(soulPromptPath, "utf8");
-		} catch {
-			// File not found or unreadable — treat as empty soulPromptPath
-			logger.warn(
-				`Soul prompt file not found or unreadable: ${soulPromptPath}. Proceeding without persona.`,
-			);
-			rawContent = "";
-		}
-
-		if (rawContent.length > 0) {
-			const stripped = stripFrontmatter(rawContent);
-			const vars = buildTemplateVariables(context);
-			personaSection = substituteTemplateVars(stripped, vars);
-		}
+	if (soulPromptText.length > 0) {
+		const stripped = stripFrontmatter(soulPromptText);
+		const vars = buildTemplateVariables(context);
+		personaSection = substituteTemplateVars(stripped, vars);
 	}
 
 	const toolsContent = buildToolsSection(tools);

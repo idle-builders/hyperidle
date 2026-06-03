@@ -29,6 +29,7 @@ const WorkerRegisterSchema = z.object({
 	name: z.string().min(1),
 	modelProviders: z.array(z.string()),
 	maxConcurrent: z.number().int().positive(),
+	harnessType: z.string().optional(),
 });
 
 const WorkerEventSchema = z.object({
@@ -117,6 +118,7 @@ export class WorkerConnectionManager {
 			this.pool.register(msg.id, this.adapter, {
 				name: msg.name,
 				kind: "remote",
+				type: msg.harnessType, // X3: worker-specified harness type (optional)
 				modelProviders: msg.modelProviders,
 				maxConcurrent: msg.maxConcurrent,
 			});
