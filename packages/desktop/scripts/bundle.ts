@@ -84,6 +84,11 @@ const pgStubPlugin: esbuild.Plugin = {
 };
 
 // Bundle main process
+// @lore desktop: import.meta.url is undefined in CJS output — esbuild replaces
+// import.meta with an empty object, so import.meta.url becomes undefined. Transitive
+// deps (MCP SDK) call createRequire(import.meta.url) without a __dirname guard,
+// crashing at startup. We use define+banner to replace import.meta.url with a
+// CJS-compatible runtime expression before esbuild creates the empty shim.
 await esbuild.build({
 	entryPoints: [path.join(DESKTOP_DIR, "src/main.ts")],
 	bundle: true,
@@ -94,6 +99,12 @@ await esbuild.build({
 	outfile: path.join(DIST_DIR, "main.cjs"),
 	external: EXTERNALS,
 	plugins: [pgStubPlugin],
+	define: {
+		"import.meta.url": "__IMPORT_META_URL__",
+	},
+	banner: {
+		js: 'var __IMPORT_META_URL__ = require("url").pathToFileURL(__filename).href;',
+	},
 	// sourcemap: true for crash diagnostics — stack traces must be readable
 	sourcemap: true,
 	// minify: false — crash stack traces must be human-readable; bundle size is

@@ -20,33 +20,32 @@ HyperIdle is an agentic operating system for AI-first companies. Flat teams of h
 **No code is written until the definition of done and validation setup exist.** This is non-negotiable. For every work package or task:
 
 1. Extract the acceptance criteria from the relevant track file in `.pipeline/work-packages/`.
-2. Define the verification method for each criterion (automated test, Playwright E2E, eval, screenshot, inspection).
-3. Write the failing tests that prove the criteria (red phase).
+2. Define the verification method for each criterion — pick the right tool for each:
+   - **Runtime behavior** (function returns X, API responds Y, component renders Z) → automated test
+   - **Static codebase property** (no forbidden imports, naming conventions, config shape) → ESLint rule or type system
+   - **Visual correctness** → Playwright E2E or screenshot
+3. Write the failing tests for runtime behavior criteria (red phase).
 4. Only then begin implementation.
 
-If you cannot define how to verify a criterion, clarify the requirement before writing code. Unverifiable criteria are incomplete specifications.
+Tests are for application logic. A test imports code and asserts on its behavior. Reading source files with `readFileSync` or grepping the filesystem is not a test — it's a lint rule or build script. If an AC describes a static property, enforce it with the type system or a lint rule, not a test.
 
 ## Validation
 
-Before any work is complete: `npm run check` (zero type errors) + `npm run lint` (zero lint errors) + `npm run test` (all green). Target 100% test coverage of new code including Playwright E2E tests for all user-facing features. Every change must be independently verifiable by agents — if it can't be proven with a test, it's not done.
+Before any work is complete: `npm run check` (zero type errors) + `npm run lint` (zero lint errors) + `npm run test` (all green). Tests only live in `packages/` and only test runtime behavior through imports.
 
 ### Which command to use when
 
 | Scenario | Command | What it does |
 |---|---|---|
-| **Iterating on code** | `npm run test` | Runs only tests affected by changes on this branch (vs origin/main). Fast feedback loop. |
-| **Full test suite** | `npm run test -- --all` | Runs all vitest tests across all packages. Use before shipping. |
-| **E2E tests** | `npm run test:e2e` | Playwright end-to-end tests (Chromium). Separate from unit/integration tests. |
-| **Quick lint check** | `npm run verify -- --quick` | Phase 1 only: typecheck + biome + eslint + knip + mock-inventory. No tests or builds. |
-| **Full verification** | `npm run verify` | Smart package-aware gating (default). Skips expensive Phase 2 tools whose packages aren't impacted. Auto-derives dependency graph from workspace package.json. Forces full run on root config/scripts changes. Writes HMAC-signed attestation for CI. |
-| **Force all tools** | `npm run verify -- --full` | All tools, no smart gating. Use when you want to verify everything regardless of what changed. |
-| **Specific tools only** | `npm run verify -- --only=test,check` | Run only the named tools. |
+| **Run tests** | `npm run test` | Runs all vitest tests across all packages. |
+| **E2E tests** | `npm run test:e2e` | Playwright end-to-end tests (Chromium). |
+| **Typecheck** | `npm run check` | `tsc --noEmit` directly. |
+| **Lint** | `npm run lint` | Biome + ESLint directly. |
+| **Quick verify** | `npm run verify -- --quick` | Phase 1 only: check + lint + knip. No tests or builds. |
+| **Full verify** | `npm run verify` | Smart package-aware gating. Writes attestation on success. |
+| **Force all tools** | `npm run verify -- --full` | All tools, no smart gating. |
 
-The verify pipeline runs in two parallel phases:
-- **Phase 1** (static analysis): check, lint:biome, lint:eslint, knip, mock-inventory
-- **Phase 2** (runtime): test, build, build:desktop, server:load, e2e
-
-Attestation files are stored per-commit SHA in `.verify-attestations/<sha>.json` to avoid merge conflicts between concurrent branches.
+`check`, `lint`, and `test` are the real tools with normal output. `verify` orchestrates them silently, reports pass/fail per tool, and writes the HMAC attestation. Run individual commands for error details.
 
 ## Proof & Definition of Done
 

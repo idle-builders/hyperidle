@@ -55,16 +55,17 @@ const MIME_TYPES: Record<string, string> = {
  */
 function createStaticHandler(
 	dir: string,
-	appFetch: (req: Request) => Response | Promise<Response>,
-): (req: Request) => Response | Promise<Response> {
+	appFetch: (req: Request, env?: unknown) => Response | Promise<Response>,
+): (req: Request, env?: unknown) => Response | Promise<Response> {
 	const indexPath = path.join(dir, "index.html");
 
-	return (req: Request): Response | Promise<Response> => {
+	return (req: Request, env?: unknown): Response | Promise<Response> => {
 		const url = new URL(req.url);
 
-		// /api routes always go to the Hono app
+		// /api routes (including WebSocket upgrades at /api/ws) go to the Hono app.
+		// env must be forwarded — @hono/node-server passes WebSocket bindings via env.
 		if (url.pathname.startsWith("/api")) {
-			return appFetch(req);
+			return appFetch(req, env);
 		}
 
 		// Try to serve exact file
