@@ -37,13 +37,15 @@ afterEach(() => {
 });
 
 describe("I2 S4 / review A3 — LocalWorkspaceAdapter production guard", () => {
-	it("constructor throws when NODE_ENV === 'production' with a message mentioning production", () => {
+	it("constructor throws when NODE_ENV === 'production' on a server profile", () => {
 		process.env.NODE_ENV = "production";
-		expect(() => new LocalWorkspaceAdapter()).toThrow(/production/i);
+		process.env.HYPERIDLE_PROFILE = "vps";
+		expect(() => new LocalWorkspaceAdapter()).toThrow(/not allowed/i);
 	});
 
 	it("error message recommends DockerWorkspaceAdapter", () => {
 		process.env.NODE_ENV = "production";
+		process.env.HYPERIDLE_PROFILE = "vps";
 		expect(() => new LocalWorkspaceAdapter()).toThrow(/Docker/i);
 	});
 
@@ -66,10 +68,8 @@ describe("I2 S4 / review A3 — LocalWorkspaceAdapter production guard", () => {
 	});
 
 	it("constructing in production gates exec() too — no handle can leak past the constructor", () => {
-		// The fix moved the gate to the constructor, so even if a caller
-		// somehow had a prior handle, they could not build an adapter under
-		// NODE_ENV=production to exec() against it.
 		process.env.NODE_ENV = "production";
-		expect(() => new LocalWorkspaceAdapter()).toThrow(/production/i);
+		process.env.HYPERIDLE_PROFILE = "vps";
+		expect(() => new LocalWorkspaceAdapter()).toThrow(/not allowed/i);
 	});
 });

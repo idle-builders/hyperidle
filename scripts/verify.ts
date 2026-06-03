@@ -1,19 +1,13 @@
 #!/usr/bin/env tsx
-// TE-3: single global verify orchestrator.
-//
-// Runs tools in two parallel phases, captures each tool's structured output,
-// finishes all of them (even if one fails), and prints one TOON summary at
-// the end. On failure, raw stderr tail of the failing tool is preserved
-// (TE-4 — silent on green, transparent on red).
+// Verify orchestrator. Runs tools in parallel phases, prints pass/fail summary,
+// writes attestation on success. No output processing — tools are silenced.
+// Run individual commands (npm run check, npm run lint, npm run test) for details.
 //
 // Usage:
 //   npm run verify           # smart: package-aware gating (default)
 //   npm run verify --full    # all tools, no smart gating
-//   npm run verify --quick   # quick: static analysis only (phase 1)
-//   npm run verify --raw     # forward each tool's full stdout/stderr
-//   npm run verify --only=test,lint:eslint
-//
-// Exit code is the count of failing tools (0 = all green).
+//   npm run verify --quick   # phase 1 only (static analysis)
+//   npm run verify --only=test,check
 
 import { spawn, execSync } from "node:child_process";
 import { createHmac, randomBytes } from "node:crypto";
@@ -27,7 +21,6 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { encode } from "../packages/shared/src/toon-codec.js";
 import {
 	analyzeImpact,
 	formatSkipMessage,
@@ -51,18 +44,9 @@ interface ToolResult {
 	ok: boolean;
 	durationMs: number;
 	exitCode: number;
-	stdoutTail: string;
-	stderrTail: string;
-	stdoutBytes: number;
-	stderrBytes: number;
 	timedOut?: boolean;
 }
 
-const RAW_TAIL_LINES = 60;
-const TEST_OUTPUT_FILE = "test-output.toon";
-
-// Phase 1: static analysis (all independent, run in parallel)
-// Phase 2: runtime validation (test + builds + e2e, run in parallel)
 const TOOLS: Tool[] = [
 	{
 		name: "check",
@@ -96,9 +80,8 @@ const TOOLS: Tool[] = [
 	},
 	{
 		name: "test",
-		cmd: "npm",
-		args: ["run", "test", "--", "--all"],
-		env: { VITEST_TOON_OUTPUT: TEST_OUTPUT_FILE },
+		cmd: "vitest",
+		args: ["run"],
 		timeoutMs: 1_800_000,
 		phase: 2,
 	},
@@ -122,24 +105,7 @@ const TOOLS: Tool[] = [
 		timeoutMs: 120_000,
 		phase: 2,
 	},
-	// e2e excluded from default verify — Playwright fixture/server setup needs
-	// rebuild (vite proxy ECONNREFUSED). Run standalone: npm run test:e2e
-	// {
-	// 	name: "e2e",
-	// 	cmd: "npx",
-	// 	args: ["playwright", "test", "--reporter=list"],
-	// 	cwd: "packages/web",
-	// 	timeoutMs: 600_000,
-	// 	phase: 2,
-	// },
 ];
-
-interface CliFlags {
-	raw: boolean;
-	quick: boolean;
-	full: boolean;
-	only: Set<string> | null;
-}
 
 // ---------------------------------------------------------------------------
 // Process cleanup
@@ -167,39 +133,41 @@ process.on("SIGINT", () => {
 process.on("exit", killActiveChildren);
 
 // ---------------------------------------------------------------------------
-// CLI parsing
+// CLI
 // ---------------------------------------------------------------------------
 
+interface CliFlags {
+	quick: boolean;
+	full: boolean;
+	only: Set<string> | null;
+}
+
 function parseFlags(argv: readonly string[]): CliFlags {
-	let raw = false;
 	let quick = false;
 	let full = false;
 	let only: Set<string> | null = null;
 	for (const arg of argv) {
-		if (arg === "--raw") raw = true;
-		else if (arg === "--quick") quick = true;
+		if (arg === "--quick") quick = true;
 		else if (arg === "--full") full = true;
 		else if (arg.startsWith("--only=")) {
 			only = new Set(arg.slice("--only=".length).split(",").filter(Boolean));
 		}
 	}
-	return { raw, quick, full, only };
+	return { quick, full, only };
 }
 
 // ---------------------------------------------------------------------------
 // Tool runner
 // ---------------------------------------------------------------------------
 
-function runTool(tool: Tool, raw: boolean): Promise<ToolResult> {
+function runTool(tool: Tool): Promise<ToolResult> {
 	const startedAt = Date.now();
-	const stdoutChunks: string[] = [];
-	const stderrChunks: string[] = [];
 
 	return new Promise<ToolResult>((resolvePromise) => {
 		const child = spawn(tool.cmd, tool.args, {
 			env: { ...process.env, ...tool.env },
 			cwd: tool.cwd ? resolve(process.cwd(), tool.cwd) : undefined,
-			stdio: raw ? "inherit" : ["ignore", "pipe", "pipe"],
+			stdio: ["ignore", "ignore", "ignore"],
 			detached: true,
 		});
 
@@ -223,28 +191,14 @@ function runTool(tool: Tool, raw: boolean): Promise<ToolResult> {
 			}, tool.timeoutMs);
 		}
 
-		if (!raw && child.stdout && child.stderr) {
-			child.stdout.on("data", (chunk: Buffer) => stdoutChunks.push(chunk.toString("utf-8")));
-			child.stderr.on("data", (chunk: Buffer) => stderrChunks.push(chunk.toString("utf-8")));
-		}
-
 		child.on("close", (code) => {
 			if (child.pid) activeChildren.delete(child.pid);
 			if (timer) clearTimeout(timer);
-			const stdout = stdoutChunks.join("");
-			const stderr = stderrChunks.join("");
-			const timeoutMsg = timedOut
-				? `\n[verify] ${tool.name} killed after ${Math.round((tool.timeoutMs ?? 0) / 1000)}s timeout\n`
-				: "";
 			resolvePromise({
 				name: tool.name,
 				ok: !timedOut && code === 0,
 				exitCode: code ?? -1,
 				durationMs: Date.now() - startedAt,
-				stdoutBytes: Buffer.byteLength(stdout, "utf-8"),
-				stderrBytes: Buffer.byteLength(stderr, "utf-8"),
-				stdoutTail: tail(stdout, RAW_TAIL_LINES) + timeoutMsg,
-				stderrTail: tail(stderr, RAW_TAIL_LINES) + timeoutMsg,
 				timedOut,
 			});
 		});
@@ -252,102 +206,38 @@ function runTool(tool: Tool, raw: boolean): Promise<ToolResult> {
 }
 
 // ---------------------------------------------------------------------------
-// Output helpers
+// Summary
 // ---------------------------------------------------------------------------
 
-function tail(text: string, lines: number): string {
-	if (!text) return "";
-	const split = text.split("\n");
-	if (split.length <= lines) return text;
-	return split.slice(-lines).join("\n");
-}
+function printSummary(results: ToolResult[], totalMs: number): void {
+	const failed = results.filter((r) => !r.ok);
+	const stream = failed.length > 0 ? process.stderr : process.stdout;
 
-function readVitestToon(): unknown | null {
-	const path = resolve(process.cwd(), TEST_OUTPUT_FILE);
-	if (!existsSync(path)) return null;
-	return readFileSync(path, "utf-8");
-}
-
-interface VerifySummary {
-	status: "passed" | "failed";
-	totalTools: number;
-	passed: number;
-	failed: number;
-	durationMs: number;
-	tools: Array<{
-		name: string;
-		ok: boolean;
-		durationMs: number;
-		exitCode: number;
-	}>;
-	failures: Array<{
-		name: string;
-		exitCode: number;
-		stderrTail: string;
-		stdoutTail: string;
-	}>;
-	vitestToon?: string;
-}
-
-function buildSummary(results: ToolResult[], totalDurationMs: number): VerifySummary {
-	const failures = results
-		.filter((r) => !r.ok)
-		.map((r) => ({
-			name: r.name,
-			exitCode: r.exitCode,
-			stderrTail: r.stderrTail,
-			stdoutTail: r.stdoutTail,
-		}));
-	const summary: VerifySummary = {
-		status: failures.length === 0 ? "passed" : "failed",
-		totalTools: results.length,
-		passed: results.filter((r) => r.ok).length,
-		failed: failures.length,
-		durationMs: totalDurationMs,
-		tools: results.map((r) => ({
-			name: r.name,
-			ok: r.ok,
-			durationMs: r.durationMs,
-			exitCode: r.exitCode,
-		})),
-		failures,
-	};
-
-	const vitestFailed = results.find((r) => r.name === "test" && !r.ok);
-	if (vitestFailed) {
-		const toon = readVitestToon();
-		if (typeof toon === "string") summary.vitestToon = toon;
+	stream.write("\n");
+	for (const r of results) {
+		const status = r.ok ? "✓" : "✗";
+		const duration = `${(r.durationMs / 1000).toFixed(1)}s`;
+		const timeout = r.timedOut ? " (timeout)" : "";
+		stream.write(`  ${status} ${r.name.padEnd(16)} ${duration}${timeout}\n`);
 	}
+	stream.write("\n");
 
-	return summary;
-}
-
-function printSummary(summary: VerifySummary): void {
-	const out = encode(summary as unknown as Record<string, unknown>);
-	if (summary.status === "passed") {
-		process.stdout.write(`${out}\n`);
-		return;
-	}
-	process.stderr.write(`${out}\n\n`);
-	for (const f of summary.failures) {
-		process.stderr.write(`=== ${f.name} (exit ${f.exitCode}) ===\n`);
-		if (f.stderrTail) process.stderr.write(`${f.stderrTail}\n`);
-		if (f.stdoutTail) process.stderr.write(`${f.stdoutTail}\n`);
-	}
-	if (summary.vitestToon) {
-		process.stderr.write(`\n=== ${TEST_OUTPUT_FILE} ===\n`);
-		process.stderr.write(`${summary.vitestToon}\n`);
+	if (failed.length === 0) {
+		stream.write(`verify: all ${results.length} tools passed (${(totalMs / 1000).toFixed(1)}s)\n`);
+	} else {
+		stream.write(
+			`verify: ${failed.length}/${results.length} failed — run failed tools individually for details\n`,
+		);
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Attestation — per-SHA files in .verify-attestations/ to avoid merge conflicts
+// Attestation
 // ---------------------------------------------------------------------------
 
 const ATTESTATION_DIR = ".verify-attestations";
 const SECRET_DIR = join(homedir(), ".config", "hyperidle");
 const SECRET_PATH = join(SECRET_DIR, "verify-secret");
-
 const ALL_TOOL_NAMES = TOOLS.map((t) => t.name);
 
 function getOrCreateSecret(): string | null {
@@ -364,14 +254,13 @@ function getOrCreateSecret(): string | null {
 	return secret;
 }
 
-interface AttestationOpts {
-	toolNames: string[];
-	smartSkipped: string[];
-	partial: boolean;
-}
-
-function writeAttestation(summary: VerifySummary, opts: AttestationOpts): void {
-	if (summary.status !== "passed") return;
+function writeAttestation(
+	passed: boolean,
+	toolNames: string[],
+	smartSkipped: string[],
+	partial: boolean,
+): void {
+	if (!passed) return;
 
 	const secret = getOrCreateSecret();
 	if (!secret) return;
@@ -383,10 +272,10 @@ function writeAttestation(summary: VerifySummary, opts: AttestationOpts): void {
 		sha,
 		status: "passed" as const,
 		dirty,
-		tools: opts.toolNames,
+		tools: toolNames,
 		allTools: ALL_TOOL_NAMES,
-		partial: opts.partial,
-		smartSkipped: opts.smartSkipped,
+		partial,
+		smartSkipped,
 		timestamp: new Date().toISOString(),
 	};
 
@@ -395,7 +284,6 @@ function writeAttestation(summary: VerifySummary, opts: AttestationOpts): void {
 	const dir = resolve(process.cwd(), ATTESTATION_DIR);
 	mkdirSync(dir, { recursive: true });
 
-	// Remove stale attestation files from previous commits
 	for (const file of readdirSync(dir)) {
 		if (file.endsWith(".json") && file !== `${sha}.json`) {
 			try {
@@ -406,14 +294,14 @@ function writeAttestation(summary: VerifySummary, opts: AttestationOpts): void {
 
 	const filePath = join(dir, `${sha}.json`);
 	writeFileSync(filePath, JSON.stringify({ ...payload, hmac }, null, "\t") + "\n");
-	process.stderr.write(`verify: attestation written → ${ATTESTATION_DIR}/${sha}.json\n`);
+	process.stderr.write(`verify: attestation → ${ATTESTATION_DIR}/${sha}.json\n`);
 	if (dirty) {
 		process.stderr.write("verify: WARNING — working tree is dirty, commit first for CI\n");
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Main
+// Smart gating
 // ---------------------------------------------------------------------------
 
 function applySmartGating(
@@ -435,7 +323,8 @@ function applySmartGating(
 				const projectArgs = projects.flatMap((p) => ["--project", p]);
 				kept.push({
 					...tool,
-					args: ["run", "test:raw", "--", ...projectArgs],
+					cmd: "vitest",
+					args: ["run", ...projectArgs],
 				});
 				continue;
 			}
@@ -447,10 +336,15 @@ function applySmartGating(
 	return { tools: kept, skipped };
 }
 
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
 async function main(): Promise<void> {
 	const flags = parseFlags(process.argv.slice(2));
 	let tools: Tool[];
 	let isPartial = false;
+
 	if (flags.only) {
 		tools = TOOLS.filter((t) => flags.only?.has(t.name));
 		isPartial = true;
@@ -460,12 +354,12 @@ async function main(): Promise<void> {
 	} else {
 		tools = TOOLS;
 	}
+
 	if (tools.length === 0) {
-		process.stderr.write("verify: no tools matched --only filter\n");
+		process.stderr.write("verify: no tools matched filter\n");
 		process.exit(2);
 	}
 
-	// Smart gating is the default. --full, --only, or --quick disable it.
 	const useSmart = !flags.full && !flags.only && !flags.quick;
 	let smartSkippedTools: string[] = [];
 
@@ -499,33 +393,26 @@ async function main(): Promise<void> {
 	}
 
 	const startedAt = Date.now();
-
-	// Run tools in parallel phases. Phase 1 (static analysis) completes before
-	// phase 2 (runtime validation) starts. Within each phase, tools run in parallel.
-	const phases = [1, 2] as const;
 	const results: ToolResult[] = [];
 
-	for (const phase of phases) {
+	for (const phase of [1, 2] as const) {
 		const phaseTools = tools.filter((t) => t.phase === phase);
 		if (phaseTools.length === 0) continue;
-		const phaseResults = await Promise.all(phaseTools.map((t) => runTool(t, flags.raw)));
+		const phaseResults = await Promise.all(phaseTools.map((t) => runTool(t)));
 		results.push(...phaseResults);
 	}
 
-	const totalDurationMs = Date.now() - startedAt;
-	const summary = buildSummary(results, totalDurationMs);
-	if (!flags.raw) {
-		printSummary(summary);
-	} else if (summary.failed > 0) {
-		const names = summary.failures.map((f) => `${f.name} (exit ${f.exitCode})`).join(", ");
-		process.stderr.write(`\nverify: ${summary.failed} tool(s) failed: ${names}\n`);
-	}
-	writeAttestation(summary, {
-		toolNames: tools.map((t) => t.name),
-		smartSkipped: smartSkippedTools,
-		partial: isPartial,
-	});
-	process.exit(summary.failed);
+	const totalMs = Date.now() - startedAt;
+	const failed = results.filter((r) => !r.ok).length;
+
+	printSummary(results, totalMs);
+	writeAttestation(
+		failed === 0,
+		tools.map((t) => t.name),
+		smartSkippedTools,
+		isPartial,
+	);
+	process.exit(failed);
 }
 
 await main();
