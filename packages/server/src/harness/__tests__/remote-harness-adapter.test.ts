@@ -52,6 +52,7 @@ class MockWebSocket {
 const TEST_CONFIG: SessionConfig = {
 	workspacePath: "/workspace/test",
 	soulPromptPath: "/workspace/prompts/builder.md",
+	composedPrompt: "",
 	modelTier: "workhorse",
 	tools: ["Read", "Write"],
 };

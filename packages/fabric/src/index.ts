@@ -328,6 +328,19 @@ export {
 	runStaleSweep,
 	STALE_THRESHOLD_MS,
 } from "./promotion-pipeline.js";
+// prompt-composition (X1)
+export type {
+	PromptCompositionInput,
+	PromptCompositionResult,
+	ToolSummary,
+} from "./prompt-composition.js";
+export {
+	buildTemplateVariables,
+	composePrompt,
+	stripFrontmatter,
+	substituteTemplateVars,
+	writeWorkspaceCLAUDEmd,
+} from "./prompt-composition.js";
 export type {
 	RelevanceConfig,
 	RelevanceInput,
@@ -358,7 +371,7 @@ export {
 	loadScoringWeights,
 } from "./scoring-config.js";
 export type { SessionContextConfig, SessionContextData } from "./session-context.js";
-export { buildSessionContext } from "./session-context.js";
+export { buildSessionContext, buildSessionContextData } from "./session-context.js";
 export type { ScoredItem } from "./token-budget.js";
 export { countItemTokens, countTokens, enforceBudget } from "./token-budget.js";
 export type {

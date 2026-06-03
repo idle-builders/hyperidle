@@ -3,12 +3,16 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { bets, type HyperIdleDb, sessions, tasks, users } from "@hyperidle/db";
 import {
+	buildSessionContextData,
 	checkCostCap,
+	composePrompt,
 	type FileWatcher,
 	type FileWatcherConfig,
 	materialize,
 	recordCostAndCheck,
 	startWatcher,
+	type ToolSummary,
+	writeWorkspaceCLAUDEmd,
 } from "@hyperidle/fabric";
 import {
 	ConcurrencyLimitError,
@@ -366,6 +370,34 @@ export async function provisionSession(
 	};
 	const registry = buildToolRegistry(toolContext, { role: agentRole });
 
+	// ── Phase 8.5: compose prompt and write CLAUDE.md.
+	//
+	// @lore X1: spec says "written during Phase 6 (materialization)" but we
+	// place it here because the composed prompt requires tool definitions from
+	// Phase 8. The spec's intent (CLAUDE.md exists before harness start) is
+	// preserved — Phase 8.5 runs before Phase 9 (harness start).
+	const sessionContextData = await buildSessionContextData(db, {
+		sessionId,
+		taskId: params.taskId,
+		agentId: params.agentId,
+		agentRole,
+		productId: params.productId,
+	});
+
+	const toolSummaries: ToolSummary[] = toolsForRole(agentRole).map((d) => ({
+		name: d.name,
+		description: d.description,
+	}));
+
+	const { composedPrompt } = await composePrompt({
+		soulPromptPath,
+		context: sessionContextData,
+		tools: toolSummaries,
+		workspacePath,
+	});
+
+	writeWorkspaceCLAUDEmd(workspacePath, composedPrompt);
+
 	// ── Phase 8b: create MCP bridge (if registry is configured).
 	//
 	// @lore X2: Bridge creation is wrapped in a try/catch for graceful degradation.
@@ -423,6 +455,7 @@ export async function provisionSession(
 		harnessHandle = await harness.startSession({
 			workspacePath,
 			soulPromptPath,
+			composedPrompt,
 			modelTier,
 			tools: allowedToolNames,
 		});

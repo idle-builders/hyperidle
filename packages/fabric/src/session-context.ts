@@ -44,11 +44,15 @@ export interface SessionContextData {
 	};
 }
 
-/** Build session.toon content from DB state. */
-export async function buildSessionContext(
+/**
+ * Query the DB and assemble structured SessionContextData without encoding.
+ * X1: extracted from buildSessionContext so prompt composition can use the
+ * typed data directly without a second DB query or TOON decoding.
+ */
+export async function buildSessionContextData(
 	db: HyperIdleDb,
 	config: SessionContextConfig,
-): Promise<string> {
+): Promise<SessionContextData> {
 	const [task] = await db.select().from(tasks).where(eq(tasks.id, config.taskId)).limit(1);
 	if (!task) {
 		throw new Error(`Task ${config.taskId} not found`);
@@ -70,7 +74,7 @@ export async function buildSessionContext(
 		throw new Error(`Team ${config.productId} not found`);
 	}
 
-	const data: SessionContextData = {
+	return {
 		task: {
 			id: task.id,
 			title: task.title,
@@ -95,6 +99,13 @@ export async function buildSessionContext(
 			name: team.name,
 		},
 	};
+}
 
+/** Build session.toon content from DB state. */
+export async function buildSessionContext(
+	db: HyperIdleDb,
+	config: SessionContextConfig,
+): Promise<string> {
+	const data = await buildSessionContextData(db, config);
 	return encode(data as unknown as Record<string, unknown>);
 }

@@ -392,6 +392,7 @@ describe("S4 AC-5 — DesktopWorkerClient dispatch", () => {
 			config: {
 				workspacePath: "/tmp/ws",
 				soulPromptPath: "/tmp/soul.md",
+				composedPrompt: "",
 				modelTier: "fast",
 				tools: [],
 			},
@@ -427,6 +428,7 @@ describe("S4 AC-5 — DesktopWorkerClient dispatch", () => {
 				config: {
 					workspacePath: "/tmp/ws",
 					soulPromptPath: "/tmp/soul.md",
+					composedPrompt: "",
 					modelTier: "fast",
 					tools: [],
 				},
@@ -460,6 +462,7 @@ describe("S4 AC-5 — DesktopWorkerClient dispatch", () => {
 				config: {
 					workspacePath: "/tmp/ws",
 					soulPromptPath: "/tmp/soul.md",
+					composedPrompt: "",
 					modelTier: "fast",
 					tools: [],
 				},
@@ -535,6 +538,7 @@ describe("S4 AC-8 — DesktopWorkerClient graceful shutdown", () => {
 				config: {
 					workspacePath: "/tmp/ws",
 					soulPromptPath: "/tmp/soul.md",
+					composedPrompt: "",
 					modelTier: "fast",
 					tools: [],
 				},
@@ -610,6 +614,7 @@ describe("S4 AC-8 — DesktopWorkerClient graceful shutdown", () => {
 				config: {
 					workspacePath: "/tmp/ws",
 					soulPromptPath: "/tmp/soul.md",
+					composedPrompt: "",
 					modelTier: "fast",
 					tools: [],
 				},

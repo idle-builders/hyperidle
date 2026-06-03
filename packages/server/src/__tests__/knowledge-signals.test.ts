@@ -16,7 +16,10 @@ function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
 }
 
-const NOW_ISO = "2026-05-06T12:00:00.000Z";
+const NOW_ISO = new Date().toISOString();
+function daysAgo(n: number): string {
+	return new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString();
+}
 
 describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 	let handle: TestDbHandle;
@@ -84,7 +87,7 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 	// Signals contain the expected fields
 	it("signals field contains lastActivityAt, accessCount30d, citationCount, relevanceScore", async () => {
 		await createItem("item-l22-2", "L3");
-		await insertAccessLog("item-l22-2", "2026-05-05T00:00:00.000Z");
+		await insertAccessLog("item-l22-2", daysAgo(1));
 
 		const res = await app.request("/api/knowledge", { headers: authHeaders() });
 		const body = (await res.json()) as {
@@ -129,7 +132,7 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 	// citationCount is always null in L22 (staged) — AC-3
 	it("citationCount is always null on signals (citation staged — AC-3)", async () => {
 		await createItem("item-l22-4", "L3");
-		await insertAccessLog("item-l22-4", "2026-05-05T00:00:00.000Z");
+		await insertAccessLog("item-l22-4", daysAgo(1));
 
 		const res = await app.request("/api/knowledge", { headers: authHeaders() });
 		const body = (await res.json()) as {
@@ -143,8 +146,8 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 	// Items with access data have non-null accessCount30d
 	it("items with access data have non-null accessCount30d", async () => {
 		await createItem("item-l22-5", "L3");
-		await insertAccessLog("item-l22-5", "2026-05-05T00:00:00.000Z");
-		await insertAccessLog("item-l22-5", "2026-05-04T00:00:00.000Z");
+		await insertAccessLog("item-l22-5", daysAgo(1));
+		await insertAccessLog("item-l22-5", daysAgo(2));
 
 		const res = await app.request("/api/knowledge", { headers: authHeaders() });
 		const body = (await res.json()) as {
