@@ -180,35 +180,81 @@ export function Sidebar({
 					data-active-view={activeView === "conversations" ? "conversations" : undefined}
 				>
 					<SectionHeader view="conversations" activeView={activeView} onViewChange={onViewChange} />
-					<ul className="flex flex-col">
-						{visibleThreads.length === 0 ? (
-							<li className="px-[12px] py-1 text-[12px] text-[var(--text-tertiary)]">
-								No threads yet
-							</li>
-						) : (
-							visibleThreads.map((thread) => {
-								const isSelected = thread.id === selectedThreadId;
+					{activeView === "conversations" && (
+						<ul className="flex flex-col">
+							{visibleThreads.length === 0 ? (
+								<li className="px-[12px] py-1 text-[12px] text-[var(--text-tertiary)]">
+									No threads yet
+								</li>
+							) : (
+								visibleThreads.map((thread) => {
+									const isSelected = thread.id === selectedThreadId;
+									return (
+										<li
+											key={thread.id}
+											data-thread-id={thread.id}
+											aria-current={isSelected ? "page" : undefined}
+											className={[
+												"rounded-[var(--r-subtle)] mb-[3px]",
+												isSelected
+													? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]"
+													: "",
+											].join(" ")}
+										>
+											<button
+												type="button"
+												onClick={() => onSelectThread(thread.id)}
+												className={[
+													"w-full text-left px-[12px] py-[6px] text-[13px]",
+													"flex items-center gap-[6px]",
+													"truncate transition-[background] duration-[var(--motion-fast)]",
+													"hover:bg-[rgba(44,36,26,0.04)] rounded-[var(--r-subtle)]",
+													isSelected
+														? "text-[var(--text-primary)] font-[500]"
+														: "text-[var(--text-secondary)]",
+												].join(" ")}
+											>
+												<span
+													className="inline-block w-[8px] h-[8px] rounded-full shrink-0"
+													style={{ background: "var(--accent-primary)" }}
+													aria-hidden="true"
+												/>
+												<span className="truncate">{thread.title}</span>
+											</button>
+										</li>
+									);
+								})
+							)}
+						</ul>
+					)}
+				</div>
+
+				{/* Work section */}
+				<div className="mb-[18px]" data-active-view={activeView === "work" ? "work" : undefined}>
+					<SectionHeader view="work" activeView={activeView} onViewChange={onViewChange} />
+					{activeView === "work" && (
+						<ul className="flex flex-col">
+							{teams.map((team) => {
+								const isActive = team.id === activeTeamId;
 								return (
 									<li
-										key={thread.id}
-										data-thread-id={thread.id}
-										aria-current={isSelected ? "page" : undefined}
+										key={team.id}
+										data-team-id={team.id}
+										aria-current={isActive ? "page" : undefined}
 										className={[
 											"rounded-[var(--r-subtle)] mb-[3px]",
-											isSelected
-												? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]"
-												: "",
+											isActive ? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]" : "",
 										].join(" ")}
 									>
 										<button
 											type="button"
-											onClick={() => onSelectThread(thread.id)}
+											onClick={() => onSelectTeam(team.id)}
 											className={[
 												"w-full text-left px-[12px] py-[6px] text-[13px]",
 												"flex items-center gap-[6px]",
 												"truncate transition-[background] duration-[var(--motion-fast)]",
 												"hover:bg-[rgba(44,36,26,0.04)] rounded-[var(--r-subtle)]",
-												isSelected
+												isActive
 													? "text-[var(--text-primary)] font-[500]"
 													: "text-[var(--text-secondary)]",
 											].join(" ")}
@@ -218,55 +264,13 @@ export function Sidebar({
 												style={{ background: "var(--accent-primary)" }}
 												aria-hidden="true"
 											/>
-											<span className="truncate">{thread.title}</span>
+											<span className="truncate">{team.name}</span>
 										</button>
 									</li>
 								);
-							})
-						)}
-					</ul>
-				</div>
-
-				{/* Work section */}
-				<div className="mb-[18px]" data-active-view={activeView === "work" ? "work" : undefined}>
-					<SectionHeader view="work" activeView={activeView} onViewChange={onViewChange} />
-					<ul className="flex flex-col">
-						{teams.map((team) => {
-							const isActive = team.id === activeTeamId;
-							return (
-								<li
-									key={team.id}
-									data-team-id={team.id}
-									aria-current={isActive ? "page" : undefined}
-									className={[
-										"rounded-[var(--r-subtle)] mb-[3px]",
-										isActive ? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]" : "",
-									].join(" ")}
-								>
-									<button
-										type="button"
-										onClick={() => onSelectTeam(team.id)}
-										className={[
-											"w-full text-left px-[12px] py-[6px] text-[13px]",
-											"flex items-center gap-[6px]",
-											"truncate transition-[background] duration-[var(--motion-fast)]",
-											"hover:bg-[rgba(44,36,26,0.04)] rounded-[var(--r-subtle)]",
-											isActive
-												? "text-[var(--text-primary)] font-[500]"
-												: "text-[var(--text-secondary)]",
-										].join(" ")}
-									>
-										<span
-											className="inline-block w-[8px] h-[8px] rounded-full shrink-0"
-											style={{ background: "var(--accent-primary)" }}
-											aria-hidden="true"
-										/>
-										<span className="truncate">{team.name}</span>
-									</button>
-								</li>
-							);
-						})}
-					</ul>
+							})}
+						</ul>
+					)}
 				</div>
 
 				{/* Knowledge section — W3 AC-3: no scope sub-items */}
