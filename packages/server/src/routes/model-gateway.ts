@@ -22,12 +22,14 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ModelGatewayConfig, ModelTierConfig } from "@hyperidle/shared";
-import { MODEL_PROVIDERS } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { z } from "zod";
 import { validateBody } from "../middleware/validate.js";
-import { ModelGatewayConfigSchema } from "../services/server-config.js";
-import { readServerConfig, updateServerConfig } from "../services/server-config.js";
+import {
+	ModelGatewayConfigSchema,
+	readServerConfig,
+	updateServerConfig,
+} from "../services/server-config.js";
 
 // ---------------------------------------------------------------------------
 // Validation schemas
@@ -50,6 +52,13 @@ const PatchModelGatewaySchema = ModelGatewayConfigSchema.superRefine((data, ctx)
 				code: z.ZodIssueCode.custom,
 				message: `apiKey is only allowed for openai-compatible providers (tier: ${tier})`,
 				path: [tier, "apiKey"],
+			});
+		}
+		if (tierConfig.provider === "openai-compatible" && !tierConfig.baseUrl) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: `baseUrl is required for openai-compatible providers (tier: ${tier})`,
+				path: [tier, "baseUrl"],
 			});
 		}
 	}

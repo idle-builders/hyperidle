@@ -5,11 +5,17 @@
  * of the three model tiers (reasoning, workhorse, fast).
  *
  * - Fetches from GET /api/model-gateway on mount
- * - Renders 3 collapsible tier rows (one per ModelTier)
+ * - Renders 3 tier rows (one per ModelTier)
  * - Provider dropdown per tier; shows provider-specific fields
  * - openai-compatible: shows baseUrl + apiKey inputs
  * - openrouter: shows credential status dot (no navigation link — F-ERR-1)
  * - Changes auto-save via PATCH /api/model-gateway (debounced 500ms)
+ *
+ * @lore X4 DESIGN-DEV-1: Approved design specified collapsible tier rows with a
+ * disclosure pattern. Simplified to always-expanded flat layout because 3 items
+ * don't benefit from collapse — everything fits on screen without scrolling.
+ * Avoids ARIA disclosure complexity (role="button", aria-expanded, focus management)
+ * for no measurable UX gain at this item count.
  *
  * @lore X4 F-ERR-1: No navigation link to Credentials section — that section
  * is Electron-only (uses safeStorage bridge). In web/shared mode, credentials
@@ -22,9 +28,9 @@
  * providers; other providers reject apiKey in the request body.
  */
 
+import type { ModelProvider } from "@hyperidle/shared";
 // hearth-internal-padding
 import { MODEL_PROVIDERS } from "@hyperidle/shared";
-import type { ModelProvider } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 import { useToast } from "../shell/ToastRegion.js";

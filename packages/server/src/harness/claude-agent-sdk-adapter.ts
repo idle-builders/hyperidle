@@ -14,6 +14,7 @@ import type {
 } from "@hyperidle/shared";
 import { createLogger, MissingCredentialError } from "@hyperidle/shared";
 import type { CredentialResolver } from "../services/credential-resolver.js";
+import { BUILT_IN_GATEWAY_CONFIG } from "../services/model-gateway.js";
 
 /**
  * S4: Re-export CredentialResolver so the @hyperidle/server/harness sub-path
@@ -104,15 +105,12 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 				apiKey = process.env[this.apiKeyEnvVar];
 			}
 			// Tier-to-model resolution for the adapter-direct path (no gateway).
-			// Uses the same model IDs that were in model-tier-map.ts (deleted in X4).
+			// Derived from BUILT_IN_GATEWAY_CONFIG — single source of truth for model IDs.
 			// This path is only taken when resolvedModel is absent (e.g. direct adapter
 			// tests that bypass the full session provisioning flow).
-			const tierModelMap: Record<string, string> = {
-				reasoning: "claude-opus-4-20250514",
-				workhorse: "claude-sonnet-4-20250514",
-				fast: "claude-haiku-3-5-20241022",
-			};
-			model = tierModelMap[config.modelTier] ?? "claude-sonnet-4-20250514";
+			model =
+				BUILT_IN_GATEWAY_CONFIG[config.modelTier as keyof typeof BUILT_IN_GATEWAY_CONFIG]?.model ??
+				BUILT_IN_GATEWAY_CONFIG.workhorse.model;
 		}
 
 		if (!apiKey) {

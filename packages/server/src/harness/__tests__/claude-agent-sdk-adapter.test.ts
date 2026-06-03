@@ -3,13 +3,15 @@ import type { HarnessAdapter, HarnessEvent, SessionConfig } from "@hyperidle/sha
 import { MissingCredentialError } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CredentialResolver } from "../../services/credential-resolver.js";
+import { BUILT_IN_GATEWAY_CONFIG } from "../../services/model-gateway.js";
 import { ClaudeAgentSdkAdapter } from "../claude-agent-sdk-adapter.js";
+
 // X4: model-tier-map.ts deleted. Gateway model IDs are tested in X4-model-gateway.test.ts.
-// Legacy tests that referenced resolveModel/MODEL_TIER_MAP now use the known model strings directly.
+// KNOWN_MODELS derived from BUILT_IN_GATEWAY_CONFIG — single source of truth.
 const KNOWN_MODELS = {
-	reasoning: "claude-opus-4-20250514",
-	workhorse: "claude-sonnet-4-20250514",
-	fast: "claude-haiku-3-5-20241022",
+	reasoning: BUILT_IN_GATEWAY_CONFIG.reasoning.model,
+	workhorse: BUILT_IN_GATEWAY_CONFIG.workhorse.model,
+	fast: BUILT_IN_GATEWAY_CONFIG.fast.model,
 } as const;
 
 const TEST_CONFIG: SessionConfig = {
@@ -571,6 +573,59 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 				expect(lastCost.totalCost).toBeCloseTo(sdkCost, 4);
 				expect(Math.abs(lastCost.totalCost - sdkCost) / sdkCost).toBeLessThan(0.1);
 			}
+		});
+	});
+
+	describe("resolvedModel path (X4 primary production path)", () => {
+		it("uses model and apiKey from resolvedModel when set", async () => {
+			const mockQuery = createMockQuery([]);
+			const queryFn = vi.fn(() => mockQuery);
+
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			const handle = await adapter.startSession({
+				...TEST_CONFIG,
+				modelTier: "reasoning",
+				resolvedModel: {
+					provider: "openrouter",
+					model: "anthropic/claude-opus-4",
+					apiKey: "openrouter-key-xyz",
+					baseUrl: "https://openrouter.ai/api",
+				},
+			});
+
+			expect(handle.sessionId).toBeDefined();
+			expect(queryFn).toHaveBeenCalledWith(
+				expect.objectContaining({
+					options: expect.objectContaining({
+						model: "anthropic/claude-opus-4",
+					}),
+				}),
+			);
+		});
+
+		it("uses resolvedModel over legacy env var when both are present", async () => {
+			// Env var is set (from beforeEach), but resolvedModel should take precedence.
+			const mockQuery = createMockQuery([]);
+			const queryFn = vi.fn(() => mockQuery);
+
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			await adapter.startSession({
+				...TEST_CONFIG,
+				resolvedModel: {
+					provider: "anthropic",
+					model: "claude-haiku-3-5-20241022",
+					apiKey: "gateway-resolved-key",
+					baseUrl: "https://api.anthropic.com",
+				},
+			});
+
+			expect(queryFn).toHaveBeenCalledWith(
+				expect.objectContaining({
+					options: expect.objectContaining({
+						model: "claude-haiku-3-5-20241022",
+					}),
+				}),
+			);
 		});
 	});
 
