@@ -46,31 +46,48 @@ export function SettingsPage(): JSX.Element {
 					className="flex flex-col gap-[24px] max-w-[680px] mx-auto w-full px-[24px] py-[24px]"
 				>
 					{/* W3 AC-47: Profile section */}
-					<section data-testid="settings-section-profile" className="flex flex-col gap-[18px]">
+					<section
+						id="settings-section-profile"
+						data-testid="settings-section-profile"
+						className="flex flex-col gap-[18px]"
+					>
 						<SectionTitle>Profile</SectionTitle>
 						<SettingsProfile />
 					</section>
 
 					{/* W3 AC-47 / AC-49: Org chart section */}
-					<section data-testid="settings-section-org-chart" className="flex flex-col gap-[18px]">
+					<section
+						id="settings-section-orgchart"
+						data-testid="settings-section-org-chart"
+						className="flex flex-col gap-[18px]"
+					>
 						<SectionTitle>Org chart</SectionTitle>
 						<SettingsOrgChart />
 					</section>
 
 					{/* W3 AC-47: Appearance section */}
-					<section data-testid="settings-section-appearance" className="flex flex-col gap-[18px]">
+					<section
+						id="settings-section-appearance"
+						data-testid="settings-section-appearance"
+						className="flex flex-col gap-[18px]"
+					>
 						<SectionTitle>Appearance</SectionTitle>
 						<SettingsAppearance />
 					</section>
 
 					{/* Credentials section — desktop only (CredentialsTab handles non-desktop gracefully) */}
-					<section data-testid="settings-section-credentials" className="flex flex-col gap-[18px]">
+					<section
+						id="settings-section-credentials"
+						data-testid="settings-section-credentials"
+						className="flex flex-col gap-[18px]"
+					>
 						<SectionTitle>Credentials</SectionTitle>
 						<CredentialsTab />
 					</section>
 
 					{/* Notifications section */}
 					<section
+						id="settings-section-notifications"
 						data-testid="settings-section-notifications"
 						className="flex flex-col gap-[18px]"
 					>
@@ -79,7 +96,11 @@ export function SettingsPage(): JSX.Element {
 					</section>
 
 					{/* W3 AC-47 / AC-51: Backend section */}
-					<section data-testid="settings-section-backend" className="flex flex-col gap-[18px]">
+					<section
+						id="settings-section-backend"
+						data-testid="settings-section-backend"
+						className="flex flex-col gap-[18px]"
+					>
 						<SectionTitle>Backend</SectionTitle>
 						<SettingsBackend />
 					</section>

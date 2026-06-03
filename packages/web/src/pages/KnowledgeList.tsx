@@ -20,8 +20,9 @@
  * Scope param is preserved in the URL for future API filter support but does
  * not filter the item list today — the O2 schema has no scope column.
  *
- * @lore Q2: "+ New" button opens KnowledgeCreateDialog. User-scoped items show
- * a "Private" tag in the list. scopeKind/scopeId fields added to ApiKnowledgeItem.
+ * @lore Q2: "+ New" button previously opened KnowledgeCreateDialog. Now navigates
+ * to /knowledge/new (full-page create route). User-scoped items show a "Private"
+ * tag in the list. scopeKind/scopeId fields added to ApiKnowledgeItem.
  *
  * @lore visual-parity: Page structure changed to flex flex-col h-full with
  * fixed header (non-scrolling) and flex-1 overflow-y-auto body, per AppShell
@@ -43,7 +44,6 @@ import { KnowledgeTopicGroup } from "../components/KnowledgeTopicGroup";
 import { useFetch } from "../hooks/useFetch";
 import { useHint } from "../hooks/useHints";
 import { relativeTime } from "../utils/relative-time";
-import { KnowledgeCreateDialog } from "./knowledge/KnowledgeCreateDialog";
 
 type KnowledgeTab = "triage" | "curated";
 
@@ -540,8 +540,6 @@ export function KnowledgeList({
 
 	const [tab, setTab] = useState<KnowledgeTab>("triage");
 	const tabManuallySelectedRef = useRef(false);
-	const [createDialogOpen, setCreateDialogOpen] = useState(false);
-	const [fetchRevision, setFetchRevision] = useState(0);
 	const [selectedScopeFilter, setSelectedScopeFilter] = useState<string | null>(null);
 	const [searchQuery, setSearchQuery] = useState("");
 
@@ -549,13 +547,7 @@ export function KnowledgeList({
 		data: apiData,
 		isLoading: apiLoading,
 		error: apiError,
-	} = useFetch<ApiKnowledgeListResponse>(
-		fetchRevision === 0 ? "/api/knowledge" : `/api/knowledge?_r=${fetchRevision}`,
-	);
-
-	function handleCreated(): void {
-		setFetchRevision((prev) => prev + 1);
-	}
+	} = useFetch<ApiKnowledgeListResponse>("/api/knowledge");
 
 	const allItems = useMemo<ApiKnowledgeItem[]>(() => apiData?.items ?? [], [apiData]);
 
@@ -709,19 +701,13 @@ export function KnowledgeList({
 						<button
 							type="button"
 							className="inline-flex items-center text-[12px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-none cursor-pointer"
-							onClick={() => setCreateDialogOpen(true)}
+							onClick={() => navigate("/knowledge/new")}
 						>
 							+ New
 						</button>
 					</div>
 				)}
 			</header>
-
-			<KnowledgeCreateDialog
-				open={createDialogOpen}
-				onClose={() => setCreateDialogOpen(false)}
-				onCreated={handleCreated}
-			/>
 
 			<div className="flex-1 overflow-y-auto">
 				{systemEmpty ? (
@@ -750,7 +736,7 @@ export function KnowledgeList({
 								<button
 									type="button"
 									className="inline-flex items-center text-[13px] font-[500] px-[18px] py-[10px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-none cursor-pointer"
-									onClick={() => setCreateDialogOpen(true)}
+									onClick={() => navigate("/knowledge/new")}
 								>
 									Create first item
 								</button>

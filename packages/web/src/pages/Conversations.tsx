@@ -435,9 +435,10 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	// P5: Hint #4 — review-verdict. Trigger: thread is loaded with review messages.
 	const hasReviewMessages = data.messages.some((m) => m.type === "review");
 
-	// Thread title for the detail header — hostKind/hostId is the best available
-	// label since Thread has no title field (see Thread type in shared/src/thread.ts).
-	const threadTitle = `${data.thread.hostKind}/${data.thread.hostId}`;
+	// Thread title for the detail header. Priority:
+	// 1. Identity name lookup by hostId (resolves user/agent names)
+	// 2. Fallback to hostId only (not hostKind/hostId format)
+	const threadTitle: string = data.identities[data.thread.hostId]?.name ?? data.thread.hostId;
 
 	return (
 		<div className="flex flex-col h-full" data-testid="conversations-page">

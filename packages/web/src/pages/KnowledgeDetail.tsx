@@ -820,9 +820,24 @@ function KnowledgeDetailView({
 							</div>
 							<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">
 								<span className="text-[var(--text-tertiary)]">Editor</span>
-								<span className="text-[var(--text-primary)] font-[500]">
-									{item.updatedBy ?? "Unknown"}
-								</span>
+								{/* Resolve updatedBy to display name:
+							    - If it matches the current user's id, show their name.
+							    - If it's a UUID with no name mapping, show truncated monospace.
+							    - Fallback: "Unknown". */}
+								{item.updatedBy && item.updatedBy === user?.id ? (
+									<span className="text-[var(--text-primary)] font-[500]">{user.name}</span>
+								) : item.updatedBy && item.updatedBy !== "Unknown" ? (
+									<span
+										className="text-[var(--text-primary)] font-[500] font-mono text-[11px]"
+										title={item.updatedBy}
+									>
+										{item.updatedBy.length > 12 ? `${item.updatedBy.slice(0, 8)}…` : item.updatedBy}
+									</span>
+								) : (
+									<span className="text-[var(--text-primary)] font-[500]">
+										{item.updatedBy ?? "Unknown"}
+									</span>
+								)}
 							</div>
 							<div className="flex justify-between items-center py-[6px] text-[13px]">
 								<span className="text-[var(--text-tertiary)]">Access count</span>

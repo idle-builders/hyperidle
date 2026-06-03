@@ -269,7 +269,7 @@ function BetPitch({
 /**
  * L14: The set of actions the founder can take on a bet from the action bar.
  */
-type BetActionKind = "pause" | "resume" | "kill" | "adjust-appetite" | "unblock";
+type BetActionKind = "pause" | "resume" | "kill" | "adjust-appetite" | "unblock" | "activate";
 
 /**
  * ConsequencePreviewDialog — non-skippable confirmation dialog for destructive
@@ -749,6 +749,36 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 		fetched.refresh();
 	}, [bet, fetched]);
 
+	/**
+	 * handleActivate — transitions a draft bet to active. Non-destructive, so no
+	 * ConsequencePreviewDialog needed. Tries POST /activate first; falls back to
+	 * PATCH with { field: "status", value: "active" } if the endpoint doesn't exist.
+	 *
+	 * @lore visual-parity W-02: /activate endpoint may not exist yet. PATCH fallback
+	 * uses the same pattern as other PATCH updates in this file.
+	 */
+	const handleActivate = useCallback(async (): Promise<void> => {
+		if (!bet) return;
+		const res = await apiFetch(`/api/bets/${encodeURIComponent(bet.id)}/activate`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({}),
+		});
+		if (!res.ok) {
+			// Fallback: try PATCH if /activate endpoint doesn't exist
+			const patchRes = await apiFetch(`/api/bets/${encodeURIComponent(bet.id)}`, {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ field: "status", value: "active" }),
+			});
+			if (!patchRes.ok) {
+				const errBody = (await patchRes.json().catch(() => ({}))) as { error?: string };
+				throw new Error(errBody.error ?? "Failed to activate bet");
+			}
+		}
+		fetched.refresh();
+	}, [bet, fetched]);
+
 	const handleAction = useCallback(
 		(action: BetActionKind): void => {
 			if (action === "pause") {
@@ -760,6 +790,9 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 			} else if (action === "resume") {
 				// Resume is non-destructive — no confirmation dialog needed.
 				void handleResume();
+			} else if (action === "activate") {
+				// Activate is non-destructive — no confirmation dialog needed.
+				void handleActivate();
 			} else if (action === "unblock") {
 				// Scroll to and focus the composer textarea in HostThreadSection.
 				const textarea = document.querySelector<HTMLTextAreaElement>(
@@ -771,7 +804,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 				}
 			}
 		},
-		[handleResume],
+		[handleResume, handleActivate],
 	);
 
 	const handleConsequenceConfirm = useCallback(
@@ -977,6 +1010,17 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 								id={`overflow-dropdown-${bet.id}`}
 								className="absolute right-0 top-full z-10 mt-1 bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)] shadow-[var(--shadow-elevated)] py-1 min-w-[140px] hidden [&[open]]:block"
 							>
+								{bet.status === "draft" && (
+									<button
+										type="button"
+										data-dropdown-item
+										data-bet-action="activate"
+										className="w-full text-left px-3 py-2 text-[13px] text-[var(--accent-primary)] hover:bg-[var(--accent-primary-dim)]"
+										onClick={() => handleAction("activate")}
+									>
+										Activate
+									</button>
+								)}
 								{bet.status === "active" && (
 									<button
 										type="button"
@@ -1160,13 +1204,40 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 					<section data-testid="bet-pitch-section" aria-label="Pitch">
 						<div className="flex items-center justify-between text-[13px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)] pb-[6px] border-b border-[var(--border-subtle)] mb-[9px]">
 							<span>Pitch</span>
-							<button
-								type="button"
-								className="inline-flex items-center px-[9px] py-[4px] text-[12px] font-[500] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] cursor-pointer hover:text-[var(--text-primary)] hover:border-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)] normal-case tracking-normal"
-								data-bet-action="edit-pitch"
-							>
-								Edit
-							</button>
+							{/* C-01: For draft/active (canEditDescription=true), show save-status indicator.
+							    For completed/killed (canEditDescription=false), hide entirely — pitch is immutable. */}
+							{canEditDescription && (
+								<span
+									className="text-[12px] text-[var(--status-success)] flex items-center gap-[3px] normal-case tracking-normal font-[500]"
+									aria-live="polite"
+									data-testid="pitch-save-indicator"
+								>
+									{saveStatus === "saving" && "Saving..."}
+									{saveStatus === "saved" && (
+										<>
+											<svg
+												width="12"
+												height="12"
+												viewBox="0 0 12 12"
+												fill="none"
+												aria-hidden="true"
+											>
+												<path
+													d="M2 6l3 3 5-5"
+													stroke="currentColor"
+													strokeWidth="1.5"
+													strokeLinecap="round"
+													strokeLinejoin="round"
+												/>
+											</svg>
+											Saved
+										</>
+									)}
+									{saveStatus === "error" && (
+										<span className="text-[var(--status-error)]">Save failed</span>
+									)}
+								</span>
+							)}
 						</div>
 						{/* T3: Conditional rendering based on bet status mutability. */}
 						{canEditDescription ? (

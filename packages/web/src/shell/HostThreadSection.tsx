@@ -28,8 +28,8 @@
  * convergence is a follow-up per architecture.md line 160).
  */
 
-import { CommentRow, ErrorState, SkeletonList } from "@hyperidle/design-system";
 import type { CommentRowSender } from "@hyperidle/design-system";
+import { CommentRow, ErrorState, SkeletonList } from "@hyperidle/design-system";
 import type { HostKind, Message, PlainPayloadWithBlockId } from "@hyperidle/shared";
 import { isRedactedPayload } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
@@ -139,7 +139,7 @@ export function HostThreadSection({
 	const [composerText, setComposerText] = useState("");
 	const [sending, setSending] = useState(false);
 	const [postError, setPostError] = useState<string | null>(null);
-	const composerRef = useRef<HTMLTextAreaElement>(null);
+	const composerRef = useRef<HTMLInputElement>(null);
 	// T5: when filterBlockId is set, user can toggle "show all" to exit the filter.
 	const [showAll, setShowAll] = useState(false);
 
@@ -319,20 +319,30 @@ export function HostThreadSection({
 				</div>
 			)}
 
-			{/* Composer */}
-			<div className="flex gap-2">
-				<textarea
+			{/* Composer — inline single-line pattern matching knowledge-edit.html .discussion-composer */}
+			{/* hearth-internal-padding */}
+			<div className="flex gap-[9px] items-stretch">
+				<input
 					ref={composerRef}
+					type="text"
 					data-testid="composer-textarea"
-					className="textarea textarea-bordered text-base resize-none flex-1 h-16"
+					className="flex-1 text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] bg-[var(--surface-page)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] outline-none focus:border-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]"
+					style={{ padding: "9px 12px" }}
 					placeholder="Write a message…"
 					value={composerText}
 					onChange={(e) => setComposerText(e.target.value)}
+					onKeyDown={(e) => {
+						if (e.key === "Enter" && !e.shiftKey) {
+							e.preventDefault();
+							void handleSend();
+						}
+					}}
 					disabled={sending}
 				/>
 				<button
 					type="button"
-					className="btn btn-primary btn-sm self-end"
+					className="inline-flex items-center text-[12px] font-[500] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-none cursor-pointer hover:bg-[var(--accent-primary-hover)] transition-colors duration-[var(--motion-fast)] disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+					style={{ padding: "7px 12px" }}
 					disabled={!composerText.trim() || sending}
 					onClick={() => void handleSend()}
 				>
@@ -347,8 +357,11 @@ export function HostThreadSection({
 	}
 
 	return (
-		<section aria-label={title} className="flex flex-col gap-3 p-3">
-			<h3 className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
+		<section
+			aria-label={title}
+			className="flex flex-col gap-[12px] border-t border-[var(--border-subtle)] pt-[18px]"
+		>
+			<h3 className="text-[13px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)] border-b border-[var(--border-subtle)] pb-[6px]">
 				{title}
 			</h3>
 			{content}

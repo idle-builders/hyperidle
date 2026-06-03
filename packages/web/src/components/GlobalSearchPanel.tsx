@@ -143,13 +143,40 @@ export function GlobalSearchPanel({
 						ref={focusRef}
 					/>
 
-					{search.error && (
-						<ErrorState
-							title="Search failed"
-							description={search.error}
-							dataTestId="search-error"
-						/>
-					)}
+					{search.error &&
+						// @lore visual-parity S-02: when /api/search returns 404 (not yet implemented),
+						// show an informative "coming soon" empty state instead of a generic error.
+						// This distinguishes "search not built yet" from "search broke".
+						(search.error.includes("404") || search.error.includes("HTTP 404") ? (
+							<EmptyState
+								title="Search coming soon"
+								description="Full-text search across conversations, bets, and knowledge is being built."
+								icon={
+									<svg
+										width="24"
+										height="24"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										strokeWidth="2"
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										aria-hidden="true"
+									>
+										<circle cx="11" cy="11" r="8" />
+										<line x1="21" y1="21" x2="16.65" y2="16.65" />
+									</svg>
+								}
+								iconBg="rgba(46,125,186,0.08)"
+								dataTestId="search-coming-soon"
+							/>
+						) : (
+							<ErrorState
+								title="Search failed"
+								description={search.error}
+								dataTestId="search-error"
+							/>
+						))}
 
 					<div className="overflow-y-auto flex flex-col gap-1">
 						{search.results.conversations.length > 0 && (

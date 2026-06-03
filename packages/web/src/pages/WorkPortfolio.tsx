@@ -22,7 +22,6 @@ import { formatMoney } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
 import { useBets } from "../hooks/useBets.js";
 import { useTeams } from "../hooks/useTeams";
 import { BetCreateDialog } from "./work/BetCreateDialog.js";
@@ -42,7 +41,6 @@ export function WorkPortfolio(): JSX.Element {
 	const navigate = useNavigate();
 	const { data: teamsData } = useTeams();
 	const { bets, loading: betsLoading, refresh: refreshBets } = useBets();
-	const onOpenArtifact = useArtifactOpen();
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
 	// W3 AC-13: status filter state
@@ -230,18 +228,6 @@ export function WorkPortfolio(): JSX.Element {
 						})}
 					</div>
 				)}
-
-				{/* L12: Artifact gallery — portfolio axis */}
-				<div className="max-w-[960px] mx-auto w-full px-[24px] pb-[24px]">
-					<ArtifactSection
-						filter={{ axis: "portfolio" }}
-						layout="gallery"
-						limit={12}
-						heading="Artifacts"
-						emptyDescription="Artifacts appear here as agents complete tasks."
-						onOpen={onOpenArtifact}
-					/>
-				</div>
 			</div>
 
 			{/* BetCreateDialog */}
