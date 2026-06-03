@@ -18,9 +18,9 @@ import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
 import { validateBody } from "../middleware/validate.js";
 import type { CredentialResolver } from "../services/credential-resolver.js";
 import { resolveModelTier } from "../services/model-gateway.js";
+import { readServerConfig } from "../services/server-config.js";
 import type { SessionActivityBuffer } from "../services/session-activity-buffer.js";
 import { provisionSession } from "../services/session-provisioning.js";
-import { readServerConfig } from "../services/server-config.js";
 
 // @lore O2: harnessUrl, tokensInput, tokensOutput fields removed from session
 // schemas. Those columns were stripped from the sessions kernel table as part

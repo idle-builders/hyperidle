@@ -1,8 +1,8 @@
 /** Harness adapter interface — the boundary between meta-layer and agent runtime (D1). */
 
+import type { ResolvedModel } from "../model-gateway.js";
 import type { TokenUsage, WireMoney } from "../types/money.js";
 import type { ModelTier } from "../types.js";
-import type { ResolvedModel } from "../model-gateway.js";
 import type { HarnessEvent } from "./harness-events.js";
 
 export interface SessionConfig {

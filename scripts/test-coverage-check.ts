@@ -31,6 +31,7 @@ const ROUTE_TEST_OVERRIDES: Record<string, string> = {
 	settings: "status-settings-write",
 	ws: "worker-ws",
 	agents: "X3-agents", // X3: agent CRUD tests live in X3-agents.test.ts
+	"model-gateway": "X4-model-gateway", // X4: gateway tests live in X4-model-gateway.test.ts
 };
 
 // Pages that don't need E2E (redirects, error boundaries, shells)

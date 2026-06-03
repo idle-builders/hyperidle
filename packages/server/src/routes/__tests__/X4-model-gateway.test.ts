@@ -25,12 +25,12 @@ import { createTestDb, type TestDbHandle } from "@hyperidle/db";
 import { MissingCredentialError } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { CredentialResolver } from "../services/credential-resolver.js";
+import type { CredentialResolver } from "../../services/credential-resolver.js";
 import {
 	BUILT_IN_GATEWAY_CONFIG as DEFAULT_GATEWAY_CONFIG,
 	resolveModelTier,
-} from "../services/model-gateway.js";
-import { createTestApp } from "../test-utils.js";
+} from "../../services/model-gateway.js";
+import { createTestApp } from "../../test-utils.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
