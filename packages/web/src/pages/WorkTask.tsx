@@ -4,22 +4,20 @@
  * Route: /work/bet/:betId/task/:taskId
  *
  * Renders:
- *  - Breadcrumb: Work / [Team] / [Bet title] / [Task title]
- *  - Metadata strip: owner, status, started, cost, session count
- *  - Sessions section: list of agent sessions for this task
- *  - Discussion section (HostThreadSection with hostKind="task")
- *  - Artifacts section (ArtifactSection filtered by task)
+ *  - Fixed bordered header: breadcrumb + h2 title + status badge + overflow button
+ *  - Scrollable body: bordered metadata cell grid, sessions, artifacts, discussion
  *
  * @lore W3: AC-26 through AC-32. Created as a new page for task drill-down
  * from the WorkBet task list rows. Follows the WorkBet pattern (overrideId
  * props for testing, useBet for bet data, useTaskSessions for session data).
  *
+ * @lore W3: AppShell <main> is overflow-hidden with no padding, so this page
+ * uses a fixed shrink-0 header + flex-1 overflow-y-auto body pattern.
+ *
  * @lore W3 AC-28: Started cell uses a simple relative-time formatter so no
- * external date library is needed. The Session cell counts active + completed
- * sessions and shows a "Dial in" ghost button only when a session is active.
+ * external date library is needed.
  */
 
-import type { Status } from "@hyperidle/design-system";
 import { StatusChip, taskStateToStatus } from "@hyperidle/design-system";
 import type { JSX } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -47,28 +45,9 @@ function formatRelativeTime(isoString: string): string {
 	return `${diffD}d ago`;
 }
 
-/**
- * Map session.status string to a display Status.
- *
- * @lore W3 WARNING-ADV4: session.status must not be hardcoded. The session API
- * returns a status string ("active", "paused", "done", "crashed"). Map to the
- * StatusChip Status vocabulary for display.
- */
-function sessionStatusToStatus(status: string): Status {
-	switch (status) {
-		case "active":
-			return "healthy";
-		case "done":
-		case "completed":
-			return "done";
-		case "paused":
-			return "paused";
-		case "crashed":
-			return "error";
-		default:
-			return "healthy";
-	}
-}
+/** Section title class — uppercase label with border-bottom divider. */
+const SECTION_TITLE_CLASS =
+	"text-[13px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)] pb-[6px] border-b border-[var(--border-subtle)] mb-[9px]";
 
 export interface WorkTaskProps {
 	/** Override bet ID from route params — used by tests outside the router. */
@@ -93,14 +72,14 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 	// Loading state
 	if (betLoading) {
 		return (
-			<div
-				data-testid="task-detail-loading"
-				aria-label="Loading task"
-				className="flex flex-col gap-3 max-w-[800px] mx-auto w-full"
-			>
-				<div className="skeleton h-6 w-48" />
-				<div className="skeleton h-8 w-full" />
-				<div className="skeleton h-32 w-full" />
+			<div data-testid="task-detail-loading" className="flex flex-col h-full">
+				<header className="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
+					<div className="skeleton h-[13px] w-[240px] mb-[6px]" />
+					<div className="skeleton h-[20px] w-[320px]" />
+				</header>
+				<div role="status" aria-busy="true" className="flex-1 overflow-y-auto p-[24px]">
+					<div className="skeleton h-[120px] w-full rounded-[var(--r-default)]" />
+				</div>
 			</div>
 		);
 	}
@@ -108,12 +87,12 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 	// Error state
 	if (betError) {
 		return (
-			<div
-				data-testid="task-detail-error"
-				role="alert"
-				className="text-sm text-[var(--status-error)] max-w-[800px] mx-auto w-full"
-			>
-				Failed to load task: {betError.message}
+			<div data-testid="task-detail-error" role="alert" className="flex flex-col h-full">
+				<div className="flex-1 overflow-y-auto p-[24px]">
+					<p className="text-[13px] text-[var(--status-error)]">
+						Failed to load task: {betError.message}
+					</p>
+				</div>
 			</div>
 		);
 	}
@@ -122,11 +101,10 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 	const task = bet?.tasks.find((t) => t.id === taskId);
 	if (!(bet && task)) {
 		return (
-			<div
-				data-testid="task-detail-not-found"
-				className="flex flex-col gap-3 max-w-[800px] mx-auto w-full"
-			>
-				<p className="text-sm text-[var(--text-secondary)]">Task not found.</p>
+			<div data-testid="task-detail-not-found" className="flex flex-col h-full">
+				<div className="flex-1 overflow-y-auto p-[24px]">
+					<p className="text-[13px] text-[var(--text-secondary)]">Task not found.</p>
+				</div>
 			</div>
 		);
 	}
@@ -136,120 +114,197 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 	const activeSessions = sessions.filter((s) => s.status === "active");
 	const completedSessions = sessions.filter((s) => s.status === "done" || s.status === "completed");
 
+	// Status badge for header
+	const statusBadgeClass = (() => {
+		const state = task.state;
+		if (state === "in_progress") {
+			return "inline-flex items-center px-[9px] py-[3px] text-[12px] font-[500] rounded-[var(--r-pill)] bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)]";
+		}
+		if (state === "done") {
+			return "inline-flex items-center px-[9px] py-[3px] text-[12px] font-[500] rounded-[var(--r-pill)] bg-[var(--surface-container)] text-[var(--text-secondary)]";
+		}
+		return "inline-flex items-center px-[9px] py-[3px] text-[12px] font-[500] rounded-[var(--r-pill)] bg-[var(--surface-container)] text-[var(--text-secondary)]";
+	})();
+	const statusLabel = task.state.replace(/_/g, " ");
+
 	return (
-		<div data-testid="task-detail-page" className="flex flex-col gap-3 h-full">
-			{/* W3 AC-32: max-width 800px centered body */}
-			<div
-				data-testid="task-detail-body"
-				className="flex flex-col gap-3 max-w-[800px] mx-auto w-full"
-			>
+		<div data-testid="task-detail-page" className="flex flex-col h-full">
+			{/* Fixed bordered header: breadcrumb + h2 title + status badge + overflow */}
+			<header className="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
 				{/* W3 AC-27: Breadcrumb */}
 				<nav data-testid="task-breadcrumb" aria-label="Breadcrumb">
-					<ol className="flex items-center gap-1 text-[12px] text-[var(--text-tertiary)]">
-						<li>
-							<Link to="/work" className="hover:text-[var(--text-primary)] transition-colors">
-								Work
-							</Link>
-						</li>
-						<li aria-hidden="true">/</li>
-						<li className="truncate max-w-[120px]">{bet.team}</li>
-						<li aria-hidden="true">/</li>
-						<li>
-							<Link
-								to={`/work/bet/${bet.id}`}
-								className="hover:text-[var(--text-primary)] transition-colors truncate max-w-[120px]"
-							>
-								{bet.title}
-							</Link>
-						</li>
-						<li aria-hidden="true">/</li>
-						<li className="text-[var(--text-primary)] truncate max-w-[160px]">{task.title}</li>
-					</ol>
+					<div className="flex items-center gap-[4px] text-[13px] text-[var(--text-tertiary)] mb-[6px] flex-wrap">
+						<Link
+							to="/work"
+							className="hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]"
+						>
+							Work
+						</Link>
+						/
+						<Link
+							to="/work/portfolio"
+							className="hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)] truncate max-w-[100px]"
+						>
+							{bet.team}
+						</Link>
+						/
+						<Link
+							to={`/work/bet/${bet.id}`}
+							className="hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)] truncate max-w-[120px]"
+						>
+							{bet.title}
+						</Link>
+						/<span className="text-[var(--text-primary)] truncate max-w-[160px]">{task.title}</span>
+					</div>
 				</nav>
-
-				{/* Task title */}
-				<h1 className="text-[15px] font-semibold">{task.title}</h1>
-
-				{/* W3 AC-28: Metadata strip — Owner, Status, Started, Cost, Session */}
-				<div
-					data-testid="task-meta-strip"
-					className="flex items-center gap-3 flex-wrap text-[12px] text-[var(--text-secondary)]"
-				>
-					<span>{task.owner}</span>
-					<span aria-hidden="true">·</span>
-					<StatusChip status={taskStateToStatus(task.state)} />
-					<span className="sr-only">{task.state.replace("_", " ")}</span>
-					{task.startedAt && (
-						<>
-							<span aria-hidden="true">·</span>
-							<span data-testid="task-started-at">{formatRelativeTime(task.startedAt)}</span>
-						</>
-					)}
-					{task.costActual !== null && (
-						<>
-							<span aria-hidden="true">·</span>
-							<span className="font-mono tabular-nums">
-								${((task.costActual.minor ?? 0) / 100).toFixed(2)}
-							</span>
-						</>
-					)}
-					<span aria-hidden="true">·</span>
-					<span data-testid="task-session-count">
-						{activeSessions.length} active / {completedSessions.length} completed
-					</span>
-					{activeSession && (
+				{/* Title row */}
+				<div className="flex items-start justify-between gap-[12px]">
+					<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] mt-[4px]">
+						{task.title}
+					</h2>
+					<div className="flex items-center gap-[6px] shrink-0">
+						<span className={statusBadgeClass}>{statusLabel}</span>
 						<button
 							type="button"
-							className="btn btn-xs btn-ghost"
-							data-testid="task-dial-in-btn"
-							aria-label="Dial in to active session"
+							aria-label="More actions"
+							className="inline-flex items-center justify-center w-[32px] h-[32px] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] text-[16px] cursor-pointer hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)]"
 						>
-							Dial in
+							&#xB7;&#xB7;&#xB7;
 						</button>
-					)}
+					</div>
 				</div>
+			</header>
 
-				{/* W3 AC-29: Sessions section */}
-				<section data-testid="task-sessions-section" className="flex flex-col gap-2">
-					<h2 className="text-[13px] font-semibold text-[var(--text-primary)]">Sessions</h2>
-					{sessions.length === 0 ? (
-						<p className="text-[12px] text-[var(--text-tertiary)]">No sessions yet.</p>
-					) : (
-						<ul className="flex flex-col gap-1">
-							{sessions.map((session) => (
-								<li
-									key={session.id}
-									data-testid="session-row"
-									className="flex items-center gap-3 px-[12px] py-[9px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]"
+			{/* Scrollable body */}
+			<div className="flex-1 overflow-y-auto">
+				{/* W3 AC-32: max-width 800px centered body */}
+				<div
+					data-testid="task-detail-body"
+					className="flex flex-col gap-[24px] max-w-[800px] mx-auto w-full p-[24px] box-border"
+				>
+					{/* W3 AC-28: Bordered metadata cell grid */}
+					<div
+						data-testid="task-meta-strip"
+						className="bg-[var(--surface-page)] rounded-[var(--r-default)] border border-[var(--border-subtle)] flex overflow-hidden"
+					>
+						{/* Owner */}
+						<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-r border-[var(--border-subtle)]">
+							<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
+								Owner
+							</span>
+							<span className="text-[13px] font-[500] text-[var(--text-primary)]">
+								{task.owner}
+							</span>
+						</div>
+						{/* Status */}
+						<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-r border-[var(--border-subtle)]">
+							<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
+								Status
+							</span>
+							<div className="mt-[3px]">
+								<StatusChip status={taskStateToStatus(task.state)} />
+							</div>
+							<span className="sr-only">{task.state.replace("_", " ")}</span>
+						</div>
+						{/* Started */}
+						{task.startedAt && (
+							<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-r border-[var(--border-subtle)]">
+								<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
+									Started
+								</span>
+								<span
+									data-testid="task-started-at"
+									className="text-[13px] font-[500] text-[var(--text-primary)]"
 								>
-									<div className="flex-1 min-w-0">
-										<div className="text-[14px] font-medium truncate">{session.title}</div>
-										<div className="text-[12px] text-[var(--text-tertiary)] truncate">
-											{session.agent}
+									{formatRelativeTime(task.startedAt)}
+								</span>
+							</div>
+						)}
+						{/* Cost */}
+						{task.costActual !== null && (
+							<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-r border-[var(--border-subtle)]">
+								<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
+									Cost
+								</span>
+								<span className="text-[13px] font-[500] font-mono tabular-nums text-[var(--text-primary)]">
+									${((task.costActual.minor ?? 0) / 100).toFixed(2)}
+								</span>
+							</div>
+						)}
+						{/* Sessions */}
+						<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px]">
+							<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
+								Sessions
+							</span>
+							<span
+								data-testid="task-session-count"
+								className="text-[13px] font-[500] text-[var(--text-primary)]"
+							>
+								{activeSessions.length} active / {completedSessions.length} completed
+							</span>
+							{activeSession && (
+								<button
+									type="button"
+									className="inline-flex items-center px-[9px] py-[4px] text-[12px] font-[500] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] cursor-pointer hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)] mt-[3px] w-fit"
+									data-testid="task-dial-in-btn"
+									aria-label="Dial in to active session"
+								>
+									Dial in
+								</button>
+							)}
+						</div>
+					</div>
+
+					{/* W3 AC-29: Sessions section */}
+					<section data-testid="task-sessions-section">
+						<div className={SECTION_TITLE_CLASS}>Sessions</div>
+						{sessions.length === 0 ? (
+							<p className="text-[12px] text-[var(--text-tertiary)]">No sessions yet.</p>
+						) : (
+							<div className="flex flex-col">
+								{sessions.map((session) => (
+									<div
+										key={session.id}
+										data-testid="session-row"
+										className="flex items-center gap-[12px] py-[12px] border-b border-[var(--border-subtle)] last:border-b-0"
+									>
+										<div className="flex-1 min-w-0">
+											<div className="text-[14px] font-[500] text-[var(--text-primary)] truncate">
+												{session.title}
+											</div>
+											<div className="text-[12px] text-[var(--text-tertiary)] truncate mt-[2px]">
+												{session.agent}
+											</div>
 										</div>
+										{session.cost !== null && (
+											<span className="text-[12px] font-mono tabular-nums text-[var(--text-tertiary)]">
+												${((session.cost.minor ?? 0) / 100).toFixed(2)}
+											</span>
+										)}
+										<StatusChip status={taskStateToStatus(task.state)} />
 									</div>
-									{session.cost !== null && (
-										<span className="text-[12px] font-mono tabular-nums text-[var(--text-tertiary)]">
-											${((session.cost.minor ?? 0) / 100).toFixed(2)}
-										</span>
-									)}
-									<StatusChip status={sessionStatusToStatus(session.status)} />
-								</li>
-							))}
-						</ul>
-					)}
-				</section>
+								))}
+							</div>
+						)}
+					</section>
 
-				{/* W3 AC-31: Artifacts section */}
-				<ArtifactSection
-					filter={{ axis: "task", taskId: taskId ?? "" }}
-					layout="stack"
-					heading="Artifacts"
-					onOpen={onOpenArtifact}
-				/>
+					{/* W3 AC-31: Artifacts section */}
+					<section aria-label="Artifacts">
+						<div className={SECTION_TITLE_CLASS}>Artifacts</div>
+						<ArtifactSection
+							filter={{ axis: "task", taskId: taskId ?? "" }}
+							layout="stack"
+							heading=""
+							onOpen={onOpenArtifact}
+						/>
+					</section>
 
-				{/* W3 AC-30: Discussion section */}
-				<HostThreadSection hostKind="task" hostId={taskId ?? ""} title="Discussion" />
+					{/* W3 AC-30: Discussion section */}
+					<section aria-label="Discussion">
+						<div className={SECTION_TITLE_CLASS}>Discussion</div>
+						<HostThreadSection hostKind="task" hostId={taskId ?? ""} title="" />
+					</section>
+				</div>
 			</div>
 		</div>
 	);

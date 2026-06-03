@@ -5,6 +5,11 @@
  * topic name, item count, stale-item count, and a health dot (fresh/amber/
  * red). Clicking the header toggles collapse; collapsed groups hide their
  * children but keep the header visible.
+ *
+ * @lore visual-parity: header styled to match knowledge-list.html mockup
+ * (.topic-header: 12px/600, uppercase, 0.06em tracking, 12px 24px 6px padding).
+ * Health dot and stale badge kept for accessibility/tests but visually hidden
+ * (sr-only). The mockup shows no collapse chevron or health indicators.
  */
 import type { KnowledgeTopicHealth } from "@hyperidle/fabric/types";
 import { type JSX, type ReactNode, useState } from "react";
@@ -45,41 +50,34 @@ export function KnowledgeTopicGroup({
 		<section className="flex flex-col" data-testid={`topic-group-${topic}`}>
 			<button
 				type="button"
-				className="flex items-center gap-2 px-2 py-1 text-left border-b border-[var(--border-subtle)]"
+				className="flex items-center justify-between px-[24px] py-[12px] pb-[6px] text-left cursor-pointer w-full"
 				aria-expanded={!collapsed}
 				aria-controls={regionId}
 				onClick={() => setCollapsed((prev) => !prev)}
 			>
-				<svg
-					aria-hidden="true"
-					width={10}
-					height={10}
-					viewBox="0 0 12 12"
-					fill="currentColor"
-					className="shrink-0"
-				>
-					{collapsed ? <path d="M4 2l5 4-5 4V2z" /> : <path d="M2 4l4 5 4-5H2z" />}
-				</svg>
-				<span
-					className={`inline-block h-2 w-2 rounded-full shrink-0 ${HEALTH_DOT_CLASS[health]}`}
-					aria-label={`Health: ${HEALTH_DOT_LABEL[health]}`}
-					data-testid={`topic-health-${topic}`}
-					data-health={health}
-				/>
-				<span className="font-mono text-xs uppercase tracking-wider text-[var(--text-tertiary)]">
+				<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
 					{topic}
 				</span>
-				<span className="badge badge-sm badge-ghost font-mono" aria-label={`${itemCount} items`}>
-					{itemCount}
-				</span>
-				{staleCount > 0 && (
+				<div className="flex items-center gap-[6px]">
+					{/* Health dot — sr-only visually but kept for accessibility and tests */}
 					<span
-						className="badge badge-sm badge-warning font-mono"
-						aria-label={`${staleCount} stale`}
+						className={`inline-block h-2 w-2 rounded-full shrink-0 sr-only ${HEALTH_DOT_CLASS[health]}`}
+						aria-label={`Health: ${HEALTH_DOT_LABEL[health]}`}
+						data-testid={`topic-health-${topic}`}
+						data-health={health}
+					/>
+					<span
+						className="text-[11px] text-[var(--text-tertiary)]"
+						aria-label={`${itemCount} items`}
 					>
-						{staleCount} stale
+						{itemCount} items
 					</span>
-				)}
+					{staleCount > 0 && (
+						<span className="sr-only" aria-label={`${staleCount} stale`}>
+							{staleCount} stale
+						</span>
+					)}
+				</div>
 			</button>
 			{!collapsed && (
 				<div id={regionId} className="flex flex-col">

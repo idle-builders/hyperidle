@@ -1,4 +1,3 @@
-import { EmptyState, ErrorState, KnowledgeRow, SkeletonList } from "@hyperidle/design-system";
 /**
  * Knowledge/List page — list with topic grouping (Curated) and
  * draft-item Triage view.
@@ -23,10 +22,15 @@ import { EmptyState, ErrorState, KnowledgeRow, SkeletonList } from "@hyperidle/d
  *
  * @lore Q2: "+ New" button opens KnowledgeCreateDialog. User-scoped items show
  * a "Private" tag in the list. scopeKind/scopeId fields added to ApiKnowledgeItem.
+ *
+ * @lore visual-parity: Page structure changed to flex flex-col h-full with
+ * fixed header (non-scrolling) and flex-1 overflow-y-auto body, per AppShell
+ * overflow-hidden contract. Visual treatment updated to match knowledge-list.html:
+ * segmented pill tab control, outlined scope pills, plain-text sort bar,
+ * inline KnowledgeListRow replacing KnowledgeRow primitive.
  */
+import { EmptyState, ErrorState, SkeletonList } from "@hyperidle/design-system";
 import type {
-	KnowledgeKind,
-	KnowledgeLayer,
 	KnowledgeScope,
 	KnowledgeSortOption,
 	KnowledgeStatus,
@@ -71,9 +75,7 @@ interface ApiKnowledgeItem {
 	status: string;
 	version: number;
 	updatedBy: string;
-	/** Q2: scope_kind column added. Defaults to "factory" for pre-Q2 items. */
 	scopeKind?: string;
-	/** Q2: scope_id column — null for factory/user scopes. */
 	scopeId?: string | null;
 	createdAt: string;
 	updatedAt: string;
@@ -89,27 +91,17 @@ interface ApiKnowledgeListResponse {
 	items: ApiKnowledgeItem[];
 }
 
-/**
- * Map an API status string to a valid KnowledgeStatus for the design system.
- * O2 simplified statuses are "draft" | "active" | "archived"; the design
- * system KnowledgeStatus type uses the extended pre-O2 set.
- * @lore N5: "draft" maps to "captured" (paused chip) because the design
- * system KNOWLEDGE_STATUS_MAP doesn't contain "draft". This is a UI-display
- * mapping only — the underlying status string from the API is unchanged.
- */
 function toKnowledgeStatus(apiStatus: string): KnowledgeStatus {
 	switch (apiStatus) {
 		case "active":
 			return "active";
 		case "archived":
 			return "archived";
-		case "draft":
 		default:
 			return "captured";
 	}
 }
 
-/** Sort a list of API items by the given sort option. */
 function sortApiItems(items: ApiKnowledgeItem[], sort: KnowledgeSortOption): ApiKnowledgeItem[] {
 	const copy = [...items];
 	switch (sort) {
@@ -120,7 +112,7 @@ function sortApiItems(items: ApiKnowledgeItem[], sort: KnowledgeSortOption): Api
 				if (aAt === null && bAt === null) return a.id.localeCompare(b.id);
 				if (aAt === null) return 1;
 				if (bAt === null) return -1;
-				const primary = bAt.localeCompare(aAt); // most recent first
+				const primary = bAt.localeCompare(aAt);
 				return primary !== 0 ? primary : a.id.localeCompare(b.id);
 			});
 		case "frequency":
@@ -130,10 +122,9 @@ function sortApiItems(items: ApiKnowledgeItem[], sort: KnowledgeSortOption): Api
 				if (aCount === null && bCount === null) return a.id.localeCompare(b.id);
 				if (aCount === null) return 1;
 				if (bCount === null) return -1;
-				const primary = bCount - aCount; // highest frequency first
+				const primary = bCount - aCount;
 				return primary !== 0 ? primary : a.id.localeCompare(b.id);
 			});
-		case "relevance":
 		default:
 			return copy.sort((a, b) => {
 				const aScore = a.signals?.relevanceScore ?? null;
@@ -141,17 +132,12 @@ function sortApiItems(items: ApiKnowledgeItem[], sort: KnowledgeSortOption): Api
 				if (aScore === null && bScore === null) return a.id.localeCompare(b.id);
 				if (aScore === null) return 1;
 				if (bScore === null) return -1;
-				const primary = bScore - aScore; // highest relevance first
+				const primary = bScore - aScore;
 				return primary !== 0 ? primary : a.id.localeCompare(b.id);
 			});
 	}
 }
 
-/**
- * Derive topic health from the share of archived items in the group.
- * In the O2 schema "stale" no longer exists; archived items serve as
- * the stale-equivalent for health colouring.
- */
 function deriveTopicHealth(totalCount: number, archivedCount: number): KnowledgeTopicHealth {
 	if (totalCount === 0 || archivedCount === 0) return "fresh";
 	const ratio = archivedCount / totalCount;
@@ -159,10 +145,6 @@ function deriveTopicHealth(totalCount: number, archivedCount: number): Knowledge
 	return "some_stale";
 }
 
-/**
- * Group a list of API items by topic. Items with no topic go to "General".
- * Returns a stable-ordered list (insertion order of first topic occurrence).
- */
 function groupByTopic(items: ApiKnowledgeItem[]): Array<{
 	topic: string;
 	items: ApiKnowledgeItem[];
@@ -190,14 +172,283 @@ function groupByTopic(items: ApiKnowledgeItem[]): Array<{
 	});
 }
 
+/**
+ * Inline knowledge row matching knowledge-list.html .knowledge-row.
+ * Replaces the KnowledgeRow design-system primitive for visual parity.
+ */
+interface KnowledgeListRowProps {
+	title: string;
+	preview?: string | null;
+	kind?: string;
+	status?: KnowledgeStatus;
+	timestamp: string;
+	isPrivate?: boolean;
+	onClick?: () => void;
+}
+
+function KnowledgeListRow({
+	title,
+	preview,
+	kind,
+	timestamp,
+	isPrivate,
+	onClick,
+}: KnowledgeListRowProps): JSX.Element {
+	return (
+		<button
+			type="button"
+			className="flex items-center gap-[12px] px-[24px] py-[12px] border-b border-[var(--border-subtle)] cursor-pointer last:border-b-0 hover:bg-[rgba(44,36,26,0.02)] w-full text-left"
+			style={{ transition: "background 240ms ease" }}
+			onClick={onClick}
+		>
+			<div className="flex-1 min-w-0">
+				<div className="text-[15px] text-[var(--text-primary)] truncate">{title}</div>
+				{preview && (
+					<div className="text-[13px] text-[var(--text-tertiary)] truncate mt-[2px]">{preview}</div>
+				)}
+			</div>
+			<div className="flex items-center gap-[6px] shrink-0">
+				{isPrivate && (
+					<span
+						className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] bg-[var(--surface-container)] text-[var(--text-secondary)] whitespace-nowrap"
+						title="Private — only visible to you"
+						data-testid="private-badge"
+					>
+						Private
+					</span>
+				)}
+				{kind && (
+					<span className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] bg-[var(--surface-container)] text-[var(--text-secondary)] whitespace-nowrap">
+						{kind}
+					</span>
+				)}
+				<span className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap">
+					{timestamp}
+				</span>
+			</div>
+		</button>
+	);
+}
+
+interface KnowledgeListContentProps {
+	tab: KnowledgeTab;
+	sort: KnowledgeSortOption;
+	scope: KnowledgeScope;
+	scopeOptions: string[];
+	selectedScopeFilter: string | null;
+	onScopeFilterChange: (value: string | null) => void;
+	onSortChange: (option: KnowledgeSortOption) => void;
+	grouped: Array<{
+		topic: string;
+		items: ApiKnowledgeItem[];
+		staleCount: number;
+		health: KnowledgeTopicHealth;
+	}>;
+	triageItems: ApiKnowledgeItem[];
+	apiLoading: boolean;
+	apiError: string | null;
+	isCuratedEmpty: boolean;
+	isTriageEmpty: boolean;
+	hintKnowledgeEmpty: ReturnType<typeof useHint>;
+	onNavigate: (id: string) => void;
+}
+
+function KnowledgeListContent({
+	tab,
+	sort,
+	scope,
+	scopeOptions,
+	selectedScopeFilter,
+	onScopeFilterChange,
+	onSortChange,
+	grouped,
+	triageItems,
+	apiLoading,
+	apiError,
+	isCuratedEmpty,
+	isTriageEmpty,
+	hintKnowledgeEmpty,
+	onNavigate,
+}: KnowledgeListContentProps): JSX.Element {
+	return (
+		<div className="max-w-[800px] mx-auto w-full">
+			<fieldset
+				className="flex items-center gap-[6px] flex-wrap px-[24px] pt-[12px] border-none p-0 m-0"
+				data-testid="knowledge-scope-pills"
+				aria-label="Filter by scope"
+			>
+				<button
+					type="button"
+					data-testid="scope-pill-all"
+					data-active={selectedScopeFilter === null ? "true" : "false"}
+					className={
+						selectedScopeFilter === null
+							? "border-[1.5px] border-[var(--accent-primary)] bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)] px-[12px] py-[4px] rounded-[var(--r-pill)] text-[12px] font-[500] cursor-pointer"
+							: "border-[1.5px] border-[var(--border-default)] text-[var(--text-secondary)] px-[12px] py-[4px] rounded-[var(--r-pill)] text-[12px] font-[500] cursor-pointer bg-transparent"
+					}
+					onClick={() => onScopeFilterChange(null)}
+				>
+					All
+				</button>
+				{scopeOptions.map((scopeKind) => {
+					const isActive = selectedScopeFilter === scopeKind;
+					return (
+						<button
+							key={scopeKind}
+							type="button"
+							data-testid={`scope-pill-${scopeKind.toLowerCase()}`}
+							data-active={isActive ? "true" : "false"}
+							className={
+								isActive
+									? "border-[1.5px] border-[var(--accent-primary)] bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)] px-[12px] py-[4px] rounded-[var(--r-pill)] text-[12px] font-[500] cursor-pointer"
+									: "border-[1.5px] border-[var(--border-default)] text-[var(--text-secondary)] px-[12px] py-[4px] rounded-[var(--r-pill)] text-[12px] font-[500] cursor-pointer bg-transparent"
+							}
+							onClick={() =>
+								onScopeFilterChange(selectedScopeFilter === scopeKind ? null : scopeKind)
+							}
+						>
+							{scopeKind}
+						</button>
+					);
+				})}
+			</fieldset>
+
+			<span data-testid="knowledge-scope-indicator" className="sr-only">
+				{scope}
+			</span>
+
+			<div
+				role="radiogroup"
+				aria-label="Sort order"
+				data-testid="knowledge-sort-bar"
+				className="flex items-center gap-[9px] px-[24px] py-[9px]"
+			>
+				<span className="text-[12px] text-[var(--text-tertiary)]">Sort:</span>
+				{KNOWLEDGE_SORT_OPTIONS.map((option) => {
+					const isActive = sort === option;
+					return (
+						// biome-ignore lint/a11y/useSemanticElements: custom radio group uses button+role=radio pattern for aria-checked support
+						<button
+							key={option}
+							type="button"
+							role="radio"
+							aria-checked={isActive}
+							onClick={() => onSortChange(option)}
+							className={
+								isActive
+									? "text-[12px] text-[var(--accent-primary)] font-[600] cursor-pointer bg-transparent border-none capitalize"
+									: "text-[12px] text-[var(--text-tertiary)] cursor-pointer bg-transparent border-none capitalize"
+							}
+						>
+							{option}
+						</button>
+					);
+				})}
+			</div>
+
+			{tab === "triage" ? (
+				<div className="flex flex-col" data-testid="knowledge-triage-view">
+					{apiLoading ? (
+						<div className="px-[24px] py-[12px]">
+							<SkeletonList rows={4} ariaLabel="Loading triage items" />
+						</div>
+					) : apiError ? (
+						<div className="px-[24px] py-[12px]">
+							<ErrorState title="Couldn't load knowledge" description={apiError} />
+						</div>
+					) : isTriageEmpty ? (
+						<div className="flex items-center justify-center p-[48px_24px]">
+							<EmptyState
+								title="Nothing needs attention"
+								description="Triage is clear — agents will surface draft items here as they learn."
+								dataTestId="knowledge-triage-empty"
+							/>
+						</div>
+					) : (
+						triageItems.map((item) => {
+							const isPrivate = item.scopeKind === "user";
+							return (
+								<KnowledgeListRow
+									key={item.id}
+									title={item.title}
+									preview={item.body?.slice(0, 120) || null}
+									status={toKnowledgeStatus(item.status)}
+									timestamp={relativeTime(item.updatedAt)}
+									isPrivate={isPrivate}
+									onClick={() => onNavigate(item.id)}
+								/>
+							);
+						})
+					)}
+				</div>
+			) : (
+				<div className="flex flex-col" data-testid="knowledge-curated-view">
+					{apiLoading ? (
+						<div className="px-[24px] py-[12px]">
+							<SkeletonList rows={4} ariaLabel="Loading curated items" />
+						</div>
+					) : isCuratedEmpty ? (
+						<div className="flex items-center justify-center p-[48px_24px]">
+							<EmptyState
+								title="No knowledge items yet"
+								description="Agents will populate this scope as they learn. Check back after the next review cycle."
+								dataTestId="knowledge-curated-empty"
+							/>
+							{hintKnowledgeEmpty.visible && (
+								<div
+									role="status"
+									data-testid={hintKnowledgeEmpty.testId}
+									className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px] mt-[12px]"
+								>
+									<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
+										{hintKnowledgeEmpty.copy}
+									</p>
+									<div className="flex gap-[9px]">
+										<button
+											type="button"
+											className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
+											onClick={hintKnowledgeEmpty.dismiss}
+										>
+											Got it
+										</button>
+									</div>
+								</div>
+							)}
+						</div>
+					) : (
+						grouped.map((g) => (
+							<KnowledgeTopicGroup
+								key={g.topic}
+								topic={g.topic}
+								itemCount={g.items.length}
+								staleCount={g.staleCount}
+								health={g.health}
+							>
+								{g.items.map((item) => {
+									const isPrivate = item.scopeKind === "user";
+									return (
+										<KnowledgeListRow
+											key={item.id}
+											title={item.title}
+											preview={item.body?.slice(0, 120) || null}
+											status={toKnowledgeStatus(item.status)}
+											timestamp={relativeTime(item.updatedAt)}
+											isPrivate={isPrivate}
+											onClick={() => onNavigate(item.id)}
+										/>
+									);
+								})}
+							</KnowledgeTopicGroup>
+						))
+					)}
+				</div>
+			)}
+		</div>
+	);
+}
+
 export interface KnowledgeListProps {
-	/**
-	 * J8: opt-in loading state so callers (and stories) can render the
-	 * skeleton list variant. Defaults to false so production render path
-	 * is unchanged.
-	 */
 	loading?: boolean;
-	/** J8: opt-in error state. When present, ErrorState takes over. */
 	error?: { message: string; onRetry?: () => void } | null;
 }
 
@@ -211,24 +462,12 @@ export function KnowledgeList({
 	const scope = deriveScope(searchParams);
 	const sort = deriveSort(searchParams);
 
-	// @lore J6 AC: tab choice remembered in component state only — NOT
-	// localStorage. Default recomputed below whenever API data changes.
 	const [tab, setTab] = useState<KnowledgeTab>("triage");
-	// @lore W3 AC-37: track whether the user has manually selected a tab.
-	// When true, the auto-default effect does not override the user's choice.
 	const tabManuallySelectedRef = useRef(false);
-
-	// Q2: create dialog state and refresh counter (useFetch re-fetches when URL changes)
 	const [createDialogOpen, setCreateDialogOpen] = useState(false);
 	const [fetchRevision, setFetchRevision] = useState(0);
-	// W3 AC-33: client-side scope filter (replaces hardcoded Practices/Products/Factory pills)
 	const [selectedScopeFilter, setSelectedScopeFilter] = useState<string | null>(null);
 
-	// N5: fetch all items from the real API unconditionally (both tabs need the data)
-	// Q2: fetchRevision appended as a cache-buster query param so POST→refresh works.
-	// @lore Q2: useFetch has no refresh method. Appending ?_r=N to the URL causes
-	// useEffect to re-run with the new URL, triggering a fresh fetch. The server
-	// ignores unknown query params.
 	const {
 		data: apiData,
 		isLoading: apiLoading,
@@ -243,9 +482,6 @@ export function KnowledgeList({
 
 	const allItems = useMemo<ApiKnowledgeItem[]>(() => apiData?.items ?? [], [apiData]);
 
-	// W3 AC-33: data-driven scope options derived from unique scopeKind values in items.
-	// @lore W3: Replace hardcoded Practices/Products/Factory pills with pills
-	// derived from the actual scopeKind fields on items. "All" is always first.
 	const scopeOptions = useMemo<string[]>(() => {
 		const seen = new Set<string>();
 		for (const item of allItems) {
@@ -256,7 +492,6 @@ export function KnowledgeList({
 		return Array.from(seen).sort();
 	}, [allItems]);
 
-	// Triage = draft items (needs human review in O2 schema)
 	const triageItems = useMemo<ApiKnowledgeItem[]>(
 		() =>
 			sortApiItems(
@@ -266,7 +501,6 @@ export function KnowledgeList({
 		[allItems, sort],
 	);
 
-	// Curated = active items grouped by topic
 	const curatedItems = useMemo<ApiKnowledgeItem[]>(
 		() => allItems.filter((i) => i.status === "active"),
 		[allItems],
@@ -274,14 +508,8 @@ export function KnowledgeList({
 
 	const grouped = useMemo(() => groupByTopic(curatedItems), [curatedItems]);
 
-	// AC: "Default to Triage when any items have status === 'draft', else Curated."
-	// Also AC: "Switching scope resets list selection and filters."
-	// @lore W3 AC-37: when the user has manually selected a tab, skip the
-	// auto-default so their choice persists. Scope change resets the manual flag.
 	const prevScopeRef = useRef(scope);
 	useEffect(() => {
-		// If scope changed, reset the manual-selection lock so the new scope
-		// gets a fresh auto-default.
 		if (prevScopeRef.current !== scope) {
 			tabManuallySelectedRef.current = false;
 			prevScopeRef.current = scope;
@@ -291,7 +519,6 @@ export function KnowledgeList({
 		setTab(hasDraft ? "triage" : "curated");
 	}, [allItems, scope]);
 
-	/** Update sort URL state. Removes param when defaulting to relevance. */
 	function handleSortChange(newSort: KnowledgeSortOption): void {
 		const next = new URLSearchParams(searchParams);
 		if (newSort === "relevance") {
@@ -304,7 +531,7 @@ export function KnowledgeList({
 
 	if (loading) {
 		return (
-			<div className="flex flex-col gap-3 h-full" data-testid="knowledge-list-page">
+			<div className="flex flex-col h-full" data-testid="knowledge-list-page">
 				<SkeletonList rows={6} ariaLabel="Loading knowledge" />
 			</div>
 		);
@@ -312,7 +539,7 @@ export function KnowledgeList({
 
 	if (error) {
 		return (
-			<div className="flex flex-col gap-3 h-full" data-testid="knowledge-list-page">
+			<div className="flex flex-col h-full" data-testid="knowledge-list-page">
 				<ErrorState
 					title="Couldn't load knowledge"
 					description={error.message}
@@ -322,261 +549,130 @@ export function KnowledgeList({
 		);
 	}
 
+	const systemEmpty = allItems.length === 0 && !apiLoading;
+	const isCuratedEmpty = grouped.length === 0 && !apiLoading;
+	const isTriageEmpty = triageItems.length === 0 && !apiLoading;
+
 	return (
-		<div className="flex flex-col gap-3 h-full" data-testid="knowledge-list-page">
-			{/* W3 AC-38: max-width 800px centered content container */}
-			<div className="flex flex-col gap-3 max-w-[800px] mx-auto w-full">
-				<div className="flex items-center justify-between">
-					<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
-						Knowledge Base
-					</h1>
-					<div className="flex items-center gap-2">
+		<div className="flex flex-col h-full" data-testid="knowledge-list-page">
+			<header className="shrink-0 flex items-center justify-between px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
+				<div className="flex items-center gap-[12px]">
+					<span className="sr-only">Knowledge Base</span>
+					<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)]">
+						Knowledge
+					</h2>
+					<div
+						role="tablist"
+						aria-label="Knowledge view"
+						className="inline-flex gap-[6px] bg-[var(--surface-container)] rounded-[var(--r-pill)] p-[3px]"
+						data-testid="knowledge-tabs"
+					>
 						<button
 							type="button"
-							className="btn btn-sm btn-primary"
-							onClick={() => setCreateDialogOpen(true)}
+							role="tab"
+							aria-selected={tab === "curated"}
+							className={
+								tab === "curated"
+									? "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[600] bg-[var(--surface-elevated)] text-[var(--accent-primary)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
+									: "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[500] text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
+							}
+							onClick={() => {
+								tabManuallySelectedRef.current = true;
+								setTab("curated");
+							}}
 						>
-							+ New
+							Curated
+						</button>
+						<button
+							type="button"
+							role="tab"
+							aria-selected={tab === "triage"}
+							className={
+								tab === "triage"
+									? "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[600] bg-[var(--surface-elevated)] text-[var(--accent-primary)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
+									: "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[500] text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
+							}
+							onClick={() => {
+								tabManuallySelectedRef.current = true;
+								setTab("triage");
+							}}
+						>
+							Triage
 						</button>
 					</div>
 				</div>
-
-				{/* Q2: KnowledgeCreateDialog — factory scope (no lock) for the global list */}
-				<KnowledgeCreateDialog
-					open={createDialogOpen}
-					onClose={() => setCreateDialogOpen(false)}
-					onCreated={handleCreated}
-				/>
-
-				{/*
-				 * W3 AC-33: Data-driven scope filter pills.
-				 * "All" is always first. Additional pills come from unique scopeKind values
-				 * in the item list (not hardcoded Practices/Products/Factory).
-				 * @lore W3: Replaced hardcoded scope pills with data-derived pills.
-				 * Client-side filter (selectedScopeFilter state) replaces URL scope param.
-				 */}
-				<div
-					className="flex items-center gap-1 flex-wrap"
-					data-testid="knowledge-scope-pills"
-					role="group"
-					aria-label="Filter by scope"
-				>
+				<div className="flex items-center gap-[9px]">
 					<button
 						type="button"
-						data-testid="scope-pill-all"
-						className={`btn btn-xs ${selectedScopeFilter === null ? "btn-primary" : "btn-ghost"}`}
-						onClick={() => setSelectedScopeFilter(null)}
+						className="inline-flex items-center text-[12px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-none cursor-pointer"
+						onClick={() => setCreateDialogOpen(true)}
 					>
-						All
+						+ New
 					</button>
-					{scopeOptions.map((scopeKind) => (
-						<button
-							key={scopeKind}
-							type="button"
-							data-testid={`scope-pill-${scopeKind.toLowerCase()}`}
-							className={`btn btn-xs ${selectedScopeFilter === scopeKind ? "btn-primary" : "btn-ghost"}`}
-							onClick={() =>
-								setSelectedScopeFilter((prev) => (prev === scopeKind ? null : scopeKind))
+				</div>
+			</header>
+
+			<KnowledgeCreateDialog
+				open={createDialogOpen}
+				onClose={() => setCreateDialogOpen(false)}
+				onCreated={handleCreated}
+			/>
+
+			<div className="flex-1 overflow-y-auto">
+				{systemEmpty ? (
+					<div className="flex items-center justify-center p-[48px_24px] h-full">
+						<EmptyState
+							title="Your knowledge base is empty"
+							description="Knowledge items capture patterns, decisions, and lessons learned. As your agents work, they will start indexing insights here automatically. You can also add items manually."
+							icon={
+								<svg
+									width="24"
+									height="24"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="2"
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									aria-hidden="true"
+								>
+									<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+									<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+								</svg>
 							}
-						>
-							{scopeKind}
-						</button>
-					))}
-				</div>
-
-				{/*
-				 * @lore U9/J6: hidden machine-readable scope indicator preserved for
-				 * J6 test backward-compat. Visual scope is shown by the active pill above.
-				 */}
-				<span data-testid="knowledge-scope-indicator" className="sr-only">
-					{scope}
-				</span>
-
-				<div
-					role="tablist"
-					aria-label="Knowledge view"
-					className="flex gap-1"
-					data-testid="knowledge-tabs"
-				>
-					<button
-						type="button"
-						role="tab"
-						aria-selected={tab === "triage"}
-						className={tab === "triage" ? "btn btn-xs btn-primary" : "btn btn-xs btn-ghost"}
-						onClick={() => {
-							tabManuallySelectedRef.current = true;
-							setTab("triage");
-						}}
-					>
-						Triage
-					</button>
-					<button
-						type="button"
-						role="tab"
-						aria-selected={tab === "curated"}
-						className={tab === "curated" ? "btn btn-xs btn-primary" : "btn btn-xs btn-ghost"}
-						onClick={() => {
-							tabManuallySelectedRef.current = true;
-							setTab("curated");
-						}}
-					>
-						Curated
-					</button>
-				</div>
-
-				{/* W3 AC-34: Sort controls always visible in both Curated and Triage tabs */}
-				<div
-					role="radiogroup"
-					aria-label="Sort order"
-					data-testid="knowledge-sort-bar"
-					className="flex items-center gap-1"
-				>
-					{KNOWLEDGE_SORT_OPTIONS.map((option) => {
-						const isActive = sort === option;
-						return (
-							<button
-								key={option}
-								type="button"
-								role="radio"
-								aria-checked={isActive}
-								onClick={() => handleSortChange(option)}
-								className={
-									isActive ? "btn btn-xs btn-primary capitalize" : "btn btn-xs btn-ghost capitalize"
-								}
-							>
-								{option}
-							</button>
-						);
-					})}
-				</div>
-
-				{tab === "triage" ? (
-					<div className="flex flex-col gap-2" data-testid="knowledge-triage-view">
-						{apiLoading ? (
-							<SkeletonList rows={4} ariaLabel="Loading triage items" />
-						) : apiError ? (
-							<ErrorState title="Couldn't load knowledge" description={apiError} />
-						) : triageItems.length > 0 ? (
-							<div className="flex flex-col">
-								{triageItems.map((item) => {
-									const signals = item.signals
-										? {
-												recency: item.signals.lastActivityAt
-													? relativeTime(item.signals.lastActivityAt)
-													: null,
-												frequency: item.signals.accessCount30d ?? null,
-												citation: item.signals.citationCount ?? null,
-											}
-										: undefined;
-									const isPrivate = item.scopeKind === "user";
-									return (
-										<div key={item.id}>
-											<KnowledgeRow
-												title={item.title}
-												layer={"L0" as KnowledgeLayer}
-												kind={"brief" as KnowledgeKind}
-												status={toKnowledgeStatus(item.status)}
-												timestamp={relativeTime(item.updatedAt)}
-												signals={signals}
-												onClick={() => navigate(`/knowledge/${item.id}`)}
-											/>
-											{/* Q2: Private badge is a sibling OUTSIDE KnowledgeRow[role=button]
-										    to avoid Playwright getByText strict-mode collision: KnowledgeRow
-										    titles like "My private note" contain "private" as a substring,
-										    which would cause getByText('Private') to resolve to 2 elements. */}
-											{isPrivate && (
-												<span
-													className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-subtle)] text-[12px] bg-[var(--surface-container)] text-[var(--text-secondary)] whitespace-nowrap"
-													aria-label="Private — only visible to you"
-													data-testid="private-badge"
-												>
-													Private
-												</span>
-											)}
-										</div>
-									);
-								})}
-							</div>
-						) : (
-							<EmptyState
-								title="Nothing needs attention"
-								description="Triage is clear — agents will surface draft items here as they learn."
-								dataTestId="knowledge-triage-empty"
-							/>
-						)}
+							iconBg="rgba(46,125,186,0.08)"
+							action={
+								<button
+									type="button"
+									className="inline-flex items-center text-[13px] font-[500] px-[18px] py-[10px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-none cursor-pointer"
+									onClick={() => setCreateDialogOpen(true)}
+								>
+									Create first item
+								</button>
+							}
+							dataTestId="knowledge-curated-empty"
+						/>
 					</div>
 				) : (
-					<div className="flex flex-col gap-2" data-testid="knowledge-curated-view">
-						{apiLoading ? (
-							<SkeletonList rows={4} ariaLabel="Loading curated items" />
-						) : grouped.length === 0 ? (
-							<>
-								<EmptyState
-									title="No knowledge items yet"
-									description="Agents will populate this scope as they learn. Check back after the next review cycle."
-									dataTestId="knowledge-curated-empty"
-								/>
-								{hintKnowledgeEmpty.visible && (
-									<div
-										role="status"
-										data-testid={hintKnowledgeEmpty.testId}
-										className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px] mt-2"
-									>
-										<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
-											{hintKnowledgeEmpty.copy}
-										</p>
-										<div className="flex gap-2">
-											<button
-												type="button"
-												className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
-												onClick={hintKnowledgeEmpty.dismiss}
-											>
-												Got it
-											</button>
-										</div>
-									</div>
-								)}
-							</>
-						) : (
-							grouped.map((g) => (
-								<KnowledgeTopicGroup
-									key={g.topic}
-									topic={g.topic}
-									itemCount={g.items.length}
-									staleCount={g.staleCount}
-									health={g.health}
-								>
-									{g.items.map((item) => {
-										const isPrivate = item.scopeKind === "user";
-										return (
-											<div key={item.id}>
-												<KnowledgeRow
-													title={item.title}
-													layer={"L0" as KnowledgeLayer}
-													kind={"brief" as KnowledgeKind}
-													status={toKnowledgeStatus(item.status)}
-													timestamp={relativeTime(item.updatedAt)}
-													onClick={() => navigate(`/knowledge/${item.id}`)}
-												/>
-												{isPrivate && (
-													<span
-														className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-subtle)] text-[12px] bg-[var(--surface-container)] text-[var(--text-secondary)] whitespace-nowrap"
-														aria-label="Private — only visible to you"
-														data-testid="private-badge"
-													>
-														Private
-													</span>
-												)}
-											</div>
-										);
-									})}
-								</KnowledgeTopicGroup>
-							))
-						)}
-					</div>
+					<KnowledgeListContent
+						tab={tab}
+						sort={sort}
+						scope={scope}
+						scopeOptions={scopeOptions}
+						selectedScopeFilter={selectedScopeFilter}
+						onScopeFilterChange={setSelectedScopeFilter}
+						onSortChange={handleSortChange}
+						grouped={grouped}
+						triageItems={triageItems}
+						apiLoading={apiLoading}
+						apiError={apiError}
+						isCuratedEmpty={isCuratedEmpty}
+						isTriageEmpty={isTriageEmpty}
+						hintKnowledgeEmpty={hintKnowledgeEmpty}
+						onNavigate={(id) => navigate(`/knowledge/${id}`)}
+					/>
 				)}
 			</div>
-			{/* end max-w-[800px] wrapper */}
 		</div>
 	);
 }

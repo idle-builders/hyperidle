@@ -193,8 +193,9 @@ describe("Conversations page — L10 filter wiring (via AppShell OutletContext)"
 		await screen.findByTestId("thread-sections-error");
 	});
 
-	it("error state: clicking Blocking while errored does not change rendering", async () => {
+	it("error state: clicking Blocking while errored keeps error state visible", async () => {
 		// When the threads fetch fails, the error state should persist even if toggles are clicked.
+		const user = userEvent.setup();
 		global.fetch = vi.fn(async (input: RequestInfo | URL) => {
 			const url = typeof input === "string" ? input : input.toString();
 			if (url.includes("/api/auth/me")) {
@@ -206,8 +207,12 @@ describe("Conversations page — L10 filter wiring (via AppShell OutletContext)"
 
 		// Wait for error state
 		await screen.findByTestId("thread-sections-error");
-		// Error state renders before toggles (flat mode returns early on error)
-		expect(screen.queryByRole("button", { name: /^blocking$/i })).not.toBeInTheDocument();
+		// Visual parity: filter chips are in the page header (always visible), even on error.
+		// Clicking Blocking should not clear the error state.
+		const blockingBtn = screen.getByRole("button", { name: /^blocking$/i });
+		await user.click(blockingBtn);
+		// Error state should still be visible after toggle
+		expect(screen.getByTestId("thread-sections-error")).toBeInTheDocument();
 	});
 
 	it("loading state: shows loading skeleton while fetch is in-flight", async () => {

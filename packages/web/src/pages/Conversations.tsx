@@ -35,7 +35,7 @@ import {
 import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
 import { BlockRefEmbed } from "../components/BlockRefEmbed.js";
 import { SessionActivityPanel } from "../components/SessionActivityPanel";
-import type { ConversationsFilter } from "../components/ThreadSections";
+import type { ConversationsFilter, ConversationsToggleFilter } from "../components/ThreadSections";
 import { ThreadSections } from "../components/ThreadSections";
 import { useHint } from "../hooks/useHints";
 import { useThreadDetail } from "../hooks/useThreadDetail";
@@ -50,6 +50,40 @@ import {
 	type VisualComparisonData,
 } from "../shell/ArtifactView";
 import { ToastContext } from "../shell/ToastRegion";
+
+// ---------------------------------------------------------------------------
+// FilterChip — custom chip matching the mockup's .filter-chip style.
+// Not a DaisyUI btn — uses border/pill shape per visual parity spec.
+// hearth-internal-padding
+// ---------------------------------------------------------------------------
+function FilterChip({
+	label,
+	active,
+	onToggle,
+}: {
+	label: string;
+	active: boolean;
+	onToggle: () => void;
+}): JSX.Element {
+	return (
+		<button
+			type="button"
+			aria-pressed={active}
+			onClick={onToggle}
+			style={{ padding: "4px 12px" }}
+			className={[
+				"inline-flex items-center text-[12px] font-[500] rounded-[var(--r-pill)]",
+				"border-[1.5px] cursor-pointer transition-colors duration-[var(--motion-default)]",
+				"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]",
+				active
+					? "border-[var(--accent-primary)] bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)]"
+					: "border-[var(--border-default)] bg-transparent text-[var(--text-secondary)]",
+			].join(" ")}
+		>
+			{label}
+		</button>
+	);
+}
 
 /**
  * T4: renderRefEmbeds for Conversations — builds BlockRefEmbed cards for block refs.
@@ -341,28 +375,25 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		return <div className="h-full" data-testid="conversations-page" />;
 	}
 
-	// Q1 §4.6: "Live" badge + "Dial In" button header (only for task threads with active session)
-	const dialInHeader =
+	// Q1 §4.6: "Dial in" button — secondary style with pulsing live dot.
+	// Only shown for task threads with an active session.
+	// hearth-internal-padding
+	const dialInButton =
 		activeSession && !dialInSessionId ? (
-			<div className="flex items-center gap-[8px] px-[4px] pb-[8px] flex-shrink-0">
+			<button
+				type="button"
+				style={{ padding: "7px 12px" }}
+				className="inline-flex items-center gap-[6px] text-[12px] font-[500] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-primary)] cursor-pointer hover:border-[var(--border-strong)] transition-colors duration-[var(--motion-default)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]"
+				onClick={() => setDialInSessionId(activeSession.id)}
+				data-testid="dial-in-btn"
+			>
 				<span
-					role="status"
-					className="inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-full bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-primary)] text-[10px] font-medium uppercase tracking-[0.05em]"
-					aria-label="Live session"
-					data-testid="live-session-badge"
-				>
-					<span className="w-[5px] h-[5px] rounded-full bg-[var(--accent-primary)] animate-pulse" />
-					Live
-				</span>
-				<button
-					type="button"
-					className="btn btn-xs btn-primary"
-					onClick={() => setDialInSessionId(activeSession.id)}
-					data-testid="dial-in-btn"
-				>
-					Dial In
-				</button>
-			</div>
+					aria-hidden="true"
+					className="w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)] animate-pulse shrink-0"
+				/>
+				<span className="sr-only" role="status" aria-label="Live session" data-testid="live-session-badge" />
+				Dial in
+			</button>
 		) : null;
 
 	// Q1 §4.6: companion split layout when dialed in
@@ -398,14 +429,24 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	// P5: Hint #4 — review-verdict. Trigger: thread is loaded with review messages.
 	const hasReviewMessages = data.messages.some((m) => m.type === "review");
 
+	// Thread title for the detail header — hostKind/hostId is the best available
+	// label since Thread has no title field (see Thread type in shared/src/thread.ts).
+	const threadTitle = `${data.thread.hostKind}/${data.thread.hostId}`;
+
 	return (
 		<div className="flex flex-col h-full" data-testid="conversations-page">
-			{dialInHeader}
+			{/* Visual parity: main-header with thread title (20px/600) + dial-in button */}
+			<header className="shrink-0 flex items-center justify-between gap-[12px] px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
+				<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] truncate min-w-0">
+					{threadTitle}
+				</h2>
+				{dialInButton}
+			</header>
 			{hintReviewVerdict.visible && hasReviewMessages && (
 				<div
 					role="status"
 					data-testid={hintReviewVerdict.testId}
-					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[12px] flex flex-col gap-[6px] flex-shrink-0"
+					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[12px] flex flex-col gap-[6px] flex-shrink-0 mx-[24px] mt-[12px]"
 				>
 					<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
 						{hintReviewVerdict.copy}
@@ -421,14 +462,17 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 					</div>
 				</div>
 			)}
-			<ThreadShell
-				thread={data.thread}
-				messages={data.messages}
-				identities={data.identities}
-				artifactSlot={resolveArtifactSlot}
-				onAppendMessage={onAppend}
-				renderRefEmbeds={renderRefEmbedsForConversations}
-			/>
+			{/* ThreadShell takes flex-1 overflow-hidden; it manages its own internal scroll */}
+			<div className="flex-1 overflow-hidden">
+				<ThreadShell
+					thread={data.thread}
+					messages={data.messages}
+					identities={data.identities}
+					artifactSlot={resolveArtifactSlot}
+					onAppendMessage={onAppend}
+					renderRefEmbeds={renderRefEmbedsForConversations}
+				/>
+			</div>
 		</div>
 	);
 }
@@ -470,6 +514,15 @@ export function Conversations(): JSX.Element {
 	};
 	const navigate = useNavigate();
 
+	// W3 AC-6 (lifted): toggle filter state lives at page level so filter chips
+	// render inline in the header bar (visual parity with mockup). ThreadSections
+	// receives toggleFilter + onToggleFilter props and skips rendering its own
+	// chip bar in controlled mode.
+	const [toggleFilter, setToggleFilter] = useState<ConversationsToggleFilter>({
+		blocking: false,
+		unread: false,
+	});
+
 	const handleSelectThread = useCallback(
 		(id: string): void => {
 			navigate(`/conversations/${encodeURIComponent(id)}`);
@@ -478,42 +531,106 @@ export function Conversations(): JSX.Element {
 	);
 
 	if (!threadId) {
+		const isEmpty =
+			conversationsThreads.threads.length === 0 &&
+			conversationsThreads.status !== "loading" &&
+			conversationsThreads.status !== "error";
+
 		return (
 			<div className="flex flex-col h-full" data-testid="conversations-page">
-				{/* W3 AC-8: header with "New thread" button + filter bar */}
-				<div
+				{/* Visual parity: header bar — 20px/600 title, border-bottom, filter chips inline,
+				    "New thread" button on the right. Matches .main-header in the mockup. */}
+				<header
 					data-conversations-header
 					data-testid="conversations-filter-bar"
-					className="flex items-center justify-between gap-2 mb-2 shrink-0"
+					className="shrink-0 flex items-center justify-between gap-[12px] px-[24px] py-[18px] border-b border-[var(--border-subtle)]"
 				>
-					<h2 className="text-[14px] font-[600] text-[var(--text-primary)]">Conversations</h2>
-					<div className="flex items-center gap-1">
-						{/* W3 AC-8: New thread button in header — always rendered */}
-						<button
-							type="button"
-							className="btn btn-xs btn-primary"
-							onClick={onNewThread ?? (() => undefined)}
-							data-testid="new-thread-btn"
-						>
-							New thread
-						</button>
+					<div className="flex items-center gap-[12px] min-w-0">
+						<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] shrink-0">
+							Conversations
+						</h2>
+						{/* W3 AC-6: filter chips inline with title in header (visual parity fix).
+						    Custom chip style per mockup — not DaisyUI btn. */}
+						<div className="flex items-center gap-[6px]">
+							<FilterChip
+								label="Blocking"
+								active={toggleFilter.blocking}
+								onToggle={() =>
+									setToggleFilter((prev) => ({ ...prev, blocking: !prev.blocking }))
+								}
+							/>
+							<FilterChip
+								label="Unread"
+								active={toggleFilter.unread}
+								onToggle={() => setToggleFilter((prev) => ({ ...prev, unread: !prev.unread }))}
+							/>
+						</div>
 					</div>
-				</div>
-				<ThreadSections
-					threads={conversationsThreads.threads}
-					selectedId={ctx?.selectedThreadId ?? null}
-					onSelect={handleSelectThread}
-					loading={conversationsThreads.status === "loading"}
-					errorMessage={
-						conversationsThreads.status === "error"
-							? (conversationsThreads.error ?? "Network error")
-							: null
-					}
-					onRetry={conversationsThreads.retry}
-					activeFilter={conversationsFilter}
-					onClearFilter={onClearFilter}
-					groupBySection={false}
-				/>
+					{/* W3 AC-8: New thread button in header — always rendered */}
+					<button
+						type="button"
+						style={{ padding: "7px 12px" }}
+						className="inline-flex items-center text-[12px] font-[500] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-[1.5px] border-transparent cursor-pointer hover:bg-[var(--accent-primary-hover)] transition-colors duration-[var(--motion-default)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] shrink-0"
+						onClick={onNewThread ?? (() => undefined)}
+						data-testid="new-thread-btn"
+					>
+						New thread
+					</button>
+				</header>
+				{isEmpty ? (
+					// Empty state: centered card matching mockup's .empty-center wrapper.
+					<div className="flex flex-1 items-center justify-center p-[48px_24px]">
+						<EmptyState
+							title="No conversations yet"
+							description="Start a thread to coordinate with your team and agents. Conversations are where decisions happen — every message can carry context, artifacts, and actions."
+							icon={
+								<svg
+									width="24"
+									height="24"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="2"
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									aria-hidden="true"
+								>
+									<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+								</svg>
+							}
+							action={
+								<button
+									type="button"
+									style={{ padding: "10px 18px" }}
+									className="inline-flex items-center text-[13px] font-[500] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-[1.5px] border-transparent cursor-pointer hover:bg-[var(--accent-primary-hover)] transition-colors duration-[var(--motion-default)]"
+									onClick={onNewThread ?? (() => undefined)}
+									data-testid="empty-new-thread-btn"
+								>
+									Start a thread
+								</button>
+							}
+							dataTestId="thread-sections-empty"
+						/>
+					</div>
+				) : (
+					<ThreadSections
+						threads={conversationsThreads.threads}
+						selectedId={ctx?.selectedThreadId ?? null}
+						onSelect={handleSelectThread}
+						loading={conversationsThreads.status === "loading"}
+						errorMessage={
+							conversationsThreads.status === "error"
+								? (conversationsThreads.error ?? "Network error")
+								: null
+						}
+						onRetry={conversationsThreads.retry}
+						activeFilter={conversationsFilter}
+						onClearFilter={onClearFilter}
+						groupBySection={false}
+						toggleFilter={toggleFilter}
+						onToggleFilter={setToggleFilter}
+					/>
+				)}
 			</div>
 		);
 	}

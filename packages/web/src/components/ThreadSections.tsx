@@ -178,6 +178,20 @@ export interface ThreadSectionsProps {
 	 * Defaults to true for backwards compatibility.
 	 */
 	groupBySection?: boolean;
+	/**
+	 * Controlled toggle filter state for flat list mode. When provided, the chip
+	 * bar is NOT rendered inside ThreadSections — the parent (Conversations header)
+	 * renders them inline with the title (visual parity fix).
+	 *
+	 * When absent, ThreadSections manages chip state internally (standalone mode,
+	 * preserving W3 AC-6 test compatibility).
+	 *
+	 * @lore visual-parity: Conversations.tsx lifts this state so filter chips
+	 * appear in the bordered header bar matching the mockup layout.
+	 */
+	toggleFilter?: ConversationsToggleFilter;
+	/** Setter paired with `toggleFilter` for controlled mode. */
+	onToggleFilter?: (f: ConversationsToggleFilter) => void;
 }
 
 export function ThreadSections({
@@ -191,12 +205,26 @@ export function ThreadSections({
 	activeFilter = "all",
 	onClearFilter,
 	groupBySection = true,
+	toggleFilter: controlledToggleFilter,
+	onToggleFilter,
 }: ThreadSectionsProps): JSX.Element {
-	// W3 AC-6: toggle filter state for flat list mode
-	const [toggleFilter, setToggleFilter] = useState<ConversationsToggleFilter>({
+	// W3 AC-6: toggle filter state for flat list mode.
+	// In controlled mode (controlledToggleFilter provided), the parent owns state.
+	// In uncontrolled mode, ThreadSections manages state internally (standalone/tests).
+	const [internalToggleFilter, setInternalToggleFilter] = useState<ConversationsToggleFilter>({
 		blocking: false,
 		unread: false,
 	});
+
+	const isControlled = controlledToggleFilter !== undefined;
+	const toggleFilter = isControlled ? controlledToggleFilter : internalToggleFilter;
+	const setToggleFilter = isControlled
+		? (updater: (prev: ConversationsToggleFilter) => ConversationsToggleFilter): void => {
+				if (onToggleFilter) {
+					onToggleFilter(updater(controlledToggleFilter));
+				}
+			}
+		: setInternalToggleFilter;
 
 	// Flat list mode (W3 AC-5, AC-6)
 	if (!groupBySection) {
@@ -235,36 +263,49 @@ export function ThreadSections({
 		});
 
 		return (
-			<div className="flex flex-col gap-2">
-				{/* W3 AC-6: toggle chips (Blocking, Unread) */}
-				<div className="flex items-center gap-2 mb-1">
-					<button
-						type="button"
-						aria-pressed={toggleFilter.blocking}
-						onClick={() => setToggleFilter((prev) => ({ ...prev, blocking: !prev.blocking }))}
-						className={["btn btn-xs", toggleFilter.blocking ? "btn-primary" : "btn-ghost"].join(
-							" ",
-						)}
-					>
-						Blocking
-					</button>
-					<button
-						type="button"
-						aria-pressed={toggleFilter.unread}
-						onClick={() => setToggleFilter((prev) => ({ ...prev, unread: !prev.unread }))}
-						className={["btn btn-xs", toggleFilter.unread ? "btn-primary" : "btn-ghost"].join(" ")}
-					>
-						Unread
-					</button>
-				</div>
+			<div className="flex flex-col flex-1 overflow-y-auto">
+				{/* W3 AC-6: toggle chips (Blocking, Unread).
+				    Rendered only in uncontrolled mode — in controlled mode the parent
+				    (Conversations header) renders them inline with the title. */}
+				{!isControlled && (
+					<div className="flex items-center gap-[6px] px-[24px] py-[12px] shrink-0">
+						<button
+							type="button"
+							aria-pressed={toggleFilter.blocking}
+							onClick={() => setToggleFilter((prev) => ({ ...prev, blocking: !prev.blocking }))}
+							className={[
+								"btn btn-xs",
+								toggleFilter.blocking ? "btn-primary" : "btn-ghost",
+							].join(" ")}
+						>
+							Blocking
+						</button>
+						<button
+							type="button"
+							aria-pressed={toggleFilter.unread}
+							onClick={() => setToggleFilter((prev) => ({ ...prev, unread: !prev.unread }))}
+							className={[
+								"btn btn-xs",
+								toggleFilter.unread ? "btn-primary" : "btn-ghost",
+							].join(" ")}
+						>
+							Unread
+						</button>
+					</div>
+				)}
 				{flatFiltered.length === 0 ? (
-					<EmptyState
-						title="No threads"
-						description="No threads match the current filters."
-						dataTestId="thread-sections-empty"
-					/>
+					<div className="flex flex-1 items-center justify-center p-[48px_24px]">
+						<EmptyState
+							title="No threads"
+							description="No threads match the current filters."
+							dataTestId="thread-sections-empty"
+						/>
+					</div>
 				) : (
-					<div className="flex flex-col">
+					<div
+						className="flex flex-col max-w-[800px] mx-auto w-full"
+						data-testid="flat-thread-list"
+					>
 						{flatFiltered.map((t) => (
 							<ThreadRow
 								key={t.id}

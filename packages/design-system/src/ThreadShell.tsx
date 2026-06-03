@@ -370,7 +370,7 @@ export function ThreadShell({
 			{...dsProps("ThreadShell", "3")}
 			data-testid="thread-shell"
 			aria-live="polite"
-			className="flex flex-col h-full bg-[var(--surface-container)] focus-within:outline-none"
+			className="flex flex-col h-full bg-[var(--surface-elevated)] focus-within:outline-none"
 		>
 			{banner}
 			{error ? (

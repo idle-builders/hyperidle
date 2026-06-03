@@ -62,21 +62,20 @@ describe("U9 AC-1: Conversations Hearth styling (W3 toggle-button pattern)", () 
 		expect(blockingBtn).toHaveAttribute("aria-pressed");
 	});
 
-	it("inactive toggle chip uses btn-ghost (not btn-primary)", () => {
+	it("inactive toggle chip has aria-pressed=false", () => {
 		renderConversationsPage();
 		const blockingBtn = screen.getByRole("button", { name: /^blocking$/i });
-		// By default, Blocking is not active — should be btn-ghost
-		expect(blockingBtn.className).toContain("btn-ghost");
-		expect(blockingBtn.className).not.toContain("btn-primary");
+		// By default, Blocking is not active — aria-pressed should be false
+		expect(blockingBtn).toHaveAttribute("aria-pressed", "false");
 	});
 
-	it("active toggle chip uses btn-primary after click", async () => {
+	it("active toggle chip has aria-pressed=true after click", async () => {
 		const user = userEvent.setup();
 		renderConversationsPage();
 		const blockingBtn = screen.getByRole("button", { name: /^blocking$/i });
 		await user.click(blockingBtn);
-		// After click, Blocking becomes active — should be btn-primary
-		expect(blockingBtn.className).toContain("btn-primary");
+		// After click, Blocking becomes active — aria-pressed should be true
+		expect(blockingBtn).toHaveAttribute("aria-pressed", "true");
 	});
 
 	it("New thread button is visible in the page", () => {
@@ -86,9 +85,10 @@ describe("U9 AC-1: Conversations Hearth styling (W3 toggle-button pattern)", () 
 		expect(newThreadBtn).toBeInTheDocument();
 	});
 
-	it("New thread button has btn-primary class", () => {
+	it("New thread button has accent-primary background styling", () => {
 		renderConversationsPage();
 		const newThreadBtn = screen.getByRole("button", { name: /new thread/i });
-		expect(newThreadBtn.className).toContain("btn-primary");
+		// Visual parity: uses custom accent-primary background (not DaisyUI btn-primary)
+		expect(newThreadBtn.className).toContain("accent-primary");
 	});
 });
