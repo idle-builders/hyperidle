@@ -177,6 +177,16 @@ export interface ProvisionSessionParams {
 	readonly factorySpend?: number;
 	readonly reviewThreadId?: string;
 	readonly modelTier?: ModelTier;
+	/**
+	 * X4: Resolved model from the gateway. When present, passed through to the
+	 * harness adapter via SessionConfig so the adapter uses the correct provider,
+	 * model, and API key.
+	 *
+	 * @lore X4 A-IMP-1: Resolution happens in sessions-routes.ts (where
+	 * credentialResolver is available). ProvisionSessionParams receives the
+	 * already-resolved value so session-provisioning.ts stays gateway-unaware.
+	 */
+	readonly resolvedModel?: import("@hyperidle/shared").ResolvedModel;
 }
 
 export interface ProvisionSessionResult {
@@ -445,6 +455,8 @@ export async function provisionSession(
 			composedPrompt,
 			modelTier,
 			tools: allowedToolNames,
+			// X4: Pass resolved model from gateway so adapter uses correct provider/model/key.
+			resolvedModel: params.resolvedModel,
 		});
 	} catch {
 		// startSession failed — treat as crash; nothing to stop.

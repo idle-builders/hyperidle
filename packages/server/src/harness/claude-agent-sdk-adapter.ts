@@ -14,7 +14,7 @@ import type {
 } from "@hyperidle/shared";
 import { createLogger, MissingCredentialError } from "@hyperidle/shared";
 import type { CredentialResolver } from "../services/credential-resolver.js";
-import { resolveModel } from "./model-tier-map.js";
+import { BUILT_IN_GATEWAY_CONFIG } from "../services/model-gateway.js";
 
 /**
  * S4: Re-export CredentialResolver so the @hyperidle/server/harness sub-path
@@ -84,23 +84,46 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 	}
 
 	async startSession(config: SessionConfig): Promise<SessionHandle> {
-		// Use resolver if provided (shared mode), else fall back to env var (local mode).
+		// X4: Use resolved model from gateway if available, fall back to legacy resolution.
+		// @lore X4 A-IMP-1: resolvedModel is computed in sessions-routes.ts (where
+		// credentialResolver is available) and passed via SessionConfig. The adapter
+		// itself does not call resolveModelTier — it only consumes the result.
 		let apiKey: string | null | undefined;
-		if (this.credentialResolver) {
-			apiKey = await this.credentialResolver.resolve("anthropic_api_key");
+		let model: string;
+
+		if (config.resolvedModel) {
+			// X4: Gateway-resolved path — uses whatever provider was configured.
+			apiKey = config.resolvedModel.apiKey;
+			model = config.resolvedModel.model;
 		} else {
-			apiKey = process.env[this.apiKeyEnvVar];
+			// Legacy path: resolve from env var (local mode) or credentialResolver (shared mode).
+			// This path is used when resolvedModel is not set (e.g. tests that don't go through
+			// the full provisioning flow). Falls back to Anthropic direct only.
+			if (this.credentialResolver) {
+				apiKey = await this.credentialResolver.resolve("anthropic_api_key");
+			} else {
+				apiKey = process.env[this.apiKeyEnvVar];
+			}
+			// Tier-to-model resolution for the adapter-direct path (no gateway).
+			// Derived from BUILT_IN_GATEWAY_CONFIG — single source of truth for model IDs.
+			// This path is only taken when resolvedModel is absent (e.g. direct adapter
+			// tests that bypass the full session provisioning flow).
+			model =
+				BUILT_IN_GATEWAY_CONFIG[config.modelTier as keyof typeof BUILT_IN_GATEWAY_CONFIG]?.model ??
+				BUILT_IN_GATEWAY_CONFIG.workhorse.model;
 		}
+
 		if (!apiKey) {
 			throw new MissingCredentialError(
-				this.credentialResolver
-					? "anthropic_api_key not found in credential resolver"
-					: `Environment variable ${this.apiKeyEnvVar} is not set`,
+				config.resolvedModel
+					? `API key for provider '${config.resolvedModel.provider}' (tier: ${config.modelTier}) is not set`
+					: this.credentialResolver
+						? "anthropic_api_key not found in credential resolver"
+						: `Environment variable ${this.apiKeyEnvVar} is not set`,
 			);
 		}
 
 		const abortController = new AbortController();
-		const model = resolveModel(config.modelTier);
 
 		// I2 S1: build env from the explicit allow-list. Only forward the
 		// agent's own ANTHROPIC_API_KEY plus the OS-level vars that the

@@ -23,6 +23,7 @@ import { createGitExportRoutes } from "./routes/git-export-routes.js";
 import { authHealth, health } from "./routes/health.js";
 import { createHintRoutes } from "./routes/hints.js";
 import { createKnowledgeRoutes, createTeamMembersRoutes } from "./routes/knowledge.js";
+import { createModelGatewayRoutes } from "./routes/model-gateway.js";
 import { createNotificationRoutes } from "./routes/notifications-routes.js";
 import { createObservabilityRoutes } from "./routes/observability-routes.js";
 import { createOrgRoutes } from "./routes/org.js";
@@ -374,6 +375,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
 		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
 		api.route("/agents", createAgentRoutes(options.db));
+		api.route("/model-gateway", createModelGatewayRoutes(options.db));
 		api.route("/teams", createTeamRoutes(options.db, eventBus));
 		api.route("/bets", createBetRoutes(options.db, eventBus));
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));

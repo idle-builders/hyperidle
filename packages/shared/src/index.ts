@@ -118,6 +118,14 @@ export { MockHarnessAdapter } from "./harness/index.js";
 export type { HintCatalogEntry, HintId } from "./hint.js";
 export { HINT_CATALOG, HINT_IDS, isHintId } from "./hint.js";
 export { createLogger, type Logger } from "./logger.js";
+// ── X4: Model Gateway ──
+export type {
+	ModelGatewayConfig,
+	ModelProvider,
+	ModelTierConfig,
+	ResolvedModel,
+} from "./model-gateway.js";
+export { MODEL_PROVIDERS } from "./model-gateway.js";
 // SSRF utilities use node:dns/net/util and cannot be imported in the browser.
 // Server code imports them via "@hyperidle/shared/net" subpath export instead.
 export type { ResolveResult, SanitizeResult, SanitizeUrlOptions } from "./net/ssrf.js";
