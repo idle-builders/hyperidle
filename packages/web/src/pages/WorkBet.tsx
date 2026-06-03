@@ -68,12 +68,9 @@ function taskStateBadgeClass(state: string): string {
 		"inline-flex items-center text-[12px] font-[500] px-[9px] py-[3px] rounded-[var(--r-pill)] leading-[1.4] whitespace-nowrap shrink-0";
 	if (state === "in_progress")
 		return `${base} bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)]`;
-	if (state === "done")
-		return `${base} bg-[var(--surface-container)] text-[var(--text-secondary)]`;
-	if (state === "blocked")
-		return `${base} bg-[rgba(200,60,30,0.08)] text-[var(--status-error)]`;
-	if (state === "review")
-		return `${base} bg-[rgba(217,119,6,0.08)] text-[var(--accent-secondary)]`;
+	if (state === "done") return `${base} bg-[var(--surface-container)] text-[var(--text-secondary)]`;
+	if (state === "blocked") return `${base} bg-[rgba(200,60,30,0.08)] text-[var(--status-error)]`;
+	if (state === "review") return `${base} bg-[rgba(217,119,6,0.08)] text-[var(--accent-secondary)]`;
 	return `${base} bg-[var(--surface-container)] text-[var(--text-secondary)]`;
 }
 
@@ -1277,9 +1274,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 													{metaParts.join(" · ")}
 												</div>
 											</div>
-											<span className={taskStateBadgeClass(task.state)}>
-												{stateLabel}
-											</span>
+											<span className={taskStateBadgeClass(task.state)}>{stateLabel}</span>
 										</button>
 									);
 								})}

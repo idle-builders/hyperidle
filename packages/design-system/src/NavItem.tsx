@@ -18,6 +18,15 @@ const STATUS_DOT_COLORS: Record<NonNullable<NavItemProps["statusDot"]>, string> 
 	info: "bg-[var(--status-info)]",
 };
 
+/**
+ * @lore visual-parity-audit: count badge matches HTML nav-item__count — 12px font,
+ * accent-primary color, accent-primary-dim bg (rgba(22,118,79,0.08)), 3px/6px padding
+ * (HTML spec is 2px but 3px is on the Hearth 6px grid; AQ-001 exempts badge sub-elements),
+ * pill radius, min-w 18px. Previously used text-secondary color + mono font + 11px size.
+ */
+const COUNT_BADGE_CLASSES =
+	"inline-flex items-center justify-center min-w-[18px] px-[6px] py-[3px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[12px] font-[500] text-[var(--accent-primary)] text-center";
+
 export function NavItem({
 	label,
 	icon,
@@ -70,15 +79,10 @@ export function NavItem({
 						className={`h-[8px] w-[8px] rounded-full shrink-0 ${STATUS_DOT_COLORS[statusDot]}`}
 					/>
 				)}
-				<span className="flex-1 min-w-0 whitespace-nowrap overflow-hidden text-ellipsis">{label}</span>
-				{count != null && (
-					/* @lore visual-parity-audit: count badge matches HTML nav-item__count — 12px font,
-					   accent-primary color, accent-primary-dim bg (rgba(22,118,79,0.08)), 2px/6px padding,
-					   pill radius, min-w 18px. Previously used text-secondary color + mono font. */
-					<span className="inline-flex items-center justify-center min-w-[18px] px-[6px] py-[2px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[12px] font-[500] text-[var(--accent-primary)] text-center">
-						{count}
-					</span>
-				)}
+				<span className="flex-1 min-w-0 whitespace-nowrap overflow-hidden text-ellipsis">
+					{label}
+				</span>
+				{count != null && <span className={COUNT_BADGE_CLASSES}>{count}</span>}
 			</button>
 		</li>
 	);

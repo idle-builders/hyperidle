@@ -85,11 +85,7 @@ export function SettingsAppearance(): JSX.Element {
 									? "border-[var(--accent-primary)]"
 									: "border-[var(--border-default)] hover:border-[var(--border-strong)]",
 							].join(" ")}
-							style={
-								isActive
-									? { boxShadow: "0 0 0 3px rgba(22,118,79,0.1)" }
-									: undefined
-							}
+							style={isActive ? { boxShadow: "0 0 0 3px rgba(22,118,79,0.1)" } : undefined}
 							onClick={() => handleThemeChange(option.value)}
 						>
 							{/* W3 AC-50: color swatch preview — 48px tall, rounded top, no border */}

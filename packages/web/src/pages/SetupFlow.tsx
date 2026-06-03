@@ -196,7 +196,10 @@ export function SetupFlow(): JSX.Element {
 					{/* Repo path (optional) */}
 					<div className="mb-[18px]">
 						<div className="flex flex-col gap-[6px]">
-							<label htmlFor="setup-repo" className="text-[13px] font-[500] text-[var(--text-primary)]">
+							<label
+								htmlFor="setup-repo"
+								className="text-[13px] font-[500] text-[var(--text-primary)]"
+							>
 								Project folder{" "}
 								<span className="font-[400] text-[var(--text-tertiary)]">(optional)</span>
 							</label>
@@ -249,7 +252,11 @@ export function SetupFlow(): JSX.Element {
 
 					{/* Validation / submit error */}
 					{submitError && (
-						<p role="alert" aria-live="polite" className="text-[13px] text-[var(--status-error)] mb-[18px]">
+						<p
+							role="alert"
+							aria-live="polite"
+							className="text-[13px] text-[var(--status-error)] mb-[18px]"
+						>
 							{submitError}
 						</p>
 					)}

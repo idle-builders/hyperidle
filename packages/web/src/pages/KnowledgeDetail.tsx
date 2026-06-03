@@ -292,12 +292,14 @@ function KnowledgeDetailBreadcrumb({
 			</Link>
 			{scope && (
 				<>
-					{" "}/ <span className="capitalize">{scope}</span>
+					{" "}
+					/ <span className="capitalize">{scope}</span>
 				</>
 			)}
 			{topic && (
 				<>
-					{" "}/ <span>{topic}</span>
+					{" "}
+					/ <span>{topic}</span>
 				</>
 			)}
 		</div>
@@ -408,11 +410,7 @@ function KnowledgeOverflowMenu({
 }
 
 /** Save indicator shown in edit mode */
-function SaveIndicator({
-	saveStatus,
-}: {
-	saveStatus: string;
-}): JSX.Element {
+function SaveIndicator({ saveStatus }: { saveStatus: string }): JSX.Element {
 	return (
 		<span
 			className="text-[12px] text-[var(--status-success)] flex items-center gap-[3px]"
@@ -435,9 +433,7 @@ function SaveIndicator({
 					Saved
 				</>
 			)}
-			{saveStatus === "error" && (
-				<span className="text-[var(--status-error)]">Save failed</span>
-			)}
+			{saveStatus === "error" && <span className="text-[var(--status-error)]">Save failed</span>}
 		</span>
 	);
 }

@@ -391,7 +391,12 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 					aria-hidden="true"
 					className="w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)] animate-pulse shrink-0"
 				/>
-				<span className="sr-only" role="status" aria-label="Live session" data-testid="live-session-badge" />
+				<span
+					className="sr-only"
+					role="status"
+					aria-label="Live session"
+					data-testid="live-session-badge"
+				/>
 				Dial in
 			</button>
 		) : null;
@@ -555,9 +560,7 @@ export function Conversations(): JSX.Element {
 							<FilterChip
 								label="Blocking"
 								active={toggleFilter.blocking}
-								onToggle={() =>
-									setToggleFilter((prev) => ({ ...prev, blocking: !prev.blocking }))
-								}
+								onToggle={() => setToggleFilter((prev) => ({ ...prev, blocking: !prev.blocking }))}
 							/>
 							<FilterChip
 								label="Unread"

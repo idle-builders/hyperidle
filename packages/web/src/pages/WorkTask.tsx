@@ -18,25 +18,6 @@
  * external date library is needed.
  */
 
-
-
-/**
- * LiveDot — 6px pulsing green circle shown next to active/in-progress states.
- * Uses Tailwind's built-in `animate-pulse` (opacity 50%↔100% cycle, 2s).
- *
- * @lore visual-parity-audit D-30: The mockup shows a 6px green dot with
- * pulse animation next to "In progress" / "Active" status text in the
- * meta-strip. We use Tailwind animate-pulse which matches the 2s infinite
- * opacity animation described in the audit.
- */
-function LiveDot(): JSX.Element {
-	return (
-		<span
-			aria-hidden="true"
-			className="inline-block w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)] animate-pulse shrink-0"
-		/>
-	);
-}
 import type { JSX } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
@@ -63,6 +44,43 @@ function formatRelativeTime(isoString: string): string {
 	return `${diffD}d ago`;
 }
 
+/**
+ * LiveDot — 6px pulsing green circle shown next to active/in-progress states.
+ * Uses Tailwind's built-in `animate-pulse` (opacity 50%->100% cycle, 2s).
+ *
+ * @lore visual-parity-audit D-30: The mockup shows a 6px green dot with
+ * pulse animation next to "In progress" / "Active" status text in the
+ * meta-strip. We use Tailwind animate-pulse which matches the 2s infinite
+ * opacity animation described in the audit.
+ */
+function LiveDot(): JSX.Element {
+	return (
+		<span
+			aria-hidden="true"
+			className="inline-block w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)] animate-pulse shrink-0"
+		/>
+	);
+}
+
+/**
+ * Human-readable status label lookup — used in meta strip status cell.
+ * Extracted to reduce cognitive complexity of WorkTask.
+ */
+const TASK_STATUS_LABEL: Record<string, string> = {
+	in_progress: "In progress",
+	done: "Done",
+	blocked: "Blocked",
+	review: "In review",
+	hold: "On hold",
+	proposed: "Planned",
+	accepted: "Planned",
+	killed: "Killed",
+};
+
+function getTaskStatusLabel(state: string): string {
+	return TASK_STATUS_LABEL[state] ?? state.replace(/_/g, " ");
+}
+
 /** Section title class — uppercase label with border-bottom divider. */
 const SECTION_TITLE_CLASS =
 	"text-[13px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)] pb-[6px] border-b border-[var(--border-subtle)] mb-[9px]";
@@ -72,6 +90,53 @@ export interface WorkTaskProps {
 	overrideBetId?: string;
 	/** Override task ID from route params — used by tests outside the router. */
 	overrideTaskId?: string;
+}
+
+/**
+ * Renders a single session row with live dot indicator for active sessions.
+ *
+ * @lore visual-parity-audit D-30: session rows show green pulsing dot on active
+ * sessions, plain text status label — matches task-detail.html session-status rendering.
+ * Extracted to reduce cognitive complexity of WorkTask (biome: max 25).
+ */
+function SessionRow({
+	id,
+	title,
+	agent,
+	status,
+	cost,
+}: {
+	id: string;
+	title: string;
+	agent: string;
+	status: string;
+	cost: { minor?: number | null } | null;
+}): JSX.Element {
+	const isActive = status === "active";
+	const isDone = status === "done" || status === "completed";
+	return (
+		<div
+			key={id}
+			data-testid="session-row"
+			className="flex items-center gap-[12px] py-[12px] border-b border-[var(--border-subtle)] last:border-b-0"
+		>
+			<div className="flex-1 min-w-0">
+				<div className="text-[14px] font-[500] text-[var(--text-primary)] truncate">{title}</div>
+				<div className="text-[12px] text-[var(--text-tertiary)] truncate mt-[2px]">{agent}</div>
+			</div>
+			{cost !== null && (
+				<span className="text-[12px] font-mono tabular-nums text-[var(--text-tertiary)]">
+					${((cost?.minor ?? 0) / 100).toFixed(2)}
+				</span>
+			)}
+			<div className="flex items-center gap-[6px] shrink-0">
+				{isActive && <LiveDot />}
+				<span className="text-[12px] font-[500] text-[var(--text-secondary)]">
+					{isActive ? "Active" : isDone ? "Done" : status}
+				</span>
+			</div>
+		</div>
+	);
 }
 
 export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}): JSX.Element {
@@ -214,7 +279,9 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 								{task.owner}
 							</span>
 						</div>
-						{/* Status */}
+						{/* Status — plain text + live dot instead of StatusChip
+						    @lore visual-parity-audit D-28: mockup shows "In progress" text + green dot,
+						    not a StatusChip component with mono uppercase label. */}
 						<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-r border-[var(--border-subtle)]">
 							<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
 								Status
@@ -222,19 +289,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 							<div className="flex items-center gap-[6px] mt-[3px]">
 								{task.state === "in_progress" && <LiveDot />}
 								<span className="text-[13px] font-[500] text-[var(--text-primary)]">
-									{task.state === "in_progress"
-										? "In progress"
-										: task.state === "done"
-											? "Done"
-											: task.state === "blocked"
-												? "Blocked"
-												: task.state === "review"
-													? "In review"
-													: task.state === "hold"
-														? "On hold"
-														: task.state === "proposed" || task.state === "accepted"
-															? "Planned"
-															: task.state.replace(/_/g, " ")}
+									{getTaskStatusLabel(task.state)}
 								</span>
 							</div>
 						</div>
@@ -294,36 +349,16 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 							<p className="text-[12px] text-[var(--text-tertiary)]">No sessions yet.</p>
 						) : (
 							<div className="flex flex-col">
-								{sessions.map((session) => {
-									const isActive = session.status === "active";
-									return (
-										<div
-											key={session.id}
-											data-testid="session-row"
-											className="flex items-center gap-[12px] py-[12px] border-b border-[var(--border-subtle)] last:border-b-0"
-										>
-											<div className="flex-1 min-w-0">
-												<div className="text-[14px] font-[500] text-[var(--text-primary)] truncate">
-													{session.title}
-												</div>
-												<div className="text-[12px] text-[var(--text-tertiary)] truncate mt-[2px]">
-													{session.agent}
-												</div>
-											</div>
-											{session.cost !== null && (
-												<span className="text-[12px] font-mono tabular-nums text-[var(--text-tertiary)]">
-													${((session.cost.minor ?? 0) / 100).toFixed(2)}
-												</span>
-											)}
-											<div className="flex items-center gap-[6px] shrink-0">
-												{isActive && <LiveDot />}
-												<span className="text-[12px] font-[500] text-[var(--text-secondary)]">
-													{isActive ? "Active" : session.status === "done" || session.status === "completed" ? "Done" : session.status}
-												</span>
-											</div>
-										</div>
-									);
-								})}
+								{sessions.map((s) => (
+									<SessionRow
+										key={s.id}
+										id={s.id}
+										title={s.title}
+										agent={s.agent}
+										status={s.status}
+										cost={s.cost}
+									/>
+								))}
 							</div>
 						)}
 					</section>

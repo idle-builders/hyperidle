@@ -194,6 +194,7 @@ export interface ThreadSectionsProps {
 	onToggleFilter?: (f: ConversationsToggleFilter) => void;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: multi-state thread list rendering
 export function ThreadSections({
 	threads,
 	now = Date.now(),
@@ -273,10 +274,9 @@ export function ThreadSections({
 							type="button"
 							aria-pressed={toggleFilter.blocking}
 							onClick={() => setToggleFilter((prev) => ({ ...prev, blocking: !prev.blocking }))}
-							className={[
-								"btn btn-xs",
-								toggleFilter.blocking ? "btn-primary" : "btn-ghost",
-							].join(" ")}
+							className={["btn btn-xs", toggleFilter.blocking ? "btn-primary" : "btn-ghost"].join(
+								" ",
+							)}
 						>
 							Blocking
 						</button>
@@ -284,10 +284,9 @@ export function ThreadSections({
 							type="button"
 							aria-pressed={toggleFilter.unread}
 							onClick={() => setToggleFilter((prev) => ({ ...prev, unread: !prev.unread }))}
-							className={[
-								"btn btn-xs",
-								toggleFilter.unread ? "btn-primary" : "btn-ghost",
-							].join(" ")}
+							className={["btn btn-xs", toggleFilter.unread ? "btn-primary" : "btn-ghost"].join(
+								" ",
+							)}
 						>
 							Unread
 						</button>
