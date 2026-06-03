@@ -180,7 +180,7 @@ export function Sidebar({
 					data-active-view={activeView === "conversations" ? "conversations" : undefined}
 				>
 					<SectionHeader view="conversations" activeView={activeView} onViewChange={onViewChange} />
-					{activeView === "conversations" && (
+					{activeView === "conversations" && !settingsOpen && (
 						<ul className="flex flex-col">
 							{visibleThreads.length === 0 ? (
 								<li className="px-[12px] py-1 text-[12px] text-[var(--text-tertiary)]">
@@ -232,7 +232,7 @@ export function Sidebar({
 				{/* Work section */}
 				<div className="mb-[18px]" data-active-view={activeView === "work" ? "work" : undefined}>
 					<SectionHeader view="work" activeView={activeView} onViewChange={onViewChange} />
-					{activeView === "work" && (
+					{activeView === "work" && !settingsOpen && (
 						<ul className="flex flex-col">
 							{teams.map((team) => {
 								const isActive = team.id === activeTeamId;

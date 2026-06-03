@@ -82,10 +82,11 @@ function buildRoutes(): RouteObject[] {
 					// L9: settings deep-link now points to /conversations?settings=open.
 					element: <Navigate to="/conversations?settings=open" replace />,
 				},
-				// I4 E2: catch-all so unknown URLs render NotFound (not a blank page).
-				{ path: "*", element: <NotFound /> },
 			],
 		},
+		// I4 E2: catch-all so unknown URLs render NotFound (not a blank page).
+		// Rendered outside AppShell per error-states.html mockup (standalone page, no sidebar).
+		{ path: "*", element: <NotFound /> },
 	];
 
 	// I6: /designsystem route integrated into React Router (DEV only).
