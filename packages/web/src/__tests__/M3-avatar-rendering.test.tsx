@@ -79,7 +79,7 @@ describe("M3 — Thread row rendering: no left-side avatar (visual parity pass)"
 	it("does NOT render a left-side initials chip when avatarUrl is null", async () => {
 		// Previously ThreadRow rendered initials = title.slice(0,2).toUpperCase()
 		// as a left-side chip. After the visual parity pass this no longer happens.
-		const { container } = render(
+		render(
 			<MemoryRouter>
 				<ThreadSections
 					threads={[makeItem({ id: "t3", title: "Task thread abc", avatarUrl: null })]}

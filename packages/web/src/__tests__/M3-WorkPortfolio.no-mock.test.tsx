@@ -26,8 +26,8 @@ vi.mock("../hooks/useBets", () => ({
 	useBets: vi.fn().mockReturnValue({ bets: [], loading: false, refresh: vi.fn() }),
 }));
 
-import { useTeams } from "../hooks/useTeams";
 import { useBets } from "../hooks/useBets";
+import { useTeams } from "../hooks/useTeams";
 
 function renderPage(
 	props: { loading?: boolean; products?: unknown } = {},
