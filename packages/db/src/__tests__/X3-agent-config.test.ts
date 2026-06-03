@@ -44,101 +44,105 @@ describe("X3 AC-1: users table gains soulPrompt, harnessType, modelTierPreferenc
 
 	it("soul_prompt column exists on users table and is nullable", async () => {
 		const rows = await queryRows<{
-			column_name: string;
-			is_nullable: string;
-			data_type: string;
+			columnName: string;
+			isNullable: string;
+			dataType: string;
 		}>(
 			db,
-			`SELECT column_name, is_nullable, data_type
+			`SELECT column_name AS "columnName", is_nullable AS "isNullable", data_type AS "dataType"
        FROM information_schema.columns
        WHERE table_name = 'users' AND table_schema = 'public'
        AND column_name = 'soul_prompt'`,
 		);
 		expect(rows).toHaveLength(1);
-		expect(rows[0]?.column_name).toBe("soul_prompt");
-		expect(rows[0]?.is_nullable).toBe("YES");
-		expect(rows[0]?.data_type).toBe("text");
+		expect(rows[0]?.columnName).toBe("soul_prompt");
+		expect(rows[0]?.isNullable).toBe("YES");
+		expect(rows[0]?.dataType).toBe("text");
 	});
 
 	it("harness_type column exists on users table and is nullable", async () => {
 		const rows = await queryRows<{
-			column_name: string;
-			is_nullable: string;
-			data_type: string;
+			columnName: string;
+			isNullable: string;
+			dataType: string;
 		}>(
 			db,
-			`SELECT column_name, is_nullable, data_type
+			`SELECT column_name AS "columnName", is_nullable AS "isNullable", data_type AS "dataType"
        FROM information_schema.columns
        WHERE table_name = 'users' AND table_schema = 'public'
        AND column_name = 'harness_type'`,
 		);
 		expect(rows).toHaveLength(1);
-		expect(rows[0]?.column_name).toBe("harness_type");
-		expect(rows[0]?.is_nullable).toBe("YES");
-		expect(rows[0]?.data_type).toBe("text");
+		expect(rows[0]?.columnName).toBe("harness_type");
+		expect(rows[0]?.isNullable).toBe("YES");
+		expect(rows[0]?.dataType).toBe("text");
 	});
 
 	it("model_tier_preference column exists on users table and is nullable", async () => {
 		const rows = await queryRows<{
-			column_name: string;
-			is_nullable: string;
-			data_type: string;
+			columnName: string;
+			isNullable: string;
+			dataType: string;
 		}>(
 			db,
-			`SELECT column_name, is_nullable, data_type
+			`SELECT column_name AS "columnName", is_nullable AS "isNullable", data_type AS "dataType"
        FROM information_schema.columns
        WHERE table_name = 'users' AND table_schema = 'public'
        AND column_name = 'model_tier_preference'`,
 		);
 		expect(rows).toHaveLength(1);
-		expect(rows[0]?.column_name).toBe("model_tier_preference");
-		expect(rows[0]?.is_nullable).toBe("YES");
-		expect(rows[0]?.data_type).toBe("text");
+		expect(rows[0]?.columnName).toBe("model_tier_preference");
+		expect(rows[0]?.isNullable).toBe("YES");
+		expect(rows[0]?.dataType).toBe("text");
 	});
 
 	it("can insert a user row with all three new columns null (null semantics work)", async () => {
 		const now = new Date().toISOString();
-		await db.execute(sql.raw(`
+		await db.execute(
+			sql.raw(`
       INSERT INTO users (id, kind, name, role, status, created_at)
       VALUES ('x3-test-agent-null-cols', 'ai', 'Test Agent', 'builder', 'active', '${now}')
-    `));
+    `),
+		);
 
 		const rows = await queryRows<{
 			id: string;
-			soul_prompt: string | null;
-			harness_type: string | null;
-			model_tier_preference: string | null;
+			soulPrompt: string | null;
+			harnessType: string | null;
+			modelTierPreference: string | null;
 		}>(
 			db,
-			`SELECT id, soul_prompt, harness_type, model_tier_preference
+			`SELECT id, soul_prompt AS "soulPrompt", harness_type AS "harnessType", model_tier_preference AS "modelTierPreference"
        FROM users WHERE id = 'x3-test-agent-null-cols'`,
 		);
 		expect(rows).toHaveLength(1);
-		expect(rows[0]?.soul_prompt).toBeNull();
-		expect(rows[0]?.harness_type).toBeNull();
-		expect(rows[0]?.model_tier_preference).toBeNull();
+		expect(rows[0]?.soulPrompt).toBeNull();
+		expect(rows[0]?.harnessType).toBeNull();
+		expect(rows[0]?.modelTierPreference).toBeNull();
 	});
 
 	it("can insert a user row with soulPrompt, harnessType, modelTierPreference set", async () => {
 		const now = new Date().toISOString();
-		await db.execute(sql.raw(`
+		await db.execute(
+			sql.raw(`
       INSERT INTO users (id, kind, name, role, status, created_at, soul_prompt, harness_type, model_tier_preference)
       VALUES ('x3-test-agent-full-cols', 'ai', 'Full Bot', 'builder', 'active', '${now}',
               'You are a builder.', 'claude-code', 'reasoning')
-    `));
+    `),
+		);
 
 		const rows = await queryRows<{
-			soul_prompt: string | null;
-			harness_type: string | null;
-			model_tier_preference: string | null;
+			soulPrompt: string | null;
+			harnessType: string | null;
+			modelTierPreference: string | null;
 		}>(
 			db,
-			`SELECT soul_prompt, harness_type, model_tier_preference
+			`SELECT soul_prompt AS "soulPrompt", harness_type AS "harnessType", model_tier_preference AS "modelTierPreference"
        FROM users WHERE id = 'x3-test-agent-full-cols'`,
 		);
-		expect(rows[0]?.soul_prompt).toBe("You are a builder.");
-		expect(rows[0]?.harness_type).toBe("claude-code");
-		expect(rows[0]?.model_tier_preference).toBe("reasoning");
+		expect(rows[0]?.soulPrompt).toBe("You are a builder.");
+		expect(rows[0]?.harnessType).toBe("claude-code");
+		expect(rows[0]?.modelTierPreference).toBe("reasoning");
 	});
 });
 
@@ -255,37 +259,37 @@ describe("X3 AC-3: existing agents backfilled with soulPrompt from role template
 	});
 
 	it("seed-agent-pm-nimmly has soulPrompt matching product_manager template", async () => {
-		const agentRows = await queryRows<{ soul_prompt: string | null }>(
+		const agentRows = await queryRows<{ soulPrompt: string | null }>(
 			db,
-			`SELECT soul_prompt FROM users WHERE id = 'seed-agent-pm-nimmly'`,
+			`SELECT soul_prompt AS "soulPrompt" FROM users WHERE id = 'seed-agent-pm-nimmly'`,
 		);
 		const templateRows = await queryRows<{ value: string }>(
 			db,
 			`SELECT value FROM factory_settings WHERE key = 'soul_template:product_manager'`,
 		);
 
-		expect(agentRows[0]?.soul_prompt).toBeTruthy();
-		expect(agentRows[0]?.soul_prompt).toBe(templateRows[0]?.value);
+		expect(agentRows[0]?.soulPrompt).toBeTruthy();
+		expect(agentRows[0]?.soulPrompt).toBe(templateRows[0]?.value);
 	});
 
 	it("seed-agent-cos has soulPrompt matching chief_of_staff template", async () => {
-		const agentRows = await queryRows<{ soul_prompt: string | null }>(
+		const agentRows = await queryRows<{ soulPrompt: string | null }>(
 			db,
-			`SELECT soul_prompt FROM users WHERE id = 'seed-agent-cos'`,
+			`SELECT soul_prompt AS "soulPrompt" FROM users WHERE id = 'seed-agent-cos'`,
 		);
 		const templateRows = await queryRows<{ value: string }>(
 			db,
 			`SELECT value FROM factory_settings WHERE key = 'soul_template:chief_of_staff'`,
 		);
 
-		expect(agentRows[0]?.soul_prompt).toBeTruthy();
-		expect(agentRows[0]?.soul_prompt).toBe(templateRows[0]?.value);
+		expect(agentRows[0]?.soulPrompt).toBeTruthy();
+		expect(agentRows[0]?.soulPrompt).toBe(templateRows[0]?.value);
 	});
 
 	it("practice_facilitator agents have soulPrompt matching practice_facilitator template", async () => {
-		const agentRows = await queryRows<{ id: string; soul_prompt: string | null }>(
+		const agentRows = await queryRows<{ id: string; soulPrompt: string | null }>(
 			db,
-			`SELECT id, soul_prompt FROM users WHERE role = 'practice_facilitator'`,
+			`SELECT id, soul_prompt AS "soulPrompt" FROM users WHERE role = 'practice_facilitator'`,
 		);
 		const templateRows = await queryRows<{ value: string }>(
 			db,
@@ -294,24 +298,24 @@ describe("X3 AC-3: existing agents backfilled with soulPrompt from role template
 
 		expect(agentRows.length).toBeGreaterThanOrEqual(1);
 		for (const agent of agentRows) {
-			expect(agent.soul_prompt, `${agent.id} should have soul_prompt set`).toBeTruthy();
-			expect(agent.soul_prompt).toBe(templateRows[0]?.value);
+			expect(agent.soulPrompt, `${agent.id} should have soulPrompt set`).toBeTruthy();
+			expect(agent.soulPrompt).toBe(templateRows[0]?.value);
 		}
 	});
 
 	it("seed-agent-builder has null soulPrompt (no builder template)", async () => {
-		const rows = await queryRows<{ soul_prompt: string | null }>(
+		const rows = await queryRows<{ soulPrompt: string | null }>(
 			db,
-			`SELECT soul_prompt FROM users WHERE id = 'seed-agent-builder'`,
+			`SELECT soul_prompt AS "soulPrompt" FROM users WHERE id = 'seed-agent-builder'`,
 		);
-		expect(rows[0]?.soul_prompt).toBeNull();
+		expect(rows[0]?.soulPrompt).toBeNull();
 	});
 
 	it("system:propagation has null soulPrompt (system role, no template)", async () => {
-		const rows = await queryRows<{ soul_prompt: string | null }>(
+		const rows = await queryRows<{ soulPrompt: string | null }>(
 			db,
-			`SELECT soul_prompt FROM users WHERE id = 'system:propagation'`,
+			`SELECT soul_prompt AS "soulPrompt" FROM users WHERE id = 'system:propagation'`,
 		);
-		expect(rows[0]?.soul_prompt).toBeNull();
+		expect(rows[0]?.soulPrompt).toBeNull();
 	});
 });

@@ -37,40 +37,11 @@ import { crashSession, endSession, type SessionContext } from "./session-lifecyc
 import type { StateTransitionAuditEntry, TaskAuditEntry } from "./task-audit.js";
 import { transitionTask } from "./task-state-machine.js";
 
-/**
- * The directory under which all `soul_prompt_path` values must resolve. We
- * anchor relative paths to `process.cwd()`; absolute paths must still lie
- * within this prefix after resolution.
- *
- * @lore Path traversal guard on `soul_prompt_path`: the column is populated
- * from seeds and DB writes, both of which are trusted today, but the value
- * flows unfiltered to the harness. Without this guard, an attacker with any
- * write on `agents.soul_prompt_path` could escape the docs/souls directory
- * (`../../../etc/passwd`) and have the harness read arbitrary files. The
- * validation runs before `harness.startSession` so a bad value fails
- * provisioning rather than leaking system files into the agent's context.
- */
-const SOUL_PROMPT_DIR_RELATIVE = "docs/souls";
-
-function validateSoulPromptPath(rawPath: string): string {
-	// Empty path = "no soul prompt"; the harness adapter decides what to do
-	// with it (current adapter treats empty as no-op). This matches legacy
-	// behavior for builder agents that don't yet carry a soul prompt.
-	if (rawPath.length === 0) {
-		return "";
-	}
-	const baseDir = path.resolve(process.cwd(), SOUL_PROMPT_DIR_RELATIVE);
-	const resolved = path.resolve(process.cwd(), rawPath);
-	// `path.relative` gives us a normalized form; if it starts with `..` or is
-	// absolute, the resolved path escapes `baseDir`.
-	const rel = path.relative(baseDir, resolved);
-	if (rel.startsWith("..") || path.isAbsolute(rel)) {
-		throw new Error(
-			`soul_prompt_path escapes ${SOUL_PROMPT_DIR_RELATIVE}: ${rawPath} (resolved to ${resolved})`,
-		);
-	}
-	return resolved;
-}
+// @lore X3: validateSoulPromptPath and SOUL_PROMPT_DIR_RELATIVE removed.
+// The path traversal attack surface is eliminated by X3 — soul prompts are now
+// stored inline in the DB (agent.soulPrompt) rather than as file paths. No file
+// read happens during session provisioning. The old file-read approach required
+// a path traversal guard; the new inline-text approach has no such attack vector.
 
 /**
  * Revert a task that we transitioned to `in_progress` back to `accepted` when
@@ -239,12 +210,21 @@ export async function provisionSession(
 	}
 	const agentRole = agent.role as UserRole;
 	const teamId = agent.teamId ?? undefined;
-	const modelTier: ModelTier = params.modelTier ?? "workhorse";
-	// Validate/resolve the soul prompt path up front. Invalid values (empty,
-	// escaping docs/souls) fail provisioning BEFORE any DB writes or task
-	// state transitions — the agent never starts and no cleanup is needed.
-	const rawSoulPromptPath = agent.soulPromptPath ?? "";
-	const soulPromptPath = validateSoulPromptPath(rawSoulPromptPath);
+
+	// X3: Read soul prompt inline from DB column. No file read required.
+	const soulPromptText = agent.soulPrompt ?? "";
+
+	// X3: Model tier priority: explicit param > agent preference > default "workhorse".
+	// Runtime validation: modelTierPreference is a text column — validate before casting.
+	const MODEL_TIER_VALUES = ["reasoning", "workhorse", "fast"] as const;
+	const rawPreference = agent.modelTierPreference;
+	const agentPreference =
+		rawPreference !== null &&
+		rawPreference !== undefined &&
+		(MODEL_TIER_VALUES as readonly string[]).includes(rawPreference)
+			? (rawPreference as ModelTier)
+			: null;
+	const modelTier: ModelTier = params.modelTier ?? agentPreference ?? "workhorse";
 
 	// ── Phase 2: cost cap pre-flight. Throws before any DB writes.
 	const capResult = await checkCostCap(db, eventBus, {
@@ -268,9 +248,15 @@ export async function provisionSession(
 	// ── Phase 3: adapter selection + concurrency check + task transition.
 	// Adapter selection MUST come before task transition: if no adapter is
 	// available we should not strand the task in `in_progress`.
-	const selectedAdapter = adapterPool.select();
+	// X3: Pass harnessType to select() so the pool filters by agent preference.
+	// When agent.harnessType is null, all adapters are eligible (backward compat).
+	const selectedAdapter = adapterPool.select({
+		harnessType: agent.harnessType ?? undefined,
+	});
 	if (!selectedAdapter) {
-		throw new Error("No available adapter in pool — all adapters are at capacity");
+		throw new Error(
+			`No available adapter in pool — all adapters are at capacity${agent.harnessType ? ` (harnessType: ${agent.harnessType})` : ""}`,
+		);
 	}
 	const harness = selectedAdapter.adapter;
 	const adapterId = selectedAdapter.id;
@@ -390,7 +376,7 @@ export async function provisionSession(
 	}));
 
 	const { composedPrompt } = await composePrompt({
-		soulPromptPath,
+		soulPromptText,
 		context: sessionContextData,
 		tools: toolSummaries,
 		workspacePath,
@@ -454,7 +440,7 @@ export async function provisionSession(
 		const allowedToolNames = toolsForRole(agentRole).map((d) => d.name);
 		harnessHandle = await harness.startSession({
 			workspacePath,
-			soulPromptPath,
+			soulPromptPath: "", // @deprecated X3: soul prompt now composed from inline text (soulPromptText)
 			composedPrompt,
 			modelTier,
 			tools: allowedToolNames,

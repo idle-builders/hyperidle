@@ -78,6 +78,14 @@ export type SessionState = "active" | "paused" | "done" | "crashed";
 
 export type ModelTier = "reasoning" | "workhorse" | "fast";
 
+/**
+ * X3: Runtime-safe tuple of all valid ModelTier values.
+ * Used for Zod enum schemas at API boundaries so validation does not require
+ * an unsafe `as` cast. ModelTier already exists as a type; MODEL_TIERS is the
+ * corresponding const tuple for runtime use.
+ */
+export const MODEL_TIERS = ["reasoning", "workhorse", "fast"] as const;
+
 export type TriggerType = "heartbeat" | "calendar" | "event" | "continuous";
 
 /**

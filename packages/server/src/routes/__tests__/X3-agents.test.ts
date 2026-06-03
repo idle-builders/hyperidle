@@ -99,8 +99,7 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 	// Seed a product_manager template in factorySettings (needed for AC-8)
 	await db.insert(factorySettings).values({
 		key: "soul_template:product_manager",
-		value:
-			"# You are the Product Manager\n\nYour job is to clarify requirements for {{product}}.",
+		value: "# You are the Product Manager\n\nYour job is to clarify requirements for {{product}}.",
 		updatedAt: NOW,
 	});
 }

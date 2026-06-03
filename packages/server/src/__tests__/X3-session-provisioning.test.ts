@@ -38,8 +38,8 @@ import {
 	users,
 } from "@hyperidle/db";
 import {
-	type EventBus as EventBusType,
 	EventBus,
+	type EventBus as EventBusType,
 	type HarnessAdapter,
 	type HarnessCapabilities,
 	type HarnessEvent,
@@ -52,7 +52,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AdapterMeta } from "../harness/adapter-pool.js";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
-import { type ProvisionSessionDeps, type ProvisionSessionParams, provisionSession } from "../services/session-provisioning.js";
+import {
+	type ProvisionSessionDeps,
+	type ProvisionSessionParams,
+	provisionSession,
+} from "../services/session-provisioning.js";
 
 // ---------------------------------------------------------------------------
 // Minimal scripted harness adapter
@@ -95,15 +99,21 @@ async function seedDomain(
 	db: HyperIdleDb,
 	agentOverrides: Record<string, unknown> = {},
 ): Promise<{ agentId: string; taskId: string; teamId: string }> {
-	const agentId = "x3-sp-agent-" + Math.random().toString(36).slice(2, 7);
+	const agentId = `x3-sp-agent-${Math.random().toString(36).slice(2, 7)}`;
 	const teamId = "x3-sp-team";
 	const teamMembersId = "x3-sp-tm";
 	const betId = "x3-sp-bet";
-	const taskId = "x3-sp-task-" + Math.random().toString(36).slice(2, 7);
-	const threadId = "x3-sp-thread-" + Math.random().toString(36).slice(2, 7);
+	const taskId = `x3-sp-task-${Math.random().toString(36).slice(2, 7)}`;
+	const threadId = `x3-sp-thread-${Math.random().toString(36).slice(2, 7)}`;
 
-	await db.insert(teams).values({ id: teamId, name: "X3 SP Team", phase: "build", createdAt: NOW }).onConflictDoNothing();
-	await db.insert(teamMembers).values({ id: teamMembersId, teamId, capacity: 5, activeBets: 0, formedAt: NOW }).onConflictDoNothing();
+	await db
+		.insert(teams)
+		.values({ id: teamId, name: "X3 SP Team", phase: "build", createdAt: NOW })
+		.onConflictDoNothing();
+	await db
+		.insert(teamMembers)
+		.values({ id: teamMembersId, teamId, capacity: 5, activeBets: 0, formedAt: NOW })
+		.onConflictDoNothing();
 
 	await db.insert(users).values({
 		id: agentId,
@@ -117,11 +127,23 @@ async function seedDomain(
 		...agentOverrides,
 	});
 
-	await db.insert(threads).values({ id: threadId, kind: "work", teamId: teamMembersId, createdAt: NOW, updatedAt: NOW });
-	await db.insert(bets).values({ id: betId, teamId, description: "X3 SP bet", status: "active", createdAt: NOW }).onConflictDoNothing();
+	await db.insert(threads).values({
+		id: threadId,
+		hostKind: "task",
+		hostId: taskId,
+		initiatorId: agentId,
+		participants: JSON.stringify([agentId]),
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
+	await db
+		.insert(bets)
+		.values({ id: betId, teamId, description: "X3 SP bet", status: "active", createdAt: NOW })
+		.onConflictDoNothing();
 	await db.insert(tasks).values({
 		id: taskId,
 		betId,
+		teamId,
 		title: "X3 SP Task",
 		state: "accepted",
 		ownerAgentId: agentId,
@@ -137,11 +159,7 @@ function makeWorkspaceBasePath(): string {
 	return fs.mkdtempSync(path.join(os.tmpdir(), "x3-sp-"));
 }
 
-function makePool(
-	adapter: HarnessAdapter,
-	meta?: Partial<AdapterMeta>,
-	id = "local",
-): AdapterPool {
+function makePool(adapter: HarnessAdapter, meta?: Partial<AdapterMeta>, id = "local"): AdapterPool {
 	const pool = new AdapterPool();
 	pool.register(id, adapter, {
 		name: id,
@@ -493,7 +511,11 @@ describe("X3 AC-17: agent config changes take effect on next session without res
 	});
 
 	it("updated modelTierPreference is reflected in the next session", async () => {
-		const { agentId, taskId: taskId1, teamId } = await seedDomain(db, {
+		const {
+			agentId,
+			taskId: taskId1,
+			teamId,
+		} = await seedDomain(db, {
 			modelTierPreference: null, // Default: workhorse
 		});
 
@@ -511,7 +533,7 @@ describe("X3 AC-17: agent config changes take effect on next session without res
 			.select({ modelTier: sessions.modelTier })
 			.from(sessions)
 			.where(eq(sessions.agentId, agentId))
-			.orderBy(sessions.createdAt)
+			.orderBy(sessions.startedAt)
 			.limit(1);
 
 		expect(session1Rows[0]?.modelTier).toBe("workhorse");
@@ -520,12 +542,21 @@ describe("X3 AC-17: agent config changes take effect on next session without res
 		await db.update(users).set({ modelTierPreference: "fast" }).where(eq(users.id, agentId));
 
 		// Session 2: should use new preference "fast"
-		const taskId2 = "x3-ac17-task-2-" + Math.random().toString(36).slice(2, 7);
-		const threadId2 = "x3-ac17-thread-2-" + Math.random().toString(36).slice(2, 7);
-		await db.insert(threads).values({ id: threadId2, kind: "work", teamId: "x3-sp-tm", createdAt: NOW, updatedAt: NOW });
+		const taskId2 = `x3-ac17-task-2-${Math.random().toString(36).slice(2, 7)}`;
+		const threadId2 = `x3-ac17-thread-2-${Math.random().toString(36).slice(2, 7)}`;
+		await db.insert(threads).values({
+			id: threadId2,
+			hostKind: "task",
+			hostId: taskId2,
+			initiatorId: agentId,
+			participants: JSON.stringify([agentId]),
+			lastActiveAt: NOW,
+			createdAt: NOW,
+		});
 		await db.insert(tasks).values({
 			id: taskId2,
 			betId: "x3-sp-bet",
+			teamId,
 			title: "AC17 Task 2",
 			state: "accepted",
 			ownerAgentId: agentId,
@@ -540,10 +571,10 @@ describe("X3 AC-17: agent config changes take effect on next session without res
 		);
 
 		const allSessions = await db
-			.select({ modelTier: sessions.modelTier, createdAt: sessions.createdAt })
+			.select({ modelTier: sessions.modelTier, startedAt: sessions.startedAt })
 			.from(sessions)
 			.where(eq(sessions.agentId, agentId))
-			.orderBy(sessions.createdAt);
+			.orderBy(sessions.startedAt);
 
 		expect(allSessions).toHaveLength(2);
 		expect(allSessions[0]?.modelTier).toBe("workhorse");

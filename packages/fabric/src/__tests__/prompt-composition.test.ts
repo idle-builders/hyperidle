@@ -95,17 +95,6 @@ Your job is to write great software.
 `;
 
 // ---------------------------------------------------------------------------
-// Helper: write a temp soul prompt file
-// ---------------------------------------------------------------------------
-
-function writeTempSoulPrompt(content: string): string {
-	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "x1-test-"));
-	const filePath = path.join(dir, "soul.md");
-	fs.writeFileSync(filePath, content, "utf8");
-	return filePath;
-}
-
-// ---------------------------------------------------------------------------
 // 1. stripFrontmatter
 // ---------------------------------------------------------------------------
 
@@ -198,15 +187,14 @@ describe("buildTemplateVariables", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4. composePrompt — with soul prompt
+// 4. composePrompt — with soul prompt (X3: updated to use soulPromptText)
 // ---------------------------------------------------------------------------
 
 describe("composePrompt with soul prompt", () => {
-	it("result contains ## Identity section when soulPromptPath is provided", async () => {
-		const soulPath = writeTempSoulPrompt(SOUL_PROMPT_WITH_FRONTMATTER);
+	it("result contains ## Identity section when soulPromptText is provided", async () => {
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
-			soulPromptPath: soulPath,
+			soulPromptText: SOUL_PROMPT_WITH_FRONTMATTER,
 			context: ctx,
 			tools: TEST_TOOLS,
 			workspacePath: "/workspace/test",
@@ -217,10 +205,9 @@ describe("composePrompt with soul prompt", () => {
 	});
 
 	it("result contains ## Task section", async () => {
-		const soulPath = writeTempSoulPrompt(SOUL_PROMPT_NO_FRONTMATTER);
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
-			soulPromptPath: soulPath,
+			soulPromptText: SOUL_PROMPT_NO_FRONTMATTER,
 			context: ctx,
 			tools: TEST_TOOLS,
 			workspacePath: "/workspace/test",
@@ -232,10 +219,9 @@ describe("composePrompt with soul prompt", () => {
 	});
 
 	it("result contains ## Available Tools section", async () => {
-		const soulPath = writeTempSoulPrompt(SOUL_PROMPT_NO_FRONTMATTER);
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
-			soulPromptPath: soulPath,
+			soulPromptText: SOUL_PROMPT_NO_FRONTMATTER,
 			context: ctx,
 			tools: TEST_TOOLS,
 			workspacePath: "/workspace/test",
@@ -248,10 +234,9 @@ describe("composePrompt with soul prompt", () => {
 	});
 
 	it("result contains ## Workspace section", async () => {
-		const soulPath = writeTempSoulPrompt(SOUL_PROMPT_NO_FRONTMATTER);
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
-			soulPromptPath: soulPath,
+			soulPromptText: SOUL_PROMPT_NO_FRONTMATTER,
 			context: ctx,
 			tools: TEST_TOOLS,
 			workspacePath: "/workspace/test",
@@ -264,10 +249,9 @@ describe("composePrompt with soul prompt", () => {
 	});
 
 	it("frontmatter is stripped from soul prompt content", async () => {
-		const soulPath = writeTempSoulPrompt(SOUL_PROMPT_WITH_FRONTMATTER);
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
-			soulPromptPath: soulPath,
+			soulPromptText: SOUL_PROMPT_WITH_FRONTMATTER,
 			context: ctx,
 			tools: TEST_TOOLS,
 			workspacePath: "/workspace/test",
@@ -279,10 +263,9 @@ describe("composePrompt with soul prompt", () => {
 	});
 
 	it("template variables are substituted in soul prompt content (AC2)", async () => {
-		const soulPath = writeTempSoulPrompt(SOUL_PROMPT_WITH_FRONTMATTER);
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
-			soulPromptPath: soulPath,
+			soulPromptText: SOUL_PROMPT_WITH_FRONTMATTER,
 			context: ctx,
 			tools: TEST_TOOLS,
 			workspacePath: "/workspace/test",
@@ -298,10 +281,9 @@ describe("composePrompt with soul prompt", () => {
 	});
 
 	it("task title is included in the Task section", async () => {
-		const soulPath = writeTempSoulPrompt(SOUL_PROMPT_NO_FRONTMATTER);
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
-			soulPromptPath: soulPath,
+			soulPromptText: SOUL_PROMPT_NO_FRONTMATTER,
 			context: ctx,
 			tools: TEST_TOOLS,
 			workspacePath: "/workspace/test",
@@ -312,10 +294,9 @@ describe("composePrompt with soul prompt", () => {
 	});
 
 	it("task description is included", async () => {
-		const soulPath = writeTempSoulPrompt(SOUL_PROMPT_NO_FRONTMATTER);
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
-			soulPromptPath: soulPath,
+			soulPromptText: SOUL_PROMPT_NO_FRONTMATTER,
 			context: ctx,
 			tools: TEST_TOOLS,
 			workspacePath: "/workspace/test",
@@ -326,10 +307,9 @@ describe("composePrompt with soul prompt", () => {
 	});
 
 	it("bet context is included in Task section", async () => {
-		const soulPath = writeTempSoulPrompt(SOUL_PROMPT_NO_FRONTMATTER);
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
-			soulPromptPath: soulPath,
+			soulPromptText: SOUL_PROMPT_NO_FRONTMATTER,
 			context: ctx,
 			tools: TEST_TOOLS,
 			workspacePath: "/workspace/test",
@@ -341,10 +321,9 @@ describe("composePrompt with soul prompt", () => {
 	});
 
 	it("done condition is included when present", async () => {
-		const soulPath = writeTempSoulPrompt(SOUL_PROMPT_NO_FRONTMATTER);
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
-			soulPromptPath: soulPath,
+			soulPromptText: SOUL_PROMPT_NO_FRONTMATTER,
 			context: ctx,
 			tools: TEST_TOOLS,
 			workspacePath: "/workspace/test",
@@ -355,10 +334,9 @@ describe("composePrompt with soul prompt", () => {
 	});
 
 	it("returns personaToolsTokens count", async () => {
-		const soulPath = writeTempSoulPrompt(SOUL_PROMPT_NO_FRONTMATTER);
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
-			soulPromptPath: soulPath,
+			soulPromptText: SOUL_PROMPT_NO_FRONTMATTER,
 			context: ctx,
 			tools: TEST_TOOLS,
 			workspacePath: "/workspace/test",
@@ -371,14 +349,14 @@ describe("composePrompt with soul prompt", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 5. composePrompt — empty soulPromptPath (AC5)
+// 5. composePrompt — empty soulPromptText (AC5, X3 updated)
 // ---------------------------------------------------------------------------
 
-describe("composePrompt with empty soulPromptPath", () => {
-	it("omits ## Identity section when soulPromptPath is empty (AC5)", async () => {
+describe("composePrompt with empty soulPromptText", () => {
+	it("omits ## Identity section when soulPromptText is empty (AC5)", async () => {
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
-			soulPromptPath: "",
+			soulPromptText: "",
 			context: ctx,
 			tools: TEST_TOOLS,
 			workspacePath: "/workspace/test",
@@ -388,10 +366,10 @@ describe("composePrompt with empty soulPromptPath", () => {
 		expect(result.composedPrompt).not.toContain("## Identity");
 	});
 
-	it("includes ## Task section when soulPromptPath is empty (AC5)", async () => {
+	it("includes ## Task section when soulPromptText is empty (AC5)", async () => {
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
-			soulPromptPath: "",
+			soulPromptText: "",
 			context: ctx,
 			tools: TEST_TOOLS,
 			workspacePath: "/workspace/test",
@@ -401,10 +379,10 @@ describe("composePrompt with empty soulPromptPath", () => {
 		expect(result.composedPrompt).toContain("## Task");
 	});
 
-	it("includes ## Available Tools section when soulPromptPath is empty (AC5)", async () => {
+	it("includes ## Available Tools section when soulPromptText is empty (AC5)", async () => {
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
-			soulPromptPath: "",
+			soulPromptText: "",
 			context: ctx,
 			tools: TEST_TOOLS,
 			workspacePath: "/workspace/test",
@@ -414,10 +392,10 @@ describe("composePrompt with empty soulPromptPath", () => {
 		expect(result.composedPrompt).toContain("## Available Tools");
 	});
 
-	it("includes ## Workspace section when soulPromptPath is empty (AC5)", async () => {
+	it("includes ## Workspace section when soulPromptText is empty (AC5)", async () => {
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
-			soulPromptPath: "",
+			soulPromptText: "",
 			context: ctx,
 			tools: TEST_TOOLS,
 			workspacePath: "/workspace/test",
@@ -438,7 +416,7 @@ describe("composePrompt task field edge cases", () => {
 			task: { id: "t1", title: "No desc task", description: null, state: "accepted" },
 		});
 		const input: PromptCompositionInput = {
-			soulPromptPath: "",
+			soulPromptText: "",
 			context: ctx,
 			tools: TEST_TOOLS,
 			workspacePath: "/workspace/test",
@@ -453,7 +431,7 @@ describe("composePrompt task field edge cases", () => {
 			bet: { id: "b1", description: "Ship it", appetite: "small", doneCondition: null },
 		});
 		const input: PromptCompositionInput = {
-			soulPromptPath: "",
+			soulPromptText: "",
 			context: ctx,
 			tools: TEST_TOOLS,
 			workspacePath: "/workspace/test",
@@ -470,10 +448,9 @@ describe("composePrompt task field edge cases", () => {
 
 describe("token budget enforcement", () => {
 	it("personaToolsTokens is under 4000 for a normal soul prompt (AC6)", async () => {
-		const soulPath = writeTempSoulPrompt(SOUL_PROMPT_NO_FRONTMATTER);
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
-			soulPromptPath: soulPath,
+			soulPromptText: SOUL_PROMPT_NO_FRONTMATTER,
 			context: ctx,
 			tools: TEST_TOOLS,
 			workspacePath: "/workspace/test",
@@ -485,12 +462,10 @@ describe("token budget enforcement", () => {
 
 	it("truncates oversized persona when it exceeds budget", async () => {
 		// Generate a soul prompt that exceeds 4000 tokens (whitespace-split approx: ~4000 words)
-		// We build a single word repeated enough times to exceed the budget after adding tools.
 		const bigContent = `# Huge Identity Heading\n\n${"word ".repeat(4200)}\n\n## Another section\n\nMore words.\n`;
-		const soulPath = writeTempSoulPrompt(bigContent);
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
-			soulPromptPath: soulPath,
+			soulPromptText: bigContent,
 			context: ctx,
 			tools: TEST_TOOLS,
 			workspacePath: "/workspace/test",
@@ -507,10 +482,9 @@ describe("token budget enforcement", () => {
 
 	it("truncated prompt still contains all non-persona sections", async () => {
 		const bigContent = `# Big Soul\n\n${"word ".repeat(4200)}\n`;
-		const soulPath = writeTempSoulPrompt(bigContent);
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
-			soulPromptPath: soulPath,
+			soulPromptText: bigContent,
 			context: ctx,
 			tools: TEST_TOOLS,
 			workspacePath: "/workspace/test",
@@ -556,10 +530,9 @@ describe("writeWorkspaceCLAUDEmd", () => {
 
 describe("composePrompt determinism", () => {
 	it("same inputs produce identical output on repeated calls", async () => {
-		const soulPath = writeTempSoulPrompt(SOUL_PROMPT_WITH_FRONTMATTER);
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
-			soulPromptPath: soulPath,
+			soulPromptText: SOUL_PROMPT_WITH_FRONTMATTER,
 			context: ctx,
 			tools: TEST_TOOLS,
 			workspacePath: "/workspace/test",
@@ -794,10 +767,9 @@ describe("unrecognized template variable passthrough", () => {
 	it("leaves {{unknown_var}} literally in composed prompt output", async () => {
 		// Soul prompt with an unregistered template variable
 		const soulContent = `# You are the Agent for {{product}}\n\nYour factory is {{factory}}.\n`;
-		const soulPath = writeTempSoulPrompt(soulContent);
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
-			soulPromptPath: soulPath,
+			soulPromptText: soulContent,
 			context: ctx,
 			tools: TEST_TOOLS,
 			workspacePath: "/workspace/test",

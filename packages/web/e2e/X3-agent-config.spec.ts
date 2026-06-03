@@ -152,7 +152,10 @@ test.describe("X3 AC-10: Settings UI edit form opens inline and saves", () => {
 		await page.route("**/api/agents/e2e-agent-pm", async (route) => {
 			if (route.request().method() === "PATCH") {
 				const body = (await route.request().postDataJSON()) as Record<string, unknown>;
-				updatedAgent = { ...MOCK_AGENTS[0]!, ...(body as Partial<(typeof MOCK_AGENTS)[0]>) };
+				updatedAgent = {
+					...(MOCK_AGENTS[0] as (typeof MOCK_AGENTS)[0]),
+					...(body as Partial<(typeof MOCK_AGENTS)[0]>),
+				};
 				await route.fulfill({
 					status: 200,
 					contentType: "application/json",
@@ -278,9 +281,7 @@ test.describe("X3 AC-11: Settings UI add form creates agent with template pre-fi
 		await expect(agentsSection.getByLabel(/name/i)).toBeVisible();
 	});
 
-	test("changing role to product_manager pre-fills soul prompt with template", async ({
-		page,
-	}) => {
+	test("changing role to product_manager pre-fills soul prompt with template", async ({ page }) => {
 		const agentsSection = page.locator("[data-testid='settings-section-agents']");
 		await agentsSection.getByRole("button", { name: /add agent/i }).click();
 

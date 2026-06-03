@@ -14,10 +14,7 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
-import {
-	composePrompt,
-	type PromptCompositionInput,
-} from "../prompt-composition.js";
+import { composePrompt, type PromptCompositionInput } from "../prompt-composition.js";
 import type { SessionContextData } from "../session-context.js";
 
 // ---------------------------------------------------------------------------

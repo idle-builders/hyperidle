@@ -117,6 +117,7 @@ export class WorkerConnectionManager {
 			this.pool.register(msg.id, this.adapter, {
 				name: msg.name,
 				kind: "remote",
+				type: msg.harnessType, // X3: worker-specified harness type (optional)
 				modelProviders: msg.modelProviders,
 				maxConcurrent: msg.maxConcurrent,
 			});
