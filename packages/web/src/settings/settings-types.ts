@@ -21,7 +21,8 @@ export type SettingsSectionId =
 	| "appearance"
 	| "teams"
 	| "backend"
-	| "worker";
+	| "worker"
+	| "agents"; // X3: agent configuration section
 
 export interface SettingsSection {
 	id: SettingsSectionId;
@@ -90,4 +91,17 @@ export interface SettingsData {
 	users: UserSetting[];
 	notifications: NotificationSettings;
 	appearance: AppearanceSettings;
+}
+
+/** X3: Agent configuration as returned by GET /api/agents. */
+export interface AgentConfig {
+	id: string;
+	name: string;
+	role: string;
+	soulPrompt: string | null;
+	harnessType: string | null;
+	modelTierPreference: string | null;
+	maxConcurrentSessions: number;
+	status: string;
+	activeSessions: number;
 }

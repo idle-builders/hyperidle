@@ -13,6 +13,8 @@ import { ClaudeAgentSdkAdapter } from "./claude-agent-sdk-adapter.js";
 export interface AdapterMeta {
 	readonly name: string;
 	readonly kind: "local" | "remote";
+	/** X3: Harness type for agent preference matching (e.g. "claude-code", "aider"). */
+	readonly type?: string;
 	readonly modelProviders: readonly string[];
 	readonly maxConcurrent: number;
 }
@@ -22,6 +24,8 @@ export interface AdapterInfo {
 	readonly id: string;
 	readonly name: string;
 	readonly kind: "local" | "remote";
+	/** X3: Harness type for agent preference matching. */
+	readonly type?: string;
 	readonly modelProviders: readonly string[];
 	readonly currentLoad: number;
 	readonly maxConcurrent: number;
@@ -44,6 +48,8 @@ interface PoolEntry {
 export interface SelectRequirements {
 	/** If present, only adapters supporting ALL listed providers are eligible. */
 	readonly modelProviders?: readonly string[];
+	/** X3: If set, only adapters with matching type are eligible. */
+	readonly harnessType?: string;
 }
 
 /** A selected adapter entry (returned from select()). */
@@ -86,6 +92,7 @@ export class AdapterPool {
 			id,
 			name: entry.meta.name,
 			kind: entry.meta.kind,
+			type: entry.meta.type,
 			modelProviders: entry.meta.modelProviders,
 			currentLoad: entry.currentLoad,
 			maxConcurrent: entry.meta.maxConcurrent,
@@ -140,6 +147,14 @@ export class AdapterPool {
 				if (!allMatch) continue;
 			}
 
+			// X3: harnessType filter — adapter type must match when specified.
+			// An adapter without a type (type: undefined) does NOT match a specific
+			// harnessType requirement (backward compat: old workers without type can
+			// still be selected when harnessType is unspecified/undefined).
+			if (requirements?.harnessType) {
+				if (entry.meta.type !== requirements.harnessType) continue;
+			}
+
 			// Least-loaded selection
 			if (best === null || entry.currentLoad < best.entry.currentLoad) {
 				best = { id, entry };
@@ -181,6 +196,7 @@ export function createLocalAdapterPool(): AdapterPool {
 	pool.register("local", adapter, {
 		name: "local",
 		kind: "local",
+		type: "claude-code", // X3: local adapter type for harnessType preference matching
 		modelProviders: ["anthropic"],
 		maxConcurrent: Number.parseInt(process.env.HYPERIDLE_LOCAL_MAX_CONCURRENT ?? "4", 10),
 	});

@@ -50,6 +50,18 @@ export const users = pgTable("users", {
 	email: text("email"),
 	avatarUrl: text("avatar_url"),
 	createdAt: text("created_at").notNull(),
+	/**
+	 * X3: Inline soul prompt text. Replaces soulPromptPath.
+	 * null = no persona section in composed prompt.
+	 * @lore X3: soulPromptPath is deprecated (not dropped yet — additive migration).
+	 * Soul prompt content is now stored inline in the DB, eliminating the file-read
+	 * attack surface and the soulPromptPath validation logic.
+	 */
+	soulPrompt: text("soul_prompt"),
+	/** X3: Harness type preference. null = any adapter eligible. */
+	harnessType: text("harness_type"),
+	/** X3: Model tier preference. null = provisioning default ("workhorse"). */
+	modelTierPreference: text("model_tier_preference"),
 });
 
 // @lore U1: `teamMembers` is the agent-membership group (formerly `teams`).

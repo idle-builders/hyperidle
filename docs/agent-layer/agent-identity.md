@@ -1,21 +1,22 @@
 ## 2. Agent Identity
 
-An agent is defined by three files:
+Agent identity is stored in the `users` table (kind = `'ai'`). The canonical fields are:
 
-```
-agents/
-  nimmly-builder/
-    SOUL.md           # system prompt — who this agent is, its personality, its constraints
-    SKILLS.md         # list of skill packages this agent can use (references to skill dirs)
-    IDENTITY.md       # metadata: name, role, team, practices, max_concurrent_sessions
-```
+| Field | Column | Purpose |
+|---|---|---|
+| Soul prompt | `soul_prompt` (text, nullable) | System prompt injected at session start — who this agent is, its personality, its constraints |
+| Harness type | `harness_type` (text, nullable) | Which adapter type to prefer (`claude-code`, `openai`, etc.) — null means any available adapter |
+| Model tier | `model_tier_preference` (text, nullable) | Preferred model cost tier (`reasoning`, `workhorse`, `haiku`) — null means system default |
+| Concurrency | `max_concurrent_sessions` (int) | Maximum parallel sessions this agent runs |
+| Role | `role` (text) | Functional role (`builder`, `product_manager`, `practice_facilitator`, `chief_of_staff`, …) |
+| Status | `status` (text) | Lifecycle state (`active`, `retired`) |
 
-**SOUL.md** is the system prompt. It defines personality, constraints, and the agent's relationship to its role. A Builder's soul knows it's an engineer who thinks → plans → builds → reviews → tests. A Practice Facilitator's soul knows it surfaces patterns and synthesizes, not decides. Souls are short — ideally under 500 tokens — because they're loaded into every session.
+**Soul prompt** defines personality, constraints, and the agent's relationship to its role. A Builder's soul knows it's an engineer who thinks → plans → builds → reviews → tests. A Practice Facilitator's soul knows it surfaces patterns and synthesizes, not decides. Souls are short — ideally under 500 tokens — because they're loaded into every session.
 
-**SKILLS.md** references the skill packages the agent is authorized to use. Each skill is a directory with a SKILL.md instruction file, bundled scripts, and resources. Skills call CLIs and APIs directly — no protocol layer. Skill changes require human approval via a review thread.
+Soul prompt templates for standard roles are seeded into the `factory_settings` table at setup time with the key prefix `soul_template:<role>`. Founders can pre-fill a new agent's soul from the matching template or write a custom one. The `soul_prompt` column is the single source of truth at runtime; the template is only a starting point for the UI.
 
-**IDENTITY.md** carries metadata: which team the agent is on (or teams, if it's on more than one), which practices it belongs to, its role, and operational limits (max concurrent sessions, autonomy levels per skill).
+> **X3 migration note:** The prior `soul_prompt_path` column (which pointed to a file on disk) is deprecated. The column still exists in the schema for backward compatibility but is ignored by all runtime code. A future migration will drop it. All soul content is now stored inline in `soul_prompt`.
 
-When the Knowledge Fabric builds an L0 session context for this agent, it loads the soul, queries the knowledge layers for the relevant context, and packs it into TOON format. The agent doesn't "know" about layers; it just gets a context pack.
+When the Knowledge Fabric builds an L0 session context for this agent, it loads the soul prompt from `users.soul_prompt`, queries the knowledge layers for the relevant context, and packs it into TOON format. The agent doesn't "know" about layers; it just gets a context pack.
 
 ---

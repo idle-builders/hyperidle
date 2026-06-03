@@ -22,6 +22,8 @@ export interface WorkerRegisterMessage {
 	readonly modelProviders: readonly string[];
 	/** Maximum concurrent sessions. */
 	readonly maxConcurrent: number;
+	/** X3: Harness type (e.g. "claude-code", "aider"). Optional for backward compat. */
+	readonly harnessType?: string;
 }
 
 export interface WorkerEventMessage {
