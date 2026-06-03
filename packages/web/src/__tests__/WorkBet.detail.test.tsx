@@ -25,25 +25,21 @@ function renderBet(overrideBet = MOCK_BETS.b1): ReturnType<typeof render> {
 }
 
 describe("WorkBet — detail page (J5)", () => {
-	it("renders breadcrumb Product → Team → Bet", () => {
+	it("renders breadcrumb Work → Team → Bet title", () => {
+		// visual-parity-audit: breadcrumb structure is Work / team-name / bet-title
+		// (plain text leaf, no separate bet-id). Phase 3 restructure removed aria-current
+		// and the separate bet-id leaf. The nav element has aria-label="Breadcrumb".
 		renderBet(MOCK_BETS.b1);
 		const breadcrumb = screen.getByLabelText("Breadcrumb");
 		expect(breadcrumb).toBeInTheDocument();
 		const text = breadcrumb.textContent ?? "";
-		// The three levels must appear in DOM order (product / team / bet).
-		const productIdx = text.indexOf("Alpha");
+		// Work → team (Alpha Core) → bet title (User auth flow) appear in DOM order
+		const workIdx = text.indexOf("Work");
 		const teamIdx = text.indexOf("Alpha Core");
-		// The leaf uses the bet id (so BetCard remains the unique source of
-		// the title text) with an sr-only full-title expansion.
-		const betIdx = text.indexOf("b1");
-		expect(productIdx).toBeGreaterThanOrEqual(0);
-		expect(teamIdx).toBeGreaterThanOrEqual(productIdx);
-		expect(betIdx).toBeGreaterThan(teamIdx);
-		// The current-page marker includes both the bet id and the full title
-		// in the accessible name.
-		const current = breadcrumb.querySelector('[aria-current="page"]');
-		expect(current?.textContent).toContain("b1");
-		expect(current?.textContent).toContain("User auth flow");
+		const titleIdx = text.indexOf("User auth flow");
+		expect(workIdx).toBeGreaterThanOrEqual(0);
+		expect(teamIdx).toBeGreaterThan(workIdx);
+		expect(titleIdx).toBeGreaterThan(teamIdx);
 	});
 
 	it("renders pitch body as L2 blocks (no legacy pre)", () => {

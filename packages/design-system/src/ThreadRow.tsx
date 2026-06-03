@@ -186,7 +186,7 @@ export function ThreadRow({
 								key={`${a.initials}-${i}`}
 								aria-hidden="true"
 								className={[
-									"w-[24px] h-[24px] rounded-full inline-flex items-center justify-content-center shrink-0",
+									"w-[24px] h-[24px] rounded-full inline-flex items-center justify-center shrink-0",
 									"text-[9px] font-[600] leading-none",
 									"border-[2px] border-[var(--surface-elevated)]",
 									i > 0 ? "ml-[-6px]" : "",

@@ -107,7 +107,7 @@ export function ErrorState({
 				{description}
 			</p>
 			{detail && (
-				<div className="text-[13px] font-[var(--font-mono)] text-[var(--text-tertiary)] bg-[var(--surface-page)] px-[12px] py-[9px] rounded-[var(--r-subtle)] mb-[18px] leading-[1.55]">
+				<div className="text-[13px] font-[family-name:var(--font-mono)] text-[var(--text-tertiary)] bg-[var(--surface-page)] px-[12px] py-[9px] rounded-[var(--r-subtle)] mb-[18px] leading-[1.55]">
 					{detail}
 				</div>
 			)}

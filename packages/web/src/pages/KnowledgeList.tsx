@@ -193,15 +193,14 @@ interface KnowledgeListRowProps {
 function kindBadgeStyle(kind: string): { background: string; color: string } {
 	const k = kind.toLowerCase();
 	if (k === "pattern") {
-		return { background: "rgba(22,118,79,0.08)", color: "rgb(22,118,79)" };
+		return { background: "var(--accent-primary-dim)", color: "var(--accent-primary)" };
 	}
 	if (k === "decision") {
-		return { background: "rgba(46,125,186,0.08)", color: "rgb(46,125,186)" };
+		return { background: "color-mix(in oklab, var(--status-info) 8%, transparent)", color: "var(--status-info)" };
 	}
 	if (k === "failure") {
-		return { background: "rgba(220,74,58,0.08)", color: "rgb(220,74,58)" };
+		return { background: "color-mix(in oklab, var(--status-error) 8%, transparent)", color: "var(--status-error)" };
 	}
-	// fallback: neutral surface
 	return { background: "var(--surface-container)", color: "var(--text-secondary)" };
 }
 
@@ -211,10 +210,10 @@ function kindBadgeStyle(kind: string): { background: string; color: string } {
  */
 function statusBadgeStyle(status: KnowledgeStatus): { background: string; color: string } | null {
 	if (status === "active") {
-		return { background: "rgba(22,118,79,0.08)", color: "rgb(22,118,79)" };
+		return { background: "var(--accent-primary-dim)", color: "var(--accent-primary)" };
 	}
 	if (status === "archived") {
-		return { background: "rgba(217,119,6,0.08)", color: "rgb(217,119,6)" };
+		return { background: "color-mix(in oklab, var(--accent-secondary) 8%, transparent)", color: "var(--accent-secondary)" };
 	}
 	return null;
 }

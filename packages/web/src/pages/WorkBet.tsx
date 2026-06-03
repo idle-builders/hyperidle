@@ -930,7 +930,10 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 			{/* W3: Fixed bordered header — breadcrumb + title + badges + overflow */}
 			<header className="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
 				{/* Breadcrumb */}
-				<div className="text-[13px] text-[var(--text-tertiary)] mb-[6px]">
+				<nav
+					aria-label="Breadcrumb"
+					className="text-[13px] text-[var(--text-tertiary)] mb-[6px]"
+				>
 					<Link
 						to="/work"
 						className="hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]"
@@ -945,7 +948,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 						{bet.team}
 					</Link>{" "}
 					/ {bet.title}
-				</div>
+				</nav>
 				{/* Title row */}
 				<div className="flex items-start justify-between gap-[12px]">
 					<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)]">
