@@ -120,6 +120,19 @@ describe("bundle script (AC1, AC12)", () => {
 		const src = fs.readFileSync(BUNDLE_SCRIPT, "utf-8");
 		expect(src).toMatch(/sourcemap\s*:\s*true/);
 	});
+
+	it("bundle script defines import.meta.url shim (CJS output makes import.meta empty — crashes MCP SDK)", () => {
+		const src = fs.readFileSync(BUNDLE_SCRIPT, "utf-8");
+		expect(src).toMatch(/define/);
+		expect(src).toMatch(/import\.meta\.url/);
+		expect(src).toMatch(/__IMPORT_META_URL__/);
+	});
+
+	it("bundle script injects banner with CJS-compatible import.meta.url (pathToFileURL(__filename))", () => {
+		const src = fs.readFileSync(BUNDLE_SCRIPT, "utf-8");
+		expect(src).toMatch(/banner/);
+		expect(src).toMatch(/pathToFileURL\(__filename\)/);
+	});
 });
 
 describe(".gitignore (AC3 — package-lock.json not committed)", () => {

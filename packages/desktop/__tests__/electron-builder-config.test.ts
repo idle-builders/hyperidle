@@ -125,3 +125,12 @@ describe("electron-builder.yml — artifact naming", () => {
 		expect(config).toMatch(/\$\{arch\}/);
 	});
 });
+
+describe("desktop package.json — minimal production dependencies (bloat prevention)", () => {
+	it("only has @electric-sql/pglite as production dependency (everything else is devDeps — esbuild bundles all at build time)", () => {
+		const pkgPath = path.join(DESKTOP_DIR, "package.json");
+		const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+		const deps = Object.keys(pkg.dependencies ?? {});
+		expect(deps).toEqual(["@electric-sql/pglite"]);
+	});
+});
