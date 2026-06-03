@@ -81,7 +81,7 @@ describe("H3 observability routes — GET /config", () => {
 		await handle?.close();
 	});
 
-	it("returns config shape with no langfuse property", async () => {
+	it("returns expected config shape", async () => {
 		await seedKeys(db, {
 			"observability.enabled": "true",
 			"observability.adapter": "console",
@@ -96,9 +96,6 @@ describe("H3 observability routes — GET /config", () => {
 		expect(body).toHaveProperty("batchSize");
 		expect(body).toHaveProperty("flushIntervalMs");
 		expect(body).toHaveProperty("bufferCap");
-		// No langfuse property after purge
-		expect(body).not.toHaveProperty("langfuse");
-		expect(JSON.stringify(body)).not.toContain("langfuse");
 	});
 
 	it("returns enabled=false and adapter=console by default", async () => {
@@ -106,7 +103,6 @@ describe("H3 observability routes — GET /config", () => {
 		const body = (await (await request("/config")).json()) as Record<string, unknown>;
 		expect(body.enabled).toBe(false);
 		expect(body.adapter).toBe("console");
-		expect(body).not.toHaveProperty("langfuse");
 	});
 });
 
@@ -139,17 +135,16 @@ describe("H3 observability routes — PATCH /config", () => {
 		expect(body.enabled).toBe(true);
 		expect(body.adapter).toBe("console");
 		expect(body.batchSize).toBe(50);
-		expect(body).not.toHaveProperty("langfuse");
 		expect(auditCalls).toHaveLength(1);
 		expect(auditCalls[0].msg).toBe("config_changed");
 	});
 
-	it('rejects adapter: "langfuse" with 400 (AC3)', async () => {
+	it("rejects invalid adapter with 400", async () => {
 		const { request } = appWithRoutes(db, null);
 		const res = await request("/config", {
 			method: "PATCH",
 			headers: { "content-type": "application/json" },
-			body: JSON.stringify({ adapter: "langfuse" }),
+			body: JSON.stringify({ adapter: "invalid" }),
 		});
 		expect(res.status).toBe(400);
 	});
@@ -159,7 +154,7 @@ describe("H3 observability routes — PATCH /config", () => {
 		const res = await request("/config", {
 			method: "PATCH",
 			headers: { "content-type": "application/json" },
-			body: JSON.stringify({ langfuseUrl: "https://cloud.langfuse.com" }),
+			body: JSON.stringify({ unknownField: "https://example.com" }),
 		});
 		expect(res.status).toBe(400);
 	});

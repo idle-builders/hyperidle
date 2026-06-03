@@ -50,7 +50,7 @@
     "symbol": "MOCK_KNOWLEDGE_ITEMS",
     "kind": "symbol",
     "shape": "array",
-    "importerCount": 2,
+    "importerCount": 1,
     "triageHint": "borderline"
   },
   {
@@ -59,7 +59,7 @@
     "symbol": "MOCK_CURATION_SUGGESTIONS",
     "kind": "symbol",
     "shape": "array",
-    "importerCount": 2,
+    "importerCount": 1,
     "triageHint": "borderline"
   },
   {
