@@ -23,8 +23,6 @@ import {
 	ErrorState,
 	SkeletonCard,
 	SkeletonList,
-	StatusChip,
-	taskStateToStatus,
 } from "@hyperidle/design-system";
 import type { BetStatus, Message } from "@hyperidle/shared";
 import { deriveBlocks, formatMoney, isRedactedPayload } from "@hyperidle/shared";
@@ -51,6 +49,51 @@ import { KnowledgeCreateDialog } from "./knowledge/KnowledgeCreateDialog";
 // L19: "outcome" column added for latest session outcome sort.
 type SortColumn = "title" | "status" | "owner" | "costActual" | "outcome";
 type SortDirection = "asc" | "desc";
+
+/** Human-readable label per TaskState for task row badges. */
+const TASK_STATE_LABEL: Record<string, string> = {
+	proposed: "Planned",
+	accepted: "Planned",
+	hold: "On hold",
+	in_progress: "In progress",
+	blocked: "Blocked",
+	review: "In review",
+	done: "Done",
+	killed: "Killed",
+};
+
+/** Badge appearance per TaskState for task row display. */
+function taskStateBadgeClass(state: string): string {
+	const base =
+		"inline-flex items-center text-[12px] font-[500] px-[9px] py-[3px] rounded-[var(--r-pill)] leading-[1.4] whitespace-nowrap shrink-0";
+	if (state === "in_progress")
+		return `${base} bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)]`;
+	if (state === "done")
+		return `${base} bg-[var(--surface-container)] text-[var(--text-secondary)]`;
+	if (state === "blocked")
+		return `${base} bg-[rgba(200,60,30,0.08)] text-[var(--status-error)]`;
+	if (state === "review")
+		return `${base} bg-[rgba(217,119,6,0.08)] text-[var(--accent-secondary)]`;
+	return `${base} bg-[var(--surface-container)] text-[var(--text-secondary)]`;
+}
+
+/**
+ * Format an ISO timestamp as a simple relative time label.
+ * Duplicated from WorkTask for locality — both pages are self-contained.
+ */
+function formatTaskRelativeTime(isoString: string | null | undefined): string {
+	if (!isoString) return "";
+	const diffMs = Date.now() - new Date(isoString).getTime();
+	if (Number.isNaN(diffMs)) return "";
+	const diffSec = Math.floor(diffMs / 1000);
+	if (diffSec < 60) return "just now";
+	const diffMin = Math.floor(diffSec / 60);
+	if (diffMin < 60) return `${diffMin}m ago`;
+	const diffH = Math.floor(diffMin / 60);
+	if (diffH < 24) return `${diffH}h ago`;
+	const diffD = Math.floor(diffH / 24);
+	return `${diffD}d ago`;
+}
 
 /**
  * T3: Bet statuses where the description is mutable (editable via BodyEditor).
@@ -1087,7 +1130,10 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 								of {formatMoney(bet.costAppetite)} appetite
 							</span>
 						</div>
-						{/* Team stat card */}
+						{/* Team stat card
+						    @lore visual-parity-audit D-11: mockup shows avatar-group + "N members"
+						    but BetDetail API does not return member list. Rendering team initial
+						    avatar + team name until the API exposes member data. */}
 						<div
 							data-stat-card="team"
 							className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] flex-1"
@@ -1095,7 +1141,21 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 							<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
 								Team
 							</span>
-							<span className="text-[13px] text-[var(--text-primary)] mt-[9px]">{bet.team}</span>
+							<div className="flex items-center gap-[9px] mt-[9px]">
+								<span
+									className="inline-flex w-[28px] h-[28px] items-center justify-center rounded-full bg-[var(--surface-container)] text-[var(--text-secondary)] text-[11px] font-[600] shrink-0"
+									aria-hidden="true"
+								>
+									{bet.team
+										.split(/\s+/)
+										.slice(0, 2)
+										.map((w) => w[0]?.toUpperCase() ?? "")
+										.join("")}
+								</span>
+								<span className="text-[13px] font-[500] text-[var(--text-primary)] truncate">
+									{bet.team}
+								</span>
+							</div>
 						</div>
 					</div>
 
@@ -1196,26 +1256,33 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 							/>
 						) : (
 							<div className="flex flex-col">
-								{sortedTasks.map((task) => (
-									<button
-										key={task.id}
-										type="button"
-										data-testid="task-row"
-										className="flex items-center gap-[12px] py-[12px] border-b border-[var(--border-subtle)] last:border-b-0 cursor-pointer hover:bg-[rgba(44,36,26,0.02)] transition-colors duration-[var(--motion-fast)] text-left w-full"
-										onClick={() => navigate(`/work/bet/${bet.id}/task/${task.id}`)}
-										aria-label={task.title}
-									>
-										<div className="flex-1 min-w-0">
-											<div className="text-[15px] text-[var(--text-primary)] truncate">
-												{task.title}
+								{sortedTasks.map((task) => {
+									const stateLabel = TASK_STATE_LABEL[task.state] ?? task.state;
+									const relTime = formatTaskRelativeTime(task.startedAt);
+									const metaParts = [task.owner, stateLabel, relTime].filter(Boolean);
+									return (
+										<button
+											key={task.id}
+											type="button"
+											data-testid="task-row"
+											className="flex items-center gap-[12px] py-[12px] border-b border-[var(--border-subtle)] last:border-b-0 cursor-pointer hover:bg-[rgba(44,36,26,0.02)] transition-colors duration-[var(--motion-fast)] text-left w-full"
+											onClick={() => navigate(`/work/bet/${bet.id}/task/${task.id}`)}
+											aria-label={task.title}
+										>
+											<div className="flex-1 min-w-0">
+												<div className="text-[15px] text-[var(--text-primary)] truncate">
+													{task.title}
+												</div>
+												<div className="text-[12px] text-[var(--text-tertiary)] truncate mt-[2px]">
+													{metaParts.join(" · ")}
+												</div>
 											</div>
-											<div className="text-[12px] text-[var(--text-tertiary)] truncate mt-[2px]">
-												{task.owner}
-											</div>
-										</div>
-										<StatusChip status={taskStateToStatus(task.state)} />
-									</button>
-								))}
+											<span className={taskStateBadgeClass(task.state)}>
+												{stateLabel}
+											</span>
+										</button>
+									);
+								})}
 							</div>
 						)}
 					</section>

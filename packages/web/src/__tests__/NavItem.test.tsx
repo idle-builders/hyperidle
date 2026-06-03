@@ -23,8 +23,8 @@ describe("NavItem", () => {
 
 	it("does not show count pill when count is not provided", () => {
 		const { container } = render(<NavItem label="Tasks" />);
-		// The count pill uses min-w-[18px]; its absence means no pill rendered.
-		const pills = container.querySelectorAll("[class*='min-w-']");
+		// The count pill uses min-w-[18px] with accent-primary color; check for its absence.
+		const pills = container.querySelectorAll("[class*='min-w-[18px]']");
 		expect(pills.length).toBe(0);
 	});
 
@@ -36,9 +36,10 @@ describe("NavItem", () => {
 	it("applies selected styles when selected", () => {
 		render(<NavItem label="Active" selected />);
 		const btn = screen.getByRole("button", { name: /Active/ });
+		// Active state: surface-elevated bg + shadow-subtle — no left border accent (matches HTML reference)
 		expect(btn.className).toContain("bg-[var(--surface-elevated)]");
-		expect(btn).toHaveClass("border-l-2");
-		expect(btn.className).toContain("border-l-[var(--accent-primary)]");
+		expect(btn.className).toContain("shadow-[var(--shadow-subtle)]");
+		expect(btn).not.toHaveClass("border-l-2");
 	});
 
 	it("does not apply selected styles when not selected", () => {

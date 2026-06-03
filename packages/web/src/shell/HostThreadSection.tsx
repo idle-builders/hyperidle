@@ -28,12 +28,13 @@
  * convergence is a follow-up per architecture.md line 160).
  */
 
-import { ErrorState, SkeletonList } from "@hyperidle/design-system";
+import { CommentRow, ErrorState, SkeletonList } from "@hyperidle/design-system";
+import type { CommentRowSender } from "@hyperidle/design-system";
 import type { HostKind, Message, PlainPayloadWithBlockId } from "@hyperidle/shared";
 import { isRedactedPayload } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
-import { useHostThread } from "../hooks/useHostThread.js";
+import { type HostThreadIdentity, useHostThread } from "../hooks/useHostThread.js";
 import { postPlainHostMessage, resolveOrCreateHostThread } from "../services/host-threads.js";
 
 export interface HostThreadSectionProps {
@@ -94,12 +95,32 @@ function isPlainPayloadWithBlockId(payload: unknown): payload is PlainPayloadWit
 }
 
 /**
- * Render a plain-message payload text, handling redacted state and other types.
+ * Resolve a senderId to a CommentRowSender using the identities map.
+ * Falls back to a minimal sender shape when identity data is unavailable.
+ *
+ * @lore visual-parity-audit: identities come from the server's thread detail
+ * response. Tests mock useHostThread without identities, so the fallback path
+ * (senderId as display name) must always produce a valid CommentRowSender.
  */
-function messageText(msg: Message): string {
-	if (msg.type !== "plain") return `[${msg.type}]`;
-	if (isRedactedPayload(msg.payload)) return "[redacted]";
-	return msg.payload.text;
+function resolveSender(
+	senderId: string,
+	identities: Record<string, HostThreadIdentity>,
+): CommentRowSender {
+	const identity = identities[senderId];
+	if (identity) {
+		return {
+			id: senderId,
+			name: identity.name,
+			role: identity.role,
+			isAgent: identity.role === "agent",
+		};
+	}
+	// Fallback: use senderId prefix as display name (e.g. "agent-1" → "agent-1")
+	return {
+		id: senderId,
+		name: senderId,
+		isAgent: senderId.startsWith("agent"),
+	};
 }
 
 export function HostThreadSection({
@@ -198,6 +219,7 @@ export function HostThreadSection({
 	}
 
 	const allMessages: ReadonlyArray<Message> = data?.messages ?? [];
+	const identities: Record<string, HostThreadIdentity> = data?.identities ?? {};
 
 	// T5: Apply block-scoped filter unless user has toggled "show all".
 	const isFiltering = filterBlockId !== undefined && !showAll;
@@ -233,13 +255,25 @@ export function HostThreadSection({
 					</p>
 				</div>
 			) : (
-				<div className="flex flex-col gap-2 text-sm text-[var(--text-primary)]">
-					{messages.map((msg) => (
-						<div key={msg.id} className="px-3 py-2 rounded bg-[var(--surface-container)]">
-							{messageText(msg)}
-						</div>
-					))}
-				</div>
+				<ul
+					className="flex flex-col gap-[18px] list-none m-0 py-[6px]"
+					aria-label="Discussion messages"
+				>
+					{messages.map((msg, index) => {
+						const sender = resolveSender(msg.senderId, identities);
+						// Show sender header when: first message, or sender differs from previous message
+						const prevMsg = index > 0 ? messages[index - 1] : null;
+						const showSenderHeader = prevMsg === null || prevMsg.senderId !== msg.senderId;
+						return (
+							<CommentRow
+								key={msg.id}
+								message={msg}
+								sender={sender}
+								showSenderHeader={showSenderHeader}
+							/>
+						);
+					})}
+				</ul>
 			)}
 
 			{/* T5: "Show all messages" toggle when block-scoped filter is active */}

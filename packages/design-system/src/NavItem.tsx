@@ -1,3 +1,4 @@
+// hearth-internal-padding — count badge uses py-[2px] (AQ-001 badge sub-element exemption per AESTHETICS.md)
 import type { JSX, ReactNode } from "react";
 import { dsProps } from "./ds-attrs";
 
@@ -26,22 +27,33 @@ export function NavItem({
 	onClick,
 }: NavItemProps): JSX.Element {
 	/**
-	 * @lore border-none sets border-style:none which prevents border-l-2 from
-	 * showing. Use border-0 instead — keeps border-style:solid from preflight
-	 * so the selected left border renders. bg-transparent must also be
-	 * conditional to avoid conflicting with the selected bg-[var(--surface-elevated)].
-	 *
 	 * @lore U7: migrated from Lucid tokens (--text-hi, --r1, --surface-4, --primary,
 	 * --surface-2, --surface-ghost, --text-lo, --mono, --text-mid) to Hearth tokens
 	 * (--text-primary, --r-subtle, --surface-elevated, --accent-primary,
 	 * --accent-primary-dim, --text-tertiary, --font-mono, --text-secondary).
+	 *
+	 * @lore visual-parity-audit: removed left border accent (border-l-2) from selected
+	 * state — HTML reference has no left border. Active state uses surface-elevated bg +
+	 * shadow-subtle + font-weight 500, matching 03-hearth.html sidebar exactly.
+	 * Font size reduced from 15px → 13px, default color changed from text-primary →
+	 * text-secondary, min-height removed (HTML uses natural ~30px height from 6px/12px
+	 * padding), dot size increased from 6px → 8px to match HTML. Hover changed from
+	 * accent-primary-dim to rgba(44,36,26,0.04) per HTML. Count badge aligned to HTML:
+	 * 12px font, accent-primary color, accent-primary-dim bg, 2px/6px padding.
 	 */
-	const baseClasses =
-		"relative flex w-full items-center gap-2 text-left min-h-[44px] py-[12px] px-[12px] text-[15px] text-[var(--text-primary)] rounded-[var(--r-subtle)] border-0 cursor-pointer transition-[background] duration-[var(--motion-fast)] ease-[ease]";
+	const baseClasses = [
+		"flex w-full items-center gap-[6px] text-left",
+		"py-[6px] px-[12px]",
+		"font-[family-name:var(--font-sans)] text-[13px] font-[400]",
+		"text-[var(--text-secondary)]",
+		"rounded-[var(--r-subtle)] border-none",
+		"cursor-pointer",
+		"transition-[background] duration-[var(--motion-default)] ease-[ease]",
+	].join(" ");
 
 	const stateClasses = selected
-		? "bg-[var(--surface-elevated)] border-l-2 border-l-[var(--accent-primary)]"
-		: "bg-transparent hover:bg-[var(--accent-primary-dim)]";
+		? "bg-[var(--surface-elevated)] text-[var(--text-primary)] font-[500] shadow-[var(--shadow-subtle)]"
+		: "bg-transparent hover:bg-[rgba(44,36,26,0.04)]";
 
 	return (
 		<li {...dsProps("NavItem", "1")}>
@@ -53,17 +65,17 @@ export function NavItem({
 						{icon}
 					</span>
 				)}
-				<span className="flex-1">{label}</span>
 				{statusDot && (
 					<span
-						className={`h-[6px] w-[6px] rounded-full shrink-0 ${STATUS_DOT_COLORS[statusDot]}`}
+						className={`h-[8px] w-[8px] rounded-full shrink-0 ${STATUS_DOT_COLORS[statusDot]}`}
 					/>
 				)}
+				<span className="flex-1 min-w-0 whitespace-nowrap overflow-hidden text-ellipsis">{label}</span>
 				{count != null && (
-					/* @lore K7 / AESTHETICS.md § Spacing & Density "Grid base unit" + § Typography
-					   "Body size (default)": px-[5px] → px-[4px] (off-grid), text-[10px] → text-[11px]
-					   (off-scale). 18px width retained — chip-internal sub-grid per same row. */
-					<span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-[3px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] font-[family-name:var(--font-mono)] text-[11px] font-medium text-[var(--text-secondary)]">
+					/* @lore visual-parity-audit: count badge matches HTML nav-item__count — 12px font,
+					   accent-primary color, accent-primary-dim bg (rgba(22,118,79,0.08)), 2px/6px padding,
+					   pill radius, min-w 18px. Previously used text-secondary color + mono font. */
+					<span className="inline-flex items-center justify-center min-w-[18px] px-[6px] py-[2px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[12px] font-[500] text-[var(--accent-primary)] text-center">
 						{count}
 					</span>
 				)}

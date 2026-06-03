@@ -4,7 +4,6 @@ import type { JSX, ReactNode } from "react";
 import { clickableProps } from "./clickable";
 import { dsProps } from "./ds-attrs";
 import { KeyValue } from "./KeyValue";
-import { Tag } from "./Tag";
 
 /**
  * @lore J5: BetCard gained portfolio-mode props (leadAvatar / activeBets /
@@ -190,11 +189,6 @@ export function BetCard({
 			>
 				{title}
 			</span>
-
-			{/* Team tag row — kept for backward compat with callers checking team display */}
-			<div className="flex items-center gap-[6px]">
-				<Tag label={team} />
-			</div>
 
 			{/* Description */}
 			{description && (

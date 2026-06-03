@@ -65,8 +65,8 @@ export function SettingsAppearance(): JSX.Element {
 	);
 
 	return (
-		<div className="flex flex-col gap-3">
-			<span className="text-[12px] text-[var(--text-secondary)]">Theme</span>
+		<div className="flex flex-col gap-[18px] max-w-none">
+			<span className="text-[13px] font-[500] text-[var(--text-primary)]">Theme</span>
 			<div className="flex items-center gap-3 flex-wrap">
 				{THEME_OPTIONS.map((option) => {
 					const isActive = theme === option.value;
@@ -78,28 +78,30 @@ export function SettingsAppearance(): JSX.Element {
 							aria-pressed={isActive}
 							aria-label={`${option.label} theme`}
 							className={[
-								"flex flex-col gap-1 items-start p-0 rounded-[var(--r-subtle)] overflow-hidden",
-								"border transition-colors duration-[var(--motion-fast)]",
-								"min-w-[100px] text-left",
+								"flex flex-col items-start p-0 rounded-[var(--r-default)] overflow-hidden",
+								"border-[1.5px] transition-colors duration-[var(--motion-fast)]",
+								"w-[120px] text-left cursor-pointer",
 								isActive
-									? "border-[var(--accent-primary)] bg-[color-mix(in_oklab,var(--accent-primary)_8%,transparent)]"
-									: "border-[var(--border-subtle)] bg-[var(--surface-container)] hover:border-[var(--border-default)]",
+									? "border-[var(--accent-primary)]"
+									: "border-[var(--border-default)] hover:border-[var(--border-strong)]",
 							].join(" ")}
+							style={
+								isActive
+									? { boxShadow: "0 0 0 3px rgba(22,118,79,0.1)" }
+									: undefined
+							}
 							onClick={() => handleThemeChange(option.value)}
 						>
-							{/* W3 AC-50: color swatch preview — ~60px tall, rounded top, no border */}
+							{/* W3 AC-50: color swatch preview — 48px tall, rounded top, no border */}
 							<div
 								data-testid={`theme-swatch-preview-${option.value}`}
 								aria-hidden="true"
-								className="w-full rounded-t-[var(--r-subtle)]"
-								style={{ height: "60px", ...swatchStyle(option.value) }}
+								className="w-full rounded-t-[var(--r-default)]"
+								style={{ height: "48px", ...swatchStyle(option.value) }}
 							/>
-							<div className="flex flex-col gap-[3px] px-[12px] py-[9px]">
-								<span className="text-[13px] font-medium text-[var(--text-primary)]">
+							<div className="px-[12px] py-[9px]">
+								<span className="text-[13px] font-[500] text-[var(--text-primary)]">
 									{option.label}
-								</span>
-								<span className="text-[11px] text-[var(--text-tertiary)]">
-									{option.description}
 								</span>
 							</div>
 						</button>

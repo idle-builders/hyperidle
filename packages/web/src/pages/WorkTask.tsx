@@ -18,7 +18,25 @@
  * external date library is needed.
  */
 
-import { StatusChip, taskStateToStatus } from "@hyperidle/design-system";
+
+
+/**
+ * LiveDot — 6px pulsing green circle shown next to active/in-progress states.
+ * Uses Tailwind's built-in `animate-pulse` (opacity 50%↔100% cycle, 2s).
+ *
+ * @lore visual-parity-audit D-30: The mockup shows a 6px green dot with
+ * pulse animation next to "In progress" / "Active" status text in the
+ * meta-strip. We use Tailwind animate-pulse which matches the 2s infinite
+ * opacity animation described in the audit.
+ */
+function LiveDot(): JSX.Element {
+	return (
+		<span
+			aria-hidden="true"
+			className="inline-block w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)] animate-pulse shrink-0"
+		/>
+	);
+}
 import type { JSX } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
@@ -201,10 +219,24 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 							<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
 								Status
 							</span>
-							<div className="mt-[3px]">
-								<StatusChip status={taskStateToStatus(task.state)} />
+							<div className="flex items-center gap-[6px] mt-[3px]">
+								{task.state === "in_progress" && <LiveDot />}
+								<span className="text-[13px] font-[500] text-[var(--text-primary)]">
+									{task.state === "in_progress"
+										? "In progress"
+										: task.state === "done"
+											? "Done"
+											: task.state === "blocked"
+												? "Blocked"
+												: task.state === "review"
+													? "In review"
+													: task.state === "hold"
+														? "On hold"
+														: task.state === "proposed" || task.state === "accepted"
+															? "Planned"
+															: task.state.replace(/_/g, " ")}
+								</span>
 							</div>
-							<span className="sr-only">{task.state.replace("_", " ")}</span>
 						</div>
 						{/* Started */}
 						{task.startedAt && (
@@ -262,28 +294,36 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 							<p className="text-[12px] text-[var(--text-tertiary)]">No sessions yet.</p>
 						) : (
 							<div className="flex flex-col">
-								{sessions.map((session) => (
-									<div
-										key={session.id}
-										data-testid="session-row"
-										className="flex items-center gap-[12px] py-[12px] border-b border-[var(--border-subtle)] last:border-b-0"
-									>
-										<div className="flex-1 min-w-0">
-											<div className="text-[14px] font-[500] text-[var(--text-primary)] truncate">
-												{session.title}
+								{sessions.map((session) => {
+									const isActive = session.status === "active";
+									return (
+										<div
+											key={session.id}
+											data-testid="session-row"
+											className="flex items-center gap-[12px] py-[12px] border-b border-[var(--border-subtle)] last:border-b-0"
+										>
+											<div className="flex-1 min-w-0">
+												<div className="text-[14px] font-[500] text-[var(--text-primary)] truncate">
+													{session.title}
+												</div>
+												<div className="text-[12px] text-[var(--text-tertiary)] truncate mt-[2px]">
+													{session.agent}
+												</div>
 											</div>
-											<div className="text-[12px] text-[var(--text-tertiary)] truncate mt-[2px]">
-												{session.agent}
+											{session.cost !== null && (
+												<span className="text-[12px] font-mono tabular-nums text-[var(--text-tertiary)]">
+													${((session.cost.minor ?? 0) / 100).toFixed(2)}
+												</span>
+											)}
+											<div className="flex items-center gap-[6px] shrink-0">
+												{isActive && <LiveDot />}
+												<span className="text-[12px] font-[500] text-[var(--text-secondary)]">
+													{isActive ? "Active" : session.status === "done" || session.status === "completed" ? "Done" : session.status}
+												</span>
 											</div>
 										</div>
-										{session.cost !== null && (
-											<span className="text-[12px] font-mono tabular-nums text-[var(--text-tertiary)]">
-												${((session.cost.minor ?? 0) / 100).toFixed(2)}
-											</span>
-										)}
-										<StatusChip status={taskStateToStatus(task.state)} />
-									</div>
-								))}
+									);
+								})}
 							</div>
 						)}
 					</section>
