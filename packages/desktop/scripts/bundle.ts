@@ -178,4 +178,20 @@ if (danglingRequires.length > 0) {
 	process.exit(1);
 }
 
+// TODO: after electron-builder runs, verify that every EXTERNALS entry
+// (currently @electric-sql/pglite) actually ended up in the asar. The current
+// pipeline silently skips missing globs — if pglite is hoisted to the workspace
+// root instead of packages/desktop/node_modules/, electron-builder includes
+// zero files and the app crashes at runtime with "Cannot find module". The fix
+// in commit 34d2f228 (adding pglite as a direct dep of @hyperidle/desktop)
+// papers over the hoisting issue, but the build should fail-fast if any
+// external is missing from the packaged output.
+//
+// Also: desktop uses PGlite (embedded WASM), server deploy uses postgres-js.
+// The pgStubPlugin stubs postgres/drizzle-orm/postgres-js at bundle time for
+// desktop. If a VPS/cloud server bundle script is added, it must do the
+// inverse: stub pglite and keep postgres-js. Keep these two build paths
+// explicitly separate — do not attempt a unified bundle that includes both
+// drivers.
+
 process.stdout.write("Desktop bundle complete. Validation passed.\n");
