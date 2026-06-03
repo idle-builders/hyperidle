@@ -16,22 +16,12 @@
  * array does not include the X3 config fields (soulPrompt, harnessType, etc.).
  */
 
+import { MODEL_TIERS, USER_ROLES } from "@hyperidle/shared";
 // hearth-internal-padding
-import { type JSX, useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 import { useToast } from "../shell/ToastRegion.js";
 import type { AgentConfig } from "./settings-types.js";
-
-const USER_ROLES = [
-	"builder",
-	"growth",
-	"product_manager",
-	"practice_facilitator",
-	"chief_of_staff",
-	"brand_voice",
-] as const;
-
-const MODEL_TIERS = ["reasoning", "workhorse", "fast"] as const;
 
 // ---------------------------------------------------------------------------
 // Edit form state
@@ -112,15 +102,35 @@ export function SettingsAgents(): JSX.Element {
 		return () => window.removeEventListener("keydown", handler);
 	}, []);
 
+	// AbortController ref for template fetches — cancels in-flight requests on
+	// rapid role changes so a stale response cannot overwrite a newer one.
+	const templateFetchAbortRef = useRef<AbortController | null>(null);
+
 	// Fetch template when role changes in add form
 	const fetchTemplate = useCallback(async (role: string): Promise<void> => {
+		// Abort any in-flight template fetch before starting a new one
+		if (templateFetchAbortRef.current) {
+			templateFetchAbortRef.current.abort();
+		}
+		const controller = new AbortController();
+		templateFetchAbortRef.current = controller;
 		try {
-			const res = await apiFetch(`/api/agents/templates/${encodeURIComponent(role)}`);
+			const res = await apiFetch(`/api/agents/templates/${encodeURIComponent(role)}`, {
+				signal: controller.signal,
+			});
 			if (!res.ok) return; // No template for this role — leave empty
 			const json = (await res.json()) as { role: string; content: string };
 			setAddValues((prev) => ({ ...prev, soulPrompt: json.content }));
-		} catch {
-			// Ignore — template fetch is best-effort
+		} catch (err) {
+			// Ignore abort errors — they are expected on rapid role changes.
+			// Re-throw anything else to avoid silently swallowing real failures.
+			if (err instanceof Error && err.name === "AbortError") return;
+			// Ignore network/parse errors — template fetch is best-effort
+		} finally {
+			// Clear the ref only if this controller is still the current one
+			if (templateFetchAbortRef.current === controller) {
+				templateFetchAbortRef.current = null;
+			}
 		}
 	}, []);
 
@@ -271,14 +281,16 @@ export function SettingsAgents(): JSX.Element {
 					</thead>
 					<tbody>
 						{agents.map((agent) => (
-							<>
-								<tr key={agent.id}>
+							<Fragment key={agent.id}>
+								<tr>
 									<td className="text-sm">{agent.name}</td>
-									<td className="text-sm font-mono text-[var(--text-secondary)]">{agent.role}</td>
-									<td className="text-sm text-[var(--text-secondary)]">
+									<td className="text-sm">
+										<span className="badge badge-sm badge-ghost font-mono">{agent.role}</span>
+									</td>
+									<td className="text-sm font-mono text-[var(--text-secondary)]">
 										{agent.harnessType ?? "Any"}
 									</td>
-									<td className="text-sm text-[var(--text-secondary)]">
+									<td className="text-sm font-mono text-[var(--text-secondary)]">
 										{agent.modelTierPreference ?? "Default"}
 									</td>
 									<td className="text-sm tabular-nums">{agent.activeSessions}</td>
@@ -316,7 +328,7 @@ export function SettingsAgents(): JSX.Element {
 								{editingId === agent.id && editValues && (
 									<tr key={`${agent.id}-edit`}>
 										<td colSpan={6}>
-											<div className="flex flex-col gap-2 p-3 border border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
+											<div className="flex flex-col gap-[12px] p-3 border border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
 												<div className="flex gap-2 flex-wrap">
 													<div className="form-control flex-1 min-w-[140px]">
 														<label className="label" htmlFor={`edit-name-${agent.id}`}>
@@ -440,7 +452,7 @@ export function SettingsAgents(): JSX.Element {
 													<textarea
 														id={`edit-soul-${agent.id}`}
 														className="textarea textarea-bordered text-sm"
-														rows={6}
+														rows={8}
 														value={editValues.soulPrompt}
 														onChange={(e) =>
 															setEditValues((prev) =>
@@ -474,7 +486,7 @@ export function SettingsAgents(): JSX.Element {
 										</td>
 									</tr>
 								)}
-							</>
+							</Fragment>
 						))}
 					</tbody>
 				</table>
@@ -588,7 +600,7 @@ export function SettingsAgents(): JSX.Element {
 						<textarea
 							id="add-agent-soul"
 							className="textarea textarea-bordered text-sm"
-							rows={6}
+							rows={8}
 							value={addValues.soulPrompt}
 							onChange={(e) => setAddValues((prev) => ({ ...prev, soulPrompt: e.target.value }))}
 							placeholder="Soul prompt text (optional). Changes with role selection."

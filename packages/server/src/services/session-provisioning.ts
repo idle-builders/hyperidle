@@ -18,6 +18,7 @@ import {
 	ConcurrencyLimitError,
 	CostCapExceededError,
 	type EventBus,
+	MODEL_TIERS,
 	type ModelTier,
 	type SessionHandle,
 	type SessionOutcome,
@@ -216,12 +217,12 @@ export async function provisionSession(
 
 	// X3: Model tier priority: explicit param > agent preference > default "workhorse".
 	// Runtime validation: modelTierPreference is a text column — validate before casting.
-	const MODEL_TIER_VALUES = ["reasoning", "workhorse", "fast"] as const;
+	// Uses MODEL_TIERS from @hyperidle/shared to avoid duplicating the canonical list.
 	const rawPreference = agent.modelTierPreference;
 	const agentPreference =
 		rawPreference !== null &&
 		rawPreference !== undefined &&
-		(MODEL_TIER_VALUES as readonly string[]).includes(rawPreference)
+		(MODEL_TIERS as readonly string[]).includes(rawPreference)
 			? (rawPreference as ModelTier)
 			: null;
 	const modelTier: ModelTier = params.modelTier ?? agentPreference ?? "workhorse";

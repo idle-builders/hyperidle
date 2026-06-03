@@ -29,6 +29,7 @@ const WorkerRegisterSchema = z.object({
 	name: z.string().min(1),
 	modelProviders: z.array(z.string()),
 	maxConcurrent: z.number().int().positive(),
+	harnessType: z.string().optional(),
 });
 
 const WorkerEventSchema = z.object({
