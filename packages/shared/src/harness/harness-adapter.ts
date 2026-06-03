@@ -19,6 +19,12 @@ export interface SessionConfig {
 	 * Optional for backward compatibility during migration.
 	 */
 	readonly resolvedModel?: ResolvedModel;
+	/**
+	 * X6: Resolved model for the "fast" tier, used by the built-in harness
+	 * for mid-session tier switching (summarization, formatting).
+	 * Optional — when absent, the harness uses the primary resolvedModel for all calls.
+	 */
+	readonly resolvedFastModel?: ResolvedModel;
 }
 
 export interface SessionHandle {
