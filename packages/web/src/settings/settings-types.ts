@@ -19,6 +19,7 @@ export type SettingsSectionId =
 	| "credentials"
 	| "notifications"
 	| "appearance"
+	| "models"
 	| "teams"
 	| "backend"
 	| "worker"
@@ -32,6 +33,7 @@ export interface SettingsSection {
 export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
 	{ id: "profile", label: "Profile" },
 	{ id: "orgchart", label: "Org chart" },
+	{ id: "models", label: "Models" },
 	{ id: "appearance", label: "Appearance" },
 	{ id: "credentials", label: "Credentials" },
 	{ id: "notifications", label: "Notifications" },

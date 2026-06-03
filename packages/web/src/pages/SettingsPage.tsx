@@ -15,6 +15,7 @@ import type { JSX } from "react";
 import { CredentialsTab } from "../components/CredentialsTab.js";
 import { SettingsAppearance } from "../settings/SettingsAppearance.js";
 import { SettingsBackend } from "../settings/SettingsBackend.js";
+import { SettingsModels } from "../settings/SettingsModels.js";
 import { SettingsNotifications } from "../settings/SettingsNotifications.js";
 import { SettingsOrgChart } from "../settings/SettingsOrgChart.js";
 import { SettingsProfile } from "../settings/SettingsProfile.js";
@@ -63,6 +64,16 @@ export function SettingsPage(): JSX.Element {
 					>
 						<SectionTitle>Org chart</SectionTitle>
 						<SettingsOrgChart />
+					</section>
+
+					{/* X4: Models section */}
+					<section
+						id="settings-section-models"
+						data-testid="settings-section-models"
+						className="flex flex-col gap-[18px]"
+					>
+						<SectionTitle>Models</SectionTitle>
+						<SettingsModels />
 					</section>
 
 					{/* W3 AC-47: Appearance section */}

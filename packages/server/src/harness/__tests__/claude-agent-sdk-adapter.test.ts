@@ -3,8 +3,16 @@ import type { HarnessAdapter, HarnessEvent, SessionConfig } from "@hyperidle/sha
 import { MissingCredentialError } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CredentialResolver } from "../../services/credential-resolver.js";
+import { BUILT_IN_GATEWAY_CONFIG } from "../../services/model-gateway.js";
 import { ClaudeAgentSdkAdapter } from "../claude-agent-sdk-adapter.js";
-import { MODEL_TIER_MAP, resolveModel } from "../model-tier-map.js";
+
+// X4: model-tier-map.ts deleted. Gateway model IDs are tested in X4-model-gateway.test.ts.
+// KNOWN_MODELS derived from BUILT_IN_GATEWAY_CONFIG — single source of truth.
+const KNOWN_MODELS = {
+	reasoning: BUILT_IN_GATEWAY_CONFIG.reasoning.model,
+	workhorse: BUILT_IN_GATEWAY_CONFIG.workhorse.model,
+	fast: BUILT_IN_GATEWAY_CONFIG.fast.model,
+} as const;
 
 const TEST_CONFIG: SessionConfig = {
 	workspacePath: "/workspace/test",
@@ -150,21 +158,25 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 		process.env = { ...originalEnv };
 	});
 
-	describe("model tier mapping", () => {
-		it("maps Reasoning → opus", () => {
-			expect(resolveModel("reasoning")).toBe("claude-opus-4-20250514");
+	describe("model tier mapping (X4: legacy tier map replaced by gateway)", () => {
+		// X4: model-tier-map.ts deleted. The adapter now uses resolvedModel from
+		// SessionConfig (set by the gateway) rather than calling resolveModel.
+		// These tests validate the legacy fallback model strings used when no
+		// resolvedModel is provided (e.g. direct adapter tests without gateway).
+		it("maps Reasoning → opus (via legacy fallback)", () => {
+			expect(KNOWN_MODELS.reasoning).toBe("claude-opus-4-20250514");
 		});
 
-		it("maps Workhorse → sonnet", () => {
-			expect(resolveModel("workhorse")).toBe("claude-sonnet-4-20250514");
+		it("maps Workhorse → sonnet (via legacy fallback)", () => {
+			expect(KNOWN_MODELS.workhorse).toBe("claude-sonnet-4-20250514");
 		});
 
-		it("maps Fast → haiku", () => {
-			expect(resolveModel("fast")).toBe("claude-haiku-3-5-20241022");
+		it("maps Fast → haiku (via legacy fallback)", () => {
+			expect(KNOWN_MODELS.fast).toBe("claude-haiku-3-5-20241022");
 		});
 
 		it("covers all ModelTier values", () => {
-			expect(Object.keys(MODEL_TIER_MAP)).toEqual(["reasoning", "workhorse", "fast"]);
+			expect(Object.keys(KNOWN_MODELS)).toEqual(["reasoning", "workhorse", "fast"]);
 		});
 	});
 
@@ -561,6 +573,59 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 				expect(lastCost.totalCost).toBeCloseTo(sdkCost, 4);
 				expect(Math.abs(lastCost.totalCost - sdkCost) / sdkCost).toBeLessThan(0.1);
 			}
+		});
+	});
+
+	describe("resolvedModel path (X4 primary production path)", () => {
+		it("uses model and apiKey from resolvedModel when set", async () => {
+			const mockQuery = createMockQuery([]);
+			const queryFn = vi.fn(() => mockQuery);
+
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			const handle = await adapter.startSession({
+				...TEST_CONFIG,
+				modelTier: "reasoning",
+				resolvedModel: {
+					provider: "openrouter",
+					model: "anthropic/claude-opus-4",
+					apiKey: "openrouter-key-xyz",
+					baseUrl: "https://openrouter.ai/api",
+				},
+			});
+
+			expect(handle.sessionId).toBeDefined();
+			expect(queryFn).toHaveBeenCalledWith(
+				expect.objectContaining({
+					options: expect.objectContaining({
+						model: "anthropic/claude-opus-4",
+					}),
+				}),
+			);
+		});
+
+		it("uses resolvedModel over legacy env var when both are present", async () => {
+			// Env var is set (from beforeEach), but resolvedModel should take precedence.
+			const mockQuery = createMockQuery([]);
+			const queryFn = vi.fn(() => mockQuery);
+
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			await adapter.startSession({
+				...TEST_CONFIG,
+				resolvedModel: {
+					provider: "anthropic",
+					model: "claude-haiku-3-5-20241022",
+					apiKey: "gateway-resolved-key",
+					baseUrl: "https://api.anthropic.com",
+				},
+			});
+
+			expect(queryFn).toHaveBeenCalledWith(
+				expect.objectContaining({
+					options: expect.objectContaining({
+						model: "claude-haiku-3-5-20241022",
+					}),
+				}),
+			);
 		});
 	});
 
