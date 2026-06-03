@@ -51,17 +51,18 @@ export class LocalWorkspaceAdapter implements WorkspaceAdapter {
 	private readonly workspaces = new Map<string, WorkspaceHandle>();
 
 	constructor() {
-		// @lore I2 review A3 / S4: refuse to operate in production. The local
-		// adapter executes commands directly on the host filesystem with no
-		// isolation; allowing it in production would let an agent escape
-		// the intended Docker boundary. The gate lives in the CONSTRUCTOR
-		// (not in `spawn()`) so any code path that constructs the adapter —
-		// including `exec()` / `destroy()` against a previously-minted
-		// handle — fails immediately. Type-only `import type` declarations
-		// do not run constructor code, so test ergonomics are unaffected.
-		if (process.env.NODE_ENV === "production") {
+		// @lore I2 review A3 / S4: refuse to operate on server deployments.
+		// The local adapter executes commands directly on the host filesystem
+		// with no isolation; allowing it on vps/cloud would let an agent
+		// escape the intended Docker boundary. The laptop profile (desktop
+		// app) is inherently local and must be allowed even in production
+		// (packaged Electron). The gate uses HYPERIDLE_PROFILE rather than
+		// NODE_ENV so the desktop app (laptop profile, NODE_ENV=production)
+		// is not blocked.
+		const profile = process.env.HYPERIDLE_PROFILE ?? "laptop";
+		if (process.env.NODE_ENV === "production" && profile !== "laptop") {
 			throw new Error(
-				"LocalWorkspaceAdapter is not allowed in production environments. Use DockerWorkspaceAdapter for isolated workspace execution.",
+				"LocalWorkspaceAdapter is not allowed in server environments. Use DockerWorkspaceAdapter for isolated workspace execution.",
 			);
 		}
 	}
