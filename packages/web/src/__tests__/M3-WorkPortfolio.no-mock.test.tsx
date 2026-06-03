@@ -20,7 +20,14 @@ vi.mock("../hooks/useTeams", () => ({
 	useTeams: vi.fn(),
 }));
 
+// Mock useBets — team pill filters are hidden in empty state (bets.length === 0)
+// so tests that need team names visible must return at least one bet.
+vi.mock("../hooks/useBets", () => ({
+	useBets: vi.fn().mockReturnValue({ bets: [], loading: false, refresh: vi.fn() }),
+}));
+
 import { useTeams } from "../hooks/useTeams";
+import { useBets } from "../hooks/useBets";
 
 function renderPage(
 	props: { loading?: boolean; products?: unknown } = {},
@@ -113,6 +120,25 @@ describe("M3 — WorkPortfolio: renders real data from useTeams (G1)", () => {
 				],
 			},
 		} as unknown as ReturnType<typeof useTeams>);
+
+		// @lore visual-parity: team pill filters are hidden in empty state (bets.length === 0).
+		// Return a bet for this team so the team name pill is visible.
+		vi.mocked(useBets).mockReturnValue({
+			bets: [
+				{
+					id: "b-real-1",
+					teamId: "p-real-1",
+					title: "Real Bet",
+					description: "Test bet",
+					status: "active",
+					costAppetite: null,
+					createdAt: "2026-01-01T00:00:00Z",
+					updatedAt: "2026-01-01T00:00:00Z",
+				},
+			],
+			loading: false,
+			refresh: vi.fn(),
+		} as unknown as ReturnType<typeof useBets>);
 
 		renderPage();
 

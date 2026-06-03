@@ -116,10 +116,26 @@ describe("WorkPortfolio", () => {
 	});
 
 	// R2 AC-7 behaviour replaced in U9: "New bet" btn-primary triggers dialog
-	// R9: EmptyState CTA also renders a "New bet" button when bets list is empty.
-	// Use data-testid="new-bet-btn" to target the header button specifically.
+	// @lore visual-parity: "New bet" header button hidden in empty state (bets.length === 0).
+	// Tests that need the header button must mock useBets with at least one bet.
 	describe("U9 AC-2 — New bet button", () => {
 		it('renders "New bet" button with btn-primary', () => {
+			// Provide a bet so the header "New bet" button is visible
+			mockUseBets.mockReturnValue({
+				bets: [
+					{
+						id: "bet-header-test",
+						title: "Header Bet",
+						teamId: "p1",
+						status: "active",
+						description: "Test bet",
+						costAppetite: null,
+					},
+				],
+				loading: false,
+				error: null,
+				refresh: vi.fn(),
+			});
 			renderPage();
 			// data-testid targets the header button (not the EmptyState CTA)
 			const btn = screen.getByTestId("new-bet-btn");
@@ -128,6 +144,22 @@ describe("WorkPortfolio", () => {
 		});
 
 		it('"New bet" opens BetCreateDialog when clicked', async () => {
+			// Provide a bet so the header "New bet" button is visible
+			mockUseBets.mockReturnValue({
+				bets: [
+					{
+						id: "bet-dialog-test",
+						title: "Dialog Bet",
+						teamId: "p1",
+						status: "active",
+						description: "Test bet",
+						costAppetite: null,
+					},
+				],
+				loading: false,
+				error: null,
+				refresh: vi.fn(),
+			});
 			const user = userEvent.setup();
 			renderPage();
 			// data-testid targets the header button (not the EmptyState CTA)

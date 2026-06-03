@@ -19,6 +19,9 @@ import { describe, expect, it, vi } from "vitest";
 import { Conversations } from "../pages/Conversations";
 
 // Minimal mock for OutletContext
+// @lore visual-parity: filter chips (Blocking, Unread) and "New thread" button are hidden
+// in empty state. Provide at least one thread so these controls are visible.
+// MOCK_THREAD must be defined inline (not as a const) because vi.mock is hoisted.
 vi.mock("react-router-dom", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("react-router-dom")>();
 	return {
@@ -28,7 +31,20 @@ vi.mock("react-router-dom", async (importOriginal) => {
 			onFilterChange: vi.fn(),
 			onClearFilter: vi.fn(),
 			onNewThread: vi.fn(),
-			threads: [],
+			threads: [
+				{
+					id: "t-hearth-test",
+					hostKind: "task",
+					hostId: "h-1",
+					initiatorId: "u-test",
+					participants: ["u-test", "agent-1"],
+					pinned: false,
+					resolvedAt: null,
+					lastActiveAt: "2026-04-30T12:00:00.000Z",
+					createdAt: "2026-04-30T12:00:00.000Z",
+					hasUnresolvedReview: false,
+				},
+			],
 			threadsStatus: "idle",
 			threadsError: null,
 			onRetryThreads: vi.fn(),

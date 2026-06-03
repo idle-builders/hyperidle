@@ -35,6 +35,8 @@ export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
 	{ id: "appearance", label: "Appearance" },
 	{ id: "credentials", label: "Credentials" },
 	{ id: "notifications", label: "Notifications" },
+	// @lore U1: "products" renamed to "teams". Retained as sidebar nav item (no page section).
+	{ id: "teams", label: "Teams" },
 	{ id: "backend", label: "Backend" },
 ];
 

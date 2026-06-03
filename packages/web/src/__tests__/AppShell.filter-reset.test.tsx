@@ -5,6 +5,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "../layouts/AppShell";
 import { Conversations } from "../pages/Conversations";
 
+// @lore visual-parity: filter chips (Blocking, Unread) are hidden in empty state.
+// We need at least one thread so the chips are visible and clickable.
+const ONE_THREAD = {
+	id: "t-filter-test",
+	hostKind: "task",
+	hostId: "h-1",
+	initiatorId: "u-test",
+	participants: ["u-test", "agent-1"],
+	pinned: false,
+	resolvedAt: null,
+	lastActiveAt: "2026-04-30T12:00:00.000Z",
+	createdAt: "2026-04-30T12:00:00.000Z",
+	hasUnresolvedReview: false,
+};
+
 beforeEach(() => {
 	// L8: AppShell fetches /api/threads on mount — stub it for this suite.
 	// Must return a valid user so useCurrentUser resolves participantId.
@@ -18,7 +33,8 @@ beforeEach(() => {
 		}
 		return {
 			ok: true,
-			json: async () => ({ threads: [], nextCursor: null }),
+			// Return one thread so filter chips are visible (hidden in empty state)
+			json: async () => ({ threads: [ONE_THREAD], nextCursor: null }),
 		} as Response;
 	}) as unknown as typeof fetch;
 });

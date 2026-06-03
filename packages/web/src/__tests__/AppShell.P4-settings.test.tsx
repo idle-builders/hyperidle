@@ -123,8 +123,8 @@ describe("AppShell — P4 Settings overlay", () => {
 			// appear in both the Sidebar NavItems AND the SettingsPage headings.
 			// Use getAllByText(...).length >= 1 to handle duplicates gracefully.
 			expect(screen.getAllByText("Profile").length).toBeGreaterThanOrEqual(1);
-			// These appear in sidebar NavItems even if not in SettingsPage:
-			expect(screen.getByText("Org Chart")).toBeInTheDocument();
+			// "Org chart" may appear in both sidebar NavItem AND SettingsPage section heading
+			expect(screen.getAllByText("Org chart").length).toBeGreaterThanOrEqual(1);
 			// "Credentials" may appear in both sidebar NavItem AND SettingsPage section heading
 			expect(screen.getAllByText("Credentials").length).toBeGreaterThanOrEqual(1);
 			// "Notifications" now appears in both sidebar NavItem AND SettingsPage section heading
