@@ -13,6 +13,7 @@ import { corsMiddleware } from "./middleware/cors.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { createRateLimiter } from "./middleware/rate-limit.js";
 import { createAgentRoutes } from "./routes/agents.js";
+import { createModelGatewayRoutes } from "./routes/model-gateway.js";
 import { createArtifactRoutes } from "./routes/artifacts.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { createPublicAuthRoutes } from "./routes/auth-public.js";
@@ -374,6 +375,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
 		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
 		api.route("/agents", createAgentRoutes(options.db));
+		api.route("/model-gateway", createModelGatewayRoutes(options.db));
 		api.route("/teams", createTeamRoutes(options.db, eventBus));
 		api.route("/bets", createBetRoutes(options.db, eventBus));
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));

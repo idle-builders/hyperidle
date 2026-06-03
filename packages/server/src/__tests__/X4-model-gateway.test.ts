@@ -27,7 +27,7 @@ import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CredentialResolver } from "../services/credential-resolver.js";
 import {
-	DEFAULT_GATEWAY_CONFIG,
+	BUILT_IN_GATEWAY_CONFIG as DEFAULT_GATEWAY_CONFIG,
 	resolveModelTier,
 } from "../services/model-gateway.js";
 import { createTestApp } from "../test-utils.js";
@@ -42,9 +42,7 @@ function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
 }
 
-function makeResolver(
-	entries: Record<string, string | null>,
-): CredentialResolver {
+function makeResolver(entries: Record<string, string | null>): CredentialResolver {
 	return {
 		resolve: vi.fn(async (name: string) => entries[name] ?? null),
 	};
@@ -69,11 +67,7 @@ describe("X4: resolveModelTier — anthropic provider", () => {
 
 	it("resolves reasoning tier with claude-opus model", async () => {
 		const resolver = makeResolver({ anthropic_api_key: "ant-key-reasoning" });
-		const result = await resolveModelTier(
-			"reasoning",
-			DEFAULT_GATEWAY_CONFIG,
-			resolver,
-		);
+		const result = await resolveModelTier("reasoning", DEFAULT_GATEWAY_CONFIG, resolver);
 
 		expect(result.provider).toBe("anthropic");
 		expect(result.model).toBe("claude-opus-4-20250514");
@@ -83,11 +77,7 @@ describe("X4: resolveModelTier — anthropic provider", () => {
 
 	it("resolves fast tier with claude-haiku model", async () => {
 		const resolver = makeResolver({ anthropic_api_key: "ant-key-fast" });
-		const result = await resolveModelTier(
-			"fast",
-			DEFAULT_GATEWAY_CONFIG,
-			resolver,
-		);
+		const result = await resolveModelTier("fast", DEFAULT_GATEWAY_CONFIG, resolver);
 
 		expect(result.provider).toBe("anthropic");
 		expect(result.model).toBe("claude-haiku-3-5-20241022");
@@ -98,9 +88,9 @@ describe("X4: resolveModelTier — anthropic provider", () => {
 	it("throws MissingCredentialError when anthropic_api_key is missing", async () => {
 		const resolver = makeResolver({ anthropic_api_key: null });
 
-		await expect(
-			resolveModelTier("workhorse", DEFAULT_GATEWAY_CONFIG, resolver),
-		).rejects.toThrow(MissingCredentialError);
+		await expect(resolveModelTier("workhorse", DEFAULT_GATEWAY_CONFIG, resolver)).rejects.toThrow(
+			MissingCredentialError,
+		);
 	});
 
 	it("MissingCredentialError message identifies provider and tier", async () => {
@@ -148,9 +138,9 @@ describe("X4: resolveModelTier — openrouter provider", () => {
 		};
 		const resolver = makeResolver({ openrouter_api_key: null });
 
-		await expect(
-			resolveModelTier("workhorse", config, resolver),
-		).rejects.toThrow(MissingCredentialError);
+		await expect(resolveModelTier("workhorse", config, resolver)).rejects.toThrow(
+			MissingCredentialError,
+		);
 	});
 });
 
@@ -187,9 +177,9 @@ describe("X4: resolveModelTier — openai-compatible provider", () => {
 		};
 		const resolver = makeResolver({});
 
-		await expect(
-			resolveModelTier("fast", config, resolver),
-		).rejects.toThrow(MissingCredentialError);
+		await expect(resolveModelTier("fast", config, resolver)).rejects.toThrow(
+			MissingCredentialError,
+		);
 	});
 
 	it("throws when openai-compatible has no baseUrl (A-ERR-2)", async () => {
@@ -204,9 +194,7 @@ describe("X4: resolveModelTier — openai-compatible provider", () => {
 		};
 		const resolver = makeResolver({});
 
-		await expect(
-			resolveModelTier("fast", config, resolver),
-		).rejects.toThrow(/baseUrl/i);
+		await expect(resolveModelTier("fast", config, resolver)).rejects.toThrow(/baseUrl/i);
 	});
 });
 
@@ -221,16 +209,12 @@ describe("X4: DEFAULT_GATEWAY_CONFIG matches current MODEL_TIER_MAP values", () 
 	// exact model IDs that were in MODEL_TIER_MAP before X4 replaced it.
 	it("reasoning tier defaults to claude-opus-4-20250514 via anthropic", () => {
 		expect(DEFAULT_GATEWAY_CONFIG.reasoning.provider).toBe("anthropic");
-		expect(DEFAULT_GATEWAY_CONFIG.reasoning.model).toBe(
-			"claude-opus-4-20250514",
-		);
+		expect(DEFAULT_GATEWAY_CONFIG.reasoning.model).toBe("claude-opus-4-20250514");
 	});
 
 	it("workhorse tier defaults to claude-sonnet-4-20250514 via anthropic", () => {
 		expect(DEFAULT_GATEWAY_CONFIG.workhorse.provider).toBe("anthropic");
-		expect(DEFAULT_GATEWAY_CONFIG.workhorse.model).toBe(
-			"claude-sonnet-4-20250514",
-		);
+		expect(DEFAULT_GATEWAY_CONFIG.workhorse.model).toBe("claude-sonnet-4-20250514");
 	});
 
 	it("fast tier defaults to claude-haiku-3-5-20241022 via anthropic", () => {
@@ -265,10 +249,7 @@ describe("X4: GET /api/model-gateway", () => {
 
 		expect(res.status).toBe(200);
 
-		const body = (await res.json()) as Record<
-			string,
-			{ provider: string; model: string }
-		>;
+		const body = (await res.json()) as Record<string, { provider: string; model: string }>;
 		expect(body.reasoning.provider).toBe("anthropic");
 		expect(body.reasoning.model).toBe("claude-opus-4-20250514");
 		expect(body.workhorse.provider).toBe("anthropic");
@@ -381,10 +362,7 @@ describe("X4: PATCH /api/model-gateway", () => {
 		const getRes = await app.request("/api/model-gateway", {
 			headers: authHeaders(),
 		});
-		const body = (await getRes.json()) as Record<
-			string,
-			{ provider: string; model: string }
-		>;
+		const body = (await getRes.json()) as Record<string, { provider: string; model: string }>;
 		expect(body.workhorse.provider).toBe("openrouter");
 		expect(body.workhorse.model).toBe("anthropic/claude-sonnet-4");
 	});
@@ -503,10 +481,7 @@ describe("X4: ServerConfig modelGateway field defaults", () => {
 		});
 		expect(res.status).toBe(200);
 
-		const body = (await res.json()) as Record<
-			string,
-			{ provider: string; model: string }
-		>;
+		const body = (await res.json()) as Record<string, { provider: string; model: string }>;
 		// All three tiers should be anthropic direct (default)
 		for (const tier of ["reasoning", "workhorse", "fast"] as const) {
 			expect(body[tier].provider).toBe("anthropic");
@@ -531,10 +506,7 @@ describe("X4: ServerConfig modelGateway field defaults", () => {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<
-			string,
-			{ provider: string; model: string }
-		>;
+		const body = (await res.json()) as Record<string, { provider: string; model: string }>;
 		expect(body.reasoning.provider).toBe("openrouter");
 		expect(body.reasoning.model).toBe("anthropic/claude-opus");
 	});

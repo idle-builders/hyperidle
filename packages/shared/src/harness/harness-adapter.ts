@@ -2,6 +2,7 @@
 
 import type { TokenUsage, WireMoney } from "../types/money.js";
 import type { ModelTier } from "../types.js";
+import type { ResolvedModel } from "../model-gateway.js";
 import type { HarnessEvent } from "./harness-events.js";
 
 export interface SessionConfig {
@@ -12,6 +13,12 @@ export interface SessionConfig {
 	readonly composedPrompt: string;
 	readonly modelTier: ModelTier;
 	readonly tools: readonly string[];
+	/**
+	 * X4: Resolved model configuration from the gateway.
+	 * When present, adapters use this instead of looking up by modelTier.
+	 * Optional for backward compatibility during migration.
+	 */
+	readonly resolvedModel?: ResolvedModel;
 }
 
 export interface SessionHandle {

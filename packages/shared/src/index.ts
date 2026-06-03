@@ -1,5 +1,13 @@
 export type { ApiErrorCode, ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
+// ── X4: Model Gateway ──
+export type {
+	ModelGatewayConfig,
+	ModelProvider,
+	ModelTierConfig,
+	ResolvedModel,
+} from "./model-gateway.js";
+export { MODEL_PROVIDERS } from "./model-gateway.js";
 // ── S1: Per-user auth types ──
 export type { InviteRole } from "./auth.js";
 export { INVITE_CODE_TTL_MS, INVITE_ROLES, LOGIN_SESSION_TTL_MS } from "./auth.js";

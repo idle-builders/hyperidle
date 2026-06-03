@@ -4,6 +4,7 @@ import {
 	ConcurrencyLimitError,
 	CostCapExceededError,
 	type EventBus,
+	MissingCredentialError,
 	type SessionEndedEvent,
 	type SessionOutcome,
 	type SessionStartedEvent,
@@ -16,8 +17,10 @@ import type { WorkspaceAdapter } from "../harness/workspace-adapter.js";
 import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
 import { validateBody } from "../middleware/validate.js";
 import type { CredentialResolver } from "../services/credential-resolver.js";
+import { resolveModelTier } from "../services/model-gateway.js";
 import type { SessionActivityBuffer } from "../services/session-activity-buffer.js";
 import { provisionSession } from "../services/session-provisioning.js";
+import { readServerConfig } from "../services/server-config.js";
 
 // @lore O2: harnessUrl, tokensInput, tokensOutput fields removed from session
 // schemas. Those columns were stripped from the sessions kernel table as part
@@ -109,16 +112,36 @@ export function createSessionRoutes(
 
 		// ── Full provisionSession path (adapters present) ─────────────────────
 		if (deps?.adapterPool && deps.workspaceAdapter) {
-			// AC6/AC7: credential pre-flight — must fail BEFORE any DB write.
-			const apiKey = await deps.credentialResolver?.resolve("anthropic_api_key");
-			if (apiKey == null) {
-				return c.json(
-					{
-						error: "Missing ANTHROPIC_API_KEY credential",
-						code: "MISSING_CREDENTIAL",
-					},
-					500,
-				);
+			// X4 A-IMP-1: credential pre-flight via gateway — must fail BEFORE any DB write.
+			// The gateway resolves the correct credential name based on the configured provider,
+			// replacing the hardcoded "anthropic_api_key" check. If no credentialResolver is
+			// wired (local mode), resolveModelTier uses the apiKey from the tier config directly
+			// (for openai-compatible) or falls back to a no-op resolver that always returns null.
+			//
+			// @lore X4: In local mode (no credentialResolver), the adapter reads from process.env.
+			// The pre-flight here is a best-effort check — it catches shared-mode missing credentials
+			// early. Local mode may proceed with null from the resolver if the key is in env.
+			let resolvedModel: import("@hyperidle/shared").ResolvedModel | undefined;
+			if (deps.credentialResolver) {
+				try {
+					const serverCfg = await readServerConfig(db);
+					resolvedModel = await resolveModelTier(
+						body.modelTier,
+						serverCfg.modelGateway,
+						deps.credentialResolver,
+					);
+				} catch (err) {
+					if (err instanceof MissingCredentialError) {
+						return c.json(
+							{
+								error: err.message,
+								code: "MISSING_CREDENTIAL",
+							},
+							500,
+						);
+					}
+					throw err;
+				}
 			}
 
 			// Look up task to get productId.
@@ -146,6 +169,8 @@ export function createSessionRoutes(
 						productId: task.teamId,
 						modelTier: body.modelTier,
 						workspaceBasePath,
+						// X4: Pass resolved model so adapter uses the correct provider.
+						resolvedModel,
 					},
 				);
 

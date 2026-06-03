@@ -8,8 +8,11 @@
  */
 
 import { type HyperIdleDb, serverConfig } from "@hyperidle/db";
+import type { ModelGatewayConfig } from "@hyperidle/shared";
+import { MODEL_PROVIDERS } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { BUILT_IN_GATEWAY_CONFIG } from "./model-gateway.js";
 
 /**
  * @lore P3: The notifications sub-schema is defined separately so we can
@@ -45,6 +48,30 @@ const NotificationsSchema = z.object({
 });
 
 /**
+ * X4: Per-tier model configuration schema — used within the ModelGateway schema.
+ *
+ * @lore X4 A-SEC-1: The PATCH endpoint uses the global rate limiter (60 req/min).
+ * The model-gateway PATCH effectively becomes a credential mutation endpoint when
+ * storing openai-compatible apiKey. The global limiter is sufficient because:
+ * (a) the endpoint is authenticated (X-API-Key), (b) a dedicated limiter would
+ * require restructuring the route registration. A future hardening pass could
+ * add a mutateLimiter mirroring the credentials route.
+ */
+const ModelTierConfigSchema = z.object({
+	provider: z.enum(MODEL_PROVIDERS),
+	model: z.string().min(1),
+	baseUrl: z.string().url().optional(),
+	/** X4 A-TYPE-1: apiKey only for openai-compatible — stripped from GET responses. */
+	apiKey: z.string().optional(),
+});
+
+const ModelGatewayConfigSchema = z.object({
+	reasoning: ModelTierConfigSchema,
+	workhorse: ModelTierConfigSchema,
+	fast: ModelTierConfigSchema,
+});
+
+/**
  * @lore P3: notifications is optional in the raw DB JSON schema. We handle
  * the missing/empty case by merging with NOTIFICATION_DEFAULTS in read/write.
  * We do NOT use .default({}) here because in Zod v4, .default(value) uses the
@@ -55,12 +82,16 @@ const NotificationsSchema = z.object({
 const ServerConfigSchema = z.object({
 	/** Notification preferences (migrated from factorySettings). */
 	notifications: NotificationsSchema.optional(),
+	/** X4: Model gateway configuration (provider per tier). Optional — defaults to BUILT_IN_GATEWAY_CONFIG. */
+	modelGateway: ModelGatewayConfigSchema.optional(),
 });
 
 type RawServerConfig = z.infer<typeof ServerConfigSchema>;
 
 export type ServerConfig = {
 	notifications: z.infer<typeof NotificationsSchema>;
+	/** X4: Fully-typed model gateway config (always present, defaults applied). */
+	modelGateway: ModelGatewayConfig;
 };
 
 /** Deep partial type for use in updateServerConfig patches. */
@@ -77,6 +108,8 @@ type DeepPartialNotifications = {
 
 type ServerConfigPatch = {
 	notifications?: DeepPartialNotifications;
+	/** X4: Full replacement — not deep merged. 3 tiers is the complete shape. */
+	modelGateway?: ModelGatewayConfig;
 };
 
 /**
@@ -89,6 +122,7 @@ type ServerConfigPatch = {
  */
 const DEFAULTS: ServerConfig = {
 	notifications: NotificationsSchema.parse({}),
+	modelGateway: BUILT_IN_GATEWAY_CONFIG,
 };
 
 /**
@@ -99,6 +133,9 @@ const DEFAULTS: ServerConfig = {
 function applyDefaults(raw: RawServerConfig): ServerConfig {
 	return {
 		notifications: NotificationsSchema.parse(raw.notifications ?? {}),
+		modelGateway: raw.modelGateway
+			? (ModelGatewayConfigSchema.parse(raw.modelGateway) as ModelGatewayConfig)
+			: BUILT_IN_GATEWAY_CONFIG,
 	};
 }
 
@@ -142,6 +179,8 @@ export async function updateServerConfig(
 			patch.notifications !== undefined
 				? { ...current.notifications, ...patch.notifications }
 				: current.notifications,
+		// X4: Full replacement — 3 tiers is the complete shape, no deep merge needed.
+		modelGateway: patch.modelGateway !== undefined ? patch.modelGateway : current.modelGateway,
 	};
 
 	const now = new Date().toISOString();
@@ -166,4 +205,4 @@ export async function updateServerConfig(
 	return merged;
 }
 
-export { NotificationsSchema, ServerConfigSchema };
+export { ModelGatewayConfigSchema, ModelTierConfigSchema, NotificationsSchema, ServerConfigSchema };

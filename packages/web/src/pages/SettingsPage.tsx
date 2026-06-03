@@ -15,6 +15,7 @@ import type { JSX } from "react";
 import { SettingsAgents } from "../settings/SettingsAgents.js";
 import { SettingsAppearance } from "../settings/SettingsAppearance.js";
 import { SettingsBackend } from "../settings/SettingsBackend.js";
+import { SettingsModels } from "../settings/SettingsModels.js";
 import { SettingsOrgChart } from "../settings/SettingsOrgChart.js";
 import { SettingsProfile } from "../settings/SettingsProfile.js";
 
@@ -42,6 +43,12 @@ export function SettingsPage(): JSX.Element {
 				<section data-testid="settings-section-agents" className="flex flex-col gap-3">
 					<h2 className="text-[15px] font-semibold text-[var(--text-primary)]">Agents</h2>
 					<SettingsAgents />
+				</section>
+
+				{/* X4: Models section */}
+				<section data-testid="settings-section-models" className="flex flex-col gap-3">
+					<h2 className="text-[15px] font-semibold text-[var(--text-primary)]">Models</h2>
+					<SettingsModels />
 				</section>
 
 				{/* W3 AC-47: Appearance section */}

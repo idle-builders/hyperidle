@@ -129,15 +129,11 @@ describe("X4 AC: SettingsModels renders 3 tier rows", () => {
 		render(<SettingsModels />);
 
 		await waitFor(() => {
-			expect(
-				screen.getByText(/claude-opus-4-20250514/i),
-			).toBeInTheDocument();
-			expect(
-				screen.getByText(/claude-sonnet-4-20250514/i),
-			).toBeInTheDocument();
-			expect(
-				screen.getByText(/claude-haiku-3-5-20241022/i),
-			).toBeInTheDocument();
+			// Model names appear as option text in the select dropdowns —
+			// use getAllByText since each model name may appear in multiple option elements.
+			expect(screen.getAllByText(/claude-opus-4-20250514/i).length).toBeGreaterThanOrEqual(1);
+			expect(screen.getAllByText(/claude-sonnet-4-20250514/i).length).toBeGreaterThanOrEqual(1);
+			expect(screen.getAllByText(/claude-haiku-3-5-20241022/i).length).toBeGreaterThanOrEqual(1);
 		});
 	});
 });
@@ -168,15 +164,13 @@ describe("X4 AC: SettingsModels loading and error states", () => {
 	it("shows error message on fetch failure", async () => {
 		vi.stubGlobal(
 			"fetch",
-			vi
-				.fn()
-				.mockImplementation(() =>
-					Promise.resolve({
-						ok: false,
-						status: 500,
-						json: async () => ({ error: "Internal server error" }),
-					}),
-				),
+			vi.fn().mockImplementation(() =>
+				Promise.resolve({
+					ok: false,
+					status: 500,
+					json: async () => ({ error: "Internal server error" }),
+				}),
+			),
 		);
 
 		render(<SettingsModels />);
@@ -315,10 +309,7 @@ describe("X4 AC: SettingsModels auto-saves via PATCH", () => {
 					}
 					if (opts?.method === "PATCH") {
 						// Return the body as saved config (with hasApiKey added)
-						const body = JSON.parse(opts.body as string) as Record<
-							string,
-							Record<string, unknown>
-						>;
+						const body = JSON.parse(opts.body as string) as Record<string, Record<string, unknown>>;
 						return Promise.resolve({
 							ok: true,
 							status: 200,
