@@ -24,8 +24,7 @@
 			"@hyperidle/fabric": ["./packages/fabric/src"],
 			"@hyperidle/design-system": ["./packages/design-system/src"],
 			"@hyperidle/api-contract": ["./packages/api-contract/src"],
-			"@hyperidle/desktop": ["./packages/desktop/src"],
-			"@hyperidle/eval": ["./packages/eval/src"]
+			"@hyperidle/desktop": ["./packages/desktop/src"]
 		}
 	},
 	"references": [
@@ -36,8 +35,7 @@
 		{ "path": "packages/design-system" },
 		{ "path": "packages/eslint-plugin-design" },
 		{ "path": "packages/api-contract" },
-		{ "path": "packages/desktop" },
-		{ "path": "packages/eval" }
+		{ "path": "packages/desktop" }
 	],
 	"include": [],
 	"exclude": ["node_modules", "dist"]
