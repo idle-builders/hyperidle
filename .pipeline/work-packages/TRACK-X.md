@@ -267,49 +267,99 @@ _Best-practice harness patterns:_
 
 ---
 
-### X7 — E2E Eval Framework
+### X7 — Eval Framework
 
-**Workpackage.** As a developer working on HyperIdle, I want an eval framework that proves agent sessions actually work end-to-end — dispatching real tasks through real harnesses, verifying that tools are called, knowledge is written, tasks are created, and sessions complete — so that we catch integration failures before they reach users.
+**Workpackage.** As a founder, I want the infrastructure to benchmark whether HyperIdle — the full stack of soul prompts, prompt composition, knowledge materialization, tool definitions, and the agent harness loop — actually makes agents do the right thing. This workpackage builds the eval runner, scoring engine, seeding infrastructure, report format, and model comparison matrix. It ships with one proof-of-concept scenario to validate the framework works end-to-end. The full scenario library is X8.
+
+When an eval score is low, the fix is in HyperIdle's code — better tool descriptions, better soul prompts, better knowledge injection, better harness logic. The eval is the tuning instrument for the system. X7 builds the instrument; X8 writes the sheet music.
 
 **Depends on.**
-- X1 (Session Prompt Composition): Agents need real prompts to do useful work in evals.
-- X6 (Built-in Harness): The eval suite needs at least one harness that works without external dependencies.
+- X1 (Session Prompt Composition): Agents need real composed prompts.
+- X6 (Built-in Harness): At least one harness must execute real multi-turn agent loops.
 
 **Complexity.** L
 
 **Acceptance criteria.**
-- An eval runner (`npm run eval`) executes a suite of eval scenarios against a real (but ephemeral) database with seeded data.
-- Each eval scenario defines: a seeded world state (team, agents, bets, tasks, knowledge), a session trigger (which agent, which task), expected outcomes (tasks created, messages sent, knowledge written, session completed), and a pass/fail assertion.
-- At least five eval scenarios covering diverse task types:
-  - **Knowledge task:** Agent reads context, writes session notes and a knowledge item. Verify: knowledge item exists in DB, session notes persisted.
-  - **Coordination task:** Agent creates subtasks and sends a review message. Verify: tasks exist, review message in thread, pending verdict.
-  - **Synthesis task:** Agent reads multiple knowledge items, produces a summary artifact. Verify: artifact created with correct content type.
-  - **Handoff task:** Agent works on a task, hits a conceptual blocker, hands off to another agent. Verify: handoff recorded, task reassigned.
-  - **Cost-bounded task:** Agent works within a cost cap. Verify: session ends before cap is breached, cost recorded correctly.
-- Eval results are written to a structured JSON report (`eval-results.json`) with per-scenario pass/fail, duration, cost, and failure details.
-- Evals can run against the built-in harness (X6) without any external dependencies or API keys (using a mock LLM that returns scripted responses).
-- Evals can optionally run against a real LLM (gated by `ANTHROPIC_API_KEY` or `OPENROUTER_API_KEY` presence) for live validation.
+- An eval runner (`npm run eval`) executes eval scenarios against a real (but ephemeral) database with seeded data, using **real LLM calls** through the full provisioning pipeline. An API key is required — there is no mock mode.
+- The framework defines the `EvalScenario` contract that X8 scenarios implement:
+  - A **seeding function** that populates a realistic world state: team, agents with soul prompts and role-appropriate tool access, bets, tasks, knowledge items across the five layers (L0–L4), threads with history.
+  - A **trigger** that assigns a task to an agent and runs a real session through `provisionSession` → harness → LLM → tool calls → DB writes.
+  - A **scoring rubric** with named dimensions that a judge (LLM-as-judge, rule-based DB checks, or a combination) evaluates after the session completes. Dimensions score the agent's decisions, not just outputs: tool selection correctness, role-appropriate strategy, output quality, session note completeness, cost discipline, harmful action absence.
+- A **scoring engine** that runs the rubric against the post-session DB state and produces per-dimension scores (not just pass/fail). A scenario can partially succeed.
+- A **seeding library** with composable helpers for building realistic world states (create team, add agent with soul prompt, create bet with tasks, seed knowledge layers, create threads). Scenarios in X8 compose these helpers — they don't each reinvent DB seeding.
+- Eval results are written to a structured JSON report (`eval-results.json`) with per-scenario rubric scores, duration, token usage by tier, cost, model used, and qualitative notes from the judge.
+- The runner supports `--model <model-id>` to run the same scenarios against different models, producing a comparison matrix.
+- A `--quick` mode runs a subset of scenarios. Full mode runs all.
+- **One proof-of-concept scenario** ships with the framework to validate the full loop works: seeding → provisioning → real LLM session → tool execution → scoring → report. The scenario should exercise a simple but representative workflow (e.g., an agent given a task that requires writing session notes and creating a knowledge item). This is not a throwaway — it becomes part of X8's library.
 
 **Validation scenarios.**
-- Given `npm run eval` is executed with no API keys, when the eval suite runs, then all scenarios pass using the mock LLM and the eval report shows all green.
-- Given `npm run eval` is executed with `ANTHROPIC_API_KEY` set, when the eval suite runs with `--live` flag, then scenarios execute against the real API and the report shows pass/fail with actual costs.
-- Given an eval scenario expects a knowledge item to be created, when the agent session completes, then the eval asserts the item exists in the test DB with the expected layer and scope.
-- Given an eval scenario for cost-bounded work, when the session runs, then cost tracking is verified against the expected cap behavior.
+- Given `npm run eval` is executed with an API key, when the proof-of-concept scenario runs, then a real agent session executes through the full provisioning pipeline, and the report contains rubric scores with per-dimension breakdown.
+- Given `npm run eval -- --model claude-sonnet-4-6` and then `npm run eval -- --model claude-haiku-4-5`, the reports show different scores for the same scenario, demonstrating the comparison matrix works.
+- Given a new scenario file is added to the scenarios directory, when `npm run eval` runs, then it discovers and executes the new scenario without any framework changes.
 
-**Plan calls.** Architecture pass should define: eval runner infrastructure (reuse Vitest or standalone script), test DB lifecycle (per-scenario or shared), mock LLM interface (scripted responses with tool_use blocks), eval scenario DSL or structure, and how live evals gate on API key availability. No /design step.
+**Plan calls.** Architecture pass should: (1) define the `EvalScenario` contract (seeding, trigger, rubric, judge interface); (2) define the scoring rubric structure — what dimensions, how scored, how aggregated; (3) design the composable seeding library; (4) determine the eval runner infrastructure (standalone script, scenario discovery, serial execution, report generation); (5) design the model comparison matrix output; (6) define the proof-of-concept scenario. No /design step.
 
 **Contracts / constraints.**
-- Evals are not unit tests — they exercise the full provisioning → harness → tool → DB path. They live in a separate directory (`packages/eval/` or `eval/`).
-- Mock LLM responses are hand-crafted per scenario to exercise specific tool-calling paths.
-- Evals must be deterministic when using the mock LLM (no flakiness from real API variability).
-- Live evals are opt-in and clearly labeled in the report.
-- Eval scenarios are additive — new scenarios can be added without modifying the framework.
+- **Nothing is mocked.** The eval runs the real application. Real database (ephemeral but full-schema Postgres via PGlite). Real provisioning pipeline (`provisionSession` with all 11 phases). Real knowledge materialization (L0–L4 layers queried and written to real workspace directories). Real prompt composition (soul prompt + context + tools assembled exactly as production does). Real harness agent loop (multi-turn LLM calls with real tool dispatch). Real tool execution (Zod-validated, writing to the real DB). Real file watchers, real workspace teardown, real cost tracking accumulated on real bet rows. If any layer is stubbed, mocked, or short-circuited, it is not an eval — it is a test, and it does not belong here.
+- **Evals are not tests.** Tests are deterministic, scripted, and run in CI. Evals require real LLM calls, are non-deterministic, and benchmark system quality. They are never part of `npm run verify` or `npm run test`. There is no mock LLM path — if no API key is present, the runner exits with "API key required."
+- The framework must be scenario-agnostic. X8 adds scenarios without touching framework code.
+- Cost awareness: each eval run costs real money. The report must include per-scenario and total cost. `--quick` mode must exist for iteration.
 
 **Out of scope.**
-- Performance benchmarking or latency measurement.
-- Eval scenarios for external harnesses (those come after X5 ships).
-- Automated eval regression detection (CI integration is a follow-up).
-- LLM quality scoring (prompt quality, response quality) — this is pass/fail on observable outcomes.
+- The full scenario library (that's X8).
+- Automated CI gating on eval scores (follow-up).
+- Automated prompt/tool-description optimization based on eval results (follow-up).
+
+**Effort.** L (~3d)
+
+---
+
+### X8 — Eval Scenario Library
+
+**Workpackage.** As a founder, I want a comprehensive library of eval scenarios that benchmarks every role and workflow in HyperIdle. Each scenario seeds a realistic world, assigns a task to an agent in its domain, lets the agent run a real session through a real LLM, and scores whether the agent made correct decisions using HyperIdle's tools and affordances. The library is the content that makes X7's framework useful — without it, the instrument has no sheet music.
+
+Scoring judges the agent's *decisions within HyperIdle*, not generic LLM capability. "Did it use `create_task` correctly given its role and the bet context" is an eval question. "Can it write Python" is not. When a scenario scores low, the eval report should make it diagnosable — which rubric dimension failed, what the agent actually did (tools called, artifacts produced, notes written), and what the expected behavior was.
+
+**Depends on.**
+- X7 (Eval Framework): The runner, scoring engine, seeding library, and scenario contract.
+
+**Complexity.** L
+
+**Acceptance criteria.**
+- Scenarios cover the roles and workflows defined in the agent layer and process layer. The architecture phase must inventory all agent roles, their soul prompts, their tool access, and their characteristic workflows to determine required coverage. At minimum:
+  - **Product Manager — bet decomposition**: Given a committed bet with a pitch and done condition, the PM decomposes into tasks grounded in the team's practices. Rubric: task quality, dependency awareness, correct owner assignment per discipline, gap identification, integration of team members' domains.
+  - **Builder — task execution**: Given an accepted task with materialized knowledge (context files, practice patterns), the Builder produces an artifact and writes session notes. Rubric: tool selection, artifact quality, note completeness, knowledge usage, appropriate scope (didn't over- or under-deliver).
+  - **Practice Facilitator — knowledge synthesis**: Given multiple knowledge items from sessions across agents, the Facilitator synthesizes them into practice-level knowledge (L3). Rubric: synthesis quality, correct layer placement, cross-agent pattern recognition, curation judgment.
+  - **Coordination — handoff and unblocking**: Given a bet with blocked tasks and pending handoffs, the coordinating agent (PM or Chief of Staff) resolves the situation — unblocks, reassigns, communicates status via threads. Rubric: handoff protocol correctness, thread communication quality, escalation judgment.
+  - **Cost-bounded session**: Given an agent with a cost cap on a bet with a cost appetite, the session runs and the harness respects the cap. Rubric: cost recorded correctly on bet, agent's work degrades gracefully near the limit, session outcome reflects cost discipline.
+  - **Growth Agent — content/analytics workflow**: Given a growth-related task (landing page copy, campaign brief, metrics review), the agent uses appropriate tools and produces domain-appropriate artifacts. Rubric: tool selection, artifact relevance, audience awareness.
+  - **Ops Agent — incident/deploy workflow**: Given an ops task (incident triage, deploy verification, monitoring check), the agent follows ops patterns — escalates correctly, communicates status, creates appropriate follow-up tasks. Rubric: escalation judgment, status communication, follow-up completeness.
+  - Additional scenarios for any role with distinct tool access or behavioral expectations (Scout, Infra Agent, Platform Agent, etc.) as identified by the architecture phase's inventory.
+- Each scenario uses X7's composable seeding library to build its world state — no scenario reinvents DB seeding.
+- Each scenario defines a rubric with role-specific dimensions. The rubric is explicit about what "good" looks like for that role in that situation.
+- `npm run eval` executes all scenarios and produces a report with per-scenario rubric breakdowns.
+- `npm run eval -- --quick` runs one representative scenario per role for fast iteration.
+- The comparison matrix (`--model`) reveals which roles/workflows degrade on cheaper models and which hold — identifying where HyperIdle's prompt/tool design compensates for model capability and where it doesn't.
+
+**Validation scenarios.**
+- Given `npm run eval` with a full run, every defined role has at least one scenario, and the report shows rubric breakdowns per scenario.
+- Given a PM-decomposition scenario, the rubric scores whether the PM read the bet's pitch and practice knowledge, proposed tasks that match the team's disciplines, identified dependencies, and assigned owners — not just whether `create_task` was called N times.
+- Given two runs with different models, the comparison matrix shows meaningful per-scenario score differences that are actionable (e.g., "PM decomposition degrades on Haiku because the soul prompt is too subtle for the model" is a useful signal).
+
+**Plan calls.** Architecture pass should: (1) inventory all agent roles in `users` schema and `docs/agent-layer/the-two-categories.md`, all soul prompt templates in `factory_settings`, and all tool-to-role mappings in the tool registry; (2) for each role, identify the characteristic workflow and which tools the agent should reach for; (3) design realistic seed data for each scenario — world states that exercise knowledge materialization, practice grounding, and cross-agent context; (4) define per-scenario rubrics with explicit "good" criteria; (5) determine which scenario is the `--quick` representative for each role. No /design step.
+
+**Contracts / constraints.**
+- **Nothing is mocked.** Same constraint as X7 — every scenario runs the full real application stack.
+- Scenarios are additive — new scenarios can be added without modifying the framework or existing scenarios.
+- Each scenario must be self-contained: its seeding function creates everything it needs, its rubric judges only what it set up. No cross-scenario dependencies.
+- Scoring judges the agent's decisions within HyperIdle, not generic LLM capability.
+- When a scenario scores low, the report must make it diagnosable — which rubric dimension failed, what the agent actually did, and what was expected. This is what makes the eval a tuning instrument.
+
+**Out of scope.**
+- Framework infrastructure changes (that's X7).
+- Automated CI gating on eval scores (follow-up).
+- Eval scenarios for external harnesses (follow-up after X5).
+- Automated prompt/tool-description optimization based on eval results.
 
 **Effort.** L (~3d)
 
@@ -325,11 +375,12 @@ _Best-practice harness patterns:_
 | X4 | Model Gateway (OpenRouter + Direct Providers) | M (~1d) | X3 |
 | X5 | Multi-Harness Adapter Layer | L (~3d) | X2, X4 |
 | X6 | Built-in Harness (Best-Practice Agent Loop) | L (~3d) | X4, X2 |
-| X7 | E2E Eval Framework | L (~3d) | X1, X6 |
+| X7 | Eval Framework | L (~3d) | X1, X6 |
+| X8 | Eval Scenario Library | L (~3d) | X7 |
 
-**Critical path:** X1 → X3 → X4 → X6 → X7
+**Critical path:** X1 → X3 → X4 → X6 → X7 → X8
 
-**Total effort:** ~16d (1 M + 6 L)
+**Total effort:** ~19d (1 M + 7 L)
 
 **Parallelism windows:**
 - X1 and X2 are fully independent — both can start immediately.
@@ -337,6 +388,7 @@ _Best-practice harness patterns:_
 - X4 can start after X3 completes.
 - X5 and X6 can run in parallel after X2 and X4 complete.
 - X7 can start after X1 and X6 complete.
+- X8 can start after X7 completes.
 
 **Dependency graph:**
 ```
@@ -345,5 +397,5 @@ X1 (Prompt) ──── X3 (Agent Config) ──── X4 (Gateway) ──┬�
 X2 (MCP Bridge) ───────────────────────────────────────┤
                                                         ├── X6 (Built-in Harness)
                                                         │
-X1 (Prompt) ────────────────────────────────────────────┴── X7 (Evals)
+X1 (Prompt) ────────────────────────────────────────────┴── X7 (Eval Framework) ── X8 (Scenarios)
 ```

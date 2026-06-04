@@ -1,0 +1,15 @@
+{
+  "id": "X7",
+  "title": "E2E Eval Framework",
+  "status": "pending",
+  "currentStep": "not_started",
+  "startedAt": null,
+  "phases": {
+    "1-designer": "pending",
+    "2-reviewer": "pending",
+    "3-builder": "pending",
+    "4-review": "pending",
+    "5-retro": "pending",
+    "6-ship": "pending"
+  }
+}
