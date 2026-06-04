@@ -635,7 +635,12 @@ stories:
     depends: [X4, X2]
     complexity: L
   - id: X7
-    title: E2E Eval Framework
+    title: Eval Framework
     track: X
     depends: [X1, X6]
+    complexity: L
+  - id: X8
+    title: Eval Scenario Library
+    track: X
+    depends: [X7]
     complexity: L
