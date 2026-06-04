@@ -17,6 +17,7 @@ sync-reports/
 .worktrees/
 .DS_Store
 .claude/worktrees/
+.claude/projects/
 logs/
 *.db-shm
 *.db-wal
