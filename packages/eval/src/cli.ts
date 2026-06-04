@@ -6,7 +6,7 @@
  *   npm run eval                                              # run all scenarios (OpenRouter default)
  *   npm run eval -- --quick                                   # quick scenarios only
  *   npm run eval -- --model moonshotai/kimi-k2               # override model (OpenRouter)
- *   npm run eval -- --model deepseek/deepseek-chat-v4-0324   # DeepSeek v4 via OpenRouter
+ *   npm run eval -- --model deepseek/deepseek-chat-v3-0324   # DeepSeek v3 via OpenRouter
  *   npm run eval -- --model minimax/minimax-m3                # MiniMax M3 via OpenRouter
  *   npm run eval -- --model claude-sonnet-4-20250514          # Anthropic model
  *   npm run eval -- --scenario poc-session-notes              # single scenario
@@ -62,14 +62,14 @@ Usage:
 
 Options:
   --quick, -q                  Run only quick-tagged scenarios
-  --model, -m <model-id>       Override model (default: deepseek/deepseek-chat-v4-0324 via OpenRouter)
+  --model, -m <model-id>       Override model (default: deepseek/deepseek-chat-v3-0324 via OpenRouter)
   --scenario, -s <id>          Run a single scenario by ID
   --output, -o <path>          Output JSON path (default: eval-results.json)
   --help, -h                   Show this help
 
 OpenRouter model examples:
   --model moonshotai/kimi-k2
-  --model deepseek/deepseek-chat-v4-0324
+  --model deepseek/deepseek-chat-v3-0324
   --model minimax/minimax-m3
 
 Anthropic model examples:
@@ -144,7 +144,7 @@ async function main(): Promise<void> {
 	if (args.model) {
 		process.stderr.write(`[eval] Model: ${args.model}\n`);
 	} else {
-		process.stderr.write("[eval] Model: deepseek/deepseek-chat-v4-0324 (OpenRouter default)\n");
+		process.stderr.write("[eval] Model: deepseek/deepseek-chat-v3-0324 (OpenRouter default)\n");
 	}
 	if (args.quick) {
 		process.stderr.write("[eval] Mode: quick (tagged scenarios only)\n");

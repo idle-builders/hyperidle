@@ -11,8 +11,7 @@ import * as fs from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
-import type { HyperIdleDb } from "@hyperidle/db";
-import * as schema from "@hyperidle/db/schema";
+import { type HyperIdleDb, schema } from "@hyperidle/db";
 import { EnvCredentialResolver } from "@hyperidle/server/services/credential-resolver";
 import { resolveModelTier } from "@hyperidle/server/services/model-gateway";
 import type { ModelGatewayConfig, ResolvedModel } from "@hyperidle/shared";
@@ -89,14 +88,17 @@ export async function createEvalDb(): Promise<{ db: HyperIdleDb; close: () => Pr
  */
 function buildGatewayConfig(modelOverride?: string): ModelGatewayConfig {
 	if (!modelOverride) {
-		// Default: OpenRouter with DeepSeek v4 (fast, cheap, good quality)
+		// Default: OpenRouter with DeepSeek Chat v3-0324 (fast, cheap, good quality)
 		// @lore X7: Default to OpenRouter because OPENROUTER_API_KEY is the
 		// configured provider. Anthropic models require ANTHROPIC_API_KEY which
 		// may not be set. OpenRouter routes to many models including Anthropic.
+		// @lore X7: Model ID is "deepseek/deepseek-chat-v3-0324" — the "v4"
+		// variant is not a valid OpenRouter slug as of 2026-06. Verified against
+		// OpenRouter's /api/v1/models endpoint and the Anthropic-format endpoint.
 		return {
-			reasoning: { provider: "openrouter", model: "deepseek/deepseek-chat-v4-0324" },
-			workhorse: { provider: "openrouter", model: "deepseek/deepseek-chat-v4-0324" },
-			fast: { provider: "openrouter", model: "deepseek/deepseek-chat-v4-0324" },
+			reasoning: { provider: "openrouter", model: "deepseek/deepseek-chat-v3-0324" },
+			workhorse: { provider: "openrouter", model: "deepseek/deepseek-chat-v3-0324" },
+			fast: { provider: "openrouter", model: "deepseek/deepseek-chat-v3-0324" },
 		};
 	}
 
