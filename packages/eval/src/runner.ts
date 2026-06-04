@@ -88,17 +88,13 @@ export async function createEvalDb(): Promise<{ db: HyperIdleDb; close: () => Pr
  */
 function buildGatewayConfig(modelOverride?: string): ModelGatewayConfig {
 	if (!modelOverride) {
-		// Default: OpenRouter with DeepSeek Chat v3-0324 (fast, cheap, good quality)
 		// @lore X7: Default to OpenRouter because OPENROUTER_API_KEY is the
 		// configured provider. Anthropic models require ANTHROPIC_API_KEY which
 		// may not be set. OpenRouter routes to many models including Anthropic.
-		// @lore X7: Model ID is "deepseek/deepseek-chat-v3-0324" — the "v4"
-		// variant is not a valid OpenRouter slug as of 2026-06. Verified against
-		// OpenRouter's /api/v1/models endpoint and the Anthropic-format endpoint.
 		return {
-			reasoning: { provider: "openrouter", model: "deepseek/deepseek-chat-v3-0324" },
-			workhorse: { provider: "openrouter", model: "deepseek/deepseek-chat-v3-0324" },
-			fast: { provider: "openrouter", model: "deepseek/deepseek-chat-v3-0324" },
+			reasoning: { provider: "openrouter", model: "deepseek/deepseek-v4-pro" },
+			workhorse: { provider: "openrouter", model: "deepseek/deepseek-v4-pro" },
+			fast: { provider: "openrouter", model: "deepseek/deepseek-v4-flash" },
 		};
 	}
 
