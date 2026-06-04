@@ -684,6 +684,11 @@ stories:
     track: Y
     depends: [Y12]
     complexity: L
+  - id: Y17
+    title: Cost Intelligence & Efficiency Learning
+    track: Y
+    depends: []
+    complexity: L
 
   # Track Z: Vision & Documentation
   - id: Z1

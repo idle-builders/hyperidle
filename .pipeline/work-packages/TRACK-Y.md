@@ -637,3 +637,44 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 - Reactive updates on item edits (only on new item creation).
 
 **Effort.** L (~3d)
+
+---
+
+### Y17 — Cost Intelligence & Efficiency Learning
+
+**Workpackage.** As a factory that gets smarter over time, I want the system to analyze cost and token data across sessions, identify efficiency patterns, predict task costs, and feed cost insights back into knowledge and agent configuration — so that the company becomes progressively cheaper and more accurate at budgeting instead of just enforcing static caps.
+
+**Depends on.** None. The cost tracking infrastructure (C7/L17), session outcomes with cost/token data, and knowledge fabric exist. This workpackage adds the analytical and learning layer that closes the loop between cost data collection and cost optimization.
+
+**Complexity.** L
+
+**Acceptance criteria.**
+- A "cost intelligence" routine runs weekly (configurable) that analyzes session cost data and produces actionable insights as knowledge items (kind: "cost_insight", scope: team or factory).
+- The routine identifies efficiency patterns: (a) which agents are cost-efficient vs expensive for similar tasks (normalized by task complexity), (b) which knowledge items, when loaded into sessions, correlate with lower session costs (cost impact of knowledge), (c) which task types consistently exceed their budget estimates, (d) which harness/model tier combinations are most cost-effective per task type.
+- The routine generates budget predictions for new tasks: based on historical cost data for similar tasks (same team, similar description, same agent role), predict the expected cost range (p25/p50/p75) and surface this prediction in the task creation flow.
+- Cost predictions are shown in the task creation form as a hint: "Based on 15 similar tasks, estimated cost: $0.30–$0.80 (median $0.50)."
+- A "Cost Efficiency" section on the team Work page shows: average session cost trend (last 4 weeks), cost per successful task vs failed task, total spend this month vs last month, and top-3 cost optimization recommendations from the latest cost intelligence run.
+- Cost intelligence insights that identify reusable efficiency patterns (e.g., "loading the file-chunking practice reduces session cost by 40%") are flagged for promotion to L3 practices with a "cost_impact" annotation on the knowledge strategy fabric.
+
+**Validation scenarios.**
+- Given 50 completed sessions for a team across 4 weeks, when the cost intelligence routine runs, then it produces 2-4 cost insight knowledge items identifying the most and least cost-efficient agents and task patterns.
+- Given a user creating a new task with description "implement file upload," when the creation form loads, then a cost prediction hint appears based on similar past tasks: "Estimated: $0.30–$0.80."
+- Given a cost insight that "loading practice 'always chunk file uploads' correlates with 40% lower session costs," when the team Work page loads, then the Cost Efficiency section includes this as a recommendation.
+- Given the cost intelligence routine identifies that model tier "fast" is 60% cheaper than "balanced" for code review tasks with no quality difference, when the agent configuration is viewed, then a recommendation suggests switching code review agents to the "fast" tier.
+
+**Plan calls.** Architecture pass should design: the cost analysis queries (aggregation across sessions, tasks, agents, knowledge items), the prediction model (simple percentile-based from historical data, no ML), the cost_impact annotation schema on knowledge_strategy_fabric, and the task creation form integration for predictions. Skip /design for the Cost Efficiency section (uses existing card patterns).
+
+**Contracts / constraints.**
+- Cost predictions use simple statistical methods (percentiles from historical data) — no machine learning models or external services.
+- The cost intelligence routine is an LLM call (to analyze patterns and generate natural-language insights), cost-capped per run.
+- Cost insights are knowledge items — they flow through the same promotion pipeline and attention scoring as other knowledge.
+- The prediction hint in the task creation form is informational — it does not enforce a budget. Budget enforcement remains with C7.
+- The `cost_impact` annotation is a new nullable numeric field on `knowledge_strategy_fabric` — positive values mean the item reduces session costs when loaded.
+
+**Out of scope.**
+- Automatic agent reconfiguration based on cost insights (recommendations only, human decides).
+- Real-time cost optimization during sessions (this is between-session analysis).
+- Cross-factory cost benchmarking.
+- ML-based prediction models (simple percentiles are sufficient for v1).
+
+**Effort.** L (~5d)
