@@ -42,7 +42,9 @@
 		"knip": "npx knip",
 		"mock-inventory": "npx tsx scripts/mock-inventory.ts",
 		"mock-inventory:check": "npx tsx scripts/mock-inventory.ts --check",
-		"check:native": "npx tsx packages/desktop/scripts/check-native.ts"
+		"check:native": "npx tsx packages/desktop/scripts/check-native.ts",
+		"eval": "npm run -w @hyperidle/eval eval",
+		"eval:quick": "npm run -w @hyperidle/eval eval -- --quick"
 	},
 	"overrides": {
 		"zod-validation-error": "^4.0.0"

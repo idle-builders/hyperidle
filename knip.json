@@ -52,6 +52,7 @@
 			"ignoreDependencies": ["@electric-sql/pglite"]
 		},
 		"packages/eslint-plugin-design": {},
+		"packages/eval": {},
 		"scripts": {
 			"entry": ["*.ts", "__tests__/**/*.test.ts"]
 		}

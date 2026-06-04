@@ -1,0 +1,195 @@
+/**
+ * X7: Eval Framework types.
+ *
+ * These interfaces define the contract that eval scenarios implement.
+ * Framework-agnostic: X8 adds scenarios without touching framework code.
+ *
+ * @lore X7: Evals are NOT tests. Tests are deterministic, scripted, and run in
+ * CI. Evals require real LLM calls, are non-deterministic, and benchmark system
+ * quality. They are never part of `npm run verify` or `npm run test`. See AC10.
+ */
+
+import type { HyperIdleDb } from "@hyperidle/db";
+import type { EventBus, ResolvedModel } from "@hyperidle/shared";
+
+// Re-export for consumers of @hyperidle/eval
+export type { HyperIdleDb, ResolvedModel };
+
+// ---------------------------------------------------------------------------
+// Seeding types
+// ---------------------------------------------------------------------------
+
+/** Context provided to seed functions. */
+export interface SeedContext {
+	/** Ephemeral PGlite-backed Drizzle DB instance with full schema. */
+	readonly db: HyperIdleDb;
+}
+
+/** The IDs a seed function must return so the trigger knows what to provision. */
+export interface ScenarioSeedResult {
+	readonly teamId: string;
+	readonly agentId: string;
+	readonly taskId: string;
+	readonly betId: string;
+	/** Workspace base path for LocalWorkspaceAdapter. */
+	readonly workspaceBasePath: string;
+}
+
+/** Context provided to trigger functions. */
+export interface TriggerContext {
+	readonly db: HyperIdleDb;
+	readonly eventBus: EventBus;
+	readonly seedResult: ScenarioSeedResult;
+	/** Pre-resolved model from --model flag or default. */
+	readonly resolvedModel: ResolvedModel;
+	/** Optional fast-tier model for builtin harness summarization. */
+	readonly resolvedFastModel?: ResolvedModel;
+}
+
+/**
+ * Result of trigger execution.
+ *
+ * @lore X7: outcome narrows SessionOutcome ("completed" | "crashed" | "stopped")
+ * to just "completed" | "crashed" because eval sessions cannot be manually stopped.
+ * If provisionSession returns "stopped" unexpectedly, runEvalSession maps it to
+ * "crashed" so callers always receive this narrowed union.
+ */
+export interface TriggerResult {
+	readonly sessionId: string;
+	readonly outcome: "completed" | "crashed";
+	readonly totalCostCents: number;
+	readonly taskId: string;
+	/** Wall-clock duration in milliseconds. */
+	readonly durationMs: number;
+}
+
+// ---------------------------------------------------------------------------
+// Scoring rubric types
+// ---------------------------------------------------------------------------
+
+/** A single scoring dimension in a rubric. */
+export interface RubricDimension {
+	/** Stable identifier, e.g. "tool_selection_correctness". */
+	readonly id: string;
+	/** Human-readable label for reports. */
+	readonly label: string;
+	/**
+	 * Judge function. Receives the post-session DB state and returns a score.
+	 * Score is 0.0 (fail) to 1.0 (perfect). Fractional scores indicate partial success.
+	 * The judge can be rule-based (DB query) or LLM-as-judge.
+	 */
+	readonly judge: (ctx: JudgeContext) => Promise<DimensionScore>;
+}
+
+export interface JudgeContext {
+	readonly db: HyperIdleDb;
+	readonly seedResult: ScenarioSeedResult;
+	readonly triggerResult: TriggerResult;
+	/** The resolved model, available for LLM-as-judge calls. */
+	readonly resolvedModel: ResolvedModel;
+}
+
+export interface DimensionScore {
+	/** 0.0 to 1.0. */
+	readonly score: number;
+	/** Optional qualitative note from the judge explaining the score. */
+	readonly note?: string;
+}
+
+/** The full rubric for a scenario. */
+export interface ScoringRubric {
+	readonly dimensions: readonly RubricDimension[];
+}
+
+// ---------------------------------------------------------------------------
+// Scenario contract
+// ---------------------------------------------------------------------------
+
+/** The contract that X8 scenarios implement. Framework-agnostic — X8 adds
+ * scenarios without touching framework code. */
+export interface EvalScenario {
+	/** Unique identifier, e.g. "poc-session-notes". Used in report + CLI filter. */
+	readonly id: string;
+	/** Human-readable description shown in report output. */
+	readonly description: string;
+	/** Tags for --quick filtering. Scenarios tagged "quick" run in quick mode. */
+	readonly tags: readonly string[];
+	/**
+	 * Populate the DB with realistic world state. Receives a seeded DB
+	 * (migrations applied, no application data). Returns the IDs needed
+	 * to trigger the session.
+	 */
+	readonly seed: (ctx: SeedContext) => Promise<ScenarioSeedResult>;
+	/**
+	 * Trigger: assign a task to an agent and run a real session through
+	 * provisionSession. The framework calls this after seeding. Returns
+	 * the provisionSession result.
+	 */
+	readonly trigger: (ctx: TriggerContext) => Promise<TriggerResult>;
+	/** Scoring rubric: named dimensions with judge functions. */
+	readonly rubric: ScoringRubric;
+}
+
+// ---------------------------------------------------------------------------
+// Report types
+// ---------------------------------------------------------------------------
+
+export interface DimensionReport {
+	readonly dimensionId: string;
+	readonly label: string;
+	readonly score: number;
+	readonly note?: string;
+}
+
+/** Per-scenario result in the report. */
+export interface ScenarioReport {
+	readonly scenarioId: string;
+	readonly description: string;
+	readonly model: string;
+	readonly durationMs: number;
+	readonly outcome: "completed" | "crashed";
+	readonly costCents: number;
+	readonly dimensions: readonly DimensionReport[];
+	/** Aggregate score: arithmetic mean of dimension scores. */
+	readonly aggregateScore: number;
+	/**
+	 * Token usage by model tier for this scenario.
+	 * Populated from bets.tokensActualJson after session completes.
+	 *
+	 * @lore X7: Section 19 addendum — merged into canonical type per arch critique.
+	 * Token data is queried from bets.tokensActualJson (written by provisionSession
+	 * via accumulateSessionTokensOnBet) rather than from provisionSession's return
+	 * value (which does not expose tokens).
+	 */
+	readonly tokensByTier: Record<string, { prompt: number; completion: number }>;
+}
+
+/** Top-level eval report written to eval-results.json. */
+export interface EvalReport {
+	readonly runId: string;
+	readonly timestamp: string;
+	readonly model: string;
+	readonly mode: "full" | "quick";
+	readonly scenarios: readonly ScenarioReport[];
+	/** Aggregate across all scenarios. */
+	readonly overallScore: number;
+	readonly totalDurationMs: number;
+	readonly totalCostCents: number;
+	/**
+	 * Aggregate token usage across all scenarios.
+	 *
+	 * @lore X7: Section 19 addendum — merged into canonical type per arch critique.
+	 */
+	readonly totalTokensByTier: Record<string, { prompt: number; completion: number }>;
+}
+
+// ---------------------------------------------------------------------------
+// Runner options
+// ---------------------------------------------------------------------------
+
+export interface RunOptions {
+	readonly model?: string;
+	readonly quick: boolean;
+	readonly filter?: string;
+	readonly outputPath?: string;
+}

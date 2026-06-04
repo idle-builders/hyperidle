@@ -316,7 +316,9 @@ When an eval score is low, the fix is in HyperIdle's code — better tool descri
 
 ### X8 — Eval Scenario Library
 
-**Workpackage.** As a founder, I want a comprehensive library of eval scenarios that benchmarks every role and workflow in HyperIdle. Each scenario seeds a realistic world, assigns a task to an agent in its domain, lets the agent run a real session through a real LLM, and scores whether the agent made correct decisions using HyperIdle's tools and affordances. The library is the content that makes X7's framework useful — without it, the instrument has no sheet music.
+**Workpackage.** As a founder, I want a comprehensive library of eval scenarios that benchmarks every feature in HyperIdle. Feature meaning the interfaces where agents interact with hypedidle (mcp, tools, file sync, prompt composion, knowledge creation, ...), and thus an agent becomes the user. We cover both kernel features and strategy features. Evals should be living side by side with the feature that they are testing. Similar to how we can measure user facing features with user behaviour on how succusful in their user experience, we can measure agents using the agent facing features. For agents we have the advantage that we can simulate agents using the agent facing interfaces. To make the setup realistic we need to structure realistic scenarios that cover a feature of that journey in different variants. Thus for each feature we need multiple scenario with a realistic setup and domain (like development, design, sales, operations, finance, marketing, ...) and thus a corresponding agent. We need to adopt realistic scenarios since later in real live we do not have power over the tasks and the agent definitions that our users will give their agents. the scenarios need to be an approximation of these real world tasks. 
+
+The outcome of those feature scenarios will be that we use those evals by feature to tune those features to make then more useful for the agents. We need to move our feature to make them useful for the agents and not the other way round. User will expect that our tool is useful from day one.
 
 Scoring judges the agent's *decisions within HyperIdle*, not generic LLM capability. "Did it use `create_task` correctly given its role and the bet context" is an eval question. "Can it write Python" is not. When a scenario scores low, the eval report should make it diagnosable — which rubric dimension failed, what the agent actually did (tools called, artifacts produced, notes written), and what the expected behavior was.
 
@@ -326,19 +328,11 @@ Scoring judges the agent's *decisions within HyperIdle*, not generic LLM capabil
 **Complexity.** L
 
 **Acceptance criteria.**
-- Scenarios cover the roles and workflows defined in the agent layer and process layer. The architecture phase must inventory all agent roles, their soul prompts, their tool access, and their characteristic workflows to determine required coverage. At minimum:
-  - **Product Manager — bet decomposition**: Given a committed bet with a pitch and done condition, the PM decomposes into tasks grounded in the team's practices. Rubric: task quality, dependency awareness, correct owner assignment per discipline, gap identification, integration of team members' domains.
-  - **Builder — task execution**: Given an accepted task with materialized knowledge (context files, practice patterns), the Builder produces an artifact and writes session notes. Rubric: tool selection, artifact quality, note completeness, knowledge usage, appropriate scope (didn't over- or under-deliver).
-  - **Practice Facilitator — knowledge synthesis**: Given multiple knowledge items from sessions across agents, the Facilitator synthesizes them into practice-level knowledge (L3). Rubric: synthesis quality, correct layer placement, cross-agent pattern recognition, curation judgment.
-  - **Coordination — handoff and unblocking**: Given a bet with blocked tasks and pending handoffs, the coordinating agent (PM or Chief of Staff) resolves the situation — unblocks, reassigns, communicates status via threads. Rubric: handoff protocol correctness, thread communication quality, escalation judgment.
-  - **Cost-bounded session**: Given an agent with a cost cap on a bet with a cost appetite, the session runs and the harness respects the cap. Rubric: cost recorded correctly on bet, agent's work degrades gracefully near the limit, session outcome reflects cost discipline.
-  - **Growth Agent — content/analytics workflow**: Given a growth-related task (landing page copy, campaign brief, metrics review), the agent uses appropriate tools and produces domain-appropriate artifacts. Rubric: tool selection, artifact relevance, audience awareness.
-  - **Ops Agent — incident/deploy workflow**: Given an ops task (incident triage, deploy verification, monitoring check), the agent follows ops patterns — escalates correctly, communicates status, creates appropriate follow-up tasks. Rubric: escalation judgment, status communication, follow-up completeness.
-  - Additional scenarios for any role with distinct tool access or behavioral expectations (Scout, Infra Agent, Platform Agent, etc.) as identified by the architecture phase's inventory.
+- Scenarios are grouped by feature. They cover both kernel and strategy. The cover a host of different realistic roles (soul) that can be found in a startup company (development, design, sales, operations, finance, marketing) and expected bets, conversations and knowledge for different industries (software, marketing, consulting, finance, legal, commerce, ...). 
 - Each scenario uses X7's composable seeding library to build its world state — no scenario reinvents DB seeding.
 - Each scenario defines a rubric with role-specific dimensions. The rubric is explicit about what "good" looks like for that role in that situation.
-- `npm run eval` executes all scenarios and produces a report with per-scenario rubric breakdowns.
-- `npm run eval -- --quick` runs one representative scenario per role for fast iteration.
+- `npm run eval` executes all scenarios and produces a report with per-feature rubric breakdowns.
+- `npm run eval --feature <feature>` runs scenarios per feature.
 - The comparison matrix (`--model`) reveals which roles/workflows degrade on cheaper models and which hold — identifying where HyperIdle's prompt/tool design compensates for model capability and where it doesn't.
 
 **Validation scenarios.**
@@ -346,7 +340,7 @@ Scoring judges the agent's *decisions within HyperIdle*, not generic LLM capabil
 - Given a PM-decomposition scenario, the rubric scores whether the PM read the bet's pitch and practice knowledge, proposed tasks that match the team's disciplines, identified dependencies, and assigned owners — not just whether `create_task` was called N times.
 - Given two runs with different models, the comparison matrix shows meaningful per-scenario score differences that are actionable (e.g., "PM decomposition degrades on Haiku because the soul prompt is too subtle for the model" is a useful signal).
 
-**Plan calls.** Architecture pass should: (1) inventory all agent roles in `users` schema and `docs/agent-layer/the-two-categories.md`, all soul prompt templates in `factory_settings`, and all tool-to-role mappings in the tool registry; (2) for each role, identify the characteristic workflow and which tools the agent should reach for; (3) design realistic seed data for each scenario — world states that exercise knowledge materialization, practice grounding, and cross-agent context; (4) define per-scenario rubrics with explicit "good" criteria; (5) determine which scenario is the `--quick` representative for each role. No /design step.
+**Plan calls.** Architecture pass should: (1) identify all features that need eval coverage (2) inventory all agent roles in `users` schema and `docs/agent-layer/the-two-categories.md`, all soul prompt templates in `factory_settings`, and all tool-to-role mappings in the tool registry; (3) for each role, identify the characteristic workflow and which tools the agent should reach for; (4) design realistic seed data for each scenario — world states that exercise knowledge materialization, practice grounding, and cross-agent context; (5) define per-scenario rubrics with explicit "good" criteria;
 
 **Contracts / constraints.**
 - **Nothing is mocked.** Same constraint as X7 — every scenario runs the full real application stack.
@@ -354,6 +348,7 @@ Scoring judges the agent's *decisions within HyperIdle*, not generic LLM capabil
 - Each scenario must be self-contained: its seeding function creates everything it needs, its rubric judges only what it set up. No cross-scenario dependencies.
 - Scoring judges the agent's decisions within HyperIdle, not generic LLM capability.
 - When a scenario scores low, the report must make it diagnosable — which rubric dimension failed, what the agent actually did, and what was expected. This is what makes the eval a tuning instrument.
+- When a scenario scores low we don't adjust scenario. We leave the insights for someont to improve the feature.
 
 **Out of scope.**
 - Framework infrastructure changes (that's X7).
