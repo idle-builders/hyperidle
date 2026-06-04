@@ -45,6 +45,9 @@
 				"config": ["playwright.config.ts"]
 			}
 		},
+		"packages/eval": {
+			"ignoreDependencies": ["@anthropic-ai/sdk"]
+		},
 		"packages/pipeline": {},
 		"packages/desktop": {
 			"entry": ["src/preload.ts"],

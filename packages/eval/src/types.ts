@@ -83,7 +83,7 @@ export interface EvalScenario {
 /** Context passed to the scenario's assert function. */
 export interface AssertionContext {
 	readonly db: import("@hyperidle/db").HyperIdleDb;
-	readonly sessionResult: import("../../../server/src/services/session-provisioning.js").ProvisionSessionResult;
+	readonly sessionResult: import("@hyperidle/server/session").ProvisionSessionResult;
 	readonly events: readonly import("@hyperidle/shared").HarnessEvent[];
 }
 

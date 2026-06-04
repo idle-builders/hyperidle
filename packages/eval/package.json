@@ -13,7 +13,7 @@
 		"@hyperidle/db": "*",
 		"@hyperidle/server": "*",
 		"@hyperidle/shared": "*",
-		"@hyperidle/fabric": "*"
+		"drizzle-orm": "^0.39.0"
 	},
 	"devDependencies": {
 		"vitest": "^4.1.5"
