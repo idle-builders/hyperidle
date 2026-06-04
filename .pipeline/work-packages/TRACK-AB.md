@@ -16,6 +16,8 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 **What exists today.** Agent data is spread across: `users` table (soul prompt, harness type, model tier), `userSkills` table (skills, autonomy, success/failure), `sessions` table (activity history), harness adapter `getCapabilities()` method (capability features), and MCP bridge configuration. None of this is surfaced in a unified view — you have to navigate Settings > Agents to see basic config.
 
+**Why this matters.** A team lead managing humans can see who is working on what, how they are performing, and whether they need help. The same visibility does not exist for agents today — understanding whether an agent is misconfigured, underperforming, or stuck requires navigating three separate settings screens and cross-referencing session logs. That friction means agents get neglected rather than managed. The profile page is the operational anchor for the human+AI team model: without it, "agents as team members" is a slogan, not a reality.
+
 **Depends on.** None.
 
 **Complexity.** L
@@ -55,6 +57,8 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 **Workpackage.** As a team lead opening the team Work page, I want to see my agents alongside bets and routines — who's active, who's idle, who's in error, what they're working on — so that the team page is the single place to understand the team's full operational state.
 
 **What exists today.** The team Work page shows bets. Track AA adds routines. Agents are not shown on the team page at all — you have to go to Settings to see them.
+
+**Why this matters.** The team page is where a team lead takes stock of their team's operational state. If agents are absent from that view, the mental model is split: human team members visible here, agent team members somewhere in Settings. That split reinforces the idea that agents are infrastructure to be configured, not members to be managed — the opposite of HyperIdle's thesis. A team lead who can see at a glance that two agents are active and one is in error has the situational awareness to intervene. Without this workpackage, the team page tells only half the story.
 
 **Depends on.**
 - AB1 — Agent Profile & Capabilities. AB1 establishes the profile page that agent cards link to.
@@ -98,6 +102,8 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 **Workpackage.** As a team lead adding a new agent, I want a guided setup flow that walks me through role, identity, harness, and model tier — so that I don't need to understand soul prompts or harness types to get an agent running.
 
 **What exists today.** Agent creation exists via Settings > Agents (X3) but requires understanding of soul prompts, harness types, and model tiers. Three soul prompt templates exist (`chief-of-staff.md`, `product-manager.md`, `practice-facilitator.md`) — builder, growth, and ops roles have no templates. Soul prompt templates are seeded into `factorySettings` as JSON. Model tiers use the vocabulary `reasoning | workhorse | fast`.
+
+**Why this matters.** A non-technical team lead who wants to add a builder agent today must write or paste a soul prompt, choose a harness type, and select a model tier — three concepts that require reading internal documentation to understand. Most team leads will give up or ask for help. That friction makes every agent adoption event dependent on a technically fluent person, which contradicts the premise that HyperIdle teams are self-managing. The wizard is not about prettiness; it is about whether a team lead can operate the product independently.
 
 **Depends on.** None.
 

@@ -20,6 +20,8 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 **What exists today.** The `routines` table exists but has no `name`, `description`, `team_id`, or state enum (only a boolean `active`). Routines are not shown in the Work surface at all. Sessions have no `routine_id` FK for run history queries.
 
+**Why this matters.** Recurring work is the majority of what real teams actually do — standups, digests, health checks, curation sweeps. If routines are invisible, team leads cannot distinguish "the routine ran and produced nothing notable" from "the routine never ran." That uncertainty erodes trust in the agent layer more than any single failure. A team lead who cannot see what is running cannot make informed decisions about their team's workload. Without this workpackage, routines exist as a backend mechanism that nobody can manage or reason about.
+
 **Depends on.** None.
 
 **Complexity.** L
@@ -58,6 +60,8 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 **Workpackage.** As a team lead, I want to create, edit, pause, resume, and delete routines from the Work surface — and have routine sessions work correctly with the existing agent session infrastructure — so that managing recurring work is as natural as managing bets, and routine sessions have bounded context and proper outcome recording.
 
 **What exists today.** CRUD routes exist for routines (`routines-routes.ts`) but only support `active` boolean, `triggerConfig`, `autonomyLevel`, and `silent` fields. The session provisioning orchestrator (D5) can start sessions but has no routine-specific context assembly. Agents receive task context but no routine context. The routine scheduler fires routines and creates sessions, but sessions have no link back to the routine for run history.
+
+**Why this matters.** A team lead who can see routines (AA1) but cannot create, pause, or modify them is looking at a read-only dashboard of a system they cannot control. Routine management is where human agency enters the loop for recurring work — the same principle that governs bet management. Without this workpackage, the only way to create or change a routine is via direct API call or database access, which disqualifies HyperIdle as a product any non-developer team lead can operate independently.
 
 **Depends on.**
 - AA1 — Routine Visibility & Team Scoping. AA1 establishes the schema (name, description, team_id, state enum) and Work surface display.
@@ -101,6 +105,8 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 **Workpackage.** As a founder, I want each routine to have a cost appetite (per-run and per-month budgets) and to see aggregate routine costs alongside bet costs — so that recurring agent work doesn't silently consume more than it's worth.
 
 **What exists today.** Cost cap enforcement (C7) exists at agent/team/factory level. Bets have `costAppetiteMinor`/`costActualMinor`. The cost sentinel routine monitors factory-level spending. But routines have no per-routine cost caps, no per-run budgets, and routine costs don't appear in the Work surface.
+
+**Why this matters.** Recurring agent work with no cost ceiling is a financial time bomb. A routine that runs daily and drifts into expensive reasoning calls will silently accumulate charges that the team lead has no visibility into until the bill arrives. The founder discovers the problem too late to act. Cost discipline is not a nice-to-have for AI-first teams — it is a basic operating requirement. If this workpackage is not built, routines should be disabled by default or restricted to fixed low-cost models until it is.
 
 **Depends on.**
 - AA1 — Routine Visibility & Team Scoping. AA1 shows routines in Work; AA3 adds cost display and enforcement.

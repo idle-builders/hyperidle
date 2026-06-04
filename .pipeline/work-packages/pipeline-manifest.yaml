@@ -620,26 +620,21 @@ stories:
     depends: []
     complexity: L
   - id: Y4
-    title: Declarative Event Hook Registry
+    title: Knowledge Triage Improvements
     track: Y
     depends: []
-    complexity: M
+    complexity: S
   - id: Y5
-    title: Knowledge Review Queue UX
+    title: Agent Write Governance
     track: Y
     depends: []
     complexity: M
   - id: Y6
-    title: Agent Write Governance
-    track: Y
-    depends: []
-    complexity: L
-  - id: Y7
     title: Knowledge Graph Linking
     track: Y
     depends: []
-    complexity: L
-  - id: Y8
+    complexity: M
+  - id: Y7
     title: Cost Intelligence & Efficiency Learning
     track: Y
     depends: []

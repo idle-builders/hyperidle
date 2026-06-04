@@ -14,6 +14,8 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 **Workpackage.** As a developer or founder discovering HyperIdle for the first time, I want a clear, compelling product story that explains what HyperIdle is, why it exists, what makes it different, and what I can do with it — so that I can decide in under 5 minutes whether this is relevant to me and worth exploring further.
 
+**Why this matters.** A developer or founder evaluating the product has no way to make an informed decision without a clear product story — they will move on within minutes. Without this document, every discovery interaction ends in confusion or a misclassification as "another AI chat app." The cost of not building it is zero qualified evaluators, which means zero users. This workpackage cannot be skipped; a product that cannot explain itself does not exist in the market.
+
 **Depends on.** None.
 
 **Complexity.** L
@@ -52,6 +54,8 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 ### Z2 — Getting Started Journey
 
 **Workpackage.** As a new user installing HyperIdle for the first time, I want a step-by-step guide that takes me from zero to experiencing the core value loop — my first team, first bet, and first agent producing real output — so that I understand what this product does by doing, not just reading.
+
+**Why this matters.** Without a getting started guide, every new user hits the same wall: a running server and no idea what to do next. The product may be entirely functional, but the absence of a guided first experience makes it feel broken. New users who can't reach "aha" in the first session do not return. This is the single highest-leverage documentation workpackage for user retention.
 
 **Depends on.** None.
 
@@ -92,6 +96,8 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 **Workpackage.** As a user who has completed getting started, I want detailed documentation for each major feature area — so that I understand the full capabilities of each subsystem and can configure them for my team's needs.
 
+**Why this matters.** Getting started converts a visitor to an active user; feature docs convert an active user to a power user. Without them, users plateau after the tutorial and never discover knowledge curation, routine configuration, or agent autonomy levels — the features that justify switching from Slack+Linear. The cost is high churn at the 7-day mark when users hit their first real task and have no reference. The alternative — no docs, rely on intuition — only works for products with far simpler interaction models.
+
 **Depends on.** None.
 
 **Complexity.** L
@@ -131,6 +137,8 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 **Workpackage.** As the founder, I want a systematic audit identifying contradictions between the stated vision and the actual product — so that I can prioritize fixes and ensure the product tells a coherent story from docs to UI.
 
+**Why this matters.** Docs rot silently. Without a deliberate audit, the product story drifts from reality as features ship, get cut, or get renamed — and neither the author nor users notice until trust is already broken. The founder is the only person with enough context to judge severity. The cost of not auditing is compounding misinformation: each new workpackage is designed against a fiction, and external evaluators find contradictions that destroy credibility. This is a one-time investment with lasting maintenance value.
+
 **Depends on.**
 - Z1 — Product Story. The product story establishes the canonical narrative to audit against.
 
@@ -167,6 +175,8 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 **Workpackage.** As a developer evaluating whether to contribute to or build on HyperIdle, I want the architecture explained as a compelling narrative — why three layers, why the fabric, why facilitators, why persistent teams — so that I understand not just what the system does but why it was designed this way and what was rejected.
 
+**Why this matters.** Contributors and technical evaluators don't read architecture docs — they read architecture stories. The `docs/architecture/` folder contains the truth but not the argument; without the narrative, developers either misapply the system or dismiss it as over-engineered. The cost is a contributor base that fights the architecture instead of working with it, and a technical audience that cannot distinguish HyperIdle's design from an elaborate LangGraph wrapper. A developer who understands the "why" builds in the right direction without needing to ask.
+
 **Depends on.** None.
 
 **Complexity.** M
@@ -201,6 +211,8 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 ### Z6 — Human+AI Collaboration Narrative
 
 **Workpackage.** As a potential user or investor, I want a clear articulation of how humans and AI agents collaborate in HyperIdle — through concrete scenarios, not abstract principles — so that I understand this is fundamentally different from "replace humans with AI" products.
+
+**Why this matters.** Without this narrative, HyperIdle looks indistinguishable from Paperclip to a non-technical evaluator — both run agents on tasks, both produce outputs. The human+AI collaboration model is the entire thesis: that AI amplifying human judgment produces better outcomes than AI replacing it. If that thesis is not articulated clearly and early, the product gets filed under "agentic workflow tool" and evaluated on feature count rather than philosophy. Founders and investors who miss this framing do not become advocates.
 
 **Depends on.** None.
 
@@ -237,6 +249,8 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 **Workpackage.** As a developer who wants to extend HyperIdle, I want clear documentation of what's extensible, how to build extensions, and what the extensibility vision is — so that I can build on HyperIdle rather than fork it.
 
+**Why this matters.** When developers can't find an extension point, they fork. Forks fragment the ecosystem, create divergent deployments, and never contribute improvements back. The kernel/strategy split exists precisely to make HyperIdle extensible without forking — but that design intent is worthless without documentation that surfaces it. The cost of not building this is a closed ecosystem that developers treat as a black box to copy, not a platform to build on. This workpackage is only worth building if HyperIdle genuinely intends to support third-party extensions; if that goal has changed, the workpackage should be cut.
+
 **Depends on.** None.
 
 **Complexity.** M
@@ -270,6 +284,8 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 ### Z8 — Feature Polish & Launch Readiness Audit
 
 **Workpackage.** As the founder preparing for launch, I want a systematic audit of all implemented features — identifying what's polished, what's rough, and what's hidden — so that I can prioritize the final push and ensure the product's first impression matches its actual capabilities.
+
+**Why this matters.** Without a deliberate audit, the first impression is determined by whatever the user happens to navigate to first — which may be an empty state with no CTA, a broken edge case, or a powerful feature buried five clicks deep. The founder is running blind on launch day. The cost is squandered first impressions with early adopters whose word-of-mouth matters most. This workpackage produces no code, only a prioritized punch list — its value is entirely in what the founder does with it afterward, so it should only be built if there is genuine capacity to act on the findings.
 
 **Depends on.** None.
 

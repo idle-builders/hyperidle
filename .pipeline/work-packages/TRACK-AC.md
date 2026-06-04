@@ -1,6 +1,6 @@
 # Track AC: Outcome Measurement & Scoring
 
-Close the feedback loop between work and learning. Today, HyperIdle tracks whether work ran (session outcome: completed/crashed) but not whether it achieved its goal. Bets have hypotheses and done conditions as unstructured text — but no structured outcome measurement, no verification gates, and no feedback from outcomes back into knowledge or agent configuration. This track makes measurement a first-class primitive that attaches to bets, tasks, sessions, and knowledge — enabling the system to learn from its own results.
+Close the feedback loop between work and learning. Today, HyperIdle tracks whether work ran (session outcome: completed/crashed) but not whether it achieved its goal. Bets have hypotheses and done conditions as unstructured text — but no structured outcome measurement, no verification gates, and no feedback from outcomes back into knowledge or agent configuration. This track makes measurement a signal that flows through the system — enabling bets, agents, and knowledge to learn from results.
 
 **Inspiration:** Anthropic's Outcomes feature (separate-context evaluator with rubrics), the CLEAR framework (5-dimension enterprise scoring), Paperclip's false-success problem (agents self-certifying "done"), and the Agent Learning Flywheel (Execute → Coach → Distill → Improve).
 
@@ -16,36 +16,41 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 **Workpackage.** As a founder reviewing completed work, I want bets, tasks, and sessions to carry structured outcome data — not just "completed" but whether the hypothesis held, whether the done condition was met, and what was learned — so that I can query portfolio health and the system can learn from results.
 
-**Depends on.** None. The bet, task, and session schemas exist with text-only outcome fields.
+**Why this matters.** Today, the founder knows a bet shipped but not whether the hypothesis was right. A task is "done" but nobody recorded whether the done condition was actually met or the agent gave up and moved on. Session outcome is a three-value enum (completed/crashed/stopped) that says nothing about quality. Without structured outcomes, the factory can't answer "are we getting better at predicting what works?" — the most important question for a learning organization. The cost of NOT building this: every retro starts from scratch, no aggregate metrics are possible, and the system's learning loops (Y2 consolidation, Y7 cost intelligence) have no outcome signal to learn from.
+
+**What exists today.** Bets have `hypothesis` (text) and `doneCondition` (text) but no structured verdict. Tasks have a state machine (proposed→done) but no outcome beyond state. Sessions have `outcome` (completed/crashed/stopped) and `notes` (freeform). The post-bet-retro routine creates prose review items, not structured outcome data.
+
+**What's genuinely missing.** Structured outcome verdicts on bets (did the hypothesis hold?), tasks (was the done condition met?), and sessions (how effective was this session?). These are the foundational fields that every other AC workpackage builds on.
+
+**Depends on.** None.
 
 **Complexity.** M
 
 **Acceptance criteria.**
-- Bets gain three new columns: `outcome_verdict` (enum: `hypothesis_validated | hypothesis_refuted | hypothesis_partial | inconclusive | not_evaluated`), `outcome_summary` (text — one paragraph of what actually happened vs. what was expected), and `outcome_learnings` (text — what was surprising or what should change).
-- Tasks gain an `outcome` column (enum: `met_criteria | met_with_rework | partially_met | not_met | not_evaluated`) capturing whether the done condition was satisfied.
-- Sessions gain an `effectiveness` column (numeric 0.0–1.0, nullable) — a score reflecting whether the session advanced its task goal, set by the review process or an evaluator agent.
-- The bet detail page shows the outcome verdict, summary, and learnings in a structured "Outcome" section (not buried in a thread).
-- The Work portfolio page shows an "Outcome" column with color-coded verdict badges per bet.
-- All outcome fields default to `not_evaluated` — they are progressive enhancement, not a required gate.
+- A founder can record whether a bet's hypothesis was validated, refuted, partially confirmed, or inconclusive — as a structured field, not just prose in a thread.
+- A task carries a structured outcome indicating whether its done condition was met, met with rework, partially met, or not met — set during review, not automatically.
+- Sessions carry an effectiveness score (0-1) reflecting whether the session advanced its task goal — set by the review process or an evaluator agent.
+- All outcome fields default to "not evaluated" — they are progressive enhancement that doesn't block existing workflows.
+- Outcome data is visible where work is reviewed: bet detail, task detail, Work portfolio.
+- Outcome data is queryable — the founder can filter the portfolio by verdict to see which bets validated vs which didn't.
 
 **Validation scenarios.**
-- Given a bet that ships, when the founder sets the outcome verdict to `hypothesis_validated` with a summary, then the bet detail page shows the verdict badge and summary in the Outcome section.
-- Given 10 completed bets (6 validated, 2 refuted, 2 not_evaluated), when the Work portfolio page loads, then each bet shows its verdict badge and the portfolio summary shows "60% validated."
-- Given a task marked `done` with outcome `met_with_rework`, when the task detail is viewed, then the outcome shows "Met with rework" indicating the task needed iteration.
-- Given a session with effectiveness 0.8, when the agent profile page (AB1) aggregates session performance, then this score contributes to the agent's average effectiveness.
+- Given a bet that ships, when the founder records the outcome as "hypothesis validated" with a summary, then the verdict is visible on the bet detail and the portfolio.
+- Given 10 completed bets with structured verdicts, when the portfolio is filtered by "refuted," then only the refuted bets appear.
+- Given a task reviewed with outcome "met with rework," then the task detail reflects this and it contributes to the team's rework rate.
+- Given a session where no effectiveness score was set, then the field is null and does not affect aggregations.
 
-**Plan calls.** Standard architecture pass — schema migrations, API extensions, UI components for verdict display and input. Skip /design for the bet detail section (structured display, existing patterns). /design may be needed for the portfolio verdict column.
+**Plan calls.** Standard architecture pass — schema migrations, API extensions, UI for verdict input and display. The concept pass should define "Outcome" as a primitive and lock the verdict vocabularies.
 
 **Contracts / constraints.**
-- Outcome fields are kernel-layer data (structural, stable) — they represent what happened, not computed scores.
-- The `not_evaluated` default means existing bets/tasks/sessions are unaffected by the migration.
-- Outcome verdicts are set by humans or evaluator agents — never by the bet/task state machine automatically.
-- The effectiveness score on sessions is optional — null means no evaluation was performed.
+- Outcome fields are kernel-layer data (structural, stable).
+- Verdicts are set by humans or evaluator agents — never by the state machine automatically.
+- The "not evaluated" default means existing data is unaffected by migration.
 
 **Out of scope.**
-- Automatic outcome evaluation (AC3 covers evaluator agents).
-- Rubric-based scoring (AC4 covers multi-dimensional rubrics).
-- Verification gates (AC5 covers mandatory validation before "done").
+- Automatic outcome evaluation (AC3).
+- Multi-dimensional rubrics (AC4).
+- Verification gates (AC5).
 
 **Effort.** M (~6h)
 
@@ -53,38 +58,44 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 ### AC2 — Bet Hypothesis Validation Flow
 
-**Workpackage.** As a founder who shaped a bet with a hypothesis, I want a structured flow that guides me through evaluating whether the hypothesis held — comparing what we expected against what happened, recording the verdict, and extracting learnings — so that the retro process produces queryable data, not just prose in a thread.
+**Workpackage.** As a founder who shaped a bet with a hypothesis, I want a structured flow that guides me through evaluating whether the hypothesis held — comparing what I expected against what happened, recording the verdict, and extracting learnings — so that retros produce queryable data, not just prose in a thread.
+
+**Why this matters.** The retro process today produces a thread with prose observations. That prose is valuable for the humans who read it, but invisible to the system — it can't be queried, aggregated, or promoted through the knowledge pipeline. If 5 of 10 bets had their hypotheses refuted, the founder should see that pattern at portfolio level and ask "why are our predictions so wrong?" Without structured validation, the founder reviews each bet in isolation and the meta-pattern is lost. The cost of NOT building this: retros remain a manual ceremony that feeds human memory but not organizational learning.
+
+**What exists today.** Post-bet-retro routine fires on bet completion and creates review items (prose). Bets have `hypothesis` and `doneCondition` fields (text). The knowledge pipeline can store and promote any knowledge kind.
+
+**What's genuinely missing.** A guided flow that turns the retro from prose into structured data — a verdict on the hypothesis, a summary of what happened, and learnings captured as knowledge items that flow through the existing pipeline.
 
 **Depends on.**
-- AC1 — Structured Outcome Fields. AC1 adds the outcome verdict, summary, and learnings columns; AC2 builds the UX flow that populates them.
+- AC1 — Structured Outcome Fields. AC1 adds the verdict fields; AC2 builds the flow that populates them.
 
 **Complexity.** M
 
 **Acceptance criteria.**
-- When a bet transitions to `completed`, a "Validate Hypothesis" prompt appears in the bet detail page, guiding the founder through three steps: (1) Review — shows the original hypothesis and done condition side-by-side with the actual results (session summaries, task outcomes, artifacts produced); (2) Verdict — select an outcome verdict with a required one-paragraph summary; (3) Learnings — capture what was surprising, what should change, and what patterns emerged.
-- The validation flow is optional — the bet ships whether or not the founder completes it. But an unvalidated bet shows a "Not evaluated" badge that persists.
-- Completing the validation flow creates a structured retro knowledge item (kind: "retro", scope: team) with: the hypothesis, the verdict, the summary, and the learnings — queryable and promotable through the existing knowledge pipeline.
-- The retro knowledge item links back to the bet via scope_id, enabling "show me all retros for this team" queries.
-- An AI-assisted option: the founder can click "Draft with AI" to have a facilitator agent generate a suggested verdict, summary, and learnings based on the bet's session data and task outcomes. The founder reviews and edits before confirming.
+- When a bet ships, the founder is guided through evaluating the hypothesis: seeing what was predicted side-by-side with what happened, recording a verdict, and capturing learnings.
+- The validation is optional — unvalidated bets show a persistent "not evaluated" indicator so the founder sees the gap.
+- Completing the validation creates a structured retro knowledge item (kind: "retro") that enters the existing knowledge pipeline — queryable, promotable, and linkable to the bet.
+- A founder can optionally use AI-assisted drafting: a facilitator agent suggests a verdict, summary, and learnings based on the bet's session data, which the founder reviews and edits before confirming.
+- Retro knowledge items from validated bets are eligible for promotion — if the same learning appears across multiple bets, it can become a team or factory principle.
 
 **Validation scenarios.**
-- Given a bet with hypothesis "chunked uploads reduce failure rate by 50%," when the founder completes the validation flow with verdict `hypothesis_validated`, then the bet shows a green "Validated" badge and a retro knowledge item is created with the full assessment.
-- Given a completed bet where the founder skips validation, when the portfolio page loads, then the bet shows a gray "Not evaluated" badge.
-- Given a founder clicks "Draft with AI," when the facilitator generates a suggested verdict, then the suggestion appears pre-filled in the form for the founder to review and edit.
-- Given a retro knowledge item from a validated bet, when a facilitator scans L2 knowledge, then the retro item is eligible for promotion to L3 if patterns recur across teams.
+- Given a bet with hypothesis "chunked uploads reduce failure rate by 50%," when the founder completes the validation with "validated," then the bet shows a validated badge and a retro knowledge item is created.
+- Given a completed bet where the founder skips validation, then it persistently shows "not evaluated."
+- Given a founder clicks "Draft with AI," then the suggestion appears pre-filled for review and editing.
+- Given a retro learning that appears in 3 bets across 2 teams, then it's eligible for promotion to L3 through the existing pipeline.
 
-**Plan calls.** /design needed — the three-step validation flow is a new interaction pattern. Architecture pass should design: the validation form state management, the retro knowledge item schema (kind: "retro" with structured meta fields), the AI-assisted drafting prompt, and how retro items integrate with the promotion pipeline.
+**Plan calls.** /design needed — the validation flow is a new interaction pattern. Architecture pass should design: the retro knowledge item schema, the AI drafting prompt, and how retros integrate with the promotion pipeline.
 
 **Contracts / constraints.**
-- The validation flow does not block bet completion — it is post-ship reflection, not a gate.
-- Retro knowledge items are standard knowledge items with kind="retro" — they use the existing knowledge pipeline, not a separate system.
-- The "Draft with AI" call uses the team's Product Manager agent identity and is cost-capped.
-- The original hypothesis text is immutable in the retro — it records what was predicted, not a post-hoc rationalization.
+- Validation does not block bet completion — it's post-ship reflection.
+- Retro knowledge items use the existing pipeline — no separate system.
+- The original hypothesis text is immutable in the retro — no post-hoc rationalization.
+- AI-assisted drafting is cost-capped.
 
 **Out of scope.**
-- Automatic hypothesis validation (human judgment is required for bet-level verdicts).
-- Quantitative metric collection (AC4 covers rubric-based measurement).
-- Portfolio-level learning analysis (AC7 covers aggregate metrics).
+- Automatic hypothesis validation (human judgment required for bets).
+- Quantitative metric collection (AC4).
+- Portfolio-level analysis (AC7).
 
 **Effort.** M (~6h)
 
@@ -92,41 +103,45 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 ### AC3 — Outcome Grading (Evaluator Agent Pattern)
 
-**Workpackage.** As a system that learns from its work, I want an independent evaluator agent to grade task and session outcomes against their done conditions — in a separate context from the producing agent — so that outcome scores are unbiased and the system can detect false-success (tasks marked "done" that didn't actually meet criteria).
+**Workpackage.** As a system that learns from its work, I want an independent evaluator agent to grade task outcomes against their done conditions — in a separate context from the producing agent — so that outcome scores are unbiased and false-success (tasks marked "done" that didn't actually meet criteria) is caught.
+
+**Why this matters.** Paperclip discovered this the hard way: agents mark tasks "done" while commenting "I can't do this" (Issue #1997). Without independent evaluation, the only quality gate is manual human review — which doesn't scale. An evaluator agent that never sees the producer's reasoning but only the artifacts and the done condition produces an unbiased quality signal. Anthropic's Outcomes feature validates this pattern in production (8.4% quality improvement, Harvey's 6x task completion rate). The cost of NOT building this: task outcomes are unreliable, rework goes undetected, and the session effectiveness scores (AC1) stay empty because nobody populates them.
+
+**What exists today.** Session-review-creator fires on session_ended for medium/high-risk tasks and creates review items. But these are prose reviews, not structured evaluations against done conditions. No independent evaluation context exists. The X7 eval framework measures harness quality, not business outcomes.
+
+**What's genuinely missing.** A separate-context evaluator that grades task artifacts against done conditions, producing structured verdicts and effectiveness scores.
 
 **Depends on.**
-- AC1 — Structured Outcome Fields. AC1 provides the fields (task outcome, session effectiveness) that the evaluator writes to.
+- AC1 — Structured Outcome Fields. AC1 provides the fields the evaluator writes to.
 
 **Complexity.** L
 
 **Acceptance criteria.**
-- When a task transitions to `review` state, an optional "outcome evaluation" routine runs: a fresh evaluator agent receives only the task's done condition, the produced artifacts/session notes, and a grading rubric — with no access to the producing agent's reasoning or session context.
-- The evaluator produces a structured verdict: task outcome enum (`met_criteria | met_with_rework | partially_met | not_met`) and a brief justification (under 200 words).
-- The evaluator also scores the session effectiveness (0.0–1.0) based on how directly the session advanced the task goal (high = focused progress, low = tangents or failures).
-- The evaluation result is attached to the task and visible in the task detail view. The human reviewer sees the AI evaluation alongside the artifacts and can override the verdict.
-- Evaluation is configurable per team: enabled/disabled via factory settings, with a default of disabled (opt-in). When enabled, evaluation runs automatically on task→review transitions.
-- The evaluator detects false-success: if session notes say "I couldn't complete this" or "needs manual intervention" but the task was moved to review, the evaluator flags this as `not_met` with a clear explanation.
+- When a task reaches review, an independent evaluator can grade it: seeing only the done condition, produced artifacts, and session notes — never the producing agent's reasoning or tool call history.
+- The evaluator produces a structured verdict (did the done condition get met?) and an effectiveness score (how directly did the session advance the goal?).
+- The evaluation is visible alongside human review — a human reviewer can override the evaluator's verdict. Human judgment is always authoritative.
+- Evaluation is opt-in per team (disabled by default) and asynchronous (never blocks the task→review transition).
+- False-success detection: if artifacts or session notes indicate failure while the task status suggests completion, the evaluator flags the discrepancy.
 - Evaluation cost is tracked separately from the producing session's cost.
 
 **Validation scenarios.**
-- Given a task with done condition "API endpoint returns paginated results" and a session that produced an endpoint without pagination, when the evaluator runs, then the verdict is `partially_met` with justification "endpoint exists but pagination is not implemented."
-- Given a session where the agent's notes say "I was unable to complete the file upload feature," when the evaluator runs, then the verdict is `not_met` and the false-success flag is raised.
-- Given a human reviewer who disagrees with the evaluator's verdict, when they override it to `met_criteria`, then the task shows the human verdict with a note that it overrides the AI evaluation.
-- Given evaluation disabled for a team, when a task transitions to review, then no evaluator runs and the task outcome field remains `not_evaluated`.
+- Given a task with done condition "API returns paginated results" and a session that produced an unpaginated endpoint, when the evaluator runs, then the verdict is "partially met" with justification.
+- Given session notes saying "I was unable to complete this," when the evaluator runs, then it flags false-success.
+- Given a human who disagrees with the evaluator, when they override the verdict, then the task shows the human verdict with an override note.
+- Given evaluation disabled for a team, when a task reaches review, then no evaluator runs.
 
-**Plan calls.** Concept work needed: "Evaluator Agent" as a specialized agent role with a specific constraint (no access to producer context). Architecture pass should design: the evaluator prompt template, the context isolation mechanism (how to strip producer reasoning from the evaluation input), the rubric format, the cost tracking separation, and the human-override data model.
+**Plan calls.** Concept work needed: "Evaluator Agent" as a specialized role with context isolation constraints. Architecture pass should design: the evaluator prompt, context isolation mechanism, cost tracking separation, and human-override data model.
 
 **Contracts / constraints.**
-- The evaluator runs in a completely separate session with its own context — it never sees the producing agent's reasoning chain, tool call history, or intermediate artifacts. Only final outputs and the done condition.
-- Evaluation is asynchronous — it does not block the task→review transition.
-- The evaluator uses a fixed rubric prompt, not the producing agent's soul prompt.
-- Human overrides are always authoritative — the AI verdict is advisory.
-- False-success detection uses keyword analysis + LLM judgment, not just pattern matching.
+- The evaluator runs in a completely separate context — no access to the producer's reasoning.
+- Evaluation is asynchronous — does not block task transitions.
+- Human overrides are always authoritative.
+- Default: disabled. Teams opt in.
 
 **Out of scope.**
-- Bet-level evaluation (AC2 covers hypothesis validation with human judgment).
-- Multi-dimensional rubric scoring (AC4 covers configurable rubrics).
-- Continuous evaluation during sessions (this is post-session only).
+- Bet-level evaluation (AC2 — human-driven).
+- Multi-dimensional rubrics (AC4).
+- Continuous evaluation during sessions.
 
 **Effort.** L (~3d)
 
@@ -134,41 +149,42 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 ### AC4 — Multi-Dimensional Scoring Rubrics
 
-**Workpackage.** As a team that works across different domains (dev, design, ops, knowledge work), I want configurable scoring rubrics with multiple dimensions — so that "quality" is measured along the axes that matter for each type of work, not reduced to a single pass/fail verdict.
+**Workpackage.** As a team that works across different domains, I want configurable scoring rubrics with multiple dimensions — so that "quality" is measured along the axes that matter for each type of work, not reduced to a single pass/fail verdict.
+
+**Why this matters.** A single "met/not met" verdict tells the team lead that a task passed or failed but not why. Was the code correct but poorly structured? Was the documentation accurate but unclear? Multi-dimensional scoring lets teams identify systematic weaknesses — "we consistently score low on test coverage" or "our documentation accuracy is excellent but clarity is poor." Without this, quality feedback is binary and improvement is guesswork. The cost of NOT building this: the evaluator (AC3) gives a thumbs up/down but the team can't learn which dimensions of quality to focus on.
+
+**What exists today.** X7 eval framework has a 9-dimensional rubric model for evaluating agent harness quality. But that's for evaluating the harness, not business outcomes. No domain-specific rubrics exist for task evaluation.
+
+**What's genuinely missing.** Configurable per-domain rubrics that the evaluator agent (AC3) uses, with per-dimension scores that aggregate into team-level quality insights.
 
 **Depends on.**
-- AC3 — Outcome Grading. AC3 establishes the evaluator agent pattern; AC4 adds configurable multi-dimensional rubrics that the evaluator uses.
+- AC3 — Outcome Grading. AC3 establishes the evaluator; AC4 gives it configurable rubrics.
 
 **Complexity.** L
 
 **Acceptance criteria.**
-- Teams can define scoring rubrics with named dimensions, each carrying a weight and a scoring guide that instructs the evaluator how to assess that dimension.
-- Different task types within a team can use different rubrics (e.g., code tasks scored on correctness/completeness/quality vs documentation tasks scored on accuracy/clarity/actionability).
-- When the evaluator (AC3) grades a task, it scores each rubric dimension independently with a justification, then computes a weighted aggregate. A team lead can see where the task scored well vs poorly across dimensions.
-- The system ships with default rubrics for common domains (development, knowledge work, operations). Teams can create custom rubrics and modify defaults.
-- Rubric scores are queryable for aggregate analysis — a team lead can see which dimensions their team consistently scores low on across many tasks.
-- Rubric dimension scores are stored in the strategy layer, not inline on tasks.
+- Teams can define scoring rubrics with named dimensions, each carrying a weight and a scoring guide.
+- Different task types can use different rubrics — code tasks and documentation tasks aren't measured the same way.
+- The evaluator scores each dimension independently with a justification, and a team lead can see where work scored well vs poorly.
+- Default rubrics ship for common domains. Teams can customize.
+- Rubric scores are queryable in aggregate — a team lead can identify which quality dimensions are consistently weak across many tasks.
 
 **Validation scenarios.**
-- Given a code task evaluated with the Development rubric (5 dimensions), when the evaluation completes, then each dimension has a 0.0–1.0 score with justification, and the aggregate score is the weighted average.
-- Given a team with a custom "Content Quality" rubric, when a documentation task is evaluated, then the custom rubric's dimensions are used instead of the default.
-- Given 20 evaluated tasks for a team, when the team Work page is viewed, then the average per-dimension scores show the team's strengths and weaknesses across the rubric axes.
-- Given a user creates a new rubric in Settings with 4 dimensions, when they save it and assign it to "design" tasks, then future design task evaluations use this rubric.
+- Given a code task evaluated with a 5-dimension rubric, when evaluation completes, then each dimension has a score and justification, and the aggregate is a weighted average.
+- Given a team with a custom rubric, when a matching task is evaluated, then the custom dimensions are used.
+- Given 20 evaluated tasks, when a team lead views quality trends, then they can see which dimensions are consistently low.
 
-**Plan calls.** /design needed — the per-dimension score display (radar chart or bar chart) and the rubric editor in Settings are new UI surfaces. Architecture pass should design: the rubrics table schema, the dimension scoring prompt template, how rubric assignment works (task type matching), and the aggregate score computation.
+**Plan calls.** /design needed for rubric score display and rubric editor. Architecture pass should design: the rubric schema, how rubric assignment works (task type matching), and how X7's existing rubric model can be reused or adapted.
 
 **Contracts / constraints.**
-- Rubrics are strategy-layer data — they configure how evaluation works, not what was produced.
-- Dimension weights must sum to 1.0 within a rubric. The API validates this on create/update.
-- Default rubrics are created during factory seeding — they can be modified or deleted by users.
-- The scoring guide text for each dimension is included in the evaluator's prompt — it instructs the LLM how to assess that dimension.
-- Aggregate scores use weighted arithmetic mean — no exotic aggregation.
+- Rubrics are strategy-layer configuration.
+- Dimension weights must sum to 1.0.
+- Default rubrics can be modified or deleted by teams.
 
 **Out of scope.**
-- Rubric versioning (a rubric is a configuration, not a versioned document).
-- Cross-team rubric comparison.
-- Automated rubric generation from task patterns.
-- Calibration sets for LLM judge alignment (future workpackage).
+- Rubric versioning.
+- Automated rubric generation.
+- LLM judge calibration sets.
 
 **Effort.** L (~5d)
 
@@ -176,39 +192,43 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 ### AC5 — Verification Gates
 
-**Workpackage.** As a team that wants quality assurance, I want tasks to require independent verification before they can reach "done" — so that agents cannot self-certify completion and the false-success problem (marking "done" without meeting criteria) is structurally prevented.
+**Workpackage.** As a team that wants quality assurance, I want tasks to require independent verification before reaching "done" — so that agents cannot self-certify completion and the false-success problem is structurally prevented.
+
+**Why this matters.** AC3 (evaluator) produces a quality signal. But without a gate, a team lead can ignore it — the task moves to "done" regardless of the evaluation result. For teams where quality is non-negotiable (e.g., customer-facing product, regulated domain), a structural gate that prevents unverified work from shipping is the difference between "we check quality sometimes" and "quality is enforced." The cost of NOT building this: quality evaluation is advisory and easily ignored under deadline pressure. But this is opt-in — teams that prefer speed over verification leave gates off.
+
+**What exists today.** The task state machine has `review → done` as a direct transition. The evaluator (AC3) produces verdicts but doesn't block transitions. Human reviewers can manually approve tasks in threads.
+
+**What's genuinely missing.** An optional gate that requires a passing verdict (evaluator or human) before the state machine allows the `done` transition.
 
 **Depends on.**
-- AC3 — Outcome Grading. AC3 provides the evaluator agent that performs verification; AC5 adds the gate that requires passing verification before the state machine allows transition to "done."
+- AC3 — Outcome Grading. AC3 provides the evaluator; AC5 adds the gate.
 
 **Complexity.** M
 
 **Acceptance criteria.**
-- A new task state `verified` is added between `review` and `done`: the valid transition becomes `review → verified → done`. The `review → done` direct path is removed when verification gates are enabled.
-- Verification gates are configurable per team: when enabled, tasks in `review` state must receive a verification verdict of `met_criteria` (from the evaluator agent or a human reviewer) before transitioning to `verified`.
-- If the verification verdict is `not_met` or `partially_met`, the task transitions back to `in_progress` with the evaluator's feedback attached as a message in the task's thread.
-- A task can be manually overridden to `verified` by a human team lead, bypassing the evaluator verdict. Overrides are logged in the audit trail.
-- When verification gates are disabled (default), the existing `review → done` path works unchanged — backward compatible.
-- The task detail view shows the verification status: "Awaiting verification," "Verified by [evaluator/human]," or "Failed verification — returned to in-progress."
+- Teams can opt into verification gates — when enabled, tasks must receive a passing verdict before reaching "done."
+- Failed verification returns the task to in-progress with feedback explaining what didn't meet criteria.
+- A human team lead can always override a failed verdict — human judgment trumps the evaluator.
+- When gates are disabled (the default), the existing workflow is unchanged — fully backward compatible.
+- Override decisions are logged in the task's audit trail.
 
 **Validation scenarios.**
-- Given verification gates enabled for a team, when a task reaches `review` and the evaluator scores it `met_criteria`, then the task transitions to `verified` and then `done`.
-- Given a task that the evaluator scores `not_met`, when the verdict is recorded, then the task transitions back to `in_progress` with the evaluator's feedback as a thread message.
-- Given a human team lead who disagrees with a `not_met` verdict, when they click "Override to Verified," then the task transitions to `verified` with an override note in the audit trail.
-- Given verification gates disabled for a team, when a task reaches `review`, then the existing `review → done` transition works without any evaluator step.
+- Given gates enabled, when a task gets a passing verdict, then it can transition to done.
+- Given gates enabled, when a task gets a failing verdict, then it returns to in-progress with feedback.
+- Given a human override on a failed verdict, then the task proceeds to done with an override note in the audit trail.
+- Given gates disabled, then the existing review→done flow works unchanged.
 
-**Plan calls.** Architecture pass should design: the state machine modification (add `verified` state conditionally), the gate configuration model (per-team setting), the feedback-to-thread mechanism, and the override audit trail. Skip /design (uses existing task state badges and thread messages).
+**Plan calls.** Architecture pass should design: the conditional state machine modification, the gate configuration model (per-team), the feedback-to-thread mechanism, and the override audit trail.
 
 **Contracts / constraints.**
-- The `verified` state is only active when verification gates are enabled — teams without gates never see this state.
-- The task state machine modification must not break existing task queries or API consumers that expect the current state set.
-- Override authority is restricted to human users with team lead role — agents cannot override verification.
-- The evaluator feedback message uses the existing thread/message system — no new communication channel.
+- Gates are opt-in, disabled by default.
+- Override authority is restricted to human team leads — agents cannot override.
+- The state machine modification must not break existing queries or API consumers.
 
 **Out of scope.**
-- Multi-reviewer verification (only one verdict needed — evaluator or human).
-- Verification for bets (bet-level validation is AC2, which is human-driven).
-- Automated re-evaluation after rework (a new review transition triggers a fresh evaluation).
+- Multi-reviewer verification.
+- Bet-level verification gates (AC2 is human-driven).
+- Automated re-evaluation after rework.
 
 **Effort.** M (~6h)
 
@@ -216,79 +236,86 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 ### AC6 — Outcome-Based Knowledge Learning
 
-**Workpackage.** As a knowledge system that improves over time, I want outcome data (task verdicts, session effectiveness, bet hypothesis results) to feed back into knowledge scoring — so that knowledge items that correlate with successful outcomes rank higher, and patterns from failures are captured as anti-patterns.
+**Workpackage.** As a knowledge system that improves over time, I want outcome data to feed back into knowledge scoring — so that knowledge correlated with successful outcomes ranks higher, and patterns from failures are captured as anti-patterns.
+
+**Why this matters.** Today, the relevance scoring engine has 6 weighted factors (tag match, role match, recency, confidence, layer proximity, attention) but none measure whether the knowledge actually helped. Two of the 8 attention signals are stubbed at zero (impact, usage) precisely because there's no outcome data to inform them. Without outcome feedback, a knowledge item that consistently appears in failed sessions ranks the same as one that consistently appears in successful sessions. The cost of NOT building this: knowledge relevance is based on metadata heuristics, never on real-world effectiveness. The knowledge that matters most can't be distinguished from the knowledge that's merely recent.
+
+**What exists today.** Relevance scoring engine with 6 factors (none outcome-based). Attention scoring with 8 signals (2 stubbed: impact and usage). Citation tracking staged but not yet active (L22 deferred it). Access logs track reads but not outcomes.
+
+**What's genuinely missing.** An outcome signal that connects session effectiveness (AC1) to the knowledge items that were materialized in that session, boosting relevance for knowledge that correlates with success.
 
 **Depends on.**
-- AC1 — Structured Outcome Fields. AC1 provides the outcome data (task verdicts, session effectiveness, bet verdicts) that this workpackage consumes.
+- AC1 — Structured Outcome Fields. AC1 provides the session effectiveness scores that this workpackage consumes.
 
 **Complexity.** L
 
 **Acceptance criteria.**
-- When a session ends with effectiveness > 0.7 and the session had materialized knowledge items, those items gain a positive "outcome signal" that boosts their relevance score in future materializations.
-- When a session ends with effectiveness < 0.3, the materialized knowledge items gain a negative "outcome signal" — not reducing their score directly, but flagging them for facilitator review ("Was this knowledge misleading?").
-- When a bet ships with `hypothesis_validated`, all L2 knowledge items created during that bet gain a confidence boost in the strategy fabric.
-- When a bet ships with `hypothesis_refuted`, the facilitator queue receives a prompt to review what knowledge was relied upon — extracting "why was our hypothesis wrong?" as an anti-pattern knowledge item.
-- The knowledge detail view shows an "Outcome Impact" section: how many successful vs unsuccessful sessions used this item.
-- Outcome signals decay over time (half-life of 90 days) — old outcome data doesn't permanently lock relevance rankings.
+- Knowledge items materialized in successful sessions (high effectiveness) gain a positive outcome signal that boosts their relevance in future materializations.
+- Knowledge items materialized in unsuccessful sessions gain a negative signal — not reducing their score directly, but flagging them for facilitator review.
+- When a bet's hypothesis is refuted, the relied-upon knowledge is flagged for review — extracting "why were we wrong?" as an anti-pattern.
+- Outcome signals decay over time — old signals don't permanently lock relevance rankings.
+- Knowledge items with no outcome data are unaffected — outcome scoring is additive to existing relevance.
 
 **Validation scenarios.**
-- Given a knowledge item "always chunk file uploads" materialized in 10 sessions (8 with effectiveness > 0.7, 2 with effectiveness < 0.3), when relevance scoring runs, then this item's score reflects the 80% positive outcome ratio.
-- Given a bet with `hypothesis_refuted`, when the outcome learning routine runs, then the facilitator queue receives a review prompt linking to the bet's relied-upon knowledge items.
-- Given an outcome signal from 100 days ago, when relevance scoring runs, then the signal's weight is reduced by approximately 50% (90-day half-life).
-- Given a knowledge item with no outcome data, when relevance scoring runs, then the item's score is unaffected (outcome signals are additive, not required).
+- Given a knowledge item materialized in 10 sessions (8 high-effectiveness, 2 low), then its relevance score reflects the positive outcome ratio.
+- Given a refuted bet hypothesis, when the outcome learning routine runs, then the facilitator queue receives a review prompt for the relied-upon knowledge.
+- Given an outcome signal from 100 days ago, then its weight is reduced by decay.
+- Given a knowledge item with zero outcome data, then its relevance score is unchanged.
 
-**Plan calls.** Architecture pass should design: the outcome signal data model (separate table linking knowledge_item_id to session effectiveness), the relevance scoring integration (how outcome signals compose with existing scoring factors), the decay function, and the bet-level feedback mechanism. Skip /design (the Outcome Impact section is a simple stat display).
+**Plan calls.** Architecture pass should design: the outcome signal data model, integration with relevance scoring (new weighted factor), the decay function, and the bet-level feedback mechanism.
 
 **Contracts / constraints.**
-- Outcome signals are strategy-layer data — they live in a new table or in the strategy fabric meta, not on the kernel knowledge_items table.
-- Negative outcome signals never automatically reduce a knowledge item's score — they flag for review. Only human or facilitator action changes the item.
-- The half-life decay is configurable via factory settings (default 90 days).
-- Outcome-based scoring is additive to existing relevance scoring — it is a new weighted factor, not a replacement.
+- Outcome signals are strategy-layer data.
+- Negative signals flag for review, never automatically reduce scores.
+- Decay is configurable (default 90-day half-life).
+- Outcome scoring is additive — a new factor, not a replacement.
 
 **Out of scope.**
-- Causal attribution (proving that a specific knowledge item caused a session to succeed or fail).
+- Causal attribution (proving a specific item caused success/failure).
 - Automatic knowledge deprecation based on outcomes.
-- Cross-factory outcome comparison.
 
 **Effort.** L (~3d)
 
 ---
 
-### AC7 — Portfolio Metrics & Measurement Dashboard
+### AC7 — Portfolio Metrics & Learning Velocity
 
-**Workpackage.** As a founder managing a portfolio of bets and teams, I want a measurement dashboard showing aggregate outcome metrics — hypothesis validation rate, cost efficiency trends, agent effectiveness rankings, and knowledge impact — so that I can see whether the company is getting smarter and more efficient over time.
+**Workpackage.** As a founder managing a portfolio of bets and teams, I want to see aggregate outcome metrics — hypothesis validation rate, cost efficiency, agent effectiveness — so that I can see whether the company is getting smarter and more efficient over time.
+
+**Why this matters.** Individual bet outcomes (AC1, AC2) are valuable for the teams involved, but the founder needs the meta-view: is the company's prediction accuracy improving? Are tasks getting cheaper per successful outcome? Which agents consistently deliver? Without this, the founder reviews bets one at a time and can't see the forest for the trees. The "Learning Velocity" metric — the rate at which hypothesis validation improves — is the single most important signal for a learning organization. If it's flat, the system isn't compounding. The cost of NOT building this: the founder has no way to measure whether HyperIdle is actually making the company smarter, which undermines the entire value proposition.
+
+**What exists today.** Individual bet/task/session outcome data (AC1). Cost tracking per bet/team (L17). Agent performance data in session history. But no aggregate view, no trends, no cross-bet analysis.
+
+**What's genuinely missing.** An aggregate metrics view that derives portfolio-level insights from the outcome data produced by AC1 and AC2.
 
 **Depends on.**
-- AC1 — Structured Outcome Fields. AC1 provides the per-bet and per-task outcome data that this dashboard aggregates.
-- AC2 — Bet Hypothesis Validation Flow. AC2 ensures bets have structured verdicts to aggregate.
+- AC1 — Structured Outcome Fields.
+- AC2 — Bet Hypothesis Validation Flow.
 
 **Complexity.** L
 
 **Acceptance criteria.**
-- A founder can see whether the company is getting smarter over time by viewing aggregate metrics: hypothesis validation rate (what percentage of bets had their hypothesis confirmed?), cost efficiency (are tasks getting cheaper per successful outcome?), agent effectiveness (which agents deliver the best outcomes?), and knowledge impact (which knowledge items correlate with success?).
-- Metrics are viewable across time ranges so the founder can compare recent performance against historical performance.
-- A "Learning Velocity" signal shows whether the hypothesis validation rate is trending up over time — the meta-metric that proves the system is learning.
-- Metrics are derived from outcome data (AC1, AC2) — no new data collection, no pre-aggregation.
-- The metrics view is for humans only — agents don't see portfolio-level metrics unless explicitly materialized into their context.
+- A founder can see whether the company is getting smarter over time: hypothesis validation rate, cost efficiency per successful outcome, and agent effectiveness rankings.
+- Metrics are viewable across time ranges to compare recent vs historical performance.
+- A "Learning Velocity" signal shows whether hypothesis validation rate is trending up — the meta-metric that proves the system is learning.
+- All metrics are derived from existing outcome data — no new data collection.
+- The view is for humans only — agents don't see portfolio metrics unless explicitly materialized.
 
 **Validation scenarios.**
-- Given 20 evaluated bets (12 validated, 4 refuted, 4 partial), when the Metrics page loads, then the Hypothesis Validation section shows "60% validated, 20% refuted, 20% partial."
-- Given cost data for 50 tasks, when the Cost Efficiency section loads, then it shows average cost per successful task and the variance between actual and appetite costs.
-- Given agent effectiveness scores across 100 sessions, when the Agent Effectiveness section loads, then agents are ranked by average effectiveness with per-agent breakdowns.
-- Given the hypothesis validation rate was 40% in Q1 and 60% in Q2, when Learning Velocity is displayed, then it shows a positive trend line.
+- Given 20 evaluated bets (12 validated, 4 refuted, 4 partial), then the hypothesis validation rate shows 60% with the distribution visible.
+- Given validation rate was 40% last quarter and 60% this quarter, then Learning Velocity shows a positive trend.
+- Given cost data across 50 tasks, then cost efficiency shows average cost per successful outcome and whether it's improving.
 
-**Plan calls.** /design needed — the Metrics dashboard is a new page with charts and aggregate displays. Architecture pass should design: the aggregate queries (across bets, tasks, sessions), the time-range filtering, the Learning Velocity computation, and the chart component selection.
+**Plan calls.** /design needed — metrics dashboard is a new page. Architecture pass should design: aggregate queries, time-range filtering, Learning Velocity computation.
 
 **Contracts / constraints.**
-- All metrics are derived from existing data — no new data collection mechanisms.
-- Queries scan the outcome columns added by AC1 and AC2 — performance must be acceptable for factories with <10,000 bets.
-- The dashboard does not cache or pre-aggregate — it queries fresh on each page load.
-- Learning Velocity is a simple slope calculation on the validation rate time series — no statistical modeling.
+- All metrics derived from existing data — no pre-aggregation.
+- Performance acceptable for <10,000 bets.
+- Learning Velocity is a simple slope calculation — no statistical modeling.
 
 **Out of scope.**
-- OKR management (defining and tracking explicit objectives and key results).
-- Predictive analytics (forecasting future outcomes from past data).
-- Export/reporting (PDF or CSV export of metrics).
-- Real-time streaming metrics.
+- OKR management.
+- Predictive analytics.
+- Export/reporting.
 
 **Effort.** L (~3d)
