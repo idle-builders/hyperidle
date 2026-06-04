@@ -51,10 +51,17 @@ export interface BuiltinHarnessOptions {
 
 /**
  * Per-session state held in memory.
+ *
+ * @lore X6: `config` is nullable because setSessionToolRegistry() pre-registers
+ * a session before startSession() is called (so config is not yet known at
+ * pre-registration time). startSession() fills in the real config. All methods
+ * that read config must guard against null — runLoop() only starts after
+ * startSession() sets the real config, so in practice config is always set
+ * before runLoop() or any other internal method reads it.
  */
 interface BuiltinSession {
 	readonly sessionId: string;
-	readonly config: SessionConfig;
+	config: SessionConfig | null;
 	readonly messages: LlmMessage[];
 	toolDefs: LlmToolDef[];
 	registry: ToolRegistry | null;
@@ -159,10 +166,11 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			pending.registry = registry;
 			pending.toolDefs = this.toolDefsFromRegistry(registry);
 		} else {
-			// Pre-register for the upcoming startSession call
+			// Pre-register for the upcoming startSession call.
+			// config is null here; startSession() fills it in before runLoop() executes.
 			this.sessions.set(sessionId, {
 				sessionId,
-				config: {} as SessionConfig, // placeholder — overwritten by startSession
+				config: null,
 				messages: [],
 				toolDefs: this.toolDefsFromRegistry(registry),
 				registry,
@@ -351,6 +359,12 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 	// ── Internal loop ─────────────────────────────────────────────────────────
 
 	private async runLoop(session: BuiltinSession): Promise<void> {
+		// runLoop is only called from startSession(), which always sets config before
+		// spawning the loop. The null guard here is a defensive type-system check.
+		if (!session.config) {
+			throw new Error("BuiltinHarnessAdapter: runLoop called with null config");
+		}
+
 		try {
 			// PLANNING TURN
 			await this.runPlanningTurn(session);
@@ -410,6 +424,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 		});
 
 		const config = session.config;
+		if (!config) throw new Error("BuiltinHarnessAdapter: session config is null in planning turn");
 		const resolvedModel = config.resolvedModel;
 		if (!resolvedModel) throw new Error("resolvedModel is required");
 
@@ -460,6 +475,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 
 	private async runExecuteTurn(session: BuiltinSession): Promise<void> {
 		const config = session.config;
+		if (!config) throw new Error("BuiltinHarnessAdapter: session config is null in execute turn");
 		const resolvedModel = config.resolvedModel;
 		if (!resolvedModel) throw new Error("resolvedModel is required");
 
@@ -541,6 +557,8 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 
 	private async runMaxIterationsTurn(session: BuiltinSession): Promise<void> {
 		const config = session.config;
+		if (!config)
+			throw new Error("BuiltinHarnessAdapter: session config is null in max iterations turn");
 		const resolvedModel = config.resolvedModel;
 		if (!resolvedModel) throw new Error("resolvedModel is required");
 
@@ -627,6 +645,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 
 	private async injectReflection(session: BuiltinSession): Promise<void> {
 		const config = session.config;
+		if (!config) return;
 		const resolvedModel = config.resolvedModel;
 		if (!resolvedModel) return;
 
@@ -668,6 +687,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 
 	private async summarizeHistory(session: BuiltinSession): Promise<void> {
 		const config = session.config;
+		if (!config) return;
 		const summarizeModel = config.resolvedFastModel ?? config.resolvedModel;
 		if (!summarizeModel) return;
 
@@ -733,7 +753,7 @@ ${formatMessagesForSummary(toSummarize)}`,
 		session.totalInputTokens += usage.inputTokens;
 		session.totalOutputTokens += usage.outputTokens;
 
-		const resolvedModel = session.config.resolvedModel;
+		const resolvedModel = session.config?.resolvedModel;
 		const model = resolvedModel?.model ?? "unknown";
 		const deltaCost = estimateCostUsd(usage.inputTokens, usage.outputTokens, model);
 		session.totalCostUsd += deltaCost;
@@ -764,36 +784,14 @@ ${formatMessagesForSummary(toSummarize)}`,
 
 	private toolDefsFromRegistry(registry: ToolRegistry): LlmToolDef[] {
 		const specs = registry.toClaudeToolSpecs();
-		return specs.map((spec) => {
-			// Real ClaudeToolSpec uses snake_case input_schema.
-			// Test mocks may return objects with camelCase inputSchema (LlmToolDef shape).
-			// Handle both via duck typing.
-			const rawSpec = spec as unknown as Record<string, unknown>;
-			const inputSchema = (rawSpec.input_schema ?? rawSpec.inputSchema) as
-				| {
-						type: "object";
-						properties: Record<string, unknown>;
-						required?: readonly string[];
-				  }
-				| undefined;
-
-			if (!inputSchema) {
-				return {
-					name: spec.name,
-					description: spec.description,
-					inputSchema: { type: "object" as const, properties: {} },
-				};
-			}
-
-			return {
-				name: spec.name,
-				description: spec.description,
-				inputSchema: {
-					type: "object" as const,
-					properties: inputSchema.properties,
-					...(inputSchema.required ? { required: inputSchema.required } : {}),
-				},
-			};
-		});
+		return specs.map((spec) => ({
+			name: spec.name,
+			description: spec.description,
+			inputSchema: {
+				type: "object" as const,
+				properties: spec.input_schema.properties,
+				...(spec.input_schema.required ? { required: spec.input_schema.required } : {}),
+			},
+		}));
 	}
 }

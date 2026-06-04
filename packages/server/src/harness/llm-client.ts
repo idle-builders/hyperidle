@@ -351,21 +351,26 @@ async function fetchWithTimeout(
 	// because mocked fetch implementations (used in tests) do not check the signal.
 	// Promise.race guarantees the timeout fires regardless of the fetch implementation.
 	const controller = new AbortController();
-	const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+	const abortTimeoutId = setTimeout(() => controller.abort(), timeoutMs);
+	let rejectTimeoutId: ReturnType<typeof setTimeout>;
 
 	const fetchPromise = fetch(url, { ...init, signal: controller.signal });
 	const timeoutPromise = new Promise<never>((_, reject) => {
-		setTimeout(() => {
+		rejectTimeoutId = setTimeout(() => {
 			reject(new Error(`LLM call timed out after ${timeoutMs}ms`));
 		}, timeoutMs);
 	});
 
 	try {
 		const result = await Promise.race([fetchPromise, timeoutPromise]);
-		clearTimeout(timeoutId);
+		clearTimeout(abortTimeoutId);
+		// biome-ignore lint/style/noNonNullAssertion: rejectTimeoutId is always assigned before Promise.race resolves
+		clearTimeout(rejectTimeoutId!);
 		return result;
 	} catch (err) {
-		clearTimeout(timeoutId);
+		clearTimeout(abortTimeoutId);
+		// biome-ignore lint/style/noNonNullAssertion: rejectTimeoutId is always assigned before Promise.race settles
+		clearTimeout(rejectTimeoutId!);
 		throw err;
 	}
 }

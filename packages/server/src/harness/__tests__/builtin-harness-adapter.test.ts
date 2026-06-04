@@ -21,7 +21,7 @@ import type {
 } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
-import type { LlmResponse, LlmToolDef } from "../llm-types.js";
+import type { LlmResponse } from "../llm-types.js";
 
 // ── Mock callLlm ─────────────────────────────────────────────────────────────
 
@@ -106,13 +106,14 @@ function makeMockRegistry(
 		data: { ok: true },
 	},
 ) {
-	const toolSpec: LlmToolDef = {
+	// Return ClaudeToolSpec shape with snake_case input_schema (not LlmToolDef camelCase)
+	const toolSpec = {
 		name: "write_session_notes",
 		description: "Write notes for a session",
-		inputSchema: {
-			type: "object",
+		input_schema: {
+			type: "object" as const,
 			properties: { notes: { type: "string" } },
-			required: ["notes"],
+			required: ["notes"] as readonly string[],
 		},
 	};
 
@@ -751,23 +752,32 @@ describe("AC-14: Session history management — sliding window + summarization",
 		vi.clearAllMocks();
 	});
 
-	it("compresses conversation history when summarization is triggered", async () => {
+	it("compresses conversation history when summarization is triggered (pre_compaction event emitted)", async () => {
 		// Build a session that accumulates many messages then triggers pre-compaction.
-		// The harness must summarize older turns, resulting in fewer messages.
+		// The harness must summarize older turns, resulting in a pre_compaction event.
 		//
-		// We verify: after summarization, callLlm receives fewer messages than
-		// before summarization (the sliding window compressed the history).
+		// Message accumulation:
+		//   planning:  2 messages (user+assistant)
+		//   execute×4 tool calls: +2 per round = 10 messages total
+		//   execute 5 (high tokens): toSummarize = messages.slice(0,-6) = 4 items ≥ 4 → SUMMARIZES
+		//
+		// Verification: pre_compaction event is emitted, and the summarization callLlm
+		// is made with a system prompt containing "summarizer" (SUMMARIZE_SYSTEM).
 
-		// Mock: planning → 3 tool calls (building history) → high-token response (triggers compact)
 		const toolResponse = makeToolCallResponse("write_session_notes", { notes: "note" });
+		// 165,000 input tokens on a 200k context window = 82.5% > 80% threshold → triggers pre-compaction
 		const highTokenDone = makeTextResponse("Done.", 165_000, 100);
+		const summaryResponse = makeTextResponse("Summary: planned, ran 4 tool calls, made progress.");
 
 		callLlmMock
-			.mockResolvedValueOnce(makeTextResponse("Planning step by step.")) // planning
-			.mockResolvedValueOnce(toolResponse) // execute 1
-			.mockResolvedValueOnce(toolResponse) // execute 2
-			.mockResolvedValueOnce(toolResponse) // execute 3
-			.mockResolvedValueOnce(highTokenDone); // triggers pre-compaction + summarization
+			.mockResolvedValueOnce(makeTextResponse("Planning step by step.")) // call 1: planning
+			.mockResolvedValueOnce(toolResponse) // call 2: execute 1 (tool call)
+			.mockResolvedValueOnce(toolResponse) // call 3: execute 2 (tool call)
+			.mockResolvedValueOnce(toolResponse) // call 4: execute 3 (tool call)
+			.mockResolvedValueOnce(toolResponse) // call 5: execute 4 (tool call) — now 10 messages
+			.mockResolvedValueOnce(highTokenDone) // call 6: execute 5 — high tokens → pre_compaction
+			// summarization happens before execute 5 response is fully processed:
+			.mockResolvedValueOnce(summaryResponse); // call 7: summarization
 
 		const registry = makeMockRegistry();
 		const adapter = new BuiltinHarnessAdapter();
@@ -775,45 +785,73 @@ describe("AC-14: Session history management — sliding window + summarization",
 		adapter.setSessionToolRegistry(sessionId, registry);
 
 		const handle = await adapter.startSession(makeSessionConfig());
-		await collectEvents(adapter, handle);
+		const events = await collectEvents(adapter, handle);
 
-		// The summarization callLlm call should receive a very short message list
-		// (just the summary request) compared to the full conversation.
-		// The first non-planning calls in the sequence have accumulated messages.
-		// After summarization, the next execute call should see fewer messages.
+		// Verify pre_compaction event was emitted
+		const preCompactionEvents = events.filter((e) => e.type === "pre_compaction");
+		expect(preCompactionEvents.length).toBeGreaterThanOrEqual(1);
 
-		// We verify that pre_compaction event was emitted — summarization is coupled to it
-		// (This test is intentionally lenient on the exact count — it just verifies
-		// the flow runs without error and the pre_compaction path executes.)
-		// A more precise test would inject a spy into the messages array.
-		expect(callLlmMock).toHaveBeenCalled();
+		// Verify the summarization callLlm call had a summarization-specific system prompt
+		// (SUMMARIZE_SYSTEM = "You are a conversation summarizer. Produce a concise summary.")
+		const summarizationCalls = callLlmMock.mock.calls.filter(([opts]) =>
+			opts.system?.toLowerCase().includes("summariz"),
+		);
+		expect(summarizationCalls.length).toBeGreaterThanOrEqual(1);
+
+		// Verify the summarization call received a single-user-message array
+		// (the summary request is always structured as one user message)
+		for (const [opts] of summarizationCalls) {
+			expect(opts.messages.length).toBe(1);
+		}
 	});
 
-	it("preserves recent messages verbatim after summarization", async () => {
-		// After summarization, the next LLM call must contain a "summary" message
-		// AND the recent messages (the preserved tail).
+	it("preserves recent messages verbatim after summarization (next callLlm contains summary block)", async () => {
+		// After summarization, the next LLM execute call must contain:
+		//   1. A summary message (role: "user" with "[Previous conversation summary]")
+		//   2. A "Understood. Continuing from the summary." message (role: "assistant")
+		//   3. The preserved recent messages
+		//
+		// Message accumulation (same as first test — need 10+ messages before summarization):
+		//   planning: 2 msgs, then 4 tool-call rounds = 10 msgs total
+		//   execute 5 (high token) → pre_compaction → summarizeHistory
+		//   After summarization: summary (2 msgs) + recent 6 msgs = 8 msgs
+		//   Next execute (call after summarization) sees summary message at position 0.
+
 		const toolResponse = makeToolCallResponse("write_session_notes", { notes: "recent" });
 		const highTokenDone = makeTextResponse("Done.", 165_000, 100);
+		const summaryResponse = makeTextResponse("Summary: made progress on the task.");
+		const afterSummaryDone = makeTextResponse("Continuing work after summary.");
 
 		callLlmMock
-			.mockResolvedValueOnce(makeTextResponse("Initial plan."))
-			.mockResolvedValueOnce(toolResponse)
-			.mockResolvedValueOnce(highTokenDone);
+			.mockResolvedValueOnce(makeTextResponse("Initial plan.")) // call 1: planning
+			.mockResolvedValueOnce(toolResponse) // call 2: execute 1 (tool call)
+			.mockResolvedValueOnce(toolResponse) // call 3: execute 2 (tool call)
+			.mockResolvedValueOnce(toolResponse) // call 4: execute 3 (tool call)
+			.mockResolvedValueOnce(toolResponse) // call 5: execute 4 (tool call) — 10 messages
+			.mockResolvedValueOnce(highTokenDone) // call 6: execute 5 — triggers pre_compaction
+			.mockResolvedValueOnce(summaryResponse) // call 7: summarization
+			.mockResolvedValueOnce(afterSummaryDone); // call 8: execute 6 after summary applied
 
 		const registry = makeMockRegistry();
 		const adapter = new BuiltinHarnessAdapter();
 		const sessionId = "sess-preserve-recent";
 		adapter.setSessionToolRegistry(sessionId, registry);
 
-		const config = makeSessionConfig();
-		const handle = await adapter.startSession(config);
+		const handle = await adapter.startSession(makeSessionConfig());
 		await collectEvents(adapter, handle);
 
-		// Any summarization call should be to a compact model or include a summary prompt
-		// The fact that the test completes without error and emits pre_compaction
-		// is the primary verification here.
-		const events = await collectEvents(adapter, handle).catch(() => []);
-		void events; // consumed for side effects
+		// After summarization, the next execute callLlm must have received
+		// a messages array where the first message content includes "[Previous conversation summary]"
+		const callsWithSummaryMessage = callLlmMock.mock.calls.filter(([opts]) => {
+			const messages = opts.messages as Array<{ role: string; content: unknown }>;
+			return messages.some((m) => {
+				if (typeof m.content === "string") {
+					return m.content.includes("[Previous conversation summary]");
+				}
+				return false;
+			});
+		});
+		expect(callsWithSummaryMessage.length).toBeGreaterThanOrEqual(1);
 	});
 });
 

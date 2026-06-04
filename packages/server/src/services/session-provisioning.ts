@@ -29,6 +29,7 @@ import {
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
 import type { AdapterPool } from "../harness/adapter-pool.js";
+import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
 import type { WorkspaceAdapter, WorkspaceHandle } from "../harness/workspace-adapter.js";
 import { createMcpBridge } from "../mcp/mcp-bridge.js";
 import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
@@ -187,6 +188,12 @@ export interface ProvisionSessionParams {
 	 * already-resolved value so session-provisioning.ts stays gateway-unaware.
 	 */
 	readonly resolvedModel?: import("@hyperidle/shared").ResolvedModel;
+	/**
+	 * X6: Resolved fast-tier model for builtin harness summarization.
+	 * Optional — when absent the builtin harness uses resolvedModel for all LLM
+	 * calls including summarization (slightly higher cost, functionally equivalent).
+	 */
+	readonly resolvedFastModel?: import("@hyperidle/shared").ResolvedModel;
 }
 
 export interface ProvisionSessionResult {
@@ -367,6 +374,18 @@ export async function provisionSession(
 	};
 	const registry = buildToolRegistry(toolContext, { role: agentRole });
 
+	// ── Phase 8.5a: inject registry into builtin harness before startSession.
+	//
+	// @lore X6: The builtin harness executes tools internally (inside the agent
+	// loop) rather than emitting tool_call events for the provisioning orchestrator
+	// to invoke. setSessionToolRegistry() pre-registers the session-scoped registry
+	// so the harness can call it when the loop starts. This call is guarded by
+	// meta.type === "builtin" — external harnesses (ClaudeAgentSdkAdapter) receive
+	// the registry indirectly via MCP bridge (X2), not via this method.
+	if (selectedAdapter.meta.type === "builtin" && harness instanceof BuiltinHarnessAdapter) {
+		harness.setSessionToolRegistry(sessionId, registry);
+	}
+
 	// ── Phase 8.5: compose prompt and write CLAUDE.md.
 	//
 	// @lore X1: spec says "written during Phase 6 (materialization)" but we
@@ -457,6 +476,8 @@ export async function provisionSession(
 			tools: allowedToolNames,
 			// X4: Pass resolved model from gateway so adapter uses correct provider/model/key.
 			resolvedModel: params.resolvedModel,
+			// X6: Pass resolved fast-tier model for builtin harness summarization.
+			resolvedFastModel: params.resolvedFastModel,
 		});
 	} catch {
 		// startSession failed — treat as crash; nothing to stop.
@@ -515,7 +536,18 @@ export async function provisionSession(
 						argsSummary: summarizeToolArgs(event.args),
 						timestamp: Date.now(),
 					});
-					await registry.invoke(event.toolName, event.args);
+
+					// Only invoke via registry for external harnesses.
+					// The built-in harness executes tools internally — re-invoking here
+					// would cause double execution (the tool already ran inside the loop).
+					//
+					// @lore X6: tool_call events from the builtin harness are emitted for
+					// observability only. External harnesses (ClaudeAgentSdkAdapter) emit
+					// tool_call events as requests — the provisioning orchestrator is
+					// responsible for execution via registry.invoke().
+					if (selectedAdapter.meta.type !== "builtin") {
+						await registry.invoke(event.toolName, event.args);
+					}
 				} else if (event.type === "error") {
 					crashed = true;
 					break;
