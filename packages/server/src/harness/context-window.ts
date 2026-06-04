@@ -23,8 +23,8 @@ export const DEFAULT_CONTEXT_WINDOW = 128_000;
 /**
  * Get the context window size for a model string.
  */
-export function contextWindowForModel(_model: string): number {
-	throw new Error("not implemented");
+export function contextWindowForModel(model: string): number {
+	return MODEL_CONTEXT_WINDOWS[model] ?? DEFAULT_CONTEXT_WINDOW;
 }
 
 /**
@@ -39,9 +39,9 @@ export function contextWindowForModel(_model: string): number {
  * (number of calls), triggering pre-compaction far too early.
  */
 export function isAboveThreshold(
-	_latestInputTokens: number,
-	_contextWindow: number,
-	_threshold: number,
+	latestInputTokens: number,
+	contextWindow: number,
+	threshold: number,
 ): boolean {
-	throw new Error("not implemented");
+	return latestInputTokens > contextWindow * threshold;
 }

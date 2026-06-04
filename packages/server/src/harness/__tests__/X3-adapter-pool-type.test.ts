@@ -260,8 +260,10 @@ describe("X3 AC-18: AdapterPool.select() filters by harnessType", () => {
 		const pool = createLocalAdapterPool();
 
 		const entries = pool.list();
-		expect(entries).toHaveLength(1);
+		// X6: pool now has 2 entries — "local" (claude-code) and "builtin"
+		expect(entries.length).toBeGreaterThanOrEqual(1);
 		// X3: The local adapter should register with type "claude-code"
-		expect(entries[0]?.type).toBe("claude-code");
+		const localEntry = entries.find((e) => e.id === "local");
+		expect(localEntry?.type).toBe("claude-code");
 	});
 });

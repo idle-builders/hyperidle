@@ -7,6 +7,7 @@
  */
 
 import type { HarnessAdapter } from "@hyperidle/shared";
+import { BuiltinHarnessAdapter } from "./builtin-harness-adapter.js";
 import { ClaudeAgentSdkAdapter } from "./claude-agent-sdk-adapter.js";
 
 /** Descriptor for a registered adapter. */
@@ -200,5 +201,16 @@ export function createLocalAdapterPool(): AdapterPool {
 		modelProviders: ["anthropic"],
 		maxConcurrent: Number.parseInt(process.env.HYPERIDLE_LOCAL_MAX_CONCURRENT ?? "4", 10),
 	});
+
+	// X6: Built-in harness adapter — supports direct API calls to all providers
+	const builtinAdapter = new BuiltinHarnessAdapter();
+	pool.register("builtin", builtinAdapter, {
+		name: "builtin",
+		kind: "local",
+		type: "builtin",
+		modelProviders: ["anthropic", "openrouter", "openai-compatible"],
+		maxConcurrent: Number.parseInt(process.env.HYPERIDLE_BUILTIN_MAX_CONCURRENT ?? "8", 10),
+	});
+
 	return pool;
 }

@@ -697,17 +697,12 @@ describe("AC-13: Max-iterations guard", () => {
 		// After max iterations, one final text response for the wrap-up
 		const wrapUpResponse = makeTextResponse("Summarizing progress...");
 
-		callLlmMock
-			.mockResolvedValueOnce(makeTextResponse("Planning...")) // planning
-			.mockResolvedValue(toolResponse); // infinite tool calls
-
-		// Override last call: when maxIterations guard fires, no more tool calls
-		// The guard injects a user message and makes one final LLM call with no tools
-		callLlmMock.mockResolvedValueOnce(makeTextResponse("Planning..."));
-		for (let i = 0; i < 4; i++) {
-			callLlmMock.mockResolvedValueOnce(toolResponse);
+		// Sequence: planning(1) + execute×3(3) + wrap-up(1) = 5 calls total
+		callLlmMock.mockResolvedValueOnce(makeTextResponse("Planning...")); // call 1: planning
+		for (let i = 0; i < 3; i++) {
+			callLlmMock.mockResolvedValueOnce(toolResponse); // calls 2-4: execute loop iterations
 		}
-		callLlmMock.mockResolvedValueOnce(wrapUpResponse);
+		callLlmMock.mockResolvedValueOnce(wrapUpResponse); // call 5: max-iterations wrap-up
 
 		const registry = makeMockRegistry();
 		const adapter = new BuiltinHarnessAdapter({ maxIterations: 3 });
