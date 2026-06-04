@@ -270,10 +270,8 @@ describe("W3 WorkTask — loading state (critique CRITICAL-3)", () => {
 describe("W3 WorkTask — error state (critique CRITICAL-3)", () => {
 	it("renders error state when bet fetch fails", () => {
 		renderTaskPage("error-bet", "t1");
-		// Should show error state
 		const errorEl = screen.queryByTestId("task-detail-error");
-		const errorState = screen.queryByRole("alert");
-		expect(errorEl ?? errorState).not.toBeNull();
+		expect(errorEl).not.toBeNull();
 	});
 });
 
