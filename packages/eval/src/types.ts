@@ -10,8 +10,7 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { EventBus } from "@hyperidle/shared";
-import type { ResolvedModel } from "@hyperidle/shared";
+import type { EventBus, ResolvedModel } from "@hyperidle/shared";
 
 // Re-export for consumers of @hyperidle/eval
 export type { HyperIdleDb, ResolvedModel };

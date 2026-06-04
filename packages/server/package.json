@@ -10,7 +10,14 @@
 		"./skill-tools": "./src/skill-tools/index.ts",
 		"./schemas": "./src/schemas/index.ts",
 		"./harness": "./src/harness/claude-agent-sdk-adapter.ts",
-		"./session": "./src/session.ts"
+		"./session": "./src/session.ts",
+		"./services/session-provisioning": "./src/services/session-provisioning.ts",
+		"./services/model-gateway": "./src/services/model-gateway.ts",
+		"./services/credential-resolver": "./src/services/credential-resolver.ts",
+		"./harness/adapter-pool": "./src/harness/adapter-pool.ts",
+		"./harness/builtin-harness-adapter": "./src/harness/builtin-harness-adapter.ts",
+		"./harness/local-workspace-adapter": "./src/harness/local-workspace-adapter.ts",
+		"./harness/workspace-adapter": "./src/harness/workspace-adapter.ts"
 	},
 	"scripts": {
 		"check": "tsc --noEmit",
