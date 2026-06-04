@@ -1,0 +1,23 @@
+{
+	"name": "@hyperidle/eval",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/types.ts"
+	},
+	"scripts": {
+		"eval": "tsx src/cli.ts"
+	},
+	"dependencies": {
+		"@hyperidle/db": "*",
+		"@hyperidle/fabric": "*",
+		"@hyperidle/server": "*",
+		"@hyperidle/shared": "*",
+		"@electric-sql/pglite": "^0.4.4",
+		"drizzle-orm": "^0.39.0"
+	},
+	"devDependencies": {
+		"tsx": "^4.21.0"
+	}
+}
