@@ -1,7 +1,7 @@
 {
-	"sha": "9590a509e6829ada9e57a76ae9f0c61276af3c3c",
+	"sha": "4d4aea64b65f83303fe27e670e868d6e72ce5b76",
 	"status": "passed",
-	"dirty": true,
+	"dirty": false,
 	"tools": [
 		"check",
 		"lint:biome",
@@ -29,6 +29,6 @@
 		"build:desktop",
 		"server:load"
 	],
-	"timestamp": "2026-06-04T17:09:53.891Z",
-	"hmac": "9116533c28d7a4be3e613b314cd31fa3a3cb2ad896e0d8670818bfa149f60f74"
+	"timestamp": "2026-06-04T17:17:15.075Z",
+	"hmac": "d4727c1d7ec5a52511edb2d3dccf561d89d1cd07a1fbe5560916df5a27b45ddd"
 }
