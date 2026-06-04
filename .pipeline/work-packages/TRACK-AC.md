@@ -142,13 +142,12 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 **Complexity.** L
 
 **Acceptance criteria.**
-- A `rubrics` table stores named scoring rubrics with: title, description, and a list of dimensions (each with: name, description, weight 0.0–1.0, scoring guide text).
-- Each team can have multiple rubrics assigned to different task types (e.g., "code review rubric" for code tasks, "content quality rubric" for documentation tasks).
-- When the evaluator agent (AC3) grades a task, it uses the rubric assigned to that task's type. Each dimension receives a score (0.0–1.0) and a one-sentence justification. The aggregate score is a weighted average.
-- The task detail view shows per-dimension scores as a radar chart or bar chart alongside the aggregate score.
-- Default rubrics are seeded for common domains: (a) Development — correctness, completeness, code quality, test coverage, efficiency; (b) Knowledge work — accuracy, completeness, clarity, actionability; (c) Operations — resolution speed, root cause identified, prevention measures.
-- Custom rubrics can be created and edited in the Settings UI.
-- Rubric dimension scores are stored in the strategy fabric (not inline on the task) and are queryable for aggregate analysis.
+- Teams can define scoring rubrics with named dimensions, each carrying a weight and a scoring guide that instructs the evaluator how to assess that dimension.
+- Different task types within a team can use different rubrics (e.g., code tasks scored on correctness/completeness/quality vs documentation tasks scored on accuracy/clarity/actionability).
+- When the evaluator (AC3) grades a task, it scores each rubric dimension independently with a justification, then computes a weighted aggregate. A team lead can see where the task scored well vs poorly across dimensions.
+- The system ships with default rubrics for common domains (development, knowledge work, operations). Teams can create custom rubrics and modify defaults.
+- Rubric scores are queryable for aggregate analysis — a team lead can see which dimensions their team consistently scores low on across many tasks.
+- Rubric dimension scores are stored in the strategy layer, not inline on tasks.
 
 **Validation scenarios.**
 - Given a code task evaluated with the Development rubric (5 dimensions), when the evaluation completes, then each dimension has a 0.0–1.0 score with justification, and the aggregate score is the weighted average.
@@ -266,11 +265,11 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 **Complexity.** L
 
 **Acceptance criteria.**
-- A "Metrics" page accessible from the sidebar shows four aggregate sections: (1) Hypothesis Validation — percentage of evaluated bets where hypothesis was validated/refuted/partial, trend over time (last 4 cycles); (2) Cost Efficiency — average cost per successful task, cost variance (actual vs appetite), trend over time; (3) Agent Effectiveness — per-agent average session effectiveness, task outcome distribution, cost per successful session; (4) Knowledge Impact — top 10 knowledge items by positive outcome correlation, anti-patterns flagged from refuted hypotheses.
-- Each section has a time range selector: last 30 days, last 90 days, all time.
-- The dashboard shows a "Learning Velocity" metric: the rate at which the company's hypothesis validation rate is improving over time. A positive slope means the company is getting better at predicting outcomes.
-- Metrics are computed on-demand from the outcome data — no pre-aggregation or materialized views.
-- The dashboard is accessible to human users only (agents don't see portfolio-level metrics unless materialized into their context).
+- A founder can see whether the company is getting smarter over time by viewing aggregate metrics: hypothesis validation rate (what percentage of bets had their hypothesis confirmed?), cost efficiency (are tasks getting cheaper per successful outcome?), agent effectiveness (which agents deliver the best outcomes?), and knowledge impact (which knowledge items correlate with success?).
+- Metrics are viewable across time ranges so the founder can compare recent performance against historical performance.
+- A "Learning Velocity" signal shows whether the hypothesis validation rate is trending up over time — the meta-metric that proves the system is learning.
+- Metrics are derived from outcome data (AC1, AC2) — no new data collection, no pre-aggregation.
+- The metrics view is for humans only — agents don't see portfolio-level metrics unless explicitly materialized into their context.
 
 **Validation scenarios.**
 - Given 20 evaluated bets (12 validated, 4 refuted, 4 partial), when the Metrics page loads, then the Hypothesis Validation section shows "60% validated, 20% refuted, 20% partial."

@@ -689,39 +689,29 @@ stories:
 
   # Track AA: Routines as Work
   - id: AA1
-    title: Routine Visibility in Work Surface
+    title: Routine Visibility & Team Scoping
     track: AA
     depends: []
-    complexity: M
+    complexity: L
   - id: AA2
-    title: Routine CRUD from Work Surface
-    track: AA
-    depends: [AA1]
-    complexity: M
-  - id: AA3
-    title: Heartbeat Execution Pattern
+    title: Routine Management & Session Adaptation
     track: AA
     depends: [AA1]
     complexity: L
-  - id: AA4
+  - id: AA3
     title: Routine Cost & Appetite Model
     track: AA
-    depends: [AA1, AA3]
+    depends: [AA1, AA2]
     complexity: M
-  - id: AA5
-    title: Routine Ownership & Team Scoping
-    track: AA
-    depends: []
-    complexity: S
 
   # Track AB: Agent Management & Configuration
   - id: AB1
-    title: Agent Profile Pages
+    title: Agent Profile & Capabilities
     track: AB
     depends: []
-    complexity: M
+    complexity: L
   - id: AB2
-    title: Agent Dashboard (Team Agent Overview)
+    title: Agent Overview in Team Work Page
     track: AB
     depends: [AB1]
     complexity: M
@@ -729,16 +719,6 @@ stories:
     title: Agent Setup Wizard
     track: AB
     depends: []
-    complexity: M
-  - id: AB4
-    title: Agent Capabilities & Skills Display
-    track: AB
-    depends: [AB1]
-    complexity: M
-  - id: AB5
-    title: Agent Operational Health & Alerts
-    track: AB
-    depends: [AB1, AB2]
     complexity: M
 
   # Track AC: Outcome Measurement & Scoring

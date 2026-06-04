@@ -4,7 +4,7 @@ Tell the HyperIdle story. Produce external-facing documentation that communicate
 
 **Key narrative:** HyperIdle is NOT "zero human companies." It is an operating system where humans and AI agents collaborate as equals, with AI amplifying human judgment — not replacing it. The CEO is human. Management is human. Knowledge is co-created. This is the core differentiator from Paperclip and must be woven through every document.
 
-**Constraint:** Documentation lives in `docs/product/` (new directory). Internal architecture docs in `docs/architecture/` etc. are reference material, not replaced. The product docs tell the story; the architecture docs contain the truth. No contradictions between them. `npm run verify` must pass after each workpackage merges.
+**Constraint:** Internal architecture docs in `docs/architecture/` etc. are reference material, not replaced. The product docs tell the story; the architecture docs contain the truth. No contradictions between them. `npm run verify` must pass after each workpackage merges.
 
 See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.yaml` for the dependency graph.
 
@@ -19,32 +19,31 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 **Complexity.** L
 
 **Acceptance criteria.**
-- A `docs/product/index.md` exists as the entry point, containing: a one-paragraph elevator pitch, a visual overview of the three-layer architecture, a list of core concepts (teams, bets, tasks, sessions, knowledge, routines), and navigation links to deeper docs.
-- A `docs/product/why.md` explains the problem HyperIdle solves: why existing tools (Slack + Linear + Notion + GitHub) fail for AI-first teams, what "agent OS" means concretely, and how HyperIdle's approach differs from workflow DAGs, single-agent frameworks, and Paperclip's "zero human" model.
-- A `docs/product/concepts.md` introduces each core primitive with a one-paragraph explanation, a concrete example, and how it connects to the others. Written for someone who has never seen the codebase.
-- A `docs/product/human-ai.md` articulates the human+AI collaboration model: humans as founders/CEOs/team leads, agents as team members, facilitators as organizational curators, and how judgment flows between them.
-- A `docs/product/features.md` provides a feature overview with one section per major capability: knowledge management, work tracking, conversations, agent execution, settings/configuration.
-- All product docs use plain English, no internal jargon, no acronyms without expansion, and include concrete examples for every abstract concept.
+- A first-time reader who has never heard of HyperIdle can explain in their own words what it does, why it exists, and how it differs from Slack+Linear+Notion+GitHub after reading the product documentation entry point.
+- A reader familiar with Paperclip or other agent frameworks can articulate how HyperIdle's human-in-the-loop approach differs from "zero human companies" and workflow DAG orchestration.
+- Every core primitive (team, bet, task, session, knowledge, routine, agent) is introduced with a concrete example — not just a definition.
+- The human+AI collaboration model is front and center: humans as founders and team leads, agents as team members, facilitators as curators, and the judgment gradient (which decisions are autonomous, which need human validation).
+- The documentation covers features that exist today, clearly distinguishing "available now" from "coming soon" where applicable.
+- No marketing superlatives. Factual, specific, concrete. The voice is direct and opinionated.
 - Each document is under 2000 words — concise enough to read in one sitting.
+- All cross-references between product docs and architecture docs are consistent — no factual conflicts.
 
 **Validation scenarios.**
-- Given a developer who has never heard of HyperIdle, when they read `index.md` and `why.md`, then they can explain in their own words what HyperIdle does and how it differs from existing tools.
-- Given a technical founder evaluating agent OS options, when they read `features.md`, then they can identify which HyperIdle capabilities match their needs.
-- Given a reader familiar with Paperclip, when they read `human-ai.md`, then they can articulate how HyperIdle's human-in-the-loop approach differs from Paperclip's agent-company model.
-- Given a reader who reads all five documents, when checked for contradictions with `docs/architecture/`, then no factual conflicts exist.
+- Given a developer evaluating agent OS options, when they finish reading the product story, then they can list 3 specific ways HyperIdle differs from alternatives they know.
+- Given a non-technical founder, when they read the human+AI collaboration section, then they can describe to an investor how human judgment stays in the loop.
+- Given a reader who reads all product docs, when they cross-check against `docs/architecture/`, then no contradictions exist.
 
-**Plan calls.** Skip /design, skip /architecture. This is narrative writing informed by existing architecture docs and ETHOS.md. Research existing docs thoroughly before writing — the story must be faithful to the actual system.
+**Plan calls.** Skip /design, skip /architecture. This is narrative writing informed by existing architecture docs, ETHOS.md, and the running system. The concept pass should identify which primitives need explanation and verify terminology against canonical vocabulary.
 
 **Contracts / constraints.**
-- Product docs describe the system as designed, including features not yet fully implemented — but must clearly distinguish "available now" from "coming soon."
-- No marketing superlatives ("revolutionary," "game-changing"). Factual, specific, concrete.
-- The voice is direct and opinionated (like Linear's docs), not corporate-neutral.
-- All examples use HyperIdle's actual primitives (real team names, real bet structures), not generic placeholders.
+- Product docs are the story layer; architecture docs are the truth layer. If they conflict, update the product docs to match reality.
+- All examples use HyperIdle's actual primitives, not generic placeholders.
+- No internal jargon or acronyms without expansion.
 
 **Out of scope.**
-- API reference documentation (that's auto-generated from route definitions).
+- API reference documentation.
 - Deployment guides (covered by `docs/deployment/`).
-- Contributor documentation (CONTRIBUTING.md, separate track).
+- Contributor documentation.
 
 **Effort.** L (~3d)
 
@@ -52,70 +51,71 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 ### Z2 — Getting Started Journey
 
-**Workpackage.** As a new user installing HyperIdle for the first time, I want a step-by-step getting started guide that takes me from zero to a running system with my first team, first bet, and first agent session — so that I experience the core value loop within 30 minutes.
+**Workpackage.** As a new user installing HyperIdle for the first time, I want a step-by-step guide that takes me from zero to experiencing the core value loop — my first team, first bet, and first agent producing real output — so that I understand what this product does by doing, not just reading.
 
 **Depends on.** None.
 
 **Complexity.** M
 
 **Acceptance criteria.**
-- A `docs/product/getting-started.md` exists with numbered steps covering: installation (prerequisites, clone, install, configure), first run (`npm run dev`), creating a team, creating a user profile, setting up an agent, creating a bet, creating a task, and triggering an agent session.
-- Each step includes the exact command or UI action, what the user should see after completing it, and a troubleshooting note for common failures.
-- The guide identifies the "aha moment" — the point where the user sees an agent produce real output on a task they defined — and structures the flow to reach it as quickly as possible.
-- The guide includes a "What's Next?" section pointing to deeper docs: knowledge management, facilitator setup, routine configuration, and the human validation workflow.
-- Prerequisites are explicit: Node.js version, PostgreSQL (or SQLite for local), and any required API keys (model gateway).
-- The guide works end-to-end on a fresh macOS and Linux machine following only the documented steps.
+- A new user with Node.js installed can reach a running HyperIdle instance within 10 minutes following only the documented steps.
+- The guide reaches the "aha moment" — the user sees an agent produce real output on a task they defined — as quickly as possible.
+- Every step includes: the exact action (command or UI click), what the user should see after completing it, and a troubleshooting note for common failures.
+- The guide uses zero-ops local setup (SQLite, no external API keys required for the initial walkthrough — built-in harness suffices).
+- After completing the guide, the user knows where to go next for their specific goals (knowledge management, agent configuration, routine setup).
+- The guide works end-to-end on a fresh macOS and Linux machine — verified by actually running it, not assumed.
+- Commands are copy-pasteable — no `<placeholder>` syntax without explaining what to substitute.
 
 **Validation scenarios.**
-- Given a developer with Node.js installed on macOS, when they follow the getting started guide step by step, then they have a running HyperIdle instance with one team, one bet, and one completed agent session within 30 minutes.
-- Given a step fails (e.g., migration error), when the user reads the troubleshooting note for that step, then they can resolve the issue without external help.
-- Given a user completes the guide, when they read the "What's Next?" section, then they know which doc to read for their next goal.
+- Given a developer on a fresh macOS machine, when they follow the guide step by step, then they have a running instance with one team, one bet, and one completed agent session within 30 minutes.
+- Given a step fails (e.g., migration error), when the user reads the troubleshooting note, then they can resolve the issue without external help.
+- Given a user finishes the guide, when they ask "what can I do next?", then the guide points them to 3+ specific next steps relevant to different user goals.
 
-**Plan calls.** Skip /design, skip /architecture. This is tutorial writing. The author must actually run through the flow end-to-end on a clean environment to verify every step works.
+**Plan calls.** Skip /design, skip /architecture. Tutorial writing — the author must actually run through the flow end-to-end on a clean environment to verify every step works. If steps break, fix the documentation or file issues against the underlying feature.
 
 **Contracts / constraints.**
-- Commands are copy-pasteable — no `<placeholder>` syntax without explaining what to substitute.
-- The guide uses SQLite for local development (zero-ops), not PostgreSQL.
-- Screenshots are optional but recommended for UI steps (stored in `docs/product/assets/`).
-- The guide does not require external API keys for the initial walkthrough — the built-in harness (X6) with a local model or a free-tier API suffices.
+- The guide describes the system as it works today — no aspirational features.
+- Screenshots are optional but recommended for UI steps.
+- The guide does not require external API keys for the initial walkthrough.
 
 **Out of scope.**
-- Production deployment (covered by `docs/deployment/`).
+- Production deployment.
 - Multi-user setup.
-- Desktop app installation (Track N).
+- Desktop app installation.
 - Advanced configuration (model gateway, notification adapters).
 
-**Effort.** M (~4h)
+**Effort.** M (~6h)
 
 ---
 
 ### Z3 — Feature Documentation Suite
 
-**Workpackage.** As a user who has completed the getting started guide, I want detailed documentation for each major feature area — so that I understand the full capabilities of each system and can configure them for my team's needs.
+**Workpackage.** As a user who has completed getting started, I want detailed documentation for each major feature area — so that I understand the full capabilities of each subsystem and can configure them for my team's needs.
 
 **Depends on.** None.
 
 **Complexity.** L
 
 **Acceptance criteria.**
-- A `docs/product/knowledge/` directory contains docs covering: the five-layer knowledge system (explained for users, not architects), creating and editing knowledge items, the review queue, facilitator curation, knowledge search, and how knowledge flows from sessions to practices to principles.
-- A `docs/product/work/` directory contains docs covering: bets (what they are, how to create them, the appetite model), tasks (state machine, assignment, dependencies), sessions (what happens during one, outcomes, cost tracking), and routines (schedules, triggers, configuration).
-- A `docs/product/agents/` directory contains docs covering: agent setup (soul prompts, harness selection, model configuration), agent roles (builder, PM, facilitator, ops), the skill-tool system, and how agents collaborate in teams.
-- A `docs/product/conversations/` directory contains docs covering: threads, messages, the review flow, and how conversations connect to work and knowledge.
-- Each feature doc follows a consistent structure: what it is (one paragraph), how it works (walkthrough), configuration options (table), and examples (concrete scenarios).
-- All feature docs cross-link to related features (e.g., knowledge docs link to agent docs where agents create knowledge).
+- Each major feature area (knowledge management, work tracking, agent execution, conversations) has documentation that a user can follow to set up and use that feature without needing to read source code.
+- Each feature doc follows a consistent structure: what it is (one paragraph), how it works (walkthrough with concrete actions), configuration options, and real examples.
+- A user reading the knowledge management docs understands: how knowledge flows from agent sessions to team practices to factory principles, how the review queue works, and how to create and curate knowledge items.
+- A user reading the work tracking docs understands: what bets are, how tasks relate to bets, how sessions execute tasks, and how cost tracking works.
+- A user reading the agent docs understands: how to configure an agent (soul prompt, harness, model tier), what roles exist, and how agents collaborate in teams.
+- All feature docs describe implemented behavior only — no "coming soon" features mixed in.
+- Configuration options are presented as tables (setting, type, default, description).
+- All cross-links between feature docs resolve to existing documents.
 
 **Validation scenarios.**
-- Given a user who wants to set up a knowledge validation workflow, when they read the knowledge review queue doc, then they understand how items reach the queue, how to process them, and what happens after validation.
-- Given a user who wants to configure a builder agent, when they read the agent setup doc, then they can create an agent with the right soul prompt, harness, and model tier.
-- Given a reader who navigates from the getting started guide to feature docs, when they follow cross-links, then every link resolves to an existing document.
+- Given a user who wants to set up agent-driven knowledge curation, when they read the knowledge docs, then they can configure a facilitator agent and see it produce knowledge items.
+- Given a user who wants to create their first bet, when they read the work tracking docs, then they can create a bet with tasks and trigger an agent session.
+- Given a new feature doc, when it references another doc, then the link resolves correctly.
 
-**Plan calls.** Skip /design, skip /architecture. Research the actual implemented features (read routes, UI components, and existing architecture docs) before writing. Each feature doc must describe what actually works today.
+**Plan calls.** Skip /design, skip /architecture. Research the actual implemented features (read routes, UI components, and existing architecture docs) before writing. Each feature doc must describe what actually works today — run the dev server and verify claims.
 
 **Contracts / constraints.**
-- Feature docs describe implemented behavior only — no "coming soon" features mixed in with available features.
-- Each doc is self-contained (can be read without context) but links to prerequisite docs where needed.
-- Configuration options are presented as tables with columns: setting, type, default, description.
+- Feature docs describe implemented behavior only.
+- Each doc is self-contained (readable without context) but links to prerequisites where needed.
 - Code examples use actual API endpoints and request/response shapes from the running system.
 
 **Out of scope.**
@@ -129,36 +129,35 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 ### Z4 — Vision Sharpening & Gap Audit
 
-**Workpackage.** As the founder, I want a systematic audit that identifies contradictions between HyperIdle's stated vision (ETHOS.md, architecture docs, product docs) and the actual implemented features — so that I can prioritize fixes and ensure the product tells a coherent story from docs to UI.
+**Workpackage.** As the founder, I want a systematic audit identifying contradictions between the stated vision and the actual product — so that I can prioritize fixes and ensure the product tells a coherent story from docs to UI.
 
 **Depends on.**
-- Z1 — Product Story & Landing Documentation. The product story establishes the canonical narrative; this workpackage audits the implementation against it. Without Z1, there is no single source of truth to audit against.
+- Z1 — Product Story. The product story establishes the canonical narrative to audit against.
 
 **Complexity.** M
 
 **Acceptance criteria.**
-- A `docs/product/vision-audit.md` exists listing every contradiction found between: product docs (Z1), architecture docs (`docs/`), ETHOS.md, and the actual implemented system.
-- Each contradiction entry includes: what the docs say, what the system actually does, severity (critical/major/minor), and a recommended resolution (fix the doc, fix the system, or defer with justification).
-- The audit covers at minimum: all five process primitives (do they work as documented?), the knowledge system (do all layers exist and function?), the agent system (can agents actually run?), and the human-AI collaboration model (do humans have the controls promised?).
-- The audit identifies features that are documented but not implemented, and features that are implemented but not documented.
-- The audit produces a prioritized punch list of fixes, ordered by user-facing impact.
+- Every contradiction between product docs, architecture docs, ETHOS.md, and the actual implemented system is cataloged with: what the docs say, what the system does, severity (critical/major/minor), and recommended resolution.
+- Features documented but not implemented are identified.
+- Features implemented but not documented are identified.
+- The audit produces a prioritized punch list ordered by user-facing impact, with enough detail per item that a developer knows exactly what to fix.
+- Severity ratings: critical = product story is wrong about a core concept; major = documented feature doesn't work; minor = doc is imprecise or feature is partially implemented.
 
 **Validation scenarios.**
-- Given the product docs claim "facilitators automatically organize knowledge," when the audit checks the facilitator system, then it reports whether facilitator routines actually run and produce visible results.
-- Given the ETHOS.md says "User Sovereignty — AI recommends, humans decide," when the audit checks the UI, then it reports whether humans can actually override agent decisions in every documented flow.
-- Given a feature documented in Z3 that doesn't work, when the audit runs, then the punch list includes the gap with severity and recommended fix.
+- Given the product docs claim facilitators automatically organize knowledge, when the audit checks the system, then it reports whether facilitator routines actually run and produce visible results.
+- Given the ETHOS.md says "User Sovereignty — AI recommends, humans decide," when the audit checks the UI, then it reports whether humans can override agent decisions in every documented flow.
+- Given a gap in the punch list, when a developer reads it, then they know exactly what to change without further investigation.
 
-**Plan calls.** Skip /design, skip /architecture. This is a read-heavy research task. The auditor must read all product docs, then systematically test each claim against the running system or codebase. Use Explore agents for codebase verification.
+**Plan calls.** Skip /design, skip /architecture. Read-heavy research task. The auditor must read all product docs, then systematically verify each claim against the running system or codebase.
 
 **Contracts / constraints.**
-- The audit is honest — it does not minimize gaps or rationalize missing features.
-- Severity ratings follow: critical = the product story is wrong about a core concept; major = a documented feature doesn't work; minor = a doc is imprecise or a feature is partially implemented.
-- The audit document is a living artifact — it should be updated as gaps are fixed.
+- The audit is honest — does not minimize gaps or rationalize missing features.
+- The audit document is a living artifact — updated as gaps are fixed.
 
 **Out of scope.**
-- Fixing the contradictions (that's follow-up work prioritized from the punch list).
-- Performance or security audit (covered by Track I).
-- Visual/design audit (covered by Track W).
+- Fixing the contradictions (follow-up work from the punch list).
+- Performance or security audit.
+- Visual/design audit.
 
 **Effort.** M (~6h)
 
@@ -166,35 +165,33 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 ### Z5 — Architecture Story
 
-**Workpackage.** As a developer evaluating whether to contribute to or build on HyperIdle, I want the architecture explained as a compelling narrative — why three layers, why the fabric, why facilitators, why persistent teams — so that I understand not just what the system does but why it was designed this way.
+**Workpackage.** As a developer evaluating whether to contribute to or build on HyperIdle, I want the architecture explained as a compelling narrative — why three layers, why the fabric, why facilitators, why persistent teams — so that I understand not just what the system does but why it was designed this way and what was rejected.
 
 **Depends on.** None.
 
 **Complexity.** M
 
 **Acceptance criteria.**
-- A `docs/product/architecture-story.md` exists that tells the architecture as a narrative, not a reference manual.
-- The narrative covers: the three-layer model (Human Interface → Meta Layer → Agent Runtime) and why strict downward dependency matters; the Knowledge Fabric and why materialization beats FUSE; facilitators as first-class agents and why they're the key differentiator; persistent teams and why crew-per-task is an anti-pattern; the kernel/strategy separation and why extensibility requires this split.
-- Each architectural decision includes: what we chose, what we rejected, and why — in plain language with concrete examples.
+- A developer reading the architecture story can explain the three-layer model, the kernel/strategy separation, and the facilitator concept to a colleague who hasn't read any HyperIdle docs.
+- Every major architectural decision includes: what was chosen, what was rejected, and why — with concrete examples of the tradeoff.
 - The narrative is under 3000 words, readable in 15 minutes.
-- The document links to the detailed architecture docs in `docs/architecture/` for readers who want the full technical depth.
-- The tone is opinionated and honest — acknowledges trade-offs instead of presenting every choice as obviously correct.
+- Every link to detailed architecture docs resolves to an existing, consistent document.
+- The tone is opinionated and honest — acknowledges tradeoffs rather than presenting every choice as obviously correct.
 
 **Validation scenarios.**
-- Given a backend developer reading the architecture story, when they finish, then they can explain the three-layer model and the kernel/strategy separation to a colleague.
-- Given a developer familiar with CrewAI or LangGraph, when they read the "what we rejected" sections, then they understand why HyperIdle chose a different approach.
-- Given a reader who wants more detail on any section, when they follow the links, then every linked architecture doc exists and is consistent with the narrative.
+- Given a developer familiar with CrewAI or LangGraph, when they read the architecture story, then they understand why HyperIdle chose persistent teams over crew-per-task and materialization over FUSE.
+- Given a reader who wants more detail on any section, when they follow links, then every linked architecture doc exists and is consistent.
 
-**Plan calls.** Skip /design, skip /architecture. Narrative writing informed by `docs/architecture/` and the decision records in the knowledge architecture docs. The writer must understand the "why" deeply before writing.
+**Plan calls.** Skip /design, skip /architecture. Narrative writing informed by `docs/architecture/` and decision records. The writer must understand the "why" deeply before writing.
 
 **Contracts / constraints.**
-- The architecture story is a narrative interpretation of the architecture docs, not a replacement. If they conflict, update the story to match the architecture docs.
+- The architecture story is an interpretation of the architecture docs, not a replacement. Conflicts → update the story.
+- Targets developers with 3+ years of experience but no HyperIdle-specific knowledge.
 - No UML diagrams — use simple ASCII diagrams or prose descriptions.
-- The document targets developers with 3+ years of experience but no HyperIdle-specific knowledge.
 
 **Out of scope.**
 - API reference or schema documentation.
-- Deployment architecture (covered by `docs/deployment/`).
+- Deployment architecture.
 - Performance benchmarks.
 
 **Effort.** M (~4h)
@@ -203,37 +200,34 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 ### Z6 — Human+AI Collaboration Narrative
 
-**Workpackage.** As a potential user or investor, I want a clear articulation of how humans and AI agents collaborate in HyperIdle — not as a technical spec but as a vision of how work actually flows — so that I understand this is fundamentally different from "replace humans with AI" products.
+**Workpackage.** As a potential user or investor, I want a clear articulation of how humans and AI agents collaborate in HyperIdle — through concrete scenarios, not abstract principles — so that I understand this is fundamentally different from "replace humans with AI" products.
 
 **Depends on.** None.
 
 **Complexity.** M
 
 **Acceptance criteria.**
-- A `docs/product/collaboration.md` exists that describes the human+AI collaboration model through concrete scenarios, not abstract principles.
-- The document includes at least three worked examples showing a complete collaboration flow: (1) a human CEO shapes a bet and agents execute it, with the human reviewing outcomes; (2) a facilitator agent curates knowledge and a human validates the curation; (3) a human and agent co-create a knowledge item through the review queue workflow.
-- The document explicitly positions HyperIdle against Paperclip's "zero human companies" framing: acknowledging what Paperclip gets right (agent orchestration, cost control) while articulating why HyperIdle believes human judgment at the right moments is non-negotiable.
-- The document introduces the "judgment gradient" concept: which decisions are fully autonomous (L0/L1), which need human sampling (L2), which require human validation (L3/L4), and why the line is drawn where it is.
-- The document describes the attention scoring system in human terms: "the system shows you the 5 items that need your brain, not the 500 that don't."
-- The document is under 2000 words, written for a non-technical audience (founder, PM, investor).
-
-**Validation scenarios.**
-- Given a non-technical founder reading the collaboration doc, when they finish, then they can describe to an investor how HyperIdle's human+AI model works in practice.
-- Given a reader familiar with Paperclip, when they read the positioning section, then they understand the specific differences in philosophy and approach.
-- Given a reader who finishes the three worked examples, when asked "when do humans need to be involved?", then they can answer with the judgment gradient (autonomous → sampling → validation).
-
-**Plan calls.** Skip /design, skip /architecture. This is vision writing informed by ETHOS.md (User Sovereignty principle), the knowledge architecture docs (attention scoring, human validation gates), and the process layer docs (bet/task/session flows).
-
-**Contracts / constraints.**
-- The positioning against Paperclip is respectful and factual — not dismissive. Acknowledge what they do well.
-- The worked examples use realistic scenarios, not toy examples.
-- No implementation details — this document describes what the user experiences, not how the code works.
+- A non-technical founder can describe to an investor how HyperIdle's human+AI model works in practice after reading this document.
+- At least three worked examples show a complete collaboration flow: (1) human shapes a bet, agents execute, human reviews outcome; (2) facilitator agent curates knowledge, human validates; (3) human and agent co-create knowledge through the review workflow.
+- The "judgment gradient" is articulated: which decisions are fully autonomous (L0/L1), which need human sampling (L2), which require validation (L3/L4), and why the line is drawn where it is.
+- The positioning against Paperclip is respectful and factual — acknowledges what Paperclip gets right while articulating why human judgment at the right moments is non-negotiable.
+- The document is under 2000 words, written for a non-technical audience.
 - The judgment gradient is consistent with the actual status machine and promotion pipeline.
 
+**Validation scenarios.**
+- Given a reader who finishes the three worked examples, when asked "when do humans need to be involved?", then they can answer with the judgment gradient.
+- Given a reader familiar with Paperclip, when they finish the positioning section, then they understand the specific differences in philosophy.
+
+**Plan calls.** Skip /design, skip /architecture. Vision writing informed by ETHOS.md (User Sovereignty), knowledge architecture docs (attention scoring, human validation gates), and process layer docs.
+
+**Contracts / constraints.**
+- Worked examples use realistic scenarios, not toy examples.
+- No implementation details — describes what the user experiences, not how code works.
+- Positioning against Paperclip is respectful.
+
 **Out of scope.**
-- Technical implementation of the collaboration model (covered by architecture docs).
-- User research or user testing.
-- Comparative analysis with other products beyond Paperclip.
+- Technical implementation of the collaboration model.
+- Comparative analysis with products beyond Paperclip.
 
 **Effort.** M (~4h)
 
@@ -241,35 +235,32 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 ### Z7 — Plugin & Extensibility Story
 
-**Workpackage.** As a developer who wants to extend HyperIdle, I want clear documentation of what's extensible, how to build extensions, and what the extensibility vision is — covering harness adapters, skill-tools, routine types, knowledge kinds, and future plugin surfaces — so that I can build on HyperIdle rather than fork it.
+**Workpackage.** As a developer who wants to extend HyperIdle, I want clear documentation of what's extensible, how to build extensions, and what the extensibility vision is — so that I can build on HyperIdle rather than fork it.
 
 **Depends on.** None.
 
 **Complexity.** M
 
 **Acceptance criteria.**
-- A `docs/product/extensibility.md` exists that articulates the extensibility philosophy: kernel is stable, strategy is replaceable, harnesses are pluggable, skill-tools are composable.
-- The document maps current extension points: (1) Harness adapters — how to add a new agent runtime (CLI wrapper, SDK integration), referencing X5's adapter interface; (2) Skill-tools — how the 14 meta-layer tools work and how new ones could be added; (3) Knowledge kinds — how the strategy fabric supports new knowledge types without schema changes; (4) MCP bridge — how external tools connect to HyperIdle's meta-layer via MCP (X2).
-- The document articulates the vision for future extensibility: out-of-process plugins (inspired by Paperclip's capability-gated plugin model), a skill marketplace, custom routine types, and webhook integrations — clearly labeled as "planned, not yet implemented."
-- The document compares HyperIdle's approach to Paperclip's plugin model: both are extensible, but HyperIdle's kernel/strategy split means extensions don't need to touch core schema, while Paperclip's plugin model requires out-of-process workers.
-- The document includes a concrete example: "How to add Goose as a harness adapter" — a walkthrough showing the adapter interface, the registration pattern, and the test.
-- Under 3000 words.
+- A developer reading the extensibility documentation can identify which parts of HyperIdle are extension points today (harness adapters, skill-tools, knowledge kinds, MCP bridge) and which are planned but not yet implemented (out-of-process plugins, skill marketplace).
+- The kernel/strategy split is explained as the extensibility architecture: kernel is stable, strategy is replaceable — and a developer understands what that means for their extension.
+- At least one concrete example shows how to add a new harness adapter, referencing the actual adapter interface from the codebase.
+- Planned extensibility is clearly labeled as "not yet implemented."
+- The document is under 3000 words.
 
 **Validation scenarios.**
-- Given a developer who wants to add a new harness, when they read the extensibility doc, then they can follow the Goose example and understand what interface to implement.
-- Given a product evaluator comparing HyperIdle and Paperclip, when they read the extensibility section, then they understand the architectural difference (kernel/strategy vs plugin workers).
-- Given a developer reading the future vision section, when they see "planned" items, then each is clearly labeled as not-yet-implemented.
+- Given a developer who wants to add a new agent runtime, when they read the extensibility doc, then they can follow the example to understand what interface to implement.
+- Given a product evaluator comparing HyperIdle to Paperclip, when they read the extensibility section, then they understand the architectural difference (kernel/strategy vs plugin workers).
 
-**Plan calls.** Skip /design, skip /architecture. Research the actual adapter interface (X5), skill-tool registry (D4), MCP bridge (X2), and knowledge strategy fabric (O2) before writing. The example must compile against real code.
+**Plan calls.** Skip /design, skip /architecture. Research the actual adapter interface, skill-tool registry, MCP bridge, and knowledge strategy fabric before writing. The harness adapter example must reference real code.
 
 **Contracts / constraints.**
-- The Goose adapter example must reference the actual `HarnessAdapter` interface from the codebase — no pseudocode.
-- Future extensibility is vision, not commitment — clearly distinguished from current capabilities.
-- The document does not promise an API stability guarantee — that's a separate decision.
+- The example references the actual HarnessAdapter interface from the codebase — no pseudocode.
+- Future extensibility is vision, not commitment.
 
 **Out of scope.**
-- Building the plugin runtime (that's a future track).
-- API reference for extension points (auto-generated separately).
+- Building the plugin runtime.
+- API stability guarantee.
 - Security model for plugins.
 
 **Effort.** M (~4h)
@@ -278,38 +269,34 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 ### Z8 — Feature Polish & Launch Readiness Audit
 
-**Workpackage.** As the founder preparing for launch, I want a systematic audit of all implemented features — identifying which are polished and launch-ready, which are built but rough, and which are hidden gems that need surfacing — so that I can prioritize polish work and ensure the product's first impression matches its actual capabilities.
+**Workpackage.** As the founder preparing for launch, I want a systematic audit of all implemented features — identifying what's polished, what's rough, and what's hidden — so that I can prioritize the final push and ensure the product's first impression matches its actual capabilities.
 
-**Depends on.**
-- Z4 — Vision Sharpening & Gap Audit. Z4 identifies vision-vs-reality contradictions; Z8 focuses on polish and accessibility of what IS built.
+**Depends on.** None.
 
 **Complexity.** L
 
 **Acceptance criteria.**
-- A `docs/product/launch-readiness.md` exists with a feature-by-feature audit organized by: (1) Launch-ready (polished, documented, discoverable), (2) Built but rough (functional but needs UX polish, better defaults, or surfacing), (3) Hidden gems (powerful features that users won't discover without guidance), (4) Incomplete (scaffolded but not functional end-to-end).
-- Each feature entry includes: feature name, current location in UI, accessibility rating (easy to find / hidden / buried in settings), polish rating (launch-ready / needs work / rough), and specific recommendations (what to fix for launch readiness).
-- The audit covers at minimum: knowledge management (CRUD, search, scoping, FTS), work tracking (bets, tasks, state machine), conversations/threads, agent configuration (soul prompts, harness, model tier), settings pages, the body editor, cost tracking, org chart, and routines.
-- A "Quick Wins" section lists 10 highest-impact polish items that could be fixed in 1-2 days each — things like better empty states, clearer navigation labels, missing loading states, or features that need a single button to become discoverable.
-- A "Hidden Gems" section identifies features that are powerful but undiscoverable — e.g., FTS search capabilities, attention scoring, the promotion pipeline — with recommendations for how to surface them (navigation entries, empty-state CTAs, onboarding hints).
-- The audit is performed by actually using the running application — not by reading code. Each finding includes a screenshot or specific UI path.
+- Every implemented feature is categorized as: launch-ready (polished, discoverable), built but rough (functional, needs UX polish or better defaults), hidden gem (powerful but undiscoverable), or incomplete (scaffolded, not functional end-to-end).
+- Each feature entry includes: name, where to find it in the UI, how easy it is to discover, what's rough about it, and a specific recommendation for what to fix.
+- A "Quick Wins" section lists the 10 highest-impact polish items fixable in 1-2 days each — concrete enough that a developer knows exactly what to change (e.g., "Knowledge list has no empty state — add a CTA when the list is empty").
+- A "Hidden Gems" section identifies powerful features that users won't find without guidance, with recommendations for how to surface them (navigation entries, empty-state CTAs, onboarding hints).
+- The audit is performed by actually using the running application — each finding includes the specific UI path or a screenshot as evidence.
+- "Launch-ready" classification requires that the feature has test coverage — a feature that works in the UI but has no tests is "built but rough."
 
 **Validation scenarios.**
-- Given the running application, when the auditor navigates every page and settings section, then every implemented feature is categorized into one of the four buckets.
-- Given the Quick Wins list, when a developer reads an entry, then they know exactly what to change (e.g., "Knowledge list has no empty state — add 'Create your first knowledge item' CTA when list is empty").
-- Given the Hidden Gems list, when a product person reads it, then they can prioritize which features to surface in the UI or documentation.
+- Given the running application, when the auditor navigates every page and settings section, then every implemented feature is categorized.
+- Given the Quick Wins list, when a developer reads an entry, then they know exactly what to change.
+- Given the Hidden Gems list, when a product person reads it, then they can prioritize which features to surface.
 
-**Plan calls.** Skip /design, skip /architecture. This is an exploratory audit performed against the running application. Use the dev server (`npm run dev`) and systematically navigate every surface. Take screenshots for evidence. The auditor should approach the app as a first-time user, not a developer.
+**Plan calls.** Skip /design, skip /architecture. Exploratory audit against the running application (`npm run dev`). Approach as a first-time user. Take screenshots.
 
 **Contracts / constraints.**
-- The audit is honest — features that look bad are rated honestly, not diplomatically.
-- Screenshots are stored in `docs/product/assets/audit/` for reference.
+- The audit is honest — features that look bad are rated honestly.
 - Recommendations are actionable — "needs polish" without specifics is not acceptable.
-- The audit reflects the current state of `main` branch only — no feature branches.
+- Reflects the current state of `main` branch only.
 
 **Out of scope.**
-- Fixing the identified issues (this produces the punch list, not the fixes).
-- Performance audit.
-- Security audit (covered by Track I).
-- Mobile responsiveness audit.
+- Fixing the identified issues (produces the punch list, not the fixes).
+- Performance, security, or mobile responsiveness audit.
 
 **Effort.** L (~2d)
