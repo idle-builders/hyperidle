@@ -29,6 +29,7 @@ import {
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
 import type { AdapterPool } from "../harness/adapter-pool.js";
+import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
 import type { WorkspaceAdapter, WorkspaceHandle } from "../harness/workspace-adapter.js";
 import { createMcpBridge } from "../mcp/mcp-bridge.js";
 import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
@@ -187,6 +188,12 @@ export interface ProvisionSessionParams {
 	 * already-resolved value so session-provisioning.ts stays gateway-unaware.
 	 */
 	readonly resolvedModel?: import("@hyperidle/shared").ResolvedModel;
+	/**
+	 * X6: Resolved fast-tier model for builtin harness summarization.
+	 * Optional — when absent the builtin harness uses resolvedModel for all LLM
+	 * calls including summarization (slightly higher cost, functionally equivalent).
+	 */
+	readonly resolvedFastModel?: import("@hyperidle/shared").ResolvedModel;
 }
 
 export interface ProvisionSessionResult {
@@ -367,6 +374,18 @@ export async function provisionSession(
 	};
 	const registry = buildToolRegistry(toolContext, { role: agentRole });
 
+	// ── Phase 8.5a: inject registry into builtin harness before startSession.
+	//
+	// @lore X6: The builtin harness executes tools internally (inside the agent
+	// loop) rather than emitting tool_call events for the provisioning orchestrator
+	// to invoke. setSessionToolRegistry() pre-registers the session-scoped registry
+	// so the harness can call it when the loop starts. This call is guarded by
+	// meta.type === "builtin" — external harnesses (ClaudeAgentSdkAdapter) receive
+	// the registry indirectly via MCP bridge (X2), not via this method.
+	if (selectedAdapter.meta.type === "builtin" && harness instanceof BuiltinHarnessAdapter) {
+		harness.setSessionToolRegistry(sessionId, registry);
+	}
+
 	// ── Phase 8.5: compose prompt and write CLAUDE.md.
 	//
 	// @lore X1: spec says "written during Phase 6 (materialization)" but we
@@ -457,6 +476,8 @@ export async function provisionSession(
 			tools: allowedToolNames,
 			// X4: Pass resolved model from gateway so adapter uses correct provider/model/key.
 			resolvedModel: params.resolvedModel,
+			// X6: Pass resolved fast-tier model for builtin harness summarization.
+			resolvedFastModel: params.resolvedFastModel,
 			// X5: MCP connection info when bridge was created successfully.
 			// Adapters that support MCP use this to configure their harness's MCP client.
 			mcpConnectionInfo: mcpBridgeToken
@@ -534,10 +555,14 @@ export async function provisionSession(
 						argsSummary: summarizeToolArgs(event.args),
 						timestamp: Date.now(),
 					});
+
 					// X5: Only invoke the tool registry when the adapter does NOT
 					// handle tool calls via MCP. When mcpSupport=true and bridge is
 					// active, the invocation already happened via MCP.
-					if (interceptToolCalls) {
+					// X6: Also skip for the built-in harness — it executes tools
+					// internally via the injected registry. Re-invoking here would
+					// cause double execution.
+					if (interceptToolCalls && selectedAdapter.meta.type !== "builtin") {
 						await registry.invoke(event.toolName, event.args);
 					}
 				} else if (event.type === "error") {

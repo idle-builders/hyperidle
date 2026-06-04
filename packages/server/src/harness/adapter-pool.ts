@@ -282,14 +282,14 @@ export async function createLocalAdapterPool(): Promise<AdapterPool> {
 		maxConcurrent,
 	});
 
-	// 2. Built-in harness adapter stub (X6 fills in the implementation)
+	// 2. X6: Built-in harness adapter — supports direct API calls to all providers
 	const builtinAdapter = new BuiltinHarnessAdapter();
 	pool.register("local-builtin", builtinAdapter, {
 		name: "Built-in Harness",
 		kind: "local",
 		type: "builtin",
 		modelProviders: ["anthropic", "openrouter", "openai-compatible"],
-		maxConcurrent,
+		maxConcurrent: Number.parseInt(process.env.HYPERIDLE_BUILTIN_MAX_CONCURRENT ?? "8", 10),
 	});
 
 	// 3. CLI adapters: registered dynamically when available

@@ -243,14 +243,11 @@ describe("AdapterPool backward compat: single adapter pool (AC8)", () => {
 
 describe("Server self-registration (AC4)", () => {
 	it("pool has local adapters (claude-code + builtin) after createLocalAdapterPool", async () => {
-		// Import the factory function that creates the server-side pool.
-		// X5: pool now includes claude-code + builtin + optional CLI adapters.
 		const { createLocalAdapterPool } = await import("../harness/adapter-pool.js");
 
 		const pool = await createLocalAdapterPool();
 		const entries = pool.list();
 
-		// At minimum, claude-code and builtin are always registered
 		expect(entries.length).toBeGreaterThanOrEqual(2);
 		expect(entries.every((e) => e.kind === "local")).toBe(true);
 		expect(entries.some((e) => e.type === "claude-code")).toBe(true);

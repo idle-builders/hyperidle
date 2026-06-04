@@ -1,8 +1,9 @@
 /**
- * X5 — BuiltinHarnessAdapter unit tests (red phase).
+ * X5 — BuiltinHarnessAdapter unit tests.
  *
- * Verifies the stub behavior: startSession/streamEvents/stopSession throw
- * "not yet implemented", and getCapabilities returns the declared values.
+ * Originally verified stub behavior (X5). Updated for X6 real implementation:
+ * session methods now require resolvedModel and registry setup.
+ * getCapabilities still returns the declared values.
  */
 
 import { describe, expect, it } from "vitest";
@@ -22,29 +23,23 @@ function makeSessionConfig() {
 	};
 }
 
-// ── stub behavior ─────────────────────────────────────────────────────────────
+// ── X6: session methods require resolvedModel ────────────────────────────────
 
-describe("BuiltinHarnessAdapter — stub methods throw", () => {
-	it("startSession throws 'not yet implemented'", async () => {
+describe("BuiltinHarnessAdapter — session methods require setup", () => {
+	it("startSession throws when resolvedModel is missing", async () => {
 		const adapter = new BuiltinHarnessAdapter();
-		await expect(adapter.startSession(makeSessionConfig())).rejects.toThrow(/not yet implemented/i);
+		await expect(adapter.startSession(makeSessionConfig())).rejects.toThrow(/resolvedModel/i);
 	});
 
-	it("startSession error message references X6", async () => {
-		const adapter = new BuiltinHarnessAdapter();
-		await expect(adapter.startSession(makeSessionConfig())).rejects.toThrow(/X6/);
-	});
-
-	it("streamEvents throws 'not yet implemented'", async () => {
+	it("streamEvents throws for unknown session", async () => {
 		const adapter = new BuiltinHarnessAdapter();
 		const gen = adapter.streamEvents(makeHandle());
-		// AsyncIterable — must call next() to trigger the throw
-		await expect(gen[Symbol.asyncIterator]().next()).rejects.toThrow(/not yet implemented/i);
+		await expect(gen[Symbol.asyncIterator]().next()).rejects.toThrow(/unknown session/i);
 	});
 
-	it("stopSession throws 'not yet implemented'", async () => {
+	it("stopSession throws for unknown session", async () => {
 		const adapter = new BuiltinHarnessAdapter();
-		await expect(adapter.stopSession(makeHandle())).rejects.toThrow(/not yet implemented/i);
+		await expect(adapter.stopSession(makeHandle())).rejects.toThrow(/unknown session/i);
 	});
 });
 

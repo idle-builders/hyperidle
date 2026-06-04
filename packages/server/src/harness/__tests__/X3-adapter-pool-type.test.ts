@@ -265,7 +265,6 @@ describe("X3 AC-18: AdapterPool.select() filters by harnessType", () => {
 		const pool = await createLocalAdapterPool();
 
 		const entries = pool.list();
-		// X5: pool now includes claude-code + builtin + optional CLI adapters
 		const claudeEntry = entries.find((e) => e.type === "claude-code");
 		expect(claudeEntry).toBeDefined();
 		expect(claudeEntry?.type).toBe("claude-code");

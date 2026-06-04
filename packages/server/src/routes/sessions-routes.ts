@@ -122,6 +122,7 @@ export function createSessionRoutes(
 			// The pre-flight here is a best-effort check — it catches shared-mode missing credentials
 			// early. Local mode may proceed with null from the resolver if the key is in env.
 			let resolvedModel: import("@hyperidle/shared").ResolvedModel | undefined;
+			let resolvedFastModel: import("@hyperidle/shared").ResolvedModel | undefined;
 			if (deps.credentialResolver) {
 				try {
 					const serverCfg = await readServerConfig(db);
@@ -130,6 +131,23 @@ export function createSessionRoutes(
 						serverCfg.modelGateway,
 						deps.credentialResolver,
 					);
+					// Resolve the fast tier for use by the builtin harness summarizer.
+					// Failure is non-fatal — the harness falls back to the primary tier.
+					//
+					// @lore X6: Fast tier is resolved alongside primary so the builtin harness
+					// can use a cheaper/faster model for context-window summarization passes,
+					// avoiding the full primary-tier cost for what is effectively a compression
+					// operation. If the fast tier credential is missing, summarization silently
+					// falls back to resolvedModel.
+					try {
+						resolvedFastModel = await resolveModelTier(
+							"fast",
+							serverCfg.modelGateway,
+							deps.credentialResolver,
+						);
+					} catch {
+						// Non-fatal: fast tier unavailable — builtin harness will use primary tier
+					}
 				} catch (err) {
 					if (err instanceof MissingCredentialError) {
 						return c.json(
@@ -171,6 +189,8 @@ export function createSessionRoutes(
 						workspaceBasePath,
 						// X4: Pass resolved model so adapter uses the correct provider.
 						resolvedModel,
+						// X6: Pass resolved fast-tier model for builtin harness summarization.
+						resolvedFastModel,
 					},
 				);
 
