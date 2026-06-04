@@ -130,8 +130,8 @@ describe("WorkBet — task rows (W3 flat list, L13 updated)", () => {
 
 	it("each task row shows the task owner", async () => {
 		renderPage();
-		expect(await screen.findByText("Dev Agent 1")).toBeInTheDocument();
-		expect(await screen.findByText("Dev Agent 2")).toBeInTheDocument();
+		expect(await screen.findByText(/Dev Agent 1/)).toBeInTheDocument();
+		expect(await screen.findByText(/Dev Agent 2/)).toBeInTheDocument();
 	});
 
 	it("no role='table' in the rendered output (W3: flat list, not table)", async () => {
@@ -140,11 +140,11 @@ describe("WorkBet — task rows (W3 flat list, L13 updated)", () => {
 		expect(screen.queryByRole("table")).toBeNull();
 	});
 
-	it("each task row has role='button' and aria-label", async () => {
+	it("each task row is a button with aria-label", async () => {
 		renderPage();
 		const taskRows = await screen.findAllByTestId("task-row");
 		for (const row of taskRows) {
-			expect(row.getAttribute("role")).toBe("button");
+			expect(row.tagName.toLowerCase()).toBe("button");
 			expect(row.getAttribute("aria-label")).toBeTruthy();
 		}
 	});
