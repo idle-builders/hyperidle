@@ -1,15 +1,18 @@
 {
   "id": "X7",
   "title": "E2E Eval Framework",
-  "status": "pending",
-  "currentStep": "not_started",
-  "startedAt": null,
+  "status": "done",
+  "currentStep": "complete",
+  "branch": "feat/X7-eval-framework",
+  "pr": 190,
+  "worktree": ".worktrees/X7",
+  "startedAt": "2026-06-04T12:00:00Z",
   "phases": {
-    "1-designer": "pending",
-    "2-reviewer": "pending",
-    "3-builder": "pending",
-    "4-review": "pending",
-    "5-retro": "pending",
-    "6-ship": "pending"
+    "1-designer": "done",
+    "2-reviewer": "done",
+    "3-builder": "done",
+    "4-review": "done",
+    "5-retro": "done",
+    "6-ship": "done"
   }
 }
