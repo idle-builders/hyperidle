@@ -237,17 +237,19 @@ describe("AdapterPool backward compat: single adapter pool (AC8)", () => {
 });
 
 describe("Server self-registration (AC4)", () => {
-	it("pool has exactly one local adapter after server-factory registration", async () => {
+	it("pool has at least one local adapter after server-factory registration", async () => {
 		// Import the factory function that creates the server-side pool
-		// This tests that server-factory creates a pool with one local adapter.
+		// This tests that server-factory creates a pool with local adapters.
 		// The actual server-factory is tested via the createServer path, but here
 		// we verify the createLocalAdapterPool helper function.
+		// @lore X6 added a second local adapter (builtin); this test now asserts
+		// at-least-one rather than exactly-one, and that ALL entries are local.
 		const { createLocalAdapterPool } = await import("../harness/adapter-pool.js");
 
 		const pool = createLocalAdapterPool();
 		const entries = pool.list();
 
-		expect(entries).toHaveLength(1);
-		expect(entries[0]?.kind).toBe("local");
+		expect(entries.length).toBeGreaterThanOrEqual(1);
+		expect(entries.every((e) => e.kind === "local")).toBe(true);
 	});
 });
