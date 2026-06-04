@@ -610,81 +610,36 @@ stories:
     depends: []
     complexity: M
   - id: Y2
-    title: Dreaming Routines (Between-Session Knowledge Consolidation)
+    title: Knowledge Consolidation & Autonomous Learning
     track: Y
     depends: []
     complexity: L
   - id: Y3
-    title: Self-Evolving Agent Skills
+    title: Self-Evolution of Experience
     track: Y
     depends: []
     complexity: L
   - id: Y4
-    title: Per-Fact Provenance Tracking
+    title: Declarative Event Hook Registry
     track: Y
     depends: []
     complexity: M
   - id: Y5
-    title: Compiled Memory (Knowledge-as-Instruction)
+    title: Knowledge Review Queue UX
     track: Y
     depends: []
     complexity: M
   - id: Y6
-    title: Observational Session Compression
+    title: Agent Write Governance
     track: Y
     depends: []
     complexity: L
   - id: Y7
-    title: Knowledge Activation Format (Action-Ready Knowledge)
+    title: Knowledge Graph Linking
     track: Y
     depends: []
-    complexity: M
+    complexity: L
   - id: Y8
-    title: Event-Driven Knowledge Hooks
-    track: Y
-    depends: []
-    complexity: L
-  - id: Y9
-    title: Company Knowledge Generation (L4 Synthesis)
-    track: Y
-    depends: []
-    complexity: L
-  - id: Y10
-    title: Human Knowledge Authoring & Validation Queue
-    track: Y
-    depends: [Q2]
-    complexity: L
-  - id: Y11
-    title: Memory Governance & Trust Scoring
-    track: Y
-    depends: [Y4]
-    complexity: L
-  - id: Y12
-    title: Knowledge Graph Linking (Zettelkasten)
-    track: Y
-    depends: []
-    complexity: L
-  - id: Y13
-    title: Anthropic Dreaming Protocol Adoption
-    track: Y
-    depends: [Y2]
-    complexity: M
-  - id: Y14
-    title: Team-Level Shared Context (Third Brain Pattern)
-    track: Y
-    depends: []
-    complexity: L
-  - id: Y15
-    title: Knowledge Item Packaging (MemCube Pattern)
-    track: Y
-    depends: []
-    complexity: M
-  - id: Y16
-    title: Reactive Knowledge Updates (Auto-Linking)
-    track: Y
-    depends: [Y12]
-    complexity: L
-  - id: Y17
     title: Cost Intelligence & Efficiency Learning
     track: Y
     depends: []
