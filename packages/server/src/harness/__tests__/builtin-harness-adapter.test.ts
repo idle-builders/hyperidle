@@ -421,10 +421,10 @@ describe("AC-7: Event streaming (token_usage, tool_call, completion, error, cost
 describe("AC-8: Default adapter registered in pool with type 'builtin'", () => {
 	it("createLocalAdapterPool registers a 'builtin' entry with correct meta", async () => {
 		const { createLocalAdapterPool } = await import("../../harness/adapter-pool.js");
-		const pool = createLocalAdapterPool();
+		const pool = await createLocalAdapterPool();
 		const entries = pool.list();
 
-		const builtinEntry = entries.find((e) => e.id === "builtin");
+		const builtinEntry = entries.find((e) => e.id === "local-builtin");
 		expect(builtinEntry).toBeDefined();
 		expect(builtinEntry?.type).toBe("builtin");
 		expect(builtinEntry?.modelProviders).toContain("anthropic");
@@ -434,17 +434,17 @@ describe("AC-8: Default adapter registered in pool with type 'builtin'", () => {
 
 	it("builtin adapter in pool has kind 'local'", async () => {
 		const { createLocalAdapterPool } = await import("../../harness/adapter-pool.js");
-		const pool = createLocalAdapterPool();
-		const builtinEntry = pool.list().find((e) => e.id === "builtin");
+		const pool = await createLocalAdapterPool();
+		const builtinEntry = pool.list().find((e) => e.id === "local-builtin");
 		expect(builtinEntry?.kind).toBe("local");
 	});
 
-	it("pool still has the 'local' (claude-code) adapter alongside 'builtin'", async () => {
+	it("pool still has the claude-code adapter alongside builtin", async () => {
 		const { createLocalAdapterPool } = await import("../../harness/adapter-pool.js");
-		const pool = createLocalAdapterPool();
-		const localEntry = pool.list().find((e) => e.id === "local");
-		expect(localEntry).toBeDefined();
-		expect(localEntry?.type).toBe("claude-code");
+		const pool = await createLocalAdapterPool();
+		const claudeEntry = pool.list().find((e) => e.id === "local-claude-code");
+		expect(claudeEntry).toBeDefined();
+		expect(claudeEntry?.type).toBe("claude-code");
 	});
 });
 

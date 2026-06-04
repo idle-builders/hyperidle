@@ -353,6 +353,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			preCompactionTrigger: true,
 			subAgents: false,
 			modelProviders: ["anthropic", "openrouter", "openai-compatible"],
+			mcpSupport: false,
 		};
 	}
 

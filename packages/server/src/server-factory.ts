@@ -120,7 +120,7 @@ export async function createServer(port: number): Promise<ServerHandle> {
 	const eventBus = new EventBus();
 
 	const credentialResolver = new EnvCredentialResolver();
-	const adapterPool = createLocalAdapterPool();
+	const adapterPool = await createLocalAdapterPool();
 	const workspaceAdapter = new LocalWorkspaceAdapter();
 	const workspaceBasePath =
 		process.env.HYPERIDLE_WORKSPACES_DIR ?? path.join(os.tmpdir(), "hyperidle-workspaces");

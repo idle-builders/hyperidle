@@ -9,6 +9,7 @@
 import type { HarnessAdapter } from "@hyperidle/shared";
 import { BuiltinHarnessAdapter } from "./builtin-harness-adapter.js";
 import { ClaudeAgentSdkAdapter } from "./claude-agent-sdk-adapter.js";
+import { type CliAdapterConfig, CliHarnessAdapter } from "./cli-harness-adapter.js";
 
 /** Descriptor for a registered adapter. */
 export interface AdapterMeta {
@@ -182,35 +183,117 @@ export class AdapterPool {
 }
 
 /**
- * Create an AdapterPool pre-loaded with the local ClaudeAgentSdkAdapter.
+ * Well-known CLI tool configurations.
+ * Each tool registers with its own harnessType (binary name) so agents can
+ * express a preference: harnessType: "aider" routes to the Aider adapter.
  *
- * Used by server-factory to register the server's own execution capability.
- * The pool ID is "local" and kind is "local".
+ * @lore X5: CLI tool flags are provisional — they reflect the best-known
+ * invocation at the time of writing. Validate during X7 (E2E evals) or
+ * manual testing. Prefer --no-interactive / headless flags where supported.
+ */
+const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
+	aider: {
+		binary: "aider",
+		args: ["--no-auto-commits", "--no-git", "{{workspace}}"],
+		envMap: {
+			ANTHROPIC_API_KEY: "{{apiKey}}",
+			OPENAI_API_KEY: "{{apiKey}}",
+		},
+		eventFormat: "text",
+		envAllowlist: ["PATH", "HOME", "LANG"],
+	},
+	goose: {
+		binary: "goose",
+		args: ["session", "--workspace", "{{workspace}}"],
+		envMap: {
+			ANTHROPIC_API_KEY: "{{apiKey}}",
+		},
+		eventFormat: "text",
+		envAllowlist: ["PATH", "HOME", "LANG"],
+	},
+	opencode: {
+		binary: "opencode",
+		args: ["--dir", "{{workspace}}"],
+		envMap: {
+			ANTHROPIC_API_KEY: "{{apiKey}}",
+		},
+		eventFormat: "text",
+		envAllowlist: ["PATH", "HOME", "LANG"],
+	},
+};
+
+/**
+ * Register CLI adapters for any well-known tools that are available on PATH.
+ * Silently skips tools whose binary is not found — no error thrown.
+ *
+ * @lore X5: Each CLI tool gets its own harnessType (the binary name) so an
+ * agent's harnessType: "aider" selection is unambiguous. A generic "cli" type
+ * was considered but rejected — the founder chose a specific tool for a reason.
+ */
+async function registerCliAdaptersIfAvailable(pool: AdapterPool): Promise<void> {
+	const maxConcurrent = Number.parseInt(process.env.HYPERIDLE_LOCAL_MAX_CONCURRENT ?? "2", 10);
+
+	for (const [name, config] of Object.entries(CLI_TOOL_CONFIGS)) {
+		const available = await CliHarnessAdapter.checkAvailability(config.binary);
+		if (available) {
+			const adapter = new CliHarnessAdapter(config);
+			pool.register(`local-cli-${name}`, adapter, {
+				name: `CLI: ${name}`,
+				kind: "local",
+				// X5: Each CLI tool registers with its own type (the tool name) so
+				// agents can select a specific tool via harnessType.
+				type: name,
+				modelProviders: [],
+				maxConcurrent,
+			});
+		}
+	}
+}
+
+/**
+ * Create an AdapterPool pre-loaded with all available local adapters:
+ * 1. claude-code (ClaudeAgentSdkAdapter) — always registered
+ * 2. builtin (BuiltinHarnessAdapter stub) — always registered (X6 fills in)
+ * 3. aider / goose / opencode — registered if their binary is on PATH
  *
  * @lore S2 AC4: this factory keeps server-factory.ts clean — it just calls
- * createLocalAdapterPool() instead of knowing about ClaudeAgentSdkAdapter
- * internals. Tests can import this helper directly to verify self-registration.
+ * createLocalAdapterPool() instead of knowing about adapter internals.
+ *
+ * @lore X5: The function is now async because CLI adapter registration checks
+ * binary availability via `which`. The server-factory.ts call site is already
+ * async so the signature change is local.
+ *
+ * @lore X5: The adapter ID for the Claude Code adapter changed from "local"
+ * to "local-claude-code" to make room for multiple local adapters. The old
+ * "local" ID was only referenced inside this factory and tests that use
+ * pool.list() — not hardcoded elsewhere.
  */
-export function createLocalAdapterPool(): AdapterPool {
+export async function createLocalAdapterPool(): Promise<AdapterPool> {
 	const pool = new AdapterPool();
-	const adapter = new ClaudeAgentSdkAdapter();
-	pool.register("local", adapter, {
-		name: "local",
+	const maxConcurrent = Number.parseInt(process.env.HYPERIDLE_LOCAL_MAX_CONCURRENT ?? "4", 10);
+
+	// 1. Claude Code adapter (existing)
+	const claudeAdapter = new ClaudeAgentSdkAdapter();
+	pool.register("local-claude-code", claudeAdapter, {
+		name: "Claude Code",
 		kind: "local",
-		type: "claude-code", // X3: local adapter type for harnessType preference matching
+		type: "claude-code",
 		modelProviders: ["anthropic"],
-		maxConcurrent: Number.parseInt(process.env.HYPERIDLE_LOCAL_MAX_CONCURRENT ?? "4", 10),
+		maxConcurrent,
 	});
 
-	// X6: Built-in harness adapter — supports direct API calls to all providers
+	// 2. X6: Built-in harness adapter — supports direct API calls to all providers
 	const builtinAdapter = new BuiltinHarnessAdapter();
-	pool.register("builtin", builtinAdapter, {
-		name: "builtin",
+	pool.register("local-builtin", builtinAdapter, {
+		name: "Built-in Harness",
 		kind: "local",
 		type: "builtin",
 		modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 		maxConcurrent: Number.parseInt(process.env.HYPERIDLE_BUILTIN_MAX_CONCURRENT ?? "8", 10),
 	});
+
+	// 3. CLI adapters: registered dynamically when available
+	await registerCliAdaptersIfAvailable(pool);
 
 	return pool;
 }

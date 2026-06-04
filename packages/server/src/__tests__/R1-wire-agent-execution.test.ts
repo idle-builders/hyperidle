@@ -106,7 +106,12 @@ class ScriptedHarnessAdapter implements HarnessAdapter {
 	}
 
 	getCapabilities(): HarnessCapabilities {
-		return { preCompactionTrigger: false, subAgents: false, modelProviders: ["anthropic"] };
+		return {
+			preCompactionTrigger: false,
+			subAgents: false,
+			modelProviders: ["anthropic"],
+			mcpSupport: false,
+		};
 	}
 }
 
