@@ -161,7 +161,8 @@
 			"!.verify-attestations",
 			"!packages/desktop/release",
 			"!packages/design-system/*.html",
-			"!packages/design-system/html"
+			"!packages/design-system/html",
+			"!eval-results.json"
 		]
 	},
 	"overrides": [

@@ -1,10 +1,29 @@
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import type { HyperIdleDb } from "./connection.js";
 import * as schema from "./schema.js";
+
+/**
+ * @lore X7: ESM/CJS compat for `__dirname`.
+ *
+ * `__dirname` is a CJS global; it is NOT available when this file is loaded
+ * from an ESM context (e.g. the eval standalone runner under Node 26+). The
+ * `import.meta` fallback computes the same directory path in ESM contexts.
+ *
+ * vitest workers inject `__dirname` via their own transform pipeline, so the
+ * guard is effectively dead code in test runs — but it prevents a
+ * ReferenceError when the module is imported from the eval runner.
+ */
+function resolveDirname(): string {
+	// Access the CJS global via Reflect to avoid lint errors on bare `__dirname`.
+	const cjsDirname = Reflect.get(globalThis, "__dirname") as string | undefined;
+	return cjsDirname ?? fileURLToPath(new URL(".", import.meta.url));
+}
+const DIRNAME = resolveDirname();
 
 // @lore Phase 2: createTestDb is now async PGlite. All tests that call it must
 // be async (beforeEach + await). SQLite test-utils were removed because the
@@ -38,7 +57,7 @@ import * as schema from "./schema.js";
 
 /** Folder where the Postgres migration set lives. */
 function migrationsFolder(): string {
-	return resolve(__dirname, "../drizzle");
+	return resolve(DIRNAME, "../drizzle");
 }
 
 export interface TestDbHandle {

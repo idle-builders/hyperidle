@@ -42,7 +42,8 @@
 		"knip": "npx knip",
 		"mock-inventory": "npx tsx scripts/mock-inventory.ts",
 		"mock-inventory:check": "npx tsx scripts/mock-inventory.ts --check",
-		"check:native": "npx tsx packages/desktop/scripts/check-native.ts"
+		"check:native": "npx tsx packages/desktop/scripts/check-native.ts",
+		"eval": "npx tsx packages/eval/src/runner.ts"
 	},
 	"overrides": {
 		"zod-validation-error": "^4.0.0"

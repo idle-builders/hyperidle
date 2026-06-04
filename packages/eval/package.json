@@ -1,0 +1,21 @@
+{
+	"name": "@hyperidle/eval",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"check": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@hyperidle/db": "*",
+		"@hyperidle/server": "*",
+		"@hyperidle/shared": "*",
+		"@hyperidle/fabric": "*"
+	},
+	"devDependencies": {
+		"vitest": "^4.1.5"
+	}
+}
