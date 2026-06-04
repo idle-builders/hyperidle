@@ -786,6 +786,43 @@ stories:
     depends: [AB1, AB2]
     complexity: M
 
+  # Track AC: Outcome Measurement & Scoring
+  - id: AC1
+    title: Structured Outcome Fields
+    track: AC
+    depends: []
+    complexity: M
+  - id: AC2
+    title: Bet Hypothesis Validation Flow
+    track: AC
+    depends: [AC1]
+    complexity: M
+  - id: AC3
+    title: Outcome Grading (Evaluator Agent Pattern)
+    track: AC
+    depends: [AC1]
+    complexity: L
+  - id: AC4
+    title: Multi-Dimensional Scoring Rubrics
+    track: AC
+    depends: [AC3]
+    complexity: L
+  - id: AC5
+    title: Verification Gates
+    track: AC
+    depends: [AC3]
+    complexity: M
+  - id: AC6
+    title: Outcome-Based Knowledge Learning
+    track: AC
+    depends: [AC1]
+    complexity: L
+  - id: AC7
+    title: Portfolio Metrics & Measurement Dashboard
+    track: AC
+    depends: [AC1, AC2]
+    complexity: L
+
   # Track X: Agent Runtime Completeness
   - id: X1
     title: Session Prompt Composition
