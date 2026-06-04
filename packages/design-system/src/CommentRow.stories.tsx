@@ -8,10 +8,11 @@ import { CommentRow } from "./CommentRow.js";
 export default {
 	title: "CommentRow",
 	tier: "3" as const,
-	order: ["Plain", "Verdict", "InlineComment", "Redacted"],
+	order: ["Plain", "AgentMessage", "Verdict", "InlineComment", "Redacted"],
 };
 
 const sender = { id: "u-founder", name: "Founder", role: "founder" };
+const agentSender = { id: "u-agent", name: "Atlas", role: "builder", isAgent: true };
 
 const plainMsg: Message = {
 	id: "m-p",
@@ -48,6 +49,20 @@ const redactedMsg: Message = {
 
 export const Plain = (): React.JSX.Element => (
 	<CommentRow message={plainMsg} sender={sender} showSenderHeader={true} />
+);
+export const AgentMessage = (): React.JSX.Element => (
+	<CommentRow
+		message={{
+			...plainMsg,
+			id: "m-agent",
+			senderId: "u-agent",
+			payload: {
+				text: "I've drafted a 3-phase plan: shadow enrollment, dual-auth window, then password deprecation. Existing sessions stay valid through phase 2. Estimated 6 weeks end-to-end.",
+			},
+		}}
+		sender={agentSender}
+		showSenderHeader={true}
+	/>
 );
 export const Verdict = (): React.JSX.Element => (
 	<CommentRow message={verdictMsg} sender={sender} showSenderHeader={true} />

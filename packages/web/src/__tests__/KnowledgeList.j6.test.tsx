@@ -212,15 +212,17 @@ describe("KnowledgeList — J6 scope + tabs + triage", () => {
 	});
 
 	it("shows empty curated state when no active items exist", async () => {
+		// @lore visual-parity: tabs are hidden in systemEmpty state (items.length === 0).
+		// No tab bar is shown — only the EmptyState component.
 		mockUseFetch.mockReturnValue({
 			data: { items: [] },
 			error: null,
 			isLoading: false,
 		});
 		renderAt("/knowledge");
-		// All tabs default to curated when no draft items
+		// Tabs are hidden in systemEmpty state
 		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: "Curated" })).toHaveAttribute("aria-selected", "true");
+			expect(screen.queryByRole("tab", { name: "Curated" })).not.toBeInTheDocument();
 		});
 		expect(await screen.findByTestId("knowledge-curated-empty")).toBeInTheDocument();
 	});

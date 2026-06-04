@@ -12,56 +12,110 @@
  */
 
 import type { JSX } from "react";
-import { SettingsAgents } from "../settings/SettingsAgents.js";
+import { CredentialsTab } from "../components/CredentialsTab.js";
 import { SettingsAppearance } from "../settings/SettingsAppearance.js";
 import { SettingsBackend } from "../settings/SettingsBackend.js";
 import { SettingsModels } from "../settings/SettingsModels.js";
+import { SettingsNotifications } from "../settings/SettingsNotifications.js";
 import { SettingsOrgChart } from "../settings/SettingsOrgChart.js";
 import { SettingsProfile } from "../settings/SettingsProfile.js";
 
+/** Shared section title style: 13px/600 uppercase, text-tertiary, border-bottom */
+function SectionTitle({ children }: { children: string }): JSX.Element {
+	return (
+		<h2 className="text-[13px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)] pb-[6px] border-b border-[var(--border-subtle)]">
+			{children}
+		</h2>
+	);
+}
+
 export function SettingsPage(): JSX.Element {
 	return (
-		<div data-testid="settings-page" className="flex flex-col h-full overflow-y-auto">
-			{/* W3 AC-52: max-width 680px centered body */}
-			<div
-				data-testid="settings-body"
-				className="flex flex-col gap-8 max-w-[680px] mx-auto w-full px-[24px] py-[24px]"
-			>
-				{/* W3 AC-47: Profile section */}
-				<section data-testid="settings-section-profile" className="flex flex-col gap-3">
-					<h2 className="text-[15px] font-semibold text-[var(--text-primary)]">Profile</h2>
-					<SettingsProfile />
-				</section>
+		<div data-testid="settings-page" className="flex flex-col h-full">
+			{/* Settings header */}
+			<header className="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
+				<h2 className="text-[20px] font-[600] tracking-[-0.01em]">Settings</h2>
+				<p className="text-[13px] text-[var(--text-tertiary)] mt-[3px]">
+					Manage your profile, team, and app preferences.
+				</p>
+			</header>
 
-				{/* W3 AC-47 / AC-49: Org chart section */}
-				<section data-testid="settings-section-org-chart" className="flex flex-col gap-3">
-					<h2 className="text-[15px] font-semibold text-[var(--text-primary)]">Org chart</h2>
-					<SettingsOrgChart />
-				</section>
+			{/* Scrollable body */}
+			<div className="flex-1 overflow-y-auto">
+				<div
+					data-testid="settings-body"
+					className="flex flex-col gap-[24px] max-w-[680px] mx-auto w-full px-[24px] py-[24px]"
+				>
+					{/* W3 AC-47: Profile section */}
+					<section
+						id="settings-section-profile"
+						data-testid="settings-section-profile"
+						className="flex flex-col gap-[18px]"
+					>
+						<SectionTitle>Profile</SectionTitle>
+						<SettingsProfile />
+					</section>
 
-				{/* X3: Agents section */}
-				<section data-testid="settings-section-agents" className="flex flex-col gap-3">
-					<h2 className="text-[15px] font-semibold text-[var(--text-primary)]">Agents</h2>
-					<SettingsAgents />
-				</section>
+					{/* W3 AC-47 / AC-49: Org chart section */}
+					<section
+						id="settings-section-orgchart"
+						data-testid="settings-section-org-chart"
+						className="flex flex-col gap-[18px]"
+					>
+						<SectionTitle>Org chart</SectionTitle>
+						<SettingsOrgChart />
+					</section>
 
-				{/* X4: Models section */}
-				<section data-testid="settings-section-models" className="flex flex-col gap-3">
-					<h2 className="text-[15px] font-semibold text-[var(--text-primary)]">Models</h2>
-					<SettingsModels />
-				</section>
+					{/* X4: Models section */}
+					<section
+						id="settings-section-models"
+						data-testid="settings-section-models"
+						className="flex flex-col gap-[18px]"
+					>
+						<SectionTitle>Models</SectionTitle>
+						<SettingsModels />
+					</section>
 
-				{/* W3 AC-47: Appearance section */}
-				<section data-testid="settings-section-appearance" className="flex flex-col gap-3">
-					<h2 className="text-[15px] font-semibold text-[var(--text-primary)]">Appearance</h2>
-					<SettingsAppearance />
-				</section>
+					{/* W3 AC-47: Appearance section */}
+					<section
+						id="settings-section-appearance"
+						data-testid="settings-section-appearance"
+						className="flex flex-col gap-[18px]"
+					>
+						<SectionTitle>Appearance</SectionTitle>
+						<SettingsAppearance />
+					</section>
 
-				{/* W3 AC-47 / AC-51: Backend section */}
-				<section data-testid="settings-section-backend" className="flex flex-col gap-3">
-					<h2 className="text-[15px] font-semibold text-[var(--text-primary)]">Backend</h2>
-					<SettingsBackend />
-				</section>
+					{/* Credentials section — desktop only (CredentialsTab handles non-desktop gracefully) */}
+					<section
+						id="settings-section-credentials"
+						data-testid="settings-section-credentials"
+						className="flex flex-col gap-[18px]"
+					>
+						<SectionTitle>Credentials</SectionTitle>
+						<CredentialsTab />
+					</section>
+
+					{/* Notifications section */}
+					<section
+						id="settings-section-notifications"
+						data-testid="settings-section-notifications"
+						className="flex flex-col gap-[18px]"
+					>
+						<SectionTitle>Notifications</SectionTitle>
+						<SettingsNotifications />
+					</section>
+
+					{/* W3 AC-47 / AC-51: Backend section */}
+					<section
+						id="settings-section-backend"
+						data-testid="settings-section-backend"
+						className="flex flex-col gap-[18px]"
+					>
+						<SectionTitle>Backend</SectionTitle>
+						<SettingsBackend />
+					</section>
+				</div>
 			</div>
 		</div>
 	);

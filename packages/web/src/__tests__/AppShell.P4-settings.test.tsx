@@ -102,7 +102,8 @@ describe("AppShell — P4 Settings overlay", () => {
 		await user.click(screen.getByRole("button", { name: /settings/i }));
 
 		await waitFor(() => {
-			expect(screen.getByText("Settings")).toBeInTheDocument();
+			// Settings appears in both the sidebar label and the page header when open
+			expect(screen.getAllByText("Settings").length).toBeGreaterThanOrEqual(1);
 		});
 	});
 
@@ -122,10 +123,12 @@ describe("AppShell — P4 Settings overlay", () => {
 			// appear in both the Sidebar NavItems AND the SettingsPage headings.
 			// Use getAllByText(...).length >= 1 to handle duplicates gracefully.
 			expect(screen.getAllByText("Profile").length).toBeGreaterThanOrEqual(1);
-			// These appear in sidebar NavItems even if not in SettingsPage:
-			expect(screen.getByText("Org Chart")).toBeInTheDocument();
-			expect(screen.getByText("Credentials")).toBeInTheDocument();
-			expect(screen.getByText("Notifications")).toBeInTheDocument();
+			// "Org chart" may appear in both sidebar NavItem AND SettingsPage section heading
+			expect(screen.getAllByText("Org chart").length).toBeGreaterThanOrEqual(1);
+			// "Credentials" may appear in both sidebar NavItem AND SettingsPage section heading
+			expect(screen.getAllByText("Credentials").length).toBeGreaterThanOrEqual(1);
+			// "Notifications" now appears in both sidebar NavItem AND SettingsPage section heading
+			expect(screen.getAllByText("Notifications").length).toBeGreaterThanOrEqual(1);
 			// "Appearance" appears in both sidebar + SettingsPage section heading
 			expect(screen.getAllByText("Appearance").length).toBeGreaterThanOrEqual(1);
 			// @lore U1: "Products" renamed to "Teams" in settings menu
@@ -147,7 +150,8 @@ describe("AppShell — P4 Settings overlay", () => {
 		await user.click(screen.getByRole("button", { name: /settings/i }));
 
 		await waitFor(() => {
-			expect(screen.getByText("Settings")).toBeInTheDocument();
+			// Settings appears in both the sidebar label and the page header when open
+			expect(screen.getAllByText("Settings").length).toBeGreaterThanOrEqual(1);
 		});
 
 		// The new overlay should NOT be a modal dialog — it's an AppShell state change
@@ -173,7 +177,8 @@ describe("AppShell — P4 Settings overlay", () => {
 		await user.click(screen.getByRole("button", { name: /settings/i }));
 
 		await waitFor(() => {
-			expect(screen.getByText("Settings")).toBeInTheDocument();
+			// Settings appears in both the sidebar label and the page header when open
+			expect(screen.getAllByText("Settings").length).toBeGreaterThanOrEqual(1);
 		});
 
 		await user.keyboard("{Escape}");
@@ -199,8 +204,8 @@ describe("AppShell — P4 Settings overlay", () => {
 		await user.click(screen.getByRole("button", { name: /settings/i }));
 
 		await waitFor(() => {
-			// Profile section should be active by default
-			expect(screen.getByLabelText(/^name/i)).toBeInTheDocument();
+			// Profile section: "Display name" label per settings.html mockup
+			expect(screen.getByLabelText(/display name/i)).toBeInTheDocument();
 		});
 	});
 });

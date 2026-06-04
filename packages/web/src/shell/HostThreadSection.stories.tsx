@@ -9,7 +9,13 @@
  * calls useHostThread internally and stories can't easily mock hooks, we render
  * the content DIV directly for visual stories instead of the full component.
  * The real component is tested via unit tests; stories prove the visual shape.
+ *
+ * @lore visual-parity-audit: WithMessages story updated to use CommentRow
+ * directly so stories reflect the actual rendered output (avatar, name, timestamp)
+ * matching the mockup discussion-message pattern.
  */
+
+import { CommentRow } from "@hyperidle/design-system";
 
 export default { title: "HostThreadSection", tier: "3" as const };
 
@@ -49,6 +55,47 @@ export const Empty = (): React.JSX.Element => (
 
 // ── Populated state (with messages) ─────────────────────────────────────────
 
+const STORY_MESSAGES_HUMAN = [
+	{
+		id: "msg-s1",
+		threadId: "t-story",
+		senderId: "u-tobias",
+		type: "plain" as const,
+		payload: { text: "The auth cache TTL is too long — should be 5 min not 15." },
+		clientKey: "ck-s1",
+		deletedAt: null,
+		redactedAt: null,
+		resolvedAt: null,
+		createdAt: "2026-06-03T14:00:00Z",
+	},
+	{
+		id: "msg-s2",
+		threadId: "t-story",
+		senderId: "agent-atlas",
+		type: "plain" as const,
+		payload: {
+			text: "Agreed. I'll open a PR to fix it. Will also add integration tests for the TTL boundary cases.",
+		},
+		clientKey: "ck-s2",
+		deletedAt: null,
+		redactedAt: null,
+		resolvedAt: null,
+		createdAt: "2026-06-03T14:05:00Z",
+	},
+	{
+		id: "msg-s3",
+		threadId: "t-story",
+		senderId: "u-tobias",
+		type: "plain" as const,
+		payload: { text: "Thanks. Also check the refresh token TTL while you're in there." },
+		clientKey: "ck-s3",
+		deletedAt: null,
+		redactedAt: null,
+		resolvedAt: null,
+		createdAt: "2026-06-03T14:08:00Z",
+	},
+];
+
 export const WithMessages = (): React.JSX.Element => (
 	<div className="w-[400px] p-4 bg-[var(--surface-1)]">
 		<section aria-label="Discussion" className="flex flex-col gap-3 p-3">
@@ -56,14 +103,28 @@ export const WithMessages = (): React.JSX.Element => (
 				Discussion
 			</h3>
 			<div data-testid="host-thread-section" className="flex flex-col gap-2">
-				<div className="flex flex-col gap-2 text-sm text-[var(--text-primary)]">
-					<div className="px-3 py-2 rounded bg-[var(--surface-container)]">
-						The auth cache TTL is too long — should be 5 min not 15.
-					</div>
-					<div className="px-3 py-2 rounded bg-[var(--surface-container)]">
-						Agreed. I'll open a PR to fix it.
-					</div>
-				</div>
+				<ul
+					className="flex flex-col gap-[18px] list-none m-0 py-[6px]"
+					aria-label="Discussion messages"
+				>
+					{STORY_MESSAGES_HUMAN.map((msg, index) => {
+						const prevMsg = index > 0 ? STORY_MESSAGES_HUMAN[index - 1] : null;
+						const showSenderHeader = prevMsg === null || prevMsg.senderId !== msg.senderId;
+						const isAgent = msg.senderId.startsWith("agent");
+						return (
+							<CommentRow
+								key={msg.id}
+								message={msg}
+								sender={{
+									id: msg.senderId,
+									name: isAgent ? "Atlas" : "Tobias",
+									isAgent,
+								}}
+								showSenderHeader={showSenderHeader}
+							/>
+						);
+					})}
+				</ul>
 				<div className="flex gap-2">
 					<textarea
 						className="textarea textarea-bordered text-base resize-none flex-1 h-16"

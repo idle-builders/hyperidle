@@ -257,19 +257,44 @@ export function CocOverlay({
 				// Dimensions per design spec (approved.md).
 				"w-[360px] min-h-[200px] max-h-[70vh]",
 				// Surface + border + shadow per design spec.
+				// @lore visual-parity C-03: surface-overlay (not surface-container — that is for sidebars/inset areas).
+				// shadow-elevated (not --float, which is not a Hearth token).
 				"flex flex-col overflow-hidden",
-				"rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-[var(--surface-container)]",
-				"shadow-[var(--float)]",
+				"rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-[var(--surface-overlay)]",
+				"shadow-[var(--shadow-elevated)]",
 				// z-index: above Main (z-0), below Settings (z-40).
 				"z-30",
 				// Animation: fade in + subtle translate up.
 				"animate-[coc-open_var(--motion-fast)_ease-out_forwards]",
 			].join(" ")}
 		>
-			{/* Visually-hidden heading for screen reader announcement */}
-			<h2 className="sr-only" id="coc-overlay-title">
-				Chief of Staff
-			</h2>
+			{/* Overlay header bar: "Assistant" title + close button */}
+			<div className="flex items-center justify-between px-[12px] py-[9px] border-b border-[var(--border-subtle)] shrink-0">
+				{/* Visually-hidden heading kept for screen readers; visible label shown in header */}
+				<h2 className="text-[15px] font-[600] text-[var(--text-primary)]" id="coc-overlay-title">
+					Assistant
+				</h2>
+				<button
+					type="button"
+					aria-label="Close assistant"
+					className="flex items-center justify-center w-[24px] h-[24px] rounded-[var(--r-pill)] bg-transparent border-none text-[var(--text-secondary)] cursor-pointer hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]"
+					onClick={onClose}
+				>
+					<svg
+						width="14"
+						height="14"
+						viewBox="0 0 14 14"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="1.75"
+						strokeLinecap="round"
+						aria-hidden="true"
+					>
+						<line x1="2" y1="2" x2="12" y2="12" />
+						<line x1="12" y1="2" x2="2" y2="12" />
+					</svg>
+				</button>
+			</div>
 			<CocOverlayInner contextRefs={contextRefs} onRemoveContextRef={onRemoveContextRef} />
 		</div>
 	);

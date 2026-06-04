@@ -133,7 +133,8 @@ describe("AppShell", () => {
 		// P4: SettingsPanel modal removed. Settings overlay is now a shell-state
 		// content swap — Sidebar shows settings nav items, Main shows the active section.
 		await waitFor(() => {
-			expect(screen.getByText("Settings")).toBeInTheDocument();
+			// Settings appears in both the sidebar label and the page header when open
+			expect(screen.getAllByText("Settings").length).toBeGreaterThanOrEqual(1);
 		});
 	});
 

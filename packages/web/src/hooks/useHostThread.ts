@@ -18,9 +18,22 @@ import type { HostKind, Message, Thread } from "@hyperidle/shared";
 import { useCallback, useMemo, useState } from "react";
 import { useFetch } from "./useFetch.js";
 
+export interface HostThreadIdentity {
+	name: string;
+	role: string;
+}
+
 interface HostThreadData {
 	thread: Thread;
 	messages: ReadonlyArray<Message>;
+	/**
+	 * Identity map keyed by participant id. Populated from the server's
+	 * `identities` field in the thread detail response.
+	 *
+	 * @lore visual-parity-audit: exposed so HostThreadSection can resolve
+	 * senderId → sender name/role for CommentRow without a second API call.
+	 */
+	identities: Record<string, HostThreadIdentity>;
 }
 
 interface ThreadListResponse {
@@ -87,6 +100,7 @@ export function useHostThread(hostKind: HostKind, hostId: string): UseHostThread
 		return {
 			thread: detailState.data.thread,
 			messages: detailState.data.messages,
+			identities: detailState.data.identities ?? {},
 		};
 	}, [detailState.data]);
 

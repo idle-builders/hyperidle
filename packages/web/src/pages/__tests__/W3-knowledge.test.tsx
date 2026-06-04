@@ -415,12 +415,14 @@ describe("W3 AC-42 — Discussion section below body", () => {
 // AC-43: Knowledge detail max-width 960px, centered
 // ---------------------------------------------------------------------------
 describe("W3 AC-43 — Knowledge detail max-width 960px", () => {
-	it("detail body container has max-w-[960px] and mx-auto", () => {
+	it("detail body inner container has max-w-[960px] and mx-auto", () => {
 		renderKnowledgeDetail();
 		const detailBody = document.querySelector("[data-testid='knowledge-detail-body']");
 		expect(detailBody).not.toBeNull();
-		expect(detailBody?.className).toMatch(/max-w-\[960px\]/);
-		expect(detailBody?.className).toMatch(/mx-auto/);
+		const inner = detailBody?.firstElementChild;
+		expect(inner).not.toBeNull();
+		expect(inner?.className).toMatch(/max-w-\[960px\]/);
+		expect(inner?.className).toMatch(/mx-auto/);
 	});
 });
 

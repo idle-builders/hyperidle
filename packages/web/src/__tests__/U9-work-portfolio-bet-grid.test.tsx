@@ -145,16 +145,17 @@ describe("U9 AC-2: WorkPortfolio bet grid", () => {
 });
 
 describe("U9 AC-3: WorkPortfolio team pill filters", () => {
-	it('renders "All teams" filter pill', () => {
+	it("does not render an 'All teams' global pill (visual-parity-audit: removed in Phase 3)", () => {
+		// The 'All teams' pill was removed from WorkPortfolio — individual team pills
+		// with toggle behavior replaced it. Clicking a selected pill again deselects it.
 		renderPage();
-		expect(screen.getByRole("button", { name: /all teams/i })).toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /all teams/i })).not.toBeInTheDocument();
 	});
 
 	it("renders one pill per team", () => {
 		renderPage();
 		// Find pills within the team-pill-filters group specifically
 		const pillBar = screen.getByTestId("team-pill-filters");
-		expect(pillBar.querySelector('[class*="btn"]')).not.toBeNull();
 		// Check for team names in the pill bar buttons (not BetCard)
 		const buttons = Array.from(pillBar.querySelectorAll("button"));
 		const names = buttons.map((b) => b.textContent);
@@ -162,19 +163,26 @@ describe("U9 AC-3: WorkPortfolio team pill filters", () => {
 		expect(names.some((n) => /beta team/i.test(n ?? ""))).toBe(true);
 	});
 
-	it('"All teams" pill uses btn-primary when active (default state)', () => {
-		renderPage();
-		const allTeamsBtn = screen.getByRole("button", { name: /all teams/i });
-		expect(allTeamsBtn.className).toContain("btn-primary");
-	});
-
-	it("team pills use btn-ghost when inactive", () => {
+	it("team pills use custom bordered style (not DaisyUI btn-primary) when inactive", () => {
+		// visual-parity-audit: pills use custom border styling, not DaisyUI btn classes.
+		// Active: accent border + tinted bg. Inactive: default border.
 		renderPage();
 		const pillBar = screen.getByTestId("team-pill-filters");
 		const buttons = Array.from(pillBar.querySelectorAll("button"));
 		const alphaTeamBtn = buttons.find((b) => /alpha team/i.test(b.textContent ?? ""));
 		expect(alphaTeamBtn).toBeDefined();
-		expect(alphaTeamBtn?.className).toContain("btn-ghost");
+		// Inactive pills have aria-pressed=false
+		expect(alphaTeamBtn?.getAttribute("aria-pressed")).toBe("false");
+	});
+
+	it("active team pill has aria-pressed=true and accent border style", () => {
+		renderPage();
+		const pillBar = screen.getByTestId("team-pill-filters");
+		const buttons = Array.from(pillBar.querySelectorAll("button"));
+		const alphaTeamBtn = buttons.find((b) => /alpha team/i.test(b.textContent ?? ""));
+		expect(alphaTeamBtn).toBeDefined();
+		// By default all pills are unselected
+		expect(alphaTeamBtn?.getAttribute("aria-pressed")).toBe("false");
 	});
 
 	it("clicking a team pill filters bets by that team", async () => {
@@ -203,7 +211,9 @@ describe("U9 AC-3: WorkPortfolio team pill filters", () => {
 		});
 	});
 
-	it("clicking an active team pill again shows all bets", async () => {
+	it("clicking an active team pill again (toggle) shows all bets", async () => {
+		// visual-parity-audit: 'All teams' pill removed. Toggle behavior: clicking
+		// an already-selected team pill deselects it, showing all bets again.
 		const user = userEvent.setup();
 		renderPage();
 
@@ -212,19 +222,20 @@ describe("U9 AC-3: WorkPortfolio team pill filters", () => {
 			/alpha team/i.test(b.textContent ?? ""),
 		);
 		if (!alphaBtn) throw new Error("alphaBtn not found");
-		const allTeamsBtn = screen.getByRole("button", { name: /all teams/i });
 
 		// Click "Alpha Team" to filter
 		await user.click(alphaBtn);
-		// Click "All teams" to deselect
-		await user.click(allTeamsBtn);
+		// Click "Alpha Team" again to deselect (toggle off)
+		await user.click(alphaBtn);
 
 		await waitFor(() => {
 			expect(screen.getByText("Bet Two")).toBeInTheDocument();
 		});
 	});
 
-	it("active team pill switches to btn-primary", async () => {
+	it("active team pill switches to accent border style (aria-pressed=true)", async () => {
+		// visual-parity-audit: pills use custom border styling, not DaisyUI btn-primary.
+		// Active state: accent-primary border + tinted bg. Reflected via aria-pressed.
 		const user = userEvent.setup();
 		renderPage();
 
@@ -240,7 +251,8 @@ describe("U9 AC-3: WorkPortfolio team pill filters", () => {
 			const updatedAlphaBtn = Array.from(updatedPillBar.querySelectorAll("button")).find((b) =>
 				/alpha team/i.test(b.textContent ?? ""),
 			);
-			expect(updatedAlphaBtn?.className).toContain("btn-primary");
+			// Active pill has aria-pressed=true (not btn-primary — uses custom accent border style)
+			expect(updatedAlphaBtn?.getAttribute("aria-pressed")).toBe("true");
 		});
 	});
 });

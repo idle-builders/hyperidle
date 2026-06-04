@@ -15,11 +15,50 @@
  * @lore R2: Simplified from P4 — removed email, backend mode, team name fields.
  * Team name is derived from repo folder basename or defaults to "My Team".
  * Navigates to /work/portfolio (was /conversations).
+ * @lore visual-parity: Redesigned to match onboarding.html exactly — 3-card
+ * abstract visual, step title, step description, left-aligned layout, form-group
+ * spacing of 18px, design-system Input + Button components.
  */
 
+import { Button, Input } from "@hyperidle/design-system";
 import { type FormEvent, type JSX, useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../services/api-fetch.js";
+
+/** Abstract 3-card welcome illustration matching onboarding.html welcome-visual */
+function WelcomeVisual(): JSX.Element {
+	const dotColors = [
+		"var(--accent-primary)",
+		"var(--accent-secondary)",
+		"var(--status-info)",
+	] as const;
+
+	return (
+		<div
+			data-testid="onboarding-illustration"
+			aria-hidden="true"
+			className="flex gap-[9px] bg-[var(--surface-page)] rounded-[var(--r-subtle)] p-[12px] mb-[24px]"
+		>
+			{dotColors.map((dotColor, i) => (
+				// biome-ignore lint/suspicious/noArrayIndexKey: static array, stable order
+				<div
+					key={i}
+					className="flex-1 bg-[var(--surface-elevated)] rounded-[var(--r-subtle)] p-[9px]"
+				>
+					<div className="flex items-center gap-[6px] mb-[6px]">
+						<span
+							className="block w-[8px] h-[8px] rounded-full shrink-0"
+							style={{ background: dotColor }}
+						/>
+						<span className="block h-[6px] rounded-full bg-[var(--border-subtle)] w-3/5" />
+					</div>
+					<span className="block h-[6px] bg-[var(--border-subtle)] rounded-full w-[90%] mb-[3px]" />
+					<span className="block h-[6px] bg-[var(--border-subtle)] rounded-full w-3/5" />
+				</div>
+			))}
+		</div>
+	);
+}
 
 export function SetupFlow(): JSX.Element {
 	const navigate = useNavigate();
@@ -35,7 +74,7 @@ export function SetupFlow(): JSX.Element {
 	// R2: Start button enabled only when name + API key are filled
 	const canStart = name.trim().length > 0 && apiKey.trim().length > 0 && !submitting;
 
-	const handleFolderPick = useCallback(async () => {
+	const handleFolderPick = useCallback(async (): Promise<void> => {
 		const folder = await window.__HYPERIDLE__?.shell.selectFolder();
 		if (folder) setRepoPath(folder);
 	}, []);
@@ -99,126 +138,138 @@ export function SetupFlow(): JSX.Element {
 	);
 
 	return (
-		<div className="flex items-center justify-center min-h-screen bg-[var(--surface-page)] px-[48px] py-[48px]">
+		<div className="flex items-center justify-center min-h-screen bg-[var(--surface-page)] p-[24px]">
 			{/* W3 AC-53: Card with shadow */}
 			<div
 				data-testid="onboarding-card"
-				className="w-full max-w-[520px] bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-elevated)] px-[48px] py-[48px] flex flex-col gap-6"
+				className="w-full max-w-[520px] bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-elevated)] p-[48px]"
 			>
 				{/* Brand + tagline */}
-				<div className="flex flex-col items-center gap-2 text-center">
-					{/* W3 AC-53: Illustration */}
-					<div
-						data-testid="onboarding-illustration"
-						aria-hidden="true"
-						className="w-12 h-12 rounded-full bg-[color-mix(in_oklab,var(--accent-primary)_16%,transparent)] flex items-center justify-center text-[24px]"
-					>
-						⬡
-					</div>
-					{/* W3 AC-53: Brand name */}
-					<h1
-						data-testid="onboarding-brand"
-						className="text-[24px] font-semibold text-[var(--text-primary)]"
-					>
-						HyperIdle
-					</h1>
-					{/* W3 AC-53: Tagline */}
-					<p className="text-[13px] text-[var(--text-secondary)]">
-						Your agentic operating system. Humans steer, agents build.
-					</p>
+				<div
+					data-testid="onboarding-brand"
+					className="text-[20px] font-[700] text-[var(--text-primary)] tracking-[-0.01em] mb-[6px]"
+				>
+					HyperIdle
 				</div>
+				<p className="text-[15px] text-[var(--text-secondary)] leading-[1.7] mb-[36px]">
+					Your agentic operating system. Humans steer, agents build.
+				</p>
 
-				<form onSubmit={handleSubmit} className="flex flex-col gap-4">
+				{/* W3 AC-53: Abstract 3-card illustration */}
+				<WelcomeVisual />
+
+				{/* Step heading */}
+				<p className="text-[20px] font-[600] text-[var(--text-primary)] tracking-[-0.01em] mb-[9px]">
+					Set up your workspace
+				</p>
+				<p className="text-[15px] text-[var(--text-secondary)] leading-[1.7] mb-[24px]">
+					Enter your name and API key to get started. Your agents need the API key to think and act
+					on your behalf.
+				</p>
+
+				<form onSubmit={handleSubmit} className="flex flex-col">
 					{/* W3 AC-54: "Your name" label (required) */}
-					<div className="form-control">
-						<label className="label" htmlFor="setup-name">
-							<span className="label-text text-[var(--text-secondary)]">Your name</span>
-						</label>
-						<input
+					<div className="mb-[18px]">
+						<Input
 							id="setup-name"
+							label="Your name"
 							type="text"
-							className="input input-sm input-bordered w-full text-[var(--text-primary)] text-base"
-							placeholder="Alice"
+							placeholder="Tobias Grundtner"
 							value={name}
 							onChange={(e) => setName(e.target.value)}
 							required
-							// biome-ignore lint/a11y/noAutofocus: Focus on page load per design spec
 							autoFocus
 						/>
 					</div>
 
 					{/* Anthropic API Key field (required) */}
-					<div className="form-control">
-						<label className="label" htmlFor="setup-api-key">
-							<span className="label-text text-[var(--text-secondary)]">Anthropic API key</span>
-						</label>
-						<input
+					<div className="mb-[18px]">
+						<Input
 							id="setup-api-key"
+							label="Anthropic API key"
 							type="password"
-							className="input input-sm input-bordered w-full text-[var(--text-primary)] text-base"
 							placeholder="sk-ant-..."
 							value={apiKey}
 							onChange={(e) => setApiKey(e.target.value)}
+							hint="Required. Your key stays on this device."
 							required
 						/>
-						<p className="text-[12px] text-[var(--text-tertiary)] mt-1">
-							Your agents need this to work.
-						</p>
 					</div>
 
 					{/* Repo path (optional) */}
-					<div className="form-control">
-						<label className="label" htmlFor="setup-repo">
-							<span className="label-text text-[var(--text-secondary)]">Project folder</span>
-						</label>
-						<div className="relative">
-							{window.__HYPERIDLE__?.shell?.selectFolder && (
-								<button
-									type="button"
-									aria-label="Browse for folder"
-									className="absolute inset-y-0 left-0 flex items-center pl-2 text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] cursor-pointer"
-									onClick={handleFolderPick}
-								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										width="14"
-										height="14"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										strokeWidth="2"
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										aria-hidden="true"
+					<div className="mb-[18px]">
+						<div className="flex flex-col gap-[6px]">
+							<label
+								htmlFor="setup-repo"
+								className="text-[13px] font-[500] text-[var(--text-primary)]"
+							>
+								Project folder{" "}
+								<span className="font-[400] text-[var(--text-tertiary)]">(optional)</span>
+							</label>
+							<div className="relative">
+								{window.__HYPERIDLE__?.shell?.selectFolder && (
+									<button
+										type="button"
+										aria-label="Browse for folder"
+										className="absolute inset-y-0 left-0 flex items-center pl-[12px] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] cursor-pointer z-10"
+										onClick={handleFolderPick}
 									>
-										<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-									</svg>
-								</button>
-							)}
-							<input
-								id="setup-repo"
-								type="text"
-								className={`input input-sm input-bordered w-full text-[var(--text-primary)]${window.__HYPERIDLE__?.shell?.selectFolder ? " pl-7" : ""}`}
-								placeholder="/Users/you/projects/my-app"
-								value={repoPath}
-								onChange={(e) => setRepoPath(e.target.value)}
-							/>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											width="14"
+											height="14"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											strokeWidth="2"
+											strokeLinecap="round"
+											strokeLinejoin="round"
+											aria-hidden="true"
+										>
+											<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+										</svg>
+									</button>
+								)}
+								<input
+									id="setup-repo"
+									type="text"
+									className={[
+										"w-full text-[15px] px-[12px] py-[10px]",
+										"bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)]",
+										"rounded-[var(--r-default)] text-[var(--text-primary)]",
+										"placeholder:text-[var(--text-placeholder)]",
+										"transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+										"outline-none focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_rgba(22,118,79,0.1)]",
+										window.__HYPERIDLE__?.shell?.selectFolder ? "pl-[36px]" : "",
+									].join(" ")}
+									placeholder="/Users/you/my-project"
+									value={repoPath}
+									onChange={(e) => setRepoPath(e.target.value)}
+								/>
+							</div>
+							<span className="text-[12px] text-[var(--text-tertiary)]">
+								Path to a git repository for agents to work in.
+							</span>
 						</div>
 					</div>
 
 					{/* Validation / submit error */}
 					{submitError && (
-						<p role="alert" aria-live="polite" className="text-sm text-error">
+						<p
+							role="alert"
+							aria-live="polite"
+							className="text-[13px] text-[var(--status-error)] mb-[18px]"
+						>
 							{submitError}
 						</p>
 					)}
 
-					{/* Footer */}
-					<div className="flex justify-end mt-8 pt-4 border-t border-[var(--border-subtle)]">
-						<button type="submit" className="btn btn-primary btn-sm" disabled={!canStart}>
+					{/* Submit — left-aligned, no border separator */}
+					<div>
+						<Button type="submit" variant="primary" disabled={!canStart}>
 							{submitting && <span className="loading loading-spinner loading-xs" />}
 							Start HyperIdle
-						</button>
+						</Button>
 					</div>
 				</form>
 			</div>

@@ -17,6 +17,7 @@ import { AppShell } from "./layouts/AppShell";
 import { ArtifactPermalink } from "./pages/ArtifactPermalink";
 import { Conversations } from "./pages/Conversations";
 import { FirstRunRedirect } from "./pages/FirstRunRedirect";
+import { KnowledgeCreate } from "./pages/KnowledgeCreate";
 import { KnowledgeDetail } from "./pages/KnowledgeDetail";
 import { KnowledgeList } from "./pages/KnowledgeList";
 import { NotFound } from "./pages/NotFound";
@@ -74,6 +75,7 @@ function buildRoutes(): RouteObject[] {
 				{ path: "work/bet/:betId", element: <WorkBet /> },
 				{ path: "work/bet/:betId/task/:taskId", element: <WorkTask /> },
 				{ path: "knowledge", element: <KnowledgeList /> },
+				{ path: "knowledge/new", element: <KnowledgeCreate /> },
 				{ path: "knowledge/:knowledgeId", element: <KnowledgeDetail /> },
 				// L3 review fix Arch-M1 / D-M4: wire the ArtifactPermalink page.
 				{ path: "artifacts/:id", element: <ArtifactPermalink /> },
@@ -82,10 +84,11 @@ function buildRoutes(): RouteObject[] {
 					// L9: settings deep-link now points to /conversations?settings=open.
 					element: <Navigate to="/conversations?settings=open" replace />,
 				},
-				// I4 E2: catch-all so unknown URLs render NotFound (not a blank page).
-				{ path: "*", element: <NotFound /> },
 			],
 		},
+		// I4 E2: catch-all so unknown URLs render NotFound (not a blank page).
+		// Rendered outside AppShell per error-states.html mockup (standalone page, no sidebar).
+		{ path: "*", element: <NotFound /> },
 	];
 
 	// I6: /designsystem route integrated into React Router (DEV only).

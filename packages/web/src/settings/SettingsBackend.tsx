@@ -2,15 +2,13 @@
  * SettingsBackend — Backend settings section.
  *
  * P4 Task 10: Settings section (AC-12, AC-19)
- * Shows current backend mode and switch button with restart warning.
- *
- * - In web/browser mode: shows info that switching requires the desktop app.
- * - In desktop (Electron) mode: shows current mode badge, description, switch button,
- *   and restart warning.
+ * Shows current backend mode label + hint. Matches settings.html mockup.
  *
  * @lore P4: Backend mode switching requires the Electron bridge (window.__HYPERIDLE__).
  * In pure web mode the desktop-only message is shown. This avoids dangling UI that
  * would be non-functional without the bridge.
+ * @lore visual-parity: Simplified to match HTML mockup which shows mode as a plain
+ * text label (13px, text-secondary) with a hint below — no badge or switch button.
  */
 
 import type { JSX } from "react";
@@ -22,52 +20,18 @@ function isElectron(): boolean {
 export function SettingsBackend(): JSX.Element {
 	const electron = isElectron();
 
-	if (!electron) {
-		return (
-			<div className="flex flex-col gap-3">
-				<p className="text-sm text-[var(--text-secondary)]">
-					Backend mode can only be changed in the desktop app.
-				</p>
-				<p className="text-xs text-[var(--text-tertiary)]">
-					The web version always connects to the embedded local server.
-				</p>
-			</div>
-		);
-	}
-
-	// Electron mode — expose mode badge + switch button
-	// @lore P4: In Electron, platform is exposed via window.__HYPERIDLE__.platform.
-	// Mode is "local" (embedded server) or "shared" (remote). We default to "local"
-	// if not set; the actual mode switching is handled by the main process restart.
-	const platform = window.__HYPERIDLE__?.platform ?? "electron";
-	const isLocal = platform !== "shared";
-	const modeLabel = isLocal ? "Local" : "Shared";
-	const modeDescription = isLocal
-		? "The app is running an embedded server on this machine."
+	const platform = electron ? (window.__HYPERIDLE__?.platform ?? "electron") : null;
+	const isLocal = !platform || platform !== "shared";
+	const modeLabel = isLocal ? "Local (laptop)" : "Shared (remote)";
+	const modeHint = isLocal
+		? "Agent sessions run locally on this machine."
 		: "Connected to a shared backend server.";
-	const switchLabel = isLocal ? "Switch to Shared Backend" : "Switch to Local";
 
 	return (
-		<div className="flex flex-col gap-3">
-			<div className="flex items-center gap-3">
-				<span className="text-sm text-[var(--text-secondary)]">Current mode</span>
-				<span className="badge badge-sm badge-ghost font-mono">{modeLabel}</span>
-			</div>
-
-			<p className="text-sm text-[var(--text-secondary)]">{modeDescription}</p>
-
-			<div className="flex items-center gap-3">
-				<button
-					type="button"
-					className="btn btn-ghost btn-sm"
-					disabled
-					title="Switching requires an app restart — support coming soon"
-				>
-					{switchLabel}
-				</button>
-			</div>
-
-			<p className="text-xs text-[var(--text-tertiary)]">Switching requires a restart.</p>
+		<div className="flex flex-col gap-[6px] max-w-[400px]">
+			<span className="text-[13px] font-[500] text-[var(--text-primary)]">Mode</span>
+			<span className="text-[13px] text-[var(--text-secondary)]">{modeLabel}</span>
+			<span className="text-[12px] text-[var(--text-tertiary)]">{modeHint}</span>
 		</div>
 	);
 }

@@ -204,12 +204,13 @@ describe("U6 — AppShell wires thread list into Sidebar Conversations section",
 		});
 	});
 
-	it("sidebar shows 'No recent conversations' empty text when threads is empty", async () => {
+	it("sidebar shows 'No threads yet' empty text when threads is empty", async () => {
 		setFetchMock([]);
 		renderShell();
 		await waitFor(() => {
 			// Empty state appears in the sidebar Conversations section
-			expect(screen.getByText(/no recent conversations/i)).toBeInTheDocument();
+			// @lore visual-parity: changed from "No recent conversations" to "No threads yet"
+			expect(screen.getByText(/no threads yet/i)).toBeInTheDocument();
 		});
 	});
 });

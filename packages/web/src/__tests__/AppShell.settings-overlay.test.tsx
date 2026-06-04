@@ -71,7 +71,8 @@ describe("AppShell — Settings overlay + Command-K priority (J3)", () => {
 		// P4: settings overlay is now a shell-state content swap (not a dialog).
 		// Wait for Settings nav to appear in the Sidebar.
 		await waitFor(() => {
-			expect(screen.getByText("Settings")).toBeInTheDocument();
+			// Settings appears in both the sidebar label and the page header when open
+			expect(screen.getAllByText("Settings").length).toBeGreaterThanOrEqual(1);
 		});
 		// With the overlay open, there should be no "Active Bets" label (Rail removed).
 		expect(screen.queryByText("Active Bets")).toBeNull();
@@ -87,7 +88,8 @@ describe("AppShell — Settings overlay + Command-K priority (J3)", () => {
 		// P4: settings overlay is now a shell-state content swap (not a dialog).
 		// Wait for Settings nav to appear.
 		await waitFor(() => {
-			expect(screen.getByText("Settings")).toBeInTheDocument();
+			// Settings appears in both the sidebar label and the page header when open
+			expect(screen.getAllByText("Settings").length).toBeGreaterThanOrEqual(1);
 		});
 		// @lore P4 fix: main-content shows settings section content when settings is open
 		// so it must NOT be aria-hidden (screen readers need to access the forms).
@@ -104,7 +106,8 @@ describe("AppShell — Settings overlay + Command-K priority (J3)", () => {
 		await user.click(screen.getByRole("button", { name: /settings/i }));
 		// P4: settings overlay is now a shell-state content swap (not a dialog).
 		await waitFor(() => {
-			expect(screen.getByText("Settings")).toBeInTheDocument();
+			// Settings appears in both the sidebar label and the page header when open
+			expect(screen.getAllByText("Settings").length).toBeGreaterThanOrEqual(1);
 		});
 
 		// Fire Command-K. Settings must close; search dialog must open.

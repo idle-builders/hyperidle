@@ -3,22 +3,25 @@
  *
  * @lore U9: WorkPortfolio restructured from team-card grid + Canvas to
  * a flat 2-column BetCard grid. Canvas and Kanban views removed.
- * Team pill filters at top allow filtering by team without sidebar.
  * useBets() provides the flat bet list (flattened from grouped /api/bets).
  * useTeams() provides team names for pills and card labels.
  *
  * @lore U9 AC-2: "All bets" heading replaces "Portfolio".
- * "New bet" button opens BetCreateDialog (btn-primary, btn-xs).
+ * "New bet" button opens BetCreateDialog.
  *
- * @lore U9 AC-3: Team pills: "All teams" + one pill per team from useTeams().
- * Active pill → btn-primary. Inactive pill → btn-ghost.
+ * @lore U9 AC-3: Team pills: one pill per team from useTeams() — bordered style.
+ * Active pill: accent border + tinted bg. Inactive: border-default.
  * Client-side filtering by selectedTeamId.
+ *
+ * @lore W3: AppShell <main> is overflow-hidden with no padding, so this page
+ * uses a fixed shrink-0 header + flex-1 overflow-y-auto body pattern.
+ * Header contains h2 title + tab-bar-pill status filter + team pills + "New bet".
  */
 import { BetCard, EmptyState, SkeletonCard } from "@hyperidle/design-system";
+import { formatMoney } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
 import { useBets } from "../hooks/useBets.js";
 import { useTeams } from "../hooks/useTeams";
 import { BetCreateDialog } from "./work/BetCreateDialog.js";
@@ -26,11 +29,18 @@ import { BetCreateDialog } from "./work/BetCreateDialog.js";
 // W3 AC-13: Status filter type
 type StatusFilter = "all" | "active" | "completed" | "draft";
 
+// W3 AC-13: status filter options (outside component so it's stable)
+const STATUS_FILTER_OPTIONS: ReadonlyArray<{ id: StatusFilter; label: string }> = [
+	{ id: "all", label: "All" },
+	{ id: "active", label: "Active" },
+	{ id: "completed", label: "Completed" },
+	{ id: "draft", label: "Draft" },
+];
+
 export function WorkPortfolio(): JSX.Element {
 	const navigate = useNavigate();
 	const { data: teamsData } = useTeams();
 	const { bets, loading: betsLoading, refresh: refreshBets } = useBets();
-	const onOpenArtifact = useArtifactOpen();
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
 	// W3 AC-13: status filter state
@@ -59,142 +69,166 @@ export function WorkPortfolio(): JSX.Element {
 
 	if (betsLoading) {
 		return (
-			<div className="flex flex-col gap-[12px] h-full" data-testid="work-portfolio-page">
-				<div className="flex items-center justify-between">
-					<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
+			<div className="flex flex-col h-full" data-testid="work-portfolio-page">
+				{/* Loading header skeleton */}
+				<header className="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
+					<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)]">
 						All bets
-					</h1>
-				</div>
-				<div
-					className="grid grid-cols-1 sm:grid-cols-2 gap-[12px] max-w-[960px] mx-auto w-full"
-					data-testid="bet-grid"
-				>
-					<SkeletonCard ariaLabel="Loading bet" />
-					<SkeletonCard ariaLabel="Loading bet" />
-					<SkeletonCard ariaLabel="Loading bet" />
+					</h2>
+				</header>
+				<div className="flex-1 overflow-y-auto">
+					<div
+						className="grid grid-cols-1 sm:grid-cols-2 gap-[18px] max-w-[960px] mx-auto w-full p-[18px_24px]"
+						data-testid="bet-grid"
+					>
+						<SkeletonCard ariaLabel="Loading bet" />
+						<SkeletonCard ariaLabel="Loading bet" />
+						<SkeletonCard ariaLabel="Loading bet" />
+					</div>
 				</div>
 			</div>
 		);
 	}
 
-	// W3 AC-13: status filter options
-	const STATUS_FILTER_OPTIONS: ReadonlyArray<{ id: StatusFilter; label: string }> = [
-		{ id: "all", label: "All" },
-		{ id: "active", label: "Active" },
-		{ id: "completed", label: "Completed" },
-		{ id: "draft", label: "Draft" },
-	];
-
 	return (
 		<div
 			/*
-			 * @lore K11: page section gap → --density-gap per density-audit.md § 3.4.P1.
-			 * Page outer pad inherits from `<main>`'s --density-page-gutter.
+			 * @lore W3: AppShell <main> is overflow-hidden with no padding.
+			 * This page uses shrink-0 header + flex-1 overflow-y-auto body.
 			 */
-			className="flex flex-col gap-[12px] h-full"
+			className="flex flex-col h-full"
 			data-testid="work-portfolio-page"
 		>
-			{/* Header row: "All bets" heading + status filter pills + "New bet" button */}
-			<div className="flex items-center gap-2 flex-wrap">
-				<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
+			{/* Fixed header: h2 title + tab-bar-pill status filter + team pills + "New bet"
+			    When bets.length === 0, only the title is shown (no filter controls). */}
+			<header className="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)] flex items-center gap-[12px] flex-wrap">
+				<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)]">
 					All bets
-				</h1>
-				{/* W3 AC-13: status filter pills */}
-				<div className="flex items-center gap-1 flex-1" role="group" aria-label="Filter by status">
-					{STATUS_FILTER_OPTIONS.map((opt) => (
-						<button
-							key={opt.id}
-							type="button"
-							aria-pressed={statusFilter === opt.id}
-							className={`btn btn-xs ${statusFilter === opt.id ? "btn-primary" : "btn-ghost"}`}
-							onClick={() => setStatusFilter(opt.id)}
-						>
-							{opt.label}
-						</button>
-					))}
-				</div>
-				<button
-					type="button"
-					className="btn btn-sm btn-primary"
-					onClick={() => setDialogOpen(true)}
-					data-testid="new-bet-btn"
-				>
-					New bet
-				</button>
-			</div>
+				</h2>
 
-			{/* Team pill filters: "All teams" + one per team */}
-			{teams.length > 0 && (
-				<div
-					className="flex items-center gap-1 flex-wrap"
-					data-testid="team-pill-filters"
-					role="group"
-					aria-label="Filter by team"
-				>
+				{/* W3 AC-13: tab-bar-pill segmented status filter — hidden when no bets */}
+				{bets.length > 0 && (
+					<div className="inline-flex gap-[6px] bg-[var(--surface-container)] rounded-[var(--r-pill)] p-[3px]">
+						{STATUS_FILTER_OPTIONS.map((opt) => (
+							<button
+								key={opt.id}
+								type="button"
+								aria-pressed={statusFilter === opt.id}
+								className={`px-[12px] py-[6px] text-[13px] rounded-[var(--r-pill)] border-none cursor-pointer transition-all duration-[var(--motion-default)] ${
+									statusFilter === opt.id
+										? "bg-[var(--surface-elevated)] text-[var(--accent-primary)] font-[600] shadow-[var(--shadow-subtle)]"
+										: "font-[500] text-[var(--text-secondary)] bg-transparent"
+								}`}
+								onClick={() => setStatusFilter(opt.id)}
+							>
+								{opt.label}
+							</button>
+						))}
+					</div>
+				)}
+
+				{/* W3 AC-14: Team pill filters — bordered style, not DaisyUI btn. Hidden when no bets. */}
+				{bets.length > 0 && teams.length > 0 && (
+					<div className="flex items-center gap-[6px] flex-wrap" data-testid="team-pill-filters">
+						{teams.map((team) => (
+							<button
+								key={team.id}
+								type="button"
+								aria-pressed={selectedTeamId === team.id}
+								className={`inline-flex items-center px-[12px] py-[4px] text-[12px] font-[500] rounded-[var(--r-pill)] border-[1.5px] cursor-pointer transition-all duration-[var(--motion-default)] ${
+									selectedTeamId === team.id
+										? "border-[var(--accent-primary)] bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)]"
+										: "border-[var(--border-default)] bg-transparent text-[var(--text-secondary)]"
+								}`}
+								onClick={() => setSelectedTeamId((prev) => (prev === team.id ? null : team.id))}
+							>
+								{team.name}
+							</button>
+						))}
+					</div>
+				)}
+
+				{/* "New bet" button — only when there are bets */}
+				{bets.length > 0 && (
 					<button
 						type="button"
-						className={`btn btn-xs ${selectedTeamId === null ? "btn-primary" : "btn-ghost"}`}
-						onClick={() => setSelectedTeamId(null)}
+						className="btn btn-sm btn-primary ml-auto"
+						onClick={() => setDialogOpen(true)}
+						data-testid="new-bet-btn"
 					>
-						All teams
+						New bet
 					</button>
-					{teams.map((team) => (
-						<button
-							key={team.id}
-							type="button"
-							className={`btn btn-xs ${selectedTeamId === team.id ? "btn-primary" : "btn-ghost"}`}
-							onClick={() => setSelectedTeamId((prev) => (prev === team.id ? null : team.id))}
-						>
-							{team.name}
-						</button>
-					))}
-				</div>
-			)}
+				)}
+			</header>
 
-			{/* W3 AC-18: 2-column bet grid with max-width 960px */}
-			{filteredBets.length === 0 ? (
-				<EmptyState
-					title={selectedTeamId ? "No bets for this team" : "No bets yet"}
-					description={
-						selectedTeamId
-							? "This team has no bets in any status."
-							: "Create your first bet to start working."
-					}
-					dataTestId="portfolio-empty"
-					action={
-						selectedTeamId ? undefined : (
-							<button
-								type="button"
-								className="btn btn-sm btn-primary"
-								onClick={() => setDialogOpen(true)}
-							>
-								New bet
-							</button>
-						)
-					}
-				/>
-			) : (
-				<div
-					className="grid grid-cols-1 sm:grid-cols-2 gap-[12px] max-w-[960px] mx-auto w-full"
-					data-testid="bet-grid"
-				>
-					{filteredBets.map((bet) => {
-						// Resolve team name for BetCard display — BetListItem has teamId not team.
-						const teamName = teams.find((t) => t.id === bet.teamId)?.name ?? bet.teamId;
-						return (
-							<BetCard
-								key={bet.id}
-								id={bet.id}
-								title={bet.title || bet.description.slice(0, 60)}
-								team={teamName}
-								status={bet.status}
-								description={bet.description}
-								onClick={() => navigate(`/work/bet/${encodeURIComponent(bet.id)}`)}
-							/>
-						);
-					})}
-				</div>
-			)}
+			{/* Scrollable body */}
+			<div className="flex-1 overflow-y-auto">
+				{/* W3 AC-18: 2-column bet grid with max-width 960px */}
+				{filteredBets.length === 0 ? (
+					<div className="flex items-center justify-center p-[48px_24px] min-h-full">
+						<EmptyState
+							icon={
+								<svg
+									width="24"
+									height="24"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="2"
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									aria-hidden="true"
+								>
+									<rect x="3" y="3" width="18" height="18" rx="2" />
+									<line x1="12" y1="8" x2="12" y2="16" />
+									<line x1="8" y1="12" x2="16" y2="12" />
+								</svg>
+							}
+							iconBg="rgba(217,119,6,0.08)"
+							title={selectedTeamId ? "No bets for this team" : "No bets yet"}
+							description={
+								selectedTeamId
+									? "This team has no bets in any status."
+									: "Bets are time-boxed commitments with a budget. Shape a pitch, commit it to a cycle, and your agents will break it into tasks and start building."
+							}
+							dataTestId="portfolio-empty"
+							action={
+								selectedTeamId ? undefined : (
+									<button
+										type="button"
+										className="btn btn-sm btn-primary"
+										onClick={() => setDialogOpen(true)}
+									>
+										New bet
+									</button>
+								)
+							}
+						/>
+					</div>
+				) : (
+					<div
+						className="grid grid-cols-1 sm:grid-cols-2 gap-[18px] max-w-[960px] mx-auto w-full p-[18px_24px]"
+						data-testid="bet-grid"
+					>
+						{filteredBets.map((bet) => {
+							// Resolve team name for BetCard display — BetListItem has teamId not team.
+							const teamName = teams.find((t) => t.id === bet.teamId)?.name ?? bet.teamId;
+							return (
+								<BetCard
+									key={bet.id}
+									id={bet.id}
+									title={bet.title || bet.description.slice(0, 60)}
+									team={teamName}
+									status={bet.status}
+									description={bet.description}
+									budgetLabel={bet.costAppetite ? formatMoney(bet.costAppetite) : undefined}
+									onClick={() => navigate(`/work/bet/${encodeURIComponent(bet.id)}`)}
+								/>
+							);
+						})}
+					</div>
+				)}
+			</div>
 
 			{/* BetCreateDialog */}
 			<BetCreateDialog
@@ -205,16 +239,6 @@ export function WorkPortfolio(): JSX.Element {
 					refreshBets();
 				}}
 				teams={teams.map((t) => ({ id: t.id, name: t.name }))}
-			/>
-
-			{/* L12: Artifact gallery — portfolio axis */}
-			<ArtifactSection
-				filter={{ axis: "portfolio" }}
-				layout="gallery"
-				limit={12}
-				heading="Artifacts"
-				emptyDescription="Artifacts appear here as agents complete tasks."
-				onOpen={onOpenArtifact}
 			/>
 		</div>
 	);

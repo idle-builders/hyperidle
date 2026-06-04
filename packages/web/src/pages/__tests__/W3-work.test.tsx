@@ -279,7 +279,9 @@ describe("W3 AC-20 — Stat cards row in bet detail", () => {
 
 	it("renders Progress stat card", () => {
 		renderBet();
-		expect(screen.getByText(/progress/i)).toBeInTheDocument();
+		const statsRow = document.querySelector("[data-testid='bet-stats-row']");
+		expect(statsRow).not.toBeNull();
+		expect(statsRow?.textContent).toMatch(/progress/i);
 	});
 
 	it("renders Budget spent stat card", () => {
@@ -306,13 +308,12 @@ describe("W3 AC-21 — Pitch section with Edit button", () => {
 		expect(screen.getByText(/pitch/i)).toBeInTheDocument();
 	});
 
-	it("renders an Edit button in the Pitch section", () => {
+	it("hides edit controls for completed bets (pitch is immutable)", () => {
 		renderBet();
-		const pitchSection = document.querySelector("[data-testid='bet-pitch-section']");
-		expect(pitchSection).not.toBeNull();
-		const editBtn = pitchSection?.querySelector("button");
-		expect(editBtn).not.toBeNull();
-		expect(editBtn?.textContent).toMatch(/edit/i);
+		const indicator = document.querySelector("[data-testid='pitch-save-indicator']");
+		expect(indicator).toBeNull();
+		const editBtn = document.querySelector("[data-bet-action='edit-pitch']");
+		expect(editBtn).toBeNull();
 	});
 });
 

@@ -9,6 +9,7 @@
  * AC-25: Profile edits do NOT silently revert (dirty tracking)
  */
 
+import { Button, Input } from "@hyperidle/design-system";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { apiFetch } from "../services/api-fetch.js";
@@ -62,7 +63,7 @@ export function SettingsProfile(): JSX.Element {
 
 	if (status === "loading") {
 		return (
-			<div className="flex flex-col gap-3">
+			<div className="flex flex-col gap-[18px] max-w-[400px]">
 				<div className="skeleton h-8 w-full" />
 				<div className="skeleton h-8 w-full" />
 			</div>
@@ -74,45 +75,31 @@ export function SettingsProfile(): JSX.Element {
 	}
 
 	return (
-		<div className="flex flex-col gap-3">
-			<div className="form-control">
-				<label className="label" htmlFor="profile-name">
-					<span className="label-text text-[var(--text-secondary)]">Name</span>
-				</label>
-				<input
-					id="profile-name"
-					type="text"
-					className="input input-sm input-bordered w-full text-[var(--text-primary)]"
-					value={name}
-					onChange={(e) => setName(e.target.value)}
-					aria-label="Name"
-				/>
-			</div>
+		<div className="flex flex-col gap-[18px] max-w-[400px]">
+			<Input
+				id="profile-name"
+				label="Display name"
+				type="text"
+				value={name}
+				onChange={(e) => setName(e.target.value)}
+				aria-label="Display name"
+			/>
 
-			<div className="form-control">
-				<label className="label" htmlFor="profile-email">
-					<span className="label-text text-[var(--text-secondary)]">Email</span>
-				</label>
-				<input
-					id="profile-email"
-					type="email"
-					className="input input-sm input-bordered w-full text-[var(--text-primary)]"
-					value={email}
-					onChange={(e) => setEmail(e.target.value)}
-					aria-label="Email"
-				/>
-			</div>
+			<Input
+				id="profile-email"
+				label="Email"
+				type="email"
+				value={email}
+				onChange={(e) => setEmail(e.target.value)}
+				hint="Used for notifications and login."
+				aria-label="Email"
+			/>
 
-			<div className="flex justify-end mt-2">
-				<button
-					type="button"
-					className="btn btn-primary btn-sm"
-					disabled={!isDirty || saving}
-					onClick={handleSave}
-				>
+			<div>
+				<Button size="sm" type="button" disabled={!isDirty || saving} onClick={handleSave}>
 					{saving && <span className="loading loading-spinner loading-xs" />}
 					Save profile
-				</button>
+				</Button>
 			</div>
 		</div>
 	);

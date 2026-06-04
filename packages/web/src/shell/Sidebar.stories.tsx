@@ -16,12 +16,11 @@ const commonProps = {
 	onSelectThread: noop,
 	activeTeamId: null,
 	onSelectTeam: noop,
-	activeScope: null,
-	onSelectScope: noop,
 	onCocClick: noop,
 	cocOverlayOpen: false,
 	onSettingsClick: noop,
 	settingsOpen: false,
+	onSearchClick: noop,
 };
 
 const sampleThreads = [
@@ -75,7 +74,6 @@ export function KnowledgeActive(): JSX.Element {
 				activeView="knowledge"
 				threads={sampleThreads}
 				teams={sampleTeams}
-				activeScope="practices"
 				userInitials="TG"
 			/>
 		</div>

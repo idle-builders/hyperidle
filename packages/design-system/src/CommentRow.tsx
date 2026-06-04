@@ -26,6 +26,8 @@ export interface CommentRowSender {
 	name: string;
 	role?: string;
 	avatarUrl?: string;
+	/** When true, renders the green-tinted agent avatar variant and "Agent" badge. */
+	isAgent?: boolean;
 }
 
 export interface CommentRowRichSlots {
@@ -86,13 +88,13 @@ function MessagePayloads({
 	if (payloads.length === 0) {
 		// Fall back to plain text rendering for empty-after-parse inputs.
 		return (
-			<p className="text-[13px] text-[var(--text-secondary)] whitespace-pre-wrap break-words">
+			<p className="text-[15px] text-[var(--text-secondary)] leading-[1.7] whitespace-pre-wrap break-words">
 				{text}
 			</p>
 		);
 	}
 	return (
-		<div className="flex flex-col gap-[9px] text-[13px] text-[var(--text-secondary)]">
+		<div className="flex flex-col gap-[9px] text-[15px] text-[var(--text-secondary)] leading-[1.7]">
 			{payloads.map((payload, i) => (
 				// biome-ignore lint/suspicious/noArrayIndexKey: payloads are position-stable within a single message render
 				<div key={i}>{renderPayload(payload, sanitizeHtml)}</div>
@@ -145,6 +147,16 @@ function renderBody(message: Message, sanitizeHtml?: (raw: string) => string): R
 	}
 }
 
+/**
+ * Format an ISO timestamp string to a short time string (e.g. "2:34 PM").
+ * Returns null when the timestamp is not parseable.
+ */
+function formatMessageTime(isoString: string): string | null {
+	const ts = Date.parse(isoString);
+	if (!Number.isFinite(ts)) return null;
+	return new Date(ts).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
 export function CommentRow({
 	message,
 	sender,
@@ -163,26 +175,36 @@ export function CommentRow({
 			? "rich-review"
 			: "rich-questionnaire"
 		: undefined;
+	const isAgent = sender.isAgent ?? false;
+	const timeString = showSenderHeader ? formatMessageTime(message.createdAt) : null;
+
+	const avatarClass = isAgent
+		? "inline-flex items-center justify-center w-[36px] h-[36px] rounded-full bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)] text-[13px] font-[600] border-[1.5px] border-[var(--accent-primary)] shrink-0"
+		: "inline-flex items-center justify-center w-[36px] h-[36px] rounded-full bg-[var(--surface-page)] text-[var(--text-secondary)] text-[13px] font-[600] border-[1.5px] border-[var(--border-subtle)] shrink-0";
+
 	return (
 		<li
 			{...dsProps("CommentRow", "2")}
 			data-testid="comment-row"
 			{...(variant ? { "data-variant": variant } : {})}
-			className="flex gap-[9px] py-[6px] px-[12px]"
+			className="flex gap-[12px] py-[6px] px-[12px]"
 		>
 			{showSenderHeader ? (
-				<span className="inline-flex items-center justify-center w-[28px] h-[28px] rounded-full bg-[var(--surface-container)] text-[var(--text-tertiary)] text-[11px] font-medium border border-[var(--border-subtle)] shrink-0">
-					{sender.name.charAt(0).toUpperCase()}
-				</span>
+				<span className={avatarClass}>{sender.name.charAt(0).toUpperCase()}</span>
 			) : (
-				<span className="w-[28px] shrink-0" aria-hidden="true" />
+				<span className="w-[36px] shrink-0" aria-hidden="true" />
 			)}
 			<div className="flex flex-col gap-[3px] min-w-0 flex-1">
 				{showSenderHeader ? (
-					<div className="flex items-center gap-[6px] text-[12px]">
-						<span className="text-[var(--text-primary)] font-medium">{sender.name}</span>
-						{sender.role ? (
-							<span className="text-[var(--text-tertiary)]">· {sender.role}</span>
+					<div className="flex items-baseline gap-[6px] mb-[3px]">
+						<span className="text-[13px] font-[600] text-[var(--text-primary)]">{sender.name}</span>
+						{isAgent ? (
+							<span className="inline-flex items-center px-[6px] py-[3px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary)] text-[10px] font-[600] tracking-[0.04em]">
+								Agent
+							</span>
+						) : null}
+						{timeString ? (
+							<span className="text-[12px] text-[var(--text-tertiary)]">{timeString}</span>
 						) : null}
 					</div>
 				) : null}

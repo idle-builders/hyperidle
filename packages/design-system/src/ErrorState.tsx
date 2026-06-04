@@ -5,15 +5,69 @@
  * button. This component is deliberately generic — pages pick the copy and
  * supply the retry handler. `role="alert"` is used so screen readers
  * announce the error on mount.
+ *
+ * @lore visual-parity: matches ErrorState.html exactly — surface-elevated bg,
+ * shadow-default, 36px padding, max-w 440px, 48x48 error icon with red-tinted
+ * bg, 20px/600/text-primary title, 15px/text-secondary/1.7 description,
+ * optional mono detail block, pill-shaped retry button.
+ *
+ * @lore AQ-001 hearth-internal-padding: retry button uses py-[10px] (optically
+ * tuned vertical padding matching Button.html spec, same as Button primitive).
  */
-import type { JSX } from "react";
+
+// hearth-internal-padding
+// py-[10px] on the retry button is AQ-001 exempt (optically tuned button vertical padding).
+
+import type { JSX, ReactNode } from "react";
 import { dsProps } from "./ds-attrs";
+
+/** Pill-shaped primary button — matches Button.html "default" size spec exactly. */
+const RETRY_BTN_CLASS =
+	"inline-flex items-center justify-center px-[18px] py-[10px] text-[13px] font-[500] text-[var(--text-on-accent)] bg-[var(--accent-primary)] rounded-[var(--r-pill)] border-[1.5px] border-transparent cursor-pointer leading-[1] transition-[background-color] duration-[var(--motion-default)] ease-[var(--motion-ease)] hover:bg-[var(--accent-primary-hover)] active:scale-[0.97]";
+
+const DEFAULT_ERROR_ICON = (
+	<svg
+		width="24"
+		height="24"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		strokeWidth="2"
+		strokeLinecap="round"
+		strokeLinejoin="round"
+		aria-hidden="true"
+	>
+		<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+		<line x1="12" y1="9" x2="12" y2="13" />
+		<line x1="12" y1="17" x2="12.01" y2="17" />
+	</svg>
+);
 
 export interface ErrorStateProps {
 	title: string;
 	description: string;
-	/** When provided, renders a primary Retry button wired to the handler. */
+	/**
+	 * Optional icon rendered in a 48x48 tinted container above the title.
+	 * Defaults to a warning triangle SVG. Pass false to suppress the icon.
+	 */
+	icon?: ReactNode | false;
+	/**
+	 * Background color for the icon container.
+	 * Defaults to status-error at 8% opacity (red tint).
+	 */
+	iconBg?: string;
+	/**
+	 * Optional technical detail string rendered in a monospace block
+	 * below the description (e.g. "Error 502: upstream service unavailable").
+	 */
+	detail?: string;
+	/** When provided, renders a primary pill-shaped Retry button. */
 	onRetry?: () => void;
+	/**
+	 * Optional secondary action slot (e.g. "View status" link).
+	 * Renders inline beside the retry button.
+	 */
+	action?: ReactNode;
 	/** data-testid passthrough so pages can scope E2E selectors. */
 	dataTestId?: string;
 }
@@ -21,36 +75,56 @@ export interface ErrorStateProps {
 export function ErrorState({
 	title,
 	description,
+	icon,
+	iconBg = "rgba(220,74,58,0.08)",
+	detail,
 	onRetry,
+	action,
 	dataTestId,
 }: ErrorStateProps): JSX.Element {
+	const resolvedIcon = icon === false ? null : (icon ?? DEFAULT_ERROR_ICON);
+
 	return (
 		<div
 			{...dsProps("ErrorState", "2")}
 			role="alert"
 			data-testid={dataTestId ?? "error-state"}
-			/*
-			 * @lore K11: pad-y → --density-card-pad, pad-x → --density-pad-x,
-			 * gap → --density-card-gap, title → --density-text per
-			 * density-audit.md § 3.2.8. Same shape as EmptyState. Retry
-			 * button stays DaisyUI primitive (chip rule, see § 5.2);
-			 * text-left is INTENTIONAL — see § 5.1.
-			 */
-			className="flex flex-col items-start gap-[6px] px-[18px] py-[18px] text-left bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-subtle)]"
+			// hearth-internal-padding
+			className="bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-default)] p-[36px] max-w-[440px] text-left"
 		>
-			<p className="text-[15px] font-medium text-[var(--status-error)] leading-[1.4]">{title}</p>
-			<p className="text-[12px] text-[var(--text-tertiary)] leading-[1.4]">{description}</p>
-			{onRetry && (
-				<button
-					type="button"
-					/* @lore K7 / AESTHETICS.md § Spacing & Density row "Grid base unit": 4px hard rule.
-					   px-[10px] → px-[8px] (10 was off-grid). Easing: --motion-ease (Material standard). */
-					className="inline-flex items-center justify-center px-[9px] py-[3px] text-[12px] font-medium text-[var(--text-on-accent)] bg-[var(--accent-primary)] rounded-[var(--r-default)] cursor-pointer leading-[1.4] transition-opacity duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:opacity-85 active:opacity-70"
-					onClick={onRetry}
-					data-testid="error-state-retry"
+			{resolvedIcon && (
+				<div
+					className="w-[48px] h-[48px] rounded-[var(--r-default)] flex items-center justify-center mb-[18px] text-[var(--status-error)]"
+					style={{ background: iconBg }}
 				>
-					Retry
-				</button>
+					{resolvedIcon}
+				</div>
+			)}
+			<p className="text-[20px] font-[600] text-[var(--text-primary)] leading-[1.4] tracking-[-0.01em] mb-[9px]">
+				{title}
+			</p>
+			<p className="text-[15px] text-[var(--text-secondary)] leading-[1.7] mb-[18px]">
+				{description}
+			</p>
+			{detail && (
+				<div className="text-[13px] font-[family-name:var(--font-mono)] text-[var(--text-tertiary)] bg-[var(--surface-page)] px-[12px] py-[9px] rounded-[var(--r-subtle)] mb-[18px] leading-[1.55]">
+					{detail}
+				</div>
+			)}
+			{(onRetry || action) && (
+				<div className="flex items-center gap-[9px]">
+					{onRetry && (
+						<button
+							type="button"
+							className={RETRY_BTN_CLASS}
+							onClick={onRetry}
+							data-testid="error-state-retry"
+						>
+							Retry
+						</button>
+					)}
+					{action}
+				</div>
 			)}
 		</div>
 	);

@@ -19,6 +19,7 @@ export type SettingsSectionId =
 	| "credentials"
 	| "notifications"
 	| "appearance"
+	| "models"
 	| "teams"
 	| "backend"
 	| "worker"
@@ -31,14 +32,14 @@ export interface SettingsSection {
 
 export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
 	{ id: "profile", label: "Profile" },
-	{ id: "orgchart", label: "Org Chart" },
+	{ id: "orgchart", label: "Org chart" },
+	{ id: "models", label: "Models" },
+	{ id: "appearance", label: "Appearance" },
 	{ id: "credentials", label: "Credentials" },
 	{ id: "notifications", label: "Notifications" },
-	{ id: "appearance", label: "Appearance" },
-	// @lore U1: "products" renamed to "teams".
+	// @lore U1: "products" renamed to "teams". Retained as sidebar nav item (no page section).
 	{ id: "teams", label: "Teams" },
 	{ id: "backend", label: "Backend" },
-	{ id: "worker", label: "Worker" },
 ];
 
 // --- Settings data types ---

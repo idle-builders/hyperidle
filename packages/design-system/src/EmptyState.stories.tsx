@@ -4,32 +4,97 @@ export default {
 	title: "EmptyState",
 	tier: "utility" as const,
 	order: [
+		"ConversationsEmpty",
 		"KnowledgeEmpty",
 		"TriageClear",
-		"ConversationsEmpty",
 		"PortfolioEmpty",
 		"WithActionSlot",
+		"WithoutIcon",
 	],
 };
 
+export const ConversationsEmpty = (): React.JSX.Element => (
+	<EmptyState
+		icon={
+			<svg
+				width="24"
+				height="24"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="2"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+				aria-hidden="true"
+			>
+				<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+			</svg>
+		}
+		title="No conversations yet"
+		description="Start a thread to coordinate with your team and agents. Conversations are where decisions happen."
+		action={
+			<button
+				type="button"
+				// hearth-internal-padding
+				className="inline-flex items-center px-[18px] py-[10px] text-[13px] font-[500] text-[var(--text-on-accent)] bg-[var(--accent-primary)] rounded-[var(--r-pill)] border-[1.5px] border-transparent cursor-pointer transition-[background-color] duration-[var(--motion-default)] hover:bg-[var(--accent-primary-hover)]"
+			>
+				Start a thread
+			</button>
+		}
+	/>
+);
+
 export const KnowledgeEmpty = (): React.JSX.Element => (
 	<EmptyState
-		title="No knowledge items yet"
-		description="Agents will populate this as they learn."
+		icon={
+			<svg
+				width="24"
+				height="24"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="2"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+				aria-hidden="true"
+			>
+				<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+				<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+			</svg>
+		}
+		title="Your knowledge base is empty"
+		description="Knowledge items capture patterns, decisions, and lessons learned. Agents will populate this as they work."
+		action={
+			<button
+				type="button"
+				// hearth-internal-padding
+				className="inline-flex items-center px-[18px] py-[10px] text-[13px] font-[500] text-[var(--text-on-accent)] bg-[var(--accent-primary)] rounded-[var(--r-pill)] border-[1.5px] border-transparent cursor-pointer transition-[background-color] duration-[var(--motion-default)] hover:bg-[var(--accent-primary-hover)]"
+			>
+				Create first item
+			</button>
+		}
 	/>
 );
 
 export const TriageClear = (): React.JSX.Element => (
 	<EmptyState
+		icon={
+			<svg
+				width="24"
+				height="24"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="2"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+				aria-hidden="true"
+			>
+				<polyline points="20 6 9 17 4 12" />
+			</svg>
+		}
 		title="Nothing needs attention"
 		description="Triage is clear. Come back when agents surface something new."
-	/>
-);
-
-export const ConversationsEmpty = (): React.JSX.Element => (
-	<EmptyState
-		title="No threads yet"
-		description="Start a conversation with an agent to see it here."
 	/>
 );
 
@@ -49,5 +114,12 @@ export const WithActionSlot = (): React.JSX.Element => (
 				Add item
 			</button>
 		}
+	/>
+);
+
+export const WithoutIcon = (): React.JSX.Element => (
+	<EmptyState
+		title="No results found"
+		description="Try adjusting your search terms or removing filters."
 	/>
 );

@@ -1,23 +1,81 @@
+import { ErrorState } from "@hyperidle/design-system";
 import type { JSX } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 /**
  * @lore I4 E2: NotFound page is the catch-all `*` route fallback so unknown
  * URLs render an actionable message rather than a blank page. It is a page
  * composition (not a custom component) — same rationale as AppShell.
+ * @lore visual-parity: Redesigned to match error-states.html 404 card exactly —
+ * amber-tinted icon (sad-face SVG), "Page not found" title, two buttons:
+ * primary "Go to conversations" + secondary "Go back".
+ * @lore The ErrorState `onRetry` prop hardcodes "Retry" as the button label.
+ * Since the 404 mockup needs "Go to conversations", both action buttons are
+ * rendered in the `action` slot and `onRetry` is omitted.
  */
+
+const SAD_FACE_ICON = (
+	<svg
+		width="24"
+		height="24"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		strokeWidth="2"
+		strokeLinecap="round"
+		strokeLinejoin="round"
+		aria-hidden="true"
+		style={{ color: "var(--accent-secondary)" }}
+	>
+		<circle cx="12" cy="12" r="10" />
+		<path d="M16 16s-1.5-2-4-2-4 2-4 2" />
+		<line x1="9" y1="9" x2="9.01" y2="9" />
+		<line x1="15" y1="9" x2="15.01" y2="9" />
+	</svg>
+);
+
+/** Primary pill button matching Button.html / ErrorState retry style. */
+const PRIMARY_BTN =
+	"inline-flex items-center justify-center px-[18px] py-[10px] text-[13px] font-[500] text-[var(--text-on-accent)] bg-[var(--accent-primary)] rounded-[var(--r-pill)] border-[1.5px] border-transparent cursor-pointer leading-[1] hover:bg-[var(--accent-primary-hover)] active:scale-[0.97]";
+
+/** Secondary pill button matching Button.html secondary variant. */
+const SECONDARY_BTN =
+	"inline-flex items-center justify-center px-[18px] py-[10px] text-[13px] font-[500] text-[var(--text-primary)] bg-[var(--surface-elevated)] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] cursor-pointer leading-[1] hover:border-[var(--border-strong)] hover:bg-[var(--surface-page)] active:scale-[0.97]";
+
 export function NotFound(): JSX.Element {
+	const navigate = useNavigate();
+
 	return (
-		<div className="flex flex-col items-start gap-3 p-3" data-testid="not-found-page">
-			<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
-				Page not found
-			</h1>
-			<p className="text-xs text-[var(--text-secondary)]">
-				The URL you followed does not match any known route.
-			</p>
-			<Link to="/" className="btn btn-xs btn-ghost">
-				Go home
-			</Link>
+		<div
+			className="flex flex-col h-full items-center justify-center p-[48px_24px]"
+			data-testid="not-found-page"
+		>
+			<ErrorState
+				title="Page not found"
+				description="The page you're looking for doesn't exist or has been moved. If you followed a link, it may be outdated."
+				icon={SAD_FACE_ICON}
+				iconBg="rgba(217,119,6,0.08)"
+				action={
+					<>
+						<button
+							type="button"
+							className={PRIMARY_BTN}
+							onClick={() => navigate("/conversations")}
+							data-testid="not-found-go-to-conversations"
+						>
+							Go to conversations
+						</button>
+						<button
+							type="button"
+							className={SECONDARY_BTN}
+							onClick={() => navigate(-1)}
+							data-testid="not-found-go-back"
+						>
+							Go back
+						</button>
+					</>
+				}
+			/>
 		</div>
 	);
 }

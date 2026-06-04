@@ -5,8 +5,11 @@
  * concrete noun-forward title and a short agent-forward description so the
  * user knows what will eventually populate the list. Rendered with
  * `role="status"` so assistive tech reads the message without requiring a
- * route change. Compact vertical rhythm matches the terminal-style aesthetic
- * (no oversized padding, no decorative icons).
+ * route change.
+ *
+ * @lore visual-parity: matches EmptyState.html exactly — surface-page bg
+ * (not elevated), 36px padding, no shadow, 20px/600 title, 15px/secondary
+ * description, 48x48 icon container with tinted bg, pill action button.
  */
 import type { JSX, ReactNode } from "react";
 import { dsProps } from "./ds-attrs";
@@ -14,7 +17,20 @@ import { dsProps } from "./ds-attrs";
 export interface EmptyStateProps {
 	title: string;
 	description: string;
-	/** Optional action slot rendered below the description (e.g. a link). */
+	/**
+	 * Optional icon rendered in a 48x48 tinted container above the title.
+	 * Pass an SVG element (24px). When omitted, no icon container is rendered.
+	 */
+	icon?: ReactNode;
+	/**
+	 * Background color for the icon container.
+	 * Defaults to accent-primary at 8% opacity (green tint).
+	 */
+	iconBg?: string;
+	/**
+	 * Optional action slot rendered below the description.
+	 * Pass a button, link, or any interactive element.
+	 */
 	action?: ReactNode;
 	/** data-testid passthrough so pages can scope E2E selectors. */
 	dataTestId?: string;
@@ -23,6 +39,8 @@ export interface EmptyStateProps {
 export function EmptyState({
 	title,
 	description,
+	icon,
+	iconBg = "rgba(22,118,79,0.08)",
 	action,
 	dataTestId,
 }: EmptyStateProps): JSX.Element {
@@ -31,22 +49,24 @@ export function EmptyState({
 			{...dsProps("EmptyState", "2")}
 			role="status"
 			data-testid={dataTestId ?? "empty-state"}
-			/*
-			 * @lore K11: pad-x → --density-pad-x, pad-y → --density-card-pad
-			 * (uses card budget so title↔description vertical breathing room
-			 * scales with comfortable mode), gap → --density-card-gap, title
-			 * → --density-text per density-audit.md § 3.2.7. Description font
-			 * stays literal 12 px (deliberate de-emphasis). text-left is
-			 * INTENTIONAL — must NOT switch to items-center under comfortable
-			 * (#1 AI-aesthetic tell, see § 5.1).
-			 */
-			className="flex flex-col items-start gap-[6px] px-[18px] py-[18px] text-left bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-subtle)]"
+			// hearth-internal-padding
+			className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[36px] max-w-[420px] text-left"
 		>
-			<p className="text-[15px] font-medium text-[var(--text-primary)] leading-[1.4]">{title}</p>
-			<p className="text-[12px] text-[var(--text-tertiary)] leading-[1.4]">{description}</p>
-			{/* @lore K11: action offset → --density-card-gap so the slot
-			    breathes consistently with the title↔description rhythm. */}
-			{action && <div className="mt-[6px]">{action}</div>}
+			{icon && (
+				<div
+					className="w-[48px] h-[48px] rounded-[var(--r-default)] flex items-center justify-center mb-[18px] text-[var(--accent-primary)]"
+					style={{ background: iconBg }}
+				>
+					{icon}
+				</div>
+			)}
+			<p className="text-[20px] font-[600] text-[var(--text-primary)] leading-[1.4] tracking-[-0.01em] mb-[9px]">
+				{title}
+			</p>
+			<p className="text-[15px] text-[var(--text-secondary)] leading-[1.7] mb-[18px]">
+				{description}
+			</p>
+			{action && <div>{action}</div>}
 		</div>
 	);
 }
