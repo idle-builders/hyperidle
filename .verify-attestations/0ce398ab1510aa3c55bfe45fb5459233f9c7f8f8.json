@@ -1,5 +1,9 @@
 {
+<<<<<<<< HEAD:.verify-attestations/0ce398ab1510aa3c55bfe45fb5459233f9c7f8f8.json
 	"sha": "0ce398ab1510aa3c55bfe45fb5459233f9c7f8f8",
+========
+	"sha": "4d4aea64b65f83303fe27e670e868d6e72ce5b76",
+>>>>>>>> origin/main:.verify-attestations/4d4aea64b65f83303fe27e670e868d6e72ce5b76.json
 	"status": "passed",
 	"dirty": false,
 	"tools": [
@@ -9,10 +13,7 @@
 		"knip",
 		"test-coverage",
 		"mock-inventory",
-		"test",
-		"build",
-		"build:desktop",
-		"server:load"
+		"test"
 	],
 	"allTools": [
 		"check",
@@ -27,7 +28,17 @@
 		"server:load"
 	],
 	"partial": false,
+<<<<<<<< HEAD:.verify-attestations/0ce398ab1510aa3c55bfe45fb5459233f9c7f8f8.json
 	"smartSkipped": [],
 	"timestamp": "2026-06-04T17:24:22.487Z",
 	"hmac": "5abd2fe6ea286a4814484a344d827eab968d766175c4dedc47700785bcf15455"
+========
+	"smartSkipped": [
+		"build",
+		"build:desktop",
+		"server:load"
+	],
+	"timestamp": "2026-06-04T17:17:15.075Z",
+	"hmac": "d4727c1d7ec5a52511edb2d3dccf561d89d1cd07a1fbe5560916df5a27b45ddd"
+>>>>>>>> origin/main:.verify-attestations/4d4aea64b65f83303fe27e670e868d6e72ce5b76.json
 }
