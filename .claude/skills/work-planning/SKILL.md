@@ -43,9 +43,10 @@ A work package is the **smallest deliverable end-to-end change** that has its ow
 1. **Track letter is valid.** Must match an existing `.pipeline/work-packages/TRACK-<letter>.md` or be a deliberate new track (in which case create the TRACK file first with the same scope-rules section other tracks use).
 2. **Workpackage ID is unique.** Read `.pipeline/work-packages/pipeline-manifest.yaml`; the generated ID (e.g. `L30`) must not collide with any existing entry.
 3. **Concept gate.** If this workpackage introduces or reshapes a primitive / load-bearing noun (Thread / Block / Artifact / Bet / Cost / etc.), the relevant section in `docs/<topic>/` AND any canonical-shapes contract (e.g. `docs/<topic>/canonical-shapes.md`) must already exist. If not, refuse to register and tell the founder to run `/concept <noun>` first. This mirrors the runtime gate enforced in `/pipeline`.
-4. **Existing-implementation check.** Before writing the spec, search the codebase for the capability being proposed. Read the relevant source files — schemas, routes, fabric services, UI pages. If the feature largely exists, the spec must document what's already built (in a "What exists today" paragraph) and identify only the genuine gap. Proposing to build something that already exists is the #1 failure mode in work-planning. When in doubt, spawn an Explore agent to audit the relevant subsystem.
-5. **Dependencies are real blockers.** For each declared dependency, write one sentence justifying *why* this workpackage cannot start until that one is `done`. "Logically related" is not a blocker — it just serializes the scheduler. If you cannot articulate the blocker, drop the dep.
-6. **Sizing fits the rule.**
+4. **Justification check.** The workpackage must have a clear answer to: "Who specifically benefits, and what's the cost of NOT building this?" If the only argument is "it would be nice," "other products have it," or "the research says so," the workpackage is not justified. Features are complexity — every one makes the system harder to understand, maintain, and explain. The burden of proof is on the workpackage to earn its existence. Refuse to register if the justification is weak.
+5. **Existing-implementation check.** Before writing the spec, search the codebase for the capability being proposed. Read the relevant source files — schemas, routes, fabric services, UI pages. If the feature largely exists, the spec must document what's already built (in a "What exists today" paragraph) and identify only the genuine gap. Proposing to build something that already exists is the #1 failure mode in work-planning. When in doubt, spawn an Explore agent to audit the relevant subsystem.
+6. **Dependencies are real blockers.** For each declared dependency, write one sentence justifying *why* this workpackage cannot start until that one is `done`. "Logically related" is not a blocker — it just serializes the scheduler. If you cannot articulate the blocker, drop the dep.
+7. **Sizing fits the rule.**
 
 ---
 
@@ -73,6 +74,8 @@ Append the spec at the bottom of the relevant `TRACK-<letter>.md`, with **exactl
 ### <ID> — <Title>
 
 **Workpackage.** One paragraph (4-6 sentences max) framed as: *As a <role>, I want <observable outcome>, so that <reason>.* Concrete, no jargon, no acronyms unless already established in `docs/`. The first reader must be able to picture the user-visible or system-visible result without reading further.
+
+**Why this matters.** 2-4 sentences making the case for building this. Who benefits and how? What's the cost of NOT building it? Every feature adds complexity — the burden of proof is on the workpackage to justify its existence. Name the specific person (founder, team lead, agent, facilitator) whose life gets measurably better and how. If you can only argue "it would be nice" or "other products have it," the workpackage isn't ready. If simplicity would be better served by NOT building this, say so and don't register.
 
 **What exists today.** One paragraph summarizing the relevant infrastructure and capabilities that already exist in the codebase. Name the specific tables, services, routes, or UI pages that this workpackage builds on. If this is greenfield, say "Nothing — this is a new capability." This paragraph prevents the architecture pass from rebuilding what already works and helps the builder understand what to extend vs create. Required for M and L workpackages; optional for S.
 
@@ -192,6 +195,7 @@ If a founder pastes implementation detail into the spec, strip it out before reg
 ## Refusal cases (return without registering)
 
 - The work has no observable outcome — i.e. it's pure refactoring with no user-visible or system-visible change. Refactors don't get work packages; they happen *inside* a workpackage whose AC demand the cleanup, or under a parent workpackage with explicit "code health" AC.
+- The "Why this matters" section cannot name a specific person whose life gets measurably better. "It would be nice" or "completeness" or "other products have it" are not justifications. Simplicity is a feature — the default answer to "should we build this?" is no.
 - The dependency justification reduces to "they're related" or "the same area." Drop the dep; the scheduler will serialize via `done` ordering only when truly needed.
 - The workpackage would create a cycle with an existing dependency. The manifest validator will catch it; do not register.
 - The workpackage is sized S but has >3 AC or touches >1 subsystem. Re-size to M, or split.
@@ -209,6 +213,7 @@ If a founder pastes implementation detail into the spec, strip it out before reg
 | "I'll skip /concept and write the spec; we can backfill the concept later" | The pipeline will refuse to run the story without the concept-doc. You'll backfill anyway, just under deadline pressure. Run `/concept` first. |
 | "This is a small fix, it doesn't need a work package" | Then it's a commit on an open story or a one-off PR — not a thing the pipeline picks up. The manifest is the queue; if it isn't there, the pipeline won't build it. |
 | "I know this feature doesn't exist yet" | Do you? The codebase has 70K+ LOC across 650+ files. The promotion pipeline, attention scoring, event system, and facilitator routines cover vast ground. Audit before assuming a gap. The #1 spec failure mode is proposing what already exists. |
+| "This feature is clearly needed" | Every feature adds complexity. Simplicity is the default. The question isn't "would this be useful?" — most things would. The question is "is the cost of NOT having this higher than the cost of maintaining it forever?" If you can't articulate the cost of not building it, don't build it. |
 | "The AC needs to specify the exact columns / pages / components" | No. ACs describe outcomes. `/design` decides which pages and components. `/architecture` decides which columns and endpoints. An AC that prescribes the solution bypasses both phases and produces a spec that's brittle to any design change. |
 | "This AC is too vague for the builder" | The builder doesn't read ACs directly — they read the plan from `/architecture`, which translates each AC into specific tasks, types, and verification methods. ACs are the contract with the reviewer, not the builder's instruction manual. |
 
