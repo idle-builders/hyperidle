@@ -43,8 +43,9 @@ A work package is the **smallest deliverable end-to-end change** that has its ow
 1. **Track letter is valid.** Must match an existing `.pipeline/work-packages/TRACK-<letter>.md` or be a deliberate new track (in which case create the TRACK file first with the same scope-rules section other tracks use).
 2. **Workpackage ID is unique.** Read `.pipeline/work-packages/pipeline-manifest.yaml`; the generated ID (e.g. `L30`) must not collide with any existing entry.
 3. **Concept gate.** If this workpackage introduces or reshapes a primitive / load-bearing noun (Thread / Block / Artifact / Bet / Cost / etc.), the relevant section in `docs/<topic>/` AND any canonical-shapes contract (e.g. `docs/<topic>/canonical-shapes.md`) must already exist. If not, refuse to register and tell the founder to run `/concept <noun>` first. This mirrors the runtime gate enforced in `/pipeline`.
-4. **Dependencies are real blockers.** For each declared dependency, write one sentence justifying *why* this workpackage cannot start until that one is `done`. "Logically related" is not a blocker — it just serializes the scheduler. If you cannot articulate the blocker, drop the dep.
-5. **Sizing fits the rule.**
+4. **Existing-implementation check.** Before writing the spec, search the codebase for the capability being proposed. Read the relevant source files — schemas, routes, fabric services, UI pages. If the feature largely exists, the spec must document what's already built (in a "What exists today" paragraph) and identify only the genuine gap. Proposing to build something that already exists is the #1 failure mode in work-planning. When in doubt, spawn an Explore agent to audit the relevant subsystem.
+5. **Dependencies are real blockers.** For each declared dependency, write one sentence justifying *why* this workpackage cannot start until that one is `done`. "Logically related" is not a blocker — it just serializes the scheduler. If you cannot articulate the blocker, drop the dep.
+6. **Sizing fits the rule.**
 
 ---
 
@@ -73,11 +74,15 @@ Append the spec at the bottom of the relevant `TRACK-<letter>.md`, with **exactl
 
 **Workpackage.** One paragraph (4-6 sentences max) framed as: *As a <role>, I want <observable outcome>, so that <reason>.* Concrete, no jargon, no acronyms unless already established in `docs/`. The first reader must be able to picture the user-visible or system-visible result without reading further.
 
+**What exists today.** One paragraph summarizing the relevant infrastructure and capabilities that already exist in the codebase. Name the specific tables, services, routes, or UI pages that this workpackage builds on. If this is greenfield, say "Nothing — this is a new capability." This paragraph prevents the architecture pass from rebuilding what already works and helps the builder understand what to extend vs create. Required for M and L workpackages; optional for S.
+
+**What's genuinely missing.** 2-3 sentences identifying the specific gap between what exists and what the workpackage delivers. This is the delta — the reason this workpackage needs to exist. If you cannot articulate the delta clearly, the workpackage may not be needed.
+
 **Depends on.** A bulleted list of workpackage IDs, or "None." For each declared dep, one sentence on *why this workpackage cannot start until that one is `done`*.
 
 **Complexity.** S | M | L — drives scheduler dispatch (see sizing rule).
 
-**Acceptance criteria.** A bulleted list of observable, testable statements. Phrased so a test (unit, integration, E2E, screenshot, eval) can prove each one true or false. Forbidden phrasings: "is implemented", "is well-designed", "follows best practices". Required phrasings: concrete user actions, concrete system states, concrete outputs.
+**Acceptance criteria.** A bulleted list of observable, testable statements — see "Writing Good ACs" below. These are the single source of truth flowing through all pipeline phases: `/concept` checks scope against them, `/design` produces variants for them, `/architecture` writes tasks to satisfy them, `/write-tests` produces one failing test per AC, `/write-code` makes those tests pass, and `/review` audits code against them.
 
 **Validation scenarios.** 2–4 Given/When/Then scenarios. These are the minimum the QA gate (`/review`) will run. They must collectively cover every AC.
 
@@ -89,6 +94,69 @@ Append the spec at the bottom of the relevant `TRACK-<letter>.md`, with **exactl
 
 **Effort.** S (~Xmin) | M (~Xh) | L (~Xd) — same letter as Complexity, with a rough time estimate. The estimate is informational; the letter drives scheduler behavior. Examples: `S (~30min)`, `M (~4h)`, `L (~5d)`.
 ```
+
+---
+
+## Writing Good ACs
+
+ACs are the contract between the spec and every downstream phase. They describe **what becomes true** when the work ships — not how to build it. The pipeline phases exist to decide the how: `/concept` locks nouns, `/design` explores UX, `/architecture` plans implementation. ACs that prescribe the solution bypass those phases and produce brittle specs.
+
+### The outcome rule
+
+An AC describes the **observable state** a user, agent, or system is in after the work ships. It answers "what changed?" not "what was built?"
+
+### What ACs should describe (by downstream consumer)
+
+| Consumer | AC should describe | AC should NOT describe |
+|---|---|---|
+| `/design` (if UI) | What the user understands, can do, or sees | Specific pages, layouts, component names, CSS values |
+| `/architecture` | What behavior the system exhibits, what data is queryable | Specific tables, columns, endpoints, parameter names |
+| `/write-tests` | What can be proven true or false | How to test it (test method is the plan's job) |
+| `/review` | What to audit the code against | Implementation patterns or coding style |
+
+### Good vs bad AC examples
+
+| Bad AC | Why it's bad | Better version |
+|---|---|---|
+| "A `docs/product/index.md` exists containing a pitch, architecture overview, and concept list" | Prescribes file path and page structure — that's design/architecture work | "A first-time reader can explain what HyperIdle does in their own words after reading the product entry point" |
+| "The profile page shows name, role, team, soul prompt summary, harness type, model tier, creation date, and status" | Prescribes the exact UI layout — that's design work | "A team lead can see an agent's complete operational picture — identity, configuration, capabilities, activity, and health — in one view" |
+| "Add `valid_from` timestamp and `valid_until` nullable timestamp columns to the kernel table" | Prescribes schema — that's architecture work | "Knowledge items track when they became valid and when they were superseded, queryable by date" |
+| "The routine detail sheet reuses the TaskSheet component pattern" | Prescribes component reuse — that's design/architecture | "Clicking a routine shows its run history and configuration without leaving the Work page" |
+| "Uses the existing BodyEditor component (T1)" | Names a specific component — that's architecture | "The authoring flow provides rich text editing for knowledge item bodies" |
+| "Keyboard shortcuts: v to validate, e to edit, r to reject" | Prescribes the interaction design | "A reviewer can process the queue rapidly without reaching for the mouse" |
+
+### The specificity gradient
+
+ACs should be **specific about outcomes, vague about solutions.** The test: if two different designers would produce the same solution from your AC, it's too prescriptive. If two different reviewers can't agree on whether it passes, it's too vague.
+
+- **Too vague:** "Knowledge management works well" — no reviewer can audit this
+- **Too prescriptive:** "Knowledge list page has 3 tabs: Curated, Triage, Review, with server-side pagination and Cmd+K search" — this is a design spec, not an AC
+- **Right level:** "A human can find, review, and validate knowledge items efficiently, with the most important items surfaced first" — testable (time-on-task, can they find items?), but leaves room for design
+
+### Structural ACs vs behavioral ACs
+
+Some workpackages are purely structural (schema changes, data model evolution). These CAN use specific structural language because there's no design/UX decision to make:
+
+- **OK for backend-only WPs:** "Knowledge items can be queried as of a specific date, returning only items that were valid at that point" — structural behavior, no UI
+- **OK for backend-only WPs:** "Superseded items are excluded from search results by default" — search behavior, testable
+
+But even structural ACs should describe **behavior** ("items can be queried as of a date") not **implementation** ("add a `valid_from` timestamp column").
+
+### The mental-state test (for UI workpackages)
+
+For any AC involving a human, ask: "What mental state is the user in after this?" The AC should describe that mental state:
+
+- "The team lead understands which agents are healthy and which need attention" (mental state)
+- "A founder can tell whether the company is getting smarter over time" (mental state)
+- "A new user knows what to do next after completing the getting started guide" (mental state)
+
+If the AC describes what's on screen instead of what the user understands, it's prescribing design.
+
+**Forbidden phrasings** (unchanged): "is implemented", "is well-designed", "follows best practices", "is efficient", "is clean."
+
+**Required quality:** Each AC must be provable true or false by a test (unit, integration, E2E, screenshot, eval, or human walkthrough for documentation WPs). If you can't imagine the test, the AC is too vague.
+
+---
 
 **Forbidden sections** (the architecture/design phases produce these later):
 - "Implementation steps" / "Implementation plan"
@@ -140,6 +208,9 @@ If a founder pastes implementation detail into the spec, strip it out before reg
 | "Dependency on X is just a logical ordering" | Then it's not a dependency. The scheduler will serialize via real `done` blockers. Logical ordering is what the designer uses to plan tasks within a story. |
 | "I'll skip /concept and write the spec; we can backfill the concept later" | The pipeline will refuse to run the story without the concept-doc. You'll backfill anyway, just under deadline pressure. Run `/concept` first. |
 | "This is a small fix, it doesn't need a work package" | Then it's a commit on an open story or a one-off PR — not a thing the pipeline picks up. The manifest is the queue; if it isn't there, the pipeline won't build it. |
+| "I know this feature doesn't exist yet" | Do you? The codebase has 70K+ LOC across 650+ files. The promotion pipeline, attention scoring, event system, and facilitator routines cover vast ground. Audit before assuming a gap. The #1 spec failure mode is proposing what already exists. |
+| "The AC needs to specify the exact columns / pages / components" | No. ACs describe outcomes. `/design` decides which pages and components. `/architecture` decides which columns and endpoints. An AC that prescribes the solution bypasses both phases and produces a spec that's brittle to any design change. |
+| "This AC is too vague for the builder" | The builder doesn't read ACs directly — they read the plan from `/architecture`, which translates each AC into specific tasks, types, and verification methods. ACs are the contract with the reviewer, not the builder's instruction manual. |
 
 ---
 
