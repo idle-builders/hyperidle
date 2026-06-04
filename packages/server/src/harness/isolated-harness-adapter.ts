@@ -210,7 +210,14 @@ export class IsolatedHarnessAdapter implements HarnessAdapter {
 	}
 
 	getCapabilities(): HarnessCapabilities {
-		return { preCompactionTrigger: true, subAgents: true, modelProviders: ["anthropic"] };
+		// X5: mcpSupport: true — isolated adapter runs Claude Code in a subprocess
+		// which reads .mcp.json for MCP tool calling.
+		return {
+			preCompactionTrigger: true,
+			subAgents: true,
+			modelProviders: ["anthropic"],
+			mcpSupport: true,
+		};
 	}
 
 	private handleTimeout(sessionId: string): void {

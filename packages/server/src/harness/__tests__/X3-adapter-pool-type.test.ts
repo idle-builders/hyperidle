@@ -46,7 +46,12 @@ function makeAdapter(): HarnessAdapter {
 			};
 		},
 		getCapabilities(): HarnessCapabilities {
-			return { preCompactionTrigger: true, subAgents: true, modelProviders: ["anthropic"] };
+			return {
+				preCompactionTrigger: true,
+				subAgents: true,
+				modelProviders: ["anthropic"],
+				mcpSupport: false,
+			};
 		},
 	};
 }
@@ -257,11 +262,12 @@ describe("X3 AC-18: AdapterPool.select() filters by harnessType", () => {
 
 	it("createLocalAdapterPool registers with type 'claude-code'", async () => {
 		const { createLocalAdapterPool } = await import("../../harness/adapter-pool.js");
-		const pool = createLocalAdapterPool();
+		const pool = await createLocalAdapterPool();
 
 		const entries = pool.list();
-		expect(entries).toHaveLength(1);
-		// X3: The local adapter should register with type "claude-code"
-		expect(entries[0]?.type).toBe("claude-code");
+		// X5: pool now includes claude-code + builtin + optional CLI adapters
+		const claudeEntry = entries.find((e) => e.type === "claude-code");
+		expect(claudeEntry).toBeDefined();
+		expect(claudeEntry?.type).toBe("claude-code");
 	});
 });

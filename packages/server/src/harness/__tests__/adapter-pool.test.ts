@@ -40,7 +40,12 @@ function makeAdapter(): HarnessAdapter {
 			};
 		},
 		getCapabilities(): HarnessCapabilities {
-			return { preCompactionTrigger: true, subAgents: true, modelProviders: ["anthropic"] };
+			return {
+				preCompactionTrigger: true,
+				subAgents: true,
+				modelProviders: ["anthropic"],
+				mcpSupport: false,
+			};
 		},
 	};
 }

@@ -171,10 +171,14 @@ export class RemoteHarnessAdapter implements HarnessAdapter {
 	}
 
 	getCapabilities(): HarnessCapabilities {
+		// X5: mcpSupport: false — remote workers declare their own MCP capabilities
+		// via the worker protocol; this adapter is a local proxy and conservatively
+		// declares false so the provisioner falls back to event-stream interception.
 		return {
 			preCompactionTrigger: false,
 			subAgents: false,
 			modelProviders: this.registration.modelProviders,
+			mcpSupport: false,
 		};
 	}
 

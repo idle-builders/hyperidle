@@ -5,6 +5,12 @@ import type { TokenUsage, WireMoney } from "../types/money.js";
 import type { ModelTier } from "../types.js";
 import type { HarnessEvent } from "./harness-events.js";
 
+/** X5: MCP bridge connection coordinates for a session. */
+export interface McpConnectionInfo {
+	readonly url: string; // Full URL: "http://localhost:3001/api/mcp/<token>"
+	readonly token: string; // 64-char hex session token
+}
+
 export interface SessionConfig {
 	readonly workspacePath: string;
 	/** @deprecated Use composedPrompt instead. Retained for path validation. */
@@ -19,6 +25,14 @@ export interface SessionConfig {
 	 * Optional for backward compatibility during migration.
 	 */
 	readonly resolvedModel?: ResolvedModel;
+	/**
+	 * X5: MCP bridge connection info for this session.
+	 * When present, adapters that support MCP can use this to configure
+	 * their harness's MCP client connection. Optional because:
+	 * - Bridge creation is best-effort (fails gracefully)
+	 * - BuiltinHarnessAdapter calls tool registry directly (no MCP needed)
+	 */
+	readonly mcpConnectionInfo?: McpConnectionInfo;
 }
 
 export interface SessionHandle {
@@ -48,6 +62,14 @@ export interface HarnessCapabilities {
 	 * Used by AdapterPool to filter eligible adapters for a given session.
 	 */
 	readonly modelProviders: readonly string[];
+	/**
+	 * X5: Whether this adapter supports MCP for tool calling.
+	 * When true, the provisioning orchestrator skips event-stream tool
+	 * interception — the harness handles tools via MCP directly.
+	 * When false, tool_call events in the stream are intercepted and
+	 * dispatched to the tool registry by the provisioner.
+	 */
+	readonly mcpSupport: boolean;
 }
 
 export interface HarnessAdapter {

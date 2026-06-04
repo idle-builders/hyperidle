@@ -457,6 +457,11 @@ export async function provisionSession(
 			tools: allowedToolNames,
 			// X4: Pass resolved model from gateway so adapter uses correct provider/model/key.
 			resolvedModel: params.resolvedModel,
+			// X5: MCP connection info when bridge was created successfully.
+			// Adapters that support MCP use this to configure their harness's MCP client.
+			mcpConnectionInfo: mcpBridgeToken
+				? { url: `${mcpBaseUrl}/api/mcp/${mcpBridgeToken}`, token: mcpBridgeToken }
+				: undefined,
 		});
 	} catch {
 		// startSession failed — treat as crash; nothing to stop.
@@ -466,6 +471,20 @@ export async function provisionSession(
 
 	if (harnessHandle !== null) {
 		// ── Phase 10: drain the event stream.
+		//
+		// X5: Determine whether to intercept tool_call events from the stream.
+		// When the adapter supports MCP AND the bridge is active, tool calls
+		// already happened via MCP before the event was emitted — intercepting
+		// here would double-invoke them. Fall back to event-stream interception
+		// when MCP is not available (no bridge token or adapter lacks mcpSupport).
+		//
+		// @lore X5: Both conditions must be true to skip interception. If the
+		// adapter claims mcpSupport but the bridge failed (mcpBridgeToken=undefined),
+		// the CLI tool will receive ECONNREFUSED on MCP calls and its events will
+		// error — but we must still intercept here as the fallback path.
+		const adapterCapabilities = harness.getCapabilities();
+		const interceptToolCalls = !(adapterCapabilities.mcpSupport && mcpBridgeToken);
+
 		try {
 			for await (const event of harness.streamEvents(harnessHandle)) {
 				if (event.type === "cost_update") {
@@ -503,10 +522,10 @@ export async function provisionSession(
 						completion: (existing?.completion ?? 0) + event.outputTokens,
 					};
 				} else if (event.type === "tool_call") {
-					// Emit to the bus for observability before invoking the tool
-					// so a failure inside the registry doesn't drop the record.
-					// `summarizeToolArgs` scrubs secrets + truncates to 512 chars —
-					// the resulting string is safe to ship to the observability adapter.
+					// Always emit to the bus for observability — even when MCP handles
+					// the actual invocation. The tool_call event from the stream is
+					// informational (it already happened via MCP).
+					// `summarizeToolArgs` scrubs secrets + truncates to 512 chars.
 					eventBus.emit({
 						type: "tool_call_recorded",
 						streamId: sessionId,
@@ -515,7 +534,12 @@ export async function provisionSession(
 						argsSummary: summarizeToolArgs(event.args),
 						timestamp: Date.now(),
 					});
-					await registry.invoke(event.toolName, event.args);
+					// X5: Only invoke the tool registry when the adapter does NOT
+					// handle tool calls via MCP. When mcpSupport=true and bridge is
+					// active, the invocation already happened via MCP.
+					if (interceptToolCalls) {
+						await registry.invoke(event.toolName, event.args);
+					}
 				} else if (event.type === "error") {
 					crashed = true;
 					break;

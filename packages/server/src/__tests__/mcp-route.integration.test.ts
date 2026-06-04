@@ -93,7 +93,12 @@ class ScriptedHarnessAdapter implements HarnessAdapter {
 	}
 
 	getCapabilities(): HarnessCapabilities {
-		return { preCompactionTrigger: false, subAgents: false, modelProviders: ["anthropic"] };
+		return {
+			preCompactionTrigger: false,
+			subAgents: false,
+			modelProviders: ["anthropic"],
+			mcpSupport: false,
+		};
 	}
 }
 
@@ -279,7 +284,12 @@ describe("AC5: MCP bridge lifecycle in session provisioning", () => {
 			}
 
 			getCapabilities(): HarnessCapabilities {
-				return { preCompactionTrigger: false, subAgents: false, modelProviders: ["anthropic"] };
+				return {
+					preCompactionTrigger: false,
+					subAgents: false,
+					modelProviders: ["anthropic"],
+					mcpSupport: false,
+				};
 			}
 		}
 
@@ -354,7 +364,12 @@ describe("AC6: .mcp.json written to workspace for auto-discovery", () => {
 			}
 
 			getCapabilities(): HarnessCapabilities {
-				return { preCompactionTrigger: false, subAgents: false, modelProviders: ["anthropic"] };
+				return {
+					preCompactionTrigger: false,
+					subAgents: false,
+					modelProviders: ["anthropic"],
+					mcpSupport: false,
+				};
 			}
 		}
 
@@ -420,7 +435,12 @@ describe("AC6: .mcp.json written to workspace for auto-discovery", () => {
 			}
 
 			getCapabilities(): HarnessCapabilities {
-				return { preCompactionTrigger: false, subAgents: false, modelProviders: ["anthropic"] };
+				return {
+					preCompactionTrigger: false,
+					subAgents: false,
+					modelProviders: ["anthropic"],
+					mcpSupport: false,
+				};
 			}
 		}
 
@@ -465,7 +485,12 @@ describe("AC6: .mcp.json written to workspace for auto-discovery", () => {
 			}
 
 			getCapabilities(): HarnessCapabilities {
-				return { preCompactionTrigger: false, subAgents: false, modelProviders: ["anthropic"] };
+				return {
+					preCompactionTrigger: false,
+					subAgents: false,
+					modelProviders: ["anthropic"],
+					mcpSupport: false,
+				};
 			}
 		}
 

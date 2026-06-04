@@ -235,7 +235,15 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 	}
 
 	getCapabilities(): HarnessCapabilities {
-		return { preCompactionTrigger: true, subAgents: true, modelProviders: ["anthropic"] };
+		// X5: mcpSupport: true — Claude Code reads .mcp.json from cwd and routes
+		// HyperIdle tool calls through MCP. The tool_call events in the event stream
+		// are informational; actual invocations already happened via MCP.
+		return {
+			preCompactionTrigger: true,
+			subAgents: true,
+			modelProviders: ["anthropic"],
+			mcpSupport: true,
+		};
 	}
 
 	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: SDK message translation requires branching on message type/subtype

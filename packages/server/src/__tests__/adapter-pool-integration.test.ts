@@ -65,7 +65,12 @@ function makeScriptedAdapter(events: HarnessEvent[] = []): HarnessAdapter {
 			};
 		},
 		getCapabilities(): HarnessCapabilities {
-			return { preCompactionTrigger: true, subAgents: true, modelProviders: ["anthropic"] };
+			return {
+				preCompactionTrigger: true,
+				subAgents: true,
+				modelProviders: ["anthropic"],
+				mcpSupport: false,
+			};
 		},
 	};
 }
@@ -237,17 +242,18 @@ describe("AdapterPool backward compat: single adapter pool (AC8)", () => {
 });
 
 describe("Server self-registration (AC4)", () => {
-	it("pool has exactly one local adapter after server-factory registration", async () => {
-		// Import the factory function that creates the server-side pool
-		// This tests that server-factory creates a pool with one local adapter.
-		// The actual server-factory is tested via the createServer path, but here
-		// we verify the createLocalAdapterPool helper function.
+	it("pool has local adapters (claude-code + builtin) after createLocalAdapterPool", async () => {
+		// Import the factory function that creates the server-side pool.
+		// X5: pool now includes claude-code + builtin + optional CLI adapters.
 		const { createLocalAdapterPool } = await import("../harness/adapter-pool.js");
 
-		const pool = createLocalAdapterPool();
+		const pool = await createLocalAdapterPool();
 		const entries = pool.list();
 
-		expect(entries).toHaveLength(1);
-		expect(entries[0]?.kind).toBe("local");
+		// At minimum, claude-code and builtin are always registered
+		expect(entries.length).toBeGreaterThanOrEqual(2);
+		expect(entries.every((e) => e.kind === "local")).toBe(true);
+		expect(entries.some((e) => e.type === "claude-code")).toBe(true);
+		expect(entries.some((e) => e.type === "builtin")).toBe(true);
 	});
 });
