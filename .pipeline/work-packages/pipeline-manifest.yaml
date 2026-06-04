@@ -603,6 +603,156 @@ stories:
     depends: [W2]
     complexity: L
 
+  # Track Y: Knowledge Evolution
+  - id: Y1
+    title: Temporal Knowledge Validity
+    track: Y
+    depends: []
+    complexity: M
+  - id: Y2
+    title: Knowledge Consolidation & Autonomous Learning
+    track: Y
+    depends: []
+    complexity: L
+  - id: Y3
+    title: Self-Evolution of Experience
+    track: Y
+    depends: []
+    complexity: L
+  - id: Y4
+    title: Knowledge Triage Improvements
+    track: Y
+    depends: []
+    complexity: S
+  - id: Y5
+    title: Agent Write Governance
+    track: Y
+    depends: []
+    complexity: M
+  - id: Y6
+    title: Knowledge Graph Linking
+    track: Y
+    depends: []
+    complexity: M
+  - id: Y7
+    title: Cost Intelligence & Efficiency Learning
+    track: Y
+    depends: []
+    complexity: L
+
+  # Track Z: Vision & Documentation
+  - id: Z1
+    title: Product Story & Landing Documentation
+    track: Z
+    depends: []
+    complexity: L
+  - id: Z2
+    title: Getting Started Journey
+    track: Z
+    depends: []
+    complexity: M
+  - id: Z3
+    title: Feature Documentation Suite
+    track: Z
+    depends: []
+    complexity: L
+  - id: Z4
+    title: Vision Sharpening & Gap Audit
+    track: Z
+    depends: [Z1]
+    complexity: M
+  - id: Z5
+    title: Architecture Story
+    track: Z
+    depends: []
+    complexity: M
+  - id: Z6
+    title: Human+AI Collaboration Narrative
+    track: Z
+    depends: []
+    complexity: M
+  - id: Z7
+    title: Plugin & Extensibility Story
+    track: Z
+    depends: []
+    complexity: M
+  - id: Z8
+    title: Feature Polish & Launch Readiness Audit
+    track: Z
+    depends: [Z4]
+    complexity: L
+
+  # Track AA: Routines as Work
+  - id: AA1
+    title: Routine Visibility & Team Scoping
+    track: AA
+    depends: []
+    complexity: L
+  - id: AA2
+    title: Routine Management & Session Adaptation
+    track: AA
+    depends: [AA1]
+    complexity: L
+  - id: AA3
+    title: Routine Cost & Appetite Model
+    track: AA
+    depends: [AA1, AA2]
+    complexity: M
+
+  # Track AB: Agent Management & Configuration
+  - id: AB1
+    title: Agent Profile & Capabilities
+    track: AB
+    depends: []
+    complexity: L
+  - id: AB2
+    title: Agent Overview in Team Work Page
+    track: AB
+    depends: [AB1]
+    complexity: M
+  - id: AB3
+    title: Agent Setup Wizard
+    track: AB
+    depends: []
+    complexity: M
+
+  # Track AC: Outcome Measurement & Scoring
+  - id: AC1
+    title: Structured Outcome Fields
+    track: AC
+    depends: []
+    complexity: M
+  - id: AC2
+    title: Bet Hypothesis Validation Flow
+    track: AC
+    depends: [AC1]
+    complexity: M
+  - id: AC3
+    title: Outcome Grading (Evaluator Agent Pattern)
+    track: AC
+    depends: [AC1]
+    complexity: L
+  - id: AC4
+    title: Multi-Dimensional Scoring Rubrics
+    track: AC
+    depends: [AC3]
+    complexity: L
+  - id: AC5
+    title: Verification Gates
+    track: AC
+    depends: [AC3]
+    complexity: M
+  - id: AC6
+    title: Outcome-Based Knowledge Learning
+    track: AC
+    depends: [AC1]
+    complexity: L
+  - id: AC7
+    title: Portfolio Metrics & Measurement Dashboard
+    track: AC
+    depends: [AC1, AC2]
+    complexity: L
+
   # Track X: Agent Runtime Completeness
   - id: X1
     title: Session Prompt Composition
