@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="en" data-theme="hearth-light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AB3 — Variant A: Inline Accordion</title>
+  <link rel="stylesheet" href="../../../../packages/design-system/html/_tokens.css" />
+  <style>
+    #root { max-width: none; padding: 0; }
+    html, body { overflow-y: auto; margin: 0; }
+
+    .page {
+      background: var(--surface-page);
+      min-height: 100vh;
+      padding: 24px;
+      max-width: 720px;
+      margin: 0 auto;
+      font-family: var(--font-sans);
+    }
+
+    /* Section headers — Hearth signature */
+    .section-header {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-tertiary);
+      margin-bottom: 9px;
+    }
+
+    /* Roster rows */
+    .roster-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 6px 9px;
+      border-radius: var(--r-none);
+      background: var(--surface-container);
+      margin-bottom: 3px;
+    }
+    .roster-avatar {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: var(--r-pill);
+      background: rgba(22, 118, 79, 0.08);
+      border: 1.5px solid var(--accent-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-family: var(--font-mono);
+      color: var(--accent-primary);
+      text-transform: uppercase;
+    }
+    .roster-name {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .roster-role {
+      font-size: 10px;
+      color: var(--text-tertiary);
+    }
+
+    /* Wizard container */
+    .wizard {
+      margin-top: 12px;
+      border: 1.5px solid var(--border-default);
+      border-radius: var(--r-subtle);
+      overflow: hidden;
+    }
+
+    /* Step */
+    .step {
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .step:last-child { border-bottom: none; }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 12px;
+      cursor: pointer;
+      background: var(--surface-elevated);
+    }
+    .step-header:hover {
+      background: rgba(44, 36, 26, 0.02);
+    }
+
+    .step-number {
+      width: 24px;
+      height: 24px;
+      border-radius: var(--r-pill);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .step-number--active {
+      background: var(--accent-primary);
+      color: var(--text-on-accent);
+    }
+    .step-number--done {
+      background: rgba(22, 118, 79, 0.08);
+      color: var(--accent-primary);
+    }
+    .step-number--pending {
+      background: var(--surface-container);
+      color: var(--text-tertiary);
+    }
+
+    .step-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      flex: 1;
+    }
+    .step-summary {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+    }
+
+    .step-body {
+      padding: 12px 12px 18px 45px;
+      background: var(--surface-elevated);
+    }
+
+    /* Role cards */
+    .role-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+    }
+    .role-card {
+      padding: 12px;
+      border-radius: var(--r-subtle);
+      background: var(--surface-container);
+      border: 1.5px solid transparent;
+      cursor: pointer;
+      transition: border-color var(--motion-fast) var(--motion-ease);
+    }
+    .role-card:hover {
+      border-color: var(--border-default);
+    }
+    .role-card--selected {
+      border-color: var(--accent-primary);
+      background: rgba(22, 118, 79, 0.04);
+    }
+    .role-card__name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 3px;
+    }
+    .role-card__desc {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      line-height: 1.5;
+    }
+    .role-card--custom {
+      border-style: dashed;
+      border-color: var(--border-default);
+    }
+
+    /* Form fields */
+    .form-group {
+      margin-bottom: 12px;
+    }
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+    .form-input {
+      width: 100%;
+      padding: 7px 12px;
+      font-family: var(--font-sans);
+      font-size: 13px;
+      border: 1.5px solid var(--border-default);
+      border-radius: var(--r-subtle);
+      background: var(--surface-elevated);
+      color: var(--text-primary);
+      outline: none;
+      box-sizing: border-box;
+    }
+    .form-input:focus {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 3px rgba(22, 118, 79, 0.1);
+    }
+    .form-input::placeholder {
+      color: var(--text-placeholder);
+    }
+    .form-textarea {
+      resize: vertical;
+      min-height: 120px;
+      line-height: 1.55;
+    }
+    .form-hint {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      margin-top: 3px;
+    }
+
+    /* Select */
+    .form-select {
+      width: 100%;
+      padding: 7px 12px;
+      font-family: var(--font-sans);
+      font-size: 13px;
+      border: 1.5px solid var(--border-default);
+      border-radius: var(--r-subtle);
+      background: var(--surface-elevated);
+      color: var(--text-primary);
+      outline: none;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239a8d7e' d='M3 5l3 3 3-3'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+    }
+    .form-select:focus {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 3px rgba(22, 118, 79, 0.1);
+    }
+
+    /* Tier cards */
+    .tier-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 9px;
+    }
+    .tier-card {
+      padding: 12px;
+      border-radius: var(--r-subtle);
+      background: var(--surface-container);
+      border: 1.5px solid transparent;
+      cursor: pointer;
+      text-align: left;
+    }
+    .tier-card--selected {
+      border-color: var(--accent-primary);
+      background: rgba(22, 118, 79, 0.04);
+    }
+    .tier-card__name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 3px;
+    }
+    .tier-card__desc {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      line-height: 1.4;
+    }
+
+    /* Buttons */
+    .btn-row {
+      display: flex;
+      gap: 9px;
+      justify-content: flex-end;
+      margin-top: 12px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 7px 18px;
+      border-radius: var(--r-pill);
+      border: none;
+      cursor: pointer;
+      min-height: 44px;
+    }
+    .btn--primary {
+      background: var(--accent-primary);
+      color: var(--text-on-accent);
+    }
+    .btn--ghost {
+      background: transparent;
+      color: var(--text-secondary);
+    }
+
+    /* Add button */
+    .add-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--accent-primary);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 6px 0;
+    }
+    .add-btn:hover { text-decoration: underline; }
+
+    /* Validation */
+    .validation-warn {
+      font-size: 12px;
+      color: var(--accent-secondary);
+      margin-top: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .validation-warn::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: var(--r-pill);
+      background: var(--accent-secondary);
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    const { useState } = React;
+
+    const ROLES = [
+      { id: 'product_manager', name: 'Product Manager', desc: 'Shapes bets, writes pitches, defines done conditions' },
+      { id: 'practice_facilitator', name: 'Practice Facilitator', desc: 'Curates knowledge, coaches skills, maintains standards' },
+      { id: 'chief_of_staff', name: 'Chief of Staff', desc: 'Cross-team patterns, obstacle reports, principle stewardship' },
+      { id: 'custom', name: 'Custom role', desc: 'Write your own soul prompt for a specialized agent' },
+    ];
+
+    function Demo() {
+      const [activeStep, setActiveStep] = useState(2);
+      const [selectedRole, setSelectedRole] = useState('product_manager');
+      const [selectedTier, setSelectedTier] = useState('workhorse');
+
+      const stepDone = (n) => n < activeStep;
+      const stepActive = (n) => n === activeStep;
+
+      return (
+        <div className="page">
+          {/* Team header (simplified) */}
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-primary)' }}>
+              Ambrovia Team
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 3 }}>
+              Phase: Building &middot; Lead: Orion
+            </div>
+          </div>
+
+          {/* Roster section */}
+          <div className="section-header">Roster</div>
+
+          <div className="roster-row">
+            <div className="roster-avatar">OR</div>
+            <div>
+              <div className="roster-name">Orion</div>
+              <div className="roster-role">product_manager &middot; Lead</div>
+            </div>
+          </div>
+          <div className="roster-row">
+            <div className="roster-avatar">AT</div>
+            <div>
+              <div className="roster-name">Atlas</div>
+              <div className="roster-role">builder</div>
+            </div>
+          </div>
+
+          {/* Wizard — inline accordion */}
+          <div className="wizard">
+            {/* Step 1 — Role (completed) */}
+            <div className="step">
+              <div className="step-header" onClick={() => setActiveStep(1)}>
+                <div className={`step-number ${stepDone(1) ? 'step-number--done' : stepActive(1) ? 'step-number--active' : 'step-number--pending'}`}>
+                  {stepDone(1) ? '✓' : '1'}
+                </div>
+                <div className="step-label">Role</div>
+                {stepDone(1) && <div className="step-summary">Product Manager</div>}
+              </div>
+              {stepActive(1) && (
+                <div className="step-body">
+                  <div className="role-grid">
+                    {ROLES.map(r => (
+                      <div
+                        key={r.id}
+                        className={`role-card ${r.id === 'custom' ? 'role-card--custom' : ''} ${selectedRole === r.id ? 'role-card--selected' : ''}`}
+                        onClick={() => setSelectedRole(r.id)}
+                      >
+                        <div className="role-card__name">{r.name}</div>
+                        <div className="role-card__desc">{r.desc}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="btn-row">
+                    <button className="btn btn--primary" onClick={() => setActiveStep(2)}>Next</button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Step 2 — Identity (active) */}
+            <div className="step">
+              <div className="step-header" onClick={() => activeStep > 2 && setActiveStep(2)}>
+                <div className={`step-number ${stepDone(2) ? 'step-number--done' : stepActive(2) ? 'step-number--active' : 'step-number--pending'}`}>
+                  {stepDone(2) ? '✓' : '2'}
+                </div>
+                <div className="step-label">Identity</div>
+                {stepDone(2) && <div className="step-summary">Nova</div>}
+              </div>
+              {stepActive(2) && (
+                <div className="step-body">
+                  <div className="form-group">
+                    <label className="form-label">Agent name</label>
+                    <input className="form-input" type="text" value="Nova" readOnly placeholder="e.g., Atlas" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Soul prompt</label>
+                    <textarea className="form-input form-textarea" readOnly value="You are a Product Manager agent for the Ambrovia team. Your job is to shape bets, write clear pitches with problem statements and done conditions, and manage the betting table. You balance ambition with appetite, ensuring every bet has a clear hypothesis and measurable outcome..." />
+                    <div className="form-hint">Pre-filled from the Product Manager template. Edit freely.</div>
+                  </div>
+                  <div className="btn-row">
+                    <button className="btn btn--ghost" onClick={() => setActiveStep(1)}>Back</button>
+                    <button className="btn btn--primary" onClick={() => setActiveStep(3)}>Next</button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Step 3 — Harness (pending) */}
+            <div className="step">
+              <div className="step-header">
+                <div className={`step-number ${stepDone(3) ? 'step-number--done' : stepActive(3) ? 'step-number--active' : 'step-number--pending'}`}>
+                  {stepDone(3) ? '✓' : '3'}
+                </div>
+                <div className="step-label">Harness</div>
+              </div>
+              {stepActive(3) && (
+                <div className="step-body">
+                  <div className="form-group">
+                    <label className="form-label">Execution harness</label>
+                    <select className="form-select">
+                      <option>builtin — Built-in LLM adapter</option>
+                      <option>claude-code — Claude Code CLI</option>
+                    </select>
+                    <div className="form-hint">Determines how the agent executes tasks. "builtin" is simplest.</div>
+                  </div>
+                  <div className="btn-row">
+                    <button className="btn btn--ghost" onClick={() => setActiveStep(2)}>Back</button>
+                    <button className="btn btn--primary" onClick={() => setActiveStep(4)}>Next</button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Step 4 — Model tier (pending) */}
+            <div className="step">
+              <div className="step-header">
+                <div className={`step-number ${stepDone(4) ? 'step-number--done' : stepActive(4) ? 'step-number--active' : 'step-number--pending'}`}>
+                  {stepDone(4) ? '✓' : '4'}
+                </div>
+                <div className="step-label">Model tier</div>
+              </div>
+              {stepActive(4) && (
+                <div className="step-body">
+                  <div className="tier-grid">
+                    <div className={`tier-card ${selectedTier === 'reasoning' ? 'tier-card--selected' : ''}`} onClick={() => setSelectedTier('reasoning')}>
+                      <div className="tier-card__name">Reasoning</div>
+                      <div className="tier-card__desc">Complex decisions, planning. Slowest, most expensive.</div>
+                    </div>
+                    <div className={`tier-card ${selectedTier === 'workhorse' ? 'tier-card--selected' : ''}`} onClick={() => setSelectedTier('workhorse')}>
+                      <div className="tier-card__name">Workhorse</div>
+                      <div className="tier-card__desc">Daily tasks. Good cost-quality balance.</div>
+                    </div>
+                    <div className={`tier-card ${selectedTier === 'fast' ? 'tier-card--selected' : ''}`} onClick={() => setSelectedTier('fast')}>
+                      <div className="tier-card__name">Fast</div>
+                      <div className="tier-card__desc">Quick responses, simple tasks. Cheapest.</div>
+                    </div>
+                  </div>
+                  <div className="validation-warn">
+                    Reasoning tier has no provider configured. Set one in Settings &gt; Models.
+                  </div>
+                  <div className="btn-row">
+                    <button className="btn btn--ghost" onClick={() => setActiveStep(3)}>Back</button>
+                    <button className="btn btn--primary">Create agent</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <button className="add-btn" style={{ marginTop: 12, display: activeStep ? 'none' : 'inline-flex' }}>
+            + Add agent
+          </button>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<Demo />, document.getElementById('root'));
+  </script>
+  <script src="../../../../packages/design-system/html/themes/_switcher.js"></script>
+</body>
+</html>

@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en" data-theme="hearth-light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AB3 — Variant B: Dialog Stepper</title>
+  <link rel="stylesheet" href="../../../../packages/design-system/html/_tokens.css" />
+  <style>
+    #root { max-width: none; padding: 0; }
+    html, body { overflow: hidden; margin: 0; height: 100%; }
+
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(26, 21, 16, 0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-sans);
+      z-index: 100;
+    }
+
+    .dialog {
+      background: var(--surface-elevated);
+      border-radius: var(--r-default);
+      box-shadow: var(--shadow-elevated);
+      width: 560px;
+      max-height: min(85vh, 640px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Header */
+    .dialog-header {
+      padding: 24px 24px 0;
+    }
+    .dialog-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+      margin-bottom: 18px;
+    }
+
+    /* Stepper */
+    .stepper {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 0 24px 18px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .stepper-step {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 1;
+    }
+    .stepper-dot {
+      width: 24px;
+      height: 24px;
+      border-radius: var(--r-pill);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .stepper-dot--active {
+      background: var(--accent-primary);
+      color: var(--text-on-accent);
+    }
+    .stepper-dot--done {
+      background: rgba(22, 118, 79, 0.08);
+      color: var(--accent-primary);
+    }
+    .stepper-dot--pending {
+      background: var(--surface-container);
+      color: var(--text-tertiary);
+    }
+    .stepper-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+    }
+    .stepper-label--active {
+      color: var(--text-primary);
+    }
+    .stepper-line {
+      flex: 1;
+      height: 1px;
+      background: var(--border-subtle);
+      margin: 0 9px;
+    }
+    .stepper-line--done {
+      background: var(--accent-primary);
+    }
+
+    /* Body */
+    .dialog-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    /* Role cards */
+    .role-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+    }
+    .role-card {
+      padding: 12px;
+      border-radius: var(--r-subtle);
+      background: var(--surface-container);
+      border: 1.5px solid transparent;
+      cursor: pointer;
+      transition: border-color var(--motion-fast) var(--motion-ease);
+    }
+    .role-card:hover {
+      border-color: var(--border-default);
+    }
+    .role-card--selected {
+      border-color: var(--accent-primary);
+      background: rgba(22, 118, 79, 0.04);
+    }
+    .role-card--custom {
+      border-style: dashed;
+      border-color: var(--border-default);
+    }
+    .role-card__header {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-bottom: 6px;
+    }
+    .role-card__avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--r-pill);
+      background: rgba(22, 118, 79, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-family: var(--font-mono);
+      color: var(--accent-primary);
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+    .role-card__name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .role-card__desc {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      line-height: 1.5;
+    }
+
+    /* Form fields */
+    .form-group {
+      margin-bottom: 18px;
+    }
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+    .form-input {
+      width: 100%;
+      padding: 10px 12px;
+      font-family: var(--font-sans);
+      font-size: 15px;
+      border: 1.5px solid var(--border-default);
+      border-radius: var(--r-default);
+      background: var(--surface-elevated);
+      color: var(--text-primary);
+      outline: none;
+      box-sizing: border-box;
+    }
+    .form-input:focus {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 3px rgba(22, 118, 79, 0.1);
+    }
+    .form-input::placeholder {
+      color: var(--text-placeholder);
+    }
+    .form-textarea {
+      resize: vertical;
+      min-height: 140px;
+      line-height: 1.55;
+    }
+    .form-hint {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      margin-top: 6px;
+    }
+
+    /* Select */
+    .form-select {
+      width: 100%;
+      padding: 10px 12px;
+      font-family: var(--font-sans);
+      font-size: 15px;
+      border: 1.5px solid var(--border-default);
+      border-radius: var(--r-default);
+      background: var(--surface-elevated);
+      color: var(--text-primary);
+      outline: none;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239a8d7e' d='M3 5l3 3 3-3'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+    }
+    .form-select:focus {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 3px rgba(22, 118, 79, 0.1);
+    }
+
+    /* Review section (step 4) */
+    .review-section {
+      background: var(--surface-container);
+      border-radius: var(--r-subtle);
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+    .review-row {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 9px;
+    }
+    .review-row:last-child { margin-bottom: 0; }
+    .review-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-tertiary);
+      width: 80px;
+      flex-shrink: 0;
+    }
+    .review-value {
+      font-size: 13px;
+      color: var(--text-primary);
+    }
+    .review-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 9px;
+      border-radius: var(--r-pill);
+      font-size: 12px;
+      font-weight: 500;
+      background: rgba(22, 118, 79, 0.08);
+      color: var(--accent-primary);
+    }
+
+    /* Validation */
+    .validation-ok {
+      font-size: 12px;
+      color: var(--status-success);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .validation-ok::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: var(--r-pill);
+      background: var(--status-success);
+    }
+
+    /* Footer */
+    .dialog-footer {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 18px 24px;
+      border-top: 1px solid var(--border-subtle);
+    }
+    .dialog-footer-spacer { flex: 1; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 10px 18px;
+      border-radius: var(--r-pill);
+      border: none;
+      cursor: pointer;
+      min-height: 44px;
+    }
+    .btn--primary {
+      background: var(--accent-primary);
+      color: var(--text-on-accent);
+    }
+    .btn--ghost {
+      background: transparent;
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    const { useState } = React;
+
+    const ROLES = [
+      { id: 'product_manager', name: 'Product Manager', initials: 'PM', desc: 'Shapes bets, writes pitches, defines done conditions' },
+      { id: 'practice_facilitator', name: 'Practice Facilitator', initials: 'PF', desc: 'Curates knowledge, coaches skills, maintains standards' },
+      { id: 'chief_of_staff', name: 'Chief of Staff', initials: 'CS', desc: 'Cross-team patterns, obstacle reports, principle stewardship' },
+      { id: 'custom', name: 'Custom', initials: '?', desc: 'Write your own soul prompt for a specialized agent' },
+    ];
+
+    function StepDot({ n, active, done }) {
+      const cls = done ? 'stepper-dot--done' : active ? 'stepper-dot--active' : 'stepper-dot--pending';
+      return <div className={`stepper-dot ${cls}`}>{done ? '✓' : n}</div>;
+    }
+
+    function Demo() {
+      const [step, setStep] = useState(4);
+      const [role, setRole] = useState('product_manager');
+
+      const labels = ['Role', 'Identity', 'Harness', 'Review'];
+
+      return (
+        <div className="backdrop">
+          <div className="dialog">
+            {/* Header */}
+            <div className="dialog-header">
+              <div className="dialog-title">New agent</div>
+            </div>
+
+            {/* Stepper */}
+            <div className="stepper">
+              {labels.map((label, i) => {
+                const n = i + 1;
+                const done = n < step;
+                const active = n === step;
+                return (
+                  <React.Fragment key={n}>
+                    <div className="stepper-step" style={{ flex: 'none' }}>
+                      <StepDot n={n} active={active} done={done} />
+                      <span className={`stepper-label ${active ? 'stepper-label--active' : ''}`}>{label}</span>
+                    </div>
+                    {i < labels.length - 1 && (
+                      <div className={`stepper-line ${done ? 'stepper-line--done' : ''}`}></div>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+
+            {/* Body — showing Step 4: Review */}
+            <div className="dialog-body">
+              {step === 1 && (
+                <>
+                  <div style={{ fontSize: 15, color: 'var(--text-secondary)', marginBottom: 18, lineHeight: 1.7 }}>
+                    Choose a role for the new agent. Each role comes with a pre-configured soul prompt.
+                  </div>
+                  <div className="role-grid">
+                    {ROLES.map(r => (
+                      <div
+                        key={r.id}
+                        className={`role-card ${r.id === 'custom' ? 'role-card--custom' : ''} ${role === r.id ? 'role-card--selected' : ''}`}
+                        onClick={() => setRole(r.id)}
+                      >
+                        <div className="role-card__header">
+                          <div className="role-card__avatar">{r.initials}</div>
+                          <div className="role-card__name">{r.name}</div>
+                        </div>
+                        <div className="role-card__desc">{r.desc}</div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {step === 2 && (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">Agent name</label>
+                    <input className="form-input" type="text" value="Nova" readOnly placeholder="e.g., Atlas" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Soul prompt</label>
+                    <textarea className="form-input form-textarea" readOnly value="You are a Product Manager agent for the Ambrovia team. Your job is to shape bets, write clear pitches with problem statements and done conditions, and manage the betting table..." />
+                    <div className="form-hint">Pre-filled from the Product Manager template. Edit freely.</div>
+                  </div>
+                </>
+              )}
+
+              {step === 3 && (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">Execution harness</label>
+                    <select className="form-select">
+                      <option>builtin</option>
+                      <option>claude-code</option>
+                    </select>
+                    <div className="form-hint">Determines how the agent executes tasks.</div>
+                  </div>
+                </>
+              )}
+
+              {step === 4 && (
+                <>
+                  <div style={{ fontSize: 15, color: 'var(--text-secondary)', marginBottom: 18, lineHeight: 1.7 }}>
+                    Review the configuration and set a model tier before creating.
+                  </div>
+
+                  <div className="review-section">
+                    <div className="review-row">
+                      <div className="review-label">Role</div>
+                      <div className="review-value"><span className="review-badge">Product Manager</span></div>
+                    </div>
+                    <div className="review-row">
+                      <div className="review-label">Name</div>
+                      <div className="review-value">Nova</div>
+                    </div>
+                    <div className="review-row">
+                      <div className="review-label">Harness</div>
+                      <div className="review-value" style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>builtin</div>
+                    </div>
+                    <div className="review-row">
+                      <div className="review-label">Prompt</div>
+                      <div className="review-value" style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                        You are a Product Manager agent for the Ambrovia team. Your job is to shape bets...
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Model tier</label>
+                    <select className="form-select">
+                      <option>workhorse — Daily tasks, good balance</option>
+                      <option>reasoning — Complex decisions, expensive</option>
+                      <option>fast — Quick responses, cheapest</option>
+                    </select>
+                    <div className="form-hint">Determines which AI model handles this agent's tasks.</div>
+                  </div>
+
+                  <div className="validation-ok">All checks passed &mdash; ready to create</div>
+                </>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="dialog-footer">
+              <button className="btn btn--ghost">Cancel</button>
+              <div className="dialog-footer-spacer"></div>
+              {step > 1 && (
+                <button className="btn btn--ghost" onClick={() => setStep(step - 1)}>Back</button>
+              )}
+              {step < 4 ? (
+                <button className="btn btn--primary" onClick={() => setStep(step + 1)}>Next</button>
+              ) : (
+                <button className="btn btn--primary">Create agent</button>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<Demo />, document.getElementById('root'));
+  </script>
+  <script src="../../../../packages/design-system/html/themes/_switcher.js"></script>
+</body>
+</html>
