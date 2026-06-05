@@ -49,6 +49,12 @@ export function WorkPortfolio(): JSX.Element {
 	// Build team list for pills
 	const teams = useMemo(() => teamsData?.teams ?? [], [teamsData]);
 
+	// AA1: compute total routines across all teams for the portfolio summary line
+	const totalActiveRoutines = useMemo(
+		() => teams.reduce((sum, t) => sum + (t.routineCount ?? 0), 0),
+		[teams],
+	);
+
 	// Filter bets client-side by selected team and status
 	const filteredBets = useMemo(() => {
 		let result = bets;
@@ -105,6 +111,18 @@ export function WorkPortfolio(): JSX.Element {
 				<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)]">
 					All bets
 				</h2>
+
+				{/* AA1: Routine summary line — shown when any team has routines */}
+				{teamsData !== null && teamsData !== undefined && totalActiveRoutines > 0 && (
+					<span
+						data-testid="portfolio-routine-summary"
+						className="text-[12px] text-[var(--text-tertiary)]"
+					>
+						{totalActiveRoutines} routine{totalActiveRoutines !== 1 ? "s" : ""} across{" "}
+						{teams.filter((t) => (t.routineCount ?? 0) > 0).length} team
+						{teams.filter((t) => (t.routineCount ?? 0) > 0).length !== 1 ? "s" : ""}
+					</span>
+				)}
 
 				{/* W3 AC-13: tab-bar-pill segmented status filter — hidden when no bets */}
 				{bets.length > 0 && (

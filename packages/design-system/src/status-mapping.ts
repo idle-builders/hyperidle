@@ -1,5 +1,5 @@
 import type { KnowledgeStatus } from "@hyperidle/fabric/types";
-import type { BetStatus, SessionOutcome, TaskState } from "@hyperidle/shared";
+import type { BetStatus, RoutineState, SessionOutcome, TaskState } from "@hyperidle/shared";
 import type { Status } from "./StatusChip";
 
 /**
@@ -80,4 +80,22 @@ export const SESSION_OUTCOME_MAP: Record<SessionOutcome, Status> = {
 
 export function sessionOutcomeToStatus(outcome: SessionOutcome): Status {
 	return SESSION_OUTCOME_MAP[outcome];
+}
+
+/**
+ * Routine lifecycle state → presentation Status. Exhaustive over all 3
+ * RoutineState values added in AA1.
+ *
+ * - active → healthy: routine is running on schedule.
+ * - paused → paused: routine is suspended, no action required yet.
+ * - error → error: last run failed; operator attention required.
+ */
+export const ROUTINE_STATE_MAP: Record<RoutineState, Status> = {
+	active: "healthy",
+	paused: "paused",
+	error: "error",
+};
+
+export function routineStateToStatus(state: RoutineState): Status {
+	return ROUTINE_STATE_MAP[state];
 }

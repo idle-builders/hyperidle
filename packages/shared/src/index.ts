@@ -171,6 +171,16 @@ export {
 	scrubInlineTokens,
 	TK_TOKEN_RE,
 } from "./redact.js";
+// ── Routine primitive (AA1) ──
+export type {
+	RoutineCardSummary,
+	RoutineDetail,
+	RoutineInfo,
+	RoutineRunOutcome,
+	RoutineRunSummary,
+	RoutineState,
+} from "./routine.js";
+export { ROUTINE_RUN_OUTCOMES, ROUTINE_STATES } from "./routine.js";
 // ── Team primitive (L13, formerly Product) ──
 export type {
 	BetCardSummary,
