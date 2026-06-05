@@ -62,8 +62,9 @@ describe("status-union runtime constants", () => {
 			expect(Array.isArray(KERNEL_KNOWLEDGE_STATUSES)).toBe(true);
 		});
 
-		it("has 3 kernel knowledge statuses", () => {
-			expect(KERNEL_KNOWLEDGE_STATUSES).toHaveLength(3);
+		it("has 4 kernel knowledge statuses", () => {
+			// Y4: needs_human added for triage escalation (was 3)
+			expect(KERNEL_KNOWLEDGE_STATUSES).toHaveLength(4);
 		});
 
 		it("includes draft, active, archived", () => {

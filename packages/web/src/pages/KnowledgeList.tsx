@@ -41,8 +41,10 @@ import { KNOWLEDGE_SORT_OPTIONS } from "@hyperidle/fabric/types";
 import { type JSX, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { KnowledgeTopicGroup } from "../components/KnowledgeTopicGroup";
+import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useFetch } from "../hooks/useFetch";
 import { useHint } from "../hooks/useHints";
+import { apiFetch } from "../services/api-fetch.js";
 import { relativeTime } from "../utils/relative-time";
 
 type KnowledgeTab = "triage" | "curated";
@@ -84,6 +86,7 @@ interface ApiKnowledgeItem {
 		accessCount30d?: number | null;
 		citationCount?: number | null;
 		relevanceScore?: number | null;
+		attentionScore?: number | null;
 	} | null;
 }
 
@@ -97,44 +100,10 @@ function toKnowledgeStatus(apiStatus: string): KnowledgeStatus {
 			return "active";
 		case "archived":
 			return "archived";
+		case "needs_human":
+			return "needs_human";
 		default:
 			return "captured";
-	}
-}
-
-function sortApiItems(items: ApiKnowledgeItem[], sort: KnowledgeSortOption): ApiKnowledgeItem[] {
-	const copy = [...items];
-	switch (sort) {
-		case "recency":
-			return copy.sort((a, b) => {
-				const aAt = a.signals?.lastActivityAt ?? null;
-				const bAt = b.signals?.lastActivityAt ?? null;
-				if (aAt === null && bAt === null) return a.id.localeCompare(b.id);
-				if (aAt === null) return 1;
-				if (bAt === null) return -1;
-				const primary = bAt.localeCompare(aAt);
-				return primary !== 0 ? primary : a.id.localeCompare(b.id);
-			});
-		case "frequency":
-			return copy.sort((a, b) => {
-				const aCount = a.signals?.accessCount30d ?? null;
-				const bCount = b.signals?.accessCount30d ?? null;
-				if (aCount === null && bCount === null) return a.id.localeCompare(b.id);
-				if (aCount === null) return 1;
-				if (bCount === null) return -1;
-				const primary = bCount - aCount;
-				return primary !== 0 ? primary : a.id.localeCompare(b.id);
-			});
-		default:
-			return copy.sort((a, b) => {
-				const aScore = a.signals?.relevanceScore ?? null;
-				const bScore = b.signals?.relevanceScore ?? null;
-				if (aScore === null && bScore === null) return a.id.localeCompare(b.id);
-				if (aScore === null) return 1;
-				if (bScore === null) return -1;
-				const primary = bScore - aScore;
-				return primary !== 0 ? primary : a.id.localeCompare(b.id);
-			});
 	}
 }
 
@@ -184,6 +153,12 @@ interface KnowledgeListRowProps {
 	timestamp: string;
 	isPrivate?: boolean;
 	onClick?: () => void;
+	// Y4: triage inline actions
+	isFocused?: boolean;
+	showActions?: boolean;
+	onValidate?: () => void;
+	onReject?: () => void;
+	onOpen?: () => void;
 }
 
 /**
@@ -235,9 +210,156 @@ function KnowledgeListRow({
 	timestamp,
 	isPrivate,
 	onClick,
+	isFocused = false,
+	showActions = false,
+	onValidate,
+	onReject,
+	onOpen,
 }: KnowledgeListRowProps): JSX.Element {
 	const kStyle = kind ? kindBadgeStyle(kind) : null;
 	const sStyle = status ? statusBadgeStyle(status) : null;
+
+	if (showActions) {
+		// Y4: triage row — wraps in <li> for keyboard navigation and test selectors.
+		// Inline action buttons (validate/reject/open) are visible on hover or when focused.
+		return (
+			<li
+				data-focused={isFocused ? "true" : undefined}
+				className="flex items-center gap-[12px] px-[24px] py-[12px] border-b border-[var(--border-subtle)] last:border-b-0 list-none"
+				style={{
+					background: isFocused ? "rgba(44,36,26,0.04)" : undefined,
+					transition: "background var(--motion-fast) ease",
+				}}
+			>
+				<button
+					type="button"
+					className="flex-1 min-w-0 text-left cursor-pointer bg-transparent border-none p-0"
+					onClick={onOpen ?? onClick}
+				>
+					<div className="text-[15px] text-[var(--text-primary)] truncate">{title}</div>
+					{preview && (
+						<div className="text-[13px] text-[var(--text-tertiary)] truncate mt-[2px]">
+							{preview}
+						</div>
+					)}
+				</button>
+				<div className="flex items-center gap-[6px] shrink-0">
+					{isPrivate && (
+						<span
+							className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
+							style={{ background: "var(--surface-container)", color: "var(--text-secondary)" }}
+							title="Private — only visible to you"
+							data-testid="private-badge"
+						>
+							Private
+						</span>
+					)}
+					{kind && kStyle && (
+						<span
+							className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
+							style={kStyle}
+							data-testid="kind-badge"
+						>
+							{kind}
+						</span>
+					)}
+					{status && sStyle && (
+						<span
+							className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
+							style={sStyle}
+							data-testid="status-badge"
+						>
+							{status === "archived" ? "Stale" : status.charAt(0).toUpperCase() + status.slice(1)}
+						</span>
+					)}
+					{/* Y4: inline action buttons — validate, reject, open */}
+					{(onValidate ?? onReject ?? onOpen) && (
+						<div className="flex items-center gap-[3px]">
+							{onValidate && (
+								<button
+									type="button"
+									aria-label="Validate"
+									onClick={(e) => {
+										e.stopPropagation();
+										onValidate();
+									}}
+									className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[rgba(44,36,26,0.06)] border-none bg-transparent cursor-pointer"
+								>
+									<svg
+										width="14"
+										height="14"
+										viewBox="0 0 16 16"
+										fill="none"
+										stroke="currentColor"
+										strokeWidth="2"
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										aria-hidden="true"
+									>
+										<path d="M2 8l4 4 8-8" />
+									</svg>
+								</button>
+							)}
+							{onReject && (
+								<button
+									type="button"
+									aria-label="Reject"
+									onClick={(e) => {
+										e.stopPropagation();
+										onReject();
+									}}
+									className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[rgba(44,36,26,0.06)] border-none bg-transparent cursor-pointer"
+								>
+									<svg
+										width="14"
+										height="14"
+										viewBox="0 0 16 16"
+										fill="none"
+										stroke="currentColor"
+										strokeWidth="2"
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										aria-hidden="true"
+									>
+										<path d="M2 2l12 12M14 2L2 14" />
+									</svg>
+								</button>
+							)}
+							{onOpen && (
+								<button
+									type="button"
+									aria-label="Open"
+									onClick={(e) => {
+										e.stopPropagation();
+										onOpen();
+									}}
+									className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[rgba(44,36,26,0.06)] border-none bg-transparent cursor-pointer"
+								>
+									<svg
+										width="14"
+										height="14"
+										viewBox="0 0 16 16"
+										fill="none"
+										stroke="currentColor"
+										strokeWidth="2"
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										aria-hidden="true"
+									>
+										<path d="M3 8h10M8 3l5 5-5 5" />
+									</svg>
+								</button>
+							)}
+						</div>
+					)}
+					<span className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap">
+						{timestamp}
+					</span>
+				</div>
+			</li>
+		);
+	}
+
 	return (
 		<button
 			type="button"
@@ -310,6 +432,8 @@ interface KnowledgeListContentProps {
 	hintKnowledgeEmpty: ReturnType<typeof useHint>;
 	onNavigate: (id: string) => void;
 	searchQuery: string;
+	/** Y4: called when the user validates (active) or rejects (archived) a triage item. */
+	onTriageAction: (itemId: string, newStatus: "active" | "archived") => void;
 }
 
 function KnowledgeListContent({
@@ -329,7 +453,11 @@ function KnowledgeListContent({
 	hintKnowledgeEmpty,
 	onNavigate,
 	searchQuery,
+	onTriageAction,
 }: KnowledgeListContentProps): JSX.Element {
+	// Y4: keyboard navigation state for triage items (-1 = no focus)
+	const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+
 	const normalizedQuery = searchQuery.trim().toLowerCase();
 	const filteredTriageItems = normalizedQuery
 		? triageItems.filter((i) => i.title.toLowerCase().includes(normalizedQuery))
@@ -342,6 +470,69 @@ function KnowledgeListContent({
 				}))
 				.filter((g) => g.items.length > 0)
 		: grouped;
+
+	// Y4: keyboard navigation handler for triage tab
+	useEffect(() => {
+		if (tab !== "triage") return;
+
+		function handleKeyDown(e: KeyboardEvent): void {
+			const target = e.target as HTMLElement | null;
+			if (target) {
+				const tag = target.tagName.toLowerCase();
+				if (tag === "input" || tag === "textarea" || target.isContentEditable) return;
+			}
+
+			if (e.key === "j" || e.key === "ArrowDown") {
+				e.preventDefault();
+				setFocusedIndex((prev) => {
+					const next = prev + 1;
+					return next >= filteredTriageItems.length ? prev : next;
+				});
+			} else if (e.key === "k" || e.key === "ArrowUp") {
+				e.preventDefault();
+				setFocusedIndex((prev) => {
+					const next = prev - 1;
+					return next < 0 ? 0 : next;
+				});
+			} else if (e.key === "Escape") {
+				e.preventDefault();
+				setFocusedIndex(-1);
+			} else if (e.key === "v") {
+				e.preventDefault();
+				if (focusedIndex >= 0 && focusedIndex < filteredTriageItems.length) {
+					const item = filteredTriageItems[focusedIndex];
+					if (item) onTriageAction(item.id, "active");
+				}
+			} else if (e.key === "x") {
+				e.preventDefault();
+				if (focusedIndex >= 0 && focusedIndex < filteredTriageItems.length) {
+					const item = filteredTriageItems[focusedIndex];
+					if (item) onTriageAction(item.id, "archived");
+				}
+			} else if (e.key === "Enter" || e.key === "o") {
+				e.preventDefault();
+				if (focusedIndex >= 0 && focusedIndex < filteredTriageItems.length) {
+					const item = filteredTriageItems[focusedIndex];
+					if (item) onNavigate(item.id);
+				}
+			}
+		}
+
+		document.addEventListener("keydown", handleKeyDown);
+		return () => {
+			document.removeEventListener("keydown", handleKeyDown);
+		};
+	}, [tab, focusedIndex, filteredTriageItems, onTriageAction, onNavigate]);
+
+	// Y4: reset focused index when triage items change (e.g. after optimistic removal)
+	useEffect(() => {
+		setFocusedIndex((prev) => {
+			if (filteredTriageItems.length === 0) return -1;
+			if (prev >= filteredTriageItems.length) return filteredTriageItems.length - 1;
+			return prev;
+		});
+	}, [filteredTriageItems.length]);
+
 	return (
 		<div className="max-w-[800px] mx-auto w-full">
 			<fieldset
@@ -441,20 +632,61 @@ function KnowledgeListContent({
 							/>
 						</div>
 					) : (
-						filteredTriageItems.map((item) => {
-							const isPrivate = item.scopeKind === "user";
-							return (
-								<KnowledgeListRow
-									key={item.id}
-									title={item.title}
-									preview={item.body?.slice(0, 120) || null}
-									status={toKnowledgeStatus(item.status)}
-									timestamp={relativeTime(item.updatedAt)}
-									isPrivate={isPrivate}
-									onClick={() => onNavigate(item.id)}
-								/>
-							);
-						})
+						<>
+							<ul className="flex flex-col list-none m-0 p-0">
+								{filteredTriageItems.map((item, index) => {
+									const isPrivate = item.scopeKind === "user";
+									return (
+										<KnowledgeListRow
+											key={item.id}
+											title={item.title}
+											preview={item.body?.slice(0, 120) || null}
+											status={toKnowledgeStatus(item.status)}
+											timestamp={relativeTime(item.updatedAt)}
+											isPrivate={isPrivate}
+											showActions
+											isFocused={focusedIndex === index}
+											onOpen={() => onNavigate(item.id)}
+											onValidate={() => onTriageAction(item.id, "active")}
+											onReject={() => onTriageAction(item.id, "archived")}
+										/>
+									);
+								})}
+							</ul>
+							{/* Y4: keyboard hint bar — only shown when triage has items */}
+							<div
+								data-testid="triage-keyboard-hint"
+								className="flex items-center gap-[12px] px-[24px] py-[9px] border-t border-[var(--border-subtle)] text-[12px] text-[var(--text-tertiary)]"
+							>
+								<span>
+									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[4px] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
+										j
+									</kbd>
+									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[4px] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)] ml-[3px]">
+										k
+									</kbd>
+									&nbsp;navigate
+								</span>
+								<span>
+									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[4px] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
+										Enter
+									</kbd>
+									&nbsp;open
+								</span>
+								<span>
+									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[4px] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
+										v
+									</kbd>
+									&nbsp;validate
+								</span>
+								<span>
+									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[4px] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
+										x
+									</kbd>
+									&nbsp;reject
+								</span>
+							</div>
+						</>
 					)}
 				</div>
 			) : (
@@ -537,11 +769,14 @@ export function KnowledgeList({
 	const [searchParams, setSearchParams] = useSearchParams();
 	const scope = deriveScope(searchParams);
 	const sort = deriveSort(searchParams);
+	const { user } = useCurrentUser();
 
 	const [tab, setTab] = useState<KnowledgeTab>("triage");
 	const tabManuallySelectedRef = useRef(false);
 	const [selectedScopeFilter, setSelectedScopeFilter] = useState<string | null>(null);
 	const [searchQuery, setSearchQuery] = useState("");
+	// Y4: optimistic removals — items removed from triage immediately after action
+	const [optimisticRemovals, setOptimisticRemovals] = useState<Set<string>>(new Set());
 
 	const {
 		data: apiData,
@@ -561,14 +796,21 @@ export function KnowledgeList({
 		return Array.from(seen).sort();
 	}, [allItems]);
 
-	const triageItems = useMemo<ApiKnowledgeItem[]>(
-		() =>
-			sortApiItems(
-				allItems.filter((i) => i.status === "draft"),
-				sort,
-			),
-		[allItems, sort],
-	);
+	// Y4: triage includes both draft and needs_human items, sorted by attentionScore descending
+	const triageItems = useMemo<ApiKnowledgeItem[]>(() => {
+		const raw = allItems.filter(
+			(i) => (i.status === "draft" || i.status === "needs_human") && !optimisticRemovals.has(i.id),
+		);
+		// Sort by attentionScore descending — items with no score go last
+		return raw.slice().sort((a, b) => {
+			const aScore = a.signals?.attentionScore ?? null;
+			const bScore = b.signals?.attentionScore ?? null;
+			if (aScore === null && bScore === null) return 0;
+			if (aScore === null) return 1;
+			if (bScore === null) return -1;
+			return bScore - aScore;
+		});
+	}, [allItems, optimisticRemovals]);
 
 	const curatedItems = useMemo<ApiKnowledgeItem[]>(
 		() => allItems.filter((i) => i.status === "active"),
@@ -584,9 +826,49 @@ export function KnowledgeList({
 			prevScopeRef.current = scope;
 		}
 		if (tabManuallySelectedRef.current) return;
-		const hasDraft = allItems.some((i) => i.status === "draft");
-		setTab(hasDraft ? "triage" : "curated");
+		// Y4: auto-tab checks needs_human as well as draft
+		const hasTriage = allItems.some((i) => i.status === "draft" || i.status === "needs_human");
+		setTab(hasTriage ? "triage" : "curated");
 	}, [allItems, scope]);
+
+	// Y4: optimistic removal + PATCH for triage actions.
+	// @lore Y4-F01: must use apiFetch (not raw fetch) so X-API-Key is injected.
+	// @lore Y4-F02: item.version prevents 409 on items at version 2+; user.id
+	//   replaces the hardcoded "founder" so the audit trail is correct.
+	// @lore Y4-F04: on PATCH failure, item is restored to triage by removing it
+	//   from optimisticRemovals so the user can retry.
+	function handleTriageAction(itemId: string, newStatus: "active" | "archived"): void {
+		const item = allItems.find((i) => i.id === itemId);
+		const version = item?.version ?? 1;
+		const updatedBy = user?.id ?? "unknown";
+
+		setOptimisticRemovals((prev) => new Set([...prev, itemId]));
+
+		void (async (): Promise<void> => {
+			try {
+				const res = await apiFetch(`/api/knowledge/${itemId}`, {
+					method: "PATCH",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ version, updatedBy, status: newStatus }),
+				});
+				if (!res.ok) {
+					// Revert optimistic removal so the item reappears for retry
+					setOptimisticRemovals((prev) => {
+						const next = new Set(prev);
+						next.delete(itemId);
+						return next;
+					});
+				}
+			} catch {
+				// Network error — revert so the user can retry
+				setOptimisticRemovals((prev) => {
+					const next = new Set(prev);
+					next.delete(itemId);
+					return next;
+				});
+			}
+		})();
+	}
 
 	function handleSortChange(newSort: KnowledgeSortOption): void {
 		const next = new URLSearchParams(searchParams);
@@ -762,6 +1044,7 @@ export function KnowledgeList({
 						hintKnowledgeEmpty={hintKnowledgeEmpty}
 						onNavigate={(id) => navigate(`/knowledge/${id}`)}
 						searchQuery={searchQuery}
+						onTriageAction={handleTriageAction}
 					/>
 				)}
 			</div>

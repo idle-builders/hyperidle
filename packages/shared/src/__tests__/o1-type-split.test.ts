@@ -24,10 +24,11 @@ describe("O1 kernel type additions to @hyperidle/shared", () => {
 			expect("KERNEL_KNOWLEDGE_STATUSES" in sharedIndex).toBe(true);
 		});
 
-		it("has exactly 3 values", () => {
+		it("has exactly 4 values", () => {
+			// Y4: needs_human added for triage escalation (was 3)
 			const val = (sharedIndex as Record<string, unknown>)["KERNEL_KNOWLEDGE_STATUSES"];
 			expect(Array.isArray(val)).toBe(true);
-			expect((val as unknown[]).length).toBe(3);
+			expect((val as unknown[]).length).toBe(4);
 		});
 
 		it("contains draft, active, archived", () => {

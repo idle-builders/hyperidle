@@ -42,7 +42,7 @@ import {
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
 } from "@hyperidle/shared";
-import { and, eq, ne, or, sql } from "drizzle-orm";
+import { and, eq, inArray, ne, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import type { HyperIdleEnv } from "../middleware/auth.js";
@@ -50,7 +50,8 @@ import { validateBody } from "../middleware/validate.js";
 import { escapeLikePattern } from "../services/like-escape.js";
 
 // O2: status simplified to draft | active | archived
-const KNOWLEDGE_STATUSES = ["draft", "active", "archived"] as const;
+// Y4: needs_human added for triage escalation
+const KNOWLEDGE_STATUSES = ["draft", "active", "archived", "needs_human"] as const;
 
 /**
  * Q2: Scope kinds that require a scopeId from the caller.
@@ -215,6 +216,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			.select({
 				item: knowledgeItems,
 				relevanceScore: knowledgeStrategyFabric.relevanceScore,
+				attentionScore: knowledgeStrategyFabric.attentionScore,
 			})
 			.from(knowledgeItems)
 			.leftJoin(
@@ -242,7 +244,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			accessByItem.set(row.itemId, existing);
 		}
 
-		const items = rawItems.map(({ item, relevanceScore }) => {
+		const items = rawItems.map(({ item, relevanceScore, attentionScore }) => {
 			const accessRows = accessByItem.get(item.id) ?? [];
 
 			const accessCount30d = accessRows.length > 0 ? accessRows.length : null;
@@ -261,11 +263,32 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 					accessCount30d,
 					citationCount: null, // AC-3: citation staged — always null in L22
 					relevanceScore: relevanceScore ?? null,
+					// Y4: attentionScore stored as text in DB, parse to number in API response
+					attentionScore: attentionScore ? Number.parseFloat(attentionScore) : null,
 				},
 			};
 		});
 
 		return c.json({ items });
+	});
+
+	// GET /triage-count — count of draft + needs_human items visible to the requesting user.
+	// Y4: lightweight endpoint for the sidebar badge.
+	// Must be registered before /:id to avoid route conflict.
+	// @lore Y4: The filter mirrors GET / user-scope visibility: include item if scope_kind != 'user'
+	// OR updatedBy = userId. This ensures private items from other users don't inflate the count.
+	router.get("/triage-count", async (c) => {
+		const userId = c.get("userId");
+		const [result] = await db
+			.select({ count: sql<number>`count(*)` })
+			.from(knowledgeItems)
+			.where(
+				and(
+					inArray(knowledgeItems.status, ["draft", "needs_human"]),
+					or(ne(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.updatedBy, userId)),
+				),
+			);
+		return c.json({ count: Number(result?.count ?? 0) });
 	});
 
 	// GET /:id — single item, emit knowledge_accessed event
