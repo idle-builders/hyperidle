@@ -17,6 +17,19 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkTeam } from "../../pages/WorkTeam";
 
+// AgentEditDialog (rendered inside WorkTeam) calls useToast on mount.
+// These tests are about ArtifactSection mounting, not toasts — mock the hook
+// to avoid the "must be used within <ToastRegion>" error.
+// @lore AB3: Any WorkTeam render in tests needs either a <ToastRegion> wrapper
+// or a useToast mock, because AgentEditDialog always mounts inside WorkTeam.
+vi.mock("../../shell/ToastRegion.js", async () => {
+	const actual = await vi.importActual("../../shell/ToastRegion.js");
+	return {
+		...actual,
+		useToast: vi.fn(() => ({ showToast: vi.fn() })),
+	};
+});
+
 // Mock ArtifactSection to capture props.
 // useArtifactOpen must also be exported since WorkTeamLoaded calls it.
 // @lore U1: ArtifactFilterAxis for "product" axis uses `teamId` (not `productId`).

@@ -7,10 +7,23 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 // @lore U5: WorkProduct renamed to WorkTeam; import updated.
 import { WorkTeam } from "../pages/WorkTeam";
+
+// AgentEditDialog (rendered inside WorkTeam) calls useToast on mount.
+// These tests are about WorkTeam rendering, not toasts — mock the hook to avoid
+// the "must be used within <ToastRegion>" error.
+// @lore AB3: Any WorkTeam render in tests needs either a <ToastRegion> wrapper
+// or a useToast mock, because AgentEditDialog always mounts inside WorkTeam.
+vi.mock("../shell/ToastRegion.js", async () => {
+	const actual = await vi.importActual("../shell/ToastRegion.js");
+	return {
+		...actual,
+		useToast: vi.fn(() => ({ showToast: vi.fn() })),
+	};
+});
 
 /**
  * @lore U1: TeamDetail shape replaces ProductDetail.
@@ -105,13 +118,12 @@ describe("WorkTeam", () => {
 		expect(screen.getByTestId("team-active-bets-empty")).toBeInTheDocument();
 	});
 
-	it("4. renders one roster row per agent; lead row has data-is-lead='true'", () => {
+	// @lore AB3: Roster rows replaced by AgentCards (data-testid="agent-card").
+	// The old team-roster-row testid no longer exists; agent cards are interactive buttons.
+	it("4. renders one agent card per roster member", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
-		const rosterRows = screen.getAllByTestId("team-roster-row");
-		expect(rosterRows).toHaveLength(2);
-		// Lead row has data-is-lead
-		const leadRow = rosterRows.find((row) => row.getAttribute("data-is-lead") === "true");
-		expect(leadRow).toBeDefined();
+		const agentCards = screen.getAllByTestId("agent-card");
+		expect(agentCards).toHaveLength(2);
 	});
 
 	it("5. renders the burn-vs-cap with a progress element", () => {
