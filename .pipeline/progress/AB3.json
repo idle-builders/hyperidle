@@ -1,0 +1,17 @@
+{
+  "id": "AB3",
+  "title": "Agent Setup Wizard",
+  "track": "AB",
+  "status": "blocked",
+  "currentStep": "blocked",
+  "blockedReason": "concept-rework-needed: agent role model, strategy-shipped defaults, SOUL vs AGENT.md composition all need upstream concept work (AB0)",
+  "startedAt": "2026-06-05T00:00:00Z",
+  "phases": {
+    "design": "done",
+    "critique": "done",
+    "build": "done",
+    "review": "done",
+    "retro": "done",
+    "ship": "done"
+  }
+}
