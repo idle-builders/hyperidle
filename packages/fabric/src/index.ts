@@ -352,7 +352,7 @@ export {
 	DEFAULT_RELEVANCE_CONFIG,
 } from "./relevance-engine.js";
 export { rankAndBudget, scoreItem } from "./relevance-scoring.js";
-export { ROLE_TO_COMMUNITY } from "./role-community-map.js";
+export { communityForRole } from "./role-community-map.js";
 export type {
 	AttentionWeights,
 	ScoringContext,

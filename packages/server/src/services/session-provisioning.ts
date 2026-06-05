@@ -25,7 +25,6 @@ import {
 	scaleForCurrency,
 	type TaskState,
 	type TierTokenCount,
-	type UserRole,
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
 import type { AdapterPool } from "../harness/adapter-pool.js";
@@ -226,7 +225,7 @@ export async function provisionSession(
 	if (!agent) {
 		throw new Error(`Agent not found: ${params.agentId}`);
 	}
-	const agentRole = agent.role as UserRole;
+	const agentRole = agent.role;
 	const teamId = agent.teamId ?? undefined;
 
 	// X3: Read soul prompt inline from DB column. No file read required.

@@ -16,7 +16,7 @@
  * array does not include the X3 config fields (soulPrompt, harnessType, etc.).
  */
 
-import { MODEL_TIERS, USER_ROLES } from "@hyperidle/shared";
+import { AGENT_ROLE_CATALOG, MODEL_TIERS } from "@hyperidle/shared";
 // hearth-internal-padding
 import { Fragment, type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
@@ -363,9 +363,9 @@ export function SettingsAgents(): JSX.Element {
 															}
 															aria-label="Role"
 														>
-															{USER_ROLES.map((r) => (
-																<option key={r} value={r}>
-																	{r}
+															{AGENT_ROLE_CATALOG.map((entry) => (
+																<option key={entry.role} value={entry.role}>
+																	{entry.label}
 																</option>
 															))}
 														</select>
@@ -526,9 +526,9 @@ export function SettingsAgents(): JSX.Element {
 								}}
 								aria-label="Role"
 							>
-								{USER_ROLES.map((r) => (
-									<option key={r} value={r}>
-										{r}
+								{AGENT_ROLE_CATALOG.map((entry) => (
+									<option key={entry.role} value={entry.role}>
+										{entry.label}
 									</option>
 								))}
 							</select>

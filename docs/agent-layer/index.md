@@ -18,6 +18,7 @@ For where agents *run* (harnesses, workspaces, skills, durability), see `RESEARC
 ## Sections
 
 - [Principles](./principles.md)
+- [Agent Structure](./agent-structure.md)
 - [Agent Identity](./agent-identity.md)
 - [The Two Categories](./the-two-categories.md)
 - [Lifecycle Scaling](./lifecycle-scaling.md)

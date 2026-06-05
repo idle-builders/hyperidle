@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { HyperIdleDb } from "./connection.js";
 import {
 	bets,
@@ -61,9 +61,16 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 
 	// @lore U1: insert into `teams` (formerly `products`).
+	// AB0: functions column added to teams to determine the default agent roster.
 	await db
 		.insert(teams)
-		.values({ id: "seed-product-1", name: "Nimmly", phase: "build", createdAt: now })
+		.values({
+			id: "seed-product-1",
+			name: "Nimmly",
+			phase: "build",
+			functions: JSON.stringify(["development", "product"]),
+			createdAt: now,
+		})
 		.onConflictDoNothing();
 
 	// @lore U1: insert into `teamMembers` (formerly `teams`). Column `teamId` (formerly `productId`).
@@ -101,6 +108,7 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 			kind: "ai",
 			name: "Nimmly Builder",
 			role: "builder",
+			agentCategory: "team",
 			status: "active",
 			maxConcurrentSessions: 3,
 			teamId: "seed-team-1",
@@ -115,6 +123,7 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 			kind: "ai",
 			name: "Chief of Staff",
 			role: "chief_of_staff",
+			agentCategory: "personal",
 			status: "active",
 			maxConcurrentSessions: 1,
 			createdAt: now,
@@ -124,6 +133,7 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 	// L20: system:propagation user — authors review threads when bets enter review.
 	// FK constraint: messages.senderId references users.id. This user must exist
 	// before any propagation-triggered review thread can be created.
+	// AB0: system users have null agentCategory (they are not real agents).
 	await db
 		.insert(users)
 		.values({
@@ -131,6 +141,7 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 			kind: "ai",
 			name: "Propagation System",
 			role: "system",
+			agentCategory: null,
 			status: "active",
 			maxConcurrentSessions: 1,
 			createdAt: now,
@@ -155,6 +166,7 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 			kind: "ai",
 			name: "Nimmly Product Manager",
 			role: "product_manager",
+			agentCategory: "team",
 			teamId: "seed-team-1",
 			status: "active",
 			maxConcurrentSessions: 1,
@@ -176,6 +188,7 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 				kind: "ai",
 				name: `${COMMUNITY_DISPLAY_NAMES[community]} Practice Facilitator`,
 				role: "practice_facilitator",
+				agentCategory: "strategy",
 				teamId: null,
 				status: "active",
 				maxConcurrentSessions: 1,
@@ -245,10 +258,16 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 	// missing, the template is silently skipped (graceful degradation). Process
 	// CWD during seeding is the monorepo root where docs/ lives.
 	const docsRoot = path.resolve(process.cwd(), "docs");
+	// AB0: Extended with new role templates for builder, growth, designer, qa_engineer, ops.
 	const soulTemplates: Array<{ role: string; filename: string }> = [
 		{ role: "product_manager", filename: "product-manager.md" },
 		{ role: "practice_facilitator", filename: "practice-facilitator.md" },
 		{ role: "chief_of_staff", filename: "chief-of-staff.md" },
+		{ role: "builder", filename: "builder.md" },
+		{ role: "growth", filename: "growth.md" },
+		{ role: "designer", filename: "designer.md" },
+		{ role: "qa_engineer", filename: "qa-engineer.md" },
+		{ role: "ops", filename: "ops.md" },
 	];
 
 	const templateValues: Record<string, string> = {};
@@ -272,18 +291,36 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 	}
 
 	// X3: Backfill soulPrompt on existing agent rows from role-based templates.
+	// AB0: Extended to include new template roles.
 	// Idempotent: overwrites on repeated seed runs with the same template content.
-	// Agents without a matching template (builder, growth, system) are not updated.
-	const roleToTemplate: Record<string, string | undefined> = {
-		product_manager: templateValues.product_manager,
-		practice_facilitator: templateValues.practice_facilitator,
-		chief_of_staff: templateValues.chief_of_staff,
-	};
+	for (const [role, template] of Object.entries(templateValues)) {
+		await db.update(users).set({ soulPrompt: template }).where(eq(users.role, role));
+	}
 
-	for (const [role, template] of Object.entries(roleToTemplate)) {
-		if (template !== undefined) {
-			await db.update(users).set({ soulPrompt: template }).where(eq(users.role, role));
-		}
+	// AB0: Backfill agentCategory on existing agents (idempotent — safe to re-run).
+	const categoryByRole: Record<string, string> = {
+		builder: "team",
+		growth: "team",
+		product_manager: "team",
+		brand_voice: "team",
+		designer: "team",
+		qa_engineer: "team",
+		ops: "team",
+		support: "team",
+		sales: "team",
+		content: "team",
+		data_analyst: "team",
+		practice_facilitator: "strategy",
+		scout: "strategy",
+		infra: "strategy",
+		platform: "strategy",
+		chief_of_staff: "personal",
+	};
+	for (const [role, category] of Object.entries(categoryByRole)) {
+		await db
+			.update(users)
+			.set({ agentCategory: category })
+			.where(and(eq(users.role, role), eq(users.kind, "ai")));
 	}
 
 	// P2: founder_id, founder_name, founder_email factorySettings keys removed.

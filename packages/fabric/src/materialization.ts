@@ -5,7 +5,7 @@ import type { UserRole } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { list } from "./knowledge-repository.js";
 import { rankAndBudget } from "./relevance-scoring.js";
-import { ROLE_TO_COMMUNITY } from "./role-community-map.js";
+import { communityForRole } from "./role-community-map.js";
 import type { ScoringContext } from "./scoring-config.js";
 import { DEFAULT_KNOWLEDGE_BUDGET, loadScoringWeights } from "./scoring-config.js";
 import { buildSessionContext } from "./session-context.js";
@@ -170,7 +170,7 @@ export async function materialize(
 	const manifestItems: Record<string, ManifestEntry> = {};
 
 	// Fetch all items by layer
-	const community = ROLE_TO_COMMUNITY[config.agentRole];
+	const community = communityForRole(config.agentRole);
 	const [l4Items, l2Items, l3Items] = await Promise.all([
 		fetchAllForLayer(db, "L4"),
 		fetchAllForLayer(db, "L2", config.productId),

@@ -18,7 +18,7 @@
 
 import { randomUUID } from "node:crypto";
 import { factorySettings, type HyperIdleDb, sessions, users } from "@hyperidle/db";
-import { MODEL_TIERS, USER_ROLES } from "@hyperidle/shared";
+import { AGENT_CATEGORIES, findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/shared";
 import { and, count, eq, ne } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
@@ -30,7 +30,8 @@ import type { HyperIdleEnv } from "../middleware/auth.js";
 
 const createAgentSchema = z.object({
 	name: z.string().min(1).max(200),
-	role: z.enum(USER_ROLES),
+	role: z.string().min(1).max(100),
+	agentCategory: z.enum(AGENT_CATEGORIES).optional(),
 	soulPrompt: z.string().max(50_000).nullable().optional(),
 	harnessType: z.string().max(100).nullable().optional(),
 	modelTierPreference: z.enum(MODEL_TIERS).nullable().optional(),
@@ -40,7 +41,7 @@ const createAgentSchema = z.object({
 
 const patchAgentSchema = z.object({
 	name: z.string().min(1).max(200).optional(),
-	role: z.enum(USER_ROLES).optional(),
+	role: z.string().min(1).max(100).optional(),
 	soulPrompt: z.string().max(50_000).nullable().optional(),
 	harnessType: z.string().max(100).nullable().optional(),
 	modelTierPreference: z.enum(MODEL_TIERS).nullable().optional(),
@@ -119,6 +120,7 @@ export function createAgentRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 			id: agent.id,
 			name: agent.name,
 			role: agent.role,
+			agentCategory: agent.agentCategory ?? null,
 			soulPrompt: agent.soulPrompt ?? null,
 			harnessType: agent.harnessType ?? null,
 			modelTierPreference: agent.modelTierPreference ?? null,
@@ -151,11 +153,16 @@ export function createAgentRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		const id = randomUUID();
 		const now = new Date().toISOString();
 
+		// Derive agentCategory: explicit field > catalog lookup > default "team"
+		const catalogEntry = findRoleCatalogEntry(data.role);
+		const agentCategory = data.agentCategory ?? catalogEntry?.category ?? "team";
+
 		await db.insert(users).values({
 			id,
 			kind: "ai",
 			name: data.name,
 			role: data.role,
+			agentCategory,
 			status: "active",
 			soulPrompt: data.soulPrompt ?? null,
 			harnessType: data.harnessType ?? null,
@@ -170,6 +177,7 @@ export function createAgentRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 				id,
 				name: data.name,
 				role: data.role,
+				agentCategory,
 				soulPrompt: data.soulPrompt ?? null,
 				harnessType: data.harnessType ?? null,
 				modelTierPreference: data.modelTierPreference ?? null,
@@ -233,6 +241,7 @@ export function createAgentRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 			id: updated.id,
 			name: updated.name,
 			role: updated.role,
+			agentCategory: updated.agentCategory ?? null,
 			soulPrompt: updated.soulPrompt ?? null,
 			harnessType: updated.harnessType ?? null,
 			modelTierPreference: updated.modelTierPreference ?? null,
