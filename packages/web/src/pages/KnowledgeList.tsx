@@ -41,8 +41,10 @@ import { KNOWLEDGE_SORT_OPTIONS } from "@hyperidle/fabric/types";
 import { type JSX, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { KnowledgeTopicGroup } from "../components/KnowledgeTopicGroup";
+import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useFetch } from "../hooks/useFetch";
 import { useHint } from "../hooks/useHints";
+import { apiFetch } from "../services/api-fetch.js";
 import { relativeTime } from "../utils/relative-time";
 
 type KnowledgeTab = "triage" | "curated";
@@ -480,13 +482,13 @@ function KnowledgeListContent({
 				if (tag === "input" || tag === "textarea" || target.isContentEditable) return;
 			}
 
-			if (e.key === "j") {
+			if (e.key === "j" || e.key === "ArrowDown") {
 				e.preventDefault();
 				setFocusedIndex((prev) => {
 					const next = prev + 1;
 					return next >= filteredTriageItems.length ? prev : next;
 				});
-			} else if (e.key === "k") {
+			} else if (e.key === "k" || e.key === "ArrowUp") {
 				e.preventDefault();
 				setFocusedIndex((prev) => {
 					const next = prev - 1;
@@ -507,6 +509,12 @@ function KnowledgeListContent({
 					const item = filteredTriageItems[focusedIndex];
 					if (item) onTriageAction(item.id, "archived");
 				}
+			} else if (e.key === "Enter" || e.key === "o") {
+				e.preventDefault();
+				if (focusedIndex >= 0 && focusedIndex < filteredTriageItems.length) {
+					const item = filteredTriageItems[focusedIndex];
+					if (item) onNavigate(item.id);
+				}
 			}
 		}
 
@@ -514,7 +522,7 @@ function KnowledgeListContent({
 		return () => {
 			document.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [tab, focusedIndex, filteredTriageItems, onTriageAction]);
+	}, [tab, focusedIndex, filteredTriageItems, onTriageAction, onNavigate]);
 
 	// Y4: reset focused index when triage items change (e.g. after optimistic removal)
 	useEffect(() => {
@@ -661,6 +669,12 @@ function KnowledgeListContent({
 								</span>
 								<span>
 									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[4px] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
+										Enter
+									</kbd>
+									&nbsp;open
+								</span>
+								<span>
+									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[4px] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
 										v
 									</kbd>
 									&nbsp;validate
@@ -755,6 +769,7 @@ export function KnowledgeList({
 	const [searchParams, setSearchParams] = useSearchParams();
 	const scope = deriveScope(searchParams);
 	const sort = deriveSort(searchParams);
+	const { user } = useCurrentUser();
 
 	const [tab, setTab] = useState<KnowledgeTab>("triage");
 	const tabManuallySelectedRef = useRef(false);
@@ -816,14 +831,43 @@ export function KnowledgeList({
 		setTab(hasTriage ? "triage" : "curated");
 	}, [allItems, scope]);
 
-	// Y4: optimistic removal + fire-and-forget PATCH for triage actions
+	// Y4: optimistic removal + PATCH for triage actions.
+	// @lore Y4-F01: must use apiFetch (not raw fetch) so X-API-Key is injected.
+	// @lore Y4-F02: item.version prevents 409 on items at version 2+; user.id
+	//   replaces the hardcoded "founder" so the audit trail is correct.
+	// @lore Y4-F04: on PATCH failure, item is restored to triage by removing it
+	//   from optimisticRemovals so the user can retry.
 	function handleTriageAction(itemId: string, newStatus: "active" | "archived"): void {
+		const item = allItems.find((i) => i.id === itemId);
+		const version = item?.version ?? 1;
+		const updatedBy = user?.id ?? "unknown";
+
 		setOptimisticRemovals((prev) => new Set([...prev, itemId]));
-		void fetch(`/api/knowledge/${itemId}`, {
-			method: "PATCH",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ version: 1, updatedBy: "founder", status: newStatus }),
-		});
+
+		void (async (): Promise<void> => {
+			try {
+				const res = await apiFetch(`/api/knowledge/${itemId}`, {
+					method: "PATCH",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ version, updatedBy, status: newStatus }),
+				});
+				if (!res.ok) {
+					// Revert optimistic removal so the item reappears for retry
+					setOptimisticRemovals((prev) => {
+						const next = new Set(prev);
+						next.delete(itemId);
+						return next;
+					});
+				}
+			} catch {
+				// Network error — revert so the user can retry
+				setOptimisticRemovals((prev) => {
+					const next = new Set(prev);
+					next.delete(itemId);
+					return next;
+				});
+			}
+		})();
 	}
 
 	function handleSortChange(newSort: KnowledgeSortOption): void {
