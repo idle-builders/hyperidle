@@ -138,22 +138,63 @@ Simple interactions with few parameters and straightforward behavior. A small nu
 - **write_session_notes** — Append vs overwrite, dual persistence (file + DB). Universal, simple.
 - **log_task** — Append-only prose with timestamp prefix. Minimal variants.
 
-## Roles
+## Roles (AB0 role model)
 
-HyperIdle defines 6 agent roles. These are NOT job titles — they control tool authorization. The same role can operate in any domain. A builder doing DevOps uses the same tools as a builder doing frontend work. The differentiation is in the soul prompt and task context.
+AB0 restructured the agent role system from 6 hard-coded roles to 16 catalog roles across 3 structural categories. Roles are now **open strings** — any non-empty string is a valid role. The catalog provides metadata for known roles, but custom roles are allowed.
 
-| Role | Authorization tier | Unique capability |
-|------|-------------------|-------------------|
-| `builder` | Standard (11 tools) | Produces artifacts, reviews work |
-| `growth` | Standard (11 tools) | Same tools as builder, different judgment |
-| `brand_voice` | Standard (11 tools) | Same tools, brand consistency judgment |
-| `product_manager` | Facilitator (15 tools) | Coordinates, curates, promotes knowledge |
-| `practice_facilitator` | Facilitator (15 tools) | Curates practice knowledge per community |
-| `chief_of_staff` | Facilitator (15 tools) | Cross-product synthesis, coaching, owns system routines |
+### Three agent categories
 
-Every role must be exercised. The brand_voice role is particularly important because its value is in judgment quality (brand consistency), not tool usage. The CoS and PF are critical for routine and knowledge workflow interactions — those are their primary work patterns.
+| Category | Binding | Example roles | Provisioning |
+|----------|---------|---------------|-------------|
+| **Team** | Bound to a team via `teamId` | builder, designer, pm, qa, growth, brand_voice, ops, support, sales, content, data_analyst | Auto-provisioned per team based on team functions |
+| **Strategy** | Factory-wide, no team binding | practice_facilitator, scout, infra, platform | Provisioned once at factory setup |
+| **Personal** | Per-user, no team binding | chief_of_staff | Provisioned per founder |
 
-What matters more than role count is **soul prompt diversity within roles**. A builder with a DevOps soul prompt exercises different judgment than a builder with a frontend soul prompt.
+### 16 catalog roles
+
+**Team agents (11 roles):**
+
+| Role | Community | Team functions | Soul prompt |
+|------|-----------|----------------|-------------|
+| `builder` | building | development | Yes |
+| `designer` | building | design | Yes |
+| `product_manager` | product | product | Yes |
+| `qa_engineer` | building | development | Yes |
+| `growth` | growth | marketing | Yes |
+| `brand_voice` | growth | marketing | No template |
+| `ops` | ops | operations | Yes |
+| `support` | ops | support | No template |
+| `sales` | growth | sales | No template |
+| `content` | growth | marketing | No template |
+| `data_analyst` | product | research | No template |
+
+**Strategy agents (4 roles):**
+
+| Role | Community | Description |
+|------|-----------|-------------|
+| `practice_facilitator` | ops | L3 facilitator per community |
+| `scout` | product | Market analyst |
+| `infra` | ops | SRE / infrastructure |
+| `platform` | building | DX engineer / CI/CD |
+
+**Personal agents (1 role):**
+
+| Role | Community | Description |
+|------|-----------|-------------|
+| `chief_of_staff` | ops | L4 facilitator, factory-wide |
+
+### Tool authorization
+
+Tool authorization is community-based. The community is derived from the role via `communityForRole(role)`. Facilitator-only tools (route_item, score_attention, promote_knowledge, create_conflict_review) are restricted to facilitator communities. The authorization model didn't change in AB0 — only the role-to-community mapping now goes through the catalog instead of a static record.
+
+### Eval implications
+
+- All 16 catalog roles should be exercised where they create genuinely different judgment patterns
+- The `agentCategory` field must be set correctly in seeding (team agents need `teamId`, strategy/personal don't)
+- Team `functions` field determines default roster — eval scenarios should seed teams with appropriate functions
+- New roles with soul prompts (designer, qa_engineer, ops) offer fresh evaluation surfaces
+- Roles without soul prompt templates (brand_voice, support, sales, content, data_analyst) test whether agents function without persona guidance
+- Custom/unknown roles get base tools and no template — worth testing as an edge case
 
 ## Domains
 
