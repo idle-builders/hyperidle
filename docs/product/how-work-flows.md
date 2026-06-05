@@ -1,111 +1,110 @@
 # How Work Flows
 
-HyperIdle has five process primitives: Team, Bet, Task, Session, and Routine. Everything else in the process layer is mechanics on top of these. There are no workflows, no DAGs, no central planner, no duration caps. Sequences emerge from task dependencies, not from pre-wired graphs.
+HyperIdle has five process primitives. Everything else is mechanics on top of these. There are no workflows, no DAGs, no central planner. Sequences emerge from task dependencies, not pre-wired graphs.
+
+| Primitive | What it is | Lifespan |
+|-----------|-----------|----------|
+| **Team** | Agents bound to a product | Life of the product |
+| **Bet** | Shaped work with a done condition and money appetite | Until shipped or killed |
+| **Task** | One agent's unit of work within a bet | Until done or killed |
+| **Session** | One bounded run of an agent on a task | One context window |
+| **Routine** | Recurring trigger with persistent memory | Until retired |
 
 ---
 
-## Teams: persistent, product-bound
+## Teams persist across products, not per task
 
 A team is a small group of agents bound to a product — not to a bet, not to a project. The Nimmly team works on Nimmly. The Ambrovia team works on Ambrovia. Both teams exist for the life of their respective products.
 
-This is the single biggest departure from how most agent frameworks work. CrewAI forms a crew per task. LangGraph assembles a graph per invocation. HyperIdle forms a team per product. The reason is simple: teams that ship together accumulate context.
+This is the biggest departure from agent frameworks. CrewAI forms a crew per task. LangGraph assembles a graph per invocation. HyperIdle forms a team per product because teams that ship together accumulate context.
 
-The Nimmly Builder agent that shipped auth in January ships payments in March. It has read every Nimmly decision, every Nimmly failure, every Nimmly architecture document. That context is why the second bet is faster than the first, and the tenth is faster than the second. Dissolving the team after one bet throws all of that away.
+The Nimmly Builder that shipped auth in January ships payments in March. It has read every Nimmly decision, failure, and architecture document. That context is why the tenth bet is faster than the first.
 
-A typical team includes: a Product Manager (the team lead), one or more Builders, a Growth Agent, and an Ops Agent. The roster flexes with the product's lifecycle phase — a product in discovery needs different coverage than one in maintenance. Agents belong to exactly one team. An agent that's needed on a new product must finish its work on the current one and transfer cleanly.
-
----
-
-## Bets: shaped, committed, time-boxed
-
-Work comes in as bets. A bet is a shaped, committed piece of work with an explicit done condition and a money appetite.
-
-**Shape first.** The Product Manager writes a pitch: the problem, what success looks like, rough scope, things explicitly out of scope ("no-gos"), rabbit holes to watch for. The pitch lands on the Work view canvas as a shaped card. No tasks yet. No decomposition. Just a description of what the team is betting on.
-
-**Then commit.** The founder moves a pitch from the shaped column to the committed column. At that moment, a done condition is drafted — an explicit statement of what "done" means for this bet — and the team begins work. A bet is not in progress until it has a done condition. Vague done conditions are the most common reason bets drift.
-
-**Money appetite, not duration.** A bet has a cost cap in real currency (for example, $800 USD). It never has a deadline or a sprint length. The `created_at` and `shipped_at` dates are recorded for retros; their delta is informational. The budget axis is money only. This forces honest trade-offs: if the work costs more than the appetite allows, something has to change — the scope, the approach, or the decision to continue.
-
-**Bets can change.** Done conditions can be revised. Hypotheses can be updated. But every change goes through a review thread. The Product Manager drafts the revision and the reasoning; the founder approves, requests changes, or rejects. Every change is logged with timestamp and reasoning. The discipline is the audit trail, not the rigidity.
-
-**No backlog.** Shaped pitches that are not committed in two cycles expire. There is no "later" pile. This is intentional. An idea that isn't worth committing to now either needs reshaping or should not be done.
+A typical team: a Product Manager (team lead), one or more Builders, a Growth Agent, and an Ops Agent. The roster flexes with the product's lifecycle phase. Agents belong to exactly one team. An agent needed on a new product must finish its current work and transfer cleanly.
 
 ---
 
-## Tasks: the unit of agent work
+## Bets carry a money appetite, not a deadline
 
-Once a bet is committed, each team member decomposes their part of it. This is decentralized by design.
+Work comes in as bets. A bet is a shaped, committed piece of work with an explicit done condition and a cost cap in real currency (e.g., $800 USD).
 
-The Builder looks at the pitch and the done condition, queries its practice knowledge for "what tasks does shipping an auth integration typically involve," and proposes the tasks it will own. The Growth Agent does the same for its work stream. The Ops Agent does the same for deployment. Each member proposes the tasks they understand, drawing on practice knowledge from previous bets across all products.
+**Shape first.** The Product Manager writes a pitch: the problem, what success looks like, rough scope, explicit no-gos, rabbit holes to watch for. The pitch lands on the Work view canvas as a shaped card. No tasks yet.
 
-The Product Manager reviews the assembled task list, deduplicates overlap, identifies gaps, and accepts or asks for revision. This is intra-team — no human review at this stage. Once accepted, agents begin sessions.
+**Then commit.** The founder moves a pitch from shaped to committed. At that moment, a done condition is drafted and the team begins. A bet is not in progress until it has a done condition. Vague done conditions are the most common reason bets drift.
+
+**Money is the budget axis.** No deadlines or sprint lengths. The `created_at` and `shipped_at` dates are recorded for retros — their delta is informational. This forces honest trade-offs: if the work costs more than the appetite allows, something changes.
+
+**Changes go through review.** Done conditions can be revised. Hypotheses can be updated. But the Product Manager drafts the revision and the founder approves, requests changes, or rejects. Every change is logged with timestamp and reasoning.
+
+**No backlog.** Shaped pitches not committed in two cycles expire. There is no "later" pile. An idea not worth committing to now either needs reshaping or should not be done.
+
+---
+
+## Tasks: agents decompose their own work
+
+Once a bet is committed, each team member decomposes their part. This is decentralized by design.
+
+The Builder looks at the pitch and done condition, queries its practice knowledge, and proposes the tasks it will own. The Growth Agent does the same for its work stream. The Product Manager reviews the assembled list, deduplicates, identifies gaps, and accepts or asks for revision. No human review at this stage.
 
 Each task has:
-- An owner (the agent responsible right now)
+- An owner (the responsible agent)
 - A state: proposed, accepted, hold, in-progress, blocked, review, done, or killed
 - A done condition (task-level, explicit)
 - A cost cap (money)
-- An optional thread for discussion
+- An optional discussion thread
 - Artifacts it has produced
 
-**Example.** The task "Implement Stripe webhook handler" is owned by Mika (the Nimmly Builder). It depends on "Define payment schema," which must be done before Mika can start. Its done condition is "webhook endpoint returns 200 for all test events and logs the payload to the canonical store." Its cost cap is $12. When Mika completes the task, she produces a code artifact (the handler file and its tests), and the dependent task "Connect payments UI to API" moves from hold to accepted automatically.
+**Example.** Mika (the Nimmly Builder) owns "Implement Stripe webhook handler." It depends on "Define payment schema," which must finish first. Done condition: "webhook endpoint returns 200 for all test events and logs to the canonical store." Cost cap: $12. When Mika completes it, the dependent task "Connect payments UI to API" moves from hold to accepted automatically.
 
-Tasks are the unique producers of artifacts. A task that builds the signup flow produces a code artifact. A task that writes the landing page copy produces a content artifact. The bet aggregates these for display; it does not own them.
+Tasks are the unique producers of artifacts. A task that builds the signup flow produces a code artifact. A task that writes landing page copy produces a content artifact. The bet aggregates these; it does not own them.
 
-**No central planner.** There is no orchestrator agent that decides what all the other agents should do. The Product Manager integrates and unblocks; it does not micromanage. Sequences emerge from task dependencies: when task A completes, dependent tasks that were on hold move to accepted automatically. The Dependency Watcher handles this — no agent intervention required.
-
----
-
-## Sessions: bounded runs
-
-A session is one agent's bounded run on a task. When an agent picks up a task, it starts a session. When the agent's context window is about to compact, the session ends. The agent writes session notes, and a new session can pick up where the last one left off.
-
-A task can span many sessions. Mika (a Builder agent) works a session on the Nimmly payments task, makes progress, hits a question about the Stripe fee structure, and hands off to a human. The human answers. Mika starts a new session and continues. Two weeks later, the original session's notes and all handoff history are still there.
-
-Sessions are how HyperIdle gets resumability without locking the model into a single long-running process. The agent's memory persists between sessions through its product knowledge (L2) and its practice knowledge (L3). The session is the contract between the task and the execution — not a long-running daemon.
+**No central planner.** There is no orchestrator agent deciding what all agents should do. The Product Manager integrates and unblocks but does not micromanage. Sequences emerge from task dependencies: when task A completes, dependent tasks on hold move to accepted. The Dependency Watcher handles this automatically.
 
 ---
 
-## Handoffs: runtime coordination
+## Sessions: bounded runs with resumability
 
-Agents decide at runtime when to transfer work. There is no pre-wired routing.
+A session is one agent's bounded run on a task. When an agent picks up a task, it starts a session. When the context window is about to compact, the session ends. The agent writes session notes. A new session picks up where the last left off.
 
-When Mika finishes the backend API for a new feature and the work moves to a frontend task, Mika calls a handoff with a structured message: what was done, what the artifacts are, what remains, and who should pick it up next. The handoff can specify a specific agent by ID, or a role ("builder with frontend skills"). If a role is specified, the Product Manager resolves it to the best available agent.
+A task can span many sessions. Mika works a session on Nimmly payments, makes progress, hits a question about Stripe fee structure, and hands off to a human. The human answers. Mika starts a new session and continues. Two weeks later, the original session notes and handoff history are still there.
 
-Handoffs to humans work the same way. When an agent hits something it cannot resolve alone — a product decision, an approval for a risky action — it creates a handoff with `to: human` and `reason: blocked`. The task moves to blocked. The human replies; the task moves back to in-progress.
-
-This is the same shape as a code review: the agent is not failing, it is asking for judgment at exactly the point where judgment is needed. Humans are identities in the same matrix as agents, not a special category outside it.
-
-**Cross-team work** uses the same infrastructure. The Nimmly team needs a new endpoint from the platform team. The Nimmly Product Manager opens a chat thread to the Platform Product Manager, explains the need, and they agree on a cross-team task. The task lives on the Nimmly bet (so the done condition tracks it) but the work happens inside the platform team's rhythm. When done, the artifact lands where Nimmly expects it.
+The agent's memory persists between sessions through product knowledge (L2) and practice knowledge (L3). Sessions give resumability without locking the model into a single long-running process.
 
 ---
 
-## Routines: recurring work with memory
+## Handoffs: agents decide when to transfer work
 
-A routine is a recurring trigger attached to a named agent, with persistent state across runs. Three trigger shapes: calendar-shaped (every Monday at 9am), event-shaped (every time a landing page artifact ships, run brand-voice review), or heartbeat-shaped (every hour, check cost burn).
+There is no pre-wired routing. When Mika finishes a backend API and the work moves to a frontend task, she calls a handoff with a structured message: what was done, what artifacts exist, what remains, who should pick it up. The handoff can specify an agent by ID or a role ("builder with frontend skills").
 
-Every routine has a named owner who holds the thread of memory. Helena, the Practice Facilitator for Building, owns the "weekly growth metrics review" routine. Every Monday at 9am, Helena checks what campaigns shipped last week across all products, compares conversion numbers against the growth practice benchmarks, and posts a summary to the Chief of Staff's thread. When Helena found that Ambrovia's email open rates dropped 15% after a subject-line change, she flagged it as a review item for the founder.
+Handoffs to humans work the same way. When an agent hits something it cannot resolve — a product decision, an approval for a risky action — it creates a handoff with `to: human` and `reason: blocked`. The task moves to blocked. The human replies; the task resumes.
 
-That doesn't mean Helena runs every execution — it means Helena holds the context ("what I watched last week, what I found, what I want to check this time"). If Helena is overloaded and delegation is allowed, a teammate with the right skill picks up the execution and writes back into Helena's memory state. The ownership and the memory are preserved; the execution can flex.
-
-Routines can also run as sleep-time passes: memory updates with no review thread produced. An agent stays current on its practice without consuming attention. When it needs to ship a copy review, its context is already up to date.
-
-Adding a routine is always a human review item. A misconfigured routine can burn cost silently. Routines that no longer produce anything actionable are candidates for retirement — the Chief of Staff flags these and the founder prunes them in the Knowledge view.
+**Cross-team work** uses the same mechanism. The Nimmly team needs a platform endpoint. The Nimmly PM opens a chat thread to the Platform PM. They agree on a cross-team task. It lives on the Nimmly bet for tracking but the work happens inside the platform team's rhythm.
 
 ---
 
-## What HyperIdle does not have
+## Routines: recurring work with persistent memory
 
-These are deliberate absences:
+A routine is a recurring trigger attached to a named agent, with state that persists across runs. Three trigger shapes:
 
-**No workflows or DAGs.** There is no "if task A then task B then task C" graph. Task dependencies create natural sequencing. But the content of those dependencies is decided by the team based on what the work actually requires — not by a pre-wired graph.
+- **Calendar** — every Monday at 9am
+- **Event** — every time a landing page ships, run brand-voice review
+- **Heartbeat** — every hour, check cost burn
 
-**No duration caps on bets or tasks.** Deadlines are informational telemetry. Money is the budget axis. If a bet is taking longer than expected, the right question is whether the cost is still within appetite — not whether a calendar date has passed.
+Every routine has a named owner who holds the thread of memory. Helena (the Practice Facilitator for Growth) owns "weekly growth metrics review." Every Monday she checks what campaigns shipped, compares conversion numbers against practice benchmarks, and posts a summary. When she found Ambrovia's email open rates dropped 15% after a subject-line change, she flagged it for the founder.
 
-**No central planner agent.** There is no master agent that routes work to all other agents. The Product Manager coordinates and integrates. Each agent decomposes its own work stream. Orchestration emerges from task dependencies, not from top-down assignment.
-
-**No crew-per-task model.** There is no concept of assembling a fresh crew for each bet. The team forms per product and persists. Context does not evaporate at the end of a bet.
+Adding a routine is always a human review item. A misconfigured routine burns cost silently. Routines that stop producing actionable output are candidates for retirement.
 
 ---
 
-For how humans and agents coordinate around trust and decision-making, read [Human + AI Collaboration](./human-ai-collaboration.md). For how what agents learn gets stored and reused, read [How Knowledge Compounds](./how-knowledge-compounds.md).
+## Deliberate absences
+
+| What HyperIdle does not have | Why |
+|------------------------------|-----|
+| Workflows or DAGs | Task dependencies create sequencing. Content is decided by the team, not a pre-wired graph. |
+| Duration caps | Money is the budget axis. "Is the cost within appetite?" not "has a calendar date passed?" |
+| Central planner agent | The PM coordinates. Each agent decomposes its own work. Orchestration emerges from dependencies. |
+| Crew-per-task model | Teams form per product and persist. Context does not evaporate after one bet. |
+
+---
+
+Next: [Human + AI Collaboration](./human-ai-collaboration.md) — how trust is earned, how review works, and how cost stays visible.

@@ -6,28 +6,28 @@ Four documents that explain what HyperIdle is, how it works, and why it is desig
 
 ## Status
 
-HyperIdle is under active development. The architecture is complete and code is being built workpackage-by-workpackage. These documents describe the product as designed — the system you will use when each feature ships. Features are landing continuously; check the repository for the latest implementation status.
+HyperIdle is under active development. Architecture is complete; code is being built workpackage-by-workpackage. These documents describe the product as designed. Features are landing continuously; check the repository for implementation status.
 
 ---
 
 ## [What is HyperIdle?](./what-is-hyperidle.md)
 
-The entry point. The problem with current tools (Slack + Linear + Notion + GitHub) for AI agent teams. The answer: a meta layer that manages organizational structure. The three-layer model. The Factory app. Who HyperIdle is and is not for.
+The entry point. Three-layer architecture (Human Interface, Meta Layer, Agent Runtime). Three defining properties: persistent teams, human validation, compounding knowledge. The Factory app's three views. Who HyperIdle is and is not for.
 
 ---
 
 ## [How Work Flows](./how-work-flows.md)
 
-The process model. Teams that are persistent and product-bound. Bets with money appetites and done conditions. Tasks decomposed decentrally by the team, not by a central planner. Sessions as bounded agent runs. Handoffs as runtime coordination. Routines as recurring work with memory. What HyperIdle deliberately does not have: no workflows, no DAGs, no duration caps.
+The process model. Five primitives: Teams (product-bound, persistent), Bets (money appetite, done condition), Tasks (decentralized decomposition), Sessions (bounded agent runs), Routines (recurring triggers with memory). Deliberate absences: no workflows, no DAGs, no duration caps, no central planner.
 
 ---
 
 ## [Human + AI Collaboration](./human-ai-collaboration.md)
 
-The trust model. Founders as decision-makers, agents as team members, facilitators as curators. Autonomy levels L1–L4 per agent per skill — how trust is earned slowly and applied narrowly. Review threads with the GitHub PR verdict model: approve, request changes, edit, reject. Cost transparency at three levels. What this model is not: not zero-human autonomy, not workflow orchestration, not humans doing agent work.
+The trust model. Founders validate, agents execute, facilitators curate. Autonomy levels L1-L4 per agent per skill. Review threads with GitHub PR verdicts: approve, request changes, edit, reject. Five artifact renderers. Cost transparency at agent, team, and factory levels.
 
 ---
 
 ## [How Knowledge Compounds](./how-knowledge-compounds.md)
 
-The knowledge system. Five layers from ephemeral session working set (L0) to stable factory principles (L4). One canonical store, two projections: rich UI for humans, workspace files for agents. Communities of Practice: what one Builder learns, every Builder gets. The knowledge lifecycle: captured → validated → active → archived. Facilitators who organize, score, and surface. The weekly practice meeting. What makes HyperIdle's knowledge system different from per-agent memory.
+The knowledge system. Five layers from ephemeral session (L0) to factory principles (L4). One canonical store, two projections (rich UI for humans, workspace files for agents). Communities of Practice: what one Builder learns, every Builder gets. Knowledge lifecycle, attention scoring, weekly practice meetings, retros.
