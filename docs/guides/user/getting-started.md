@@ -1,22 +1,22 @@
 ## Getting Started
 
-You'll go from zero to HyperIdle running locally, with a Team, a Bet, and agents ready to work. This guide uses the embedded PGlite database — no external database required.
+You'll go from zero to HyperIdle running locally, with a Team, a Bet, and agents producing output. This guide uses the embedded PGlite database — no external database required.
 
-**Time: 10 minutes.** In the last step you will see an agent session produce output on a task you defined.
+**Time: 10 minutes.** By the end you'll see an agent session respond to a task you defined.
 
 ---
 
 ### Prerequisites
 
-- **Node.js 24 or later.** Check with `node --version`. Install from [nodejs.org](https://nodejs.org) if needed.
-- **Git.** Check with `git --version`.
-- **An Anthropic API key.** Agents use the Claude API to do their work. Get one at [console.anthropic.com](https://console.anthropic.com). Your key starts with `sk-ant-`. Do not commit your API key to version control.
+- **Node.js 24 or later** — check with `node --version`. Install from [nodejs.org](https://nodejs.org).
+- **Git** — check with `git --version`.
+- **Anthropic API key** — agents use the Claude API. Get one at [console.anthropic.com](https://console.anthropic.com). Your key starts with `sk-ant-`. Do not commit it to version control.
 
-> If you do not have an Anthropic API key, you can still install and explore the interface. Agents will not produce output until the credential is provided after setup.
+> Without an API key you can still install and explore the interface. Agents won't produce output until the key is provided.
 
 ---
 
-### Step 1: Clone and install
+### 1. Clone and install
 
 ```bash
 git clone https://github.com/ambrovia/hyperidle.git
@@ -24,23 +24,23 @@ cd hyperidle
 npm install
 ```
 
-**What you should see:** npm installs all workspace dependencies across the monorepo. No errors. The last line is something like `added N packages`.
+**Expected:** npm installs all workspace dependencies. No errors. Last line: `added N packages`.
 
 **Troubleshooting:**
-- `ENOENT` or `command not found: npm` — Node.js is not installed or not on your PATH.
-- Network errors — check your internet connection; if behind a proxy, set `npm config set proxy`.
+- `command not found: npm` — Node.js is not on your PATH.
+- Network errors — check your connection; if behind a proxy, set `npm config set proxy`.
 
 ---
 
-### Step 2: Set up the database
+### 2. Set up the database
 
 ```bash
 npm run setup -- --profile laptop
 ```
 
-The `--` before `--profile` is required — it separates npm's own arguments from the setup script's arguments.
+The `--` before `--profile` is required — it separates npm's flags from the setup script's flags.
 
-**What you should see:**
+**Expected:**
 
 ```
 [setup] Profile: laptop (db=pglite)
@@ -48,144 +48,134 @@ The `--` before `--profile` is required — it separates npm's own arguments fro
 [setup] Next: run `npm run dev` to start the server and web app.
 ```
 
-This creates a PGlite data directory at `hyperidle-pg/` in the repo root, runs all schema migrations, and seeds the database with an example Team ("Nimmly"), a Chief of Staff agent, a Product Manager agent, and a Builder agent.
+This creates a `hyperidle-pg/` data directory, runs all schema migrations, and seeds an example Team ("Nimmly") with three agents: Chief of Staff, Product Manager, and Builder.
 
 **Troubleshooting:**
-- `--db-path must not contain '..' segments` — your working directory contains `..` in its resolved path. Use the `--db-path` flag to specify an absolute path: `npm run setup -- --profile laptop --db-path /Users/you/hyperidle-data`.
-- `--db-path parent directory is not writable` — the repo directory is read-only. Run the command in a directory you own.
-- Re-running `npm run setup` on an existing database is safe — all inserts use `onConflictDoNothing`.
+- `--db-path must not contain '..' segments` — specify an absolute path: `npm run setup -- --profile laptop --db-path /Users/you/hyperidle-data`.
+- `--db-path parent directory is not writable` — the repo directory is read-only. Run from a directory you own.
+- Re-running setup on an existing database is safe — all inserts use `onConflictDoNothing`.
 
 ---
 
-### Step 3: Start HyperIdle
+### 3. Start HyperIdle
 
 ```bash
 npm run dev
 ```
 
-**What you should see:** Two processes start concurrently:
+**Expected:** Two processes start:
 
 ```
   ➜  Local:   http://localhost:5173/
 server listening on http://localhost:3001
 ```
 
-The web app is at [http://localhost:5173](http://localhost:5173). The API server runs on port 3001.
+The web app is at [http://localhost:5173](http://localhost:5173). The API runs on port 3001.
 
 **Troubleshooting:**
-- `EADDRINUSE: port 3001` — something else is using port 3001. Stop the conflicting process, or open `packages/server/src/index.ts` to find the port configuration.
-- `EADDRINUSE: port 5173` — same issue for the Vite dev server. Vite will automatically try port 5174 and show the alternative URL in the terminal.
+- `EADDRINUSE: port 3001` — another process is using that port. Stop it, or find the port setting in `packages/server/src/index.ts`.
+- `EADDRINUSE: port 5173` — Vite auto-tries port 5174 and shows the alternative URL.
 
 ---
 
-### Step 4: First-run setup
+### 4. Complete first-run setup
 
-Open [http://localhost:5173](http://localhost:5173) in your browser.
+Open [http://localhost:5173](http://localhost:5173). HyperIdle detects a fresh install and redirects to `/setup`.
 
-HyperIdle detects this is a fresh install and redirects you to [http://localhost:5173/setup](http://localhost:5173/setup).
+Fill in the three fields:
 
-You'll see a card with three fields:
+1. **Your name** (required) — for example, `Sam Chen`.
+2. **Anthropic API key** (required) — paste your `sk-ant-...` key. The hint reads "Your key stays on this device."
+3. **Project folder** (optional) — a local git repository path for agents to work in, for example `/Users/sam/projects/my-app`. Leave blank for now.
 
-1. **Your name** (required) — enter your name, for example `Sam Chen`.
-2. **Anthropic API key** (required) — paste your `sk-ant-...` key. The hint says "Your key stays on this device."
-3. **Project folder** (optional) — a local path to a git repository for agents to work in, for example `/Users/sam/projects/my-app`. You can leave this blank for now.
-
-Click **Start HyperIdle**.
-
-**What happens:**
-- A human user record is created for your name.
-- A Team is created (named after the repo folder basename, or "My Team" if no folder was given).
-- You are redirected to **Work > Portfolio** at `/work/portfolio`.
-
-> **API key storage (browser only):** The Settings > Credentials panel is available in the desktop app only — in the browser it shows "Credential storage is available in the desktop app only." To supply your API key when running the server directly, set the `ANTHROPIC_API_KEY` environment variable before starting `npm run dev`:
-> ```bash
-> export ANTHROPIC_API_KEY=sk-ant-...
-> npm run dev
-> ```
-> The server reads `ANTHROPIC_API_KEY` from the environment and passes it to agents automatically. Do not commit your API key to version control — add it to a `.env` file that is listed in `.gitignore`, or set it in your shell profile.
+Click **Start HyperIdle**. A user record and Team are created; you land on **Work > Portfolio**.
 
 **Troubleshooting:**
-- `Failed to create user` — the server is not running. Make sure `npm run dev` is still active in your terminal.
-- The form stays on the page after clicking Start — check the browser console for error details.
+- `Failed to create user` — the server isn't running. Check that `npm run dev` is still active.
+- Form stays visible after clicking Start — check the browser console for error details.
+
+#### API key in browser mode
+
+The Settings > Credentials panel is only available in the desktop app. In the browser it shows "Credential storage is available in the desktop app only."
+
+To supply the API key when running the server directly, set it as an environment variable before starting:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+npm run dev
+```
+
+The server reads `ANTHROPIC_API_KEY` and passes it to agents. Use a `.env` file (listed in `.gitignore`) or your shell profile — do not commit the key.
 
 ---
 
-### Step 5: Orient yourself
+### 5. Orient yourself
 
-After setup you land on **Work > Portfolio**. Take 60 seconds to orient:
+After setup you land on **Work > Portfolio**. Take 60 seconds to orient.
 
-**Sidebar (left, 200px wide)** — labeled navigation with three sections:
+**Sidebar (left panel)** — three sections:
 - **Conversations** — review items and agent messages
-- **Work** — your portfolio of Teams and Bets; expands to show your Teams as sub-items
+- **Work** — your portfolio of Teams and Bets; expands to show Teams as sub-items
 - **Knowledge** — the factory's institutional memory
 
-At the bottom of the Sidebar: a Search hint (or press `Cmd+K`), your avatar button (opens Settings), and an Assistant button (opens the Chief of Staff overlay).
+At the bottom of the Sidebar: `Cmd+K` search, your avatar (opens Settings), and an Assistant button (opens the Chief of Staff overlay).
 
-**Main pane** — the content area. Right now it shows your Portfolio: a grid of Bet cards. Until you have bets, the page shows an empty state with a "New bet" button.
+**Main pane** — shows your Portfolio: a grid of Bet cards. No bets yet means an empty state with a **New bet** button.
 
 ---
 
-### Step 6: Create your first Bet
+### 6. Create your first Bet
 
-A **Bet** is a time-boxed chunk of work. It is the unit agents pick up and execute.
+A **Bet** is a time-boxed chunk of work — the unit agents pick up and execute.
 
-1. You are already on **Work > Portfolio** (the "All bets" page).
-2. Click the **New bet** button in the page header. If no bets exist yet, the button also appears in the empty state in the centre of the page.
-3. A dialog opens with:
-   - A **Team** select (shown only when you have more than one team; otherwise the single team is used automatically).
-   - A **Description** text area (required) — describe what you want built, for example: `Build a landing page with a hero section and a features list.`
-   - A **Title preview** line that auto-derives a short title from your description.
-4. Click **Create**.
+1. Click **New bet** in the Portfolio header (or in the empty-state centre if no bets exist yet).
+2. A dialog opens with:
+   - **Team** select — shown only when you have more than one team; the single team is used automatically otherwise.
+   - **Description** (required) — for example: `Build a landing page with a hero section and a features list.`
+   - **Title preview** — auto-derived from your description.
+3. Click **Create**.
 
-**What you should see:** The dialog closes and the new Bet appears as a card in the portfolio grid. Its status is `draft`.
+**Expected:** The dialog closes. The new Bet appears as a `draft` card in the portfolio grid.
 
-To make agents start working, open the Bet card and change its status to `active` using the action menu.
+To start agents, open the Bet card and change its status to `active` using the action menu.
 
 **Troubleshooting:**
-- The Create button stays disabled — the description field is required and must be non-empty.
-- No team appears in the select — the team seeded during setup may not have loaded. Refresh the page.
+- Create button stays disabled — the description field is required.
+- No team in the select — refresh the page; the seeded team may not have loaded.
 
 ---
 
-### Step 7: Watch an agent session
+### 7. Watch an agent session
 
-Once a Bet is active, the agents assigned to your Team pick up Tasks. This requires your Anthropic API key to be set and valid.
+Once a Bet is active, the agents assigned to your Team pick up Tasks. This requires a valid Anthropic API key (see [API key in browser mode](#api-key-in-browser-mode) if not yet set).
 
-If you have not set the API key yet:
-- **Browser (server mode):** Stop the server, set `ANTHROPIC_API_KEY` in your environment, and restart `npm run dev` (see Step 4 for details).
-- **Desktop app:** Click your avatar at the bottom of the Sidebar to open Settings, navigate to **Credentials**, and set your Anthropic API key there.
+After the key is set and a Bet is active, the Builder agent detects the Bet and starts a Session. When the agent needs your approval — for a code change, a deployment action, or similar — a review item appears in **Conversations**.
 
-After the key is set and a Bet is active:
-- The Builder agent detects the active Bet and starts a Session.
-- When the agent needs your approval (for a code change, a deployment action, etc.) a review item appears in **Conversations**.
+**Expected in Conversations:** An artifact card showing exactly what the agent produced (code diff, file listing, or written deliverable) with an action bar: Approve / Request Changes / Reject.
 
-**What you should see in Conversations:** An artifact card showing exactly what the agent produced — a code diff, a file listing, or a written deliverable — with an action bar: Approve / Request Changes / Reject.
-
-**Troubleshooting — no agent session starts after activating a Bet:**
-- Verify `ANTHROPIC_API_KEY` is set in the server environment and the server was restarted after setting it.
-- Check the server terminal output for errors like `no API key` or `401 Unauthorized`.
-- Confirm the Bet status is `active`, not `draft` — agents only pick up active Bets.
+**Troubleshooting — no session starts after activating a Bet:**
+- Confirm `ANTHROPIC_API_KEY` is set and the server was restarted after setting it.
+- Check server terminal output for `no API key` or `401 Unauthorized`.
+- Confirm Bet status is `active`, not `draft`.
 
 ---
 
-### Step 8: Review the output
+### 8. Review the output
 
-Click **Conversations** in the Sidebar.
+Click **Conversations** in the Sidebar. The queue shows all items waiting for your decision.
 
-The queue shows all items waiting for your decision. Each item has:
+Each item has:
 - A thread title describing what is being reviewed.
 - An artifact view showing the exact change or output.
 - A verdict toolbar.
 
-Most reviews take 15–30 seconds. Approve work that looks correct. Request changes if something is wrong — add a comment describing what to fix. The agent resumes automatically after your verdict.
+**Approve** work that looks correct. **Request changes** if something is wrong — add a comment describing the fix. The agent resumes automatically after your verdict. Most reviews take 15–30 seconds.
 
-The **Chief of Staff** thread (pinned at the top) surfaces cross-Team patterns and coaching suggestions. Check it once a week.
+The **Chief of Staff** thread (pinned at the top) surfaces cross-Team patterns and coaching suggestions. Check it weekly.
 
 ---
 
 ### What's next
-
-Now that you have HyperIdle running, explore by topic:
 
 | Goal | Where to go |
 |------|-------------|
