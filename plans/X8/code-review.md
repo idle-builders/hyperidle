@@ -228,3 +228,118 @@ Findings to address before merge:
 - S2: `sessionEndedGracefully` always scores 1.0 (unreachable else branch).
 
 None of the findings are blocking. The implementation is solid, well-documented, and faithfully implements the architecture plan with all critique fixes applied.
+
+
+---
+
+# Code Review: X8 v5 -- AB0 Role Model Adaptation
+
+REVIEW-VERDICT: NOT DONE
+
+---
+
+## Scope
+
+Commit `2b708d69` adds AB0 role model adaptations:
+- `agentCategory` parameter to `seedAgent`, auto-derived in `seedMinimalWorld` and `seedMultiAgentWorld`
+- `agentCategory` on 3 builtin agent stubs in new `seedBuiltinAgents()`
+- 8 new scenarios across 4 feature files (create-artifact, handoff-to, create-item, submit-review, tool-authorization)
+- CRITICAL-3 fix (runbook -> comm_draft artifact kind)
+
+---
+
+## AC Completeness (Architecture Plan Section 12)
+
+| # | AC | Status | Evidence |
+|---|---|---|---|
+| 1 | `seedAgent` accepts `agentCategory` parameter, defaults to "team" | PASS | seeding.ts:119-120, 138. |
+| 2 | `seedMinimalWorld` auto-derives agentCategory from role catalog | PASS | seeding.ts:309-311. Uses `findRoleCatalogEntry()`. |
+| 3 | `seedMultiAgentWorld` auto-derives agentCategory for second agent | PASS | seeding.ts:695-697. Same pattern. |
+| 4 | `seedBuiltinAgents` sets correct agentCategory per role | PASS | seeding.ts:534 personal, 549 strategy, 561 team. |
+| 5 | 8 new scenarios matching plan Section 12.5 table | PASS | All 8 IDs present: ca-design-artifact-designer-frontend, ca-runbook-ops-devops, ci-review-request-designer-healthcare, ci-bug-escalation-qa-frontend, ht-to-builder-designer-frontend, ht-to-builder-ops-devops, sr-qa-gatekeeper-qa-devops, ta-unknown-role-fallback. |
+| 6 | CRITICAL-3 resolved (runbook -> comm_draft) | PASS | create-artifact.ts:432-550. Scenario uses `kind: "comm_draft"`, rubric checks `artifact.kind === "comm_draft"`. `@lore AB0 CRITICAL-3` at lines 427-430. |
+| 7 | Scenarios exported from index | PASS | New scenarios appended to existing arrays. index.ts unchanged -- arrays already exported. Runner discovers via `discoverScenarios()` walking array exports. |
+| 8 | `seedBuiltinAgents` called before `seedBuiltinRoutines` | PASS | builtin-routines.ts: all 8 scenarios now call `seedBuiltinAgents(ctx.db)` before `seedBuiltinRoutines(ctx.db)`. |
+
+---
+
+## Critique Fix Verification
+
+| Finding | Fixed? | Evidence |
+|---------|--------|----------|
+| CRITICAL-3: runbook not in WRITABLE_ARTIFACT_KINDS | YES | Scenario uses "comm_draft" with @lore comment. |
+| WARNING-10: Designer community concept/code discrepancy | NOT ADDRESSED | Concept doc not updated. Code uses "product" community, which is correct. No code fix needed but the concept doc discrepancy remains. |
+| WARNING-11: QA agent cannot see cross-task artifacts | YES | sr-qa-gatekeeper-qa-devops embeds artifact details directly in taskDescription (lines 489-503). @lore W11 comment at lines 466-469. |
+| WARNING-12: ta-unknown-role-fallback feature tag misleading | ACKNOWLEDGED | Scenario is still under tool_authorization feature. @lore W12 comment at lines 299-305 documents the open-vocabulary role path test. The scenario does test that an unknown role can use standard tools without authorization failures. Acceptable. |
+
+---
+
+## BLOCKING FINDING
+
+### B1: `knowledgeItems.layer` does not exist -- runtime crash in tool-authorization.ts
+
+**File:** `packages/eval/src/scenarios/tool-authorization.ts`, line 252
+
+The `ta-layer-enforcement-growth-marketing` scenario's `layer_restriction_observed` judge queries:
+
+```typescript
+.select({ layer: knowledgeItems.layer, updatedBy: knowledgeItems.updatedBy })
+.from(knowledgeItems)
+```
+
+The `knowledgeItems` table (schema.ts lines 382-409) does NOT have a `layer` column. The `layer` column exists only on `knowledgeStrategyFabric` (schema.ts line 500). At runtime, `knowledgeItems.layer` is `undefined`, which will cause Drizzle to either throw or return `undefined` for every row, making the `illegalItems` filter at line 264 always empty -- a false pass.
+
+**This is NOT a new bug from AB0** -- the scenario existed before the AB0 commit. But the builder should have caught it when adding the new `ta-unknown-role-fallback` scenario in the same file.
+
+**Fix:** Join `knowledgeItems` with `knowledgeStrategyFabric` on `knowledgeStrategyFabric.knowledgeItemId = knowledgeItems.id`, then select `layer` from the fabric table:
+
+```typescript
+const writtenItems = await ctx.db
+  .select({ layer: knowledgeStrategyFabric.layer })
+  .from(knowledgeItems)
+  .innerJoin(knowledgeStrategyFabric, eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id))
+  .where(eq(knowledgeItems.updatedBy, `agent:${ctx.seedResult.agentId}`));
+```
+
+---
+
+## NON-BLOCKING FINDINGS
+
+### F1: Implicit `any` types in 6 lambda parameters across 4 new files (TS7006)
+
+When `@hyperidle/db` dist is not built, TypeScript cannot infer Drizzle query result types, producing `TS7006: Parameter implicitly has 'any' type` in:
+
+- handoff-to.ts:313 `(i)` in `.filter()`
+- submit-review.ts:321 `(l)` and :548 `(l)` in `.filter()`
+- tool-authorization.ts:177 `(i)`, :264 `(i)`, :288 `(m)` in `.some()`, `.filter()`, `.map()`
+
+These are build-order issues, not code bugs. When deps are built, types resolve. But strict mode should catch these during a full build. Add explicit parameter types to the lambdas for resilience:
+
+```typescript
+.filter((i: { kind: string | null }) => i.kind === "escalation" || i.kind === "review")
+```
+
+### F2: Revised scenario counts now diverge from code-review-v4.md
+
+code-review-v4.md (lines 72-88) recorded exact per-feature counts. The AB0 commit adds:
+- create_artifact: 3 -> 5 (+2)
+- create_item: 5 -> 7 (+2)
+- handoff_to: 4 -> 6 (+2)
+- submit_review: 4 -> 5 (+1)
+- tool_authorization: 3 -> 4 (+1)
+
+Total: 84 + 8 = 92 scenarios (plus POC = 93). The code-review-v4 counts are now stale. Not a code bug, but the plan table at Section 12.7 should be the reference.
+
+### F3: `agentCategory` default "team" for unknown roles may not match production
+
+seeding.ts:311 and :697 both fall back to `agentCategory: "team"` when `findRoleCatalogEntry()` returns undefined. The architecture critique (line 347) noted this is debatable -- "team" implies team binding. The `ta-unknown-role-fallback` scenario seeds `"custom_analyst"` which gets `agentCategory: "team"`. This matches the current code path but should be documented as an intentional choice.
+
+This IS documented via the `@lore W12` comment in tool-authorization.ts lines 299-305. Acceptable.
+
+---
+
+## Verdict
+
+**NOT DONE.** B1 (`knowledgeItems.layer` does not exist) is a runtime crash in `ta-layer-enforcement-growth-marketing` that produces a false pass -- the scenario cannot correctly detect layer violations. This must be fixed before the AB0 adaptation can ship.
+
+The 8 new scenarios, seeding changes, and CRITICAL-3 fix are all correctly implemented per the architecture plan. Once B1 is fixed, this is DONE.
