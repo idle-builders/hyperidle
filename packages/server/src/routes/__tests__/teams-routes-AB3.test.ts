@@ -11,13 +11,7 @@
  * - GET /api/teams/:id includes agentCategory in the roster assembly
  */
 
-import {
-	createTestDb,
-	type HyperIdleDb,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
@@ -117,7 +111,13 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as {
-				roster: Array<{ agentId: string; name: string; role: string; isLead: boolean; agentCategory: string | null }>;
+				roster: Array<{
+					agentId: string;
+					name: string;
+					role: string;
+					isLead: boolean;
+					agentCategory: string | null;
+				}>;
 			};
 			expect(Array.isArray(body.roster)).toBe(true);
 			expect(body.roster.length).toBe(2);
@@ -166,7 +166,9 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 			// Seed an agent with no agentCategory set
 			const teamId = "ab3-team-null-cat";
 			const teamMembersId = "ab3-tm-null-cat";
-			await db.insert(teams).values({ id: teamId, name: "Null Cat Team", phase: "build", createdAt: NOW });
+			await db
+				.insert(teams)
+				.values({ id: teamId, name: "Null Cat Team", phase: "build", createdAt: NOW });
 			await db.insert(teamMembers).values({
 				id: teamMembersId,
 				teamId,
@@ -197,8 +199,10 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 			};
 			expect(body.roster.length).toBe(1);
 			// Field must be present and null (not undefined)
-			expect("agentCategory" in body.roster[0]!).toBe(true);
-			expect(body.roster[0]?.agentCategory).toBeNull();
+			const firstMember = body.roster[0];
+			expect(firstMember).toBeDefined();
+			expect("agentCategory" in (firstMember ?? {})).toBe(true);
+			expect(firstMember?.agentCategory).toBeNull();
 		});
 	});
 

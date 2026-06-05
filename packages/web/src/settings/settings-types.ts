@@ -105,4 +105,6 @@ export interface AgentConfig {
 	maxConcurrentSessions: number;
 	status: string;
 	activeSessions: number;
+	/** AB3: "team" | "strategy" | "personal" | null. Matches users.agentCategory. */
+	agentCategory: string | null;
 }

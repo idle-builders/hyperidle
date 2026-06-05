@@ -145,10 +145,7 @@ const MOCK_AGENT_CONFIGS = [
 // Render helpers
 // ---------------------------------------------------------------------------
 
-function renderWithHints(
-	ui: ReactNode,
-	path = "/work/team/ab3-team-1",
-): ReturnType<typeof render> {
+function renderWithHints(ui: ReactNode, path = "/work/team/ab3-team-1"): ReturnType<typeof render> {
 	return render(
 		<HintProvider>
 			<MemoryRouter initialEntries={[path]}>
@@ -163,7 +160,9 @@ function renderWithHints(
 
 function makeHintResponse(dismissed: string[] = []): Response {
 	return new Response(
-		JSON.stringify({ dismissed: dismissed.map((hintId) => ({ hintId, seenAt: "2026-01-01T00:00:00.000Z" })) }),
+		JSON.stringify({
+			dismissed: dismissed.map((hintId) => ({ hintId, seenAt: "2026-01-01T00:00:00.000Z" })),
+		}),
 		{ status: 200 },
 	);
 }
@@ -215,9 +214,7 @@ describe("AB3 AC-1 — Agent cards with name, description, and category tags", (
 
 		// "builder" role description from AGENT_ROLE_CATALOG
 		await waitFor(() => {
-			expect(
-				screen.getByText(/Engineer\. Implements features/i),
-			).toBeInTheDocument();
+			expect(screen.getByText(/Engineer\. Implements features/i)).toBeInTheDocument();
 		});
 	});
 
@@ -284,7 +281,9 @@ describe("AB3 AC-2 — Edit dialog soul textarea pre-filled", () => {
 		});
 
 		const cards = screen.getAllByTestId("agent-card");
-		await user.click(cards[0]!);
+		const firstCard = cards[0];
+		expect(firstCard).toBeDefined();
+		await user.click(firstCard ?? document.body);
 
 		// Dialog should be open — look for the dialog element
 		await waitFor(() => {
@@ -300,12 +299,12 @@ describe("AB3 AC-2 — Edit dialog soul textarea pre-filled", () => {
 			expect(screen.getAllByTestId("agent-card").length).toBe(3);
 		});
 
-		await user.click(screen.getAllByTestId("agent-card")[0]!);
+		const cardForGuidance = screen.getAllByTestId("agent-card")[0];
+		expect(cardForGuidance).toBeDefined();
+		await user.click(cardForGuidance ?? document.body);
 
 		await waitFor(() => {
-			expect(
-				screen.getByText(/Personality, style, and values/i),
-			).toBeInTheDocument();
+			expect(screen.getByText(/Personality, style, and values/i)).toBeInTheDocument();
 		});
 	});
 
@@ -318,14 +317,14 @@ describe("AB3 AC-2 — Edit dialog soul textarea pre-filled", () => {
 		});
 
 		// Click the builder card (has soulPrompt set)
-		await user.click(screen.getAllByTestId("agent-card")[0]!);
+		const cardForSoul = screen.getAllByTestId("agent-card")[0];
+		expect(cardForSoul).toBeDefined();
+		await user.click(cardForSoul ?? document.body);
 
 		await waitFor(() => {
 			const textarea = screen.getByRole("textbox", { name: /soul/i });
 			expect(textarea).toBeInTheDocument();
-			expect((textarea as HTMLTextAreaElement).value).toContain(
-				"You are a meticulous builder",
-			);
+			expect((textarea as HTMLTextAreaElement).value).toContain("You are a meticulous builder");
 		});
 	});
 
@@ -337,7 +336,9 @@ describe("AB3 AC-2 — Edit dialog soul textarea pre-filled", () => {
 			expect(screen.getAllByTestId("agent-card").length).toBe(3);
 		});
 
-		await user.click(screen.getAllByTestId("agent-card")[0]!);
+		const cardForHeader = screen.getAllByTestId("agent-card")[0];
+		expect(cardForHeader).toBeDefined();
+		await user.click(cardForHeader ?? document.body);
 
 		await waitFor(() => {
 			expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -379,12 +380,10 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 		// Find scout agent card
 		const scoutCard = cards.find((c) => c.textContent?.includes("Scout Agent"));
 		expect(scoutCard).toBeDefined();
-		await user.click(scoutCard!);
+		await user.click(scoutCard ?? document.body);
 
 		await waitFor(() => {
-			expect(
-				screen.getByText(/managed by your strategy/i),
-			).toBeInTheDocument();
+			expect(screen.getByText(/managed by your strategy/i)).toBeInTheDocument();
 		});
 	});
 
@@ -397,10 +396,11 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 		});
 
 		// Click team agent (Atlas Builder)
-		const builderCard = screen.getAllByTestId("agent-card").find(
-			(c) => c.textContent?.includes("Atlas Builder"),
-		);
-		await user.click(builderCard!);
+		const builderCard = screen
+			.getAllByTestId("agent-card")
+			.find((c) => c.textContent?.includes("Atlas Builder"));
+		expect(builderCard).toBeDefined();
+		await user.click(builderCard ?? document.body);
 
 		await waitFor(() => {
 			expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -417,10 +417,11 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 			expect(screen.getAllByTestId("agent-card").length).toBe(3);
 		});
 
-		const scoutCard = screen.getAllByTestId("agent-card").find(
-			(c) => c.textContent?.includes("Scout Agent"),
-		);
-		await user.click(scoutCard!);
+		const scoutCard = screen
+			.getAllByTestId("agent-card")
+			.find((c) => c.textContent?.includes("Scout Agent"));
+		expect(scoutCard).toBeDefined();
+		await user.click(scoutCard ?? document.body);
 
 		await waitFor(() => {
 			expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -445,10 +446,11 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 			expect(screen.getAllByTestId("agent-card").length).toBe(3);
 		});
 
-		const builderCard = screen.getAllByTestId("agent-card").find(
-			(c) => c.textContent?.includes("Atlas Builder"),
-		);
-		await user.click(builderCard!);
+		const builderCard = screen
+			.getAllByTestId("agent-card")
+			.find((c) => c.textContent?.includes("Atlas Builder"));
+		expect(builderCard).toBeDefined();
+		await user.click(builderCard ?? document.body);
 
 		await waitFor(() => {
 			expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -501,10 +503,11 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 			expect(screen.getAllByTestId("agent-card").length).toBe(3);
 		});
 
-		const builderCard = screen.getAllByTestId("agent-card").find(
-			(c) => c.textContent?.includes("Atlas Builder"),
-		);
-		await user.click(builderCard!);
+		const builderCard = screen
+			.getAllByTestId("agent-card")
+			.find((c) => c.textContent?.includes("Atlas Builder"));
+		expect(builderCard).toBeDefined();
+		await user.click(builderCard ?? document.body);
 
 		await waitFor(() => {
 			expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -524,8 +527,12 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 				(call) => (call[1] as RequestInit)?.method === "PATCH",
 			);
 			expect(patchCall).toBeDefined();
-			expect(patchCall![0] as string).toContain("/api/agents/agent-builder-1");
-			const body = JSON.parse((patchCall![1] as RequestInit).body as string) as Record<string, unknown>;
+			if (!patchCall) return;
+			expect(patchCall[0] as string).toContain("/api/agents/agent-builder-1");
+			const body = JSON.parse((patchCall[1] as RequestInit).body as string) as Record<
+				string,
+				unknown
+			>;
 			expect(body.soulPrompt).toBe("Updated soul text.");
 		});
 	});
@@ -537,9 +544,7 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 			JSON.stringify({ ...MOCK_AGENT_CONFIGS[0], modelTierPreference: "reasoning" }),
 			{ status: 200 },
 		);
-		mockApiFetch
-			.mockResolvedValueOnce(makeAgentsResponse())
-			.mockResolvedValueOnce(patchResponse);
+		mockApiFetch.mockResolvedValueOnce(makeAgentsResponse()).mockResolvedValueOnce(patchResponse);
 
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
@@ -547,10 +552,11 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 			expect(screen.getAllByTestId("agent-card").length).toBe(3);
 		});
 
-		const builderCard = screen.getAllByTestId("agent-card").find(
-			(c) => c.textContent?.includes("Atlas Builder"),
-		);
-		await user.click(builderCard!);
+		const builderCard = screen
+			.getAllByTestId("agent-card")
+			.find((c) => c.textContent?.includes("Atlas Builder"));
+		expect(builderCard).toBeDefined();
+		await user.click(builderCard ?? document.body);
 
 		await waitFor(() => {
 			expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -575,7 +581,11 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 				(call) => (call[1] as RequestInit)?.method === "PATCH",
 			);
 			expect(patchCall).toBeDefined();
-			const body = JSON.parse((patchCall![1] as RequestInit).body as string) as Record<string, unknown>;
+			if (!patchCall) return;
+			const body = JSON.parse((patchCall[1] as RequestInit).body as string) as Record<
+				string,
+				unknown
+			>;
 			expect(body.modelTierPreference).toBe("reasoning");
 		});
 	});
@@ -607,9 +617,7 @@ describe("AB3 AC-5 — Add custom agent dialog", () => {
 			expect(screen.getAllByTestId("agent-card").length).toBe(3);
 		});
 
-		expect(
-			screen.getByRole("button", { name: /\+ add agent/i }),
-		).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /\+ add agent/i })).toBeInTheDocument();
 	});
 
 	it("clicking '+ Add agent' opens the create dialog", async () => {
@@ -689,11 +697,16 @@ describe("AB3 AC-5 — Add custom agent dialog", () => {
 
 		await waitFor(() => {
 			const postCall = mockApiFetch.mock.calls.find(
-				(call) => (call[1] as RequestInit)?.method === "POST"
-					&& (call[0] as string).includes("/api/agents"),
+				(call) =>
+					(call[1] as RequestInit)?.method === "POST" &&
+					(call[0] as string).includes("/api/agents"),
 			);
 			expect(postCall).toBeDefined();
-			const body = JSON.parse((postCall![1] as RequestInit).body as string) as Record<string, unknown>;
+			if (!postCall) return;
+			const body = JSON.parse((postCall[1] as RequestInit).body as string) as Record<
+				string,
+				unknown
+			>;
 			expect(body.name).toBe("New Custom Agent");
 			// teamId must be the teamMembers.id (not team.id)
 			expect(body.teamId).toBe("tm-ab3");
@@ -703,25 +716,27 @@ describe("AB3 AC-5 — Add custom agent dialog", () => {
 
 // ---------------------------------------------------------------------------
 // AC-6: First-time hint banner
+//
+// @lore AB3: apiFetch is mocked via vi.mock() for this entire test file
+// (agent configs use mockApiFetch). HintProvider also calls apiFetch, so
+// hint responses must be set on mockApiFetch for hint-progress endpoints,
+// not on global.fetch (which is only reached when apiFetch is NOT mocked).
 // ---------------------------------------------------------------------------
 
 describe("AB3 AC-6 — First-time hint banner (review-agents)", () => {
-	let fetchSpy: ReturnType<typeof vi.fn>;
-
-	beforeEach(() => {
-		fetchSpy = vi.fn();
-		global.fetch = fetchSpy as unknown as typeof fetch;
-		mockApiFetch.mockResolvedValue(makeAgentsResponse());
-	});
-
 	afterEach(() => {
 		vi.restoreAllMocks();
 		mockApiFetch.mockReset();
 	});
 
 	it("hint-review-agents banner is visible when hint is not dismissed", async () => {
-		// Return empty dismissed list — all hints are visible
-		fetchSpy.mockResolvedValueOnce(makeHintResponse([]));
+		// Route calls: hint-progress → empty dismissed list, /api/agents → agent configs
+		mockApiFetch.mockImplementation((url: string) => {
+			if (typeof url === "string" && url.includes("hint-progress")) {
+				return Promise.resolve(makeHintResponse([]));
+			}
+			return Promise.resolve(makeAgentsResponse());
+		});
 
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
@@ -731,28 +746,41 @@ describe("AB3 AC-6 — First-time hint banner (review-agents)", () => {
 	});
 
 	it("hint-review-agents is NOT visible when already dismissed", async () => {
-		// Return "review-agents" as dismissed
-		fetchSpy.mockResolvedValueOnce(makeHintResponse(["review-agents"]));
+		// Route calls: hint-progress → review-agents dismissed
+		mockApiFetch.mockImplementation((url: string) => {
+			if (typeof url === "string" && url.includes("hint-progress")) {
+				return Promise.resolve(makeHintResponse(["review-agents"]));
+			}
+			return Promise.resolve(makeAgentsResponse());
+		});
 
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
-		// Wait for hints to load
+		// Wait for hints + cards to load
 		await waitFor(() => {
 			expect(screen.queryAllByTestId("agent-card").length).toBe(3);
 		});
 
-		// Give hints time to resolve
+		// Extra tick to let hint state settle
 		await new Promise((r) => setTimeout(r, 50));
 
 		expect(screen.queryByTestId("hint-review-agents")).not.toBeInTheDocument();
 	});
 
 	it("clicking 'Got it' on the hint fires the dismiss POST", async () => {
-		fetchSpy.mockResolvedValueOnce(makeHintResponse([]));
-		// Mock dismiss POST
-		fetchSpy.mockResolvedValueOnce(
-			new Response(JSON.stringify({ ok: true }), { status: 200 }),
-		);
+		const dismissSpy = vi
+			.fn()
+			.mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+
+		mockApiFetch.mockImplementation((url: string, init?: RequestInit) => {
+			if (typeof url === "string" && url.includes("hint-progress") && !url.includes("dismiss")) {
+				return Promise.resolve(makeHintResponse([]));
+			}
+			if (typeof url === "string" && url.includes("review-agents/dismiss")) {
+				return dismissSpy(url, init);
+			}
+			return Promise.resolve(makeAgentsResponse());
+		});
 
 		const user = userEvent.setup();
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
@@ -761,7 +789,11 @@ describe("AB3 AC-6 — First-time hint banner (review-agents)", () => {
 			expect(screen.getByTestId("hint-review-agents")).toBeInTheDocument();
 		});
 
-		const gotItBtn = screen.getByRole("button", { name: /got it/i });
+		// Click "Got it" within the review-agents hint banner specifically
+		const hintBanner = screen.getByTestId("hint-review-agents");
+		const gotItBtn = hintBanner.querySelector("button");
+		expect(gotItBtn).not.toBeNull();
+		if (!gotItBtn) return;
 		await user.click(gotItBtn);
 
 		// Optimistic: banner disappears immediately
@@ -769,12 +801,7 @@ describe("AB3 AC-6 — First-time hint banner (review-agents)", () => {
 
 		// Verify dismiss POST was fired
 		await waitFor(() => {
-			const dismissCall = fetchSpy.mock.calls.find(
-				(call) =>
-					typeof call[0] === "string" &&
-					(call[0] as string).includes("review-agents/dismiss"),
-			);
-			expect(dismissCall).toBeDefined();
+			expect(dismissSpy).toHaveBeenCalledTimes(1);
 		});
 	});
 });
