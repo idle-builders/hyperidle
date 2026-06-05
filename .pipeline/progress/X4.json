@@ -12,7 +12,6 @@
     "2-reviewer": "done",
     "3-builder": "in_progress",
     "4-review": "pending",
-    "5-retro": "pending",
-    "6-ship": "pending"
+    "5-retro": "pending"
   }
 }

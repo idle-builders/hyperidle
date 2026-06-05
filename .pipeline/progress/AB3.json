@@ -1,17 +1,18 @@
 {
   "id": "AB3",
-  "title": "Agent Setup Wizard",
+  "title": "Agent Configuration & Customization",
   "track": "AB",
-  "status": "blocked",
-  "currentStep": "blocked",
-  "blockedReason": "concept-rework-needed: agent role model, strategy-shipped defaults, SOUL vs AGENT.md composition all need upstream concept work (AB0)",
-  "startedAt": "2026-06-05T00:00:00Z",
+  "status": "done",
+  "currentStep": "complete",
+  "startedAt": "2026-06-05T18:30:00Z",
+  "completedAt": "2026-06-06T01:00:00Z",
   "phases": {
     "design": "done",
     "critique": "done",
     "build": "done",
     "review": "done",
-    "retro": "done",
-    "ship": "done"
-  }
+    "retro": "done"
+  },
+  "pr": 203,
+  "ciGreen": true
 }
