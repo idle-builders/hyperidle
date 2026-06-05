@@ -61,7 +61,10 @@ describe("AGENT_ROLE_CATALOG", () => {
 			"brand_voice",
 		];
 		for (const role of legacyRoles) {
-			expect(findRoleCatalogEntry(role), `role "${role}" should have a catalog entry`).toBeDefined();
+			expect(
+				findRoleCatalogEntry(role),
+				`role "${role}" should have a catalog entry`,
+			).toBeDefined();
 		}
 	});
 

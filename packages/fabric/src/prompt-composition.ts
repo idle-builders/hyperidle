@@ -21,7 +21,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { createLogger } from "@hyperidle/shared";
-import { ROLE_TO_COMMUNITY } from "./role-community-map.js";
+import { communityForRole } from "./role-community-map.js";
 import type { SessionContextData } from "./session-context.js";
 import { countTokens } from "./token-budget.js";
 
@@ -92,8 +92,7 @@ export function substituteTemplateVars(template: string, vars: Record<string, st
  * Returns { product, community }.
  */
 export function buildTemplateVariables(context: SessionContextData): Record<string, string> {
-	const community =
-		ROLE_TO_COMMUNITY[context.agent.role as keyof typeof ROLE_TO_COMMUNITY] ?? context.agent.role;
+	const community = communityForRole(context.agent.role);
 	return {
 		product: context.team.name,
 		community,

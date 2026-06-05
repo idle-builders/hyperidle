@@ -1,3 +1,15 @@
+// ── AB0: Agent role catalog and category system ──
+export type {
+	AgentRoleCatalogEntry,
+	TeamFunction,
+} from "./agent-roles.js";
+export {
+	AGENT_ROLE_CATALOG,
+	communityForRole,
+	defaultRoster,
+	findRoleCatalogEntry,
+	TEAM_FUNCTIONS,
+} from "./agent-roles.js";
 export type { ApiErrorCode, ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
 // ── S1: Per-user auth types ──
@@ -241,6 +253,7 @@ export {
 	zeroMoney,
 } from "./types/money.js";
 export type {
+	AgentCategory,
 	BetStatus,
 	HealthResponse,
 	KernelKnowledgeStatus,
@@ -257,10 +270,9 @@ export type {
 	UserStatus,
 } from "./types.js";
 export {
+	AGENT_CATEGORIES,
 	BET_STATUSES,
-	FABRIC_USER_ROLES,
 	KERNEL_KNOWLEDGE_STATUSES,
-	KERNEL_USER_ROLES,
 	MODEL_TIERS,
 	MUTABLE_BET_FIELDS,
 	ORG_EDGE_MECHANISMS,
@@ -268,5 +280,4 @@ export {
 	SCOPES_REQUIRING_ID,
 	TASK_STATES,
 	USER_KINDS,
-	USER_ROLES,
 } from "./types.js";

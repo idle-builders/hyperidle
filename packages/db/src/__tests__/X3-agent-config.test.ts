@@ -218,25 +218,26 @@ describe("X3 AC-2: soul prompt templates seeded from docs/souls/ into factorySet
 			db,
 			`SELECT COUNT(*) AS count FROM factory_settings WHERE key LIKE 'soul_template:%'`,
 		);
-		// Should have exactly 3 templates (one per documented soul file)
-		expect(Number(rows[0]?.count)).toBe(3);
+		// AB0: 8 templates (product_manager, practice_facilitator, chief_of_staff, builder,
+		// growth, designer, qa_engineer, ops). The count is at least 8.
+		expect(Number(rows[0]?.count)).toBeGreaterThanOrEqual(8);
 	});
 
-	it("no soul_template:builder entry exists (no docs/souls/builder.md file)", async () => {
+	// AB0: builder and growth now have templates (docs/souls/builder.md, docs/souls/growth.md added)
+	it("soul_template:builder entry exists (AB0 added docs/souls/builder.md)", async () => {
 		const rows = await queryRows<{ key: string }>(
 			db,
 			`SELECT key FROM factory_settings WHERE key = 'soul_template:builder'`,
 		);
-		// Builder has no template — soul prompt textarea starts empty
-		expect(rows).toHaveLength(0);
+		expect(rows).toHaveLength(1);
 	});
 
-	it("no soul_template:growth entry exists (no docs/souls/growth.md file)", async () => {
+	it("soul_template:growth entry exists (AB0 added docs/souls/growth.md)", async () => {
 		const rows = await queryRows<{ key: string }>(
 			db,
 			`SELECT key FROM factory_settings WHERE key = 'soul_template:growth'`,
 		);
-		expect(rows).toHaveLength(0);
+		expect(rows).toHaveLength(1);
 	});
 });
 
@@ -303,12 +304,19 @@ describe("X3 AC-3: existing agents backfilled with soulPrompt from role template
 		}
 	});
 
-	it("seed-agent-builder has null soulPrompt (no builder template)", async () => {
-		const rows = await queryRows<{ soulPrompt: string | null }>(
+	// AB0: builder now has a template (docs/souls/builder.md added)
+	it("seed-agent-builder has soulPrompt matching builder template", async () => {
+		const agentRows = await queryRows<{ soulPrompt: string | null }>(
 			db,
 			`SELECT soul_prompt AS "soulPrompt" FROM users WHERE id = 'seed-agent-builder'`,
 		);
-		expect(rows[0]?.soulPrompt).toBeNull();
+		const templateRows = await queryRows<{ value: string }>(
+			db,
+			`SELECT value FROM factory_settings WHERE key = 'soul_template:builder'`,
+		);
+
+		expect(agentRows[0]?.soulPrompt).toBeTruthy();
+		expect(agentRows[0]?.soulPrompt).toBe(templateRows[0]?.value);
 	});
 
 	it("system:propagation has null soulPrompt (system role, no template)", async () => {

@@ -17,7 +17,7 @@
 // @lore U1: `teams` renamed to `teamMembers` (membership group); `products` renamed to `teams` (domain entity).
 // `mechanism: "team"` targets the agent membership group → check `teamMembers`.
 import { type HyperIdleDb, orgEdges, teamMembers, users } from "@hyperidle/db";
-import { ORG_EDGE_MECHANISMS, USER_ROLES } from "@hyperidle/shared";
+import { ORG_EDGE_MECHANISMS } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
@@ -91,10 +91,12 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 				);
 			}
 		} else if (mechanism === "function") {
-			if (!(USER_ROLES as readonly string[]).includes(target)) {
+			// AB0: roles are open strings — any non-empty string is valid.
+			// Validated by putOrgEdgeSchema (z.string().min(1)) at the route level.
+			if (!target || target.trim().length === 0) {
 				return c.json(
 					{
-						error: `target role not valid: ${target}. Must be one of: ${USER_ROLES.join(", ")}`,
+						error: "target role must be a non-empty string",
 						code: "VALIDATION_ERROR",
 					},
 					400,

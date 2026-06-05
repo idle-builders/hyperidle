@@ -453,6 +453,8 @@ describe("U1 AC6: Zod schemas updated", () => {
 			principlesPath: null,
 			factoryDbPath: null,
 			createdAt: "2025-01-01T00:00:00.000Z",
+			// AB0: functions column added to teams table
+			functions: null,
 		});
 		expect(valid.success).toBe(true);
 	});
