@@ -186,10 +186,7 @@ describe("Y4 — Auto-tab default checks needs_human (not only draft)", () => {
 		renderAt();
 
 		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute(
-				"aria-selected",
-				"true",
-			);
+			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute("aria-selected", "true");
 		});
 	});
 
@@ -357,10 +354,7 @@ describe("Y4 — Triage keyboard navigation", () => {
 
 		// Make sure we're on triage tab (should auto-select since there are drafts)
 		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute(
-				"aria-selected",
-				"true",
-			);
+			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute("aria-selected", "true");
 		});
 
 		// Press j to move focus to first item
@@ -389,10 +383,7 @@ describe("Y4 — Triage keyboard navigation", () => {
 		renderAt();
 
 		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute(
-				"aria-selected",
-				"true",
-			);
+			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute("aria-selected", "true");
 		});
 
 		// j twice to get to second item, then k to go back
@@ -421,10 +412,7 @@ describe("Y4 — Triage keyboard navigation", () => {
 		renderAt();
 
 		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute(
-				"aria-selected",
-				"true",
-			);
+			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute("aria-selected", "true");
 		});
 
 		await user.keyboard("j"); // focus first item
@@ -506,10 +494,7 @@ describe("Y4 — Triage actions with keyboard shortcuts", () => {
 		renderAt();
 
 		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute(
-				"aria-selected",
-				"true",
-			);
+			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute("aria-selected", "true");
 		});
 
 		await user.keyboard("j"); // focus first item
@@ -538,10 +523,7 @@ describe("Y4 — Triage actions with keyboard shortcuts", () => {
 		renderAt();
 
 		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute(
-				"aria-selected",
-				"true",
-			);
+			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute("aria-selected", "true");
 		});
 
 		await user.keyboard("j"); // focus first item
@@ -569,10 +551,7 @@ describe("Y4 — Triage actions with keyboard shortcuts", () => {
 		renderAt();
 
 		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute(
-				"aria-selected",
-				"true",
-			);
+			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute("aria-selected", "true");
 		});
 
 		// Press v without focusing first — no PATCH should fire
@@ -625,10 +604,7 @@ describe("Y4 — Auto-advance after triage action", () => {
 		renderAt();
 
 		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute(
-				"aria-selected",
-				"true",
-			);
+			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute("aria-selected", "true");
 		});
 
 		const triageView = screen.getByTestId("knowledge-triage-view");
@@ -659,10 +635,7 @@ describe("Y4 — Auto-advance after triage action", () => {
 		renderAt();
 
 		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute(
-				"aria-selected",
-				"true",
-			);
+			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute("aria-selected", "true");
 		});
 
 		await user.keyboard("j"); // focus index 0 (first item)
@@ -691,10 +664,7 @@ describe("Y4 — Auto-advance after triage action", () => {
 		renderAt();
 
 		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute(
-				"aria-selected",
-				"true",
-			);
+			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute("aria-selected", "true");
 		});
 
 		await user.keyboard("j"); // focus
@@ -734,10 +704,7 @@ describe("Y4 — Triage keyboard hint bar", () => {
 		renderAt();
 
 		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute(
-				"aria-selected",
-				"true",
-			);
+			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute("aria-selected", "true");
 		});
 
 		// Keyboard hint bar should display shortcut hints

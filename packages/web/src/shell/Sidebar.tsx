@@ -85,6 +85,12 @@ export interface SidebarProps {
 	/** User avatar */
 	avatarUrl?: string;
 	userInitials?: string;
+
+	/**
+	 * Y4: count of items needing triage (draft + needs_human). When > 0,
+	 * a numeric badge is rendered adjacent to the Knowledge section header.
+	 */
+	knowledgeTriageCount?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -152,6 +158,7 @@ export function Sidebar({
 	settingsNavItems,
 	avatarUrl,
 	userInitials,
+	knowledgeTriageCount,
 }: SidebarProps): JSX.Element {
 	// Cap threads at 5
 	const visibleThreads = threads.slice(0, 5);
@@ -274,11 +281,23 @@ export function Sidebar({
 				</div>
 
 				{/* Knowledge section — W3 AC-3: no scope sub-items */}
+				{/* Y4: knowledgeTriageCount badge rendered adjacent to header */}
 				<div
 					className="mb-[18px]"
 					data-active-view={activeView === "knowledge" ? "knowledge" : undefined}
+					data-section="knowledge"
 				>
-					<SectionHeader view="knowledge" activeView={activeView} onViewChange={onViewChange} />
+					<div className="flex items-center">
+						<SectionHeader view="knowledge" activeView={activeView} onViewChange={onViewChange} />
+						{knowledgeTriageCount != null && knowledgeTriageCount > 0 && (
+							<span
+								className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-[9px] font-[600] tabular-nums bg-[var(--accent-primary)] text-[var(--text-on-accent)] ml-auto mr-[12px]"
+								data-testid="knowledge-triage-badge"
+							>
+								{knowledgeTriageCount > 99 ? "99+" : knowledgeTriageCount}
+							</span>
+						)}
+					</div>
 				</div>
 
 				{/* Settings nav — only shown in settings mode, below the view sections */}

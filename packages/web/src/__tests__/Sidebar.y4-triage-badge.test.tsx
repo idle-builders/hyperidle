@@ -93,9 +93,9 @@ describe("Y4 — Sidebar knowledge triage badge", () => {
 		const { container } = render(<Sidebar {...defaultProps} knowledgeTriageCount={5} />);
 
 		// The knowledge section should contain the badge
-		const knowledgeSectionArea = container.querySelector(
-			"[data-section='knowledge'], [data-section-header='knowledge']",
-		)?.closest("div, li, section");
+		const knowledgeSectionArea = container
+			.querySelector("[data-section='knowledge'], [data-section-header='knowledge']")
+			?.closest("div, li, section");
 
 		// The badge should be in the DOM near the knowledge section
 		const badge = screen.getByTestId("knowledge-triage-badge");

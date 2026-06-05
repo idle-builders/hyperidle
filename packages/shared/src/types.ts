@@ -55,7 +55,7 @@ export type KnowledgeFormat = "markdown" | "toon";
  * to know if knowledge is draft, active, or archived. The strategy layer
  * (fabric) owns the richer 7-state lifecycle.
  */
-export const KERNEL_KNOWLEDGE_STATUSES = ["draft", "active", "archived"] as const;
+export const KERNEL_KNOWLEDGE_STATUSES = ["draft", "active", "archived", "needs_human"] as const;
 export type KernelKnowledgeStatus = (typeof KERNEL_KNOWLEDGE_STATUSES)[number];
 
 /**
