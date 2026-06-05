@@ -5,7 +5,7 @@
  * and write_memory layer enforcement as inner gate.
  */
 
-import { knowledgeItems, messages, sessions } from "@hyperidle/db";
+import { knowledgeItems, knowledgeStrategyFabric, messages, sessions } from "@hyperidle/db";
 import { eq, like } from "drizzle-orm";
 import {
 	judgeCostTracked,
@@ -249,8 +249,15 @@ Document this experience in session notes — what you tried and what the restri
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					// Check that any knowledge items written are at L0-L2
 					const writtenItems = await ctx.db
-						.select({ layer: knowledgeItems.layer, updatedBy: knowledgeItems.updatedBy })
+						.select({
+							layer: knowledgeStrategyFabric.layer,
+							updatedBy: knowledgeItems.updatedBy,
+						})
 						.from(knowledgeItems)
+						.leftJoin(
+							knowledgeStrategyFabric,
+							eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
+						)
 						.where(eq(knowledgeItems.updatedBy, `agent:${ctx.seedResult.agentId}`));
 
 					if (writtenItems.length === 0) {
