@@ -13,14 +13,22 @@
 
 import { randomUUID } from "node:crypto";
 import {
+	artifacts,
 	bets,
 	factorySettings,
 	type HyperIdleDb,
+	items,
+	knowledgeConflicts,
 	knowledgeItems,
 	knowledgeStrategyFabric,
+	messages,
+	routines,
+	sessions,
 	tasks,
 	teamMembers,
 	teams,
+	threads,
+	userSkills,
 	users,
 } from "@hyperidle/db";
 import type { BetStatus, ModelTier, ScopeKind, TaskState, UserRole } from "@hyperidle/shared";
@@ -97,6 +105,9 @@ export async function seedAgent(
 		soulPrompt?: string;
 		harnessType?: string;
 		modelTierPreference?: ModelTier;
+		/** W7: costCapMinor for cost-warning scenarios (maps to users.costCapMinor). */
+		costCapMinor?: number;
+		costCapCurrency?: string;
 	},
 ): Promise<{ agentId: string }> {
 	const agentId = opts.agentId ?? randomUUID();
@@ -112,6 +123,8 @@ export async function seedAgent(
 		soulPrompt: opts.soulPrompt ?? null,
 		harnessType: opts.harnessType ?? "builtin",
 		modelTierPreference: opts.modelTierPreference ?? null,
+		costCapMinor: opts.costCapMinor ?? null,
+		costCapCurrency: opts.costCapCurrency ?? null,
 		createdAt: now,
 	});
 
@@ -128,6 +141,10 @@ export async function seedBet(
 		doneCondition?: string;
 		status?: BetStatus;
 		costAppetiteMinor?: number;
+		costActualMinor?: number;
+		/** W8: Deprecated appetite string that appears in composed prompt via bet.appetite field. */
+		appetite?: string;
+		hypothesis?: string;
 	},
 ): Promise<{ betId: string }> {
 	const betId = opts.betId ?? randomUUID();
@@ -141,6 +158,9 @@ export async function seedBet(
 		status: opts.status ?? "active",
 		costAppetiteMinor: opts.costAppetiteMinor ?? 1000,
 		costAppetiteCurrency: "USD",
+		costActualMinor: opts.costActualMinor ?? null,
+		appetite: opts.appetite ?? null,
+		hypothesis: opts.hypothesis ?? null,
 		createdAt: now,
 	});
 
@@ -199,8 +219,10 @@ export async function seedKnowledge(
 		layer?: string;
 		kind?: string;
 		updatedBy: string;
+		/** Knowledge lifecycle status. Defaults to "active". Use "captured", "provisional", etc. for promotion pipeline scenarios. */
+		status?: string;
 	},
-): Promise<{ itemId: string }> {
+): Promise<{ knowledgeItemId: string }> {
 	const itemId = opts.itemId ?? randomUUID();
 	const now = new Date().toISOString();
 
@@ -211,8 +233,8 @@ export async function seedKnowledge(
 		title: opts.title,
 		body: opts.body,
 		format: "markdown",
-		status: "active",
-		version: 1,
+		status: opts.status ?? "active",
+		version: opts.status === "captured" ? 0 : 1,
 		updatedBy: opts.updatedBy,
 		createdAt: now,
 		updatedAt: now,
@@ -227,7 +249,7 @@ export async function seedKnowledge(
 		kind: opts.kind ?? "context",
 	});
 
-	return { itemId };
+	return { knowledgeItemId: itemId };
 }
 
 /** Seed factory settings (e.g. cost cap). */
@@ -321,6 +343,293 @@ export async function seedMinimalWorld(
 		betId,
 		taskId,
 		workspaceBasePath,
+	};
+}
+
+// ---------------------------------------------------------------------------
+// X8 seeding additions
+// ---------------------------------------------------------------------------
+
+/** Create a thread (conversation anchor). Used by send_message, read_inbox, submit_review, create_item scenarios. */
+export async function seedThread(
+	db: HyperIdleDb,
+	opts: {
+		threadId?: string;
+		hostKind: string;
+		hostId: string;
+		initiatorId: string;
+		participants: string[];
+	},
+): Promise<{ threadId: string }> {
+	const threadId = opts.threadId ?? randomUUID();
+	const now = new Date().toISOString();
+
+	await db.insert(threads).values({
+		id: threadId,
+		hostKind: opts.hostKind,
+		hostId: opts.hostId,
+		initiatorId: opts.initiatorId,
+		participants: JSON.stringify(opts.participants),
+		lastActiveAt: now,
+		createdAt: now,
+	});
+
+	return { threadId };
+}
+
+/** Create a message in a thread. Used by read_inbox scenarios (need pre-existing messages to read). */
+export async function seedMessage(
+	db: HyperIdleDb,
+	opts: {
+		messageId?: string;
+		senderId: string;
+		threadId: string;
+		type?: string;
+		payload: string;
+	},
+): Promise<{ messageId: string }> {
+	const messageId = opts.messageId ?? randomUUID();
+	const now = new Date().toISOString();
+
+	await db.insert(messages).values({
+		id: messageId,
+		senderId: opts.senderId,
+		threadId: opts.threadId,
+		type: opts.type ?? "plain",
+		payload: opts.payload,
+		clientKey: randomUUID(),
+		createdAt: now,
+	});
+
+	return { messageId };
+}
+
+/** Create an item (human interface surface). Used by route_item, score_attention scenarios. */
+export async function seedItem(
+	db: HyperIdleDb,
+	opts: {
+		itemId?: string;
+		sourceAgentId: string;
+		title: string;
+		threadId: string;
+		kind?: string;
+		verb?: string;
+		riskTier?: string;
+		body?: string;
+	},
+): Promise<{ itemId: string }> {
+	const itemId = opts.itemId ?? randomUUID();
+	const now = new Date().toISOString();
+
+	await db.insert(items).values({
+		id: itemId,
+		sourceAgentId: opts.sourceAgentId,
+		title: opts.title,
+		threadId: opts.threadId,
+		kind: opts.kind ?? null,
+		verb: opts.verb ?? null,
+		riskTier: opts.riskTier ?? null,
+		body: opts.body ?? null,
+		createdAt: now,
+	});
+
+	return { itemId };
+}
+
+/** Create an artifact. Used by submit_review scenarios (need existing artifact for artifactRef). */
+export async function seedArtifact(
+	db: HyperIdleDb,
+	opts: {
+		artifactId?: string;
+		producingTaskId: string;
+		kind: string;
+		previewJson?: string;
+	},
+): Promise<{ artifactId: string }> {
+	const artifactId = opts.artifactId ?? randomUUID();
+	const now = new Date().toISOString();
+
+	await db.insert(artifacts).values({
+		id: artifactId,
+		producingTaskId: opts.producingTaskId,
+		kind: opts.kind,
+		previewJson: opts.previewJson ?? null,
+		createdAt: now,
+	});
+
+	return { artifactId };
+}
+
+/** Create a knowledge conflict. Used by promote_knowledge scenarios (conflict gate blocks validated promotion). */
+export async function seedConflict(
+	db: HyperIdleDb,
+	opts: {
+		conflictId?: string;
+		itemId: string;
+		proposedBy: string;
+		proposedBody: string;
+		versionBase: number;
+		versionCurrent: number;
+		status?: string;
+	},
+): Promise<{ conflictId: string }> {
+	const conflictId = opts.conflictId ?? randomUUID();
+	const now = new Date().toISOString();
+
+	await db.insert(knowledgeConflicts).values({
+		id: conflictId,
+		itemId: opts.itemId,
+		proposedBy: opts.proposedBy,
+		proposedBody: opts.proposedBody,
+		versionBase: opts.versionBase,
+		versionCurrent: opts.versionCurrent,
+		status: opts.status ?? "open",
+		createdAt: now,
+	});
+
+	return { conflictId };
+}
+
+/**
+ * Create a routine row.
+ *
+ * @lore X8 CRITICAL-1: `checkAndFireRoutine` requires `taskId` in `triggerConfig`.
+ * Always include a real task row's ID in triggerConfig for rs-*, ska-*, del-* scenarios.
+ */
+export async function seedRoutine(
+	db: HyperIdleDb,
+	opts: {
+		routineId?: string;
+		ownerAgentId: string;
+		triggerType: "heartbeat" | "calendar" | "event" | "continuous";
+		triggerConfig?: Record<string, unknown>;
+		skillId?: string;
+		doneCondition?: string;
+		delegationAllowed?: boolean;
+		humanReview?: boolean;
+		autonomyLevel?: number;
+		silent?: boolean;
+		active?: boolean;
+		lastRunAt?: string;
+		nextRunAt?: string;
+	},
+): Promise<{ routineId: string }> {
+	const routineId = opts.routineId ?? randomUUID();
+
+	await db.insert(routines).values({
+		id: routineId,
+		ownerAgentId: opts.ownerAgentId,
+		triggerType: opts.triggerType,
+		triggerConfig: opts.triggerConfig ? JSON.stringify(opts.triggerConfig) : null,
+		skillId: opts.skillId ?? null,
+		doneCondition: opts.doneCondition ?? null,
+		delegationAllowed: opts.delegationAllowed ?? false,
+		humanReview: opts.humanReview ?? false,
+		autonomyLevel: opts.autonomyLevel ?? null,
+		silent: opts.silent ?? false,
+		active: opts.active ?? true,
+		lastRunAt: opts.lastRunAt ?? null,
+		nextRunAt: opts.nextRunAt ?? null,
+	});
+
+	return { routineId };
+}
+
+/** Create a user skill record. Used by skill autonomy and delegation scenarios. */
+export async function seedUserSkill(
+	db: HyperIdleDb,
+	opts: {
+		userId: string;
+		skillId: string;
+		autonomyLevel: number;
+		successCount?: number;
+		failureCount?: number;
+		lastUsedAt?: string;
+		promotedAt?: string;
+	},
+): Promise<void> {
+	await db.insert(userSkills).values({
+		userId: opts.userId,
+		skillId: opts.skillId,
+		autonomyLevel: opts.autonomyLevel,
+		successCount: opts.successCount ?? 0,
+		failureCount: opts.failureCount ?? 0,
+		lastUsedAt: opts.lastUsedAt ?? null,
+		promotedAt: opts.promotedAt ?? null,
+	});
+}
+
+/** Create an active session (for WIP-limit testing in delegation scenarios). */
+export async function seedActiveSession(
+	db: HyperIdleDb,
+	opts: {
+		sessionId?: string;
+		taskId: string;
+		agentId: string;
+	},
+): Promise<{ sessionId: string }> {
+	const sessionId = opts.sessionId ?? randomUUID();
+	const now = new Date().toISOString();
+
+	await db.insert(sessions).values({
+		id: sessionId,
+		taskId: opts.taskId,
+		agentId: opts.agentId,
+		modelTier: "workhorse",
+		startedAt: now,
+		state: "active",
+	});
+
+	return { sessionId };
+}
+
+/**
+ * Composite: seed a complete world with two agents on the same team.
+ * Extends seedMinimalWorld with a second agent.
+ * Used by: send_message, handoff_to, read_inbox, delegation scenarios.
+ */
+export async function seedMultiAgentWorld(
+	db: HyperIdleDb,
+	opts?: {
+		agentRole?: UserRole;
+		agentSoulPrompt?: string;
+		secondAgentRole?: UserRole;
+		secondAgentName?: string;
+		secondAgentSoulPrompt?: string;
+		taskTitle?: string;
+		taskDescription?: string;
+		betDescription?: string;
+		betDoneCondition?: string;
+	},
+): Promise<
+	ScenarioSeedResult & {
+		founderId: string;
+		teamMembersId: string;
+		secondAgentId: string;
+	}
+> {
+	const base = await seedMinimalWorld(db, {
+		agentRole: opts?.agentRole,
+		agentSoulPrompt: opts?.agentSoulPrompt,
+		taskTitle: opts?.taskTitle,
+		taskDescription: opts?.taskDescription,
+		betDescription: opts?.betDescription,
+		betDoneCondition: opts?.betDoneCondition,
+	});
+
+	const { agentId: secondAgentId } = await seedAgent(db, {
+		name: opts?.secondAgentName ?? "Eval Agent 2",
+		role: opts?.secondAgentRole ?? "product_manager",
+		teamMembersId: base.teamMembersId,
+		soulPrompt:
+			opts?.secondAgentSoulPrompt ??
+			buildDefaultSoulPrompt(opts?.secondAgentRole ?? "product_manager"),
+		harnessType: "builtin",
+	});
+
+	return {
+		...base,
+		secondAgentId,
 	};
 }
 
