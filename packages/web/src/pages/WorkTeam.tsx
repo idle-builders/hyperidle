@@ -22,21 +22,28 @@
  */
 
 import {
+	Avatar,
+	Button,
 	betStatusToStatus,
 	EmptyState,
 	ErrorState,
 	KeyValue,
 	SkeletonCard,
 	StatusChip,
+	Tag,
 } from "@hyperidle/design-system";
 // @lore U1: `ProductDetail` → `TeamDetail`, `BetCardSummary.pitchTitle` → `descriptionTitle`.
-import type { BetCardSummary, TeamDetail } from "@hyperidle/shared";
-import { formatMoney } from "@hyperidle/shared";
+import type { BetCardSummary, RosterMember, TeamDetail } from "@hyperidle/shared";
+import { findRoleCatalogEntry, formatMoney } from "@hyperidle/shared";
 import type { JSX } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
 import { useHint } from "../hooks/useHints";
 import { useTeam } from "../hooks/useTeam";
+import { useTeamAgents } from "../hooks/useTeamAgents.js";
+import { AgentAddDialog } from "./AgentAddDialog.js";
+import { AgentEditDialog } from "./AgentEditDialog.js";
 
 export interface WorkTeamProps {
 	/**
@@ -174,6 +181,22 @@ function WorkTeamLoaded({
 	const { team, roster, burn, activeBets } = data;
 	const onOpenArtifact = useArtifactOpen();
 	const hintCreateBet = useHint("create-bet");
+	const hintReviewAgents = useHint("review-agents");
+
+	// AB3: dialog state
+	const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
+	const [addDialogOpen, setAddDialogOpen] = useState(false);
+
+	// AB3: fetch full agent configs for the roster.
+	// @lore AB3: rosterAgentIds MUST be memoized — passing an inline array on
+	// every render triggers a new fetch on every render cycle. useMemo ensures
+	// the array reference only changes when the roster content changes.
+	const rosterAgentIds = useMemo(() => roster.map((m) => m.agentId), [roster]);
+	const { agents: agentConfigs, refetch: refetchAgents } = useTeamAgents(rosterAgentIds);
+
+	const editingAgent = editingAgentId !== null ? (agentConfigs.get(editingAgentId) ?? null) : null;
+	const editingRosterMember =
+		editingAgentId !== null ? (roster.find((m) => m.agentId === editingAgentId) ?? null) : null;
 
 	// D2: Resolve lead display name from roster instead of showing the agent id.
 	const leadName =
@@ -298,36 +321,50 @@ function WorkTeamLoaded({
 				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
 					Roster
 				</h2>
+
+				{/* AB3: first-time hint — visible when hint not dismissed and roster is non-empty */}
+				{hintReviewAgents.visible && roster.length > 0 && (
+					<div
+						role="status"
+						data-testid={hintReviewAgents.testId}
+						className="rounded-[var(--r-subtle)] p-[18px] flex flex-col gap-[6px] mb-[6px]"
+						style={{ background: "rgba(22,118,79,0.03)" }}
+					>
+						<p className="text-[13px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
+							{hintReviewAgents.copy}
+						</p>
+						<div className="flex gap-2">
+							<Button variant="ghost" size="sm" type="button" onClick={hintReviewAgents.dismiss}>
+								Got it
+							</Button>
+						</div>
+					</div>
+				)}
+
 				{roster.length === 0 ? (
 					<EmptyState
 						title="Roster not configured"
 						description="No agents are assigned to this team."
 					/>
 				) : (
-					<div className="flex flex-col gap-1">
+					<div className="flex flex-col gap-[6px]">
 						{roster.map((member) => (
-							<div
+							<AgentCard
 								key={member.agentId}
-								data-testid="team-roster-row"
-								data-is-lead={member.isLead ? "true" : "false"}
-								className="flex items-center gap-[12px] py-1 px-2 rounded-[var(--r-none)] bg-[var(--surface-container)]"
-							>
-								<div className="flex-none w-7 h-7 rounded-full bg-[var(--surface-elevated)] flex items-center justify-center text-[10px] font-mono text-[var(--text-primary)] uppercase">
-									{member.name.slice(0, 2)}
-								</div>
-								<div className="flex-1 min-w-0">
-									<div className="text-xs font-medium text-[var(--text-primary)] truncate">
-										{member.name}
-									</div>
-									<div className="text-[10px] text-[var(--text-tertiary)] truncate">
-										{member.role}
-										{member.isLead && (
-											<span className="ml-1 text-[var(--accent-primary)]">· Lead</span>
-										)}
-									</div>
-								</div>
-							</div>
+								member={member}
+								onCustomize={() => setEditingAgentId(member.agentId)}
+							/>
 						))}
+						{/* AB3: Add agent button */}
+						<Button
+							variant="ghost"
+							size="sm"
+							type="button"
+							className="self-start mt-[6px]"
+							onClick={() => setAddDialogOpen(true)}
+						>
+							+ Add agent
+						</Button>
 					</div>
 				)}
 			</section>
@@ -344,6 +381,121 @@ function WorkTeamLoaded({
 					onOpen={onOpenArtifact}
 				/>
 			)}
+
+			{/* AB3: Edit dialog — only mounted when a card is being edited.
+			    Mirrors the addDialogOpen pattern to avoid unconditional useToast calls. */}
+			{editingAgentId !== null && (
+				<AgentEditDialog
+					agent={editingAgent}
+					rosterMember={editingRosterMember}
+					onClose={() => setEditingAgentId(null)}
+					onSaved={() => {
+						refetchAgents();
+						setEditingAgentId(null);
+					}}
+				/>
+			)}
+
+			{/* AB3: Add dialog — only mounted when open to avoid DOM content collisions */}
+			{addDialogOpen && (
+				<AgentAddDialog
+					open={addDialogOpen}
+					teamMembersId={data.teamMembers.id}
+					onClose={() => setAddDialogOpen(false)}
+					onCreated={() => {
+						refetchAgents();
+						setAddDialogOpen(false);
+					}}
+				/>
+			)}
+		</div>
+	);
+}
+
+// ---------------------------------------------------------------------------
+// AgentCard — AB3: enhanced roster card with description, category tag, edit button
+// ---------------------------------------------------------------------------
+
+/**
+ * AB3: Clickable agent card replacing the flat roster row.
+ * Clicking the card (or Customize button) opens the edit dialog.
+ */
+function AgentCard({
+	member,
+	onCustomize,
+}: {
+	member: RosterMember;
+	onCustomize: () => void;
+}): JSX.Element {
+	const catalogEntry = findRoleCatalogEntry(member.role);
+	const description = catalogEntry?.description ?? member.role;
+	const initials = member.name.slice(0, 2).toUpperCase();
+
+	return (
+		// @lore AB3: Outer wrapper is a div with role="button" (not a <button>) because the
+		// inner "Customize" is a real <button>. Nested <button> elements are invalid HTML and
+		// break screen readers. role="button" + tabIndex={0} + onKeyDown gives equivalent
+		// keyboard accessibility without the nesting violation.
+		// biome-ignore lint/a11y/useSemanticElements: div intentional — nested <button> inside would be invalid HTML (CRITICAL-1 fix)
+		<div
+			role="button"
+			tabIndex={0}
+			data-testid="agent-card"
+			onClick={onCustomize}
+			onKeyDown={(e) => {
+				if (e.key === "Enter" || e.key === " ") {
+					e.preventDefault();
+					onCustomize();
+				}
+			}}
+			className="w-full text-left rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[12px] hover:bg-[var(--surface-elevated)] transition-colors duration-[var(--motion-fast)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)] cursor-pointer"
+		>
+			{/* Row 1: avatar + name + lead + category tag + customize button */}
+			<div className="flex items-center gap-[12px]">
+				<Avatar initials={initials} size="sm" agent />
+				<span
+					data-testid="agent-card-name"
+					className="text-[13px] font-medium text-[var(--text-primary)] truncate flex-1"
+				>
+					{member.name}
+					{member.isLead && (
+						<span className="ml-1 text-[var(--accent-primary)] text-[10px]"> — Lead</span>
+					)}
+				</span>
+				{/* Category tag for non-team agents */}
+				{member.agentCategory && member.agentCategory !== "team" && (
+					<span data-testid="agent-card-category">
+						<Tag
+							label={
+								member.agentCategory === "strategy"
+									? "Strategy"
+									: member.agentCategory === "personal"
+										? "Personal"
+										: member.agentCategory
+							}
+						/>
+					</span>
+				)}
+				{/* Customize button — stopPropagation prevents double-fire with card click */}
+				<Button
+					variant="ghost"
+					size="sm"
+					type="button"
+					onClick={(e) => {
+						e.stopPropagation();
+						onCustomize();
+					}}
+				>
+					Customize
+				</Button>
+			</div>
+			{/* Row 2: role description */}
+			<p
+				data-testid="agent-card-description"
+				className="text-[12px] text-[var(--text-tertiary)] truncate mt-[3px] ml-[40px]"
+			>
+				{description}
+			</p>
 		</div>
 	);
 }
@@ -356,7 +508,7 @@ function BetRow({ bet, onNavigate }: { bet: BetCardSummary; onNavigate: () => vo
 		<button
 			type="button"
 			onClick={onNavigate}
-			className="w-full text-left rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] hover:bg-[var(--surface-elevated)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)]"
+			className="w-full text-left rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] hover:bg-[var(--surface-elevated)] transition-colors duration-[var(--motion-fast)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)]"
 		>
 			<div className="flex items-center gap-[12px] flex-wrap">
 				<span className="flex-1 text-xs font-medium text-[var(--text-primary)] truncate">

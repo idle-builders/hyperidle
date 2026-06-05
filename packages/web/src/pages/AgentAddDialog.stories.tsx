@@ -1,0 +1,34 @@
+/**
+ * AB3 — AgentAddDialog stories.
+ * Renders key states at /designsystem for visual verification.
+ *
+ * @lore AB3: Wrapped in <ToastRegion> because AgentAddDialog calls useToast().
+ * The /designsystem route does not provide <ToastRegion>, so stories that render
+ * dialogs must add their own wrapper to avoid a runtime crash.
+ */
+
+import type { JSX, ReactNode } from "react";
+import { ToastRegion } from "../shell/ToastRegion.js";
+import { AgentAddDialog } from "./AgentAddDialog.js";
+
+const noop = (): void => {};
+
+function WithToast({ children }: { children: ReactNode }): JSX.Element {
+	return <ToastRegion>{children}</ToastRegion>;
+}
+
+export default { title: "Page: Work/AgentAddDialog" };
+
+/** Dialog open — create form ready. */
+export const Open = (): JSX.Element => (
+	<WithToast>
+		<AgentAddDialog open={true} teamMembersId="tm-example" onClose={noop} onCreated={noop} />
+	</WithToast>
+);
+
+/** Dialog closed. */
+export const Closed = (): JSX.Element => (
+	<WithToast>
+		<AgentAddDialog open={false} teamMembersId="tm-example" onClose={noop} onCreated={noop} />
+	</WithToast>
+);
