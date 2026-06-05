@@ -1,6 +1,7 @@
 # Vision Gap Audit — HyperIdle
 
 **Audit date:** 2026-06-05
+**Last verified:** 2026-06-05
 **Scope:** Product docs (`docs/product/`), `ETHOS.md`, architecture docs (`docs/architecture/`), process-layer docs (`docs/process-layer/`), agent-layer docs (`docs/agent-layer/`) cross-referenced against `packages/db/`, `packages/server/`, `packages/web/`, `packages/fabric/`, `packages/shared/`, `packages/desktop/`
 
 ---
@@ -264,6 +265,48 @@ The product story documents (`docs/product/`) are written at an aspirational/des
 
 ---
 
+### N11 — Facilitator routines DO run and organize knowledge, but lack a dedicated UI surface (Validation Scenario 1)
+
+**What the docs say:** `docs/product/how-knowledge-compounds.md` describes facilitator agents that automatically organize knowledge through practice meetings, attention scoring, and promotion pipelines. The claim is that knowledge is continuously surfaced and organized without manual curation.
+
+**What the system does:**
+
+- `packages/fabric/src/services/builtin-routines.ts` registers `builtin:practice-meeting` as an event-driven and scheduled routine. The facilitator fires on knowledge events and on the heartbeat schedule.
+- Knowledge decay/attention scoring is implemented in the fabric layer and drives promotion pipeline decisions.
+- Promotion pipelines produce knowledge items visible in the Knowledge triage view (`packages/web/src/pages/knowledge/`). Curation suggestion cards surface in the UI (`CurationSuggestionCard.tsx`).
+- There is no dedicated "facilitator activity" surface or timeline. Users observe facilitator outcomes through the Knowledge triage view rather than through a first-class facilitator panel.
+
+**Assessment:** Facilitator routines DO run and DO organize knowledge. The automated organization claim is substantiated by the implementation. The gap identified in N5 (no dedicated practice meeting UI) remains, but does not negate the claim that the facilitator system works — human oversight flows through the Knowledge triage view.
+
+**Severity:** Minor — the docs imply a dedicated facilitator visibility surface that does not exist. The underlying behavior is correct.
+
+**Recommended resolution:** Update `docs/product/how-knowledge-compounds.md` to clarify that facilitator activity is visible through the Knowledge triage view and curation suggestions, not through a dedicated facilitator panel.
+
+---
+
+### N12 — User Sovereignty: partially upheld; autonomy management and automated routine actions are gaps (Validation Scenario 2)
+
+**What the docs say:** `ETHOS.md` states "User Sovereignty — AI recommends, humans decide" and "Never make irreversible decisions without human approval." `docs/product/human-ai-collaboration.md` describes the verdict system and L1-L4 autonomy levels as the implementation of this principle.
+
+**What the system does (PASS):**
+
+- Thread verdicts (`approve`, `approve-with-comments`, `request-changes`, `edit`, `reject`) provide explicit human override points at every agent work result. Before agent output becomes canonical, it passes through the thread/verdict model. This is correctly implemented.
+- Agent work results are presented in threads for human review before being acted on — the thread model enforces the "AI recommends, humans decide" loop.
+- The `VERDICT_DECISIONS` enum in `packages/shared/src/thread.ts` covers the full set of human override responses documented in the product docs (excluding snooze/escalate, tracked in M6).
+
+**What the system does (PARTIAL / GAP):**
+
+- **Autonomy level management (M7):** The `user_skills` schema captures per-agent per-skill trust levels (`autonomy_level`), but there is no UI for founders to view or adjust these levels. Humans cannot exercise the sovereignty mechanism the docs describe — trust level changes require direct DB access.
+- **Automated routine actions:** The cost sentinel (`builtin:cost-sentinel`) and post-bet retro (`builtin:post-bet-retro`) fire autonomously on their triggers. While neither makes irreversible decisions (they create threads or knowledge items, not destructive mutations), their autonomous firing is not surfaced to founders before execution. There is no pre-execution approval step for these routines.
+
+**Overall assessment:** The verdict/review system respects User Sovereignty for all thread-level decisions — this is the primary flow and it is correctly implemented. The sovereignty gap is concentrated in two areas: (1) founders cannot adjust agent autonomy levels without UI, and (2) built-in scheduled routines act without a pre-flight human check. Neither gap involves irreversible actions in the current implementation.
+
+**Severity:** Minor — core sovereignty (thread verdicts) works. The gaps are in the management layer (autonomy UI) and in transparency of routine execution, not in reversibility of decisions.
+
+**Recommended resolution:** Track the autonomy management UI as a near-term build target (see M7). For built-in routine actions, add a "recent routine activity" log visible to founders so autonomous actions are transparent even when not pre-approved.
+
+---
+
 ## 5. Documented but Not Implemented
 
 | Feature | Doc reference | Status |
@@ -282,12 +325,10 @@ The product story documents (`docs/product/`) are written at an aspirational/des
 | **Pitch expiry ("no backlog")** | `docs/product/how-work-flows.md` "Shaped pitches not committed in two cycles expire" | No expiry logic in scheduler or any background job. |
 | **Canvas spatial planning view** | `docs/product/what-is-hyperidle.md`, `docs/architecture/the-human-interface-the-factory.md` | API endpoint exists (`GET /bets/canvas`); UI was removed in work package U9. |
 | **Weekly practice meetings UI** | `docs/product/how-knowledge-compounds.md` Propose/React/Synthesize | Service exists (`practice-meeting.ts`); no UI surface. |
-| **Retro auto-generation on bet shipped** | `docs/product/how-knowledge-compounds.md` "Every bet that ships or is killed produces a retro" | `builtin:post-bet-retro` routine exists in fabric; no evidence it auto-fires on bet state transition. |
 | **pgvector semantic search** | `docs/architecture/components.md` §2.4 "Postgres + pgvector" | Only FTS (full-text search) is implemented via `fts.ts`. No vector embeddings. |
 | **Global cross-entity search API** | Implied by GlobalSearchPanel component calling `/api/search` | The hook calls `/api/search` which does not exist. Only `/api/knowledge/search` is implemented. |
-| **TOON workspace projection** | `docs/product/how-knowledge-compounds.md` "Formatted in TOON (uses ~40% fewer tokens than JSON)" | `toon-codec.ts` exists in shared; materialization writes markdown files, not TOON packs, to the workspace. |
+| **TOON workspace projection** | `docs/product/how-knowledge-compounds.md` "Formatted in TOON (uses ~40% fewer tokens than JSON)" | TOON codec exists in `packages/shared/src/toon-codec.ts` and works for encoding/decoding. However, workspace materialization and git-export produce markdown files, not TOON-encoded packs. |
 | **Model tier selection by task risk** | `docs/architecture/components.md` §2.3 Scheduler model tier selector | `packages/server/src/services/model-gateway.ts` exists; not clear if risk-based automatic tier selection is wired end-to-end. |
-| **Cost Sentinel heartbeat routine** | `docs/architecture/components.md` §2.3 "The Cost Sentinel is a heartbeat routine owned by the Chief of Staff" | `cost-cap.ts` in fabric implements cap checking; no autonomous sentinel routine firing on the scheduler. |
 | **The Rail ambient awareness UI** | `docs/product/what-is-hyperidle.md` "The Rail — right sidebar, always visible" | Removed in U6. API endpoint works; no UI consumer. |
 
 ---
@@ -326,6 +367,8 @@ Items ordered by user-facing impact. Each item is self-contained enough for a de
 
 ### P1 — Fix the global search API endpoint (BROKEN FEATURE — user-visible)
 
+**Status:** open
+
 **Impact:** Every Cmd+K search returns a network error. The UI component exists but silently fails.
 
 **What to fix:** Implement `GET /api/search?q=:query` in the server that queries across threads, bets, and knowledge items, OR change `packages/web/src/hooks/useGlobalSearch.ts` to call `/api/knowledge/search?q=:query` as an interim solution.
@@ -339,6 +382,8 @@ Items ordered by user-facing impact. Each item is self-contained enough for a de
 
 ### P2 — Update architecture docs to reflect PGlite (not SQLite/better-sqlite3)
 
+**Status:** open
+
 **Impact:** Developer onboarding failure. Every new contributor will read "SQLite via better-sqlite3" and look for a `.db` file that does not exist.
 
 **What to fix:** Replace SQLite/better-sqlite3 language with PGlite (laptop) / postgres-js (VPS/cloud) throughout:
@@ -351,6 +396,8 @@ Items ordered by user-facing impact. Each item is self-contained enough for a de
 ---
 
 ### P3 — Update architecture docs to reflect teams/team_members schema (not products/teams)
+
+**Status:** open
 
 **Impact:** Developer onboarding failure. Schema references in `docs/architecture/components.md` use table names that do not exist.
 
@@ -369,6 +416,8 @@ Items ordered by user-facing impact. Each item is self-contained enough for a de
 
 ### P4 — Acknowledge the Rail removal in product documentation
 
+**Status:** open
+
 **Impact:** Founders reading about the Rail as an always-visible ambient sidebar will look for it and not find it.
 
 **What to fix:** Update `docs/product/what-is-hyperidle.md` to describe the current Sidebar layout (no right Rail). Note that the Rail API exists and ambient data (blocked agents, cost burn) is accessible via the Work view or future feature.
@@ -380,6 +429,8 @@ Items ordered by user-facing impact. Each item is self-contained enough for a de
 ---
 
 ### P5 — Document the Canvas removal and current WorkPortfolio layout
+
+**Status:** open
 
 **Impact:** Product story describes a spatial Canvas planning view that was removed. Users and contributors will expect it.
 
@@ -393,6 +444,8 @@ Items ordered by user-facing impact. Each item is self-contained enough for a de
 
 ### P6 — Clarify bet terminology (draft/active/completed vs shaped/committed/shipped)
 
+**Status:** open
+
 **Impact:** Product docs and process docs use vocabulary that does not match API responses or UI labels, confusing both users and developers.
 
 **What to fix:** Add a terminology note to `docs/process-layer/the-five-primitives.md` §3.1 stating that the implementation uses `draft` (not "shaped"), `active` (not "committed" or "in_progress"), and `completed` (not "shipped"). Update the `status` field in the Bet struct definition.
@@ -403,6 +456,8 @@ Items ordered by user-facing impact. Each item is self-contained enough for a de
 
 ### P7 — Document or remove the snooze and escalate verdicts from human-ai-collaboration.md
 
+**Status:** open
+
 **Impact:** The doc lists non-binding actions including snooze and escalate. Users will look for these affordances that do not exist.
 
 **What to fix:** Either mark snooze/escalate as planned-not-built, or remove them from the current feature table in `docs/product/human-ai-collaboration.md` until they are implemented.
@@ -412,6 +467,8 @@ Items ordered by user-facing impact. Each item is self-contained enough for a de
 ---
 
 ### P8 — Fix the agent inbox route path in architecture documentation
+
+**Status:** open
 
 **Impact:** Any harness adapter developer following the architecture doc will call `/api/agents/:id/inbox` (which 404s) instead of `/api/users/:id/inbox` (which exists).
 
@@ -428,6 +485,8 @@ to:
 
 ### P9 — Document the kernel/strategy separation and extension tables
 
+**Status:** open
+
 **Impact:** The O2 architectural refinement (moving strategy fields to extension tables `knowledgeStrategyFabric`, `taskStrategyFabric`) is a significant design decision that would surprise any developer reading the schema documentation.
 
 **What to fix:** Add a section to `docs/architecture/components.md` or a new `docs/architecture/kernel-strategy-split.md` explaining the kernel/strategy separation: what lives in the kernel tables vs. the extension tables, why the split exists, and how the fabric layer computes strategy signals.
@@ -438,6 +497,8 @@ to:
 ---
 
 ### P10 — Document implemented features not in the product story layer
+
+**Status:** open
 
 **Impact:** Git export, MCP bridge, policy engine, and the notification system are built and working but invisible to anyone reading the product docs. These are potentially high-value features that could be highlighted.
 
