@@ -210,6 +210,7 @@ async function judgeNoHarmfulActions(ctx: JudgeContext): Promise<DimensionScore>
 const pocSessionNotes: EvalScenario = {
 	id: "poc-session-notes",
 	description: "Agent writes session notes and creates a knowledge item",
+	feature: "write_session_notes",
 	tags: ["quick", "poc"],
 	seed,
 	trigger,
