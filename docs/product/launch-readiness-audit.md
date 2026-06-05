@@ -11,15 +11,16 @@
 
 | Category | Count |
 |---|---|
-| Launch-Ready | 49 |
+| Launch-Ready | 53 |
 | Built But Rough | 6 |
-| Hidden Gem | 7 |
+| Hidden Gem | 9 |
 | Incomplete | 4 |
-| **Total** | **66** |
+| Needs Wiring | 1 |
+| **Total** | **73** |
 
-**Overall readiness: 74% launch-ready.** The product has a solid structural foundation — all major routes exist, data flows through real APIs, and seed data demonstrates every view. The most prevalent gap category is "Launch-Ready" features with minor rough edges, not broken features. The 6 "Built But Rough" items are concentrated in error-message quality and notification persistence. The 7 Hidden Gems are powerful features that exist but are not surfaced to users. The 4 Incomplete items are either deployment-mode-gated (Worker) or infrastructure gaps (notification dispatch, MCP bridge UI).
+**Overall readiness: 73% launch-ready.** The product has a solid structural foundation — all major routes exist, data flows through real APIs, and seed data demonstrates every view. The most prevalent gap category is "Launch-Ready" features with minor rough edges, not broken features. The 6 "Built But Rough" items are concentrated in error-message quality and notification persistence. The 9 Hidden Gems are features that exist but are not surfaced to users. The 4 Incomplete items are either deployment-mode-gated (Worker) or infrastructure gaps (notification dispatch, MCP bridge UI). The 1 "Needs Wiring" item (Session Dial-in) requires a UI connection to an existing backend capability.
 
-**The 10 quick wins below represent ~12 developer-days of work that would shift 5–6 features from "Built But Rough" to "Launch-Ready" and make 3 Hidden Gems discoverable.**
+**The 10 quick wins below represent ~12 developer-days of work that would shift 5–6 features from "Built But Rough" to "Launch-Ready" and make 3 of the 9 Hidden Gems discoverable.**
 
 ---
 
@@ -101,7 +102,7 @@ Ranked by (Impact × Severity) / Effort. All are 1–2 days of work.
 
 ## Hidden Gems
 
-Features that are powerful and functional but fail discoverability. Each gets a surfacing recommendation.
+Features that are fully functional but fail discoverability. Each gets a surfacing recommendation.
 
 ### HG-1: Block Reference Embed
 
@@ -147,13 +148,13 @@ Features that are powerful and functional but fail discoverability. Each gets a 
 
 ### HG-8: Chain of Custody (CoC) Overlay
 
-**Value:** The CoC overlay attaches a structured context thread to any page, letting agents and humans build a chain of custody for work items. Powerful for knowledge-transfer and audit trails.
+**Value:** The CoC overlay attaches a structured context thread to any page, letting agents and humans build a chain of custody for work items. Precise for knowledge-transfer and audit trails — every decision can be traced to the block and thread where it was made.
 **Why it's hidden:** The trigger button at the bottom of the sidebar is unlabeled — it shows an icon only. Users do not know what it does until they click it. The name "CoC" (Chain of Custody) is not communicated anywhere in the UI.
 **Recommendation:** Add a label "Context" or "CoC" below the trigger button. On first activation, show a one-shot tooltip: "Attach context to your work — build a chain of custody for decisions."
 
 ### HG-9: Git Export
 
-**Value:** `GET /api/git-export` exports the current knowledge base as a git-compatible snapshot. For teams that want to version-control their knowledge, this is a powerful capability.
+**Value:** `GET /api/git-export` exports the current knowledge base as a git-compatible snapshot. For teams that want to version-control their knowledge, this gives them a durable, diff-able history of everything the system knows.
 **Why it's hidden:** API-only. No UI surface mentions git export or provides a button to trigger it.
 **Recommendation:** Add a "Export knowledge to Git" button to Settings > Backend, calling `GET /api/git-export`. Show the export path in a toast. This is a one-endpoint call — 1 day of work.
 
@@ -240,6 +241,17 @@ Features that are powerful and functional but fail discoverability. Each gets a 
 
 See Hidden Gems section HG-4.
 
+#### Session Dial-in (Q1)
+
+**Category:** Needs Wiring
+**UI Path:** Conversations > [thread with active session] > "Dial in" button | Work > Task Detail > Sessions section > "Dial in" button
+**Discoverability:** 3 — button appears contextually when a session is active
+**Test Coverage:** `q1-session-dial-in.spec.ts`, `SessionActivityPanel.test.tsx`, `useSessionActivity.test.tsx`, `TaskSheet.session.test.tsx`
+
+**What works:** `useSessionActivity` hook polls the session activity stream via WebSocket. `SessionActivityPanel` renders the activity feed alongside message history. The "Dial in" button appears when `useSessionActivity` detects an active session (`latestSessionHarnessUrl` check). Observe mode is read-only.
+**What's rough:** Button renders but links nowhere when `harnessUrl` is null — in seed data and typical dev setup, no session has a harness URL set. See QW-10 for the fix.
+**Recommendation:** See QW-10.
+
 #### CoC Overlay — Chain of Custody
 
 **Category:** Built But Rough
@@ -271,7 +283,7 @@ See Hidden Gems section HG-4.
 **Category:** Launch-Ready
 **UI Path:** Sidebar > Work > [team name]
 **Discoverability:** 4 — team links visible in sidebar
-**Test Coverage:** `WorkTeam.test.tsx`, `work-surface.spec.ts`, `L13-product-drilldown.spec.ts`
+**Test Coverage:** `WorkTeam.AB3.test.tsx`, `work-surface.spec.ts`, `L13-product-drilldown.spec.ts`
 
 **What works:** Team header with name, status chip. Burn vs cap progress bar. Active bets section with empty state. Roster section. ArtifactSection. 404 and generic error states handled.
 **What's rough:** Error state message exposes raw HTTP status code when rate-limited (see QW-1).
@@ -438,7 +450,7 @@ See Hidden Gems section HG-2 and QW-7.
 **Category:** Launch-Ready
 **UI Path:** Sidebar > Knowledge > "+" button at top of list
 **Discoverability:** 3 — "+" button in knowledge sidebar header is small
-**Test Coverage:** `KnowledgeCreate.test.tsx` (inferred from stories), `knowledge-q2-create.spec.ts`
+**Test Coverage:** `KnowledgeCreateDialog.test.tsx`, `knowledge-q2-create.spec.ts`
 
 **What works:** Full-page create at `/knowledge/new`. Title (required), body (TipTap, required), kind selector, scope kind + ID. Create button disabled until title + body non-empty.
 **What's rough:** Navigates to a new full-page route (`/knowledge/new`) — in a tool that uses a sidebar + main layout, a full-page create breaks the app shell and can disorient users.
@@ -841,7 +853,7 @@ See Hidden Gems section HG-5.
 **Discoverability:** 1
 **Test Coverage:** `P2-auth-resolution.test.ts`, `N2-auth.spec.ts`, `cors.test.ts`, `ws-subscribe-authz.test.ts`
 
-**What works:** API key authentication on all protected routes. Dev key shortcut (`hyperidle-dev-local`). Invite code flow. Login session management. CORS configuration.
+**What works:** API key authentication on all protected routes. Dev key shortcut (`<your-api-key>`). Invite code flow. Login session management. CORS configuration.
 **What's rough:** Dev key is hardcoded and must be manually disabled in production. No warning when running with the dev key in a non-dev environment.
 **Recommendation:** Log a startup warning when `HYPERIDLE_DEV_KEY_ENABLED=true` in non-development environments.
 
@@ -909,6 +921,74 @@ See Lifecycle Propagation under Work View.
 
 ---
 
+### 9. Threads & Blocks
+
+These features form the block-level interaction layer across all content surfaces (Bet, Knowledge, CoC overlay). They are referenced throughout earlier sections but were omitted from the original inventory enumeration.
+
+#### Host Thread Section
+
+**Category:** Launch-Ready
+**UI Path:** Work > Bet Detail > Discussion section | Work > Task Detail (inline via TaskSheet) | Knowledge Detail > Discussion section | Artifact permalink > Discussion section
+**Discoverability:** 4 — visible on all host-entity detail pages
+**Test Coverage:** `HostThreadSection.test.tsx`, `HostThreadSection.filter.test.tsx`, `HostThreadSection.prefill.test.tsx`, `M3-HostThreadSection.agentId.test.tsx`, `useHostThread.test.tsx`
+
+**What works:** Unified thread-and-composer shell used across Bet, Task, Knowledge, and Artifact surfaces. Wraps `useHostThread` for data fetching. Renders message list with loading skeleton, empty state, and error recovery. Reply composer with `prefill` support for block-anchored comment flow. In-line mode for TaskSheet (suppresses section header chrome). Auto-scroll and focus on prefill change.
+**What's rough:** Non-plain message types (e.g., review-request) render a bracketed type label rather than full rich rendering — acceptable for MVP.
+**Recommendation:** Full ThreadShell convergence is planned as a follow-up. No blocking issues for launch.
+
+#### Block Reference Embed
+
+**Category:** Hidden Gem
+**UI Path:** Any thread message containing `[[block-id]]` syntax → inline block embed rendered
+**Discoverability:** 1 — no UI affordance explains the syntax or how to create a block reference
+**Test Coverage:** `BlockRefEmbed.test.tsx`, `CocOverlay.block-ref.test.tsx`, `T4-block-reference.spec.ts`
+
+See Hidden Gems section HG-1. The embed itself (`BlockRefEmbed.tsx`) resolves the referenced block via `useBlockResolution`, fetches the host entity body client-side, and renders the block payload inline with a degraded fallback when the block cannot be resolved.
+
+#### Block Actions Popover
+
+**Category:** Launch-Ready
+**UI Path:** Work > Bet Detail (pitch body) | Knowledge Detail (body) > hover over a text block > gutter icon > popover opens
+**Discoverability:** 2 — gutter icon is only visible on hover; no standing affordance
+**Test Coverage:** `WorkBet.block-popover.test.tsx`, `WorkBet.discuss-block.test.tsx`, `WorkBet.share-block.test.tsx`, `KnowledgeDetail.block-popover.test.tsx`, `KnowledgeDetail.share-block.test.tsx`
+
+**What works:** Clicking a block's gutter icon opens a two-action popover: "Discuss" (prefills the HostThreadSection composer with a `Re: <excerpt>` chip) and "Share" (copies the `[[block-id]]` reference to clipboard). Escape closes the popover and returns focus to the gutter. Fully wired in both WorkBet and KnowledgeDetail.
+**What's rough:** The gutter affordance requires hover discovery — new users will not find it without a hint. See HG-1 recommendation.
+**Recommendation:** Add a "Copy block reference" label to the "Share" action. Surface the gutter icon as a persistent faint `+` icon in the margin to telegraph that blocks are interactive.
+
+#### Block Anchored Comments (T5)
+
+**Category:** Hidden Gem
+**UI Path:** Knowledge Detail > body text > hover block > "Discuss" action → thread comment anchored to block
+**Discoverability:** 2 — only visible in CoC overlay context on hover
+**Test Coverage:** `block-anchor-comment.spec.ts`, `T5-block-discussion.spec.ts`
+
+See Hidden Gems section HG-6. Block anchored comments use the same block-actions popover and HostThreadSection prefill mechanism — the distinction from a standard thread reply is the `blockId` + `blockExcerpt` prefill state passed to the composer.
+
+#### Thread Host Banner
+
+**Category:** Launch-Ready
+**UI Path:** Any thread rendered via ThreadShell — Bet thread, Task thread, CoC overlay thread
+**Discoverability:** 4 — always visible at the top of every thread shell
+**Test Coverage:** `ThreadHostBanner.test.tsx`, `ThreadShell.test.tsx`
+
+**What works:** Persistent header above the message stream in every ThreadShell instance. Shows host entity title (linkable to host page), blocking status chip (BLOCKED when `blocking=true`), resolved tag (`resolved=true`), pinned glyph (Lucide SVG — no emoji), and participant avatar stack (up to 3 + overflow "+N" count). Design-system component (`packages/design-system/src/ThreadHostBanner.tsx`).
+**What's rough:** None identified.
+**Recommendation:** None for launch.
+
+#### Thread Resolution
+
+**Category:** Launch-Ready
+**UI Path:** Thread with review-request message → resolved when all reviewers respond; ThreadHostBanner shows resolved tag
+**Discoverability:** 2 — state change is surfaced in ThreadHostBanner; no explicit "Resolve thread" button in current UI
+**Test Coverage:** `ThreadShell.test.tsx`, `ThreadShell.promotion.test.tsx`, `useHostThread.test.tsx`
+
+**What works:** Thread resolution state (`resolved`) flows from the host entity status through `useHostThread` and is rendered as the resolved tag in `ThreadHostBanner`. The `ThreadShell.promotion.test.tsx` tests the resolution promotion path (review-request acknowledgment → resolved state).
+**What's rough:** Resolution is automatic (system-driven by lifecycle propagation) — there is no manual "Mark resolved" affordance for general discussion threads that are not review-request typed.
+**Recommendation:** Add a "Mark as resolved" option to the ThreadHostBanner for non-review threads. Low priority for launch.
+
+---
+
 ## Appendix: Test Coverage Matrix
 
 ### Coverage by Package
@@ -936,7 +1016,7 @@ See Lifecycle Propagation under Work View.
 | Reasoning block view | `Conversations.reasoning.test.tsx` |
 | CoC overlay | `CocOverlay.test.tsx`, `L21-coc-overlay.spec.ts` |
 | Work portfolio | `WorkPortfolio.test.tsx`, `work.spec.ts` |
-| Team drill-down | `WorkTeam.test.tsx`, `L13-product-drilldown.spec.ts` |
+| Team drill-down | `WorkTeam.AB3.test.tsx`, `L13-product-drilldown.spec.ts` |
 | Bet detail | `WorkBet.test.tsx`, `WorkBet.detail.test.tsx`, `bet-thread.spec.ts` |
 | Bet description editing | `WorkBet.pitch.test.tsx`, `bet-description-edit.spec.ts` |
 | Bet creation | `BetCreateDialog.test.tsx`, `Q3-bet-creation.spec.ts` |
@@ -948,7 +1028,7 @@ See Lifecycle Propagation under Work View.
 | Knowledge triage | `KnowledgeList.y4-triage.test.tsx`, `KnowledgeList.j8.test.tsx` |
 | Knowledge detail | `KnowledgeDetail.factory.test.tsx`, `knowledge-detail.spec.ts` |
 | Knowledge editing | `W3-knowledge-edit.spec.ts`, `l23-knowledge-body.spec.ts` |
-| Knowledge create | `knowledge-q2-create.spec.ts` |
+| Knowledge create | `KnowledgeCreateDialog.test.tsx`, `knowledge-q2-create.spec.ts` |
 | Block anchored comments | `block-anchor-comment.spec.ts`, `T5-block-discussion.spec.ts` |
 | Block reference embed | `BlockRefEmbed.test.tsx`, `T4-block-reference.spec.ts` |
 | Artifact section | `artifact-aggregation.spec.ts` |
@@ -969,6 +1049,13 @@ See Lifecycle Propagation under Work View.
 | Authentication | `P2-auth-resolution.test.ts`, `N2-auth.spec.ts` |
 | Routine scheduler | `routine-scheduler.test.ts` |
 | Git export | `git-export-routes.test.ts` |
+| Session dial-in | `q1-session-dial-in.spec.ts`, `SessionActivityPanel.test.tsx`, `useSessionActivity.test.tsx` |
+| Host thread section | `HostThreadSection.test.tsx`, `HostThreadSection.filter.test.tsx`, `HostThreadSection.prefill.test.tsx` |
+| Block reference embed | `BlockRefEmbed.test.tsx`, `T4-block-reference.spec.ts` |
+| Block actions popover | `WorkBet.block-popover.test.tsx`, `WorkBet.discuss-block.test.tsx`, `KnowledgeDetail.block-popover.test.tsx` |
+| Block anchored comments | `block-anchor-comment.spec.ts`, `T5-block-discussion.spec.ts` |
+| Thread host banner | `ThreadHostBanner.test.tsx`, `ThreadShell.test.tsx` |
+| Thread resolution | `ThreadShell.test.tsx`, `ThreadShell.promotion.test.tsx` |
 
 ### Features with Zero Test Coverage (Gaps)
 
