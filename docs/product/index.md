@@ -4,6 +4,12 @@ Four documents that explain what HyperIdle is, how it works, and why it is desig
 
 ---
 
+## Status
+
+HyperIdle is under active development. The architecture is complete and code is being built workpackage-by-workpackage. These documents describe the product as designed — the system you will use when each feature ships. Features are landing continuously; check the repository for the latest implementation status.
+
+---
+
 ## [What is HyperIdle?](./what-is-hyperidle.md)
 
 The entry point. The problem with current tools (Slack + Linear + Notion + GitHub) for AI agent teams. The answer: a meta layer that manages organizational structure. The three-layer model. The Factory app. Who HyperIdle is and is not for.

@@ -46,9 +46,9 @@ HyperIdle is built in three strict layers.
 
 ## The Factory app
 
-The Factory is the single window where human oversight happens. It has four zones:
+The Factory is the single window where human oversight happens. It has three views and a sidebar:
 
-- **Conversations** is where review threads and chat threads live. An agent proposes deploying a landing page; the founder approves, comments, or requests changes — exactly like a GitHub pull request review. Agents initiate conversations with humans, not just the other way around.
+- **Conversations** is where review threads, chat threads, and founder-initiated conversations live. An agent proposes deploying a landing page; the founder approves, comments, or requests changes — exactly like a GitHub pull request review. Agents initiate conversations with humans, but founders can also open a new conversation at any time.
 
 - **Work** is where bets are planned and tracked. The Canvas shows shaped pitches and committed bets. The task list shows what every agent is working on, what's blocked, and what it has cost so far.
 

@@ -48,6 +48,8 @@ Each task has:
 - An optional thread for discussion
 - Artifacts it has produced
 
+**Example.** The task "Implement Stripe webhook handler" is owned by Mika (the Nimmly Builder). It depends on "Define payment schema," which must be done before Mika can start. Its done condition is "webhook endpoint returns 200 for all test events and logs the payload to the canonical store." Its cost cap is $12. When Mika completes the task, she produces a code artifact (the handler file and its tests), and the dependent task "Connect payments UI to API" moves from hold to accepted automatically.
+
 Tasks are the unique producers of artifacts. A task that builds the signup flow produces a code artifact. A task that writes the landing page copy produces a content artifact. The bet aggregates these for display; it does not own them.
 
 **No central planner.** There is no orchestrator agent that decides what all the other agents should do. The Product Manager integrates and unblocks; it does not micromanage. Sequences emerge from task dependencies: when task A completes, dependent tasks that were on hold move to accepted automatically. The Dependency Watcher handles this — no agent intervention required.
@@ -82,7 +84,9 @@ This is the same shape as a code review: the agent is not failing, it is asking 
 
 A routine is a recurring trigger attached to a named agent, with persistent state across runs. Three trigger shapes: calendar-shaped (every Monday at 9am), event-shaped (every time a landing page artifact ships, run brand-voice review), or heartbeat-shaped (every hour, check cost burn).
 
-Every routine has a named owner who holds the thread of memory. Helena, a Practice Facilitator, owns the "weekly metrics review" routine. That doesn't mean Helena runs every execution — it means Helena holds the context ("what I watched last week, what I found, what I want to check this time"). If Helena is overloaded and delegation is allowed, a teammate with the right skill picks up the execution and writes back into Helena's memory state. The ownership and the memory are preserved; the execution can flex.
+Every routine has a named owner who holds the thread of memory. Helena, the Practice Facilitator for Building, owns the "weekly growth metrics review" routine. Every Monday at 9am, Helena checks what campaigns shipped last week across all products, compares conversion numbers against the growth practice benchmarks, and posts a summary to the Chief of Staff's thread. When Helena found that Ambrovia's email open rates dropped 15% after a subject-line change, she flagged it as a review item for the founder.
+
+That doesn't mean Helena runs every execution — it means Helena holds the context ("what I watched last week, what I found, what I want to check this time"). If Helena is overloaded and delegation is allowed, a teammate with the right skill picks up the execution and writes back into Helena's memory state. The ownership and the memory are preserved; the execution can flex.
 
 Routines can also run as sleep-time passes: memory updates with no review thread produced. An agent stays current on its practice without consuming attention. When it needs to ship a copy review, its context is already up to date.
 
