@@ -25,6 +25,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HintProvider } from "../hooks/useHints";
 import { WorkTeam } from "../pages/WorkTeam";
 
+// AgentEditDialog (rendered inside WorkTeam) calls useToast on mount.
+// These tests are about hints, not toasts — mock the hook to avoid the
+// "must be used within <ToastRegion>" error.
+// @lore AB3: AgentEditDialog always mounts inside WorkTeam, so any WorkTeam
+// render in tests needs either a <ToastRegion> wrapper or a useToast mock.
+vi.mock("../shell/ToastRegion.js", async () => {
+	const actual = await vi.importActual("../shell/ToastRegion.js");
+	return {
+		...actual,
+		useToast: vi.fn(() => ({ showToast: vi.fn() })),
+	};
+});
+
 // --- Fixtures ---
 
 const BASE_TEAM_DETAIL: TeamDetail = {

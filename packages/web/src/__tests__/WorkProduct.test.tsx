@@ -7,10 +7,24 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 // @lore U5: WorkProduct renamed to WorkTeam; import updated.
 import { WorkTeam } from "../pages/WorkTeam";
+
+// AgentEditDialog and AgentAddDialog call useToast. They are only mounted when
+// the corresponding state is non-null/true, but we still mock useToast to prevent
+// the "must be used within <ToastRegion>" error when dialogs open in tests.
+// @lore AB3: WorkTeam renders dialogs conditionally (editingAgentId !== null /
+// addDialogOpen), so useToast is only called when a dialog is open — but keeping
+// this mock is safer than relying on no dialog state leaking across tests.
+vi.mock("../shell/ToastRegion.js", async () => {
+	const actual = await vi.importActual("../shell/ToastRegion.js");
+	return {
+		...actual,
+		useToast: vi.fn(() => ({ showToast: vi.fn() })),
+	};
+});
 
 /**
  * @lore U1: TeamDetail shape replaces ProductDetail.
@@ -29,8 +43,20 @@ const MOCK_PRODUCT_DETAIL = {
 	},
 	teamMembers: { id: "t1", formedAt: "2024-01-01T00:00:00.000Z", dissolvedAt: null },
 	roster: [
-		{ agentId: "agent-lead", name: "Lead Agent", role: "lead", isLead: true },
-		{ agentId: "agent-member", name: "Alice Agent", role: "member", isLead: false },
+		{
+			agentId: "agent-lead",
+			name: "Lead Agent",
+			role: "lead",
+			isLead: true,
+			agentCategory: "team",
+		},
+		{
+			agentId: "agent-member",
+			name: "Alice Agent",
+			role: "member",
+			isLead: false,
+			agentCategory: "team",
+		},
 	],
 	// L17: costActual/costCap are now WireMoney|null; costAppetite replaces appetite.
 	burn: {
@@ -105,13 +131,12 @@ describe("WorkTeam", () => {
 		expect(screen.getByTestId("team-active-bets-empty")).toBeInTheDocument();
 	});
 
-	it("4. renders one roster row per agent; lead row has data-is-lead='true'", () => {
+	// @lore AB3: Roster rows replaced by AgentCards (data-testid="agent-card").
+	// The old team-roster-row testid no longer exists; agent cards are interactive buttons.
+	it("4. renders one agent card per roster member", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
-		const rosterRows = screen.getAllByTestId("team-roster-row");
-		expect(rosterRows).toHaveLength(2);
-		// Lead row has data-is-lead
-		const leadRow = rosterRows.find((row) => row.getAttribute("data-is-lead") === "true");
-		expect(leadRow).toBeDefined();
+		const agentCards = screen.getAllByTestId("agent-card");
+		expect(agentCards).toHaveLength(2);
 	});
 
 	it("5. renders the burn-vs-cap with a progress element", () => {
