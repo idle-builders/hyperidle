@@ -502,6 +502,227 @@ This routes to conversations for a quick check.`,
 };
 
 // ---------------------------------------------------------------------------
+// ci-review-request-designer-healthcare
+// ---------------------------------------------------------------------------
+
+const ciReviewRequestDesignerHealthcare: EvalScenario = {
+	id: "ci-review-request-designer-healthcare",
+	description: "Designer requests clinical UX review on medication dosage confirmation flow",
+	feature: "create_item",
+	tags: [],
+	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
+		return await seedMinimalWorld(ctx.db, {
+			agentRole: "designer",
+			agentSoulPrompt: `You are a product designer on the healthcare team.
+When you design interactions that affect patient safety, request a clinical expert review.
+Use create_item with kind="review" and riskTier="high" for any UX flow involving medication, dosage, or clinical decisions.
+Healthcare UX errors can harm patients — flag them immediately and include specific risk reasoning.
+You do NOT make clinical decisions. Clinical experts must validate any patient-facing medication flow.`,
+			taskTitle: "Request clinical review for medication dosage confirmation UX",
+			taskDescription: `You have designed the medication dosage confirmation flow for the patient portal.
+The flow lets patients confirm their medication dosage before a refill request.
+
+Clinical risk factors you identified:
+- Patients could misread the dosage unit (mg vs mcg — a 1000x difference)
+- The confirmation dialog does not display the prescribing physician's name
+- There is no "are you sure?" step for high-alert medications (warfarin, insulin)
+- Color-coded severity indicators may not be visible for color-blind patients
+
+Request a clinical UX review using create_item:
+- kind: "review"
+- riskTier: "high" (medication dosage errors can cause patient harm)
+- title: a clear title describing the review needed
+- body: describe the specific clinical risks you identified and what the expert should evaluate`,
+			betDescription: "Patient portal medication management",
+			betDoneCondition: "Dosage confirmation flow reviewed and approved by clinical expert.",
+		});
+	},
+	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
+		return await runEvalSession(
+			{
+				db: ctx.db,
+				eventBus: ctx.eventBus,
+				resolvedModel: ctx.resolvedModel,
+				resolvedFastModel: ctx.resolvedFastModel,
+				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+			},
+			{
+				taskId: ctx.seedResult.taskId,
+				agentId: ctx.seedResult.agentId,
+				teamId: ctx.seedResult.teamId,
+			},
+		);
+	},
+	rubric: {
+		dimensions: [
+			judgeSessionCompleted(),
+			judgeCreateItemCalled(),
+			{
+				id: "kind_correctness",
+				label: "Item Kind Correct (review)",
+				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
+					const [item] = await ctx.db
+						.select({ kind: items.kind })
+						.from(items)
+						.where(eq(items.sourceAgentId, ctx.seedResult.agentId))
+						.limit(1);
+					const correct = item?.kind === "review";
+					return {
+						score: correct ? 1.0 : item ? 0.5 : 0.0,
+						note: correct ? undefined : item ? `Wrong kind: ${item.kind}` : "No item created",
+					};
+				},
+			},
+			{
+				id: "risk_tier_assessment",
+				label: "Risk Tier Assessed as High (clinical UX risk)",
+				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
+					const [item] = await ctx.db
+						.select({ riskTier: items.riskTier })
+						.from(items)
+						.where(eq(items.sourceAgentId, ctx.seedResult.agentId))
+						.limit(1);
+					const correct = item?.riskTier === "high";
+					return {
+						score: correct ? 1.0 : item ? 0.5 : 0.0,
+						note: correct ? undefined : `riskTier=${item?.riskTier ?? "not found"}`,
+					};
+				},
+			},
+			judgeLlmQuality({
+				id: "reasoning_quality",
+				label: "Review Reasoning Cites Patient Safety or Clinical Risk",
+				extractContent: async (ctx: JudgeContext): Promise<string> => {
+					const [item] = await ctx.db
+						.select({ body: items.body, reasoning: items.reasoning })
+						.from(items)
+						.where(eq(items.sourceAgentId, ctx.seedResult.agentId))
+						.limit(1);
+					return `body: ${item?.body ?? ""}\nreasoning: ${item?.reasoning ?? ""}`;
+				},
+				criteria: `Score 1.0 if the body or reasoning cites at least one specific patient safety risk (medication dosage confusion, color blindness, missing physician name, or high-alert medication) AND requests clinical expert review. Score 0.5 if patient safety is mentioned but risks are generic (no specific medication-related concern). Score 0.0 if no patient safety reasoning.`,
+			}),
+		],
+	},
+};
+
+// ---------------------------------------------------------------------------
+// ci-bug-escalation-qa-frontend
+// ---------------------------------------------------------------------------
+
+const ciBugEscalationQaFrontend: EvalScenario = {
+	id: "ci-bug-escalation-qa-frontend",
+	description: "QA engineer escalates keyboard navigation regression in release candidate",
+	feature: "create_item",
+	tags: [],
+	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
+		return await seedMinimalWorld(ctx.db, {
+			agentRole: "qa_engineer",
+			agentSoulPrompt: `You are a QA engineer responsible for quality assurance on the frontend team.
+When you find a regression in a release candidate, escalate it immediately using create_item.
+Use kind="escalation" and riskTier="high" for regressions that block release.
+Your escalation must include: what you found, how to reproduce it, affected component, and severity assessment.
+You do NOT write production application code. Your sign-off is required before a feature ships.
+Every bug has a reproducible test case — include reproduction steps in your escalation.`,
+			taskTitle: "Escalate keyboard navigation regression in release candidate v2.4.1",
+			taskDescription: `During regression testing of release candidate v2.4.1, you found a critical regression.
+
+Bug found:
+Component: DropdownMenu (frontend/components/dropdown)
+Symptom: Keyboard navigation (Tab, Arrow keys, Enter, Escape) is completely broken
+Regression: Was working in v2.4.0, broken in v2.4.1
+Impact: All users who rely on keyboard navigation (accessibility requirement)
+Affected browsers: Chrome 120, Firefox 121, Safari 17
+
+Reproduction steps:
+1. Open any page with a dropdown menu
+2. Focus the dropdown trigger using Tab key
+3. Press Enter to open — dropdown opens
+4. Press Arrow Down — nothing happens (should move focus to first item)
+5. Press Tab — focus jumps out of dropdown (should stay trapped in dropdown)
+
+This blocks the release — keyboard navigation is an accessibility requirement.
+
+Escalate using create_item:
+- kind: "escalation"
+- riskTier: "high" (regression blocks release, accessibility requirement)
+- title: describe the regression clearly
+- body: include the reproduction steps and affected component`,
+			betDescription: "Frontend v2.4.1 release",
+			betDoneCondition:
+				"Release candidate passes all regression tests including keyboard navigation.",
+		});
+	},
+	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
+		return await runEvalSession(
+			{
+				db: ctx.db,
+				eventBus: ctx.eventBus,
+				resolvedModel: ctx.resolvedModel,
+				resolvedFastModel: ctx.resolvedFastModel,
+				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+			},
+			{
+				taskId: ctx.seedResult.taskId,
+				agentId: ctx.seedResult.agentId,
+				teamId: ctx.seedResult.teamId,
+			},
+		);
+	},
+	rubric: {
+		dimensions: [
+			judgeSessionCompleted(),
+			judgeCreateItemCalled(),
+			{
+				id: "kind_correctness",
+				label: "Item Kind Correct (escalation)",
+				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
+					const [item] = await ctx.db
+						.select({ kind: items.kind })
+						.from(items)
+						.where(eq(items.sourceAgentId, ctx.seedResult.agentId))
+						.limit(1);
+					const correct = item?.kind === "escalation";
+					return {
+						score: correct ? 1.0 : item ? 0.5 : 0.0,
+						note: correct ? undefined : item ? `Wrong kind: ${item.kind}` : "No item created",
+					};
+				},
+			},
+			{
+				id: "risk_tier_assessment",
+				label: "Risk Tier Assessed as High (release-blocking regression)",
+				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
+					const [item] = await ctx.db
+						.select({ riskTier: items.riskTier })
+						.from(items)
+						.where(eq(items.sourceAgentId, ctx.seedResult.agentId))
+						.limit(1);
+					const correct = item?.riskTier === "high";
+					return {
+						score: correct ? 1.0 : item ? 0.5 : 0.0,
+						note: correct ? undefined : `riskTier=${item?.riskTier ?? "not found"}`,
+					};
+				},
+			},
+			judgeLlmQuality({
+				id: "reasoning_quality",
+				label: "Escalation Includes Reproduction Steps and Severity",
+				extractContent: async (ctx: JudgeContext): Promise<string> => {
+					const [item] = await ctx.db
+						.select({ body: items.body, reasoning: items.reasoning })
+						.from(items)
+						.where(eq(items.sourceAgentId, ctx.seedResult.agentId))
+						.limit(1);
+					return `body: ${item?.body ?? ""}\nreasoning: ${item?.reasoning ?? ""}`;
+				},
+				criteria: `Score 1.0 if the body or reasoning includes: (1) the affected component (dropdown or keyboard navigation), (2) at least one reproduction step, AND (3) a severity statement (regression, blocks release, or accessibility requirement). Score 0.5 if the bug is described but lacks either reproduction steps or severity. Score 0.0 if no specific bug details.`,
+			}),
+		],
+	},
+};
+
+// ---------------------------------------------------------------------------
 // Export
 // ---------------------------------------------------------------------------
 
@@ -511,4 +732,6 @@ export const createItemScenarios: EvalScenario[] = [
 	ciReviewRequestBuilderFrontend,
 	ciWorkItemPmDevops,
 	ciChatGrowthMarketing,
+	ciReviewRequestDesignerHealthcare,
+	ciBugEscalationQaFrontend,
 ];

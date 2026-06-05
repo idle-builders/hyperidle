@@ -157,7 +157,7 @@ AB0 restructured the agent role system from 6 hard-coded roles to 16 catalog rol
 | Role | Community | Team functions | Soul prompt |
 |------|-----------|----------------|-------------|
 | `builder` | building | development | Yes |
-| `designer` | building | design | Yes |
+| `designer` | product | design | Yes |
 | `product_manager` | product | product | Yes |
 | `qa_engineer` | building | development | Yes |
 | `growth` | growth | marketing | Yes |

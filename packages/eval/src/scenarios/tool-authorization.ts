@@ -5,7 +5,7 @@
  * and write_memory layer enforcement as inner gate.
  */
 
-import { knowledgeItems, messages } from "@hyperidle/db";
+import { knowledgeItems, messages, sessions } from "@hyperidle/db";
 import { eq, like } from "drizzle-orm";
 import {
 	judgeCostTracked,
@@ -294,6 +294,97 @@ Document this experience in session notes — what you tried and what the restri
 };
 
 // ---------------------------------------------------------------------------
+// ta-unknown-role-fallback
+//
+// @lore W12: This scenario uses a custom/unknown role ("custom_analyst") not in
+// the catalog. communityForRole("custom_analyst") returns "ops" (fallback).
+// findRoleCatalogEntry("custom_analyst") returns undefined. No soul prompt
+// template exists. The agent should function with base tools and generic identity.
+// This tests the open-vocabulary role path that AB0 enabled.
+// ---------------------------------------------------------------------------
+
+const taUnknownRoleFallback: EvalScenario = {
+	id: "ta-unknown-role-fallback",
+	description: "Agent with custom/unknown role completes task with standard tools (AB0 fallback)",
+	feature: "tool_authorization",
+	tags: [],
+	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
+		return await seedMinimalWorld(ctx.db, {
+			// AB0: "custom_analyst" is not in the role catalog — tests fallback path.
+			// communityForRole returns "ops", findRoleCatalogEntry returns undefined.
+			// No soul prompt template — agent gets buildDefaultSoulPrompt generic text.
+			// UserRole is string so no cast needed; any string is valid.
+			agentRole: "custom_analyst",
+			taskTitle: "Analyze project status and document findings",
+			taskDescription: `Analyze the current project status and document your findings in session notes.
+
+Your analysis should cover:
+1. Review the available context about the project
+2. Identify the current state (what is done, what is pending)
+3. Note any risks or blockers you can identify
+4. Document your findings using write_session_notes
+
+Use the tools available to you. Complete the task without attempting facilitator-only tools.`,
+			betDescription: "Project status analysis",
+			betDoneCondition: "Status analysis documented in session notes.",
+		});
+	},
+	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
+		return await runEvalSession(
+			{
+				db: ctx.db,
+				eventBus: ctx.eventBus,
+				resolvedModel: ctx.resolvedModel,
+				resolvedFastModel: ctx.resolvedFastModel,
+				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+			},
+			{
+				taskId: ctx.seedResult.taskId,
+				agentId: ctx.seedResult.agentId,
+				teamId: ctx.seedResult.teamId,
+			},
+		);
+	},
+	rubric: {
+		dimensions: [
+			judgeSessionCompleted(),
+			judgeSessionNotesWritten(),
+			{
+				id: "no_errors",
+				label: "Session Completed Without Authorization Failures",
+				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
+					const [session] = await ctx.db
+						.select({ outcome: sessions.outcome, state: sessions.state })
+						.from(sessions)
+						.where(eq(sessions.id, ctx.triggerResult.sessionId))
+						.limit(1);
+					const completed = session?.state === "done" && session?.outcome === "completed";
+					return {
+						score: completed ? 1.0 : session ? 0.5 : 0.0,
+						note: completed
+							? undefined
+							: `Session state=${session?.state ?? "null"}, outcome=${session?.outcome ?? "null"}`,
+					};
+				},
+			},
+			judgeLlmQuality({
+				id: "appropriate_tools_used",
+				label: "Agent Used Standard Tools Appropriately for Unknown Role",
+				extractContent: async (ctx: JudgeContext): Promise<string> => {
+					const [session] = await ctx.db
+						.select({ notes: sessions.notes })
+						.from(sessions)
+						.where(eq(sessions.id, ctx.triggerResult.sessionId))
+						.limit(1);
+					return session?.notes ?? "";
+				},
+				criteria: `Score 1.0 if session notes contain an analysis of the project status (what is done, what is pending, or any risks/blockers identified). Score 0.5 if notes are present but only contain generic acknowledgment without actual analysis. Score 0.0 if notes are absent or empty.`,
+			}),
+		],
+	},
+};
+
+// ---------------------------------------------------------------------------
 // Export
 // ---------------------------------------------------------------------------
 
@@ -301,4 +392,5 @@ export const toolAuthorizationScenarios: EvalScenario[] = [
 	taStandardAgentBuilderSales,
 	taFacilitatorWorkflowPmConsulting,
 	taLayerEnforcementGrowthMarketing,
+	taUnknownRoleFallback,
 ];

@@ -307,6 +307,249 @@ Also write session notes summarizing the verification outcome.`,
 };
 
 // ---------------------------------------------------------------------------
+// ca-design-artifact-designer-frontend
+// ---------------------------------------------------------------------------
+
+const caDesignArtifactDesignerFrontend: EvalScenario = {
+	id: "ca-design-artifact-designer-frontend",
+	description: "Designer creates a design artifact with component spec preview for frontend work",
+	feature: "create_artifact",
+	tags: [],
+	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
+		return await seedMinimalWorld(ctx.db, {
+			agentRole: "designer",
+			agentSoulPrompt: `You are a product designer on the frontend team.
+You own the user experience. When you complete a component specification, record it as a design artifact.
+Use create_artifact with kind="design" and a preview describing the component name, interaction states, and key interactions.
+You do NOT write application code. Shape the interaction model and hand off to the Builder.`,
+			taskTitle: "Create component specification for the notification center redesign",
+			taskDescription: `Create a component specification artifact for the notification center redesign.
+
+The notification center needs:
+- A bell icon in the header with unread count badge
+- A dropdown panel showing recent notifications grouped by type
+- Individual notification rows with dismiss and mark-as-read actions
+- Empty state for "no notifications"
+
+Use create_artifact with:
+- kind: "design"
+- preview: { kind: "design", component: "NotificationCenter", states: ["idle", "open", "empty", "loading"], interactions: ["dismiss", "mark-read", "view-all"] }
+
+Document the design rationale in session notes.`,
+			betDescription: "Frontend notification center redesign",
+			betDoneCondition: "Component specification delivered to builder for implementation.",
+		});
+	},
+	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
+		return await runEvalSession(
+			{
+				db: ctx.db,
+				eventBus: ctx.eventBus,
+				resolvedModel: ctx.resolvedModel,
+				resolvedFastModel: ctx.resolvedFastModel,
+				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+			},
+			{
+				taskId: ctx.seedResult.taskId,
+				agentId: ctx.seedResult.agentId,
+				teamId: ctx.seedResult.teamId,
+			},
+		);
+	},
+	rubric: {
+		dimensions: [
+			judgeSessionCompleted(),
+			judgeCreateArtifactCalled(),
+			{
+				id: "kind_correctness",
+				label: "Artifact Kind Correct (design)",
+				judge: async (ctx: JudgeContext) => {
+					const [artifact] = await ctx.db
+						.select({ kind: artifacts.kind })
+						.from(artifacts)
+						.where(eq(artifacts.producingTaskId, ctx.seedResult.taskId))
+						.limit(1);
+					const correct = artifact?.kind === "design";
+					return {
+						score: correct ? 1.0 : artifact ? 0.5 : 0.0,
+						note: correct ? undefined : artifact ? `Wrong kind: ${artifact.kind}` : "No artifact",
+					};
+				},
+			},
+			{
+				id: "preview_valid",
+				label: "Design Preview Has Component Spec Fields",
+				judge: async (ctx: JudgeContext) => {
+					const [artifact] = await ctx.db
+						.select({ previewJson: artifacts.previewJson })
+						.from(artifacts)
+						.where(eq(artifacts.producingTaskId, ctx.seedResult.taskId))
+						.limit(1);
+					if (!artifact?.previewJson) {
+						return { score: 0.0, note: "No preview JSON found" };
+					}
+					try {
+						const preview = JSON.parse(artifact.previewJson) as Record<string, unknown>;
+						const hasComponent = typeof preview.component === "string";
+						const hasStates = Array.isArray(preview.states) && preview.states.length > 0;
+						if (hasComponent && hasStates) {
+							return { score: 1.0 };
+						}
+						return {
+							score: 0.5,
+							note: `Preview missing fields: component=${hasComponent}, states=${hasStates}`,
+						};
+					} catch {
+						return { score: 0.0, note: "Preview JSON parse error" };
+					}
+				},
+			},
+			judgeLlmQuality({
+				id: "body_quality",
+				label: "Design Artifact Describes Real UI Component",
+				extractContent: async (ctx: JudgeContext): Promise<string> => {
+					const [artifact] = await ctx.db
+						.select({ previewJson: artifacts.previewJson })
+						.from(artifacts)
+						.where(eq(artifacts.producingTaskId, ctx.seedResult.taskId))
+						.limit(1);
+					return artifact?.previewJson ?? "";
+				},
+				criteria: `Score 1.0 if the preview describes a real UI component with named states (like idle, open, empty) and/or named interactions (like dismiss, mark-read). Score 0.5 if a component is named but states/interactions are generic or missing. Score 0.0 if the preview has no UI component content.`,
+			}),
+		],
+	},
+};
+
+// ---------------------------------------------------------------------------
+// ca-runbook-ops-devops
+//
+// @lore AB0 CRITICAL-3: "runbook" is NOT in WRITABLE_ARTIFACT_KINDS. Ops operational
+// documentation is created using "comm_draft" (the closest writable kind for
+// structured procedural text). The preview carries the procedure steps.
+// ---------------------------------------------------------------------------
+
+const caRunbookOpsDevops: EvalScenario = {
+	id: "ca-runbook-ops-devops",
+	description:
+		"Ops creates a comm_draft artifact documenting database failover procedure (runbook-style)",
+	feature: "create_artifact",
+	tags: [],
+	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
+		return await seedMinimalWorld(ctx.db, {
+			agentRole: "ops",
+			agentSoulPrompt: `You are an ops agent responsible for production reliability.
+When you complete an operational procedure, document it as an artifact for future reference.
+Use create_artifact with kind="comm_draft" to record runbook-style operational documentation.
+The preview should include the procedure steps, prerequisites, and rollback procedure.
+You do NOT write application feature code. Your gate is operational readiness.`,
+			taskTitle: "Create runbook artifact for database failover procedure",
+			taskDescription: `You have successfully tested the database failover procedure. Document it as an artifact.
+
+The failover procedure tested:
+Prerequisites: read replica in sync (lag < 5s), standby instance healthy, maintenance window confirmed
+
+Steps:
+1. Enable maintenance mode (disable ingress load balancer)
+2. Wait for in-flight transactions to drain (30s)
+3. Promote read replica to primary
+4. Update connection string in all services
+5. Verify health checks pass on new primary
+6. Re-enable ingress
+
+Rollback: revert connection string, demote promoted instance, restore from backup if needed
+
+Use create_artifact with:
+- kind: "comm_draft"
+- preview: { kind: "comm_draft", subject: "Database Failover Runbook", body: <procedure steps as text> }
+
+Document the test outcome in session notes.`,
+			betDescription: "Database reliability and failover readiness",
+			betDoneCondition: "Failover procedure tested and documented.",
+		});
+	},
+	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
+		return await runEvalSession(
+			{
+				db: ctx.db,
+				eventBus: ctx.eventBus,
+				resolvedModel: ctx.resolvedModel,
+				resolvedFastModel: ctx.resolvedFastModel,
+				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+			},
+			{
+				taskId: ctx.seedResult.taskId,
+				agentId: ctx.seedResult.agentId,
+				teamId: ctx.seedResult.teamId,
+			},
+		);
+	},
+	rubric: {
+		dimensions: [
+			judgeSessionCompleted(),
+			judgeCreateArtifactCalled(),
+			{
+				id: "kind_correctness",
+				label: "Artifact Kind Correct (comm_draft for runbook)",
+				judge: async (ctx: JudgeContext) => {
+					const [artifact] = await ctx.db
+						.select({ kind: artifacts.kind })
+						.from(artifacts)
+						.where(eq(artifacts.producingTaskId, ctx.seedResult.taskId))
+						.limit(1);
+					const correct = artifact?.kind === "comm_draft";
+					return {
+						score: correct ? 1.0 : artifact ? 0.5 : 0.0,
+						note: correct ? undefined : artifact ? `Wrong kind: ${artifact.kind}` : "No artifact",
+					};
+				},
+			},
+			{
+				id: "preview_valid",
+				label: "Runbook Preview Has Subject and Body",
+				judge: async (ctx: JudgeContext) => {
+					const [artifact] = await ctx.db
+						.select({ previewJson: artifacts.previewJson })
+						.from(artifacts)
+						.where(eq(artifacts.producingTaskId, ctx.seedResult.taskId))
+						.limit(1);
+					if (!artifact?.previewJson) {
+						return { score: 0.0, note: "No preview JSON found" };
+					}
+					try {
+						const preview = JSON.parse(artifact.previewJson) as Record<string, unknown>;
+						const hasSubject = typeof preview.subject === "string";
+						const hasBody = typeof preview.body === "string" && preview.body.length > 20;
+						if (hasSubject && hasBody) {
+							return { score: 1.0 };
+						}
+						return {
+							score: 0.5,
+							note: `Preview missing fields: subject=${hasSubject}, body=${hasBody}`,
+						};
+					} catch {
+						return { score: 0.0, note: "Preview JSON parse error" };
+					}
+				},
+			},
+			judgeLlmQuality({
+				id: "body_quality",
+				label: "Runbook Contains Actionable Operational Steps",
+				extractContent: async (ctx: JudgeContext): Promise<string> => {
+					const [artifact] = await ctx.db
+						.select({ previewJson: artifacts.previewJson })
+						.from(artifacts)
+						.where(eq(artifacts.producingTaskId, ctx.seedResult.taskId))
+						.limit(1);
+					return artifact?.previewJson ?? "";
+				},
+				criteria: `Score 1.0 if the artifact body contains numbered/ordered operational steps AND mentions either prerequisites, rollback procedure, or specific technical actions (promote, connection string, health check). Score 0.5 if steps are present but lack specifics. Score 0.0 if no actionable procedure content.`,
+			}),
+		],
+	},
+};
+
+// ---------------------------------------------------------------------------
 // Export
 // ---------------------------------------------------------------------------
 
@@ -314,4 +557,6 @@ export const createArtifactScenarios: EvalScenario[] = [
 	caCodeDiffBuilderDevops,
 	caDecisionPmHealthcare,
 	caVerificationBuilderFrontend,
+	caDesignArtifactDesignerFrontend,
+	caRunbookOpsDevops,
 ];

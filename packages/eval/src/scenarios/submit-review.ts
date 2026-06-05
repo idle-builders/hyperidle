@@ -461,6 +461,125 @@ No artifactRef needed for this review.`,
 };
 
 // ---------------------------------------------------------------------------
+// sr-qa-gatekeeper-qa-devops
+//
+// @lore W11: QA agent cannot see cross-task artifacts directly. The artifact
+// details (content, what to check) are embedded in the task description so
+// the agent has the information needed to write a meaningful review.
+// ---------------------------------------------------------------------------
+
+const srQaGatekeeperQaDevops: EvalScenario = {
+	id: "sr-qa-gatekeeper-qa-devops",
+	description:
+		"QA engineer submits quality gatekeeper review on infrastructure migration code_diff",
+	feature: "submit_review",
+	tags: [],
+	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
+		const world = await seedMinimalWorld(ctx.db, {
+			agentRole: "qa_engineer",
+			agentSoulPrompt: `You are a QA engineer on a DevOps team responsible for quality gatekeeper reviews.
+When reviewing another agent's work, submit a thorough quality assessment using submit_review.
+Your reviews must cover: test coverage analysis, regression risk, and acceptance criteria verification.
+Include at least 3 specific reasoning points — QA reviews must be comprehensive, not superficial.
+You do NOT write production code. Your sign-off is required before deployment.`,
+			taskTitle: "QA review of infrastructure migration code_diff",
+			taskDescription: `You are the quality gatekeeper for the infrastructure migration. Review the code_diff artifact.
+
+The infrastructure migration artifact contains these changes (artifact already exists in the system):
+File: terraform/modules/vpc/main.tf
+Changes:
+- Updated CIDR block from 10.0.0.0/24 to 10.0.0.0/16 (expanded address space)
+- Added 3 new availability zone subnets (us-east-1a, us-east-1b, us-east-1c)
+- Enabled VPC flow logs (new resource: aws_flow_log.vpc_logs)
+- Updated security group rules: removed 0.0.0.0/0 ingress on port 22, replaced with specific IP range
+
+Quality assessment criteria you must cover in your review:
+1. Test coverage: Does the change include validation scripts or Terraform plan output?
+2. Regression risk: Could the CIDR expansion break existing routing or security group rules?
+3. Acceptance criteria: Does the change meet the original infrastructure bet's requirements?
+
+Use submit_review with:
+- title: "QA review: infrastructure migration code_diff"
+- reasoning: at least 3 points covering test coverage, regression risk, and acceptance criteria
+- No artifactRef needed (review the changes described in your task, not an artifact reference)`,
+			betDescription: "AWS VPC infrastructure migration",
+			betDoneCondition: "Infrastructure migration reviewed and approved by QA.",
+		});
+
+		return world;
+	},
+	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
+		return await runEvalSession(
+			{
+				db: ctx.db,
+				eventBus: ctx.eventBus,
+				resolvedModel: ctx.resolvedModel,
+				resolvedFastModel: ctx.resolvedFastModel,
+				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+			},
+			{
+				taskId: ctx.seedResult.taskId,
+				agentId: ctx.seedResult.agentId,
+				teamId: ctx.seedResult.teamId,
+			},
+		);
+	},
+	rubric: {
+		dimensions: [
+			judgeSessionCompleted(),
+			judgeSubmitReviewCalled(),
+			{
+				id: "reasoning_count",
+				label: "Review Has 3+ Quality Assessment Points",
+				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
+					const [msg] = await ctx.db
+						.select({ payload: messages.payload })
+						.from(messages)
+						.where(eq(messages.senderId, ctx.seedResult.agentId))
+						.limit(1);
+					if (!msg) {
+						return { score: 0.0, note: "No message found" };
+					}
+					try {
+						const payload = JSON.parse(msg.payload) as Record<string, unknown>;
+						const reasoning = payload.reasoning as string[] | undefined;
+						if (!reasoning) {
+							const text = (payload.text as string | undefined) ?? msg.payload;
+							const lines = text.split("\n").filter((l) => l.trim().length > 10);
+							const count = lines.length;
+							return {
+								score: count >= 3 ? 1.0 : count >= 2 ? 0.5 : 0.0,
+								note: `${count} reasoning lines in plain message`,
+							};
+						}
+						const count = reasoning.length;
+						return {
+							score: count >= 3 ? 1.0 : count >= 2 ? 0.5 : 0.0,
+							note: count < 3 ? `${count} reasoning points (expected 3+)` : undefined,
+						};
+					} catch {
+						return { score: 0.0, note: "Could not parse payload" };
+					}
+				},
+			},
+			judgeLlmQuality({
+				id: "reasoning_quality",
+				label: "QA Review Covers Test Coverage, Regression Risk, or Acceptance Criteria",
+				extractContent: async (ctx: JudgeContext): Promise<string> => {
+					const [msg] = await ctx.db
+						.select({ payload: messages.payload })
+						.from(messages)
+						.where(eq(messages.senderId, ctx.seedResult.agentId))
+						.limit(1);
+					return msg?.payload ?? "";
+				},
+				criteria: `Score 1.0 if the review reasoning covers at least 2 of: (1) test coverage or validation (Terraform plan, validation scripts), (2) regression risk (CIDR expansion, routing, security group impact), OR (3) acceptance criteria verification (does the change meet the bet's requirements). Score 0.5 if the review mentions infrastructure changes generally without specific quality criteria. Score 0.0 if reasoning is absent or only restates the changes without quality assessment.`,
+			}),
+		],
+	},
+};
+
+// ---------------------------------------------------------------------------
 // Export
 // ---------------------------------------------------------------------------
 
@@ -469,4 +588,5 @@ export const submitReviewScenarios: EvalScenario[] = [
 	srPlainFallbackBuilderMarketing,
 	srReviewQualityPmHealthcare,
 	srBetThreadTargetingBuilderFrontend,
+	srQaGatekeeperQaDevops,
 ];

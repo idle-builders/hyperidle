@@ -31,7 +31,15 @@ import {
 	userSkills,
 	users,
 } from "@hyperidle/db";
-import type { BetStatus, ModelTier, ScopeKind, TaskState, UserRole } from "@hyperidle/shared";
+import type {
+	AgentCategory,
+	BetStatus,
+	ModelTier,
+	ScopeKind,
+	TaskState,
+	UserRole,
+} from "@hyperidle/shared";
+import { findRoleCatalogEntry } from "@hyperidle/shared";
 import type { ScenarioSeedResult } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -108,6 +116,8 @@ export async function seedAgent(
 		/** W7: costCapMinor for cost-warning scenarios (maps to users.costCapMinor). */
 		costCapMinor?: number;
 		costCapCurrency?: string;
+		/** AB0: Agent category. Defaults to "team" for backward compat. */
+		agentCategory?: AgentCategory;
 	},
 ): Promise<{ agentId: string }> {
 	const agentId = opts.agentId ?? randomUUID();
@@ -125,6 +135,7 @@ export async function seedAgent(
 		modelTierPreference: opts.modelTierPreference ?? null,
 		costCapMinor: opts.costCapMinor ?? null,
 		costCapCurrency: opts.costCapCurrency ?? null,
+		agentCategory: opts.agentCategory ?? "team",
 		createdAt: now,
 	});
 
@@ -294,11 +305,16 @@ export async function seedMinimalWorld(
 
 	const { teamId, teamMembersId } = await seedTeam(db);
 	const { founderId } = await seedFounder(db);
+	const agentRole = opts?.agentRole ?? "builder";
+	// AB0: derive agentCategory from role catalog so seeded agents match production behavior.
+	const catalogEntry = findRoleCatalogEntry(agentRole);
+	const agentCategory: AgentCategory = catalogEntry?.category ?? "team";
 	const { agentId } = await seedAgent(db, {
 		name: "Eval Agent",
-		role: opts?.agentRole ?? "builder",
+		role: agentRole,
 		teamMembersId,
-		soulPrompt: opts?.agentSoulPrompt ?? buildDefaultSoulPrompt(opts?.agentRole ?? "builder"),
+		agentCategory,
+		soulPrompt: opts?.agentSoulPrompt ?? buildDefaultSoulPrompt(agentRole),
 		harnessType: "builtin",
 	});
 
@@ -513,6 +529,8 @@ export async function seedBuiltinAgents(db: HyperIdleDb): Promise<void> {
 			name: "Chief of Staff (eval stub)",
 			role: "chief_of_staff",
 			status: "active",
+			// AB0: chief_of_staff is a personal-category agent (factory-wide, per-founder).
+			agentCategory: "personal",
 			createdAt: now,
 		})
 		.onConflictDoNothing();
@@ -525,6 +543,8 @@ export async function seedBuiltinAgents(db: HyperIdleDb): Promise<void> {
 			name: "Practice Facilitator - Facilitation (eval stub)",
 			role: "practice_facilitator",
 			status: "active",
+			// AB0: practice_facilitator is a strategy-category agent (factory-wide, no team binding).
+			agentCategory: "strategy",
 			createdAt: now,
 		})
 		.onConflictDoNothing();
@@ -537,6 +557,8 @@ export async function seedBuiltinAgents(db: HyperIdleDb): Promise<void> {
 			name: "Nimmly Product Manager (eval stub)",
 			role: "product_manager",
 			status: "active",
+			// AB0: product_manager is a team-category agent.
+			agentCategory: "team",
 			createdAt: now,
 		})
 		.onConflictDoNothing();
@@ -669,13 +691,16 @@ export async function seedMultiAgentWorld(
 		betDoneCondition: opts?.betDoneCondition,
 	});
 
+	const secondRole = opts?.secondAgentRole ?? "product_manager";
+	// AB0: derive agentCategory from role catalog for second agent.
+	const secondCatalogEntry = findRoleCatalogEntry(secondRole);
+	const secondAgentCategory: AgentCategory = secondCatalogEntry?.category ?? "team";
 	const { agentId: secondAgentId } = await seedAgent(db, {
 		name: opts?.secondAgentName ?? "Eval Agent 2",
-		role: opts?.secondAgentRole ?? "product_manager",
+		role: secondRole,
 		teamMembersId: base.teamMembersId,
-		soulPrompt:
-			opts?.secondAgentSoulPrompt ??
-			buildDefaultSoulPrompt(opts?.secondAgentRole ?? "product_manager"),
+		agentCategory: secondAgentCategory,
+		soulPrompt: opts?.secondAgentSoulPrompt ?? buildDefaultSoulPrompt(secondRole),
 		harnessType: "builtin",
 	});
 

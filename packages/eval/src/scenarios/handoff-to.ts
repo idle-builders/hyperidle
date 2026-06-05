@@ -449,6 +449,218 @@ Use handoff_to with:
 };
 
 // ---------------------------------------------------------------------------
+// ht-to-builder-designer-frontend
+// ---------------------------------------------------------------------------
+
+const htToBuilderDesignerFrontend: EvalScenario = {
+	id: "ht-to-builder-designer-frontend",
+	description: "Designer hands off completed component spec to builder for implementation",
+	feature: "handoff_to",
+	tags: [],
+	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
+		const world = await seedMultiAgentWorld(ctx.db, {
+			agentRole: "designer",
+			agentSoulPrompt: `You are a product designer on the frontend team.
+When your design specification is complete, hand off to the builder for implementation.
+Use handoff_to with the builder's agentId and include:
+- Design rationale: why these design decisions were made
+- Component specs: states, interactions, accessibility requirements
+- Acceptance criteria: what the builder should verify before shipping
+- Any open questions or edge cases the builder should watch for
+You do NOT write application code — that's the builder's domain.`,
+			secondAgentRole: "builder",
+			secondAgentName: "Frontend Builder",
+			taskTitle: "Design notification center and hand off to builder",
+			taskDescription: `Your notification center component specification is complete. Hand off to the builder.
+
+Design decisions you made:
+- Bell icon with red badge for unread count (max display: 99+)
+- Dropdown opens on click, closes on outside click or Escape
+- Notifications grouped by type: system, mentions, assignments
+- Each notification: icon, title, body preview (2 lines), timestamp, dismiss button
+- Empty state: "You're all caught up" with checkmark illustration
+- Accessibility: focus trap when open, ARIA live region for new notifications
+
+Hand off using handoff_to:
+- toAgent: the builder's agentId (your teammate)
+- contextId: current task ID
+- status: "completed" (design is done)
+- reason: "Design specification complete, ready for implementation"
+- artifacts: list the component decisions above
+- remainingWork: "Builder to implement, QA to verify accessibility with screen reader"`,
+			betDescription: "Frontend notification center redesign",
+			betDoneCondition: "Notification center designed and implemented.",
+		});
+		return world;
+	},
+	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
+		return await runEvalSession(
+			{
+				db: ctx.db,
+				eventBus: ctx.eventBus,
+				resolvedModel: ctx.resolvedModel,
+				resolvedFastModel: ctx.resolvedFastModel,
+				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+			},
+			{
+				taskId: ctx.seedResult.taskId,
+				agentId: ctx.seedResult.agentId,
+				teamId: ctx.seedResult.teamId,
+			},
+		);
+	},
+	rubric: {
+		dimensions: [
+			judgeSessionCompleted(),
+			{
+				id: "handoff_called",
+				label: "Handoff Called (Session Ended)",
+				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
+					const [session] = await ctx.db
+						.select({ outcome: sessions.outcome, endedAt: sessions.endedAt })
+						.from(sessions)
+						.where(eq(sessions.id, ctx.triggerResult.sessionId))
+						.limit(1);
+					const ended = session?.outcome !== null;
+					return {
+						score: ended ? 1.0 : 0.0,
+						note: ended ? undefined : "Session not ended (handoff may not have been called)",
+					};
+				},
+			},
+			judgeLlmQuality({
+				id: "context_quality",
+				label: "Handoff Includes Design Context for Builder",
+				extractContent: async (ctx: JudgeContext): Promise<string> => {
+					const [session] = await ctx.db
+						.select({ notes: sessions.notes })
+						.from(sessions)
+						.where(eq(sessions.id, ctx.triggerResult.sessionId))
+						.limit(1);
+					return session?.notes ?? "";
+				},
+				criteria: `Score 1.0 if session notes mention: (1) a design handoff to the builder, (2) at least one specific design decision (states, accessibility, grouping, or visual detail), AND (3) what the builder needs to implement or verify. Score 0.5 if handoff is mentioned with some design context but missing the builder's next steps. Score 0.0 if no handoff or design context.`,
+			}),
+		],
+	},
+};
+
+// ---------------------------------------------------------------------------
+// ht-to-builder-ops-devops
+// ---------------------------------------------------------------------------
+
+const htToBuilderOpsDevops: EvalScenario = {
+	id: "ht-to-builder-ops-devops",
+	description:
+		"Ops hands off root cause diagnosis to builder when production error is application code",
+	feature: "handoff_to",
+	tags: [],
+	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
+		const world = await seedMultiAgentWorld(ctx.db, {
+			agentRole: "ops",
+			agentSoulPrompt: `You are an ops agent responsible for production reliability.
+When you investigate a production incident and determine the root cause is application code (not infrastructure),
+escalate to the Builder with your full diagnosis.
+Use handoff_to with status="blocked" because ops cannot fix application code — that's the Builder's domain.
+Your handoff must include: what you observed, what you diagnosed, the affected component, and reproduction conditions.`,
+			secondAgentRole: "builder",
+			secondAgentName: "Application Builder",
+			taskTitle: "Investigate production error spike and hand off root cause to builder",
+			taskDescription: `Investigate the production error spike and hand off to the builder.
+
+Incident details:
+- Error spike started at 14:32 UTC
+- 250 errors/min, all from POST /api/sessions/start
+- Error type: NullPointerException in session-cache.ts line 87
+- Infrastructure is healthy: CPU 23%, memory 41%, DB connections normal
+- Error only occurs when agentId is present in the request body
+
+Your diagnosis:
+Root cause is application code — the session cache module does not handle missing cache entries
+for new agent IDs. This is not an infrastructure issue.
+
+Hand off to the builder using handoff_to:
+- toAgent: the builder's agentId
+- contextId: current task ID
+- status: "blocked" (ops cannot fix application code)
+- reason: "Root cause is application code in session-cache.ts, not infrastructure"
+- artifacts: your diagnosis with error details, affected component, and reproduction condition`,
+			betDescription: "Production incident response",
+			betDoneCondition: "Error spike resolved and root cause fixed.",
+		});
+		return world;
+	},
+	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
+		return await runEvalSession(
+			{
+				db: ctx.db,
+				eventBus: ctx.eventBus,
+				resolvedModel: ctx.resolvedModel,
+				resolvedFastModel: ctx.resolvedFastModel,
+				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+			},
+			{
+				taskId: ctx.seedResult.taskId,
+				agentId: ctx.seedResult.agentId,
+				teamId: ctx.seedResult.teamId,
+			},
+		);
+	},
+	rubric: {
+		dimensions: [
+			judgeSessionCompleted(),
+			{
+				id: "handoff_called",
+				label: "Handoff Called (Session Ended)",
+				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
+					const [session] = await ctx.db
+						.select({ outcome: sessions.outcome })
+						.from(sessions)
+						.where(eq(sessions.id, ctx.triggerResult.sessionId))
+						.limit(1);
+					const ended = session?.outcome !== null;
+					return {
+						score: ended ? 1.0 : 0.0,
+						note: ended ? undefined : "Session not ended (handoff may not have been called)",
+					};
+				},
+			},
+			{
+				id: "status_correct",
+				label: "Handoff Status Indicates Blocked (ops cannot fix code)",
+				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
+					const [session] = await ctx.db
+						.select({ outcome: sessions.outcome })
+						.from(sessions)
+						.where(eq(sessions.id, ctx.triggerResult.sessionId))
+						.limit(1);
+					return {
+						score: session?.outcome === "completed" ? 1.0 : 0.5,
+						note:
+							session?.outcome !== "completed"
+								? `Session outcome: ${session?.outcome ?? "null"}`
+								: undefined,
+					};
+				},
+			},
+			judgeLlmQuality({
+				id: "context_quality",
+				label: "Handoff Includes Diagnosis and Affected Component",
+				extractContent: async (ctx: JudgeContext): Promise<string> => {
+					const [session] = await ctx.db
+						.select({ notes: sessions.notes })
+						.from(sessions)
+						.where(eq(sessions.id, ctx.triggerResult.sessionId))
+						.limit(1);
+					return session?.notes ?? "";
+				},
+				criteria: `Score 1.0 if session notes include: (1) the diagnosis (root cause is application code, not infrastructure), (2) the affected component (session-cache.ts or session cache module), AND (3) reproduction conditions (new agent IDs, missing cache entries, or the specific error). Score 0.5 if diagnosis and component are present but reproduction conditions are absent. Score 0.0 if diagnosis is missing or generic.`,
+			}),
+		],
+	},
+};
+
+// ---------------------------------------------------------------------------
 // Export
 // ---------------------------------------------------------------------------
 
@@ -457,4 +669,6 @@ export const handoffToScenarios: EvalScenario[] = [
 	htToRoleBuilderConsulting,
 	htToHumanBuilderHealthcare,
 	htContextQualityPmFinance,
+	htToBuilderDesignerFrontend,
+	htToBuilderOpsDevops,
 ];
