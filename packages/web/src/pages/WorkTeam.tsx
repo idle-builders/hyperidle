@@ -34,7 +34,12 @@ import {
 	Tag,
 } from "@hyperidle/design-system";
 // @lore U1: `ProductDetail` → `TeamDetail`, `BetCardSummary.pitchTitle` → `descriptionTitle`.
-import type { BetCardSummary, RosterMember, RoutineCardSummary, TeamDetail } from "@hyperidle/shared";
+import type {
+	BetCardSummary,
+	RosterMember,
+	RoutineCardSummary,
+	TeamDetail,
+} from "@hyperidle/shared";
 import { findRoleCatalogEntry, formatMoney } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
