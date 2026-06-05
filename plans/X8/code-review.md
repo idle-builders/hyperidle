@@ -343,3 +343,11 @@ This IS documented via the `@lore W12` comment in tool-authorization.ts lines 29
 **NOT DONE.** B1 (`knowledgeItems.layer` does not exist) is a runtime crash in `ta-layer-enforcement-growth-marketing` that produces a false pass -- the scenario cannot correctly detect layer violations. This must be fixed before the AB0 adaptation can ship.
 
 The 8 new scenarios, seeding changes, and CRITICAL-3 fix are all correctly implemented per the architecture plan. Once B1 is fixed, this is DONE.
+
+---
+
+## B1 Re-review (v6)
+
+B1 is fixed. `tool-authorization.ts` lines 252-261: the `layer_restriction_observed` judge now joins `knowledgeStrategyFabric` via `leftJoin(knowledgeStrategyFabric, eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id))` and selects `layer` from `knowledgeStrategyFabric.layer`. The `leftJoin` is appropriate -- items without a fabric row get `layer: null`, which correctly passes the L3/L4 filter. VERIFIED CORRECT.
+
+REVIEW-VERDICT: DONE
