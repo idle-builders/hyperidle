@@ -2,7 +2,7 @@
 
 You'll go from zero to HyperIdle running locally, with a Team, a Bet, and agents ready to work. This guide uses the embedded PGlite database — no external database required.
 
-**Time: 10 minutes.** The aha moment — watching an agent pick up a task you defined — comes in the last step.
+**Time: 10 minutes.** In the last step you will see an agent session produce output on a task you defined.
 
 ---
 
@@ -10,9 +10,9 @@ You'll go from zero to HyperIdle running locally, with a Team, a Bet, and agents
 
 - **Node.js 24 or later.** Check with `node --version`. Install from [nodejs.org](https://nodejs.org) if needed.
 - **Git.** Check with `git --version`.
-- **An Anthropic API key.** Agents use the Claude API to do their work. Get one at [console.anthropic.com](https://console.anthropic.com). Your key starts with `sk-ant-`.
+- **An Anthropic API key.** Agents use the Claude API to do their work. Get one at [console.anthropic.com](https://console.anthropic.com). Your key starts with `sk-ant-`. Do not commit your API key to version control.
 
-> If you do not have an Anthropic API key, you can still install and explore the interface. Agents will not produce output until the credential is set in Settings after setup.
+> If you do not have an Anthropic API key, you can still install and explore the interface. Agents will not produce output until the credential is provided after setup.
 
 ---
 
@@ -97,7 +97,12 @@ Click **Start HyperIdle**.
 - A Team is created (named after the repo folder basename, or "My Team" if no folder was given).
 - You are redirected to **Work > Portfolio** at `/work/portfolio`.
 
-> **API key storage note:** When running in the browser, the API key field in the setup form accepts your key but it is stored via the Electron bridge, which is only available in the desktop app. In the browser, complete setup, then go to Settings > Credentials and set your Anthropic API key there so agents can use it.
+> **API key storage (browser only):** The Settings > Credentials panel is available in the desktop app only — in the browser it shows "Credential storage is available in the desktop app only." To supply your API key when running the server directly, set the `ANTHROPIC_API_KEY` environment variable before starting `npm run dev`:
+> ```bash
+> export ANTHROPIC_API_KEY=sk-ant-...
+> npm run dev
+> ```
+> The server reads `ANTHROPIC_API_KEY` from the environment and passes it to agents automatically. Do not commit your API key to version control — add it to a `.env` file that is listed in `.gitignore`, or set it in your shell profile.
 
 **Troubleshooting:**
 - `Failed to create user` — the server is not running. Make sure `npm run dev` is still active in your terminal.
@@ -109,36 +114,36 @@ Click **Start HyperIdle**.
 
 After setup you land on **Work > Portfolio**. Take 60 seconds to orient:
 
-**Icon Rail (left sidebar)** — four navigation icons from top to bottom:
-- Conversations — review items and agent messages
-- Work — your portfolio of Teams and Bets
-- Knowledge — the factory's institutional memory
-- Avatar (bottom) — Settings
+**Sidebar (left, 200px wide)** — labeled navigation with three sections:
+- **Conversations** — review items and agent messages
+- **Work** — your portfolio of Teams and Bets; expands to show your Teams as sub-items
+- **Knowledge** — the factory's institutional memory
 
-**Rail (right sidebar, always visible)** — a heads-up display showing blocked agents, cost burn rate, unread count, and active Bet progress.
+At the bottom of the Sidebar: a Search hint (or press `Cmd+K`), your avatar button (opens Settings), and an Assistant button (opens the Chief of Staff overlay).
 
-**Main pane** — the content area. Right now it shows your Portfolio: a status card for the "Nimmly" Team seeded during setup. Click it to open the Team view.
+**Main pane** — the content area. Right now it shows your Portfolio: a grid of Bet cards. Until you have bets, the page shows an empty state with a "New bet" button.
 
 ---
 
 ### Step 6: Create your first Bet
 
-A **Bet** is a time-boxed chunk of work with a done condition. It is the unit agents pick up and execute.
+A **Bet** is a time-boxed chunk of work. It is the unit agents pick up and execute.
 
-1. In Work > Portfolio, click the **Nimmly** Team card (or your Team if you named it differently).
-2. You are now in the **Team view**, showing a Canvas (top) and a Kanban board (bottom).
-3. Click the **+** button to open the pitch form.
-4. Fill in a description, for example: `Build a landing page with a hero section and a features list.`
-5. Set a done condition, for example: `The page renders at /landing with valid HTML and no console errors.`
-6. Click **Create**.
+1. You are already on **Work > Portfolio** (the "All bets" page).
+2. Click the **New bet** button in the page header. If no bets exist yet, the button also appears in the empty state in the centre of the page.
+3. A dialog opens with:
+   - A **Team** select (shown only when you have more than one team; otherwise the single team is used automatically).
+   - A **Description** text area (required) — describe what you want built, for example: `Build a landing page with a hero section and a features list.`
+   - A **Title preview** line that auto-derives a short title from your description.
+4. Click **Create**.
 
-**What you should see:** The Bet appears as a card in the Canvas section. Its status is `draft`.
+**What you should see:** The dialog closes and the new Bet appears as a card in the portfolio grid. Its status is `draft`.
 
-To make agents start working, commit the Bet: drag it from the Canvas into the active area, or use the Bet's action menu to change its status to `active`.
+To make agents start working, open the Bet card and change its status to `active` using the action menu.
 
 **Troubleshooting:**
-- The + button is not visible — you may need to scroll up to the top of the Canvas section.
-- The Bet creation form shows a validation error — the description field is required and must be non-empty.
+- The Create button stays disabled — the description field is required and must be non-empty.
+- No team appears in the select — the team seeded during setup may not have loaded. Refresh the page.
 
 ---
 
@@ -146,25 +151,26 @@ To make agents start working, commit the Bet: drag it from the Canvas into the a
 
 Once a Bet is active, the agents assigned to your Team pick up Tasks. This requires your Anthropic API key to be set and valid.
 
-In the browser, set the key now if you have not already:
-1. Click your avatar in the Icon Rail to open Settings.
-2. Navigate to **Credentials**.
-3. Enter your `sk-ant-...` key next to "Anthropic API Key" and save.
+If you have not set the API key yet:
+- **Browser (server mode):** Stop the server, set `ANTHROPIC_API_KEY` in your environment, and restart `npm run dev` (see Step 4 for details).
+- **Desktop app:** Click your avatar at the bottom of the Sidebar to open Settings, navigate to **Credentials**, and set your Anthropic API key there.
 
-After the key is set:
+After the key is set and a Bet is active:
 - The Builder agent detects the active Bet and starts a Session.
-- Sessions appear in the **Rail** — you'll see a spinning indicator and a cost counter.
 - When the agent needs your approval (for a code change, a deployment action, etc.) a review item appears in **Conversations**.
 
 **What you should see in Conversations:** An artifact card showing exactly what the agent produced — a code diff, a file listing, or a written deliverable — with an action bar: Approve / Request Changes / Reject.
 
-Use keyboard shortcut `A` to approve, `R` to request changes, or `X` to reject.
+**Troubleshooting — no agent session starts after activating a Bet:**
+- Verify `ANTHROPIC_API_KEY` is set in the server environment and the server was restarted after setting it.
+- Check the server terminal output for errors like `no API key` or `401 Unauthorized`.
+- Confirm the Bet status is `active`, not `draft` — agents only pick up active Bets.
 
 ---
 
 ### Step 8: Review the output
 
-Click the **Conversations** icon in the Icon Rail.
+Click **Conversations** in the Sidebar.
 
 The queue shows all items waiting for your decision. Each item has:
 - A thread title describing what is being reviewed.
