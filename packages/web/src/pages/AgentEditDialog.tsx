@@ -64,6 +64,7 @@ export function AgentEditDialog({
 	const [configVisible, setConfigVisible] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [templateLoading, setTemplateLoading] = useState(false);
+	const templateFetchAbortRef = useRef<AbortController | null>(null);
 
 	// Open/close the native dialog when agent prop changes
 	useEffect(() => {
@@ -120,15 +121,27 @@ export function AgentEditDialog({
 
 	const handleLoadTemplate = useCallback(async (): Promise<void> => {
 		if (!agent) return;
+		// Abort any in-flight template request before starting a new one
+		if (templateFetchAbortRef.current) {
+			templateFetchAbortRef.current.abort();
+		}
+		const controller = new AbortController();
+		templateFetchAbortRef.current = controller;
 		setTemplateLoading(true);
 		try {
-			const res = await apiFetch(`/api/agents/templates/${encodeURIComponent(agent.role)}`);
+			const res = await apiFetch(`/api/agents/templates/${encodeURIComponent(agent.role)}`, {
+				signal: controller.signal,
+			});
 			if (!res.ok) return; // No template — leave textarea empty
 			const json = (await res.json()) as { role: string; content: string };
 			setFormValues((prev) => ({ ...prev, soulPrompt: json.content }));
-		} catch {
-			// Template fetch is best-effort
+		} catch (err) {
+			if (err instanceof Error && err.name === "AbortError") return;
+			// Other template fetch errors are best-effort
 		} finally {
+			if (templateFetchAbortRef.current === controller) {
+				templateFetchAbortRef.current = null;
+			}
 			setTemplateLoading(false);
 		}
 	}, [agent]);
