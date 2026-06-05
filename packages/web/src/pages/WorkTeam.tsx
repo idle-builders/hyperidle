@@ -358,6 +358,14 @@ function WorkTeamLoaded({
 				onClose={() => setWizardOpen(false)}
 				onCreated={() => {
 					setWizardOpen(false);
+					// Refetch roster by reloading — useTeam has no refetch method.
+					// @lore AB3: window.location.reload() is the established pattern for
+					// post-mutation refetch in this codebase (see KnowledgeDetail.tsx:713).
+					// Replace with invalidation when a React Query data layer lands.
+					window.location.reload();
+				}}
+				onViewInSettings={() => {
+					navigate("/conversations?settings=open");
 				}}
 				teamMembersId={teamMembers.id}
 				existingAgentNames={roster.map((m) => m.name)}

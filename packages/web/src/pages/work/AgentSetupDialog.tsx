@@ -110,6 +110,11 @@ export interface AgentSetupDialogProps {
 	teamMembersId: string;
 	/** Existing agent names on this team — for uniqueness validation */
 	existingAgentNames: string[];
+	/**
+	 * Called when the user clicks "View in settings" in the success state.
+	 * If provided, called before onCreated + onClose.
+	 */
+	onViewInSettings?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -122,6 +127,7 @@ export function AgentSetupDialog({
 	onCreated,
 	teamMembersId,
 	existingAgentNames,
+	onViewInSettings,
 }: AgentSetupDialogProps): JSX.Element {
 	const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -412,7 +418,15 @@ export function AgentSetupDialog({
 	// Render: single <dialog> element, content switches on `created`
 	// ---------------------------------------------------------------------------
 	return (
-		<dialog ref={dialogRef} aria-modal="true" aria-label="Create new agent">
+		<dialog
+			ref={dialogRef}
+			aria-modal="true"
+			aria-label="Create new agent"
+			style={{
+				background: "var(--surface-elevated)",
+				boxShadow: "var(--shadow-elevated)",
+			}}
+		>
 			{open && created && (
 				/* ── Success state ── */
 				<div className="flex flex-col gap-[18px] p-[24px] min-w-[320px] max-w-[520px] w-full">
@@ -468,6 +482,7 @@ export function AgentSetupDialog({
 								className="btn btn-ghost btn-sm min-h-[44px] justify-start"
 								style={{ borderRadius: "var(--r-pill)" }}
 								onClick={() => {
+									onViewInSettings?.();
 									onCreated();
 									onClose();
 								}}
@@ -781,6 +796,44 @@ export function AgentSetupDialog({
 										Determines which AI model handles this agent's tasks.
 									</p>
 								</label>
+
+								{/* Validation summary */}
+								{noHarnessAvailable || !selectedTierConfigured ? (
+									<div className="flex flex-col gap-[6px]">
+										{noHarnessAvailable && (
+											<div className="flex items-start gap-[6px]">
+												<span
+													className="w-[6px] h-[6px] rounded-full flex-none mt-[4px]"
+													style={{ background: "var(--accent-secondary, #b7791f)" }}
+												/>
+												<p className="text-[12px] text-[var(--accent-secondary,#b7791f)]">
+													Harness unavailable — start a worker process before creating.
+												</p>
+											</div>
+										)}
+										{!selectedTierConfigured && (
+											<div className="flex items-start gap-[6px]">
+												<span
+													className="w-[6px] h-[6px] rounded-full flex-none mt-[4px]"
+													style={{ background: "var(--accent-secondary, #b7791f)" }}
+												/>
+												<p className="text-[12px] text-[var(--accent-secondary,#b7791f)]">
+													Model tier not configured — set up a provider in Settings &gt; Models.
+												</p>
+											</div>
+										)}
+									</div>
+								) : (
+									<div className="flex items-center gap-[6px]">
+										<span
+											className="w-[6px] h-[6px] rounded-full flex-none"
+											style={{ background: "var(--status-success, #16764f)" }}
+										/>
+										<p className="text-[12px] text-[var(--status-success,#16764f)]">
+											All checks passed — ready to create
+										</p>
+									</div>
+								)}
 
 								{submitError && (
 									<p role="alert" className="text-[12px] text-error">

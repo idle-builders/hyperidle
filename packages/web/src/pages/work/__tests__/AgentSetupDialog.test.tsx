@@ -64,13 +64,37 @@ const MOCK_TEAM_NO_AGENTS = {
 
 /** Mock workers response — two adapters, one paused */
 const MOCK_WORKERS = [
-	{ id: "worker-1", name: "Built-in Executor", kind: "builtin", type: "builtin", currentLoad: 0, maxConcurrent: 10, paused: false },
-	{ id: "worker-2", name: "Claude Code Worker", kind: "claude-code", type: "claude-code", currentLoad: 0, maxConcurrent: 5, paused: true },
+	{
+		id: "worker-1",
+		name: "Built-in Executor",
+		kind: "builtin",
+		type: "builtin",
+		currentLoad: 0,
+		maxConcurrent: 10,
+		paused: false,
+	},
+	{
+		id: "worker-2",
+		name: "Claude Code Worker",
+		kind: "claude-code",
+		type: "claude-code",
+		currentLoad: 0,
+		maxConcurrent: 5,
+		paused: true,
+	},
 ];
 
 /** Mock workers where all are paused */
 const MOCK_WORKERS_ALL_PAUSED = [
-	{ id: "worker-1", name: "Built-in Executor", kind: "builtin", type: "builtin", currentLoad: 0, maxConcurrent: 10, paused: true },
+	{
+		id: "worker-1",
+		name: "Built-in Executor",
+		kind: "builtin",
+		type: "builtin",
+		currentLoad: 0,
+		maxConcurrent: 10,
+		paused: true,
+	},
 ];
 
 /** Mock gateway config — all tiers configured */
@@ -100,7 +124,8 @@ const MOCK_CREATED_AGENT = {
 };
 
 /** Template content returned by GET /api/agents/templates/product_manager */
-const MOCK_TEMPLATE_CONTENT = "You are a Product Manager agent. Your role is to shape bets, write pitches, and define done conditions.";
+const MOCK_TEMPLATE_CONTENT =
+	"You are a Product Manager agent. Your role is to shape bets, write pitches, and define done conditions.";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -110,12 +135,14 @@ const MOCK_TEMPLATE_CONTENT = "You are a Product Manager agent. Your role is to 
  * Set up the apiFetch mock to return appropriate responses for each endpoint.
  * Called in beforeEach to provide a clean mock state.
  */
-async function setupApiFetchMock(overrides: {
-	workers?: typeof MOCK_WORKERS;
-	gateway?: typeof MOCK_GATEWAY_ALL_CONFIGURED;
-	templateContent?: string | null;
-	createAgentStatus?: number;
-} = {}): Promise<ReturnType<typeof vi.fn>> {
+async function setupApiFetchMock(
+	overrides: {
+		workers?: typeof MOCK_WORKERS;
+		gateway?: typeof MOCK_GATEWAY_ALL_CONFIGURED;
+		templateContent?: string | null;
+		createAgentStatus?: number;
+	} = {},
+): Promise<ReturnType<typeof vi.fn>> {
 	const { apiFetch } = await import("../../../services/api-fetch.js");
 	const fetchSpy = vi.mocked(apiFetch);
 
@@ -146,7 +173,10 @@ async function setupApiFetchMock(overrides: {
 		}
 
 		// GET /api/agents/templates/:role
-		if (urlStr.startsWith("/api/agents/templates/") && (!options?.method || options.method === "GET")) {
+		if (
+			urlStr.startsWith("/api/agents/templates/") &&
+			(!options?.method || options.method === "GET")
+		) {
 			if (templateContent === null) {
 				return {
 					ok: false,
@@ -223,7 +253,10 @@ async function navigateToStep2(user: ReturnType<typeof userEvent.setup>): Promis
 	await user.click(nextBtn);
 }
 
-async function navigateToStep3(user: ReturnType<typeof userEvent.setup>, agentName = "Orion"): Promise<void> {
+async function navigateToStep3(
+	user: ReturnType<typeof userEvent.setup>,
+	agentName = "Orion",
+): Promise<void> {
 	await navigateToStep2(user);
 
 	// Fill in agent name
@@ -505,7 +538,9 @@ describe("AgentSetupDialog", () => {
 			await waitFor(() => {
 				// Only "Built-in Executor" (paused: false) should be in the select
 				expect(screen.getByRole("option", { name: /built-in executor/i })).toBeInTheDocument();
-				expect(screen.queryByRole("option", { name: /claude code worker/i })).not.toBeInTheDocument();
+				expect(
+					screen.queryByRole("option", { name: /claude code worker/i }),
+				).not.toBeInTheDocument();
 			});
 		});
 
@@ -638,7 +673,8 @@ describe("AgentSetupDialog", () => {
 			await waitFor(() => {
 				// Find the POST /api/agents call
 				const postCall = fetchSpy.mock.calls.find(
-					([url, opts]) => String(url) === "/api/agents" && (opts as RequestInit)?.method === "POST",
+					([url, opts]) =>
+						String(url) === "/api/agents" && (opts as RequestInit)?.method === "POST",
 				);
 				expect(postCall).toBeDefined();
 
