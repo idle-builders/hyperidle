@@ -89,20 +89,27 @@ export const MODEL_TIERS = ["reasoning", "workhorse", "fast"] as const;
 export type TriggerType = "heartbeat" | "calendar" | "event" | "continuous";
 
 /**
- * Kernel user roles (assigned to AI users that run inside the kernel runtime).
- * Fabric roles (practice_facilitator, chief_of_staff, brand_voice) live in
- * FABRIC_USER_ROLES and are composed into USER_ROLES below.
+ * AB0: Agent categories. Closed enum — adding a fourth requires a concept-doc update.
+ * - team: bound to a team, domain specialist
+ * - strategy: factory-wide, strategy-controlled
+ * - personal: bound to a human user
  *
- * @lore O1: split from the flat UserRole union as part of kernel/strategy
- * separation. Kernel services only care about kernel roles; fabric/UI code
- * uses USER_ROLES for the full composed list.
- * @lore P2: Renamed from KERNEL_AGENT_ROLES / AGENT_ROLES to KERNEL_USER_ROLES / USER_ROLES
- * as part of the Unified User primitive rename.
+ * @lore AB0: Replaces the KERNEL_USER_ROLES / FABRIC_USER_ROLES split which was
+ * about system layer, not agent category. The category system is orthogonal to
+ * the role system.
  */
-export const KERNEL_USER_ROLES = ["builder", "growth", "product_manager"] as const;
-export const FABRIC_USER_ROLES = ["practice_facilitator", "chief_of_staff", "brand_voice"] as const;
-export const USER_ROLES = [...KERNEL_USER_ROLES, ...FABRIC_USER_ROLES] as const;
-export type UserRole = (typeof USER_ROLES)[number];
+export const AGENT_CATEGORIES = ["team", "strategy", "personal"] as const;
+export type AgentCategory = (typeof AGENT_CATEGORIES)[number];
+
+/**
+ * AB0: Agent role is an open string. The role catalog in agent-roles.ts provides
+ * known roles with metadata, but any non-empty string is a valid role.
+ *
+ * @lore AB0: This replaces the closed USER_ROLES tuple. The old 6-value enum
+ * could not accommodate new domain-specific roles (designer, QA, ops, etc.)
+ * without code changes. Open string + catalog avoids the enum expansion problem.
+ */
+export type UserRole = string;
 
 export type UserStatus = "active" | "paused" | "retired";
 

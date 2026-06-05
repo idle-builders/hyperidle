@@ -30,3 +30,5 @@ packages/design-system/03-hearth.html
 packages/design-system/inspiration/
 packages/server/hyperidle-pg/
 eval-results*.json
+docs/product/.vitepress/cache
+.vitepress/cache

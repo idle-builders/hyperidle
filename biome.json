@@ -161,7 +161,10 @@
 			"!.verify-attestations",
 			"!packages/desktop/release",
 			"!packages/design-system/*.html",
-			"!packages/design-system/html"
+			"!packages/design-system/html",
+			"!docs/product/.vitepress/cache",
+			"!docs/product/.vitepress/dist",
+			"!.vitepress/cache"
 		]
 	},
 	"overrides": [

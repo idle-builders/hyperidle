@@ -23,6 +23,13 @@ export const teams = pgTable("teams", {
 	principlesPath: text("principles_path"),
 	factoryDbPath: text("factory_db_path"),
 	createdAt: text("created_at").notNull(),
+	/**
+	 * AB0: Team functions as JSON array of strings.
+	 * Determines which agent roles appear in the default roster.
+	 * @lore AB0: Open vocabulary. Known functions: development, product,
+	 * design, marketing, sales, operations, support, research.
+	 */
+	functions: text("functions"),
 });
 
 export const users = pgTable("users", {
@@ -62,6 +69,13 @@ export const users = pgTable("users", {
 	harnessType: text("harness_type"),
 	/** X3: Model tier preference. null = provisioning default ("workhorse"). */
 	modelTierPreference: text("model_tier_preference"),
+	/**
+	 * AB0: Agent category — team | strategy | personal.
+	 * Null for human users and system users.
+	 * @lore AB0: This replaces the KERNEL_USER_ROLES / FABRIC_USER_ROLES
+	 * split which was about system layer, not agent category.
+	 */
+	agentCategory: text("agent_category"),
 });
 
 // @lore U1: `teamMembers` is the agent-membership group (formerly `teams`).

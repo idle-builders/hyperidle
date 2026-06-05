@@ -155,14 +155,26 @@ describe("org routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 when target role is invalid (mechanism=function)", async () => {
+		// AB0: roles are now open strings — any non-empty string is valid.
+		// The security boundary moved from "not in USER_ROLES enum" to "empty string".
+		it("returns 400 when target role is empty string (mechanism=function)", async () => {
 			const { fromUserId } = await seedUsers(db);
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
 				headers: authHeaders(),
-				body: JSON.stringify({ fromUserId, mechanism: "function", target: "invalid_role_xyz" }),
+				body: JSON.stringify({ fromUserId, mechanism: "function", target: "" }),
 			});
 			expect(res.status).toBe(400);
+		});
+
+		it("returns 201 when target role is a custom string (mechanism=function, AB0)", async () => {
+			const { fromUserId } = await seedUsers(db);
+			const res = await app.request("/api/org/edges", {
+				method: "PUT",
+				headers: authHeaders(),
+				body: JSON.stringify({ fromUserId, mechanism: "function", target: "custom_specialist" }),
+			});
+			expect(res.status).toBe(201);
 		});
 
 		it("returns 400 when target teamId not found (mechanism=team)", async () => {

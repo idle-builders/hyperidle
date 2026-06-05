@@ -1,6 +1,5 @@
-import type { UserRole } from "@hyperidle/shared";
 import type { KnowledgeItemWithFabric } from "./knowledge-repository.js";
-import { ROLE_TO_COMMUNITY } from "./role-community-map.js";
+import { communityForRole } from "./role-community-map.js";
 import type { ScoringContext, ScoringWeights } from "./scoring-config.js";
 import { enforceBudget, type ScoredItem } from "./token-budget.js";
 
@@ -66,28 +65,9 @@ function computeTagMatch(item: KnowledgeItemWithFabric, taskTags: string[]): num
 	return matches / normalizedTaskTags.length;
 }
 
-const KNOWN_USER_ROLES: readonly UserRole[] = [
-	"builder",
-	"growth",
-	"product_manager",
-	"practice_facilitator",
-	"chief_of_staff",
-	"brand_voice",
-];
-
-function isUserRole(value: string): value is UserRole {
-	return (KNOWN_USER_ROLES as readonly string[]).includes(value);
-}
-
 /** Compute role match factor (0 or 1). */
 function computeRoleMatch(item: KnowledgeItemWithFabric, agentRole: string): number {
-	// ScoringContext.agentRole is typed as `string` (public API); the role map
-	// is keyed by the canonical `UserRole` union. Narrow via a type guard so
-	// an unknown role returns 0 rather than throwing.
-	if (!isUserRole(agentRole)) {
-		return 0;
-	}
-	const community = ROLE_TO_COMMUNITY[agentRole];
+	const community = communityForRole(agentRole);
 	const scopeId = item.scopeId ?? null;
 	if (scopeId === community) {
 		return 1;

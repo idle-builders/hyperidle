@@ -264,14 +264,16 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 			expect(body.code).toBe("VALIDATION_ERROR");
 		});
 
-		it("returns 400 when mechanism=function and target is not a valid UserRole", async () => {
+		// @lore AB0: UserRole is now an open string (not a closed enum). Any non-empty string
+		// is a valid function-mechanism target. The only invalid case is an empty string.
+		it("returns 400 when mechanism=function and target is an empty string", async () => {
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({
 					fromUserId: "u-human-org",
 					mechanism: "function",
-					target: "garbage_role",
+					target: "",
 				}),
 			});
 			expect(res.status).toBe(400);

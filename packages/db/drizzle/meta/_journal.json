@@ -159,8 +159,15 @@
 		{
 			"idx": 22,
 			"version": "7",
+			"when": 1782961400000,
+			"tag": "0022_AB0_agent_structure",
+			"breakpoints": true
+		},
+		{
+			"idx": 23,
+			"version": "7",
 			"when": 1783000000000,
-			"tag": "0022_AA1_routine_visibility",
+			"tag": "0023_AA1_routine_visibility",
 			"breakpoints": true
 		}
 	]
