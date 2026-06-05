@@ -1579,3 +1579,312 @@ The combined evals introduce rubric dimensions not present in the original 83 sc
 **Task 4.25 (new):** Add to Phase 4 implementation tasks: implement the 23 new combined eval scenarios across three feature files (`session.ts`, `materialized-knowledge.ts`, `composed-prompt.ts`). Each file exports an array of `EvalScenario` objects. The new judge functions (Section 11.8) go in `packages/eval/src/judges/` as a new directory alongside the existing judge factory in Section 4.
 
 **Task 3.5 (new):** Add to Phase 3 implementation tasks: implement the 36 new rubric dimension judge functions listed in Section 11.8. Rule-based judges are straightforward DB queries. LLM-as-judge functions follow the factory pattern from Section 4 (`createLlmJudge`). Hybrid judges combine a rule-based check with an LLM quality assessment.
+
+---
+
+## 12. AB0 Role Model Adaptation
+
+AB0 restructured the agent role system from 6 hard-coded roles to 16 catalog roles across 3 categories (team/strategy/personal). `UserRole` is now `string` (open vocabulary). The `agentCategory` field (`users.agent_category` column) is new. This section audits the existing 106 scenarios for AB0 compatibility, identifies which new roles add genuine eval diversity, defines new scenarios, and specifies seeding changes.
+
+### 12.1 Seeding changes
+
+#### `seedAgent`: add `agentCategory` parameter
+
+The `users.agent_category` column exists in the schema but `seedAgent` does not set it. Every agent insert currently leaves `agentCategory` as `null`. While `null` is not a constraint violation (the column is nullable text), it means the DB state diverges from production where every agent has a category.
+
+**Change:**
+
+```typescript
+export async function seedAgent(
+  db: HyperIdleDb,
+  opts: {
+    agentId?: string;
+    name: string;
+    role: UserRole;
+    teamMembersId: string;
+    soulPrompt?: string;
+    harnessType?: string;
+    modelTierPreference?: ModelTier;
+    costCapMinor?: number;
+    costCapCurrency?: string;
+    /** AB0: Agent category. Defaults to "team" for backward compat. */
+    agentCategory?: AgentCategory;
+  },
+): Promise<{ agentId: string }>
+```
+
+The `db.insert(users).values(...)` call adds:
+
+```typescript
+agentCategory: opts.agentCategory ?? "team",
+```
+
+Default `"team"` is correct because all 6 existing roles are team-category agents (builder, product_manager, growth, brand_voice) or have explicit overrides in the builtin agent stubs (chief_of_staff → personal, practice_facilitator → strategy).
+
+#### `seedMinimalWorld` and `seedMultiAgentWorld`: derive category from role
+
+Both composites call `seedAgent` internally. They should derive `agentCategory` from the role catalog when not explicitly provided:
+
+```typescript
+import { findRoleCatalogEntry } from "@hyperidle/shared";
+
+// Inside seedMinimalWorld:
+const catalogEntry = findRoleCatalogEntry(opts?.agentRole ?? "builder");
+const agentCategory = catalogEntry?.category ?? "team";
+
+const { agentId } = await seedAgent(db, {
+  name: "Eval Agent",
+  role: opts?.agentRole ?? "builder",
+  teamMembersId,
+  agentCategory,
+  // ...rest unchanged
+});
+```
+
+This means existing scenarios that pass `agentRole: "chief_of_staff"` will automatically get `agentCategory: "personal"`, and `agentRole: "practice_facilitator"` will get `agentCategory: "strategy"`, matching production behavior without scenario-level changes.
+
+#### `seedBuiltinAgents`: add `agentCategory`
+
+The three builtin agent stubs (seed-agent-cos, seed-agent-pf-facilitation, seed-agent-pm-nimmly) need their category set:
+
+```typescript
+// seed-agent-cos
+agentCategory: "personal",
+
+// seed-agent-pf-facilitation
+agentCategory: "strategy",
+
+// seed-agent-pm-nimmly
+agentCategory: "team",
+```
+
+#### `seedTeam`: add `functions` field
+
+AB0 introduced `teams.functions` for determining default roster. The seeded team should have a `functions` field:
+
+```typescript
+export async function seedTeam(
+  db: HyperIdleDb,
+  opts?: Partial<{
+    teamId: string;
+    teamName: string;
+    phase: string;
+    /** AB0: team functions for default roster computation. */
+    functions?: readonly string[];
+  }>,
+): Promise<{ teamId: string; teamMembersId: string }>
+```
+
+Default: `["development", "product"]` (covers builder + product_manager, the most common eval pair). Note: verify that `teams` table actually has a `functions` column -- if it does not exist yet in the schema, defer this change.
+
+### 12.2 Existing scenario audit
+
+**Type compatibility:** `UserRole` is now `string`. All existing `agentRole: "builder"` etc. values are valid strings and valid catalog role names. No type breakage. Zero scenarios need role string changes.
+
+**agentCategory gap:** All 106 existing scenarios create agents via `seedMinimalWorld`, `seedMultiAgentWorld`, or `seedAgent`. None set `agentCategory`. After the seeding change in 12.1, the category is auto-derived from the role catalog. Existing scenarios produce correct categories automatically:
+
+| Existing role | Auto-derived category | Correct? |
+|---|---|---|
+| builder | team | Yes |
+| product_manager | team | Yes |
+| growth | team | Yes |
+| brand_voice | team | Yes |
+| practice_facilitator | strategy | Yes |
+| chief_of_staff | personal | Yes |
+
+**No scenario code changes needed** for the existing 106 scenarios. The seeding layer handles the adaptation transparently.
+
+**Tool authorization compatibility:** Facilitator-only tools are restricted to the 3 explicit role strings (`chief_of_staff`, `practice_facilitator`, `product_manager`). None of the 10 new AB0 roles appear in these `roles` arrays. This means all new roles get the standard 11-tool set. Existing authorization scenarios remain valid. New roles exercising standard tools will hit the same code paths as existing builder/growth/brand_voice scenarios for tool authorization.
+
+**Community mapping:** `communityForRole()` now uses catalog lookup + fallback to "ops". Existing scenarios that rely on community-based behavior (tool authorization, L3 knowledge scoping) are unaffected because the 6 existing roles have the same communities they always had. New roles map to their catalog communities.
+
+### 12.3 New role coverage analysis
+
+For each of the 10 new roles, the diversity question: does this role create a genuinely different judgment pattern for any interaction compared to what the existing 6 roles already cover?
+
+**Roles with soul prompt templates (3):**
+
+| New role | Category | Community | Template? | Diversity assessment |
+|---|---|---|---|---|
+| **designer** | team | product | Yes | **YES -- genuine diversity.** Designer creates artifacts of kind "design" (wireframes, component specs, annotated screenshots). Builder creates "code_diff". The `create_artifact` kind selection, knowledge capture patterns (design patterns vs code patterns), and handoff-to patterns (hands off TO builder, not FROM builder to PM) are all genuinely different judgment. The designer soul prompt explicitly says "You do NOT write application code" -- this is a constraint that creates different tool selection behavior. Community is "product" (same as PM) which means L3 knowledge scoping hits a different community than builder's "building". |
+| **qa_engineer** | team | building | Yes | **YES -- genuine diversity for specific interactions.** QA creates artifacts of kind "verification" (test plans, regression results) -- this is the same kind as builder's `ca-verification-builder-frontend` but from a different authority perspective (QA sign-off vs builder self-verification). QA's `create_item` usage is genuinely different: QA surfaces bugs as `kind="escalation"` with quality-specific reasoning (regression found, test failure, etc.) vs builder's compliance escalation. QA's `submit_review` is the gatekeeper pattern (reviewing someone else's work) vs builder's self-review. Community is "building" (same as builder) so L3 knowledge scoping is identical -- no diversity there. |
+| **ops** | team | ops | Yes | **YES -- genuine diversity for specific interactions.** Ops creates artifacts of kind "runbook" or "incident_report" (unique to ops domain). Ops's `create_item` usage is genuinely different: ops surfaces incidents as `kind="escalation"` with operational reasoning (uptime, latency, SLA breach) vs builder's compliance reasoning. Ops's handoff pattern is unique: hands off TO builder for root cause when it's a code problem, vs builder hands off to PM for stakeholder communication. Community is "ops" (same as PF and CoS) which gives shared L3 knowledge space. |
+
+**Roles without soul prompt templates (7):**
+
+| New role | Category | Community | Diversity assessment |
+|---|---|---|---|
+| support | team | ops | **LIMITED.** Support triages tickets -- this maps to `create_item` with `kind="escalation"` and `kind="chat"`, already covered by builder's escalation and growth's chat scenarios. No soul prompt means the agent gets the generic `buildDefaultSoulPrompt` -- identical judgment to builder for most tools. One genuine difference: support would hand off to builder differently (customer issue → engineering fix) but the handoff mechanism is identical. **Skip.** |
+| sales | team | growth | **NO.** Sales uses the same standard tools as growth in identical ways. No soul prompt. Community is "growth" (same as growth agent). No interaction produces genuinely different judgment. **Skip.** |
+| content | team | growth | **NO.** Content writes marketing copy -- but the tools are identical to growth's usage. `create_artifact` with kind "copy" might differ, but this is a domain label difference, not a judgment difference. **Skip.** |
+| data_analyst | team | product | **LIMITED.** Data analyst creates artifacts of kind "data_analysis" -- this is a valid kind but the artifact creation judgment is identical to any agent creating a structured preview. No soul prompt. Community is "product" (same as PM). **Skip.** |
+| scout | strategy | product | **NO.** Scout is a strategy agent that analyzes markets -- but with no soul prompt and standard tools only, its tool usage is indistinguishable from a PM analyzing competition. The strategy category is the only structural difference, but that doesn't affect tool behavior. **Skip.** |
+| infra | strategy | ops | **LIMITED.** Infra is structurally similar to ops but factory-wide instead of team-bound. No soul prompt. The `agentCategory: "strategy"` means no team binding, but that's a seeding property not a tool-usage property. **Skip for now.** |
+| platform | strategy | building | **NO.** Platform agent maintains shared tools/CI -- identical tool usage to builder. No soul prompt. Community is "building" (same as builder). **Skip.** |
+
+**Summary: 3 new roles merit scenarios (designer, qa_engineer, ops). 7 roles are skipped because they produce identical judgment patterns to existing role coverage for the interactions we eval.**
+
+**Edge case worth testing:** One scenario for a **custom/unknown role** (not in the catalog). This tests the fallback path: `communityForRole()` returns "ops", `findRoleCatalogEntry()` returns undefined, no soul prompt template exists. The agent should function with base tools and generic identity.
+
+### 12.4 New scenarios
+
+#### 12.4.1 Designer scenarios (3 new)
+
+**ca-design-artifact-designer-frontend** (`create_artifact`)
+
+- **Role:** designer
+- **Domain:** frontend
+- **What it exercises:** Designer creates a "design" kind artifact with a preview containing component specs (interaction flow, states, dimensions). This is genuinely different from builder's "code_diff" because the preview schema for "design" artifacts has different expected fields (no hunks, expects flow/states/mockup).
+- **Seed:** `seedMinimalWorld` with `agentRole: "designer"`, soul prompt from `docs/souls/designer.md` adapted for eval (emphasizes creating design artifacts). Task: "Create a component specification artifact for the notification center redesign."
+- **Rubric:** `session_completed`, `artifact_created`, `kind_correctness` (expects "design"), `preview_valid` (expects structured design fields: component name, states, interactions), `body_quality` (LLM-as-judge: does the preview describe a real UI component?).
+- **Justification:** No existing scenario tests `create_artifact` with kind "design". Builder scenarios test "code_diff" and "verification". PM tests "decision". Designer's artifact kind is a unique code path in preview validation.
+
+**ht-to-builder-designer-frontend** (`handoff_to`)
+
+- **Role:** designer
+- **Domain:** frontend
+- **What it exercises:** Designer hands off a completed design spec to a builder for implementation. This is the reverse direction of the existing handoff scenarios (which are builder→PM or builder→builder). Designer→builder exercises the "design done, ready for implementation" handoff pattern with different context quality expectations (design rationale, component specs, acceptance criteria for the builder).
+- **Seed:** `seedMultiAgentWorld` with `agentRole: "designer"`, `secondAgentRole: "builder"`. Designer soul prompt emphasizes handoff with design context. Task: "Your component specification is complete. Hand off to the builder for implementation."
+- **Rubric:** `session_completed`, `handoff_called`, `context_quality` (LLM-as-judge: does the handoff include design specs, acceptance criteria, and visual requirements?).
+- **Justification:** All existing handoff scenarios are builder→X or PM→PM. Designer→builder is a new direction that exercises different context quality expectations (design artifacts, not code artifacts).
+
+**ci-review-request-designer-healthcare** (`create_item`)
+
+- **Role:** designer
+- **Domain:** healthcare
+- **What it exercises:** Designer requests human review on a healthcare patient portal UX flow. Unlike builder's accessibility review request (ci-review-request-builder-frontend), the designer's review request focuses on interaction flow quality and user safety in a clinical context -- different risk reasoning.
+- **Seed:** `seedMinimalWorld` with `agentRole: "designer"`. Task: "You've designed the medication dosage confirmation flow for the patient portal. Request a clinical UX review."
+- **Rubric:** `session_completed`, `item_created`, `kind_correctness` (expects "review"), `risk_tier_assessment` (expects "high" -- clinical UX is patient safety), `reasoning_quality` (LLM-as-judge: does the reasoning cite patient safety, clinical workflow, or medication error risk?).
+- **Justification:** Existing review request scenario (ci-review-request-builder-frontend) tests accessibility risk. Designer's healthcare scenario tests clinical UX risk -- genuinely different risk reasoning that exercises the riskTier assessment differently.
+
+#### 12.4.2 QA Engineer scenarios (2 new)
+
+**sr-qa-gatekeeper-qa-devops** (`submit_review`)
+
+- **Role:** qa_engineer
+- **Domain:** devops
+- **What it exercises:** QA engineer submits a review on someone else's work as a quality gatekeeper. Unlike builder's self-review (sr-with-artifact-builder-devops), QA's review is an external quality assessment with pass/fail judgment. The reasoning should include: test coverage, regression risk, acceptance criteria verification.
+- **Seed:** `seedMinimalWorld` with `agentRole: "qa_engineer"`. Pre-seed an artifact (kind "code_diff") from a builder's task. QA soul prompt from `docs/souls/qa-engineer.md` adapted for eval. Task: "Review the infrastructure migration code_diff artifact and submit your quality assessment."
+- **Rubric:** `session_completed`, `review_submitted`, `reasoning_quality` (LLM-as-judge: does the review mention test coverage, regression risk, or specific acceptance criteria?), `reasoning_count` (expects 3+ points -- QA reviews should be thorough).
+- **Justification:** All existing submit_review scenarios are self-reviews (builder reviewing own work) or PM compliance reviews. QA's gatekeeper review is a distinct judgment pattern -- the QA agent evaluates someone else's output against quality criteria, not their own output.
+
+**ci-bug-escalation-qa-frontend** (`create_item`)
+
+- **Role:** qa_engineer
+- **Domain:** frontend
+- **What it exercises:** QA escalates a regression bug found during testing. Unlike builder's compliance escalation (PCI DSS) or PM's infrastructure capacity escalation, QA's escalation is a quality regression with reproduction steps, severity assessment, and test environment details.
+- **Seed:** `seedMinimalWorld` with `agentRole: "qa_engineer"`. Task: "During regression testing, you found that the dropdown component keyboard navigation is broken in the latest release candidate. Escalate this regression."
+- **Rubric:** `session_completed`, `item_created`, `kind_correctness` (expects "escalation"), `risk_tier_assessment` (expects "high" -- regression in a release candidate), `reasoning_quality` (LLM-as-judge: does the reasoning include reproduction steps, affected component, and severity?).
+- **Justification:** Existing escalation scenarios test compliance blockers (builder/finance) and infrastructure capacity (PM/devops). QA's regression bug escalation has different content expectations: reproduction steps, test environment, severity classification.
+
+#### 12.4.3 Ops scenarios (2 new)
+
+**ca-runbook-ops-devops** (`create_artifact`)
+
+- **Role:** ops
+- **Domain:** devops
+- **What it exercises:** Ops creates a "runbook" kind artifact documenting an operational procedure. Unlike builder's "code_diff" or "verification", a runbook artifact has a different preview structure (steps, conditions, rollback procedure). This tests whether the ops agent selects the correct artifact kind for operational documentation.
+- **Seed:** `seedMinimalWorld` with `agentRole: "ops"`. Soul prompt from `docs/souls/ops.md` adapted for eval. Task: "Create a runbook artifact for the database failover procedure you just tested."
+- **Rubric:** `session_completed`, `artifact_created`, `kind_correctness` (expects "runbook" -- ops-specific artifact kind), `preview_valid` (expects structured fields: procedure steps, rollback steps, prerequisites), `body_quality` (LLM-as-judge: does the runbook include actionable steps, not just descriptions?).
+- **Justification:** No existing scenario tests artifact creation with ops-domain artifact kinds. Builder tests "code_diff" and "verification". PM tests "decision". Ops's "runbook" is a distinct artifact kind exercising different preview validation.
+
+**ht-to-builder-ops-devops** (`handoff_to`)
+
+- **Role:** ops
+- **Domain:** devops
+- **What it exercises:** Ops hands off an incident investigation to a builder when root cause is determined to be application code. The ops soul prompt says "Escalate to the Builder when the root cause is application code." This is a role-aware handoff decision: ops must determine the handoff target based on diagnosis, not just hand off because work is done.
+- **Seed:** `seedMultiAgentWorld` with `agentRole: "ops"`, `secondAgentRole: "builder"`. Task: "You've investigated the production error spike. Root cause: a null pointer in the session cache module. Hand off to the builder for the code fix."
+- **Rubric:** `session_completed`, `handoff_called`, `context_quality` (LLM-as-judge: does the handoff include the diagnosis, affected module, error details, and reproduction conditions?), `status_correct` (expects "blocked" -- ops cannot fix code, needs builder).
+- **Justification:** Existing builder→builder handoff is a continuation handoff ("I did 4/8 servers, you do the rest"). Ops→builder is a diagnosis→fix handoff with different context expectations: the receiver needs the diagnosis, not a progress report.
+
+#### 12.4.4 Custom/unknown role scenario (1 new)
+
+**ta-unknown-role-fallback** (`tool_authorization`)
+
+- **Role:** `"custom_analyst"` (not in the catalog)
+- **Domain:** consulting
+- **What it exercises:** An agent with a role string not in the catalog functions correctly with base tools. `communityForRole("custom_analyst")` returns "ops" (fallback). `findRoleCatalogEntry("custom_analyst")` returns undefined. No soul prompt template. The agent should complete a simple task using standard tools without errors.
+- **Seed:** `seedMinimalWorld` with `agentRole: "custom_analyst"`. No custom soul prompt (relies on `buildDefaultSoulPrompt`). Task: "Analyze the project status and document your findings in session notes."
+- **Rubric:** `session_completed`, `session_notes_written`, `appropriate_tools_used` (standard tools only), `no_errors` (session completes without authorization failures).
+- **Justification:** All existing scenarios use catalog roles. This tests the open-vocabulary role path: catalog miss → fallback community → base tools → functional session. This is the edge case the concept doc identifies as "worth testing."
+
+### 12.5 Summary: new scenarios table
+
+| # | ID | Feature | Role | Domain | Key rubric dimensions | Tags |
+|---|---|---------|------|--------|----------------------|------|
+| 107 | `ca-design-artifact-designer-frontend` | `create_artifact` | designer | frontend | artifact_created, kind_correctness, preview_valid, body_quality | |
+| 108 | `ht-to-builder-designer-frontend` | `handoff_to` | designer | frontend | handoff_called, context_quality, session_completed | |
+| 109 | `ci-review-request-designer-healthcare` | `create_item` | designer | healthcare | item_created, kind_correctness, risk_tier_assessment, reasoning_quality | |
+| 110 | `sr-qa-gatekeeper-qa-devops` | `submit_review` | qa_engineer | devops | review_submitted, reasoning_quality, reasoning_count | |
+| 111 | `ci-bug-escalation-qa-frontend` | `create_item` | qa_engineer | frontend | item_created, kind_correctness, risk_tier_assessment, reasoning_quality | |
+| 112 | `ca-runbook-ops-devops` | `create_artifact` | ops | devops | artifact_created, kind_correctness, preview_valid, body_quality | |
+| 113 | `ht-to-builder-ops-devops` | `handoff_to` | ops | devops | handoff_called, context_quality, status_correct | |
+| 114 | `ta-unknown-role-fallback` | `tool_authorization` | custom_analyst | consulting | session_completed, session_notes_written, no_errors | |
+
+**8 new scenarios.** Revised total: **114 scenarios** across 24 features.
+
+### 12.6 Revised role coverage
+
+| Role | Previous total | AB0 additions | New total |
+|------|---------------|---------------|-----------|
+| builder | 37 | 0 | 37 |
+| product_manager | 27 | 0 | 27 |
+| practice_facilitator | 14 | 0 | 14 |
+| chief_of_staff | 16 | 0 | 16 |
+| growth | 5 | 0 | 5 |
+| brand_voice | 3 | 0 | 3 |
+| **designer** | 0 | **+3** | **3** |
+| **qa_engineer** | 0 | **+2** | **2** |
+| **ops** | 0 | **+2** | **2** |
+| **custom_analyst** | 0 | **+1** | **1** |
+
+Roles intentionally skipped (no new scenarios): support, sales, content, data_analyst, scout, infra, platform. Reasoning per role in Section 12.3.
+
+### 12.7 Revised per-feature scenario counts
+
+| Feature | Previous | AB0 additions | New total |
+|---------|----------|---------------|-----------|
+| create_artifact | 3 | +2 (designer, ops) | 5 |
+| handoff_to | 4 | +2 (designer, ops) | 6 |
+| create_item | 5 | +2 (designer, qa) | 7 |
+| submit_review | 4 | +1 (qa) | 5 |
+| tool_authorization | 3 | +1 (custom role) | 4 |
+
+All other features unchanged.
+
+### 12.8 Implementation tasks
+
+**Task 12.1: Seeding changes** (Phase 2 extension)
+
+- Add `agentCategory` parameter to `seedAgent` (default: `"team"`)
+- Add auto-derivation of `agentCategory` from role catalog in `seedMinimalWorld` and `seedMultiAgentWorld` via `findRoleCatalogEntry()`
+- Add `agentCategory` to the 3 builtin agent stubs in `seedBuiltinAgents`
+- Import `findRoleCatalogEntry` and `AgentCategory` from `@hyperidle/shared`
+
+**Task 12.2: New scenario files** (Phase 4 extension)
+
+The 8 new scenarios go into existing feature files, not new files:
+
+- `packages/eval/src/scenarios/create-artifact.ts`: add `caDesignArtifactDesignerFrontend`, `caRunbookOpsDevops`
+- `packages/eval/src/scenarios/handoff-to.ts`: add `htToBuilderDesignerFrontend`, `htToBuilderOpsDevops`
+- `packages/eval/src/scenarios/create-item.ts`: add `ciReviewRequestDesignerHealthcare`, `ciBugEscalationQaFrontend`
+- `packages/eval/src/scenarios/submit-review.ts`: add `srQaGatekeeperQaDevops`
+- `packages/eval/src/scenarios/tool-authorization.ts`: add `taUnknownRoleFallback`
+
+Each scenario follows the established pattern: const declaration, add to the exported array.
+
+**Task 12.3: Soul prompt integration**
+
+The designer, qa_engineer, and ops scenarios should use soul prompts derived from `docs/souls/designer.md`, `docs/souls/qa-engineer.md`, and `docs/souls/ops.md` respectively. These are NOT loaded from disk (per the `@lore X7` in seeding.ts -- eval does NOT use the production seed). Instead, the key behavioral constraints from each template are inlined into the `agentSoulPrompt` field of each scenario's seed, same as existing scenarios do with builder and PM soul prompts.
+
+**Task 12.4: Verify `buildDefaultSoulPrompt` handles new roles**
+
+The existing `buildDefaultSoulPrompt(role: UserRole)` returns a generic prompt. Since `UserRole` is now `string`, it already handles "designer", "qa_engineer", "ops", and "custom_analyst" without changes. Verify this at build time.
+
+### 12.9 What this section does NOT change
+
+- **Feature count:** Still 24 interactions. No new interactions from AB0.
+- **Framework code:** No changes to `EvalScenario`, `EvalReport`, `FeatureBreakdown`, CLI flags, or runner logic. AB0 adaptation is entirely in seeding + scenarios.
+- **Existing scenarios:** Zero changes to the 106 existing scenario definitions. The seeding layer absorbs the adaptation.
+- **Facilitator tool restrictions:** The `roles` arrays on the 4 facilitator tools remain `["chief_of_staff", "practice_facilitator", "product_manager"]`. None of the new AB0 roles need facilitator access for the scenarios defined here.
+- **Non-session scenarios (interactions 20-24):** Builtin routines, routine sessions, skill autonomy, and delegation scenarios are unchanged. These interactions are owned by CoS and PF -- roles that existed pre-AB0. The new team roles (designer, qa_engineer, ops) do not participate in routine/delegation workflows.
