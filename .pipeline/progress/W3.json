@@ -1,7 +1,7 @@
 {
   "id": "W3",
-  "status": "in_progress",
-  "currentStep": "phase6_ship",
+  "status": "done",
+  "currentStep": "shipped",
   "startedAt": "2026-06-02T22:00:00Z",
   "steps": {
     "setup": "done",
@@ -10,7 +10,6 @@
     "phase2_critique": "done",
     "phase3_build": "done",
     "phase4_review": "done",
-    "phase5_retro": "done",
-    "phase6_ship": "in_progress"
+    "phase5_retro": "done"
   }
 }

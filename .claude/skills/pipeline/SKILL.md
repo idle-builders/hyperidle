@@ -82,7 +82,7 @@ Each persona phase **commits its output and pushes** before returning:
 | 3 — builder doc check | user-facing docs (if applicable) | run |
 | 4 — builder (apply review fixes) | one commit per applied finding batch | run |
 | 5 — Explore agent /retro | prose | `[skip ci]` |
-| 6 — builder /ship | attestation | run |
+| ship — builder /ship | attestation + progress file | run |
 
 Local `npm run verify` is the gate. Builder runs it (check, lint:biome, lint:eslint, test, e2e — identical tools to CI) and must pass before pushing. On green, verify writes `.verify-attestation.json` (HMAC-signed with `~/.config/hyperidle/verify-secret`). Builder commits the attestation as the last commit before pushing. CI validates the attestation signature (~30s) instead of re-running the full suite (~10min). See `/ship` for the complete commit → verify → attestation → push flow.
 
@@ -90,15 +90,16 @@ Stories touching authentication, schema migrations, or `packages/server/src/agen
 
 **Squash before flipping ready.** Builder squashes the persona-prose commits before `/ship` flips `gh pr ready`. Implementation commits stay atomic; prose commits collapse into one `chore(<id>): pipeline artifacts`. Squash at ship time, not before — the retro (Phase 5) still needs the per-phase history to extract cost signals.
 
-### Ship (after retro — Phase 6)
+### Ship (after retro)
 
 Ship runs AFTER retro so that the retro prose commit is included in the verified tree. If ship runs before retro, the retro commit invalidates the attestation (check-attestation rejects "source files changed after verify ran").
 
-When Reviewer's `/review` pass emits `Verdict: DONE` (after fix cycle) and retro is complete, the builder runs `/ship`:
+When Reviewer's `/review` pass emits `Verdict: DONE` (after fix cycle) and retro is complete:
 
-1. Builder commits all remaining code changes.
-2. Builder runs `/ship <id>` — this merges `origin/main`, runs `npm run verify`, commits attestation, pushes, flips draft PR ready, and **waits for CI green**.
-3. `/ship` is only complete when `gh pr checks` returns green. If CI is red, builder fixes and re-ships (max 3 attempts).
+1. **Mark progress done BEFORE ship.** Write `.pipeline/progress/<id>.json` with `status: "done"`, `currentStep: "shipped"`, `completedAt` set. This must happen before `/ship` pushes — ship will merge the PR, so the progress file must already reflect completion. The merge commit on main is proof that ship succeeded; no `6-ship` phase is tracked.
+2. Builder commits all remaining code changes (including the progress file).
+3. Builder runs `/ship <id>` — this merges `origin/main`, runs `npm run verify`, commits attestation, pushes, flips draft PR ready, and **waits for CI green**.
+4. `/ship` is only complete when `gh pr checks` returns green. If CI is red, builder fixes and re-ships (max 3 attempts).
 
 In A/B mode (`PIPELINE_AB_MODE=1`), the builder still runs `/ship` but skips `gh pr ready` — the PR stays draft for replay.
 
@@ -115,7 +116,7 @@ Then dispatch the persona sessions below, in order. Update `currentStep` in the 
 | 3 | **builder** | medium | `/write-tests` → `/write-code` → doc check | TDD red then green. Doc check: if user-facing changes exist, apply `/write-docs`; otherwise justify skip. Must pass `npm run verify` before pushing. |
 | 4 | **reviewer** + **builder** | high | `/review` (+`/write-docs` rubric if docs changed) | Same reviewer from Phase 2 (warm on design/arch). 6 lenses + AC audit + doc funnel scoring if applicable. Builder applies fixes. Verdict DONE required before proceeding. |
 | 5 | **Explore** | low | `/retro` | Fresh-context retro with cost signals. Must run before ship so retro prose is included in the verified tree. |
-| 6 | **builder** | medium | `/ship` | Merge main → verify → attest → push → PR ready → CI green. Runs after retro so the attestation covers all commits. |
+| ship | **builder** | medium | `/ship` | Merge main → verify → attest → push → PR ready → CI green. Not a tracked phase — the merge commit on main is proof of completion. |
 | — | scripts | — | CI + PR | `npm run verify --raw` runs as CI on every push. Draft PR opens at worktree setup; `/ship` flips ready + waits for CI green after retro. |
 
 **Durable agent sessions per story: 3** (designer, reviewer, builder). Spawned once each with named handles (`designer-<id>`, `reviewer-<id>`, `builder-<id>`). After initial spawn, all subsequent communication uses `SendMessage(to=<name>)` to reuse the live session — no re-spawn, no cache-creation cost. Explore agent for retro is ephemeral.
@@ -192,17 +193,23 @@ Phase 4 — review:
     Builder applies findings; commits + pushes; runs npm run verify.
     SEND back to reviewer for re-review. Max 3 attempts.
 
-  If DONE: proceed to Phase 5 (retro), then Phase 6 (ship).
+  If DONE: proceed to Phase 5 (retro), then ship.
 
 Phase 5 — retro:
   Launch Explore agent with /retro (ephemeral, no reuse needed).
   Writes plans/<id>/retro.md with cost signals the A/B harness reads.
   Commits and pushes with [skip ci].
-  Must complete BEFORE Phase 6 — retro prose must be in the tree
+  Must complete BEFORE ship — retro prose must be in the tree
   when /ship runs verify, otherwise the attestation is invalidated
   by the post-verify retro commit.
 
-Phase 6 — ship:
+Ship (after retro — not a tracked phase):
+  BEFORE dispatching /ship, update .pipeline/progress/<id>.json:
+  set status to "done", currentStep to "shipped", completedAt to
+  now. No "6-ship" phase entry — the merge commit on main is
+  proof of completion. This must happen before /ship pushes,
+  otherwise the progress update never lands on main.
+
   SEND: SendMessage(to="builder-<id>") with /ship <id>.
   Builder runs /ship: merges origin/main, runs npm run verify,
   commits attestation, pushes, flips PR ready (unless AB mode),
@@ -217,7 +224,7 @@ Phase 6 — ship:
 - If CI fails after a Builder push: Builder fixes locally and pushes again. Max 3 attempts per push series.
 - If Reviewer's critique (`/design-critique` or `/architecture-critique`) fails to reach ≥7 after the cap: pause, mark `blocked` with reason `concept-or-spec-misalignment`. The concept itself may need upstream `/concept` work.
 
-After Phase 6: set status to `done`. Move to next story.
+After ship: verify CI is green (already asserted by /ship). Move to next story.
 
 ---
 
@@ -231,7 +238,7 @@ Author / critic boundaries are enforced by persona separation: (a) the **designe
 
 The agent that created the design cannot objectively score it. Moving critique to the reviewer gives true producer/evaluator separation — different agents, not just a "cognitive mode switch" on the same agent. Bonus: the reviewer's Phase 2 context (design decisions, architecture contracts) carries into Phase 4's code review, so it arrives warm on the spec it's checking code against.
 
-### Why /ship is Phase 6 (after retro)
+### Why /ship runs after retro
 
 `/ship` owns the full sequence: merge main → verify → attest → push → PR ready → CI green. It runs after retro (Phase 5) so that the retro prose commit is included in the verified tree. If ship ran before retro, the retro commit would invalidate the attestation — check-attestation rejects "source files changed after verify ran." This ordering was learned from U8 where the post-ship retro commit caused three CI failures and required a full re-verify cycle (~12 minutes).
 
