@@ -1,14 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+	AGENT_CATEGORIES,
 	BET_STATUSES,
 	type BetStatus,
-	FABRIC_USER_ROLES,
 	KERNEL_KNOWLEDGE_STATUSES,
-	KERNEL_USER_ROLES,
 	type KernelKnowledgeStatus,
 	TASK_STATES,
 	type TaskState,
-	USER_ROLES,
 	type UserRole,
 } from "../types.js";
 
@@ -75,33 +73,17 @@ describe("status-union runtime constants", () => {
 		});
 	});
 
-	describe("User role split", () => {
-		it("KERNEL_USER_ROLES has 3 roles", () => {
-			expect(KERNEL_USER_ROLES).toHaveLength(3);
-			expect(KERNEL_USER_ROLES).toContain("builder");
-			expect(KERNEL_USER_ROLES).toContain("growth");
-			expect(KERNEL_USER_ROLES).toContain("product_manager");
+	describe("Agent categories (AB0)", () => {
+		it("AGENT_CATEGORIES has 3 values", () => {
+			expect(AGENT_CATEGORIES).toHaveLength(3);
+			expect(AGENT_CATEGORIES).toContain("team");
+			expect(AGENT_CATEGORIES).toContain("strategy");
+			expect(AGENT_CATEGORIES).toContain("personal");
 		});
 
-		it("FABRIC_USER_ROLES has 3 roles", () => {
-			expect(FABRIC_USER_ROLES).toHaveLength(3);
-			expect(FABRIC_USER_ROLES).toContain("practice_facilitator");
-			expect(FABRIC_USER_ROLES).toContain("chief_of_staff");
-			expect(FABRIC_USER_ROLES).toContain("brand_voice");
-		});
-
-		it("USER_ROLES composes both arrays (6 total)", () => {
-			expect(USER_ROLES).toHaveLength(6);
-			for (const role of KERNEL_USER_ROLES) {
-				expect(USER_ROLES).toContain(role);
-			}
-			for (const role of FABRIC_USER_ROLES) {
-				expect(USER_ROLES).toContain(role);
-			}
-		});
-
-		it("derives UserRole type", () => {
-			const r: UserRole = USER_ROLES[0];
+		it("UserRole is a string type (open vocabulary)", () => {
+			// UserRole is now `string` — any non-empty string is a valid role
+			const r: UserRole = "any_custom_role";
 			expect(typeof r).toBe("string");
 		});
 	});

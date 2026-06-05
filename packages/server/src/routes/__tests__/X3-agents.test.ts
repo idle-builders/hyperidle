@@ -257,13 +257,24 @@ describe("X3 AC-5: POST /api/agents creates a new agent", () => {
 		expect(res.status).toBe(400);
 	});
 
-	it("returns 400 when role is invalid", async () => {
+	it("returns 400 when role is empty string", async () => {
 		const res = await app.request("/api/agents", {
 			method: "POST",
 			headers: authHeaders(),
-			body: JSON.stringify({ name: "Test", role: "invalid_role" }),
+			body: JSON.stringify({ name: "Test", role: "" }),
 		});
 		expect(res.status).toBe(400);
+	});
+
+	it("accepts custom role strings not in the catalog", async () => {
+		const res = await app.request("/api/agents", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({ name: "Custom Agent", role: "custom_specialist" }),
+		});
+		expect(res.status).toBe(201);
+		const body = (await res.json()) as Record<string, unknown>;
+		expect(body.role).toBe("custom_specialist");
 	});
 
 	it("returns 400 when name exceeds 200 characters", async () => {
