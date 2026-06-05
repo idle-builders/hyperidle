@@ -491,6 +491,58 @@ export async function seedConflict(
 }
 
 /**
+ * Seed the three builtin agent stubs that `seedBuiltinRoutines()` references via
+ * hardcoded owner IDs (`seed-agent-cos`, `seed-agent-pf-facilitation`,
+ * `seed-agent-pm-nimmly`). Must be called before `seedBuiltinRoutines()` in any
+ * eval scenario that exercises the builtin routine subsystem.
+ *
+ * @lore X8 BUILTIN-FK: `seedBuiltinRoutines` (in @hyperidle/fabric) uses stable
+ * IDs from the production seed. The eval ephemeral PGlite DB does NOT run the
+ * production seed, so FK constraints on `routines.ownerAgentId → users.id`
+ * fail unless we pre-insert these three stubs. We use `onConflictDoNothing`
+ * so this is idempotent in case a scenario somehow already inserted them.
+ */
+export async function seedBuiltinAgents(db: HyperIdleDb): Promise<void> {
+	const now = new Date().toISOString();
+
+	await db
+		.insert(users)
+		.values({
+			id: "seed-agent-cos",
+			kind: "ai",
+			name: "Chief of Staff (eval stub)",
+			role: "chief_of_staff",
+			status: "active",
+			createdAt: now,
+		})
+		.onConflictDoNothing();
+
+	await db
+		.insert(users)
+		.values({
+			id: "seed-agent-pf-facilitation",
+			kind: "ai",
+			name: "Practice Facilitator - Facilitation (eval stub)",
+			role: "practice_facilitator",
+			status: "active",
+			createdAt: now,
+		})
+		.onConflictDoNothing();
+
+	await db
+		.insert(users)
+		.values({
+			id: "seed-agent-pm-nimmly",
+			kind: "ai",
+			name: "Nimmly Product Manager (eval stub)",
+			role: "product_manager",
+			status: "active",
+			createdAt: now,
+		})
+		.onConflictDoNothing();
+}
+
+/**
  * Create a routine row.
  *
  * @lore X8 CRITICAL-1: `checkAndFireRoutine` requires `taskId` in `triggerConfig`.

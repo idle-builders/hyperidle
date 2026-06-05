@@ -19,7 +19,7 @@ import {
 import { EventBus } from "@hyperidle/shared";
 import { and, eq, isNotNull, like } from "drizzle-orm";
 import { judgeReviewItemCreated, judgeRoutineFired, judgeStaleItemsMarked } from "../judges.js";
-import { seedBet, seedFactorySettings, seedMinimalWorld } from "../seeding.js";
+import { seedBet, seedBuiltinAgents, seedFactorySettings, seedMinimalWorld } from "../seeding.js";
 import type {
 	DimensionScore,
 	EvalScenario,
@@ -65,6 +65,8 @@ const brCostSentinelWarning: EvalScenario = {
 			cost_cap: "10000",
 			cost_actual: "8500", // 85% → warning
 		});
+		// Seed builtin agent stubs before routines (FK: routines.ownerAgentId → users.id)
+		await seedBuiltinAgents(ctx.db);
 		// Seed the routine row itself (W3)
 		await seedBuiltinRoutines(ctx.db);
 		// Reset in-memory sentinel cache so level transition fires
@@ -133,6 +135,7 @@ const brCostSentinelBreach: EvalScenario = {
 			cost_cap: "10000",
 			cost_actual: "10500", // 105% → breach
 		});
+		await seedBuiltinAgents(ctx.db);
 		await seedBuiltinRoutines(ctx.db);
 		clearBuiltinCostSentinelCache();
 		return world;
@@ -181,6 +184,7 @@ const brCostSentinelOk: EvalScenario = {
 			cost_cap: "10000",
 			cost_actual: "5000", // 50% → ok
 		});
+		await seedBuiltinAgents(ctx.db);
 		await seedBuiltinRoutines(ctx.db);
 		clearBuiltinCostSentinelCache();
 		return world;
@@ -225,6 +229,7 @@ const brPracticeMeeting: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db);
+		await seedBuiltinAgents(ctx.db);
 		await seedBuiltinRoutines(ctx.db);
 		return world;
 	},
@@ -289,6 +294,7 @@ const brPostBetRetroFired: EvalScenario = {
 			hypothesis: "Migrating to Kubernetes will reduce operational overhead by 30%",
 		});
 		postBetRetroFiredBetId = betId;
+		await seedBuiltinAgents(ctx.db);
 		await seedBuiltinRoutines(ctx.db);
 		return { ...world, betId };
 	},
@@ -348,6 +354,7 @@ const brPostBetRetroDedup: EvalScenario = {
 			hypothesis: "Campaign will increase conversions by 15%",
 		});
 		postBetRetroDedupBetId = betId;
+		await seedBuiltinAgents(ctx.db);
 		await seedBuiltinRoutines(ctx.db);
 
 		// Seed first retro to trigger dedup on second call
@@ -420,6 +427,7 @@ const brPortfolioRetro: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db);
+		await seedBuiltinAgents(ctx.db);
 		await seedBuiltinRoutines(ctx.db);
 
 		// Seed some L3/L4 knowledge items updated recently
@@ -500,6 +508,7 @@ const brKnowledgeDecay: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db);
+		await seedBuiltinAgents(ctx.db);
 		await seedBuiltinRoutines(ctx.db);
 
 		// Seed old knowledge items (180+ days ago = stale)
