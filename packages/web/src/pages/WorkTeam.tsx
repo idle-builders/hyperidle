@@ -33,10 +33,12 @@ import {
 import type { BetCardSummary, TeamDetail } from "@hyperidle/shared";
 import { formatMoney } from "@hyperidle/shared";
 import type { JSX } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
 import { useHint } from "../hooks/useHints";
 import { useTeam } from "../hooks/useTeam";
+import { AgentSetupDialog } from "./work/AgentSetupDialog.js";
 
 export interface WorkTeamProps {
 	/**
@@ -171,7 +173,8 @@ function WorkTeamLoaded({
 }): JSX.Element {
 	const navigate = useNavigate();
 	// @lore U1: `team` replaces `product` in TeamDetail.
-	const { team, roster, burn, activeBets } = data;
+	const { team, roster, burn, activeBets, teamMembers } = data;
+	const [wizardOpen, setWizardOpen] = useState(false);
 	const onOpenArtifact = useArtifactOpen();
 	const hintCreateBet = useHint("create-bet");
 
@@ -300,8 +303,18 @@ function WorkTeamLoaded({
 				</h2>
 				{roster.length === 0 ? (
 					<EmptyState
-						title="Roster not configured"
-						description="No agents are assigned to this team."
+						title="No agents on this team"
+						description="Add your first agent to start building with AI. The wizard walks you through setup in under a minute."
+						action={
+							<button
+								type="button"
+								className="btn btn-sm btn-primary min-h-[44px]"
+								style={{ borderRadius: "var(--r-pill)" }}
+								onClick={() => setWizardOpen(true)}
+							>
+								Add first agent
+							</button>
+						}
 					/>
 				) : (
 					<div className="flex flex-col gap-1">
@@ -328,9 +341,27 @@ function WorkTeamLoaded({
 								</div>
 							</div>
 						))}
+						<button
+							type="button"
+							className="btn btn-ghost btn-sm self-start"
+							onClick={() => setWizardOpen(true)}
+						>
+							+ Add agent
+						</button>
 					</div>
 				)}
 			</section>
+
+			{/* AB3: Agent Setup Wizard */}
+			<AgentSetupDialog
+				open={wizardOpen}
+				onClose={() => setWizardOpen(false)}
+				onCreated={() => {
+					setWizardOpen(false);
+				}}
+				teamMembersId={teamMembers.id}
+				existingAgentNames={roster.map((m) => m.name)}
+			/>
 
 			{/* L12: Artifact stack — product axis, limit=10, replaces placeholder */}
 			{!skipArtifacts && (
