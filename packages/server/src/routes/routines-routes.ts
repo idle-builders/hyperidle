@@ -1,17 +1,51 @@
-import { type HyperIdleDb, routines, sessions, tasks } from "@hyperidle/db";
+import {
+	type HyperIdleDb,
+	routineRuns,
+	routines,
+	sessions,
+	tasks,
+	teams,
+	users,
+} from "@hyperidle/db";
 import { isBuiltinRoutineId, type PostBetRetroArgs, runBuiltinRoutine } from "@hyperidle/fabric";
-import { API_ERROR_CODES, type EventBus, type SessionStartedEvent } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
+import {
+	API_ERROR_CODES,
+	type CurrencyCode,
+	type EventBus,
+	ROUTINE_STATES,
+	type RoutineDetail,
+	type RoutineInfo,
+	type RoutineRunOutcome,
+	type RoutineRunSummary,
+	type SessionStartedEvent,
+} from "@hyperidle/shared";
+import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { validateBody } from "../middleware/validate.js";
+import { deriveInitials } from "../services/agent-utils.js";
+import { humanizeSchedule } from "../services/schedule-label.js";
+
+const ROUTINE_STATE_VALUES = ROUTINE_STATES as readonly [string, ...string[]];
 
 const updateRoutineSchema = z.object({
 	active: z.boolean().optional(),
 	triggerConfig: z.string().optional(),
 	autonomyLevel: z.number().int().min(1).max(4).optional(),
 	silent: z.boolean().optional(),
+	// AA1: new fields
+	state: z.enum(ROUTINE_STATE_VALUES as [string, ...string[]]).optional(),
+	name: z.string().min(1).optional(),
+	description: z.string().optional(),
 });
+
+/**
+ * Map routine state string to `active` boolean for backward compat.
+ * active → true, paused/error → false.
+ */
+function stateToActive(state: string): boolean {
+	return state === "active";
+}
 
 /**
  * Create Hono routes for routine endpoints (E6).
@@ -23,6 +57,96 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	router.get("/", async (c) => {
 		const allRoutines = await db.select().from(routines);
 		return c.json(allRoutines);
+	});
+
+	// GET /:id — RoutineDetail with run history (AC-5)
+	router.get("/:id", async (c) => {
+		const routineId = c.req.param("id");
+
+		const [routine] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
+		if (!routine) {
+			return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
+
+		// Resolve agent name
+		const [ownerUser] = await db
+			.select()
+			.from(users)
+			.where(eq(users.id, routine.ownerAgentId))
+			.limit(1);
+		const agentName = ownerUser?.name ?? routine.ownerAgentId;
+
+		// Resolve team name
+		const [teamRow] = await db.select().from(teams).where(eq(teams.id, routine.teamId)).limit(1);
+		const teamName = teamRow?.name ?? routine.teamId;
+
+		// Fetch up to 20 runs (newest first). allRuns[0] is the latest run — no
+		// separate latestRun query needed.
+		const allRuns = await db
+			.select()
+			.from(routineRuns)
+			.where(eq(routineRuns.routineId, routineId))
+			.orderBy(desc(routineRuns.startedAt))
+			.limit(20);
+
+		const runSummaries: RoutineRunSummary[] = allRuns.map((run) => {
+			let durationSeconds: number | null = null;
+			if (run.startedAt && run.endedAt) {
+				const startMs = new Date(run.startedAt).getTime();
+				const endMs = new Date(run.endedAt).getTime();
+				if (!(Number.isNaN(startMs) || Number.isNaN(endMs))) {
+					durationSeconds = Math.round((endMs - startMs) / 1000);
+				}
+			}
+			return {
+				id: run.id,
+				startedAt: run.startedAt,
+				endedAt: run.endedAt ?? null,
+				durationSeconds,
+				outcome: run.outcome as RoutineRunOutcome,
+				cost:
+					run.costMinor != null
+						? { minor: run.costMinor, currency: (run.costCurrency ?? "USD") as CurrencyCode }
+						: null,
+				errorMessage: run.errorMessage ?? null,
+			};
+		});
+
+		const routineInfo: RoutineInfo = {
+			id: routine.id,
+			name: routine.name,
+			description: routine.description ?? null,
+			state: (routine.state ?? "active") as RoutineInfo["state"],
+			triggerType: routine.triggerType,
+			triggerConfig: routine.triggerConfig ?? null,
+			scheduleLabel: humanizeSchedule(routine.triggerType, routine.triggerConfig ?? null),
+			ownerAgentId: routine.ownerAgentId,
+			agentName,
+			agentInitials: deriveInitials(agentName),
+			teamId: routine.teamId,
+			teamName,
+			autonomyLevel: routine.autonomyLevel ?? null,
+			humanReview: routine.humanReview ?? false,
+			delegationAllowed: routine.delegationAllowed ?? false,
+			lastRunAt: routine.lastRunAt ?? null,
+			lastRunOutcome: (allRuns[0]?.outcome ?? null) as RoutineRunOutcome | null,
+			nextRunAt: routine.nextRunAt ?? null,
+			costActual:
+				routine.costActualMinor != null
+					? {
+							minor: routine.costActualMinor,
+							currency: (routine.costActualCurrency ?? "USD") as CurrencyCode,
+						}
+					: null,
+			createdAt: null,
+		};
+
+		const detail: RoutineDetail = {
+			routine: routineInfo,
+			runs: runSummaries,
+		};
+
+		return c.json(detail);
 	});
 
 	// PATCH /:id — Update routine
@@ -53,6 +177,14 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		if (body.triggerConfig !== undefined) updates.triggerConfig = body.triggerConfig;
 		if (body.autonomyLevel !== undefined) updates.autonomyLevel = body.autonomyLevel;
 		if (body.silent !== undefined) updates.silent = body.silent;
+		// AA1: extended fields
+		if (body.name !== undefined) updates.name = body.name;
+		if (body.description !== undefined) updates.description = body.description;
+		if (body.state !== undefined) {
+			updates.state = body.state;
+			// Sync active boolean with state for backward compat
+			updates.active = stateToActive(body.state);
+		}
 
 		if (Object.keys(updates).length > 0) {
 			await db.update(routines).set(updates).where(eq(routines.id, routineId));
@@ -154,6 +286,16 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			modelTier: "workhorse",
 			startedAt: now,
 			state: "active",
+			routineId: routineId,
+		});
+
+		// AA1: Insert a routine_run row to track this manual trigger
+		const runId = crypto.randomUUID();
+		await db.insert(routineRuns).values({
+			id: runId,
+			routineId: routineId,
+			startedAt: now,
+			outcome: "success",
 		});
 
 		// Update routine lastRunAt

@@ -26,7 +26,9 @@ export const COMMUNITY_DISPLAY_NAMES: Record<PracticeCommunity, string> = {
 
 export interface BuiltinRoutineSeed {
 	readonly id: string;
+	readonly name: string;
 	readonly ownerAgentId: string;
+	readonly teamId: string;
 	readonly triggerType: "heartbeat" | "calendar" | "event";
 	readonly triggerConfig: Readonly<Record<string, unknown>>;
 	readonly skillId: string;
@@ -38,7 +40,9 @@ export interface BuiltinRoutineSeed {
 export const BUILTIN_ROUTINE_SEEDS: readonly BuiltinRoutineSeed[] = [
 	{
 		id: "builtin:cost-sentinel",
+		name: "Cost sentinel",
 		ownerAgentId: "seed-agent-cos",
+		teamId: "seed-product-1",
 		triggerType: "heartbeat",
 		triggerConfig: { intervalSeconds: 900 },
 		skillId: "cost_watchdog",
@@ -48,7 +52,9 @@ export const BUILTIN_ROUTINE_SEEDS: readonly BuiltinRoutineSeed[] = [
 	},
 	{
 		id: "builtin:practice-meeting",
+		name: "Practice meeting",
 		ownerAgentId: "seed-agent-pf-facilitation",
+		teamId: "seed-product-1",
 		triggerType: "calendar",
 		triggerConfig: { cron: "0 10 * * MON" },
 		skillId: "practice_meeting",
@@ -58,7 +64,9 @@ export const BUILTIN_ROUTINE_SEEDS: readonly BuiltinRoutineSeed[] = [
 	},
 	{
 		id: "builtin:post-bet-retro",
+		name: "Post-bet retro",
 		ownerAgentId: "seed-agent-pm-nimmly",
+		teamId: "seed-product-1",
 		triggerType: "event",
 		triggerConfig: { eventType: "bet_state_changed" },
 		skillId: "bet_retro",
@@ -68,7 +76,9 @@ export const BUILTIN_ROUTINE_SEEDS: readonly BuiltinRoutineSeed[] = [
 	},
 	{
 		id: "builtin:portfolio-retro",
+		name: "Portfolio retro",
 		ownerAgentId: "seed-agent-cos",
+		teamId: "seed-product-1",
 		triggerType: "calendar",
 		triggerConfig: { cron: "0 10 1-7 * MON" },
 		skillId: "portfolio_retro",
@@ -78,7 +88,9 @@ export const BUILTIN_ROUTINE_SEEDS: readonly BuiltinRoutineSeed[] = [
 	},
 	{
 		id: "builtin:knowledge-decay",
+		name: "Knowledge decay",
 		ownerAgentId: "seed-agent-cos",
+		teamId: "seed-product-1",
 		triggerType: "calendar",
 		triggerConfig: { cron: "0 2 * * *" },
 		skillId: "knowledge_decay",

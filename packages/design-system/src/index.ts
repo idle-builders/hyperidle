@@ -91,6 +91,8 @@ export {
 	betStatusToStatus,
 	KNOWLEDGE_STATUS_MAP,
 	knowledgeStatusToStatus,
+	ROUTINE_STATE_MAP,
+	routineStateToStatus,
 	SESSION_OUTCOME_MAP,
 	sessionOutcomeToStatus,
 	TASK_STATE_MAP,

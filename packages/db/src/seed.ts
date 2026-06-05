@@ -366,6 +366,9 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 		.insert(routines)
 		.values({
 			id: "seed-routine-daily_digest",
+			name: "Daily digest",
+			teamId: "seed-product-1",
+			state: "active",
 			ownerAgentId: "seed-agent-cos",
 			triggerType: "calendar",
 			triggerConfig: JSON.stringify({
@@ -392,6 +395,9 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 			.insert(routines)
 			.values({
 				id: spec.id,
+				name: spec.name,
+				teamId: spec.teamId,
+				state: "active",
 				ownerAgentId: spec.ownerAgentId,
 				triggerType: spec.triggerType,
 				triggerConfig: JSON.stringify(spec.triggerConfig),

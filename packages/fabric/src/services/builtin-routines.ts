@@ -78,6 +78,7 @@ const PORTFOLIO_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 interface BuiltinSpec {
 	readonly id: BuiltinRoutineId;
+	readonly name: string;
 	readonly ownerAgentId: string;
 	readonly triggerType: "heartbeat" | "calendar" | "event";
 	readonly triggerConfig: Record<string, unknown>;
@@ -94,6 +95,7 @@ interface BuiltinSpec {
 const BUILTIN_SPECS: readonly BuiltinSpec[] = [
 	{
 		id: "builtin:cost-sentinel",
+		name: "Cost sentinel",
 		ownerAgentId: "seed-agent-cos",
 		triggerType: "heartbeat",
 		triggerConfig: { intervalSeconds: COST_SENTINEL_INTERVAL_SECONDS },
@@ -104,6 +106,7 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
 	},
 	{
 		id: "builtin:practice-meeting",
+		name: "Practice meeting",
 		ownerAgentId: "seed-agent-pf-facilitation",
 		triggerType: "calendar",
 		triggerConfig: { cron: PRACTICE_MEETING_CRON },
@@ -114,6 +117,7 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
 	},
 	{
 		id: "builtin:post-bet-retro",
+		name: "Post-bet retro",
 		ownerAgentId: "seed-agent-pm-nimmly",
 		triggerType: "event",
 		triggerConfig: { eventType: "bet_state_changed" },
@@ -124,6 +128,7 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
 	},
 	{
 		id: "builtin:portfolio-retro",
+		name: "Portfolio retro",
 		ownerAgentId: "seed-agent-cos",
 		triggerType: "calendar",
 		triggerConfig: { cron: PORTFOLIO_RETRO_CRON },
@@ -134,6 +139,7 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
 	},
 	{
 		id: "builtin:knowledge-decay",
+		name: "Knowledge decay",
 		ownerAgentId: "seed-agent-cos",
 		triggerType: "calendar",
 		triggerConfig: { cron: KNOWLEDGE_DECAY_CRON },
@@ -150,13 +156,24 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
  * `seed-agent-pm-nimmly`) have been seeded so the FK to `agents.id` resolves.
  *
  * Uses `onConflictDoNothing` so re-running against an existing DB is a no-op.
+ *
+ * @param teamId - The teams.id to assign as team_id on every builtin routine.
+ *   Defaults to `"prod-1"` which matches the test seed fixture. Production
+ *   callers should pass the canonical team id (e.g. `"seed-product-1"`).
+ *
+ * @lore AA1: team_id is NOT NULL on routines; seedBuiltinRoutines must receive
+ * the team id from the caller because the fabric package has no knowledge of
+ * which team id the production seed uses.
  */
-export async function seedBuiltinRoutines(db: HyperIdleDb): Promise<void> {
+export async function seedBuiltinRoutines(db: HyperIdleDb, teamId = "prod-1"): Promise<void> {
 	for (const spec of BUILTIN_SPECS) {
 		await db
 			.insert(routines)
 			.values({
 				id: spec.id,
+				name: spec.name,
+				teamId,
+				state: "active",
 				ownerAgentId: spec.ownerAgentId,
 				triggerType: spec.triggerType,
 				triggerConfig: JSON.stringify(spec.triggerConfig),

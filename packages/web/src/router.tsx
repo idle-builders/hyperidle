@@ -25,6 +25,7 @@ import { RedirectLegacyConversation } from "./pages/RedirectLegacyConversation";
 import { SetupFlow } from "./pages/SetupFlow";
 import { WorkBet } from "./pages/WorkBet";
 import { WorkPortfolio } from "./pages/WorkPortfolio";
+import { WorkRoutine } from "./pages/WorkRoutine";
 import { WorkTask } from "./pages/WorkTask";
 import { WorkTeam } from "./pages/WorkTeam";
 
@@ -72,6 +73,7 @@ function buildRoutes(): RouteObject[] {
 				// forward params directly in React Router v7).
 				{ path: "work/team/:teamId", element: <WorkTeam /> },
 				{ path: "work/product/:productId", element: <RedirectProductToTeam /> },
+				{ path: "work/routine/:routineId", element: <WorkRoutine /> },
 				{ path: "work/bet/:betId", element: <WorkBet /> },
 				{ path: "work/bet/:betId/task/:taskId", element: <WorkTask /> },
 				{ path: "knowledge", element: <KnowledgeList /> },

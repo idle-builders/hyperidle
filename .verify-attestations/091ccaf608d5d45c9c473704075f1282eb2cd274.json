@@ -1,5 +1,9 @@
 {
+<<<<<<<< HEAD:.verify-attestations/091ccaf608d5d45c9c473704075f1282eb2cd274.json
 	"sha": "091ccaf608d5d45c9c473704075f1282eb2cd274",
+========
+	"sha": "a0cdaf248132f4696c232908f6d7ba2163aa5ae9",
+>>>>>>>> origin/main:.verify-attestations/a0cdaf248132f4696c232908f6d7ba2163aa5ae9.json
 	"status": "passed",
 	"dirty": true,
 	"tools": [
@@ -24,6 +28,7 @@
 		"server:load"
 	],
 	"partial": false,
+<<<<<<<< HEAD:.verify-attestations/091ccaf608d5d45c9c473704075f1282eb2cd274.json
 	"smartSkipped": [
 		"build",
 		"build:desktop",
@@ -31,4 +36,9 @@
 	],
 	"timestamp": "2026-06-05T22:39:28.234Z",
 	"hmac": "d7190a952210717bc3e96545741539011fcd0118b0e7c2d4cb26b017906a8736"
+========
+	"smartSkipped": [],
+	"timestamp": "2026-06-05T22:28:06.162Z",
+	"hmac": "a68adb3fe146af2f7e5b638c17ccf1f22fc350e0b706d2a38cc15ef7afadc997"
+>>>>>>>> origin/main:.verify-attestations/a0cdaf248132f4696c232908f6d7ba2163aa5ae9.json
 }

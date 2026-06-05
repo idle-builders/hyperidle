@@ -28,12 +28,18 @@ import {
 	EmptyState,
 	ErrorState,
 	KeyValue,
+	routineStateToStatus,
 	SkeletonCard,
 	StatusChip,
 	Tag,
 } from "@hyperidle/design-system";
 // @lore U1: `ProductDetail` → `TeamDetail`, `BetCardSummary.pitchTitle` → `descriptionTitle`.
-import type { BetCardSummary, RosterMember, TeamDetail } from "@hyperidle/shared";
+import type {
+	BetCardSummary,
+	RosterMember,
+	RoutineCardSummary,
+	TeamDetail,
+} from "@hyperidle/shared";
 import { findRoleCatalogEntry, formatMoney } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
@@ -178,7 +184,8 @@ function WorkTeamLoaded({
 }): JSX.Element {
 	const navigate = useNavigate();
 	// @lore U1: `team` replaces `product` in TeamDetail.
-	const { team, roster, burn, activeBets } = data;
+	// @lore AA1: routines defaults to [] so pre-AA1 mock data (missing the field) doesn't crash.
+	const { team, roster, burn, activeBets, routines = [] } = data;
 	const onOpenArtifact = useArtifactOpen();
 	const hintCreateBet = useHint("create-bet");
 	const hintReviewAgents = useHint("review-agents");
@@ -314,6 +321,33 @@ function WorkTeamLoaded({
 						))}
 					</div>
 				)}
+			</section>
+
+			{/* R5 — Routines (AA1): sits after active bets, before roster */}
+			<section aria-label="Team routines" data-testid="team-routines">
+				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
+					Routines
+				</h2>
+				<div className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[12px]">
+					{routines.length === 0 ? (
+						<EmptyState
+							title="No routines"
+							description="This team has no recurring work configured."
+							dataTestId="team-routines-empty"
+						/>
+					) : (
+						routines.map((routine, idx) => (
+							<RoutineRow
+								key={routine.id}
+								routine={routine}
+								isLast={idx === routines.length - 1}
+								onNavigate={() => {
+									navigate(`/work/routine/${encodeURIComponent(routine.id)}`);
+								}}
+							/>
+						))
+					)}
+				</div>
 			</section>
 
 			{/* R3 — Roster */}
@@ -498,6 +532,109 @@ function AgentCard({
 			</p>
 		</div>
 	);
+}
+
+/**
+ * Single routine row rendered inside R5 (AA1). Variant B flat table design.
+ *
+ * Layout: [6px dot] [name flex-1] [24px agent avatar] [schedule 80px] [last run 60px] [cost 54px]
+ * Height: 36px. Hairline separator between rows (not on last row).
+ *
+ * @lore AA1: Routines use flat table rows (infrastructure monitoring) while bets use
+ * elevated cards (decision objects). Visual differentiation supports faster status scanning.
+ * Row hover uses rgba(44,36,26,0.02) per AQ-010 flat-list hover pattern.
+ */
+function RoutineRow({
+	routine,
+	isLast,
+	onNavigate,
+}: {
+	routine: RoutineCardSummary;
+	isLast: boolean;
+	onNavigate: () => void;
+}): JSX.Element {
+	const status = routineStateToStatus(routine.state);
+	const dotColor =
+		status === "healthy"
+			? "var(--status-success)"
+			: status === "error"
+				? "var(--status-error)"
+				: status === "paused"
+					? "var(--status-info)"
+					: "var(--text-tertiary)";
+
+	const lastRunLabel = routine.lastRunAt ? formatRelativeTime(routine.lastRunAt) : "Never";
+
+	const costLabel = routine.costActual ? formatMoney(routine.costActual) : "—";
+
+	return (
+		<button
+			type="button"
+			data-testid="routine-row"
+			onClick={onNavigate}
+			className={[
+				"w-full flex items-center gap-[9px] h-[36px] px-[6px]",
+				"border-none bg-transparent text-left cursor-pointer",
+				"transition-[background-color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+				"hover:bg-[rgba(44,36,26,0.02)]",
+				"focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)]",
+				!isLast ? "border-b border-[var(--border-subtle)]" : "",
+			]
+				.filter(Boolean)
+				.join(" ")}
+			style={{ minHeight: "44px" }}
+		>
+			{/* Status dot — 6px circle */}
+			<span
+				className="w-[6px] h-[6px] rounded-full shrink-0"
+				style={{ background: dotColor }}
+				aria-hidden="true"
+			/>
+
+			{/* Routine name — flex-1 */}
+			<span className="flex-1 min-w-0 text-[13px] font-medium text-[var(--text-primary)] truncate">
+				{routine.name}
+			</span>
+
+			{/* Agent avatar — 24px */}
+			<span
+				className="w-[24px] h-[24px] rounded-full shrink-0 flex items-center justify-center text-[9px] font-semibold text-[var(--accent-primary)]"
+				style={{ background: "rgba(22,118,79,0.08)" }}
+				aria-label={routine.agentName}
+				title={routine.agentName}
+			>
+				{routine.agentInitials}
+			</span>
+
+			{/* Schedule — 80px mono tertiary */}
+			<span className="w-[80px] shrink-0 text-[11px] font-mono text-[var(--text-tertiary)] truncate">
+				{routine.scheduleLabel}
+			</span>
+
+			{/* Last run — 60px mono right-aligned tabular */}
+			<span className="w-[60px] shrink-0 text-[11px] font-mono text-[var(--text-tertiary)] text-right tabular-nums">
+				{lastRunLabel}
+			</span>
+
+			{/* Cost — 54px mono right-aligned tabular */}
+			<span className="w-[54px] shrink-0 text-[11px] font-mono text-[var(--text-tertiary)] text-right tabular-nums">
+				{costLabel}
+			</span>
+		</button>
+	);
+}
+
+/** Format an ISO datetime string as a human-readable relative time label. */
+function formatRelativeTime(isoString: string): string {
+	const diffMs = Date.now() - new Date(isoString).getTime();
+	const diffSec = Math.floor(diffMs / 1000);
+	if (diffSec < 60) return `${diffSec}s ago`;
+	const diffMin = Math.floor(diffSec / 60);
+	if (diffMin < 60) return `${diffMin}m ago`;
+	const diffHr = Math.floor(diffMin / 60);
+	if (diffHr < 24) return `${diffHr}h ago`;
+	const diffDay = Math.floor(diffHr / 24);
+	return `${diffDay}d ago`;
 }
 
 /** Single active-bet row rendered inside R2. Clickable → navigates to Bet detail. */
