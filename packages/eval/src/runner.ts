@@ -22,6 +22,7 @@ import { scoreScenario } from "./scoring.js";
 import type {
 	EvalReport,
 	EvalScenario,
+	FeatureBreakdown,
 	RunOptions,
 	ScenarioReport,
 	TriggerResult,
@@ -135,6 +136,12 @@ export async function discoverScenarios(): Promise<EvalScenario[]> {
 	for (const value of Object.values(mod)) {
 		if (isEvalScenario(value)) {
 			scenarios.push(value);
+		} else if (Array.isArray(value)) {
+			for (const item of value) {
+				if (isEvalScenario(item)) {
+					scenarios.push(item);
+				}
+			}
 		}
 	}
 	return scenarios;
@@ -146,6 +153,7 @@ function isEvalScenario(value: unknown): value is EvalScenario {
 		typeof value === "object" &&
 		"id" in value &&
 		"description" in value &&
+		"feature" in value &&
 		"tags" in value &&
 		"seed" in value &&
 		"trigger" in value &&
@@ -207,6 +215,21 @@ export async function runEval(options: RunOptions): Promise<EvalReport> {
 	// Filter by --scenario flag
 	if (options.filter) {
 		scenarios = scenarios.filter((s) => s.id === options.filter);
+	}
+
+	// Filter by --feature flag
+	if (options.feature) {
+		scenarios = scenarios.filter((s) => s.feature === options.feature);
+		if (scenarios.length === 0) {
+			const allScenarios = await discoverScenarios();
+			const features = [...new Set(allScenarios.map((s) => s.feature))].sort();
+			process.stderr.write(
+				`[eval] No scenarios for feature "${options.feature}". Available features:\n`,
+			);
+			for (const f of features) {
+				process.stderr.write(`  - ${f}\n`);
+			}
+		}
 	}
 
 	const scenarioReports: ScenarioReport[] = [];
@@ -304,6 +327,31 @@ export async function runEval(options: RunOptions): Promise<EvalReport> {
 		}
 	}
 
+	// Compute per-feature breakdown
+	const featureMap = new Map<string, ScenarioReport[]>();
+	for (const report of scenarioReports) {
+		// Find feature from the matched scenario
+		const scenario = (await discoverScenarios()).find((s) => s.id === report.scenarioId);
+		const feature = scenario?.feature ?? "unknown";
+		const existing = featureMap.get(feature) ?? [];
+		existing.push(report);
+		featureMap.set(feature, existing);
+	}
+	const featureBreakdown: FeatureBreakdown[] = [];
+	for (const [feature, featureReports] of featureMap) {
+		const averageScore =
+			featureReports.length > 0
+				? featureReports.reduce((sum, r) => sum + r.aggregateScore, 0) / featureReports.length
+				: 0;
+		featureBreakdown.push({
+			feature,
+			scenarioCount: featureReports.length,
+			averageScore,
+			scenarioIds: featureReports.map((r) => r.scenarioId),
+		});
+	}
+	featureBreakdown.sort((a, b) => a.feature.localeCompare(b.feature));
+
 	const report: EvalReport = {
 		runId,
 		timestamp,
@@ -314,6 +362,7 @@ export async function runEval(options: RunOptions): Promise<EvalReport> {
 		totalDurationMs,
 		totalCostCents,
 		totalTokensByTier,
+		featureBreakdown,
 	};
 
 	// Write JSON report
