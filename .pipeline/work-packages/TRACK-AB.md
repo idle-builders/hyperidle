@@ -1,12 +1,71 @@
 # Track AB: Agent Management & Configuration
 
-Make agents visible, configurable, and manageable as first-class team members. Today, agent configuration is buried in Settings (X3) and agent status is barely surfaced in the UI. Paperclip makes agent setup, capabilities, and operational status immediately visible. HyperIdle needs the same clarity for human+AI teams where the human team lead needs to understand and manage their AI team members.
+Make agents visible, configurable, and manageable as first-class team members. Today, agent configuration is buried in Settings (X3) and agent status is barely surfaced in the UI. HyperIdle needs clarity for human+AI teams where the human team lead needs to understand and manage their AI team members.
 
-**What exists today.** The `users` table stores agent config (X3: soulPrompt, harnessType, modelTierPreference, maxConcurrentSessions). The `userSkills` table tracks per-agent skill autonomy and success/failure counts. Agent CRUD exists via Settings. The harness adapter pool (X5) selects adapters by type. The MCP bridge (X2) exposes skill-tools. Session history is queryable. But there's no agent profile page, no agent overview on the team page, no guided setup, and agent status isn't surfaced outside Settings.
+**Key insight:** Strategies ship with a set of predefined default agents per team. The primary user journey is *understanding and customizing existing agents*, not creating new ones from scratch. Agent creation from scratch is the secondary, power-user flow. The agent role model must account for three structurally different agent categories: team-level agents (functional domain specialists — development, product, design, sales, etc.), strategy-level agents (built-in aspects like Practice Facilitator that exist across all teams), and personal agents (like Chief of Staff, bound to a user, not a team). A strategy defines the default agent roster; a user customizes from there.
+
+**What exists today.** The `users` table stores agent config (X3: soulPrompt, harnessType, modelTierPreference, maxConcurrentSessions). The `userSkills` table tracks per-agent skill autonomy and success/failure counts. Agent CRUD exists via Settings. The harness adapter pool (X5) selects adapters by type. The MCP bridge (X2) exposes skill-tools. Session history is queryable. Three soul prompt templates exist (`chief-of-staff.md`, `product-manager.md`, `practice-facilitator.md`) seeded into `factorySettings` — but these conflate three structurally different agent categories under one flat "role" enum. SOUL.md (user-edited personality/values) vs AGENT.md (strategy-materialized operational prompt) distinction is not formalized.
 
 **Constraint:** Agent management enhances the existing agent configuration (X3), harness adapters (X5), and org chart (P2) — it does not replace them. `npm run verify` must pass after each workpackage merges.
 
 See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.yaml` for the dependency graph.
+
+---
+
+### AB0 — Agent Structure Concept (Role Model, Identity Composition, Default Roster)
+
+**Workpackage.** Define the conceptual foundations for how agents are structured in HyperIdle: which categories of agents exist, where each category lives (team / strategy / personal), what is defined by the strategy vs editable by the user, and how agent identity is composed from multiple sources.
+
+**What exists today.** A flat `USER_ROLES` enum (`product_manager`, `practice_facilitator`, `chief_of_staff`, `builder`, `growth`, `brand_voice`) with no distinction between agent categories. Soul prompt templates exist for 3 of 6 roles, seeded as JSON in `factorySettings`. There is no formalized boundary between what the user defines (soul/personality) and what the strategy materializes (operational prompt, knowledge injection, tool access). The existing templates conflate structurally different agent types: Practice Facilitator is a built-in strategy aspect (exists in every team), Chief of Staff is a personal assistant (bound to a user, not a team), and Product Manager is a domain-specific team agent (only relevant for product development teams).
+
+**Why this matters.** Every downstream workpackage in Track AB (profile, team overview, setup wizard) depends on a coherent agent structure. Without this, the setup wizard offers the wrong roles, the profile page shows the wrong sections, and the team overview misrepresents which agents belong where. The AB3 pipeline proved this: the wizard was built around "pick a role, get a template" but the role model itself doesn't map to how agents actually work. This is the load-bearing concept work that must happen first.
+
+**Depends on.** None.
+
+**Complexity.** M
+
+**Concept questions to resolve.**
+
+1. **Agent categories.** Define the three (or more) structural categories:
+   - **Team agents** — domain specialists tied to a team's functional focus. A development team gets different agents than a marketing team. Teams can be cross-functional (multiple domains) or functionally focused.
+   - **Strategy agents** — built-in to the strategy, exist across all teams (e.g., Practice Facilitator). Less likely to be edited by users. The strategy controls their operational behavior.
+   - **Personal agents** — bound to a user, not a team (e.g., Chief of Staff). Serve the individual, not the collective.
+   
+2. **Domain model for teams.** Teams are functional or cross-functional. Functions include: development, product, design, sales, marketing, finance, operations, and more. The agent roster for a team derives from its functional composition. Define how team function maps to available agent templates.
+
+3. **Strategy-defined vs user-defined.** For each agent category, clarify:
+   - What the strategy ships (default roster, operational prompt, tool access, knowledge injection)
+   - What the user can customize (soul/personality, name, model tier preferences)
+   - Where each type of editing happens (strategy agents edited rarely and maybe only by admins; team agents more commonly customized; personal agents fully user-controlled)
+
+4. **SOUL.md vs AGENT.md composition.** Formalize the boundary:
+   - **SOUL.md** (or equivalent) — user-authored. Personality, communication style, values, domain expertise framing. The user's input into "who this agent is."
+   - **AGENT.md** (or equivalent) — strategy-materialized. Operational prompt composed from: the soul, the agent's role definition, team context, knowledge fabric, tool access, harness capabilities. The user doesn't write this directly — the strategy assembles it.
+   - The user needs to understand: "You define the soul. The system gives the agent everything else it needs to do its job. You don't have to teach the agent about the codebase, the team's bets, or the tools — it learns that through the knowledge fabric."
+
+5. **Default agent roster.** When a strategy creates a team, which agents are auto-provisioned? How does this differ by team type/function? What does the "ramp up" path look like — start with 1-2 agents, add more as the team matures?
+
+**Acceptance criteria.**
+- A concept document exists at `docs/agent-layer/agent-structure.md` (or appropriate location) defining the agent category taxonomy with clear boundaries.
+- The role model is updated: `USER_ROLES` or its replacement reflects the category distinction (team/strategy/personal) and the domain model (which functions map to which agent templates).
+- SOUL.md vs AGENT.md composition is documented: what the user controls, what the strategy materializes, and how they combine.
+- The default agent roster per team type is defined: which agents ship with a new team, keyed by team function.
+- The concept is reconciled with existing code: `factorySettings` templates, `users.role`, `userSkills`, and the harness adapter model. Migration path from current flat roles to the new structure is outlined.
+- Shared contracts in `packages/shared/` are updated to reflect the new type hierarchy.
+
+**Plan calls.** `/concept` required — this is the foundational concept work. No `/design` or `/architecture` needed; this is pure domain modeling.
+
+**Contracts / constraints.**
+- Must not break existing agent creation (X3) — this is a conceptual extension, not a replacement. Migration is planned, not forced.
+- The concept must work for both the current 3-template state and a future with many more domain-specific templates.
+- Must account for the materialization pipeline (knowledge fabric) as the mechanism for AGENT.md composition.
+
+**Out of scope.**
+- Implementation of the new role model in code (that's AB1-AB3 after this concept is locked).
+- UI for editing agent identity (AB3 covers this after AB0 is done).
+- Materialization pipeline changes (Track B / fabric work).
+
+**Effort.** M (~6h)
 
 ---
 
@@ -18,7 +77,7 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 **Why this matters.** A team lead managing humans can see who is working on what, how they are performing, and whether they need help. The same visibility does not exist for agents today — understanding whether an agent is misconfigured, underperforming, or stuck requires navigating three separate settings screens and cross-referencing session logs. That friction means agents get neglected rather than managed. The profile page is the operational anchor for the human+AI team model: without it, "agents as team members" is a slogan, not a reality.
 
-**Depends on.** None.
+**Depends on.** AB0 — Agent Structure Concept. The profile page sections differ by agent category (team/strategy/personal), and the identity composition (SOUL vs AGENT.md) determines what the profile shows as user-editable vs strategy-managed.
 
 **Complexity.** L
 
@@ -97,41 +156,45 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 ---
 
-### AB3 — Agent Setup Wizard
+### AB3 — Agent Configuration & Customization
 
-**Workpackage.** As a team lead adding a new agent, I want a guided setup flow that walks me through role, identity, harness, and model tier — so that I don't need to understand soul prompts or harness types to get an agent running.
+**Workpackage.** As a team lead, I want to understand and customize the agents that ship with my team — editing their soul, adjusting their model tier, and optionally adding new custom agents — so that I can tailor the team's AI members to our specific needs without starting from scratch.
 
-**What exists today.** Agent creation exists via Settings > Agents (X3) but requires understanding of soul prompts, harness types, and model tiers. Three soul prompt templates exist (`chief-of-staff.md`, `product-manager.md`, `practice-facilitator.md`) — builder, growth, and ops roles have no templates. Soul prompt templates are seeded into `factorySettings` as JSON. Model tiers use the vocabulary `reasoning | workhorse | fast`.
+**What exists today.** Agent editing exists via Settings > Agents (X3) but is a flat form with no guidance. Strategies ship default agents per team, but there's no UI that presents these agents as "your team's starting roster, ready to customize." The primary journey (understand defaults → customize) is not supported; only the secondary journey (create from scratch) exists, and even that requires technical knowledge. The existing PR #195 (draft, blocked) contains a create-from-scratch wizard that assumed the wrong primary flow; its dialog mechanics may be reusable but the role model and flow need redesign after AB0.
 
-**Why this matters.** A non-technical team lead who wants to add a builder agent today must write or paste a soul prompt, choose a harness type, and select a model tier — three concepts that require reading internal documentation to understand. Most team leads will give up or ask for help. That friction makes every agent adoption event dependent on a technically fluent person, which contradicts the premise that HyperIdle teams are self-managing. The wizard is not about prettiness; it is about whether a team lead can operate the product independently.
+**Why this matters.** The strategy ships a thoughtful default roster. A team lead's first interaction with agents should be "here are your agents, here's what they do, here's what you can change" — not "create an agent from nothing." The edit/customize flow is the 90% case. Create-from-scratch is the 10% power-user case. Getting this wrong means the default agents go unnoticed and uncustomized, which is the same as not having them.
 
-**Depends on.** None.
+**Depends on.**
+- AB0 — Agent Structure Concept. AB0 defines the role model, agent categories, SOUL vs AGENT.md composition, and default roster. AB3 cannot design the right UI without knowing what agents exist, which are editable, and what "editing the soul" means vs what the strategy handles.
 
 **Complexity.** M
 
 **Acceptance criteria.**
-- A team lead can add a new agent from the team page through a guided flow that presents choices in order: role → identity → harness → model tier, with sensible defaults at each step.
-- Role selection shows predefined roles with descriptions of what each does. Selecting a role pre-fills the soul prompt template and selects appropriate defaults.
-- The flow validates before creation: selected harness must be available, model tier must have a configured provider, agent name must be unique within the team.
-- First-time users with no agents see a prominent call-to-action on the team page guiding them to create their first agent.
-- After creation, the user knows what to do next: assign the agent to a bet, create a routine, or view the profile.
-- Only roles with existing soul prompt templates are offered as presets. Roles without templates show a "custom" option where the user writes or pastes a soul prompt.
+- The team page surfaces the strategy-shipped default agents with clear descriptions of what each does, so a team lead understands their starting roster without navigating to Settings.
+- A team lead can edit an agent's soul (personality, style, values) through a guided flow that explains what they control vs what the strategy handles ("You define the soul. The system gives the agent context, tools, and knowledge automatically.").
+- The edit flow respects agent categories (AB0): team agents are readily customizable, strategy agents are editable but marked as "managed by strategy — changes may be overwritten," personal agents are fully user-controlled.
+- A team lead can adjust harness and model tier with sensible defaults and validation (harness available, tier configured).
+- Optionally, a team lead can add a fully custom agent (the 10% flow) — picking a domain, writing a soul prompt, selecting harness and model tier.
+- First-time users see their default agents with a prompt to review and customize them, not a blank slate with "create your first agent."
 
 **Validation scenarios.**
-- Given a team lead selects "Builder" role and accepts defaults, when they complete the flow, then an agent is created with the correct soul prompt, built-in harness, and default model tier.
-- Given a user selects a harness that requires an API key not yet configured, when they reach the review step, then a validation warning explains what's missing.
-- Given a team with zero agents, when the team page loads, then a prominent empty state guides the user to create their first agent.
+- Given a new team created by a strategy with 2 default agents, when the team page loads, then the agents section shows 2 agent cards with names, roles, and "Review & customize" affordances.
+- Given a team lead opens the edit flow for a team agent, when they see the soul prompt, then it is pre-filled from the strategy template and the UI explains "Edit this to change the agent's personality. The system handles tools, context, and knowledge."
+- Given a team lead opens a strategy-level agent (e.g., Practice Facilitator), when the edit flow opens, then a note explains this agent is managed by the strategy and local edits may be refreshed on strategy updates.
+- Given a team lead wants a custom agent, when they click "Add custom agent," then a create flow walks them through domain selection, soul prompt, harness, and model tier.
 
-**Plan calls.** /design needed — the guided setup flow is a new interaction pattern. Architecture pass should design: the role template data structure (which roles have templates, which are custom), validation logic, and integration with the existing user creation API. The concept pass should reconcile the available roles with actual soul prompt templates.
+**Plan calls.** `/design` needed — the edit-first flow is a different interaction pattern than the previous create-first wizard. Architecture pass should design: how default agents are surfaced on the team page, how the edit flow differs by agent category, and how SOUL.md editing integrates with strategy materialization. `/concept` is NOT needed here — AB0 handles concept.
 
 **Contracts / constraints.**
-- Uses the canonical model tier names from the codebase (`reasoning | workhorse | fast`), not alternative vocabulary.
-- Soul prompt templates come from `factorySettings`, not `docs/souls/` files.
-- The flow creates a `users` row with kind="ai" and a `teamMembers` entry — same as the existing creation API.
+- Uses the agent category taxonomy from AB0.
+- Soul editing UI must align with the SOUL vs AGENT.md boundary defined in AB0.
+- Uses canonical model tier names (`reasoning | workhorse | fast`).
+- Must work with both strategy-shipped agents and user-created custom agents.
+- The existing PR #195 dialog mechanics (native `<dialog>`, stepper, validation) may be reused or discarded — the concept work in AB0 determines whether the interaction model changes enough to warrant starting fresh.
 
 **Out of scope.**
-- Bulk agent creation.
-- Agent cloning.
-- Agent templates marketplace.
+- Defining the agent categories or role model (AB0).
+- Materialization pipeline changes (how AGENT.md is assembled from SOUL + strategy + context).
+- Bulk agent operations.
 
 **Effort.** M (~6h)
