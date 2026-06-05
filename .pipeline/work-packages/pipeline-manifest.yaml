@@ -641,6 +641,11 @@ stories:
     complexity: L
 
   # Track Z: Vision & Documentation
+  - id: Z0
+    title: Documentation Site (VitePress)
+    track: Z
+    depends: []
+    complexity: S
   - id: Z1
     title: Product Story & Landing Documentation
     track: Z

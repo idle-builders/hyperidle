@@ -10,6 +10,47 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 ---
 
+### Z0 — Documentation Site (VitePress)
+
+**Workpackage.** As anyone reading HyperIdle's product documentation, I want the docs rendered in a professional, navigable documentation site — not raw markdown on GitHub — so that the reading experience matches the quality of the content and I can search, navigate between sections, and read on any device.
+
+**Why this matters.** Raw markdown on GitHub signals "internal notes," not "product documentation." The product story (Z1) and all subsequent docs (Z2–Z8) need a rendered surface that communicates professionalism, enables search, provides navigation, and can be deployed as a static site. Without it, the documentation funnel leaks at the first impression — readers bounce before content quality can matter. VitePress is the natural fit: Vite-based (matches the monorepo stack), renders markdown with zero config, has built-in search, and deploys as static.
+
+**Depends on.** None.
+
+**Complexity.** S
+
+**Acceptance criteria.**
+- VitePress is installed and configured in the monorepo, pointed at `docs/product/` as the content source.
+- `npm run docs:dev` starts a local documentation site on a dev port.
+- `npm run docs:build` produces a static build in a `dist` directory suitable for deployment.
+- The site renders all existing product docs (Z1 output) with working navigation between them.
+- The site has a sidebar matching the `docs/product/index.md` structure.
+- Search works across all documentation pages.
+- The site uses a theme consistent with HyperIdle's visual identity (dark theme, factory-dark palette where possible).
+- `npm run verify` passes — VitePress does not break existing tooling.
+
+**Validation scenarios.**
+- Given a user runs `npm run docs:dev`, when they open the browser, then they see a rendered documentation site with sidebar navigation and all Z1 product docs.
+- Given a user searches for "bet" in the search bar, then results from relevant docs appear.
+- Given a user runs `npm run docs:build`, then a static `dist` directory is produced with all pages.
+
+**Plan calls.** Skip /concept, skip /design. Tooling setup — install, configure, verify.
+
+**Contracts / constraints.**
+- VitePress config lives alongside the docs, not in a separate package.
+- The docs site is additive — does not modify or move existing markdown files.
+- No custom Vue components in the first pass — use VitePress defaults.
+
+**Out of scope.**
+- Deployment to a hosting provider (separate concern).
+- Custom theme development beyond color configuration.
+- Documentation for non-product docs (architecture docs stay in `docs/` for internal reference).
+
+**Effort.** S (~2h)
+
+---
+
 ### Z1 — Product Story & Landing Documentation
 
 **Workpackage.** As a developer or founder discovering HyperIdle for the first time, I want a clear, compelling product story that explains what HyperIdle is, why it exists, what makes it different, and what I can do with it — so that I can decide in under 5 minutes whether this is relevant to me and worth exploring further.
