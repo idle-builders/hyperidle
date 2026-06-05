@@ -309,3 +309,209 @@ All v4 findings remain applicable. The expansion did not address any of them.
 - **Zero-domain convention for system-level interactions.** The 17 non-domain scenarios (interactions 20-24) correctly skip domain, and the combined evals for session/knowledge/prompt correctly apply domain because they test agent judgment through tool usage, which IS domain-influenced.
 
 - **The expansion's growth-is-not-represented justification is honest.** Growth uses the same tools as builder, and the cross-cutting machinery (session, materialization, prompt) is identical. Adding growth combined evals would be padding.
+
+---
+
+# Section 12 Critique: AB0 Role Model Adaptation
+
+SECTION-12-SCORE: 7/10  SA:8 LI:9 AC:6 DM:7 N:9 MD:9 FMC:5 S:8 V:7
+
+---
+
+## Dimension Scores
+
+### 1. Spec Alignment (SA: 8/10)
+
+Section 12 delivers what it promises: seeding changes for `agentCategory`, 8 new scenarios for 3 new roles plus a custom-role fallback, and a transparent audit of all 10 new AB0 roles against a diversity criterion. The role coverage analysis is thorough -- each of the 10 new roles gets an explicit diversity assessment with a concrete yes/no verdict.
+
+The concept doc (Section "Roles (AB0 role model)") states: "All 16 catalog roles should be exercised where they create genuinely different judgment patterns." The architecture correctly interprets "genuinely different judgment patterns" as role-specific tool selection, artifact kinds, handoff directions, and escalation reasoning. Roles that differ only in domain labels (content vs growth) or lack soul prompts (sales, support) are correctly skipped.
+
+Gap: The concept doc says `agentCategory` must be set correctly and that "team agents need `teamId`, strategy/personal don't." The architecture's auto-derivation from the catalog is correct for team and strategy categories, but it does not discuss whether personal-category agents (chief_of_staff) need `teamId` in seeding. In production, personal agents are factory-wide and may not have team membership. Existing chief_of_staff scenarios currently seed with a `teamMembersId` -- the architecture should confirm this is intentional for eval purposes (it likely is, since the eval needs a task/bet/team chain).
+
+### 2. Layer Integrity (LI: 9/10)
+
+Unchanged from v4. The seeding changes import `findRoleCatalogEntry` and `AgentCategory` from `@hyperidle/shared` -- the correct direction (eval depends on shared, not on server or fabric). No new layer violations.
+
+### 3. API Contracts (AC: 6/10)
+
+**CRITICAL-3: "runbook" is not a valid artifact kind.** The `ca-runbook-ops-devops` scenario expects `kind_correctness` to match "runbook". But `WRITABLE_ARTIFACT_KINDS` in `create-artifact.ts` is a closed enum: `["code_diff", "deck", "contract", "dashboard", "screenshot", "drafted_email", "design", "data_analysis", "decision", "running_service", "comm_draft", "verification"]`. "runbook" is not in this list. The Zod schema (`z.enum(WRITABLE_ARTIFACT_KINDS)`) will reject any `create_artifact` call with `kind: "runbook"` as `INVALID_INPUT`. The scenario will fail at the tool level before any rubric evaluation occurs.
+
+The architecture claims ops creates "runbook" kind artifacts, but this kind does not exist in the codebase. Either the scenario must use an existing kind (perhaps "decision" or "comm_draft" for operational documentation), or `WRITABLE_ARTIFACT_KINDS` and `ARTIFACT_KINDS` must be extended with "runbook" -- which is out of scope for X8 (an eval library workpackage should not modify production tool schemas).
+
+**`seedAgent` already accepts `costCapMinor`.** Section 12.1 shows the `seedAgent` signature with `costCapMinor` as a new addition. But `seeding.ts` lines 108-110 already have `costCapMinor?: number` and `costCapCurrency?: string` on `seedAgent`. The architecture plan's code block for 12.1 matches the existing signature. This is technically correct (the builder won't break anything) but the architecture text presents it as a new addition when it already exists. Minor documentation inaccuracy, not a functional issue.
+
+**`seedBet` already accepts `appetite`.** Similarly, `seeding.ts` lines 146-147 already have `appetite?: string` on `seedBet`. The v4 critique's WARNING-8 was already resolved in the codebase. Section 12 inherits this from the v4 critique context but does not note that the fix was already applied.
+
+**`seedTeam` does not set `functions`.** Section 12.1 proposes adding `functions` to `seedTeam`. The current `seedTeam` (seeding.ts line 42-69) does NOT insert `functions` -- the column exists on `teams` (schema.ts line 32) but the seeding helper omits it. The architecture correctly identifies this gap. However, none of the 8 new scenarios actually depend on `teams.functions` -- it is only relevant for default roster computation (`defaultRoster()`), which no eval scenario exercises. The change is forward-looking but not strictly necessary for Section 12's scenarios.
+
+**`seedMinimalWorld` does not pass `agentCategory` to `seedAgent`.** This is the core gap Section 12.1 addresses. The proposed auto-derivation via `findRoleCatalogEntry()` is correct -- I verified that all 3 new roles (designer, qa_engineer, ops) have catalog entries with the correct categories. The fallback to `"team"` for unknown roles is also correct (the `ta-unknown-role-fallback` scenario's `"custom_analyst"` will get `agentCategory: "team"` since it has no catalog entry). Whether "team" is the right default for an unknown role is debatable -- "team" implies team binding -- but it matches the existing behavior (all agents have teamId set via seeding).
+
+### 4. Data Model Alignment (DM: 7/10)
+
+Column references verified:
+
+| Column reference | Schema location | Exists? |
+|---|---|---|
+| `users.agentCategory` | schema.ts line 78 | Yes |
+| `users.role` (as open string) | schema.ts line 47 | Yes |
+| `users.soulPrompt` | schema.ts line 67 | Yes |
+| `teams.functions` | schema.ts line 32 | Yes |
+| `artifacts.kind` | schema.ts line 632 | Yes |
+
+All column references are valid against the schema. The `agentCategory` column is nullable text, matching the seeding pattern of `opts.agentCategory ?? "team"`.
+
+One implicit assumption: the `ta-unknown-role-fallback` scenario expects `communityForRole("custom_analyst")` to return `"ops"`. Verified in `agent-roles.ts` line 208: `return entry?.community ?? "ops"`. Correct.
+
+### 5. Naming (N: 9/10)
+
+The 8 new scenario IDs follow the established `{prefix}-{description}-{role}-{domain}` convention. The prefix mapping is consistent: `ca-` for create_artifact, `ht-` for handoff_to, `ci-` for create_item, `sr-` for submit_review, `ta-` for tool_authorization. Role segments use the actual role string (designer, qa, ops, unknown). Domain segments are real product domains from the existing set (frontend, healthcare, devops, consulting).
+
+One naming note: `ci-review-request-designer-healthcare` uses `ci-` (create_item) which is correct since a review request is created via `create_item`, not via `submit_review`. This is consistent with the existing `ci-review-request-builder-frontend`.
+
+### 6. Module Depth (MD: 9/10)
+
+The decision to add scenarios to existing feature files (not new files) is correct. 8 new scenarios distributed across 5 existing files keeps each file manageable. The file-to-scenario mapping is accurate: each scenario goes to the file matching its primary feature/interaction.
+
+### 7. Failure-Mode Coverage (FMC: 5/10)
+
+**CRITICAL-3: `ca-runbook-ops-devops` will fail at the Zod validation layer.** (Detailed above in API Contracts.) The `create_artifact` tool rejects `kind: "runbook"` as invalid input. The scenario tests nothing -- it exercises a Zod error path, not ops artifact creation judgment. This is not a "failure mode" that needs coverage; it is a scenario that cannot execute its intended code path.
+
+Resolution options (from most to least preferred):
+1. Change the expected artifact kind to one that exists in `WRITABLE_ARTIFACT_KINDS`. The closest match for operational documentation is "decision" (ops documenting a procedure is a decision artifact about how to operate). Alternatively, "comm_draft" could work for a documented procedure.
+2. Accept that ops artifact kinds are not yet supported and remove `ca-runbook-ops-devops` entirely, reducing ops to 1 scenario.
+3. Extend `WRITABLE_ARTIFACT_KINDS` with "runbook" in a separate change -- but this modifies production tool behavior and is out of X8 scope.
+
+**WARNING-10: Designer community discrepancy between concept doc and code.** The concept doc (line 160) says designer community is "building". The actual `AGENT_ROLE_CATALOG` entry (agent-roles.ts line 58) says `community: "product"`. The architecture plan Section 12.3 says "Community is 'product' (same as PM)" -- matching the code, not the concept doc. This is likely a concept doc error (designer naturally belongs to the "product" community alongside PM), but the discrepancy should be resolved.
+
+This matters for eval: the `ci-review-request-designer-healthcare` scenario's L3 knowledge scoping will operate in the "product" community (per code), not "building" (per concept). If a future change "fixes" the catalog to match the concept doc, the scenario's knowledge scoping behavior changes.
+
+**WARNING-11: `sr-qa-gatekeeper-qa-devops` assumes pre-seeded artifacts are visible to the QA agent.** The scenario says "Pre-seed an artifact (kind 'code_diff') from a builder's task." But the QA agent's task context (built by `buildSessionContextData`) includes only the task description, bet description, and team info -- not artifacts from other tasks. The seeded artifact exists in the DB but is invisible to the QA agent unless the task description explicitly references it. The architecture should specify that the artifact details are embedded in the task description string (e.g., "Review the infrastructure migration code_diff artifact -- 150 files changed, 3 new dependencies added").
+
+**WARNING-12: `ta-unknown-role-fallback` categorized under `tool_authorization` feature but does not test tool authorization boundaries.** The scenario seeds a custom role and checks that the session completes without errors. The rubric dimensions are: `session_completed`, `session_notes_written`, `appropriate_tools_used`, `no_errors`. None of these test tool authorization failure/success boundaries. The `appropriate_tools_used` dimension checks that only standard tools were used, which is trivially true since `toolsForRole("custom_analyst")` returns all non-facilitator tools (the same set as builder). The scenario tests "can an unknown role complete a session" -- which is a session viability test, not a tool authorization test. The `tool_authorization` feature tag is misleading. Consider whether this is better tagged as a `session` feature or a new `role_fallback` feature.
+
+### 8. Simplicity (S: 8/10)
+
+The role coverage analysis is the right complexity level for this expansion. The decision framework (soul prompt + community + artifact kind diversity = genuine diversity; no soul prompt + same tools = skip) is clear, honest, and consistently applied. The skip justifications are defensible.
+
+The auto-derivation of `agentCategory` from the role catalog via `findRoleCatalogEntry()` is the simplest correct approach -- no per-scenario overrides needed, existing scenarios get correct categories automatically. The fallback chain (catalog match -> entry.category, no match -> "team") is appropriate.
+
+8 new scenarios for 3 new roles + 1 fallback is proportional. The plan does not over-expand -- it resists the temptation to add a scenario for every new role.
+
+### 9. Verifiability (V: 7/10)
+
+All 8 new scenarios are session-based (require LLM calls). None carry `quick` tags. The builder can verify structural correctness (typecheck + lint) but not runtime behavior without API keys.
+
+The seeding changes (Task 12.1) are verifiable via existing unit tests on the seeding functions -- if tests exist. The auto-derivation logic (`findRoleCatalogEntry` -> category) is a pure function that can be tested deterministically.
+
+Task 12.4 ("Verify `buildDefaultSoulPrompt` handles new roles") is trivially true since it accepts any string. The task is correct but worth 10 seconds of verification, not a task item.
+
+---
+
+## CRITICAL Findings
+
+### CRITICAL-3: `ca-runbook-ops-devops` references artifact kind "runbook" which does not exist
+
+`WRITABLE_ARTIFACT_KINDS` in `packages/server/src/skill-tools/create-artifact.ts` is a closed enum validated by `z.enum()`. The kind "runbook" is not in the list: `["code_diff", "deck", "contract", "dashboard", "screenshot", "drafted_email", "design", "data_analysis", "decision", "running_service", "comm_draft", "verification"]`. The `create_artifact` tool will return `INVALID_INPUT` for any call with `kind: "runbook"`.
+
+The scenario's rubric dimension `kind_correctness (expects "runbook")` is untestable with the current codebase. The ops agent will either: (a) attempt `kind: "runbook"` and get a Zod validation error, or (b) pick a valid kind and fail `kind_correctness`.
+
+**Resolution:** Change the expected artifact kind to an existing valid kind. For operational documentation, "decision" is the closest semantic match. Update the rubric to `kind_correctness (expects "decision")` and adjust the scenario description: "Ops creates a 'decision' kind artifact documenting an operational procedure." Alternatively, use "comm_draft" for runbook-style content.
+
+---
+
+## WARNING Findings
+
+### WARNING-10: Designer community discrepancy between concept doc and code
+
+Concept doc line 160 says designer community is "building". Code (`agent-roles.ts` line 58) says "product". Architecture Section 12.3 follows the code. The concept doc appears incorrect.
+
+**Recommendation:** Fix the concept doc table to show designer community as "product", matching the production catalog.
+
+### WARNING-11: Pre-seeded artifact invisible to QA agent in `sr-qa-gatekeeper-qa-devops`
+
+The scenario seeds an artifact from a builder's task, but `buildSessionContextData` does not include artifacts from other tasks in the agent's prompt. The QA agent's only knowledge of the artifact comes from whatever is in the task description string.
+
+**Recommendation:** Specify in the scenario that the task description must embed artifact details: e.g., `taskDescription: "Review the infrastructure migration code_diff artifact — 150 files changed across 12 services, adding Redis caching layer. Assess test coverage and regression risk."` This makes the QA agent's evaluation context explicit rather than implicit.
+
+### WARNING-12: `ta-unknown-role-fallback` feature tag is misleading
+
+The scenario tests session viability for an unknown role, not tool authorization boundaries. The `appropriate_tools_used` dimension is trivially true. Consider retagging as `session` feature, or add a genuine tool authorization dimension (e.g., verify that the unknown role cannot access facilitator tools by checking session logs for FORBIDDEN responses).
+
+---
+
+## Role Coverage Assessment
+
+### Skip justifications: 7 roles
+
+| Skipped role | Architecture justification | Valid? | Notes |
+|---|---|---|---|
+| support | Same tools as builder, no soul prompt, generic judgment | **Yes** | Support's ticket triage maps to `create_item` escalation, already covered. |
+| sales | Same tools as growth, no soul prompt, same community | **Yes** | No distinguishing tool behavior. |
+| content | Same tools as growth, no soul prompt, domain label only | **Yes** | Content writing is a domain, not a tool selection pattern. |
+| data_analyst | Same tools as PM, no soul prompt | **Yes** | "data_analysis" artifact kind exists but artifact creation judgment is identical. |
+| scout | Strategy category, no soul prompt, identical to PM tool usage | **Yes** | Strategy category is seeding metadata, not tool behavior. |
+| infra | Similar to ops but factory-wide, no soul prompt | **Marginal** | Infra is structurally different (strategy vs team) but without a soul prompt, tool behavior is generic. The "strategy" category difference matters for provisioning but not for tool-level eval. Acceptable skip. |
+| platform | Same tools as builder, no soul prompt, same community | **Yes** | Platform is builder without the soul prompt. |
+
+All skip justifications are valid. The key insight is correct: without a soul prompt, agents with access to the same tools produce indistinguishable judgment for eval purposes. The soul prompt is what creates role-specific tool selection, artifact kind choices, and escalation reasoning.
+
+One observation: if future work adds soul prompts for support, data_analyst, or infra, the skip justification changes. The architecture should note that this assessment is valid only for the current catalog state.
+
+### Roles with scenarios: diversity achieved?
+
+| Role | Scenarios | Interactions covered | Genuine diversity? |
+|---|---|---|---|
+| designer (3) | create_artifact, handoff_to, create_item | Yes -- "design" artifact kind, designer-to-builder handoff, clinical UX review. All three exercise different judgment than existing roles. |
+| qa_engineer (2) | submit_review, create_item | Yes -- gatekeeper review (external quality assessment), regression bug escalation. Both are distinct from self-review and compliance escalation patterns. |
+| ops (2) | create_artifact, handoff_to | **Partial** -- `ca-runbook-ops-devops` is blocked by CRITICAL-3. `ht-to-builder-ops-devops` (diagnosis-to-fix handoff) is genuine diversity. If CRITICAL-3 is resolved with a valid kind, ops has good coverage. |
+| custom_analyst (1) | tool_authorization (misclassified) | Adequate for edge case testing. Tests the open-vocabulary fallback path. |
+
+---
+
+## Seeding Correctness
+
+The `agentCategory` auto-derivation from catalog is correct. Verified:
+
+- `findRoleCatalogEntry("designer")` returns `{ category: "team" }` -- correct
+- `findRoleCatalogEntry("qa_engineer")` returns `{ category: "team" }` -- correct
+- `findRoleCatalogEntry("ops")` returns `{ category: "team" }` -- correct
+- `findRoleCatalogEntry("custom_analyst")` returns `undefined`, fallback to `"team"` -- acceptable
+- `findRoleCatalogEntry("chief_of_staff")` returns `{ category: "personal" }` -- correct
+- `findRoleCatalogEntry("practice_facilitator")` returns `{ category: "strategy" }` -- correct
+
+The `seedBuiltinAgents` additions (agentCategory on 3 stubs) are correct:
+- `seed-agent-cos`: personal -- matches catalog
+- `seed-agent-pf-facilitation`: strategy -- matches catalog
+- `seed-agent-pm-nimmly`: team -- matches catalog
+
+---
+
+## Prior Critique Findings Status
+
+| Finding | Status | Section 12 impact |
+|---|---|---|
+| CRITICAL-1 (taskId in triggerConfig) | **Still open** | Not applicable -- no routine scenarios in Section 12. |
+| CRITICAL-2 (cost info not in prompt) | **Still open** | Not applicable -- no cost-pressure scenarios in Section 12. |
+| WARNING-1 (feature name type safety) | **Still open** | Risk unchanged at 114 scenarios. |
+| WARNING-2 (factory settings key mismatch) | **Still open** | Not applicable. |
+| WARNING-3 (builtin routine rows) | **Still open** | Not applicable. |
+| WARNING-4 (seedConflict versionCurrent) | **Still open** | Not applicable. |
+| WARNING-5 (judgeLlmQuality unspecified) | **Still open** | 8 new scenarios add ~5 new LLM-as-judge dimensions (body_quality, context_quality, reasoning_quality). Same concern applies. |
+| WARNING-6 (fewer_tool_calls inaccessible) | **Still open** | Not applicable. |
+| WARNING-7 (seedAgent costCapMinor) | **Already resolved in codebase** | `seedAgent` already accepts `costCapMinor` (seeding.ts lines 108-110). |
+| WARNING-8 (seedBet appetite) | **Already resolved in codebase** | `seedBet` already accepts `appetite` (seeding.ts lines 146-147). |
+| WARNING-9 (prior session overstated) | **Still open** | Not applicable. |
+
+---
+
+## What's Working Well
+
+- **The diversity analysis framework is the right abstraction.** Soul prompt + community + artifact kind = diversity signal. No soul prompt + same tools = skip. This is honest and defensible. It avoids the trap of "more roles = more coverage" when tool behavior is identical.
+
+- **Auto-derivation of agentCategory via catalog lookup is elegant.** Zero changes to existing 106 scenarios. The seeding layer absorbs the entire AB0 adaptation transparently. This is the ideal outcome -- adapt the infrastructure, not every consumer.
+
+- **The custom-role fallback scenario fills a real gap.** Testing the open-vocabulary path (catalog miss -> fallback community -> base tools) is exactly the edge case that would silently break if `communityForRole` or `toolsForRole` ever assumed catalog membership.
+
+- **File placement is correct.** New scenarios go into existing feature files. No new files needed. `--feature` filtering continues to work. The 5-file distribution matches the 5 interactions being tested.
+
+- **The scope is restrained.** 8 scenarios, not 30. The architecture resists expanding to every role and instead focuses on roles that create genuinely different judgment. This is the right call for an eval library -- each scenario costs real LLM dollars to run.
