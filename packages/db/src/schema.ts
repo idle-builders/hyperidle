@@ -185,42 +185,113 @@ export const sessions = pgTable(
 		workspaceSnapshot: text("workspace_snapshot"),
 		outcome: text("outcome"),
 		notes: text("notes"),
+		/**
+		 * AA1/AA2-prep: links this session to a routine run. Null until AA2 wires
+		 * the scheduler to create sessions with a routine_id.
+		 *
+		 * @lore AA1: Column added now per "no incremental migrations" constraint.
+		 * Will be populated in AA2 when the routine scheduler creates sessions.
+		 * ON DELETE SET NULL ensures session records survive if a routine is retired.
+		 */
+		routineId: text("routine_id"),
 	},
 	(table) => [
 		index("sessions_task_id_idx").on(table.taskId),
 		index("sessions_agent_id_idx").on(table.agentId),
 		index("sessions_state_idx").on(table.state),
+		index("sessions_routine_id_idx").on(table.routineId),
 	],
 );
 
-export const routines = pgTable("routines", {
-	id: text("id").primaryKey(),
-	ownerAgentId: text("owner_agent_id")
-		.notNull()
-		.references(() => users.id, { onDelete: "restrict" }),
-	triggerType: text("trigger_type").notNull(),
-	triggerConfig: text("trigger_config"),
-	skillId: text("skill_id"),
-	doneCondition: text("done_condition"),
-	stateKey: text("state_key"),
-	/**
-	 * @lore O2: `delegationAllowed` governs whether the routine can hand off
-	 * execution to a sub-agent. Kernel-only concern (identity of who executes).
-	 * Separate from strategy signals like riskTier.
-	 */
-	delegationAllowed: boolean("delegation_allowed").default(false),
-	/**
-	 * @lore O2: `humanReview` marks routines that must pause for human approval
-	 * before completing. Kernel-only: determines the execution handoff path,
-	 * not a strategy metric.
-	 */
-	humanReview: boolean("human_review").default(false),
-	autonomyLevel: integer("autonomy_level"),
-	silent: boolean("silent").default(false),
-	active: boolean("active").notNull().default(true),
-	lastRunAt: text("last_run_at"),
-	nextRunAt: text("next_run_at"),
-});
+export const routines = pgTable(
+	"routines",
+	{
+		id: text("id").primaryKey(),
+		/** AA1: human-readable name for the routine. */
+		name: text("name").notNull().default(""),
+		/** AA1: optional longer description. */
+		description: text("description"),
+		ownerAgentId: text("owner_agent_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "restrict" }),
+		/**
+		 * AA1: team this routine belongs to. NOT NULL — every routine is team-scoped.
+		 * FK constraint added after backfill (see migration 0022_AA1_routine_visibility.sql).
+		 *
+		 * @lore AA1: team_id is NOT NULL. factory-wide agents (COS, PF) whose routines
+		 * have no natural team are backfilled to the first team during migration.
+		 * See architecture AA1 §"Design-it-twice: Factory-wide agents".
+		 */
+		teamId: text("team_id")
+			.notNull()
+			.references(() => teams.id, { onDelete: "restrict" }),
+		triggerType: text("trigger_type").notNull(),
+		triggerConfig: text("trigger_config"),
+		skillId: text("skill_id"),
+		doneCondition: text("done_condition"),
+		stateKey: text("state_key"),
+		/**
+		 * @lore O2: `delegationAllowed` governs whether the routine can hand off
+		 * execution to a sub-agent. Kernel-only concern (identity of who executes).
+		 * Separate from strategy signals like riskTier.
+		 */
+		delegationAllowed: boolean("delegation_allowed").default(false),
+		/**
+		 * @lore O2: `humanReview` marks routines that must pause for human approval
+		 * before completing. Kernel-only: determines the execution handoff path,
+		 * not a strategy metric.
+		 */
+		humanReview: boolean("human_review").default(false),
+		autonomyLevel: integer("autonomy_level"),
+		silent: boolean("silent").default(false),
+		/**
+		 * @deprecated Use `state` instead. Kept for backward compat until AA2.
+		 * @lore AA1: `active` boolean is preserved so existing code that reads it
+		 * continues to work. New code reads `state`. AA2 will drop `active`.
+		 * When `state` is set via PATCH, `active` is synced for backward compat.
+		 */
+		active: boolean("active").notNull().default(true),
+		/**
+		 * AA1: Routine lifecycle state: 'active' | 'paused' | 'error'. Replaces boolean `active`.
+		 * Default 'active' matches the old boolean default (active=true).
+		 */
+		state: text("state").notNull().default("active"),
+		lastRunAt: text("last_run_at"),
+		nextRunAt: text("next_run_at"),
+		/** AA1: cumulative actual cost across all runs — minor units. */
+		costActualMinor: integer("cost_actual_minor"),
+		/** AA1: currency code for costActualMinor. */
+		costActualCurrency: text("cost_actual_currency"),
+	},
+	(table) => [index("routines_team_id_idx").on(table.teamId)],
+);
+
+/**
+ * AA1: Append-only log of routine execution runs. One row per trigger (manual or scheduled).
+ *
+ * @lore AA1: routine_runs is the lightweight audit log for execution history.
+ * AA2 will link sessions.routine_id to these rows when the scheduler integrates
+ * with the session lifecycle. Until then, routine_runs are inserted at trigger
+ * time with an initial outcome. The `outcome` column will gain a "running" state
+ * in AA2 and be updated on session end.
+ */
+export const routineRuns = pgTable(
+	"routine_runs",
+	{
+		id: text("id").primaryKey(),
+		routineId: text("routine_id")
+			.notNull()
+			.references(() => routines.id, { onDelete: "restrict" }),
+		startedAt: text("started_at").notNull(),
+		endedAt: text("ended_at"),
+		/** 'success' | 'error' */
+		outcome: text("outcome").notNull(),
+		costMinor: integer("cost_minor"),
+		costCurrency: text("cost_currency"),
+		errorMessage: text("error_message"),
+	},
+	(table) => [index("routine_runs_routine_id_idx").on(table.routineId, table.startedAt)],
+);
 
 // --- Messaging (L1a Thread primitive) ---
 
@@ -768,6 +839,9 @@ export type NewSession = typeof sessions.$inferInsert;
 
 export type Routine = typeof routines.$inferSelect;
 export type NewRoutine = typeof routines.$inferInsert;
+
+export type RoutineRun = typeof routineRuns.$inferSelect;
+export type NewRoutineRun = typeof routineRuns.$inferInsert;
 
 export type Thread = typeof threads.$inferSelect;
 export type NewThread = typeof threads.$inferInsert;

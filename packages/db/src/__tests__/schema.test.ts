@@ -287,6 +287,9 @@ describe("A2: Database Schema", () => {
 
 		it("inserts and reads routines", async () => {
 			const now = new Date().toISOString();
+			await db
+				.insert(teams)
+				.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: now });
 			await db.insert(users).values({
 				id: "agent-1",
 				kind: "ai",
@@ -298,6 +301,9 @@ describe("A2: Database Schema", () => {
 			});
 			await db.insert(routines).values({
 				id: "routine-1",
+				name: "Test routine",
+				teamId: "prod-1",
+				state: "active",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 900 }),

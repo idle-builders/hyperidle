@@ -200,6 +200,9 @@ describe("I3: FK actions — RESTRICT on reference data", () => {
 		await seedProductTeamBetTaskAgent(db);
 		await db.insert(routines).values({
 			id: "routine-1",
+			name: "Test routine",
+			teamId: "p1",
+			state: "active",
 			ownerAgentId: "a1",
 			triggerType: "heartbeat",
 			triggerConfig: JSON.stringify({ intervalSeconds: 900 }),

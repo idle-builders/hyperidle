@@ -26,11 +26,12 @@ import {
 	EmptyState,
 	ErrorState,
 	KeyValue,
+	routineStateToStatus,
 	SkeletonCard,
 	StatusChip,
 } from "@hyperidle/design-system";
 // @lore U1: `ProductDetail` → `TeamDetail`, `BetCardSummary.pitchTitle` → `descriptionTitle`.
-import type { BetCardSummary, TeamDetail } from "@hyperidle/shared";
+import type { BetCardSummary, RoutineCardSummary, TeamDetail } from "@hyperidle/shared";
 import { formatMoney } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -171,7 +172,8 @@ function WorkTeamLoaded({
 }): JSX.Element {
 	const navigate = useNavigate();
 	// @lore U1: `team` replaces `product` in TeamDetail.
-	const { team, roster, burn, activeBets } = data;
+	// @lore AA1: routines defaults to [] so pre-AA1 mock data (missing the field) doesn't crash.
+	const { team, roster, burn, activeBets, routines = [] } = data;
 	const onOpenArtifact = useArtifactOpen();
 	const hintCreateBet = useHint("create-bet");
 
@@ -332,6 +334,32 @@ function WorkTeamLoaded({
 				)}
 			</section>
 
+			{/* R5 — Routines (AA1) */}
+			<section aria-label="Team routines" data-testid="team-routines">
+				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
+					Routines
+				</h2>
+				{routines.length === 0 ? (
+					<EmptyState
+						title="No routines"
+						description="This team has no scheduled routines."
+						dataTestId="team-routines-empty"
+					/>
+				) : (
+					<div className="flex flex-col gap-[6px]">
+						{routines.map((routine) => (
+							<RoutineRow
+								key={routine.id}
+								routine={routine}
+								onNavigate={() => {
+									navigate(`/work/routine/${encodeURIComponent(routine.id)}`);
+								}}
+							/>
+						))}
+					</div>
+				)}
+			</section>
+
 			{/* L12: Artifact stack — product axis, limit=10, replaces placeholder */}
 			{!skipArtifacts && (
 				<ArtifactSection
@@ -345,6 +373,39 @@ function WorkTeamLoaded({
 				/>
 			)}
 		</div>
+	);
+}
+
+/** Single routine row rendered inside R5 (AA1). Clickable → navigates to Routine detail. */
+function RoutineRow({
+	routine,
+	onNavigate,
+}: {
+	routine: RoutineCardSummary;
+	onNavigate: () => void;
+}): JSX.Element {
+	return (
+		<button
+			type="button"
+			data-testid="routine-row"
+			onClick={onNavigate}
+			className="w-full text-left rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] hover:bg-[var(--surface-elevated)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)]"
+		>
+			<div className="flex items-center gap-[12px] flex-wrap">
+				<span className="flex-1 text-xs font-medium text-[var(--text-primary)] truncate">
+					{routine.name}
+				</span>
+				<StatusChip status={routineStateToStatus(routine.state)} />
+			</div>
+			<div className="mt-1 flex gap-[18px] flex-wrap">
+				<span className="text-[11px] text-[var(--text-tertiary)] truncate">
+					{routine.scheduleLabel}
+				</span>
+				<span className="text-[11px] text-[var(--text-tertiary)] truncate">
+					{routine.agentName}
+				</span>
+			</div>
+		</button>
 	);
 }
 

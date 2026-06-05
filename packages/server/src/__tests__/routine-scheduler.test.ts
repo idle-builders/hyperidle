@@ -173,6 +173,9 @@ describe("Routine Scheduler", () => {
 
 			await db.insert(routines).values({
 				id: "r-heartbeat",
+				name: "Heartbeat routine",
+				teamId: "p1",
+				state: "active",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 60, taskId: "task-1" }),
@@ -206,6 +209,9 @@ describe("Routine Scheduler", () => {
 
 			await db.insert(routines).values({
 				id: "r-calendar",
+				name: "Calendar routine",
+				teamId: "p1",
+				state: "active",
 				ownerAgentId: "agent-1",
 				triggerType: "calendar",
 				triggerConfig: JSON.stringify({ cron: "0 9 * * MON", taskId: "task-1" }),
@@ -231,6 +237,9 @@ describe("Routine Scheduler", () => {
 		it("fires when configured event is emitted", async () => {
 			await db.insert(routines).values({
 				id: "r-event",
+				name: "Event routine",
+				teamId: "p1",
+				state: "active",
 				ownerAgentId: "agent-1",
 				triggerType: "event",
 				triggerConfig: JSON.stringify({ eventType: "bet_state_changed", taskId: "task-1" }),
@@ -292,6 +301,9 @@ describe("Routine Scheduler", () => {
 
 			await db.insert(routines).values({
 				id: "r-delegate",
+				name: "Delegate routine",
+				teamId: "p1",
+				state: "active",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 60, taskId: "task-1" }),
@@ -330,6 +342,9 @@ describe("Routine Scheduler", () => {
 
 			await db.insert(routines).values({
 				id: "r-capped",
+				name: "Capped routine",
+				teamId: "p1",
+				state: "active",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 60, taskId: "task-1" }),
@@ -360,6 +375,9 @@ describe("Routine Scheduler", () => {
 
 			await db.insert(routines).values({
 				id: "r-silent",
+				name: "Silent routine",
+				teamId: "p1",
+				state: "active",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 60, taskId: "task-1" }),
@@ -388,6 +406,9 @@ describe("Routine Scheduler", () => {
 
 			await db.insert(routines).values({
 				id: "r-review",
+				name: "Review routine",
+				teamId: "p1",
+				state: "active",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 60, taskId: "task-1" }),
@@ -419,6 +440,9 @@ describe("Routine Scheduler", () => {
 
 			await db.insert(routines).values({
 				id: "r-timestamps",
+				name: "Timestamps routine",
+				teamId: "p1",
+				state: "active",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 120, taskId: "task-1" }),

@@ -93,9 +93,7 @@ function renderPage(data: TeamDetail | null = BASE_TEAM): ReturnType<typeof rend
 			<Routes>
 				<Route
 					path="/work/team/:teamId"
-					element={
-						<WorkTeam overrideData={data} overrideLoading={false} skipArtifacts={true} />
-					}
+					element={<WorkTeam overrideData={data} overrideLoading={false} skipArtifacts={true} />}
 				/>
 				<Route
 					path="/work/routine/:routineId"
@@ -169,7 +167,8 @@ describe("WorkTeam — AA1 Routines Section", () => {
 		renderPage(TEAM_WITH_ROUTINES);
 
 		// Find the routine row by the routine name and click it
-		const routineRow = screen.getByText("Daily digest").closest("[data-testid='routine-row']") ??
+		const routineRow =
+			screen.getByText("Daily digest").closest("[data-testid='routine-row']") ??
 			screen.getByText("Daily digest");
 		await user.click(routineRow as HTMLElement);
 

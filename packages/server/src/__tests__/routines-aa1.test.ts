@@ -20,10 +20,10 @@ import {
 	// routineRuns is NOT exported yet — AA1 Task 1 adds it.
 	// The tests that reference it will fail until Task 1 is complete (correct red phase behavior).
 	routines,
+	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
-	type TestDbHandle,
 	users,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
@@ -195,7 +195,7 @@ describe("AA1: Routine Visibility API", () => {
 			});
 
 			// routineRuns table added in Task 1 — this will throw until migration runs
-			const { routineRuns } = await import("@hyperidle/db") as unknown as {
+			const { routineRuns } = (await import("@hyperidle/db")) as unknown as {
 				routineRuns: typeof import("@hyperidle/db").routines;
 			};
 			await db.insert(routineRuns).values({
@@ -229,7 +229,7 @@ describe("AA1: Routine Visibility API", () => {
 				active: true,
 			});
 
-			const { routineRuns } = await import("@hyperidle/db") as unknown as {
+			const { routineRuns } = (await import("@hyperidle/db")) as unknown as {
 				routineRuns: typeof import("@hyperidle/db").routines;
 			};
 			await db.insert(routineRuns).values({
@@ -436,7 +436,7 @@ describe("AA1: Routine Visibility API", () => {
 			});
 
 			// routineRuns table added in Task 1 — this import will resolve after migration
-			const { routineRuns } = await import("@hyperidle/db") as unknown as {
+			const { routineRuns } = (await import("@hyperidle/db")) as unknown as {
 				routineRuns: typeof import("@hyperidle/db").routines;
 			};
 			const startedAt = "2026-01-01T10:00:00.000Z";
@@ -621,13 +621,10 @@ describe("AA1: Routine Visibility API", () => {
 			expect(res.status).toBe(201);
 
 			// Verify routine_run was created — routineRuns added in Task 1
-			const { routineRuns } = await import("@hyperidle/db") as unknown as {
+			const { routineRuns } = (await import("@hyperidle/db")) as unknown as {
 				routineRuns: typeof import("@hyperidle/db").routines;
 			};
-			const runs = await db
-				.select()
-				.from(routineRuns)
-				.where(eq(routineRuns.id, routineRuns.id)); // selecting all runs
+			const runs = await db.select().from(routineRuns).where(eq(routineRuns.id, routineRuns.id)); // selecting all runs
 			// There should be at least one run for our routine
 			const ourRun = (runs as Array<Record<string, unknown>>).find(
 				(r) => r.routineId === "routine-trigger-aa1",

@@ -118,6 +118,9 @@ async function seedFixture(db: HyperIdleDb): Promise<void> {
 
 	await db.insert(routines).values({
 		id: "routine-daily_digest",
+		name: "Daily digest",
+		teamId: "p1",
+		state: "active",
 		ownerAgentId: "agent-cos",
 		triggerType: "calendar",
 		triggerConfig: JSON.stringify({

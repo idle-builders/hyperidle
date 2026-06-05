@@ -13,6 +13,7 @@
  * deriveTitleFromPitch renamed to deriveTitle in format/bet.ts.
  */
 
+import type { RoutineCardSummary } from "./routine.js";
 import type { WireMoney } from "./types/money.js";
 import type { BetStatus } from "./types.js";
 
@@ -69,6 +70,8 @@ export interface TeamDetail {
 	roster: RosterMember[]; // sorted: lead first, then by name asc
 	burn: TeamBurn;
 	activeBets: BetCardSummary[]; // bets WHERE team_id = :id AND status = 'active'
+	/** AA1: routines belonging to this team, sorted by name asc. Absent in pre-AA1 fixtures. */
+	routines?: RoutineCardSummary[];
 }
 
 /**
@@ -80,6 +83,8 @@ export interface TeamListItem extends TeamSummary {
 	shipped: number; // count of completed bets
 	shipRate: string; // percentage string, e.g. "67%" or "—" when no history
 	progress: { done: number; total: number }; // sum across active bets
+	/** AA1: total routines belonging to this team (all states). */
+	routineCount: number;
 }
 
 export interface TeamListResponse {

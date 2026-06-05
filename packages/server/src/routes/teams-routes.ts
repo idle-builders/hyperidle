@@ -18,7 +18,16 @@
  * from `product-` to `team-` for consistency with the domain rename.
  */
 
-import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import {
+	bets,
+	type HyperIdleDb,
+	routineRuns,
+	routines,
+	tasks,
+	teamMembers,
+	teams,
+	users,
+} from "@hyperidle/db";
 import type {
 	BetCardSummary,
 	CreateTeamRequest,
@@ -26,13 +35,16 @@ import type {
 	CurrencyCode,
 	EventBus,
 	RosterMember,
+	RoutineCardSummary,
+	RoutineRunOutcome,
 	TeamDetail,
 	TeamListItem,
 	WireMoney,
 } from "@hyperidle/shared";
 import { deriveTitle } from "@hyperidle/shared";
-import { and, count, eq } from "drizzle-orm";
+import { and, count, desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
+import { humanizeSchedule } from "../services/schedule-label.js";
 import { ApiError, loadTeamMembers } from "../services/team-lookup.js";
 
 /**
@@ -70,6 +82,18 @@ function toWireMoney(
 ): WireMoney | null {
 	if (minor == null) return null;
 	return { minor, currency: (currency ?? "USD") as CurrencyCode };
+}
+
+/**
+ * Derive initials from an agent name: first two capital letters, or first
+ * two characters of the first word if no capitals found.
+ */
+function deriveInitials(name: string): string {
+	const words = name.trim().split(/\s+/);
+	if (words.length >= 2) {
+		return `${words[0].charAt(0)}${words[1].charAt(0)}`.toUpperCase();
+	}
+	return name.slice(0, 2).toUpperCase();
 }
 
 export function createTeamRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
@@ -136,6 +160,13 @@ export function createTeamRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 						)
 					: ("healthy" as const);
 
+				// AA1: routine count for this team
+				const [routineCountRow] = await db
+					.select({ count: count() })
+					.from(routines)
+					.where(eq(routines.teamId, team.id));
+				const routineCount = routineCountRow?.count ?? 0;
+
 				return {
 					id: team.id,
 					name: team.name,
@@ -146,6 +177,7 @@ export function createTeamRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 					shipped: completedCount,
 					shipRate,
 					progress: { done: progressDone, total: progressTotal },
+					routineCount,
 				};
 			}),
 		);
@@ -337,6 +369,62 @@ export function createTeamRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 				return bRow.createdAt.localeCompare(aRow.createdAt);
 			});
 
+			// AA1: Load routines for this team
+			const routineRows = await db
+				.select()
+				.from(routines)
+				.where(eq(routines.teamId, teamId))
+				.orderBy(routines.id);
+
+			// Build agent name map for routine owners
+			const ownerIds = [
+				...new Set(routineRows.map((r) => r.ownerAgentId).filter(Boolean)),
+			] as string[];
+			const ownerRows =
+				ownerIds.length > 0
+					? await db
+							.select()
+							.from(users)
+							.where(
+								sql`${users.id} IN (${sql.join(
+									ownerIds.map((id) => sql`${id}`),
+									sql`, `,
+								)})`,
+							)
+					: [];
+			const ownerMap = new Map(ownerRows.map((u) => [u.id, u]));
+
+			// Fetch latest routine_run for each routine to get lastRunOutcome
+			const teamRoutines: RoutineCardSummary[] = await Promise.all(
+				routineRows.map(async (r) => {
+					const [latestRun] = await db
+						.select()
+						.from(routineRuns)
+						.where(eq(routineRuns.routineId, r.id))
+						.orderBy(desc(routineRuns.startedAt))
+						.limit(1);
+
+					const owner = ownerMap.get(r.ownerAgentId);
+					const agentName = owner?.name ?? r.ownerAgentId;
+
+					return {
+						id: r.id,
+						name: r.name,
+						state: (r.state ?? "active") as RoutineCardSummary["state"],
+						scheduleLabel: humanizeSchedule(r.triggerType, r.triggerConfig ?? null),
+						agentName,
+						agentInitials: deriveInitials(agentName),
+						lastRunAt: r.lastRunAt ?? null,
+						lastRunOutcome: (latestRun?.outcome ?? null) as RoutineRunOutcome | null,
+						nextRunAt: r.nextRunAt ?? null,
+						costActual: toWireMoney(r.costActualMinor, r.costActualCurrency),
+					};
+				}),
+			);
+
+			// Sort routines by name asc
+			teamRoutines.sort((a, b) => a.name.localeCompare(b.name));
+
 			// 6. Derive team status
 			// L17: prefer costCapMinor over legacy costCap
 			const teamCostCapMinor = memberGroup.costCapMinor ?? memberGroup.costCap ?? null;
@@ -380,6 +468,7 @@ export function createTeamRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 					activeBets: memberGroup.activeBets,
 				},
 				activeBets,
+				routines: teamRoutines,
 			};
 
 			return c.json(detail);

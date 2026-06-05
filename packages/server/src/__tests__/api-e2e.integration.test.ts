@@ -711,6 +711,9 @@ describe("E2E API Integration (I5)", () => {
 		beforeEach(async () => {
 			await db.insert(routines).values({
 				id: "routine-1",
+				name: "Test routine",
+				teamId: "prod-1",
+				state: "active",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalMs: 60000 }),
