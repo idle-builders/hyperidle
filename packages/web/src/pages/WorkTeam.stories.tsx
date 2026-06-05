@@ -18,8 +18,20 @@ const MOCK_DETAIL = {
 	},
 	teamMembers: { id: "t1", formedAt: "2024-01-01T00:00:00.000Z", dissolvedAt: null },
 	roster: [
-		{ agentId: "agent-lead", name: "Lead Agent", role: "lead", isLead: true },
-		{ agentId: "agent-member", name: "Alice Agent", role: "member", isLead: false },
+		{
+			agentId: "agent-lead",
+			name: "Lead Agent",
+			role: "lead",
+			isLead: true,
+			agentCategory: "team",
+		},
+		{
+			agentId: "agent-member",
+			name: "Alice Agent",
+			role: "member",
+			isLead: false,
+			agentCategory: "team",
+		},
 	],
 	burn: { costActual: null, costCap: null, capacity: 5, activeBets: 2 },
 	activeBets: [
