@@ -705,10 +705,15 @@ stories:
     complexity: M
 
   # Track AB: Agent Management & Configuration
+  - id: AB0
+    title: Agent Structure Concept (Role Model, Identity Composition, Default Roster)
+    track: AB
+    depends: []
+    complexity: M
   - id: AB1
     title: Agent Profile & Capabilities
     track: AB
-    depends: []
+    depends: [AB0]
     complexity: L
   - id: AB2
     title: Agent Overview in Team Work Page
@@ -716,9 +721,9 @@ stories:
     depends: [AB1]
     complexity: M
   - id: AB3
-    title: Agent Setup Wizard
+    title: Agent Configuration & Customization
     track: AB
-    depends: []
+    depends: [AB0]
     complexity: M
 
   # Track AC: Outcome Measurement & Scoring
