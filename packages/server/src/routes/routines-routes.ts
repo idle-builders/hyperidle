@@ -23,6 +23,7 @@ import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { validateBody } from "../middleware/validate.js";
+import { deriveInitials } from "../services/agent-utils.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
 
 const ROUTINE_STATE_VALUES = ROUTINE_STATES as readonly [string, ...string[]];
@@ -37,17 +38,6 @@ const updateRoutineSchema = z.object({
 	name: z.string().min(1).optional(),
 	description: z.string().optional(),
 });
-
-/**
- * Derive agent initials from a name string.
- */
-function deriveInitials(name: string): string {
-	const words = name.trim().split(/\s+/);
-	if (words.length >= 2) {
-		return `${words[0].charAt(0)}${words[1].charAt(0)}`.toUpperCase();
-	}
-	return name.slice(0, 2).toUpperCase();
-}
 
 /**
  * Map routine state string to `active` boolean for backward compat.
@@ -90,20 +80,14 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		const [teamRow] = await db.select().from(teams).where(eq(teams.id, routine.teamId)).limit(1);
 		const teamName = teamRow?.name ?? routine.teamId;
 
-		// Fetch latest routine run for lastRunOutcome
-		const [latestRun] = await db
-			.select()
-			.from(routineRuns)
-			.where(eq(routineRuns.routineId, routineId))
-			.orderBy(desc(routineRuns.startedAt))
-			.limit(1);
-
-		// Fetch all runs (newest first)
+		// Fetch up to 20 runs (newest first). allRuns[0] is the latest run — no
+		// separate latestRun query needed.
 		const allRuns = await db
 			.select()
 			.from(routineRuns)
 			.where(eq(routineRuns.routineId, routineId))
-			.orderBy(desc(routineRuns.startedAt));
+			.orderBy(desc(routineRuns.startedAt))
+			.limit(20);
 
 		const runSummaries: RoutineRunSummary[] = allRuns.map((run) => {
 			let durationSeconds: number | null = null;
@@ -145,7 +129,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			humanReview: routine.humanReview ?? false,
 			delegationAllowed: routine.delegationAllowed ?? false,
 			lastRunAt: routine.lastRunAt ?? null,
-			lastRunOutcome: (latestRun?.outcome ?? null) as RoutineRunOutcome | null,
+			lastRunOutcome: (allRuns[0]?.outcome ?? null) as RoutineRunOutcome | null,
 			nextRunAt: routine.nextRunAt ?? null,
 			costActual:
 				routine.costActualMinor != null

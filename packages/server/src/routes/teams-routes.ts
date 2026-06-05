@@ -44,6 +44,7 @@ import type {
 import { deriveTitle } from "@hyperidle/shared";
 import { and, count, desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
+import { deriveInitials } from "../services/agent-utils.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
 import { ApiError, loadTeamMembers } from "../services/team-lookup.js";
 
@@ -82,18 +83,6 @@ function toWireMoney(
 ): WireMoney | null {
 	if (minor == null) return null;
 	return { minor, currency: (currency ?? "USD") as CurrencyCode };
-}
-
-/**
- * Derive initials from an agent name: first two capital letters, or first
- * two characters of the first word if no capitals found.
- */
-function deriveInitials(name: string): string {
-	const words = name.trim().split(/\s+/);
-	if (words.length >= 2) {
-		return `${words[0].charAt(0)}${words[1].charAt(0)}`.toUpperCase();
-	}
-	return name.slice(0, 2).toUpperCase();
 }
 
 export function createTeamRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {

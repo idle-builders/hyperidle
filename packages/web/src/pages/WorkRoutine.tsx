@@ -12,13 +12,14 @@
 import {
 	EmptyState,
 	ErrorState,
+	KeyValue,
 	routineStateToStatus,
 	SkeletonCard,
 	StatusChip,
 } from "@hyperidle/design-system";
 import type { RoutineDetail, RoutineRunSummary } from "@hyperidle/shared";
 import { formatMoney } from "@hyperidle/shared";
-import type { JSX } from "react";
+import { type JSX, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useRoutine } from "../hooks/useRoutine.js";
 
@@ -87,9 +88,62 @@ export function WorkRoutine({
 function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 	const { routine, runs } = detail;
 
+	// Local state for optimistic state toggle (Pause/Resume)
+	const [currentState, setCurrentState] = useState(routine.state);
+	const [actionPending, setActionPending] = useState(false);
+
+	/** PATCH /api/routines/:id to toggle active <-> paused state */
+	async function handleTogglePause(): Promise<void> {
+		if (actionPending) return;
+		const newState = currentState === "active" ? "paused" : "active";
+		setActionPending(true);
+		try {
+			const res = await fetch(`/api/routines/${encodeURIComponent(routine.id)}`, {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ state: newState }),
+			});
+			if (res.ok) {
+				setCurrentState(newState);
+			}
+		} finally {
+			setActionPending(false);
+		}
+	}
+
+	/** POST /api/routines/:id/trigger to manually run the routine */
+	async function handleTriggerNow(): Promise<void> {
+		if (actionPending) return;
+		setActionPending(true);
+		try {
+			await fetch(`/api/routines/${encodeURIComponent(routine.id)}/trigger`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+			});
+		} finally {
+			setActionPending(false);
+		}
+	}
+
+	const autonomyLabels: Record<number, string> = {
+		1: "L1 — Every run reviewed",
+		2: "L2 — Human reviews",
+		3: "L3 — Autonomous, human on error",
+		4: "L4 — Fully autonomous",
+	};
+	const autonomyLabel =
+		routine.autonomyLevel != null
+			? (autonomyLabels[routine.autonomyLevel] ?? `L${routine.autonomyLevel}`)
+			: "—";
+
+	const lastRunLabel =
+		routine.lastRunAt != null
+			? `${new Date(routine.lastRunAt).toLocaleString()}${routine.lastRunOutcome ? ` — ${routine.lastRunOutcome}` : ""}`
+			: "Never";
+
 	return (
 		<div className="flex flex-col gap-[12px] h-full" data-testid="work-routine-page">
-			{/* Header */}
+			{/* Breadcrumb: <- Portfolio / {team} / {routine.name} */}
 			<section aria-label="Routine header">
 				<div className="mb-1">
 					<Link
@@ -99,26 +153,26 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 					>
 						← Portfolio
 					</Link>
+					{routine.teamName && (
+						<span className="text-xs text-[var(--text-tertiary)] ml-1">/ {routine.teamName}</span>
+					)}
+					<span className="text-xs text-[var(--text-tertiary)] ml-1">/ {routine.name}</span>
 				</div>
 				<div className="flex items-center gap-[12px] flex-wrap">
 					<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-primary)] flex-1">
 						{routine.name}
 					</h1>
-					<StatusChip status={routineStateToStatus(routine.state)} />
+					<StatusChip status={routineStateToStatus(currentState)} />
 				</div>
-				<div className="mt-1 flex gap-[18px] flex-wrap">
-					<span className="text-xs text-[var(--text-tertiary)]">{routine.scheduleLabel}</span>
-					<span className="text-xs text-[var(--text-tertiary)]">{routine.agentName}</span>
-					{routine.teamName && (
-						<span className="text-xs text-[var(--text-tertiary)]">{routine.teamName}</span>
-					)}
+				<div className="mt-1 text-xs text-[var(--text-tertiary)]">
+					{routine.agentName} · {routine.triggerType}
 				</div>
 				{routine.description && (
 					<p className="mt-2 text-xs text-[var(--text-secondary)]">{routine.description}</p>
 				)}
 			</section>
 
-			{/* Config panel */}
+			{/* Configuration section — KV grid + action buttons */}
 			<section
 				aria-label="Routine configuration"
 				className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
@@ -126,47 +180,63 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
 					Configuration
 				</h2>
-				<div className="flex flex-col gap-1 text-xs text-[var(--text-secondary)]">
-					<div>
-						<span className="text-[var(--text-tertiary)]">Trigger: </span>
-						{routine.triggerType}
-					</div>
-					{routine.costActual && (
-						<div>
-							<span className="text-[var(--text-tertiary)]">Cumulative cost: </span>
-							{formatMoney(routine.costActual)}
-						</div>
+
+				{/* KV grid — 2 columns, gap-[9px_18px] per approved design */}
+				<div className="flex flex-col gap-[9px]">
+					<KeyValue label="Agent" value={routine.agentName} />
+					<KeyValue label="Schedule" value={routine.scheduleLabel} />
+					<KeyValue label="Trigger type" value={routine.triggerType} />
+					<KeyValue label="Autonomy level" value={autonomyLabel} />
+					<KeyValue
+						label="Next run"
+						value={
+							routine.nextRunAt ? new Date(routine.nextRunAt).toLocaleString() : "On next event"
+						}
+					/>
+					<KeyValue
+						label="Cumulative cost"
+						value={routine.costActual ? formatMoney(routine.costActual) : "—"}
+					/>
+					<KeyValue label="Last run" value={lastRunLabel} />
+					{routine.createdAt && (
+						<KeyValue label="Created" value={new Date(routine.createdAt).toLocaleDateString()} />
 					)}
-					{routine.lastRunAt && (
-						<div>
-							<span className="text-[var(--text-tertiary)]">Last run: </span>
-							{new Date(routine.lastRunAt).toLocaleString()}
-						</div>
-					)}
-					{routine.nextRunAt && (
-						<div>
-							<span className="text-[var(--text-tertiary)]">Next run: </span>
-							{new Date(routine.nextRunAt).toLocaleString()}
-						</div>
-					)}
+				</div>
+
+				{/* Action buttons at bottom of config section */}
+				<div className="flex gap-[9px] mt-[18px]" data-testid="routine-actions">
+					<button
+						type="button"
+						className="btn btn-ghost btn-sm"
+						onClick={handleTogglePause}
+						disabled={actionPending}
+						data-testid={currentState === "active" ? "routine-pause-btn" : "routine-resume-btn"}
+					>
+						{currentState === "active" ? "Pause" : "Resume"}
+					</button>
+					<button
+						type="button"
+						className="btn btn-primary btn-sm"
+						onClick={handleTriggerNow}
+						disabled={actionPending}
+						data-testid="routine-trigger-now-btn"
+					>
+						Trigger Now
+					</button>
 				</div>
 			</section>
 
-			{/* Run history */}
+			{/* Recent runs section */}
 			<section aria-label="Run history" data-testid="routine-run-history">
 				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
-					Run History
+					Recent Runs
 				</h2>
 				{runs.length === 0 ? (
-					<EmptyState
-						title="No runs yet"
-						description="This routine has not run yet."
-						dataTestId="routine-run-history-empty"
-					/>
+					<p className="text-xs text-[var(--text-secondary)]">No runs recorded yet.</p>
 				) : (
-					<div className="flex flex-col gap-[6px]">
-						{runs.map((run) => (
-							<RunRow key={run.id} run={run} />
+					<div className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[12px]">
+						{runs.map((run, idx) => (
+							<RunRow key={run.id} run={run} isLast={idx === runs.length - 1} />
 						))}
 					</div>
 				)}
@@ -175,10 +245,14 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 	);
 }
 
-function RunRow({ run }: { run: RoutineRunSummary }): JSX.Element {
-	const outcomeColor =
+/**
+ * Single run row in the recent-runs table.
+ * Columns: time (flex-1) | duration (60px right) | outcome dot (60px center) | cost (60px right)
+ */
+function RunRow({ run, isLast }: { run: RoutineRunSummary; isLast: boolean }): JSX.Element {
+	const dotColor =
 		run.outcome === "success"
-			? "var(--status-healthy)"
+			? "var(--status-success)"
 			: run.outcome === "error"
 				? "var(--status-error)"
 				: "var(--text-tertiary)";
@@ -186,27 +260,38 @@ function RunRow({ run }: { run: RoutineRunSummary }): JSX.Element {
 	return (
 		<div
 			data-testid="routine-run-row"
-			className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
+			className={[
+				"flex items-center gap-[9px] py-[6px]",
+				!isLast ? "border-b border-[var(--border-subtle)]" : "",
+			]
+				.filter(Boolean)
+				.join(" ")}
 		>
-			<div className="flex items-center gap-[12px] flex-wrap">
-				<span className="text-xs font-medium" style={{ color: outcomeColor }}>
-					{run.outcome}
-				</span>
-				<span className="text-xs text-[var(--text-tertiary)]">
-					{new Date(run.startedAt).toLocaleString()}
-				</span>
-				{run.durationSeconds !== null && (
-					<span className="text-xs text-[var(--text-tertiary)]">{run.durationSeconds}s</span>
-				)}
-				{run.cost && (
-					<span className="text-xs font-mono text-[var(--text-tertiary)]">
-						{formatMoney(run.cost)}
-					</span>
-				)}
-			</div>
-			{run.errorMessage && (
-				<p className="mt-1 text-[11px] text-[var(--text-error)]">{run.errorMessage}</p>
-			)}
+			{/* Time — flex-1 mono */}
+			<span className="flex-1 text-[11px] font-mono text-[var(--text-tertiary)]">
+				{new Date(run.startedAt).toLocaleString()}
+			</span>
+
+			{/* Duration — 60px right tabular */}
+			<span className="w-[60px] shrink-0 text-[11px] font-mono text-[var(--text-tertiary)] text-right tabular-nums">
+				{run.durationSeconds !== null ? `${run.durationSeconds}s` : "—"}
+			</span>
+
+			{/* Outcome dot — 60px center */}
+			<span className="w-[60px] shrink-0 flex justify-center">
+				<span
+					role="img"
+					aria-label={run.outcome}
+					className="w-[6px] h-[6px] rounded-full"
+					style={{ background: dotColor }}
+					title={run.outcome}
+				/>
+			</span>
+
+			{/* Cost — 60px right tabular */}
+			<span className="w-[60px] shrink-0 text-[11px] font-mono text-[var(--text-tertiary)] text-right tabular-nums">
+				{run.cost ? formatMoney(run.cost) : "—"}
+			</span>
 		</div>
 	);
 }

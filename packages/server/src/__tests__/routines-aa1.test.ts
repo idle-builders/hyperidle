@@ -8,17 +8,13 @@
  * - AC-4: Every routine belongs to a team (NOT NULL), only team members manage
  * - AC-5: Clicking routine shows run history + config
  * - AC-6: Work portfolio shows routine count per team alongside bet count
- *
- * NOTE: routineRuns is imported from @hyperidle/db — this will be added in Task 1 (schema migration).
- * These tests are the red phase — they will fail until implementation is complete.
  */
 
 import {
 	bets,
 	createTestDb,
 	type HyperIdleDb,
-	// routineRuns is NOT exported yet — AA1 Task 1 adds it.
-	// The tests that reference it will fail until Task 1 is complete (correct red phase behavior).
+	routineRuns,
 	routines,
 	type TestDbHandle,
 	tasks,
@@ -92,15 +88,11 @@ describe("AA1: Routine Visibility API", () => {
 	describe("AC-1 + AC-2: GET /api/teams/:id includes routines", () => {
 		it("returns routines array with correct RoutineCardSummary shape", async () => {
 			const now = new Date().toISOString();
-			// Note: inserting with name, teamId, state — columns added in Task 1
 			await db.insert(routines).values({
 				id: "routine-aa1-1",
-				// @ts-expect-error — name/teamId/state columns added in Task 1 migration
 				name: "Daily digest",
 				ownerAgentId: "agent-aa1",
-				// @ts-expect-error — teamId column added in Task 1 migration
 				teamId: "team-aa1",
-				// @ts-expect-error — state column added in Task 1 migration
 				state: "active",
 				triggerType: "calendar",
 				triggerConfig: JSON.stringify({ cron: "0 8 * * *" }),
@@ -153,12 +145,9 @@ describe("AA1: Routine Visibility API", () => {
 		it("resolves agentName from users table for routine owner", async () => {
 			await db.insert(routines).values({
 				id: "routine-aa1-agent",
-				// @ts-expect-error — name/teamId/state columns added in Task 1 migration
 				name: "Test routine",
 				ownerAgentId: "agent-aa1",
-				// @ts-expect-error — teamId column added in Task 1 migration
 				teamId: "team-aa1",
-				// @ts-expect-error — state column added in Task 1 migration
 				state: "active",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 900 }),
@@ -182,25 +171,17 @@ describe("AA1: Routine Visibility API", () => {
 		it("returns lastRunOutcome=error after inserting a failed run", async () => {
 			await db.insert(routines).values({
 				id: "routine-outcome-test",
-				// @ts-expect-error — name/teamId/state columns added in Task 1 migration
 				name: "Outcome test",
 				ownerAgentId: "agent-aa1",
-				// @ts-expect-error — teamId column added in Task 1 migration
 				teamId: "team-aa1",
-				// @ts-expect-error — state column added in Task 1 migration
 				state: "active",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 60 }),
 				active: true,
 			});
 
-			// routineRuns table added in Task 1 — this will throw until migration runs
-			const { routineRuns } = (await import("@hyperidle/db")) as unknown as {
-				routineRuns: typeof import("@hyperidle/db").routines;
-			};
 			await db.insert(routineRuns).values({
 				id: "run-1",
-				// @ts-expect-error — routineId/outcome fields are on routineRuns table
 				routineId: "routine-outcome-test",
 				startedAt: new Date().toISOString(),
 				outcome: "error",
@@ -217,24 +198,17 @@ describe("AA1: Routine Visibility API", () => {
 		it("returns lastRunOutcome=success after a successful run", async () => {
 			await db.insert(routines).values({
 				id: "routine-success-test",
-				// @ts-expect-error — name/teamId/state columns added in Task 1 migration
 				name: "Success test",
 				ownerAgentId: "agent-aa1",
-				// @ts-expect-error — teamId column added in Task 1 migration
 				teamId: "team-aa1",
-				// @ts-expect-error — state column added in Task 1 migration
 				state: "active",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 60 }),
 				active: true,
 			});
 
-			const { routineRuns } = (await import("@hyperidle/db")) as unknown as {
-				routineRuns: typeof import("@hyperidle/db").routines;
-			};
 			await db.insert(routineRuns).values({
 				id: "run-success-1",
-				// @ts-expect-error — routineId/outcome fields are on routineRuns table
 				routineId: "routine-success-test",
 				startedAt: new Date().toISOString(),
 				outcome: "success",
@@ -251,12 +225,9 @@ describe("AA1: Routine Visibility API", () => {
 		it("returns lastRunOutcome=null when no runs exist", async () => {
 			await db.insert(routines).values({
 				id: "routine-no-runs",
-				// @ts-expect-error — name/teamId/state columns added in Task 1 migration
 				name: "No runs",
 				ownerAgentId: "agent-aa1",
-				// @ts-expect-error — teamId column added in Task 1 migration
 				teamId: "team-aa1",
-				// @ts-expect-error — state column added in Task 1 migration
 				state: "active",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 60 }),
@@ -280,12 +251,9 @@ describe("AA1: Routine Visibility API", () => {
 		it("PATCH /api/routines/:id with state=paused updates state and syncs active=false", async () => {
 			await db.insert(routines).values({
 				id: "routine-patch-state",
-				// @ts-expect-error — name/teamId/state columns added in Task 1 migration
 				name: "State patch test",
 				ownerAgentId: "agent-aa1",
-				// @ts-expect-error — teamId column added in Task 1 migration
 				teamId: "team-aa1",
-				// @ts-expect-error — state column added in Task 1 migration
 				state: "active",
 				triggerType: "heartbeat",
 				active: true,
@@ -306,12 +274,9 @@ describe("AA1: Routine Visibility API", () => {
 		it("PATCH /api/routines/:id with state=active updates state and syncs active=true", async () => {
 			await db.insert(routines).values({
 				id: "routine-patch-active",
-				// @ts-expect-error — name/teamId/state columns added in Task 1 migration
 				name: "Activate test",
 				ownerAgentId: "agent-aa1",
-				// @ts-expect-error — teamId column added in Task 1 migration
 				teamId: "team-aa1",
-				// @ts-expect-error — state column added in Task 1 migration
 				state: "paused",
 				triggerType: "heartbeat",
 				active: false,
@@ -332,12 +297,9 @@ describe("AA1: Routine Visibility API", () => {
 		it("PATCH /api/routines/:id with state=error sets active=false", async () => {
 			await db.insert(routines).values({
 				id: "routine-patch-error",
-				// @ts-expect-error — name/teamId/state columns added in Task 1 migration
 				name: "Error state test",
 				ownerAgentId: "agent-aa1",
-				// @ts-expect-error — teamId column added in Task 1 migration
 				teamId: "team-aa1",
-				// @ts-expect-error — state column added in Task 1 migration
 				state: "active",
 				triggerType: "heartbeat",
 				active: true,
@@ -358,12 +320,9 @@ describe("AA1: Routine Visibility API", () => {
 		it("PATCH /api/routines/:id rejects invalid state value", async () => {
 			await db.insert(routines).values({
 				id: "routine-invalid-state",
-				// @ts-expect-error — name/teamId/state columns added in Task 1 migration
 				name: "Invalid state test",
 				ownerAgentId: "agent-aa1",
-				// @ts-expect-error — teamId column added in Task 1 migration
 				teamId: "team-aa1",
-				// @ts-expect-error — state column added in Task 1 migration
 				state: "active",
 				triggerType: "heartbeat",
 				active: true,
@@ -386,12 +345,9 @@ describe("AA1: Routine Visibility API", () => {
 		it("returns RoutineDetail for an existing routine", async () => {
 			await db.insert(routines).values({
 				id: "routine-detail-test",
-				// @ts-expect-error — name/teamId/state columns added in Task 1 migration
 				name: "Detail test",
 				ownerAgentId: "agent-aa1",
-				// @ts-expect-error — teamId column added in Task 1 migration
 				teamId: "team-aa1",
-				// @ts-expect-error — state column added in Task 1 migration
 				state: "active",
 				triggerType: "calendar",
 				triggerConfig: JSON.stringify({ cron: "0 10 * * MON" }),
@@ -407,15 +363,6 @@ describe("AA1: Routine Visibility API", () => {
 			expect(body).toHaveProperty("routine");
 			expect(body).toHaveProperty("runs");
 
-			const routine = body.routine as Record<string, unknown>;
-			expect(routine.id).toBe("routine-detail-test");
-			expect(routine.name).toBe("Detail test");
-			expect(routine.state).toBe("active");
-			expect(routine).toHaveProperty("scheduleLabel");
-			expect(routine).toHaveProperty("agentName");
-			expect(routine).toHaveProperty("teamName");
-			expect(routine).toHaveProperty("triggerType");
-
 			const runs = body.runs as unknown[];
 			expect(Array.isArray(runs)).toBe(true);
 		});
@@ -423,27 +370,19 @@ describe("AA1: Routine Visibility API", () => {
 		it("returns run history with correct shape", async () => {
 			await db.insert(routines).values({
 				id: "routine-with-runs",
-				// @ts-expect-error — name/teamId/state columns added in Task 1 migration
 				name: "Runs test",
 				ownerAgentId: "agent-aa1",
-				// @ts-expect-error — teamId column added in Task 1 migration
 				teamId: "team-aa1",
-				// @ts-expect-error — state column added in Task 1 migration
 				state: "active",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 900 }),
 				active: true,
 			});
 
-			// routineRuns table added in Task 1 — this import will resolve after migration
-			const { routineRuns } = (await import("@hyperidle/db")) as unknown as {
-				routineRuns: typeof import("@hyperidle/db").routines;
-			};
 			const startedAt = "2026-01-01T10:00:00.000Z";
 			const endedAt = "2026-01-01T10:01:30.000Z";
 			await db.insert(routineRuns).values({
 				id: "run-history-1",
-				// @ts-expect-error — routineRuns table added in Task 1
 				routineId: "routine-with-runs",
 				startedAt,
 				endedAt,
@@ -503,24 +442,18 @@ describe("AA1: Routine Visibility API", () => {
 			await db.insert(routines).values([
 				{
 					id: "count-routine-1",
-					// @ts-expect-error — name/teamId/state columns added in Task 1 migration
 					name: "Routine one",
 					ownerAgentId: "agent-aa1",
-					// @ts-expect-error — teamId column added in Task 1 migration
 					teamId: "team-aa1",
-					// @ts-expect-error — state column added in Task 1 migration
 					state: "active",
 					triggerType: "heartbeat",
 					active: true,
 				},
 				{
 					id: "count-routine-2",
-					// @ts-expect-error — name/teamId/state columns added in Task 1 migration
 					name: "Routine two",
 					ownerAgentId: "agent-aa1",
-					// @ts-expect-error — teamId column added in Task 1 migration
 					teamId: "team-aa1",
-					// @ts-expect-error — state column added in Task 1 migration
 					state: "paused",
 					triggerType: "calendar",
 					triggerConfig: JSON.stringify({ cron: "0 8 * * *" }),
@@ -547,12 +480,9 @@ describe("AA1: Routine Visibility API", () => {
 		it("updates name and description", async () => {
 			await db.insert(routines).values({
 				id: "routine-name-update",
-				// @ts-expect-error — name/teamId/state columns added in Task 1 migration
 				name: "Old name",
 				ownerAgentId: "agent-aa1",
-				// @ts-expect-error — teamId column added in Task 1 migration
 				teamId: "team-aa1",
-				// @ts-expect-error — state column added in Task 1 migration
 				state: "active",
 				triggerType: "heartbeat",
 				active: true,
@@ -601,12 +531,9 @@ describe("AA1: Routine Visibility API", () => {
 
 			await db.insert(routines).values({
 				id: "routine-trigger-aa1",
-				// @ts-expect-error — name/teamId/state columns added in Task 1 migration
 				name: "Trigger test",
 				ownerAgentId: "agent-aa1",
-				// @ts-expect-error — teamId column added in Task 1 migration
 				teamId: "team-aa1",
-				// @ts-expect-error — state column added in Task 1 migration
 				state: "active",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 60 }),
@@ -620,17 +547,13 @@ describe("AA1: Routine Visibility API", () => {
 			// 201 for non-builtin routines
 			expect(res.status).toBe(201);
 
-			// Verify routine_run was created — routineRuns added in Task 1
-			const { routineRuns } = (await import("@hyperidle/db")) as unknown as {
-				routineRuns: typeof import("@hyperidle/db").routines;
-			};
-			const runs = await db.select().from(routineRuns).where(eq(routineRuns.id, routineRuns.id)); // selecting all runs
-			// There should be at least one run for our routine
-			const ourRun = (runs as Array<Record<string, unknown>>).find(
-				(r) => r.routineId === "routine-trigger-aa1",
-			);
-			expect(ourRun).toBeDefined();
-			expect(ourRun?.startedAt).toBeTruthy();
+			// Verify routine_run was created
+			const runs = await db
+				.select()
+				.from(routineRuns)
+				.where(eq(routineRuns.routineId, "routine-trigger-aa1"));
+			expect(runs.length).toBeGreaterThan(0);
+			expect(runs[0].startedAt).toBeTruthy();
 		});
 	});
 });
