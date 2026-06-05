@@ -30,7 +30,7 @@ describe("P5 AC2: HINT_CATALOG", () => {
 		}
 	});
 
-	it("contains all 5 expected hint IDs", () => {
+	it("contains all 6 expected hint IDs", () => {
 		const ids = HINT_CATALOG.map((h) => h.id);
 		const expected: HintId[] = [
 			"create-bet",
@@ -38,6 +38,7 @@ describe("P5 AC2: HINT_CATALOG", () => {
 			"knowledge-empty",
 			"review-verdict",
 			"rail-indicators",
+			"review-agents", // AB3: agent customization first-time hint
 		];
 		for (const id of expected) {
 			expect(ids).toContain(id);
@@ -96,6 +97,11 @@ describe("P5 AC2: isHintId", () => {
 
 	it('isHintId("rail-indicators") returns true', () => {
 		expect(isHintId("rail-indicators")).toBe(true);
+	});
+
+	// AB3: new hint ID
+	it('isHintId("review-agents") returns true', () => {
+		expect(isHintId("review-agents")).toBe(true);
 	});
 
 	it('isHintId("nonexistent") returns false', () => {

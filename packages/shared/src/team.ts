@@ -41,6 +41,8 @@ export interface RosterMember {
 	name: string;
 	role: string; // agents.role
 	isLead: boolean; // matches leadAgentId on the team
+	/** AB3: "team" | "strategy" | "personal" | null. Null when category is unset. */
+	agentCategory: string | null;
 }
 
 export interface TeamBurn {

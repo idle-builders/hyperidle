@@ -1,0 +1,26 @@
+{
+  "workpackageId": "Z8",
+  "title": "Feature Polish & Launch Readiness Audit",
+  "status": "in_progress",
+  "currentStep": "3-builder",
+  "startedAt": "2026-06-05T00:00:00Z",
+  "phases": [
+    {
+      "phase": "0-setup",
+      "status": "done",
+      "branch": "feat/Z8-launch-readiness-audit",
+      "pr": 204
+    },
+    {
+      "phase": "1-designer",
+      "status": "done",
+      "artifacts": ["plans/Z8/architecture.md"]
+    },
+    {
+      "phase": "2-reviewer",
+      "status": "done",
+      "score": 8,
+      "artifacts": ["plans/Z8/architecture-critique.md"]
+    }
+  ]
+}

@@ -12,8 +12,8 @@
 	"workspaces": {
 		".": {
 			"entry": ["scripts/*.ts"],
-			"ignoreBinaries": ["bin/pipeline"],
-			"ignoreDependencies": ["@typescript-eslint/utils"]
+			"ignoreBinaries": ["bin/pipeline", "vitepress"],
+			"ignoreDependencies": ["@typescript-eslint/utils", "vitepress"]
 		},
 		"packages/shared": {},
 		"packages/db": {},
