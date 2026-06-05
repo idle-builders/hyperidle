@@ -453,15 +453,17 @@ function AgentCard({
 			{/* Row 1: avatar + name + lead + category tag + customize button */}
 			<div className="flex items-center gap-[12px]">
 				<Avatar initials={initials} size="sm" agent />
-				<span
+				<Link
+					to={`/agents/${encodeURIComponent(member.agentId)}`}
 					data-testid="agent-card-name"
-					className="text-[13px] font-medium text-[var(--text-primary)] truncate flex-1"
+					className="text-[13px] font-medium text-[var(--text-primary)] truncate flex-1 hover:underline"
+					onClick={(e) => e.stopPropagation()}
 				>
 					{member.name}
 					{member.isLead && (
 						<span className="ml-1 text-[var(--accent-primary)] text-[10px]"> — Lead</span>
 					)}
-				</span>
+				</Link>
 				{/* Category tag for non-team agents */}
 				{member.agentCategory && member.agentCategory !== "team" && (
 					<span data-testid="agent-card-category">

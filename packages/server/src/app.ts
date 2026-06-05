@@ -374,7 +374,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		const eventBus = options.eventBus ?? new EventBus();
 		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
 		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
-		api.route("/agents", createAgentRoutes(options.db));
+		api.route("/agents", createAgentRoutes(options.db, options.adapterPool));
 		api.route("/model-gateway", createModelGatewayRoutes(options.db));
 		api.route("/teams", createTeamRoutes(options.db, eventBus));
 		api.route("/bets", createBetRoutes(options.db, eventBus));
