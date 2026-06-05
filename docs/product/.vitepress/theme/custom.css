@@ -1,0 +1,49 @@
+/*
+ * @lore: Only .dark block is needed here — appearance: 'force-dark' means VitePress
+ * always adds the .dark class. A :root block would duplicate values that .dark
+ * immediately overrides, so we keep only .dark. Background/text/border vars are
+ * mapped to the Hearth dark palette (warm earth tones, not cool grays).
+ */
+
+.dark {
+	/* Backgrounds — warm earth tones */
+	--vp-c-bg: #1a1510;
+	--vp-c-bg-alt: #231e16;
+	--vp-c-bg-elv: #3d342a;
+	--vp-c-bg-soft: #231e16;
+
+	/* Text — warm cream */
+	--vp-c-text-1: #ede5d8;
+	--vp-c-text-2: #a89880;
+	--vp-c-text-3: #6b5d4d;
+
+	/* Borders — warm tan */
+	--vp-c-border: #3d342a;
+	--vp-c-divider: #2d261e;
+
+	/* Neutral defaults — warm */
+	--vp-c-default-1: #6b5d4d;
+	--vp-c-default-2: #3d342a;
+	--vp-c-default-3: #2d261e;
+	--vp-c-default-soft: rgba(107, 93, 77, 0.16);
+
+	/* Brand — Hearth forest green */
+	--vp-c-brand-1: #2eaa7a;
+	--vp-c-brand-2: #3ec08e;
+	--vp-c-brand-3: #258f66;
+
+	/* Tip callouts use brand color */
+	--vp-c-tip-1: #2eaa7a;
+	--vp-c-tip-2: #3ec08e;
+	--vp-c-tip-3: #258f66;
+
+	/* Warning — Hearth secondary */
+	--vp-c-warning-1: #f9b44e;
+	--vp-c-warning-2: #d97706;
+	--vp-c-warning-3: #a46a0a;
+
+	/* Danger — Hearth error */
+	--vp-c-danger-1: #ee6a5a;
+	--vp-c-danger-2: #dc4a3a;
+	--vp-c-danger-3: #b62a3c;
+}
