@@ -128,7 +128,9 @@ describe("WorkRoutine — AA1 Detail Page", () => {
 
 	it("shows empty state in run history when no runs", () => {
 		renderPage("routine-detail-1", EMPTY_RUNS_DETAIL);
-		expect(screen.getByTestId("routine-run-history-empty")).toBeInTheDocument();
+		// Approved design: "No runs recorded yet." as text-secondary paragraph
+		// (not an EmptyState component — the approved design specifies a plain text message)
+		expect(screen.getByText("No runs recorded yet.")).toBeInTheDocument();
 	});
 
 	// AC-5: Loading skeleton

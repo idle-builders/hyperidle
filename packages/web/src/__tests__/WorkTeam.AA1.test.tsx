@@ -131,11 +131,13 @@ describe("WorkTeam — AA1 Routines Section", () => {
 		expect(screen.getByText("Every Monday at 10:00 AM")).toBeInTheDocument();
 	});
 
-	// AC-2: Shows agent name
+	// AC-2: Shows agent name (Variant B: avatar circle with aria-label, not visible text)
 	it("shows agent name for each routine", () => {
 		renderPage(TEAM_WITH_ROUTINES);
-		const agentNames = screen.getAllByText("AA1 Agent");
-		expect(agentNames.length).toBeGreaterThanOrEqual(1);
+		// Variant B renders the agent as a 24px avatar showing initials ("AA"),
+		// with aria-label set to the full agent name for accessibility.
+		const agentAvatars = screen.getAllByLabelText("AA1 Agent");
+		expect(agentAvatars.length).toBeGreaterThanOrEqual(1);
 	});
 
 	// AC-3: Shows state chip for active routine
