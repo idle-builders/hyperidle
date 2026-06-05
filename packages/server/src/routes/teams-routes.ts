@@ -309,6 +309,7 @@ export function createTeamRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 				name: agent.name,
 				role: agent.role,
 				isLead: agent.id === memberGroup.leadAgentId,
+				agentCategory: agent.agentCategory ?? null, // AB3
 			}));
 
 			// Lead first, then by name asc

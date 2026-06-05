@@ -16,7 +16,8 @@ export type HintId =
 	| "add-credential"
 	| "knowledge-empty"
 	| "review-verdict"
-	| "rail-indicators";
+	| "rail-indicators"
+	| "review-agents"; // AB3: agent customization first-time hint
 
 /** Static definition of a single hint. */
 export interface HintCatalogEntry {
@@ -53,6 +54,12 @@ export const HINT_CATALOG: readonly HintCatalogEntry[] = [
 		id: "rail-indicators",
 		copy: "Active bets, blockers, and cost alerts appear here. Red means something needs your attention.",
 		testId: "hint-rail",
+	},
+	// AB3: agent customization first-time hint
+	{
+		id: "review-agents",
+		copy: "Your team's agents are ready. Click any agent to review and personalize their style.",
+		testId: "hint-review-agents",
 	},
 ] as const;
 
