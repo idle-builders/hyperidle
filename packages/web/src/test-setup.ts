@@ -147,6 +147,27 @@ if (typeof window.matchMedia !== "function") {
 	});
 }
 
+/**
+ * @lore AB3: jsdom does not implement HTMLDialogElement.showModal() or
+ * HTMLDialogElement.close(). Native <dialog> elements used in AgentEditDialog
+ * and AgentAddDialog call these methods. We polyfill them so component tests
+ * can exercise dialog open/close behavior without a real browser.
+ *
+ * The polyfill sets/removes the `open` attribute (which is what browsers do)
+ * so `getByRole("dialog")` still works via the dialog element's `open` state.
+ */
+if (typeof window !== "undefined" && !window.HTMLDialogElement.prototype.showModal) {
+	Object.assign(window.HTMLDialogElement.prototype, {
+		showModal(this: HTMLDialogElement) {
+			this.setAttribute("open", "");
+		},
+		close(this: HTMLDialogElement) {
+			this.removeAttribute("open");
+			this.dispatchEvent(new Event("close"));
+		},
+	});
+}
+
 afterEach(() => {
 	cleanup();
 });
