@@ -7,7 +7,7 @@ Before responding to ANY implementation or review request, check if a skill shou
 **Individual skills** — domain knowledge loaded INTO an agent session. They define a specific act, not a step. They never launch agents.
 - `/concept`, `/design`, `/architecture` (designer — production)
 - `/design-critique`, `/architecture-critique`, `/review` (reviewer — evaluation + 6 lenses + AC completeness)
-- `/write-tests`, `/write-code`, `/visual-polish` (builder)
+- `/write-tests`, `/write-code`, `/write-docs`, `/visual-polish` (builder)
 - `/ship` (builder — verify + attestation + PR)
 - `/retro` (Explore agent — fresh-context observation)
 - `/compound` (self-improvement — pattern detection in retro log)
@@ -29,6 +29,7 @@ User request arrives
     ├── Is it about running multiple stories? ───→ /pipeline <target>
     ├── Is it about reviewing code? ─────────────→ /review <changes>
     ├── Is it about shipping / pushing / PRs? ──→ /ship <workpackage-id>
+    ├── Is it about writing user-facing docs? ───→ /write-docs <doc-path>
     ├── Is it about documenting decisions? ──────→ /lore <files|scan|index>
     ├── Is it about visual fidelity? ────────────→ /visual-polish <reference>
     ├── Is it about process improvement? ────────→ /retro <workpackage|pipeline>

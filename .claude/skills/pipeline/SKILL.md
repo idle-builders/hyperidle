@@ -79,6 +79,7 @@ Each persona phase **commits its output and pushes** before returning:
 | 2 — reviewer /architecture-critique | critique doc | `[skip ci]` |
 | 3 — builder /write-tests (red) | test files | run |
 | 3 — builder /write-code (green) | implementation (verified) | run |
+| 3 — builder doc check | user-facing docs (if applicable) | run |
 | 4 — builder (apply review fixes) | one commit per applied finding batch | run |
 | 5 — Explore agent /retro | prose | `[skip ci]` |
 | 6 — builder /ship | attestation | run |
@@ -111,8 +112,8 @@ Then dispatch the persona sessions below, in order. Update `currentStep` in the 
 |---|---|---|---|---|
 | 1 | **designer** | high | `/concept` → `/design` → `/architecture` | Production only. Concept doc + variant exploration + technical plan. |
 | 2 | **reviewer** | high | `/design-critique` → `/architecture-critique` | Evaluates designer output. True producer/evaluator separation — different agent, not just different mode. Context carries to Phase 4. |
-| 3 | **builder** | medium | `/write-tests` → `/write-code` | TDD red then green. Must pass `npm run verify` before pushing. No broken code reaches the reviewer. |
-| 4 | **reviewer** + **builder** | high | `/review` | Same reviewer from Phase 2 (warm on design/arch). 6 lenses + AC audit. Builder applies fixes. Verdict DONE required before proceeding. |
+| 3 | **builder** | medium | `/write-tests` → `/write-code` → doc check | TDD red then green. Doc check: if user-facing changes exist, apply `/write-docs`; otherwise justify skip. Must pass `npm run verify` before pushing. |
+| 4 | **reviewer** + **builder** | high | `/review` (+`/write-docs` rubric if docs changed) | Same reviewer from Phase 2 (warm on design/arch). 6 lenses + AC audit + doc funnel scoring if applicable. Builder applies fixes. Verdict DONE required before proceeding. |
 | 5 | **Explore** | low | `/retro` | Fresh-context retro with cost signals. Must run before ship so retro prose is included in the verified tree. |
 | 6 | **builder** | medium | `/ship` | Merge main → verify → attest → push → PR ready → CI green. Runs after retro so the attestation covers all commits. |
 | — | scripts | — | CI + PR | `npm run verify --raw` runs as CI on every push. Draft PR opens at worktree setup; `/ship` flips ready + waits for CI green after retro. |
@@ -163,12 +164,27 @@ Phase 3 — builder (TDD):
   If Builder hits a plan-vs-reality conflict, it raises a BLOCKER rather
   than redesigning in-flight (TE-22).
 
+  Doc check (after /write-code, before pushing):
+  Builder answers: "Does this workpackage change what the user sees,
+  reads, or does?" If YES — new feature, changed behavior, new
+  primitive, new API surface — builder applies /write-docs to write
+  or update user-facing docs in docs/product/ (or docs/guides/user/).
+  The /write-docs skill's 15 principles and funnel model apply.
+  If NO — builder commits a one-line justification in the commit
+  message: "docs: no user-facing doc changes needed (<reason>)".
+  Skipping without justification is a review finding.
+
 Phase 4 — review:
   SEND: SendMessage(to="reviewer-<id>") — reuses Phase 2 session.
   Same reviewer runs /review (warm on design/arch context).
     Six lenses: 3 positive (architecture, design, security) +
     3 negative (adversarial, simplification, slop) + AC completeness.
     Design lens skipped silently if no UI files.
+    If docs were written or updated in Phase 3 (doc check = YES),
+    reviewer also scores them against the /write-docs rubric
+    (10 dimensions, total ≥35 required, all dimensions ≥3).
+    If doc check = NO, reviewer verifies the skip justification
+    is reasonable — flags if user-facing changes lack docs.
     Emits DONE | NOT DONE with AC table + findings.
 
   If NOT DONE:
