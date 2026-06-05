@@ -12,11 +12,12 @@ import { describe, expect, it, vi } from "vitest";
 // @lore U5: WorkProduct renamed to WorkTeam; import updated.
 import { WorkTeam } from "../pages/WorkTeam";
 
-// AgentEditDialog (rendered inside WorkTeam) calls useToast on mount.
-// These tests are about WorkTeam rendering, not toasts — mock the hook to avoid
-// the "must be used within <ToastRegion>" error.
-// @lore AB3: Any WorkTeam render in tests needs either a <ToastRegion> wrapper
-// or a useToast mock, because AgentEditDialog always mounts inside WorkTeam.
+// AgentEditDialog and AgentAddDialog call useToast. They are only mounted when
+// the corresponding state is non-null/true, but we still mock useToast to prevent
+// the "must be used within <ToastRegion>" error when dialogs open in tests.
+// @lore AB3: WorkTeam renders dialogs conditionally (editingAgentId !== null /
+// addDialogOpen), so useToast is only called when a dialog is open — but keeping
+// this mock is safer than relying on no dialog state leaking across tests.
 vi.mock("../shell/ToastRegion.js", async () => {
 	const actual = await vi.importActual("../shell/ToastRegion.js");
 	return {
@@ -42,8 +43,20 @@ const MOCK_PRODUCT_DETAIL = {
 	},
 	teamMembers: { id: "t1", formedAt: "2024-01-01T00:00:00.000Z", dissolvedAt: null },
 	roster: [
-		{ agentId: "agent-lead", name: "Lead Agent", role: "lead", isLead: true },
-		{ agentId: "agent-member", name: "Alice Agent", role: "member", isLead: false },
+		{
+			agentId: "agent-lead",
+			name: "Lead Agent",
+			role: "lead",
+			isLead: true,
+			agentCategory: "team",
+		},
+		{
+			agentId: "agent-member",
+			name: "Alice Agent",
+			role: "member",
+			isLead: false,
+			agentCategory: "team",
+		},
 	],
 	// L17: costActual/costCap are now WireMoney|null; costAppetite replaces appetite.
 	burn: {

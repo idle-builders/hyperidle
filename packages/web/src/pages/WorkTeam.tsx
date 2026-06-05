@@ -382,16 +382,19 @@ function WorkTeamLoaded({
 				/>
 			)}
 
-			{/* AB3: Edit dialog */}
-			<AgentEditDialog
-				agent={editingAgent}
-				rosterMember={editingRosterMember}
-				onClose={() => setEditingAgentId(null)}
-				onSaved={() => {
-					refetchAgents();
-					setEditingAgentId(null);
-				}}
-			/>
+			{/* AB3: Edit dialog — only mounted when a card is being edited.
+			    Mirrors the addDialogOpen pattern to avoid unconditional useToast calls. */}
+			{editingAgentId !== null && (
+				<AgentEditDialog
+					agent={editingAgent}
+					rosterMember={editingRosterMember}
+					onClose={() => setEditingAgentId(null)}
+					onSaved={() => {
+						refetchAgents();
+						setEditingAgentId(null);
+					}}
+				/>
+			)}
 
 			{/* AB3: Add dialog — only mounted when open to avoid DOM content collisions */}
 			{addDialogOpen && (
@@ -429,11 +432,23 @@ function AgentCard({
 	const initials = member.name.slice(0, 2).toUpperCase();
 
 	return (
-		<button
-			type="button"
+		// @lore AB3: Outer wrapper is a div with role="button" (not a <button>) because the
+		// inner "Customize" is a real <button>. Nested <button> elements are invalid HTML and
+		// break screen readers. role="button" + tabIndex={0} + onKeyDown gives equivalent
+		// keyboard accessibility without the nesting violation.
+		// biome-ignore lint/a11y/useSemanticElements: div intentional — nested <button> inside would be invalid HTML (CRITICAL-1 fix)
+		<div
+			role="button"
+			tabIndex={0}
 			data-testid="agent-card"
 			onClick={onCustomize}
-			className="w-full text-left rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[12px] hover:bg-[var(--surface-elevated)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)]"
+			onKeyDown={(e) => {
+				if (e.key === "Enter" || e.key === " ") {
+					e.preventDefault();
+					onCustomize();
+				}
+			}}
+			className="w-full text-left rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[12px] hover:bg-[var(--surface-elevated)] transition-colors duration-[var(--motion-fast)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)] cursor-pointer"
 		>
 			{/* Row 1: avatar + name + lead + category tag + customize button */}
 			<div className="flex items-center gap-[12px]">
@@ -481,7 +496,7 @@ function AgentCard({
 			>
 				{description}
 			</p>
-		</button>
+		</div>
 	);
 }
 
@@ -493,7 +508,7 @@ function BetRow({ bet, onNavigate }: { bet: BetCardSummary; onNavigate: () => vo
 		<button
 			type="button"
 			onClick={onNavigate}
-			className="w-full text-left rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] hover:bg-[var(--surface-elevated)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)]"
+			className="w-full text-left rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] hover:bg-[var(--surface-elevated)] transition-colors duration-[var(--motion-fast)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)]"
 		>
 			<div className="flex items-center gap-[12px] flex-wrap">
 				<span className="flex-1 text-xs font-medium text-[var(--text-primary)] truncate">
