@@ -551,6 +551,18 @@ export function createRoutineRoutes(
 					workspaceBasePath,
 					routineId,
 				});
+
+				// @lore AA2: provisionSession generates its own sessionId internally.
+				// We inserted the routine_run row (with sessionId=null) before calling
+				// provisionSession so the intent is recorded even if provisioning fails.
+				// Now that provisioning succeeded we back-populate sessionId so the
+				// session-lifecycle hook (endSession/crashSession) can find this run row
+				// via `WHERE sessionId = <session-id>` and update its outcome.
+				await db
+					.update(routineRuns)
+					.set({ sessionId: result.sessionId })
+					.where(eq(routineRuns.id, runId));
+
 				return c.json(
 					{ routineId, fired: true, sessionId: result.sessionId, outcome: result.outcome },
 					200,
