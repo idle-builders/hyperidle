@@ -1,3 +1,13 @@
+// ── AB1: Agent profile wire types ──
+export type {
+	AgentActiveSession,
+	AgentHarnessCapabilities,
+	AgentHealthSignals,
+	AgentPerformanceStats,
+	AgentProfileResponse,
+	AgentSessionSummary,
+	AgentSkillInfo,
+} from "./agent-profile.js";
 // ── AB0: Agent role catalog and category system ──
 export type {
 	AgentRoleCatalogEntry,
