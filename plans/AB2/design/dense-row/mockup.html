@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="hearth-light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AB2 Variant B — Dense Row</title>
+  <style>
+    /* Hearth tokens (light mode subset) */
+    :root {
+      --surface-page: #f5f0e6;
+      --surface-container: #ede7db;
+      --surface-elevated: #ffffff;
+      --accent-primary: #16764f;
+      --accent-secondary: #d97706;
+      --text-primary: #2c241a;
+      --text-secondary: #5c4f3d;
+      --text-tertiary: #9a8d7e;
+      --border-default: #d5cbb8;
+      --border-subtle: #e2dace;
+      --status-success: #16764f;
+      --status-warning: #d97706;
+      --status-error: #dc4a3a;
+      --status-info: #2e7dba;
+      --r-subtle: 10px;
+      --r-default: 16px;
+      --r-pill: 9999px;
+      --shadow-default: 0 4px 12px rgba(44,36,26,0.08);
+      --motion-fast: 120ms;
+      --motion-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+      --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+      --font-mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--surface-page);
+      color: var(--text-primary);
+      padding: 24px;
+      max-width: 680px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .section-heading {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-tertiary);
+      font-family: var(--font-sans);
+      flex: 1;
+    }
+
+    .header-btn {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      padding: 6px 12px;
+      border-radius: var(--r-pill);
+      transition: background-color var(--motion-fast) var(--motion-ease);
+    }
+
+    .header-btn:hover {
+      background: rgba(44, 36, 26, 0.06);
+    }
+
+    .row-container {
+      background: var(--surface-container);
+      border-radius: var(--r-subtle);
+      padding: 12px;
+    }
+
+    .agent-row {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      height: 36px;
+      min-height: 44px;
+      padding: 0 6px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      width: 100%;
+      text-align: left;
+      transition: background-color var(--motion-fast) var(--motion-ease);
+    }
+
+    .agent-row:hover {
+      background: rgba(44, 36, 26, 0.02);
+    }
+
+    .agent-row:focus-visible {
+      outline: 2px solid var(--accent-primary);
+      outline-offset: 1px;
+    }
+
+    .agent-row:not(:last-child) {
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .health-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .health-green { background: var(--status-success); }
+    .health-amber { background: var(--status-warning); }
+    .health-red { background: var(--status-error); }
+
+    .avatar-sm {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 600;
+      flex-shrink: 0;
+      border: 1.5px solid var(--accent-primary);
+      background: rgba(22, 118, 79, 0.08);
+      color: var(--accent-primary);
+    }
+
+    .agent-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .lead-marker {
+      font-size: 10px;
+      color: var(--accent-primary);
+      margin-left: 3px;
+    }
+
+    .status-col {
+      width: 48px;
+      flex-shrink: 0;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      text-transform: lowercase;
+    }
+
+    .status-active { color: var(--status-success); }
+    .status-idle { color: var(--text-tertiary); }
+    .status-error { color: var(--status-error); }
+
+    .task-col {
+      flex: 1;
+      min-width: 0;
+      font-size: 11px;
+      color: var(--text-tertiary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .task-col.error-text {
+      color: var(--status-error);
+    }
+
+    /* Portfolio summary mockup */
+    .portfolio-section {
+      margin-top: 36px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .portfolio-summary {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+  <!-- Agents section (replaces R3 Roster) -->
+  <div class="section-header">
+    <h2 class="section-heading">Agents</h2>
+    <button class="header-btn" type="button">+ Add agent</button>
+  </div>
+
+  <div class="row-container">
+    <!-- Agent 1: Active, healthy -->
+    <button class="agent-row" type="button">
+      <span class="health-dot health-green" title="Healthy"></span>
+      <span class="avatar-sm">AT</span>
+      <span class="agent-name">Atlas<span class="lead-marker"> — Lead</span></span>
+      <span class="status-col status-active">active</span>
+      <span class="task-col">Implement file upload</span>
+    </button>
+
+    <!-- Agent 2: Idle, healthy -->
+    <button class="agent-row" type="button">
+      <span class="health-dot health-green" title="Healthy"></span>
+      <span class="avatar-sm">SC</span>
+      <span class="agent-name">Scout</span>
+      <span class="status-col status-idle">idle</span>
+      <span class="task-col">Practice facilitator</span>
+    </button>
+
+    <!-- Agent 3: Error, red health -->
+    <button class="agent-row" type="button">
+      <span class="health-dot health-red" title="High failure rate (83%)"></span>
+      <span class="avatar-sm">KI</span>
+      <span class="agent-name">Kira</span>
+      <span class="status-col status-error">error</span>
+      <span class="task-col error-text">5/6 sessions failed</span>
+    </button>
+
+    <!-- Agent 4: Idle, amber health -->
+    <button class="agent-row" type="button">
+      <span class="health-dot health-amber" title="Harness 'openai' unavailable"></span>
+      <span class="avatar-sm">DA</span>
+      <span class="agent-name">Dash</span>
+      <span class="status-col status-idle">idle</span>
+      <span class="task-col">Growth specialist</span>
+    </button>
+
+    <!-- Agent 5: Active, healthy (showing density) -->
+    <button class="agent-row" type="button">
+      <span class="health-dot health-green" title="Healthy"></span>
+      <span class="avatar-sm">NO</span>
+      <span class="agent-name">Nova</span>
+      <span class="status-col status-active">active</span>
+      <span class="task-col">Refactor auth middleware</span>
+    </button>
+
+    <!-- Agent 6: Idle, healthy -->
+    <button class="agent-row" type="button">
+      <span class="health-dot health-green" title="Healthy"></span>
+      <span class="avatar-sm">RI</span>
+      <span class="agent-name">River</span>
+      <span class="status-col status-idle">idle</span>
+      <span class="task-col">Brand voice specialist</span>
+    </button>
+  </div>
+
+  <!-- Portfolio agent summary mockup -->
+  <div class="portfolio-section">
+    <h2 class="section-heading">Portfolio summary line</h2>
+    <div class="portfolio-summary">
+      <span>6 agents, 2 active</span>
+      <span class="health-dot health-red" title="1 agent in error state"></span>
+    </div>
+  </div>
+</body>
+</html>
