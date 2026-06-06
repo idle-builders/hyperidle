@@ -1,0 +1,189 @@
+/**
+ * AA2 — WorkRoutine detail page tests (delete, new fields, last run summary).
+ *
+ * AC-2: Delete button shows confirmation, confirm calls DELETE API, cancel restores.
+ * AC-6: New KV fields render (costCapPerRun, createdAt, lastRunSummary section).
+ */
+
+import type { RoutineDetail } from "@hyperidle/shared";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { WorkRoutine } from "../pages/WorkRoutine";
+import * as apiFetchModule from "../services/api-fetch.js";
+
+// Mock apiFetch for delete tests
+vi.mock("../services/api-fetch.js", () => ({
+	apiFetch: vi.fn(),
+}));
+
+// Mock useRoutine hook
+vi.mock("../hooks/useRoutine", () => ({
+	useRoutine: vi.fn().mockReturnValue({
+		data: null,
+		loading: false,
+		error: null,
+	}),
+}));
+
+const MOCK_DETAIL_AA2: RoutineDetail = {
+	routine: {
+		id: "routine-aa2",
+		name: "AA2 Routine",
+		description: "Tests delete and new fields",
+		state: "active",
+		triggerType: "calendar",
+		triggerConfig: JSON.stringify({ cron: "0 9 * * *" }),
+		scheduleLabel: "Every day at 9:00 AM",
+		ownerAgentId: "agent-aa2",
+		agentName: "AA2 Agent",
+		agentInitials: "AA",
+		teamId: "team-aa2",
+		teamName: "AA2 Team",
+		autonomyLevel: 2,
+		humanReview: false,
+		delegationAllowed: false,
+		lastRunAt: "2026-01-01T09:00:00.000Z",
+		lastRunOutcome: "success",
+		nextRunAt: "2026-01-02T09:00:00.000Z",
+		costActual: { minor: 1000, currency: "USD" },
+		createdAt: "2026-01-01T00:00:00.000Z",
+		costCapPerRun: { minor: 5000, currency: "USD" },
+		lastRunSummary: "Sent 10 notifications successfully.",
+	},
+	runs: [
+		{
+			id: "run-aa2-1",
+			startedAt: "2026-01-01T09:00:00.000Z",
+			endedAt: "2026-01-01T09:01:00.000Z",
+			durationSeconds: 60,
+			outcome: "success",
+			cost: { minor: 500, currency: "USD" },
+			errorMessage: null,
+			summary: "Sent 10 notifications successfully.",
+		},
+	],
+};
+
+const MOCK_DETAIL_NO_SUMMARY: RoutineDetail = {
+	...MOCK_DETAIL_AA2,
+	routine: {
+		...MOCK_DETAIL_AA2.routine,
+		lastRunSummary: null,
+	},
+};
+
+function renderPage(
+	overrideData?: RoutineDetail | null,
+	loading = false,
+	error: Error | null = null,
+): ReturnType<typeof render> {
+	return render(
+		<MemoryRouter initialEntries={["/work/routine/routine-aa2"]}>
+			<Routes>
+				<Route
+					path="/work/routine/:routineId"
+					element={
+						<WorkRoutine
+							overrideData={overrideData}
+							overrideLoading={loading}
+							overrideError={error}
+						/>
+					}
+				/>
+				<Route
+					path="/work/portfolio"
+					element={<div data-testid="work-portfolio-page">Portfolio</div>}
+				/>
+			</Routes>
+		</MemoryRouter>,
+	);
+}
+
+describe("WorkRoutine — AA2 Delete & New Fields", () => {
+	const mockApiFetch = vi.mocked(apiFetchModule.apiFetch);
+
+	afterEach(() => {
+		vi.clearAllMocks();
+		mockApiFetch.mockReset();
+	});
+
+	// ──────────────────────────────────────────────────────────────────────
+	// AC-2: Delete button with inline confirmation
+	// ──────────────────────────────────────────────────────────────────────
+
+	describe("AC-2: Delete button and confirmation", () => {
+		it("renders a Delete button in the action bar", () => {
+			renderPage(MOCK_DETAIL_AA2);
+			expect(screen.getByTestId("routine-delete-btn")).toBeInTheDocument();
+		});
+
+		it("clicking Delete shows inline confirmation prompt", () => {
+			renderPage(MOCK_DETAIL_AA2);
+			fireEvent.click(screen.getByTestId("routine-delete-btn"));
+			expect(screen.getByTestId("routine-delete-confirm")).toBeInTheDocument();
+		});
+
+		it("clicking Cancel in confirmation restores normal action bar", () => {
+			renderPage(MOCK_DETAIL_AA2);
+			fireEvent.click(screen.getByTestId("routine-delete-btn"));
+			expect(screen.getByTestId("routine-delete-confirm")).toBeInTheDocument();
+
+			fireEvent.click(screen.getByTestId("routine-delete-cancel"));
+			expect(screen.queryByTestId("routine-delete-confirm")).not.toBeInTheDocument();
+			expect(screen.getByTestId("routine-delete-btn")).toBeInTheDocument();
+		});
+
+		it("clicking Confirm calls DELETE /api/routines/:id", async () => {
+			mockApiFetch.mockResolvedValueOnce({
+				ok: true,
+				json: vi.fn().mockResolvedValue({ deleted: true, deletedAt: new Date().toISOString() }),
+			});
+
+			renderPage(MOCK_DETAIL_AA2);
+			fireEvent.click(screen.getByTestId("routine-delete-btn"));
+			fireEvent.click(screen.getByTestId("routine-delete-confirm"));
+
+			await waitFor(() => {
+				expect(mockApiFetch).toHaveBeenCalledWith(
+					"/api/routines/routine-aa2",
+					expect.objectContaining({ method: "DELETE" }),
+				);
+			});
+		});
+	});
+
+	// ──────────────────────────────────────────────────────────────────────
+	// AC-6: New KV fields render
+	// ──────────────────────────────────────────────────────────────────────
+
+	describe("AC-6: New KV fields display", () => {
+		it("renders Cost cap per run field when set", () => {
+			renderPage(MOCK_DETAIL_AA2);
+			expect(screen.getByText("Cost cap per run")).toBeInTheDocument();
+		});
+
+		it("renders Created field when createdAt is set", () => {
+			renderPage(MOCK_DETAIL_AA2);
+			expect(screen.getByText("Created")).toBeInTheDocument();
+		});
+
+		it("renders Last run summary section with summary text", () => {
+			renderPage(MOCK_DETAIL_AA2);
+			expect(screen.getByTestId("routine-last-run-summary")).toBeInTheDocument();
+			expect(screen.getByText("Sent 10 notifications successfully.")).toBeInTheDocument();
+		});
+
+		it("shows 'No previous runs' when lastRunSummary is null", () => {
+			renderPage(MOCK_DETAIL_NO_SUMMARY);
+			expect(screen.getByTestId("routine-last-run-summary")).toBeInTheDocument();
+			expect(screen.getByText(/no previous runs/i)).toBeInTheDocument();
+		});
+
+		it("renders run history with summary column when present", () => {
+			renderPage(MOCK_DETAIL_AA2);
+			const rows = screen.getAllByTestId("routine-run-row");
+			expect(rows).toHaveLength(1);
+		});
+	});
+});
