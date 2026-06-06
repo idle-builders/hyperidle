@@ -76,7 +76,8 @@ describe("RoutineCreateDialog", () => {
 
 	it("renders cost cap field", () => {
 		renderDialog();
-		expect(screen.getByLabelText(/cost cap/i)).toBeInTheDocument();
+		// AA3: two cost cap fields exist (per-run and monthly); check per-run specifically
+		expect(screen.getByLabelText(/cost cap per run/i)).toBeInTheDocument();
 	});
 
 	it("Create button is disabled when name is empty", () => {

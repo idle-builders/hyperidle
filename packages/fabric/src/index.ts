@@ -238,6 +238,7 @@ export type {
 } from "./services/routine-scheduler.js";
 export {
 	checkAndFireRoutine,
+	getRoutineMonthlySpend,
 	nextCronMatch,
 	parseCron,
 	registerEventTriggers,

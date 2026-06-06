@@ -34,6 +34,17 @@ const MOCK_ROUTINE_DETAIL: RoutineDetail = {
 		nextRunAt: "2026-01-02T08:00:00.000Z",
 		costActual: { minor: 500, currency: "USD" },
 		createdAt: null,
+		costCapPerRun: null,
+		costCapMonthly: null,
+		lastRunSummary: null,
+	},
+	budget: {
+		avgCostPerRun: null,
+		costThisMonth: null,
+		costCapPerRun: null,
+		costCapMonthly: null,
+		perRunUtilizationPercent: null,
+		monthlyUtilizationPercent: null,
 	},
 	runs: [
 		{

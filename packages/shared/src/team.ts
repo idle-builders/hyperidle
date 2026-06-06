@@ -52,6 +52,10 @@ export interface TeamBurn {
 	costCap: WireMoney | null;
 	capacity: number; // team_members.capacity (max parallel bets)
 	activeBets: number; // team_members.active_bets cached counter
+	/** AA3: Sum of active bets' costActualMinor. Null when no active bets have cost data. */
+	betCostActual: WireMoney | null;
+	/** AA3: Sum of routine run costs for the current calendar month. Null when no routines or no runs this month. */
+	routineCostThisMonth: WireMoney | null;
 }
 
 export interface BetCardSummary {

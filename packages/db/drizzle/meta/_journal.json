@@ -176,6 +176,13 @@
 			"when": 1783100000000,
 			"tag": "0024_brainy_moondragon",
 			"breakpoints": true
+		},
+		{
+			"idx": 25,
+			"version": "7",
+			"when": 1783200000000,
+			"tag": "0025_omniscient_wildside",
+			"breakpoints": true
 		}
 	]
 }

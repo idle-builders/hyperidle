@@ -20,7 +20,7 @@ import {
 	SkeletonCard,
 	StatusChip,
 } from "@hyperidle/design-system";
-import type { RoutineDetail, RoutineRunSummary } from "@hyperidle/shared";
+import type { RoutineBudget, RoutineDetail, RoutineRunSummary } from "@hyperidle/shared";
 import { formatMoney } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -90,7 +90,7 @@ export function WorkRoutine({
 }
 
 function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
-	const { routine, runs } = detail;
+	const { routine, runs, budget } = detail;
 	const navigate = useNavigate();
 
 	// Local state for optimistic state toggle (Pause/Resume)
@@ -219,15 +219,7 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 							routine.nextRunAt ? new Date(routine.nextRunAt).toLocaleString() : "On next event"
 						}
 					/>
-					<KeyValue
-						label="Cumulative cost"
-						value={routine.costActual ? formatMoney(routine.costActual) : "—"}
-					/>
-					{/* AA2: cost cap per run */}
-					<KeyValue
-						label="Cost cap per run"
-						value={routine.costCapPerRun ? formatMoney(routine.costCapPerRun) : "No cap"}
-					/>
+					{/* AA3: Cumulative cost and cost caps moved to Budget section */}
 					<KeyValue label="Last run" value={lastRunLabel} />
 					{/* AA2: created date (always shown when present) */}
 					{routine.createdAt && (
@@ -298,6 +290,9 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 				)}
 			</section>
 
+			{/* AA3: Budget section — between Configuration and Last Run Summary */}
+			{budget != null && <BudgetSection budget={budget} />}
+
 			{/* AA2: Last run summary section */}
 			<section
 				aria-label="Last run summary"
@@ -334,16 +329,88 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 }
 
 /**
+ * AA3: Budget section — shows avg cost, monthly cost, caps, and utilization progress bars.
+ * Inserted between Configuration and Last Run Summary on WorkRoutine.
+ */
+function BudgetSection({ budget }: { budget: RoutineBudget }): JSX.Element {
+	return (
+		<section
+			aria-label="Budget"
+			className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
+			data-testid="routine-budget"
+		>
+			<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
+				Budget
+			</h2>
+			<div className="flex flex-col gap-[9px]">
+				<KeyValue
+					label="Avg cost per run"
+					value={budget.avgCostPerRun ? formatMoney(budget.avgCostPerRun) : "---"}
+				/>
+				<KeyValue
+					label="Cost this month"
+					value={budget.costThisMonth ? formatMoney(budget.costThisMonth) : "$0.00"}
+				/>
+				<KeyValue
+					label="Cost cap per run"
+					value={budget.costCapPerRun ? formatMoney(budget.costCapPerRun) : "No cap"}
+				/>
+				<KeyValue
+					label="Monthly cap"
+					value={budget.costCapMonthly ? formatMoney(budget.costCapMonthly) : "No cap"}
+				/>
+			</div>
+			{budget.perRunUtilizationPercent != null && (
+				<div className="mt-[9px]">
+					<div className="flex justify-between text-[11px] text-[var(--text-tertiary)] mb-[3px]">
+						<span>Per-run budget</span>
+						<span>{budget.perRunUtilizationPercent}%</span>
+					</div>
+					<progress
+						className={`progress w-full ${budget.perRunUtilizationPercent > 80 ? "progress-warning" : "progress-success"}`}
+						value={budget.perRunUtilizationPercent}
+						max={100}
+						aria-label={`Per-run budget: ${budget.perRunUtilizationPercent}%`}
+					/>
+				</div>
+			)}
+			{budget.monthlyUtilizationPercent != null && (
+				<div className="mt-[9px]">
+					<div className="flex justify-between text-[11px] text-[var(--text-tertiary)] mb-[3px]">
+						<span>Monthly budget</span>
+						<span>{budget.monthlyUtilizationPercent}%</span>
+					</div>
+					<progress
+						className={`progress w-full ${budget.monthlyUtilizationPercent > 80 ? "progress-warning" : "progress-success"}`}
+						value={budget.monthlyUtilizationPercent}
+						max={100}
+						aria-label={`Monthly budget: ${budget.monthlyUtilizationPercent}%`}
+					/>
+					{budget.monthlyUtilizationPercent >= 100 && (
+						<p className="text-[11px] text-[var(--accent-secondary)] mt-[3px]">
+							Monthly budget exhausted — runs skipped until next month
+						</p>
+					)}
+				</div>
+			)}
+		</section>
+	);
+}
+
+/**
  * Single run row in the recent-runs table.
  * Columns: time (flex-1) | duration (60px right) | outcome dot (60px center) | cost (60px right)
  */
 function RunRow({ run, isLast }: { run: RoutineRunSummary; isLast: boolean }): JSX.Element {
+	// AA3: amber dot for budget policy stops (not errors — see design/approved.md Surface 4)
 	const dotColor =
 		run.outcome === "success"
 			? "var(--status-success)"
-			: run.outcome === "error"
+			: run.outcome === "error" || run.outcome === "timeout"
 				? "var(--status-error)"
-				: "var(--text-tertiary)";
+				: run.outcome === "budget_exhausted" || run.outcome === "monthly_budget_exhausted"
+					? "var(--accent-secondary)"
+					: "var(--text-tertiary)";
 
 	return (
 		<div

@@ -9,6 +9,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import {
+	getRoutineMonthlySpend,
 	isBuiltinRoutineId,
 	type PostBetRetroArgs,
 	parseCron,
@@ -20,13 +21,14 @@ import {
 	type CurrencyCode,
 	type EventBus,
 	ROUTINE_STATES,
+	type RoutineBudget,
 	type RoutineDetail,
 	type RoutineInfo,
 	type RoutineRunOutcome,
 	type RoutineRunSummary,
 	type SessionStartedEvent,
 } from "@hyperidle/shared";
-import { desc, eq, isNull } from "drizzle-orm";
+import { and, avg, desc, eq, gt, gte, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import type { AdapterPool } from "../harness/adapter-pool.js";
@@ -64,6 +66,8 @@ const createRoutineSchema = z.object({
 	triggerType: z.literal("calendar"),
 	triggerConfig: z.string().min(1),
 	costCapPerRunMinor: z.number().int().min(0).nullable().optional(),
+	/** AA3: Optional per-month cost ceiling in minor units. */
+	costCapMonthlyMinor: z.number().int().min(0).nullable().optional(),
 });
 
 const updateRoutineSchema = z.object({
@@ -77,6 +81,8 @@ const updateRoutineSchema = z.object({
 	description: z.string().optional(),
 	// AA2: cost cap per run
 	costCapPerRunMinor: z.number().int().min(0).nullable().optional(),
+	// AA3: monthly cost cap
+	costCapMonthlyMinor: z.number().int().min(0).nullable().optional(),
 });
 
 /**
@@ -243,6 +249,8 @@ export function createRoutineRoutes(
 			active: true,
 			createdAt: now,
 			costCapPerRunMinor: body.costCapPerRunMinor ?? null,
+			// AA3: monthly cost cap
+			costCapMonthlyMinor: body.costCapMonthlyMinor ?? null,
 			stubTaskId,
 			nextRunAt,
 		});
@@ -309,6 +317,66 @@ export function createRoutineRoutes(
 			.orderBy(desc(routineRuns.startedAt))
 			.limit(20);
 
+		// AA3: Compute budget stats using aggregate queries over ALL runs (not just the 20 in allRuns).
+		// Critique Suggestion 2: use a separate AVG query, not allRuns.filter().
+		const now3 = new Date();
+		const firstOfMonth3 = new Date(
+			Date.UTC(now3.getUTCFullYear(), now3.getUTCMonth(), 1),
+		).toISOString();
+
+		// AVG cost per run (from all runs with cost > 0)
+		const [avgRow] = await db
+			.select({ avg: avg(routineRuns.costMinor) })
+			.from(routineRuns)
+			.where(and(eq(routineRuns.routineId, routineId), gt(routineRuns.costMinor, 0)));
+		const avgCostMinor = avgRow?.avg != null ? Math.round(Number(avgRow.avg)) : null;
+
+		// SUM cost this month
+		const [monthCostRow] = await db
+			.select({ total: sql<number>`coalesce(sum(${routineRuns.costMinor}), 0)` })
+			.from(routineRuns)
+			.where(and(eq(routineRuns.routineId, routineId), gte(routineRuns.startedAt, firstOfMonth3)))
+			.limit(1);
+		const costThisMonthMinor = monthCostRow?.total ?? 0;
+
+		// Last completed run cost for per-run utilization (from the 20 most recent runs)
+		const lastCompletedRun = allRuns.find(
+			(r) =>
+				r.costMinor != null &&
+				r.costMinor > 0 &&
+				(r.outcome === "success" || r.outcome === "budget_exhausted"),
+		);
+		const lastRunCostMinor = lastCompletedRun?.costMinor ?? null;
+
+		const perRunUtilizationPercent =
+			routine.costCapPerRunMinor != null && lastRunCostMinor != null
+				? Math.round((lastRunCostMinor / routine.costCapPerRunMinor) * 100)
+				: null;
+
+		const monthlyUtilizationPercent =
+			routine.costCapMonthlyMinor != null && costThisMonthMinor > 0
+				? Math.round((costThisMonthMinor / routine.costCapMonthlyMinor) * 100)
+				: null;
+
+		const budget: RoutineBudget = {
+			avgCostPerRun:
+				avgCostMinor != null ? { minor: avgCostMinor, currency: "USD" as CurrencyCode } : null,
+			costThisMonth:
+				costThisMonthMinor > 0
+					? { minor: costThisMonthMinor, currency: "USD" as CurrencyCode }
+					: null,
+			costCapPerRun:
+				routine.costCapPerRunMinor != null
+					? { minor: routine.costCapPerRunMinor, currency: "USD" as CurrencyCode }
+					: null,
+			costCapMonthly:
+				routine.costCapMonthlyMinor != null
+					? { minor: routine.costCapMonthlyMinor, currency: "USD" as CurrencyCode }
+					: null,
+			perRunUtilizationPercent,
+			monthlyUtilizationPercent,
+		};
+
 		const runSummaries: RoutineRunSummary[] = allRuns.map((run) => {
 			let durationSeconds: number | null = null;
 			if (run.startedAt && run.endedAt) {
@@ -369,12 +437,19 @@ export function createRoutineRoutes(
 							currency: "USD" as CurrencyCode,
 						}
 					: null,
+			// AA3: monthly cost cap
+			costCapMonthly:
+				routine.costCapMonthlyMinor != null
+					? { minor: routine.costCapMonthlyMinor, currency: "USD" as CurrencyCode }
+					: null,
 			lastRunSummary: routine.lastRunSummary ?? null,
 		};
 
 		const detail: RoutineDetail = {
 			routine: routineInfo,
 			runs: runSummaries,
+			// AA3: budget stats
+			budget,
 		};
 
 		return c.json(detail);
@@ -419,6 +494,9 @@ export function createRoutineRoutes(
 		}
 		// AA2: cost cap per run (null removes the cap)
 		if ("costCapPerRunMinor" in body) updates.costCapPerRunMinor = body.costCapPerRunMinor ?? null;
+		// AA3: monthly cost cap (null removes the cap)
+		if ("costCapMonthlyMinor" in body)
+			updates.costCapMonthlyMinor = body.costCapMonthlyMinor ?? null;
 
 		if (Object.keys(updates).length > 0) {
 			await db.update(routines).set(updates).where(eq(routines.id, routineId));
@@ -486,6 +564,23 @@ export function createRoutineRoutes(
 
 		const sessionId = crypto.randomUUID();
 		const now = new Date().toISOString();
+
+		// AA3: Monthly cap check — skip if monthly spend >= costCapMonthlyMinor.
+		// Must run before coalescing so the monthly_budget_exhausted record is always written.
+		// Critique Warning 3: return reason "monthly_budget_exhausted" (not the internal scheduler string).
+		if (routine.costCapMonthlyMinor != null) {
+			const monthlySpend = await getRoutineMonthlySpend(db, routineId);
+			if (monthlySpend >= routine.costCapMonthlyMinor) {
+				const runId = crypto.randomUUID();
+				await db.insert(routineRuns).values({
+					id: runId,
+					routineId,
+					startedAt: now,
+					outcome: "monthly_budget_exhausted",
+				});
+				return c.json({ routineId, fired: false, reason: "monthly_budget_exhausted" }, 200);
+			}
+		}
 
 		// AA2: Coalescing — skip if a session for this routine is already active
 		const coalesced = await shouldCoalesce(db, routineId);
