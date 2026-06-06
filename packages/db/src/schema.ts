@@ -276,8 +276,31 @@ export const routines = pgTable(
 		costActualMinor: integer("cost_actual_minor"),
 		/** AA1: currency code for costActualMinor. */
 		costActualCurrency: text("cost_actual_currency"),
+		/** AA2: Soft delete timestamp. When set, routine is archived. */
+		deletedAt: text("deleted_at"),
+		/** AA2: Last successful run's summary. Single-slot overwrite per concept doc. */
+		lastRunSummary: text("last_run_summary"),
+		/** AA2: Optional per-run cost ceiling in minor units. NULL = no cap. */
+		costCapPerRunMinor: integer("cost_cap_per_run_minor"),
+		/** AA2: Creation timestamp. Backfilled for pre-existing routines. */
+		createdAt: text("created_at"),
+		/**
+		 * AA2: Dedicated stub task for routine sessions. Created at routine creation.
+		 *
+		 * @lore AA2: stubTaskId satisfies the sessions.taskId NOT NULL FK constraint
+		 * while allowing routine sessions to use routine context (not task/bet context).
+		 * The stub task is never worked on directly and is invisible in task lists.
+		 * When the routine is soft-deleted, the stub task remains (no orphan on delete
+		 * since we only soft-delete routines in AA2).
+		 * ON DELETE SET NULL: if the stub task is deleted, the routine still exists
+		 * but loses its stub task link (no orphan cascade needed).
+		 */
+		stubTaskId: text("stub_task_id").references(() => tasks.id, { onDelete: "set null" }),
 	},
-	(table) => [index("routines_team_id_idx").on(table.teamId)],
+	(table) => [
+		index("routines_team_id_idx").on(table.teamId),
+		index("routines_deleted_at_idx").on(table.deletedAt),
+	],
 );
 
 /**
@@ -303,8 +326,18 @@ export const routineRuns = pgTable(
 		costMinor: integer("cost_minor"),
 		costCurrency: text("cost_currency"),
 		errorMessage: text("error_message"),
+		/**
+		 * AA2: Link to the session that executed this run. NULL for pre-AA2 runs.
+		 * ON DELETE SET NULL: deleting a session preserves the run history record.
+		 */
+		sessionId: text("session_id").references(() => sessions.id, { onDelete: "set null" }),
+		/** AA2: Agent-produced summary of this run's outcome. */
+		summary: text("summary"),
 	},
-	(table) => [index("routine_runs_routine_id_idx").on(table.routineId, table.startedAt)],
+	(table) => [
+		index("routine_runs_routine_id_idx").on(table.routineId, table.startedAt),
+		index("routine_runs_session_id_idx").on(table.sessionId),
+	],
 );
 
 // --- Messaging (L1a Thread primitive) ---

@@ -42,7 +42,7 @@ import type {
 	WireMoney,
 } from "@hyperidle/shared";
 import { deriveTitle } from "@hyperidle/shared";
-import { and, count, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { deriveInitials } from "../services/agent-utils.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
@@ -149,11 +149,11 @@ export function createTeamRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 						)
 					: ("healthy" as const);
 
-				// AA1: routine count for this team
+				// AA1: routine count for this team (AA2: exclude soft-deleted)
 				const [routineCountRow] = await db
 					.select({ count: count() })
 					.from(routines)
-					.where(eq(routines.teamId, team.id));
+					.where(and(eq(routines.teamId, team.id), isNull(routines.deletedAt)));
 				const routineCount = routineCountRow?.count ?? 0;
 
 				return {
@@ -359,11 +359,11 @@ export function createTeamRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 				return bRow.createdAt.localeCompare(aRow.createdAt);
 			});
 
-			// AA1: Load routines for this team
+			// AA1: Load routines for this team (AA2: exclude soft-deleted)
 			const routineRows = await db
 				.select()
 				.from(routines)
-				.where(eq(routines.teamId, teamId))
+				.where(and(eq(routines.teamId, teamId), isNull(routines.deletedAt)))
 				.orderBy(routines.id);
 
 			// Build agent name map for routine owners

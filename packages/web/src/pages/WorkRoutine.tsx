@@ -1,8 +1,11 @@
 /**
  * AA1 — WorkRoutine detail page: shows a single routine's config and run history.
+ * AA2 — Adds delete button with inline confirmation, cost cap, created, last run summary.
  *
  * Layout:
  *   Header — name, state chip, schedule label, agent, team
+ *   Config — KV grid + action buttons (pause/resume, trigger, delete)
+ *   Last run summary section
  *   Run history — table of recent runs with duration, outcome, cost
  *
  * @lore AA1: This page is addressed by routineId. The route is
@@ -20,8 +23,9 @@ import {
 import type { RoutineDetail, RoutineRunSummary } from "@hyperidle/shared";
 import { formatMoney } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useRoutine } from "../hooks/useRoutine.js";
+import { apiFetch } from "../services/api-fetch.js";
 
 export interface WorkRoutineProps {
 	/**
@@ -87,10 +91,13 @@ export function WorkRoutine({
 
 function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 	const { routine, runs } = detail;
+	const navigate = useNavigate();
 
 	// Local state for optimistic state toggle (Pause/Resume)
 	const [currentState, setCurrentState] = useState(routine.state);
 	const [actionPending, setActionPending] = useState(false);
+	// AA2: Delete confirmation state
+	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
 	/** PATCH /api/routines/:id to toggle active <-> paused state */
 	async function handleTogglePause(): Promise<void> {
@@ -122,6 +129,25 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 			});
 		} finally {
 			setActionPending(false);
+		}
+	}
+
+	/** AA2: DELETE /api/routines/:id — soft delete */
+	async function handleDeleteConfirm(): Promise<void> {
+		if (actionPending) return;
+		setActionPending(true);
+		try {
+			const res = await apiFetch(`/api/routines/${encodeURIComponent(routine.id)}`, {
+				method: "DELETE",
+				headers: { "Content-Type": "application/json" },
+			});
+			if (res.ok) {
+				// Navigate back to portfolio after successful delete
+				navigate("/work/portfolio");
+			}
+		} finally {
+			setActionPending(false);
+			setShowDeleteConfirm(false);
 		}
 	}
 
@@ -181,7 +207,7 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 					Configuration
 				</h2>
 
-				{/* KV grid — 2 columns, gap-[9px_18px] per approved design */}
+				{/* KV grid */}
 				<div className="flex flex-col gap-[9px]">
 					<KeyValue label="Agent" value={routine.agentName} />
 					<KeyValue label="Schedule" value={routine.scheduleLabel} />
@@ -197,33 +223,95 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 						label="Cumulative cost"
 						value={routine.costActual ? formatMoney(routine.costActual) : "—"}
 					/>
+					{/* AA2: cost cap per run */}
+					<KeyValue
+						label="Cost cap per run"
+						value={routine.costCapPerRun ? formatMoney(routine.costCapPerRun) : "No cap"}
+					/>
 					<KeyValue label="Last run" value={lastRunLabel} />
+					{/* AA2: created date (always shown when present) */}
 					{routine.createdAt && (
 						<KeyValue label="Created" value={new Date(routine.createdAt).toLocaleDateString()} />
 					)}
 				</div>
 
 				{/* Action buttons at bottom of config section */}
-				<div className="flex gap-[9px] mt-[18px]" data-testid="routine-actions">
-					<button
-						type="button"
-						className="btn btn-ghost btn-sm"
-						onClick={handleTogglePause}
-						disabled={actionPending}
-						data-testid={currentState === "active" ? "routine-pause-btn" : "routine-resume-btn"}
+				{showDeleteConfirm ? (
+					<div
+						className="flex items-center gap-[9px] mt-[18px]"
+						data-testid="routine-delete-inline"
 					>
-						{currentState === "active" ? "Pause" : "Resume"}
-					</button>
-					<button
-						type="button"
-						className="btn btn-primary btn-sm"
-						onClick={handleTriggerNow}
-						disabled={actionPending}
-						data-testid="routine-trigger-now-btn"
-					>
-						Trigger Now
-					</button>
-				</div>
+						<span className="text-xs text-[var(--text-secondary)] flex-1">
+							Delete this routine? History will be preserved.
+						</span>
+						<button
+							type="button"
+							className="btn btn-ghost btn-sm min-h-[44px] text-[var(--status-error)]"
+							onClick={() => void handleDeleteConfirm()}
+							disabled={actionPending}
+							data-testid="routine-delete-confirm"
+						>
+							Confirm delete
+						</button>
+						<button
+							type="button"
+							className="btn btn-ghost btn-sm min-h-[44px]"
+							onClick={() => setShowDeleteConfirm(false)}
+							disabled={actionPending}
+							data-testid="routine-delete-cancel"
+						>
+							Cancel
+						</button>
+					</div>
+				) : (
+					<div className="flex gap-[9px] mt-[18px]" data-testid="routine-actions">
+						<button
+							type="button"
+							className="btn btn-ghost btn-sm"
+							onClick={handleTogglePause}
+							disabled={actionPending}
+							data-testid={currentState === "active" ? "routine-pause-btn" : "routine-resume-btn"}
+						>
+							{currentState === "active" ? "Pause" : "Resume"}
+						</button>
+						<button
+							type="button"
+							className="btn btn-primary btn-sm"
+							onClick={handleTriggerNow}
+							disabled={actionPending}
+							data-testid="routine-trigger-now-btn"
+						>
+							Trigger Now
+						</button>
+						{/* AA2: spacer + delete button (right-aligned) */}
+						<div className="flex-1" />
+						<button
+							type="button"
+							className="btn btn-ghost btn-sm text-[var(--status-error)]"
+							onClick={() => setShowDeleteConfirm(true)}
+							disabled={actionPending}
+							data-testid="routine-delete-btn"
+						>
+							Delete
+						</button>
+					</div>
+				)}
+			</section>
+
+			{/* AA2: Last run summary section */}
+			<section
+				aria-label="Last run summary"
+				className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
+				data-testid="routine-last-run-summary"
+			>
+				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
+					Last Run Summary
+				</h2>
+				{routine.lastRunSummary ? (
+					<p className="text-xs text-[var(--text-secondary)]">{routine.lastRunSummary}</p>
+				) : (
+					<p className="text-xs text-[var(--text-tertiary)]">No previous runs</p>
+				)}
 			</section>
 
 			{/* Recent runs section */}

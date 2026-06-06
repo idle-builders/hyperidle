@@ -1,4 +1,5 @@
 import {
+	bets,
 	type HyperIdleDb,
 	routineRuns,
 	routines,
@@ -7,7 +8,13 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { isBuiltinRoutineId, type PostBetRetroArgs, runBuiltinRoutine } from "@hyperidle/fabric";
+import {
+	isBuiltinRoutineId,
+	type PostBetRetroArgs,
+	parseCron,
+	runBuiltinRoutine,
+	shouldCoalesce,
+} from "@hyperidle/fabric";
 import {
 	API_ERROR_CODES,
 	type CurrencyCode,
@@ -19,14 +26,45 @@ import {
 	type RoutineRunSummary,
 	type SessionStartedEvent,
 } from "@hyperidle/shared";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import type { AdapterPool } from "../harness/adapter-pool.js";
+import type { WorkspaceAdapter } from "../harness/workspace-adapter.js";
 import { validateBody } from "../middleware/validate.js";
 import { deriveInitials } from "../services/agent-utils.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
+import { type ProvisionSessionDeps, provisionSession } from "../services/session-provisioning.js";
+
+/**
+ * AA2: Optional dependency injection for routine trigger provisioning.
+ * When adapterPool and workspaceAdapter are both present, POST /:id/trigger
+ * routes through provisionSession instead of a bare DB insert.
+ *
+ * @lore AA2: Mirrors the SessionRouteDeps pattern from sessions-routes.ts.
+ * Kernel-only deployments (no adapters) fall back to the raw DB insert path
+ * for backward compat.
+ */
+export interface RoutineProvisionDeps {
+	readonly adapterPool?: AdapterPool;
+	readonly workspaceAdapter?: WorkspaceAdapter;
+	readonly workspaceBasePath?: string;
+}
 
 const ROUTINE_STATE_VALUES = ROUTINE_STATES as readonly [string, ...string[]];
+
+/**
+ * AA2: Schema for POST /api/routines (create routine).
+ */
+const createRoutineSchema = z.object({
+	name: z.string().min(1).max(200),
+	description: z.string().max(2000).optional(),
+	teamId: z.string().min(1),
+	ownerAgentId: z.string().min(1),
+	triggerType: z.literal("calendar"),
+	triggerConfig: z.string().min(1),
+	costCapPerRunMinor: z.number().int().min(0).nullable().optional(),
+});
 
 const updateRoutineSchema = z.object({
 	active: z.boolean().optional(),
@@ -37,6 +75,8 @@ const updateRoutineSchema = z.object({
 	state: z.enum(ROUTINE_STATE_VALUES as [string, ...string[]]).optional(),
 	name: z.string().min(1).optional(),
 	description: z.string().optional(),
+	// AA2: cost cap per run
+	costCapPerRunMinor: z.number().int().min(0).nullable().optional(),
 });
 
 /**
@@ -48,15 +88,195 @@ function stateToActive(state: string): boolean {
 }
 
 /**
- * Create Hono routes for routine endpoints (E6).
+ * AA2: Find a reference task ID for a routine session.
+ * Prefers the routine's stub task; falls back to any agent task for pre-AA2 routines.
+ * Returns null when no tasks exist at all.
  */
-export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
+async function findReferenceTaskId(
+	db: HyperIdleDb,
+	routine: { stubTaskId: string | null; ownerAgentId: string },
+): Promise<string | null> {
+	if (routine.stubTaskId) return routine.stubTaskId;
+
+	// Legacy path: pre-AA2 routines without a stub task
+	const [ownerTask] = await db
+		.select({ id: tasks.id })
+		.from(tasks)
+		.where(eq(tasks.ownerAgentId, routine.ownerAgentId))
+		.limit(1);
+	if (ownerTask) return ownerTask.id;
+
+	const [anyTask] = await db.select({ id: tasks.id }).from(tasks).limit(1);
+	return anyTask?.id ?? null;
+}
+
+/**
+ * Create Hono routes for routine endpoints (E6).
+ *
+ * @param provisionDeps - Optional adapter deps for full provisionSession path.
+ *   When present, POST /:id/trigger runs the full 11-phase provisioning orchestrator.
+ *   When absent, falls back to a bare DB insert (kernel-only / test mode).
+ */
+export function createRoutineRoutes(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	provisionDeps?: RoutineProvisionDeps,
+): Hono {
 	const router = new Hono();
 
-	// GET / — List all routines
+	// POST / — Create routine (AA2 AC-1)
+	router.post("/", validateBody(createRoutineSchema), async (c) => {
+		const body = c.req.valid("json" as never) as z.infer<typeof createRoutineSchema>;
+
+		// Verify teamId exists
+		const [team] = await db.select().from(teams).where(eq(teams.id, body.teamId)).limit(1);
+		if (!team) {
+			return c.json({ error: "Team not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
+
+		// Verify ownerAgentId exists
+		const [agent] = await db.select().from(users).where(eq(users.id, body.ownerAgentId)).limit(1);
+		if (!agent) {
+			return c.json({ error: "Agent not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
+
+		// Validate cron expression
+		let triggerConfigParsed: { cron?: string };
+		try {
+			triggerConfigParsed = JSON.parse(body.triggerConfig) as { cron?: string };
+		} catch {
+			return c.json(
+				{
+					error: "Invalid triggerConfig: must be valid JSON",
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+				},
+				400,
+			);
+		}
+
+		if (!triggerConfigParsed.cron) {
+			return c.json(
+				{
+					error: "Invalid triggerConfig: cron field required",
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+				},
+				400,
+			);
+		}
+
+		try {
+			parseCron(triggerConfigParsed.cron);
+		} catch {
+			return c.json(
+				{ error: "Invalid cron expression", code: API_ERROR_CODES.VALIDATION_ERROR },
+				400,
+			);
+		}
+
+		const routineId = crypto.randomUUID();
+		const now = new Date().toISOString();
+
+		// Create stub task (AA2: dedicated task to satisfy sessions.taskId NOT NULL FK)
+		const stubTaskId = crypto.randomUUID();
+
+		// Find any existing bet to parent the stub task (required NOT NULL FK)
+		const [anyBet] = await db.select().from(bets).where(eq(bets.teamId, body.teamId)).limit(1);
+		const [anyBetFallback] = anyBet ? [] : await db.select().from(bets).limit(1);
+		const betForStub = anyBet ?? anyBetFallback;
+
+		if (!betForStub) {
+			// No bet exists at all — create a minimal system bet to parent the stub task
+			// @lore AA2: If no bets exist (e.g. fresh install), we need a bet to satisfy
+			// the tasks.betId NOT NULL constraint. We create a "Routine Operations" system
+			// bet per team. This is a one-time creation; subsequent routines in the same
+			// team reuse it.
+			const systemBetId = crypto.randomUUID();
+			await db.insert(bets).values({
+				id: systemBetId,
+				teamId: body.teamId,
+				description: "Routine Operations (system)",
+				status: "active",
+				createdAt: now,
+			});
+			await db.insert(tasks).values({
+				id: stubTaskId,
+				betId: systemBetId,
+				teamId: body.teamId,
+				title: `Routine: ${body.name}`,
+				state: "accepted",
+				ownerAgentId: body.ownerAgentId,
+				createdAt: now,
+				updatedAt: now,
+			});
+		} else {
+			await db.insert(tasks).values({
+				id: stubTaskId,
+				betId: betForStub.id,
+				teamId: body.teamId,
+				title: `Routine: ${body.name}`,
+				state: "accepted",
+				ownerAgentId: body.ownerAgentId,
+				createdAt: now,
+				updatedAt: now,
+			});
+		}
+
+		// Compute nextRunAt from the cron expression
+		const { nextCronMatch } = await import("@hyperidle/fabric");
+		let nextRunAt: string | null = null;
+		try {
+			const cron = parseCron(triggerConfigParsed.cron);
+			nextRunAt = nextCronMatch(cron, new Date()).toISOString();
+		} catch {
+			// Should not reach here — already validated above
+		}
+
+		await db.insert(routines).values({
+			id: routineId,
+			name: body.name,
+			description: body.description ?? null,
+			teamId: body.teamId,
+			ownerAgentId: body.ownerAgentId,
+			triggerType: body.triggerType,
+			triggerConfig: body.triggerConfig,
+			state: "active",
+			active: true,
+			createdAt: now,
+			costCapPerRunMinor: body.costCapPerRunMinor ?? null,
+			stubTaskId,
+			nextRunAt,
+		});
+
+		const [created] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
+		return c.json(created, 201);
+	});
+
+	// GET / — List all non-deleted routines (AA2: filter soft-deleted)
 	router.get("/", async (c) => {
-		const allRoutines = await db.select().from(routines);
+		const allRoutines = await db.select().from(routines).where(isNull(routines.deletedAt));
 		return c.json(allRoutines);
+	});
+
+	// DELETE /:id — Soft delete routine (AA2 AC-2)
+	router.delete("/:id", async (c) => {
+		const routineId = c.req.param("id");
+
+		const [existing] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
+		if (!existing || existing.deletedAt) {
+			return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
+
+		const now = new Date().toISOString();
+		await db
+			.update(routines)
+			.set({
+				deletedAt: now,
+				state: "paused",
+				active: false,
+			})
+			.where(eq(routines.id, routineId));
+
+		return c.json({ deleted: true, deletedAt: now });
 	});
 
 	// GET /:id — RoutineDetail with run history (AC-5)
@@ -64,7 +284,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		const routineId = c.req.param("id");
 
 		const [routine] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
-		if (!routine) {
+		if (!routine || routine.deletedAt) {
 			return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
@@ -109,6 +329,8 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 						? { minor: run.costMinor, currency: (run.costCurrency ?? "USD") as CurrencyCode }
 						: null,
 				errorMessage: run.errorMessage ?? null,
+				// AA2: per-run summary
+				summary: run.summary ?? null,
 			};
 		});
 
@@ -138,7 +360,16 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 							currency: (routine.costActualCurrency ?? "USD") as CurrencyCode,
 						}
 					: null,
-			createdAt: null,
+			createdAt: routine.createdAt ?? null,
+			// AA2: new fields
+			costCapPerRun:
+				routine.costCapPerRunMinor != null
+					? {
+							minor: routine.costCapPerRunMinor,
+							currency: "USD" as CurrencyCode,
+						}
+					: null,
+			lastRunSummary: routine.lastRunSummary ?? null,
 		};
 
 		const detail: RoutineDetail = {
@@ -168,7 +399,8 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		const body = c.req.valid("json" as never) as z.infer<typeof updateRoutineSchema>;
 
 		const [existing] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
-		if (!existing) {
+		// AA2: treat soft-deleted routines as not found for PATCH
+		if (!existing || existing.deletedAt) {
 			return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
@@ -185,6 +417,8 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			// Sync active boolean with state for backward compat
 			updates.active = stateToActive(body.state);
 		}
+		// AA2: cost cap per run (null removes the cap)
+		if ("costCapPerRunMinor" in body) updates.costCapPerRunMinor = body.costCapPerRunMinor ?? null;
 
 		if (Object.keys(updates).length > 0) {
 			await db.update(routines).set(updates).where(eq(routines.id, routineId));
@@ -253,31 +487,102 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		const sessionId = crypto.randomUUID();
 		const now = new Date().toISOString();
 
-		// Create a stub task for the routine trigger (D5 stub — no real orchestration)
-		// Find the routine owner's team to satisfy FK constraints
-		const ownerTasks = await db
-			.select()
-			.from(tasks)
-			.where(eq(tasks.ownerAgentId, routine.ownerAgentId));
-		let referenceTaskId: string;
+		// AA2: Coalescing — skip if a session for this routine is already active
+		const coalesced = await shouldCoalesce(db, routineId);
+		if (coalesced) {
+			// Record a skipped run
+			const runId = crypto.randomUUID();
+			await db.insert(routineRuns).values({
+				id: runId,
+				routineId,
+				startedAt: now,
+				outcome: "skipped",
+				errorMessage: "Coalesced: previous session still active",
+			});
+			return c.json({ routineId, fired: false, reason: "coalesced" }, 200);
+		}
 
-		if (ownerTasks.length > 0) {
-			// Use an existing task owned by the agent
-			referenceTaskId = ownerTasks[0].id;
-		} else {
-			// Find any task to get required FK fields, or create a minimal stub
-			const anyTask = await db.select().from(tasks);
-			if (anyTask.length > 0) {
-				referenceTaskId = anyTask[0].id;
-			} else {
-				// No tasks exist — cannot create session without valid task FK
+		// Determine the task ID for the session FK
+		// AA2: Prefer the routine's stub task (created at routine creation)
+		// Fall back to searching for any agent task (pre-AA2 routines without stub task)
+		const referenceTaskId = await findReferenceTaskId(db, routine);
+		if (!referenceTaskId) {
+			return c.json(
+				{ error: "No tasks available for session creation", code: API_ERROR_CODES.CONFLICT },
+				409,
+			);
+		}
+
+		// AA2: Full provisionSession path when adapters are present.
+		// Reuses the 11-phase provisioning orchestrator with routine context.
+		if (provisionDeps?.adapterPool && provisionDeps.workspaceAdapter) {
+			const workspaceBasePath = provisionDeps.workspaceBasePath ?? "/tmp/hyperidle-workspaces";
+
+			// Insert the routine_run row before provisioning (outcome="running").
+			// The session lifecycle hook (endSession/crashSession) will update it on completion.
+			const runId = crypto.randomUUID();
+			// We need the sessionId upfront to link routine_run.sessionId; however
+			// provisionSession generates its own sessionId internally. We insert
+			// the routine_run without a sessionId here and the lifecycle hook
+			// will match by routineId + outcome="running". We pre-insert to record
+			// the intent regardless of provision success.
+			await db.insert(routineRuns).values({
+				id: runId,
+				routineId,
+				startedAt: now,
+				outcome: "running",
+			});
+
+			// Update routine lastRunAt optimistically.
+			await db.update(routines).set({ lastRunAt: now }).where(eq(routines.id, routineId));
+
+			const sessionDeps: ProvisionSessionDeps = {
+				db,
+				eventBus,
+				adapterPool: provisionDeps.adapterPool,
+				workspace: provisionDeps.workspaceAdapter,
+			};
+
+			try {
+				const result = await provisionSession(sessionDeps, {
+					taskId: referenceTaskId,
+					agentId: routine.ownerAgentId,
+					productId: routine.teamId,
+					workspaceBasePath,
+					routineId,
+				});
+
+				// @lore AA2: provisionSession generates its own sessionId internally.
+				// We inserted the routine_run row (with sessionId=null) before calling
+				// provisionSession so the intent is recorded even if provisioning fails.
+				// Now that provisioning succeeded we back-populate sessionId so the
+				// session-lifecycle hook (endSession/crashSession) can find this run row
+				// via `WHERE sessionId = <session-id>` and update its outcome.
+				await db
+					.update(routineRuns)
+					.set({ sessionId: result.sessionId })
+					.where(eq(routineRuns.id, runId));
+
 				return c.json(
-					{ error: "No tasks available for session creation", code: API_ERROR_CODES.CONFLICT },
-					409,
+					{ routineId, fired: true, sessionId: result.sessionId, outcome: result.outcome },
+					200,
 				);
+			} catch (err) {
+				// Provision failed — update the run row to error outcome.
+				const endedAt = new Date().toISOString();
+				await db
+					.update(routineRuns)
+					.set({
+						outcome: "error",
+						endedAt,
+						errorMessage: err instanceof Error ? err.message : String(err),
+					})
+					.where(eq(routineRuns.id, runId));
+				throw err;
 			}
 		}
 
+		// ── Fallback: bare DB insert (kernel-only / test mode) ──────────────────
 		// Create a session for the routine's agent
 		await db.insert(sessions).values({
 			id: sessionId,
@@ -289,13 +594,16 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			routineId: routineId,
 		});
 
-		// AA1: Insert a routine_run row to track this manual trigger
+		// AA1: Insert a routine_run row to track this manual trigger.
+		// AA2: outcome starts as "running" (updated to success/error when session ends).
+		// AA2: sessionId links this run to the session for lifecycle updates.
 		const runId = crypto.randomUUID();
 		await db.insert(routineRuns).values({
 			id: runId,
 			routineId: routineId,
 			startedAt: now,
-			outcome: "success",
+			outcome: "running",
+			sessionId: sessionId,
 		});
 
 		// Update routine lastRunAt

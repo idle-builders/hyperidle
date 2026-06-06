@@ -3,9 +3,11 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { bets, type HyperIdleDb, sessions, tasks, users } from "@hyperidle/db";
 import {
+	buildRoutineSessionContextData,
 	buildSessionContextData,
 	checkCostCap,
 	composePrompt,
+	composeRoutinePrompt,
 	type FileWatcher,
 	type FileWatcherConfig,
 	materialize,
@@ -193,6 +195,17 @@ export interface ProvisionSessionParams {
 	 * calls including summarization (slightly higher cost, functionally equivalent).
 	 */
 	readonly resolvedFastModel?: import("@hyperidle/shared").ResolvedModel;
+	/**
+	 * AA2: When set, this session is a routine session. The provisioning orchestrator
+	 * will use routine context (buildRoutineSessionContextData + composeRoutinePrompt)
+	 * instead of task/bet context, and will populate sessions.routineId.
+	 *
+	 * @lore AA2: routineId is optional — normal task sessions omit it. When present,
+	 * context assembly switches to the routine path which reads from the routines
+	 * table rather than tasks/bets. The stub taskId is still required to satisfy
+	 * the sessions.taskId NOT NULL FK.
+	 */
+	readonly routineId?: string;
 }
 
 export interface ProvisionSessionResult {
@@ -315,6 +328,8 @@ export async function provisionSession(
 			startedAt,
 			state: "active",
 			workspaceSnapshot: workspacePath,
+			// AA2: populate routineId when this is a routine session.
+			...(params.routineId ? { routineId: params.routineId } : {}),
 		});
 
 		// ── Phase 6: materialize knowledge into the workspace.
@@ -358,6 +373,8 @@ export async function provisionSession(
 		taskId: params.taskId,
 		workspacePath,
 		watcher,
+		// AA2: pass routineId so endSession/crashSession can update routine_runs.
+		...(params.routineId ? { routineId: params.routineId } : {}),
 	};
 
 	// ── Phase 8: build tool registry bound to this context.
@@ -391,25 +408,48 @@ export async function provisionSession(
 	// place it here because the composed prompt requires tool definitions from
 	// Phase 8. The spec's intent (CLAUDE.md exists before harness start) is
 	// preserved — Phase 8.5 runs before Phase 9 (harness start).
-	const sessionContextData = await buildSessionContextData(db, {
-		sessionId,
-		taskId: params.taskId,
-		agentId: params.agentId,
-		agentRole,
-		productId: params.productId,
-	});
+	//
+	// @lore AA2: When params.routineId is set, use routine context assembly
+	// (buildRoutineSessionContextData + composeRoutinePrompt) instead of task/bet
+	// context. The stub taskId satisfies the FK but is NOT used for context.
 
 	const toolSummaries: ToolSummary[] = toolsForRole(agentRole).map((d) => ({
 		name: d.name,
 		description: d.description,
 	}));
 
-	const { composedPrompt } = await composePrompt({
-		soulPromptText,
-		context: sessionContextData,
-		tools: toolSummaries,
-		workspacePath,
-	});
+	let composedPrompt: string;
+	if (params.routineId) {
+		// Routine session: read routine + agent + team context (no task/bet).
+		const routineContextData = await buildRoutineSessionContextData(db, {
+			sessionId,
+			routineId: params.routineId,
+			agentId: params.agentId,
+			agentRole,
+			teamId: params.productId,
+		});
+		({ composedPrompt } = await composeRoutinePrompt({
+			soulPromptText,
+			context: routineContextData,
+			tools: toolSummaries,
+			workspacePath,
+		}));
+	} else {
+		// Normal task session: read task + bet + agent + team context.
+		const sessionContextData = await buildSessionContextData(db, {
+			sessionId,
+			taskId: params.taskId,
+			agentId: params.agentId,
+			agentRole,
+			productId: params.productId,
+		});
+		({ composedPrompt } = await composePrompt({
+			soulPromptText,
+			context: sessionContextData,
+			tools: toolSummaries,
+			workspacePath,
+		}));
+	}
 
 	writeWorkspaceCLAUDEmd(workspacePath, composedPrompt);
 

@@ -1,7 +1,7 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type HyperIdleDb, sessions, users } from "@hyperidle/db";
+import { type HyperIdleDb, routineRuns, routines, sessions, users } from "@hyperidle/db";
 import {
 	type FileWatcher,
 	type FileWatcherConfig,
@@ -35,12 +35,80 @@ export interface SessionContext {
 	watcher: FileWatcher;
 	/** Correlates every observability event for this session (H3). */
 	traceId: string;
+	/**
+	 * AA2: When set, this session belongs to a routine. Used by endSession/crashSession
+	 * to update routine_runs outcome and routines.lastRunSummary on completion.
+	 */
+	routineId?: string;
 }
 
 // @lore O1: resolveCostBaseline and costDelta removed from session_ended
 // as part of kernel/strategy separation. Session cost tracking is a
 // strategy concern, not kernel. The observability layer no longer receives
 // costDelta — intentional gap, cost signals belong in the strategy layer.
+
+/**
+ * AA2: Update the routine_runs row and routines last-run fields when a routine
+ * session ends (normally or via crash).
+ *
+ * Finds the routine_run row with outcome="running" for this routine, then
+ * updates it with the final outcome, sessionId, endedAt, cost, and summary.
+ * Also updates routines.lastRunAt and routines.lastRunSummary.
+ *
+ * @lore AA2: Match on routineId+outcome="running", NOT sessionId. The
+ * routine_runs row is inserted with outcome="running" and sessionId=NULL
+ * by the trigger handler before provisionSession is called. The sessionId
+ * back-population happens AFTER provisionSession returns — too late for this
+ * hook to use it as a filter. Coalescing guarantees at most one "running" row
+ * per routine at any time, so routineId+outcome is a safe unique key.
+ * sessionId is set here in the UPDATE so the historical record is complete.
+ */
+async function updateRoutineRunOnSessionEnd(
+	db: HyperIdleDb,
+	routineId: string,
+	sessionId: string,
+	outcome: "success" | "error",
+	endedAt: string,
+	costInCents: number,
+	summary?: string,
+): Promise<void> {
+	// Find the routine_run row that is still "running" for this routine.
+	// NOTE: Do NOT filter by sessionId — it may be NULL on the row when this
+	// hook fires (see @lore above).
+	const [run] = await db
+		.select({ id: routineRuns.id })
+		.from(routineRuns)
+		.where(and(eq(routineRuns.routineId, routineId), eq(routineRuns.outcome, "running")))
+		.limit(1);
+
+	if (!run) {
+		// No matching running run — pre-AA2 session or already finalized. No-op.
+		return;
+	}
+
+	await db
+		.update(routineRuns)
+		.set({
+			outcome,
+			// Set sessionId here so the historical record is complete even though
+			// it was NULL when the row was first inserted.
+			sessionId,
+			endedAt,
+			costMinor: costInCents > 0 ? costInCents : null,
+			costCurrency: costInCents > 0 ? "USD" : null,
+			...(summary ? { summary } : {}),
+		})
+		.where(eq(routineRuns.id, run.id));
+
+	// Update routines.lastRunAt and lastRunSummary.
+	await db
+		.update(routines)
+		.set({
+			lastRunAt: endedAt,
+			...(summary ? { lastRunSummary: summary } : {}),
+		})
+		.where(eq(routines.id, routineId));
+}
 
 /**
  * Create a new agent session: check concurrency, set up workspace,
@@ -169,6 +237,18 @@ export async function endSession(
 		outcome: "completed",
 	});
 
+	// 4. AA2: If this is a routine session, update the routine_run row.
+	if (context.routineId) {
+		await updateRoutineRunOnSessionEnd(
+			db,
+			context.routineId,
+			context.sessionId,
+			"success",
+			now,
+			costInCents,
+		);
+	}
+
 	// 5. Drop the cost-cap dedup state so the per-session map doesn't grow
 	//    unboundedly across the factory's lifetime (I3 / TRACK-I.md L156-159).
 	releaseSessionDedup(context.sessionId);
@@ -225,6 +305,18 @@ export async function crashSession(
 		timestamp: Date.now(),
 		outcome: "crashed",
 	});
+
+	// 4. AA2: If this is a routine session, update the routine_run row with error outcome.
+	if (context.routineId) {
+		await updateRoutineRunOnSessionEnd(
+			db,
+			context.routineId,
+			context.sessionId,
+			"error",
+			now,
+			costInCents,
+		);
+	}
 
 	// 5. Release cost-cap dedup state (mirror endSession). Crashes still need
 	//    to reclaim the per-session entry — see I3 / TRACK-I.md L156-159.

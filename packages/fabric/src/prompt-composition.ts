@@ -22,7 +22,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { createLogger } from "@hyperidle/shared";
 import { communityForRole } from "./role-community-map.js";
-import type { SessionContextData } from "./session-context.js";
+import type { RoutineSessionContextData, SessionContextData } from "./session-context.js";
 import { countTokens } from "./token-budget.js";
 
 const logger = createLogger({ pkg: "fabric.prompt-composition" });
@@ -256,4 +256,104 @@ export async function composePrompt(
 export function writeWorkspaceCLAUDEmd(workspacePath: string, composedPrompt: string): void {
 	const claudeMdPath = path.join(workspacePath, "CLAUDE.md");
 	fs.writeFileSync(claudeMdPath, composedPrompt, "utf8");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AA2: Routine prompt composition
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Input to routine prompt composition (AA2). */
+export interface RoutinePromptCompositionInput {
+	readonly soulPromptText: string;
+	/** Routine session context data — no task/bet fields. */
+	readonly context: RoutineSessionContextData;
+	readonly tools: readonly ToolSummary[];
+	readonly workspacePath: string;
+}
+
+/**
+ * Build the routine section markdown (AA2).
+ * Replaces buildTaskSection for routine sessions — shows routine name/purpose
+ * and last run summary instead of task/bet context.
+ */
+function buildRoutineTaskSection(context: RoutineSessionContextData): string {
+	const parts: string[] = ["## Routine", "", `**Name:** ${context.routine.name}`];
+
+	if (context.routine.description) {
+		parts.push(`**Purpose:** ${context.routine.description}`);
+	}
+
+	parts.push("");
+	parts.push("### Last Run Summary");
+	parts.push("");
+
+	if (context.routine.lastRunSummary) {
+		parts.push(context.routine.lastRunSummary);
+	} else {
+		parts.push("This is the first run of this routine.");
+	}
+
+	parts.push("");
+
+	return parts.join("\n");
+}
+
+/**
+ * Compose a complete routine session instruction prompt (AA2).
+ * Parallel to composePrompt but uses buildRoutineTaskSection instead of buildTaskSection.
+ *
+ * @lore AA2: composeRoutinePrompt is a standalone function (not a branch inside
+ * composePrompt) because the context types are fundamentally different:
+ * RoutineSessionContextData has no task/bet fields. Keeping them separate avoids
+ * a type union that would require discriminated checks in every section builder.
+ */
+export async function composeRoutinePrompt(
+	input: RoutinePromptCompositionInput,
+): Promise<PromptCompositionResult> {
+	const { soulPromptText, context, tools, workspacePath: _workspacePath } = input;
+
+	// Build persona section from inline text (same as composePrompt)
+	let personaSection = "";
+	if (soulPromptText.length > 0) {
+		const stripped = stripFrontmatter(soulPromptText);
+		// For routine sessions, use team name as the product variable
+		const vars: Record<string, string> = {
+			product: context.team.name,
+			community: communityForRole(context.agent.role),
+		};
+		personaSection = substituteTemplateVars(stripped, vars);
+	}
+
+	const toolsContent = buildToolsSection(tools);
+
+	// Enforce token budget on persona + tools
+	const personaTokens = countTokens(personaSection);
+	const toolsTokens = countTokens(toolsContent);
+	let personaToolsTokens = personaTokens + toolsTokens;
+
+	if (personaToolsTokens > PERSONA_TOOLS_TOKEN_BUDGET && personaSection.length > 0) {
+		logger.warn(
+			`Routine persona + tools section exceeds ${PERSONA_TOOLS_TOKEN_BUDGET} tokens (${personaToolsTokens}). Truncating persona.`,
+		);
+		personaSection = `${truncatePersona(personaSection)}\n\n(Persona truncated to fit token budget.)`;
+		personaToolsTokens = countTokens(personaSection) + toolsTokens;
+	}
+
+	// Assemble sections
+	const parts: string[] = ["# Session Instructions", ""];
+
+	if (personaSection.length > 0) {
+		parts.push("## Identity", "", personaSection.trimEnd(), "");
+	}
+
+	const routineSection = buildRoutineTaskSection(context);
+	parts.push(routineSection);
+
+	parts.push(toolsContent);
+
+	parts.push(WORKSPACE_SECTION);
+
+	const composedPrompt = parts.join("\n");
+
+	return { composedPrompt, personaToolsTokens };
 }

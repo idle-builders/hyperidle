@@ -169,6 +169,13 @@
 			"when": 1783000000000,
 			"tag": "0023_AA1_routine_visibility",
 			"breakpoints": true
+		},
+		{
+			"idx": 24,
+			"version": "7",
+			"when": 1783100000000,
+			"tag": "0024_brainy_moondragon",
+			"breakpoints": true
 		}
 	]
 }

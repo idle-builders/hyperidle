@@ -308,6 +308,27 @@ function computeNextRunAt(routine: Routine, now: Date): string {
 	return "";
 }
 
+// --- Coalescing (AA2) ---
+
+/**
+ * Returns true if there is an active session for the given routineId.
+ * Used to coalesce (skip) a routine trigger when a previous run is still in progress.
+ *
+ * @lore AA2: Coalescing prevents double-firing when the scheduler beat arrives
+ * before the previous session has completed. Both checkAndFireRoutine and the
+ * manual trigger endpoint (POST /api/routines/:id/trigger) call this helper.
+ * Only sessions with state='active' count — completed, crashed, or timed-out
+ * sessions do not block new runs.
+ */
+export async function shouldCoalesce(db: HyperIdleDb, routineId: string): Promise<boolean> {
+	const [activeSession] = await db
+		.select({ id: sessions.id })
+		.from(sessions)
+		.where(and(eq(sessions.routineId, routineId), eq(sessions.state, "active")))
+		.limit(1);
+	return activeSession !== undefined;
+}
+
 // --- Core: check and fire a routine ---
 
 export async function checkAndFireRoutine(
