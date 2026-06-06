@@ -242,16 +242,16 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 						data-testid="routine-delete-inline"
 					>
 						<span className="text-xs text-[var(--text-secondary)] flex-1">
-							Delete this routine? This cannot be undone.
+							Delete this routine? History will be preserved.
 						</span>
 						<button
 							type="button"
-							className="btn btn-error btn-sm min-h-[44px]"
+							className="btn btn-ghost btn-sm min-h-[44px] text-[var(--status-error)]"
 							onClick={() => void handleDeleteConfirm()}
 							disabled={actionPending}
 							data-testid="routine-delete-confirm"
 						>
-							Delete
+							Confirm delete
 						</button>
 						<button
 							type="button"
@@ -287,7 +287,7 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 						<div className="flex-1" />
 						<button
 							type="button"
-							className="btn btn-ghost btn-sm text-error"
+							className="btn btn-ghost btn-sm text-[var(--status-error)]"
 							onClick={() => setShowDeleteConfirm(true)}
 							disabled={actionPending}
 							data-testid="routine-delete-btn"

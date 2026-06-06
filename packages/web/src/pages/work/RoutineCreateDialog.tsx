@@ -137,7 +137,7 @@ export function RoutineCreateDialog({
 	return (
 		<dialog ref={dialogRef} aria-modal="true" aria-label="Create new routine">
 			{open && (
-				<div className="p-[18px] flex flex-col gap-[9px] min-w-[340px] max-w-[520px] w-full">
+				<div className="p-[18px] flex flex-col gap-[9px] min-w-[320px] max-w-[480px] w-full">
 					<h2 className="text-sm font-heading font-semibold uppercase tracking-wider">
 						New routine
 					</h2>

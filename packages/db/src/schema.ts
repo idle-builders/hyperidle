@@ -292,8 +292,10 @@ export const routines = pgTable(
 		 * The stub task is never worked on directly and is invisible in task lists.
 		 * When the routine is soft-deleted, the stub task remains (no orphan on delete
 		 * since we only soft-delete routines in AA2).
+		 * ON DELETE SET NULL: if the stub task is deleted, the routine still exists
+		 * but loses its stub task link (no orphan cascade needed).
 		 */
-		stubTaskId: text("stub_task_id"),
+		stubTaskId: text("stub_task_id").references(() => tasks.id, { onDelete: "set null" }),
 	},
 	(table) => [
 		index("routines_team_id_idx").on(table.teamId),
@@ -324,8 +326,11 @@ export const routineRuns = pgTable(
 		costMinor: integer("cost_minor"),
 		costCurrency: text("cost_currency"),
 		errorMessage: text("error_message"),
-		/** AA2: Link to the session that executed this run. NULL for pre-AA2 runs. */
-		sessionId: text("session_id"),
+		/**
+		 * AA2: Link to the session that executed this run. NULL for pre-AA2 runs.
+		 * ON DELETE SET NULL: deleting a session preserves the run history record.
+		 */
+		sessionId: text("session_id").references(() => sessions.id, { onDelete: "set null" }),
 		/** AA2: Agent-produced summary of this run's outcome. */
 		summary: text("summary"),
 	},

@@ -29,9 +29,27 @@ import {
 import { desc, eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import type { AdapterPool } from "../harness/adapter-pool.js";
+import type { WorkspaceAdapter } from "../harness/workspace-adapter.js";
 import { validateBody } from "../middleware/validate.js";
 import { deriveInitials } from "../services/agent-utils.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
+import { type ProvisionSessionDeps, provisionSession } from "../services/session-provisioning.js";
+
+/**
+ * AA2: Optional dependency injection for routine trigger provisioning.
+ * When adapterPool and workspaceAdapter are both present, POST /:id/trigger
+ * routes through provisionSession instead of a bare DB insert.
+ *
+ * @lore AA2: Mirrors the SessionRouteDeps pattern from sessions-routes.ts.
+ * Kernel-only deployments (no adapters) fall back to the raw DB insert path
+ * for backward compat.
+ */
+export interface RoutineProvisionDeps {
+	readonly adapterPool?: AdapterPool;
+	readonly workspaceAdapter?: WorkspaceAdapter;
+	readonly workspaceBasePath?: string;
+}
 
 const ROUTINE_STATE_VALUES = ROUTINE_STATES as readonly [string, ...string[]];
 
@@ -94,8 +112,16 @@ async function findReferenceTaskId(
 
 /**
  * Create Hono routes for routine endpoints (E6).
+ *
+ * @param provisionDeps - Optional adapter deps for full provisionSession path.
+ *   When present, POST /:id/trigger runs the full 11-phase provisioning orchestrator.
+ *   When absent, falls back to a bare DB insert (kernel-only / test mode).
  */
-export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
+export function createRoutineRoutes(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	provisionDeps?: RoutineProvisionDeps,
+): Hono {
 	const router = new Hono();
 
 	// POST / — Create routine (AA2 AC-1)
@@ -487,6 +513,64 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			);
 		}
 
+		// AA2: Full provisionSession path when adapters are present.
+		// Reuses the 11-phase provisioning orchestrator with routine context.
+		if (provisionDeps?.adapterPool && provisionDeps.workspaceAdapter) {
+			const workspaceBasePath = provisionDeps.workspaceBasePath ?? "/tmp/hyperidle-workspaces";
+
+			// Insert the routine_run row before provisioning (outcome="running").
+			// The session lifecycle hook (endSession/crashSession) will update it on completion.
+			const runId = crypto.randomUUID();
+			// We need the sessionId upfront to link routine_run.sessionId; however
+			// provisionSession generates its own sessionId internally. We insert
+			// the routine_run without a sessionId here and the lifecycle hook
+			// will match by routineId + outcome="running". We pre-insert to record
+			// the intent regardless of provision success.
+			await db.insert(routineRuns).values({
+				id: runId,
+				routineId,
+				startedAt: now,
+				outcome: "running",
+			});
+
+			// Update routine lastRunAt optimistically.
+			await db.update(routines).set({ lastRunAt: now }).where(eq(routines.id, routineId));
+
+			const sessionDeps: ProvisionSessionDeps = {
+				db,
+				eventBus,
+				adapterPool: provisionDeps.adapterPool,
+				workspace: provisionDeps.workspaceAdapter,
+			};
+
+			try {
+				const result = await provisionSession(sessionDeps, {
+					taskId: referenceTaskId,
+					agentId: routine.ownerAgentId,
+					productId: routine.teamId,
+					workspaceBasePath,
+					routineId,
+				});
+				return c.json(
+					{ routineId, fired: true, sessionId: result.sessionId, outcome: result.outcome },
+					200,
+				);
+			} catch (err) {
+				// Provision failed — update the run row to error outcome.
+				const endedAt = new Date().toISOString();
+				await db
+					.update(routineRuns)
+					.set({
+						outcome: "error",
+						endedAt,
+						errorMessage: err instanceof Error ? err.message : String(err),
+					})
+					.where(eq(routineRuns.id, runId));
+				throw err;
+			}
+		}
+
+		// ── Fallback: bare DB insert (kernel-only / test mode) ──────────────────
 		// Create a session for the routine's agent
 		await db.insert(sessions).values({
 			id: sessionId,
@@ -498,13 +582,16 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			routineId: routineId,
 		});
 
-		// AA1: Insert a routine_run row to track this manual trigger
+		// AA1: Insert a routine_run row to track this manual trigger.
+		// AA2: outcome starts as "running" (updated to success/error when session ends).
+		// AA2: sessionId links this run to the session for lifecycle updates.
 		const runId = crypto.randomUUID();
 		await db.insert(routineRuns).values({
 			id: runId,
 			routineId: routineId,
 			startedAt: now,
-			outcome: "success",
+			outcome: "running",
+			sessionId: sessionId,
 		});
 
 		// Update routine lastRunAt

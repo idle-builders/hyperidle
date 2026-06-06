@@ -388,7 +388,14 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route("/threads", createThreadRoutes(options.db, eventBus));
 		api.route("/users", createUserRoutes(options.db, eventBus));
 		api.route("/org", createOrgRoutes(options.db));
-		api.route("/routines", createRoutineRoutes(options.db, eventBus));
+		api.route(
+			"/routines",
+			createRoutineRoutes(options.db, eventBus, {
+				adapterPool: options.adapterPool,
+				workspaceAdapter: options.workspaceAdapter,
+				workspaceBasePath: options.workspaceBasePath,
+			}),
+		);
 		api.route("/recipients", createRecipientRoutes(options.db, eventBus));
 
 		// Q1 §6.1: session activity buffer — subscribe to tool_call_recorded events

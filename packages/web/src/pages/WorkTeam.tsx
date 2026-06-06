@@ -50,6 +50,7 @@ import { useTeam } from "../hooks/useTeam";
 import { useTeamAgents } from "../hooks/useTeamAgents.js";
 import { AgentAddDialog } from "./AgentAddDialog.js";
 import { AgentEditDialog } from "./AgentEditDialog.js";
+import { RoutineCreateDialog } from "./work/RoutineCreateDialog.js";
 
 export interface WorkTeamProps {
 	/**
@@ -193,6 +194,8 @@ function WorkTeamLoaded({
 	// AB3: dialog state
 	const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
 	const [addDialogOpen, setAddDialogOpen] = useState(false);
+	// AA2: routine create dialog state
+	const [createRoutineOpen, setCreateRoutineOpen] = useState(false);
 
 	// AB3: fetch full agent configs for the roster.
 	// @lore AB3: rosterAgentIds MUST be memoized — passing an inline array on
@@ -325,9 +328,20 @@ function WorkTeamLoaded({
 
 			{/* R5 — Routines (AA1): sits after active bets, before roster */}
 			<section aria-label="Team routines" data-testid="team-routines">
-				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
-					Routines
-				</h2>
+				<div className="flex items-center mb-2">
+					<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] flex-1">
+						Routines
+					</h2>
+					<Button
+						variant="ghost"
+						size="sm"
+						type="button"
+						onClick={() => setCreateRoutineOpen(true)}
+						data-testid="new-routine-btn"
+					>
+						+ New routine
+					</Button>
+				</div>
 				<div className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[12px]">
 					{routines.length === 0 ? (
 						<EmptyState
@@ -440,6 +454,19 @@ function WorkTeamLoaded({
 						refetchAgents();
 						setAddDialogOpen(false);
 					}}
+				/>
+			)}
+
+			{/* AA2: Routine create dialog */}
+			{createRoutineOpen && (
+				<RoutineCreateDialog
+					open={createRoutineOpen}
+					onClose={() => setCreateRoutineOpen(false)}
+					onCreated={() => setCreateRoutineOpen(false)}
+					teams={[{ id: team.id, name: team.name }]}
+					agents={roster
+						.filter((m) => m.role !== "human")
+						.map((m) => ({ id: m.agentId, name: m.name }))}
 				/>
 			)}
 		</div>
