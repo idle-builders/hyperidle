@@ -16,6 +16,7 @@ import {
 	EmptyState,
 	ErrorState,
 	KeyValue,
+	Progress,
 	routineStateToStatus,
 	SkeletonCard,
 	StatusChip,
@@ -362,29 +363,19 @@ function BudgetSection({ budget }: { budget: RoutineBudget }): JSX.Element {
 			</div>
 			{budget.perRunUtilizationPercent != null && (
 				<div className="mt-[9px]">
-					<div className="flex justify-between text-[11px] text-[var(--text-tertiary)] mb-[3px]">
-						<span>Per-run budget</span>
-						<span>{budget.perRunUtilizationPercent}%</span>
-					</div>
-					<progress
-						className={`progress w-full ${budget.perRunUtilizationPercent > 80 ? "progress-warning" : "progress-success"}`}
+					<Progress
 						value={budget.perRunUtilizationPercent}
-						max={100}
-						aria-label={`Per-run budget: ${budget.perRunUtilizationPercent}%`}
+						label="Per-run budget"
+						variant={budget.perRunUtilizationPercent > 80 ? "amber" : "green"}
 					/>
 				</div>
 			)}
 			{budget.monthlyUtilizationPercent != null && (
 				<div className="mt-[9px]">
-					<div className="flex justify-between text-[11px] text-[var(--text-tertiary)] mb-[3px]">
-						<span>Monthly budget</span>
-						<span>{budget.monthlyUtilizationPercent}%</span>
-					</div>
-					<progress
-						className={`progress w-full ${budget.monthlyUtilizationPercent > 80 ? "progress-warning" : "progress-success"}`}
+					<Progress
 						value={budget.monthlyUtilizationPercent}
-						max={100}
-						aria-label={`Monthly budget: ${budget.monthlyUtilizationPercent}%`}
+						label="Monthly budget"
+						variant={budget.monthlyUtilizationPercent > 80 ? "amber" : "green"}
 					/>
 					{budget.monthlyUtilizationPercent >= 100 && (
 						<p className="text-[11px] text-[var(--accent-secondary)] mt-[3px]">
