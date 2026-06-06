@@ -265,8 +265,9 @@ describe("AB2 AC-4: Health computed from AB1 signals", () => {
 		expect(agent?.operationalStatus).toBe("error");
 	});
 
-	it("sets healthLevel=warning when lastSessionCrashed=true but failureRate<=50%", async () => {
-		// 1 crash (most recent) + 2 success = 33% failure rate; last is a crash
+	it("sets healthLevel=critical when lastSessionCrashed=true (regardless of failureRate)", async () => {
+		// Per architecture: critical when failureRate7d > 0.5 OR lastSessionCrashed.
+		// 1 crash (most recent) + 2 success = 33% failure rate; last is a crash → critical
 		await db.insert(sessions).values([
 			{
 				id: "ab2-warn-s1",
@@ -305,8 +306,9 @@ describe("AB2 AC-4: Health computed from AB1 signals", () => {
 		const roster = body.roster as Array<Record<string, unknown>>;
 		const agent = roster.find((m) => m.agentId === "ab2-agent-idle");
 
-		// lastSessionCrashed + failureRate ~33% → degraded but not critical → warning
-		expect(agent?.healthLevel).toBe("warning");
+		// lastSessionCrashed=true → critical (per architecture spec §4c)
+		expect(agent?.healthLevel).toBe("critical");
+		expect(agent?.operationalStatus).toBe("error");
 	});
 
 	it("returns healthy for agent with all successful sessions", async () => {

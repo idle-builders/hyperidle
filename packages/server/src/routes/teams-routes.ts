@@ -21,14 +21,19 @@
 import {
 	bets,
 	type HyperIdleDb,
+	notificationQueue,
 	routineRuns,
 	routines,
+	sessions,
 	tasks,
 	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
+import { enqueueNotification } from "@hyperidle/fabric";
 import type {
+	AgentHealthLevel,
+	AgentOperationalStatus,
 	BetCardSummary,
 	CreateTeamRequest,
 	CreateTeamResponse,
@@ -44,9 +49,16 @@ import type {
 import { deriveTitle } from "@hyperidle/shared";
 import { and, count, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
+import type { AdapterPool } from "../harness/adapter-pool.js";
 import { deriveInitials } from "../services/agent-utils.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
 import { ApiError, loadTeamMembers } from "../services/team-lookup.js";
+import {
+	computeHealthSignals,
+	deriveHealthDetail,
+	deriveHealthLevel,
+	resolveHarnessAvailable,
+} from "./agent-profile.js";
 
 /**
  * Derive team status from team_members and active bet states.
@@ -85,7 +97,54 @@ function toWireMoney(
 	return { minor, currency: (currency ?? "USD") as CurrencyCode };
 }
 
-export function createTeamRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
+/**
+ * AB2: Enqueue a health-degraded notification for an agent, unless one is
+ * already pending. Throttles by (subjectId + eventType) so a single team
+ * page load never floods the queue.
+ *
+ * @lore AB2: Notification fires on every GET /teams/:id that finds an agent
+ * in error state. The "already pending" guard is the dedup/throttle — we check
+ * for an existing pending row before inserting, preventing duplicates when the
+ * page is refreshed.
+ */
+async function maybeNotifyAgentError(
+	db: HyperIdleDb,
+	member: RosterMember,
+	teamName: string,
+): Promise<void> {
+	// Check for existing pending notification for this agent
+	const [existing] = await db
+		.select({ id: notificationQueue.id })
+		.from(notificationQueue)
+		.where(
+			and(
+				eq(notificationQueue.eventType, "agent.health.degraded"),
+				eq(notificationQueue.subjectId, member.agentId),
+				eq(notificationQueue.status, "pending"),
+			),
+		)
+		.limit(1);
+
+	if (existing) return; // already pending — throttled
+
+	await enqueueNotification(db, {
+		eventType: "agent.health.degraded",
+		subjectId: member.agentId,
+		severity: "blocking",
+		title: `Agent ${member.name} needs attention`,
+		body: `${member.name} on team ${teamName}: ${member.healthDetail ?? "Error state detected"}`,
+		reason: "agent_health_transition",
+		channel: null,
+		now: new Date(),
+	});
+}
+
+export function createTeamRoutes(
+	db: HyperIdleDb,
+	_eventBus: EventBus,
+	/** AB2: adapter pool for resolving harness availability per agent. */
+	adapterPool?: AdapterPool,
+): Hono {
 	const router = new Hono();
 
 	// GET / — list all teams with portfolio counters
@@ -156,6 +215,79 @@ export function createTeamRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 					.where(and(eq(routines.teamId, team.id), isNull(routines.deletedAt)));
 				const routineCount = routineCountRow?.count ?? 0;
 
+				// AB2: agent summary — count AI agents and compute health warning.
+				// Re-use computeHealthSignals for accurate health checks (reviewer S4).
+				const teamAgentRows = memberGroup
+					? await db
+							.select({ id: users.id, harnessType: users.harnessType })
+							.from(users)
+							.where(and(eq(users.teamId, memberGroup.id), eq(users.kind, "ai")))
+					: [];
+
+				const agentCount = teamAgentRows.length;
+				let activeAgentCount = 0;
+				let agentHealthWarning = false;
+
+				if (agentCount > 0) {
+					const teamAgentIds = teamAgentRows.map((a) => a.id);
+					// Batch fetch all sessions for all agents
+					const allTeamAgentSessions = await db
+						.select({
+							agentId: sessions.agentId,
+							startedAt: sessions.startedAt,
+							endedAt: sessions.endedAt,
+							state: sessions.state,
+							outcome: sessions.outcome,
+						})
+						.from(sessions)
+						.where(inArray(sessions.agentId, teamAgentIds))
+						.orderBy(desc(sessions.startedAt));
+
+					// Group by agentId
+					const sessMap = new Map<
+						string,
+						Array<{
+							startedAt: string;
+							endedAt: string | null;
+							state: string | null;
+							outcome: string | null;
+						}>
+					>();
+					for (const s of allTeamAgentSessions) {
+						if (!s.agentId) continue;
+						const bucket = sessMap.get(s.agentId) ?? [];
+						bucket.push(s);
+						sessMap.set(s.agentId, bucket);
+					}
+
+					for (const agentRow of teamAgentRows) {
+						const agentSessions = sessMap.get(agentRow.id) ?? [];
+						// Count active sessions
+						if (agentSessions.some((s) => s.state === "active")) {
+							activeAgentCount++;
+						}
+						// Compute health using the same signals as the profile page (reviewer S4)
+						if (!agentHealthWarning) {
+							const harnessAvail = resolveHarnessAvailable(
+								agentRow.harnessType ?? null,
+								adapterPool,
+							);
+							const signals = computeHealthSignals({
+								sessions: agentSessions.map((s) => ({
+									startedAt: s.startedAt,
+									endedAt: s.endedAt,
+									outcome: s.outcome,
+								})),
+								harnessType: agentRow.harnessType ?? null,
+								harnessAvailable: harnessAvail,
+							});
+							if (signals.degraded) {
+								agentHealthWarning = true;
+							}
+						}
+					}
+				}
+
 				return {
 					id: team.id,
 					name: team.name,
@@ -167,6 +299,9 @@ export function createTeamRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 					shipRate,
 					progress: { done: progressDone, total: progressTotal },
 					routineCount,
+					agentCount,
+					activeAgentCount,
+					agentHealthWarning,
 				};
 			}),
 		);
@@ -318,6 +453,100 @@ export function createTeamRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 				if (b.isLead && !a.isLead) return 1;
 				return a.name.localeCompare(b.name);
 			});
+
+			// AB2: Enrich roster with operational status and health.
+			// Batch all session queries with a single IN clause (reviewer W1).
+			const agentIds = agentRows.map((a) => a.id);
+			if (agentIds.length > 0) {
+				// Fetch all sessions for all agents in one query, ordered by startedAt desc
+				const allAgentSessions = await db
+					.select({
+						id: sessions.id,
+						agentId: sessions.agentId,
+						taskId: sessions.taskId,
+						startedAt: sessions.startedAt,
+						endedAt: sessions.endedAt,
+						state: sessions.state,
+						outcome: sessions.outcome,
+					})
+					.from(sessions)
+					.where(inArray(sessions.agentId, agentIds))
+					.orderBy(desc(sessions.startedAt));
+
+				// Group sessions by agentId
+				const sessionsByAgent = new Map<
+					string,
+					Array<{
+						id: string;
+						taskId: string;
+						startedAt: string;
+						endedAt: string | null;
+						state: string | null;
+						outcome: string | null;
+					}>
+				>();
+				for (const s of allAgentSessions) {
+					if (!s.agentId) continue;
+					const bucket = sessionsByAgent.get(s.agentId) ?? [];
+					bucket.push(s);
+					sessionsByAgent.set(s.agentId, bucket);
+				}
+
+				// For each roster member, compute operational status + health
+				for (const member of roster) {
+					const agentSessions = sessionsByAgent.get(member.agentId) ?? [];
+					const activeSession = agentSessions.find((s) => s.state === "active") ?? null;
+
+					// Resolve task info for active session
+					let activeTaskTitle: string | null = null;
+					let activeTaskId: string | null = null;
+					let activeBetId: string | null = null;
+					if (activeSession) {
+						const [taskRow] = await db
+							.select({ title: tasks.title, betId: tasks.betId })
+							.from(tasks)
+							.where(eq(tasks.id, activeSession.taskId))
+							.limit(1);
+						activeTaskTitle = taskRow?.title ?? null;
+						activeTaskId = activeSession.taskId;
+						activeBetId = taskRow?.betId ?? null;
+					}
+
+					// Health signals
+					const agentRow = agentRows.find((a) => a.id === member.agentId);
+					const harnessAvail = resolveHarnessAvailable(agentRow?.harnessType ?? null, adapterPool);
+					const healthSignals = computeHealthSignals({
+						sessions: agentSessions.map((s) => ({
+							startedAt: s.startedAt,
+							endedAt: s.endedAt,
+							outcome: s.outcome,
+						})),
+						harnessType: agentRow?.harnessType ?? null,
+						harnessAvailable: harnessAvail,
+					});
+
+					// Derive operational status
+					const hasActive = activeSession !== null;
+					const isError = healthSignals.failureRate7d > 0.5 || healthSignals.lastSessionCrashed;
+					const operationalStatus: AgentOperationalStatus = hasActive
+						? "active"
+						: isError
+							? "error"
+							: "idle";
+
+					member.operationalStatus = operationalStatus;
+					member.activeTaskTitle = activeTaskTitle;
+					member.activeTaskId = activeTaskId;
+					member.activeBetId = activeBetId;
+					member.healthLevel = deriveHealthLevel(healthSignals) as AgentHealthLevel;
+					member.healthDetail = deriveHealthDetail(healthSignals);
+
+					// AB2 AC-6: enqueue notification when agent is in error state
+					if (operationalStatus === "error") {
+						await maybeNotifyAgentError(db, member, team.name);
+					}
+				}
+			}
 
 			// 4. Load active bets
 			const activeBetRows = await db

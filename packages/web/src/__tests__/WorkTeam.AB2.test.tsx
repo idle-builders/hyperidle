@@ -21,6 +21,18 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { WorkTeam } from "../pages/WorkTeam";
 
+// AgentEditDialog calls useToast — mock ToastRegion to avoid "must be used within
+// <ToastRegion>" error when the Customize button opens the dialog.
+// @lore AB2: Same pattern used in WorkProduct.test.tsx — mock useToast at the
+// ToastRegion module level rather than mocking AgentEditDialog entirely.
+vi.mock("../shell/ToastRegion.js", async () => {
+	const actual = await vi.importActual("../shell/ToastRegion.js");
+	return {
+		...actual,
+		useToast: vi.fn(() => ({ showToast: vi.fn() })),
+	};
+});
+
 // Mock useTeamAgents — returns empty map (no external agent configs needed for these tests)
 vi.mock("../hooks/useTeamAgents", () => ({
 	useTeamAgents: vi.fn().mockReturnValue({ agents: new Map(), refetch: vi.fn() }),

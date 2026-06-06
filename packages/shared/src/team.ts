@@ -37,6 +37,12 @@ export interface TeamSummary {
 	leadAgentId: string | null; // team_members.lead_agent_id; null on a freshly-created team
 }
 
+/** AB2: Operational status derived from session state. */
+export type AgentOperationalStatus = "active" | "idle" | "error";
+
+/** AB2: Health indicator level for display. */
+export type AgentHealthLevel = "healthy" | "warning" | "critical";
+
 export interface RosterMember {
 	agentId: string;
 	name: string;
@@ -44,6 +50,13 @@ export interface RosterMember {
 	isLead: boolean; // matches leadAgentId on the team
 	/** AB3: "team" | "strategy" | "personal" | null. Null when category is unset. */
 	agentCategory: string | null;
+	// AB2: operational fields (optional for backward compat with pre-AB2 fixtures)
+	operationalStatus?: AgentOperationalStatus;
+	activeTaskTitle?: string | null;
+	activeTaskId?: string | null;
+	activeBetId?: string | null;
+	healthLevel?: AgentHealthLevel;
+	healthDetail?: string | null;
 }
 
 export interface TeamBurn {
@@ -91,6 +104,12 @@ export interface TeamListItem extends TeamSummary {
 	progress: { done: number; total: number }; // sum across active bets
 	/** AA1: total routines belonging to this team (all states). */
 	routineCount: number;
+	/** AB2: total AI agents in the team. */
+	agentCount: number;
+	/** AB2: AI agents with an active session right now. */
+	activeAgentCount: number;
+	/** AB2: true when any agent has degraded health (>50% failures or lastSessionCrashed). */
+	agentHealthWarning: boolean;
 }
 
 export interface TeamListResponse {

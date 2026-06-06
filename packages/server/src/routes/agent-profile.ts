@@ -23,6 +23,7 @@ import { sessions, tasks, teamMembers, teams, userSkills, users } from "@hyperid
 import type {
 	AgentActiveSession,
 	AgentHarnessCapabilities,
+	AgentHealthLevel,
 	AgentHealthSignals,
 	AgentPerformanceStats,
 	AgentProfileResponse,
@@ -128,6 +129,47 @@ export function computeHealthSignals(input: HealthSignalInput): AgentHealthSigna
 		idleDurationMs,
 		degraded,
 	};
+}
+
+// ---------------------------------------------------------------------------
+// AB2: Health level and detail derivation (exported for teams-routes.ts)
+// ---------------------------------------------------------------------------
+
+/**
+ * Derive a 3-level health indicator from pre-computed health signals.
+ *
+ * - healthy: no degradation
+ * - critical: failureRate7d > 0.5 OR lastSessionCrashed
+ * - warning: degraded, but neither of the critical conditions
+ *
+ * @lore AB2: Reuses the same AgentHealthSignals computed by computeHealthSignals
+ * so the team page shows exactly the same health state as the agent profile page.
+ */
+export function deriveHealthLevel(signals: AgentHealthSignals): AgentHealthLevel {
+	if (!signals.degraded) return "healthy";
+	if (signals.failureRate7d > 0.5 || signals.lastSessionCrashed) return "critical";
+	return "warning";
+}
+
+/**
+ * Build a human-readable detail string from health signals.
+ * Returns "Healthy" when not degraded. Lists active problems otherwise.
+ *
+ * @lore AB2: Plain text so it can be used as title= attribute on health dots.
+ */
+export function deriveHealthDetail(signals: AgentHealthSignals): string {
+	if (!signals.degraded) return "Healthy";
+	const parts: string[] = [];
+	if (signals.failureRate7d > 0.5) {
+		parts.push(`High failure rate (${Math.round(signals.failureRate7d * 100)}%)`);
+	}
+	if (signals.lastSessionCrashed) {
+		parts.push("Last session crashed");
+	}
+	if (!signals.harnessAvailable) {
+		parts.push("Harness unavailable");
+	}
+	return parts.join(". ");
 }
 
 // ---------------------------------------------------------------------------
@@ -294,8 +336,12 @@ export async function handleAgentProfile(
  * When agent requires a specific harnessType, check if that type is registered.
  * When no pool is configured (kernel-only mode), always returns true so the
  * profile page doesn't false-alarm in tests that don't pass an adapterPool.
+ *
+ * @lore AB2: Exported so teams-routes.ts can reuse the same availability logic
+ * when computing operational status for each roster member. Avoids duplicating
+ * the harness-pool check across two routes.
  */
-function resolveHarnessAvailable(
+export function resolveHarnessAvailable(
 	harnessType: string | null | undefined,
 	adapterPool: AdapterPool | undefined,
 ): boolean {
