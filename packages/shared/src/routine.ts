@@ -26,13 +26,17 @@ export const ROUTINE_STATES: readonly RoutineState[] = ["active", "paused", "err
  * - success: run completed without errors.
  * - error: run failed with an error.
  * - skipped: run was scheduled but skipped (cost cap, WIP limit, etc).
+ * - running: AA2: run is currently in progress (session active).
+ * - timeout: AA2: run exceeded its time limit.
  */
-export type RoutineRunOutcome = "success" | "error" | "skipped";
+export type RoutineRunOutcome = "success" | "error" | "skipped" | "running" | "timeout";
 
 export const ROUTINE_RUN_OUTCOMES: readonly RoutineRunOutcome[] = [
 	"success",
 	"error",
 	"skipped",
+	"running",
+	"timeout",
 ] as const;
 
 /**
@@ -68,6 +72,8 @@ export interface RoutineRunSummary {
 	outcome: RoutineRunOutcome;
 	cost: WireMoney | null;
 	errorMessage: string | null;
+	/** AA2: agent-produced summary of this run. */
+	summary?: string | null;
 }
 
 /**
@@ -95,6 +101,10 @@ export interface RoutineInfo {
 	nextRunAt: string | null;
 	costActual: WireMoney | null;
 	createdAt: string | null;
+	/** AA2: per-run cost cap. Null = no cap. */
+	costCapPerRun: WireMoney | null;
+	/** AA2: last successful run's summary. Null when no successful runs. */
+	lastRunSummary: string | null;
 }
 
 /**
@@ -104,3 +114,28 @@ export interface RoutineDetail {
 	routine: RoutineInfo;
 	runs: RoutineRunSummary[];
 }
+
+/**
+ * AA2: Wire type for POST /api/routines request body.
+ */
+export interface RoutineCreatePayload {
+	name: string;
+	description?: string;
+	teamId: string;
+	ownerAgentId: string;
+	triggerType: "calendar";
+	/** JSON: { cron: "<expression>" } */
+	triggerConfig: string;
+	costCapPerRunMinor?: number | null;
+}
+
+/**
+ * AA2: Cron presets for the schedule picker.
+ */
+export const SCHEDULE_PRESETS = [
+	{ label: "Every hour", cron: "0 * * * *" },
+	{ label: "Every day at 9am", cron: "0 9 * * *" },
+	{ label: "Every weekday at 9am", cron: "0 9 * * 1-5" },
+	{ label: "Every Monday at 9am", cron: "0 9 * * 1" },
+	{ label: "Every month (1st at 9am)", cron: "0 9 1 * *" },
+] as const;
