@@ -38,6 +38,7 @@ import { findRoleCatalogEntry } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAgentProfile } from "../hooks/useAgentProfile.js";
+import { formatRelativeTime } from "../utils/format-time.js";
 
 export interface AgentProfileProps {
 	/** Override the profile data. Used by stories and tests. */
@@ -122,10 +123,12 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 
 	return (
 		<div className="flex flex-col gap-[12px] h-full" data-testid="agent-profile-page">
-			{/* Breadcrumb */}
+			{/* Breadcrumb — team agents link back to their team page; others link to portfolio */}
+			{/* @lore AB1 S4: The original ternary was a no-op — both branches linked to /work/portfolio.
+			    Team agents should link to /work/team/:teamId, strategy/personal to /work/portfolio. */}
 			<div className="mb-1">
 				<Link
-					to={data.teamName ? "/work/portfolio" : "/work/portfolio"}
+					to={data.teamId ? `/work/team/${data.teamId}` : "/work/portfolio"}
 					className="btn btn-ghost btn-xs"
 				>
 					← {data.teamName ?? "Agents"}
@@ -174,7 +177,7 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 									operationalStatus === "active"
 										? "bg-[var(--accent-primary)] text-white"
 										: operationalStatus === "error"
-											? "bg-[oklch(0.55_0.15_25)] text-white"
+											? "bg-[var(--status-error)] text-white"
 											: "bg-[var(--surface-elevated)] text-[var(--text-tertiary)]"
 								}`}
 							>
@@ -198,11 +201,11 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 							{data.teamName && <span className="ml-2">· {data.teamName}</span>}
 							<span className="ml-2">· Created {createdDate}</span>
 						</p>
-						{/* Active session link */}
+						{/* Active session link — /work/bet/:betId/task/:taskId (M1: was using taskId as betId) */}
 						{data.activeSession !== null && (
 							<div className="mt-[6px]" data-testid="agent-active-session">
 								<Link
-									to={`/work/bet/${encodeURIComponent(data.activeSession.taskId)}`}
+									to={`/work/bet/${encodeURIComponent(data.activeSession.betId)}/task/${encodeURIComponent(data.activeSession.taskId)}`}
 									className="text-[12px] text-[var(--accent-primary)] hover:underline"
 								>
 									↗ Active session: {data.activeSession.sessionId}
@@ -410,24 +413,9 @@ function OutcomeChip({ outcome }: { outcome: string | null }): JSX.Element {
 	}
 	const colors: Record<string, string> = {
 		completed: "text-[var(--accent-primary)]",
-		crashed: "text-[oklch(0.55_0.15_25)]",
+		crashed: "text-[var(--status-error)]",
 		stopped: "text-[var(--text-tertiary)]",
 	};
 	const color = colors[outcome] ?? "text-[var(--text-secondary)]";
 	return <span className={`${color} font-medium`}>{outcome}</span>;
-}
-
-/** Format a date string as a human-readable relative time. */
-function formatRelativeTime(dateStr: string): string {
-	const now = Date.now();
-	const then = new Date(dateStr).getTime();
-	const diffMs = now - then;
-	const diffMins = Math.floor(diffMs / 60_000);
-	const diffHours = Math.floor(diffMins / 60);
-	const diffDays = Math.floor(diffHours / 24);
-
-	if (diffDays > 0) return `${diffDays}d ago`;
-	if (diffHours > 0) return `${diffHours}h ago`;
-	if (diffMins > 0) return `${diffMins}m ago`;
-	return "just now";
 }

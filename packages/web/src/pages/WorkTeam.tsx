@@ -48,6 +48,7 @@ import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.
 import { useHint } from "../hooks/useHints";
 import { useTeam } from "../hooks/useTeam";
 import { useTeamAgents } from "../hooks/useTeamAgents.js";
+import { formatRelativeTime } from "../utils/format-time.js";
 import { AgentAddDialog } from "./AgentAddDialog.js";
 import { AgentEditDialog } from "./AgentEditDialog.js";
 
@@ -624,19 +625,6 @@ function RoutineRow({
 			</span>
 		</button>
 	);
-}
-
-/** Format an ISO datetime string as a human-readable relative time label. */
-function formatRelativeTime(isoString: string): string {
-	const diffMs = Date.now() - new Date(isoString).getTime();
-	const diffSec = Math.floor(diffMs / 1000);
-	if (diffSec < 60) return `${diffSec}s ago`;
-	const diffMin = Math.floor(diffSec / 60);
-	if (diffMin < 60) return `${diffMin}m ago`;
-	const diffHr = Math.floor(diffMin / 60);
-	if (diffHr < 24) return `${diffHr}h ago`;
-	const diffDay = Math.floor(diffHr / 24);
-	return `${diffDay}d ago`;
 }
 
 /** Single active-bet row rendered inside R2. Clickable → navigates to Bet detail. */

@@ -27,6 +27,7 @@ const BASE_PROFILE: AgentProfileResponse = {
 	role: "builder",
 	agentCategory: "team",
 	teamName: "HyperIdle Core",
+	teamId: "team-1",
 	createdAt: "2024-01-15T08:00:00.000Z",
 	soulPrompt:
 		"You are Atlas, a meticulous TypeScript builder who values clean code, thorough testing, and honest communication. You never ship broken builds.",
@@ -121,6 +122,7 @@ export const WithActiveSession = (): JSX.Element =>
 				activeSession: {
 					sessionId: "sess-active",
 					taskId: "task-active",
+					betId: "bet-1",
 					startedAt: new Date().toISOString(),
 				},
 				healthSignals: {
@@ -189,6 +191,7 @@ export const StrategyAgent = (): JSX.Element =>
 				role: "scout",
 				agentCategory: "strategy",
 				teamName: null,
+				teamId: null,
 				harnessCapabilities: {
 					toolUse: false,
 					mcpSupport: false,

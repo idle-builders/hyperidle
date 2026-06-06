@@ -378,6 +378,9 @@ describe("AB1 AC-4: Returns active session link when agent has running session",
 		expect(activeSession.sessionId).toBe("ab1-session-active");
 		expect(activeSession).toHaveProperty("taskId");
 		expect(activeSession.taskId).toBe("ab1-task-1");
+		// M1: betId must be present so the frontend link uses /work/bet/:betId/task/:taskId
+		expect(activeSession).toHaveProperty("betId");
+		expect(activeSession.betId).toBe("ab1-bet-1");
 		expect(activeSession).toHaveProperty("startedAt");
 	});
 });

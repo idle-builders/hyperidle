@@ -30,7 +30,7 @@ import type {
 	AgentSkillInfo,
 	HarnessCapabilities,
 } from "@hyperidle/shared";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import type { Context } from "hono";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
@@ -153,16 +153,20 @@ export async function handleAgentProfile(
 		return c.json({ error: "Agent not found", code: "NOT_FOUND" }, 404);
 	}
 
-	// 2. Resolve team name via teamMembers→teams join
+	// 2. Resolve team name and team ID via teamMembers→teams join
+	// @lore AB1 S4: teamId is included in the response so the frontend breadcrumb
+	// can link to /work/team/:teamId for team agents instead of always /work/portfolio.
 	let teamName: string | null = null;
+	let resolvedTeamId: string | null = null;
 	if (agent.teamId) {
 		const [tmRow] = await db
-			.select({ teamName: teams.name })
+			.select({ teamName: teams.name, teamId: teams.id })
 			.from(teamMembers)
 			.innerJoin(teams, eq(teamMembers.teamId, teams.id))
 			.where(eq(teamMembers.id, agent.teamId))
 			.limit(1);
 		teamName = tmRow?.teamName ?? null;
+		resolvedTeamId = tmRow?.teamId ?? null;
 	}
 
 	// 3. Fetch all sessions for this agent (needed for active check + recent + performance + health)
@@ -179,37 +183,46 @@ export async function handleAgentProfile(
 		.where(eq(sessions.agentId, agentId))
 		.orderBy(desc(sessions.startedAt));
 
-	// 4. Active session
+	// 4. Active session — include betId for correct /work/bet/:betId/task/:taskId link
+	// @lore AB1 M1: The bet route expects betId, not taskId. We JOIN tasks to get betId.
 	const activeSessionRow = allSessions.find((s) => s.state === "active") ?? null;
 	let activeSession: AgentActiveSession | null = null;
 	if (activeSessionRow) {
+		const [activeTaskRow] = await db
+			.select({ betId: tasks.betId })
+			.from(tasks)
+			.where(eq(tasks.id, activeSessionRow.taskId))
+			.limit(1);
 		activeSession = {
 			sessionId: activeSessionRow.id,
 			taskId: activeSessionRow.taskId,
+			betId: activeTaskRow?.betId ?? "",
 			startedAt: activeSessionRow.startedAt,
 		};
 	}
 
-	// 5. Recent sessions (last 10, newest first) — fetch task titles
+	// 5. Recent sessions (last 10, newest first) — fetch task titles in one JOIN query
+	// @lore AB1 S2: Replaced N+1 pattern (one query per session) with a single Drizzle
+	// query that JOINs sessions with tasks. For up to 10 sessions this is at most 1 query.
 	const recentSessionRows = allSessions.slice(0, 10);
-	const recentSessions: AgentSessionSummary[] = await Promise.all(
-		recentSessionRows.map(async (s) => {
-			const [taskRow] = await db
-				.select({ title: tasks.title })
-				.from(tasks)
-				.where(eq(tasks.id, s.taskId))
-				.limit(1);
-			return {
-				sessionId: s.id,
-				taskId: s.taskId,
-				taskTitle: taskRow?.title ?? s.taskId,
-				outcome: s.outcome,
-				startedAt: s.startedAt,
-				endedAt: s.endedAt,
-				cost: null,
-			} satisfies AgentSessionSummary;
-		}),
-	);
+	let recentSessions: AgentSessionSummary[] = [];
+	if (recentSessionRows.length > 0) {
+		const taskIds = recentSessionRows.map((s) => s.taskId);
+		const taskTitleRows = await db
+			.select({ id: tasks.id, title: tasks.title })
+			.from(tasks)
+			.where(inArray(tasks.id, taskIds));
+		const taskTitleMap = new Map(taskTitleRows.map((t) => [t.id, t.title]));
+		recentSessions = recentSessionRows.map((s) => ({
+			sessionId: s.id,
+			taskId: s.taskId,
+			taskTitle: taskTitleMap.get(s.taskId) ?? s.taskId,
+			outcome: s.outcome,
+			startedAt: s.startedAt,
+			endedAt: s.endedAt,
+			cost: null,
+		})) satisfies AgentSessionSummary[];
+	}
 
 	// 6. Performance aggregates (from all sessions)
 	const totalSessions = allSessions.length;
@@ -251,6 +264,7 @@ export async function handleAgentProfile(
 		role: agent.role,
 		agentCategory: agent.agentCategory ?? null,
 		teamName,
+		teamId: resolvedTeamId,
 		createdAt: agent.createdAt,
 		soulPrompt: agent.soulPrompt ?? null,
 		harnessType: agent.harnessType ?? null,

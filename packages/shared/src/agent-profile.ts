@@ -21,6 +21,12 @@
 export interface AgentActiveSession {
 	readonly sessionId: string;
 	readonly taskId: string;
+	/**
+	 * The betId of the task associated with this session.
+	 * Required to construct a valid /work/bet/:betId/task/:taskId link.
+	 * @lore AB1 M1: betId added per reviewer finding — the bet route expects betId, not taskId.
+	 */
+	readonly betId: string;
 	readonly startedAt: string;
 }
 
@@ -114,6 +120,12 @@ export interface AgentProfileResponse {
 	readonly agentCategory: string | null;
 	/** Resolved team name via teamMembers→teams join. null when no team. */
 	readonly teamName: string | null;
+	/**
+	 * The team ID for the agent's team membership. null when no team.
+	 * Used by the breadcrumb to link back to /work/team/:teamId for team agents.
+	 * @lore AB1 S4: Added per reviewer finding — breadcrumb must link to team page, not portfolio.
+	 */
+	readonly teamId: string | null;
 	readonly createdAt: string;
 
 	// --- Configuration ---
