@@ -155,7 +155,7 @@ export function WorkPortfolio(): JSX.Element {
 								role="img"
 								aria-label="One or more agents need attention"
 								title="One or more agents need attention"
-								className="inline-block w-[8px] h-[8px] rounded-full bg-[var(--status-error)]"
+								className="inline-block w-[6px] h-[6px] rounded-full bg-[var(--status-error)]"
 							/>
 						)}
 						{totalAgentCount} agent{totalAgentCount !== 1 ? "s" : ""}, {totalActiveAgentCount}{" "}
@@ -200,6 +200,19 @@ export function WorkPortfolio(): JSX.Element {
 								onClick={() => setSelectedTeamId((prev) => (prev === team.id ? null : team.id))}
 							>
 								{team.name}
+								{(team.agentCount ?? 0) > 0 && (
+									<span className="ml-[6px] font-[500] text-[11px] font-mono text-[var(--text-tertiary)]">
+										{team.agentCount}
+									</span>
+								)}
+								{team.agentHealthWarning && (
+									<span
+										role="img"
+										aria-label="Agent needs attention"
+										title="Agent needs attention"
+										className="ml-[4px] inline-block w-[6px] h-[6px] rounded-full bg-[var(--status-error)] flex-shrink-0"
+									/>
+								)}
 							</button>
 						))}
 					</div>

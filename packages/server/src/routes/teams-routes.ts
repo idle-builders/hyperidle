@@ -32,7 +32,6 @@ import {
 } from "@hyperidle/db";
 import { enqueueNotification } from "@hyperidle/fabric";
 import type {
-	AgentHealthLevel,
 	AgentOperationalStatus,
 	BetCardSummary,
 	CreateTeamRequest,
@@ -538,7 +537,7 @@ export function createTeamRoutes(
 					member.activeTaskTitle = activeTaskTitle;
 					member.activeTaskId = activeTaskId;
 					member.activeBetId = activeBetId;
-					member.healthLevel = deriveHealthLevel(healthSignals) as AgentHealthLevel;
+					member.healthLevel = deriveHealthLevel(healthSignals);
 					member.healthDetail = deriveHealthDetail(healthSignals);
 
 					// AB2 AC-6: enqueue notification when agent is in error state

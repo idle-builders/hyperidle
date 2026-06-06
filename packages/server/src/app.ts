@@ -376,7 +376,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
 		api.route("/agents", createAgentRoutes(options.db, options.adapterPool));
 		api.route("/model-gateway", createModelGatewayRoutes(options.db));
-		api.route("/teams", createTeamRoutes(options.db, eventBus));
+		api.route("/teams", createTeamRoutes(options.db, eventBus, options.adapterPool));
 		api.route("/bets", createBetRoutes(options.db, eventBus));
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));
 		api.route("/artifacts", createArtifactRoutes(options.db));
