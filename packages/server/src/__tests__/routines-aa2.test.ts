@@ -8,6 +8,9 @@
  * AC-6: Session outcomes recorded in run history
  */
 
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import {
 	bets,
 	createTestDb,
@@ -25,6 +28,7 @@ import { EventBus } from "@hyperidle/shared";
 import { eq, isNull } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { crashSession, createSession, endSession } from "../services/session-lifecycle.js";
 import { createTestApp } from "../test-utils.js";
 
 const TEST_API_KEY = "test-key-aa2";
@@ -777,6 +781,162 @@ describe("AA2: Routine Management API", () => {
 	// ──────────────────────────────────────────────────────────────────────
 	// DB schema: verify new columns exist and are writable
 	// ──────────────────────────────────────────────────────────────────────
+
+	// ──────────────────────────────────────────────────────────────────────
+	// AC-6 fix: updateRoutineRunOnSessionEnd matches on routineId+outcome,
+	// NOT sessionId (which is NULL on the row when the hook fires).
+	// ──────────────────────────────────────────────────────────────────────
+
+	describe("AC-6 fix: routine_run updated even when sessionId is NULL on the row", () => {
+		let tmpDir: string;
+
+		beforeEach(() => {
+			tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aa2-lifecycle-"));
+		});
+
+		afterEach(() => {
+			if (fs.existsSync(tmpDir)) {
+				fs.rmSync(tmpDir, { recursive: true, force: true });
+			}
+		});
+
+		it("endSession updates routine_run outcome to success and back-populates sessionId", async () => {
+			// Arrange: seed the routine
+			await db.insert(routines).values({
+				id: "routine-end-fix",
+				name: "End fix routine",
+				ownerAgentId: "agent-aa2",
+				teamId: "team-aa2",
+				state: "active",
+				triggerType: "calendar",
+				active: true,
+				stubTaskId: "task-aa2",
+			});
+
+			// Create a session via the lifecycle service (this is what provisionSession does)
+			const ctx = await createSession(db, new EventBus(), {
+				taskId: "task-aa2",
+				agentId: "agent-aa2",
+				agentRole: "builder",
+				productId: "team-aa2",
+				modelTier: "workhorse",
+				workspaceBasePath: tmpDir,
+			});
+
+			// Simulate the trigger path: insert routine_run with outcome="running" and sessionId=NULL
+			// This is the state the row is in when endSession fires (before back-population).
+			await db.insert(routineRuns).values({
+				id: "run-end-fix",
+				routineId: "routine-end-fix",
+				startedAt: new Date().toISOString(),
+				outcome: "running",
+				// sessionId intentionally NOT set — simulates the NULL state at hook-fire time
+			});
+
+			// Set routineId on the context (as provisionSession does)
+			ctx.routineId = "routine-end-fix";
+
+			// Act
+			await endSession(db, new EventBus(), ctx, 0);
+
+			// Assert: run row updated with success outcome and sessionId back-populated
+			const [run] = await db
+				.select()
+				.from(routineRuns)
+				.where(eq(routineRuns.id, "run-end-fix"))
+				.limit(1);
+
+			expect(run).toBeDefined();
+			expect(run.outcome).toBe("success");
+			expect(run.sessionId).toBe(ctx.sessionId);
+			expect(run.endedAt).not.toBeNull();
+		});
+
+		it("crashSession updates routine_run outcome to error and back-populates sessionId", async () => {
+			// Arrange
+			await db.insert(routines).values({
+				id: "routine-crash-fix",
+				name: "Crash fix routine",
+				ownerAgentId: "agent-aa2",
+				teamId: "team-aa2",
+				state: "active",
+				triggerType: "calendar",
+				active: true,
+				stubTaskId: "task-aa2",
+			});
+
+			const ctx = await createSession(db, new EventBus(), {
+				taskId: "task-aa2",
+				agentId: "agent-aa2",
+				agentRole: "builder",
+				productId: "team-aa2",
+				modelTier: "workhorse",
+				workspaceBasePath: tmpDir,
+			});
+
+			// routine_run with sessionId=NULL (trigger-inserted state)
+			await db.insert(routineRuns).values({
+				id: "run-crash-fix",
+				routineId: "routine-crash-fix",
+				startedAt: new Date().toISOString(),
+				outcome: "running",
+			});
+
+			ctx.routineId = "routine-crash-fix";
+
+			// Act
+			await crashSession(db, new EventBus(), ctx, 0);
+
+			// Assert
+			const [run] = await db
+				.select()
+				.from(routineRuns)
+				.where(eq(routineRuns.id, "run-crash-fix"))
+				.limit(1);
+
+			expect(run).toBeDefined();
+			expect(run.outcome).toBe("error");
+			expect(run.sessionId).toBe(ctx.sessionId);
+			expect(run.endedAt).not.toBeNull();
+		});
+
+		it("no-ops when no running routine_run row exists for the routine", async () => {
+			// Arrange
+			await db.insert(routines).values({
+				id: "routine-noop-fix",
+				name: "No-op routine",
+				ownerAgentId: "agent-aa2",
+				teamId: "team-aa2",
+				state: "active",
+				triggerType: "calendar",
+				active: true,
+				stubTaskId: "task-aa2",
+			});
+
+			const ctx = await createSession(db, new EventBus(), {
+				taskId: "task-aa2",
+				agentId: "agent-aa2",
+				agentRole: "builder",
+				productId: "team-aa2",
+				modelTier: "workhorse",
+				workspaceBasePath: tmpDir,
+			});
+
+			// No routine_run row inserted — pre-AA2 session scenario
+			ctx.routineId = "routine-noop-fix";
+
+			// Act: should not throw
+			await endSession(db, new EventBus(), ctx, 0);
+
+			// Assert: no routine_run rows exist for this routine
+			const runs = await db
+				.select()
+				.from(routineRuns)
+				.where(eq(routineRuns.routineId, "routine-noop-fix"));
+
+			expect(runs).toHaveLength(0);
+		});
+	});
 
 	describe("Schema: new columns on routines and routine_runs", () => {
 		it("can insert and read routine with all new AA2 columns", async () => {

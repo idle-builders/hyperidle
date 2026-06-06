@@ -51,13 +51,17 @@ export interface SessionContext {
  * AA2: Update the routine_runs row and routines last-run fields when a routine
  * session ends (normally or via crash).
  *
- * Finds the routine_run row with outcome="running" linked to this session,
- * then updates it with the final outcome, endedAt, cost, and summary.
+ * Finds the routine_run row with outcome="running" for this routine, then
+ * updates it with the final outcome, sessionId, endedAt, cost, and summary.
  * Also updates routines.lastRunAt and routines.lastRunSummary.
  *
- * @lore AA2: This runs as a post-session hook inside endSession/crashSession —
- * not a new lifecycle phase. Silently no-ops when no matching run is found
- * (handles pre-AA2 sessions that have no routine_runs row).
+ * @lore AA2: Match on routineId+outcome="running", NOT sessionId. The
+ * routine_runs row is inserted with outcome="running" and sessionId=NULL
+ * by the trigger handler before provisionSession is called. The sessionId
+ * back-population happens AFTER provisionSession returns — too late for this
+ * hook to use it as a filter. Coalescing guarantees at most one "running" row
+ * per routine at any time, so routineId+outcome is a safe unique key.
+ * sessionId is set here in the UPDATE so the historical record is complete.
  */
 async function updateRoutineRunOnSessionEnd(
 	db: HyperIdleDb,
@@ -68,17 +72,13 @@ async function updateRoutineRunOnSessionEnd(
 	costInCents: number,
 	summary?: string,
 ): Promise<void> {
-	// Find the routine_run row that is still "running" for this session.
+	// Find the routine_run row that is still "running" for this routine.
+	// NOTE: Do NOT filter by sessionId — it may be NULL on the row when this
+	// hook fires (see @lore above).
 	const [run] = await db
 		.select({ id: routineRuns.id })
 		.from(routineRuns)
-		.where(
-			and(
-				eq(routineRuns.routineId, routineId),
-				eq(routineRuns.sessionId, sessionId),
-				eq(routineRuns.outcome, "running"),
-			),
-		)
+		.where(and(eq(routineRuns.routineId, routineId), eq(routineRuns.outcome, "running")))
 		.limit(1);
 
 	if (!run) {
@@ -90,6 +90,9 @@ async function updateRoutineRunOnSessionEnd(
 		.update(routineRuns)
 		.set({
 			outcome,
+			// Set sessionId here so the historical record is complete even though
+			// it was NULL when the row was first inserted.
+			sessionId,
 			endedAt,
 			costMinor: costInCents > 0 ? costInCents : null,
 			costCurrency: costInCents > 0 ? "USD" : null,
