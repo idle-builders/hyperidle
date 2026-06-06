@@ -300,8 +300,88 @@ All Phase 2 findings are addressed.
 
 ---
 
-## Verdict: NOT DONE
+## Verdict (Initial): NOT DONE
 
 **Reason:** One must-fix finding (M1) -- the active session link navigates to `/work/bet/{taskId}` which will 404 because the bet route expects a betId, not a taskId. This is a functional bug visible to users.
 
 Once M1 is fixed, the four should-fix items are non-blocking and the workpackage can ship.
+
+---
+
+## Re-Review (commit f04a167c)
+
+Builder applied all 5 findings in a single commit. Verification follows.
+
+### M1: Active session link used wrong ID -- FIXED
+
+- `AgentActiveSession` in `packages/shared/src/agent-profile.ts` now has `readonly betId: string` (line 29) with `@lore` annotation explaining the fix.
+- Server in `packages/server/src/routes/agent-profile.ts` fetches `betId` via a `tasks` query when an active session exists (lines 191-199). Falls back to empty string when the task row is missing (`activeTaskRow?.betId ?? ""`).
+- Frontend link in `packages/web/src/pages/AgentProfile.tsx` line 208 now constructs `/work/bet/${betId}/task/${taskId}` using both IDs.
+- Integration test asserts `activeSession.betId === "ab1-bet-1"` (agent-profile.test.ts).
+- Stories updated: `WithActiveSession` includes `betId: "bet-1"`.
+
+**Verified. Fix is correct and tested.**
+
+### S1: Hardcoded oklch colors -- FIXED
+
+- Status chip (line 180): `bg-[oklch(0.55_0.15_25)]` replaced with `bg-[var(--status-error)]`.
+- OutcomeChip (line 416): `text-[oklch(0.55_0.15_25)]` replaced with `text-[var(--status-error)]`.
+- `grep -n oklch AgentProfile.tsx` returns zero results.
+
+**Verified. Both instances use the semantic token.**
+
+### S2: N+1 query for task titles -- FIXED
+
+- The `Promise.all(recentSessionRows.map(async ...))` pattern (10 individual queries) is replaced with a single `inArray(tasks.id, taskIds)` query (lines 210-215).
+- Results are collected into a `Map<id, title>` and looked up during the `.map()` (line 219).
+- `inArray` imported from `drizzle-orm` (line 33).
+
+**Verified. N+1 eliminated. One batch query regardless of session count.**
+
+### S3: Duplicated formatRelativeTime -- FIXED
+
+- New shared utility at `packages/web/src/utils/format-time.ts` with `@lore AB1 S3` annotation.
+- `AgentProfile.tsx` imports from `../utils/format-time.js` (line 41). The local `formatRelativeTime` function removed (15 lines deleted from bottom of file).
+- `WorkTeam.tsx` imports from `../utils/format-time.js` (line 51). Local definition removed (confirmed: `grep -c "function formatRelativeTime" WorkTeam.tsx` returns 0).
+- `WorkTask.tsx` still has its own local definition -- this is pre-existing (not part of AB1) and acceptable.
+
+**Verified. Single source of truth for the two files in scope.**
+
+### S4: Breadcrumb no-op ternary -- FIXED
+
+- `AgentProfileResponse` in shared types now includes `readonly teamId: string | null` (line 127).
+- Server populates `resolvedTeamId` from the teams JOIN (lines 159-169) and includes it in the response (line 266).
+- Breadcrumb link (AgentProfile.tsx line 131): `to={data.teamId ? \`/work/team/${data.teamId}\` : "/work/portfolio"}`.
+- Team agents link to `/work/team/:teamId`. Non-team agents link to `/work/portfolio`.
+- Stories updated: BASE_PROFILE has `teamId: "team-1"`, StrategyAgent has `teamId: null`.
+
+**Verified. Breadcrumb is context-aware.**
+
+### New issues introduced -- NONE
+
+Scanned the fix diff for regressions:
+- No new `any` / `as` / `!` casts.
+- No new hardcoded colors.
+- No dead code introduced.
+- `betId` fallback to empty string (`activeTaskRow?.betId ?? ""`) is a reasonable guard against orphaned task rows; the link would be malformed but would not crash.
+- The `inArray` import is correct Drizzle ORM usage.
+- Stories type-check against `AgentProfileResponse` (TypeScript enforces the new `teamId` and `betId` fields).
+
+---
+
+## AC Completeness Audit (Updated)
+
+| AC# | Description | Status | Evidence |
+|---|---|---|---|
+| AC1 | Profile accessible from team page, sidebar, org chart | PARTIAL | WorkTeam.tsx link + Router.tsx route. Sidebar/org chart not wired (spec scopes to team page). |
+| AC2 | Complete operational picture in one view | PASS | All sections present in single scrollable page. |
+| AC3 | Current status shown (active/idle/error with session link) | PASS | Status derived on frontend. Active session link uses correct `/work/bet/:betId/task/:taskId` route. Test asserts betId. |
+| AC4 | Health signals surfaced with warning when degraded | PASS | Health banner with role="alert". Three sub-conditions shown. |
+| AC5 | Harness capabilities shown | PASS | Four capability badges rendered. |
+| AC6 | Profile links to Settings for editing -- read-only | PASS | "Edit in Settings" link. No edit forms on page. |
+
+---
+
+## Final Verdict: DONE
+
+All 5 findings (1 must-fix, 4 should-fix) are verified fixed. No new issues introduced. The workpackage is ready for retro and ship.
