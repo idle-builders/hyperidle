@@ -1,277 +1,288 @@
 # HyperIdle Feature Taxonomy
 
-Complete inventory of features grouped by product area. Used for user-journey auditing and product-fit analysis.
+Complete inventory of features organized by architectural layer. Primitives compose into views. Views compose into the product. Each feature is tagged with its code status from the June 2026 audit.
+
+**Code status key:** WORKS = shipped and functional, PARTIAL = exists with gaps, DEAD = code exists but not wired, NONE = not implemented
 
 ---
 
-## Product Group 1: Conversations & Review
+## Layer 1: Primitives
 
-The inbox where humans review agent work and communicate with agents.
+The building blocks that everything else composes. A primitive is a single concept with one schema, one API surface, and one or more view components that render it. Primitives are kernel-level (structural, stable). Some have a strategy-fabric extension (computed signals that evolve).
 
-### 1.1: Review Threads
-- Review thread creation (risk-tier >= medium or skill changes)
-- ArtifactView: text_diff (code diffs with inline comments)
-- ArtifactView: content_preview (rendered blog/email/landing page)
-- ArtifactView: visual_comparison (before/after images)
-- ArtifactView: action_summary (structured impact card)
-- ArtifactView: data_metrics (charts, insights, recommendations)
-- Verdict: approve, approve-with-comments, request-changes, edit, reject
-- Non-binding: comment, inline comment
-- Sidecar: snooze, escalate
-- Bulk operations (approve-similar, snooze-all, mark-read)
-- Agent reasoning block (collapsible, always shown)
-- Confidence indicator
-- Blocking indicator
-- Companion layout (conversation + artifact side-by-side)
+### Thread
 
-### 1.2: Chat Threads
-- Agent-initiated chat (no verdict needed)
-- Human-initiated chat (N key -> RecipientPicker)
-- Thread resolution and re-opening
+One table, one primitive. No `type` column. A "review thread" is just a thread containing a review-type message. Classification (review/chat/coach/dm/feed) is derived at runtime via `classifyThreadConfiguration()`, never stored.
 
-### 1.3: Coach Thread (Chief of Staff)
-- Pinned thread at top of Conversations
-- Cross-product pattern surfacing
-- Rule-change proposals (PRINCIPLES.md / FOCUS.md)
-- Monthly coaching rhythm
-- CoC overlay (bottom-right, accessible from any view)
-- Context chips for attached references
+| Feature | Status | Layer | Notes |
+|---|---|---|---|
+| Thread table (hostKind, hostId, pinned, resolvedAt) | WORKS | Kernel | Hosts: bet, task, knowledge_item, artifact, agent, user, team, factory |
+| Message types: plain, review, questionnaire, verdict | WORKS | Kernel | Discrimination is on the MESSAGE, not the thread |
+| Verdict decisions: approve, approve-with-comments, request-changes, edit, reject | WORKS | Kernel | Verdict is a message type that resolves the thread |
+| Idempotent append (clientKey deduplication) | WORKS | Kernel | At-least-once delivery safety |
+| Coach thread = pinned thread with hostKind="user" | WORKS | Kernel | No separate schema. Auto-created via GET /api/threads/coach |
+| Blocking derivation (is agent paused waiting?) | WORKS | Kernel | Derived from message state + session, not stored |
+| Thread-level filtering (Blocking/Unread chips) | WORKS | View | Toggle chips in Conversations, independently toggleable |
+| Snooze/Escalate sidecar operations | NONE | -- | Zero code. Not implemented. |
+| Bulk operations (approve-similar, snooze-all) | NONE | -- | Zero code. Not implemented. |
 
-### 1.4: Session Dial-In
-- Live session observation (D key toggle)
-- Activity stream (tool calls, reasoning, cost ticks)
-- Filter tabs (All, Tools, Reasoning, Cost)
-- Auto-scroll with manual pause
+**View components:** HostThreadSection (shared across 4 pages: WorkBet, WorkTask, KnowledgeDetail, ArtifactPermalink), ThreadShell (design-system, used in Conversations), ThreadRow (design-system, used in ThreadSections), CommentRow, RichMessageCard.
 
-### 1.5: Thread Infrastructure
-- Universal thread primitive (attached to any host entity)
-- Message types: plain, review, questionnaire, verdict
-- Idempotent message append (clientKey deduplication)
-- Thread-level filtering (Blocking, Unread)
+### Block
 
----
+Derived, not stored. One pure function (`deriveBlocks()`) takes markdown + host info, returns typed blocks with stable IDs. No `blocks` table. On-disk format is always GFM markdown.
 
-## Product Group 2: Work & Planning
+| Feature | Status | Layer | Notes |
+|---|---|---|---|
+| deriveBlocks() pure function (10 kinds) | WORKS | Shared | heading, paragraph, list, quote, code, table, divider, image, html, unknown |
+| Server-computed deterministic IDs | WORKS | Shared | Scoped by host (knowledge_item:id or bet:id). Same markdown = same IDs. |
+| Bet pitch rendering as blocks | WORKS | View | BetPitch adapter in WorkBet calls deriveBlocks() |
+| Knowledge body rendering as blocks | WORKS | View | KnowledgeBody adapter in KnowledgeDetail calls deriveBlocks() |
+| Block-anchored messages (blockId on plain messages) | WORKS | Kernel | Messages carry optional blockId. Rendered inline below blocks. |
+| Anchor-lost indicator for orphaned anchors | WORKS | View | When body edited and block disappears, message preserved with indicator |
 
-Where humans plan bets, track tasks, and manage the portfolio.
+**View components:** Block (design-system), BetPitch (WorkBet co-located adapter), KnowledgeBody (KnowledgeDetail co-located adapter), AnchoredMessages.
 
-### 2.1: Portfolio
-- Grid of product/team status cards
-- Status/verdict/team filter pills
-- Routine and agent summary lines
+### Artifact
 
-### 2.2: Team View
-- Header (breadcrumb, name, status, phase, lead)
-- Burn vs cap visualization
-- Active bets section with BetCards
-- Roster section with agent members
-- Agent add/edit dialogs
-- Create routine dialog
+Task-rooted record of something agents produced. One table, one API. Higher-level surfaces (bet, team, portfolio) aggregate read-only from tasks.
 
-### 2.3: Bet Lifecycle
-- Bet creation (BetCreateDialog: markdown pitch + appetite)
-- Bet start (draft -> active)
-- Bet completion (active -> completed)
-- Bet kill (with required reason)
-- Outcome recording (validated/refuted/partial/inconclusive)
-- Retro (outcome + learnings -> knowledge item)
-- Cost appetite (structured money: minor units + currency)
-- At-risk flag, done condition, hypothesis
+| Feature | Status | Layer | Notes |
+|---|---|---|---|
+| Artifact CRUD (POST/GET with axis filtering) | WORKS | Kernel | producingTaskId required. Kinds: code, document, diagram, decision, plan, proposal, report |
+| Artifact permalink (/artifacts/:id) | WORKS | View | Renders single_full_preview layout |
+| Preview data (null until populated, immutable once set) | WORKS | Kernel | No fake thumbnails. Explicit placeholder when null. |
+| ArtifactView 5 shapes | PARTIAL | View | 3 of 5 reachable via artifactToView mapping (text_diff, action_summary, data_metrics). content_preview and visual_comparison coded but unmapped. |
+| 3 view layouts (gallery_card, stack_item, single_full_preview) | WORKS | View | review_message_embed referenced in comments only, not built |
+| Higher-level aggregation (bet/team/portfolio) | WORKS | View | Read-only union of task artifacts |
 
-### 2.4: Task Management
-- 8-state machine (proposed -> accepted -> hold -> in_progress -> blocked -> review -> done -> killed)
-- Task transitions and handoffs (agent/role/human)
-- Dependency tracking with auto-unblock
-- Task outcome verdict (met/met_with_rework/partially_met/not_met)
+**View components:** ArtifactSection (shared across WorkBet, WorkTeam), ArtifactPreviewSurface (design-system), ArtifactGalleryCard, ArtifactStackItem, ArtifactView.
 
-### 2.5: Bet Detail
-- Pitch rendered as Block primitives with anchored messages
-- Task list with cost columns
-- Outcome section with verdict badging
-- Discussion thread, artifact section
-- Knowledge creation from context
+### Knowledge Item
 
-### 2.6: Task Detail
-- Metadata grid (state, owner, team, cost, effectiveness)
-- Session list with live indicator
-- Artifact section, discussion thread
+Kernel table + strategy fabric extension. Kernel owns identity and content. Fabric owns computed signals (attention, relevance, layer, confidence).
+
+| Feature | Status | Layer | Notes |
+|---|---|---|---|
+| knowledge_items table (scopeKind, scopeId, topic, title, body, status, version) | WORKS | Kernel | 7 scopes: factory, product, practice, team, bet, task, user |
+| knowledgeStrategyFabric table (layer, attentionScore, relevanceScore, confidence) | WORKS | Strategy | 1:1 extension via UNIQUE FK + CASCADE DELETE. Populated in production. |
+| Status lifecycle: captured -> provisional -> active -> stale -> archived | WORKS | Kernel | needs_human as additional status for triage |
+| 8 kind taxonomy (pattern, anti_pattern, decision, failure, brief, principle, reflection, focus) | WORKS | Strategy | Creation UI exposes 4 kinds (pattern/decision/failure/brief). List renders all 8. |
+| Version tracking (optimistic concurrency) | WORKS | Kernel | 409 conflict on version mismatch |
+| Edit log (every mutation tracked) | WORKS | Kernel | knowledgeEditLog table: editor, field, old/new values, edit type |
+| Access log (detail fetches counted server-side) | WORKS | Kernel | knowledgeAccessLog table. Materialization does NOT count. |
+| Scope change with reason + version bump | WORKS | Kernel | PATCH /api/knowledge/:id/scope |
+
+**View components:** KnowledgeListRow (custom, replaces design-system KnowledgeRow), KnowledgeTopicGroup, KnowledgeBody, BacklinksCard.
 
 ---
 
-## Product Group 3: Knowledge & Learning
+## Layer 2: Process Primitives
 
-Where humans curate organizational knowledge.
+Work coordination primitives. These define how work flows through the system.
 
-### 3.1: Knowledge List & Browse
-- Dual-tab view (Curated + Triage)
-- Scope filter pills, sort controls (Relevance/Recency/Frequency)
-- Kind badges (8): pattern, anti_pattern, decision, failure, brief, principle, reflection, focus
-- Status badges (5): captured, provisional, active, stale, archived
-- Topic groups with health indicators
+### Bet
 
-### 3.2: Knowledge Triage
-- Attention-score ordered inbox
-- Keyboard shortcuts (j/k/v/x)
-- Optimistic removal on action
-- needs_human status filter
+Shaped commitment with money-not-duration appetite. The unit of planned work.
 
-### 3.3: Knowledge Detail & Editing
-- Inline editing with auto-save (TipTap WYSIWYG)
-- Version tracking (optimistic concurrency)
-- Block rendering with per-block discussion
-- Related items sidebar, edit history
+| Feature | Status | Layer | Notes |
+|---|---|---|---|
+| Bet table (description, costAppetite, doneCondition, hypothesis, status) | WORKS | Kernel | 4 statuses: draft, active, completed, killed |
+| Create (BetCreateDialog: description + team required) | WORKS | View | costAppetite, doneCondition, hypothesis optional. Low ceremony. |
+| Start (draft -> active via POST /commit) | WORKS | Kernel | |
+| Complete (active -> completed via POST /ship) | WORKS | Kernel | |
+| Kill (with required reason via POST /kill) | WORKS | Kernel | |
+| Pause/Resume | DEAD | -- | UI buttons + consequence dialog exist. Endpoints DON'T EXIST. Broken promise. |
+| Outcome recording (validated/refuted/partial/inconclusive) | WORKS | Kernel | Evaluates whether the bet's HYPOTHESIS held true |
+| Retro (outcome + learnings -> knowledge item) | WORKS | Kernel | POST /retro creates knowledge item atomically |
+| At-risk flag | WORKS | Kernel | Boolean with reason |
+| Revision log (audit trail) | WORKS | Kernel | Every change to doneCondition/hypothesis tracked |
+| No betStrategyFabric | -- | -- | Strategy separation not yet designed for bets |
 
-### 3.4: Knowledge Actions
-- Merge duplicates, split overloaded items
-- Flag for revisit, archive stale items
-- Scope change with reason + version bump
+### Task
 
-### 3.5: Knowledge Creation
-- Full-page create (/knowledge/new)
-- Seven scopes: factory, product, practice, team, bet, task, user
-- Create from bet/task discussion context
+Agent-owned work unit within a bet. 8-state machine for agent coordination.
 
-### 3.6: Knowledge Fabric (Infrastructure)
-- Materialization engine (TOON/markdown to workspace)
-- Continuous writeback (file watcher, 500ms debounce)
-- Relevance scoring (recency x frequency x citation)
-- Attention scoring (8 signals)
-- Conflict resolution (LWW structured, facilitator for prose)
-- Layer precedence (L4 > L3 > L2 > L1)
+| Feature | Status | Layer | Notes |
+|---|---|---|---|
+| Task table (betId, ownerAgentId, title, description, doneCondition, state) | WORKS | Kernel | |
+| 8-state machine (proposed -> accepted -> hold -> in_progress -> blocked -> review -> done -> killed) | WORKS | Kernel | Valid transitions enforced |
+| Transitions (POST /tasks/:id/transition) | WORKS | Kernel | |
+| Handoff (POST /tasks/:id/handoff) | WORKS | Kernel | To agent ID, role string, or human. Structured message. |
+| Outcome verdict (met/met_with_rework/partially_met/not_met) | WORKS | Kernel | Set manually after task done. Evaluates whether DONE CONDITION was met. Rendered on 3+ pages. Bet outcomes aggregate from task verdicts. |
+| Dependencies (JSON array of task IDs) | DEAD | Kernel | Field exists. NO API to set. NO UI to view. checkAndUnblockDependents() tested but never called. |
+| taskStrategyFabric (riskTier) | DEAD | Strategy | Table exists. Never populated in production routes. |
 
----
+### Session
 
-## Product Group 4: Agent Management
+Bounded agent execution on a task. The actual "agent does work" unit.
 
-### 4.1: Agent Profiles
-- Identity, config, skills, 7-day activity, performance stats
-- Health signals (failure rate, crash detection, harness availability)
-- Active session indicator, idle duration
+| Feature | Status | Layer | Notes |
+|---|---|---|---|
+| Session table (taskId, agentId, modelTier, state, cost, tokens) | WORKS | Kernel | States: queued, running, completed, failed |
+| Create + provision (POST /api/sessions) | WORKS | Kernel | Full 11-phase provisioning when adapters present |
+| End + effectiveness scoring (PATCH /api/sessions/:id) | WORKS | Kernel | effectivenessScore float 0-1 (AC1) |
+| Activity stream (ring buffer for dial-in) | WORKS | Kernel | SessionActivityBuffer, consumed by SessionActivityPanel |
+| Session -> Task propagation | WORKS | Strategy | session_ended event -> task auto-transitions to review when completed |
 
-### 4.2: Agent Configuration
-- Soul prompt editing (inline persona text)
-- Soul prompt templates per role
-- Harness type preference, model tier preference
-- Max concurrent sessions
+### Routine
 
-### 4.3: Agent Roster & Teams
-- Agent creation (name, role, soul prompt, config)
-- Agent soft-delete (retired status)
-- Auto-provisioning based on team functions
-- Three categories: team, strategy, personal
+Recurring automated work. Cron-triggered, cost-capped, with delegation.
 
-### 4.4: Skills & Autonomy
-- Per-agent-per-skill autonomy (L1-L4)
-- Success/failure tallies for graduation
-- Autonomy level editing
+| Feature | Status | Layer | Notes |
+|---|---|---|---|
+| Routine table (name, ownerAgentId, teamId, triggerType, triggerConfig, state) | WORKS | Kernel | States: active, paused, error |
+| CRUD (create, edit, pause, delete) | WORKS | View | Full management UI on WorkRoutine page |
+| Manual trigger ("Trigger Now") | WORKS | Kernel | POST /api/routines/:id/trigger provisions session |
+| Cron scheduling (automatic fire) | DEAD | Strategy | startRoutineScheduler() tested, NEVER CALLED in production. One function call fix. |
+| Run history (last 20 runs) | WORKS | View | Outcome, cost, duration per run |
+| Per-run + monthly cost caps | WORKS | Kernel | Both enforced on manual trigger. budget_exhausted outcome on breach. |
+| Sleep-time (silent flag) | DEAD | Strategy | Flag exists, scheduler logic checks it. But scheduler never runs. |
+| Delegation (findDelegate) | DEAD | Strategy | Fully implemented in scheduler. But scheduler never runs. |
+| Stub task (routine session without task context) | WORKS | Kernel | AA2 feature |
 
----
+### Team
 
-## Product Group 5: Routines & Automation
+Persistent agent group bound to a product.
 
-### 5.1: Routine Management
-- Create, edit, pause, resume, soft-delete
-- Detail page (config, run history, budget)
-- Manual trigger ("Run now")
-
-### 5.2: Scheduling & Triggers
-- Calendar trigger (cron with human-friendly presets)
-- Run history table, last run summary, next run timestamp
-
-### 5.3: Routine Cost Control
-- Per-run cost cap, monthly cost cap
-- Cost breakdown (bets vs routines) in team view
-
-### 5.4: Sleep-Time Routines
-- Memory-only runs (no threads, no reviews)
-- Fast-tier agent context freshness
+| Feature | Status | Layer | Notes |
+|---|---|---|---|
+| Team table (name, phase, functions) | WORKS | Kernel | |
+| Team members table (members, leadAgentId, capacity, costCap) | WORKS | Kernel | |
+| Auto-provisioning (defaultRoster from team functions) | DEAD | Kernel | Function exists. Team creation HARDCODES builder + PM. Functions field silently ignored. |
+| Agent add/edit from team view | WORKS | View | AgentAddDialog, AgentEditDialog |
 
 ---
 
-## Product Group 6: Cost & Budget Management
+## Layer 3: Views
 
-### 6.1: Cost Tracking
-- Structured money (bigint minor units + currency)
-- Token usage per tier (reasoning/workhorse/fast)
-- Session -> task -> bet -> team rollup
+Compositions of primitives into user-facing surfaces. Each view assembles primitives — it doesn't own separate data.
 
-### 6.2: Budget Enforcement
-- Agent/team/factory nested caps
-- Cap breach -> review thread (never silent drop)
-- Model tier downgrade when approaching threshold
-- Work pause on factory cap breach
+### Conversations
 
-### 6.3: Cost Visibility
-- Daily/weekly burn vs budget
-- Bet cost vs appetite, team burn chart
-- Real-time cost in session dial-in
+Composes: Thread + Message + Verdict + ArtifactView + SessionActivityPanel
 
----
+| Feature | Status | Notes |
+|---|---|---|
+| Thread list with section grouping (blocking/active/resolved) | WORKS | Derived from message content, not stored type |
+| Review message rendering (RichMessageCard) | WORKS | Promotes review/questionnaire messages to card with verdict buttons |
+| 5 verdict buttons (approve through reject) | WORKS | Sticky footer on promoted card |
+| RecipientPicker for new threads (N key) | WORKS | Creates DM thread with selected agent/user |
+| Session dial-in companion pane (D key) | WORKS | ThreadShell (3fr) + SessionActivityPanel (2fr) side-by-side |
+| CoC overlay (bottom-right, Chief of Staff) | WORKS (shell only) | UI exists. No agent processes responses. User types, gets silence. |
+| Agent reasoning display | PARTIAL | Reasoning array renders as `<ol>`. ReasoningBlockView exists but unmounted. |
+| Confidence indicator | NONE | No confidence field on messages |
 
-## Product Group 7: Ambient Awareness (Rail)
+### Work
 
-### 7.1: Rail Dashboard (deleted in U6, functions distributed)
-- Active bets & progress
-- Blocked agents/tasks with expand
-- Knowledge additions count
-- Cost burn rate, system stability
-- Unread thread count
+Composes: Bet + Task + Session + Artifact + Thread + Block
 
----
+| Feature | Status | Notes |
+|---|---|---|
+| Portfolio page (grid of team cards) | WORKS | Navigation page. Filters work. Consider: skip when teams.count = 1. |
+| Team view (bets, roster, burn/cap, routines) | WORKS | Factory floor view. Real data. |
+| Bet detail (pitch as blocks, task list, artifacts, discussion) | WORKS | Pitch rendered via Block primitive. HostThreadSection for discussion. |
+| Task detail (metadata, sessions, artifacts, discussion) | WORKS | HostThreadSection for discussion. Live session indicator. |
+| Routine detail (config, run history, budget) | WORKS | Manual trigger works. Cron scheduling dead. |
+| Bet create dialog | WORKS | Description + team required. Hypothesis/doneCondition/appetite optional. |
 
-## Product Group 8: Search & Navigation
+### Knowledge
 
-### 8.1: Global Search (Cmd+K)
-- Search across Conversations, Work, Knowledge
-- Grouped results, keyboard navigation
+Composes: KnowledgeItem + Block + Thread + KnowledgeStrategyFabric
 
-### 8.2: App Shell & Navigation
-- 200px sidebar (Conversations, Work, Knowledge)
-- Recent threads, team list, breadcrumbs
-- Knowledge triage badge
-
----
-
-## Product Group 9: Settings & Administration
-
-### 9.1: User Settings
-- Profile (name, email), Appearance (theme)
-
-### 9.2: System Settings
-- Notification config, model gateway config
-- Credentials management, org chart (review routing)
-- Backend config, worker status (shared-mode)
+| Feature | Status | Notes |
+|---|---|---|
+| Dual-tab list (Curated by topic + Triage by attention) | WORKS | Topic groups with health indicators. Scope filter pills. |
+| Triage keyboard flow (j/k/v/x, optimistic removal) | WORKS | Highest-value knowledge feature |
+| Detail with TipTap editing + auto-save | WORKS | 1500ms debounce, 409 conflict detection |
+| Per-block discussion (anchored messages) | WORKS | Block popover with "Discuss". Orphan detection. |
+| Related items sidebar (BacklinksCard) | WORKS | API-driven related items |
+| Creation (4 kinds exposed, 7 scopes) | WORKS | Right asymmetry: agents create the other 4 kinds |
+| Flag/Archive actions | DEAD | Buttons visible in overflow menu, onClick does nothing. API endpoints work. |
+| Merge/Split | API ONLY | Endpoints work. No UI surface. |
 
 ---
 
-## Product Group 10: Onboarding & Setup
+## Layer 4: Shell & Infrastructure
 
-### 10.1: Setup Flow
-- First-run: name + API key + optional repo path
-- Auto team creation, post-setup redirect
+Cross-cutting surfaces and capabilities.
 
-### 10.2: First-Time Hints
-- 6 contextual hints with per-user dismissal
+### App Shell
 
-### 10.3: Invite & Auth (Shared Mode)
-- Invite codes, bearer token auth, claim flow
+| Feature | Status | Notes |
+|---|---|---|
+| Sidebar (200px, 3 sections: Conversations, Work, Knowledge) | WORKS | Bottom strip: CoC trigger, Settings, Search |
+| Knowledge triage badge | WORKS | Count pill on Knowledge section header. Only working ambient signal. |
+| Blocking/unread badges on other sections | NONE | Conversations and Work have no ambient indicators outside their own views |
+| Global search (Cmd+K) | DEAD | UI opens, keyboard nav works. API returns 404. "Search coming soon." |
+| Breadcrumbs (within-view navigation) | WORKS | Work: Portfolio > Team > Bet > Task |
+
+### Settings
+
+| Feature | Status | Notes |
+|---|---|---|
+| Profile (name, email) | WORKS | |
+| Appearance (light/dark theme) | WORKS | |
+| Model gateway (3 tiers, provider selection) | WORKS | Auto-save with debounce, credential status dots |
+| Org chart (review routing edges) | WORKS | Direct/function/team mechanisms. Irrelevant for solo founder. |
+| Notification config | DEAD | 4 toggles render. useState only, not wired to PATCH endpoint. Settings evaporate on refresh. |
+| Credentials | PARTIAL | Server-side AES-256-GCM works. Partially exposed via model gateway UI. |
+
+### Onboarding
+
+| Feature | Status | Notes |
+|---|---|---|
+| Setup flow (name + API key + repo path) | WORKS | Creates user + team + stores credential. 60 seconds. |
+| First-time hints (5 of 6 render) | WORKS | Contextual cards with "Got it" dismiss. Server-persisted. |
+| Post-setup redirect | WORKS | -> /work/portfolio |
+
+### Agent Configuration
+
+| Feature | Status | Notes |
+|---|---|---|
+| Agent profile page | WORKS | Identity, config, skills, activity, performance, health |
+| Soul prompt editing | WORKS | Templates for 8 of 15 roles |
+| Agent creation/deletion | WORKS | AgentAddDialog, soft-delete to retired |
+| Autonomy levels (L1-L4 per skill) | DEAD | Read-only display. PATCH endpoint works. No edit UI. No graduation logic. |
+
+### Cost & Budget
+
+| Feature | Status | Notes |
+|---|---|---|
+| Structured money (bigint minor units + currency) | WORKS | Token usage per tier (reasoning/workhorse/fast) |
+| Budget enforcement (checkCostCap) | PARTIAL | Blocks new sessions. Routine caps enforced. No model tier downgrade. |
+| Cost visibility UI | NONE | Zero components render cost anywhere. Rail deleted. API returns zeros for spend. |
+
+### Lifecycle Propagation
+
+| Feature | Status | Notes |
+|---|---|---|
+| Session -> Task (auto-transition to review) | WORKS | Via session_ended event in fabric |
+| Task -> Bet (auto-transition to completed) | WORKS | CAS-protected. All tasks terminal triggers bet review. |
+| Propagation log | WORKS | Every attempt logged with status (applied/skipped/failed) |
+| Dependency watcher | DEAD | Function tested. Never called. Dependencies field never populated. |
 
 ---
 
-## Product Group 11: Cross-Cutting Primitives
+## Kernel vs Strategy Boundary
 
-### 11.1: Artifact System
-- Task-rooted artifacts (7 kinds)
-- Typed preview data, four view layouts
-- Artifact permalink, higher-level aggregation
+The separation is real and enforced at the package level.
 
-### 11.2: Block Primitive
-- 10 block kinds, server-computed IDs
-- Bet pitch and knowledge body rendering
-- Block-anchored messages with anchor persistence
+```
+packages/server (kernel) --> packages/fabric (strategy) --> packages/db, packages/shared
+                                    ^
+                         strategyBootstrap hook in app.ts
+                         (kernel-only mode works without it)
+```
 
-### 11.3: Lifecycle & Propagation
-- Session->Task, Task->Bet auto-transitions
-- Dependency watcher (auto-unblock)
-- Propagation log with retry heartbeat
-- Five-level hierarchy (portfolio -> product -> bet -> task -> session)
+| Aspect | Kernel (server + db) | Strategy (fabric) |
+|---|---|---|
+| Package dependency | Does not import fabric business logic | Does not import server |
+| Event coupling | Emits events | Subscribes via strategyBootstrap |
+| Knowledge | knowledgeItems table | knowledgeStrategyFabric (attention, relevance, layer) |
+| Tasks | tasks table | taskStrategyFabric (riskTier) -- exists but NOT populated |
+| Bets | bets table | No extension table yet |
+| Lifecycle | State machines, transitions | Propagation handlers (session->task->bet) |
+| Routines | CRUD, manual trigger | Scheduler, delegation, sleep-time (all dead -- scheduler not started) |
+| Scoring | -- | Attention scoring, relevance scoring |
+| Notifications | Queue table | Dispatch handlers |
