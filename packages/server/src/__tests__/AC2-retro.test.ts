@@ -25,6 +25,7 @@ import {
 	teams,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
+import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestApp } from "../test-utils.js";
@@ -254,12 +255,6 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 
 		// Now update the bet's hypothesis in the DB (simulating a field edit)
 		// NOTE: We update directly in DB since the hypothesis PATCH endpoint is separate
-		await db
-			.update(bets)
-			.set({ hypothesis: "UPDATED HYPOTHESIS — should not appear in retro" })
-			.where(bets.id ? undefined : undefined);
-		// Use direct import from drizzle
-		const { eq } = await import("drizzle-orm");
 		await db
 			.update(bets)
 			.set({ hypothesis: "UPDATED HYPOTHESIS — should not appear in retro" })

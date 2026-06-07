@@ -942,18 +942,6 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			});
 		}
 
-		// Write outcome fields on bet
-		await db
-			.update(bets)
-			.set({
-				outcomeVerdict: body.verdict,
-				outcomeSummary: body.summary,
-				outcomeRecordedAt: now,
-				outcomeRecordedBy: actor ?? null,
-				revisionLog: JSON.stringify(revisionLog),
-			})
-			.where(eq(bets.id, betId));
-
 		// Compose retro knowledge item body (markdown only — no YAML frontmatter in body per arch critique)
 		const learningsSection =
 			body.learnings && body.learnings.trim() ? body.learnings.trim() : "(No learnings recorded)";
@@ -961,7 +949,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		const kiBody = `## Reality\n\n${body.summary}\n\n## Learnings\n\n${learningsSection}`;
 
 		// Derive knowledge item title: "Retro: {bet title}"
-		const betTitle = deriveTitle(bet.description);
+		const betTitle = deriveTitle(bet.description, bet.id);
 		const kiTitle = `Retro: ${betTitle}`;
 
 		// Find existing retro knowledge item for this bet (upsert pattern)
@@ -986,78 +974,100 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		let retroKnowledgeItemId: string;
 
 		if (existingKi) {
-			// Upsert: update existing knowledge item — version incremented, body updated
 			retroKnowledgeItemId = existingKi.id;
-			await db
-				.update(knowledgeItems)
+		} else {
+			retroKnowledgeItemId = crypto.randomUUID();
+		}
+
+		// @lore AC2: Atomic transaction wrapping bet-outcome write + knowledge-item upsert.
+		// Without this, a partial failure (outcome saved, knowledge item not) leaves the bet
+		// in an inconsistent state. The existingKi/retroKnowledgeItemId are resolved outside
+		// the transaction (read-only queries) so the transaction only covers the writes.
+		await db.transaction(async (tx) => {
+			// Write outcome fields on bet
+			await tx
+				.update(bets)
 				.set({
+					outcomeVerdict: body.verdict,
+					outcomeSummary: body.summary,
+					outcomeRecordedAt: now,
+					outcomeRecordedBy: actor ?? null,
+					revisionLog: JSON.stringify(revisionLog),
+				})
+				.where(eq(bets.id, betId));
+
+			if (existingKi) {
+				// Upsert: update existing knowledge item — version incremented, body updated
+				await tx
+					.update(knowledgeItems)
+					.set({
+						title: kiTitle,
+						body: kiBody,
+						version: existingKi.version + 1,
+						updatedAt: now,
+						updatedBy: actor ?? "system",
+					})
+					.where(eq(knowledgeItems.id, existingKi.id));
+
+				// Update fabric meta (verdict changes; hypothesis snapshot stays from first write)
+				const existingFabricRows = await tx
+					.select()
+					.from(knowledgeStrategyFabric)
+					.where(eq(knowledgeStrategyFabric.knowledgeItemId, existingKi.id))
+					.limit(1);
+				const existingFabric = existingFabricRows[0];
+				if (existingFabric) {
+					const existingMeta = existingFabric.meta
+						? (JSON.parse(existingFabric.meta) as Record<string, unknown>)
+						: {};
+					// AC2-4: hypothesis snapshot is immutable — preserve the original
+					const updatedMeta = {
+						...existingMeta,
+						verdict: body.verdict,
+						validatedAt: now,
+						validatedBy: actor ?? null,
+					};
+					await tx
+						.update(knowledgeStrategyFabric)
+						.set({ meta: JSON.stringify(updatedMeta) })
+						.where(eq(knowledgeStrategyFabric.knowledgeItemId, existingKi.id));
+				}
+			} else {
+				// Insert: create new knowledge item + fabric row
+				const hypothesisSnapshot = bet.hypothesis?.trim() || "(no hypothesis recorded)";
+
+				await tx.insert(knowledgeItems).values({
+					id: retroKnowledgeItemId,
+					scopeKind: "bet",
+					scopeId: betId,
+					topic: null,
 					title: kiTitle,
 					body: kiBody,
-					version: existingKi.version + 1,
-					updatedAt: now,
+					format: "markdown",
+					status: "active",
+					version: 1,
 					updatedBy: actor ?? "system",
-				})
-				.where(eq(knowledgeItems.id, existingKi.id));
+					createdAt: now,
+					updatedAt: now,
+				});
 
-			// Update fabric meta (verdict changes; hypothesis snapshot stays from first write)
-			const existingFabricRows = await db
-				.select()
-				.from(knowledgeStrategyFabric)
-				.where(eq(knowledgeStrategyFabric.knowledgeItemId, existingKi.id))
-				.limit(1);
-			const existingFabric = existingFabricRows[0];
-			if (existingFabric) {
-				const existingMeta = existingFabric.meta
-					? (JSON.parse(existingFabric.meta) as Record<string, unknown>)
-					: {};
-				// AC2-4: hypothesis snapshot is immutable — preserve the original
-				const updatedMeta = {
-					...existingMeta,
+				const fabricMeta = {
+					betId,
+					hypothesis: hypothesisSnapshot,
 					verdict: body.verdict,
 					validatedAt: now,
 					validatedBy: actor ?? null,
 				};
-				await db
-					.update(knowledgeStrategyFabric)
-					.set({ meta: JSON.stringify(updatedMeta) })
-					.where(eq(knowledgeStrategyFabric.knowledgeItemId, existingKi.id));
+
+				await tx.insert(knowledgeStrategyFabric).values({
+					id: crypto.randomUUID(),
+					knowledgeItemId: retroKnowledgeItemId,
+					layer: null,
+					kind: "reflection",
+					meta: JSON.stringify(fabricMeta),
+				});
 			}
-		} else {
-			// Insert: create new knowledge item + fabric row
-			retroKnowledgeItemId = crypto.randomUUID();
-			const hypothesisSnapshot = bet.hypothesis?.trim() || "(no hypothesis recorded)";
-
-			await db.insert(knowledgeItems).values({
-				id: retroKnowledgeItemId,
-				scopeKind: "bet",
-				scopeId: betId,
-				topic: null,
-				title: kiTitle,
-				body: kiBody,
-				format: "markdown",
-				status: "active",
-				version: 1,
-				updatedBy: actor ?? "system",
-				createdAt: now,
-				updatedAt: now,
-			});
-
-			const fabricMeta = {
-				betId,
-				hypothesis: hypothesisSnapshot,
-				verdict: body.verdict,
-				validatedAt: now,
-				validatedBy: actor ?? null,
-			};
-
-			await db.insert(knowledgeStrategyFabric).values({
-				id: crypto.randomUUID(),
-				knowledgeItemId: retroKnowledgeItemId,
-				layer: null,
-				kind: "reflection",
-				meta: JSON.stringify(fabricMeta),
-			});
-		}
+		});
 
 		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 		if (!updated) {
