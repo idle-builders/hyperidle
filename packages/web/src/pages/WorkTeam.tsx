@@ -257,7 +257,20 @@ function WorkTeamLoaded({
 					Burn vs Cap
 				</h2>
 				<div className="flex flex-col gap-1">
-					<KeyValue label="Cost (actual)" value={formatMoney(burn.costActual)} />
+					{/* AA3: Bet vs routine cost breakdown */}
+					<KeyValue
+						label="Bet cost"
+						value={burn.betCostActual ? formatMoney(burn.betCostActual) : "$0.00"}
+					/>
+					<KeyValue
+						label="Routine cost"
+						value={
+							burn.routineCostThisMonth
+								? `${formatMoney(burn.routineCostThisMonth)} (this month)`
+								: "$0.00 (this month)"
+						}
+					/>
+					<KeyValue label="Total cost" value={formatMoney(burn.costActual)} />
 					<KeyValue label="Cap" value={formatMoney(burn.costCap)} />
 					<KeyValue label="Capacity" value={`${burn.activeBets} / ${burn.capacity}`} />
 				</div>

@@ -42,7 +42,7 @@ import type {
 	WireMoney,
 } from "@hyperidle/shared";
 import { deriveTitle } from "@hyperidle/shared";
-import { and, count, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { deriveInitials } from "../services/agent-utils.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
@@ -359,12 +359,42 @@ export function createTeamRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 				return bRow.createdAt.localeCompare(aRow.createdAt);
 			});
 
+			// AA3: Sum of active bets' costActualMinor for bet cost breakdown
+			const betCostActualMinor = activeBetRows.reduce(
+				(sum, bet) => sum + (bet.costActualMinor ?? 0),
+				0,
+			);
+
 			// AA1: Load routines for this team (AA2: exclude soft-deleted)
 			const routineRows = await db
 				.select()
 				.from(routines)
 				.where(and(eq(routines.teamId, teamId), isNull(routines.deletedAt)))
 				.orderBy(routines.id);
+
+			// AA3: Sum of routine runs this calendar month for routine cost breakdown
+			// Guard: skip the query when there are no routines (empty IN clause is a SQL error in some dialects)
+			let routineCostThisMonthMinor = 0;
+			if (routineRows.length > 0) {
+				const now3 = new Date();
+				const firstOfMonth3 = new Date(
+					Date.UTC(now3.getUTCFullYear(), now3.getUTCMonth(), 1),
+				).toISOString();
+				const [routineCostRow] = await db
+					.select({ total: sql<number>`coalesce(sum(${routineRuns.costMinor}), 0)` })
+					.from(routineRuns)
+					.where(
+						and(
+							inArray(
+								routineRuns.routineId,
+								routineRows.map((r) => r.id),
+							),
+							gte(routineRuns.startedAt, firstOfMonth3),
+						),
+					)
+					.limit(1);
+				routineCostThisMonthMinor = routineCostRow?.total ?? 0;
+			}
 
 			// Build agent name map for routine owners
 			const ownerIds = [
@@ -456,6 +486,15 @@ export function createTeamRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 					costCap: toWireMoney(teamCostCapMinor, teamCurrency),
 					capacity: memberGroup.capacity,
 					activeBets: memberGroup.activeBets,
+					// AA3: bet vs routine cost breakdown
+					betCostActual:
+						betCostActualMinor > 0
+							? { minor: betCostActualMinor, currency: teamCurrency as CurrencyCode }
+							: null,
+					routineCostThisMonth:
+						routineCostThisMonthMinor > 0
+							? { minor: routineCostThisMonthMinor, currency: teamCurrency as CurrencyCode }
+							: null,
 				},
 				activeBets,
 				routines: teamRoutines,

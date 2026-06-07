@@ -42,6 +42,7 @@ export function RoutineCreateDialog({
 	const [scheduleValue, setScheduleValue] = useState<string>(INITIAL_CRON);
 	const [customCron, setCustomCron] = useState("");
 	const [costCapRaw, setCostCapRaw] = useState("");
+	const [costCapMonthlyRaw, setCostCapMonthlyRaw] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -72,6 +73,7 @@ export function RoutineCreateDialog({
 			setScheduleValue(INITIAL_CRON);
 			setCustomCron("");
 			setCostCapRaw("");
+			setCostCapMonthlyRaw("");
 			setError(null);
 			setSubmitting(false);
 			if (!dialogRef.current.open) {
@@ -100,6 +102,10 @@ export function RoutineCreateDialog({
 		const costCapMinor = costCapRaw.trim()
 			? Math.round(Number.parseFloat(costCapRaw.trim()) * 100)
 			: null;
+		// AA3: monthly cost cap
+		const costCapMonthlyMinor = costCapMonthlyRaw.trim()
+			? Math.round(Number.parseFloat(costCapMonthlyRaw.trim()) * 100)
+			: null;
 
 		const payload: Record<string, unknown> = {
 			name: trimmedName,
@@ -109,6 +115,8 @@ export function RoutineCreateDialog({
 			triggerType: "calendar",
 			triggerConfig: JSON.stringify({ cron: resolvedCron }),
 			...(costCapMinor !== null ? { costCapPerRunMinor: costCapMinor } : {}),
+			// AA3: include monthly cap when set
+			...(costCapMonthlyMinor !== null ? { costCapMonthlyMinor } : {}),
 		};
 
 		const res = await apiFetch("/api/routines", {
@@ -265,6 +273,24 @@ export function RoutineCreateDialog({
 							min="0"
 							step="0.01"
 							aria-label="Cost cap per run"
+						/>
+					</label>
+
+					{/* AA3: Monthly cost cap */}
+					<label className="flex flex-col gap-[3px]">
+						<span className="text-xs text-[var(--text-tertiary)]">
+							Monthly cost cap (USD, optional)
+						</span>
+						<input
+							type="number"
+							className="input input-bordered input-sm text-base w-full"
+							value={costCapMonthlyRaw}
+							onChange={(e) => setCostCapMonthlyRaw(e.target.value)}
+							placeholder="e.g. 25.00"
+							disabled={submitting}
+							min="0"
+							step="0.01"
+							aria-label="Monthly cost cap"
 						/>
 					</label>
 

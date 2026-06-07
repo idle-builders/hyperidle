@@ -62,12 +62,17 @@ export interface SessionContext {
  * hook to use it as a filter. Coalescing guarantees at most one "running" row
  * per routine at any time, so routineId+outcome is a safe unique key.
  * sessionId is set here in the UPDATE so the historical record is complete.
+ *
+ * @lore AA3: outcome widened to include "budget_exhausted" so the per-run cap
+ * enforcement path can write the correct outcome in a single write (no
+ * write-then-overwrite). Passing the outcome through avoids the failure window
+ * where endSession succeeds but the override fails (critique Warning 1).
  */
 async function updateRoutineRunOnSessionEnd(
 	db: HyperIdleDb,
 	routineId: string,
 	sessionId: string,
-	outcome: "success" | "error",
+	outcome: "success" | "error" | "budget_exhausted",
 	endedAt: string,
 	costInCents: number,
 	summary?: string,
@@ -199,6 +204,10 @@ export async function createSession(
 
 /**
  * End a session gracefully: stop watcher, update DB, emit event, clean up workspace.
+ *
+ * @param routineRunOutcome - AA3: Optional override for the routine_run outcome.
+ *   When "budget_exhausted", the routine_run is recorded with that outcome directly
+ *   (avoids write-then-overwrite race window; critique Warning 1).
  */
 export async function endSession(
 	db: HyperIdleDb,
@@ -206,6 +215,7 @@ export async function endSession(
 	context: SessionContext,
 	costInCents: number,
 	baselineCost?: number,
+	routineRunOutcome?: "budget_exhausted",
 ): Promise<void> {
 	// 1. Stop watcher (final pass/flush)
 	context.watcher.stop();
@@ -238,12 +248,14 @@ export async function endSession(
 	});
 
 	// 4. AA2: If this is a routine session, update the routine_run row.
+	// AA3: routineRunOutcome defaults to "success"; "budget_exhausted" is passed through
+	// from the per-run cap enforcement path to avoid write-then-overwrite (critique Warning 1).
 	if (context.routineId) {
 		await updateRoutineRunOnSessionEnd(
 			db,
 			context.routineId,
 			context.sessionId,
-			"success",
+			routineRunOutcome ?? "success",
 			now,
 			costInCents,
 		);

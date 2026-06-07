@@ -282,6 +282,8 @@ export const routines = pgTable(
 		lastRunSummary: text("last_run_summary"),
 		/** AA2: Optional per-run cost ceiling in minor units. NULL = no cap. */
 		costCapPerRunMinor: integer("cost_cap_per_run_minor"),
+		/** AA3: Optional per-month cost ceiling in minor units. NULL = no cap. Factory is single-currency so no currency column needed (matches per-run cap pattern). */
+		costCapMonthlyMinor: integer("cost_cap_monthly_minor"),
 		/** AA2: Creation timestamp. Backfilled for pre-existing routines. */
 		createdAt: text("created_at"),
 		/**

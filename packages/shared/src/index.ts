@@ -171,8 +171,9 @@ export {
 	scrubInlineTokens,
 	TK_TOKEN_RE,
 } from "./redact.js";
-// ── Routine primitive (AA1 + AA2) ──
+// ── Routine primitive (AA1 + AA2 + AA3) ──
 export type {
+	RoutineBudget,
 	RoutineCardSummary,
 	RoutineCreatePayload,
 	RoutineDetail,

@@ -28,8 +28,17 @@ export const ROUTINE_STATES: readonly RoutineState[] = ["active", "paused", "err
  * - skipped: run was scheduled but skipped (cost cap, WIP limit, etc).
  * - running: AA2: run is currently in progress (session active).
  * - timeout: AA2: run exceeded its time limit.
+ * - budget_exhausted: AA3: run terminated because per-run cost cap was hit.
+ * - monthly_budget_exhausted: AA3: run skipped because monthly cost cap was reached.
  */
-export type RoutineRunOutcome = "success" | "error" | "skipped" | "running" | "timeout";
+export type RoutineRunOutcome =
+	| "success"
+	| "error"
+	| "skipped"
+	| "running"
+	| "timeout"
+	| "budget_exhausted"
+	| "monthly_budget_exhausted";
 
 export const ROUTINE_RUN_OUTCOMES: readonly RoutineRunOutcome[] = [
 	"success",
@@ -37,6 +46,8 @@ export const ROUTINE_RUN_OUTCOMES: readonly RoutineRunOutcome[] = [
 	"skipped",
 	"running",
 	"timeout",
+	"budget_exhausted",
+	"monthly_budget_exhausted",
 ] as const;
 
 /**
@@ -77,6 +88,24 @@ export interface RoutineRunSummary {
 }
 
 /**
+ * AA3: Budget stats for a routine. Returned as part of RoutineDetail.
+ */
+export interface RoutineBudget {
+	/** Mean of completed routineRuns.costMinor (where costMinor > 0). Null when no runs with cost. */
+	avgCostPerRun: WireMoney | null;
+	/** SUM routineRuns.costMinor for the current calendar month. Null when no runs this month with cost. */
+	costThisMonth: WireMoney | null;
+	/** From routines.costCapPerRunMinor. Null = no cap. */
+	costCapPerRun: WireMoney | null;
+	/** From routines.costCapMonthlyMinor. Null = no cap. */
+	costCapMonthly: WireMoney | null;
+	/** Last completed run cost / per-run cap * 100. Null when no per-run cap or no last run cost. */
+	perRunUtilizationPercent: number | null;
+	/** This month cost / monthly cap * 100. Null when no monthly cap or no spend this month. */
+	monthlyUtilizationPercent: number | null;
+}
+
+/**
  * Full routine info object inside RoutineDetail. Includes all fields
  * shown in the WorkRoutine detail page (AC-5).
  */
@@ -103,6 +132,8 @@ export interface RoutineInfo {
 	createdAt: string | null;
 	/** AA2: per-run cost cap. Null = no cap. */
 	costCapPerRun: WireMoney | null;
+	/** AA3: monthly cost cap. Null = no cap. */
+	costCapMonthly: WireMoney | null;
 	/** AA2: last successful run's summary. Null when no successful runs. */
 	lastRunSummary: string | null;
 }
@@ -113,6 +144,8 @@ export interface RoutineInfo {
 export interface RoutineDetail {
 	routine: RoutineInfo;
 	runs: RoutineRunSummary[];
+	/** AA3: Budget stats computed server-side. */
+	budget: RoutineBudget;
 }
 
 /**
@@ -127,6 +160,8 @@ export interface RoutineCreatePayload {
 	/** JSON: { cron: "<expression>" } */
 	triggerConfig: string;
 	costCapPerRunMinor?: number | null;
+	/** AA3: Optional per-month cost cap in minor units. Null removes the cap. */
+	costCapMonthlyMinor?: number | null;
 }
 
 /**
