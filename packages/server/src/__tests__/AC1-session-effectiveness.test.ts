@@ -12,8 +12,8 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	sessions,
-	tasks,
 	type TestDbHandle,
+	tasks,
 	teamMembers,
 	teams,
 	users,
@@ -103,7 +103,7 @@ describe("PATCH /api/sessions/:id — AC1 session effectiveness (AC-3, AC-11, W-
 		const body = (await res.json()) as Record<string, unknown>;
 		// effectiveness_score stored as text per @lore S-1
 		expect(body.effectivenessScore).toBeTruthy();
-		const score = parseFloat(body.effectivenessScore as string);
+		const score = Number.parseFloat(body.effectivenessScore as string);
 		expect(score).toBeCloseTo(0.85, 5);
 	});
 
@@ -118,7 +118,7 @@ describe("PATCH /api/sessions/:id — AC1 session effectiveness (AC-3, AC-11, W-
 
 		const body = (await res.json()) as Record<string, unknown>;
 		expect(body.effectivenessScore).toBeTruthy();
-		expect(parseFloat(body.effectivenessScore as string)).toBeCloseTo(0.85, 5);
+		expect(Number.parseFloat(body.effectivenessScore as string)).toBeCloseTo(0.85, 5);
 		expect(body.effectivenessRecordedAt).toBeTruthy();
 	});
 
@@ -132,7 +132,7 @@ describe("PATCH /api/sessions/:id — AC1 session effectiveness (AC-3, AC-11, W-
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as Record<string, unknown>;
-		expect(parseFloat(body.effectivenessScore as string)).toBeCloseTo(0, 5);
+		expect(Number.parseFloat(body.effectivenessScore as string)).toBeCloseTo(0, 5);
 	});
 
 	// AC-11: Boundary value 1.0 is valid (upper bound)
@@ -145,7 +145,7 @@ describe("PATCH /api/sessions/:id — AC1 session effectiveness (AC-3, AC-11, W-
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as Record<string, unknown>;
-		expect(parseFloat(body.effectivenessScore as string)).toBeCloseTo(1.0, 5);
+		expect(Number.parseFloat(body.effectivenessScore as string)).toBeCloseTo(1.0, 5);
 	});
 
 	// AC-11: Score 1.5 is out of range (400)
@@ -179,7 +179,7 @@ describe("PATCH /api/sessions/:id — AC1 session effectiveness (AC-3, AC-11, W-
 
 		const body = (await res.json()) as Record<string, unknown>;
 		expect(body.state).toBe("done");
-		expect(parseFloat(body.effectivenessScore as string)).toBeCloseTo(0.9, 5);
+		expect(Number.parseFloat(body.effectivenessScore as string)).toBeCloseTo(0.9, 5);
 	});
 
 	// 404 for non-existent session

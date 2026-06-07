@@ -229,7 +229,9 @@ describe("POST /api/bets/:id/outcome — AC1 bet outcome (AC-1, AC-4, AC-9, AC-1
 		const outcomeRevisions = revisionLog.filter((e) => e.field === "outcome");
 		expect(outcomeRevisions.length).toBeGreaterThanOrEqual(1);
 		// Previous value must be stored
-		const prevEntry = outcomeRevisions.find((e) => (e.old_value as Record<string, unknown>)?.verdict === "validated");
+		const prevEntry = outcomeRevisions.find(
+			(e) => (e.old_value as Record<string, unknown>)?.verdict === "validated",
+		);
 		expect(prevEntry).toBeDefined();
 	});
 

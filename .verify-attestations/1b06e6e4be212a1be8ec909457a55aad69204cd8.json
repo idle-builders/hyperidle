@@ -1,7 +1,11 @@
 {
+<<<<<<<< HEAD:.verify-attestations/1b06e6e4be212a1be8ec909457a55aad69204cd8.json
 	"sha": "1b06e6e4be212a1be8ec909457a55aad69204cd8",
+========
+	"sha": "e50e6d9103b2d842fa9f50d955393594e89b2e50",
+>>>>>>>> 6be1c975 (feat(AC1): structured outcome fields — bet/task/session verdict + UI):.verify-attestations/e50e6d9103b2d842fa9f50d955393594e89b2e50.json
 	"status": "passed",
-	"dirty": false,
+	"dirty": true,
 	"tools": [
 		"check",
 		"lint:biome",
@@ -28,6 +32,11 @@
 	],
 	"partial": false,
 	"smartSkipped": [],
+<<<<<<<< HEAD:.verify-attestations/1b06e6e4be212a1be8ec909457a55aad69204cd8.json
 	"timestamp": "2026-06-07T11:25:42.934Z",
 	"hmac": "e2ac4c9a81ca6fab355c74b8a87822b77156e5394eae72ecf585e6f25771e7eb"
+========
+	"timestamp": "2026-06-07T12:50:43.603Z",
+	"hmac": "6f41c787083b2488013505b52164baa5411ef09760aef245bf2b198a0eca4d69"
+>>>>>>>> 6be1c975 (feat(AC1): structured outcome fields — bet/task/session verdict + UI):.verify-attestations/e50e6d9103b2d842fa9f50d955393594e89b2e50.json
 }

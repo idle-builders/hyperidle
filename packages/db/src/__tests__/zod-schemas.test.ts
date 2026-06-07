@@ -103,6 +103,11 @@ describe("A. drizzle-zod base schemas", () => {
 				costActualMinor: null,
 				costActualCurrency: null,
 				tokensActualJson: null,
+				// AC1: outcome fields — nullable, default null
+				outcomeVerdict: null,
+				outcomeSummary: null,
+				outcomeRecordedAt: null,
+				outcomeRecordedBy: null,
 			});
 			expect(valid.success).toBe(true);
 		});

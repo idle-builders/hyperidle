@@ -33,9 +33,23 @@ const createSessionSchema = z.object({
 });
 
 const updateSessionSchema = z.object({
-	state: z.enum(["done", "crashed"]),
+	// @lore AC1 W-1: `state` is now optional. Previously it was REQUIRED, which
+	// caused effectiveness-only PATCHes (no `state` field) to fail Zod validation
+	// before reaching the handler. Making state optional allows the endpoint to
+	// update effectiveness_score without changing session state.
+	// When `state` is present, the session_ended event is emitted as before.
+	// When `state` is absent, only the effectiveness fields are written.
+	state: z.enum(["done", "crashed"]).optional(),
 	outcome: z.string().optional(),
 	notes: z.string().optional(),
+	/**
+	 * AC1: Session effectiveness score (float 0-1).
+	 *
+	 * @lore AC1 S-1: Validated as number at the API boundary (Zod min/max).
+	 * Stored as text in the DB (existing schema convention for non-integers).
+	 * Use .toString() on write, parseFloat() + Number.isNaN() guard on read.
+	 */
+	effectivenessScore: z.number().min(0).max(1).optional(),
 });
 
 /**
@@ -264,7 +278,7 @@ export function createSessionRoutes(
 		});
 	});
 
-	// PATCH /:id — Update session state
+	// PATCH /:id — Update session state and/or effectiveness score
 	router.patch("/:id", validateBody(updateSessionSchema), async (c) => {
 		const sessionId = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof updateSessionSchema>;
@@ -275,25 +289,43 @@ export function createSessionRoutes(
 		}
 
 		const now = new Date().toISOString();
-		const updates: Record<string, unknown> = {
-			state: body.state,
-			endedAt: now,
-		};
+		const actor = c.get("userId");
+		const updates: Record<string, unknown> = {};
+
+		// AC1 W-1: state is optional — only update state/endedAt when state is present
+		if (body.state !== undefined) {
+			updates.state = body.state;
+			updates.endedAt = now;
+		}
 		if (body.outcome !== undefined) updates.outcome = body.outcome;
 		if (body.notes !== undefined) updates.notes = body.notes;
 
+		// AC1: Record effectiveness score when present.
+		// @lore AC1 S-1: stored as text, validated as number[0,1] at API boundary.
+		// Use .toString() on write, parseFloat() + Number.isNaN() guard on read.
+		if (body.effectivenessScore !== undefined) {
+			updates.effectivenessScore = body.effectivenessScore.toString();
+			updates.effectivenessRecordedAt = now;
+			// Use actor from auth context; fall back to session's agentId (for agent-authored writes)
+			updates.effectivenessRecordedBy = actor ?? existing.agentId;
+		}
+
 		await db.update(sessions).set(updates).where(eq(sessions.id, sessionId));
 
-		const outcome: SessionOutcome = body.state === "crashed" ? "crashed" : "completed";
-		eventBus.emit<"session_ended">({
-			type: "session_ended",
-			streamId: sessionId,
-			sessionId,
-			agentId: existing.agentId,
-			taskId: existing.taskId,
-			timestamp: Date.now(),
-			outcome,
-		} satisfies SessionEndedEvent);
+		// AC1 W-1: Only emit session_ended when state is present in the body.
+		// Effectiveness-only PATCHes do not end the session.
+		if (body.state !== undefined) {
+			const outcome: SessionOutcome = body.state === "crashed" ? "crashed" : "completed";
+			eventBus.emit<"session_ended">({
+				type: "session_ended",
+				streamId: sessionId,
+				sessionId,
+				agentId: existing.agentId,
+				taskId: existing.taskId,
+				timestamp: Date.now(),
+				outcome,
+			} satisfies SessionEndedEvent);
+		}
 
 		const [updated] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
 		return c.json(updated);

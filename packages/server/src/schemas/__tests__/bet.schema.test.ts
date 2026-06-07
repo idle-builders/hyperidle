@@ -146,6 +146,11 @@ describe("B2. betListResponseSchema", () => {
 					costActualMinor: null,
 					costActualCurrency: null,
 					tokensActualJson: null,
+					// AC1: outcome fields — nullable, default null
+					outcomeVerdict: null,
+					outcomeSummary: null,
+					outcomeRecordedAt: null,
+					outcomeRecordedBy: null,
 				},
 			],
 			active: [],

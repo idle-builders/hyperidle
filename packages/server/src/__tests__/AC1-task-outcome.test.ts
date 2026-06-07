@@ -10,8 +10,8 @@ import {
 	bets,
 	createTestDb,
 	type HyperIdleDb,
-	tasks,
 	type TestDbHandle,
+	tasks,
 	teamMembers,
 	teams,
 } from "@hyperidle/db";

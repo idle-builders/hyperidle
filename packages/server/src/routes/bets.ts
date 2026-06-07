@@ -12,6 +12,7 @@ import {
 import type { ArtifactKind, ArtifactThreadSummary, EventBus } from "@hyperidle/shared";
 import {
 	ARTIFACT_KINDS,
+	BET_OUTCOME_VERDICTS,
 	CURRENCY_CODES,
 	deriveTitle,
 	InvalidTransitionError,
@@ -133,6 +134,15 @@ const killBetSchema = z.object({
  */
 const startBetSchema = z.object({
 	reason: z.string().optional(),
+});
+
+/**
+ * AC1: Schema for recording/updating a bet outcome.
+ * Only valid for bets in completed or killed status.
+ */
+const betOutcomeSchema = z.object({
+	verdict: z.enum(BET_OUTCOME_VERDICTS as unknown as [string, ...string[]]),
+	summary: z.string().max(2000).optional(),
 });
 
 /**
@@ -461,6 +471,9 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				>`(SELECT ${sessions.outcome} FROM ${sessions} WHERE ${sessions.taskId} = ${outerTaskId} ORDER BY ${sessions.startedAt} DESC LIMIT 1)`.as(
 					"latest_session_outcome",
 				),
+				// AC1 W-2: include task outcome fields in bet detail response
+				outcomeVerdict: tasks.outcomeVerdict,
+				outcomeRecordedAt: tasks.outcomeRecordedAt,
 			})
 			.from(tasks)
 			.where(eq(tasks.betId, betId));
@@ -729,6 +742,73 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		}
 		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 		// @lore U2: normalize atRisk 0/1 to boolean on the wire (architecture-critique W-1).
+		return c.json({ ...updated, atRisk: updated.atRisk === 1 });
+	});
+
+	// POST /bets/:id/outcome — record or update bet outcome (AC1).
+	// Only valid for completed or killed bets (hypothesis can only be evaluated after the bet ends).
+	router.post("/:id/outcome", validateBody(betOutcomeSchema), async (c) => {
+		const betId = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof betOutcomeSchema>;
+
+		const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+		if (!bet) {
+			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+		}
+
+		// AC1 AC-9: outcome can only be recorded for completed or killed bets
+		if (bet.status !== "completed" && bet.status !== "killed") {
+			return c.json(
+				{
+					error: `Outcome cannot be recorded for a bet in '${bet.status}' status. Only completed or killed bets can have outcomes.`,
+					code: "VALIDATION_ERROR",
+				},
+				400,
+			);
+		}
+
+		const now = new Date().toISOString();
+		const actor = c.get("userId");
+
+		// AC1 AC-12: append to revision log when overriding an existing outcome
+		const revisionLog: Array<Record<string, unknown>> = bet.revisionLog
+			? (JSON.parse(bet.revisionLog) as Array<Record<string, unknown>>)
+			: [];
+
+		if (bet.outcomeVerdict !== null) {
+			revisionLog.push({
+				timestamp: now,
+				field: "outcome",
+				old_value: {
+					verdict: bet.outcomeVerdict,
+					summary: bet.outcomeSummary ?? null,
+					recordedAt: bet.outcomeRecordedAt,
+					recordedBy: bet.outcomeRecordedBy,
+				},
+				new_value: {
+					verdict: body.verdict,
+					summary: body.summary ?? null,
+				},
+				actor,
+			});
+		}
+
+		await db
+			.update(bets)
+			.set({
+				outcomeVerdict: body.verdict,
+				outcomeSummary: body.summary ?? null,
+				outcomeRecordedAt: now,
+				outcomeRecordedBy: actor ?? null,
+				revisionLog: JSON.stringify(revisionLog),
+			})
+			.where(eq(bets.id, betId));
+
+		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+		if (!updated) {
+			return c.json({ error: "Bet not found after update", code: "INTERNAL_ERROR" }, 500);
+		}
+		// @lore U2: normalize atRisk 0/1 to boolean on the wire.
 		return c.json({ ...updated, atRisk: updated.atRisk === 1 });
 	});
 

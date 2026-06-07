@@ -163,3 +163,31 @@ export const SCOPES_REQUIRING_ID: ReadonlySet<ScopeKind> = new Set<ScopeKind>([
 	"bet",
 	"task",
 ]);
+
+/**
+ * AC1: Closed enum of bet outcome verdicts.
+ * Adding a fifth value requires updating plans/AC1/concept.md first.
+ *
+ * @lore AC1: "validated" means the hypothesis held; "refuted" means it didn't;
+ * "partial" means mixed results; "inconclusive" means insufficient evidence.
+ * These are retrospective evaluations of hypothesis quality, distinct from the
+ * thread `VerdictDecision` type (approve/reject) which is a conversational action.
+ */
+export const BET_OUTCOME_VERDICTS = ["validated", "refuted", "partial", "inconclusive"] as const;
+export type BetOutcomeVerdict = (typeof BET_OUTCOME_VERDICTS)[number];
+
+/**
+ * AC1: Closed enum of task outcome verdicts.
+ * Adding a fifth value requires updating plans/AC1/concept.md first.
+ *
+ * @lore AC1: Records whether the task's done condition was met during review.
+ * NOT set automatically by the state machine — must be explicitly recorded by
+ * a human or evaluator agent.
+ */
+export const TASK_OUTCOME_VERDICTS = [
+	"met",
+	"met_with_rework",
+	"partially_met",
+	"not_met",
+] as const;
+export type TaskOutcomeVerdict = (typeof TASK_OUTCOME_VERDICTS)[number];

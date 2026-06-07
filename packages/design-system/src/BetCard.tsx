@@ -113,6 +113,11 @@ export interface BetCardProps {
 	budgetLabel?: string;
 	/** id: allows caller to pass id without error */
 	id?: string;
+	/**
+	 * AC1: Optional outcome verdict for display. Shown as a neutral badge after
+	 * the status badge. Only rendered when not null/undefined.
+	 */
+	outcomeVerdict?: string;
 }
 
 export function BetCard({
@@ -129,6 +134,8 @@ export function BetCard({
 	description,
 	avatarGroup,
 	budgetLabel,
+	id,
+	outcomeVerdict,
 }: BetCardProps): JSX.Element {
 	// W3 AC-16: normalize progress to a percentage number
 	const progressPct: number | null =
@@ -178,6 +185,16 @@ export function BetCard({
 				<span className={badgeClasses(STATUS_BADGE_VARIANT[status])} data-status={status}>
 					{STATUS_LABEL[status]}
 				</span>
+				{/* AC1: Outcome verdict badge — neutral style, only when verdict is set */}
+				{outcomeVerdict && (
+					<span
+						className={badgeClasses("default")}
+						aria-label={`Outcome: ${outcomeVerdict}`}
+						data-testid={id ? `bet-card-verdict-badge-${id}` : "bet-card-verdict-badge"}
+					>
+						{outcomeVerdict.charAt(0).toUpperCase() + outcomeVerdict.slice(1)}
+					</span>
+				)}
 				{/* Budget badge — amber, right-aligned via ml-auto */}
 				{budgetLabel && <span className={`${badgeClasses("amber")} ml-auto`}>{budgetLabel}</span>}
 			</div>

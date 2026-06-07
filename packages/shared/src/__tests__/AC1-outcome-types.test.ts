@@ -6,10 +6,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import {
-	BET_OUTCOME_VERDICTS,
-	TASK_OUTCOME_VERDICTS,
-} from "../types.js";
+import { BET_OUTCOME_VERDICTS, TASK_OUTCOME_VERDICTS } from "../types.js";
 
 describe("AC1 AC-13: Outcome verdict enums export from @hyperidle/shared", () => {
 	it("BET_OUTCOME_VERDICTS exports exactly 4 values", () => {
