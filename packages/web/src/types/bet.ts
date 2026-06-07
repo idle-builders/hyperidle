@@ -34,6 +34,8 @@ export interface BetDetail {
 	progress: { done: number; total: number };
 	/** Markdown description body (renamed from 'pitch' in L16, aligned with API in T3). */
 	description: string;
+	/** AC2: The bet hypothesis text. Null if no hypothesis was recorded. */
+	hypothesis?: string | null;
 	/** AC1: Structured bet outcome verdict. Null = not evaluated. */
 	outcomeVerdict?: BetOutcomeVerdict | null;
 	/** AC1: Free-text explanation of the outcome. */

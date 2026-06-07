@@ -672,6 +672,10 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	const [outcomeSummaryForm, setOutcomeSummaryForm] = useState<string>(bet?.outcomeSummary ?? "");
 	const [outcomeSaving, setOutcomeSaving] = useState(false);
 	const [outcomeError, setOutcomeError] = useState<string | null>(null);
+	// AC2: Learnings field and AI draft state for the retro flow
+	const [retroLearningsForm, setRetroLearningsForm] = useState<string>("");
+	const [retroDrafting, setRetroDrafting] = useState(false);
+	const [retroDraftError, setRetroDraftError] = useState<string | null>(null);
 
 	// L18: Block popover state — openBlockId is set when the user opens a block's
 	// actions menu; null when the popover is closed.
@@ -843,23 +847,25 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	);
 
 	/**
-	 * AC1: Save bet outcome via POST /api/bets/:id/outcome.
-	 * Writes verdict + optional summary, then refreshes page data.
+	 * AC2: Save bet retro via POST /api/bets/:id/retro.
+	 * Writes verdict + summary + optional learnings, creates a retro knowledge item.
 	 *
-	 * @lore AC1: Only completed/killed bets accept an outcome. The form is only
-	 * rendered for those statuses, so no client-side status guard is needed here.
+	 * @lore AC2: Replaces the AC1 POST /outcome call for the outcome section UI.
+	 * The AC1 endpoint is preserved — this is a new, richer endpoint that also
+	 * creates a retro knowledge item atomically.
 	 */
 	const handleOutcomeSave = useCallback(async (): Promise<void> => {
 		if (!(bet && outcomeVerdictForm)) return;
 		setOutcomeSaving(true);
 		setOutcomeError(null);
 		try {
-			const res = await apiFetch(`/api/bets/${encodeURIComponent(bet.id)}/outcome`, {
+			const res = await apiFetch(`/api/bets/${encodeURIComponent(bet.id)}/retro`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					verdict: outcomeVerdictForm,
-					summary: outcomeSummaryForm || undefined,
+					summary: outcomeSummaryForm || "",
+					learnings: retroLearningsForm || undefined,
 				}),
 			});
 			if (!res.ok) {
@@ -873,7 +879,34 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 		} finally {
 			setOutcomeSaving(false);
 		}
-	}, [bet, outcomeVerdictForm, outcomeSummaryForm, fetched]);
+	}, [bet, outcomeVerdictForm, outcomeSummaryForm, retroLearningsForm, fetched]);
+
+	/**
+	 * AC2: Call POST /api/bets/:id/retro/draft to get an AI-assisted draft.
+	 * Pre-fills verdict, summary, and learnings form fields.
+	 * On failure, shows error message but keeps form usable.
+	 */
+	const handleRetroDraft = useCallback(async (): Promise<void> => {
+		if (!bet) return;
+		setRetroDrafting(true);
+		setRetroDraftError(null);
+		try {
+			const res = await apiFetch(`/api/bets/${encodeURIComponent(bet.id)}/retro/draft`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({}),
+			});
+			if (!res.ok) throw new Error("Draft failed");
+			const draft = (await res.json()) as { verdict: string; summary: string; learnings: string };
+			setOutcomeVerdictForm(draft.verdict as BetOutcomeVerdict);
+			setOutcomeSummaryForm(draft.summary);
+			setRetroLearningsForm(draft.learnings);
+		} catch {
+			setRetroDraftError("Could not generate draft. Fill in manually.");
+		} finally {
+			setRetroDrafting(false);
+		}
+	}, [bet]);
 
 	const handleConsequenceConfirm = useCallback(
 		async (reason: string): Promise<void> => {
@@ -1268,7 +1301,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 						</div>
 					</div>
 
-					{/* AC1: Outcome section — only shown for completed/killed bets */}
+					{/* AC2: Outcome section — only shown for completed/killed bets */}
 					{(bet.status === "completed" || bet.status === "killed") && (
 						<section data-testid="outcome-section" aria-label="Outcome">
 							<div className="text-[13px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)] pb-[6px] border-b border-[var(--border-subtle)] mb-[9px]">
@@ -1278,37 +1311,65 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 							{outcomeEditMode === "view" ? (
 								<div className="flex flex-col gap-[9px]">
 									{bet.outcomeVerdict ? (
-										<>
-											{/* Verdict badge + label */}
-											<div className="flex items-center gap-[9px]">
-												{/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: span receives aria-label for test/screen-reader accessibility; role="note" not used to avoid semantic confusion */}
-												<span
-													data-testid="outcome-verdict-badge"
-													aria-label={`Outcome: ${bet.outcomeVerdict}`}
-													className="inline-flex items-center text-[12px] font-[500] px-[9px] py-[3px] rounded-[var(--r-pill)] bg-[var(--surface-container)] text-[var(--text-secondary)] leading-[1.4]"
-												>
-													{BET_VERDICT_LABEL[bet.outcomeVerdict] ?? bet.outcomeVerdict}
+										/* AC2-12: populated state — two-column layout */
+										<div
+											data-testid="retro-columns"
+											className="grid grid-cols-1 gap-[18px] sm:grid-cols-2"
+										>
+											{/* Left column: hypothesis (read-only) */}
+											<div className="flex flex-col gap-[6px]">
+												<span className="text-[12px] font-[500] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
+													Predicted
 												</span>
-												<button
-													type="button"
-													className="text-[13px] text-[var(--accent-primary)] hover:underline cursor-pointer"
-													onClick={() => {
-														setOutcomeVerdictForm(bet.outcomeVerdict ?? "");
-														setOutcomeSummaryForm(bet.outcomeSummary ?? "");
-														setOutcomeEditMode("editing");
-													}}
-												>
-													Edit outcome
-												</button>
+												{bet.hypothesis ? (
+													<p
+														data-testid="retro-hypothesis-display"
+														className="text-[13px] text-[var(--text-secondary)] leading-[1.7]"
+													>
+														{bet.hypothesis}
+													</p>
+												) : (
+													<p
+														data-testid="retro-hypothesis-display"
+														className="text-[13px] text-[var(--text-tertiary)] italic"
+													>
+														No hypothesis recorded
+													</p>
+												)}
 											</div>
-											{/* Summary */}
-											{bet.outcomeSummary && (
-												<p className="text-[13px] text-[var(--text-secondary)] leading-[1.7]">
-													{bet.outcomeSummary}
-												</p>
-											)}
-										</>
+											{/* Right column: verdict + summary + actions */}
+											<div className="flex flex-col gap-[9px]">
+												<div className="flex items-center gap-[9px]">
+													{/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: span receives aria-label for test/screen-reader accessibility */}
+													<span
+														data-testid="outcome-verdict-badge"
+														aria-label={`Outcome: ${bet.outcomeVerdict}`}
+														className="inline-flex items-center text-[12px] font-[500] px-[9px] py-[3px] rounded-[var(--r-pill)] bg-[var(--surface-container)] text-[var(--text-secondary)] leading-[1.4]"
+													>
+														{BET_VERDICT_LABEL[bet.outcomeVerdict] ?? bet.outcomeVerdict}
+													</span>
+													<button
+														type="button"
+														className="text-[13px] text-[var(--accent-primary)] hover:underline cursor-pointer"
+														onClick={() => {
+															setOutcomeVerdictForm(bet.outcomeVerdict ?? "");
+															setOutcomeSummaryForm(bet.outcomeSummary ?? "");
+															setRetroLearningsForm("");
+															setOutcomeEditMode("editing");
+														}}
+													>
+														Edit outcome
+													</button>
+												</div>
+												{bet.outcomeSummary && (
+													<p className="text-[13px] text-[var(--text-secondary)] leading-[1.7]">
+														{bet.outcomeSummary}
+													</p>
+												)}
+											</div>
+										</div>
 									) : (
+										/* Not evaluated state */
 										<div className="flex items-center gap-[9px]">
 											<span className="text-[13px] text-[var(--text-tertiary)]">Not evaluated</span>
 											<button
@@ -1317,6 +1378,8 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 												onClick={() => {
 													setOutcomeVerdictForm("");
 													setOutcomeSummaryForm("");
+													setRetroLearningsForm("");
+													setRetroDraftError(null);
 													setOutcomeEditMode("editing");
 												}}
 											>
@@ -1326,7 +1389,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 									)}
 								</div>
 							) : (
-								/* Inline edit form — aria-label required by Design W-2 */
+								/* AC2: Editing state — two-column form — aria-label required by Design W-2 */
 								<form
 									aria-label="Record bet outcome"
 									className="flex flex-col gap-[12px]"
@@ -1335,45 +1398,109 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 										void handleOutcomeSave();
 									}}
 								>
-									{/* Verdict select */}
-									<div className="flex flex-col gap-[6px]">
-										<label
-											htmlFor="outcome-verdict-select"
-											className="text-[12px] font-[500] text-[var(--text-secondary)]"
-										>
-											Verdict
-										</label>
-										<select
-											id="outcome-verdict-select"
-											className="select select-sm bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-primary)] text-[13px]"
-											value={outcomeVerdictForm}
-											onChange={(e) =>
-												setOutcomeVerdictForm(e.target.value as typeof outcomeVerdictForm)
-											}
-										>
-											<option value="">Select verdict…</option>
-											{BET_OUTCOME_VERDICTS.map((v) => (
-												<option key={v} value={v}>
-													{BET_VERDICT_LABEL[v] ?? v}
-												</option>
-											))}
-										</select>
-									</div>
-									{/* Summary textarea */}
-									<div className="flex flex-col gap-[6px]">
-										<label
-											htmlFor="outcome-summary-textarea"
-											className="text-[12px] font-[500] text-[var(--text-secondary)]"
-										>
-											Summary (optional)
-										</label>
-										<textarea
-											id="outcome-summary-textarea"
-											className="textarea textarea-sm bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-primary)] text-[13px] min-h-[72px] resize-y"
-											placeholder="What did you learn from this bet?"
-											value={outcomeSummaryForm}
-											onChange={(e) => setOutcomeSummaryForm(e.target.value)}
-										/>
+									{/* Two-column grid: hypothesis left, form right */}
+									<div
+										data-testid="retro-columns"
+										className="grid grid-cols-1 gap-[18px] sm:grid-cols-2"
+									>
+										{/* Left column: hypothesis (read-only) */}
+										<div className="flex flex-col gap-[6px]">
+											<span className="text-[12px] font-[500] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
+												Predicted
+											</span>
+											{bet.hypothesis ? (
+												<p
+													data-testid="retro-hypothesis-display"
+													className="text-[13px] text-[var(--text-secondary)] leading-[1.7]"
+												>
+													{bet.hypothesis}
+												</p>
+											) : (
+												<p
+													data-testid="retro-hypothesis-display"
+													className="text-[13px] text-[var(--text-tertiary)] italic"
+												>
+													No hypothesis recorded
+												</p>
+											)}
+										</div>
+										{/* Right column: Draft with AI + form fields */}
+										<div className="flex flex-col gap-[12px]">
+											{/* Draft with AI button */}
+											<div className="flex items-center gap-[9px]">
+												<button
+													type="button"
+													className="btn btn-xs btn-ghost border border-[var(--border-default)]"
+													disabled={retroDrafting}
+													onClick={() => void handleRetroDraft()}
+												>
+													{retroDrafting ? "Drafting…" : "Draft with AI"}
+												</button>
+												{retroDraftError && (
+													<span className="text-[12px] text-[var(--status-error)]">
+														{retroDraftError}
+													</span>
+												)}
+											</div>
+											{/* Verdict select */}
+											<div className="flex flex-col gap-[6px]">
+												<label
+													htmlFor="outcome-verdict-select"
+													className="text-[12px] font-[500] text-[var(--text-secondary)]"
+												>
+													Verdict
+												</label>
+												<select
+													id="outcome-verdict-select"
+													className="select select-sm bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-primary)] text-[13px]"
+													value={outcomeVerdictForm}
+													onChange={(e) =>
+														setOutcomeVerdictForm(e.target.value as typeof outcomeVerdictForm)
+													}
+												>
+													<option value="">Select verdict…</option>
+													{BET_OUTCOME_VERDICTS.map((v) => (
+														<option key={v} value={v}>
+															{BET_VERDICT_LABEL[v] ?? v}
+														</option>
+													))}
+												</select>
+											</div>
+											{/* Reality / summary textarea */}
+											<div className="flex flex-col gap-[6px]">
+												<label
+													htmlFor="outcome-summary-textarea"
+													className="text-[12px] font-[500] text-[var(--text-secondary)]"
+												>
+													Reality
+												</label>
+												<textarea
+													id="outcome-summary-textarea"
+													data-testid="retro-summary-textarea"
+													className="textarea textarea-sm bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-primary)] text-[13px] min-h-[72px] resize-y"
+													placeholder="What actually happened?"
+													value={outcomeSummaryForm}
+													onChange={(e) => setOutcomeSummaryForm(e.target.value)}
+												/>
+											</div>
+											{/* Learnings textarea */}
+											<div className="flex flex-col gap-[6px]">
+												<label
+													htmlFor="retro-learnings-textarea"
+													className="text-[12px] font-[500] text-[var(--text-secondary)]"
+												>
+													Learnings (optional)
+												</label>
+												<textarea
+													id="retro-learnings-textarea"
+													data-testid="retro-learnings-textarea"
+													className="textarea textarea-sm bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-primary)] text-[13px] min-h-[72px] resize-y"
+													placeholder="What did you learn from this bet?"
+													value={retroLearningsForm}
+													onChange={(e) => setRetroLearningsForm(e.target.value)}
+												/>
+											</div>
+										</div>
 									</div>
 									{/* Error */}
 									{outcomeError && (
