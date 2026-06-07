@@ -804,3 +804,60 @@ stories:
     track: X
     depends: [X7]
     complexity: L
+
+  # Track AD: Product-Market Fit & Operational Readiness
+  - id: AD1
+    title: Purge False Knowledge & Doc Hygiene
+    track: AD
+    depends: []
+    complexity: M
+  - id: AD2
+    title: Wire Review Routing to Humans
+    track: AD
+    depends: []
+    complexity: S
+  - id: AD3
+    title: Task-to-Session Dispatcher
+    track: AD
+    depends: []
+    complexity: L
+  - id: AD4
+    title: Team Creation & Onboarding Journey
+    track: AD
+    depends: [AD3]
+    complexity: L
+  - id: AD5
+    title: Chief of Staff System Tools
+    track: AD
+    depends: [AD4]
+    complexity: M
+  - id: AD6
+    title: Single-User UX Polish
+    track: AD
+    depends: []
+    complexity: S
+  - id: AD7
+    title: Mobile & Responsive Access
+    track: AD
+    depends: []
+    complexity: L
+  - id: AD8
+    title: Artifact Extensibility (GitHub for Agent Work)
+    track: AD
+    depends: []
+    complexity: M
+  - id: AD9
+    title: Autonomy Graduation Pipeline
+    track: AD
+    depends: []
+    complexity: M
+  - id: AD10
+    title: Communication Refinements
+    track: AD
+    depends: []
+    complexity: M
+  - id: AD11
+    title: Cost Visibility
+    track: AD
+    depends: []
+    complexity: S
