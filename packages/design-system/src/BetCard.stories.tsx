@@ -14,6 +14,7 @@ export default {
 		"WithProgress",
 		"AllStatuses",
 		"PortfolioMode",
+		"WithVerdictBadge",
 	],
 };
 
@@ -136,6 +137,56 @@ export const PortfolioMode = (): React.JSX.Element => (
 			activeBets={4}
 			shipped={12}
 			progress={{ done: 3, total: 5 }}
+		/>
+	</div>
+);
+
+/** AC1: BetCard with outcome verdict badge — all four verdict values shown */
+export const WithVerdictBadge = (): React.JSX.Element => (
+	<div className="flex flex-col gap-[12px] max-w-[380px]">
+		<BetCard
+			id="v1"
+			title="Validated hypothesis"
+			team="Alpha Core"
+			status="completed"
+			description="Chunked upload hypothesis held — failure rate dropped from 12% to 2.1%."
+			outcomeVerdict="validated"
+			progress={100}
+		/>
+		<BetCard
+			id="v2"
+			title="Refuted hypothesis"
+			team="Alpha Core"
+			status="killed"
+			description="The performance optimization did not reduce latency as expected."
+			outcomeVerdict="refuted"
+			progress={60}
+		/>
+		<BetCard
+			id="v3"
+			title="Partial results"
+			team="Beta Surface"
+			status="completed"
+			description="Some user segments responded well; others showed no improvement."
+			outcomeVerdict="partial"
+			progress={100}
+		/>
+		<BetCard
+			id="v4"
+			title="Inconclusive data"
+			team="Beta Surface"
+			status="completed"
+			description="The experiment ran too short for statistical significance."
+			outcomeVerdict="inconclusive"
+			progress={100}
+		/>
+		<BetCard
+			id="v5"
+			title="Not evaluated yet"
+			team="Alpha Core"
+			status="completed"
+			description="Shipped but outcome not yet recorded."
+			progress={100}
 		/>
 	</div>
 );

@@ -140,6 +140,14 @@ export const bets = pgTable(
 		costActualCurrency: text("cost_actual_currency"),
 		/** L17: accumulated tokens as JSON (TokenUsage shape). */
 		tokensActualJson: text("tokens_actual_json"),
+		/** AC1: Structured outcome verdict. Closed enum: validated|refuted|partial|inconclusive. Null = not evaluated. */
+		outcomeVerdict: text("outcome_verdict"),
+		/** AC1: Free-text explanation of the outcome (max 2000 chars enforced at API boundary). */
+		outcomeSummary: text("outcome_summary"),
+		/** AC1: ISO 8601 timestamp when the outcome was last recorded. */
+		outcomeRecordedAt: text("outcome_recorded_at"),
+		/** AC1: User ID of the actor who last recorded the outcome. */
+		outcomeRecordedBy: text("outcome_recorded_by"),
 	},
 	(table) => [
 		index("bets_team_id_idx").on(table.teamId),
@@ -173,6 +181,12 @@ export const tasks = pgTable(
 		auditTrail: text("audit_trail"),
 		createdAt: text("created_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
+		/** AC1: Task outcome verdict. Closed enum: met|met_with_rework|partially_met|not_met. Null = not evaluated. */
+		outcomeVerdict: text("outcome_verdict"),
+		/** AC1: ISO 8601 timestamp when the task outcome was last recorded. */
+		outcomeRecordedAt: text("outcome_recorded_at"),
+		/** AC1: User ID of the actor who last recorded the task outcome. */
+		outcomeRecordedBy: text("outcome_recorded_by"),
 	},
 	(table) => [
 		index("tasks_bet_id_idx").on(table.betId),
@@ -208,6 +222,19 @@ export const sessions = pgTable(
 		 * ON DELETE SET NULL ensures session records survive if a routine is retired.
 		 */
 		routineId: text("routine_id"),
+		/**
+		 * AC1: Session effectiveness score stored as text (float 0-1).
+		 *
+		 * @lore AC1 S-1: Stored as text (not real/float) because the existing schema
+		 * uses text for all non-integer values (timestamps are text, money is split
+		 * into integer + text). Use parseFloat() on read and .toString() on write.
+		 * Always guard with Number.isNaN() after parseFloat.
+		 */
+		effectivenessScore: text("effectiveness_score"),
+		/** AC1: ISO 8601 timestamp when the effectiveness score was last recorded. */
+		effectivenessRecordedAt: text("effectiveness_recorded_at"),
+		/** AC1: User ID (or agent ID) of the actor who last recorded the effectiveness score. */
+		effectivenessRecordedBy: text("effectiveness_recorded_by"),
 	},
 	(table) => [
 		index("sessions_task_id_idx").on(table.taskId),

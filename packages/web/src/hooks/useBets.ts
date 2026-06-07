@@ -10,7 +10,7 @@
  * from the architecture plan (keeps existing consumers unaffected).
  */
 
-import type { BetStatus } from "@hyperidle/shared";
+import type { BetOutcomeVerdict, BetStatus } from "@hyperidle/shared";
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 
@@ -22,6 +22,8 @@ export interface BetListItem {
 	description: string;
 	costAppetite: import("@hyperidle/shared").WireMoney | null;
 	atRisk: boolean;
+	/** AC1: Structured bet outcome verdict. Null = not evaluated. */
+	outcomeVerdict?: BetOutcomeVerdict | null;
 }
 
 export interface UseBetsResult {

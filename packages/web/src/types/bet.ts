@@ -10,8 +10,10 @@
  */
 
 import type {
+	BetOutcomeVerdict,
 	BetStatus,
 	SessionOutcome,
+	TaskOutcomeVerdict,
 	TaskState,
 	TokenUsage,
 	WireMoney,
@@ -32,6 +34,14 @@ export interface BetDetail {
 	progress: { done: number; total: number };
 	/** Markdown description body (renamed from 'pitch' in L16, aligned with API in T3). */
 	description: string;
+	/** AC1: Structured bet outcome verdict. Null = not evaluated. */
+	outcomeVerdict?: BetOutcomeVerdict | null;
+	/** AC1: Free-text explanation of the outcome. */
+	outcomeSummary?: string | null;
+	/** AC1: ISO 8601 timestamp when the outcome was last recorded. */
+	outcomeRecordedAt?: string | null;
+	/** AC1: User ID of the actor who last recorded the outcome. */
+	outcomeRecordedBy?: string | null;
 	tasks: Array<{
 		id: string;
 		title: string;
@@ -50,5 +60,7 @@ export interface BetDetail {
 		ownerAgentId?: string | null;
 		/** W3 AC-28: ISO timestamp when this task was started (from API). */
 		startedAt?: string | null;
+		/** AC1: Task outcome verdict. Null = not evaluated. */
+		outcomeVerdict?: TaskOutcomeVerdict | null;
 	}>;
 }

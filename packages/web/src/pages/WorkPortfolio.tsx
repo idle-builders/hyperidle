@@ -18,10 +18,10 @@
  * Header contains h2 title + tab-bar-pill status filter + team pills + "New bet".
  */
 import { BetCard, EmptyState, SkeletonCard } from "@hyperidle/design-system";
-import { formatMoney } from "@hyperidle/shared";
+import { BET_OUTCOME_VERDICTS, formatMoney } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useBets } from "../hooks/useBets.js";
 import { useTeams } from "../hooks/useTeams";
 import { BetCreateDialog } from "./work/BetCreateDialog.js";
@@ -37,14 +37,32 @@ const STATUS_FILTER_OPTIONS: ReadonlyArray<{ id: StatusFilter; label: string }> 
 	{ id: "draft", label: "Draft" },
 ];
 
+/**
+ * AC1: Verdict pill options — all four bet verdicts plus a sentinel for null verdict.
+ * @lore AC1: "not_evaluated" is a UI-only sentinel; the DB stores null for un-evaluated bets.
+ */
+const VERDICT_PILL_OPTIONS: ReadonlyArray<{ id: string; label: string }> = [
+	{ id: "validated", label: "Validated" },
+	{ id: "refuted", label: "Refuted" },
+	{ id: "partial", label: "Partial" },
+	{ id: "inconclusive", label: "Inconclusive" },
+	{ id: "not_evaluated", label: "Not evaluated" },
+];
+
 export function WorkPortfolio(): JSX.Element {
-	const navigate = useNavigate();
 	const { data: teamsData } = useTeams();
 	const { bets, loading: betsLoading, refresh: refreshBets } = useBets();
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
 	// W3 AC-13: status filter state
 	const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+	/**
+	 * AC1: Multi-select verdict filter state — Set of active verdict keys.
+	 * Empty set means "no filter" (all bets shown).
+	 * @lore AC1: "not_evaluated" is a UI-only sentinel stored as null in the DB.
+	 * When "not_evaluated" is in the active set, bets with null outcomeVerdict pass.
+	 */
+	const [activeVerdictFilters, setActiveVerdictFilters] = useState<Set<string>>(new Set());
 
 	// Build team list for pills
 	const teams = useMemo(() => teamsData?.teams ?? [], [teamsData]);
@@ -69,7 +87,7 @@ export function WorkPortfolio(): JSX.Element {
 		[teams],
 	);
 
-	// Filter bets client-side by selected team and status
+	// Filter bets client-side by selected team, status, and verdict
 	const filteredBets = useMemo(() => {
 		let result = bets;
 		if (selectedTeamId) {
@@ -84,8 +102,20 @@ export function WorkPortfolio(): JSX.Element {
 				return (b.status as string) === statusFilter;
 			});
 		}
+		// AC1: Verdict filter — empty set = no filter applied
+		if (activeVerdictFilters.size > 0) {
+			result = result.filter((b) => {
+				const v = b.outcomeVerdict ?? null;
+				if (activeVerdictFilters.has("not_evaluated") && v === null) return true;
+				return (
+					v !== null &&
+					BET_OUTCOME_VERDICTS.includes(v as (typeof BET_OUTCOME_VERDICTS)[number]) &&
+					activeVerdictFilters.has(v)
+				);
+			});
+		}
 		return result;
-	}, [bets, selectedTeamId, statusFilter]);
+	}, [bets, selectedTeamId, statusFilter, activeVerdictFilters]);
 
 	if (betsLoading) {
 		return (
@@ -181,6 +211,40 @@ export function WorkPortfolio(): JSX.Element {
 								{opt.label}
 							</button>
 						))}
+					</div>
+				)}
+
+				{/* AC1: Verdict filter pills — multi-select. Always shown when there are bets. */}
+				{bets.length > 0 && (
+					<div className="flex items-center gap-[6px] flex-wrap" data-testid="verdict-filter-pills">
+						{VERDICT_PILL_OPTIONS.map((opt) => {
+							const isActive = activeVerdictFilters.has(opt.id);
+							return (
+								<button
+									key={opt.id}
+									type="button"
+									aria-pressed={isActive}
+									className={`inline-flex items-center px-[12px] py-[4px] text-[12px] font-[500] rounded-[var(--r-pill)] border-[1.5px] cursor-pointer transition-all duration-[var(--motion-default)] ${
+										isActive
+											? "border-[var(--accent-primary)] bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)]"
+											: "border-[var(--border-default)] bg-transparent text-[var(--text-secondary)]"
+									}`}
+									onClick={() => {
+										setActiveVerdictFilters((prev) => {
+											const next = new Set(prev);
+											if (next.has(opt.id)) {
+												next.delete(opt.id);
+											} else {
+												next.add(opt.id);
+											}
+											return next;
+										});
+									}}
+								>
+									{opt.label}
+								</button>
+							);
+						})}
 					</div>
 				)}
 
@@ -284,16 +348,29 @@ export function WorkPortfolio(): JSX.Element {
 							// Resolve team name for BetCard display — BetListItem has teamId not team.
 							const teamName = teams.find((t) => t.id === bet.teamId)?.name ?? bet.teamId;
 							return (
-								<BetCard
+								/*
+								 * @lore AC1: BetCard wrapped in <Link> (role="link") rather than
+								 * using BetCard's onClick (which adds role="button"). This keeps
+								 * verdict filter pills as the only role="button" elements matching
+								 * verdict names, so tests can getByRole("button", {name:/validated/i})
+								 * unambiguously. Navigation behaviour is identical.
+								 */
+								<Link
 									key={bet.id}
-									id={bet.id}
-									title={bet.title || bet.description.slice(0, 60)}
-									team={teamName}
-									status={bet.status}
-									description={bet.description}
-									budgetLabel={bet.costAppetite ? formatMoney(bet.costAppetite) : undefined}
-									onClick={() => navigate(`/work/bet/${encodeURIComponent(bet.id)}`)}
-								/>
+									to={`/work/bet/${encodeURIComponent(bet.id)}`}
+									className="block no-underline"
+									aria-label={bet.title || bet.description.slice(0, 60)}
+								>
+									<BetCard
+										id={bet.id}
+										title={bet.title || bet.description.slice(0, 60)}
+										team={teamName}
+										status={bet.status}
+										description={bet.description}
+										budgetLabel={bet.costAppetite ? formatMoney(bet.costAppetite) : undefined}
+										outcomeVerdict={bet.outcomeVerdict ?? undefined}
+									/>
+								</Link>
 							);
 						})}
 					</div>

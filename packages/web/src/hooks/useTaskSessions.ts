@@ -18,6 +18,8 @@ export interface TaskSession {
 	tokens: number | null;
 	status: string;
 	harnessUrl: string | null;
+	/** AC1: Session effectiveness score. Float 0-1, or null when not evaluated. */
+	effectivenessScore?: number | null;
 }
 
 export interface TaskSessionsData {

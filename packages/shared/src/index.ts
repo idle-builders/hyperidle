@@ -276,6 +276,7 @@ export {
 } from "./types/money.js";
 export type {
 	AgentCategory,
+	BetOutcomeVerdict,
 	BetStatus,
 	HealthResponse,
 	KernelKnowledgeStatus,
@@ -285,6 +286,7 @@ export type {
 	OrgEdgeMechanism,
 	ScopeKind,
 	SessionState,
+	TaskOutcomeVerdict,
 	TaskState,
 	TriggerType,
 	UserKind,
@@ -293,6 +295,7 @@ export type {
 } from "./types.js";
 export {
 	AGENT_CATEGORIES,
+	BET_OUTCOME_VERDICTS,
 	BET_STATUSES,
 	KERNEL_KNOWLEDGE_STATUSES,
 	MODEL_TIERS,
@@ -300,6 +303,7 @@ export {
 	ORG_EDGE_MECHANISMS,
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
+	TASK_OUTCOME_VERDICTS,
 	TASK_STATES,
 	USER_KINDS,
 } from "./types.js";
