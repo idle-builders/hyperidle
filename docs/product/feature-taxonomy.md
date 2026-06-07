@@ -2,7 +2,8 @@
 
 Product group > product > feature. Code-verified June 2026.
 
-**Status:** WORKS / PARTIAL / DEAD / NONE
+**Code status:** WORKS / PARTIAL / DEAD / NONE
+**Journey verdict:** OVERBUILT (works but hurts by adding complexity without value for target user) / BROKEN PROMISE (UI exists, doesn't work, erodes trust)
 
 ---
 
@@ -28,9 +29,9 @@ Product group > product > feature. Code-verified June 2026.
 - Filter activity (Tools / Reasoning / Cost) | WORKS
 
 ### Coach
-- Pinned thread with Chief of Staff agent, auto-created | WORKS
+- Pinned thread with Chief of Staff agent, auto-created | WORKS · OVERBUILT — pinned at top of thread list from Day 1 before it has value. Takes prime real estate. No conditional: always pinned, even when empty.
 - CoC overlay accessible from any view | WORKS
-- Agent responds to messages | DEAD (no agent wired)
+- Agent responds to messages | DEAD · BROKEN PROMISE — overlay invites conversation, user types, nothing responds. Silence.
 
 ---
 
@@ -39,7 +40,7 @@ Product group > product > feature. Code-verified June 2026.
 ### Bets
 - Create bet (description + team required, hypothesis/done-condition/appetite optional) | WORKS
 - Start / complete / kill with reason tracking | WORKS
-- Pause / resume | DEAD (UI exists, endpoints missing)
+- Pause / resume | DEAD · BROKEN PROMISE — UI has buttons + consequence dialog. User types reason, confirms. Endpoint doesn't exist. Error.
 - Pitch rendered as blocks with per-section discussion | WORKS
 - Cost appetite (structured money) | WORKS
 - At-risk flag with reason | WORKS
@@ -52,10 +53,10 @@ Product group > product > feature. Code-verified June 2026.
 - Handoff to agent, role, or human | WORKS
 - Outcome verdict (met / met_with_rework / partially_met / not_met) | WORKS
 - Session history per task with live indicator | WORKS
-- Dependencies and auto-unblock | DEAD (schema + function exist, never wired)
+- Dependencies and auto-unblock | DEAD
 
 ### Portfolio
-- Grid of bet cards across teams with filters (status, verdict, team) | WORKS
+- Grid of bet cards across teams with filters (status, verdict, team) | WORKS · OVERBUILT — for single-product founder this is a click-through page with no unique value. No auto-skip when teams.count = 1.
 
 ---
 
@@ -64,7 +65,7 @@ Product group > product > feature. Code-verified June 2026.
 ### Curation
 - Dual-tab list: Curated (by topic) + Triage (by attention score) | WORKS
 - Scope filter pills (practice / product / factory) | WORKS
-- Kind badges (8) and status badges (5) | WORKS
+- Kind badges (8) and status badges (5) | WORKS · OVERBUILT — full taxonomy visible from first visit regardless of item count. At 5 items the chrome-to-content ratio is punishing. No progressive disclosure.
 - Topic groups with health indicators | WORKS
 - Triage keyboard flow (j/k/v/x, optimistic removal) | WORKS
 - Sort by relevance, recency, frequency | WORKS
@@ -74,14 +75,14 @@ Product group > product > feature. Code-verified June 2026.
 - Inline editing with TipTap WYSIWYG auto-save | WORKS
 - Version tracking with conflict detection | WORKS
 - Body rendered as blocks with per-block discussion | WORKS
-- Flag for revisit | DEAD (button visible, does nothing, API works)
-- Archive | DEAD (button visible, does nothing, API works)
+- Flag for revisit | DEAD · BROKEN PROMISE — button visible in menu, clicks do nothing
+- Archive | DEAD · BROKEN PROMISE — button visible in menu, clicks do nothing
 - Scope change with reason | WORKS
 - Merge duplicates | PARTIAL (API only)
 - Split items | PARTIAL (API only)
 
 ### Authoring
-- Create knowledge items at any of 7 scopes | WORKS
+- Create knowledge items at any of 7 scopes | WORKS · OVERBUILT — solo founder needs 3 choices (whole company / this product / just me). 7 scopes creates decision paralysis. practice vs product vs team distinction unclear without domain knowledge.
 - Choose kind (pattern / decision / failure / brief) | WORKS
 - Create from bet/task discussion context | WORKS
 
@@ -95,11 +96,11 @@ Product group > product > feature. Code-verified June 2026.
 - Set harness type, model tier, max concurrent sessions | WORKS
 - Create agent with role from catalog | WORKS
 - Retire agent (soft-delete) | WORKS
-- Auto-provision agents based on team functions | DEAD (function exists, never called)
+- Auto-provision agents based on team functions | DEAD
 
 ### Autonomy
-- View per-agent-per-skill autonomy levels | WORKS (read-only)
-- Edit autonomy levels | DEAD (API works, no UI)
+- View per-agent-per-skill autonomy levels | WORKS · OVERBUILT — shows 50+ level-cells for a solo founder who can't edit any of them. Per-skill granularity is premature; per-agent would suffice.
+- Edit autonomy levels | DEAD · BROKEN PROMISE — PATCH endpoint works and creates audit threads. Profile shows read-only number with no edit affordance.
 - Success/failure tallies | PARTIAL (data exists, no increment logic)
 - Automatic graduation | NONE
 
@@ -122,15 +123,15 @@ Product group > product > feature. Code-verified June 2026.
 ### Cost & Budget
 - Structured money tracking (bigint minor units + currency) | WORKS (backend)
 - Token usage per tier (reasoning / workhorse / fast) | WORKS (backend)
-- Agent / team / factory nested cost caps | PARTIAL (enforcement exists, spend returns zeros)
-- Cost visibility in UI | NONE (no component renders cost anywhere)
+- Agent / team / factory nested cost caps | PARTIAL · OVERBUILT — three nesting levels for a solo founder with 1-2 teams. Agent cap + factory cap would suffice. Team level is empty ceremony at this scale.
+- Cost visibility in UI | NONE
 
 ### Settings
 - Profile (name, email) | WORKS
 - Appearance (light/dark theme) | WORKS
 - Model gateway (3 tiers, provider/model selection) | WORKS
-- Org chart (review routing edges) | WORKS
-- Notification config | DEAD (toggles render, not persisted)
+- Org chart (review routing edges) | WORKS · OVERBUILT — presents graph-theory concepts (edges, mechanisms: direct/function/team) to a solo founder where every review routes to the one human. Zero value, confusing vocabulary.
+- Notification config | DEAD · BROKEN PROMISE — toggles render and flip. Settings vanish on page refresh. Backend PATCH endpoint exists and works.
 - Credentials | PARTIAL (server works, UI partial)
 
 ### Onboarding
@@ -139,7 +140,7 @@ Product group > product > feature. Code-verified June 2026.
 - First-time hints (5 of 6 render with persistent dismissal) | WORKS
 
 ### Search
-- Cmd+K search modal with keyboard navigation | DEAD (UI works, API returns 404)
+- Cmd+K search modal with keyboard navigation | DEAD · BROKEN PROMISE — opens with keyboard nav, shows "Search coming soon" every time. False affordance.
 
 ### Ambient Awareness
 - Knowledge triage badge on sidebar | WORKS
