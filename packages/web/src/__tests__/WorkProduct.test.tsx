@@ -131,12 +131,12 @@ describe("WorkTeam", () => {
 		expect(screen.getByTestId("team-active-bets-empty")).toBeInTheDocument();
 	});
 
-	// @lore AB3: Roster rows replaced by AgentCards (data-testid="agent-card").
-	// The old team-roster-row testid no longer exists; agent cards are interactive buttons.
-	it("4. renders one agent card per roster member", () => {
+	// @lore AB2: AgentCard replaced by AgentRow (data-testid="agent-row").
+	// The row shows status, health dot, context column. Customize button opens edit dialog.
+	it("4. renders one agent row per roster member", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
-		const agentCards = screen.getAllByTestId("agent-card");
-		expect(agentCards).toHaveLength(2);
+		const agentRows = screen.getAllByTestId("agent-row");
+		expect(agentRows).toHaveLength(2);
 	});
 
 	it("5. renders the burn-vs-cap with a progress element", () => {

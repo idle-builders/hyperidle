@@ -58,7 +58,12 @@ export type Classification =
 	| { readonly kind: "drop"; readonly reason: string };
 
 /** Queue row reason — why the row was persisted instead of delivered. */
-export type QueueReason = "silence" | "digest" | "flood_coalesce" | "retry";
+export type QueueReason =
+	| "silence"
+	| "digest"
+	| "flood_coalesce"
+	| "retry"
+	| "agent_health_transition";
 
 /** Queue row status lifecycle. */
 export type QueueStatus = "pending" | "sent" | "failed" | "dropped";

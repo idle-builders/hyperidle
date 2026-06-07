@@ -55,6 +55,20 @@ export function WorkPortfolio(): JSX.Element {
 		[teams],
 	);
 
+	// AB2 AC-5: compute agent summary stats across all teams
+	const totalAgentCount = useMemo(
+		() => teams.reduce((sum, t) => sum + (t.agentCount ?? 0), 0),
+		[teams],
+	);
+	const totalActiveAgentCount = useMemo(
+		() => teams.reduce((sum, t) => sum + (t.activeAgentCount ?? 0), 0),
+		[teams],
+	);
+	const anyAgentHealthWarning = useMemo(
+		() => teams.some((t) => t.agentHealthWarning === true),
+		[teams],
+	);
+
 	// Filter bets client-side by selected team and status
 	const filteredBets = useMemo(() => {
 		let result = bets;
@@ -124,6 +138,31 @@ export function WorkPortfolio(): JSX.Element {
 					</span>
 				)}
 
+				{/*
+				 * AB2 AC-5: Agent summary line — shown when any team has agents.
+				 * Shows total agent count, active count, and health warning dot.
+				 * @lore AB2: Mirrors routine summary pattern — only rendered when
+				 * there's data to show (totalAgentCount > 0). Health dot uses
+				 * title= attribute for tooltip and role="img" for accessibility.
+				 */}
+				{teamsData !== null && teamsData !== undefined && totalAgentCount > 0 && (
+					<span
+						data-testid="portfolio-agent-summary"
+						className="inline-flex items-center gap-[6px] text-[12px] text-[var(--text-tertiary)]"
+					>
+						{anyAgentHealthWarning && (
+							<span
+								role="img"
+								aria-label="One or more agents need attention"
+								title="One or more agents need attention"
+								className="inline-block w-[6px] h-[6px] rounded-full bg-[var(--status-error)]"
+							/>
+						)}
+						{totalAgentCount} agent{totalAgentCount !== 1 ? "s" : ""}, {totalActiveAgentCount}{" "}
+						active
+					</span>
+				)}
+
 				{/* W3 AC-13: tab-bar-pill segmented status filter — hidden when no bets */}
 				{bets.length > 0 && (
 					<div className="inline-flex gap-[6px] bg-[var(--surface-container)] rounded-[var(--r-pill)] p-[3px]">
@@ -161,6 +200,19 @@ export function WorkPortfolio(): JSX.Element {
 								onClick={() => setSelectedTeamId((prev) => (prev === team.id ? null : team.id))}
 							>
 								{team.name}
+								{(team.agentCount ?? 0) > 0 && (
+									<span className="ml-[6px] font-[500] text-[11px] font-mono text-[var(--text-tertiary)]">
+										{team.agentCount}
+									</span>
+								)}
+								{team.agentHealthWarning && (
+									<span
+										role="img"
+										aria-label="Agent needs attention"
+										title="Agent needs attention"
+										className="ml-[4px] inline-block w-[6px] h-[6px] rounded-full bg-[var(--status-error)] flex-shrink-0"
+									/>
+								)}
 							</button>
 						))}
 					</div>

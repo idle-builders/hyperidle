@@ -10,7 +10,7 @@
  * AC-6: First-time hint banner with data-testid="hint-review-agents" is visible.
  *
  * These tests FAIL until:
- * - WorkTeam roster section is replaced with agent cards (data-testid="agent-card")
+ * - WorkTeam roster section is replaced with agent cards (data-testid="agent-row")
  * - AgentEditDialog component is created
  * - AgentAddDialog component is created
  * - useTeamAgents hook is created
@@ -194,7 +194,7 @@ describe("AB3 AC-1 — Agent cards with name, description, and category tags", (
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
 		await waitFor(() => {
-			const cards = screen.getAllByTestId("agent-card");
+			const cards = screen.getAllByTestId("agent-row");
 			expect(cards.length).toBe(3);
 		});
 	});
@@ -242,7 +242,7 @@ describe("AB3 AC-1 — Agent cards with name, description, and category tags", (
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
 		await waitFor(() => {
-			const cards = screen.getAllByTestId("agent-card");
+			const cards = screen.getAllByTestId("agent-row");
 			expect(cards.length).toBe(3);
 		});
 
@@ -277,13 +277,14 @@ describe("AB3 AC-2 — Edit dialog soul textarea pre-filled", () => {
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
 		await waitFor(() => {
-			expect(screen.getAllByTestId("agent-card").length).toBe(3);
+			expect(screen.getAllByTestId("agent-row").length).toBe(3);
 		});
 
-		const cards = screen.getAllByTestId("agent-card");
-		const firstCard = cards[0];
-		expect(firstCard).toBeDefined();
-		await user.click(firstCard ?? document.body);
+		// @lore AB2: AgentRow click navigates to profile; Customize button opens edit dialog.
+		const rows = screen.getAllByTestId("agent-row");
+		const firstBtn = rows[0]?.querySelector('[data-testid="agent-customize-btn"]');
+		expect(firstBtn).toBeDefined();
+		await user.click((firstBtn as HTMLElement) ?? document.body);
 
 		// Dialog should be open — look for the dialog element
 		await waitFor(() => {
@@ -296,12 +297,13 @@ describe("AB3 AC-2 — Edit dialog soul textarea pre-filled", () => {
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
 		await waitFor(() => {
-			expect(screen.getAllByTestId("agent-card").length).toBe(3);
+			expect(screen.getAllByTestId("agent-row").length).toBe(3);
 		});
 
-		const cardForGuidance = screen.getAllByTestId("agent-card")[0];
-		expect(cardForGuidance).toBeDefined();
-		await user.click(cardForGuidance ?? document.body);
+		const rowForGuidance = screen.getAllByTestId("agent-row")[0];
+		const btnForGuidance = rowForGuidance?.querySelector('[data-testid="agent-customize-btn"]');
+		expect(btnForGuidance).toBeDefined();
+		await user.click((btnForGuidance as HTMLElement) ?? document.body);
 
 		await waitFor(() => {
 			expect(screen.getByText(/Personality, style, and values/i)).toBeInTheDocument();
@@ -313,13 +315,14 @@ describe("AB3 AC-2 — Edit dialog soul textarea pre-filled", () => {
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
 		await waitFor(() => {
-			expect(screen.getAllByTestId("agent-card").length).toBe(3);
+			expect(screen.getAllByTestId("agent-row").length).toBe(3);
 		});
 
-		// Click the builder card (has soulPrompt set)
-		const cardForSoul = screen.getAllByTestId("agent-card")[0];
-		expect(cardForSoul).toBeDefined();
-		await user.click(cardForSoul ?? document.body);
+		// Click the builder row's Customize button (has soulPrompt set)
+		const rowForSoul = screen.getAllByTestId("agent-row")[0];
+		const btnForSoul = rowForSoul?.querySelector('[data-testid="agent-customize-btn"]');
+		expect(btnForSoul).toBeDefined();
+		await user.click((btnForSoul as HTMLElement) ?? document.body);
 
 		await waitFor(() => {
 			const textarea = screen.getByRole("textbox", { name: /soul/i });
@@ -333,12 +336,13 @@ describe("AB3 AC-2 — Edit dialog soul textarea pre-filled", () => {
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
 		await waitFor(() => {
-			expect(screen.getAllByTestId("agent-card").length).toBe(3);
+			expect(screen.getAllByTestId("agent-row").length).toBe(3);
 		});
 
-		const cardForHeader = screen.getAllByTestId("agent-card")[0];
-		expect(cardForHeader).toBeDefined();
-		await user.click(cardForHeader ?? document.body);
+		const rowForHeader = screen.getAllByTestId("agent-row")[0];
+		const btnForHeader = rowForHeader?.querySelector('[data-testid="agent-customize-btn"]');
+		expect(btnForHeader).toBeDefined();
+		await user.click((btnForHeader as HTMLElement) ?? document.body);
 
 		await waitFor(() => {
 			expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -372,15 +376,15 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
 		await waitFor(() => {
-			expect(screen.getAllByTestId("agent-card").length).toBe(3);
+			expect(screen.getAllByTestId("agent-row").length).toBe(3);
 		});
 
-		// Click the strategy agent (Scout Agent — index 1)
-		const cards = screen.getAllByTestId("agent-card");
-		// Find scout agent card
-		const scoutCard = cards.find((c) => c.textContent?.includes("Scout Agent"));
-		expect(scoutCard).toBeDefined();
-		await user.click(scoutCard ?? document.body);
+		// Click the strategy agent (Scout Agent — index 1) Customize button
+		const rows = screen.getAllByTestId("agent-row");
+		const scoutRow = rows.find((c) => c.textContent?.includes("Scout Agent"));
+		const scoutBtn = scoutRow?.querySelector('[data-testid="agent-customize-btn"]');
+		expect(scoutBtn).toBeDefined();
+		await user.click((scoutBtn as HTMLElement) ?? document.body);
 
 		await waitFor(() => {
 			expect(screen.getByText(/managed by your strategy/i)).toBeInTheDocument();
@@ -392,15 +396,16 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
 		await waitFor(() => {
-			expect(screen.getAllByTestId("agent-card").length).toBe(3);
+			expect(screen.getAllByTestId("agent-row").length).toBe(3);
 		});
 
-		// Click team agent (Atlas Builder)
-		const builderCard = screen
-			.getAllByTestId("agent-card")
+		// Click team agent (Atlas Builder) Customize button
+		const builderRow1 = screen
+			.getAllByTestId("agent-row")
 			.find((c) => c.textContent?.includes("Atlas Builder"));
-		expect(builderCard).toBeDefined();
-		await user.click(builderCard ?? document.body);
+		const builderBtn1 = builderRow1?.querySelector('[data-testid="agent-customize-btn"]');
+		expect(builderBtn1).toBeDefined();
+		await user.click((builderBtn1 as HTMLElement) ?? document.body);
 
 		await waitFor(() => {
 			expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -414,14 +419,15 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
 		await waitFor(() => {
-			expect(screen.getAllByTestId("agent-card").length).toBe(3);
+			expect(screen.getAllByTestId("agent-row").length).toBe(3);
 		});
 
-		const scoutCard = screen
-			.getAllByTestId("agent-card")
+		const scoutRow2 = screen
+			.getAllByTestId("agent-row")
 			.find((c) => c.textContent?.includes("Scout Agent"));
-		expect(scoutCard).toBeDefined();
-		await user.click(scoutCard ?? document.body);
+		const scoutBtn2 = scoutRow2?.querySelector('[data-testid="agent-customize-btn"]');
+		expect(scoutBtn2).toBeDefined();
+		await user.click((scoutBtn2 as HTMLElement) ?? document.body);
 
 		await waitFor(() => {
 			expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -443,14 +449,15 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
 		await waitFor(() => {
-			expect(screen.getAllByTestId("agent-card").length).toBe(3);
+			expect(screen.getAllByTestId("agent-row").length).toBe(3);
 		});
 
-		const builderCard = screen
-			.getAllByTestId("agent-card")
+		const builderRow2 = screen
+			.getAllByTestId("agent-row")
 			.find((c) => c.textContent?.includes("Atlas Builder"));
-		expect(builderCard).toBeDefined();
-		await user.click(builderCard ?? document.body);
+		const builderBtn2 = builderRow2?.querySelector('[data-testid="agent-customize-btn"]');
+		expect(builderBtn2).toBeDefined();
+		await user.click((builderBtn2 as HTMLElement) ?? document.body);
 
 		await waitFor(() => {
 			expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -500,14 +507,15 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
 		await waitFor(() => {
-			expect(screen.getAllByTestId("agent-card").length).toBe(3);
+			expect(screen.getAllByTestId("agent-row").length).toBe(3);
 		});
 
-		const builderCard = screen
-			.getAllByTestId("agent-card")
+		const builderRow3 = screen
+			.getAllByTestId("agent-row")
 			.find((c) => c.textContent?.includes("Atlas Builder"));
-		expect(builderCard).toBeDefined();
-		await user.click(builderCard ?? document.body);
+		const builderBtn3 = builderRow3?.querySelector('[data-testid="agent-customize-btn"]');
+		expect(builderBtn3).toBeDefined();
+		await user.click((builderBtn3 as HTMLElement) ?? document.body);
 
 		await waitFor(() => {
 			expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -549,14 +557,15 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
 		await waitFor(() => {
-			expect(screen.getAllByTestId("agent-card").length).toBe(3);
+			expect(screen.getAllByTestId("agent-row").length).toBe(3);
 		});
 
-		const builderCard = screen
-			.getAllByTestId("agent-card")
+		const builderRow4 = screen
+			.getAllByTestId("agent-row")
 			.find((c) => c.textContent?.includes("Atlas Builder"));
-		expect(builderCard).toBeDefined();
-		await user.click(builderCard ?? document.body);
+		const builderBtn4 = builderRow4?.querySelector('[data-testid="agent-customize-btn"]');
+		expect(builderBtn4).toBeDefined();
+		await user.click((builderBtn4 as HTMLElement) ?? document.body);
 
 		await waitFor(() => {
 			expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -614,7 +623,7 @@ describe("AB3 AC-5 — Add custom agent dialog", () => {
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
 		await waitFor(() => {
-			expect(screen.getAllByTestId("agent-card").length).toBe(3);
+			expect(screen.getAllByTestId("agent-row").length).toBe(3);
 		});
 
 		expect(screen.getByRole("button", { name: /\+ add agent/i })).toBeInTheDocument();
@@ -625,7 +634,7 @@ describe("AB3 AC-5 — Add custom agent dialog", () => {
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
 		await waitFor(() => {
-			expect(screen.getAllByTestId("agent-card").length).toBe(3);
+			expect(screen.getAllByTestId("agent-row").length).toBe(3);
 		});
 
 		await user.click(screen.getByRole("button", { name: /\+ add agent/i }));
@@ -640,7 +649,7 @@ describe("AB3 AC-5 — Add custom agent dialog", () => {
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
 		await waitFor(() => {
-			expect(screen.getAllByTestId("agent-card").length).toBe(3);
+			expect(screen.getAllByTestId("agent-row").length).toBe(3);
 		});
 
 		await user.click(screen.getByRole("button", { name: /\+ add agent/i }));
@@ -678,7 +687,7 @@ describe("AB3 AC-5 — Add custom agent dialog", () => {
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
 		await waitFor(() => {
-			expect(screen.getAllByTestId("agent-card").length).toBe(3);
+			expect(screen.getAllByTestId("agent-row").length).toBe(3);
 		});
 
 		await user.click(screen.getByRole("button", { name: /\+ add agent/i }));
@@ -758,7 +767,7 @@ describe("AB3 AC-6 — First-time hint banner (review-agents)", () => {
 
 		// Wait for hints + cards to load
 		await waitFor(() => {
-			expect(screen.queryAllByTestId("agent-card").length).toBe(3);
+			expect(screen.queryAllByTestId("agent-row").length).toBe(3);
 		});
 
 		// Extra tick to let hint state settle

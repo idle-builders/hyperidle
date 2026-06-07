@@ -378,13 +378,24 @@ function WorkTeamLoaded({
 				</div>
 			</section>
 
-			{/* R3 — Roster */}
-			<section aria-label="Team roster" data-testid="team-roster">
-				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
-					Roster
-				</h2>
+			{/* R3 — Agents (AB2: replaces Roster/AgentCard with flat AgentRow rows) */}
+			<section aria-label="Team agents" data-testid="team-agents">
+				<div className="flex items-center mb-2">
+					<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] flex-1">
+						Agents
+					</h2>
+					<Button
+						variant="ghost"
+						size="sm"
+						type="button"
+						onClick={() => setAddDialogOpen(true)}
+						data-testid="add-agent-btn"
+					>
+						+ Add agent
+					</Button>
+				</div>
 
-				{/* AB3: first-time hint — visible when hint not dismissed and roster is non-empty */}
+				{/* AB3 first-time hint — moved position, same logic */}
 				{hintReviewAgents.visible && roster.length > 0 && (
 					<div
 						role="status"
@@ -403,32 +414,21 @@ function WorkTeamLoaded({
 					</div>
 				)}
 
-				{roster.length === 0 ? (
-					<EmptyState
-						title="Roster not configured"
-						description="No agents are assigned to this team."
-					/>
-				) : (
-					<div className="flex flex-col gap-[6px]">
-						{roster.map((member) => (
-							<AgentCard
+				<div className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[12px]">
+					{roster.length === 0 ? (
+						<EmptyState title="No agents" description="No agents are assigned to this team." />
+					) : (
+						roster.map((member, idx) => (
+							<AgentRow
 								key={member.agentId}
 								member={member}
+								isLast={idx === roster.length - 1}
+								onNavigate={() => navigate(`/agents/${encodeURIComponent(member.agentId)}`)}
 								onCustomize={() => setEditingAgentId(member.agentId)}
 							/>
-						))}
-						{/* AB3: Add agent button */}
-						<Button
-							variant="ghost"
-							size="sm"
-							type="button"
-							className="self-start mt-[6px]"
-							onClick={() => setAddDialogOpen(true)}
-						>
-							+ Add agent
-						</Button>
-					</div>
-				)}
+						))
+					)}
+				</div>
 			</section>
 
 			{/* L12: Artifact stack — product axis, limit=10, replaces placeholder */}
@@ -488,91 +488,160 @@ function WorkTeamLoaded({
 }
 
 // ---------------------------------------------------------------------------
-// AgentCard — AB3: enhanced roster card with description, category tag, edit button
+// AgentRow — AB2: flat row for the Agents section (replaces AgentCard)
 // ---------------------------------------------------------------------------
 
 /**
- * AB3: Clickable agent card replacing the flat roster row.
- * Clicking the card (or Customize button) opens the edit dialog.
+ * AB2: Flat agent row replacing AgentCard. Matches RoutineRow pattern.
+ *
+ * Layout: [6px health dot] [avatar sm] [name flex-1] [status 48px] [context flex-1] [Customize btn-xs]
+ * Height: 36px minimum (min-h-[44px] for touch target). Hairline separator between rows.
+ *
+ * @lore AB2 S4/W4: Outer element is a <div role="button"> NOT a <button> because the
+ * inner "Customize" is a real <button>. Nested <button> elements are invalid HTML and
+ * break screen readers. role="button" + tabIndex + onKeyDown gives equivalent keyboard
+ * accessibility without the HTML validity violation.
+ *
+ * @lore AB2 S2: Health dot uses role="img" with aria-label instead of aria-hidden,
+ * so screen readers can convey health status to users.
  */
-function AgentCard({
+function AgentRow({
 	member,
+	isLast,
+	onNavigate,
 	onCustomize,
 }: {
 	member: RosterMember;
+	isLast: boolean;
+	onNavigate: () => void;
 	onCustomize: () => void;
 }): JSX.Element {
 	const catalogEntry = findRoleCatalogEntry(member.role);
 	const description = catalogEntry?.description ?? member.role;
 	const initials = member.name.slice(0, 2).toUpperCase();
 
+	// Derive display values from operational fields (default to idle/healthy if absent)
+	const status = member.operationalStatus ?? "idle";
+	const healthLevel = member.healthLevel ?? "healthy";
+	const healthDetail = member.healthDetail ?? "Healthy";
+
+	// Context column: task title (active), error detail (error), role description (idle)
+	let contextText = description;
+	let contextIsError = false;
+	if (status === "active" && member.activeTaskTitle) {
+		contextText = member.activeTaskTitle;
+	} else if (status === "error") {
+		contextText = healthDetail;
+		contextIsError = true;
+	}
+
+	// Health dot color
+	const dotColor =
+		healthLevel === "healthy"
+			? "var(--status-success)"
+			: healthLevel === "warning"
+				? "var(--status-warning)"
+				: "var(--status-error)";
+
+	// Status text color
+	const statusColor =
+		status === "active"
+			? "var(--status-success)"
+			: status === "error"
+				? "var(--status-error)"
+				: "var(--text-tertiary)";
+
 	return (
-		// @lore AB3: Outer wrapper is a div with role="button" (not a <button>) because the
-		// inner "Customize" is a real <button>. Nested <button> elements are invalid HTML and
-		// break screen readers. role="button" + tabIndex={0} + onKeyDown gives equivalent
-		// keyboard accessibility without the nesting violation.
-		// biome-ignore lint/a11y/useSemanticElements: div intentional — nested <button> inside would be invalid HTML (CRITICAL-1 fix)
+		// biome-ignore lint/a11y/useSemanticElements: div intentional — nested <button> (Customize) inside would be invalid HTML
 		<div
 			role="button"
 			tabIndex={0}
-			data-testid="agent-card"
-			onClick={onCustomize}
+			data-testid="agent-row"
+			onClick={onNavigate}
 			onKeyDown={(e) => {
 				if (e.key === "Enter" || e.key === " ") {
 					e.preventDefault();
-					onCustomize();
+					onNavigate();
 				}
 			}}
-			className="w-full text-left rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[12px] hover:bg-[var(--surface-elevated)] transition-colors duration-[var(--motion-fast)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)] cursor-pointer"
+			className={[
+				"w-full flex items-center gap-[9px] px-[6px]",
+				"border-none bg-transparent text-left cursor-pointer",
+				"transition-[background-color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+				"hover:bg-[rgba(44,36,26,0.02)]",
+				"focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)]",
+				!isLast ? "border-b border-[var(--border-subtle)]" : "",
+			]
+				.filter(Boolean)
+				.join(" ")}
+			style={{ minHeight: "44px" }}
 		>
-			{/* Row 1: avatar + name + lead + category tag + customize button */}
-			<div className="flex items-center gap-[12px]">
-				<Avatar initials={initials} size="sm" agent />
-				<Link
-					to={`/agents/${encodeURIComponent(member.agentId)}`}
-					data-testid="agent-card-name"
-					className="text-[13px] font-medium text-[var(--text-primary)] truncate flex-1 hover:underline"
-					onClick={(e) => e.stopPropagation()}
-				>
-					{member.name}
-					{member.isLead && (
-						<span className="ml-1 text-[var(--accent-primary)] text-[10px]"> — Lead</span>
-					)}
-				</Link>
-				{/* Category tag for non-team agents */}
-				{member.agentCategory && member.agentCategory !== "team" && (
-					<span data-testid="agent-card-category">
-						<Tag
-							label={
-								member.agentCategory === "strategy"
-									? "Strategy"
-									: member.agentCategory === "personal"
-										? "Personal"
-										: member.agentCategory
-							}
-						/>
-					</span>
+			{/* Health dot — role="img" per reviewer S2 so screen readers convey health state */}
+			<span
+				className="w-[6px] h-[6px] rounded-full shrink-0"
+				style={{ background: dotColor }}
+				role="img"
+				aria-label={healthDetail}
+				title={healthDetail}
+			/>
+
+			{/* Avatar */}
+			<Avatar initials={initials} size="sm" agent />
+
+			{/* Name + Lead marker */}
+			<span className="flex-1 min-w-0 text-[13px] font-medium text-[var(--text-primary)] truncate">
+				{member.name}
+				{member.isLead && (
+					<span className="ml-1 text-[var(--accent-primary)] text-[10px]"> — Lead</span>
 				)}
-				{/* Customize button — stopPropagation prevents double-fire with card click */}
-				<Button
-					variant="ghost"
-					size="sm"
-					type="button"
-					onClick={(e) => {
-						e.stopPropagation();
-						onCustomize();
-					}}
-				>
-					Customize
-				</Button>
-			</div>
-			{/* Row 2: role description */}
-			<p
-				data-testid="agent-card-description"
-				className="text-[12px] text-[var(--text-tertiary)] truncate mt-[3px] ml-[40px]"
+			</span>
+
+			{/* Category tag — strategy/personal agents only.
+			    @lore AB2: Preserved from AB3's AgentCard so AB3 tests (agent-card-category)
+			    continue to work after the roster section was replaced with AgentRow. */}
+			{member.agentCategory && member.agentCategory !== "team" && (
+				<span data-testid="agent-card-category" className="shrink-0">
+					<Tag
+						label={
+							member.agentCategory === "strategy"
+								? "Strategy"
+								: member.agentCategory === "personal"
+									? "Personal"
+									: member.agentCategory
+						}
+					/>
+				</span>
+			)}
+
+			{/* Status label */}
+			<span
+				className="w-[48px] shrink-0 text-[11px] font-mono truncate"
+				style={{ color: statusColor }}
+				data-testid="agent-status"
 			>
-				{description}
-			</p>
+				{status}
+			</span>
+
+			{/* Context column */}
+			<span
+				className={`flex-1 min-w-0 text-[11px] truncate ${contextIsError ? "text-[var(--status-error)]" : "text-[var(--text-tertiary)]"}`}
+				data-testid="agent-context"
+			>
+				{contextText}
+			</span>
+
+			{/* Customize button — stopPropagation prevents row click */}
+			<button
+				type="button"
+				className="btn btn-ghost btn-xs shrink-0"
+				onClick={(e) => {
+					e.stopPropagation();
+					onCustomize();
+				}}
+				data-testid="agent-customize-btn"
+			>
+				Customize
+			</button>
 		</div>
 	);
 }
