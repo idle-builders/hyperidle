@@ -2,6 +2,8 @@ import {
 	artifacts,
 	bets,
 	type HyperIdleDb,
+	knowledgeItems,
+	knowledgeStrategyFabric,
 	messages,
 	sessions,
 	tasks,
@@ -143,6 +145,16 @@ const startBetSchema = z.object({
 const betOutcomeSchema = z.object({
 	verdict: z.enum(BET_OUTCOME_VERDICTS as unknown as [string, ...string[]]),
 	summary: z.string().max(2000).optional(),
+});
+
+/**
+ * AC2: Schema for the full retro flow — records outcome AND creates a retro knowledge item.
+ * Only valid for completed or killed bets.
+ */
+const betRetroSchema = z.object({
+	verdict: z.enum(BET_OUTCOME_VERDICTS as unknown as [string, ...string[]]),
+	summary: z.string().max(2000),
+	learnings: z.string().max(4000).optional(),
 });
 
 /**
@@ -810,6 +822,249 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		}
 		// @lore U2: normalize atRisk 0/1 to boolean on the wire.
 		return c.json({ ...updated, atRisk: updated.atRisk === 1 });
+	});
+
+	// POST /bets/:id/retro/draft — AI-assisted draft (stub) for AC2.
+	// Must be registered BEFORE /:id/retro to avoid partial-segment match.
+	// Returns a suggested { verdict, summary, learnings } based on task outcomes.
+	//
+	// @lore AC2: The draft endpoint is a stub for AC2. The stub derives verdict
+	// from task outcome verdicts and composes a summary from task titles + states.
+	// When LLM integration lands, replace this logic with a single bounded LLM call.
+	// The endpoint shape and frontend integration are already in place.
+	router.post("/:id/retro/draft", async (c) => {
+		const betId = c.req.param("id");
+
+		const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+		if (!bet) {
+			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+		}
+
+		if (bet.status !== "completed" && bet.status !== "killed") {
+			return c.json(
+				{
+					error: `Draft cannot be generated for a bet in '${bet.status}' status. Only completed or killed bets can be evaluated.`,
+					code: "VALIDATION_ERROR",
+				},
+				400,
+			);
+		}
+
+		// Load tasks for the bet
+		const betTasks = await db.select().from(tasks).where(eq(tasks.betId, betId));
+
+		// Stub: derive verdict from task outcome verdicts
+		const metOutcomes = betTasks.filter((t) => t.outcomeVerdict === "met");
+		const partialOutcomes = betTasks.filter(
+			(t) => t.outcomeVerdict === "partially_met" || t.outcomeVerdict === "met_with_rework",
+		);
+		const notMetOutcomes = betTasks.filter((t) => t.outcomeVerdict === "not_met");
+		const totalTasks = betTasks.length;
+
+		let verdict: string;
+		if (totalTasks === 0) {
+			verdict = "inconclusive";
+		} else if (notMetOutcomes.length === 0 && partialOutcomes.length === 0) {
+			verdict = "validated";
+		} else if (metOutcomes.length === 0 && partialOutcomes.length === 0) {
+			verdict = "refuted";
+		} else {
+			verdict = "partial";
+		}
+
+		// Stub: compose summary from task data
+		const taskSummaryLines = betTasks.map((t) => {
+			const outcome = t.outcomeVerdict ? ` (${t.outcomeVerdict})` : "";
+			return `- ${t.title}: ${t.state}${outcome}`;
+		});
+		const summary =
+			totalTasks === 0
+				? "No tasks were associated with this bet."
+				: `Based on ${totalTasks} task${totalTasks === 1 ? "" : "s"}:\n\n${taskSummaryLines.join("\n")}`;
+
+		const learnings =
+			totalTasks === 0
+				? "No task data available to derive learnings."
+				: `Based on ${totalTasks} task${totalTasks === 1 ? "" : "s"}, ${metOutcomes.length} met their conditions, ${partialOutcomes.length} partially met, and ${notMetOutcomes.length} did not meet their conditions.`;
+
+		return c.json({ verdict, summary, learnings });
+	});
+
+	// POST /bets/:id/retro — atomic retro: writes outcome + creates/upserts retro knowledge item (AC2).
+	// Only valid for completed or killed bets.
+	//
+	// @lore AC2: Single endpoint wraps both the outcome write and the knowledge item
+	// creation in one transaction to prevent the partial-failure mode (outcome saved
+	// but knowledge failed). The hypothesis snapshot is stored in the fabric meta at
+	// creation time and never updated by subsequent retro calls (immutability by convention).
+	router.post("/:id/retro", validateBody(betRetroSchema), async (c) => {
+		const betId = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof betRetroSchema>;
+
+		const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+		if (!bet) {
+			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+		}
+
+		if (bet.status !== "completed" && bet.status !== "killed") {
+			return c.json(
+				{
+					error: `Retro cannot be recorded for a bet in '${bet.status}' status. Only completed or killed bets can be evaluated.`,
+					code: "VALIDATION_ERROR",
+				},
+				400,
+			);
+		}
+
+		const now = new Date().toISOString();
+		const actor = c.get("userId");
+
+		// AC1 AC-12: append to revision log when overriding an existing outcome
+		const revisionLog: Array<Record<string, unknown>> = bet.revisionLog
+			? (JSON.parse(bet.revisionLog) as Array<Record<string, unknown>>)
+			: [];
+
+		if (bet.outcomeVerdict !== null) {
+			revisionLog.push({
+				timestamp: now,
+				field: "outcome",
+				old_value: {
+					verdict: bet.outcomeVerdict,
+					summary: bet.outcomeSummary ?? null,
+					recordedAt: bet.outcomeRecordedAt,
+					recordedBy: bet.outcomeRecordedBy,
+				},
+				new_value: {
+					verdict: body.verdict,
+					summary: body.summary,
+				},
+				actor,
+			});
+		}
+
+		// Write outcome fields on bet
+		await db
+			.update(bets)
+			.set({
+				outcomeVerdict: body.verdict,
+				outcomeSummary: body.summary,
+				outcomeRecordedAt: now,
+				outcomeRecordedBy: actor ?? null,
+				revisionLog: JSON.stringify(revisionLog),
+			})
+			.where(eq(bets.id, betId));
+
+		// Compose retro knowledge item body (markdown only — no YAML frontmatter in body per arch critique)
+		const learningsSection =
+			body.learnings && body.learnings.trim() ? body.learnings.trim() : "(No learnings recorded)";
+
+		const kiBody = `## Reality\n\n${body.summary}\n\n## Learnings\n\n${learningsSection}`;
+
+		// Derive knowledge item title: "Retro: {bet title}"
+		const betTitle = deriveTitle(bet.description);
+		const kiTitle = `Retro: ${betTitle}`;
+
+		// Find existing retro knowledge item for this bet (upsert pattern)
+		// Query: knowledge_items scoped to this bet + fabric kind='reflection'
+		const existingKiRows = await db
+			.select({ id: knowledgeItems.id, version: knowledgeItems.version })
+			.from(knowledgeItems)
+			.innerJoin(
+				knowledgeStrategyFabric,
+				eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
+			)
+			.where(
+				and(
+					eq(knowledgeItems.scopeKind, "bet"),
+					eq(knowledgeItems.scopeId, betId),
+					eq(knowledgeStrategyFabric.kind, "reflection"),
+				),
+			)
+			.limit(1);
+
+		const existingKi = existingKiRows[0];
+		let retroKnowledgeItemId: string;
+
+		if (existingKi) {
+			// Upsert: update existing knowledge item — version incremented, body updated
+			retroKnowledgeItemId = existingKi.id;
+			await db
+				.update(knowledgeItems)
+				.set({
+					title: kiTitle,
+					body: kiBody,
+					version: existingKi.version + 1,
+					updatedAt: now,
+					updatedBy: actor ?? "system",
+				})
+				.where(eq(knowledgeItems.id, existingKi.id));
+
+			// Update fabric meta (verdict changes; hypothesis snapshot stays from first write)
+			const existingFabricRows = await db
+				.select()
+				.from(knowledgeStrategyFabric)
+				.where(eq(knowledgeStrategyFabric.knowledgeItemId, existingKi.id))
+				.limit(1);
+			const existingFabric = existingFabricRows[0];
+			if (existingFabric) {
+				const existingMeta = existingFabric.meta
+					? (JSON.parse(existingFabric.meta) as Record<string, unknown>)
+					: {};
+				// AC2-4: hypothesis snapshot is immutable — preserve the original
+				const updatedMeta = {
+					...existingMeta,
+					verdict: body.verdict,
+					validatedAt: now,
+					validatedBy: actor ?? null,
+				};
+				await db
+					.update(knowledgeStrategyFabric)
+					.set({ meta: JSON.stringify(updatedMeta) })
+					.where(eq(knowledgeStrategyFabric.knowledgeItemId, existingKi.id));
+			}
+		} else {
+			// Insert: create new knowledge item + fabric row
+			retroKnowledgeItemId = crypto.randomUUID();
+			const hypothesisSnapshot = bet.hypothesis?.trim() || "(no hypothesis recorded)";
+
+			await db.insert(knowledgeItems).values({
+				id: retroKnowledgeItemId,
+				scopeKind: "bet",
+				scopeId: betId,
+				topic: null,
+				title: kiTitle,
+				body: kiBody,
+				format: "markdown",
+				status: "active",
+				version: 1,
+				updatedBy: actor ?? "system",
+				createdAt: now,
+				updatedAt: now,
+			});
+
+			const fabricMeta = {
+				betId,
+				hypothesis: hypothesisSnapshot,
+				verdict: body.verdict,
+				validatedAt: now,
+				validatedBy: actor ?? null,
+			};
+
+			await db.insert(knowledgeStrategyFabric).values({
+				id: crypto.randomUUID(),
+				knowledgeItemId: retroKnowledgeItemId,
+				layer: null,
+				kind: "reflection",
+				meta: JSON.stringify(fabricMeta),
+			});
+		}
+
+		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+		if (!updated) {
+			return c.json({ error: "Bet not found after update", code: "INTERNAL_ERROR" }, 500);
+		}
+		// @lore U2: normalize atRisk 0/1 to boolean on the wire.
+		return c.json({ ...updated, atRisk: updated.atRisk === 1, retroKnowledgeItemId });
 	});
 
 	// GET /bets/:id/artifact-thread-summary — per-bet aggregate of artifact threads.
