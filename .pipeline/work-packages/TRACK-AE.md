@@ -66,8 +66,8 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 **What's genuinely missing.** Three things: (1) Team creation should ask "what does your team do?" and use `defaultRoster()` to seed appropriate agents. (2) The Assistant should be able to respond and guide the user through their first bet. (3) Import journeys for users coming from different contexts (GitHub repos, existing docs, blank slate).
 
 **Depends on.**
-- AD3 — Task-to-Session Dispatcher. The Assistant needs session provisioning to respond conversationally.
-- AD15 — Coach / Assistant Restructure. The assistant concept must be settled before building the onboarding around it.
+- AD2 — Task-to-Session Dispatcher. The Assistant needs session provisioning to respond conversationally.
+- AD8 — Coach / Assistant Restructure. The assistant concept must be settled before building the onboarding around it.
 
 **Complexity.** L
 

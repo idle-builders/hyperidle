@@ -230,6 +230,6 @@ The initial doc-based audit (before code verification) identified these themes t
 
 **Knowledge curation burden** remains a concern. 20 min/week x 52 weeks = 17 hours/year. No mechanism shows the founder "this curation session saved your agents 3 hours." Value is invisible, cost is visible.
 
-**The Day 1-14 cold start** is the highest-risk moment. Every view has an empty-state problem. The gap between "setup complete" and "first visible agent output" needs AD3 (Task-to-Session Dispatcher) and AD4 (Onboarding Journey) to bridge it.
+**The Day 1-14 cold start** is the highest-risk moment. Every view has an empty-state problem. The gap between "setup complete" and "first visible agent output" needs AD2 (Task-to-Session Dispatcher) and AE2 (Onboarding Journey) to bridge it.
 
 **Progressive disclosure** is mentioned nowhere in the Knowledge UI spec. The full taxonomy (8 kinds x 5 statuses x 7 scopes) is shown from first visit regardless of dataset size. At 5 items, the chrome-to-content ratio is punishing.
