@@ -39,7 +39,7 @@ const sampleTeams = [
 
 export function ConversationsActive(): JSX.Element {
 	return (
-		<div style={{ height: "600px", display: "flex" }}>
+		<div style={{ height: "600px", display: "flex", width: "200px" }}>
 			<Sidebar
 				{...commonProps}
 				activeView="conversations"
@@ -53,7 +53,7 @@ export function ConversationsActive(): JSX.Element {
 
 export function WorkActive(): JSX.Element {
 	return (
-		<div style={{ height: "600px", display: "flex" }}>
+		<div style={{ height: "600px", display: "flex", width: "200px" }}>
 			<Sidebar
 				{...commonProps}
 				activeView="work"
@@ -68,7 +68,7 @@ export function WorkActive(): JSX.Element {
 
 export function KnowledgeActive(): JSX.Element {
 	return (
-		<div style={{ height: "600px", display: "flex" }}>
+		<div style={{ height: "600px", display: "flex", width: "200px" }}>
 			<Sidebar
 				{...commonProps}
 				activeView="knowledge"
@@ -82,7 +82,7 @@ export function KnowledgeActive(): JSX.Element {
 
 export function EmptySections(): JSX.Element {
 	return (
-		<div style={{ height: "600px", display: "flex" }}>
+		<div style={{ height: "600px", display: "flex", width: "200px" }}>
 			<Sidebar
 				{...commonProps}
 				activeView="conversations"
@@ -96,7 +96,7 @@ export function EmptySections(): JSX.Element {
 
 export function WithSelectedThread(): JSX.Element {
 	return (
-		<div style={{ height: "600px", display: "flex" }}>
+		<div style={{ height: "600px", display: "flex", width: "200px" }}>
 			<Sidebar
 				{...commonProps}
 				activeView="conversations"
@@ -111,7 +111,7 @@ export function WithSelectedThread(): JSX.Element {
 
 export function CocOverlayOpen(): JSX.Element {
 	return (
-		<div style={{ height: "600px", display: "flex" }}>
+		<div style={{ height: "600px", display: "flex", width: "200px" }}>
 			<Sidebar
 				{...commonProps}
 				activeView="conversations"
@@ -126,7 +126,7 @@ export function CocOverlayOpen(): JSX.Element {
 
 export function SettingsOverlayOpen(): JSX.Element {
 	return (
-		<div style={{ height: "600px", display: "flex" }}>
+		<div style={{ height: "600px", display: "flex", width: "200px" }}>
 			<Sidebar
 				{...commonProps}
 				activeView="conversations"
@@ -160,7 +160,7 @@ export function SettingsOverlayOpen(): JSX.Element {
 
 export function WithUserAvatar(): JSX.Element {
 	return (
-		<div style={{ height: "600px", display: "flex" }}>
+		<div style={{ height: "600px", display: "flex", width: "200px" }}>
 			<Sidebar
 				{...commonProps}
 				activeView="conversations"
