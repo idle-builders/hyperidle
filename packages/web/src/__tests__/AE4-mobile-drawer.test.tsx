@@ -60,8 +60,14 @@ function renderShell(initialPath = "/conversations"): ReturnType<typeof render> 
 				path: "/",
 				element: <AppShell />,
 				children: [
-					{ path: "conversations", element: <div data-testid="conversations-page">Conversations</div> },
-					{ path: "conversations/:threadId", element: <div data-testid="thread-detail-page">Thread Detail</div> },
+					{
+						path: "conversations",
+						element: <div data-testid="conversations-page">Conversations</div>,
+					},
+					{
+						path: "conversations/:threadId",
+						element: <div data-testid="thread-detail-page">Thread Detail</div>,
+					},
 					{ path: "work/portfolio", element: <div>Portfolio</div> },
 					{ path: "knowledge", element: <div>Knowledge</div> },
 				],
@@ -105,7 +111,11 @@ describe("AE4 AC-2 — Mobile drawer: hamburger, open, close", () => {
 			expect(screen.getByTestId("mobile-hamburger")).toBeInTheDocument();
 		});
 		// Sidebar should not be in normal flow at mobile
-		expect(container.querySelector("[data-ds-shell='Sidebar']:not([data-testid='mobile-drawer'] [data-ds-shell='Sidebar'])")).not.toBeInTheDocument();
+		expect(
+			container.querySelector(
+				"[data-ds-shell='Sidebar']:not([data-testid='mobile-drawer'] [data-ds-shell='Sidebar'])",
+			),
+		).not.toBeInTheDocument();
 	});
 
 	it("at mobile (375px): drawer is closed initially, no scrim", async () => {

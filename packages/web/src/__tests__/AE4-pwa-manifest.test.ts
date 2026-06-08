@@ -47,17 +47,13 @@ describe("AE4 AC-5 — PWA manifest structure", () => {
 	});
 
 	it("has a 192x192 icon entry", () => {
-		const icon192 = manifest.icons.find(
-			(icon: { sizes: string }) => icon.sizes === "192x192",
-		);
+		const icon192 = manifest.icons.find((icon: { sizes: string }) => icon.sizes === "192x192");
 		expect(icon192).toBeDefined();
 		expect(icon192?.src).toBeTruthy();
 	});
 
 	it("has a 512x512 icon entry", () => {
-		const icon512 = manifest.icons.find(
-			(icon: { sizes: string }) => icon.sizes === "512x512",
-		);
+		const icon512 = manifest.icons.find((icon: { sizes: string }) => icon.sizes === "512x512");
 		expect(icon512).toBeDefined();
 		expect(icon512?.src).toBeTruthy();
 	});

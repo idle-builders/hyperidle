@@ -35,10 +35,7 @@ describe("AE4 AC-1 — CORS configurable origins (HYPERIDLE_CORS_ORIGINS)", () =
 	});
 
 	test("allows multiple configured origins — first origin", async ({ app }) => {
-		vi.stubEnv(
-			"HYPERIDLE_CORS_ORIGINS",
-			"https://hyperidle.local:3001,https://10.0.1.5:3001",
-		);
+		vi.stubEnv("HYPERIDLE_CORS_ORIGINS", "https://hyperidle.local:3001,https://10.0.1.5:3001");
 
 		const res = await app.request("/api/health", {
 			headers: { origin: "https://hyperidle.local:3001" },
@@ -48,10 +45,7 @@ describe("AE4 AC-1 — CORS configurable origins (HYPERIDLE_CORS_ORIGINS)", () =
 	});
 
 	test("allows multiple configured origins — second origin", async ({ app }) => {
-		vi.stubEnv(
-			"HYPERIDLE_CORS_ORIGINS",
-			"https://hyperidle.local:3001,https://10.0.1.5:3001",
-		);
+		vi.stubEnv("HYPERIDLE_CORS_ORIGINS", "https://hyperidle.local:3001,https://10.0.1.5:3001");
 
 		const res = await app.request("/api/health", {
 			headers: { origin: "https://10.0.1.5:3001" },
@@ -84,10 +78,7 @@ describe("AE4 AC-1 — CORS configurable origins (HYPERIDLE_CORS_ORIGINS)", () =
 	});
 
 	test("trims whitespace around origins in the env var", async ({ app }) => {
-		vi.stubEnv(
-			"HYPERIDLE_CORS_ORIGINS",
-			" https://hyperidle.local:3001 , https://10.0.1.5:3001 ",
-		);
+		vi.stubEnv("HYPERIDLE_CORS_ORIGINS", " https://hyperidle.local:3001 , https://10.0.1.5:3001 ");
 
 		const res = await app.request("/api/health", {
 			headers: { origin: "https://hyperidle.local:3001" },
