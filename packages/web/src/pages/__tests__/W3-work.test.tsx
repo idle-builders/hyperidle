@@ -249,7 +249,7 @@ describe("W3 AC-19 — Bet detail overflow action menu", () => {
 		expect(pauseInlineBtn).toBeNull();
 	});
 
-	it("overflow dropdown shows Pause/Adjust appetite/Unblock/Kill after clicking '...'", async () => {
+	it("overflow dropdown shows Adjust appetite/Kill after clicking '...' (Pause removed in AD5)", async () => {
 		const user = userEvent.setup();
 		const activeBet = { ...MOCK_BETS.b1, status: "active" as const };
 		render(
@@ -261,8 +261,7 @@ describe("W3 AC-19 — Bet detail overflow action menu", () => {
 		);
 		const overflowBtn = screen.getByRole("button", { name: /more actions|overflow|\.\.\.|⋯/i });
 		await user.click(overflowBtn);
-		// The dropdown shows the action buttons; use getAllByText since dialog headings share text
-		expect(screen.getAllByText(/pause/i).length).toBeGreaterThan(0);
+		expect(screen.queryByText(/pause/i)).toBeNull();
 		expect(screen.getAllByText(/adjust appetite/i).length).toBeGreaterThan(0);
 	});
 });
