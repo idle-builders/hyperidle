@@ -80,16 +80,27 @@ describe("Routine Endpoints (E6)", () => {
 			updatedAt: new Date().toISOString(),
 		});
 
-		// Seed routines
+		// Seed routines (AA1: name, teamId, state are now required)
 		await db.insert(routines).values([
 			{
 				id: "routine-1",
+				name: "Test routine 1",
+				teamId: "prod-1",
+				state: "active",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalMs: 60000 }),
 				active: true,
 			},
-			{ id: "routine-2", ownerAgentId: "agent-1", triggerType: "calendar", active: true },
+			{
+				id: "routine-2",
+				name: "Test routine 2",
+				teamId: "prod-1",
+				state: "active",
+				ownerAgentId: "agent-1",
+				triggerType: "calendar",
+				active: true,
+			},
 		]);
 	});
 
@@ -241,8 +252,12 @@ describe("Routine Endpoints (E6)", () => {
 		// G4 AC7 (via API): manual trigger for a builtin invokes the handler
 		it("invokes builtin handler for builtin:knowledge-decay (no session)", async () => {
 			// Seed builtin routine directly (bypass G4 seed helper in this test file).
+			// AA1: name, teamId, state are now required columns.
 			await db.insert(routines).values({
 				id: "builtin:knowledge-decay",
+				name: "Knowledge decay",
+				teamId: "prod-1",
+				state: "active",
 				ownerAgentId: "agent-1",
 				triggerType: "calendar",
 				triggerConfig: JSON.stringify({ cron: "0 2 * * *" }),

@@ -112,6 +112,8 @@ export interface EvalScenario {
 	readonly id: string;
 	/** Human-readable description shown in report output. */
 	readonly description: string;
+	/** Interaction name this scenario tests. Used for --feature filtering and report grouping. */
+	readonly feature: string;
 	/** Tags for --quick filtering. Scenarios tagged "quick" run in quick mode. */
 	readonly tags: readonly string[];
 	/**
@@ -164,6 +166,14 @@ export interface ScenarioReport {
 	readonly tokensByTier: Record<string, { prompt: number; completion: number }>;
 }
 
+/** Per-feature score breakdown in the eval report. */
+export interface FeatureBreakdown {
+	readonly feature: string;
+	readonly scenarioCount: number;
+	readonly averageScore: number;
+	readonly scenarioIds: readonly string[];
+}
+
 /** Top-level eval report written to eval-results.json. */
 export interface EvalReport {
 	readonly runId: string;
@@ -181,6 +191,8 @@ export interface EvalReport {
 	 * @lore X7: Section 19 addendum — merged into canonical type per arch critique.
 	 */
 	readonly totalTokensByTier: Record<string, { prompt: number; completion: number }>;
+	/** Per-feature score breakdown, computed from scenarios grouped by feature field. */
+	readonly featureBreakdown: readonly FeatureBreakdown[];
 }
 
 // ---------------------------------------------------------------------------
@@ -191,5 +203,7 @@ export interface RunOptions {
 	readonly model?: string;
 	readonly quick: boolean;
 	readonly filter?: string;
+	/** Filter scenarios by feature name. Only run scenarios where scenario.feature === feature. */
+	readonly feature?: string;
 	readonly outputPath?: string;
 }

@@ -4,6 +4,7 @@ import {
 	type HyperIdleDb,
 	items,
 	type Routine,
+	routineRuns,
 	routines,
 	sessions,
 	threads,
@@ -11,7 +12,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import type { EventBus, EventType } from "@hyperidle/shared";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
 
 // --- Types ---
 
@@ -308,6 +309,50 @@ function computeNextRunAt(routine: Routine, now: Date): string {
 	return "";
 }
 
+// --- Coalescing (AA2) ---
+
+/**
+ * Returns true if there is an active session for the given routineId.
+ * Used to coalesce (skip) a routine trigger when a previous run is still in progress.
+ *
+ * @lore AA2: Coalescing prevents double-firing when the scheduler beat arrives
+ * before the previous session has completed. Both checkAndFireRoutine and the
+ * manual trigger endpoint (POST /api/routines/:id/trigger) call this helper.
+ * Only sessions with state='active' count — completed, crashed, or timed-out
+ * sessions do not block new runs.
+ */
+export async function shouldCoalesce(db: HyperIdleDb, routineId: string): Promise<boolean> {
+	const [activeSession] = await db
+		.select({ id: sessions.id })
+		.from(sessions)
+		.where(and(eq(sessions.routineId, routineId), eq(sessions.state, "active")))
+		.limit(1);
+	return activeSession !== undefined;
+}
+
+// --- AA3: Monthly cost cap helpers ---
+
+/**
+ * Returns the total cost (in minor units) of all routine runs for the given
+ * routineId in the current UTC calendar month.
+ *
+ * @lore AA3: Uses startedAt (not endedAt) for month boundary. A run that starts
+ * on Jan 31 and ends Feb 1 is counted in January. This matches the mental model
+ * "I authorized this run in January" and avoids double-counting ambiguity.
+ */
+export async function getRoutineMonthlySpend(db: HyperIdleDb, routineId: string): Promise<number> {
+	const now = new Date();
+	const firstOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+
+	const [row] = await db
+		.select({ total: sql<number>`coalesce(sum(${routineRuns.costMinor}), 0)` })
+		.from(routineRuns)
+		.where(and(eq(routineRuns.routineId, routineId), gte(routineRuns.startedAt, firstOfMonth)))
+		.limit(1);
+
+	return row?.total ?? 0;
+}
+
 // --- Core: check and fire a routine ---
 
 export async function checkAndFireRoutine(
@@ -328,6 +373,24 @@ export async function checkAndFireRoutine(
 		const nextRunAt = computeNextRunAt(routine, now);
 		await db.update(routines).set({ nextRunAt }).where(eq(routines.id, routine.id));
 		return { fired: false, reason: "factory cost cap reached" };
+	}
+
+	// AA3: Check routine monthly cost cap
+	if (routine.costCapMonthlyMinor != null) {
+		const monthlySpend = await getRoutineMonthlySpend(db, routine.id);
+		if (monthlySpend >= routine.costCapMonthlyMinor) {
+			// Insert a skipped run record with the monthly_budget_exhausted outcome
+			const runId = crypto.randomUUID();
+			await db.insert(routineRuns).values({
+				id: runId,
+				routineId: routine.id,
+				startedAt: now.toISOString(),
+				outcome: "monthly_budget_exhausted",
+			});
+			const nextRunAt = computeNextRunAt(routine, now);
+			await db.update(routines).set({ nextRunAt }).where(eq(routines.id, routine.id));
+			return { fired: false, reason: "monthly cost cap reached" };
+		}
 	}
 
 	// Determine target agent

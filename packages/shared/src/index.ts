@@ -1,3 +1,13 @@
+// ── AB1: Agent profile wire types ──
+export type {
+	AgentActiveSession,
+	AgentHarnessCapabilities,
+	AgentHealthSignals,
+	AgentPerformanceStats,
+	AgentProfileResponse,
+	AgentSessionSummary,
+	AgentSkillInfo,
+} from "./agent-profile.js";
 // ── AB0: Agent role catalog and category system ──
 export type {
 	AgentRoleCatalogEntry,
@@ -161,6 +171,18 @@ export {
 	scrubInlineTokens,
 	TK_TOKEN_RE,
 } from "./redact.js";
+// ── Routine primitive (AA1 + AA2 + AA3) ──
+export type {
+	RoutineBudget,
+	RoutineCardSummary,
+	RoutineCreatePayload,
+	RoutineDetail,
+	RoutineInfo,
+	RoutineRunOutcome,
+	RoutineRunSummary,
+	RoutineState,
+} from "./routine.js";
+export { ROUTINE_RUN_OUTCOMES, ROUTINE_STATES, SCHEDULE_PRESETS } from "./routine.js";
 // ── Team primitive (L13, formerly Product) ──
 export type {
 	BetCardSummary,
@@ -254,6 +276,7 @@ export {
 } from "./types/money.js";
 export type {
 	AgentCategory,
+	BetOutcomeVerdict,
 	BetStatus,
 	HealthResponse,
 	KernelKnowledgeStatus,
@@ -263,6 +286,7 @@ export type {
 	OrgEdgeMechanism,
 	ScopeKind,
 	SessionState,
+	TaskOutcomeVerdict,
 	TaskState,
 	TriggerType,
 	UserKind,
@@ -271,6 +295,7 @@ export type {
 } from "./types.js";
 export {
 	AGENT_CATEGORIES,
+	BET_OUTCOME_VERDICTS,
 	BET_STATUSES,
 	KERNEL_KNOWLEDGE_STATUSES,
 	MODEL_TIERS,
@@ -278,6 +303,7 @@ export {
 	ORG_EDGE_MECHANISMS,
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
+	TASK_OUTCOME_VERDICTS,
 	TASK_STATES,
 	USER_KINDS,
 } from "./types.js";

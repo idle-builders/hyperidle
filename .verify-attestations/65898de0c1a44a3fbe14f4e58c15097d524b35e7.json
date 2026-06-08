@@ -1,5 +1,5 @@
 {
-	"sha": "a5737d03a4d3c4f20939e3ab1f6aa023b2d10077",
+	"sha": "65898de0c1a44a3fbe14f4e58c15097d524b35e7",
 	"status": "passed",
 	"dirty": false,
 	"tools": [
@@ -9,10 +9,7 @@
 		"knip",
 		"test-coverage",
 		"mock-inventory",
-		"test",
-		"build",
-		"build:desktop",
-		"server:load"
+		"test"
 	],
 	"allTools": [
 		"check",
@@ -27,7 +24,11 @@
 		"server:load"
 	],
 	"partial": false,
-	"smartSkipped": [],
-	"timestamp": "2026-06-05T16:04:27.905Z",
-	"hmac": "a2eb5cc2c2e2d84a019dfcd9d4a99a773a1e73a9df6a2bbe55ce38dab237369d"
+	"smartSkipped": [
+		"build",
+		"build:desktop",
+		"server:load"
+	],
+	"timestamp": "2026-06-07T23:59:29.294Z",
+	"hmac": "2f5bf651d2c570ae634504aae2050c47bfe90df7d6d41dfd9e7bf9934fb81d50"
 }

@@ -804,3 +804,82 @@ stories:
     track: X
     depends: [X7]
     complexity: L
+
+  # Track AD: Fix & Simplify
+  - id: AD1
+    title: Wire Review Routing to Humans
+    track: AD
+    depends: []
+    complexity: S
+  - id: AD2
+    title: Task-to-Session Dispatcher
+    track: AD
+    depends: []
+    complexity: L
+  - id: AD3
+    title: Single-User UX Polish
+    track: AD
+    depends: []
+    complexity: S
+  - id: AD4
+    title: Remove Autonomy Product & Simplify Trust Model
+    track: AD
+    depends: []
+    complexity: M
+  - id: AD5
+    title: Wire Dead Strategy Layer & Cost Visibility
+    track: AD
+    depends: []
+    complexity: M
+  - id: AD6
+    title: Knowledge Cleanup & Scope Simplification
+    track: AD
+    depends: []
+    complexity: M
+  - id: AD7
+    title: Search Backend
+    track: AD
+    depends: []
+    complexity: M
+  - id: AD8
+    title: Coach / Assistant Restructure
+    track: AD
+    depends: [AD2]
+    complexity: M
+  - id: AD9
+    title: Remove Portfolio Page
+    track: AD
+    depends: []
+    complexity: S
+
+  # Track AE: Product Expansion & Polish
+  - id: AE1
+    title: Purge False Knowledge & Doc Hygiene
+    track: AE
+    depends: []
+    complexity: M
+  - id: AE2
+    title: Team Creation & Onboarding Journey
+    track: AE
+    depends: [AD2, AD8]
+    complexity: L
+  - id: AE3
+    title: Assistant System Tools
+    track: AE
+    depends: [AE2]
+    complexity: M
+  - id: AE4
+    title: Mobile & Responsive Access
+    track: AE
+    depends: []
+    complexity: L
+  - id: AE5
+    title: Communication Refinements
+    track: AE
+    depends: []
+    complexity: M
+  - id: AE6
+    title: Artifact Extensibility
+    track: AE
+    depends: []
+    complexity: M

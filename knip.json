@@ -12,8 +12,8 @@
 	"workspaces": {
 		".": {
 			"entry": ["scripts/*.ts"],
-			"ignoreBinaries": ["bin/pipeline"],
-			"ignoreDependencies": ["@typescript-eslint/utils"]
+			"ignoreBinaries": ["bin/pipeline", "vitepress"],
+			"ignoreDependencies": ["@typescript-eslint/utils", "vitepress"]
 		},
 		"packages/shared": {},
 		"packages/db": {},
@@ -53,7 +53,9 @@
 			"ignoreDependencies": ["@electric-sql/pglite"]
 		},
 		"packages/eslint-plugin-design": {},
-		"packages/eval": {},
+		"packages/eval": {
+			"entry": ["src/judges.ts"]
+		},
 		"scripts": {
 			"entry": ["*.ts", "__tests__/**/*.test.ts"]
 		}

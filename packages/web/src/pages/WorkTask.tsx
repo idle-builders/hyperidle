@@ -106,12 +106,15 @@ function SessionRow({
 	agent,
 	status,
 	cost,
+	effectivenessScore,
 }: {
 	id: string;
 	title: string;
 	agent: string;
 	status: string;
 	cost: { minor?: number | null } | null;
+	/** AC1: Float 0-1 effectiveness score. Null/undefined = not evaluated. */
+	effectivenessScore?: number | null;
 }): JSX.Element {
 	const isActive = status === "active";
 	const isDone = status === "done" || status === "completed";
@@ -125,6 +128,17 @@ function SessionRow({
 				<div className="text-[14px] font-[500] text-[var(--text-primary)] truncate">{title}</div>
 				<div className="text-[12px] text-[var(--text-tertiary)] truncate mt-[2px]">{agent}</div>
 			</div>
+			{/* AC1: Session effectiveness score — float displayed to 2dp */}
+			{effectivenessScore !== null && effectivenessScore !== undefined && (
+				// biome-ignore lint/a11y/useAriaPropsSupportedByRole: span receives aria-label for assistive text
+				<span
+					data-testid="session-effectiveness-score"
+					className="text-[12px] font-mono tabular-nums text-[var(--text-secondary)] shrink-0"
+					aria-label={`Effectiveness: ${effectivenessScore.toFixed(2)}`}
+				>
+					{effectivenessScore.toFixed(2)}
+				</span>
+			)}
 			{cost !== null && (
 				<span className="text-[12px] font-mono tabular-nums text-[var(--text-tertiary)]">
 					${((cost?.minor ?? 0) / 100).toFixed(2)}
@@ -322,7 +336,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 							</div>
 						)}
 						{/* Sessions */}
-						<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px]">
+						<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-r border-[var(--border-subtle)]">
 							<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
 								Sessions
 							</span>
@@ -343,6 +357,20 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 								</button>
 							)}
 						</div>
+						{/* AC1: Outcome cell — always rendered; shows "--" when not evaluated */}
+						<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px]">
+							<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
+								Outcome
+							</span>
+							<span
+								data-testid="task-outcome-cell"
+								className="text-[13px] font-[500] text-[var(--text-primary)]"
+							>
+								{task.outcomeVerdict
+									? task.outcomeVerdict.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+									: "--"}
+							</span>
+						</div>
 					</div>
 
 					{/* W3 AC-29: Sessions section */}
@@ -360,6 +388,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 										agent={s.agent}
 										status={s.status}
 										cost={s.cost}
+										effectivenessScore={s.effectivenessScore}
 									/>
 								))}
 							</div>

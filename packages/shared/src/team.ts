@@ -13,6 +13,7 @@
  * deriveTitleFromPitch renamed to deriveTitle in format/bet.ts.
  */
 
+import type { RoutineCardSummary } from "./routine.js";
 import type { WireMoney } from "./types/money.js";
 import type { BetStatus } from "./types.js";
 
@@ -36,6 +37,12 @@ export interface TeamSummary {
 	leadAgentId: string | null; // team_members.lead_agent_id; null on a freshly-created team
 }
 
+/** AB2: Operational status derived from session state. */
+export type AgentOperationalStatus = "active" | "idle" | "error";
+
+/** AB2: Health indicator level for display. */
+export type AgentHealthLevel = "healthy" | "warning" | "critical";
+
 export interface RosterMember {
 	agentId: string;
 	name: string;
@@ -43,6 +50,13 @@ export interface RosterMember {
 	isLead: boolean; // matches leadAgentId on the team
 	/** AB3: "team" | "strategy" | "personal" | null. Null when category is unset. */
 	agentCategory: string | null;
+	// AB2: operational fields (optional for backward compat with pre-AB2 fixtures)
+	operationalStatus?: AgentOperationalStatus;
+	activeTaskTitle?: string | null;
+	activeTaskId?: string | null;
+	activeBetId?: string | null;
+	healthLevel?: AgentHealthLevel;
+	healthDetail?: string | null;
 }
 
 export interface TeamBurn {
@@ -51,6 +65,10 @@ export interface TeamBurn {
 	costCap: WireMoney | null;
 	capacity: number; // team_members.capacity (max parallel bets)
 	activeBets: number; // team_members.active_bets cached counter
+	/** AA3: Sum of active bets' costActualMinor. Null when no active bets have cost data. */
+	betCostActual: WireMoney | null;
+	/** AA3: Sum of routine run costs for the current calendar month. Null when no routines or no runs this month. */
+	routineCostThisMonth: WireMoney | null;
 }
 
 export interface BetCardSummary {
@@ -71,6 +89,8 @@ export interface TeamDetail {
 	roster: RosterMember[]; // sorted: lead first, then by name asc
 	burn: TeamBurn;
 	activeBets: BetCardSummary[]; // bets WHERE team_id = :id AND status = 'active'
+	/** AA1: routines belonging to this team, sorted by name asc. Absent in pre-AA1 fixtures. */
+	routines?: RoutineCardSummary[];
 }
 
 /**
@@ -82,6 +102,14 @@ export interface TeamListItem extends TeamSummary {
 	shipped: number; // count of completed bets
 	shipRate: string; // percentage string, e.g. "67%" or "—" when no history
 	progress: { done: number; total: number }; // sum across active bets
+	/** AA1: total routines belonging to this team (all states). */
+	routineCount: number;
+	/** AB2: total AI agents in the team. */
+	agentCount: number;
+	/** AB2: AI agents with an active session right now. */
+	activeAgentCount: number;
+	/** AB2: true when any agent has degraded health (>50% failures or lastSessionCrashed). */
+	agentHealthWarning: boolean;
 }
 
 export interface TeamListResponse {

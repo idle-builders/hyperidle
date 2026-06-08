@@ -170,6 +170,27 @@ export class AdapterPool {
 	}
 
 	/**
+	 * AB1: Return the HarnessCapabilities for the first adapter matching the given
+	 * harnessType. When harnessType is null, returns capabilities from any adapter
+	 * (useful when the agent has no preference — any adapter will do).
+	 * Returns null when no matching adapter is registered.
+	 *
+	 * @lore AB1: Capabilities are read via adapter.getCapabilities() at query time,
+	 * not cached. This avoids stale capability data if adapters reconnect with
+	 * different features. The overhead is trivial (O(n) map scan, no I/O).
+	 */
+	getCapabilitiesByType(
+		harnessType: string | null,
+	): import("@hyperidle/shared").HarnessCapabilities | null {
+		for (const entry of this.entries.values()) {
+			if (harnessType === null || entry.meta.type === harnessType) {
+				return entry.adapter.getCapabilities();
+			}
+		}
+		return null;
+	}
+
+	/**
 	 * Release one session slot for the given adapter ID.
 	 * No-op if ID is unknown or load is already 0.
 	 */

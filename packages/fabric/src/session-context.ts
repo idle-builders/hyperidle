@@ -4,7 +4,7 @@
  * `SessionContextData.bet.pitch` renamed to `description`.
  * `SessionContextData.product` renamed to `team`.
  */
-import { bets, type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, routines, tasks, teams, users } from "@hyperidle/db";
 import type { UserRole } from "@hyperidle/shared";
 import { encode } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
@@ -94,6 +94,94 @@ export async function buildSessionContextData(
 			role: agent.role,
 		},
 		// @lore U1: `team` replaces `product` in the session context data.
+		team: {
+			id: team.id,
+			name: team.name,
+		},
+	};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AA2: Routine session context
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Config for building a routine session context (AA2).
+ * Unlike task sessions, routines do not require a taskId for context assembly.
+ */
+export interface RoutineSessionContextConfig {
+	sessionId: string;
+	routineId: string;
+	agentId: string;
+	agentRole: UserRole;
+	teamId: string;
+}
+
+/**
+ * Context data for a routine session (AA2).
+ * Contains routine + agent + team — no task or bet fields.
+ *
+ * @lore AA2: Routine sessions MUST NOT read task/bet context — the stub task
+ * exists only to satisfy the sessions.taskId NOT NULL FK, not to provide context.
+ * buildRoutineSessionContextData reads directly from the routines table.
+ */
+export interface RoutineSessionContextData {
+	routine: {
+		id: string;
+		name: string;
+		description: string | null;
+		lastRunSummary: string | null;
+	};
+	agent: {
+		id: string;
+		name: string;
+		role: string;
+	};
+	team: {
+		id: string;
+		name: string;
+	};
+}
+
+/**
+ * Query the DB and assemble RoutineSessionContextData for a routine session.
+ * Does NOT read task or bet data — routine context is self-contained.
+ */
+export async function buildRoutineSessionContextData(
+	db: HyperIdleDb,
+	config: RoutineSessionContextConfig,
+): Promise<RoutineSessionContextData> {
+	const [routine] = await db
+		.select()
+		.from(routines)
+		.where(eq(routines.id, config.routineId))
+		.limit(1);
+	if (!routine) {
+		throw new Error(`Routine ${config.routineId} not found`);
+	}
+
+	const [agent] = await db.select().from(users).where(eq(users.id, config.agentId)).limit(1);
+	if (!agent) {
+		throw new Error(`Agent ${config.agentId} not found`);
+	}
+
+	const [team] = await db.select().from(teams).where(eq(teams.id, config.teamId)).limit(1);
+	if (!team) {
+		throw new Error(`Team ${config.teamId} not found`);
+	}
+
+	return {
+		routine: {
+			id: routine.id,
+			name: routine.name,
+			description: routine.description ?? null,
+			lastRunSummary: routine.lastRunSummary ?? null,
+		},
+		agent: {
+			id: agent.id,
+			name: agent.name,
+			role: agent.role,
+		},
 		team: {
 			id: team.id,
 			name: team.name,

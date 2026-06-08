@@ -374,9 +374,9 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		const eventBus = options.eventBus ?? new EventBus();
 		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
 		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
-		api.route("/agents", createAgentRoutes(options.db));
+		api.route("/agents", createAgentRoutes(options.db, options.adapterPool));
 		api.route("/model-gateway", createModelGatewayRoutes(options.db));
-		api.route("/teams", createTeamRoutes(options.db, eventBus));
+		api.route("/teams", createTeamRoutes(options.db, eventBus, options.adapterPool));
 		api.route("/bets", createBetRoutes(options.db, eventBus));
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));
 		api.route("/artifacts", createArtifactRoutes(options.db));
@@ -388,7 +388,14 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route("/threads", createThreadRoutes(options.db, eventBus));
 		api.route("/users", createUserRoutes(options.db, eventBus));
 		api.route("/org", createOrgRoutes(options.db));
-		api.route("/routines", createRoutineRoutes(options.db, eventBus));
+		api.route(
+			"/routines",
+			createRoutineRoutes(options.db, eventBus, {
+				adapterPool: options.adapterPool,
+				workspaceAdapter: options.workspaceAdapter,
+				workspaceBasePath: options.workspaceBasePath,
+			}),
+		);
 		api.route("/recipients", createRecipientRoutes(options.db, eventBus));
 
 		// Q1 §6.1: session activity buffer — subscribe to tool_call_recorded events

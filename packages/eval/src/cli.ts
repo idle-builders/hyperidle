@@ -28,6 +28,7 @@ interface CliArgs {
 	model?: string;
 	quick: boolean;
 	scenario?: string;
+	feature?: string;
 	output?: string;
 	help: boolean;
 }
@@ -45,6 +46,8 @@ function parseArgs(argv: string[]): CliArgs {
 			args.model = argv[++i];
 		} else if (arg === "--scenario" || arg === "-s") {
 			args.scenario = argv[++i];
+		} else if (arg === "--feature" || arg === "-f") {
+			args.feature = argv[++i];
 		} else if (arg === "--output" || arg === "-o") {
 			args.output = argv[++i];
 		}
@@ -64,6 +67,7 @@ Options:
   --quick, -q                  Run only quick-tagged scenarios
   --model, -m <model-id>       Override model (default: deepseek/deepseek-v4-pro via OpenRouter)
   --scenario, -s <id>          Run a single scenario by ID
+  --feature, -f <name>         Run scenarios for a specific interaction feature
   --output, -o <path>          Output JSON path (default: eval-results.json)
   --help, -h                   Show this help
 
@@ -155,6 +159,7 @@ async function main(): Promise<void> {
 			model: args.model,
 			quick: args.quick,
 			filter: args.scenario,
+			feature: args.feature,
 			outputPath: args.output,
 		});
 		process.exit(0);

@@ -120,6 +120,9 @@ describe("C4: Team Management", () => {
 
 			await db.insert(routines).values({
 				id: "routine-1",
+				name: "Test routine",
+				teamId: "prod-1",
+				state: "active",
 				ownerAgentId: "a1",
 				triggerType: "heartbeat",
 				active: true,
@@ -152,6 +155,9 @@ describe("C4: Team Management", () => {
 
 			await db.insert(routines).values({
 				id: "routine-1",
+				name: "Test routine",
+				teamId: "prod-1",
+				state: "active",
 				ownerAgentId: "a1",
 				triggerType: "heartbeat",
 				active: false,

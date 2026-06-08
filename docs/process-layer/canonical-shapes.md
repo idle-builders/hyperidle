@@ -56,3 +56,45 @@ type TokenUsage = {
 
 Implementation stories that consume this contract:
 - **L17** (Cost + Tokens wired into Work — `plans/work-packages/TRACK-L.md` lines 543-575) ships the actual TypeScript types in `packages/shared`, the `formatMoney` formatter, the `zeroMoney` / `addMoney` / `compareMoney` helpers, the harness cost-reporting contract, the DB columns for Money and TokenUsage on bets / tasks / sessions / teams, and the API responses. L17 also installs the type-level guard preventing string-typed money from being reintroduced.
+
+## Outcome Verdict shapes (AC1)
+
+### BetOutcomeVerdict
+
+Closed enum. Represents the retrospective assessment of a bet hypothesis after the bet completes or is killed.
+
+```
+type BetOutcomeVerdict = 'validated' | 'refuted' | 'partial' | 'inconclusive'
+```
+
+- `validated` — the hypothesis held; measured results confirm the prediction.
+- `refuted` — the hypothesis did not hold; evidence contradicts the prediction.
+- `partial` — some segments or dimensions validated; others did not.
+- `inconclusive` — insufficient data or runtime to reach a verdict.
+
+Null means the bet has not been evaluated yet. Evaluation is only meaningful for `completed` or `killed` bets.
+
+### TaskOutcomeVerdict
+
+Closed enum. Represents the post-execution assessment of a task's delivery quality.
+
+```
+type TaskOutcomeVerdict = 'met' | 'met_with_rework' | 'partially_met' | 'not_met'
+```
+
+- `met` — task delivered as specified with no rework.
+- `met_with_rework` — task delivered but required revision after initial delivery.
+- `partially_met` — task partially completed; some acceptance criteria remain open.
+- `not_met` — task did not meet its acceptance criteria.
+
+Null means the task has not been evaluated. Evaluation typically happens after the task reaches `done` state.
+
+### Session effectivenessScore
+
+Float in range [0, 1]. A scalar quality signal for a session's output, supplied by the evaluator.
+
+- Stored as `text` in the DB (converting float → string at write time, parseFloat at read time) to avoid floating-point drift in the column type. See @lore AC1 S-1 in `packages/db/src/schema.ts`.
+- Null means the session has not been evaluated.
+- Values outside [0, 1] are rejected at the API boundary (Zod `.min(0).max(1)`).
+
+Implementation story: **AC1** — Structured Outcome Fields (`plans/work-packages/TRACK-AC.md`).

@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="hearth-light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AB2 Variant A — Enhanced Agent Card</title>
+  <style>
+    /* Hearth tokens (light mode subset) */
+    :root {
+      --surface-page: #f5f0e6;
+      --surface-container: #ede7db;
+      --surface-elevated: #ffffff;
+      --accent-primary: #16764f;
+      --accent-secondary: #d97706;
+      --text-primary: #2c241a;
+      --text-secondary: #5c4f3d;
+      --text-tertiary: #9a8d7e;
+      --border-default: #d5cbb8;
+      --border-subtle: #e2dace;
+      --status-success: #16764f;
+      --status-warning: #d97706;
+      --status-error: #dc4a3a;
+      --status-info: #2e7dba;
+      --r-subtle: 10px;
+      --r-default: 16px;
+      --r-pill: 9999px;
+      --shadow-default: 0 4px 12px rgba(44,36,26,0.08);
+      --motion-fast: 120ms;
+      --motion-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+      --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+      --font-mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--surface-page);
+      color: var(--text-primary);
+      padding: 24px;
+      max-width: 680px;
+    }
+
+    .section-heading {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-tertiary);
+      margin-bottom: 6px;
+      font-family: var(--font-sans);
+    }
+
+    .card-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .agent-card {
+      background: var(--surface-container);
+      border-radius: var(--r-subtle);
+      padding: 12px;
+      cursor: pointer;
+      transition: background-color var(--motion-fast) var(--motion-ease);
+      border: none;
+      text-align: left;
+      width: 100%;
+    }
+
+    .agent-card:hover {
+      background: var(--surface-elevated);
+    }
+
+    .agent-card:focus-visible {
+      outline: 2px solid var(--accent-primary);
+      outline-offset: 1px;
+    }
+
+    .card-row-1 {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 600;
+      flex-shrink: 0;
+      border: 1.5px solid var(--accent-primary);
+      background: rgba(22, 118, 79, 0.08);
+      color: var(--accent-primary);
+    }
+
+    .agent-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      text-decoration: none;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .agent-name:hover {
+      text-decoration: underline;
+    }
+
+    .lead-label {
+      font-size: 10px;
+      color: var(--accent-primary);
+      margin-left: 3px;
+    }
+
+    .status-label {
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .status-active { color: var(--status-success); }
+    .status-idle { color: var(--text-tertiary); }
+    .status-error { color: var(--status-error); }
+
+    .health-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .health-green { background: var(--status-success); }
+    .health-amber { background: var(--status-warning); }
+    .health-red { background: var(--status-error); }
+
+    .customize-btn {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      padding: 6px 12px;
+      border-radius: var(--r-pill);
+      transition: background-color var(--motion-fast) var(--motion-ease);
+      flex-shrink: 0;
+    }
+
+    .customize-btn:hover {
+      background: rgba(44, 36, 26, 0.06);
+    }
+
+    .card-row-2 {
+      margin-top: 3px;
+      margin-left: 40px; /* avatar (28px) + gap (12px) */
+      font-size: 12px;
+      color: var(--text-tertiary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .card-row-2.error-detail {
+      color: var(--status-error);
+    }
+
+    .add-agent-btn {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      padding: 6px 12px;
+      border-radius: var(--r-pill);
+      margin-top: 6px;
+      transition: background-color var(--motion-fast) var(--motion-ease);
+    }
+
+    .add-agent-btn:hover {
+      background: rgba(44, 36, 26, 0.06);
+    }
+
+    /* Portfolio summary mockup */
+    .portfolio-section {
+      margin-top: 36px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .portfolio-summary {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+  <!-- Agents section (replaces R3 Roster) -->
+  <h2 class="section-heading">Agents</h2>
+
+  <div class="card-stack">
+    <!-- Agent 1: Active -->
+    <div class="agent-card" role="button" tabindex="0" title="View Atlas profile">
+      <div class="card-row-1">
+        <div class="avatar">AT</div>
+        <a href="#" class="agent-name">
+          Atlas<span class="lead-label"> — Lead</span>
+        </a>
+        <span class="status-label status-active">Active</span>
+        <span class="health-dot health-green" title="Healthy"></span>
+        <button class="customize-btn" type="button">Customize</button>
+      </div>
+      <div class="card-row-2">Working on "Implement file upload"</div>
+    </div>
+
+    <!-- Agent 2: Idle, healthy -->
+    <div class="agent-card" role="button" tabindex="0" title="View Scout profile">
+      <div class="card-row-1">
+        <div class="avatar">SC</div>
+        <a href="#" class="agent-name">Scout</a>
+        <span class="status-label status-idle">Idle</span>
+        <span class="health-dot health-green" title="Healthy"></span>
+        <button class="customize-btn" type="button">Customize</button>
+      </div>
+      <div class="card-row-2">Practice facilitator</div>
+    </div>
+
+    <!-- Agent 3: Error, red health -->
+    <div class="agent-card" role="button" tabindex="0" title="View Kira profile">
+      <div class="card-row-1">
+        <div class="avatar">KI</div>
+        <a href="#" class="agent-name">Kira</a>
+        <span class="status-label status-error">Error</span>
+        <span class="health-dot health-red" title="High failure rate (83%)"></span>
+        <button class="customize-btn" type="button">Customize</button>
+      </div>
+      <div class="card-row-2 error-detail">5 of 6 sessions failed in the last 7 days</div>
+    </div>
+
+    <!-- Agent 4: Idle, amber health (harness unavailable) -->
+    <div class="agent-card" role="button" tabindex="0" title="View Dash profile">
+      <div class="card-row-1">
+        <div class="avatar">DA</div>
+        <a href="#" class="agent-name">Dash</a>
+        <span class="status-label status-idle">Idle</span>
+        <span class="health-dot health-amber" title="Harness type 'openai' not available"></span>
+        <button class="customize-btn" type="button">Customize</button>
+      </div>
+      <div class="card-row-2">Growth specialist</div>
+    </div>
+  </div>
+
+  <button class="add-agent-btn" type="button">+ Add agent</button>
+
+  <!-- Portfolio agent summary mockup -->
+  <div class="portfolio-section">
+    <h2 class="section-heading">Portfolio summary line</h2>
+    <div class="portfolio-summary">
+      <span>4 agents, 1 active</span>
+      <span class="health-dot health-red" title="1 agent in error state"></span>
+    </div>
+  </div>
+</body>
+</html>

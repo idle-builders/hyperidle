@@ -236,9 +236,11 @@ export type {
 } from "./services/routine-scheduler.js";
 export {
 	checkAndFireRoutine,
+	getRoutineMonthlySpend,
 	nextCronMatch,
 	parseCron,
 	registerEventTriggers,
+	shouldCoalesce,
 	startRoutineScheduler,
 } from "./services/routine-scheduler.js";
 
@@ -326,15 +328,17 @@ export {
 	runStaleSweep,
 	STALE_THRESHOLD_MS,
 } from "./promotion-pipeline.js";
-// prompt-composition (X1)
+// prompt-composition (X1 + AA2)
 export type {
 	PromptCompositionInput,
 	PromptCompositionResult,
+	RoutinePromptCompositionInput,
 	ToolSummary,
 } from "./prompt-composition.js";
 export {
 	buildTemplateVariables,
 	composePrompt,
+	composeRoutinePrompt,
 	stripFrontmatter,
 	substituteTemplateVars,
 	writeWorkspaceCLAUDEmd,
@@ -368,8 +372,17 @@ export {
 	loadRelevanceConfig,
 	loadScoringWeights,
 } from "./scoring-config.js";
-export type { SessionContextConfig, SessionContextData } from "./session-context.js";
-export { buildSessionContext, buildSessionContextData } from "./session-context.js";
+export type {
+	RoutineSessionContextConfig,
+	RoutineSessionContextData,
+	SessionContextConfig,
+	SessionContextData,
+} from "./session-context.js";
+export {
+	buildRoutineSessionContextData,
+	buildSessionContext,
+	buildSessionContextData,
+} from "./session-context.js";
 export type { ScoredItem } from "./token-budget.js";
 export { countItemTokens, countTokens, enforceBudget } from "./token-budget.js";
 export type {

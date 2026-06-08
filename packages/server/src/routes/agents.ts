@@ -22,7 +22,9 @@ import { AGENT_CATEGORIES, findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/
 import { and, count, eq, ne } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
+import { handleAgentProfile } from "./agent-profile.js";
 
 // ---------------------------------------------------------------------------
 // Zod schemas
@@ -74,9 +76,21 @@ function buildPatchUpdateSet(data: PatchAgentData): Record<string, unknown> {
 
 /**
  * Create Hono routes for the Agent Configuration API.
+ *
+ * @lore AB1: adapterPool is optional — when not provided, the profile endpoint
+ * still works (health signals default to harnessAvailable=true). The pool is
+ * only available in production and integration tests that pass one.
  */
-export function createAgentRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
+export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
+
+	// ── GET /:id/profile — agent profile (AB1) ──
+	// @lore AB1: Must be registered BEFORE /:id so "profile" is not captured
+	// as the id param when the URL is /api/agents/someId/profile.
+	// Hono matches routes by registration order within the same method.
+	router.get("/:id/profile", async (c) => {
+		return handleAgentProfile(c, db, adapterPool);
+	});
 
 	// ── GET /templates/:role — MUST come before /:id to avoid route collision ──
 	// @lore X3: Hono matches routes in registration order. If /:id was registered

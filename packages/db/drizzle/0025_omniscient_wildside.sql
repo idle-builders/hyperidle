@@ -1,0 +1,1 @@
+ALTER TABLE "routines" ADD COLUMN "cost_cap_monthly_minor" integer;

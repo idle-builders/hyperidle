@@ -14,6 +14,7 @@ import type { RouteObject } from "react-router-dom";
  */
 import { createBrowserRouter, Navigate, RouterProvider, useParams } from "react-router-dom";
 import { AppShell } from "./layouts/AppShell";
+import { AgentProfile } from "./pages/AgentProfile";
 import { ArtifactPermalink } from "./pages/ArtifactPermalink";
 import { Conversations } from "./pages/Conversations";
 import { FirstRunRedirect } from "./pages/FirstRunRedirect";
@@ -25,6 +26,7 @@ import { RedirectLegacyConversation } from "./pages/RedirectLegacyConversation";
 import { SetupFlow } from "./pages/SetupFlow";
 import { WorkBet } from "./pages/WorkBet";
 import { WorkPortfolio } from "./pages/WorkPortfolio";
+import { WorkRoutine } from "./pages/WorkRoutine";
 import { WorkTask } from "./pages/WorkTask";
 import { WorkTeam } from "./pages/WorkTeam";
 
@@ -72,8 +74,10 @@ function buildRoutes(): RouteObject[] {
 				// forward params directly in React Router v7).
 				{ path: "work/team/:teamId", element: <WorkTeam /> },
 				{ path: "work/product/:productId", element: <RedirectProductToTeam /> },
+				{ path: "work/routine/:routineId", element: <WorkRoutine /> },
 				{ path: "work/bet/:betId", element: <WorkBet /> },
 				{ path: "work/bet/:betId/task/:taskId", element: <WorkTask /> },
+				{ path: "agents/:agentId", element: <AgentProfile /> },
 				{ path: "knowledge", element: <KnowledgeList /> },
 				{ path: "knowledge/new", element: <KnowledgeCreate /> },
 				{ path: "knowledge/:knowledgeId", element: <KnowledgeDetail /> },

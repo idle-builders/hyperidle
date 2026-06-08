@@ -1,6 +1,6 @@
 import { bets, type HyperIdleDb, sessions, tasks } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
-import { API_ERROR_CODES, TASK_STATES } from "@hyperidle/shared";
+import { API_ERROR_CODES, TASK_OUTCOME_VERDICTS, TASK_STATES } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
@@ -26,6 +26,8 @@ const updateTaskSchema = z.object({
 	description: z.string().optional(),
 	doneCondition: z.string().optional(),
 	ownerAgentId: z.string().optional(),
+	/** AC1: Optional task outcome verdict. Set during review — not by the state machine. */
+	outcomeVerdict: z.enum(TASK_OUTCOME_VERDICTS as unknown as [string, ...string[]]).optional(),
 });
 
 // I2 V1: enum-validate at the boundary so an unknown state surfaces as
@@ -113,13 +115,34 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			return c.json({ error: "Task not found", code: "NOT_FOUND" }, 404);
 		}
 
-		const updates: Record<string, string> = {
-			updatedAt: new Date().toISOString(),
+		const now = new Date().toISOString();
+		const updates: Record<string, string | null> = {
+			updatedAt: now,
 		};
 		if (body.title !== undefined) updates.title = body.title;
 		if (body.description !== undefined) updates.description = body.description;
 		if (body.doneCondition !== undefined) updates.doneCondition = body.doneCondition;
 		if (body.ownerAgentId !== undefined) updates.ownerAgentId = body.ownerAgentId;
+
+		// AC1: Record task outcome verdict with audit trail
+		if (body.outcomeVerdict !== undefined) {
+			updates.outcomeVerdict = body.outcomeVerdict;
+			updates.outcomeRecordedAt = now;
+			updates.outcomeRecordedBy = c.get("userId") ?? null;
+
+			// Append to audit trail
+			const auditTrail: Array<Record<string, unknown>> = task.auditTrail
+				? (JSON.parse(task.auditTrail) as Array<Record<string, unknown>>)
+				: [];
+			auditTrail.push({
+				timestamp: now,
+				field: "outcomeVerdict",
+				old_value: task.outcomeVerdict ?? null,
+				new_value: body.outcomeVerdict,
+				actor: c.get("userId") ?? null,
+			});
+			updates.auditTrail = JSON.stringify(auditTrail);
+		}
 
 		await db.update(tasks).set(updates).where(eq(tasks.id, taskId));
 

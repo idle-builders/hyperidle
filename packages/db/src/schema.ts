@@ -140,6 +140,14 @@ export const bets = pgTable(
 		costActualCurrency: text("cost_actual_currency"),
 		/** L17: accumulated tokens as JSON (TokenUsage shape). */
 		tokensActualJson: text("tokens_actual_json"),
+		/** AC1: Structured outcome verdict. Closed enum: validated|refuted|partial|inconclusive. Null = not evaluated. */
+		outcomeVerdict: text("outcome_verdict"),
+		/** AC1: Free-text explanation of the outcome (max 2000 chars enforced at API boundary). */
+		outcomeSummary: text("outcome_summary"),
+		/** AC1: ISO 8601 timestamp when the outcome was last recorded. */
+		outcomeRecordedAt: text("outcome_recorded_at"),
+		/** AC1: User ID of the actor who last recorded the outcome. */
+		outcomeRecordedBy: text("outcome_recorded_by"),
 	},
 	(table) => [
 		index("bets_team_id_idx").on(table.teamId),
@@ -173,6 +181,12 @@ export const tasks = pgTable(
 		auditTrail: text("audit_trail"),
 		createdAt: text("created_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
+		/** AC1: Task outcome verdict. Closed enum: met|met_with_rework|partially_met|not_met. Null = not evaluated. */
+		outcomeVerdict: text("outcome_verdict"),
+		/** AC1: ISO 8601 timestamp when the task outcome was last recorded. */
+		outcomeRecordedAt: text("outcome_recorded_at"),
+		/** AC1: User ID of the actor who last recorded the task outcome. */
+		outcomeRecordedBy: text("outcome_recorded_by"),
 	},
 	(table) => [
 		index("tasks_bet_id_idx").on(table.betId),
@@ -199,42 +213,161 @@ export const sessions = pgTable(
 		workspaceSnapshot: text("workspace_snapshot"),
 		outcome: text("outcome"),
 		notes: text("notes"),
+		/**
+		 * AA1/AA2-prep: links this session to a routine run. Null until AA2 wires
+		 * the scheduler to create sessions with a routine_id.
+		 *
+		 * @lore AA1: Column added now per "no incremental migrations" constraint.
+		 * Will be populated in AA2 when the routine scheduler creates sessions.
+		 * ON DELETE SET NULL ensures session records survive if a routine is retired.
+		 */
+		routineId: text("routine_id"),
+		/**
+		 * AC1: Session effectiveness score stored as text (float 0-1).
+		 *
+		 * @lore AC1 S-1: Stored as text (not real/float) because the existing schema
+		 * uses text for all non-integer values (timestamps are text, money is split
+		 * into integer + text). Use parseFloat() on read and .toString() on write.
+		 * Always guard with Number.isNaN() after parseFloat.
+		 */
+		effectivenessScore: text("effectiveness_score"),
+		/** AC1: ISO 8601 timestamp when the effectiveness score was last recorded. */
+		effectivenessRecordedAt: text("effectiveness_recorded_at"),
+		/** AC1: User ID (or agent ID) of the actor who last recorded the effectiveness score. */
+		effectivenessRecordedBy: text("effectiveness_recorded_by"),
 	},
 	(table) => [
 		index("sessions_task_id_idx").on(table.taskId),
 		index("sessions_agent_id_idx").on(table.agentId),
 		index("sessions_state_idx").on(table.state),
+		index("sessions_routine_id_idx").on(table.routineId),
 	],
 );
 
-export const routines = pgTable("routines", {
-	id: text("id").primaryKey(),
-	ownerAgentId: text("owner_agent_id")
-		.notNull()
-		.references(() => users.id, { onDelete: "restrict" }),
-	triggerType: text("trigger_type").notNull(),
-	triggerConfig: text("trigger_config"),
-	skillId: text("skill_id"),
-	doneCondition: text("done_condition"),
-	stateKey: text("state_key"),
-	/**
-	 * @lore O2: `delegationAllowed` governs whether the routine can hand off
-	 * execution to a sub-agent. Kernel-only concern (identity of who executes).
-	 * Separate from strategy signals like riskTier.
-	 */
-	delegationAllowed: boolean("delegation_allowed").default(false),
-	/**
-	 * @lore O2: `humanReview` marks routines that must pause for human approval
-	 * before completing. Kernel-only: determines the execution handoff path,
-	 * not a strategy metric.
-	 */
-	humanReview: boolean("human_review").default(false),
-	autonomyLevel: integer("autonomy_level"),
-	silent: boolean("silent").default(false),
-	active: boolean("active").notNull().default(true),
-	lastRunAt: text("last_run_at"),
-	nextRunAt: text("next_run_at"),
-});
+export const routines = pgTable(
+	"routines",
+	{
+		id: text("id").primaryKey(),
+		/** AA1: human-readable name for the routine. */
+		name: text("name").notNull().default(""),
+		/** AA1: optional longer description. */
+		description: text("description"),
+		ownerAgentId: text("owner_agent_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "restrict" }),
+		/**
+		 * AA1: team this routine belongs to. NOT NULL — every routine is team-scoped.
+		 * FK constraint added after backfill (see migration 0022_AA1_routine_visibility.sql).
+		 *
+		 * @lore AA1: team_id is NOT NULL. factory-wide agents (COS, PF) whose routines
+		 * have no natural team are backfilled to the first team during migration.
+		 * See architecture AA1 §"Design-it-twice: Factory-wide agents".
+		 */
+		teamId: text("team_id")
+			.notNull()
+			.references(() => teams.id, { onDelete: "restrict" }),
+		triggerType: text("trigger_type").notNull(),
+		triggerConfig: text("trigger_config"),
+		skillId: text("skill_id"),
+		doneCondition: text("done_condition"),
+		stateKey: text("state_key"),
+		/**
+		 * @lore O2: `delegationAllowed` governs whether the routine can hand off
+		 * execution to a sub-agent. Kernel-only concern (identity of who executes).
+		 * Separate from strategy signals like riskTier.
+		 */
+		delegationAllowed: boolean("delegation_allowed").default(false),
+		/**
+		 * @lore O2: `humanReview` marks routines that must pause for human approval
+		 * before completing. Kernel-only: determines the execution handoff path,
+		 * not a strategy metric.
+		 */
+		humanReview: boolean("human_review").default(false),
+		autonomyLevel: integer("autonomy_level"),
+		silent: boolean("silent").default(false),
+		/**
+		 * @deprecated Use `state` instead. Kept for backward compat until AA2.
+		 * @lore AA1: `active` boolean is preserved so existing code that reads it
+		 * continues to work. New code reads `state`. AA2 will drop `active`.
+		 * When `state` is set via PATCH, `active` is synced for backward compat.
+		 */
+		active: boolean("active").notNull().default(true),
+		/**
+		 * AA1: Routine lifecycle state: 'active' | 'paused' | 'error'. Replaces boolean `active`.
+		 * Default 'active' matches the old boolean default (active=true).
+		 */
+		state: text("state").notNull().default("active"),
+		lastRunAt: text("last_run_at"),
+		nextRunAt: text("next_run_at"),
+		/** AA1: cumulative actual cost across all runs — minor units. */
+		costActualMinor: integer("cost_actual_minor"),
+		/** AA1: currency code for costActualMinor. */
+		costActualCurrency: text("cost_actual_currency"),
+		/** AA2: Soft delete timestamp. When set, routine is archived. */
+		deletedAt: text("deleted_at"),
+		/** AA2: Last successful run's summary. Single-slot overwrite per concept doc. */
+		lastRunSummary: text("last_run_summary"),
+		/** AA2: Optional per-run cost ceiling in minor units. NULL = no cap. */
+		costCapPerRunMinor: integer("cost_cap_per_run_minor"),
+		/** AA3: Optional per-month cost ceiling in minor units. NULL = no cap. Factory is single-currency so no currency column needed (matches per-run cap pattern). */
+		costCapMonthlyMinor: integer("cost_cap_monthly_minor"),
+		/** AA2: Creation timestamp. Backfilled for pre-existing routines. */
+		createdAt: text("created_at"),
+		/**
+		 * AA2: Dedicated stub task for routine sessions. Created at routine creation.
+		 *
+		 * @lore AA2: stubTaskId satisfies the sessions.taskId NOT NULL FK constraint
+		 * while allowing routine sessions to use routine context (not task/bet context).
+		 * The stub task is never worked on directly and is invisible in task lists.
+		 * When the routine is soft-deleted, the stub task remains (no orphan on delete
+		 * since we only soft-delete routines in AA2).
+		 * ON DELETE SET NULL: if the stub task is deleted, the routine still exists
+		 * but loses its stub task link (no orphan cascade needed).
+		 */
+		stubTaskId: text("stub_task_id").references(() => tasks.id, { onDelete: "set null" }),
+	},
+	(table) => [
+		index("routines_team_id_idx").on(table.teamId),
+		index("routines_deleted_at_idx").on(table.deletedAt),
+	],
+);
+
+/**
+ * AA1: Append-only log of routine execution runs. One row per trigger (manual or scheduled).
+ *
+ * @lore AA1: routine_runs is the lightweight audit log for execution history.
+ * AA2 will link sessions.routine_id to these rows when the scheduler integrates
+ * with the session lifecycle. Until then, routine_runs are inserted at trigger
+ * time with an initial outcome. The `outcome` column will gain a "running" state
+ * in AA2 and be updated on session end.
+ */
+export const routineRuns = pgTable(
+	"routine_runs",
+	{
+		id: text("id").primaryKey(),
+		routineId: text("routine_id")
+			.notNull()
+			.references(() => routines.id, { onDelete: "restrict" }),
+		startedAt: text("started_at").notNull(),
+		endedAt: text("ended_at"),
+		/** 'success' | 'error' */
+		outcome: text("outcome").notNull(),
+		costMinor: integer("cost_minor"),
+		costCurrency: text("cost_currency"),
+		errorMessage: text("error_message"),
+		/**
+		 * AA2: Link to the session that executed this run. NULL for pre-AA2 runs.
+		 * ON DELETE SET NULL: deleting a session preserves the run history record.
+		 */
+		sessionId: text("session_id").references(() => sessions.id, { onDelete: "set null" }),
+		/** AA2: Agent-produced summary of this run's outcome. */
+		summary: text("summary"),
+	},
+	(table) => [
+		index("routine_runs_routine_id_idx").on(table.routineId, table.startedAt),
+		index("routine_runs_session_id_idx").on(table.sessionId),
+	],
+);
 
 // --- Messaging (L1a Thread primitive) ---
 
@@ -782,6 +915,9 @@ export type NewSession = typeof sessions.$inferInsert;
 
 export type Routine = typeof routines.$inferSelect;
 export type NewRoutine = typeof routines.$inferInsert;
+
+export type RoutineRun = typeof routineRuns.$inferSelect;
+export type NewRoutineRun = typeof routineRuns.$inferInsert;
 
 export type Thread = typeof threads.$inferSelect;
 export type NewThread = typeof threads.$inferInsert;

@@ -492,6 +492,11 @@ describe("U1 AC6: Zod schemas updated", () => {
 			costActualMinor: null,
 			costActualCurrency: null,
 			tokensActualJson: null,
+			// AC1: outcome fields — nullable, default null
+			outcomeVerdict: null,
+			outcomeSummary: null,
+			outcomeRecordedAt: null,
+			outcomeRecordedBy: null,
 		});
 		expect(validNewBet.success).toBe(true);
 	});

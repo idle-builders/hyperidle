@@ -12,8 +12,7 @@
     "write-tests": "done",
     "write-code": "pending",
     "review": "pending",
-    "retro": "pending",
-    "ship": "pending"
+    "retro": "pending"
   },
   "notes": "Design and design-critique completed pre-pipeline with user review. R2 dependency not yet merged — user directed to proceed."
 }
