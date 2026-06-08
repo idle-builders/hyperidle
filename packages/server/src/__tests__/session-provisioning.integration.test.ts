@@ -14,24 +14,22 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	knowledgeItems,
 	sessions,
-	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
 import { clearDeduplicationCache } from "@hyperidle/fabric";
-import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { ClaudeAgentSdkAdapter } from "../harness/claude-agent-sdk-adapter.js";
 import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
 import { type ProvisionSessionDeps, provisionSession } from "../services/session-provisioning.js";
+import { test } from "../test-fixtures.js";
 
 const NOW = "2026-04-16T00:00:00.000Z";
 
@@ -90,29 +88,23 @@ async function seedDomain(db: HyperIdleDb): Promise<void> {
 }
 
 describe("Session Provisioning — Claude integration (D5/AC2)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
 	let tmpDir: string;
 
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
+	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "d5-integration-"));
 		clearDeduplicationCache();
-		await seedDomain(db);
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		if (fs.existsSync(tmpDir)) {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		}
 	});
 
-	it.skipIf(!process.env.ANTHROPIC_API_KEY)(
+	test.skipIf(!process.env.ANTHROPIC_API_KEY)(
 		"provisions a real Claude session and completes with cost > 0",
-		async () => {
+		async ({ db, eventBus }) => {
+			await seedDomain(db);
 			const workspace = new LocalWorkspaceAdapter();
 			const adapterPool = new AdapterPool();
 			adapterPool.register("local", new ClaudeAgentSdkAdapter(), {

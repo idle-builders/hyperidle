@@ -1,8 +1,5 @@
-import { createTestDb, type HyperIdleDb, type TestDbHandle } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { describe, expect, vi } from "vitest";
+import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-availability";
 
@@ -22,24 +19,6 @@ function auth(): Record<string, string> {
  * others may return 400 (missing params) — but never 404 (not mounted).
  */
 describe("API Availability Regression Guard (I6)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-	});
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle?.close();
-	});
-
 	/**
 	 * Every route module mounted in app.ts. The base path is the first
 	 * segment after /api/. For each, a GET to the base path must return
@@ -62,17 +41,21 @@ describe("API Availability Regression Guard (I6)", () => {
 	] as const;
 
 	for (const route of ROUTE_MODULES) {
-		it(`${route.description} (${route.path}) is mounted and returns non-404`, async () => {
+		test(`${route.description} (${route.path}) is mounted and returns non-404`, async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const isPublic = route.path === "/api/health";
 			const headers = isPublic ? {} : auth();
 			const res = await app.request(route.path, { headers });
 
 			expect(res.status, `${route.path} returned 404 — route may be un-mounted`).not.toBe(404);
+			vi.unstubAllEnvs();
 		});
 	}
 
-	it("unknown /api route returns 404 (sanity check)", async () => {
+	test("unknown /api route returns 404 (sanity check)", async ({ app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const res = await app.request("/api/definitely-not-a-route", { headers: auth() });
 		expect(res.status).toBe(404);
+		vi.unstubAllEnvs();
 	});
 });

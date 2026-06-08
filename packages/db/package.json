@@ -5,7 +5,9 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
-		"./zod-schemas": "./src/zod-schemas.ts"
+		"./zod-schemas": "./src/zod-schemas.ts",
+		"./test-fixtures": "./src/test-fixtures.ts",
+		"./test-pool": "./src/test-pool.ts"
 	},
 	"scripts": {
 		"check": "tsc --noEmit",

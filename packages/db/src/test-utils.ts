@@ -1,4 +1,6 @@
+import { appendFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";
@@ -7,195 +9,185 @@ import { migrate } from "drizzle-orm/pglite/migrator";
 import type { HyperIdleDb } from "./connection.js";
 import * as schema from "./schema.js";
 
-/**
- * @lore X7: ESM/CJS compat for `__dirname`.
- *
- * `__dirname` is a CJS global; it is NOT available when this file is loaded
- * from an ESM context (e.g. the eval standalone runner under Node 26+). The
- * `import.meta` fallback computes the same directory path in ESM contexts.
- *
- * vitest workers inject `__dirname` via their own transform pipeline, so the
- * guard is effectively dead code in test runs — but it prevents a
- * ReferenceError when the module is imported from the eval runner.
- */
+// ---------------------------------------------------------------------------
+// Tracing (opt-in via VITEST_TRACE_FILE env var)
+// ---------------------------------------------------------------------------
+
+const TRACE_FILE = process.env.VITEST_TRACE_FILE;
+
+function trace(event: string, durationMs: number, meta?: Record<string, unknown>): void {
+	if (!TRACE_FILE) return;
+	const entry = {
+		ts: Date.now(),
+		pid: process.pid,
+		event,
+		ms: Math.round(durationMs * 10) / 10,
+		...meta,
+	};
+	try {
+		appendFileSync(TRACE_FILE, `${JSON.stringify(entry)}\n`);
+	} catch {}
+}
+
+// ---------------------------------------------------------------------------
+// Dirname resolution
+// ---------------------------------------------------------------------------
+
 function resolveDirname(): string {
-	// Access the CJS global via Reflect to avoid lint errors on bare `__dirname`.
 	const cjsDirname = Reflect.get(globalThis, "__dirname") as string | undefined;
 	return cjsDirname ?? fileURLToPath(new URL(".", import.meta.url));
 }
+
 const DIRNAME = resolveDirname();
 
-// @lore Phase 2: createTestDb is now async PGlite. All tests that call it must
-// be async (beforeEach + await). SQLite test-utils were removed because the
-// schema is now PG-only (pgTable). PGlite runs real Postgres semantics in WASM
-// so tests exercise the same dialect as production.
-
-// @lore perf: Per-worker PGlite instance pool. PGlite WASM cold-start (~850ms)
-// + migrations (~150ms) = ~1s per createTestDb() call. With ~350 calls across
-// the suite that's ~350s sequential overhead. The pool pattern:
-// - Pre-warms one instance on first call (cold WASM + migrations, ~1s).
-// - `close()` TRUNCATEs the instance and returns it to the pool (~5ms).
-// - `createTestDb()` takes from the pool if available (~0ms overhead).
-//   Otherwise allocates a new instance with warm WASM (~700ms).
-// - Tests that call createTestDb() multiple times without close() (e.g.,
-//   per-user isolation tests that spin up multiple app instances) each
-//   receive a separate PGlite instance, preserving full isolation. This is
-//   the rare case; the common `beforeEach/afterEach` pattern reuses a single
-//   pooled instance for the file's lifetime.
-// - In-memory PGlite instances are GC'd with the worker — they do not leak.
-// - TRUNCATE uses pg_tables with CASCADE so FK-ordered teardown is automatic.
-
-// @lore R6: An earlier version of this file attempted to reclaim still-open
-// ("stale live") PGlite instances when the pool was empty, to avoid PGlite's
-// internal WASM global lock. That approach broke per-user isolation tests
-// (e.g. hints.test.ts AC8) which hold two live db handles simultaneously —
-// reclaiming one handle and giving it to the second caller merged both apps
-// onto the same physical database, defeating isolation. The simpler correct
-// approach: always allocate fresh when the pool is empty. Tests that don't
-// call close() leave their instance alive until the worker is GC'd — acceptable
-// because PGlite in-memory instances are tiny and worker lifetime is bounded.
-
-/** Folder where the Postgres migration set lives. */
 function migrationsFolder(): string {
 	return resolve(DIRNAME, "../drizzle");
 }
 
-export interface TestDbHandle {
-	readonly db: HyperIdleDb;
-	/** Re-apply migrations (idempotency testing). */
-	runMigrations(): Promise<void>;
-	close(): Promise<void>;
-}
+// ---------------------------------------------------------------------------
+// Pool: fixed set of pre-warmed PGlite instances
+//
+// @lore perf: PGlite WASM cold-start is ~726ms + migrations ~164ms = ~891ms.
+// The old approach allocated a fresh instance per createTestDb() call — 836
+// allocations across a full test run = 745s of pure overhead. The new approach
+// pre-warms a fixed pool at worker startup (in vitest-setup.ts). During tests,
+// createTestDb() just TRUNCATEs a pooled instance (~19ms) instead of allocating.
+//
+// The pool uses a checkout/return model:
+// - createTestDb(): check out an instance → TRUNCATE → return handle
+// - handle.close(): return instance to pool (available for next checkout)
+// - If no instance is available (all checked out), reclaim the least-recently
+//   checked-out one. This handles tests that call createTestDb() without close().
+// - Fallback: allocate fresh if pool hasn't been warmed yet (first call).
+// ---------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
-// Per-worker instance pool
-// ---------------------------------------------------------------------------
+const POOL_SIZE = Number(process.env.VITEST_POOL_SIZE) || 2;
 
 interface PooledInstance {
 	readonly client: PGlite;
 	readonly db: HyperIdleDb;
 }
 
-/** Available (TRUNCATED, ready-to-use) instances. */
-const pool: PooledInstance[] = [];
-
-/** All allocated PGlite clients, for cleanup on worker exit. */
-const allClients: PGlite[] = [];
-
-// @lore: PGlite WASM keeps the Node event loop alive even after all tests
-// finish, preventing vitest fork workers from exiting. Without this handler,
-// workers become orphaned processes (100+ observed after multi-worktree runs).
-// Detect parent exit via IPC disconnect and force-shutdown.
-if (typeof process.send === "function") {
-	process.on("disconnect", () => {
-		for (const client of allClients) {
-			try {
-				client.close();
-			} catch {
-				// Best-effort — process is exiting anyway
-			}
-		}
-		process.exit(0);
-	});
+interface Slot {
+	instance: PooledInstance;
+	checkedOut: boolean;
+	checkedOutAt: number;
 }
 
-/**
- * Create a new PGlite instance and run all migrations.
- * First call cold-starts the WASM (~850ms). Subsequent calls reuse the
- * already-loaded WASM module (~700ms) — still fast compared to cold start.
- */
+const slots: Slot[] = [];
+let warmupDone = false;
+
 async function allocateInstance(): Promise<PooledInstance> {
+	const t0 = performance.now();
 	const client = new PGlite();
 	await client.waitReady;
-	allClients.push(client);
+	const wasmMs = performance.now() - t0;
 	const db = drizzle(client, { schema });
+	const t1 = performance.now();
 	await migrate(db, { migrationsFolder: migrationsFolder() });
+	const migrateMs = performance.now() - t1;
+	trace("allocate", performance.now() - t0, {
+		wasm: Math.round(wasmMs),
+		migrate: Math.round(migrateMs),
+	});
 	return { client, db };
 }
 
-/**
- * TRUNCATE all public user tables to isolate test state.
- * Excludes the Drizzle migrations tracking table.
- * Uses CASCADE so FK-referencing tables are truncated in the right order.
- */
 async function truncateAllTables(db: HyperIdleDb): Promise<void> {
-	// @lore HyperIdleDb uses the abstract base PgQueryResultHKT, which resolves
-	// db.execute() to PgRaw<unknown>. The runtime shape for PGlite is always
-	// Results<T> = { rows: Row<T>[], ... }. The cast is unavoidable here because
-	// HyperIdleDb must cover both PGlite and postgres-js drivers (both satisfy the
-	// base PgDatabase<PgQueryResultHKT> contract). Making HyperIdleDb generic over
-	// the HKT would propagate the type parameter to every caller — a larger change
-	// than this file warrants. See connection.ts for the design rationale.
+	const t0 = performance.now();
 	const result = await db.execute(
 		sql`SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename != '__drizzle_migrations' ORDER BY tablename`,
 	);
 	const rows = (result as { rows: Array<{ tablename: string }> }).rows;
-	if (rows.length === 0) return;
-
+	if (rows.length === 0) {
+		trace("truncate", performance.now() - t0, { tables: 0 });
+		return;
+	}
 	const tableList = rows.map((r) => `"${r.tablename}"`).join(", ");
 	await db.execute(sql.raw(`TRUNCATE TABLE ${tableList} RESTART IDENTITY CASCADE`));
+	trace("truncate", performance.now() - t0, { tables: rows.length });
 }
 
 /**
- * Return a TestDbHandle backed by a pooled PGlite instance.
- *
- * If a pre-TRUNCATED instance is available in the pool, it is returned
- * immediately (~0ms overhead). Otherwise a new instance is allocated:
- * - First call per worker: cold WASM + migrations (~1s)
- * - Subsequent allocations: warm WASM + migrations (~700ms)
- *
- * `close()` TRUNCATEs the instance and returns it to the pool for reuse.
- *
- * Tests that call `createTestDb()` multiple times without calling `close()`
- * in between (e.g., per-user isolation tests that spin up multiple app
- * instances) each receive a separate PGlite instance, preserving full
- * isolation. Each instance is GC'd with the worker — in-memory PGlite
- * instances do not leak.
- *
- * Signature is identical to the original per-call factory so no test files
- * need changes.
+ * Pre-warm the pool. Called from vitest-setup.ts at worker startup.
+ * Allocates POOL_SIZE instances with migrations applied.
  */
-/**
- * Close all PGlite instances allocated by this worker.
- * Drains the pool and terminates every client so the event loop can exit.
- */
-export async function closeAllInstances(): Promise<void> {
-	const clients = allClients.splice(0);
-	pool.length = 0;
-	await Promise.allSettled(clients.map((c) => c.close()));
+export async function warmPool(): Promise<void> {
+	if (warmupDone) return;
+	const t0 = performance.now();
+	const instances = await Promise.all(Array.from({ length: POOL_SIZE }, () => allocateInstance()));
+	for (const instance of instances) {
+		slots.push({ instance, checkedOut: false, checkedOutAt: 0 });
+	}
+	warmupDone = true;
+	trace("warmPool", performance.now() - t0, { size: POOL_SIZE });
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+export interface TestDbHandle {
+	readonly db: HyperIdleDb;
+	runMigrations(): Promise<void>;
+	close(): Promise<void>;
 }
 
 export async function createTestDb(): Promise<TestDbHandle> {
-	// Take from pool if available (already TRUNCATED and ready)
-	const pooled = pool.pop();
+	const t0 = performance.now();
 
-	let instance: PooledInstance;
-	if (pooled) {
-		// Fast path: clean pooled instance, no WASM allocation needed.
-		instance = pooled;
-	} else {
-		// No clean pooled instance — allocate fresh.
-		// @lore R6: We intentionally do NOT reclaim stale live instances here.
-		// The original approach tried to reclaim open instances to avoid a PGlite
-		// WASM global lock, but that breaks per-user isolation tests that hold two
-		// live db handles simultaneously (e.g. hints.test.ts AC8). The simpler
-		// correct approach is to always allocate fresh when the pool is empty.
-		// Tests that don't call close() just leak the instance until the worker
-		// is GC'd — acceptable because PGlite in-memory instances are tiny and
-		// the worker lifetime is bounded by the test run.
-		instance = await allocateInstance();
+	let slot: Slot | undefined;
+
+	// 1. Take a free slot
+	slot = slots.find((s) => !s.checkedOut);
+
+	// 2. No free slot — allocate a fresh instance.
+	//    @lore isolation: reclaim was removed because concurrent isolation tests
+	//    (e.g. hints AC8 makeIsolatedApp × 2) legitimately hold two live handles
+	//    simultaneously. Reclaiming the first while it's still in use caused both
+	//    apps to share the same db, breaking per-user isolation assertions.
+	//    Allocating fresh is safe: PGlite is in-memory, the extra instance lives
+	//    until close() is called, which the test does in its finally block.
+	if (!slot) {
+		const instance = await allocateInstance();
+		slot = { instance, checkedOut: false, checkedOutAt: 0 };
+		slots.push(slot);
 	}
 
-	const { db } = instance;
+	slot.checkedOut = true;
+	slot.checkedOutAt = performance.now();
+
+	await truncateAllTables(slot.instance.db);
+
+	const source = warmupDone && slots.length > 0 ? "pool" : "fresh";
+	trace("createTestDb", performance.now() - t0, { source });
+
+	const capturedSlot = slot;
 	return {
-		db,
+		db: capturedSlot.instance.db,
 		runMigrations: async () => {
-			await migrate(db, { migrationsFolder: migrationsFolder() });
+			await migrate(capturedSlot.instance.db, { migrationsFolder: migrationsFolder() });
 		},
 		close: async () => {
-			// TRUNCATE and return to pool for reuse by the next test.
-			await truncateAllTables(instance.db);
-			pool.push(instance);
+			capturedSlot.checkedOut = false;
 		},
 	};
+}
+
+export async function closeAllInstances(): Promise<void> {
+	await Promise.allSettled(slots.map((s) => s.instance.client.close()));
+	slots.length = 0;
+	warmupDone = false;
+}
+
+// Cleanup on worker exit
+if (typeof process.send === "function") {
+	process.on("disconnect", () => {
+		for (const s of slots) {
+			try {
+				s.instance.client.close();
+			} catch {}
+		}
+		process.exit(0);
+	});
 }

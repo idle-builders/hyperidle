@@ -4,19 +4,38 @@ Progressive disclosure checklist — load only when writing or reviewing tests.
 
 ## Test Structure (AAA)
 
+Integration tests use vitest fixtures. Import `test` from the fixture module — only `test()` receives fixture injection; `it()` does not.
+
 ```typescript
-it('should reject unauthorized access', () => {
-  // Arrange
-  const db = createTestDb();
-  const app = createTestApp(db);
-  const unauthenticatedRequest = new Request('/api/bets', { method: 'GET' });
+import { test, describe, expect } from "../test-fixtures.js";
 
-  // Act
-  const response = await app.request(unauthenticatedRequest);
+describe("Feature", () => {
+  test('should reject unauthorized access', async ({ app }) => {
+    // Arrange
+    const unauthenticatedRequest = new Request('/api/bets', { method: 'GET' });
 
-  // Assert
-  expect(response.status).toBe(401);
-  expect(await response.json()).toMatchObject({ error: 'Unauthorized' });
+    // Act
+    const response = await app.request(unauthenticatedRequest);
+
+    // Assert
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ error: 'Unauthorized' });
+  });
+});
+```
+
+For tests that need custom `AppOptions`, destructure `{ db, eventBus }` and call `createApp()` manually:
+
+```typescript
+import { test, describe, expect } from "../test-fixtures.js";
+import { createApp } from "../app.js";
+
+describe("Custom options", () => {
+  test('uses custom config', async ({ db, eventBus }) => {
+    const app = createApp({ db, eventBus, someOption: true });
+    const res = await app.request("/api/ping");
+    expect(res.status).toBe(200);
+  });
 });
 ```
 
@@ -44,12 +63,14 @@ For each function/endpoint, test:
 
 | Use | When |
 |-----|------|
-| `createTestDb()` | Database queries, transactions, constraints |
-| `createTestApp()` | API endpoint integration (includes routing, middleware, DB) |
+| `{ db }` fixture | Database queries, transactions, constraints |
+| `{ app }` fixture | API endpoint integration (includes routing, middleware, DB) |
+| `{ db, eventBus }` + `createApp()` | Custom AppOptions beyond defaults |
 | Manual mock | External services (LLM APIs, email, webhooks) |
 | `vi.fn()` | Verifying call counts or arguments on injected dependencies |
 
 Never mock Drizzle. Never mock Hono middleware. Never mock internal modules.
+Never call `createTestDb()`, `createTestApp()`, or `new EventBus()` in test files — fixtures provide these.
 
 ## React Component Testing
 
