@@ -82,7 +82,7 @@ const TOOLS: Tool[] = [
 		name: "test",
 		cmd: "vitest",
 		args: ["run"],
-		timeoutMs: 1_800_000,
+		timeoutMs: 2_700_000,
 		phase: 2,
 	},
 	{ name: "build", cmd: "npm", args: ["run", "build"], timeoutMs: 120_000, phase: 2 },

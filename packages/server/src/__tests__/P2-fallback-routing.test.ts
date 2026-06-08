@@ -30,9 +30,9 @@ import {
 	type TestDbHandle,
 	users,
 } from "@hyperidle/db";
+// AD1: org-routing moved from packages/server to packages/fabric
+import { resolveReviewRecipients } from "@hyperidle/fabric";
 import { beforeEach, describe, expect, it } from "vitest";
-// P2: import new service — this file does not exist yet (red phase)
-import { resolveReviewRecipients } from "../services/org-routing.js";
 
 const NOW = new Date().toISOString();
 

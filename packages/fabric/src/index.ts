@@ -191,10 +191,11 @@ export type {
 	Recipient,
 	SendResult,
 } from "./services/notifications/types.js";
-
+// org-routing
+export type { ReviewRoutingContext } from "./services/org-routing.js";
+export { resolveReviewRecipients } from "./services/org-routing.js";
 // policy-engine
 export { registerPolicyEngine } from "./services/policy-engine.js";
-
 // practice-meeting
 export type {
 	CreatePracticeMeetingInput,
@@ -211,14 +212,12 @@ export {
 	PRACTICE_MEETING_ANCHOR_ROLE,
 	runPracticeMeetingTurn,
 } from "./services/practice-meeting.js";
-
 // relevance-service
 export type {
 	RelevanceService,
 	SignalSet,
 } from "./services/relevance-service.js";
 export { createRelevanceService } from "./services/relevance-service.js";
-
 // review-item-factory
 export type {
 	CreateReviewItemForKnowledgeInput,
@@ -229,7 +228,6 @@ export {
 	attentionReviewReasoningMarker,
 	createReviewItemForKnowledge,
 } from "./services/review-item-factory.js";
-
 // routine-scheduler
 export type {
 	FireResult,
