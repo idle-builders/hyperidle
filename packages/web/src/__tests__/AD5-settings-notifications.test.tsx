@@ -20,6 +20,12 @@ vi.mock("../hooks/useSettings", () => ({
 	useSettings: vi.fn(),
 }));
 
+// Mock useHumanCount — AD3 AC-4 requires it; in tests we want all 4 toggles
+// visible (non-solo mode), so return humanCount: null (fail-open = all shown).
+vi.mock("../settings/useHumanCount", () => ({
+	useHumanCount: vi.fn(() => ({ humanCount: null, loading: false })),
+}));
+
 // Mock apiFetch used by useSettings.save
 vi.mock("../services/api-fetch", () => ({
 	apiFetch: vi.fn(),

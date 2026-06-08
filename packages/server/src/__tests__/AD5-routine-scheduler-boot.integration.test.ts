@@ -12,20 +12,18 @@
 
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	routines,
 	sessions,
-	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
 import { startRoutineScheduler } from "@hyperidle/fabric";
-import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
+import { test } from "../test-fixtures.js";
 
 const POLL_INTERVAL_MS = 50; // fast polling for tests
 
@@ -77,22 +75,11 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 }
 
 describe("AD5 — AC-1: Routine Scheduler Auto-Fire", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
+	test("fires a routine with nextRunAt in the past and creates a session", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedBase(db);
-	});
-
-	afterEach(async () => {
-		await handle?.close();
-	});
-
-	it("fires a routine with nextRunAt in the past and creates a session", async () => {
 		const now = new Date();
 		const pastTime = new Date(now.getTime() - 10_000).toISOString(); // 10 seconds ago
 
@@ -125,7 +112,8 @@ describe("AD5 — AC-1: Routine Scheduler Auto-Fire", () => {
 		expect(routine?.lastRunAt).not.toBeUndefined();
 	});
 
-	it("creates a session row when a due routine fires", async () => {
+	test("creates a session row when a due routine fires", async ({ db, eventBus }) => {
+		await seedBase(db);
 		const pastTime = new Date(Date.now() - 5_000).toISOString();
 
 		await db.insert(routines).values({
@@ -158,7 +146,8 @@ describe("AD5 — AC-1: Routine Scheduler Auto-Fire", () => {
 		expect(createdSessions.length).toBeGreaterThan(0);
 	});
 
-	it("does NOT fire a routine with nextRunAt in the future", async () => {
+	test("does NOT fire a routine with nextRunAt in the future", async ({ db, eventBus }) => {
+		await seedBase(db);
 		const futureTime = new Date(Date.now() + 3_600_000).toISOString(); // 1 hour in future
 
 		await db.insert(routines).values({
@@ -188,7 +177,8 @@ describe("AD5 — AC-1: Routine Scheduler Auto-Fire", () => {
 		expect(routine?.lastRunAt).toBeNull();
 	});
 
-	it("stop() halts the scheduler and prevents further firings", async () => {
+	test("stop() halts the scheduler and prevents further firings", async ({ db, eventBus }) => {
+		await seedBase(db);
 		const pastTime = new Date(Date.now() - 5_000).toISOString();
 
 		await db.insert(routines).values({

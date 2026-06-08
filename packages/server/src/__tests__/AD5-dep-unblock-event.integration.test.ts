@@ -10,21 +10,11 @@
  * These tests will FAIL until the listener is registered in app.ts.
  */
 
-import {
-	bets,
-	createTestDb,
-	type HyperIdleDb,
-	type TestDbHandle,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
-import { EventBus, type TaskStateChangedEvent } from "@hyperidle/shared";
+import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import type { TaskStateChangedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { describe, expect, vi } from "vitest";
+import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-ad5-dep";
 
@@ -90,26 +80,13 @@ async function insertTask(
 }
 
 describe("AD5 — AC-2: Dependency auto-unblock via task_state_changed event", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	test("auto-transitions downstream task from hold to accepted when last dep completes via API", async ({
+		db,
+		app,
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
 		await seedBase(db);
-	});
 
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle?.close();
-	});
-
-	it("auto-transitions downstream task from hold to accepted when last dep completes via API", async () => {
 		// Set up: task A in "review" state (can transition to "done") and task B (hold, depends on A)
 		// Note: in_progress → review → done is the valid path per VALID_TRANSITIONS
 		await insertTask(db, "task-a-dep", "review");
@@ -130,9 +107,18 @@ describe("AD5 — AC-2: Dependency auto-unblock via task_state_changed event", (
 		// Assert task B is now accepted (unblocked by auto-unblock listener)
 		const [taskB] = await db.select().from(tasks).where(eq(tasks.id, "task-b-dep"));
 		expect(taskB?.state).toBe("accepted");
+
+		vi.unstubAllEnvs();
 	});
 
-	it("emits task_state_changed event for the unblocked downstream task", async () => {
+	test("emits task_state_changed event for the unblocked downstream task", async ({
+		db,
+		app,
+		eventBus,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedBase(db);
+
 		// task-c-dep in "review" state so it can validly transition to "done"
 		await insertTask(db, "task-c-dep", "review");
 		await insertTask(db, "task-d-dep", "hold", ["task-c-dep"]);
@@ -160,9 +146,17 @@ describe("AD5 — AC-2: Dependency auto-unblock via task_state_changed event", (
 		);
 		expect(unblockEvent).toBeDefined();
 		expect(unblockEvent?.fromState).toBe("hold");
+
+		vi.unstubAllEnvs();
 	});
 
-	it("does NOT unblock a downstream task with multiple deps when only one completes", async () => {
+	test("does NOT unblock a downstream task with multiple deps when only one completes", async ({
+		db,
+		app,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedBase(db);
+
 		// task-e-dep in "review" (can go to "done"); task-f-dep in "in_progress" (not done yet)
 		await insertTask(db, "task-e-dep", "review");
 		await insertTask(db, "task-f-dep", "in_progress");
@@ -181,9 +175,17 @@ describe("AD5 — AC-2: Dependency auto-unblock via task_state_changed event", (
 		// Task G must remain in hold (task F not done yet)
 		const [taskG] = await db.select().from(tasks).where(eq(tasks.id, "task-g-dep"));
 		expect(taskG?.state).toBe("hold");
+
+		vi.unstubAllEnvs();
 	});
 
-	it("unblocks downstream task when ALL deps complete via sequential transitions", async () => {
+	test("unblocks downstream task when ALL deps complete via sequential transitions", async ({
+		db,
+		app,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedBase(db);
+
 		// Both upstream tasks in "review" so they can validly transition to "done"
 		await insertTask(db, "task-h-dep", "review");
 		await insertTask(db, "task-i-dep", "review");
@@ -212,5 +214,7 @@ describe("AD5 — AC-2: Dependency auto-unblock via task_state_changed event", (
 		// Now task J should be accepted (all deps done, auto-unblock fired)
 		const [taskJFinal] = await db.select().from(tasks).where(eq(tasks.id, "task-j-dep"));
 		expect(taskJFinal?.state).toBe("accepted");
+
+		vi.unstubAllEnvs();
 	});
 });

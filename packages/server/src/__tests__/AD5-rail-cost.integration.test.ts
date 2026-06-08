@@ -8,19 +8,10 @@
  * These tests will FAIL until rail.ts reads from the teamMembers table.
  */
 
-import {
-	createTestDb,
-	factorySettings,
-	type HyperIdleDb,
-	type TestDbHandle,
-	teamMembers,
-	teams,
-} from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
+import { factorySettings, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { describe, expect, vi } from "vitest";
+import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-ad5-rail";
 
@@ -53,23 +44,11 @@ async function seedTeamWithCost(
 }
 
 describe("AD5 — AC-6: Rail endpoint shows real spend from teamMembers.costActual", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	test("returns todaySpend.minor = 5000 when a team member has costActual = 5000", async ({
+		db,
+		app,
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		app = await createTestApp({ db, eventBus: new EventBus() });
-	});
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle?.close();
-	});
-
-	it("returns todaySpend.minor = 5000 when a team member has costActual = 5000", async () => {
 		await seedTeamWithCost(db, "team-ad5-cost-1", 5000);
 
 		const res = await app.request("/api/rail", { headers: authHeaders() });
@@ -84,9 +63,15 @@ describe("AD5 — AC-6: Rail endpoint shows real spend from teamMembers.costActu
 		// AC-6: must NOT be zero — must reflect actual teamMembers.costActual
 		expect(cost.todaySpend).not.toBeNull();
 		expect(cost.todaySpend?.minor).toBe(5000);
+
+		vi.unstubAllEnvs();
 	});
 
-	it("returns todaySpend.minor = 0 when no teamMembers have costActual set", async () => {
+	test("returns todaySpend.minor = 0 when no teamMembers have costActual set", async ({
+		db,
+		app,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		// Seed a team but with default costActual (0/null)
 		await seedTeamWithCost(db, "team-ad5-zero", 0);
 
@@ -99,9 +84,12 @@ describe("AD5 — AC-6: Rail endpoint shows real spend from teamMembers.costActu
 		};
 
 		expect(cost.todaySpend?.minor).toBe(0);
+
+		vi.unstubAllEnvs();
 	});
 
-	it("sums costActual across multiple teams", async () => {
+	test("sums costActual across multiple teams", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		await seedTeamWithCost(db, "team-ad5-multi-1", 3000);
 		await seedTeamWithCost(db, "team-ad5-multi-2", 2000);
 		await seedTeamWithCost(db, "team-ad5-multi-3", 1500);
@@ -116,9 +104,15 @@ describe("AD5 — AC-6: Rail endpoint shows real spend from teamMembers.costActu
 
 		// 3000 + 2000 + 1500 = 6500
 		expect(cost.todaySpend?.minor).toBe(6500);
+
+		vi.unstubAllEnvs();
 	});
 
-	it("returns todayCap populated from factory settings when cost_cap_daily_minor is set", async () => {
+	test("returns todayCap populated from factory settings when cost_cap_daily_minor is set", async ({
+		db,
+		app,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		await seedTeamWithCost(db, "team-ad5-cap", 0);
 
 		await db.insert(factorySettings).values({
@@ -137,9 +131,12 @@ describe("AD5 — AC-6: Rail endpoint shows real spend from teamMembers.costActu
 
 		expect(cost.todayCap).not.toBeNull();
 		expect(cost.todayCap?.minor).toBe(10000);
+
+		vi.unstubAllEnvs();
 	});
 
-	it("returns todaySpend as WireMoney with currency field", async () => {
+	test("returns todaySpend as WireMoney with currency field", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		await seedTeamWithCost(db, "team-ad5-currency", 1234);
 
 		const res = await app.request("/api/rail", { headers: authHeaders() });
@@ -154,9 +151,12 @@ describe("AD5 — AC-6: Rail endpoint shows real spend from teamMembers.costActu
 		expect(cost.todaySpend?.minor).toBe(1234);
 		expect(typeof cost.todaySpend?.currency).toBe("string");
 		expect(cost.todaySpend?.currency.length).toBeGreaterThan(0);
+
+		vi.unstubAllEnvs();
 	});
 
-	it("returns correct spend after teamMembers.costActual is updated", async () => {
+	test("returns correct spend after teamMembers.costActual is updated", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		await seedTeamWithCost(db, "team-ad5-update", 0);
 
 		// Simulate fabric's recordCostAndCheck updating costActual
@@ -174,5 +174,7 @@ describe("AD5 — AC-6: Rail endpoint shows real spend from teamMembers.costActu
 		};
 
 		expect(cost.todaySpend?.minor).toBe(9999);
+
+		vi.unstubAllEnvs();
 	});
 });
