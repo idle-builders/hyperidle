@@ -142,6 +142,18 @@ export { MockHarnessAdapter } from "./harness/index.js";
 export type { HintCatalogEntry, HintId } from "./hint.js";
 export { HINT_CATALOG, HINT_IDS, isHintId } from "./hint.js";
 export { createLogger, type Logger } from "./logger.js";
+// ── AE5: Mention parsing utilities ──
+export type {
+	MentionCandidate,
+	MentionSegment,
+	ResolvedMention,
+} from "./mention.js";
+export {
+	extractMentionCandidates,
+	MAX_MENTIONS_PER_MESSAGE,
+	resolveMentions,
+	segmentMentions,
+} from "./mention.js";
 // ── X4: Model Gateway ──
 export type {
 	ModelGatewayConfig,
@@ -210,6 +222,7 @@ export type {
 	IdentityId,
 	InlineRef,
 	InlineRefKind,
+	MentionRef,
 	Message,
 	MessageId,
 	MessageType,

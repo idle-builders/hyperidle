@@ -5,7 +5,7 @@
  * status flags (blocking, resolved, pinned), and participant avatars.
  */
 
-import type { HostKind } from "@hyperidle/shared";
+import type { AgentOperationalStatus, HostKind } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { dsProps } from "./ds-attrs.js";
 import { StatusChip } from "./StatusChip.js";
@@ -40,10 +40,39 @@ function PinIcon(): JSX.Element {
 // enum were declared in step 2 but never wired anywhere. They land with the
 // L1b banner overflow menu; ship the smaller surface for now.
 
+/**
+ * AE5: PresenceDot — 6px status indicator on agent avatars.
+ * Renders only for active/error statuses; idle renders as no dot (absence = idle).
+ * The dot carries aria-label for screen reader accessibility.
+ *
+ * @lore AE5 (SUGGESTION from arch-critique): Extracted from inline to avoid duplication
+ * between ThreadHostBanner and ThreadRow. Defined once, used in both consumers.
+ */
+function PresenceDot({
+	status,
+	name,
+}: {
+	status: AgentOperationalStatus;
+	name: string;
+}): JSX.Element | null {
+	if (status === "idle") return null;
+	const bg = status === "active" ? "bg-[var(--accent-primary)]" : "bg-[var(--status-error)]";
+	return (
+		<span
+			className={`absolute bottom-0 right-0 w-[6px] h-[6px] rounded-full border-[1.5px] border-[var(--surface-container)] ${bg}`}
+			aria-label={`${name} - ${status}`}
+		/>
+	);
+}
+
 export interface ThreadHostBannerParticipant {
 	id: string;
 	name: string;
 	avatarUrl?: string;
+	/** AE5: true for AI agent participants. */
+	isAgent?: boolean;
+	/** AE5: Operational status for agent participants. When present and agent, shows presence dot. */
+	operationalStatus?: AgentOperationalStatus;
 }
 
 export interface ThreadHostBannerProps {
@@ -103,9 +132,12 @@ export function ThreadHostBanner({
 					<span
 						key={p.id}
 						title={p.name}
-						className="inline-flex items-center justify-center w-[24px] h-[24px] rounded-full bg-[var(--surface-elevated)] text-[var(--text-tertiary)] text-[11px] font-medium border border-[var(--border-subtle)]"
+						className="relative inline-flex items-center justify-center w-[24px] h-[24px] rounded-full bg-[var(--surface-elevated)] text-[var(--text-tertiary)] text-[11px] font-medium border border-[var(--border-subtle)]"
 					>
 						{p.name.charAt(0).toUpperCase()}
+						{p.isAgent && p.operationalStatus ? (
+							<PresenceDot status={p.operationalStatus} name={p.name} />
+						) : null}
 					</span>
 				))}
 				{overflow > 0 ? (

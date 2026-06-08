@@ -50,9 +50,7 @@ describe("AE5 — resolveHostRoute", () => {
 
 describe("AE5 — ThreadHostBanner presence dots", () => {
 	it("renders a green presence dot for active agent participant", async () => {
-		const { ThreadHostBanner } = await import(
-			"../../../design-system/src/ThreadHostBanner.js"
-		);
+		const { ThreadHostBanner } = await import("../../../design-system/src/ThreadHostBanner.js");
 
 		const participants = [
 			{
@@ -80,9 +78,7 @@ describe("AE5 — ThreadHostBanner presence dots", () => {
 	});
 
 	it("renders a red presence dot for agent with error status", async () => {
-		const { ThreadHostBanner } = await import(
-			"../../../design-system/src/ThreadHostBanner.js"
-		);
+		const { ThreadHostBanner } = await import("../../../design-system/src/ThreadHostBanner.js");
 
 		const participants = [
 			{
@@ -109,9 +105,7 @@ describe("AE5 — ThreadHostBanner presence dots", () => {
 	});
 
 	it("renders no presence dot for idle agent participant", async () => {
-		const { ThreadHostBanner } = await import(
-			"../../../design-system/src/ThreadHostBanner.js"
-		);
+		const { ThreadHostBanner } = await import("../../../design-system/src/ThreadHostBanner.js");
 
 		const participants = [
 			{
@@ -138,9 +132,7 @@ describe("AE5 — ThreadHostBanner presence dots", () => {
 	});
 
 	it("renders no presence dot for human participants", async () => {
-		const { ThreadHostBanner } = await import(
-			"../../../design-system/src/ThreadHostBanner.js"
-		);
+		const { ThreadHostBanner } = await import("../../../design-system/src/ThreadHostBanner.js");
 
 		const participants = [
 			{
@@ -167,9 +159,7 @@ describe("AE5 — ThreadHostBanner presence dots", () => {
 	});
 
 	it("renders no dots when operationalStatus is absent (backward compat)", async () => {
-		const { ThreadHostBanner } = await import(
-			"../../../design-system/src/ThreadHostBanner.js"
-		);
+		const { ThreadHostBanner } = await import("../../../design-system/src/ThreadHostBanner.js");
 
 		const participants = [
 			{
@@ -353,11 +343,14 @@ describe("AE5 — Conversations header context link", () => {
 
 		vi.stubGlobal(
 			"fetch",
-			vi.fn(async () => ({
-				ok: true,
-				status: 200,
-				json: async () => userThreadDetail,
-			}) as unknown as Response),
+			vi.fn(
+				async () =>
+					({
+						ok: true,
+						status: 200,
+						json: async () => userThreadDetail,
+					}) as unknown as Response,
+			),
 		);
 
 		const router = createMemoryRouter(
@@ -369,7 +362,8 @@ describe("AE5 — Conversations header context link", () => {
 
 		// For user-kind threads, no context link (resolveHostRoute returns null)
 		// Wait for the page to load first by waiting for something to appear
-		await screen.findByTestId("conversations-page");
+		// Use findAllByTestId because Conversations renders nested containers with the same testid
+		await screen.findAllByTestId("conversations-page");
 		// No context link for user-hosted thread
 		const links = screen.queryAllByRole("link", { name: /My Test Task/i });
 		expect(links).toHaveLength(0);

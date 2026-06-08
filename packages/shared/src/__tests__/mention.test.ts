@@ -7,10 +7,9 @@
 
 import { describe, expect, it } from "vitest";
 import {
+	extractMentionCandidates,
 	type MentionCandidate,
 	type MentionSegment,
-	type ResolvedMention,
-	extractMentionCandidates,
 	resolveMentions,
 	segmentMentions,
 } from "../mention.js";
@@ -105,9 +104,7 @@ describe("AE5 — resolveMentions", () => {
 	]);
 
 	it("resolves a known @name to its identityId and displayName", () => {
-		const candidates: MentionCandidate[] = [
-			{ name: "Aria", sourceText: "@Aria", offset: 0 },
-		];
+		const candidates: MentionCandidate[] = [{ name: "Aria", sourceText: "@Aria", offset: 0 }];
 		const result = resolveMentions(candidates, nameMap, "u-sender");
 		expect(result).toHaveLength(1);
 		expect(result[0]?.identityId).toBe("agent-aria-01");
@@ -124,9 +121,7 @@ describe("AE5 — resolveMentions", () => {
 	});
 
 	it("resolves case-insensitively (@ARIA matches 'aria' in map)", () => {
-		const candidates: MentionCandidate[] = [
-			{ name: "ARIA", sourceText: "@ARIA", offset: 0 },
-		];
+		const candidates: MentionCandidate[] = [{ name: "ARIA", sourceText: "@ARIA", offset: 0 }];
 		const result = resolveMentions(candidates, nameMap, "u-sender");
 		expect(result).toHaveLength(1);
 		expect(result[0]?.identityId).toBe("agent-aria-01");
@@ -134,9 +129,7 @@ describe("AE5 — resolveMentions", () => {
 
 	it("self-mention resolves to a MentionRef (participant-add suppressed server-side)", () => {
 		// Self-mention still produces a ResolvedMention; server suppresses participant-add.
-		const candidates: MentionCandidate[] = [
-			{ name: "Alice", sourceText: "@Alice", offset: 0 },
-		];
+		const candidates: MentionCandidate[] = [{ name: "Alice", sourceText: "@Alice", offset: 0 }];
 		const result = resolveMentions(candidates, nameMap, "user-alice-03");
 		// Alice is in the map and IS the sender — still resolves (server handles no-op)
 		expect(result).toHaveLength(1);

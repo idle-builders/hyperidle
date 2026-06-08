@@ -14,15 +14,7 @@
  * - MAX_MENTIONS_PER_MESSAGE cap prevents unbounded lookups.
  */
 
-import {
-	bets,
-	type HyperIdleDb,
-	tasks,
-	teamMembers,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 
@@ -74,7 +66,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	await db.insert(users).values({
 		id: "agent-bob",
 		kind: "ai",
-		name: "Bob Agent",
+		name: "Bob",
 		role: "reviewer",
 		status: "active",
 		teamId: "tm1",
