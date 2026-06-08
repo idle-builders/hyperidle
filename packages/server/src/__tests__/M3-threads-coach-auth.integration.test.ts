@@ -1,5 +1,5 @@
 /**
- * M3 — Coach and Thread routes: readSenderId uses auth context (A6, A7).
+ * M3 — Assistant and Thread routes: readSenderId uses auth context (A6, A7).
  *
  * @lore P2: Updated from factorySettings.founder_id to users table query.
  * Auth middleware resolves userId from `users WHERE kind = 'human' LIMIT 1`.
@@ -36,8 +36,8 @@ async function seedFounderUser(db: HyperIdleDb, founderId: string): Promise<void
 		.onConflictDoNothing();
 }
 
-describe("M3 — Coach route readSenderId uses auth context, not DEFAULT_FOUNDER_ID (A6)", () => {
-	test("coach thread has initiatorId from auth context, not hardcoded 'u-founder'", async ({
+describe("M3 — Assistant route readSenderId uses auth context, not DEFAULT_FOUNDER_ID (A6)", () => {
+	test("assistant thread has initiatorId from auth context, not hardcoded 'u-founder'", async ({
 		app,
 		db,
 	}) => {
@@ -45,7 +45,7 @@ describe("M3 — Coach route readSenderId uses auth context, not DEFAULT_FOUNDER
 		const now = new Date().toISOString();
 		await seedFounderUser(db, "test-founder-1");
 
-		// Seed the system agent (required for coach route)
+		// Seed the system agent (required for the assistant route — /api/threads/coach)
 		await db.insert(users).values({
 			id: "seed-agent-cos",
 			name: "System Agent",

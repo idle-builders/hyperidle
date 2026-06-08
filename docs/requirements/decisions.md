@@ -14,9 +14,9 @@
 - **Minimum install** — `brew install --cask hyperidle`. Under 2 minutes to rendered Factory shell.
 - **Product Manager trajectory assessment** — reads task comments and notes to assess progress. No hardcoded signals or thresholds. Analytics can be layered in later.
 - **No platform team.** HyperIdle is developed by a product team using HyperIdle — dogfooding its own framework.
-- **Cross-product routine ownership** — Chief of Staff.
+- **Cross-product routine ownership** — assistant.
 - **Routine migration** — an agent cannot leave a team while it has routines attached. Routines must be reassigned or retired first.
-- **Team membership changes** — the Product Manager (team facilitator) can request changes on behalf of the team via Conversations to the Chief of Staff, who assesses and proposes to founders.
+- **Team membership changes** — the Product Manager (team facilitator) can request changes on behalf of the team via Conversations to the assistant, who assesses and proposes to founders.
 - **Knowledge Fabric sync** — continuous writeback via file watcher is v1. No session-boundary dependency. WebSocket push to Knowledge view tabs included.
 - **Notifications** — TBD during development. Will need a notification adapter; specific technology decided at implementation time.
 

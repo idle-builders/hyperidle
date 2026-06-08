@@ -61,13 +61,13 @@ The product story documents (`docs/product/`) are written at an aspirational/des
 
 ## 3. Major Findings
 
-### M1 — The Rail (right sidebar) does not exist in the UI
+### M1 — The Rail (right sidebar) does not exist in the UI <!-- @lore AD8a: historical — Rail removed in U6 -->
 
 **What the docs say:** `docs/product/what-is-hyperidle.md` describes "The Rail — right sidebar, always visible. Active bets, blocked agents, cost burn, recent knowledge additions." `docs/human-interface-layer/one-app-two-form-factors.md` §3.1 describes a four-zone layout: "IconRail | Submenu | Main pane | Rail (right sidebar)." The product doc calls it a core feature.
 
 **What the system does:** Work package U6 replaced the IconRail + Submenu + Rail trio with a single 200px left Sidebar. The `@lore U6` comment in `packages/web/src/shell/Sidebar.tsx` says "Sidebar replaces the IconRail | Submenu | Rail trio." Tests in `packages/web/src/__tests__/L17-money-web.test.tsx` note "Rail (AC23) was removed in U6." There is no right-sidebar "Rail" component in the UI. The Rail API endpoint (`/api/rail`) still exists and returns cost/blocker data, but there is no UI consumer rendering it as an always-visible panel.
 
-**Severity:** Major — the product docs describe the Rail as a core ambient-awareness surface. Users will not find it. The underlying Rail API works but feeds no visible UI.
+**Severity:** Major — the product docs describe the Rail as a core ambient-awareness surface. Users will not find it. The underlying Rail API works but feeds no visible UI. <!-- @lore AD8a: historical — Rail removed in U6 -->
 
 **Recommended resolution:** Update `docs/product/what-is-hyperidle.md` and `docs/human-interface-layer/one-app-two-form-factors.md` to describe the current Sidebar layout. Document how ambient awareness is surfaced today (Sidebar shows active bets, blockers visible in Work view).
 
@@ -133,9 +133,9 @@ The product story documents (`docs/product/`) are written at an aspirational/des
 
 ### M7 — Autonomy levels (L1-L4) have no management UI
 
-**What the docs say:** `docs/product/human-ai-collaboration.md` describes a detailed L1-L4 autonomy system with per-agent per-skill trust levels, and states "Autonomy changes are review items. The Chief of Staff proposes an increase; the founder approves or declines."
+**What the docs say:** `docs/product/human-ai-collaboration.md` describes a detailed L1-L4 autonomy system with per-agent per-skill trust levels, and states "Autonomy changes are review items. The assistant proposes an increase; the founder approves or declines."
 
-**What the system does:** The `user_skills` table exists with `autonomy_level` and related fields. The `PATCH /api/users/:id` and `/api/agents` routes handle user/agent config. However, there is no UI surface for viewing or managing autonomy levels. No route exists for the Chief of Staff autonomy-change proposal flow. The `CocOverlay` provides the Chief of Staff conversation, but no autonomy management page exists in the web app.
+**What the system does:** The `user_skills` table exists with `autonomy_level` and related fields. The `PATCH /api/users/:id` and `/api/agents` routes handle user/agent config. However, there is no UI surface for viewing or managing autonomy levels. No route exists for the assistant autonomy-change proposal flow. The `CocOverlay` provides the assistant conversation, but no autonomy management page exists in the web app.
 
 **Severity:** Major — autonomy-level management is described as a core human oversight mechanism. Without a UI, founders cannot adjust trust levels.
 
@@ -329,7 +329,7 @@ The product story documents (`docs/product/`) are written at an aspirational/des
 | **Global cross-entity search API** | Implied by GlobalSearchPanel component calling `/api/search` | The hook calls `/api/search` which does not exist. Only `/api/knowledge/search` is implemented. |
 | **TOON workspace projection** | `docs/product/how-knowledge-compounds.md` "Formatted in TOON (uses ~40% fewer tokens than JSON)" | TOON codec exists in `packages/shared/src/toon-codec.ts` and works for encoding/decoding. However, workspace materialization and git-export produce markdown files, not TOON-encoded packs. |
 | **Model tier selection by task risk** | `docs/architecture/components.md` §2.3 Scheduler model tier selector | `packages/server/src/services/model-gateway.ts` exists; not clear if risk-based automatic tier selection is wired end-to-end. |
-| **The Rail ambient awareness UI** | `docs/product/what-is-hyperidle.md` "The Rail — right sidebar, always visible" | Removed in U6. API endpoint works; no UI consumer. |
+| **The Rail ambient awareness UI** | `docs/product/what-is-hyperidle.md` "The Rail — right sidebar, always visible" | Removed in U6. API endpoint works; no UI consumer. | <!-- @lore AD8a: historical — Rail removed in U6 -->
 
 ---
 
@@ -414,13 +414,13 @@ Items ordered by user-facing impact. Each item is self-contained enough for a de
 
 ---
 
-### P4 — Acknowledge the Rail removal in product documentation
+### P4 — Acknowledge the Rail removal in product documentation <!-- @lore AD8a: historical — Rail removed in U6 -->
 
 **Status:** open
 
-**Impact:** Founders reading about the Rail as an always-visible ambient sidebar will look for it and not find it.
+**Impact:** Founders reading about the Rail as an always-visible ambient sidebar will look for it and not find it. <!-- @lore AD8a: historical — Rail removed in U6 -->
 
-**What to fix:** Update `docs/product/what-is-hyperidle.md` to describe the current Sidebar layout (no right Rail). Note that the Rail API exists and ambient data (blocked agents, cost burn) is accessible via the Work view or future feature.
+**What to fix:** Update `docs/product/what-is-hyperidle.md` to describe the current Sidebar layout (no right Rail). Note that the Rail API exists and ambient data (blocked agents, cost burn) is accessible via the Work view or future feature. <!-- @lore AD8a: historical — Rail removed in U6 -->
 
 **Files:**
 - `docs/product/what-is-hyperidle.md` — update "The Factory app" section

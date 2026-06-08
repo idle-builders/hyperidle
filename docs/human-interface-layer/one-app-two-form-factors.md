@@ -36,13 +36,13 @@ Technical:
 - One codebase (Electron bundles server + client together).
 - One API, one auth, one data model.
 - The threading UI is built once and reused for review items, chat items, human-initiated conversations, and agent↔agent threads the human is copied on. It's the biggest component in the app and it's written exactly once.
-- The Rail is a React sidebar component subscribing to the same event stream as everything else. No daemon, no menu-bar binary, no separate deployment target.
+- The Rail is a React sidebar component subscribing to the same event stream as everything else. No daemon, no menu-bar binary, no separate deployment target. <!-- @lore AD8a: historical — Rail removed in U6 -->
 - Work and Knowledge become lazy-loaded routes inside the same shell. They ship when they're ready without blocking the rest.
 
 UX / pattern learning:
 
 - The human learns *one* chat grammar — verdicts, inline comments, replies, snooze, escalate — and uses it for every kind of thread.
-- The holistic journey is "open the Factory." Not "check the inbox, then the HUD, then the canvas, then the coach." One door.
+- The holistic journey is "open the Factory." Not "check the inbox, then the HUD, then the canvas, then the assistant." One door.
 - Mode discipline (what belongs where) is enforced by *view routing inside the app*, not by shipping separate products. If we ever discover Work should collapse into Conversations, we just change the route.
 
 ---

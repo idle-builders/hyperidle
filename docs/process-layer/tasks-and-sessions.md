@@ -8,7 +8,7 @@ Tasks move through a small state machine:
 - `accepted` — the team lead has accepted it. The owner is committed.
 - `hold` — the task has unmet upstream dependencies (other tasks that must reach `done` first). The task cannot start until all dependencies clear. **When the last upstream dependency moves to `done`, the Dependency Watcher automatically transitions this task to `accepted` and notifies the owner.** This is the key automation: no agent or human needs to manually unblock held tasks.
 - `in_progress` — at least one session is running or has run. The task has produced some progress.
-- `blocked` — the owner is waiting on something external (a human reply, an external service, a design question). Unlike `hold`, this is a runtime block discovered during execution. Blockers are first-class: they show up in the Rail.
+- `blocked` — the owner is waiting on something external (a human reply, an external service, a design question). Unlike `hold`, this is a runtime block discovered during execution. Blockers are first-class: they show up in the Rail. <!-- @lore AD8a: historical — Rail removed in U6 -->
 - `review` — the task has produced an artifact and is awaiting verdict. For risk-tier ≥ medium tasks, this means a review thread to the human; for low-risk tasks, this means an internal team check.
 - `done` — verdict reached, artifact accepted, task closed.
 - `killed` — abandoned. Reasoning logged.
@@ -17,7 +17,7 @@ The distinction between `hold` and `blocked` is important: `hold` is structural 
 
 > **Vocabulary note.** The lower-case `blocked` workflow state described here is unrelated to the upper-case `Block` content primitive (see [`docs/blocks/`](BLOCKS.md)). They share the English word "block" and nothing else.
 
-Transitions are events in the audit trail. The Rail surfaces blocked and held tasks prominently because they're the most actionable signal of friction.
+Transitions are events in the audit trail. The Rail surfaces blocked and held tasks prominently because they're the most actionable signal of friction. <!-- @lore AD8a: historical — Rail removed in U6 -->
 
 ### 6.2 Sessions: many runs per task
 
@@ -89,6 +89,6 @@ Skill authors can override. This stays consistent with the EXECUTION layer's "du
 
 The thread on a task is *optional*. Most tasks ship without one. When a thread exists, it's structured like comments on a pull request — annotations, questions, clarifications, review feedback — not like a freeform chat. The task's *state* is on the task object; the thread is the narrative around it.
 
-When a task escalates (blocked, needs human input, needs another agent), the escalation produces a thread message and surfaces in the appropriate view (the Rail for blockers, Conversations for human-needed input). The thread is the conversation; the task is the work.
+When a task escalates (blocked, needs human input, needs another agent), the escalation produces a thread message and surfaces in the appropriate view (the Rail for blockers, Conversations for human-needed input). The thread is the conversation; the task is the work. <!-- @lore AD8a: historical — Rail removed in U6 -->
 
 ---

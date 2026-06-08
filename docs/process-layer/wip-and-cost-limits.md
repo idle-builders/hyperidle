@@ -15,7 +15,7 @@ Each agent has a maximum number of in-progress sessions (WIP limit, default: 3),
 
 ### 10.2 Per team
 
-Each team has a maximum number of parallel tasks (default: team size × 2), a soft preference for one active bet at a time, a **team Money cap** (the sum of all agent Money caps on the team, plus a team-level overhead budget for facilitator work), and an optional **team TokenUsage cap**. Multiple parallel bets are allowed but tracked as a *cost on focus*, surfaced in the Rail.
+Each team has a maximum number of parallel tasks (default: team size × 2), a soft preference for one active bet at a time, a **team Money cap** (the sum of all agent Money caps on the team, plus a team-level overhead budget for facilitator work), and an optional **team TokenUsage cap**. Multiple parallel bets are allowed but tracked as a *cost on focus*, surfaced in the Rail. <!-- @lore AD8a: historical — Rail removed in U6 -->
 
 **When the team Money or TokenUsage cap is reached, the team stops.** All agents on the team finish their current in-progress sessions but accept no new work until the next budget cycle or the cap is raised. A review thread fires to the founder.
 
@@ -23,7 +23,7 @@ Money is allocated concurrently across agents within a team — each agent draws
 
 ### 10.3 Per factory
 
-The factory has a **factory Money cap** (the sum of all team Money caps, plus a factory-level overhead budget for Chief of Staff routines and cross-product work) and an optional **factory TokenUsage cap**. The Cost Sentinel (a heartbeat routine owned by the Chief of Staff) monitors burn rate against both axes.
+The factory has a **factory Money cap** (the sum of all team Money caps, plus a factory-level overhead budget for assistant routines and cross-product work) and an optional **factory TokenUsage cap**. The Cost Sentinel (a heartbeat routine owned by the assistant) monitors burn rate against both axes.
 
 **When the factory Money or TokenUsage cap is reached, everything stops.** All teams finish in-progress sessions but accept no new work. Critical ops tasks (e.g., incident response) are not killed mid-session but cannot start new sessions either — they resume when the budget resets or the cap is raised. A review thread fires to the founder.
 
@@ -31,7 +31,7 @@ The hierarchy is strict: an agent cannot exceed its cap even if the team has hea
 
 ### 10.4 What happens when limits hit
 
-Hitting a Money cap or a TokenUsage cap produces a thread item, not a silent drop. The same review-thread mechanism fires regardless of which axis breached. The agent or team gets a review item in Conversations (or a flag in the Rail) explaining which cap was hit (Money or TokenUsage, and which tier in the case of TokenUsage), what the threshold was, and asking for guidance. This makes capacity visible and forces the founder to either raise the cap (and accept the cost) or accept the throttling.
+Hitting a Money cap or a TokenUsage cap produces a thread item, not a silent drop. The same review-thread mechanism fires regardless of which axis breached. The agent or team gets a review item in Conversations (or a flag in the Rail) explaining which cap was hit (Money or TokenUsage, and which tier in the case of TokenUsage), what the threshold was, and asking for guidance. This makes capacity visible and forces the founder to either raise the cap (and accept the cost) or accept the throttling. <!-- @lore AD8a: historical — Rail removed in U6 -->
 
 The harness emits `CostCapExceededError` for either axis (see `docs/agent-layer/harness-error-taxonomy.md`); the error payload distinguishes which cap was breached.
 

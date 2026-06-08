@@ -532,7 +532,7 @@ export async function seedBuiltinAgents(db: HyperIdleDb): Promise<void> {
 			name: "System Agent (eval stub)",
 			role: "chief_of_staff",
 			status: "active",
-			// AB0: chief_of_staff is an individual-category agent (factory-wide, per-founder).
+			// @lore AD8a: role string "chief_of_staff" renamed in AD8b. AB0: chief_of_staff is an individual-category agent (factory-wide, per-founder).
 			agentCategory: "individual",
 			createdAt: now,
 		})

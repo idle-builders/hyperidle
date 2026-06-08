@@ -33,7 +33,7 @@ Eight. These are the things a page is made of.
 
 1. **IconRail** — 48 px left column: four top-level NavItems (Conversations, Work, Knowledge, Settings) + user Avatar at bottom.
 2. **Submenu** — 240 px contextual column: title, SearchField, filter Tags, scroll list of NavItems or Tier-2 rows. One Submenu per top-level view.
-3. **Rail** — 56 px collapsed / 360 px expanded right column. Collapsed = stacked NavItems per notification category with counts. Expanded = SearchField + grouped NotificationRows. **This is the only notification surface in the app.**
+3. **Rail** — 56 px collapsed / 360 px expanded right column. Collapsed = stacked NavItems per notification category with counts. Expanded = SearchField + grouped NotificationRows. **This is the only notification surface in the app.** <!-- @lore AD8a: historical — Rail removed in U6 -->
 4. **ArtifactView** — polymorphic review body. Five shapes, selected by artifact kind:
    - `text_diff` — stack of diff lines (mono, tinted bg).
    - `content_preview` — rendered content + KeyValue header.

@@ -174,20 +174,19 @@ describe("X3 AC-2: soul prompt templates seeded from docs/souls/ into factorySet
 		expect(rows[0]?.value).not.toMatch(/^---/);
 	});
 
-	test("factory_settings has soul_template:chief_of_staff key with non-empty content", async ({
-		db,
-	}) => {
+	// @lore AD8a: soul_template:chief_of_staff deleted — docs/souls/chief-of-staff.md removed.
+	// AD8b adds assistant.md and re-inserts the entry with the new role name.
+	// @lore AD8a: chief_of_staff soul deleted; key no longer inserted by seed.
+	test("does NOT have soul_template:chief_of_staff key (AD8a: soul deleted)", async ({ db }) => {
+		// @lore AD8a: role string renamed in AD8b
+		// @lore AD8a: role string renamed in AD8b
 		await seed(db);
 
 		const rows = await queryRows<{ key: string; value: string }>(
 			db,
-			`SELECT key, value FROM factory_settings WHERE key = 'soul_template:chief_of_staff'`,
+			`SELECT key, value FROM factory_settings WHERE key = 'soul_template:chief_of_staff'`, // @lore AD8a: key deleted; AD8b creates soul_template:assistant
 		);
-		expect(rows).toHaveLength(1);
-		expect(rows[0]?.value).toBeTruthy();
-		expect(rows[0]?.value.length).toBeGreaterThan(50);
-		// Content should not have YAML frontmatter
-		expect(rows[0]?.value).not.toMatch(/^---/);
+		expect(rows).toHaveLength(0);
 	});
 
 	test("product_manager template content contains recognizable persona content", async ({ db }) => {
@@ -211,9 +210,9 @@ describe("X3 AC-2: soul prompt templates seeded from docs/souls/ into factorySet
 			db,
 			`SELECT COUNT(*) AS count FROM factory_settings WHERE key LIKE 'soul_template:%'`,
 		);
-		// AB0: 8 templates (product_manager, practice_facilitator, chief_of_staff, builder,
-		// growth, designer, qa_engineer, ops). The count is at least 8.
-		expect(Number(rows[0]?.count)).toBeGreaterThanOrEqual(8);
+		// AB0: 8 templates. @lore AD8a: chief_of_staff soul deleted → now 7 templates.
+		// product_manager, practice_facilitator, builder, growth, designer, qa_engineer, ops.
+		expect(Number(rows[0]?.count)).toBeGreaterThanOrEqual(7);
 	});
 
 	// AB0: builder and growth now have templates (docs/souls/builder.md, docs/souls/growth.md added)
@@ -259,20 +258,16 @@ describe("X3 AC-3: existing agents backfilled with soulPrompt from role template
 		expect(agentRows[0]?.soulPrompt).toBe(templateRows[0]?.value);
 	});
 
-	test("seed-agent-cos has soulPrompt matching chief_of_staff template", async ({ db }) => {
+	// @lore AD8a: seed-agent-cos soul file deleted. soulPrompt is null until AD8b adds assistant.md.
+	test("seed-agent-cos has null soulPrompt (AD8a: soul deleted)", async ({ db }) => {
 		await seed(db);
 
 		const agentRows = await queryRows<{ soulPrompt: string | null }>(
 			db,
 			`SELECT soul_prompt AS "soulPrompt" FROM users WHERE id = 'seed-agent-cos'`,
 		);
-		const templateRows = await queryRows<{ value: string }>(
-			db,
-			`SELECT value FROM factory_settings WHERE key = 'soul_template:chief_of_staff'`,
-		);
 
-		expect(agentRows[0]?.soulPrompt).toBeTruthy();
-		expect(agentRows[0]?.soulPrompt).toBe(templateRows[0]?.value);
+		expect(agentRows[0]?.soulPrompt).toBeNull();
 	});
 
 	test("practice_facilitator agents have soulPrompt matching practice_facilitator template", async ({

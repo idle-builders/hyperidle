@@ -127,8 +127,8 @@ describe("score_attention tool", () => {
 		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-3");
 		// I2 B1-B4: registry now requires explicit role. score_attention is
-		// facilitator-only — use chief_of_staff so it stays visible.
-		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" // @lore AD8a: role string renamed to "assistant" in AD8b });
+		// facilitator-only — use chief_of_staff so it stays visible. // @lore AD8a: role string renamed in AD8b
+		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" }); // @lore AD8a: role string renamed to "assistant" in AD8b
 
 		const neg = await registry.invoke("score_attention", {
 			target: "knowledge_item",
@@ -191,8 +191,8 @@ describe("score_attention tool", () => {
 		await seedBase(db);
 		await seedKnowledgeItemWithScore(db, "ki-reject", 0.05);
 		// I2 B1-B4: registry now requires explicit role. score_attention is
-		// facilitator-only — use chief_of_staff so it stays visible.
-		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
+		// facilitator-only — use chief_of_staff so it stays visible. // @lore AD8a: role string renamed in AD8b
+		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" }); // @lore AD8a: role string renamed in AD8b
 		const result = await registry.invoke("score_attention", {
 			target: "knowledge_item",
 			id: "ki-reject",
@@ -210,8 +210,8 @@ describe("score_attention tool", () => {
 		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-need-score");
 		// I2 B1-B4: registry now requires explicit role. score_attention is
-		// facilitator-only — use chief_of_staff so it stays visible.
-		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
+		// facilitator-only — use chief_of_staff so it stays visible. // @lore AD8a: role string renamed in AD8b
+		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" }); // @lore AD8a: role string renamed in AD8b
 		const result = await registry.invoke("score_attention", {
 			target: "knowledge_item",
 			id: "ki-need-score",

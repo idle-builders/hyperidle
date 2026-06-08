@@ -70,7 +70,7 @@ The protocol is deliberately lightweight:
 1. The requesting team's lead opens a **chat thread** to the providing team's lead (same Conversations infrastructure as everywhere else; team leads are just identities in the matrix). The chat explains what's needed, why, and the appetite.
 2. If the providing team agrees to take it on, they add a **cross-team task** to the requesting team's bet. The task's `owner` is an agent from the providing team, not the requesting team. The task lives on the requesting bet (so the bet's done condition tracks it) but the work happens inside the providing team's capacity and rhythm.
 3. The providing team treats the cross-team task like any other task — sessions, notes, handoffs, the lot. When done, the artifact lands where the requesting bet expects it and the cross-team task transitions to `done`.
-4. If the providing team declines or pushes back on the appetite, the chat thread is the negotiation surface. If it can't resolve, escalate to the Coach thread.
+4. If the providing team declines or pushes back on the appetite, the chat thread is the negotiation surface. If it can't resolve, escalate to the assistant thread.
 
 Cross-team tasks should be the exception, not the default. **The goal is product teams with end-to-end ownership.** If a product team is constantly opening cross-team tasks, that's a smell — either the product team is missing a skill it should have on roster, or the platform team's interface is too low-level for the product team to consume. Either is a Practice item to surface and a possible team-membership change.
 

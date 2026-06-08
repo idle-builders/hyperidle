@@ -20,7 +20,7 @@ App Shell (IconRail | Submenu | Main | Rail)
 │   ├── Knowledge icon
 │   └── User avatar
 │
-├── Rail (right sidebar)
+├── Rail (right sidebar) <!-- @lore AD8a: historical — Rail removed in U6 -->
 │   ├── Minimized: blocked count, unread count, cost burn
 │   └── Expanded
 │       ├── NotificationRow × N (active bets, blocked agents)
@@ -42,7 +42,7 @@ App Shell (IconRail | Submenu | Main | Rail)
 │   ├── Submenu: Thread List
 │   │   ├── SearchField (jump/filter)
 │   │   ├── Filter bar (product, agent, type, status)
-│   │   ├── Pinned: Chief of Staff ThreadRow
+│   │   ├── Pinned: assistant ThreadRow
 │   │   └── ThreadRow × N (review or chat)
 │   │       ├── Sender + role
 │   │       ├── Subject/summary

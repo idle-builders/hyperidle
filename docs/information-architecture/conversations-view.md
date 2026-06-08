@@ -15,7 +15,7 @@ The founder's inbox. Answers: "What needs me right now?"
 | **Search/jump bar** | Input with "Jump to..." placeholder | Type to filter threads |
 | **Filter bar** | Filters: product, agent, type (review/chat), status (blocking/open/snoozed/resolved) | Click filters; multi-select; clear all |
 | **Pinned section header** | "Pinned" label | — |
-| **Chief of Staff thread item** | Name, first-line preview, unread badge | Click to open thread |
+| **assistant thread item** | Name, first-line preview, unread badge | Click to open thread |
 | **Active threads section header** | "Active Threads" label | — |
 | **Thread list item (review)** | Sender (agent name + role), product tag, subject line, timestamp, review indicator, blocking indicator (if agent paused), estimated review time | Click to open in main pane |
 | **Thread list item (chat)** | Sender, subject line, timestamp | Click to open in main pane |
@@ -23,7 +23,7 @@ The founder's inbox. Answers: "What needs me right now?"
 | **Estimated review time** | Agent-estimated complexity tag ("~2 min", "~15 min") shown on each thread item | Read-only; helps triage |
 | **Bulk actions button** | — | Click to show batch operations (approve-similar, snooze-all, mark-read) |
 
-**Ordering:** Chief of Staff pinned at top → blocking reviews → non-blocking reviews → chats → resolved.
+**Ordering:** assistant pinned at top → blocking reviews → non-blocking reviews → chats → resolved.
 
 ### 2.2 Main Pane: Review Thread Detail
 

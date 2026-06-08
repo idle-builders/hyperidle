@@ -142,6 +142,6 @@ describe("M3 — AppShell: knowledge submenu count:12 removed (F1)", () => {
 
 // @lore U6: useRail hook and Rail component were deleted in U6.
 // The C4 test ("renders bet title from API response") tested that the AppShell used
-// useRail() instead of MOCK_RAIL_BETS. Since the Rail component no longer exists,
+// @lore AD8a: historical — useRail() instead of MOCK_RAIL_BETS. Since the Rail component no longer exists,
 // the test is no longer applicable. The AppShell now uses a Sidebar with thread list
-// and team sub-items — there is no bet-title rail in the layout.
+// @lore AD8a: historical — and team sub-items — there is no bet-title rail in the layout.

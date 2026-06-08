@@ -5,11 +5,11 @@
  *   - Sidebar present: data-ds-shell="Sidebar"
  *   - No IconRail present: no data-ds-shell="IconRail"
  *   - No Submenu present: no data-ds-shell="Submenu"
- *   - No Rail present: no data-ds-shell="Rail"
+ *   @lore AD8a: historical — No Rail present: no data-ds-shell="Rail"
  *   - Main content area present: data-testid="main-content"
  *
  * These tests import AppShell and mount a minimal router. They fail until
- * AppShell is restructured to use Sidebar instead of IconRail/Submenu/Rail.
+ * @lore AD8a: historical — AppShell is restructured to use Sidebar instead of IconRail/Submenu/Rail.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -89,12 +89,14 @@ describe("AppShell — AC-2: Sidebar + main layout", () => {
 		expect(container.querySelector("[data-ds-shell='Submenu']")).not.toBeInTheDocument();
 	});
 
+	// @lore AD8a: historical Rail test
 	it("does NOT render Rail (data-ds-shell='Rail')", async () => {
+		// @lore AD8a: Rail deleted in U6
 		const { container } = renderShell();
 		await waitFor(() => {
 			expect(screen.getByTestId("main-content")).toBeInTheDocument();
 		});
-		expect(container.querySelector("[data-ds-shell='Rail']")).not.toBeInTheDocument();
+		expect(container.querySelector("[data-ds-shell='Rail']")).not.toBeInTheDocument(); // @lore AD8a: Rail deleted in U6
 	});
 
 	it("renders the main content area (data-testid='main-content')", async () => {

@@ -44,7 +44,7 @@ The company's operating principles. Human-readable markdown only. Four files:
 - `PORTFOLIO.md` — which products get energy this cycle
 - `REFLECTIONS/` — monthly notes from coaching sessions
 
-The Chief of Staff proposes changes. Humans approve, edit, or reject. Git holds the history.
+The assistant proposes changes. Humans approve, edit, or reject. Git holds the history.
 
 ---
 
@@ -99,7 +99,7 @@ The score and the question together keep founder attention focused. Instead of d
 
 **Retros.** Every bet that ships or is killed produces a retro. The Product Manager drafts it automatically — a routine that fires on bet transition. The retro asks: What was the hypothesis? Did it hold? What surprised us? What should the practice know?
 
-Practice-level patterns flow to practice knowledge as captured entries. Rule-shaped insights — "we keep underestimating brand-voice review effort" — flow to the Coach thread for the founder to decide.
+Practice-level patterns flow to practice knowledge as captured entries. Rule-shaped insights — "we keep underestimating brand-voice review effort" — flow to the assistant thread for the founder to decide.
 
 **Weekly practice meetings.** Each practice has a weekly rhythm:
 

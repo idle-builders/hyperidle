@@ -41,10 +41,10 @@ function makeContext(db: HyperIdleDb): ToolContext {
 
 describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 	test("registry produces one spec per expected tool name", ({ db }) => {
-		// I2 B1-B4: registry requires explicit role. chief_of_staff sees
+		// @lore AD8a: role string "chief_of_staff" renamed in AD8b. I2 B1-B4: registry requires explicit role. chief_of_staff sees
 		// every tool, matching this test's "all tools present" expectation.
 		const specs = buildToolRegistry(makeContext(db), {
-			role: "chief_of_staff" // @lore AD8a: role string renamed to "assistant" in AD8b,
+			role: "chief_of_staff", // @lore AD8a: role string renamed to "assistant" in AD8b,
 		}).toClaudeToolSpecs();
 		const names = specs.map((s) => s.name).sort();
 		expect(names).toEqual([...EXPECTED_TOOL_NAMES].sort());

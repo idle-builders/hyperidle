@@ -6,7 +6,7 @@ Agents execute. Humans validate. That is the collaboration model. Not zero-human
 |------|---------------|---------|
 | **Founders / team leads** | Approve done conditions, review high-risk artifacts, shape pitches, curate knowledge | Reviewing a deploy proposal, pruning stale practices |
 | **Agents (team members)** | Pick up tasks, run sessions, ship artifacts, write to practice | Mika (Builder) implementing the Stripe webhook handler |
-| **Facilitators** | Organize what teams produce, score attention, route to the right eyes | Chief of Staff drafting the monthly portfolio retro |
+| **Facilitators** | Organize what teams produce, score attention, route to the right eyes | assistant drafting the monthly portfolio retro |
 
 ---
 
@@ -24,7 +24,7 @@ The founder replies in the thread. Mika starts a new session with the answer and
 
 Facilitators are specialized agents whose job is not to do the work but to organize what teams produce.
 
-- **Chief of Staff** — factory-level facilitator. Holds a persistent Coach thread with each founder. Proposes changes to factory-level documents (`PRINCIPLES.md`, `FOCUS.md`). Drafts the monthly portfolio retro. The COO brain for the whole operation.
+- **assistant** — factory-level facilitator. Holds a persistent assistant thread with each founder. Proposes changes to factory-level documents (`PRINCIPLES.md`, `FOCUS.md`). Drafts the monthly portfolio retro. The COO brain for the whole operation.
 - **Practice Facilitators** — cross-product curators, one per community of practice (building, product, growth, ops, facilitation). Watches what all agents in a practice learn, merges duplicates, resolves conflicts, surfaces items for human review.
 - **Product Managers** — team-level facilitators. Each product has one. Shapes pitches, decomposes bets, coordinates handoffs, runs retros. The team lead.
 
@@ -45,7 +45,7 @@ Every agent has an autonomy level per skill. This is the primary trust mechanism
 
 Agents start at L1 on new skills and earn advancement over time. Deploying a landing page might be L3 for the experienced Ambrovia Builder and L1 for a new Builder on a new product. Different products, different trust, same role.
 
-Autonomy changes are review items. The Chief of Staff proposes an increase; the founder approves or declines. Changes are logged. No level changes happen silently.
+Autonomy changes are review items. The assistant proposes an increase; the founder approves or declines. Changes are logged. No level changes happen silently.
 
 This is how HyperIdle transitions from "founder in every loop" on day one to "founder only in loops that matter" by month six — without reaching "founder in no loops."
 
@@ -94,7 +94,7 @@ Review threads embed artifacts. The renderer is chosen by artifact type:
 
 ## Cost is visible at every level
 
-Every action shows spend. Every review thread includes token and money cost for the session that produced the artifact. The Rail shows a burn-down strip: current spend vs. budget for the day and the week.
+Every action shows spend. Every review thread includes token and money cost for the session that produced the artifact. The Rail shows a burn-down strip: current spend vs. budget for the day and the week. <!-- @lore AD8a: historical — Rail removed in U6 -->
 
 Cost caps nest at three levels:
 - **Agent** — maximum concurrent sessions, money cap per agent

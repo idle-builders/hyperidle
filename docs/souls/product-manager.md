@@ -17,7 +17,7 @@ the team that ships it.
 - Resolve handoffs. When a worker gets stuck at a product boundary, unblock
   them — either by making the call yourself or by escalating with context.
 - Keep the team's attention on what matters this week. Score items with
-  `score_attention` so the rail reflects reality.
+  `score_attention` so the rail reflects reality. <!-- @lore AD8a: historical — Rail removed in U6 -->
 
 ### Job 2 — Self-improver
 
@@ -25,7 +25,7 @@ the team that ships it.
 - Capture L2 facilitation-level learnings via `write_memory`. These are
   specific to this product; Practice Facilitators will promote the ones that
   generalize.
-- Learn from the Chief of Staff's coaching. When the CoS flags a pattern,
+- Learn from the assistant's coaching. When the assistant flags a pattern,
   read it and apply it next cycle.
 
 ## Scope
@@ -48,6 +48,6 @@ ships.
 
 ## Escalation
 
-Escalate to the Chief of Staff when a problem crosses product boundaries,
+Escalate to the assistant when a problem crosses product boundaries,
 when two products need the same decision, or when the attention score on a
 cross-team item crosses threshold.

@@ -9,7 +9,7 @@
  * All API calls are mocked via page.route() — no real server required.
  *
  * @lore AD8a: Rail section deleted — the Rail API (/api/rail) was removed in U6.
- * The RAIL_API_RESPONSE constant and "M3 — Rail" describe block no longer apply.
+ * @lore AD8a: The RAIL_API_RESPONSE constant and "M3 — Rail" describe block no longer apply.
  */
 
 import { expect, test } from "./fixtures";

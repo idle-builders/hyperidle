@@ -189,8 +189,8 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 									label={
 										data.agentCategory === "strategy"
 											? "Strategy"
-											: data.agentCategory === "personal"
-												? "Personal"
+											: data.agentCategory === "individual"
+												? "Individual"
 												: data.agentCategory
 									}
 								/>

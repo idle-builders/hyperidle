@@ -37,7 +37,6 @@ test.describe("J8 synthesis — 10 critical flows", () => {
 		await expect(page.getByRole("dialog", { name: /settings/i })).not.toBeVisible();
 	});
 
-
 	test("4. Triage ↔ Curated tab switch preserves scope and updates the tab state", async ({
 		page,
 	}) => {

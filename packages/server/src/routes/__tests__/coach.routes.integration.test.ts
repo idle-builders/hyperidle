@@ -229,7 +229,8 @@ describe("L21 — GET /api/threads/coach", () => {
 	});
 
 	describe("AC-17: identities include seed-agent-cos (system agent)", () => {
-		test("identities response contains seed-agent-cos with name 'Chief of Staff'", async ({
+		// @lore AD8a: display name updated from "Chief of Staff" to "System Agent".
+		test("identities response contains seed-agent-cos with name 'System Agent'", async ({
 			db,
 			app,
 		}) => {

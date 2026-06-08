@@ -19,7 +19,7 @@ The systemic risk is **dead wiring** -- features where the backend is complete a
 | # | Finding | Severity | Status |
 |---|---|---|---|
 | 1 | **Routine scheduler never starts** -- `startRoutineScheduler()` exists, tested, never called in production. Routines only fire via manual "Trigger Now." Sleep-time routines, delegation, cron scheduling all dead. | CRITICAL | One function call fix |
-| 2 | **Cost visibility is zero** -- Rail deleted, no replacement. No component renders cost/spend anywhere. Founder flies blind on the resource that directly maps to money. | CRITICAL | API exists, needs UI |
+| 2 | **Cost visibility is zero** -- Rail deleted, no replacement. No component renders cost/spend anywhere. Founder flies blind on the resource that directly maps to money. | CRITICAL | API exists, needs UI | <!-- @lore AD8a: historical — Rail removed in U6 -->
 | 3 | **Knowledge actions are dead buttons** -- Flag/Archive in overflow menu call `closeOverflow()` only. User clicks, nothing happens. API endpoints work. | HIGH | Wire onClick to POST |
 | 4 | **Autonomy editing has no UI** -- PATCH endpoint works and creates audit threads. Profile shows read-only number. | HIGH | Add edit affordance |
 | 5 | **Auto-provisioning broken** -- `defaultRoster()` never called. Team creation hardcodes builder + PM regardless of team functions. | HIGH | Call existing function |
@@ -27,7 +27,7 @@ The systemic risk is **dead wiring** -- features where the backend is complete a
 | 7 | **Notification settings don't persist** -- Toggles use `useState` only. Refresh resets everything. Backend PATCH endpoint ready. | MODERATE | Wire to `useSettings().save()` |
 | 8 | **Search API missing** -- Cmd+K opens, types, shows "Search coming soon." Every time. | MODERATE | Add `/api/search` route |
 | 9 | **No ambient awareness outside Conversations** -- Blocking/unread counts invisible from Work/Knowledge views. Only knowledge triage badge works. | MODERATE | Add sidebar badges |
-| 10 | **CoS thread has no responder** -- Overlay invites conversation, user types, nothing responds. | MODERATE | Wire agent or hide until ready |
+| 10 | **Assistant thread has no responder** -- Overlay invites conversation, user types, nothing responds. | MODERATE | Wire agent or hide until ready |
 
 ### Corrections from Code Verification
 
@@ -54,7 +54,7 @@ The systemic risk is **dead wiring** -- features where the backend is complete a
 | Review threads | WORKS | **BENEFITS** | Core product. Full discriminated union, promoted card, sticky verdict footer. |
 | Verdict system (5 decisions) | WORKS | **BENEFITS** | All 5 buttons render and POST. Approve-with-comments prevents rubber-stamping. |
 | Chat threads + RecipientPicker | WORKS | **BENEFITS** | N key opens picker, creates threads. Human-to-agent DMs work. |
-| Coach thread + CoC overlay | WORKS (UI shell) | **NEUTRAL** | UI exists, messages persist. But no agent processes them. User types, gets silence. |
+| assistant thread + CoC overlay | WORKS (UI shell) | **NEUTRAL** | UI exists, messages persist. But no agent processes them. User types, gets silence. |
 | Session dial-in | WORKS | **BENEFITS** | D key, companion pane (3fr/2fr), filter tabs, auto-scroll. Distinctive feature. |
 | Blocking indicator | WORKS | **BENEFITS** | Red left border, filter chip, derived from session state. Primary triage signal. |
 | Thread filtering (Blocking/Unread) | WORKS | **BENEFITS** | Toggle chips, independently toggleable. Simple, correct. |
@@ -126,7 +126,7 @@ The systemic risk is **dead wiring** -- features where the backend is complete a
 
 | Feature | Code Status | Verdict | Notes |
 |---|---|---|---|
-| Cost tracking (backend) | PARTIAL | **PARTIAL** | Accumulated at team/agent level. Sessions cost column stripped (O2). Rail API returns zeros. |
+| Cost tracking (backend) | PARTIAL | **PARTIAL** | Accumulated at team/agent level. Sessions cost column stripped (O2). Rail API returns zeros. | <!-- @lore AD8a: historical — Rail removed in U6 -->
 | Budget enforcement | PARTIAL | **BENEFITS** | checkCostCap() blocks new sessions. Routine caps enforced. No model tier downgrade. |
 | Cost visibility UI | NONE | **HURTS (CRITICAL)** | Zero components render cost data anywhere. Founder can't see what they're spending. |
 
@@ -134,8 +134,8 @@ The systemic risk is **dead wiring** -- features where the backend is complete a
 
 | Feature | Code Status | Verdict | Notes |
 |---|---|---|---|
-| Rail component | DELETED | **N/A** | Replaced by Sidebar in U6. |
-| GET /api/rail | EXISTS | **ORPHANED** | Returns bets, blockers, queue. Cost returns zeros. No web client calls it. |
+| Rail component | DELETED | **N/A** | Replaced by Sidebar in U6. | <!-- @lore AD8a: historical — Rail removed in U6 -->
+| GET /api/rail | EXISTS | **ORPHANED** | Returns bets, blockers, queue. Cost returns zeros. No web client calls it. | <!-- @lore AD8a: historical — Rail removed in U6 -->
 | Knowledge triage badge | WORKS | **BENEFITS** | Numeric count on Knowledge sidebar header. Only working ambient signal. |
 | Blocking/unread badges | NOT VISIBLE | **HURTS** | Conversations and Work sections have no ambient indicators outside their own views. |
 
@@ -184,8 +184,8 @@ The systemic risk is **dead wiring** -- features where the backend is complete a
 ### P2 -- Features to Build
 11. **Search API** -- `/api/search` endpoint. Client code is ready, just needs the backend.
 12. **Wire dependency watcher** -- call `checkAndUnblockDependents()` in task transition routes. Function exists and is tested.
-13. **Cost burn rate display** -- populate Rail API with real spend data (not zeros), add a UI surface.
-14. **CoS agent wiring** -- connect coach thread to actual agent processing so it responds.
+13. **Cost burn rate display** -- populate Rail API with real spend data (not zeros), add a UI surface. <!-- @lore AD8a: historical — Rail removed in U6 -->
+14. **Assistant agent wiring** -- connect assistant thread to actual agent processing so it responds.
 
 ### P3 -- Defer Until Scale Demands
 15. Bulk operations (approve-similar, snooze-all)
@@ -194,7 +194,7 @@ The systemic risk is **dead wiring** -- features where the backend is complete a
 18. Edit history timeline viewer
 19. Knowledge merge/split UI
 20. Skill graduation (auto-promote on session success/failure)
-21. Rail rebuild (wait for 3+ product users)
+21. Rail rebuild (wait for 3+ product users) <!-- @lore AD8a: historical — Rail removed in U6 -->
 
 ---
 
@@ -224,7 +224,7 @@ The initial doc-based audit (before code verification) identified these themes t
 
 **Money-not-duration appetite** is a genuine conceptual innovation. Shape Up's 6-week timebox made sense for humans; for AI agents that work in bursts, money is the right budget axis.
 
-**One thread primitive** is the best architectural decision. Collapsing review/chat/coach into one Thread with typed messages eliminates N+1 bugs across every cross-domain discussion.
+**One thread primitive** is the best architectural decision. Collapsing review/chat/assistant into one Thread with typed messages eliminates N+1 bugs across every cross-domain discussion.
 
 **The blocking/non-blocking distinction** is the right primary sort axis. Most review products sort by time or priority; HyperIdle sorts by "is an agent literally paused waiting for you."
 

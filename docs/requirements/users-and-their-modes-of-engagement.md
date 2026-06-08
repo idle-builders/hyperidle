@@ -20,7 +20,7 @@ The founders engage through six interaction modes, each with a distinct rhythm a
 
 **Bet (weekly, focused).** Pick which 2–3 shaped options the factory works on next. Commit pitches from the shaped pool with a hard capacity cap. Create new bets with markdown pitches. Fifteen minutes, once a week. Forces trade-offs through explicit limits.
 
-**Coach (monthly, conversational).** Talk with the Chief of Staff agent about how the factory is running — cross-product patterns, recurring obstacles, rule changes. Accessible via the Chief of Staff overlay (bottom-right Rail button), deliberately engaged monthly.
+**Assist (monthly, conversational).** Talk with the assistant agent about how the factory is running — cross-product patterns, recurring obstacles, rule changes. Accessible via the assistant overlay (sidebar button), deliberately engaged monthly.
 
 **Curate (weekly, editorial).** Tend the cross-product knowledge base. Prioritize the agenda, flag wrong-looking items, prune stale knowledge, author new items at any scope. Twenty minutes, once a week.
 

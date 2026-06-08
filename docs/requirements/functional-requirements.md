@@ -6,7 +6,7 @@
 
 **F-1.2** The system supports two categories of agents: central (factory-wide, serving all products) and product-team (serving one product, part of a persistent team).
 
-**F-1.3** Central agents: Chief of Staff (L4 facilitator), Practice Facilitators (one per community of practice — building, product, growth, ops, facilitation), Infra Agent, Platform Agent, Scout.
+**F-1.3** Central agents: assistant (L4 facilitator), Practice Facilitators (one per community of practice — building, product, growth, ops, facilitation), Infra Agent, Platform Agent, Scout.
 
 **F-1.4** Product-team agents: Product Manager (team lead), Builder(s), Growth Agent, Ops Agent. The roster flexes by product lifecycle phase. Specialist capabilities (security review, brand-voice check, accessibility audit) are skills invoked within sessions — possibly via sub-agents — not separate top-level agents.
 
@@ -42,7 +42,7 @@
 
 **F-3.4 L3 — Practice memory.** Per community of practice (building, product, growth, ops, facilitation). Knowledge items stored with `layer='L3'`, `scope_id` per community, and `topic` as first-class grouping (e.g. 'auth', 'deployment'). Kind values: pattern, anti_pattern, decision, failure, reflection. Additional fields in `meta` JSON: summary, what_works, evidence_task_ids, last_used, tags. Materialized into agent sessions as TOON packs. Anti-patterns are first-class. Knowledge flows freely between teams without per-change approval; humans curate async via the Knowledge view.
 
-**F-3.5 L4 — Factory memory.** PRINCIPLES.md (5–10 lines, slow-changing), FOCUS.md (current monthly target), PORTFOLIO.md (which products get energy), REFLECTIONS/ (monthly coaching notes). Stored in `knowledge_items` as markdown-format rows, exported to Git for version history. The Chief of Staff proposes changes; humans approve via review threads.
+**F-3.5 L4 — Factory memory.** PRINCIPLES.md (5–10 lines, slow-changing), FOCUS.md (current monthly target), PORTFOLIO.md (which products get energy), REFLECTIONS/ (monthly coaching notes). Stored in `knowledge_items` as markdown-format rows, exported to Git for version history. The assistant proposes changes; humans approve via review threads.
 
 **F-3.6 Writeback.** The Knowledge Fabric runs a file watcher on the agent's `knowledge/` and `work/` directories throughout the session. On each file change (after 500ms debounce), modified files become updates to existing knowledge items (with version checks), new files become new items with status CAPTURED, and deleted files are flagged for facilitator review. Version conflicts trigger per-field merge for structured data, or facilitator review for prose. A final lightweight pass runs at session close to catch any trailing writes. See KNOWLEDGE_ARCHITECTURE.md §5–6.
 
@@ -52,7 +52,7 @@
 
 ### F-4: Facilitator Agents
 
-**F-4.1** Three tiers: Chief of Staff (L4, one per factory), Practice Facilitators (L3, one per community of practice), Product Managers (L2, one per product team).
+**F-4.1** Three tiers: assistant (L4, one per factory), Practice Facilitators (L3, one per community of practice), Product Managers (L2, one per product team).
 
 **F-4.2** Facilitators continuously organize (merge duplicates, resolve conflicts, archive stale items, link related artifacts, tag for retrievability), score items for human attention, shape the human's queue for their layer, ask for the right kind of feedback (validation / resolution / refresh / judgment / elevation), and close the loop (write human feedback back into the knowledge store).
 
@@ -76,19 +76,19 @@
 
 ### F-6: Routing
 
-**F-6.1** Facilitators route items to views based on characteristics: risk-tier ≥ medium → Conversations (review); agent-initiated conversation → Conversations (chat); cross-product pattern / rule change → Coach thread; order/rank-able items → Rail; shaped pitches → Work; knowledge updates → Knowledge.
+**F-6.1** Facilitators route items to views based on characteristics: risk-tier ≥ medium → Conversations (review); agent-initiated conversation → Conversations (chat); cross-product pattern / rule change → assistant thread; order/rank-able items → Rail; shaped pitches → Work; knowledge updates → Knowledge. <!-- @lore AD8a: historical — Rail removed in U6 -->
 
 **F-6.2** Skill changes always route to Conversations (review) — synchronous gate. Skills are powerful and compound.
 
 **F-6.3** When in doubt, route to the less interruptive view. Conversations is the most expensive view (can interrupt the human's day).
 
-**F-6.4** Responsibility routing: the Chief of Staff knows which human to route to based on domain and org_edges configuration.
+**F-6.4** Responsibility routing: the assistant knows which human to route to based on domain and org_edges configuration.
 
 ### F-7: Top-Down and Bottom-Up Knowledge Flow
 
-**F-7.1** Top-down: humans set direction through PRINCIPLES.md, FOCUS.md (edited via Coach thread → review thread → approval), and bet commitment in the Work view. Every agent reads L4 factory memory at session start.
+**F-7.1** Top-down: humans set direction through PRINCIPLES.md, FOCUS.md (edited via assistant thread → review thread → approval), and bet commitment in the Work view. Every agent reads L4 factory memory at session start.
 
-**F-7.2** Bottom-up: agents accumulate findings during sessions and contribute them to their practice at the next practice meeting. Practice Facilitators synthesize findings into knowledge items. Retros route surprises and patterns to the Practice layer and the Coach thread. Any agent can post a chat thread to humans directly.
+**F-7.2** Bottom-up: agents accumulate findings during sessions and contribute them to their practice at the next practice meeting. Practice Facilitators synthesize findings into knowledge items. Retros route surprises and patterns to the Practice layer and the assistant thread. Any agent can post a chat thread to humans directly.
 
 **F-7.3** The two flows meet at the bet. Bets start as top-down commitments (humans picked them) but evolve as bottom-up learning changes the team's understanding. Revisions are logged in the bet's revision_log with reasoning.
 
@@ -106,9 +106,9 @@
 
 **F-9.1** Every shipped or killed bet produces a retro (auto-fired routine on the Product Manager, cannot be skipped): original hypothesis vs. reality, surprises, practice-worthy patterns, rule-change proposals, reusable artifacts.
 
-**F-9.2** Retro outputs route to two places: Practice layer (patterns become practice items) and Coach thread (rule-shaped insights).
+**F-9.2** Retro outputs route to two places: Practice layer (patterns become practice items) and assistant thread (rule-shaped insights).
 
-**F-9.3** Monthly cycle retro by the Chief of Staff: portfolio-level patterns, cross-product obstacles, capacity observations, cost trends.
+**F-9.3** Monthly cycle retro by the assistant: portfolio-level patterns, cross-product obstacles, capacity observations, cost trends.
 
 ### F-10: WIP and Cost Limits
 
@@ -118,7 +118,7 @@ Cost hierarchy is strictly nested: agent < team < factory. An agent cannot excee
 
 **F-10.2** Per-team: WIP limit (max parallel tasks, default: team size × 2) + team cost cap (aggregate of agent caps + overhead). Soft preference for one active bet; multiple parallel bets tracked as a focus cost. **When team cost cap is reached, the team stops** — all agents finish in-progress sessions, no new work until budget resets or cap is raised.
 
-**F-10.3** Per-factory: factory cost cap (aggregate of team caps + overhead). The Cost Sentinel (heartbeat routine on Chief of Staff) monitors burn rate. **When factory cap is reached, everything stops** — all teams finish in-progress sessions, no new work. Critical ops tasks are not killed mid-session but cannot start new sessions.
+**F-10.3** Per-factory: factory cost cap (aggregate of team caps + overhead). The Cost Sentinel (heartbeat routine on assistant) monitors burn rate. **When factory cap is reached, everything stops** — all teams finish in-progress sessions, no new work. Critical ops tasks are not killed mid-session but cannot start new sessions.
 
 **F-10.4** Hitting a limit produces a thread item, never a silent drop.
 

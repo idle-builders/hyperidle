@@ -122,11 +122,11 @@ Features that are fully functional but fail discoverability. Each gets a surfaci
 **Why it's hidden:** No UI surface links to artifact permalinks with a "Share" or "Copy link" affordance. The ArtifactSection on bet detail shows a list of artifacts but does not offer a "Open permalink" action. Users who want to share an artifact must know to construct the URL manually.
 **Recommendation:** Add a "Copy permalink" icon button to each artifact card in ArtifactSection. On click, copy `window.location.origin + '/artifacts/' + artifactId` to clipboard and show a toast "Permalink copied."
 
-### HG-4: Coach Thread (L21)
+### HG-4: assistant thread (L21)
 
 **Value:** A persistent AI companion thread in the Conversations view that provides context-aware assistance, routing through the CoC overlay's thread shell.
-**Why it's hidden:** There is no visible entry point to the coach thread from the Conversations list. The CoC overlay contains the coach thread but is labeled in a way that suggests "context attachment" rather than "talk to your assistant." First-time users do not discover it.
-**Recommendation:** Add a persistent "Coach" item to the Sidebar under Conversations, below "New thread." This provides a direct entry point. The CoC overlay can remain for context attachment — it does not need to be the only entry.
+**Why it's hidden:** There is no visible entry point to the assistant thread from the Conversations list. The CoC overlay contains the assistant thread but is labeled in a way that suggests "context attachment" rather than "talk to your assistant." First-time users do not discover it.
+**Recommendation:** Add a persistent "Coach" <!-- @lore AD8a: this audit predates AD8a; "Coach" renamed to "Assistant" in AD8a --> item to the Sidebar under Conversations, below "New thread." This provides a direct entry point. The CoC overlay can remain for context attachment — it does not need to be the only entry.
 
 ### HG-5: Routine Scheduler
 
@@ -232,7 +232,7 @@ Features that are fully functional but fail discoverability. Each gets a surfaci
 **What's rough:** Collapsed state height is always the same regardless of reasoning length — users have no hint of how much content is inside before expanding.
 **Recommendation:** Show a truncated preview line ("Analyzed 3 options…") in the collapsed state using the first sentence of the reasoning.
 
-#### Coach Thread (L21)
+#### assistant thread (L21)
 
 **Category:** Hidden Gem
 **UI Path:** No direct entry point — only via CoC overlay
@@ -259,8 +259,8 @@ See Hidden Gems section HG-4.
 **Discoverability:** 2
 **Test Coverage:** `CocOverlay.test.tsx`, `CocOverlay.block-ref.test.tsx`, `L21-coc-overlay.spec.ts`
 
-**What works:** Opens a 360px-wide thread shell anchored to the trigger. Thread shell in "coach" configuration. Block reference support. Does not close on click-outside (intentional).
-**What's rough:** No close affordance for new users (see QW-9). Trigger button is unlabeled. The "coach" framing is not communicated in any visible UI text.
+**What works:** Opens a 360px-wide thread shell anchored to the trigger. Thread shell in "coach" <!-- @lore AD8a: ThreadConfiguration "coach" renamed to "assistant" in AD8b --> configuration. Block reference support. Does not close on click-outside (intentional).
+**What's rough:** No close affordance for new users (see QW-9). Trigger button is unlabeled. The "coach" <!-- @lore AD8a: framing updated in AD8a; renamed to "assistant" --> framing is not communicated in any visible UI text.
 **Recommendation:** See QW-9 and HG-8.
 
 ---
@@ -485,7 +485,7 @@ See Hidden Gems section HG-2 and QW-7.
 #### Sidebar Navigation
 
 **Category:** Launch-Ready
-**UI Path:** Left rail — always visible
+**UI Path:** Left rail — always visible <!-- @lore AD8a: historical — Rail removed in U6 -->
 **Discoverability:** 5
 **Test Coverage:** `Sidebar.test.tsx`, `W3-sidebar.spec.ts`, `navigation.spec.ts`
 
@@ -531,7 +531,7 @@ See Hidden Gems section HG-7.
 **Discoverability:** 3 — avatar as settings trigger is non-obvious
 **Test Coverage:** `AppShell.settings-overlay.test.tsx`, `AppShell.P4-settings.test.tsx`, `settings-overlay.spec.ts`, `settings.spec.ts`, `settings-redesign.spec.ts`
 
-**What works:** Full-height settings panel slides in from the left. Section navigation rail. Back button. All 8 section components render. URL-driven section navigation (`?settings=open&section=X`).
+**What works:** Full-height settings panel slides in from the left. Section navigation rail. Back button. All 8 section components render. URL-driven section navigation (`?settings=open&section=X`). <!-- @lore AD8a: historical — Rail removed in U6 -->
 **What's rough:** Avatar as settings trigger is non-obvious. No tooltip or label on the avatar button.
 **Recommendation:** Add a tooltip "Settings" on the avatar button. Or add "Settings" text next to the avatar in the sidebar bottom section.
 
@@ -911,11 +911,11 @@ See Lifecycle Propagation under Work View.
 #### Dependency Watcher
 
 **Category:** Launch-Ready
-**UI Path:** API-only: internal service; surfaced via blockers in the Rail
+**UI Path:** API-only: internal service; surfaced via blockers in the Rail <!-- @lore AD8a: historical — Rail removed in U6 -->
 **Discoverability:** 1
 **Test Coverage:** `dependency-watcher.perf.test.ts`
 
-**What works:** Watches task dependencies and marks tasks as blocked when dependencies are unmet. Rail API returns blockers list.
+**What works:** Watches task dependencies and marks tasks as blocked when dependencies are unmet. Rail API returns blockers list. <!-- @lore AD8a: historical — Rail removed in U6 -->
 **What's rough:** No UI to add/remove task dependencies. Dependencies exist in the schema but there is no form to create them.
 **Recommendation:** Add dependency management to TaskSheet — a "Depends on" field that accepts other task IDs.
 

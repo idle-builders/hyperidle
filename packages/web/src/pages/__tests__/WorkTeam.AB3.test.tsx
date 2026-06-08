@@ -86,10 +86,11 @@ const TEAM_WITH_AGENTS: TeamDetail = {
 		},
 		{
 			agentId: "agent-cos-1",
-			name: "Chief of Staff",
+			// @lore AD8a: display name changed from "Chief of Staff" to "System Agent"; role string unchanged (AD8b scope).
+			name: "System Agent",
 			role: "chief_of_staff",
 			isLead: false,
-			agentCategory: "personal",
+			agentCategory: "individual",
 		},
 	],
 	burn: {
@@ -129,15 +130,16 @@ const MOCK_AGENT_CONFIGS = [
 	},
 	{
 		id: "agent-cos-1",
-		name: "Chief of Staff",
+		// @lore AD8a: display name changed from "Chief of Staff" to "System Agent".
+		name: "System Agent",
 		role: "chief_of_staff",
-		soulPrompt: "Personal assistant persona.",
+		soulPrompt: null,
 		harnessType: null,
 		modelTierPreference: null,
 		maxConcurrentSessions: 1,
 		status: "active",
 		activeSessions: 0,
-		agentCategory: "personal",
+		agentCategory: "individual",
 	},
 ];
 
@@ -205,7 +207,8 @@ describe("AB3 AC-1 — Agent cards with name, description, and category tags", (
 		await waitFor(() => {
 			expect(screen.getByText("Atlas Builder")).toBeInTheDocument();
 			expect(screen.getByText("Scout Agent")).toBeInTheDocument();
-			expect(screen.getByText("Chief of Staff")).toBeInTheDocument();
+			// @lore AD8a: display name changed from "Chief of Staff" to "System Agent".
+			expect(screen.getByText("System Agent")).toBeInTheDocument();
 		});
 	});
 
@@ -228,13 +231,14 @@ describe("AB3 AC-1 — Agent cards with name, description, and category tags", (
 		});
 	});
 
-	it("personal agent card shows a 'Personal' category tag", async () => {
+	// @lore AD8a: "personal" category renamed to "individual"; display label updated to "Individual".
+	it("individual agent card shows an 'Individual' category tag", async () => {
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
 		await waitFor(() => {
 			const tags = screen.getAllByTestId("agent-card-category");
 			const tagTexts = tags.map((t) => t.textContent ?? "");
-			expect(tagTexts.some((t) => t.includes("Personal"))).toBe(true);
+			expect(tagTexts.some((t) => t.includes("Individual"))).toBe(true);
 		});
 	});
 
@@ -247,9 +251,9 @@ describe("AB3 AC-1 — Agent cards with name, description, and category tags", (
 		});
 
 		// The team agent (Atlas Builder) card should not contain a category testid
-		// We check the tags count — only 2 (strategy + personal), not 3
+		// We check the tags count — only 2 (strategy + individual), not 3
 		const tags = screen.queryAllByTestId("agent-card-category");
-		expect(tags.length).toBe(2); // strategy + personal only
+		expect(tags.length).toBe(2); // strategy + individual only
 	});
 });
 

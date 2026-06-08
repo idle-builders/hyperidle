@@ -1,7 +1,7 @@
 /**
  * L21 — CocOverlay
  *
- * Popover overlay that renders a ThreadShell in coach configuration.
+ * Popover overlay that renders a ThreadShell in assistant configuration.
  * Anchored to the CocTrigger button ref.
  *
  * Positioning: grows upward and to the right from the trigger's top corner.
@@ -150,7 +150,7 @@ function CocOverlayInner({
 		return (
 			<div className="flex flex-1 flex-col items-center justify-center gap-2 p-4">
 				<p className="text-sm text-[var(--text-secondary)]">
-					{error ?? "Failed to load coach thread"}
+					{error ?? "Failed to load assistant thread"}
 				</p>
 				<button type="button" className="btn btn-xs btn-ghost" onClick={retry}>
 					Retry
@@ -192,7 +192,7 @@ function CocOverlayInner({
 				messages={msgsAsc}
 				identities={identities}
 				onAppendMessage={handleAppendMessage}
-				hostTitle="Chief of Staff"
+				hostTitle="System Agent"
 				renderRefEmbeds={renderRefEmbedsForCoc}
 			/>
 		</>
@@ -245,14 +245,14 @@ export function CocOverlay({
 		<div
 			ref={dialogRef}
 			role="dialog"
-			aria-label="Chief of Staff conversation"
+			aria-label="Assistant conversation"
 			aria-modal="false"
 			className={[
-				// Positioning: fixed, bottom-right of the viewport above the Rail trigger area.
+				// @lore AD8a: historical — Positioning: fixed, bottom-right of the viewport above the sidebar trigger area.
 				// @lore L21: the overlay anchors to the Rail's bottom-right. Using fixed
 				// positioning rather than absolute avoids z-index stacking context issues
 				// with nested overflow containers in AppShell. The offset is calibrated to
-				// sit above the trigger button in the Rail.
+				// @lore AD8a: historical — sit above the trigger button in the sidebar.
 				"fixed bottom-16 right-4",
 				// Dimensions per design spec (approved.md).
 				"w-[360px] min-h-[200px] max-h-[70vh]",

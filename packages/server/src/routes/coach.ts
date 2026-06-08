@@ -7,7 +7,7 @@
  * @lore L21: The system agent id is "seed-agent-cos" (existing seed), NOT
  * "agent-coc". The architecture plan used "agent-coc" but the reviewer
  * feedback and the actual seed data both use "seed-agent-cos". This is the
- * well-known constant for the system agent (formerly Chief of Staff).
+ * well-known constant for the system agent.
  *
  * @lore L21: This endpoint MUST be mounted BEFORE the generic /:id route in
  * the threads router so that GET /api/threads/coach is not swallowed by the
@@ -30,7 +30,8 @@ const SENDER_HEADER = "X-Identity";
 // @lore AD8a: COC_AGENT_ID and COC_AGENT_ROLE stay as-is — AD8b renames them when restructuring this file.
 const COC_AGENT_ID = "seed-agent-cos";
 const COC_AGENT_DISPLAY_NAME = "System Agent";
-const COC_AGENT_ROLE = "chief_of_staff";
+// @lore AD8a: COC_AGENT_ROLE value "chief_of_staff" renamed to "assistant" in AD8b.
+const COC_AGENT_ROLE = "chief_of_staff"; // @lore AD8a: role string renamed to "assistant" in AD8b
 
 /**
  * Read the sender id. Prefers X-Identity header; falls back to the auth context
@@ -113,7 +114,7 @@ function rowToMessage(row: {
 /**
  * Build the identities map for the coach thread response.
  * Looks up the user's display name from the agents table (fall back to "You").
- * The CoC agent always displays as "Chief of Staff".
+ * The CoC agent always displays as "System Agent". @lore AD8a: display name updated from "Chief of Staff".
  */
 async function buildIdentities(
 	db: HyperIdleDb,

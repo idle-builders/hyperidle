@@ -2,7 +2,7 @@
 
 ### 5.1 Shape
 
-Shaping happens before commitment. A Product Manager (sometimes with the Chief of Staff for portfolio-level bets) writes a pitch — problem, appetite, sketches, rabbit-hole notes, no-gos. The pitch lands on the Work view as a `shaped` card. Pitches accumulate on the canvas during the cycle; only the founder can move them into the betting zone.
+Shaping happens before commitment. A Product Manager (sometimes with the assistant for portfolio-level bets) writes a pitch — problem, appetite, sketches, rabbit-hole notes, no-gos. The pitch lands on the Work view as a `shaped` card. Pitches accumulate on the canvas during the cycle; only the founder can move them into the betting zone.
 
 Shaping is *not* decomposition. The pitch describes what success looks like, not what tasks will produce it. Decomposition happens *after* commitment, by the team, decentralized.
 
@@ -12,7 +12,7 @@ The founder drags a pitch into the betting zone on the Work view (`HUMAN_INTERFA
 
 1. The pitch becomes a Bet object with status `committed`.
 2. The team for the product picks it up — the bet is added to the team's `active_bets`. Most of the time this is the team's only active bet (focus is the goal). Sometimes a team carries more than one in parallel — when work doesn't touch all functions, when something urgent has to ship alongside the main thrust, when two independent threads of work both need to move. Multiple parallel bets are allowed but treated as a cost on focus, not a default.
-3. The Chief of Staff drafts an explicit `done_condition` based on the pitch and posts it as a review thread for the founder. The founder can approve as-is, edit, or reshape.
+3. The assistant drafts an explicit `done_condition` based on the pitch and posts it as a review thread for the founder. The founder can approve as-is, edit, or reshape.
 4. Once the done condition is approved, the bet moves to `in_progress` and the team begins decomposition.
 
 The `done_condition` is non-negotiable in one sense: the bet is not in `in_progress` until it has one. But it's revisable in another sense: the team can propose changes to it as they learn (see §5.4).

@@ -28,8 +28,8 @@ Product group > product > feature. Code-verified June 2026.
 - Watch agent's active session in real-time (D key, companion pane) | WORKS
 - Filter activity (Tools / Reasoning / Cost) | WORKS
 
-### Coach
-- Pinned thread with Chief of Staff agent, auto-created | WORKS · OVERBUILT — pinned at top of thread list from Day 1 before it has value. Takes prime real estate. No conditional: always pinned, even when empty.
+### Assistant
+- Pinned thread with assistant agent, auto-created | WORKS · OVERBUILT — pinned at top of thread list from Day 1 before it has value. Takes prime real estate. No conditional: always pinned, even when empty.
 - CoC overlay accessible from any view | WORKS
 - Agent responds to messages | DEAD · BROKEN PROMISE — overlay invites conversation, user types, nothing responds. Silence.
 

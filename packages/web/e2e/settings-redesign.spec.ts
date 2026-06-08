@@ -12,7 +12,7 @@
  * AC-19: BackendMode section: shows current mode, switch button with restart warning
  * AC-21: Escape key closes settings overlay
  * AC-22: Clicking view icon while settings open closes settings and navigates
- * AC-23: Main content is aria-hidden while settings is open (Rail removed in U6)
+ * AC-23: Main content is aria-hidden while settings is open (@lore AD8a: historical — Rail removed in U6)
  * AC-24: Settings save feedback via toast
  * AC-25: Profile edits do NOT silently revert
  */

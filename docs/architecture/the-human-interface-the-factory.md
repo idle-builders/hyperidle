@@ -20,7 +20,7 @@ User opens Factory app
   → BrowserWindow loads http://127.0.0.1:{port}
   → WebSocket connects (ambient updates for threads, sessions, costs)
   → GET /api/conversations (initial thread list)
-  → GET /api/rail (initial rail state)
+  → GET /api/rail (initial rail state) <!-- @lore AD8a: historical — Rail removed in U6 -->
 
 User opens a thread
   → GET /api/threads/:id (full thread with messages)

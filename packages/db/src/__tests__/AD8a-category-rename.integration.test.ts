@@ -9,8 +9,8 @@
 
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
-import { seed } from "../seed.js";
 import { users } from "../schema.js";
+import { seed } from "../seed.js";
 
 describe("AD8a — agentCategory 'individual' rename", () => {
 	test("insert and read back a user with agentCategory 'individual'", async ({ db }) => {
@@ -31,14 +31,14 @@ describe("AD8a — agentCategory 'individual' rename", () => {
 
 	test("after seeding, no user rows have agentCategory 'personal'", async ({ db }) => {
 		// Seed the database with all seed data. Before AD8a code changes are applied,
-		// seed.ts inserts agentCategory: "personal" for the CoS agent. This test
+		// seed.ts inserts agentCategory: "personal" for the system agent. This test
 		// verifies that after the migration + code changes, 'personal' is gone.
 		await seed(db);
 
-		// @lore AD8a: The `as` cast is intentional — we are asserting that no row
-		// with the OLD value exists. This assertion guards against stale seed data.
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const rows = await db.select().from(users).where(eq(users.agentCategory, "personal" as any));
+		// @lore AD8a: The cast is intentional — asserting that no row with the OLD value exists.
+		// This assertion guards against stale seed data.
+		const oldValue = "personal" as unknown as string;
+		const rows = await db.select().from(users).where(eq(users.agentCategory, oldValue));
 		expect(rows).toHaveLength(0);
 	});
 

@@ -605,8 +605,8 @@ function AgentRow({
 						label={
 							member.agentCategory === "strategy"
 								? "Strategy"
-								: member.agentCategory === "personal"
-									? "Personal"
+								: member.agentCategory === "individual"
+									? "Individual"
 									: member.agentCategory
 						}
 					/>

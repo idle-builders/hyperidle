@@ -136,7 +136,7 @@ describe("createMcpBridge (AC1: tool registration)", () => {
 		const eventBus = new EventBus();
 		const ctx = makeContext(handle.db, eventBus);
 		// @lore AD8a: role string "chief_of_staff" stays — AD8b renames it to "assistant".
-		// Use chief_of_staff to get all 15 tools
+		// @lore AD8a: role string "chief_of_staff" renamed to "assistant" in AD8b. Use chief_of_staff to get all 15 tools
 		registry = buildToolRegistry(ctx, { role: "chief_of_staff" });
 
 		const options: CreateMcpBridgeOptions = {
@@ -175,7 +175,10 @@ describe("createMcpBridge (AC1: tool registration)", () => {
 		await bridge2.transport.close();
 	});
 
+	// @lore AD8a: role string "chief_of_staff" renamed to "assistant" in AD8b.
 	it("registers exactly 15 tools (all tools for chief_of_staff role)", () => {
+		// @lore AD8a: role string renamed in AD8b
+		// @lore AD8a: role string renamed in AD8b
 		// The McpServer's internal _registeredTools is private; we verify via
 		// the registry definitions count. AC1 acceptance: all definitions from
 		// the registry are registered.

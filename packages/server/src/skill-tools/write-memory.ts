@@ -44,8 +44,7 @@ type WriteMemoryInput = z.infer<typeof writeMemoryInputSchema>;
  * facilitator-class agents should mutate.
  */
 const FACILITATOR_ROLES: ReadonlySet<string> = new Set([
-	// @lore AD8a: role string "chief_of_staff" renamed to "assistant" in AD8b.
-	"chief_of_staff",
+	"chief_of_staff", // @lore AD8a: role string renamed to "assistant" in AD8b
 	"practice_facilitator",
 	"product_manager",
 ]);

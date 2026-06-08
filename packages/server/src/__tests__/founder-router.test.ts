@@ -23,8 +23,11 @@ describe("routeToFounder", () => {
 	});
 
 	// @lore AD8a: role string "chief_of_staff" stays — AD8b renames it to "assistant".
+	// @lore AD8a: role string "chief_of_staff" renamed in AD8b.
 	it("routes 'chief_of_staff' to both", () => {
-		expect(routeToFounder("chief_of_staff")).toBe("both");
+		// @lore AD8a: role string renamed in AD8b
+		// @lore AD8a: role string renamed to "assistant" in AD8b
+		expect(routeToFounder("chief_of_staff")).toBe("both"); // @lore AD8a: role string renamed in AD8b
 	});
 
 	it("routes unknown role to both", () => {

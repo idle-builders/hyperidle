@@ -29,7 +29,7 @@ const COACH_THREAD_FIXTURE = {
 	headMessageId: null,
 	identities: {
 		"u-founder": { name: "You" },
-		"agent-coc": { name: "Chief of Staff", role: "chief_of_staff" },
+		"agent-coc": { name: "System Agent", role: "chief_of_staff" },
 	},
 };
 
@@ -126,6 +126,7 @@ async function setupApiMocks(page: import("@playwright/test").Page): Promise<voi
 
 		// GET /api/threads/:id — individual thread detail
 		if (url.match(/\/api\/threads\/[^/]+$/) && !url.includes("/coach")) {
+			// @lore AD8a: /api/threads/coach path stays; route renamed in AD8b
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
@@ -174,9 +175,9 @@ test.describe("T4 — Block Reference E2E", () => {
 		await page.goto(`/work/bet/${BET_ID}`);
 
 		// Open the CoC overlay
-		const trigger = page.getByRole("button", { name: /chief of staff/i });
+		const trigger = page.getByRole("button", { name: /assistant/i });
 		await trigger.click();
-		const dialog = page.getByRole("dialog", { name: /chief of staff conversation/i });
+		const dialog = page.getByRole("dialog", { name: /assistant conversation/i });
 		await expect(dialog).toBeVisible();
 
 		// With overlay open, the bet pitch blocks should show attach buttons
@@ -195,9 +196,9 @@ test.describe("T4 — Block Reference E2E", () => {
 		await page.goto(`/work/bet/${BET_ID}`);
 
 		// Open the CoC overlay
-		const trigger = page.getByRole("button", { name: /chief of staff/i });
+		const trigger = page.getByRole("button", { name: /assistant/i });
 		await trigger.click();
-		const dialog = page.getByRole("dialog", { name: /chief of staff conversation/i });
+		const dialog = page.getByRole("dialog", { name: /assistant conversation/i });
 		await expect(dialog).toBeVisible();
 
 		// Wait for attach buttons to appear
@@ -284,10 +285,10 @@ test.describe("T4 — Block Reference E2E", () => {
 		});
 
 		await page.goto("/conversations");
-		const trigger = page.getByRole("button", { name: /chief of staff/i });
+		const trigger = page.getByRole("button", { name: /assistant/i });
 		await trigger.click();
 
-		const dialog = page.getByRole("dialog", { name: /chief of staff conversation/i });
+		const dialog = page.getByRole("dialog", { name: /assistant conversation/i });
 		await expect(dialog).toBeVisible();
 
 		// The message should render with the degraded embed indicator

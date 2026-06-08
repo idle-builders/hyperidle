@@ -19,7 +19,7 @@
  * uses form inputs with those exact accessible labels. Safe to use here.
  *
  * @lore AD8a: AC-3b (Rail cost values from API) deleted — the Rail API and UI
- * were removed in U6. The OVERRIDE_RAIL constant and /api/rail mock tests no
+ * @lore AD8a: historical — were removed in U6. The OVERRIDE_RAIL constant and /api/rail mock tests no
  * longer apply.
  */
 
@@ -30,8 +30,6 @@ const FORBIDDEN_LITERALS = ["u-founder", "agent-unassigned", "founder@hyperidle.
 
 // Production paths to sweep per AC-3a
 const PRODUCTION_PATHS = ["/", "/work", "/work/portfolio", "/conversations", "/knowledge"];
-
-
 
 // Override settings with a custom profile to prove the panel reads from API
 const OVERRIDE_SETTINGS = {
@@ -69,7 +67,6 @@ test.describe("M4 AC-3a — DOM literal sweep: no forbidden strings on productio
 		});
 	}
 });
-
 
 // ---------------------------------------------------------------------------
 // AC-3c: Settings panel reflects logged-in user

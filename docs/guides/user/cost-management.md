@@ -18,6 +18,6 @@ Hitting a limit always produces a conversation thread — it's never silent.
 
 ### What You See
 
-- **Rail**: Daily and weekly burn rate
+- **Rail**: Daily and weekly burn rate <!-- @lore AD8a: historical — Rail removed in U6 -->
 - **Work > Bet Detail**: Cost actual vs. cost cap per bet
 - **Settings > Products**: Configure budgets per agent, team, or factory

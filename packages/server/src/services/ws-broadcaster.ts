@@ -82,7 +82,7 @@ export class WsBroadcaster {
 		});
 
 		// L20: propagation_applied goes to 'work' so the UI can invalidate data.
-		// propagation_failed goes to 'rail' so the notification system picks it up.
+		// @lore AD8a: 'rail' WS topic name stays — renamed in AD8b. propagation_failed goes to 'rail' so the notification system picks it up.
 		const unsub11 = this.eventBus.on("propagation_applied", (event) => {
 			this.broadcast("work", JSON.stringify(event));
 		});
@@ -212,7 +212,7 @@ export class WsBroadcaster {
 /**
  * Build an authorizer that allows:
  *  - any authenticated identity to subscribe to global topics
- *    (`conversations`, `work`, `rail`)
+ *    (`conversations`, `work`, `rail`) @lore AD8a: "rail" topic renamed in AD8b.
  *  - only thread participants to subscribe to `thread:<id>` topics
  *
  * @lore L1 step9 (Adv-C1): subscribe authorization for per-thread topics is

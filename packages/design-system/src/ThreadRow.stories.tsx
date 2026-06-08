@@ -105,7 +105,7 @@ export const Selected = (): React.JSX.Element => (
 
 export const Pinned = (): React.JSX.Element => (
 	<ThreadRow
-		title="Chief of Staff — weekly reflection"
+		title="System Agent — weekly reflection"
 		snippet="3 patterns surfaced from last week's bets"
 		timestamp="2h"
 		pinned={true}

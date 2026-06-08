@@ -5,9 +5,9 @@
 | Any view → Conversations | Click Conversations icon in IconRail | Always available |
 | Any view → Work | Click Work icon in IconRail | Always available |
 | Any view → Knowledge | Click Knowledge icon in IconRail | Always available |
-| Rail → Conversations thread | Click NotificationRow (blocked agent) | Direct link |
-| Rail → Work bet detail | Click NotificationRow (active bet) | Direct link to Bet Detail (Level 3) |
-| Rail → Knowledge "recently created" | Click knowledge additions count | Direct link |
+| Rail → Conversations thread | Click NotificationRow (blocked agent) | Direct link | <!-- @lore AD8a: historical — Rail removed in U6 -->
+| Rail → Work bet detail | Click NotificationRow (active bet) | Direct link to Bet Detail (Level 3) | <!-- @lore AD8a: historical — Rail removed in U6 -->
+| Rail → Knowledge "recently created" | Click knowledge additions count | Direct link | <!-- @lore AD8a: historical — Rail removed in U6 -->
 | Submenu thread list → Review thread detail | Click ThreadRow item | Within Conversations |
 | Review thread → Companion layout | Auto-promotes for complex ArtifactView; manual toggle | Within Conversations |
 | Portfolio Overview → Team View | Click product status card | Within Work (Level 1 → 2) |

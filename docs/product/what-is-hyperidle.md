@@ -52,7 +52,7 @@ The Factory is a macOS desktop application with three views and a sidebar.
 - **Conversations** — review threads, chat threads, founder-initiated conversations. An agent proposes deploying a landing page; the founder approves, comments, or requests changes. Same shape as a GitHub pull request.
 - **Work** — bets planned and tracked. The Canvas shows shaped pitches and committed bets. The task list shows what every agent is doing, what is blocked, and what it has cost.
 - **Knowledge** — the company wiki. Knowledge items organized by practice and product. Founders prune stale practices, validate new patterns, and add tacit knowledge agents cannot generate.
-- **The Rail** — right sidebar, always visible. Active bets, blocked agents, cost burn, recent knowledge additions. Ambient awareness without interruption.
+- **The Rail** — right sidebar, always visible. Active bets, blocked agents, cost burn, recent knowledge additions. Ambient awareness without interruption. <!-- @lore AD8a: historical — Rail removed in U6 -->
 
 ---
 

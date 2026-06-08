@@ -9,8 +9,8 @@ Item {
   id              # stable, addressable
   source          # which agent sent this — uses agent identity
   layer           # L0 / L1 / L2 / L3 / L4
-  verb            # review | prioritize | bet | coach | curate
-  kind            # review | chat | rail | work | knowledge
+  verb            # review | prioritize | bet | assist | curate
+  kind            # review | chat | rail | work | knowledge <!-- @lore AD8a: historical — Rail removed in U6 -->
   title           # one-line, decidable
   body            # markdown; rendered by the view (chat threads, reasoning text)
   proposed_action # the structured thing the human is deciding on (review kind only)
@@ -25,7 +25,7 @@ Item {
   blocking        # bool — does an agent literally pause until this is resolved?
   deadline?       # optional soft deadline
   thread?         # threads items together for the same task or conversation
-  pinned?         # bool — the Chief of Staff's chat is always pinned
+  pinned?         # bool — the assistant's chat is always pinned
   reasoning       # WHY the agent surfaced this — non-negotiable for trust
   cost_estimate?  # token / dollar cost of the proposed action
   audit_trail     # full history of the decision so far

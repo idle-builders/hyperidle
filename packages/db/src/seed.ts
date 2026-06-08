@@ -324,7 +324,7 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 		platform: "strategy",
 		// @lore AD8a: Renamed "personal" → "individual". role string "chief_of_staff"
 		// stays — AD8b renames it to "assistant".
-		chief_of_staff: "individual",
+		chief_of_staff: "individual", // @lore AD8a: role string renamed to "assistant" in AD8b
 	};
 	for (const [role, category] of Object.entries(categoryByRole)) {
 		await db

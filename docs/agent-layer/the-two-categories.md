@@ -6,7 +6,7 @@ These agents serve all products. They're the shared infrastructure and coordinat
 
 | Agent | Role | Key responsibility |
 |-------|------|--------------------|
-| **Chief of Staff** | COO brain. L4 facilitator. | Routes work, compiles portfolio-level retros, manages the Coach thread with founders, proposes changes to PRINCIPLES.md and FOCUS.md. Owns cross-product routines (portfolio cost sentinel, monthly retros). |
+| **assistant** | COO brain. L4 facilitator. | Routes work, compiles portfolio-level retros, manages the assistant thread with founders, proposes changes to PRINCIPLES.md and FOCUS.md. Owns cross-product routines (portfolio cost sentinel, monthly retros). |
 | **Practice Facilitators** (one per community of practice) | L3 facilitators. | Run practice "meetings," synthesize findings into knowledge, curate the practice tree, score items for human attention. Communities: building, product, growth, ops, facilitation. |
 | **Infra Agent** | SRE. | Maintains shared infrastructure — servers, networking, monitoring, backups. Serves all products. |
 | **Platform Agent** | DX engineer. | Maintains shared tools, templates, CI/CD, design system. Makes product teams more productive. |

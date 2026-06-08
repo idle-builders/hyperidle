@@ -1,12 +1,12 @@
 ## 4. Teams: Persistent, Product-Bound
 
-A team forms when a product is committed to. The Chief of Staff (with founder approval) assembles it from the available agent pool, drawing from the practices. The team includes whoever the product needs — typically a Product Manager (lead by default), one or more Builders, a Reviewer for the product's primary artifact type, and any specialty agents the product calls for (a growth analyst for a B2C product, a sales agent for a B2B one).
+A team forms when a product is committed to. The assistant (with founder approval) assembles it from the available agent pool, drawing from the practices. The team includes whoever the product needs — typically a Product Manager (lead by default), one or more Builders, a Reviewer for the product's primary artifact type, and any specialty agents the product calls for (a growth analyst for a B2C product, a sales agent for a B2B one).
 
 ### 4.1 Forming a team
 
-Team formation runs through Conversations as a review item. The Chief of Staff drafts the proposed team — these agents, this lead, this capacity — and posts it for the founder's verdict. Approving the team kicks off the product. The team's membership is visible in the Rail and Work view and editable through subsequent review items.
+Team formation runs through Conversations as a review item. The assistant drafts the proposed team — these agents, this lead, this capacity — and posts it for the founder's verdict. Approving the team kicks off the product. The team's membership is visible in the Rail and Work view and editable through subsequent review items. <!-- @lore AD8a: historical — Rail removed in U6 -->
 
-The Chief of Staff considers:
+The assistant considers:
 - **Skill match** — does the team have agents with the skills the product will need?
 - **Capacity** — is this agent already on another team? An agent belongs to exactly one team. If the agent is needed here, it must leave its current team first (only when its work there is done).
 - **Practice diversity** — does the team draw from enough practices that no single discipline is missing?
@@ -33,6 +33,6 @@ What teams don't do is dissolve at ship. A shipped bet means the team is *betwee
 
 ### 4.4 When teams dissolve
 
-Only when the product dissolves. Killing a product is a deliberate founder decision (made through the Coach thread, ratified through Conversations), and dissolving the team is part of the kill ritual. The team's accumulated knowledge is archived into the Practice layer (so the practice keeps the lessons even when the product is gone) and then the team is dissolved.
+Only when the product dissolves. Killing a product is a deliberate founder decision (made through the assistant thread, ratified through Conversations), and dissolving the team is part of the kill ritual. The team's accumulated knowledge is archived into the Practice layer (so the practice keeps the lessons even when the product is gone) and then the team is dissolved.
 
 ---

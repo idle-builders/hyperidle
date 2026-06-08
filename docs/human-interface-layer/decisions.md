@@ -5,7 +5,7 @@
 - **Canvas tech:** symbolic UI — standard React components with a hard capacity cap. Humans create bets via BetCreateDialog, not drag-and-drop.
 - **Navigation model:** view switching + per-view sub-navigation + main content pane. Breadcrumbs within views, not across. Specific layout structure is a design-time decision.
 - **Thread primitive:** one Thread model with typed messages (plain, review, questionnaire, verdict). No "review threads" vs "chat threads" as separate types — the distinction is derived from message content. See §4.5.
-- **Chief of Staff:** just another agent. Communicates through normal threads like any other teammate. No special UI surface.
+- **assistant:** just another agent. Communicates through normal threads like any other teammate. No special UI surface.
 - **Human-initiated conversations:** humans can create threads with agents and dial into live sessions.
 - **Notification adapter:** TBD during development. Will need some notification mechanism; specific technology decided at implementation time.
 - **Knowledge view model:** catalogue with topic/node structure, not page tree. Seven scopes (factory, product, practice, team, bet, task, user). Humans author knowledge at any scope. Threads attach to knowledge items for discussion.

@@ -14,13 +14,13 @@ The human interface ships as a single native macOS desktop application ("the Fac
 
 ### UX-2: One Interaction Grammar
 
-**UX-2.1** The threading UI is built once and reused for review items, chat items, the Coach thread, and agent-to-agent threads the human is copied on. One component, written once.
+**UX-2.1** The threading UI is built once and reused for review items, chat items, the assistant thread, and agent-to-agent threads the human is copied on. One component, written once.
 
 **UX-2.2** Review threads use a streamlined verdict model. Primary actions: approve, request changes, reject, snooze — always visible with keyboard shortcuts (A, R, X, S). Secondary actions in overflow menu: edit, escalate, delegate, comment only. Inline comments on specific artifact parts.
 
 **UX-2.3** Chat threads support reply, start-a-task, close, and escalate.
 
-**UX-2.4** The Chief of Staff is just another agent — communicated with through normal threads, no special UI surface.
+**UX-2.4** The assistant is just another agent — communicated with through normal threads, no special UI surface.
 
 **UX-2.5** Every thread item carries visible `reasoning` — why the agent surfaced this. Non-negotiable for trust.
 
@@ -34,17 +34,17 @@ The human interface ships as a single native macOS desktop application ("the Fac
 
 **UX-3.4** Per-agent notification preferences allow dialing down a noisy agent without system-wide changes.
 
-### UX-4: Ambient Awareness (The Rail)
+### UX-4: Ambient Awareness (The Rail) <!-- @lore AD8a: historical — Rail removed in U6 -->
 
-**UX-4.1** The Rail is always visible on desktop. It shows: active bets with status indicators, current blockers, cost burn rate, unread chat count, and items awaiting ordering.
+**UX-4.1** The Rail is always visible on desktop. It shows: active bets with status indicators, current blockers, cost burn rate, unread chat count, and items awaiting ordering. <!-- @lore AD8a: historical — Rail removed in U6 -->
 
-**UX-4.2** The Rail can change colors, show counters, animate status indicators. It cannot demand attention. If something needs attention, it goes to Conversations.
+**UX-4.2** The Rail can change colors, show counters, animate status indicators. It cannot demand attention. If something needs attention, it goes to Conversations. <!-- @lore AD8a: historical — Rail removed in U6 -->
 
-**UX-4.3** The Rail expanded panel shows: blocked agents (always first), active bets with progress, cost burn, agent activity summary, unread breakdown, knowledge additions, recent completions feed, and system stability.
+**UX-4.3** The Rail expanded panel shows: blocked agents (always first), active bets with progress, cost burn, agent activity summary, unread breakdown, knowledge additions, recent completions feed, and system stability. <!-- @lore AD8a: historical — Rail removed in U6 -->
 
-**UX-4.4** Rail expand/collapse state persists globally across view switches. Expanding the Rail in Conversations keeps it expanded when switching to Work.
+**UX-4.4** Rail expand/collapse state persists globally across view switches. Expanding the Rail in Conversations keeps it expanded when switching to Work. <!-- @lore AD8a: historical — Rail removed in U6 -->
 
-**UX-4.5** Keyboard shortcut to toggle Rail expand/collapse.
+**UX-4.5** Keyboard shortcut to toggle Rail expand/collapse. <!-- @lore AD8a: historical — Rail removed in U6 -->
 
 **UX-4.6** Keyboard-first interaction: arrow keys to move, enter to act, no mouse required.
 
@@ -98,11 +98,11 @@ The human interface ships as a single native macOS desktop application ("the Fac
 
 **UX-8.1** Global search (⌘K) searches across all views. Results grouped by type: Threads, Bets/Tasks, Knowledge Items. Keyboard navigation through results (arrow keys, Enter to open, Escape to close).
 
-**UX-8.2** No dedicated notification panel in the top bar. The Rail is the notification surface — minimized strip shows counts (blocked, unread, cost burn), expanded panel shows details and links to relevant views. Push notifications (UX-3) route through the Rail's data, not a separate panel.
+**UX-8.2** No dedicated notification panel in the top bar. The Rail is the notification surface — minimized strip shows counts (blocked, unread, cost burn), expanded panel shows details and links to relevant views. Push notifications (UX-3) route through the Rail's data, not a separate panel. <!-- @lore AD8a: historical — Rail removed in U6 -->
 
 **UX-8.3** Settings accessible via gear icon in IconRail. Opens as an overlay (Submenu swaps to settings nav, Main shows active section, Escape to close). Seven sections: Profile, Org Chart, Credentials, Notifications, Appearance, Products, Backend.
 
-**UX-8.4** Keyboard shortcuts: ⌘K (search), ⌘1/2/3 (switch views), ⌘B (toggle Rail), J/K (next/previous in lists), A/R/X/S (verdict actions in review threads), ? (show shortcut help).
+**UX-8.4** Keyboard shortcuts: ⌘K (search), ⌘1/2/3 (switch views), ⌘B (toggle Rail), J/K (next/previous in lists), A/R/X/S (verdict actions in review threads), ? (show shortcut help). <!-- @lore AD8a: historical — Rail removed in U6 -->
 
 **UX-8.5** Thread filtering in Conversations submenu: filter by product, agent, type (review/chat), status (blocking/open/snoozed/resolved). Thread state actions: snooze with timer, archive, mute.
 

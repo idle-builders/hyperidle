@@ -180,7 +180,7 @@ class WsClient {
 	/**
 	 * Determine whether an incoming WS message belongs to a subscribed topic.
 	 * Topics have the form `<kind>:<id>` (e.g. `session:sess-1`, `thread:thr-1`)
-	 * or are global names (`conversations`, `work`, `rail`).
+	 * or are global names (`conversations`, `work`, `rail`). @lore AD8a: "rail" topic renamed in AD8b.
 	 * We match by inspecting the message's event type and id fields.
 	 */
 	private messageMatchesTopic(msg: Record<string, unknown>, topic: string): boolean {

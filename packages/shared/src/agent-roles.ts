@@ -179,8 +179,8 @@ export const AGENT_ROLE_CATALOG: readonly AgentRoleCatalogEntry[] = [
 	},
 	// Individual agents
 	// @lore AD8a: label + category + description updated (personal → individual, display name → System Agent).
-	// role string "chief_of_staff" stays — AD8b renames it to "assistant".
-	// hasTemplate false because docs/souls/chief-of-staff.md is deleted in AD8a.
+	// role string "chief_of_staff" stays — AD8b renames it to "assistant". // @lore AD8a
+	// hasTemplate false because docs/souls/chief-of-staff.md is deleted in AD8a. // @lore AD8a
 	// AD8b creates a new assistant.md soul and sets hasTemplate back to true.
 	{
 		role: "chief_of_staff",

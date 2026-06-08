@@ -1,6 +1,6 @@
-# Thread primitive (TRACK-L L1 — full spec at `docs/human-interface-layer/the-three-views-the-rail.md` §4.5)
+# Thread primitive (TRACK-L L1 — full spec at `docs/human-interface-layer/the-three-views-the-rail.md` §4.5) <!-- @lore AD8a: historical — Rail removed in U6 -->
 
-A Thread is a *container* (no shape of its own) — an append-only chronologically-ordered sequence of typed Messages, attached to exactly one host entity. Differences between "review", "chat", "coach" live on the *messages* (typed shapes) and on the thread's *configuration* (host + pinning + membership), never on the thread itself.
+A Thread is a *container* (no shape of its own) — an append-only chronologically-ordered sequence of typed Messages, attached to exactly one host entity. Differences between "review", "chat", "coach" <!-- @lore AD8a: "coach" ThreadConfiguration renamed to "assistant" in AD8b --> live on the *messages* (typed shapes) and on the thread's *configuration* (host + pinning + membership), never on the thread itself.
 
 ```
 Thread {
@@ -13,9 +13,9 @@ Message {
 }
 ```
 
-- **Host kinds (closed):** `bet | task | knowledge_item | artifact | agent | user | team | factory`. Adding a host kind requires a concept-doc update first (HIL §4.5). No orphan threads — coach-style threads attach to the user themselves.
+- **Host kinds (closed):** `bet | task | knowledge_item | artifact | agent | user | team | factory`. Adding a host kind requires a concept-doc update first (HIL §4.5). No orphan threads — assistant-style threads attach to the user themselves.
 - **Message types (closed):** `plain | review | questionnaire | verdict`. Adding a type requires a concept-doc update first. Renderer dispatches via TypeScript discriminant exhaustiveness. A `verdict` message carries `decision` (one of the 5 binding actions) AND `resolvesMessageId` pointing at the review/questionnaire message it terminates.
-- **Configurations (descriptive, not enum):** DM (host=agent/user, two participants), coach (host=user, pinned), feed (host=team/factory, broadcast). Recognisable patterns — not a typed enum.
+- **Configurations (descriptive, not enum):** DM (host=agent/user, two participants), coach <!-- @lore AD8a: ThreadConfiguration "coach" renamed to "assistant" in AD8b --> (host=user, pinned), feed (host=team/factory, broadcast). Recognisable patterns — not a typed enum.
 - **Blocking (derived):** a thread is *blocking* iff the agent participating in the thread cannot continue to work without an answer to a message in the thread. Drives ordering (blocking threads sort first).
 - **Verdict semantics:** five verdict-grammar actions are binding verdicts that emit a `verdict`-payload message and terminate the review (`approve`, `approve-with-comments`, `request-changes`, `edit`, `reject`). Three emit `plain` messages and do not terminate (`comment`, `inline-comment`, `reply`). Two are sidecar workflow operations and emit no message in the thread (`snooze`, `escalate`).
 - **Mutability:** thread `host_kind`/`host_id` immutable after creation, except the `user → factory` re-home on user offboarding. `pinned`, `resolved_at`, `last_active_at` mutable. Message `payload` immutable after persistence (audit invariant); soft-delete via `deleted_at` allowed; redaction allowed via structured replacement payload preserving id/sender/type/created_at.

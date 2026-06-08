@@ -2,7 +2,7 @@
  * J3 — AppShell integration: Settings overlay and Command-K priority.
  *
  * @lore U6: Settings overlay tests updated from J3 (Rail-aware) to U6 (Sidebar-only).
- * The Rail component is deleted. The rail-wrapper and "Active Bets" assertions are
+ * @lore AD8a: historical — The Rail component is deleted. The rail-wrapper and "Active Bets" assertions are
  * replaced with Sidebar-based checks. Settings is opened via the Settings button
  * (aria-label="Settings") in the Sidebar bottom strip.
  */
@@ -58,10 +58,12 @@ describe("AppShell — Settings overlay + Command-K priority (J3)", () => {
 	});
 
 	// @lore U6: The Rail is deleted. The old "hides the Rail from the accessibility tree"
-	// test checked that when settings is open, the Rail has aria-hidden="true".
-	// In the new design there is no Rail. We verify instead that "Active Bets" text
+	// @lore AD8a: historical — test checked that when settings is open, the Rail has aria-hidden="true".
+	// @lore AD8a: historical — In the new design there is no Rail. We verify instead that "Active Bets" text
 	// does not appear at all (it no longer exists in the layout).
+	// @lore AD8a: historical Rail test
 	it("there is no Rail component in the layout (U6: Rail deleted)", async () => {
+		// @lore AD8a: Rail deleted in U6
 		const user = userEvent.setup();
 		renderShell();
 		await waitFor(() => {
@@ -74,7 +76,7 @@ describe("AppShell — Settings overlay + Command-K priority (J3)", () => {
 			// Settings appears in both the sidebar label and the page header when open
 			expect(screen.getAllByText("Settings").length).toBeGreaterThanOrEqual(1);
 		});
-		// With the overlay open, there should be no "Active Bets" label (Rail removed).
+		// @lore AD8a: historical — With the overlay open, there should be no "Active Bets" label (Rail removed).
 		expect(screen.queryByText("Active Bets")).toBeNull();
 	});
 

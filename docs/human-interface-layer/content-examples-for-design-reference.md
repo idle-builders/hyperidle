@@ -14,7 +14,7 @@ Real examples grounded in the factory's products (Ambrovia — team alignment fo
 - "I noticed three of our recent Ambrovia bets all hit the same auth issue — want to talk about it?" — from Ambrovia Product Manager to Founder.
 - "I'm stuck — Coolify deploy keeps timing out. The webhook signing keys might be wrong. Can you check?" — from Nimmly Backend Builder to Founder.
 
-#### Rail indicators
+#### Rail indicators <!-- @lore AD8a: historical — Rail removed in U6 -->
 
 - Bets: "Nimmly: Pricing overhaul — 4/7 tasks done · week 3 of 6" | "Ambrovia: Onboarding v2 — 1/4 tasks done · week 1 of 4"
 - Blocked: "2 agents blocked" → expand → "Nimmly Backend Builder: waiting on Stripe API keys (3h)" | "Ambrovia Frontend Builder: waiting on review verdict (45min)"

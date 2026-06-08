@@ -244,13 +244,13 @@ let roiVerbOverrideItemId = "";
 
 const roiVerbOverrideCosMarketing: EvalScenario = {
 	id: "roi-verb-override-cos-marketing",
-	description: "Chief of Staff reclassifies marketing item with verb:bet to route to work view",
+	description: "System agent reclassifies marketing item with verb:bet to route to work view",
 	feature: "route_item",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "chief_of_staff",
-			agentSoulPrompt: `You are a chief of staff managing portfolio items.
+			agentSoulPrompt: `You are a system agent managing portfolio items.
 When you identify items that represent significant investments requiring bet-level commitment, use route_item.
 Set verb="bet" to route high-value items to the work view for proper bet management.
 This escalates the item from a casual conversation to a tracked organizational bet.`,

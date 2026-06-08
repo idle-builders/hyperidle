@@ -2,9 +2,9 @@
 
 ### Daily Check-In (3 minutes)
 
-1. Glance at the **Rail**: blocked agents, cost burn, unread count
+1. Glance at the **Rail**: blocked agents, cost burn, unread count <!-- @lore AD8a: historical — Rail removed in U6 -->
 2. Handle **blocking reviews** in Conversations (15 sec each, use keyboard shortcuts)
-3. Check the **Chief of Staff** thread for anything notable
+3. Check the **assistant** thread for anything notable
 4. Done
 
 ### Weekly Planning (15 minutes)
@@ -24,8 +24,8 @@
 
 ### Monthly Coaching (30 minutes)
 
-1. Open the **Chief of Staff** pinned thread
+1. Open the **assistant** pinned thread
 2. Read recent messages and cross-product patterns
 3. Reply with your thoughts
-4. Chief of Staff drafts updates to principles/focus
+4. assistant drafts updates to principles/focus
 5. Review and approve the changes
