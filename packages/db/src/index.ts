@@ -116,4 +116,4 @@ export {
 } from "./schema.js";
 export { seed } from "./seed.js";
 export { type RunSetupContext, type RunSetupIo, runSetup } from "./setup-cli.js";
-export { closeAllInstances, createTestDb, type TestDbHandle } from "./test-utils.js";
+export { closeAllInstances, createTestDb, warmPool, type TestDbHandle } from "./test-utils.js";
