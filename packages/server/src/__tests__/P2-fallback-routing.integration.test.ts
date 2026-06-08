@@ -27,10 +27,9 @@ import {
 	orgEdges,
 	users,
 } from "@hyperidle/db";
+import { resolveReviewRecipients } from "@hyperidle/fabric";
 import { describe, expect } from "vitest";
 import { test } from "../test-fixtures.js";
-// P2: import new service — this file does not exist yet (red phase)
-import { resolveReviewRecipients } from "../services/org-routing.js";
 
 const NOW = new Date().toISOString();
 

@@ -239,7 +239,9 @@ export function Sidebar({
 				{/* Work section */}
 				<div className="mb-[18px]" data-active-view={activeView === "work" ? "work" : undefined}>
 					<SectionHeader view="work" activeView={activeView} onViewChange={onViewChange} />
-					{activeView === "work" && !settingsOpen && (
+					{/* AD3 AC-1: only render team list when there are 2+ teams.
+					    With 1 team, AppShell navigates directly to that team's page. */}
+					{activeView === "work" && !settingsOpen && teams.length > 1 && (
 						<ul className="flex flex-col">
 							{teams.map((team) => {
 								const isActive = team.id === activeTeamId;

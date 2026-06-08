@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { items, threads } from "@hyperidle/db";
-import { routeItem } from "@hyperidle/fabric";
+import { items, threads, users } from "@hyperidle/db";
+import { resolveReviewRecipients, routeItem } from "@hyperidle/fabric";
 import type { ItemCreatedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import z from "zod";
@@ -48,6 +48,24 @@ const createItemInputSchema = z.object({
 
 type CreateItemInput = z.infer<typeof createItemInputSchema>;
 
+/**
+ * Determine whether a create-item invocation requires human review routing.
+ * @lore AD1 F2: scope gate checks both kind AND verb. kind=review/escalation
+ * triggers routing (e.g. session-end reviews). verb=review also triggers routing
+ * (e.g. "work" item proposed for human review). Both paths route to humans.
+ */
+function isReviewItem(input: CreateItemInput): boolean {
+	return input.kind === "review" || input.kind === "escalation" || input.verb === "review";
+}
+
+/**
+ * Merge human reviewer IDs into existing thread participants.
+ * Returns a new sorted, deduplicated array.
+ */
+function mergeParticipants(existing: string[], humanIds: string[]): string[] {
+	return [...new Set([...existing, ...humanIds])].sort();
+}
+
 async function handler(args: CreateItemInput, ctx: ToolContext): Promise<ToolResult> {
 	const parsed = createItemInputSchema.safeParse(args);
 	if (!parsed.success) {
@@ -76,6 +94,43 @@ async function handler(args: CreateItemInput, ctx: ToolContext): Promise<ToolRes
 			lastActiveAt: now,
 			createdAt: now,
 		});
+	}
+
+	// @lore AD1: Wire review routing to humans. When the item is a review or
+	// escalation (kind=review/escalation OR verb=review), resolve human
+	// recipients via org_edges and add them to the thread participants.
+	// Uses ctx.teamId directly (F3: available in ToolContext since R7).
+	// Agent role is looked up from the users table for function-mechanism routing.
+	if (isReviewItem(input)) {
+		const [agentRow] = await ctx.db
+			.select({ role: users.role })
+			.from(users)
+			.where(eq(users.id, ctx.agentId))
+			.limit(1);
+
+		const humanIds = await resolveReviewRecipients(ctx.db, {
+			userId: ctx.agentId,
+			agentRole: agentRow?.role ?? undefined,
+			teamId: ctx.teamId,
+		});
+
+		if (humanIds.length > 0) {
+			const [threadRow] = await ctx.db
+				.select({ participants: threads.participants })
+				.from(threads)
+				.where(eq(threads.id, threadId))
+				.limit(1);
+
+			const currentParticipants: string[] = threadRow
+				? (JSON.parse(threadRow.participants) as string[])
+				: [ctx.agentId];
+
+			const merged = mergeParticipants(currentParticipants, humanIds);
+			await ctx.db
+				.update(threads)
+				.set({ participants: JSON.stringify(merged) })
+				.where(eq(threads.id, threadId));
+		}
 	}
 
 	const itemId = randomUUID();
