@@ -6,7 +6,7 @@ The human interface ships as a single native macOS desktop application ("the Fac
 
 **UX-1.1** Desktop is a single Electron window with four persistent zones: an **IconRail** (left, view switching), a **Submenu** (per-view, collapsible), a **Main** pane (active content — Conversations, Work, or Knowledge), and a **Rail** (right sidebar, ambient state — always visible, expandable to full panel or minimizable to icon strip). The Rail is the only notification surface; there is no top-bar bell or global toast stream.
 
-**UX-1.2** Desktop-only. No mobile form factor.
+**UX-1.2** Desktop is the primary form factor. The same web app is accessible from mobile browsers for review triage and agent unblocking. No native mobile app. No offline support.
 
 **UX-1.3** First-run experience: SetupFlow page guides profile creation (name, email), first product setup, and optional API key configuration. Contextual hints (5 total) appear at key moments for first-time interactions (e.g., first empty bet view, first review thread).
 
@@ -68,7 +68,7 @@ The human interface ships as a single native macOS desktop application ("the Fac
 
 **UX-5.9** Pitch creation happens in-app via the pitch selector: a "New Pitch" form (title, appetite, problem, solution sketch, rabbit holes, done condition). No external tooling required.
 
-**UX-5.10** Work view is desktop only. Tasks are agent-owned — humans do not drag or move tasks between states. State changes are requested via thread conversations. Bet-level actions (pause, stop, adjust appetite) show consequence previews before execution.
+**UX-5.10** Work view is accessible on desktop (primary) and from mobile browsers. Tasks are agent-owned — humans do not drag or move tasks between states. State changes are requested via thread conversations. Bet-level actions (pause, stop, adjust appetite) show consequence previews before execution.
 
 ### UX-6: Knowledge View
 
@@ -82,7 +82,7 @@ The human interface ships as a single native macOS desktop application ("the Fac
 
 **UX-6.5** Knowledge gap detection: topics with zero active items or no activity in 90+ days are highlighted in the topic browser.
 
-**UX-6.6** Desktop only.
+**UX-6.6** Desktop is the primary form factor. Mobile browsers are supported for triage and unblocking workflows.
 
 ### UX-7: Trust-Building Mechanisms
 
