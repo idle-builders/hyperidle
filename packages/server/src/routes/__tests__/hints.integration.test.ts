@@ -289,7 +289,7 @@ describe("GET /api/hint-progress — per-user isolation (AC8)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("user B sees empty dismissed list after user A dismisses a hint", async (_ctx) => {
+	test("user B sees empty dismissed list after user A dismisses a hint", async ({}) => {
 		const ctxA = await makeIsolatedApp("user-a");
 		const ctxB = await makeIsolatedApp("user-b");
 
@@ -323,7 +323,7 @@ describe("GET /api/hint-progress — per-user isolation (AC8)", () => {
 		}
 	});
 
-	test("dismissals in user A's app do not affect user B's hint state", async (_ctx) => {
+	test("dismissals in user A's app do not affect user B's hint state", async ({}) => {
 		const ctxA = await makeIsolatedApp("user-x");
 		const ctxB = await makeIsolatedApp("user-y");
 

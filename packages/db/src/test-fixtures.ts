@@ -7,7 +7,8 @@ export interface DbFixtures {
 }
 
 export const test = base.extend<DbFixtures>({
-	db: async (_ctx, use) => {
+	// biome-ignore lint/correctness/noEmptyPattern: vitest fixture API requires destructuring
+	db: async ({}, use) => {
 		const instance = await checkout();
 		await use(instance.db);
 		checkin(instance);

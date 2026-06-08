@@ -9,7 +9,8 @@ export interface IntegrationFixtures extends DbFixtures {
 }
 
 export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
-	eventBus: async (_ctx, use) => {
+	// biome-ignore lint/correctness/noEmptyPattern: vitest fixture API requires destructuring
+	eventBus: async ({}, use) => {
 		await use(new EventBus());
 	},
 	app: async ({ db, eventBus }, use) => {

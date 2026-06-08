@@ -68,7 +68,7 @@ describe("I2 R4 — body-limit middleware returns 413 + JSON ApiErrorResponse", 
 });
 
 describe("I2 review CRITICAL-1 — chunked POST aborts as soon as size crosses the limit", () => {
-	test("cancels the upstream reader before all chunks have been pulled", async (_ctx) => {
+	test("cancels the upstream reader before all chunks have been pulled", async ({}) => {
 		const maxSize = 1024;
 		// Build a Hono app whose only middleware is the body-limit. Mounting
 		// the route directly avoids the rate-limit/auth ordering noise.
