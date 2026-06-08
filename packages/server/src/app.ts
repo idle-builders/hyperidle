@@ -514,8 +514,11 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		// in the server package so no cross-package dependency issue exists here.
 		const unsubDepWatcher = eventBus.on("task_state_changed", (event) => {
 			if (event.toState === "done") {
-				void checkAndUnblockDependents(db, eventBus, event.taskId).catch(() => {
-					/* fire-and-forget: errors are logged inside checkAndUnblockDependents */
+				void checkAndUnblockDependents(db, eventBus, event.taskId).catch((err) => {
+					appLogger.error("[dep-watcher] unblock failed for task", {
+						taskId: event.taskId,
+						error: err instanceof Error ? err.message : String(err),
+					});
 				});
 			}
 		});

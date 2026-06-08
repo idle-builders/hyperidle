@@ -300,8 +300,8 @@ type BetActionKind = "kill" | "adjust-appetite" | "unblock";
 
 /**
  * ConsequencePreviewDialog — non-skippable confirmation dialog for destructive
- * or pause actions. The user must explicitly Cancel or provide a reason and
- * confirm. Escape and backdrop click do not close the dialog.
+ * actions. The user must explicitly Cancel or provide a reason and confirm.
+ * Escape and backdrop click do not close the dialog.
  *
  * @lore L14: native <dialog> with showModal() is used for the Escape-prevention
  * guarantee. We cancel the `cancel` event (fired before `close` by Escape key)
@@ -316,14 +316,12 @@ type BetActionKind = "kill" | "adjust-appetite" | "unblock";
  */
 interface ConsequencePreviewDialogProps {
 	open: boolean;
-	kind: "kill"; // AD5 AC-5: pause removed — kill is the only destructive action
 	onConfirm: (reason: string) => Promise<void>;
 	onCancel: () => void;
 }
 
 function ConsequencePreviewDialog({
 	open,
-	kind,
 	onConfirm,
 	onCancel,
 }: ConsequencePreviewDialogProps): JSX.Element | null {
@@ -331,7 +329,6 @@ function ConsequencePreviewDialog({
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	// AD5 AC-5: kind is always "kill" — pause removed from the system.
 	const confirmLabel = "Kill bet";
 	const title = "Kill this bet?";
 
@@ -670,11 +667,9 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	>(undefined);
 
 	// L14: Action dialog state.
-	// AD5 AC-5: kind narrowed to "kill" only (pause removed)
 	const [consequenceDialog, setConsequenceDialog] = useState<{
 		open: boolean;
-		kind: "kill";
-	}>({ open: false, kind: "kill" });
+	}>({ open: false });
 	const [appetiteDialogOpen, setAppetiteDialogOpen] = useState(false);
 
 	// Q2: Add knowledge dialog state.
@@ -759,7 +754,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	// AD5 AC-5: handleResume and handleActivate removed (no pause state in bet status enum).
 	const handleAction = useCallback((action: BetActionKind): void => {
 		if (action === "kill") {
-			setConsequenceDialog({ open: true, kind: "kill" });
+			setConsequenceDialog({ open: true });
 		} else if (action === "adjust-appetite") {
 			setAppetiteDialogOpen(true);
 		} else if (action === "unblock") {
@@ -1119,10 +1114,9 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 						</button>
 					</div>
 
-					{/* L14: Consequence preview dialog — pause or kill */}
+					{/* L14: Consequence preview dialog — kill */}
 					<ConsequencePreviewDialog
 						open={consequenceDialog.open}
-						kind={consequenceDialog.kind}
 						onConfirm={handleConsequenceConfirm}
 						onCancel={() => setConsequenceDialog((prev) => ({ ...prev, open: false }))}
 					/>
