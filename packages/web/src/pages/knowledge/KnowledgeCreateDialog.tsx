@@ -1,16 +1,17 @@
 /**
- * KnowledgeCreateDialog — Q2 creation flow.
+ * KnowledgeCreateDialog — Q2 / AD6 creation flow.
  *
  * Opens as a native <dialog> (same pattern as ConsequencePreviewDialog /
  * AppetiteDialog in WorkBet.tsx). Title + body required; scopeKind defaults
- * to "factory". When a lockedScopeKind is provided the scope is displayed as
- * a read-only Tag and the combobox is hidden (bet/task contextual creation).
+ * to "factory" (Shared). When a lockedScopeKind is provided the scope is
+ * displayed as a read-only Tag and the pill picker is hidden (bet/task
+ * contextual creation).
  *
- * @lore Q2: `user` and `factory` scopes never require a scopeId. Scopes that
- * require a scopeId (product, practice, team, bet, task) show a text input
- * for the id when the user selects them and lockedScopeKind is absent.
- * For locked scopes the scopeId is passed in as `lockedScopeId` (e.g. the
- * bet id when opening from bet detail).
+ * @lore AD6: Replaced the 7-item SCOPE_KINDS dropdown + Scope ID text input
+ * with the same 3-pill segmented control used in KnowledgeCreate. The scopeId
+ * field is auto-resolved (not user-visible) so the Scope ID input is removed.
+ * scopeKind values: Shared → factory | Team → team (disabled without teamId)
+ * | Private → user.
  *
  * @lore Q2 reviewer warning: mobile dialog sizing — the dialog container uses
  * min-w-[320px] max-w-[480px] w-full so it never overflows on small screens.
@@ -18,19 +19,14 @@
  */
 
 import { BodyEditor } from "@hyperidle/design-system";
-import { SCOPE_KINDS, SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/shared";
+import type { ScopeKind } from "@hyperidle/shared";
 import { type JSX, useEffect, useRef, useState } from "react";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
-import { useTeams } from "../../hooks/useTeams.js";
+
 import { apiFetch } from "../../services/api-fetch.js";
+import { SCOPE_CREATE_OPTIONS, type ScopeCreateOption } from "../../utils/scope-labels.js";
 
 // AD3 AC-3: Simplified scope options shown when there is exactly 1 team (solo/single-team mode).
-// "factory" maps to "Shared" and "user" maps to "Personal" — the two scopes that don't
-// require a team or project context to be meaningful for a solo founder.
-const SOLO_SCOPES: ReadonlyArray<{ value: ScopeKind; label: string }> = [
-	{ value: "factory", label: "Shared" },
-	{ value: "user", label: "Personal" },
-];
 
 export interface KnowledgeCreateDialogProps {
 	open: boolean;
@@ -51,20 +47,23 @@ export function KnowledgeCreateDialog({
 }: KnowledgeCreateDialogProps): JSX.Element | null {
 	const dialogRef = useRef<HTMLDialogElement>(null);
 	const { user } = useCurrentUser();
-	// AD3 AC-3: single-team detection — simplify scope picker when there's only 1 team.
-	const { data: teamsData } = useTeams();
-	const isSingleTeam = (teamsData?.teams?.length ?? 0) === 1;
 
 	const [title, setTitle] = useState("");
 	const [body, setBody] = useState("");
-	const [scopeKind, setScopeKind] = useState<ScopeKind>(lockedScopeKind ?? "factory");
-	const [scopeId, setScopeId] = useState<string>(lockedScopeId ?? "");
+	/**
+	 * AD6: 3-pill scope picker replaces 7-item SCOPE_KINDS dropdown.
+	 * Default: Shared (→ factory scopeKind).
+	 */
+	const [selectedScope, setSelectedScope] = useState<ScopeCreateOption>(SCOPE_CREATE_OPTIONS[0]);
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	const isLocked = lockedScopeKind !== undefined;
-	const effectiveScopeKind = isLocked ? lockedScopeKind : scopeKind;
-	const needsScopeId = SCOPES_REQUIRING_ID.has(effectiveScopeKind);
+	const effectiveScopeKind: ScopeKind = isLocked ? lockedScopeKind : selectedScope.scopeKind;
+	// Team pill is disabled when the user has no teamId.
+	// @lore AD6: CurrentUser does not yet include teamId — team feature pending.
+	// Until extended, team scope is always disabled in the dialog.
+	const hasTeam: boolean = false;
 	const canCreate = title.trim().length > 0 && body.trim().length > 0 && !submitting;
 
 	// Sync the native dialog open/closed state with the `open` prop.
@@ -76,8 +75,7 @@ export function KnowledgeCreateDialog({
 			// Reset form state on open.
 			setTitle("");
 			setBody("");
-			setScopeKind(lockedScopeKind ?? "factory");
-			setScopeId(lockedScopeId ?? "");
+			setSelectedScope(SCOPE_CREATE_OPTIONS[0]);
 			setError(null);
 			setSubmitting(false);
 			if (!dialogRef.current.open) {
@@ -94,7 +92,7 @@ export function KnowledgeCreateDialog({
 				dialogRef.current.removeAttribute("open");
 			}
 		}
-	}, [open, lockedScopeKind, lockedScopeId]);
+	}, [open]);
 
 	const handleSubmit = async (): Promise<void> => {
 		const trimmedTitle = title.trim();
@@ -112,8 +110,9 @@ export function KnowledgeCreateDialog({
 			updatedBy: user?.id ?? "human",
 		};
 
-		if (needsScopeId && scopeId.trim()) {
-			payload.scopeId = scopeId.trim();
+		// AD6: scopeId auto-resolved; locked scope passes lockedScopeId if set.
+		if (isLocked && lockedScopeId) {
+			payload.scopeId = lockedScopeId;
 		}
 
 		const res = await apiFetch("/api/knowledge", {
@@ -180,60 +179,52 @@ export function KnowledgeCreateDialog({
 					/>
 				</div>
 
-				{/* Scope kind — locked (read-only Tag) or open combobox */}
+				{/* Scope — locked (read-only tag) or 3-pill segmented control */}
 				<div className="flex flex-col gap-1">
 					<span className="text-xs text-[var(--text-tertiary)]">Scope</span>
 					{isLocked ? (
 						<span className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-subtle)] text-[12px] bg-[var(--surface-container)] text-[var(--text-secondary)] w-fit">
 							{lockedScopeKind}
 						</span>
-					) : isSingleTeam ? (
-						// AD3 AC-3: single-team — show only Shared (factory) and Personal (user)
-						<select
-							className="select select-bordered select-sm"
-							aria-label="Scope kind"
-							value={scopeKind}
-							onChange={(e) => setScopeKind(e.target.value as ScopeKind)}
-							disabled={submitting}
-						>
-							{SOLO_SCOPES.map(({ value, label }) => (
-								<option key={value} value={value}>
-									{label}
-								</option>
-							))}
-						</select>
 					) : (
-						<select
-							className="select select-bordered select-sm"
-							aria-label="Scope kind"
-							value={scopeKind}
-							onChange={(e) => setScopeKind(e.target.value as ScopeKind)}
-							disabled={submitting}
-						>
-							{SCOPE_KINDS.map((kind) => (
-								<option key={kind} value={kind}>
-									{kind}
-								</option>
-							))}
-						</select>
+						/* AD6: 3-pill scope picker — same pattern as KnowledgeCreate */
+						<div role="radiogroup" aria-label="Scope" className="flex gap-[6px] flex-wrap">
+							{SCOPE_CREATE_OPTIONS.map((option) => {
+								const isTeam = option.id === "team";
+								const isDisabled = submitting || (isTeam && !hasTeam);
+								const isActive = selectedScope.id === option.id;
+								return (
+									// biome-ignore lint/a11y/useSemanticElements: button+role="radio" used for pill styling with aria-checked; <input type="radio"> cannot be styled as a pill without full custom CSS reset
+									<button
+										key={option.id}
+										type="button"
+										data-testid={`scope-pill-dialog-${option.id}`}
+										role="radio"
+										aria-checked={isActive}
+										aria-disabled={isDisabled ? "true" : undefined}
+										data-active={isActive ? "true" : "false"}
+										disabled={isDisabled}
+										onClick={() => {
+											if (!isDisabled) setSelectedScope(option);
+										}}
+										className={
+											isActive
+												? "border-[1.5px] border-[var(--accent-primary)] bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)] px-[12px] py-[4px] rounded-[var(--r-pill)] text-[12px] font-[500] cursor-pointer"
+												: isDisabled
+													? "border-[1.5px] border-[var(--border-default)] text-[var(--text-secondary)] opacity-40 px-[12px] py-[4px] rounded-[var(--r-pill)] text-[12px] font-[500] cursor-not-allowed bg-transparent"
+													: "border-[1.5px] border-[var(--border-default)] text-[var(--text-secondary)] px-[12px] py-[4px] rounded-[var(--r-pill)] text-[12px] font-[500] cursor-pointer bg-transparent"
+										}
+										title={
+											isTeam && !hasTeam ? "Join a team to use team-scoped knowledge" : undefined
+										}
+									>
+										{option.label}
+									</button>
+								);
+							})}
+						</div>
 					)}
 				</div>
-
-				{/* Scope ID — shown when the selected scope requires an external id
-				    and the scope is not locked (locked scopes pass lockedScopeId). */}
-				{needsScopeId && !isLocked && (
-					<label className="flex flex-col gap-1">
-						<span className="text-xs text-[var(--text-tertiary)]">Scope ID</span>
-						<input
-							type="text"
-							className="input input-bordered input-sm text-base w-full"
-							placeholder={`${effectiveScopeKind} ID`}
-							value={scopeId}
-							onChange={(e) => setScopeId(e.target.value)}
-							disabled={submitting}
-						/>
-					</label>
-				)}
 
 				{error && (
 					<p role="alert" className="text-xs text-error">
