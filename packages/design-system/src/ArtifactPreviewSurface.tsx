@@ -1,10 +1,14 @@
-import type { ArtifactKind, ArtifactPreview } from "@hyperidle/shared";
+// AE6: ArtifactPreviewSurface updated to use Kind Definition registry.
+// @lore AE6: Replaced 12-case switch with getKindDefinition().summarize() lookup.
+// Unregistered kinds get a generic "no preview" placeholder.
+// @lore AE6: kind and preview widened from ArtifactKind/ArtifactPreview to string/unknown.
+import { getKindDefinition } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { dsProps } from "./ds-attrs.js";
 
 export interface ArtifactPreviewSurfaceProps {
-	kind: ArtifactKind;
-	preview: ArtifactPreview | null;
+	kind: string;
+	preview: unknown;
 	size?: "gallery" | "full";
 }
 
@@ -17,66 +21,20 @@ function PlaceholderText({ size }: { size: "gallery" | "full" }): JSX.Element {
 	return <>{size === "full" ? "PREVIEW NOT YET RENDERED" : "PREVIEW PENDING"}</>;
 }
 
-function renderBody(
-	kind: ArtifactKind,
-	preview: ArtifactPreview | null,
-	size: "gallery" | "full",
-): JSX.Element {
-	if (kind === "unknown_kind") {
-		return <span>no preview renderer for this kind</span>;
-	}
+function renderBody(kind: string, preview: unknown, size: "gallery" | "full"): JSX.Element {
 	if (!preview) {
 		return <PlaceholderText size={size} />;
 	}
-	switch (preview.kind) {
-		case "code_diff":
-			return <span>{preview.file}</span>;
-		case "deck":
-			return (
-				<span>
-					{preview.slideCount} slides · {preview.firstSlideTitle}
-				</span>
-			);
-		case "contract":
-			return <span>{preview.title}</span>;
-		case "dashboard":
-			return <span>{preview.metrics.map((m) => `${m.label}: ${m.value}`).join(" · ")}</span>;
-		case "screenshot":
-		case "design":
-			return (
-				<span>
-					{preview.width}×{preview.height}
-				</span>
-			);
-		case "drafted_email":
-			return (
-				<span>
-					{preview.subject} — {preview.bodyExcerpt}
-				</span>
-			);
-		case "data_analysis":
-			return <span>{preview.findings.length} findings</span>;
-		case "decision":
-			return <span>{preview.claim}</span>;
-		case "running_service":
-			return (
-				<span>
-					{preview.statusLabel} — {preview.url}
-				</span>
-			);
-		case "comm_draft":
-			return (
-				<span>
-					{preview.channel}: {preview.firstMessage}
-				</span>
-			);
-		case "verification":
-			return (
-				<span>
-					{preview.suite}: {preview.passed} passed / {preview.failed} failed
-				</span>
-			);
+
+	const def = getKindDefinition(kind);
+	if (def) {
+		const summary = def.summarize(preview);
+		if (summary) return <span>{summary}</span>;
+		return <PlaceholderText size={size} />;
 	}
+
+	// Unregistered kind: show kind label as fallback
+	return <span>{kind}: preview not available</span>;
 }
 
 export function ArtifactPreviewSurface({

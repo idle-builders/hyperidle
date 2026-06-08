@@ -41,14 +41,7 @@ import { useHint } from "../hooks/useHints";
 import { useThreadDetail } from "../hooks/useThreadDetail";
 import type { AppShellOutletContext } from "../layouts/AppShell";
 import { apiFetch } from "../services/api-fetch.js";
-import {
-	type ActionSummaryData,
-	ArtifactView,
-	type ContentPreviewData,
-	type DataMetricsData,
-	type TextDiffData,
-	type VisualComparisonData,
-} from "../shell/ArtifactView";
+import { ArtifactView } from "../shell/ArtifactView";
 import { ToastContext } from "../shell/ToastRegion";
 
 // ---------------------------------------------------------------------------
@@ -110,67 +103,27 @@ function renderRefEmbedsForConversations(refs: ReadonlyArray<InlineRef>): ReactN
 }
 
 // ---------------------------------------------------------------------------
-// Artifact slot resolver (carried from ConversationsReview.tsx unchanged)
+// Artifact slot resolver (AE6 updated)
 // @lore L11 plan §5.6.1 (decision A): there is no /api/artifacts/:id
-// endpoint. ArtifactView gets an empty body so the metadata strip and
+// endpoint. ArtifactView gets a null preview so the metadata strip and
 // discriminator render. Follow-up story wires real fetch.
+// @lore AE6: ArtifactRef.kind still uses the old ArtifactViewShape enum
+// (5 shapes) since thread.ts is not in scope for AE6. We map shapes to
+// their equivalent fundamental kinds for the new ArtifactView API.
 // ---------------------------------------------------------------------------
 
-function emptyDataForShape(
-	kind: ArtifactViewShape,
-): TextDiffData | ContentPreviewData | VisualComparisonData | ActionSummaryData | DataMetricsData {
-	switch (kind) {
-		case "text_diff":
-			return { hunks: [] };
-		case "content_preview":
-			return { html: "", metadata: [] };
-		case "visual_comparison":
-			return {
-				before: { label: "before", src: "" },
-				after: { label: "after", src: "" },
-			};
-		case "action_summary":
-			return { actions: [] };
-		case "data_metrics":
-			return { headlines: [], charts: [] };
-	}
-}
+/** Map old ArtifactViewShape → fundamental kind string. */
+const SHAPE_TO_KIND: Record<ArtifactViewShape, string> = {
+	text_diff: "code",
+	content_preview: "text",
+	visual_comparison: "image",
+	action_summary: "text",
+	data_metrics: "data",
+};
 
 function resolveArtifactSlot(ref: ArtifactRef): ReactNode {
-	switch (ref.kind) {
-		case "text_diff":
-			return (
-				<ArtifactView shape="text_diff" data={emptyDataForShape("text_diff") as TextDiffData} />
-			);
-		case "content_preview":
-			return (
-				<ArtifactView
-					shape="content_preview"
-					data={emptyDataForShape("content_preview") as ContentPreviewData}
-				/>
-			);
-		case "visual_comparison":
-			return (
-				<ArtifactView
-					shape="visual_comparison"
-					data={emptyDataForShape("visual_comparison") as VisualComparisonData}
-				/>
-			);
-		case "action_summary":
-			return (
-				<ArtifactView
-					shape="action_summary"
-					data={emptyDataForShape("action_summary") as ActionSummaryData}
-				/>
-			);
-		case "data_metrics":
-			return (
-				<ArtifactView
-					shape="data_metrics"
-					data={emptyDataForShape("data_metrics") as DataMetricsData}
-				/>
-			);
-	}
+	const kind = SHAPE_TO_KIND[ref.kind] ?? ref.kind;
+	return <ArtifactView kind={kind} preview={null} />;
 }
 
 // ---------------------------------------------------------------------------

@@ -39,6 +39,12 @@ export function ArtifactEmbed({ data, onOpen, viewSlot }: ArtifactEmbedProps): J
 		<div {...dsProps("ArtifactEmbed", "2")} className={WRAP}>
 			<div className={IDENTITY}>
 				<ArtifactKindBadge kind={data.kind} />
+				{data.label && (
+					<>
+						<span className="text-[var(--text-tertiary)]">/</span>
+						<span className="text-[var(--text-tertiary)]">{data.label}</span>
+					</>
+				)}
 				<span className="text-[var(--text-tertiary)]">·</span>
 				<span>{data.producingTaskTitle}</span>
 				<span className="text-[var(--text-tertiary)]">·</span>

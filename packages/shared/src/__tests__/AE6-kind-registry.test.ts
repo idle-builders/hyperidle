@@ -4,21 +4,14 @@
 // These tests will FAIL until the green phase creates the implementation.
 
 import { describe, expect, it } from "vitest";
-
-// These imports will fail until the implementation exists.
-import {
-	getKindDefinition,
-	isRegisteredKind,
-	ARTIFACT_KINDS,
-} from "../kinds/registry.js";
-
-import type { KindDefinition } from "../kinds/kind-definition.js";
-
-import { textKind } from "../kinds/text.js";
 import { codeKind } from "../kinds/code.js";
-import { imageKind } from "../kinds/image.js";
 import { dataKind } from "../kinds/data.js";
 import { htmlKind } from "../kinds/html.js";
+import { imageKind } from "../kinds/image.js";
+import type { KindDefinition } from "../kinds/kind-definition.js";
+// These imports will fail until the implementation exists.
+import { ARTIFACT_KINDS, getKindDefinition, isRegisteredKind } from "../kinds/registry.js";
+import { textKind } from "../kinds/text.js";
 import { urlKind } from "../kinds/url.js";
 
 // -------------------------------------------------------------------
@@ -402,7 +395,10 @@ describe("OLD_KIND_MAP covers all 13 old kinds", () => {
 		const fundamentalKinds = new Set(["text", "code", "image", "data", "html", "url"]);
 
 		for (const [oldKind, mapping] of Object.entries(OLD_KIND_MAP)) {
-			expect(fundamentalKinds.has(mapping.kind), `${oldKind} -> ${mapping.kind} is not fundamental`).toBe(true);
+			expect(
+				fundamentalKinds.has(mapping.kind),
+				`${oldKind} -> ${mapping.kind} is not fundamental`,
+			).toBe(true);
 		}
 	});
 

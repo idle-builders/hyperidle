@@ -1,32 +1,27 @@
+// AE6: ArtifactView stories updated for kind-based renderer dispatch.
+
 import { ArtifactView } from "./ArtifactView";
 
 export default { title: "ArtifactView", tier: "3" as const };
 
-// --- text_diff ---
+// --- code kind ---
 
-export const TextDiffDefault = (): React.JSX.Element => (
+export const CodeDiffDefault = (): React.JSX.Element => (
 	<ArtifactView
-		shape="text_diff"
-		data={{
+		kind="code"
+		preview={{
+			kind: "code",
+			file: "src/components/Button.tsx",
 			hunks: [
 				{
 					header: "@@ -1,5 +1,6 @@",
 					lines: [
-						{ type: "context", content: "import { useState } from 'react';" },
-						{ type: "deletion", content: "const MAX_RETRIES = 3;" },
-						{ type: "addition", content: "const MAX_RETRIES = 5;" },
-						{ type: "addition", content: "const RETRY_DELAY = 1000;" },
-						{ type: "context", content: "" },
-						{ type: "context", content: "export function retry() {" },
-					],
-				},
-				{
-					header: "@@ -12,3 +13,4 @@",
-					lines: [
-						{ type: "context", content: "  return result;" },
-						{ type: "deletion", content: "}" },
-						{ type: "addition", content: "  // Added logging" },
-						{ type: "addition", content: "}" },
+						{ kind: "ctx", text: "import { useState } from 'react';" },
+						{ kind: "del", text: "const MAX_RETRIES = 3;" },
+						{ kind: "add", text: "const MAX_RETRIES = 5;" },
+						{ kind: "add", text: "const RETRY_DELAY = 1000;" },
+						{ kind: "ctx", text: "" },
+						{ kind: "ctx", text: "export function retry() {" },
 					],
 				},
 			],
@@ -34,153 +29,65 @@ export const TextDiffDefault = (): React.JSX.Element => (
 	/>
 );
 
-export const TextDiffLoading = (): React.JSX.Element => (
-	<ArtifactView shape="text_diff" data={{ hunks: [] }} loading={true} />
+export const CodeDiffLoading = (): React.JSX.Element => (
+	<ArtifactView kind="code" preview={null} loading={true} />
 );
 
-/** Intentional error-state demo — renders the component's built-in error UI. */
-export const ErrorTextDiff = (): React.JSX.Element => (
+export const CodeDiffError = (): React.JSX.Element => (
+	<ArtifactView kind="code" preview={null} error="Failed to load diff: network timeout" />
+);
+
+export const CodeDiffEmpty = (): React.JSX.Element => (
+	<ArtifactView kind="code" preview={{ kind: "code", file: "src/x.ts", hunks: [] }} />
+);
+
+// --- text kind ---
+
+export const TextDefault = (): React.JSX.Element => (
 	<ArtifactView
-		shape="text_diff"
-		data={{ hunks: [] }}
-		error="Failed to load diff: network timeout"
-	/>
-);
-
-export const TextDiffEmpty = (): React.JSX.Element => (
-	<ArtifactView shape="text_diff" data={{ hunks: [] }} />
-);
-
-// --- content_preview ---
-
-export const ContentPreviewDefault = (): React.JSX.Element => (
-	<ArtifactView
-		shape="content_preview"
-		data={{
-			html: "<h2>Quarterly Report</h2><p>Revenue increased by <strong>15%</strong> compared to the previous quarter. Key drivers include product expansion and improved retention rates.</p><ul><li>New users: 2,450</li><li>Churn rate: 3.2%</li></ul>",
-			metadata: [
-				{ label: "Author", value: "Agent-Report" },
-				{ label: "Version", value: "3.1" },
-				{ label: "Generated", value: "2 minutes ago" },
-			],
+		kind="text"
+		label="contract"
+		preview={{
+			kind: "text",
+			body: "This agreement is entered into between Party A and Party B for the development of software.",
+			format: "plain",
 		}}
 	/>
 );
 
-export const ContentPreviewLoading = (): React.JSX.Element => (
-	<ArtifactView shape="content_preview" data={{ html: "", metadata: [] }} loading={true} />
+export const TextLoading = (): React.JSX.Element => (
+	<ArtifactView kind="text" preview={null} loading={true} />
 );
 
-/** Intentional error-state demo — renders the component's built-in error UI. */
-export const ErrorContentPreview = (): React.JSX.Element => (
-	<ArtifactView
-		shape="content_preview"
-		data={{ html: "", metadata: [] }}
-		error="Content generation failed"
-	/>
-);
+export const TextEmpty = (): React.JSX.Element => <ArtifactView kind="text" preview={null} />;
 
-export const ContentPreviewEmpty = (): React.JSX.Element => (
-	<ArtifactView
-		shape="content_preview"
-		data={{ html: "<p><em>No content available</em></p>", metadata: [] }}
-	/>
-);
+// --- image kind ---
 
-// --- visual_comparison ---
-
-export const VisualComparisonDefault = (): React.JSX.Element => (
+export const ImageDefault = (): React.JSX.Element => (
 	<ArtifactView
-		shape="visual_comparison"
-		data={{
-			before: {
-				label: "Before",
-				src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='120'%3E%3Crect fill='%23333' width='200' height='120'/%3E%3Ctext x='50%25' y='50%25' fill='%23999' text-anchor='middle' dy='.3em'%3EBefore%3C/text%3E%3C/svg%3E",
-			},
-			after: {
-				label: "After",
-				src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='120'%3E%3Crect fill='%23252' width='200' height='120'/%3E%3Ctext x='50%25' y='50%25' fill='%23bfb' text-anchor='middle' dy='.3em'%3EAfter%3C/text%3E%3C/svg%3E",
-			},
+		kind="image"
+		preview={{
+			kind: "image",
+			url: "https://placehold.co/800x450",
+			width: 800,
+			height: 450,
+			alt: "Dashboard screenshot",
 		}}
 	/>
 );
 
-export const VisualComparisonLoading = (): React.JSX.Element => (
-	<ArtifactView
-		shape="visual_comparison"
-		data={{ before: { label: "Before", src: "" }, after: { label: "After", src: "" } }}
-		loading={true}
-	/>
-);
-
-/** Intentional error-state demo — renders the component's built-in error UI. */
-export const ErrorVisualComparison = (): React.JSX.Element => (
-	<ArtifactView
-		shape="visual_comparison"
-		data={{ before: { label: "Before", src: "" }, after: { label: "After", src: "" } }}
-		error="Images could not be loaded"
-	/>
-);
-
-export const VisualComparisonEmpty = (): React.JSX.Element => (
-	<ArtifactView
-		shape="visual_comparison"
-		data={{
-			before: {
-				label: "Before",
-				src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='120'%3E%3Crect fill='%23222' width='200' height='120'/%3E%3Ctext x='50%25' y='50%25' fill='%23666' text-anchor='middle' dy='.3em'%3ENo image%3C/text%3E%3C/svg%3E",
-			},
-			after: {
-				label: "After",
-				src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='120'%3E%3Crect fill='%23222' width='200' height='120'/%3E%3Ctext x='50%25' y='50%25' fill='%23666' text-anchor='middle' dy='.3em'%3ENo image%3C/text%3E%3C/svg%3E",
-			},
-		}}
-	/>
-);
-
-// --- action_summary ---
-
-export const ActionSummaryDefault = (): React.JSX.Element => (
-	<ArtifactView
-		shape="action_summary"
-		data={{
-			actions: [
-				{ label: "Created", value: "src/components/Button.tsx" },
-				{ label: "Modified", value: "package.json" },
-				{ label: "Modified", value: "tsconfig.json" },
-				{ label: "Deleted", value: "src/legacy/OldButton.tsx" },
-				{ label: "Test added", value: "src/__tests__/Button.test.tsx" },
-			],
-		}}
-	/>
-);
-
-export const ActionSummaryLoading = (): React.JSX.Element => (
-	<ArtifactView shape="action_summary" data={{ actions: [] }} loading={true} />
-);
-
-/** Intentional error-state demo — renders the component's built-in error UI. */
-export const ErrorActionSummary = (): React.JSX.Element => (
-	<ArtifactView shape="action_summary" data={{ actions: [] }} error="Failed to summarize actions" />
-);
-
-export const ActionSummaryEmpty = (): React.JSX.Element => (
-	<ArtifactView shape="action_summary" data={{ actions: [] }} />
-);
-
-// --- data_metrics ---
+// --- data kind ---
 
 export const DataMetricsDefault = (): React.JSX.Element => (
 	<ArtifactView
-		shape="data_metrics"
-		data={{
+		kind="data"
+		label="test_results"
+		preview={{
+			kind: "data",
 			headlines: [
 				{ label: "Total Tests", value: "142" },
 				{ label: "Pass Rate", value: "98.6%" },
 				{ label: "Coverage", value: "87%" },
-				{ label: "Build Time", value: "3.2s" },
-				{ label: "Bundle Size", value: "142kb" },
-				{ label: "Lint Errors", value: "0" },
 			],
 			charts: [
 				{ label: "Tests over time", values: [80, 95, 110, 125, 130, 142] },
@@ -190,19 +97,59 @@ export const DataMetricsDefault = (): React.JSX.Element => (
 	/>
 );
 
-export const DataMetricsLoading = (): React.JSX.Element => (
-	<ArtifactView shape="data_metrics" data={{ headlines: [], charts: [] }} loading={true} />
+export const DataMetricsEmpty = (): React.JSX.Element => (
+	<ArtifactView kind="data" preview={{ kind: "data", headlines: [] }} />
 );
 
-/** Intentional error-state demo — renders the component's built-in error UI. */
-export const ErrorDataMetrics = (): React.JSX.Element => (
+// --- html kind ---
+
+export const HtmlDefault = (): React.JSX.Element => (
 	<ArtifactView
-		shape="data_metrics"
-		data={{ headlines: [], charts: [] }}
-		error="Metrics pipeline failed"
+		kind="html"
+		label="dashboard"
+		preview={{
+			kind: "html",
+			html: "<h1 style='font-family:system-ui'>Q4 Dashboard</h1><p>Revenue up 15% QoQ.</p>",
+			title: "Q4 Dashboard",
+		}}
 	/>
 );
 
-export const DataMetricsEmpty = (): React.JSX.Element => (
-	<ArtifactView shape="data_metrics" data={{ headlines: [], charts: [] }} />
+// --- url kind ---
+
+export const UrlDefault = (): React.JSX.Element => (
+	<ArtifactView
+		kind="url"
+		label="service"
+		preview={{
+			kind: "url",
+			url: "https://api.example.com/health",
+			status: "ok",
+			statusLabel: "Healthy",
+		}}
+	/>
+);
+
+// --- metadata strip (J4) ---
+
+export const WithMetadata = (): React.JSX.Element => (
+	<ArtifactView
+		kind="text"
+		label="contract"
+		preview={{ kind: "text", body: "Agreement content", format: "plain" }}
+		metadata={{
+			status: "pending",
+			sla: "2h left",
+			routing: "Legal Agent",
+		}}
+	/>
+);
+
+// --- fallback renderer for unregistered kinds ---
+
+export const FallbackUnregisteredKind = (): React.JSX.Element => (
+	<ArtifactView
+		kind="custom_report"
+		preview={{ kind: "custom_report", title: "Q4 Analysis", wordCount: 2400, status: "draft" }}
+	/>
 );

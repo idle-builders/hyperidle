@@ -1,3 +1,6 @@
+// AE6 — ArtifactView metadata strip tests (J4), updated for kind-based API.
+// @lore AE6: Metadata strip now shows kind (+ optional label) instead of shape.
+
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { ArtifactView } from "../shell/ArtifactView";
@@ -6,14 +9,11 @@ describe("ArtifactView metadata strip (J4)", () => {
 	it("renders a metadata strip with kind badge, status, SLA, and routing when provided", () => {
 		render(
 			<ArtifactView
-				shape="text_diff"
-				data={{
-					hunks: [
-						{
-							header: "@@ -1,1 +1,1 @@",
-							lines: [{ type: "addition", content: "x" }],
-						},
-					],
+				kind="code"
+				preview={{
+					kind: "code",
+					file: "src/main.ts",
+					hunks: [{ header: "@@ -1,1 +1,1 @@", lines: [{ kind: "add", text: "x" }] }],
 				}}
 				metadata={{
 					status: "pending",
@@ -24,67 +24,58 @@ describe("ArtifactView metadata strip (J4)", () => {
 		);
 		const strip = screen.getByTestId("artifact-metadata-strip");
 		expect(strip).toBeInTheDocument();
-		// Kind badge is computed from `shape` prop
-		expect(strip).toHaveTextContent(/text_diff/);
+		// Kind badge shows the kind string
+		expect(strip).toHaveTextContent(/code/i);
 		expect(strip).toHaveTextContent(/pending/i);
 		expect(strip).toHaveTextContent(/2h left/);
 		expect(strip).toHaveTextContent(/Backend Agent/);
 	});
 
-	it("renders a kind badge for every artifact shape", () => {
-		const shapes = [
-			{ shape: "content_preview" as const, data: { html: "<p>hi</p>", metadata: [] } },
+	it("renders label alongside kind in the badge when label is provided", () => {
+		render(
+			<ArtifactView
+				kind="text"
+				label="contract"
+				preview={{ kind: "text", body: "Agreement terms", format: "plain" }}
+				metadata={{ status: "ok", sla: "", routing: "" }}
+			/>,
+		);
+		const strip = screen.getByTestId("artifact-metadata-strip");
+		expect(strip).toHaveTextContent(/text/i);
+		expect(strip).toHaveTextContent(/contract/i);
+	});
+
+	it("renders a kind badge for each fundamental kind", () => {
+		const kinds = [
+			{ kind: "text", preview: { kind: "text", body: "Hello", format: "plain" as const } },
+			{ kind: "code", preview: { kind: "code", file: "f.ts", hunks: [] } },
+			{ kind: "data", preview: { kind: "data", headlines: [] } },
+			{ kind: "html", preview: { kind: "html", html: "<p>hi</p>" } },
+			{ kind: "url", preview: { kind: "url", url: "https://x.com" } },
 			{
-				shape: "visual_comparison" as const,
-				data: {
-					before: { label: "Before", src: "" },
-					after: { label: "After", src: "" },
-				},
-			},
-			{ shape: "action_summary" as const, data: { actions: [{ label: "x", value: "y" }] } },
-			{
-				shape: "data_metrics" as const,
-				data: { headlines: [{ label: "x", value: "1" }], charts: [] },
+				kind: "image",
+				preview: { kind: "image", url: "https://x.com/img.png", width: 100, height: 100 },
 			},
 		];
-		for (const art of shapes) {
+		for (const art of kinds) {
 			const { unmount } = render(
 				<ArtifactView {...art} metadata={{ status: "ok", sla: "", routing: "" }} />,
 			);
-			expect(screen.getByTestId("artifact-kind-badge")).toHaveTextContent(art.shape);
+			expect(screen.getByTestId("artifact-kind-badge")).toHaveTextContent(art.kind);
 			unmount();
 		}
 	});
 
 	it("does not render the metadata strip when metadata prop omitted (backwards-compatible)", () => {
-		render(
-			<ArtifactView
-				shape="text_diff"
-				data={{
-					hunks: [
-						{
-							header: "@@ -1,1 +1,1 @@",
-							lines: [{ type: "context", content: "x" }],
-						},
-					],
-				}}
-			/>,
-		);
+		render(<ArtifactView kind="code" preview={{ kind: "code", file: "f.ts", hunks: [] }} />);
 		expect(screen.queryByTestId("artifact-metadata-strip")).toBeNull();
 	});
 
 	it("renders a related-history section below the artifact when relatedHistory provided", () => {
 		render(
 			<ArtifactView
-				shape="text_diff"
-				data={{
-					hunks: [
-						{
-							header: "@@ -1,1 +1,1 @@",
-							lines: [{ type: "addition", content: "x" }],
-						},
-					],
-				}}
+				kind="text"
+				preview={{ kind: "text", body: "content", format: "plain" }}
 				relatedHistory={[
 					{ id: "h1", label: "Previous attempt", timestamp: "1d ago" },
 					{ id: "h2", label: "Initial draft", timestamp: "3d ago" },

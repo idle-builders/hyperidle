@@ -1,8 +1,7 @@
-// L3 RED — type & runtime closure tests for the Artifact primitive.
-// Source of truth: plans/L3/architecture.md §3, §10 Q4.
+// AE6 — Updated type & runtime tests for the Artifact primitive.
+// Source of truth: plans/AE6/architecture.md §11, plans/AE6/concept.md.
 //
-// The implementation does not yet exist; this test file references the
-// modules and exports the production code must publish.
+// Replaces the L3 test suite (13-kind closed enum) with the AE6 6-kind open system.
 
 import { describe, expect, expectTypeOf, it } from "vitest";
 import {
@@ -14,30 +13,26 @@ import {
 	type ArtifactPage,
 	type ArtifactPreview,
 	artifactDisplayTitle,
+	isRegisteredKind,
 	summarizePreview,
 } from "../types/artifact.js";
 
-describe("ARTIFACT_KINDS closure", () => {
-	it("contains exactly the 12 canonical kinds + unknown_kind", () => {
-		expect(ARTIFACT_KINDS).toEqual([
-			"code_diff",
-			"deck",
-			"contract",
-			"dashboard",
-			"screenshot",
-			"drafted_email",
-			"design",
-			"data_analysis",
-			"decision",
-			"running_service",
-			"comm_draft",
-			"verification",
-			"unknown_kind",
-		]);
+describe("ARTIFACT_KINDS (AE6: 6 fundamental kinds)", () => {
+	it("contains exactly the 6 fundamental kinds", () => {
+		expect(ARTIFACT_KINDS).toEqual(["text", "code", "image", "data", "html", "url"]);
+	});
+
+	it("does NOT contain old business-domain kinds", () => {
+		// Old 13-kind enum is retired per AE6.
+		const kindList = ARTIFACT_KINDS as readonly string[];
+		expect(kindList).not.toContain("code_diff");
+		expect(kindList).not.toContain("contract");
+		expect(kindList).not.toContain("unknown_kind");
+		expect(kindList).not.toContain("drafted_email");
 	});
 
 	it("ArtifactKind is the literal union of ARTIFACT_KINDS", () => {
-		const k: ArtifactKind = "code_diff";
+		const k: ArtifactKind = "text";
 		expectTypeOf(k).toEqualTypeOf<ArtifactKind>();
 		expectTypeOf<(typeof ARTIFACT_KINDS)[number]>().toEqualTypeOf<ArtifactKind>();
 	});
@@ -48,48 +43,76 @@ describe("ARTIFACT_KINDS closure", () => {
 	});
 });
 
-describe("ArtifactPreview discriminated union", () => {
-	it("each of the 12 recognised kinds has a variant (excluding unknown_kind)", () => {
-		const kinds = ARTIFACT_KINDS.filter((k) => k !== "unknown_kind");
-		// Construct one fixture per recognised kind. If a kind is missing
-		// from the union, the cast inside the switch will fail tsc.
+describe("ArtifactPreview discriminated union (6 kinds)", () => {
+	it("each of the 6 kinds has a preview variant", () => {
+		const kinds = ARTIFACT_KINDS;
 		for (const kind of kinds) {
-			const preview = makeFixturePreview(kind as Exclude<ArtifactKind, "unknown_kind">);
+			const preview = makeFixturePreview(kind);
 			expect(preview.kind).toBe(kind);
 		}
 	});
 
-	it("ArtifactPreview discriminant is a strict subset of ArtifactKind", () => {
-		// unknown_kind must NOT be a member of ArtifactPreview['kind'].
+	it("ArtifactPreview discriminant covers the 6 fundamental kinds", () => {
 		type PreviewKind = ArtifactPreview["kind"];
-		expectTypeOf<PreviewKind>().not.toEqualTypeOf<ArtifactKind>();
-		const _ok: PreviewKind = "code_diff";
+		// old kinds must NOT be in ArtifactPreview
 		// @ts-expect-error — unknown_kind has no preview variant
 		const _bad: PreviewKind = "unknown_kind";
+		// @ts-expect-error — code_diff is retired
+		const _bad2: PreviewKind = "code_diff";
 	});
 });
 
-describe("Artifact canonical wire shape", () => {
-	it("requires the documented fields", () => {
+describe("Artifact canonical wire shape (AE6)", () => {
+	it("requires the documented fields including label", () => {
 		const a: Artifact = {
 			id: "art_01",
 			producingTaskId: "task_01",
-			producingTaskTitle: "Draft email to investors",
-			kind: "drafted_email",
+			producingTaskTitle: "Draft services agreement",
+			kind: "text",
+			label: "contract",
 			preview: {
-				kind: "drafted_email",
-				to: ["a@b.co"],
-				subject: "Hi",
-				bodyExcerpt: "Hello",
+				kind: "text",
+				body: "This is the contract body.",
 			},
 			cost: {
 				money: { minor: 42, currency: "USD" },
-				tokens: { byTier: { haiku: { prompt: 8000, completion: 4400 } } },
+				tokens: { byTier: {} },
 			},
 			threadCount: 0,
-			createdAt: "2026-04-28T00:00:00.000Z",
+			createdAt: "2026-06-08T00:00:00.000Z",
 		};
-		expect(a.kind).toBe("drafted_email");
+		expect(a.kind).toBe("text");
+		expect(a.label).toBe("contract");
+	});
+
+	it("label is nullable — can be null", () => {
+		const a: Artifact = {
+			id: "art_02",
+			producingTaskId: "task_01",
+			producingTaskTitle: "Code review",
+			kind: "code",
+			label: null,
+			preview: null,
+			cost: { money: null, tokens: null },
+			threadCount: 0,
+			createdAt: "2026-06-08T00:00:00.000Z",
+		};
+		expect(a.label).toBeNull();
+	});
+
+	it("kind is string (open vocabulary) — accepts unregistered kinds", () => {
+		const a: Artifact = {
+			id: "art_03",
+			producingTaskId: "task_01",
+			producingTaskTitle: "Blog post",
+			kind: "blog_post", // unregistered kind — still accepted by open type
+			label: null,
+			preview: null,
+			cost: { money: null, tokens: null },
+			threadCount: 0,
+			createdAt: "2026-06-08T00:00:00.000Z",
+		};
+		expect(a.kind).toBe("blog_post");
 	});
 
 	it("ArtifactPage exposes items + nextCursor", () => {
@@ -101,7 +124,7 @@ describe("Artifact canonical wire shape", () => {
 		const axes: ArtifactFilterAxis[] = [
 			{ axis: "task", taskId: "t1" },
 			{ axis: "bet", betId: "b1" },
-			{ axis: "product", productId: "p1" },
+			{ axis: "product", teamId: "p1" },
 			{ axis: "portfolio" },
 		];
 		expect(axes).toHaveLength(4);
@@ -122,11 +145,29 @@ describe("ArtifactCostFromSession forward-compat shape", () => {
 	});
 });
 
-describe("summarizePreview (exhaustive over 12 kinds)", () => {
-	it("returns a non-empty string for every recognised kind", () => {
-		const recognised = ARTIFACT_KINDS.filter((k) => k !== "unknown_kind");
-		for (const kind of recognised) {
-			const preview = makeFixturePreview(kind as Exclude<ArtifactKind, "unknown_kind">);
+describe("isRegisteredKind", () => {
+	it("returns true for each of the 6 registered kinds", () => {
+		for (const kind of ARTIFACT_KINDS) {
+			expect(isRegisteredKind(kind)).toBe(true);
+		}
+	});
+
+	it("returns false for old business-domain kinds", () => {
+		expect(isRegisteredKind("code_diff")).toBe(false);
+		expect(isRegisteredKind("contract")).toBe(false);
+		expect(isRegisteredKind("unknown_kind")).toBe(false);
+	});
+
+	it("returns false for arbitrary strings", () => {
+		expect(isRegisteredKind("blog_post")).toBe(false);
+		expect(isRegisteredKind("internet_meme")).toBe(false);
+	});
+});
+
+describe("summarizePreview (6 registered kinds)", () => {
+	it("returns a non-empty string for every registered kind", () => {
+		for (const kind of ARTIFACT_KINDS) {
+			const preview = makeFixturePreview(kind);
 			const out = summarizePreview(preview);
 			expect(out).toBeTypeOf("string");
 			expect((out ?? "").length).toBeGreaterThan(0);
@@ -135,6 +176,11 @@ describe("summarizePreview (exhaustive over 12 kinds)", () => {
 
 	it("returns null when preview is null", () => {
 		expect(summarizePreview(null)).toBeNull();
+	});
+
+	it("returns the kind string for unregistered kinds", () => {
+		const out = summarizePreview({ kind: "blog_post", title: "hello" });
+		expect(out).toBe("blog_post");
 	});
 });
 
@@ -147,47 +193,47 @@ describe("artifactDisplayTitle", () => {
 		expect(artifactDisplayTitle(a)).toBe("ship invoice");
 	});
 
-	it("uses preview-derived title for kinds that carry one", () => {
+	it("uses file path as title for code kind", () => {
 		const a: Pick<Artifact, "preview" | "producingTaskTitle"> = {
-			preview: { kind: "decision", claim: "go with option A", rationale: "cheaper" },
-			producingTaskTitle: "decide",
+			preview: { kind: "code", file: "src/index.ts", hunks: [] },
+			producingTaskTitle: "code review",
 		};
-		expect(artifactDisplayTitle(a)).toBe("go with option A");
+		expect(artifactDisplayTitle(a)).toBe("src/index.ts");
+	});
+
+	it("uses html title for html kind with title", () => {
+		const a: Pick<Artifact, "preview" | "producingTaskTitle"> = {
+			preview: { kind: "html", html: "<div/>", title: "Q4 Dashboard" },
+			producingTaskTitle: "build dashboard",
+		};
+		expect(artifactDisplayTitle(a)).toBe("Q4 Dashboard");
+	});
+
+	it("falls back to task title when kind has no displayTitle logic", () => {
+		const a: Pick<Artifact, "preview" | "producingTaskTitle"> = {
+			preview: { kind: "text", body: "Hello world" },
+			producingTaskTitle: "draft email",
+		};
+		// text kind returns null from displayTitle — falls back to task title
+		expect(artifactDisplayTitle(a)).toBe("draft email");
 	});
 });
 
-// --- helpers ---------------------------------------------------------
+// --- helpers ---
 
-function makeFixturePreview(kind: Exclude<ArtifactKind, "unknown_kind">): ArtifactPreview {
+function makeFixturePreview(kind: ArtifactKind): ArtifactPreview {
 	switch (kind) {
-		case "code_diff":
-			return { kind: "code_diff", file: "src/x.ts", hunks: [] };
-		case "deck":
-			return { kind: "deck", slideCount: 12, firstSlideTitle: "Intro" };
-		case "contract":
-			return { kind: "contract", parties: ["A", "B"], title: "MSA" };
-		case "dashboard":
-			return { kind: "dashboard", metrics: [{ label: "DAU", value: "1.2k" }] };
-		case "screenshot":
-			return { kind: "screenshot", imageUrl: "https://x", width: 1, height: 1 };
-		case "drafted_email":
-			return { kind: "drafted_email", to: ["a@b"], subject: "S", bodyExcerpt: "B" };
-		case "design":
-			return { kind: "design", imageUrl: "https://x", width: 1, height: 1 };
-		case "data_analysis":
-			return { kind: "data_analysis", findings: ["x"] };
-		case "decision":
-			return { kind: "decision", claim: "c", rationale: "r" };
-		case "running_service":
-			return {
-				kind: "running_service",
-				url: "https://x",
-				status: "ok",
-				statusLabel: "OK",
-			};
-		case "comm_draft":
-			return { kind: "comm_draft", channel: "#x", firstMessage: "hi" };
-		case "verification":
-			return { kind: "verification", suite: "unit", passed: 10, failed: 0 };
+		case "text":
+			return { kind: "text", body: "Hello world" };
+		case "code":
+			return { kind: "code", file: "src/index.ts", hunks: [] };
+		case "image":
+			return { kind: "image", url: "https://example.com/img.png", width: 800, height: 600 };
+		case "data":
+			return { kind: "data", headlines: [{ label: "DAU", value: "1.2k" }] };
+		case "html":
+			return { kind: "html", html: "<div>hello</div>" };
+		case "url":
+			return { kind: "url", url: "https://example.com" };
 	}
 }

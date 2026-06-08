@@ -19,7 +19,9 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 async function seed(db: HyperIdleDb): Promise<{ taskId: string; betId: string }> {
-	await db.insert(teams).values({ id: "team-ae6", name: "AE6 Team", phase: "build", createdAt: NOW });
+	await db
+		.insert(teams)
+		.values({ id: "team-ae6", name: "AE6 Team", phase: "build", createdAt: NOW });
 	await db
 		.insert(teamMembers)
 		.values({ id: "tm-ae6", teamId: "team-ae6", capacity: 5, activeBets: 0, formedAt: NOW });

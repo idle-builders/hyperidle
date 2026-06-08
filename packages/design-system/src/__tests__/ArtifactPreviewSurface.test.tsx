@@ -50,7 +50,9 @@ describe("ArtifactPreviewSurface", () => {
 		expect(container.querySelector("img")).toBeNull();
 	});
 
-	it("renders the catch-all message for unknown_kind (12-kind exhaustive switch fallthrough)", () => {
+	it("AE6: renders PREVIEW PENDING for unregistered kind with null preview (open vocabulary)", () => {
+		// @lore AE6: 'unknown_kind' is no longer special-cased.
+		// Unregistered kinds with null preview show the generic placeholder.
 		act(() => {
 			root.render(
 				createElement(ArtifactPreviewSurface, {
@@ -60,10 +62,12 @@ describe("ArtifactPreviewSurface", () => {
 				}),
 			);
 		});
-		expect(container.textContent).toContain("no preview renderer for this kind");
+		expect(container.textContent).toContain("PREVIEW PENDING");
 	});
 
-	it("renders the deck variant with slide count when preview is populated", () => {
+	it("AE6: renders 'kind: preview not available' for unregistered kind with unrecognised preview", () => {
+		// @lore AE6: Old 'deck' kind is no longer registered. Its preview data is
+		// not understood by any Kind Definition. The fallback message shows the kind name.
 		act(() => {
 			root.render(
 				createElement(ArtifactPreviewSurface, {
@@ -73,7 +77,26 @@ describe("ArtifactPreviewSurface", () => {
 				}),
 			);
 		});
-		expect(container.textContent).toContain("12");
-		expect(container.textContent).toContain("Intro");
+		expect(container.textContent).toContain("deck");
+		expect(container.textContent).toContain("preview not available");
+	});
+
+	it("AE6: renders summary for registered kind (html=deck mapped) with valid preview", () => {
+		// @lore AE6: 'html' is the fundamental kind for old 'deck'. Test that html kind
+		// with its own preview schema renders a summary via Kind Definition.
+		act(() => {
+			root.render(
+				createElement(ArtifactPreviewSurface, {
+					kind: "html",
+					preview: {
+						kind: "html",
+						html: "<h1>Q3 Strategy Review</h1>",
+						title: "Q3 Strategy Review",
+					},
+					size: "gallery",
+				}),
+			);
+		});
+		expect(container.textContent).toContain("Q3 Strategy Review");
 	});
 });

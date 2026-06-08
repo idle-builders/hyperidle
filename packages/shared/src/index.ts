@@ -140,6 +140,12 @@ export { MockHarnessAdapter } from "./harness/index.js";
 // ── Hint catalog (P5) ──
 export type { HintCatalogEntry, HintId } from "./hint.js";
 export { HINT_CATALOG, HINT_IDS, isHintId } from "./hint.js";
+// AE6: Kind registry exports (new)
+export type { KindDefinition } from "./kinds/kind-definition.js";
+export type { OldKindMapping } from "./kinds/old-kind-map.js";
+export { OLD_KIND_MAP } from "./kinds/old-kind-map.js";
+// getKindDefinition and isRegisteredKind exported via types/artifact.ts re-export from registry
+export { getKindDefinition, isRegisteredKind } from "./kinds/registry.js";
 export { createLogger, type Logger } from "./logger.js";
 // ── X4: Model Gateway ──
 export type {
@@ -250,9 +256,16 @@ export type {
 	ArtifactPage,
 	ArtifactPreview,
 	ArtifactQuery,
+	CodePreview,
 	CreateArtifactInput,
+	DataPreview,
 	DiffHunk,
+	HtmlPreview,
+	ImagePreview,
+	TextPreview,
+	UrlPreview,
 } from "./types/artifact.js";
+// ARTIFACT_KINDS from types/artifact.js (which re-exports from kinds/registry.js)
 export { ARTIFACT_KINDS, artifactDisplayTitle, summarizePreview } from "./types/artifact.js";
 export type {
 	CurrencyCode,

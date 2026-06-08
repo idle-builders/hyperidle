@@ -346,7 +346,8 @@ export function verdictDecisionToStatus(
 
 // ── L18: Artifact thread summary types ──────────────────────────
 
-import type { ArtifactKind } from "./types/artifact.js";
+// @lore AE6: ArtifactKind import removed — artifactKind widened to string
+// (open vocabulary: registered 6 fundamental kinds + unregistered kinds pass through).
 
 /**
  * Per-artifact thread summary row returned by
@@ -359,7 +360,8 @@ import type { ArtifactKind } from "./types/artifact.js";
  */
 export interface ArtifactThreadSummary {
 	artifactId: string;
-	artifactKind: ArtifactKind;
+	/** @lore AE6: Widened from ArtifactKind (closed 13-member union) to string (open vocabulary). */
+	artifactKind: string;
 	/** Derived display label per artifactDisplayTitle() rules. */
 	artifactTitle: string;
 	/** Null when no thread exists yet for this artifact. */

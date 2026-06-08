@@ -4,19 +4,18 @@
 //
 // These tests will FAIL until the green phase creates the implementations.
 
-import { Suspense } from "react";
 import { render, screen } from "@testing-library/react";
+import { Suspense } from "react";
 import { describe, expect, it } from "vitest";
-
+import { CodeRenderer } from "../kinds/code-renderer.js";
+import { DataRenderer } from "../kinds/data-renderer.js";
+import { FallbackRenderer } from "../kinds/fallback-renderer.js";
+import { HtmlRenderer } from "../kinds/html-renderer.js";
+import { ImageRenderer } from "../kinds/image-renderer.js";
+import { getRenderer } from "../kinds/renderer-registry.js";
 // These imports will fail until the implementation exists.
 import { TextRenderer } from "../kinds/text-renderer.js";
-import { CodeRenderer } from "../kinds/code-renderer.js";
-import { ImageRenderer } from "../kinds/image-renderer.js";
-import { DataRenderer } from "../kinds/data-renderer.js";
-import { HtmlRenderer } from "../kinds/html-renderer.js";
 import { UrlRenderer } from "../kinds/url-renderer.js";
-import { FallbackRenderer } from "../kinds/fallback-renderer.js";
-import { getRenderer } from "../kinds/renderer-registry.js";
 
 // -------------------------------------------------------------------
 // TextRenderer
@@ -24,9 +23,7 @@ import { getRenderer } from "../kinds/renderer-registry.js";
 
 describe("TextRenderer", () => {
 	it("renders prose body content", () => {
-		render(
-			<TextRenderer preview={{ kind: "text", body: "Hello world" }} kind="text" />,
-		);
+		render(<TextRenderer preview={{ kind: "text", body: "Hello world" }} kind="text" />);
 		expect(screen.getByText("Hello world")).toBeInTheDocument();
 	});
 
@@ -73,9 +70,7 @@ describe("CodeRenderer", () => {
 	});
 
 	it("renders empty state when preview has no hunks", () => {
-		render(
-			<CodeRenderer preview={{ kind: "code", file: "src/x.ts", hunks: [] }} kind="code" />,
-		);
+		render(<CodeRenderer preview={{ kind: "code", file: "src/x.ts", hunks: [] }} kind="code" />);
 		expect(screen.getByText(/no diff/i)).toBeInTheDocument();
 	});
 
@@ -144,12 +139,7 @@ describe("DataRenderer", () => {
 	});
 
 	it("renders empty state when no headlines and no charts", () => {
-		render(
-			<DataRenderer
-				preview={{ kind: "data", headlines: [] }}
-				kind="data"
-			/>,
-		);
+		render(<DataRenderer preview={{ kind: "data", headlines: [] }} kind="data" />);
 		expect(screen.getByText(/no metrics/i)).toBeInTheDocument();
 	});
 
@@ -247,12 +237,7 @@ describe("UrlRenderer", () => {
 	});
 
 	it("renders just the link when no status fields", () => {
-		render(
-			<UrlRenderer
-				preview={{ kind: "url", url: "https://example.com" }}
-				kind="url"
-			/>,
-		);
+		render(<UrlRenderer preview={{ kind: "url", url: "https://example.com" }} kind="url" />);
 		const link = screen.getByRole("link");
 		expect(link).toBeInTheDocument();
 	});

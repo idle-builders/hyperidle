@@ -1,43 +1,40 @@
-// L3 — Hono router for /api/artifacts.
-// Source: plans/L3/architecture.md §5.
-// O2 — cost columns (costMoneyMicros, costTokensInput, costTokensOutput, costSettledAt)
-// stripped from the artifacts kernel table. Cost is now a strategy concern.
+// AE6 — Hono router for /api/artifacts.
+// Updated from L3 (13 business-domain kinds) to AE6 (6 fundamental kinds + labels).
+// Source: plans/AE6/architecture.md §3.
 
 import { artifacts, type HyperIdleDb, tasks } from "@hyperidle/db";
 import {
 	ARTIFACT_KINDS,
 	type Artifact,
 	type ArtifactCostFromSession,
-	type ArtifactKind,
 	type ArtifactPage,
-	type ArtifactPreview,
+	isRegisteredKind,
+	OLD_KIND_MAP,
 } from "@hyperidle/shared";
 import { and, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { createBodyLimit } from "../middleware/body-limit.js";
 import { validateBody } from "../middleware/validate.js";
-import { artifactPreviewSchema } from "../schemas/artifact-preview.js";
+import { artifactPreviewSchema, fallbackPreviewSchema } from "../schemas/artifact-preview.js";
 
-const RECOGNISED_KIND_VALUES = ARTIFACT_KINDS as readonly string[];
 const PREVIEW_BODY_LIMIT = 64 * 1024;
 const DEFAULT_LIMIT = 50;
 const HARD_LIMIT_CAP = 200;
 // L3 review fix Sec-MED-4: cap intermediate task-id materialisation.
 const MAX_TASK_ID_FANOUT = 1000;
 
-// @lore L3 / L1 forward-compat: when L1 ships threads.attached_host_*, the
-// thread_count subquery (currently constant 0) reads:
-//   SELECT COUNT(*) FROM threads
-//   WHERE attached_host_type='artifact' AND attached_host_id=artifacts.id
-
-// artifactPreviewSchema is imported from ../schemas/artifact-preview.js
-
 const createArtifactSchema = z.object({
 	producingTaskId: z.string().min(1),
-	kind: z.enum(ARTIFACT_KINDS).refine((k) => k !== "unknown_kind", {
-		message: "unknown_kind is not allowed at create",
-	}),
+	// AE6: kind constrained to the 6 fundamental kinds at create time (open for reads)
+	kind: z.enum(ARTIFACT_KINDS),
+	// AE6: optional business-domain tag
+	label: z
+		.string()
+		.regex(/^[a-z][a-z0-9_]*$/, "Label must be lowercase_snake_case")
+		.max(64)
+		.optional()
+		.nullable(),
 	preview: artifactPreviewSchema.nullable(),
 	// @lore O2: cost is accepted as a no-op field for wire compat; values are
 	// ignored since cost columns were stripped from the kernel artifacts table.
@@ -57,6 +54,7 @@ interface ArtifactRow {
 	id: string;
 	producingTaskId: string;
 	kind: string;
+	label: string | null;
 	previewJson: string | null;
 	createdAt: string;
 }
@@ -68,26 +66,73 @@ interface ArtifactRow {
  */
 const NULL_COST: ArtifactCostFromSession = { money: null, tokens: null };
 
+/**
+ * @lore AE6: Read-time normalization for old artifact kinds.
+ * Applies OLD_KIND_MAP as defense-in-depth — handles un-migrated DB rows.
+ * Also handles stale preview JSON discriminants (old kind in preview JSON
+ * doesn't match the normalized kind).
+ *
+ * For F1 (preview JSON schema incompatibility):
+ * - code kind: old code_diff preview {file, hunks} is compatible with new code schema.
+ * - text kinds: old previews (contract {parties, title}, drafted_email {to, subject, bodyExcerpt},
+ *   decision {claim, rationale}, etc.) are NOT compatible with new text schema {body, format}.
+ *   These previews are nulled out at read time. The content is preserved in the DB
+ *   but cannot be re-rendered without a full data migration of preview JSON.
+ *   This is acceptable per F1 option (d): only 3 of 12 old kinds had renderer
+ *   support (code_diff via text_diff, data_analysis via action_summary, dashboard via
+ *   data_metrics). The text-like kinds never had a visual renderer.
+ */
 function rowToArtifact(row: ArtifactRow, producingTaskTitle: string): Artifact {
-	const recognised = RECOGNISED_KIND_VALUES.includes(row.kind) && row.kind !== "unknown_kind";
-	const kind = (recognised ? row.kind : "unknown_kind") as ArtifactKind;
-	let preview: ArtifactPreview | null = null;
-	if (recognised && row.previewJson) {
-		// L3 review fix Sec-LOW-1: defence-in-depth. Even though we control
-		// writes, validate data-at-rest with the same schema we apply to
-		// inbound POST/PATCH. A schema mismatch (corruption, manual SQL,
-		// future-version drift) yields preview=null instead of crashing.
-		const raw: unknown = JSON.parse(row.previewJson);
-		const parsed = artifactPreviewSchema.safeParse(raw);
-		if (parsed.success && parsed.data.kind === kind) {
-			preview = parsed.data;
+	let { kind, label } = row;
+
+	// Apply read-time normalization for old kinds
+	const oldMapping = OLD_KIND_MAP[kind];
+	if (oldMapping) {
+		kind = oldMapping.kind;
+		// Only apply the old mapping label if the row doesn't already have one
+		if (label === null) {
+			label = oldMapping.label;
 		}
 	}
+
+	let preview: Artifact["preview"] = null;
+	if (row.previewJson) {
+		try {
+			const raw: unknown = JSON.parse(row.previewJson);
+
+			if (isRegisteredKind(kind)) {
+				// Validate against the kind's own schema from the registry.
+				const parsed = artifactPreviewSchema.safeParse(raw);
+				if (parsed.success && parsed.data.kind === kind) {
+					preview = parsed.data as Artifact["preview"];
+				} else if (parsed.success && parsed.data.kind !== kind) {
+					// Stale preview kind discriminant: re-inject the current kind and try again
+					// (handles code_diff -> code: the preview data is forward-compatible).
+					const withNewKind = { ...(raw as object), kind };
+					const reparsed = artifactPreviewSchema.safeParse(withNewKind);
+					if (reparsed.success && reparsed.data.kind === kind) {
+						preview = reparsed.data as Artifact["preview"];
+					}
+					// Otherwise preview remains null (old shape incompatible with new schema)
+				}
+			} else {
+				// Unregistered kind: accept any JSON object (open vocabulary)
+				const parsed = fallbackPreviewSchema.safeParse(raw);
+				if (parsed.success) {
+					preview = parsed.data as Artifact["preview"];
+				}
+			}
+		} catch {
+			// Malformed JSON — preview stays null
+		}
+	}
+
 	return {
 		id: row.id,
 		producingTaskId: row.producingTaskId,
 		producingTaskTitle,
 		kind,
+		label,
 		preview,
 		cost: NULL_COST,
 		threadCount: 0,
@@ -187,7 +232,19 @@ export function createArtifactRoutes(db: HyperIdleDb): Hono {
 						.limit(limit + 1);
 
 		const sliced = rows.slice(0, limit);
-		const items = sliced.map((r) => rowToArtifact(r.artifact, r.taskTitle));
+		const items = sliced.map((r) =>
+			rowToArtifact(
+				{
+					id: r.artifact.id,
+					producingTaskId: r.artifact.producingTaskId,
+					kind: r.artifact.kind,
+					label: r.artifact.label ?? null,
+					previewJson: r.artifact.previewJson ?? null,
+					createdAt: r.artifact.createdAt,
+				},
+				r.taskTitle,
+			),
+		);
 		const last = sliced[sliced.length - 1];
 		const nextCursor =
 			rows.length > limit && last ? `${last.artifact.createdAt}|${last.artifact.id}` : null;
@@ -205,7 +262,19 @@ export function createArtifactRoutes(db: HyperIdleDb): Hono {
 			.where(eq(artifacts.id, id))
 			.limit(1);
 		if (!row) return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
-		return c.json(rowToArtifact(row.artifact, row.taskTitle));
+		return c.json(
+			rowToArtifact(
+				{
+					id: row.artifact.id,
+					producingTaskId: row.artifact.producingTaskId,
+					kind: row.artifact.kind,
+					label: row.artifact.label ?? null,
+					previewJson: row.artifact.previewJson ?? null,
+					createdAt: row.artifact.createdAt,
+				},
+				row.taskTitle,
+			),
+		);
 	});
 
 	router.post(
@@ -238,6 +307,7 @@ export function createArtifactRoutes(db: HyperIdleDb): Hono {
 				id,
 				producingTaskId: body.producingTaskId,
 				kind: body.kind,
+				label: body.label ?? null,
 				previewJson: body.preview ? JSON.stringify(body.preview) : null,
 				createdAt: now,
 			});
@@ -247,7 +317,8 @@ export function createArtifactRoutes(db: HyperIdleDb): Hono {
 				producingTaskId: body.producingTaskId,
 				producingTaskTitle: taskRow.title,
 				kind: body.kind,
-				preview: body.preview,
+				label: body.label ?? null,
+				preview: body.preview as Artifact["preview"],
 				cost: NULL_COST,
 				threadCount: 0,
 				createdAt: now,

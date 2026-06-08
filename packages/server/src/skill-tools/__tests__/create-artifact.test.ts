@@ -10,13 +10,11 @@
  *   AC8 — Input validation rejects invalid kind, mismatched preview, missing fields
  *   AC9 — Tool reads taskId from context, not from input
  *
- * The tests reference create-artifact.ts which does NOT exist yet.
- * These tests WILL fail until the green phase creates the implementation.
- *
- * Failure mode before implementation:
- *   - Import fails: "Cannot find module '../create-artifact.js'"
- *   - createArtifactTool is undefined
- *   - tool handler returns errors instead of success
+ * @lore AE6: Updated from R6 old-kind vocabulary to the 6 fundamental kinds.
+ * Old kinds (verification, decision, code_diff, deck) now return INVALID_INPUT
+ * because the write path enforces ARTIFACT_KINDS at input validation time.
+ * KIND_MISMATCH tests now use valid registered kinds (text, code) with
+ * mismatched preview.kind values.
  */
 
 import * as os from "node:os";
@@ -101,11 +99,12 @@ describe("create_artifact tool", () => {
 
 	// -------------------------------------------------------------------- Happy path
 	describe("AC2/AC4: create artifact with valid kind and preview", () => {
-		it("creates an artifact row with kind=verification and a preview, returns artifactId and kind", async () => {
+		it("creates an artifact row with kind=text and a preview, returns artifactId and kind", async () => {
+			// @lore AE6: was kind=verification; updated to kind=text (fundamental kind)
 			const result = await createArtifactTool.handler(
 				{
-					kind: "verification",
-					preview: { kind: "verification", suite: "unit", passed: 42, failed: 0 },
+					kind: "text",
+					preview: { kind: "text", body: "All 42 unit tests passed.", format: "plain" },
 				},
 				makeContext(db, eventBus),
 			);
@@ -116,20 +115,21 @@ describe("create_artifact tool", () => {
 			const data = result.data as { artifactId: string; kind: string };
 			expect(typeof data.artifactId).toBe("string");
 			expect(data.artifactId.length).toBeGreaterThan(0);
-			expect(data.kind).toBe("verification");
+			expect(data.kind).toBe("text");
 
 			// Verify the row was actually inserted into the database.
 			const [row] = await db.select().from(artifacts).where(eq(artifacts.id, data.artifactId));
 
 			expect(row).toBeDefined();
-			expect(row?.kind).toBe("verification");
+			expect(row?.kind).toBe("text");
 			expect(row?.producingTaskId).toBe("task-1");
 			expect(row?.previewJson).not.toBeNull();
 		});
 
-		it("creates an artifact with kind=decision and null preview (preview is optional)", async () => {
+		it("creates an artifact with kind=text and null preview (preview is optional)", async () => {
+			// @lore AE6: was kind=decision; updated to kind=text (fundamental kind)
 			const result = await createArtifactTool.handler(
-				{ kind: "decision", preview: null },
+				{ kind: "text", preview: null },
 				makeContext(db, eventBus),
 			);
 
@@ -137,21 +137,22 @@ describe("create_artifact tool", () => {
 			if (!result.success) return;
 
 			const data = result.data as { artifactId: string; kind: string };
-			expect(data.kind).toBe("decision");
+			expect(data.kind).toBe("text");
 
 			const [row] = await db.select().from(artifacts).where(eq(artifacts.id, data.artifactId));
 
 			expect(row).toBeDefined();
-			expect(row?.kind).toBe("decision");
+			expect(row?.kind).toBe("text");
 			expect(row?.previewJson).toBeNull();
 		});
 
-		it("creates an artifact with kind=code_diff and a matching preview", async () => {
+		it("creates an artifact with kind=code and a matching preview", async () => {
+			// @lore AE6: was kind=code_diff; updated to kind=code (fundamental kind)
 			const result = await createArtifactTool.handler(
 				{
-					kind: "code_diff",
+					kind: "code",
 					preview: {
-						kind: "code_diff",
+						kind: "code",
 						file: "src/index.ts",
 						hunks: [
 							{
@@ -171,7 +172,7 @@ describe("create_artifact tool", () => {
 			if (!result.success) return;
 
 			const data = result.data as { artifactId: string; kind: string };
-			expect(data.kind).toBe("code_diff");
+			expect(data.kind).toBe("code");
 		});
 	});
 
@@ -182,7 +183,7 @@ describe("create_artifact tool", () => {
 			// Passing extra keys should be ignored or rejected by Zod's strict parsing.
 			const result = await createArtifactTool.handler(
 				{
-					kind: "decision",
+					kind: "text",
 					preview: null,
 					// @lore R6: If the Zod schema accidentally accepts producingTaskId,
 					// this test would need the tool to still use ctx.taskId. For the
@@ -213,7 +214,7 @@ describe("create_artifact tool", () => {
 			});
 
 			const result = await createArtifactTool.handler(
-				{ kind: "decision", preview: null },
+				{ kind: "text", preview: null },
 				makeContext(db, eventBus, "task-other"),
 			);
 
@@ -228,7 +229,7 @@ describe("create_artifact tool", () => {
 
 		it("returns NOT_FOUND when ctx.taskId does not exist in the tasks table", async () => {
 			const result = await createArtifactTool.handler(
-				{ kind: "decision", preview: null },
+				{ kind: "text", preview: null },
 				makeContext(db, eventBus, "nonexistent-task"),
 			);
 
@@ -249,10 +250,11 @@ describe("create_artifact tool", () => {
 				emitted.push(e);
 			});
 
+			// @lore AE6: was kind=verification; updated to kind=text (fundamental kind)
 			const result = await createArtifactTool.handler(
 				{
-					kind: "verification",
-					preview: { kind: "verification", suite: "unit", passed: 10, failed: 0 },
+					kind: "text",
+					preview: { kind: "text", body: "10 tests passed, 0 failed.", format: "plain" },
 				},
 				makeContext(db, eventBus, "task-1"),
 			);
@@ -266,7 +268,7 @@ describe("create_artifact tool", () => {
 			expect(emitted[0].type).toBe("artifact_created");
 			expect(emitted[0].artifactId).toBe(data.artifactId);
 			expect(emitted[0].taskId).toBe("task-1");
-			expect(emitted[0].kind).toBe("verification");
+			expect(emitted[0].kind).toBe("text");
 			expect(typeof emitted[0].timestamp).toBe("number");
 			expect(typeof emitted[0].streamId).toBe("string");
 		});
@@ -278,14 +280,9 @@ describe("create_artifact tool", () => {
 				emitted.push(e);
 			});
 
-			await createArtifactTool.handler(
-				{ kind: "decision", preview: null },
-				makeContext(db, eventBus),
-			);
-			await createArtifactTool.handler(
-				{ kind: "decision", preview: null },
-				makeContext(db, eventBus),
-			);
+			// @lore AE6: was kind=decision; updated to kind=text (fundamental kind)
+			await createArtifactTool.handler({ kind: "text", preview: null }, makeContext(db, eventBus));
+			await createArtifactTool.handler({ kind: "text", preview: null }, makeContext(db, eventBus));
 
 			expect(emitted).toHaveLength(2);
 			// Each event must have a distinct artifactId.
@@ -332,11 +329,13 @@ describe("create_artifact tool", () => {
 		});
 
 		it("returns KIND_MISMATCH when preview.kind does not match kind", async () => {
+			// @lore AE6: was kind=code_diff / preview.kind=deck (both unregistered).
+			// Now uses kind=code (registered) with preview.kind=text (mismatch).
 			const result = await createArtifactTool.handler(
 				{
-					kind: "code_diff",
-					// preview.kind is "deck" but kind is "code_diff" -> mismatch
-					preview: { kind: "deck", slideCount: 3, firstSlideTitle: "Intro" },
+					kind: "code",
+					// preview.kind is "text" but kind is "code" -> mismatch
+					preview: { kind: "text", body: "hello", format: "plain" },
 				},
 				makeContext(db, eventBus),
 			);
@@ -347,10 +346,16 @@ describe("create_artifact tool", () => {
 		});
 
 		it("returns KIND_MISMATCH for any combination of mismatched kind/preview", async () => {
+			// @lore AE6: was kind=decision / preview.kind=verification (both unregistered).
+			// Now uses kind=text (registered) with preview.kind=code (mismatch).
 			const result = await createArtifactTool.handler(
 				{
-					kind: "decision",
-					preview: { kind: "verification", suite: "unit", passed: 1, failed: 0 },
+					kind: "text",
+					preview: {
+						kind: "code",
+						file: "src/x.ts",
+						hunks: [],
+					},
 				},
 				makeContext(db, eventBus),
 			);
@@ -361,12 +366,14 @@ describe("create_artifact tool", () => {
 		});
 
 		it("returns INVALID_INPUT when preview has wrong shape for the given kind", async () => {
+			// @lore AE6: was kind=deck (unregistered). Now uses kind=text (registered)
+			// with a preview that is missing required body/format fields.
 			const result = await createArtifactTool.handler(
 				{
-					kind: "deck",
-					// preview is kind=deck but missing required fields
+					kind: "text",
+					// preview is kind=text but missing required fields
 					// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
-					preview: { kind: "deck" } as any,
+					preview: { kind: "text" } as any,
 				},
 				makeContext(db, eventBus),
 			);
@@ -380,8 +387,9 @@ describe("create_artifact tool", () => {
 	// -------------------------------------------------------------------- AC4: metadata shape
 	describe("AC4: artifact metadata is correct in the database row", () => {
 		it("stores a valid ISO 8601 createdAt timestamp", async () => {
+			// @lore AE6: was kind=decision; updated to kind=text (fundamental kind)
 			const result = await createArtifactTool.handler(
-				{ kind: "decision", preview: null },
+				{ kind: "text", preview: null },
 				makeContext(db, eventBus),
 			);
 
@@ -398,9 +406,14 @@ describe("create_artifact tool", () => {
 		});
 
 		it("stores the preview JSON that can be parsed back to the original shape", async () => {
-			const preview = { kind: "verification" as const, suite: "integration", passed: 5, failed: 1 };
+			// @lore AE6: was kind=verification with old preview; updated to kind=text
+			const preview = {
+				kind: "text" as const,
+				body: "5 integration tests passed, 1 failed.",
+				format: "plain" as const,
+			};
 			const result = await createArtifactTool.handler(
-				{ kind: "verification", preview },
+				{ kind: "text", preview },
 				makeContext(db, eventBus),
 			);
 

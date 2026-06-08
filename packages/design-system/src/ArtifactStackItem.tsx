@@ -37,6 +37,11 @@ export function ArtifactStackItem({
 		>
 			<span className={LEFT}>
 				<ArtifactKindBadge kind={data.kind} />
+				{data.label && (
+					<span className="font-mono text-[11px] text-[var(--text-tertiary)] uppercase tracking-[0.02em]">
+						{data.label}
+					</span>
+				)}
 				<span className={TASK}>{data.producingTaskTitle}</span>
 				<span className={TITLE}>{artifactDisplayTitle(data)}</span>
 			</span>
