@@ -294,8 +294,9 @@ function BetPitch({
 
 /**
  * L14: The set of actions the founder can take on a bet from the action bar.
+ * AD5 AC-5: pause, resume, activate removed — no pause state in bet status enum.
  */
-type BetActionKind = "pause" | "resume" | "kill" | "adjust-appetite" | "unblock" | "activate";
+type BetActionKind = "kill" | "adjust-appetite" | "unblock";
 
 /**
  * ConsequencePreviewDialog — non-skippable confirmation dialog for destructive
@@ -315,7 +316,7 @@ type BetActionKind = "pause" | "resume" | "kill" | "adjust-appetite" | "unblock"
  */
 interface ConsequencePreviewDialogProps {
 	open: boolean;
-	kind: "pause" | "kill";
+	kind: "kill"; // AD5 AC-5: pause removed — kill is the only destructive action
 	onConfirm: (reason: string) => Promise<void>;
 	onCancel: () => void;
 }
@@ -330,9 +331,9 @@ function ConsequencePreviewDialog({
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	const isKill = kind === "kill";
-	const confirmLabel = isKill ? "Kill bet" : "Pause bet";
-	const title = isKill ? "Kill this bet?" : "Pause this bet?";
+	// AD5 AC-5: kind is always "kill" — pause removed from the system.
+	const confirmLabel = "Kill bet";
+	const title = "Kill this bet?";
 
 	const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -399,39 +400,20 @@ function ConsequencePreviewDialog({
 			<div className="p-4 flex flex-col gap-3 min-w-[320px] max-w-[480px]">
 				<h2 className="text-sm font-heading font-semibold uppercase tracking-wider">{title}</h2>
 
+				{/* AD5 AC-5: pause copy removed — always kill */}
 				<div className="text-xs text-[var(--text-tertiary)] space-y-1">
-					{isKill ? (
-						<>
-							<p>
-								<span className="font-semibold text-error">STOPS:</span> All active tasks will be
-								halted.
-							</p>
-							<p>
-								<span className="font-semibold text-[var(--text-primary)]">CONTINUES:</span>{" "}
-								Existing artifacts are preserved.
-							</p>
-							<p>
-								<span className="font-semibold text-[var(--text-primary)]">SAVED:</span> Team
-								capacity is freed immediately.
-							</p>
-						</>
-					) : (
-						<>
-							<p>
-								<span className="font-semibold text-error">STOPS:</span> All agent sessions will be
-								suspended. No new tasks will start.
-							</p>
-							<p>
-								<span className="font-semibold text-[var(--text-primary)]">CONTINUES:</span> The bet
-								remains in your portfolio.
-							</p>
-							<p>
-								<span className="font-semibold text-[var(--text-primary)]">SAVED:</span> All
-								completed tasks and artifacts are unaffected. The bet, its tasks, and revision log
-								are preserved in full.
-							</p>
-						</>
-					)}
+					<p>
+						<span className="font-semibold text-error">STOPS:</span> All active tasks will be
+						halted.
+					</p>
+					<p>
+						<span className="font-semibold text-[var(--text-primary)]">CONTINUES:</span> Existing
+						artifacts are preserved.
+					</p>
+					<p>
+						<span className="font-semibold text-[var(--text-primary)]">SAVED:</span> Team capacity
+						is freed immediately.
+					</p>
 				</div>
 
 				<label className="flex flex-col gap-1">
@@ -440,7 +422,7 @@ function ConsequencePreviewDialog({
 					</span>
 					<textarea
 						className="textarea textarea-bordered text-base resize-none h-20"
-						placeholder={isKill ? "Why is this bet being killed?" : "Why is this bet being paused?"}
+						placeholder="Why is this bet being killed?"
 						value={reason}
 						onChange={(e) => setReason(e.target.value)}
 						disabled={submitting}
@@ -465,7 +447,7 @@ function ConsequencePreviewDialog({
 					</button>
 					<button
 						type="button"
-						className={`btn btn-xs ${isKill ? "btn-error" : "btn-primary"}`}
+						className="btn btn-xs btn-error"
 						onClick={() => void handleConfirm()}
 						disabled={!reason.trim() || submitting}
 					>
@@ -688,9 +670,10 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	>(undefined);
 
 	// L14: Action dialog state.
+	// AD5 AC-5: kind narrowed to "kill" only (pause removed)
 	const [consequenceDialog, setConsequenceDialog] = useState<{
 		open: boolean;
-		kind: "pause" | "kill";
+		kind: "kill";
 	}>({ open: false, kind: "kill" });
 	const [appetiteDialogOpen, setAppetiteDialogOpen] = useState(false);
 
@@ -772,79 +755,24 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 		[navigate],
 	);
 
-	// L14: Action bar handlers. handleResume is declared first so handleAction
-	// can reference it in its dependency array without a hoisting issue.
-	const handleResume = useCallback(async (): Promise<void> => {
-		if (!bet) return;
-		const res = await apiFetch(`/api/bets/${encodeURIComponent(bet.id)}/resume`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({}),
-		});
-		if (!res.ok) {
-			const body = (await res.json()) as { error?: string };
-			throw new Error(body.error ?? "Failed to resume bet");
-		}
-		fetched.refresh();
-	}, [bet, fetched]);
-
-	/**
-	 * handleActivate — transitions a draft bet to active. Non-destructive, so no
-	 * ConsequencePreviewDialog needed. Tries POST /activate first; falls back to
-	 * PATCH with { field: "status", value: "active" } if the endpoint doesn't exist.
-	 *
-	 * @lore visual-parity W-02: /activate endpoint may not exist yet. PATCH fallback
-	 * uses the same pattern as other PATCH updates in this file.
-	 */
-	const handleActivate = useCallback(async (): Promise<void> => {
-		if (!bet) return;
-		const res = await apiFetch(`/api/bets/${encodeURIComponent(bet.id)}/activate`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({}),
-		});
-		if (!res.ok) {
-			// Fallback: try PATCH if /activate endpoint doesn't exist
-			const patchRes = await apiFetch(`/api/bets/${encodeURIComponent(bet.id)}`, {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ field: "status", value: "active" }),
-			});
-			if (!patchRes.ok) {
-				const errBody = (await patchRes.json().catch(() => ({}))) as { error?: string };
-				throw new Error(errBody.error ?? "Failed to activate bet");
+	// L14: Action bar handlers.
+	// AD5 AC-5: handleResume and handleActivate removed (no pause state in bet status enum).
+	const handleAction = useCallback((action: BetActionKind): void => {
+		if (action === "kill") {
+			setConsequenceDialog({ open: true, kind: "kill" });
+		} else if (action === "adjust-appetite") {
+			setAppetiteDialogOpen(true);
+		} else if (action === "unblock") {
+			// Scroll to and focus the composer textarea in HostThreadSection.
+			const textarea = document.querySelector<HTMLTextAreaElement>(
+				'[data-testid="composer-textarea"]',
+			);
+			if (textarea) {
+				textarea.scrollIntoView({ behavior: "smooth", block: "nearest" });
+				textarea.focus();
 			}
 		}
-		fetched.refresh();
-	}, [bet, fetched]);
-
-	const handleAction = useCallback(
-		(action: BetActionKind): void => {
-			if (action === "pause") {
-				setConsequenceDialog({ open: true, kind: "pause" });
-			} else if (action === "kill") {
-				setConsequenceDialog({ open: true, kind: "kill" });
-			} else if (action === "adjust-appetite") {
-				setAppetiteDialogOpen(true);
-			} else if (action === "resume") {
-				// Resume is non-destructive — no confirmation dialog needed.
-				void handleResume();
-			} else if (action === "activate") {
-				// Activate is non-destructive — no confirmation dialog needed.
-				void handleActivate();
-			} else if (action === "unblock") {
-				// Scroll to and focus the composer textarea in HostThreadSection.
-				const textarea = document.querySelector<HTMLTextAreaElement>(
-					'[data-testid="composer-textarea"]',
-				);
-				if (textarea) {
-					textarea.scrollIntoView({ behavior: "smooth", block: "nearest" });
-					textarea.focus();
-				}
-			}
-		},
-		[handleResume, handleActivate],
-	);
+	}, []);
 
 	/**
 	 * AC2: Save bet retro via POST /api/bets/:id/retro.
@@ -908,23 +836,23 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 		}
 	}, [bet]);
 
+	// AD5 AC-5: endpoint is always "kill" (pause removed)
 	const handleConsequenceConfirm = useCallback(
 		async (reason: string): Promise<void> => {
 			if (!bet) return;
-			const endpoint = consequenceDialog.kind === "kill" ? "kill" : "pause";
-			const res = await apiFetch(`/api/bets/${encodeURIComponent(bet.id)}/${endpoint}`, {
+			const res = await apiFetch(`/api/bets/${encodeURIComponent(bet.id)}/kill`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ reason }),
 			});
 			if (!res.ok) {
 				const body = (await res.json().catch(() => ({}))) as { error?: string };
-				throw new Error(body.error ?? `${endpoint} failed: ${res.status}`);
+				throw new Error(body.error ?? `kill failed: ${res.status}`);
 			}
 			setConsequenceDialog((prev) => ({ ...prev, open: false }));
 			fetched.refresh();
 		},
-		[bet, consequenceDialog.kind, fetched],
+		[bet, fetched],
 	);
 
 	const handleAppetiteConfirm = useCallback(
@@ -1111,28 +1039,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 								id={`overflow-dropdown-${bet.id}`}
 								className="absolute right-0 top-full z-10 mt-1 bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)] shadow-[var(--shadow-elevated)] py-1 min-w-[140px] hidden [&[open]]:block"
 							>
-								{bet.status === "draft" && (
-									<button
-										type="button"
-										data-dropdown-item
-										data-bet-action="activate"
-										className="w-full text-left px-3 py-2 text-[13px] text-[var(--accent-primary)] hover:bg-[var(--accent-primary-dim)]"
-										onClick={() => handleAction("activate")}
-									>
-										Activate
-									</button>
-								)}
-								{bet.status === "active" && (
-									<button
-										type="button"
-										data-dropdown-item
-										data-bet-action="pause"
-										className="w-full text-left px-3 py-2 text-[13px] hover:bg-[var(--accent-primary-dim)]"
-										onClick={() => handleAction("pause")}
-									>
-										Pause
-									</button>
-								)}
+								{/* AD5 AC-5: Activate and Pause buttons removed (no pause state in bet status enum) */}
 								{(bet.status === "active" || bet.status === "draft") && (
 									<button
 										type="button"
