@@ -21,7 +21,6 @@
  */
 
 import { factorySettings, type HyperIdleDb } from "@hyperidle/db";
-import type { Logger } from "@hyperidle/shared";
 import {
 	EventBus,
 	type KnowledgeUpdatedEvent,
@@ -74,38 +73,6 @@ function makeInMemResolver(): {
 		resolve: (id) => map.get(id) ?? null,
 		seed: (id, t) => map.set(id, t),
 	};
-}
-
-function captureLogger(): { logger: Logger; calls: Array<{ msg: string; extra: unknown }> } {
-	const calls: Array<{ msg: string; extra: unknown }> = [];
-	const logger: Logger = {
-		debug: (): void => undefined,
-		info: (msg, extra): void => {
-			calls.push({ msg, extra });
-		},
-		warn: (): void => undefined,
-		error: (): void => undefined,
-	};
-	return { logger, calls };
-}
-
-function appWithRoutes(
-	db: HyperIdleDb,
-	dispatcher: ObservabilityDispatcher | null,
-): {
-	request: (path: string, init?: RequestInit) => Promise<Response>;
-	auditCalls: Array<{ msg: string; extra: unknown }>;
-} {
-	const { logger, calls } = captureLogger();
-	const router = createObservabilityRoutes(db, {
-		getDispatcher: () => dispatcher,
-		logger,
-	});
-	const request = (path: string, init?: RequestInit): Promise<Response> => {
-		const url = new URL(path, "http://test.local");
-		return router.fetch(new Request(url, init));
-	};
-	return { request, auditCalls: calls };
 }
 
 // Keep a reference so the unused-db import doesn't fail lint when the

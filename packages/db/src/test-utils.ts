@@ -25,7 +25,7 @@ function trace(event: string, durationMs: number, meta?: Record<string, unknown>
 		...meta,
 	};
 	try {
-		appendFileSync(TRACE_FILE, JSON.stringify(entry) + "\n");
+		appendFileSync(TRACE_FILE, `${JSON.stringify(entry)}\n`);
 	} catch {}
 }
 

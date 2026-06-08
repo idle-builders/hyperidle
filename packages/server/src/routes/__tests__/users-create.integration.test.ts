@@ -8,7 +8,7 @@
  * Reviewer WARNING: POST must set role, status, and other required columns
  */
 
-import { type HyperIdleDb, users } from "@hyperidle/db";
+import { users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { createApp } from "../../app.js";
 import { test } from "../../test-fixtures.js";

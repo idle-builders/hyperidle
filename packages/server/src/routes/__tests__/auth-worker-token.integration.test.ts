@@ -59,12 +59,12 @@ async function callWorkerToken(
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe("S4: POST /api/auth/worker-token", () => {
-	test("returns 401 without authentication", async ({}) => {
+	test("returns 401 without authentication", async (_ctx) => {
 		const result = await callWorkerToken({ workerToken: "test-secret-token" });
 		expect(result.status).toBe(401);
 	});
 
-	test("returns 404 when HYPERIDLE_WORKER_TOKEN is not set (worker registration disabled)", async ({}) => {
+	test("returns 404 when HYPERIDLE_WORKER_TOKEN is not set (worker registration disabled)", async (_ctx) => {
 		// workerToken undefined → env var deleted
 		const result = await callWorkerToken({
 			apiKey: TEST_API_KEY,
@@ -73,7 +73,7 @@ describe("S4: POST /api/auth/worker-token", () => {
 		expect(result.status).toBe(404);
 	});
 
-	test("returns 200 with { token } when authenticated and HYPERIDLE_WORKER_TOKEN is set", async ({}) => {
+	test("returns 200 with { token } when authenticated and HYPERIDLE_WORKER_TOKEN is set", async (_ctx) => {
 		const result = await callWorkerToken({
 			apiKey: TEST_API_KEY,
 			workerToken: "my-worker-secret",
@@ -83,7 +83,7 @@ describe("S4: POST /api/auth/worker-token", () => {
 		expect(body.token).toBe("my-worker-secret");
 	});
 
-	test("404 response body includes error code NOT_FOUND", async ({}) => {
+	test("404 response body includes error code NOT_FOUND", async (_ctx) => {
 		const result = await callWorkerToken({
 			apiKey: TEST_API_KEY,
 			workerToken: undefined,

@@ -7,7 +7,7 @@ export interface DbFixtures {
 }
 
 export const test = base.extend<DbFixtures>({
-	db: async ({}, use) => {
+	db: async (_ctx, use) => {
 		const instance = await checkout();
 		await use(instance.db);
 		checkin(instance);

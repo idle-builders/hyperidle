@@ -16,7 +16,7 @@ export async function createTestApp(options?: AppOptions): Promise<Hono> {
 		try {
 			appendFileSync(
 				TRACE_FILE,
-				JSON.stringify({ ts: Date.now(), pid: process.pid, event: "createTestApp", ms }) + "\n",
+				`${JSON.stringify({ ts: Date.now(), pid: process.pid, event: "createTestApp", ms })}\n`,
 			);
 		} catch {}
 	}

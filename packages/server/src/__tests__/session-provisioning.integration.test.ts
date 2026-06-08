@@ -24,7 +24,7 @@ import {
 } from "@hyperidle/db";
 import { clearDeduplicationCache } from "@hyperidle/fabric";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe } from "vitest";
+import { afterEach, beforeEach, describe, expect } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { ClaudeAgentSdkAdapter } from "../harness/claude-agent-sdk-adapter.js";
 import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";

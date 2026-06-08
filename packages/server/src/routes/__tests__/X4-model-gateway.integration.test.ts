@@ -51,7 +51,7 @@ function makeResolver(entries: Record<string, string | null>): CredentialResolve
 // ---------------------------------------------------------------------------
 
 describe("X4: resolveModelTier — anthropic provider", () => {
-	test("returns correct ResolvedModel with Anthropic base URL", async ({}) => {
+	test("returns correct ResolvedModel with Anthropic base URL", async (_ctx) => {
 		const config = DEFAULT_GATEWAY_CONFIG;
 		const resolver = makeResolver({ anthropic_api_key: "ant-key-abc" });
 
@@ -63,7 +63,7 @@ describe("X4: resolveModelTier — anthropic provider", () => {
 		expect(result.baseUrl).toBe("https://api.anthropic.com");
 	});
 
-	test("resolves reasoning tier with claude-opus model", async ({}) => {
+	test("resolves reasoning tier with claude-opus model", async (_ctx) => {
 		const resolver = makeResolver({ anthropic_api_key: "ant-key-reasoning" });
 		const result = await resolveModelTier("reasoning", DEFAULT_GATEWAY_CONFIG, resolver);
 
@@ -73,7 +73,7 @@ describe("X4: resolveModelTier — anthropic provider", () => {
 		expect(result.baseUrl).toBe("https://api.anthropic.com");
 	});
 
-	test("resolves fast tier with claude-haiku model", async ({}) => {
+	test("resolves fast tier with claude-haiku model", async (_ctx) => {
 		const resolver = makeResolver({ anthropic_api_key: "ant-key-fast" });
 		const result = await resolveModelTier("fast", DEFAULT_GATEWAY_CONFIG, resolver);
 
@@ -83,7 +83,7 @@ describe("X4: resolveModelTier — anthropic provider", () => {
 		expect(result.baseUrl).toBe("https://api.anthropic.com");
 	});
 
-	test("throws MissingCredentialError when anthropic_api_key is missing", async ({}) => {
+	test("throws MissingCredentialError when anthropic_api_key is missing", async (_ctx) => {
 		const resolver = makeResolver({ anthropic_api_key: null });
 
 		await expect(resolveModelTier("workhorse", DEFAULT_GATEWAY_CONFIG, resolver)).rejects.toThrow(
@@ -91,7 +91,7 @@ describe("X4: resolveModelTier — anthropic provider", () => {
 		);
 	});
 
-	test("MissingCredentialError message identifies provider and tier", async ({}) => {
+	test("MissingCredentialError message identifies provider and tier", async (_ctx) => {
 		const resolver = makeResolver({ anthropic_api_key: null });
 
 		try {
@@ -108,7 +108,7 @@ describe("X4: resolveModelTier — anthropic provider", () => {
 });
 
 describe("X4: resolveModelTier — openrouter provider", () => {
-	test("returns correct ResolvedModel with OpenRouter base URL", async ({}) => {
+	test("returns correct ResolvedModel with OpenRouter base URL", async (_ctx) => {
 		const config = {
 			...DEFAULT_GATEWAY_CONFIG,
 			workhorse: {
@@ -126,7 +126,7 @@ describe("X4: resolveModelTier — openrouter provider", () => {
 		expect(result.baseUrl).toBe("https://openrouter.ai/api");
 	});
 
-	test("throws MissingCredentialError when openrouter_api_key is missing", async ({}) => {
+	test("throws MissingCredentialError when openrouter_api_key is missing", async (_ctx) => {
 		const config = {
 			...DEFAULT_GATEWAY_CONFIG,
 			workhorse: {
@@ -143,7 +143,7 @@ describe("X4: resolveModelTier — openrouter provider", () => {
 });
 
 describe("X4: resolveModelTier — openai-compatible provider", () => {
-	test("returns correct ResolvedModel with custom base URL and apiKey", async ({}) => {
+	test("returns correct ResolvedModel with custom base URL and apiKey", async (_ctx) => {
 		const config = {
 			...DEFAULT_GATEWAY_CONFIG,
 			fast: {
@@ -163,7 +163,7 @@ describe("X4: resolveModelTier — openai-compatible provider", () => {
 		expect(result.baseUrl).toBe("https://api.together.xyz/v1");
 	});
 
-	test("throws when openai-compatible has no apiKey (A-ERR-1)", async ({}) => {
+	test("throws when openai-compatible has no apiKey (A-ERR-1)", async (_ctx) => {
 		const config = {
 			...DEFAULT_GATEWAY_CONFIG,
 			fast: {
@@ -180,7 +180,7 @@ describe("X4: resolveModelTier — openai-compatible provider", () => {
 		);
 	});
 
-	test("throws when openai-compatible has no baseUrl (A-ERR-2)", async ({}) => {
+	test("throws when openai-compatible has no baseUrl (A-ERR-2)", async (_ctx) => {
 		const config = {
 			...DEFAULT_GATEWAY_CONFIG,
 			fast: {
@@ -205,17 +205,17 @@ describe("X4: DEFAULT_GATEWAY_CONFIG matches current MODEL_TIER_MAP values", () 
 	// DEFAULT_GATEWAY_CONFIG, the behavior will change for users who have no
 	// gateway config stored (they fall back to defaults). The test asserts the
 	// exact model IDs that were in MODEL_TIER_MAP before X4 replaced it.
-	test("reasoning tier defaults to claude-opus-4-20250514 via anthropic", ({}) => {
+	test("reasoning tier defaults to claude-opus-4-20250514 via anthropic", (_ctx) => {
 		expect(DEFAULT_GATEWAY_CONFIG.reasoning.provider).toBe("anthropic");
 		expect(DEFAULT_GATEWAY_CONFIG.reasoning.model).toBe("claude-opus-4-20250514");
 	});
 
-	test("workhorse tier defaults to claude-sonnet-4-20250514 via anthropic", ({}) => {
+	test("workhorse tier defaults to claude-sonnet-4-20250514 via anthropic", (_ctx) => {
 		expect(DEFAULT_GATEWAY_CONFIG.workhorse.provider).toBe("anthropic");
 		expect(DEFAULT_GATEWAY_CONFIG.workhorse.model).toBe("claude-sonnet-4-20250514");
 	});
 
-	test("fast tier defaults to claude-haiku-3-5-20241022 via anthropic", ({}) => {
+	test("fast tier defaults to claude-haiku-3-5-20241022 via anthropic", (_ctx) => {
 		expect(DEFAULT_GATEWAY_CONFIG.fast.provider).toBe("anthropic");
 		expect(DEFAULT_GATEWAY_CONFIG.fast.model).toBe("claude-haiku-3-5-20241022");
 	});

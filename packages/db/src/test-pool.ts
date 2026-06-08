@@ -25,7 +25,7 @@ function trace(event: string, durationMs: number, meta?: Record<string, unknown>
 		...meta,
 	};
 	try {
-		appendFileSync(TRACE_FILE, JSON.stringify(entry) + "\n");
+		appendFileSync(TRACE_FILE, `${JSON.stringify(entry)}\n`);
 	} catch {}
 }
 
@@ -117,15 +117,19 @@ export async function checkout(): Promise<PooledInstance> {
 		await warmPool();
 	}
 
+	if (!state.primary) {
+		throw new Error("pool not warmed");
+	}
+
 	if (state.primaryInUse) {
 		trace("checkout:fallback", 0, {});
 		return allocateInstance();
 	}
 
 	state.primaryInUse = true;
-	await truncateAllTables(state.primary!.db);
+	await truncateAllTables(state.primary.db);
 	trace("checkout", performance.now() - t0, { source: "pool" });
-	return state.primary!;
+	return state.primary;
 }
 
 export function checkin(instance: PooledInstance): void {

@@ -7,7 +7,7 @@
  */
 
 import { type HyperIdleDb, inviteCodes, users } from "@hyperidle/db";
-import { API_ERROR_CODES, type EventBus } from "@hyperidle/shared";
+import { API_ERROR_CODES } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 import { createTestApp } from "../../test-utils.js";

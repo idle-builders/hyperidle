@@ -283,22 +283,22 @@ describe("AB2 AC-6: Agent error state triggers notification (throttled)", () => 
 		vi.unstubAllEnvs();
 	});
 
-	test("deriveHealthLevel returns 'critical' when failureRate7d > 0.5", async ({}) => {
+	test("deriveHealthLevel returns 'critical' when failureRate7d > 0.5", async (_ctx) => {
 		const result = deriveHealthLevel({ failureRate7d: 0.75, lastSessionCrashed: false });
 		expect(result).toBe("critical");
 	});
 
-	test("deriveHealthLevel returns 'warning' when lastSessionCrashed", async ({}) => {
+	test("deriveHealthLevel returns 'warning' when lastSessionCrashed", async (_ctx) => {
 		const result = deriveHealthLevel({ failureRate7d: 0, lastSessionCrashed: true });
 		expect(result).toBe("warning");
 	});
 
-	test("deriveHealthLevel returns 'healthy' when no issues", async ({}) => {
+	test("deriveHealthLevel returns 'healthy' when no issues", async (_ctx) => {
 		const result = deriveHealthLevel({ failureRate7d: 0, lastSessionCrashed: false });
 		expect(result).toBe("healthy");
 	});
 
-	test("deriveHealthDetail returns a non-empty string for each health level", async ({}) => {
+	test("deriveHealthDetail returns a non-empty string for each health level", async (_ctx) => {
 		const criticalDetail = deriveHealthDetail({ failureRate7d: 0.75, lastSessionCrashed: false });
 		const warningDetail = deriveHealthDetail({ failureRate7d: 0, lastSessionCrashed: true });
 		const healthyDetail = deriveHealthDetail({ failureRate7d: 0, lastSessionCrashed: false });

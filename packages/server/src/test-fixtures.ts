@@ -1,7 +1,7 @@
 import { type DbFixtures, test as dbTest } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
-import { type AppOptions, createApp, disposeApp } from "./app.js";
+import { createApp, disposeApp } from "./app.js";
 
 export interface IntegrationFixtures extends DbFixtures {
 	app: Hono;
@@ -9,7 +9,7 @@ export interface IntegrationFixtures extends DbFixtures {
 }
 
 export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
-	eventBus: async ({}, use) => {
+	eventBus: async (_ctx, use) => {
 		await use(new EventBus());
 	},
 	app: async ({ db, eventBus }, use) => {

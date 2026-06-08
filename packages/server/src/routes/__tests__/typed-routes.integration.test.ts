@@ -11,7 +11,7 @@
  * The integration tests use createTestDb/createTestApp which need a real DB.
  */
 
-import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
+import { bets, teamMembers, teams } from "@hyperidle/db";
 import { API_ERROR_CODES, EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { betDetailResponseSchema, betListResponseSchema } from "../../schemas/bet.schema.js";

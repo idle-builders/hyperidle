@@ -128,7 +128,7 @@ describe("git-export routes", () => {
 			expect(body.error).toContain("repoPath");
 		});
 
-		test("returns 200 on successful export (injected stubs)", async ({}) => {
+		test("returns 200 on successful export (injected stubs)", async (_ctx) => {
 			// Build stub GitRunner + FsAdapter and inject directly into route
 			const stubRunner: GitRunner = {
 				init: async () => {},

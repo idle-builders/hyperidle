@@ -1,4 +1,4 @@
-import { createTestDb, type HyperIdleDb, knowledgeConflicts } from "@hyperidle/db";
+import { createTestDb, knowledgeConflicts } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import {

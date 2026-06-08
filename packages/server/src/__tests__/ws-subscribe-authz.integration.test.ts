@@ -12,7 +12,7 @@
 
 import { threads as threadsTable } from "@hyperidle/db";
 import type { ThreadMessageAppendedEvent } from "@hyperidle/shared";
-import { afterEach, describe, expect } from "vitest";
+import { describe, expect } from "vitest";
 import {
 	createDbSubscribeAuthorizer,
 	WsBroadcaster,

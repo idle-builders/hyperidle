@@ -4,29 +4,29 @@ import { describe, expect } from "vitest";
 import { test } from "../test-fixtures.js";
 
 describe("isInSilenceWindow", () => {
-	test("returns true when now is exactly at window start", async ({}) => {
+	test("returns true when now is exactly at window start", async (_ctx) => {
 		// Window 09:00 - 17:00, now = 09:00 UTC
 		const now = new Date("2026-01-15T09:00:00Z");
 		expect(isInSilenceWindow("09:00", "17:00", now)).toBe(true);
 	});
 
-	test("returns true when now is exactly at window end", async ({}) => {
+	test("returns true when now is exactly at window end", async (_ctx) => {
 		// Window 09:00 - 17:00, now = 17:00 UTC
 		const now = new Date("2026-01-15T17:00:00Z");
 		expect(isInSilenceWindow("09:00", "17:00", now)).toBe(true);
 	});
 
-	test("returns false when now is one minute before window start", async ({}) => {
+	test("returns false when now is one minute before window start", async (_ctx) => {
 		const now = new Date("2026-01-15T08:59:00Z");
 		expect(isInSilenceWindow("09:00", "17:00", now)).toBe(false);
 	});
 
-	test("returns false when now is one minute after window end", async ({}) => {
+	test("returns false when now is one minute after window end", async (_ctx) => {
 		const now = new Date("2026-01-15T17:01:00Z");
 		expect(isInSilenceWindow("09:00", "17:00", now)).toBe(false);
 	});
 
-	test("supports overnight window (22:00 - 07:00)", async ({}) => {
+	test("supports overnight window (22:00 - 07:00)", async (_ctx) => {
 		// 23:00 should be inside the window
 		const late = new Date("2026-01-15T23:00:00Z");
 		expect(isInSilenceWindow("22:00", "07:00", late)).toBe(true);
@@ -40,23 +40,23 @@ describe("isInSilenceWindow", () => {
 		expect(isInSilenceWindow("22:00", "07:00", midday)).toBe(false);
 	});
 
-	test("returns false for malformed time format (missing colon)", async ({}) => {
+	test("returns false for malformed time format (missing colon)", async (_ctx) => {
 		const now = new Date("2026-01-15T12:00:00Z");
 		expect(isInSilenceWindow("0900", "1700", now)).toBe(false);
 	});
 
-	test("handles edge case of midnight boundary (00:00)", async ({}) => {
+	test("handles edge case of midnight boundary (00:00)", async (_ctx) => {
 		// Overnight window ending at midnight
 		const now = new Date("2026-01-15T00:00:00Z");
 		expect(isInSilenceWindow("22:00", "00:00", now)).toBe(true);
 	});
 
-	test("returns false for non-numeric time parts", async ({}) => {
+	test("returns false for non-numeric time parts", async (_ctx) => {
 		const now = new Date("2026-01-15T12:00:00Z");
 		expect(isInSilenceWindow("ab:cd", "12:00", now)).toBe(false);
 	});
 
-	test("treats 07:00 as silenced for overnight window 22:00-07:00 (inclusive end)", async ({}) => {
+	test("treats 07:00 as silenced for overnight window 22:00-07:00 (inclusive end)", async (_ctx) => {
 		// @lore The spec says "when time is 07:00, then not silenced" for
 		// window "22:00-07:00", but the implementation uses inclusive end
 		// boundary (<=). At 07:00, nowMinutes (420) <= endMinutes (420) is
@@ -67,7 +67,7 @@ describe("isInSilenceWindow", () => {
 		expect(isInSilenceWindow("22:00", "07:00", now)).toBe(true);
 	});
 
-	test("returns false for '25:00' malformed hour value (out of 0-23 range)", async ({}) => {
+	test("returns false for '25:00' malformed hour value (out of 0-23 range)", async (_ctx) => {
 		// @lore The implementation does not validate that hours are in the
 		// 0-23 range — it only checks for numeric-ness and colon format.
 		// "25:00" parses to startMinutes=1500, which exceeds any real
