@@ -11,13 +11,7 @@
  *     user, returning 403 for mismatches (IDOR fix).
  */
 
-import {
-	createTestDb,
-	type HyperIdleDb,
-	type TestDbHandle,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, type TestDbHandle, threads, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

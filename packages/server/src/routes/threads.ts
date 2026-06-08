@@ -192,11 +192,6 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 	router.route("/coach", createCoachRoutes(db, eventBus));
 
 	// --- GET /api/threads ---------------------------------------------------
-	// @lore L8 security review (HIGH-1, HIGH-2): the `participant_id` query
-	// param is NOT verified against the authenticated identity. A holder of
-	// a valid API key can call `?participant_id=<other>` and read another
-	// founder's threads (IDOR). This is inherited from L1a's "API-key holder
-	// is implicit sender" model and is explicitly out of L8's scope.
 	router.get("/", async (c) => {
 		const parsed = listThreadsQuerySchema.safeParse({
 			host_kind: c.req.query("host_kind"),
@@ -212,6 +207,16 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 		const q = parsed.data;
 		if (!(q.host_kind || q.participant_id)) {
 			const e = err("validation_error", "Missing scope (host_kind or participant_id)", 400);
+			return c.json(e.body, e.status);
+		}
+
+		// @lore AD1: IDOR fix. When participant_id is provided, validate it matches
+		// the authenticated user. A valid API key must not allow reading another
+		// user's thread list. host_kind queries are unaffected (they scope by host,
+		// not by participant identity). Only applied when participant_id is present
+		// so single-founder local-mode setups (where auth userId === only human) work.
+		if (q.participant_id !== undefined && q.participant_id !== c.get("userId")) {
+			const e = err(API_ERROR_CODES.FORBIDDEN, "participant_id must match authenticated user", 403);
 			return c.json(e.body, e.status);
 		}
 

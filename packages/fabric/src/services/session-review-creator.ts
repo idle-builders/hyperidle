@@ -5,9 +5,11 @@ import {
 	taskStrategyFabric,
 	tasks,
 	threads,
+	users,
 } from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
+import { resolveReviewRecipients } from "./org-routing.js";
 
 /**
  * Subscribes to session_ended events and creates review items
@@ -59,6 +61,40 @@ export function registerSessionReviewCreator(db: HyperIdleDb, eventBus: EventBus
 
 				// Update task with new threadId
 				await db.update(tasks).set({ threadId }).where(eq(tasks.id, task.id));
+			}
+
+			// @lore AD1: Wire review routing to humans on session-end review creation.
+			// Resolve human recipients via org_edges using the agent's userId, role,
+			// and the task's teamId. Falls back to ALL human users when no edges match.
+			// Merges into existing thread participants (sorted + deduplicated).
+			const [agentRow] = await db
+				.select({ role: users.role })
+				.from(users)
+				.where(eq(users.id, session.agentId))
+				.limit(1);
+
+			const humanIds = await resolveReviewRecipients(db, {
+				userId: session.agentId,
+				agentRole: agentRow?.role ?? undefined,
+				teamId: task.teamId,
+			});
+
+			if (humanIds.length > 0) {
+				const [threadRow] = await db
+					.select({ participants: threads.participants })
+					.from(threads)
+					.where(eq(threads.id, threadId))
+					.limit(1);
+
+				const currentParticipants: string[] = threadRow
+					? (JSON.parse(threadRow.participants) as string[])
+					: [session.agentId];
+
+				const merged = [...new Set([...currentParticipants, ...humanIds])].sort();
+				await db
+					.update(threads)
+					.set({ participants: JSON.stringify(merged) })
+					.where(eq(threads.id, threadId));
 			}
 
 			// Create review item
