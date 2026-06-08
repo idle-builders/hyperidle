@@ -10,6 +10,11 @@ export default defineConfig({
 		exclude: ["**/node_modules/**", "**/.git/**", "**/dist/**", "**/.worktrees/**"],
 		reporters: ["dot"],
 		pool: "threads",
+		poolOptions: {
+			threads: {
+				isolate: false,
+			},
+		},
 		setupFiles: ["packages/db/src/vitest-integration-setup.ts"],
 	},
 });
