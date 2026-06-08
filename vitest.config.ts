@@ -6,7 +6,13 @@ export default defineConfig({
 		testTimeout: 120_000,
 		maxWorkers: 4,
 		minWorkers: 1,
-		exclude: ["**/node_modules/**", "**/.git/**", "**/dist/**", "**/.worktrees/**"],
+		exclude: [
+			"**/node_modules/**",
+			"**/.git/**",
+			"**/dist/**",
+			"**/.worktrees/**",
+			"**/*.integration.test.{ts,tsx}",
+		],
 		reporters: ["dot"],
 		projects: [
 			"packages/api-contract",

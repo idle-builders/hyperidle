@@ -37,15 +37,25 @@ Before any work is complete: `npm run check` (zero type errors) + `npm run lint`
 
 | Scenario | Command | What it does |
 |---|---|---|
-| **Run tests** | `npm run test` | Runs all vitest tests across all packages. |
+| **Unit + component tests** | `npm run test` | Fast tests only — excludes `*.integration.test.ts`. |
+| **Integration tests** | `npm run test:integration` | DB/API integration tests only (`*.integration.test.ts`). |
+| **All tests** | `npm run test:all` | Unit + component + integration. |
 | **E2E tests** | `npm run test:e2e` | Playwright end-to-end tests (Chromium). |
 | **Typecheck** | `npm run check` | `tsc --noEmit` directly. |
 | **Lint** | `npm run lint` | Biome + ESLint directly. |
-| **Quick verify** | `npm run verify -- --quick` | Phase 1 only: check + lint + knip. No tests or builds. |
-| **Full verify** | `npm run verify` | Smart package-aware gating. Writes attestation on success. |
-| **Force all tools** | `npm run verify -- --full` | All tools, no smart gating. |
+| **Quick verify** | `npm run verify:quick` | check + lint + knip. No tests or builds. |
+| **Full verify** | `npm run verify` | check + lint + knip + test:all + build + attestation. Sequential, no orchestrator. |
 
-`check`, `lint`, and `test` are the real tools with normal output. `verify` orchestrates them silently, reports pass/fail per tool, and writes the HMAC attestation. Run individual commands for error details.
+### Test file naming
+
+| Pattern | Type | Speed |
+|---|---|---|
+| `*.test.ts` | Unit tests (pure logic, no DB/server) | <1s per file |
+| `*.test.tsx` | Component/UI tests (React rendering) | <1s per file |
+| `*.integration.test.ts` | DB/API integration (createTestDb, createTestApp) | 1-10s per file |
+| `*.spec.ts` | E2E (Playwright, separate from vitest) | 5-30s per test |
+
+`verify` is pure npm script chaining — no custom process orchestrator. The shell owns every child process. Attestation is a standalone script (`scripts/verify-attest.ts`).
 
 ## Proof & Definition of Done
 
@@ -111,7 +121,7 @@ Node.js, npm, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React 
 
 ## Commands
 
-`npm install`, `npm run dev` (server 3001 + web 5173), `npm run verify` (all tools in parallel phases — preferred for final check before shipping), `npm run test` (affected tests only on feature branches, full suite on main), `npm run test -- --all` (full test suite), `npm run test:e2e` (Playwright E2E), `npm run check` (typecheck), `npm run lint` (Biome + ESLint), `npm run lint:biome`, `npm run lint:eslint`, `npm run lint:fix`, `npm run db:generate`, `npm run db:migrate`.
+`npm install`, `npm run dev` (server 3001 + web 5173), `npm run verify` (check + lint + knip + test:all + build + attestation — preferred for final check before shipping), `npm run test` (fast unit + component tests, excludes integration), `npm run test:integration` (DB/API integration tests only), `npm run test:all` (all tests), `npm run test:e2e` (Playwright E2E), `npm run check` (typecheck), `npm run lint` (Biome + ESLint), `npm run lint:biome`, `npm run lint:eslint`, `npm run lint:fix`, `npm run db:generate`, `npm run db:migrate`.
 
 ---
 

@@ -7,6 +7,7 @@ export default defineProject({
 		// Vitest project-level `include` replaces the default — keep in sync
 		// with the test layout under `src/`.
 		include: ["src/**/*.test.{ts,tsx}"],
+		exclude: ["**/*.integration.test.{ts,tsx}"],
 		setupFiles: ["src/vitest-setup.ts"],
 		hookTimeout: 120_000,
 		testTimeout: 120_000,

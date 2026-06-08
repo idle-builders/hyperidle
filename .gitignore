@@ -25,6 +25,7 @@ logs/
 .claude/scheduled_tasks.lock
 test-output.toon
 .verify-attestation.json
+.verify.pid
 plans/*
 packages/design-system/03-hearth.html
 packages/design-system/inspiration/
