@@ -1,6 +1,6 @@
 ## 3. One App, One Form Factor
 
-The entire human interface layer ships as **one product: the Factory.** A native macOS desktop app (Electron) with the server embedded in-process. One codebase, one data model, one interaction grammar. Desktop-only — no mobile companion.
+The entire human interface layer ships as **one product: the Factory.** A native macOS desktop app (Electron) with the server embedded in-process. One codebase, one data model, one interaction grammar. Desktop is the primary form factor. The same web app is accessible from mobile browsers for review triage and agent unblocking. No native mobile app. No offline support.
 
 ### 3.1 Desktop (the workbench)
 
