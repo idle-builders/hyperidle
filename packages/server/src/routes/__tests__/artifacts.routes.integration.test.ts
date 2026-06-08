@@ -10,17 +10,14 @@
 import {
 	artifacts,
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	tasks,
 	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-artifacts";
 
@@ -67,16 +64,9 @@ async function seedBase(db: HyperIdleDb): Promise<{ taskId: string }> {
 }
 
 describe("artifacts routes", () => {
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
 
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
 	});
 
 	afterEach(() => {
@@ -84,14 +74,14 @@ describe("artifacts routes", () => {
 	});
 
 	describe("artifacts auth", () => {
-		it("returns 401 without auth header on GET /api/artifacts", async () => {
+		test("returns 401 without auth header on GET /api/artifacts", async ({ db, app }) => {
 			const res = await app.request("/api/artifacts?axis=task&taskId=x", { method: "GET" });
 			expect(res.status).toBe(401);
 		});
 	});
 
 	describe("GET /api/artifacts", () => {
-		it("returns 400 when axis query param is missing or invalid", async () => {
+		test("returns 400 when axis query param is missing or invalid", async ({ db, app }) => {
 			const res = await app.request("/api/artifacts", {
 				method: "GET",
 				headers: authHeaders(),
@@ -99,7 +89,7 @@ describe("artifacts routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 when axis=task but taskId is missing", async () => {
+		test("returns 400 when axis=task but taskId is missing", async ({ db, app }) => {
 			const res = await app.request("/api/artifacts?axis=task", {
 				method: "GET",
 				headers: authHeaders(),
@@ -107,7 +97,7 @@ describe("artifacts routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 when axis=bet but betId is missing", async () => {
+		test("returns 400 when axis=bet but betId is missing", async ({ db, app }) => {
 			const res = await app.request("/api/artifacts?axis=bet", {
 				method: "GET",
 				headers: authHeaders(),
@@ -115,7 +105,7 @@ describe("artifacts routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 when axis=product but teamId is missing", async () => {
+		test("returns 400 when axis=product but teamId is missing", async ({ db, app }) => {
 			const res = await app.request("/api/artifacts?axis=product", {
 				method: "GET",
 				headers: authHeaders(),
@@ -123,7 +113,7 @@ describe("artifacts routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 200 with empty items when no artifacts exist (axis=task)", async () => {
+		test("returns 200 with empty items when no artifacts exist (axis=task)", async ({ db, app }) => {
 			await seedBase(db);
 			const res = await app.request("/api/artifacts?axis=task&taskId=task-1", {
 				method: "GET",
@@ -136,7 +126,7 @@ describe("artifacts routes", () => {
 			expect(body.nextCursor).toBeNull();
 		});
 
-		it("returns 200 with paginated artifacts for axis=task", async () => {
+		test("returns 200 with paginated artifacts for axis=task", async ({ db, app }) => {
 			const { taskId } = await seedBase(db);
 			const now = new Date().toISOString();
 			await db.insert(artifacts).values({
@@ -157,7 +147,7 @@ describe("artifacts routes", () => {
 			expect(body.items[0]?.id).toBe("art-1");
 		});
 
-		it("returns 400 when limit exceeds HARD_LIMIT_CAP (200)", async () => {
+		test("returns 400 when limit exceeds HARD_LIMIT_CAP (200)", async ({ db, app }) => {
 			await seedBase(db);
 			const res = await app.request("/api/artifacts?axis=task&taskId=task-1&limit=201", {
 				method: "GET",
@@ -168,7 +158,7 @@ describe("artifacts routes", () => {
 	});
 
 	describe("GET /api/artifacts/:id", () => {
-		it("returns 200 with artifact and denormalized task title", async () => {
+		test("returns 200 with artifact and denormalized task title", async ({ db, app }) => {
 			const { taskId } = await seedBase(db);
 			const now = new Date().toISOString();
 			await db.insert(artifacts).values({
@@ -189,7 +179,7 @@ describe("artifacts routes", () => {
 			expect(body.producingTaskTitle).toBe("Test task");
 		});
 
-		it("returns 404 for non-existent artifact", async () => {
+		test("returns 404 for non-existent artifact", async ({ db, app }) => {
 			const res = await app.request("/api/artifacts/does-not-exist", {
 				method: "GET",
 				headers: authHeaders(),
@@ -199,7 +189,7 @@ describe("artifacts routes", () => {
 	});
 
 	describe("POST /api/artifacts", () => {
-		it("returns 201 with created artifact on valid input", async () => {
+		test("returns 201 with created artifact on valid input", async ({ db, app }) => {
 			const { taskId } = await seedBase(db);
 			const res = await app.request("/api/artifacts", {
 				method: "POST",
@@ -212,7 +202,7 @@ describe("artifacts routes", () => {
 			expect(body.kind).toBe("verification");
 		});
 
-		it("returns 400 when producingTaskId references non-existent task", async () => {
+		test("returns 400 when producingTaskId references non-existent task", async ({ db, app }) => {
 			await seedBase(db);
 			const res = await app.request("/api/artifacts", {
 				method: "POST",
@@ -226,7 +216,7 @@ describe("artifacts routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 when kind is 'unknown_kind'", async () => {
+		test("returns 400 when kind is 'unknown_kind'", async ({ db, app }) => {
 			const { taskId } = await seedBase(db);
 			const res = await app.request("/api/artifacts", {
 				method: "POST",
@@ -236,7 +226,7 @@ describe("artifacts routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 when kind/preview discriminant mismatches", async () => {
+		test("returns 400 when kind/preview discriminant mismatches", async ({ db, app }) => {
 			const { taskId } = await seedBase(db);
 			// kind=verification but preview is code_diff (discriminant mismatch)
 			const res = await app.request("/api/artifacts", {
@@ -255,7 +245,7 @@ describe("artifacts routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 on missing required fields (Zod validation)", async () => {
+		test("returns 400 on missing required fields (Zod validation)", async ({ db, app }) => {
 			const res = await app.request("/api/artifacts", {
 				method: "POST",
 				headers: authHeaders(),
@@ -273,7 +263,7 @@ describe("artifacts routes", () => {
 			failed: 0,
 		};
 
-		it("returns 200 on successful preview set (when previewJson IS NULL)", async () => {
+		test("returns 200 on successful preview set (when previewJson IS NULL)", async ({ db, app }) => {
 			const { taskId } = await seedBase(db);
 			const now = new Date().toISOString();
 			await db.insert(artifacts).values({
@@ -292,7 +282,7 @@ describe("artifacts routes", () => {
 			expect(res.status).toBe(200);
 		});
 
-		it("returns 409 when preview is already set (IMMUTABLE)", async () => {
+		test("returns 409 when preview is already set (IMMUTABLE)", async ({ db, app }) => {
 			const { taskId } = await seedBase(db);
 			const now = new Date().toISOString();
 			await db.insert(artifacts).values({
@@ -311,7 +301,7 @@ describe("artifacts routes", () => {
 			expect(res.status).toBe(409);
 		});
 
-		it("returns 404 for non-existent artifact", async () => {
+		test("returns 404 for non-existent artifact", async ({ db, app }) => {
 			const res = await app.request("/api/artifacts/does-not-exist/preview", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -320,7 +310,7 @@ describe("artifacts routes", () => {
 			expect(res.status).toBe(404);
 		});
 
-		it("returns 400 on invalid preview body", async () => {
+		test("returns 400 on invalid preview body", async ({ db, app }) => {
 			const { taskId } = await seedBase(db);
 			const now = new Date().toISOString();
 			await db.insert(artifacts).values({

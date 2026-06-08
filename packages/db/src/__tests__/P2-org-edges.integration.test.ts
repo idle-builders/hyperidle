@@ -7,12 +7,11 @@
  * the tuple already exists.
  */
 
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { HyperIdleDb } from "../connection.js";
 // P2: import new symbols — these will fail to compile until implementation is done
 import { type NewOrgEdge, type NewUser, type OrgEdge, orgEdges, users } from "../schema.js";
-import { createTestDb, type TestDbHandle } from "../test-utils.js";
 
 const NOW = new Date().toISOString();
 
@@ -46,23 +45,11 @@ async function seedAiUser(db: HyperIdleDb, id: string, role = "builder"): Promis
 }
 
 describe("P2 — org_edges table (AC5)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	}, 30_000);
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
 	// -------------------------------------------------------------------------
 	// AC5: org_edges table created with correct schema
 	// -------------------------------------------------------------------------
 	describe("AC5: table exists with correct columns", () => {
-		it("org_edges table exists after migration", async () => {
+		test("org_edges table exists after migration", async ({ db }) => {
 			const result = await db.execute(
 				`SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename` as Parameters<
 					typeof db.execute
@@ -75,7 +62,7 @@ describe("P2 — org_edges table (AC5)", () => {
 			expect(tableNames).toContain("org_edges");
 		});
 
-		it("org_edges has all required columns", async () => {
+		test("org_edges has all required columns", async ({ db }) => {
 			const result = await db.execute(
 				`SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name = 'org_edges' AND table_schema = 'public'` as Parameters<
 					typeof db.execute
@@ -93,7 +80,7 @@ describe("P2 — org_edges table (AC5)", () => {
 			expect(cols.has("created_at")).toBe(true);
 		});
 
-		it("org_edges_unique index exists on (from_user_id, mechanism, target)", async () => {
+		test("org_edges_unique index exists on (from_user_id, mechanism, target)", async ({ db }) => {
 			const result = await db.execute(
 				`SELECT indexname FROM pg_indexes WHERE tablename = 'org_edges' AND schemaname = 'public'` as Parameters<
 					typeof db.execute
@@ -111,7 +98,7 @@ describe("P2 — org_edges table (AC5)", () => {
 	// AC5: CRUD operations
 	// -------------------------------------------------------------------------
 	describe("AC5: CRUD operations", () => {
-		it("inserts and reads an org edge", async () => {
+		test("inserts and reads an org edge", async ({ db }) => {
 			await seedHumanUser(db);
 			await seedAiUser(db, "u-ai-1", "builder");
 
@@ -133,7 +120,7 @@ describe("P2 — org_edges table (AC5)", () => {
 			expect((row as OrgEdge).target).toBe("u-ai-1");
 		});
 
-		it("inserts an org edge with mechanism = function", async () => {
+		test("inserts an org edge with mechanism = function", async ({ db }) => {
 			await seedHumanUser(db);
 
 			const edge: NewOrgEdge = {
@@ -150,7 +137,7 @@ describe("P2 — org_edges table (AC5)", () => {
 			expect(rows[0]).toMatchObject({ mechanism: "function", target: "builder" });
 		});
 
-		it("inserts an org edge with mechanism = team", async () => {
+		test("inserts an org edge with mechanism = team", async ({ db }) => {
 			await seedHumanUser(db);
 
 			const edge: NewOrgEdge = {
@@ -167,7 +154,7 @@ describe("P2 — org_edges table (AC5)", () => {
 			expect(rows[0]).toMatchObject({ mechanism: "team", target: "team-alpha" });
 		});
 
-		it("deletes an org edge by id", async () => {
+		test("deletes an org edge by id", async ({ db }) => {
 			await seedHumanUser(db);
 			await seedAiUser(db, "u-ai-2", "growth");
 
@@ -190,7 +177,7 @@ describe("P2 — org_edges table (AC5)", () => {
 	// AC5: Unique constraint prevents duplicate (from, mechanism, target) tuples
 	// -------------------------------------------------------------------------
 	describe("AC5: unique constraint on (fromUserId, mechanism, target)", () => {
-		it("rejects a duplicate (fromUserId, mechanism, target) tuple", async () => {
+		test("rejects a duplicate (fromUserId, mechanism, target) tuple", async ({ db }) => {
 			await seedHumanUser(db);
 			await seedAiUser(db, "u-ai-dup", "builder");
 
@@ -216,7 +203,7 @@ describe("P2 — org_edges table (AC5)", () => {
 			await expect(db.insert(orgEdges).values(edge2)).rejects.toThrow();
 		});
 
-		it("allows same fromUserId with different mechanism", async () => {
+		test("allows same fromUserId with different mechanism", async ({ db }) => {
 			await seedHumanUser(db);
 			await seedAiUser(db, "u-ai-mech", "builder");
 
@@ -245,7 +232,7 @@ describe("P2 — org_edges table (AC5)", () => {
 	// AC5: CASCADE delete — deleting a user removes their org edges
 	// -------------------------------------------------------------------------
 	describe("AC5: cascade delete on user deletion", () => {
-		it("deleting a user cascades to their org edges", async () => {
+		test("deleting a user cascades to their org edges", async ({ db }) => {
 			await seedHumanUser(db, "u-cascade-test");
 			await seedAiUser(db, "u-ai-cascade", "builder");
 

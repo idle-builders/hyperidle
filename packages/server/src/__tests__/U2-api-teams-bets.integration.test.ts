@@ -20,37 +20,19 @@
 
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
-	type TestDbHandle,
 	teamMembers,
 	teams,
 } from "@hyperidle/db";
-import { EventBus, MUTABLE_BET_FIELDS } from "@hyperidle/shared";
+import { MUTABLE_BET_FIELDS } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { describe, expect, vi } from "vitest";
+import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-U2";
 
 function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
-}
-
-interface AppCtx {
-	app: Hono;
-	db: HyperIdleDb;
-	eventBus: EventBus;
-	handle: TestDbHandle;
-}
-
-async function setupApp(): Promise<AppCtx> {
-	const handle = await createTestDb();
-	const db = handle.db;
-	const eventBus = new EventBus();
-	const app = await createTestApp({ db, eventBus });
-	return { app, db, eventBus, handle };
 }
 
 const NOW = new Date().toISOString();
@@ -60,77 +42,56 @@ const NOW = new Date().toISOString();
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("AC-1: /api/teams routes", () => {
-	let ctx: AppCtx;
-
-	beforeEach(async () => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = await setupApp();
-
-		// Seed a team + teamMembers
-		await ctx.db.insert(teams).values({
-			id: "team-1",
-			name: "Growth Team",
-			phase: "build",
-			createdAt: NOW,
-		});
-		await ctx.db.insert(teamMembers).values({
-			id: "tm-1",
-			teamId: "team-1",
-			capacity: 3,
-			activeBets: 0,
-			formedAt: NOW,
-		});
-	});
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await ctx.handle.close();
-	});
+	async function seedAC1(db: HyperIdleDb): Promise<void> {
+		await db.insert(teams).values({ id: "team-1", name: "Growth Team", phase: "build", createdAt: NOW });
+		await db.insert(teamMembers).values({ id: "tm-1", teamId: "team-1", capacity: 3, activeBets: 0, formedAt: NOW });
+	}
 
 	// AC-1a: GET /api/teams returns list
-	it("GET /api/teams returns 200 with teams list", async () => {
-		const res = await ctx.app.request("/api/teams", {
-			method: "GET",
-			headers: authHeaders(),
-		});
+	test("GET /api/teams returns 200 with teams list", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC1(db);
+		const res = await app.request("/api/teams", { method: "GET", headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { teams: unknown[] };
 		expect(Array.isArray(body.teams)).toBe(true);
+		vi.unstubAllEnvs();
 	});
 
 	// AC-1b: GET /api/teams/:id returns team detail
-	it("GET /api/teams/:id returns 200 with team detail", async () => {
-		const res = await ctx.app.request("/api/teams/team-1", {
-			method: "GET",
-			headers: authHeaders(),
-		});
+	test("GET /api/teams/:id returns 200 with team detail", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC1(db);
+		const res = await app.request("/api/teams/team-1", { method: "GET", headers: authHeaders() });
 		expect(res.status).toBe(200);
-		const body = (await res.json()) as {
-			team: { id: string; name: string };
-			teamMembers: { id: string };
-		};
+		const body = (await res.json()) as { team: { id: string; name: string }; teamMembers: { id: string } };
 		expect(body.team.id).toBe("team-1");
 		expect(body.team.name).toBe("Growth Team");
 		expect(body.teamMembers.id).toBe("tm-1");
+		vi.unstubAllEnvs();
 	});
 
 	// AC-1c: POST /api/teams creates a team (201)
-	it("POST /api/teams creates a team and returns 201", async () => {
-		const res = await ctx.app.request("/api/teams", {
+	test("POST /api/teams creates a team and returns 201", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC1(db);
+		const res = await app.request("/api/teams", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ name: "New Team" }),
 		});
 		expect(res.status).toBe(201);
 		const body = (await res.json()) as { team?: { id: string } };
-		// Team id should use the new "team-" prefix (not "product-")
 		expect(body.team?.id).toBeDefined();
 		expect(body.team?.id).toMatch(/^team-/);
+		vi.unstubAllEnvs();
 	});
 
 	// AC-1d: PATCH /api/teams/:teamId updates team
-	it("PATCH /api/teams/:teamId returns 200 and updates the team", async () => {
-		const res = await ctx.app.request("/api/teams/team-1", {
+	test("PATCH /api/teams/:teamId returns 200 and updates the team", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC1(db);
+		const res = await app.request("/api/teams/team-1", {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ phase: "cool-down" }),
@@ -138,33 +99,31 @@ describe("AC-1: /api/teams routes", () => {
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { team?: { phase: string } };
 		expect(body.team?.phase).toBe("cool-down");
+		vi.unstubAllEnvs();
 	});
 
 	// AC-1e: GET /api/products returns 404 (no backward compat)
-	it("GET /api/products returns 404 — no backward compat", async () => {
-		const res = await ctx.app.request("/api/products", {
-			method: "GET",
-			headers: authHeaders(),
-		});
+	test("GET /api/products returns 404 — no backward compat", async ({ app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		const res = await app.request("/api/products", { method: "GET", headers: authHeaders() });
 		expect(res.status).toBe(404);
+		vi.unstubAllEnvs();
 	});
 
 	// AC-1f: GET /api/products/:id returns 404
-	it("GET /api/products/:id returns 404 — no backward compat", async () => {
-		const res = await ctx.app.request("/api/products/team-1", {
-			method: "GET",
-			headers: authHeaders(),
-		});
+	test("GET /api/products/:id returns 404 — no backward compat", async ({ app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		const res = await app.request("/api/products/team-1", { method: "GET", headers: authHeaders() });
 		expect(res.status).toBe(404);
+		vi.unstubAllEnvs();
 	});
 
 	// AC-1f (bonus): GET /api/teams/:id returns 404 for unknown id
-	it("GET /api/teams/:id returns 404 for unknown id", async () => {
-		const res = await ctx.app.request("/api/teams/does-not-exist", {
-			method: "GET",
-			headers: authHeaders(),
-		});
+	test("GET /api/teams/:id returns 404 for unknown id", async ({ app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		const res = await app.request("/api/teams/does-not-exist", { method: "GET", headers: authHeaders() });
 		expect(res.status).toBe(404);
+		vi.unstubAllEnvs();
 	});
 });
 
@@ -173,60 +132,22 @@ describe("AC-1: /api/teams routes", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("AC-2: Bet status values in responses", () => {
-	let ctx: AppCtx;
+	async function seedAC2(db: HyperIdleDb): Promise<void> {
+		await db.insert(teams).values({ id: "p1", name: "Acme", phase: "build", createdAt: NOW });
+		await db.insert(teamMembers).values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+	}
 
-	beforeEach(async () => {
+	test("GET /api/bets response has draft, active, completed, killed groups", async ({ db, app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = await setupApp();
+		await seedAC2(db);
 
-		await ctx.db.insert(teams).values({ id: "p1", name: "Acme", phase: "build", createdAt: NOW });
-		await ctx.db
-			.insert(teamMembers)
-			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
-	});
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await ctx.handle.close();
-	});
-
-	it("GET /api/bets response has draft, active, completed, killed groups", async () => {
 		// Seed bets in all 4 statuses directly in DB
-		await ctx.db.insert(bets).values({
-			id: "b-draft",
-			teamId: "p1",
-			description: "# Draft",
-			appetite: "small",
-			status: "draft",
-			createdAt: NOW,
-		});
-		await ctx.db.insert(bets).values({
-			id: "b-active",
-			teamId: "p1",
-			description: "# Active",
-			appetite: "small",
-			status: "active",
-			createdAt: NOW,
-		});
-		await ctx.db.insert(bets).values({
-			id: "b-completed",
-			teamId: "p1",
-			description: "# Completed",
-			appetite: "small",
-			status: "completed",
-			createdAt: NOW,
-			completedAt: NOW,
-		});
-		await ctx.db.insert(bets).values({
-			id: "b-killed",
-			teamId: "p1",
-			description: "# Killed",
-			appetite: "small",
-			status: "killed",
-			createdAt: NOW,
-		});
+		await db.insert(bets).values({ id: "b-draft", teamId: "p1", description: "# Draft", appetite: "small", status: "draft", createdAt: NOW });
+		await db.insert(bets).values({ id: "b-active", teamId: "p1", description: "# Active", appetite: "small", status: "active", createdAt: NOW });
+		await db.insert(bets).values({ id: "b-completed", teamId: "p1", description: "# Completed", appetite: "small", status: "completed", createdAt: NOW, completedAt: NOW });
+		await db.insert(bets).values({ id: "b-killed", teamId: "p1", description: "# Killed", appetite: "small", status: "killed", createdAt: NOW });
 
-		const res = await ctx.app.request("/api/bets", { headers: authHeaders() });
+		const res = await app.request("/api/bets", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Record<string, unknown[]>;
 
@@ -241,20 +162,17 @@ describe("AC-2: Bet status values in responses", () => {
 		expect(body).not.toHaveProperty("committed");
 		expect(body).not.toHaveProperty("in_progress");
 		expect(body).not.toHaveProperty("shipped");
+		vi.unstubAllEnvs();
 	});
 
-	it("No bet response contains old status values (shaped, committed, in_progress, shipped)", async () => {
-		await ctx.db.insert(bets).values({
-			id: "b-draft",
-			teamId: "p1",
-			description: "# Draft bet",
-			appetite: "small",
-			status: "draft",
-			createdAt: NOW,
-		});
+	test("No bet response contains old status values (shaped, committed, in_progress, shipped)", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC2(db);
+
+		await db.insert(bets).values({ id: "b-draft", teamId: "p1", description: "# Draft bet", appetite: "small", status: "draft", createdAt: NOW });
 
 		// Check the list endpoint
-		const listRes = await ctx.app.request("/api/bets", { headers: authHeaders() });
+		const listRes = await app.request("/api/bets", { headers: authHeaders() });
 		const listBody = (await listRes.json()) as Record<string, Array<Record<string, unknown>>>;
 		const allBets = [
 			...(listBody.draft ?? []),
@@ -268,25 +186,21 @@ describe("AC-2: Bet status values in responses", () => {
 		}
 
 		// Check the detail endpoint
-		const detailRes = await ctx.app.request("/api/bets/b-draft", { headers: authHeaders() });
+		const detailRes = await app.request("/api/bets/b-draft", { headers: authHeaders() });
 		const detailBody = (await detailRes.json()) as { status: string };
 		expect(oldStatuses).not.toContain(detailBody.status);
+		vi.unstubAllEnvs();
 	});
 
 	// CRITICAL (W-1): at_risk must be boolean on the wire in the LIST endpoint too
-	it("GET /api/bets list response normalizes atRisk to boolean (not 0/1 integer)", async () => {
-		// Insert a bet with atRisk = 1 (raw DB integer representation)
-		await ctx.db.insert(bets).values({
-			id: "b-at-risk",
-			teamId: "p1",
-			description: "# At risk bet",
-			appetite: "small",
-			status: "active",
-			atRisk: 1,
-			createdAt: NOW,
-		});
+	test("GET /api/bets list response normalizes atRisk to boolean (not 0/1 integer)", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC2(db);
 
-		const res = await ctx.app.request("/api/bets", { headers: authHeaders() });
+		// Insert a bet with atRisk = 1 (raw DB integer representation)
+		await db.insert(bets).values({ id: "b-at-risk", teamId: "p1", description: "# At risk bet", appetite: "small", status: "active", atRisk: 1, createdAt: NOW });
+
+		const res = await app.request("/api/bets", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Record<string, Array<{ atRisk: unknown }>>;
 
@@ -296,6 +210,7 @@ describe("AC-2: Bet status values in responses", () => {
 		// CRITICAL: atRisk must be boolean true, not integer 1
 		expect(typeof atRiskBet?.atRisk).toBe("boolean");
 		expect(atRiskBet?.atRisk).toBe(true);
+		vi.unstubAllEnvs();
 	});
 });
 
@@ -304,69 +219,53 @@ describe("AC-2: Bet status values in responses", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("AC-3: Bet creation with `description` field", () => {
-	let ctx: AppCtx;
-
-	beforeEach(async () => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = await setupApp();
-
-		await ctx.db.insert(teams).values({ id: "p1", name: "Acme", phase: "build", createdAt: NOW });
-		await ctx.db
-			.insert(teamMembers)
-			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
-	});
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await ctx.handle.close();
-	});
+	async function seedAC3(db: HyperIdleDb): Promise<void> {
+		await db.insert(teams).values({ id: "p1", name: "Acme", phase: "build", createdAt: NOW });
+		await db.insert(teamMembers).values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+	}
 
 	// AC-3a: POST /api/bets with `description` succeeds (201)
-	it("POST /api/bets with `description` field succeeds with 201", async () => {
-		const res = await ctx.app.request("/api/bets", {
+	test("POST /api/bets with `description` field succeeds with 201", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC3(db);
+		const res = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
-			body: JSON.stringify({
-				teamId: "p1",
-				description: "# Build feature X",
-				costAppetite: { minor: 10000, currency: "USD" },
-			}),
+			body: JSON.stringify({ teamId: "p1", description: "# Build feature X", costAppetite: { minor: 10000, currency: "USD" } }),
 		});
 		expect(res.status).toBe(201);
 		const body = (await res.json()) as { description: string; status: string };
 		expect(body.description).toBe("# Build feature X");
+		vi.unstubAllEnvs();
 	});
 
 	// AC-3b: POST /api/bets with `pitch` is rejected (400)
-	it("POST /api/bets with `pitch` field is rejected with 400", async () => {
-		const res = await ctx.app.request("/api/bets", {
+	test("POST /api/bets with `pitch` field is rejected with 400", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC3(db);
+		const res = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
-			body: JSON.stringify({
-				teamId: "p1",
-				// `pitch` is the old field name — must be rejected by strict schema
-				pitch: "# Build feature X",
-				costAppetite: { minor: 10000, currency: "USD" },
-			}),
+			body: JSON.stringify({ teamId: "p1", pitch: "# Build feature X", costAppetite: { minor: 10000, currency: "USD" } }),
 		});
 		// Strict schema should reject unknown field `pitch` (description is required)
 		expect(res.status).toBe(400);
+		vi.unstubAllEnvs();
 	});
 
 	// AC-3c: Created bet status is `draft`
-	it("POST /api/bets creates bet with status `draft`", async () => {
-		const res = await ctx.app.request("/api/bets", {
+	test("POST /api/bets creates bet with status `draft`", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC3(db);
+		const res = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
-			body: JSON.stringify({
-				teamId: "p1",
-				description: "# Draft bet",
-				costAppetite: { minor: 10000, currency: "USD" },
-			}),
+			body: JSON.stringify({ teamId: "p1", description: "# Draft bet", costAppetite: { minor: 10000, currency: "USD" } }),
 		});
 		expect(res.status).toBe(201);
 		const body = (await res.json()) as { status: string };
 		expect(body.status).toBe("draft");
+		vi.unstubAllEnvs();
 	});
 });
 
@@ -375,72 +274,22 @@ describe("AC-3: Bet creation with `description` field", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("AC-4: at_risk PATCH", () => {
-	let ctx: AppCtx;
+	async function seedAC4(db: HyperIdleDb): Promise<void> {
+		await db.insert(teams).values({ id: "p1", name: "Acme", phase: "build", createdAt: NOW });
+		await db.insert(teamMembers).values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 
-	beforeEach(async () => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = await setupApp();
-
-		await ctx.db.insert(teams).values({ id: "p1", name: "Acme", phase: "build", createdAt: NOW });
-		await ctx.db
-			.insert(teamMembers)
-			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
-
-		// Seed a draft bet
-		await ctx.db.insert(bets).values({
-			id: "bet-draft",
-			teamId: "p1",
-			description: "# Draft bet",
-			appetite: "small",
-			status: "draft",
-			atRisk: 0,
-			createdAt: NOW,
-		});
-
-		// Seed an active bet
-		await ctx.db.insert(bets).values({
-			id: "bet-active",
-			teamId: "p1",
-			description: "# Active bet",
-			appetite: "small",
-			status: "active",
-			atRisk: 0,
-			createdAt: NOW,
-		});
-
-		// Seed a completed bet
-		await ctx.db.insert(bets).values({
-			id: "bet-completed",
-			teamId: "p1",
-			description: "# Completed bet",
-			appetite: "small",
-			status: "completed",
-			atRisk: 0,
-			createdAt: NOW,
-			completedAt: NOW,
-		});
-
-		// Seed a killed bet
-		await ctx.db.insert(bets).values({
-			id: "bet-killed",
-			teamId: "p1",
-			description: "# Killed bet",
-			appetite: "small",
-			status: "killed",
-			atRisk: 0,
-			createdAt: NOW,
-		});
-	});
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await ctx.handle.close();
-	});
+		await db.insert(bets).values({ id: "bet-draft", teamId: "p1", description: "# Draft bet", appetite: "small", status: "draft", atRisk: 0, createdAt: NOW });
+		await db.insert(bets).values({ id: "bet-active", teamId: "p1", description: "# Active bet", appetite: "small", status: "active", atRisk: 0, createdAt: NOW });
+		await db.insert(bets).values({ id: "bet-completed", teamId: "p1", description: "# Completed bet", appetite: "small", status: "completed", atRisk: 0, createdAt: NOW, completedAt: NOW });
+		await db.insert(bets).values({ id: "bet-killed", teamId: "p1", description: "# Killed bet", appetite: "small", status: "killed", atRisk: 0, createdAt: NOW });
+	}
 
 	// AC-4a: PATCH at_risk=true on an active bet sets at_risk, GET returns boolean true
-	it("PATCH at_risk=true on active bet succeeds; GET returns at_risk as boolean true", async () => {
+	test("PATCH at_risk=true on active bet succeeds; GET returns at_risk as boolean true", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC4(db);
 		// PATCH
-		const patchRes = await ctx.app.request("/api/bets/bet-active", {
+		const patchRes = await app.request("/api/bets/bet-active", {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ field: "at_risk", value: true, reason: "Scope increased" }),
@@ -448,29 +297,27 @@ describe("AC-4: at_risk PATCH", () => {
 		expect(patchRes.status).toBe(200);
 
 		// GET — CRITICAL: at_risk must be boolean true, not integer 1
-		const getRes = await ctx.app.request("/api/bets/bet-active", {
-			headers: authHeaders(),
-		});
+		const getRes = await app.request("/api/bets/bet-active", { headers: authHeaders() });
 		expect(getRes.status).toBe(200);
 		const body = (await getRes.json()) as { atRisk: unknown };
-		// at_risk must be a boolean, not 0/1 integer
 		expect(typeof body.atRisk).toBe("boolean");
 		expect(body.atRisk).toBe(true);
+		vi.unstubAllEnvs();
 	});
 
 	// AC-4a (snake_case variant): GET returns at_risk as boolean (may be snake_case in response)
-	it("GET /api/bets/:id returns at_risk field as boolean (not integer)", async () => {
+	test("GET /api/bets/:id returns at_risk field as boolean (not integer)", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC4(db);
 		// Set at_risk directly in DB as 1 (integer, how SQLite stores it)
 		// The GET endpoint must convert it to boolean
-		await ctx.db
+		await db
 			.update(bets)
 			.set({ atRisk: 1 })
 			// @lore U2: drizzle enforce-update-with-where — use where clause
 			.where(eq(bets.id, "bet-active"));
 
-		const getRes = await ctx.app.request("/api/bets/bet-active", {
-			headers: authHeaders(),
-		});
+		const getRes = await app.request("/api/bets/bet-active", { headers: authHeaders() });
 		expect(getRes.status).toBe(200);
 		const body = (await getRes.json()) as Record<string, unknown>;
 
@@ -478,66 +325,85 @@ describe("AC-4: at_risk PATCH", () => {
 		const atRiskValue = body.atRisk ?? body.at_risk;
 		expect(typeof atRiskValue).toBe("boolean");
 		expect(atRiskValue).toBe(true);
+		vi.unstubAllEnvs();
 	});
 
 	// AC-4b: at_risk is mutable in `draft` status
-	it("PATCH at_risk=true on draft bet succeeds", async () => {
-		const res = await ctx.app.request("/api/bets/bet-draft", {
+	test("PATCH at_risk=true on draft bet succeeds", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC4(db);
+		const res = await app.request("/api/bets/bet-draft", {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ field: "at_risk", value: true, reason: "Risk identified early" }),
 		});
 		expect(res.status).toBe(200);
+		vi.unstubAllEnvs();
 	});
 
 	// AC-4b: at_risk is mutable in `active` status
-	it("PATCH at_risk=false on active bet succeeds", async () => {
-		const res = await ctx.app.request("/api/bets/bet-active", {
+	test("PATCH at_risk=false on active bet succeeds", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC4(db);
+		const res = await app.request("/api/bets/bet-active", {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ field: "at_risk", value: false, reason: "Risk resolved" }),
 		});
 		expect(res.status).toBe(200);
+		vi.unstubAllEnvs();
 	});
 
 	// AC-4c: at_risk is NOT mutable in `completed` status
-	it("PATCH at_risk on completed bet returns 400", async () => {
-		const res = await ctx.app.request("/api/bets/bet-completed", {
+	test("PATCH at_risk on completed bet returns 400", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC4(db);
+		const res = await app.request("/api/bets/bet-completed", {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ field: "at_risk", value: true, reason: "Too late" }),
 		});
 		expect(res.status).toBe(400);
+		vi.unstubAllEnvs();
 	});
 
 	// AC-4c: at_risk is NOT mutable in `killed` status
-	it("PATCH at_risk on killed bet returns 400", async () => {
-		const res = await ctx.app.request("/api/bets/bet-killed", {
+	test("PATCH at_risk on killed bet returns 400", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC4(db);
+		const res = await app.request("/api/bets/bet-killed", {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ field: "at_risk", value: true, reason: "Already killed" }),
 		});
 		expect(res.status).toBe(400);
+		vi.unstubAllEnvs();
 	});
 
 	// AC-4: reason is required for at_risk PATCH
-	it("PATCH at_risk without reason returns 400", async () => {
-		const res = await ctx.app.request("/api/bets/bet-active", {
+	test("PATCH at_risk without reason returns 400", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC4(db);
+		const res = await app.request("/api/bets/bet-active", {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ field: "at_risk", value: true }),
 		});
 		expect(res.status).toBe(400);
+		vi.unstubAllEnvs();
 	});
 
 	// AC-4: at_risk value must be boolean (not string)
-	it("PATCH at_risk with string value returns 400", async () => {
-		const res = await ctx.app.request("/api/bets/bet-active", {
+	test("PATCH at_risk with string value returns 400", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC4(db);
+		const res = await app.request("/api/bets/bet-active", {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ field: "at_risk", value: "true", reason: "bad value" }),
 		});
 		expect(res.status).toBe(400);
+		vi.unstubAllEnvs();
 	});
 });
 
@@ -546,96 +412,57 @@ describe("AC-4: at_risk PATCH", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("AC-5: Bet lifecycle transitions with 400 on invalid", () => {
-	let ctx: AppCtx;
-
-	beforeEach(async () => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = await setupApp();
-
-		await ctx.db.insert(teams).values({ id: "p1", name: "Acme", phase: "build", createdAt: NOW });
-		await ctx.db
-			.insert(teamMembers)
-			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
-	});
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await ctx.handle.close();
-	});
-
-	async function createDraftBet(id: string): Promise<void> {
-		await ctx.db.insert(bets).values({
-			id,
-			teamId: "p1",
-			description: `# Bet ${id}`,
-			appetite: "small",
-			status: "draft",
-			createdAt: NOW,
-		});
+	async function seedAC5Base(db: HyperIdleDb): Promise<void> {
+		await db.insert(teams).values({ id: "p1", name: "Acme", phase: "build", createdAt: NOW });
+		await db.insert(teamMembers).values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 	}
 
-	async function setActiveBet(id: string): Promise<void> {
-		await ctx.db.insert(bets).values({
-			id,
-			teamId: "p1",
-			description: `# Bet ${id}`,
-			appetite: "small",
-			status: "active",
-			createdAt: NOW,
-		});
+	async function createDraftBet(db: HyperIdleDb, id: string): Promise<void> {
+		await db.insert(bets).values({ id, teamId: "p1", description: `# Bet ${id}`, appetite: "small", status: "draft", createdAt: NOW });
 	}
 
-	async function setCompletedBet(id: string): Promise<void> {
-		await ctx.db.insert(bets).values({
-			id,
-			teamId: "p1",
-			description: `# Bet ${id}`,
-			appetite: "small",
-			status: "completed",
-			createdAt: NOW,
-			completedAt: NOW,
-		});
+	async function setActiveBet(db: HyperIdleDb, id: string): Promise<void> {
+		await db.insert(bets).values({ id, teamId: "p1", description: `# Bet ${id}`, appetite: "small", status: "active", createdAt: NOW });
 	}
 
-	async function setKilledBet(id: string): Promise<void> {
-		await ctx.db.insert(bets).values({
-			id,
-			teamId: "p1",
-			description: `# Bet ${id}`,
-			appetite: "small",
-			status: "killed",
-			createdAt: NOW,
-		});
+	async function setCompletedBet(db: HyperIdleDb, id: string): Promise<void> {
+		await db.insert(bets).values({ id, teamId: "p1", description: `# Bet ${id}`, appetite: "small", status: "completed", createdAt: NOW, completedAt: NOW });
+	}
+
+	async function setKilledBet(db: HyperIdleDb, id: string): Promise<void> {
+		await db.insert(bets).values({ id, teamId: "p1", description: `# Bet ${id}`, appetite: "small", status: "killed", createdAt: NOW });
 	}
 
 	// AC-5a: draft→active (POST /commit) succeeds
-	it("AC-5a: draft→active via POST /commit succeeds (200)", async () => {
-		await createDraftBet("b-commit");
-		const res = await ctx.app.request("/api/bets/b-commit/commit", {
-			method: "POST",
-			headers: authHeaders(),
-		});
+	test("AC-5a: draft→active via POST /commit succeeds (200)", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC5Base(db);
+		await createDraftBet(db, "b-commit");
+		const res = await app.request("/api/bets/b-commit/commit", { method: "POST", headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { status: string };
 		expect(body.status).toBe("active");
+		vi.unstubAllEnvs();
 	});
 
 	// AC-5b: active→completed (POST /ship) succeeds
-	it("AC-5b: active→completed via POST /ship succeeds (200)", async () => {
-		await setActiveBet("b-ship");
-		const res = await ctx.app.request("/api/bets/b-ship/ship", {
-			method: "POST",
-			headers: authHeaders(),
-		});
+	test("AC-5b: active→completed via POST /ship succeeds (200)", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC5Base(db);
+		await setActiveBet(db, "b-ship");
+		const res = await app.request("/api/bets/b-ship/ship", { method: "POST", headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { status: string };
 		expect(body.status).toBe("completed");
+		vi.unstubAllEnvs();
 	});
 
 	// AC-5c: active→killed (POST /kill) succeeds
-	it("AC-5c: active→killed via POST /kill succeeds (200)", async () => {
-		await setActiveBet("b-kill-from-active");
-		const res = await ctx.app.request("/api/bets/b-kill-from-active/kill", {
+	test("AC-5c: active→killed via POST /kill succeeds (200)", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC5Base(db);
+		await setActiveBet(db, "b-kill-from-active");
+		const res = await app.request("/api/bets/b-kill-from-active/kill", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ reason: "No longer needed" }),
@@ -643,12 +470,15 @@ describe("AC-5: Bet lifecycle transitions with 400 on invalid", () => {
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { status: string };
 		expect(body.status).toBe("killed");
+		vi.unstubAllEnvs();
 	});
 
 	// AC-5d: draft→killed (POST /kill) succeeds
-	it("AC-5d: draft→killed via POST /kill succeeds (200)", async () => {
-		await createDraftBet("b-kill-from-draft");
-		const res = await ctx.app.request("/api/bets/b-kill-from-draft/kill", {
+	test("AC-5d: draft→killed via POST /kill succeeds (200)", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC5Base(db);
+		await createDraftBet(db, "b-kill-from-draft");
+		const res = await app.request("/api/bets/b-kill-from-draft/kill", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ reason: "Changed plans" }),
@@ -656,49 +486,52 @@ describe("AC-5: Bet lifecycle transitions with 400 on invalid", () => {
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { status: string };
 		expect(body.status).toBe("killed");
+		vi.unstubAllEnvs();
 	});
 
 	// AC-5e: draft→completed (POST /ship) returns 400 (not 409)
-	it("AC-5e: draft→completed via POST /ship returns 400 (not 409)", async () => {
-		await createDraftBet("b-bad-ship");
-		const res = await ctx.app.request("/api/bets/b-bad-ship/ship", {
-			method: "POST",
-			headers: authHeaders(),
-		});
+	test("AC-5e: draft→completed via POST /ship returns 400 (not 409)", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC5Base(db);
+		await createDraftBet(db, "b-bad-ship");
+		const res = await app.request("/api/bets/b-bad-ship/ship", { method: "POST", headers: authHeaders() });
 		// CRITICAL: must be 400, not 409
 		expect(res.status).toBe(400);
 		const body = (await res.json()) as { code?: string };
 		expect(body.code).toBe("VALIDATION_ERROR");
+		vi.unstubAllEnvs();
 	});
 
 	// AC-5f: completed→active (POST /commit) returns 400
-	it("AC-5f: completed→active via POST /commit returns 400 (not 409)", async () => {
-		await setCompletedBet("b-bad-commit-completed");
-		const res = await ctx.app.request("/api/bets/b-bad-commit-completed/commit", {
-			method: "POST",
-			headers: authHeaders(),
-		});
+	test("AC-5f: completed→active via POST /commit returns 400 (not 409)", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC5Base(db);
+		await setCompletedBet(db, "b-bad-commit-completed");
+		const res = await app.request("/api/bets/b-bad-commit-completed/commit", { method: "POST", headers: authHeaders() });
 		expect(res.status).toBe(400);
 		const body = (await res.json()) as { code?: string };
 		expect(body.code).toBe("VALIDATION_ERROR");
+		vi.unstubAllEnvs();
 	});
 
 	// AC-5g: killed→active (POST /commit) returns 400
-	it("AC-5g: killed→active via POST /commit returns 400 (not 409)", async () => {
-		await setKilledBet("b-bad-commit-killed");
-		const res = await ctx.app.request("/api/bets/b-bad-commit-killed/commit", {
-			method: "POST",
-			headers: authHeaders(),
-		});
+	test("AC-5g: killed→active via POST /commit returns 400 (not 409)", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC5Base(db);
+		await setKilledBet(db, "b-bad-commit-killed");
+		const res = await app.request("/api/bets/b-bad-commit-killed/commit", { method: "POST", headers: authHeaders() });
 		expect(res.status).toBe(400);
 		const body = (await res.json()) as { code?: string };
 		expect(body.code).toBe("VALIDATION_ERROR");
+		vi.unstubAllEnvs();
 	});
 
 	// AC-5h: All invalid transitions return HTTP 400 with code VALIDATION_ERROR
-	it("AC-5h: completed→killed returns 400 with VALIDATION_ERROR code", async () => {
-		await setCompletedBet("b-completed-kill");
-		const res = await ctx.app.request("/api/bets/b-completed-kill/kill", {
+	test("AC-5h: completed→killed returns 400 with VALIDATION_ERROR code", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC5Base(db);
+		await setCompletedBet(db, "b-completed-kill");
+		const res = await app.request("/api/bets/b-completed-kill/kill", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ reason: "Changing" }),
@@ -706,11 +539,14 @@ describe("AC-5: Bet lifecycle transitions with 400 on invalid", () => {
 		expect(res.status).toBe(400);
 		const body = (await res.json()) as { code?: string };
 		expect(body.code).toBe("VALIDATION_ERROR");
+		vi.unstubAllEnvs();
 	});
 
-	it("AC-5h: killed→killed returns 400 with VALIDATION_ERROR code", async () => {
-		await setKilledBet("b-killed-kill");
-		const res = await ctx.app.request("/api/bets/b-killed-kill/kill", {
+	test("AC-5h: killed→killed returns 400 with VALIDATION_ERROR code", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC5Base(db);
+		await setKilledBet(db, "b-killed-kill");
+		const res = await app.request("/api/bets/b-killed-kill/kill", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ reason: "Already dead" }),
@@ -718,60 +554,39 @@ describe("AC-5: Bet lifecycle transitions with 400 on invalid", () => {
 		expect(res.status).toBe(400);
 		const body = (await res.json()) as { code?: string };
 		expect(body.code).toBe("VALIDATION_ERROR");
+		vi.unstubAllEnvs();
 	});
 
 	// CRITICAL (W-1): transition responses must also normalize atRisk to boolean
-	it("POST /commit response normalizes atRisk to boolean (not integer)", async () => {
-		await ctx.db.insert(bets).values({
-			id: "b-commit-atrisk",
-			teamId: "p1",
-			description: "# Commit atRisk",
-			appetite: "small",
-			status: "draft",
-			atRisk: 1,
-			createdAt: NOW,
-		});
-		const res = await ctx.app.request("/api/bets/b-commit-atrisk/commit", {
-			method: "POST",
-			headers: authHeaders(),
-		});
+	test("POST /commit response normalizes atRisk to boolean (not integer)", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC5Base(db);
+		await db.insert(bets).values({ id: "b-commit-atrisk", teamId: "p1", description: "# Commit atRisk", appetite: "small", status: "draft", atRisk: 1, createdAt: NOW });
+		const res = await app.request("/api/bets/b-commit-atrisk/commit", { method: "POST", headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { atRisk: unknown };
 		expect(typeof body.atRisk).toBe("boolean");
 		expect(body.atRisk).toBe(true);
+		vi.unstubAllEnvs();
 	});
 
-	it("POST /ship response normalizes atRisk to boolean (not integer)", async () => {
-		await ctx.db.insert(bets).values({
-			id: "b-ship-atrisk",
-			teamId: "p1",
-			description: "# Ship atRisk",
-			appetite: "small",
-			status: "active",
-			atRisk: 1,
-			createdAt: NOW,
-		});
-		const res = await ctx.app.request("/api/bets/b-ship-atrisk/ship", {
-			method: "POST",
-			headers: authHeaders(),
-		});
+	test("POST /ship response normalizes atRisk to boolean (not integer)", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC5Base(db);
+		await db.insert(bets).values({ id: "b-ship-atrisk", teamId: "p1", description: "# Ship atRisk", appetite: "small", status: "active", atRisk: 1, createdAt: NOW });
+		const res = await app.request("/api/bets/b-ship-atrisk/ship", { method: "POST", headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { atRisk: unknown };
 		expect(typeof body.atRisk).toBe("boolean");
 		expect(body.atRisk).toBe(true);
+		vi.unstubAllEnvs();
 	});
 
-	it("POST /kill response normalizes atRisk to boolean (not integer)", async () => {
-		await ctx.db.insert(bets).values({
-			id: "b-kill-atrisk",
-			teamId: "p1",
-			description: "# Kill atRisk",
-			appetite: "small",
-			status: "active",
-			atRisk: 1,
-			createdAt: NOW,
-		});
-		const res = await ctx.app.request("/api/bets/b-kill-atrisk/kill", {
+	test("POST /kill response normalizes atRisk to boolean (not integer)", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC5Base(db);
+		await db.insert(bets).values({ id: "b-kill-atrisk", teamId: "p1", description: "# Kill atRisk", appetite: "small", status: "active", atRisk: 1, createdAt: NOW });
+		const res = await app.request("/api/bets/b-kill-atrisk/kill", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ reason: "Abandoning" }),
@@ -780,6 +595,7 @@ describe("AC-5: Bet lifecycle transitions with 400 on invalid", () => {
 		const body = (await res.json()) as { atRisk: unknown };
 		expect(typeof body.atRisk).toBe("boolean");
 		expect(body.atRisk).toBe(true);
+		vi.unstubAllEnvs();
 	});
 });
 
@@ -788,15 +604,15 @@ describe("AC-5: Bet lifecycle transitions with 400 on invalid", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("AC-6: MUTABLE_BET_FIELDS shared constant", () => {
-	it("MUTABLE_BET_FIELDS includes 'description'", () => {
+	test("MUTABLE_BET_FIELDS includes 'description'", () => {
 		expect(MUTABLE_BET_FIELDS).toContain("description");
 	});
 
-	it("MUTABLE_BET_FIELDS includes 'at_risk'", () => {
+	test("MUTABLE_BET_FIELDS includes 'at_risk'", () => {
 		expect(MUTABLE_BET_FIELDS).toContain("at_risk");
 	});
 
-	it("MUTABLE_BET_FIELDS still includes existing fields", () => {
+	test("MUTABLE_BET_FIELDS still includes existing fields", () => {
 		expect(MUTABLE_BET_FIELDS).toContain("done_condition");
 		expect(MUTABLE_BET_FIELDS).toContain("hypothesis");
 		expect(MUTABLE_BET_FIELDS).toContain("cost_appetite");
@@ -808,60 +624,43 @@ describe("AC-6: MUTABLE_BET_FIELDS shared constant", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("AC-8: Bet detail response has `team` not `product`", () => {
-	let ctx: AppCtx;
+	async function seedAC8(db: HyperIdleDb): Promise<void> {
+		await db.insert(teams).values({ id: "p1", name: "Acme", phase: "build", createdAt: NOW });
+		await db.insert(teamMembers).values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+		await db.insert(bets).values({ id: "bet-detail", teamId: "p1", description: "# Detail bet", appetite: "small", status: "draft", createdAt: NOW });
+	}
 
-	beforeEach(async () => {
+	test("GET /api/bets/:id has `team` field in response", async ({ db, app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = await setupApp();
-
-		await ctx.db.insert(teams).values({ id: "p1", name: "Acme", phase: "build", createdAt: NOW });
-		await ctx.db
-			.insert(teamMembers)
-			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
-
-		await ctx.db.insert(bets).values({
-			id: "bet-detail",
-			teamId: "p1",
-			description: "# Detail bet",
-			appetite: "small",
-			status: "draft",
-			createdAt: NOW,
-		});
-	});
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await ctx.handle.close();
-	});
-
-	it("GET /api/bets/:id has `team` field in response", async () => {
-		const res = await ctx.app.request("/api/bets/bet-detail", {
-			headers: authHeaders(),
-		});
+		await seedAC8(db);
+		const res = await app.request("/api/bets/bet-detail", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Record<string, unknown>;
 		expect(body).toHaveProperty("team");
 		expect(body.team).toBeTruthy();
+		vi.unstubAllEnvs();
 	});
 
-	it("GET /api/bets/:id does NOT have `product` field in response", async () => {
-		const res = await ctx.app.request("/api/bets/bet-detail", {
-			headers: authHeaders(),
-		});
+	test("GET /api/bets/:id does NOT have `product` field in response", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC8(db);
+		const res = await app.request("/api/bets/bet-detail", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Record<string, unknown>;
 		// product field must be absent — clean cut, no backward compat alias
 		expect(body).not.toHaveProperty("product");
+		vi.unstubAllEnvs();
 	});
 
-	it("GET /api/bets/:id `team` field is the team name string", async () => {
-		const res = await ctx.app.request("/api/bets/bet-detail", {
-			headers: authHeaders(),
-		});
+	test("GET /api/bets/:id `team` field is the team name string", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC8(db);
+		const res = await app.request("/api/bets/bet-detail", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { team: unknown };
 		// team should be a non-empty string (the team name or id)
 		expect(typeof body.team).toBe("string");
 		expect(body.team).toBeTruthy();
+		vi.unstubAllEnvs();
 	});
 });

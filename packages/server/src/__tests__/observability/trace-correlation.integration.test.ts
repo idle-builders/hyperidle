@@ -6,14 +6,13 @@
  * carries the same traceId the DB populated on session insert.
  */
 
-import { createTestDb } from "@hyperidle/db";
 import {
 	type CostCapBreachedEvent,
 	EventBus,
 	type ObservabilityEvent,
 	type SessionStartedEvent,
 } from "@hyperidle/shared";
-import { describe, expect, it } from "vitest";
+import { describe, expect, test } from "../../test-fixtures.js";
 import {
 	createDbTraceIdResolver,
 	createObservabilityDispatcher,
@@ -36,9 +35,7 @@ function captureAdapter(): ObservabilityAdapter & { events: ObservabilityEvent[]
 }
 
 describe("H3 AC3 — Trace correlation", () => {
-	it("resolver uses seed cache (O2: traceId column stripped from sessions)", () => {
-		const db = createTestDb();
-
+	test("resolver uses seed cache (O2: traceId column stripped from sessions)", ({ db }) => {
 		const resolver = createDbTraceIdResolver(db);
 		// O2: traceId column stripped — resolver now uses seed/cache only
 		resolver.seed("sess-1", "trace-specific-uuid");
@@ -46,7 +43,7 @@ describe("H3 AC3 — Trace correlation", () => {
 		expect(resolver.resolve("missing")).toBeNull();
 	});
 
-	it("session + cost event carry the same trace id (AC3)", async () => {
+	test("session + cost event carry the same trace id (AC3)", async () => {
 		const bus = new EventBus();
 		const adapter = captureAdapter();
 		const dispatcher = createObservabilityDispatcher({

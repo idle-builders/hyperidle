@@ -1,19 +1,19 @@
-import { createTestDb } from "@hyperidle/db";
 import { bootstrapFabric } from "@hyperidle/fabric";
-import { EventBus } from "@hyperidle/shared";
-import { describe, expect, it } from "vitest";
+import { describe } from "vitest";
 import type { AppOptions } from "../app.js";
 import { createApp } from "../app.js";
+import { expect, test } from "../test-fixtures.js";
 
 describe("O3 AC-5: bootstrapFabric", () => {
-	it("is exported from @hyperidle/fabric", () => {
+	test("is exported from @hyperidle/fabric", () => {
 		expect(typeof bootstrapFabric).toBe("function");
 	});
 
-	it("returns an array of disposer functions when called with db and eventBus", async () => {
-		const handle = await createTestDb();
-		const eventBus = new EventBus();
-		const disposers = bootstrapFabric({ db: handle.db, eventBus });
+	test("returns an array of disposer functions when called with db and eventBus", async ({
+		db,
+		eventBus,
+	}) => {
+		const disposers = bootstrapFabric({ db, eventBus });
 
 		expect(Array.isArray(disposers)).toBe(true);
 		expect(disposers.length).toBeGreaterThan(0);
@@ -26,10 +26,11 @@ describe("O3 AC-5: bootstrapFabric", () => {
 		}
 	});
 
-	it("returns exactly 7 disposers (one per disposer-registered service)", async () => {
-		const handle = await createTestDb();
-		const eventBus = new EventBus();
-		const disposers = bootstrapFabric({ db: handle.db, eventBus });
+	test("returns exactly 7 disposers (one per disposer-registered service)", async ({
+		db,
+		eventBus,
+	}) => {
+		const disposers = bootstrapFabric({ db, eventBus });
 
 		expect(disposers).toHaveLength(7);
 
@@ -40,12 +41,9 @@ describe("O3 AC-5: bootstrapFabric", () => {
 });
 
 describe("O3 AC-6: AppOptions.strategyBootstrap type field", () => {
-	it("AppOptions accepts strategyBootstrap as a function", async () => {
-		const handle = await createTestDb();
-		const eventBus = new EventBus();
-
+	test("AppOptions accepts strategyBootstrap as a function", async ({ db, eventBus }) => {
 		const options: AppOptions = {
-			db: handle.db,
+			db,
 			eventBus,
 			strategyBootstrap: ({ db: d, eventBus: eb }) => {
 				void d;
@@ -56,7 +54,7 @@ describe("O3 AC-6: AppOptions.strategyBootstrap type field", () => {
 		expect(typeof options.strategyBootstrap).toBe("function");
 	});
 
-	it("AppOptions accepts strategyBootstrap: undefined (kernel-only mode)", () => {
+	test("AppOptions accepts strategyBootstrap: undefined (kernel-only mode)", () => {
 		const options: AppOptions = {
 			strategyBootstrap: undefined,
 		};
@@ -65,15 +63,15 @@ describe("O3 AC-6: AppOptions.strategyBootstrap type field", () => {
 });
 
 describe("O3 AC-8: kernel-only boot (no strategyBootstrap)", () => {
-	it("createApp() without any options boots without throwing", async () => {
+	test("createApp() without any options boots without throwing", async () => {
 		await expect(createApp()).resolves.not.toThrow();
 	}, 120_000);
 
-	it("createApp({ strategyBootstrap: undefined }) boots without throwing", async () => {
+	test("createApp({ strategyBootstrap: undefined }) boots without throwing", async () => {
 		await expect(createApp({ strategyBootstrap: undefined })).resolves.not.toThrow();
 	}, 120_000);
 
-	it("GET /api/health returns 200 in kernel-only mode", async () => {
+	test("GET /api/health returns 200 in kernel-only mode", async () => {
 		const app = await createApp({ strategyBootstrap: undefined });
 		const res = await app.request("/api/health");
 		expect(res.status).toBe(200);
@@ -81,19 +79,17 @@ describe("O3 AC-8: kernel-only boot (no strategyBootstrap)", () => {
 });
 
 describe("O3 AC-9: full boot with bootstrapFabric", () => {
-	it("createApp({ db, eventBus, strategyBootstrap: bootstrapFabric }) boots without throwing", async () => {
-		const handle = await createTestDb();
-		const eventBus = new EventBus();
-
-		const app = await createApp({ db: handle.db, eventBus, strategyBootstrap: bootstrapFabric });
+	test("createApp({ db, eventBus, strategyBootstrap: bootstrapFabric }) boots without throwing", async ({
+		db,
+		eventBus,
+	}) => {
+		const app = await createApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
 
 		void app?.request("/api/health");
 	}, 120_000);
 
-	it("GET /api/health returns 200 with full strategy bootstrap", async () => {
-		const handle = await createTestDb();
-		const eventBus = new EventBus();
-		const app = await createApp({ db: handle.db, eventBus, strategyBootstrap: bootstrapFabric });
+	test("GET /api/health returns 200 with full strategy bootstrap", async ({ db, eventBus }) => {
+		const app = await createApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
 		const res = await app.request("/api/health");
 		expect(res.status).toBe(200);
 	}, 120_000);

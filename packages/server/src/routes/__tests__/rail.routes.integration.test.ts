@@ -6,9 +6,7 @@
 
 import {
 	bets,
-	createTestDb,
 	factorySettings,
-	type HyperIdleDb,
 	items,
 	tasks,
 	teamMembers,
@@ -16,10 +14,8 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { beforeEach, afterEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-rail";
 
@@ -51,16 +47,8 @@ interface RailResponse {
 }
 
 describe("rail routes", () => {
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
 	});
 
 	afterEach(() => {
@@ -68,14 +56,14 @@ describe("rail routes", () => {
 	});
 
 	describe("rail auth", () => {
-		it("returns 401 without auth header on GET /api/rail", async () => {
+		test("returns 401 without auth header on GET /api/rail", async ({ app }) => {
 			const res = await app.request("/api/rail", { method: "GET" });
 			expect(res.status).toBe(401);
 		});
 	});
 
 	describe("GET /api/rail", () => {
-		it("returns 200 with rail response shape", async () => {
+		test("returns 200 with rail response shape", async ({ app }) => {
 			const res = await app.request("/api/rail", {
 				method: "GET",
 				headers: authHeaders(),
@@ -88,7 +76,7 @@ describe("rail routes", () => {
 			expect(typeof body.costBurnRate).toBe("object");
 		});
 
-		it("returns empty arrays when no data exists", async () => {
+		test("returns empty arrays when no data exists", async ({ app }) => {
 			const res = await app.request("/api/rail", {
 				method: "GET",
 				headers: authHeaders(),
@@ -100,7 +88,7 @@ describe("rail routes", () => {
 			expect(body.awaitingOrdering).toHaveLength(0);
 		});
 
-		it("includes active bets with progress counters", async () => {
+		test("includes active bets with progress counters", async ({ db, app }) => {
 			const now = new Date().toISOString();
 			await db
 				.insert(teams)
@@ -158,7 +146,7 @@ describe("rail routes", () => {
 			expect(body.bets[0]?.progress.total).toBe(2);
 		});
 
-		it("includes blocked tasks as blockers", async () => {
+		test("includes blocked tasks as blockers", async ({ db, app }) => {
 			const now = new Date().toISOString();
 			await db
 				.insert(teams)
@@ -205,7 +193,7 @@ describe("rail routes", () => {
 			expect(typeof body.blockers[0]?.durationBlockedMs).toBe("number");
 		});
 
-		it("includes items with kind=ordering in awaitingOrdering", async () => {
+		test("includes items with kind=ordering in awaitingOrdering", async ({ db, app }) => {
 			const now = new Date().toISOString();
 			await db
 				.insert(teams)
@@ -256,7 +244,7 @@ describe("rail routes", () => {
 			expect(body.awaitingOrdering[0]?.id).toBe("item-ordering");
 		});
 
-		it("returns costBurnRate with factory settings caps", async () => {
+		test("returns costBurnRate with factory settings caps", async ({ db, app }) => {
 			const now = new Date().toISOString();
 			await db
 				.insert(factorySettings)

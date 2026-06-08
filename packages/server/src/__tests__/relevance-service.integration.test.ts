@@ -6,16 +6,14 @@
  * 2. packages/server/src/services/relevance-service.ts is created (T6)
  */
 import {
-	createTestDb,
 	type HyperIdleDb,
 	knowledgeEditLog,
 	knowledgeItems,
 	knowledgeStrategyFabric,
-	type TestDbHandle,
 } from "@hyperidle/db";
 import { createRelevanceService } from "@hyperidle/fabric";
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, test } from "../test-fixtures.js";
 
 const NOW_ISO = "2026-05-06T12:00:00.000Z";
 const NOW_MS = new Date(NOW_ISO).getTime();
@@ -65,21 +63,13 @@ async function insertAccessLog(
 }
 
 describe("RelevanceService.computeSignals (L22)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	});
-
-	it("returns empty map for empty itemIds array", async () => {
+	test("returns empty map for empty itemIds array", async ({ db }) => {
 		const service = createRelevanceService(db);
 		const result = await service.computeSignals([], NOW_MS);
 		expect(result.size).toBe(0);
 	});
 
-	it("returns null signals for item with no access log or edit log data", async () => {
+	test("returns null signals for item with no access log or edit log data", async ({ db }) => {
 		const itemId = await insertItem(db);
 		const service = createRelevanceService(db);
 		const result = await service.computeSignals([itemId], NOW_MS);
@@ -90,7 +80,7 @@ describe("RelevanceService.computeSignals (L22)", () => {
 		expect(signals?.citationCount).toBeNull(); // always null in L22 (staged)
 	});
 
-	it("computes lastAccessedAt from access log and counts accessCount30d", async () => {
+	test("computes lastAccessedAt from access log and counts accessCount30d", async ({ db }) => {
 		const itemId = await insertItem(db);
 		// Insert 3 access log entries within 30 days
 		const access1 = "2026-05-05T10:00:00.000Z";
@@ -110,7 +100,7 @@ describe("RelevanceService.computeSignals (L22)", () => {
 		expect(signals?.lastActivityAt).toBe(access1); // MAX of the three
 	});
 
-	it("does not count access logs older than 30 days in accessCount30d", async () => {
+	test("does not count access logs older than 30 days in accessCount30d", async ({ db }) => {
 		const itemId = await insertItem(db);
 		// One within 30 days, one outside
 		const recent = "2026-05-01T00:00:00.000Z"; // 5 days ago
@@ -128,7 +118,9 @@ describe("RelevanceService.computeSignals (L22)", () => {
 		expect(signals?.lastActivityAt).toBe(recent);
 	});
 
-	it("computes lastActivityAt as max of lastValidatedAt, lastEditedAt, lastAccessedAt", async () => {
+	test("computes lastActivityAt as max of lastValidatedAt, lastEditedAt, lastAccessedAt", async ({
+		db,
+	}) => {
 		const itemId = await insertItem(db);
 		// Edit log: edited 2 days ago
 		const editAt = "2026-05-04T00:00:00.000Z";
@@ -156,7 +148,7 @@ describe("RelevanceService.computeSignals (L22)", () => {
 		expect(signals?.lastActivityAt).toBe(accessAt);
 	});
 
-	it("handles multiple items in a single batch call", async () => {
+	test("handles multiple items in a single batch call", async ({ db }) => {
 		const id1 = await insertItem(db, { id: "item-1" });
 		const id2 = await insertItem(db, { id: "item-2" });
 
@@ -170,7 +162,7 @@ describe("RelevanceService.computeSignals (L22)", () => {
 		expect(result.get(id2)?.accessCount30d).toBeNull();
 	});
 
-	it("uses editor='human' for lastValidatedAt (not 'facilitator')", async () => {
+	test("uses editor='human' for lastValidatedAt (not 'facilitator')", async ({ db }) => {
 		const itemId = await insertItem(db);
 		const humanEditAt = "2026-05-04T00:00:00.000Z";
 		await db.insert(knowledgeEditLog).values({
@@ -194,15 +186,7 @@ describe("RelevanceService.computeSignals (L22)", () => {
 });
 
 describe("RelevanceService.recomputeScores (L22)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	});
-
-	it("updates relevanceScore on knowledgeStrategyFabric after recompute", async () => {
+	test("updates relevanceScore on knowledgeStrategyFabric after recompute", async ({ db }) => {
 		const itemId = await insertItem(db);
 		// Give it some access history so score is non-null
 		await insertAccessLog(db, itemId, "2026-05-05T00:00:00.000Z");
@@ -220,7 +204,7 @@ describe("RelevanceService.recomputeScores (L22)", () => {
 		expect(typeof Number(fabricRow?.relevanceScore)).toBe("number");
 	});
 
-	it("sets relevanceScore to null for items with no signal data", async () => {
+	test("sets relevanceScore to null for items with no signal data", async ({ db }) => {
 		const itemId = await insertItem(db);
 		// No access log, no edit log
 
@@ -236,7 +220,7 @@ describe("RelevanceService.recomputeScores (L22)", () => {
 		expect(fabricRow?.relevanceScore).toBeNull();
 	});
 
-	it("handles empty itemIds without error", async () => {
+	test("handles empty itemIds without error", async ({ db }) => {
 		const service = createRelevanceService(db);
 		await expect(service.recomputeScores([])).resolves.toBeUndefined();
 	});

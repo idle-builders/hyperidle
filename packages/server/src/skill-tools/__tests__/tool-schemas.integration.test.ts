@@ -1,8 +1,9 @@
 import * as os from "node:os";
 import * as path from "node:path";
-import { createTestDb, type HyperIdleDb } from "@hyperidle/db";
+import { type HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
+import { test } from "../../test-fixtures.js";
 import { buildToolRegistry, type ToolContext, toClaudeToolSpec } from "../tool-registry.js";
 
 const EXPECTED_TOOL_NAMES = [
@@ -39,13 +40,7 @@ function makeContext(db: HyperIdleDb): ToolContext {
 }
 
 describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
-	let db: HyperIdleDb;
-
-	beforeEach(() => {
-		db = createTestDb();
-	});
-
-	it("registry produces one spec per expected tool name", () => {
+	test("registry produces one spec per expected tool name", ({ db }) => {
 		// I2 B1-B4: registry requires explicit role. chief_of_staff sees
 		// every tool, matching this test's "all tools present" expectation.
 		const specs = buildToolRegistry(makeContext(db), {
@@ -55,8 +50,26 @@ describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 		expect(names).toEqual([...EXPECTED_TOOL_NAMES].sort());
 	});
 
-	it.each(EXPECTED_TOOL_NAMES)("%s spec has Claude-compatible input_schema shape", (toolName) => {
-		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
+	test.each(EXPECTED_TOOL_NAMES)("%s spec has Claude-compatible input_schema shape", (toolName) => {
+		// Note: this test variant uses test.each and doesn't receive { db } args.
+		// We use a placeholder db from a minimal context since no DB queries are needed.
+		// The fixture db is not accessible in test.each without a wrapper, but a plain
+		// EventBus + null db works because toClaudeToolSpec is pure schema introspection.
+		// @lore tool-schemas: test.each doesn't compose with fixture injection in vitest;
+		// buildToolRegistry here only inspects Zod schemas (no DB calls), so a dummy
+		// context object satisfies the type without a real connection.
+		const registry = buildToolRegistry(
+			{
+				db: null as unknown as HyperIdleDb,
+				eventBus: new EventBus(),
+				agentId: "agent-x",
+				sessionId: "session-x",
+				taskId: "task-x",
+				workspacePath: path.join(os.tmpdir(), "hi-d4-schemas-each"),
+				watcher: { stop: (): void => {} },
+			},
+			{ role: "chief_of_staff" },
+		);
 		const def = registry.definitions.find((d) => d.name === toolName);
 		expect(def).toBeDefined();
 		if (!def) return;
@@ -75,7 +88,7 @@ describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 		expect(Array.isArray(spec.input_schema.properties)).toBe(false);
 	});
 
-	it("each spec is JSON-serializable (no circular references)", () => {
+	test("each spec is JSON-serializable (no circular references)", ({ db }) => {
 		const specs = buildToolRegistry(makeContext(db), {
 			role: "chief_of_staff",
 		}).toClaudeToolSpecs();

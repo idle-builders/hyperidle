@@ -13,9 +13,9 @@
  * before the comparison runs (no DB round-trip involved in expiry check).
  */
 
-import type { TestDbHandle } from "@hyperidle/db";
-import { createTestDb, type HyperIdleDb, users } from "@hyperidle/db";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { type HyperIdleDb, users } from "@hyperidle/db";
+import { afterEach, describe, expect, vi } from "vitest";
+import { test } from "../test-fixtures.js";
 import {
 	createLoginSession,
 	findLoginSessionByTokenHash,
@@ -44,50 +44,50 @@ async function seedUser(db: HyperIdleDb, id = "u-test-1"): Promise<void> {
 }
 
 describe("S1 — generateToken", () => {
-	it("returns plaintext and hash fields", () => {
+	test("returns plaintext and hash fields", () => {
 		const result = generateToken();
 		expect(result).toHaveProperty("plaintext");
 		expect(result).toHaveProperty("hash");
 	});
 
-	it("plaintext is a non-empty base64url string", () => {
+	test("plaintext is a non-empty base64url string", () => {
 		const { plaintext } = generateToken();
 		// base64url: alphanumeric, +/= replaced by -_
 		expect(plaintext).toMatch(/^[A-Za-z0-9_-]+$/);
 		expect(plaintext.length).toBeGreaterThan(0);
 	});
 
-	it("hash is a 64-char hex string (SHA-256)", () => {
+	test("hash is a 64-char hex string (SHA-256)", () => {
 		const { hash } = generateToken();
 		expect(hash).toMatch(/^[0-9a-f]{64}$/);
 	});
 
-	it("two tokens are always distinct", () => {
+	test("two tokens are always distinct", () => {
 		const a = generateToken();
 		const b = generateToken();
 		expect(a.plaintext).not.toBe(b.plaintext);
 		expect(a.hash).not.toBe(b.hash);
 	});
 
-	it("hash matches hashToken(plaintext)", () => {
+	test("hash matches hashToken(plaintext)", () => {
 		const { plaintext, hash } = generateToken();
 		expect(hashToken(plaintext)).toBe(hash);
 	});
 });
 
 describe("S1 — hashToken", () => {
-	it("produces a 64-char hex string", () => {
+	test("produces a 64-char hex string", () => {
 		const result = hashToken("some-plaintext-token");
 		expect(result).toMatch(/^[0-9a-f]{64}$/);
 	});
 
-	it("is deterministic for the same input", () => {
+	test("is deterministic for the same input", () => {
 		const a = hashToken("stable-token");
 		const b = hashToken("stable-token");
 		expect(a).toBe(b);
 	});
 
-	it("produces different hashes for different inputs", () => {
+	test("produces different hashes for different inputs", () => {
 		const a = hashToken("token-a");
 		const b = hashToken("token-b");
 		expect(a).not.toBe(b);
@@ -95,28 +95,16 @@ describe("S1 — hashToken", () => {
 });
 
 describe("S1 — createLoginSession", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	// @lore S1: PGlite init under system load can exceed 30s. Raise hook timeout to 60s.
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
+	test("returns session and plaintext token", async ({ db }) => {
 		await seedUser(db, "u-sess-1");
-	}, 60_000);
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	it("returns session and plaintext token", async () => {
 		const result = await createLoginSession(db, "u-sess-1");
 		expect(result).toHaveProperty("session");
 		expect(result).toHaveProperty("token");
 		expect(typeof result.token).toBe("string");
 	});
 
-	it("stores hashed token (not plaintext)", async () => {
+	test("stores hashed token (not plaintext)", async ({ db }) => {
+		await seedUser(db, "u-sess-1");
 		const { session, token } = await createLoginSession(db, "u-sess-1");
 		// tokenHash should NOT equal the plaintext
 		expect(session.tokenHash).not.toBe(token);
@@ -124,12 +112,14 @@ describe("S1 — createLoginSession", () => {
 		expect(session.tokenHash).toBe(hashToken(token));
 	});
 
-	it("session has correct userId", async () => {
+	test("session has correct userId", async ({ db }) => {
+		await seedUser(db, "u-sess-1");
 		const { session } = await createLoginSession(db, "u-sess-1");
 		expect(session.userId).toBe("u-sess-1");
 	});
 
-	it("session has future expiresAt (default 30 days)", async () => {
+	test("session has future expiresAt (default 30 days)", async ({ db }) => {
+		await seedUser(db, "u-sess-1");
 		const before = new Date();
 		const { session } = await createLoginSession(db, "u-sess-1");
 		const expiresAt = new Date(session.expiresAt);
@@ -141,12 +131,14 @@ describe("S1 — createLoginSession", () => {
 		expect(expiresAt.getTime()).toBeLessThan(after.getTime() + thirtyDays + 1000);
 	});
 
-	it("session has null revokedAt by default", async () => {
+	test("session has null revokedAt by default", async ({ db }) => {
+		await seedUser(db, "u-sess-1");
 		const { session } = await createLoginSession(db, "u-sess-1");
 		expect(session.revokedAt).toBeNull();
 	});
 
-	it("custom TTL is respected", async () => {
+	test("custom TTL is respected", async ({ db }) => {
+		await seedUser(db, "u-sess-1");
 		const ttlMs = 60 * 1000; // 1 minute
 		const before = Date.now();
 		const { session } = await createLoginSession(db, "u-sess-1", ttlMs);
@@ -157,48 +149,29 @@ describe("S1 — createLoginSession", () => {
 });
 
 describe("S1 — findLoginSessionByTokenHash", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
+	test("returns session when found", async ({ db }) => {
 		await seedUser(db, "u-find-1");
-	}, 60_000);
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	it("returns session when found", async () => {
 		const { session } = await createLoginSession(db, "u-find-1");
 		const found = await findLoginSessionByTokenHash(db, session.tokenHash);
 		expect(found).not.toBeNull();
 		expect(found?.id).toBe(session.id);
 	});
 
-	it("returns null when hash not found", async () => {
+	test("returns null when hash not found", async ({ db }) => {
+		await seedUser(db, "u-find-1");
 		const result = await findLoginSessionByTokenHash(db, "nonexistent-hash");
 		expect(result).toBeNull();
 	});
 });
 
 describe("S1 — validateBearerToken", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		await seedUser(db, "u-val-1");
-	}, 60_000);
-
-	afterEach(async () => {
-		await handle.close();
+	// Keep afterEach for vi.useRealTimers() — non-DB timer cleanup
+	afterEach(() => {
 		vi.useRealTimers();
 	});
 
-	it("returns ok:true with session for a valid token", async () => {
+	test("returns ok:true with session for a valid token", async ({ db }) => {
+		await seedUser(db, "u-val-1");
 		const { token } = await createLoginSession(db, "u-val-1");
 		const result = await validateBearerToken(db, token);
 		expect(result.ok).toBe(true);
@@ -207,7 +180,8 @@ describe("S1 — validateBearerToken", () => {
 		}
 	});
 
-	it("returns ok:false with SESSION_EXPIRED for an expired token", async () => {
+	test("returns ok:false with SESSION_EXPIRED for an expired token", async ({ db }) => {
+		await seedUser(db, "u-val-1");
 		// Create session with 1ms TTL
 		const { token } = await createLoginSession(db, "u-val-1", 1);
 		// Wait for expiry using fake timers
@@ -221,7 +195,8 @@ describe("S1 — validateBearerToken", () => {
 		}
 	});
 
-	it("returns ok:false with SESSION_REVOKED for a revoked token", async () => {
+	test("returns ok:false with SESSION_REVOKED for a revoked token", async ({ db }) => {
+		await seedUser(db, "u-val-1");
 		const { token, session } = await createLoginSession(db, "u-val-1");
 		await revokeLoginSession(db, session.id);
 		const result = await validateBearerToken(db, token);
@@ -231,7 +206,8 @@ describe("S1 — validateBearerToken", () => {
 		}
 	});
 
-	it("returns ok:false with INVALID_TOKEN for an unknown token", async () => {
+	test("returns ok:false with INVALID_TOKEN for an unknown token", async ({ db }) => {
+		await seedUser(db, "u-val-1");
 		const result = await validateBearerToken(db, "garbage-token-that-does-not-exist");
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
@@ -239,7 +215,8 @@ describe("S1 — validateBearerToken", () => {
 		}
 	});
 
-	it("validates revokedAt takes precedence over expiry check (both set)", async () => {
+	test("validates revokedAt takes precedence over expiry check (both set)", async ({ db }) => {
+		await seedUser(db, "u-val-1");
 		// Create an already-expired token that is also revoked
 		const { token, session } = await createLoginSession(db, "u-val-1", 1);
 		await revokeLoginSession(db, session.id);
@@ -256,20 +233,8 @@ describe("S1 — validateBearerToken", () => {
 });
 
 describe("S1 — revokeLoginSession", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
+	test("sets revokedAt on the session", async ({ db }) => {
 		await seedUser(db, "u-rev-1");
-	}, 60_000);
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	it("sets revokedAt on the session", async () => {
 		const { session } = await createLoginSession(db, "u-rev-1");
 		expect(session.revokedAt).toBeNull();
 
@@ -279,7 +244,8 @@ describe("S1 — revokeLoginSession", () => {
 		expect(found?.revokedAt).not.toBeNull();
 	});
 
-	it("after revocation, validateBearerToken returns SESSION_REVOKED", async () => {
+	test("after revocation, validateBearerToken returns SESSION_REVOKED", async ({ db }) => {
+		await seedUser(db, "u-rev-1");
 		const { token, session } = await createLoginSession(db, "u-rev-1");
 		await revokeLoginSession(db, session.id);
 		const result = await validateBearerToken(db, token);
@@ -291,21 +257,10 @@ describe("S1 — revokeLoginSession", () => {
 });
 
 describe("S1 — revokeAllUserSessions", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
+	test("revokes all sessions for a user", async ({ db }) => {
 		await seedUser(db, "u-revall-1");
 		await seedUser(db, "u-revall-2");
-	}, 60_000);
 
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	it("revokes all sessions for a user", async () => {
 		const { session: s1 } = await createLoginSession(db, "u-revall-1");
 		const { session: s2 } = await createLoginSession(db, "u-revall-1");
 
@@ -318,7 +273,10 @@ describe("S1 — revokeAllUserSessions", () => {
 		expect(found2?.revokedAt).not.toBeNull();
 	});
 
-	it("does not affect sessions of other users", async () => {
+	test("does not affect sessions of other users", async ({ db }) => {
+		await seedUser(db, "u-revall-1");
+		await seedUser(db, "u-revall-2");
+
 		const { session: s1 } = await createLoginSession(db, "u-revall-1");
 		const { session: s2 } = await createLoginSession(db, "u-revall-2");
 
@@ -330,12 +288,16 @@ describe("S1 — revokeAllUserSessions", () => {
 		expect(found2?.revokedAt).toBeNull();
 	});
 
-	it("returns 0 if no sessions exist for user", async () => {
+	test("returns 0 if no sessions exist for user", async ({ db }) => {
+		await seedUser(db, "u-revall-1");
 		const count = await revokeAllUserSessions(db, "u-revall-1");
 		expect(count).toBe(0);
 	});
 
-	it("only revokes unrevoked sessions (idempotent on revoked ones)", async () => {
+	test("only revokes unrevoked sessions (idempotent on revoked ones)", async ({ db }) => {
+		await seedUser(db, "u-revall-1");
+		await seedUser(db, "u-revall-2");
+
 		const { session: s1 } = await createLoginSession(db, "u-revall-1");
 		const { session: s2 } = await createLoginSession(db, "u-revall-1");
 

@@ -2,7 +2,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	tasks,
 	teamMembers,
@@ -12,7 +11,8 @@ import {
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
+import { test } from "../../test-fixtures.js";
 import { logTaskTool } from "../log-task.js";
 import type { ToolContext } from "../tool-registry.js";
 
@@ -78,16 +78,9 @@ function makeContext(db: HyperIdleDb): ToolContext {
 }
 
 describe("log_task tool", () => {
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		const handle = await createTestDb();
-		db = handle.db;
-		await seed(db);
-	});
-
 	describe("AC3: appends 'Discovered X' to task.notes", () => {
-		it("appends note prose to task.notes", async () => {
+		test("appends note prose to task.notes", async ({ db }) => {
+			await seed(db);
 			// I1 C2 decision: log_task writes agent-authored prose (not
 			// audit entries) to tasks.notes. The storage representation is
 			// implementation-defined (JSON array of note objects OR plain
@@ -102,7 +95,8 @@ describe("log_task tool", () => {
 			expect(task?.notes ?? "").toContain("Discovered X");
 		});
 
-		it("preserves pre-existing notes content when appending", async () => {
+		test("preserves pre-existing notes content when appending", async ({ db }) => {
+			await seed(db);
 			// Seed notes with prior agent prose; log_task must preserve it
 			// and append the new note. We use prose (not JSON) to reflect
 			// C2's plain-text lane; if the impl keeps JSON, the assertions
@@ -119,7 +113,8 @@ describe("log_task tool", () => {
 			expect(notesText).toContain("Another note");
 		});
 
-		it("appends multiple notes in order", async () => {
+		test("appends multiple notes in order", async ({ db }) => {
+			await seed(db);
 			await logTaskTool.handler({ note: "First" }, makeContext(db));
 			await logTaskTool.handler({ note: "Second" }, makeContext(db));
 			await logTaskTool.handler({ note: "Third" }, makeContext(db));
@@ -138,7 +133,8 @@ describe("log_task tool", () => {
 
 	// ---------------- I1 C2/C3: log_task must never touch auditTrail ----------------
 	describe("I1 C2/C3: log_task never writes to tasks.auditTrail", () => {
-		it("leaves auditTrail untouched when appending a note", async () => {
+		test("leaves auditTrail untouched when appending a note", async ({ db }) => {
+			await seed(db);
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			const auditBefore = task?.auditTrail ?? null;
 
@@ -149,7 +145,8 @@ describe("log_task tool", () => {
 			expect(after?.auditTrail ?? null).toBe(auditBefore);
 		});
 
-		it("does not corrupt a pre-existing auditTrail entry (state transition)", async () => {
+		test("does not corrupt a pre-existing auditTrail entry (state transition)", async ({ db }) => {
+			await seed(db);
 			const now = new Date().toISOString();
 			const existing = [{ from: "accepted", to: "in_progress", timestamp: now }];
 			await db
@@ -172,14 +169,16 @@ describe("log_task tool", () => {
 	});
 
 	describe("AC9: invalid input returns structured error", () => {
-		it("returns INVALID_INPUT when note is empty", async () => {
+		test("returns INVALID_INPUT when note is empty", async ({ db }) => {
+			await seed(db);
 			const result = await logTaskTool.handler({ note: "" }, makeContext(db));
 			expect(result.success).toBe(false);
 			if (result.success) return;
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		it("returns INVALID_INPUT when note is missing", async () => {
+		test("returns INVALID_INPUT when note is missing", async ({ db }) => {
+			await seed(db);
 			const result = await logTaskTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
 				{} as any,
@@ -190,7 +189,8 @@ describe("log_task tool", () => {
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		it("returns NOT_FOUND when ctx.taskId does not exist", async () => {
+		test("returns NOT_FOUND when ctx.taskId does not exist", async ({ db }) => {
+			await seed(db);
 			const ctx = { ...makeContext(db), taskId: "ghost-task" };
 			const result = await logTaskTool.handler({ note: "x" }, ctx);
 			expect(result.success).toBe(false);

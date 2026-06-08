@@ -1,6 +1,5 @@
 import {
 	bets,
-	createTestDb,
 	factorySettings,
 	type HyperIdleDb,
 	items,
@@ -16,10 +15,7 @@ import type {
 	ItemCreatedEvent,
 	TaskStateChangedEvent,
 } from "@hyperidle/shared";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { describe, expect, test, vi } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-rail";
 
@@ -27,44 +23,29 @@ function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
 }
 
+async function seedBase(db: HyperIdleDb): Promise<void> {
+	await db.insert(teams).values({
+		id: "prod-1",
+		name: "Test Product",
+		phase: "build",
+		createdAt: new Date().toISOString(),
+	});
+	await db.insert(teamMembers).values({
+		id: "team-1",
+		teamId: "prod-1",
+		capacity: 3,
+		activeBets: 0,
+		formedAt: new Date().toISOString(),
+	});
+}
+
 describe("Rail Endpoint (E5)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-
-		// Seed base data
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 3,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
-	});
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle?.close();
-	});
-
 	// AC1: GET /api/rail returns current state with bets, blockers, awaiting-ordering items, cost burn rate
 	describe("AC1: GET /api/rail — current state", () => {
-		it("returns empty state when no data exists", async () => {
+		test("returns empty state when no data exists", async ({ db, app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await seedBase(db);
+
 			const res = await app.request("/api/rail", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Record<string, unknown>;
@@ -72,9 +53,13 @@ describe("Rail Endpoint (E5)", () => {
 			expect(body.blockers).toEqual([]);
 			expect(body.awaitingOrdering).toEqual([]);
 			expect(body.costBurnRate).toBeDefined();
+			vi.unstubAllEnvs();
 		});
 
-		it("returns bets with status, blockers, items, and cost burn rate", async () => {
+		test("returns bets with status, blockers, items, and cost burn rate", async ({ db, app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await seedBase(db);
+
 			// Create bets
 			await db.insert(bets).values({
 				id: "bet-1",
@@ -185,12 +170,16 @@ describe("Rail Endpoint (E5)", () => {
 			expect(cost.todayCap?.currency).toBe("USD");
 			// No sessions seeded, so spend is 0
 			expect(cost.todaySpend?.minor).toBe(0);
+			vi.unstubAllEnvs();
 		});
 	});
 
 	// AC5: Bets returned with one-liner: id, title, status, progress
 	describe("AC5: Bets with one-liner fields", () => {
-		it("returns id, title (pitch), status, and progress for each bet", async () => {
+		test("returns id, title (pitch), status, and progress for each bet", async ({ db, app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await seedBase(db);
+
 			await db.insert(bets).values({
 				id: "bet-a",
 				teamId: "prod-1",
@@ -232,12 +221,16 @@ describe("Rail Endpoint (E5)", () => {
 			// @lore U1: status simplified — "in_progress" merged into "active"
 			expect(bet.status).toBe("active");
 			expect(bet.progress).toEqual({ done: 1, total: 2 });
+			vi.unstubAllEnvs();
 		});
 	});
 
 	// AC6: Blockers include: task id, title, owner, duration blocked
 	describe("AC6: Blockers include required fields", () => {
-		it("returns task id, title, owner, and duration blocked", async () => {
+		test("returns task id, title, owner, and duration blocked", async ({ db, app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await seedBase(db);
+
 			await db.insert(bets).values({
 				id: "bet-b",
 				teamId: "prod-1",
@@ -278,12 +271,14 @@ describe("Rail Endpoint (E5)", () => {
 			expect(blocker.owner).toBe("agent-owner");
 			expect(typeof blocker.durationBlockedMs).toBe("number");
 			expect(blocker.durationBlockedMs as number).toBeGreaterThanOrEqual(7200_000 - 1000); // allow 1s tolerance
+			vi.unstubAllEnvs();
 		});
 	});
 
 	// AC2: WebSocket subscription events — test via EventBus subscriptions on the rail service
 	describe("AC2: WebSocket event subscriptions (EventBus integration)", () => {
-		it("rail subscribes to task_state_changed for blockers", () => {
+		test("rail subscribes to task_state_changed for blockers", ({ eventBus }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const events: unknown[] = [];
 			// Simulate what the WebSocket rail handler does: subscribe to relevant events
 			eventBus.on("task_state_changed", (e) => events.push(e));
@@ -300,9 +295,11 @@ describe("Rail Endpoint (E5)", () => {
 
 			expect(events).toHaveLength(1);
 			expect(events[0]).toEqual(event);
+			vi.unstubAllEnvs();
 		});
 
-		it("rail subscribes to cost_cap_warning", () => {
+		test("rail subscribes to cost_cap_warning", ({ eventBus }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const events: unknown[] = [];
 			eventBus.on("cost_cap_warning", (e) => events.push(e));
 
@@ -319,9 +316,11 @@ describe("Rail Endpoint (E5)", () => {
 			eventBus.emit(event);
 
 			expect(events).toHaveLength(1);
+			vi.unstubAllEnvs();
 		});
 
-		it("rail subscribes to cost_cap_breached", () => {
+		test("rail subscribes to cost_cap_breached", ({ eventBus }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const events: unknown[] = [];
 			eventBus.on("cost_cap_breached", (e) => events.push(e));
 
@@ -338,9 +337,11 @@ describe("Rail Endpoint (E5)", () => {
 			eventBus.emit(event);
 
 			expect(events).toHaveLength(1);
+			vi.unstubAllEnvs();
 		});
 
-		it("rail subscribes to item_created for ordering queue", () => {
+		test("rail subscribes to item_created for ordering queue", ({ eventBus }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const events: unknown[] = [];
 			eventBus.on("item_created", (e) => events.push(e));
 
@@ -355,12 +356,13 @@ describe("Rail Endpoint (E5)", () => {
 			eventBus.emit(event);
 
 			expect(events).toHaveLength(1);
+			vi.unstubAllEnvs();
 		});
 	});
 
 	// AC3: Block task -> WebSocket blocker_added within 5s (tested via EventBus emit latency)
 	describe("AC3: Block task → blocker event within 5s", () => {
-		it("emits task_state_changed with blocked state immediately on EventBus", () => {
+		test("emits task_state_changed with blocked state immediately on EventBus", ({ eventBus }) => {
 			const received: number[] = [];
 
 			eventBus.on("task_state_changed", () => {
@@ -386,7 +388,7 @@ describe("Rail Endpoint (E5)", () => {
 
 	// AC4: Cost warning → WebSocket cost_warning within 5s
 	describe("AC4: Cost warning → cost_warning within 5s", () => {
-		it("emits cost_cap_warning immediately on EventBus", () => {
+		test("emits cost_cap_warning immediately on EventBus", ({ eventBus }) => {
 			const received: number[] = [];
 
 			eventBus.on("cost_cap_warning", () => {
@@ -413,7 +415,10 @@ describe("Rail Endpoint (E5)", () => {
 
 	// AC7 / AC18: Cost burn rate in rail response (L17: WireMoney shape)
 	describe("AC7/AC18: Cost burn rate in rail response", () => {
-		it("returns todayCap from factory settings when cost_cap_daily_minor is set", async () => {
+		test("returns todayCap from factory settings when cost_cap_daily_minor is set", async ({ db, app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await seedBase(db);
+
 			await db.insert(factorySettings).values({
 				key: "cost_cap_daily_minor",
 				value: "50000",
@@ -436,9 +441,11 @@ describe("Rail Endpoint (E5)", () => {
 			// spend fields are WireMoney objects (minor=0 when no sessions seeded)
 			expect(cost.todaySpend).not.toBeNull();
 			expect(typeof cost.todaySpend?.minor).toBe("number");
+			vi.unstubAllEnvs();
 		});
 
-		it("returns null caps when no factory settings exist", async () => {
+		test("returns null caps when no factory settings exist", async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const res = await app.request("/api/rail", { headers: authHeaders() });
 			const body = (await res.json()) as Record<string, unknown>;
 			const cost = body.costBurnRate as {
@@ -455,12 +462,13 @@ describe("Rail Endpoint (E5)", () => {
 			expect(cost.todaySpend).not.toBeNull();
 			expect(cost.todaySpend?.minor).toBe(0);
 			expect(cost.weekSpend?.minor).toBe(0);
+			vi.unstubAllEnvs();
 		});
 	});
 
 	// Additional: auth required
 	describe("Auth required", () => {
-		it("returns 401 without API key", async () => {
+		test("returns 401 without API key", async ({ app }) => {
 			const res = await app.request("/api/rail");
 			expect(res.status).toBe(401);
 		});

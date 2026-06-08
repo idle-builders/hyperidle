@@ -10,7 +10,7 @@
  * POST  /api/notifications/digest    — dispatch digest
  */
 
-import { createTestDb, type HyperIdleDb } from "@hyperidle/db";
+import { createTestDb } from "@hyperidle/db";
 import type {
 	AdapterFactory,
 	Notification,
@@ -18,9 +18,9 @@ import type {
 	NotificationConfig,
 } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { afterEach, beforeEach, describe, vi } from "vitest";
+import { createApp } from "../../app.js";
+import { expect, test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-notifications";
 
@@ -48,17 +48,8 @@ function makeFakeAdapterFactory(): {
 }
 
 describe("notifications routes", () => {
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		const { factory } = makeFakeAdapterFactory();
-		app = await createTestApp({ db, eventBus, notificationAdapterFactory: factory });
 	});
 
 	afterEach(() => {
@@ -66,14 +57,18 @@ describe("notifications routes", () => {
 	});
 
 	describe("notifications auth", () => {
-		it("returns 401 without auth header on GET /api/notifications", async () => {
+		test("returns 401 without auth header on GET /api/notifications", async ({ db, eventBus }) => {
+			const { factory } = makeFakeAdapterFactory();
+			const app = await createApp({ db, eventBus, notificationAdapterFactory: factory });
 			const res = await app.request("/api/notifications", { method: "GET" });
 			expect(res.status).toBe(401);
 		});
 	});
 
 	describe("GET /api/notifications", () => {
-		it("returns 200 with resource descriptor", async () => {
+		test("returns 200 with resource descriptor", async ({ db, eventBus }) => {
+			const { factory } = makeFakeAdapterFactory();
+			const app = await createApp({ db, eventBus, notificationAdapterFactory: factory });
 			const res = await app.request("/api/notifications", {
 				method: "GET",
 				headers: authHeaders(),
@@ -86,7 +81,9 @@ describe("notifications routes", () => {
 	});
 
 	describe("GET /api/notifications/config", () => {
-		it("returns 200 with redacted config", async () => {
+		test("returns 200 with redacted config", async ({ db, eventBus }) => {
+			const { factory } = makeFakeAdapterFactory();
+			const app = await createApp({ db, eventBus, notificationAdapterFactory: factory });
 			const res = await app.request("/api/notifications/config", {
 				method: "GET",
 				headers: authHeaders(),
@@ -99,7 +96,9 @@ describe("notifications routes", () => {
 	});
 
 	describe("PATCH /api/notifications/config", () => {
-		it("returns 200 with updated config", async () => {
+		test("returns 200 with updated config", async ({ db, eventBus }) => {
+			const { factory } = makeFakeAdapterFactory();
+			const app = await createApp({ db, eventBus, notificationAdapterFactory: factory });
 			const res = await app.request("/api/notifications/config", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -111,7 +110,9 @@ describe("notifications routes", () => {
 			expect(body.primaryChannel).toBe("console");
 		});
 
-		it("returns 400 on invalid field values (e.g., bad email)", async () => {
+		test("returns 400 on invalid field values (e.g., bad email)", async ({ db, eventBus }) => {
+			const { factory } = makeFakeAdapterFactory();
+			const app = await createApp({ db, eventBus, notificationAdapterFactory: factory });
 			const res = await app.request("/api/notifications/config", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -120,7 +121,9 @@ describe("notifications routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 with extra/unknown fields (strict schema)", async () => {
+		test("returns 400 with extra/unknown fields (strict schema)", async ({ db, eventBus }) => {
+			const { factory } = makeFakeAdapterFactory();
+			const app = await createApp({ db, eventBus, notificationAdapterFactory: factory });
 			const res = await app.request("/api/notifications/config", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -129,7 +132,9 @@ describe("notifications routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("redacts secrets in response (smtpPassword, ntfyAuthToken)", async () => {
+		test("redacts secrets in response (smtpPassword, ntfyAuthToken)", async ({ db, eventBus }) => {
+			const { factory } = makeFakeAdapterFactory();
+			const app = await createApp({ db, eventBus, notificationAdapterFactory: factory });
 			const res = await app.request("/api/notifications/config", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -143,7 +148,9 @@ describe("notifications routes", () => {
 	});
 
 	describe("GET /api/notifications/queue", () => {
-		it("returns 200 with pending queue items", async () => {
+		test("returns 200 with pending queue items", async ({ db, eventBus }) => {
+			const { factory } = makeFakeAdapterFactory();
+			const app = await createApp({ db, eventBus, notificationAdapterFactory: factory });
 			const res = await app.request("/api/notifications/queue", {
 				method: "GET",
 				headers: authHeaders(),
@@ -155,7 +162,9 @@ describe("notifications routes", () => {
 			expect(Array.isArray(body.rows)).toBe(true);
 		});
 
-		it("returns 200 with empty rows when queue is empty", async () => {
+		test("returns 200 with empty rows when queue is empty", async ({ db, eventBus }) => {
+			const { factory } = makeFakeAdapterFactory();
+			const app = await createApp({ db, eventBus, notificationAdapterFactory: factory });
 			const res = await app.request("/api/notifications/queue", {
 				method: "GET",
 				headers: authHeaders(),
@@ -165,7 +174,9 @@ describe("notifications routes", () => {
 			expect(body.rows).toHaveLength(0);
 		});
 
-		it("returns 400 on invalid status param", async () => {
+		test("returns 400 on invalid status param", async ({ db, eventBus }) => {
+			const { factory } = makeFakeAdapterFactory();
+			const app = await createApp({ db, eventBus, notificationAdapterFactory: factory });
 			const res = await app.request("/api/notifications/queue?status=invalid_status_xyz", {
 				method: "GET",
 				headers: authHeaders(),
@@ -173,7 +184,9 @@ describe("notifications routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("respects limit query param", async () => {
+		test("respects limit query param", async ({ db, eventBus }) => {
+			const { factory } = makeFakeAdapterFactory();
+			const app = await createApp({ db, eventBus, notificationAdapterFactory: factory });
 			const res = await app.request("/api/notifications/queue?limit=10&status=sent", {
 				method: "GET",
 				headers: authHeaders(),
@@ -183,7 +196,9 @@ describe("notifications routes", () => {
 	});
 
 	describe("POST /api/notifications/test", () => {
-		it("returns 200 with send result on valid test", async () => {
+		test("returns 200 with send result on valid test", async ({ db, eventBus }) => {
+			const { factory } = makeFakeAdapterFactory();
+			const app = await createApp({ db, eventBus, notificationAdapterFactory: factory });
 			// Configure console channel first
 			await app.request("/api/notifications/config", {
 				method: "PATCH",
@@ -206,7 +221,9 @@ describe("notifications routes", () => {
 			expect(body.channel).toBe("console");
 		});
 
-		it("returns 400 when recipient not configured for channel", async () => {
+		test("returns 400 when recipient not configured for channel", async ({ db, eventBus }) => {
+			const { factory } = makeFakeAdapterFactory();
+			const app = await createApp({ db, eventBus, notificationAdapterFactory: factory });
 			// Configure with ntfy channel but no recipient
 			await app.request("/api/notifications/config", {
 				method: "PATCH",
@@ -226,52 +243,44 @@ describe("notifications routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 429 when rate limit exceeded", async () => {
-			// Set testMaxPerHour to 0 (disabled)
-			await app.request("/api/notifications/config", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({ testMaxPerHour: 0 }),
-			});
-
-			// Create a new app instance with testMaxPerHour=0 to get fresh bucket
+		test("returns 429 when rate limit exceeded", async () => {
+			// This test needs its own isolated DB + app with testMaxPerHour=0 from start
 			const handle = await createTestDb();
 			const freshDb = handle.db;
-			await freshDb.insert((await import("@hyperidle/db")).factorySettings).values({
-				key: "notifications.testMaxPerHour",
-				value: "0",
-				updatedAt: new Date().toISOString(),
-			});
+			const freshEventBus = new EventBus();
 
-			// The rate limit test: with testMaxPerHour=0, any send should get 429
-			// We need to exhaust the bucket first by sending requests
-			// But since testMaxPerHour=0 means capacity=0, first request should return 429
-			const { factory: limitFactory } = makeFakeAdapterFactory();
-			const limitApp = await createTestApp({
-				db: freshDb,
-				eventBus: new EventBus(),
-				notificationAdapterFactory: limitFactory,
-			});
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			try {
+				vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+				const { factory: limitFactory } = makeFakeAdapterFactory();
+				const limitApp = await createApp({
+					db: freshDb,
+					eventBus: freshEventBus,
+					notificationAdapterFactory: limitFactory,
+				});
 
-			// Update config on fresh db
-			await limitApp.request("/api/notifications/config", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({ testMaxPerHour: 0 }),
-			});
+				// Set testMaxPerHour=0 so capacity=0, first request should return 429
+				await limitApp.request("/api/notifications/config", {
+					method: "PATCH",
+					headers: authHeaders(),
+					body: JSON.stringify({ testMaxPerHour: 0 }),
+				});
 
-			const res = await limitApp.request("/api/notifications/test", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({}),
-			});
-			expect(res.status).toBe(429);
+				const res = await limitApp.request("/api/notifications/test", {
+					method: "POST",
+					headers: authHeaders(),
+					body: JSON.stringify({}),
+				});
+				expect(res.status).toBe(429);
+			} finally {
+				await handle.close();
+			}
 		});
 	});
 
 	describe("POST /api/notifications/flush", () => {
-		it("returns 200 with flush result", async () => {
+		test("returns 200 with flush result", async ({ db, eventBus }) => {
+			const { factory } = makeFakeAdapterFactory();
+			const app = await createApp({ db, eventBus, notificationAdapterFactory: factory });
 			const res = await app.request("/api/notifications/flush", {
 				method: "POST",
 				headers: authHeaders(),
@@ -280,7 +289,9 @@ describe("notifications routes", () => {
 			expect(res.status).toBe(200);
 		});
 
-		it("returns flushed:0 reason:disabled when config not enabled", async () => {
+		test("returns flushed:0 reason:disabled when config not enabled", async ({ db, eventBus }) => {
+			const { factory } = makeFakeAdapterFactory();
+			const app = await createApp({ db, eventBus, notificationAdapterFactory: factory });
 			// Ensure disabled
 			await app.request("/api/notifications/config", {
 				method: "PATCH",
@@ -301,7 +312,9 @@ describe("notifications routes", () => {
 	});
 
 	describe("POST /api/notifications/digest", () => {
-		it("returns 200 with digest result", async () => {
+		test("returns 200 with digest result", async ({ db, eventBus }) => {
+			const { factory } = makeFakeAdapterFactory();
+			const app = await createApp({ db, eventBus, notificationAdapterFactory: factory });
 			const res = await app.request("/api/notifications/digest", {
 				method: "POST",
 				headers: authHeaders(),

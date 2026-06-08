@@ -7,11 +7,9 @@
  * The fallback to "u-founder" is preserved for unseeded DBs.
  */
 
-import { bets, createTestDb, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { bets, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import { describe, expect, vi } from "vitest";
+import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-m3-auth";
 
@@ -36,67 +34,40 @@ async function seedFounderUser(db: HyperIdleDb, founderId = "test-founder-1"): P
 }
 
 describe("M3 — Auth middleware: createAuthMiddleware(db) (A3)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	test("sets userId on context from users table (kind=human)", async ({ app, db }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-	});
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle?.close();
-	});
-
-	it("sets userId on context from users table (kind=human)", async () => {
 		await seedFounderUser(db, "test-founder-1");
 		const res = await app.request("/api/auth/me", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { id: string };
 		expect(body.id).toBe("test-founder-1");
 		expect(body.id).not.toBe("u-founder");
+		vi.unstubAllEnvs();
 	});
 
-	it("falls back to u-founder when no human user is seeded (backward compat)", async () => {
+	test("falls back to u-founder when no human user is seeded (backward compat)", async ({
+		app,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const res = await app.request("/api/auth/me", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { id: string };
 		expect(body.id).toBe("u-founder");
+		vi.unstubAllEnvs();
 	});
 
-	it("returns 401 when no API key is provided", async () => {
+	test("returns 401 when no API key is provided", async ({ app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const res = await app.request("/api/auth/me");
 		expect(res.status).toBe(401);
+		vi.unstubAllEnvs();
 	});
 });
 
 describe("M3 — GET /api/auth/me returns full identity from users table (A4)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	test("returns id, name, email, avatarUrl from users table", async ({ app, db }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
 		await seedFounderUser(db, "test-founder-1");
-	});
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle?.close();
-	});
-
-	it("returns id, name, email, avatarUrl from users table", async () => {
 		const res = await app.request("/api/auth/me", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as {
@@ -109,28 +80,22 @@ describe("M3 — GET /api/auth/me returns full identity from users table (A4)", 
 		expect(body.name).toBe("Test Founder");
 		expect(body.email).toBe("test@hyperidle.dev");
 		expect(body.avatarUrl).toBeNull();
+		vi.unstubAllEnvs();
 	});
 
-	it("response id is NOT the hardcoded 'u-founder'", async () => {
+	test("response id is NOT the hardcoded 'u-founder'", async ({ app, db }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedFounderUser(db, "test-founder-1");
 		const res = await app.request("/api/auth/me", { headers: authHeaders() });
 		const body = (await res.json()) as { id: string };
 		expect(body.id).not.toBe("u-founder");
+		vi.unstubAllEnvs();
 	});
 });
 
 describe("M3 — Bets routes: revision log actor comes from auth context (A5)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	test("revision log actor is the seeded human user id, NOT 'u-founder'", async ({ app, db }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-
 		const now = new Date().toISOString();
 		await db
 			.insert(teams)
@@ -152,14 +117,7 @@ describe("M3 — Bets routes: revision log actor comes from auth context (A5)", 
 			status: "active",
 			createdAt: now,
 		});
-	});
 
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle?.close();
-	});
-
-	it("revision log actor is the seeded human user id, NOT 'u-founder'", async () => {
 		await seedFounderUser(db, "test-founder-1");
 		const res = await app.request("/api/bets/bet-1", {
 			method: "PATCH",
@@ -173,5 +131,6 @@ describe("M3 — Bets routes: revision log actor comes from auth context (A5)", 
 		const lastEntry = log[log.length - 1];
 		expect(lastEntry?.actor).toBe("test-founder-1");
 		expect(lastEntry?.actor).not.toBe("u-founder");
+		vi.unstubAllEnvs();
 	});
 });

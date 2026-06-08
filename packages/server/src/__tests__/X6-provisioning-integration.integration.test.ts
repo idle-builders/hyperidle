@@ -16,7 +16,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	sessions,
 	tasks,
@@ -25,13 +24,13 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { EventBus, type EventBus as EventBusType } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
 import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
 import { type ProvisionSessionDeps, provisionSession } from "../services/session-provisioning.js";
+import { test } from "../test-fixtures.js";
 
 // ── Mock callLlm so the builtin harness loop doesn't make real LLM calls ─────
 
@@ -106,15 +105,9 @@ async function seedDomain(db: HyperIdleDb): Promise<{ agentId: string; taskId: s
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe("X6 AC-15: builtin harness — no double tool execution on provisioning", () => {
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	let db: HyperIdleDb;
-	let eventBus: EventBusType;
 	let workspaceBasePath: string;
 
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
+	beforeEach(() => {
 		workspaceBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "x6-test-"));
 
 		// LLM mock: planning response (text only → loop terminates immediately)
@@ -123,17 +116,19 @@ describe("X6 AC-15: builtin harness — no double tool execution on provisioning
 			content: [{ type: "text" as const, text: "Task plan: I will complete this task now." }],
 			usage: { inputTokens: 100, outputTokens: 50 },
 		});
-	}, 30_000);
+	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.clearAllMocks();
-		await handle.close();
 		if (fs.existsSync(workspaceBasePath)) {
 			fs.rmSync(workspaceBasePath, { recursive: true, force: true });
 		}
 	});
 
-	it("provisions a builtin harness session to completion without error", async () => {
+	test("provisions a builtin harness session to completion without error", async ({
+		db,
+		eventBus,
+	}) => {
 		const { agentId, taskId } = await seedDomain(db);
 
 		const adapter = new BuiltinHarnessAdapter({ maxIterations: 2 });
@@ -180,7 +175,10 @@ describe("X6 AC-15: builtin harness — no double tool execution on provisioning
 		expect(sessionRow?.state).toBe("done");
 	}, 30_000);
 
-	it("does NOT invoke registry.invoke() from provisioning orchestrator for tool_call events (no double execution)", async () => {
+	test("does NOT invoke registry.invoke() from provisioning orchestrator for tool_call events (no double execution)", async ({
+		db,
+		eventBus,
+	}) => {
 		// This test verifies AC-15: when the builtin harness emits a tool_call event,
 		// the provisioning orchestrator must NOT re-invoke the registry (because the
 		// harness already executed the tool internally). Double execution would mean

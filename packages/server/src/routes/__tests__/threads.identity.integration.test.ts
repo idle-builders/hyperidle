@@ -19,7 +19,6 @@
 
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	messages,
 	tasks,
@@ -28,10 +27,8 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { beforeEach, afterEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-r4-identity";
 
@@ -43,18 +40,7 @@ function authHeaders(extra: Record<string, string> = {}): Record<string, string>
 	};
 }
 
-interface AppCtx {
-	app: Hono;
-	db: HyperIdleDb;
-	close: () => Promise<void>;
-}
-
-async function setupApp(): Promise<AppCtx> {
-	const handle = await createTestDb();
-	const db = handle.db;
-	const eventBus = new EventBus();
-	const app = await createTestApp({ db, eventBus });
-
+async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 
 	await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now });
@@ -104,27 +90,22 @@ async function setupApp(): Promise<AppCtx> {
 		createdAt: now,
 		updatedAt: now,
 	});
-
-	return { app, db, close: handle.close };
 }
 
 describe("R4 — GET /api/threads/:id includes identities map", () => {
-	let ctx: AppCtx;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = await setupApp();
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await ctx.close();
 	});
 
 	describe("AC-1: response shape includes identities field", () => {
-		it("identities field is present in GET /api/threads/:id response", async () => {
+		test("identities field is present in GET /api/threads/:id response", async ({ db, app }) => {
+			await seedBase(db);
 			// Arrange: create a thread with one message from the human user.
-			const create = await ctx.app.request("/api/threads", {
+			const create = await app.request("/api/threads", {
 				method: "POST",
 				headers: authHeaders({ "X-Identity": "u-human" }),
 				body: JSON.stringify({
@@ -142,7 +123,7 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			const created = (await create.json()) as { thread: { id: string } };
 
 			// Act
-			const res = await ctx.app.request(`/api/threads/${created.thread.id}`, {
+			const res = await app.request(`/api/threads/${created.thread.id}`, {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -153,8 +134,9 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			expect(body).toHaveProperty("identities");
 		});
 
-		it("identities is an object (not null, not an array)", async () => {
-			const create = await ctx.app.request("/api/threads", {
+		test("identities is an object (not null, not an array)", async ({ db, app }) => {
+			await seedBase(db);
+			const create = await app.request("/api/threads", {
 				method: "POST",
 				headers: authHeaders({ "X-Identity": "u-human" }),
 				body: JSON.stringify({
@@ -170,7 +152,7 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			});
 			const created = (await create.json()) as { thread: { id: string } };
 
-			const res = await ctx.app.request(`/api/threads/${created.thread.id}`, {
+			const res = await app.request(`/api/threads/${created.thread.id}`, {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -183,9 +165,10 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 	});
 
 	describe("AC-1: human user identity has correct name and role", () => {
-		it("human sender appears in identities with exact name 'Alice Founder'", async () => {
+		test("human sender appears in identities with exact name 'Alice Founder'", async ({ db, app }) => {
+			await seedBase(db);
 			// Arrange: human user sends initial message.
-			const create = await ctx.app.request("/api/threads", {
+			const create = await app.request("/api/threads", {
 				method: "POST",
 				headers: authHeaders({ "X-Identity": "u-human" }),
 				body: JSON.stringify({
@@ -203,7 +186,7 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			const created = (await create.json()) as { thread: { id: string } };
 
 			// Act
-			const res = await ctx.app.request(`/api/threads/${created.thread.id}`, {
+			const res = await app.request(`/api/threads/${created.thread.id}`, {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -219,9 +202,10 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 	});
 
 	describe("AC-1: AI agent identity has correct name and role", () => {
-		it("AI agent sender appears in identities with exact name 'Builder Bot' and role 'builder'", async () => {
+		test("AI agent sender appears in identities with exact name 'Builder Bot' and role 'builder'", async ({ db, app }) => {
+			await seedBase(db);
 			// Arrange: create thread, then have agent-builder post a message.
-			const create = await ctx.app.request("/api/threads", {
+			const create = await app.request("/api/threads", {
 				method: "POST",
 				headers: authHeaders({ "X-Identity": "u-human" }),
 				body: JSON.stringify({
@@ -240,7 +224,7 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			const threadId = created.thread.id;
 
 			// Agent posts a reply.
-			const agentPost = await ctx.app.request(`/api/threads/${threadId}/messages`, {
+			const agentPost = await app.request(`/api/threads/${threadId}/messages`, {
 				method: "POST",
 				headers: authHeaders({ "X-Identity": "agent-builder" }),
 				body: JSON.stringify({
@@ -252,7 +236,7 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			expect(agentPost.status).toBe(201);
 
 			// Act
-			const res = await ctx.app.request(`/api/threads/${threadId}`, {
+			const res = await app.request(`/api/threads/${threadId}`, {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -266,9 +250,10 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			expect(body.identities["agent-builder"]?.role).toBe("builder");
 		});
 
-		it("identities contains both human and agent when both have sent messages", async () => {
+		test("identities contains both human and agent when both have sent messages", async ({ db, app }) => {
+			await seedBase(db);
 			// Arrange: both participants post messages.
-			const create = await ctx.app.request("/api/threads", {
+			const create = await app.request("/api/threads", {
 				method: "POST",
 				headers: authHeaders({ "X-Identity": "u-human" }),
 				body: JSON.stringify({
@@ -286,7 +271,7 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			const created = (await create.json()) as { thread: { id: string } };
 			const threadId = created.thread.id;
 
-			await ctx.app.request(`/api/threads/${threadId}/messages`, {
+			await app.request(`/api/threads/${threadId}/messages`, {
 				method: "POST",
 				headers: authHeaders({ "X-Identity": "agent-builder" }),
 				body: JSON.stringify({
@@ -297,7 +282,7 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			});
 
 			// Act
-			const res = await ctx.app.request(`/api/threads/${threadId}`, {
+			const res = await app.request(`/api/threads/${threadId}`, {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -314,13 +299,14 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 	});
 
 	describe("AC-1 edge case: zero messages returns empty identities", () => {
-		it("thread with zero messages has an empty identities map", async () => {
+		test("thread with zero messages has an empty identities map", async ({ db, app }) => {
+			await seedBase(db);
 			// Arrange: insert a thread directly with no messages (cannot do via API
 			// since POST /api/threads requires an initial message, so we insert
 			// directly into the DB to exercise the zero-message path).
 			const now = new Date().toISOString();
 			const threadId = "r4-zero-msg-thread";
-			await ctx.db.insert(threads).values({
+			await db.insert(threads).values({
 				id: threadId,
 				hostKind: "task",
 				hostId: "task-1",
@@ -333,12 +319,12 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			});
 
 			// Verify no messages exist for this thread.
-			const allMsgs = await ctx.db.select().from(messages);
+			const allMsgs = await db.select().from(messages);
 			const msgCount = allMsgs.filter((m) => m.threadId === threadId);
 			expect(msgCount.length).toBe(0);
 
 			// Act
-			const res = await ctx.app.request(`/api/threads/${threadId}`, {
+			const res = await app.request(`/api/threads/${threadId}`, {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -354,10 +340,11 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 	});
 
 	describe("AC-1: identities only contains senders who have actually messaged", () => {
-		it("non-messaging participant is NOT included in identities", async () => {
+		test("non-messaging participant is NOT included in identities", async ({ db, app }) => {
+			await seedBase(db);
 			// Arrange: u-human sends the only message; agent-builder is a participant
 			// but never sends. Only u-human should appear in identities.
-			const create = await ctx.app.request("/api/threads", {
+			const create = await app.request("/api/threads", {
 				method: "POST",
 				headers: authHeaders({ "X-Identity": "u-human" }),
 				body: JSON.stringify({
@@ -375,7 +362,7 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			const created = (await create.json()) as { thread: { id: string } };
 
 			// Act
-			const res = await ctx.app.request(`/api/threads/${created.thread.id}`, {
+			const res = await app.request(`/api/threads/${created.thread.id}`, {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -390,9 +377,10 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 	});
 
 	describe("AC-2: identities map supports correct UI display (sender name resolution)", () => {
-		it("every unique senderId in messages array has an entry in identities", async () => {
+		test("every unique senderId in messages array has an entry in identities", async ({ db, app }) => {
+			await seedBase(db);
 			// Arrange: both participants post messages.
-			const create = await ctx.app.request("/api/threads", {
+			const create = await app.request("/api/threads", {
 				method: "POST",
 				headers: authHeaders({ "X-Identity": "u-human" }),
 				body: JSON.stringify({
@@ -410,7 +398,7 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			const created = (await create.json()) as { thread: { id: string } };
 			const threadId = created.thread.id;
 
-			await ctx.app.request(`/api/threads/${threadId}/messages`, {
+			await app.request(`/api/threads/${threadId}/messages`, {
 				method: "POST",
 				headers: authHeaders({ "X-Identity": "agent-builder" }),
 				body: JSON.stringify({
@@ -421,7 +409,7 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			});
 
 			// Act
-			const res = await ctx.app.request(`/api/threads/${threadId}`, {
+			const res = await app.request(`/api/threads/${threadId}`, {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -439,8 +427,9 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			}
 		});
 
-		it("identity name is a non-empty string (never 'Unknown' when user exists in db)", async () => {
-			const create = await ctx.app.request("/api/threads", {
+		test("identity name is a non-empty string (never 'Unknown' when user exists in db)", async ({ db, app }) => {
+			await seedBase(db);
+			const create = await app.request("/api/threads", {
 				method: "POST",
 				headers: authHeaders({ "X-Identity": "u-human" }),
 				body: JSON.stringify({
@@ -457,7 +446,7 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			expect(create.status).toBe(201);
 			const created = (await create.json()) as { thread: { id: string } };
 
-			const res = await ctx.app.request(`/api/threads/${created.thread.id}`, {
+			const res = await app.request(`/api/threads/${created.thread.id}`, {
 				method: "GET",
 				headers: authHeaders(),
 			});

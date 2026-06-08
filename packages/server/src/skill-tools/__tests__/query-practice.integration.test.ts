@@ -1,17 +1,12 @@
 import * as os from "node:os";
 import * as path from "node:path";
-import { createTestDb, type HyperIdleDb } from "@hyperidle/db";
+import { type HyperIdleDb } from "@hyperidle/db";
 import { create as createKnowledgeItem, setupFts } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
+import { test } from "../../test-fixtures.js";
 import { queryPracticeTool } from "../query-practice.js";
 import type { ToolContext } from "../tool-registry.js";
-
-async function makeDb(): Promise<HyperIdleDb> {
-	const handle = await createTestDb();
-	await setupFts(handle.db);
-	return handle.db;
-}
 
 function makeContext(db: HyperIdleDb): ToolContext {
 	return {
@@ -26,14 +21,9 @@ function makeContext(db: HyperIdleDb): ToolContext {
 }
 
 describe("query_practice tool", () => {
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		db = await makeDb();
-	});
-
 	describe("AC4: searches 'file handling' returns matching L3 practices", () => {
-		it("returns L3 patterns whose body matches the query", async () => {
+		test("returns L3 patterns whose body matches the query", async ({ db }) => {
+			await setupFts(db);
 			await createKnowledgeItem(db, {
 				layer: "L3",
 				kind: "pattern",
@@ -65,7 +55,8 @@ describe("query_practice tool", () => {
 			expect(titles).not.toContain("Concurrency pattern");
 		});
 
-		it("excludes L1 items by default (default layer filter is L3)", async () => {
+		test("excludes L1 items by default (default layer filter is L3)", async ({ db }) => {
+			await setupFts(db);
 			await createKnowledgeItem(db, {
 				layer: "L3",
 				kind: "pattern",
@@ -96,7 +87,8 @@ describe("query_practice tool", () => {
 			expect(layers).not.toContain("L1");
 		});
 
-		it("returns empty list when no items match", async () => {
+		test("returns empty list when no items match", async ({ db }) => {
+			await setupFts(db);
 			const result = await queryPracticeTool.handler(
 				{ query: "nothing matches xyz" },
 				makeContext(db),
@@ -107,7 +99,8 @@ describe("query_practice tool", () => {
 			expect(data.items).toEqual([]);
 		});
 
-		it("respects explicit layer override", async () => {
+		test("respects explicit layer override", async ({ db }) => {
+			await setupFts(db);
 			await createKnowledgeItem(db, {
 				layer: "L1",
 				kind: "pattern",
@@ -131,14 +124,16 @@ describe("query_practice tool", () => {
 	});
 
 	describe("AC9: invalid input returns structured error", () => {
-		it("returns INVALID_INPUT when query is empty", async () => {
+		test("returns INVALID_INPUT when query is empty", async ({ db }) => {
+			await setupFts(db);
 			const result = await queryPracticeTool.handler({ query: "" }, makeContext(db));
 			expect(result.success).toBe(false);
 			if (result.success) return;
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		it("returns INVALID_INPUT when layer is not a known layer", async () => {
+		test("returns INVALID_INPUT when layer is not a known layer", async ({ db }) => {
+			await setupFts(db);
 			const result = await queryPracticeTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
 				{ query: "x", layer: "L99" } as any,

@@ -7,7 +7,6 @@
 
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	sessions,
 	tasks,
@@ -15,10 +14,8 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { beforeEach, afterEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-sessions-activity";
 
@@ -26,65 +23,59 @@ function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY };
 }
 
+const NOW = new Date().toISOString();
+
+async function seedSession(db: HyperIdleDb): Promise<void> {
+	await db
+		.insert(teams)
+		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW });
+
+	await db
+		.insert(teamMembers)
+		.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: NOW });
+
+	await db.insert(users).values({
+		id: "agent-1",
+		name: "Builder",
+		role: "builder",
+		status: "active",
+		kind: "ai",
+		teamId: "team-1",
+		createdAt: NOW,
+	});
+
+	await db.insert(bets).values({
+		id: "bet-1",
+		teamId: "prod-1",
+		description: "Test",
+		appetite: "small",
+		status: "active",
+		createdAt: NOW,
+	});
+
+	await db.insert(tasks).values({
+		id: "task-1",
+		betId: "bet-1",
+		teamId: "prod-1",
+		title: "Task 1",
+		state: "in_progress",
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
+
+	await db.insert(sessions).values({
+		id: "sess-1",
+		agentId: "agent-1",
+		taskId: "task-1",
+		modelTier: "workhorse",
+		state: "active",
+		startedAt: NOW,
+	});
+}
+
 describe("GET /api/sessions/:id/activity (Q1 §3.2)", () => {
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-	const NOW = new Date().toISOString();
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-
-		// Seed required data
-		await db
-			.insert(teams)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW });
-
-		await db
-			.insert(teamMembers)
-			.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: NOW });
-
-		await db.insert(users).values({
-			id: "agent-1",
-			name: "Builder",
-			role: "builder",
-			status: "active",
-			kind: "ai",
-			teamId: "team-1",
-			createdAt: NOW,
-		});
-
-		await db.insert(bets).values({
-			id: "bet-1",
-			teamId: "prod-1",
-			description: "Test",
-			appetite: "small",
-			status: "active",
-			createdAt: NOW,
-		});
-
-		await db.insert(tasks).values({
-			id: "task-1",
-			betId: "bet-1",
-			teamId: "prod-1",
-			title: "Task 1",
-			state: "in_progress",
-			createdAt: NOW,
-			updatedAt: NOW,
-		});
-
-		await db.insert(sessions).values({
-			id: "sess-1",
-			agentId: "agent-1",
-			taskId: "task-1",
-			modelTier: "workhorse",
-			state: "active",
-			startedAt: NOW,
-		});
 	});
 
 	afterEach(() => {
@@ -92,7 +83,8 @@ describe("GET /api/sessions/:id/activity (Q1 §3.2)", () => {
 	});
 
 	// AC6: endpoint returns 200 with session metadata and activity array
-	it("returns 200 with session metadata and empty activity array for fresh session", async () => {
+	test("returns 200 with session metadata and empty activity array for fresh session", async ({ db, app }) => {
+		await seedSession(db);
 		const res = await app.request("/api/sessions/sess-1/activity", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 
@@ -109,7 +101,8 @@ describe("GET /api/sessions/:id/activity (Q1 §3.2)", () => {
 	});
 
 	// AC6: activity entries have discriminated union type
-	it("returns activity entries with type, timestamp, and data fields", async () => {
+	test("returns activity entries with type, timestamp, and data fields", async ({ db, app, eventBus }) => {
+		await seedSession(db);
 		// Emit a tool_call_recorded event so the buffer is populated
 		eventBus.emit({
 			type: "tool_call_recorded",
@@ -137,7 +130,7 @@ describe("GET /api/sessions/:id/activity (Q1 §3.2)", () => {
 	});
 
 	// 404 for unknown session
-	it("returns 404 for a session that does not exist", async () => {
+	test("returns 404 for a session that does not exist", async ({ app }) => {
 		const res = await app.request("/api/sessions/unknown-session/activity", {
 			headers: authHeaders(),
 		});
@@ -145,13 +138,15 @@ describe("GET /api/sessions/:id/activity (Q1 §3.2)", () => {
 	});
 
 	// Auth: requires API key
-	it("returns 401 without API key", async () => {
+	test("returns 401 without API key", async ({ db, app }) => {
+		await seedSession(db);
 		const res = await app.request("/api/sessions/sess-1/activity");
 		expect(res.status).toBe(401);
 	});
 
 	// Response capped at 50 most recent entries
-	it("activity array is at most 50 entries", async () => {
+	test("activity array is at most 50 entries", async ({ db, app, eventBus }) => {
+		await seedSession(db);
 		// Emit 60 events
 		for (let i = 0; i < 60; i++) {
 			eventBus.emit({

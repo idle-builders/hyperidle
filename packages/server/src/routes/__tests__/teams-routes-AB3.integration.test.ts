@@ -11,12 +11,10 @@
  * - GET /api/teams/:id includes agentCategory in the roster assembly
  */
 
-import { createTestDb, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
+import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { beforeEach, afterEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-ab3-teams";
 
@@ -83,16 +81,8 @@ async function seedTeamWithCategorizedAgents(db: HyperIdleDb): Promise<{
 }
 
 describe("AB3 — teams routes: agentCategory in roster", () => {
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
 	});
 
 	afterEach(() => {
@@ -101,7 +91,7 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 
 	// AC-1: roster members include agentCategory
 	describe("GET /api/teams/:id — roster includes agentCategory (AC-1)", () => {
-		it("returns agentCategory field on each roster member", async () => {
+		test("returns agentCategory field on each roster member", async ({ db, app }) => {
 			const { teamId } = await seedTeamWithCategorizedAgents(db);
 
 			const res = await app.request(`/api/teams/${teamId}`, {
@@ -128,7 +118,7 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 			}
 		});
 
-		it("roster member with agentCategory='team' is present", async () => {
+		test("roster member with agentCategory='team' is present", async ({ db, app }) => {
 			const { teamId, teamAgentId } = await seedTeamWithCategorizedAgents(db);
 
 			const res = await app.request(`/api/teams/${teamId}`, {
@@ -145,7 +135,7 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 			expect(teamMember?.agentCategory).toBe("team");
 		});
 
-		it("roster member with agentCategory='strategy' is present", async () => {
+		test("roster member with agentCategory='strategy' is present", async ({ db, app }) => {
 			const { teamId, strategyAgentId } = await seedTeamWithCategorizedAgents(db);
 
 			const res = await app.request(`/api/teams/${teamId}`, {
@@ -162,7 +152,7 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 			expect(stratMember?.agentCategory).toBe("strategy");
 		});
 
-		it("roster member with null agentCategory returns null (not undefined)", async () => {
+		test("roster member with null agentCategory returns null (not undefined)", async ({ db, app }) => {
 			// Seed an agent with no agentCategory set
 			const teamId = "ab3-team-null-cat";
 			const teamMembersId = "ab3-tm-null-cat";
@@ -208,7 +198,7 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 
 	// AC-4: PATCH /api/agents/:id with modelTierPreference returns 200 + updated value
 	describe("PATCH /api/agents/:id — modelTierPreference update (AC-4)", () => {
-		it("returns 200 with updated modelTierPreference", async () => {
+		test("returns 200 with updated modelTierPreference", async ({ db, app }) => {
 			const { teamMembersId } = await seedTeamWithCategorizedAgents(db);
 
 			// First seed an agent directly accessible to the agents endpoint
@@ -238,7 +228,7 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 
 	// AC-5: POST /api/agents creates agent with teamMembersId, returns 201
 	describe("POST /api/agents — create with teamId (AC-5)", () => {
-		it("returns 201 with created agent when teamId is a valid teamMembers id", async () => {
+		test("returns 201 with created agent when teamId is a valid teamMembers id", async ({ db, app }) => {
 			const { teamMembersId } = await seedTeamWithCategorizedAgents(db);
 
 			const res = await app.request("/api/agents", {

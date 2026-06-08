@@ -7,17 +7,15 @@
 
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	routines,
 	sessions,
-	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { shouldCoalesce } from "../services/routine-scheduler.js";
 
 async function seedBase(db: HyperIdleDb): Promise<void> {
@@ -78,25 +76,14 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 }
 
 describe("shouldCoalesce", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
+	test("returns false when no session exists for the routine", async ({ db }) => {
 		await seedBase(db);
-	});
-
-	afterEach(async () => {
-		await handle?.close();
-	});
-
-	it("returns false when no session exists for the routine", async () => {
 		const result = await shouldCoalesce(db, "routine-coalesce");
 		expect(result).toBe(false);
 	});
 
-	it("returns true when an active session exists for the routine", async () => {
+	test("returns true when an active session exists for the routine", async ({ db }) => {
+		await seedBase(db);
 		await db.insert(sessions).values({
 			id: "session-active-coalesce",
 			taskId: "task-coalesce",
@@ -111,7 +98,8 @@ describe("shouldCoalesce", () => {
 		expect(result).toBe(true);
 	});
 
-	it("returns false when a completed (not active) session exists", async () => {
+	test("returns false when a completed (not active) session exists", async ({ db }) => {
+		await seedBase(db);
 		await db.insert(sessions).values({
 			id: "session-completed-coalesce",
 			taskId: "task-coalesce",
@@ -127,7 +115,8 @@ describe("shouldCoalesce", () => {
 		expect(result).toBe(false);
 	});
 
-	it("returns false when active session belongs to a different routine", async () => {
+	test("returns false when active session belongs to a different routine", async ({ db }) => {
+		await seedBase(db);
 		// Insert another routine first
 		await db.insert(routines).values({
 			id: "routine-other",
@@ -155,7 +144,8 @@ describe("shouldCoalesce", () => {
 		expect(result).toBe(false);
 	});
 
-	it("returns false when routineId is not associated with any session", async () => {
+	test("returns false when routineId is not associated with any session", async ({ db }) => {
+		await seedBase(db);
 		const result = await shouldCoalesce(db, "nonexistent-routine-id");
 		expect(result).toBe(false);
 	});

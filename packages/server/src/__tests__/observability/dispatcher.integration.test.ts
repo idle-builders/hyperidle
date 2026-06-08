@@ -9,7 +9,6 @@
  *  - Subscribe-once + clean unsubscribe on dispose.
  */
 
-import { createTestDb } from "@hyperidle/db";
 import {
 	type BetStateChangedEvent,
 	type CostCapBreachedEvent,
@@ -19,7 +18,7 @@ import {
 	type SessionStartedEvent,
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, test } from "../../test-fixtures.js";
 import {
 	createObservabilityDispatcher,
 	registerObservabilityDispatcher,
@@ -67,9 +66,9 @@ function makeInMemResolver(): ReturnType<
 }
 
 describe("ObservabilityDispatcher — enqueue / drain", () => {
-	afterEach(() => vi.useRealTimers());
+	afterEach(() => { /* noop — vi.useRealTimers not needed here */ });
 
-	it("delivers enqueued events on flush", async () => {
+	test("delivers enqueued events on flush", async () => {
 		const adapter = fakeAdapter();
 		const dispatcher = createObservabilityDispatcher({
 			adapter,
@@ -90,7 +89,7 @@ describe("ObservabilityDispatcher — enqueue / drain", () => {
 		await dispatcher.dispose();
 	});
 
-	it("batches to adapter with batchSize events per record()", async () => {
+	test("batches to adapter with batchSize events per record()", async () => {
 		const adapter = fakeAdapter();
 		const dispatcher = createObservabilityDispatcher({
 			adapter,
@@ -111,7 +110,7 @@ describe("ObservabilityDispatcher — enqueue / drain", () => {
 		await dispatcher.dispose();
 	});
 
-	it("drops oldest when bufferCap exceeded and increments `dropped`", async () => {
+	test("drops oldest when bufferCap exceeded and increments `dropped`", async () => {
 		const adapter = fakeAdapter();
 		const dispatcher = createObservabilityDispatcher({
 			adapter,
@@ -143,7 +142,7 @@ describe("ObservabilityDispatcher — enqueue / drain", () => {
 		await dispatcher.dispose();
 	});
 
-	it("triggers early flush when batchSize reached", async () => {
+	test("triggers early flush when batchSize reached", async () => {
 		const adapter = fakeAdapter();
 		const dispatcher = createObservabilityDispatcher({
 			adapter,
@@ -171,7 +170,7 @@ describe("ObservabilityDispatcher — enqueue / drain", () => {
 		await dispatcher.dispose();
 	});
 
-	it("records lastError when adapter throws and counts dropped batch", async () => {
+	test("records lastError when adapter throws and counts dropped batch", async () => {
 		const adapter = fakeAdapter("console", async () => {
 			throw new Error("network down");
 		});
@@ -195,7 +194,7 @@ describe("ObservabilityDispatcher — enqueue / drain", () => {
 		await dispatcher.dispose();
 	});
 
-	it("dispose stops accepting events and unsubs timer", async () => {
+	test("dispose stops accepting events and unsubs timer", async () => {
 		const adapter = fakeAdapter();
 		const dispatcher = createObservabilityDispatcher({
 			adapter,
@@ -213,7 +212,7 @@ describe("ObservabilityDispatcher — enqueue / drain", () => {
 		expect(dispatcher.status().bufferDepth).toBe(0);
 	});
 
-	it("status reflects adapter name", async () => {
+	test("status reflects adapter name", async () => {
 		const adapter = fakeAdapter("noop");
 		const dispatcher = createObservabilityDispatcher({
 			adapter,
@@ -225,8 +224,7 @@ describe("ObservabilityDispatcher — enqueue / drain", () => {
 });
 
 describe("registerObservabilityDispatcher — bus subscriber", () => {
-	it("translates all 7 DomainEvent types into ObservabilityEvents (AC4)", async () => {
-		createTestDb();
+	test("translates all 7 DomainEvent types into ObservabilityEvents (AC4)", async () => {
 		const bus = new EventBus();
 		const adapter = fakeAdapter();
 		const dispatcher = createObservabilityDispatcher({
@@ -309,8 +307,7 @@ describe("registerObservabilityDispatcher — bus subscriber", () => {
 		await dispatcher.dispose();
 	});
 
-	it("falls back to sessionId as traceId when resolver misses (AC3)", async () => {
-		createTestDb();
+	test("falls back to sessionId as traceId when resolver misses (AC3)", async () => {
 		const bus = new EventBus();
 		const adapter = fakeAdapter();
 		const dispatcher = createObservabilityDispatcher({
@@ -335,8 +332,7 @@ describe("registerObservabilityDispatcher — bus subscriber", () => {
 		await dispatcher.dispose();
 	});
 
-	it("unsub removes handlers (no more events delivered)", async () => {
-		createTestDb();
+	test("unsub removes handlers (no more events delivered)", async () => {
 		const bus = new EventBus();
 		const adapter = fakeAdapter();
 		const dispatcher = createObservabilityDispatcher({
@@ -362,18 +358,18 @@ describe("registerObservabilityDispatcher — bus subscriber", () => {
 });
 
 describe("summarizeToolArgs", () => {
-	it("truncates long arg blobs to 512 chars", () => {
+	test("truncates long arg blobs to 512 chars", () => {
 		const big = { secret: "x".repeat(1000) };
 		const out = summarizeToolArgs(big);
 		expect(out.length).toBeLessThanOrEqual(512);
 		expect(out.endsWith("...")).toBe(true);
 	});
-	it("scrubs inline bearer tokens", () => {
+	test("scrubs inline bearer tokens", () => {
 		const out = summarizeToolArgs({ h: "Bearer abcdef123456" });
 		expect(out).toContain("[REDACTED]");
 		expect(out).not.toContain("abcdef123456");
 	});
-	it("scrubs sk-/pk- keys", () => {
+	test("scrubs sk-/pk- keys", () => {
 		const out = summarizeToolArgs({ key: "sk-proj-verysecretvalueshere" });
 		expect(out).not.toContain("verysecret");
 	});

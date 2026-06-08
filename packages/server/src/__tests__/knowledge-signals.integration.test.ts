@@ -4,11 +4,8 @@
  * @lore O2: Knowledge routes rewritten — layer-based URLs removed.
  * GET /api/knowledge returns all items with computed signals from access log.
  */
-import { createTestDb, type HyperIdleDb, knowledgeItems, type TestDbHandle } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { knowledgeItems } from "@hyperidle/db";
+import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-l22-signals";
 
@@ -22,29 +19,21 @@ function daysAgo(n: number): string {
 }
 
 describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		const eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle?.close();
 	});
 
-	// @lore O2: knowledgeItems no longer has layer/scopeId/kind/meta columns.
-	async function createItem(id: string, _layer = "L3"): Promise<void> {
+	// GET / returns items with signals field
+	test("GET /api/knowledge/:layer response items include a 'signals' field", async ({ db, app }) => {
+		// @lore O2: knowledgeItems no longer has layer/scopeId/kind/meta columns.
 		await db.insert(knowledgeItems).values({
-			id,
+			id: "item-l22-1",
 			topic: "testing",
-			title: `Item ${id}`,
+			title: "Item item-l22-1",
 			body: "Test body",
 			format: "markdown",
 			status: "active",
@@ -53,23 +42,6 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 			createdAt: NOW_ISO,
 			updatedAt: NOW_ISO,
 		});
-	}
-
-	async function insertAccessLog(itemId: string, accessedAt: string): Promise<void> {
-		// knowledgeAccessLog exported from @hyperidle/db since T1
-		const { knowledgeAccessLog } = await import("@hyperidle/db");
-		await db.insert(knowledgeAccessLog).values({
-			id: crypto.randomUUID(),
-			itemId,
-			accessorKind: "human",
-			accessorId: "user-1",
-			accessedAt,
-		});
-	}
-
-	// GET / returns items with signals field
-	it("GET /api/knowledge/:layer response items include a 'signals' field", async () => {
-		await createItem("item-l22-1", "L3");
 
 		// @lore O2: route now is GET /api/knowledge (no layer segment).
 		const res = await app.request("/api/knowledge", { headers: authHeaders() });
@@ -85,9 +57,28 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 	});
 
 	// Signals contain the expected fields
-	it("signals field contains lastActivityAt, accessCount30d, citationCount, relevanceScore", async () => {
-		await createItem("item-l22-2", "L3");
-		await insertAccessLog("item-l22-2", daysAgo(1));
+	test("signals field contains lastActivityAt, accessCount30d, citationCount, relevanceScore", async ({ db, app }) => {
+		await db.insert(knowledgeItems).values({
+			id: "item-l22-2",
+			topic: "testing",
+			title: "Item item-l22-2",
+			body: "Test body",
+			format: "markdown",
+			status: "active",
+			version: 1,
+			updatedBy: "human",
+			createdAt: NOW_ISO,
+			updatedAt: NOW_ISO,
+		});
+
+		const { knowledgeAccessLog } = await import("@hyperidle/db");
+		await db.insert(knowledgeAccessLog).values({
+			id: crypto.randomUUID(),
+			itemId: "item-l22-2",
+			accessorKind: "human",
+			accessorId: "user-1",
+			accessedAt: daysAgo(1),
+		});
 
 		const res = await app.request("/api/knowledge", { headers: authHeaders() });
 		const body = (await res.json()) as {
@@ -108,8 +99,19 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 	});
 
 	// Items with no access data have null signals (not fake zeros)
-	it("items with no access data have null signals — never fake zeros (AC-8)", async () => {
-		await createItem("item-l22-3", "L3");
+	test("items with no access data have null signals — never fake zeros (AC-8)", async ({ db, app }) => {
+		await db.insert(knowledgeItems).values({
+			id: "item-l22-3",
+			topic: "testing",
+			title: "Item item-l22-3",
+			body: "Test body",
+			format: "markdown",
+			status: "active",
+			version: 1,
+			updatedBy: "human",
+			createdAt: NOW_ISO,
+			updatedAt: NOW_ISO,
+		});
 		// No access log for this item
 
 		const res = await app.request("/api/knowledge", { headers: authHeaders() });
@@ -130,9 +132,28 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 	});
 
 	// citationCount is always null in L22 (staged) — AC-3
-	it("citationCount is always null on signals (citation staged — AC-3)", async () => {
-		await createItem("item-l22-4", "L3");
-		await insertAccessLog("item-l22-4", daysAgo(1));
+	test("citationCount is always null on signals (citation staged — AC-3)", async ({ db, app }) => {
+		await db.insert(knowledgeItems).values({
+			id: "item-l22-4",
+			topic: "testing",
+			title: "Item item-l22-4",
+			body: "Test body",
+			format: "markdown",
+			status: "active",
+			version: 1,
+			updatedBy: "human",
+			createdAt: NOW_ISO,
+			updatedAt: NOW_ISO,
+		});
+
+		const { knowledgeAccessLog } = await import("@hyperidle/db");
+		await db.insert(knowledgeAccessLog).values({
+			id: crypto.randomUUID(),
+			itemId: "item-l22-4",
+			accessorKind: "human",
+			accessorId: "user-1",
+			accessedAt: daysAgo(1),
+		});
 
 		const res = await app.request("/api/knowledge", { headers: authHeaders() });
 		const body = (await res.json()) as {
@@ -144,10 +165,35 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 	});
 
 	// Items with access data have non-null accessCount30d
-	it("items with access data have non-null accessCount30d", async () => {
-		await createItem("item-l22-5", "L3");
-		await insertAccessLog("item-l22-5", daysAgo(1));
-		await insertAccessLog("item-l22-5", daysAgo(2));
+	test("items with access data have non-null accessCount30d", async ({ db, app }) => {
+		await db.insert(knowledgeItems).values({
+			id: "item-l22-5",
+			topic: "testing",
+			title: "Item item-l22-5",
+			body: "Test body",
+			format: "markdown",
+			status: "active",
+			version: 1,
+			updatedBy: "human",
+			createdAt: NOW_ISO,
+			updatedAt: NOW_ISO,
+		});
+
+		const { knowledgeAccessLog } = await import("@hyperidle/db");
+		await db.insert(knowledgeAccessLog).values({
+			id: crypto.randomUUID(),
+			itemId: "item-l22-5",
+			accessorKind: "human",
+			accessorId: "user-1",
+			accessedAt: daysAgo(1),
+		});
+		await db.insert(knowledgeAccessLog).values({
+			id: crypto.randomUUID(),
+			itemId: "item-l22-5",
+			accessorKind: "human",
+			accessorId: "user-1",
+			accessedAt: daysAgo(2),
+		});
 
 		const res = await app.request("/api/knowledge", { headers: authHeaders() });
 		const body = (await res.json()) as {
@@ -159,7 +205,7 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 	});
 
 	// Empty DB returns empty items array
-	it("empty layer returns empty items array with signals field present", async () => {
+	test("empty layer returns empty items array with signals field present", async ({ app }) => {
 		// @lore O2: No layer filtering — when DB is empty, all items (empty).
 		const res = await app.request("/api/knowledge", { headers: authHeaders() });
 		const body = (await res.json()) as { items: unknown[] };

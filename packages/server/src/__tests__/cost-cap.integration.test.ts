@@ -1,10 +1,8 @@
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	items,
 	sessions,
-	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
@@ -17,9 +15,9 @@ import {
 	recordCostAndCheck,
 	resetCosts,
 } from "@hyperidle/fabric";
-import { type CostCapBreachedEvent, type CostCapWarningEvent, EventBus } from "@hyperidle/shared";
+import { type CostCapBreachedEvent, type CostCapWarningEvent } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, test } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();
 
@@ -120,21 +118,14 @@ async function insertSession(
 }
 
 describe("Cost Cap Enforcement", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
+	beforeEach(() => {
 		clearDeduplicationCache();
-		await seedBase(db);
 	});
 
 	// AC1: Agent cap $10 -> after $10 spent, checkCostCap returns { allowed: false, level: 'agent' }
 	describe("AC1: Agent cap enforcement", () => {
-		it("allows session when agent spend is under cap", async () => {
+		test("allows session when agent spend is under cap", async ({ db, eventBus }) => {
+			await seedBase(db);
 			await insertSession(db, "s1", "agent-1", 500); // $5
 
 			const result = await checkCostCap(db, eventBus, {
@@ -145,7 +136,8 @@ describe("Cost Cap Enforcement", () => {
 			expect(result.allowed).toBe(true);
 		});
 
-		it("blocks session when agent spend reaches cap", async () => {
+		test("blocks session when agent spend reaches cap", async ({ db, eventBus }) => {
+			await seedBase(db);
 			await insertSession(db, "s1", "agent-1", 1000); // $10 = cap
 
 			const result = await checkCostCap(db, eventBus, {
@@ -161,7 +153,8 @@ describe("Cost Cap Enforcement", () => {
 			});
 		});
 
-		it("blocks session when agent spend exceeds cap", async () => {
+		test("blocks session when agent spend exceeds cap", async ({ db, eventBus }) => {
+			await seedBase(db);
 			await insertSession(db, "s1", "agent-1", 1200); // $12 > $10
 
 			const result = await checkCostCap(db, eventBus, {
@@ -173,7 +166,8 @@ describe("Cost Cap Enforcement", () => {
 			expect(result.level).toBe("agent");
 		});
 
-		it("allows session when agent has no cost cap", async () => {
+		test("allows session when agent has no cost cap", async ({ db, eventBus }) => {
+			await seedBase(db);
 			// Create agent without cost cap
 			await db.insert(users).values({
 				id: "agent-nocap",
@@ -200,7 +194,8 @@ describe("Cost Cap Enforcement", () => {
 
 	// AC2: Team cap $50 -> team total at $50 blocks new sessions even if agent has budget
 	describe("AC2: Team cap enforcement", () => {
-		it("blocks session when team total reaches cap even if agent has budget", async () => {
+		test("blocks session when team total reaches cap even if agent has budget", async ({ db, eventBus }) => {
+			await seedBase(db);
 			// Add another agent to team
 			await db.insert(users).values({
 				id: "agent-2",
@@ -234,7 +229,8 @@ describe("Cost Cap Enforcement", () => {
 
 	// AC3: Factory cap $200 -> no agent can start session when hit
 	describe("AC3: Factory cap enforcement", () => {
-		it("blocks session when factory cap is reached", async () => {
+		test("blocks session when factory cap is reached", async ({ db, eventBus }) => {
+			await seedBase(db);
 			await insertSession(db, "s1", "agent-1", 900); // agent under cap
 
 			const result = await checkCostCap(db, eventBus, {
@@ -255,7 +251,8 @@ describe("Cost Cap Enforcement", () => {
 
 	// AC4: Breach emits cost_cap_breached event with level and spend
 	describe("AC4: Breach events", () => {
-		it("emits cost_cap_breached event when agent cap is breached", async () => {
+		test("emits cost_cap_breached event when agent cap is breached", async ({ db, eventBus }) => {
+			await seedBase(db);
 			const events: CostCapBreachedEvent[] = [];
 			eventBus.on("cost_cap_breached", (e: CostCapBreachedEvent) => events.push(e));
 
@@ -279,7 +276,8 @@ describe("Cost Cap Enforcement", () => {
 			expect(events[0].entityId).toBe("agent-1");
 		});
 
-		it("emits cost_cap_breached event when team cap is breached", async () => {
+		test("emits cost_cap_breached event when team cap is breached", async ({ db, eventBus }) => {
+			await seedBase(db);
 			const events: CostCapBreachedEvent[] = [];
 			eventBus.on("cost_cap_breached", (e: CostCapBreachedEvent) => events.push(e));
 
@@ -315,7 +313,8 @@ describe("Cost Cap Enforcement", () => {
 
 	// AC5: Warning at 80%: factory cap $200, spend $160 -> cost_cap_warning emits
 	describe("AC5: Warning at 80%", () => {
-		it("emits cost_cap_warning when agent spend reaches 80% of cap", async () => {
+		test("emits cost_cap_warning when agent spend reaches 80% of cap", async ({ db, eventBus }) => {
+			await seedBase(db);
 			const warnings: CostCapWarningEvent[] = [];
 			eventBus.on("cost_cap_warning", (e: CostCapWarningEvent) => warnings.push(e));
 
@@ -334,7 +333,8 @@ describe("Cost Cap Enforcement", () => {
 			expect(warnings[0].cap).toBe(1000);
 		});
 
-		it("emits cost_cap_warning when team spend reaches 80% of cap", async () => {
+		test("emits cost_cap_warning when team spend reaches 80% of cap", async ({ db, eventBus }) => {
+			await seedBase(db);
 			const warnings: CostCapWarningEvent[] = [];
 			eventBus.on("cost_cap_warning", (e: CostCapWarningEvent) => warnings.push(e));
 
@@ -365,7 +365,8 @@ describe("Cost Cap Enforcement", () => {
 			expect(teamWarnings[0].spend).toBe(4000);
 		});
 
-		it("emits cost_cap_warning for factory at 80%", async () => {
+		test("emits cost_cap_warning for factory at 80%", async ({ db, eventBus }) => {
+			await seedBase(db);
 			const warnings: CostCapWarningEvent[] = [];
 			eventBus.on("cost_cap_warning", (e: CostCapWarningEvent) => warnings.push(e));
 
@@ -389,7 +390,8 @@ describe("Cost Cap Enforcement", () => {
 
 	// AC6: After reset, agents can start sessions again
 	describe("AC6: Cost reset", () => {
-		it("allows sessions after agent cost reset", async () => {
+		test("allows sessions after agent cost reset", async ({ db, eventBus }) => {
+			await seedBase(db);
 			await insertSession(db, "s1", "agent-1", 1000); // at cap
 
 			// Verify blocked before reset
@@ -410,7 +412,8 @@ describe("Cost Cap Enforcement", () => {
 			expect(afterReset.allowed).toBe(true);
 		});
 
-		it("allows sessions after team cost reset", async () => {
+		test("allows sessions after team cost reset", async ({ db, eventBus }) => {
+			await seedBase(db);
 			await db.insert(users).values({
 				id: "agent-2",
 				name: "Agent 2",
@@ -440,7 +443,8 @@ describe("Cost Cap Enforcement", () => {
 			expect(afterReset.allowed).toBe(true);
 		});
 
-		it("resets factory costs", async () => {
+		test("resets factory costs", async ({ db, eventBus }) => {
+			await seedBase(db);
 			await insertSession(db, "s1", "agent-1", 500);
 
 			await resetCosts(db, { level: "factory" });
@@ -458,7 +462,8 @@ describe("Cost Cap Enforcement", () => {
 
 	// AC7: In-progress sessions NOT killed (finish naturally)
 	describe("AC7: In-progress sessions not killed", () => {
-		it("checkCostCap does not modify active sessions", async () => {
+		test("checkCostCap does not modify active sessions", async ({ db, eventBus }) => {
+			await seedBase(db);
 			await insertSession(db, "s-active", "agent-1", 1000, "active"); // at cap, but active
 			await insertSession(db, "s-done", "agent-1", 100, "done");
 
@@ -483,7 +488,8 @@ describe("Cost Cap Enforcement", () => {
 
 	// AC8: Review thread item created on breach
 	describe("AC8: Review item on breach", () => {
-		it("creates a review item when cost cap is breached", async () => {
+		test("creates a review item when cost cap is breached", async ({ db, eventBus }) => {
+			await seedBase(db);
 			await insertSession(db, "s1", "agent-1", 0);
 
 			await recordCostAndCheck(db, eventBus, {
@@ -504,7 +510,8 @@ describe("Cost Cap Enforcement", () => {
 
 	// AC9: Idempotency: duplicate warnings deduplicated by session_id + event_type
 	describe("AC9: Idempotency", () => {
-		it("does not emit duplicate warnings for same session", async () => {
+		test("does not emit duplicate warnings for same session", async ({ db, eventBus }) => {
+			await seedBase(db);
 			const warnings: CostCapWarningEvent[] = [];
 			eventBus.on("cost_cap_warning", (e: CostCapWarningEvent) => warnings.push(e));
 
@@ -533,7 +540,8 @@ describe("Cost Cap Enforcement", () => {
 			expect(agentWarnings).toHaveLength(1);
 		});
 
-		it("does not emit duplicate breach events for same session", async () => {
+		test("does not emit duplicate breach events for same session", async ({ db, eventBus }) => {
+			await seedBase(db);
 			const breaches: CostCapBreachedEvent[] = [];
 			eventBus.on("cost_cap_breached", (e: CostCapBreachedEvent) => breaches.push(e));
 
@@ -562,7 +570,8 @@ describe("Cost Cap Enforcement", () => {
 
 	// Edge case: hierarchy check order (agent checked before team before factory)
 	describe("Hierarchy ordering", () => {
-		it("returns agent level when both agent and team caps are breached", async () => {
+		test("returns agent level when both agent and team caps are breached", async ({ db, eventBus }) => {
+			await seedBase(db);
 			// Both agent ($10) and team ($50) caps breached
 			await insertSession(db, "s1", "agent-1", 1000); // agent at cap
 

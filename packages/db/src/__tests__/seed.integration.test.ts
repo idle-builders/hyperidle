@@ -1,10 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { sql } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { HyperIdleDb } from "../connection.js";
 import { seed } from "../seed.js";
-import { createTestDb, type TestDbHandle } from "../test-utils.js";
 
 const FACILITATOR_ROLES = ["chief_of_staff", "practice_facilitator", "product_manager"] as const;
 
@@ -24,21 +23,8 @@ async function queryRows<T extends Record<string, unknown>>(
 }
 
 describe("A2: Seed script", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		await seed(db);
-	}, 30_000);
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
 	// --- AC4: Seed populates ≥1 row per major table ---
-	it("populates at least 1 row per major table", async () => {
+	test("populates at least 1 row per major table", async ({ db }) => {
 		await seed(db);
 
 		// @lore U1: `products` renamed to `teams`; old `teams` renamed to `team_members`.
@@ -51,7 +37,7 @@ describe("A2: Seed script", () => {
 		}
 	});
 
-	it("seed data is well-formed (queryable without errors)", async () => {
+	test("seed data is well-formed (queryable without errors)", async ({ db }) => {
 		await seed(db);
 
 		// Verify we can read back with all fields.
@@ -97,13 +83,18 @@ describe("A2: Seed script", () => {
 		expect(ksfRows[0]?.layer).toBeTruthy();
 	});
 
-	it("is idempotent (running twice does not error)", async () => {
+	test("is idempotent (running twice does not error)", async ({ db }) => {
+		await seed(db);
 		// Second run should not throw (uses onConflictDoNothing)
 		await expect(seed(db)).resolves.not.toThrow();
 	});
 
 	// --- G1 AC1: facilitator agent archetypes are seeded ---
-	it("seeds one Chief of Staff, ≥1 Practice Facilitator, ≥1 Product Manager (AC1)", async () => {
+	test("seeds one Chief of Staff, ≥1 Practice Facilitator, ≥1 Product Manager (AC1)", async ({
+		db,
+	}) => {
+		await seed(db);
+
 		// @lore P2: agents → users table
 		const cosRows = await queryRows<{ count: string }>(
 			db,
@@ -125,7 +116,9 @@ describe("A2: Seed script", () => {
 	});
 
 	// --- G1 AC2: every facilitator carries a non-empty soul_prompt_path ---
-	it("every seeded facilitator has a non-empty soul_prompt_path (AC2)", async () => {
+	test("every seeded facilitator has a non-empty soul_prompt_path (AC2)", async ({ db }) => {
+		await seed(db);
+
 		const rolesList = FACILITATOR_ROLES.map((r) => `'${r}'`).join(", ");
 		// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case column names
 		const rows = await queryRows<{ id: string; role: string; soul_prompt_path: string | null }>(
@@ -139,7 +132,9 @@ describe("A2: Seed script", () => {
 		}
 	});
 
-	it("soul_prompt_path files exist on disk", async () => {
+	test("soul_prompt_path files exist on disk", async ({ db }) => {
+		await seed(db);
+
 		const rolesList = FACILITATOR_ROLES.map((r) => `'${r}'`).join(", ");
 		// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case column names
 		const rows = await queryRows<{ id: string; soul_prompt_path: string | null }>(
@@ -159,7 +154,9 @@ describe("A2: Seed script", () => {
 	});
 
 	// --- G4 AC6: seed creates all 5 builtin routines with correct config ---
-	it("seeds all 5 G4 builtin routines with correct triggers (G4 AC6)", async () => {
+	test("seeds all 5 G4 builtin routines with correct triggers (G4 AC6)", async ({ db }) => {
+		await seed(db);
+
 		const expectedIds = [
 			"builtin:cost-sentinel",
 			"builtin:practice-meeting",
@@ -202,7 +199,11 @@ describe("A2: Seed script", () => {
 	//     packages/server/src/services/builtin-routines.ts BUILTIN_SPECS is
 	//     caught by CI. If you change this test, mirror the change in both
 	//     files. ---
-	it("pins the full trigger_config, owner, skill, human_review, silent for every builtin (G4 drift guard)", async () => {
+	test("pins the full trigger_config, owner, skill, human_review, silent for every builtin (G4 drift guard)", async ({
+		db,
+	}) => {
+		await seed(db);
+
 		interface BuiltinPin {
 			readonly id: string;
 			readonly triggerType: "heartbeat" | "calendar" | "event";

@@ -2,7 +2,6 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	sessions,
 	tasks,
@@ -11,8 +10,8 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import { afterEach, beforeEach, describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { decode } from "@hyperidle/shared";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { create } from "../knowledge-repository.js";
 import type { MaterializationConfig } from "../materialization.js";
 import { materialize } from "../materialization.js";
@@ -107,23 +106,20 @@ async function seedTestData(db: HyperIdleDb): Promise<{
 }
 
 describe("materialize", () => {
-	let db: HyperIdleDb;
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
 	let workspacePath: string;
 
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
+	beforeEach(() => {
 		workspacePath = tmpDir();
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		fs.rmSync(workspacePath, { recursive: true, force: true });
-		await handle.close();
 	});
 
 	// AC1: Materialized workspace contains context/, work/, knowledge/ zones with correct permissions
-	it("creates context/, knowledge/, work/ directory structure with context/ read-only files", async () => {
+	test("creates context/, knowledge/, work/ directory structure with context/ read-only files", async ({
+		db,
+	}) => {
 		const { productId, agentId, sessionId, taskId } = await seedTestData(db);
 
 		// Add an L4 factory item
@@ -176,7 +172,7 @@ describe("materialize", () => {
 	});
 
 	// AC2: .fabric/manifest.json exists with version tracking per item
-	it("generates .fabric/manifest.json with version tracking", async () => {
+	test("generates .fabric/manifest.json with version tracking", async ({ db }) => {
 		const { productId, agentId, sessionId, taskId } = await seedTestData(db);
 
 		const item = await create(db, {
@@ -213,7 +209,9 @@ describe("materialize", () => {
 	});
 
 	// AC3: Role-filtered practices: growth practices NOT materialized for a Builder
-	it("filters L3 practices by agent role — builder does not get growth practices", async () => {
+	test("filters L3 practices by agent role — builder does not get growth practices", async ({
+		db,
+	}) => {
 		const { productId, agentId, sessionId, taskId } = await seedTestData(db);
 
 		// Add building practice (should be materialized for builder)
@@ -263,7 +261,7 @@ describe("materialize", () => {
 	});
 
 	// AC4: Materialization of 200 items completes in <10 seconds
-	it("materializes 200 items in under 10 seconds", async () => {
+	test("materializes 200 items in under 10 seconds", async ({ db }) => {
 		const { productId, agentId, sessionId, taskId } = await seedTestData(db);
 
 		// Create 200 knowledge items
@@ -297,7 +295,7 @@ describe("materialize", () => {
 	});
 
 	// AC5: Re-materialization overwrites workspace cleanly
-	it("re-materialization overwrites workspace cleanly", async () => {
+	test("re-materialization overwrites workspace cleanly", async ({ db }) => {
 		const { productId, agentId, sessionId, taskId } = await seedTestData(db);
 
 		await create(db, {
@@ -340,7 +338,7 @@ describe("materialize", () => {
 	});
 
 	// AC6: session.toon context pack in context/ contains task state and bet context
-	it("generates session.toon with task state and bet context", async () => {
+	test("generates session.toon with task state and bet context", async ({ db }) => {
 		const { productId, agentId, sessionId, taskId } = await seedTestData(db);
 
 		const config: MaterializationConfig = {

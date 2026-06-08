@@ -1,25 +1,14 @@
-import {
-	bets,
-	createTestDb,
-	type HyperIdleDb,
-	sessions,
-	type TestDbHandle,
-	tasks,
-	teamMembers,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { bets, sessions, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
 import {
 	clearDeduplicationCache,
 	getDedupCacheSize,
 	recordCostAndCheck,
 	registerCostCapDedupReleaser,
 } from "@hyperidle/fabric";
-import { EventBus } from "@hyperidle/shared";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe } from "vitest";
 import { type HandoffMetadata, handoff } from "../services/handoff-protocol.js";
 import type { SessionContext } from "../services/session-lifecycle.js";
+import { expect, test } from "../test-fixtures.js";
 
 /**
  * I3 review C1 / arch H-1: every session-end code path must reclaim the
@@ -36,7 +25,7 @@ import type { SessionContext } from "../services/session-lifecycle.js";
 
 const NOW = new Date().toISOString();
 
-async function seed(db: HyperIdleDb): Promise<void> {
+async function seed(db: import("@hyperidle/db").HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({ id: "p1", name: "P1", phase: "build", createdAt: NOW });
 	await db.insert(teamMembers).values({
 		id: "t1",
@@ -115,23 +104,19 @@ async function seed(db: HyperIdleDb): Promise<void> {
 }
 
 describe("I3 review C1: session_ended releases cost-cap dedup", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let unsubscribe: () => void;
-
 	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
 		clearDeduplicationCache();
-		// Subscribe the cost-cap releaser so emitting session_ended
-		// reclaims the dedup entry — same wiring `createApp` performs.
-		unsubscribe = registerCostCapDedupReleaser(eventBus);
-		await seed(db);
 	});
 
-	it("emitting session_ended on the bus drops the per-session dedup entry", async () => {
+	test("emitting session_ended on the bus drops the per-session dedup entry", async ({
+		db,
+		eventBus,
+	}) => {
+		// Subscribe the cost-cap releaser so emitting session_ended
+		// reclaims the dedup entry — same wiring `createApp` performs.
+		const unsubscribe = registerCostCapDedupReleaser(eventBus);
+		await seed(db);
+
 		await recordCostAndCheck(db, eventBus, {
 			sessionId: "sess-1",
 			cost: 200, // breaches the 100 cap
@@ -155,7 +140,13 @@ describe("I3 review C1: session_ended releases cost-cap dedup", () => {
 		unsubscribe();
 	});
 
-	it("handoff() releases the dedup entry post-transaction without emitting session_ended", async () => {
+	test("handoff() releases the dedup entry post-transaction without emitting session_ended", async ({
+		db,
+		eventBus,
+	}) => {
+		const unsubscribe = registerCostCapDedupReleaser(eventBus);
+		await seed(db);
+
 		// Pre-seed dedup state for sess-1.
 		await recordCostAndCheck(db, eventBus, {
 			sessionId: "sess-1",

@@ -1,5 +1,5 @@
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { HyperIdleDb } from "../connection.js";
 // @lore U1: `products` renamed to `teams`; old `teams` (membership) renamed to `teamMembers`.
 import {
@@ -17,7 +17,6 @@ import {
 	threads,
 	users,
 } from "../schema.js";
-import { createTestDb, type TestDbHandle } from "../test-utils.js";
 
 /**
  * I3 — foreign-key action acceptance tests.
@@ -74,20 +73,8 @@ async function seedProductTeamBetTaskAgent(db: HyperIdleDb): Promise<void> {
 }
 
 describe("I3: FK actions — RESTRICT on reference data", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	}, 30_000);
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
 	// @lore U1: `products` renamed to `teams`; `teams` (membership) renamed to `teamMembers`.
-	it("rejects deleting a team while a teamMembers row references it", async () => {
+	test("rejects deleting a team while a teamMembers row references it", async ({ db }) => {
 		await seedProductTeamBetTaskAgent(db);
 		// Delete tasks, bets, users first so only teamMembers still references teams.
 		await db.delete(tasks).where(eq(tasks.id, "task-1"));
@@ -97,7 +84,9 @@ describe("I3: FK actions — RESTRICT on reference data", () => {
 		await expect(db.delete(teams).where(eq(teams.id, "p1"))).rejects.toThrow();
 	});
 
-	it("rejects deleting a teamMembers row while a user references it (if FK exists)", async () => {
+	test("rejects deleting a teamMembers row while a user references it (if FK exists)", async ({
+		db,
+	}) => {
 		await seedProductTeamBetTaskAgent(db);
 		// Remove tasks/bets first so teamMembers only has user reference.
 		await db.delete(tasks).where(eq(tasks.id, "task-1"));
@@ -111,7 +100,7 @@ describe("I3: FK actions — RESTRICT on reference data", () => {
 		}
 	});
 
-	it("rejects deleting a team while a bet references it", async () => {
+	test("rejects deleting a team while a bet references it", async ({ db }) => {
 		// Minimal seed so only the bet references the team.
 		await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: NOW });
 		await db.insert(bets).values({
@@ -126,7 +115,7 @@ describe("I3: FK actions — RESTRICT on reference data", () => {
 		await expect(db.delete(teams).where(eq(teams.id, "p1"))).rejects.toThrow();
 	});
 
-	it("rejects deleting an agent while a session references it", async () => {
+	test("rejects deleting an agent while a session references it", async ({ db }) => {
 		await seedProductTeamBetTaskAgent(db);
 		await db.insert(sessions).values({
 			id: "sess-1",
@@ -139,7 +128,7 @@ describe("I3: FK actions — RESTRICT on reference data", () => {
 		await expect(db.delete(users).where(eq(users.id, "a1"))).rejects.toThrow();
 	});
 
-	it("rejects deleting a thread while a message references it", async () => {
+	test("rejects deleting a thread while a message references it", async ({ db }) => {
 		await seedProductTeamBetTaskAgent(db);
 		await db.insert(users).values({
 			id: "a2",
@@ -173,7 +162,7 @@ describe("I3: FK actions — RESTRICT on reference data", () => {
 		await expect(db.delete(threads).where(eq(threads.id, "thread-1"))).rejects.toThrow();
 	});
 
-	it("rejects deleting a thread while an item references it", async () => {
+	test("rejects deleting a thread while an item references it", async ({ db }) => {
 		await seedProductTeamBetTaskAgent(db);
 		await db.insert(threads).values({
 			id: "thread-1",
@@ -196,7 +185,7 @@ describe("I3: FK actions — RESTRICT on reference data", () => {
 		await expect(db.delete(threads).where(eq(threads.id, "thread-1"))).rejects.toThrow();
 	});
 
-	it("rejects deleting an agent while a routine references it", async () => {
+	test("rejects deleting an agent while a routine references it", async ({ db }) => {
 		await seedProductTeamBetTaskAgent(db);
 		await db.insert(routines).values({
 			id: "routine-1",
@@ -213,23 +202,13 @@ describe("I3: FK actions — RESTRICT on reference data", () => {
 });
 
 describe("I3: FK actions — CASCADE on dependent data", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	}, 30_000);
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
 	// I3 review sec HIGH-2: knowledge_edit_log MUST outlive its subject.
 	// RESTRICT prevents deleting a knowledge_items row while edit-log rows
 	// still reference it — operators must explicitly archive or soft-delete
 	// the log before removing the item, preserving the audit trail.
-	it("rejects deleting a knowledge_items row while knowledge_edit_log rows reference it", async () => {
+	test("rejects deleting a knowledge_items row while knowledge_edit_log rows reference it", async ({
+		db,
+	}) => {
 		await db.insert(knowledgeItems).values({
 			id: "ki-1",
 			title: "T",
@@ -265,7 +244,9 @@ describe("I3: FK actions — CASCADE on dependent data", () => {
 
 	// I3 review sec HIGH-2: knowledge_conflicts is the resolution-evidence
 	// audit. Same RESTRICT semantics as the edit log.
-	it("rejects deleting a knowledge_items row while knowledge_conflicts rows reference it", async () => {
+	test("rejects deleting a knowledge_items row while knowledge_conflicts rows reference it", async ({
+		db,
+	}) => {
 		await db.insert(knowledgeItems).values({
 			id: "ki-1",
 			title: "T",
@@ -302,7 +283,9 @@ describe("I3: FK actions — CASCADE on dependent data", () => {
 	// "items → responses CASCADE" contract no longer applies. The replacement
 	// contract: verdict messages survive item deletion (decoupled audit
 	// trail), and follow the messages.thread_id FK behaviour (RESTRICT).
-	it("verdict messages survive item deletion (L1a: messages no longer FK items)", async () => {
+	test("verdict messages survive item deletion (L1a: messages no longer FK items)", async ({
+		db,
+	}) => {
 		await db.insert(users).values([
 			{
 				id: "a1",

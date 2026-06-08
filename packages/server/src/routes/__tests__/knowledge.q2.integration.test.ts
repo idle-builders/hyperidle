@@ -15,18 +15,16 @@
  */
 
 import {
-	createTestDb,
 	type HyperIdleDb,
 	knowledgeEditLog,
 	knowledgeItems,
 	knowledgeStrategyFabric,
-	type TestDbHandle,
 	users,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 import { createTestApp } from "../../test-utils.js";
 
 const TEST_API_KEY = "test-key-q2-knowledge";
@@ -55,19 +53,9 @@ async function seedFounder(db: HyperIdleDb, userId: string): Promise<void> {
 // AC-1: scope_kind + scope_id columns exist on knowledgeItems table
 // ---------------------------------------------------------------------------
 describe("Q2 AC-1: scope_kind + scope_id columns on knowledgeItems", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	});
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	it("knowledgeItems table has a scope_kind column (NOT NULL, default factory)", async () => {
+	test("knowledgeItems table has a scope_kind column (NOT NULL, default factory)", async ({
+		db,
+	}) => {
 		// PGlite uses real PostgreSQL — query information_schema instead of SQLite PRAGMA.
 		// Row keys use snake_case from Postgres — access via bracket notation to avoid
 		// biome useNamingConvention on local type definitions.
@@ -84,7 +72,7 @@ describe("Q2 AC-1: scope_kind + scope_id columns on knowledgeItems", () => {
 		expect(scopeKindCol?.column_default).toBe("'factory'::text");
 	});
 
-	it("knowledgeItems table has a scope_id column (nullable)", async () => {
+	test("knowledgeItems table has a scope_id column (nullable)", async ({ db }) => {
 		const result = await db.execute(
 			`SELECT column_name, is_nullable
 			 FROM information_schema.columns
@@ -97,7 +85,7 @@ describe("Q2 AC-1: scope_kind + scope_id columns on knowledgeItems", () => {
 		expect(scopeIdCol?.is_nullable).toBe("YES");
 	});
 
-	it("ki_scope_idx index exists on (scope_kind, scope_id)", async () => {
+	test("ki_scope_idx index exists on (scope_kind, scope_id)", async ({ db }) => {
 		const result = await db.execute(
 			`SELECT indexname FROM pg_indexes WHERE tablename = 'knowledge_items'` as Parameters<
 				typeof db.execute
@@ -108,7 +96,7 @@ describe("Q2 AC-1: scope_kind + scope_id columns on knowledgeItems", () => {
 		expect(indexes).toContain("ki_scope_idx");
 	});
 
-	it("can insert a knowledge item with scopeKind=factory and retrieve it", async () => {
+	test("can insert a knowledge item with scopeKind=factory and retrieve it", async ({ db }) => {
 		const now = new Date().toISOString();
 		await db.insert(knowledgeItems).values({
 			id: "ki-scope-1",
@@ -138,24 +126,16 @@ describe("Q2 AC-1: scope_kind + scope_id columns on knowledgeItems", () => {
 // AC-4: API creation validation — scopeKind required, scopeId required for non-factory
 // ---------------------------------------------------------------------------
 describe("Q2 AC-4: POST /api/knowledge scope validation", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		await seedFounder(db, "u-founder");
-		app = await createTestApp({ db, eventBus: new EventBus() });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("POST without scopeKind returns 400", async () => {
+	test("POST without scopeKind returns 400", async ({ db, app }) => {
+		await seedFounder(db, "u-founder");
 		const res = await app.request("/api/knowledge", {
 			method: "POST",
 			headers: authHeaders(),
@@ -169,7 +149,8 @@ describe("Q2 AC-4: POST /api/knowledge scope validation", () => {
 		expect(res.status).toBe(400);
 	});
 
-	it("POST with invalid scopeKind returns 400", async () => {
+	test("POST with invalid scopeKind returns 400", async ({ db, app }) => {
+		await seedFounder(db, "u-founder");
 		const res = await app.request("/api/knowledge", {
 			method: "POST",
 			headers: authHeaders(),
@@ -184,7 +165,8 @@ describe("Q2 AC-4: POST /api/knowledge scope validation", () => {
 		expect(res.status).toBe(400);
 	});
 
-	it("POST with scopeKind=product and no scopeId returns 400", async () => {
+	test("POST with scopeKind=product and no scopeId returns 400", async ({ db, app }) => {
+		await seedFounder(db, "u-founder");
 		const res = await app.request("/api/knowledge", {
 			method: "POST",
 			headers: authHeaders(),
@@ -199,7 +181,11 @@ describe("Q2 AC-4: POST /api/knowledge scope validation", () => {
 		expect(res.status).toBe(400);
 	});
 
-	it("POST with scopeKind=factory and no scopeId returns 201 (factory needs no scopeId)", async () => {
+	test("POST with scopeKind=factory and no scopeId returns 201 (factory needs no scopeId)", async ({
+		db,
+		app,
+	}) => {
+		await seedFounder(db, "u-founder");
 		const res = await app.request("/api/knowledge", {
 			method: "POST",
 			headers: authHeaders(),
@@ -214,7 +200,11 @@ describe("Q2 AC-4: POST /api/knowledge scope validation", () => {
 		expect(res.status).toBe(201);
 	});
 
-	it("POST with scopeKind=user and no scopeId returns 201 (user scope auto-fills userId)", async () => {
+	test("POST with scopeKind=user and no scopeId returns 201 (user scope auto-fills userId)", async ({
+		db,
+		app,
+	}) => {
+		await seedFounder(db, "u-founder");
 		const res = await app.request("/api/knowledge", {
 			method: "POST",
 			headers: authHeaders(),
@@ -229,7 +219,8 @@ describe("Q2 AC-4: POST /api/knowledge scope validation", () => {
 		expect(res.status).toBe(201);
 	});
 
-	it("POST with scopeKind=bet and scopeId=bet-123 returns 201", async () => {
+	test("POST with scopeKind=bet and scopeId=bet-123 returns 201", async ({ db, app }) => {
+		await seedFounder(db, "u-founder");
 		const res = await app.request("/api/knowledge", {
 			method: "POST",
 			headers: authHeaders(),
@@ -245,7 +236,8 @@ describe("Q2 AC-4: POST /api/knowledge scope validation", () => {
 		expect(res.status).toBe(201);
 	});
 
-	it("POST returns scopeKind and scopeId in response", async () => {
+	test("POST returns scopeKind and scopeId in response", async ({ db, app }) => {
+		await seedFounder(db, "u-founder");
 		const res = await app.request("/api/knowledge", {
 			method: "POST",
 			headers: authHeaders(),
@@ -269,24 +261,17 @@ describe("Q2 AC-4: POST /api/knowledge scope validation", () => {
 // AC-6: User-scoped items visible only to their author
 // ---------------------------------------------------------------------------
 describe("Q2 AC-6: user-scoped item visibility", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("user-A's private item appears in list for user-A", async () => {
+	test("user-A's private item appears in list for user-A", async ({ db, eventBus }) => {
 		await seedFounder(db, "user-A");
-		app = await createTestApp({ db, eventBus: new EventBus() });
+		const app = await createTestApp({ db, eventBus });
 
 		// Create user-scoped item as user-A
 		const createRes = await app.request("/api/knowledge", {
@@ -311,7 +296,7 @@ describe("Q2 AC-6: user-scoped item visibility", () => {
 		expect(ids).toContain(created.id);
 	});
 
-	it("user-A's private item NOT visible to user-B (list endpoint)", async () => {
+	test("user-A's private item NOT visible to user-B (list endpoint)", async ({ db }) => {
 		// Create item as user-A
 		await seedFounder(db, "user-A");
 		const appA = await createTestApp({ db, eventBus: new EventBus() });
@@ -349,7 +334,9 @@ describe("Q2 AC-6: user-scoped item visibility", () => {
 		expect(ids).not.toContain(created.id);
 	});
 
-	it("GET /:id returns 404 for user-A's private item when requested as user-B", async () => {
+	test("GET /:id returns 404 for user-A's private item when requested as user-B", async ({
+		db,
+	}) => {
 		// Create item as user-A
 		await seedFounder(db, "user-A");
 		const appA = await createTestApp({ db, eventBus: new EventBus() });
@@ -392,24 +379,17 @@ describe("Q2 AC-6: user-scoped item visibility", () => {
 // AC-7: PATCH /:id/scope — scope change with version tracking and edit log
 // ---------------------------------------------------------------------------
 describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		await seedFounder(db, "u-founder");
-		app = await createTestApp({ db, eventBus: new EventBus() });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	async function createUserItem(): Promise<{ id: string; version: number }> {
+	async function createUserItem(
+		app: Awaited<ReturnType<typeof createTestApp>>,
+	): Promise<{ id: string; version: number }> {
 		const res = await app.request("/api/knowledge", {
 			method: "POST",
 			headers: authHeaders(),
@@ -425,8 +405,9 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 		return res.json() as Promise<{ id: string; version: number }>;
 	}
 
-	it("PATCH /:id/scope changes scope_kind and scope_id", async () => {
-		const item = await createUserItem();
+	test("PATCH /:id/scope changes scope_kind and scope_id", async ({ db, app }) => {
+		await seedFounder(db, "u-founder");
+		const item = await createUserItem(app);
 
 		const patchRes = await app.request(`/api/knowledge/${item.id}/scope`, {
 			method: "PATCH",
@@ -449,8 +430,9 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 		expect(updated.scopeId).toBe("prod-123");
 	});
 
-	it("PATCH /:id/scope bumps version by 1", async () => {
-		const item = await createUserItem();
+	test("PATCH /:id/scope bumps version by 1", async ({ db, app }) => {
+		await seedFounder(db, "u-founder");
+		const item = await createUserItem(app);
 		const originalVersion = item.version;
 
 		const patchRes = await app.request(`/api/knowledge/${item.id}/scope`, {
@@ -469,8 +451,9 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 		expect(updated.version).toBe(originalVersion + 1);
 	});
 
-	it("PATCH /:id/scope logs scope_kind change in knowledgeEditLog", async () => {
-		const item = await createUserItem();
+	test("PATCH /:id/scope logs scope_kind change in knowledgeEditLog", async ({ db, app }) => {
+		await seedFounder(db, "u-founder");
+		const item = await createUserItem(app);
 
 		await app.request(`/api/knowledge/${item.id}/scope`, {
 			method: "PATCH",
@@ -495,8 +478,9 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 		expect(scopeKindLog?.newValue).toContain("product");
 	});
 
-	it("PATCH /:id/scope reason is captured in edit log", async () => {
-		const item = await createUserItem();
+	test("PATCH /:id/scope reason is captured in edit log", async ({ db, app }) => {
+		await seedFounder(db, "u-founder");
+		const item = await createUserItem(app);
 		const reason = "Promoted to product level";
 
 		await app.request(`/api/knowledge/${item.id}/scope`, {
@@ -523,8 +507,9 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 		expect(hasReason).toBe(true);
 	});
 
-	it("PATCH /:id/scope with wrong version returns 409", async () => {
-		const item = await createUserItem();
+	test("PATCH /:id/scope with wrong version returns 409", async ({ db, app }) => {
+		await seedFounder(db, "u-founder");
+		const item = await createUserItem(app);
 
 		const patchRes = await app.request(`/api/knowledge/${item.id}/scope`, {
 			method: "PATCH",
@@ -540,7 +525,8 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 		expect(patchRes.status).toBe(409);
 	});
 
-	it("PATCH /:id/scope on missing item returns 404", async () => {
+	test("PATCH /:id/scope on missing item returns 404", async ({ db, app }) => {
+		await seedFounder(db, "u-founder");
 		const patchRes = await app.request("/api/knowledge/nonexistent-id/scope", {
 			method: "PATCH",
 			headers: authHeaders(),
@@ -555,8 +541,9 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 		expect(patchRes.status).toBe(404);
 	});
 
-	it("PATCH /:id/scope with invalid scopeKind returns 400", async () => {
-		const item = await createUserItem();
+	test("PATCH /:id/scope with invalid scopeKind returns 400", async ({ db, app }) => {
+		await seedFounder(db, "u-founder");
+		const item = await createUserItem(app);
 
 		const patchRes = await app.request(`/api/knowledge/${item.id}/scope`, {
 			method: "PATCH",
@@ -572,8 +559,9 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 		expect(patchRes.status).toBe(400);
 	});
 
-	it("PATCH /:id/scope with missing reason returns 400", async () => {
-		const item = await createUserItem();
+	test("PATCH /:id/scope with missing reason returns 400", async ({ db, app }) => {
+		await seedFounder(db, "u-founder");
+		const item = await createUserItem(app);
 
 		const patchRes = await app.request(`/api/knowledge/${item.id}/scope`, {
 			method: "PATCH",
@@ -594,21 +582,12 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 // AC-8: All 7 scope kinds use the same schema
 // ---------------------------------------------------------------------------
 describe("Q2 AC-8: all scope kinds use the same schema and lifecycle", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		await seedFounder(db, "u-founder");
-		app = await createTestApp({ db, eventBus: new EventBus() });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
 	const SCOPE_TEST_CASES: Array<{
@@ -625,7 +604,11 @@ describe("Q2 AC-8: all scope kinds use the same schema and lifecycle", () => {
 	];
 
 	for (const { scopeKind, scopeId } of SCOPE_TEST_CASES) {
-		it(`creates a ${scopeKind}-scoped item and reads it back with full field set`, async () => {
+		test(`creates a ${scopeKind}-scoped item and reads it back with full field set`, async ({
+			db,
+			app,
+		}) => {
+			await seedFounder(db, "u-founder");
 			const payload: Record<string, unknown> = {
 				title: `${scopeKind} knowledge`,
 				body: "Test body",
@@ -677,24 +660,19 @@ describe("Q2 AC-8: all scope kinds use the same schema and lifecycle", () => {
 // AC-9: Fabric layer assigned on creation
 // ---------------------------------------------------------------------------
 describe("Q2 AC-9: fabric layer assignment on creation", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		await seedFounder(db, "u-founder");
-		app = await createTestApp({ db, eventBus: new EventBus() });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	async function createItem(scopeKind: string, scopeId: string | null): Promise<string> {
+	async function createItem(
+		app: Awaited<ReturnType<typeof createTestApp>>,
+		scopeKind: string,
+		scopeId: string | null,
+	): Promise<string> {
 		const payload: Record<string, unknown> = {
 			title: `${scopeKind} item`,
 			body: "Test body",
@@ -715,8 +693,9 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 		return created.id;
 	}
 
-	it("factory-scoped item gets fabric row with layer=L4", async () => {
-		const id = await createItem("factory", null);
+	test("factory-scoped item gets fabric row with layer=L4", async ({ db, app }) => {
+		await seedFounder(db, "u-founder");
+		const id = await createItem(app, "factory", null);
 		const [fabricRow] = await db
 			.select()
 			.from(knowledgeStrategyFabric)
@@ -724,8 +703,9 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 		expect(fabricRow?.layer).toBe("L4");
 	});
 
-	it("product-scoped item gets fabric row with layer=L2", async () => {
-		const id = await createItem("product", "prod-1");
+	test("product-scoped item gets fabric row with layer=L2", async ({ db, app }) => {
+		await seedFounder(db, "u-founder");
+		const id = await createItem(app, "product", "prod-1");
 		const [fabricRow] = await db
 			.select()
 			.from(knowledgeStrategyFabric)
@@ -733,8 +713,9 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 		expect(fabricRow?.layer).toBe("L2");
 	});
 
-	it("practice-scoped item gets fabric row with layer=L3", async () => {
-		const id = await createItem("practice", "fe-practice");
+	test("practice-scoped item gets fabric row with layer=L3", async ({ db, app }) => {
+		await seedFounder(db, "u-founder");
+		const id = await createItem(app, "practice", "fe-practice");
 		const [fabricRow] = await db
 			.select()
 			.from(knowledgeStrategyFabric)
@@ -742,8 +723,9 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 		expect(fabricRow?.layer).toBe("L3");
 	});
 
-	it("task-scoped item gets fabric row with layer=L1", async () => {
-		const id = await createItem("task", "task-1");
+	test("task-scoped item gets fabric row with layer=L1", async ({ db, app }) => {
+		await seedFounder(db, "u-founder");
+		const id = await createItem(app, "task", "task-1");
 		const [fabricRow] = await db
 			.select()
 			.from(knowledgeStrategyFabric)
@@ -751,8 +733,9 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 		expect(fabricRow?.layer).toBe("L1");
 	});
 
-	it("bet-scoped item has no layer (null) in fabric", async () => {
-		const id = await createItem("bet", "bet-1");
+	test("bet-scoped item has no layer (null) in fabric", async ({ db, app }) => {
+		await seedFounder(db, "u-founder");
+		const id = await createItem(app, "bet", "bet-1");
 		const [fabricRow] = await db
 			.select()
 			.from(knowledgeStrategyFabric)
@@ -761,8 +744,9 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 		expect(fabricRow?.layer ?? null).toBeNull();
 	});
 
-	it("team-scoped item has no layer (null) in fabric", async () => {
-		const id = await createItem("team", "team-1");
+	test("team-scoped item has no layer (null) in fabric", async ({ db, app }) => {
+		await seedFounder(db, "u-founder");
+		const id = await createItem(app, "team", "team-1");
 		const [fabricRow] = await db
 			.select()
 			.from(knowledgeStrategyFabric)
@@ -770,8 +754,9 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 		expect(fabricRow?.layer ?? null).toBeNull();
 	});
 
-	it("user-scoped item has no layer (null) in fabric", async () => {
-		const id = await createItem("user", null);
+	test("user-scoped item has no layer (null) in fabric", async ({ db, app }) => {
+		await seedFounder(db, "u-founder");
+		const id = await createItem(app, "user", null);
 		const [fabricRow] = await db
 			.select()
 			.from(knowledgeStrategyFabric)
@@ -784,27 +769,19 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 // AC-10: Scope validation — closed enum at API boundary
 // ---------------------------------------------------------------------------
 describe("Q2 AC-10: scope_kind closed enum validation at API boundary", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		await seedFounder(db, "u-founder");
-		app = await createTestApp({ db, eventBus: new EventBus() });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
 	const INVALID_SCOPES = ["FACTORY", "Practice", "global", "all", "", "null", "undefined"];
 
 	for (const invalid of INVALID_SCOPES) {
-		it(`POST with scopeKind="${invalid}" returns 400`, async () => {
+		test(`POST with scopeKind="${invalid}" returns 400`, async ({ db, app }) => {
+			await seedFounder(db, "u-founder");
 			const res = await app.request("/api/knowledge", {
 				method: "POST",
 				headers: authHeaders(),
@@ -832,7 +809,8 @@ describe("Q2 AC-10: scope_kind closed enum validation at API boundary", () => {
 	];
 
 	for (const { kind, id } of VALID_SCOPES) {
-		it(`POST with valid scopeKind="${kind}" returns 201`, async () => {
+		test(`POST with valid scopeKind="${kind}" returns 201`, async ({ db, app }) => {
+			await seedFounder(db, "u-founder");
 			const payload: Record<string, unknown> = {
 				title: `${kind} item`,
 				body: "Body",
@@ -856,24 +834,19 @@ describe("Q2 AC-10: scope_kind closed enum validation at API boundary", () => {
 // AC-9 (continuation): Layer reassignment on scope change
 // ---------------------------------------------------------------------------
 describe("Q2 AC-9: fabric layer reassignment after scope change", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		await seedFounder(db, "u-founder");
-		app = await createTestApp({ db, eventBus: new EventBus() });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("fabric layer updated when scope changes from user (null) to product (L2)", async () => {
+	test("fabric layer updated when scope changes from user (null) to product (L2)", async ({
+		db,
+		app,
+	}) => {
+		await seedFounder(db, "u-founder");
 		// Create as user scope
 		const createRes = await app.request("/api/knowledge", {
 			method: "POST",
@@ -923,24 +896,16 @@ describe("Q2 AC-9: fabric layer reassignment after scope change", () => {
 // GET /api/teams — new lightweight endpoint
 // ---------------------------------------------------------------------------
 describe("Q2 GET /api/teams endpoint", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		await seedFounder(db, "u-founder");
-		app = await createTestApp({ db, eventBus: new EventBus() });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("GET /api/teams returns 200 with teams array", async () => {
+	test("GET /api/teams returns 200 with teams array", async ({ db, app }) => {
+		await seedFounder(db, "u-founder");
 		const res = await app.request("/api/teams", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { teams: unknown[] };

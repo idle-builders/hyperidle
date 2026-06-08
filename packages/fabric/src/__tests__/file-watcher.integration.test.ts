@@ -3,7 +3,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	knowledgeConflicts,
 	knowledgeItems,
@@ -14,8 +13,8 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import { afterEach, beforeEach, describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startWatcher } from "../file-watcher.js";
 import type { Manifest } from "../materialization.js";
 import { startPollingWatcher } from "../polling-watcher.js";
@@ -105,29 +104,27 @@ function sleep(ms: number): Promise<void> {
 }
 
 describe("writeback", () => {
+	const sessionId = "sess-test-1";
 	let tmpDir: string;
 	let workspace: string;
 	let manifestPath: string;
-	let db: HyperIdleDb;
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	const sessionId = "sess-test-1";
 
-	beforeEach(async () => {
+	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hyperidle-test-"));
 		workspace = createWorkspace(tmpDir);
 		manifestPath = createManifest(workspace, sessionId);
-		handle = await createTestDb();
-		db = handle.db;
-		await seedSession(db, sessionId);
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		fs.rmSync(tmpDir, { recursive: true, force: true });
-		await handle.close();
 	});
 
 	// AC1: New file in knowledge/ creates knowledge_items row with status CAPTURED within 2 seconds
-	it("AC1: new file in knowledge/ creates knowledge_items row with status captured", async () => {
+	test("AC1: new file in knowledge/ creates knowledge_items row with status captured", async ({
+		db,
+	}) => {
+		await seedSession(db, sessionId);
+
 		const filePath = path.join(workspace, "knowledge/practices/new-pattern.md");
 		fs.writeFileSync(filePath, "# New Pattern\nSome content here");
 
@@ -167,7 +164,9 @@ describe("writeback", () => {
 	});
 
 	// AC2: Modified file updates corresponding row, version increments
-	it("AC2: modified file updates row and increments version", async () => {
+	test("AC2: modified file updates row and increments version", async ({ db }) => {
+		await seedSession(db, sessionId);
+
 		// Create initial item
 		const filePath = path.join(workspace, "knowledge/practices/existing.md");
 		fs.writeFileSync(filePath, "Original content");
@@ -210,7 +209,9 @@ describe("writeback", () => {
 	});
 
 	// AC3: Deleted file flags for facilitator review, NOT auto-deleted
-	it("AC3: deleted file flags for review, not auto-deleted from DB", async () => {
+	test("AC3: deleted file flags for review, not auto-deleted from DB", async ({ db }) => {
+		await seedSession(db, sessionId);
+
 		// Create initial item
 		const filePath = path.join(workspace, "knowledge/practices/to-delete.md");
 		fs.writeFileSync(filePath, "Content to be deleted");
@@ -246,7 +247,9 @@ describe("writeback", () => {
 	});
 
 	// AC4: 10 files written in 200ms debounce collapses to <= 10 writeback operations
-	it("AC4: batch of 10 files collapses to at most 10 writeback operations", async () => {
+	test("AC4: batch of 10 files collapses to at most 10 writeback operations", async ({ db }) => {
+		await seedSession(db, sessionId);
+
 		const changes: WritebackChange[] = [];
 		for (let i = 0; i < 10; i++) {
 			const filePath = path.join(workspace, `knowledge/practices/file-${i}.md`);
@@ -271,7 +274,9 @@ describe("writeback", () => {
 	});
 
 	// AC5: Version conflict creates knowledge_conflicts row
-	it("AC5: version conflict creates knowledge_conflicts row", async () => {
+	test("AC5: version conflict creates knowledge_conflicts row", async ({ db }) => {
+		await seedSession(db, sessionId);
+
 		// Create initial item
 		const filePath = path.join(workspace, "knowledge/practices/conflict-test.md");
 		fs.writeFileSync(filePath, "Original content");
@@ -314,7 +319,9 @@ describe("writeback", () => {
 	});
 
 	// AC7: Manifest updated after each writeback
-	it("AC7: manifest updated after each writeback", async () => {
+	test("AC7: manifest updated after each writeback", async ({ db }) => {
+		await seedSession(db, sessionId);
+
 		const filePath = path.join(workspace, "knowledge/decisions/arch-choice.md");
 		fs.writeFileSync(filePath, "We chose X because Y");
 
@@ -341,7 +348,9 @@ describe("writeback", () => {
 	});
 
 	// AC8: work/session-notes.md changes reflected in sessions.notes
-	it("AC8: session-notes.md changes reflected in sessions.notes", async () => {
+	test("AC8: session-notes.md changes reflected in sessions.notes", async ({ db }) => {
+		await seedSession(db, sessionId);
+
 		const notesPath = path.join(workspace, "work/session-notes.md");
 		fs.writeFileSync(notesPath, "# Session Notes\nImportant observation");
 
@@ -357,31 +366,27 @@ describe("writeback", () => {
 });
 
 describe("file-watcher (fs.watch)", () => {
+	const sessionId = "sess-watcher-1";
 	let tmpDir: string;
 	let workspace: string;
 	let manifestPath: string;
-	let db: HyperIdleDb;
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	const sessionId = "sess-watcher-1";
 
-	beforeEach(async () => {
+	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hyperidle-watcher-"));
 		workspace = createWorkspace(tmpDir);
 		manifestPath = createManifest(workspace, sessionId);
-		handle = await createTestDb();
-		db = handle.db;
-		await seedSession(db, sessionId);
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		fs.rmSync(tmpDir, { recursive: true, force: true });
-		await handle.close();
 	});
 
 	// AC1 (timing): file change detected within 2 seconds
 	// Uses polling watcher for determinism — fs.watch event delivery is
 	// unreliable under parallel test load on macOS.
-	it("AC1: detects new file within 2 seconds", async () => {
+	test("AC1: detects new file within 2 seconds", async ({ db }) => {
+		await seedSession(db, sessionId);
+
 		const watcher = startPollingWatcher({
 			db,
 			workspacePath: workspace,
@@ -410,7 +415,9 @@ describe("file-watcher (fs.watch)", () => {
 	// @lore CC-002 (.claude/process/compound-candidates.md): the polling-watcher
 	// migration is the canonical fix for this flake class. AC10 below still
 	// uses fs.watch and remains the open quarantine candidate.
-	it("AC4: debounce collapses rapid writes into batch", async () => {
+	test("AC4: debounce collapses rapid writes into batch", async ({ db }) => {
+		await seedSession(db, sessionId);
+
 		const watcher = startPollingWatcher({
 			db,
 			workspacePath: workspace,
@@ -437,7 +444,9 @@ describe("file-watcher (fs.watch)", () => {
 	// AC6: stopWatcher() final pass completes, subsequent writes not recorded
 	// Uses polling watcher for determinism — fs.watch event delivery is
 	// unreliable under parallel test load on macOS.
-	it("AC6: stopWatcher final pass completes, subsequent writes ignored", async () => {
+	test("AC6: stopWatcher final pass completes, subsequent writes ignored", async ({ db }) => {
+		await seedSession(db, sessionId);
+
 		// Use a long debounce so the poll timer won't fire during the wait —
 		// stop() is the one that should flush via its final poll.
 		const watcher = startPollingWatcher({
@@ -472,7 +481,11 @@ describe("file-watcher (fs.watch)", () => {
 	// AC10: Last-writer-wins with conflict flagging
 	// @lore CC-002 (.claude/process/compound-candidates.md): pre-existing fs.watch flake — flapped across A2, D4, D5, L1.
 	//   Quarantine or port to startPollingWatcher is tracked; do not silently re-baseline this test.
-	it.skip("AC10: last-writer-wins — human patches after agent write, conflict flagged", async () => {
+	test.skip("AC10: last-writer-wins — human patches after agent write, conflict flagged", async ({
+		db,
+	}) => {
+		await seedSession(db, sessionId);
+
 		const watcher = startWatcher({
 			db,
 			workspacePath: workspace,
@@ -521,29 +534,25 @@ describe("file-watcher (fs.watch)", () => {
 });
 
 describe("polling-watcher", () => {
+	const sessionId = "sess-poll-1";
 	let tmpDir: string;
 	let workspace: string;
 	let manifestPath: string;
-	let db: HyperIdleDb;
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	const sessionId = "sess-poll-1";
 
-	beforeEach(async () => {
+	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hyperidle-poll-"));
 		workspace = createWorkspace(tmpDir);
 		manifestPath = createManifest(workspace, sessionId);
-		handle = await createTestDb();
-		db = handle.db;
-		await seedSession(db, sessionId);
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		fs.rmSync(tmpDir, { recursive: true, force: true });
-		await handle.close();
 	});
 
 	// AC9: Polling fallback detects changes within 3 seconds
-	it("AC9: polling detects new file within 3 seconds", async () => {
+	test("AC9: polling detects new file within 3 seconds", async ({ db }) => {
+		await seedSession(db, sessionId);
+
 		const watcher = startPollingWatcher({
 			db,
 			workspacePath: workspace,
@@ -569,7 +578,9 @@ describe("polling-watcher", () => {
 	}, 8000);
 
 	// AC9: Polling detects modification
-	it("AC9: polling detects modified file within 3 seconds", async () => {
+	test("AC9: polling detects modified file within 3 seconds", async ({ db }) => {
+		await seedSession(db, sessionId);
+
 		// Pre-create a file that's in the initial snapshot
 		const filePath = path.join(workspace, "knowledge/practices/existing-poll.md");
 		fs.writeFileSync(filePath, "Original polled");
@@ -603,7 +614,9 @@ describe("polling-watcher", () => {
 	}, 8000);
 
 	// AC9: Polling detects deletion
-	it("AC9: polling detects deleted file within 3 seconds", async () => {
+	test("AC9: polling detects deleted file within 3 seconds", async ({ db }) => {
+		await seedSession(db, sessionId);
+
 		// Pre-create a file
 		const filePath = path.join(workspace, "knowledge/practices/delete-poll.md");
 		fs.writeFileSync(filePath, "To delete via poll");

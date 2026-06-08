@@ -23,39 +23,29 @@
  */
 
 import {
-	createTestDb,
-	type HyperIdleDb,
 	// P2: import new symbols — compile error until implementation done
 	orgEdges,
-	type TestDbHandle,
 	users,
 } from "@hyperidle/db";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
+import { test } from "../test-fixtures.js";
 // P2: import new service — this file does not exist yet (red phase)
 import { resolveReviewRecipients } from "../services/org-routing.js";
 
 const NOW = new Date().toISOString();
 
 describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	});
-
 	// -------------------------------------------------------------------------
 	// AC8: no org edges → all human users receive reviews
 	// -------------------------------------------------------------------------
 	describe("AC8: no org edges → returns all human user IDs", () => {
-		it("returns empty array when no users exist and no org edges exist", async () => {
+		test("returns empty array when no users exist and no org edges exist", async ({ db }) => {
 			const result = await resolveReviewRecipients(db, {});
 			expect(Array.isArray(result)).toBe(true);
 			expect(result).toHaveLength(0);
 		});
 
-		it("returns all human user IDs when no org edges exist", async () => {
+		test("returns all human user IDs when no org edges exist", async ({ db }) => {
 			// Seed two human users
 			await db.insert(users).values([
 				{
@@ -99,7 +89,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 	// AC8: org edges exist and match → returns matched human user IDs
 	// -------------------------------------------------------------------------
 	describe("AC8: matching org edges → returns matched human users only", () => {
-		it("returns matched fromUserId when a direct edge matches context.userId", async () => {
+		test("returns matched fromUserId when a direct edge matches context.userId", async ({ db }) => {
 			await db.insert(users).values([
 				{
 					id: "u-reviewer",
@@ -142,7 +132,9 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 			expect(result).not.toContain("u-other-human");
 		});
 
-		it("returns matched fromUserId when a function edge matches context.agentRole", async () => {
+		test("returns matched fromUserId when a function edge matches context.agentRole", async ({
+			db,
+		}) => {
 			await db.insert(users).values([
 				{
 					id: "u-func-reviewer",
@@ -176,7 +168,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 			expect(result).not.toContain("u-other");
 		});
 
-		it("returns matched fromUserId when a team edge matches context.teamId", async () => {
+		test("returns matched fromUserId when a team edge matches context.teamId", async ({ db }) => {
 			await db.insert(users).values([
 				{
 					id: "u-team-reviewer",
@@ -210,7 +202,9 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 			expect(result).not.toContain("u-unrelated");
 		});
 
-		it("deduplicates fromUserId when multiple edges match the same human user", async () => {
+		test("deduplicates fromUserId when multiple edges match the same human user", async ({
+			db,
+		}) => {
 			await db.insert(users).values({
 				id: "u-multi-match",
 				kind: "human",
@@ -252,7 +246,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 	// AC8: non-matching org edges → falls back to all human users
 	// -------------------------------------------------------------------------
 	describe("AC8: non-matching edges → falls back to all human users", () => {
-		it("returns all human users when edges exist but none match the context", async () => {
+		test("returns all human users when edges exist but none match the context", async ({ db }) => {
 			await db.insert(users).values([
 				{
 					id: "u-fallback-h1",
@@ -288,7 +282,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 			expect(result).toContain("u-fallback-h2");
 		});
 
-		it("returns all human users when context is empty and edges exist", async () => {
+		test("returns all human users when context is empty and edges exist", async ({ db }) => {
 			await db.insert(users).values([
 				{
 					id: "u-empty-ctx-h1",

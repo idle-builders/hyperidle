@@ -1,45 +1,32 @@
-import { createTestDb, type HyperIdleDb, knowledgeEditLog } from "@hyperidle/db";
+import { type HyperIdleDb, knowledgeEditLog } from "@hyperidle/db";
+import { describe, expect, test, vi } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VersionConflictError } from "../errors.js";
 import { KnowledgeEventType, knowledgeEvents } from "../events.js";
 import { setupFts } from "../fts.js";
 import { create, getById, list, search, update } from "../knowledge-repository.js";
 
-let handle: Awaited<ReturnType<typeof createTestDb>>;
+const baseItem = {
+	layer: "L1" as const,
+	scopeId: "product-1",
+	kind: "pattern" as const,
+	topic: "testing",
+	title: "Test Pattern",
+	body: "This is a test pattern for unit testing.",
+	format: "markdown" as const,
+	status: "active" as const,
+	updatedBy: "agent-1",
+};
 
-async function makeDb(): Promise<HyperIdleDb> {
-	handle = await createTestDb();
-	await setupFts(handle.db);
-	return handle.db;
+async function setupDb(db: HyperIdleDb): Promise<void> {
+	await setupFts(db);
+	knowledgeEvents.removeAllListeners();
 }
 
 describe("knowledge-repository", () => {
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		db = await makeDb();
-		knowledgeEvents.removeAllListeners();
-	});
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	const baseItem = {
-		layer: "L1" as const,
-		scopeId: "product-1",
-		kind: "pattern" as const,
-		topic: "testing",
-		title: "Test Pattern",
-		body: "This is a test pattern for unit testing.",
-		format: "markdown" as const,
-		status: "active" as const,
-		updatedBy: "agent-1",
-	};
-
 	describe("create", () => {
-		it("creates a knowledge item with version 1", async () => {
+		test("creates a knowledge item with version 1", async ({ db }) => {
+			await setupDb(db);
 			const item = await create(db, baseItem);
 			expect(item.id).toBeTruthy();
 			expect(item.version).toBe(1);
@@ -47,7 +34,8 @@ describe("knowledge-repository", () => {
 			expect(item.layer).toBe("L1");
 		});
 
-		it("assigns created_at and updated_at timestamps", async () => {
+		test("assigns created_at and updated_at timestamps", async ({ db }) => {
+			await setupDb(db);
 			const item = await create(db, baseItem);
 			expect(item.createdAt).toBeTruthy();
 			expect(item.updatedAt).toBeTruthy();
@@ -55,7 +43,8 @@ describe("knowledge-repository", () => {
 	});
 
 	describe("getById", () => {
-		it("returns the item by id", async () => {
+		test("returns the item by id", async ({ db }) => {
+			await setupDb(db);
 			const created = await create(db, baseItem);
 			const found = await getById(db, created.id);
 			expect(found).not.toBeNull();
@@ -63,21 +52,24 @@ describe("knowledge-repository", () => {
 			expect(found?.title).toBe("Test Pattern");
 		});
 
-		it("returns null for non-existent id", async () => {
+		test("returns null for non-existent id", async ({ db }) => {
+			await setupDb(db);
 			const found = await getById(db, "non-existent");
 			expect(found).toBeNull();
 		});
 	});
 
 	describe("update", () => {
-		it("updates fields and increments version", async () => {
+		test("updates fields and increments version", async ({ db }) => {
+			await setupDb(db);
 			const created = await create(db, baseItem);
 			const updated = await update(db, created.id, { title: "Updated Title" }, 1);
 			expect(updated.title).toBe("Updated Title");
 			expect(updated.version).toBe(2);
 		});
 
-		it("updates multiple fields at once", async () => {
+		test("updates multiple fields at once", async ({ db }) => {
+			await setupDb(db);
 			const created = await create(db, baseItem);
 			const updated = await update(
 				db,
@@ -91,7 +83,8 @@ describe("knowledge-repository", () => {
 			expect(updated.version).toBe(2);
 		});
 
-		it("updates updatedAt timestamp", async () => {
+		test("updates updatedAt timestamp", async ({ db }) => {
+			await setupDb(db);
 			const created = await create(db, baseItem);
 			const updated = await update(db, created.id, { title: "New" }, 1);
 			expect(updated.updatedAt).toBeTruthy();
@@ -103,7 +96,8 @@ describe("knowledge-repository", () => {
 	});
 
 	describe("optimistic concurrency", () => {
-		it("throws VersionConflictError on stale version", async () => {
+		test("throws VersionConflictError on stale version", async ({ db }) => {
+			await setupDb(db);
 			const created = await create(db, baseItem);
 			await update(db, created.id, { title: "First update" }, 1);
 
@@ -117,7 +111,8 @@ describe("knowledge-repository", () => {
 			}
 		});
 
-		it("succeeds with correct version after prior update", async () => {
+		test("succeeds with correct version after prior update", async ({ db }) => {
+			await setupDb(db);
 			const created = await create(db, baseItem);
 			await update(db, created.id, { title: "V2" }, 1);
 			const v3 = await update(db, created.id, { title: "V3" }, 2);
@@ -127,7 +122,8 @@ describe("knowledge-repository", () => {
 	});
 
 	describe("search", () => {
-		it("returns matching items ranked by relevance from 10 items", async () => {
+		test("returns matching items ranked by relevance from 10 items", async ({ db }) => {
+			await setupDb(db);
 			const items = [
 				{
 					...baseItem,
@@ -183,13 +179,15 @@ describe("knowledge-repository", () => {
 			expect(titles).toContain("Testing strategies");
 		});
 
-		it("returns empty array for no matches", async () => {
+		test("returns empty array for no matches", async ({ db }) => {
+			await setupDb(db);
 			await create(db, baseItem);
 			const results = await search(db, "xyznonexistent");
 			expect(results).toEqual([]);
 		});
 
-		it("supports pagination in search", async () => {
+		test("supports pagination in search", async ({ db }) => {
+			await setupDb(db);
 			for (let i = 0; i < 5; i++) {
 				await create(db, {
 					...baseItem,
@@ -205,7 +203,8 @@ describe("knowledge-repository", () => {
 	});
 
 	describe("edit log", () => {
-		it("creates edit log entry on create", async () => {
+		test("creates edit log entry on create", async ({ db }) => {
+			await setupDb(db);
 			const item = await create(db, baseItem);
 			const logs = await db
 				.select()
@@ -216,7 +215,8 @@ describe("knowledge-repository", () => {
 			expect(logs[0]?.editor).toBe("agent-1");
 		});
 
-		it("creates edit log entries on update for each changed field", async () => {
+		test("creates edit log entries on update for each changed field", async ({ db }) => {
+			await setupDb(db);
 			const item = await create(db, baseItem);
 			await update(db, item.id, { title: "New Title", body: "New Body" }, 1);
 			const logs = await db
@@ -230,7 +230,8 @@ describe("knowledge-repository", () => {
 			expect(fields).toEqual(["body", "title"]);
 		});
 
-		it("records old and new values in edit log", async () => {
+		test("records old and new values in edit log", async ({ db }) => {
+			await setupDb(db);
 			const item = await create(db, baseItem);
 			await update(db, item.id, { title: "New Title" }, 1);
 			const logs = await db
@@ -245,7 +246,8 @@ describe("knowledge-repository", () => {
 	});
 
 	describe("events", () => {
-		it("emits event on create", async () => {
+		test("emits event on create", async ({ db }) => {
+			await setupDb(db);
 			const handler = vi.fn();
 			knowledgeEvents.on(KnowledgeEventType.UPDATED, handler);
 			const item = await create(db, baseItem);
@@ -257,7 +259,8 @@ describe("knowledge-repository", () => {
 			});
 		});
 
-		it("emits event on update", async () => {
+		test("emits event on update", async ({ db }) => {
+			await setupDb(db);
 			const item = await create(db, baseItem);
 			const handler = vi.fn();
 			knowledgeEvents.on(KnowledgeEventType.UPDATED, handler);
@@ -272,7 +275,8 @@ describe("knowledge-repository", () => {
 	});
 
 	describe("pagination", () => {
-		it("returns first 5 items with limit 5 offset 0", async () => {
+		test("returns first 5 items with limit 5 offset 0", async ({ db }) => {
+			await setupDb(db);
 			for (let i = 0; i < 10; i++) {
 				await create(db, { ...baseItem, title: `Item ${String(i).padStart(2, "0")}` });
 			}
@@ -280,7 +284,8 @@ describe("knowledge-repository", () => {
 			expect(page.length).toBe(5);
 		});
 
-		it("returns next 5 items with limit 5 offset 5", async () => {
+		test("returns next 5 items with limit 5 offset 5", async ({ db }) => {
+			await setupDb(db);
 			for (let i = 0; i < 10; i++) {
 				await create(db, { ...baseItem, title: `Item ${String(i).padStart(2, "0")}` });
 			}
@@ -293,7 +298,8 @@ describe("knowledge-repository", () => {
 			}
 		});
 
-		it("returns remaining items when offset + limit exceeds total", async () => {
+		test("returns remaining items when offset + limit exceeds total", async ({ db }) => {
+			await setupDb(db);
 			for (let i = 0; i < 7; i++) {
 				await create(db, { ...baseItem, title: `Item ${i}` });
 			}
@@ -303,7 +309,7 @@ describe("knowledge-repository", () => {
 	});
 
 	describe("filters", () => {
-		beforeEach(async () => {
+		async function seedFilterItems(db: HyperIdleDb): Promise<void> {
 			await create(db, { ...baseItem, layer: "L0", kind: "pattern", topic: "arch", scopeId: "s1" });
 			await create(db, {
 				...baseItem,
@@ -327,9 +333,11 @@ describe("knowledge-repository", () => {
 				topic: "testing",
 				scopeId: "s1",
 			});
-		});
+		}
 
-		it("filters by layer", async () => {
+		test("filters by layer", async ({ db }) => {
+			await setupDb(db);
+			await seedFilterItems(db);
 			const items = await list(db, { layer: "L1" });
 			expect(items.length).toBe(2);
 			for (const item of items) {
@@ -337,7 +345,9 @@ describe("knowledge-repository", () => {
 			}
 		});
 
-		it("filters by scopeId", async () => {
+		test("filters by scopeId", async ({ db }) => {
+			await setupDb(db);
+			await seedFilterItems(db);
 			const items = await list(db, { scopeId: "s2" });
 			expect(items.length).toBe(2);
 			for (const item of items) {
@@ -345,7 +355,9 @@ describe("knowledge-repository", () => {
 			}
 		});
 
-		it("filters by kind", async () => {
+		test("filters by kind", async ({ db }) => {
+			await setupDb(db);
+			await seedFilterItems(db);
 			const items = await list(db, { kind: "pattern" });
 			expect(items.length).toBe(3);
 			for (const item of items) {
@@ -353,7 +365,9 @@ describe("knowledge-repository", () => {
 			}
 		});
 
-		it("filters by topic", async () => {
+		test("filters by topic", async ({ db }) => {
+			await setupDb(db);
+			await seedFilterItems(db);
 			const items = await list(db, { topic: "arch" });
 			expect(items.length).toBe(2);
 			for (const item of items) {
@@ -361,13 +375,17 @@ describe("knowledge-repository", () => {
 			}
 		});
 
-		it("combines multiple filters", async () => {
+		test("combines multiple filters", async ({ db }) => {
+			await setupDb(db);
+			await seedFilterItems(db);
 			const items = await list(db, { layer: "L1", kind: "pattern" });
 			expect(items.length).toBe(1);
 			expect(items[0]?.topic).toBe("testing");
 		});
 
-		it("combines filters with pagination", async () => {
+		test("combines filters with pagination", async ({ db }) => {
+			await setupDb(db);
+			await seedFilterItems(db);
 			for (let i = 0; i < 8; i++) {
 				await create(db, { ...baseItem, layer: "L1", kind: "pattern", topic: `topic-${i}` });
 			}

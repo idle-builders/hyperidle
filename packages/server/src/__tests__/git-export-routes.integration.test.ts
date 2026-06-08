@@ -8,21 +8,16 @@
  *   GET    /api/git-export/status  -> { enabled, repoPath, branch, lastCommitAt, lastCommitSha, lastPushAt }
  */
 
-import {
-	createTestDb,
-	factorySettings,
-	type HyperIdleDb,
-	knowledgeItems,
-	type TestDbHandle,
-} from "@hyperidle/db";
+import { factorySettings, type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
 import { type FsAdapter, type GitRunner, resetExportMutexes } from "@hyperidle/fabric";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
 import { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { authMiddleware } from "../middleware/auth.js";
 import { errorHandler } from "../middleware/error-handler.js";
 import { createGitExportRoutes } from "../routes/git-export-routes.js";
+import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-git-export";
 const REPO = "/tmp/h1-routes-repo";
@@ -157,23 +152,17 @@ function buildApp(
 }
 
 describe("Git Export HTTP routes", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		resetExportMutexes();
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle?.close();
 	});
 
 	describe("GET /api/git-export/config", () => {
-		it("requires auth (401 without X-API-Key)", async () => {
+		test("requires auth (401 without X-API-Key)", async ({ db }) => {
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/config");
 			expect(res.status).toBe(401);
@@ -181,7 +170,7 @@ describe("Git Export HTTP routes", () => {
 			expect(body.code).toBe("UNAUTHORIZED");
 		});
 
-		it("returns the current config as JSON when authed", async () => {
+		test("returns the current config as JSON when authed", async ({ db }) => {
 			await enableExport(db, {
 				"git_export.remote_url": "git@example.com:owner/repo.git",
 				"git_export.branch": "docs",
@@ -204,7 +193,7 @@ describe("Git Export HTTP routes", () => {
 			expect(body.branch).toBe("docs");
 		});
 
-		it("redacts embedded credentials from remoteUrl in the response", async () => {
+		test("redacts embedded credentials from remoteUrl in the response", async ({ db }) => {
 			// Somebody seeded `factory_settings` with a credential-bearing URL
 			// via migrations / CLI / bypass. GET /config MUST NOT echo it.
 			await enableExport(db, {
@@ -221,7 +210,7 @@ describe("Git Export HTTP routes", () => {
 	});
 
 	describe("PATCH /api/git-export/config", () => {
-		it("returns 400 for a non-object body", async () => {
+		test("returns 400 for a non-object body", async ({ db }) => {
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/config", {
 				method: "PATCH",
@@ -233,7 +222,7 @@ describe("Git Export HTTP routes", () => {
 			expect(body.code).toBe("VALIDATION_ERROR");
 		});
 
-		it("returns 400 when debounceMs is negative", async () => {
+		test("returns 400 when debounceMs is negative", async ({ db }) => {
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/config", {
 				method: "PATCH",
@@ -243,7 +232,7 @@ describe("Git Export HTTP routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 when repoPath contains '..' (path traversal)", async () => {
+		test("returns 400 when repoPath contains '..' (path traversal)", async ({ db }) => {
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/config", {
 				method: "PATCH",
@@ -253,7 +242,7 @@ describe("Git Export HTTP routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 when repoPath is relative (not absolute)", async () => {
+		test("returns 400 when repoPath is relative (not absolute)", async ({ db }) => {
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/config", {
 				method: "PATCH",
@@ -263,7 +252,7 @@ describe("Git Export HTTP routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 when repoPath is under /etc", async () => {
+		test("returns 400 when repoPath is under /etc", async ({ db }) => {
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/config", {
 				method: "PATCH",
@@ -273,7 +262,7 @@ describe("Git Export HTTP routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 when remoteUrl has userinfo credentials", async () => {
+		test("returns 400 when remoteUrl has userinfo credentials", async ({ db }) => {
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/config", {
 				method: "PATCH",
@@ -285,7 +274,7 @@ describe("Git Export HTTP routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 when remoteUrl uses `ext::`", async () => {
+		test("returns 400 when remoteUrl uses `ext::`", async ({ db }) => {
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/config", {
 				method: "PATCH",
@@ -295,7 +284,7 @@ describe("Git Export HTTP routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 when branch starts with '-' (option injection)", async () => {
+		test("returns 400 when branch starts with '-' (option injection)", async ({ db }) => {
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/config", {
 				method: "PATCH",
@@ -305,7 +294,7 @@ describe("Git Export HTTP routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 when authorEmail is not an email", async () => {
+		test("returns 400 when authorEmail is not an email", async ({ db }) => {
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/config", {
 				method: "PATCH",
@@ -315,7 +304,7 @@ describe("Git Export HTTP routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("updates config and returns the patched shape", async () => {
+		test("updates config and returns the patched shape", async ({ db }) => {
 			await enableExport(db);
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/config", {
@@ -338,7 +327,7 @@ describe("Git Export HTTP routes", () => {
 			expect(body.authorName).toBe("Custom Bot");
 		});
 
-		it("accepts toggling enabled to false", async () => {
+		test("accepts toggling enabled to false", async ({ db }) => {
 			await enableExport(db);
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/config", {
@@ -353,13 +342,13 @@ describe("Git Export HTTP routes", () => {
 	});
 
 	describe("POST /api/git-export/run", () => {
-		it("requires auth (401 without X-API-Key)", async () => {
+		test("requires auth (401 without X-API-Key)", async ({ db }) => {
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/run", { method: "POST" });
 			expect(res.status).toBe(401);
 		});
 
-		it("returns a GitExportResult shape when disabled", async () => {
+		test("returns a GitExportResult shape when disabled", async ({ db }) => {
 			await setConfigKV(db, {
 				"git_export.enabled": "false",
 				"git_export.repo_path": REPO,
@@ -377,7 +366,7 @@ describe("Git Export HTTP routes", () => {
 			expect(runner.calls).toHaveLength(0);
 		});
 
-		it("returns 400 when repoPath is empty (no fallback)", async () => {
+		test("returns 400 when repoPath is empty (no fallback)", async ({ db }) => {
 			const app = buildApp(db, { createRunner: () => createStubRunner(), fs: createMemFs() });
 			const res = await app.request("/api/git-export/run", {
 				method: "POST",
@@ -389,7 +378,7 @@ describe("Git Export HTTP routes", () => {
 			expect(body.code).toBe("VALIDATION_ERROR");
 		});
 
-		it("supports { force: true } to override disabled", async () => {
+		test("supports { force: true } to override disabled", async ({ db }) => {
 			await setConfigKV(db, {
 				"git_export.enabled": "false",
 				"git_export.repo_path": REPO,
@@ -463,7 +452,7 @@ describe("Git Export HTTP routes", () => {
 			expect(runner.calls).toContain("commit");
 		});
 
-		it("returns 400 when body fails zod validation (wrong force type)", async () => {
+		test("returns 400 when body fails zod validation (wrong force type)", async ({ db }) => {
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/run", {
 				method: "POST",
@@ -475,13 +464,15 @@ describe("Git Export HTTP routes", () => {
 	});
 
 	describe("GET /api/git-export/status", () => {
-		it("requires auth", async () => {
+		test("requires auth", async ({ db }) => {
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/status");
 			expect(res.status).toBe(401);
 		});
 
-		it("returns { enabled, repoPath, branch, remoteUrl, lastCommitAt, lastCommitSha, lastPushAt }", async () => {
+		test("returns { enabled, repoPath, branch, remoteUrl, lastCommitAt, lastCommitSha, lastPushAt }", async ({
+			db,
+		}) => {
 			await enableExport(db, {
 				"git_export.last_commit_at": "2026-04-18T09:15:00.000Z",
 				"git_export.last_commit_sha": "deadbeefcafef00d1234567890abcdef12345678",
@@ -507,7 +498,7 @@ describe("Git Export HTTP routes", () => {
 			expect(body.lastPushAt).toBe("2026-04-18T09:15:05.000Z");
 		});
 
-		it("returns sensible defaults when no config rows exist", async () => {
+		test("returns sensible defaults when no config rows exist", async ({ db }) => {
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/status", { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -523,7 +514,7 @@ describe("Git Export HTTP routes", () => {
 			expect(body.lastPushAt).toBeNull();
 		});
 
-		it("redacts embedded credentials from remoteUrl", async () => {
+		test("redacts embedded credentials from remoteUrl", async ({ db }) => {
 			await enableExport(db, {
 				"git_export.remote_url": "https://user:ghp_secret@github.com/owner/repo.git",
 			});

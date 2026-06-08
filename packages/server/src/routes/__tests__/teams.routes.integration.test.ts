@@ -9,18 +9,15 @@
 
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	tasks,
 	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { beforeEach, afterEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-teams";
 
@@ -60,16 +57,8 @@ async function seedTeam(
 }
 
 describe("teams routes", () => {
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
 	});
 
 	afterEach(() => {
@@ -77,14 +66,14 @@ describe("teams routes", () => {
 	});
 
 	describe("teams auth", () => {
-		it("returns 401 without auth header on GET /api/teams", async () => {
+		test("returns 401 without auth header on GET /api/teams", async ({ app }) => {
 			const res = await app.request("/api/teams", { method: "GET" });
 			expect(res.status).toBe(401);
 		});
 	});
 
 	describe("GET /api/teams", () => {
-		it("returns 200 with teams list including portfolio counters", async () => {
+		test("returns 200 with teams list including portfolio counters", async ({ db, app }) => {
 			await seedTeam(db);
 			const res = await app.request("/api/teams", {
 				method: "GET",
@@ -99,7 +88,7 @@ describe("teams routes", () => {
 			expect(typeof body.teams[0]?.activeBets).toBe("number");
 		});
 
-		it("returns 200 with empty teams list when none exist", async () => {
+		test("returns 200 with empty teams list when none exist", async ({ app }) => {
 			const res = await app.request("/api/teams", {
 				method: "GET",
 				headers: authHeaders(),
@@ -109,7 +98,7 @@ describe("teams routes", () => {
 			expect(body.teams).toHaveLength(0);
 		});
 
-		it("includes correct activeBets, shipped, shipRate, progress", async () => {
+		test("includes correct activeBets, shipped, shipRate, progress", async ({ db, app }) => {
 			const { teamId, agentId } = await seedTeam(db);
 			const now = new Date().toISOString();
 
@@ -163,7 +152,7 @@ describe("teams routes", () => {
 	});
 
 	describe("POST /api/teams", () => {
-		it("returns 201 with created team, teamMembers, and default agents", async () => {
+		test("returns 201 with created team, teamMembers, and default agents", async ({ app }) => {
 			const res = await app.request("/api/teams", {
 				method: "POST",
 				headers: authHeaders(),
@@ -179,7 +168,7 @@ describe("teams routes", () => {
 			expect(typeof body.teamMembers.id).toBe("string");
 		});
 
-		it("returns 400 when name is missing or empty", async () => {
+		test("returns 400 when name is missing or empty", async ({ app }) => {
 			const res = await app.request("/api/teams", {
 				method: "POST",
 				headers: authHeaders(),
@@ -188,7 +177,7 @@ describe("teams routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 on invalid JSON body", async () => {
+		test("returns 400 on invalid JSON body", async ({ app }) => {
 			const res = await app.request("/api/teams", {
 				method: "POST",
 				headers: authHeaders(),
@@ -197,7 +186,7 @@ describe("teams routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("creates builder and PM agent users", async () => {
+		test("creates builder and PM agent users", async ({ app }) => {
 			const createRes = await app.request("/api/teams", {
 				method: "POST",
 				headers: authHeaders(),
@@ -229,7 +218,7 @@ describe("teams routes", () => {
 	});
 
 	describe("PATCH /api/teams/:id", () => {
-		it("returns 200 with updated team phase", async () => {
+		test("returns 200 with updated team phase", async ({ db, app }) => {
 			const { teamId } = await seedTeam(db);
 			const res = await app.request(`/api/teams/${teamId}`, {
 				method: "PATCH",
@@ -241,7 +230,7 @@ describe("teams routes", () => {
 			expect(body.team.phase).toBe("live");
 		});
 
-		it("returns 404 for non-existent team", async () => {
+		test("returns 404 for non-existent team", async ({ app }) => {
 			const res = await app.request("/api/teams/non-existent", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -250,7 +239,7 @@ describe("teams routes", () => {
 			expect(res.status).toBe(404);
 		});
 
-		it("returns 400 on invalid phase value", async () => {
+		test("returns 400 on invalid phase value", async ({ db, app }) => {
 			const { teamId } = await seedTeam(db);
 			const res = await app.request(`/api/teams/${teamId}`, {
 				method: "PATCH",
@@ -262,7 +251,7 @@ describe("teams routes", () => {
 	});
 
 	describe("GET /api/teams/:id", () => {
-		it("returns 200 with full TeamDetail (roster, burn, activeBets)", async () => {
+		test("returns 200 with full TeamDetail (roster, burn, activeBets)", async ({ db, app }) => {
 			const { teamId } = await seedTeam(db);
 			const res = await app.request(`/api/teams/${teamId}`, {
 				method: "GET",
@@ -281,7 +270,7 @@ describe("teams routes", () => {
 			expect(Array.isArray(body.activeBets)).toBe(true);
 		});
 
-		it("returns 404 for non-existent team", async () => {
+		test("returns 404 for non-existent team", async ({ app }) => {
 			const res = await app.request("/api/teams/non-existent", {
 				method: "GET",
 				headers: authHeaders(),
@@ -289,7 +278,7 @@ describe("teams routes", () => {
 			expect(res.status).toBe(404);
 		});
 
-		it("sorts roster with lead first", async () => {
+		test("sorts roster with lead first", async ({ db, app }) => {
 			const { teamId, agentId } = await seedTeam(db);
 			// Add a second agent (non-lead)
 			const now = new Date().toISOString();
@@ -313,7 +302,7 @@ describe("teams routes", () => {
 			expect(body.roster[0]?.agentId).toBe(agentId);
 		});
 
-		it("derives team status correctly (healthy, behind, blocked)", async () => {
+		test("derives team status correctly (healthy, behind, blocked)", async ({ db, app }) => {
 			const { teamId, agentId } = await seedTeam(db);
 			const now = new Date().toISOString();
 			await db.insert(bets).values({

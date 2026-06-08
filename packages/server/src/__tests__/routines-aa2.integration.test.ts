@@ -13,12 +13,10 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	routineRuns,
 	routines,
 	sessions,
-	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
@@ -26,10 +24,9 @@ import {
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { eq, isNull } from "drizzle-orm";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { crashSession, createSession, endSession } from "../services/session-lifecycle.js";
-import { createTestApp } from "../test-utils.js";
+import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-aa2";
 
@@ -86,22 +83,12 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 }
 
 describe("AA2: Routine Management API", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-		handle = await createTestDb();
-		db = handle.db;
-		app = await createTestApp({ db, eventBus: new EventBus() });
-		await seedBase(db);
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle?.close();
 	});
 
 	// ──────────────────────────────────────────────────────────────────────
@@ -109,7 +96,8 @@ describe("AA2: Routine Management API", () => {
 	// ──────────────────────────────────────────────────────────────────────
 
 	describe("AC-1: POST /api/routines", () => {
-		it("creates a routine with all required fields and returns 201", async () => {
+		test("creates a routine with all required fields and returns 201", async ({ db, app }) => {
+			await seedBase(db);
 			const payload = {
 				name: "Daily digest",
 				description: "Sends a daily summary",
@@ -137,7 +125,8 @@ describe("AA2: Routine Management API", () => {
 			expect(body.state).toBe("active");
 		});
 
-		it("includes costCapPerRunMinor when provided", async () => {
+		test("includes costCapPerRunMinor when provided", async ({ db, app }) => {
+			await seedBase(db);
 			const payload = {
 				name: "Capped routine",
 				teamId: "team-aa2",
@@ -159,7 +148,8 @@ describe("AA2: Routine Management API", () => {
 			expect(body.costCapPerRunMinor).toBe(5000);
 		});
 
-		it("returns 400 when name is missing", async () => {
+		test("returns 400 when name is missing", async ({ db, app }) => {
+			await seedBase(db);
 			const payload = {
 				teamId: "team-aa2",
 				ownerAgentId: "agent-aa2",
@@ -176,7 +166,8 @@ describe("AA2: Routine Management API", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 when cron expression is invalid", async () => {
+		test("returns 400 when cron expression is invalid", async ({ db, app }) => {
+			await seedBase(db);
 			const payload = {
 				name: "Bad cron routine",
 				teamId: "team-aa2",
@@ -194,7 +185,8 @@ describe("AA2: Routine Management API", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 404 when teamId does not exist", async () => {
+		test("returns 404 when teamId does not exist", async ({ db, app }) => {
+			await seedBase(db);
 			const payload = {
 				name: "Orphan routine",
 				teamId: "nonexistent-team",
@@ -212,7 +204,8 @@ describe("AA2: Routine Management API", () => {
 			expect(res.status).toBe(404);
 		});
 
-		it("returns 404 when ownerAgentId does not exist", async () => {
+		test("returns 404 when ownerAgentId does not exist", async ({ db, app }) => {
+			await seedBase(db);
 			const payload = {
 				name: "Ghost agent routine",
 				teamId: "team-aa2",
@@ -230,7 +223,8 @@ describe("AA2: Routine Management API", () => {
 			expect(res.status).toBe(404);
 		});
 
-		it("newly created routine appears in GET /api/routines", async () => {
+		test("newly created routine appears in GET /api/routines", async ({ db, app }) => {
+			await seedBase(db);
 			const payload = {
 				name: "Visible routine",
 				teamId: "team-aa2",
@@ -253,7 +247,8 @@ describe("AA2: Routine Management API", () => {
 			expect(found).toBeDefined();
 		});
 
-		it("newly created routine appears in GET /api/teams/:id routines array", async () => {
+		test("newly created routine appears in GET /api/teams/:id routines array", async ({ db, app }) => {
+			await seedBase(db);
 			const payload = {
 				name: "Team routine",
 				teamId: "team-aa2",
@@ -277,7 +272,8 @@ describe("AA2: Routine Management API", () => {
 			expect(found).toBeDefined();
 		});
 
-		it("creates a stub task stored as stubTaskId", async () => {
+		test("creates a stub task stored as stubTaskId", async ({ db, app }) => {
+			await seedBase(db);
 			const payload = {
 				name: "Stub task routine",
 				teamId: "team-aa2",
@@ -309,7 +305,8 @@ describe("AA2: Routine Management API", () => {
 	// ──────────────────────────────────────────────────────────────────────
 
 	describe("AC-2: DELETE /api/routines/:id — soft delete", () => {
-		it("soft-deletes a routine: sets deleted_at and state=paused", async () => {
+		test("soft-deletes a routine: sets deleted_at and state=paused", async ({ db, app }) => {
+			await seedBase(db);
 			await db.insert(routines).values({
 				id: "routine-to-delete",
 				name: "Delete me",
@@ -343,7 +340,8 @@ describe("AA2: Routine Management API", () => {
 			expect(row.active).toBe(false);
 		});
 
-		it("returns 404 when deleting a non-existent routine", async () => {
+		test("returns 404 when deleting a non-existent routine", async ({ db, app }) => {
+			await seedBase(db);
 			const res = await app.request("/api/routines/nonexistent-routine-delete", {
 				method: "DELETE",
 				headers: authHeaders(),
@@ -352,7 +350,8 @@ describe("AA2: Routine Management API", () => {
 			expect(res.status).toBe(404);
 		});
 
-		it("returns 404 when deleting an already-deleted routine", async () => {
+		test("returns 404 when deleting an already-deleted routine", async ({ db, app }) => {
+			await seedBase(db);
 			const now = new Date().toISOString();
 			await db.insert(routines).values({
 				id: "routine-already-deleted",
@@ -373,7 +372,8 @@ describe("AA2: Routine Management API", () => {
 			expect(res.status).toBe(404);
 		});
 
-		it("GET /api/routines does not return soft-deleted routines", async () => {
+		test("GET /api/routines does not return soft-deleted routines", async ({ db, app }) => {
+			await seedBase(db);
 			const now = new Date().toISOString();
 			await db.insert(routines).values({
 				id: "routine-soft-deleted",
@@ -405,7 +405,8 @@ describe("AA2: Routine Management API", () => {
 			expect(ids).toContain("routine-active");
 		});
 
-		it("GET /api/routines/:id returns 404 for soft-deleted routine", async () => {
+		test("GET /api/routines/:id returns 404 for soft-deleted routine", async ({ db, app }) => {
+			await seedBase(db);
 			const now = new Date().toISOString();
 			await db.insert(routines).values({
 				id: "routine-deleted-404",
@@ -425,7 +426,8 @@ describe("AA2: Routine Management API", () => {
 			expect(res.status).toBe(404);
 		});
 
-		it("PATCH /api/routines/:id returns 404 for soft-deleted routine", async () => {
+		test("PATCH /api/routines/:id returns 404 for soft-deleted routine", async ({ db, app }) => {
+			await seedBase(db);
 			const now = new Date().toISOString();
 			await db.insert(routines).values({
 				id: "routine-deleted-patch",
@@ -447,7 +449,8 @@ describe("AA2: Routine Management API", () => {
 			expect(res.status).toBe(404);
 		});
 
-		it("soft-deleted routine is preserved in DB (run history intact)", async () => {
+		test("soft-deleted routine is preserved in DB (run history intact)", async ({ db, app }) => {
+			await seedBase(db);
 			await db.insert(routines).values({
 				id: "routine-history-preserved",
 				name: "History routine",
@@ -481,7 +484,8 @@ describe("AA2: Routine Management API", () => {
 	});
 
 	describe("AC-2: PATCH /api/routines/:id — costCapPerRunMinor update", () => {
-		it("updates costCapPerRunMinor via PATCH", async () => {
+		test("updates costCapPerRunMinor via PATCH", async ({ db, app }) => {
+			await seedBase(db);
 			await db.insert(routines).values({
 				id: "routine-cost-cap",
 				name: "Cost cap routine",
@@ -504,7 +508,8 @@ describe("AA2: Routine Management API", () => {
 			expect(body.costCapPerRunMinor).toBe(10000);
 		});
 
-		it("sets costCapPerRunMinor to null (removes cap)", async () => {
+		test("sets costCapPerRunMinor to null (removes cap)", async ({ db, app }) => {
+			await seedBase(db);
 			await db.insert(routines).values({
 				id: "routine-remove-cap",
 				name: "Remove cap routine",
@@ -534,7 +539,8 @@ describe("AA2: Routine Management API", () => {
 	// ──────────────────────────────────────────────────────────────────────
 
 	describe("AC-5: Coalescing — trigger skipped when active session exists", () => {
-		it("POST /api/routines/:id/trigger returns coalesced=true when active session exists", async () => {
+		test("POST /api/routines/:id/trigger returns coalesced=true when active session exists", async ({ db, app }) => {
+			await seedBase(db);
 			await db.insert(routines).values({
 				id: "routine-coalesce-test",
 				name: "Coalesce test",
@@ -567,7 +573,8 @@ describe("AA2: Routine Management API", () => {
 			expect(body.reason).toContain("coalesce");
 		});
 
-		it("coalesced trigger inserts a routine_run with outcome=skipped", async () => {
+		test("coalesced trigger inserts a routine_run with outcome=skipped", async ({ db, app }) => {
+			await seedBase(db);
 			await db.insert(routines).values({
 				id: "routine-coalesce-run",
 				name: "Coalesce run test",
@@ -602,7 +609,8 @@ describe("AA2: Routine Management API", () => {
 			expect(runs[0].outcome).toBe("skipped");
 		});
 
-		it("trigger fires normally when no active session exists", async () => {
+		test("trigger fires normally when no active session exists", async ({ db, app }) => {
+			await seedBase(db);
 			await db.insert(routines).values({
 				id: "routine-fires-normally",
 				name: "Fires normally",
@@ -627,7 +635,8 @@ describe("AA2: Routine Management API", () => {
 	// ──────────────────────────────────────────────────────────────────────
 
 	describe("AC-6: GET /api/routines/:id returns runs with new outcome fields", () => {
-		it("returns run history with summary field", async () => {
+		test("returns run history with summary field", async ({ db, app }) => {
+			await seedBase(db);
 			await db.insert(routines).values({
 				id: "routine-run-summary",
 				name: "Run summary test",
@@ -658,7 +667,8 @@ describe("AA2: Routine Management API", () => {
 			expect(runs[0].summary).toBe("Sent 5 messages, all delivered.");
 		});
 
-		it("returns run history with outcome=running", async () => {
+		test("returns run history with outcome=running", async ({ db, app }) => {
+			await seedBase(db);
 			await db.insert(routines).values({
 				id: "routine-run-running",
 				name: "Running outcome test",
@@ -687,7 +697,8 @@ describe("AA2: Routine Management API", () => {
 			expect(runs[0].outcome).toBe("running");
 		});
 
-		it("RoutineInfo includes costCapPerRun and lastRunSummary fields", async () => {
+		test("RoutineInfo includes costCapPerRun and lastRunSummary fields", async ({ db, app }) => {
+			await seedBase(db);
 			await db.insert(routines).values({
 				id: "routine-new-fields",
 				name: "New fields test",
@@ -714,7 +725,8 @@ describe("AA2: Routine Management API", () => {
 			expect(routine).toHaveProperty("lastRunSummary", "Last run did X and Y.");
 		});
 
-		it("RoutineInfo.costCapPerRun is null when not set", async () => {
+		test("RoutineInfo.costCapPerRun is null when not set", async ({ db, app }) => {
+			await seedBase(db);
 			await db.insert(routines).values({
 				id: "routine-no-cap",
 				name: "No cap test",
@@ -742,7 +754,8 @@ describe("AA2: Routine Management API", () => {
 	// ──────────────────────────────────────────────────────────────────────
 
 	describe("GET /api/teams/:id excludes soft-deleted routines", () => {
-		it("does not include soft-deleted routines in team routines list", async () => {
+		test("does not include soft-deleted routines in team routines list", async ({ db, app }) => {
+			await seedBase(db);
 			const now = new Date().toISOString();
 
 			await db.insert(routines).values([
@@ -800,7 +813,8 @@ describe("AA2: Routine Management API", () => {
 			}
 		});
 
-		it("endSession updates routine_run outcome to success and back-populates sessionId", async () => {
+		test("endSession updates routine_run outcome to success and back-populates sessionId", async ({ db }) => {
+			await seedBase(db);
 			// Arrange: seed the routine
 			await db.insert(routines).values({
 				id: "routine-end-fix",
@@ -852,7 +866,8 @@ describe("AA2: Routine Management API", () => {
 			expect(run.endedAt).not.toBeNull();
 		});
 
-		it("crashSession updates routine_run outcome to error and back-populates sessionId", async () => {
+		test("crashSession updates routine_run outcome to error and back-populates sessionId", async ({ db }) => {
+			await seedBase(db);
 			// Arrange
 			await db.insert(routines).values({
 				id: "routine-crash-fix",
@@ -900,7 +915,8 @@ describe("AA2: Routine Management API", () => {
 			expect(run.endedAt).not.toBeNull();
 		});
 
-		it("no-ops when no running routine_run row exists for the routine", async () => {
+		test("no-ops when no running routine_run row exists for the routine", async ({ db }) => {
+			await seedBase(db);
 			// Arrange
 			await db.insert(routines).values({
 				id: "routine-noop-fix",
@@ -939,7 +955,8 @@ describe("AA2: Routine Management API", () => {
 	});
 
 	describe("Schema: new columns on routines and routine_runs", () => {
-		it("can insert and read routine with all new AA2 columns", async () => {
+		test("can insert and read routine with all new AA2 columns", async ({ db }) => {
+			await seedBase(db);
 			const now = new Date().toISOString();
 
 			await db.insert(routines).values({
@@ -971,7 +988,8 @@ describe("AA2: Routine Management API", () => {
 			expect(row.stubTaskId).toBe("task-aa2");
 		});
 
-		it("soft-delete filter (isNull(deletedAt)) works correctly", async () => {
+		test("soft-delete filter (isNull(deletedAt)) works correctly", async ({ db }) => {
+			await seedBase(db);
 			const now = new Date().toISOString();
 
 			await db.insert(routines).values([
@@ -1003,7 +1021,8 @@ describe("AA2: Routine Management API", () => {
 			expect(ids).not.toContain("schema-deleted-r");
 		});
 
-		it("can insert and read routine_run with sessionId and summary", async () => {
+		test("can insert and read routine_run with sessionId and summary", async ({ db }) => {
+			await seedBase(db);
 			await db.insert(routines).values({
 				id: "routine-run-schema",
 				name: "Run schema",

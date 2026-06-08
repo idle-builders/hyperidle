@@ -1,7 +1,6 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import {
-	createTestDb,
 	type HyperIdleDb,
 	items,
 	teamMembers,
@@ -12,7 +11,8 @@ import {
 import type { ItemCreatedEvent } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
+import { test } from "../../test-fixtures.js";
 import { createItemTool } from "../create-item.js";
 import type { ToolContext } from "../tool-registry.js";
 
@@ -47,18 +47,9 @@ function makeContext(db: HyperIdleDb, eventBus: EventBus): ToolContext {
 }
 
 describe("create_item tool", () => {
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-
-	beforeEach(async () => {
-		const handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		await seed(db);
-	});
-
 	describe("AC6: review item with riskTier=high routes to Conversations", () => {
-		it("creates the item, routes to conversations, and emits item_created", async () => {
+		test("creates the item, routes to conversations, and emits item_created", async ({ db, eventBus }) => {
+			await seed(db);
 			const emitted: ItemCreatedEvent[] = [];
 			eventBus.on("item_created", (e) => {
 				emitted.push(e);
@@ -97,7 +88,8 @@ describe("create_item tool", () => {
 			expect(emitted[0].kind).toBe("review");
 		});
 
-		it("auto-creates a thread when no threadId is provided", async () => {
+		test("auto-creates a thread when no threadId is provided", async ({ db, eventBus }) => {
+			await seed(db);
 			const result = await createItemTool.handler(
 				{
 					title: "New review",
@@ -113,7 +105,8 @@ describe("create_item tool", () => {
 			expect(thread).toBeDefined();
 		});
 
-		it("reuses an existing thread when threadId is provided", async () => {
+		test("reuses an existing thread when threadId is provided", async ({ db, eventBus }) => {
+			await seed(db);
 			const now = new Date().toISOString();
 			await db.insert(threads).values({
 				id: "existing-thread",
@@ -141,7 +134,8 @@ describe("create_item tool", () => {
 	});
 
 	describe("item_created event fields (validation scenario)", () => {
-		it("emits event with itemId, conversationId, kind, timestamp", async () => {
+		test("emits event with itemId, conversationId, kind, timestamp", async ({ db, eventBus }) => {
+			await seed(db);
 			const emitted: ItemCreatedEvent[] = [];
 			eventBus.on("item_created", (e) => emitted.push(e));
 
@@ -161,7 +155,8 @@ describe("create_item tool", () => {
 	});
 
 	describe("AC9: invalid input returns structured error", () => {
-		it("returns INVALID_INPUT when title missing", async () => {
+		test("returns INVALID_INPUT when title missing", async ({ db, eventBus }) => {
+			await seed(db);
 			const result = await createItemTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
 				{} as any,
@@ -172,7 +167,8 @@ describe("create_item tool", () => {
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		it("returns INVALID_INPUT for unknown riskTier", async () => {
+		test("returns INVALID_INPUT for unknown riskTier", async ({ db, eventBus }) => {
+			await seed(db);
 			const result = await createItemTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
 				{ title: "x", riskTier: "extreme" } as any,
@@ -183,7 +179,8 @@ describe("create_item tool", () => {
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		it("returns NOT_FOUND when supplied threadId does not exist", async () => {
+		test("returns NOT_FOUND when supplied threadId does not exist", async ({ db, eventBus }) => {
+			await seed(db);
 			const result = await createItemTool.handler(
 				{ title: "x", threadId: "nope" },
 				makeContext(db, eventBus),

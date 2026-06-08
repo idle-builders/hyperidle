@@ -12,11 +12,10 @@
  * with the canonical error envelope).
  */
 
-import { createTestDb, type HyperIdleDb } from "@hyperidle/db";
-import { API_ERROR_CODES, EventBus } from "@hyperidle/shared";
+import { API_ERROR_CODES } from "@hyperidle/shared";
 import { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 import { createBodyLimit } from "../body-limit.js";
 
 const TEST_API_KEY = "test-key-body-limit";
@@ -26,24 +25,18 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("I2 R4 — body-limit middleware returns 413 + JSON ApiErrorResponse", () => {
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		// Set the limit very small so the test's payload is unambiguously
 		// over budget. The middleware reads HYPERIDLE_MAX_BODY_BYTES.
 		vi.stubEnv("HYPERIDLE_MAX_BODY_BYTES", "1024");
-		const handle = await createTestDb();
-		db = handle.db;
-		app = await createTestApp({ db, eventBus: new EventBus() });
 	});
 
 	afterEach(() => {
 		vi.unstubAllEnvs();
 	});
 
-	it("rejects a POST whose body exceeds the configured limit with 413", async () => {
+	test("rejects a POST whose body exceeds the configured limit with 413", async ({ app }) => {
 		// 2KB of payload — well above the 1024-byte limit set above.
 		const huge = "x".repeat(2048);
 		const body = JSON.stringify({ pitch: huge });
@@ -60,7 +53,7 @@ describe("I2 R4 — body-limit middleware returns 413 + JSON ApiErrorResponse", 
 		expect(typeof json.error).toBe("string");
 	});
 
-	it("does NOT 413 a request that fits within the limit", async () => {
+	test("does NOT 413 a request that fits within the limit", async ({ app }) => {
 		const small = JSON.stringify({ pitch: "tiny" });
 
 		const res = await app.request("/api/bets", {
@@ -75,7 +68,7 @@ describe("I2 R4 — body-limit middleware returns 413 + JSON ApiErrorResponse", 
 });
 
 describe("I2 review CRITICAL-1 — chunked POST aborts as soon as size crosses the limit", () => {
-	it("cancels the upstream reader before all chunks have been pulled", async () => {
+	test("cancels the upstream reader before all chunks have been pulled", async ({}) => {
 		const maxSize = 1024;
 		// Build a Hono app whose only middleware is the body-limit. Mounting
 		// the route directly avoids the rate-limit/auth ordering noise.

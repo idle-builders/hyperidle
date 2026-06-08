@@ -6,11 +6,9 @@
  * AC-29: PATCH /api/users/:id rejects unauthorized updates (user can only patch self)
  */
 
-import { createTestDb, type HyperIdleDb, users } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { type HyperIdleDb, users } from "@hyperidle/db";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-users-profile";
 
@@ -24,27 +22,21 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 
 const NOW = new Date().toISOString();
 
+async function seedUser(db: HyperIdleDb): Promise<void> {
+	await db.insert(users).values({
+		id: "u-human-1",
+		kind: "human",
+		name: "Alice",
+		email: "alice@example.com",
+		role: "founder",
+		status: "active",
+		createdAt: NOW,
+	});
+}
+
 describe("PATCH /api/users/:id — profile update", () => {
-	let app: Hono;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const handle = await createTestDb();
-		db = handle.db;
-		const eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-
-		// Seed a human user (this becomes the authenticated user)
-		await db.insert(users).values({
-			id: "u-human-1",
-			kind: "human",
-			name: "Alice",
-			email: "alice@example.com",
-			role: "founder",
-			status: "active",
-			createdAt: NOW,
-		});
 	});
 
 	afterEach(() => {
@@ -52,7 +44,8 @@ describe("PATCH /api/users/:id — profile update", () => {
 	});
 
 	// AC-27: PATCH with valid body returns 200 + updated fields
-	it("updates name and returns 200 with updated user", async () => {
+	test("updates name and returns 200 with updated user", async ({ db, app }) => {
+		await seedUser(db);
 		const res = await app.request("/api/users/u-human-1", {
 			method: "PATCH",
 			headers: authHeaders(),
@@ -66,7 +59,8 @@ describe("PATCH /api/users/:id — profile update", () => {
 	});
 
 	// AC-27: PATCH with email updates email
-	it("updates email and returns 200 with updated user", async () => {
+	test("updates email and returns 200 with updated user", async ({ db, app }) => {
+		await seedUser(db);
 		const res = await app.request("/api/users/u-human-1", {
 			method: "PATCH",
 			headers: authHeaders(),
@@ -79,7 +73,8 @@ describe("PATCH /api/users/:id — profile update", () => {
 	});
 
 	// AC-27: PATCH with both name and email
-	it("updates both name and email in one request", async () => {
+	test("updates both name and email in one request", async ({ db, app }) => {
+		await seedUser(db);
 		const res = await app.request("/api/users/u-human-1", {
 			method: "PATCH",
 			headers: authHeaders(),
@@ -93,7 +88,8 @@ describe("PATCH /api/users/:id — profile update", () => {
 	});
 
 	// AC-27: PATCH persists changes (GET confirms)
-	it("persists changes so a subsequent GET returns the updated value", async () => {
+	test("persists changes so a subsequent GET returns the updated value", async ({ db, app }) => {
+		await seedUser(db);
 		await app.request("/api/users/u-human-1", {
 			method: "PATCH",
 			headers: authHeaders(),
@@ -109,7 +105,8 @@ describe("PATCH /api/users/:id — profile update", () => {
 	});
 
 	// AC-29: PATCH with different userId returns 403
-	it("returns 403 when patching another user's profile", async () => {
+	test("returns 403 when patching another user's profile", async ({ db, app }) => {
+		await seedUser(db);
 		// Seed a second human user to attempt PATCH on
 		await db.insert(users).values({
 			id: "u-human-2",
@@ -133,7 +130,8 @@ describe("PATCH /api/users/:id — profile update", () => {
 	});
 
 	// Validation: invalid email returns 400
-	it("returns 400 for invalid email format", async () => {
+	test("returns 400 for invalid email format", async ({ db, app }) => {
+		await seedUser(db);
 		const res = await app.request("/api/users/u-human-1", {
 			method: "PATCH",
 			headers: authHeaders(),
@@ -144,7 +142,8 @@ describe("PATCH /api/users/:id — profile update", () => {
 	});
 
 	// Validation: empty name returns 400
-	it("returns 400 for empty name string", async () => {
+	test("returns 400 for empty name string", async ({ db, app }) => {
+		await seedUser(db);
 		const res = await app.request("/api/users/u-human-1", {
 			method: "PATCH",
 			headers: authHeaders(),
@@ -158,7 +157,8 @@ describe("PATCH /api/users/:id — profile update", () => {
 	// @lore P4: 403 is returned for unknown user ids, not 404, because the
 	// self-only auth check fails first. This prevents leaking user existence
 	// information to unauthorized callers.
-	it("returns 403 for an unknown user id (self-only check fails before existence check)", async () => {
+	test("returns 403 for an unknown user id (self-only check fails before existence check)", async ({ db, app }) => {
+		await seedUser(db);
 		const res = await app.request("/api/users/u-does-not-exist", {
 			method: "PATCH",
 			headers: authHeaders(),
@@ -169,7 +169,8 @@ describe("PATCH /api/users/:id — profile update", () => {
 	});
 
 	// Unauthenticated request returns 401
-	it("returns 401 when no API key is provided", async () => {
+	test("returns 401 when no API key is provided", async ({ db, app }) => {
+		await seedUser(db);
 		const res = await app.request("/api/users/u-human-1", {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },

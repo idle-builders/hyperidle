@@ -2,7 +2,6 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	knowledgeConflicts,
 	knowledgeItems,
@@ -14,8 +13,8 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import { afterEach, beforeEach, describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Manifest } from "../materialization.js";
 import {
 	getRelativePath,
@@ -118,23 +117,23 @@ async function setupSessionData(db: HyperIdleDb): Promise<{
 }
 
 describe("writeback utilities", () => {
-	it("getRelativePath returns relative path", async () => {
+	test("getRelativePath returns relative path", async () => {
 		expect(getRelativePath("/workspace", "/workspace/knowledge/foo.md")).toBe("knowledge/foo.md");
 	});
 
-	it("isKnowledgePath detects knowledge paths", async () => {
+	test("isKnowledgePath detects knowledge paths", async () => {
 		expect(isKnowledgePath("knowledge/foo.md")).toBe(true);
 		expect(isKnowledgePath("work/foo.md")).toBe(false);
 		expect(isKnowledgePath("context/foo.md")).toBe(false);
 	});
 
-	it("isSessionNotesPath detects session notes", async () => {
+	test("isSessionNotesPath detects session notes", async () => {
 		expect(isSessionNotesPath("work/session-notes.md")).toBe(true);
 		expect(isSessionNotesPath("work/task-notes.md")).toBe(true);
 		expect(isSessionNotesPath("work/other.md")).toBe(false);
 	});
 
-	it("isWatchedPath detects watched paths", async () => {
+	test("isWatchedPath detects watched paths", async () => {
 		expect(isWatchedPath("knowledge/foo.md")).toBe(true);
 		expect(isWatchedPath("work/bar.md")).toBe(true);
 		expect(isWatchedPath("context/foo.md")).toBe(false);
@@ -145,34 +144,20 @@ describe("writeback utilities", () => {
 describe("processWriteback", () => {
 	let tmpDir: string;
 	let workspace: string;
-	let db: HyperIdleDb;
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	let sessionData: Awaited<ReturnType<typeof setupSessionData>>;
 
-	beforeEach(async () => {
+	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join("/tmp", "writeback-test-"));
 		workspace = createWorkspace(tmpDir);
-		handle = await createTestDb();
-		db = handle.db;
-		sessionData = await setupSessionData(db);
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		fs.rmSync(tmpDir, { recursive: true, force: true });
-		await handle.close();
 	});
-
-	function makeConfig(): WritebackConfig {
-		return {
-			db,
-			workspacePath: workspace,
-			sessionId: sessionData.sessionId,
-			manifestPath: path.join(workspace, ".fabric/manifest.json"),
-		};
-	}
 
 	// AC1: New file in knowledge/ creates knowledge_items row with status CAPTURED
-	it("AC1: new file creates knowledge_items row with status captured", async () => {
+	test("AC1: new file creates knowledge_items row with status captured", async ({ db }) => {
+		const sessionData = await setupSessionData(db);
+
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
 			materialized_at: new Date().toISOString(),
@@ -183,6 +168,15 @@ describe("processWriteback", () => {
 		// Write a new file
 		const filePath = path.join(workspace, "knowledge/practices/my-pattern.md");
 		fs.writeFileSync(filePath, "# My Pattern\nSome content here");
+
+		function makeConfig(): WritebackConfig {
+			return {
+				db,
+				workspacePath: workspace,
+				sessionId: sessionData.sessionId,
+				manifestPath: path.join(workspace, ".fabric/manifest.json"),
+			};
+		}
 
 		const result = await processWriteback(makeConfig(), [
 			{
@@ -210,7 +204,9 @@ describe("processWriteback", () => {
 	});
 
 	// AC2: Modified file updates corresponding row, version increments
-	it("AC2: modified file updates row and increments version", async () => {
+	test("AC2: modified file updates row and increments version", async ({ db }) => {
+		const sessionData = await setupSessionData(db);
+
 		// Pre-create a knowledge item
 		const itemId = "existing-item-1";
 		const now = new Date().toISOString();
@@ -250,6 +246,15 @@ describe("processWriteback", () => {
 		const filePath = path.join(workspace, "knowledge/practices/existing-pattern.md");
 		fs.writeFileSync(filePath, "updated body content");
 
+		function makeConfig(): WritebackConfig {
+			return {
+				db,
+				workspacePath: workspace,
+				sessionId: sessionData.sessionId,
+				manifestPath: path.join(workspace, ".fabric/manifest.json"),
+			};
+		}
+
 		const result = await processWriteback(makeConfig(), [
 			{
 				type: "modify",
@@ -271,7 +276,9 @@ describe("processWriteback", () => {
 	});
 
 	// AC3: Deleted file flags for facilitator review, NOT auto-deleted
-	it("AC3: deleted file flags for review, not auto-deleted", async () => {
+	test("AC3: deleted file flags for review, not auto-deleted", async ({ db }) => {
+		const sessionData = await setupSessionData(db);
+
 		const itemId = "delete-item-1";
 		const now = new Date().toISOString();
 		// @lore O2: kernel table no longer has layer/kind; those go to knowledgeStrategyFabric
@@ -306,6 +313,15 @@ describe("processWriteback", () => {
 		};
 		writeTestManifest(workspace, manifest);
 
+		function makeConfig(): WritebackConfig {
+			return {
+				db,
+				workspacePath: workspace,
+				sessionId: sessionData.sessionId,
+				manifestPath: path.join(workspace, ".fabric/manifest.json"),
+			};
+		}
+
 		const result = await processWriteback(makeConfig(), [
 			{
 				type: "delete",
@@ -333,7 +349,9 @@ describe("processWriteback", () => {
 	});
 
 	// AC5: Version conflict creates knowledge_conflicts row
-	it("AC5: version conflict creates knowledge_conflicts row", async () => {
+	test("AC5: version conflict creates knowledge_conflicts row", async ({ db }) => {
+		const sessionData = await setupSessionData(db);
+
 		const itemId = "conflict-item-1";
 		const now = new Date().toISOString();
 		// @lore O2: kernel table no longer has layer/kind; those go to knowledgeStrategyFabric
@@ -372,6 +390,15 @@ describe("processWriteback", () => {
 		const filePath = path.join(workspace, "knowledge/practices/conflict-item.md");
 		fs.writeFileSync(filePath, "agent's proposed content");
 
+		function makeConfig(): WritebackConfig {
+			return {
+				db,
+				workspacePath: workspace,
+				sessionId: sessionData.sessionId,
+				manifestPath: path.join(workspace, ".fabric/manifest.json"),
+			};
+		}
+
 		const result = await processWriteback(makeConfig(), [
 			{
 				type: "modify",
@@ -392,7 +419,9 @@ describe("processWriteback", () => {
 	});
 
 	// AC7: Manifest updated after each writeback
-	it("AC7: manifest updated after each writeback", async () => {
+	test("AC7: manifest updated after each writeback", async ({ db }) => {
+		const sessionData = await setupSessionData(db);
+
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
 			materialized_at: new Date().toISOString(),
@@ -402,6 +431,15 @@ describe("processWriteback", () => {
 
 		const filePath = path.join(workspace, "knowledge/practices/new-item.md");
 		fs.writeFileSync(filePath, "content");
+
+		function makeConfig(): WritebackConfig {
+			return {
+				db,
+				workspacePath: workspace,
+				sessionId: sessionData.sessionId,
+				manifestPath: path.join(workspace, ".fabric/manifest.json"),
+			};
+		}
 
 		await processWriteback(makeConfig(), [
 			{
@@ -420,7 +458,9 @@ describe("processWriteback", () => {
 	});
 
 	// AC8: work/session-notes.md changes reflected in sessions.notes
-	it("AC8: session-notes.md changes reflected in sessions.notes", async () => {
+	test("AC8: session-notes.md changes reflected in sessions.notes", async ({ db }) => {
+		const sessionData = await setupSessionData(db);
+
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
 			materialized_at: new Date().toISOString(),
@@ -430,6 +470,15 @@ describe("processWriteback", () => {
 
 		const notesPath = path.join(workspace, "work/session-notes.md");
 		fs.writeFileSync(notesPath, "# Session Notes\nImportant finding here.");
+
+		function makeConfig(): WritebackConfig {
+			return {
+				db,
+				workspacePath: workspace,
+				sessionId: sessionData.sessionId,
+				manifestPath: path.join(workspace, ".fabric/manifest.json"),
+			};
+		}
 
 		await processWriteback(makeConfig(), [
 			{
@@ -449,7 +498,9 @@ describe("processWriteback", () => {
 	});
 
 	// AC10: Last-writer-wins with conflict flagged
-	it("AC10: last-writer-wins scenario flags conflict", async () => {
+	test("AC10: last-writer-wins scenario flags conflict", async ({ db }) => {
+		const sessionData = await setupSessionData(db);
+
 		const itemId = "lww-item-1";
 		const now = new Date().toISOString();
 
@@ -497,6 +548,15 @@ describe("processWriteback", () => {
 		const filePath = path.join(workspace, "knowledge/practices/lww-item.md");
 		fs.writeFileSync(filePath, "agent updated content");
 
+		function makeConfig(): WritebackConfig {
+			return {
+				db,
+				workspacePath: workspace,
+				sessionId: sessionData.sessionId,
+				manifestPath: path.join(workspace, ".fabric/manifest.json"),
+			};
+		}
+
 		const result = await processWriteback(makeConfig(), [
 			{
 				type: "modify",
@@ -523,7 +583,9 @@ describe("processWriteback", () => {
 		expect(conflicts[0].proposedBody).toBe("agent updated content");
 	});
 
-	it("modify on unknown file treats as create", async () => {
+	test("modify on unknown file treats as create", async ({ db }) => {
+		const sessionData = await setupSessionData(db);
+
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
 			materialized_at: new Date().toISOString(),
@@ -533,6 +595,15 @@ describe("processWriteback", () => {
 
 		const filePath = path.join(workspace, "knowledge/practices/unknown.md");
 		fs.writeFileSync(filePath, "new content");
+
+		function makeConfig(): WritebackConfig {
+			return {
+				db,
+				workspacePath: workspace,
+				sessionId: sessionData.sessionId,
+				manifestPath: path.join(workspace, ".fabric/manifest.json"),
+			};
+		}
 
 		const result = await processWriteback(makeConfig(), [
 			{
@@ -549,13 +620,24 @@ describe("processWriteback", () => {
 		expect(items).toHaveLength(1);
 	});
 
-	it("delete on unknown file is a no-op", async () => {
+	test("delete on unknown file is a no-op", async ({ db }) => {
+		const sessionData = await setupSessionData(db);
+
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
 			materialized_at: new Date().toISOString(),
 			items: {},
 		};
 		writeTestManifest(workspace, manifest);
+
+		function makeConfig(): WritebackConfig {
+			return {
+				db,
+				workspacePath: workspace,
+				sessionId: sessionData.sessionId,
+				manifestPath: path.join(workspace, ".fabric/manifest.json"),
+			};
+		}
 
 		const result = await processWriteback(makeConfig(), [
 			{
@@ -568,7 +650,9 @@ describe("processWriteback", () => {
 		expect(result.deleted).toBe(0);
 	});
 
-	it("non-knowledge paths are skipped", async () => {
+	test("non-knowledge paths are skipped", async ({ db }) => {
+		const sessionData = await setupSessionData(db);
+
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
 			materialized_at: new Date().toISOString(),
@@ -579,6 +663,15 @@ describe("processWriteback", () => {
 		const filePath = path.join(workspace, "context/something.md");
 		fs.mkdirSync(path.dirname(filePath), { recursive: true });
 		fs.writeFileSync(filePath, "content");
+
+		function makeConfig(): WritebackConfig {
+			return {
+				db,
+				workspacePath: workspace,
+				sessionId: sessionData.sessionId,
+				manifestPath: path.join(workspace, ".fabric/manifest.json"),
+			};
+		}
 
 		const result = await processWriteback(makeConfig(), [
 			{
@@ -593,7 +686,9 @@ describe("processWriteback", () => {
 		expect(items).toHaveLength(0);
 	});
 
-	it("processes batch of multiple changes", async () => {
+	test("processes batch of multiple changes", async ({ db }) => {
+		const sessionData = await setupSessionData(db);
+
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
 			materialized_at: new Date().toISOString(),
@@ -614,6 +709,15 @@ describe("processWriteback", () => {
 				relativePath: `knowledge/practices/file-${i}.md`,
 				fullPath: path.join(workspace, `knowledge/practices/file-${i}.md`),
 			});
+		}
+
+		function makeConfig(): WritebackConfig {
+			return {
+				db,
+				workspacePath: workspace,
+				sessionId: sessionData.sessionId,
+				manifestPath: path.join(workspace, ".fabric/manifest.json"),
+			};
 		}
 
 		const result = await processWriteback(makeConfig(), changes);

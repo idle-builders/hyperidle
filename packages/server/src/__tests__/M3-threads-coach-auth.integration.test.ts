@@ -6,11 +6,9 @@
  * Tests seed a human user row to drive identity resolution.
  */
 
-import { createTestDb, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import { describe, expect, vi } from "vitest";
+import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-m3-threads";
 
@@ -39,18 +37,11 @@ async function seedFounderUser(db: HyperIdleDb, founderId: string): Promise<void
 }
 
 describe("M3 — Coach route readSenderId uses auth context, not DEFAULT_FOUNDER_ID (A6)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	test("coach thread has initiatorId from auth context, not hardcoded 'u-founder'", async ({
+		app,
+		db,
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-
 		const now = new Date().toISOString();
 		await seedFounderUser(db, "test-founder-1");
 
@@ -62,14 +53,7 @@ describe("M3 — Coach route readSenderId uses auth context, not DEFAULT_FOUNDER
 			status: "active",
 			createdAt: now,
 		});
-	});
 
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle?.close();
-	});
-
-	it("coach thread has initiatorId from auth context, not hardcoded 'u-founder'", async () => {
 		const res = await app.request("/api/threads/coach", { headers: authHeaders() });
 		// Endpoint may return 200 (existing) or 201 (created)
 		expect([200, 201]).toContain(res.status);
@@ -79,22 +63,16 @@ describe("M3 — Coach route readSenderId uses auth context, not DEFAULT_FOUNDER
 		// Should be the seeded founder id, NOT the hardcoded "u-founder"
 		expect(initiatorId).toBe("test-founder-1");
 		expect(initiatorId).not.toBe("u-founder");
+		vi.unstubAllEnvs();
 	});
 });
 
 describe("M3 — Thread route readSenderId + readInitialSenderId use auth context (A7 + C3)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	test("POST /api/threads without X-Identity uses auth context userId, not 'u-founder'", async ({
+		app,
+		db,
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-
 		const now = new Date().toISOString();
 		// P2: seedFounderUser seeds kind='human' so auth middleware resolves this user
 		await seedFounderUser(db, "test-founder-1");
@@ -111,14 +89,7 @@ describe("M3 — Thread route readSenderId + readInitialSenderId use auth contex
 			formedAt: now,
 		});
 		// Note: "test-founder-1" is already seeded by seedFounderUser above — no duplicate insert.
-	});
 
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle?.close();
-	});
-
-	it("POST /api/threads without X-Identity uses auth context userId, not 'u-founder'", async () => {
 		const res = await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(), // No X-Identity header
@@ -144,13 +115,32 @@ describe("M3 — Thread route readSenderId + readInitialSenderId use auth contex
 		const senderId = body.message?.senderId ?? body.thread?.initiatorId;
 		// Not "u-founder" — must come from auth context
 		expect(senderId).not.toBe("u-founder");
+		vi.unstubAllEnvs();
 	});
 
-	it("readInitialSenderId falls back to auth context userId when no X-Identity is set", async () => {
+	test("readInitialSenderId falls back to auth context userId when no X-Identity is set", async ({
+		app,
+		db,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		const now = new Date().toISOString();
+		// P2: seedFounderUser seeds kind='human' so auth middleware resolves this user
+		await seedFounderUser(db, "test-founder-1");
+
+		await db
+			.insert(teams)
+			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
+		await db.insert(teamMembers).values({
+			id: "team-1",
+			teamId: "prod-1",
+			capacity: 3,
+			activeBets: 0,
+			formedAt: now,
+		});
+
 		// C3: readInitialSenderId (line 79 in threads.ts) must use c.get("userId") not DEFAULT_FOUNDER_ID
 		// A review-type message triggers the readInitialSenderId code path.
 		// Seed an agent participant so the agent lookup inside readInitialSenderId can find a non-founder
-		const now = new Date().toISOString();
 		await db.insert(users).values({
 			id: "agent-builder-1",
 			name: "Builder Agent",
@@ -188,5 +178,6 @@ describe("M3 — Thread route readSenderId + readInitialSenderId use auth contex
 		// The agent builder should be the sender (non-founder participant for review messages)
 		// OR at minimum it should NOT be the literal "u-founder" string
 		expect(senderId).not.toBe("u-founder");
+		vi.unstubAllEnvs();
 	});
 });

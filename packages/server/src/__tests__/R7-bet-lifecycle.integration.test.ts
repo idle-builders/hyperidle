@@ -17,9 +17,7 @@
 
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
-	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
@@ -27,12 +25,10 @@ import {
 	users,
 } from "@hyperidle/db";
 import { registerLifecyclePropagation } from "@hyperidle/fabric";
-import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, vi } from "vitest";
+import { test } from "../test-fixtures.js";
 import { transitionBet } from "../services/bet-state-machine.js";
-import { createTestApp } from "../test-utils.js";
 
 const TEST_API_KEY = "test-key-r7-bets";
 const SYSTEM_PROPAGATION_ID = "system:propagation";
@@ -69,26 +65,13 @@ async function seedBaseData(db: HyperIdleDb): Promise<void> {
 // ── AC-3: Bet lifecycle draft → active → completed ────────────────────────
 
 describe("R7 AC-3: Bet lifecycle transitions (draft → active → completed)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	test("creating a bet via POST /api/bets results in status='draft' (shaped)", async ({
+		db,
+		app,
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
 		await seedBaseData(db);
-	});
 
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle.close();
-	});
-
-	it("creating a bet via POST /api/bets results in status='draft' (shaped)", async () => {
 		const res = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
@@ -103,9 +86,13 @@ describe("R7 AC-3: Bet lifecycle transitions (draft → active → completed)", 
 		// @lore U1: shaped → draft
 		expect(body.status).toBe("draft");
 		expect(body.teamId).toBe("team-r7");
+		vi.unstubAllEnvs();
 	});
 
-	it("POST /api/bets/:id/commit transitions draft → active", async () => {
+	test("POST /api/bets/:id/commit transitions draft → active", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedBaseData(db);
+
 		// Create a draft bet
 		const createRes = await app.request("/api/bets", {
 			method: "POST",
@@ -128,9 +115,12 @@ describe("R7 AC-3: Bet lifecycle transitions (draft → active → completed)", 
 		const commitBody = (await commitRes.json()) as Record<string, unknown>;
 		// @lore U1: committed → active
 		expect(commitBody.status).toBe("active");
+		vi.unstubAllEnvs();
 	});
 
-	it("transitionBet service transitions active → completed", async () => {
+	test("transitionBet service transitions active → completed", async ({ db, eventBus }) => {
+		await seedBaseData(db);
+
 		// Create and commit a bet directly via service layer
 		const now = new Date().toISOString();
 		const betId = "bet-r7-complete";
@@ -150,7 +140,12 @@ describe("R7 AC-3: Bet lifecycle transitions (draft → active → completed)", 
 		expect(row?.status).toBe("completed");
 	});
 
-	it("lifecycle propagation: all tasks done → bet transitions to completed", async () => {
+	test("lifecycle propagation: all tasks done → bet transitions to completed", async ({
+		db,
+		eventBus,
+	}) => {
+		await seedBaseData(db);
+
 		// Arrange: active bet with one task in_progress
 		const now = new Date().toISOString();
 		const betId = "bet-r7-lc";
@@ -210,7 +205,14 @@ describe("R7 AC-3: Bet lifecycle transitions (draft → active → completed)", 
 		unsubscribe();
 	});
 
-	it("full end-to-end: create bet → commit → complete task → bet completed", async () => {
+	test("full end-to-end: create bet → commit → complete task → bet completed", async ({
+		db,
+		eventBus,
+		app,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedBaseData(db);
+
 		const now = new Date().toISOString();
 
 		// Step 1: Create bet (draft)
@@ -277,32 +279,20 @@ describe("R7 AC-3: Bet lifecycle transitions (draft → active → completed)", 
 		});
 
 		unsubscribe();
+		vi.unstubAllEnvs();
 	});
 });
 
 // ── AC-4: Completed bets appear in GET /api/teams with correct shipRate ────
 
 describe("R7 AC-4: Completed bets appear in WorkPortfolio with correct shipRate", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	test("GET /api/teams returns shipRate='100%' when all bets are completed", async ({
+		db,
+		app,
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
 		await seedBaseData(db);
-	});
 
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle.close();
-	});
-
-	it("GET /api/teams returns shipRate='100%' when all bets are completed", async () => {
 		// Arrange: one completed bet, no active bets
 		const now = new Date().toISOString();
 		await db.insert(bets).values({
@@ -325,9 +315,16 @@ describe("R7 AC-4: Completed bets appear in WorkPortfolio with correct shipRate"
 		expect(r7Team).toBeDefined();
 		// shipRate = completed / (completed + active) = 1 / (1 + 0) = 100%
 		expect(r7Team?.shipRate).toBe("100%");
+		vi.unstubAllEnvs();
 	});
 
-	it("GET /api/teams returns shipRate='50%' when half of bets are completed", async () => {
+	test("GET /api/teams returns shipRate='50%' when half of bets are completed", async ({
+		db,
+		app,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedBaseData(db);
+
 		// Arrange: one completed, one active
 		const now = new Date().toISOString();
 		await db.insert(bets).values([
@@ -360,9 +357,13 @@ describe("R7 AC-4: Completed bets appear in WorkPortfolio with correct shipRate"
 		expect(r7Team).toBeDefined();
 		// shipRate = 1 / (1 + 1) = 50%
 		expect(r7Team?.shipRate).toBe("50%");
+		vi.unstubAllEnvs();
 	});
 
-	it("GET /api/teams returns shipRate='—' when no bets exist", async () => {
+	test("GET /api/teams returns shipRate='—' when no bets exist", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedBaseData(db);
+
 		// No bets at all → shipRate should be the dash placeholder
 		const res = await app.request("/api/teams", { headers: authHeaders() });
 		expect(res.status).toBe(200);
@@ -374,9 +375,13 @@ describe("R7 AC-4: Completed bets appear in WorkPortfolio with correct shipRate"
 		const r7Team = body.teams.find((t) => t.id === "team-r7");
 		expect(r7Team).toBeDefined();
 		expect(r7Team?.shipRate).toBe("—");
+		vi.unstubAllEnvs();
 	});
 
-	it("GET /api/teams shipRate excludes killed bets from denominator", async () => {
+	test("GET /api/teams shipRate excludes killed bets from denominator", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedBaseData(db);
+
 		// Killed bets must not count in the ship rate calculation
 		// shipRate = completed / (completed + active) — killed is excluded
 		const now = new Date().toISOString();
@@ -409,5 +414,6 @@ describe("R7 AC-4: Completed bets appear in WorkPortfolio with correct shipRate"
 		// Only completed (1) and active (0) count: 1 / (1 + 0) = 100%
 		// Killed (1) is excluded from the denominator
 		expect(r7Team?.shipRate).toBe("100%");
+		vi.unstubAllEnvs();
 	});
 });

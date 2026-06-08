@@ -1,6 +1,4 @@
 import {
-	createTestDb,
-	type HyperIdleDb,
 	items,
 	teamMembers,
 	teams,
@@ -8,10 +6,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import type { ItemCreatedEvent } from "@hyperidle/shared";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-conversations";
 
@@ -20,57 +15,40 @@ function authHeaders(): Record<string, string> {
 }
 
 describe("Conversations Endpoints (E2)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
 	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-
-		// Seed base data
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 3,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
-
-		// L1a: verdict messages set sender_id='policy_engine' as the synthetic
-		// sender for system-recorded verdicts. The new `messages.sender_id` FK
-		// requires the agent to exist (legacy `responses.approver_id` had no
-		// FK). Seeding the synthetic agent satisfies the constraint without
-		// changing test intent.
-		await db.insert(users).values({
-			id: "policy_engine",
-			name: "Policy Engine",
-			role: "system",
-			status: "active",
-			createdAt: new Date().toISOString(),
-		});
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle?.close();
 	});
 
 	// --- GET /api/conversations ---
 
 	describe("GET /api/conversations", () => {
-		it("lists threads sorted by recency (default)", async () => {
+		test("lists threads sorted by recency (default)", async ({ db, app }) => {
+			// Seed base data
+			await db.insert(teams).values({
+				id: "prod-1",
+				name: "Test Product",
+				phase: "build",
+				createdAt: new Date().toISOString(),
+			});
+			await db.insert(teamMembers).values({
+				id: "team-1",
+				teamId: "prod-1",
+				capacity: 3,
+				activeBets: 0,
+				formedAt: new Date().toISOString(),
+			});
+			await db.insert(users).values({
+				id: "policy_engine",
+				name: "Policy Engine",
+				role: "system",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			});
+
 			const now = Date.now();
 			await db.insert(threads).values({
 				id: "t-old",
@@ -105,7 +83,7 @@ describe("Conversations Endpoints (E2)", () => {
 			expect(body.pagination.total).toBe(2);
 		});
 
-		it("sorts by attention_score when requested falls through to recency (O2: attentionScore stripped from items)", async () => {
+		test("sorts by attention_score when requested falls through to recency (O2: attentionScore stripped from items)", async ({ db, app }) => {
 			// @lore O2: attentionScore column removed from items table.
 			// ?sort=attention_score falls through to recency sort. Test verifies
 			// the endpoint still returns 200 with threads in some order.
@@ -143,7 +121,7 @@ describe("Conversations Endpoints (E2)", () => {
 			expect(body.threads[1]?.id).toBe("t-older");
 		});
 
-		it("paginates correctly", async () => {
+		test("paginates correctly", async ({ db, app }) => {
 			for (let i = 0; i < 5; i++) {
 				const ts = new Date(Date.now() - i * 1000).toISOString();
 				await db.insert(threads).values({
@@ -172,7 +150,7 @@ describe("Conversations Endpoints (E2)", () => {
 			expect(body.pagination.total).toBe(5);
 		});
 
-		it("returns empty list when no threads", async () => {
+		test("returns empty list when no threads", async ({ app }) => {
 			const res = await app.request("/api/conversations", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
@@ -185,7 +163,7 @@ describe("Conversations Endpoints (E2)", () => {
 	// --- GET /api/conversations/:threadId ---
 
 	describe("GET /api/conversations/:threadId", () => {
-		it("returns thread with items and an empty responses[] (verdicts now live on /api/threads)", async () => {
+		test("returns thread with items and an empty responses[] (verdicts now live on /api/threads)", async ({ db, app }) => {
 			await db.insert(threads).values({
 				id: "thread-1",
 				hostKind: "task",
@@ -226,7 +204,7 @@ describe("Conversations Endpoints (E2)", () => {
 			expect(body.items[1]?.responses).toEqual([]);
 		});
 
-		it("returns 404 for nonexistent thread", async () => {
+		test("returns 404 for nonexistent thread", async ({ app }) => {
 			const res = await app.request("/api/conversations/nonexistent", { headers: authHeaders() });
 			expect(res.status).toBe(404);
 
@@ -238,7 +216,7 @@ describe("Conversations Endpoints (E2)", () => {
 	// --- POST /api/conversations/items ---
 
 	describe("POST /api/conversations/items", () => {
-		beforeEach(async () => {
+		test("creates item and returns 201", async ({ db, app }) => {
 			await db.insert(threads).values({
 				id: "thread-1",
 				hostKind: "task",
@@ -248,9 +226,7 @@ describe("Conversations Endpoints (E2)", () => {
 				lastActiveAt: new Date().toISOString(),
 				createdAt: new Date().toISOString(),
 			});
-		});
 
-		it("creates item and returns 201", async () => {
 			const res = await app.request("/api/conversations/items", {
 				method: "POST",
 				headers: authHeaders(),
@@ -271,7 +247,17 @@ describe("Conversations Endpoints (E2)", () => {
 			expect(body.view).toBeUndefined();
 		});
 
-		it("validates required fields (missing title -> 400)", async () => {
+		test("validates required fields (missing title -> 400)", async ({ db, app }) => {
+			await db.insert(threads).values({
+				id: "thread-1",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: new Date().toISOString(),
+				createdAt: new Date().toISOString(),
+			});
+
 			const res = await app.request("/api/conversations/items", {
 				method: "POST",
 				headers: authHeaders(),
@@ -283,7 +269,17 @@ describe("Conversations Endpoints (E2)", () => {
 			expect(body.code).toBe("VALIDATION_ERROR");
 		});
 
-		it("emits item_created event", async () => {
+		test("emits item_created event", async ({ db, app, eventBus }) => {
+			await db.insert(threads).values({
+				id: "thread-1",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: new Date().toISOString(),
+				createdAt: new Date().toISOString(),
+			});
+
 			const emitted: ItemCreatedEvent[] = [];
 			eventBus.on("item_created", (e: ItemCreatedEvent) => emitted.push(e));
 
@@ -297,7 +293,17 @@ describe("Conversations Endpoints (E2)", () => {
 			expect(emitted[0].kind).toBe("chat");
 		});
 
-		it("includes routing info in response (O2: view removed, response is the created item)", async () => {
+		test("includes routing info in response (O2: view removed, response is the created item)", async ({ db, app }) => {
+			await db.insert(threads).values({
+				id: "thread-1",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: new Date().toISOString(),
+				createdAt: new Date().toISOString(),
+			});
+
 			const res = await app.request("/api/conversations/items", {
 				method: "POST",
 				headers: authHeaders(),
@@ -315,7 +321,7 @@ describe("Conversations Endpoints (E2)", () => {
 			expect(body.view).toBeUndefined();
 		});
 
-		it("returns 404 for nonexistent threadId", async () => {
+		test("returns 404 for nonexistent threadId", async ({ app }) => {
 			const res = await app.request("/api/conversations/items", {
 				method: "POST",
 				headers: authHeaders(),
@@ -332,7 +338,20 @@ describe("Conversations Endpoints (E2)", () => {
 	// route used to target. The full verdict-authz / idempotency / re-open
 	// matrix lives in `routes/__tests__/threads.routes.test.ts`.
 	describe("verdict via canonical /api/threads surface", () => {
-		beforeEach(async () => {
+		test("records a verdict on a review and returns 201", async ({ db, app }) => {
+			// L1a: verdict messages set sender_id='policy_engine' as the synthetic
+			// sender for system-recorded verdicts. The new `messages.sender_id` FK
+			// requires the agent to exist (legacy `responses.approver_id` had no
+			// FK). Seeding the synthetic agent satisfies the constraint without
+			// changing test intent.
+			await db.insert(users).values({
+				id: "policy_engine",
+				name: "Policy Engine",
+				role: "system",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			});
+
 			// Seed a founder approver and a non-founder review author so the
 			// canonical route's authz check (founder + not-self) passes.
 			await db.insert(users).values({
@@ -350,9 +369,7 @@ describe("Conversations Endpoints (E2)", () => {
 				status: "active",
 				createdAt: new Date().toISOString(),
 			});
-		});
 
-		it("records a verdict on a review and returns 201", async () => {
 			const create = await app.request("/api/threads", {
 				method: "POST",
 				headers: { ...authHeaders(), "X-Identity": "agent-1" },
@@ -394,7 +411,29 @@ describe("Conversations Endpoints (E2)", () => {
 			expect(res.status).toBe(201);
 		});
 
-		it("rejects non-founder verdicts (403)", async () => {
+		test("rejects non-founder verdicts (403)", async ({ db, app }) => {
+			await db.insert(users).values({
+				id: "policy_engine",
+				name: "Policy Engine",
+				role: "system",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			});
+			await db.insert(users).values({
+				id: "founder-1",
+				name: "Founder",
+				role: "founder",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			});
+			await db.insert(users).values({
+				id: "agent-1",
+				name: "Agent",
+				role: "growth",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			});
+
 			const create = await app.request("/api/threads", {
 				method: "POST",
 				headers: { ...authHeaders(), "X-Identity": "agent-1" },
@@ -434,7 +473,29 @@ describe("Conversations Endpoints (E2)", () => {
 			expect(res.status).toBe(403);
 		});
 
-		it("validates verdict decision enum (invalid -> 400)", async () => {
+		test("validates verdict decision enum (invalid -> 400)", async ({ db, app }) => {
+			await db.insert(users).values({
+				id: "policy_engine",
+				name: "Policy Engine",
+				role: "system",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			});
+			await db.insert(users).values({
+				id: "founder-1",
+				name: "Founder",
+				role: "founder",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			});
+			await db.insert(users).values({
+				id: "agent-1",
+				name: "Agent",
+				role: "growth",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			});
+
 			const create = await app.request("/api/threads", {
 				method: "POST",
 				headers: { ...authHeaders(), "X-Identity": "agent-1" },
@@ -480,7 +541,7 @@ describe("Conversations Endpoints (E2)", () => {
 	// field is no longer returned in the response — routing is a strategy concern,
 	// not a kernel concern. Tests updated to verify items are created without routing.
 	describe("Founder routing integration (O2: founderRoute removed)", () => {
-		it("agent with role 'growth' -> item created without founderRoute field", async () => {
+		test("agent with role 'growth' -> item created without founderRoute field", async ({ db, app }) => {
 			await db.insert(threads).values({
 				id: "thread-1",
 				hostKind: "task",
@@ -516,7 +577,7 @@ describe("Conversations Endpoints (E2)", () => {
 			expect(body.sourceAgentId).toBe("agent-growth");
 		});
 
-		it("agent with role 'builder' -> item created without founderRoute field", async () => {
+		test("agent with role 'builder' -> item created without founderRoute field", async ({ db, app }) => {
 			await db.insert(threads).values({
 				id: "thread-1",
 				hostKind: "task",
@@ -556,7 +617,7 @@ describe("Conversations Endpoints (E2)", () => {
 	// --- Auth ---
 
 	describe("Auth required", () => {
-		it("returns 401 without API key", async () => {
+		test("returns 401 without API key", async ({ app }) => {
 			const res = await app.request("/api/conversations");
 			expect(res.status).toBe(401);
 		});

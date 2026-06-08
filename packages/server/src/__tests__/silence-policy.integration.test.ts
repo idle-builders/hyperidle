@@ -1,39 +1,37 @@
 import {
-	createTestDb,
 	factorySettings,
-	type HyperIdleDb,
-	type TestDbHandle,
 	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
 import { isInSilenceWindow, isSilenced } from "@hyperidle/fabric";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
+import { test } from "../test-fixtures.js";
 
 describe("isInSilenceWindow", () => {
-	it("returns true when now is exactly at window start", () => {
+	test("returns true when now is exactly at window start", async ({}) => {
 		// Window 09:00 - 17:00, now = 09:00 UTC
 		const now = new Date("2026-01-15T09:00:00Z");
 		expect(isInSilenceWindow("09:00", "17:00", now)).toBe(true);
 	});
 
-	it("returns true when now is exactly at window end", () => {
+	test("returns true when now is exactly at window end", async ({}) => {
 		// Window 09:00 - 17:00, now = 17:00 UTC
 		const now = new Date("2026-01-15T17:00:00Z");
 		expect(isInSilenceWindow("09:00", "17:00", now)).toBe(true);
 	});
 
-	it("returns false when now is one minute before window start", () => {
+	test("returns false when now is one minute before window start", async ({}) => {
 		const now = new Date("2026-01-15T08:59:00Z");
 		expect(isInSilenceWindow("09:00", "17:00", now)).toBe(false);
 	});
 
-	it("returns false when now is one minute after window end", () => {
+	test("returns false when now is one minute after window end", async ({}) => {
 		const now = new Date("2026-01-15T17:01:00Z");
 		expect(isInSilenceWindow("09:00", "17:00", now)).toBe(false);
 	});
 
-	it("supports overnight window (22:00 - 07:00)", () => {
+	test("supports overnight window (22:00 - 07:00)", async ({}) => {
 		// 23:00 should be inside the window
 		const late = new Date("2026-01-15T23:00:00Z");
 		expect(isInSilenceWindow("22:00", "07:00", late)).toBe(true);
@@ -47,23 +45,23 @@ describe("isInSilenceWindow", () => {
 		expect(isInSilenceWindow("22:00", "07:00", midday)).toBe(false);
 	});
 
-	it("returns false for malformed time format (missing colon)", () => {
+	test("returns false for malformed time format (missing colon)", async ({}) => {
 		const now = new Date("2026-01-15T12:00:00Z");
 		expect(isInSilenceWindow("0900", "1700", now)).toBe(false);
 	});
 
-	it("handles edge case of midnight boundary (00:00)", () => {
+	test("handles edge case of midnight boundary (00:00)", async ({}) => {
 		// Overnight window ending at midnight
 		const now = new Date("2026-01-15T00:00:00Z");
 		expect(isInSilenceWindow("22:00", "00:00", now)).toBe(true);
 	});
 
-	it("returns false for non-numeric time parts", () => {
+	test("returns false for non-numeric time parts", async ({}) => {
 		const now = new Date("2026-01-15T12:00:00Z");
 		expect(isInSilenceWindow("ab:cd", "12:00", now)).toBe(false);
 	});
 
-	it("treats 07:00 as silenced for overnight window 22:00-07:00 (inclusive end)", () => {
+	test("treats 07:00 as silenced for overnight window 22:00-07:00 (inclusive end)", async ({}) => {
 		// @lore The spec says "when time is 07:00, then not silenced" for
 		// window "22:00-07:00", but the implementation uses inclusive end
 		// boundary (<=). At 07:00, nowMinutes (420) <= endMinutes (420) is
@@ -74,7 +72,7 @@ describe("isInSilenceWindow", () => {
 		expect(isInSilenceWindow("22:00", "07:00", now)).toBe(true);
 	});
 
-	it("returns false for '25:00' malformed hour value (out of 0-23 range)", () => {
+	test("returns false for '25:00' malformed hour value (out of 0-23 range)", async ({}) => {
 		// @lore The implementation does not validate that hours are in the
 		// 0-23 range — it only checks for numeric-ness and colon format.
 		// "25:00" parses to startMinutes=1500, which exceeds any real
@@ -89,12 +87,7 @@ describe("isInSilenceWindow", () => {
 });
 
 describe("isSilenced", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
+	test("returns true when factory-wide silence_mode is enabled", async ({ db }) => {
 		await db.insert(teams).values({
 			id: "prod-1",
 			name: "Test Product",
@@ -117,13 +110,6 @@ describe("isSilenced", () => {
 			teamId: "team-1",
 			createdAt: new Date().toISOString(),
 		});
-	});
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	it("returns true when factory-wide silence_mode is enabled", async () => {
 		await db
 			.insert(factorySettings)
 			.values({ key: "silence_mode", value: "true", updatedAt: new Date().toISOString() });
@@ -132,12 +118,34 @@ describe("isSilenced", () => {
 		expect(result).toBe(true);
 	});
 
-	it("returns false when silence_mode is not set", async () => {
+	test("returns false when silence_mode is not set", async ({ db }) => {
 		const result = await isSilenced(db, { sourceAgentId: null }, new Date());
 		expect(result).toBe(false);
 	});
 
-	it("returns true for per-product silence", async () => {
+	test("returns true for per-product silence", async ({ db }) => {
+		await db.insert(teams).values({
+			id: "prod-1",
+			name: "Test Product",
+			phase: "build",
+			createdAt: new Date().toISOString(),
+		});
+		await db.insert(teamMembers).values({
+			id: "team-1",
+			teamId: "prod-1",
+			capacity: 3,
+			activeBets: 0,
+			formedAt: new Date().toISOString(),
+		});
+		await db.insert(users).values({
+			id: "agent-1",
+			kind: "ai",
+			name: "Test Agent",
+			role: "builder",
+			status: "active",
+			teamId: "team-1",
+			createdAt: new Date().toISOString(),
+		});
 		await db.insert(factorySettings).values({
 			key: "silence_product_prod-1",
 			value: "true",
@@ -148,7 +156,7 @@ describe("isSilenced", () => {
 		expect(result).toBe(true);
 	});
 
-	it("returns true when current time falls in silence window", async () => {
+	test("returns true when current time falls in silence window", async ({ db }) => {
 		const now = new Date("2026-01-15T23:00:00Z");
 		await db
 			.insert(factorySettings)
@@ -162,7 +170,7 @@ describe("isSilenced", () => {
 		expect(result).toBe(true);
 	});
 
-	it("returns false when current time is outside silence window", async () => {
+	test("returns false when current time is outside silence window", async ({ db }) => {
 		const now = new Date("2026-01-15T12:00:00Z");
 		await db
 			.insert(factorySettings)

@@ -1,6 +1,7 @@
-import { createTestDb, type HyperIdleDb, knowledgeConflicts, knowledgeItems } from "@hyperidle/db";
+import { type HyperIdleDb, knowledgeConflicts, knowledgeItems } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
+import { test } from "../../test-fixtures.js";
 import { createConflictReviewTool } from "../create-conflict-review.js";
 import { makeContext, NOW, seedBase } from "./_helpers.js";
 
@@ -21,15 +22,8 @@ async function seedKnowledgeItem(db: HyperIdleDb, id: string, version: number): 
 }
 
 describe("create_conflict_review tool", () => {
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		const handle = await createTestDb();
-		db = handle.db;
+	test("inserts an open knowledge_conflicts row referencing the item", async ({ db }) => {
 		await seedBase(db);
-	});
-
-	it("inserts an open knowledge_conflicts row referencing the item", async () => {
 		await seedKnowledgeItem(db, "ki-1", 3);
 		const result = await createConflictReviewTool.handler(
 			{
@@ -57,7 +51,8 @@ describe("create_conflict_review tool", () => {
 		expect(data.conflictId).toBe(rows[0].id);
 	});
 
-	it("NOT_FOUND for unknown knowledgeItemId", async () => {
+	test("NOT_FOUND for unknown knowledgeItemId", async ({ db }) => {
+		await seedBase(db);
 		const result = await createConflictReviewTool.handler(
 			{
 				knowledgeItemId: "does-not-exist",
@@ -71,7 +66,8 @@ describe("create_conflict_review tool", () => {
 		expect(result.code).toBe("NOT_FOUND");
 	});
 
-	it("INVALID_INPUT when versionBase > item.version", async () => {
+	test("INVALID_INPUT when versionBase > item.version", async ({ db }) => {
+		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-2", 2);
 		const result = await createConflictReviewTool.handler(
 			{
@@ -86,7 +82,8 @@ describe("create_conflict_review tool", () => {
 		expect(result.code).toBe("INVALID_INPUT");
 	});
 
-	it("always derives proposedBy from ctx.agentId (no spoofing via payload)", async () => {
+	test("always derives proposedBy from ctx.agentId (no spoofing via payload)", async ({ db }) => {
+		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-3", 1);
 		const result = await createConflictReviewTool.handler(
 			{
@@ -108,7 +105,8 @@ describe("create_conflict_review tool", () => {
 		expect(rows[0].proposedBy).toBe("agent:agent-fac");
 	});
 
-	it("returns DUPLICATE on a second open conflict from the same agent on the same item", async () => {
+	test("returns DUPLICATE on a second open conflict from the same agent on the same item", async ({ db }) => {
+		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-dup", 1);
 		const first = await createConflictReviewTool.handler(
 			{

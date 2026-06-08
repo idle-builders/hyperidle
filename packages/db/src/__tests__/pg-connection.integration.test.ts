@@ -6,6 +6,9 @@ import {
 	parsePgPoolSize,
 	resolvePgPoolSize,
 } from "../connection.js";
+// @lore test-infra: createTestDb is kept here because the H4 AC3/AC4 test
+// manages its own instance lifecycle via try/finally close(). These tests
+// explicitly test the createTestDb API itself and need direct handle access.
 import { createTestDb } from "../test-utils.js";
 
 describe("H4 AC5: PostgreSQL connection pooling", () => {
@@ -79,6 +82,8 @@ describe("H4 AC5: PostgreSQL connection pooling", () => {
 });
 
 describe("H4 AC3/AC4: In-memory Postgres via pglite (drizzle-orm/pglite)", () => {
+	// @lore test-infra: Uses createTestDb() directly because this test exercises
+	// the createTestDb API itself and needs explicit close() via try/finally.
 	it("createTestDb returns a usable Drizzle instance", { timeout: 15_000 }, async () => {
 		const { db, close } = await createTestDb();
 		try {

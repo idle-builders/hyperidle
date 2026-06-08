@@ -11,13 +11,12 @@
  * PRAGMA table_info).
  */
 
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { BET_STATUSES } from "@hyperidle/shared";
 import { getTableName, sql } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { HyperIdleDb } from "../connection.js";
 import * as schema from "../schema.js";
 import { seed } from "../seed.js";
-import { createTestDb, type TestDbHandle } from "../test-utils.js";
 import * as zodSchemas from "../zod-schemas.js";
 
 // ---------------------------------------------------------------------------
@@ -71,23 +70,13 @@ async function indexNamesForTable(db: HyperIdleDb, table: string): Promise<strin
 // ---------------------------------------------------------------------------
 
 describe("U1 AC1+AC2: Table renames — products→teams, teams→team_members", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	});
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	it("AC1: `products` table no longer exists after migration", async () => {
+	test("AC1: `products` table no longer exists after migration", async ({ db }) => {
 		expect(await tableExists(db, "products")).toBe(false);
 	});
 
-	it("AC1: `teams` table exists and has product-like columns (id, name, phase, created_at)", async () => {
+	test("AC1: `teams` table exists and has product-like columns (id, name, phase, created_at)", async ({
+		db,
+	}) => {
 		const cols = await columnNamesOf(db, "teams");
 		expect(cols).toContain("id");
 		expect(cols).toContain("name");
@@ -95,11 +84,13 @@ describe("U1 AC1+AC2: Table renames — products→teams, teams→team_members",
 		expect(cols).toContain("created_at");
 	});
 
-	it("AC2: old `teams` (agent membership) table is now called `team_members`", async () => {
+	test("AC2: old `teams` (agent membership) table is now called `team_members`", async ({ db }) => {
 		expect(await tableExists(db, "team_members")).toBe(true);
 	});
 
-	it("AC2: `team_members` has capacity, formed_at, team_id columns (formerly product_id)", async () => {
+	test("AC2: `team_members` has capacity, formed_at, team_id columns (formerly product_id)", async ({
+		db,
+	}) => {
 		const cols = await columnNamesOf(db, "team_members");
 		expect(cols).toContain("capacity");
 		expect(cols).toContain("formed_at");
@@ -108,7 +99,9 @@ describe("U1 AC1+AC2: Table renames — products→teams, teams→team_members",
 		expect(cols).not.toContain("product_id");
 	});
 
-	it("AC1+AC2: seed data round-trips — `teams` table holds the former product row", async () => {
+	test("AC1+AC2: seed data round-trips — `teams` table holds the former product row", async ({
+		db,
+	}) => {
 		await seed(db);
 
 		// After migration, the product formerly named "Nimmly" must live in teams
@@ -133,33 +126,21 @@ describe("U1 AC1+AC2: Table renames — products→teams, teams→team_members",
 // ---------------------------------------------------------------------------
 
 describe("U1 AC1: FK renames on bets and tasks", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	});
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	it("bets has team_id column (renamed from product_id)", async () => {
+	test("bets has team_id column (renamed from product_id)", async ({ db }) => {
 		const cols = await columnNamesOf(db, "bets");
 		expect(cols).toContain("team_id");
 		// product_id must be gone
 		expect(cols).not.toContain("product_id");
 	});
 
-	it("tasks has team_id column (renamed from product_id)", async () => {
+	test("tasks has team_id column (renamed from product_id)", async ({ db }) => {
 		const cols = await columnNamesOf(db, "tasks");
 		expect(cols).toContain("team_id");
 		// product_id must be gone
 		expect(cols).not.toContain("product_id");
 	});
 
-	it("bets.team_id FK integrity: insert bet referencing teams.id succeeds", async () => {
+	test("bets.team_id FK integrity: insert bet referencing teams.id succeeds", async ({ db }) => {
 		const now = new Date().toISOString();
 
 		// Insert into the new teams table (formerly products)
@@ -181,7 +162,7 @@ describe("U1 AC1: FK renames on bets and tasks", () => {
 		expect(rows[0]?.team_id).toBe("t-p1");
 	});
 
-	it("tasks.team_id FK integrity: insert task referencing teams.id succeeds", async () => {
+	test("tasks.team_id FK integrity: insert task referencing teams.id succeeds", async ({ db }) => {
 		const now = new Date().toISOString();
 
 		await db.execute(
@@ -211,19 +192,7 @@ describe("U1 AC1: FK renames on bets and tasks", () => {
 // ---------------------------------------------------------------------------
 
 describe("U1 AC3: Bet status enum simplification", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	});
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	it("bet with status 'draft' is insertable and queryable", async () => {
+	test("bet with status 'draft' is insertable and queryable", async ({ db }) => {
 		const now = new Date().toISOString();
 
 		await db.execute(
@@ -242,7 +211,7 @@ describe("U1 AC3: Bet status enum simplification", () => {
 		expect(rows[0]?.status).toBe("draft");
 	});
 
-	it("bet with old status 'in_progress' is not valid in the new schema", async () => {
+	test("bet with old status 'in_progress' is not valid in the new schema", async ({ db }) => {
 		// After U1 migration runs, no rows with in_progress should exist
 		const result = await db.execute(
 			sql.raw(`SELECT COUNT(*) as count FROM bets WHERE status='in_progress'`),
@@ -251,7 +220,7 @@ describe("U1 AC3: Bet status enum simplification", () => {
 		expect(Number(rows[0]?.count)).toBe(0);
 	});
 
-	it("bet with old status 'committed' is not valid in the new schema", async () => {
+	test("bet with old status 'committed' is not valid in the new schema", async ({ db }) => {
 		const result = await db.execute(
 			sql.raw(`SELECT COUNT(*) as count FROM bets WHERE status='committed'`),
 		);
@@ -259,7 +228,7 @@ describe("U1 AC3: Bet status enum simplification", () => {
 		expect(Number(rows[0]?.count)).toBe(0);
 	});
 
-	it("bet with old status 'shipped' is not valid in the new schema", async () => {
+	test("bet with old status 'shipped' is not valid in the new schema", async ({ db }) => {
 		const result = await db.execute(
 			sql.raw(`SELECT COUNT(*) as count FROM bets WHERE status='shipped'`),
 		);
@@ -267,7 +236,7 @@ describe("U1 AC3: Bet status enum simplification", () => {
 		expect(Number(rows[0]?.count)).toBe(0);
 	});
 
-	it("bet with old status 'shaped' is not valid in the new schema", async () => {
+	test("bet with old status 'shaped' is not valid in the new schema", async ({ db }) => {
 		const result = await db.execute(
 			sql.raw(`SELECT COUNT(*) as count FROM bets WHERE status='shaped'`),
 		);
@@ -275,7 +244,7 @@ describe("U1 AC3: Bet status enum simplification", () => {
 		expect(Number(rows[0]?.count)).toBe(0);
 	});
 
-	it("BET_STATUSES shared constant contains only new values: draft, active, completed, killed", () => {
+	test("BET_STATUSES shared constant contains only new values: draft, active, completed, killed", () => {
 		// Must NOT contain old statuses
 		expect(BET_STATUSES).not.toContain("shaped");
 		expect(BET_STATUSES).not.toContain("committed");
@@ -302,31 +271,19 @@ describe("U1 AC3: Bet status enum simplification", () => {
 // ---------------------------------------------------------------------------
 
 describe("U1 AC4: Bet column renames", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	});
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	it("bets table has 'description' column (renamed from pitch)", async () => {
+	test("bets table has 'description' column (renamed from pitch)", async ({ db }) => {
 		const cols = await columnNamesOf(db, "bets");
 		expect(cols).toContain("description");
 		expect(cols).not.toContain("pitch");
 	});
 
-	it("bets table has 'completed_at' column (renamed from shipped_at)", async () => {
+	test("bets table has 'completed_at' column (renamed from shipped_at)", async ({ db }) => {
 		const cols = await columnNamesOf(db, "bets");
 		expect(cols).toContain("completed_at");
 		expect(cols).not.toContain("shipped_at");
 	});
 
-	it("description column preserves data after rename", async () => {
+	test("description column preserves data after rename", async ({ db }) => {
 		const now = new Date().toISOString();
 
 		await db.execute(
@@ -345,7 +302,7 @@ describe("U1 AC4: Bet column renames", () => {
 		expect(rows[0]?.description).toBe("Build the feature");
 	});
 
-	it("completed_at column is nullable", async () => {
+	test("completed_at column is nullable", async ({ db }) => {
 		const cols = await columnsOf(db, "bets");
 		const col = cols.find((c) => c.column_name === "completed_at");
 		expect(col).toBeDefined();
@@ -359,24 +316,12 @@ describe("U1 AC4: Bet column renames", () => {
 // ---------------------------------------------------------------------------
 
 describe("U1 AC5: at_risk column on bets", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	});
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	it("bets table has 'at_risk' column", async () => {
+	test("bets table has 'at_risk' column", async ({ db }) => {
 		const cols = await columnNamesOf(db, "bets");
 		expect(cols).toContain("at_risk");
 	});
 
-	it("at_risk column has a default value of 0", async () => {
+	test("at_risk column has a default value of 0", async ({ db }) => {
 		const cols = await columnsOf(db, "bets");
 		const col = cols.find((c) => c.column_name === "at_risk");
 		expect(col).toBeDefined();
@@ -384,7 +329,7 @@ describe("U1 AC5: at_risk column on bets", () => {
 		expect(col?.column_default).not.toBeNull();
 	});
 
-	it("at_risk column is NOT NULL", async () => {
+	test("at_risk column is NOT NULL", async ({ db }) => {
 		const cols = await columnsOf(db, "bets");
 		const col = cols.find((c) => c.column_name === "at_risk");
 		expect(col).toBeDefined();
@@ -392,7 +337,9 @@ describe("U1 AC5: at_risk column on bets", () => {
 		expect(col?.is_nullable).toBe("NO");
 	});
 
-	it("at_risk defaults to false when inserting a bet without specifying at_risk", async () => {
+	test("at_risk defaults to false when inserting a bet without specifying at_risk", async ({
+		db,
+	}) => {
 		const now = new Date().toISOString();
 
 		await db.execute(
@@ -420,7 +367,7 @@ describe("U1 AC5: at_risk column on bets", () => {
 // ---------------------------------------------------------------------------
 
 describe("U1 AC6: Zod schemas updated", () => {
-	it("selectTeamMemberSchema exists and is a valid Zod schema (replaces old selectTeamSchema)", () => {
+	test("selectTeamMemberSchema exists and is a valid Zod schema (replaces old selectTeamSchema)", () => {
 		const schemas = zodSchemas as Record<string, unknown>;
 		const selectTeamMemberSchema = schemas["selectTeamMemberSchema"] as
 			| { parse: unknown; safeParse: unknown }
@@ -429,7 +376,7 @@ describe("U1 AC6: Zod schemas updated", () => {
 		expect(typeof selectTeamMemberSchema?.parse).toBe("function");
 	});
 
-	it("insertTeamMemberSchema exists and is a valid Zod schema", () => {
+	test("insertTeamMemberSchema exists and is a valid Zod schema", () => {
 		const schemas = zodSchemas as Record<string, unknown>;
 		const insertTeamMemberSchema = schemas["insertTeamMemberSchema"] as
 			| { parse: unknown }
@@ -438,7 +385,7 @@ describe("U1 AC6: Zod schemas updated", () => {
 		expect(typeof insertTeamMemberSchema?.parse).toBe("function");
 	});
 
-	it("selectTeamSchema now reflects the new teams table (formerly products) shape", () => {
+	test("selectTeamSchema now reflects the new teams table (formerly products) shape", () => {
 		const { selectTeamSchema } = zodSchemas;
 		expect(selectTeamSchema).toBeDefined();
 
@@ -459,17 +406,17 @@ describe("U1 AC6: Zod schemas updated", () => {
 		expect(valid.success).toBe(true);
 	});
 
-	it("insertProductSchema no longer exists (replaced by insertTeamSchema for the domain entity)", () => {
+	test("insertProductSchema no longer exists (replaced by insertTeamSchema for the domain entity)", () => {
 		const schemas = zodSchemas as Record<string, unknown>;
 		expect(schemas["insertProductSchema"]).toBeUndefined();
 	});
 
-	it("selectProductSchema no longer exists (replaced by selectTeamSchema for the domain entity)", () => {
+	test("selectProductSchema no longer exists (replaced by selectTeamSchema for the domain entity)", () => {
 		const schemas = zodSchemas as Record<string, unknown>;
 		expect(schemas["selectProductSchema"]).toBeUndefined();
 	});
 
-	it("selectBetSchema reflects new bet columns: description (not pitch), team_id (not product_id)", () => {
+	test("selectBetSchema reflects new bet columns: description (not pitch), team_id (not product_id)", () => {
 		const { selectBetSchema } = zodSchemas;
 		expect(selectBetSchema).toBeDefined();
 
@@ -501,7 +448,7 @@ describe("U1 AC6: Zod schemas updated", () => {
 		expect(validNewBet.success).toBe(true);
 	});
 
-	it("selectBetSchema rejects old bet shape with pitch and productId", () => {
+	test("selectBetSchema rejects old bet shape with pitch and productId", () => {
 		const { selectBetSchema } = zodSchemas;
 
 		const oldBetShape = selectBetSchema.safeParse({
@@ -532,7 +479,7 @@ describe("U1 AC6: Zod schemas updated", () => {
 // ---------------------------------------------------------------------------
 
 describe("U1 AC7: TypeScript type exports updated", () => {
-	it("schema exports Team type (the domain entity, formerly Product)", () => {
+	test("schema exports Team type (the domain entity, formerly Product)", () => {
 		expect(schema.teams).toBeDefined();
 
 		// The teams table should have "teams" as its backing SQL table name
@@ -542,15 +489,15 @@ describe("U1 AC7: TypeScript type exports updated", () => {
 		expect(getTableName(schema.teams)).toBe("teams");
 	});
 
-	it("schema exports teamMembers table (formerly teams)", () => {
+	test("schema exports teamMembers table (formerly teams)", () => {
 		expect((schema as Record<string, unknown>)["teamMembers"]).toBeDefined();
 	});
 
-	it("schema does NOT export 'products' table", () => {
+	test("schema does NOT export 'products' table", () => {
 		expect((schema as Record<string, unknown>)["products"]).toBeUndefined();
 	});
 
-	it("TeamMember type is exported from schema (formerly Team)", () => {
+	test("TeamMember type is exported from schema (formerly Team)", () => {
 		const teamsTable = (schema as Record<string, unknown>)["teamMembers"];
 		expect(teamsTable).toBeDefined();
 	});
@@ -561,23 +508,11 @@ describe("U1 AC7: TypeScript type exports updated", () => {
 // ---------------------------------------------------------------------------
 
 describe("U1 AC8: Seed data uses new table/column names", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	});
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	it("seed does not reference the products table (it was renamed to teams)", async () => {
+	test("seed does not reference the products table (it was renamed to teams)", async ({ db }) => {
 		await expect(seed(db)).resolves.not.toThrow();
 	});
 
-	it("after seeding, teams table has at least 1 row (formerly products)", async () => {
+	test("after seeding, teams table has at least 1 row (formerly products)", async ({ db }) => {
 		await seed(db);
 
 		const result = await db.execute(sql.raw(`SELECT COUNT(*) as count FROM teams`));
@@ -585,7 +520,7 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 		expect(Number(rows[0]?.count)).toBeGreaterThanOrEqual(1);
 	});
 
-	it("after seeding, team_members table has at least 1 row (formerly teams)", async () => {
+	test("after seeding, team_members table has at least 1 row (formerly teams)", async ({ db }) => {
 		await seed(db);
 
 		const result = await db.execute(sql.raw(`SELECT COUNT(*) as count FROM team_members`));
@@ -593,7 +528,7 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 		expect(Number(rows[0]?.count)).toBeGreaterThanOrEqual(1);
 	});
 
-	it("after seeding, bet uses 'description' column (not pitch)", async () => {
+	test("after seeding, bet uses 'description' column (not pitch)", async ({ db }) => {
 		await seed(db);
 
 		const result = await db.execute(
@@ -604,7 +539,7 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 		expect(rows[0]?.description).toBeTruthy();
 	});
 
-	it("after seeding, bet status is 'draft' (not 'shaped')", async () => {
+	test("after seeding, bet status is 'draft' (not 'shaped')", async ({ db }) => {
 		await seed(db);
 
 		const result = await db.execute(
@@ -614,7 +549,7 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 		expect(rows[0]?.status).toBe("draft");
 	});
 
-	it("after seeding, seed bet uses team_id (not product_id)", async () => {
+	test("after seeding, seed bet uses team_id (not product_id)", async ({ db }) => {
 		await seed(db);
 
 		// team_id must be present and set to 'seed-product-1' (the former product, now team)
@@ -626,7 +561,7 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 		expect(rows[0]?.team_id).toBe("seed-product-1");
 	});
 
-	it("after seeding, seed task uses team_id (not product_id)", async () => {
+	test("after seeding, seed task uses team_id (not product_id)", async ({ db }) => {
 		await seed(db);
 
 		const result = await db.execute(
@@ -637,7 +572,7 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 		expect(rows[0]?.team_id).toBe("seed-product-1");
 	});
 
-	it("seed is idempotent after migration (running twice does not error)", async () => {
+	test("seed is idempotent after migration (running twice does not error)", async ({ db }) => {
 		await seed(db);
 		await expect(seed(db)).resolves.not.toThrow();
 	});
@@ -648,19 +583,7 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 // ---------------------------------------------------------------------------
 
 describe("U1: Bet status migration scenarios (data transformation)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	});
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	it("all 4 new statuses are insertable and queryable", async () => {
+	test("all 4 new statuses are insertable and queryable", async ({ db }) => {
 		const now = new Date().toISOString();
 
 		await db.execute(
@@ -688,7 +611,9 @@ describe("U1: Bet status migration scenarios (data transformation)", () => {
 		expect(statuses).toContain("killed");
 	});
 
-	it("no bets with status 'shaped', 'committed', 'in_progress', 'behind', 'blocked', 'paused', 'review', or 'shipped' exist after migration", async () => {
+	test("no bets with status 'shaped', 'committed', 'in_progress', 'behind', 'blocked', 'paused', 'review', or 'shipped' exist after migration", async ({
+		db,
+	}) => {
 		const oldStatuses = [
 			"shaped",
 			"committed",
@@ -714,30 +639,18 @@ describe("U1: Bet status migration scenarios (data transformation)", () => {
 // ---------------------------------------------------------------------------
 
 describe("U1: Full table schema shape assertions", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	});
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	it("teams table schema matches architecture spec §4.1 (formerly products)", async () => {
+	test("teams table schema matches architecture spec §4.1 (formerly products)", async ({ db }) => {
 		const cols = await columnNamesOf(db, "teams");
 		expect(cols).toEqual(expect.arrayContaining(["id", "name", "phase", "created_at"]));
 	});
 
-	it("team_members table schema has team_id (not product_id)", async () => {
+	test("team_members table schema has team_id (not product_id)", async ({ db }) => {
 		const cols = await columnNamesOf(db, "team_members");
 		expect(cols).toContain("team_id");
 		expect(cols).not.toContain("product_id");
 	});
 
-	it("bets table schema has all expected new columns", async () => {
+	test("bets table schema has all expected new columns", async ({ db }) => {
 		const cols = await columnNamesOf(db, "bets");
 		expect(cols).toContain("team_id");
 		expect(cols).toContain("description");
@@ -750,19 +663,21 @@ describe("U1: Full table schema shape assertions", () => {
 		expect(cols).not.toContain("shipped_at");
 	});
 
-	it("tasks table schema has team_id (from product_id rename, no old team_id)", async () => {
+	test("tasks table schema has team_id (from product_id rename, no old team_id)", async ({
+		db,
+	}) => {
 		const cols = await columnNamesOf(db, "tasks");
 		expect(cols).toContain("team_id");
 		expect(cols).not.toContain("product_id");
 	});
 
-	it("bets_team_id_idx index exists (recreated from bets_product_id_idx)", async () => {
+	test("bets_team_id_idx index exists (recreated from bets_product_id_idx)", async ({ db }) => {
 		const indexes = await indexNamesForTable(db, "bets");
 		expect(indexes).toContain("bets_team_id_idx");
 		expect(indexes).not.toContain("bets_product_id_idx");
 	});
 
-	it("tasks_team_id_idx index exists (recreated from tasks_product_id_idx)", async () => {
+	test("tasks_team_id_idx index exists (recreated from tasks_product_id_idx)", async ({ db }) => {
 		const indexes = await indexNamesForTable(db, "tasks");
 		expect(indexes).toContain("tasks_team_id_idx");
 		expect(indexes).not.toContain("tasks_product_id_idx");
@@ -774,19 +689,9 @@ describe("U1: Full table schema shape assertions", () => {
 // ---------------------------------------------------------------------------
 
 describe("U1: propagation_log target_level rename", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	});
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	it("no propagation_log rows with target_level='product' remain after migration", async () => {
+	test("no propagation_log rows with target_level='product' remain after migration", async ({
+		db,
+	}) => {
 		const result = await db.execute(
 			sql.raw(`SELECT COUNT(*) as count FROM propagation_log WHERE target_level='product'`),
 		);

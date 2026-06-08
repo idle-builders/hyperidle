@@ -28,7 +28,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	sessions,
 	tasks,
@@ -37,18 +36,16 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import {
-	EventBus,
-	type EventBus as EventBusType,
-	type HarnessAdapter,
-	type HarnessCapabilities,
-	type HarnessEvent,
-	type SessionConfig,
-	type SessionHandle,
-	type SessionResult,
+import type {
+	HarnessAdapter,
+	HarnessCapabilities,
+	HarnessEvent,
+	SessionConfig,
+	SessionHandle,
+	SessionResult,
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect } from "vitest";
 import type { AdapterMeta } from "../harness/adapter-pool.js";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
@@ -57,6 +54,7 @@ import {
 	type ProvisionSessionParams,
 	provisionSession,
 } from "../services/session-provisioning.js";
+import { test } from "../test-fixtures.js";
 
 // ---------------------------------------------------------------------------
 // Minimal scripted harness adapter
@@ -160,10 +158,6 @@ async function seedDomain(
 	return { agentId, taskId, teamId };
 }
 
-function makeWorkspaceBasePath(): string {
-	return fs.mkdtempSync(path.join(os.tmpdir(), "x3-sp-"));
-}
-
 function makePool(adapter: HarnessAdapter, meta?: Partial<AdapterMeta>, id = "local"): AdapterPool {
 	const pool = new AdapterPool();
 	pool.register(id, adapter, {
@@ -181,24 +175,20 @@ function makePool(adapter: HarnessAdapter, meta?: Partial<AdapterMeta>, id = "lo
 // ---------------------------------------------------------------------------
 
 describe("X3 AC-13: session provisioning reads soulPrompt from DB column", () => {
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	let db: HyperIdleDb;
-	let eventBus: EventBusType;
 	let workspaceBasePath: string;
 
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		workspaceBasePath = makeWorkspaceBasePath();
-	}, 30_000);
+	beforeEach(() => {
+		workspaceBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "x3-sp-"));
+	});
 
-	afterEach(async () => {
-		await handle.close();
+	afterEach(() => {
 		fs.rmSync(workspaceBasePath, { recursive: true, force: true });
 	});
 
-	it("provisions session successfully when agent has soulPrompt set (not a file path)", async () => {
+	test("provisions session successfully when agent has soulPrompt set (not a file path)", async ({
+		db,
+		eventBus,
+	}) => {
 		const { agentId, taskId, teamId } = await seedDomain(db, {
 			soulPrompt: "# Test Persona\n\nYou are a test agent for {{product}}.",
 		});
@@ -220,7 +210,10 @@ describe("X3 AC-13: session provisioning reads soulPrompt from DB column", () =>
 		expect(result.outcome).toBe("completed");
 	});
 
-	it("provisions session successfully when agent has null soulPrompt (empty persona)", async () => {
+	test("provisions session successfully when agent has null soulPrompt (empty persona)", async ({
+		db,
+		eventBus,
+	}) => {
 		const { agentId, taskId, teamId } = await seedDomain(db, {
 			soulPrompt: null,
 		});
@@ -241,7 +234,10 @@ describe("X3 AC-13: session provisioning reads soulPrompt from DB column", () =>
 		expect(result.sessionId).toBeTruthy();
 	});
 
-	it("composed prompt is passed via SessionConfig.composedPrompt (not soulPromptPath)", async () => {
+	test("composed prompt is passed via SessionConfig.composedPrompt (not soulPromptPath)", async ({
+		db,
+		eventBus,
+	}) => {
 		const { agentId, taskId, teamId } = await seedDomain(db, {
 			soulPrompt: "# Builder\n\nYou are the builder.",
 		});
@@ -266,7 +262,7 @@ describe("X3 AC-13: session provisioning reads soulPrompt from DB column", () =>
 		expect(adapter.capturedConfigs[0]?.soulPromptPath).toBe("");
 	});
 
-	it("validateSoulPromptPath is NOT exported from session-provisioning (function removed)", async () => {
+	test("validateSoulPromptPath is NOT exported from session-provisioning (function removed)", async () => {
 		// Dynamic import to check exports at runtime
 		const mod = await import("../services/session-provisioning.js");
 		// The function should not exist as a named export
@@ -279,24 +275,20 @@ describe("X3 AC-13: session provisioning reads soulPrompt from DB column", () =>
 // ---------------------------------------------------------------------------
 
 describe("X3 AC-14: session provisioning uses modelTierPreference as default", () => {
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	let db: HyperIdleDb;
-	let eventBus: EventBusType;
 	let workspaceBasePath: string;
 
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		workspaceBasePath = makeWorkspaceBasePath();
-	}, 30_000);
+	beforeEach(() => {
+		workspaceBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "x3-sp-"));
+	});
 
-	afterEach(async () => {
-		await handle.close();
+	afterEach(() => {
 		fs.rmSync(workspaceBasePath, { recursive: true, force: true });
 	});
 
-	it("uses agent modelTierPreference='reasoning' when no explicit modelTier param", async () => {
+	test("uses agent modelTierPreference='reasoning' when no explicit modelTier param", async ({
+		db,
+		eventBus,
+	}) => {
 		const { agentId, taskId, teamId } = await seedDomain(db, {
 			modelTierPreference: "reasoning",
 		});
@@ -325,7 +317,10 @@ describe("X3 AC-14: session provisioning uses modelTierPreference as default", (
 		expect(sessionRows[0]?.modelTier).toBe("reasoning");
 	});
 
-	it("explicit modelTier='fast' overrides agent modelTierPreference='reasoning'", async () => {
+	test("explicit modelTier='fast' overrides agent modelTierPreference='reasoning'", async ({
+		db,
+		eventBus,
+	}) => {
 		const { agentId, taskId, teamId } = await seedDomain(db, {
 			modelTierPreference: "reasoning",
 		});
@@ -353,7 +348,10 @@ describe("X3 AC-14: session provisioning uses modelTierPreference as default", (
 		expect(sessionRows[0]?.modelTier).toBe("fast");
 	});
 
-	it("falls back to 'workhorse' when agent modelTierPreference is null and no explicit param", async () => {
+	test("falls back to 'workhorse' when agent modelTierPreference is null and no explicit param", async ({
+		db,
+		eventBus,
+	}) => {
 		const { agentId, taskId, teamId } = await seedDomain(db, {
 			modelTierPreference: null,
 		});
@@ -386,24 +384,17 @@ describe("X3 AC-14: session provisioning uses modelTierPreference as default", (
 // ---------------------------------------------------------------------------
 
 describe("X3 AC-15: session provisioning filters adapters by harnessType", () => {
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	let db: HyperIdleDb;
-	let eventBus: EventBusType;
 	let workspaceBasePath: string;
 
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		workspaceBasePath = makeWorkspaceBasePath();
-	}, 30_000);
+	beforeEach(() => {
+		workspaceBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "x3-sp-"));
+	});
 
-	afterEach(async () => {
-		await handle.close();
+	afterEach(() => {
 		fs.rmSync(workspaceBasePath, { recursive: true, force: true });
 	});
 
-	it("selects the adapter matching agent harnessType='aider'", async () => {
+	test("selects the adapter matching agent harnessType='aider'", async ({ db, eventBus }) => {
 		const { agentId, taskId, teamId } = await seedDomain(db, {
 			harnessType: "aider",
 		});
@@ -444,7 +435,10 @@ describe("X3 AC-15: session provisioning filters adapters by harnessType", () =>
 		expect(claudeAdapter.capturedConfigs).toHaveLength(0);
 	});
 
-	it("selects any adapter when agent harnessType is null (backward compat)", async () => {
+	test("selects any adapter when agent harnessType is null (backward compat)", async ({
+		db,
+		eventBus,
+	}) => {
 		const { agentId, taskId, teamId } = await seedDomain(db, {
 			harnessType: null,
 		});
@@ -465,7 +459,10 @@ describe("X3 AC-15: session provisioning filters adapters by harnessType", () =>
 		expect(adapter.capturedConfigs).toHaveLength(1);
 	});
 
-	it("throws 'No available adapter' when agent harnessType has no matching adapter", async () => {
+	test("throws 'No available adapter' when agent harnessType has no matching adapter", async ({
+		db,
+		eventBus,
+	}) => {
 		const { agentId, taskId, teamId } = await seedDomain(db, {
 			harnessType: "goose", // No goose adapter in pool
 		});
@@ -498,24 +495,17 @@ describe("X3 AC-15: session provisioning filters adapters by harnessType", () =>
 // ---------------------------------------------------------------------------
 
 describe("X3 AC-17: agent config changes take effect on next session without restart", () => {
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	let db: HyperIdleDb;
-	let eventBus: EventBusType;
 	let workspaceBasePath: string;
 
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		workspaceBasePath = makeWorkspaceBasePath();
-	}, 30_000);
+	beforeEach(() => {
+		workspaceBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "x3-sp-"));
+	});
 
-	afterEach(async () => {
-		await handle.close();
+	afterEach(() => {
 		fs.rmSync(workspaceBasePath, { recursive: true, force: true });
 	});
 
-	it("updated modelTierPreference is reflected in the next session", async () => {
+	test("updated modelTierPreference is reflected in the next session", async ({ db, eventBus }) => {
 		const {
 			agentId,
 			taskId: taskId1,

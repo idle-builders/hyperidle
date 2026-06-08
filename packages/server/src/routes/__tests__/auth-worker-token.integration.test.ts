@@ -7,7 +7,8 @@
  * - returns 401 when not authenticated
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
+import { test } from "../../test-fixtures.js";
 import { createTestApp } from "../../test-utils.js";
 
 const TEST_API_KEY = "test-worker-token-key";
@@ -58,12 +59,12 @@ async function callWorkerToken(
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe("S4: POST /api/auth/worker-token", () => {
-	it("returns 401 without authentication", async () => {
+	test("returns 401 without authentication", async ({}) => {
 		const result = await callWorkerToken({ workerToken: "test-secret-token" });
 		expect(result.status).toBe(401);
 	});
 
-	it("returns 404 when HYPERIDLE_WORKER_TOKEN is not set (worker registration disabled)", async () => {
+	test("returns 404 when HYPERIDLE_WORKER_TOKEN is not set (worker registration disabled)", async ({}) => {
 		// workerToken undefined → env var deleted
 		const result = await callWorkerToken({
 			apiKey: TEST_API_KEY,
@@ -72,7 +73,7 @@ describe("S4: POST /api/auth/worker-token", () => {
 		expect(result.status).toBe(404);
 	});
 
-	it("returns 200 with { token } when authenticated and HYPERIDLE_WORKER_TOKEN is set", async () => {
+	test("returns 200 with { token } when authenticated and HYPERIDLE_WORKER_TOKEN is set", async ({}) => {
 		const result = await callWorkerToken({
 			apiKey: TEST_API_KEY,
 			workerToken: "my-worker-secret",
@@ -82,7 +83,7 @@ describe("S4: POST /api/auth/worker-token", () => {
 		expect(body.token).toBe("my-worker-secret");
 	});
 
-	it("404 response body includes error code NOT_FOUND", async () => {
+	test("404 response body includes error code NOT_FOUND", async ({}) => {
 		const result = await callWorkerToken({
 			apiKey: TEST_API_KEY,
 			workerToken: undefined,

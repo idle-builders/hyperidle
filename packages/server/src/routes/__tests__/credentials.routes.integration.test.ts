@@ -7,11 +7,8 @@
  * POST   /api/credentials/:name/validate — validate against external service
  */
 
-import { createTestDb, type HyperIdleDb } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-credentials";
 // Must be 32+ chars for AES-256
@@ -22,17 +19,9 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("credentials routes", () => {
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		vi.stubEnv("HYPERIDLE_SERVER_SECRET", TEST_SERVER_SECRET);
-		const handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
 	});
 
 	afterEach(() => {
@@ -41,12 +30,12 @@ describe("credentials routes", () => {
 	});
 
 	describe("GET /api/credentials", () => {
-		it("returns 401 without auth", async () => {
+		test("returns 401 without auth", async ({ app }) => {
 			const res = await app.request("/api/credentials", { method: "GET" });
 			expect(res.status).toBe(401);
 		});
 
-		it("returns 200 with credential catalog showing absent states", async () => {
+		test("returns 200 with credential catalog showing absent states", async ({ app }) => {
 			const res = await app.request("/api/credentials", {
 				method: "GET",
 				headers: authHeaders(),
@@ -66,7 +55,7 @@ describe("credentials routes", () => {
 			}
 		});
 
-		it("returns catalog with present_untested state after PUT", async () => {
+		test("returns catalog with present_untested state after PUT", async ({ app }) => {
 			await app.request("/api/credentials/anthropic_api_key", {
 				method: "PUT",
 				headers: authHeaders(),
@@ -85,12 +74,12 @@ describe("credentials routes", () => {
 	});
 
 	describe("PUT /api/credentials/:name", () => {
-		it("returns 401 without auth", async () => {
+		test("returns 401 without auth", async ({ app }) => {
 			const res = await app.request("/api/credentials/anthropic_api_key", { method: "PUT" });
 			expect(res.status).toBe(401);
 		});
 
-		it("returns 200 with credential status on valid PUT", async () => {
+		test("returns 200 with credential status on valid PUT", async ({ app }) => {
 			const res = await app.request("/api/credentials/anthropic_api_key", {
 				method: "PUT",
 				headers: authHeaders(),
@@ -102,7 +91,7 @@ describe("credentials routes", () => {
 			expect(body.state).toBe("present_untested");
 		});
 
-		it("returns 400 for unknown credential name", async () => {
+		test("returns 400 for unknown credential name", async ({ app }) => {
 			const res = await app.request("/api/credentials/unknown_credential_xyz", {
 				method: "PUT",
 				headers: authHeaders(),
@@ -111,7 +100,7 @@ describe("credentials routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 on missing value field", async () => {
+		test("returns 400 on missing value field", async ({ app }) => {
 			const res = await app.request("/api/credentials/anthropic_api_key", {
 				method: "PUT",
 				headers: authHeaders(),
@@ -120,7 +109,7 @@ describe("credentials routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("encrypts the value (never returns plaintext)", async () => {
+		test("encrypts the value (never returns plaintext)", async ({ app }) => {
 			const res = await app.request("/api/credentials/anthropic_api_key", {
 				method: "PUT",
 				headers: authHeaders(),
@@ -132,7 +121,7 @@ describe("credentials routes", () => {
 			expect(JSON.stringify(body)).not.toContain("my-secret-api-key");
 		});
 
-		it("upserts: overwrites existing credential", async () => {
+		test("upserts: overwrites existing credential", async ({ app }) => {
 			// First PUT
 			await app.request("/api/credentials/anthropic_api_key", {
 				method: "PUT",
@@ -153,12 +142,12 @@ describe("credentials routes", () => {
 	});
 
 	describe("DELETE /api/credentials/:name", () => {
-		it("returns 401 without auth", async () => {
+		test("returns 401 without auth", async ({ app }) => {
 			const res = await app.request("/api/credentials/anthropic_api_key", { method: "DELETE" });
 			expect(res.status).toBe(401);
 		});
 
-		it("returns 204 on successful delete", async () => {
+		test("returns 204 on successful delete", async ({ app }) => {
 			// Set credential first
 			await app.request("/api/credentials/anthropic_api_key", {
 				method: "PUT",
@@ -173,7 +162,7 @@ describe("credentials routes", () => {
 			expect(res.status).toBe(204);
 		});
 
-		it("returns 400 for unknown credential name", async () => {
+		test("returns 400 for unknown credential name", async ({ app }) => {
 			const res = await app.request("/api/credentials/unknown_credential_xyz", {
 				method: "DELETE",
 				headers: authHeaders(),
@@ -181,7 +170,7 @@ describe("credentials routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 204 even when credential does not exist (idempotent)", async () => {
+		test("returns 204 even when credential does not exist (idempotent)", async ({ app }) => {
 			const res = await app.request("/api/credentials/anthropic_api_key", {
 				method: "DELETE",
 				headers: authHeaders(),
@@ -191,14 +180,14 @@ describe("credentials routes", () => {
 	});
 
 	describe("POST /api/credentials/:name/validate", () => {
-		it("returns 401 without auth", async () => {
+		test("returns 401 without auth", async ({ app }) => {
 			const res = await app.request("/api/credentials/anthropic_api_key/validate", {
 				method: "POST",
 			});
 			expect(res.status).toBe(401);
 		});
 
-		it("returns 200 with valid:false when credential not set", async () => {
+		test("returns 200 with valid:false when credential not set", async ({ app }) => {
 			const res = await app.request("/api/credentials/anthropic_api_key/validate", {
 				method: "POST",
 				headers: authHeaders(),
@@ -208,7 +197,7 @@ describe("credentials routes", () => {
 			expect(body.valid).toBe(false);
 		});
 
-		it("returns 200 with validation result and updates DB state (mock external fetch)", async () => {
+		test("returns 200 with validation result and updates DB state (mock external fetch)", async ({ app }) => {
 			// @lore V1: validateLimiter is module-scoped in credentials.ts (shared bucket across tests).
 			// This test combines "validate returns valid:true" + "state updated in DB" into a single
 			// validate call to avoid exhausting the 3/hour bucket shared across all tests in this file.
@@ -250,7 +239,7 @@ describe("credentials routes", () => {
 			expect(anthropicEntry?.lastValidatedAt).not.toBeNull();
 		});
 
-		it("returns 400 for unknown credential name", async () => {
+		test("returns 400 for unknown credential name", async ({ app }) => {
 			const res = await app.request("/api/credentials/unknown_credential_xyz/validate", {
 				method: "POST",
 				headers: authHeaders(),

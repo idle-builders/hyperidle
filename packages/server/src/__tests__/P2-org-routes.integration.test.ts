@@ -12,18 +12,14 @@
  */
 
 import {
-	createTestDb,
-	type HyperIdleDb,
 	// P2: import new symbols — compile error until implementation done
 	orgEdges,
 	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { describe, expect, vi } from "vitest";
+import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-p2-org";
 
@@ -32,66 +28,45 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
 	const NOW = new Date().toISOString();
-
-	beforeEach(async () => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-
-		// Seed prerequisite data
-		// @lore U1: teams is the domain entity (formerly products).
-		await db
-			.insert(teams)
-			.values({ id: "prod-org", name: "Org Product", phase: "build", createdAt: NOW });
-
-		await db.insert(teamMembers).values({
-			id: "team-org",
-			teamId: "prod-org",
-			capacity: 5,
-			activeBets: 0,
-			formedAt: NOW,
-		});
-
-		// Seed a human user (the org edge owner)
-		await db.insert(users).values({
-			id: "u-human-org",
-			kind: "human",
-			name: "Founder",
-			role: "founder",
-			status: "active",
-			email: "founder@example.com",
-			createdAt: NOW,
-		});
-
-		// Seed an AI user (the org edge target)
-		await db.insert(users).values({
-			id: "u-ai-org",
-			kind: "ai",
-			name: "Builder Bot",
-			role: "builder",
-			status: "active",
-			teamId: "team-org",
-			createdAt: NOW,
-		});
-	});
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle?.close();
-	});
 
 	// -------------------------------------------------------------------------
 	// AC6: GET /api/org
 	// -------------------------------------------------------------------------
 	describe("AC6: GET /api/org", () => {
-		it("returns 200 with edges and users arrays when org chart is empty", async () => {
+		test("returns 200 with edges and users arrays when org chart is empty", async ({ app, db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			// Seed prerequisite data
+			// @lore U1: teams is the domain entity (formerly products).
+			await db
+				.insert(teams)
+				.values({ id: "prod-org", name: "Org Product", phase: "build", createdAt: NOW });
+			await db.insert(teamMembers).values({
+				id: "team-org",
+				teamId: "prod-org",
+				capacity: 5,
+				activeBets: 0,
+				formedAt: NOW,
+			});
+			await db.insert(users).values({
+				id: "u-human-org",
+				kind: "human",
+				name: "Founder",
+				role: "founder",
+				status: "active",
+				email: "founder@example.com",
+				createdAt: NOW,
+			});
+			await db.insert(users).values({
+				id: "u-ai-org",
+				kind: "ai",
+				name: "Builder Bot",
+				role: "builder",
+				status: "active",
+				teamId: "team-org",
+				createdAt: NOW,
+			});
+
 			const res = await app.request("/api/org", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
@@ -102,9 +77,40 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 			expect(Array.isArray(body.edges)).toBe(true);
 			expect(body.edges).toHaveLength(0);
 			expect(Array.isArray(body.users)).toBe(true);
+			vi.unstubAllEnvs();
 		});
 
-		it("returns edges with correct shape after inserting one", async () => {
+		test("returns edges with correct shape after inserting one", async ({ app, db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await db
+				.insert(teams)
+				.values({ id: "prod-org", name: "Org Product", phase: "build", createdAt: NOW });
+			await db.insert(teamMembers).values({
+				id: "team-org",
+				teamId: "prod-org",
+				capacity: 5,
+				activeBets: 0,
+				formedAt: NOW,
+			});
+			await db.insert(users).values({
+				id: "u-human-org",
+				kind: "human",
+				name: "Founder",
+				role: "founder",
+				status: "active",
+				email: "founder@example.com",
+				createdAt: NOW,
+			});
+			await db.insert(users).values({
+				id: "u-ai-org",
+				kind: "ai",
+				name: "Builder Bot",
+				role: "builder",
+				status: "active",
+				teamId: "team-org",
+				createdAt: NOW,
+			});
+
 			// Pre-seed an edge directly in DB
 			await db.insert(orgEdges).values({
 				id: "edge-org-1",
@@ -150,11 +156,14 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 				expect(u).toHaveProperty("name");
 				expect(u).toHaveProperty("role");
 			}
+			vi.unstubAllEnvs();
 		});
 
-		it("requires authentication", async () => {
+		test("requires authentication", async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const res = await app.request("/api/org");
 			expect(res.status).toBe(401);
+			vi.unstubAllEnvs();
 		});
 	});
 
@@ -162,7 +171,37 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 	// AC6: PUT /api/org/edges
 	// -------------------------------------------------------------------------
 	describe("AC6: PUT /api/org/edges", () => {
-		it("creates a new edge and returns 201", async () => {
+		test("creates a new edge and returns 201", async ({ app, db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await db
+				.insert(teams)
+				.values({ id: "prod-org", name: "Org Product", phase: "build", createdAt: NOW });
+			await db.insert(teamMembers).values({
+				id: "team-org",
+				teamId: "prod-org",
+				capacity: 5,
+				activeBets: 0,
+				formedAt: NOW,
+			});
+			await db.insert(users).values({
+				id: "u-human-org",
+				kind: "human",
+				name: "Founder",
+				role: "founder",
+				status: "active",
+				email: "founder@example.com",
+				createdAt: NOW,
+			});
+			await db.insert(users).values({
+				id: "u-ai-org",
+				kind: "ai",
+				name: "Builder Bot",
+				role: "builder",
+				status: "active",
+				teamId: "team-org",
+				createdAt: NOW,
+			});
+
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
 				headers: authHeaders(),
@@ -186,9 +225,40 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 			expect(body.target).toBe("u-ai-org");
 			expect(body.id).toBeDefined();
 			expect(typeof body.id).toBe("string");
+			vi.unstubAllEnvs();
 		});
 
-		it("upserts: returns 200 when the same edge already exists", async () => {
+		test("upserts: returns 200 when the same edge already exists", async ({ app, db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await db
+				.insert(teams)
+				.values({ id: "prod-org", name: "Org Product", phase: "build", createdAt: NOW });
+			await db.insert(teamMembers).values({
+				id: "team-org",
+				teamId: "prod-org",
+				capacity: 5,
+				activeBets: 0,
+				formedAt: NOW,
+			});
+			await db.insert(users).values({
+				id: "u-human-org",
+				kind: "human",
+				name: "Founder",
+				role: "founder",
+				status: "active",
+				email: "founder@example.com",
+				createdAt: NOW,
+			});
+			await db.insert(users).values({
+				id: "u-ai-org",
+				kind: "ai",
+				name: "Builder Bot",
+				role: "builder",
+				status: "active",
+				teamId: "team-org",
+				createdAt: NOW,
+			});
+
 			const payload = {
 				fromUserId: "u-human-org",
 				mechanism: "direct",
@@ -209,9 +279,21 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 				body: JSON.stringify(payload),
 			});
 			expect(res2.status).toBe(200);
+			vi.unstubAllEnvs();
 		});
 
-		it("returns 400 for invalid mechanism value", async () => {
+		test("returns 400 for invalid mechanism value", async ({ app, db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await db.insert(users).values({
+				id: "u-human-org",
+				kind: "human",
+				name: "Founder",
+				role: "founder",
+				status: "active",
+				email: "founder@example.com",
+				createdAt: NOW,
+			});
+
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
 				headers: authHeaders(),
@@ -222,9 +304,11 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 				}),
 			});
 			expect(res.status).toBe(400);
+			vi.unstubAllEnvs();
 		});
 
-		it("returns 400 when fromUserId is missing", async () => {
+		test("returns 400 when fromUserId is missing", async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
 				headers: authHeaders(),
@@ -234,9 +318,11 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 				}),
 			});
 			expect(res.status).toBe(400);
+			vi.unstubAllEnvs();
 		});
 
-		it("returns 400 when target is empty string", async () => {
+		test("returns 400 when target is empty string", async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
 				headers: authHeaders(),
@@ -247,9 +333,11 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 				}),
 			});
 			expect(res.status).toBe(400);
+			vi.unstubAllEnvs();
 		});
 
-		it("returns 400 when mechanism=direct and target userId does not exist", async () => {
+		test("returns 400 when mechanism=direct and target userId does not exist", async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
 				headers: authHeaders(),
@@ -262,11 +350,13 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 			expect(res.status).toBe(400);
 			const body = (await res.json()) as { code: string };
 			expect(body.code).toBe("VALIDATION_ERROR");
+			vi.unstubAllEnvs();
 		});
 
 		// @lore AB0: UserRole is now an open string (not a closed enum). Any non-empty string
 		// is a valid function-mechanism target. The only invalid case is an empty string.
-		it("returns 400 when mechanism=function and target is an empty string", async () => {
+		test("returns 400 when mechanism=function and target is an empty string", async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
 				headers: authHeaders(),
@@ -279,9 +369,11 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 			expect(res.status).toBe(400);
 			const body = (await res.json()) as { code: string };
 			expect(body.code).toBe("VALIDATION_ERROR");
+			vi.unstubAllEnvs();
 		});
 
-		it("returns 400 when mechanism=team and target teamId does not exist", async () => {
+		test("returns 400 when mechanism=team and target teamId does not exist", async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
 				headers: authHeaders(),
@@ -294,9 +386,21 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 			expect(res.status).toBe(400);
 			const body = (await res.json()) as { code: string };
 			expect(body.code).toBe("VALIDATION_ERROR");
+			vi.unstubAllEnvs();
 		});
 
-		it("creates a function-mechanism edge", async () => {
+		test("creates a function-mechanism edge", async ({ app, db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await db.insert(users).values({
+				id: "u-human-org",
+				kind: "human",
+				name: "Founder",
+				role: "founder",
+				status: "active",
+				email: "founder@example.com",
+				createdAt: NOW,
+			});
+
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
 				headers: authHeaders(),
@@ -311,9 +415,31 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 			const body = (await res.json()) as { mechanism: string; target: string };
 			expect(body.mechanism).toBe("function");
 			expect(body.target).toBe("builder");
+			vi.unstubAllEnvs();
 		});
 
-		it("creates a team-mechanism edge", async () => {
+		test("creates a team-mechanism edge", async ({ app, db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await db
+				.insert(teams)
+				.values({ id: "prod-org", name: "Org Product", phase: "build", createdAt: NOW });
+			await db.insert(teamMembers).values({
+				id: "team-org",
+				teamId: "prod-org",
+				capacity: 5,
+				activeBets: 0,
+				formedAt: NOW,
+			});
+			await db.insert(users).values({
+				id: "u-human-org",
+				kind: "human",
+				name: "Founder",
+				role: "founder",
+				status: "active",
+				email: "founder@example.com",
+				createdAt: NOW,
+			});
+
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
 				headers: authHeaders(),
@@ -327,9 +453,11 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 
 			const body = (await res.json()) as { mechanism: string };
 			expect(body.mechanism).toBe("team");
+			vi.unstubAllEnvs();
 		});
 
-		it("requires authentication", async () => {
+		test("requires authentication", async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
 				body: JSON.stringify({
@@ -339,6 +467,7 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 				}),
 			});
 			expect(res.status).toBe(401);
+			vi.unstubAllEnvs();
 		});
 	});
 
@@ -346,7 +475,37 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 	// AC6: DELETE /api/org/edges/:id
 	// -------------------------------------------------------------------------
 	describe("AC6: DELETE /api/org/edges/:id", () => {
-		it("returns 204 after deleting an existing edge", async () => {
+		test("returns 204 after deleting an existing edge", async ({ app, db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await db
+				.insert(teams)
+				.values({ id: "prod-org", name: "Org Product", phase: "build", createdAt: NOW });
+			await db.insert(teamMembers).values({
+				id: "team-org",
+				teamId: "prod-org",
+				capacity: 5,
+				activeBets: 0,
+				formedAt: NOW,
+			});
+			await db.insert(users).values({
+				id: "u-human-org",
+				kind: "human",
+				name: "Founder",
+				role: "founder",
+				status: "active",
+				email: "founder@example.com",
+				createdAt: NOW,
+			});
+			await db.insert(users).values({
+				id: "u-ai-org",
+				kind: "ai",
+				name: "Builder Bot",
+				role: "builder",
+				status: "active",
+				teamId: "team-org",
+				createdAt: NOW,
+			});
+
 			// Create edge first via API
 			const createRes = await app.request("/api/org/edges", {
 				method: "PUT",
@@ -368,17 +527,50 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 				headers: authHeaders(),
 			});
 			expect(deleteRes.status).toBe(204);
+			vi.unstubAllEnvs();
 		});
 
-		it("returns 404 when deleting a nonexistent edge", async () => {
+		test("returns 404 when deleting a nonexistent edge", async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const res = await app.request("/api/org/edges/nonexistent-edge-id", {
 				method: "DELETE",
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(404);
+			vi.unstubAllEnvs();
 		});
 
-		it("edge is gone from GET /api/org after deletion", async () => {
+		test("edge is gone from GET /api/org after deletion", async ({ app, db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await db
+				.insert(teams)
+				.values({ id: "prod-org", name: "Org Product", phase: "build", createdAt: NOW });
+			await db.insert(teamMembers).values({
+				id: "team-org",
+				teamId: "prod-org",
+				capacity: 5,
+				activeBets: 0,
+				formedAt: NOW,
+			});
+			await db.insert(users).values({
+				id: "u-human-org",
+				kind: "human",
+				name: "Founder",
+				role: "founder",
+				status: "active",
+				email: "founder@example.com",
+				createdAt: NOW,
+			});
+			await db.insert(users).values({
+				id: "u-ai-org",
+				kind: "ai",
+				name: "Builder Bot",
+				role: "builder",
+				status: "active",
+				teamId: "team-org",
+				createdAt: NOW,
+			});
+
 			// Create edge
 			const createRes = await app.request("/api/org/edges", {
 				method: "PUT",
@@ -401,13 +593,16 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 			const listRes = await app.request("/api/org", { headers: authHeaders() });
 			const listBody = (await listRes.json()) as { edges: unknown[] };
 			expect(listBody.edges).toHaveLength(0);
+			vi.unstubAllEnvs();
 		});
 
-		it("requires authentication", async () => {
+		test("requires authentication", async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const res = await app.request("/api/org/edges/some-id", {
 				method: "DELETE",
 			});
 			expect(res.status).toBe(401);
+			vi.unstubAllEnvs();
 		});
 	});
 });

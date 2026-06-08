@@ -4,12 +4,10 @@
  */
 
 import {
-	createTestDb,
 	factorySettings,
 	type HyperIdleDb,
 	items as itemsTable,
 	notificationQueue,
-	type TestDbHandle,
 	threads,
 } from "@hyperidle/db";
 import {
@@ -19,9 +17,10 @@ import {
 	registerNotificationDispatcher,
 	type SendResult,
 } from "@hyperidle/fabric";
-import { type CostCapBreachedEvent, EventBus, type RoutineFiredEvent } from "@hyperidle/shared";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { CostCapBreachedEvent, RoutineFiredEvent } from "@hyperidle/shared";
+import { afterEach, beforeEach, describe, vi } from "vitest";
 import { createApp, disposeApp } from "../../app.js";
+import { expect, test } from "../../test-fixtures.js";
 
 interface AdapterCall {
 	recipient: Recipient;
@@ -61,120 +60,148 @@ async function enable(db: HyperIdleDb): Promise<void> {
 }
 
 describe("H2 Dispatcher integration via createApp", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let bus: EventBus;
-	let adapter: NotificationAdapter & { calls: AdapterCall[] };
-	let app: Awaited<ReturnType<typeof createApp>>;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "test-key-H2");
-		handle = await createTestDb();
-		db = handle.db;
-		bus = new EventBus();
-		adapter = createFakeAdapter();
-		// O3: notificationAdapterFactory removed from AppOptions for the dispatcher.
-		// Use strategyBootstrap to wire the dispatcher with the fake adapter.
-		app = await createApp({
+	});
+
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test("subscribes to item_created and pushes on blocking items", async ({ db, eventBus }) => {
+		const adapter = createFakeAdapter();
+		const app = await createApp({
 			db,
-			eventBus: bus,
+			eventBus,
+			// O3: notificationAdapterFactory removed from AppOptions for the dispatcher.
+			// Use strategyBootstrap to wire the dispatcher with the fake adapter.
 			strategyBootstrap: ({ db: testDb, eventBus: testBus }) => [
 				registerNotificationDispatcher(testDb, testBus, {
 					adapterFactory: () => adapter,
 				}),
 			],
 		});
+		try {
+			await enable(db);
+			const threadId = "thread-app-1";
+			await db.insert(threads).values({
+				id: threadId,
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: "2026-04-18T00:00:00.000Z",
+				createdAt: "2026-04-18T00:00:00.000Z",
+			});
+
+			await db.insert(itemsTable).values({
+				id: "it-100",
+				kind: "approval",
+				title: "Blocking it",
+				body: "Body",
+				blocking: true,
+				threadId,
+				createdAt: "2026-04-18T00:00:00.000Z",
+			});
+
+			eventBus.emit({
+				type: "item_created",
+				streamId: "s",
+				itemId: "it-100",
+				conversationId: threadId,
+				kind: "approval",
+				timestamp: Date.now(),
+			});
+			await vi.waitFor(() => expect(adapter.calls.length).toBeGreaterThanOrEqual(1));
+
+			expect(adapter.calls[0].notification.severity).toBe("blocking");
+		} finally {
+			disposeApp(app);
+		}
 	});
 
-	afterEach(async () => {
-		disposeApp(app);
-		vi.unstubAllEnvs();
+	test("subscribes to cost_cap_breached and pushes a cost_breach notification", async ({
+		db,
+		eventBus,
+	}) => {
+		const adapter = createFakeAdapter();
+		const app = await createApp({
+			db,
+			eventBus,
+			strategyBootstrap: ({ db: testDb, eventBus: testBus }) => [
+				registerNotificationDispatcher(testDb, testBus, {
+					adapterFactory: () => adapter,
+				}),
+			],
+		});
+		try {
+			await enable(db);
+			const event: CostCapBreachedEvent = {
+				type: "cost_cap_breached",
+				streamId: "s",
+				level: "hard",
+				capLevel: "agent",
+				entityId: "agent-7",
+				spend: 500,
+				cap: 100,
+				timestamp: Date.now(),
+			};
+			eventBus.emit(event);
+			await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
+
+			expect(adapter.calls[0].notification.severity).toBe("cost_breach");
+		} finally {
+			disposeApp(app);
+		}
 	});
 
-	it("subscribes to item_created and pushes on blocking items", async () => {
-		await enable(db);
-		const threadId = "thread-app-1";
-		await db.insert(threads).values({
-			id: threadId,
-			hostKind: "task",
-			hostId: "task-1",
-			initiatorId: "agent-1",
-			participants: JSON.stringify(["agent-1"]),
-			lastActiveAt: "2026-04-18T00:00:00.000Z",
-			createdAt: "2026-04-18T00:00:00.000Z",
+	test("routine_fired with daily_digest marker triggers runDailyDigest", async ({
+		db,
+		eventBus,
+	}) => {
+		const adapter = createFakeAdapter();
+		const app = await createApp({
+			db,
+			eventBus,
+			strategyBootstrap: ({ db: testDb, eventBus: testBus }) => [
+				registerNotificationDispatcher(testDb, testBus, {
+					adapterFactory: () => adapter,
+				}),
+			],
 		});
+		try {
+			await enable(db);
+			const now = "2026-04-18T00:00:00.000Z";
+			await db.insert(notificationQueue).values({
+				id: "q-1",
+				eventType: "item_created",
+				subjectId: "foo",
+				severity: "digest",
+				title: "Queued digest item",
+				body: "body",
+				reason: "digest",
+				channel: "console",
+				status: "pending",
+				attempts: 0,
+				createdAt: now,
+			});
 
-		await db.insert(itemsTable).values({
-			id: "it-100",
-			kind: "approval",
-			title: "Blocking it",
-			body: "Body",
-			blocking: true,
-			threadId,
-			createdAt: "2026-04-18T00:00:00.000Z",
-		});
+			const event: RoutineFiredEvent = {
+				type: "routine_fired",
+				streamId: "s",
+				routineId: "seed-routine-daily_digest",
+				agentId: "cos",
+				timestamp: Date.now(),
+			};
+			eventBus.emit(event);
+			await vi.waitFor(async () => {
+				const rows = await db.select().from(notificationQueue);
+				expect(rows[0].status).toBe("sent");
+			});
 
-		bus.emit({
-			type: "item_created",
-			streamId: "s",
-			itemId: "it-100",
-			conversationId: threadId,
-			kind: "approval",
-			timestamp: Date.now(),
-		});
-		await vi.waitFor(() => expect(adapter.calls.length).toBeGreaterThanOrEqual(1));
-
-		expect(adapter.calls[0].notification.severity).toBe("blocking");
-	});
-
-	it("subscribes to cost_cap_breached and pushes a cost_breach notification", async () => {
-		await enable(db);
-		const event: CostCapBreachedEvent = {
-			type: "cost_cap_breached",
-			streamId: "s",
-			level: "hard",
-			capLevel: "agent",
-			entityId: "agent-7",
-			spend: 500,
-			cap: 100,
-			timestamp: Date.now(),
-		};
-		bus.emit(event);
-		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
-
-		expect(adapter.calls[0].notification.severity).toBe("cost_breach");
-	});
-
-	it("routine_fired with daily_digest marker triggers runDailyDigest", async () => {
-		await enable(db);
-		const now = "2026-04-18T00:00:00.000Z";
-		await db.insert(notificationQueue).values({
-			id: "q-1",
-			eventType: "item_created",
-			subjectId: "foo",
-			severity: "digest",
-			title: "Queued digest item",
-			body: "body",
-			reason: "digest",
-			channel: "console",
-			status: "pending",
-			attempts: 0,
-			createdAt: now,
-		});
-
-		const event: RoutineFiredEvent = {
-			type: "routine_fired",
-			streamId: "s",
-			routineId: "seed-routine-daily_digest",
-			agentId: "cos",
-			timestamp: Date.now(),
-		};
-		bus.emit(event);
-		await vi.waitFor(async () => {
-			const rows = await db.select().from(notificationQueue);
-			expect(rows[0].status).toBe("sent");
-		});
-
-		expect(adapter.calls.length).toBeGreaterThanOrEqual(1);
+			expect(adapter.calls.length).toBeGreaterThanOrEqual(1);
+		} finally {
+			disposeApp(app);
+		}
 	});
 });

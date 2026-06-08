@@ -18,17 +18,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import {
-	bets,
-	createTestDb,
-	type HyperIdleDb,
-	sessions,
-	type TestDbHandle,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import type {
 	HarnessAdapter,
 	HarnessCapabilities,
@@ -37,9 +27,7 @@ import type {
 	SessionHandle,
 	SessionResult,
 } from "@hyperidle/shared";
-import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
 import { createMcpBridge } from "../mcp/mcp-bridge.js";
@@ -50,6 +38,7 @@ import {
 	provisionSession,
 } from "../services/session-provisioning.js";
 import { buildToolRegistry, type ToolContext } from "../skill-tools/tool-registry.js";
+import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
 
 // ---------------------------------------------------------------------------
 // Scripted mock harness (mirrors session-provisioning.test.ts pattern)
@@ -169,15 +158,9 @@ function baseParams(basePath: string): ProvisionSessionParams {
 // ---------------------------------------------------------------------------
 
 describe("AC5: MCP bridge lifecycle in session provisioning", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
 	let tmpDir: string;
 
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
+	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "x2-mcp-integration-"));
 	});
 
@@ -187,7 +170,10 @@ describe("AC5: MCP bridge lifecycle in session provisioning", () => {
 		}
 	});
 
-	it("bridge is registered during session and unregistered after normal end (endSession path)", async () => {
+	test("bridge is registered during session and unregistered after normal end (endSession path)", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedDomain(db);
 
 		const bridgeRegistry = createMcpBridgeRegistry();
@@ -225,7 +211,10 @@ describe("AC5: MCP bridge lifecycle in session provisioning", () => {
 		expect(bridgeRegistry.size).toBe(0);
 	});
 
-	it("bridge is unregistered after crash (crashSession path — critique warning)", async () => {
+	test("bridge is unregistered after crash (crashSession path — critique warning)", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedDomain(db);
 
 		const bridgeRegistry = createMcpBridgeRegistry();
@@ -253,7 +242,7 @@ describe("AC5: MCP bridge lifecycle in session provisioning", () => {
 		expect(bridgeRegistry.size).toBe(0);
 	});
 
-	it("bridge is registered (size=1) while session is active", async () => {
+	test("bridge is registered (size=1) while session is active", async ({ db, eventBus }) => {
 		await seedDomain(db);
 
 		const bridgeRegistry = createMcpBridgeRegistry();
@@ -316,15 +305,9 @@ describe("AC5: MCP bridge lifecycle in session provisioning", () => {
 // ---------------------------------------------------------------------------
 
 describe("AC6: .mcp.json written to workspace for auto-discovery", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
 	let tmpDir: string;
 
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
+	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "x2-mcp-json-"));
 	});
 
@@ -334,7 +317,10 @@ describe("AC6: .mcp.json written to workspace for auto-discovery", () => {
 		}
 	});
 
-	it("writes .mcp.json with correct structure to workspace before harness starts", async () => {
+	test("writes .mcp.json with correct structure to workspace before harness starts", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedDomain(db);
 
 		const bridgeRegistry = createMcpBridgeRegistry();
@@ -400,7 +386,7 @@ describe("AC6: .mcp.json written to workspace for auto-discovery", () => {
 		expect(url).toMatch(new RegExp(`^${MCP_BASE_URL.replace(":", "\\:")}/api/mcp/[0-9a-f]{64}$`));
 	});
 
-	it("token in .mcp.json matches the registered bridge token", async () => {
+	test("token in .mcp.json matches the registered bridge token", async ({ db, eventBus }) => {
 		await seedDomain(db);
 
 		const bridgeRegistry = createMcpBridgeRegistry();
@@ -461,7 +447,10 @@ describe("AC6: .mcp.json written to workspace for auto-discovery", () => {
 		expect(registeredSizeAtStart).toBe(1);
 	});
 
-	it("does not write .mcp.json when mcpBridgeRegistry is not provided", async () => {
+	test("does not write .mcp.json when mcpBridgeRegistry is not provided", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedDomain(db);
 
 		let workspacePath: string | undefined;
@@ -518,15 +507,9 @@ describe("AC6: .mcp.json written to workspace for auto-discovery", () => {
 // ---------------------------------------------------------------------------
 
 describe("AC7: event-stream fallback (no mcpBridgeRegistry)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
 	let tmpDir: string;
 
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
+	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "x2-mcp-fallback-"));
 	});
 
@@ -536,7 +519,10 @@ describe("AC7: event-stream fallback (no mcpBridgeRegistry)", () => {
 		}
 	});
 
-	it("provisions successfully without mcpBridgeRegistry (event-stream only mode)", async () => {
+	test("provisions successfully without mcpBridgeRegistry (event-stream only mode)", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedDomain(db);
 
 		const harness = new ScriptedHarnessAdapter({
@@ -573,7 +559,7 @@ describe("AC7: event-stream fallback (no mcpBridgeRegistry)", () => {
 // ---------------------------------------------------------------------------
 
 describe("AC2: MCP route HTTP token routing", () => {
-	it("returns 401 for unknown token via registry.handleRequest", async () => {
+	test("returns 401 for unknown token via registry.handleRequest", async () => {
 		const registry = createMcpBridgeRegistry();
 
 		// Simulate a handleRequest call with an unknown token
@@ -583,12 +569,10 @@ describe("AC2: MCP route HTTP token routing", () => {
 		expect(res.status).toBe(401);
 	});
 
-	it("returns 401 after bridge is unregistered (token expired)", async () => {
+	test("returns 401 after bridge is unregistered (token expired)", async ({ db, eventBus }) => {
 		const registry = createMcpBridgeRegistry();
-		const handle = await createTestDb();
-		const eventBus = new EventBus();
 		const ctx: ToolContext = {
-			db: handle.db,
+			db,
 			eventBus,
 			agentId: "a",
 			sessionId: "s",
@@ -621,15 +605,9 @@ describe("AC2: MCP route HTTP token routing", () => {
 // ---------------------------------------------------------------------------
 
 describe("Critique: bridge creation failure → graceful degradation", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
 	let tmpDir: string;
 
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
+	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "x2-mcp-degrade-"));
 	});
 
@@ -639,7 +617,10 @@ describe("Critique: bridge creation failure → graceful degradation", () => {
 		}
 	});
 
-	it("session provisions and completes even if createMcpBridge fails", async () => {
+	test("session provisions and completes even if createMcpBridge fails", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedDomain(db);
 
 		// Simulate createMcpBridge failing by using a registry whose register()

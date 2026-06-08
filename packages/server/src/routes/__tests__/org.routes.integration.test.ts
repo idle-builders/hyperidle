@@ -6,11 +6,9 @@
  * DELETE /api/org/edges/:id   — delete an edge
  */
 
-import { createTestDb, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-org";
 
@@ -49,16 +47,8 @@ async function seedUsers(
 }
 
 describe("org routes", () => {
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
 	});
 
 	afterEach(() => {
@@ -66,12 +56,12 @@ describe("org routes", () => {
 	});
 
 	describe("GET /api/org", () => {
-		it("returns 401 without auth", async () => {
+		test("returns 401 without auth", async ({ app }) => {
 			const res = await app.request("/api/org", { method: "GET" });
 			expect(res.status).toBe(401);
 		});
 
-		it("returns 200 with edges and users arrays", async () => {
+		test("returns 200 with edges and users arrays", async ({ db, app }) => {
 			await seedUsers(db);
 			const res = await app.request("/api/org", {
 				method: "GET",
@@ -84,7 +74,7 @@ describe("org routes", () => {
 			expect(body.users).toHaveLength(2);
 		});
 
-		it("returns empty edges when none exist", async () => {
+		test("returns empty edges when none exist", async ({ app }) => {
 			const res = await app.request("/api/org", {
 				method: "GET",
 				headers: authHeaders(),
@@ -96,12 +86,12 @@ describe("org routes", () => {
 	});
 
 	describe("PUT /api/org/edges", () => {
-		it("returns 401 without auth", async () => {
+		test("returns 401 without auth", async ({ app }) => {
 			const res = await app.request("/api/org/edges", { method: "PUT" });
 			expect(res.status).toBe(401);
 		});
 
-		it("returns 201 with created edge on valid input (mechanism=direct)", async () => {
+		test("returns 201 with created edge on valid input (mechanism=direct)", async ({ db, app }) => {
 			const { fromUserId, targetUserId } = await seedUsers(db);
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
@@ -114,7 +104,7 @@ describe("org routes", () => {
 			expect(body.fromUserId).toBe(fromUserId);
 		});
 
-		it("returns 200 with existing edge on duplicate tuple (upsert)", async () => {
+		test("returns 200 with existing edge on duplicate tuple (upsert)", async ({ db, app }) => {
 			const { fromUserId, targetUserId } = await seedUsers(db);
 			// First PUT: creates
 			await app.request("/api/org/edges", {
@@ -131,7 +121,7 @@ describe("org routes", () => {
 			expect(res.status).toBe(200);
 		});
 
-		it("returns 400 when fromUserId not found", async () => {
+		test("returns 400 when fromUserId not found", async ({ db, app }) => {
 			await seedUsers(db);
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
@@ -145,7 +135,7 @@ describe("org routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 when target userId not found (mechanism=direct)", async () => {
+		test("returns 400 when target userId not found (mechanism=direct)", async ({ db, app }) => {
 			const { fromUserId } = await seedUsers(db);
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
@@ -157,7 +147,7 @@ describe("org routes", () => {
 
 		// AB0: roles are now open strings — any non-empty string is valid.
 		// The security boundary moved from "not in USER_ROLES enum" to "empty string".
-		it("returns 400 when target role is empty string (mechanism=function)", async () => {
+		test("returns 400 when target role is empty string (mechanism=function)", async ({ db, app }) => {
 			const { fromUserId } = await seedUsers(db);
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
@@ -167,7 +157,7 @@ describe("org routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 201 when target role is a custom string (mechanism=function, AB0)", async () => {
+		test("returns 201 when target role is a custom string (mechanism=function, AB0)", async ({ db, app }) => {
 			const { fromUserId } = await seedUsers(db);
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
@@ -177,7 +167,7 @@ describe("org routes", () => {
 			expect(res.status).toBe(201);
 		});
 
-		it("returns 400 when target teamId not found (mechanism=team)", async () => {
+		test("returns 400 when target teamId not found (mechanism=team)", async ({ db, app }) => {
 			const { fromUserId } = await seedUsers(db);
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
@@ -187,7 +177,7 @@ describe("org routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 on missing required fields", async () => {
+		test("returns 400 on missing required fields", async ({ app }) => {
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
 				headers: authHeaders(),
@@ -198,12 +188,12 @@ describe("org routes", () => {
 	});
 
 	describe("DELETE /api/org/edges/:id", () => {
-		it("returns 401 without auth", async () => {
+		test("returns 401 without auth", async ({ app }) => {
 			const res = await app.request("/api/org/edges/some-id", { method: "DELETE" });
 			expect(res.status).toBe(401);
 		});
 
-		it("returns 204 on successful delete", async () => {
+		test("returns 204 on successful delete", async ({ db, app }) => {
 			const { fromUserId, targetUserId } = await seedUsers(db);
 			// Create an edge first
 			const createRes = await app.request("/api/org/edges", {
@@ -220,7 +210,7 @@ describe("org routes", () => {
 			expect(res.status).toBe(204);
 		});
 
-		it("returns 404 for non-existent edge", async () => {
+		test("returns 404 for non-existent edge", async ({ app }) => {
 			const res = await app.request("/api/org/edges/non-existent", {
 				method: "DELETE",
 				headers: authHeaders(),

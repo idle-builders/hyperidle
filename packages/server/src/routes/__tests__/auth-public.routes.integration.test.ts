@@ -6,26 +6,17 @@
  * These routes are only mounted when sharedMode: true.
  */
 
-import { createTestDb, type HyperIdleDb, inviteCodes, users } from "@hyperidle/db";
-import { API_ERROR_CODES, EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { type HyperIdleDb, inviteCodes, users } from "@hyperidle/db";
+import { API_ERROR_CODES, type EventBus } from "@hyperidle/shared";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { createTestApp } from "../../test-utils.js";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-auth-public";
 
 describe("auth-public routes", () => {
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		// sharedMode: true is required to mount auth-public routes
-		app = await createTestApp({ db, eventBus, sharedMode: true });
 	});
 
 	afterEach(() => {
@@ -33,6 +24,7 @@ describe("auth-public routes", () => {
 	});
 
 	async function seedInviteCode(
+		db: HyperIdleDb,
 		opts: { code?: string; expiresAt?: string; claimedBy?: string | null } = {},
 	): Promise<{ code: string; inviteId: string; creatorId: string }> {
 		const now = new Date().toISOString();
@@ -68,8 +60,9 @@ describe("auth-public routes", () => {
 	}
 
 	describe("POST /api/auth/claim", () => {
-		it("returns 201 with token and user on valid invite claim", async () => {
-			const { code } = await seedInviteCode();
+		test("returns 201 with token and user on valid invite claim", async ({ db, eventBus }) => {
+			const app = await createTestApp({ db, eventBus, sharedMode: true });
+			const { code } = await seedInviteCode(db);
 
 			const res = await app.request("/api/auth/claim", {
 				method: "POST",
@@ -87,7 +80,8 @@ describe("auth-public routes", () => {
 			expect(body.user.kind).toBe("human");
 		});
 
-		it("returns 400 when code is missing or empty", async () => {
+		test("returns 400 when code is missing or empty", async ({ db, eventBus }) => {
+			const app = await createTestApp({ db, eventBus, sharedMode: true });
 			const res = await app.request("/api/auth/claim", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -98,7 +92,8 @@ describe("auth-public routes", () => {
 			expect(body.code).toBe(API_ERROR_CODES.VALIDATION_ERROR);
 		});
 
-		it("returns 400 when name is missing or empty", async () => {
+		test("returns 400 when name is missing or empty", async ({ db, eventBus }) => {
+			const app = await createTestApp({ db, eventBus, sharedMode: true });
 			const res = await app.request("/api/auth/claim", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -109,7 +104,8 @@ describe("auth-public routes", () => {
 			expect(body.code).toBe(API_ERROR_CODES.VALIDATION_ERROR);
 		});
 
-		it("returns 400 on invalid JSON body", async () => {
+		test("returns 400 on invalid JSON body", async ({ db, eventBus }) => {
+			const app = await createTestApp({ db, eventBus, sharedMode: true });
 			const res = await app.request("/api/auth/claim", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -118,7 +114,8 @@ describe("auth-public routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 404 when invite code does not exist", async () => {
+		test("returns 404 when invite code does not exist", async ({ db, eventBus }) => {
+			const app = await createTestApp({ db, eventBus, sharedMode: true });
 			const res = await app.request("/api/auth/claim", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -129,7 +126,8 @@ describe("auth-public routes", () => {
 			expect(body.code).toBe(API_ERROR_CODES.NOT_FOUND);
 		});
 
-		it("returns 410 (INVITE_CLAIMED) when code is already claimed", async () => {
+		test("returns 410 (INVITE_CLAIMED) when code is already claimed", async ({ db, eventBus }) => {
+			const app = await createTestApp({ db, eventBus, sharedMode: true });
 			const now = new Date().toISOString();
 			// Create a claimant user first
 			await db.insert(users).values({
@@ -140,7 +138,7 @@ describe("auth-public routes", () => {
 				status: "active",
 				createdAt: now,
 			});
-			const { code } = await seedInviteCode({ code: "claimed-code", claimedBy: "claimant-1" });
+			const { code } = await seedInviteCode(db, { code: "claimed-code", claimedBy: "claimant-1" });
 
 			const res = await app.request("/api/auth/claim", {
 				method: "POST",
@@ -152,9 +150,10 @@ describe("auth-public routes", () => {
 			expect(body.code).toBe(API_ERROR_CODES.INVITE_CLAIMED);
 		});
 
-		it("returns 410 (INVITE_EXPIRED) when code has expired", async () => {
+		test("returns 410 (INVITE_EXPIRED) when code has expired", async ({ db, eventBus }) => {
+			const app = await createTestApp({ db, eventBus, sharedMode: true });
 			const pastDate = new Date(Date.now() - 3600000).toISOString();
-			const { code } = await seedInviteCode({ code: "expired-code", expiresAt: pastDate });
+			const { code } = await seedInviteCode(db, { code: "expired-code", expiresAt: pastDate });
 
 			const res = await app.request("/api/auth/claim", {
 				method: "POST",
@@ -166,8 +165,9 @@ describe("auth-public routes", () => {
 			expect(body.code).toBe(API_ERROR_CODES.INVITE_EXPIRED);
 		});
 
-		it("creates user with email when provided", async () => {
-			const { code } = await seedInviteCode({ code: "email-code" });
+		test("creates user with email when provided", async ({ db, eventBus }) => {
+			const app = await createTestApp({ db, eventBus, sharedMode: true });
+			const { code } = await seedInviteCode(db, { code: "email-code" });
 
 			const res = await app.request("/api/auth/claim", {
 				method: "POST",
@@ -179,8 +179,9 @@ describe("auth-public routes", () => {
 			expect(body.user.email).toBe("user@example.com");
 		});
 
-		it("creates user without email when not provided", async () => {
-			const { code } = await seedInviteCode({ code: "no-email-code" });
+		test("creates user without email when not provided", async ({ db, eventBus }) => {
+			const app = await createTestApp({ db, eventBus, sharedMode: true });
+			const { code } = await seedInviteCode(db, { code: "no-email-code" });
 
 			const res = await app.request("/api/auth/claim", {
 				method: "POST",

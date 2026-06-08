@@ -15,7 +15,6 @@
 
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	tasks,
 	teamMembers,
@@ -23,10 +22,9 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { type DomainEvent, EventBus, HOST_KINDS, MESSAGE_TYPES } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { type DomainEvent, HOST_KINDS, MESSAGE_TYPES } from "@hyperidle/shared";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-threads";
 
@@ -38,23 +36,7 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	};
 }
 
-interface AppCtx {
-	app: Hono;
-	db: HyperIdleDb;
-	eventBus: EventBus;
-	events: DomainEvent[];
-}
-
-async function setupApp(): Promise<AppCtx> {
-	const handle = await createTestDb();
-	const db = handle.db;
-	const eventBus = new EventBus();
-	const events: DomainEvent[] = [];
-	eventBus.on("*", (e) => {
-		events.push(e);
-	});
-	const app = await createTestApp({ db, eventBus });
-
+async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now });
 	await db.insert(teamMembers).values({
@@ -106,8 +88,6 @@ async function setupApp(): Promise<AppCtx> {
 		createdAt: now,
 		updatedAt: now,
 	});
-
-	return { app, db, eventBus, events };
 }
 
 const validClientKey = "uuid-12345678";
@@ -118,11 +98,8 @@ const validReviewPayload = {
 };
 
 describe("AC-7 / AC-10 — POST /api/threads creates a thread per host_kind", () => {
-	let ctx: AppCtx;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = await setupApp();
 	});
 
 	afterEach(() => {
@@ -130,8 +107,9 @@ describe("AC-7 / AC-10 — POST /api/threads creates a thread per host_kind", ()
 	});
 
 	for (const hostKind of HOST_KINDS) {
-		it(`accepts host_kind='${hostKind}' and round-trips it through GET /api/threads/:id`, async () => {
-			const res = await ctx.app.request("/api/threads", {
+		test(`accepts host_kind='${hostKind}' and round-trips it through GET /api/threads/:id`, async ({ db, app }) => {
+			await seedBase(db);
+			const res = await app.request("/api/threads", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
@@ -153,7 +131,7 @@ describe("AC-7 / AC-10 — POST /api/threads creates a thread per host_kind", ()
 			expect(body.thread.hostKind).toBe(hostKind);
 			expect(body.thread.hostId).toBe(`${hostKind}-host-id-1`);
 
-			const getRes = await ctx.app.request(`/api/threads/${body.thread.id}`, {
+			const getRes = await app.request(`/api/threads/${body.thread.id}`, {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -170,35 +148,8 @@ describe("AC-7 / AC-10 — POST /api/threads creates a thread per host_kind", ()
 });
 
 describe("AC-12 — POST /api/threads/:id/messages round-trips every MessageType", () => {
-	let ctx: AppCtx;
-	let threadId: string;
-	let reviewId: string;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = await setupApp();
-
-		const create = await ctx.app.request("/api/threads", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				hostKind: "task",
-				hostId: "task-1",
-				participants: ["u-founder", "agent-1"],
-				initialMessage: {
-					type: "review",
-					payload: validReviewPayload,
-					clientKey: "init-rev1",
-				},
-			}),
-		});
-		expect(create.status).toBe(201);
-		const created = (await create.json()) as {
-			thread: { id: string };
-			messages: Array<{ id: string; type: string }>;
-		};
-		threadId = created.thread.id;
-		reviewId = created.messages[0].id;
 	});
 
 	afterEach(() => {
@@ -206,7 +157,31 @@ describe("AC-12 — POST /api/threads/:id/messages round-trips every MessageType
 	});
 
 	for (const type of MESSAGE_TYPES) {
-		it(`POST /api/threads/:id/messages with type='${type}' round-trips`, async () => {
+		test(`POST /api/threads/:id/messages with type='${type}' round-trips`, async ({ db, app }) => {
+			await seedBase(db);
+
+			const create = await app.request("/api/threads", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					hostKind: "task",
+					hostId: "task-1",
+					participants: ["u-founder", "agent-1"],
+					initialMessage: {
+						type: "review",
+						payload: validReviewPayload,
+						clientKey: `init-rev1-${type}`,
+					},
+				}),
+			});
+			expect(create.status).toBe(201);
+			const created = (await create.json()) as {
+				thread: { id: string };
+				messages: Array<{ id: string; type: string }>;
+			};
+			const threadId = created.thread.id;
+			const reviewId = created.messages[0].id;
+
 			let payload: unknown;
 			switch (type) {
 				case "plain":
@@ -233,7 +208,7 @@ describe("AC-12 — POST /api/threads/:id/messages round-trips every MessageType
 					};
 					break;
 			}
-			const res = await ctx.app.request(`/api/threads/${threadId}/messages`, {
+			const res = await app.request(`/api/threads/${threadId}/messages`, {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
@@ -244,7 +219,7 @@ describe("AC-12 — POST /api/threads/:id/messages round-trips every MessageType
 			});
 			expect(res.status).toBe(201);
 
-			const get = await ctx.app.request(`/api/threads/${threadId}`, {
+			const get = await app.request(`/api/threads/${threadId}`, {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -261,13 +236,17 @@ describe("AC-12 — POST /api/threads/:id/messages round-trips every MessageType
 });
 
 describe("Idempotency on (thread_id, sender_id, client_key)", () => {
-	let ctx: AppCtx;
-	let threadId: string;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = await setupApp();
-		const create = await ctx.app.request("/api/threads", {
+	});
+
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test("re-POST with the same clientKey returns the existing message id, no duplicate row", async ({ db, app }) => {
+		await seedBase(db);
+		const create = await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -283,15 +262,9 @@ describe("Idempotency on (thread_id, sender_id, client_key)", () => {
 			}),
 		});
 		expect(create.status).toBe(201);
-		threadId = ((await create.json()) as { thread: { id: string } }).thread.id;
-	});
+		const threadId = ((await create.json()) as { thread: { id: string } }).thread.id;
 
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	it("re-POST with the same clientKey returns the existing message id, no duplicate row", async () => {
-		const first = await ctx.app.request(`/api/threads/${threadId}/messages`, {
+		const first = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -303,7 +276,7 @@ describe("Idempotency on (thread_id, sender_id, client_key)", () => {
 		expect(first.status).toBe(201);
 		const firstBody = (await first.json()) as { message: { id: string } };
 
-		const second = await ctx.app.request(`/api/threads/${threadId}/messages`, {
+		const second = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -318,7 +291,7 @@ describe("Idempotency on (thread_id, sender_id, client_key)", () => {
 		expect(secondBody.message.id).toBe(firstBody.message.id);
 
 		// One row in the DB (besides the initial-message).
-		const get = await ctx.app.request(`/api/threads/${threadId}`, {
+		const get = await app.request(`/api/threads/${threadId}`, {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -329,12 +302,27 @@ describe("Idempotency on (thread_id, sender_id, client_key)", () => {
 		expect(matches.length).toBe(1);
 	});
 
-	it("re-POST with same clientKey but a DIFFERENT payload returns 409 idempotency_conflict (Adv-C3)", async () => {
-		// L1 step9 (Adv-C3): if the replay payload diverges from the stored
-		// row, return 409 instead of silently claiming success against the
-		// stale record. The stored row is unchanged; the audit trail stays
-		// honest.
-		const first = await ctx.app.request(`/api/threads/${threadId}/messages`, {
+	test("re-POST with same clientKey but a DIFFERENT payload returns 409 idempotency_conflict (Adv-C3)", async ({ db, app }) => {
+		await seedBase(db);
+		const create = await app.request("/api/threads", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				hostKind: "user",
+				hostId: "u-founder",
+				participants: ["u-founder"],
+				pinned: true,
+				initialMessage: {
+					type: "plain",
+					payload: { text: "first" },
+					clientKey: "init-key-2",
+				},
+			}),
+		});
+		expect(create.status).toBe(201);
+		const threadId = ((await create.json()) as { thread: { id: string } }).thread.id;
+
+		const first = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -345,7 +333,7 @@ describe("Idempotency on (thread_id, sender_id, client_key)", () => {
 		});
 		expect(first.status).toBe(201);
 
-		const second = await ctx.app.request(`/api/threads/${threadId}/messages`, {
+		const second = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -359,10 +347,29 @@ describe("Idempotency on (thread_id, sender_id, client_key)", () => {
 		expect(body.code).toBe("idempotency_conflict");
 	});
 
-	it("two senders with the same clientKey both succeed (per-sender dedupe namespace)", async () => {
+	test("two senders with the same clientKey both succeed (per-sender dedupe namespace)", async ({ db, app }) => {
+		await seedBase(db);
+		const create = await app.request("/api/threads", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				hostKind: "user",
+				hostId: "u-founder",
+				participants: ["u-founder"],
+				pinned: true,
+				initialMessage: {
+					type: "plain",
+					payload: { text: "first" },
+					clientKey: "init-key-3",
+				},
+			}),
+		});
+		expect(create.status).toBe(201);
+		const threadId = ((await create.json()) as { thread: { id: string } }).thread.id;
+
 		// Plan §11 (REVISED for adversary M1): "different senders may submit
 		// the same clientKey by design".
-		const a = await ctx.app.request(`/api/threads/${threadId}/messages`, {
+		const a = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
 			headers: authHeaders({ "X-Identity": "u-founder" }),
 			body: JSON.stringify({
@@ -380,21 +387,19 @@ describe("Idempotency on (thread_id, sender_id, client_key)", () => {
 });
 
 describe("clientKey validation (plan §6.1 + §11)", () => {
-	let ctx: AppCtx;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = await setupApp();
 	});
 
 	afterEach(() => {
 		vi.unstubAllEnvs();
 	});
 
-	it("returns 400 when clientKey is too short (<8 chars, plan §6.1)", async () => {
+	test("returns 400 when clientKey is too short (<8 chars, plan §6.1)", async ({ db, app }) => {
+		await seedBase(db);
 		// L1 step9 (Arch): the plan requires min(8). The schema previously
 		// accepted any non-empty value; this test pins the min(8) contract.
-		const res = await ctx.app.request("/api/threads", {
+		const res = await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -411,8 +416,9 @@ describe("clientKey validation (plan §6.1 + §11)", () => {
 		expect(res.status).toBe(400);
 	});
 
-	it("returns 400 when initial-message clientKey is empty", async () => {
-		const res = await ctx.app.request("/api/threads", {
+	test("returns 400 when initial-message clientKey is empty", async ({ db, app }) => {
+		await seedBase(db);
+		const res = await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -429,8 +435,9 @@ describe("clientKey validation (plan §6.1 + §11)", () => {
 		expect(res.status).toBe(400);
 	});
 
-	it("returns 400 when clientKey is too long (>128)", async () => {
-		const res = await ctx.app.request("/api/threads", {
+	test("returns 400 when clientKey is too long (>128)", async ({ db, app }) => {
+		await seedBase(db);
+		const res = await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -447,8 +454,9 @@ describe("clientKey validation (plan §6.1 + §11)", () => {
 		expect(res.status).toBe(400);
 	});
 
-	it("returns 400 when clientKey contains whitespace (URL-safe regex)", async () => {
-		const res = await ctx.app.request("/api/threads", {
+	test("returns 400 when clientKey contains whitespace (URL-safe regex)", async ({ db, app }) => {
+		await seedBase(db);
+		const res = await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -465,8 +473,9 @@ describe("clientKey validation (plan §6.1 + §11)", () => {
 		expect(res.status).toBe(400);
 	});
 
-	it("accepts a UUIDv4-style clientKey", async () => {
-		const res = await ctx.app.request("/api/threads", {
+	test("accepts a UUIDv4-style clientKey", async ({ db, app }) => {
+		await seedBase(db);
+		const res = await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -485,14 +494,17 @@ describe("clientKey validation (plan §6.1 + §11)", () => {
 });
 
 describe("Verdict authorization (plan §6.1 REVISED for adversary C4)", () => {
-	let ctx: AppCtx;
-	let threadId: string;
-	let reviewId: string;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = await setupApp();
-		const create = await ctx.app.request("/api/threads", {
+	});
+
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test("agent participant posting verdict on its own review → 403 verdict_authorization", async ({ db, app }) => {
+		await seedBase(db);
+		const create = await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -511,17 +523,11 @@ describe("Verdict authorization (plan §6.1 REVISED for adversary C4)", () => {
 			thread: { id: string };
 			messages: Array<{ id: string }>;
 		};
-		threadId = created.thread.id;
-		reviewId = created.messages[0].id;
-	});
+		const threadId = created.thread.id;
+		const reviewId = created.messages[0].id;
 
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	it("agent participant posting verdict on its own review → 403 verdict_authorization", async () => {
 		// The "agent-1" identity sent the review; it must not verdict its own.
-		const res = await ctx.app.request(`/api/threads/${threadId}/messages`, {
+		const res = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
 			headers: authHeaders({ "X-Identity": "agent-1" }),
 			body: JSON.stringify({
@@ -538,9 +544,32 @@ describe("Verdict authorization (plan §6.1 REVISED for adversary C4)", () => {
 		expect(body.code).toBe("verdict_authorization");
 	});
 
-	it("non-founder participant posting verdict → 403", async () => {
+	test("non-founder participant posting verdict → 403", async ({ db, app }) => {
+		await seedBase(db);
+		const create = await app.request("/api/threads", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				hostKind: "task",
+				hostId: "task-1",
+				participants: ["u-founder", "agent-1"],
+				initialMessage: {
+					type: "review",
+					payload: validReviewPayload,
+					clientKey: "review-init-2",
+				},
+			}),
+		});
+		expect(create.status).toBe(201);
+		const created = (await create.json()) as {
+			thread: { id: string };
+			messages: Array<{ id: string }>;
+		};
+		const threadId = created.thread.id;
+		const reviewId = created.messages[0].id;
+
 		// A different agent with role='builder' is a participant but not a founder.
-		const res = await ctx.app.request(`/api/threads/${threadId}/messages`, {
+		const res = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
 			headers: authHeaders({ "X-Identity": "agent-2" }),
 			body: JSON.stringify({
@@ -555,8 +584,34 @@ describe("Verdict authorization (plan §6.1 REVISED for adversary C4)", () => {
 		expect(res.status).toBe(403);
 	});
 
-	it("founder participant who is NOT the review's sender → 200, thread.resolvedAt set, thread_resolved emitted", async () => {
-		const res = await ctx.app.request(`/api/threads/${threadId}/messages`, {
+	test("founder participant who is NOT the review's sender → 200, thread.resolvedAt set, thread_resolved emitted", async ({ db, app, eventBus }) => {
+		await seedBase(db);
+		const events: DomainEvent[] = [];
+		eventBus.on("*", (e) => { events.push(e); });
+
+		const create = await app.request("/api/threads", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				hostKind: "task",
+				hostId: "task-1",
+				participants: ["u-founder", "agent-1"],
+				initialMessage: {
+					type: "review",
+					payload: validReviewPayload,
+					clientKey: "review-init-3",
+				},
+			}),
+		});
+		expect(create.status).toBe(201);
+		const created = (await create.json()) as {
+			thread: { id: string };
+			messages: Array<{ id: string }>;
+		};
+		const threadId = created.thread.id;
+		const reviewId = created.messages[0].id;
+
+		const res = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
 			headers: authHeaders({ "X-Identity": "u-founder" }),
 			body: JSON.stringify({
@@ -570,7 +625,7 @@ describe("Verdict authorization (plan §6.1 REVISED for adversary C4)", () => {
 		});
 		expect(res.status).toBe(201);
 
-		const get = await ctx.app.request(`/api/threads/${threadId}`, {
+		const get = await app.request(`/api/threads/${threadId}`, {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -579,21 +634,27 @@ describe("Verdict authorization (plan §6.1 REVISED for adversary C4)", () => {
 		};
 		expect(detail.thread.resolvedAt).not.toBeNull();
 
-		const resolved = ctx.events.find((e) => e.type === "thread_resolved");
+		const resolved = events.find((e) => e.type === "thread_resolved");
 		expect(resolved).toBeDefined();
 	});
 });
 
 describe("Re-open semantics (plan §6.1 REVISED for adversary C5)", () => {
-	let ctx: AppCtx;
-	let threadId: string;
-	let oldReviewId: string;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = await setupApp();
+	});
+
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test("posting a new review on a resolved thread clears thread.resolvedAt and emits thread_reopened", async ({ db, app, eventBus }) => {
+		await seedBase(db);
+		const events: DomainEvent[] = [];
+		eventBus.on("*", (e) => { events.push(e); });
+
 		// Create + verdict a thread so it ends up resolved.
-		const create = await ctx.app.request("/api/threads", {
+		const create = await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -611,9 +672,9 @@ describe("Re-open semantics (plan §6.1 REVISED for adversary C5)", () => {
 			thread: { id: string };
 			messages: Array<{ id: string }>;
 		};
-		threadId = created.thread.id;
-		oldReviewId = created.messages[0].id;
-		const verdict = await ctx.app.request(`/api/threads/${threadId}/messages`, {
+		const threadId = created.thread.id;
+		const oldReviewId = created.messages[0].id;
+		const verdict = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
 			headers: authHeaders({ "X-Identity": "u-founder" }),
 			body: JSON.stringify({
@@ -627,15 +688,9 @@ describe("Re-open semantics (plan §6.1 REVISED for adversary C5)", () => {
 		});
 		expect(verdict.status).toBe(201);
 		// Drain events for clarity.
-		ctx.events.length = 0;
-	});
+		events.length = 0;
 
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	it("posting a new review on a resolved thread clears thread.resolvedAt and emits thread_reopened", async () => {
-		const res = await ctx.app.request(`/api/threads/${threadId}/messages`, {
+		const res = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -650,7 +705,7 @@ describe("Re-open semantics (plan §6.1 REVISED for adversary C5)", () => {
 		});
 		expect(res.status).toBe(201);
 
-		const get = await ctx.app.request(`/api/threads/${threadId}`, {
+		const get = await app.request(`/api/threads/${threadId}`, {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -664,13 +719,50 @@ describe("Re-open semantics (plan §6.1 REVISED for adversary C5)", () => {
 		const verdictRow = detail.messages.find((m) => m.type === "verdict");
 		expect(verdictRow).toBeDefined();
 
-		const reopened = ctx.events.find((e) => e.type === "thread_reopened");
+		const reopened = events.find((e) => e.type === "thread_reopened");
 		expect(reopened).toBeDefined();
 	});
 
-	it("non-participant attempting to re-open → 403", async () => {
+	test("non-participant attempting to re-open → 403", async ({ db, app }) => {
+		await seedBase(db);
+
+		// Create + verdict a thread so it ends up resolved.
+		const create = await app.request("/api/threads", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				hostKind: "task",
+				hostId: "task-1",
+				participants: ["u-founder", "agent-1"],
+				initialMessage: {
+					type: "review",
+					payload: validReviewPayload,
+					clientKey: "ro-init2",
+				},
+			}),
+		});
+		const created = (await create.json()) as {
+			thread: { id: string };
+			messages: Array<{ id: string }>;
+		};
+		const threadId = created.thread.id;
+		const oldReviewId = created.messages[0].id;
+		const verdict = await app.request(`/api/threads/${threadId}/messages`, {
+			method: "POST",
+			headers: authHeaders({ "X-Identity": "u-founder" }),
+			body: JSON.stringify({
+				type: "verdict",
+				payload: {
+					decision: "approve",
+					resolvesMessageId: oldReviewId,
+				},
+				clientKey: "ro-verdict2",
+			}),
+		});
+		expect(verdict.status).toBe(201);
+
 		// "agent-2" was never added to participants for this thread.
-		const res = await ctx.app.request(`/api/threads/${threadId}/messages`, {
+		const res = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
 			headers: authHeaders({ "X-Identity": "agent-2" }),
 			body: JSON.stringify({
@@ -688,35 +780,35 @@ describe("Re-open semantics (plan §6.1 REVISED for adversary C5)", () => {
 });
 
 describe("List threads + GET /api/threads validation", () => {
-	let ctx: AppCtx;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = await setupApp();
 	});
 
 	afterEach(() => {
 		vi.unstubAllEnvs();
 	});
 
-	it("GET /api/threads without scope params returns 400", async () => {
-		const res = await ctx.app.request("/api/threads", {
+	test("GET /api/threads without scope params returns 400", async ({ db, app }) => {
+		await seedBase(db);
+		const res = await app.request("/api/threads", {
 			method: "GET",
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(400);
 	});
 
-	it("GET /api/threads?host_kind=invalid → 400 (closed Zod enum)", async () => {
-		const res = await ctx.app.request("/api/threads?host_kind=invalid&host_id=x", {
+	test("GET /api/threads?host_kind=invalid → 400 (closed Zod enum)", async ({ db, app }) => {
+		await seedBase(db);
+		const res = await app.request("/api/threads?host_kind=invalid&host_id=x", {
 			method: "GET",
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(400);
 	});
 
-	it("GET /api/threads?host_kind=task&host_id=task-1 returns the matching threads sorted by last_active_at desc", async () => {
-		await ctx.app.request("/api/threads", {
+	test("GET /api/threads?host_kind=task&host_id=task-1 returns the matching threads sorted by last_active_at desc", async ({ db, app }) => {
+		await seedBase(db);
+		await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -730,7 +822,7 @@ describe("List threads + GET /api/threads validation", () => {
 				},
 			}),
 		});
-		await ctx.app.request("/api/threads", {
+		await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -745,7 +837,7 @@ describe("List threads + GET /api/threads validation", () => {
 			}),
 		});
 
-		const res = await ctx.app.request("/api/threads?host_kind=task&host_id=task-1", {
+		const res = await app.request("/api/threads?host_kind=task&host_id=task-1", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -760,8 +852,8 @@ describe("List threads + GET /api/threads validation", () => {
 		expect(ts).toEqual(sorted);
 	});
 
-	it("GET /api/threads/:id for a non-existent thread returns 404", async () => {
-		const res = await ctx.app.request("/api/threads/does-not-exist", {
+	test("GET /api/threads/:id for a non-existent thread returns 404", async ({ app }) => {
+		const res = await app.request("/api/threads/does-not-exist", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -770,19 +862,20 @@ describe("List threads + GET /api/threads validation", () => {
 });
 
 describe("Event emission (plan §6.3)", () => {
-	let ctx: AppCtx;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = await setupApp();
 	});
 
 	afterEach(() => {
 		vi.unstubAllEnvs();
 	});
 
-	it("POST /api/threads emits thread_created and thread_message_appended", async () => {
-		const res = await ctx.app.request("/api/threads", {
+	test("POST /api/threads emits thread_created and thread_message_appended", async ({ db, app, eventBus }) => {
+		await seedBase(db);
+		const events: DomainEvent[] = [];
+		eventBus.on("*", (e) => { events.push(e); });
+
+		const res = await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -798,27 +891,25 @@ describe("Event emission (plan §6.3)", () => {
 		});
 		expect(res.status).toBe(201);
 
-		const created = ctx.events.find((e) => e.type === "thread_created");
-		const appended = ctx.events.find((e) => e.type === "thread_message_appended");
+		const created = events.find((e) => e.type === "thread_created");
+		const appended = events.find((e) => e.type === "thread_message_appended");
 		expect(created).toBeDefined();
 		expect(appended).toBeDefined();
 	});
 });
 
 describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
-	let ctx: AppCtx;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = await setupApp();
 	});
 
 	afterEach(() => {
 		vi.unstubAllEnvs();
 	});
 
-	it("hasUnresolvedReview=true when an unresolved review exists in the thread", async () => {
-		const create = await ctx.app.request("/api/threads", {
+	test("hasUnresolvedReview=true when an unresolved review exists in the thread", async ({ db, app }) => {
+		await seedBase(db);
+		const create = await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -834,7 +925,7 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 		});
 		expect(create.status).toBe(201);
 
-		const res = await ctx.app.request("/api/threads?host_kind=task&host_id=task-1", {
+		const res = await app.request("/api/threads?host_kind=task&host_id=task-1", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -846,8 +937,9 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 		expect(body.threads[0].hasUnresolvedReview).toBe(true);
 	});
 
-	it("hasUnresolvedReview=false for a plain-only thread", async () => {
-		await ctx.app.request("/api/threads", {
+	test("hasUnresolvedReview=false for a plain-only thread", async ({ db, app }) => {
+		await seedBase(db);
+		await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -862,7 +954,7 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 			}),
 		});
 
-		const res = await ctx.app.request("/api/threads?host_kind=task&host_id=task-1", {
+		const res = await app.request("/api/threads?host_kind=task&host_id=task-1", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -873,8 +965,9 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 		expect(body.threads[0].hasUnresolvedReview).toBe(false);
 	});
 
-	it("hasUnresolvedReview=false once the review is resolved by a verdict", async () => {
-		const create = await ctx.app.request("/api/threads", {
+	test("hasUnresolvedReview=false once the review is resolved by a verdict", async ({ db, app }) => {
+		await seedBase(db);
+		const create = await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -894,7 +987,7 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 			messages: Array<{ id: string }>;
 		};
 		const reviewId = created.messages[0].id;
-		const verdict = await ctx.app.request(`/api/threads/${created.thread.id}/messages`, {
+		const verdict = await app.request(`/api/threads/${created.thread.id}/messages`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -905,7 +998,7 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 		});
 		expect(verdict.status).toBe(201);
 
-		const res = await ctx.app.request("/api/threads?host_kind=task&host_id=task-1", {
+		const res = await app.request("/api/threads?host_kind=task&host_id=task-1", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -917,9 +1010,10 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 		expect(row?.hasUnresolvedReview).toBe(false);
 	});
 
-	it("participant_id scope returns hasUnresolvedReview per row", async () => {
+	test("participant_id scope returns hasUnresolvedReview per row", async ({ db, app }) => {
+		await seedBase(db);
 		// One review thread, one plain thread; founder participates in both.
-		await ctx.app.request("/api/threads", {
+		await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -933,7 +1027,7 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 				},
 			}),
 		});
-		await ctx.app.request("/api/threads", {
+		await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -948,7 +1042,7 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 			}),
 		});
 
-		const res = await ctx.app.request("/api/threads?participant_id=u-founder", {
+		const res = await app.request("/api/threads?participant_id=u-founder", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -963,7 +1057,7 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 });
 
 describe("Schema sanity — threads table is reachable from Drizzle", () => {
-	it("the post-L1 `threads` row carries hostKind/hostId/lastActiveAt columns", () => {
+	test("the post-L1 `threads` row carries hostKind/hostId/lastActiveAt columns", () => {
 		// Runtime assertion: the inferred row shape must surface the new
 		// L1a columns. Today the column is `kind`, NOT `hostKind`, so this
 		// expectation fails until the migration adds the column AND the

@@ -15,18 +15,15 @@
 
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
-	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
 import { clearDeduplicationCache, recordCostAndCheck } from "@hyperidle/fabric";
-import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, test } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();
 
@@ -67,23 +64,12 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 }
 
 describe("recordCostAndCheck — bet cost accumulation (R5 AC4)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
+	beforeEach(() => {
 		clearDeduplicationCache();
+	});
+
+	test("increments bets.costActualMinor when taskId is provided", async ({ db, eventBus }) => {
 		await seedBase(db);
-	});
-
-	afterEach(async () => {
-		await handle?.close();
-	});
-
-	it("increments bets.costActualMinor when taskId is provided", async () => {
 		await recordCostAndCheck(db, eventBus, {
 			sessionId: "s1",
 			costMinor: 100,
@@ -105,7 +91,8 @@ describe("recordCostAndCheck — bet cost accumulation (R5 AC4)", () => {
 		expect(bet?.costActualCurrency).toBe("USD");
 	});
 
-	it("accumulates cumulatively on successive calls", async () => {
+	test("accumulates cumulatively on successive calls", async ({ db, eventBus }) => {
+		await seedBase(db);
 		await recordCostAndCheck(db, eventBus, {
 			sessionId: "s1",
 			costMinor: 100,
@@ -132,7 +119,8 @@ describe("recordCostAndCheck — bet cost accumulation (R5 AC4)", () => {
 		expect(bet?.costActualMinor).toBe(175);
 	});
 
-	it("does NOT modify bet when taskId is omitted (backward compat)", async () => {
+	test("does NOT modify bet when taskId is omitted (backward compat)", async ({ db, eventBus }) => {
+		await seedBase(db);
 		await recordCostAndCheck(db, eventBus, {
 			sessionId: "s1",
 			costMinor: 500,
@@ -151,7 +139,8 @@ describe("recordCostAndCheck — bet cost accumulation (R5 AC4)", () => {
 		expect(bet?.costActualMinor).toBeNull();
 	});
 
-	it("does NOT modify bet when costMinor is zero", async () => {
+	test("does NOT modify bet when costMinor is zero", async ({ db, eventBus }) => {
+		await seedBase(db);
 		await recordCostAndCheck(db, eventBus, {
 			sessionId: "s1",
 			costMinor: 0,
@@ -170,7 +159,8 @@ describe("recordCostAndCheck — bet cost accumulation (R5 AC4)", () => {
 		expect(bet?.costActualMinor).toBeNull();
 	});
 
-	it("does NOT modify bet when taskId does not exist", async () => {
+	test("does NOT modify bet when taskId does not exist", async ({ db, eventBus }) => {
+		await seedBase(db);
 		// Should not throw — just no-op if task not found
 		await recordCostAndCheck(db, eventBus, {
 			sessionId: "s1",

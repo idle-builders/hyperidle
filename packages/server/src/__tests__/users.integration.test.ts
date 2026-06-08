@@ -6,7 +6,6 @@
  */
 
 import {
-	createTestDb,
 	type HyperIdleDb,
 	items,
 	messages,
@@ -16,10 +15,9 @@ import {
 	userSkills,
 	users,
 } from "@hyperidle/db";
-import { type DomainEvent, EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { type DomainEvent } from "@hyperidle/shared";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-users";
 const NOW = new Date().toISOString();
@@ -28,72 +26,65 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-
-		// Seed product and team
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
-			createdAt: NOW,
-		});
-
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 3,
-			activeBets: 0,
-			formedAt: NOW,
-		});
-
-		// Seed AI users (formerly agents)
-		await db.insert(users).values([
-			{
-				id: "agent-1",
-				kind: "ai",
-				name: "Builder Bot",
-				role: "builder",
-				status: "idle",
-				teamId: "team-1",
-				createdAt: NOW,
-			},
-			{
-				id: "agent-2",
-				kind: "ai",
-				name: "Growth Bot",
-				role: "growth",
-				status: "active",
-				teamId: "team-1",
-				createdAt: NOW,
-			},
-		]);
-
-		// Seed user skills (formerly agent skills)
-		await db.insert(userSkills).values([
-			{ userId: "agent-1", skillId: "coding", autonomyLevel: 2 },
-			{ userId: "agent-1", skillId: "testing", autonomyLevel: 3 },
-		]);
+async function seedBase(db: HyperIdleDb): Promise<void> {
+	// Seed product and team
+	await db.insert(teams).values({
+		id: "prod-1",
+		name: "Test Product",
+		phase: "build",
+		createdAt: NOW,
 	});
 
-	afterEach(async () => {
+	await db.insert(teamMembers).values({
+		id: "team-1",
+		teamId: "prod-1",
+		capacity: 3,
+		activeBets: 0,
+		formedAt: NOW,
+	});
+
+	// Seed AI users (formerly agents)
+	await db.insert(users).values([
+		{
+			id: "agent-1",
+			kind: "ai",
+			name: "Builder Bot",
+			role: "builder",
+			status: "idle",
+			teamId: "team-1",
+			createdAt: NOW,
+		},
+		{
+			id: "agent-2",
+			kind: "ai",
+			name: "Growth Bot",
+			role: "growth",
+			status: "active",
+			teamId: "team-1",
+			createdAt: NOW,
+		},
+	]);
+
+	// Seed user skills (formerly agent skills)
+	await db.insert(userSkills).values([
+		{ userId: "agent-1", skillId: "coding", autonomyLevel: 2 },
+		{ userId: "agent-1", skillId: "testing", autonomyLevel: 3 },
+	]);
+}
+
+describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+	});
+
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle?.close();
 	});
 
 	// AC1: GET /api/users — list all with status, team, role, current sessions
 	describe("AC1: GET /api/users — list all users", () => {
-		it("returns all users with activeSessions count", async () => {
+		test("returns all users with activeSessions count", async ({ db, app }) => {
+			await seedBase(db);
 			const res = await app.request("/api/users", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
@@ -105,7 +96,7 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			expect(body[0]).toHaveProperty("role");
 		});
 
-		it("returns 401 without auth", async () => {
+		test("returns 401 without auth", async ({ app }) => {
 			const res = await app.request("/api/users");
 			expect(res.status).toBe(401);
 		});
@@ -113,7 +104,8 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 
 	// AC2: GET /api/users/:id — detail with skills, autonomy levels, cost
 	describe("AC2: GET /api/users/:id — user detail", () => {
-		it("returns user with skills", async () => {
+		test("returns user with skills", async ({ db, app }) => {
+			await seedBase(db);
 			const res = await app.request("/api/users/agent-1", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
@@ -127,7 +119,8 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			expect(skills[0]).toHaveProperty("autonomyLevel");
 		});
 
-		it("returns 404 for unknown user", async () => {
+		test("returns 404 for unknown user", async ({ db, app }) => {
+			await seedBase(db);
 			const res = await app.request("/api/users/nonexistent", { headers: authHeaders() });
 			expect(res.status).toBe(404);
 
@@ -138,7 +131,8 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 
 	// AC3 + AC15: PATCH /api/users/:id/skills/:skillId — update autonomy level
 	describe("AC3/AC15: PATCH /api/users/:id/skills/:skillId — update autonomy", () => {
-		it("updates autonomy level", async () => {
+		test("updates autonomy level", async ({ db, app }) => {
+			await seedBase(db);
 			const res = await app.request("/api/users/agent-1/skills/coding", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -150,7 +144,8 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			expect(body.autonomyLevel).toBe(4);
 		});
 
-		it("creates review thread when autonomy changes", async () => {
+		test("creates review thread when autonomy changes", async ({ db, app, eventBus }) => {
+			await seedBase(db);
 			const emitted: DomainEvent[] = [];
 			eventBus.on("item_created", (e) => emitted.push(e));
 
@@ -177,7 +172,8 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			expect(emitted[0].type).toBe("item_created");
 		});
 
-		it("does NOT create review thread when level unchanged", async () => {
+		test("does NOT create review thread when level unchanged", async ({ db, app, eventBus }) => {
+			await seedBase(db);
 			const emitted: DomainEvent[] = [];
 			eventBus.on("item_created", (e) => emitted.push(e));
 
@@ -192,7 +188,8 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			expect(emitted).toHaveLength(0);
 		});
 
-		it("returns 404 for unknown skill", async () => {
+		test("returns 404 for unknown skill", async ({ db, app }) => {
+			await seedBase(db);
 			const res = await app.request("/api/users/agent-1/skills/nonexistent", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -201,7 +198,8 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			expect(res.status).toBe(404);
 		});
 
-		it("returns 400 for invalid autonomy level", async () => {
+		test("returns 400 for invalid autonomy level", async ({ db, app }) => {
+			await seedBase(db);
 			const res = await app.request("/api/users/agent-1/skills/coding", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -213,7 +211,8 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 
 	// AC8: GET /api/users/:id/inbox — user's inbox
 	describe("AC8: GET /api/users/:id/inbox", () => {
-		it("returns messages for the user", async () => {
+		test("returns messages for the user", async ({ db, app }) => {
+			await seedBase(db);
 			// Seed a thread and message
 			await db.insert(threads).values({
 				id: "thread-1",
@@ -249,7 +248,7 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			expect(payload.text).toBe("Hello!");
 		});
 
-		it("returns 404 for unknown user", async () => {
+		test("returns 404 for unknown user", async ({ app }) => {
 			const res = await app.request("/api/users/nonexistent/inbox", { headers: authHeaders() });
 			expect(res.status).toBe(404);
 		});
@@ -257,7 +256,8 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 
 	// AC9: POST /api/users/:id/inbox — send message to user
 	describe("AC9: POST /api/users/:id/inbox — send message", () => {
-		it("sends a message and creates thread if needed", async () => {
+		test("sends a message and creates thread if needed", async ({ db, app }) => {
+			await seedBase(db);
 			const res = await app.request("/api/users/agent-1/inbox", {
 				method: "POST",
 				headers: authHeaders({ "X-Identity": "agent-2" }),
@@ -277,7 +277,8 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			expect(allThreads[0].hostId).toBe("agent-1");
 		});
 
-		it("reuses existing thread for same sender/recipient pair", async () => {
+		test("reuses existing thread for same sender/recipient pair", async ({ db, app }) => {
+			await seedBase(db);
 			// Send first message
 			await app.request("/api/users/agent-1/inbox", {
 				method: "POST",
@@ -299,7 +300,7 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			expect(allMessages).toHaveLength(2);
 		});
 
-		it("returns 404 for unknown recipient user", async () => {
+		test("returns 404 for unknown recipient user", async ({ app }) => {
 			const res = await app.request("/api/users/nonexistent/inbox", {
 				method: "POST",
 				headers: authHeaders({ "X-Identity": "agent-2" }),
@@ -308,7 +309,8 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			expect(res.status).toBe(404);
 		});
 
-		it("returns 400 for missing body text", async () => {
+		test("returns 400 for missing body text", async ({ db, app }) => {
+			await seedBase(db);
 			const res = await app.request("/api/users/agent-1/inbox", {
 				method: "POST",
 				headers: authHeaders({ "X-Identity": "agent-2" }),
@@ -317,7 +319,8 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("rejects body-supplied senderId — no spoofing", async () => {
+		test("rejects body-supplied senderId — no spoofing", async ({ db, app }) => {
+			await seedBase(db);
 			const res = await app.request("/api/users/agent-1/inbox", {
 				method: "POST",
 				headers: authHeaders({ "X-Identity": "agent-2" }),
@@ -326,7 +329,8 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 when X-Identity header is missing", async () => {
+		test("returns 400 when X-Identity header is missing", async ({ db, app }) => {
+			await seedBase(db);
 			const res = await app.request("/api/users/agent-1/inbox", {
 				method: "POST",
 				headers: authHeaders(),

@@ -5,8 +5,9 @@
  * the issued tokens would never be consumable.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { afterEach, beforeEach, describe, vi } from "vitest";
+import { createApp } from "../app.js";
+import { expect, test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-app-auth-conditional";
 
@@ -19,8 +20,11 @@ describe("I2 review arch H-3 — `/api/auth/ws-token` is conditional on WS regis
 		vi.unstubAllEnvs();
 	});
 
-	it("a createApp() WITHOUT registerWebSocket does not mount /api/auth/ws-token", async () => {
-		const app = await createTestApp();
+	test("a createApp() WITHOUT registerWebSocket does not mount /api/auth/ws-token", async ({
+		db,
+		eventBus,
+	}) => {
+		const app = await createApp({ db, eventBus });
 
 		const res = await app.request("/api/auth/ws-token", {
 			method: "POST",
@@ -29,8 +33,13 @@ describe("I2 review arch H-3 — `/api/auth/ws-token` is conditional on WS regis
 		expect(res.status).toBe(404);
 	});
 
-	it("a createApp() WITH registerWebSocket DOES mount /api/auth/ws-token", async () => {
-		const app = await createTestApp({
+	test("a createApp() WITH registerWebSocket DOES mount /api/auth/ws-token", async ({
+		db,
+		eventBus,
+	}) => {
+		const app = await createApp({
+			db,
+			eventBus,
 			// Stub: the test cares that mount-vs-no-mount toggles on the
 			// hook's presence; the hook body is irrelevant here.
 			registerWebSocket: () => {},

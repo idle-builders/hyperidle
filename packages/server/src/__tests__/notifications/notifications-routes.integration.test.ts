@@ -11,13 +11,7 @@
  *  - POST /digest: runs digest through adapter
  */
 
-import {
-	createTestDb,
-	factorySettings,
-	type HyperIdleDb,
-	notificationQueue,
-	type TestDbHandle,
-} from "@hyperidle/db";
+import { factorySettings, notificationQueue } from "@hyperidle/db";
 import type {
 	Notification,
 	NotificationAdapter,
@@ -26,8 +20,9 @@ import type {
 	SendResult,
 } from "@hyperidle/fabric";
 import type { ApiErrorResponse } from "@hyperidle/shared";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, vi } from "vitest";
 import { createApp, disposeApp } from "../../app.js";
+import { expect, test } from "../../test-fixtures.js";
 
 const API_KEY = "test-key-H2-routes";
 
@@ -57,249 +52,345 @@ function headers(extra: Record<string, string> = {}): Record<string, string> {
 }
 
 describe("H2 /api/notifications routes", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let app: Awaited<ReturnType<typeof createApp>>;
-	let adapter: NotificationAdapter & { calls: AdapterCall[] };
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		adapter = createFakeAdapter();
-		app = await createApp({ db, notificationAdapterFactory: () => adapter });
 	});
 
-	afterEach(async () => {
-		disposeApp(app);
+	afterEach(() => {
 		vi.unstubAllEnvs();
 	});
 
-	it("GET /config requires auth", async () => {
-		const res = await app.request("/api/notifications/config");
-		expect(res.status).toBe(401);
-	});
-
-	it("GET /config returns a SafeNotificationConfig with redacted secrets", async () => {
-		// Seed a password + auth token; verify they come back as "***".
-		const now = "2026-04-18T00:00:00.000Z";
-		const seed: Record<string, string> = {
-			"notifications.enabled": "true",
-			"notifications.primary_channel": "smtp",
-			"notifications.smtp_host": "smtp.example.com",
-			"notifications.smtp_password": "super-secret",
-			"notifications.ntfy_auth_token": "tk_abc",
-			"notifications.smtp_from": "ops@example.com",
-		};
-		for (const [key, value] of Object.entries(seed)) {
-			await db
-				.insert(factorySettings)
-				.values({ key, value, updatedAt: now })
-				.onConflictDoUpdate({
-					target: factorySettings.key,
-					set: { value, updatedAt: now },
-				});
+	test("GET /config requires auth", async ({ db, eventBus }) => {
+		const adapter = createFakeAdapter();
+		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		try {
+			const res = await app.request("/api/notifications/config");
+			expect(res.status).toBe(401);
+		} finally {
+			disposeApp(app);
 		}
-
-		const res = await app.request("/api/notifications/config", { headers: headers() });
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as SafeNotificationConfig;
-		expect(body.enabled).toBe(true);
-		expect(body.smtp.passwordSet).toBe(true);
-		expect(body.smtp.password).toBe("***");
-		expect(body.ntfy.authTokenSet).toBe(true);
-		expect(body.ntfy.authToken).toBe("***");
-		// Raw secret must NEVER appear in the response.
-		const raw = await (
-			await app.request("/api/notifications/config", { headers: headers() })
-		).text();
-		expect(raw).not.toContain("super-secret");
-		expect(raw).not.toContain("tk_abc");
 	});
 
-	it("PATCH /config rejects invalid email", async () => {
-		const res = await app.request("/api/notifications/config", {
-			method: "PATCH",
-			headers: headers(),
-			body: JSON.stringify({ recipientEmail: "not-an-email" }),
-		});
-		expect(res.status).toBe(400);
-		const body = (await res.json()) as ApiErrorResponse;
-		expect(body.code).toBe("VALIDATION_ERROR");
+	test("GET /config returns a SafeNotificationConfig with redacted secrets", async ({
+		db,
+		eventBus,
+	}) => {
+		const adapter = createFakeAdapter();
+		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		try {
+			// Seed a password + auth token; verify they come back as "***".
+			const now = "2026-04-18T00:00:00.000Z";
+			const seed: Record<string, string> = {
+				"notifications.enabled": "true",
+				"notifications.primary_channel": "smtp",
+				"notifications.smtp_host": "smtp.example.com",
+				"notifications.smtp_password": "super-secret",
+				"notifications.ntfy_auth_token": "tk_abc",
+				"notifications.smtp_from": "ops@example.com",
+			};
+			for (const [key, value] of Object.entries(seed)) {
+				await db
+					.insert(factorySettings)
+					.values({ key, value, updatedAt: now })
+					.onConflictDoUpdate({
+						target: factorySettings.key,
+						set: { value, updatedAt: now },
+					});
+			}
+
+			const res = await app.request("/api/notifications/config", { headers: headers() });
+			expect(res.status).toBe(200);
+			const body = (await res.json()) as SafeNotificationConfig;
+			expect(body.enabled).toBe(true);
+			expect(body.smtp.passwordSet).toBe(true);
+			expect(body.smtp.password).toBe("***");
+			expect(body.ntfy.authTokenSet).toBe(true);
+			expect(body.ntfy.authToken).toBe("***");
+			// Raw secret must NEVER appear in the response.
+			const raw = await (
+				await app.request("/api/notifications/config", { headers: headers() })
+			).text();
+			expect(raw).not.toContain("super-secret");
+			expect(raw).not.toContain("tk_abc");
+		} finally {
+			disposeApp(app);
+		}
 	});
 
-	it("PATCH /config rejects unsafe ntfy URL", async () => {
-		const res = await app.request("/api/notifications/config", {
-			method: "PATCH",
-			headers: headers(),
-			body: JSON.stringify({ ntfyBaseUrl: "ftp://bad.example.com" }),
-		});
-		expect(res.status).toBe(400);
+	test("PATCH /config rejects invalid email", async ({ db, eventBus }) => {
+		const adapter = createFakeAdapter();
+		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		try {
+			const res = await app.request("/api/notifications/config", {
+				method: "PATCH",
+				headers: headers(),
+				body: JSON.stringify({ recipientEmail: "not-an-email" }),
+			});
+			expect(res.status).toBe(400);
+			const body = (await res.json()) as ApiErrorResponse;
+			expect(body.code).toBe("VALIDATION_ERROR");
+		} finally {
+			disposeApp(app);
+		}
 	});
 
-	it("PATCH /config accepts a valid partial patch", async () => {
-		const res = await app.request("/api/notifications/config", {
-			method: "PATCH",
-			headers: headers(),
-			body: JSON.stringify({
-				enabled: true,
-				recipientEmail: "ops@example.com",
-				recipientNtfyTopic: "factory-alerts",
-			}),
-		});
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as SafeNotificationConfig;
-		expect(body.enabled).toBe(true);
-		expect(body.recipient.email).toBe("ops@example.com");
-		expect(body.recipient.ntfyTopic).toBe("factory-alerts");
+	test("PATCH /config rejects unsafe ntfy URL", async ({ db, eventBus }) => {
+		const adapter = createFakeAdapter();
+		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		try {
+			const res = await app.request("/api/notifications/config", {
+				method: "PATCH",
+				headers: headers(),
+				body: JSON.stringify({ ntfyBaseUrl: "ftp://bad.example.com" }),
+			});
+			expect(res.status).toBe(400);
+		} finally {
+			disposeApp(app);
+		}
 	});
 
-	it("POST /test sends through the adapter and does NOT write the queue", async () => {
-		// Configure notifications.
-		await app.request("/api/notifications/config", {
-			method: "PATCH",
-			headers: headers(),
-			body: JSON.stringify({
-				enabled: true,
-				primaryChannel: "console",
-			}),
-		});
-		const res = await app.request("/api/notifications/test", {
-			method: "POST",
-			headers: headers(),
-			body: JSON.stringify({}),
-		});
-		expect(res.status).toBe(200);
-		const result = (await res.json()) as SendResult;
-		expect(result.ok).toBe(true);
-		expect(adapter.calls).toHaveLength(1);
-		const queueRows = await db.select().from(notificationQueue);
-		expect(queueRows).toHaveLength(0);
+	test("PATCH /config accepts a valid partial patch", async ({ db, eventBus }) => {
+		const adapter = createFakeAdapter();
+		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		try {
+			const res = await app.request("/api/notifications/config", {
+				method: "PATCH",
+				headers: headers(),
+				body: JSON.stringify({
+					enabled: true,
+					recipientEmail: "ops@example.com",
+					recipientNtfyTopic: "factory-alerts",
+				}),
+			});
+			expect(res.status).toBe(200);
+			const body = (await res.json()) as SafeNotificationConfig;
+			expect(body.enabled).toBe(true);
+			expect(body.recipient.email).toBe("ops@example.com");
+			expect(body.recipient.ntfyTopic).toBe("factory-alerts");
+		} finally {
+			disposeApp(app);
+		}
 	});
 
-	it("GET /queue returns pending rows", async () => {
-		const now = "2026-04-18T00:00:00.000Z";
-		await db.insert(notificationQueue).values({
-			id: "q-1",
-			eventType: "item_created",
-			subjectId: "x",
-			severity: "digest",
-			title: "Pending one",
-			body: "body",
-			reason: "digest",
-			channel: "console",
-			status: "pending",
-			attempts: 0,
-			createdAt: now,
-		});
-
-		const res = await app.request("/api/notifications/queue?status=pending", {
-			headers: headers(),
-		});
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as {
-			status: string;
-			count: number;
-			rows: Array<{ id: string; title: string }>;
-		};
-		expect(body.status).toBe("pending");
-		expect(body.count).toBe(1);
-		expect(body.rows[0].title).toBe("Pending one");
+	test("POST /test sends through the adapter and does NOT write the queue", async ({
+		db,
+		eventBus,
+	}) => {
+		const adapter = createFakeAdapter();
+		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		try {
+			// Configure notifications.
+			await app.request("/api/notifications/config", {
+				method: "PATCH",
+				headers: headers(),
+				body: JSON.stringify({
+					enabled: true,
+					primaryChannel: "console",
+				}),
+			});
+			const res = await app.request("/api/notifications/test", {
+				method: "POST",
+				headers: headers(),
+				body: JSON.stringify({}),
+			});
+			expect(res.status).toBe(200);
+			const result = (await res.json()) as SendResult;
+			expect(result.ok).toBe(true);
+			expect(adapter.calls).toHaveLength(1);
+			const queueRows = await db.select().from(notificationQueue);
+			expect(queueRows).toHaveLength(0);
+		} finally {
+			disposeApp(app);
+		}
 	});
 
-	it("PATCH /config rejects ntfy URL pointing to private/metadata IP (SSRF)", async () => {
-		const res = await app.request("/api/notifications/config", {
-			method: "PATCH",
-			headers: headers(),
-			body: JSON.stringify({ ntfyBaseUrl: "https://169.254.169.254/" }),
-		});
-		expect(res.status).toBe(400);
-		const body = (await res.json()) as ApiErrorResponse;
-		expect(body.code).toBe("VALIDATION_ERROR");
+	test("GET /queue returns pending rows", async ({ db, eventBus }) => {
+		const adapter = createFakeAdapter();
+		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		try {
+			const now = "2026-04-18T00:00:00.000Z";
+			await db.insert(notificationQueue).values({
+				id: "q-1",
+				eventType: "item_created",
+				subjectId: "x",
+				severity: "digest",
+				title: "Pending one",
+				body: "body",
+				reason: "digest",
+				channel: "console",
+				status: "pending",
+				attempts: 0,
+				createdAt: now,
+			});
+
+			const res = await app.request("/api/notifications/queue?status=pending", {
+				headers: headers(),
+			});
+			expect(res.status).toBe(200);
+			const body = (await res.json()) as {
+				status: string;
+				count: number;
+				rows: Array<{ id: string; title: string }>;
+			};
+			expect(body.status).toBe("pending");
+			expect(body.count).toBe(1);
+			expect(body.rows[0].title).toBe("Pending one");
+		} finally {
+			disposeApp(app);
+		}
 	});
 
-	it("PATCH /config rejects ntfy URL with RFC1918 private IP", async () => {
-		const res = await app.request("/api/notifications/config", {
-			method: "PATCH",
-			headers: headers(),
-			body: JSON.stringify({ ntfyBaseUrl: "https://10.0.0.5/" }),
-		});
-		expect(res.status).toBe(400);
+	test("PATCH /config rejects ntfy URL pointing to private/metadata IP (SSRF)", async ({
+		db,
+		eventBus,
+	}) => {
+		const adapter = createFakeAdapter();
+		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		try {
+			const res = await app.request("/api/notifications/config", {
+				method: "PATCH",
+				headers: headers(),
+				body: JSON.stringify({ ntfyBaseUrl: "https://169.254.169.254/" }),
+			});
+			expect(res.status).toBe(400);
+			const body = (await res.json()) as ApiErrorResponse;
+			expect(body.code).toBe("VALIDATION_ERROR");
+		} finally {
+			disposeApp(app);
+		}
 	});
 
-	it("PATCH /config rejects ntfy URL with mDNS .local suffix", async () => {
-		const res = await app.request("/api/notifications/config", {
-			method: "PATCH",
-			headers: headers(),
-			body: JSON.stringify({ ntfyBaseUrl: "https://printer.local/" }),
-		});
-		expect(res.status).toBe(400);
+	test("PATCH /config rejects ntfy URL with RFC1918 private IP", async ({ db, eventBus }) => {
+		const adapter = createFakeAdapter();
+		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		try {
+			const res = await app.request("/api/notifications/config", {
+				method: "PATCH",
+				headers: headers(),
+				body: JSON.stringify({ ntfyBaseUrl: "https://10.0.0.5/" }),
+			});
+			expect(res.status).toBe(400);
+		} finally {
+			disposeApp(app);
+		}
 	});
 
-	it("PATCH /config rejects SMTP username with CR/LF", async () => {
-		const res = await app.request("/api/notifications/config", {
-			method: "PATCH",
-			headers: headers(),
-			body: JSON.stringify({ smtpUsername: "user\r\nDATA\r\nSubject: injected" }),
-		});
-		expect(res.status).toBe(400);
+	test("PATCH /config rejects ntfy URL with mDNS .local suffix", async ({ db, eventBus }) => {
+		const adapter = createFakeAdapter();
+		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		try {
+			const res = await app.request("/api/notifications/config", {
+				method: "PATCH",
+				headers: headers(),
+				body: JSON.stringify({ ntfyBaseUrl: "https://printer.local/" }),
+			});
+			expect(res.status).toBe(400);
+		} finally {
+			disposeApp(app);
+		}
 	});
 
-	it("PATCH /config rejects SMTP password with NUL", async () => {
-		const res = await app.request("/api/notifications/config", {
-			method: "PATCH",
-			headers: headers(),
-			body: JSON.stringify({ smtpPassword: "pw\0boom" }),
-		});
-		expect(res.status).toBe(400);
+	test("PATCH /config rejects SMTP username with CR/LF", async ({ db, eventBus }) => {
+		const adapter = createFakeAdapter();
+		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		try {
+			const res = await app.request("/api/notifications/config", {
+				method: "PATCH",
+				headers: headers(),
+				body: JSON.stringify({ smtpUsername: "user\r\nDATA\r\nSubject: injected" }),
+			});
+			expect(res.status).toBe(400);
+		} finally {
+			disposeApp(app);
+		}
 	});
 
-	it("PATCH /config rejects smtpIgnoreTls=true in production", async () => {
-		vi.stubEnv("NODE_ENV", "production");
-		const res = await app.request("/api/notifications/config", {
-			method: "PATCH",
-			headers: headers(),
-			body: JSON.stringify({ smtpIgnoreTls: true }),
-		});
-		expect(res.status).toBe(400);
-		const body = (await res.json()) as ApiErrorResponse;
-		expect(body.error).toContain("not permitted in production");
-		vi.unstubAllEnvs();
-		vi.stubEnv("HYPERIDLE_API_KEY", API_KEY);
+	test("PATCH /config rejects SMTP password with NUL", async ({ db, eventBus }) => {
+		const adapter = createFakeAdapter();
+		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		try {
+			const res = await app.request("/api/notifications/config", {
+				method: "PATCH",
+				headers: headers(),
+				body: JSON.stringify({ smtpPassword: "pw\0boom" }),
+			});
+			expect(res.status).toBe(400);
+		} finally {
+			disposeApp(app);
+		}
 	});
 
-	it("POST /test returns 429 with Retry-After once the bucket empties", async () => {
-		// Tighten the bucket to 1/hour.
-		await app.request("/api/notifications/config", {
-			method: "PATCH",
-			headers: headers(),
-			body: JSON.stringify({ enabled: true, primaryChannel: "console", testMaxPerHour: 1 }),
-		});
-		const first = await app.request("/api/notifications/test", {
-			method: "POST",
-			headers: headers(),
-			body: JSON.stringify({}),
-		});
-		expect(first.status).toBe(200);
-		const second = await app.request("/api/notifications/test", {
-			method: "POST",
-			headers: headers(),
-			body: JSON.stringify({}),
-		});
-		expect(second.status).toBe(429);
-		expect(second.headers.get("Retry-After")).not.toBeNull();
+	test("PATCH /config rejects smtpIgnoreTls=true in production", async ({ db, eventBus }) => {
+		const adapter = createFakeAdapter();
+		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		try {
+			vi.stubEnv("NODE_ENV", "production");
+			const res = await app.request("/api/notifications/config", {
+				method: "PATCH",
+				headers: headers(),
+				body: JSON.stringify({ smtpIgnoreTls: true }),
+			});
+			expect(res.status).toBe(400);
+			const body = (await res.json()) as ApiErrorResponse;
+			expect(body.error).toContain("not permitted in production");
+		} finally {
+			disposeApp(app);
+			vi.unstubAllEnvs();
+			vi.stubEnv("HYPERIDLE_API_KEY", API_KEY);
+		}
 	});
 
-	it("GET /queue rejects invalid status with 400", async () => {
-		const res = await app.request("/api/notifications/queue?status=garbage", {
-			headers: headers(),
-		});
-		expect(res.status).toBe(400);
-		const body = (await res.json()) as ApiErrorResponse;
-		expect(body.code).toBe("VALIDATION_ERROR");
+	test("POST /test returns 429 with Retry-After once the bucket empties", async ({
+		db,
+		eventBus,
+	}) => {
+		const adapter = createFakeAdapter();
+		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		try {
+			// Tighten the bucket to 1/hour.
+			await app.request("/api/notifications/config", {
+				method: "PATCH",
+				headers: headers(),
+				body: JSON.stringify({ enabled: true, primaryChannel: "console", testMaxPerHour: 1 }),
+			});
+			const first = await app.request("/api/notifications/test", {
+				method: "POST",
+				headers: headers(),
+				body: JSON.stringify({}),
+			});
+			expect(first.status).toBe(200);
+			const second = await app.request("/api/notifications/test", {
+				method: "POST",
+				headers: headers(),
+				body: JSON.stringify({}),
+			});
+			expect(second.status).toBe(429);
+			expect(second.headers.get("Retry-After")).not.toBeNull();
+		} finally {
+			disposeApp(app);
+		}
 	});
 
-	it("PATCH /config emits a config_changed audit log with secrets redacted", async () => {
+	test("GET /queue rejects invalid status with 400", async ({ db, eventBus }) => {
+		const adapter = createFakeAdapter();
+		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		try {
+			const res = await app.request("/api/notifications/queue?status=garbage", {
+				headers: headers(),
+			});
+			expect(res.status).toBe(400);
+			const body = (await res.json()) as ApiErrorResponse;
+			expect(body.code).toBe("VALIDATION_ERROR");
+		} finally {
+			disposeApp(app);
+		}
+	});
+
+	test("PATCH /config emits a config_changed audit log with secrets redacted", async ({
+		db,
+		eventBus,
+	}) => {
+		const adapter = createFakeAdapter();
 		const seen: Array<{ level: string; message: string; payload: Record<string, unknown> }> = [];
 		const captureLogger = {
 			debug: () => undefined,
@@ -315,6 +406,7 @@ describe("H2 /api/notifications routes", () => {
 		// Build a new app that wires the capture logger.
 		const audit = await createApp({
 			db,
+			eventBus,
 			notificationAdapterFactory: () => adapter,
 		});
 		// Route factory is not swappable on createApp — the audit surfaces
@@ -352,39 +444,45 @@ describe("H2 /api/notifications routes", () => {
 		expect(serialized).not.toContain("tk_sneaky");
 	});
 
-	it("POST /digest runs the digest and marks rows sent", async () => {
-		// Configure + seed.
-		await app.request("/api/notifications/config", {
-			method: "PATCH",
-			headers: headers(),
-			body: JSON.stringify({ enabled: true, primaryChannel: "console" }),
-		});
-		const now = "2026-04-18T00:00:00.000Z";
-		await db.insert(notificationQueue).values({
-			id: "q-d-1",
-			eventType: "item_created",
-			subjectId: "x",
-			severity: "digest",
-			title: "Digest one",
-			body: "body",
-			reason: "digest",
-			channel: "console",
-			status: "pending",
-			attempts: 0,
-			createdAt: now,
-		});
+	test("POST /digest runs the digest and marks rows sent", async ({ db, eventBus }) => {
+		const adapter = createFakeAdapter();
+		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		try {
+			// Configure + seed.
+			await app.request("/api/notifications/config", {
+				method: "PATCH",
+				headers: headers(),
+				body: JSON.stringify({ enabled: true, primaryChannel: "console" }),
+			});
+			const now = "2026-04-18T00:00:00.000Z";
+			await db.insert(notificationQueue).values({
+				id: "q-d-1",
+				eventType: "item_created",
+				subjectId: "x",
+				severity: "digest",
+				title: "Digest one",
+				body: "body",
+				reason: "digest",
+				channel: "console",
+				status: "pending",
+				attempts: 0,
+				createdAt: now,
+			});
 
-		const res = await app.request("/api/notifications/digest", {
-			method: "POST",
-			headers: headers(),
-			body: JSON.stringify({}),
-		});
-		expect(res.status).toBe(200);
-		const result = (await res.json()) as { status: string; notificationsIncluded: number };
-		expect(result.status).toBe("sent");
-		expect(result.notificationsIncluded).toBe(1);
-		expect(adapter.calls).toHaveLength(1);
-		const rows = await db.select().from(notificationQueue);
-		expect(rows[0].status).toBe("sent");
+			const res = await app.request("/api/notifications/digest", {
+				method: "POST",
+				headers: headers(),
+				body: JSON.stringify({}),
+			});
+			expect(res.status).toBe(200);
+			const result = (await res.json()) as { status: string; notificationsIncluded: number };
+			expect(result.status).toBe("sent");
+			expect(result.notificationsIncluded).toBe(1);
+			expect(adapter.calls).toHaveLength(1);
+			const rows = await db.select().from(notificationQueue);
+			expect(rows[0].status).toBe("sent");
+		} finally {
+			disposeApp(app);
+		}
 	});
 });

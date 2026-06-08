@@ -12,10 +12,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	messages,
-	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
@@ -24,7 +22,8 @@ import {
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
+import { test } from "../../test-fixtures.js";
 import { submitReviewTool } from "../submit-review.js";
 import type { ToolContext } from "../tool-registry.js";
 
@@ -66,10 +65,10 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-function makeContext(db: HyperIdleDb, eventBus?: EventBus): ToolContext {
+function makeContext(db: HyperIdleDb): ToolContext {
 	return {
 		db,
-		eventBus: eventBus ?? new EventBus(),
+		eventBus: new EventBus(),
 		agentId: "agent-a",
 		sessionId: "session-1",
 		taskId: "task-1",
@@ -79,22 +78,10 @@ function makeContext(db: HyperIdleDb, eventBus?: EventBus): ToolContext {
 }
 
 describe("submit_review tool", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		await seed(db);
-	});
-
-	afterEach(async () => {
-		await handle?.close();
-	});
-
 	// AC2 happy path: full ReviewPayload with artifactRef
 	describe("AC2: review message with artifactRef", () => {
-		it("creates review-type message on bet host thread", async () => {
+		test("creates review-type message on bet host thread", async ({ db }) => {
+			await seed(db);
 			const result = await submitReviewTool.handler(
 				{
 					title: "Work complete",
@@ -144,7 +131,8 @@ describe("submit_review tool", () => {
 
 	// AC2 fallback: plain message when no artifactRef
 	describe("AC2: fallback plain message without artifactRef", () => {
-		it("creates plain-type fallback message when no artifactRef provided", async () => {
+		test("creates plain-type fallback message when no artifactRef provided", async ({ db }) => {
+			await seed(db);
 			const result = await submitReviewTool.handler(
 				{
 					title: "Work complete",
@@ -169,7 +157,8 @@ describe("submit_review tool", () => {
 
 	// Thread reuse: second call reuses existing bet thread
 	describe("thread reuse", () => {
-		it("second call reuses existing bet thread (idempotent thread creation)", async () => {
+		test("second call reuses existing bet thread (idempotent thread creation)", async ({ db }) => {
+			await seed(db);
 			const first = await submitReviewTool.handler(
 				{ title: "First review", reasoning: ["Reason A"] },
 				makeContext(db),
@@ -188,7 +177,8 @@ describe("submit_review tool", () => {
 			expect(d1.threadId).toBe(d2.threadId);
 		});
 
-		it("adds agent to participants when existing bet thread does not include agent", async () => {
+		test("adds agent to participants when existing bet thread does not include agent", async ({ db }) => {
+			await seed(db);
 			// Create a bet thread that does NOT include agent-a
 			await db.insert(threads).values({
 				id: "existing-bet-thread",
@@ -219,7 +209,8 @@ describe("submit_review tool", () => {
 
 	// Error cases
 	describe("error cases", () => {
-		it("returns NOT_FOUND when ctx.taskId does not exist", async () => {
+		test("returns NOT_FOUND when ctx.taskId does not exist", async ({ db }) => {
+			await seed(db);
 			const ctx: ToolContext = {
 				...makeContext(db),
 				taskId: "ghost-task-does-not-exist",
@@ -235,7 +226,8 @@ describe("submit_review tool", () => {
 			expect(result.code).toBe("NOT_FOUND");
 		});
 
-		it("returns INVALID_INPUT when reasoning array is empty", async () => {
+		test("returns INVALID_INPUT when reasoning array is empty", async ({ db }) => {
+			await seed(db);
 			const result = await submitReviewTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
 				{ title: "No reasoning", reasoning: [] } as any,

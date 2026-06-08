@@ -16,12 +16,10 @@
  */
 
 import {
-	createTestDb,
 	factorySettings,
 	type HyperIdleDb,
 	items as itemsTable,
 	notificationQueue,
-	type TestDbHandle,
 	threads,
 } from "@hyperidle/db";
 import {
@@ -32,15 +30,14 @@ import {
 	registerNotificationDispatcher,
 	type SendResult,
 } from "@hyperidle/fabric";
-import {
-	type CostCapBreachedEvent,
-	type CostCapWarningEvent,
-	EventBus,
-	type ItemCreatedEvent,
-	type TaskStateChangedEvent,
+import type {
+	CostCapBreachedEvent,
+	CostCapWarningEvent,
+	ItemCreatedEvent,
+	TaskStateChangedEvent,
 } from "@hyperidle/shared";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readServerConfig, updateServerConfig } from "../../services/server-config.js";
+import { afterEach, describe, expect, test, vi } from "../../test-fixtures.js";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -126,7 +123,7 @@ async function createItem(
 }
 
 function emitTaskStateChanged(
-	bus: EventBus,
+	bus: import("@hyperidle/shared").EventBus,
 	fromState: "pending" | "in_progress",
 	toState: "in_progress" | "done",
 	taskId = "task-r8",
@@ -155,7 +152,7 @@ function emitTaskStateChanged(
  */
 function registerWithPrefs(
 	db: HyperIdleDb,
-	bus: EventBus,
+	bus: import("@hyperidle/shared").EventBus,
 	adapter: NotificationAdapter,
 	extraDeps: Partial<{ now: () => Date }> = {},
 ): () => void {
@@ -190,29 +187,21 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 	 * (F-06) that only asserted values of arrays they themselves constructed.
 	 * True behavioral coverage requires emitting events and observing outcomes.
 	 */
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let bus: EventBus;
-	let adapter: ReturnType<typeof createFakeAdapter>;
-	let unsubscribe: () => void;
+	let unsubscribe: (() => void) | undefined;
 
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		bus = new EventBus();
-		adapter = createFakeAdapter();
-	});
-
-	afterEach(async () => {
+	afterEach(() => {
 		unsubscribe?.();
-		await handle?.close();
 	});
 
-	it("item_created with blocking item → dispatcher handler fires (subscribed)", async () => {
+	test("item_created with blocking item → dispatcher handler fires (subscribed)", async ({
+		db,
+		eventBus,
+	}) => {
+		const adapter = createFakeAdapter();
 		await enableNotifications(db);
 		const threadId = await seedThread(db, "thread-ac1-item");
 		await createItem(db, { id: "ac1-blocking", blocking: true, riskTier: "medium", threadId });
-		unsubscribe = registerNotificationDispatcher(db, bus, { adapterFactory: () => adapter });
+		unsubscribe = registerNotificationDispatcher(db, eventBus, { adapterFactory: () => adapter });
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
@@ -222,16 +211,20 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 			kind: "approval",
 			timestamp: Date.now(),
 		};
-		bus.emit(event);
+		eventBus.emit(event);
 
 		// Handler is subscribed — adapter should receive the notification
 		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
 		expect(adapter.calls[0].notification.severity).toBe("blocking");
 	});
 
-	it("cost_cap_breached (hard) → dispatcher handler fires (subscribed)", async () => {
+	test("cost_cap_breached (hard) → dispatcher handler fires (subscribed)", async ({
+		db,
+		eventBus,
+	}) => {
+		const adapter = createFakeAdapter();
 		await enableNotifications(db);
-		unsubscribe = registerNotificationDispatcher(db, bus, { adapterFactory: () => adapter });
+		unsubscribe = registerNotificationDispatcher(db, eventBus, { adapterFactory: () => adapter });
 
 		const event: CostCapBreachedEvent = {
 			type: "cost_cap_breached",
@@ -243,16 +236,20 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 			cap: 100,
 			timestamp: Date.now(),
 		};
-		bus.emit(event);
+		eventBus.emit(event);
 
 		// Handler is subscribed — cost_breach severity pushed
 		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
 		expect(adapter.calls[0].notification.severity).toBe("cost_breach");
 	});
 
-	it("cost_cap_warning (critical) → dispatcher handler fires (subscribed)", async () => {
+	test("cost_cap_warning (critical) → dispatcher handler fires (subscribed)", async ({
+		db,
+		eventBus,
+	}) => {
+		const adapter = createFakeAdapter();
 		await enableNotifications(db);
-		unsubscribe = registerNotificationDispatcher(db, bus, { adapterFactory: () => adapter });
+		unsubscribe = registerNotificationDispatcher(db, eventBus, { adapterFactory: () => adapter });
 
 		const event: CostCapWarningEvent = {
 			type: "cost_cap_warning",
@@ -264,21 +261,25 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 			cap: 100,
 			timestamp: Date.now(),
 		};
-		bus.emit(event);
+		eventBus.emit(event);
 
 		// Critical warning → push (cost_breach severity)
 		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
 		expect(adapter.calls[0].notification.severity).toBe("cost_breach");
 	});
 
-	it("task_state_changed → dispatcher does NOT fire (not subscribed — intentionally silent)", async () => {
+	test("task_state_changed → dispatcher does NOT fire (not subscribed — intentionally silent)", async ({
+		db,
+		eventBus,
+	}) => {
+		const adapter = createFakeAdapter();
 		// AC2: task_state_changed is explicitly not subscribed by the dispatcher.
 		// Emitting it should produce no notifications and no queue rows.
 		await enableNotifications(db);
-		unsubscribe = registerNotificationDispatcher(db, bus, { adapterFactory: () => adapter });
+		unsubscribe = registerNotificationDispatcher(db, eventBus, { adapterFactory: () => adapter });
 
-		emitTaskStateChanged(bus, "pending", "in_progress");
-		emitTaskStateChanged(bus, "in_progress", "done");
+		emitTaskStateChanged(eventBus, "pending", "in_progress");
+		emitTaskStateChanged(eventBus, "in_progress", "done");
 
 		// Allow async event handlers to fully settle
 		await Promise.resolve();
@@ -289,11 +290,15 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 		expect(rows).toHaveLength(0);
 	});
 
-	it("cost_cap_warning (warning level) → enqueued as digest (subscribed, digest path)", async () => {
+	test("cost_cap_warning (warning level) → enqueued as digest (subscribed, digest path)", async ({
+		db,
+		eventBus,
+	}) => {
+		const adapter = createFakeAdapter();
 		// cost_cap_warning with level=warning produces a digest row, not a push.
 		// This verifies the subscription exists but the classification is digest.
 		await enableNotifications(db);
-		unsubscribe = registerNotificationDispatcher(db, bus, { adapterFactory: () => adapter });
+		unsubscribe = registerNotificationDispatcher(db, eventBus, { adapterFactory: () => adapter });
 
 		const event: CostCapWarningEvent = {
 			type: "cost_cap_warning",
@@ -305,7 +310,7 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 			cap: 100,
 			timestamp: Date.now(),
 		};
-		bus.emit(event);
+		eventBus.emit(event);
 
 		// Handler is subscribed — digest row appears, no push
 		await vi.waitFor(async () => {
@@ -323,31 +328,23 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 // ---------------------------------------------------------------------------
 
 describe("R8 AC2 — Routine task state changes are silent", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let bus: EventBus;
-	let adapter: ReturnType<typeof createFakeAdapter>;
-	let unsubscribe: () => void;
+	let unsubscribe: (() => void) | undefined;
 
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		bus = new EventBus();
-		adapter = createFakeAdapter();
-	});
-
-	afterEach(async () => {
+	afterEach(() => {
 		unsubscribe?.();
-		await handle?.close();
 	});
 
-	it("task_state_changed pending→in_progress does NOT generate a notification or queue row", async () => {
+	test("task_state_changed pending→in_progress does NOT generate a notification or queue row", async ({
+		db,
+		eventBus,
+	}) => {
+		const adapter = createFakeAdapter();
 		await enableNotifications(db);
-		unsubscribe = registerNotificationDispatcher(db, bus, {
+		unsubscribe = registerNotificationDispatcher(db, eventBus, {
 			adapterFactory: () => adapter,
 		});
 
-		emitTaskStateChanged(bus, "pending", "in_progress");
+		emitTaskStateChanged(eventBus, "pending", "in_progress");
 
 		// Allow all microtasks and async event handlers to settle.
 		await Promise.resolve();
@@ -358,13 +355,17 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 		expect(rows).toHaveLength(0);
 	});
 
-	it("task_state_changed in_progress→done does NOT generate a notification or queue row", async () => {
+	test("task_state_changed in_progress→done does NOT generate a notification or queue row", async ({
+		db,
+		eventBus,
+	}) => {
+		const adapter = createFakeAdapter();
 		await enableNotifications(db);
-		unsubscribe = registerNotificationDispatcher(db, bus, {
+		unsubscribe = registerNotificationDispatcher(db, eventBus, {
 			adapterFactory: () => adapter,
 		});
 
-		emitTaskStateChanged(bus, "in_progress", "done");
+		emitTaskStateChanged(eventBus, "in_progress", "done");
 
 		await Promise.resolve();
 		await Promise.resolve();
@@ -374,18 +375,22 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 		expect(rows).toHaveLength(0);
 	});
 
-	it("task_state_changed emits no notification even when notifications are enabled with full config", async () => {
+	test("task_state_changed emits no notification even when notifications are enabled with full config", async ({
+		db,
+		eventBus,
+	}) => {
+		const adapter = createFakeAdapter();
 		// Extra insurance: flood limit=1 to prove any push would be caught
 		await enableNotifications(db, {
 			"notifications.flood_max_per_minute": "1",
 		});
-		unsubscribe = registerNotificationDispatcher(db, bus, {
+		unsubscribe = registerNotificationDispatcher(db, eventBus, {
 			adapterFactory: () => adapter,
 		});
 
 		// Emit multiple transitions
-		emitTaskStateChanged(bus, "pending", "in_progress", "task-a");
-		emitTaskStateChanged(bus, "in_progress", "done", "task-a");
+		emitTaskStateChanged(eventBus, "pending", "in_progress", "task-a");
+		emitTaskStateChanged(eventBus, "in_progress", "done", "task-a");
 
 		await Promise.resolve();
 		await Promise.resolve();
@@ -401,25 +406,14 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 // ---------------------------------------------------------------------------
 
 describe("R8 AC3 — Blocker alerts respect blockerAlerts preference", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let bus: EventBus;
-	let adapter: ReturnType<typeof createFakeAdapter>;
-	let unsubscribe: () => void;
+	let unsubscribe: (() => void) | undefined;
 
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		bus = new EventBus();
-		adapter = createFakeAdapter();
-	});
-
-	afterEach(async () => {
+	afterEach(() => {
 		unsubscribe?.();
-		await handle?.close();
 	});
 
-	it("blockerAlerts=false drops blocking item notification", async () => {
+	test("blockerAlerts=false drops blocking item notification", async ({ db, eventBus }) => {
+		const adapter = createFakeAdapter();
 		await enableNotifications(db);
 		// Set blockerAlerts=false via server_config
 		await updateServerConfig(db, { notifications: { blockerAlerts: false } });
@@ -427,7 +421,7 @@ describe("R8 AC3 — Blocker alerts respect blockerAlerts preference", () => {
 		const threadId = await seedThread(db);
 		await createItem(db, { id: "blocker-off", blocking: true, riskTier: "high", threadId });
 
-		unsubscribe = registerWithPrefs(db, bus, adapter);
+		unsubscribe = registerWithPrefs(db, eventBus, adapter);
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
@@ -437,7 +431,7 @@ describe("R8 AC3 — Blocker alerts respect blockerAlerts preference", () => {
 			kind: "approval",
 			timestamp: Date.now(),
 		};
-		bus.emit(event);
+		eventBus.emit(event);
 
 		// Allow async event handlers to settle
 		await new Promise((resolve) => setTimeout(resolve, 50));
@@ -447,14 +441,15 @@ describe("R8 AC3 — Blocker alerts respect blockerAlerts preference", () => {
 		expect(rows).toHaveLength(0);
 	});
 
-	it("blockerAlerts=true (default) pushes blocking item", async () => {
+	test("blockerAlerts=true (default) pushes blocking item", async ({ db, eventBus }) => {
+		const adapter = createFakeAdapter();
 		await enableNotifications(db);
 		// Default: blockerAlerts=true — no override needed
 
 		const threadId = await seedThread(db);
 		await createItem(db, { id: "blocker-on", blocking: true, riskTier: "medium", threadId });
 
-		unsubscribe = registerWithPrefs(db, bus, adapter);
+		unsubscribe = registerWithPrefs(db, eventBus, adapter);
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
@@ -464,7 +459,7 @@ describe("R8 AC3 — Blocker alerts respect blockerAlerts preference", () => {
 			kind: "approval",
 			timestamp: Date.now(),
 		};
-		bus.emit(event);
+		eventBus.emit(event);
 
 		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
 		expect(adapter.calls[0].notification.severity).toBe("blocking");
@@ -472,29 +467,18 @@ describe("R8 AC3 — Blocker alerts respect blockerAlerts preference", () => {
 });
 
 describe("R8 AC3 — Cost alerts respect costAlerts preference", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let bus: EventBus;
-	let adapter: ReturnType<typeof createFakeAdapter>;
-	let unsubscribe: () => void;
+	let unsubscribe: (() => void) | undefined;
 
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		bus = new EventBus();
-		adapter = createFakeAdapter();
-	});
-
-	afterEach(async () => {
+	afterEach(() => {
 		unsubscribe?.();
-		await handle?.close();
 	});
 
-	it("costAlerts=false drops cost_cap_warning (critical)", async () => {
+	test("costAlerts=false drops cost_cap_warning (critical)", async ({ db, eventBus }) => {
+		const adapter = createFakeAdapter();
 		await enableNotifications(db);
 		await updateServerConfig(db, { notifications: { costAlerts: false } });
 
-		unsubscribe = registerWithPrefs(db, bus, adapter);
+		unsubscribe = registerWithPrefs(db, eventBus, adapter);
 
 		const event: CostCapWarningEvent = {
 			type: "cost_cap_warning",
@@ -506,7 +490,7 @@ describe("R8 AC3 — Cost alerts respect costAlerts preference", () => {
 			cap: 100,
 			timestamp: Date.now(),
 		};
-		bus.emit(event);
+		eventBus.emit(event);
 
 		await new Promise((resolve) => setTimeout(resolve, 50));
 
@@ -516,11 +500,12 @@ describe("R8 AC3 — Cost alerts respect costAlerts preference", () => {
 		expect(rows).toHaveLength(0);
 	});
 
-	it("costAlerts=false drops cost_cap_breached (soft)", async () => {
+	test("costAlerts=false drops cost_cap_breached (soft)", async ({ db, eventBus }) => {
+		const adapter = createFakeAdapter();
 		await enableNotifications(db);
 		await updateServerConfig(db, { notifications: { costAlerts: false } });
 
-		unsubscribe = registerWithPrefs(db, bus, adapter);
+		unsubscribe = registerWithPrefs(db, eventBus, adapter);
 
 		const event: CostCapBreachedEvent = {
 			type: "cost_cap_breached",
@@ -532,7 +517,7 @@ describe("R8 AC3 — Cost alerts respect costAlerts preference", () => {
 			cap: 100,
 			timestamp: Date.now(),
 		};
-		bus.emit(event);
+		eventBus.emit(event);
 
 		await new Promise((resolve) => setTimeout(resolve, 50));
 
@@ -542,14 +527,18 @@ describe("R8 AC3 — Cost alerts respect costAlerts preference", () => {
 		expect(rows).toHaveLength(0);
 	});
 
-	it("costAlerts=false STILL pushes cost_cap_breached (hard) — safety override", async () => {
+	test("costAlerts=false STILL pushes cost_cap_breached (hard) — safety override", async ({
+		db,
+		eventBus,
+	}) => {
+		const adapter = createFakeAdapter();
 		// Hard cost cap breach is a safety-critical event — it MUST page even
 		// when the user has disabled cost alerts. The operator cannot opt out
 		// of a hard cap breach notification.
 		await enableNotifications(db);
 		await updateServerConfig(db, { notifications: { costAlerts: false } });
 
-		unsubscribe = registerWithPrefs(db, bus, adapter);
+		unsubscribe = registerWithPrefs(db, eventBus, adapter);
 
 		const event: CostCapBreachedEvent = {
 			type: "cost_cap_breached",
@@ -561,17 +550,18 @@ describe("R8 AC3 — Cost alerts respect costAlerts preference", () => {
 			cap: 100,
 			timestamp: Date.now(),
 		};
-		bus.emit(event);
+		eventBus.emit(event);
 
 		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
 		expect(adapter.calls[0].notification.severity).toBe("cost_breach");
 	});
 
-	it("costAlerts=true (default) pushes cost_cap_warning (critical)", async () => {
+	test("costAlerts=true (default) pushes cost_cap_warning (critical)", async ({ db, eventBus }) => {
+		const adapter = createFakeAdapter();
 		await enableNotifications(db);
 		// Default: costAlerts=true
 
-		unsubscribe = registerWithPrefs(db, bus, adapter);
+		unsubscribe = registerWithPrefs(db, eventBus, adapter);
 
 		const event: CostCapWarningEvent = {
 			type: "cost_cap_warning",
@@ -583,7 +573,7 @@ describe("R8 AC3 — Cost alerts respect costAlerts preference", () => {
 			cap: 100,
 			timestamp: Date.now(),
 		};
-		bus.emit(event);
+		eventBus.emit(event);
 
 		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
 		expect(adapter.calls[0].notification.severity).toBe("cost_breach");
@@ -595,25 +585,17 @@ describe("R8 AC3 — Cost alerts respect costAlerts preference", () => {
 // ---------------------------------------------------------------------------
 
 describe("R8 AC4 — Review alerts respect reviewAlerts preference", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let bus: EventBus;
-	let adapter: ReturnType<typeof createFakeAdapter>;
-	let unsubscribe: () => void;
+	let unsubscribe: (() => void) | undefined;
 
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		bus = new EventBus();
-		adapter = createFakeAdapter();
-	});
-
-	afterEach(async () => {
+	afterEach(() => {
 		unsubscribe?.();
-		await handle?.close();
 	});
 
-	it("reviewAlerts=false drops review item (kind=review, riskTier=high)", async () => {
+	test("reviewAlerts=false drops review item (kind=review, riskTier=high)", async ({
+		db,
+		eventBus,
+	}) => {
+		const adapter = createFakeAdapter();
 		await enableNotifications(db);
 		await updateServerConfig(db, { notifications: { reviewAlerts: false } });
 
@@ -627,7 +609,7 @@ describe("R8 AC4 — Review alerts respect reviewAlerts preference", () => {
 			threadId,
 		});
 
-		unsubscribe = registerWithPrefs(db, bus, adapter);
+		unsubscribe = registerWithPrefs(db, eventBus, adapter);
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
@@ -637,7 +619,7 @@ describe("R8 AC4 — Review alerts respect reviewAlerts preference", () => {
 			kind: "review",
 			timestamp: Date.now(),
 		};
-		bus.emit(event);
+		eventBus.emit(event);
 
 		await new Promise((resolve) => setTimeout(resolve, 50));
 
@@ -646,7 +628,11 @@ describe("R8 AC4 — Review alerts respect reviewAlerts preference", () => {
 		expect(rows).toHaveLength(0);
 	});
 
-	it("reviewAlerts=true (default) pushes review item (kind=review, riskTier=high)", async () => {
+	test("reviewAlerts=true (default) pushes review item (kind=review, riskTier=high)", async ({
+		db,
+		eventBus,
+	}) => {
+		const adapter = createFakeAdapter();
 		await enableNotifications(db);
 		// Default: reviewAlerts=true
 
@@ -659,7 +645,7 @@ describe("R8 AC4 — Review alerts respect reviewAlerts preference", () => {
 			threadId,
 		});
 
-		unsubscribe = registerWithPrefs(db, bus, adapter);
+		unsubscribe = registerWithPrefs(db, eventBus, adapter);
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
@@ -669,13 +655,17 @@ describe("R8 AC4 — Review alerts respect reviewAlerts preference", () => {
 			kind: "review",
 			timestamp: Date.now(),
 		};
-		bus.emit(event);
+		eventBus.emit(event);
 
 		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
 		expect(adapter.calls[0].notification.severity).toBe("blocking");
 	});
 
-	it("reviewAlerts=false does NOT suppress non-review blocking items", async () => {
+	test("reviewAlerts=false does NOT suppress non-review blocking items", async ({
+		db,
+		eventBus,
+	}) => {
+		const adapter = createFakeAdapter();
 		// Disabling review alerts should only affect review-kind items.
 		// A non-review blocking item should still push.
 		await enableNotifications(db);
@@ -690,7 +680,7 @@ describe("R8 AC4 — Review alerts respect reviewAlerts preference", () => {
 			threadId,
 		});
 
-		unsubscribe = registerWithPrefs(db, bus, adapter);
+		unsubscribe = registerWithPrefs(db, eventBus, adapter);
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
@@ -700,7 +690,7 @@ describe("R8 AC4 — Review alerts respect reviewAlerts preference", () => {
 			kind: "approval",
 			timestamp: Date.now(),
 		};
-		bus.emit(event);
+		eventBus.emit(event);
 
 		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
 		expect(adapter.calls[0].notification.severity).toBe("blocking");
@@ -712,25 +702,15 @@ describe("R8 AC4 — Review alerts respect reviewAlerts preference", () => {
 // ---------------------------------------------------------------------------
 
 describe("R8 AC5 — quietHoursEnabled defaults to false", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	});
-
-	afterEach(async () => {
-		await handle?.close();
-	});
-
-	it("readServerConfig on a fresh DB returns quietHoursEnabled=false", async () => {
+	test("readServerConfig on a fresh DB returns quietHoursEnabled=false", async ({ db }) => {
 		const cfg = await readServerConfig(db);
 		// quietHoursEnabled must exist and default to false
 		expect(cfg.notifications.quietHoursEnabled).toBe(false);
 	});
 
-	it("quietHoursEnabled=false means quiet-hours start/end are irrelevant — no silence applied", async () => {
+	test("quietHoursEnabled=false means quiet-hours start/end are irrelevant — no silence applied", async ({
+		db,
+	}) => {
 		// With quietHoursEnabled=false, routing should ignore quietHoursStart/End
 		// even if they are set to cover the current time.
 		await updateServerConfig(db, {
@@ -749,7 +729,7 @@ describe("R8 AC5 — quietHoursEnabled defaults to false", () => {
 		// even if the current time falls within the quiet window.
 	});
 
-	it("quietHoursEnabled can be set to true via updateServerConfig", async () => {
+	test("quietHoursEnabled can be set to true via updateServerConfig", async ({ db }) => {
 		await updateServerConfig(db, {
 			notifications: {
 				quietHoursEnabled: true,
@@ -764,7 +744,7 @@ describe("R8 AC5 — quietHoursEnabled defaults to false", () => {
 		expect(cfg.notifications.quietHoursEnd).toBe("08:00");
 	});
 
-	it("quietHoursEnabled persists correctly through a read-write-read cycle", async () => {
+	test("quietHoursEnabled persists correctly through a read-write-read cycle", async ({ db }) => {
 		// Verify the field survives round-trip through DB serialization.
 		const before = await readServerConfig(db);
 		expect(before.notifications.quietHoursEnabled).toBe(false);
@@ -780,25 +760,17 @@ describe("R8 AC5 — quietHoursEnabled defaults to false", () => {
 });
 
 describe("R8 AC5 — Quiet hours dispatcher integration", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let bus: EventBus;
-	let adapter: ReturnType<typeof createFakeAdapter>;
-	let unsubscribe: () => void;
+	let unsubscribe: (() => void) | undefined;
 
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		bus = new EventBus();
-		adapter = createFakeAdapter();
-	});
-
-	afterEach(async () => {
+	afterEach(() => {
 		unsubscribe?.();
-		await handle?.close();
 	});
 
-	it("quietHoursEnabled=false — blocking item pushes regardless of time", async () => {
+	test("quietHoursEnabled=false — blocking item pushes regardless of time", async ({
+		db,
+		eventBus,
+	}) => {
+		const adapter = createFakeAdapter();
 		// quietHoursEnabled=false: no silence window should be applied by the
 		// quiet-hours path even if start/end cover the current time.
 		await enableNotifications(db);
@@ -815,7 +787,7 @@ describe("R8 AC5 — Quiet hours dispatcher integration", () => {
 
 		// Use a fixed "now" that falls inside the 00:00–23:59 window
 		const fixedNow = new Date("2026-05-30T12:00:00.000Z");
-		unsubscribe = registerWithPrefs(db, bus, adapter, { now: () => fixedNow });
+		unsubscribe = registerWithPrefs(db, eventBus, adapter, { now: () => fixedNow });
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
@@ -825,7 +797,7 @@ describe("R8 AC5 — Quiet hours dispatcher integration", () => {
 			kind: "approval",
 			timestamp: fixedNow.getTime(),
 		};
-		bus.emit(event);
+		eventBus.emit(event);
 
 		// Should push — quiet hours are disabled
 		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
@@ -839,7 +811,11 @@ describe("R8 AC5 — Quiet hours dispatcher integration", () => {
 		expect(silenceRows).toHaveLength(0);
 	});
 
-	it("quietHoursEnabled=true — blocking item is queued (silenced) within the window", async () => {
+	test("quietHoursEnabled=true — blocking item is queued (silenced) within the window", async ({
+		db,
+		eventBus,
+	}) => {
+		const adapter = createFakeAdapter();
 		// quietHoursEnabled=true with a window that covers 12:00 UTC.
 		// The dispatcher should enqueue instead of push.
 		await enableNotifications(db);
@@ -855,7 +831,7 @@ describe("R8 AC5 — Quiet hours dispatcher integration", () => {
 		await createItem(db, { id: "qh-on-blocking", blocking: true, riskTier: "medium", threadId });
 
 		const fixedNow = new Date("2026-05-30T12:00:00.000Z"); // 12:00 UTC — inside 10:00–14:00
-		unsubscribe = registerWithPrefs(db, bus, adapter, { now: () => fixedNow });
+		unsubscribe = registerWithPrefs(db, eventBus, adapter, { now: () => fixedNow });
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
@@ -865,7 +841,7 @@ describe("R8 AC5 — Quiet hours dispatcher integration", () => {
 			kind: "approval",
 			timestamp: fixedNow.getTime(),
 		};
-		bus.emit(event);
+		eventBus.emit(event);
 
 		await vi.waitFor(async () => {
 			const rows = await db.select().from(notificationQueue);
@@ -886,19 +862,7 @@ describe("R8 AC5 — Quiet hours dispatcher integration", () => {
 // ---------------------------------------------------------------------------
 
 describe("R8 Settings API — quietHoursEnabled field", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	});
-
-	afterEach(async () => {
-		await handle?.close();
-	});
-
-	it("PATCH /api/settings accepts quietHoursEnabled=true and persists it", async () => {
+	test("PATCH /api/settings accepts quietHoursEnabled=true and persists it", async ({ db }) => {
 		// The settings route's notificationPatchSchema must include quietHoursEnabled.
 		// This test verifies that updateServerConfig accepts the field and it round-trips.
 		await updateServerConfig(db, { notifications: { quietHoursEnabled: true } });
@@ -906,7 +870,7 @@ describe("R8 Settings API — quietHoursEnabled field", () => {
 		expect(cfg.notifications.quietHoursEnabled).toBe(true);
 	});
 
-	it("PATCH /api/settings accepts quietHoursEnabled=false and persists it", async () => {
+	test("PATCH /api/settings accepts quietHoursEnabled=false and persists it", async ({ db }) => {
 		// First set to true, then back to false to prove the field is writable.
 		await updateServerConfig(db, { notifications: { quietHoursEnabled: true } });
 		await updateServerConfig(db, { notifications: { quietHoursEnabled: false } });
@@ -914,13 +878,13 @@ describe("R8 Settings API — quietHoursEnabled field", () => {
 		expect(cfg.notifications.quietHoursEnabled).toBe(false);
 	});
 
-	it("GET /api/settings response includes quietHoursEnabled field", async () => {
+	test("GET /api/settings response includes quietHoursEnabled field", async ({ db }) => {
 		const cfg = await readServerConfig(db);
 		// The settings response is built from readServerConfig — verify the field exists
 		expect(Object.hasOwn(cfg.notifications, "quietHoursEnabled")).toBe(true);
 	});
 
-	it("partial update preserves existing quietHoursEnabled", async () => {
+	test("partial update preserves existing quietHoursEnabled", async ({ db }) => {
 		await updateServerConfig(db, { notifications: { quietHoursEnabled: true } });
 		// Update only another field
 		await updateServerConfig(db, { notifications: { reviewAlerts: false } });
@@ -936,32 +900,24 @@ describe("R8 Settings API — quietHoursEnabled field", () => {
 // ---------------------------------------------------------------------------
 
 describe("R8 Preferences wiring — server_config drives dispatcher", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let bus: EventBus;
-	let adapter: ReturnType<typeof createFakeAdapter>;
-	let unsubscribe: () => void;
+	let unsubscribe: (() => void) | undefined;
 
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		bus = new EventBus();
-		adapter = createFakeAdapter();
-	});
-
-	afterEach(async () => {
+	afterEach(() => {
 		unsubscribe?.();
-		await handle?.close();
 	});
 
-	it("blockerAlerts=false in server_config → emit blocking item event → no notification sent", async () => {
+	test("blockerAlerts=false in server_config → emit blocking item event → no notification sent", async ({
+		db,
+		eventBus,
+	}) => {
+		const adapter = createFakeAdapter();
 		await enableNotifications(db);
 		await updateServerConfig(db, { notifications: { blockerAlerts: false } });
 
 		const threadId = await seedThread(db);
 		await createItem(db, { id: "pref-blocker", blocking: true, riskTier: "high", threadId });
 
-		unsubscribe = registerWithPrefs(db, bus, adapter);
+		unsubscribe = registerWithPrefs(db, eventBus, adapter);
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
@@ -971,7 +927,7 @@ describe("R8 Preferences wiring — server_config drives dispatcher", () => {
 			kind: "approval",
 			timestamp: Date.now(),
 		};
-		bus.emit(event);
+		eventBus.emit(event);
 
 		await new Promise((resolve) => setTimeout(resolve, 50));
 
@@ -980,7 +936,7 @@ describe("R8 Preferences wiring — server_config drives dispatcher", () => {
 		expect(rows).toHaveLength(0);
 	});
 
-	it("all alerts ON (defaults) → behavior identical to pre-R8 existing tests", async () => {
+	test("all alerts ON (defaults) → behavior identical to pre-R8 existing tests", async ({ db }) => {
 		// Verify defaults are all-on — this documents the baseline that must not regress.
 		await enableNotifications(db);
 		// No updateServerConfig call — pure defaults apply

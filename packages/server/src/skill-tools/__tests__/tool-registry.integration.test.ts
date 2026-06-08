@@ -1,8 +1,9 @@
 import * as os from "node:os";
 import * as path from "node:path";
-import { createTestDb, type HyperIdleDb } from "@hyperidle/db";
+import { type HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
+import { test } from "../../test-fixtures.js";
 import { buildToolRegistry, type ToolContext } from "../tool-registry.js";
 
 function makeContext(db: HyperIdleDb, eventBus: EventBus): ToolContext {
@@ -18,16 +19,7 @@ function makeContext(db: HyperIdleDb, eventBus: EventBus): ToolContext {
 }
 
 describe("buildToolRegistry", () => {
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-
-	beforeEach(async () => {
-		const handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-	});
-
-	it("returns the canonical set of skill tools", () => {
+	test("returns the canonical set of skill tools", ({ db, eventBus }) => {
 		const registry = buildToolRegistry(makeContext(db, eventBus), { role: "chief_of_staff" });
 		const names = registry.definitions.map((d) => d.name).sort();
 		expect(names).toEqual(
@@ -56,7 +48,7 @@ describe("buildToolRegistry", () => {
 		expect(registry.definitions).toHaveLength(15);
 	});
 
-	it("each definition has a non-empty description and a Zod input schema", () => {
+	test("each definition has a non-empty description and a Zod input schema", ({ db, eventBus }) => {
 		const registry = buildToolRegistry(makeContext(db, eventBus), { role: "chief_of_staff" });
 		for (const def of registry.definitions) {
 			expect(typeof def.name).toBe("string");
@@ -70,7 +62,7 @@ describe("buildToolRegistry", () => {
 	});
 
 	describe("invoke()", () => {
-		it("returns NOT_FOUND when tool name is unknown", async () => {
+		test("returns NOT_FOUND when tool name is unknown", async ({ db, eventBus }) => {
 			const registry = buildToolRegistry(makeContext(db, eventBus), { role: "chief_of_staff" });
 			const result = await registry.invoke("does_not_exist", {});
 			expect(result.success).toBe(false);
@@ -79,14 +71,14 @@ describe("buildToolRegistry", () => {
 			}
 		});
 
-		it("routes to the matching handler by name", async () => {
+		test("routes to the matching handler by name", async ({ db, eventBus }) => {
 			const registry = buildToolRegistry(makeContext(db, eventBus), { role: "chief_of_staff" });
 			// read_inbox with no inbox messages should return success: true with empty list
 			const result = await registry.invoke("read_inbox", {});
 			expect(result.success).toBe(true);
 		});
 
-		it("returns INVALID_INPUT when args fail Zod validation", async () => {
+		test("returns INVALID_INPUT when args fail Zod validation", async ({ db, eventBus }) => {
 			const registry = buildToolRegistry(makeContext(db, eventBus), { role: "chief_of_staff" });
 			// limit must be a positive integer
 			const result = await registry.invoke("read_inbox", { limit: "not-a-number" });
@@ -98,7 +90,7 @@ describe("buildToolRegistry", () => {
 	});
 
 	describe("toClaudeToolSpecs()", () => {
-		it("returns one Claude tool spec per definition", () => {
+		test("returns one Claude tool spec per definition", ({ db, eventBus }) => {
 			const registry = buildToolRegistry(makeContext(db, eventBus), { role: "chief_of_staff" });
 			const specs = registry.toClaudeToolSpecs();
 			expect(specs).toHaveLength(registry.definitions.length);
@@ -111,7 +103,7 @@ describe("buildToolRegistry", () => {
 			}
 		});
 
-		it("preserves tool names exactly", () => {
+		test("preserves tool names exactly", ({ db, eventBus }) => {
 			const registry = buildToolRegistry(makeContext(db, eventBus), { role: "chief_of_staff" });
 			const specNames = registry
 				.toClaudeToolSpecs()

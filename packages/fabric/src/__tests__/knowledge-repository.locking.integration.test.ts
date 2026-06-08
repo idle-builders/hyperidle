@@ -1,24 +1,11 @@
-import { createTestDb, type HyperIdleDb, knowledgeEditLog, knowledgeItems } from "@hyperidle/db";
+import { type HyperIdleDb, knowledgeEditLog, knowledgeItems } from "@hyperidle/db";
+import { describe, expect, test, vi } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ItemDeletedError, VersionConflictError } from "../errors.js";
 import { knowledgeEvents } from "../events.js";
 import { create, getById, update } from "../knowledge-repository.js";
 
 describe("I3: knowledge-repository optimistic locking", () => {
-	let db: HyperIdleDb;
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		knowledgeEvents.removeAllListeners();
-	});
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
 	const baseItem = {
 		layer: "L1" as const,
 		scopeId: "product-1",
@@ -31,7 +18,7 @@ describe("I3: knowledge-repository optimistic locking", () => {
 		updatedBy: "agent-1",
 	};
 
-	async function bumpToVersion(id: string, target: number): Promise<void> {
+	async function bumpToVersion(db: HyperIdleDb, id: string, target: number): Promise<void> {
 		let v = 1;
 		while (v < target) {
 			await update(db, id, { title: `seed-v${v + 1}` }, v);
@@ -39,9 +26,12 @@ describe("I3: knowledge-repository optimistic locking", () => {
 		}
 	}
 
-	it("two writers reading version 5 race: first update wins, second throws VersionConflictError", async () => {
+	test("two writers reading version 5 race: first update wins, second throws VersionConflictError", async ({
+		db,
+	}) => {
+		knowledgeEvents.removeAllListeners();
 		const created = await create(db, baseItem);
-		await bumpToVersion(created.id, 5);
+		await bumpToVersion(db, created.id, 5);
 		expect((await getById(db, created.id))?.version).toBe(5);
 
 		const writerA = async (): Promise<void> => {
@@ -59,9 +49,10 @@ describe("I3: knowledge-repository optimistic locking", () => {
 		expect(final?.title).toBe("Writer A wins");
 	});
 
-	it("update with stale expectedVersion 4 throws VersionConflictError", async () => {
+	test("update with stale expectedVersion 4 throws VersionConflictError", async ({ db }) => {
+		knowledgeEvents.removeAllListeners();
 		const created = await create(db, baseItem);
-		await bumpToVersion(created.id, 5);
+		await bumpToVersion(db, created.id, 5);
 
 		try {
 			await update(db, created.id, { title: "stale" }, 4);
@@ -73,18 +64,22 @@ describe("I3: knowledge-repository optimistic locking", () => {
 		}
 	});
 
-	it("update with correct expectedVersion succeeds and increments version", async () => {
+	test("update with correct expectedVersion succeeds and increments version", async ({ db }) => {
+		knowledgeEvents.removeAllListeners();
 		const created = await create(db, baseItem);
-		await bumpToVersion(created.id, 5);
+		await bumpToVersion(db, created.id, 5);
 
 		const result = await update(db, created.id, { title: "fresh" }, 5);
 		expect(result.version).toBe(6);
 		expect(result.title).toBe("fresh");
 	});
 
-	it("rejects UPDATE when the row has been bumped between read and write (TOCTOU)", async () => {
+	test("rejects UPDATE when the row has been bumped between read and write (TOCTOU)", async ({
+		db,
+	}) => {
+		knowledgeEvents.removeAllListeners();
 		const created = await create(db, baseItem);
-		await bumpToVersion(created.id, 5);
+		await bumpToVersion(db, created.id, 5);
 
 		const [stale] = await db
 			.select()
@@ -138,9 +133,10 @@ describe("I3: knowledge-repository optimistic locking", () => {
 		expect(final?.version).toBe(6);
 	});
 
-	it("throws ItemDeletedError when the in-tx re-read returns undefined", async () => {
+	test("throws ItemDeletedError when the in-tx re-read returns undefined", async ({ db }) => {
+		knowledgeEvents.removeAllListeners();
 		const created = await create(db, baseItem);
-		await bumpToVersion(created.id, 5);
+		await bumpToVersion(db, created.id, 5);
 
 		const [stale] = await db
 			.select()
@@ -184,9 +180,12 @@ describe("I3: knowledge-repository optimistic locking", () => {
 		}
 	});
 
-	it("ignores caller-supplied `version` field — version is computed server-side", async () => {
+	test("ignores caller-supplied `version` field — version is computed server-side", async ({
+		db,
+	}) => {
+		knowledgeEvents.removeAllListeners();
 		const created = await create(db, baseItem);
-		await bumpToVersion(created.id, 5);
+		await bumpToVersion(db, created.id, 5);
 
 		const evil = { title: "intent", version: 0 } as unknown as Parameters<typeof update>[2];
 		const result = await update(db, created.id, evil, 5);
@@ -195,9 +194,12 @@ describe("I3: knowledge-repository optimistic locking", () => {
 		expect(result.title).toBe("intent");
 	});
 
-	it("VersionConflictError carries the latest current version after the winning write", async () => {
+	test("VersionConflictError carries the latest current version after the winning write", async ({
+		db,
+	}) => {
+		knowledgeEvents.removeAllListeners();
 		const created = await create(db, baseItem);
-		await bumpToVersion(created.id, 5);
+		await bumpToVersion(db, created.id, 5);
 
 		await db
 			.update(knowledgeItems)

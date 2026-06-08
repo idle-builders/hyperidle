@@ -7,11 +7,9 @@
  *  - factorySettings are seeded with founder profile keys
  */
 
-import { createTestDb, type HyperIdleDb, teams, users } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { type HyperIdleDb, teams, users } from "@hyperidle/db";
+import { describe, expect, vi } from "vitest";
+import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-m3-settings";
 
@@ -41,18 +39,8 @@ async function seedFounderProfile(db: HyperIdleDb): Promise<void> {
 }
 
 describe("M3 — GET /api/settings (B1)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	test("returns 200 with profile, products, users, notifications", async ({ app, db }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-
 		const now = new Date().toISOString();
 		await seedFounderProfile(db);
 
@@ -83,14 +71,7 @@ describe("M3 — GET /api/settings (B1)", () => {
 			status: "paused",
 			createdAt: now,
 		});
-	});
 
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle?.close();
-	});
-
-	it("returns 200 with profile, products, users, notifications", async () => {
 		const res = await app.request("/api/settings", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 
@@ -118,9 +99,23 @@ describe("M3 — GET /api/settings (B1)", () => {
 		expect(body.teams).toHaveLength(2);
 		expect(body.users).toHaveLength(2);
 		expect(body.notifications).toBeDefined();
+		vi.unstubAllEnvs();
 	});
 
-	it("products include active flag derived from phase (archived=inactive)", async () => {
+	test("products include active flag derived from phase (archived=inactive)", async ({
+		app,
+		db,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		const now = new Date().toISOString();
+		await seedFounderProfile(db);
+		await db
+			.insert(teams)
+			.values({ id: "prod-1", name: "Product Alpha", phase: "build", createdAt: now });
+		await db
+			.insert(teams)
+			.values({ id: "prod-2", name: "Product Beta", phase: "archived", createdAt: now });
+
 		const res = await app.request("/api/settings", { headers: authHeaders() });
 		// @lore U1: `products` renamed to `teams` in the settings response.
 		const body = (await res.json()) as {
@@ -131,9 +126,30 @@ describe("M3 — GET /api/settings (B1)", () => {
 		const prod2 = body.teams.find((p) => p.id === "prod-2");
 		expect(prod1?.active).toBe(true); // phase "build" → active
 		expect(prod2?.active).toBe(false); // phase "archived" → inactive
+		vi.unstubAllEnvs();
 	});
 
-	it("users include paused flag derived from status", async () => {
+	test("users include paused flag derived from status", async ({ app, db }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		const now = new Date().toISOString();
+		await seedFounderProfile(db);
+		await db.insert(users).values({
+			id: "agent-1",
+			kind: "ai",
+			name: "Builder Bot",
+			role: "builder",
+			status: "idle",
+			createdAt: now,
+		});
+		await db.insert(users).values({
+			id: "agent-2",
+			kind: "ai",
+			name: "Reviewer Bot",
+			role: "reviewer",
+			status: "paused",
+			createdAt: now,
+		});
+
 		const res = await app.request("/api/settings", { headers: authHeaders() });
 		const body = (await res.json()) as {
 			users: Array<{ id: string; paused: boolean }>;
@@ -143,35 +159,24 @@ describe("M3 — GET /api/settings (B1)", () => {
 		const agent2 = body.users.find((a) => a.id === "agent-2");
 		expect(agent1?.paused).toBe(false); // status "idle"
 		expect(agent2?.paused).toBe(true); // status "paused"
+		vi.unstubAllEnvs();
 	});
 
-	it("returns 401 without API key", async () => {
+	test("returns 401 without API key", async ({ app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const res = await app.request("/api/settings");
 		expect(res.status).toBe(401);
+		vi.unstubAllEnvs();
 	});
 });
 
 describe("M3 — PATCH /api/settings persists notification preferences (B1)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	test("PATCH with notifications.reviewAlerts=false persists and re-GET reflects change", async ({
+		app,
+		db,
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
 		await seedFounderProfile(db);
-	});
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle?.close();
-	});
-
-	it("PATCH with notifications.reviewAlerts=false persists and re-GET reflects change", async () => {
 		// First PATCH
 		const patchRes = await app.request("/api/settings", {
 			method: "PATCH",
@@ -188,5 +193,6 @@ describe("M3 — PATCH /api/settings persists notification preferences (B1)", ()
 			notifications: { reviewAlerts: boolean };
 		};
 		expect(body.notifications.reviewAlerts).toBe(false);
+		vi.unstubAllEnvs();
 	});
 });

@@ -1,5 +1,5 @@
-import { createTestDb, factorySettings, type HyperIdleDb } from "@hyperidle/db";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { factorySettings } from "@hyperidle/db";
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import {
 	ATTENTION_THRESHOLD,
 	getDefaultAttentionWeights,
@@ -9,25 +9,13 @@ import {
 const NOW = "2026-04-18T00:00:00.000Z";
 
 describe("loadAttentionWeights", () => {
-	let db: HyperIdleDb;
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	});
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	it("returns defaults when no settings rows exist", async () => {
+	test("returns defaults when no settings rows exist", async ({ db }) => {
 		const loaded = await loadAttentionWeights(db);
 		const defaults = getDefaultAttentionWeights();
 		expect(loaded).toEqual(defaults);
 	});
 
-	it("overrides per-key from factory_settings", async () => {
+	test("overrides per-key from factory_settings", async ({ db }) => {
 		await db
 			.insert(factorySettings)
 			.values({ key: "attention.weight.novelty", value: "0.50", updatedAt: NOW });
@@ -43,7 +31,7 @@ describe("loadAttentionWeights", () => {
 		expect(loaded.tasteSensitivity).toBe(defaults.tasteSensitivity);
 	});
 
-	it("ignores out-of-range values (< 0, > 1, NaN)", async () => {
+	test("ignores out-of-range values (< 0, > 1, NaN)", async ({ db }) => {
 		await db
 			.insert(factorySettings)
 			.values({ key: "attention.weight.novelty", value: "-0.1", updatedAt: NOW });
@@ -63,7 +51,7 @@ describe("loadAttentionWeights", () => {
 		expect(loaded.tasteSensitivity).toBe(defaults.tasteSensitivity);
 	});
 
-	it("exposes ATTENTION_THRESHOLD = 0.7", () => {
+	test("exposes ATTENTION_THRESHOLD = 0.7", () => {
 		expect(ATTENTION_THRESHOLD).toBe(0.7);
 	});
 });

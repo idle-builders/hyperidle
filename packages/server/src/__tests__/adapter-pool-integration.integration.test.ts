@@ -15,17 +15,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import {
-	bets,
-	createTestDb,
-	type HyperIdleDb,
-	sessions,
-	type TestDbHandle,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { clearDeduplicationCache } from "@hyperidle/fabric";
 import type {
 	HarnessAdapter,
@@ -35,14 +25,14 @@ import type {
 	SessionHandle,
 	SessionResult,
 } from "@hyperidle/shared";
-import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect } from "vitest";
 import type { AdapterMeta } from "../harness/adapter-pool.js";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
 import type { ProvisionSessionDeps } from "../services/session-provisioning.js";
 import { provisionSession } from "../services/session-provisioning.js";
+import { test } from "../test-fixtures.js";
 
 // ── Scripted mock adapter ─────────────────────────────────────────────────────
 
@@ -123,39 +113,36 @@ async function seedDomain(db: HyperIdleDb): Promise<void> {
 
 // ── Tests ──────────────────────────────────────────────────────────────────────
 
-let dbHandle: TestDbHandle;
-let db: HyperIdleDb;
-let eventBus: EventBus;
-let tmpDir: string;
-let workspace: LocalWorkspaceAdapter;
-
-beforeEach(async () => {
-	dbHandle = await createTestDb();
-	db = dbHandle.db;
-	eventBus = new EventBus();
-	tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pool-test-"));
-	workspace = new LocalWorkspaceAdapter();
-	await seedDomain(db);
-	clearDeduplicationCache();
-}, 120_000);
-
-afterEach(() => {
-	fs.rmSync(tmpDir, { recursive: true, force: true });
-	// @lore PGLite: NOT calling dbHandle.close() here intentionally. close() would
-	// TRUNCATE (blocking, holds PGlite connection) after provisionSession has left
-	// async state (file watchers, open async generators) that can deadlock the
-	// TRUNCATE under load. Pattern follows session-provisioning.test.ts — each
-	// beforeEach gets a fresh PGlite instance; in-memory instances are GC'd with
-	// the worker. No resource leak occurs.
-});
-
 // ProvisionSessionParams imported for type reference only
 
 describe("AdapterPool + provisionSession integration (AC3)", () => {
-	it("provisionSession selects adapter from pool and releases after completion", async () => {
+	let tmpDir: string;
+
+	beforeEach(() => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pool-test-"));
+	});
+
+	afterEach(() => {
+		fs.rmSync(tmpDir, { recursive: true, force: true });
+		// @lore PGLite: NOT calling dbHandle.close() here intentionally. close() would
+		// TRUNCATE (blocking, holds PGlite connection) after provisionSession has left
+		// async state (file watchers, open async generators) that can deadlock the
+		// TRUNCATE under load. Pattern follows session-provisioning.test.ts — each
+		// beforeEach gets a fresh PGlite instance; in-memory instances are GC'd with
+		// the worker. No resource leak occurs.
+	});
+
+	test("provisionSession selects adapter from pool and releases after completion", async ({
+		db,
+		eventBus,
+	}) => {
+		await seedDomain(db);
+		clearDeduplicationCache();
+
 		const pool = new AdapterPool();
 		pool.register("local", makeScriptedAdapter(), LOCAL_META);
 
+		const workspace = new LocalWorkspaceAdapter();
 		const deps: ProvisionSessionDeps = {
 			db,
 			eventBus,
@@ -178,12 +165,19 @@ describe("AdapterPool + provisionSession integration (AC3)", () => {
 		expect(pool.list()[0]?.currentLoad).toBe(0);
 	}, 120_000);
 
-	it("all adapters at capacity → provisioning fails with retriable error, task unchanged", async () => {
+	test("all adapters at capacity → provisioning fails with retriable error, task unchanged", async ({
+		db,
+		eventBus,
+	}) => {
+		await seedDomain(db);
+		clearDeduplicationCache();
+
 		const pool = new AdapterPool();
 		// Register with maxConcurrent: 1 and pre-fill the slot
 		pool.register("local", makeScriptedAdapter(), { ...LOCAL_META, maxConcurrent: 1 });
 		pool.select(); // fill the only slot
 
+		const workspace = new LocalWorkspaceAdapter();
 		const deps: ProvisionSessionDeps = {
 			db,
 			eventBus,
@@ -208,7 +202,24 @@ describe("AdapterPool + provisionSession integration (AC3)", () => {
 });
 
 describe("AdapterPool backward compat: single adapter pool (AC8)", () => {
-	it("pool with one adapter produces same outcome as current single-harness path", async () => {
+	let tmpDir: string;
+
+	beforeEach(() => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pool-test-"));
+	});
+
+	afterEach(() => {
+		fs.rmSync(tmpDir, { recursive: true, force: true });
+		// @lore PGLite: NOT calling dbHandle.close() here intentionally (see AC3 lore above).
+	});
+
+	test("pool with one adapter produces same outcome as current single-harness path", async ({
+		db,
+		eventBus,
+	}) => {
+		await seedDomain(db);
+		clearDeduplicationCache();
+
 		const pool = new AdapterPool();
 		pool.register(
 			"local",
@@ -219,6 +230,7 @@ describe("AdapterPool backward compat: single adapter pool (AC8)", () => {
 			LOCAL_META,
 		);
 
+		const workspace = new LocalWorkspaceAdapter();
 		const deps: ProvisionSessionDeps = {
 			db,
 			eventBus,
@@ -242,7 +254,7 @@ describe("AdapterPool backward compat: single adapter pool (AC8)", () => {
 });
 
 describe("Server self-registration (AC4)", () => {
-	it("pool has local adapters (claude-code + builtin) after createLocalAdapterPool", async () => {
+	test("pool has local adapters (claude-code + builtin) after createLocalAdapterPool", async () => {
 		const { createLocalAdapterPool } = await import("../harness/adapter-pool.js");
 
 		const pool = await createLocalAdapterPool();

@@ -3,7 +3,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	sessions,
 	tasks,
@@ -14,7 +13,8 @@ import {
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect } from "vitest";
+import { test } from "../../test-fixtures.js";
 import type { ToolContext } from "../tool-registry.js";
 import { writeSessionNotesTool } from "../write-session-notes.js";
 
@@ -78,10 +78,22 @@ async function seed(db: HyperIdleDb): Promise<void> {
 }
 
 describe("write_session_notes tool", () => {
-	let db: HyperIdleDb;
+	// workspacePath is per-describe, created and cleaned per test run via beforeEach/afterEach.
+	// These are plain vitest lifecycle hooks (not fixture-injected), used solely for
+	// filesystem setup — no db/app fixture injection needed here.
 	let workspacePath: string;
 
-	function makeContext(): ToolContext {
+	beforeEach(() => {
+		workspacePath = fs.mkdtempSync(path.join(os.tmpdir(), "hi-d4-notes-"));
+	});
+
+	afterEach(() => {
+		if (fs.existsSync(workspacePath)) {
+			fs.rmSync(workspacePath, { recursive: true, force: true });
+		}
+	});
+
+	function makeContext(db: HyperIdleDb): ToolContext {
 		return {
 			db,
 			eventBus: new EventBus(),
@@ -93,22 +105,10 @@ describe("write_session_notes tool", () => {
 		};
 	}
 
-	beforeEach(async () => {
-		const handle = await createTestDb();
-		db = handle.db;
-		await seed(db);
-		workspacePath = fs.mkdtempSync(path.join(os.tmpdir(), "hi-d4-notes-"));
-	});
-
-	afterEach(() => {
-		if (fs.existsSync(workspacePath)) {
-			fs.rmSync(workspacePath, { recursive: true, force: true });
-		}
-	});
-
 	describe("AC7: writes to work/session-notes.md, reflected in sessions.notes", () => {
-		it("writes the file at work/session-notes.md", async () => {
-			const result = await writeSessionNotesTool.handler({ notes: "Reflection X" }, makeContext());
+		test("writes the file at work/session-notes.md", async ({ db }) => {
+			await seed(db);
+			const result = await writeSessionNotesTool.handler({ notes: "Reflection X" }, makeContext(db));
 			expect(result.success).toBe(true);
 
 			const filePath = path.join(workspacePath, "work", "session-notes.md");
@@ -116,30 +116,34 @@ describe("write_session_notes tool", () => {
 			expect(fs.readFileSync(filePath, "utf-8")).toBe("Reflection X");
 		});
 
-		it("updates sessions.notes in the database", async () => {
-			const result = await writeSessionNotesTool.handler({ notes: "Reflection X" }, makeContext());
+		test("updates sessions.notes in the database", async ({ db }) => {
+			await seed(db);
+			const result = await writeSessionNotesTool.handler({ notes: "Reflection X" }, makeContext(db));
 			expect(result.success).toBe(true);
 
 			const [session] = await db.select().from(sessions).where(eq(sessions.id, "session-1"));
 			expect(session?.notes).toBe("Reflection X");
 		});
 
-		it("creates the work/ subdirectory if missing", async () => {
-			const result = await writeSessionNotesTool.handler({ notes: "Hello" }, makeContext());
+		test("creates the work/ subdirectory if missing", async ({ db }) => {
+			await seed(db);
+			const result = await writeSessionNotesTool.handler({ notes: "Hello" }, makeContext(db));
 			expect(result.success).toBe(true);
 			expect(fs.existsSync(path.join(workspacePath, "work"))).toBe(true);
 		});
 
-		it("overwrites by default (no append)", async () => {
-			await writeSessionNotesTool.handler({ notes: "First" }, makeContext());
-			await writeSessionNotesTool.handler({ notes: "Second" }, makeContext());
+		test("overwrites by default (no append)", async ({ db }) => {
+			await seed(db);
+			await writeSessionNotesTool.handler({ notes: "First" }, makeContext(db));
+			await writeSessionNotesTool.handler({ notes: "Second" }, makeContext(db));
 			const filePath = path.join(workspacePath, "work", "session-notes.md");
 			expect(fs.readFileSync(filePath, "utf-8")).toBe("Second");
 		});
 
-		it("concatenates when append=true", async () => {
-			await writeSessionNotesTool.handler({ notes: "First" }, makeContext());
-			await writeSessionNotesTool.handler({ notes: "Second", append: true }, makeContext());
+		test("concatenates when append=true", async ({ db }) => {
+			await seed(db);
+			await writeSessionNotesTool.handler({ notes: "First" }, makeContext(db));
+			await writeSessionNotesTool.handler({ notes: "Second", append: true }, makeContext(db));
 			const filePath = path.join(workspacePath, "work", "session-notes.md");
 			const contents = fs.readFileSync(filePath, "utf-8");
 			expect(contents).toContain("First");
@@ -148,22 +152,24 @@ describe("write_session_notes tool", () => {
 	});
 
 	describe("AC9: invalid input returns structured error", () => {
-		it("returns INVALID_INPUT when notes is not a string", async () => {
+		test("returns INVALID_INPUT when notes is not a string", async ({ db }) => {
+			await seed(db);
 			const result = await writeSessionNotesTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
 				{ notes: 42 } as any,
-				makeContext(),
+				makeContext(db),
 			);
 			expect(result.success).toBe(false);
 			if (result.success) return;
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		it("returns INVALID_INPUT when notes missing", async () => {
+		test("returns INVALID_INPUT when notes missing", async ({ db }) => {
+			await seed(db);
 			const result = await writeSessionNotesTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
 				{} as any,
-				makeContext(),
+				makeContext(db),
 			);
 			expect(result.success).toBe(false);
 			if (result.success) return;

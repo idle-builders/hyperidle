@@ -11,19 +11,11 @@
  * All tests in this file should FAIL until implementation is complete.
  */
 
-import {
-	createTestDb,
-	type HyperIdleDb,
-	knowledgeItems,
-	knowledgeStrategyFabric,
-	type TestDbHandle,
-	users,
-} from "@hyperidle/db";
-import { EventBus, KERNEL_KNOWLEDGE_STATUSES } from "@hyperidle/shared";
+import { type HyperIdleDb, knowledgeItems, knowledgeStrategyFabric, users } from "@hyperidle/db";
+import { KERNEL_KNOWLEDGE_STATUSES } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-y4-triage";
 
@@ -95,7 +87,7 @@ async function seedFabricWithAttentionScore(
 // ---------------------------------------------------------------------------
 
 describe("Y4 — KERNEL_KNOWLEDGE_STATUSES includes needs_human", () => {
-	it("KERNEL_KNOWLEDGE_STATUSES contains 'needs_human'", () => {
+	test("KERNEL_KNOWLEDGE_STATUSES contains 'needs_human'", () => {
 		// This test verifies the shared types constant is widened.
 		// Red: currently KERNEL_KNOWLEDGE_STATUSES = ["draft", "active", "archived"]
 		expect(KERNEL_KNOWLEDGE_STATUSES).toContain("needs_human");
@@ -107,24 +99,19 @@ describe("Y4 — KERNEL_KNOWLEDGE_STATUSES includes needs_human", () => {
 // ---------------------------------------------------------------------------
 
 describe("Y4 — GET /api/knowledge returns attentionScore in signals", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		await seedFounder(db, "founder");
-		app = await createTestApp({ db, eventBus: new EventBus() });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("returns attentionScore as a number when fabric row has attentionScore", async () => {
+	test("returns attentionScore as a number when fabric row has attentionScore", async ({
+		db,
+		app,
+	}) => {
+		await seedFounder(db, "founder");
 		await seedKnowledgeItem(db, "ki-1", "active");
 		await seedFabricWithAttentionScore(db, "ki-1", "0.85");
 
@@ -141,7 +128,11 @@ describe("Y4 — GET /api/knowledge returns attentionScore in signals", () => {
 		expect(item?.signals.attentionScore).toBeCloseTo(0.85);
 	});
 
-	it("returns attentionScore as null when fabric row has no attentionScore", async () => {
+	test("returns attentionScore as null when fabric row has no attentionScore", async ({
+		db,
+		app,
+	}) => {
+		await seedFounder(db, "founder");
 		await seedKnowledgeItem(db, "ki-2", "active");
 		// Seed fabric row without attentionScore (null)
 		await seedFabricWithAttentionScore(db, "ki-2", null);
@@ -157,7 +148,8 @@ describe("Y4 — GET /api/knowledge returns attentionScore in signals", () => {
 		expect(item?.signals.attentionScore).toBeNull();
 	});
 
-	it("returns attentionScore as null when no fabric row exists for item", async () => {
+	test("returns attentionScore as null when no fabric row exists for item", async ({ db, app }) => {
+		await seedFounder(db, "founder");
 		await seedKnowledgeItem(db, "ki-3", "active");
 		// No fabric row seeded
 
@@ -172,7 +164,11 @@ describe("Y4 — GET /api/knowledge returns attentionScore in signals", () => {
 		expect(item?.signals.attentionScore).toBeNull();
 	});
 
-	it("parses attentionScore from string to number (stored as text in DB)", async () => {
+	test("parses attentionScore from string to number (stored as text in DB)", async ({
+		db,
+		app,
+	}) => {
+		await seedFounder(db, "founder");
 		await seedKnowledgeItem(db, "ki-4", "draft");
 		await seedFabricWithAttentionScore(db, "ki-4", "0.72");
 
@@ -194,24 +190,16 @@ describe("Y4 — GET /api/knowledge returns attentionScore in signals", () => {
 // ---------------------------------------------------------------------------
 
 describe("Y4 — GET /api/knowledge/triage-count", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		await seedFounder(db, "founder");
-		app = await createTestApp({ db, eventBus: new EventBus() });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("returns { count: 0 } when no items exist", async () => {
+	test("returns { count: 0 } when no items exist", async ({ db, app }) => {
+		await seedFounder(db, "founder");
 		const res = await app.request("/api/knowledge/triage-count", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { count: number };
@@ -219,7 +207,8 @@ describe("Y4 — GET /api/knowledge/triage-count", () => {
 		expect(body.count).toBe(0);
 	});
 
-	it("counts draft items only when no needs_human items exist", async () => {
+	test("counts draft items only when no needs_human items exist", async ({ db, app }) => {
+		await seedFounder(db, "founder");
 		await seedKnowledgeItem(db, "ki-draft-1", "draft");
 		await seedKnowledgeItem(db, "ki-draft-2", "draft");
 		await seedKnowledgeItem(db, "ki-active", "active");
@@ -231,7 +220,8 @@ describe("Y4 — GET /api/knowledge/triage-count", () => {
 		expect(body.count).toBe(2);
 	});
 
-	it("counts needs_human items in addition to draft items", async () => {
+	test("counts needs_human items in addition to draft items", async ({ db, app }) => {
+		await seedFounder(db, "founder");
 		await seedKnowledgeItem(db, "ki-draft-a", "draft");
 		await seedKnowledgeItem(db, "ki-draft-b", "draft");
 		await seedKnowledgeItem(db, "ki-draft-c", "draft");
@@ -246,7 +236,8 @@ describe("Y4 — GET /api/knowledge/triage-count", () => {
 		expect(body.count).toBe(5);
 	});
 
-	it("does NOT count active or archived items", async () => {
+	test("does NOT count active or archived items", async ({ db, app }) => {
+		await seedFounder(db, "founder");
 		await seedKnowledgeItem(db, "ki-active-1", "active");
 		await seedKnowledgeItem(db, "ki-active-2", "active");
 		await seedKnowledgeItem(db, "ki-archived-1", "archived");
@@ -257,7 +248,11 @@ describe("Y4 — GET /api/knowledge/triage-count", () => {
 		expect(body.count).toBe(0);
 	});
 
-	it("returns { count: number } response shape (not an array or nested object)", async () => {
+	test("returns { count: number } response shape (not an array or nested object)", async ({
+		db,
+		app,
+	}) => {
+		await seedFounder(db, "founder");
 		const res = await app.request("/api/knowledge/triage-count", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Record<string, unknown>;
@@ -268,13 +263,14 @@ describe("Y4 — GET /api/knowledge/triage-count", () => {
 		expect(Object.keys(body)).toEqual(["count"]);
 	});
 
-	it("requires authentication — returns 401 without API key", async () => {
+	test("requires authentication — returns 401 without API key", async ({ app }) => {
 		const res = await app.request("/api/knowledge/triage-count");
 		// Must use the same auth middleware as other knowledge routes
 		expect(res.status).toBe(401);
 	});
 
-	it("excludes user-scoped items from other users in the count", async () => {
+	test("excludes user-scoped items from other users in the count", async ({ db, app }) => {
+		await seedFounder(db, "founder");
 		// Seed a different human user, then switch to them
 		// The triage-count endpoint should only count items visible to the requesting user
 		await seedKnowledgeItem(db, "ki-draft-factory", "draft", "founder", "factory");
@@ -307,24 +303,16 @@ describe("Y4 — GET /api/knowledge/triage-count", () => {
 // ---------------------------------------------------------------------------
 
 describe("Y4 — PATCH /api/knowledge/:id accepts needs_human status", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		await seedFounder(db, "founder");
-		app = await createTestApp({ db, eventBus: new EventBus() });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("PATCH with status=needs_human returns 200", async () => {
+	test("PATCH with status=needs_human returns 200", async ({ db, app }) => {
+		await seedFounder(db, "founder");
 		// First create a draft item via POST
 		const createRes = await app.request("/api/knowledge", {
 			method: "POST",
@@ -352,7 +340,8 @@ describe("Y4 — PATCH /api/knowledge/:id accepts needs_human status", () => {
 		expect(patchRes.status).toBe(200);
 	});
 
-	it("PATCH with status=needs_human persists the new status", async () => {
+	test("PATCH with status=needs_human persists the new status", async ({ db, app }) => {
+		await seedFounder(db, "founder");
 		const createRes = await app.request("/api/knowledge", {
 			method: "POST",
 			headers: authHeaders(),
@@ -386,7 +375,11 @@ describe("Y4 — PATCH /api/knowledge/:id accepts needs_human status", () => {
 		expect(item.status).toBe("needs_human");
 	});
 
-	it("PATCH from needs_human to active returns 200 (triage validate flow)", async () => {
+	test("PATCH from needs_human to active returns 200 (triage validate flow)", async ({
+		db,
+		app,
+	}) => {
+		await seedFounder(db, "founder");
 		// Seed a needs_human item directly
 		await seedKnowledgeItem(db, "ki-needs-human", "needs_human");
 
@@ -404,7 +397,11 @@ describe("Y4 — PATCH /api/knowledge/:id accepts needs_human status", () => {
 		expect(updated.status).toBe("active");
 	});
 
-	it("PATCH from needs_human to archived returns 200 (triage reject flow)", async () => {
+	test("PATCH from needs_human to archived returns 200 (triage reject flow)", async ({
+		db,
+		app,
+	}) => {
+		await seedFounder(db, "founder");
 		await seedKnowledgeItem(db, "ki-nh-reject", "needs_human");
 
 		const patchRes = await app.request("/api/knowledge/ki-nh-reject", {
@@ -419,7 +416,8 @@ describe("Y4 — PATCH /api/knowledge/:id accepts needs_human status", () => {
 		expect(patchRes.status).toBe(200);
 	});
 
-	it("PATCH with an unknown status still returns 400", async () => {
+	test("PATCH with an unknown status still returns 400", async ({ db, app }) => {
+		await seedFounder(db, "founder");
 		await seedKnowledgeItem(db, "ki-bad-status", "draft");
 
 		const patchRes = await app.request("/api/knowledge/ki-bad-status", {

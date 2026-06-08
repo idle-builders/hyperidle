@@ -20,17 +20,14 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
-	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { type EventBus } from "@hyperidle/shared";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 // Will fail until create-artifact.ts exists
 import { createArtifactTool } from "../create-artifact.js";
 import type { ToolContext } from "../tool-registry.js";
@@ -94,26 +91,16 @@ function makeContext(db: HyperIdleDb, eventBus: EventBus, taskId: string): ToolC
 }
 
 describe("R6: create_artifact integration — end-to-end flow", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
 	// -------------------------------------------------------------------- AC2
-	it("AC2: artifact created by tool appears in GET /api/artifacts?axis=bet", async () => {
+	test("AC2: artifact created by tool appears in GET /api/artifacts?axis=bet", async ({ db, app, eventBus }) => {
 		const { taskId, betId } = await seed(db);
 		const ctx = makeContext(db, eventBus, taskId);
 
@@ -140,7 +127,7 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 	});
 
 	// -------------------------------------------------------------------- AC3
-	it("AC3: artifact created by tool appears in GET /api/artifacts?axis=portfolio", async () => {
+	test("AC3: artifact created by tool appears in GET /api/artifacts?axis=portfolio", async ({ db, app, eventBus }) => {
 		const { taskId } = await seed(db, "_portfolio");
 		const ctx = makeContext(db, eventBus, taskId);
 
@@ -161,7 +148,7 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 	});
 
 	// -------------------------------------------------------------------- AC4: full shape via GET /:id
-	it("AC4: GET /api/artifacts/:id returns correct kind, producingTaskTitle, cost, threadCount", async () => {
+	test("AC4: GET /api/artifacts/:id returns correct kind, producingTaskTitle, cost, threadCount", async ({ db, app, eventBus }) => {
 		const { taskId } = await seed(db, "_shape");
 		const ctx = makeContext(db, eventBus, taskId);
 
@@ -219,7 +206,7 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 	});
 
 	// -------------------------------------------------------------------- AC2: axis=task
-	it("AC2: artifact appears in GET /api/artifacts?axis=task&taskId=X for the producing task", async () => {
+	test("AC2: artifact appears in GET /api/artifacts?axis=task&taskId=X for the producing task", async ({ db, app, eventBus }) => {
 		const { taskId } = await seed(db, "_task");
 		const ctx = makeContext(db, eventBus, taskId);
 
@@ -243,7 +230,7 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 	});
 
 	// -------------------------------------------------------------------- isolation
-	it("artifact for task A does not appear under axis=task for task B", async () => {
+	test("artifact for task A does not appear under axis=task for task B", async ({ db, app, eventBus }) => {
 		const scopeA = await seed(db, "_iso-a");
 		const scopeB = await seed(db, "_iso-b");
 

@@ -21,16 +21,14 @@
  * packages/server/src/routes/model-gateway.ts are created and wired.
  */
 
-import { createTestDb, type TestDbHandle } from "@hyperidle/db";
 import { MissingCredentialError } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import type { CredentialResolver } from "../../services/credential-resolver.js";
 import {
 	BUILT_IN_GATEWAY_CONFIG as DEFAULT_GATEWAY_CONFIG,
 	resolveModelTier,
 } from "../../services/model-gateway.js";
-import { createTestApp } from "../../test-utils.js";
+import { test } from "../../test-fixtures.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -53,7 +51,7 @@ function makeResolver(entries: Record<string, string | null>): CredentialResolve
 // ---------------------------------------------------------------------------
 
 describe("X4: resolveModelTier — anthropic provider", () => {
-	it("returns correct ResolvedModel with Anthropic base URL", async () => {
+	test("returns correct ResolvedModel with Anthropic base URL", async ({}) => {
 		const config = DEFAULT_GATEWAY_CONFIG;
 		const resolver = makeResolver({ anthropic_api_key: "ant-key-abc" });
 
@@ -65,7 +63,7 @@ describe("X4: resolveModelTier — anthropic provider", () => {
 		expect(result.baseUrl).toBe("https://api.anthropic.com");
 	});
 
-	it("resolves reasoning tier with claude-opus model", async () => {
+	test("resolves reasoning tier with claude-opus model", async ({}) => {
 		const resolver = makeResolver({ anthropic_api_key: "ant-key-reasoning" });
 		const result = await resolveModelTier("reasoning", DEFAULT_GATEWAY_CONFIG, resolver);
 
@@ -75,7 +73,7 @@ describe("X4: resolveModelTier — anthropic provider", () => {
 		expect(result.baseUrl).toBe("https://api.anthropic.com");
 	});
 
-	it("resolves fast tier with claude-haiku model", async () => {
+	test("resolves fast tier with claude-haiku model", async ({}) => {
 		const resolver = makeResolver({ anthropic_api_key: "ant-key-fast" });
 		const result = await resolveModelTier("fast", DEFAULT_GATEWAY_CONFIG, resolver);
 
@@ -85,7 +83,7 @@ describe("X4: resolveModelTier — anthropic provider", () => {
 		expect(result.baseUrl).toBe("https://api.anthropic.com");
 	});
 
-	it("throws MissingCredentialError when anthropic_api_key is missing", async () => {
+	test("throws MissingCredentialError when anthropic_api_key is missing", async ({}) => {
 		const resolver = makeResolver({ anthropic_api_key: null });
 
 		await expect(resolveModelTier("workhorse", DEFAULT_GATEWAY_CONFIG, resolver)).rejects.toThrow(
@@ -93,7 +91,7 @@ describe("X4: resolveModelTier — anthropic provider", () => {
 		);
 	});
 
-	it("MissingCredentialError message identifies provider and tier", async () => {
+	test("MissingCredentialError message identifies provider and tier", async ({}) => {
 		const resolver = makeResolver({ anthropic_api_key: null });
 
 		try {
@@ -110,7 +108,7 @@ describe("X4: resolveModelTier — anthropic provider", () => {
 });
 
 describe("X4: resolveModelTier — openrouter provider", () => {
-	it("returns correct ResolvedModel with OpenRouter base URL", async () => {
+	test("returns correct ResolvedModel with OpenRouter base URL", async ({}) => {
 		const config = {
 			...DEFAULT_GATEWAY_CONFIG,
 			workhorse: {
@@ -128,7 +126,7 @@ describe("X4: resolveModelTier — openrouter provider", () => {
 		expect(result.baseUrl).toBe("https://openrouter.ai/api");
 	});
 
-	it("throws MissingCredentialError when openrouter_api_key is missing", async () => {
+	test("throws MissingCredentialError when openrouter_api_key is missing", async ({}) => {
 		const config = {
 			...DEFAULT_GATEWAY_CONFIG,
 			workhorse: {
@@ -145,7 +143,7 @@ describe("X4: resolveModelTier — openrouter provider", () => {
 });
 
 describe("X4: resolveModelTier — openai-compatible provider", () => {
-	it("returns correct ResolvedModel with custom base URL and apiKey", async () => {
+	test("returns correct ResolvedModel with custom base URL and apiKey", async ({}) => {
 		const config = {
 			...DEFAULT_GATEWAY_CONFIG,
 			fast: {
@@ -165,7 +163,7 @@ describe("X4: resolveModelTier — openai-compatible provider", () => {
 		expect(result.baseUrl).toBe("https://api.together.xyz/v1");
 	});
 
-	it("throws when openai-compatible has no apiKey (A-ERR-1)", async () => {
+	test("throws when openai-compatible has no apiKey (A-ERR-1)", async ({}) => {
 		const config = {
 			...DEFAULT_GATEWAY_CONFIG,
 			fast: {
@@ -182,7 +180,7 @@ describe("X4: resolveModelTier — openai-compatible provider", () => {
 		);
 	});
 
-	it("throws when openai-compatible has no baseUrl (A-ERR-2)", async () => {
+	test("throws when openai-compatible has no baseUrl (A-ERR-2)", async ({}) => {
 		const config = {
 			...DEFAULT_GATEWAY_CONFIG,
 			fast: {
@@ -207,17 +205,17 @@ describe("X4: DEFAULT_GATEWAY_CONFIG matches current MODEL_TIER_MAP values", () 
 	// DEFAULT_GATEWAY_CONFIG, the behavior will change for users who have no
 	// gateway config stored (they fall back to defaults). The test asserts the
 	// exact model IDs that were in MODEL_TIER_MAP before X4 replaced it.
-	it("reasoning tier defaults to claude-opus-4-20250514 via anthropic", () => {
+	test("reasoning tier defaults to claude-opus-4-20250514 via anthropic", ({}) => {
 		expect(DEFAULT_GATEWAY_CONFIG.reasoning.provider).toBe("anthropic");
 		expect(DEFAULT_GATEWAY_CONFIG.reasoning.model).toBe("claude-opus-4-20250514");
 	});
 
-	it("workhorse tier defaults to claude-sonnet-4-20250514 via anthropic", () => {
+	test("workhorse tier defaults to claude-sonnet-4-20250514 via anthropic", ({}) => {
 		expect(DEFAULT_GATEWAY_CONFIG.workhorse.provider).toBe("anthropic");
 		expect(DEFAULT_GATEWAY_CONFIG.workhorse.model).toBe("claude-sonnet-4-20250514");
 	});
 
-	it("fast tier defaults to claude-haiku-3-5-20241022 via anthropic", () => {
+	test("fast tier defaults to claude-haiku-3-5-20241022 via anthropic", ({}) => {
 		expect(DEFAULT_GATEWAY_CONFIG.fast.provider).toBe("anthropic");
 		expect(DEFAULT_GATEWAY_CONFIG.fast.model).toBe("claude-haiku-3-5-20241022");
 	});
@@ -228,21 +226,15 @@ describe("X4: DEFAULT_GATEWAY_CONFIG matches current MODEL_TIER_MAP values", () 
 // ---------------------------------------------------------------------------
 
 describe("X4: GET /api/model-gateway", () => {
-	let handle: TestDbHandle;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		app = await createTestApp({ db: handle.db });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle?.close();
 	});
 
-	it("returns defaults when no config exists", async () => {
+	test("returns defaults when no config exists", async ({ app }) => {
 		const res = await app.request("/api/model-gateway", {
 			headers: authHeaders(),
 		});
@@ -258,7 +250,7 @@ describe("X4: GET /api/model-gateway", () => {
 		expect(body.fast.model).toBe("claude-haiku-3-5-20241022");
 	});
 
-	it("strips apiKey from openai-compatible provider — returns hasApiKey: true instead (A-SEC-2)", async () => {
+	test("strips apiKey from openai-compatible provider — returns hasApiKey: true instead (A-SEC-2)", async ({ app }) => {
 		// First patch to set openai-compatible config with an apiKey
 		await app.request("/api/model-gateway", {
 			method: "PATCH",
@@ -287,7 +279,7 @@ describe("X4: GET /api/model-gateway", () => {
 		expect(body.fast.hasApiKey).toBe(true);
 	});
 
-	it("returns hasApiKey: false when openai-compatible has no apiKey", async () => {
+	test("returns hasApiKey: false when openai-compatible has no apiKey", async ({ app }) => {
 		await app.request("/api/model-gateway", {
 			method: "PATCH",
 			headers: authHeaders(),
@@ -313,7 +305,7 @@ describe("X4: GET /api/model-gateway", () => {
 		expect(body.fast.apiKey).toBeUndefined();
 	});
 
-	it("returns hasApiKey: false for anthropic provider (no apiKey field at all)", async () => {
+	test("returns hasApiKey: false for anthropic provider (no apiKey field at all)", async ({ app }) => {
 		const res = await app.request("/api/model-gateway", {
 			headers: authHeaders(),
 		});
@@ -327,21 +319,15 @@ describe("X4: GET /api/model-gateway", () => {
 });
 
 describe("X4: PATCH /api/model-gateway", () => {
-	let handle: TestDbHandle;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		app = await createTestApp({ db: handle.db });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle?.close();
 	});
 
-	it("validates and persists a valid config", async () => {
+	test("validates and persists a valid config", async ({ app }) => {
 		const patchBody = {
 			reasoning: { provider: "anthropic", model: "claude-opus-4-20250514" },
 			workhorse: {
@@ -367,7 +353,7 @@ describe("X4: PATCH /api/model-gateway", () => {
 		expect(body.workhorse.model).toBe("anthropic/claude-sonnet-4");
 	});
 
-	it("returns 400 for invalid provider value", async () => {
+	test("returns 400 for invalid provider value", async ({ app }) => {
 		const res = await app.request("/api/model-gateway", {
 			method: "PATCH",
 			headers: authHeaders(),
@@ -381,7 +367,7 @@ describe("X4: PATCH /api/model-gateway", () => {
 		expect(res.status).toBe(400);
 	});
 
-	it("returns 400 for missing tier (incomplete config)", async () => {
+	test("returns 400 for missing tier (incomplete config)", async ({ app }) => {
 		const res = await app.request("/api/model-gateway", {
 			method: "PATCH",
 			headers: authHeaders(),
@@ -395,7 +381,7 @@ describe("X4: PATCH /api/model-gateway", () => {
 		expect(res.status).toBe(400);
 	});
 
-	it("returns 400 when apiKey provided for non-openai-compatible provider", async () => {
+	test("returns 400 when apiKey provided for non-openai-compatible provider", async ({ app }) => {
 		const res = await app.request("/api/model-gateway", {
 			method: "PATCH",
 			headers: authHeaders(),
@@ -413,7 +399,7 @@ describe("X4: PATCH /api/model-gateway", () => {
 		expect(res.status).toBe(400);
 	});
 
-	it("PATCH response strips apiKey and returns saved config (A-SEC-2)", async () => {
+	test("PATCH response strips apiKey and returns saved config (A-SEC-2)", async ({ app }) => {
 		const res = await app.request("/api/model-gateway", {
 			method: "PATCH",
 			headers: authHeaders(),
@@ -435,7 +421,7 @@ describe("X4: PATCH /api/model-gateway", () => {
 		expect(body.fast.hasApiKey).toBe(true);
 	});
 
-	it("accepts openai-compatible with apiKey and baseUrl", async () => {
+	test("accepts openai-compatible with apiKey and baseUrl", async ({ app }) => {
 		const res = await app.request("/api/model-gateway", {
 			method: "PATCH",
 			headers: authHeaders(),
@@ -460,21 +446,15 @@ describe("X4: PATCH /api/model-gateway", () => {
 // ---------------------------------------------------------------------------
 
 describe("X4: ServerConfig modelGateway field defaults", () => {
-	let handle: TestDbHandle;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		app = await createTestApp({ db: handle.db });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle?.close();
 	});
 
-	it("modelGateway in server config defaults to DEFAULT_GATEWAY_CONFIG when no row exists", async () => {
+	test("modelGateway in server config defaults to DEFAULT_GATEWAY_CONFIG when no row exists", async ({ app }) => {
 		// GET /api/model-gateway relies on readServerConfig → modelGateway field
 		const res = await app.request("/api/model-gateway", {
 			headers: authHeaders(),
@@ -488,7 +468,7 @@ describe("X4: ServerConfig modelGateway field defaults", () => {
 		}
 	});
 
-	it("persisted modelGateway config survives a second GET call", async () => {
+	test("persisted modelGateway config survives a second GET call", async ({ app }) => {
 		const patchBody = {
 			reasoning: { provider: "openrouter", model: "anthropic/claude-opus" },
 			workhorse: { provider: "anthropic", model: "claude-sonnet-4-20250514" },

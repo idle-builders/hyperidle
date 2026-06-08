@@ -11,12 +11,11 @@
  * The integration tests use createTestDb/createTestApp which need a real DB.
  */
 
-import { bets, createTestDb, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
+import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
 import { API_ERROR_CODES, EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 import { betDetailResponseSchema, betListResponseSchema } from "../../schemas/bet.schema.js";
-import { createTestApp } from "../../test-utils.js";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -32,16 +31,15 @@ function authHeaders(): Record<string, string> {
 // ── D1: bets route factory returns chained Hono instance ──────────────────────
 
 describe("D1. Bets route factory structure", () => {
-	it("createBetRoutes function exists and is importable", async () => {
+	test("createBetRoutes function exists and is importable", async () => {
 		const mod = await import("../bets.js");
 		expect(typeof mod.createBetRoutes).toBe("function");
 	});
 
-	it("createBetRoutes returns a Hono instance", async () => {
+	test("createBetRoutes returns a Hono instance", async ({ db }) => {
 		const mod = await import("../bets.js");
-		const handle = await createTestDb();
 		const eventBus = new EventBus();
-		const router = mod.createBetRoutes(handle.db, eventBus);
+		const router = mod.createBetRoutes(db, eventBus);
 
 		// Should be a Hono instance with routes attached
 		expect(router).toBeDefined();
@@ -52,32 +50,23 @@ describe("D1. Bets route factory structure", () => {
 // ── D2: GET /api/bets returns betListResponseSchema-conforming response ────────
 
 describe("D2. GET /api/bets returns betListResponseSchema-conforming response", () => {
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-
-		const now = new Date().toISOString();
-		await db
-			.insert(teams)
-			.values({ id: "prod-d2", name: "Product D2", phase: "build", createdAt: now });
-
-		await db
-			.insert(teamMembers)
-			.values({ id: "team-d2", teamId: "prod-d2", capacity: 3, activeBets: 0, formedAt: now });
 	});
 
 	afterEach(() => {
 		vi.unstubAllEnvs();
 	});
 
-	it("returns 200 with a grouped bet list", async () => {
+	test("returns 200 with a grouped bet list", async ({ db, app }) => {
+		const now = new Date().toISOString();
+		await db
+			.insert(teams)
+			.values({ id: "prod-d2", name: "Product D2", phase: "build", createdAt: now });
+		await db
+			.insert(teamMembers)
+			.values({ id: "team-d2", teamId: "prod-d2", capacity: 3, activeBets: 0, formedAt: now });
+
 		const res = await app.request("/api/bets", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 
@@ -88,7 +77,15 @@ describe("D2. GET /api/bets returns betListResponseSchema-conforming response", 
 	});
 
 	// @lore U1: Status groups simplified to draft|active|completed|killed.
-	it("returns each status group (draft, active, completed, killed)", async () => {
+	test("returns each status group (draft, active, completed, killed)", async ({ db, app }) => {
+		const now = new Date().toISOString();
+		await db
+			.insert(teams)
+			.values({ id: "prod-d2b", name: "Product D2b", phase: "build", createdAt: now });
+		await db
+			.insert(teamMembers)
+			.values({ id: "team-d2b", teamId: "prod-d2b", capacity: 3, activeBets: 0, formedAt: now });
+
 		const res = await app.request("/api/bets", { headers: authHeaders() });
 		const body = (await res.json()) as Record<string, unknown>;
 		expect(body).toHaveProperty("draft");
@@ -97,7 +94,7 @@ describe("D2. GET /api/bets returns betListResponseSchema-conforming response", 
 		expect(body).toHaveProperty("killed");
 	});
 
-	it("returns empty arrays when no bets exist", async () => {
+	test("returns empty arrays when no bets exist", async ({ app }) => {
 		const res = await app.request("/api/bets", { headers: authHeaders() });
 		const body = (await res.json()) as { draft: unknown[] };
 		expect(Array.isArray(body.draft)).toBe(true);
@@ -108,26 +105,22 @@ describe("D2. GET /api/bets returns betListResponseSchema-conforming response", 
 // ── D3: GET /api/bets/:id returns betDetailResponseSchema-conforming response ──
 
 describe("D3. GET /api/bets/:id returns betDetailResponseSchema-conforming response", () => {
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
+	});
 
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test("returns 200 with a bet detail conforming to betDetailResponseSchema", async ({ db, app }) => {
 		const now = new Date().toISOString();
 		await db
 			.insert(teams)
 			.values({ id: "prod-d3", name: "Product D3", phase: "build", createdAt: now });
-
 		await db
 			.insert(teamMembers)
 			.values({ id: "team-d3", teamId: "prod-d3", capacity: 3, activeBets: 0, formedAt: now });
-
 		await db.insert(bets).values({
 			id: "bet-d3",
 			teamId: "prod-d3",
@@ -135,13 +128,7 @@ describe("D3. GET /api/bets/:id returns betDetailResponseSchema-conforming respo
 			status: "draft",
 			createdAt: now,
 		});
-	});
 
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	it("returns 200 with a bet detail conforming to betDetailResponseSchema", async () => {
 		const res = await app.request("/api/bets/bet-d3", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 
@@ -150,7 +137,7 @@ describe("D3. GET /api/bets/:id returns betDetailResponseSchema-conforming respo
 		expect(validation.success).toBe(true);
 	});
 
-	it("returns 404 for non-existent bet", async () => {
+	test("returns 404 for non-existent bet", async ({ app }) => {
 		const res = await app.request("/api/bets/nonexistent-bet", { headers: authHeaders() });
 		expect(res.status).toBe(404);
 	});
@@ -159,23 +146,15 @@ describe("D3. GET /api/bets/:id returns betDetailResponseSchema-conforming respo
 // ── D4: POST /api/bets with invalid body returns 400 with VALIDATION_ERROR ────
 
 describe("D4. POST /api/bets with invalid body returns 400 VALIDATION_ERROR", () => {
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
 	});
 
 	afterEach(() => {
 		vi.unstubAllEnvs();
 	});
 
-	it("returns 400 with VALIDATION_ERROR when body is missing required fields", async () => {
+	test("returns 400 with VALIDATION_ERROR when body is missing required fields", async ({ app }) => {
 		const res = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
@@ -190,7 +169,7 @@ describe("D4. POST /api/bets with invalid body returns 400 VALIDATION_ERROR", ()
 		expect(body.code).toBe(API_ERROR_CODES.VALIDATION_ERROR);
 	});
 
-	it("returns 400 with VALIDATION_ERROR when body has unknown fields (strict schema)", async () => {
+	test("returns 400 with VALIDATION_ERROR when body has unknown fields (strict schema)", async ({ app }) => {
 		const res = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
@@ -211,7 +190,7 @@ describe("D4. POST /api/bets with invalid body returns 400 VALIDATION_ERROR", ()
 // ── D5: Response validator catches schema violations ──────────────────────────
 
 describe("D5. Response validator integration with routes", () => {
-	it("routes with response validator middleware return 500 on schema violation", async () => {
+	test("routes with response validator middleware return 500 on schema violation", async () => {
 		// This test uses the server's responseValidator middleware to verify
 		// it's actually applied to routes in a typical integration setup.
 		// The middleware must be present and active on the app.

@@ -7,7 +7,6 @@
 
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	sessions,
 	tasks,
@@ -15,10 +14,8 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { beforeEach, afterEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-recipients";
 
@@ -26,92 +23,86 @@ function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY };
 }
 
+async function seedRecipients(db: HyperIdleDb): Promise<void> {
+	const NOW = new Date().toISOString();
+
+	// Seed required FK chain for sessions
+	await db
+		.insert(teams)
+		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW });
+
+	await db
+		.insert(teamMembers)
+		.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: NOW });
+
+	await db.insert(bets).values({
+		id: "bet-1",
+		teamId: "prod-1",
+		description: "Test",
+		appetite: "small",
+		status: "active",
+		createdAt: NOW,
+	});
+
+	await db.insert(tasks).values({
+		id: "task-1",
+		betId: "bet-1",
+		teamId: "prod-1",
+		title: "Task 1",
+		state: "in_progress",
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
+
+	// Seed users (P2: agents → users table; kind:"ai" for AI agents)
+	await db.insert(users).values({
+		id: "agent-builder",
+		name: "Builder Bot",
+		role: "builder",
+		status: "active",
+		kind: "ai",
+		teamId: "team-1",
+		createdAt: NOW,
+	});
+	await db.insert(users).values({
+		id: "agent-growth",
+		name: "Growth Engine",
+		role: "growth",
+		status: "idle",
+		kind: "ai",
+		createdAt: NOW,
+	});
+	await db.insert(users).values({
+		id: "agent-founder",
+		name: "Founder Self",
+		role: "founder",
+		status: "active",
+		kind: "human",
+		createdAt: NOW,
+	});
+	await db.insert(users).values({
+		id: "agent-retired",
+		name: "Retired Bot",
+		role: "builder",
+		status: "retired",
+		kind: "ai",
+		createdAt: NOW,
+	});
+
+	// Give agent-builder an active session
+	await db.insert(sessions).values({
+		id: "sess-active",
+		agentId: "agent-builder",
+		taskId: "task-1",
+		modelTier: "workhorse",
+		state: "active",
+		startedAt: NOW,
+	});
+}
+
 describe("GET /api/recipients (Q1 §3.3)", () => {
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-
-		const NOW = new Date().toISOString();
-
-		// Seed required FK chain for sessions
-		await db
-			.insert(teams)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW });
-
-		await db
-			.insert(teamMembers)
-			.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: NOW });
-
-		await db.insert(bets).values({
-			id: "bet-1",
-			teamId: "prod-1",
-			description: "Test",
-			appetite: "small",
-			status: "active",
-			createdAt: NOW,
-		});
-
-		await db.insert(tasks).values({
-			id: "task-1",
-			betId: "bet-1",
-			teamId: "prod-1",
-			title: "Task 1",
-			state: "in_progress",
-			createdAt: NOW,
-			updatedAt: NOW,
-		});
-
-		// Seed users (P2: agents → users table; kind:"ai" for AI agents)
-		await db.insert(users).values({
-			id: "agent-builder",
-			name: "Builder Bot",
-			role: "builder",
-			status: "active",
-			kind: "ai",
-			teamId: "team-1",
-			createdAt: NOW,
-		});
-		await db.insert(users).values({
-			id: "agent-growth",
-			name: "Growth Engine",
-			role: "growth",
-			status: "idle",
-			kind: "ai",
-			createdAt: NOW,
-		});
-		await db.insert(users).values({
-			id: "agent-founder",
-			name: "Founder Self",
-			role: "founder",
-			status: "active",
-			kind: "human",
-			createdAt: NOW,
-		});
-		await db.insert(users).values({
-			id: "agent-retired",
-			name: "Retired Bot",
-			role: "builder",
-			status: "retired",
-			kind: "ai",
-			createdAt: NOW,
-		});
-
-		// Give agent-builder an active session
-		await db.insert(sessions).values({
-			id: "sess-active",
-			agentId: "agent-builder",
-			taskId: "task-1",
-			modelTier: "workhorse",
-			state: "active",
-			startedAt: NOW,
-		});
 	});
 
 	afterEach(() => {
@@ -119,7 +110,8 @@ describe("GET /api/recipients (Q1 §3.3)", () => {
 	});
 
 	// AC2: endpoint returns all agents
-	it("returns all agents as recipients", async () => {
+	test("returns all agents as recipients", async ({ db, app }) => {
+		await seedRecipients(db);
 		const res = await app.request("/api/recipients", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { recipients: Array<{ id: string }> };
@@ -128,7 +120,8 @@ describe("GET /api/recipients (Q1 §3.3)", () => {
 	});
 
 	// AC2: each recipient has the required fields
-	it("returns recipients with id, kind, name, role, status, hasActiveSession, avatarUrl", async () => {
+	test("returns recipients with id, kind, name, role, status, hasActiveSession, avatarUrl", async ({ db, app }) => {
+		await seedRecipients(db);
 		const res = await app.request("/api/recipients", { headers: authHeaders() });
 		const body = (await res.json()) as {
 			recipients: Array<{
@@ -153,7 +146,8 @@ describe("GET /api/recipients (Q1 §3.3)", () => {
 	});
 
 	// AC2: hasActiveSession is false for agents without active sessions
-	it("marks hasActiveSession=false for agents without an active session", async () => {
+	test("marks hasActiveSession=false for agents without an active session", async ({ db, app }) => {
+		await seedRecipients(db);
 		const res = await app.request("/api/recipients", { headers: authHeaders() });
 		const body = (await res.json()) as {
 			recipients: Array<{ id: string; hasActiveSession: boolean }>;
@@ -164,7 +158,8 @@ describe("GET /api/recipients (Q1 §3.3)", () => {
 	});
 
 	// AC2: ?q=<search> filters by name (case-insensitive)
-	it("?q=builder filters by name (case-insensitive)", async () => {
+	test("?q=builder filters by name (case-insensitive)", async ({ db, app }) => {
+		await seedRecipients(db);
 		const res = await app.request("/api/recipients?q=builder", { headers: authHeaders() });
 		const body = (await res.json()) as { recipients: Array<{ id: string; name: string }> };
 		expect(body.recipients.every((r) => r.name.toLowerCase().includes("builder"))).toBe(true);
@@ -172,27 +167,30 @@ describe("GET /api/recipients (Q1 §3.3)", () => {
 	});
 
 	// AC2: ?q= empty string returns all
-	it("?q= (empty) returns all recipients", async () => {
+	test("?q= (empty) returns all recipients", async ({ db, app }) => {
+		await seedRecipients(db);
 		const res = await app.request("/api/recipients?q=", { headers: authHeaders() });
 		const body = (await res.json()) as { recipients: Array<{ id: string }> };
 		expect(body.recipients.length).toBeGreaterThanOrEqual(4);
 	});
 
 	// AC2: ?kind=agent returns only agents
-	it("?kind=agent returns only agents", async () => {
+	test("?kind=agent returns only agents", async ({ db, app }) => {
+		await seedRecipients(db);
 		const res = await app.request("/api/recipients?kind=agent", { headers: authHeaders() });
 		const body = (await res.json()) as { recipients: Array<{ kind: string }> };
 		expect(body.recipients.every((r) => r.kind === "agent")).toBe(true);
 	});
 
 	// Auth: requires API key
-	it("returns 401 without API key", async () => {
+	test("returns 401 without API key", async ({ app }) => {
 		const res = await app.request("/api/recipients");
 		expect(res.status).toBe(401);
 	});
 
 	// No match: search with no results returns empty array
-	it("returns empty array when ?q= matches nothing", async () => {
+	test("returns empty array when ?q= matches nothing", async ({ db, app }) => {
+		await seedRecipients(db);
 		const res = await app.request("/api/recipients?q=zzz-no-match-xxx", {
 			headers: authHeaders(),
 		});

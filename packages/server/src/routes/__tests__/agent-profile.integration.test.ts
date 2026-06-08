@@ -24,7 +24,6 @@
 
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	sessions,
 	tasks,
@@ -33,11 +32,10 @@ import {
 	userSkills,
 	users,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../../harness/adapter-pool.js";
 import { createTestApp } from "../../test-utils.js";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-ab1-agent-profile";
 
@@ -129,25 +127,16 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 // ---------------------------------------------------------------------------
 
 describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape", () => {
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		const eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-		await seedPrereqs(db);
-	}, 30_000);
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("returns 200 with correct top-level shape", async () => {
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test("returns 200 with correct top-level shape", async ({ db, app }) => {
+		await seedPrereqs(db);
 		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
 			headers: authHeaders(),
 		});
@@ -179,7 +168,8 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		expect(body).toHaveProperty("skills");
 	});
 
-	it("returns correct identity values for the builder agent", async () => {
+	test("returns correct identity values for the builder agent", async ({ db, app }) => {
+		await seedPrereqs(db);
 		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
 			headers: authHeaders(),
 		});
@@ -194,12 +184,14 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		expect(body.maxConcurrentSessions).toBe(2);
 	});
 
-	it("returns 401 without auth header", async () => {
+	test("returns 401 without auth header", async ({ db, app }) => {
+		await seedPrereqs(db);
 		const res = await app.request("/api/agents/ab1-agent-builder/profile");
 		expect(res.status).toBe(401);
 	});
 
-	it("performance shape has required fields", async () => {
+	test("performance shape has required fields", async ({ db, app }) => {
+		await seedPrereqs(db);
 		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
 			headers: authHeaders(),
 		});
@@ -211,7 +203,8 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		expect(performance).toHaveProperty("successRate");
 	});
 
-	it("healthSignals shape has required fields", async () => {
+	test("healthSignals shape has required fields", async ({ db, app }) => {
+		await seedPrereqs(db);
 		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
 			headers: authHeaders(),
 		});
@@ -225,7 +218,8 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		expect(health).toHaveProperty("degraded");
 	});
 
-	it("harnessCapabilities shape has required fields", async () => {
+	test("harnessCapabilities shape has required fields", async ({ db, app }) => {
+		await seedPrereqs(db);
 		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
 			headers: authHeaders(),
 		});
@@ -238,7 +232,8 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		expect(caps).toHaveProperty("subAgents");
 	});
 
-	it("recentSessions is an array", async () => {
+	test("recentSessions is an array", async ({ db, app }) => {
+		await seedPrereqs(db);
 		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
 			headers: authHeaders(),
 		});
@@ -246,7 +241,8 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		expect(Array.isArray(body.recentSessions)).toBe(true);
 	});
 
-	it("skills is an array", async () => {
+	test("skills is an array", async ({ db, app }) => {
+		await seedPrereqs(db);
 		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
 			headers: authHeaders(),
 		});
@@ -260,25 +256,16 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 // ---------------------------------------------------------------------------
 
 describe("AB1 AC-2: GET /api/agents/:id/profile returns 404 for non-existent agent", () => {
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		const eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-		await seedPrereqs(db);
-	}, 30_000);
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("returns 404 for a non-existent agent id", async () => {
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test("returns 404 for a non-existent agent id", async ({ db, app }) => {
+		await seedPrereqs(db);
 		const res = await app.request("/api/agents/nonexistent-agent-id/profile", {
 			headers: authHeaders(),
 		});
@@ -295,25 +282,16 @@ describe("AB1 AC-2: GET /api/agents/:id/profile returns 404 for non-existent age
 // ---------------------------------------------------------------------------
 
 describe("AB1 AC-3: GET /api/agents/:id/profile returns 404 for human users", () => {
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		const eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-		await seedPrereqs(db);
-	}, 30_000);
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("returns 404 when querying a human user's profile", async () => {
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test("returns 404 when querying a human user's profile", async ({ db, app }) => {
+		await seedPrereqs(db);
 		// ab1-human-user is kind='human' — not an AI agent
 		const res = await app.request("/api/agents/ab1-human-user/profile", {
 			headers: authHeaders(),
@@ -330,25 +308,16 @@ describe("AB1 AC-3: GET /api/agents/:id/profile returns 404 for human users", ()
 // ---------------------------------------------------------------------------
 
 describe("AB1 AC-4: Returns active session link when agent has running session", () => {
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		const eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-		await seedPrereqs(db);
-	}, 30_000);
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("returns null activeSession when agent has no running session", async () => {
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test("returns null activeSession when agent has no running session", async ({ db, app }) => {
+		await seedPrereqs(db);
 		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
 			headers: authHeaders(),
 		});
@@ -356,7 +325,8 @@ describe("AB1 AC-4: Returns active session link when agent has running session",
 		expect(body.activeSession).toBeNull();
 	});
 
-	it("returns active session info when agent has a running session", async () => {
+	test("returns active session info when agent has a running session", async ({ db, app }) => {
+		await seedPrereqs(db);
 		// Seed an active session
 		await db.insert(sessions).values({
 			id: "ab1-session-active",
@@ -390,25 +360,16 @@ describe("AB1 AC-4: Returns active session link when agent has running session",
 // ---------------------------------------------------------------------------
 
 describe("AB1 AC-5: Returns recent sessions (last 10, newest first)", () => {
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		const eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-		await seedPrereqs(db);
-	}, 30_000);
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("returns empty array when no sessions exist", async () => {
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test("returns empty array when no sessions exist", async ({ db, app }) => {
+		await seedPrereqs(db);
 		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
 			headers: authHeaders(),
 		});
@@ -417,7 +378,8 @@ describe("AB1 AC-5: Returns recent sessions (last 10, newest first)", () => {
 		expect((body.recentSessions as unknown[]).length).toBe(0);
 	});
 
-	it("returns sessions with required fields", async () => {
+	test("returns sessions with required fields", async ({ db, app }) => {
+		await seedPrereqs(db);
 		await db.insert(sessions).values({
 			id: "ab1-session-1",
 			taskId: "ab1-task-1",
@@ -446,7 +408,8 @@ describe("AB1 AC-5: Returns recent sessions (last 10, newest first)", () => {
 		expect(session).toHaveProperty("cost");
 	});
 
-	it("returns at most 10 sessions even when 12 exist", async () => {
+	test("returns at most 10 sessions even when 12 exist", async ({ db, app }) => {
+		await seedPrereqs(db);
 		// Seed 12 sessions - need 12 tasks
 		for (let i = 1; i <= 12; i++) {
 			const paddedId = i.toString().padStart(2, "0");
@@ -480,7 +443,8 @@ describe("AB1 AC-5: Returns recent sessions (last 10, newest first)", () => {
 		expect(recentSessions.length).toBe(10);
 	});
 
-	it("sessions are ordered newest first", async () => {
+	test("sessions are ordered newest first", async ({ db, app }) => {
+		await seedPrereqs(db);
 		// Seed multiple sessions with distinct times
 		await db.insert(tasks).values({
 			id: "ab1-task-oldest",
@@ -529,25 +493,16 @@ describe("AB1 AC-5: Returns recent sessions (last 10, newest first)", () => {
 // ---------------------------------------------------------------------------
 
 describe("AB1 AC-6: Returns performance aggregates (total, success, rate)", () => {
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		const eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-		await seedPrereqs(db);
-	}, 30_000);
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("returns zero performance stats when no sessions", async () => {
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test("returns zero performance stats when no sessions", async ({ db, app }) => {
+		await seedPrereqs(db);
 		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
 			headers: authHeaders(),
 		});
@@ -559,7 +514,8 @@ describe("AB1 AC-6: Returns performance aggregates (total, success, rate)", () =
 		expect(performance.successRate).toBe(0);
 	});
 
-	it("computes success rate from sessions (3 success out of 4 = 75%)", async () => {
+	test("computes success rate from sessions (3 success out of 4 = 75%)", async ({ db, app }) => {
+		await seedPrereqs(db);
 		for (let i = 1; i <= 4; i++) {
 			const paddedId = i.toString().padStart(2, "0");
 			await db.insert(tasks).values({
@@ -634,25 +590,16 @@ describe("AB1 AC-6: Returns performance aggregates (total, success, rate)", () =
 // ---------------------------------------------------------------------------
 
 describe("AB1 AC-7: Health signal failure rate warning when >50% in 7 days", () => {
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		const eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-		await seedPrereqs(db);
-	}, 30_000);
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("sets degraded=true when failure rate is >50% in last 7 days", async () => {
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test("sets degraded=true when failure rate is >50% in last 7 days", async ({ db, app }) => {
+		await seedPrereqs(db);
 		// Seed 2 crashed out of 3 total sessions (within 7 days)
 		for (let i = 1; i <= 3; i++) {
 			const paddedId = i.toString().padStart(2, "0");
@@ -716,25 +663,16 @@ describe("AB1 AC-7: Health signal failure rate warning when >50% in 7 days", () 
 // ---------------------------------------------------------------------------
 
 describe("AB1 AC-8: Health signal failure rate OK when ≤50%", () => {
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		const eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-		await seedPrereqs(db);
-	}, 30_000);
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("sets degraded=false when no sessions exist (no history)", async () => {
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test("sets degraded=false when no sessions exist (no history)", async ({ db, app }) => {
+		await seedPrereqs(db);
 		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
 			headers: authHeaders(),
 		});
@@ -745,7 +683,8 @@ describe("AB1 AC-8: Health signal failure rate OK when ≤50%", () => {
 		expect(health.degraded).toBe(false);
 	});
 
-	it("sets degraded=false when failure rate is exactly 50%", async () => {
+	test("sets degraded=false when failure rate is exactly 50%", async ({ db, app }) => {
+		await seedPrereqs(db);
 		for (let i = 1; i <= 2; i++) {
 			const paddedId = i.toString().padStart(2, "0");
 			await db.insert(tasks).values({
@@ -793,7 +732,8 @@ describe("AB1 AC-8: Health signal failure rate OK when ≤50%", () => {
 		expect(health.degraded).toBe(false);
 	});
 
-	it("only counts sessions within 7 days for failure rate", async () => {
+	test("only counts sessions within 7 days for failure rate", async ({ db, app }) => {
+		await seedPrereqs(db);
 		// Seed old crashed sessions (outside 7 day window)
 		for (let i = 1; i <= 2; i++) {
 			const paddedId = i.toString().padStart(2, "0");
@@ -848,25 +788,16 @@ describe("AB1 AC-8: Health signal failure rate OK when ≤50%", () => {
 // ---------------------------------------------------------------------------
 
 describe("AB1 AC-9: Health signal last session crash warning", () => {
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		const eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-		await seedPrereqs(db);
-	}, 30_000);
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("sets lastSessionCrashed=false when no sessions exist", async () => {
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test("sets lastSessionCrashed=false when no sessions exist", async ({ db, app }) => {
+		await seedPrereqs(db);
 		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
 			headers: authHeaders(),
 		});
@@ -875,7 +806,8 @@ describe("AB1 AC-9: Health signal last session crash warning", () => {
 		expect(health.lastSessionCrashed).toBe(false);
 	});
 
-	it("sets lastSessionCrashed=true when most recent session outcome is 'crashed'", async () => {
+	test("sets lastSessionCrashed=true when most recent session outcome is 'crashed'", async ({ db, app }) => {
+		await seedPrereqs(db);
 		await db.insert(sessions).values({
 			id: "ab1-crashed-session",
 			taskId: "ab1-task-1",
@@ -896,7 +828,8 @@ describe("AB1 AC-9: Health signal last session crash warning", () => {
 		expect(health.degraded).toBe(true);
 	});
 
-	it("sets lastSessionCrashed=false when most recent session outcome is 'completed'", async () => {
+	test("sets lastSessionCrashed=false when most recent session outcome is 'completed'", async ({ db, app }) => {
+		await seedPrereqs(db);
 		await db.insert(sessions).values({
 			id: "ab1-success-session",
 			taskId: "ab1-task-1",
@@ -922,23 +855,16 @@ describe("AB1 AC-9: Health signal last session crash warning", () => {
 // ---------------------------------------------------------------------------
 
 describe("AB1 AC-10: Health signal harness available check", () => {
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-	}, 30_000);
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("sets harnessAvailable=true when agent harnessType is registered in pool", async () => {
-		const eventBus = new EventBus();
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test("sets harnessAvailable=true when agent harnessType is registered in pool", async ({ db, eventBus }) => {
+		await seedPrereqs(db);
 		// Create a pool with 'claude-code' adapter registered
 		const adapterPool = new AdapterPool();
 		adapterPool.register("local-claude-code", makeMockAdapter(), {
@@ -949,8 +875,7 @@ describe("AB1 AC-10: Health signal harness available check", () => {
 			maxConcurrent: 4,
 		});
 
-		app = await createTestApp({ db, eventBus, adapterPool });
-		await seedPrereqs(db);
+		const app = await createTestApp({ db, eventBus, adapterPool });
 
 		// ab1-agent-builder has harnessType: 'claude-code'
 		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
@@ -961,13 +886,12 @@ describe("AB1 AC-10: Health signal harness available check", () => {
 		expect(health.harnessAvailable).toBe(true);
 	});
 
-	it("sets harnessAvailable=false when agent harnessType is not in pool", async () => {
-		const eventBus = new EventBus();
+	test("sets harnessAvailable=false when agent harnessType is not in pool", async ({ db, eventBus }) => {
+		await seedPrereqs(db);
 		// Empty pool — no adapters registered
 		const adapterPool = new AdapterPool();
 
-		app = await createTestApp({ db, eventBus, adapterPool });
-		await seedPrereqs(db);
+		const app = await createTestApp({ db, eventBus, adapterPool });
 
 		// ab1-agent-builder has harnessType: 'claude-code' but it's not in the empty pool
 		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
@@ -979,8 +903,8 @@ describe("AB1 AC-10: Health signal harness available check", () => {
 		expect(health.degraded).toBe(true);
 	});
 
-	it("sets harnessAvailable=true when agent has no harnessType preference", async () => {
-		const eventBus = new EventBus();
+	test("sets harnessAvailable=true when agent has no harnessType preference", async ({ db, eventBus }) => {
+		await seedPrereqs(db);
 		const adapterPool = new AdapterPool();
 		// Register any adapter
 		adapterPool.register("local-builtin", makeMockAdapter(), {
@@ -991,8 +915,7 @@ describe("AB1 AC-10: Health signal harness available check", () => {
 			maxConcurrent: 4,
 		});
 
-		app = await createTestApp({ db, eventBus, adapterPool });
-		await seedPrereqs(db);
+		const app = await createTestApp({ db, eventBus, adapterPool });
 
 		// Insert an agent without a harnessType preference
 		await db.insert(users).values({
@@ -1021,25 +944,16 @@ describe("AB1 AC-10: Health signal harness available check", () => {
 // ---------------------------------------------------------------------------
 
 describe("AB1 AC-11: Skills merge from role catalog + userSkills", () => {
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		const eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-		await seedPrereqs(db);
-	}, 30_000);
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("returns skills array with required field shapes", async () => {
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test("returns skills array with required field shapes", async ({ db, app }) => {
+		await seedPrereqs(db);
 		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
 			headers: authHeaders(),
 		});
@@ -1050,7 +964,8 @@ describe("AB1 AC-11: Skills merge from role catalog + userSkills", () => {
 		expect(Array.isArray(skills)).toBe(true);
 	});
 
-	it("includes userSkill stats when user has skills recorded", async () => {
+	test("includes userSkill stats when user has skills recorded", async ({ db, app }) => {
+		await seedPrereqs(db);
 		// Seed a userSkill
 		await db.insert(userSkills).values({
 			userId: "ab1-agent-builder",
@@ -1075,7 +990,8 @@ describe("AB1 AC-11: Skills merge from role catalog + userSkills", () => {
 		expect(writeCodeSkill?.lastUsedAt).toBe(NOW);
 	});
 
-	it("skill entries have required fields", async () => {
+	test("skill entries have required fields", async ({ db, app }) => {
+		await seedPrereqs(db);
 		await db.insert(userSkills).values({
 			userId: "ab1-agent-builder",
 			skillId: "review",
@@ -1106,25 +1022,16 @@ describe("AB1 AC-11: Skills merge from role catalog + userSkills", () => {
 // ---------------------------------------------------------------------------
 
 describe("AB1 AC-12: Returns null cost for sessions (no cost data)", () => {
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		const eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-		await seedPrereqs(db);
-	}, 30_000);
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("returns null cost for each session in recentSessions", async () => {
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test("returns null cost for each session in recentSessions", async ({ db, app }) => {
+		await seedPrereqs(db);
 		await db.insert(sessions).values({
 			id: "ab1-session-cost-check",
 			taskId: "ab1-task-1",
@@ -1154,25 +1061,16 @@ describe("AB1 AC-12: Returns null cost for sessions (no cost data)", () => {
 // ---------------------------------------------------------------------------
 
 describe("AB1: Idle duration in health signals", () => {
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		const eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-		await seedPrereqs(db);
-	}, 30_000);
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("returns idleDurationMs as null when no sessions exist", async () => {
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test("returns idleDurationMs as null when no sessions exist", async ({ db, app }) => {
+		await seedPrereqs(db);
 		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
 			headers: authHeaders(),
 		});
@@ -1182,7 +1080,8 @@ describe("AB1: Idle duration in health signals", () => {
 		expect(health.idleDurationMs === null || typeof health.idleDurationMs === "number").toBe(true);
 	});
 
-	it("returns idleDurationMs as a non-negative number when sessions exist", async () => {
+	test("returns idleDurationMs as a non-negative number when sessions exist", async ({ db, app }) => {
+		await seedPrereqs(db);
 		await db.insert(sessions).values({
 			id: "ab1-session-for-idle",
 			taskId: "ab1-task-1",

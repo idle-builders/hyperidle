@@ -7,11 +7,8 @@
  * - etc.
  * Tests updated to match O2 API shape.
  */
-import { createTestDb, type HyperIdleDb, knowledgeEditLog, type TestDbHandle } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { knowledgeEditLog } from "@hyperidle/db";
+import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-knowledge";
 
@@ -20,27 +17,18 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("Knowledge Endpoints (E4)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle?.close();
 	});
 
 	// Helper to create a knowledge item via API
 	// @lore O2: POST /api/knowledge (no layer in path)
 	async function createItem(
+		app: { request: (url: string, init?: RequestInit) => Promise<Response> },
 		_layer: string,
 		overrides?: Record<string, unknown>,
 	): Promise<Record<string, unknown>> {
@@ -62,13 +50,13 @@ describe("Knowledge Endpoints (E4)", () => {
 
 	// AC1: GET /api/knowledge — list all items (O2: no layer grouping in kernel route)
 	describe("AC1: GET /api/knowledge/:layer — list by layer grouped by topic, kind", () => {
-		it("returns items for a given layer grouped by topic and kind", async () => {
+		test("returns items for a given layer grouped by topic and kind", async ({ app }) => {
 			// @lore O2: Layer is now a strategy concern. In O2 the kernel GET /
 			// returns all items with a flat items array. Grouping is a fabric concern.
-			await createItem("L0", { topic: "design", title: "Design Pattern A" });
-			await createItem("L0", { topic: "design", title: "Design Anti-Pattern B" });
-			await createItem("L0", { topic: "testing", title: "Test Pattern C" });
-			await createItem("L1", { topic: "design", title: "L1 Design Pattern" });
+			await createItem(app, "L0", { topic: "design", title: "Design Pattern A" });
+			await createItem(app, "L0", { topic: "design", title: "Design Anti-Pattern B" });
+			await createItem(app, "L0", { topic: "testing", title: "Test Pattern C" });
+			await createItem(app, "L1", { topic: "design", title: "L1 Design Pattern" });
 
 			const res = await app.request("/api/knowledge", { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -78,7 +66,7 @@ describe("Knowledge Endpoints (E4)", () => {
 			expect(items.length).toBe(4);
 		});
 
-		it("returns empty groups for a layer with no items", async () => {
+		test("returns empty groups for a layer with no items", async ({ app }) => {
 			// @lore O2: GET /api/knowledge returns empty items when DB is empty
 			const res = await app.request("/api/knowledge", { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -90,8 +78,8 @@ describe("Knowledge Endpoints (E4)", () => {
 
 	// AC2: GET /api/knowledge/:id — single item
 	describe("AC2: GET /api/knowledge/:layer/:id — single item", () => {
-		it("returns a single knowledge item", async () => {
-			const item = await createItem("L0");
+		test("returns a single knowledge item", async ({ app }) => {
+			const item = await createItem(app, "L0");
 			const id = item.id as string;
 
 			// @lore O2: GET /api/knowledge/:id (no layer segment)
@@ -102,15 +90,15 @@ describe("Knowledge Endpoints (E4)", () => {
 			expect(body.title).toBe("Test Pattern");
 		});
 
-		it("returns 404 for non-existent item", async () => {
+		test("returns 404 for non-existent item", async ({ app }) => {
 			const res = await app.request("/api/knowledge/nonexistent", { headers: authHeaders() });
 			expect(res.status).toBe(404);
 		});
 
-		it("returns 404 when item exists but in different layer", async () => {
+		test("returns 404 when item exists but in different layer", async ({ app }) => {
 			// @lore O2: no layer constraint on GET /:id — item is found regardless.
 			// This test now verifies that an item IS found (layer distinction is fabric-level).
-			const item = await createItem("L0");
+			const item = await createItem(app, "L0");
 			const id = item.id as string;
 
 			// In O2, GET /:id finds by ID only — layer constraint removed.
@@ -122,7 +110,7 @@ describe("Knowledge Endpoints (E4)", () => {
 
 	// AC3: POST /api/knowledge — create (version=1)
 	describe("AC3: POST /api/knowledge/:layer — create with version=1", () => {
-		it("creates a knowledge item with version 1", async () => {
+		test("creates a knowledge item with version 1", async ({ app }) => {
 			const res = await app.request("/api/knowledge", {
 				method: "POST",
 				headers: authHeaders(),
@@ -144,7 +132,7 @@ describe("Knowledge Endpoints (E4)", () => {
 			expect(body.id).toBeTruthy();
 		});
 
-		it("returns 400 for missing required fields", async () => {
+		test("returns 400 for missing required fields", async ({ app }) => {
 			const res = await app.request("/api/knowledge", {
 				method: "POST",
 				headers: authHeaders(),
@@ -156,8 +144,8 @@ describe("Knowledge Endpoints (E4)", () => {
 
 	// AC4: PATCH /api/knowledge/:id — update (optimistic locking)
 	describe("AC4: PATCH /api/knowledge/:layer/:id — update with optimistic locking", () => {
-		it("updates an item when version matches", async () => {
-			const item = await createItem("L0");
+		test("updates an item when version matches", async ({ app }) => {
+			const item = await createItem(app, "L0");
 			const id = item.id as string;
 
 			const res = await app.request(`/api/knowledge/${id}`, {
@@ -176,7 +164,7 @@ describe("Knowledge Endpoints (E4)", () => {
 			expect(body.version).toBe(2);
 		});
 
-		it("returns 404 for non-existent item", async () => {
+		test("returns 404 for non-existent item", async ({ app }) => {
 			const res = await app.request("/api/knowledge/nonexistent", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -192,8 +180,8 @@ describe("Knowledge Endpoints (E4)", () => {
 
 	// AC5: Update stale version -> 409 with current version
 	describe("AC5: Stale version update returns 409", () => {
-		it("returns 409 when version does not match", async () => {
-			const item = await createItem("L0");
+		test("returns 409 when version does not match", async ({ app }) => {
+			const item = await createItem(app, "L0");
 			const id = item.id as string;
 
 			// First update succeeds (version 1 -> 2)
@@ -228,9 +216,9 @@ describe("Knowledge Endpoints (E4)", () => {
 
 	// AC6: POST /api/knowledge/:id/merge — merge two items
 	describe("AC6: POST /api/knowledge/:layer/:id/merge — merge two items", () => {
-		it("merges two items, combining body, both IDs redirect", async () => {
-			const item1 = await createItem("L0", { title: "Item One", body: "Body one." });
-			const item2 = await createItem("L0", { title: "Item Two", body: "Body two." });
+		test("merges two items, combining body, both IDs redirect", async ({ app }) => {
+			const item1 = await createItem(app, "L0", { title: "Item One", body: "Body one." });
+			const item2 = await createItem(app, "L0", { title: "Item Two", body: "Body two." });
 			const id1 = item1.id as string;
 			const id2 = item2.id as string;
 
@@ -256,8 +244,8 @@ describe("Knowledge Endpoints (E4)", () => {
 			expect(sourceBody.status).toBe("archived");
 		});
 
-		it("returns 404 when source item does not exist", async () => {
-			const item = await createItem("L0");
+		test("returns 404 when source item does not exist", async ({ app }) => {
+			const item = await createItem(app, "L0");
 			const id = item.id as string;
 
 			const res = await app.request(`/api/knowledge/${id}/merge`, {
@@ -275,8 +263,8 @@ describe("Knowledge Endpoints (E4)", () => {
 
 	// AC7: POST /api/knowledge/:id/split — split into two
 	describe("AC7: POST /api/knowledge/:layer/:id/split — split into two items", () => {
-		it("splits an item into two new items", async () => {
-			const item = await createItem("L0", { title: "Combined", body: "Part A. Part B." });
+		test("splits an item into two new items", async ({ app }) => {
+			const item = await createItem(app, "L0", { title: "Combined", body: "Part A. Part B." });
 			const id = item.id as string;
 
 			const res = await app.request(`/api/knowledge/${id}/split`, {
@@ -305,8 +293,8 @@ describe("Knowledge Endpoints (E4)", () => {
 			expect(origBody.status).toBe("archived");
 		});
 
-		it("returns 400 when newItems has fewer than 2 entries", async () => {
-			const item = await createItem("L0");
+		test("returns 400 when newItems has fewer than 2 entries", async ({ app }) => {
+			const item = await createItem(app, "L0");
 			const id = item.id as string;
 
 			const res = await app.request(`/api/knowledge/${id}/split`, {
@@ -324,8 +312,8 @@ describe("Knowledge Endpoints (E4)", () => {
 
 	// AC8: POST /api/knowledge/:id/archive — archive
 	describe("AC8: POST /api/knowledge/:layer/:id/archive — archive item", () => {
-		it("archives an item (status = archived)", async () => {
-			const item = await createItem("L0");
+		test("archives an item (status = archived)", async ({ app }) => {
+			const item = await createItem(app, "L0");
 			const id = item.id as string;
 
 			const res = await app.request(`/api/knowledge/${id}/archive`, {
@@ -338,7 +326,7 @@ describe("Knowledge Endpoints (E4)", () => {
 			expect(body.status).toBe("archived");
 		});
 
-		it("returns 404 for non-existent item", async () => {
+		test("returns 404 for non-existent item", async ({ app }) => {
 			const res = await app.request("/api/knowledge/nonexistent/archive", {
 				method: "POST",
 				headers: authHeaders(),
@@ -349,10 +337,10 @@ describe("Knowledge Endpoints (E4)", () => {
 
 	// AC9: POST /api/knowledge/:id/flag — flag for review
 	describe("AC9: POST /api/knowledge/:layer/:id/flag — flag for review", () => {
-		it("flags an item (records in edit log)", async () => {
+		test("flags an item (records in edit log)", async ({ app }) => {
 			// @lore O2: attentionScore column stripped from kernel table.
 			// Flag now records in edit log; status is NOT changed to "provisional".
-			const item = await createItem("L0");
+			const item = await createItem(app, "L0");
 			const id = item.id as string;
 
 			const res = await app.request(`/api/knowledge/${id}/flag`, {
@@ -367,7 +355,7 @@ describe("Knowledge Endpoints (E4)", () => {
 			expect(body.id).toBe(id);
 		});
 
-		it("returns 404 for non-existent item", async () => {
+		test("returns 404 for non-existent item", async ({ app }) => {
 			const res = await app.request("/api/knowledge/nonexistent/flag", {
 				method: "POST",
 				headers: authHeaders(),
@@ -379,16 +367,16 @@ describe("Knowledge Endpoints (E4)", () => {
 
 	// AC10: GET /api/knowledge/search?q=... — FTS5 search
 	describe("AC10: GET /api/knowledge/search?q=... — FTS5 search", () => {
-		it("returns items matching the search query", async () => {
-			await createItem("L0", {
+		test("returns items matching the search query", async ({ app }) => {
+			await createItem(app, "L0", {
 				title: "React Patterns",
 				body: "How to use React hooks effectively.",
 			});
-			await createItem("L0", {
+			await createItem(app, "L0", {
 				title: "Database Design",
 				body: "Schema normalization principles.",
 			});
-			await createItem("L1", {
+			await createItem(app, "L1", {
 				title: "React Testing",
 				body: "Testing React components with vitest.",
 			});
@@ -400,8 +388,8 @@ describe("Knowledge Endpoints (E4)", () => {
 			expect(results.length).toBe(2);
 		});
 
-		it("returns empty results for non-matching query", async () => {
-			await createItem("L0", { title: "React Patterns", body: "Hooks" });
+		test("returns empty results for non-matching query", async ({ app }) => {
+			await createItem(app, "L0", { title: "React Patterns", body: "Hooks" });
 
 			const res = await app.request("/api/knowledge/search?q=python", { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -410,7 +398,7 @@ describe("Knowledge Endpoints (E4)", () => {
 			expect(results.length).toBe(0);
 		});
 
-		it("returns 400 when query is missing", async () => {
+		test("returns 400 when query is missing", async ({ app }) => {
 			const res = await app.request("/api/knowledge/search", { headers: authHeaders() });
 			expect(res.status).toBe(400);
 		});
@@ -419,11 +407,11 @@ describe("Knowledge Endpoints (E4)", () => {
 	// AC11: WebSocket /api/ws/knowledge — tested via EventBus emission
 	// (Real WebSocket tests require Bun runtime; we test that events are emitted)
 	describe("AC11: EventBus emits knowledge_updated events", () => {
-		it("emits knowledge_updated event on create", async () => {
+		test("emits knowledge_updated event on create", async ({ app, eventBus }) => {
 			const events: unknown[] = [];
 			eventBus.on("*", (e: unknown) => events.push(e));
 
-			await createItem("L0");
+			await createItem(app, "L0");
 
 			const knowledgeEvents = events.filter(
 				(e) => (e as Record<string, unknown>).type === "knowledge_created",
@@ -431,8 +419,8 @@ describe("Knowledge Endpoints (E4)", () => {
 			expect(knowledgeEvents.length).toBe(1);
 		});
 
-		it("emits knowledge_updated event on update", async () => {
-			const item = await createItem("L0");
+		test("emits knowledge_updated event on update", async ({ app, eventBus }) => {
+			const item = await createItem(app, "L0");
 			const id = item.id as string;
 
 			const events: unknown[] = [];
@@ -457,8 +445,8 @@ describe("Knowledge Endpoints (E4)", () => {
 
 	// AC12: Edit log — every PATCH creates knowledge_edit_log entry
 	describe("AC12: Edit log on PATCH", () => {
-		it("creates edit log entries for each changed field", async () => {
-			const item = await createItem("L0");
+		test("creates edit log entries for each changed field", async ({ db, app }) => {
+			const item = await createItem(app, "L0");
 			const id = item.id as string;
 
 			await app.request(`/api/knowledge/${id}`, {
@@ -485,8 +473,8 @@ describe("Knowledge Endpoints (E4)", () => {
 
 	// AC13: WebSocket delivers updates in same shape as PATCH response + _event field
 	describe("AC13: Event shape matches PATCH response with _event field", () => {
-		it("emitted event has _event field and item data", async () => {
-			const item = await createItem("L0");
+		test("emitted event has _event field and item data", async ({ app, eventBus }) => {
+			const item = await createItem(app, "L0");
 			const id = item.id as string;
 
 			const events: unknown[] = [];

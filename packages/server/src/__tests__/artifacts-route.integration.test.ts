@@ -1,19 +1,9 @@
 // L3 RED — Hono route tests for /api/artifacts.
 // Source of truth: plans/L3/architecture.md §5, §12.
 
-import {
-	artifacts,
-	bets,
-	createTestDb,
-	type HyperIdleDb,
-	tasks,
-	teamMembers,
-	teams,
-} from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { artifacts, bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-artifacts";
 const NOW = "2026-04-28T00:00:00.000Z";
@@ -89,42 +79,32 @@ async function insertArtifact(
 }
 
 describe("L3 GET /api/artifacts (axis discriminated union)", () => {
-	let db: HyperIdleDb;
-	let handle: TestDbHandle;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("401 when unauthenticated", async () => {
+	test("401 when unauthenticated", async ({ app }) => {
 		const res = await app.request("/api/artifacts?axis=portfolio", {
 			headers: { "Content-Type": "application/json" },
 		});
 		expect(res.status).toBe(401);
 	});
 
-	it("400 when axis is malformed", async () => {
+	test("400 when axis is malformed", async ({ app }) => {
 		const res = await app.request("/api/artifacts?axis=bogus", { headers: authHeaders() });
 		expect(res.status).toBe(400);
 	});
 
-	it("400 when axis=task but taskId is missing", async () => {
+	test("400 when axis=task but taskId is missing", async ({ app }) => {
 		const res = await app.request("/api/artifacts?axis=task", { headers: authHeaders() });
 		expect(res.status).toBe(400);
 	});
 
-	it("axis=task returns artifacts for one task only", async () => {
+	test("axis=task returns artifacts for one task only", async ({ db, app }) => {
 		const a = await seed(db, "_a");
 		const b = await seed(db, "_b");
 		await insertArtifact(db, "art_a1", a.taskId);
@@ -140,7 +120,7 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 		expect(ids).toEqual(["art_a1", "art_a2"]);
 	});
 
-	it("axis=bet aggregates artifacts across the bet's tasks", async () => {
+	test("axis=bet aggregates artifacts across the bet's tasks", async ({ db, app }) => {
 		const s = await seed(db);
 		// add a second task to the same bet
 		await db.insert(tasks).values({
@@ -164,7 +144,7 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 		expect(body.items.map((i) => i.id).sort()).toEqual(["art_x", "art_y"]);
 	});
 
-	it("axis=product aggregates artifacts across the product's bets", async () => {
+	test("axis=product aggregates artifacts across the product's bets", async ({ db, app }) => {
 		const s = await seed(db);
 		await insertArtifact(db, "art_p1", s.taskId);
 		const res = await app.request(`/api/artifacts?axis=product&productId=${s.productId}`, {
@@ -175,7 +155,7 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 		expect(body.items.map((i) => i.id)).toContain("art_p1");
 	});
 
-	it("axis=portfolio aggregates artifacts across all products", async () => {
+	test("axis=portfolio aggregates artifacts across all products", async ({ db, app }) => {
 		const a = await seed(db, "_a");
 		const b = await seed(db, "_b");
 		await insertArtifact(db, "art_pa", a.taskId);
@@ -188,7 +168,7 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 		expect(ids).toContain("art_pb");
 	});
 
-	it("response items carry denormalised producing_task_title", async () => {
+	test("response items carry denormalised producing_task_title", async ({ db, app }) => {
 		const s = await seed(db);
 		await insertArtifact(db, "art_t", s.taskId);
 		const res = await app.request(`/api/artifacts?axis=task&taskId=${s.taskId}`, {
@@ -200,7 +180,10 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 		expect(body.items[0]?.producingTaskTitle).toBe("T");
 	});
 
-	it("response items carry threadCount as a number (forward-compat zero until L1)", async () => {
+	test("response items carry threadCount as a number (forward-compat zero until L1)", async ({
+		db,
+		app,
+	}) => {
 		const s = await seed(db);
 		await insertArtifact(db, "art_tc", s.taskId);
 		const res = await app.request(`/api/artifacts?axis=task&taskId=${s.taskId}`, {
@@ -211,7 +194,10 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 		expect(typeof body.items[0]?.threadCount).toBe("number");
 	});
 
-	it("response items carry cost-from-session shape (WireMoney + TokenUsage after L17)", async () => {
+	test("response items carry cost-from-session shape (WireMoney + TokenUsage after L17)", async ({
+		db,
+		app,
+	}) => {
 		// @lore O2: cost columns stripped from kernel artifacts table.
 		// cost.money and cost.tokens are null when no session cost data exists.
 		const s = await seed(db);
@@ -236,14 +222,14 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 		}
 	});
 
-	it("pagination cap enforced — limit > 200 returns 400 LIMIT_TOO_HIGH", async () => {
+	test("pagination cap enforced — limit > 200 returns 400 LIMIT_TOO_HIGH", async ({ app }) => {
 		const res = await app.request("/api/artifacts?axis=portfolio&limit=1000", {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(400);
 	});
 
-	it("pagination default limit caps results", async () => {
+	test("pagination default limit caps results", async ({ db, app }) => {
 		const s = await seed(db);
 		for (let i = 0; i < 75; i++) {
 			await insertArtifact(db, `art_${i}`, s.taskId);
@@ -259,7 +245,7 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 		expect(body.nextCursor).not.toBeNull();
 	});
 
-	it("normalises an unrecognised kind to unknown_kind with preview:null", async () => {
+	test("normalises an unrecognised kind to unknown_kind with preview:null", async ({ db, app }) => {
 		const s = await seed(db);
 		await insertArtifact(db, "art_unk", s.taskId, { kind: "internet_meme", previewJson: null });
 		const res = await app.request(`/api/artifacts?axis=task&taskId=${s.taskId}`, {
@@ -274,23 +260,15 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 });
 
 describe("L3 GET /api/artifacts/:id (permalink)", () => {
-	let db: HyperIdleDb;
-	let handle: TestDbHandle;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		app = await createTestApp({ db, eventBus: new EventBus() });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("returns the artifact when it exists", async () => {
+	test("returns the artifact when it exists", async ({ db, app }) => {
 		const s = await seed(db);
 		await insertArtifact(db, "art_one", s.taskId);
 		const res = await app.request("/api/artifacts/art_one", { headers: authHeaders() });
@@ -299,13 +277,13 @@ describe("L3 GET /api/artifacts/:id (permalink)", () => {
 		expect(body.id).toBe("art_one");
 	});
 
-	it("returns 404 for unknown id", async () => {
+	test("returns 404 for unknown id", async ({ app }) => {
 		const res = await app.request("/api/artifacts/nope", { headers: authHeaders() });
 		expect(res.status).toBe(404);
 	});
 
 	// Cross-tenant — surfaced as 404 (not 403) per §5.3 to avoid leaking existence
-	it("returns 404 for cross-tenant access (does not leak existence as 403)", async () => {
+	test("returns 404 for cross-tenant access (does not leak existence as 403)", async ({ app }) => {
 		// Without multi-tenant test seam we can't truly cross tenants, but the
 		// route must NEVER return 403 for a missing-or-foreign id; assert the
 		// status set is exactly {200, 404} for any id lookup.
@@ -318,23 +296,18 @@ describe("L3 GET /api/artifacts/:id (permalink)", () => {
 });
 
 describe("L3 POST /api/artifacts (writer endpoint, mutability rules)", () => {
-	let db: HyperIdleDb;
-	let handle: TestDbHandle;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		app = await createTestApp({ db, eventBus: new EventBus() });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("rejects payload where data.kind !== preview.kind (KIND_MISMATCH 400)", async () => {
+	test("rejects payload where data.kind !== preview.kind (KIND_MISMATCH 400)", async ({
+		db,
+		app,
+	}) => {
 		const s = await seed(db);
 		const res = await app.request("/api/artifacts", {
 			method: "POST",
@@ -349,7 +322,7 @@ describe("L3 POST /api/artifacts (writer endpoint, mutability rules)", () => {
 		expect(res.status).toBe(400);
 	});
 
-	it("rejects oversized preview body (>64KB) with 413", async () => {
+	test("rejects oversized preview body (>64KB) with 413", async ({ db, app }) => {
 		const s = await seed(db);
 		const huge = "a".repeat(70_000);
 		const res = await app.request("/api/artifacts", {
@@ -365,7 +338,7 @@ describe("L3 POST /api/artifacts (writer endpoint, mutability rules)", () => {
 		expect(res.status).toBe(413);
 	});
 
-	it("rejects FK-violating producingTaskId with 400 INVALID_TASK", async () => {
+	test("rejects FK-violating producingTaskId with 400 INVALID_TASK", async ({ app }) => {
 		const res = await app.request("/api/artifacts", {
 			method: "POST",
 			headers: authHeaders(),
@@ -379,7 +352,7 @@ describe("L3 POST /api/artifacts (writer endpoint, mutability rules)", () => {
 		expect(res.status).toBe(400);
 	});
 
-	it("rejects kind: 'unknown_kind' on create (closed-write rule)", async () => {
+	test("rejects kind: 'unknown_kind' on create (closed-write rule)", async ({ db, app }) => {
 		const s = await seed(db);
 		const res = await app.request("/api/artifacts", {
 			method: "POST",
@@ -396,23 +369,15 @@ describe("L3 POST /api/artifacts (writer endpoint, mutability rules)", () => {
 });
 
 describe("L3 PATCH immutability (preview, cost) — protected", () => {
-	let db: HyperIdleDb;
-	let handle: TestDbHandle;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		app = await createTestApp({ db, eventBus: new EventBus() });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("second PATCH /preview returns 409 IMMUTABLE", async () => {
+	test("second PATCH /preview returns 409 IMMUTABLE", async ({ db, app }) => {
 		const s = await seed(db);
 		await insertArtifact(db, "art_imm", s.taskId, {
 			previewJson: JSON.stringify({ kind: "decision", claim: "c", rationale: "r" }),
@@ -427,7 +392,10 @@ describe("L3 PATCH immutability (preview, cost) — protected", () => {
 		expect(res.status).toBe(409);
 	});
 
-	it("PATCH /cost returns 404 (O2: cost route removed — cost columns stripped from kernel table)", async () => {
+	test("PATCH /cost returns 404 (O2: cost route removed — cost columns stripped from kernel table)", async ({
+		db,
+		app,
+	}) => {
 		// @lore O2: PATCH /:id/cost route removed because cost columns were stripped
 		// from the kernel artifacts table. Cost settlement is now a strategy concern.
 		const s = await seed(db);
@@ -443,7 +411,7 @@ describe("L3 PATCH immutability (preview, cost) — protected", () => {
 	// L3 review fix Adv-B6 (O2 superseded): the PATCH /cost route was removed in O2.
 	// @lore O2: cost columns stripped from kernel artifacts table. PATCH /cost
 	// route removed. Cost settlement is now a strategy concern.
-	it("PATCH /cost returns 404 for any artifact (O2: route removed)", async () => {
+	test("PATCH /cost returns 404 for any artifact (O2: route removed)", async ({ db, app }) => {
 		const s = await seed(db);
 		await insertArtifact(db, "art_partial", s.taskId);
 		const res = await app.request("/api/artifacts/art_partial/cost", {
@@ -457,7 +425,7 @@ describe("L3 PATCH immutability (preview, cost) — protected", () => {
 	// L3 review fix Sec-MED-3 (O2 superseded): PATCH /cost route removed in O2.
 	// @lore O2: validation for negative/fractional cost values no longer applies
 	// since the route is gone. These tests document the 404 behavior.
-	it("PATCH /cost with negative values returns 404 (O2: route removed)", async () => {
+	test("PATCH /cost with negative values returns 404 (O2: route removed)", async ({ db, app }) => {
 		const s = await seed(db);
 		await insertArtifact(db, "art_neg", s.taskId);
 		const res = await app.request("/api/artifacts/art_neg/cost", {
@@ -468,7 +436,10 @@ describe("L3 PATCH immutability (preview, cost) — protected", () => {
 		expect(res.status).toBe(404);
 	});
 
-	it("PATCH /cost with fractional values returns 404 (O2: route removed)", async () => {
+	test("PATCH /cost with fractional values returns 404 (O2: route removed)", async ({
+		db,
+		app,
+	}) => {
 		const s = await seed(db);
 		await insertArtifact(db, "art_frac", s.taskId);
 		const res = await app.request("/api/artifacts/art_frac/cost", {
@@ -482,23 +453,15 @@ describe("L3 PATCH immutability (preview, cost) — protected", () => {
 
 // L3 review fix Adv-B5 — cursor roundtrip yields a non-overlapping next page.
 describe("L3 GET /api/artifacts pagination cursor", () => {
-	let db: HyperIdleDb;
-	let handle: TestDbHandle;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		app = await createTestApp({ db, eventBus: new EventBus() });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("cursor roundtrip: page 2 yields non-overlapping older artifacts", async () => {
+	test("cursor roundtrip: page 2 yields non-overlapping older artifacts", async ({ db, app }) => {
 		const s = await seed(db);
 		// Insert 5 artifacts with monotonically increasing createdAt.
 		// @lore O2: cost columns stripped from kernel artifacts table
@@ -536,7 +499,7 @@ describe("L3 GET /api/artifacts pagination cursor", () => {
 		for (const id of ids2) expect(ids1).not.toContain(id);
 	});
 
-	it("rejects malformed cursor with 400", async () => {
+	test("rejects malformed cursor with 400", async ({ db, app }) => {
 		const s = await seed(db);
 		await insertArtifact(db, "art_x", s.taskId);
 		const res = await app.request(`/api/artifacts?axis=task&taskId=${s.taskId}&cursor=no-pipe`, {

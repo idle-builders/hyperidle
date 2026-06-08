@@ -12,18 +12,16 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
-	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
 import type { TaskStateChangedEvent } from "@hyperidle/shared";
-import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
+import { test } from "../../test-fixtures.js";
 import { createTaskTool } from "../create-task.js";
 import type { ToolContext } from "../tool-registry.js";
 
@@ -65,7 +63,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-function makeContext(db: HyperIdleDb, eventBus: EventBus): ToolContext {
+function makeContext(db: HyperIdleDb, eventBus: import("@hyperidle/shared").EventBus): ToolContext {
 	return {
 		db,
 		eventBus,
@@ -78,24 +76,10 @@ function makeContext(db: HyperIdleDb, eventBus: EventBus): ToolContext {
 }
 
 describe("create_task tool", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		await seed(db);
-	});
-
-	afterEach(async () => {
-		await handle?.close();
-	});
-
 	// AC1 happy path: task created with correct betId, productId, teamId, ownerAgentId, state
 	describe("AC1: creates task with correct fields", () => {
-		it("returns ok with taskId and inserts task row with derived betId", async () => {
+		test("returns ok with taskId and inserts task row with derived betId", async ({ db, eventBus }) => {
+			await seed(db);
 			const result = await createTaskTool.handler(
 				{ title: "Implement feature X" },
 				makeContext(db, eventBus),
@@ -118,7 +102,8 @@ describe("create_task tool", () => {
 			expect(inserted?.state).toBe("proposed");
 		});
 
-		it("persists optional description and doneCondition when provided", async () => {
+		test("persists optional description and doneCondition when provided", async ({ db, eventBus }) => {
+			await seed(db);
 			const result = await createTaskTool.handler(
 				{
 					title: "Write tests",
@@ -140,7 +125,8 @@ describe("create_task tool", () => {
 
 	// AC5: new tasks from create_task start in proposed state
 	describe("AC5: new task starts in proposed state", () => {
-		it("inserted task has state=proposed", async () => {
+		test("inserted task has state=proposed", async ({ db, eventBus }) => {
+			await seed(db);
 			const result = await createTaskTool.handler({ title: "Subtask" }, makeContext(db, eventBus));
 
 			expect(result.success).toBe(true);
@@ -154,7 +140,8 @@ describe("create_task tool", () => {
 
 	// Event emission
 	describe("event emission", () => {
-		it("emits task_state_changed event after creating a task", async () => {
+		test("emits task_state_changed event after creating a task", async ({ db, eventBus }) => {
+			await seed(db);
 			const emitted: TaskStateChangedEvent[] = [];
 			eventBus.on("task_state_changed", (e: TaskStateChangedEvent) => emitted.push(e));
 
@@ -171,7 +158,8 @@ describe("create_task tool", () => {
 
 	// Error cases
 	describe("error cases", () => {
-		it("returns NOT_FOUND when ctx.taskId does not exist", async () => {
+		test("returns NOT_FOUND when ctx.taskId does not exist", async ({ db, eventBus }) => {
+			await seed(db);
 			const ctx: ToolContext = {
 				...makeContext(db, eventBus),
 				taskId: "ghost-task-does-not-exist",
@@ -184,7 +172,8 @@ describe("create_task tool", () => {
 			expect(result.code).toBe("NOT_FOUND");
 		});
 
-		it("returns INVALID_INPUT when title is empty string", async () => {
+		test("returns INVALID_INPUT when title is empty string", async ({ db, eventBus }) => {
+			await seed(db);
 			const result = await createTaskTool.handler({ title: "" }, makeContext(db, eventBus));
 
 			expect(result.success).toBe(false);
@@ -192,7 +181,8 @@ describe("create_task tool", () => {
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		it("returns INVALID_INPUT when title exceeds 512 characters", async () => {
+		test("returns INVALID_INPUT when title exceeds 512 characters", async ({ db, eventBus }) => {
+			await seed(db);
 			const result = await createTaskTool.handler(
 				{ title: "x".repeat(513) },
 				makeContext(db, eventBus),

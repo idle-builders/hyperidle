@@ -13,13 +13,12 @@
  * satisfied by the simplified "active" status.
  */
 
-import { bets, createTestDb, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
+import { type EventBus } from "@hyperidle/shared";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import type { RevisionLogEntry } from "../../services/bet-state-machine.js";
 import { transitionBet } from "../../services/bet-state-machine.js";
-import { createTestApp } from "../../test-utils.js";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-L14";
 
@@ -32,35 +31,29 @@ function parseRevisionLog(raw: string | null): RevisionLogEntry[] {
 	return JSON.parse(raw) as RevisionLogEntry[];
 }
 
+async function seedBase(db: HyperIdleDb, _eventBus: EventBus): Promise<void> {
+	const now = new Date().toISOString();
+	// @lore U1: teams = domain entity (formerly products); teamMembers = membership group.
+	await db.insert(teams).values({ id: "p1", name: "Alpha", phase: "build", createdAt: now });
+	await db
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+
+	await db.insert(bets).values({
+		id: "bet1",
+		// @lore U1: bets.teamId references teams.id (domain entity), NOT teamMembers.id
+		teamId: "p1",
+		description: "# Hello\nBody text",
+		appetite: "2 weeks",
+		// @lore U1: status is "draft" (formerly "shaped")
+		status: "draft",
+		createdAt: now,
+	});
+}
+
 describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-
-		const now = new Date().toISOString();
-		// @lore U1: teams = domain entity (formerly products); teamMembers = membership group.
-		await db.insert(teams).values({ id: "p1", name: "Alpha", phase: "build", createdAt: now });
-		await db
-			.insert(teamMembers)
-			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
-
-		await db.insert(bets).values({
-			id: "bet1",
-			// @lore U1: bets.teamId references teams.id (domain entity), NOT teamMembers.id
-			teamId: "p1",
-			description: "# Hello\nBody text",
-			appetite: "2 weeks",
-			// @lore U1: status is "draft" (formerly "shaped")
-			status: "draft",
-			createdAt: now,
-		});
 	});
 
 	afterEach(() => {
@@ -72,7 +65,8 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 	// Tests for invalid transitions still verify route doesn't exist (404).
 
 	describe("AC-1 — POST /bets/:id/pause", () => {
-		it("returns 404 when transition is invalid (draft → pause route removed in U1)", async () => {
+		test("returns 404 when transition is invalid (draft → pause route removed in U1)", async ({ db, app, eventBus }) => {
+			await seedBase(db, eventBus);
 			// U1 removed the pause route — expect 404 (route not found)
 			const res = await app.request("/api/bets/bet1/pause", {
 				method: "POST",
@@ -83,7 +77,8 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			expect(res.status).toBe(404);
 		});
 
-		it("returns 404 for unknown betId (route removed in U1)", async () => {
+		test("returns 404 for unknown betId (route removed in U1)", async ({ db, app, eventBus }) => {
+			await seedBase(db, eventBus);
 			const res = await app.request("/api/bets/nonexistent/pause", {
 				method: "POST",
 				headers: authHeaders(),
@@ -97,7 +92,8 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 	// ─── AC-2: Resume route (removed in U1) ─────────────────────────────────────
 
 	describe("AC-2 — POST /bets/:id/resume", () => {
-		it("returns 404 when resume route removed in U1", async () => {
+		test("returns 404 when resume route removed in U1", async ({ db, app, eventBus }) => {
+			await seedBase(db, eventBus);
 			const res = await app.request("/api/bets/bet1/resume", {
 				method: "POST",
 				headers: authHeaders(),
@@ -111,7 +107,8 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 	// ─── AC-3: Empty reason (pause removed, test 400 from kill as proxy) ────────
 
 	describe("AC-3 — Pause requires non-empty reason", () => {
-		it("returns 400 when reason is empty string (kill route as proxy)", async () => {
+		test("returns 400 when reason is empty string (kill route as proxy)", async ({ db, app, eventBus }) => {
+			await seedBase(db, eventBus);
 			// Pause route is removed; verify 400 from kill (same empty-reason validation)
 			const res = await app.request("/api/bets/bet1/kill", {
 				method: "POST",
@@ -122,7 +119,8 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 when reason is missing (kill route as proxy)", async () => {
+		test("returns 400 when reason is missing (kill route as proxy)", async ({ db, app, eventBus }) => {
+			await seedBase(db, eventBus);
 			const res = await app.request("/api/bets/bet1/kill", {
 				method: "POST",
 				headers: authHeaders(),
@@ -136,12 +134,10 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 	// ─── AC-4: cost_appetite WireMoney validation (L17 replaces old appetite string) ─
 
 	describe("AC-4 — cost_appetite WireMoney guard on PATCH", () => {
-		beforeEach(async () => {
+		test("accepts cost_appetite WireMoney { minor: 10000, currency: 'USD' }", async ({ db, app, eventBus }) => {
+			await seedBase(db, eventBus);
 			// @lore U1: Walk to "active" (draft → active via /commit) so cost_appetite update is allowed
 			await transitionBet(db, eventBus, "bet1", "active");
-		});
-
-		it("accepts cost_appetite WireMoney { minor: 10000, currency: 'USD' }", async () => {
 			const res = await app.request("/api/bets/bet1", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -154,7 +150,9 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			expect(res.status).toBe(200);
 		});
 
-		it("accepts cost_appetite WireMoney { minor: 5000, currency: 'USD' }", async () => {
+		test("accepts cost_appetite WireMoney { minor: 5000, currency: 'USD' }", async ({ db, app, eventBus }) => {
+			await seedBase(db, eventBus);
+			await transitionBet(db, eventBus, "bet1", "active");
 			const res = await app.request("/api/bets/bet1", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -167,7 +165,9 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			expect(res.status).toBe(200);
 		});
 
-		it("accepts cost_appetite null (uncapped)", async () => {
+		test("accepts cost_appetite null (uncapped)", async ({ db, app, eventBus }) => {
+			await seedBase(db, eventBus);
+			await transitionBet(db, eventBus, "bet1", "active");
 			const res = await app.request("/api/bets/bet1", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -180,7 +180,9 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			expect(res.status).toBe(200);
 		});
 
-		it("rejects cost_appetite with invalid currency with 400", async () => {
+		test("rejects cost_appetite with invalid currency with 400", async ({ db, app, eventBus }) => {
+			await seedBase(db, eventBus);
+			await transitionBet(db, eventBus, "bet1", "active");
 			const res = await app.request("/api/bets/bet1", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -193,7 +195,9 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("rejects cost_appetite with negative minor with 400", async () => {
+		test("rejects cost_appetite with negative minor with 400", async ({ db, app, eventBus }) => {
+			await seedBase(db, eventBus);
+			await transitionBet(db, eventBus, "bet1", "active");
 			const res = await app.request("/api/bets/bet1", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -206,7 +210,9 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("rejects unknown field 'appetite' with 400 (L17 removed old appetite string)", async () => {
+		test("rejects unknown field 'appetite' with 400 (L17 removed old appetite string)", async ({ db, app, eventBus }) => {
+			await seedBase(db, eventBus);
+			await transitionBet(db, eventBus, "bet1", "active");
 			const res = await app.request("/api/bets/bet1", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -219,7 +225,8 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 	// ─── AC-4: cost_appetite update allowed from active state ───────────────────
 
 	describe("AC-4 — cost_appetite update from active state", () => {
-		it("allows cost_appetite update when bet is active", async () => {
+		test("allows cost_appetite update when bet is active", async ({ db, app, eventBus }) => {
+			await seedBase(db, eventBus);
 			await transitionBet(db, eventBus, "bet1", "active");
 
 			const res = await app.request("/api/bets/bet1", {
@@ -234,7 +241,8 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			expect(res.status).toBe(200);
 		});
 
-		it("allows cost_appetite update when bet is blocked (mapped to active in U1)", async () => {
+		test("allows cost_appetite update when bet is blocked (mapped to active in U1)", async ({ db, app, eventBus }) => {
+			await seedBase(db, eventBus);
 			// @lore U1: "blocked" is no longer a separate status — it maps to "active".
 			// This test verifies the active status allows cost_appetite PATCH.
 			await transitionBet(db, eventBus, "bet1", "active");
@@ -255,7 +263,8 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 	// ─── AC-5: Actor field in revision log ───────────────────────────────────
 
 	describe("AC-5 — RevisionLogEntry actor field", () => {
-		it("kill action via existing route also writes actor (kill route must pass actor)", async () => {
+		test("kill action via existing route also writes actor (kill route must pass actor)", async ({ db, app, eventBus }) => {
+			await seedBase(db, eventBus);
 			await transitionBet(db, eventBus, "bet1", "active");
 
 			await app.request("/api/bets/bet1/kill", {
@@ -279,7 +288,8 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 	// ─── AC-6: GET /bets/:id enrichment ─────────────────────────────────────
 
 	describe("AC-6 — GET /bets/:id enrichment", () => {
-		it("returns title derived from first heading line of description", async () => {
+		test("returns title derived from first heading line of description", async ({ db, app, eventBus }) => {
+			await seedBase(db, eventBus);
 			// description starts with "# Hello"
 			const res = await app.request("/api/bets/bet1", {
 				method: "GET",
@@ -291,7 +301,8 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 		});
 
 		// @lore U2: `product` field removed (clean cut). Now returns `team` only.
-		it("returns team name joined from teams table (formerly product name)", async () => {
+		test("returns team name joined from teams table (formerly product name)", async ({ db, app, eventBus }) => {
+			await seedBase(db, eventBus);
 			const res = await app.request("/api/bets/bet1", {
 				method: "GET",
 				headers: authHeaders(),
@@ -300,7 +311,8 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			expect(body.team).toBe("Alpha");
 		});
 
-		it("returns team identifier joined from teams table", async () => {
+		test("returns team identifier joined from teams table", async ({ db, app, eventBus }) => {
+			await seedBase(db, eventBus);
 			const res = await app.request("/api/bets/bet1", {
 				method: "GET",
 				headers: authHeaders(),
@@ -311,7 +323,8 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			expect(typeof body.team).toBe("string");
 		});
 
-		it("returns progress with done and total computed from tasks", async () => {
+		test("returns progress with done and total computed from tasks", async ({ db, app, eventBus }) => {
+			await seedBase(db, eventBus);
 			const now = new Date().toISOString();
 			// Seed two tasks: one done, one in_progress
 			await db.insert(tasks).values({
@@ -344,7 +357,8 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			expect(body.progress).toEqual({ done: 1, total: 2 });
 		});
 
-		it("returns progress { done: 0, total: 0 } when no tasks", async () => {
+		test("returns progress { done: 0, total: 0 } when no tasks", async ({ db, app, eventBus }) => {
+			await seedBase(db, eventBus);
 			const res = await app.request("/api/bets/bet1", {
 				method: "GET",
 				headers: authHeaders(),
@@ -353,7 +367,8 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			expect(body.progress).toEqual({ done: 0, total: 0 });
 		});
 
-		it("falls back to bet id when description has no heading", async () => {
+		test("falls back to bet id when description has no heading", async ({ db, app, eventBus }) => {
+			await seedBase(db, eventBus);
 			const now = new Date().toISOString();
 			await db.insert(bets).values({
 				id: "bet-noheading",
@@ -377,7 +392,8 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 	// ─── AC-13: POST /bets create schema rejects invalid appetite ────────────
 
 	describe("AC-13 — Create bet schema rejects invalid appetite enum", () => {
-		it("returns 400 when creating bet with appetite 'small'", async () => {
+		test("returns 400 when creating bet with appetite 'small'", async ({ db, app, eventBus }) => {
+			await seedBase(db, eventBus);
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
@@ -390,7 +406,8 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 when creating bet with appetite 'big'", async () => {
+		test("returns 400 when creating bet with appetite 'big'", async ({ db, app, eventBus }) => {
+			await seedBase(db, eventBus);
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),

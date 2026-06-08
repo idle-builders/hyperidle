@@ -2,7 +2,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	items,
 	sessions,
@@ -14,7 +13,8 @@ import {
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
+import { test } from "../../test-fixtures.js";
 import { handoffToTool } from "../handoff-to.js";
 import type { ToolContext } from "../tool-registry.js";
 
@@ -103,16 +103,9 @@ const baseMetadata = {
 };
 
 describe("handoff_to tool", () => {
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		const handle = await createTestDb();
-		db = handle.db;
-		await seed(db);
-	});
-
 	describe("AC5: handoff to agent B changes task owner and ends session", () => {
-		it("transfers ownership to B and ends A's session", async () => {
+		test("transfers ownership to B and ends A's session", async ({ db }) => {
+			await seed(db);
 			const result = await handoffToTool.handler(
 				{ toAgent: "agent-b", ...baseMetadata },
 				makeContext(db),
@@ -132,8 +125,8 @@ describe("handoff_to tool", () => {
 	});
 
 	describe("handoff by role", () => {
-		it("resolves toRole to an available teammate", async () => {
-			// remove direct toAgent option, use toRole
+		test("resolves toRole to an available teammate", async ({ db }) => {
+			await seed(db);
 			const ctx = makeContext(db);
 			// agent-a is also builder; handoff to role builder should pick agent-b (excludes self)
 			const result = await handoffToTool.handler({ toRole: "builder", ...baseMetadata }, ctx);
@@ -146,7 +139,8 @@ describe("handoff_to tool", () => {
 	});
 
 	describe("handoff to human", () => {
-		it("creates a review item and transitions task to blocked", async () => {
+		test("creates a review item and transitions task to blocked", async ({ db }) => {
+			await seed(db);
 			const result = await handoffToTool.handler(
 				{ toHuman: true, ...baseMetadata, status: "blocked", reason: "need a human" },
 				makeContext(db),
@@ -166,7 +160,8 @@ describe("handoff_to tool", () => {
 	});
 
 	describe("AC9: invalid input returns structured error", () => {
-		it("returns INVALID_INPUT when no target is specified", async () => {
+		test("returns INVALID_INPUT when no target is specified", async ({ db }) => {
+			await seed(db);
 			const result = await handoffToTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
 				{ ...baseMetadata } as any,
@@ -177,7 +172,8 @@ describe("handoff_to tool", () => {
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		it("returns INVALID_INPUT when reason is missing", async () => {
+		test("returns INVALID_INPUT when reason is missing", async ({ db }) => {
+			await seed(db);
 			const result = await handoffToTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
 				{ toAgent: "agent-b", contextId: "x", status: "in_progress" } as any,
@@ -188,7 +184,8 @@ describe("handoff_to tool", () => {
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		it("returns NOT_FOUND when target agent does not exist", async () => {
+		test("returns NOT_FOUND when target agent does not exist", async ({ db }) => {
+			await seed(db);
 			const result = await handoffToTool.handler(
 				{ toAgent: "ghost", ...baseMetadata },
 				makeContext(db),

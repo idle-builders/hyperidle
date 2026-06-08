@@ -8,7 +8,6 @@
 
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	tasks,
 	teamMembers,
@@ -17,9 +16,9 @@ import {
 	users,
 } from "@hyperidle/db";
 import { registerLifecyclePropagation } from "@hyperidle/fabric";
-import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, vi } from "vitest";
+import { test } from "../test-fixtures.js";
 
 const SYSTEM_PROPAGATION_ID = "system:propagation";
 
@@ -100,24 +99,18 @@ async function seedDoneTasks(db: HyperIdleDb): Promise<void> {
 }
 
 describe("M3 — lifecycle-propagation: thread participants use users-table founder id (A9)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		await seedBase(db, "test-founder-1");
-		await seedDoneTasks(db);
-		registerLifecyclePropagation(db, eventBus);
-	});
-
-	afterEach(async () => {
+	afterEach(() => {
 		vi.restoreAllMocks();
 	});
 
-	it("propagation thread participants include users-table founder id, not 'u-founder'", async () => {
+	test("propagation thread participants include users-table founder id, not 'u-founder'", async ({
+		db,
+		eventBus,
+	}) => {
+		await seedBase(db, "test-founder-1");
+		await seedDoneTasks(db);
+		registerLifecyclePropagation(db, eventBus);
+
 		// Trigger the propagation that creates a review thread (all tasks done)
 		// Fire a task_state_changed event to drive the propagation
 		eventBus.emit({

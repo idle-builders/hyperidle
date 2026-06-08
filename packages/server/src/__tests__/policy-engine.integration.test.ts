@@ -1,5 +1,4 @@
 import {
-	createTestDb,
 	factorySettings,
 	type HyperIdleDb,
 	items,
@@ -11,9 +10,9 @@ import {
 	users,
 } from "@hyperidle/db";
 import { registerPolicyEngine } from "@hyperidle/fabric";
-import { EventBus, type NotificationEvent } from "@hyperidle/shared";
+import type { NotificationEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
 
 // L1a: legacy `responses` table dropped (plan §5.2). Verdicts now project as
 // `verdict`-typed messages whose `legacy_item_id` ties them back to the source
@@ -45,13 +44,10 @@ async function selectVerdictsForItem(
 }
 
 describe("Policy Engine (E7)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let unsubscribe: () => void;
+	let unsubscribe: (() => void) | undefined;
 	const now = new Date().toISOString();
 
-	async function seedBase(): Promise<void> {
+	async function seedBase(db: HyperIdleDb): Promise<void> {
 		await db
 			.insert(teams)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
@@ -92,7 +88,7 @@ describe("Policy Engine (E7)", () => {
 		});
 	}
 
-	async function seedAgentSkill(autonomyLevel: number): Promise<void> {
+	async function seedAgentSkill(db: HyperIdleDb, autonomyLevel: number): Promise<void> {
 		await db.insert(userSkills).values({
 			userId: "agent-1",
 			skillId: "skill-1",
@@ -103,6 +99,7 @@ describe("Policy Engine (E7)", () => {
 	}
 
 	async function createItem(
+		db: HyperIdleDb,
 		overrides: Partial<{
 			id: string;
 			kind: string;
@@ -126,7 +123,7 @@ describe("Policy Engine (E7)", () => {
 		return itemId;
 	}
 
-	function emitItemCreated(itemId: string): void {
+	function emitItemCreated(eventBus: import("@hyperidle/shared").EventBus, itemId: string): void {
 		eventBus.emit({
 			type: "item_created",
 			streamId: crypto.randomUUID(),
@@ -137,23 +134,20 @@ describe("Policy Engine (E7)", () => {
 		});
 	}
 
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		await seedBase();
-	});
-
-	afterEach(async () => {
+	afterEach(() => {
 		unsubscribe?.();
 	});
 
-	it("AC1: L4 + low risk -> auto-resolve with approverId=policy_engine", async () => {
-		await seedAgentSkill(4);
+	test("AC1: L4 + low risk -> auto-resolve with approverId=policy_engine", async ({
+		db,
+		eventBus,
+	}) => {
+		await seedBase(db);
+		await seedAgentSkill(db, 4);
 		unsubscribe = registerPolicyEngine(db, eventBus);
-		const itemId = await createItem({ riskTier: "low" });
+		const itemId = await createItem(db, { riskTier: "low" });
 
-		emitItemCreated(itemId);
+		emitItemCreated(eventBus, itemId);
 
 		await vi.waitFor(async () => {
 			const resp = await selectVerdictsForItem(db, itemId);
@@ -165,14 +159,18 @@ describe("Policy Engine (E7)", () => {
 		expect(resp[0].approverId).toBe("policy_engine");
 	});
 
-	it("AC2: L3 + low risk -> queue silently (policy_queued in auditTrail, no notification)", async () => {
-		await seedAgentSkill(3);
+	test("AC2: L3 + low risk -> queue silently (policy_queued in auditTrail, no notification)", async ({
+		db,
+		eventBus,
+	}) => {
+		await seedBase(db);
+		await seedAgentSkill(db, 3);
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicyEngine(db, eventBus);
-		const itemId = await createItem({ riskTier: "low" });
+		const itemId = await createItem(db, { riskTier: "low" });
 
-		emitItemCreated(itemId);
+		emitItemCreated(eventBus, itemId);
 
 		await vi.waitFor(async () => {
 			const allItems = await db.select().from(items);
@@ -186,52 +184,56 @@ describe("Policy Engine (E7)", () => {
 		expect(resp).toHaveLength(0);
 	});
 
-	it("AC3: L2 + low risk -> push notification", async () => {
-		await seedAgentSkill(2);
+	test("AC3: L2 + low risk -> push notification", async ({ db, eventBus }) => {
+		await seedBase(db);
+		await seedAgentSkill(db, 2);
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicyEngine(db, eventBus);
-		const itemId = await createItem({ riskTier: "low" });
+		const itemId = await createItem(db, { riskTier: "low" });
 
-		emitItemCreated(itemId);
+		emitItemCreated(eventBus, itemId);
 
 		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 		expect(notifications[0].targetId).toBe(itemId);
 	});
 
-	it("AC4: L1 -> push for every action", async () => {
-		await seedAgentSkill(1);
+	test("AC4: L1 -> push for every action", async ({ db, eventBus }) => {
+		await seedBase(db);
+		await seedAgentSkill(db, 1);
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicyEngine(db, eventBus);
-		const itemId = await createItem({ riskTier: "low" });
+		const itemId = await createItem(db, { riskTier: "low" });
 
-		emitItemCreated(itemId);
+		emitItemCreated(eventBus, itemId);
 
 		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 		expect(notifications[0].targetId).toBe(itemId);
 	});
 
-	it("AC4: no agentSkills defaults to L1 -> push", async () => {
+	test("AC4: no agentSkills defaults to L1 -> push", async ({ db, eventBus }) => {
+		await seedBase(db);
 		// No seedAgentSkill call — defaults to L1
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicyEngine(db, eventBus);
-		const itemId = await createItem({ riskTier: "low" });
+		const itemId = await createItem(db, { riskTier: "low" });
 
-		emitItemCreated(itemId);
+		emitItemCreated(eventBus, itemId);
 
 		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 	});
 
-	it("AC7: high risk + L4 -> NEVER auto-resolve, always push", async () => {
-		await seedAgentSkill(4);
+	test("AC7: high risk + L4 -> NEVER auto-resolve, always push", async ({ db, eventBus }) => {
+		await seedBase(db);
+		await seedAgentSkill(db, 4);
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicyEngine(db, eventBus);
-		const itemId = await createItem({ riskTier: "high" });
+		const itemId = await createItem(db, { riskTier: "high" });
 
-		emitItemCreated(itemId);
+		emitItemCreated(eventBus, itemId);
 
 		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 		// No auto-resolve
@@ -239,29 +241,34 @@ describe("Policy Engine (E7)", () => {
 		expect(resp).toHaveLength(0);
 	});
 
-	it("AC8: skill-change kind + L4 -> NEVER auto-resolve, always push", async () => {
-		await seedAgentSkill(4);
+	test("AC8: skill-change kind + L4 -> NEVER auto-resolve, always push", async ({
+		db,
+		eventBus,
+	}) => {
+		await seedBase(db);
+		await seedAgentSkill(db, 4);
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicyEngine(db, eventBus);
-		const itemId = await createItem({ kind: "skill_change", riskTier: "low" });
+		const itemId = await createItem(db, { kind: "skill_change", riskTier: "low" });
 
-		emitItemCreated(itemId);
+		emitItemCreated(eventBus, itemId);
 
 		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 		const resp = await selectVerdictsForItem(db, itemId);
 		expect(resp).toHaveLength(0);
 	});
 
-	it("AC5: silence mode active + non-blocking -> queue all items", async () => {
-		await seedAgentSkill(2); // Would normally push
+	test("AC5: silence mode active + non-blocking -> queue all items", async ({ db, eventBus }) => {
+		await seedBase(db);
+		await seedAgentSkill(db, 2); // Would normally push
 		await db.insert(factorySettings).values({ key: "silence_mode", value: "true", updatedAt: now });
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicyEngine(db, eventBus);
-		const itemId = await createItem({ riskTier: "low", blocking: false });
+		const itemId = await createItem(db, { riskTier: "low", blocking: false });
 
-		emitItemCreated(itemId);
+		emitItemCreated(eventBus, itemId);
 
 		await vi.waitFor(async () => {
 			const allItems = await db.select().from(items);
@@ -272,25 +279,30 @@ describe("Policy Engine (E7)", () => {
 		expect(notifications).toHaveLength(0);
 	});
 
-	it("AC5: silence mode active + blocking -> push (not queued)", async () => {
-		await seedAgentSkill(2);
+	test("AC5: silence mode active + blocking -> push (not queued)", async ({ db, eventBus }) => {
+		await seedBase(db);
+		await seedAgentSkill(db, 2);
 		await db.insert(factorySettings).values({ key: "silence_mode", value: "true", updatedAt: now });
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicyEngine(db, eventBus);
-		const itemId = await createItem({ riskTier: "low", blocking: true });
+		const itemId = await createItem(db, { riskTier: "low", blocking: true });
 
-		emitItemCreated(itemId);
+		emitItemCreated(eventBus, itemId);
 
 		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 	});
 
-	it("AC6: auto-resolve creates Response with approver=policy_engine", async () => {
-		await seedAgentSkill(4);
+	test("AC6: auto-resolve creates Response with approver=policy_engine", async ({
+		db,
+		eventBus,
+	}) => {
+		await seedBase(db);
+		await seedAgentSkill(db, 4);
 		unsubscribe = registerPolicyEngine(db, eventBus);
-		const itemId = await createItem({ riskTier: "low" });
+		const itemId = await createItem(db, { riskTier: "low" });
 
-		emitItemCreated(itemId);
+		emitItemCreated(eventBus, itemId);
 
 		// L1a: Response now projects as a verdict-typed message; approver maps
 		// to senderId, decision lives in payload.decision, respondedAt is the
@@ -306,8 +318,9 @@ describe("Policy Engine (E7)", () => {
 		expect(message?.createdAt).toBeTruthy();
 	});
 
-	it("AC10: per-product silence -> items from that product queued", async () => {
-		await seedAgentSkill(2); // Would normally push
+	test("AC10: per-product silence -> items from that product queued", async ({ db, eventBus }) => {
+		await seedBase(db);
+		await seedAgentSkill(db, 2); // Would normally push
 		await db
 			.insert(factorySettings)
 			.values({ key: "silence_product_prod-1", value: "true", updatedAt: now });
@@ -315,9 +328,9 @@ describe("Policy Engine (E7)", () => {
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicyEngine(db, eventBus);
-		const itemId = await createItem({ riskTier: "low", blocking: false });
+		const itemId = await createItem(db, { riskTier: "low", blocking: false });
 
-		emitItemCreated(itemId);
+		emitItemCreated(eventBus, itemId);
 
 		await vi.waitFor(async () => {
 			const allItems = await db.select().from(items);
@@ -328,8 +341,9 @@ describe("Policy Engine (E7)", () => {
 		expect(notifications).toHaveLength(0);
 	});
 
-	it("AC11: silence window - current time in window -> queue", async () => {
-		await seedAgentSkill(2); // Would normally push
+	test("AC11: silence window - current time in window -> queue", async ({ db, eventBus }) => {
+		await seedBase(db);
+		await seedAgentSkill(db, 2); // Would normally push
 		// Set silence window to cover 00:00–23:59 (always active)
 		await db.insert(factorySettings).values([
 			{ key: "silence_window_start", value: "00:00", updatedAt: now },
@@ -342,9 +356,9 @@ describe("Policy Engine (E7)", () => {
 		unsubscribe = registerPolicyEngine(db, eventBus, {
 			nowFn: () => new Date("2026-04-16T14:00:00Z"),
 		});
-		const itemId = await createItem({ riskTier: "low", blocking: false });
+		const itemId = await createItem(db, { riskTier: "low", blocking: false });
 
-		emitItemCreated(itemId);
+		emitItemCreated(eventBus, itemId);
 
 		await vi.waitFor(async () => {
 			const allItems = await db.select().from(items);
@@ -355,8 +369,12 @@ describe("Policy Engine (E7)", () => {
 		expect(notifications).toHaveLength(0);
 	});
 
-	it("AC11: silence window - current time outside window -> normal rules", async () => {
-		await seedAgentSkill(2); // L2 should push
+	test("AC11: silence window - current time outside window -> normal rules", async ({
+		db,
+		eventBus,
+	}) => {
+		await seedBase(db);
+		await seedAgentSkill(db, 2); // L2 should push
 		// Set window 22:00–07:00 (overnight)
 		await db.insert(factorySettings).values([
 			{ key: "silence_window_start", value: "22:00", updatedAt: now },
@@ -369,16 +387,20 @@ describe("Policy Engine (E7)", () => {
 		unsubscribe = registerPolicyEngine(db, eventBus, {
 			nowFn: () => new Date("2026-04-16T14:00:00Z"),
 		});
-		const itemId = await createItem({ riskTier: "low", blocking: false });
+		const itemId = await createItem(db, { riskTier: "low", blocking: false });
 
-		emitItemCreated(itemId);
+		emitItemCreated(eventBus, itemId);
 
 		// Normal L2 behavior: push
 		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 	});
 
-	it("AC11: silence window - overnight wrap (e.g. 22:00-07:00), time is 23:00 -> queue", async () => {
-		await seedAgentSkill(2);
+	test("AC11: silence window - overnight wrap (e.g. 22:00-07:00), time is 23:00 -> queue", async ({
+		db,
+		eventBus,
+	}) => {
+		await seedBase(db);
+		await seedAgentSkill(db, 2);
 		await db.insert(factorySettings).values([
 			{ key: "silence_window_start", value: "22:00", updatedAt: now },
 			{ key: "silence_window_end", value: "07:00", updatedAt: now },
@@ -389,9 +411,9 @@ describe("Policy Engine (E7)", () => {
 		unsubscribe = registerPolicyEngine(db, eventBus, {
 			nowFn: () => new Date("2026-04-16T23:00:00Z"),
 		});
-		const itemId = await createItem({ riskTier: "low", blocking: false });
+		const itemId = await createItem(db, { riskTier: "low", blocking: false });
 
-		emitItemCreated(itemId);
+		emitItemCreated(eventBus, itemId);
 
 		await vi.waitFor(async () => {
 			const allItems = await db.select().from(items);
@@ -402,15 +424,16 @@ describe("Policy Engine (E7)", () => {
 		expect(notifications).toHaveLength(0);
 	});
 
-	it("high risk items always push even in silence mode", async () => {
-		await seedAgentSkill(4);
+	test("high risk items always push even in silence mode", async ({ db, eventBus }) => {
+		await seedBase(db);
+		await seedAgentSkill(db, 4);
 		await db.insert(factorySettings).values({ key: "silence_mode", value: "true", updatedAt: now });
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicyEngine(db, eventBus);
-		const itemId = await createItem({ riskTier: "high", blocking: false });
+		const itemId = await createItem(db, { riskTier: "high", blocking: false });
 
-		emitItemCreated(itemId);
+		emitItemCreated(eventBus, itemId);
 
 		// High risk always pushes
 		await vi.waitFor(() => expect(notifications).toHaveLength(1));

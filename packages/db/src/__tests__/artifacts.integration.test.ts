@@ -1,12 +1,11 @@
 // L3 RED — Drizzle schema tests for the `artifacts` table.
 // Source of truth: plans/L3/architecture.md §4.1, §12.
 
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { HyperIdleDb } from "../connection.js";
 // @lore U1: `products` renamed to `teams`; old `teams` (membership) renamed to `teamMembers`.
 import { artifacts, bets, tasks, teamMembers, teams } from "../schema.js";
-import { createTestDb } from "../test-utils.js";
 
 const NOW = "2026-04-28T00:00:00.000Z";
 
@@ -42,19 +41,7 @@ async function seedTask(
 }
 
 describe("L3 artifacts schema", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	}, 30_000);
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	it("creates the artifacts table", async () => {
+	test("creates the artifacts table", async ({ db }) => {
 		const result = await db.execute(
 			`SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = 'artifacts'` as Parameters<
 				typeof db.execute
@@ -64,7 +51,7 @@ describe("L3 artifacts schema", () => {
 		expect(rows.map((r) => r.tablename)).toContain("artifacts");
 	});
 
-	it("supports insert + select round-trip", async () => {
+	test("supports insert + select round-trip", async ({ db }) => {
 		// @lore O2: cost columns stripped from artifacts kernel table.
 		const { taskId } = await seedTask(db);
 		await db.insert(artifacts).values({
@@ -82,7 +69,7 @@ describe("L3 artifacts schema", () => {
 	});
 
 	// AC-2 / protected: insert with non-existent producing_task_id must fail (FK restrict)
-	it("rejects inserts with a non-existent producing_task_id (FK restrict)", async () => {
+	test("rejects inserts with a non-existent producing_task_id (FK restrict)", async ({ db }) => {
 		// @lore O2: cost columns stripped from artifacts kernel table.
 		await expect(
 			db.insert(artifacts).values({
@@ -95,7 +82,7 @@ describe("L3 artifacts schema", () => {
 		).rejects.toThrow();
 	});
 
-	it("rejects deletion of a task that owns artifacts (ON DELETE RESTRICT)", async () => {
+	test("rejects deletion of a task that owns artifacts (ON DELETE RESTRICT)", async ({ db }) => {
 		const { taskId } = await seedTask(db);
 		// @lore O2: cost columns stripped from artifacts kernel table.
 		await db.insert(artifacts).values({
@@ -108,7 +95,7 @@ describe("L3 artifacts schema", () => {
 		await expect(db.delete(tasks).where(eq(tasks.id, taskId))).rejects.toThrow();
 	});
 
-	it("enforces unique id constraint (PK)", async () => {
+	test("enforces unique id constraint (PK)", async ({ db }) => {
 		const { taskId } = await seedTask(db);
 		// @lore O2: cost columns stripped from artifacts kernel table.
 		await db.insert(artifacts).values({
@@ -129,7 +116,7 @@ describe("L3 artifacts schema", () => {
 		).rejects.toThrow();
 	});
 
-	it("has a producing_task_id index for fetch by task", async () => {
+	test("has a producing_task_id index for fetch by task", async ({ db }) => {
 		const result = await db.execute(
 			`SELECT indexname FROM pg_indexes WHERE tablename = 'artifacts' AND schemaname = 'public'` as Parameters<
 				typeof db.execute
@@ -139,7 +126,7 @@ describe("L3 artifacts schema", () => {
 		expect(indexes).toContain("artifacts_producing_task_id_idx");
 	});
 
-	it("has a created_at index for pagination cursor", async () => {
+	test("has a created_at index for pagination cursor", async ({ db }) => {
 		const result = await db.execute(
 			`SELECT indexname FROM pg_indexes WHERE tablename = 'artifacts' AND schemaname = 'public'` as Parameters<
 				typeof db.execute
@@ -149,7 +136,9 @@ describe("L3 artifacts schema", () => {
 		expect(indexes).toContain("artifacts_created_at_idx");
 	});
 
-	it("there is no bet_id, product_id, or portfolio_id column on artifacts (hard rule #1)", async () => {
+	test("there is no bet_id, product_id, or portfolio_id column on artifacts (hard rule #1)", async ({
+		db,
+	}) => {
 		const result = await db.execute(
 			`SELECT column_name FROM information_schema.columns WHERE table_name = 'artifacts' AND table_schema = 'public'` as Parameters<
 				typeof db.execute
@@ -164,7 +153,7 @@ describe("L3 artifacts schema", () => {
 		expect(cols).not.toContain("portfolio_id");
 	});
 
-	it("preview_json is nullable", async () => {
+	test("preview_json is nullable", async ({ db }) => {
 		const result = await db.execute(
 			`SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name = 'artifacts' AND table_schema = 'public' AND column_name = 'preview_json'` as Parameters<
 				typeof db.execute
@@ -176,7 +165,7 @@ describe("L3 artifacts schema", () => {
 		expect(rows[0]?.is_nullable).toBe("YES");
 	});
 
-	it("cost columns are absent (stripped from kernel table in O2)", async () => {
+	test("cost columns are absent (stripped from kernel table in O2)", async ({ db }) => {
 		// @lore O2: cost columns (cost_money_micros, cost_tokens_input,
 		// cost_tokens_output, cost_settled_at) stripped from the kernel artifacts
 		// table as part of kernel/strategy separation. Cost is now a strategy concern.
@@ -195,7 +184,7 @@ describe("L3 artifacts schema", () => {
 		expect(cols).not.toContain("cost_settled_at");
 	});
 
-	it("created_at is NOT NULL", async () => {
+	test("created_at is NOT NULL", async ({ db }) => {
 		const result = await db.execute(
 			`SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name = 'artifacts' AND table_schema = 'public' AND column_name = 'created_at'` as Parameters<
 				typeof db.execute

@@ -1,7 +1,6 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import {
-	createTestDb,
 	type HyperIdleDb,
 	messages,
 	teamMembers,
@@ -10,7 +9,8 @@ import {
 	users,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
+import { test } from "../../test-fixtures.js";
 import { readInboxTool } from "../read-inbox.js";
 import type { ToolContext } from "../tool-registry.js";
 
@@ -103,16 +103,9 @@ async function insertMessage(
 }
 
 describe("read_inbox tool", () => {
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		const handle = await createTestDb();
-		db = handle.db;
-		await seedFactory(db);
-	});
-
 	describe("AC1: agent with 3 messages returns all 3", () => {
-		it("returns all messages addressed to the agent", async () => {
+		test("returns all messages addressed to the agent", async ({ db }) => {
+			await seedFactory(db);
 			await insertMessage(db, "m1", "agent-b", "agent-a", "Hello 1", "2026-01-01T00:00:01Z");
 			await insertMessage(db, "m2", "agent-b", "agent-a", "Hello 2", "2026-01-01T00:00:02Z");
 			await insertMessage(db, "m3", "agent-b", "agent-a", "Hello 3", "2026-01-01T00:00:03Z");
@@ -127,7 +120,8 @@ describe("read_inbox tool", () => {
 			expect(ids).toEqual(["m1", "m2", "m3"]);
 		});
 
-		it("orders messages newest first by createdAt DESC", async () => {
+		test("orders messages newest first by createdAt DESC", async ({ db }) => {
+			await seedFactory(db);
 			await insertMessage(db, "m-old", "agent-b", "agent-a", "Old", "2026-01-01T00:00:01Z");
 			await insertMessage(db, "m-mid", "agent-b", "agent-a", "Mid", "2026-01-01T00:00:02Z");
 			await insertMessage(db, "m-new", "agent-b", "agent-a", "New", "2026-01-01T00:00:03Z");
@@ -139,7 +133,8 @@ describe("read_inbox tool", () => {
 			expect(data.messages.map((m) => m.id)).toEqual(["m-new", "m-mid", "m-old"]);
 		});
 
-		it("excludes messages addressed to other agents", async () => {
+		test("excludes messages addressed to other agents", async ({ db }) => {
+			await seedFactory(db);
 			await insertMessage(db, "m1", "agent-b", "agent-a", "For A", "2026-01-01T00:00:01Z");
 			await insertMessage(db, "m2", "agent-a", "agent-b", "For B", "2026-01-01T00:00:02Z");
 
@@ -151,7 +146,8 @@ describe("read_inbox tool", () => {
 			expect(data.messages[0].id).toBe("m1");
 		});
 
-		it("returns empty array when inbox is empty", async () => {
+		test("returns empty array when inbox is empty", async ({ db }) => {
+			await seedFactory(db);
 			const result = await readInboxTool.handler({}, makeContext(db));
 			expect(result.success).toBe(true);
 			if (!result.success) return;
@@ -161,7 +157,8 @@ describe("read_inbox tool", () => {
 	});
 
 	describe("limit parameter", () => {
-		it("caps the number of messages returned", async () => {
+		test("caps the number of messages returned", async ({ db }) => {
+			await seedFactory(db);
 			for (let i = 0; i < 5; i++) {
 				await insertMessage(
 					db,
@@ -181,7 +178,8 @@ describe("read_inbox tool", () => {
 	});
 
 	describe("AC9: invalid input returns structured error", () => {
-		it("rejects non-numeric limit with INVALID_INPUT", async () => {
+		test("rejects non-numeric limit with INVALID_INPUT", async ({ db }) => {
+			await seedFactory(db);
 			const result = await readInboxTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
 				{ limit: "huge" } as any,
@@ -192,7 +190,8 @@ describe("read_inbox tool", () => {
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		it("rejects negative limit with INVALID_INPUT", async () => {
+		test("rejects negative limit with INVALID_INPUT", async ({ db }) => {
+			await seedFactory(db);
 			const result = await readInboxTool.handler({ limit: -5 }, makeContext(db));
 			expect(result.success).toBe(false);
 			if (result.success) return;

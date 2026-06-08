@@ -1,6 +1,10 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { factorySettings } from "../schema.js";
+// @lore test-infra: This file keeps createTestDb() because each test manages
+// its own instance lifecycle via try/finally close(), rather than using
+// beforeEach/afterEach. The fixture handles the pool pattern but these tests
+// intentionally test the createTestDb API itself and need explicit close().
 import { createTestDb } from "../test-utils.js";
 
 describe("createTestDb", () => {

@@ -8,11 +8,10 @@
  * AC1d: Delete user, assert cascade deletes hint_progress rows.
  */
 
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { HyperIdleDb } from "../connection.js";
 import { hintProgress, users } from "../schema.js";
-import { createTestDb, type TestDbHandle } from "../test-utils.js";
 
 const NOW = new Date().toISOString();
 
@@ -28,20 +27,8 @@ async function seedUser(db: HyperIdleDb, id: string): Promise<void> {
 }
 
 describe("P5 AC1: hint_progress table", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	}, 30_000);
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
 	// AC1a: Insert a row, select it, assert shape
-	it("inserts a hint_progress row and selects it back with the correct shape", async () => {
+	test("inserts a hint_progress row and selects it back with the correct shape", async ({ db }) => {
 		await seedUser(db, "user-1");
 
 		await db.insert(hintProgress).values({
@@ -60,7 +47,7 @@ describe("P5 AC1: hint_progress table", () => {
 	});
 
 	// AC1b: Insert duplicate (userId, hintId) — composite primary key violation
-	it("rejects duplicate (userId, hintId) — composite primary key constraint", async () => {
+	test("rejects duplicate (userId, hintId) — composite primary key constraint", async ({ db }) => {
 		await seedUser(db, "user-1");
 
 		await db.insert(hintProgress).values({ userId: "user-1", hintId: "create-bet", seenAt: NOW });
@@ -71,7 +58,7 @@ describe("P5 AC1: hint_progress table", () => {
 	});
 
 	// AC1c: Same user, different hintId — allowed
-	it("allows same user to have multiple different hint dismissals", async () => {
+	test("allows same user to have multiple different hint dismissals", async ({ db }) => {
 		await seedUser(db, "user-1");
 
 		await db.insert(hintProgress).values({ userId: "user-1", hintId: "create-bet", seenAt: NOW });
@@ -84,14 +71,14 @@ describe("P5 AC1: hint_progress table", () => {
 	});
 
 	// AC1d: FK to non-existent user — FK violation
-	it("rejects insert when userId does not reference an existing user", async () => {
+	test("rejects insert when userId does not reference an existing user", async ({ db }) => {
 		await expect(
 			db.insert(hintProgress).values({ userId: "ghost-user", hintId: "create-bet", seenAt: NOW }),
 		).rejects.toThrow();
 	});
 
 	// AC1d: Delete user cascades to hint_progress rows
-	it("cascades deletion of hint_progress rows when the user is deleted", async () => {
+	test("cascades deletion of hint_progress rows when the user is deleted", async ({ db }) => {
 		await seedUser(db, "user-cascade");
 
 		await db
@@ -120,7 +107,7 @@ describe("P5 AC1: hint_progress table", () => {
 	});
 
 	// Multiple users, same hintId — allowed
-	it("allows multiple users to dismiss the same hint independently", async () => {
+	test("allows multiple users to dismiss the same hint independently", async ({ db }) => {
 		await seedUser(db, "user-a");
 		await seedUser(db, "user-b");
 

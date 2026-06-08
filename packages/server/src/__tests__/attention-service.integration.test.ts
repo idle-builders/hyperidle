@@ -1,12 +1,10 @@
 import {
-	createTestDb,
 	factorySettings,
 	type HyperIdleDb,
 	items,
 	knowledgeConflicts,
 	knowledgeItems,
 	knowledgeStrategyFabric,
-	type TestDbHandle,
 } from "@hyperidle/db";
 import {
 	attentionReviewReasoningMarker,
@@ -14,9 +12,9 @@ import {
 	MAX_RECOMPUTE_BATCH,
 } from "@hyperidle/fabric";
 import type { ItemCreatedEvent, KnowledgeUpdatedEvent } from "@hyperidle/shared";
-import { EventBus } from "@hyperidle/shared";
 import { eq, like } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
+import { test } from "../test-fixtures.js";
 
 const NOW = "2026-04-18T00:00:00.000Z";
 const NOW_MS = new Date(NOW).getTime();
@@ -95,17 +93,10 @@ async function seedConflict(db: HyperIdleDb, id: string, itemId: string): Promis
 }
 
 describe("attention-service", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-	});
-
-	it("recomputeOne persists the new score on knowledge_strategy_fabric.attentionScore and does NOT bump version", async () => {
+	test("recomputeOne persists the new score on knowledge_strategy_fabric.attentionScore and does NOT bump version", async ({
+		db,
+		eventBus,
+	}) => {
 		// @lore O2: attentionScore moved from kernel knowledgeItems to extension table
 		await seedKi(db, { id: "ki-1", attentionScore: 0.1, version: 3, confidence: 0.5 });
 		const service = buildAttentionService({ db, eventBus, now: () => NOW_MS });
@@ -122,7 +113,10 @@ describe("attention-service", () => {
 		expect(fabric?.attentionScore).not.toBeNull();
 	});
 
-	it("recomputeOne fires ItemCreatedEvent on prior<0.7 & current>=0.7 AND writes items row", async () => {
+	test("recomputeOne fires ItemCreatedEvent on prior<0.7 & current>=0.7 AND writes items row", async ({
+		db,
+		eventBus,
+	}) => {
 		// Seed item with strong attention signals (conflict + taste-sensitive + low confidence)
 		await seedKi(db, {
 			id: "ki-crosses",
@@ -152,7 +146,10 @@ describe("attention-service", () => {
 		expect(review?.verb).toBe("review");
 	});
 
-	it("recomputeOne does NOT fire ItemCreatedEvent when prior was already >= 0.7", async () => {
+	test("recomputeOne does NOT fire ItemCreatedEvent when prior was already >= 0.7", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedKi(db, {
 			id: "ki-stable-high",
 			kind: "brief",
@@ -172,7 +169,7 @@ describe("attention-service", () => {
 		expect(received.length).toBe(0);
 	});
 
-	it("recomputeOne does NOT fire when prior<0.7 stays below 0.7", async () => {
+	test("recomputeOne does NOT fire when prior<0.7 stays below 0.7", async ({ db, eventBus }) => {
 		// Low-attention technical item, high confidence — should stay low
 		await seedKi(db, {
 			id: "ki-low",
@@ -197,7 +194,7 @@ describe("attention-service", () => {
 	// @lore PGlite: PGlite is significantly slower than SQLite for bulk ops
 	// (2-3x). The original 1500ms threshold assumed SQLite; raised to 10000ms
 	// to accommodate PGlite's in-process Postgres overhead on 1000 items.
-	it("recomputeMany: 1000 items completes in <1s", async () => {
+	test("recomputeMany: 1000 items completes in <1s", async ({ db, eventBus }) => {
 		const ids: string[] = [];
 		for (let i = 0; i < 1000; i++) {
 			const id = `ki-${i}`;
@@ -222,7 +219,10 @@ describe("attention-service", () => {
 		expect(duration).toBeLessThan(10000);
 	}, 60_000);
 
-	it("recomputeMany emits exactly one ItemCreatedEvent per item that crosses the threshold", async () => {
+	test("recomputeMany emits exactly one ItemCreatedEvent per item that crosses the threshold", async ({
+		db,
+		eventBus,
+	}) => {
 		// Seed 3 crossing and 2 non-crossing items.
 		// @lore L22: each crossing item uses a UNIQUE topic so cohort size = 1
 		// (novelty = 1.0). After L22's IMPACT_BY_KIND deletion (impact = 0),
@@ -266,7 +266,10 @@ describe("attention-service", () => {
 		expect(received.length).toBe(3);
 	});
 
-	it("recomputeMany emits KnowledgeUpdatedEvent for every item, action=attention_recomputed", async () => {
+	test("recomputeMany emits KnowledgeUpdatedEvent for every item, action=attention_recomputed", async ({
+		db,
+		eventBus,
+	}) => {
 		for (let i = 0; i < 3; i++) {
 			await seedKi(db, { id: `k-${i}`, confidence: 0.5, attentionScore: 0.1 });
 		}
@@ -285,7 +288,10 @@ describe("attention-service", () => {
 		}
 	});
 
-	it("recomputeScope({layer:'L3', scopeId:'build'}) updates only L3/build items", async () => {
+	test("recomputeScope({layer:'L3', scopeId:'build'}) updates only L3/build items", async ({
+		db,
+		eventBus,
+	}) => {
 		// @lore O2: attentionScore is now in knowledgeStrategyFabric, not knowledgeItems
 		await seedKi(db, {
 			id: "a",
@@ -339,7 +345,7 @@ describe("attention-service", () => {
 		expect(fabricC?.attentionScore).toBe("0.1");
 	});
 
-	it("respects weights loaded from factory_settings", async () => {
+	test("respects weights loaded from factory_settings", async ({ db, eventBus }) => {
 		// Zero out all signal weights except conflict — score should be 1 only when
 		// an item has a conflict, 0 otherwise.
 		const zeroKeys = [
@@ -374,7 +380,10 @@ describe("attention-service", () => {
 
 	// --- Idempotency & concurrency (review findings #1, #3) ---
 
-	it("a second upward crossing does NOT create a duplicate review item", async () => {
+	test("a second upward crossing does NOT create a duplicate review item", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedKi(db, {
 			id: "ki-dup",
 			kind: "brief",
@@ -415,7 +424,10 @@ describe("attention-service", () => {
 		expect(received.length).toBe(1);
 	});
 
-	it("concurrent recomputeOne calls produce exactly one review item (transactional)", async () => {
+	test("concurrent recomputeOne calls produce exactly one review item (transactional)", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedKi(db, {
 			id: "ki-race",
 			kind: "brief",
@@ -446,7 +458,7 @@ describe("attention-service", () => {
 
 	// --- recomputeScope guardrails (review finding #2) ---
 
-	it("recomputeScope rejects an empty filter with FILTER_REQUIRED", async () => {
+	test("recomputeScope rejects an empty filter with FILTER_REQUIRED", async ({ db, eventBus }) => {
 		await seedKi(db, { id: "any", confidence: 0.5, attentionScore: 0.1 });
 		const service = buildAttentionService({ db, eventBus, now: () => NOW_MS });
 		const result = await service.recomputeScope({});
@@ -455,12 +467,10 @@ describe("attention-service", () => {
 		expect(result.error.code).toBe("FILTER_REQUIRED");
 	});
 
-	it("recomputeScope returns BATCH_TOO_LARGE when the selection exceeds MAX_RECOMPUTE_BATCH", async () => {
-		// Build the service with a trivial filter and stub the DB selection to
-		// report a size over the cap. Rather than seed MAX+1 rows, we verify
-		// the cap semantics by calling via a small override that short-circuits
-		// the selection path. We seed MAX_RECOMPUTE_BATCH+1 distinct ids which
-		// is small enough to insert in-memory quickly.
+	test("recomputeScope returns BATCH_TOO_LARGE when the selection exceeds MAX_RECOMPUTE_BATCH", async ({
+		db,
+		eventBus,
+	}) => {
 		const BATCH_OVER = MAX_RECOMPUTE_BATCH + 1;
 		// Insert MAX+1 rows with the same layer so the filter matches all.
 		for (let i = 0; i < BATCH_OVER; i++) {
@@ -475,7 +485,10 @@ describe("attention-service", () => {
 		expect(result.error.size).toBe(BATCH_OVER);
 	});
 
-	it("recomputeScope accepts `kind`, `topic`, and `ids` filter fields", async () => {
+	test("recomputeScope accepts `kind`, `topic`, and `ids` filter fields", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedKi(db, {
 			id: "m-1",
 			layer: "L3",
@@ -512,18 +525,10 @@ describe("attention-service", () => {
 
 	// --- Threshold boundary (review finding #10) ---
 
-	it("threshold boundary: prior=0.6999, current≈0.7 crosses; prior=0.7, current=0.7 does NOT cross", async () => {
-		// Force `current` to land at exactly 0.7 with a trivial zero-weight
-		// configuration except recency=1. With `recentlyHumanEdited=false` and
-		// `lastHumanEditAt=null`, the recency signal returns 1 and (when taken
-		// as the only contributor) the normalized score is 1. We instead use
-		// two contributors that average to 0.7.
-		// Approach: zero-weight everything except tasteSensitivity=0.7 and
-		// recency=0.3. A taste-sensitive brief with no human edit yields
-		// taste=1, recency=1 → weighted=(1*0.7 + 1*0.3)/(0.7+0.3) = 1.0.
-		// That won't land on 0.7 — instead we pin the prior values directly
-		// and assert the service's crossing predicate by calling recomputeOne
-		// twice with different configured priors.
+	test("threshold boundary: prior=0.6999, current≈0.7 crosses; prior=0.7, current=0.7 does NOT cross", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedKi(db, {
 			id: "edge-just-below",
 			kind: "brief",
@@ -569,7 +574,10 @@ describe("attention-service", () => {
 
 	// --- Determinism (review finding #8) ---
 
-	it("passing an explicit `now` produces deterministic scores across runs", async () => {
+	test("passing an explicit `now` produces deterministic scores across runs", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedKi(db, {
 			id: "det-1",
 			kind: "pattern",

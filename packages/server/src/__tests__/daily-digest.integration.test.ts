@@ -1,5 +1,4 @@
 import {
-	createTestDb,
 	type HyperIdleDb,
 	items,
 	messages,
@@ -9,14 +8,12 @@ import {
 	users,
 } from "@hyperidle/db";
 import { getDailyDigest } from "@hyperidle/fabric";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, test } from "../test-fixtures.js";
 
 describe("Daily Digest (E7)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
 	const now = new Date("2026-04-16T12:00:00Z");
 
-	async function seedBase(): Promise<void> {
+	async function seedBase(db: HyperIdleDb): Promise<void> {
 		const ts = now.toISOString();
 		await db
 			.insert(teams)
@@ -46,7 +43,7 @@ describe("Daily Digest (E7)", () => {
 		});
 	}
 
-	async function createQueuedItem(id: string, createdAt: Date): Promise<void> {
+	async function createQueuedItem(db: HyperIdleDb, id: string, createdAt: Date): Promise<void> {
 		await db.insert(items).values({
 			id,
 			sourceAgentId: "agent-1",
@@ -60,16 +57,11 @@ describe("Daily Digest (E7)", () => {
 		});
 	}
 
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		await seedBase();
-	});
-
-	it("AC9: returns queued items from last 24h", async () => {
+	test("AC9: returns queued items from last 24h", async ({ db }) => {
+		await seedBase(db);
 		// Item from 6 hours ago
 		const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
-		await createQueuedItem("item-recent", sixHoursAgo);
+		await createQueuedItem(db, "item-recent", sixHoursAgo);
 
 		const digest = await getDailyDigest(db, now);
 		expect(digest.items).toHaveLength(1);
@@ -77,24 +69,26 @@ describe("Daily Digest (E7)", () => {
 		expect(digest.generatedAt).toBeTruthy();
 	});
 
-	it("AC9: excludes items older than 24h", async () => {
+	test("AC9: excludes items older than 24h", async ({ db }) => {
+		await seedBase(db);
 		// Item from 25 hours ago
 		const twentyFiveHoursAgo = new Date(now.getTime() - 25 * 60 * 60 * 1000);
-		await createQueuedItem("item-old", twentyFiveHoursAgo);
+		await createQueuedItem(db, "item-old", twentyFiveHoursAgo);
 
 		// Item from 6 hours ago
 		const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
-		await createQueuedItem("item-recent", sixHoursAgo);
+		await createQueuedItem(db, "item-recent", sixHoursAgo);
 
 		const digest = await getDailyDigest(db, now);
 		expect(digest.items).toHaveLength(1);
 		expect(digest.items[0].id).toBe("item-recent");
 	});
 
-	it("AC9: excludes items that already have responses", async () => {
+	test("AC9: excludes items that already have responses", async ({ db }) => {
+		await seedBase(db);
 		const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
-		await createQueuedItem("item-responded", sixHoursAgo);
-		await createQueuedItem("item-pending", sixHoursAgo);
+		await createQueuedItem(db, "item-responded", sixHoursAgo);
+		await createQueuedItem(db, "item-pending", sixHoursAgo);
 
 		// L1a: legacy `responses` rows project as verdict-typed messages whose
 		// `legacy_item_id` matches the source item. The digest now joins via
@@ -124,7 +118,8 @@ describe("Daily Digest (E7)", () => {
 		expect(digest.items[0].id).toBe("item-pending");
 	});
 
-	it("returns empty array when no queued items", async () => {
+	test("returns empty array when no queued items", async ({ db }) => {
+		await seedBase(db);
 		const digest = await getDailyDigest(db, now);
 		expect(digest.items).toHaveLength(0);
 		expect(digest.generatedAt).toBeTruthy();

@@ -12,11 +12,9 @@
 import * as crypto from "node:crypto";
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	routineRuns,
 	routines,
-	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
@@ -25,9 +23,8 @@ import {
 import { checkAndFireRoutine } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { describe, expect, vi } from "vitest";
+import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-aa3";
 
@@ -85,30 +82,18 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 }
 
 describe("AA3: Routine Cost & Appetite Model", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-		handle = await createTestDb();
-		db = handle.db;
-		app = await createTestApp({ db, eventBus: new EventBus() });
-		await seedBase(db);
-	});
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle?.close();
-	});
-
 	// ──────────────────────────────────────────────────────────────────────
 	// AC-1: Per-run and per-month cost caps on routines (schema + API)
 	// ──────────────────────────────────────────────────────────────────────
 
 	describe("AC-1: costCapMonthlyMinor on routines (schema + API)", () => {
-		it("POST /api/routines with costCapMonthlyMinor persists the value and returns 201", async () => {
+		test("POST /api/routines with costCapMonthlyMinor persists the value and returns 201", async ({
+			db,
+			app,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await seedBase(db);
+
 			const payload = {
 				name: "Monthly capped routine",
 				teamId: "team-aa3",
@@ -129,9 +114,16 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 			const body = (await res.json()) as Record<string, unknown>;
 			expect(body).toHaveProperty("id");
 			expect(body.costCapMonthlyMinor).toBe(2500);
+			vi.unstubAllEnvs();
 		});
 
-		it("POST /api/routines without costCapMonthlyMinor returns null for the field", async () => {
+		test("POST /api/routines without costCapMonthlyMinor returns null for the field", async ({
+			db,
+			app,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await seedBase(db);
+
 			const payload = {
 				name: "No monthly cap routine",
 				teamId: "team-aa3",
@@ -149,9 +141,13 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 			expect(res.status).toBe(201);
 			const body = (await res.json()) as Record<string, unknown>;
 			expect(body.costCapMonthlyMinor).toBeNull();
+			vi.unstubAllEnvs();
 		});
 
-		it("PATCH /api/routines/:id sets costCapMonthlyMinor", async () => {
+		test("PATCH /api/routines/:id sets costCapMonthlyMinor", async ({ db, app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await seedBase(db);
+
 			// Seed a routine without monthly cap
 			await db.insert(routines).values({
 				id: "routine-patch-monthly",
@@ -173,9 +169,16 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Record<string, unknown>;
 			expect(body.costCapMonthlyMinor).toBe(5000);
+			vi.unstubAllEnvs();
 		});
 
-		it("PATCH /api/routines/:id with costCapMonthlyMinor: null clears the cap", async () => {
+		test("PATCH /api/routines/:id with costCapMonthlyMinor: null clears the cap", async ({
+			db,
+			app,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await seedBase(db);
+
 			await db.insert(routines).values({
 				id: "routine-clear-monthly",
 				name: "Clear monthly cap",
@@ -197,9 +200,13 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Record<string, unknown>;
 			expect(body.costCapMonthlyMinor).toBeNull();
+			vi.unstubAllEnvs();
 		});
 
-		it("GET /api/routines/:id returns costCapMonthly in budget stats", async () => {
+		test("GET /api/routines/:id returns costCapMonthly in budget stats", async ({ db, app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await seedBase(db);
+
 			await db.insert(routines).values({
 				id: "routine-budget-cap",
 				name: "Budget cap routine",
@@ -224,6 +231,7 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 			const budget = body.budget as Record<string, unknown>;
 			expect(budget.costCapPerRun).toMatchObject({ minor: 100 });
 			expect(budget.costCapMonthly).toMatchObject({ minor: 500 });
+			vi.unstubAllEnvs();
 		});
 	});
 
@@ -232,7 +240,13 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 	// ──────────────────────────────────────────────────────────────────────
 
 	describe("AC-2: budget_exhausted routine_run outcome when per-run cap hit", () => {
-		it("routine_run with budget_exhausted outcome can be inserted and read back", async () => {
+		test("routine_run with budget_exhausted outcome can be inserted and read back", async ({
+			db,
+			app,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await seedBase(db);
+
 			// Until session provisioning implements cap enforcement, verify:
 			// (a) the new outcome value is accepted by the DB schema (text column)
 			// (b) the GET /api/routines/:id endpoint surfaces it in the runs array
@@ -270,16 +284,17 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 			expect(runs).toHaveLength(1);
 			expect(runs[0].outcome).toBe("budget_exhausted");
 			expect((runs[0].cost as Record<string, unknown>).minor).toBe(55);
+			vi.unstubAllEnvs();
 		});
 
-		it("budget_exhausted outcome is accepted as a RoutineRunOutcome type value", async () => {
+		test("budget_exhausted outcome is accepted as a RoutineRunOutcome type value", async () => {
 			// Type-level verification: ROUTINE_RUN_OUTCOMES must include budget_exhausted.
 			// This test imports the constant and asserts on its contents.
 			const { ROUTINE_RUN_OUTCOMES } = await import("@hyperidle/shared");
 			expect(ROUTINE_RUN_OUTCOMES).toContain("budget_exhausted");
 		});
 
-		it("monthly_budget_exhausted outcome is accepted as a RoutineRunOutcome type value", async () => {
+		test("monthly_budget_exhausted outcome is accepted as a RoutineRunOutcome type value", async () => {
 			const { ROUTINE_RUN_OUTCOMES } = await import("@hyperidle/shared");
 			expect(ROUTINE_RUN_OUTCOMES).toContain("monthly_budget_exhausted");
 		});
@@ -290,7 +305,9 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 	// ──────────────────────────────────────────────────────────────────────
 
 	describe("AC-3: monthly_budget_exhausted when monthly cap exceeded", () => {
-		it("checkAndFireRoutine returns fired:false when monthly spend >= cap", async () => {
+		test("checkAndFireRoutine returns fired:false when monthly spend >= cap", async ({ db }) => {
+			await seedBase(db);
+
 			const now = new Date();
 			const firstOfMonth = new Date(
 				Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
@@ -353,7 +370,11 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 			expect(result.reason).toContain("monthly");
 		});
 
-		it("checkAndFireRoutine inserts routine_run with monthly_budget_exhausted outcome", async () => {
+		test("checkAndFireRoutine inserts routine_run with monthly_budget_exhausted outcome", async ({
+			db,
+		}) => {
+			await seedBase(db);
+
 			const now = new Date();
 			const firstOfMonth = new Date(
 				Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
@@ -402,7 +423,13 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 			expect(blockedRun).toBeDefined();
 		});
 
-		it("POST /:id/trigger returns 200 with fired:false reason:monthly_budget_exhausted when monthly cap hit", async () => {
+		test("POST /:id/trigger returns 200 with fired:false reason:monthly_budget_exhausted when monthly cap hit", async ({
+			db,
+			app,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await seedBase(db);
+
 			const now = new Date();
 			const firstOfMonth = new Date(
 				Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
@@ -440,9 +467,12 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 			expect(body.fired).toBe(false);
 			// AA3: reason must be "monthly_budget_exhausted" per architecture critique Warning 3
 			expect(body.reason).toBe("monthly_budget_exhausted");
+			vi.unstubAllEnvs();
 		});
 
-		it("checkAndFireRoutine fires normally when monthly spend is below cap", async () => {
+		test("checkAndFireRoutine fires normally when monthly spend is below cap", async ({ db }) => {
+			await seedBase(db);
+
 			const now = new Date();
 			const firstOfMonth = new Date(
 				Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
@@ -491,7 +521,13 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 	// ──────────────────────────────────────────────────────────────────────
 
 	describe("AC-4: GET /api/teams/:id — burn.betCostActual and burn.routineCostThisMonth", () => {
-		it("returns betCostActual summed from active bets and routineCostThisMonth summed from this month's runs", async () => {
+		test("returns betCostActual summed from active bets and routineCostThisMonth summed from this month's runs", async ({
+			db,
+			app,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await seedBase(db);
+
 			const now = new Date();
 			const firstOfMonth = new Date(
 				Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
@@ -589,9 +625,16 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 			expect(burn).toHaveProperty("routineCostThisMonth");
 			const routineCostThisMonth = burn.routineCostThisMonth as Record<string, unknown>;
 			expect(routineCostThisMonth.minor).toBe(600);
+			vi.unstubAllEnvs();
 		});
 
-		it("returns null betCostActual when no active bets have costActualMinor set", async () => {
+		test("returns null betCostActual when no active bets have costActualMinor set", async ({
+			db,
+			app,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await seedBase(db);
+
 			// bet-aa3 is seeded but has no costActualMinor
 			const res = await app.request("/api/teams/team-aa3", {
 				headers: authHeaders(),
@@ -603,9 +646,13 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 
 			// AA3: betCostActual should be present in burn response (possibly null)
 			expect(burn).toHaveProperty("betCostActual");
+			vi.unstubAllEnvs();
 		});
 
-		it("returns null routineCostThisMonth when team has no routines", async () => {
+		test("returns null routineCostThisMonth when team has no routines", async ({ db, app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await seedBase(db);
+
 			// No routines seeded for team-aa3 in this test
 			const res = await app.request("/api/teams/team-aa3", {
 				headers: authHeaders(),
@@ -619,6 +666,7 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 			expect(burn).toHaveProperty("routineCostThisMonth");
 			// When no routines exist, should be null
 			expect(burn.routineCostThisMonth).toBeNull();
+			vi.unstubAllEnvs();
 		});
 	});
 
@@ -627,7 +675,13 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 	// ──────────────────────────────────────────────────────────────────────
 
 	describe("AC-5: GET /api/routines/:id — budget stats", () => {
-		it("returns budget object with avgCostPerRun, costThisMonth, utilization percentages", async () => {
+		test("returns budget object with avgCostPerRun, costThisMonth, utilization percentages", async ({
+			db,
+			app,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await seedBase(db);
+
 			const now = new Date();
 			const firstOfMonth = new Date(
 				Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
@@ -700,9 +754,13 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 
 			// monthlyUtilizationPercent: 200 / 500 * 100 = 40
 			expect(budget.monthlyUtilizationPercent).toBe(40);
+			vi.unstubAllEnvs();
 		});
 
-		it("returns null avgCostPerRun when no runs have cost data", async () => {
+		test("returns null avgCostPerRun when no runs have cost data", async ({ db, app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await seedBase(db);
+
 			await db.insert(routines).values({
 				id: "routine-no-cost-runs",
 				name: "No cost runs",
@@ -732,9 +790,13 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 			const budget = body.budget as Record<string, unknown>;
 
 			expect(budget.avgCostPerRun).toBeNull();
+			vi.unstubAllEnvs();
 		});
 
-		it("returns null perRunUtilizationPercent when no costCapPerRun set", async () => {
+		test("returns null perRunUtilizationPercent when no costCapPerRun set", async ({ db, app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await seedBase(db);
+
 			await db.insert(routines).values({
 				id: "routine-no-per-run-cap",
 				name: "No per-run cap",
@@ -757,9 +819,16 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 
 			expect(budget.perRunUtilizationPercent).toBeNull();
 			expect(budget.monthlyUtilizationPercent).toBeNull();
+			vi.unstubAllEnvs();
 		});
 
-		it("returns 100 monthlyUtilizationPercent when monthly spend equals cap", async () => {
+		test("returns 100 monthlyUtilizationPercent when monthly spend equals cap", async ({
+			db,
+			app,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await seedBase(db);
+
 			const now = new Date();
 			const firstOfMonth = new Date(
 				Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
@@ -796,6 +865,7 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 			const budget = body.budget as Record<string, unknown>;
 
 			expect(budget.monthlyUtilizationPercent).toBe(100);
+			vi.unstubAllEnvs();
 		});
 	});
 });

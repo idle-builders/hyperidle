@@ -1,12 +1,12 @@
 import {
-	createTestDb,
 	type HyperIdleDb,
 	knowledgeConflicts,
 	knowledgeEditLog,
 	knowledgeItems,
 } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
+import { test } from "../../test-fixtures.js";
 import { promoteKnowledgeTool } from "../promote-knowledge.js";
 import { buildToolRegistry } from "../tool-registry.js";
 import { makeContext, NOW, seedBase } from "./_helpers.js";
@@ -51,15 +51,8 @@ async function seedConflict(
 }
 
 describe("promote_knowledge tool", () => {
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		const handle = await createTestDb();
-		db = handle.db;
+	test("AC5: transitions captured → provisional and persists", async ({ db }) => {
 		await seedBase(db);
-	});
-
-	it("AC5: transitions captured → provisional and persists", async () => {
 		await seedKnowledgeItem(db, "ki-a", "captured");
 		const result = await promoteKnowledgeTool.handler(
 			{ knowledgeItemId: "ki-a", toStatus: "provisional" },
@@ -82,7 +75,8 @@ describe("promote_knowledge tool", () => {
 		expect(statusLog?.newValue).toBe("provisional");
 	});
 
-	it("returns INVALID_TRANSITION for captured → validated", async () => {
+	test("returns INVALID_TRANSITION for captured → validated", async ({ db }) => {
+		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-b", "captured");
 		const result = await promoteKnowledgeTool.handler(
 			{ knowledgeItemId: "ki-b", toStatus: "validated" },
@@ -93,7 +87,8 @@ describe("promote_knowledge tool", () => {
 		expect(result.code).toBe("INVALID_TRANSITION");
 	});
 
-	it("returns INVALID_TRANSITION for archived → anything", async () => {
+	test("returns INVALID_TRANSITION for archived → anything", async ({ db }) => {
+		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-c", "archived");
 		const result = await promoteKnowledgeTool.handler(
 			{ knowledgeItemId: "ki-c", toStatus: "provisional" },
@@ -104,7 +99,8 @@ describe("promote_knowledge tool", () => {
 		expect(result.code).toBe("INVALID_TRANSITION");
 	});
 
-	it("blocks promotion to validated when an open conflict exists (CONFLICT_OPEN)", async () => {
+	test("blocks promotion to validated when an open conflict exists (CONFLICT_OPEN)", async ({ db }) => {
+		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-d", "provisional");
 		await seedConflict(db, "conf-1", "ki-d", "open");
 		const result = await promoteKnowledgeTool.handler(
@@ -116,7 +112,8 @@ describe("promote_knowledge tool", () => {
 		expect(result.code).toBe("CONFLICT_OPEN");
 	});
 
-	it("allows promotion to validated when the only conflicts are resolved/discarded", async () => {
+	test("allows promotion to validated when the only conflicts are resolved/discarded", async ({ db }) => {
+		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-e", "provisional");
 		await seedConflict(db, "conf-2", "ki-e", "resolved");
 		await seedConflict(db, "conf-3", "ki-e", "discarded");
@@ -129,7 +126,8 @@ describe("promote_knowledge tool", () => {
 		expect(row?.status).toBe("validated");
 	});
 
-	it("returns NOT_FOUND for unknown id", async () => {
+	test("returns NOT_FOUND for unknown id", async ({ db }) => {
+		await seedBase(db);
 		const result = await promoteKnowledgeTool.handler(
 			{ knowledgeItemId: "does-not-exist", toStatus: "provisional" },
 			makeContext(db),
@@ -139,7 +137,8 @@ describe("promote_knowledge tool", () => {
 		expect(result.code).toBe("NOT_FOUND");
 	});
 
-	it("does NOT bump version on status change", async () => {
+	test("does NOT bump version on status change", async ({ db }) => {
+		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-f", "captured", 3);
 		await promoteKnowledgeTool.handler(
 			{ knowledgeItemId: "ki-f", toStatus: "provisional" },
@@ -149,7 +148,8 @@ describe("promote_knowledge tool", () => {
 		expect(row?.version).toBe(3);
 	});
 
-	it("returns CONCURRENT_MODIFICATION when the status changed out-of-band", async () => {
+	test("returns CONCURRENT_MODIFICATION when the status changed out-of-band", async ({ db }) => {
+		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-g", "provisional");
 		// Simulate a concurrent racing caller that has already promoted the
 		// item to `validated`. Our caller is still trying to promote from
@@ -173,7 +173,8 @@ describe("promote_knowledge tool", () => {
 		expect(second.code).toBe("INVALID_TRANSITION");
 	});
 
-	it("returns INVALID_STATE when knowledge_items.status is a value not in the canonical enum", async () => {
+	test("returns INVALID_STATE when knowledge_items.status is a value not in the canonical enum", async ({ db }) => {
+		await seedBase(db);
 		// Simulates schema drift / upstream bug: the row's status column holds
 		// a value outside the 6 known statuses. The tool must refuse rather
 		// than unsafely cast and branch.
@@ -199,7 +200,8 @@ describe("promote_knowledge tool", () => {
 		expect(result.code).toBe("INVALID_STATE");
 	});
 
-	it("persists reason into the edit log when provided", async () => {
+	test("persists reason into the edit log when provided", async ({ db }) => {
+		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-reason", "captured");
 		const result = await promoteKnowledgeTool.handler(
 			{
@@ -219,7 +221,8 @@ describe("promote_knowledge tool", () => {
 		expect(logs[0].newValue).toContain("used 3 times this week");
 	});
 
-	it("INVALID_INPUT surfaces via registry dispatch on missing toStatus", async () => {
+	test("INVALID_INPUT surfaces via registry dispatch on missing toStatus", async ({ db }) => {
+		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-bad", "captured");
 		// I2 B1-B4: registry requires explicit role; promote_knowledge is
 		// facilitator-only.

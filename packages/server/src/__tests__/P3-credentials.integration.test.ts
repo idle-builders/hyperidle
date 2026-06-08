@@ -13,11 +13,8 @@
  *  - All endpoints require auth (401 without API key)
  */
 
-import { createTestDb, type HyperIdleDb, type TestDbHandle } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-p3-credentials";
 const CREDENTIAL_VALUE = "sk-ant-api03-test-1234-abcd";
@@ -27,27 +24,17 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("P3 AC-9 — Credential CRUD endpoints", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		vi.stubEnv("HYPERIDLE_CREDENTIAL_KEY", "test-credential-encryption-key");
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle?.close();
 	});
 
 	describe("GET /api/credentials", () => {
-		it("returns 200 with all catalog entries in absent state", async () => {
+		test("returns 200 with all catalog entries in absent state", async ({ app }) => {
 			const res = await app.request("/api/credentials", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
@@ -70,12 +57,12 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 			}
 		});
 
-		it("returns 401 without API key", async () => {
+		test("returns 401 without API key", async ({ app }) => {
 			const res = await app.request("/api/credentials");
 			expect(res.status).toBe(401);
 		});
 
-		it("response does not include a value or encryptedValue field", async () => {
+		test("response does not include a value or encryptedValue field", async ({ app }) => {
 			const res = await app.request("/api/credentials", { headers: authHeaders() });
 			const body = (await res.json()) as Array<Record<string, unknown>>;
 
@@ -88,7 +75,9 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 	});
 
 	describe("PUT /api/credentials/:name", () => {
-		it("returns 200 with status response when setting a valid catalog credential", async () => {
+		test("returns 200 with status response when setting a valid catalog credential", async ({
+			app,
+		}) => {
 			const res = await app.request("/api/credentials/anthropic_api_key", {
 				method: "PUT",
 				headers: authHeaders(),
@@ -101,7 +90,7 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 			expect(body.state).toBe("present_untested");
 		});
 
-		it("returns 400 when credential name is not in the catalog", async () => {
+		test("returns 400 when credential name is not in the catalog", async ({ app }) => {
 			const res = await app.request("/api/credentials/unknown_arbitrary_key", {
 				method: "PUT",
 				headers: authHeaders(),
@@ -110,7 +99,7 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("response does not contain the raw credential value", async () => {
+		test("response does not contain the raw credential value", async ({ app }) => {
 			const res = await app.request("/api/credentials/anthropic_api_key", {
 				method: "PUT",
 				headers: authHeaders(),
@@ -120,7 +109,7 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 			expect(responseText).not.toContain(CREDENTIAL_VALUE);
 		});
 
-		it("returns 400 when body is missing value field", async () => {
+		test("returns 400 when body is missing value field", async ({ app }) => {
 			const res = await app.request("/api/credentials/anthropic_api_key", {
 				method: "PUT",
 				headers: authHeaders(),
@@ -129,7 +118,7 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 401 without API key", async () => {
+		test("returns 401 without API key", async ({ app }) => {
 			const res = await app.request("/api/credentials/anthropic_api_key", {
 				method: "PUT",
 				body: JSON.stringify({ value: CREDENTIAL_VALUE }),
@@ -139,7 +128,7 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 	});
 
 	describe("GET /api/credentials after PUT", () => {
-		it("shows present_untested state after setting a credential", async () => {
+		test("shows present_untested state after setting a credential", async ({ app }) => {
 			// Set the credential
 			await app.request("/api/credentials/anthropic_api_key", {
 				method: "PUT",
@@ -161,7 +150,7 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 	});
 
 	describe("DELETE /api/credentials/:name", () => {
-		it("returns 204 on successful deletion", async () => {
+		test("returns 204 on successful deletion", async ({ app }) => {
 			// First set the credential
 			await app.request("/api/credentials/anthropic_api_key", {
 				method: "PUT",
@@ -177,7 +166,7 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 			expect(res.status).toBe(204);
 		});
 
-		it("subsequent GET shows absent after DELETE", async () => {
+		test("subsequent GET shows absent after DELETE", async ({ app }) => {
 			// Set then delete
 			await app.request("/api/credentials/anthropic_api_key", {
 				method: "PUT",
@@ -196,7 +185,7 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 			expect(entry?.state).toBe("absent");
 		});
 
-		it("returns 400 for non-catalog credential name", async () => {
+		test("returns 400 for non-catalog credential name", async ({ app }) => {
 			const res = await app.request("/api/credentials/not_a_real_key", {
 				method: "DELETE",
 				headers: authHeaders(),
@@ -204,7 +193,7 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 401 without API key", async () => {
+		test("returns 401 without API key", async ({ app }) => {
 			const res = await app.request("/api/credentials/anthropic_api_key", {
 				method: "DELETE",
 			});
@@ -213,7 +202,7 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 	});
 
 	describe("POST /api/credentials/:name/validate", () => {
-		it("returns a validation result for a known credential", async () => {
+		test("returns a validation result for a known credential", async ({ app }) => {
 			// Set the credential first
 			await app.request("/api/credentials/anthropic_api_key", {
 				method: "PUT",
@@ -232,7 +221,7 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 			expect(typeof body.valid).toBe("boolean");
 		});
 
-		it("returns 400 for non-catalog credential name", async () => {
+		test("returns 400 for non-catalog credential name", async ({ app }) => {
 			const res = await app.request("/api/credentials/unknown_key/validate", {
 				method: "POST",
 				headers: authHeaders(),
@@ -240,14 +229,14 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 401 without API key", async () => {
+		test("returns 401 without API key", async ({ app }) => {
 			const res = await app.request("/api/credentials/anthropic_api_key/validate", {
 				method: "POST",
 			});
 			expect(res.status).toBe(401);
 		});
 
-		it("validation response does not contain the raw credential value", async () => {
+		test("validation response does not contain the raw credential value", async ({ app }) => {
 			await app.request("/api/credentials/anthropic_api_key", {
 				method: "PUT",
 				headers: authHeaders(),
@@ -264,7 +253,7 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 	});
 
 	describe("Security: credential values never in responses", () => {
-		it("full GET/PUT/DELETE cycle: no response contains raw value", async () => {
+		test("full GET/PUT/DELETE cycle: no response contains raw value", async ({ app }) => {
 			const secretValue = "sk-ant-super-secret-value-do-not-leak";
 
 			// PUT

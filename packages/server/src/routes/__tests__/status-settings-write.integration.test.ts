@@ -10,12 +10,11 @@
  * underlying row would become wrong.
  */
 
-import { createTestDb, factorySettings, type HyperIdleDb, type TestDbHandle } from "@hyperidle/db";
-import { API_ERROR_CODES, EventBus } from "@hyperidle/shared";
+import { factorySettings } from "@hyperidle/db";
+import { API_ERROR_CODES } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { beforeEach, afterEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-status-write";
 
@@ -24,20 +23,12 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("I2 V5 — PATCH /api/status/settings blocks reserved-prefix keys", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		app = await createTestApp({ db, eventBus: new EventBus() });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
 	const BLOCKED_KEYS = [
@@ -48,7 +39,7 @@ describe("I2 V5 — PATCH /api/status/settings blocks reserved-prefix keys", () 
 	];
 
 	for (const key of BLOCKED_KEYS) {
-		it(`returns 400 with VALIDATION_ERROR when key='${key}'`, async () => {
+		test(`returns 400 with VALIDATION_ERROR when key='${key}'`, async ({ db, app }) => {
 			const res = await app.request("/api/status/settings", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -67,7 +58,7 @@ describe("I2 V5 — PATCH /api/status/settings blocks reserved-prefix keys", () 
 		});
 	}
 
-	it("still accepts non-reserved keys (e.g. factory_start_time)", async () => {
+	test("still accepts non-reserved keys (e.g. factory_start_time)", async ({ db, app }) => {
 		const res = await app.request("/api/status/settings", {
 			method: "PATCH",
 			headers: authHeaders(),

@@ -8,17 +8,15 @@
  * POST  /api/observability/flush     — flush dispatcher
  */
 
-import { createTestDb, type HyperIdleDb } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createTestDb } from "@hyperidle/db";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { createObservabilityRoutes } from "../../routes/observability-routes.js";
 import type {
 	FlushOutcome,
 	ObservabilityDispatcher,
 	ObservabilityDispatcherStatus,
 } from "../../services/observability/types.js";
-import { createTestApp } from "../../test-utils.js";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-observability";
 
@@ -44,16 +42,8 @@ function makeStubDispatcher(): ObservabilityDispatcher {
 }
 
 describe("observability routes", () => {
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
 	});
 
 	afterEach(() => {
@@ -61,14 +51,14 @@ describe("observability routes", () => {
 	});
 
 	describe("observability auth", () => {
-		it("returns 401 without auth header on GET /api/observability", async () => {
+		test("returns 401 without auth header on GET /api/observability", async ({ app }) => {
 			const res = await app.request("/api/observability", { method: "GET" });
 			expect(res.status).toBe(401);
 		});
 	});
 
 	describe("GET /api/observability", () => {
-		it("returns 200 with resource descriptor", async () => {
+		test("returns 200 with resource descriptor", async ({ app }) => {
 			const res = await app.request("/api/observability", {
 				method: "GET",
 				headers: authHeaders(),
@@ -81,7 +71,7 @@ describe("observability routes", () => {
 	});
 
 	describe("GET /api/observability/config", () => {
-		it("returns 200 with redacted config", async () => {
+		test("returns 200 with redacted config", async ({ app }) => {
 			const res = await app.request("/api/observability/config", {
 				method: "GET",
 				headers: authHeaders(),
@@ -94,7 +84,7 @@ describe("observability routes", () => {
 	});
 
 	describe("PATCH /api/observability/config", () => {
-		it("returns 200 with updated config", async () => {
+		test("returns 200 with updated config", async ({ app }) => {
 			const res = await app.request("/api/observability/config", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -105,7 +95,7 @@ describe("observability routes", () => {
 			expect(body.adapter).toBe("noop");
 		});
 
-		it("returns 400 on invalid field values", async () => {
+		test("returns 400 on invalid field values", async ({ app }) => {
 			const res = await app.request("/api/observability/config", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -114,7 +104,7 @@ describe("observability routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 with extra/unknown fields (strict schema)", async () => {
+		test("returns 400 with extra/unknown fields (strict schema)", async ({ app }) => {
 			const res = await app.request("/api/observability/config", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -125,7 +115,7 @@ describe("observability routes", () => {
 	});
 
 	describe("GET /api/observability/status", () => {
-		it("returns 200 with disabled status when no dispatcher", async () => {
+		test("returns 200 with disabled status when no dispatcher", async ({ app }) => {
 			const res = await app.request("/api/observability/status", {
 				method: "GET",
 				headers: authHeaders(),
@@ -137,7 +127,7 @@ describe("observability routes", () => {
 			expect(typeof body.bufferDepth).toBe("number");
 		});
 
-		it("returns 200 with active status when dispatcher exists (direct route)", async () => {
+		test("returns 200 with active status when dispatcher exists (direct route)", async () => {
 			const handle = await createTestDb();
 			const stubDb = handle.db;
 			const dispatcher = makeStubDispatcher();
@@ -146,26 +136,30 @@ describe("observability routes", () => {
 				getDispatcher: () => dispatcher,
 			});
 
-			const res = await router.request("/status", {
-				method: "GET",
-				headers: { "Content-Type": "application/json" },
-			});
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as {
-				enabled: boolean;
-				bufferDepth: number;
-				delivered: number;
-				adapter: string;
-			};
-			expect(body.enabled).toBe(true);
-			expect(body.bufferDepth).toBe(5);
-			expect(body.delivered).toBe(10);
-			expect(body.adapter).toBe("console");
+			try {
+				const res = await router.request("/status", {
+					method: "GET",
+					headers: { "Content-Type": "application/json" },
+				});
+				expect(res.status).toBe(200);
+				const body = (await res.json()) as {
+					enabled: boolean;
+					bufferDepth: number;
+					delivered: number;
+					adapter: string;
+				};
+				expect(body.enabled).toBe(true);
+				expect(body.bufferDepth).toBe(5);
+				expect(body.delivered).toBe(10);
+				expect(body.adapter).toBe("console");
+			} finally {
+				await handle.close();
+			}
 		});
 	});
 
 	describe("POST /api/observability/flush", () => {
-		it("returns 200 with flushed:0 reason:disabled when no dispatcher", async () => {
+		test("returns 200 with flushed:0 reason:disabled when no dispatcher", async ({ app }) => {
 			const res = await app.request("/api/observability/flush", {
 				method: "POST",
 				headers: authHeaders(),
@@ -177,7 +171,7 @@ describe("observability routes", () => {
 			expect(body.reason).toBe("disabled");
 		});
 
-		it("returns 200 with flush result when dispatcher exists (direct route)", async () => {
+		test("returns 200 with flush result when dispatcher exists (direct route)", async () => {
 			const handle = await createTestDb();
 			const stubDb = handle.db;
 			const dispatcher = makeStubDispatcher();
@@ -186,23 +180,27 @@ describe("observability routes", () => {
 				getDispatcher: () => dispatcher,
 			});
 
-			const res = await router.request("/flush", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({}),
-			});
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as {
-				flushed: number;
-				dropped: number;
-				errors: number;
-			};
-			expect(body.flushed).toBe(5);
-			expect(body.dropped).toBe(0);
-			expect(body.errors).toBe(0);
+			try {
+				const res = await router.request("/flush", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({}),
+				});
+				expect(res.status).toBe(200);
+				const body = (await res.json()) as {
+					flushed: number;
+					dropped: number;
+					errors: number;
+				};
+				expect(body.flushed).toBe(5);
+				expect(body.dropped).toBe(0);
+				expect(body.errors).toBe(0);
+			} finally {
+				await handle.close();
+			}
 		});
 
-		it("returns 413 when content-length exceeds MAX_BODY_BYTES", async () => {
+		test("returns 413 when content-length exceeds MAX_BODY_BYTES", async ({ app }) => {
 			// MAX_BODY_BYTES = 8 * 1024 = 8192
 			const res = await app.request("/api/observability/flush", {
 				method: "POST",

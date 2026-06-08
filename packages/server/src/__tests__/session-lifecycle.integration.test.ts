@@ -3,11 +3,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	knowledgeItems,
 	sessions,
-	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
@@ -15,12 +13,12 @@ import {
 } from "@hyperidle/db";
 import {
 	ConcurrencyLimitError,
-	EventBus,
 	type SessionEndedEvent,
 	type SessionStartedEvent,
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect } from "vitest";
+import { test } from "../test-fixtures.js";
 import {
 	type CreateSessionParams,
 	crashSession,
@@ -94,21 +92,14 @@ function makeParams(basePath: string): CreateSessionParams {
 }
 
 describe("Session Lifecycle", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
 	let tmpDir: string;
 	const cleanupContexts: SessionContext[] = [];
 
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
+	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "session-lifecycle-"));
-		await seedAll(db);
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		// Clean up any leftover workspace dirs
 		for (const ctx of cleanupContexts) {
 			if (fs.existsSync(ctx.workspacePath)) {
@@ -122,7 +113,8 @@ describe("Session Lifecycle", () => {
 	});
 
 	// AC1: Create session -> active, workspace exists, materialized files present, watcher running
-	it("creates session with active state, workspace, materialized files, and watcher", async () => {
+	test("creates session with active state, workspace, materialized files, and watcher", async ({ db, eventBus }) => {
+		await seedAll(db);
 		const params = makeParams(tmpDir);
 		const ctx = await createSession(db, eventBus, params);
 		cleanupContexts.push(ctx);
@@ -147,7 +139,8 @@ describe("Session Lifecycle", () => {
 	});
 
 	// AC2: End session -> done, watcher stopped, final pass complete, session_ended event fires
-	it("ends session with done state and emits session_ended event", async () => {
+	test("ends session with done state and emits session_ended event", async ({ db, eventBus }) => {
+		await seedAll(db);
 		const params = makeParams(tmpDir);
 		const ctx = await createSession(db, eventBus, params);
 		cleanupContexts.push(ctx);
@@ -168,7 +161,8 @@ describe("Session Lifecycle", () => {
 	});
 
 	// AC3: Crash session -> crashed, watcher stopped, final pass complete, knowledge preserved
-	it("crashes session with crashed state and preserves knowledge in DB", async () => {
+	test("crashes session with crashed state and preserves knowledge in DB", async ({ db, eventBus }) => {
+		await seedAll(db);
 		const params = makeParams(tmpDir);
 		const ctx = await createSession(db, eventBus, params);
 		cleanupContexts.push(ctx);
@@ -188,7 +182,8 @@ describe("Session Lifecycle", () => {
 
 	// AC4: Session cost is a strategy concern (O2: cost column stripped from sessions).
 	// The session ends cleanly even when a cost value is passed.
-	it("ends session cleanly (cost is a strategy concern, not kernel)", async () => {
+	test("ends session cleanly (cost is a strategy concern, not kernel)", async ({ db, eventBus }) => {
+		await seedAll(db);
 		const params = makeParams(tmpDir);
 		const ctx = await createSession(db, eventBus, params);
 		cleanupContexts.push(ctx);
@@ -202,7 +197,8 @@ describe("Session Lifecycle", () => {
 	});
 
 	// AC5: Creating session at max_concurrent_sessions -> ConcurrencyLimitError
-	it("throws ConcurrencyLimitError when at max concurrent sessions", async () => {
+	test("throws ConcurrencyLimitError when at max concurrent sessions", async ({ db, eventBus }) => {
+		await seedAll(db);
 		const params = makeParams(tmpDir);
 
 		// Agent has maxConcurrentSessions=1, create first session
@@ -217,7 +213,8 @@ describe("Session Lifecycle", () => {
 	});
 
 	// AC6: Session workspace_snapshot contains path to workspace
-	it("stores workspace path in workspace_snapshot", async () => {
+	test("stores workspace path in workspace_snapshot", async ({ db, eventBus }) => {
+		await seedAll(db);
 		const params = makeParams(tmpDir);
 		const ctx = await createSession(db, eventBus, params);
 		cleanupContexts.push(ctx);
@@ -229,7 +226,8 @@ describe("Session Lifecycle", () => {
 	});
 
 	// AC7: After session end, workspace cleaned up (deleted)
-	it("deletes workspace directory after endSession", async () => {
+	test("deletes workspace directory after endSession", async ({ db, eventBus }) => {
+		await seedAll(db);
 		const params = makeParams(tmpDir);
 		const ctx = await createSession(db, eventBus, params);
 		cleanupContexts.push(ctx);
@@ -242,7 +240,8 @@ describe("Session Lifecycle", () => {
 	});
 
 	// AC1 supplement: session_started event fires on create
-	it("emits session_started event on create", async () => {
+	test("emits session_started event on create", async ({ db, eventBus }) => {
+		await seedAll(db);
 		const startedEvents: SessionStartedEvent[] = [];
 		eventBus.on("session_started", (e) => startedEvents.push(e));
 

@@ -8,7 +8,6 @@
 
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	items,
 	teamMembers,
@@ -16,10 +15,8 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-conversations";
 
@@ -64,16 +61,8 @@ async function seedThread(db: HyperIdleDb): Promise<{ threadId: string }> {
 }
 
 describe("conversations routes", () => {
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
 	});
 
 	afterEach(() => {
@@ -81,14 +70,14 @@ describe("conversations routes", () => {
 	});
 
 	describe("conversations auth", () => {
-		it("returns 401 without auth header on GET /api/conversations", async () => {
+		test("returns 401 without auth header on GET /api/conversations", async ({ app }) => {
 			const res = await app.request("/api/conversations", { method: "GET" });
 			expect(res.status).toBe(401);
 		});
 	});
 
 	describe("GET /api/conversations", () => {
-		it("returns 200 with threads and pagination", async () => {
+		test("returns 200 with threads and pagination", async ({ db, app }) => {
 			await seedThread(db);
 			const res = await app.request("/api/conversations", {
 				method: "GET",
@@ -104,7 +93,7 @@ describe("conversations routes", () => {
 			expect(typeof body.pagination.total).toBe("number");
 		});
 
-		it("returns 200 with empty threads list when none exist", async () => {
+		test("returns 200 with empty threads list when none exist", async ({ app }) => {
 			const res = await app.request("/api/conversations", {
 				method: "GET",
 				headers: authHeaders(),
@@ -114,7 +103,7 @@ describe("conversations routes", () => {
 			expect(body.threads).toHaveLength(0);
 		});
 
-		it("respects page and limit query params", async () => {
+		test("respects page and limit query params", async ({ app }) => {
 			const res = await app.request("/api/conversations?page=2&limit=5", {
 				method: "GET",
 				headers: authHeaders(),
@@ -125,7 +114,7 @@ describe("conversations routes", () => {
 			expect(body.pagination.limit).toBe(5);
 		});
 
-		it("handles sort=attention_score by falling through to recency", async () => {
+		test("handles sort=attention_score by falling through to recency", async ({ db, app }) => {
 			await seedThread(db);
 			const res = await app.request("/api/conversations?sort=attention_score", {
 				method: "GET",
@@ -138,7 +127,7 @@ describe("conversations routes", () => {
 	});
 
 	describe("GET /api/conversations/:threadId", () => {
-		it("returns 200 with thread and items", async () => {
+		test("returns 200 with thread and items", async ({ db, app }) => {
 			const { threadId } = await seedThread(db);
 			const now = new Date().toISOString();
 			await db.insert(items).values({
@@ -158,7 +147,7 @@ describe("conversations routes", () => {
 			expect(body.items).toHaveLength(1);
 		});
 
-		it("returns 200 with empty items array for thread with no items", async () => {
+		test("returns 200 with empty items array for thread with no items", async ({ db, app }) => {
 			const { threadId } = await seedThread(db);
 			const res = await app.request(`/api/conversations/${threadId}`, {
 				method: "GET",
@@ -169,7 +158,7 @@ describe("conversations routes", () => {
 			expect(body.items).toHaveLength(0);
 		});
 
-		it("returns 404 for non-existent thread", async () => {
+		test("returns 404 for non-existent thread", async ({ app }) => {
 			const res = await app.request("/api/conversations/does-not-exist", {
 				method: "GET",
 				headers: authHeaders(),
@@ -177,7 +166,7 @@ describe("conversations routes", () => {
 			expect(res.status).toBe(404);
 		});
 
-		it("includes empty responses array on each item", async () => {
+		test("includes empty responses array on each item", async ({ db, app }) => {
 			const { threadId } = await seedThread(db);
 			const now = new Date().toISOString();
 			await db.insert(items).values({
@@ -198,7 +187,7 @@ describe("conversations routes", () => {
 	});
 
 	describe("POST /api/conversations/items", () => {
-		it("returns 201 with created item on valid input", async () => {
+		test("returns 201 with created item on valid input", async ({ db, app }) => {
 			const { threadId } = await seedThread(db);
 			const res = await app.request("/api/conversations/items", {
 				method: "POST",
@@ -211,7 +200,7 @@ describe("conversations routes", () => {
 			expect(body.title).toBe("New item");
 		});
 
-		it("returns 404 when threadId references non-existent thread", async () => {
+		test("returns 404 when threadId references non-existent thread", async ({ app }) => {
 			const res = await app.request("/api/conversations/items", {
 				method: "POST",
 				headers: authHeaders(),
@@ -220,7 +209,7 @@ describe("conversations routes", () => {
 			expect(res.status).toBe(404);
 		});
 
-		it("returns 400 on missing required field (title)", async () => {
+		test("returns 400 on missing required field (title)", async ({ db, app }) => {
 			const { threadId } = await seedThread(db);
 			const res = await app.request("/api/conversations/items", {
 				method: "POST",
@@ -230,7 +219,7 @@ describe("conversations routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("emits item_created event on eventBus", async () => {
+		test("emits item_created event on eventBus", async ({ db, app, eventBus }) => {
 			const { threadId } = await seedThread(db);
 			const emittedEvents: unknown[] = [];
 			eventBus.on("item_created", (e) => {

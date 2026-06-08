@@ -1,19 +1,15 @@
 import {
 	bets,
-	createTestDb,
 	factorySettings,
 	type HyperIdleDb,
 	sessions,
-	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-status";
 
@@ -21,81 +17,73 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-describe("Status & Settings Endpoints (E6)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-
-		// Seed required data
-		const now = new Date().toISOString();
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
+async function seedBase(db: HyperIdleDb): Promise<void> {
+	const now = new Date().toISOString();
+	await db.insert(teams).values({
+		id: "prod-1",
+		name: "Test Product",
+		phase: "build",
+		createdAt: now,
+	});
+	await db.insert(teamMembers).values({
+		id: "team-1",
+		teamId: "prod-1",
+		capacity: 3,
+		activeBets: 0,
+		formedAt: now,
+	});
+	await db.insert(users).values([
+		{
+			id: "agent-1",
+			name: "Builder Bot",
+			role: "builder",
+			status: "idle",
+			teamId: "team-1",
+			costActual: 100,
 			createdAt: now,
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 3,
-			activeBets: 0,
-			formedAt: now,
-		});
-		await db.insert(users).values([
-			{
-				id: "agent-1",
-				name: "Builder Bot",
-				role: "builder",
-				status: "idle",
-				teamId: "team-1",
-				costActual: 100,
-				createdAt: now,
-			},
-			{
-				id: "agent-2",
-				name: "Growth Bot",
-				role: "growth",
-				status: "active",
-				teamId: "team-1",
-				costActual: 200,
-				createdAt: now,
-			},
-		]);
-		await db.insert(bets).values({
-			id: "bet-1",
-			teamId: "prod-1",
-			description: "Test",
-			appetite: "small",
+		},
+		{
+			id: "agent-2",
+			name: "Growth Bot",
+			role: "growth",
 			status: "active",
+			teamId: "team-1",
+			costActual: 200,
 			createdAt: now,
-		});
-		await db.insert(tasks).values({
-			id: "task-1",
-			betId: "bet-1",
-			teamId: "prod-1",
-			title: "Test Task",
-			state: "in_progress",
-			createdAt: now,
-			updatedAt: now,
-		});
+		},
+	]);
+	await db.insert(bets).values({
+		id: "bet-1",
+		teamId: "prod-1",
+		description: "Test",
+		appetite: "small",
+		status: "active",
+		createdAt: now,
+	});
+	await db.insert(tasks).values({
+		id: "task-1",
+		betId: "bet-1",
+		teamId: "prod-1",
+		title: "Test Task",
+		state: "in_progress",
+		createdAt: now,
+		updatedAt: now,
+	});
+}
+
+describe("Status & Settings Endpoints (E6)", () => {
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle?.close();
 	});
 
 	// AC12: GET /api/status — factory-wide status
 	describe("AC12: GET /api/status — factory-wide status", () => {
-		it("returns status with zero active sessions", async () => {
+		test("returns status with zero active sessions", async ({ db, app }) => {
+			await seedBase(db);
 			const res = await app.request("/api/status", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
@@ -110,7 +98,8 @@ describe("Status & Settings Endpoints (E6)", () => {
 			expect(agentStates.active).toBe(1);
 		});
 
-		it("counts active sessions correctly", async () => {
+		test("counts active sessions correctly", async ({ db, app }) => {
+			await seedBase(db);
 			// Create active session
 			await db.insert(sessions).values({
 				id: "sess-1",
@@ -137,7 +126,8 @@ describe("Status & Settings Endpoints (E6)", () => {
 			expect(body.activeSessions).toBe(1);
 		});
 
-		it("uses factory_start_time from settings if available", async () => {
+		test("uses factory_start_time from settings if available", async ({ db, app }) => {
+			await seedBase(db);
 			const startTime = "2024-01-01T00:00:00.000Z";
 			await db.insert(factorySettings).values({
 				key: "factory_start_time",
@@ -153,7 +143,7 @@ describe("Status & Settings Endpoints (E6)", () => {
 
 	// AC13: GET /api/status/settings — factory settings
 	describe("AC13: GET /api/status/settings — list settings", () => {
-		it("returns empty array when no settings", async () => {
+		test("returns empty array when no settings", async ({ app }) => {
 			const res = await app.request("/api/status/settings", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
@@ -161,7 +151,7 @@ describe("Status & Settings Endpoints (E6)", () => {
 			expect(body).toHaveLength(0);
 		});
 
-		it("returns all settings", async () => {
+		test("returns all settings", async ({ db, app }) => {
 			await db.insert(factorySettings).values([
 				{ key: "cost_cap", value: "10000", updatedAt: new Date().toISOString() },
 				{ key: "max_agents", value: "50", updatedAt: new Date().toISOString() },
@@ -175,7 +165,7 @@ describe("Status & Settings Endpoints (E6)", () => {
 
 	// AC14: PATCH /api/status/settings — update settings
 	describe("AC14: PATCH /api/status/settings — update settings", () => {
-		it("creates a new setting", async () => {
+		test("creates a new setting", async ({ app }) => {
 			const res = await app.request("/api/status/settings", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -188,7 +178,7 @@ describe("Status & Settings Endpoints (E6)", () => {
 			expect(body.value).toBe("10000");
 		});
 
-		it("updates an existing setting (upsert)", async () => {
+		test("updates an existing setting (upsert)", async ({ db, app }) => {
 			// Create initial
 			await db
 				.insert(factorySettings)
@@ -210,7 +200,7 @@ describe("Status & Settings Endpoints (E6)", () => {
 			expect(allSettings).toHaveLength(1);
 		});
 
-		it("returns 400 for missing key", async () => {
+		test("returns 400 for missing key", async ({ app }) => {
 			const res = await app.request("/api/status/settings", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -228,7 +218,7 @@ describe("Status & Settings Endpoints (E6)", () => {
 		];
 		const SAFE_ROW = { key: "cost_cap", value: "10000" };
 
-		it("does not return raw secret values in the response body", async () => {
+		test("does not return raw secret values in the response body", async ({ db, app }) => {
 			const now = new Date().toISOString();
 			await db
 				.insert(factorySettings)
@@ -259,7 +249,7 @@ describe("Status & Settings Endpoints (E6)", () => {
 		// `observability.*`) key is now rejected with 400 so the dedicated
 		// domain routes remain the single source of truth. Redaction-on-echo
 		// for unconstrained keys remains covered by the GET-side test above.
-		it("PATCH on namespaced secret keys is blocked (I2 V5)", async () => {
+		test("PATCH on namespaced secret keys is blocked (I2 V5)", async ({ app }) => {
 			const res = await app.request("/api/status/settings", {
 				method: "PATCH",
 				headers: authHeaders(),

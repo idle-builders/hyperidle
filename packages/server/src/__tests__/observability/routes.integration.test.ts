@@ -7,10 +7,10 @@
  * POST /api/observability/flush    -> triggers drain
  */
 
-import { createTestDb, factorySettings, type HyperIdleDb, type TestDbHandle } from "@hyperidle/db";
+import { factorySettings, type HyperIdleDb } from "@hyperidle/db";
 import type { Logger } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, test } from "../../test-fixtures.js";
 import { createObservabilityRoutes } from "../../routes/observability-routes.js";
 import { createObservabilityDispatcher } from "../../services/observability/dispatcher.js";
 import type {
@@ -69,19 +69,7 @@ function appWithRoutes(
 }
 
 describe("H3 observability routes — GET /config", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	});
-
-	afterEach(async () => {
-		await handle?.close();
-	});
-
-	it("returns expected config shape", async () => {
+	test("returns expected config shape", async ({ db }) => {
 		await seedKeys(db, {
 			"observability.enabled": "true",
 			"observability.adapter": "console",
@@ -98,7 +86,7 @@ describe("H3 observability routes — GET /config", () => {
 		expect(body).toHaveProperty("bufferCap");
 	});
 
-	it("returns enabled=false and adapter=console by default", async () => {
+	test("returns enabled=false and adapter=console by default", async ({ db }) => {
 		const { request } = appWithRoutes(db, null);
 		const body = (await (await request("/config")).json()) as Record<string, unknown>;
 		expect(body.enabled).toBe(false);
@@ -107,19 +95,7 @@ describe("H3 observability routes — GET /config", () => {
 });
 
 describe("H3 observability routes — PATCH /config", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	});
-
-	afterEach(async () => {
-		await handle?.close();
-	});
-
-	it("persists valid patch + emits admin audit", async () => {
+	test("persists valid patch + emits admin audit", async ({ db }) => {
 		const { request, auditCalls } = appWithRoutes(db, null);
 		const res = await request("/config", {
 			method: "PATCH",
@@ -139,7 +115,7 @@ describe("H3 observability routes — PATCH /config", () => {
 		expect(auditCalls[0].msg).toBe("config_changed");
 	});
 
-	it("rejects invalid adapter with 400", async () => {
+	test("rejects invalid adapter with 400", async ({ db }) => {
 		const { request } = appWithRoutes(db, null);
 		const res = await request("/config", {
 			method: "PATCH",
@@ -149,7 +125,7 @@ describe("H3 observability routes — PATCH /config", () => {
 		expect(res.status).toBe(400);
 	});
 
-	it("rejects unknown fields (strict schema)", async () => {
+	test("rejects unknown fields (strict schema)", async ({ db }) => {
 		const { request } = appWithRoutes(db, null);
 		const res = await request("/config", {
 			method: "PATCH",
@@ -159,7 +135,7 @@ describe("H3 observability routes — PATCH /config", () => {
 		expect(res.status).toBe(400);
 	});
 
-	it("accepts enabled=false without other fields (disable path)", async () => {
+	test("accepts enabled=false without other fields (disable path)", async ({ db }) => {
 		await seedKeys(db, { "observability.enabled": "true" });
 		const { request } = appWithRoutes(db, null);
 		const res = await request("/config", {
@@ -177,26 +153,14 @@ describe("H3 observability routes — PATCH /config", () => {
 });
 
 describe("H3 observability routes — /status + /flush", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	});
-
-	afterEach(async () => {
-		await handle?.close();
-	});
-
-	it("status reports enabled=false when no dispatcher and disabled in config", async () => {
+	test("status reports enabled=false when no dispatcher and disabled in config", async ({ db }) => {
 		const { request } = appWithRoutes(db, null);
 		const body = (await (await request("/status")).json()) as Record<string, unknown>;
 		expect(body.enabled).toBe(false);
 		expect(body.bufferDepth).toBe(0);
 	});
 
-	it("status reports enabled=true + adapter=noop when config is {adapter:noop, enabled:true}", async () => {
+	test("status reports enabled=true + adapter=noop when config is {adapter:noop, enabled:true}", async ({ db }) => {
 		await seedKeys(db, {
 			"observability.enabled": "true",
 			"observability.adapter": "noop",
@@ -210,7 +174,7 @@ describe("H3 observability routes — /status + /flush", () => {
 		expect(body.bufferDepth).toBe(0);
 	});
 
-	it("status snapshot includes buffer depth + adapter", async () => {
+	test("status snapshot includes buffer depth + adapter", async ({ db }) => {
 		const dispatcher = createObservabilityDispatcher({
 			adapter: quietAdapter(),
 			config: { batchSize: 10, flushIntervalMs: 60_000, bufferCap: 100 },
@@ -231,7 +195,7 @@ describe("H3 observability routes — /status + /flush", () => {
 		await dispatcher.dispose();
 	});
 
-	it("flush drains buffer", async () => {
+	test("flush drains buffer", async ({ db }) => {
 		const dispatcher = createObservabilityDispatcher({
 			adapter: quietAdapter(),
 			config: { batchSize: 10, flushIntervalMs: 60_000, bufferCap: 100 },
@@ -259,7 +223,7 @@ describe("H3 observability routes — /status + /flush", () => {
 		await dispatcher.dispose();
 	});
 
-	it("flush with no dispatcher returns disabled", async () => {
+	test("flush with no dispatcher returns disabled", async ({ db }) => {
 		const { request } = appWithRoutes(db, null);
 		const res = await request("/flush", {
 			method: "POST",

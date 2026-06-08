@@ -24,33 +24,30 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	knowledgeItems,
 	sessions,
-	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
 import { clearDeduplicationCache } from "@hyperidle/fabric";
-import {
-	type DomainEvent,
-	EventBus,
-	type HarnessAdapter,
-	type HarnessCapabilities,
-	type HarnessEvent,
-	type SessionConfig,
-	type SessionHandle,
-	type SessionResult,
+import type {
+	DomainEvent,
+	HarnessAdapter,
+	HarnessCapabilities,
+	HarnessEvent,
+	SessionConfig,
+	SessionHandle,
+	SessionResult,
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
 import type { CredentialResolver } from "../services/credential-resolver.js";
+import { test } from "../test-fixtures.js";
 import { createTestApp } from "../test-utils.js";
 
 const TEST_API_KEY = "test-key-r1-wire";
@@ -146,7 +143,7 @@ async function seedDomain(
 		agentCostCap?: number | null;
 		agentMaxConcurrentSessions?: number;
 	} = {},
-): void {
+): Promise<void> {
 	await db.insert(teams).values({ id: "p1", name: "R1 Product", phase: "build", createdAt: NOW });
 
 	await db
@@ -202,34 +199,29 @@ async function seedDomain(
 // --- Suite -------------------------------------------------------------------
 
 describe("R1: Wire Agent Execution (route-level)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
 	let tmpDir: string;
 	let workspaceAdapter: LocalWorkspaceAdapter;
-	let app: Hono;
 
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "r1-wire-tests-"));
 		workspaceAdapter = new LocalWorkspaceAdapter();
 		clearDeduplicationCache();
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
 		if (fs.existsSync(tmpDir)) {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		}
-		await handle?.close();
 	});
 
 	// -------------------------------------------------------------------- AC2, AC3, AC4
 	describe("AC2/AC3/AC4: POST /api/sessions calls provisionSession and returns completed session", () => {
-		it("returns 200 with state=done and outcome=completed, task transitions to in_progress", async () => {
+		test("returns 200 with state=done and outcome=completed, task transitions to in_progress", async ({
+			db,
+			eventBus,
+		}) => {
 			await seedDomain(db);
 
 			const harness = new ScriptedHarnessAdapter({
@@ -249,7 +241,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 				resolve: async () => "fake-api-key",
 			};
 
-			app = await createTestApp({
+			const app = await createTestApp({
 				db,
 				eventBus,
 				// These new AppOptions fields don't exist yet — TypeScript will
@@ -302,12 +294,15 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 
 	// -------------------------------------------------------------------- AC6, AC7
 	describe("AC6/AC7: Missing credential returns clear error and no session row is created", () => {
-		it("returns 500 with code=MISSING_CREDENTIAL and creates no session row", async () => {
+		test("returns 500 with code=MISSING_CREDENTIAL and creates no session row", async ({
+			db,
+			eventBus,
+		}) => {
 			await seedDomain(db);
 
 			const harness = new ScriptedHarnessAdapter({ events: [] });
 
-			app = await createTestApp({
+			const app = await createTestApp({
 				db,
 				eventBus,
 				adapterPool: makePool(harness),
@@ -346,7 +341,10 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 
 	// -------------------------------------------------------------------- AC4 (crash path)
 	describe("AC4: Crashed harness returns crashed session", () => {
-		it("returns 200 with state=crashed when the harness throws during streaming", async () => {
+		test("returns 200 with state=crashed when the harness throws during streaming", async ({
+			db,
+			eventBus,
+		}) => {
 			await seedDomain(db);
 
 			// throwAfter: 1 — yields one event then throws, simulating a crash.
@@ -359,7 +357,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 				resolve: async () => "fake-api-key",
 			};
 
-			app = await createTestApp({
+			const app = await createTestApp({
 				db,
 				eventBus,
 				adapterPool: makePool(harness),
@@ -388,7 +386,10 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 
 	// -------------------------------------------------------------------- backward compat
 	describe("Backward compat: POST /api/sessions without adapters falls back to bare insert", () => {
-		it("returns 201 with bare session row when no harnessAdapter is provided", async () => {
+		test("returns 201 with bare session row when no harnessAdapter is provided", async ({
+			db,
+			eventBus,
+		}) => {
 			// Seed only the minimum needed for the bare insert path.
 			await db
 				.insert(teams)
@@ -428,7 +429,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 			});
 
 			// No harnessAdapter/workspaceAdapter — existing behavior (bare insert).
-			app = await createTestApp({ db, eventBus });
+			const app = await createTestApp({ db, eventBus });
 
 			const res = await app.request("/api/sessions", {
 				method: "POST",
@@ -452,7 +453,10 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 
 	// -------------------------------------------------------------------- 422 cost cap
 	describe("Error handling: CostCapExceededError returns 422", () => {
-		it("returns 422 with code=COST_CAP_EXCEEDED when agent cost cap is 0", async () => {
+		test("returns 422 with code=COST_CAP_EXCEEDED when agent cost cap is 0", async ({
+			db,
+			eventBus,
+		}) => {
 			// costCap=0 means any session start exceeds the cap immediately.
 			await seedDomain(db, { agentCostCap: 0 });
 
@@ -461,7 +465,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 				resolve: async () => "fake-api-key",
 			};
 
-			app = await createTestApp({
+			const app = await createTestApp({
 				db,
 				eventBus,
 				adapterPool: makePool(harness),
@@ -489,7 +493,10 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 
 	// -------------------------------------------------------------------- 429 concurrency
 	describe("Error handling: ConcurrencyLimitError returns 429", () => {
-		it("returns 429 with code=CONCURRENCY_LIMIT when agent maxConcurrentSessions is 0", async () => {
+		test("returns 429 with code=CONCURRENCY_LIMIT when agent maxConcurrentSessions is 0", async ({
+			db,
+			eventBus,
+		}) => {
 			// maxConcurrentSessions=0 means no sessions are allowed.
 			await seedDomain(db, { agentMaxConcurrentSessions: 0 });
 
@@ -498,7 +505,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 				resolve: async () => "fake-api-key",
 			};
 
-			app = await createTestApp({
+			const app = await createTestApp({
 				db,
 				eventBus,
 				adapterPool: makePool(harness),

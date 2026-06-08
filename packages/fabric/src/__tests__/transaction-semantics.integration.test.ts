@@ -13,7 +13,7 @@
  *      visible — the roll-back is real.
  *   4. Multiple sequential `db.transaction()` calls are each atomic (no partial commits).
  *
- * These tests use `createTestDb()` which returns a PGlite Drizzle instance —
+ * These tests use the fixture `db` which returns a PGlite Drizzle instance —
  * the same driver used by the production server after N1.
  *
  * All tests PASS even in the red phase (transaction semantics in
@@ -26,26 +26,13 @@
  * semantics are caught immediately, not after silent data corruption.
  */
 
-import { createTestDb, type HyperIdleDb, knowledgeEditLog, knowledgeItems } from "@hyperidle/db";
+import { knowledgeEditLog, knowledgeItems } from "@hyperidle/db";
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { knowledgeEvents } from "../events.js";
 import { create, getById, update } from "../knowledge-repository.js";
 
 describe("N1 AC6: transaction semantics under PGlite", () => {
-	let db: HyperIdleDb;
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		knowledgeEvents.removeAllListeners();
-	});
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
 	const baseItem = {
 		layer: "L1" as const,
 		kind: "pattern" as const,
@@ -57,7 +44,10 @@ describe("N1 AC6: transaction semantics under PGlite", () => {
 	};
 
 	// ------------------------------------------------------------------ TX-1
-	it("TX-1: write inside db.transaction is committed and visible after the call", async () => {
+	test("TX-1: write inside db.transaction is committed and visible after the call", async ({
+		db,
+	}) => {
+		knowledgeEvents.removeAllListeners();
 		// Use the Drizzle transaction API directly to prove it commits.
 		const inserted = await db.transaction(async (tx) => {
 			const id = crypto.randomUUID();
@@ -85,7 +75,10 @@ describe("N1 AC6: transaction semantics under PGlite", () => {
 	});
 
 	// ------------------------------------------------------------------ TX-2
-	it("TX-2: exception inside db.transaction rolls back — write is NOT visible", async () => {
+	test("TX-2: exception inside db.transaction rolls back — write is NOT visible", async ({
+		db,
+	}) => {
+		knowledgeEvents.removeAllListeners();
 		let attemptedId: string | undefined;
 
 		await expect(
@@ -120,7 +113,10 @@ describe("N1 AC6: transaction semantics under PGlite", () => {
 	});
 
 	// ------------------------------------------------------------------ TX-3
-	it("TX-3: knowledge-repository update() wraps in a transaction — version bump is atomic", async () => {
+	test("TX-3: knowledge-repository update() wraps in a transaction — version bump is atomic", async ({
+		db,
+	}) => {
+		knowledgeEvents.removeAllListeners();
 		// Create an item and update it; verify version increments atomically.
 		const item = await create(db, baseItem);
 		expect(item.version).toBe(1);
@@ -136,7 +132,10 @@ describe("N1 AC6: transaction semantics under PGlite", () => {
 	});
 
 	// ------------------------------------------------------------------ TX-4
-	it("TX-4: multiple sequential transactions are each atomic (no partial commits)", async () => {
+	test("TX-4: multiple sequential transactions are each atomic (no partial commits)", async ({
+		db,
+	}) => {
+		knowledgeEvents.removeAllListeners();
 		// Run 5 sequential transactions; each must commit cleanly.
 		const ids: string[] = [];
 		for (let i = 0; i < 5; i++) {
@@ -170,7 +169,10 @@ describe("N1 AC6: transaction semantics under PGlite", () => {
 	});
 
 	// ------------------------------------------------------------------ TX-5
-	it("TX-5: edit log INSERT inside update() transaction is committed with the item UPDATE", async () => {
+	test("TX-5: edit log INSERT inside update() transaction is committed with the item UPDATE", async ({
+		db,
+	}) => {
+		knowledgeEvents.removeAllListeners();
 		// The update() function inserts into knowledgeEditLog inside the same
 		// transaction as the UPDATE to knowledgeItems. Both must commit together.
 		const item = await create(db, baseItem);

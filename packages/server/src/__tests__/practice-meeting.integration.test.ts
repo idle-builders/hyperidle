@@ -1,30 +1,14 @@
-import {
-	createTestDb,
-	type HyperIdleDb,
-	knowledgeItems,
-	knowledgeStrategyFabric,
-	type TestDbHandle,
-} from "@hyperidle/db";
+import { type HyperIdleDb, knowledgeItems, knowledgeStrategyFabric } from "@hyperidle/db";
 import { createPracticeMeeting, runPracticeMeetingTurn } from "@hyperidle/fabric";
-import { EventBus, type KnowledgeUpdatedEvent } from "@hyperidle/shared";
+import type { KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, test } from "../test-fixtures.js";
 
 const NOW = "2026-04-18T00:00:00.000Z";
 const NOW_MS = new Date(NOW).getTime();
 
 describe("practice-meeting (AC6)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-	});
-
-	async function seedMeeting(): Promise<string> {
+	async function seedMeeting(db: HyperIdleDb): Promise<string> {
 		const created = await createPracticeMeeting(db, {
 			scopeId: "community-build",
 			title: "Weekly practice meeting",
@@ -33,7 +17,9 @@ describe("practice-meeting (AC6)", () => {
 		return created.meetingId;
 	}
 
-	it("createPracticeMeeting creates an anchor knowledge_item with meta.role='practice_meeting_anchor'", async () => {
+	test("createPracticeMeeting creates an anchor knowledge_item with meta.role='practice_meeting_anchor'", async ({
+		db,
+	}) => {
 		const { meetingId } = await createPracticeMeeting(db, {
 			scopeId: "community-build",
 			title: "W1",
@@ -55,8 +41,11 @@ describe("practice-meeting (AC6)", () => {
 		expect(meta.turnsCompleted).toEqual([]);
 	});
 
-	it("turn 1 creates proposal knowledge_items with status=captured and meta.meetingId", async () => {
-		const meetingId = await seedMeeting();
+	test("turn 1 creates proposal knowledge_items with status=captured and meta.meetingId", async ({
+		db,
+		eventBus,
+	}) => {
+		const meetingId = await seedMeeting(db);
 
 		const result = await runPracticeMeetingTurn(db, eventBus, {
 			meetingId,
@@ -90,8 +79,11 @@ describe("practice-meeting (AC6)", () => {
 		}
 	});
 
-	it("turn 2 creates reaction knowledge_items linked to proposals via meta.proposalId", async () => {
-		const meetingId = await seedMeeting();
+	test("turn 2 creates reaction knowledge_items linked to proposals via meta.proposalId", async ({
+		db,
+		eventBus,
+	}) => {
+		const meetingId = await seedMeeting(db);
 
 		const t1 = await runPracticeMeetingTurn(db, eventBus, {
 			meetingId,
@@ -141,8 +133,11 @@ describe("practice-meeting (AC6)", () => {
 		}
 	});
 
-	it("turn 3 creates synthesized knowledge_items with status=provisional", async () => {
-		const meetingId = await seedMeeting();
+	test("turn 3 creates synthesized knowledge_items with status=provisional", async ({
+		db,
+		eventBus,
+	}) => {
+		const meetingId = await seedMeeting(db);
 		const t1 = await runPracticeMeetingTurn(db, eventBus, {
 			meetingId,
 			turnNumber: 1,
@@ -204,8 +199,8 @@ describe("practice-meeting (AC6)", () => {
 		expect(meta.meetingPhase).toBe("synthesis");
 	});
 
-	it("turn 3 archives all proposal and reaction intermediates", async () => {
-		const meetingId = await seedMeeting();
+	test("turn 3 archives all proposal and reaction intermediates", async ({ db, eventBus }) => {
+		const meetingId = await seedMeeting(db);
 		const t1 = await runPracticeMeetingTurn(db, eventBus, {
 			meetingId,
 			turnNumber: 1,
@@ -249,8 +244,8 @@ describe("practice-meeting (AC6)", () => {
 		}
 	});
 
-	it("running turn 2 before turn 1 returns INVALID_TURN", async () => {
-		const meetingId = await seedMeeting();
+	test("running turn 2 before turn 1 returns INVALID_TURN", async ({ db, eventBus }) => {
+		const meetingId = await seedMeeting(db);
 		const result = await runPracticeMeetingTurn(db, eventBus, {
 			meetingId,
 			turnNumber: 2,
@@ -262,8 +257,8 @@ describe("practice-meeting (AC6)", () => {
 		expect(result.code).toBe("INVALID_TURN");
 	});
 
-	it("running turn 1 twice returns INVALID_TURN on the second call", async () => {
-		const meetingId = await seedMeeting();
+	test("running turn 1 twice returns INVALID_TURN on the second call", async ({ db, eventBus }) => {
+		const meetingId = await seedMeeting(db);
 		const first = await runPracticeMeetingTurn(db, eventBus, {
 			meetingId,
 			turnNumber: 1,
@@ -282,8 +277,11 @@ describe("practice-meeting (AC6)", () => {
 		expect(second.code).toBe("INVALID_TURN");
 	});
 
-	it("turn 1 emits knowledge_updated events for each created proposal", async () => {
-		const meetingId = await seedMeeting();
+	test("turn 1 emits knowledge_updated events for each created proposal", async ({
+		db,
+		eventBus,
+	}) => {
+		const meetingId = await seedMeeting(db);
 		const received: KnowledgeUpdatedEvent[] = [];
 		eventBus.on("knowledge_updated", (e) => {
 			received.push(e);
@@ -304,7 +302,7 @@ describe("practice-meeting (AC6)", () => {
 		expect(turnEvents.length).toBe(2);
 	});
 
-	it("unknown meetingId returns NOT_FOUND", async () => {
+	test("unknown meetingId returns NOT_FOUND", async ({ db, eventBus }) => {
 		const result = await runPracticeMeetingTurn(db, eventBus, {
 			meetingId: "does-not-exist",
 			turnNumber: 1,
@@ -316,10 +314,13 @@ describe("practice-meeting (AC6)", () => {
 		expect(result.code).toBe("NOT_FOUND");
 	});
 
-	it("malformed anchor meta returns INVALID_STATE (distinct from NOT_FOUND)", async () => {
+	test("malformed anchor meta returns INVALID_STATE (distinct from NOT_FOUND)", async ({
+		db,
+		eventBus,
+	}) => {
 		// Seed an anchor with a role match but a broken turnsCompleted shape.
 		// @lore O2: meta lives in knowledgeStrategyFabric, not knowledgeItems.
-		const meetingId = await seedMeeting();
+		const meetingId = await seedMeeting(db);
 		await db
 			.update(knowledgeStrategyFabric)
 			.set({
@@ -343,7 +344,10 @@ describe("practice-meeting (AC6)", () => {
 		expect(result.code).toBe("INVALID_STATE");
 	});
 
-	it.skip("concurrent turn-1 returns CONCURRENT_MODIFICATION when anchor meta is mutated between tx read and tx update", async () => {
+	test.skip("concurrent turn-1 returns CONCURRENT_MODIFICATION when anchor meta is mutated between tx read and tx update", async ({
+		db,
+		eventBus,
+	}) => {
 		// @lore PGlite: This race test is SQLite-specific. It relies on intercepting
 		// synchronous `.get()` calls in a proxy. PGlite/Postgres uses async queries
 		// and different transaction isolation (serializable vs. SQLite's optimistic
@@ -364,7 +368,7 @@ describe("practice-meeting (AC6)", () => {
 		// outer db (which in better-sqlite3 operates on the same
 		// connection — but the pin is byte-for-byte, so a changed `meta`
 		// blob breaks the WHERE clause regardless).
-		const meetingId = await seedMeeting();
+		const meetingId = await seedMeeting(db);
 
 		async function countProposals(): Promise<number> {
 			// @lore O2: meta lives in knowledgeStrategyFabric, not knowledgeItems.

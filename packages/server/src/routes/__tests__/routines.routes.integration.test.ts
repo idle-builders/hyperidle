@@ -9,7 +9,6 @@
 
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	routines,
 	tasks,
@@ -17,10 +16,8 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { beforeEach, afterEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-routines";
 
@@ -77,16 +74,8 @@ async function seedRoutine(db: HyperIdleDb): Promise<{ routineId: string; taskId
 }
 
 describe("routines routes", () => {
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
 	});
 
 	afterEach(() => {
@@ -94,14 +83,14 @@ describe("routines routes", () => {
 	});
 
 	describe("routines auth", () => {
-		it("returns 401 without auth header on GET /api/routines", async () => {
+		test("returns 401 without auth header on GET /api/routines", async ({ app }) => {
 			const res = await app.request("/api/routines", { method: "GET" });
 			expect(res.status).toBe(401);
 		});
 	});
 
 	describe("GET /api/routines", () => {
-		it("returns 200 with list of routines", async () => {
+		test("returns 200 with list of routines", async ({ db, app }) => {
 			await seedRoutine(db);
 			const res = await app.request("/api/routines", {
 				method: "GET",
@@ -113,7 +102,7 @@ describe("routines routes", () => {
 			expect(body).toHaveLength(1);
 		});
 
-		it("returns 200 with empty array when none exist", async () => {
+		test("returns 200 with empty array when none exist", async ({ app }) => {
 			const res = await app.request("/api/routines", {
 				method: "GET",
 				headers: authHeaders(),
@@ -125,7 +114,7 @@ describe("routines routes", () => {
 	});
 
 	describe("PATCH /api/routines/:id", () => {
-		it("returns 200 with updated routine on valid patch", async () => {
+		test("returns 200 with updated routine on valid patch", async ({ db, app }) => {
 			const { routineId } = await seedRoutine(db);
 			const res = await app.request(`/api/routines/${routineId}`, {
 				method: "PATCH",
@@ -138,7 +127,7 @@ describe("routines routes", () => {
 			expect(body.triggerConfig).toBe("30 * * * *");
 		});
 
-		it("returns 404 for non-existent routine", async () => {
+		test("returns 404 for non-existent routine", async ({ app }) => {
 			const res = await app.request("/api/routines/non-existent", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -147,7 +136,7 @@ describe("routines routes", () => {
 			expect(res.status).toBe(404);
 		});
 
-		it("returns 400 on invalid autonomyLevel (out of range)", async () => {
+		test("returns 400 on invalid autonomyLevel (out of range)", async ({ db, app }) => {
 			const { routineId } = await seedRoutine(db);
 			const res = await app.request(`/api/routines/${routineId}`, {
 				method: "PATCH",
@@ -159,7 +148,7 @@ describe("routines routes", () => {
 	});
 
 	describe("POST /api/routines/:id/retire", () => {
-		it("returns 200 with routine.active=false", async () => {
+		test("returns 200 with routine.active=false", async ({ db, app }) => {
 			const { routineId } = await seedRoutine(db);
 			const res = await app.request(`/api/routines/${routineId}/retire`, {
 				method: "POST",
@@ -170,7 +159,7 @@ describe("routines routes", () => {
 			expect(body.active).toBe(false);
 		});
 
-		it("returns 404 for non-existent routine", async () => {
+		test("returns 404 for non-existent routine", async ({ app }) => {
 			const res = await app.request("/api/routines/non-existent/retire", {
 				method: "POST",
 				headers: authHeaders(),
@@ -180,7 +169,7 @@ describe("routines routes", () => {
 	});
 
 	describe("POST /api/routines/:id/trigger", () => {
-		it("returns 201 with created session on manual trigger", async () => {
+		test("returns 201 with created session on manual trigger", async ({ db, app }) => {
 			const { routineId } = await seedRoutine(db);
 			const res = await app.request(`/api/routines/${routineId}/trigger`, {
 				method: "POST",
@@ -192,7 +181,7 @@ describe("routines routes", () => {
 			expect(body.agentId).toBe("agent-1");
 		});
 
-		it("returns 404 for non-existent routine", async () => {
+		test("returns 404 for non-existent routine", async ({ app }) => {
 			const res = await app.request("/api/routines/non-existent/trigger", {
 				method: "POST",
 				headers: authHeaders(),
@@ -200,7 +189,7 @@ describe("routines routes", () => {
 			expect(res.status).toBe(404);
 		});
 
-		it("returns 403 when routine is disabled (active=false)", async () => {
+		test("returns 403 when routine is disabled (active=false)", async ({ db, app }) => {
 			const { routineId } = await seedRoutine(db);
 			// First retire the routine
 			await app.request(`/api/routines/${routineId}/retire`, {
@@ -216,7 +205,7 @@ describe("routines routes", () => {
 			expect(res.status).toBe(403);
 		});
 
-		it("emits session_started event on eventBus", async () => {
+		test("emits session_started event on eventBus", async ({ db, app, eventBus }) => {
 			const { routineId } = await seedRoutine(db);
 			const emittedEvents: unknown[] = [];
 			eventBus.on("session_started", (e) => {

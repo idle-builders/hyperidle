@@ -1,10 +1,8 @@
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	items,
 	sessions,
-	type TestDbHandle,
 	taskStrategyFabric,
 	tasks,
 	teamMembers,
@@ -14,59 +12,51 @@ import {
 } from "@hyperidle/db";
 import { registerSessionReviewCreator } from "@hyperidle/fabric";
 import type { ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
-import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, vi } from "vitest";
+import { test } from "../test-fixtures.js";
 
-describe("registerSessionReviewCreator", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-
-		// Seed base data
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 3,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
-
-		await db.insert(bets).values({
-			id: "bet-1",
-			teamId: "prod-1",
-			description: "Test bet",
-			appetite: "small",
-			status: "active",
-			createdAt: new Date().toISOString(),
-		});
-
-		await db.insert(users).values({
-			id: "agent-1",
-			name: "Test Agent",
-			role: "builder",
-			status: "active",
-			createdAt: new Date().toISOString(),
-		});
+async function seedBase(db: HyperIdleDb): Promise<void> {
+	await db.insert(teams).values({
+		id: "prod-1",
+		name: "Test Product",
+		phase: "build",
+		createdAt: new Date().toISOString(),
 	});
 
-	afterEach(async () => {
+	await db.insert(teamMembers).values({
+		id: "team-1",
+		teamId: "prod-1",
+		capacity: 3,
+		activeBets: 0,
+		formedAt: new Date().toISOString(),
+	});
+
+	await db.insert(bets).values({
+		id: "bet-1",
+		teamId: "prod-1",
+		description: "Test bet",
+		appetite: "small",
+		status: "active",
+		createdAt: new Date().toISOString(),
+	});
+
+	await db.insert(users).values({
+		id: "agent-1",
+		name: "Test Agent",
+		role: "builder",
+		status: "active",
+		createdAt: new Date().toISOString(),
+	});
+}
+
+describe("registerSessionReviewCreator", () => {
+	afterEach(() => {
 		vi.restoreAllMocks();
 	});
 
-	it("creates review item for high-risk task on session_ended", async () => {
+	test("creates review item for high-risk task on session_ended", async ({ db, eventBus }) => {
+		await seedBase(db);
 		const unsubscribe = registerSessionReviewCreator(db, eventBus);
 
 		// Create high-risk task with a thread
@@ -135,7 +125,8 @@ describe("registerSessionReviewCreator", () => {
 		unsubscribe();
 	});
 
-	it("does not create review item for low-risk task", async () => {
+	test("does not create review item for low-risk task", async ({ db, eventBus }) => {
+		await seedBase(db);
 		const unsubscribe = registerSessionReviewCreator(db, eventBus);
 
 		await db.insert(tasks).values({
@@ -180,7 +171,8 @@ describe("registerSessionReviewCreator", () => {
 		unsubscribe();
 	});
 
-	it("auto-creates thread when task has no threadId", async () => {
+	test("auto-creates thread when task has no threadId", async ({ db, eventBus }) => {
+		await seedBase(db);
 		const unsubscribe = registerSessionReviewCreator(db, eventBus);
 
 		await db.insert(tasks).values({
@@ -238,7 +230,8 @@ describe("registerSessionReviewCreator", () => {
 		unsubscribe();
 	});
 
-	it("returns an unsubscribe function that stops handling events", async () => {
+	test("returns an unsubscribe function that stops handling events", async ({ db, eventBus }) => {
+		await seedBase(db);
 		const unsubscribe = registerSessionReviewCreator(db, eventBus);
 
 		await db.insert(tasks).values({

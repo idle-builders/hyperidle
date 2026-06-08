@@ -8,11 +8,9 @@
  *  - GET /api/health/auth response includes a timestamp
  */
 
-import { createTestDb, type HyperIdleDb, type TestDbHandle, users } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { users } from "@hyperidle/db";
+import { describe, expect, vi } from "vitest";
+import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-p3-health-auth";
 
@@ -21,46 +19,36 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("P3 AC-6 — Health check for shared mode", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
 	const NOW = new Date().toISOString();
 
-	beforeEach(async () => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-	});
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle?.close();
-	});
-
 	describe("GET /api/health (existing, unauthenticated)", () => {
-		it("still returns 200 without auth", async () => {
+		test("still returns 200 without auth", async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const res = await app.request("/api/health");
 			expect(res.status).toBe(200);
+			vi.unstubAllEnvs();
 		});
 
-		it("still returns { status: 'ok', timestamp: '...' }", async () => {
+		test("still returns { status: 'ok', timestamp: '...' }", async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const res = await app.request("/api/health");
 			const body = (await res.json()) as { status: string; timestamp: string };
 			expect(body.status).toBe("ok");
 			expect(typeof body.timestamp).toBe("string");
+			vi.unstubAllEnvs();
 		});
 	});
 
 	describe("GET /api/health/auth", () => {
-		it("returns 401 without API key", async () => {
+		test("returns 401 without API key", async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const res = await app.request("/api/health/auth");
 			expect(res.status).toBe(401);
+			vi.unstubAllEnvs();
 		});
 
-		it("returns 200 with valid API key", async () => {
+		test("returns 200 with valid API key", async ({ app, db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			// Seed a human user so auth resolves properly
 			await db.insert(users).values({
 				id: "u-health-test",
@@ -74,9 +62,11 @@ describe("P3 AC-6 — Health check for shared mode", () => {
 
 			const res = await app.request("/api/health/auth", { headers: authHeaders() });
 			expect(res.status).toBe(200);
+			vi.unstubAllEnvs();
 		});
 
-		it("response includes status: 'ok'", async () => {
+		test("response includes status: 'ok'", async ({ app, db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await db.insert(users).values({
 				id: "u-health-status",
 				kind: "human",
@@ -90,9 +80,11 @@ describe("P3 AC-6 — Health check for shared mode", () => {
 			const res = await app.request("/api/health/auth", { headers: authHeaders() });
 			const body = (await res.json()) as { status: string; timestamp: string; userId: string };
 			expect(body.status).toBe("ok");
+			vi.unstubAllEnvs();
 		});
 
-		it("response includes a timestamp string", async () => {
+		test("response includes a timestamp string", async ({ app, db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await db.insert(users).values({
 				id: "u-health-ts",
 				kind: "human",
@@ -107,9 +99,11 @@ describe("P3 AC-6 — Health check for shared mode", () => {
 			const body = (await res.json()) as { timestamp: string };
 			expect(typeof body.timestamp).toBe("string");
 			expect(body.timestamp.length).toBeGreaterThan(0);
+			vi.unstubAllEnvs();
 		});
 
-		it("response includes a userId field", async () => {
+		test("response includes a userId field", async ({ app, db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await db.insert(users).values({
 				id: "u-health-userid",
 				kind: "human",
@@ -124,9 +118,11 @@ describe("P3 AC-6 — Health check for shared mode", () => {
 			const body = (await res.json()) as { userId: string };
 			expect(typeof body.userId).toBe("string");
 			expect(body.userId.length).toBeGreaterThan(0);
+			vi.unstubAllEnvs();
 		});
 
-		it("returns userId that matches the seeded human user", async () => {
+		test("returns userId that matches the seeded human user", async ({ app, db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await db.insert(users).values({
 				id: "u-expected-id",
 				kind: "human",
@@ -140,13 +136,16 @@ describe("P3 AC-6 — Health check for shared mode", () => {
 			const res = await app.request("/api/health/auth", { headers: authHeaders() });
 			const body = (await res.json()) as { userId: string };
 			expect(body.userId).toBe("u-expected-id");
+			vi.unstubAllEnvs();
 		});
 
-		it("returns 401 with wrong API key", async () => {
+		test("returns 401 with wrong API key", async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const res = await app.request("/api/health/auth", {
 				headers: { "X-API-Key": "wrong-key" },
 			});
 			expect(res.status).toBe(401);
+			vi.unstubAllEnvs();
 		});
 	});
 });

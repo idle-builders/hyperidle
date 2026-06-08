@@ -1,6 +1,7 @@
-import { createTestDb, type HyperIdleDb, items } from "@hyperidle/db";
+import { type HyperIdleDb, items } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
+import { test } from "../../test-fixtures.js";
 import { routeItemTool } from "../route-item.js";
 import { buildToolRegistry } from "../tool-registry.js";
 import { makeContext, NOW, seedBase } from "./_helpers.js";
@@ -29,22 +30,16 @@ async function seedItem(
 }
 
 describe("route_item tool", () => {
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		const handle = await createTestDb();
-		db = handle.db;
+	test("returns NOT_FOUND for unknown itemId", async ({ db }) => {
 		await seedBase(db);
-	});
-
-	it("returns NOT_FOUND for unknown itemId", async () => {
 		const result = await routeItemTool.handler({ itemId: "does-not-exist" }, makeContext(db));
 		expect(result.success).toBe(false);
 		if (result.success) return;
 		expect(result.code).toBe("NOT_FOUND");
 	});
 
-	it("returns INVALID_INPUT for missing itemId via registry dispatch", async () => {
+	test("returns INVALID_INPUT for missing itemId via registry dispatch", async ({ db }) => {
+		await seedBase(db);
 		// I2 B1-B4: registry now requires an explicit role. Use
 		// chief_of_staff so the full tool set remains visible (route_item
 		// is facilitator-only).
@@ -55,7 +50,8 @@ describe("route_item tool", () => {
 		expect(result.code).toBe("INVALID_INPUT");
 	});
 
-	it("routes a low-risk knowledge item to the knowledge view", async () => {
+	test("routes a low-risk knowledge item to the knowledge view", async ({ db }) => {
+		await seedBase(db);
 		const id = await seedItem(db, { kind: "knowledge", riskTier: "low" });
 		const result = await routeItemTool.handler({ itemId: id }, makeContext(db));
 		expect(result.success).toBe(true);
@@ -64,7 +60,8 @@ describe("route_item tool", () => {
 		expect(data.view).toBe("knowledge");
 	});
 
-	it("high-risk item routes to conversations", async () => {
+	test("high-risk item routes to conversations", async ({ db }) => {
+		await seedBase(db);
 		const id = await seedItem(db, { kind: "knowledge", riskTier: "low" });
 		const result = await routeItemTool.handler({ itemId: id, riskTier: "high" }, makeContext(db));
 		expect(result.success).toBe(true);
@@ -73,14 +70,16 @@ describe("route_item tool", () => {
 		expect(data.view).toBe("conversations");
 	});
 
-	it("overrides persist on the items row", async () => {
+	test("overrides persist on the items row", async ({ db }) => {
+		await seedBase(db);
 		const id = await seedItem(db, { kind: "knowledge", riskTier: "low" });
 		await routeItemTool.handler({ itemId: id, riskTier: "high" }, makeContext(db));
 		const [row] = await db.select().from(items).where(eq(items.id, id));
 		expect(row?.riskTier).toBe("high");
 	});
 
-	it("non-overridden fields remain unchanged", async () => {
+	test("non-overridden fields remain unchanged", async ({ db }) => {
+		await seedBase(db);
 		const id = await seedItem(db, { kind: "knowledge", verb: "propose", riskTier: "low" });
 		await routeItemTool.handler({ itemId: id, riskTier: "high" }, makeContext(db));
 		const [row] = await db.select().from(items).where(eq(items.id, id));

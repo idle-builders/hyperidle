@@ -12,11 +12,10 @@
  * Red phase: all assertions fail against the current implementation.
  */
 
-import { createTestDb, type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
-import { API_ERROR_CODES, EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
+import { API_ERROR_CODES } from "@hyperidle/shared";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-knowledge-validation";
 
@@ -42,55 +41,48 @@ async function seedKi(db: HyperIdleDb, id: string, title: string, body = "body")
 // @lore O2: V3 layer validation tests removed — /:layer URL pattern no longer exists.
 // Knowledge routes now use /:id patterns. Old layer URLs return 404 naturally.
 describe("I2 V3 — O2: /:layer URL returns 404 (layer routing removed)", () => {
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const handle = await createTestDb();
-		app = await createTestApp({ db: handle.db, eventBus: new EventBus() });
 	});
 
 	afterEach(() => {
 		vi.unstubAllEnvs();
 	});
 
-	it("GET /api/knowledge/L99 returns 404 (not 400 — layer routing removed)", async () => {
+	test("GET /api/knowledge/L99 returns 404 (not 400 — layer routing removed)", async ({ app }) => {
 		const res = await app.request("/api/knowledge/L99", { headers: authHeaders() });
 		expect(res.status).toBe(404);
 	});
 
-	it("GET /api/knowledge/banana returns 404", async () => {
+	test("GET /api/knowledge/banana returns 404", async ({ app }) => {
 		const res = await app.request("/api/knowledge/banana", { headers: authHeaders() });
 		expect(res.status).toBe(404);
 	});
 
-	it("GET /api/knowledge/L0 returns 404 (layer is not a valid item ID)", async () => {
+	test("GET /api/knowledge/L0 returns 404 (layer is not a valid item ID)", async ({ app }) => {
 		const res = await app.request("/api/knowledge/L0", { headers: authHeaders() });
 		expect(res.status).toBe(404);
 	});
 });
 
 describe("I2 V4 — GET /api/knowledge/search escapes LIKE wildcards", () => {
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const handle = await createTestDb();
-		db = handle.db;
-		app = await createTestApp({ db, eventBus: new EventBus() });
-
-		await seedKi(db, "ki-ab", "AB");
-		await seedKi(db, "ki-axb", "AxB");
-		await seedKi(db, "ki-aub", "A_B");
-		await seedKi(db, "ki-pct", "100% off");
 	});
 
 	afterEach(() => {
 		vi.unstubAllEnvs();
 	});
 
-	it("?q=A_B returns only rows literally containing 'A_B' (not all rows)", async () => {
+	test("?q=A_B returns only rows literally containing 'A_B' (not all rows)", async ({
+		db,
+		app,
+	}) => {
+		await seedKi(db, "ki-ab", "AB");
+		await seedKi(db, "ki-axb", "AxB");
+		await seedKi(db, "ki-aub", "A_B");
+		await seedKi(db, "ki-pct", "100% off");
+
 		const res = await app.request("/api/knowledge/search?q=A_B", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { results: Array<{ id: string; title: string }> };
@@ -98,7 +90,12 @@ describe("I2 V4 — GET /api/knowledge/search escapes LIKE wildcards", () => {
 		expect(ids).toEqual(["ki-aub"]);
 	});
 
-	it("?q=_ does NOT return every row (the underscore must be a literal)", async () => {
+	test("?q=_ does NOT return every row (the underscore must be a literal)", async ({ db, app }) => {
+		await seedKi(db, "ki-ab", "AB");
+		await seedKi(db, "ki-axb", "AxB");
+		await seedKi(db, "ki-aub", "A_B");
+		await seedKi(db, "ki-pct", "100% off");
+
 		const res = await app.request("/api/knowledge/search?q=_", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { results: Array<{ id: string }> };
@@ -107,7 +104,12 @@ describe("I2 V4 — GET /api/knowledge/search escapes LIKE wildcards", () => {
 		expect(ids).toEqual(["ki-aub"]);
 	});
 
-	it("?q=% does NOT return every row (the percent must be a literal)", async () => {
+	test("?q=% does NOT return every row (the percent must be a literal)", async ({ db, app }) => {
+		await seedKi(db, "ki-ab", "AB");
+		await seedKi(db, "ki-axb", "AxB");
+		await seedKi(db, "ki-aub", "A_B");
+		await seedKi(db, "ki-pct", "100% off");
+
 		const res = await app.request("/api/knowledge/search?q=%25", { headers: authHeaders() });
 		// %25 decodes to '%'. Only the "100% off" row contains a literal %.
 		expect(res.status).toBe(200);
@@ -116,7 +118,7 @@ describe("I2 V4 — GET /api/knowledge/search escapes LIKE wildcards", () => {
 		expect(ids).toEqual(["ki-pct"]);
 	});
 
-	it('?q="unbalanced does not throw (graceful 200 with empty/zero results)', async () => {
+	test('?q="unbalanced does not throw (graceful 200 with empty/zero results)', async ({ app }) => {
 		// A query containing the LIKE escape char `\` must be handled
 		// safely — no SQLite parse error, no 500.
 		const res = await app.request(`/api/knowledge/search?q=${encodeURIComponent('"unbalanced')}`, {
@@ -125,14 +127,14 @@ describe("I2 V4 — GET /api/knowledge/search escapes LIKE wildcards", () => {
 		expect(res.status).toBe(200);
 	});
 
-	it("?q=\\ (a backslash) does not 500", async () => {
+	test("?q=\\ (a backslash) does not 500", async ({ app }) => {
 		const res = await app.request(`/api/knowledge/search?q=${encodeURIComponent("\\")}`, {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);
 	});
 
-	it("review HIGH-5 / M-4: rejects queries longer than 500 chars with 400", async () => {
+	test("review HIGH-5 / M-4: rejects queries longer than 500 chars with 400", async ({ app }) => {
 		const huge = "x".repeat(501);
 		const res = await app.request(`/api/knowledge/search?q=${encodeURIComponent(huge)}`, {
 			headers: authHeaders(),
@@ -142,7 +144,7 @@ describe("I2 V4 — GET /api/knowledge/search escapes LIKE wildcards", () => {
 		expect(body.code).toBe(API_ERROR_CODES.VALIDATION_ERROR);
 	});
 
-	it("review HIGH-5 / M-4: a query at the 500-char boundary is accepted", async () => {
+	test("review HIGH-5 / M-4: a query at the 500-char boundary is accepted", async ({ app }) => {
 		const right = "x".repeat(500);
 		const res = await app.request(`/api/knowledge/search?q=${encodeURIComponent(right)}`, {
 			headers: authHeaders(),

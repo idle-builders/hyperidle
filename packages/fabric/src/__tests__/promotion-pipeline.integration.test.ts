@@ -1,14 +1,13 @@
 import {
-	createTestDb,
 	type HyperIdleDb,
 	knowledgeConflicts,
 	knowledgeEditLog,
 	knowledgeItems,
 	knowledgeStrategyFabric,
 } from "@hyperidle/db";
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus, type KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { KnowledgeItemWithFabric } from "../knowledge-repository.js";
 import {
 	AUTO_PROMOTION_EDITOR,
@@ -125,24 +124,10 @@ async function seedRepetitionCluster(
 }
 
 describe("promotion-pipeline", () => {
-	let db: HyperIdleDb;
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	let eventBus: EventBus;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-	});
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
 	// --- AC2 — auto-promotion at 5+ cross-scope repetitions ---
 
 	describe("checkAutoPromotion (AC2)", () => {
-		it("returns shouldPromote=true when 5 distinct scopes match signature", async () => {
+		test("returns shouldPromote=true when 5 distinct scopes match signature", async ({ db }) => {
 			const subject = await seedKi(db, {
 				id: "subject",
 				layer: "L3",
@@ -163,7 +148,7 @@ describe("promotion-pipeline", () => {
 			expect(result.shouldPromote).toBe(true);
 		});
 
-		it("returns shouldPromote=false at count=4 (just below threshold)", async () => {
+		test("returns shouldPromote=false at count=4 (just below threshold)", async ({ db }) => {
 			const subject = await seedKi(db, {
 				id: "subject",
 				layer: "L3",
@@ -184,7 +169,7 @@ describe("promotion-pipeline", () => {
 			expect(result.shouldPromote).toBe(false);
 		});
 
-		it("ignores archived items in the count", async () => {
+		test("ignores archived items in the count", async ({ db }) => {
 			const subject = await seedKi(db, {
 				id: "subject",
 				layer: "L3",
@@ -217,7 +202,7 @@ describe("promotion-pipeline", () => {
 			expect(result.shouldPromote).toBe(false);
 		});
 
-		it("ignores items without scope_id (cannot demonstrate cross-product)", async () => {
+		test("ignores items without scope_id (cannot demonstrate cross-product)", async ({ db }) => {
 			const subject = await seedKi(db, {
 				id: "subject",
 				layer: "L3",
@@ -241,21 +226,22 @@ describe("promotion-pipeline", () => {
 			expect(result.shouldPromote).toBe(false);
 		});
 
-		it("exposes the threshold constant as 5 per AC2", () => {
+		test("exposes the threshold constant as 5 per AC2", () => {
 			expect(AUTO_PROMOTION_REPETITION_THRESHOLD).toBe(5);
 		});
 
-		it("AUTO_PROMOTION_EDITOR uses the reserved system:* prefix (W5)", () => {
+		test("AUTO_PROMOTION_EDITOR uses the reserved system:* prefix (W5)", () => {
 			// `system:*` is reserved for machine-initiated edits and must
 			// not clash with `agent:*` ids used for real agents.
 			expect(AUTO_PROMOTION_EDITOR).toBe("system:auto-promotion");
 			expect(AUTO_PROMOTION_EDITOR.startsWith("system:")).toBe(true);
 		});
 
-		it("runAutoPromotionSweep respects maxBatchSize (W4)", async () => {
+		test("runAutoPromotionSweep respects maxBatchSize (W4)", async ({ db }) => {
 			// Seed 3 provisional items that would promote — one cluster of
 			// five scopes for each. Call the sweep with maxBatchSize=1 and
 			// verify only 1 is processed in this pass.
+			const eventBus = new EventBus();
 			for (let i = 0; i < 3; i++) {
 				const subjectId = `subject-${i}`;
 				await seedKi(db, {
@@ -279,7 +265,8 @@ describe("promotion-pipeline", () => {
 			expect(summary.scanned).toBe(1);
 		});
 
-		it("runStaleSweep respects maxBatchSize (W4)", async () => {
+		test("runStaleSweep respects maxBatchSize (W4)", async ({ db }) => {
+			const eventBus = new EventBus();
 			const OLDER = new Date(NOW_MS - STALE_THRESHOLD_MS - 1000).toISOString();
 			for (let i = 0; i < 5; i++) {
 				await seedKi(db, { id: `old-${i}`, status: "active", updatedAt: OLDER });
@@ -290,7 +277,7 @@ describe("promotion-pipeline", () => {
 			expect(summary.markedIds.length).toBe(2);
 		});
 
-		it("treats topic=NULL and topic='' as DISTINCT signatures (W1)", async () => {
+		test("treats topic=NULL and topic='' as DISTINCT signatures (W1)", async ({ db }) => {
 			// Subject has topic = null.
 			const subject = await seedKi(db, {
 				id: "subject",
@@ -320,7 +307,9 @@ describe("promotion-pipeline", () => {
 			expect(result.distinctScopes).toBe(1);
 		});
 
-		it("treats topic='' and topic=NULL as DISTINCT signatures in the other direction (W1)", async () => {
+		test("treats topic='' and topic=NULL as DISTINCT signatures in the other direction (W1)", async ({
+			db,
+		}) => {
 			const subject = await seedKi(db, {
 				id: "subject",
 				layer: "L3",
@@ -349,7 +338,9 @@ describe("promotion-pipeline", () => {
 	// --- AC3 — contradiction check ---
 
 	describe("detectLayerContradiction (AC3)", () => {
-		it("contradicts=true when L4 principle.meta.forbids overlaps L3.meta.claims", async () => {
+		test("contradicts=true when L4 principle.meta.forbids overlaps L3.meta.claims", async ({
+			db,
+		}) => {
 			const l3 = await seedKi(db, {
 				id: "l3-practice",
 				layer: "L3",
@@ -373,7 +364,9 @@ describe("promotion-pipeline", () => {
 			expect(result.withItemId).toBe("l4-principle");
 		});
 
-		it("contradicts=true when L4 principle.meta.forbids contains the L3 item's topic", async () => {
+		test("contradicts=true when L4 principle.meta.forbids contains the L3 item's topic", async ({
+			db,
+		}) => {
 			const l3 = await seedKi(db, {
 				id: "l3-practice",
 				layer: "L3",
@@ -394,7 +387,7 @@ describe("promotion-pipeline", () => {
 			expect(result.contradicts).toBe(true);
 		});
 
-		it("contradicts=false when no overlap", async () => {
+		test("contradicts=false when no overlap", async ({ db }) => {
 			const l3 = await seedKi(db, {
 				id: "l3-practice",
 				layer: "L3",
@@ -415,7 +408,7 @@ describe("promotion-pipeline", () => {
 			expect(result.contradicts).toBe(false);
 		});
 
-		it("contradicts=false when topics don't match", async () => {
+		test("contradicts=false when topics don't match", async ({ db }) => {
 			const l3 = await seedKi(db, {
 				id: "l3-practice",
 				layer: "L3",
@@ -436,7 +429,7 @@ describe("promotion-pipeline", () => {
 			expect(result.contradicts).toBe(false);
 		});
 
-		it("contradicts=false when no L4 principles exist", async () => {
+		test("contradicts=false when no L4 principles exist", async ({ db }) => {
 			const l3 = await seedKi(db, {
 				id: "l3-only",
 				layer: "L3",
@@ -449,7 +442,9 @@ describe("promotion-pipeline", () => {
 			expect(result.contradicts).toBe(false);
 		});
 
-		it("contradicts=false when subject item is not L3 (rule applies only to L3 proposals)", async () => {
+		test("contradicts=false when subject item is not L3 (rule applies only to L3 proposals)", async ({
+			db,
+		}) => {
 			const l2 = await seedKi(db, {
 				id: "l2-item",
 				layer: "L2",
@@ -477,7 +472,9 @@ describe("promotion-pipeline", () => {
 		const OLDER_THAN_90_DAYS = new Date(NOW_MS - STALE_THRESHOLD_MS - 1000).toISOString();
 		const WITHIN_90_DAYS = new Date(NOW_MS - 10 * 24 * 60 * 60 * 1000).toISOString();
 
-		it("findStaleItems returns active items with updated_at older than 90 days", async () => {
+		test("findStaleItems returns active items with updated_at older than 90 days", async ({
+			db,
+		}) => {
 			await seedKi(db, { id: "stale-1", status: "active", updatedAt: OLDER_THAN_90_DAYS });
 			await seedKi(db, { id: "fresh-1", status: "active", updatedAt: WITHIN_90_DAYS });
 
@@ -487,13 +484,13 @@ describe("promotion-pipeline", () => {
 			expect(ids).not.toContain("fresh-1");
 		});
 
-		it("findStaleItems does NOT return active items within 90 days", async () => {
+		test("findStaleItems does NOT return active items within 90 days", async ({ db }) => {
 			await seedKi(db, { id: "fresh", status: "active", updatedAt: WITHIN_90_DAYS });
 			const stale = await findStaleItems(db, NOW_MS);
 			expect(stale.some((s) => s.id === "fresh")).toBe(false);
 		});
 
-		it("findStaleItems does NOT return non-active items", async () => {
+		test("findStaleItems does NOT return non-active items", async ({ db }) => {
 			await seedKi(db, { id: "old-prov", status: "provisional", updatedAt: OLDER_THAN_90_DAYS });
 			await seedKi(db, { id: "old-stale", status: "stale", updatedAt: OLDER_THAN_90_DAYS });
 			await seedKi(db, { id: "old-arch", status: "archived", updatedAt: OLDER_THAN_90_DAYS });
@@ -504,7 +501,9 @@ describe("promotion-pipeline", () => {
 			expect(ids).not.toContain("old-arch");
 		});
 
-		it("markStale transitions active→stale and writes edit log with editor='system:auto-promotion'", async () => {
+		test("markStale transitions active→stale and writes edit log with editor='system:auto-promotion'", async ({
+			db,
+		}) => {
 			await seedKi(db, { id: "m-1", status: "active", updatedAt: OLDER_THAN_90_DAYS });
 			await markStale(db, "m-1");
 
@@ -526,7 +525,8 @@ describe("promotion-pipeline", () => {
 			expect(statusLog?.newValue).toContain("stale");
 		});
 
-		it("runStaleSweep emits knowledge_updated action=marked_stale", async () => {
+		test("runStaleSweep emits knowledge_updated action=marked_stale", async ({ db }) => {
+			const eventBus = new EventBus();
 			await seedKi(db, { id: "s-1", status: "active", updatedAt: OLDER_THAN_90_DAYS });
 			const received: KnowledgeUpdatedEvent[] = [];
 			eventBus.on("knowledge_updated", (e) => {
@@ -559,7 +559,10 @@ describe("promotion-pipeline", () => {
 			);
 		}
 
-		it("promotes provisional→validated when count>=5, no conflicts, no contradictions (AC2)", async () => {
+		test("promotes provisional→validated when count>=5, no conflicts, no contradictions (AC2)", async ({
+			db,
+		}) => {
+			const eventBus = new EventBus();
 			await seedProvisionalClusterOf5(db, "subject");
 			const summary = await runAutoPromotionSweep(db, eventBus);
 			expect(summary.promotedIds).toContain("subject");
@@ -572,7 +575,8 @@ describe("promotion-pipeline", () => {
 			expect(row?.status).toBe("validated");
 		});
 
-		it("emits knowledge_updated action=auto_promoted (AC2)", async () => {
+		test("emits knowledge_updated action=auto_promoted (AC2)", async ({ db }) => {
+			const eventBus = new EventBus();
 			await seedProvisionalClusterOf5(db, "subject");
 			const received: KnowledgeUpdatedEvent[] = [];
 			eventBus.on("knowledge_updated", (e) => {
@@ -586,7 +590,10 @@ describe("promotion-pipeline", () => {
 			expect(promoteEvent).toBeDefined();
 		});
 
-		it("writes editor='system:auto-promotion' on the promotion edit log (AC2 constraint)", async () => {
+		test("writes editor='system:auto-promotion' on the promotion edit log (AC2 constraint)", async ({
+			db,
+		}) => {
+			const eventBus = new EventBus();
 			await seedProvisionalClusterOf5(db, "subject");
 			await runAutoPromotionSweep(db, eventBus);
 
@@ -599,7 +606,10 @@ describe("promotion-pipeline", () => {
 			expect(statusLog?.editor).toBe("system:auto-promotion");
 		});
 
-		it("does NOT promote when contradiction detected, even with 5+ repetitions (AC3)", async () => {
+		test("does NOT promote when contradiction detected, even with 5+ repetitions (AC3)", async ({
+			db,
+		}) => {
+			const eventBus = new EventBus();
 			await seedProvisionalClusterOf5(db, "subject");
 			// Store claims on subject; add a contradicting L4 principle
 			// @lore O2: meta is in knowledgeStrategyFabric, not knowledgeItems
@@ -627,7 +637,8 @@ describe("promotion-pipeline", () => {
 			expect(summary.flaggedForReviewIds).toContain("subject");
 		});
 
-		it("emits knowledge_updated action=contradiction_flagged (AC3)", async () => {
+		test("emits knowledge_updated action=contradiction_flagged (AC3)", async ({ db }) => {
+			const eventBus = new EventBus();
 			await seedProvisionalClusterOf5(db, "subject");
 			// @lore O2: meta is in knowledgeStrategyFabric, not knowledgeItems
 			await db
@@ -653,7 +664,10 @@ describe("promotion-pipeline", () => {
 			).toBe(true);
 		});
 
-		it("does NOT promote when an open conflict exists, even with 5+ repetitions (AC5)", async () => {
+		test("does NOT promote when an open conflict exists, even with 5+ repetitions (AC5)", async ({
+			db,
+		}) => {
+			const eventBus = new EventBus();
 			await seedProvisionalClusterOf5(db, "subject");
 			await seedConflict(db, "conf-open", "subject", "open");
 			const summary = await runAutoPromotionSweep(db, eventBus);
@@ -666,7 +680,8 @@ describe("promotion-pipeline", () => {
 			expect(row?.status).toBe("provisional");
 		});
 
-		it("DOES promote when only resolved/discarded conflicts exist (AC5)", async () => {
+		test("DOES promote when only resolved/discarded conflicts exist (AC5)", async ({ db }) => {
+			const eventBus = new EventBus();
 			await seedProvisionalClusterOf5(db, "subject");
 			await seedConflict(db, "conf-1", "subject", "resolved");
 			await seedConflict(db, "conf-2", "subject", "discarded");
@@ -674,7 +689,8 @@ describe("promotion-pipeline", () => {
 			expect(summary.promotedIds).toContain("subject");
 		});
 
-		it("skips items below threshold (no spurious promotions)", async () => {
+		test("skips items below threshold (no spurious promotions)", async ({ db }) => {
+			const eventBus = new EventBus();
 			// Only subject — count=1 distinct scope, below threshold
 			await seedKi(db, {
 				id: "subject",

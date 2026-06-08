@@ -13,10 +13,8 @@
 // @lore U1: `products` renamed to `teams`; old `teams` (membership) renamed to `teamMembers`.
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	sessions,
-	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
@@ -30,9 +28,8 @@ import {
 } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { describe, expect, vi } from "vitest";
+import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-l17-money";
 const NOW = new Date().toISOString();
@@ -44,16 +41,7 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 // ── AC13: Cost-cap service with new column names ──────────────────────────────
 
 describe("Cost-cap service with Money columns (AC13)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		clearDeduplicationCache();
-
+	async function seedAC13Base(db: HyperIdleDb): Promise<void> {
 		// @lore U1: Seed base entities using new schema (teams, teamMembers).
 		await db
 			.insert(teams)
@@ -103,9 +91,9 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 			costCapCurrency: "USD",
 			createdAt: NOW,
 		});
-	});
+	}
 
-	async function insertSession(id: string, agentId: string): Promise<void> {
+	async function insertSession(db: HyperIdleDb, id: string, agentId: string): Promise<void> {
 		// @lore O2: session cost columns (costMinor, costCurrency) stripped from
 		// the kernel sessions table. Sessions no longer carry cost data directly.
 		await db.insert(sessions).values({
@@ -118,11 +106,15 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 		});
 	}
 
-	it("reads costCapMinor from agents table (not old costCap)", async () => {
+	test("reads costCapMinor from agents table (not old costCap)", async ({ db }) => {
+		clearDeduplicationCache();
+		await seedAC13Base(db);
+
 		// @lore O2: session cost stripped — spend is always 0 from kernel layer.
 		// checkCostCap still reads costCapMinor from agents table for the cap value.
-		insertSession("s1", "agent-1");
+		await insertSession(db, "s1", "agent-1");
 
+		const eventBus = new EventBus();
 		const result = await checkCostCap(db, eventBus, {
 			agentId: "agent-1",
 			teamId: "t1",
@@ -132,11 +124,17 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 		expect(result.allowed).toBe(true);
 	});
 
-	it("O2: session cost is always 0 (cost columns stripped from kernel table)", async () => {
+	test("O2: session cost is always 0 (cost columns stripped from kernel table)", async ({
+		db,
+	}) => {
+		clearDeduplicationCache();
+		await seedAC13Base(db);
+
 		// @lore O2: session cost columns stripped. getAgentSpend returns 0 regardless
 		// of how many sessions exist. Cap enforcement is always allowed from kernel layer.
-		insertSession("s1", "agent-1");
+		await insertSession(db, "s1", "agent-1");
 
+		const eventBus = new EventBus();
 		const result = await checkCostCap(db, eventBus, {
 			agentId: "agent-1",
 			teamId: "t1",
@@ -146,10 +144,16 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 		expect(result.allowed).toBe(true);
 	});
 
-	it("recordCostAndCheck accepts cost params but does not write to session (O2)", async () => {
-		// @lore O2: cost is accepted for API compat but not stored.
-		insertSession("s1", "agent-1");
+	test("recordCostAndCheck accepts cost params but does not write to session (O2)", async ({
+		db,
+	}) => {
+		clearDeduplicationCache();
+		await seedAC13Base(db);
 
+		// @lore O2: cost is accepted for API compat but not stored.
+		await insertSession(db, "s1", "agent-1");
+
+		const eventBus = new EventBus();
 		await recordCostAndCheck(db, eventBus, {
 			sessionId: "s1",
 			costMinor: 500,
@@ -165,13 +169,17 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 		expect(session?.id).toBe("s1");
 	});
 
-	it("resetCosts resets agent/team running cost counters (O2)", async () => {
-		insertSession("s1", "agent-1");
-		insertSession("s2", "agent-1");
+	test("resetCosts resets agent/team running cost counters (O2)", async ({ db }) => {
+		clearDeduplicationCache();
+		await seedAC13Base(db);
+
+		await insertSession(db, "s1", "agent-1");
+		await insertSession(db, "s2", "agent-1");
 
 		await resetCosts(db, "t1");
 
 		// After reset, cost check should still be allowed (spend is always 0 from kernel)
+		const eventBus = new EventBus();
 		const result = await checkCostCap(db, eventBus, {
 			agentId: "agent-1",
 			teamId: "t1",
@@ -183,18 +191,7 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 // ── AC14: Token accumulation by tier ─────────────────────────────────────────
 
 describe("Session token accumulation by tier (AC14)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-
+	async function seedAC14Base(db: HyperIdleDb): Promise<void> {
 		// @lore U1: teams is the domain entity; teamMembers is the membership group.
 		await db
 			.insert(teams)
@@ -203,14 +200,15 @@ describe("Session token accumulation by tier (AC14)", () => {
 		await db
 			.insert(teamMembers)
 			.values({ id: "team-1", teamId: "prod-1", capacity: 2, activeBets: 0, formedAt: NOW });
-	});
+	}
 
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle?.close();
-	});
+	test("session row contains tokensJson after task completes with tier breakdown", async ({
+		db,
+		app,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC14Base(db);
 
-	it("session row contains tokensJson after task completes with tier breakdown", async () => {
 		// This test verifies AC14: session provisioning writes tokensJson with tier breakdown
 		// We test this via the API: start a task, complete it, check the session row
 		// The provisioning drain loop must accumulate tokens by tier from token_usage events
@@ -237,24 +235,14 @@ describe("Session token accumulation by tier (AC14)", () => {
 		expect(bet.costAppetite).toBeDefined();
 		expect(bet.costAppetite?.minor).toBe(5000);
 		expect(bet.costAppetite?.currency).toBe("USD");
+		vi.unstubAllEnvs();
 	});
 });
 
 // ── AC15: Bet create API ──────────────────────────────────────────────────────
 
 describe("Bet create API — structured costAppetite (AC15)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-
+	async function seedAC15Base(db: HyperIdleDb): Promise<void> {
 		// @lore U1: teams is domain entity; teamMembers is membership group.
 		await db
 			.insert(teams)
@@ -263,15 +251,13 @@ describe("Bet create API — structured costAppetite (AC15)", () => {
 		await db
 			.insert(teamMembers)
 			.values({ id: "team-1", teamId: "prod-1", capacity: 2, activeBets: 0, formedAt: NOW });
-	});
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle?.close();
-	});
+	}
 
 	// @lore U1: API uses `teamId` (references `teams` domain entity); `description` replaces `pitch`.
-	it("accepts costAppetite with minor + currency (structured Money)", async () => {
+	test("accepts costAppetite with minor + currency (structured Money)", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC15Base(db);
+
 		const res = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
@@ -287,9 +273,16 @@ describe("Bet create API — structured costAppetite (AC15)", () => {
 		expect(body.costAppetite).toBeDefined();
 		expect(body.costAppetite.minor).toBe(50000);
 		expect(body.costAppetite.currency).toBe("USD");
+		vi.unstubAllEnvs();
 	});
 
-	it("rejects the old duration string appetite ('2 weeks') as appetite param", async () => {
+	test("rejects the old duration string appetite ('2 weeks') as appetite param", async ({
+		db,
+		app,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC15Base(db);
+
 		// The old `appetite` field (duration string) must no longer be accepted
 		const res = await app.request("/api/bets", {
 			method: "POST",
@@ -303,9 +296,13 @@ describe("Bet create API — structured costAppetite (AC15)", () => {
 		// Either rejected with 400 or accepted but 'appetite' field is ignored
 		// Per AC15: POST with "2 weeks" returns 400
 		expect(res.status).toBe(400);
+		vi.unstubAllEnvs();
 	});
 
-	it("accepts null costAppetite (uncapped)", async () => {
+	test("accepts null costAppetite (uncapped)", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC15Base(db);
+
 		const res = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
@@ -316,9 +313,13 @@ describe("Bet create API — structured costAppetite (AC15)", () => {
 			}),
 		});
 		expect(res.status).toBe(201);
+		vi.unstubAllEnvs();
 	});
 
-	it("rejects costAppetite with invalid currency code", async () => {
+	test("rejects costAppetite with invalid currency code", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC15Base(db);
+
 		const res = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
@@ -329,9 +330,13 @@ describe("Bet create API — structured costAppetite (AC15)", () => {
 			}),
 		});
 		expect(res.status).toBe(400);
+		vi.unstubAllEnvs();
 	});
 
-	it("rejects costAppetite with negative minor", async () => {
+	test("rejects costAppetite with negative minor", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC15Base(db);
+
 		const res = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
@@ -342,24 +347,14 @@ describe("Bet create API — structured costAppetite (AC15)", () => {
 			}),
 		});
 		expect(res.status).toBe(400);
+		vi.unstubAllEnvs();
 	});
 });
 
 // ── AC16: Bet detail returns structured cost fields ───────────────────────────
 
 describe("Bet detail API — structured cost fields (AC16)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-
+	async function seedAC16Base(db: HyperIdleDb): Promise<void> {
 		// @lore U1: teams is domain entity; teamMembers is membership group.
 		await db
 			.insert(teams)
@@ -380,14 +375,12 @@ describe("Bet detail API — structured cost fields (AC16)", () => {
 			status: "active",
 			createdAt: NOW,
 		});
-	});
+	}
 
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle?.close();
-	});
+	test("GET /bets/:id returns costAppetite as WireMoney object", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC16Base(db);
 
-	it("GET /bets/:id returns costAppetite as WireMoney object", async () => {
 		const res = await app.request("/api/bets/bet-detail-1", {
 			headers: authHeaders(),
 		});
@@ -399,9 +392,16 @@ describe("Bet detail API — structured cost fields (AC16)", () => {
 		expect(body.costAppetite).toBeDefined();
 		expect(body.costAppetite?.minor).toBe(50000);
 		expect(body.costAppetite?.currency).toBe("USD");
+		vi.unstubAllEnvs();
 	});
 
-	it("GET /bets/:id returns costActual as WireMoney object (not a number)", async () => {
+	test("GET /bets/:id returns costActual as WireMoney object (not a number)", async ({
+		db,
+		app,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC16Base(db);
+
 		const res = await app.request("/api/bets/bet-detail-1", {
 			headers: authHeaders(),
 		});
@@ -417,9 +417,13 @@ describe("Bet detail API — structured cost fields (AC16)", () => {
 		} else {
 			expect(body.costActual).toBeNull();
 		}
+		vi.unstubAllEnvs();
 	});
 
-	it("GET /bets/:id does NOT return appetite as a duration string", async () => {
+	test("GET /bets/:id does NOT return appetite as a duration string", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC16Base(db);
+
 		const res = await app.request("/api/bets/bet-detail-1", {
 			headers: authHeaders(),
 		});
@@ -428,9 +432,13 @@ describe("Bet detail API — structured cost fields (AC16)", () => {
 		const body = (await res.json()) as { appetite?: string };
 		// 'appetite' as a duration string like "2 weeks" must not appear
 		expect(body.appetite).toBeUndefined();
+		vi.unstubAllEnvs();
 	});
 
-	it("GET /bets/:id returns tokensActual as TokenUsage object or null", async () => {
+	test("GET /bets/:id returns tokensActual as TokenUsage object or null", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedAC16Base(db);
+
 		const res = await app.request("/api/bets/bet-detail-1", {
 			headers: authHeaders(),
 		});
@@ -443,5 +451,6 @@ describe("Bet detail API — structured cost fields (AC16)", () => {
 		if (body.tokensActual !== null && body.tokensActual !== undefined) {
 			expect(body.tokensActual.byTier).toBeDefined();
 		}
+		vi.unstubAllEnvs();
 	});
 });

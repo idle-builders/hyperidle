@@ -1,24 +1,15 @@
-import {
-	bets,
-	createTestDb,
-	type HyperIdleDb,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import {
 	bootstrapFabric,
 	clearDeduplicationCache,
 	getDedupCacheSize,
 	recordCostAndCheck,
 } from "@hyperidle/fabric";
-import { type DomainEvent, EventBus } from "@hyperidle/shared";
+import type { DomainEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { disposeApp } from "../app.js";
-import { createTestApp } from "../test-utils.js";
+import { afterEach, beforeEach, describe, vi } from "vitest";
+import { createApp, disposeApp } from "../app.js";
+import { expect, test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-sessions";
 
@@ -27,188 +18,290 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("Session Endpoints (E6)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
 	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		// I3 review C1 / arch H-2: cost-cap dedup map is module-level state.
-		// Reset before each test to avoid bleed between Vitest runs.
-		clearDeduplicationCache();
-		// @lore O3: strategyBootstrap is required for cost-cap dedup releaser to
-		// fire on session_ended. Before O3, app.ts hardwired all 7 register* calls
-		// unconditionally; now they are injected via strategyBootstrap.
-		app = await createTestApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
-
-		// Seed required data
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 3,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
-
-		await db.insert(users).values({
-			id: "agent-1",
-			name: "Builder Bot",
-			role: "builder",
-			status: "idle",
-			teamId: "team-1",
-			createdAt: new Date().toISOString(),
-		});
-
-		await db.insert(bets).values({
-			id: "bet-1",
-			teamId: "prod-1",
-			description: "Test",
-			appetite: "small",
-			status: "active",
-			createdAt: new Date().toISOString(),
-		});
-
-		await db.insert(tasks).values({
-			id: "task-1",
-			betId: "bet-1",
-			teamId: "prod-1",
-			title: "Test Task",
-			state: "in_progress",
-			createdAt: new Date().toISOString(),
-			updatedAt: new Date().toISOString(),
-		});
 	});
 
 	afterEach(async () => {
 		vi.unstubAllEnvs();
-		disposeApp(app);
-		await handle?.close();
 	});
 
 	// AC10: POST /api/sessions — create session
 	describe("AC10: POST /api/sessions — create session", () => {
-		it("creates a session and emits event", async () => {
-			const emitted: DomainEvent[] = [];
-			eventBus.on("session_started", (e) => emitted.push(e));
+		test("creates a session and emits event", async ({ db, eventBus }) => {
+			clearDeduplicationCache();
+			const app = await createApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
+			try {
+				// Seed required data
+				await db.insert(teams).values({
+					id: "prod-1",
+					name: "Test Product",
+					phase: "build",
+					createdAt: new Date().toISOString(),
+				});
+				await db.insert(teamMembers).values({
+					id: "team-1",
+					teamId: "prod-1",
+					capacity: 3,
+					activeBets: 0,
+					formedAt: new Date().toISOString(),
+				});
+				await db.insert(users).values({
+					id: "agent-1",
+					name: "Builder Bot",
+					role: "builder",
+					status: "idle",
+					teamId: "team-1",
+					createdAt: new Date().toISOString(),
+				});
+				await db.insert(bets).values({
+					id: "bet-1",
+					teamId: "prod-1",
+					description: "Test",
+					appetite: "small",
+					status: "active",
+					createdAt: new Date().toISOString(),
+				});
+				await db.insert(tasks).values({
+					id: "task-1",
+					betId: "bet-1",
+					teamId: "prod-1",
+					title: "Test Task",
+					state: "in_progress",
+					createdAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString(),
+				});
 
-			const res = await app.request("/api/sessions", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					agentId: "agent-1",
-					taskId: "task-1",
-					modelTier: "workhorse",
-				}),
-			});
-			expect(res.status).toBe(201);
+				const emitted: DomainEvent[] = [];
+				eventBus.on("session_started", (e) => emitted.push(e));
 
-			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.agentId).toBe("agent-1");
-			expect(body.taskId).toBe("task-1");
-			expect(body.modelTier).toBe("workhorse");
-			expect(body.state).toBe("active");
-			expect(body.startedAt).toBeTruthy();
+				const res = await app.request("/api/sessions", {
+					method: "POST",
+					headers: authHeaders(),
+					body: JSON.stringify({
+						agentId: "agent-1",
+						taskId: "task-1",
+						modelTier: "workhorse",
+					}),
+				});
+				expect(res.status).toBe(201);
 
-			// Verify event
-			expect(emitted).toHaveLength(1);
-			expect(emitted[0].type).toBe("session_started");
+				const body = (await res.json()) as Record<string, unknown>;
+				expect(body.agentId).toBe("agent-1");
+				expect(body.taskId).toBe("task-1");
+				expect(body.modelTier).toBe("workhorse");
+				expect(body.state).toBe("active");
+				expect(body.startedAt).toBeTruthy();
+
+				// Verify event
+				expect(emitted).toHaveLength(1);
+				expect(emitted[0].type).toBe("session_started");
+			} finally {
+				disposeApp(app);
+			}
 		});
 
-		it("returns 400 for invalid modelTier", async () => {
-			const res = await app.request("/api/sessions", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					agentId: "agent-1",
-					taskId: "task-1",
-					modelTier: "invalid",
-				}),
-			});
-			expect(res.status).toBe(400);
+		test("returns 400 for invalid modelTier", async ({ db, eventBus }) => {
+			const app = await createApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
+			try {
+				await db.insert(teams).values({
+					id: "prod-1",
+					name: "Test Product",
+					phase: "build",
+					createdAt: new Date().toISOString(),
+				});
+				await db.insert(teamMembers).values({
+					id: "team-1",
+					teamId: "prod-1",
+					capacity: 3,
+					activeBets: 0,
+					formedAt: new Date().toISOString(),
+				});
+				await db.insert(users).values({
+					id: "agent-1",
+					name: "Builder Bot",
+					role: "builder",
+					status: "idle",
+					teamId: "team-1",
+					createdAt: new Date().toISOString(),
+				});
+				await db.insert(bets).values({
+					id: "bet-1",
+					teamId: "prod-1",
+					description: "Test",
+					appetite: "small",
+					status: "active",
+					createdAt: new Date().toISOString(),
+				});
+				await db.insert(tasks).values({
+					id: "task-1",
+					betId: "bet-1",
+					teamId: "prod-1",
+					title: "Test Task",
+					state: "in_progress",
+					createdAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString(),
+				});
+
+				const res = await app.request("/api/sessions", {
+					method: "POST",
+					headers: authHeaders(),
+					body: JSON.stringify({
+						agentId: "agent-1",
+						taskId: "task-1",
+						modelTier: "invalid",
+					}),
+				});
+				expect(res.status).toBe(400);
+			} finally {
+				disposeApp(app);
+			}
 		});
 
-		it("returns 400 for missing required fields", async () => {
-			const res = await app.request("/api/sessions", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ agentId: "agent-1" }),
-			});
-			expect(res.status).toBe(400);
+		test("returns 400 for missing required fields", async ({ db, eventBus }) => {
+			const app = await createApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
+			try {
+				const res = await app.request("/api/sessions", {
+					method: "POST",
+					headers: authHeaders(),
+					body: JSON.stringify({ agentId: "agent-1" }),
+				});
+				expect(res.status).toBe(400);
+			} finally {
+				disposeApp(app);
+			}
 		});
 	});
 
 	// AC11: PATCH /api/sessions/:id — update state (end, crash)
 	describe("AC11: PATCH /api/sessions/:id — update session state", () => {
-		async function createSession(): Promise<string> {
-			const res = await app.request("/api/sessions", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					agentId: "agent-1",
-					taskId: "task-1",
-					modelTier: "workhorse",
-				}),
+		async function seedData(db: import("@hyperidle/db").HyperIdleDb): Promise<void> {
+			await db.insert(teams).values({
+				id: "prod-1",
+				name: "Test Product",
+				phase: "build",
+				createdAt: new Date().toISOString(),
 			});
-			const body = (await res.json()) as Record<string, unknown>;
-			return body.id as string;
+			await db.insert(teamMembers).values({
+				id: "team-1",
+				teamId: "prod-1",
+				capacity: 3,
+				activeBets: 0,
+				formedAt: new Date().toISOString(),
+			});
+			await db.insert(users).values({
+				id: "agent-1",
+				name: "Builder Bot",
+				role: "builder",
+				status: "idle",
+				teamId: "team-1",
+				createdAt: new Date().toISOString(),
+			});
+			await db.insert(bets).values({
+				id: "bet-1",
+				teamId: "prod-1",
+				description: "Test",
+				appetite: "small",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			});
+			await db.insert(tasks).values({
+				id: "task-1",
+				betId: "bet-1",
+				teamId: "prod-1",
+				title: "Test Task",
+				state: "in_progress",
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			});
 		}
 
-		it("ends a session with state=done", async () => {
-			const sessionId = await createSession();
+		test("ends a session with state=done", async ({ db, eventBus }) => {
+			clearDeduplicationCache();
+			const app = await createApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
+			try {
+				await seedData(db);
 
-			const emitted: DomainEvent[] = [];
-			eventBus.on("session_ended", (e) => emitted.push(e));
+				const createRes = await app.request("/api/sessions", {
+					method: "POST",
+					headers: authHeaders(),
+					body: JSON.stringify({
+						agentId: "agent-1",
+						taskId: "task-1",
+						modelTier: "workhorse",
+					}),
+				});
+				const createBody = (await createRes.json()) as Record<string, unknown>;
+				const sessionId = createBody.id as string;
 
-			const res = await app.request(`/api/sessions/${sessionId}`, {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({ state: "done", outcome: "success", notes: "All good" }),
-			});
-			expect(res.status).toBe(200);
+				const emitted: DomainEvent[] = [];
+				eventBus.on("session_ended", (e) => emitted.push(e));
 
-			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.state).toBe("done");
-			expect(body.endedAt).toBeTruthy();
-			expect(body.outcome).toBe("success");
-			expect(body.notes).toBe("All good");
+				const res = await app.request(`/api/sessions/${sessionId}`, {
+					method: "PATCH",
+					headers: authHeaders(),
+					body: JSON.stringify({ state: "done", outcome: "success", notes: "All good" }),
+				});
+				expect(res.status).toBe(200);
 
-			expect(emitted).toHaveLength(1);
-			expect(emitted[0].type).toBe("session_ended");
+				const body = (await res.json()) as Record<string, unknown>;
+				expect(body.state).toBe("done");
+				expect(body.endedAt).toBeTruthy();
+				expect(body.outcome).toBe("success");
+				expect(body.notes).toBe("All good");
+
+				expect(emitted).toHaveLength(1);
+				expect(emitted[0].type).toBe("session_ended");
+			} finally {
+				disposeApp(app);
+			}
 		});
 
-		it("crashes a session with state=crashed", async () => {
-			const sessionId = await createSession();
+		test("crashes a session with state=crashed", async ({ db, eventBus }) => {
+			clearDeduplicationCache();
+			const app = await createApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
+			try {
+				await seedData(db);
 
-			const res = await app.request(`/api/sessions/${sessionId}`, {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({ state: "crashed" }),
-			});
-			expect(res.status).toBe(200);
+				const createRes = await app.request("/api/sessions", {
+					method: "POST",
+					headers: authHeaders(),
+					body: JSON.stringify({
+						agentId: "agent-1",
+						taskId: "task-1",
+						modelTier: "workhorse",
+					}),
+				});
+				const createBody = (await createRes.json()) as Record<string, unknown>;
+				const sessionId = createBody.id as string;
 
-			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.state).toBe("crashed");
-			expect(body.endedAt).toBeTruthy();
+				const res = await app.request(`/api/sessions/${sessionId}`, {
+					method: "PATCH",
+					headers: authHeaders(),
+					body: JSON.stringify({ state: "crashed" }),
+				});
+				expect(res.status).toBe(200);
+
+				const body = (await res.json()) as Record<string, unknown>;
+				expect(body.state).toBe("crashed");
+				expect(body.endedAt).toBeTruthy();
+			} finally {
+				disposeApp(app);
+			}
 		});
 
-		it("returns 404 for unknown session", async () => {
-			const res = await app.request("/api/sessions/nonexistent", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({ state: "done" }),
-			});
-			expect(res.status).toBe(404);
+		test("returns 404 for unknown session", async ({ db, eventBus }) => {
+			const app = await createApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
+			try {
+				const res = await app.request("/api/sessions/nonexistent", {
+					method: "PATCH",
+					headers: authHeaders(),
+					body: JSON.stringify({ state: "done" }),
+				});
+				expect(res.status).toBe(404);
+			} finally {
+				disposeApp(app);
+			}
 		});
 
 		// I3 review C1 / arch H-1: PATCH /sessions/:id { state: "done" }
@@ -216,61 +309,116 @@ describe("Session Endpoints (E6)", () => {
 		// is reclaimed. Wired centrally via `registerCostCapDedupReleaser`
 		// in `app.ts` — the EventBus subscription fires on every
 		// `session_ended` regardless of which path emitted it.
-		it("PATCH state=done releases the cost-cap dedup entry", async () => {
-			const sessionId = await createSession();
+		test("PATCH state=done releases the cost-cap dedup entry", async ({ db, eventBus }) => {
+			clearDeduplicationCache();
+			const app = await createApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
+			try {
+				await seedData(db);
 
-			// Force a dedup-map entry to exist for this session by recording
-			// a cost above the agent cap. This pins the entry the PATCH
-			// must later reclaim.
-			await db.update(users).set({ costCap: 100 }).where(eq(users.id, "agent-1"));
-			await recordCostAndCheck(db, eventBus, {
-				sessionId,
-				cost: 200,
-				agentId: "agent-1",
-				teamId: "team-1",
-			});
-			expect(getDedupCacheSize()).toBeGreaterThan(0);
+				const createRes = await app.request("/api/sessions", {
+					method: "POST",
+					headers: authHeaders(),
+					body: JSON.stringify({
+						agentId: "agent-1",
+						taskId: "task-1",
+						modelTier: "workhorse",
+					}),
+				});
+				const createBody = (await createRes.json()) as Record<string, unknown>;
+				const sessionId = createBody.id as string;
 
-			const res = await app.request(`/api/sessions/${sessionId}`, {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({ state: "done" }),
-			});
-			expect(res.status).toBe(200);
+				// Force a dedup-map entry to exist for this session by recording
+				// a cost above the agent cap. This pins the entry the PATCH
+				// must later reclaim.
+				await db.update(users).set({ costCap: 100 }).where(eq(users.id, "agent-1"));
+				await recordCostAndCheck(db, eventBus, {
+					sessionId,
+					cost: 200,
+					agentId: "agent-1",
+					teamId: "team-1",
+				});
+				expect(getDedupCacheSize()).toBeGreaterThan(0);
 
-			expect(getDedupCacheSize()).toBe(0);
+				const res = await app.request(`/api/sessions/${sessionId}`, {
+					method: "PATCH",
+					headers: authHeaders(),
+					body: JSON.stringify({ state: "done" }),
+				});
+				expect(res.status).toBe(200);
+
+				expect(getDedupCacheSize()).toBe(0);
+			} finally {
+				disposeApp(app);
+			}
 		});
 
-		it("PATCH state=crashed releases the cost-cap dedup entry", async () => {
-			const sessionId = await createSession();
-			await db.update(users).set({ costCap: 100 }).where(eq(users.id, "agent-1"));
-			await recordCostAndCheck(db, eventBus, {
-				sessionId,
-				cost: 200,
-				agentId: "agent-1",
-				teamId: "team-1",
-			});
-			expect(getDedupCacheSize()).toBeGreaterThan(0);
+		test("PATCH state=crashed releases the cost-cap dedup entry", async ({ db, eventBus }) => {
+			clearDeduplicationCache();
+			const app = await createApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
+			try {
+				await seedData(db);
 
-			const res = await app.request(`/api/sessions/${sessionId}`, {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({ state: "crashed" }),
-			});
-			expect(res.status).toBe(200);
+				const createRes = await app.request("/api/sessions", {
+					method: "POST",
+					headers: authHeaders(),
+					body: JSON.stringify({
+						agentId: "agent-1",
+						taskId: "task-1",
+						modelTier: "workhorse",
+					}),
+				});
+				const createBody = (await createRes.json()) as Record<string, unknown>;
+				const sessionId = createBody.id as string;
 
-			expect(getDedupCacheSize()).toBe(0);
+				await db.update(users).set({ costCap: 100 }).where(eq(users.id, "agent-1"));
+				await recordCostAndCheck(db, eventBus, {
+					sessionId,
+					cost: 200,
+					agentId: "agent-1",
+					teamId: "team-1",
+				});
+				expect(getDedupCacheSize()).toBeGreaterThan(0);
+
+				const res = await app.request(`/api/sessions/${sessionId}`, {
+					method: "PATCH",
+					headers: authHeaders(),
+					body: JSON.stringify({ state: "crashed" }),
+				});
+				expect(res.status).toBe(200);
+
+				expect(getDedupCacheSize()).toBe(0);
+			} finally {
+				disposeApp(app);
+			}
 		});
 
-		it("returns 400 for invalid state", async () => {
-			const sessionId = await createSession();
+		test("returns 400 for invalid state", async ({ db, eventBus }) => {
+			clearDeduplicationCache();
+			const app = await createApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
+			try {
+				await seedData(db);
 
-			const res = await app.request(`/api/sessions/${sessionId}`, {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({ state: "invalid" }),
-			});
-			expect(res.status).toBe(400);
+				const createRes = await app.request("/api/sessions", {
+					method: "POST",
+					headers: authHeaders(),
+					body: JSON.stringify({
+						agentId: "agent-1",
+						taskId: "task-1",
+						modelTier: "workhorse",
+					}),
+				});
+				const createBody = (await createRes.json()) as Record<string, unknown>;
+				const sessionId = createBody.id as string;
+
+				const res = await app.request(`/api/sessions/${sessionId}`, {
+					method: "PATCH",
+					headers: authHeaders(),
+					body: JSON.stringify({ state: "invalid" }),
+				});
+				expect(res.status).toBe(400);
+			} finally {
+				disposeApp(app);
+			}
 		});
 	});
 });

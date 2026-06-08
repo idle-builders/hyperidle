@@ -11,7 +11,6 @@
 
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	sessions,
 	tasks,
@@ -19,10 +18,8 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-bet-session-enrichment";
 
@@ -34,17 +31,7 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	};
 }
 
-interface AppCtx {
-	app: Hono;
-	db: HyperIdleDb;
-}
-
-async function setupApp(): Promise<AppCtx> {
-	const handle = await createTestDb();
-	const db = handle.db;
-	const eventBus = new EventBus();
-	const app = await createTestApp({ db, eventBus });
-
+async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 
 	await db.insert(teams).values({ id: "p1", name: "TestProduct", phase: "build", createdAt: now });
@@ -59,26 +46,22 @@ async function setupApp(): Promise<AppCtx> {
 		status: "active",
 		createdAt: now,
 	});
-
-	return { app, db };
 }
 
 const NOW = new Date().toISOString();
 
 describe("L19 — GET /api/bets/:id — session enrichment", () => {
-	let ctx: AppCtx;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = await setupApp();
 	});
 
 	afterEach(() => {
 		vi.unstubAllEnvs();
 	});
 
-	it("returns 404 for an unknown bet id", async () => {
-		const res = await ctx.app.request("/api/bets/non-existent-bet", {
+	test("returns 404 for an unknown bet id", async ({ db, app }) => {
+		await seedBase(db);
+		const res = await app.request("/api/bets/non-existent-bet", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -88,8 +71,8 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 		expect(body.code).toBe("NOT_FOUND");
 	});
 
-	it("task with a session has all latestSession* fields populated", async () => {
-		const { db } = ctx;
+	test("task with a session has all latestSession* fields populated", async ({ db, app }) => {
+		await seedBase(db);
 
 		await db.insert(bets).values({
 			id: "bet-enriched",
@@ -120,7 +103,7 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 			outcome: "completed",
 		});
 
-		const res = await ctx.app.request("/api/bets/bet-enriched", {
+		const res = await app.request("/api/bets/bet-enriched", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -142,8 +125,8 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 		expect(task.latestSessionOutcome).toBe("completed");
 	});
 
-	it("task with no session has null for all latestSession* fields", async () => {
-		const { db } = ctx;
+	test("task with no session has null for all latestSession* fields", async ({ db, app }) => {
+		await seedBase(db);
 
 		await db.insert(bets).values({
 			id: "bet-no-session",
@@ -164,7 +147,7 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 			updatedAt: NOW,
 		});
 
-		const res = await ctx.app.request("/api/bets/bet-no-session", {
+		const res = await app.request("/api/bets/bet-no-session", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -184,8 +167,8 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 		expect(task.latestSessionOutcome).toBeNull();
 	});
 
-	it("mixed bet: one task with session, one without — each correctly enriched", async () => {
-		const { db } = ctx;
+	test("mixed bet: one task with session, one without — each correctly enriched", async ({ db, app }) => {
+		await seedBase(db);
 
 		await db.insert(bets).values({
 			id: "bet-mixed",
@@ -226,7 +209,7 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 			outcome: "completed",
 		});
 
-		const res = await ctx.app.request("/api/bets/bet-mixed", {
+		const res = await app.request("/api/bets/bet-mixed", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -251,8 +234,8 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 		expect(withoutSession?.latestSessionOutcome).toBeNull();
 	});
 
-	it("uses the most recent session (by startedAt) when a task has multiple sessions", async () => {
-		const { db } = ctx;
+	test("uses the most recent session (by startedAt) when a task has multiple sessions", async ({ db, app }) => {
+		await seedBase(db);
 
 		await db.insert(bets).values({
 			id: "bet-multi-session",
@@ -295,7 +278,7 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 			outcome: "completed",
 		});
 
-		const res = await ctx.app.request("/api/bets/bet-multi-session", {
+		const res = await app.request("/api/bets/bet-multi-session", {
 			method: "GET",
 			headers: authHeaders(),
 		});

@@ -14,7 +14,6 @@
 
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	sessions,
 	tasks,
@@ -22,10 +21,8 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-ab2-teams-list";
 
@@ -71,17 +68,15 @@ async function seedTeamWithAgents(
 // ---------------------------------------------------------------------------
 
 describe("AB2 AC-5: GET /teams includes agentCount", () => {
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		const eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
+	});
 
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test("returns agentCount = 0 for a team with no agents", async ({ db, app }) => {
 		// Founder required for auth
 		await db.insert(users).values({
 			id: "u-founder-ab2-list",
@@ -93,14 +88,6 @@ describe("AB2 AC-5: GET /teams includes agentCount", () => {
 			maxConcurrentSessions: 0,
 			createdAt: NOW,
 		});
-	}, 30_000);
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle.close();
-	});
-
-	it("returns agentCount = 0 for a team with no agents", async () => {
 		await db
 			.insert(teams)
 			.values({ id: "empty-team", name: "Empty Team", phase: "build", createdAt: NOW });
@@ -117,7 +104,17 @@ describe("AB2 AC-5: GET /teams includes agentCount", () => {
 		expect(team?.agentCount).toBe(0);
 	});
 
-	it("returns correct agentCount for a team with agents", async () => {
+	test("returns correct agentCount for a team with agents", async ({ db, app }) => {
+		await db.insert(users).values({
+			id: "u-founder-ab2-list",
+			kind: "human",
+			name: "AB2 List Founder",
+			role: "founder",
+			status: "active",
+			email: "ab2-list@hyperidle.com",
+			maxConcurrentSessions: 0,
+			createdAt: NOW,
+		});
 		await seedTeamWithAgents(db, "ab2-list-team-1", "List Team One", 3);
 
 		const res = await app.request("/api/teams", { headers: authHeaders() });
@@ -127,7 +124,17 @@ describe("AB2 AC-5: GET /teams includes agentCount", () => {
 		expect(team?.agentCount).toBe(3);
 	});
 
-	it("returns activeAgentCount = 0 when no agents have active sessions", async () => {
+	test("returns activeAgentCount = 0 when no agents have active sessions", async ({ db, app }) => {
+		await db.insert(users).values({
+			id: "u-founder-ab2-list",
+			kind: "human",
+			name: "AB2 List Founder",
+			role: "founder",
+			status: "active",
+			email: "ab2-list@hyperidle.com",
+			maxConcurrentSessions: 0,
+			createdAt: NOW,
+		});
 		await seedTeamWithAgents(db, "ab2-list-team-2", "List Team Two", 2);
 
 		const res = await app.request("/api/teams", { headers: authHeaders() });
@@ -137,7 +144,17 @@ describe("AB2 AC-5: GET /teams includes agentCount", () => {
 		expect(team?.activeAgentCount).toBe(0);
 	});
 
-	it("returns activeAgentCount correctly when one agent has active session", async () => {
+	test("returns activeAgentCount correctly when one agent has active session", async ({ db, app }) => {
+		await db.insert(users).values({
+			id: "u-founder-ab2-list",
+			kind: "human",
+			name: "AB2 List Founder",
+			role: "founder",
+			status: "active",
+			email: "ab2-list@hyperidle.com",
+			maxConcurrentSessions: 0,
+			createdAt: NOW,
+		});
 		const agentIds = await seedTeamWithAgents(db, "ab2-list-team-3", "List Team Three", 2);
 
 		// Seed a bet + task for the session
@@ -183,17 +200,15 @@ describe("AB2 AC-5: GET /teams includes agentCount", () => {
 // ---------------------------------------------------------------------------
 
 describe("AB2 AC-5: GET /teams agentHealthWarning", () => {
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		const eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
+	});
 
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test("returns agentHealthWarning=false when all agents are healthy", async ({ db, app }) => {
 		await db.insert(users).values({
 			id: "u-founder-ab2-health",
 			kind: "human",
@@ -204,14 +219,6 @@ describe("AB2 AC-5: GET /teams agentHealthWarning", () => {
 			maxConcurrentSessions: 0,
 			createdAt: NOW,
 		});
-	}, 30_000);
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle.close();
-	});
-
-	it("returns agentHealthWarning=false when all agents are healthy", async () => {
 		const agentIds = await seedTeamWithAgents(db, "ab2-health-team-ok", "Health Team OK", 1);
 
 		// Seed a successful session
@@ -251,7 +258,17 @@ describe("AB2 AC-5: GET /teams agentHealthWarning", () => {
 		expect(team?.agentHealthWarning).toBe(false);
 	});
 
-	it("returns agentHealthWarning=true when an agent has >50% crash rate in 7d", async () => {
+	test("returns agentHealthWarning=true when an agent has >50% crash rate in 7d", async ({ db, app }) => {
+		await db.insert(users).values({
+			id: "u-founder-ab2-health",
+			kind: "human",
+			name: "AB2 Health Founder",
+			role: "founder",
+			status: "active",
+			email: "ab2-health@hyperidle.com",
+			maxConcurrentSessions: 0,
+			createdAt: NOW,
+		});
 		const agentIds = await seedTeamWithAgents(db, "ab2-health-team-bad", "Health Team Bad", 1);
 		const agentId = agentIds[0];
 		if (!agentId) throw new Error("No agent seeded");
@@ -294,7 +311,17 @@ describe("AB2 AC-5: GET /teams agentHealthWarning", () => {
 		expect(team?.agentHealthWarning).toBe(true);
 	});
 
-	it("returns agentHealthWarning=false when team has no agents", async () => {
+	test("returns agentHealthWarning=false when team has no agents", async ({ db, app }) => {
+		await db.insert(users).values({
+			id: "u-founder-ab2-health",
+			kind: "human",
+			name: "AB2 Health Founder",
+			role: "founder",
+			status: "active",
+			email: "ab2-health@hyperidle.com",
+			maxConcurrentSessions: 0,
+			createdAt: NOW,
+		});
 		await db
 			.insert(teams)
 			.values({ id: "ab2-no-agents", name: "No Agents", phase: "build", createdAt: NOW });
@@ -313,7 +340,17 @@ describe("AB2 AC-5: GET /teams agentHealthWarning", () => {
 		expect(team?.agentHealthWarning).toBe(false);
 	});
 
-	it("returns TeamListItem with agentCount, activeAgentCount, agentHealthWarning fields", async () => {
+	test("returns TeamListItem with agentCount, activeAgentCount, agentHealthWarning fields", async ({ db, app }) => {
+		await db.insert(users).values({
+			id: "u-founder-ab2-health",
+			kind: "human",
+			name: "AB2 Health Founder",
+			role: "founder",
+			status: "active",
+			email: "ab2-health@hyperidle.com",
+			maxConcurrentSessions: 0,
+			createdAt: NOW,
+		});
 		await seedTeamWithAgents(db, "ab2-shape-team", "Shape Team", 2);
 
 		const res = await app.request("/api/teams", { headers: authHeaders() });

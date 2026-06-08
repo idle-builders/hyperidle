@@ -17,10 +17,9 @@
  */
 
 import { createTestDb, type HyperIdleDb, users } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { createTestApp } from "../../test-utils.js";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-hints";
 
@@ -34,17 +33,8 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 
 const NOW = new Date().toISOString();
 
-interface AppCtx {
-	app: Hono;
-	db: HyperIdleDb;
-}
-
-async function setupApp(userId = "u-human-1"): Promise<AppCtx> {
-	const handle = await createTestDb();
-	const db = handle.db;
-	const eventBus = new EventBus();
-	const app = await createTestApp({ db, eventBus });
-
+/** Seed base user for standard fixture-based tests. */
+async function seedUser(db: HyperIdleDb, userId = "u-human-1"): Promise<void> {
 	await db.insert(users).values({
 		id: userId,
 		kind: "human",
@@ -54,16 +44,33 @@ async function setupApp(userId = "u-human-1"): Promise<AppCtx> {
 		status: "active",
 		createdAt: NOW,
 	});
+}
 
-	return { app, db };
+/** Create a standalone app with its own DB for per-user isolation tests. */
+async function makeIsolatedApp(userId: string): Promise<{
+	app: Awaited<ReturnType<typeof createTestApp>>;
+	db: HyperIdleDb;
+	close: () => Promise<void>;
+}> {
+	const handle = await createTestDb();
+	const db = handle.db;
+	await db.insert(users).values({
+		id: userId,
+		kind: "human",
+		name: `User ${userId}`,
+		email: `${userId}@example.com`,
+		role: "founder",
+		status: "active",
+		createdAt: NOW,
+	});
+	const { EventBus } = await import("@hyperidle/shared");
+	const app = await createTestApp({ db, eventBus: new EventBus() });
+	return { app, db, close: handle.close.bind(handle) };
 }
 
 describe("GET /api/hint-progress", () => {
-	let ctx: AppCtx;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = await setupApp();
 	});
 
 	afterEach(() => {
@@ -71,8 +78,9 @@ describe("GET /api/hint-progress", () => {
 	});
 
 	// AC3: Empty state
-	it("returns { dismissed: [] } when no hints have been dismissed", async () => {
-		const res = await ctx.app.request("/api/hint-progress", {
+	test("returns { dismissed: [] } when no hints have been dismissed", async ({ db, app }) => {
+		await seedUser(db);
+		const res = await app.request("/api/hint-progress", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -84,14 +92,15 @@ describe("GET /api/hint-progress", () => {
 	});
 
 	// AC3: Returns rows for the authenticated user
-	it("returns dismissed hints with hintId and seenAt for the authenticated user", async () => {
+	test("returns dismissed hints with hintId and seenAt for the authenticated user", async ({ db, app }) => {
+		await seedUser(db);
 		// Dismiss a hint first
-		await ctx.app.request("/api/hint-progress/create-bet/dismiss", {
+		await app.request("/api/hint-progress/create-bet/dismiss", {
 			method: "POST",
 			headers: authHeaders(),
 		});
 
-		const res = await ctx.app.request("/api/hint-progress", {
+		const res = await app.request("/api/hint-progress", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -106,17 +115,18 @@ describe("GET /api/hint-progress", () => {
 	});
 
 	// AC3: Multiple dismissed hints are all returned
-	it("returns all dismissed hints when multiple have been dismissed", async () => {
-		await ctx.app.request("/api/hint-progress/create-bet/dismiss", {
+	test("returns all dismissed hints when multiple have been dismissed", async ({ db, app }) => {
+		await seedUser(db);
+		await app.request("/api/hint-progress/create-bet/dismiss", {
 			method: "POST",
 			headers: authHeaders(),
 		});
-		await ctx.app.request("/api/hint-progress/add-credential/dismiss", {
+		await app.request("/api/hint-progress/add-credential/dismiss", {
 			method: "POST",
 			headers: authHeaders(),
 		});
 
-		const res = await ctx.app.request("/api/hint-progress", {
+		const res = await app.request("/api/hint-progress", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -130,8 +140,8 @@ describe("GET /api/hint-progress", () => {
 	});
 
 	// Auth: unauthenticated request returns 401
-	it("returns 401 when no API key is provided", async () => {
-		const res = await ctx.app.request("/api/hint-progress", {
+	test("returns 401 when no API key is provided", async ({ app }) => {
+		const res = await app.request("/api/hint-progress", {
 			method: "GET",
 		});
 
@@ -140,11 +150,8 @@ describe("GET /api/hint-progress", () => {
 });
 
 describe("POST /api/hint-progress/:hintId/dismiss", () => {
-	let ctx: AppCtx;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = await setupApp();
 	});
 
 	afterEach(() => {
@@ -152,8 +159,9 @@ describe("POST /api/hint-progress/:hintId/dismiss", () => {
 	});
 
 	// AC4: Returns { ok: true } on successful dismiss
-	it("returns { ok: true } when dismissing a valid hint for the first time", async () => {
-		const res = await ctx.app.request("/api/hint-progress/create-bet/dismiss", {
+	test("returns { ok: true } when dismissing a valid hint for the first time", async ({ db, app }) => {
+		await seedUser(db);
+		const res = await app.request("/api/hint-progress/create-bet/dismiss", {
 			method: "POST",
 			headers: authHeaders(),
 		});
@@ -164,13 +172,14 @@ describe("POST /api/hint-progress/:hintId/dismiss", () => {
 	});
 
 	// AC4: GET after dismiss shows the hint as dismissed
-	it("GET after dismiss returns the dismissed hint in the list", async () => {
-		await ctx.app.request("/api/hint-progress/create-bet/dismiss", {
+	test("GET after dismiss returns the dismissed hint in the list", async ({ db, app }) => {
+		await seedUser(db);
+		await app.request("/api/hint-progress/create-bet/dismiss", {
 			method: "POST",
 			headers: authHeaders(),
 		});
 
-		const res = await ctx.app.request("/api/hint-progress", {
+		const res = await app.request("/api/hint-progress", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -183,16 +192,17 @@ describe("POST /api/hint-progress/:hintId/dismiss", () => {
 	});
 
 	// AC4: Returns 409 on duplicate dismiss
-	it("returns 409 when dismissing the same hint a second time", async () => {
+	test("returns 409 when dismissing the same hint a second time", async ({ db, app }) => {
+		await seedUser(db);
 		// First dismiss succeeds
-		const first = await ctx.app.request("/api/hint-progress/create-bet/dismiss", {
+		const first = await app.request("/api/hint-progress/create-bet/dismiss", {
 			method: "POST",
 			headers: authHeaders(),
 		});
 		expect(first.status).toBe(200);
 
 		// Second dismiss returns 409
-		const second = await ctx.app.request("/api/hint-progress/create-bet/dismiss", {
+		const second = await app.request("/api/hint-progress/create-bet/dismiss", {
 			method: "POST",
 			headers: authHeaders(),
 		});
@@ -202,8 +212,9 @@ describe("POST /api/hint-progress/:hintId/dismiss", () => {
 	});
 
 	// AC4: Returns 400 for invalid hint ID
-	it("returns 400 when dismissing an unknown hint ID", async () => {
-		const res = await ctx.app.request("/api/hint-progress/not-a-hint/dismiss", {
+	test("returns 400 when dismissing an unknown hint ID", async ({ db, app }) => {
+		await seedUser(db);
+		const res = await app.request("/api/hint-progress/not-a-hint/dismiss", {
 			method: "POST",
 			headers: authHeaders(),
 		});
@@ -214,8 +225,9 @@ describe("POST /api/hint-progress/:hintId/dismiss", () => {
 	});
 
 	// AC4: Another valid hint ID also works
-	it("returns { ok: true } when dismissing add-credential", async () => {
-		const res = await ctx.app.request("/api/hint-progress/add-credential/dismiss", {
+	test("returns { ok: true } when dismissing add-credential", async ({ db, app }) => {
+		await seedUser(db);
+		const res = await app.request("/api/hint-progress/add-credential/dismiss", {
 			method: "POST",
 			headers: authHeaders(),
 		});
@@ -226,7 +238,8 @@ describe("POST /api/hint-progress/:hintId/dismiss", () => {
 	});
 
 	// AC4: All 5 valid hint IDs can be dismissed
-	it("accepts all 5 valid hint IDs", async () => {
+	test("accepts all 5 valid hint IDs", async ({ db, app }) => {
+		await seedUser(db);
 		const hintIds = [
 			"create-bet",
 			"add-credential",
@@ -236,7 +249,7 @@ describe("POST /api/hint-progress/:hintId/dismiss", () => {
 		];
 
 		for (const hintId of hintIds) {
-			const res = await ctx.app.request(`/api/hint-progress/${hintId}/dismiss`, {
+			const res = await app.request(`/api/hint-progress/${hintId}/dismiss`, {
 				method: "POST",
 				headers: authHeaders(),
 			});
@@ -245,8 +258,8 @@ describe("POST /api/hint-progress/:hintId/dismiss", () => {
 	});
 
 	// Auth: unauthenticated request returns 401
-	it("returns 401 when no API key is provided", async () => {
-		const res = await ctx.app.request("/api/hint-progress/create-bet/dismiss", {
+	test("returns 401 when no API key is provided", async ({ app }) => {
+		const res = await app.request("/api/hint-progress/create-bet/dismiss", {
 			method: "POST",
 		});
 
@@ -270,67 +283,77 @@ describe("GET /api/hint-progress — per-user isolation (AC8)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	it("user B sees empty dismissed list after user A dismisses a hint", async () => {
-		const ctxA = await setupApp("user-a");
-		const ctxB = await setupApp("user-b");
+	test("user B sees empty dismissed list after user A dismisses a hint", async ({}) => {
+		const ctxA = await makeIsolatedApp("user-a");
+		const ctxB = await makeIsolatedApp("user-b");
 
-		// User A dismisses create-bet
-		const dismissRes = await ctxA.app.request("/api/hint-progress/create-bet/dismiss", {
-			method: "POST",
-			headers: authHeaders(),
-		});
-		expect(dismissRes.status).toBe(200);
-
-		// User A sees it dismissed
-		const getResA = await ctxA.app.request("/api/hint-progress", {
-			method: "GET",
-			headers: authHeaders(),
-		});
-		const bodyA = await getResA.json();
-		expect(bodyA.dismissed).toHaveLength(1);
-		expect(bodyA.dismissed[0].hintId).toBe("create-bet");
-
-		// User B sees empty dismissed list
-		const getResB = await ctxB.app.request("/api/hint-progress", {
-			method: "GET",
-			headers: authHeaders(),
-		});
-		const bodyB = await getResB.json();
-		expect(bodyB.dismissed).toEqual([]);
-	});
-
-	it("dismissals in user A's app do not affect user B's hint state", async () => {
-		const ctxA = await setupApp("user-x");
-		const ctxB = await setupApp("user-y");
-
-		// User A dismisses all 5 hints
-		for (const hintId of [
-			"create-bet",
-			"add-credential",
-			"knowledge-empty",
-			"review-verdict",
-			"rail-indicators",
-		]) {
-			await ctxA.app.request(`/api/hint-progress/${hintId}/dismiss`, {
+		try {
+			// User A dismisses create-bet
+			const dismissRes = await ctxA.app.request("/api/hint-progress/create-bet/dismiss", {
 				method: "POST",
 				headers: authHeaders(),
 			});
+			expect(dismissRes.status).toBe(200);
+
+			// User A sees it dismissed
+			const getResA = await ctxA.app.request("/api/hint-progress", {
+				method: "GET",
+				headers: authHeaders(),
+			});
+			const bodyA = await getResA.json();
+			expect(bodyA.dismissed).toHaveLength(1);
+			expect(bodyA.dismissed[0].hintId).toBe("create-bet");
+
+			// User B sees empty dismissed list
+			const getResB = await ctxB.app.request("/api/hint-progress", {
+				method: "GET",
+				headers: authHeaders(),
+			});
+			const bodyB = await getResB.json();
+			expect(bodyB.dismissed).toEqual([]);
+		} finally {
+			await ctxA.close();
+			await ctxB.close();
 		}
+	});
 
-		// User A has all 5 dismissed
-		const resA = await ctxA.app.request("/api/hint-progress", {
-			method: "GET",
-			headers: authHeaders(),
-		});
-		const bodyA = await resA.json();
-		expect(bodyA.dismissed).toHaveLength(5);
+	test("dismissals in user A's app do not affect user B's hint state", async ({}) => {
+		const ctxA = await makeIsolatedApp("user-x");
+		const ctxB = await makeIsolatedApp("user-y");
 
-		// User B still has none dismissed
-		const resB = await ctxB.app.request("/api/hint-progress", {
-			method: "GET",
-			headers: authHeaders(),
-		});
-		const bodyB = await resB.json();
-		expect(bodyB.dismissed).toEqual([]);
+		try {
+			// User A dismisses all 5 hints
+			for (const hintId of [
+				"create-bet",
+				"add-credential",
+				"knowledge-empty",
+				"review-verdict",
+				"rail-indicators",
+			]) {
+				await ctxA.app.request(`/api/hint-progress/${hintId}/dismiss`, {
+					method: "POST",
+					headers: authHeaders(),
+				});
+			}
+
+			// User A has all 5 dismissed
+			const resA = await ctxA.app.request("/api/hint-progress", {
+				method: "GET",
+				headers: authHeaders(),
+			});
+			const bodyA = await resA.json();
+			expect(bodyA.dismissed).toHaveLength(5);
+
+			// User B still has none dismissed
+			const resB = await ctxB.app.request("/api/hint-progress", {
+				method: "GET",
+				headers: authHeaders(),
+			});
+			const bodyB = await resB.json();
+			expect(bodyB.dismissed).toEqual([]);
+		} finally {
+			await ctxA.close();
+			await ctxB.close();
+		}
 	});
 });

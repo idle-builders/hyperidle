@@ -8,12 +8,11 @@
  * handler maps to 500.
  */
 
-import { bets, createTestDb, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
-import { API_ERROR_CODES, EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
+import { API_ERROR_CODES, type EventBus } from "@hyperidle/shared";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { transitionBet } from "../../services/bet-state-machine.js";
-import { createTestApp } from "../../test-utils.js";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-bets-validation";
 
@@ -21,42 +20,37 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
+async function seedBet(db: HyperIdleDb, eventBus: EventBus): Promise<void> {
+	const now = new Date().toISOString();
+	await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now });
+	await db
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+
+	await db.insert(bets).values({
+		id: "bet1",
+		teamId: "p1",
+		description: "x",
+		appetite: "small",
+		status: "draft",
+		createdAt: now,
+	});
+
+	// @lore U1: Move into active (formerly in_progress) so updateBetField doesn't reject on state.
+	await transitionBet(db, eventBus, "bet1", "active");
+}
+
 describe("I2 V2 — PATCH /api/bets/:id field enum", () => {
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-
-		const now = new Date().toISOString();
-		await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now });
-		await db
-			.insert(teamMembers)
-			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
-
-		await db.insert(bets).values({
-			id: "bet1",
-			teamId: "p1",
-			description: "x",
-			appetite: "small",
-			status: "draft",
-			createdAt: now,
-		});
-
-		// @lore U1: Move into active (formerly in_progress) so updateBetField doesn't reject on state.
-		await transitionBet(db, eventBus, "bet1", "active");
 	});
 
 	afterEach(() => {
 		vi.unstubAllEnvs();
 	});
 
-	it("returns 400 (Zod) when field is not in MUTABLE_BET_FIELDS", async () => {
+	test("returns 400 (Zod) when field is not in MUTABLE_BET_FIELDS", async ({ db, app, eventBus }) => {
+		await seedBet(db, eventBus);
 		const res = await app.request("/api/bets/bet1", {
 			method: "PATCH",
 			headers: authHeaders(),
@@ -68,7 +62,8 @@ describe("I2 V2 — PATCH /api/bets/:id field enum", () => {
 		expect(body.code).toBe(API_ERROR_CODES.VALIDATION_ERROR);
 	});
 
-	it("accepts each legal field value (done_condition / hypothesis / cost_appetite)", async () => {
+	test("accepts each legal field value (done_condition / hypothesis / cost_appetite)", async ({ db, app, eventBus }) => {
+		await seedBet(db, eventBus);
 		// @lore L17: cost_appetite uses WireMoney (not a string), so each field has
 		// a distinct value shape in the test fixture.
 		const fieldValues: Record<string, unknown> = {

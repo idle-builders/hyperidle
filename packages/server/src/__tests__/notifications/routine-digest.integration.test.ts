@@ -14,12 +14,10 @@
 import * as crypto from "node:crypto";
 import {
 	bets,
-	createTestDb,
 	factorySettings,
 	type HyperIdleDb,
 	notificationQueue,
 	routines,
-	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
@@ -33,8 +31,7 @@ import {
 	registerNotificationDispatcher,
 	type SendResult,
 } from "@hyperidle/fabric";
-import { EventBus } from "@hyperidle/shared";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, test, vi } from "../../test-fixtures.js";
 
 interface AdapterCall {
 	recipient: Recipient;
@@ -132,19 +129,13 @@ async function seedFixture(db: HyperIdleDb): Promise<void> {
 }
 
 describe("scheduler → routine_fired → daily digest (AC6 end-to-end)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let bus: EventBus;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		bus = new EventBus();
+	test("routine-scheduler emits routine_fired and the dispatcher runs the digest", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedFixture(db);
 		await enable(db);
-	});
 
-	it("routine-scheduler emits routine_fired and the dispatcher runs the digest", async () => {
 		// Queue one pending digest row.
 		await db.insert(notificationQueue).values({
 			id: crypto.randomUUID(),
@@ -161,14 +152,14 @@ describe("scheduler → routine_fired → daily digest (AC6 end-to-end)", () => 
 		});
 
 		const adapter = createFakeAdapter();
-		const dispose = registerNotificationDispatcher(db, bus, {
+		const dispose = registerNotificationDispatcher(db, eventBus, {
 			adapterFactory: () => adapter,
 		});
 
 		// Fire the routine — emits routine_fired on success.
 		const [routine] = await db.select().from(routines);
 		if (!routine) throw new Error("fixture missing routine");
-		const result = await checkAndFireRoutine(db, bus, routine);
+		const result = await checkAndFireRoutine(db, eventBus, routine);
 		expect(result.fired).toBe(true);
 
 		// The dispatcher's routine_fired handler runs asynchronously via

@@ -14,12 +14,11 @@
  * /api/threads/coach route (not yet mounted — will FAIL until green phase).
  */
 
-import { createTestDb, type HyperIdleDb, teamMembers, teams, threads, users } from "@hyperidle/db";
-import { classifyThreadConfiguration, EventBus } from "@hyperidle/shared";
+import { type HyperIdleDb, teamMembers, teams, threads, users } from "@hyperidle/db";
+import { classifyThreadConfiguration } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-coach";
 
@@ -31,18 +30,7 @@ function authHeaders(extra: Record<string, string> = {}): Record<string, string>
 	};
 }
 
-interface AppCtx {
-	app: Hono;
-	db: HyperIdleDb;
-	eventBus: EventBus;
-}
-
-async function setupApp(): Promise<AppCtx> {
-	const handle = await createTestDb();
-	const db = handle.db;
-	const eventBus = new EventBus();
-	const app = await createTestApp({ db, eventBus });
-
+async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 
 	// Seed base product/team
@@ -80,16 +68,11 @@ async function setupApp(): Promise<AppCtx> {
 		status: "active",
 		createdAt: now,
 	});
-
-	return { app, db, eventBus };
 }
 
 describe("L21 — GET /api/threads/coach", () => {
-	let ctx: AppCtx;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = await setupApp();
 	});
 
 	afterEach(() => {
@@ -97,16 +80,18 @@ describe("L21 — GET /api/threads/coach", () => {
 	});
 
 	describe("AC-13: creates coach thread when absent", () => {
-		it("returns 200 on first call even when no coach thread exists", async () => {
-			const res = await ctx.app.request("/api/threads/coach", {
+		test("returns 200 on first call even when no coach thread exists", async ({ db, app }) => {
+			await seedBase(db);
+			const res = await app.request("/api/threads/coach", {
 				method: "GET",
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(200);
 		});
 
-		it("returns a thread with hostKind='user' on first call", async () => {
-			const res = await ctx.app.request("/api/threads/coach", {
+		test("returns a thread with hostKind='user' on first call", async ({ db, app }) => {
+			await seedBase(db);
+			const res = await app.request("/api/threads/coach", {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -114,8 +99,9 @@ describe("L21 — GET /api/threads/coach", () => {
 			expect(body.thread.hostKind).toBe("user");
 		});
 
-		it("returns a thread with pinned=true on first call", async () => {
-			const res = await ctx.app.request("/api/threads/coach", {
+		test("returns a thread with pinned=true on first call", async ({ db, app }) => {
+			await seedBase(db);
+			const res = await app.request("/api/threads/coach", {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -123,8 +109,9 @@ describe("L21 — GET /api/threads/coach", () => {
 			expect(body.thread.pinned).toBe(true);
 		});
 
-		it("returns empty messages array on first call (new thread)", async () => {
-			const res = await ctx.app.request("/api/threads/coach", {
+		test("returns empty messages array on first call (new thread)", async ({ db, app }) => {
+			await seedBase(db);
+			const res = await app.request("/api/threads/coach", {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -132,8 +119,9 @@ describe("L21 — GET /api/threads/coach", () => {
 			expect(body.messages).toEqual([]);
 		});
 
-		it("response includes headMessageId field", async () => {
-			const res = await ctx.app.request("/api/threads/coach", {
+		test("response includes headMessageId field", async ({ db, app }) => {
+			await seedBase(db);
+			const res = await app.request("/api/threads/coach", {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -143,8 +131,9 @@ describe("L21 — GET /api/threads/coach", () => {
 	});
 
 	describe("AC-12: thread shape validates correctly", () => {
-		it("thread hostId matches the authenticated user id", async () => {
-			const res = await ctx.app.request("/api/threads/coach", {
+		test("thread hostId matches the authenticated user id", async ({ db, app }) => {
+			await seedBase(db);
+			const res = await app.request("/api/threads/coach", {
 				method: "GET",
 				headers: authHeaders({ "X-Identity": "u-founder" }),
 			});
@@ -152,8 +141,9 @@ describe("L21 — GET /api/threads/coach", () => {
 			expect(body.thread.hostId).toBe("u-founder");
 		});
 
-		it("thread participants include both user and seed-agent-cos (CoC agent)", async () => {
-			const res = await ctx.app.request("/api/threads/coach", {
+		test("thread participants include both user and seed-agent-cos (CoC agent)", async ({ db, app }) => {
+			await seedBase(db);
+			const res = await app.request("/api/threads/coach", {
 				method: "GET",
 				headers: authHeaders({ "X-Identity": "u-founder" }),
 			});
@@ -162,8 +152,9 @@ describe("L21 — GET /api/threads/coach", () => {
 			expect(body.thread.participants).toContain("seed-agent-cos");
 		});
 
-		it("thread resolvedAt is null (coach threads are perpetual)", async () => {
-			const res = await ctx.app.request("/api/threads/coach", {
+		test("thread resolvedAt is null (coach threads are perpetual)", async ({ db, app }) => {
+			await seedBase(db);
+			const res = await app.request("/api/threads/coach", {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -173,14 +164,15 @@ describe("L21 — GET /api/threads/coach", () => {
 	});
 
 	describe("AC-14: idempotent — does not duplicate on second call", () => {
-		it("returns the same thread id on two consecutive calls", async () => {
-			const first = await ctx.app.request("/api/threads/coach", {
+		test("returns the same thread id on two consecutive calls", async ({ db, app }) => {
+			await seedBase(db);
+			const first = await app.request("/api/threads/coach", {
 				method: "GET",
 				headers: authHeaders({ "X-Identity": "u-founder" }),
 			});
 			const firstBody = (await first.json()) as { thread: { id: string } };
 
-			const second = await ctx.app.request("/api/threads/coach", {
+			const second = await app.request("/api/threads/coach", {
 				method: "GET",
 				headers: authHeaders({ "X-Identity": "u-founder" }),
 			});
@@ -189,18 +181,19 @@ describe("L21 — GET /api/threads/coach", () => {
 			expect(secondBody.thread.id).toBe(firstBody.thread.id);
 		});
 
-		it("does not create a second coach thread for the same user", async () => {
-			await ctx.app.request("/api/threads/coach", {
+		test("does not create a second coach thread for the same user", async ({ db, app }) => {
+			await seedBase(db);
+			await app.request("/api/threads/coach", {
 				method: "GET",
 				headers: authHeaders({ "X-Identity": "u-founder" }),
 			});
-			await ctx.app.request("/api/threads/coach", {
+			await app.request("/api/threads/coach", {
 				method: "GET",
 				headers: authHeaders({ "X-Identity": "u-founder" }),
 			});
 
 			// Only one pinned user-hosted thread should exist for u-founder.
-			const rows = await ctx.db
+			const rows = await db
 				.select()
 				.from(threads)
 				.where(and(eq(threads.hostKind, "user"), eq(threads.hostId, "u-founder")));
@@ -212,12 +205,13 @@ describe("L21 — GET /api/threads/coach", () => {
 	});
 
 	describe("AC-15: X-Identity header selects the correct user's coach thread", () => {
-		it("returns different coach threads for different users", async () => {
-			const founderRes = await ctx.app.request("/api/threads/coach", {
+		test("returns different coach threads for different users", async ({ db, app }) => {
+			await seedBase(db);
+			const founderRes = await app.request("/api/threads/coach", {
 				method: "GET",
 				headers: authHeaders({ "X-Identity": "u-founder" }),
 			});
-			const otherRes = await ctx.app.request("/api/threads/coach", {
+			const otherRes = await app.request("/api/threads/coach", {
 				method: "GET",
 				headers: authHeaders({ "X-Identity": "u-other" }),
 			});
@@ -232,8 +226,9 @@ describe("L21 — GET /api/threads/coach", () => {
 	});
 
 	describe("AC-17: identities include seed-agent-cos (CoC agent)", () => {
-		it("identities response contains seed-agent-cos with name 'Chief of Staff'", async () => {
-			const res = await ctx.app.request("/api/threads/coach", {
+		test("identities response contains seed-agent-cos with name 'Chief of Staff'", async ({ db, app }) => {
+			await seedBase(db);
+			const res = await app.request("/api/threads/coach", {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -245,8 +240,9 @@ describe("L21 — GET /api/threads/coach", () => {
 			expect(cocIdentity?.name).toBe("Chief of Staff");
 		});
 
-		it("identities response contains the user identity", async () => {
-			const res = await ctx.app.request("/api/threads/coach", {
+		test("identities response contains the user identity", async ({ db, app }) => {
+			await seedBase(db);
+			const res = await app.request("/api/threads/coach", {
 				method: "GET",
 				headers: authHeaders({ "X-Identity": "u-founder" }),
 			});
@@ -258,8 +254,9 @@ describe("L21 — GET /api/threads/coach", () => {
 	});
 
 	describe("AC-16: full response shape", () => {
-		it("response contains thread, messages, headMessageId, and identities keys", async () => {
-			const res = await ctx.app.request("/api/threads/coach", {
+		test("response contains thread, messages, headMessageId, and identities keys", async ({ db, app }) => {
+			await seedBase(db);
+			const res = await app.request("/api/threads/coach", {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -270,8 +267,9 @@ describe("L21 — GET /api/threads/coach", () => {
 			expect(body).toHaveProperty("identities");
 		});
 
-		it("messages is an array", async () => {
-			const res = await ctx.app.request("/api/threads/coach", {
+		test("messages is an array", async ({ db, app }) => {
+			await seedBase(db);
+			const res = await app.request("/api/threads/coach", {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -281,8 +279,9 @@ describe("L21 — GET /api/threads/coach", () => {
 	});
 
 	describe("Coach thread classifies as 'coach' configuration", () => {
-		it("thread with hostKind='user' and pinned=true is classified as 'coach'", async () => {
-			const res = await ctx.app.request("/api/threads/coach", {
+		test("thread with hostKind='user' and pinned=true is classified as 'coach'", async ({ db, app }) => {
+			await seedBase(db);
+			const res = await app.request("/api/threads/coach", {
 				method: "GET",
 				headers: authHeaders(),
 			});

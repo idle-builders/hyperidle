@@ -6,16 +6,8 @@
  * AC-4: context includes lastRunSummary (clean session start with continuity).
  */
 
-import {
-	createTestDb,
-	type HyperIdleDb,
-	routines,
-	type TestDbHandle,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { type HyperIdleDb, routines, teamMembers, teams, users } from "@hyperidle/db";
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import {
 	buildRoutineSessionContextData,
 	type RoutineSessionContextConfig,
@@ -62,20 +54,8 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 }
 
 describe("buildRoutineSessionContextData", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
+	test("returns routine name and description", async ({ db }) => {
 		await seedBase(db);
-	});
-
-	afterEach(async () => {
-		await handle?.close();
-	});
-
-	it("returns routine name and description", async () => {
 		const config: RoutineSessionContextConfig = {
 			sessionId: "session-test",
 			routineId: "routine-ctx",
@@ -91,7 +71,8 @@ describe("buildRoutineSessionContextData", () => {
 		expect(ctx.routine.description).toBe("Tests the context builder");
 	});
 
-	it("includes lastRunSummary from routines table (AC-4 continuity)", async () => {
+	test("includes lastRunSummary from routines table (AC-4 continuity)", async ({ db }) => {
+		await seedBase(db);
 		const config: RoutineSessionContextConfig = {
 			sessionId: "session-test",
 			routineId: "routine-ctx",
@@ -105,7 +86,8 @@ describe("buildRoutineSessionContextData", () => {
 		expect(ctx.routine.lastRunSummary).toBe("Previous run completed 5 tasks.");
 	});
 
-	it("returns null lastRunSummary when no previous runs", async () => {
+	test("returns null lastRunSummary when no previous runs", async ({ db }) => {
+		await seedBase(db);
 		await db.insert(routines).values({
 			id: "routine-no-summary",
 			name: "First run routine",
@@ -130,7 +112,8 @@ describe("buildRoutineSessionContextData", () => {
 		expect(ctx.routine.lastRunSummary).toBeNull();
 	});
 
-	it("returns agent name and role", async () => {
+	test("returns agent name and role", async ({ db }) => {
+		await seedBase(db);
 		const config: RoutineSessionContextConfig = {
 			sessionId: "session-test",
 			routineId: "routine-ctx",
@@ -146,7 +129,8 @@ describe("buildRoutineSessionContextData", () => {
 		expect(ctx.agent.role).toBe("builder");
 	});
 
-	it("returns team name and id", async () => {
+	test("returns team name and id", async ({ db }) => {
+		await seedBase(db);
 		const config: RoutineSessionContextConfig = {
 			sessionId: "session-test",
 			routineId: "routine-ctx",
@@ -161,7 +145,8 @@ describe("buildRoutineSessionContextData", () => {
 		expect(ctx.team.name).toBe("Context Team");
 	});
 
-	it("does NOT include task or bet fields (AC-3: clean context)", async () => {
+	test("does NOT include task or bet fields (AC-3: clean context)", async ({ db }) => {
+		await seedBase(db);
 		const config: RoutineSessionContextConfig = {
 			sessionId: "session-test",
 			routineId: "routine-ctx",
@@ -177,7 +162,8 @@ describe("buildRoutineSessionContextData", () => {
 		expect("bet" in ctx).toBe(false);
 	});
 
-	it("throws when routine is not found", async () => {
+	test("throws when routine is not found", async ({ db }) => {
+		await seedBase(db);
 		const config: RoutineSessionContextConfig = {
 			sessionId: "session-test",
 			routineId: "nonexistent-routine",
@@ -191,7 +177,8 @@ describe("buildRoutineSessionContextData", () => {
 		);
 	});
 
-	it("throws when agent is not found", async () => {
+	test("throws when agent is not found", async ({ db }) => {
+		await seedBase(db);
 		const config: RoutineSessionContextConfig = {
 			sessionId: "session-test",
 			routineId: "routine-ctx",
@@ -205,7 +192,8 @@ describe("buildRoutineSessionContextData", () => {
 		);
 	});
 
-	it("throws when team is not found", async () => {
+	test("throws when team is not found", async ({ db }) => {
+		await seedBase(db);
 		const config: RoutineSessionContextConfig = {
 			sessionId: "session-test",
 			routineId: "routine-ctx",

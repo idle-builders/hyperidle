@@ -14,12 +14,10 @@
  * 7. Status simplified to draft | active | archived
  */
 
-import { createTestDb, type HyperIdleDb, type TestDbHandle } from "@hyperidle/db";
-import { type DomainEvent, EventBus } from "@hyperidle/shared";
+import { type DomainEvent } from "@hyperidle/shared";
 import { sql } from "drizzle-orm";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { describe, expect, vi } from "vitest";
+import { test } from "../test-fixtures.js";
 
 // biome-ignore lint/style/useNamingConvention: SQL information_schema returns snake_case column_name
 type SqlColumnRow = { column_name: string };
@@ -31,74 +29,72 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("O2 — Schema Migration & Route Rewrite", () => {
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-	let handle: TestDbHandle;
-
-	beforeEach(async () => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-	});
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle?.close();
-	});
-
 	// ---------------------------------------------------------------------------
 	// 1. Extension tables — schema structure
 	// ---------------------------------------------------------------------------
 
 	describe("1. Extension tables exist with correct structure", () => {
-		it("knowledge_strategy_fabric table exists in the database", async () => {
+		test("knowledge_strategy_fabric table exists in the database", async ({ app, db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			// If the table doesn't exist this will throw
 			await expect(
 				db.execute(sql.raw("SELECT id FROM knowledge_strategy_fabric LIMIT 1")),
 			).resolves.toBeDefined();
+			vi.unstubAllEnvs();
 		});
 
-		it("task_strategy_fabric table exists in the database", async () => {
+		test("task_strategy_fabric table exists in the database", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await expect(
 				db.execute(sql.raw("SELECT id FROM task_strategy_fabric LIMIT 1")),
 			).resolves.toBeDefined();
+			vi.unstubAllEnvs();
 		});
 
-		it("knowledge_strategy_fabric has FK to knowledge_items with cascade delete", async () => {
+		test("knowledge_strategy_fabric has FK to knowledge_items with cascade delete", async ({
+			db,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_strategy_fabric"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).toContain("id");
 			expect(colNames).toContain("knowledge_item_id");
+			vi.unstubAllEnvs();
 		});
 
-		it("task_strategy_fabric has FK to tasks with cascade delete", async () => {
+		test("task_strategy_fabric has FK to tasks with cascade delete", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"task_strategy_fabric"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).toContain("id");
 			expect(colNames).toContain("task_id");
+			vi.unstubAllEnvs();
 		});
 
-		it("knowledge_strategy_fabric does NOT have a strategy discriminator column", async () => {
+		test("knowledge_strategy_fabric does NOT have a strategy discriminator column", async ({
+			db,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_strategy_fabric"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("strategy");
+			vi.unstubAllEnvs();
 		});
 
-		it("task_strategy_fabric does NOT have a strategy discriminator column", async () => {
+		test("task_strategy_fabric does NOT have a strategy discriminator column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"task_strategy_fabric"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("strategy");
+			vi.unstubAllEnvs();
 		});
 	});
 
@@ -107,15 +103,20 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
 
 	describe("2. knowledgeItems kernel table columns stripped", () => {
-		it("knowledgeItems no longer has 'layer' column", async () => {
+		test("knowledgeItems no longer has 'layer' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("layer");
+			vi.unstubAllEnvs();
 		});
 
-		it("knowledgeItems no longer has 'scopeId' / 'scope_id' column from the old strategy layer", async () => {
+		test("knowledgeItems no longer has 'scopeId' / 'scope_id' column from the old strategy layer", async ({
+			db,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			// @lore Q2: scope_id WAS stripped in O2 (from the strategy layer).
 			// Q2 re-adds scope_kind + scope_id to the KERNEL table so each item
 			// knows its scope. The O2 assertion that scope_id was absent is
@@ -130,70 +131,95 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			// scope_id from the strategy layer was removed in O2;
 			// Q2 re-adds a kernel-level scope_id (nullable) for scoped items.
 			expect(colNames).toContain("scope_id");
+			vi.unstubAllEnvs();
 		});
 
-		it("knowledgeItems no longer has 'kind' column", async () => {
+		test("knowledgeItems no longer has 'kind' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("kind");
+			vi.unstubAllEnvs();
 		});
 
-		it("knowledgeItems no longer has 'attentionScore' / 'attention_score' column", async () => {
+		test("knowledgeItems no longer has 'attentionScore' / 'attention_score' column", async ({
+			db,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("attention_score");
+			vi.unstubAllEnvs();
 		});
 
-		it("knowledgeItems no longer has 'relevanceScore' / 'relevance_score' column", async () => {
+		test("knowledgeItems no longer has 'relevanceScore' / 'relevance_score' column", async ({
+			db,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("relevance_score");
+			vi.unstubAllEnvs();
 		});
 
-		it("knowledgeItems no longer has 'citationCount' / 'citation_count' column", async () => {
+		test("knowledgeItems no longer has 'citationCount' / 'citation_count' column", async ({
+			db,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("citation_count");
+			vi.unstubAllEnvs();
 		});
 
-		it("knowledgeItems no longer has 'lastCitedAt' / 'last_cited_at' column", async () => {
+		test("knowledgeItems no longer has 'lastCitedAt' / 'last_cited_at' column", async ({
+			db,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("last_cited_at");
+			vi.unstubAllEnvs();
 		});
 
-		it("knowledgeItems no longer has 'confidence' column", async () => {
+		test("knowledgeItems no longer has 'confidence' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("confidence");
+			vi.unstubAllEnvs();
 		});
 
-		it("knowledgeItems no longer has 'meta' column", async () => {
+		test("knowledgeItems no longer has 'meta' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("meta");
+			vi.unstubAllEnvs();
 		});
 
-		it("knowledgeItems still has 'topic' column", async () => {
+		test("knowledgeItems still has 'topic' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).toContain("topic");
+			vi.unstubAllEnvs();
 		});
 	});
 
@@ -202,36 +228,44 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
 
 	describe("3. tasks kernel table columns stripped", () => {
-		it("tasks no longer has 'risk_tier' column", async () => {
+		test("tasks no longer has 'risk_tier' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"tasks"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("risk_tier");
+			vi.unstubAllEnvs();
 		});
 
-		it("tasks no longer has 'attention_score' column", async () => {
+		test("tasks no longer has 'attention_score' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"tasks"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("attention_score");
+			vi.unstubAllEnvs();
 		});
 
-		it("tasks no longer has 'durability' column", async () => {
+		test("tasks no longer has 'durability' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"tasks"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("durability");
+			vi.unstubAllEnvs();
 		});
 
-		it("tasks no longer has 'cross_team' column", async () => {
+		test("tasks no longer has 'cross_team' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"tasks"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("cross_team");
+			vi.unstubAllEnvs();
 		});
 	});
 
@@ -240,68 +274,84 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
 
 	describe("4. sessions kernel table columns stripped", () => {
-		it("sessions no longer has 'cost' column", async () => {
+		test("sessions no longer has 'cost' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"sessions"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("cost");
+			vi.unstubAllEnvs();
 		});
 
-		it("sessions no longer has 'cost_minor' column", async () => {
+		test("sessions no longer has 'cost_minor' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"sessions"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("cost_minor");
+			vi.unstubAllEnvs();
 		});
 
-		it("sessions no longer has 'cost_currency' column", async () => {
+		test("sessions no longer has 'cost_currency' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"sessions"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("cost_currency");
+			vi.unstubAllEnvs();
 		});
 
-		it("sessions no longer has 'tokens_json' column", async () => {
+		test("sessions no longer has 'tokens_json' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"sessions"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("tokens_json");
+			vi.unstubAllEnvs();
 		});
 
-		it("sessions no longer has 'tokens_input' column", async () => {
+		test("sessions no longer has 'tokens_input' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"sessions"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("tokens_input");
+			vi.unstubAllEnvs();
 		});
 
-		it("sessions no longer has 'tokens_output' column", async () => {
+		test("sessions no longer has 'tokens_output' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"sessions"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("tokens_output");
+			vi.unstubAllEnvs();
 		});
 
-		it("sessions no longer has 'trace_id' column", async () => {
+		test("sessions no longer has 'trace_id' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"sessions"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("trace_id");
+			vi.unstubAllEnvs();
 		});
 
-		it("sessions no longer has 'harness_url' column", async () => {
+		test("sessions no longer has 'harness_url' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"sessions"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("harness_url");
+			vi.unstubAllEnvs();
 		});
 	});
 
@@ -310,36 +360,44 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
 
 	describe("5. items kernel table columns stripped", () => {
-		it("items no longer has 'attention_score' column", async () => {
+		test("items no longer has 'attention_score' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"items"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("attention_score");
+			vi.unstubAllEnvs();
 		});
 
-		it("items no longer has 'reversibility' column", async () => {
+		test("items no longer has 'reversibility' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"items"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("reversibility");
+			vi.unstubAllEnvs();
 		});
 
-		it("items no longer has 'sandbox_result' column", async () => {
+		test("items no longer has 'sandbox_result' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"items"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("sandbox_result");
+			vi.unstubAllEnvs();
 		});
 
-		it("items no longer has 'cost_estimate' column", async () => {
+		test("items no longer has 'cost_estimate' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"items"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("cost_estimate");
+			vi.unstubAllEnvs();
 		});
 	});
 
@@ -348,36 +406,44 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
 
 	describe("6. artifacts kernel table columns stripped", () => {
-		it("artifacts no longer has 'cost_money_micros' column", async () => {
+		test("artifacts no longer has 'cost_money_micros' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"artifacts"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("cost_money_micros");
+			vi.unstubAllEnvs();
 		});
 
-		it("artifacts no longer has 'cost_tokens_input' column", async () => {
+		test("artifacts no longer has 'cost_tokens_input' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"artifacts"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("cost_tokens_input");
+			vi.unstubAllEnvs();
 		});
 
-		it("artifacts no longer has 'cost_tokens_output' column", async () => {
+		test("artifacts no longer has 'cost_tokens_output' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"artifacts"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("cost_tokens_output");
+			vi.unstubAllEnvs();
 		});
 
-		it("artifacts no longer has 'cost_settled_at' column", async () => {
+		test("artifacts no longer has 'cost_settled_at' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"artifacts"}`,
 			);
 			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("cost_settled_at");
+			vi.unstubAllEnvs();
 		});
 	});
 
@@ -386,7 +452,8 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
 
 	describe("7. Knowledge route URL shape changed", () => {
-		it("POST /api/knowledge (no layer prefix) creates item and returns 201", async () => {
+		test("POST /api/knowledge (no layer prefix) creates item and returns 201", async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const res = await app.request("/api/knowledge", {
 				method: "POST",
 				headers: authHeaders(),
@@ -400,9 +467,11 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 				}),
 			});
 			expect(res.status).toBe(201);
+			vi.unstubAllEnvs();
 		});
 
-		it("GET /api/knowledge/:id (no layer prefix) retrieves item by id", async () => {
+		test("GET /api/knowledge/:id (no layer prefix) retrieves item by id", async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			// First create an item
 			const createRes = await app.request("/api/knowledge", {
 				method: "POST",
@@ -426,9 +495,11 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			expect(getRes.status).toBe(200);
 			const body = (await getRes.json()) as Record<string, unknown>;
 			expect(body.id).toBe(id);
+			vi.unstubAllEnvs();
 		});
 
-		it("GET /api/knowledge/:layer/:id (old URL) returns 404", async () => {
+		test("GET /api/knowledge/:layer/:id (old URL) returns 404", async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			// First create an item with new URL shape
 			const createRes = await app.request("/api/knowledge", {
 				method: "POST",
@@ -450,16 +521,20 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 				headers: authHeaders(),
 			});
 			expect(oldRes.status).toBe(404);
+			vi.unstubAllEnvs();
 		});
 
-		it("GET /api/knowledge (list all) returns 200", async () => {
+		test("GET /api/knowledge (list all) returns 200", async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const res = await app.request("/api/knowledge", {
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(200);
+			vi.unstubAllEnvs();
 		});
 
-		it("PATCH /api/knowledge/:id (no layer prefix) updates item", async () => {
+		test("PATCH /api/knowledge/:id (no layer prefix) updates item", async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const createRes = await app.request("/api/knowledge", {
 				method: "POST",
 				headers: authHeaders(),
@@ -487,9 +562,11 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			expect(patchRes.status).toBe(200);
 			const patched = (await patchRes.json()) as Record<string, unknown>;
 			expect(patched.title).toBe("Updated Title");
+			vi.unstubAllEnvs();
 		});
 
-		it("POST /api/knowledge/:id/archive (no layer prefix) archives item", async () => {
+		test("POST /api/knowledge/:id/archive (no layer prefix) archives item", async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const createRes = await app.request("/api/knowledge", {
 				method: "POST",
 				headers: authHeaders(),
@@ -510,6 +587,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 				headers: authHeaders(),
 			});
 			expect(archiveRes.status).toBe(200);
+			vi.unstubAllEnvs();
 		});
 	});
 
@@ -518,7 +596,8 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
 
 	describe("8. Knowledge route emits correct events", () => {
-		it("POST /api/knowledge emits 'knowledge_created' event", async () => {
+		test("POST /api/knowledge emits 'knowledge_created' event", async ({ app, eventBus }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const events: unknown[] = [];
 			eventBus.on("*", (e: DomainEvent) => events.push(e));
 
@@ -540,9 +619,14 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 				(e) => (e as Record<string, unknown>).type === "knowledge_created",
 			);
 			expect(knowledgeCreated).toHaveLength(1);
+			vi.unstubAllEnvs();
 		});
 
-		it("GET /api/knowledge/:id emits 'knowledge_accessed' event", async () => {
+		test("GET /api/knowledge/:id emits 'knowledge_accessed' event", async ({
+			app,
+			eventBus,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			// Create item first
 			const createRes = await app.request("/api/knowledge", {
 				method: "POST",
@@ -571,9 +655,14 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 				(e) => (e as Record<string, unknown>).type === "knowledge_accessed",
 			);
 			expect(accessedEvents).toHaveLength(1);
+			vi.unstubAllEnvs();
 		});
 
-		it("PATCH /api/knowledge/:id emits 'knowledge_updated' event", async () => {
+		test("PATCH /api/knowledge/:id emits 'knowledge_updated' event", async ({
+			app,
+			eventBus,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const createRes = await app.request("/api/knowledge", {
 				method: "POST",
 				headers: authHeaders(),
@@ -607,9 +696,14 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 				(e) => (e as Record<string, unknown>).type === "knowledge_updated",
 			);
 			expect(updatedEvents).toHaveLength(1);
+			vi.unstubAllEnvs();
 		});
 
-		it("POST /api/knowledge/:id/archive emits 'knowledge_archived' event", async () => {
+		test("POST /api/knowledge/:id/archive emits 'knowledge_archived' event", async ({
+			app,
+			eventBus,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const createRes = await app.request("/api/knowledge", {
 				method: "POST",
 				headers: authHeaders(),
@@ -638,9 +732,14 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 				(e) => (e as Record<string, unknown>).type === "knowledge_archived",
 			);
 			expect(archivedEvents).toHaveLength(1);
+			vi.unstubAllEnvs();
 		});
 
-		it("POST /api/knowledge/:id/flag emits 'knowledge_updated' event with action 'flagged'", async () => {
+		test("POST /api/knowledge/:id/flag emits 'knowledge_updated' event with action 'flagged'", async ({
+			app,
+			eventBus,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const createRes = await app.request("/api/knowledge", {
 				method: "POST",
 				headers: authHeaders(),
@@ -672,6 +771,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 					(e as Record<string, unknown>).action === "flagged",
 			);
 			expect(flaggedEvents).toHaveLength(1);
+			vi.unstubAllEnvs();
 		});
 	});
 
@@ -680,7 +780,10 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
 
 	describe("9. Knowledge item status simplified to draft | active | archived", () => {
-		it("POST /api/knowledge creates item with status 'draft' (not 'captured')", async () => {
+		test("POST /api/knowledge creates item with status 'draft' (not 'captured')", async ({
+			app,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const res = await app.request("/api/knowledge", {
 				method: "POST",
 				headers: authHeaders(),
@@ -696,9 +799,11 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			expect(res.status).toBe(201);
 			const body = (await res.json()) as Record<string, unknown>;
 			expect(body.status).toBe("draft");
+			vi.unstubAllEnvs();
 		});
 
-		it("POST /api/knowledge/:id/archive sets status to 'archived'", async () => {
+		test("POST /api/knowledge/:id/archive sets status to 'archived'", async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const createRes = await app.request("/api/knowledge", {
 				method: "POST",
 				headers: authHeaders(),
@@ -721,9 +826,13 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			expect(archiveRes.status).toBe(200);
 			const body = (await archiveRes.json()) as Record<string, unknown>;
 			expect(body.status).toBe("archived");
+			vi.unstubAllEnvs();
 		});
 
-		it("PATCH /api/knowledge/:id rejects status 'provisional' (invalid status)", async () => {
+		test("PATCH /api/knowledge/:id rejects status 'provisional' (invalid status)", async ({
+			app,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const createRes = await app.request("/api/knowledge", {
 				method: "POST",
 				headers: authHeaders(),
@@ -750,9 +859,11 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			});
 			// provisional is no longer a valid status in O2
 			expect(patchRes.status).toBe(400);
+			vi.unstubAllEnvs();
 		});
 
-		it("PATCH /api/knowledge/:id accepts status 'active'", async () => {
+		test("PATCH /api/knowledge/:id accepts status 'active'", async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const createRes = await app.request("/api/knowledge", {
 				method: "POST",
 				headers: authHeaders(),
@@ -780,6 +891,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			expect(patchRes.status).toBe(200);
 			const body = (await patchRes.json()) as Record<string, unknown>;
 			expect(body.status).toBe("active");
+			vi.unstubAllEnvs();
 		});
 	});
 
@@ -788,7 +900,10 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
 
 	describe("10. Extension table FK cascade delete", () => {
-		it("deleting a knowledge item cascades to knowledge_strategy_fabric rows", async () => {
+		test("deleting a knowledge item cascades to knowledge_strategy_fabric rows", async ({
+			db,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const itemId = crypto.randomUUID();
 			const now = new Date().toISOString();
 
@@ -823,9 +938,11 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			);
 			const after = afterResult.rows as Array<{ id: string }>;
 			expect(after).toHaveLength(0);
+			vi.unstubAllEnvs();
 		});
 
-		it("deleting a task cascades to task_strategy_fabric rows", async () => {
+		test("deleting a task cascades to task_strategy_fabric rows", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const now = new Date().toISOString();
 
 			// @lore U1: products→teams, teams→team_members, bets.pitch→description, bets removes product_id
@@ -874,6 +991,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			);
 			const after = afterResult.rows as Array<{ id: string }>;
 			expect(after).toHaveLength(0);
+			vi.unstubAllEnvs();
 		});
 	});
 
@@ -882,7 +1000,11 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
 
 	describe("11. Route purity — conversations POST /items works without routing", () => {
-		beforeEach(async () => {
+		test("POST /api/conversations/items succeeds and returns 201 without routing fields", async ({
+			app,
+			db,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			// Seed required data for conversations/items
 			// @lore U1: products→teams, teams→team_members
 			const now = new Date().toISOString();
@@ -911,9 +1033,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 					`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('thread-conv', 'task', 'task-conv', 'agent-conv', '[]', '${now}', '${now}')`,
 				),
 			);
-		});
 
-		it("POST /api/conversations/items succeeds and returns 201 without routing fields", async () => {
 			const res = await app.request("/api/conversations/items", {
 				method: "POST",
 				headers: authHeaders(),
@@ -931,9 +1051,42 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			// will pass once the O2 route purity implementation removes them.
 			expect(Object.hasOwn(body, "view")).toBe(false);
 			expect(Object.hasOwn(body, "founderRoute")).toBe(false);
+			vi.unstubAllEnvs();
 		});
 
-		it("POST /api/conversations/items emits item_created event", async () => {
+		test("POST /api/conversations/items emits item_created event", async ({
+			app,
+			db,
+			eventBus,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			const now = new Date().toISOString();
+			await db.execute(
+				sql.raw(
+					`INSERT INTO teams (id, name, phase, created_at) VALUES ('prod-conv', 'Prod', 'build', '${now}')`,
+				),
+			);
+			await db.execute(
+				sql.raw(
+					`INSERT INTO team_members (id, team_id, capacity, active_bets, formed_at) VALUES ('team-conv', 'prod-conv', 3, 0, '${now}')`,
+				),
+			);
+			await db.execute(
+				sql.raw(
+					`INSERT INTO users (id, name, role, status, created_at) VALUES ('agent-conv', 'Agent', 'builder', 'idle', '${now}')`,
+				),
+			);
+			await db.execute(
+				sql.raw(
+					`INSERT INTO users (id, name, role, status, created_at) VALUES ('policy_engine', 'Policy Engine', 'system', 'active', '${now}')`,
+				),
+			);
+			await db.execute(
+				sql.raw(
+					`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('thread-conv', 'task', 'task-conv', 'agent-conv', '[]', '${now}', '${now}')`,
+				),
+			);
+
 			const events: unknown[] = [];
 			eventBus.on("item_created", (e: DomainEvent) => events.push(e));
 
@@ -947,6 +1100,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			});
 
 			expect(events).toHaveLength(1);
+			vi.unstubAllEnvs();
 		});
 	});
 
@@ -955,7 +1109,11 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
 
 	describe("12. Sessions work without stripped schema fields", () => {
-		beforeEach(async () => {
+		test("POST /api/sessions creates session and does not expose traceId, harnessUrl, tokensInput, tokensOutput in response", async ({
+			app,
+			db,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			// @lore U1: products→teams, teams→team_members, bets.pitch→description, tasks removes product_id
 			const now = new Date().toISOString();
 			await db.execute(
@@ -982,9 +1140,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 				sql.raw(`INSERT INTO tasks (id, bet_id, team_id, title, state, created_at, updated_at)
 				 VALUES ('task-sess', 'bet-sess', 'prod-sess', 'Task', 'in_progress', '${now}', '${now}')`),
 			);
-		});
 
-		it("POST /api/sessions creates session and does not expose traceId, harnessUrl, tokensInput, tokensOutput in response", async () => {
 			const res = await app.request("/api/sessions", {
 				method: "POST",
 				headers: authHeaders(),
@@ -1002,9 +1158,40 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			expect(Object.hasOwn(body, "harnessUrl")).toBe(false);
 			expect(Object.hasOwn(body, "tokensInput")).toBe(false);
 			expect(Object.hasOwn(body, "tokensOutput")).toBe(false);
+			vi.unstubAllEnvs();
 		});
 
-		it("PATCH /api/sessions/:id ends session without tokensInput/tokensOutput fields", async () => {
+		test("PATCH /api/sessions/:id ends session without tokensInput/tokensOutput fields", async ({
+			app,
+			db,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			const now = new Date().toISOString();
+			await db.execute(
+				sql.raw(
+					`INSERT INTO teams (id, name, phase, created_at) VALUES ('prod-sess', 'Prod', 'build', '${now}')`,
+				),
+			);
+			await db.execute(
+				sql.raw(
+					`INSERT INTO team_members (id, team_id, capacity, active_bets, formed_at) VALUES ('team-sess', 'prod-sess', 3, 0, '${now}')`,
+				),
+			);
+			await db.execute(
+				sql.raw(
+					`INSERT INTO users (id, name, role, status, created_at) VALUES ('agent-sess', 'Agent', 'builder', 'idle', '${now}')`,
+				),
+			);
+			await db.execute(
+				sql.raw(
+					`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-sess', 'prod-sess', 'Pitch', 'active', '${now}')`,
+				),
+			);
+			await db.execute(
+				sql.raw(`INSERT INTO tasks (id, bet_id, team_id, title, state, created_at, updated_at)
+				 VALUES ('task-sess', 'bet-sess', 'prod-sess', 'Task', 'in_progress', '${now}', '${now}')`),
+			);
+
 			// Create session
 			const createRes = await app.request("/api/sessions", {
 				method: "POST",
@@ -1031,6 +1218,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			expect(patchRes.status).toBe(200);
 			const body = (await patchRes.json()) as Record<string, unknown>;
 			expect(body.state).toBe("done");
+			vi.unstubAllEnvs();
 		});
 	});
 
@@ -1039,7 +1227,8 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
 
 	describe("13. Knowledge list route uses LEFT JOIN (no computeSignals inline call)", () => {
-		it("GET /api/knowledge returns 200 with items array", async () => {
+		test("GET /api/knowledge returns 200 with items array", async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			// Create a few items
 			await app.request("/api/knowledge", {
 				method: "POST",
@@ -1075,6 +1264,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			expect(itemsArr).toHaveLength(2);
 			// Signals come via LEFT JOIN — no inline computeSignals call
 			// Each item may have a relevanceScore field (null if not computed)
+			vi.unstubAllEnvs();
 		});
 	});
 });

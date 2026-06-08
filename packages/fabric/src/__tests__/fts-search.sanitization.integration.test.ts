@@ -1,5 +1,5 @@
-import { createTestDb, type HyperIdleDb } from "@hyperidle/db";
-import { beforeEach, describe, expect, it } from "vitest";
+import type { HyperIdleDb } from "@hyperidle/db";
+import { beforeEach, describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { knowledgeEvents } from "../events.js";
 import {
 	FTS_MAX_QUERY_CHARS,
@@ -15,11 +15,10 @@ interface SeedItem {
 	body: string;
 }
 
-async function makeDb(items: SeedItem[] = []): Promise<HyperIdleDb> {
-	const handle = await createTestDb();
-	await setupFts(handle.db);
+async function seedItems(db: HyperIdleDb, items: SeedItem[]): Promise<void> {
+	await setupFts(db);
 	for (const item of items) {
-		await create(handle.db, {
+		await create(db, {
 			layer: "L1",
 			scopeId: "product-1",
 			kind: "pattern",
@@ -31,7 +30,6 @@ async function makeDb(items: SeedItem[] = []): Promise<HyperIdleDb> {
 			updatedBy: "agent-1",
 		});
 	}
-	return handle.db;
 }
 
 const SAMPLE_ITEMS: SeedItem[] = [
@@ -47,14 +45,14 @@ describe("I3: FTS sanitisation — operators are escaped", () => {
 		knowledgeEvents.removeAllListeners();
 	});
 
-	it("query 'test*' returns rows starting with 'test' but not unrelated rows", async () => {
-		const db = await makeDb(SAMPLE_ITEMS);
+	test("query 'test*' returns rows starting with 'test' but not unrelated rows", async ({ db }) => {
+		await seedItems(db, SAMPLE_ITEMS);
 		const results = await ftsSearch(db, "test*");
 		expect(results).toEqual([]);
 	});
 
-	it("prefix search 'auth*' matches 'authentication' but not unrelated rows", async () => {
-		const db = await makeDb([
+	test("prefix search 'auth*' matches 'authentication' but not unrelated rows", async ({ db }) => {
+		await seedItems(db, [
 			{ title: "Auth Doc", body: "Configure authentication via OAuth providers." },
 			{ title: "Routing", body: "Use react-router for client-side navigation." },
 		]);
@@ -62,8 +60,8 @@ describe("I3: FTS sanitisation — operators are escaped", () => {
 		expect(results.length).toBe(1);
 	});
 
-	it("prefix search 'auth*' does NOT match unrelated rows", async () => {
-		const db = await makeDb([
+	test("prefix search 'auth*' does NOT match unrelated rows", async ({ db }) => {
+		await seedItems(db, [
 			{ title: "Authorization", body: "authorization-policy is enforced via authMiddleware" },
 			{ title: "Other", body: "completely unrelated content" },
 		]);
@@ -71,30 +69,32 @@ describe("I3: FTS sanitisation — operators are escaped", () => {
 		expect(results.length).toBe(1);
 	});
 
-	it("query 'unbalanced double quote does not throw", async () => {
-		const db = await makeDb(SAMPLE_ITEMS);
+	test("query 'unbalanced double quote does not throw", async ({ db }) => {
+		await seedItems(db, SAMPLE_ITEMS);
 		await expect(ftsSearch(db, '"unbalanced')).resolves.not.toThrow();
 	});
 
-	it("query containing AND/OR/NOT/NEAR (lowercase) is sanitised — no syntax error", async () => {
-		const db = await makeDb(SAMPLE_ITEMS);
+	test("query containing AND/OR/NOT/NEAR (lowercase) is sanitised — no syntax error", async ({
+		db,
+	}) => {
+		await seedItems(db, SAMPLE_ITEMS);
 		await expect(ftsSearch(db, "AND OR NOT NEAR")).resolves.not.toThrow();
 		await expect(ftsSearch(db, "and or not near")).resolves.not.toThrow();
 	});
 
-	it("query containing parentheses, braces, caret does not throw", async () => {
-		const db = await makeDb(SAMPLE_ITEMS);
+	test("query containing parentheses, braces, caret does not throw", async ({ db }) => {
+		await seedItems(db, SAMPLE_ITEMS);
 		await expect(ftsSearch(db, "( ) { } ^")).resolves.not.toThrow();
 	});
 
-	it("query 'test* OR admin' (operator combination) returns no false matches", async () => {
-		const db = await makeDb(SAMPLE_ITEMS);
+	test("query 'test* OR admin' (operator combination) returns no false matches", async ({ db }) => {
+		await seedItems(db, SAMPLE_ITEMS);
 		const results = await ftsSearch(db, "test* OR admin");
 		expect(results).toEqual([]);
 	});
 
-	it("query with balanced quote at end does not throw", async () => {
-		const db = await makeDb(SAMPLE_ITEMS);
+	test("query with balanced quote at end does not throw", async ({ db }) => {
+		await seedItems(db, SAMPLE_ITEMS);
 		await expect(ftsSearch(db, 'foo"')).resolves.not.toThrow();
 		await expect(ftsSearch(db, 'foo"bar')).resolves.not.toThrow();
 	});
@@ -105,8 +105,8 @@ describe("I3: FTS sanitisation — meaningful punctuation preserved", () => {
 		knowledgeEvents.removeAllListeners();
 	});
 
-	it("hyphenated tokens like 'react-router' are preserved as literal phrases", async () => {
-		const db = await makeDb([
+	test("hyphenated tokens like 'react-router' are preserved as literal phrases", async ({ db }) => {
+		await seedItems(db, [
 			{ title: "Routing", body: "Use react-router for client-side navigation." },
 			{ title: "Other", body: "Different topic entirely." },
 		]);
@@ -114,8 +114,8 @@ describe("I3: FTS sanitisation — meaningful punctuation preserved", () => {
 		expect(results.length).toBeGreaterThan(0);
 	});
 
-	it("apostrophe in body text does not break FTS indexing", async () => {
-		const db = await makeDb([
+	test("apostrophe in body text does not break FTS indexing", async ({ db }) => {
+		await seedItems(db, [
 			{ title: "Habits", body: "Don't repeat yourself." },
 			{ title: "Other", body: "Different topic entirely." },
 		]);
@@ -123,8 +123,8 @@ describe("I3: FTS sanitisation — meaningful punctuation preserved", () => {
 		expect(results.length).toBeGreaterThan(0);
 	});
 
-	it("underscore tokens like 'my_var' are preserved", async () => {
-		const db = await makeDb([
+	test("underscore tokens like 'my_var' are preserved", async ({ db }) => {
+		await seedItems(db, [
 			{ title: "Variables", body: "Use snake_case my_var convention." },
 			{ title: "Other", body: "Different topic entirely." },
 		]);
@@ -138,14 +138,14 @@ describe("I3 review sec MEDIUM-5: FTS DoS bounds", () => {
 		knowledgeEvents.removeAllListeners();
 	});
 
-	it("input longer than FTS_MAX_QUERY_CHARS is truncated, not thrown", () => {
+	test("input longer than FTS_MAX_QUERY_CHARS is truncated, not thrown", () => {
 		const huge = "x".repeat(FTS_MAX_QUERY_CHARS * 4);
 		expect(() => sanitizeFtsQuery(huge)).not.toThrow();
 		const out = sanitizeFtsQuery(huge);
 		expect(out).toBe("x".repeat(FTS_MAX_QUERY_CHARS));
 	});
 
-	it("token count beyond FTS_MAX_TOKENS is truncated, not thrown", () => {
+	test("token count beyond FTS_MAX_TOKENS is truncated, not thrown", () => {
 		const tokens = Array.from({ length: FTS_MAX_TOKENS + 32 }, (_, i) => `tok${i}`);
 		const input = tokens.join(" ");
 		expect(() => sanitizeFtsQuery(input)).not.toThrow();
@@ -154,8 +154,8 @@ describe("I3 review sec MEDIUM-5: FTS DoS bounds", () => {
 		expect(tokenCount).toBe(FTS_MAX_TOKENS);
 	});
 
-	it("ftsSearch with a huge input does not throw", async () => {
-		const db = await makeDb(SAMPLE_ITEMS);
+	test("ftsSearch with a huge input does not throw", async ({ db }) => {
+		await seedItems(db, SAMPLE_ITEMS);
 		const huge = "alpha ".repeat(2000);
 		await expect(ftsSearch(db, huge)).resolves.not.toThrow();
 	});
@@ -166,20 +166,20 @@ describe("I3: FTS sanitisation — empty / whitespace queries", () => {
 		knowledgeEvents.removeAllListeners();
 	});
 
-	it("empty string query returns [] without throwing", async () => {
-		const db = await makeDb(SAMPLE_ITEMS);
+	test("empty string query returns [] without throwing", async ({ db }) => {
+		await seedItems(db, SAMPLE_ITEMS);
 		const results = await ftsSearch(db, "");
 		expect(results).toEqual([]);
 	});
 
-	it("whitespace-only query returns [] without throwing", async () => {
-		const db = await makeDb(SAMPLE_ITEMS);
+	test("whitespace-only query returns [] without throwing", async ({ db }) => {
+		await seedItems(db, SAMPLE_ITEMS);
 		const results = await ftsSearch(db, "   \t \n  ");
 		expect(results).toEqual([]);
 	});
 
-	it("operator-only query (all chars stripped) returns [] without throwing", async () => {
-		const db = await makeDb(SAMPLE_ITEMS);
+	test("operator-only query (all chars stripped) returns [] without throwing", async ({ db }) => {
+		await seedItems(db, SAMPLE_ITEMS);
 		await expect(ftsSearch(db, '"*(){}^')).resolves.not.toThrow();
 		expect(await ftsSearch(db, '"*(){}^')).toEqual([]);
 	});

@@ -11,11 +11,10 @@
  *  - seed.ts backfills soulPrompt on seed agent rows
  */
 
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { sql } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { HyperIdleDb } from "../connection.js";
 import { seed } from "../seed.js";
-import { createTestDb, type TestDbHandle } from "../test-utils.js";
 
 async function queryRows<T extends Record<string, unknown>>(
 	db: HyperIdleDb,
@@ -30,19 +29,7 @@ async function queryRows<T extends Record<string, unknown>>(
 // ---------------------------------------------------------------------------
 
 describe("X3 AC-1: users table gains soulPrompt, harnessType, modelTierPreference columns", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	}, 30_000);
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	it("soul_prompt column exists on users table and is nullable", async () => {
+	test("soul_prompt column exists on users table and is nullable", async ({ db }) => {
 		const rows = await queryRows<{
 			columnName: string;
 			isNullable: string;
@@ -60,7 +47,7 @@ describe("X3 AC-1: users table gains soulPrompt, harnessType, modelTierPreferenc
 		expect(rows[0]?.dataType).toBe("text");
 	});
 
-	it("harness_type column exists on users table and is nullable", async () => {
+	test("harness_type column exists on users table and is nullable", async ({ db }) => {
 		const rows = await queryRows<{
 			columnName: string;
 			isNullable: string;
@@ -78,7 +65,7 @@ describe("X3 AC-1: users table gains soulPrompt, harnessType, modelTierPreferenc
 		expect(rows[0]?.dataType).toBe("text");
 	});
 
-	it("model_tier_preference column exists on users table and is nullable", async () => {
+	test("model_tier_preference column exists on users table and is nullable", async ({ db }) => {
 		const rows = await queryRows<{
 			columnName: string;
 			isNullable: string;
@@ -96,7 +83,9 @@ describe("X3 AC-1: users table gains soulPrompt, harnessType, modelTierPreferenc
 		expect(rows[0]?.dataType).toBe("text");
 	});
 
-	it("can insert a user row with all three new columns null (null semantics work)", async () => {
+	test("can insert a user row with all three new columns null (null semantics work)", async ({
+		db,
+	}) => {
 		const now = new Date().toISOString();
 		await db.execute(
 			sql.raw(`
@@ -121,7 +110,9 @@ describe("X3 AC-1: users table gains soulPrompt, harnessType, modelTierPreferenc
 		expect(rows[0]?.modelTierPreference).toBeNull();
 	});
 
-	it("can insert a user row with soulPrompt, harnessType, modelTierPreference set", async () => {
+	test("can insert a user row with soulPrompt, harnessType, modelTierPreference set", async ({
+		db,
+	}) => {
 		const now = new Date().toISOString();
 		await db.execute(
 			sql.raw(`
@@ -151,20 +142,11 @@ describe("X3 AC-1: users table gains soulPrompt, harnessType, modelTierPreferenc
 // ---------------------------------------------------------------------------
 
 describe("X3 AC-2: soul prompt templates seeded from docs/souls/ into factorySettings", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
+	test("factory_settings has soul_template:product_manager key with non-empty content", async ({
+		db,
+	}) => {
 		await seed(db);
-	}, 30_000);
 
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	it("factory_settings has soul_template:product_manager key with non-empty content", async () => {
 		const rows = await queryRows<{ key: string; value: string }>(
 			db,
 			`SELECT key, value FROM factory_settings WHERE key = 'soul_template:product_manager'`,
@@ -176,7 +158,11 @@ describe("X3 AC-2: soul prompt templates seeded from docs/souls/ into factorySet
 		expect(rows[0]?.value).not.toMatch(/^---/);
 	});
 
-	it("factory_settings has soul_template:practice_facilitator key with non-empty content", async () => {
+	test("factory_settings has soul_template:practice_facilitator key with non-empty content", async ({
+		db,
+	}) => {
+		await seed(db);
+
 		const rows = await queryRows<{ key: string; value: string }>(
 			db,
 			`SELECT key, value FROM factory_settings WHERE key = 'soul_template:practice_facilitator'`,
@@ -188,7 +174,11 @@ describe("X3 AC-2: soul prompt templates seeded from docs/souls/ into factorySet
 		expect(rows[0]?.value).not.toMatch(/^---/);
 	});
 
-	it("factory_settings has soul_template:chief_of_staff key with non-empty content", async () => {
+	test("factory_settings has soul_template:chief_of_staff key with non-empty content", async ({
+		db,
+	}) => {
+		await seed(db);
+
 		const rows = await queryRows<{ key: string; value: string }>(
 			db,
 			`SELECT key, value FROM factory_settings WHERE key = 'soul_template:chief_of_staff'`,
@@ -200,7 +190,9 @@ describe("X3 AC-2: soul prompt templates seeded from docs/souls/ into factorySet
 		expect(rows[0]?.value).not.toMatch(/^---/);
 	});
 
-	it("product_manager template content contains recognizable persona content", async () => {
+	test("product_manager template content contains recognizable persona content", async ({ db }) => {
+		await seed(db);
+
 		const rows = await queryRows<{ value: string }>(
 			db,
 			`SELECT value FROM factory_settings WHERE key = 'soul_template:product_manager'`,
@@ -211,7 +203,8 @@ describe("X3 AC-2: soul prompt templates seeded from docs/souls/ into factorySet
 		expect(content).toMatch(/#|You are|Product Manager|PM/i);
 	});
 
-	it("seed is idempotent — running twice does not duplicate templates", async () => {
+	test("seed is idempotent — running twice does not duplicate templates", async ({ db }) => {
+		await seed(db);
 		await seed(db); // second run
 
 		const rows = await queryRows<{ count: string }>(
@@ -224,7 +217,9 @@ describe("X3 AC-2: soul prompt templates seeded from docs/souls/ into factorySet
 	});
 
 	// AB0: builder and growth now have templates (docs/souls/builder.md, docs/souls/growth.md added)
-	it("soul_template:builder entry exists (AB0 added docs/souls/builder.md)", async () => {
+	test("soul_template:builder entry exists (AB0 added docs/souls/builder.md)", async ({ db }) => {
+		await seed(db);
+
 		const rows = await queryRows<{ key: string }>(
 			db,
 			`SELECT key FROM factory_settings WHERE key = 'soul_template:builder'`,
@@ -232,7 +227,9 @@ describe("X3 AC-2: soul prompt templates seeded from docs/souls/ into factorySet
 		expect(rows).toHaveLength(1);
 	});
 
-	it("soul_template:growth entry exists (AB0 added docs/souls/growth.md)", async () => {
+	test("soul_template:growth entry exists (AB0 added docs/souls/growth.md)", async ({ db }) => {
+		await seed(db);
+
 		const rows = await queryRows<{ key: string }>(
 			db,
 			`SELECT key FROM factory_settings WHERE key = 'soul_template:growth'`,
@@ -246,20 +243,9 @@ describe("X3 AC-2: soul prompt templates seeded from docs/souls/ into factorySet
 // ---------------------------------------------------------------------------
 
 describe("X3 AC-3: existing agents backfilled with soulPrompt from role template", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
+	test("seed-agent-pm-nimmly has soulPrompt matching product_manager template", async ({ db }) => {
 		await seed(db);
-	}, 30_000);
 
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	it("seed-agent-pm-nimmly has soulPrompt matching product_manager template", async () => {
 		const agentRows = await queryRows<{ soulPrompt: string | null }>(
 			db,
 			`SELECT soul_prompt AS "soulPrompt" FROM users WHERE id = 'seed-agent-pm-nimmly'`,
@@ -273,7 +259,9 @@ describe("X3 AC-3: existing agents backfilled with soulPrompt from role template
 		expect(agentRows[0]?.soulPrompt).toBe(templateRows[0]?.value);
 	});
 
-	it("seed-agent-cos has soulPrompt matching chief_of_staff template", async () => {
+	test("seed-agent-cos has soulPrompt matching chief_of_staff template", async ({ db }) => {
+		await seed(db);
+
 		const agentRows = await queryRows<{ soulPrompt: string | null }>(
 			db,
 			`SELECT soul_prompt AS "soulPrompt" FROM users WHERE id = 'seed-agent-cos'`,
@@ -287,7 +275,11 @@ describe("X3 AC-3: existing agents backfilled with soulPrompt from role template
 		expect(agentRows[0]?.soulPrompt).toBe(templateRows[0]?.value);
 	});
 
-	it("practice_facilitator agents have soulPrompt matching practice_facilitator template", async () => {
+	test("practice_facilitator agents have soulPrompt matching practice_facilitator template", async ({
+		db,
+	}) => {
+		await seed(db);
+
 		const agentRows = await queryRows<{ id: string; soulPrompt: string | null }>(
 			db,
 			`SELECT id, soul_prompt AS "soulPrompt" FROM users WHERE role = 'practice_facilitator'`,
@@ -305,7 +297,9 @@ describe("X3 AC-3: existing agents backfilled with soulPrompt from role template
 	});
 
 	// AB0: builder now has a template (docs/souls/builder.md added)
-	it("seed-agent-builder has soulPrompt matching builder template", async () => {
+	test("seed-agent-builder has soulPrompt matching builder template", async ({ db }) => {
+		await seed(db);
+
 		const agentRows = await queryRows<{ soulPrompt: string | null }>(
 			db,
 			`SELECT soul_prompt AS "soulPrompt" FROM users WHERE id = 'seed-agent-builder'`,
@@ -319,7 +313,9 @@ describe("X3 AC-3: existing agents backfilled with soulPrompt from role template
 		expect(agentRows[0]?.soulPrompt).toBe(templateRows[0]?.value);
 	});
 
-	it("system:propagation has null soulPrompt (system role, no template)", async () => {
+	test("system:propagation has null soulPrompt (system role, no template)", async ({ db }) => {
+		await seed(db);
+
 		const rows = await queryRows<{ soulPrompt: string | null }>(
 			db,
 			`SELECT soul_prompt AS "soulPrompt" FROM users WHERE id = 'system:propagation'`,

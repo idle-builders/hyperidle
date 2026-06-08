@@ -13,17 +13,13 @@
 
 import {
 	bets,
-	createTestDb,
-	type HyperIdleDb,
 	tasks,
 	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { beforeEach, afterEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-products";
 
@@ -35,35 +31,19 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	};
 }
 
-interface AppCtx {
-	app: Hono;
-	db: HyperIdleDb;
-}
-
-async function setupApp(): Promise<AppCtx> {
-	const handle = await createTestDb();
-	const db = handle.db;
-	const eventBus = new EventBus();
-	const app = await createTestApp({ db, eventBus });
-	return { app, db };
-}
-
 const NOW = new Date().toISOString();
 
 describe("GET /api/teams", () => {
-	let ctx: AppCtx;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = await setupApp();
 	});
 
 	afterEach(() => {
 		vi.unstubAllEnvs();
 	});
 
-	it("returns { teams: [] } when the table is empty", async () => {
-		const res = await ctx.app.request("/api/teams", {
+	test("returns { teams: [] } when the table is empty", async ({ app }) => {
+		const res = await app.request("/api/teams", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -75,9 +55,7 @@ describe("GET /api/teams", () => {
 		expect((body.teams as unknown[]).length).toBe(0);
 	});
 
-	it("returns one row with derived activeBets, shipped, shipRate for a seeded product+team+bet+task fixture", async () => {
-		const { db } = ctx;
-
+	test("returns one row with derived activeBets, shipped, shipRate for a seeded product+team+bet+task fixture", async ({ db, app }) => {
 		await db
 			.insert(teams)
 			.values({ id: "p1", name: "HyperIdle Core", phase: "build", createdAt: NOW });
@@ -105,7 +83,7 @@ describe("GET /api/teams", () => {
 			completedAt: NOW,
 		});
 
-		const res = await ctx.app.request("/api/teams", {
+		const res = await app.request("/api/teams", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -132,19 +110,16 @@ describe("GET /api/teams", () => {
 });
 
 describe("GET /api/teams/:id", () => {
-	let ctx: AppCtx;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = await setupApp();
 	});
 
 	afterEach(() => {
 		vi.unstubAllEnvs();
 	});
 
-	it("returns 404 for an unknown id", async () => {
-		const res = await ctx.app.request("/api/teams/does-not-exist", {
+	test("returns 404 for an unknown id", async ({ app }) => {
+		const res = await app.request("/api/teams/does-not-exist", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -152,14 +127,12 @@ describe("GET /api/teams/:id", () => {
 		expect(res.status).toBe(404);
 	});
 
-	it("returns 500 with code 'team_missing' when the team for a product is absent", async () => {
-		const { db } = ctx;
-
+	test("returns 500 with code 'team_missing' when the team for a product is absent", async ({ db, app }) => {
 		await db
 			.insert(teams)
 			.values({ id: "p-no-team", name: "Orphan Product", phase: "build", createdAt: NOW });
 
-		const res = await ctx.app.request("/api/teams/p-no-team", {
+		const res = await app.request("/api/teams/p-no-team", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -170,9 +143,7 @@ describe("GET /api/teams/:id", () => {
 		expect(body.code).toBe("team_members_missing");
 	});
 
-	it("returns populated ProductDetail for a seeded product+team+roster+bets", async () => {
-		const { db } = ctx;
-
+	test("returns populated ProductDetail for a seeded product+team+roster+bets", async ({ db, app }) => {
 		await db
 			.insert(teams)
 			.values({ id: "p1", name: "HyperIdle Core", phase: "build", createdAt: NOW });
@@ -257,7 +228,7 @@ describe("GET /api/teams/:id", () => {
 		// Update the team to reference lead agent
 		// (teams.leadAgentId is set separately)
 
-		const res = await ctx.app.request("/api/teams/p1", {
+		const res = await app.request("/api/teams/p1", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -312,9 +283,7 @@ describe("GET /api/teams/:id", () => {
 		expect(body.burn.costActual?.currency).toBe("USD");
 	});
 
-	it("returns activeBets: [] for a product whose bets are all shipped", async () => {
-		const { db } = ctx;
-
+	test("returns activeBets: [] for a product whose bets are all shipped", async ({ db, app }) => {
 		await db
 			.insert(teams)
 			.values({ id: "p2", name: "Shipped Product", phase: "cool-down", createdAt: NOW });
@@ -333,7 +302,7 @@ describe("GET /api/teams/:id", () => {
 			completedAt: NOW,
 		});
 
-		const res = await ctx.app.request("/api/teams/p2", {
+		const res = await app.request("/api/teams/p2", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -343,9 +312,7 @@ describe("GET /api/teams/:id", () => {
 		expect(body.activeBets).toEqual([]);
 	});
 
-	it("returns burn.costCap: null when teams.cost_cap is null", async () => {
-		const { db } = ctx;
-
+	test("returns burn.costCap: null when teams.cost_cap is null", async ({ db, app }) => {
 		await db
 			.insert(teams)
 			.values({ id: "p3", name: "No Cap Product", phase: "shape", createdAt: NOW });
@@ -359,7 +326,7 @@ describe("GET /api/teams/:id", () => {
 			// costCap not set — null
 		});
 
-		const res = await ctx.app.request("/api/teams/p3", {
+		const res = await app.request("/api/teams/p3", {
 			method: "GET",
 			headers: authHeaders(),
 		});

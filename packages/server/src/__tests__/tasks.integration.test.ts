@@ -1,16 +1,13 @@
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	tasks,
 	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-tasks";
 
@@ -19,19 +16,15 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("Task Endpoints (E3)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
+	});
 
-		// Seed product, team, and a bet
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		const now = new Date().toISOString();
 		await db
 			.insert(teams)
@@ -66,14 +59,9 @@ describe("Task Endpoints (E3)", () => {
 			status: "active",
 			createdAt: now,
 		});
-	});
+	}
 
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle?.close();
-	});
-
-	async function seedTask(id: string, overrides?: Record<string, unknown>): Promise<void> {
+	async function seedTask(db: HyperIdleDb, id: string, overrides?: Record<string, unknown>): Promise<void> {
 		const now = new Date().toISOString();
 		await db.insert(tasks).values({
 			id,
@@ -89,9 +77,10 @@ describe("Task Endpoints (E3)", () => {
 
 	// AC8: GET /api/tasks — list, filterable by bet_id, state, owner
 	describe("AC8: GET /api/tasks — list with filters", () => {
-		it("returns all tasks", async () => {
-			await seedTask("t1");
-			await seedTask("t2");
+		test("returns all tasks", async ({ db, app }) => {
+			await seedPrereqs(db);
+			await seedTask(db, "t1");
+			await seedTask(db, "t2");
 
 			const res = await app.request("/api/tasks", { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -99,8 +88,9 @@ describe("Task Endpoints (E3)", () => {
 			expect(body).toHaveLength(2);
 		});
 
-		it("filters by bet_id", async () => {
-			await seedTask("t1");
+		test("filters by bet_id", async ({ db, app }) => {
+			await seedPrereqs(db);
+			await seedTask(db, "t1");
 			// Create another bet and task
 			await db.insert(bets).values({
 				id: "bet-2",
@@ -111,7 +101,7 @@ describe("Task Endpoints (E3)", () => {
 				createdAt: new Date().toISOString(),
 			});
 
-			seedTask("t2", { betId: "bet-2" });
+			seedTask(db, "t2", { betId: "bet-2" });
 
 			const res = await app.request("/api/tasks?bet_id=bet-1", { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -119,9 +109,10 @@ describe("Task Endpoints (E3)", () => {
 			expect(body).toHaveLength(1);
 		});
 
-		it("filters by state", async () => {
-			await seedTask("t1", { state: "proposed" });
-			await seedTask("t2", { state: "in_progress" });
+		test("filters by state", async ({ db, app }) => {
+			await seedPrereqs(db);
+			await seedTask(db, "t1", { state: "proposed" });
+			await seedTask(db, "t2", { state: "in_progress" });
 
 			const res = await app.request("/api/tasks?state=in_progress", { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -129,9 +120,10 @@ describe("Task Endpoints (E3)", () => {
 			expect(body).toHaveLength(1);
 		});
 
-		it("filters by owner", async () => {
-			await seedTask("t1", { ownerAgentId: "agent-1" });
-			await seedTask("t2", { ownerAgentId: "agent-2" });
+		test("filters by owner", async ({ db, app }) => {
+			await seedPrereqs(db);
+			await seedTask(db, "t1", { ownerAgentId: "agent-1" });
+			await seedTask(db, "t2", { ownerAgentId: "agent-2" });
 
 			const res = await app.request("/api/tasks?owner=agent-1", { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -139,7 +131,8 @@ describe("Task Endpoints (E3)", () => {
 			expect(body).toHaveLength(1);
 		});
 
-		it("returns empty array when no tasks match", async () => {
+		test("returns empty array when no tasks match", async ({ db, app }) => {
+			await seedPrereqs(db);
 			const res = await app.request("/api/tasks?state=done", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as unknown[];
@@ -149,8 +142,9 @@ describe("Task Endpoints (E3)", () => {
 
 	// AC9: PATCH /api/tasks/:id — update
 	describe("AC9: PATCH /api/tasks/:id — update fields", () => {
-		it("updates task title", async () => {
-			await seedTask("t1");
+		test("updates task title", async ({ db, app }) => {
+			await seedPrereqs(db);
+			await seedTask(db, "t1");
 
 			const res = await app.request("/api/tasks/t1", {
 				method: "PATCH",
@@ -163,8 +157,9 @@ describe("Task Endpoints (E3)", () => {
 			expect(body.title).toBe("Updated title");
 		});
 
-		it("updates multiple fields at once", async () => {
-			await seedTask("t1");
+		test("updates multiple fields at once", async ({ db, app }) => {
+			await seedPrereqs(db);
+			await seedTask(db, "t1");
 
 			const res = await app.request("/api/tasks/t1", {
 				method: "PATCH",
@@ -178,7 +173,8 @@ describe("Task Endpoints (E3)", () => {
 			expect(body.description).toBe("New desc");
 		});
 
-		it("returns 404 for non-existent task", async () => {
+		test("returns 404 for non-existent task", async ({ db, app }) => {
+			await seedPrereqs(db);
 			const res = await app.request("/api/tasks/nonexistent", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -190,8 +186,9 @@ describe("Task Endpoints (E3)", () => {
 
 	// AC10: POST /api/tasks/:id/transition — state transition (validates)
 	describe("AC10: POST /api/tasks/:id/transition — state transition", () => {
-		it("transitions proposed→accepted", async () => {
-			await seedTask("t1", { state: "proposed" });
+		test("transitions proposed→accepted", async ({ db, app }) => {
+			await seedPrereqs(db);
+			await seedTask(db, "t1", { state: "proposed" });
 
 			const res = await app.request("/api/tasks/t1/transition", {
 				method: "POST",
@@ -204,8 +201,9 @@ describe("Task Endpoints (E3)", () => {
 			expect(body.state).toBe("accepted");
 		});
 
-		it("emits task_state_changed event", async () => {
-			await seedTask("t1", { state: "proposed" });
+		test("emits task_state_changed event", async ({ db, app, eventBus }) => {
+			await seedPrereqs(db);
+			await seedTask(db, "t1", { state: "proposed" });
 			const events: unknown[] = [];
 			eventBus.on("task_state_changed", (e) => events.push(e));
 
@@ -218,8 +216,9 @@ describe("Task Endpoints (E3)", () => {
 			expect(events.length).toBe(1);
 		});
 
-		it("rejects invalid transition (409)", async () => {
-			await seedTask("t1", { state: "proposed" });
+		test("rejects invalid transition (409)", async ({ db, app }) => {
+			await seedPrereqs(db);
+			await seedTask(db, "t1", { state: "proposed" });
 
 			const res = await app.request("/api/tasks/t1/transition", {
 				method: "POST",
@@ -232,7 +231,8 @@ describe("Task Endpoints (E3)", () => {
 			expect(res.status).toBe(409);
 		});
 
-		it("returns 404 for non-existent task", async () => {
+		test("returns 404 for non-existent task", async ({ db, app }) => {
+			await seedPrereqs(db);
 			const res = await app.request("/api/tasks/nonexistent/transition", {
 				method: "POST",
 				headers: authHeaders(),
@@ -241,8 +241,9 @@ describe("Task Endpoints (E3)", () => {
 			expect(res.status).toBe(404);
 		});
 
-		it("returns 400 for missing state in body", async () => {
-			await seedTask("t1");
+		test("returns 400 for missing state in body", async ({ db, app }) => {
+			await seedPrereqs(db);
+			await seedTask(db, "t1");
 
 			const res = await app.request("/api/tasks/t1/transition", {
 				method: "POST",

@@ -1,6 +1,5 @@
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { HyperIdleDb } from "../connection.js";
 import {
 	bets,
 	factorySettings,
@@ -19,24 +18,11 @@ import {
 	userSkills,
 	users,
 } from "../schema.js";
-import { createTestDb, type TestDbHandle } from "../test-utils.js";
 
 describe("A2: Database Schema", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	}, 30_000);
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
 	// --- AC1: Migrations apply to fresh PGlite without errors ---
 	describe("AC1: migrations apply correctly", () => {
-		it("creates all current tables", async () => {
+		test("creates all current tables", async ({ db }) => {
 			// L1a: `responses` table dropped (plan §5.2). Verdicts now project
 			// as `verdict`-typed messages. Knowledge_conflicts and
 			// notification_queue were added in earlier migrations.
@@ -77,7 +63,7 @@ describe("A2: Database Schema", () => {
 	// --- AC2: All tables insert/read/update correctly with full type safety ---
 	describe("AC2: CRUD operations", () => {
 		// @lore U1: `products` renamed to `teams`.
-		it("inserts and reads teams (formerly products)", async () => {
+		test("inserts and reads teams (formerly products)", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({
 				id: "prod-1",
@@ -95,7 +81,7 @@ describe("A2: Database Schema", () => {
 			});
 		});
 
-		it("inserts and reads users (AI kind)", async () => {
+		test("inserts and reads users (AI kind)", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(users).values({
 				id: "agent-1",
@@ -120,7 +106,7 @@ describe("A2: Database Schema", () => {
 		});
 
 		// @lore U1: old `teams` (agent membership) renamed to `teamMembers`.
-		it("inserts and reads teamMembers (formerly teams)", async () => {
+		test("inserts and reads teamMembers (formerly teams)", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db
 				.insert(teams)
@@ -144,7 +130,7 @@ describe("A2: Database Schema", () => {
 		});
 
 		// @lore U1: bets.productId/pitch/status simplified; teamId now refs `teams` (formerly products).
-		it("inserts and reads bets", async () => {
+		test("inserts and reads bets", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db
 				.insert(teams)
@@ -169,7 +155,7 @@ describe("A2: Database Schema", () => {
 		});
 
 		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
-		it("inserts and reads tasks", async () => {
+		test("inserts and reads tasks", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db
 				.insert(teams)
@@ -202,7 +188,7 @@ describe("A2: Database Schema", () => {
 		});
 
 		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
-		it("updates tasks correctly", async () => {
+		test("updates tasks correctly", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db
 				.insert(teams)
@@ -235,7 +221,7 @@ describe("A2: Database Schema", () => {
 		});
 
 		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
-		it("inserts and reads sessions", async () => {
+		test("inserts and reads sessions", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db
 				.insert(teams)
@@ -285,7 +271,7 @@ describe("A2: Database Schema", () => {
 			});
 		});
 
-		it("inserts and reads routines", async () => {
+		test("inserts and reads routines", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db
 				.insert(teams)
@@ -319,7 +305,7 @@ describe("A2: Database Schema", () => {
 			});
 		});
 
-		it("inserts and reads threads and messages", async () => {
+		test("inserts and reads threads and messages", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(users).values([
 				{
@@ -372,7 +358,7 @@ describe("A2: Database Schema", () => {
 			expect(payload.text).toBe("Hello");
 		});
 
-		it("inserts and reads items and verdict messages", async () => {
+		test("inserts and reads items and verdict messages", async ({ db }) => {
 			// L1a: legacy `responses` table was dropped; verdict messages
 			// (type='verdict', legacy_item_id) replace it (plan §5.2).
 			const now = new Date().toISOString();
@@ -435,7 +421,7 @@ describe("A2: Database Schema", () => {
 			expect(verdict.decision).toBe("approve");
 		});
 
-		it("inserts and reads user_skills", async () => {
+		test("inserts and reads user_skills", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(users).values({
 				id: "agent-1",
@@ -463,7 +449,7 @@ describe("A2: Database Schema", () => {
 			});
 		});
 
-		it("inserts and reads knowledge_items", async () => {
+		test("inserts and reads knowledge_items", async ({ db }) => {
 			// @lore O2: layer, kind stripped from kernel table; use knowledgeStrategyFabric.
 			const now = new Date().toISOString();
 			await db.insert(knowledgeItems).values({
@@ -486,7 +472,7 @@ describe("A2: Database Schema", () => {
 			});
 		});
 
-		it("updates knowledge_items version", async () => {
+		test("updates knowledge_items version", async ({ db }) => {
 			// @lore O2: layer, kind stripped from kernel table.
 			const now = new Date().toISOString();
 			await db.insert(knowledgeItems).values({
@@ -511,7 +497,7 @@ describe("A2: Database Schema", () => {
 			expect(result[0]?.version).toBe(2);
 		});
 
-		it("inserts and reads knowledge_edit_log", async () => {
+		test("inserts and reads knowledge_edit_log", async ({ db }) => {
 			// @lore O2: layer, kind stripped from kernel table.
 			const now = new Date().toISOString();
 			await db.insert(knowledgeItems).values({
@@ -547,7 +533,7 @@ describe("A2: Database Schema", () => {
 			});
 		});
 
-		it("inserts and reads factory_settings", async () => {
+		test("inserts and reads factory_settings", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(factorySettings).values({ key: "cost_cap", value: "1000", updatedAt: now });
 
@@ -562,7 +548,7 @@ describe("A2: Database Schema", () => {
 
 	// --- AC3: knowledge_items kernel indexes exist; strategy indexes on extension table ---
 	describe("AC3: knowledge_items indexes", () => {
-		it("has indexes on topic, status (kernel table)", async () => {
+		test("has indexes on topic, status (kernel table)", async ({ db }) => {
 			// @lore O2: layer, scope_id, kind indexes removed from kernel table.
 			// They now live on knowledge_strategy_fabric.
 			const result = await db.execute(
@@ -578,7 +564,7 @@ describe("A2: Database Schema", () => {
 			expect(indexes.length).toBeGreaterThanOrEqual(3);
 		});
 
-		it("knowledge_strategy_fabric has index on knowledge_item_id", async () => {
+		test("knowledge_strategy_fabric has index on knowledge_item_id", async ({ db }) => {
 			// @lore O2: strategy-layer indexes live on the extension table.
 			const result = await db.execute(
 				`SELECT indexname FROM pg_indexes WHERE tablename = 'knowledge_strategy_fabric' AND schemaname = 'public'` as Parameters<
@@ -596,7 +582,7 @@ describe("A2: Database Schema", () => {
 	// --- AC6: Foreign key constraints enforced ---
 	describe("AC6: foreign key constraints", () => {
 		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
-		it("rejects task with invalid bet_id", async () => {
+		test("rejects task with invalid bet_id", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "P", phase: "build", createdAt: now });
 
@@ -614,7 +600,7 @@ describe("A2: Database Schema", () => {
 		});
 
 		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
-		it("rejects session with invalid agent_id", async () => {
+		test("rejects session with invalid agent_id", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "P", phase: "build", createdAt: now });
 			await db.insert(bets).values({
@@ -647,7 +633,9 @@ describe("A2: Database Schema", () => {
 			).rejects.toThrow();
 		});
 
-		it("rejects verdict message with invalid sender_id (replaces legacy responses FK contract)", async () => {
+		test("rejects verdict message with invalid sender_id (replaces legacy responses FK contract)", async ({
+			db,
+		}) => {
 			// L1a: legacy `responses.item_id` FK no longer exists — `responses`
 			// table dropped (plan §5.2). Replacement contract: verdict-typed
 			// messages set sender_id=approver; messages.sender_id FK to
@@ -675,7 +663,7 @@ describe("A2: Database Schema", () => {
 			).rejects.toThrow();
 		});
 
-		it("rejects knowledge_edit_log with invalid item_id", async () => {
+		test("rejects knowledge_edit_log with invalid item_id", async ({ db }) => {
 			const now = new Date().toISOString();
 			await expect(
 				db.insert(knowledgeEditLog).values({

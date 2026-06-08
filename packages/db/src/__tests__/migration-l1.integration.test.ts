@@ -16,9 +16,8 @@
  * SQLite. PRAGMA-based introspection replaced with information_schema queries.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { HyperIdleDb } from "../connection.js";
-import { createTestDb, type TestDbHandle } from "../test-utils.js";
 
 async function columnsOf(db: HyperIdleDb, table: string): Promise<string[]> {
 	const result = await db.execute(
@@ -39,19 +38,9 @@ async function indexNamesOf(db: HyperIdleDb, table: string): Promise<string[]> {
 }
 
 describe("L1a migration — schema shape", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	}, 30_000);
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	it("threads has host_kind, host_id, initiator_id, resolved_at, last_active_at columns", async () => {
+	test("threads has host_kind, host_id, initiator_id, resolved_at, last_active_at columns", async ({
+		db,
+	}) => {
 		const cols = await columnsOf(db, "threads");
 		expect(cols).toContain("host_kind");
 		expect(cols).toContain("host_id");
@@ -60,12 +49,14 @@ describe("L1a migration — schema shape", () => {
 		expect(cols).toContain("last_active_at");
 	});
 
-	it("threads no longer has kind column (dropped per §5.2)", async () => {
+	test("threads no longer has kind column (dropped per §5.2)", async ({ db }) => {
 		const cols = await columnsOf(db, "threads");
 		expect(cols).not.toContain("kind");
 	});
 
-	it("messages has type, payload, client_key, deleted_at, redacted_at, resolved_at, legacy_item_id", async () => {
+	test("messages has type, payload, client_key, deleted_at, redacted_at, resolved_at, legacy_item_id", async ({
+		db,
+	}) => {
 		const cols = await columnsOf(db, "messages");
 		expect(cols).toContain("type");
 		expect(cols).toContain("payload");
@@ -76,7 +67,7 @@ describe("L1a migration — schema shape", () => {
 		expect(cols).toContain("legacy_item_id");
 	});
 
-	it("messages drops recipient_id, subject, body, file_leases (§5.2)", async () => {
+	test("messages drops recipient_id, subject, body, file_leases (§5.2)", async ({ db }) => {
 		const cols = await columnsOf(db, "messages");
 		expect(cols).not.toContain("recipient_id");
 		expect(cols).not.toContain("subject");
@@ -84,7 +75,9 @@ describe("L1a migration — schema shape", () => {
 		expect(cols).not.toContain("file_leases");
 	});
 
-	it("type, payload, client_key, host_kind, host_id, initiator_id, last_active_at end up NOT NULL", async () => {
+	test("type, payload, client_key, host_kind, host_id, initiator_id, last_active_at end up NOT NULL", async ({
+		db,
+	}) => {
 		const checkNotNull = async (table: string, column: string): Promise<void> => {
 			const result = await db.execute(
 				`SELECT is_nullable FROM information_schema.columns WHERE table_name = '${table}' AND column_name = '${column}' AND table_schema = 'public'` as Parameters<
@@ -105,7 +98,7 @@ describe("L1a migration — schema shape", () => {
 		await checkNotNull("threads", "last_active_at");
 	});
 
-	it("legacy_item_id stays nullable (post-migration rows have NULL)", async () => {
+	test("legacy_item_id stays nullable (post-migration rows have NULL)", async ({ db }) => {
 		const result = await db.execute(
 			`SELECT is_nullable FROM information_schema.columns WHERE table_name = 'messages' AND column_name = 'legacy_item_id' AND table_schema = 'public'` as Parameters<
 				typeof db.execute
@@ -115,19 +108,21 @@ describe("L1a migration — schema shape", () => {
 		expect(rows[0]?.is_nullable).toBe("YES");
 	});
 
-	it("threads_host_idx covers (host_kind, host_id, last_active_at)", async () => {
+	test("threads_host_idx covers (host_kind, host_id, last_active_at)", async ({ db }) => {
 		const idxs = await indexNamesOf(db, "threads");
 		expect(idxs).toContain("threads_host_idx");
 	});
 
-	it("messages indexes: messages_thread_id_idx, messages_idempotency_uq, messages_unresolved_idx", async () => {
+	test("messages indexes: messages_thread_id_idx, messages_idempotency_uq, messages_unresolved_idx", async ({
+		db,
+	}) => {
 		const idxs = await indexNamesOf(db, "messages");
 		expect(idxs).toContain("messages_thread_id_idx");
 		expect(idxs).toContain("messages_idempotency_uq");
 		expect(idxs).toContain("messages_unresolved_idx");
 	});
 
-	it("(thread_id, sender_id, client_key) is a UNIQUE index on messages", async () => {
+	test("(thread_id, sender_id, client_key) is a UNIQUE index on messages", async ({ db }) => {
 		const result = await db.execute(
 			`SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'messages' AND indexname = 'messages_idempotency_uq' AND schemaname = 'public'` as Parameters<
 				typeof db.execute
@@ -143,7 +138,7 @@ describe("L1a migration — schema shape", () => {
 		expect(def).toContain("client_key");
 	});
 
-	it("the legacy `responses` table is dropped", async () => {
+	test("the legacy `responses` table is dropped", async ({ db }) => {
 		const result = await db.execute(
 			`SELECT tablename FROM pg_tables WHERE schemaname = 'public'` as Parameters<
 				typeof db.execute
@@ -155,19 +150,7 @@ describe("L1a migration — schema shape", () => {
 });
 
 describe("L1a migration — legacy data projection (§5.3)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	}, 30_000);
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	it("plain message round-trips with type='plain'", async () => {
+	test("plain message round-trips with type='plain'", async ({ db }) => {
 		// Smoke: insert a bare message via the post-migration schema and
 		// assert it round-trips with type='plain'.
 		const now = new Date().toISOString();
@@ -203,7 +186,9 @@ describe("L1a migration — legacy data projection (§5.3)", () => {
 		expect(parsed.text).toContain("body");
 	});
 
-	it("verdict-typed messages can be inserted with payload.resolvesMessageId pointing at a review id", async () => {
+	test("verdict-typed messages can be inserted with payload.resolvesMessageId pointing at a review id", async ({
+		db,
+	}) => {
 		// Smoke: post-migration schema accepts the verdict-message shape.
 		const now = new Date().toISOString();
 		await db.execute(
@@ -254,7 +239,9 @@ describe("L1a migration — legacy data projection (§5.3)", () => {
 		expect(p.resolvesMessageId).toBe("m-rev");
 	});
 
-	it("idempotency UNIQUE constraint rejects duplicate (thread_id, sender_id, client_key)", async () => {
+	test("idempotency UNIQUE constraint rejects duplicate (thread_id, sender_id, client_key)", async ({
+		db,
+	}) => {
 		const now = new Date().toISOString();
 		await db.execute(
 			`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('thr-i', 'user', 'u1', 'u1', '["u1"]', '${now}', '${now}')` as Parameters<
@@ -282,12 +269,7 @@ describe("L1a migration — legacy data projection (§5.3)", () => {
 });
 
 describe("L1a — host immutability (PG constraint check)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
+	test("UPDATE that changes host_kind raises (immutability trigger)", async ({ db }) => {
 		const now = new Date().toISOString();
 		await db.execute(
 			`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('u1', 'human', 'U', 'founder', 'active', '${now}')` as Parameters<
@@ -299,13 +281,7 @@ describe("L1a — host immutability (PG constraint check)", () => {
 				typeof db.execute
 			>[0],
 		);
-	}, 30_000);
 
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	it("UPDATE that changes host_kind raises (immutability trigger)", async () => {
 		await expect(
 			db.execute(
 				`UPDATE threads SET host_kind='bet' WHERE id='thr-im'` as Parameters<typeof db.execute>[0],
@@ -313,7 +289,19 @@ describe("L1a — host immutability (PG constraint check)", () => {
 		).rejects.toThrow(/immutable/i);
 	});
 
-	it("UPDATE that changes host_id raises (immutability trigger)", async () => {
+	test("UPDATE that changes host_id raises (immutability trigger)", async ({ db }) => {
+		const now = new Date().toISOString();
+		await db.execute(
+			`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('u1', 'human', 'U', 'founder', 'active', '${now}')` as Parameters<
+				typeof db.execute
+			>[0],
+		);
+		await db.execute(
+			`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('thr-im', 'task', 'task-1', 'u1', '["u1"]', '${now}', '${now}')` as Parameters<
+				typeof db.execute
+			>[0],
+		);
+
 		await expect(
 			db.execute(
 				`UPDATE threads SET host_id='task-99' WHERE id='thr-im'` as Parameters<
@@ -323,7 +311,19 @@ describe("L1a — host immutability (PG constraint check)", () => {
 		).rejects.toThrow(/immutable/i);
 	});
 
-	it("UPDATE of unrelated columns (resolved_at, last_active_at) succeeds", async () => {
+	test("UPDATE of unrelated columns (resolved_at, last_active_at) succeeds", async ({ db }) => {
+		const now = new Date().toISOString();
+		await db.execute(
+			`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('u1', 'human', 'U', 'founder', 'active', '${now}')` as Parameters<
+				typeof db.execute
+			>[0],
+		);
+		await db.execute(
+			`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('thr-im', 'task', 'task-1', 'u1', '["u1"]', '${now}', '${now}')` as Parameters<
+				typeof db.execute
+			>[0],
+		);
+
 		const later = new Date(Date.now() + 1000).toISOString();
 		// Should NOT raise — only host_kind and host_id are immutable.
 		await db.execute(
@@ -342,7 +342,7 @@ describe("L1a — host immutability (PG constraint check)", () => {
 describe("L1a migration — Postgres parity (skipped when no PG env)", () => {
 	const HAS_PG = Boolean(process.env.HYPERIDLE_PG_TEST_URL);
 
-	it.skipIf(!HAS_PG)(
+	test.skipIf(!HAS_PG)(
 		"the same migration applies cleanly against Postgres (dual-driver invariant)",
 		async () => {
 			// The actual cross-driver runner is `pg-test-runner.ts` in the db

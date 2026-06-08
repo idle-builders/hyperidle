@@ -1,12 +1,10 @@
 import {
 	bets,
-	createTestDb,
 	factorySettings,
 	type HyperIdleDb,
 	items,
 	routines,
 	sessions,
-	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
@@ -22,9 +20,8 @@ import {
 	registerEventTriggers,
 	startRoutineScheduler,
 } from "@hyperidle/fabric";
-import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
 
 async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
@@ -92,23 +89,12 @@ async function getRoutine(db: HyperIdleDb, id: string) {
 }
 
 describe("Routine Scheduler", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		await seedBase(db);
-	});
-
-	afterEach(async () => {
+	afterEach(() => {
 		vi.restoreAllMocks();
 	});
 
 	describe("parseCron", () => {
-		it("parses 5-field cron expression", () => {
+		test("parses 5-field cron expression", () => {
 			const parsed = parseCron("0 9 * * MON");
 			expect(parsed).toBeDefined();
 			expect(parsed.minute).toEqual([0]);
@@ -118,13 +104,13 @@ describe("Routine Scheduler", () => {
 			expect(parsed.dayOfWeek).toEqual([1]);
 		});
 
-		it("throws on invalid cron expression", () => {
+		test("throws on invalid cron expression", () => {
 			expect(() => parseCron("invalid")).toThrow();
 		});
 	});
 
 	describe("nextCronMatch", () => {
-		it("computes next Monday 9:00 from a Sunday", () => {
+		test("computes next Monday 9:00 from a Sunday", () => {
 			const from = new Date("2026-04-12T10:00:00Z");
 			const next = nextCronMatch(parseCron("0 9 * * MON"), from);
 			expect(next.getUTCDay()).toBe(1);
@@ -137,7 +123,7 @@ describe("Routine Scheduler", () => {
 		// Portfolio Retro cron ("0 10 1-7 * MON"). Over 12 iterated matches we
 		// must land on dayOfMonth<=7 AND dayOfWeek===Monday every time — if
 		// the matcher ever flips to POSIX-OR semantics, this test fails.
-		it("first-Monday cron (0 10 1-7 * MON) hits dayOfMonth<=7 AND Monday over a 12-month window", () => {
+		test("first-Monday cron (0 10 1-7 * MON) hits dayOfMonth<=7 AND Monday over a 12-month window", () => {
 			const cron = parseCron("0 10 1-7 * MON");
 			let cursor = new Date("2026-01-01T00:00:00Z");
 			const end = new Date("2027-01-01T00:00:00Z");
@@ -167,7 +153,11 @@ describe("Routine Scheduler", () => {
 
 	// AC1: Heartbeat routine fires within 60-90s of last run
 	describe("AC1: Heartbeat routine fires within interval", () => {
-		it("fires heartbeat routine and sets next_run_at = now + interval", async () => {
+		test("fires heartbeat routine and sets next_run_at = now + interval", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedBase(db);
 			const now = new Date();
 			const pastDue = new Date(now.getTime() - 5000).toISOString();
 
@@ -203,7 +193,11 @@ describe("Routine Scheduler", () => {
 
 	// AC2: Calendar routine with cron fires at correct time
 	describe("AC2: Calendar routine fires at correct cron time", () => {
-		it("fires calendar routine and sets next_run_at to next cron match", async () => {
+		test("fires calendar routine and sets next_run_at to next cron match", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedBase(db);
 			const now = new Date();
 			const pastDue = new Date(now.getTime() - 5000).toISOString();
 
@@ -234,7 +228,8 @@ describe("Routine Scheduler", () => {
 
 	// AC3: Event-triggered routine fires when event emitted
 	describe("AC3: Event-triggered routine fires on event", () => {
-		it("fires when configured event is emitted", async () => {
+		test("fires when configured event is emitted", async ({ db, eventBus }) => {
+			await seedBase(db);
 			await db.insert(routines).values({
 				id: "r-event",
 				name: "Event routine",
@@ -275,7 +270,8 @@ describe("Routine Scheduler", () => {
 
 	// AC4: Delegation when owner at WIP limit
 	describe("AC4: Delegation to teammate", () => {
-		it("delegates to teammate when owner at WIP limit", async () => {
+		test("delegates to teammate when owner at WIP limit", async ({ db, eventBus }) => {
+			await seedBase(db);
 			const now = new Date();
 
 			// Put agent-1 at WIP limit (maxConcurrentSessions=2)
@@ -329,7 +325,8 @@ describe("Routine Scheduler", () => {
 
 	// AC5: Factory cost cap reached -> routine does NOT fire
 	describe("AC5: Factory cost cap blocks firing", () => {
-		it("skips firing when factory cost cap is reached", async () => {
+		test("skips firing when factory cost cap is reached", async ({ db, eventBus }) => {
+			await seedBase(db);
 			const now = new Date();
 
 			await db
@@ -370,7 +367,8 @@ describe("Routine Scheduler", () => {
 
 	// AC6: Silent routine creates session but no item
 	describe("AC6: Silent routine creates no item", () => {
-		it("creates session but no item when silent=true", async () => {
+		test("creates session but no item when silent=true", async ({ db, eventBus }) => {
+			await seedBase(db);
 			const now = new Date();
 
 			await db.insert(routines).values({
@@ -401,7 +399,8 @@ describe("Routine Scheduler", () => {
 
 	// AC7: Human review routine produces review item
 	describe("AC7: Human review routine creates review item", () => {
-		it("creates review item in thread when human_review=true", async () => {
+		test("creates review item in thread when human_review=true", async ({ db, eventBus }) => {
+			await seedBase(db);
 			const now = new Date();
 
 			await db.insert(routines).values({
@@ -434,7 +433,8 @@ describe("Routine Scheduler", () => {
 
 	// AC8: last_run_at and next_run_at updated after fire
 	describe("AC8: Timestamps updated after fire", () => {
-		it("updates last_run_at and next_run_at after firing", async () => {
+		test("updates last_run_at and next_run_at after firing", async ({ db, eventBus }) => {
+			await seedBase(db);
 			const now = new Date();
 			const pastDue = new Date(now.getTime() - 5000).toISOString();
 
@@ -472,7 +472,8 @@ describe("Routine Scheduler", () => {
 	});
 
 	describe("startRoutineScheduler", () => {
-		it("starts and stops the scheduler", async () => {
+		test("starts and stops the scheduler", async ({ db, eventBus }) => {
+			await seedBase(db);
 			const config: RoutineSchedulerConfig = { pollIntervalMs: 30000 };
 			const scheduler = await startRoutineScheduler(db, eventBus, config);
 

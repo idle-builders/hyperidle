@@ -1,6 +1,5 @@
 import {
 	bets,
-	createTestDb,
 	factorySettings,
 	type HyperIdleDb,
 	items,
@@ -18,15 +17,14 @@ import {
 	runBuiltinRoutine,
 	seedBuiltinRoutines,
 } from "@hyperidle/fabric";
-import {
-	type BetStateChangedEvent,
-	type CostCapBreachedEvent,
-	type CostCapWarningEvent,
-	type DomainEvent,
-	EventBus,
+import type {
+	BetStateChangedEvent,
+	CostCapBreachedEvent,
+	CostCapWarningEvent,
+	DomainEvent,
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, test } from "../test-fixtures.js";
 
 const NOW_ISO = "2026-04-18T10:00:00.000Z";
 
@@ -74,31 +72,22 @@ async function seedOwners(db: HyperIdleDb): Promise<void> {
 }
 
 describe("G4: Built-in Routines", () => {
-	let db: HyperIdleDb;
-	let handle: TestDbHandle;
-	let eventBus: EventBus;
-	let emitted: DomainEvent[];
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		emitted = [];
-		eventBus.on("*", (e: DomainEvent) => emitted.push(e));
-		await seedOwners(db);
+	beforeEach(() => {
 		clearBuiltinCostSentinelCache();
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		clearBuiltinCostSentinelCache();
-		await handle.close();
 	});
 
 	// ------------------------------------------------------------------
 	// AC6: all 5 builtins created by seedBuiltinRoutines with correct config
 	// ------------------------------------------------------------------
 	describe("AC6: seedBuiltinRoutines creates all 5 with correct config", () => {
-		it("inserts every builtin routine id with correct trigger_type and trigger_config", async () => {
+		test("inserts every builtin routine id with correct trigger_type and trigger_config", async ({
+			db,
+		}) => {
+			await seedOwners(db);
 			await seedBuiltinRoutines(db);
 
 			const rows = (await db.select().from(routines)).sort((a: Routine, b: Routine) =>
@@ -135,7 +124,8 @@ describe("G4: Built-in Routines", () => {
 			});
 		});
 
-		it("assigns correct owner agent for each builtin", async () => {
+		test("assigns correct owner agent for each builtin", async ({ db }) => {
+			await seedOwners(db);
 			await seedBuiltinRoutines(db);
 			const rows = await db.select().from(routines);
 			const byId = new Map<string, Routine>(
@@ -148,7 +138,8 @@ describe("G4: Built-in Routines", () => {
 			expect(byId.get("builtin:knowledge-decay")?.ownerAgentId).toBe("seed-agent-cos");
 		});
 
-		it("sets all builtins active=true by default", async () => {
+		test("sets all builtins active=true by default", async ({ db }) => {
+			await seedOwners(db);
 			await seedBuiltinRoutines(db);
 			const rows = await db.select().from(routines);
 			expect(rows).toHaveLength(BUILTIN_ROUTINE_IDS.length);
@@ -157,14 +148,15 @@ describe("G4: Built-in Routines", () => {
 			}
 		});
 
-		it("is idempotent: running twice produces no duplicate rows and no error", async () => {
+		test("is idempotent: running twice produces no duplicate rows and no error", async ({ db }) => {
+			await seedOwners(db);
 			await seedBuiltinRoutines(db);
 			await expect(seedBuiltinRoutines(db)).resolves.not.toThrow();
 			const rows = await db.select().from(routines);
 			expect(rows).toHaveLength(BUILTIN_ROUTINE_IDS.length);
 		});
 
-		it("exports exactly 5 stable builtin ids (none crypto.randomUUID)", () => {
+		test("exports exactly 5 stable builtin ids (none crypto.randomUUID)", () => {
 			expect(BUILTIN_ROUTINE_IDS).toHaveLength(5);
 			for (const id of BUILTIN_ROUTINE_IDS) {
 				expect(id.startsWith("builtin:")).toBe(true);
@@ -195,7 +187,10 @@ describe("G4: Built-in Routines", () => {
 				.where(eq(factorySettings.key, "cost_actual"));
 		}
 
-		it("emits no events when spend is below 80% of cap", async () => {
+		test("emits no events when spend is below 80% of cap", async ({ db, eventBus }) => {
+			await seedOwners(db);
+			const emitted: DomainEvent[] = [];
+			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await seedBuiltinRoutines(db);
 			await setFactoryCost(db, 1000, 500);
 
@@ -208,7 +203,10 @@ describe("G4: Built-in Routines", () => {
 			expect(breaches).toHaveLength(0);
 		});
 
-		it("emits cost_cap_warning when spend reaches 80% of cap", async () => {
+		test("emits cost_cap_warning when spend reaches 80% of cap", async ({ db, eventBus }) => {
+			await seedOwners(db);
+			const emitted: DomainEvent[] = [];
+			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await seedBuiltinRoutines(db);
 			await setFactoryCost(db, 1000, 800);
 
@@ -223,7 +221,10 @@ describe("G4: Built-in Routines", () => {
 			expect(warnings[0].cap).toBe(1000);
 		});
 
-		it("emits cost_cap_breached when spend reaches 100% of cap", async () => {
+		test("emits cost_cap_breached when spend reaches 100% of cap", async ({ db, eventBus }) => {
+			await seedOwners(db);
+			const emitted: DomainEvent[] = [];
+			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await seedBuiltinRoutines(db);
 			await setFactoryCost(db, 1000, 1000);
 
@@ -238,7 +239,8 @@ describe("G4: Built-in Routines", () => {
 			expect(breaches[0].cap).toBe(1000);
 		});
 
-		it("uses the 15-minute interval (900 seconds) from trigger config", async () => {
+		test("uses the 15-minute interval (900 seconds) from trigger config", async ({ db }) => {
+			await seedOwners(db);
 			await seedBuiltinRoutines(db);
 			const [row] = await db
 				.select()
@@ -251,7 +253,13 @@ describe("G4: Built-in Routines", () => {
 		});
 
 		// --- G4 review MAJOR-4: level-based dedupe semantics ---
-		it("does not re-emit cost_cap_warning on consecutive ticks while still in warning level", async () => {
+		test("does not re-emit cost_cap_warning on consecutive ticks while still in warning level", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedOwners(db);
+			const emitted: DomainEvent[] = [];
+			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await seedBuiltinRoutines(db);
 			await setFactoryCost(db, 1000, 800);
 
@@ -263,7 +271,13 @@ describe("G4: Built-in Routines", () => {
 			expect(warnings).toHaveLength(1);
 		});
 
-		it("does not re-emit cost_cap_breached on consecutive ticks while still in breach level", async () => {
+		test("does not re-emit cost_cap_breached on consecutive ticks while still in breach level", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedOwners(db);
+			const emitted: DomainEvent[] = [];
+			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await seedBuiltinRoutines(db);
 			await setFactoryCost(db, 1000, 1200);
 
@@ -274,7 +288,13 @@ describe("G4: Built-in Routines", () => {
 			expect(breaches).toHaveLength(1);
 		});
 
-		it("re-emits cost_cap_warning after level transitions warning -> ok -> warning", async () => {
+		test("re-emits cost_cap_warning after level transitions warning -> ok -> warning", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedOwners(db);
+			const emitted: DomainEvent[] = [];
+			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await seedBuiltinRoutines(db);
 			await setFactoryCost(db, 1000, 800);
 			await runBuiltinRoutine(db, eventBus, "builtin:cost-sentinel");
@@ -291,7 +311,10 @@ describe("G4: Built-in Routines", () => {
 			expect(warnings).toHaveLength(2);
 		});
 
-		it("escalates from warning to breach on the transition tick", async () => {
+		test("escalates from warning to breach on the transition tick", async ({ db, eventBus }) => {
+			await seedOwners(db);
+			const emitted: DomainEvent[] = [];
+			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await seedBuiltinRoutines(db);
 			await setFactoryCost(db, 1000, 800);
 			await runBuiltinRoutine(db, eventBus, "builtin:cost-sentinel");
@@ -310,7 +333,8 @@ describe("G4: Built-in Routines", () => {
 	// AC2: Practice Meeting — weekly, creates reflection anchor
 	// ------------------------------------------------------------------
 	describe("AC2: Practice Meeting", () => {
-		it("creates a fresh practice meeting anchor row on each run", async () => {
+		test("creates a fresh practice meeting anchor row on each run", async ({ db, eventBus }) => {
+			await seedOwners(db);
 			await seedBuiltinRoutines(db);
 
 			const result = await runBuiltinRoutine(db, eventBus, "builtin:practice-meeting");
@@ -341,7 +365,7 @@ describe("G4: Built-in Routines", () => {
 	// AC3: Post-Bet Retro — compares hypothesis vs reality for completed bet
 	// ------------------------------------------------------------------
 	describe("AC3: Post-Bet Retro", () => {
-		async function seedShippedBet(): Promise<void> {
+		async function seedShippedBet(db: HyperIdleDb): Promise<void> {
 			await db.insert(bets).values({
 				id: "bet-shipped-1",
 				teamId: "prod-1",
@@ -355,9 +379,13 @@ describe("G4: Built-in Routines", () => {
 			});
 		}
 
-		it("creates a review items row citing both hypothesis and reality", async () => {
+		test("creates a review items row citing both hypothesis and reality", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedOwners(db);
 			await seedBuiltinRoutines(db);
-			await seedShippedBet();
+			await seedShippedBet(db);
 
 			const result = await runBuiltinRoutine(db, eventBus, "builtin:post-bet-retro", {
 				betId: "bet-shipped-1",
@@ -374,9 +402,12 @@ describe("G4: Built-in Routines", () => {
 			expect((row.body ?? "").toLowerCase()).toContain("reality");
 		});
 
-		it("emits an item_created event", async () => {
+		test("emits an item_created event", async ({ db, eventBus }) => {
+			await seedOwners(db);
+			const emitted: DomainEvent[] = [];
+			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await seedBuiltinRoutines(db);
-			await seedShippedBet();
+			await seedShippedBet(db);
 
 			await runBuiltinRoutine(db, eventBus, "builtin:post-bet-retro", {
 				betId: "bet-shipped-1",
@@ -386,9 +417,13 @@ describe("G4: Built-in Routines", () => {
 			expect(itemEvents).toHaveLength(1);
 		});
 
-		it("fires on bet_state_changed(toState=completed) event when handler is registered", async () => {
+		test("fires on bet_state_changed(toState=completed) event when handler is registered", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedOwners(db);
 			await seedBuiltinRoutines(db);
-			await seedShippedBet();
+			await seedShippedBet(db);
 
 			const unsub = registerBuiltinRoutineHandlers(db, eventBus);
 			try {
@@ -412,9 +447,13 @@ describe("G4: Built-in Routines", () => {
 		});
 
 		// --- G4 review WARN-3: dedupe by betId ---
-		it("does not create a second review when the same bet ships twice (G4 WARN-3)", async () => {
+		test("does not create a second review when the same bet ships twice (G4 WARN-3)", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedOwners(db);
 			await seedBuiltinRoutines(db);
-			await seedShippedBet();
+			await seedShippedBet(db);
 
 			const first = await runBuiltinRoutine(db, eventBus, "builtin:post-bet-retro", {
 				betId: "bet-shipped-1",
@@ -433,9 +472,13 @@ describe("G4: Built-in Routines", () => {
 			expect(reviewRows).toHaveLength(1);
 		});
 
-		it("dedupes across consecutive bet_state_changed(toState=completed) events for same betId", async () => {
+		test("dedupes across consecutive bet_state_changed(toState=completed) events for same betId", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedOwners(db);
 			await seedBuiltinRoutines(db);
-			await seedShippedBet();
+			await seedShippedBet(db);
 
 			const unsub = registerBuiltinRoutineHandlers(db, eventBus);
 			try {
@@ -459,9 +502,13 @@ describe("G4: Built-in Routines", () => {
 			}
 		});
 
-		it("does NOT fire on non-completed bet_state_changed transitions", async () => {
+		test("does NOT fire on non-completed bet_state_changed transitions", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedOwners(db);
 			await seedBuiltinRoutines(db);
-			await seedShippedBet();
+			await seedShippedBet(db);
 
 			const unsub = registerBuiltinRoutineHandlers(db, eventBus);
 			try {
@@ -489,7 +536,11 @@ describe("G4: Built-in Routines", () => {
 	// AC4: Portfolio Retro — aggregates L3/L4 knowledge across last month
 	// ------------------------------------------------------------------
 	describe("AC4: Portfolio Retro", () => {
-		it("summarizes cross-product L3/L4 items updated within the last month", async () => {
+		test("summarizes cross-product L3/L4 items updated within the last month", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedOwners(db);
 			await seedBuiltinRoutines(db);
 
 			const recentIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -564,7 +615,8 @@ describe("G4: Built-in Routines", () => {
 	// AC5: Knowledge Decay — transitions active items unused >90d to stale
 	// ------------------------------------------------------------------
 	describe("AC5: Knowledge Decay", () => {
-		it("marks active items older than 90 days as stale", async () => {
+		test("marks active items older than 90 days as stale", async ({ db, eventBus }) => {
+			await seedOwners(db);
 			await seedBuiltinRoutines(db);
 
 			const longAgo = new Date(Date.now() - 95 * 24 * 60 * 60 * 1000).toISOString();
@@ -594,7 +646,13 @@ describe("G4: Built-in Routines", () => {
 		});
 
 		// --- G4 review MAJOR-5: honor `silent` column ---
-		it("suppresses knowledge_updated events when routine.silent=1 (G4 MAJOR-5)", async () => {
+		test("suppresses knowledge_updated events when routine.silent=1 (G4 MAJOR-5)", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedOwners(db);
+			const emitted: DomainEvent[] = [];
+			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await seedBuiltinRoutines(db);
 			// builtin:knowledge-decay is seeded silent=1 by default. Verify.
 			const [row] = await db
@@ -635,7 +693,10 @@ describe("G4: Built-in Routines", () => {
 			expect(events).toHaveLength(0);
 		});
 
-		it("emits knowledge_updated events when routine.silent=0", async () => {
+		test("emits knowledge_updated events when routine.silent=0", async ({ db, eventBus }) => {
+			await seedOwners(db);
+			const emitted: DomainEvent[] = [];
+			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await seedBuiltinRoutines(db);
 			// Flip silent off for this test.
 			await db
@@ -669,7 +730,11 @@ describe("G4: Built-in Routines", () => {
 	// AC8: Disabled routine (active=0) short-circuits execution
 	// ------------------------------------------------------------------
 	describe("AC8: Disabled routine prevents firing", () => {
-		it("runBuiltinRoutine returns fired=false when routine active=0", async () => {
+		test("runBuiltinRoutine returns fired=false when routine active=0", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedOwners(db);
 			await seedBuiltinRoutines(db);
 			await db
 				.update(routines)
@@ -681,7 +746,8 @@ describe("G4: Built-in Routines", () => {
 			if (!result.fired) expect(result.reason).toContain("disabled");
 		});
 
-		it("event handler does not run when event routine active=0", async () => {
+		test("event handler does not run when event routine active=0", async ({ db, eventBus }) => {
+			await seedOwners(db);
 			await seedBuiltinRoutines(db);
 			await db
 				.update(routines)

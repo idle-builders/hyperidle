@@ -1,10 +1,8 @@
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	routines,
 	sessions,
-	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
@@ -12,7 +10,8 @@ import {
 } from "@hyperidle/db";
 import { ActiveRoutinesError } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
+import { test } from "../test-fixtures.js";
 import {
 	addMember,
 	createTeam,
@@ -42,17 +41,9 @@ async function seedAgent(db: HyperIdleDb, id: string): Promise<void> {
 }
 
 describe("C4: Team Management", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		await seedProduct(db);
-	});
-
 	describe("createTeam", () => {
-		it("creates a team with 3 agents and sets their team_id", async () => {
+		test("creates a team with 3 agents and sets their team_id", async ({ db }) => {
+			await seedProduct(db);
 			await seedAgent(db, "a1");
 			await seedAgent(db, "a2");
 			await seedAgent(db, "a3");
@@ -79,7 +70,8 @@ describe("C4: Team Management", () => {
 			expect(a3?.teamId).toBe(team.id);
 		});
 
-		it("sets leadAgentId when provided", async () => {
+		test("sets leadAgentId when provided", async ({ db }) => {
+			await seedProduct(db);
 			await seedAgent(db, "a1");
 
 			const team = await createTeam(db, {
@@ -94,7 +86,8 @@ describe("C4: Team Management", () => {
 	});
 
 	describe("addMember", () => {
-		it("updates agent team_id to the target team", async () => {
+		test("updates agent team_id to the target team", async ({ db }) => {
+			await seedProduct(db);
 			await seedAgent(db, "a1");
 			const team = await createTeam(db, {
 				teamId: "prod-1",
@@ -110,7 +103,8 @@ describe("C4: Team Management", () => {
 	});
 
 	describe("removeMember", () => {
-		it("throws ActiveRoutinesError when agent has active routines", async () => {
+		test("throws ActiveRoutinesError when agent has active routines", async ({ db }) => {
+			await seedProduct(db);
 			await seedAgent(db, "a1");
 			const team = await createTeam(db, {
 				teamId: "prod-1",
@@ -131,7 +125,8 @@ describe("C4: Team Management", () => {
 			await expect(removeMember(db, team.id, "a1")).rejects.toThrow(ActiveRoutinesError);
 		});
 
-		it("removes member successfully when no active routines", async () => {
+		test("removes member successfully when no active routines", async ({ db }) => {
+			await seedProduct(db);
 			await seedAgent(db, "a1");
 			const team = await createTeam(db, {
 				teamId: "prod-1",
@@ -145,7 +140,8 @@ describe("C4: Team Management", () => {
 			expect(agent?.teamId).toBeNull();
 		});
 
-		it("allows removal when agent has only inactive routines", async () => {
+		test("allows removal when agent has only inactive routines", async ({ db }) => {
+			await seedProduct(db);
 			await seedAgent(db, "a1");
 			const team = await createTeam(db, {
 				teamId: "prod-1",
@@ -171,7 +167,8 @@ describe("C4: Team Management", () => {
 	});
 
 	describe("getAvailableCapacity", () => {
-		it("returns capacity - activeBets", async () => {
+		test("returns capacity - activeBets", async ({ db }) => {
+			await seedProduct(db);
 			await seedAgent(db, "a1");
 			const team = await createTeam(db, {
 				teamId: "prod-1",
@@ -187,7 +184,8 @@ describe("C4: Team Management", () => {
 			expect(await getAvailableCapacity(db, team.id)).toBe(2);
 		});
 
-		it("returns 0 when at capacity", async () => {
+		test("returns 0 when at capacity", async ({ db }) => {
+			await seedProduct(db);
 			const team = await createTeam(db, {
 				teamId: "prod-1",
 				capacity: 2,
@@ -202,7 +200,8 @@ describe("C4: Team Management", () => {
 	});
 
 	describe("dissolveTeam", () => {
-		it("sets dissolved_at and unlinks all agents", async () => {
+		test("sets dissolved_at and unlinks all agents", async ({ db }) => {
+			await seedProduct(db);
 			await seedAgent(db, "a1");
 			await seedAgent(db, "a2");
 			const team = await createTeam(db, {
@@ -229,7 +228,8 @@ describe("C4: Team Management", () => {
 	});
 
 	describe("getTeamCost", () => {
-		it("returns sum of session costs for agents in the current cycle", async () => {
+		test("returns sum of session costs for agents in the current cycle", async ({ db }) => {
+			await seedProduct(db);
 			await seedAgent(db, "a1");
 			await seedAgent(db, "a2");
 			const team = await createTeam(db, {
@@ -283,7 +283,8 @@ describe("C4: Team Management", () => {
 			expect(cost).toBe(0);
 		});
 
-		it("returns 0 when no agents in team", async () => {
+		test("returns 0 when no agents in team", async ({ db }) => {
+			await seedProduct(db);
 			const team = await createTeam(db, {
 				teamId: "prod-1",
 				capacity: 5,
@@ -296,7 +297,8 @@ describe("C4: Team Management", () => {
 	});
 
 	describe("capacity enforcement", () => {
-		it("capacity 0 means no availability for new bets", async () => {
+		test("capacity 0 means no availability for new bets", async ({ db }) => {
+			await seedProduct(db);
 			const team = await createTeam(db, {
 				teamId: "prod-1",
 				capacity: 0,
@@ -306,7 +308,8 @@ describe("C4: Team Management", () => {
 			expect(await getAvailableCapacity(db, team.id)).toBe(0);
 		});
 
-		it("full capacity returns 0 available", async () => {
+		test("full capacity returns 0 available", async ({ db }) => {
+			await seedProduct(db);
 			const team = await createTeam(db, {
 				teamId: "prod-1",
 				capacity: 3,

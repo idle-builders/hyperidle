@@ -5,11 +5,8 @@
  * GET /api/health/auth — authenticated health check
  */
 
-import { createTestDb, type HyperIdleDb } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-health";
 
@@ -18,16 +15,8 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("health routes", () => {
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
 	});
 
 	afterEach(() => {
@@ -35,7 +24,7 @@ describe("health routes", () => {
 	});
 
 	describe("GET /health", () => {
-		it("returns 200 with status ok and timestamp (no auth required)", async () => {
+		test("returns 200 with status ok and timestamp (no auth required)", async ({ app }) => {
 			const res = await app.request("/health", { method: "GET" });
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as { status: string; timestamp: string };
@@ -45,12 +34,12 @@ describe("health routes", () => {
 	});
 
 	describe("GET /api/health/auth", () => {
-		it("returns 401 without auth", async () => {
+		test("returns 401 without auth", async ({ app }) => {
 			const res = await app.request("/api/health/auth", { method: "GET" });
 			expect(res.status).toBe(401);
 		});
 
-		it("returns 200 with status ok, timestamp, and userId when authenticated", async () => {
+		test("returns 200 with status ok, timestamp, and userId when authenticated", async ({ app }) => {
 			const res = await app.request("/api/health/auth", {
 				method: "GET",
 				headers: authHeaders(),

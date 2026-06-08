@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { HyperIdleDb } from "../connection.js";
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { teams } from "../schema.js";
-import { createTestDb, type TestDbHandle } from "../test-utils.js";
+// @lore test-infra: createTestDb is kept here specifically for the idempotency
+// test that calls handle.runMigrations() — the pooled fixture does not expose
+// runMigrations(). All other tests in this file use the fixture.
+import { createTestDb } from "../test-utils.js";
 
 // @lore Phase 2: migration.test.ts now tests PGlite migrations. SQLite migration
 // tests were removed because the schema is now PG-only. The journal timestamp
@@ -11,19 +13,7 @@ import { createTestDb, type TestDbHandle } from "../test-utils.js";
 // of the DB engine.
 
 describe("A2: Migration", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	}, 30_000);
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	it("applies migrations to a fresh in-memory PGlite database", async () => {
+	test("applies migrations to a fresh in-memory PGlite database", async ({ db }) => {
 		// L1a: `responses` table dropped; verdicts now project as
 		// `verdict`-typed messages (plan §5.2). Snapshot tables
 		// `_l1_snapshot_*` are migration artifacts, excluded from the
@@ -62,7 +52,7 @@ describe("A2: Migration", () => {
 		expect(tableNames.length).toBeGreaterThanOrEqual(15);
 	});
 
-	it("migrated database supports CRUD with Drizzle ORM", async () => {
+	test("migrated database supports CRUD with Drizzle ORM", async ({ db }) => {
 		// @lore U1: `schema.products` renamed to `schema.teams` (domain entity).
 		const now = new Date().toISOString();
 		await db
@@ -74,7 +64,7 @@ describe("A2: Migration", () => {
 		expect(result[0]).toMatchObject({ id: "test-prod", name: "Test" });
 	});
 
-	it("migrated database has kernel and fabric knowledge indexes", async () => {
+	test("migrated database has kernel and fabric knowledge indexes", async ({ db }) => {
 		// @lore O2: layer, scope_id, kind indexes removed from knowledge_items kernel table.
 		// They now live on knowledge_strategy_fabric extension table.
 		const kiResult = await db.execute(
@@ -102,7 +92,7 @@ describe("A2: Migration", () => {
 		expect(ksfIndexes.length).toBeGreaterThanOrEqual(1);
 	});
 
-	it("journal timestamps are strictly monotonically increasing", () => {
+	test("journal timestamps are strictly monotonically increasing", () => {
 		const journalPath = resolve(__dirname, "../../drizzle/meta/_journal.json");
 		const journal = JSON.parse(readFileSync(journalPath, "utf-8")) as {
 			entries: Array<{ idx: number; when: number; tag: string }>;
@@ -123,15 +113,24 @@ describe("A2: Migration", () => {
 		}
 	});
 
-	it("migration is idempotent (running twice does not error)", async () => {
-		await handle.runMigrations();
+	// @lore test-infra: This test keeps createTestDb() because it needs
+	// handle.runMigrations() to test idempotency. The pooled fixture does not
+	// expose runMigrations() — the pool pre-applies migrations at warmup and
+	// does not provide a way to re-run them per-test.
+	test("migration is idempotent (running twice does not error)", { timeout: 60_000 }, async () => {
+		const handle = await createTestDb();
+		try {
+			await handle.runMigrations();
 
-		const result = await db.execute(
-			`SELECT COUNT(*) AS n FROM pg_tables WHERE schemaname = 'public'` as Parameters<
-				typeof db.execute
-			>[0],
-		);
-		const rows = (result as { rows: Array<{ n: string | number }> }).rows;
-		expect(Number(rows[0]?.n)).toBeGreaterThanOrEqual(15);
+			const result = await handle.db.execute(
+				`SELECT COUNT(*) AS n FROM pg_tables WHERE schemaname = 'public'` as Parameters<
+					typeof handle.db.execute
+				>[0],
+			);
+			const rows = (result as { rows: Array<{ n: string | number }> }).rows;
+			expect(Number(rows[0]?.n)).toBeGreaterThanOrEqual(15);
+		} finally {
+			await handle.close();
+		}
 	});
 });

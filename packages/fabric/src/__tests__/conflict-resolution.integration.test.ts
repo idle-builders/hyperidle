@@ -1,6 +1,6 @@
 import { createTestDb, type HyperIdleDb, knowledgeConflicts } from "@hyperidle/db";
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
 	type ConcurrentEdit,
 	canPromote,
@@ -11,14 +11,6 @@ import {
 } from "../conflict-resolution.js";
 import { setupFts } from "../fts.js";
 import { create, getById } from "../knowledge-repository.js";
-
-let handle: Awaited<ReturnType<typeof createTestDb>>;
-
-async function makeDb(): Promise<HyperIdleDb> {
-	handle = await createTestDb();
-	await setupFts(handle.db);
-	return handle.db;
-}
 
 const structuredBase = {
 	layer: "L1" as const,
@@ -42,18 +34,9 @@ const proseBase = {
 };
 
 describe("conflict-resolution", () => {
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		db = await makeDb();
-	});
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
 	describe("AC1: structured item, different fields", () => {
-		it("applies both edits with no conflict record", async () => {
+		test("applies both edits with no conflict record", async ({ db }) => {
+			await setupFts(db);
 			const item = await create(db, structuredBase);
 
 			const edits: ConcurrentEdit[] = [
@@ -86,7 +69,8 @@ describe("conflict-resolution", () => {
 			expect(conflicts).toHaveLength(0);
 		});
 
-		it("applies different meta fields without conflict", async () => {
+		test("applies different meta fields without conflict", async ({ db }) => {
+			await setupFts(db);
 			const item = await create(db, {
 				...structuredBase,
 				meta: JSON.stringify({ tags: ["old"], evidence: "old evidence" }),
@@ -118,7 +102,8 @@ describe("conflict-resolution", () => {
 	});
 
 	describe("AC2: structured item, same field", () => {
-		it("last writer wins for same field with conflict record", async () => {
+		test("last writer wins for same field with conflict record", async ({ db }) => {
+			await setupFts(db);
 			const item = await create(db, structuredBase);
 
 			const edits: ConcurrentEdit[] = [
@@ -154,7 +139,8 @@ describe("conflict-resolution", () => {
 			expect(conflicts[0]?.proposedBody).toContain("Title from A");
 		});
 
-		it("handles mix of conflicting and non-conflicting fields", async () => {
+		test("handles mix of conflicting and non-conflicting fields", async ({ db }) => {
+			await setupFts(db);
 			const item = await create(db, structuredBase);
 
 			const edits: ConcurrentEdit[] = [
@@ -184,7 +170,8 @@ describe("conflict-resolution", () => {
 	});
 
 	describe("AC3: prose item conflicts", () => {
-		it("creates open conflict record and keeps older version active", async () => {
+		test("creates open conflict record and keeps older version active", async ({ db }) => {
+			await setupFts(db);
 			const item = await create(db, proseBase);
 
 			const edits: ConcurrentEdit[] = [
@@ -219,7 +206,7 @@ describe("conflict-resolution", () => {
 			expect(conflicts[0]?.proposedBy).toBe("agent-B");
 		});
 
-		it("handles prose kinds: brief, principle, focus", async () => {
+		test("handles prose kinds: brief, principle, focus", async () => {
 			for (const kind of ["brief", "principle", "focus"] as const) {
 				const localHandle = await createTestDb();
 				const localDb = localHandle.db;
@@ -257,7 +244,8 @@ describe("conflict-resolution", () => {
 	});
 
 	describe("AC4: conflict record fields", () => {
-		it("has all required fields for structured conflict", async () => {
+		test("has all required fields for structured conflict", async ({ db }) => {
+			await setupFts(db);
 			const item = await create(db, structuredBase);
 
 			const edits: ConcurrentEdit[] = [
@@ -289,7 +277,8 @@ describe("conflict-resolution", () => {
 			expect(conflict?.proposedBy).toBe("agent-A");
 		});
 
-		it("has all required fields for prose conflict", async () => {
+		test("has all required fields for prose conflict", async ({ db }) => {
+			await setupFts(db);
 			const item = await create(db, proseBase);
 
 			const edits: ConcurrentEdit[] = [
@@ -323,7 +312,8 @@ describe("conflict-resolution", () => {
 	});
 
 	describe("AC5: open conflict prevents promotion", () => {
-		it("canPromote returns false when open conflicts exist", async () => {
+		test("canPromote returns false when open conflicts exist", async ({ db }) => {
+			await setupFts(db);
 			const item = await create(db, proseBase);
 
 			const edits: ConcurrentEdit[] = [
@@ -345,7 +335,8 @@ describe("conflict-resolution", () => {
 			expect(await canPromote(db, item.id)).toBe(false);
 		});
 
-		it("promote throws when open conflicts exist", async () => {
+		test("promote throws when open conflicts exist", async ({ db }) => {
+			await setupFts(db);
 			const item = await create(db, proseBase);
 
 			const edits: ConcurrentEdit[] = [
@@ -367,14 +358,16 @@ describe("conflict-resolution", () => {
 			await expect(promote(db, item.id, "validated")).rejects.toThrow(/open conflict/i);
 		});
 
-		it("canPromote returns true when no conflicts", async () => {
+		test("canPromote returns true when no conflicts", async ({ db }) => {
+			await setupFts(db);
 			const item = await create(db, structuredBase);
 			expect(await canPromote(db, item.id)).toBe(true);
 		});
 	});
 
 	describe("AC6: resolving conflict allows promotion", () => {
-		it("allows promotion after conflict is resolved", async () => {
+		test("allows promotion after conflict is resolved", async ({ db }) => {
+			await setupFts(db);
 			const item = await create(db, proseBase);
 
 			const edits: ConcurrentEdit[] = [
@@ -412,7 +405,8 @@ describe("conflict-resolution", () => {
 			expect(promoted.version).toBe((currentItem?.version ?? 0) + 1);
 		});
 
-		it("resolveConflictRecord updates status to resolved", async () => {
+		test("resolveConflictRecord updates status to resolved", async ({ db }) => {
+			await setupFts(db);
 			const item = await create(db, proseBase);
 
 			const edits: ConcurrentEdit[] = [
@@ -449,7 +443,7 @@ describe("conflict-resolution", () => {
 	});
 
 	describe("mergeStructuredEdits", () => {
-		it("merges non-overlapping fields", () => {
+		test("merges non-overlapping fields", () => {
 			const result = mergeStructuredEdits(
 				{ title: "Original", body: "Original body", topic: "orig" },
 				[
@@ -470,7 +464,7 @@ describe("conflict-resolution", () => {
 			expect(result.fieldConflicts).toHaveLength(0);
 		});
 
-		it("picks last writer for overlapping fields", () => {
+		test("picks last writer for overlapping fields", () => {
 			const result = mergeStructuredEdits({ title: "Original" }, [
 				{ changes: { title: "A" }, editor: "agent-A", timestamp: "2026-04-15T10:00:00.000Z" },
 				{ changes: { title: "B" }, editor: "agent-B", timestamp: "2026-04-15T10:01:00.000Z" },

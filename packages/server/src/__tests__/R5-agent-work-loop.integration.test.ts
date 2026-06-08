@@ -19,10 +19,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	messages,
-	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
@@ -32,13 +30,12 @@ import {
 import { clearDeduplicationCache, recordCostAndCheck } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect } from "vitest";
+import { test } from "../test-fixtures.js";
 import { createTaskTool } from "../skill-tools/create-task.js";
 import { readInboxTool } from "../skill-tools/read-inbox.js";
 import { submitReviewTool } from "../skill-tools/submit-review.js";
 import type { ToolContext } from "../skill-tools/tool-registry.js";
-import { createTestApp } from "../test-utils.js";
 
 const TEST_API_KEY = "test-key-r5-agent-loop";
 const NOW = new Date().toISOString();
@@ -109,29 +106,20 @@ function makeContext(db: HyperIdleDb, eventBus: EventBus): ToolContext {
 }
 
 describe("R5: Agent Work Loop integration", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	// Keep process.env assignment in beforeEach/afterEach — non-DB env work
+	beforeEach(() => {
 		process.env.HYPERIDLE_API_KEY = TEST_API_KEY;
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-		clearDeduplicationCache();
-		await seedBase(db);
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		delete process.env.HYPERIDLE_API_KEY;
-		await handle?.close();
 	});
 
 	// AC1, AC5: create_task tool inserts task visible in GET /api/bets/:id
 	describe("AC1 & AC5: create_task tool — task visible in bet detail", () => {
-		it("created task appears in GET /api/bets/:id tasks array", async () => {
+		test("created task appears in GET /api/bets/:id tasks array", async ({ db, app, eventBus }) => {
+			clearDeduplicationCache();
+			await seedBase(db);
 			const ctx = makeContext(db, eventBus);
 
 			// Agent calls create_task
@@ -167,7 +155,12 @@ describe("R5: Agent Work Loop integration", () => {
 			expect(newTask?.betId).toBe("b1");
 		});
 
-		it("session's own task starts as in_progress in bet detail (AC5)", async () => {
+		test("session's own task starts as in_progress in bet detail (AC5)", async ({
+			db,
+			app,
+		}) => {
+			await seedBase(db);
+
 			const res = await app.request("/api/bets/b1", {
 				headers: authHeaders(),
 			});
@@ -185,7 +178,8 @@ describe("R5: Agent Work Loop integration", () => {
 
 	// AC2: submit_review tool posts a review message visible in the bet's thread
 	describe("AC2: submit_review tool — review message in bet host thread", () => {
-		it("submitted review message appears in bet host thread", async () => {
+		test("submitted review message appears in bet host thread", async ({ db, eventBus, app }) => {
+			await seedBase(db);
 			const ctx = makeContext(db, eventBus);
 
 			// Agent submits review (fallback path — no artifactRef)
@@ -219,7 +213,11 @@ describe("R5: Agent Work Loop integration", () => {
 			expect(payload.text).toContain("Work complete");
 		});
 
-		it("submitted review with artifactRef creates review-type message", async () => {
+		test("submitted review with artifactRef creates review-type message", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedBase(db);
 			const ctx = makeContext(db, eventBus);
 
 			const reviewResult = await submitReviewTool.handler(
@@ -241,7 +239,12 @@ describe("R5: Agent Work Loop integration", () => {
 
 	// AC3: Verdict round-trip — founder posts verdict, agent reads it via read_inbox
 	describe("AC3: verdict round-trip", () => {
-		it("founder verdict is readable by agent via read_inbox after review posted", async () => {
+		test("founder verdict is readable by agent via read_inbox after review posted", async ({
+			db,
+			eventBus,
+			app,
+		}) => {
+			await seedBase(db);
 			const ctx = makeContext(db, eventBus);
 
 			// Step 1: Agent submits review — establishes bet thread
@@ -306,7 +309,13 @@ describe("R5: Agent Work Loop integration", () => {
 
 	// AC4: Cost accumulation via recordCostAndCheck with taskId flows to bet
 	describe("AC4: cost accumulation on bet", () => {
-		it("recordCostAndCheck with taskId increments bets.costActualMinor", async () => {
+		test("recordCostAndCheck with taskId increments bets.costActualMinor", async ({
+			db,
+			eventBus,
+			app,
+		}) => {
+			await seedBase(db);
+
 			await recordCostAndCheck(db, eventBus, {
 				sessionId: "session-1",
 				costMinor: 150,
@@ -330,7 +339,13 @@ describe("R5: Agent Work Loop integration", () => {
 			expect(body.costActual?.currency).toBe("USD");
 		});
 
-		it("multiple cost events accumulate cumulatively on the bet", async () => {
+		test("multiple cost events accumulate cumulatively on the bet", async ({
+			db,
+			eventBus,
+			app,
+		}) => {
+			await seedBase(db);
+
 			await recordCostAndCheck(db, eventBus, {
 				sessionId: "session-1",
 				costMinor: 100,
@@ -367,7 +382,12 @@ describe("R5: Agent Work Loop integration", () => {
 			expect(body.costActual?.minor).toBeGreaterThanOrEqual(175);
 		});
 
-		it("recordCostAndCheck without taskId does NOT affect bet cost", async () => {
+		test("recordCostAndCheck without taskId does NOT affect bet cost", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedBase(db);
+
 			// Backward compat: no taskId => bet unchanged
 			await recordCostAndCheck(db, eventBus, {
 				sessionId: "session-no-task",
@@ -389,7 +409,12 @@ describe("R5: Agent Work Loop integration", () => {
 
 	// AC4: Token accumulation on bet at session teardown
 	describe("AC4: token accumulation on bet (via session teardown)", () => {
-		it("GET /api/bets/:id returns tokensActual with byTier after session with tokens", async () => {
+		test("GET /api/bets/:id returns tokensActual with byTier after session with tokens", async ({
+			db,
+			app,
+		}) => {
+			await seedBase(db);
+
 			// Directly write tokensActualJson to the bet to simulate teardown
 			// This tests the GET /api/bets/:id parsing, which is already implemented.
 			// The actual teardown (session-provisioning Phase 11) is tested by the

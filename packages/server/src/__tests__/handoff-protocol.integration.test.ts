@@ -1,11 +1,9 @@
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	items,
 	messages,
 	sessions,
-	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
@@ -13,9 +11,8 @@ import {
 	users,
 } from "@hyperidle/db";
 // @lore O2: sessions.cost stripped; cost tracking moved to agents.costActual.
-import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, test, vi } from "../test-fixtures.js";
 import { type HandoffMetadata, handoff } from "../services/handoff-protocol.js";
 import type { SessionContext } from "../services/session-lifecycle.js";
 
@@ -129,23 +126,9 @@ function makeMetadata(overrides?: Partial<HandoffMetadata>): HandoffMetadata {
 }
 
 describe("Handoff Protocol", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		await seedPrerequisites(db);
-	});
-
-	afterEach(async () => {
-		await handle?.close();
-	});
-
 	describe("AC1: Agent A hands off to agent B", () => {
-		it("ends A's session, sets B as owner, creates thread message with metadata", async () => {
+		test("ends A's session, sets B as owner, creates thread message with metadata", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
 			await insertTask(db, "task-1", "in_progress", "agent-a");
@@ -188,7 +171,8 @@ describe("Handoff Protocol", () => {
 	});
 
 	describe("AC2: Handoff by role", () => {
-		it("resolves toRole to available agent on same team", async () => {
+		test("resolves toRole to available agent on same team", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "product_manager", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
 			await insertTask(db, "task-1", "in_progress", "agent-a");
@@ -210,7 +194,8 @@ describe("Handoff Protocol", () => {
 			expect(task?.ownerAgentId).toBe("agent-b");
 		});
 
-		it("creates escalation item when no agent with role available", async () => {
+		test("creates escalation item when no agent with role available", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "product_manager", "t1");
 			// No builder agents exist
 			await insertTask(db, "task-1", "in_progress", "agent-a");
@@ -234,7 +219,8 @@ describe("Handoff Protocol", () => {
 			expect(escalationItems[0].title).toContain("builder");
 		});
 
-		it("excludes the handing-off agent from role resolution", async () => {
+		test("excludes the handing-off agent from role resolution", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			// Agent A is also a builder -- should not hand off to itself
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertTask(db, "task-1", "in_progress", "agent-a");
@@ -254,7 +240,8 @@ describe("Handoff Protocol", () => {
 	});
 
 	describe("AC3: Handoff to human", () => {
-		it("transitions task to blocked and creates review item", async () => {
+		test("transitions task to blocked and creates review item", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertTask(db, "task-1", "in_progress", "agent-a");
 			await insertSession(db, "session-a", "task-1", "agent-a");
@@ -283,7 +270,8 @@ describe("Handoff Protocol", () => {
 	});
 
 	describe("AC4: Thread message contains structured handoff metadata JSON", () => {
-		it("includes all required fields in the thread message body", async () => {
+		test("includes all required fields in the thread message body", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
 			await insertTask(db, "task-1", "in_progress", "agent-a");
@@ -324,7 +312,8 @@ describe("Handoff Protocol", () => {
 	});
 
 	describe("AC5: Handoff with status failed includes error information", () => {
-		it("includes error field in thread message when status is failed", async () => {
+		test("includes error field in thread message when status is failed", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
 			await insertTask(db, "task-1", "in_progress", "agent-a");
@@ -356,7 +345,8 @@ describe("Handoff Protocol", () => {
 	});
 
 	describe("AC6: Task audit trail shows full handoff history", () => {
-		it("logs handoff in task audit trail", async () => {
+		test("logs handoff in task audit trail", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
 			await insertTask(db, "task-1", "in_progress", "agent-a");
@@ -381,7 +371,8 @@ describe("Handoff Protocol", () => {
 			expect(handoffEntry.timestamp).toBeDefined();
 		});
 
-		it("preserves existing audit entries when adding handoff", async () => {
+		test("preserves existing audit entries when adding handoff", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
 
@@ -437,7 +428,8 @@ describe("Handoff Protocol", () => {
 			expect(task?.notes).toBe(agentProse);
 		});
 
-		it("tracks multiple handoffs in sequence", async () => {
+		test("tracks multiple handoffs in sequence", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
 			await insertAgent(db, "agent-c", "builder", "t1");
@@ -474,7 +466,8 @@ describe("Handoff Protocol", () => {
 
 	// ---------------- I1 / Handoff data integrity (H1, H3) ----------------
 	describe("I1 H1: handoff writes to auditTrail, not notes", () => {
-		it("leaves tasks.notes prose untouched and appends handoff entry to tasks.auditTrail", async () => {
+		test("leaves tasks.notes prose untouched and appends handoff entry to tasks.auditTrail", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
 
@@ -528,7 +521,8 @@ describe("Handoff Protocol", () => {
 			expect(handoffEntry.reason).toBe("H1 reason");
 		});
 
-		it("never writes the handoff entry into tasks.notes even when notes starts null", async () => {
+		test("never writes the handoff entry into tasks.notes even when notes starts null", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
 			await insertTask(db, "task-h1-null", "in_progress", "agent-a");
@@ -573,7 +567,8 @@ describe("Handoff Protocol", () => {
 	describe("I1 H3: handoff does NOT zero users.costActual", () => {
 		// @lore O2: sessions.cost stripped; cost tracking moved to agents.costActual.
 		// The test now verifies that agents.costActual is preserved across a handoff.
-		it("preserves the agent's accumulated costActual on handoff", async () => {
+		test("preserves the agent's accumulated costActual on handoff", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
 			await insertTask(db, "task-h3", "in_progress", "agent-a");
@@ -600,7 +595,8 @@ describe("Handoff Protocol", () => {
 
 	// ---------------- I1 adversary-M2 / security-M3: handoff is atomic ----------------
 	describe("I1 M2: handoff wraps all DB mutations in one transaction", () => {
-		it("rolls back session, task, auditTrail when messages INSERT throws", async () => {
+		test("rolls back session, task, auditTrail when messages INSERT throws", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
 			await insertTask(db, "task-atomic", "in_progress", "agent-a");
@@ -684,7 +680,8 @@ describe("Handoff Protocol", () => {
 	});
 
 	describe("edge cases", () => {
-		it("throws when task not found", async () => {
+		test("throws when task not found", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			const ctx = makeSessionContext("session-a", "agent-a", "nonexistent-task");
 			const metadata = makeMetadata();
@@ -694,7 +691,8 @@ describe("Handoff Protocol", () => {
 			).rejects.toThrow("Task not found");
 		});
 
-		it("throws when target agent not found", async () => {
+		test("throws when target agent not found", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertTask(db, "task-1", "in_progress", "agent-a");
 			await insertSession(db, "session-a", "task-1", "agent-a");

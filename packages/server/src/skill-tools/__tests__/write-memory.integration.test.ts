@@ -1,7 +1,6 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import {
-	createTestDb,
 	type HyperIdleDb,
 	knowledgeEditLog,
 	knowledgeItems,
@@ -11,17 +10,12 @@ import {
 import { setupFts } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
+import { test } from "../../test-fixtures.js";
 import type { ToolContext } from "../tool-registry.js";
 import { writeMemoryTool } from "../write-memory.js";
 
 const NOW = new Date().toISOString();
-
-async function makeDb(): Promise<HyperIdleDb> {
-	const handle = await createTestDb();
-	setupFts(handle.db);
-	return handle.db;
-}
 
 async function seedFacilitator(db: HyperIdleDb): Promise<void> {
 	await db.insert(users).values({
@@ -58,15 +52,10 @@ function makeContext(db: HyperIdleDb, agentId = "agent-a"): ToolContext {
 }
 
 describe("write_memory tool", () => {
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		db = await makeDb();
-		await seedFacilitator(db);
-	});
-
 	describe("creates a knowledge item via fabric.create", () => {
-		it("inserts a knowledge_items row with version 1", async () => {
+		test("inserts a knowledge_items row with version 1", async ({ db }) => {
+			await setupFts(db);
+			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				{
 					layer: "L3",
@@ -97,7 +86,9 @@ describe("write_memory tool", () => {
 			expect(fabricRow?.kind).toBe("pattern");
 		});
 
-		it("attributes updatedBy to `agent:<agentId>`", async () => {
+		test("attributes updatedBy to `agent:<agentId>`", async ({ db }) => {
+			await setupFts(db);
+			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				{
 					layer: "L3",
@@ -117,7 +108,9 @@ describe("write_memory tool", () => {
 			expect(row?.updatedBy).toBe("agent:agent-a");
 		});
 
-		it("creates an edit log entry with editType=create", async () => {
+		test("creates an edit log entry with editType=create", async ({ db }) => {
+			await setupFts(db);
+			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				{
 					layer: "L3",
@@ -139,7 +132,9 @@ describe("write_memory tool", () => {
 			expect(log[0].editor).toBe("agent:agent-a");
 		});
 
-		it("accepts optional topic and format/status defaults", async () => {
+		test("accepts optional topic and format/status defaults", async ({ db }) => {
+			await setupFts(db);
+			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				{
 					layer: "L2",
@@ -164,7 +159,9 @@ describe("write_memory tool", () => {
 	});
 
 	describe("I6: non-facilitator agents restricted to L0-L2", () => {
-		it("builder agent writing L3 gets FORBIDDEN", async () => {
+		test("builder agent writing L3 gets FORBIDDEN", async ({ db }) => {
+			await setupFts(db);
+			await seedFacilitator(db);
 			await seedBuilder(db);
 			const result = await writeMemoryTool.handler(
 				{
@@ -181,7 +178,9 @@ describe("write_memory tool", () => {
 			expect(result.error).toContain("insufficient role for L3");
 		});
 
-		it("builder agent writing L4 gets FORBIDDEN", async () => {
+		test("builder agent writing L4 gets FORBIDDEN", async ({ db }) => {
+			await setupFts(db);
+			await seedFacilitator(db);
 			await seedBuilder(db);
 			const result = await writeMemoryTool.handler(
 				{
@@ -198,7 +197,9 @@ describe("write_memory tool", () => {
 			expect(result.error).toContain("insufficient role for L4");
 		});
 
-		it("builder agent can write to L0", async () => {
+		test("builder agent can write to L0", async ({ db }) => {
+			await setupFts(db);
+			await seedFacilitator(db);
 			await seedBuilder(db);
 			const result = await writeMemoryTool.handler(
 				{
@@ -212,7 +213,9 @@ describe("write_memory tool", () => {
 			expect(result.success).toBe(true);
 		});
 
-		it("builder agent can write to L2", async () => {
+		test("builder agent can write to L2", async ({ db }) => {
+			await setupFts(db);
+			await seedFacilitator(db);
 			await seedBuilder(db);
 			const result = await writeMemoryTool.handler(
 				{
@@ -226,7 +229,9 @@ describe("write_memory tool", () => {
 			expect(result.success).toBe(true);
 		});
 
-		it("facilitator agent can write to L3", async () => {
+		test("facilitator agent can write to L3", async ({ db }) => {
+			await setupFts(db);
+			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				{
 					layer: "L3",
@@ -239,7 +244,9 @@ describe("write_memory tool", () => {
 			expect(result.success).toBe(true);
 		});
 
-		it("facilitator agent can write to L4", async () => {
+		test("facilitator agent can write to L4", async ({ db }) => {
+			await setupFts(db);
+			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				{
 					layer: "L4",
@@ -254,7 +261,9 @@ describe("write_memory tool", () => {
 	});
 
 	describe("AC9: invalid input returns structured error", () => {
-		it("returns INVALID_INPUT for unknown layer", async () => {
+		test("returns INVALID_INPUT for unknown layer", async ({ db }) => {
+			await setupFts(db);
+			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
 				{ layer: "L42", kind: "pattern", title: "x", body: "y" } as any,
@@ -265,7 +274,9 @@ describe("write_memory tool", () => {
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		it("returns INVALID_INPUT for missing title", async () => {
+		test("returns INVALID_INPUT for missing title", async ({ db }) => {
+			await setupFts(db);
+			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
 				{ layer: "L3", kind: "pattern", body: "y" } as any,
@@ -276,7 +287,9 @@ describe("write_memory tool", () => {
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		it("returns INVALID_INPUT for unknown kind", async () => {
+		test("returns INVALID_INPUT for unknown kind", async ({ db }) => {
+			await setupFts(db);
+			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
 				{ layer: "L3", kind: "rumor", title: "x", body: "y" } as any,

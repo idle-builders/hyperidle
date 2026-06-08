@@ -7,9 +7,8 @@
  * is a member of USER_ROLES. The role column is typed as text, not constrained.
  */
 
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { HyperIdleDb } from "../connection.js";
 // P2: import new symbols — these will fail to compile until implementation is done
 import {
 	type NewUser,
@@ -19,28 +18,15 @@ import {
 	userSkills,
 	users,
 } from "../schema.js";
-import { createTestDb, type TestDbHandle } from "../test-utils.js";
 
 const NOW = new Date().toISOString();
 
 describe("P2 — users table schema (AC1, AC2, AC9)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	}, 30_000);
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
 	// -------------------------------------------------------------------------
 	// AC1: agents table renamed to users; kind column added
 	// -------------------------------------------------------------------------
 	describe("AC1: table renamed to users with kind column", () => {
-		it("users table exists after migration", async () => {
+		test("users table exists after migration", async ({ db }) => {
 			const result = await db.execute(
 				`SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename` as Parameters<
 					typeof db.execute
@@ -54,7 +40,7 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 			expect(tableNames).not.toContain("agents");
 		});
 
-		it("users table has kind column with default value ai", async () => {
+		test("users table has kind column with default value ai", async ({ db }) => {
 			const result = await db.execute(
 				`SELECT column_name, column_default, is_nullable FROM information_schema.columns WHERE table_name = 'users' AND table_schema = 'public' AND column_name = 'kind'` as Parameters<
 					typeof db.execute
@@ -76,7 +62,7 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 			expect(rows[0]?.is_nullable).toBe("NO");
 		});
 
-		it("inserts an AI user with kind defaulting to ai", async () => {
+		test("inserts an AI user with kind defaulting to ai", async ({ db }) => {
 			const aiUser: NewUser = {
 				id: "u-test-ai",
 				name: "Builder Bot",
@@ -92,7 +78,7 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 			expect(rows[0]).toMatchObject({ kind: "ai" });
 		});
 
-		it("inserts a human user with kind = human", async () => {
+		test("inserts a human user with kind = human", async ({ db }) => {
 			const humanUser: NewUser = {
 				id: "u-founder",
 				kind: "human",
@@ -111,7 +97,7 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 			expect(rows[0]).toMatchObject({ kind: "human", role: "founder" });
 		});
 
-		it("inferred User type has kind, email, avatarUrl fields", () => {
+		test("inferred User type has kind, email, avatarUrl fields", () => {
 			// Type-level check: compile-time assertion that the inferred type has the fields.
 			// If the schema is wrong this file will fail to compile (red phase).
 			const user = {} as User;
@@ -130,7 +116,7 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 	// AC2: human-specific nullable columns: email, avatarUrl
 	// -------------------------------------------------------------------------
 	describe("AC2: email and avatarUrl are nullable", () => {
-		it("inserts an AI user with null email and null avatarUrl", async () => {
+		test("inserts an AI user with null email and null avatarUrl", async ({ db }) => {
 			const aiUser: NewUser = {
 				id: "u-ai-no-email",
 				kind: "ai",
@@ -149,7 +135,7 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 			expect(rows[0]).toMatchObject({ email: null, avatarUrl: null });
 		});
 
-		it("inserts a human user with email and avatarUrl populated", async () => {
+		test("inserts a human user with email and avatarUrl populated", async ({ db }) => {
 			const humanUser: NewUser = {
 				id: "u-human-with-profile",
 				kind: "human",
@@ -171,7 +157,7 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 			});
 		});
 
-		it("email column exists and allows null", async () => {
+		test("email column exists and allows null", async ({ db }) => {
 			const result = await db.execute(
 				`SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name = 'users' AND table_schema = 'public' AND column_name IN ('email', 'avatar_url')` as Parameters<
 					typeof db.execute
@@ -194,7 +180,7 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 	// AC1 + critique: user_skills table has user_id column (not agent_id)
 	// -------------------------------------------------------------------------
 	describe("AC1 (critique): user_skills table has user_id column", () => {
-		it("user_skills table exists and does NOT have agent_id column", async () => {
+		test("user_skills table exists and does NOT have agent_id column", async ({ db }) => {
 			const result = await db.execute(
 				`SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename` as Parameters<
 					typeof db.execute
@@ -208,7 +194,7 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 			expect(tableNames).not.toContain("agent_skills");
 		});
 
-		it("user_skills table has user_id column, not agent_id", async () => {
+		test("user_skills table has user_id column, not agent_id", async ({ db }) => {
 			const result = await db.execute(
 				`SELECT column_name FROM information_schema.columns WHERE table_name = 'user_skills' AND table_schema = 'public'` as Parameters<
 					typeof db.execute
@@ -223,7 +209,7 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 			expect(colNames).not.toContain("agent_id");
 		});
 
-		it("inserts a user_skill row with userId field", async () => {
+		test("inserts a user_skill row with userId field", async ({ db }) => {
 			// Seed a user first (FK constraint)
 			await db.insert(users).values({
 				id: "u-skill-test",
@@ -252,7 +238,7 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 	// AC9: migrations include 0017 with expected schema
 	// -------------------------------------------------------------------------
 	describe("AC9: migration 0017 creates users and user_skills tables", () => {
-		it("migration creates org_edges table", async () => {
+		test("migration creates org_edges table", async ({ db }) => {
 			const result = await db.execute(
 				`SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename` as Parameters<
 					typeof db.execute
@@ -265,7 +251,7 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 			expect(tableNames).toContain("org_edges");
 		});
 
-		it("org_edges table has correct columns", async () => {
+		test("org_edges table has correct columns", async ({ db }) => {
 			const result = await db.execute(
 				`SELECT column_name FROM information_schema.columns WHERE table_name = 'org_edges' AND table_schema = 'public'` as Parameters<
 					typeof db.execute

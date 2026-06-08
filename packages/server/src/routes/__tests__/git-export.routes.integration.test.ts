@@ -8,13 +8,11 @@
  * GET   /api/git-export/status    — status
  */
 
-import { createTestDb, type HyperIdleDb } from "@hyperidle/db";
+import { createTestDb } from "@hyperidle/db";
 import type { FsAdapter, GitRunner } from "@hyperidle/fabric";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { createGitExportRoutes } from "../../routes/git-export-routes.js";
-import { createTestApp } from "../../test-utils.js";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-git-export";
 
@@ -23,16 +21,8 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("git-export routes", () => {
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
 	});
 
 	afterEach(() => {
@@ -40,14 +30,14 @@ describe("git-export routes", () => {
 	});
 
 	describe("git-export auth", () => {
-		it("returns 401 without auth header on GET /api/git-export", async () => {
+		test("returns 401 without auth header on GET /api/git-export", async ({ app }) => {
 			const res = await app.request("/api/git-export", { method: "GET" });
 			expect(res.status).toBe(401);
 		});
 	});
 
 	describe("GET /api/git-export", () => {
-		it("returns 200 with resource descriptor", async () => {
+		test("returns 200 with resource descriptor", async ({ app }) => {
 			const res = await app.request("/api/git-export", {
 				method: "GET",
 				headers: authHeaders(),
@@ -60,7 +50,7 @@ describe("git-export routes", () => {
 	});
 
 	describe("GET /api/git-export/config", () => {
-		it("returns 200 with config (defaults when no settings exist)", async () => {
+		test("returns 200 with config (defaults when no settings exist)", async ({ app }) => {
 			const res = await app.request("/api/git-export/config", {
 				method: "GET",
 				headers: authHeaders(),
@@ -79,7 +69,7 @@ describe("git-export routes", () => {
 	});
 
 	describe("PATCH /api/git-export/config", () => {
-		it("returns 200 with updated config on valid patch", async () => {
+		test("returns 200 with updated config on valid patch", async ({ app }) => {
 			const res = await app.request("/api/git-export/config", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -91,7 +81,7 @@ describe("git-export routes", () => {
 			expect(body.authorName).toBe("Test Author");
 		});
 
-		it("returns 400 on invalid field values (e.g., bad branch name)", async () => {
+		test("returns 400 on invalid field values (e.g., bad branch name)", async ({ app }) => {
 			// Branch name starting with '-' is invalid
 			const res = await app.request("/api/git-export/config", {
 				method: "PATCH",
@@ -101,7 +91,7 @@ describe("git-export routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("returns 400 with extra/unknown fields (strict schema)", async () => {
+		test("returns 400 with extra/unknown fields (strict schema)", async ({ app }) => {
 			const res = await app.request("/api/git-export/config", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -110,7 +100,7 @@ describe("git-export routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		it("redacts remoteUrl in response", async () => {
+		test("redacts remoteUrl in response", async ({ app }) => {
 			// HYPERIDLE_GIT_ALLOW_FILE_REMOTE must be true for file:// URLs in tests
 			vi.stubEnv("HYPERIDLE_GIT_ALLOW_FILE_REMOTE", "true");
 			const res = await app.request("/api/git-export/config", {
@@ -127,7 +117,7 @@ describe("git-export routes", () => {
 	});
 
 	describe("POST /api/git-export/run", () => {
-		it("returns 400 when repoPath is not configured", async () => {
+		test("returns 400 when repoPath is not configured", async ({ app }) => {
 			const res = await app.request("/api/git-export/run", {
 				method: "POST",
 				headers: authHeaders(),
@@ -138,7 +128,7 @@ describe("git-export routes", () => {
 			expect(body.error).toContain("repoPath");
 		});
 
-		it("returns 200 on successful export (injected stubs)", async () => {
+		test("returns 200 on successful export (injected stubs)", async ({}) => {
 			// Build stub GitRunner + FsAdapter and inject directly into route
 			const stubRunner: GitRunner = {
 				init: async () => {},
@@ -189,11 +179,13 @@ describe("git-export routes", () => {
 			const body = (await runRes.json()) as { status: string };
 			// Should be committed, pushed, noop, or similar — but not error
 			expect(["committed", "pushed", "noop", "disabled"]).toContain(body.status);
+
+			await handle.close();
 		});
 	});
 
 	describe("GET /api/git-export/status", () => {
-		it("returns 200 with status including enabled, branch, commit info", async () => {
+		test("returns 200 with status including enabled, branch, commit info", async ({ app }) => {
 			const res = await app.request("/api/git-export/status", {
 				method: "GET",
 				headers: authHeaders(),

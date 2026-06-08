@@ -1,6 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { HyperIdleDb } from "../connection.js";
-import { createTestDb, type TestDbHandle } from "../test-utils.js";
 
 /**
  * I3 — secondary index acceptance tests.
@@ -10,19 +9,7 @@ import { createTestDb, type TestDbHandle } from "../test-utils.js";
  */
 
 describe("I3: secondary index coverage", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	}, 30_000);
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	async function indexesFor(table: string): Promise<string[]> {
+	async function indexesFor(db: HyperIdleDb, table: string): Promise<string[]> {
 		const result = await db.execute(
 			`SELECT indexname FROM pg_indexes WHERE tablename = '${table}' AND schemaname = 'public'` as Parameters<
 				typeof db.execute
@@ -31,52 +18,54 @@ describe("I3: secondary index coverage", () => {
 		return (result as { rows: Array<{ indexname: string }> }).rows.map((r) => r.indexname);
 	}
 
-	it("tasks has an index for bet_id", async () => {
-		const indexes = await indexesFor("tasks");
+	test("tasks has an index for bet_id", async ({ db }) => {
+		const indexes = await indexesFor(db, "tasks");
 		expect(indexes.some((i) => i.includes("bet_id"))).toBe(true);
 	});
 
 	// @lore U1: tasks.product_id dropped; tasks.team_id now references `teams` (formerly `products`).
 	// The tasks_team_id_idx covers queries by both team_id and the former product_id lookup path.
-	it("tasks has an index for team_id (covers both team_id and former product_id)", async () => {
-		const indexes = await indexesFor("tasks");
+	test("tasks has an index for team_id (covers both team_id and former product_id)", async ({
+		db,
+	}) => {
+		const indexes = await indexesFor(db, "tasks");
 		expect(indexes.some((i) => i.includes("team_id"))).toBe(true);
 	});
 
-	it("sessions has an index for task_id", async () => {
-		const indexes = await indexesFor("sessions");
+	test("sessions has an index for task_id", async ({ db }) => {
+		const indexes = await indexesFor(db, "sessions");
 		expect(indexes.some((i) => i.includes("task_id"))).toBe(true);
 	});
 
-	it("sessions has an index for agent_id", async () => {
-		const indexes = await indexesFor("sessions");
+	test("sessions has an index for agent_id", async ({ db }) => {
+		const indexes = await indexesFor(db, "sessions");
 		expect(indexes.some((i) => i.includes("agent_id"))).toBe(true);
 	});
 
-	it("sessions has an index for state", async () => {
-		const indexes = await indexesFor("sessions");
+	test("sessions has an index for state", async ({ db }) => {
+		const indexes = await indexesFor(db, "sessions");
 		expect(indexes.some((i) => i.includes("state"))).toBe(true);
 	});
 
-	it("items has an index for thread_id", async () => {
-		const indexes = await indexesFor("items");
+	test("items has an index for thread_id", async ({ db }) => {
+		const indexes = await indexesFor(db, "items");
 		expect(indexes.some((i) => i.includes("thread_id"))).toBe(true);
 	});
 
-	it("messages has an index for thread_id", async () => {
-		const indexes = await indexesFor("messages");
+	test("messages has an index for thread_id", async ({ db }) => {
+		const indexes = await indexesFor(db, "messages");
 		expect(indexes.some((i) => i.includes("thread_id"))).toBe(true);
 	});
 
 	// @lore U1: bets.product_id dropped; bets.team_id now references `teams` (formerly `products`).
 	// The bets_team_id_idx covers this query path.
-	it("bets has an index for team_id (formerly product_id)", async () => {
-		const indexes = await indexesFor("bets");
+	test("bets has an index for team_id (formerly product_id)", async ({ db }) => {
+		const indexes = await indexesFor(db, "bets");
 		expect(indexes.some((i) => i.includes("team_id"))).toBe(true);
 	});
 
-	it("bets has an index for status", async () => {
-		const indexes = await indexesFor("bets");
+	test("bets has an index for status", async ({ db }) => {
+		const indexes = await indexesFor(db, "bets");
 		expect(indexes.some((i) => i.includes("status"))).toBe(true);
 	});
 });

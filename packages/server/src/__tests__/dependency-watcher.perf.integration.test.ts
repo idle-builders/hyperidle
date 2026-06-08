@@ -1,7 +1,7 @@
-import { bets, createTestDb, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
-import { EventBus, type TaskState } from "@hyperidle/shared";
+import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
+import { type TaskState } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, test } from "../test-fixtures.js";
 import { checkAndUnblockDependents } from "../services/dependency-watcher.js";
 
 /**
@@ -56,18 +56,8 @@ async function insertTask(
 }
 
 describe("I3: dependency-watcher SQL filter benchmark", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
+	test("completes in <50ms with 500 tasks (1 dependent, 499 unrelated)", async ({ db, eventBus }) => {
 		await seedPrerequisites(db);
-	});
-
-	it("completes in <50ms with 500 tasks (1 dependent, 499 unrelated)", async () => {
 		// Target task that just completed.
 		await insertTask(db, "target", "done");
 
@@ -101,7 +91,8 @@ describe("I3: dependency-watcher SQL filter benchmark", () => {
 		);
 	});
 
-	it("does NOT load unrelated tasks into memory (proxy: row-read counter)", async () => {
+	test("does NOT load unrelated tasks into memory (proxy: row-read counter)", async ({ db, eventBus }) => {
+		await seedPrerequisites(db);
 		// We can't directly observe Drizzle row-reads from the test, but we
 		// can inspect SQLite's per-statement scan count via PRAGMA stats.
 		// A simpler proxy: verify behavioural correctness by mutating an
@@ -135,18 +126,8 @@ describe("I3: dependency-watcher SQL filter benchmark", () => {
 });
 
 describe("I3: dependency-watcher LIKE prefix-collision guard", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
+	test("completing 'dep-1' does NOT unblock a task waiting on 'dep-12'", async ({ db, eventBus }) => {
 		await seedPrerequisites(db);
-	});
-
-	it("completing 'dep-1' does NOT unblock a task waiting on 'dep-12'", async () => {
 		// dep-1 just finished.
 		await insertTask(db, "dep-1", "done");
 		// dep-12 is still in progress; the dependent waits on it.
@@ -160,7 +141,8 @@ describe("I3: dependency-watcher LIKE prefix-collision guard", () => {
 		expect(dependent?.state).toBe("hold");
 	});
 
-	it("completing 'dep-1' does not falsely unblock a sibling whose deps array contains 'dep-100'", async () => {
+	test("completing 'dep-1' does not falsely unblock a sibling whose deps array contains 'dep-100'", async ({ db, eventBus }) => {
+		await seedPrerequisites(db);
 		await insertTask(db, "dep-1", "done");
 		await insertTask(db, "dep-100", "in_progress");
 		await insertTask(db, "sibling", "hold", ["dep-100"]);

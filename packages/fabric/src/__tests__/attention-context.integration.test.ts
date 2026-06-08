@@ -1,12 +1,11 @@
 import {
-	createTestDb,
 	type HyperIdleDb,
 	knowledgeConflicts,
 	knowledgeEditLog,
 	knowledgeItems,
 	knowledgeStrategyFabric,
 } from "@hyperidle/db";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { buildAttentionContext, cohortKey, crossScopeKey } from "../attention-scoring.js";
 import type { KnowledgeItemWithFabric } from "../knowledge-repository.js";
 
@@ -57,19 +56,7 @@ async function seedItem(
 }
 
 describe("buildAttentionContext", () => {
-	let db: HyperIdleDb;
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	});
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	it("returns conflictedIds matching open knowledge_conflicts", async () => {
+	test("returns conflictedIds matching open knowledge_conflicts", async ({ db }) => {
 		const a = await seedItem(db, { id: "a" });
 		const b = await seedItem(db, { id: "b" });
 		await db.insert(knowledgeConflicts).values({
@@ -98,7 +85,9 @@ describe("buildAttentionContext", () => {
 		expect(ctx.conflictedIds.has("b")).toBe(false);
 	});
 
-	it("returns cohort sizes matching group-by on (layer, scope_id, topic, kind)", async () => {
+	test("returns cohort sizes matching group-by on (layer, scope_id, topic, kind)", async ({
+		db,
+	}) => {
 		const one = await seedItem(db, {
 			id: "one",
 			layer: "L3",
@@ -127,7 +116,9 @@ describe("buildAttentionContext", () => {
 		expect(ctx.cohortSizeByKey.get(key)).toBe(3);
 	});
 
-	it("returns crossScopeCount of distinct scopes per (layer, topic, kind), excluding null scope_id", async () => {
+	test("returns crossScopeCount of distinct scopes per (layer, topic, kind), excluding null scope_id", async ({
+		db,
+	}) => {
 		const a = await seedItem(db, {
 			id: "a",
 			layer: "L3",
@@ -145,7 +136,7 @@ describe("buildAttentionContext", () => {
 		expect(ctx.crossScopeCountByKey.get(key)).toBe(3);
 	});
 
-	it("filters status=archived out of both cohort and cross-scope counts", async () => {
+	test("filters status=archived out of both cohort and cross-scope counts", async ({ db }) => {
 		const a = await seedItem(db, {
 			id: "a",
 			layer: "L3",
@@ -176,7 +167,7 @@ describe("buildAttentionContext", () => {
 		expect(ctx.crossScopeCountByKey.get(crossScopeKey("L3", "auth", "pattern"))).toBe(1);
 	});
 
-	it("reads human edits from knowledge_edit_log within the recency window", async () => {
+	test("reads human edits from knowledge_edit_log within the recency window", async ({ db }) => {
 		const a = await seedItem(db, { id: "a" });
 		const b = await seedItem(db, { id: "b" });
 		// Human edit within window

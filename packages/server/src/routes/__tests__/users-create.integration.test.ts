@@ -8,11 +8,10 @@
  * Reviewer WARNING: POST must set role, status, and other required columns
  */
 
-import { createTestDb, type HyperIdleDb, type TestDbHandle, users } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { type HyperIdleDb, users } from "@hyperidle/db";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
+import { createApp } from "../../app.js";
 
 const TEST_API_KEY = "test-key-users-create";
 
@@ -31,25 +30,16 @@ function noAuthHeaders(): Record<string, string> {
 const NOW = new Date().toISOString();
 
 describe("POST /api/users — setup user creation", () => {
-	let app: Hono;
-	let db: HyperIdleDb;
-	let handle: TestDbHandle;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		const eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle?.close();
 	});
 
 	// AC-28: POST creates human user with 201
-	it("creates a human user and returns 201 when no human user exists", async () => {
+	test("creates a human user and returns 201 when no human user exists", async ({ app }) => {
 		const res = await app.request("/api/users", {
 			method: "POST",
 			headers: noAuthHeaders(),
@@ -65,7 +55,7 @@ describe("POST /api/users — setup user creation", () => {
 	});
 
 	// Reviewer WARNING: required columns must be set
-	it("created user has role and status set", async () => {
+	test("created user has role and status set", async ({ app }) => {
 		const res = await app.request("/api/users", {
 			method: "POST",
 			headers: noAuthHeaders(),
@@ -81,7 +71,7 @@ describe("POST /api/users — setup user creation", () => {
 	});
 
 	// AC-28: Idempotent — second POST returns 200 with existing user
-	it("returns 200 with existing user when human user already exists (idempotent)", async () => {
+	test("returns 200 with existing user when human user already exists (idempotent)", async ({ app }) => {
 		// First call creates
 		const first = await app.request("/api/users", {
 			method: "POST",
@@ -104,12 +94,11 @@ describe("POST /api/users — setup user creation", () => {
 	});
 
 	// Reviewer CRITICAL: Auth bypass test — no API key when no human exists
-	it("allows unauthenticated creation when HYPERIDLE_API_KEY is set but no human user exists", async () => {
+	test("allows unauthenticated creation when HYPERIDLE_API_KEY is set but no human user exists", async ({ db, eventBus }) => {
 		// Empty API key in env simulates local-mode where key is not yet configured
 		vi.stubEnv("HYPERIDLE_API_KEY", "");
 
-		const freshHandle = await createTestDb();
-		const freshApp = await createTestApp({ db: freshHandle.db, eventBus: new EventBus() });
+		const freshApp = await createApp({ db, eventBus });
 
 		const res = await freshApp.request("/api/users", {
 			method: "POST",
@@ -122,7 +111,7 @@ describe("POST /api/users — setup user creation", () => {
 	});
 
 	// Validation: missing name returns 400
-	it("returns 400 when name is missing", async () => {
+	test("returns 400 when name is missing", async ({ app }) => {
 		const res = await app.request("/api/users", {
 			method: "POST",
 			headers: noAuthHeaders(),
@@ -133,7 +122,7 @@ describe("POST /api/users — setup user creation", () => {
 	});
 
 	// R2: email is optional — creates user without email (email omitted)
-	it("creates user without email (email omitted) — R2: email is optional", async () => {
+	test("creates user without email (email omitted) — R2: email is optional", async ({ app }) => {
 		const res = await app.request("/api/users", {
 			method: "POST",
 			headers: noAuthHeaders(),
@@ -148,7 +137,7 @@ describe("POST /api/users — setup user creation", () => {
 	});
 
 	// Validation: invalid email returns 400
-	it("returns 400 for invalid email format", async () => {
+	test("returns 400 for invalid email format", async ({ app }) => {
 		const res = await app.request("/api/users", {
 			method: "POST",
 			headers: noAuthHeaders(),
@@ -159,7 +148,7 @@ describe("POST /api/users — setup user creation", () => {
 	});
 
 	// Validation: empty name returns 400
-	it("returns 400 for empty name", async () => {
+	test("returns 400 for empty name", async ({ app }) => {
 		const res = await app.request("/api/users", {
 			method: "POST",
 			headers: noAuthHeaders(),
@@ -170,7 +159,7 @@ describe("POST /api/users — setup user creation", () => {
 	});
 
 	// Security: after setup, unauthenticated creation blocked
-	it("blocks unauthenticated POST when a human user already exists", async () => {
+	test("blocks unauthenticated POST when a human user already exists", async ({ db, app }) => {
 		// Seed a human user
 		await db.insert(users).values({
 			id: "u-human-1",
@@ -193,7 +182,7 @@ describe("POST /api/users — setup user creation", () => {
 	});
 
 	// The created user can be retrieved
-	it("created user is retrievable via GET /api/users/:id", async () => {
+	test("created user is retrievable via GET /api/users/:id", async ({ app }) => {
 		const createRes = await app.request("/api/users", {
 			method: "POST",
 			headers: noAuthHeaders(),

@@ -15,9 +15,10 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import { createTestDb, type HyperIdleDb } from "@hyperidle/db";
+import { type HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
+import { test } from "../../test-fixtures.js";
 import { buildToolRegistry, type ToolContext } from "../tool-registry.js";
 
 const FACILITATOR_ONLY = [
@@ -40,16 +41,7 @@ function makeContext(db: HyperIdleDb): ToolContext {
 }
 
 describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
-	let db: HyperIdleDb;
-
-	beforeEach(async () => {
-		// These tests don't query the DB — they only test role filtering logic.
-		// createTestDb is called to satisfy the ToolContext type.
-		const handle = await createTestDb();
-		db = handle.db;
-	});
-
-	it("B1: builder registry excludes all four facilitator tools", () => {
+	test("B1: builder registry excludes all four facilitator tools", ({ db }) => {
 		// I2 contract: second-arg options object with `role`.
 		const registry = buildToolRegistry(makeContext(db), { role: "builder" });
 		const names = new Set(registry.definitions.map((d) => d.name));
@@ -58,7 +50,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		}
 	});
 
-	it("B1: builder registry still contains the 8 base tools", () => {
+	test("B1: builder registry still contains the 8 base tools", ({ db }) => {
 		const registry = buildToolRegistry(makeContext(db), { role: "builder" });
 		const names = new Set(registry.definitions.map((d) => d.name));
 		expect(names.has("read_inbox")).toBe(true);
@@ -71,7 +63,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		expect(names.has("write_session_notes")).toBe(true);
 	});
 
-	it("B2 + review W3: builder registry returns FORBIDDEN when invoking a facilitator tool that exists but is role-filtered", async () => {
+	test("B2 + review W3: builder registry returns FORBIDDEN when invoking a facilitator tool that exists but is role-filtered", async ({ db }) => {
 		const registry = buildToolRegistry(makeContext(db), { role: "builder" });
 		const result = await registry.invoke("promote_knowledge", {});
 		expect(result.success).toBe(false);
@@ -81,7 +73,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		expect(result.code).toBe("FORBIDDEN");
 	});
 
-	it("review W3: invoking a genuinely unknown tool name still returns NOT_FOUND", async () => {
+	test("review W3: invoking a genuinely unknown tool name still returns NOT_FOUND", async ({ db }) => {
 		const registry = buildToolRegistry(makeContext(db), { role: "builder" });
 		const result = await registry.invoke("there_is_no_such_tool", {});
 		expect(result.success).toBe(false);
@@ -89,7 +81,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		expect(result.code).toBe("NOT_FOUND");
 	});
 
-	it("B3: chief_of_staff registry includes all 15 tools", () => {
+	test("B3: chief_of_staff registry includes all 15 tools", ({ db }) => {
 		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
 		const names = registry.definitions.map((d) => d.name).sort();
 		// 12 base + create_task (R5) + submit_review (R5) + create_artifact (R6) = 15
@@ -99,7 +91,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		}
 	});
 
-	it("B3: practice_facilitator registry includes the facilitator tools", () => {
+	test("B3: practice_facilitator registry includes the facilitator tools", ({ db }) => {
 		const registry = buildToolRegistry(makeContext(db), { role: "practice_facilitator" });
 		const names = new Set(registry.definitions.map((d) => d.name));
 		for (const t of FACILITATOR_ONLY) {

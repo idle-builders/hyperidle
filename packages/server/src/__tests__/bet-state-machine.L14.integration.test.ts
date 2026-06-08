@@ -11,15 +11,13 @@
 
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
-	type TestDbHandle,
 	teamMembers,
 	teams,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
+import { test } from "../test-fixtures.js";
 import {
 	type RevisionLogEntry,
 	transitionBet,
@@ -57,24 +55,10 @@ async function getLog(db: HyperIdleDb, betId: string): Promise<RevisionLogEntry[
 }
 
 describe("L14 — RevisionLogEntry actor field (T1)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		await db.insert(teams).values(makeProduct());
-		await db.insert(teamMembers).values(makeTeamMembers());
-	});
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
 	describe("transitionBet with actor option", () => {
-		it("writes actor to the revision log when actor is provided", async () => {
+		test("writes actor to the revision log when actor is provided", async ({ db, eventBus }) => {
+			await db.insert(teams).values(makeProduct());
+			await db.insert(teamMembers).values(makeTeamMembers());
 			await db.insert(bets).values(makeBet("draft"));
 
 			await transitionBet(db, eventBus, "bet-1", "active", { actor: "u-founder" });
@@ -84,7 +68,12 @@ describe("L14 — RevisionLogEntry actor field (T1)", () => {
 			expect(log[0]?.actor).toBe("u-founder");
 		});
 
-		it("actor is undefined in log when no actor is provided (backward compat)", async () => {
+		test("actor is undefined in log when no actor is provided (backward compat)", async ({
+			db,
+			eventBus,
+		}) => {
+			await db.insert(teams).values(makeProduct());
+			await db.insert(teamMembers).values(makeTeamMembers());
 			await db.insert(bets).values(makeBet("draft"));
 
 			await transitionBet(db, eventBus, "bet-1", "active");
@@ -95,7 +84,9 @@ describe("L14 — RevisionLogEntry actor field (T1)", () => {
 			expect(log[0]?.actor).toBeUndefined();
 		});
 
-		it("passes actor through kill transition (draft → killed)", async () => {
+		test("passes actor through kill transition (draft → killed)", async ({ db, eventBus }) => {
+			await db.insert(teams).values(makeProduct());
+			await db.insert(teamMembers).values(makeTeamMembers());
 			await db.insert(bets).values(makeBet("draft"));
 
 			await transitionBet(db, eventBus, "bet-1", "killed", {
@@ -107,7 +98,12 @@ describe("L14 — RevisionLogEntry actor field (T1)", () => {
 			expect(log[0]?.actor).toBe("u-founder");
 		});
 
-		it("passes actor through completed transition (active → completed)", async () => {
+		test("passes actor through completed transition (active → completed)", async ({
+			db,
+			eventBus,
+		}) => {
+			await db.insert(teams).values(makeProduct());
+			await db.insert(teamMembers).values(makeTeamMembers());
 			await db.insert(bets).values(makeBet("active"));
 			await transitionBet(db, eventBus, "bet-1", "completed", {
 				actor: "u-founder",
@@ -119,7 +115,9 @@ describe("L14 — RevisionLogEntry actor field (T1)", () => {
 			expect(completedEntry?.actor).toBe("u-founder");
 		});
 
-		it("passes actor through active transition (draft → active)", async () => {
+		test("passes actor through active transition (draft → active)", async ({ db, eventBus }) => {
+			await db.insert(teams).values(makeProduct());
+			await db.insert(teamMembers).values(makeTeamMembers());
 			await db.insert(bets).values(makeBet("draft"));
 
 			await transitionBet(db, eventBus, "bet-1", "active", {
@@ -133,7 +131,9 @@ describe("L14 — RevisionLogEntry actor field (T1)", () => {
 	});
 
 	describe("updateBetField with actor option", () => {
-		it("writes actor to revision log when actor is provided", async () => {
+		test("writes actor to revision log when actor is provided", async ({ db, eventBus }) => {
+			await db.insert(teams).values(makeProduct());
+			await db.insert(teamMembers).values(makeTeamMembers());
 			await db.insert(bets).values(makeBet("active"));
 
 			await updateBetField(
@@ -151,7 +151,9 @@ describe("L14 — RevisionLogEntry actor field (T1)", () => {
 			expect(log[0]?.actor).toBe("u-founder");
 		});
 
-		it("actor is undefined when not provided (backward compat)", async () => {
+		test("actor is undefined when not provided (backward compat)", async ({ db, eventBus }) => {
+			await db.insert(teams).values(makeProduct());
+			await db.insert(teamMembers).values(makeTeamMembers());
 			await db.insert(bets).values(makeBet("active"));
 
 			await updateBetField(db, eventBus, "bet-1", "hypothesis", "New", "reason");

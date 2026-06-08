@@ -15,20 +15,16 @@
 
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	knowledgeItems,
 	knowledgeStrategyFabric,
-	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { describe, expect, vi } from "vitest";
+import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-ac2-retro";
 const NOW = new Date().toISOString();
@@ -37,77 +33,67 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
+async function seedRetroBase(db: HyperIdleDb): Promise<void> {
+	await db.insert(teams).values({ id: "t1", name: "Alpha", phase: "build", createdAt: NOW });
+	await db.insert(teamMembers).values({
+		id: "tm1",
+		teamId: "t1",
+		capacity: 5,
+		activeBets: 0,
+		formedAt: NOW,
+	});
 
-	beforeEach(async () => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-
-		await db.insert(teams).values({ id: "t1", name: "Alpha", phase: "build", createdAt: NOW });
-		await db.insert(teamMembers).values({
-			id: "tm1",
+	await db.insert(bets).values([
+		{
+			id: "bet-completed",
 			teamId: "t1",
-			capacity: 5,
-			activeBets: 0,
-			formedAt: NOW,
-		});
+			description: "Validate the onboarding hypothesis",
+			status: "completed",
+			hypothesis: "Users will complete onboarding in under 5 minutes.",
+			createdAt: NOW,
+		},
+		{
+			id: "bet-completed-no-hyp",
+			teamId: "t1",
+			description: "No hypothesis bet",
+			status: "completed",
+			hypothesis: null,
+			createdAt: NOW,
+		},
+		{
+			id: "bet-killed",
+			teamId: "t1",
+			description: "Killed bet",
+			status: "killed",
+			hypothesis: "Some hypothesis.",
+			createdAt: NOW,
+		},
+		{
+			id: "bet-active",
+			teamId: "t1",
+			description: "Active bet",
+			status: "active",
+			createdAt: NOW,
+		},
+		{
+			id: "bet-draft",
+			teamId: "t1",
+			description: "Draft bet",
+			status: "draft",
+			createdAt: NOW,
+		},
+	]);
+}
 
-		await db.insert(bets).values([
-			{
-				id: "bet-completed",
-				teamId: "t1",
-				description: "Validate the onboarding hypothesis",
-				status: "completed",
-				hypothesis: "Users will complete onboarding in under 5 minutes.",
-				createdAt: NOW,
-			},
-			{
-				id: "bet-completed-no-hyp",
-				teamId: "t1",
-				description: "No hypothesis bet",
-				status: "completed",
-				hypothesis: null,
-				createdAt: NOW,
-			},
-			{
-				id: "bet-killed",
-				teamId: "t1",
-				description: "Killed bet",
-				status: "killed",
-				hypothesis: "Some hypothesis.",
-				createdAt: NOW,
-			},
-			{
-				id: "bet-active",
-				teamId: "t1",
-				description: "Active bet",
-				status: "active",
-				createdAt: NOW,
-			},
-			{
-				id: "bet-draft",
-				teamId: "t1",
-				description: "Draft bet",
-				status: "draft",
-				createdAt: NOW,
-			},
-		]);
-	});
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle?.close();
-	});
-
+describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 	// AC2-1: Happy path — writes bet outcome AND creates knowledge item atomically
-	it("AC2-1: writes bet outcome fields and creates retro knowledge item atomically", async () => {
+	test("AC2-1: writes bet outcome fields and creates retro knowledge item atomically", async ({
+		db,
+		app,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedRetroBase(db);
+
 		const res = await app.request("/api/bets/bet-completed/retro", {
 			method: "POST",
 			headers: authHeaders(),
@@ -137,10 +123,17 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		expect(retroKi).toBeDefined();
 		expect(retroKi?.scopeKind).toBe("bet");
 		expect(retroKi?.scopeId).toBe("bet-completed");
+		vi.unstubAllEnvs();
 	});
 
 	// AC2-2: Knowledge item body has ## Reality and ## Learnings sections
-	it("AC2-2: knowledge item body contains ## Reality and ## Learnings sections", async () => {
+	test("AC2-2: knowledge item body contains ## Reality and ## Learnings sections", async ({
+		db,
+		app,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedRetroBase(db);
+
 		const res = await app.request("/api/bets/bet-completed/retro", {
 			method: "POST",
 			headers: authHeaders(),
@@ -165,10 +158,17 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		// Body must contain the summary and learnings text
 		expect(ki?.body).toContain("Users took 12 minutes on average.");
 		expect(ki?.body).toContain("Wizard was too long; reduce steps.");
+		vi.unstubAllEnvs();
 	});
 
 	// AC2-2: Fabric meta has betId, hypothesis, verdict
-	it("AC2-2: fabric row meta contains betId, hypothesis snapshot, and verdict", async () => {
+	test("AC2-2: fabric row meta contains betId, hypothesis snapshot, and verdict", async ({
+		db,
+		app,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedRetroBase(db);
+
 		const res = await app.request("/api/bets/bet-completed/retro", {
 			method: "POST",
 			headers: authHeaders(),
@@ -190,10 +190,17 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		expect(meta.hypothesis).toBe("Users will complete onboarding in under 5 minutes.");
 		expect(meta.verdict).toBe("partial");
 		expect(meta.validatedAt).toBeTruthy();
+		vi.unstubAllEnvs();
 	});
 
 	// AC2-3: Re-validation upserts (no duplicate), version incremented
-	it("AC2-3: second retro call upserts (no duplicate), version incremented", async () => {
+	test("AC2-3: second retro call upserts (no duplicate), version incremented", async ({
+		db,
+		app,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedRetroBase(db);
+
 		// First retro
 		const res1 = await app.request("/api/bets/bet-completed/retro", {
 			method: "POST",
@@ -230,10 +237,17 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 
 		// Version must be incremented
 		expect(retroItems[0]?.version).toBe(2);
+		vi.unstubAllEnvs();
 	});
 
 	// AC2-4: Hypothesis snapshot is immutable
-	it("AC2-4: hypothesis snapshot in retro body is taken at creation time, immutable to later changes", async () => {
+	test("AC2-4: hypothesis snapshot in retro body is taken at creation time, immutable to later changes", async ({
+		db,
+		app,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedRetroBase(db);
+
 		// Record retro with original hypothesis
 		const res1 = await app.request("/api/bets/bet-completed/retro", {
 			method: "POST",
@@ -276,10 +290,14 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		const fabricRowAfter = allFabricAfter.find((f) => f.knowledgeItemId === retroId);
 		const metaAfter = JSON.parse(fabricRowAfter?.meta ?? "{}") as Record<string, unknown>;
 		expect(metaAfter.hypothesis).toBe("Users will complete onboarding in under 5 minutes.");
+		vi.unstubAllEnvs();
 	});
 
 	// AC2-10: Fabric row kind='reflection'
-	it("AC2-10: fabric row has kind='reflection'", async () => {
+	test("AC2-10: fabric row has kind='reflection'", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedRetroBase(db);
+
 		const res = await app.request("/api/bets/bet-completed/retro", {
 			method: "POST",
 			headers: authHeaders(),
@@ -296,10 +314,14 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		const fabricRow = allFabric.find((f) => f.knowledgeItemId === retroId);
 		expect(fabricRow).toBeDefined();
 		expect(fabricRow?.kind).toBe("reflection");
+		vi.unstubAllEnvs();
 	});
 
 	// AC2-11: Knowledge item status='active'
-	it("AC2-11: retro knowledge item has status='active'", async () => {
+	test("AC2-11: retro knowledge item has status='active'", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedRetroBase(db);
+
 		const res = await app.request("/api/bets/bet-completed/retro", {
 			method: "POST",
 			headers: authHeaders(),
@@ -315,38 +337,52 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		const allKi = await db.select().from(knowledgeItems);
 		const ki = allKi.find((k) => k.id === retroId);
 		expect(ki?.status).toBe("active");
+		vi.unstubAllEnvs();
 	});
 
 	// AC2-14: Retro endpoint rejects non-completed/killed bets with 400
-	it("AC2-14: rejects retro for active bet with 400", async () => {
+	test("AC2-14: rejects retro for active bet with 400", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedRetroBase(db);
+
 		const res = await app.request("/api/bets/bet-active/retro", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ verdict: "validated", summary: "Too early." }),
 		});
 		expect(res.status).toBe(400);
+		vi.unstubAllEnvs();
 	});
 
-	it("AC2-14: rejects retro for draft bet with 400", async () => {
+	test("AC2-14: rejects retro for draft bet with 400", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedRetroBase(db);
+
 		const res = await app.request("/api/bets/bet-draft/retro", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ verdict: "validated", summary: "Too early." }),
 		});
 		expect(res.status).toBe(400);
+		vi.unstubAllEnvs();
 	});
 
-	it("AC2-14: returns 404 for non-existent bet", async () => {
+	test("AC2-14: returns 404 for non-existent bet", async ({ app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const res = await app.request("/api/bets/nonexistent/retro", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ verdict: "validated", summary: "Does not exist." }),
 		});
 		expect(res.status).toBe(404);
+		vi.unstubAllEnvs();
 	});
 
 	// AC2-15: Knowledge item title = "Retro: {bet title}"
-	it("AC2-15: knowledge item title follows 'Retro: {bet title}' format", async () => {
+	test("AC2-15: knowledge item title follows 'Retro: {bet title}' format", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedRetroBase(db);
+
 		const res = await app.request("/api/bets/bet-completed/retro", {
 			method: "POST",
 			headers: authHeaders(),
@@ -364,10 +400,14 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		expect(ki?.title).toMatch(/^Retro:/);
 		// The title must include the bet description (used as title by deriveTitle)
 		expect(ki?.title).toContain("Validate the onboarding hypothesis");
+		vi.unstubAllEnvs();
 	});
 
 	// Happy path on killed bet
-	it("AC2-1: records retro on killed bet", async () => {
+	test("AC2-1: records retro on killed bet", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedRetroBase(db);
+
 		const res = await app.request("/api/bets/bet-killed/retro", {
 			method: "POST",
 			headers: authHeaders(),
@@ -380,10 +420,14 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		const body = (await res.json()) as Record<string, unknown>;
 		expect(body.outcomeVerdict).toBe("refuted");
 		expect(body.retroKnowledgeItemId).toBeTruthy();
+		vi.unstubAllEnvs();
 	});
 
 	// No hypothesis case — body frontmatter should note it
-	it("AC2-2: body indicates no hypothesis when bet has no hypothesis", async () => {
+	test("AC2-2: body indicates no hypothesis when bet has no hypothesis", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedRetroBase(db);
+
 		const res = await app.request("/api/bets/bet-completed-no-hyp/retro", {
 			method: "POST",
 			headers: authHeaders(),
@@ -401,10 +445,14 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		const meta = JSON.parse(fabricRow?.meta ?? "{}") as Record<string, unknown>;
 		// Hypothesis in meta must indicate no hypothesis
 		expect(meta.hypothesis).toMatch(/no hypothesis/i);
+		vi.unstubAllEnvs();
 	});
 
 	// Learnings empty — body should have placeholder
-	it("AC2-2: body has learnings placeholder when learnings not provided", async () => {
+	test("AC2-2: body has learnings placeholder when learnings not provided", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedRetroBase(db);
+
 		const res = await app.request("/api/bets/bet-completed/retro", {
 			method: "POST",
 			headers: authHeaders(),
@@ -422,30 +470,42 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		const ki = allKi.find((k) => k.id === retroId);
 		// Should have some content in Learnings section, not empty
 		expect(ki?.body).toContain("## Learnings");
+		vi.unstubAllEnvs();
 	});
 
 	// Validation: missing verdict rejected
-	it("rejects retro without verdict (400)", async () => {
+	test("rejects retro without verdict (400)", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedRetroBase(db);
+
 		const res = await app.request("/api/bets/bet-completed/retro", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ summary: "No verdict provided" }),
 		});
 		expect(res.status).toBe(400);
+		vi.unstubAllEnvs();
 	});
 
 	// Validation: summary too long
-	it("rejects retro with summary exceeding 2000 chars (400)", async () => {
+	test("rejects retro with summary exceeding 2000 chars (400)", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedRetroBase(db);
+
 		const res = await app.request("/api/bets/bet-completed/retro", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ verdict: "validated", summary: "x".repeat(2001) }),
 		});
 		expect(res.status).toBe(400);
+		vi.unstubAllEnvs();
 	});
 
 	// Validation: learnings too long
-	it("rejects retro with learnings exceeding 4000 chars (400)", async () => {
+	test("rejects retro with learnings exceeding 4000 chars (400)", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedRetroBase(db);
+
 		const res = await app.request("/api/bets/bet-completed/retro", {
 			method: "POST",
 			headers: authHeaders(),
@@ -456,92 +516,85 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 			}),
 		});
 		expect(res.status).toBe(400);
+		vi.unstubAllEnvs();
 	});
 
 	// 401 without auth
-	it("returns 401 without authentication", async () => {
+	test("returns 401 without authentication", async ({ app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const res = await app.request("/api/bets/bet-completed/retro", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ verdict: "validated", summary: "Unauthorized." }),
 		});
 		expect(res.status).toBe(401);
+		vi.unstubAllEnvs();
 	});
 });
 
-describe("POST /api/bets/:id/retro/draft — AC2 AI-assisted draft", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
+async function seedDraftBase(db: HyperIdleDb): Promise<void> {
+	await db.insert(teams).values({ id: "t1", name: "Alpha", phase: "build", createdAt: NOW });
+	await db.insert(teamMembers).values({
+		id: "tm1",
+		teamId: "t1",
+		capacity: 5,
+		activeBets: 0,
+		formedAt: NOW,
+	});
 
-	beforeEach(async () => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-
-		await db.insert(teams).values({ id: "t1", name: "Alpha", phase: "build", createdAt: NOW });
-		await db.insert(teamMembers).values({
-			id: "tm1",
+	await db.insert(bets).values([
+		{
+			id: "bet-completed",
 			teamId: "t1",
-			capacity: 5,
-			activeBets: 0,
-			formedAt: NOW,
-		});
+			description: "Validate the onboarding hypothesis",
+			status: "completed",
+			hypothesis: "Users will complete onboarding in under 5 minutes.",
+			doneCondition: "80% of users complete step 1 through 5 without drop-off.",
+			createdAt: NOW,
+		},
+		{
+			id: "bet-active",
+			teamId: "t1",
+			description: "Active bet",
+			status: "active",
+			createdAt: NOW,
+		},
+	]);
 
-		await db.insert(bets).values([
-			{
-				id: "bet-completed",
-				teamId: "t1",
-				description: "Validate the onboarding hypothesis",
-				status: "completed",
-				hypothesis: "Users will complete onboarding in under 5 minutes.",
-				doneCondition: "80% of users complete step 1 through 5 without drop-off.",
-				createdAt: NOW,
-			},
-			{
-				id: "bet-active",
-				teamId: "t1",
-				description: "Active bet",
-				status: "active",
-				createdAt: NOW,
-			},
-		]);
+	// Seed some tasks for the draft endpoint
+	await db.insert(tasks).values([
+		{
+			id: "task-1",
+			betId: "bet-completed",
+			teamId: "t1",
+			title: "Build onboarding wizard",
+			state: "done",
+			outcomeVerdict: "met",
+			createdAt: NOW,
+			updatedAt: NOW,
+		},
+		{
+			id: "task-2",
+			betId: "bet-completed",
+			teamId: "t1",
+			title: "Analytics integration",
+			state: "done",
+			outcomeVerdict: "partially_met",
+			createdAt: NOW,
+			updatedAt: NOW,
+		},
+	]);
+}
 
-		// Seed some tasks for the draft endpoint
-		await db.insert(tasks).values([
-			{
-				id: "task-1",
-				betId: "bet-completed",
-				teamId: "t1",
-				title: "Build onboarding wizard",
-				state: "done",
-				outcomeVerdict: "met",
-				createdAt: NOW,
-				updatedAt: NOW,
-			},
-			{
-				id: "task-2",
-				betId: "bet-completed",
-				teamId: "t1",
-				title: "Analytics integration",
-				state: "done",
-				outcomeVerdict: "partially_met",
-				createdAt: NOW,
-				updatedAt: NOW,
-			},
-		]);
-	});
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle?.close();
-	});
-
+describe("POST /api/bets/:id/retro/draft — AC2 AI-assisted draft", () => {
 	// AC2-5: Draft endpoint returns { verdict, summary, learnings }
-	it("AC2-5: returns { verdict, summary, learnings } for completed bet with tasks", async () => {
+	test("AC2-5: returns { verdict, summary, learnings } for completed bet with tasks", async ({
+		db,
+		app,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedDraftBase(db);
+
 		const res = await app.request("/api/bets/bet-completed/retro/draft", {
 			method: "POST",
 			headers: authHeaders(),
@@ -557,10 +610,14 @@ describe("POST /api/bets/:id/retro/draft — AC2 AI-assisted draft", () => {
 		expect(typeof body.summary).toBe("string");
 		expect(body.learnings).toBeTruthy();
 		expect(typeof body.learnings).toBe("string");
+		vi.unstubAllEnvs();
 	});
 
 	// AC2-5: Draft with no tasks returns generic content (not an error)
-	it("AC2-5: returns draft for bet with no tasks (generic stub content)", async () => {
+	test("AC2-5: returns draft for bet with no tasks (generic stub content)", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedDraftBase(db);
+
 		// Insert bet with no tasks
 		await db.insert(bets).values({
 			id: "bet-no-tasks",
@@ -580,34 +637,43 @@ describe("POST /api/bets/:id/retro/draft — AC2 AI-assisted draft", () => {
 		expect(body.verdict).toBeTruthy();
 		expect(body.summary).toBeTruthy();
 		expect(body.learnings).toBeTruthy();
+		vi.unstubAllEnvs();
 	});
 
 	// AC2-6: Draft endpoint rejects non-completed/killed bets
-	it("AC2-6: rejects draft for active bet with 400", async () => {
+	test("AC2-6: rejects draft for active bet with 400", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		await seedDraftBase(db);
+
 		const res = await app.request("/api/bets/bet-active/retro/draft", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({}),
 		});
 		expect(res.status).toBe(400);
+		vi.unstubAllEnvs();
 	});
 
-	it("AC2-6: returns 404 for non-existent bet", async () => {
+	test("AC2-6: returns 404 for non-existent bet", async ({ app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const res = await app.request("/api/bets/nonexistent/retro/draft", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({}),
 		});
 		expect(res.status).toBe(404);
+		vi.unstubAllEnvs();
 	});
 
 	// 401 without auth
-	it("returns 401 without authentication", async () => {
+	test("returns 401 without authentication", async ({ app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const res = await app.request("/api/bets/bet-completed/retro/draft", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({}),
 		});
 		expect(res.status).toBe(401);
+		vi.unstubAllEnvs();
 	});
 });

@@ -10,9 +10,10 @@
  *    topic. Subsequent broadcasts must skip the would-be subscriber.
  */
 
-import { createTestDb, type HyperIdleDb, threads as threadsTable } from "@hyperidle/db";
-import { EventBus, type ThreadMessageAppendedEvent } from "@hyperidle/shared";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { threads as threadsTable } from "@hyperidle/db";
+import { type ThreadMessageAppendedEvent } from "@hyperidle/shared";
+import { afterEach, describe, expect } from "vitest";
+import { test } from "../test-fixtures.js";
 import {
 	createDbSubscribeAuthorizer,
 	WsBroadcaster,
@@ -30,18 +31,11 @@ function createMockClient(): WsClient & { messages: string[] } {
 }
 
 describe("WsBroadcaster — subscribe authorization (L1 Adv-C1)", () => {
-	let bus: EventBus;
-	let db: HyperIdleDb;
-	let broadcaster: WsBroadcaster;
-
-	beforeEach(async () => {
-		bus = new EventBus();
-		const handle = await createTestDb();
-		db = handle.db;
-		broadcaster = new WsBroadcaster(bus, createDbSubscribeAuthorizer(db));
+	test("participant subscribe to thread:<id> → ok", async ({ db, eventBus }) => {
+		const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db));
 		broadcaster.start();
 
-		// Seed a thread whose participants list does NOT include "agent-2".
+		// Seed a thread
 		const now = new Date().toISOString();
 		await db.insert(threadsTable).values({
 			id: "thr-1",
@@ -53,21 +47,32 @@ describe("WsBroadcaster — subscribe authorization (L1 Adv-C1)", () => {
 			lastActiveAt: now,
 			createdAt: now,
 		});
-	});
 
-	afterEach(async () => {
-		broadcaster.stop();
-	});
-
-	it("participant subscribe to thread:<id> → ok", async () => {
 		const client = createMockClient();
 		broadcaster.addClient(client, "agent-1");
 
 		const result = await broadcaster.subscribe(client, "thread:thr-1");
 		expect(result).toBe("ok");
+
+		broadcaster.stop();
 	});
 
-	it("non-participant subscribe to thread:<id> → forbidden, no events delivered", async () => {
+	test("non-participant subscribe to thread:<id> → forbidden, no events delivered", async ({ db, eventBus }) => {
+		const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db));
+		broadcaster.start();
+
+		const now = new Date().toISOString();
+		await db.insert(threadsTable).values({
+			id: "thr-1",
+			hostKind: "task",
+			hostId: "task-1",
+			initiatorId: "u-founder",
+			participants: JSON.stringify(["u-founder", "agent-1"]),
+			pinned: false,
+			lastActiveAt: now,
+			createdAt: now,
+		});
+
 		const client = createMockClient();
 		broadcaster.addClient(client, "agent-2");
 
@@ -84,39 +89,73 @@ describe("WsBroadcaster — subscribe authorization (L1 Adv-C1)", () => {
 			senderId: "agent-1",
 			timestamp: 1,
 		};
-		bus.emit(ev);
+		eventBus.emit(ev);
 
 		expect(client.messages).toEqual([]);
+
+		broadcaster.stop();
 	});
 
-	it("subscribe with no bound identity → forbidden for thread topics", async () => {
+	test("subscribe with no bound identity → forbidden for thread topics", async ({ db, eventBus }) => {
+		const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db));
+		broadcaster.start();
+
+		const now = new Date().toISOString();
+		await db.insert(threadsTable).values({
+			id: "thr-1",
+			hostKind: "task",
+			hostId: "task-1",
+			initiatorId: "u-founder",
+			participants: JSON.stringify(["u-founder", "agent-1"]),
+			pinned: false,
+			lastActiveAt: now,
+			createdAt: now,
+		});
+
 		const client = createMockClient();
 		broadcaster.addClient(client); // no senderId
 
 		const result = await broadcaster.subscribe(client, "thread:thr-1");
 		expect(result).toBe("forbidden");
+
+		broadcaster.stop();
 	});
 
-	it("global topics (`conversations`, `work`, `rail`) accept any identity", async () => {
+	test("global topics (`conversations`, `work`, `rail`) accept any identity", async ({ db, eventBus }) => {
+		const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db));
+		broadcaster.start();
+
 		const client = createMockClient();
 		broadcaster.addClient(client, "agent-2");
 
 		expect(await broadcaster.subscribe(client, "conversations")).toBe("ok");
 		expect(await broadcaster.subscribe(client, "work")).toBe("ok");
 		expect(await broadcaster.subscribe(client, "rail")).toBe("ok");
+
+		broadcaster.stop();
 	});
 
-	it("subscribe to a non-existent thread → forbidden", async () => {
+	test("subscribe to a non-existent thread → forbidden", async ({ db, eventBus }) => {
+		const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db));
+		broadcaster.start();
+
 		const client = createMockClient();
 		broadcaster.addClient(client, "agent-1");
 
 		expect(await broadcaster.subscribe(client, "thread:does-not-exist")).toBe("forbidden");
+
+		broadcaster.stop();
 	});
 
-	it("subscribe to malformed topic prefix → forbidden", async () => {
+	test("subscribe to malformed topic prefix → forbidden", async ({ db, eventBus }) => {
+		const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db));
+		broadcaster.start();
+
 		const client = createMockClient();
 		broadcaster.addClient(client, "agent-1");
 
 		expect(await broadcaster.subscribe(client, "evil:thr-1")).toBe("forbidden");
+
+		broadcaster.stop();
 	});
 });

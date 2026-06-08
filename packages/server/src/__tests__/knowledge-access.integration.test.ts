@@ -5,11 +5,8 @@
  * 1. packages/db schema has knowledge_access_log table (T1)
  * 2. packages/server/src/routes/knowledge.ts inserts access-log rows (T5)
  */
-import { createTestDb, type HyperIdleDb, knowledgeItems, type TestDbHandle } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { knowledgeItems } from "@hyperidle/db";
+import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-l22-access";
 
@@ -20,24 +17,16 @@ function authHeaders(): Record<string, string> {
 const NOW_ISO = "2026-05-06T12:00:00.000Z";
 
 describe("Knowledge access-log creation (L22 AC-1)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		const eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
 	});
 
-	afterEach(async () => {
+	afterEach(() => {
 		vi.unstubAllEnvs();
-		await handle?.close();
 	});
 
-	async function createItem(_layer = "L3"): Promise<string> {
+	// AC-1: GET /:layer/:id creates one access-log row
+	test("GET /:layer/:id creates exactly one access-log row on success", async ({ db, app }) => {
 		// @lore O2: knowledgeItems no longer has layer/scopeId/kind/meta columns.
 		// The kernel row holds identity+content only.
 		const id = crypto.randomUUID();
@@ -54,46 +43,49 @@ describe("Knowledge access-log creation (L22 AC-1)", () => {
 			updatedAt: NOW_ISO,
 		});
 
-		return id;
-	}
-
-	async function getAccessLogCount(itemId: string): Promise<number> {
-		// knowledgeAccessLog exported from @hyperidle/db since T1
-		const { knowledgeAccessLog } = await import("@hyperidle/db");
-		const rows = await db.select().from(knowledgeAccessLog);
-		return rows.filter((r: { itemId: string }) => r.itemId === itemId).length;
-	}
-
-	// AC-1: GET /:layer/:id creates one access-log row
-	it("GET /:layer/:id creates exactly one access-log row on success", async () => {
-		const itemId = await createItem("L3");
-
-		const res = await app.request(`/api/knowledge/${itemId}`, {
+		const res = await app.request(`/api/knowledge/${id}`, {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);
 
-		const count = await getAccessLogCount(itemId);
+		// knowledgeAccessLog exported from @hyperidle/db since T1
+		const { knowledgeAccessLog } = await import("@hyperidle/db");
+		const rows = await db.select().from(knowledgeAccessLog);
+		const count = rows.filter((r: { itemId: string }) => r.itemId === id).length;
 		expect(count).toBe(1);
 	});
 
 	// AC-1: multiple fetches create multiple rows
-	it("multiple GET /:layer/:id fetches create multiple access-log rows", async () => {
-		const itemId = await createItem("L3");
+	test("multiple GET /:layer/:id fetches create multiple access-log rows", async ({ db, app }) => {
+		const id = crypto.randomUUID();
+		await db.insert(knowledgeItems).values({
+			id,
+			topic: "testing",
+			title: "Test Item",
+			body: "Test body",
+			format: "markdown",
+			status: "active",
+			version: 1,
+			updatedBy: "human",
+			createdAt: NOW_ISO,
+			updatedAt: NOW_ISO,
+		});
 
 		for (let i = 0; i < 3; i++) {
-			const res = await app.request(`/api/knowledge/${itemId}`, {
+			const res = await app.request(`/api/knowledge/${id}`, {
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(200);
 		}
 
-		const count = await getAccessLogCount(itemId);
+		const { knowledgeAccessLog } = await import("@hyperidle/db");
+		const rows = await db.select().from(knowledgeAccessLog);
+		const count = rows.filter((r: { itemId: string }) => r.itemId === id).length;
 		expect(count).toBe(3);
 	});
 
 	// GET /:layer/:id 404 does NOT create an access-log row
-	it("GET /:layer/:id 404 does NOT create an access-log row", async () => {
+	test("GET /:layer/:id 404 does NOT create an access-log row", async ({ db, app }) => {
 		const nonExistentId = "00000000-0000-0000-0000-000000000000";
 
 		const res = await app.request(`/api/knowledge/${nonExistentId}`, {
@@ -101,7 +93,9 @@ describe("Knowledge access-log creation (L22 AC-1)", () => {
 		});
 		expect(res.status).toBe(404);
 
-		const count = await getAccessLogCount(nonExistentId);
+		const { knowledgeAccessLog } = await import("@hyperidle/db");
+		const rows = await db.select().from(knowledgeAccessLog);
+		const count = rows.filter((r: { itemId: string }) => r.itemId === nonExistentId).length;
 		expect(count).toBe(0);
 	});
 
@@ -109,40 +103,66 @@ describe("Knowledge access-log creation (L22 AC-1)", () => {
 	// We simulate this by verifying the response is still 200 even when the
 	// access-log INSERT would fail (e.g., with a corrupted db state).
 	// The implementation must wrap the INSERT in try-catch.
-	it("access-log INSERT failure does NOT break the 200 response (try-catch guard)", async () => {
+	test("access-log INSERT failure does NOT break the 200 response (try-catch guard)", async ({ db, app }) => {
 		// This test verifies the code path exists: the item is returned even if
 		// the access log INSERT fails. We can't easily force a DB error here, so
 		// we assert the structural requirement: the response status is 200 and
 		// the response body contains the item.
-		const itemId = await createItem("L3");
+		const id = crypto.randomUUID();
+		await db.insert(knowledgeItems).values({
+			id,
+			topic: "testing",
+			title: "Test Item",
+			body: "Test body",
+			format: "markdown",
+			status: "active",
+			version: 1,
+			updatedBy: "human",
+			createdAt: NOW_ISO,
+			updatedAt: NOW_ISO,
+		});
 
-		const res = await app.request(`/api/knowledge/${itemId}`, {
+		const res = await app.request(`/api/knowledge/${id}`, {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.id).toBe(itemId);
+		expect(body.id).toBe(id);
 
 		// The access-log row was still created (normal path)
-		const count = await getAccessLogCount(itemId);
+		const { knowledgeAccessLog } = await import("@hyperidle/db");
+		const rows = await db.select().from(knowledgeAccessLog);
+		const count = rows.filter((r: { itemId: string }) => r.itemId === id).length;
 		expect(count).toBe(1);
 	});
 
 	// Access-log row has correct fields
-	it("access-log row has correct itemId, accessorKind, and accessedAt", async () => {
-		const itemId = await createItem("L3");
+	test("access-log row has correct itemId, accessorKind, and accessedAt", async ({ db, app }) => {
+		const id = crypto.randomUUID();
+		await db.insert(knowledgeItems).values({
+			id,
+			topic: "testing",
+			title: "Test Item",
+			body: "Test body",
+			format: "markdown",
+			status: "active",
+			version: 1,
+			updatedBy: "human",
+			createdAt: NOW_ISO,
+			updatedAt: NOW_ISO,
+		});
 
-		await app.request(`/api/knowledge/${itemId}`, {
+		await app.request(`/api/knowledge/${id}`, {
 			headers: authHeaders(),
 		});
 
 		// knowledgeAccessLog exported from @hyperidle/db since T1
 		const { knowledgeAccessLog } = await import("@hyperidle/db");
 		const rows = await db.select().from(knowledgeAccessLog);
-		const row = rows.find((r: { itemId: string }) => r.itemId === itemId);
+		const row = rows.find((r: { itemId: string }) => r.itemId === id);
 
 		expect(row).toBeDefined();
-		expect(row?.itemId).toBe(itemId);
+		expect(row?.itemId).toBe(id);
 		expect(row?.accessorKind).toBe("human"); // default when auth context not wired
 		// accessedAt is a valid ISO string
 		expect(typeof row?.accessedAt).toBe("string");

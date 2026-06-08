@@ -12,18 +12,14 @@
  */
 
 import {
-	createTestDb,
-	type HyperIdleDb,
 	teamMembers,
 	teams,
 	userSkills,
 	// P2: import new symbols — compile error until implementation done
 	users,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { describe, expect, vi } from "vitest";
+import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-p2-users";
 
@@ -32,77 +28,52 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("P2 — /api/users endpoints (AC4, AC10)", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-	let app: Hono;
 	const NOW = new Date().toISOString();
-
-	beforeEach(async () => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-
-		// Seed prerequisite data
-		await db
-			.insert(teams)
-			.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW });
-
-		await db.insert(teamMembers).values({
-			id: "team-p2",
-			teamId: "prod-p2",
-			capacity: 5,
-			activeBets: 0,
-			formedAt: NOW,
-		});
-
-		// Seed users (AI kind)
-		await db.insert(users).values([
-			{
-				id: "user-p2-1",
-				kind: "ai",
-				name: "Builder Bot",
-				role: "builder",
-				status: "active",
-				teamId: "team-p2",
-				createdAt: NOW,
-			},
-			{
-				id: "user-p2-2",
-				kind: "ai",
-				name: "Growth Bot",
-				role: "growth",
-				status: "active",
-				teamId: "team-p2",
-				createdAt: NOW,
-			},
-		]);
-
-		// Seed user skills
-		await db.insert(userSkills).values([
-			{ userId: "user-p2-1", skillId: "coding", autonomyLevel: 2 },
-			{ userId: "user-p2-1", skillId: "testing", autonomyLevel: 3 },
-		]);
-	});
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle?.close();
-	});
 
 	// -------------------------------------------------------------------------
 	// AC4: /api/users replaces /api/agents
 	// -------------------------------------------------------------------------
 	describe("AC4: /api/users route exists (was /api/agents)", () => {
-		it("GET /api/users returns 200 and list of users", async () => {
+		test("GET /api/users returns 200 and list of users", async ({ app, db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await db
+				.insert(teams)
+				.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW });
+			await db.insert(teamMembers).values({
+				id: "team-p2",
+				teamId: "prod-p2",
+				capacity: 5,
+				activeBets: 0,
+				formedAt: NOW,
+			});
+			await db.insert(users).values([
+				{
+					id: "user-p2-1",
+					kind: "ai",
+					name: "Builder Bot",
+					role: "builder",
+					status: "active",
+					teamId: "team-p2",
+					createdAt: NOW,
+				},
+				{
+					id: "user-p2-2",
+					kind: "ai",
+					name: "Growth Bot",
+					role: "growth",
+					status: "active",
+					teamId: "team-p2",
+					createdAt: NOW,
+				},
+			]);
+
 			const res = await app.request("/api/users", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Array<Record<string, unknown>>;
 			expect(Array.isArray(body)).toBe(true);
 			expect(body.length).toBeGreaterThanOrEqual(2);
+			vi.unstubAllEnvs();
 		});
 
 		// @lore X3: The /api/agents 404 assertion was removed here. X3 reintroduces
@@ -113,16 +84,70 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 		// 404 assertion is no longer valid. See plans/X3/architecture.md §3 for the
 		// design rationale (separate routes, separate authorization model).
 
-		it("GET /api/users returns users with activeSessions count", async () => {
+		test("GET /api/users returns users with activeSessions count", async ({ app, db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await db
+				.insert(teams)
+				.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW });
+			await db.insert(teamMembers).values({
+				id: "team-p2",
+				teamId: "prod-p2",
+				capacity: 5,
+				activeBets: 0,
+				formedAt: NOW,
+			});
+			await db.insert(users).values({
+				id: "user-p2-1",
+				kind: "ai",
+				name: "Builder Bot",
+				role: "builder",
+				status: "active",
+				teamId: "team-p2",
+				createdAt: NOW,
+			});
+
 			const res = await app.request("/api/users", { headers: authHeaders() });
 			const body = (await res.json()) as Array<Record<string, unknown>>;
 
 			expect(body[0]).toHaveProperty("activeSessions");
 			expect(body[0]).toHaveProperty("status");
 			expect(body[0]).toHaveProperty("role");
+			vi.unstubAllEnvs();
 		});
 
-		it("GET /api/users returns kind field on each user", async () => {
+		test("GET /api/users returns kind field on each user", async ({ app, db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await db
+				.insert(teams)
+				.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW });
+			await db.insert(teamMembers).values({
+				id: "team-p2",
+				teamId: "prod-p2",
+				capacity: 5,
+				activeBets: 0,
+				formedAt: NOW,
+			});
+			await db.insert(users).values([
+				{
+					id: "user-p2-1",
+					kind: "ai",
+					name: "Builder Bot",
+					role: "builder",
+					status: "active",
+					teamId: "team-p2",
+					createdAt: NOW,
+				},
+				{
+					id: "user-p2-2",
+					kind: "ai",
+					name: "Growth Bot",
+					role: "growth",
+					status: "active",
+					teamId: "team-p2",
+					createdAt: NOW,
+				},
+			]);
+
 			const res = await app.request("/api/users", { headers: authHeaders() });
 			const body = (await res.json()) as Array<Record<string, unknown>>;
 
@@ -130,6 +155,7 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 				expect(user).toHaveProperty("kind");
 				expect(["human", "ai"]).toContain(user.kind as string);
 			}
+			vi.unstubAllEnvs();
 		});
 	});
 
@@ -137,20 +163,48 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 	// AC10: user detail endpoint
 	// -------------------------------------------------------------------------
 	describe("AC10: GET /api/users/:id — user detail", () => {
-		it("returns 200 with user details including skills", async () => {
+		test("returns 200 with user details including skills", async ({ app, db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await db
+				.insert(teams)
+				.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW });
+			await db.insert(teamMembers).values({
+				id: "team-p2",
+				teamId: "prod-p2",
+				capacity: 5,
+				activeBets: 0,
+				formedAt: NOW,
+			});
+			await db.insert(users).values({
+				id: "user-p2-1",
+				kind: "ai",
+				name: "Builder Bot",
+				role: "builder",
+				status: "active",
+				teamId: "team-p2",
+				createdAt: NOW,
+			});
+			await db.insert(userSkills).values([
+				{ userId: "user-p2-1", skillId: "coding", autonomyLevel: 2 },
+				{ userId: "user-p2-1", skillId: "testing", autonomyLevel: 3 },
+			]);
+
 			const res = await app.request("/api/users/user-p2-1", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Record<string, unknown>;
 			expect(body.id).toBe("user-p2-1");
 			expect(body).toHaveProperty("skills");
+			vi.unstubAllEnvs();
 		});
 
-		it("returns 404 for unknown user id", async () => {
+		test("returns 404 for unknown user id", async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const res = await app.request("/api/users/nonexistent-id", {
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(404);
+			vi.unstubAllEnvs();
 		});
 	});
 
@@ -158,22 +212,68 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 	// AC10: user skill update endpoint
 	// -------------------------------------------------------------------------
 	describe("AC10: PATCH /api/users/:id/skills/:skillId — update autonomy level", () => {
-		it("returns 200 after updating skill autonomy level", async () => {
+		test("returns 200 after updating skill autonomy level", async ({ app, db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await db
+				.insert(teams)
+				.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW });
+			await db.insert(teamMembers).values({
+				id: "team-p2",
+				teamId: "prod-p2",
+				capacity: 5,
+				activeBets: 0,
+				formedAt: NOW,
+			});
+			await db.insert(users).values({
+				id: "user-p2-1",
+				kind: "ai",
+				name: "Builder Bot",
+				role: "builder",
+				status: "active",
+				teamId: "team-p2",
+				createdAt: NOW,
+			});
+			await db.insert(userSkills).values({ userId: "user-p2-1", skillId: "coding", autonomyLevel: 2 });
+
 			const res = await app.request("/api/users/user-p2-1/skills/coding", {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ autonomyLevel: 4 }),
 			});
 			expect(res.status).toBe(200);
+			vi.unstubAllEnvs();
 		});
 
-		it("returns 400 for invalid autonomy level", async () => {
+		test("returns 400 for invalid autonomy level", async ({ app, db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await db
+				.insert(teams)
+				.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW });
+			await db.insert(teamMembers).values({
+				id: "team-p2",
+				teamId: "prod-p2",
+				capacity: 5,
+				activeBets: 0,
+				formedAt: NOW,
+			});
+			await db.insert(users).values({
+				id: "user-p2-1",
+				kind: "ai",
+				name: "Builder Bot",
+				role: "builder",
+				status: "active",
+				teamId: "team-p2",
+				createdAt: NOW,
+			});
+			await db.insert(userSkills).values({ userId: "user-p2-1", skillId: "coding", autonomyLevel: 2 });
+
 			const res = await app.request("/api/users/user-p2-1/skills/coding", {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ autonomyLevel: 999 }),
 			});
 			expect(res.status).toBe(400);
+			vi.unstubAllEnvs();
 		});
 	});
 
@@ -181,7 +281,28 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 	// AC10: user inbox endpoints
 	// -------------------------------------------------------------------------
 	describe("AC10: GET /api/users/:id/inbox — user inbox", () => {
-		it("returns 200 with empty inbox array by default", async () => {
+		test("returns 200 with empty inbox array by default", async ({ app, db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await db
+				.insert(teams)
+				.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW });
+			await db.insert(teamMembers).values({
+				id: "team-p2",
+				teamId: "prod-p2",
+				capacity: 5,
+				activeBets: 0,
+				formedAt: NOW,
+			});
+			await db.insert(users).values({
+				id: "user-p2-1",
+				kind: "ai",
+				name: "Builder Bot",
+				role: "builder",
+				status: "active",
+				teamId: "team-p2",
+				createdAt: NOW,
+			});
+
 			const res = await app.request("/api/users/user-p2-1/inbox", {
 				headers: authHeaders(),
 			});
@@ -189,6 +310,7 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 
 			const body = (await res.json()) as { messages: unknown[]; total: number };
 			expect(Array.isArray(body.messages)).toBe(true);
+			vi.unstubAllEnvs();
 		});
 	});
 
@@ -196,7 +318,31 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 	// AC3: No factorySettings founder keys in responses
 	// -------------------------------------------------------------------------
 	describe("AC3: responses do not reference factorySettings founder keys", () => {
-		it("GET /api/users returns users array without factorySettings dependency", async () => {
+		test("GET /api/users returns users array without factorySettings dependency", async ({
+			app,
+			db,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await db
+				.insert(teams)
+				.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW });
+			await db.insert(teamMembers).values({
+				id: "team-p2",
+				teamId: "prod-p2",
+				capacity: 5,
+				activeBets: 0,
+				formedAt: NOW,
+			});
+			await db.insert(users).values({
+				id: "user-p2-1",
+				kind: "ai",
+				name: "Builder Bot",
+				role: "builder",
+				status: "active",
+				teamId: "team-p2",
+				createdAt: NOW,
+			});
+
 			// If factorySettings founder_name/email are removed from seed,
 			// the endpoint must still work — user data comes from users table
 			const res = await app.request("/api/users", { headers: authHeaders() });
@@ -207,6 +353,7 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 				expect(user).not.toHaveProperty("founder_name");
 				expect(user).not.toHaveProperty("founder_email");
 			}
+			vi.unstubAllEnvs();
 		});
 	});
 });

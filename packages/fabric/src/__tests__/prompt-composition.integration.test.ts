@@ -17,17 +17,8 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import {
-	bets,
-	createTestDb,
-	type HyperIdleDb,
-	tasks,
-	teamMembers,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { bets, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import {
 	buildTemplateVariables,
 	composePrompt,
@@ -99,7 +90,7 @@ Your job is to write great software.
 // ---------------------------------------------------------------------------
 
 describe("stripFrontmatter", () => {
-	it("removes YAML frontmatter delimited by ---", () => {
+	test("removes YAML frontmatter delimited by ---", () => {
 		const input = `---\nrole: builder\nversion: 1\n---\n\n# Heading\n\nBody text.\n`;
 		const result = stripFrontmatter(input);
 		expect(result).not.toContain("role: builder");
@@ -108,13 +99,13 @@ describe("stripFrontmatter", () => {
 		expect(result).toContain("Body text.");
 	});
 
-	it("returns unchanged content when no frontmatter present", () => {
+	test("returns unchanged content when no frontmatter present", () => {
 		const input = `# Just a heading\n\nSome content here.\n`;
 		const result = stripFrontmatter(input);
 		expect(result).toBe(input);
 	});
 
-	it("handles frontmatter immediately at start of file (no leading newline)", () => {
+	test("handles frontmatter immediately at start of file (no leading newline)", () => {
 		const input = `---\nkey: value\n---\n\n# Body`;
 		const result = stripFrontmatter(input);
 		expect(result).not.toContain("key: value");
@@ -127,35 +118,35 @@ describe("stripFrontmatter", () => {
 // ---------------------------------------------------------------------------
 
 describe("substituteTemplateVars", () => {
-	it("replaces {{product}} with team name", () => {
+	test("replaces {{product}} with team name", () => {
 		const template = "You work on {{product}}.";
 		const vars = { product: "Acme Corp", community: "building" };
 		const result = substituteTemplateVars(template, vars);
 		expect(result).toBe("You work on Acme Corp.");
 	});
 
-	it("replaces {{community}} with community value", () => {
+	test("replaces {{community}} with community value", () => {
 		const template = "You serve the {{community}} community.";
 		const vars = { product: "Acme Corp", community: "building" };
 		const result = substituteTemplateVars(template, vars);
 		expect(result).toBe("You serve the building community.");
 	});
 
-	it("replaces multiple occurrences of the same variable", () => {
+	test("replaces multiple occurrences of the same variable", () => {
 		const template = "{{product}} is the product. Focus on {{product}}.";
 		const vars = { product: "Acme Corp", community: "building" };
 		const result = substituteTemplateVars(template, vars);
 		expect(result).toBe("Acme Corp is the product. Focus on Acme Corp.");
 	});
 
-	it("leaves unrecognized {{unknown_var}} as-is (passthrough behavior)", () => {
+	test("leaves unrecognized {{unknown_var}} as-is (passthrough behavior)", () => {
 		const template = "This is {{product}} with an {{unknown_var}} inside.";
 		const vars = { product: "Acme Corp", community: "building" };
 		const result = substituteTemplateVars(template, vars);
 		expect(result).toBe("This is Acme Corp with an {{unknown_var}} inside.");
 	});
 
-	it("leaves template unchanged when vars is empty", () => {
+	test("leaves template unchanged when vars is empty", () => {
 		const template = "{{product}} and {{community}}";
 		const result = substituteTemplateVars(template, {});
 		expect(result).toBe("{{product}} and {{community}}");
@@ -167,19 +158,19 @@ describe("substituteTemplateVars", () => {
 // ---------------------------------------------------------------------------
 
 describe("buildTemplateVariables", () => {
-	it("returns product as team name", () => {
+	test("returns product as team name", () => {
 		const ctx = makeContextData();
 		const vars = buildTemplateVariables(ctx);
 		expect(vars.product).toBe("Acme Corp");
 	});
 
-	it("returns community from ROLE_TO_COMMUNITY map for builder role", () => {
+	test("returns community from ROLE_TO_COMMUNITY map for builder role", () => {
 		const ctx = makeContextData();
 		const vars = buildTemplateVariables(ctx);
 		expect(vars.community).toBe("building");
 	});
 
-	it("returns community from ROLE_TO_COMMUNITY map for product_manager role", () => {
+	test("returns community from ROLE_TO_COMMUNITY map for product_manager role", () => {
 		const ctx = makeContextData({ agent: { id: "a1", name: "PM", role: "product_manager" } });
 		const vars = buildTemplateVariables(ctx);
 		expect(vars.community).toBe("product");
@@ -191,7 +182,7 @@ describe("buildTemplateVariables", () => {
 // ---------------------------------------------------------------------------
 
 describe("composePrompt with soul prompt", () => {
-	it("result contains ## Identity section when soulPromptText is provided", async () => {
+	test("result contains ## Identity section when soulPromptText is provided", async () => {
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
 			soulPromptText: SOUL_PROMPT_WITH_FRONTMATTER,
@@ -204,7 +195,7 @@ describe("composePrompt with soul prompt", () => {
 		expect(result.composedPrompt).toContain("## Identity");
 	});
 
-	it("result contains ## Task section", async () => {
+	test("result contains ## Task section", async () => {
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
 			soulPromptText: SOUL_PROMPT_NO_FRONTMATTER,
@@ -218,7 +209,7 @@ describe("composePrompt with soul prompt", () => {
 		expect(result.composedPrompt).toContain("Build the thing");
 	});
 
-	it("result contains ## Available Tools section", async () => {
+	test("result contains ## Available Tools section", async () => {
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
 			soulPromptText: SOUL_PROMPT_NO_FRONTMATTER,
@@ -233,7 +224,7 @@ describe("composePrompt with soul prompt", () => {
 		expect(result.composedPrompt).toContain("write_file");
 	});
 
-	it("result contains ## Workspace section", async () => {
+	test("result contains ## Workspace section", async () => {
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
 			soulPromptText: SOUL_PROMPT_NO_FRONTMATTER,
@@ -248,7 +239,7 @@ describe("composePrompt with soul prompt", () => {
 		expect(result.composedPrompt).toContain("work/");
 	});
 
-	it("frontmatter is stripped from soul prompt content", async () => {
+	test("frontmatter is stripped from soul prompt content", async () => {
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
 			soulPromptText: SOUL_PROMPT_WITH_FRONTMATTER,
@@ -262,7 +253,7 @@ describe("composePrompt with soul prompt", () => {
 		expect(result.composedPrompt).not.toContain("version: 1");
 	});
 
-	it("template variables are substituted in soul prompt content (AC2)", async () => {
+	test("template variables are substituted in soul prompt content (AC2)", async () => {
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
 			soulPromptText: SOUL_PROMPT_WITH_FRONTMATTER,
@@ -280,7 +271,7 @@ describe("composePrompt with soul prompt", () => {
 		expect(result.composedPrompt).not.toContain("{{community}}");
 	});
 
-	it("task title is included in the Task section", async () => {
+	test("task title is included in the Task section", async () => {
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
 			soulPromptText: SOUL_PROMPT_NO_FRONTMATTER,
@@ -293,7 +284,7 @@ describe("composePrompt with soul prompt", () => {
 		expect(result.composedPrompt).toContain("**Title:** Build the thing");
 	});
 
-	it("task description is included", async () => {
+	test("task description is included", async () => {
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
 			soulPromptText: SOUL_PROMPT_NO_FRONTMATTER,
@@ -306,7 +297,7 @@ describe("composePrompt with soul prompt", () => {
 		expect(result.composedPrompt).toContain("Implement the feature");
 	});
 
-	it("bet context is included in Task section", async () => {
+	test("bet context is included in Task section", async () => {
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
 			soulPromptText: SOUL_PROMPT_NO_FRONTMATTER,
@@ -320,7 +311,7 @@ describe("composePrompt with soul prompt", () => {
 		expect(result.composedPrompt).toContain("small");
 	});
 
-	it("done condition is included when present", async () => {
+	test("done condition is included when present", async () => {
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
 			soulPromptText: SOUL_PROMPT_NO_FRONTMATTER,
@@ -333,7 +324,7 @@ describe("composePrompt with soul prompt", () => {
 		expect(result.composedPrompt).toContain("All tests pass");
 	});
 
-	it("returns personaToolsTokens count", async () => {
+	test("returns personaToolsTokens count", async () => {
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
 			soulPromptText: SOUL_PROMPT_NO_FRONTMATTER,
@@ -353,7 +344,7 @@ describe("composePrompt with soul prompt", () => {
 // ---------------------------------------------------------------------------
 
 describe("composePrompt with empty soulPromptText", () => {
-	it("omits ## Identity section when soulPromptText is empty (AC5)", async () => {
+	test("omits ## Identity section when soulPromptText is empty (AC5)", async () => {
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
 			soulPromptText: "",
@@ -366,7 +357,7 @@ describe("composePrompt with empty soulPromptText", () => {
 		expect(result.composedPrompt).not.toContain("## Identity");
 	});
 
-	it("includes ## Task section when soulPromptText is empty (AC5)", async () => {
+	test("includes ## Task section when soulPromptText is empty (AC5)", async () => {
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
 			soulPromptText: "",
@@ -379,7 +370,7 @@ describe("composePrompt with empty soulPromptText", () => {
 		expect(result.composedPrompt).toContain("## Task");
 	});
 
-	it("includes ## Available Tools section when soulPromptText is empty (AC5)", async () => {
+	test("includes ## Available Tools section when soulPromptText is empty (AC5)", async () => {
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
 			soulPromptText: "",
@@ -392,7 +383,7 @@ describe("composePrompt with empty soulPromptText", () => {
 		expect(result.composedPrompt).toContain("## Available Tools");
 	});
 
-	it("includes ## Workspace section when soulPromptText is empty (AC5)", async () => {
+	test("includes ## Workspace section when soulPromptText is empty (AC5)", async () => {
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
 			soulPromptText: "",
@@ -411,7 +402,7 @@ describe("composePrompt with empty soulPromptText", () => {
 // ---------------------------------------------------------------------------
 
 describe("composePrompt task field edge cases", () => {
-	it("shows 'No description provided.' when task.description is null", async () => {
+	test("shows 'No description provided.' when task.description is null", async () => {
 		const ctx = makeContextData({
 			task: { id: "t1", title: "No desc task", description: null, state: "accepted" },
 		});
@@ -426,7 +417,7 @@ describe("composePrompt task field edge cases", () => {
 		expect(result.composedPrompt).toContain("No description provided.");
 	});
 
-	it("shows 'Not specified.' when bet.doneCondition is null", async () => {
+	test("shows 'Not specified.' when bet.doneCondition is null", async () => {
 		const ctx = makeContextData({
 			bet: { id: "b1", description: "Ship it", appetite: "small", doneCondition: null },
 		});
@@ -447,7 +438,7 @@ describe("composePrompt task field edge cases", () => {
 // ---------------------------------------------------------------------------
 
 describe("token budget enforcement", () => {
-	it("personaToolsTokens is under 4000 for a normal soul prompt (AC6)", async () => {
+	test("personaToolsTokens is under 4000 for a normal soul prompt (AC6)", async () => {
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
 			soulPromptText: SOUL_PROMPT_NO_FRONTMATTER,
@@ -460,7 +451,7 @@ describe("token budget enforcement", () => {
 		expect(result.personaToolsTokens).toBeLessThan(4000);
 	});
 
-	it("truncates oversized persona when it exceeds budget", async () => {
+	test("truncates oversized persona when it exceeds budget", async () => {
 		// Generate a soul prompt that exceeds 4000 tokens (whitespace-split approx: ~4000 words)
 		const bigContent = `# Huge Identity Heading\n\n${"word ".repeat(4200)}\n\n## Another section\n\nMore words.\n`;
 		const ctx = makeContextData();
@@ -480,7 +471,7 @@ describe("token budget enforcement", () => {
 		expect(result.composedPrompt).toContain("# Huge Identity Heading");
 	});
 
-	it("truncated prompt still contains all non-persona sections", async () => {
+	test("truncated prompt still contains all non-persona sections", async () => {
 		const bigContent = `# Big Soul\n\n${"word ".repeat(4200)}\n`;
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
@@ -502,7 +493,7 @@ describe("token budget enforcement", () => {
 // ---------------------------------------------------------------------------
 
 describe("writeWorkspaceCLAUDEmd", () => {
-	it("creates CLAUDE.md at workspace root (AC4)", () => {
+	test("creates CLAUDE.md at workspace root (AC4)", () => {
 		const workspacePath = fs.mkdtempSync(path.join(os.tmpdir(), "x1-ws-test-"));
 		const content = "# Session Instructions\n\nTest content.";
 
@@ -513,7 +504,7 @@ describe("writeWorkspaceCLAUDEmd", () => {
 		expect(fs.readFileSync(claudeMdPath, "utf8")).toBe(content);
 	});
 
-	it("overwrites existing CLAUDE.md when called again", () => {
+	test("overwrites existing CLAUDE.md when called again", () => {
 		const workspacePath = fs.mkdtempSync(path.join(os.tmpdir(), "x1-ws-test-"));
 		const claudeMdPath = path.join(workspacePath, "CLAUDE.md");
 		fs.writeFileSync(claudeMdPath, "old content", "utf8");
@@ -529,7 +520,7 @@ describe("writeWorkspaceCLAUDEmd", () => {
 // ---------------------------------------------------------------------------
 
 describe("composePrompt determinism", () => {
-	it("same inputs produce identical output on repeated calls", async () => {
+	test("same inputs produce identical output on repeated calls", async () => {
 		const ctx = makeContextData();
 		const input: PromptCompositionInput = {
 			soulPromptText: SOUL_PROMPT_WITH_FRONTMATTER,
@@ -551,19 +542,7 @@ describe("composePrompt determinism", () => {
 // ---------------------------------------------------------------------------
 
 describe("buildSessionContextData", () => {
-	let db: HyperIdleDb;
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	});
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	async function seedTestData() {
+	async function seedTestData(db: Parameters<typeof buildSessionContextData>[0]) {
 		const now = new Date().toISOString();
 		const productId = "prod-1";
 		const agentId = "agent-1";
@@ -624,8 +603,8 @@ describe("buildSessionContextData", () => {
 		return { productId, agentId, taskId };
 	}
 
-	it("returns typed SessionContextData without TOON encoding", async () => {
-		const { productId, agentId, taskId } = await seedTestData();
+	test("returns typed SessionContextData without TOON encoding", async ({ db }) => {
+		const { productId, agentId, taskId } = await seedTestData(db);
 
 		const data = await buildSessionContextData(db, {
 			sessionId: "placeholder",
@@ -643,8 +622,8 @@ describe("buildSessionContextData", () => {
 		expect(data.team.name).toBe("TestProduct");
 	});
 
-	it("is not a string (not TOON-encoded)", async () => {
-		const { productId, agentId, taskId } = await seedTestData();
+	test("is not a string (not TOON-encoded)", async ({ db }) => {
+		const { productId, agentId, taskId } = await seedTestData(db);
 
 		const data = await buildSessionContextData(db, {
 			sessionId: "placeholder",
@@ -664,19 +643,7 @@ describe("buildSessionContextData", () => {
 // ---------------------------------------------------------------------------
 
 describe("buildSessionContext regression", () => {
-	let db: HyperIdleDb;
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-	});
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	async function seedRegTestData() {
+	async function seedRegTestData(db: Parameters<typeof buildSessionContext>[0]) {
 		const now = new Date().toISOString();
 		const productId = "reg-prod-1";
 		const agentId = "reg-agent-1";
@@ -737,11 +704,13 @@ describe("buildSessionContext regression", () => {
 		return { productId, agentId, taskId };
 	}
 
-	it("buildSessionContext returns same TOON as buildSessionContextData + encode would produce", async () => {
+	test("buildSessionContext returns same TOON as buildSessionContextData + encode would produce", async ({
+		db,
+	}) => {
 		// This test verifies the refactor: buildSessionContext = buildSessionContextData + encode.
 		// After the refactor, calling buildSessionContext must still return a TOON-encoded string
 		// whose decoded content equals what buildSessionContextData returns.
-		const { productId, agentId, taskId } = await seedRegTestData();
+		const { productId, agentId, taskId } = await seedRegTestData(db);
 		const sessionId = "reg-sess-placeholder";
 		const config = { sessionId, taskId, agentId, agentRole: "builder" as const, productId };
 
@@ -764,7 +733,7 @@ describe("buildSessionContext regression", () => {
 // ---------------------------------------------------------------------------
 
 describe("unrecognized template variable passthrough", () => {
-	it("leaves {{unknown_var}} literally in composed prompt output", async () => {
+	test("leaves {{unknown_var}} literally in composed prompt output", async () => {
 		// Soul prompt with an unregistered template variable
 		const soulContent = `# You are the Agent for {{product}}\n\nYour factory is {{factory}}.\n`;
 		const ctx = makeContextData();

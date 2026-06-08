@@ -1,14 +1,8 @@
 import type { HealthResponse } from "@hyperidle/shared";
-import { beforeEach, describe, expect, it } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { describe, expect, test } from "../test-fixtures.js";
 
 describe("GET /health", () => {
-	let app: Awaited<ReturnType<typeof createTestApp>>;
-	beforeEach(async () => {
-		app = await createTestApp();
-	});
-
-	it("returns status ok with a timestamp", async () => {
+	test("returns status ok with a timestamp", async ({ app }) => {
 		const res = await app.request("/health");
 		expect(res.status).toBe(200);
 
@@ -18,7 +12,7 @@ describe("GET /health", () => {
 		expect(body.timestamp.length).toBeGreaterThan(0);
 	});
 
-	it("returns a valid ISO timestamp", async () => {
+	test("returns a valid ISO timestamp", async ({ app }) => {
 		const res = await app.request("/health");
 		const body: HealthResponse = await res.json();
 
@@ -26,7 +20,7 @@ describe("GET /health", () => {
 		expect(parsed.toISOString()).toBe(body.timestamp);
 	});
 
-	it("returns 404 for unknown routes", async () => {
+	test("returns 404 for unknown routes", async ({ app }) => {
 		const res = await app.request("/nonexistent");
 		expect(res.status).toBe(404);
 	});

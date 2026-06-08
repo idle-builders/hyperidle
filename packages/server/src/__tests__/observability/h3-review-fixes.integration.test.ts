@@ -20,7 +20,7 @@
  *     Stripe, PEM (security M-2).
  */
 
-import { createTestDb, factorySettings, type HyperIdleDb, type TestDbHandle } from "@hyperidle/db";
+import { factorySettings, type HyperIdleDb } from "@hyperidle/db";
 import {
 	EventBus,
 	type KnowledgeUpdatedEvent,
@@ -29,7 +29,7 @@ import {
 	scrubInlineTokens,
 	type ToolCallRecordedEvent,
 } from "@hyperidle/shared";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, test } from "../../test-fixtures.js";
 import { createObservabilityRoutes } from "../../routes/observability-routes.js";
 import {
 	type ObservabilityConfig,
@@ -43,6 +43,7 @@ import type {
 	ObservabilityAdapter,
 	ObservabilityDispatcher,
 } from "../../services/observability/types.js";
+import type { Logger } from "@hyperidle/shared";
 
 function captureAdapter(
 	name: "console" = "console",
@@ -75,8 +76,45 @@ function makeInMemResolver(): {
 	};
 }
 
+function captureLogger(): { logger: Logger; calls: Array<{ msg: string; extra: unknown }> } {
+	const calls: Array<{ msg: string; extra: unknown }> = [];
+	const logger: Logger = {
+		debug: (): void => undefined,
+		info: (msg, extra): void => {
+			calls.push({ msg, extra });
+		},
+		warn: (): void => undefined,
+		error: (): void => undefined,
+	};
+	return { logger, calls };
+}
+
+function appWithRoutes(
+	db: HyperIdleDb,
+	dispatcher: ObservabilityDispatcher | null,
+): {
+	request: (path: string, init?: RequestInit) => Promise<Response>;
+	auditCalls: Array<{ msg: string; extra: unknown }>;
+} {
+	const { logger, calls } = captureLogger();
+	const router = createObservabilityRoutes(db, {
+		getDispatcher: () => dispatcher,
+		logger,
+	});
+	const request = (path: string, init?: RequestInit): Promise<Response> => {
+		const url = new URL(path, "http://test.local");
+		return router.fetch(new Request(url, init));
+	};
+	return { request, auditCalls: calls };
+}
+
+// Keep a reference so the unused-db import doesn't fail lint when the
+// underlying setup routine stops using it.
+void (null as unknown as HyperIdleDb);
+void factorySettings;
+
 describe("H3 review fixes — (1) tool_call round-trip", () => {
-	it("emits ObservabilityEvent(tool_call) when bus carries tool_call_recorded", async () => {
+	test("emits ObservabilityEvent(tool_call) when bus carries tool_call_recorded", async () => {
 		const bus = new EventBus();
 		const adapter = captureAdapter();
 		const dispatcher = createObservabilityDispatcher({
@@ -109,7 +147,7 @@ describe("H3 review fixes — (1) tool_call round-trip", () => {
 });
 
 describe("H3 review fixes — (2) wildcard subscription", () => {
-	it("any new DomainEvent kind is explicitly dropped, not silently skipped", async () => {
+	test("any new DomainEvent kind is explicitly dropped, not silently skipped", async () => {
 		const bus = new EventBus();
 		const adapter = captureAdapter();
 		const dispatcher = createObservabilityDispatcher({
@@ -182,7 +220,7 @@ describe("H3 review fixes — (2) wildcard subscription", () => {
 		await dispatcher.dispose();
 	});
 
-	it("wildcard handler translates all seven mapped kinds", async () => {
+	test("wildcard handler translates all seven mapped kinds", async () => {
 		const bus = new EventBus();
 		const adapter = captureAdapter();
 		const dispatcher = createObservabilityDispatcher({
@@ -228,20 +266,9 @@ describe("H3 review fixes — (2) wildcard subscription", () => {
 });
 
 describe("H3 review fixes — (3) PATCH /config live rebuild", () => {
-	let handle: TestDbHandle;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-	});
-
-	afterEach(async () => {
-		await handle?.close();
-	});
-
-	it("switches adapter + rotates keys without restart", async () => {
-		const db = handle.db;
+	test("switches adapter + rotates keys without restart", async ({ db }) => {
 		const events: ObservabilityEvent[] = [];
-		const fakeAdapter: ObservabilityAdapter = {
+		const fakeAdapterInst: ObservabilityAdapter = {
 			name: "console",
 			async record(batch): Promise<void> {
 				for (const e of batch) events.push(e);
@@ -261,7 +288,7 @@ describe("H3 review fixes — (3) PATCH /config live rebuild", () => {
 					void currentDispatcher?.dispose();
 					if (cfg.enabled) {
 						currentDispatcher = createObservabilityDispatcher({
-							adapter: fakeAdapter,
+							adapter: fakeAdapterInst,
 							config: {
 								batchSize: cfg.batchSize,
 								flushIntervalMs: cfg.flushIntervalMs,
@@ -289,7 +316,7 @@ describe("H3 review fixes — (3) PATCH /config live rebuild", () => {
 		// onConfigChange at construction — simulate first-boot by
 		// manually firing with the current config.
 		currentDispatcher = createObservabilityDispatcher({
-			adapter: fakeAdapter,
+			adapter: fakeAdapterInst,
 			config: { batchSize: 10, flushIntervalMs: 60_000, bufferCap: 100 },
 		});
 
@@ -333,8 +360,8 @@ describe("H3 review fixes — (3) PATCH /config live rebuild", () => {
 		await currentDispatcher?.dispose();
 	});
 
-	it("invalidates /status config cache after PATCH", async () => {
-		const router = createObservabilityRoutes(handle.db, {
+	test("invalidates /status config cache after PATCH", async ({ db }) => {
+		const router = createObservabilityRoutes(db, {
 			getDispatcher: (): ObservabilityDispatcher | null => null,
 		});
 		// First GET /status — returns enabled=false (default).
@@ -357,7 +384,7 @@ describe("H3 review fixes — (3) PATCH /config live rebuild", () => {
 });
 
 describe("H3 review fixes — (4) empty sessionId rejected", () => {
-	it("falls back to 'unknown' instead of the empty string", async () => {
+	test("falls back to 'unknown' instead of the empty string", async () => {
 		const bus = new EventBus();
 		const adapter = captureAdapter();
 		const dispatcher = createObservabilityDispatcher({
@@ -382,7 +409,7 @@ describe("H3 review fixes — (4) empty sessionId rejected", () => {
 });
 
 describe("H3 review fixes — (5) FlushOutcome partial-drain", () => {
-	it("returns { flushed, dropped, errors } so callers can distinguish partial", async () => {
+	test("returns { flushed, dropped, errors } so callers can distinguish partial", async () => {
 		let failCount = 0;
 		const adapter: ObservabilityAdapter = {
 			name: "console",
@@ -421,8 +448,7 @@ describe("H3 review fixes — (5) FlushOutcome partial-drain", () => {
 });
 
 describe("H3 review fixes — (6) request-size cap", () => {
-	it("rejects POST /flush with oversized content-length", async () => {
-		const db = createTestDb();
+	test("rejects POST /flush with oversized content-length", async ({ db }) => {
 		const router = createObservabilityRoutes(db, {
 			getDispatcher: (): ObservabilityDispatcher | null => null,
 		});
@@ -441,30 +467,30 @@ describe("H3 review fixes — (6) request-size cap", () => {
 });
 
 describe("H3 review fixes — (7) scrubInlineTokens broader coverage", () => {
-	it("scrubs AWS AKIA access keys", () => {
+	test("scrubs AWS AKIA access keys", () => {
 		const out = scrubInlineTokens("leaked AKIAABCDEFGHIJKLMNOP here");
 		expect(out).not.toContain("AKIAABCDEFGHIJKLMNOP");
 		expect(out).toContain("[REDACTED_AKIA]");
 	});
-	it("scrubs Slack bot tokens", () => {
+	test("scrubs Slack bot tokens", () => {
 		const out = scrubInlineTokens("xoxb-123456789-abcdefghij");
 		expect(out).not.toContain("xoxb-123456789-abcdefghij");
 	});
-	it("scrubs Google API keys", () => {
+	test("scrubs Google API keys", () => {
 		const key = `AIza${"a".repeat(35)}`;
 		const out = scrubInlineTokens(`uri=${key}`);
 		expect(out).not.toContain(key);
 	});
-	it("scrubs JWTs", () => {
+	test("scrubs JWTs", () => {
 		const jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjMifQ.sig_abcdef";
 		const out = scrubInlineTokens(`tok=${jwt}`);
 		expect(out).not.toContain(jwt);
 	});
-	it("scrubs Stripe live keys", () => {
+	test("scrubs Stripe live keys", () => {
 		const out = scrubInlineTokens("sk_live_abcdefghij123");
 		expect(out).not.toContain("sk_live_abcdefghij123");
 	});
-	it("scrubs PEM private key blocks", () => {
+	test("scrubs PEM private key blocks", () => {
 		const pem =
 			"-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIB...multiple\nlines here\n-----END RSA PRIVATE KEY-----";
 		const out = scrubInlineTokens(pem);
@@ -474,7 +500,7 @@ describe("H3 review fixes — (7) scrubInlineTokens broader coverage", () => {
 });
 
 describe("H3 review fixes — (8) event ordering within a session", () => {
-	it("events emitted in order from the bus reach the adapter in order", async () => {
+	test("events emitted in order from the bus reach the adapter in order", async () => {
 		// EventBus.emit is synchronous; enqueue is synchronous. Drain
 		// runs in insertion order because the ring buffer is FIFO.
 		const bus = new EventBus();
@@ -530,7 +556,7 @@ describe("H3 review fixes — (8) event ordering within a session", () => {
 });
 
 describe("H3 review fixes — (9) ring buffer semantics", () => {
-	it("evicting oldest preserves insertion order of surviving events", async () => {
+	test("evicting oldest preserves insertion order of surviving events", async () => {
 		const adapter = captureAdapter();
 		const dispatcher = createObservabilityDispatcher({
 			adapter,
@@ -554,8 +580,3 @@ describe("H3 review fixes — (9) ring buffer semantics", () => {
 		await dispatcher.dispose();
 	});
 });
-
-// Keep a reference so the unused-db import doesn't fail lint when the
-// underlying setup routine stops using it.
-void (null as unknown as HyperIdleDb);
-void factorySettings;

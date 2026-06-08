@@ -1,12 +1,11 @@
-import { bets, createTestDb, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
 import {
-	EventBus,
 	type NotificationEvent,
 	type TaskState,
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, test } from "../test-fixtures.js";
 import { checkAndUnblockDependents } from "../services/dependency-watcher.js";
 
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
@@ -46,19 +45,9 @@ async function insertTask(
 }
 
 describe("Dependency Watcher", () => {
-	let handle: TestDbHandle;
-	let db: HyperIdleDb;
-	let eventBus: EventBus;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		db = handle.db;
-		eventBus = new EventBus();
-		await seedPrerequisites(db);
-	});
-
 	describe("single dependency completion", () => {
-		it("unblocks a dependent task when its only dependency is done", async () => {
+		test("unblocks a dependent task when its only dependency is done", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			await insertTask(db, "dep-1", "done");
 			await insertTask(db, "dependent", "hold", ["dep-1"]);
 
@@ -68,7 +57,8 @@ describe("Dependency Watcher", () => {
 			expect(task?.state).toBe("accepted");
 		});
 
-		it("does not unblock a task that is not in hold state", async () => {
+		test("does not unblock a task that is not in hold state", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			await insertTask(db, "dep-1", "done");
 			await insertTask(db, "dependent", "in_progress", ["dep-1"]);
 
@@ -78,7 +68,8 @@ describe("Dependency Watcher", () => {
 			expect(task?.state).toBe("in_progress");
 		});
 
-		it("handles tasks with no dependents gracefully", async () => {
+		test("handles tasks with no dependents gracefully", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			await insertTask(db, "standalone", "done");
 			// Should not throw
 			await checkAndUnblockDependents(db, eventBus, "standalone");
@@ -86,7 +77,8 @@ describe("Dependency Watcher", () => {
 	});
 
 	describe("multi-dependency completion", () => {
-		it("only unblocks when ALL dependencies are done", async () => {
+		test("only unblocks when ALL dependencies are done", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			await insertTask(db, "dep-1", "done");
 			await insertTask(db, "dep-2", "in_progress");
 			await insertTask(db, "dependent", "hold", ["dep-1", "dep-2"]);
@@ -97,7 +89,8 @@ describe("Dependency Watcher", () => {
 			expect(task?.state).toBe("hold");
 		});
 
-		it("unblocks when the last dependency completes", async () => {
+		test("unblocks when the last dependency completes", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			await insertTask(db, "dep-1", "done");
 			await insertTask(db, "dep-2", "done");
 			await insertTask(db, "dependent", "hold", ["dep-1", "dep-2"]);
@@ -110,7 +103,8 @@ describe("Dependency Watcher", () => {
 	});
 
 	describe("notification emission", () => {
-		it("emits notification event on auto-transition", async () => {
+		test("emits notification event on auto-transition", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			await insertTask(db, "dep-1", "done");
 			await insertTask(db, "dependent", "hold", ["dep-1"]);
 
@@ -125,7 +119,8 @@ describe("Dependency Watcher", () => {
 			expect(notifications[0].message).toContain("accepted");
 		});
 
-		it("emits task_state_changed event on auto-transition", async () => {
+		test("emits task_state_changed event on auto-transition", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			await insertTask(db, "dep-1", "done");
 			await insertTask(db, "dependent", "hold", ["dep-1"]);
 
@@ -140,7 +135,8 @@ describe("Dependency Watcher", () => {
 			expect(events[0].toState).toBe("accepted");
 		});
 
-		it("does not emit notification when task stays in hold", async () => {
+		test("does not emit notification when task stays in hold", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			await insertTask(db, "dep-1", "done");
 			await insertTask(db, "dep-2", "in_progress");
 			await insertTask(db, "dependent", "hold", ["dep-1", "dep-2"]);
@@ -159,7 +155,8 @@ describe("Dependency Watcher", () => {
 	// match unrelated dependents. UUIDs don't contain these chars but
 	// the escape is defence-in-depth for future ID formats.
 	describe("LIKE wildcard escape (W3)", () => {
-		it("treats `%` in completedTaskId as a literal, not a wildcard", async () => {
+		test("treats `%` in completedTaskId as a literal, not a wildcard", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			// The literal completedTaskId is "any%id". A dependent task
 			// listing "anyREALLYid" as a dependency must NOT be unblocked
 			// by completion of "any%id" — the `%` must be treated literally.
@@ -176,7 +173,8 @@ describe("Dependency Watcher", () => {
 			expect(task?.state).toBe("hold");
 		});
 
-		it("treats `_` in completedTaskId as a literal, not a single-char wildcard", async () => {
+		test("treats `_` in completedTaskId as a literal, not a single-char wildcard", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			await insertTask(db, "depX1", "done");
 			await insertTask(db, "dependent", "hold", ["depX1"]);
 
@@ -190,7 +188,8 @@ describe("Dependency Watcher", () => {
 	});
 
 	describe("multiple dependents", () => {
-		it("unblocks multiple tasks that depend on the same completed task", async () => {
+		test("unblocks multiple tasks that depend on the same completed task", async ({ db, eventBus }) => {
+			await seedPrerequisites(db);
 			await insertTask(db, "dep-1", "done");
 			await insertTask(db, "dependent-a", "hold", ["dep-1"]);
 			await insertTask(db, "dependent-b", "hold", ["dep-1"]);
