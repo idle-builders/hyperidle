@@ -180,11 +180,11 @@ describe("W3 AC-33 — Data-driven scope pills", () => {
 		expect(allPill).toBeInTheDocument();
 	});
 
-	it("renders scope pills derived from data (Auth, Infrastructure)", () => {
+	it("renders static scope pills (Shared, Team, Private)", () => {
 		renderKnowledgeList();
-		// Scope pills come from item scopeKind fields
-		expect(screen.getByRole("button", { name: /^auth$/i })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /^infrastructure$/i })).toBeInTheDocument();
+		expect(screen.getByTestId("scope-pill-shared")).toBeInTheDocument();
+		expect(screen.getByTestId("scope-pill-team")).toBeInTheDocument();
+		expect(screen.getByTestId("scope-pill-private")).toBeInTheDocument();
 	});
 });
 
@@ -319,12 +319,12 @@ describe("W3 AC-39 — Knowledge detail Edit button and overflow menu", () => {
 		expect(overflowBtn).toBeInTheDocument();
 	});
 
-	it("overflow menu contains Flag, Archive, Change scope options", async () => {
+	it("overflow menu contains Archive and Change scope options (Flag removed by AD6)", async () => {
 		const user = userEvent.setup();
 		renderKnowledgeDetail();
 		const overflowBtn = screen.getByRole("button", { name: /more options|overflow|\.\.\.|⋯/i });
 		await user.click(overflowBtn);
-		expect(screen.getByText(/flag/i)).toBeInTheDocument();
+		expect(screen.queryByText(/flag/i)).not.toBeInTheDocument();
 		expect(screen.getByText(/archive/i)).toBeInTheDocument();
 		expect(screen.getByText(/change scope/i)).toBeInTheDocument();
 	});
