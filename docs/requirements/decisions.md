@@ -6,7 +6,7 @@
 - **Session notes** — continuous writing throughout the session, not just at end. Pre-compaction trigger where harness supports it. No rigid template; flight-level guidance on what to write about.
 - **Skill hot-reload** — next session picks it up. No mid-session propagation.
 - **Desktop shell** — Electron. Server embedded in main process. SQLite via better-sqlite3. Distributed as signed/notarized DMG via Homebrew cask.
-- **Mobile** — none. Desktop-only.
+- **Mobile** — Desktop is the primary form factor. The same web app is accessible from mobile browsers for review triage and agent unblocking. No native mobile app. No offline support.
 - **Canvas (bet placement)** — symbolic UI, not an actual canvas. Two-column layout (shaped / committed) with hard capacity cap, rendered as `BetCard`s. Standard React components on the DaisyUI stack (see UI_DESIGN.md).
 - **TOON format** — using existing spec at github.com/toon-format/toon.
 - **Scheduler** — async single-process (Node.js event loop). Scale to separate worker only when measured latency demands it.

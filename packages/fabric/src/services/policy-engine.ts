@@ -1,6 +1,16 @@
-import { type HyperIdleDb, items, messages, threads, userSkills } from "@hyperidle/db";
+/**
+ * AD4: Policy engine rewritten to use approval-rate-based trust instead of
+ * manually-assigned per-skill autonomy levels.
+ *
+ * @lore AD4: Removed `getAutonomyLevel` (userSkills-based) and replaced with
+ * `getAgentTrustSignal` (verdict-history-based). Thresholds are read from
+ * factory settings with safe defaults so no migration is required.
+ */
+
+import { factorySettings, type HyperIdleDb, items, messages, threads } from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent, NotificationEvent } from "@hyperidle/shared";
 import { and, desc, eq } from "drizzle-orm";
+import { computeApprovalRate } from "./approval-rate.js";
 import { isSilenced as sharedIsSilenced } from "./silence-policy.js";
 
 interface PolicyEngineOptions {
@@ -10,9 +20,14 @@ interface PolicyEngineOptions {
 
 type PolicyAction = "push" | "queue" | "auto_resolve";
 
+interface TrustSignal {
+	approvalRate: number;
+	totalVerdicts: number;
+}
+
 /**
  * Registers the policy engine event handler.
- * Subscribes to `item_created` events and applies autonomy/silence rules.
+ * Subscribes to `item_created` events and applies trust/silence rules.
  * Returns an unsubscribe function.
  */
 export function registerPolicyEngine(
@@ -41,25 +56,30 @@ async function evaluateItem(
 	const [item] = await db.select().from(items).where(eq(items.id, itemId)).limit(1);
 	if (!item) return;
 
-	// 2. Load the source agent's autonomy level
-	const autonomyLevel = await getAutonomyLevel(db, item.sourceAgentId);
+	// 2. Load the source agent's trust signal (approval rate from verdict history)
+	const trust = await getAgentTrustSignal(db, item.sourceAgentId);
 
 	// 3. Determine action (priority order)
-	const action = await determineAction(db, item, autonomyLevel, nowFn);
+	const action = await determineAction(db, item, trust, nowFn);
 
 	// 4. Execute the action
 	await executeAction(db, eventBus, itemId, action);
 }
 
-async function getAutonomyLevel(db: HyperIdleDb, sourceAgentId: string | null): Promise<number> {
-	if (!sourceAgentId) return 1;
+async function getAgentTrustSignal(
+	db: HyperIdleDb,
+	sourceAgentId: string | null,
+): Promise<TrustSignal> {
+	if (!sourceAgentId) return { approvalRate: 0, totalVerdicts: 0 };
 
-	const skills = await db.select().from(userSkills).where(eq(userSkills.userId, sourceAgentId));
+	// Read window from factory settings (default 30 days)
+	const windowDays = await getFactorySettingInt(db, "trust_window_days", 30);
+	const result = await computeApprovalRate(db, sourceAgentId, windowDays);
 
-	if (skills.length === 0) return 1;
-
-	// Return max autonomy level across all skills
-	return Math.max(...skills.map((s) => s.autonomyLevel));
+	return {
+		approvalRate: result.approvalRate,
+		totalVerdicts: result.totalVerdicts,
+	};
 }
 
 async function determineAction(
@@ -67,10 +87,10 @@ async function determineAction(
 	item: {
 		riskTier: string | null;
 		kind: string | null;
-		blocking: number | null;
+		blocking: number | boolean | null;
 		sourceAgentId: string | null;
 	},
-	autonomyLevel: number,
+	trust: TrustSignal,
 	nowFn: () => Date,
 ): Promise<PolicyAction> {
 	// a. High-risk: ALWAYS push
@@ -86,10 +106,35 @@ async function determineAction(
 		if (await sharedIsSilenced(db, { sourceAgentId: item.sourceAgentId }, nowFn())) return "queue";
 	}
 
-	// d. Autonomy-based rules
-	if (autonomyLevel >= 4 && item.riskTier === "low") return "auto_resolve";
-	if (autonomyLevel === 3 && item.riskTier === "low") return "queue";
-	// L2 or L1 -> push
+	// d. Trust-based rules (replaces autonomy level rules)
+	// Read thresholds from factory settings with defaults
+	const autoResolveThreshold = await getFactorySettingFloat(
+		db,
+		"trust_auto_resolve_threshold",
+		0.9,
+	);
+	const autoResolveMinVerdicts = await getFactorySettingInt(
+		db,
+		"trust_auto_resolve_min_verdicts",
+		10,
+	);
+	const queueThreshold = await getFactorySettingFloat(db, "trust_queue_threshold", 0.7);
+
+	// @lore AD4: Cold-start protection applies to both auto_resolve and queue.
+	// Insufficient verdicts → always push regardless of rate, so new agents
+	// always see maximum oversight until they accumulate enough history.
+	if (trust.totalVerdicts < autoResolveMinVerdicts) {
+		return "push";
+	}
+
+	if (trust.approvalRate >= autoResolveThreshold && item.riskTier === "low") {
+		return "auto_resolve";
+	}
+
+	if (trust.approvalRate >= queueThreshold && item.riskTier === "low") {
+		return "queue";
+	}
+
 	return "push";
 }
 
@@ -172,4 +217,40 @@ async function executeAction(
 			break;
 		}
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Factory settings helpers (internal)
+// ---------------------------------------------------------------------------
+
+async function getFactorySettingFloat(
+	db: HyperIdleDb,
+	key: string,
+	defaultValue: number,
+): Promise<number> {
+	const [row] = await db
+		.select()
+		.from(factorySettings)
+		.where(eq(factorySettings.key, key))
+		.limit(1);
+
+	if (!row) return defaultValue;
+	const parsed = Number.parseFloat(row.value);
+	return Number.isFinite(parsed) ? parsed : defaultValue;
+}
+
+async function getFactorySettingInt(
+	db: HyperIdleDb,
+	key: string,
+	defaultValue: number,
+): Promise<number> {
+	const [row] = await db
+		.select()
+		.from(factorySettings)
+		.where(eq(factorySettings.key, key))
+		.limit(1);
+
+	if (!row) return defaultValue;
+	const parsed = Number.parseInt(row.value, 10);
+	return Number.isFinite(parsed) ? parsed : defaultValue;
 }

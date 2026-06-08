@@ -78,15 +78,18 @@ const MOCK_AGENT_PROFILE = {
 		fileEditing: true,
 		subAgents: true,
 	},
-	skills: [
-		{
-			skillId: "write-code",
-			successCount: 10,
-			failureCount: 1,
-			lastUsedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-			autonomyLevel: 2,
-		},
-	],
+	reviewTrackRecord: {
+		approvalRate: 0.9,
+		totalVerdicts: 10,
+		recentVerdicts: [
+			{
+				decision: "approve",
+				threadId: "t-1",
+				createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+			},
+		],
+		windowDays: 30,
+	},
 };
 
 const MOCK_AGENT_PROFILE_WITH_ACTIVE_SESSION = {
@@ -224,8 +227,8 @@ test.describe("AB1 AC-2: Profile page shows identity, config, skills, activity, 
 		await expect(page.getByTestId("agent-capabilities-section")).toBeVisible();
 	});
 
-	test("shows Skills section", async ({ page }) => {
-		await expect(page.getByTestId("agent-skills-section")).toBeVisible();
+	test("shows Review Track Record section (AD4: replaces skills)", async ({ page }) => {
+		await expect(page.getByTestId("agent-track-record-section")).toBeVisible();
 	});
 
 	test("shows Recent Activity section with sessions table", async ({ page }) => {
@@ -292,9 +295,11 @@ test.describe("AB1 AC-2: Profile page shows identity, config, skills, activity, 
 		await expect(activityTable).toHaveAttribute("aria-label", /.+/);
 	});
 
-	test("skills table has accessible aria-label", async ({ page }) => {
-		const skillsTable = page.getByTestId("agent-skills-section").getByRole("table");
-		await expect(skillsTable).toHaveAttribute("aria-label", /.+/);
+	test("review track record section has visible content when verdicts exist (AD4)", async ({
+		page,
+	}) => {
+		// Track record section shows approval rate when totalVerdicts > 0
+		await expect(page.getByTestId("agent-track-record-section")).toContainText("90%");
 	});
 });
 

@@ -97,13 +97,29 @@ export interface AgentHarnessCapabilities {
 	readonly subAgents: boolean;
 }
 
-/** One skill entry: usage stats from the userSkills table. */
-export interface AgentSkillInfo {
-	readonly skillId: string;
-	readonly successCount: number;
-	readonly failureCount: number;
-	readonly lastUsedAt: string | null;
-	readonly autonomyLevel: number;
+/**
+ * Single verdict entry for the review track record display.
+ * @lore AD4: Derived from verdict messages attributed to the agent.
+ */
+export interface AgentVerdictEntry {
+	readonly decision: string;
+	readonly threadId: string;
+	readonly createdAt: string;
+}
+
+/**
+ * Review track record — derived trust signal replacing per-skill autonomy level.
+ * @lore AD4: Computed from verdict messages in a sliding window. Replaces AgentSkillInfo.
+ */
+export interface AgentReviewTrackRecord {
+	/** Approval rate: (approve + approve-with-comments) / total. 0 when no verdicts. */
+	readonly approvalRate: number;
+	/** Total verdict count in the sliding window. */
+	readonly totalVerdicts: number;
+	/** Last N verdicts (newest first). N=10 for the profile page. */
+	readonly recentVerdicts: AgentVerdictEntry[];
+	/** Sliding window size in days (from factory settings). */
+	readonly windowDays: number;
 }
 
 /**
@@ -152,6 +168,7 @@ export interface AgentProfileResponse {
 	// --- Capabilities ---
 	readonly harnessCapabilities: AgentHarnessCapabilities;
 
-	// --- Skills ---
-	readonly skills: AgentSkillInfo[];
+	// --- Review Track Record ---
+	/** @lore AD4: Replaces skills field. Computed from verdict message history. */
+	readonly reviewTrackRecord: AgentReviewTrackRecord;
 }

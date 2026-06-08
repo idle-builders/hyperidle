@@ -36,12 +36,13 @@ describe("KnowledgeDetail", () => {
 		expect(screen.getAllByText("1d ago").length).toBeGreaterThanOrEqual(1);
 	});
 
-	it("renders layer and kind tags", () => {
+	it("renders kind in the metadata aside", () => {
+		// AD6: kind Tag removed from the header metadata bar. Kind still appears
+		// in the metadata aside card (Kind row). Layer tag removed entirely.
 		renderPage("k1");
-		// W3: layer and kind appear in both the metadata bar (Tag) and the metadata aside.
-		// Use getAllByText to handle multiple occurrences — at least one must exist.
-		expect(screen.getAllByText("company").length).toBeGreaterThanOrEqual(1);
-		expect(screen.getAllByText("belief").length).toBeGreaterThanOrEqual(1);
+		const aside = screen.getByTestId("knowledge-metadata-aside");
+		// "belief" is the kind value for k1 — appears in the aside's Kind row
+		expect(aside.textContent).toContain("belief");
 	});
 
 	it("renders fallback for unknown knowledge item", () => {

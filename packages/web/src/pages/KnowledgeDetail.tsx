@@ -3,7 +3,6 @@ import {
 	BodyEditor,
 	knowledgeStatusToStatus,
 	StatusChip,
-	Tag,
 } from "@hyperidle/design-system";
 import {
 	KNOWLEDGE_STATUSES,
@@ -54,7 +53,7 @@ import {
 import type { Message, PlainPayloadWithBlockId, ScopeKind } from "@hyperidle/shared";
 import { isRedactedPayload, SCOPE_KINDS } from "@hyperidle/shared";
 import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { CocContext } from "../contexts/CocContext.js";
 // eslint-disable-next-line design/no-mock-data-import -- tracked in #93
 import { knowledgeItems, type MockKnowledgeItem } from "../fixtures/knowledge-data";
@@ -62,7 +61,9 @@ import { useAutoSave } from "../hooks/useAutoSave.js";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useHostThread } from "../hooks/useHostThread.js";
 import { useKnowledgeItem } from "../hooks/useKnowledgeItem.js";
+import { apiFetch } from "../services/api-fetch.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
+import { scopeKindToLabel } from "../utils/scope-labels.js";
 import { KnowledgeBody } from "./knowledge/KnowledgeBody";
 import { ScopeChangeDialog } from "./knowledge/ScopeChangeDialog";
 
@@ -346,21 +347,26 @@ function BacklinksCard({
 	);
 }
 
-/** Overflow menu ("···") for non-edit mode actions */
+/**
+ * Overflow menu ("···") for non-edit mode actions.
+ *
+ * @lore AD6: Flag removed — it is an agent operation, not user-facing.
+ * Archive wired to POST /api/knowledge/:id/archive (was a stub).
+ */
 function KnowledgeOverflowMenu({
 	overflowOpen,
 	overflowRef,
 	onToggle,
-	onFlag,
 	onArchive,
 	onChangeScope,
+	archiving,
 }: {
 	overflowOpen: boolean;
 	overflowRef: React.RefObject<HTMLDivElement | null>;
 	onToggle: () => void;
-	onFlag: () => void;
 	onArchive: () => void;
 	onChangeScope: () => void;
+	archiving: boolean;
 }): JSX.Element {
 	return (
 		<div className="relative" ref={overflowRef} data-testid="knowledge-overflow-menu">
@@ -382,18 +388,11 @@ function KnowledgeOverflowMenu({
 					<button
 						type="button"
 						role="menuitem"
-						className="w-full text-left px-3 py-2 text-[13px] hover:bg-[var(--accent-primary-dim)]"
-						onClick={onFlag}
-					>
-						Flag
-					</button>
-					<button
-						type="button"
-						role="menuitem"
-						className="w-full text-left px-3 py-2 text-[13px] hover:bg-[var(--accent-primary-dim)]"
+						className="w-full text-left px-3 py-2 text-[13px] hover:bg-[var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed"
 						onClick={onArchive}
+						disabled={archiving}
 					>
-						Archive
+						{archiving ? "Archiving…" : "Archive"}
 					</button>
 					<button
 						type="button"
@@ -452,6 +451,8 @@ function KnowledgeDetailView({
 }: KnowledgeDetailViewProps): JSX.Element {
 	// Q2: Use the route-resolved id for API calls to avoid FALLBACK_DETAIL.id = "unknown"
 	const effectiveKnowledgeId = routeKnowledgeId ?? item.id;
+	// AD6: navigate after successful archive
+	const navigate = useNavigate();
 	// T4: CocContext for block share action
 	const { overlayOpen, attachContext } = useContext(CocContext);
 	const isFactory = item.scope === "factory" || item.scopeKind === "factory";
@@ -464,6 +465,10 @@ function KnowledgeDetailView({
 
 	// Q2: Scope change dialog state.
 	const [scopeChangeOpen, setScopeChangeOpen] = useState(false);
+
+	// AD6: Archive in-flight state + error.
+	const [archiving, setArchiving] = useState(false);
+	const [archiveError, setArchiveError] = useState<string | null>(null);
 
 	// W3 NB-4: overflow menu open state (click-outside + Escape to close)
 	const [overflowOpen, setOverflowOpen] = useState(false);
@@ -572,6 +577,33 @@ function KnowledgeDetailView({
 	}
 
 	/**
+	 * AD6: Archive handler — calls POST /api/knowledge/:id/archive.
+	 * On success, navigates to /knowledge list. On failure, shows inline error.
+	 * @lore AD6: Archive was previously a stub (closeOverflow only). Now wired
+	 * to a real POST endpoint. The archive endpoint has no request body.
+	 */
+	async function handleArchive(): Promise<void> {
+		closeOverflow();
+		setArchiving(true);
+		setArchiveError(null);
+		try {
+			const res = await apiFetch(`/api/knowledge/${effectiveKnowledgeId}/archive`, {
+				method: "POST",
+			});
+			if (res.ok) {
+				navigate("/knowledge");
+			} else {
+				const data = (await res.json().catch(() => ({}))) as { error?: string };
+				setArchiveError(data.error ?? `Archive failed: ${res.status}`);
+			}
+		} catch {
+			setArchiveError("Archive failed: network error");
+		} finally {
+			setArchiving(false);
+		}
+	}
+
+	/**
 	 * L18: "Discuss" handler — closes popover and sets thread prefill.
 	 * @lore L18: same pattern as WorkBet.handleDiscussBlock — DOM query for excerpt.
 	 */
@@ -612,14 +644,15 @@ function KnowledgeDetailView({
 					<h1 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)]">
 						{item.title}
 					</h1>
-					{/* Badge row — metadata bar */}
+					{/* Badge row — metadata bar
+					    @lore AD6: kind Tag and layer Tag removed from the metadata bar.
+					    They are internal taxonomy fields, not user-facing scope indicators.
+					    Kind still appears in the metadata aside (Kind row). */}
 					<div
 						className="flex items-center gap-[6px] flex-wrap mt-[9px]"
 						data-testid="knowledge-metadata-bar"
 					>
-						<Tag label={item.kind} />
 						<StatusChip status={knowledgeStatusToStatus(item.status)} />
-						<Tag label={item.layer} />
 						<span
 							className="text-[12px] text-[var(--text-tertiary)] font-mono tabular-nums"
 							data-testid="knowledge-confidence"
@@ -663,18 +696,18 @@ function KnowledgeDetailView({
 							Done
 						</button>
 					) : null}
-					{/* W3 AC-39: "..." overflow dropdown replacing inline "Change scope" button */}
+					{/* W3 AC-39 / AD6: "..." overflow dropdown — Flag removed, Archive wired. */}
 					{!editing && (
 						<KnowledgeOverflowMenu
 							overflowOpen={overflowOpen}
 							overflowRef={overflowRef}
 							onToggle={() => setOverflowOpen((prev) => !prev)}
-							onFlag={closeOverflow}
-							onArchive={closeOverflow}
+							onArchive={() => void handleArchive()}
 							onChangeScope={() => {
 								setScopeChangeOpen(true);
 								closeOverflow();
 							}}
+							archiving={archiving}
 						/>
 					)}
 				</div>
@@ -692,6 +725,24 @@ function KnowledgeDetailView({
 								data-testid="factory-amendable-banner"
 							>
 								<span>Amendable under review — edits route through the review queue.</span>
+							</div>
+						)}
+
+						{/* AD6: Archive error — shown when POST /archive fails */}
+						{archiveError !== null && (
+							<div
+								role="alert"
+								className="flex items-center justify-between gap-2 px-[12px] py-[9px] text-[13px] bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
+								data-testid="archive-error"
+							>
+								<span className="text-[var(--status-error)]">{archiveError}</span>
+								<button
+									type="button"
+									className="text-[12px] text-[var(--text-tertiary)] bg-transparent border-none cursor-pointer"
+									onClick={() => setArchiveError(null)}
+								>
+									Dismiss
+								</button>
 							</div>
 						)}
 
@@ -803,6 +854,16 @@ function KnowledgeDetailView({
 							<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">
 								<span className="text-[var(--text-tertiary)]">Kind</span>
 								<span className="text-[var(--text-primary)] font-[500]">{item.kind}</span>
+							</div>
+							{/* AD6: Scope row — shows human-readable scope label */}
+							<div
+								className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]"
+								data-testid="knowledge-scope-row"
+							>
+								<span className="text-[var(--text-tertiary)]">Scope</span>
+								<span className="text-[var(--text-primary)] font-[500]">
+									{scopeKindToLabel(item.scopeKind ?? "factory")}
+								</span>
 							</div>
 							<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">
 								<span className="text-[var(--text-tertiary)]">Status</span>

@@ -19,7 +19,8 @@
  * columns. Honest over fabricated.
  */
 
-import { sessions, tasks, teamMembers, teams, userSkills, users } from "@hyperidle/db";
+import { factorySettings, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { computeApprovalRate } from "@hyperidle/fabric";
 import type {
 	AgentActiveSession,
 	AgentHarnessCapabilities,
@@ -27,8 +28,8 @@ import type {
 	AgentHealthSignals,
 	AgentPerformanceStats,
 	AgentProfileResponse,
+	AgentReviewTrackRecord,
 	AgentSessionSummary,
-	AgentSkillInfo,
 	HarnessCapabilities,
 } from "@hyperidle/shared";
 import { desc, eq, inArray } from "drizzle-orm";
@@ -307,16 +308,21 @@ export async function handleAgentProfile(
 	const rawCaps = adapterPool?.getCapabilitiesByType(agent.harnessType ?? null) ?? null;
 	const harnessCapabilities = mapCapabilities(rawCaps);
 
-	// 9. Skills from userSkills table
-	const skillRows = await db.select().from(userSkills).where(eq(userSkills.userId, agentId));
+	// 9. Review track record (replaces skills)
+	// @lore AD4: Skills removed. Trust is now computed from verdict message history.
+	const windowDays = await getFactorySettingInt(db, "trust_window_days", 30);
+	const trackRecordResult = await computeApprovalRate(db, agentId, windowDays, 10);
 
-	const skills: AgentSkillInfo[] = skillRows.map((s) => ({
-		skillId: s.skillId,
-		successCount: s.successCount,
-		failureCount: s.failureCount,
-		lastUsedAt: s.lastUsedAt,
-		autonomyLevel: s.autonomyLevel,
-	}));
+	const reviewTrackRecord: AgentReviewTrackRecord = {
+		approvalRate: trackRecordResult.approvalRate,
+		totalVerdicts: trackRecordResult.totalVerdicts,
+		recentVerdicts: trackRecordResult.recentVerdicts.map((v) => ({
+			decision: v.decision,
+			threadId: v.threadId,
+			createdAt: v.createdAt,
+		})),
+		windowDays,
+	};
 
 	const profile: AgentProfileResponse = {
 		id: agent.id,
@@ -336,7 +342,7 @@ export async function handleAgentProfile(
 		performance,
 		healthSignals,
 		harnessCapabilities,
-		skills,
+		reviewTrackRecord,
 	};
 
 	return c.json(profile);
@@ -370,6 +376,27 @@ export function resolveHarnessAvailable(
 	}
 	// Specific type required — check if it's registered
 	return adapterPool.getCapabilitiesByType(harnessType) !== null;
+}
+
+/**
+ * Read an integer factory setting with a default fallback.
+ * @lore AD4: Shared pattern with policy-engine's getFactorySettingInt.
+ * Kept local to avoid cross-package coupling for a trivial helper.
+ */
+async function getFactorySettingInt(
+	db: import("@hyperidle/db").HyperIdleDb,
+	key: string,
+	defaultValue: number,
+): Promise<number> {
+	const [row] = await db
+		.select()
+		.from(factorySettings)
+		.where(eq(factorySettings.key, key))
+		.limit(1);
+
+	if (!row) return defaultValue;
+	const parsed = Number.parseInt(row.value, 10);
+	return Number.isFinite(parsed) ? parsed : defaultValue;
 }
 
 /**

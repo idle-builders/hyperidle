@@ -1,6 +1,6 @@
 ## 13. Decisions
 
-- **Desktop shell:** Electron. Server embedded in main process. Desktop-only — no mobile form factor.
+- **Desktop shell:** Electron. Server embedded in main process. Desktop is the primary form factor. The same web app is accessible from mobile browsers for review triage and agent unblocking. No native mobile app. No offline support.
 - **Tech stack:** Tailwind CSS + DaisyUI + Hearth theme (dark/light/system). Behavior gaps filled by `focus-trap-react` and `@floating-ui/react`. Data utilities from `@tanstack/react-*` when needed.
 - **Canvas tech:** symbolic UI — standard React components with a hard capacity cap. Humans create bets via BetCreateDialog, not drag-and-drop.
 - **Navigation model:** view switching + per-view sub-navigation + main content pane. Breadcrumbs within views, not across. Specific layout structure is a design-time decision.

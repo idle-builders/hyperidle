@@ -4,6 +4,10 @@ export { bootstrapFabric } from "./bootstrap.js";
 
 // --- Strategy services (O3: moved from packages/server to packages/fabric) ---
 
+// approval-rate
+export type { ApprovalRateResult } from "./services/approval-rate.js";
+export { computeApprovalRate } from "./services/approval-rate.js";
+
 // attention-service
 export type {
 	AttentionRecomputeResult,
@@ -212,6 +216,12 @@ export {
 	PRACTICE_MEETING_ANCHOR_ROLE,
 	runPracticeMeetingTurn,
 } from "./services/practice-meeting.js";
+// provision-registry (AD2) — injection point for provisionSession across the circular package boundary
+export {
+	clearProvisionSessionFn,
+	getProvisionSessionFn,
+	setProvisionSessionFn,
+} from "./services/provision-registry.js";
 // relevance-service
 export type {
 	RelevanceService,
@@ -243,15 +253,23 @@ export {
 	shouldCoalesce,
 	startRoutineScheduler,
 } from "./services/routine-scheduler.js";
-
 // session-review-creator
 export { registerSessionReviewCreator } from "./services/session-review-creator.js";
-
 // silence-policy
 export {
 	isInSilenceWindow,
 	isSilenced,
 } from "./services/silence-policy.js";
+// task-dispatcher (AD2)
+export type {
+	DispatchQueueEntry,
+	DispatchQueueSnapshot,
+	TaskDispatcherDeps,
+} from "./services/task-dispatcher.js";
+export {
+	getDispatchQueueSnapshot,
+	registerTaskDispatcher,
+} from "./services/task-dispatcher.js";
 
 // --- Strategy types (O1: moved from @hyperidle/shared) ---
 
