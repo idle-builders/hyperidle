@@ -50,6 +50,42 @@ vi.mock("../hooks/useCurrentUser.js", () => ({
 	useCurrentUser: () => ({ user: { id: "user-1" } }),
 }));
 
+// AD3: KnowledgeCreateDialog now calls useTeams to detect single-team mode.
+// Mock with 2 teams so multi-team path (all 7 scopes) is exercised here —
+// the AD3-KnowledgeCreateDialog-scope.test.tsx covers single-team behaviour.
+vi.mock("../hooks/useTeams.js", () => ({
+	useTeams: () => ({
+		data: {
+			teams: [
+				{
+					id: "t1",
+					name: "Alpha",
+					phase: "build",
+					status: "healthy",
+					leadAgentId: null,
+					activeBets: 0,
+					shipped: 0,
+					shipRate: "0%",
+					progress: { done: 0, total: 0 },
+				},
+				{
+					id: "t2",
+					name: "Beta",
+					phase: "build",
+					status: "healthy",
+					leadAgentId: null,
+					activeBets: 0,
+					shipped: 0,
+					shipRate: "0%",
+					progress: { done: 0, total: 0 },
+				},
+			],
+		},
+		loading: false,
+		error: null,
+	}),
+}));
+
 function renderDialog(
 	props: Partial<{
 		open: boolean;
