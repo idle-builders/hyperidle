@@ -80,14 +80,14 @@ function getDropdownItem(name: RegExp): HTMLElement | null {
 }
 
 describe("L14 — BetActionsBar (AC-7)", () => {
-	it("shows Pause and Kill in overflow dropdown for active status", () => {
+	it("AD5: shows Kill but NOT Pause in overflow dropdown for active status (pause removed)", () => {
 		renderBet(makeBet("active"));
+		// AD5 AC-5: Pause button removed from UI — only Kill remains
 		// W3 AC-19: actions are in the overflow dropdown, not inline
-		// JSDOM renders all elements regardless of CSS visibility
 		const pauseItem = document.querySelector("[data-dropdown-item][data-bet-action='pause']");
 		const killItem = document.querySelector("[data-dropdown-item][data-bet-action='kill']");
-		expect(pauseItem).not.toBeNull();
-		expect(killItem).not.toBeNull();
+		expect(pauseItem).toBeNull(); // AD5: Pause must be absent
+		expect(killItem).not.toBeNull(); // Kill still present
 	});
 
 	it("shows Adjust appetite in overflow dropdown for active status", () => {
@@ -203,18 +203,15 @@ describe("L14 — ConsequencePreviewDialog (AC-8, AC-9)", () => {
 		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 	});
 
-	it("dialog also opens for Pause action via overflow dropdown", async () => {
-		const user = userEvent.setup();
+	it("AD5: Pause action is NOT present in overflow dropdown (removed)", () => {
+		// AD5 AC-5: Pause button removed — this test verifies it is absent
 		renderBet(makeBet("active"));
 
-		// W3: Pause is in the overflow dropdown
+		// Pause item must not be in the dropdown at all
 		const pauseItem = document.querySelector<HTMLElement>(
 			"[data-dropdown-item][data-bet-action='pause']",
 		);
-		expect(pauseItem).not.toBeNull();
-		if (pauseItem) await user.click(pauseItem);
-
-		expect(screen.getByRole("dialog")).toBeInTheDocument();
+		expect(pauseItem).toBeNull();
 	});
 });
 

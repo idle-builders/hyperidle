@@ -40,6 +40,7 @@ import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import { createWorkersRoutes } from "./routes/workers.js";
 import type { CredentialResolver } from "./services/credential-resolver.js";
+import { checkAndUnblockDependents } from "./services/dependency-watcher.js";
 import {
 	type ObservabilityConfig,
 	readObservabilityConfig,
@@ -506,6 +507,22 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		// boundary is now enforced by the package dependency graph.
 		const strategyDisposers = options.strategyBootstrap?.({ db, eventBus }) ?? [];
 		disposers.push(...strategyDisposers);
+
+		// AD5 AC-2: Auto-unblock dependent tasks when a task transitions to "done".
+		// @lore AD5 option-A: handler lives in app.ts (server layer) — fabric cannot
+		// import from server (layer violation). checkAndUnblockDependents is already
+		// in the server package so no cross-package dependency issue exists here.
+		const unsubDepWatcher = eventBus.on("task_state_changed", (event) => {
+			if (event.toState === "done") {
+				void checkAndUnblockDependents(db, eventBus, event.taskId).catch((err) => {
+					appLogger.error("[dep-watcher] unblock failed for task", {
+						taskId: event.taskId,
+						error: err instanceof Error ? err.message : String(err),
+					});
+				});
+			}
+		});
+		disposers.push(unsubDepWatcher);
 
 		disposers.push(() => {
 			activityBuffer.stop();
