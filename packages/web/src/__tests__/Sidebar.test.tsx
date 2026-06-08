@@ -179,9 +179,11 @@ describe("Sidebar — AC-4: Work section team list", () => {
 	});
 
 	it("calls onSelectTeam with team id when a team sub-item is clicked", async () => {
+		// AD3: 2 teams required — single-team hides the list, so clicking would fail.
+		// The test intent is to verify onSelectTeam fires; use 2 teams to keep the list visible.
 		const user = userEvent.setup();
 		const onSelectTeam = vi.fn();
-		const teams = [mkTeam("team-xyz", "XYZ Team")];
+		const teams = [mkTeam("team-xyz", "XYZ Team"), mkTeam("team-other", "Other Team")];
 		render(
 			<Sidebar {...defaultProps} activeView="work" teams={teams} onSelectTeam={onSelectTeam} />,
 		);

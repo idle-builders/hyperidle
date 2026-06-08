@@ -182,6 +182,18 @@ export function SettingsOrgChart(): JSX.Element {
 
 	const { edges, users } = data;
 
+	// AD3 AC-2: solo contextual message when exactly 1 human user.
+	// 0 humans (all-agent org) sees the full UI since there's nothing to hide.
+	const humanUsers = users.filter((u) => u.kind === "human");
+	if (humanUsers.length === 1) {
+		return (
+			<p className="text-[13px] text-[var(--text-secondary)]">
+				Org chart manages reporting lines between humans. Add a second human user to start defining
+				your org structure.
+			</p>
+		);
+	}
+
 	// Resolve display name for a user id
 	const userName = (id: string): string => users.find((u) => u.id === id)?.name ?? id;
 
