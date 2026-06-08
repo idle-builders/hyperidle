@@ -28,18 +28,24 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
+import * as llmClientModule from "../harness/llm-client.js";
 import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
 import { type ProvisionSessionDeps, provisionSession } from "../services/session-provisioning.js";
 import { test } from "../test-fixtures.js";
 
 // ── Mock callLlm so the builtin harness loop doesn't make real LLM calls ─────
+//
+// @lore X6: We use vi.spyOn on the module namespace object rather than vi.mock
+// so this works correctly when vitest runs with isolate:false. With isolate:false,
+// vi.mock at module level may not intercept callLlm if it was already imported by
+// another test file that ran earlier in the same worker thread (e.g.
+// session-provisioning.integration.test.ts). vi.spyOn replaces the property on
+// the live module namespace object, which is what builtin-harness-adapter.ts
+// reads through its import binding (because vitest/esbuild transform module
+// imports into property accesses on the module namespace). vi.restoreAllMocks()
+// in afterEach restores the original after each test.
 
-vi.mock("../harness/llm-client.js", () => ({
-	callLlm: vi.fn(),
-}));
-
-const { callLlm } = await import("../harness/llm-client.js");
-const callLlmMock = vi.mocked(callLlm);
+let callLlmMock: ReturnType<typeof vi.spyOn>;
 
 // ── Domain fixtures ───────────────────────────────────────────────────────────
 
@@ -111,7 +117,10 @@ describe("X6 AC-15: builtin harness — no double tool execution on provisioning
 		workspaceBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "x6-test-"));
 
 		// LLM mock: planning response (text only → loop terminates immediately)
-		callLlmMock.mockResolvedValue({
+		// @lore X6: vi.spyOn is used instead of vi.mock so the spy is applied to
+		// the live module namespace on every beforeEach, ensuring isolation even
+		// when isolate:false causes other tests to share the module cache.
+		callLlmMock = vi.spyOn(llmClientModule, "callLlm").mockResolvedValue({
 			stopReason: "end_turn" as const,
 			content: [{ type: "text" as const, text: "Task plan: I will complete this task now." }],
 			usage: { inputTokens: 100, outputTokens: 50 },
@@ -119,7 +128,7 @@ describe("X6 AC-15: builtin harness — no double tool execution on provisioning
 	});
 
 	afterEach(() => {
-		vi.clearAllMocks();
+		vi.restoreAllMocks();
 		if (fs.existsSync(workspaceBasePath)) {
 			fs.rmSync(workspaceBasePath, { recursive: true, force: true });
 		}
@@ -206,6 +215,7 @@ describe("X6 AC-15: builtin harness — no double tool execution on provisioning
 		};
 
 		// planning → tool call (execute turn 1) → done (execute turn 2)
+		// Override the beforeEach default for this specific test's sequence
 		callLlmMock
 			.mockResolvedValueOnce({
 				...doneResponse,
