@@ -83,29 +83,18 @@ const BASE_PROFILE: AgentProfileResponse = {
 		fileEditing: true,
 		subAgents: true,
 	},
-	skills: [
-		{
-			skillId: "write-code",
-			successCount: 38,
-			failureCount: 3,
-			lastUsedAt: "2024-06-03T10:45:00.000Z",
-			autonomyLevel: 5,
-		},
-		{
-			skillId: "write-tests",
-			successCount: 30,
-			failureCount: 1,
-			lastUsedAt: "2024-06-03T10:45:00.000Z",
-			autonomyLevel: 4,
-		},
-		{
-			skillId: "review",
-			successCount: 12,
-			failureCount: 0,
-			lastUsedAt: "2024-05-28T16:00:00.000Z",
-			autonomyLevel: 3,
-		},
-	],
+	reviewTrackRecord: {
+		approvalRate: 0.92,
+		totalVerdicts: 34,
+		recentVerdicts: [
+			{ decision: "approve", threadId: "t-1", createdAt: "2024-06-03T10:45:00.000Z" },
+			{ decision: "approve", threadId: "t-2", createdAt: "2024-06-02T14:00:00.000Z" },
+			{ decision: "request-changes", threadId: "t-3", createdAt: "2024-06-01T09:00:00.000Z" },
+			{ decision: "approve-with-comments", threadId: "t-4", createdAt: "2024-05-30T16:00:00.000Z" },
+			{ decision: "approve", threadId: "t-5", createdAt: "2024-05-29T11:00:00.000Z" },
+		],
+		windowDays: 30,
+	},
 };
 
 export default { title: "Page: Agents/AgentProfile" };
@@ -149,7 +138,7 @@ export const Degraded = (): JSX.Element =>
 		/>,
 	);
 
-/** Agent with no skills and no sessions yet — empty state rows. */
+/** Agent with no sessions and no reviews yet — empty state rows. */
 export const NoHistory = (): JSX.Element =>
 	wrap(
 		<AgentProfile
@@ -157,7 +146,12 @@ export const NoHistory = (): JSX.Element =>
 				...BASE_PROFILE,
 				activeSession: null,
 				recentSessions: [],
-				skills: [],
+				reviewTrackRecord: {
+					approvalRate: 0,
+					totalVerdicts: 0,
+					recentVerdicts: [],
+					windowDays: 30,
+				},
 				performance: { totalSessions: 0, successCount: 0, successRate: 0 },
 				healthSignals: {
 					failureRate7d: 0,
@@ -165,6 +159,22 @@ export const NoHistory = (): JSX.Element =>
 					harnessAvailable: true,
 					idleDurationMs: null,
 					degraded: false,
+				},
+			}}
+		/>,
+	);
+
+/** Agent with no reviews yet — shows "No reviews recorded yet." */
+export const NoReviews = (): JSX.Element =>
+	wrap(
+		<AgentProfile
+			overrideData={{
+				...BASE_PROFILE,
+				reviewTrackRecord: {
+					approvalRate: 0,
+					totalVerdicts: 0,
+					recentVerdicts: [],
+					windowDays: 30,
 				},
 			}}
 		/>,

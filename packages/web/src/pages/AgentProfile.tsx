@@ -267,57 +267,34 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 				</div>
 			</section>
 
-			{/* Section 3 — Skills */}
+			{/* Section 3 — Review Track Record */}
 			<section
-				aria-label="Skills"
-				data-testid="agent-skills-section"
+				aria-label="Review track record"
+				data-testid="agent-track-record-section"
 				className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
 			>
 				<h2 className="text-[11px] font-heading font-semibold uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)] mb-[9px]">
-					Skills
+					Review Track Record
 				</h2>
-				{/* F5: overflow-x-auto wrapper for mobile */}
-				<div className="overflow-x-auto">
-					{data.skills.length === 0 ? (
-						<p className="text-[12px] text-[var(--text-tertiary)]">No skill usage recorded.</p>
-					) : (
-						<table className="w-full text-[12px]" aria-label="Agent skills and usage statistics">
-							<thead>
-								<tr className="text-[var(--text-tertiary)] text-left border-b border-[var(--border-subtle)]">
-									<th className="pb-[6px] font-medium">Skill</th>
-									<th className="pb-[6px] font-medium">Success</th>
-									<th className="pb-[6px] font-medium">Failures</th>
-									<th className="pb-[6px] font-medium">Last used</th>
-									<th className="pb-[6px] font-medium">Autonomy</th>
-								</tr>
-							</thead>
-							<tbody>
-								{data.skills.map((skill) => (
-									<tr
-										key={skill.skillId}
-										className="border-b border-[var(--border-subtle)] last:border-0"
-									>
-										<td className="py-[6px] text-[var(--text-primary)] font-mono">
-											{skill.skillId}
-										</td>
-										<td className="py-[6px] tabular-nums text-[var(--text-secondary)]">
-											{skill.successCount}
-										</td>
-										<td className="py-[6px] tabular-nums text-[var(--text-secondary)]">
-											{skill.failureCount}
-										</td>
-										<td className="py-[6px] text-[var(--text-tertiary)]">
-											{skill.lastUsedAt ? new Date(skill.lastUsedAt).toLocaleDateString() : "—"}
-										</td>
-										<td className="py-[6px] tabular-nums text-[var(--text-secondary)]">
-											{skill.autonomyLevel}
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					)}
-				</div>
+				{data.reviewTrackRecord.totalVerdicts === 0 ? (
+					<p className="text-[12px] text-[var(--text-tertiary)]">No reviews recorded yet.</p>
+				) : (
+					<div className="flex flex-col gap-[9px]">
+						<div className="flex gap-[24px] flex-wrap">
+							<KeyValue
+								label="Approval rate"
+								value={`${Math.round(data.reviewTrackRecord.approvalRate * 100)}%`}
+							/>
+							<KeyValue label="Reviews" value={String(data.reviewTrackRecord.totalVerdicts)} />
+							<KeyValue label="Window" value={`${data.reviewTrackRecord.windowDays} days`} />
+						</div>
+						<div className="flex gap-[6px] mt-[6px]">
+							{data.reviewTrackRecord.recentVerdicts.slice(0, 10).map((v, i) => (
+								<VerdictDot key={i} decision={v.decision} createdAt={v.createdAt} />
+							))}
+						</div>
+					</div>
+				)}
 			</section>
 
 			{/* Section 4 — Recent Activity */}
@@ -403,6 +380,24 @@ function CapabilityBadge({ label, supported }: { label: string; supported: boole
 		>
 			{label}
 		</span>
+	);
+}
+
+/** Compact verdict indicator dot for the review track record. */
+function VerdictDot({ decision, createdAt }: { decision: string; createdAt: string }): JSX.Element {
+	const isApproval = decision === "approve" || decision === "approve-with-comments";
+	const isRejection = decision === "reject";
+	return (
+		<span
+			title={`${decision} — ${new Date(createdAt).toLocaleDateString()}`}
+			className={`w-[9px] h-[9px] rounded-[var(--r-pill)] inline-block ${
+				isApproval
+					? "bg-[var(--accent-primary)]"
+					: isRejection
+						? "bg-[var(--status-error)]"
+						: "bg-[var(--text-tertiary)]"
+			}`}
+		/>
 	);
 }
 
