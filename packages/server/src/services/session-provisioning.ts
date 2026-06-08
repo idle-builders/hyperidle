@@ -302,7 +302,21 @@ export async function provisionSession(
 		throw new ConcurrencyLimitError(params.agentId, agent.maxConcurrentSessions);
 	}
 
-	await transitionTask(db, eventBus, params.taskId, "in_progress");
+	// AD2: Only transition if not already in_progress (handoff re-dispatch path).
+	// When a handoff assigns a new ownerAgentId, the task stays in_progress.
+	// provisionSession is re-called for the new owner — transitionTask would
+	// throw InvalidTransitionError for in_progress → in_progress.
+	// @lore AD2: The guard is additive — normal callers (sessions-routes) always
+	// start from accepted, so the SELECT adds negligible overhead. The safety
+	// barrier is the hasActiveSession check in the dispatcher, not this guard.
+	const [taskForTransition] = await db
+		.select({ state: tasks.state })
+		.from(tasks)
+		.where(eq(tasks.id, params.taskId))
+		.limit(1);
+	if (taskForTransition && taskForTransition.state !== "in_progress") {
+		await transitionTask(db, eventBus, params.taskId, "in_progress");
+	}
 
 	// ── Phases 4-7 (wrapped): spawn workspace → insert session row →
 	// materialize → start watcher. If any step throws before the session row
