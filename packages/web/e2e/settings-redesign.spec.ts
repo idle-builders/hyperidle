@@ -12,7 +12,7 @@
  * AC-19: BackendMode section: shows current mode, switch button with restart warning
  * AC-21: Escape key closes settings overlay
  * AC-22: Clicking view icon while settings open closes settings and navigates
- * AC-23: Rail is dimmed while settings is open
+ * AC-23: Main content is aria-hidden while settings is open (Rail removed in U6)
  * AC-24: Settings save feedback via toast
  * AC-25: Profile edits do NOT silently revert
  */
@@ -197,7 +197,9 @@ test.describe("Settings Overlay (P4)", () => {
 		await expect(page).toHaveURL(/\/work/);
 	});
 
-	// AC-23: Rail dimmed when settings open
+	// AC-23: Main content is aria-hidden when settings is open
+	// @lore AD8a: Originally "Rail dimmed" — the Rail was removed in U6.
+	// The test asserts main-content aria-hidden, which is still valid behavior.
 	test("main content is aria-hidden when settings is open", async ({ page }) => {
 		await openSettings(page);
 

@@ -4,8 +4,8 @@
  * These tests FAIL until:
  *  - AppShell uses useCurrentUser() instead of DEMO_FOUNDER_ID constant
  *  - AppShell uses useSettings() instead of DEFAULT_SETTINGS import
- *  - AppShell uses useRail() instead of MOCK_RAIL_* imports
  *  - count: 12 is removed from knowledge submenu item (F1)
+ * @lore AD8a: "useRail() instead of MOCK_RAIL_*" bullet removed — Rail deleted in U6.
  *  - DEMO_FOUNDER_ID constant is deleted from AppShell.tsx
  */
 
@@ -57,17 +57,7 @@ describe("M3 — AppShell: no 'u-founder' in DOM (A11)", () => {
 						quietHoursEnd: "08:00",
 						mutedTeams: [],
 					},
-					// /api/rail response
-					bets: [],
-					blockers: [],
-					awaitingOrdering: [],
-					costBurnRate: {
-						todaySpend: null,
-						todayCap: null,
-						weekSpend: null,
-						weekCap: null,
-						weekTokens: null,
-					},
+					// @lore AD8a: /api/rail mock stub removed — Rail API deleted in U6.
 					// /api/threads response
 					threads: [],
 					nextCursor: null,

@@ -4,23 +4,22 @@
  * These tests validate that:
  * 1. @hyperidle/api-contract compiles cleanly (proven by tsc; these run in Vitest)
  * 2. Every exported type has the expected fields (structural `satisfies` assertions)
- * 3. Rail types are structurally compatible with what packages/server/src/routes/rail.ts returns
- * 4. SettingsResponse covers all fields that DEFAULT_SETTINGS (app-shell-data.ts) provides
+ * 3. SettingsResponse covers all fields that DEFAULT_SETTINGS (app-shell-data.ts) provides
  *    (minus `appearance` which stays client-side per the M2 contract)
- * 5. AuthMeResponse has the required identity fields
+ * 4. AuthMeResponse has the required identity fields
  *
  * Tests are type-level (compile-time checks via `satisfies` + `expectTypeOf`) plus
  * runtime shape-check assertions so Vitest registers concrete pass/fail.
+ *
+ * @lore AD8a: Rail contract types (RailBet, RailBlocker, RailCostBurnRate, RailResponse)
+ * deleted — the Rail API route and its UI surface were removed in U6. The contract
+ * file rail.ts and the api-contract re-exports have been deleted.
  */
 
 import { describe, expect, expectTypeOf, it } from "vitest";
 import type {
 	AuthMeResponse,
 	AutonomyLevel,
-	RailBet,
-	RailBlocker,
-	RailCostBurnRate,
-	RailResponse,
 	SettingsAgent,
 	SettingsNotifications,
 	SettingsProfile,
@@ -253,225 +252,6 @@ describe("SettingsResponse (cluster 2 — settings)", () => {
 	});
 });
 
-// ── Contract 3: Rail types ────────────────────────────────────────────────────
-
-describe("RailBet (cluster 3 — rail)", () => {
-	it("has id, title, status, progress fields", () => {
-		const bet: RailBet = {
-			id: "b1",
-			title: "User auth flow",
-			status: "in_progress",
-			progress: { done: 3, total: 10 },
-		};
-		assertShape<RailBet>(bet);
-	});
-
-	it("id is string", () => {
-		expectTypeOf<RailBet["id"]>().toEqualTypeOf<string>();
-	});
-
-	it("title is string", () => {
-		expectTypeOf<RailBet["title"]>().toEqualTypeOf<string>();
-	});
-
-	it("status is string (not narrowed — server authority)", () => {
-		// @lore M2: The server returns status as string, not the BetStatus union.
-		// The client casts to BetStatus with validation. The contract stays string.
-		expectTypeOf<RailBet["status"]>().toEqualTypeOf<string>();
-	});
-
-	it("progress has done and total number fields", () => {
-		expectTypeOf<RailBet["progress"]>().toEqualTypeOf<{
-			readonly done: number;
-			readonly total: number;
-		}>();
-	});
-
-	it("does NOT have a product field (server authority over client BetItem)", () => {
-		// @lore M2: Client BetItem had product: string; server RailBet has progress.
-		// Server is the authority — client BetItem type must be updated to match.
-		type HasProduct = "product" extends keyof RailBet ? true : false;
-		expectTypeOf<HasProduct>().toEqualTypeOf<false>();
-	});
-});
-
-describe("RailBlocker (cluster 3 — rail)", () => {
-	it("has taskId, title, owner, durationBlockedMs fields", () => {
-		const blocker: RailBlocker = {
-			taskId: "t1",
-			title: "Waiting for API spec",
-			owner: "a1",
-			durationBlockedMs: 3600000,
-		};
-		assertShape<RailBlocker>(blocker);
-	});
-
-	it("taskId is string (not id — server authority)", () => {
-		// @lore M2: Client BlockerItem had id: string; server RailBlocker has taskId.
-		// Contract uses taskId to match the server field name.
-		expectTypeOf<RailBlocker["taskId"]>().toEqualTypeOf<string>();
-	});
-
-	it("owner is string | null", () => {
-		// @lore M2: Client BlockerItem had agent: string (required); server allows null
-		// for unassigned tasks.
-		expectTypeOf<RailBlocker["owner"]>().toEqualTypeOf<string | null>();
-	});
-
-	it("durationBlockedMs is number", () => {
-		expectTypeOf<RailBlocker["durationBlockedMs"]>().toEqualTypeOf<number>();
-	});
-
-	it("does NOT have severity field (client derives from durationBlockedMs)", () => {
-		// @lore M2: BlockerItem.severity is not in the server response.
-		// Client derives severity: >=24h = high, >=4h = medium, <4h = low.
-		type HasSeverity = "severity" extends keyof RailBlocker ? true : false;
-		expectTypeOf<HasSeverity>().toEqualTypeOf<false>();
-	});
-
-	it("accepts null owner (unassigned task)", () => {
-		const unassigned: RailBlocker = {
-			taskId: "t2",
-			title: "Blocked on review",
-			owner: null,
-			durationBlockedMs: 86400000,
-		};
-		expect(unassigned.owner).toBeNull();
-	});
-});
-
-describe("RailCostBurnRate (cluster 3 — rail)", () => {
-	it("has todaySpend, todayCap, weekSpend, weekCap, weekTokens fields", () => {
-		const burnRate: RailCostBurnRate = {
-			todaySpend: { minor: 1240, currency: "USD" },
-			todayCap: { minor: 5000, currency: "USD" },
-			weekSpend: { minor: 8420, currency: "USD" },
-			weekCap: { minor: 35000, currency: "USD" },
-			weekTokens: 42300,
-		};
-		assertShape<RailCostBurnRate>(burnRate);
-	});
-
-	it("all WireMoney fields are nullable (caps may not be configured)", () => {
-		// @lore M2: CostInfo in client was non-null; server RailCostBurnRate allows
-		// null caps when not configured. Client must accept nulls and render 'No cap'.
-		expectTypeOf<RailCostBurnRate["todayCap"]>().toEqualTypeOf<{
-			readonly minor: number;
-			readonly currency: "USD" | "EUR" | "GBP" | "JPY";
-		} | null>();
-	});
-
-	it("weekTokens is number | null", () => {
-		expectTypeOf<RailCostBurnRate["weekTokens"]>().toEqualTypeOf<number | null>();
-	});
-
-	it("accepts all-null caps (factory with no cost caps configured)", () => {
-		const noCaps: RailCostBurnRate = {
-			todaySpend: { minor: 0, currency: "USD" },
-			todayCap: null,
-			weekSpend: { minor: 0, currency: "USD" },
-			weekCap: null,
-			weekTokens: null,
-		};
-		expect(noCaps.todayCap).toBeNull();
-		expect(noCaps.weekCap).toBeNull();
-		expect(noCaps.weekTokens).toBeNull();
-	});
-});
-
-describe("RailResponse (cluster 3 — rail)", () => {
-	it("has bets, blockers, awaitingOrdering, costBurnRate fields", () => {
-		const response: RailResponse = {
-			bets: [],
-			blockers: [],
-			awaitingOrdering: [],
-			costBurnRate: {
-				todaySpend: null,
-				todayCap: null,
-				weekSpend: null,
-				weekCap: null,
-				weekTokens: null,
-			},
-		};
-		assertShape<RailResponse>(response);
-	});
-
-	it("bets is readonly RailBet[]", () => {
-		expectTypeOf<RailResponse["bets"]>().toEqualTypeOf<readonly RailBet[]>();
-	});
-
-	it("blockers is readonly RailBlocker[]", () => {
-		expectTypeOf<RailResponse["blockers"]>().toEqualTypeOf<readonly RailBlocker[]>();
-	});
-
-	it("awaitingOrdering items have id, title, createdAt", () => {
-		const item = { id: "i1", title: "New feature request", createdAt: "2026-05-11T10:00:00Z" };
-		const response: RailResponse = {
-			bets: [],
-			blockers: [],
-			awaitingOrdering: [item],
-			costBurnRate: {
-				todaySpend: null,
-				todayCap: null,
-				weekSpend: null,
-				weekCap: null,
-				weekTokens: null,
-			},
-		};
-		expect(response.awaitingOrdering[0]?.createdAt).toBe("2026-05-11T10:00:00Z");
-	});
-
-	it("costBurnRate is RailCostBurnRate", () => {
-		expectTypeOf<RailResponse["costBurnRate"]>().toEqualTypeOf<RailCostBurnRate>();
-	});
-});
-
-// ── Structural compatibility: server local types vs contract ──────────────────
-// These tests verify the contract types are structurally compatible with
-// what the server endpoint in rail.ts actually constructs.
-
-describe("structural compatibility with server rail.ts", () => {
-	it("RailBet contract matches server-side RailBet shape", () => {
-		// Server constructs: { id: b.id, title: b.pitch, status: b.status, progress: { done, total } }
-		// Contract has the same fields with readonly modifiers (wider compatibility).
-		const serverLike = {
-			id: "b1",
-			title: "bet pitch text",
-			status: "in_progress",
-			progress: { done: 2, total: 5 },
-		};
-		// This assignment proves structural compatibility at compile time.
-		const contract: RailBet = serverLike;
-		expect(contract.id).toBe("b1");
-	});
-
-	it("RailBlocker contract matches server-side RailBlocker shape", () => {
-		// Server constructs: { taskId, title, owner: t.ownerAgentId, durationBlockedMs }
-		const serverLike = {
-			taskId: "t1",
-			title: "task title",
-			owner: null as string | null,
-			durationBlockedMs: 1800000,
-		};
-		const contract: RailBlocker = serverLike;
-		expect(contract.taskId).toBe("t1");
-	});
-
-	it("RailCostBurnRate contract matches server-side CostBurnRate shape", () => {
-		// Server CostBurnRate has same field names (mutable), contract adds readonly.
-		// readonly is a subtype of mutable in TypeScript — assignment works.
-		const serverLike = {
-			todaySpend: { minor: 100, currency: "USD" as const },
-			todayCap: null as { minor: number; currency: "USD" | "EUR" | "GBP" | "JPY" } | null,
-			weekSpend: { minor: 700, currency: "USD" as const },
-			weekCap: null as { minor: number; currency: "USD" | "EUR" | "GBP" | "JPY" } | null,
-			weekTokens: null as number | null,
-		};
-		const contract: RailCostBurnRate = serverLike;
-		expect(contract.todaySpend?.minor).toBe(100);
-	});
-});
-
 // ── Index re-exports ──────────────────────────────────────────────────────────
 
 describe("index.ts re-exports", () => {
@@ -502,21 +282,5 @@ describe("index.ts re-exports", () => {
 			},
 		};
 		expect(check.profile.name).toBe("T");
-	});
-
-	it("exports RailResponse", () => {
-		const check: RailResponse = {
-			bets: [],
-			blockers: [],
-			awaitingOrdering: [],
-			costBurnRate: {
-				todaySpend: null,
-				todayCap: null,
-				weekSpend: null,
-				weekCap: null,
-				weekTokens: null,
-			},
-		};
-		expect(check.bets).toHaveLength(0);
 	});
 });
