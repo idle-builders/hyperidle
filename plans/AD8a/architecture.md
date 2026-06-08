@@ -1,20 +1,22 @@
-# AD8a Architecture Plan -- Agent Type System + Noun Purge
+# AD8a Architecture Plan -- Agent Type System + Noun Purge (v2)
+
+_Revised to address architecture critique v1 (score 6/10). Changes: comprehensive file enumeration from actual greps, eval scenario coverage, skill-tool role authorization handling, intermediate naming resolution, condensed section 8, expanded verification commands with correct exclusion lists, AC-1 integration test specified, security note on Rail API consumers._
 
 ## 1. Scope
 
 AD8a is a vocabulary and schema cleanup workpackage. No behavioral changes. The app works identically after. Three deliverables:
 
 1. **Schema migration**: rename `agentCategory` value `personal` to `individual`.
-2. **Noun purge**: zero occurrences of dead nouns (Chief of Staff / CoS / CoC / coach / Rail-as-UI-concept) in code, docs, seeds, and tests.
+2. **Noun purge**: zero occurrences of dead nouns (Chief of Staff / CoS / CoC / coach / Rail-as-UI-concept) in code, docs, seeds, and tests -- with documented AD8b exclusions for structural identifiers.
 3. **Doc rewrite**: replace `the-two-categories.md` with three-type taxonomy; update thread primitive docs; delete dead soul doc.
 
 ## 2. Acceptance criteria (from TRACK-AD.md + concept)
 
 | AC | Description | Verification |
 |----|-------------|-------------|
-| AC-1 | `agentCategory` column accepts `individual` instead of `personal` | Integration test: insert a user with `agentCategory: "individual"` and read it back |
-| AC-2 | Zero occurrences of `personal` as an agent category value in code, seeds, tests | `grep -rn "personal" --include='*.ts' --include='*.tsx' \| grep -i 'agentCategory\|agent_category\|AGENT_CATEGORIES'` returns 0 lines |
-| AC-3 | Zero code/doc occurrences of "Chief of Staff" / "chief_of_staff" / "CoS" (as HyperIdle concept) / "CoC" / "coach" (as HyperIdle concept) | grep verification (see section 10) |
+| AC-1 | `agentCategory` column accepts `individual` instead of `personal` | Integration test in `packages/db/src/__tests__/AD8a-category-rename.integration.test.ts`: insert a user with `agentCategory: "individual"` and read it back |
+| AC-2 | Zero occurrences of `personal` as an agent category value in code, seeds, tests | grep verification (see section 11) |
+| AC-3 | Zero code/doc occurrences of "Chief of Staff" / "chief_of_staff" / "CoS" (as HyperIdle concept) / "CoC" / "coach" (as HyperIdle concept) in display strings, comments, and docs | grep verification with explicit exclusion list (see section 11) |
 | AC-4 | Zero code/doc occurrences of "Rail" as the HyperIdle right-sidebar UI concept | grep verification; `IconRail` (navigation component) is exempt |
 | AC-5 | `docs/agent-layer/the-two-categories.md` replaced with three-type taxonomy doc | File exists, content matches taxonomy from concept |
 | AC-6 | `docs/souls/chief-of-staff.md` deleted | File does not exist |
@@ -30,12 +32,12 @@ AD8a is a vocabulary and schema cleanup workpackage. No behavioral changes. The 
 
 The `users.agentCategory` column is an unconstrained `text` column (no CHECK constraint, no enum type). The value `"personal"` is written by:
 
-1. `packages/db/src/seed.ts` line 126: `agentCategory: "personal"` on the CoS seed
-2. `packages/db/src/seed.ts` line 317: `categoryByRole` map: `chief_of_staff: "personal"`
-3. `packages/db/src/seed-fixtures.ts` lines 44, 80, 92: `BUILTIN_ROUTINE_SEEDS` with `ownerAgentId: "seed-agent-cos"` (indirectly -- the owner's category)
-4. `packages/shared/src/types.ts` line 101: `AGENT_CATEGORIES = ["team", "strategy", "personal"]`
-5. `packages/shared/src/agent-roles.ts` line 184: `category: "personal"` on `chief_of_staff` entry
-6. `packages/eval/src/seeding.ts` line 533: `agentCategory: "personal"`
+1. `packages/db/src/seed.ts:126` -- `agentCategory: "personal"` on the CoS seed
+2. `packages/db/src/seed.ts:317` -- `categoryByRole` map: `chief_of_staff: "personal"`
+3. `packages/db/src/seed-fixtures.ts:44,80,92` -- `BUILTIN_ROUTINE_SEEDS` with `ownerAgentId: "seed-agent-cos"` (indirectly -- the owner's category)
+4. `packages/shared/src/types.ts:101` -- `AGENT_CATEGORIES = ["team", "strategy", "personal"]`
+5. `packages/shared/src/agent-roles.ts:184` -- `category: "personal"` on `chief_of_staff` entry
+6. `packages/eval/src/seeding.ts:533` -- `agentCategory: "personal"`
 7. Multiple test files referencing `"personal"` as a category value
 
 ### 3.2 Migration approach
@@ -58,7 +60,7 @@ UPDATE users SET agent_category = 'individual' WHERE agent_category = 'personal'
 |------|--------|
 | `packages/shared/src/types.ts:101` | `["team", "strategy", "personal"]` -> `["team", "strategy", "individual"]` |
 | `packages/shared/src/types.ts:95` | Comment: "personal: bound to a human user" -> "individual: bound to a human user" |
-| `packages/shared/src/agent-roles.ts:180-189` | `category: "personal"` -> `category: "individual"`, label: "Chief of Staff" -> TBD (see section 4.2) |
+| `packages/shared/src/agent-roles.ts:180-189` | `category: "personal"` -> `category: "individual"`, label: "Chief of Staff" -> "Assistant" (see section 5) |
 | `packages/shared/src/agent-roles.ts:39` | Comment: "team/strategy/personal" -> "team/strategy/individual" |
 | `packages/db/src/schema.ts:73` | Comment: "team \| strategy \| personal" -> "team \| strategy \| individual" |
 | `packages/db/src/seed.ts:126` | `agentCategory: "personal"` -> `agentCategory: "individual"` |
@@ -69,7 +71,7 @@ UPDATE users SET agent_category = 'individual' WHERE agent_category = 'personal'
 | `packages/web/src/pages/WorkTeam.tsx:608` | `"personal"` -> `"individual"` |
 | `packages/web/src/pages/WorkTeam.tsx:599` | Comment: "strategy/personal" -> "strategy/individual" |
 | `packages/web/src/pages/AgentProfile.tsx:128` | Comment: "strategy/personal" -> "strategy/individual" |
-| `packages/web/src/pages/AgentProfile.tsx:192` | `"personal"` -> `"individual"` |
+| `packages/web/src/pages/AgentProfile.tsx:192-193` | `"personal"` -> `"individual"`, display label `"Personal"` -> `"Individual"` |
 | `packages/web/src/pages/AgentEditDialog.tsx:9` | Comment: "Team/personal" -> "Team/individual" |
 
 ### 3.4 Test changes for `personal` to `individual`
@@ -84,93 +86,79 @@ UPDATE users SET agent_category = 'individual' WHERE agent_category = 'personal'
 
 ### 4.1 The `seed-agent-cos` question
 
-The concept doc says: "seed-agent-cos -> replaced by per-user assistant agents + practice facilitators." For AD8a, we must decide: delete the seed row or keep it with updated values?
-
-**Decision: Keep the seed row, rename it.** Rationale:
+**Decision: Keep the seed row, update values.** Rationale:
 
 1. `seed-agent-cos` is referenced as `ownerAgentId` by 3 builtin routines in `seed-fixtures.ts` (cost-sentinel, portfolio-retro, knowledge-decay) and by the daily-digest routine/task in `seed.ts`.
 2. The coach route (`packages/server/src/routes/coach.ts`) hardcodes `COC_AGENT_ID = "seed-agent-cos"`.
 3. Multiple integration tests seed this ID.
 4. Deleting the row would break FK constraints on routines and tasks.
 
+### 4.2 Seed display name: "System Agent" (not "Assistant")
+
+**Critique response (WARNING-1):** The concept doc says assistants are per-user agents. Naming the shared singleton seed "Assistant" creates a confusing intermediate state. Instead, the seed's `name` changes from "Chief of Staff" to **"System Agent"** -- a neutral, transitional name that does not collide with the concept's per-user assistant.
+
 **What changes on the seed row:**
-- `name`: "Chief of Staff" -> "Assistant" (user-facing name change)
-- `role`: "chief_of_staff" stays for now (AD8b will change role to "assistant"; AD8c handles facilitator extraction). Changing the role in AD8a would break the `categoryByRole` backfill and soul template lookup. The noun purge catches the user-facing name; the role value is an internal constant that AD8b addresses.
+- `name`: "Chief of Staff" -> "System Agent"
+- `role`: "chief_of_staff" stays (AD8b renames to "assistant")
 - `agentCategory`: "personal" -> "individual"
 
-**Wait -- the role value `chief_of_staff` is itself a dead noun.** But the concept says AD8a is structural foundation. Changing the role value has cascading effects:
-- The `categoryByRole` map in seed.ts (line 317) maps `chief_of_staff` -> category
-- The AGENT_ROLE_CATALOG entry has `role: "chief_of_staff"`
-- Soul template lookup uses `soul_template:chief_of_staff` key in factorySettings
-- The `soulTemplates` array in seed.ts references `{ role: "chief_of_staff", filename: "chief-of-staff.md" }`
+Add `@lore AD8a` comment on the seed row: "Transitional name. AD8b creates per-user assistant agents and retires this shared singleton. The name 'System Agent' avoids collision with the concept's per-user assistant."
 
-**Revised decision:** AD8a purges the *user-facing name* "Chief of Staff" but keeps `chief_of_staff` as the role constant for now. The role rename (`chief_of_staff` -> `assistant`) is AD8b scope because it requires creating a new soul template file, updating the AGENT_ROLE_CATALOG entry, updating `categoryByRole`, and rewiring the coach route. AD8a just:
-1. Changes the seed `name` from "Chief of Staff" to "Assistant"
-2. Changes `agentCategory` from `"personal"` to `"individual"`
-3. Renames the AGENT_ROLE_CATALOG entry's `label` from "Chief of Staff" to "Assistant"
-4. Updates the `description` to remove "coaches PMs" language
-5. Deletes `docs/souls/chief-of-staff.md` (the soul file)
-6. Removes the soul template seed entry for `chief_of_staff` (since the file is deleted)
+### 4.3 AGENT_ROLE_CATALOG label: "System Agent" (not "Assistant")
 
-**Important constraint for AD8b:** The `chief_of_staff` role string and the `soul_template:chief_of_staff` key in factorySettings are internal constants. AD8b will rename the role to `assistant` and create a new soul file. AD8a does not touch role strings.
+Same reasoning. The AGENT_ROLE_CATALOG `label` for `chief_of_staff` becomes "System Agent". AD8b replaces the entire entry when it renames the role.
 
-### 4.2 Routine ownership reassignment
+### 4.4 All display name replacements use "System Agent"
 
-Three builtin routines are owned by `seed-agent-cos`:
+Everywhere the plan says to replace "Chief of Staff" as a display name, the replacement is **"System Agent"** (not "Assistant"). This applies to:
+- Seed data `name` field
+- AGENT_ROLE_CATALOG `label` field
+- Coach route `COC_AGENT_DISPLAY_NAME` constant
+- Test fixtures and mock data that display the agent name
+- E2E test matchers for button/dialog names
+- Eval seeding stub name
 
-| Routine | Current owner | AD8a action | Final owner (per concept) |
-|---------|--------------|-------------|--------------------------|
-| `builtin:cost-sentinel` | `seed-agent-cos` | Keep as-is | Application code (AD8c) |
-| `builtin:portfolio-retro` | `seed-agent-cos` | Keep as-is | Assistant (AD8b) |
-| `builtin:knowledge-decay` | `seed-agent-cos` | Keep as-is | Facilitator (AD8c) |
+**Exception:** The `docs/` content uses "assistant" (lowercase) when describing the concept's future per-user agent. This is correct -- docs describe the target state, not the transitional state. The W3-sidebar tests that already assert `"Assistant"` are testing the sidebar button label (which is a UI label for the overlay trigger, not the agent name) -- leave those as-is.
 
-AD8a does NOT reassign routine ownership. The concept says cost-sentinel becomes application code (AD8c), portfolio-retro goes to assistant (AD8b), knowledge-decay goes to facilitator (AD8c). All three still reference `seed-agent-cos` as owner. Since the seed row survives (just renamed), the FK stays valid. AD8b and AD8c will handle reassignment.
+### 4.5 Routine ownership
 
-### 4.3 Seed changes summary
+AD8a does NOT reassign routine ownership. The seed row survives (renamed), FKs stay valid. AD8b and AD8c handle reassignment.
+
+### 4.6 Seed changes summary
 
 **`packages/db/src/seed.ts`:**
-- Line 122-129: Change `name: "Chief of Staff"` to `name: "Assistant"`, `agentCategory: "personal"` to `agentCategory: "individual"`
-- Line 151-159: The update block patches soulPromptPath and skills on `seed-agent-cos`. Change `soulPromptPath: "docs/souls/chief-of-staff.md"` to `soulPromptPath: null` (soul file is being deleted; the inline `soulPrompt` will be set by the backfill below)
-- Line 226: `updatedBy: "seed-agent-cos"` -- keep (it's just an author reference)
-- Line 263-271: Remove the `{ role: "chief_of_staff", filename: "chief-of-staff.md" }` entry from `soulTemplates` (the file is being deleted)
+- Line 122-129: Change `name: "Chief of Staff"` to `name: "System Agent"`, `agentCategory: "personal"` to `agentCategory: "individual"`. Add `@lore AD8a` comment.
+- Line 151-159: Change `soulPromptPath: "docs/souls/chief-of-staff.md"` to `soulPromptPath: null` (soul file is being deleted)
+- Line 226: `updatedBy: "seed-agent-cos"` -- keep (FK reference)
+- Line 263-271: Remove the `{ role: "chief_of_staff", filename: "chief-of-staff.md" }` entry from `soulTemplates`
 - Line 317: `chief_of_staff: "personal"` -> `chief_of_staff: "individual"`
-- Line 356: `ownerAgentId: "seed-agent-cos"` on daily-digest task -- keep (FK reference)
-- Line 372: `ownerAgentId: "seed-agent-cos"` on daily-digest routine -- keep (FK reference)
+- Lines 356, 372: `ownerAgentId: "seed-agent-cos"` -- keep (FK references)
 
 **`packages/db/src/seed-fixtures.ts`:**
-- No changes needed. The `ownerAgentId: "seed-agent-cos"` values are FK references that remain valid since the seed row survives.
+- No changes needed. `ownerAgentId: "seed-agent-cos"` values are FK references that remain valid.
 
 **`packages/fabric/src/services/builtin-routines.ts`:**
-- Lines 99, 132, 143: `ownerAgentId: "seed-agent-cos"` -- keep (FK references). The BUILTIN_SPECS comment on line 94 says "Owner agent ids match G1 seed ids"; that seed ID is unchanged.
-- Line 155: Comment mentions `seed-agent-cos` -- update the comment to clarify it's now the "Assistant" agent.
+- Lines 99, 132, 143: `ownerAgentId: "seed-agent-cos"` -- keep (FK references)
+- Line 155: Update comment: "seed-agent-cos" description to note it is now "System Agent"
 
 **`packages/eval/src/seeding.ts`:**
-- Line 527-535: `name: "Chief of Staff (eval stub)"` -> `name: "Assistant (eval stub)"`, `agentCategory: "personal"` -> `agentCategory: "individual"`. Keep `role: "chief_of_staff"` (AD8b scope).
+- Line 527-535: `name: "Chief of Staff (eval stub)"` -> `name: "System Agent (eval stub)"`, `agentCategory: "personal"` -> `agentCategory: "individual"`. Keep `role: "chief_of_staff"` (AD8b scope). Update comment on line 532.
+
+### 4.7 Stale `factorySettings` row for `soul_template:chief_of_staff`
+
+**Critique response (WARNING-4):** Removing the soul template seed entry means new seed runs will not write the `soul_template:chief_of_staff` key to `factorySettings`. Existing databases will have stale data. This is acceptable for AD8a -- AD8b will clean up `factorySettings` when it renames the role and creates a new soul template. Add `@lore AD8a` comment in seed.ts noting: "Stale `soul_template:chief_of_staff` key may persist in existing databases. AD8b removes it when creating the new assistant soul template."
 
 ## 5. AGENT_ROLE_CATALOG update
 
 **`packages/shared/src/agent-roles.ts`:**
 
-The `chief_of_staff` entry at line 182-189:
-```
-{
-    role: "chief_of_staff",
-    label: "Chief of Staff",
-    category: "personal",
-    description: "L4 facilitator. Routes work, compiles portfolio retros, coaches PMs.",
-    community: "ops",
-    teamFunctions: [],
-    hasTemplate: true,
-}
-```
-
-Changes:
-- `label`: "Chief of Staff" -> "Assistant"
+The `chief_of_staff` entry at line 182-189 changes:
+- `label`: "Chief of Staff" -> "System Agent"
 - `category`: "personal" -> "individual"
-- `description`: "L4 facilitator. Routes work, compiles portfolio retros, coaches PMs." -> "Per-user individual agent. Acts on the user's behalf through conversation."
-- `hasTemplate`: `true` -> `false` (the soul file is deleted; AD8b will create a new one and set this back to true)
+- `description`: "L4 facilitator. Routes work, compiles portfolio retros, coaches PMs." -> "Transitional system agent. AD8b replaces with per-user assistant."
+- `hasTemplate`: `true` -> `false` (the soul file is deleted)
 
-The `role` value `"chief_of_staff"` stays -- AD8b renames it to `"assistant"`.
+The `role` value `"chief_of_staff"` stays -- AD8b renames it.
 
 The `// Personal agents` section comment (line 180) -> `// Individual agents`.
 
@@ -253,14 +241,12 @@ Line-by-line changes:
 
 #### `docs/human-interface-layer/the-three-views-the-rail.md`
 
-This file has extensive references to both "Chief of Staff" and "Rail". The file is large and many of its sections are about the Rail UI concept. Since AE1 (Purge False Knowledge) also targets Rail references in docs, there is overlap. AD8a handles the noun purge for both Coach/CoS AND Rail references in this specific file.
-
-**Coach/CoS replacements** (all "Chief of Staff" -> "assistant", "coach" config -> "assistant" config):
+**Coach/CoS replacements** (all "Chief of Staff" -> "assistant"):
 
 | Line(s) | Change |
 |---------|--------|
 | 13 | "The Chief of Staff's chat is persistent" -> "The assistant's chat is persistent" |
-| 15 | "Read AI's persistent-context coach model" -> keep (this is an external product reference, not HyperIdle vocabulary) |
+| 15 | "Read AI's persistent-context coach model" -> keep (external product reference) |
 | 28 | "The Chief of Staff's chat thread is pinned" -> "The assistant thread is pinned" |
 | 33 | "The Chief of Staff's ongoing conversation" -> "The assistant's ongoing conversation" |
 | 51 | "at the Chief of Staff level" -> "at the assistant level" |
@@ -284,30 +270,28 @@ This file has extensive references to both "Chief of Staff" and "Rail". The file
 | 522 | "coach thread" -> "assistant thread" |
 | 533 | `'coach'` in item kinds -> `'assistant'` (routing category rename) |
 
-**Rail section**: The Rail section (4.2, lines 147-181) describes the right-sidebar UI concept that was deleted in U6. AD8a marks this section as deprecated/deleted with a note pointing to the current state. AE1 may do a deeper rewrite. For AD8a, the approach is:
+**Rail section**: The Rail section (4.2, lines 147-181) describes the right-sidebar UI concept deleted in U6. Replace section 4.2 content with: "The Rail (right-sidebar vital signs surface) was removed in U6. Cost, blockers, and awareness indicators now surface through the Conversations filter chips, WorkTeam agent health rows, and Sidebar triage badge. See AE1 for documentation hygiene." Keep the section number to avoid renumbering cascades. Update other Rail references (lines 85, 434, etc.).
 
-- Replace section 4.2 content with a short deprecation note: "The Rail (right-sidebar vital signs surface) was removed in U6. Cost, blockers, and awareness indicators now surface through the Conversations filter chips, WorkTeam agent health rows, and Sidebar triage badge. See AE1 for documentation hygiene."
-- Keep the section number to avoid renumbering cascades in cross-references.
-- Other Rail references in the doc (lines 85, 434, etc.) get updated to remove the Rail noun.
+**File rename consideration (SUGGESTION-3):** The file name `the-three-views-the-rail.md` itself contains "Rail". Decision: keep the filename as-is. Renaming it would break cross-references in other docs. Add a note at the top of the file: "Historical filename. The Rail was removed in U6." AE1 can rename the file if it does a deeper restructuring.
 
 **Additional doc files with coach/CoS/Rail references to update:**
 
 | File | Changes needed |
 |------|---------------|
-| `docs/human-interface-layer/three-views-the-rail.md` | Line 7: "coaching" -> "assistant conversation"; Line 13: "Chief of Staff's chat" -> "assistant's chat". Title stays (it's a different, shorter summary file -- but update noun references). |
-| `docs/human-interface-layer/index.md` | Line 8: "Coach Conversation" -> "Assistant Conversation"; Line 20, 22: file titles reference "Rail" -- update. |
+| `docs/human-interface-layer/three-views-the-rail.md` | Line 7: "coaching" -> "assistant conversation"; Line 13: "Chief of Staff's chat" -> "assistant's chat" |
+| `docs/human-interface-layer/index.md` | Line 8: "Coach Conversation" -> "Assistant Conversation"; Line 20, 22: file titles reference "Rail" -- update |
 | `docs/human-interface-layer/one-app-two-form-factors.md` | Line 45: "the coach" -> "the assistant" |
-| `docs/human-interface-layer/the-cross-cutting-data-model.md` | Line 12: `verb # review \| prioritize \| bet \| coach \| curate` -> remove `coach`, add `assist`; Line 28: "Chief of Staff's chat" -> "assistant's chat" |
-| `docs/human-interface-layer/interaction-cadences-notification-discipline.md` | Line 12: "Chief of Staff's chat" -> "Assistant's chat" |
+| `docs/human-interface-layer/the-cross-cutting-data-model.md` | Line 12: remove `coach`, add `assist`; Line 28: "Chief of Staff's chat" -> "assistant's chat" |
+| `docs/human-interface-layer/interaction-cadences-notification-discipline.md` | Line 12: "Chief of Staff's chat" -> "assistant's chat" |
 | `docs/human-interface-layer/inspirations.md` | Line 3: "persistent-context coach" -- keep (external product reference) |
-| `docs/human-interface-layer/decisions.md` | Line 8: "Chief of Staff" -> "Assistant" |
+| `docs/human-interface-layer/decisions.md` | Line 8: "Chief of Staff" -> "assistant" |
 | `docs/human-interface-layer/the-holistic-user-journey.md` | Lines 11, 23, 29, 33: all "Chief of Staff" -> "assistant" |
 | `docs/human-interface-layer/routing-how-items-find-the-right-view.md` | Lines 9, 19: "Chief of Staff's chat" -> "assistant's chat" |
 | `docs/human-interface-layer/trust-building-slow-cumulative.md` | Line 6: "the Rail has a daily burn-rate strip" -> remove Rail reference |
 | `docs/human-interface-layer/what-the-meta-layer-actually-ships-at-this-layer.md` | Line 6: "Conversations / Rail / Work" -> "Conversations / Work" |
 | `docs/blocks/composition.md` | Line 12: "the Chief of Staff chat" -> "the assistant chat" |
-| `docs/requirements/usability-requirements.md` | Lines 17, 23: "Coach thread" -> "assistant thread", "Chief of Staff" -> "Assistant"; Lines 37-105: Rail section (UX-4, UX-8.2, UX-8.4) -- mark deprecated |
-| `docs/requirements/decisions.md` | Lines 17, 19: "Chief of Staff" -> "Assistant" |
+| `docs/requirements/usability-requirements.md` | Lines 17, 23: "Coach thread" -> "assistant thread", "Chief of Staff" -> "assistant"; Lines 37-105: Rail section (UX-4, UX-8.2, UX-8.4) -- mark deprecated |
+| `docs/requirements/decisions.md` | Lines 17, 19: "Chief of Staff" -> "assistant" |
 | `docs/requirements/functional-requirements.md` | Lines 9, 45, 55, 79, 85, 89, 91, 109, 111, 121: all "Chief of Staff" -> "assistant" or "facilitator" depending on context |
 | `docs/requirements/non-functional-requirements.md` | Line 7: Rail reference -- update |
 | `docs/requirements/users-and-their-modes-of-engagement.md` | Line 23: "Coach" -> "Assist", "Chief of Staff" -> "assistant" |
@@ -324,18 +308,21 @@ This file has extensive references to both "Chief of Staff" and "Rail". The file
 | `docs/souls/practice-facilitator.md` | Line 42: "Chief of Staff" -> "assistant" |
 | `docs/souls/product-manager.md` | Lines 28, 51: "Chief of Staff" / "CoS" -> "assistant" |
 | `docs/guides/user/what-is-hyperidle.md` | Line 3: "coach the system" -> "guide the system" |
-| `docs/guides/user/three-core-views.md` | Lines 30, 32: "Chief of Staff Thread" / "Chief of Staff agent" -> "Assistant Thread" / "assistant agent" |
+| `docs/guides/user/three-core-views.md` | Lines 30, 32: "Chief of Staff Thread" / "Chief of Staff agent" -> "assistant thread" / "assistant agent" |
 | `docs/agent-layer/index.md` | Line 9: "the Rail" -> remove Rail reference |
 
 ## 7. Rail API purge -- orphaned files
 
-The Rail UI was deleted in U6, but the server-side API route and contract survive. AD8a deletes them.
+The Rail UI was deleted in U6, but the server-side API route, contract, and supporting infrastructure survive. AD8a deletes or updates them.
+
+**Security note:** The Rail API (`GET /api/rail`) has no external consumers beyond the deleted U6 UI component. No browser extensions, monitoring tools, or external integrations call this endpoint. The API is behind authentication. Safe to delete.
 
 ### 7.1 Files to DELETE
 
 | File | Reason |
 |------|--------|
 | `packages/api-contract/src/rail.ts` | Dead Rail contract types. No consumers after U6 UI deletion. |
+| `packages/api-contract/src/__tests__/contracts.test.ts` cluster 3 | Delete the Rail-specific test describes (`RailBet`, `RailBlocker`, `RailCostBurnRate`, `RailResponse`, `structural compatibility with server rail.ts`) -- lines 258-434. Keep the rest of the file. |
 | `packages/server/src/routes/rail.ts` | Dead Rail route handler. Serves data for a UI that no longer exists. |
 | `packages/server/src/routes/__tests__/rail.routes.integration.test.ts` | Tests for the dead route. |
 | `packages/server/src/__tests__/rail.integration.test.ts` | Integration tests for the dead route. |
@@ -344,102 +331,191 @@ The Rail UI was deleted in U6, but the server-side API route and contract surviv
 
 | File | Change |
 |------|--------|
-| `packages/server/src/app.ts` line 30 | Delete `import { createRailRoutes } from "./routes/rail.js";` |
-| `packages/server/src/app.ts` line 385 | Delete `api.route("/rail", createRailRoutes(options.db, eventBus));` |
+| `packages/api-contract/src/index.ts:15` | Delete Rail re-exports: `} from "./rail.js";` |
+| `packages/server/src/app.ts:30` | Delete `import { createRailRoutes } from "./routes/rail.js";` |
+| `packages/server/src/app.ts:385` | Delete `api.route("/rail", createRailRoutes(options.db, eventBus));` |
 
-### 7.3 E2E and test files referencing `/api/rail`
+### 7.3 Rail references in non-API code (behavioral -- AD8a scope decisions)
 
-These files mock or reference the Rail API endpoint and need updating:
+These files use "rail" as a WebSocket topic or routing target, not as a UI concept name. They represent functional behavior tied to the deleted Rail surface.
 
-| File | Change |
-|------|--------|
-| `packages/web/e2e/fixtures.ts` lines 49, 130-131, 209 | Remove Rail mock route and `DEFAULT_RAIL_RESPONSE` constant |
-| `packages/web/e2e/mock-data-purge.spec.ts` lines 46, 100-161 | Remove/update Rail-specific test cases (AC-3b tests). These tests verify the old Rail renders from API data. Since Rail UI is deleted, these tests are dead. |
-| `packages/web/e2e/keyboard-nav.spec.ts` line 29 | Comment mentions "rail regions" -- update comment |
-| `packages/web/src/__tests__/M3-AppShell.no-mock.test.tsx` lines 7, 60, 153-155 | Remove Rail mock stubs and comments |
-| `packages/web/src/__tests__/AppShell.test.tsx` line 23 | Remove Rail API stub comment |
-| `packages/web/src/__tests__/U6-AppShell-sidebar.test.tsx` lines 8, 92-97 | These tests assert Rail is NOT rendered -- keep them but update comments |
-| `packages/server/src/__tests__/api-availability.integration.test.ts` line 32 | Remove `{ path: "/api/rail", description: "Rail" }` entry |
+| File | Lines | Content | Decision |
+|------|-------|---------|----------|
+| `packages/server/src/services/ws-broadcaster.ts` | 60, 84-89, 213, 221 | Broadcasts events to `"rail"` topic; `GLOBAL_TOPICS` includes `"rail"` | **AD8b scope.** The topic name is a protocol-level string. Renaming it requires coordinating server+client changes and is a behavioral change. Add `@lore AD8a` comment. |
+| `packages/web/src/services/ws-client.ts` | 183, 188 | Subscribes to `"rail"` topic | **AD8b scope.** Same reasoning as ws-broadcaster. Add `@lore AD8a` comment. |
+| `packages/server/src/__tests__/ws-subscribe-authz.integration.test.ts` | 5, 130, 142 | Tests `"rail"` topic subscription | **AD8b scope.** Tests for the topic that AD8b renames. Add `@lore AD8a` comment. |
+| `packages/fabric/src/services/item-router.ts` | 9, 25 | Returns `"rail"` as a routing target | **AD8b scope.** The return value `"rail"` is used by callers. Changing it is a behavioral change. Add `@lore AD8a` comment. |
+| `packages/server/src/__tests__/item-router.test.ts` | 37-50 | Tests routing defaults to `"rail"` | **AD8b scope.** Tests for item-router behavior. Add `@lore AD8a` comment. |
+| `packages/server/src/skill-tools/route-item.ts` | 26, 72 | `view: "conversations" \| "rail" \| "work" \| "knowledge"` type + description | **AD8b scope.** Changing the type union is a behavioral change. Add `@lore AD8a` comment. |
+| `packages/shared/src/hint.ts` | 19, 54, 56 | `"rail-indicators"` hint ID and `testId: "hint-rail"` | **AD8b scope.** The hint ID is a persisted string (stored in user settings/dismissed hints). Changing it requires migration. Add `@lore AD8a` comment. |
+| `packages/shared/src/__tests__/hint.test.ts` | 40, 98-99 | Tests for `"rail-indicators"` hint | **AD8b scope.** Add `@lore AD8a` comment. |
 
-## 8. Coach/CoC code purge
+### 7.4 Rail references in E2E tests and component tests
 
-The coach route and CoC overlay/context are NOT deleted in AD8a. Per the concept doc workpackage split:
-- AD8b rebuilds the overlay as AssistantOverlay
-- AD8b rebuilds the coach route as the assistant thread endpoint
+| File | Lines | Content | Decision |
+|------|-------|---------|----------|
+| `packages/web/e2e/fixtures.ts` | 4, 49, 130-131, 209 | `DEFAULT_RAIL_RESPONSE` constant + Rail mock route | **Delete** the `DEFAULT_RAIL_RESPONSE` constant and Rail mock routes. The API no longer exists. |
+| `packages/web/e2e/mock-data-purge.spec.ts` | 6-13, 46, 100-161 | Entire Rail test describe block (`M4 AC-3b`) | **Delete** the Rail test describe block. These tests verify Rail rendering from API data -- Rail UI is deleted. |
+| `packages/web/e2e/M3-api-wiring.spec.ts` | 7, 31-39, 93-94, 179-187 | Rail response mock data + Rail test describe block | **Delete** the Rail mock data and Rail test describe block. |
+| `packages/web/e2e/synthesis.spec.ts` | 4, 61-78 | "Collapsed Rail pills" test + Rail mock | **Delete** the entire "Collapsed Rail pills" test. The Rail UI does not exist. |
+| `packages/web/e2e/keyboard-nav.spec.ts` | 29 | Comment: "rail regions" | **Update** comment to remove Rail reference. |
+| `packages/web/e2e/keyboard-and-responsive.spec.ts` | 64 | `@lore U6: Submenu and Rail were deleted` | **Update** comment: this is historical context that is fine to keep as `@lore`. No change needed -- it describes what U6 did. |
+| `packages/web/e2e/work-bet-session.spec.ts` | 93 | Comment: "conversations rail" | **Update** comment to say "conversations" (remove "rail"). |
+| `packages/web/e2e/settings-redesign.spec.ts` | 15, 200 | "AC-23: Rail is dimmed while settings is open" | **Update** comments to note Rail was deleted in U6. If the test block is dead (testing Rail dimming behavior that no longer exists), delete it. |
+| `packages/web/e2e/L21-coc-overlay.spec.ts` | 5, 174, 184, 189 | "CoC trigger is visible in the Rail" | **Update** comments: "Rail" -> "sidebar" (the trigger moved to the sidebar in W3). |
+| `packages/web/e2e/accessibility-K8.spec.ts` | 132 | Comment: "Rail's CollapsedPill" | **Update** comment to note this was removed. |
+| `packages/web/src/__tests__/AppShell.test.tsx` | 23, 141-142 | `@lore U6: /api/rail` comments | **Keep** -- these are `@lore` comments documenting U6 history. They describe what was removed, not current state. |
+| `packages/web/src/__tests__/M3-AppShell.no-mock.test.tsx` | 60, 153-157 | Rail mock stubs and `@lore U6` comments | **Delete** the Rail mock stub data (line 60). **Keep** `@lore` comments (153-157) -- they document history. |
+| `packages/web/src/__tests__/U6-AppShell-sidebar.test.tsx` | 8, 92-97 | Tests asserting Rail is NOT rendered | **Keep** but update comments. These tests verify Rail stays deleted -- they are regression guards. |
+| `packages/web/src/__tests__/L17-money-web.test.tsx` | 6-7 | `@lore U6: Rail (AC23) was removed` | **Keep** -- `@lore` documenting history. |
+| `packages/web/src/__tests__/AppShell.settings-overlay.test.tsx` | 4-5, 60-64 | `@lore U6` comments about Rail deletion | **Keep** -- `@lore` documenting history. |
+| `packages/web/src/__tests__/AppShell.P4-settings.test.tsx` | 11, 192-193 | Comments about Rail deletion | **Keep** -- historical documentation. |
+| `packages/server/src/__tests__/api-availability.integration.test.ts` | 32 | `{ path: "/api/rail", description: "Rail" }` entry | **Delete** the Rail entry from the availability test. |
+| `packages/server/src/__tests__/api-e2e.integration.test.ts` | 679-684 | Rail describe block testing `GET /api/rail` | **Delete** the Rail test describe block. |
 
-AD8a's job is the *noun purge* -- renaming user-facing strings, not restructuring the code. However, there is a tension: the ACs say "zero occurrences" of coach/CoS/CoC in code. Let me resolve this.
+## 8. Coach/CoC/CoS code purge
 
-**Resolution:** AD8a renames the user-facing nouns but does NOT rename files, functions, or internal variable names that are part of the coach/CoC infrastructure. Those renames are AD8b scope (they involve behavioral changes -- rebuilding the overlay, changing the API route path, etc.). AD8a focuses on:
+AD8a's boundary: rename user-facing display strings and update comments. Do NOT rename files, functions, or internal variable/constant names. Those structural renames are AD8b scope.
 
-1. User-facing strings (display names, labels, comments that say "Chief of Staff")
-2. Doc content
-3. Schema values
-4. Dead code deletion (Rail API, which has no successor)
-
-The "zero occurrences" AC for code specifically targets:
-- `"Chief of Staff"` as a display string -> "Assistant"
-- `chief_of_staff` as a role label in AGENT_ROLE_CATALOG -> still displayed as "Assistant"
-- Comments that describe the concept using dead nouns -> updated
-- But NOT: function names like `createCoachRoutes`, file names like `coach.ts`, variable names like `COC_AGENT_ID`. Those are internal implementation details that AD8b replaces when it rebuilds the surface.
-
-**Clarification for the grep verification (AC-3):** The grep targets user-facing strings and doc content. Internal code identifiers (function names, file names, variable names) that form part of the coach/CoC infrastructure are AD8b scope. The grep verification command will exclude:
-- `packages/server/src/routes/coach.ts` (file being rebuilt in AD8b)
-- `packages/web/src/shell/CocOverlay.tsx` (file being rebuilt in AD8b)
-- `packages/web/src/contexts/CocContext.tsx` (file being rebuilt in AD8b)
-- `packages/web/src/hooks/useCocThread.ts` (file being rebuilt in AD8b)
-- `packages/web/src/components/CocAttachButton.tsx` (file being rebuilt in AD8b)
-- Their test files
-- `packages/server/src/routes/__tests__/coach.routes.integration.test.ts` (test for AD8b route)
-
-Wait -- reading the AD8a spec more carefully: "Purge CoS/CoC/coach/Rail from all docs, **code**, seeds, tests." This suggests a full purge of the vocabulary from code too. But the concept's workpackage split says AD8b "Rename + rebuild overlay (CocOverlay -> AssistantOverlay)." If AD8a does the full code rename, AD8b has nothing to rename.
-
-**Final resolution:** AD8a does the vocabulary purge in these specific scopes:
-1. **All docs** -- complete purge
-2. **Schema and seeds** -- complete purge of values
-3. **Shared types/constants** -- complete purge (AGENT_CATEGORIES, AGENT_ROLE_CATALOG)
-4. **User-facing display strings in server/web code** -- purge display names
-5. **Comments** -- update to use new vocabulary
-6. **File/function/variable renames (coach.ts -> assistant.ts, CocOverlay -> AssistantOverlay)** -- AD8b scope. These are structural code changes that change imports, file paths, and the API route URL.
-
-The grep verification for AC-3 will:
-- Target all `.md` files: must have zero dead-noun occurrences
-- Target `.ts`/`.tsx` string literals and comments: zero "Chief of Staff" (case-insensitive), zero "Coach" as a HyperIdle concept (distinguishing from external references)
-- Exclude the six files that AD8b will rename (coach.ts, CocOverlay.tsx, CocContext.tsx, useCocThread.ts, CocAttachButton.tsx, and their tests). Add `@lore AD8a` comments to these files noting they are AD8b rename targets.
+The grep verification for AC-3 excludes files where only structural identifiers (function names, file names, variable names, API paths, WebSocket topics) contain the dead noun. These files get `@lore AD8a` comments marking them as AD8b rename targets.
 
 ### 8.1 Server code changes
 
-| File | Change |
-|------|--------|
-| `packages/server/src/routes/coach.ts:28` | `COC_AGENT_DISPLAY_NAME = "Chief of Staff"` -> `"Assistant"` |
-| `packages/server/src/routes/coach.ts:29` | `COC_AGENT_ROLE = "chief_of_staff"` -- keep (role string, AD8b) |
-| `packages/server/src/routes/coach.ts` | Update `@lore` comments: "CoC agent" -> "assistant agent", "Chief of Staff facilitator agent" -> "assistant agent" |
-| `packages/server/src/routes/__tests__/coach.routes.integration.test.ts` | Update test descriptions and string assertions: "Chief of Staff" -> "Assistant", comments referencing "CoC" |
-| `packages/server/src/__tests__/M3-threads-coach-auth.integration.test.ts` | Update comments: "CoC agent" -> "assistant agent" |
-| `packages/server/src/__tests__/builtin-routines.integration.test.ts` | No string changes needed (tests reference IDs, not display names) |
+| File | Line(s) | Change |
+|------|---------|--------|
+| `packages/server/src/routes/coach.ts` | 10 | Comment: "Chief of Staff facilitator agent" -> "system agent (AD8b: rename to assistant)" |
+| `packages/server/src/routes/coach.ts` | 28 | `COC_AGENT_DISPLAY_NAME = "Chief of Staff"` -> `"System Agent"` |
+| `packages/server/src/routes/coach.ts` | all comments | Update "CoC agent" -> "system agent" / "assistant agent" where describing the concept |
+| `packages/server/src/routes/__tests__/coach.routes.integration.test.ts` | 60, 62, 144, 231 | Update comments: "CoC agent" -> "system agent". Update string assertions: `name: "Chief of Staff"` -> `name: "System Agent"` if used in seed data within the test. |
+| `packages/server/src/__tests__/M3-threads-coach-auth.integration.test.ts` | 48, 51 | Comment: "Seed the CoC agent" -> "Seed the system agent"; `name: "Chief of Staff"` -> `name: "System Agent"` |
+| `packages/server/src/__tests__/builtin-routines.integration.test.ts` | 47-48 | `name: "Chief of Staff"` -> `name: "System Agent"`, keep `role: "chief_of_staff"` |
+| `packages/server/src/__tests__/notifications/routine-digest.integration.test.ts` | 85-86 | `name: "Chief of Staff"` -> `name: "System Agent"`, keep `role: "chief_of_staff"` |
+| `packages/server/src/__tests__/founder-router.test.ts` | 25-26 | Comment and test name: "routes 'chief_of_staff' to both" -- keep as-is (this tests the role string routing, which is AD8b scope). Add `@lore AD8a` comment. |
+| `packages/server/src/__tests__/mcp-bridge.integration.test.ts` | 138-139, 168, 177, 275 | Comments: "Use chief_of_staff to get all 15 tools" -- keep (role string usage). Add `@lore AD8a` comment on first occurrence. |
 
 ### 8.2 Web code changes
 
-| File | Change |
-|------|--------|
-| `packages/web/src/shell/CocOverlay.tsx:153` | `"Failed to load coach thread"` -> `"Failed to load assistant thread"` |
-| `packages/web/src/shell/CocOverlay.tsx` | Update comments: "coach configuration" -> "assistant configuration" |
-| `packages/web/src/__tests__/CocOverlay.test.tsx` | Update display name assertions: "Chief of Staff" -> "Assistant", "coach" -> "assistant" in descriptions |
-| `packages/web/src/__tests__/CocOverlay.block-ref.test.tsx` | Update mock data: "Chief of Staff" -> "Assistant" |
-| `packages/web/e2e/L21-coc-overlay.spec.ts` | Update all `chief of staff` button/dialog name matchers to `assistant` |
-| `packages/web/e2e/T4-block-reference.spec.ts:32` | `"Chief of Staff"` -> `"Assistant"` |
-| `packages/web/e2e/conversations-submenu.spec.ts:44` | `id: "coach"` -- this is test data, not a display string. Keep as-is (AD8b). |
+| File | Line(s) | Change |
+|------|---------|--------|
+| `packages/web/src/shell/CocOverlay.tsx` | 153 | `"Failed to load coach thread"` -> `"Failed to load assistant thread"` |
+| `packages/web/src/shell/CocOverlay.tsx` | 195 | `hostTitle="Chief of Staff"` -> `hostTitle="System Agent"` |
+| `packages/web/src/shell/CocOverlay.tsx` | 248 | `aria-label="Chief of Staff conversation"` -> `aria-label="System Agent conversation"` |
+| `packages/web/src/shell/CocOverlay.tsx` | 251-255 | Comments: "Rail trigger area" -> "sidebar trigger area" |
+| `packages/web/src/shell/CocOverlay.tsx` | 4 | Comment: "coach configuration" -> "assistant configuration" |
+| `packages/web/src/components/CocAttachButton.tsx` | 40 | `aria-label={\`Attach ${cocRef.label} to Chief of Staff\`}` -> `aria-label={\`Attach ${cocRef.label} to System Agent\`}` |
+| `packages/web/src/components/CocAttachButton.tsx` | 4, 29-30 | Comments: "CoC overlay" references are file-structural (AD8b). Add `@lore AD8a` comment. |
+| `packages/web/src/__tests__/CocOverlay.test.tsx` | 50 | `name: "Chief of Staff"` -> `name: "System Agent"` in mock data |
+| `packages/web/src/__tests__/CocOverlay.test.tsx` | 97, 100, 127, 129, 132, 155 | All `"Chief of Staff"` display name assertions -> `"System Agent"` |
+| `packages/web/src/__tests__/CocOverlay.test.tsx` | 6, 8, 31, 120-123, 141, 147-149 | Comments: "coach configuration" -> "assistant configuration", "coach thread" -> "assistant thread" |
+| `packages/web/src/__tests__/CocAttachButton.test.tsx` | 46, 81 | `chief of staff` in aria-label matchers -> `system agent` |
+| `packages/web/src/__tests__/CocOverlay.block-ref.test.tsx` | 36 | `name: "Chief of Staff"` -> `name: "System Agent"` |
+| `packages/web/src/__tests__/Sidebar.test.tsx` | 83, 298 | Comments: "Chief of Staff per W3 AC-1" -> remove "Chief of Staff" reference |
+| `packages/web/src/pages/__tests__/W3-sidebar.test.tsx` | 5, 55-58, 61, 63 | Comments and assertions: "Chief of Staff" references. The assertions `screen.queryByText("Chief of Staff")` are regression guards -- they verify the old name is gone. **Keep** the assertion but update comments. |
+| `packages/web/src/pages/__tests__/WorkTeam.AB3.test.tsx` | 89-90, 132-133, 208 | `name: "Chief of Staff"` -> `name: "System Agent"`, keep `role: "chief_of_staff"`. Update `screen.getByText("Chief of Staff")` -> `screen.getByText("System Agent")`. |
+| `packages/web/scripts/visual-compare-map.ts` | 177 | `"Conversations — Chief of Staff chat view"` -> `"Conversations — System Agent chat view"` |
+| `packages/web/src/components/ThreadSections.stories.tsx` | 26 | `"Chief of Staff — weekly"` -> `"System Agent — weekly"` |
+| `packages/web/src/components/__tests__/ThreadSections.conversations.test.tsx` | 98 | `title: "Chief of Staff — weekly"` -> `title: "System Agent — weekly"` |
+| `packages/web/src/fixtures/knowledge-data.ts` | 172 | `"...Escalate items with conflicting observations to the Chief of Staff agent."` -> `"...Escalate items with conflicting observations to the system agent."` |
+| `packages/web/src/fixtures/knowledge-data.ts` | 245, 262 | `originAgent: "Chief of Staff"` -> `originAgent: "System Agent"` |
+| `packages/web/src/pages/WorkRoutine.stories.tsx` | 21 | `agentName: "Chief of Staff"` -> `agentName: "System Agent"` |
 
-### 8.3 Fabric code changes
+### 8.3 DB test changes
 
-| File | Change |
-|------|--------|
-| `packages/fabric/src/services/builtin-routines.ts:155` | Comment update: `seed-agent-cos` description |
+| File | Line(s) | Change |
+|------|---------|--------|
+| `packages/db/src/__tests__/schema.integration.test.ts` | 282 | `name: "CoS"` -> `name: "Test Agent"` (this is test seed data, not a display name) |
 
-### 8.4 Eval code changes
+### 8.4 Fabric code changes
 
-| File | Change |
-|------|--------|
-| `packages/eval/src/seeding.ts:528-533` | `name: "Chief of Staff (eval stub)"` -> `name: "Assistant (eval stub)"`, `agentCategory: "personal"` -> `"individual"` |
+| File | Line(s) | Change |
+|------|---------|--------|
+| `packages/fabric/src/services/builtin-routines.ts` | 155 | Comment: "seed-agent-cos" -> note it is now "System Agent" |
+| `packages/fabric/src/services/founder-router.ts` | 14 | `case "chief_of_staff":` -- keep (role string, AD8b scope). Add `@lore AD8a` comment. |
+
+### 8.5 Eval scenario files (NEW -- addresses CRITICAL-2)
+
+Eight eval scenario files contain dead nouns. The `agentRole: "chief_of_staff"` values are role strings (AD8b scope). The description strings and soul prompts that say "Chief of Staff" or "CoS" are user-facing and must be purged in AD8a.
+
+| File | Line(s) | Content | Change |
+|------|---------|---------|--------|
+| `packages/eval/src/scenarios/delegation.ts` | 58 | `agentRole: "chief_of_staff"` | Keep (AD8b). Add `@lore AD8a: role string renamed in AD8b` |
+| `packages/eval/src/scenarios/delegation.ts` | 74 | `role: "chief_of_staff"` | Keep (AD8b). Add `@lore AD8a` |
+| `packages/eval/src/scenarios/delegation.ts` | 76 | `"You are a delegate CoS agent."` | -> `"You are a delegate system agent."` |
+| `packages/eval/src/scenarios/delegation.ts` | 201 | `agentRole: "chief_of_staff"` | Keep (AD8b). Add `@lore AD8a` |
+| `packages/eval/src/scenarios/delegation.ts` | 214 | `role: "chief_of_staff"` | Keep (AD8b). Add `@lore AD8a` |
+| `packages/eval/src/scenarios/routine-sessions.ts` | 55 | `agentRole: "chief_of_staff"` | Keep (AD8b). Add `@lore AD8a` |
+| `packages/eval/src/scenarios/routine-sessions.ts` | 328 | `agentRole: "chief_of_staff"` | Keep (AD8b). Add `@lore AD8a` |
+| `packages/eval/src/scenarios/score-attention.ts` | 224 | `id: "sa-item-noop-cos-marketing"` | Keep (test ID, not display). Add `@lore AD8a` |
+| `packages/eval/src/scenarios/score-attention.ts` | 225 | `"CoS attempts to score an item..."` | -> `"System agent attempts to score an item..."` |
+| `packages/eval/src/scenarios/score-attention.ts` | 230 | `agentRole: "chief_of_staff"` | Keep (AD8b). Add `@lore AD8a` |
+| `packages/eval/src/scenarios/score-attention.ts` | 231 | `"You are a chief of staff managing..."` | -> `"You are a system agent managing..."` |
+| `packages/eval/src/scenarios/promote-knowledge.ts` | 337, 343 | `id: "pk-archive-cos-marketing"` | Keep (test ID). Add `@lore AD8a` |
+| `packages/eval/src/scenarios/promote-knowledge.ts` | 344 | `"CoS archives stale marketing..."` | -> `"System agent archives stale marketing..."` |
+| `packages/eval/src/scenarios/promote-knowledge.ts` | 349 | `agentRole: "chief_of_staff"` | Keep (AD8b). Add `@lore AD8a` |
+| `packages/eval/src/scenarios/promote-knowledge.ts` | 350 | `"You are a chief of staff responsible..."` | -> `"You are a system agent responsible..."` |
+| `packages/eval/src/scenarios/create-conflict-review.ts` | 243, 249 | `id: "ccr-version-guard-cos-consulting"` | Keep (test ID). Add `@lore AD8a` |
+| `packages/eval/src/scenarios/create-conflict-review.ts` | 250 | `"CoS version guard rejects..."` | -> `"System agent version guard rejects..."` |
+| `packages/eval/src/scenarios/create-conflict-review.ts` | 255 | `agentRole: "chief_of_staff"` | Keep (AD8b). Add `@lore AD8a` |
+| `packages/eval/src/scenarios/create-conflict-review.ts` | 256 | `"You are a chief of staff reviewing..."` | -> `"You are a system agent reviewing..."` |
+| `packages/eval/src/scenarios/write-memory.ts` | 270, 274 | `id: "wm-facilitator-l4-cos-consulting"` | Keep (test ID). Add `@lore AD8a` |
+| `packages/eval/src/scenarios/write-memory.ts` | 275 | `"Chief of Staff writes L4..."` | -> `"System agent writes L4..."` |
+| `packages/eval/src/scenarios/write-memory.ts` | 280 | `agentRole: "chief_of_staff"` | Keep (AD8b). Add `@lore AD8a` |
+| `packages/eval/src/scenarios/write-memory.ts` | 281 | `"You are a Chief of Staff at a consulting firm."` | -> `"You are a system agent at a consulting firm."` |
+| `packages/eval/src/scenarios/route-item.ts` | 240, 246 | `id: "roi-verb-override-cos-marketing"` | Keep (test ID). Add `@lore AD8a` |
+| `packages/eval/src/scenarios/route-item.ts` | 247 | `"Chief of Staff reclassifies..."` | -> `"System agent reclassifies..."` |
+| `packages/eval/src/scenarios/route-item.ts` | 252 | `agentRole: "chief_of_staff"` | Keep (AD8b). Add `@lore AD8a` |
+| `packages/eval/src/scenarios/route-item.ts` | 253 | `"You are a chief of staff managing portfolio items."` | -> `"You are a system agent managing portfolio items."` |
+| `packages/eval/src/scenarios/skill-autonomy.ts` | 160 | `agentRole: "chief_of_staff"` | Keep (AD8b). Add `@lore AD8a` |
+
+### 8.6 Skill-tool role authorization arrays (NEW -- addresses CRITICAL-3)
+
+Five files in `packages/server/src/skill-tools/` have `roles: ["chief_of_staff", ...]` in their tool registration. These are role-string references that determine which agent roles can use each tool. The role string `"chief_of_staff"` is an internal constant renamed in AD8b. AD8a does not change these.
+
+| File | Line(s) | Content | Decision |
+|------|---------|---------|----------|
+| `packages/server/src/skill-tools/score-attention.ts` | 152 | `roles: ["chief_of_staff", "practice_facilitator", "product_manager"]` | Keep (AD8b). Add `@lore AD8a: role string renamed in AD8b` |
+| `packages/server/src/skill-tools/promote-knowledge.ts` | 183 | `roles: ["chief_of_staff", "practice_facilitator", "product_manager"]` | Keep (AD8b). Add `@lore AD8a` |
+| `packages/server/src/skill-tools/route-item.ts` | 77 | `roles: ["chief_of_staff", "practice_facilitator", "product_manager"]` | Keep (AD8b). Add `@lore AD8a` |
+| `packages/server/src/skill-tools/create-conflict-review.ts` | 107 | `roles: ["chief_of_staff", "practice_facilitator", "product_manager"]` | Keep (AD8b). Add `@lore AD8a` |
+| `packages/server/src/skill-tools/write-memory.ts` | 47 | `"chief_of_staff"` in roles array | Keep (AD8b). Add `@lore AD8a` |
+
+**Skill-tool test files** that pass `{ role: "chief_of_staff" }` to `buildToolRegistry`:
+
+| File | Line(s) | Decision |
+|------|---------|----------|
+| `packages/server/src/skill-tools/__tests__/promote-knowledge.integration.test.ts` | 235 | Keep (AD8b). Add `@lore AD8a` |
+| `packages/server/src/skill-tools/__tests__/tool-schemas.integration.test.ts` | 44, 47, 71, 93 | Keep (AD8b). Add `@lore AD8a` |
+| `packages/server/src/skill-tools/__tests__/tool-registry.integration.test.ts` | 23, 52, 66, 75, 82, 94, 107 | Keep (AD8b). Add `@lore AD8a` |
+| `packages/server/src/skill-tools/__tests__/tool-registry-role.integration.test.ts` | 88-89 | Keep (AD8b). Add `@lore AD8a` |
+| `packages/server/src/skill-tools/__tests__/create-artifact-role.integration.test.ts` | 6, 46-47 | Keep (AD8b). Add `@lore AD8a` |
+| `packages/server/src/skill-tools/__tests__/score-attention.integration.test.ts` | 130-131, 174, 194-195, 213-214 | Keep (AD8b). Add `@lore AD8a` |
+| `packages/server/src/skill-tools/__tests__/route-item.integration.test.ts` | 44, 46 | Keep (AD8b). Add `@lore AD8a` |
+
+### 8.7 Shared package: ThreadConfiguration type
+
+The `ThreadConfiguration` type in `packages/shared/src/thread.ts` uses `"coach"` as a union member (line 195) and the `classifyThread` function returns `"coach"` (line 203). This is a **type-level structural identifier** -- changing it cascades to every consumer. AD8b scope. Add `@lore AD8a` comment.
+
+### 8.8 E2E tests with "Chief of Staff" display names
+
+| File | Line(s) | Change |
+|------|---------|--------|
+| `packages/web/e2e/L21-coc-overlay.spec.ts` | 45 | `name: "Chief of Staff"` -> `name: "System Agent"` in mock identities |
+| `packages/web/e2e/L21-coc-overlay.spec.ts` | 190, 199, 207, 210, 214, 222, 226, 241, 244, 265, 268, 285, 288, 294, 300, 303, 308, 331, 333, 340, 346, 363, 366, 373 | All `/chief of staff/i` button/dialog matchers -> `/system agent/i` |
+| `packages/web/e2e/T4-block-reference.spec.ts` | 32 | `name: "Chief of Staff"` -> `name: "System Agent"` |
+| `packages/web/e2e/T4-block-reference.spec.ts` | 177, 179, 198, 200, 287, 290 | All `/chief of staff/i` matchers -> `/system agent/i` |
+| `packages/web/e2e/W3-sidebar.spec.ts` | 73-74 | Comment and assertion: `"Chief of Staff"` -- this is a regression guard asserting the old name is NOT visible. **Keep** the assertion `await expect(page.getByText("Chief of Staff")).not.toBeVisible()` -- it remains a valid regression guard. Update comment. |
+
+### 8.9 E2E tests with "coach" as API path / test data
+
+These E2E files use "coach" as an API path (`/api/threads/coach`) or test data ID (`id: "coach"`). These are structural identifiers tied to the coach route that AD8b renames. AD8a scope is limited to updating comments that describe the concept.
+
+| File | Lines | Decision |
+|------|-------|----------|
+| `packages/web/e2e/L21-coc-overlay.spec.ts` | 2, 5-7, 12, 25, 81, 118-119, 139, 179, 184, 189, 194, 203, 217, 311, 316 | Update comments describing the concept (e.g., "CoC trigger" -> "assistant trigger", "coach configuration" -> "assistant configuration"). Keep API paths (`/api/threads/coach`) and test IDs (`COACH_THREAD_ID`). |
+| `packages/web/e2e/T4-block-reference.spec.ts` | 4, 13, 107-108, 128, 171, 176, 192, 197, 247 | Update comments. Keep API paths and `COACH_THREAD_ID`. |
+| `packages/web/e2e/conversations-submenu.spec.ts` | 44, 66 | `id: "coach"` is test data (thread ID). Keep. Comment on line 66 ("coach + a1..a4") -- update to "assistant + a1..a4". |
+| `packages/web/e2e/threads.spec.ts` | 44 | Comment: "GET /api/threads/coach" -- keep (describes the API path). |
+| `packages/web/src/__tests__/AppShell.threads.test.tsx` | 51 | `id: "coach"` -- test data ID. Keep (AD8b). |
 
 ## 9. Task ordering
 
@@ -447,80 +523,140 @@ Tasks are ordered to minimize broken intermediate states. Each task should leave
 
 ### Phase 1: Schema + types (foundation)
 
-**Task 1: Write migration file**
+**Task 1: Write migration file + AC-1 integration test**
 - Create `packages/db/drizzle/0027_AD8a_agent_type_rename.sql`
-- Update drizzle meta journal
+- Update drizzle meta journal (`packages/db/drizzle/meta/_journal.json`)
+- Create integration test: `packages/db/src/__tests__/AD8a-category-rename.integration.test.ts`
+  - Insert a user with `agentCategory: "individual"`, read it back, assert value matches
 - Verify: `npm run db:migrate` succeeds locally
 
+Files: `packages/db/drizzle/0027_AD8a_agent_type_rename.sql`, `packages/db/drizzle/meta/_journal.json`, `packages/db/src/__tests__/AD8a-category-rename.integration.test.ts`
+
 **Task 2: Update shared types and constants**
-- `packages/shared/src/types.ts`: `"personal"` -> `"individual"` in AGENT_CATEGORIES
-- `packages/shared/src/agent-roles.ts`: Update chief_of_staff catalog entry (label, category, description, hasTemplate)
+- `packages/shared/src/types.ts`: `"personal"` -> `"individual"` in AGENT_CATEGORIES + comment
+- `packages/shared/src/agent-roles.ts`: Update chief_of_staff catalog entry (label -> "System Agent", category -> "individual", description, hasTemplate -> false) + section comment
 - `packages/shared/src/team.ts`: Update comment
 - Verify: `npm run check` passes
 
+Files: `packages/shared/src/types.ts`, `packages/shared/src/agent-roles.ts`, `packages/shared/src/team.ts`
+
 **Task 3: Update shared tests**
-- `packages/shared/src/__tests__/types.test.ts`
-- `packages/shared/src/__tests__/agent-roles.test.ts`
+- `packages/shared/src/__tests__/types.test.ts`: `"personal"` -> `"individual"`
+- `packages/shared/src/__tests__/agent-roles.test.ts`: `"personal"` -> `"individual"`, label assertions if any
 - Verify: `npm run test` passes for `packages/shared`
+
+Files: `packages/shared/src/__tests__/types.test.ts`, `packages/shared/src/__tests__/agent-roles.test.ts`
 
 ### Phase 2: Seeds + DB code
 
 **Task 4: Update seed data**
-- `packages/db/src/seed.ts`: Update CoS seed entry (name, category), remove chief-of-staff soul template, update categoryByRole
+- `packages/db/src/seed.ts`: Update CoS seed entry (name -> "System Agent", category -> "individual"), remove chief-of-staff soul template entry, update categoryByRole, set soulPromptPath to null. Add `@lore AD8a` comments.
 - `packages/db/src/schema.ts`: Update comment
 - Verify: `npm run check` passes
 
+Files: `packages/db/src/seed.ts`, `packages/db/src/schema.ts`
+
 **Task 5: Update seed-related tests**
-- `packages/db/src/__tests__/X3-agent-config.integration.test.ts`
-- `packages/db/src/__tests__/seed.integration.test.ts`
+- `packages/db/src/__tests__/schema.integration.test.ts`: `name: "CoS"` -> `name: "Test Agent"`
+- Any other DB tests referencing "Chief of Staff" or "personal"
 - Verify: `npm run test:integration` passes for `packages/db`
 
-### Phase 3: Server code
+Files: `packages/db/src/__tests__/schema.integration.test.ts`
 
-**Task 6: Delete Rail API**
+### Phase 3: Delete Rail API
+
+**Task 6: Delete Rail API files and references**
 - Delete `packages/server/src/routes/rail.ts`
 - Delete `packages/server/src/routes/__tests__/rail.routes.integration.test.ts`
 - Delete `packages/server/src/__tests__/rail.integration.test.ts`
 - Delete `packages/api-contract/src/rail.ts`
+- Update `packages/api-contract/src/index.ts`: remove Rail re-exports
+- Delete Rail test describes from `packages/api-contract/src/__tests__/contracts.test.ts`
 - Update `packages/server/src/app.ts`: remove Rail import and route
+- Delete Rail test describe from `packages/server/src/__tests__/api-e2e.integration.test.ts`
 - Update `packages/server/src/__tests__/api-availability.integration.test.ts`: remove Rail entry
 - Verify: `npm run check` passes
 
-**Task 7: Update coach route display strings**
-- `packages/server/src/routes/coach.ts`: display name and comments
+Files: (delete) `packages/server/src/routes/rail.ts`, `packages/server/src/routes/__tests__/rail.routes.integration.test.ts`, `packages/server/src/__tests__/rail.integration.test.ts`, `packages/api-contract/src/rail.ts`; (edit) `packages/api-contract/src/index.ts`, `packages/api-contract/src/__tests__/contracts.test.ts`, `packages/server/src/app.ts`, `packages/server/src/__tests__/api-e2e.integration.test.ts`, `packages/server/src/__tests__/api-availability.integration.test.ts`
+
+### Phase 4: Server display string updates
+
+**Task 7: Update coach route display strings + server tests**
+- `packages/server/src/routes/coach.ts`: display name -> "System Agent", comments
 - `packages/server/src/routes/__tests__/coach.routes.integration.test.ts`: assertions and comments
-- `packages/server/src/__tests__/M3-threads-coach-auth.integration.test.ts`: comments
-- `packages/fabric/src/services/builtin-routines.ts`: comments
+- `packages/server/src/__tests__/M3-threads-coach-auth.integration.test.ts`: display name, comments
+- `packages/server/src/__tests__/builtin-routines.integration.test.ts`: display name
+- `packages/server/src/__tests__/notifications/routine-digest.integration.test.ts`: display name
+- `packages/server/src/__tests__/founder-router.test.ts`: add `@lore AD8a` comment
+- `packages/server/src/__tests__/mcp-bridge.integration.test.ts`: add `@lore AD8a` comment
+- `packages/fabric/src/services/builtin-routines.ts`: comment
+- `packages/fabric/src/services/founder-router.ts`: add `@lore AD8a` comment
 - Verify: `npm run test:integration` passes
 
-### Phase 4: Web code
+Files: `packages/server/src/routes/coach.ts`, `packages/server/src/routes/__tests__/coach.routes.integration.test.ts`, `packages/server/src/__tests__/M3-threads-coach-auth.integration.test.ts`, `packages/server/src/__tests__/builtin-routines.integration.test.ts`, `packages/server/src/__tests__/notifications/routine-digest.integration.test.ts`, `packages/server/src/__tests__/founder-router.test.ts`, `packages/server/src/__tests__/mcp-bridge.integration.test.ts`, `packages/fabric/src/services/builtin-routines.ts`, `packages/fabric/src/services/founder-router.ts`
+
+**Task 7b: Add `@lore AD8a` comments to skill-tool files and Rail infrastructure**
+- 5 skill-tool source files: `score-attention.ts`, `promote-knowledge.ts`, `route-item.ts`, `create-conflict-review.ts`, `write-memory.ts`
+- 7 skill-tool test files (see section 8.6)
+- Rail infrastructure: `ws-broadcaster.ts`, `ws-client.ts`, `ws-subscribe-authz.integration.test.ts`, `item-router.ts` (fabric), `item-router.test.ts` (server), `hint.ts`, `hint.test.ts`
+- Thread type: `packages/shared/src/thread.ts`
+- Verify: `npm run check` passes
+
+Files: `packages/server/src/skill-tools/score-attention.ts`, `packages/server/src/skill-tools/promote-knowledge.ts`, `packages/server/src/skill-tools/route-item.ts`, `packages/server/src/skill-tools/create-conflict-review.ts`, `packages/server/src/skill-tools/write-memory.ts`, `packages/server/src/skill-tools/__tests__/promote-knowledge.integration.test.ts`, `packages/server/src/skill-tools/__tests__/tool-schemas.integration.test.ts`, `packages/server/src/skill-tools/__tests__/tool-registry.integration.test.ts`, `packages/server/src/skill-tools/__tests__/tool-registry-role.integration.test.ts`, `packages/server/src/skill-tools/__tests__/create-artifact-role.integration.test.ts`, `packages/server/src/skill-tools/__tests__/score-attention.integration.test.ts`, `packages/server/src/skill-tools/__tests__/route-item.integration.test.ts`, `packages/server/src/services/ws-broadcaster.ts`, `packages/web/src/services/ws-client.ts`, `packages/server/src/__tests__/ws-subscribe-authz.integration.test.ts`, `packages/fabric/src/services/item-router.ts`, `packages/server/src/__tests__/item-router.test.ts`, `packages/shared/src/hint.ts`, `packages/shared/src/__tests__/hint.test.ts`, `packages/shared/src/thread.ts`
+
+### Phase 5: Web code
 
 **Task 8: Update web display strings and tests**
 - `packages/web/src/pages/WorkTeam.tsx`: `"personal"` -> `"individual"`
-- `packages/web/src/pages/AgentProfile.tsx`: `"personal"` -> `"individual"`, comments
+- `packages/web/src/pages/AgentProfile.tsx`: `"personal"` -> `"individual"`, `"Personal"` -> `"Individual"`, comments
 - `packages/web/src/pages/AgentEditDialog.tsx`: comment
 - `packages/web/src/settings/settings-types.ts`: comment
-- `packages/web/src/pages/__tests__/WorkTeam.AB3.test.tsx`: all `"personal"` -> `"individual"`
-- `packages/web/src/shell/CocOverlay.tsx`: error message and comments
-- `packages/web/src/__tests__/CocOverlay.test.tsx`: display name assertions
+- `packages/web/src/shell/CocOverlay.tsx`: error message, `hostTitle`, `aria-label`, comments
+- `packages/web/src/components/CocAttachButton.tsx`: aria-label, comments
+- `packages/web/scripts/visual-compare-map.ts`: description string
+- `packages/web/src/components/ThreadSections.stories.tsx`: title
+- `packages/web/src/fixtures/knowledge-data.ts`: display strings (3 occurrences)
+- `packages/web/src/pages/WorkRoutine.stories.tsx`: agentName
+- `packages/web/src/pages/__tests__/WorkTeam.AB3.test.tsx`: `"personal"` -> `"individual"`, `"Chief of Staff"` -> `"System Agent"`
+- `packages/web/src/__tests__/CocOverlay.test.tsx`: display name assertions, comments
 - `packages/web/src/__tests__/CocOverlay.block-ref.test.tsx`: mock data
+- `packages/web/src/__tests__/CocAttachButton.test.tsx`: aria-label matchers
+- `packages/web/src/__tests__/Sidebar.test.tsx`: comments
+- `packages/web/src/pages/__tests__/W3-sidebar.test.tsx`: comments (keep assertions)
+- `packages/web/src/components/__tests__/ThreadSections.conversations.test.tsx`: title in test data
 - Verify: `npm run test` passes for web
 
 **Task 9: Update E2E tests and fixtures**
-- `packages/web/e2e/fixtures.ts`: remove Rail mock
-- `packages/web/e2e/mock-data-purge.spec.ts`: remove Rail tests
-- `packages/web/e2e/L21-coc-overlay.spec.ts`: "Chief of Staff" -> "Assistant"
-- `packages/web/e2e/T4-block-reference.spec.ts`: "Chief of Staff" -> "Assistant"
-- `packages/web/e2e/L16-bet-pitch.spec.ts`: line 56 uses `seed-agent-cos` as ownerAgentId -- keep (FK ref)
-- `packages/web/src/__tests__/U6-AppShell-sidebar.test.tsx`: update comments
-- `packages/web/src/__tests__/M3-AppShell.no-mock.test.tsx`: remove Rail stubs
-- `packages/web/src/__tests__/AppShell.test.tsx`: remove Rail comment
+- `packages/web/e2e/fixtures.ts`: delete `DEFAULT_RAIL_RESPONSE` constant and Rail mock routes
+- `packages/web/e2e/mock-data-purge.spec.ts`: delete Rail test describe block
+- `packages/web/e2e/M3-api-wiring.spec.ts`: delete Rail mock data and Rail test describe block
+- `packages/web/e2e/synthesis.spec.ts`: delete "Collapsed Rail pills" test
+- `packages/web/e2e/L21-coc-overlay.spec.ts`: "Chief of Staff" -> "System Agent" in matchers, update comments ("CoC" -> "assistant", "Rail" -> "sidebar")
+- `packages/web/e2e/T4-block-reference.spec.ts`: "Chief of Staff" -> "System Agent", update comments
+- `packages/web/e2e/W3-sidebar.spec.ts`: update comments
 - `packages/web/e2e/keyboard-nav.spec.ts`: update comment
+- `packages/web/e2e/keyboard-and-responsive.spec.ts`: keep `@lore` comment (historical)
+- `packages/web/e2e/work-bet-session.spec.ts`: update comment
+- `packages/web/e2e/settings-redesign.spec.ts`: update/delete Rail comments/tests
+- `packages/web/e2e/accessibility-K8.spec.ts`: update comment
+- `packages/web/e2e/conversations-submenu.spec.ts`: update comment
+- `packages/web/e2e/threads.spec.ts`: keep comment (describes API path)
+- `packages/web/src/__tests__/U6-AppShell-sidebar.test.tsx`: update comments
+- `packages/web/src/__tests__/M3-AppShell.no-mock.test.tsx`: delete Rail mock stubs, keep `@lore` comments
+- `packages/web/src/__tests__/AppShell.test.tsx`: keep `@lore` comments (historical)
+- `packages/web/src/__tests__/AppShell.threads.test.tsx`: keep `id: "coach"` (AD8b)
+- `packages/web/src/__tests__/AppShell.settings-overlay.test.tsx`: keep `@lore` comments
+- `packages/web/src/__tests__/AppShell.P4-settings.test.tsx`: keep comments
+- `packages/web/src/__tests__/L17-money-web.test.tsx`: keep `@lore` comment
+- Verify: E2E tests pass for affected files
 
 **Task 10: Update eval code**
-- `packages/eval/src/seeding.ts`: name and category
+- `packages/eval/src/seeding.ts`: name, category, comment
+- 8 scenario files: update description strings and soul prompts, add `@lore AD8a` comments on `agentRole: "chief_of_staff"` lines (see section 8.5)
 
-### Phase 5: Doc rewrites
+Files: `packages/eval/src/seeding.ts`, `packages/eval/src/scenarios/delegation.ts`, `packages/eval/src/scenarios/routine-sessions.ts`, `packages/eval/src/scenarios/score-attention.ts`, `packages/eval/src/scenarios/promote-knowledge.ts`, `packages/eval/src/scenarios/create-conflict-review.ts`, `packages/eval/src/scenarios/write-memory.ts`, `packages/eval/src/scenarios/route-item.ts`, `packages/eval/src/scenarios/skill-autonomy.ts`
+
+### Phase 6: Doc rewrites
 
 **Task 11: Delete and rewrite agent layer docs**
 - Delete `docs/souls/chief-of-staff.md`
@@ -530,63 +666,183 @@ Tasks are ordered to minimize broken intermediate states. Each task should leave
 - `docs/human-interface-layer/thread-primitive.md`: coach -> assistant
 
 **Task 13: Update three-views-the-rail doc**
-- `docs/human-interface-layer/the-three-views-the-rail.md`: all Chief of Staff -> assistant, deprecate Rail section
+- `docs/human-interface-layer/the-three-views-the-rail.md`: all Chief of Staff -> assistant, deprecate Rail section, add historical filename note
 
 **Task 14: Update remaining docs (batch)**
 - All remaining doc files listed in section 6.2 table
 - This is the largest task by file count but each change is mechanical (find-replace within context)
 
-### Phase 6: Verification
+### Phase 7: Verification
 
-**Task 15: Grep verification**
-- Run all grep commands from section 10
+**Task 15: Grep verification + final test run**
+- Run all grep commands from section 11
 - Verify zero dead-noun occurrences (with documented exclusions)
 - Run `npm run check && npm run lint && npm run test`
 
-## 10. Verification commands
+## 10. AC-1 integration test specification
+
+**File:** `packages/db/src/__tests__/AD8a-category-rename.integration.test.ts`
+
+```typescript
+import { describe, test, expect } from "vitest";
+import { users } from "../schema.js";
+import { eq } from "drizzle-orm";
+
+describe("AD8a — agentCategory 'individual' rename", () => {
+  test("insert and read back a user with agentCategory 'individual'", async ({ db }) => {
+    const id = "test-agent-ad8a";
+    await db.insert(users).values({
+      id,
+      name: "AD8a Test Agent",
+      isHuman: false,
+      agentCategory: "individual",
+    });
+    const [row] = await db.select().from(users).where(eq(users.id, id));
+    expect(row.agentCategory).toBe("individual");
+  });
+
+  test("migration converted existing 'personal' rows to 'individual'", async ({ db }) => {
+    // After migration, no rows should have 'personal'
+    const rows = await db.select().from(users).where(eq(users.agentCategory, "personal" as any));
+    expect(rows).toHaveLength(0);
+  });
+});
+```
+
+## 11. Verification commands
 
 ```bash
 # AC-1: agentCategory accepts "individual" -- verified by integration test
+# packages/db/src/__tests__/AD8a-category-rename.integration.test.ts
+
 # AC-2: Zero "personal" as agent category in code
 grep -rn '"personal"' --include='*.ts' --include='*.tsx' packages/ \
   | grep -i 'agentCategory\|agent_category\|AGENT_CATEGORIES\|category.*personal\|personal.*category'
 # Expected: 0 lines
 
 # AC-3: Zero Chief of Staff / chief_of_staff / CoS / CoC / coach (HyperIdle concept)
-# Exclude: AD8b rename targets (files being rebuilt), external references, migration history
+# in display strings, comments, and docs.
+#
+# EXCLUSION LIST (AD8b scope — structural identifiers, not display strings):
+#   Role string "chief_of_staff" in:
+#     packages/shared/src/agent-roles.ts (role field)
+#     packages/shared/src/__tests__/agent-roles.test.ts (role lookups)
+#     packages/db/src/seed.ts (categoryByRole key, role field)
+#     packages/eval/src/seeding.ts (role field)
+#     packages/eval/src/scenarios/*.ts (agentRole field — 8 files)
+#     packages/server/src/routes/coach.ts (COC_AGENT_ROLE constant)
+#     packages/server/src/routes/__tests__/coach.routes.integration.test.ts (role in seed)
+#     packages/server/src/__tests__/founder-router.test.ts (role routing test)
+#     packages/server/src/__tests__/mcp-bridge.integration.test.ts (buildToolRegistry role)
+#     packages/server/src/__tests__/M3-threads-coach-auth.integration.test.ts (role in seed)
+#     packages/server/src/__tests__/builtin-routines.integration.test.ts (role in seed)
+#     packages/server/src/__tests__/notifications/routine-digest.integration.test.ts (role in seed)
+#     packages/server/src/skill-tools/*.ts (roles authorization arrays — 5 files)
+#     packages/server/src/skill-tools/__tests__/*.ts (buildToolRegistry role — 7 files)
+#     packages/fabric/src/services/founder-router.ts (role case)
+#   File/function/variable names containing "coach" or "Coc":
+#     packages/server/src/routes/coach.ts (file name, function names)
+#     packages/server/src/routes/__tests__/coach.routes.integration.test.ts (file name)
+#     packages/server/src/routes/threads.ts (import, route mount)
+#     packages/web/src/shell/CocOverlay.tsx (file/component name)
+#     packages/web/src/contexts/CocContext.tsx (file/component name)
+#     packages/web/src/hooks/useCocThread.ts (file/hook name)
+#     packages/web/src/components/CocAttachButton.tsx (file/component name)
+#     packages/web/src/__tests__/CocOverlay*.test.tsx (file names)
+#     packages/web/src/__tests__/CocAttachButton.test.tsx (file name)
+#     packages/web/e2e/L21-coc-overlay.spec.ts (file name, API paths, thread IDs)
+#     packages/web/e2e/T4-block-reference.spec.ts (API paths, thread IDs)
+#     packages/web/e2e/conversations-submenu.spec.ts (thread ID)
+#     packages/web/e2e/threads.spec.ts (API path comment)
+#     packages/web/src/__tests__/AppShell.threads.test.tsx (thread ID)
+#   ThreadConfiguration type "coach":
+#     packages/shared/src/thread.ts (type union + classifyThread)
+#   WebSocket topic "rail":
+#     packages/server/src/services/ws-broadcaster.ts
+#     packages/web/src/services/ws-client.ts
+#     packages/server/src/__tests__/ws-subscribe-authz.integration.test.ts
+#   Item router "rail" return value:
+#     packages/fabric/src/services/item-router.ts
+#     packages/server/src/__tests__/item-router.test.ts
+#     packages/server/src/skill-tools/route-item.ts (type + description)
+#   Hint system "rail-indicators":
+#     packages/shared/src/hint.ts
+#     packages/shared/src/__tests__/hint.test.ts
+#   @lore comments documenting U6 Rail deletion (historical):
+#     packages/web/src/__tests__/AppShell.test.tsx
+#     packages/web/src/__tests__/AppShell.settings-overlay.test.tsx
+#     packages/web/src/__tests__/AppShell.P4-settings.test.tsx
+#     packages/web/src/__tests__/L17-money-web.test.tsx
+#     packages/web/e2e/keyboard-and-responsive.spec.ts
+#
+# All excluded files have @lore AD8a comments marking them for AD8b.
+#
+# Grep commands (after all changes applied):
+
+# 3a: "Chief of Staff" / "chief_of_staff" — should match ONLY in AD8b exclusion files
 grep -rni 'chief.of.staff\|chief_of_staff' --include='*.ts' --include='*.tsx' --include='*.md' \
   --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=plans --exclude-dir=archive \
-  packages/ docs/
-# Expected: 0 lines (after excluding AD8b files)
+  packages/ docs/ \
+  | grep -v '@lore AD8a' \
+  | grep -v 'role:.*"chief_of_staff"' \
+  | grep -v 'agentRole:.*"chief_of_staff"' \
+  | grep -v 'role.*=.*"chief_of_staff"' \
+  | grep -v 'buildToolRegistry.*chief_of_staff' \
+  | grep -v 'roles:.*"chief_of_staff"' \
+  | grep -v 'case.*"chief_of_staff"' \
+  | grep -v 'routeToFounder.*"chief_of_staff"' \
+  | grep -v 'categoryByRole' \
+  | grep -v 'queryByText.*"Chief of Staff"' \
+  | grep -v 'getByText.*"Chief of Staff".*not'
+# Expected: 0 lines. If any remain, they are missed display strings.
 
+# 3b: "CoS" standalone word
 grep -rn '\bCoS\b' --include='*.ts' --include='*.tsx' --include='*.md' \
   --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=plans --exclude-dir=archive \
-  packages/ docs/
-# Expected: 0 lines
+  packages/ docs/ \
+  | grep -v '@lore AD8a' \
+  | grep -v 'id:.*cos'
+# Expected: 0 lines (scenario IDs like "sa-item-noop-cos-marketing" are test IDs, not the noun)
 
-grep -rn '\bCoC\b' --include='*.ts' --include='*.tsx' --include='*.md' \
-  --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=plans --exclude-dir=archive \
-  packages/ docs/
-# Expected: 0 lines (CocOverlay etc. are file/function names, not the noun "CoC")
-# Wait -- "CoC" in CocOverlay.tsx IS the dead noun in a compound form.
-# AD8b renames these files. AD8a adds @lore comments marking them for rename.
-# The grep for "CoC" as a standalone word (\bCoC\b) won't match "CocOverlay" (lowercase 'oc').
-# Grep for "CoC" case-sensitive catches the right things.
-
+# 3c: "coach" as concept (excluding file names, API paths, thread type, thread IDs)
 grep -rni '\bcoach\b' --include='*.ts' --include='*.tsx' --include='*.md' \
   --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=plans --exclude-dir=archive \
   packages/ docs/ \
   | grep -v 'Read AI.*coach' \
   | grep -v 'migration.*coach' \
-  | grep -v 'legacy.*coach'
-# Expected: 0 lines after excluding external product references and migration history
+  | grep -v 'legacy.*coach' \
+  | grep -v '@lore' \
+  | grep -v 'import.*coach' \
+  | grep -v 'from.*coach' \
+  | grep -v 'route.*coach' \
+  | grep -v '/api/threads/coach' \
+  | grep -v 'createCoachRoutes' \
+  | grep -v 'COACH_THREAD_ID' \
+  | grep -v 'thr-coach' \
+  | grep -v 'id:.*"coach"' \
+  | grep -v 'ThreadConfiguration.*coach' \
+  | grep -v 'return.*"coach"'
+# Expected: 0 lines
 
 # AC-4: Zero "Rail" as UI concept
 grep -rni '\brail\b' --include='*.ts' --include='*.tsx' --include='*.md' \
   --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=plans --exclude-dir=archive \
   packages/ docs/ \
-  | grep -vi 'IconRail\|icon.rail\|icon_rail\|guardrail\|handrail\|monorail'
-# Expected: 0 lines after excluding navigation rail (IconRail) and non-UI uses
+  | grep -vi 'IconRail\|icon.rail\|icon_rail\|guardrail\|handrail\|monorail\|safety rail' \
+  | grep -v '@lore' \
+  | grep -v 'broadcast.*"rail"' \
+  | grep -v 'topic.*"rail"' \
+  | grep -v '"rail".*topic' \
+  | grep -v 'GLOBAL_TOPICS.*rail' \
+  | grep -v '"conversations".*"work".*"rail"' \
+  | grep -v '"rail-indicators"' \
+  | grep -v 'hint-rail' \
+  | grep -v 'return.*"rail"' \
+  | grep -v '"conversations".*"rail".*"work"' \
+  | grep -v 'view:.*rail' \
+  | grep -v 'item-router' \
+  | grep -v 'route-item'
+# Expected: 0 lines
 
 # AC-8: Orphaned Rail files deleted
 test ! -f packages/api-contract/src/rail.ts && echo "PASS" || echo "FAIL"
@@ -603,18 +859,20 @@ npm run lint
 npm run test
 ```
 
-## 11. Risk register
+## 12. Risk register
 
 | Risk | Impact | Mitigation |
 |------|--------|------------|
 | Drizzle migration journal format wrong | Migration fails | Read existing journal entries to match format before writing |
 | `chief_of_staff` role string change cascades | Type errors everywhere | Keep role string as-is in AD8a; AD8b handles role rename |
-| E2E tests fail after Rail API deletion | CI broken | Update E2E fixtures and remove Rail-specific tests in same commit |
-| E2E tests fail after "Chief of Staff" -> "Assistant" rename | CI broken | Update all E2E button/dialog matchers in same commit as display name change |
-| AE1 overlap (Rail doc purge) | Duplicate work | AD8a does the code deletion + doc noun replacement. AE1 does deeper doc restructuring. AD8a changes are a subset that AE1 builds on. |
-| AD8b conflict (coach route/overlay rebuild) | Merge conflict | AD8a only changes display strings, not file/function structure. AD8b does the structural rename. Minimal conflict surface. |
+| E2E tests fail after Rail API deletion | CI broken | Delete Rail-specific E2E tests in same commit as API deletion |
+| E2E tests fail after "Chief of Staff" -> "System Agent" rename | CI broken | Update all E2E button/dialog matchers in same commit as display name change |
+| AE1 overlap (Rail doc purge) | Duplicate work | AD8a does code deletion + doc noun replacement. AE1 does deeper restructuring. |
+| AD8b conflict (coach route/overlay rebuild) | Merge conflict | AD8a only changes display strings, not file/function structure. Minimal conflict surface. |
+| Eval scenarios break after soul prompt changes | Eval regressions | Soul prompt changes are string-only (no behavioral change). The prompts still describe the same agent behavior, just with different terminology. |
+| `@lore AD8a` comment volume | Comment noise | Batch per-file: one `@lore AD8a` at the top of each excluded file, not per-line. |
 
-## 12. What AD8a does NOT do
+## 13. What AD8a does NOT do
 
 - Rename `chief_of_staff` role string to `assistant` (AD8b)
 - Create assistant soul template (AD8b)
@@ -624,18 +882,29 @@ npm run test
 - Rename useCocThread -> useAssistantThread (AD8b)
 - Rename CocAttachButton -> AssistantAttachButton (AD8b)
 - Change API route from `/api/threads/coach` to `/api/threads/assistant` (AD8b)
+- Rename WebSocket topic `"rail"` (AD8b)
+- Rename item-router return value `"rail"` (AD8b)
+- Rename hint ID `"rail-indicators"` (AD8b)
+- Rename ThreadConfiguration union member `"coach"` (AD8b)
+- Rename `"rail"` in route-item tool type/description (AD8b)
+- Rename skill-tool role authorization arrays `"chief_of_staff"` entries (AD8b)
 - Reassign routine ownership (AD8b/AD8c)
 - Create facilitator soul template (AD8c)
 - Convert cost-sentinel to application code (AD8c)
+- Clean up stale `soul_template:chief_of_staff` factorySettings key (AD8b)
 
-## 13. Self-critique
+## 14. Self-critique
 
-1. **Is the scope right?** The boundary between "noun purge" and "structural rename" is clear: AD8a changes what humans see (display names, docs, schema values). AD8b changes what code sees (file names, function names, route paths). This avoids half-done structural changes that break imports.
+1. **Is the scope right?** The boundary between "noun purge" and "structural rename" is clear: AD8a changes what humans see (display names, docs, schema values, user-facing strings). AD8b changes what code sees (file names, function names, route paths, WebSocket topics, type unions, role strings). This avoids half-done structural changes that break imports.
 
-2. **Migration risk?** Low. The `agentCategory` column has no CHECK constraint. The UPDATE is safe. Even if old `"personal"` values persist in edge cases, the code change from `"personal"` to `"individual"` in AGENT_CATEGORIES would surface type mismatches at runtime, which is the desired behavior (fail visibly, not silently).
+2. **Migration risk?** Low. The `agentCategory` column has no CHECK constraint. The UPDATE is safe.
 
-3. **Is the doc purge realistic in scope?** There are ~40+ doc files to touch. Each change is mechanical (find-replace within context), but the volume means this will be the majority of implementation time. The builder should batch doc changes into a single commit per phase to keep the diff readable.
+3. **"System Agent" vs "Assistant"?** "System Agent" is deliberately boring and transitional. It does not promise the per-user assistant behavior that the concept describes. When AD8b creates per-user assistants, it replaces this singleton entirely. The name communicates "this agent exists for system reasons" rather than "this is your personal assistant."
 
-4. **The `chief_of_staff` role string tension.** I considered renaming it in AD8a but the cascading effects (soul template key, AGENT_ROLE_CATALOG, seed backfill, coach route constant) make it risky. AD8b is a better home because it rebuilds the entire assistant infrastructure at once.
+4. **Eval scenario IDs containing "cos".** Scenario IDs like `sa-item-noop-cos-marketing` and `pk-archive-cos-marketing` contain "cos" as a substring. These are test identifiers, not user-facing display strings. Renaming them would break eval result tracking/comparison. They stay with `@lore AD8a` comments. AD8b may rename them if desired.
 
-5. **Rail API deletion vs AE1.** AE1 says it purges false Rail knowledge from docs. AD8a deletes the orphaned server code AND purges Rail from docs. This is overlap, but AD8a needs the doc purge for AC-4 (zero Rail occurrences). AE1 will find less Rail work to do, which is fine.
+5. **@lore comment strategy.** One `@lore AD8a` comment per file at the relevant location (not per-line). The comment says what AD8b will do, not what AD8a decided. This keeps the comment useful for the next agent without being noisy.
+
+6. **File count.** ~25 code files to edit, ~8 eval scenario files, ~40 doc files, ~20 test/E2E files, ~4 files to delete. Total: ~97 files touched. The doc purge (Task 14) is the largest single task. The builder should batch doc changes into one commit.
+
+7. **Rail exclusion list is larger than expected.** The Rail noun lives in WebSocket topics, item-router, hint system, and route-item tool type -- all behavioral code that cannot be string-replaced without cascading changes. The `@lore AD8a` comments ensure AD8b picks up all of these.
