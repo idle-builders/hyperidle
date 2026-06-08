@@ -12,6 +12,7 @@ import {
 } from "./services/notifications/dispatcher.js";
 import { registerPolicyEngine } from "./services/policy-engine.js";
 import { registerSessionReviewCreator } from "./services/session-review-creator.js";
+import { registerTaskDispatcher, type TaskDispatcherDeps } from "./services/task-dispatcher.js";
 
 /**
  * Wire all strategy-layer event-bus handlers and return their disposers.
@@ -35,6 +36,15 @@ export function bootstrapFabric(ctx: {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
 	readonly readAlertPreferences?: () => Promise<AlertPreferences>;
+	/**
+	 * AD2: provisioning deps for the task dispatcher. When absent (kernel-only
+	 * tests, no adapter pool), the dispatcher is not registered.
+	 *
+	 * Contains the adapter pool, workspace adapter, workspace base path, and
+	 * optional resolveModel callback. These are omitted from the context type
+	 * here (passed as-is) to avoid fabric depending on server types.
+	 */
+	readonly dispatcherDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">;
 }): Array<() => void> {
 	const { db, eventBus } = ctx;
 	const disposers: Array<() => void> = [];
@@ -55,6 +65,18 @@ export function bootstrapFabric(ctx: {
 			readAlertPreferences: ctx.readAlertPreferences,
 		}),
 	);
+
+	// AD2: Register task dispatcher when provisioning deps are provided.
+	// When absent (kernel-only tests without an adapter pool), dispatcher is skipped.
+	if (ctx.dispatcherDeps) {
+		disposers.push(
+			registerTaskDispatcher({
+				db,
+				eventBus,
+				...ctx.dispatcherDeps,
+			}),
+		);
+	}
 
 	return disposers;
 }

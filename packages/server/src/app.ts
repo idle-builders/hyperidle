@@ -19,6 +19,7 @@ import { createPublicAuthRoutes } from "./routes/auth-public.js";
 import { createBetRoutes } from "./routes/bets.js";
 import { createConversationRoutes } from "./routes/conversations.js";
 import { createCredentialRoutes } from "./routes/credentials.js";
+import { createDispatchQueueRoutes } from "./routes/dispatch-queue-routes.js";
 import { createGitExportRoutes } from "./routes/git-export-routes.js";
 import { authHealth, health } from "./routes/health.js";
 import { createHintRoutes } from "./routes/hints.js";
@@ -426,6 +427,8 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 			api.route("/workers", createWorkersRoutes(options.adapterPool));
 		}
 		api.route("/git-export", createGitExportRoutes(options.db));
+		// AD2: dispatch queue observability — GET /api/dispatch-queue
+		api.route("/dispatch-queue", createDispatchQueueRoutes());
 		api.route("/credentials", createCredentialRoutes(options.db));
 		api.route("/hint-progress", createHintRoutes(options.db));
 		// O3: defaultNotificationAdapterFactory moved to @hyperidle/fabric (imported at top).

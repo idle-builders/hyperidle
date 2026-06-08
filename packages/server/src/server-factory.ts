@@ -3,7 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
 import { createPgliteDb, createPostgresDb, type DbHandle, resolveProfile } from "@hyperidle/db";
-import { bootstrapFabric, startRoutineScheduler } from "@hyperidle/fabric";
+import { bootstrapFabric, setProvisionSessionFn, startRoutineScheduler } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
@@ -15,6 +15,7 @@ import { registerWorkerWsRoute } from "./routes/worker-ws.js";
 import { registerWsRoute } from "./routes/ws.js";
 import { EnvCredentialResolver } from "./services/credential-resolver.js";
 import { readServerConfig } from "./services/server-config.js";
+import { provisionSession } from "./services/session-provisioning.js";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "./services/ws-broadcaster.js";
 
 /**
@@ -119,6 +120,11 @@ export async function createServer(port: number): Promise<ServerHandle> {
 	const db = dbHandle.db;
 	const eventBus = new EventBus();
 
+	// AD2: Register provisionSession in the fabric provision-registry so the
+	// task dispatcher can call it without a circular static import.
+	// Must be done before bootstrapFabric runs (which starts the dispatcher).
+	setProvisionSessionFn(provisionSession);
+
 	const credentialResolver = new EnvCredentialResolver();
 	const adapterPool = await createLocalAdapterPool();
 	const workspaceAdapter = new LocalWorkspaceAdapter();
@@ -152,6 +158,19 @@ export async function createServer(port: number): Promise<ServerHandle> {
 						quietHoursStart: cfg.notifications.quietHoursStart,
 						quietHoursEnd: cfg.notifications.quietHoursEnd,
 					};
+				},
+				// AD2: Pass provisioning deps so the task dispatcher is registered.
+				// adapterPool, workspaceAdapter, and workspaceBasePath are captured
+				// from the closure above. The dispatcher uses these to call
+				// provisionSession (registered in the provision-registry above).
+				// resolveModel is not passed — provisionSession uses env-based
+				// fallback when resolvedModel is absent from the call params.
+				dispatcherDeps: {
+					adapterPool,
+					workspace: workspaceAdapter,
+					workspaceBasePath,
+					mcpBridgeRegistry,
+					mcpBaseUrl,
 				},
 			}),
 		adapterPool,

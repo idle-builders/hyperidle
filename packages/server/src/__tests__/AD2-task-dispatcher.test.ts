@@ -32,11 +32,10 @@ import {
 	users,
 } from "@hyperidle/db";
 import {
-	type DispatchQueueEntry,
-	type DispatchQueueSnapshot,
 	getDispatchQueueSnapshot,
-	type TaskDispatcherDeps,
 	registerTaskDispatcher,
+	setProvisionSessionFn,
+	type TaskDispatcherDeps,
 } from "@hyperidle/fabric";
 import {
 	EventBus,
@@ -48,12 +47,25 @@ import {
 	type SessionHandle,
 	type SessionResult,
 } from "@hyperidle/shared";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AdapterMeta } from "../harness/adapter-pool.js";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
+import { provisionSession } from "../services/session-provisioning.js";
 import { transitionTask } from "../services/task-state-machine.js";
+
+// ---------------------------------------------------------------------------
+// Wire provisionSession into the fabric registry so the task dispatcher can
+// call it without a circular dynamic import (which fails in Vite SSR tests).
+//
+// @lore AD2: task-dispatcher.ts is in @hyperidle/fabric; provisionSession is in
+// @hyperidle/server. A static import would be circular (server→fabric→server).
+// A dynamic import() fails in Vite SSR because it re-evaluates @hyperidle/fabric
+// while it is still being initialized, causing TDZ errors. The registry pattern
+// (provision-registry.ts) is the correct fix: this test file, which already
+// imports from both packages, registers the function once at module load time.
+// ---------------------------------------------------------------------------
+setProvisionSessionFn(provisionSession);
 
 // ---------------------------------------------------------------------------
 // Minimal capturing harness adapter (no real LLM calls)
@@ -243,7 +255,7 @@ describe("AD2 AC1: session auto-provisioned when task accepted with ownerAgentId
 
 	it("creates a session row when task transitions proposed → accepted with ownerAgentId set", async () => {
 		const adapter = new CapturingHarnessAdapter();
-		const { agentId, taskId, teamId } = await seedDomain(db, "ac1-a");
+		const { agentId, taskId } = await seedDomain(db, "ac1-a");
 
 		const deps = makeDispatcherDeps(db, eventBus, adapter, workspaceBasePath);
 		dispose = registerTaskDispatcher(deps);
@@ -252,18 +264,15 @@ describe("AD2 AC1: session auto-provisioned when task accepted with ownerAgentId
 		await transitionTask(db, eventBus, taskId, "accepted");
 
 		// Wait for async dispatch to complete
-		await vi.waitFor(async () => {
-			const sessionRows = await db
-				.select()
-				.from(sessions)
-				.where(eq(sessions.taskId, taskId));
-			expect(sessionRows.length).toBeGreaterThanOrEqual(1);
-		}, { timeout: 10_000 });
+		await vi.waitFor(
+			async () => {
+				const sessionRows = await db.select().from(sessions).where(eq(sessions.taskId, taskId));
+				expect(sessionRows.length).toBeGreaterThanOrEqual(1);
+			},
+			{ timeout: 10_000 },
+		);
 
-		const sessionRows = await db
-			.select()
-			.from(sessions)
-			.where(eq(sessions.taskId, taskId));
+		const sessionRows = await db.select().from(sessions).where(eq(sessions.taskId, taskId));
 
 		expect(sessionRows[0]?.agentId).toBe(agentId);
 		// Session was created — it may be active or done (fast harness completes immediately)
@@ -282,12 +291,49 @@ describe("AD2 AC1: session auto-provisioned when task accepted with ownerAgentId
 		const agentId = `ad2-agent-${suffix}`;
 		const threadId = `ad2-thread-${suffix}`;
 
-		await db.insert(teams).values({ id: teamId, name: "AD2 Team no-owner", phase: "build", createdAt: NOW });
-		await db.insert(teamMembers).values({ id: teamMembersId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
-		await db.insert(users).values({ id: agentId, kind: "ai", name: "AD2 No Owner Agent", role: "builder", status: "active", maxConcurrentSessions: 4, teamId: teamMembersId, createdAt: NOW });
-		await db.insert(bets).values({ id: betId, teamId, description: "AD2 no-owner bet", status: "active", createdAt: NOW });
-		await db.insert(threads).values({ id: threadId, hostKind: "task", hostId: taskId, initiatorId: agentId, participants: JSON.stringify([agentId]), lastActiveAt: NOW, createdAt: NOW });
-		await db.insert(tasks).values({ id: taskId, betId, teamId, title: "Task no owner", state: "proposed", ownerAgentId: null, threadId, createdAt: NOW, updatedAt: NOW });
+		await db
+			.insert(teams)
+			.values({ id: teamId, name: "AD2 Team no-owner", phase: "build", createdAt: NOW });
+		await db
+			.insert(teamMembers)
+			.values({ id: teamMembersId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
+		await db.insert(users).values({
+			id: agentId,
+			kind: "ai",
+			name: "AD2 No Owner Agent",
+			role: "builder",
+			status: "active",
+			maxConcurrentSessions: 4,
+			teamId: teamMembersId,
+			createdAt: NOW,
+		});
+		await db.insert(bets).values({
+			id: betId,
+			teamId,
+			description: "AD2 no-owner bet",
+			status: "active",
+			createdAt: NOW,
+		});
+		await db.insert(threads).values({
+			id: threadId,
+			hostKind: "task",
+			hostId: taskId,
+			initiatorId: agentId,
+			participants: JSON.stringify([agentId]),
+			lastActiveAt: NOW,
+			createdAt: NOW,
+		});
+		await db.insert(tasks).values({
+			id: taskId,
+			betId,
+			teamId,
+			title: "Task no owner",
+			state: "proposed",
+			ownerAgentId: null,
+			threadId,
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
 
 		const deps = makeDispatcherDeps(db, eventBus, adapter, workspaceBasePath);
 		dispose = registerTaskDispatcher(deps);
@@ -295,7 +341,7 @@ describe("AD2 AC1: session auto-provisioned when task accepted with ownerAgentId
 		await transitionTask(db, eventBus, taskId, "accepted");
 
 		// Allow time for any async processing
-		await new Promise(resolve => setTimeout(resolve, 200));
+		await new Promise((resolve) => setTimeout(resolve, 200));
 
 		const sessionRows = await db.select().from(sessions).where(eq(sessions.taskId, taskId));
 		expect(sessionRows).toHaveLength(0);
@@ -341,24 +387,82 @@ describe("AD2 AC2: session provisioned for new agent after handoff", () => {
 		const threadId = "ad2-thread-handoff";
 		const sessionAId = "ad2-session-a-handoff";
 
-		await db.insert(teams).values({ id: teamId, name: "AD2 Handoff Team", phase: "build", createdAt: NOW });
-		await db.insert(teamMembers).values({ id: teamMembersId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
-		await db.insert(users).values({ id: agentAId, kind: "ai", name: "Agent A", role: "builder", status: "active", maxConcurrentSessions: 4, teamId: teamMembersId, harnessType: "builtin", createdAt: NOW });
-		await db.insert(users).values({ id: agentBId, kind: "ai", name: "Agent B", role: "builder", status: "active", maxConcurrentSessions: 4, teamId: teamMembersId, harnessType: "builtin", createdAt: NOW });
-		await db.insert(bets).values({ id: betId, teamId, description: "Handoff bet", status: "active", createdAt: NOW });
-		await db.insert(threads).values({ id: threadId, hostKind: "task", hostId: taskId, initiatorId: agentAId, participants: JSON.stringify([agentAId, agentBId]), lastActiveAt: NOW, createdAt: NOW });
-		await db.insert(tasks).values({ id: taskId, betId, teamId, title: "Handoff Task", state: "in_progress", ownerAgentId: agentAId, threadId, createdAt: NOW, updatedAt: NOW });
+		await db
+			.insert(teams)
+			.values({ id: teamId, name: "AD2 Handoff Team", phase: "build", createdAt: NOW });
+		await db
+			.insert(teamMembers)
+			.values({ id: teamMembersId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
+		await db.insert(users).values({
+			id: agentAId,
+			kind: "ai",
+			name: "Agent A",
+			role: "builder",
+			status: "active",
+			maxConcurrentSessions: 4,
+			teamId: teamMembersId,
+			harnessType: "builtin",
+			createdAt: NOW,
+		});
+		await db.insert(users).values({
+			id: agentBId,
+			kind: "ai",
+			name: "Agent B",
+			role: "builder",
+			status: "active",
+			maxConcurrentSessions: 4,
+			teamId: teamMembersId,
+			harnessType: "builtin",
+			createdAt: NOW,
+		});
+		await db
+			.insert(bets)
+			.values({ id: betId, teamId, description: "Handoff bet", status: "active", createdAt: NOW });
+		await db.insert(threads).values({
+			id: threadId,
+			hostKind: "task",
+			hostId: taskId,
+			initiatorId: agentAId,
+			participants: JSON.stringify([agentAId, agentBId]),
+			lastActiveAt: NOW,
+			createdAt: NOW,
+		});
+		await db.insert(tasks).values({
+			id: taskId,
+			betId,
+			teamId,
+			title: "Handoff Task",
+			state: "in_progress",
+			ownerAgentId: agentAId,
+			threadId,
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
 
 		// Agent A has an active session
-		await db.insert(sessions).values({ id: sessionAId, taskId, agentId: agentAId, modelTier: "workhorse", startedAt: NOW, state: "active", cost: 0 });
+		await db.insert(sessions).values({
+			id: sessionAId,
+			taskId,
+			agentId: agentAId,
+			modelTier: "workhorse",
+			startedAt: NOW,
+			state: "active",
+			cost: 0,
+		});
 
 		const deps = makeDispatcherDeps(db, eventBus, adapter, workspaceBasePath);
 		dispose = registerTaskDispatcher(deps);
 
 		// Simulate handoff: end agent A's session + change ownerAgentId to agent B
 		// (in real code, handoff-protocol.ts does this in a transaction before emitting)
-		await db.update(sessions).set({ state: "done", endedAt: NOW }).where(eq(sessions.id, sessionAId));
-		await db.update(tasks).set({ ownerAgentId: agentBId, updatedAt: NOW }).where(eq(tasks.id, taskId));
+		await db
+			.update(sessions)
+			.set({ state: "done", endedAt: NOW })
+			.where(eq(sessions.id, sessionAId));
+		await db
+			.update(tasks)
+			.set({ ownerAgentId: agentBId, updatedAt: NOW })
+			.where(eq(tasks.id, taskId));
 
 		// Emit session_ended event (the trigger for handoff re-dispatch)
 		eventBus.emit({
@@ -372,13 +476,16 @@ describe("AD2 AC2: session provisioned for new agent after handoff", () => {
 		});
 
 		// Wait for dispatcher to create agent B's session
-		await vi.waitFor(async () => {
-			const newSessions = await db
-				.select()
-				.from(sessions)
-				.where(and(eq(sessions.taskId, taskId), eq(sessions.agentId, agentBId)));
-			expect(newSessions.length).toBeGreaterThanOrEqual(1);
-		}, { timeout: 10_000 });
+		await vi.waitFor(
+			async () => {
+				const newSessions = await db
+					.select()
+					.from(sessions)
+					.where(and(eq(sessions.taskId, taskId), eq(sessions.agentId, agentBId)));
+				expect(newSessions.length).toBeGreaterThanOrEqual(1);
+			},
+			{ timeout: 10_000 },
+		);
 
 		const agentBSessions = await db
 			.select()
@@ -418,7 +525,7 @@ describe("AD2 AC3: cost cap exceeded causes task to queue (no session provisione
 
 		// Create agent with cost cap already exceeded: costActual > costCap
 		const { agentId, taskId } = await seedDomain(db, "ac3", {
-			costCap: 100,    // $1 in cents
+			costCap: 100, // $1 in cents
 			costActual: 200, // $2 in cents — already over cap
 		});
 
@@ -428,11 +535,11 @@ describe("AD2 AC3: cost cap exceeded causes task to queue (no session provisione
 		await transitionTask(db, eventBus, taskId, "accepted");
 
 		// Allow time for dispatcher to process the event
-		await new Promise(resolve => setTimeout(resolve, 300));
+		await new Promise((resolve) => setTimeout(resolve, 300));
 
 		// Assert: task is queued (snapshot has entry)
 		const snapshot = getDispatchQueueSnapshot();
-		const queuedEntry = snapshot.entries.find(e => e.taskId === taskId);
+		const queuedEntry = snapshot.entries.find((e) => e.taskId === taskId);
 		expect(queuedEntry).toBeDefined();
 		expect(queuedEntry?.agentId).toBe(agentId);
 
@@ -441,7 +548,10 @@ describe("AD2 AC3: cost cap exceeded causes task to queue (no session provisione
 		expect(sessionRows).toHaveLength(0);
 
 		// Assert: task remains in accepted state (not stranded in in_progress)
-		const [taskRow] = await db.select({ state: tasks.state }).from(tasks).where(eq(tasks.id, taskId));
+		const [taskRow] = await db
+			.select({ state: tasks.state })
+			.from(tasks)
+			.where(eq(tasks.id, taskId));
 		expect(taskRow?.state).toBe("accepted");
 	});
 });
@@ -507,19 +617,16 @@ describe("AD2 AC4: concurrency limit causes queuing; session dispatch on capacit
 		await transitionTask(db, eventBus, taskId, "accepted");
 
 		// Allow time for dispatcher to process
-		await new Promise(resolve => setTimeout(resolve, 300));
+		await new Promise((resolve) => setTimeout(resolve, 300));
 
 		// Assert: task is in queue
 		const snapshot = getDispatchQueueSnapshot();
-		const queuedEntry = snapshot.entries.find(e => e.taskId === taskId);
+		const queuedEntry = snapshot.entries.find((e) => e.taskId === taskId);
 		expect(queuedEntry).toBeDefined();
 		expect(queuedEntry?.agentId).toBe(agentId);
 
 		// Assert: no new session for our task yet
-		const taskSessions = await db
-			.select()
-			.from(sessions)
-			.where(eq(sessions.taskId, taskId));
+		const taskSessions = await db.select().from(sessions).where(eq(sessions.taskId, taskId));
 		expect(taskSessions).toHaveLength(0);
 	});
 
@@ -557,11 +664,11 @@ describe("AD2 AC4: concurrency limit causes queuing; session dispatch on capacit
 		// Transition task to accepted — goes into queue
 		await transitionTask(db, eventBus, taskId, "accepted");
 
-		await new Promise(resolve => setTimeout(resolve, 200));
+		await new Promise((resolve) => setTimeout(resolve, 200));
 
 		// Confirm it's queued
 		const snapshotBefore = getDispatchQueueSnapshot();
-		expect(snapshotBefore.entries.some(e => e.taskId === taskId)).toBe(true);
+		expect(snapshotBefore.entries.some((e) => e.taskId === taskId)).toBe(true);
 
 		// Now end the blocking session — frees capacity
 		await db
@@ -581,13 +688,13 @@ describe("AD2 AC4: concurrency limit causes queuing; session dispatch on capacit
 		});
 
 		// Wait for the queued task to be dispatched
-		await vi.waitFor(async () => {
-			const taskSessions = await db
-				.select()
-				.from(sessions)
-				.where(eq(sessions.taskId, taskId));
-			expect(taskSessions.length).toBeGreaterThanOrEqual(1);
-		}, { timeout: 10_000 });
+		await vi.waitFor(
+			async () => {
+				const taskSessions = await db.select().from(sessions).where(eq(sessions.taskId, taskId));
+				expect(taskSessions.length).toBeGreaterThanOrEqual(1);
+			},
+			{ timeout: 10_000 },
+		);
 
 		const taskSessions = await db.select().from(sessions).where(eq(sessions.taskId, taskId));
 		expect(taskSessions[0]?.agentId).toBe(agentId);
@@ -649,10 +756,13 @@ describe("AD2 AC5: non-coding tasks dispatch with builtin harness (no git worksp
 		await transitionTask(db, eventBus, taskId, "accepted");
 
 		// Wait for session creation
-		await vi.waitFor(async () => {
-			const sessionRows = await db.select().from(sessions).where(eq(sessions.taskId, taskId));
-			expect(sessionRows.length).toBeGreaterThanOrEqual(1);
-		}, { timeout: 10_000 });
+		await vi.waitFor(
+			async () => {
+				const sessionRows = await db.select().from(sessions).where(eq(sessions.taskId, taskId));
+				expect(sessionRows.length).toBeGreaterThanOrEqual(1);
+			},
+			{ timeout: 10_000 },
+		);
 
 		// Assert: builtin adapter was selected (captured configs have workspacePath)
 		expect(adapter.capturedConfigs).toHaveLength(1);
@@ -704,10 +814,13 @@ describe("AD2 AC5: non-coding tasks dispatch with builtin harness (no git worksp
 
 		await transitionTask(db, eventBus, taskId, "accepted");
 
-		await vi.waitFor(async () => {
-			const sessionRows = await db.select().from(sessions).where(eq(sessions.taskId, taskId));
-			expect(sessionRows.length).toBeGreaterThanOrEqual(1);
-		}, { timeout: 10_000 });
+		await vi.waitFor(
+			async () => {
+				const sessionRows = await db.select().from(sessions).where(eq(sessions.taskId, taskId));
+				expect(sessionRows.length).toBeGreaterThanOrEqual(1);
+			},
+			{ timeout: 10_000 },
+		);
 
 		// Builtin adapter was used, not claude-code
 		expect(builtinAdapter.capturedConfigs).toHaveLength(1);
@@ -743,16 +856,14 @@ describe("AD2 AC6: GET /api/dispatch-queue returns queued entries", () => {
 		const adapter = new CapturingHarnessAdapter();
 
 		// Create two agents both at concurrency limit to ensure queuing
-		const { agentId: agentId1, taskId: taskId1, teamId: teamId1 } = await seedDomain(
-			db,
-			"ac6-task1",
-			{ maxConcurrentSessions: 1 },
-		);
-		const { agentId: agentId2, taskId: taskId2 } = await seedDomain(
-			db,
-			"ac6-task2",
-			{ maxConcurrentSessions: 1 },
-		);
+		const {
+			agentId: agentId1,
+			taskId: taskId1,
+			teamId: teamId1,
+		} = await seedDomain(db, "ac6-task1", { maxConcurrentSessions: 1 });
+		const { agentId: agentId2, taskId: taskId2 } = await seedDomain(db, "ac6-task2", {
+			maxConcurrentSessions: 1,
+		});
 
 		// Fill concurrency for both agents
 		const blockingSession1Id = "ad2-block-session1";
@@ -761,11 +872,43 @@ describe("AD2 AC6: GET /api/dispatch-queue returns queued entries", () => {
 		const blockingTask2Id = "ad2-block-task2";
 
 		// Insert blocking tasks (need bet + team to exist)
-		await db.insert(tasks).values({ id: blockingTask1Id, betId: `ad2-bet-ac6-task1`, teamId: `ad2-team-ac6-task1`, title: "Block 1", state: "in_progress", createdAt: NOW, updatedAt: NOW });
-		await db.insert(tasks).values({ id: blockingTask2Id, betId: `ad2-bet-ac6-task2`, teamId: `ad2-team-ac6-task2`, title: "Block 2", state: "in_progress", createdAt: NOW, updatedAt: NOW });
+		await db.insert(tasks).values({
+			id: blockingTask1Id,
+			betId: `ad2-bet-ac6-task1`,
+			teamId: `ad2-team-ac6-task1`,
+			title: "Block 1",
+			state: "in_progress",
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
+		await db.insert(tasks).values({
+			id: blockingTask2Id,
+			betId: `ad2-bet-ac6-task2`,
+			teamId: `ad2-team-ac6-task2`,
+			title: "Block 2",
+			state: "in_progress",
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
 
-		await db.insert(sessions).values({ id: blockingSession1Id, taskId: blockingTask1Id, agentId: agentId1, modelTier: "workhorse", startedAt: NOW, state: "active", cost: 0 });
-		await db.insert(sessions).values({ id: blockingSession2Id, taskId: blockingTask2Id, agentId: agentId2, modelTier: "workhorse", startedAt: NOW, state: "active", cost: 0 });
+		await db.insert(sessions).values({
+			id: blockingSession1Id,
+			taskId: blockingTask1Id,
+			agentId: agentId1,
+			modelTier: "workhorse",
+			startedAt: NOW,
+			state: "active",
+			cost: 0,
+		});
+		await db.insert(sessions).values({
+			id: blockingSession2Id,
+			taskId: blockingTask2Id,
+			agentId: agentId2,
+			modelTier: "workhorse",
+			startedAt: NOW,
+			state: "active",
+			cost: 0,
+		});
 
 		const deps = makeDispatcherDeps(db, eventBus, adapter, workspaceBasePath);
 		dispose = registerTaskDispatcher(deps);
@@ -775,15 +918,15 @@ describe("AD2 AC6: GET /api/dispatch-queue returns queued entries", () => {
 		await transitionTask(db, eventBus, taskId2, "accepted");
 
 		// Allow time for dispatch attempts
-		await new Promise(resolve => setTimeout(resolve, 300));
+		await new Promise((resolve) => setTimeout(resolve, 300));
 
 		const snapshot = getDispatchQueueSnapshot();
 
 		// Both tasks should be in queue
 		expect(snapshot.entries.length).toBeGreaterThanOrEqual(2);
 
-		const entry1 = snapshot.entries.find(e => e.taskId === taskId1);
-		const entry2 = snapshot.entries.find(e => e.taskId === taskId2);
+		const entry1 = snapshot.entries.find((e) => e.taskId === taskId1);
+		const entry2 = snapshot.entries.find((e) => e.taskId === taskId2);
 
 		expect(entry1).toBeDefined();
 		expect(entry1?.agentId).toBe(agentId1);
@@ -853,7 +996,7 @@ describe("AD2 AC-idempotency: dispatcher restart does not duplicate sessions", (
 		dispose = registerTaskDispatcher(deps);
 
 		// Allow time for startup sweep to process
-		await new Promise(resolve => setTimeout(resolve, 300));
+		await new Promise((resolve) => setTimeout(resolve, 300));
 
 		// Assert: no new session was created (existing active session blocks re-dispatch)
 		const allSessions = await db.select().from(sessions).where(eq(sessions.taskId, taskId));
@@ -866,7 +1009,7 @@ describe("AD2 AC-idempotency: dispatcher restart does not duplicate sessions", (
 
 	it("re-registering dispatcher does not create duplicate sessions for already-dispatched tasks", async () => {
 		const adapter = new CapturingHarnessAdapter();
-		const { agentId, taskId } = await seedDomain(db, "ac-idem2");
+		const { taskId } = await seedDomain(db, "ac-idem2");
 
 		const deps = makeDispatcherDeps(db, eventBus, adapter, workspaceBasePath);
 
@@ -876,10 +1019,13 @@ describe("AD2 AC-idempotency: dispatcher restart does not duplicate sessions", (
 		await transitionTask(db, eventBus, taskId, "accepted");
 
 		// Wait for first dispatch
-		await vi.waitFor(async () => {
-			const sessionRows = await db.select().from(sessions).where(eq(sessions.taskId, taskId));
-			expect(sessionRows.length).toBeGreaterThanOrEqual(1);
-		}, { timeout: 10_000 });
+		await vi.waitFor(
+			async () => {
+				const sessionRows = await db.select().from(sessions).where(eq(sessions.taskId, taskId));
+				expect(sessionRows.length).toBeGreaterThanOrEqual(1);
+			},
+			{ timeout: 10_000 },
+		);
 
 		const sessionsAfterFirst = await db.select().from(sessions).where(eq(sessions.taskId, taskId));
 		const firstCount = sessionsAfterFirst.length;
@@ -891,7 +1037,7 @@ describe("AD2 AC-idempotency: dispatcher restart does not duplicate sessions", (
 		dispose = registerTaskDispatcher(deps);
 
 		// Allow time for startup sweep
-		await new Promise(resolve => setTimeout(resolve, 300));
+		await new Promise((resolve) => setTimeout(resolve, 300));
 
 		const sessionsAfterSecond = await db.select().from(sessions).where(eq(sessions.taskId, taskId));
 		// Should have exactly the same number of sessions (no duplicates)
@@ -930,7 +1076,10 @@ describe("AD2 Task1 prerequisite: provisionSession succeeds when task already in
 		const { agentId, taskId, teamId } = await seedDomain(db, "t1-prereq");
 
 		// Set task to in_progress directly (simulates task state after handoff)
-		await db.update(tasks).set({ state: "in_progress", updatedAt: NOW }).where(eq(tasks.id, taskId));
+		await db
+			.update(tasks)
+			.set({ state: "in_progress", updatedAt: NOW })
+			.where(eq(tasks.id, taskId));
 
 		const pool = makeBuiltinPool(adapter);
 		const workspace = new LocalWorkspaceAdapter();
@@ -948,7 +1097,10 @@ describe("AD2 Task1 prerequisite: provisionSession succeeds when task already in
 		expect(result.outcome).toBe("completed");
 
 		// Task state should still be in_progress (no double-transition)
-		const [taskRow] = await db.select({ state: tasks.state }).from(tasks).where(eq(tasks.id, taskId));
+		const [taskRow] = await db
+			.select({ state: tasks.state })
+			.from(tasks)
+			.where(eq(tasks.id, taskId));
 		// After the harness completes, session ends. The dispatcher doesn't advance task state beyond in_progress.
 		// The task stays in_progress; session transitions reflect the session state, not task state.
 		expect(["in_progress", "done"]).toContain(taskRow?.state);
