@@ -22,6 +22,7 @@ describe("routeToFounder", () => {
 		expect(routeToFounder("practice_facilitator")).toBe("cpo");
 	});
 
+	// @lore AD8a: role string "chief_of_staff" stays — AD8b renames it to "assistant".
 	it("routes 'chief_of_staff' to both", () => {
 		expect(routeToFounder("chief_of_staff")).toBe("both");
 	});

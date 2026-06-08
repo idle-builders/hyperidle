@@ -16,6 +16,7 @@ export type HintId =
 	| "add-credential"
 	| "knowledge-empty"
 	| "review-verdict"
+// @lore AD8a: hint ID "rail-indicators" renamed in AD8b when Rail is removed from hint system.
 	| "rail-indicators"
 	| "review-agents"; // AB3: agent customization first-time hint
 

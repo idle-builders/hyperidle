@@ -8,7 +8,7 @@
  *   AC-14: Coach thread is returned (not duplicated) on subsequent requests.
  *   AC-15: X-Identity header controls which user's coach thread is resolved.
  *   AC-16: Response includes thread, messages, headMessageId, identities.
- *   AC-17: identities include agent-coc with name "Chief of Staff".
+ *   AC-17: identities include agent-coc with name "System Agent".
  *
  * Tests import createTestApp which mounts ALL routes including the new
  * /api/threads/coach route (not yet mounted — will FAIL until green phase).
@@ -57,13 +57,13 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		createdAt: now,
 	});
 
-	// Seed seed-agent-cos (well-known CoC agent ID — the existing seed agent).
+	// Seed seed-agent-cos (well-known system agent ID — the existing seed agent).
 	// @lore L21: The architecture plan used "agent-coc" but the actual seed
 	// and reviewer feedback use "seed-agent-cos". The coach route constant
 	// must match the real seeded agent id.
 	await db.insert(users).values({
 		id: "seed-agent-cos",
-		name: "Chief of Staff",
+		name: "System Agent",
 		role: "chief_of_staff",
 		status: "active",
 		createdAt: now,
@@ -141,7 +141,7 @@ describe("L21 — GET /api/threads/coach", () => {
 			expect(body.thread.hostId).toBe("u-founder");
 		});
 
-		test("thread participants include both user and seed-agent-cos (CoC agent)", async ({
+		test("thread participants include both user and seed-agent-cos (system agent)", async ({
 			db,
 			app,
 		}) => {
@@ -228,7 +228,7 @@ describe("L21 — GET /api/threads/coach", () => {
 		});
 	});
 
-	describe("AC-17: identities include seed-agent-cos (CoC agent)", () => {
+	describe("AC-17: identities include seed-agent-cos (system agent)", () => {
 		test("identities response contains seed-agent-cos with name 'Chief of Staff'", async ({
 			db,
 			app,
@@ -243,7 +243,7 @@ describe("L21 — GET /api/threads/coach", () => {
 			};
 			expect(body.identities).toHaveProperty("seed-agent-cos");
 			const cocIdentity = body.identities["seed-agent-cos"];
-			expect(cocIdentity?.name).toBe("Chief of Staff");
+			expect(cocIdentity?.name).toBe("System Agent");
 		});
 
 		test("identities response contains the user identity", async ({ db, app }) => {

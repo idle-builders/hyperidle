@@ -185,6 +185,7 @@ class WsClient {
 	 */
 	private messageMatchesTopic(msg: Record<string, unknown>, topic: string): boolean {
 		// Global topics: any event from the server goes to matching subscribers
+		// @lore AD8a: WebSocket topic "rail" stays — renamed in AD8b.
 		if (topic === "conversations" || topic === "work" || topic === "rail") {
 			// Server only broadcasts to subscribed topics — all messages received
 			// on this socket are for our subscribed topics. Match all for global topics.

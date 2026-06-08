@@ -192,6 +192,7 @@ export function isRedactedPayload(payload: unknown): payload is RedactedPayload 
 
 // ── Configuration classifier ────────────────────────────────────
 
+// @lore AD8a: ThreadConfiguration "coach" member renamed to "assistant" in AD8b.
 export type ThreadConfiguration = "dm" | "coach" | "feed" | "attached";
 
 /**

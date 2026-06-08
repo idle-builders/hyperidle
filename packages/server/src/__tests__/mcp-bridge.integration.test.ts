@@ -135,6 +135,7 @@ describe("createMcpBridge (AC1: tool registration)", () => {
 		const handle = await createTestDb();
 		const eventBus = new EventBus();
 		const ctx = makeContext(handle.db, eventBus);
+		// @lore AD8a: role string "chief_of_staff" stays — AD8b renames it to "assistant".
 		// Use chief_of_staff to get all 15 tools
 		registry = buildToolRegistry(ctx, { role: "chief_of_staff" });
 

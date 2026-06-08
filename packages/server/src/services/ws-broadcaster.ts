@@ -57,6 +57,7 @@ export class WsBroadcaster {
 		});
 
 		const unsub5 = this.eventBus.on("cost_cap_warning", (event) => {
+			// @lore AD8a: WebSocket topic "rail" renamed to "indicators" in AD8b.
 			this.broadcast("rail", JSON.stringify(event));
 		});
 
@@ -86,6 +87,7 @@ export class WsBroadcaster {
 			this.broadcast("work", JSON.stringify(event));
 		});
 		const unsub12 = this.eventBus.on("propagation_failed", (event) => {
+			// @lore AD8a: WebSocket topic "rail" renamed to "indicators" in AD8b.
 			this.broadcast("rail", JSON.stringify(event));
 		});
 
@@ -218,6 +220,7 @@ export class WsBroadcaster {
  * topic membership is cached in `WsBroadcaster`'s set.
  */
 export function createDbSubscribeAuthorizer(db: HyperIdleDb): SubscribeAuthorizer {
+	// @lore AD8a: WebSocket topic "rail" renamed in AD8b. See ws-broadcaster.ts.
 	const GLOBAL_TOPICS = new Set(["conversations", "work", "rail"]);
 	return {
 		async canSubscribe(senderId: string, topic: string): Promise<boolean> {

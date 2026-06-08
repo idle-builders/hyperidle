@@ -128,7 +128,7 @@ describe("score_attention tool", () => {
 		await seedKnowledgeItem(db, "ki-3");
 		// I2 B1-B4: registry now requires explicit role. score_attention is
 		// facilitator-only — use chief_of_staff so it stays visible.
-		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
+		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" // @lore AD8a: role string renamed to "assistant" in AD8b });
 
 		const neg = await registry.invoke("score_attention", {
 			target: "knowledge_item",

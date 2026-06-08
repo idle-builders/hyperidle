@@ -1,17 +1,20 @@
 /**
  * L21 — GET /api/threads/coach
  *
- * Resolve-or-create the current user's coach thread.
- * The coach thread: hostKind="user", hostId=<userId>, pinned=1.
+ * Resolve-or-create the current user's assistant thread.
+ * The assistant thread: hostKind="user", hostId=<userId>, pinned=1.
  *
- * @lore L21: The CoC agent id is "seed-agent-cos" (existing seed), NOT
+ * @lore L21: The system agent id is "seed-agent-cos" (existing seed), NOT
  * "agent-coc". The architecture plan used "agent-coc" but the reviewer
  * feedback and the actual seed data both use "seed-agent-cos". This is the
- * well-known constant for the Chief of Staff facilitator agent.
+ * well-known constant for the system agent (formerly Chief of Staff).
  *
  * @lore L21: This endpoint MUST be mounted BEFORE the generic /:id route in
  * the threads router so that GET /api/threads/coach is not swallowed by the
  * /:id handler as if "coach" were a thread id. See app.ts for mount order.
+ *
+ * @lore AD8a: Route path /api/threads/coach and function name createCoachRoutes stay
+ * as-is — AD8b renames the route to /api/threads/assistant and the file to assistant.ts.
  */
 
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
@@ -23,9 +26,10 @@ import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js"
 
 const SENDER_HEADER = "X-Identity";
 
-/** @lore L21: The CoC agent uses the existing seed-agent-cos id (not "agent-coc"). */
+/** @lore L21: The system agent uses the existing seed-agent-cos id (not "agent-coc"). */
+// @lore AD8a: COC_AGENT_ID and COC_AGENT_ROLE stay as-is — AD8b renames them when restructuring this file.
 const COC_AGENT_ID = "seed-agent-cos";
-const COC_AGENT_DISPLAY_NAME = "Chief of Staff";
+const COC_AGENT_DISPLAY_NAME = "System Agent";
 const COC_AGENT_ROLE = "chief_of_staff";
 
 /**

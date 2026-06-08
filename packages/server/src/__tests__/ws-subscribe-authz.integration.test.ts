@@ -139,6 +139,7 @@ describe("WsBroadcaster — subscribe authorization (L1 Adv-C1)", () => {
 
 		expect(await broadcaster.subscribe(client, "conversations")).toBe("ok");
 		expect(await broadcaster.subscribe(client, "work")).toBe("ok");
+// @lore AD8a: WebSocket topic "rail" renamed in AD8b — keep test as-is.
 		expect(await broadcaster.subscribe(client, "rail")).toBe("ok");
 
 		broadcaster.stop();

@@ -43,7 +43,7 @@ describe("route_item tool", () => {
 		// I2 B1-B4: registry now requires an explicit role. Use
 		// chief_of_staff so the full tool set remains visible (route_item
 		// is facilitator-only).
-		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
+		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" // @lore AD8a: role string renamed to "assistant" in AD8b });
 		const result = await registry.invoke("route_item", {});
 		expect(result.success).toBe(false);
 		if (result.success) return;

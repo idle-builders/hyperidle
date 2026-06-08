@@ -22,5 +22,6 @@ export function routeItem(item: {
 	if (item.kind === "chat") {
 		return "conversations";
 	}
+	// @lore AD8a: return value "rail" renamed in AD8b — behavioral change.
 	return "rail";
 }

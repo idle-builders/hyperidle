@@ -82,7 +82,7 @@ async function seedFixture(db: HyperIdleDb): Promise<void> {
 
 	await db.insert(users).values({
 		id: "agent-cos",
-		name: "Chief of Staff",
+		name: "System Agent",
 		role: "chief_of_staff",
 		status: "active",
 		maxConcurrentSessions: 5,

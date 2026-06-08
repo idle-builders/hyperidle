@@ -37,6 +37,7 @@ describe("P5 AC2: HINT_CATALOG", () => {
 			"add-credential",
 			"knowledge-empty",
 			"review-verdict",
+		// @lore AD8a: hint ID "rail-indicators" renamed in AD8b.
 			"rail-indicators",
 			"review-agents", // AB3: agent customization first-time hint
 		];

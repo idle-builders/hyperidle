@@ -104,5 +104,6 @@ export const createConflictReviewTool: ToolDefinition<CreateConflictReviewInput>
 		"Record a conflict between a proposed knowledge edit and the current stored version. Creates an open knowledge_conflicts row routed to the relevant facilitator's queue.",
 	inputSchema: createConflictReviewInputSchema,
 	handler,
+	// @lore AD8a: role string "chief_of_staff" renamed to "assistant" in AD8b.
 	roles: ["chief_of_staff", "practice_facilitator", "product_manager"],
 };

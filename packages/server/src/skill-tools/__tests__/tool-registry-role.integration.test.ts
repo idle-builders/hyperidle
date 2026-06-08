@@ -86,7 +86,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 	});
 
 	test("B3: chief_of_staff registry includes all 15 tools", ({ db }) => {
-		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
+		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" // @lore AD8a: role string renamed to "assistant" in AD8b });
 		const names = registry.definitions.map((d) => d.name).sort();
 		// 12 base + create_task (R5) + submit_review (R5) + create_artifact (R6) = 15
 		expect(names).toHaveLength(15);

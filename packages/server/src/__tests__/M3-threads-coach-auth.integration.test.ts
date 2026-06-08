@@ -45,10 +45,10 @@ describe("M3 — Coach route readSenderId uses auth context, not DEFAULT_FOUNDER
 		const now = new Date().toISOString();
 		await seedFounderUser(db, "test-founder-1");
 
-		// Seed the CoC agent (required for coach route)
+		// Seed the system agent (required for coach route)
 		await db.insert(users).values({
 			id: "seed-agent-cos",
-			name: "Chief of Staff",
+			name: "System Agent",
 			role: "chief_of_staff",
 			status: "active",
 			createdAt: now,
