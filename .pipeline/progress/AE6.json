@@ -1,0 +1,19 @@
+{
+  "id": "AE6",
+  "status": "in_progress",
+  "currentStep": "3-build",
+  "startedAt": "2026-06-08T12:00:00Z",
+  "pr": 230,
+  "branch": "feat/AE6-artifact-extensibility",
+  "phases": {
+    "concept": "done",
+    "design": "done",
+    "architecture": "done",
+    "design-critique": "done",
+    "architecture-critique": "done",
+    "write-tests": "pending",
+    "write-code": "pending",
+    "review": "pending",
+    "retro": "pending"
+  }
+}
