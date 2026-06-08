@@ -46,6 +46,7 @@ import { useFetch } from "../hooks/useFetch";
 import { useHint } from "../hooks/useHints";
 import { apiFetch } from "../services/api-fetch.js";
 import { relativeTime } from "../utils/relative-time";
+import { SCOPE_PILL_OPTIONS, type ScopePillOption } from "../utils/scope-labels";
 
 type KnowledgeTab = "triage" | "curated";
 
@@ -414,9 +415,9 @@ interface KnowledgeListContentProps {
 	tab: KnowledgeTab;
 	sort: KnowledgeSortOption;
 	scope: KnowledgeScope;
-	scopeOptions: string[];
-	selectedScopeFilter: string | null;
-	onScopeFilterChange: (value: string | null) => void;
+	/** AD6: The currently selected static scope pill option. null = "All". */
+	selectedScopePill: ScopePillOption | null;
+	onScopePillChange: (pill: ScopePillOption | null) => void;
 	onSortChange: (option: KnowledgeSortOption) => void;
 	grouped: Array<{
 		topic: string;
@@ -440,9 +441,8 @@ function KnowledgeListContent({
 	tab,
 	sort,
 	scope,
-	scopeOptions,
-	selectedScopeFilter,
-	onScopeFilterChange,
+	selectedScopePill,
+	onScopePillChange,
 	onSortChange,
 	grouped,
 	triageItems,
@@ -535,46 +535,41 @@ function KnowledgeListContent({
 
 	return (
 		<div className="max-w-[800px] mx-auto w-full">
-			<fieldset
-				className="flex items-center gap-[6px] flex-wrap px-[24px] pt-[12px] border-none p-0 m-0"
+			{/*
+			 * AD6: Static 4-pill scope filter row.
+			 * All → no filter | Shared → factory+product+practice | Team → team | Private → user.
+			 * Replaced the old dynamic pills derived from scopeOptions.
+			 */}
+			<div
+				role="radiogroup"
+				className="flex items-center gap-[6px] flex-wrap px-[24px] pt-[12px]"
 				data-testid="knowledge-scope-pills"
 				aria-label="Filter by scope"
 			>
-				<button
-					type="button"
-					data-testid="scope-pill-all"
-					data-active={selectedScopeFilter === null ? "true" : "false"}
-					className={
-						selectedScopeFilter === null
-							? "border-[1.5px] border-[var(--accent-primary)] bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)] px-[12px] py-[4px] rounded-[var(--r-pill)] text-[12px] font-[500] cursor-pointer"
-							: "border-[1.5px] border-[var(--border-default)] text-[var(--text-secondary)] px-[12px] py-[4px] rounded-[var(--r-pill)] text-[12px] font-[500] cursor-pointer bg-transparent"
-					}
-					onClick={() => onScopeFilterChange(null)}
-				>
-					All
-				</button>
-				{scopeOptions.map((scopeKind) => {
-					const isActive = selectedScopeFilter === scopeKind;
+				{SCOPE_PILL_OPTIONS.map((pill) => {
+					const isAll = pill.filterKinds === null;
+					const isActive = isAll ? selectedScopePill === null : selectedScopePill?.id === pill.id;
 					return (
+						// biome-ignore lint/a11y/useSemanticElements: button+role="radio" used for pill styling with aria-checked; <input type="radio"> cannot be styled as a pill without full custom CSS reset
 						<button
-							key={scopeKind}
+							key={pill.id}
 							type="button"
-							data-testid={`scope-pill-${scopeKind.toLowerCase()}`}
+							role="radio"
+							aria-checked={isActive}
+							data-testid={`scope-pill-${pill.id}`}
 							data-active={isActive ? "true" : "false"}
 							className={
 								isActive
 									? "border-[1.5px] border-[var(--accent-primary)] bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)] px-[12px] py-[4px] rounded-[var(--r-pill)] text-[12px] font-[500] cursor-pointer"
 									: "border-[1.5px] border-[var(--border-default)] text-[var(--text-secondary)] px-[12px] py-[4px] rounded-[var(--r-pill)] text-[12px] font-[500] cursor-pointer bg-transparent"
 							}
-							onClick={() =>
-								onScopeFilterChange(selectedScopeFilter === scopeKind ? null : scopeKind)
-							}
+							onClick={() => onScopePillChange(isAll ? null : pill)}
 						>
-							{scopeKind}
+							{pill.label}
 						</button>
 					);
 				})}
-			</fieldset>
+			</div>
 
 			<span data-testid="knowledge-scope-indicator" className="sr-only">
 				{scope}
@@ -773,7 +768,11 @@ export function KnowledgeList({
 
 	const [tab, setTab] = useState<KnowledgeTab>("triage");
 	const tabManuallySelectedRef = useRef(false);
-	const [selectedScopeFilter, setSelectedScopeFilter] = useState<string | null>(null);
+	/**
+	 * AD6: selectedScopePill — null means "All" (no filter).
+	 * Replaces the old dynamic string-keyed selectedScopeFilter.
+	 */
+	const [selectedScopePill, setSelectedScopePill] = useState<ScopePillOption | null>(null);
 	const [searchQuery, setSearchQuery] = useState("");
 	// Y4: optimistic removals — items removed from triage immediately after action
 	const [optimisticRemovals, setOptimisticRemovals] = useState<Set<string>>(new Set());
@@ -786,19 +785,19 @@ export function KnowledgeList({
 
 	const allItems = useMemo<ApiKnowledgeItem[]>(() => apiData?.items ?? [], [apiData]);
 
-	const scopeOptions = useMemo<string[]>(() => {
-		const seen = new Set<string>();
-		for (const item of allItems) {
-			if (item.scopeKind && item.scopeKind !== "user") {
-				seen.add(item.scopeKind);
-			}
-		}
-		return Array.from(seen).sort();
-	}, [allItems]);
+	/**
+	 * AD6: Apply static scope filter before triage/curated split.
+	 * null pill → all items | specific pill → only items whose scopeKind is in filterKinds.
+	 */
+	const scopeFilteredItems = useMemo<ApiKnowledgeItem[]>(() => {
+		if (selectedScopePill === null || selectedScopePill.filterKinds === null) return allItems;
+		const allowed = new Set<string>(selectedScopePill.filterKinds);
+		return allItems.filter((i) => i.scopeKind !== undefined && allowed.has(i.scopeKind));
+	}, [allItems, selectedScopePill]);
 
 	// Y4: triage includes both draft and needs_human items, sorted by attentionScore descending
 	const triageItems = useMemo<ApiKnowledgeItem[]>(() => {
-		const raw = allItems.filter(
+		const raw = scopeFilteredItems.filter(
 			(i) => (i.status === "draft" || i.status === "needs_human") && !optimisticRemovals.has(i.id),
 		);
 		// Sort by attentionScore descending — items with no score go last
@@ -810,11 +809,11 @@ export function KnowledgeList({
 			if (bScore === null) return -1;
 			return bScore - aScore;
 		});
-	}, [allItems, optimisticRemovals]);
+	}, [scopeFilteredItems, optimisticRemovals]);
 
 	const curatedItems = useMemo<ApiKnowledgeItem[]>(
-		() => allItems.filter((i) => i.status === "active"),
-		[allItems],
+		() => scopeFilteredItems.filter((i) => i.status === "active"),
+		[scopeFilteredItems],
 	);
 
 	const grouped = useMemo(() => groupByTopic(curatedItems), [curatedItems]);
@@ -1031,9 +1030,8 @@ export function KnowledgeList({
 						tab={tab}
 						sort={sort}
 						scope={scope}
-						scopeOptions={scopeOptions}
-						selectedScopeFilter={selectedScopeFilter}
-						onScopeFilterChange={setSelectedScopeFilter}
+						selectedScopePill={selectedScopePill}
+						onScopePillChange={setSelectedScopePill}
 						onSortChange={handleSortChange}
 						grouped={grouped}
 						triageItems={triageItems}

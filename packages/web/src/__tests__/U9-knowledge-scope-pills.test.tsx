@@ -1,14 +1,13 @@
 /**
  * U9 AC-6: KnowledgeList scope pills + Hearth styling.
  *
- * W3 AC-33: Scope pills are data-driven — derived from unique scopeKind values
- * in the item list (not hardcoded Practices/Products/Factory). The "All" pill
- * is always first.
+ * AD6: Scope pills are now static (All/Shared/Team/Private), NOT data-driven.
+ * The "All" pill is always first; the others are always present regardless of
+ * which scopeKind values appear in the item list.
  *
  * Verifies:
  * - Scope pill filter bar appears
- * - "All" pill is always present
- * - Additional pills appear based on scopeKind values in items
+ * - All 4 static pills (All/Shared/Team/Private) are always present
  * - Active scope pill uses data-active="true"
  * - Inactive scope pills use data-active="false"
  * - Triage/Curated tabs use aria-selected for active state
@@ -32,7 +31,7 @@ vi.mock("../hooks/useFetch", () => ({
 					body: "body",
 					format: "markdown",
 					status: "active",
-					scopeKind: "practice",
+					scopeKind: "factory",
 					version: 1,
 					updatedBy: "agent",
 					createdAt: "2024-01-01T00:00:00Z",
@@ -46,7 +45,7 @@ vi.mock("../hooks/useFetch", () => ({
 					body: "body",
 					format: "markdown",
 					status: "active",
-					scopeKind: "product",
+					scopeKind: "user",
 					version: 1,
 					updatedBy: "agent",
 					createdAt: "2024-01-02T00:00:00Z",
@@ -60,7 +59,7 @@ vi.mock("../hooks/useFetch", () => ({
 					body: "body",
 					format: "markdown",
 					status: "active",
-					scopeKind: "factory",
+					scopeKind: "team",
 					version: 1,
 					updatedBy: "agent",
 					createdAt: "2024-01-03T00:00:00Z",
@@ -94,22 +93,22 @@ describe("U9 AC-6: KnowledgeList scope pills", () => {
 		expect(scopePills.querySelector('[data-testid="scope-pill-all"]')).not.toBeNull();
 	});
 
-	it('renders "practice" scope pill (data-driven from scopeKind)', () => {
+	it('renders "Shared" static scope pill (AD6: replaces data-driven practice/product/factory)', () => {
 		renderPage();
 		const scopePills = screen.getByTestId("knowledge-scope-pills");
-		expect(scopePills.querySelector('[data-testid="scope-pill-practice"]')).not.toBeNull();
+		expect(scopePills.querySelector('[data-testid="scope-pill-shared"]')).not.toBeNull();
 	});
 
-	it('renders "product" scope pill (data-driven from scopeKind)', () => {
+	it('renders "Team" static scope pill', () => {
 		renderPage();
 		const scopePills = screen.getByTestId("knowledge-scope-pills");
-		expect(scopePills.querySelector('[data-testid="scope-pill-product"]')).not.toBeNull();
+		expect(scopePills.querySelector('[data-testid="scope-pill-team"]')).not.toBeNull();
 	});
 
-	it('renders "factory" scope pill (data-driven from scopeKind)', () => {
+	it('renders "Private" static scope pill', () => {
 		renderPage();
 		const scopePills = screen.getByTestId("knowledge-scope-pills");
-		expect(scopePills.querySelector('[data-testid="scope-pill-factory"]')).not.toBeNull();
+		expect(scopePills.querySelector('[data-testid="scope-pill-private"]')).not.toBeNull();
 	});
 
 	it("default active scope pill (All) has data-active=true", () => {
@@ -120,19 +119,19 @@ describe("U9 AC-6: KnowledgeList scope pills", () => {
 
 	it("inactive scope pills have data-active=false", () => {
 		renderPage();
-		const practicePill = screen.getByTestId("scope-pill-practice");
-		expect(practicePill).toHaveAttribute("data-active", "false");
+		const sharedPill = screen.getByTestId("scope-pill-shared");
+		expect(sharedPill).toHaveAttribute("data-active", "false");
 	});
 
 	it("clicking a scope pill makes it active (data-active=true)", async () => {
 		const user = userEvent.setup();
 		renderPage();
 
-		await user.click(screen.getByTestId("scope-pill-practice"));
+		await user.click(screen.getByTestId("scope-pill-shared"));
 
 		await waitFor(() => {
-			const practicePill = screen.getByTestId("scope-pill-practice");
-			expect(practicePill).toHaveAttribute("data-active", "true");
+			const sharedPill = screen.getByTestId("scope-pill-shared");
+			expect(sharedPill).toHaveAttribute("data-active", "true");
 			const allPill = screen.getByTestId("scope-pill-all");
 			expect(allPill).toHaveAttribute("data-active", "false");
 		});

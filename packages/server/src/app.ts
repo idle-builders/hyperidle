@@ -19,6 +19,7 @@ import { createPublicAuthRoutes } from "./routes/auth-public.js";
 import { createBetRoutes } from "./routes/bets.js";
 import { createConversationRoutes } from "./routes/conversations.js";
 import { createCredentialRoutes } from "./routes/credentials.js";
+import { createDispatchQueueRoutes } from "./routes/dispatch-queue-routes.js";
 import { createGitExportRoutes } from "./routes/git-export-routes.js";
 import { authHealth, health } from "./routes/health.js";
 import { createHintRoutes } from "./routes/hints.js";
@@ -40,6 +41,7 @@ import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import { createWorkersRoutes } from "./routes/workers.js";
 import type { CredentialResolver } from "./services/credential-resolver.js";
+import { checkAndUnblockDependents } from "./services/dependency-watcher.js";
 import {
 	type ObservabilityConfig,
 	readObservabilityConfig,
@@ -425,6 +427,8 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 			api.route("/workers", createWorkersRoutes(options.adapterPool));
 		}
 		api.route("/git-export", createGitExportRoutes(options.db));
+		// AD2: dispatch queue observability — GET /api/dispatch-queue
+		api.route("/dispatch-queue", createDispatchQueueRoutes());
 		api.route("/credentials", createCredentialRoutes(options.db));
 		api.route("/hint-progress", createHintRoutes(options.db));
 		// O3: defaultNotificationAdapterFactory moved to @hyperidle/fabric (imported at top).
@@ -506,6 +510,22 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		// boundary is now enforced by the package dependency graph.
 		const strategyDisposers = options.strategyBootstrap?.({ db, eventBus }) ?? [];
 		disposers.push(...strategyDisposers);
+
+		// AD5 AC-2: Auto-unblock dependent tasks when a task transitions to "done".
+		// @lore AD5 option-A: handler lives in app.ts (server layer) — fabric cannot
+		// import from server (layer violation). checkAndUnblockDependents is already
+		// in the server package so no cross-package dependency issue exists here.
+		const unsubDepWatcher = eventBus.on("task_state_changed", (event) => {
+			if (event.toState === "done") {
+				void checkAndUnblockDependents(db, eventBus, event.taskId).catch((err) => {
+					appLogger.error("[dep-watcher] unblock failed for task", {
+						taskId: event.taskId,
+						error: err instanceof Error ? err.message : String(err),
+					});
+				});
+			}
+		});
+		disposers.push(unsubDepWatcher);
 
 		disposers.push(() => {
 			activityBuffer.stop();

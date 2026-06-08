@@ -14,13 +14,12 @@ function renderPage(knowledgeId: string): ReturnType<typeof render> {
 }
 
 describe("KnowledgeDetail — J7 metadata bar", () => {
-	it("renders kind Tag in the metadata bar", () => {
-		// k6 is a practice-scope item with kind='principle' and the full J7 shape
+	it("kind does NOT appear in the metadata bar (AD6: removed)", () => {
+		// k6 is a practice-scope item with kind='principle'
+		// AD6: kind Tag removed from the metadata bar header — it is internal taxonomy.
 		renderPage("k6");
 		const bar = screen.getByTestId("knowledge-metadata-bar");
-		const tag = within(bar).getByText("principle");
-		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
-		expect(tag.className).toContain("text-secondary");
+		expect(within(bar).queryByText("principle")).not.toBeInTheDocument();
 	});
 
 	it("renders status StatusChip in the metadata bar (active→HEALTHY)", () => {
@@ -30,22 +29,20 @@ describe("KnowledgeDetail — J7 metadata bar", () => {
 		expect(within(bar).getByText("HEALTHY")).toBeInTheDocument();
 	});
 
-	it("renders layer Tag in the metadata bar", () => {
+	it("layer does NOT appear in the metadata bar (AD6: removed)", () => {
+		// AD6: layer Tag removed from the metadata bar header.
 		renderPage("k6");
 		const bar = screen.getByTestId("knowledge-metadata-bar");
-		const tag = within(bar).getByText("L1");
-		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
-		expect(tag.className).toContain("text-secondary");
+		expect(within(bar).queryByText("L1")).not.toBeInTheDocument();
 	});
 
-	it("renders decision kind + active status from fixture data", () => {
-		// AC validation scenario 1: "decision" kind + "active" status shown on a
-		// detail page renders decision Tag + active StatusChip in the metadata bar.
+	it("renders active status chip in metadata bar (decision kind not in bar — AD6)", () => {
+		// AD6: kind Tag removed from the metadata bar. Status chip still appears.
 		renderPage("k11");
 		const bar = screen.getByTestId("knowledge-metadata-bar");
-		// "decision" is a TagKind with its own tint, so it won't have badge-neutral
-		const decisionTag = within(bar).getByText("decision");
-		expect(decisionTag).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
+		// kind "decision" must NOT appear in the metadata bar
+		expect(within(bar).queryByText("decision")).not.toBeInTheDocument();
+		// StatusChip still appears
 		expect(within(bar).getByText("HEALTHY")).toBeInTheDocument();
 	});
 

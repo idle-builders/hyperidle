@@ -54,14 +54,15 @@ describe("KnowledgeDetail — T8 body is not a <pre>", () => {
 		expect(screen.getByText(/JWT-based authentication with refresh tokens/)).toBeInTheDocument();
 	});
 
-	it("'company' and 'belief' tags are still rendered in the metadata bar", () => {
-		// Protected legacy assertion — these come from LEGACY_DETAILS constants
-		// and must continue to render even after the <pre> is replaced.
-		// W3: these values appear in both the metadata bar Tag and the metadata aside;
-		// use getAllByText to handle multiple occurrences.
+	it("'belief' kind still renders in the metadata aside Kind row (AD6: layer 'company' removed)", () => {
+		// AD6: kind Tag removed from the header metadata bar; layer Tag removed entirely.
+		// "belief" (kind) still appears in the metadata aside Kind row.
+		// "company" (layer) is no longer rendered anywhere — layer is internal taxonomy.
 		renderPage("k1");
-		expect(screen.getAllByText("company").length).toBeGreaterThanOrEqual(1);
-		expect(screen.getAllByText("belief").length).toBeGreaterThanOrEqual(1);
+		const aside = screen.getByTestId("knowledge-metadata-aside");
+		expect(aside.textContent).toContain("belief");
+		// company (layer) must NOT appear anywhere
+		expect(screen.queryByText("company")).not.toBeInTheDocument();
 	});
 });
 
