@@ -19,21 +19,18 @@
 
 // hearth-internal-padding
 import { BodyEditor } from "@hyperidle/design-system";
-import { SCOPE_KINDS, SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/shared";
+import type { ScopeKind } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { apiFetch } from "../services/api-fetch.js";
-
-const KNOWLEDGE_KINDS = ["pattern", "decision", "failure", "brief"] as const;
-type KnowledgeKind = (typeof KNOWLEDGE_KINDS)[number];
+import { SCOPE_CREATE_OPTIONS, type ScopeCreateOption } from "../utils/scope-labels.js";
 
 interface CreateKnowledgePayload {
 	title: string;
 	body: string;
 	format: string;
 	scopeKind: ScopeKind;
-	scopeId?: string;
 	updatedBy: string;
 }
 
@@ -47,13 +44,17 @@ export function KnowledgeCreate(): JSX.Element {
 
 	const [title, setTitle] = useState("");
 	const [body, setBody] = useState("");
-	const [kind, setKind] = useState<KnowledgeKind>("pattern");
-	const [scopeKind, setScopeKind] = useState<ScopeKind>("factory");
-	const [scopeId, setScopeId] = useState("");
+	/**
+	 * AD6: 3-pill scope picker replaces 7-item SCOPE_KINDS dropdown.
+	 * Default: Shared (→ factory scopeKind).
+	 */
+	const [selectedScope, setSelectedScope] = useState<ScopeCreateOption>(SCOPE_CREATE_OPTIONS[0]);
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	const needsScopeId = SCOPES_REQUIRING_ID.has(scopeKind);
+	// Team pill is disabled when the user has no teamId
+	const hasTeam = (user as { teamId?: string } | null | undefined)?.teamId !== undefined;
+
 	const canCreate = title.trim().length > 0 && body.trim().length > 0 && !submitting;
 
 	const handleCreate = async (): Promise<void> => {
@@ -68,13 +69,9 @@ export function KnowledgeCreate(): JSX.Element {
 			title: trimmedTitle,
 			body: trimmedBody,
 			format: "markdown",
-			scopeKind,
+			scopeKind: selectedScope.scopeKind,
 			updatedBy: user?.id ?? "human",
 		};
-
-		if (needsScopeId && scopeId.trim()) {
-			payload.scopeId = scopeId.trim();
-		}
 
 		const res = await apiFetch("/api/knowledge", {
 			method: "POST",
@@ -191,105 +188,56 @@ export function KnowledgeCreate(): JSX.Element {
 						</div>
 					</div>
 
-					{/* Right: metadata card */}
+					{/*
+					 * Right: metadata card.
+					 * AD6: Kind selector removed. Scope replaced by 3-pill segmented control.
+					 * Shared → factory | Team → team (disabled without teamId) | Private → user.
+					 */}
 					<aside className="shrink-0 flex flex-col gap-[12px]" style={{ width: "240px" }}>
 						<div
 							className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[12px]"
 							data-testid="knowledge-create-metadata"
 						>
-							{/* Kind selector */}
-							<div className="flex flex-col gap-[6px]">
-								<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-									Kind
-								</span>
-								<select
-									aria-label="Knowledge kind"
-									data-testid="knowledge-create-kind"
-									value={kind}
-									onChange={(e) => setKind(e.target.value as KnowledgeKind)}
-									disabled={submitting}
-									style={{
-										fontFamily: "var(--font-sans)",
-										fontSize: "13px",
-										padding: "7px 10px",
-										border: "1.5px solid var(--border-default)",
-										borderRadius: "var(--r-default)",
-										background: "var(--surface-elevated)",
-										color: "var(--text-primary)",
-										outline: "none",
-										width: "100%",
-									}}
-								>
-									{KNOWLEDGE_KINDS.map((k) => (
-										<option key={k} value={k}>
-											{k.charAt(0).toUpperCase() + k.slice(1)}
-										</option>
-									))}
-								</select>
-							</div>
-
-							{/* Scope kind selector */}
+							{/* Scope picker — 3 static pills */}
 							<div className="flex flex-col gap-[6px]">
 								<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
 									Scope
 								</span>
-								<select
-									aria-label="Scope kind"
-									data-testid="knowledge-create-scope-kind"
-									value={scopeKind}
-									onChange={(e) => {
-										setScopeKind(e.target.value as ScopeKind);
-										setScopeId("");
-									}}
-									disabled={submitting}
-									style={{
-										fontFamily: "var(--font-sans)",
-										fontSize: "13px",
-										padding: "7px 10px",
-										border: "1.5px solid var(--border-default)",
-										borderRadius: "var(--r-default)",
-										background: "var(--surface-elevated)",
-										color: "var(--text-primary)",
-										outline: "none",
-										width: "100%",
-									}}
-								>
-									{SCOPE_KINDS.map((sk) => (
-										<option key={sk} value={sk}>
-											{sk.charAt(0).toUpperCase() + sk.slice(1)}
-										</option>
-									))}
-								</select>
-							</div>
-
-							{/* Scope ID — only when the selected scope requires an id */}
-							{needsScopeId && (
-								<div className="flex flex-col gap-[6px]">
-									<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-										{scopeKind.charAt(0).toUpperCase() + scopeKind.slice(1)} ID
-									</span>
-									<input
-										type="text"
-										aria-label={`${scopeKind} ID`}
-										data-testid="knowledge-create-scope-id"
-										placeholder={`Enter ${scopeKind} ID…`}
-										value={scopeId}
-										onChange={(e) => setScopeId(e.target.value)}
-										disabled={submitting}
-										style={{
-											fontFamily: "var(--font-sans)",
-											fontSize: "13px",
-											padding: "7px 10px",
-											border: "1.5px solid var(--border-default)",
-											borderRadius: "var(--r-default)",
-											background: "var(--surface-elevated)",
-											color: "var(--text-primary)",
-											outline: "none",
-											width: "100%",
-										}}
-									/>
+								{/* biome-ignore lint/a11y/useSemanticElements: fieldset cannot use flex gap classes without resetting UA styles; div+role="group" is the established pattern in KnowledgeList */}
+								<div className="flex gap-[6px] flex-wrap" role="group" aria-label="Scope">
+									{SCOPE_CREATE_OPTIONS.map((option) => {
+										const isTeam = option.id === "team";
+										const isDisabled = submitting || (isTeam && !hasTeam);
+										const isActive = selectedScope.id === option.id;
+										return (
+											<button
+												key={option.id}
+												type="button"
+												data-testid={`scope-pill-create-${option.id}`}
+												data-active={isActive ? "true" : "false"}
+												disabled={isDisabled}
+												onClick={() => {
+													if (!isDisabled) setSelectedScope(option);
+												}}
+												className={
+													isActive
+														? "border-[1.5px] border-[var(--accent-primary)] bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)] px-[12px] py-[4px] rounded-[var(--r-pill)] text-[12px] font-[500] cursor-pointer"
+														: isDisabled
+															? "border-[1.5px] border-[var(--border-default)] text-[var(--text-secondary)] opacity-40 px-[12px] py-[4px] rounded-[var(--r-pill)] text-[12px] font-[500] cursor-not-allowed bg-transparent"
+															: "border-[1.5px] border-[var(--border-default)] text-[var(--text-secondary)] px-[12px] py-[4px] rounded-[var(--r-pill)] text-[12px] font-[500] cursor-pointer bg-transparent"
+												}
+												title={
+													isTeam && !hasTeam
+														? "Join a team to use team-scoped knowledge"
+														: undefined
+												}
+											>
+												{option.label}
+											</button>
+										);
+									})}
 								</div>
-							)}
+							</div>
 						</div>
 					</aside>
 				</div>

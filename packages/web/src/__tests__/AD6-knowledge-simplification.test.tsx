@@ -60,6 +60,21 @@ vi.mock("../shell/HostThreadSection", () => ({
 	HostThreadSection: () => <div data-testid="host-thread-section" />,
 }));
 
+// Mock useHostThread — called directly in KnowledgeDetail (not only inside HostThreadSection)
+vi.mock("../hooks/useHostThread.js", () => ({
+	useHostThread: () => ({ data: null, isLoading: false, error: null }),
+}));
+
+// Mock useKnowledgeItem — KnowledgeDetail uses this to fetch live data
+vi.mock("../hooks/useKnowledgeItem.js", () => ({
+	useKnowledgeItem: () => ({ data: null, isLoading: false, error: null }),
+}));
+
+// Mock useAutoSave — KnowledgeDetail uses this for auto-save on edit
+vi.mock("../hooks/useAutoSave.js", () => ({
+	useAutoSave: () => ({ status: "idle", save: vi.fn() }),
+}));
+
 // Mock useCurrentUser
 vi.mock("../hooks/useCurrentUser.js", () => ({
 	useCurrentUser: () => ({ user: { id: "user-1", name: "Test User" } }),
@@ -489,9 +504,7 @@ describe("AD6 — KnowledgeCreate 3-pill scope picker", () => {
 		renderCreate();
 
 		// The old SCOPE_KINDS select had aria-label "Scope kind"
-		expect(
-			screen.queryByRole("combobox", { name: /scope kind/i }),
-		).not.toBeInTheDocument();
+		expect(screen.queryByRole("combobox", { name: /scope kind/i })).not.toBeInTheDocument();
 	});
 
 	it("Shared pill is active by default", () => {
@@ -527,9 +540,7 @@ describe("AD6 — KnowledgeCreate no kind selector", () => {
 		renderCreate();
 
 		// The old kind select had aria-label "Knowledge kind"
-		expect(
-			screen.queryByRole("combobox", { name: /knowledge kind/i }),
-		).not.toBeInTheDocument();
+		expect(screen.queryByRole("combobox", { name: /knowledge kind/i })).not.toBeInTheDocument();
 	});
 
 	it("does NOT render kind-related labels", () => {
