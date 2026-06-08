@@ -1,0 +1,19 @@
+{
+  "id": "AD1",
+  "title": "Wire Review Routing to Humans",
+  "status": "done",
+  "currentStep": "shipped",
+  "startedAt": "2026-06-08T00:00:00Z",
+  "completedAt": "2026-06-08T01:30:00Z",
+  "worktree": ".worktrees/AD1",
+  "branch": "feat/AD1-wire-review-routing",
+  "pr": 216,
+  "phases": [
+    { "phase": "0-setup", "status": "done" },
+    { "phase": "1-designer", "status": "done" },
+    { "phase": "2-reviewer-critique", "status": "done", "score": 7.6 },
+    { "phase": "3-builder", "status": "done" },
+    { "phase": "4-reviewer-code", "status": "done", "verdict": "DONE" },
+    { "phase": "5-retro", "status": "done" }
+  ]
+}
