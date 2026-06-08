@@ -184,10 +184,14 @@
 				"**/*.test.tsx",
 				"**/*.spec.ts",
 				"**/*.spec.tsx",
-				"**/*.stories.tsx"
+				"**/*.stories.tsx",
+				"**/test-fixtures.ts"
 			],
 			"linter": {
 				"rules": {
+					"correctness": {
+						"noEmptyPattern": "off"
+					},
 					"suspicious": {
 						"noEmptyBlockStatements": "off",
 						"useAwait": "off"
