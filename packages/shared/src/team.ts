@@ -48,7 +48,7 @@ export interface RosterMember {
 	name: string;
 	role: string; // agents.role
 	isLead: boolean; // matches leadAgentId on the team
-	/** AB3: "team" | "strategy" | "personal" | null. Null when category is unset. */
+	/** AB3: "team" | "strategy" | "individual" | null. Null when category is unset. */
 	agentCategory: string | null;
 	// AB2: operational fields (optional for backward compat with pre-AB2 fixtures)
 	operationalStatus?: AgentOperationalStatus;

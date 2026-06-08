@@ -88,7 +88,7 @@ describe("AGENT_ROLE_CATALOG", () => {
 		const categoriesInCatalog = new Set(AGENT_ROLE_CATALOG.map((e) => e.category));
 		expect(categoriesInCatalog.has("team")).toBe(true);
 		expect(categoriesInCatalog.has("strategy")).toBe(true);
-		expect(categoriesInCatalog.has("personal")).toBe(true);
+		expect(categoriesInCatalog.has("individual")).toBe(true);
 	});
 
 	it("type annotation: each entry is assignable to AgentRoleCatalogEntry", () => {
@@ -124,7 +124,7 @@ describe("findRoleCatalogEntry", () => {
 	it("returns the entry for chief_of_staff", () => {
 		const entry = findRoleCatalogEntry("chief_of_staff");
 		expect(entry).toBeDefined();
-		expect(entry?.category).toBe("personal");
+		expect(entry?.category).toBe("individual");
 	});
 });
 
@@ -250,10 +250,10 @@ describe("AGENT_CATEGORIES", () => {
 		expect(AGENT_CATEGORIES).toHaveLength(3);
 	});
 
-	it("contains team, strategy, personal", () => {
+	it("contains team, strategy, individual", () => {
 		expect(AGENT_CATEGORIES).toContain("team");
 		expect(AGENT_CATEGORIES).toContain("strategy");
-		expect(AGENT_CATEGORIES).toContain("personal");
+		expect(AGENT_CATEGORIES).toContain("individual");
 	});
 
 	it("type annotation: AgentCategory is assignable", () => {

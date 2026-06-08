@@ -521,16 +521,19 @@ export async function seedConflict(
 export async function seedBuiltinAgents(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 
+	// @lore AD8a: name renamed "Chief of Staff" → "System Agent" (display string purge).
+	// role: "chief_of_staff" stays — AD8b renames it to "assistant".
+	// agentCategory: "individual" (was "personal" — AD8a renamed the value).
 	await db
 		.insert(users)
 		.values({
 			id: "seed-agent-cos",
 			kind: "ai",
-			name: "Chief of Staff (eval stub)",
+			name: "System Agent (eval stub)",
 			role: "chief_of_staff",
 			status: "active",
-			// AB0: chief_of_staff is a personal-category agent (factory-wide, per-founder).
-			agentCategory: "personal",
+			// AB0: chief_of_staff is an individual-category agent (factory-wide, per-founder).
+			agentCategory: "individual",
 			createdAt: now,
 		})
 		.onConflictDoNothing();

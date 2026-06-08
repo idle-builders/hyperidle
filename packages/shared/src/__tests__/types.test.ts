@@ -78,7 +78,7 @@ describe("status-union runtime constants", () => {
 			expect(AGENT_CATEGORIES).toHaveLength(3);
 			expect(AGENT_CATEGORIES).toContain("team");
 			expect(AGENT_CATEGORIES).toContain("strategy");
-			expect(AGENT_CATEGORIES).toContain("personal");
+			expect(AGENT_CATEGORIES).toContain("individual");
 		});
 
 		it("UserRole is a string type (open vocabulary)", () => {
