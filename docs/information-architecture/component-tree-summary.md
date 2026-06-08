@@ -75,8 +75,8 @@ App Shell (Sidebar | Main)
 │       ├── Portfolio Overview (Level 1 — default)
 │       │   ├── Product status cards × N
 │       │   ├── Portfolio metrics bar
-│       │   ├── Cycle management card
-│       │   └── Past cycle summaries
+│       │   ├── Portfolio metrics bar (cost burn, decisions required)
+│       │   └── Shipped bet summaries (cost variance per bet)
 │       │
 │       ├── Team View (Level 2)
 │       │   ├── Canvas (top)

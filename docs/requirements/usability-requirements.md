@@ -48,7 +48,7 @@ The human interface ships as a single native macOS desktop application ("the Fac
 
 **UX-5.1** The Work view has a five-level drill-down hierarchy: Portfolio (all products), Product (= Team — canvas + task list), Bet Detail (pitch as styled blocks + tasks + artifacts + thread), Task, and Session (jump-out to harness). Navigation drills down; breadcrumbs navigate back up.
 
-**UX-5.2** Portfolio Overview shows product status cards (with velocity sparklines), portfolio-level metrics, and cycle management (phase indicator, advance action, past cycle summaries with cost variance).
+**UX-5.2** Portfolio Overview shows product status cards (with velocity sparklines), portfolio-level metrics, and continuous bet tracking (active bet count, decisions required, cost burn rate, and cost variance per shipped bet).
 
 **UX-5.3** Team View has two areas: a bet canvas (top, showing committed bets with capacity indicator) and a task kanban (bottom, showing all tasks across current bets in four columns: Planned, In Progress, Blocked, Done).
 
