@@ -22,17 +22,11 @@ import { BodyEditor } from "@hyperidle/design-system";
 import type { ScopeKind } from "@hyperidle/shared";
 import { type JSX, useEffect, useRef, useState } from "react";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
-import { useTeams } from "../../hooks/useTeams.js";
+
 import { apiFetch } from "../../services/api-fetch.js";
 import { SCOPE_CREATE_OPTIONS, type ScopeCreateOption } from "../../utils/scope-labels.js";
 
 // AD3 AC-3: Simplified scope options shown when there is exactly 1 team (solo/single-team mode).
-// "factory" maps to "Shared" and "user" maps to "Personal" — the two scopes that don't
-// require a team or project context to be meaningful for a solo founder.
-const SOLO_SCOPES: ReadonlyArray<{ value: ScopeKind; label: string }> = [
-	{ value: "factory", label: "Shared" },
-	{ value: "user", label: "Personal" },
-];
 
 export interface KnowledgeCreateDialogProps {
 	open: boolean;
@@ -53,9 +47,6 @@ export function KnowledgeCreateDialog({
 }: KnowledgeCreateDialogProps): JSX.Element | null {
 	const dialogRef = useRef<HTMLDialogElement>(null);
 	const { user } = useCurrentUser();
-	// AD3 AC-3: single-team detection — simplify scope picker when there's only 1 team.
-	const { data: teamsData } = useTeams();
-	const isSingleTeam = (teamsData?.teams?.length ?? 0) === 1;
 
 	const [title, setTitle] = useState("");
 	const [body, setBody] = useState("");
@@ -195,21 +186,6 @@ export function KnowledgeCreateDialog({
 						<span className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-subtle)] text-[12px] bg-[var(--surface-container)] text-[var(--text-secondary)] w-fit">
 							{lockedScopeKind}
 						</span>
-					) : isSingleTeam ? (
-						// AD3 AC-3: single-team — show only Shared (factory) and Personal (user)
-						<select
-							className="select select-bordered select-sm"
-							aria-label="Scope kind"
-							value={scopeKind}
-							onChange={(e) => setScopeKind(e.target.value as ScopeKind)}
-							disabled={submitting}
-						>
-							{SOLO_SCOPES.map(({ value, label }) => (
-								<option key={value} value={value}>
-									{label}
-								</option>
-							))}
-						</select>
 					) : (
 						/* AD6: 3-pill scope picker — same pattern as KnowledgeCreate */
 						<div role="radiogroup" aria-label="Scope" className="flex gap-[6px] flex-wrap">
