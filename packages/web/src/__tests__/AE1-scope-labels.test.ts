@@ -5,12 +5,7 @@
  * and SCOPE_PILL_OPTIONS must place "product" in the Team pill's filterKinds,
  * not the Shared pill's.
  *
- * These tests intentionally fail against the current implementation and will
- * pass once scope-labels.ts is updated in the green phase.
- *
- * Note: AD6-knowledge-simplification.test.tsx line 661 currently asserts
- * scopeKindToLabel("product") === "Shared". That assertion encodes the OLD
- * behavior; it will be updated in the green phase alongside this implementation.
+ * These tests verify the AE1 implementation is correct.
  */
 
 import { describe, expect, it } from "vitest";
@@ -22,7 +17,6 @@ import { SCOPE_PILL_OPTIONS, scopeKindToLabel } from "../utils/scope-labels";
 
 describe("AE1 — scopeKindToLabel: product → Team", () => {
 	it('scopeKindToLabel("product") returns "Team"', () => {
-		// FAILS currently: returns "Shared"
 		expect(scopeKindToLabel("product")).toBe("Team");
 	});
 
@@ -51,7 +45,6 @@ describe("AE1 — scopeKindToLabel: product → Team", () => {
 describe("AE1 — SCOPE_PILL_OPTIONS: Team pill includes product", () => {
 	it('Team pill filterKinds includes "product"', () => {
 		const teamPill = SCOPE_PILL_OPTIONS.find((o) => o.id === "team");
-		// FAILS currently: filterKinds is ["team"], missing "product"
 		expect(teamPill?.filterKinds).toContain("product");
 	});
 
@@ -62,7 +55,6 @@ describe("AE1 — SCOPE_PILL_OPTIONS: Team pill includes product", () => {
 
 	it('Shared pill filterKinds does NOT include "product"', () => {
 		const sharedPill = SCOPE_PILL_OPTIONS.find((o) => o.id === "shared");
-		// FAILS currently: filterKinds is ["factory", "product", "practice"] — product present
 		expect(sharedPill?.filterKinds).not.toContain("product");
 	});
 

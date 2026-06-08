@@ -2,7 +2,7 @@
 
 ### Daily Check-In (3 minutes)
 
-1. Glance at the **Rail**: blocked agents, cost burn, unread count
+1. Glance at the **Sidebar**: blocked agents, cost burn, unread count
 2. Handle **blocking reviews** in Conversations (15 sec each, use keyboard shortcuts)
 3. Check the **Chief of Staff** thread for anything notable
 4. Done

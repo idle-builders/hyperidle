@@ -5,9 +5,10 @@
  * and the create flow scope picker.
  *
  * @lore AD6: Scope vocabulary was collapsed from 7 SCOPE_KINDS to 3 user-facing
- * choices. "Shared" maps to factory+product+practice (all org-wide scopes).
- * "Team" maps to the team scope (disabled when user has no teamId).
- * "Private" maps to user scope (only visible to the creator).
+ * choices. "Shared" maps to factory+practice (org-wide scopes).
+ * "Team" maps to team+product (U1 renamed Products → Teams; product scope now
+ * displays under the Team label). "Private" maps to user scope (only visible to
+ * the creator).
  */
 
 import type { ScopeKind } from "@hyperidle/shared";

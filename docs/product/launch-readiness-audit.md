@@ -915,7 +915,7 @@ See Lifecycle Propagation under Work View.
 **Discoverability:** 1
 **Test Coverage:** `dependency-watcher.perf.test.ts`
 
-**What works:** Watches task dependencies and marks tasks as blocked when dependencies are unmet. Rail API returns blockers list.
+**What works:** Watches task dependencies and marks tasks as blocked when dependencies are unmet. `/api/rail` endpoint returns blockers list.
 **What's rough:** No UI to add/remove task dependencies. Dependencies exist in the schema but there is no form to create them.
 **Recommendation:** Add dependency management to TaskSheet — a "Depends on" field that accepts other task IDs.
 

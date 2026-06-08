@@ -4,7 +4,7 @@
 
 **NF-1.1** Review thread items must render within 200ms of opening.
 
-**NF-1.2** Rail updates (bet status, cost burn, blocker status) must propagate within 5 seconds of the underlying state change.
+**NF-1.2** Sidebar ambient updates (bet status, cost burn, blocker status) must propagate within 5 seconds of the underlying state change.
 
 **NF-1.3** Session startup (Knowledge Fabric materialization: querying `knowledge_items`, relevance scoring, writing workspace files including TOON packs and markdown, generating manifest, starting file watcher) must complete within 10 seconds for the laptop profile. Per-file incremental writeback (single file diff, version check, write to `knowledge_items`) must complete within 1 second. Final session-close pass must complete within 5 seconds.
 

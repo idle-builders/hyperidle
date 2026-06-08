@@ -12,7 +12,7 @@ Tier 1 — Primitives (5)
 Tier 2 — Blocks (6)
   ThreadRow · BetCard · PitchCard · TaskCard · KnowledgeRow · NotificationRow
 
-Tier 3 — Regions (8)
+Tier 3 — Regions (6)
   Sidebar · ArtifactView · ReviewHeader
   Canvas · Kanban · PitchSelector
 
@@ -22,6 +22,6 @@ Tier 4 — Pages (9)
   Knowledge/List · Knowledge/Detail · Settings
 ```
 
-Totals: 5 + 6 + 8 = **19 custom components** for the entire app. That's the simplicity bar. Adding a 20th needs a written reason in this file.
+Totals: 5 + 6 + 6 = **17 custom components** for the entire app. That's the simplicity bar. Adding an 18th needs a written reason in this file.
 
 ---

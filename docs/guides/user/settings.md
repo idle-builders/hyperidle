@@ -1,6 +1,6 @@
 ## Settings
 
-Click your avatar in the Icon Rail to open Settings. Five sections:
+Click your avatar in the Sidebar to open Settings. Five sections:
 
 | Section | What You Configure |
 |---------|-------------------|

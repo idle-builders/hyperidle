@@ -2,7 +2,7 @@
 
 ### An Agent is Blocked
 
-1. Rail shows a blocked agent with duration
+1. Sidebar shows a blocked agent with duration
 2. Click to open the review thread
 3. Artifact view shows what the agent is waiting on
 4. Press `A` to approve, `R` to request changes, or `X` to reject

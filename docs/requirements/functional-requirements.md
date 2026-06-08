@@ -80,7 +80,7 @@
 
 ### F-6: Routing
 
-**F-6.1** Facilitators route items to views based on characteristics: risk-tier ≥ medium → Conversations (review); agent-initiated conversation → Conversations (chat); cross-product pattern / rule change → Coach thread; order/rank-able items → Rail; shaped pitches → Work; knowledge updates → Knowledge.
+**F-6.1** Facilitators route items to views based on characteristics: risk-tier ≥ medium → Conversations (review); agent-initiated conversation → Conversations (chat); cross-product pattern / rule change → Coach thread; order/rank-able items → Sidebar ambient indicators; shaped pitches → Work; knowledge updates → Knowledge.
 
 **F-6.2** Skill changes always route to Conversations (review) — synchronous gate. Skills are powerful and compound.
 
