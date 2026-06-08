@@ -28,9 +28,14 @@ vi.mock("@hyperidle/design-system", async (importOriginal) => {
 	const original = await importOriginal<typeof import("@hyperidle/design-system")>();
 	return {
 		...original,
-		Toggle: ({ label }: { label: string; on?: boolean; onChange?: (on: boolean) => void; description?: string }) => (
-			<div data-testid={`toggle-${label.toLowerCase().replace(/\s+/g, "-")}`}>{label}</div>
-		),
+		Toggle: ({
+			label,
+		}: {
+			label: string;
+			on?: boolean;
+			onChange?: (on: boolean) => void;
+			description?: string;
+		}) => <div data-testid={`toggle-${label.toLowerCase().replace(/\s+/g, "-")}`}>{label}</div>,
 	};
 });
 

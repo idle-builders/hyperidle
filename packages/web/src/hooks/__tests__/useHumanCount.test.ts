@@ -55,9 +55,7 @@ describe("useHumanCount", () => {
 			{ id: "u2", kind: "human", name: "Bob", role: "member" },
 			{ id: "a1", kind: "agent", name: "Helper", role: "agent" },
 		];
-		fetchSpy.mockResolvedValueOnce(
-			new Response(makeOrgResponse(users), { status: 200 }),
-		);
+		fetchSpy.mockResolvedValueOnce(new Response(makeOrgResponse(users), { status: 200 }));
 		const { result } = renderHook(() => useHumanCount());
 
 		await waitFor(() => {
@@ -68,12 +66,8 @@ describe("useHumanCount", () => {
 	});
 
 	it("returns humanCount = 1 when org has exactly 1 human (solo mode)", async () => {
-		const users: OrgUser[] = [
-			{ id: "u1", kind: "human", name: "Solo Founder", role: "owner" },
-		];
-		fetchSpy.mockResolvedValueOnce(
-			new Response(makeOrgResponse(users), { status: 200 }),
-		);
+		const users: OrgUser[] = [{ id: "u1", kind: "human", name: "Solo Founder", role: "owner" }];
+		fetchSpy.mockResolvedValueOnce(new Response(makeOrgResponse(users), { status: 200 }));
 		const { result } = renderHook(() => useHumanCount());
 
 		await waitFor(() => {
@@ -84,12 +78,8 @@ describe("useHumanCount", () => {
 	});
 
 	it("returns humanCount = 0 when all users are agents", async () => {
-		const users: OrgUser[] = [
-			{ id: "a1", kind: "agent", name: "Bot", role: "agent" },
-		];
-		fetchSpy.mockResolvedValueOnce(
-			new Response(makeOrgResponse(users), { status: 200 }),
-		);
+		const users: OrgUser[] = [{ id: "a1", kind: "agent", name: "Bot", role: "agent" }];
+		fetchSpy.mockResolvedValueOnce(new Response(makeOrgResponse(users), { status: 200 }));
 		const { result } = renderHook(() => useHumanCount());
 
 		await waitFor(() => {
@@ -126,9 +116,7 @@ describe("useHumanCount", () => {
 
 	it("calls /api/org endpoint", async () => {
 		const users: OrgUser[] = [{ id: "u1", kind: "human", name: "Alice", role: "owner" }];
-		fetchSpy.mockResolvedValueOnce(
-			new Response(makeOrgResponse(users), { status: 200 }),
-		);
+		fetchSpy.mockResolvedValueOnce(new Response(makeOrgResponse(users), { status: 200 }));
 		renderHook(() => useHumanCount());
 
 		await waitFor(() => {

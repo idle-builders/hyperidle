@@ -70,7 +70,19 @@ describe("AD3 AC-3: KnowledgeCreateDialog — single-team scope picker", () => {
 		const { useTeams } = await import("../../../hooks/useTeams.js");
 		vi.mocked(useTeams).mockReturnValue({
 			data: {
-				teams: [{ id: "t1", name: "Alpha Team", phase: "build", status: "healthy", leadAgentId: null, activeBets: 0, shipped: 0, shipRate: "0%", progress: { done: 0, total: 0 } }],
+				teams: [
+					{
+						id: "t1",
+						name: "Alpha Team",
+						phase: "build",
+						status: "healthy",
+						leadAgentId: null,
+						activeBets: 0,
+						shipped: 0,
+						shipRate: "0%",
+						progress: { done: 0, total: 0 },
+					},
+				],
 			},
 			loading: false,
 			error: null,
@@ -96,7 +108,19 @@ describe("AD3 AC-3: KnowledgeCreateDialog — single-team scope picker", () => {
 		const { useTeams } = await import("../../../hooks/useTeams.js");
 		vi.mocked(useTeams).mockReturnValue({
 			data: {
-				teams: [{ id: "t1", name: "Alpha Team", phase: "build", status: "healthy", leadAgentId: null, activeBets: 0, shipped: 0, shipRate: "0%", progress: { done: 0, total: 0 } }],
+				teams: [
+					{
+						id: "t1",
+						name: "Alpha Team",
+						phase: "build",
+						status: "healthy",
+						leadAgentId: null,
+						activeBets: 0,
+						shipped: 0,
+						shipRate: "0%",
+						progress: { done: 0, total: 0 },
+					},
+				],
 			},
 			loading: false,
 			error: null,
@@ -118,7 +142,19 @@ describe("AD3 AC-3: KnowledgeCreateDialog — single-team scope picker", () => {
 		const { useTeams } = await import("../../../hooks/useTeams.js");
 		vi.mocked(useTeams).mockReturnValue({
 			data: {
-				teams: [{ id: "t1", name: "Alpha Team", phase: "build", status: "healthy", leadAgentId: null, activeBets: 0, shipped: 0, shipRate: "0%", progress: { done: 0, total: 0 } }],
+				teams: [
+					{
+						id: "t1",
+						name: "Alpha Team",
+						phase: "build",
+						status: "healthy",
+						leadAgentId: null,
+						activeBets: 0,
+						shipped: 0,
+						shipRate: "0%",
+						progress: { done: 0, total: 0 },
+					},
+				],
 			},
 			loading: false,
 			error: null,
@@ -131,8 +167,8 @@ describe("AD3 AC-3: KnowledgeCreateDialog — single-team scope picker", () => {
 		});
 
 		const select = screen.getByRole("combobox", { name: /scope kind/i });
-		const optionValues = Array.from(select.querySelectorAll("option")).map(
-			(o) => o.getAttribute("value"),
+		const optionValues = Array.from(select.querySelectorAll("option")).map((o) =>
+			o.getAttribute("value"),
 		);
 
 		for (const excluded of ["product", "practice", "team", "bet", "task"]) {
@@ -145,8 +181,28 @@ describe("AD3 AC-3: KnowledgeCreateDialog — single-team scope picker", () => {
 		vi.mocked(useTeams).mockReturnValue({
 			data: {
 				teams: [
-					{ id: "t1", name: "Alpha Team", phase: "build", status: "healthy", leadAgentId: null, activeBets: 0, shipped: 0, shipRate: "0%", progress: { done: 0, total: 0 } },
-					{ id: "t2", name: "Beta Team", phase: "build", status: "healthy", leadAgentId: null, activeBets: 0, shipped: 0, shipRate: "0%", progress: { done: 0, total: 0 } },
+					{
+						id: "t1",
+						name: "Alpha Team",
+						phase: "build",
+						status: "healthy",
+						leadAgentId: null,
+						activeBets: 0,
+						shipped: 0,
+						shipRate: "0%",
+						progress: { done: 0, total: 0 },
+					},
+					{
+						id: "t2",
+						name: "Beta Team",
+						phase: "build",
+						status: "healthy",
+						leadAgentId: null,
+						activeBets: 0,
+						shipped: 0,
+						shipRate: "0%",
+						progress: { done: 0, total: 0 },
+					},
 				],
 			},
 			loading: false,
@@ -168,7 +224,21 @@ describe("AD3 AC-3: KnowledgeCreateDialog — single-team scope picker", () => {
 		// Lock the scope — locked prop hides the combobox entirely, regardless of team count
 		const { useTeams } = await import("../../../hooks/useTeams.js");
 		vi.mocked(useTeams).mockReturnValue({
-			data: { teams: [{ id: "t1", name: "Alpha Team", phase: "build", status: "healthy", leadAgentId: null, activeBets: 0, shipped: 0, shipRate: "0%", progress: { done: 0, total: 0 } }] },
+			data: {
+				teams: [
+					{
+						id: "t1",
+						name: "Alpha Team",
+						phase: "build",
+						status: "healthy",
+						leadAgentId: null,
+						activeBets: 0,
+						shipped: 0,
+						shipRate: "0%",
+						progress: { done: 0, total: 0 },
+					},
+				],
+			},
 			loading: false,
 			error: null,
 		});
