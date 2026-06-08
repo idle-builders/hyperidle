@@ -98,7 +98,7 @@ describe("AD5 — AC-3: SettingsNotifications persists via useSettings", () => {
 		render(<SettingsNotifications />);
 
 		// Find the Review requests toggle — it should reflect the server value (off)
-		const reviewToggle = screen.getByRole("checkbox", { name: /review requests/i });
+		const reviewToggle = screen.getByRole("switch", { name: /review requests/i });
 		// Server value is reviewAlerts: false → toggle should be OFF
 		expect(reviewToggle).not.toBeChecked();
 	});
@@ -106,7 +106,7 @@ describe("AD5 — AC-3: SettingsNotifications persists via useSettings", () => {
 	it("initializes 'Cost alerts' toggle to server value (ON when costAlerts=true)", async () => {
 		render(<SettingsNotifications />);
 
-		const costToggle = screen.getByRole("checkbox", { name: /cost alerts/i });
+		const costToggle = screen.getByRole("switch", { name: /cost alerts/i });
 		// Server value is costAlerts: true → toggle should be ON
 		expect(costToggle).toBeChecked();
 	});
@@ -114,7 +114,7 @@ describe("AD5 — AC-3: SettingsNotifications persists via useSettings", () => {
 	it("initializes 'Blocker notifications' toggle to server value (ON when blockerAlerts=true)", async () => {
 		render(<SettingsNotifications />);
 
-		const blockerToggle = screen.getByRole("checkbox", { name: /blocker notifications/i });
+		const blockerToggle = screen.getByRole("switch", { name: /blocker notifications/i });
 		// Server value is blockerAlerts: true → toggle should be ON
 		expect(blockerToggle).toBeChecked();
 	});
@@ -123,7 +123,7 @@ describe("AD5 — AC-3: SettingsNotifications persists via useSettings", () => {
 		const user = userEvent.setup();
 		render(<SettingsNotifications />);
 
-		const reviewToggle = screen.getByRole("checkbox", { name: /review requests/i });
+		const reviewToggle = screen.getByRole("switch", { name: /review requests/i });
 		await user.click(reviewToggle);
 
 		await waitFor(() => {
@@ -139,7 +139,7 @@ describe("AD5 — AC-3: SettingsNotifications persists via useSettings", () => {
 		const user = userEvent.setup();
 		render(<SettingsNotifications />);
 
-		const costToggle = screen.getByRole("checkbox", { name: /cost alerts/i });
+		const costToggle = screen.getByRole("switch", { name: /cost alerts/i });
 		await user.click(costToggle);
 
 		await waitFor(() => {
@@ -155,7 +155,7 @@ describe("AD5 — AC-3: SettingsNotifications persists via useSettings", () => {
 		const user = userEvent.setup();
 		render(<SettingsNotifications />);
 
-		const emailToggle = screen.getByRole("checkbox", { name: /email digests/i });
+		const emailToggle = screen.getByRole("switch", { name: /email digests/i });
 		await user.click(emailToggle);
 
 		// Email digests has no server field — save must NOT be called
@@ -166,9 +166,9 @@ describe("AD5 — AC-3: SettingsNotifications persists via useSettings", () => {
 	it("renders all four toggles regardless of server state", async () => {
 		render(<SettingsNotifications />);
 
-		expect(screen.getByRole("checkbox", { name: /review requests/i })).toBeInTheDocument();
-		expect(screen.getByRole("checkbox", { name: /cost alerts/i })).toBeInTheDocument();
-		expect(screen.getByRole("checkbox", { name: /blocker notifications/i })).toBeInTheDocument();
-		expect(screen.getByRole("checkbox", { name: /email digests/i })).toBeInTheDocument();
+		expect(screen.getByRole("switch", { name: /review requests/i })).toBeInTheDocument();
+		expect(screen.getByRole("switch", { name: /cost alerts/i })).toBeInTheDocument();
+		expect(screen.getByRole("switch", { name: /blocker notifications/i })).toBeInTheDocument();
+		expect(screen.getByRole("switch", { name: /email digests/i })).toBeInTheDocument();
 	});
 });

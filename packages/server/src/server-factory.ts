@@ -3,7 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
 import { createPgliteDb, createPostgresDb, type DbHandle, resolveProfile } from "@hyperidle/db";
-import { bootstrapFabric } from "@hyperidle/fabric";
+import { bootstrapFabric, startRoutineScheduler } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
@@ -212,14 +212,24 @@ export async function createServer(port: number): Promise<ServerHandle> {
 		websocket: { server: wss },
 	});
 
+	// AD5 AC-1: start the routine scheduler so routines fire automatically.
+	// @lore AD5: startRoutineScheduler is async (returns Promise<RoutineScheduler>).
+	// We await it here, after createApp, so the scheduler is running before the
+	// HTTP server starts accepting requests. The 60s poll interval means routines
+	// may fire up to 59s late — precision below 1 minute is not promised.
+	const scheduler = await startRoutineScheduler(db, eventBus, { pollIntervalMs: 60_000 });
+
 	const dispose = (): void => {
+		// AD5 AC-1: stop the routine scheduler before tearing down the app.
+		// @lore AD5: scheduler.stop() is synchronous and idempotent.
+		scheduler.stop();
 		// @lore I1 M1: tear down event-bus subscriptions first so none of the
 		// five createApp-registered handlers (session-review-creator,
 		// policy-engine, builtin-routines, git-export, notification-dispatcher,
 		// observability) outlive the server. If we called `server.close()` or
 		// the WS disposer first, `disposeApp` would still run, but background
 		// handlers could observe events during shutdown against a torn-down
-		// runtime. Order: domain handlers -> WS route -> HTTP server -> DB.
+		// runtime. Order: scheduler -> domain handlers -> WS route -> HTTP server -> DB.
 		disposeApp(app);
 		if (wsDispose) {
 			wsDispose();

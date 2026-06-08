@@ -91,6 +91,12 @@ export interface SidebarProps {
 	 * a numeric badge is rendered adjacent to the Knowledge section header.
 	 */
 	knowledgeTriageCount?: number;
+
+	/**
+	 * AD5: count of threads with unresolved reviews (blocking).
+	 * When > 0, a numeric badge renders adjacent to the Conversations header.
+	 */
+	conversationsBlockingCount?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -159,6 +165,7 @@ export function Sidebar({
 	avatarUrl,
 	userInitials,
 	knowledgeTriageCount,
+	conversationsBlockingCount,
 }: SidebarProps): JSX.Element {
 	// Cap threads at 5
 	const visibleThreads = threads.slice(0, 5);
@@ -182,11 +189,27 @@ export function Sidebar({
 				 above the settings nav items when settings is open. Previously the
 				 body was replaced entirely; now it prepends the view sections. */}
 				{/* Conversations section */}
+				{/* AD5 AC-4: conversationsBlockingCount badge rendered adjacent to header */}
 				<div
 					className="mb-[18px]"
 					data-active-view={activeView === "conversations" ? "conversations" : undefined}
+					data-section="conversations"
 				>
-					<SectionHeader view="conversations" activeView={activeView} onViewChange={onViewChange} />
+					<div className="flex items-center">
+						<SectionHeader
+							view="conversations"
+							activeView={activeView}
+							onViewChange={onViewChange}
+						/>
+						{conversationsBlockingCount != null && conversationsBlockingCount > 0 && (
+							<span
+								className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-[9px] font-[600] tabular-nums bg-[var(--accent-primary)] text-[var(--text-on-accent)] ml-auto mr-[12px]"
+								data-testid="conversations-blocking-badge"
+							>
+								{conversationsBlockingCount > 99 ? "99+" : conversationsBlockingCount}
+							</span>
+						)}
+					</div>
 					{activeView === "conversations" && !settingsOpen && (
 						<ul className="flex flex-col">
 							{visibleThreads.length === 0 ? (
