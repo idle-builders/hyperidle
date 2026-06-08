@@ -129,7 +129,7 @@ interface ConversationSearchResult {
   title: string;       // first message payload.text, truncated 80 chars
   snippet: string;     // latest message payload.text, truncated 120 chars
   timestamp: string;   // thread.lastActiveAt
-  kind: "review" | "chat";  // thread.hostKind
+  kind: "review" | "chat";  // mapped from thread.hostKind via HOST_KIND_TO_SEARCH_KIND
 }
 
 interface WorkSearchResult {
@@ -186,7 +186,22 @@ Step 2 (application code): For each row, verify `JSON.parse(participants).includ
 
 **Auth boundary:** The `participants LIKE` pre-filter + JS verification ensures only threads the user participates in are returned. The `EXISTS` subquery on messages means the query string matched message content. Message content from non-participant threads is never exposed because the outer WHERE filters to participant-only threads.
 
-**hostKind mapping:** `useGlobalSearch` expects `kind: "review" | "chat"`. Thread `hostKind` values in the database are these same strings (review, chat). Pass through directly.
+**hostKind → kind mapping:** `useGlobalSearch` expects `kind: "review" | "chat"`. Thread `hostKind` values in the database are domain-oriented: `"bet"`, `"task"`, `"knowledge_item"`, `"artifact"`, `"agent"`, `"user"`, `"team"`, `"factory"`. These do NOT match the frontend's `CONVERSATION_KINDS` set. The backend must map:
+
+```typescript
+const HOST_KIND_TO_SEARCH_KIND: Record<string, "review" | "chat"> = {
+  bet: "review",
+  task: "review",
+  knowledge_item: "review",
+  artifact: "review",
+  agent: "chat",
+  user: "chat",
+  team: "chat",
+  factory: "chat",
+};
+```
+
+Rationale: threads attached to domain objects (bets, tasks, knowledge items, artifacts) are review/discussion threads about that object → `"review"`. Threads between people or with agents are conversational → `"chat"`. If a new hostKind is added in the future and is not in the map, default to `"chat"` (fail-open for display, not security).
 
 ### 5.2 Work (bets + teams)
 
@@ -250,7 +265,7 @@ function extractPayloadText(payloadJson: string | null, maxLen: number): string 
   title: extractPayloadText(row.firstMsgPayload, 80),
   snippet: extractPayloadText(row.latestMsgPayload, 120),
   timestamp: row.lastActiveAt,
-  kind: row.hostKind as "review" | "chat",
+  kind: HOST_KIND_TO_SEARCH_KIND[row.hostKind] ?? "chat",
 }
 ```
 
@@ -436,6 +451,6 @@ Run `npm run check && npm run lint && npm run test:integration` (targeted at sea
 - Search suggestions or autocomplete
 - FTS or tsvector indexes
 
-**Thread hostKind values:** The frontend expects `kind: "review" | "chat"`. The thread hostKind in the database uses these exact values. If new hostKind values are added in the future, they would be silently dropped by the frontend's `parseConversation` validator (it checks `CONVERSATION_KINDS.has(kind)`). This is acceptable — new kinds need explicit frontend support anyway.
+**Thread hostKind mapping:** The frontend expects `kind: "review" | "chat"` but the DB stores domain-oriented hostKind values (`"bet"`, `"task"`, etc.). The `HOST_KIND_TO_SEARCH_KIND` map translates: domain-object-attached threads → `"review"`, people/agent threads → `"chat"`. Unknown future hostKind values default to `"chat"` (fail-open for display). The frontend's `parseConversation` validates the mapped value against `CONVERSATION_KINDS`.
 
 **knowledge layer/kind defaults:** When a knowledge item has no fabric row (possible for items created before the fabric extension), `layer` and `kind` are null. Defaulting to `"L0"` / `"pattern"` matches the useGlobalSearch parser expectations (it validates against known sets). If the default is wrong for some item, the item still appears in results — the layer/kind badge may be inaccurate but the item is findable.
