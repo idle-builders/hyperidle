@@ -3,7 +3,6 @@ import {
 	BodyEditor,
 	knowledgeStatusToStatus,
 	StatusChip,
-	Tag,
 } from "@hyperidle/design-system";
 import {
 	KNOWLEDGE_STATUSES,
@@ -64,6 +63,7 @@ import { useHostThread } from "../hooks/useHostThread.js";
 import { useKnowledgeItem } from "../hooks/useKnowledgeItem.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
+import { scopeKindToLabel } from "../utils/scope-labels.js";
 import { KnowledgeBody } from "./knowledge/KnowledgeBody";
 import { ScopeChangeDialog } from "./knowledge/ScopeChangeDialog";
 
@@ -644,14 +644,15 @@ function KnowledgeDetailView({
 					<h1 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)]">
 						{item.title}
 					</h1>
-					{/* Badge row — metadata bar */}
+					{/* Badge row — metadata bar
+					    @lore AD6: kind Tag and layer Tag removed from the metadata bar.
+					    They are internal taxonomy fields, not user-facing scope indicators.
+					    Kind still appears in the metadata aside (Kind row). */}
 					<div
 						className="flex items-center gap-[6px] flex-wrap mt-[9px]"
 						data-testid="knowledge-metadata-bar"
 					>
-						<Tag label={item.kind} />
 						<StatusChip status={knowledgeStatusToStatus(item.status)} />
-						<Tag label={item.layer} />
 						<span
 							className="text-[12px] text-[var(--text-tertiary)] font-mono tabular-nums"
 							data-testid="knowledge-confidence"
@@ -853,6 +854,16 @@ function KnowledgeDetailView({
 							<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">
 								<span className="text-[var(--text-tertiary)]">Kind</span>
 								<span className="text-[var(--text-primary)] font-[500]">{item.kind}</span>
+							</div>
+							{/* AD6: Scope row — shows human-readable scope label */}
+							<div
+								className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]"
+								data-testid="knowledge-scope-row"
+							>
+								<span className="text-[var(--text-tertiary)]">Scope</span>
+								<span className="text-[var(--text-primary)] font-[500]">
+									{scopeKindToLabel(item.scopeKind ?? "factory")}
+								</span>
 							</div>
 							<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">
 								<span className="text-[var(--text-tertiary)]">Status</span>

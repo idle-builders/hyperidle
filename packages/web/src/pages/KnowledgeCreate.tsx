@@ -52,8 +52,11 @@ export function KnowledgeCreate(): JSX.Element {
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	// Team pill is disabled when the user has no teamId
-	const hasTeam = (user as { teamId?: string } | null | undefined)?.teamId !== undefined;
+	// Team pill is disabled when the user has no teamId.
+	// @lore AD6: CurrentUser does not yet include teamId — team feature is not
+	// fully implemented. Until the user model is extended, team scope is always
+	// disabled. When teamId is added to CurrentUser, use user?.teamId !== undefined.
+	const hasTeam: boolean = false;
 
 	const canCreate = title.trim().length > 0 && body.trim().length > 0 && !submitting;
 
@@ -203,16 +206,19 @@ export function KnowledgeCreate(): JSX.Element {
 								<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
 									Scope
 								</span>
-								{/* biome-ignore lint/a11y/useSemanticElements: fieldset cannot use flex gap classes without resetting UA styles; div+role="group" is the established pattern in KnowledgeList */}
-								<div className="flex gap-[6px] flex-wrap" role="group" aria-label="Scope">
+								<div className="flex gap-[6px] flex-wrap" role="radiogroup" aria-label="Scope">
 									{SCOPE_CREATE_OPTIONS.map((option) => {
 										const isTeam = option.id === "team";
 										const isDisabled = submitting || (isTeam && !hasTeam);
 										const isActive = selectedScope.id === option.id;
 										return (
+											// biome-ignore lint/a11y/useSemanticElements: button+role="radio" used for pill styling with aria-checked; <input type="radio"> cannot be styled as a pill without full custom CSS reset
 											<button
 												key={option.id}
 												type="button"
+												role="radio"
+												aria-checked={isActive}
+												aria-disabled={isDisabled ? "true" : undefined}
 												data-testid={`scope-pill-create-${option.id}`}
 												data-active={isActive ? "true" : "false"}
 												disabled={isDisabled}

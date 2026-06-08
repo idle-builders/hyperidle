@@ -540,8 +540,9 @@ function KnowledgeListContent({
 			 * All → no filter | Shared → factory+product+practice | Team → team | Private → user.
 			 * Replaced the old dynamic pills derived from scopeOptions.
 			 */}
-			<fieldset
-				className="flex items-center gap-[6px] flex-wrap px-[24px] pt-[12px] border-none p-0 m-0"
+			<div
+				role="radiogroup"
+				className="flex items-center gap-[6px] flex-wrap px-[24px] pt-[12px]"
 				data-testid="knowledge-scope-pills"
 				aria-label="Filter by scope"
 			>
@@ -549,9 +550,12 @@ function KnowledgeListContent({
 					const isAll = pill.filterKinds === null;
 					const isActive = isAll ? selectedScopePill === null : selectedScopePill?.id === pill.id;
 					return (
+						// biome-ignore lint/a11y/useSemanticElements: button+role="radio" used for pill styling with aria-checked; <input type="radio"> cannot be styled as a pill without full custom CSS reset
 						<button
 							key={pill.id}
 							type="button"
+							role="radio"
+							aria-checked={isActive}
 							data-testid={`scope-pill-${pill.id}`}
 							data-active={isActive ? "true" : "false"}
 							className={
@@ -565,7 +569,7 @@ function KnowledgeListContent({
 						</button>
 					);
 				})}
-			</fieldset>
+			</div>
 
 			<span data-testid="knowledge-scope-indicator" className="sr-only">
 				{scope}

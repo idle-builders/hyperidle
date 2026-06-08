@@ -174,8 +174,9 @@ describe("W3 AC-33 — Data-driven scope pills", () => {
 	});
 
 	it("renders 'All' pill first", () => {
+		// AD6: scope pills use role="radio" (accessibility improvement) — query by testid.
 		renderKnowledgeList();
-		const allPill = screen.getByRole("button", { name: /^all$/i });
+		const allPill = screen.getByTestId("scope-pill-all");
 		expect(allPill).toBeInTheDocument();
 	});
 
