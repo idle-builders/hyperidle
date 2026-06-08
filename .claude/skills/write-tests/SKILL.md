@@ -14,10 +14,18 @@ Read the plan for `<target>` (check tasks or the workpackage in the relevant tra
 
 For each acceptance criterion, write a test that proves it. Every workpackage must produce tests across these four layers:
 
-1. **Unit tests** — every service, utility, state machine, calculation, validation, and event handler. Every React component action handler and callback prop tested via Vitest. Full coverage of new code.
-2. **Route integration tests** — every API route via `createTestApp()`, real Hono + middleware + PGlite. No mocks except LLMs. Cover: happy path, 401 (no auth), 404 (missing resource), 400 (bad input).
-3. **Component tests** — every React component via Vitest. Test all action handlers, event handlers, state transitions, edge states, error states. `.stories.tsx` for visual verification at `/designsystem`.
-4. **E2E tests** — Playwright for the **top 3 user actions** on each page the workpackage touches. Frontend → API → DB, only LLMs mocked. Navigate via app UI, not `page.goto()`. These are the merge guard — they prove primary actions survive integration.
+1. **Unit tests** (`*.test.ts`) — every service, utility, state machine, calculation, validation, and event handler. Every React component action handler and callback prop tested via Vitest. Full coverage of new code.
+2. **Route integration tests** (`*.integration.test.ts`) — every API route using the vitest fixture pattern: `import { test, describe, expect } from "../test-fixtures.js"` and destructure `{ db, app }`. Real Hono + middleware + PGlite via fixtures. No mocks except LLMs. Cover: happy path, 401 (no auth), 404 (missing resource), 400 (bad input). Use `test()` not `it()` — only `test()` injects fixtures.
+3. **Component tests** (`*.test.tsx`) — every React component via Vitest. Test all action handlers, event handlers, state transitions, edge states, error states. `.stories.tsx` for visual verification at `/designsystem`.
+4. **E2E tests** (`*.spec.ts`) — Playwright for the **top 3 user actions** on each page the workpackage touches. Frontend → API → DB, only LLMs mocked. Navigate via app UI, not `page.goto()`. These are the merge guard — they prove primary actions survive integration.
+
+### Fixture sources
+
+- Server integration tests: `import { test, describe, expect } from "../test-fixtures.js"` — injects `{ db, app, eventBus }`.
+- DB/fabric integration tests: `import { test, describe, expect } from "@hyperidle/db/test-fixtures"` — injects `{ db }`.
+- No `createTestDb()`, `createTestApp()`, or `new EventBus()` in test files.
+- No `beforeEach`/`afterEach` for DB setup — PGlite pool handles teardown via TRUNCATE (~19ms) between tests automatically.
+- `beforeEach`/`afterEach` only for non-DB concerns (e.g. `vi.stubEnv`).
 
 `scripts/test-coverage-check.ts` runs in verify Phase 1 and fails if a route or page is missing tests. The linter enforces structural coverage; you provide the tests.
 

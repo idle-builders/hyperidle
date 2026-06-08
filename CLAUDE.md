@@ -52,7 +52,7 @@ Before any work is complete: `npm run check` (zero type errors) + `npm run lint`
 |---|---|---|
 | `*.test.ts` | Unit tests (pure logic, no DB/server) | <1s per file |
 | `*.test.tsx` | Component/UI tests (React rendering) | <1s per file |
-| `*.integration.test.ts` | DB/API integration (createTestDb, createTestApp) | 1-10s per file |
+| `*.integration.test.ts` | DB/API integration (vitest fixtures: `{ db, app, eventBus }`) | 1-10s per file |
 | `*.spec.ts` | E2E (Playwright, separate from vitest) | 5-30s per test |
 
 `verify` is pure npm script chaining — no custom process orchestrator. The shell owns every child process. Attestation is a standalone script (`scripts/verify-attest.ts`).
