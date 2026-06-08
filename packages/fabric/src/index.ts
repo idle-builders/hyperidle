@@ -4,6 +4,10 @@ export { bootstrapFabric } from "./bootstrap.js";
 
 // --- Strategy services (O3: moved from packages/server to packages/fabric) ---
 
+// approval-rate
+export type { ApprovalRateResult } from "./services/approval-rate.js";
+export { computeApprovalRate } from "./services/approval-rate.js";
+
 // attention-service
 export type {
 	AttentionRecomputeResult,

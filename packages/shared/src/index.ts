@@ -5,8 +5,9 @@ export type {
 	AgentHealthSignals,
 	AgentPerformanceStats,
 	AgentProfileResponse,
+	AgentReviewTrackRecord,
 	AgentSessionSummary,
-	AgentSkillInfo,
+	AgentVerdictEntry,
 } from "./agent-profile.js";
 // ── AB0: Agent role catalog and category system ──
 export type {
