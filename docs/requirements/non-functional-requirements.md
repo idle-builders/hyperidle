@@ -26,7 +26,7 @@
 
 ### NF-4: Extensibility
 
-**NF-4.1** New agent types (specialist roles beyond Builder/Growth/Ops) can be added by creating a soul prompt, assigning skills, and joining a team — no code changes to the meta layer.
+**NF-4.1** New agent types (specialist roles beyond Builder/Growth/Ops) can be added by creating a soul prompt, assigning skills, and joining a team — no code changes to the process layer.
 
 **NF-4.2** New skills can be added by dropping a skill package into the skills directory and getting human approval via a review thread.
 

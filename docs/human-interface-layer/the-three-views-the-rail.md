@@ -1,4 +1,6 @@
-## 4. The Three Views + The Rail
+## 4. The Three Views
+
+<!-- @source packages/web/src/pages/Conversations.tsx -->
 
 Each view gets a clear home in the app. They share data, they share identity, they share the thread model where applicable, but each has its own affordances tuned for its purpose.
 
@@ -82,7 +84,7 @@ Outputs that need approval (e.g. a proposed edit to `PRINCIPLES.md`) get drafted
 
 - Routine task completions (those go to the audit log, not the inbox).
 - Knowledge updates (Knowledge view, async).
-- Items waiting on prioritization rather than decision (these show up in the Rail).
+- Items waiting on prioritization rather than decision (these surface via Conversations filter chips).
 
 #### Interaction grammar
 
@@ -144,45 +146,21 @@ Each ArtifactView shape has its own renderer in the Conversations view. The agen
 
 ---
 
-### 4.2 The Rail — Prioritize
+### 4.2 Ambient Awareness Surfaces
 
-**Verb:** Prioritize.
-**Home:** Right sidebar on desktop (always visible, expandable/minimizable); the Home tab on mobile.
-**Rhythm:** Ambient; you glance at it. Engaged use ~3 minutes per day.
-**Information density:** Medium. Compact, dense, no chrome.
-**Borrows from:** oh-my-codex HUD, Windsurf Cascade's anticipation model, Cursor's background-agent status surface.
+Ambient factory state is distributed across embedded indicators rather than a dedicated sidebar:
 
-The Rail is the factory's vital signs. It shows current state at a glance — read it like a thermostat.
+- **Conversations filter chips** — "Blocked", "Needs review", "Unread" chips let you triage in seconds without leaving the view. Active bets with pending blockers surface here.
+- **Sidebar triage badge** — The Conversations section header shows an unread count badge. Always visible; never demands attention.
+- **WorkTeam AgentRow health indicators** — Each agent row on a team page shows a live health dot (active, blocked, paused, idle). Cost burn appears in the team's burn-vs-cap section.
 
-What surfaces in the Rail:
-
-- **Active bets and their progress.** Each bet shown with a progress indicator (how far through the cycle, how many tasks complete vs. total).
-- **Blocked agents or tasks.** Count of currently blocked items, with the ability to expand and see what's stuck on what. If an agent is paused waiting for a human verdict, this is where you notice.
-- **Recent knowledge additions.** Count of new knowledge items since last visit. A signal that agents are generating learnings — and that curation may be needed.
-- **Cost / token burn.** Current spend vs. budget for the day and week. A burn-down indicator that makes spend ambient rather than something you have to go look up.
-- **System stability.** Basic health: how many agents are active, any session failures, any unresolved conflicts in the knowledge store.
-- **Unread thread count.** Linked to Conversations — how many threads need attention.
-
-What does *not* surface in the Rail:
-
-- Approvals (those are Conversations).
-- Chat threads (also Conversations).
-- Knowledge updates (Knowledge view).
-- Detailed audit trails (observability layer, not the Rail).
-
-**Interaction grammar:**
-
-- `nudge up` / `nudge down` — adjust the order of items the facilitators surfaced
-- `acknowledge` — mark a blocker as known so it stops blinking
-- `expand` — pop an item out; usually routes to the right view inside the app (Conversations, Work)
-
-**Design principle: ambient, not interruptive.** The Rail can change colors, show counters, animate status indicators. It cannot demand attention. If something needs attention, it goes to Conversations and rings a phone.
-
-**Keyboard-first:** arrow keys to move between items, enter to act, no mouse required.
+**Design principle: ambient, not interruptive.** These surfaces can change colors, show counters, animate status indicators. They cannot demand attention. If something needs attention, it goes to Conversations and rings a phone.
 
 ---
 
 ### 4.3 Work — Plan and Track
+
+<!-- @source packages/web/src/pages/work/ -->
 
 **What it is:** The Linear of the factory. Bets and tasks — planning what to do and tracking what's in flight.
 **Home:** A view in the Main Pane. Mobile Work tab (read-only).
@@ -242,6 +220,8 @@ Appetite uses **money + tokens, never duration**. Bets carry `costCapMinor`/`cos
 ---
 
 ### 4.4 Knowledge — Curate
+
+<!-- @source packages/web/src/pages/KnowledgeList.tsx -->
 
 **What it is:** The company wiki — a catalogue of knowledge items organized by practice and product.
 **Home:** A view in the Main Pane (desktop only). No mobile equivalent.
@@ -351,7 +331,7 @@ All async, none blocking:
 
 #### Knowledge view layout
 
-The Knowledge view uses the standard IconRail → Submenu → Main pane structure. Two layout options to explore in design:
+The Knowledge view uses the standard Sidebar → Main pane structure. Two layout options to explore in design:
 
 **Option A: Split-pane.** The submenu shows the scope selector (Practice / Product / Factory) and, below it, the topic list for the selected scope. Clicking a topic filters the main pane to show items in that topic. Multiple topics can be selected to union their items. The main pane is a list of knowledge items with the view switcher (by topic, needs attention, recently created, most accessed, stale) at the top. This works well for cross-topic curation — the topic list is always visible as a navigation landmark.
 
@@ -431,7 +411,7 @@ Configurations are *not* a typed enum on the thread row. They are described patt
 
 - A Thread **carries** Messages (1:N, append-only).
 - A Thread **attaches to** exactly one host entity (1:1; by reference, not embedding).
-- A Thread is **referenced by** filtered views: the Conversations queue, the host's detail surface, the Rail's unread count.
+- A Thread is **referenced by** filtered views: the Conversations queue, the host's detail surface, the Sidebar triage badge.
 - A Message **carries** a typed payload. Rich payloads **embed references** to other primitives (artifact, knowledge item, task, bet) but never **own** them — embeddings are fetched and rendered inline as cards. (A *block* is not embedded as a card — the bridge from a thread message to a specific block is the block-anchor metadata, see §4.6.5; cards are reserved for whole-entity references.)
 - A response (verdict, questionnaire answer, plain reply) is **itself a Message** in the thread.
 
@@ -525,7 +505,7 @@ The reframe also consolidates four otherwise-divergent implementations that have
 
 #### 4.5.10 Relationship to the legacy Item / Response model (§7)
 
-The Item / Response data model in `§7` predates this section. It expresses a *single* surfaced item plus a *single* response — the unit of routing the meta layer ships. The Thread primitive is broader: a thread carries a sequence of messages over time, of which an Item is one expression (the surfaced ask, often a review message) and a Response is another (the verdict, a message in its own right).
+The Item / Response data model in `§7` predates this section. It expresses a *single* surfaced item plus a *single* response — the unit of routing the process layer ships. The Thread primitive is broader: a thread carries a sequence of messages over time, of which an Item is one expression (the surfaced ask, often a review message) and a Response is another (the verdict, a message in its own right).
 
 The concept rule (which constrains the architect, not just suggests):
 

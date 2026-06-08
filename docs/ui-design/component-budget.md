@@ -10,4 +10,4 @@ Token authority lives in `packages/design-system/DESIGN.md` and `packages/design
 
 - **Tier 1:** StatusChip, Tag, KeyValue, NavItem, SearchField
 - **Tier 2:** ThreadRow, BetCard, PitchCard, TaskCard, KnowledgeRow, NotificationRow, ReasoningBlockView (renamed from `ReasoningBlock` to disambiguate from the L2 Block content primitive — see `docs/blocks/blockkind-the-closed-vocabulary.md`. The TSX rename is implementation work for whichever story first touches the component; the name in this list is canonical from this concept-doc pass forward.)
-- **Tier 3:** IconRail, Submenu, Rail, ArtifactView, ReviewHeader, Canvas, Kanban, PitchSelector
+- **Tier 3:** Sidebar, ArtifactView, ReviewHeader, Canvas, Kanban, PitchSelector

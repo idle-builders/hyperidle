@@ -1,8 +1,11 @@
 ## 7. The Cross-Cutting Data Model
 
+<!-- @source packages/shared/src/types.ts -->
+<!-- @source packages/db/src/schema.ts -->
+
 > **Reframe note (added with the L1 Thread primitive).** The Item / Response shape below is a *routing* working set — what's surfaced to which view, with what verdict yet. The *conversation history* (including the verdict and any inline comments) lives as a sequence of typed messages on the underlying Thread (§4.5). The two reconcile in implementation (architect's call during L1 planning); the concept rule is that the Thread + Message rows are the source of truth for the conversation, and the Item / Response model is one projection of it.
 
-Every item that flows through any view is the same shape under the hood. The view decides how to render it; the meta layer decides where to send it.
+Every item that flows through any view is the same shape under the hood. The view decides how to render it; the process layer decides where to send it.
 
 ```
 Item {

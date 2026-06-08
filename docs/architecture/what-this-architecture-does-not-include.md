@@ -9,6 +9,6 @@
 - **A separate auth service.** Tailscale + API keys for now.
 - **A backlog.** Pitches live on the canvas; unpicked ones expire.
 - **Multiple applications.** One app, two form factors.
-- **Jira-style reporting.** The Rail and Coach thread are the human surfaces for status.
+- **Jira-style reporting.** Conversations (review threads) and Work (bet/task views) are the human surfaces for status.
 
 ---

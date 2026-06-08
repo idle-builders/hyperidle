@@ -222,7 +222,7 @@ The routine scheduler, auto-provisioning, knowledge actions, autonomy editing, a
 
 The initial doc-based audit (before code verification) identified these themes that remain valid:
 
-**Money-not-duration appetite** is a genuine conceptual innovation. Shape Up's 6-week timebox made sense for humans; for AI agents that work in bursts, money is the right budget axis.
+**Money-not-duration appetite** is a genuine conceptual innovation. Time-based timeboxes made sense for human teams; for AI agents that work in bursts, money is the right budget axis.
 
 **One thread primitive** is the best architectural decision. Collapsing review/chat/coach into one Thread with typed messages eliminates N+1 bugs across every cross-domain discussion.
 

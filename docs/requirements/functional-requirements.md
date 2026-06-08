@@ -14,7 +14,7 @@
 
 **F-1.6** An agent belongs to exactly one team (or is central). No multi-team membership. When a product team needs expertise from another team, cross-team tasks (F-5.4) handle it.
 
-**F-1.7** Within a session, an agent can spawn sub-agents (via harness-level primitives like Claude SDK subagents) to parallelize or specialize work. Sub-agents are internal to the session — the meta layer does not see them. Their cost rolls up into the parent session.
+**F-1.7** Within a session, an agent can spawn sub-agents (via harness-level primitives like Claude SDK subagents) to parallelize or specialize work. Sub-agents are internal to the session — the process layer does not see them. Their cost rolls up into the parent session.
 
 **F-1.8** Model routing is tier-based (Reasoning / Workhorse / Fast), assigned per session by the Scheduler based on task risk tier, routine type, and factory cost posture. Deployers configure which actual model each tier maps to.
 
@@ -31,6 +31,10 @@
 **F-2.5 Routine.** A recurring trigger attached to a named agent with persistent state across runs. Required fields: owner, trigger (cron / event pattern / heartbeat interval), skill, done_condition, state_key (persistent memory across runs), delegation_allowed (bool — can a teammate with the right skill pick it up?), human_review (bool), autonomy_level (L1–L4), active, silent (bool — sleep-time routines that update memory without producing items). Adding a routine always requires human approval via a review thread.
 
 ### F-3: Knowledge Architecture (Five Layers + Knowledge Fabric)
+
+<!-- @source packages/fabric/src/ -->
+<!-- @source packages/web/src/pages/KnowledgeList.tsx -->
+<!-- @source packages/web/src/utils/scope-labels.ts -->
 
 **F-3.0 Canonical store.** All knowledge lives in a single `knowledge_items` table in SQLite (see KNOWLEDGE_ARCHITECTURE.md §3). The Knowledge Fabric projects this store into two formats: rich web UI for humans (the Knowledge view) and materialized file workspaces for agents. Sync is continuous — materialization at session start, then a file watcher writes back changes incrementally as the agent works (500ms debounce). No dependency on a clean session-end hook. Optimistic concurrency with per-field last-writer-wins for rare conflicts.
 
@@ -123,15 +127,5 @@ Cost hierarchy is strictly nested: agent < team < factory. An agent cannot excee
 **F-10.4** Hitting a limit produces a thread item, never a silent drop.
 
 **F-10.5** Cost caps reset on a configurable cycle (default: daily). Smart defaults: equal splits across agents, team caps derived from composition, factory cap derived from team caps. All caps editable via Settings.
-
-### F-11: Cycle Management
-
-**F-11.1** Each product team operates on a configurable cycle (default: 6 weeks build + 2 weeks cool-down). Cycle phases: Shaping (pitches created), Betting (pitches committed), Building (work in progress), Cool-down (no new bets, free exploration, retros).
-
-**F-11.2** Advancing a cycle: founder triggers phase transitions via the Work view. Advancing from Building to Cool-down auto-fires retros (F-9.1). Advancing from Cool-down to Shaping archives expired pitches (not committed after 2 cycles).
-
-**F-11.3** Past cycle data persists: shipped bets, killed bets, cost variance (appetite vs. actual), velocity metrics. Accessible from Portfolio Overview.
-
-**F-11.4** Cycle length and cool-down duration are configurable per product in Settings.
 
 ---

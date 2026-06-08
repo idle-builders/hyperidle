@@ -7,7 +7,7 @@ Notification fatigue is the failure mode every 2026 tool is fighting. The discip
 | Conversations (blocking, risk ≥ medium) | Push immediately. Phone rings. | The agent is paused. |
 | Conversations (urgent chat) | Push, but the agent has to flag it. | Agent restraint matters here. |
 | Conversations (FYI) | Silent. Daily digest. | One push per thread event = unusable. |
-| The Rail | Never push. Ambient only. | It's *there*; it doesn't need to call. |
+| Ambient indicators (filter chips, health dots, triage badge) | Never push. Ambient only. | They're *there*; they don't need to call. |
 | Work | Calendar reminder once a week. | Weekly cadence is the whole point. |
 | Chief of Staff's chat | Optional. Founder choice. | Some humans want a monthly nudge; others drift in. |
 | Knowledge | Calendar reminder once a week. | Weekly. |

@@ -911,7 +911,7 @@ See Lifecycle Propagation under Work View.
 #### Dependency Watcher
 
 **Category:** Launch-Ready
-**UI Path:** API-only: internal service; surfaced via blockers in the Rail
+**UI Path:** API-only: internal service; surfaced via blockers in Conversations and WorkTeam AgentRow health indicators
 **Discoverability:** 1
 **Test Coverage:** `dependency-watcher.perf.test.ts`
 

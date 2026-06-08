@@ -13,7 +13,7 @@ Tier 2 — Blocks (6)
   ThreadRow · BetCard · PitchCard · TaskCard · KnowledgeRow · NotificationRow
 
 Tier 3 — Regions (8)
-  IconRail · Submenu · Rail · ArtifactView · ReviewHeader
+  Sidebar · ArtifactView · ReviewHeader
   Canvas · Kanban · PitchSelector
 
 Tier 4 — Pages (9)

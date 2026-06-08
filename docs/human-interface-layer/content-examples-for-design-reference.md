@@ -24,8 +24,8 @@ Real examples grounded in the factory's products (Ambrovia — team alignment fo
 
 #### PitchCard examples (Work)
 
-- Title: "Search results relevance (ranking overhaul)". Product: Nimmly. Appetite: 6 weeks. Body (markdown): the shaped pitch — problem statement, proposed solution sketch, rabbit holes to avoid, what "done" means.
-- Title: "Onboarding v2 — guided setup flow". Product: Ambrovia. Appetite: 4 weeks. Status: committed this cycle.
+- Title: "Search results relevance (ranking overhaul)". Team: Nimmly. Appetite: $2,000. Body (markdown): the shaped pitch — problem statement, proposed solution sketch, rabbit holes to avoid, what "done" means.
+- Title: "Onboarding v2 — guided setup flow". Team: Ambrovia. Appetite: $1,500. Status: committed.
 
 #### Knowledge items
 
