@@ -2,11 +2,8 @@
  * AD2 — Route integration test for GET /api/dispatch-queue.
  */
 
-import { createTestDb, type HyperIdleDb } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-dispatch-queue";
 
@@ -15,24 +12,15 @@ function authHeaders(): Record<string, string> {
 }
 
 describe("GET /api/dispatch-queue", () => {
-	let handle: Awaited<ReturnType<typeof createTestDb>>;
-	let db: HyperIdleDb;
-	let app: Hono;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		handle = await createTestDb();
-		db = handle.db;
-		const eventBus = new EventBus();
-		app = await createTestApp({ db, eventBus });
-	}, 30_000);
-
-	afterEach(async () => {
-		vi.unstubAllEnvs();
-		await handle.close();
 	});
 
-	it("returns a snapshot with entries array and draining boolean", async () => {
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test("returns a snapshot with entries array and draining boolean", async ({ app }) => {
 		const res = await app.request("/api/dispatch-queue", {
 			headers: authHeaders(),
 		});
@@ -43,7 +31,7 @@ describe("GET /api/dispatch-queue", () => {
 		expect(typeof body.draining).toBe("boolean");
 	});
 
-	it("rejects unauthenticated requests", async () => {
+	test("rejects unauthenticated requests", async ({ app }) => {
 		const res = await app.request("/api/dispatch-queue", {
 			headers: { "X-API-Key": "wrong-key" },
 		});
