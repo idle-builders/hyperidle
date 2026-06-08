@@ -12,9 +12,9 @@
  */
 
 import { type HyperIdleDb, messages, teamMembers, teams, users } from "@hyperidle/db";
-import type { Hono } from "hono";
 import { eq } from "drizzle-orm";
-import { beforeEach, afterEach, describe, expect, vi } from "vitest";
+import type { Hono } from "hono";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-t5-blockid";
@@ -133,7 +133,10 @@ describe("AC-1 — blockId written to column on POST /api/threads (initial messa
 		vi.unstubAllEnvs();
 	});
 
-	test("message row has block_id column populated when blockId is in plain payload", async ({ db, app }) => {
+	test("message row has block_id column populated when blockId is in plain payload", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 		const blockId = "block-abc123def456";
 
@@ -210,7 +213,10 @@ describe("AC-1 — blockId written to column on POST /api/threads/:id/messages (
 		vi.unstubAllEnvs();
 	});
 
-	test("appended message row has block_id column populated when blockId is in payload", async ({ db, app }) => {
+	test("appended message row has block_id column populated when blockId is in payload", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 		const threadId = await createThread(app);
 		const blockId = "block-append-xyz789";
@@ -228,16 +234,16 @@ describe("AC-1 — blockId written to column on POST /api/threads/:id/messages (
 		expect(res.status).toBe(201);
 		const body = (await res.json()) as { message: { id: string } };
 
-		const messageRows = await db
-			.select()
-			.from(messages)
-			.where(eq(messages.id, body.message.id));
+		const messageRows = await db.select().from(messages).where(eq(messages.id, body.message.id));
 
 		expect(messageRows).toHaveLength(1);
 		expect(messageRows[0].blockId).toBe(blockId);
 	});
 
-	test("appended message row has null block_id when no blockId is in payload", async ({ db, app }) => {
+	test("appended message row has null block_id when no blockId is in payload", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 		const threadId = await createThread(app);
 		const res = await app.request(`/api/threads/${threadId}/messages`, {
@@ -253,10 +259,7 @@ describe("AC-1 — blockId written to column on POST /api/threads/:id/messages (
 		expect(res.status).toBe(201);
 		const body = (await res.json()) as { message: { id: string } };
 
-		const messageRows = await db
-			.select()
-			.from(messages)
-			.where(eq(messages.id, body.message.id));
+		const messageRows = await db.select().from(messages).where(eq(messages.id, body.message.id));
 
 		expect(messageRows).toHaveLength(1);
 		expect(messageRows[0].blockId).toBeNull();
@@ -274,7 +277,10 @@ describe("AC-5 — GET /api/threads/:id?block_id=X returns only matching message
 		vi.unstubAllEnvs();
 	});
 
-	test("GET with ?block_id=block-filter-A returns only 2 messages anchored to block-A", async ({ db, app }) => {
+	test("GET with ?block_id=block-filter-A returns only 2 messages anchored to block-A", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 		const threadId = await createFilterThread(app);
 
@@ -308,7 +314,10 @@ describe("AC-5 — GET /api/threads/:id?block_id=X returns only matching message
 		expect(body.messages).toHaveLength(5);
 	});
 
-	test("GET with ?block_id=block-filter-B returns only 1 message anchored to block-B", async ({ db, app }) => {
+	test("GET with ?block_id=block-filter-B returns only 1 message anchored to block-B", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 		const threadId = await createFilterThread(app);
 		const res = await app.request(`/api/threads/${threadId}?block_id=block-filter-B`, {
@@ -336,7 +345,10 @@ describe("AC-5 — GET /api/threads/:id?block_id=X returns only matching message
 		expect(body.messages).toHaveLength(0);
 	});
 
-	test("GET with ?block_id= (empty string) returns 400 or ignores the filter (security: rejects empty)", async ({ db, app }) => {
+	test("GET with ?block_id= (empty string) returns 400 or ignores the filter (security: rejects empty)", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 		const threadId = await createFilterThread(app);
 		const res = await app.request(`/api/threads/${threadId}?block_id=`, {
@@ -347,7 +359,10 @@ describe("AC-5 — GET /api/threads/:id?block_id=X returns only matching message
 		expect(res.status).toBe(400);
 	});
 
-	test("GET with ?block_id exceeding 128 chars returns 400 (T5 max-length guard)", async ({ db, app }) => {
+	test("GET with ?block_id exceeding 128 chars returns 400 (T5 max-length guard)", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 		const threadId = await createFilterThread(app);
 		const oversizedBlockId = "x".repeat(129);

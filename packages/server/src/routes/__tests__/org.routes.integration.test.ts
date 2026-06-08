@@ -147,7 +147,10 @@ describe("org routes", () => {
 
 		// AB0: roles are now open strings — any non-empty string is valid.
 		// The security boundary moved from "not in USER_ROLES enum" to "empty string".
-		test("returns 400 when target role is empty string (mechanism=function)", async ({ db, app }) => {
+		test("returns 400 when target role is empty string (mechanism=function)", async ({
+			db,
+			app,
+		}) => {
 			const { fromUserId } = await seedUsers(db);
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
@@ -157,7 +160,10 @@ describe("org routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		test("returns 201 when target role is a custom string (mechanism=function, AB0)", async ({ db, app }) => {
+		test("returns 201 when target role is a custom string (mechanism=function, AB0)", async ({
+			db,
+			app,
+		}) => {
 			const { fromUserId } = await seedUsers(db);
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",

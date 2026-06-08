@@ -15,8 +15,8 @@
 
 import { bets, teamMembers, teams } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { describe, expect, test, vi } from "../test-fixtures.js";
 import { transitionBet } from "../services/bet-state-machine.js";
+import { describe, expect, test, vi } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-bets-q3";
 
@@ -157,7 +157,10 @@ describe("Bet Endpoints (Q3)", () => {
 	});
 
 	describe("T2: AC3 — revisionLog seeded on creation", () => {
-		test("creates bet with initial revisionLog entry containing status=draft", async ({ db, app }) => {
+		test("creates bet with initial revisionLog entry containing status=draft", async ({
+			db,
+			app,
+		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 			await db.insert(teams).values({
@@ -242,7 +245,10 @@ describe("Bet Endpoints (Q3)", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("returns derived title from description first line in canvas response", async ({ db, app }) => {
+		test("returns derived title from description first line in canvas response", async ({
+			db,
+			app,
+		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 			await db.insert(teams).values({
@@ -393,7 +399,10 @@ describe("Bet Endpoints (Q3)", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("uses batch team lookup — does not include undefined team entries", async ({ db, app }) => {
+		test("uses batch team lookup — does not include undefined team entries", async ({
+			db,
+			app,
+		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 			await db.insert(teams).values({
@@ -625,7 +634,11 @@ describe("Bet Endpoints (Q3)", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("returns 400 when patching description on completed bet", async ({ db, app, eventBus }) => {
+		test("returns 400 when patching description on completed bet", async ({
+			db,
+			app,
+			eventBus,
+		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 			await db.insert(teams).values({

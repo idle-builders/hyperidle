@@ -1,13 +1,6 @@
 import * as os from "node:os";
 import * as path from "node:path";
-import {
-	type HyperIdleDb,
-	messages,
-	teamMembers,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { type HyperIdleDb, messages, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";

@@ -1,14 +1,6 @@
 import * as os from "node:os";
 import * as path from "node:path";
-import {
-	bets,
-	type HyperIdleDb,
-	tasks,
-	teamMembers,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";

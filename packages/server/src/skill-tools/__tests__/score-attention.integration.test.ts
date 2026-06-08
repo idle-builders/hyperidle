@@ -1,9 +1,4 @@
-import {
-	type HyperIdleDb,
-	items,
-	knowledgeItems,
-	knowledgeStrategyFabric,
-} from "@hyperidle/db";
+import { type HyperIdleDb, items, knowledgeItems, knowledgeStrategyFabric } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
@@ -154,7 +149,9 @@ describe("score_attention tool", () => {
 		expect(over.code).toBe("INVALID_INPUT");
 	});
 
-	test("mode: 'override' (default) keeps G1 behavior (uses provided score verbatim)", async ({ db }) => {
+	test("mode: 'override' (default) keeps G1 behavior (uses provided score verbatim)", async ({
+		db,
+	}) => {
 		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-override");
 		const result = await scoreAttentionTool.handler(
@@ -169,7 +166,9 @@ describe("score_attention tool", () => {
 		expect(Number(fabricRow?.attentionScore)).toBeCloseTo(0.42, 5);
 	});
 
-	test("mode: 'recompute' with target=knowledge_item invokes the engine (score arg omitted)", async ({ db }) => {
+	test("mode: 'recompute' with target=knowledge_item invokes the engine (score arg omitted)", async ({
+		db,
+	}) => {
 		await seedBase(db);
 		await seedKnowledgeItemWithScore(db, "ki-recompute", 0.05);
 		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
@@ -186,7 +185,9 @@ describe("score_attention tool", () => {
 		}
 	});
 
-	test("mode: 'recompute' rejects a provided `score` via registry-level validation", async ({ db }) => {
+	test("mode: 'recompute' rejects a provided `score` via registry-level validation", async ({
+		db,
+	}) => {
 		await seedBase(db);
 		await seedKnowledgeItemWithScore(db, "ki-reject", 0.05);
 		// I2 B1-B4: registry now requires explicit role. score_attention is
@@ -203,7 +204,9 @@ describe("score_attention tool", () => {
 		expect(result.code).toBe("INVALID_INPUT");
 	});
 
-	test("mode: 'override' requires `score` — rejects missing score via registry validation", async ({ db }) => {
+	test("mode: 'override' requires `score` — rejects missing score via registry validation", async ({
+		db,
+	}) => {
 		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-need-score");
 		// I2 B1-B4: registry now requires explicit role. score_attention is

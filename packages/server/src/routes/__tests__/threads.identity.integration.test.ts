@@ -27,7 +27,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { beforeEach, afterEach, describe, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-r4-identity";
@@ -165,7 +165,10 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 	});
 
 	describe("AC-1: human user identity has correct name and role", () => {
-		test("human sender appears in identities with exact name 'Alice Founder'", async ({ db, app }) => {
+		test("human sender appears in identities with exact name 'Alice Founder'", async ({
+			db,
+			app,
+		}) => {
 			await seedBase(db);
 			// Arrange: human user sends initial message.
 			const create = await app.request("/api/threads", {
@@ -202,7 +205,10 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 	});
 
 	describe("AC-1: AI agent identity has correct name and role", () => {
-		test("AI agent sender appears in identities with exact name 'Builder Bot' and role 'builder'", async ({ db, app }) => {
+		test("AI agent sender appears in identities with exact name 'Builder Bot' and role 'builder'", async ({
+			db,
+			app,
+		}) => {
 			await seedBase(db);
 			// Arrange: create thread, then have agent-builder post a message.
 			const create = await app.request("/api/threads", {
@@ -250,7 +256,10 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			expect(body.identities["agent-builder"]?.role).toBe("builder");
 		});
 
-		test("identities contains both human and agent when both have sent messages", async ({ db, app }) => {
+		test("identities contains both human and agent when both have sent messages", async ({
+			db,
+			app,
+		}) => {
 			await seedBase(db);
 			// Arrange: both participants post messages.
 			const create = await app.request("/api/threads", {
@@ -377,7 +386,10 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 	});
 
 	describe("AC-2: identities map supports correct UI display (sender name resolution)", () => {
-		test("every unique senderId in messages array has an entry in identities", async ({ db, app }) => {
+		test("every unique senderId in messages array has an entry in identities", async ({
+			db,
+			app,
+		}) => {
 			await seedBase(db);
 			// Arrange: both participants post messages.
 			const create = await app.request("/api/threads", {
@@ -427,7 +439,10 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			}
 		});
 
-		test("identity name is a non-empty string (never 'Unknown' when user exists in db)", async ({ db, app }) => {
+		test("identity name is a non-empty string (never 'Unknown' when user exists in db)", async ({
+			db,
+			app,
+		}) => {
 			await seedBase(db);
 			const create = await app.request("/api/threads", {
 				method: "POST",

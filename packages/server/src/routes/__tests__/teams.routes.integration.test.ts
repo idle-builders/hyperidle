@@ -7,16 +7,9 @@
  * GET   /api/teams/:id      — full TeamDetail
  */
 
-import {
-	bets,
-	type HyperIdleDb,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { beforeEach, afterEach, describe, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-teams";

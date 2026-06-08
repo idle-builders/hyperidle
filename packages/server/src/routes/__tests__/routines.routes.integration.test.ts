@@ -7,16 +7,8 @@
  * POST  /api/routines/:id/trigger — manually trigger routine
  */
 
-import {
-	bets,
-	type HyperIdleDb,
-	routines,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
-import { beforeEach, afterEach, describe, expect, vi } from "vitest";
+import { bets, type HyperIdleDb, routines, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-routines";

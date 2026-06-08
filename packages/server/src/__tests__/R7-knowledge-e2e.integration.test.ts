@@ -25,10 +25,10 @@ import {
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { test } from "../test-fixtures.js";
 import { promoteKnowledgeTool } from "../skill-tools/promote-knowledge.js";
 import type { ToolContext } from "../skill-tools/tool-registry.js";
 import { writeMemoryTool } from "../skill-tools/write-memory.js";
+import { test } from "../test-fixtures.js";
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 

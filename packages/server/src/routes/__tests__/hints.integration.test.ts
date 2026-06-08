@@ -18,8 +18,8 @@
 
 import { createTestDb, type HyperIdleDb, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
 import { test } from "../../test-fixtures.js";
+import { createTestApp } from "../../test-utils.js";
 
 const TEST_API_KEY = "test-key-hints";
 
@@ -92,7 +92,10 @@ describe("GET /api/hint-progress", () => {
 	});
 
 	// AC3: Returns rows for the authenticated user
-	test("returns dismissed hints with hintId and seenAt for the authenticated user", async ({ db, app }) => {
+	test("returns dismissed hints with hintId and seenAt for the authenticated user", async ({
+		db,
+		app,
+	}) => {
 		await seedUser(db);
 		// Dismiss a hint first
 		await app.request("/api/hint-progress/create-bet/dismiss", {
@@ -159,7 +162,10 @@ describe("POST /api/hint-progress/:hintId/dismiss", () => {
 	});
 
 	// AC4: Returns { ok: true } on successful dismiss
-	test("returns { ok: true } when dismissing a valid hint for the first time", async ({ db, app }) => {
+	test("returns { ok: true } when dismissing a valid hint for the first time", async ({
+		db,
+		app,
+	}) => {
 		await seedUser(db);
 		const res = await app.request("/api/hint-progress/create-bet/dismiss", {
 			method: "POST",

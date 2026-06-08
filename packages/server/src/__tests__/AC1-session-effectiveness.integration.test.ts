@@ -7,15 +7,7 @@
  *        must NOT fail because state is absent.
  */
 
-import {
-	bets,
-	type HyperIdleDb,
-	sessions,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { describe, expect, vi } from "vitest";
 import { test } from "../test-fixtures.js";
 

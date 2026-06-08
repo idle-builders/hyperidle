@@ -103,7 +103,10 @@ describe("Knowledge access-log creation (L22 AC-1)", () => {
 	// We simulate this by verifying the response is still 200 even when the
 	// access-log INSERT would fail (e.g., with a corrupted db state).
 	// The implementation must wrap the INSERT in try-catch.
-	test("access-log INSERT failure does NOT break the 200 response (try-catch guard)", async ({ db, app }) => {
+	test("access-log INSERT failure does NOT break the 200 response (try-catch guard)", async ({
+		db,
+		app,
+	}) => {
 		// This test verifies the code path exists: the item is returned even if
 		// the access log INSERT fails. We can't easily force a DB error here, so
 		// we assert the structural requirement: the response status is 200 and

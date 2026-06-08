@@ -177,7 +177,9 @@ describe("submit_review tool", () => {
 			expect(d1.threadId).toBe(d2.threadId);
 		});
 
-		test("adds agent to participants when existing bet thread does not include agent", async ({ db }) => {
+		test("adds agent to participants when existing bet thread does not include agent", async ({
+			db,
+		}) => {
 			await seed(db);
 			// Create a bet thread that does NOT include agent-a
 			await db.insert(threads).values({

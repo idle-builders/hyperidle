@@ -15,7 +15,6 @@
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { afterEach, describe, expect, vi } from "vitest";
-import { test } from "../test-fixtures.js";
 import {
 	createLoginSession,
 	findLoginSessionByTokenHash,
@@ -25,6 +24,7 @@ import {
 	revokeLoginSession,
 	validateBearerToken,
 } from "../services/login-session.js";
+import { test } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();
 

@@ -1,12 +1,4 @@
-import {
-	bets,
-	type HyperIdleDb,
-	sessions,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
 // @lore These exports do not yet exist on cost-cap.ts as of I3 red phase.
 // The plan §3.7 specifies adding `releaseSessionDedup(sessionId)` and a
 // test-only `getDedupCacheSize()` accessor (or a similar inspection hook).
@@ -133,7 +125,10 @@ describe("I3: cost-cap dedup cache bounded", () => {
 		clearDeduplicationCache();
 	});
 
-	test("dedup cache size for one session stays small after 1000 cost checks", async ({ db, eventBus }) => {
+	test("dedup cache size for one session stays small after 1000 cost checks", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedAgentWithCap(db, {
 			agentId: "agent-1",
 			teamId: "team-1",
@@ -194,7 +189,10 @@ describe("I3: cost-cap dedup cache bounded", () => {
 		expect(getDedupCacheSize()).toBe(0);
 	});
 
-	test("releasing one session does not poison another session's dedup state", async ({ db, eventBus }) => {
+	test("releasing one session does not poison another session's dedup state", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedAgentWithCap(db, {
 			agentId: "agent-1",
 			teamId: "team-1",
@@ -263,7 +261,10 @@ describe("I3: cost-cap dedup cache bounded", () => {
 	// (no breach → no key → no entry). Prior implementation pre-
 	// registered an empty entry on every recordCostAndCheck, leaking
 	// for sessions that never breached.
-	test("1000 cost checks under cap on one session create zero dedup entries", async ({ db, eventBus }) => {
+	test("1000 cost checks under cap on one session create zero dedup entries", async ({
+		db,
+		eventBus,
+	}) => {
 		// @lore O2: costActual accumulates across all calls; use a cap large
 		// enough that 1000 * 10 = 10_000 stays below the 80% warning threshold
 		// (0.8 * 100_000 = 80_000). The old test used 10_000 which would breach
@@ -293,7 +294,10 @@ describe("I3: cost-cap dedup cache bounded", () => {
 		expect(getDedupCacheSize()).toBe(0);
 	});
 
-	test("aggregate dedup cache stays bounded after 1000 distinct sessions ended", async ({ db, eventBus }) => {
+	test("aggregate dedup cache stays bounded after 1000 distinct sessions ended", async ({
+		db,
+		eventBus,
+	}) => {
 		// Cycle 1000 short-lived sessions through the cost path. After each
 		// session ends, releaseSessionDedup must drop its entry, keeping the
 		// total map size bounded.

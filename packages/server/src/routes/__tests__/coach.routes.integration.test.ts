@@ -141,7 +141,10 @@ describe("L21 — GET /api/threads/coach", () => {
 			expect(body.thread.hostId).toBe("u-founder");
 		});
 
-		test("thread participants include both user and seed-agent-cos (CoC agent)", async ({ db, app }) => {
+		test("thread participants include both user and seed-agent-cos (CoC agent)", async ({
+			db,
+			app,
+		}) => {
 			await seedBase(db);
 			const res = await app.request("/api/threads/coach", {
 				method: "GET",
@@ -226,7 +229,10 @@ describe("L21 — GET /api/threads/coach", () => {
 	});
 
 	describe("AC-17: identities include seed-agent-cos (CoC agent)", () => {
-		test("identities response contains seed-agent-cos with name 'Chief of Staff'", async ({ db, app }) => {
+		test("identities response contains seed-agent-cos with name 'Chief of Staff'", async ({
+			db,
+			app,
+		}) => {
 			await seedBase(db);
 			const res = await app.request("/api/threads/coach", {
 				method: "GET",
@@ -254,7 +260,10 @@ describe("L21 — GET /api/threads/coach", () => {
 	});
 
 	describe("AC-16: full response shape", () => {
-		test("response contains thread, messages, headMessageId, and identities keys", async ({ db, app }) => {
+		test("response contains thread, messages, headMessageId, and identities keys", async ({
+			db,
+			app,
+		}) => {
 			await seedBase(db);
 			const res = await app.request("/api/threads/coach", {
 				method: "GET",
@@ -279,7 +288,10 @@ describe("L21 — GET /api/threads/coach", () => {
 	});
 
 	describe("Coach thread classifies as 'coach' configuration", () => {
-		test("thread with hostKind='user' and pinned=true is classified as 'coach'", async ({ db, app }) => {
+		test("thread with hostKind='user' and pinned=true is classified as 'coach'", async ({
+			db,
+			app,
+		}) => {
 			await seedBase(db);
 			const res = await app.request("/api/threads/coach", {
 				method: "GET",

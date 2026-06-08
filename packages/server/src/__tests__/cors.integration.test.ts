@@ -55,9 +55,7 @@ describe("CORS middleware", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("allows http://127.0.0.1:3001 (Electron accessing same port as server)", async ({
-		app,
-	}) => {
+	test("allows http://127.0.0.1:3001 (Electron accessing same port as server)", async ({ app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const res = await app.request("/api/health", {
 			headers: { origin: "http://127.0.0.1:3001" },

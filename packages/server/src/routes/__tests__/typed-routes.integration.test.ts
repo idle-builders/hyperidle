@@ -14,8 +14,8 @@
 import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
 import { API_ERROR_CODES, EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { test } from "../../test-fixtures.js";
 import { betDetailResponseSchema, betListResponseSchema } from "../../schemas/bet.schema.js";
+import { test } from "../../test-fixtures.js";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -113,7 +113,10 @@ describe("D3. GET /api/bets/:id returns betDetailResponseSchema-conforming respo
 		vi.unstubAllEnvs();
 	});
 
-	test("returns 200 with a bet detail conforming to betDetailResponseSchema", async ({ db, app }) => {
+	test("returns 200 with a bet detail conforming to betDetailResponseSchema", async ({
+		db,
+		app,
+	}) => {
 		const now = new Date().toISOString();
 		await db
 			.insert(teams)
@@ -154,7 +157,9 @@ describe("D4. POST /api/bets with invalid body returns 400 VALIDATION_ERROR", ()
 		vi.unstubAllEnvs();
 	});
 
-	test("returns 400 with VALIDATION_ERROR when body is missing required fields", async ({ app }) => {
+	test("returns 400 with VALIDATION_ERROR when body is missing required fields", async ({
+		app,
+	}) => {
 		const res = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
@@ -169,7 +174,9 @@ describe("D4. POST /api/bets with invalid body returns 400 VALIDATION_ERROR", ()
 		expect(body.code).toBe(API_ERROR_CODES.VALIDATION_ERROR);
 	});
 
-	test("returns 400 with VALIDATION_ERROR when body has unknown fields (strict schema)", async ({ app }) => {
+	test("returns 400 with VALIDATION_ERROR when body has unknown fields (strict schema)", async ({
+		app,
+	}) => {
 		const res = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),

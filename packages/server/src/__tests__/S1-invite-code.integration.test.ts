@@ -12,8 +12,8 @@
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { describe, expect } from "vitest";
-import { test } from "../test-fixtures.js";
 import { claimInvite, createInvite, generateInviteCode } from "../services/invite-code.js";
+import { test } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();
 
@@ -168,12 +168,7 @@ describe("S1 — claimInvite (error cases)", () => {
 	test("returns INVITE_EXPIRED when code has expired", async ({ db }) => {
 		await seedAdminUser(db, "u-admin-1");
 		// Force the invite to be expired by creating it with a negative TTL (in the past)
-		const expiredInvite = await createInvite(
-			db,
-			"u-admin-1",
-			"member",
-			-(8 * 24 * 60 * 60 * 1000),
-		);
+		const expiredInvite = await createInvite(db, "u-admin-1", "member", -(8 * 24 * 60 * 60 * 1000));
 
 		const result = await claimInvite(db, expiredInvite.code, "Late User");
 		expect(result.ok).toBe(false);

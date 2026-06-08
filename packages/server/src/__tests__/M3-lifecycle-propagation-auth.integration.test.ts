@@ -6,15 +6,7 @@
  * and uses that id as the founder participant in propagation threads.
  */
 
-import {
-	bets,
-	type HyperIdleDb,
-	tasks,
-	teamMembers,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { registerLifecyclePropagation } from "@hyperidle/fabric";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, vi } from "vitest";

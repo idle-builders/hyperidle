@@ -18,7 +18,6 @@ import {
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { test } from "../test-fixtures.js";
 import {
 	type CreateSessionParams,
 	crashSession,
@@ -26,6 +25,7 @@ import {
 	endSession,
 	type SessionContext,
 } from "../services/session-lifecycle.js";
+import { test } from "../test-fixtures.js";
 
 async function seedAll(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
@@ -113,7 +113,10 @@ describe("Session Lifecycle", () => {
 	});
 
 	// AC1: Create session -> active, workspace exists, materialized files present, watcher running
-	test("creates session with active state, workspace, materialized files, and watcher", async ({ db, eventBus }) => {
+	test("creates session with active state, workspace, materialized files, and watcher", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedAll(db);
 		const params = makeParams(tmpDir);
 		const ctx = await createSession(db, eventBus, params);
@@ -161,7 +164,10 @@ describe("Session Lifecycle", () => {
 	});
 
 	// AC3: Crash session -> crashed, watcher stopped, final pass complete, knowledge preserved
-	test("crashes session with crashed state and preserves knowledge in DB", async ({ db, eventBus }) => {
+	test("crashes session with crashed state and preserves knowledge in DB", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedAll(db);
 		const params = makeParams(tmpDir);
 		const ctx = await createSession(db, eventBus, params);
@@ -182,7 +188,10 @@ describe("Session Lifecycle", () => {
 
 	// AC4: Session cost is a strategy concern (O2: cost column stripped from sessions).
 	// The session ends cleanly even when a cost value is passed.
-	test("ends session cleanly (cost is a strategy concern, not kernel)", async ({ db, eventBus }) => {
+	test("ends session cleanly (cost is a strategy concern, not kernel)", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedAll(db);
 		const params = makeParams(tmpDir);
 		const ctx = await createSession(db, eventBus, params);

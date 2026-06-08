@@ -9,8 +9,8 @@
 import { type HyperIdleDb, inviteCodes, users } from "@hyperidle/db";
 import { API_ERROR_CODES, type EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { createTestApp } from "../../test-utils.js";
 import { test } from "../../test-fixtures.js";
+import { createTestApp } from "../../test-utils.js";
 
 const TEST_API_KEY = "test-key-auth-public";
 

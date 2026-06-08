@@ -249,7 +249,10 @@ describe("AA1: Routine Visibility API", () => {
 	// ──────────────────────────────────────────────────────────────────────
 
 	describe("AC-3: Routine states: active, paused, error", () => {
-		test("PATCH /api/routines/:id with state=paused updates state and syncs active=false", async ({ db, app }) => {
+		test("PATCH /api/routines/:id with state=paused updates state and syncs active=false", async ({
+			db,
+			app,
+		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await seedBase(db);
 
@@ -276,7 +279,10 @@ describe("AA1: Routine Visibility API", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("PATCH /api/routines/:id with state=active updates state and syncs active=true", async ({ db, app }) => {
+		test("PATCH /api/routines/:id with state=active updates state and syncs active=true", async ({
+			db,
+			app,
+		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await seedBase(db);
 

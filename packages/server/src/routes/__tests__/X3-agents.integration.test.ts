@@ -15,13 +15,7 @@
  *  - packages/db/src/seed.ts inserts soul_template:* factorySettings rows
  */
 
-import {
-	factorySettings,
-	type HyperIdleDb,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { factorySettings, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 

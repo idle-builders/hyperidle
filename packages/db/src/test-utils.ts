@@ -1,6 +1,6 @@
 import { appendFileSync } from "node:fs";
-import { performance } from "node:perf_hooks";
 import { resolve } from "node:path";
+import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";
@@ -17,8 +17,16 @@ const TRACE_FILE = process.env.VITEST_TRACE_FILE;
 
 function trace(event: string, durationMs: number, meta?: Record<string, unknown>): void {
 	if (!TRACE_FILE) return;
-	const entry = { ts: Date.now(), pid: process.pid, event, ms: Math.round(durationMs * 10) / 10, ...meta };
-	try { appendFileSync(TRACE_FILE, JSON.stringify(entry) + "\n"); } catch {}
+	const entry = {
+		ts: Date.now(),
+		pid: process.pid,
+		event,
+		ms: Math.round(durationMs * 10) / 10,
+		...meta,
+	};
+	try {
+		appendFileSync(TRACE_FILE, JSON.stringify(entry) + "\n");
+	} catch {}
 }
 
 // ---------------------------------------------------------------------------
@@ -78,7 +86,10 @@ async function allocateInstance(): Promise<PooledInstance> {
 	const t1 = performance.now();
 	await migrate(db, { migrationsFolder: migrationsFolder() });
 	const migrateMs = performance.now() - t1;
-	trace("allocate", performance.now() - t0, { wasm: Math.round(wasmMs), migrate: Math.round(migrateMs) });
+	trace("allocate", performance.now() - t0, {
+		wasm: Math.round(wasmMs),
+		migrate: Math.round(migrateMs),
+	});
 	return { client, db };
 }
 
@@ -104,9 +115,7 @@ async function truncateAllTables(db: HyperIdleDb): Promise<void> {
 export async function warmPool(): Promise<void> {
 	if (warmupDone) return;
 	const t0 = performance.now();
-	const instances = await Promise.all(
-		Array.from({ length: POOL_SIZE }, () => allocateInstance()),
-	);
+	const instances = await Promise.all(Array.from({ length: POOL_SIZE }, () => allocateInstance()));
 	for (const instance of instances) {
 		slots.push({ instance, checkedOut: false, checkedOutAt: 0 });
 	}
@@ -180,7 +189,9 @@ export async function closeAllInstances(): Promise<void> {
 if (typeof process.send === "function") {
 	process.on("disconnect", () => {
 		for (const s of slots) {
-			try { s.instance.client.close(); } catch {}
+			try {
+				s.instance.client.close();
+			} catch {}
 		}
 		process.exit(0);
 	});

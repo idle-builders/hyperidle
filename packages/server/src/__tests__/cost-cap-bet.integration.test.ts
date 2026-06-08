@@ -13,14 +13,7 @@
  * protected one.
  */
 
-import {
-	bets,
-	type HyperIdleDb,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { clearDeduplicationCache, recordCostAndCheck } from "@hyperidle/fabric";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, test } from "../test-fixtures.js";

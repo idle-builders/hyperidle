@@ -12,15 +12,7 @@
  * - GET /teams enriches each team with agent summary data
  */
 
-import {
-	bets,
-	type HyperIdleDb,
-	sessions,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 
@@ -144,7 +136,10 @@ describe("AB2 AC-5: GET /teams includes agentCount", () => {
 		expect(team?.activeAgentCount).toBe(0);
 	});
 
-	test("returns activeAgentCount correctly when one agent has active session", async ({ db, app }) => {
+	test("returns activeAgentCount correctly when one agent has active session", async ({
+		db,
+		app,
+	}) => {
 		await db.insert(users).values({
 			id: "u-founder-ab2-list",
 			kind: "human",
@@ -258,7 +253,10 @@ describe("AB2 AC-5: GET /teams agentHealthWarning", () => {
 		expect(team?.agentHealthWarning).toBe(false);
 	});
 
-	test("returns agentHealthWarning=true when an agent has >50% crash rate in 7d", async ({ db, app }) => {
+	test("returns agentHealthWarning=true when an agent has >50% crash rate in 7d", async ({
+		db,
+		app,
+	}) => {
 		await db.insert(users).values({
 			id: "u-founder-ab2-health",
 			kind: "human",
@@ -340,7 +338,10 @@ describe("AB2 AC-5: GET /teams agentHealthWarning", () => {
 		expect(team?.agentHealthWarning).toBe(false);
 	});
 
-	test("returns TeamListItem with agentCount, activeAgentCount, agentHealthWarning fields", async ({ db, app }) => {
+	test("returns TeamListItem with agentCount, activeAgentCount, agentHealthWarning fields", async ({
+		db,
+		app,
+	}) => {
 		await db.insert(users).values({
 			id: "u-founder-ab2-health",
 			kind: "human",

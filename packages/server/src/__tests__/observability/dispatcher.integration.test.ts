@@ -18,7 +18,6 @@ import {
 	type SessionStartedEvent,
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
-import { afterEach, describe, expect, test } from "../../test-fixtures.js";
 import {
 	createObservabilityDispatcher,
 	registerObservabilityDispatcher,
@@ -28,6 +27,7 @@ import type {
 	ObservabilityAdapter,
 	ObservabilityChannel,
 } from "../../services/observability/types.js";
+import { afterEach, describe, expect, test } from "../../test-fixtures.js";
 
 function fakeAdapter(
 	name: ObservabilityChannel = "console",
@@ -66,7 +66,9 @@ function makeInMemResolver(): ReturnType<
 }
 
 describe("ObservabilityDispatcher — enqueue / drain", () => {
-	afterEach(() => { /* noop — vi.useRealTimers not needed here */ });
+	afterEach(() => {
+		/* noop — vi.useRealTimers not needed here */
+	});
 
 	test("delivers enqueued events on flush", async () => {
 		const adapter = fakeAdapter();

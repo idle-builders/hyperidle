@@ -14,7 +14,7 @@
  * 7. Status simplified to draft | active | archived
  */
 
-import { type DomainEvent } from "@hyperidle/shared";
+import type { DomainEvent } from "@hyperidle/shared";
 import { sql } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../test-fixtures.js";
@@ -180,9 +180,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("knowledgeItems no longer has 'lastCitedAt' / 'last_cited_at' column", async ({
-			db,
-		}) => {
+		test("knowledgeItems no longer has 'lastCitedAt' / 'last_cited_at' column", async ({ db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
@@ -622,10 +620,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("GET /api/knowledge/:id emits 'knowledge_accessed' event", async ({
-			app,
-			eventBus,
-		}) => {
+		test("GET /api/knowledge/:id emits 'knowledge_accessed' event", async ({ app, eventBus }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			// Create item first
 			const createRes = await app.request("/api/knowledge", {
@@ -658,10 +653,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("PATCH /api/knowledge/:id emits 'knowledge_updated' event", async ({
-			app,
-			eventBus,
-		}) => {
+		test("PATCH /api/knowledge/:id emits 'knowledge_updated' event", async ({ app, eventBus }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const createRes = await app.request("/api/knowledge", {
 				method: "POST",
@@ -900,9 +892,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
 
 	describe("10. Extension table FK cascade delete", () => {
-		test("deleting a knowledge item cascades to knowledge_strategy_fabric rows", async ({
-			db,
-		}) => {
+		test("deleting a knowledge item cascades to knowledge_strategy_fabric rows", async ({ db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const itemId = crypto.randomUUID();
 			const now = new Date().toISOString();

@@ -1,6 +1,6 @@
 import { test as base } from "vitest";
-import { checkout, checkin } from "./test-pool.js";
 import type { HyperIdleDb } from "./connection.js";
+import { checkin, checkout } from "./test-pool.js";
 
 export interface DbFixtures {
 	db: HyperIdleDb;
@@ -14,4 +14,4 @@ export const test = base.extend<DbFixtures>({
 	},
 });
 
-export { describe, expect, it, vi, beforeEach, afterEach, beforeAll, afterAll } from "vitest";
+export { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";

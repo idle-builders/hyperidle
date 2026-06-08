@@ -6,15 +6,7 @@
  * POST /api/conversations/items       — create item
  */
 
-import {
-	bets,
-	type HyperIdleDb,
-	items,
-	teamMembers,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, items, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 

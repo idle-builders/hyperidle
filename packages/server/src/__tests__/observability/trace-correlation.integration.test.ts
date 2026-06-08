@@ -12,13 +12,13 @@ import {
 	type ObservabilityEvent,
 	type SessionStartedEvent,
 } from "@hyperidle/shared";
-import { describe, expect, test } from "../../test-fixtures.js";
 import {
 	createDbTraceIdResolver,
 	createObservabilityDispatcher,
 	registerObservabilityDispatcher,
 } from "../../services/observability/dispatcher.js";
 import type { ObservabilityAdapter } from "../../services/observability/types.js";
+import { describe, expect, test } from "../../test-fixtures.js";
 
 function captureAdapter(): ObservabilityAdapter & { events: ObservabilityEvent[] } {
 	const events: ObservabilityEvent[] = [];

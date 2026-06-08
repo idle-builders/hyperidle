@@ -10,8 +10,8 @@
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { test } from "../../test-fixtures.js";
 import { createApp } from "../../app.js";
+import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-users-create";
 
@@ -71,7 +71,9 @@ describe("POST /api/users — setup user creation", () => {
 	});
 
 	// AC-28: Idempotent — second POST returns 200 with existing user
-	test("returns 200 with existing user when human user already exists (idempotent)", async ({ app }) => {
+	test("returns 200 with existing user when human user already exists (idempotent)", async ({
+		app,
+	}) => {
 		// First call creates
 		const first = await app.request("/api/users", {
 			method: "POST",
@@ -94,7 +96,10 @@ describe("POST /api/users — setup user creation", () => {
 	});
 
 	// Reviewer CRITICAL: Auth bypass test — no API key when no human exists
-	test("allows unauthenticated creation when HYPERIDLE_API_KEY is set but no human user exists", async ({ db, eventBus }) => {
+	test("allows unauthenticated creation when HYPERIDLE_API_KEY is set but no human user exists", async ({
+		db,
+		eventBus,
+	}) => {
 		// Empty API key in env simulates local-mode where key is not yet configured
 		vi.stubEnv("HYPERIDLE_API_KEY", "");
 

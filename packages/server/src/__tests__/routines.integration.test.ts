@@ -8,7 +8,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { type DomainEvent } from "@hyperidle/shared";
+import type { DomainEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../test-fixtures.js";
@@ -249,7 +249,10 @@ describe("Routine Endpoints (E6)", () => {
 		});
 
 		// G4 AC7 (via API): manual trigger for a builtin invokes the handler
-		test("invokes builtin handler for builtin:knowledge-decay (no session)", async ({ db, app }) => {
+		test("invokes builtin handler for builtin:knowledge-decay (no session)", async ({
+			db,
+			app,
+		}) => {
 			await seedBase(db);
 			// Seed builtin routine directly (bypass G4 seed helper in this test file).
 			// AA1: name, teamId, state are now required columns.

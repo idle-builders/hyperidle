@@ -10,14 +10,7 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import {
-	bets,
-	type HyperIdleDb,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import type { TaskStateChangedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
@@ -78,7 +71,10 @@ function makeContext(db: HyperIdleDb, eventBus: import("@hyperidle/shared").Even
 describe("create_task tool", () => {
 	// AC1 happy path: task created with correct betId, productId, teamId, ownerAgentId, state
 	describe("AC1: creates task with correct fields", () => {
-		test("returns ok with taskId and inserts task row with derived betId", async ({ db, eventBus }) => {
+		test("returns ok with taskId and inserts task row with derived betId", async ({
+			db,
+			eventBus,
+		}) => {
 			await seed(db);
 			const result = await createTaskTool.handler(
 				{ title: "Implement feature X" },
@@ -102,7 +98,10 @@ describe("create_task tool", () => {
 			expect(inserted?.state).toBe("proposed");
 		});
 
-		test("persists optional description and doneCondition when provided", async ({ db, eventBus }) => {
+		test("persists optional description and doneCondition when provided", async ({
+			db,
+			eventBus,
+		}) => {
 			await seed(db);
 			const result = await createTaskTool.handler(
 				{

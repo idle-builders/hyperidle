@@ -1,6 +1,6 @@
 import { appendFileSync } from "node:fs";
-import { performance } from "node:perf_hooks";
 import { resolve } from "node:path";
+import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";

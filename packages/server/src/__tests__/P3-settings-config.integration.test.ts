@@ -88,10 +88,7 @@ describe("P3 AC-10 — Settings route: server_config backing", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("PATCH costAlerts=false persists and re-GET reflects the change", async ({
-			app,
-			db,
-		}) => {
+		test("PATCH costAlerts=false persists and re-GET reflects the change", async ({ app, db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await seedFounderProfile(db);
 			await app.request("/api/settings", {
@@ -106,10 +103,7 @@ describe("P3 AC-10 — Settings route: server_config backing", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("PATCH quietHoursStart persists and re-GET reflects the change", async ({
-			app,
-			db,
-		}) => {
+		test("PATCH quietHoursStart persists and re-GET reflects the change", async ({ app, db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await seedFounderProfile(db);
 			await app.request("/api/settings", {

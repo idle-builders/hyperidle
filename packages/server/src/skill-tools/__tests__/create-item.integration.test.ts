@@ -1,15 +1,7 @@
 import * as os from "node:os";
 import * as path from "node:path";
-import {
-	type HyperIdleDb,
-	items,
-	teamMembers,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
-import type { ItemCreatedEvent } from "@hyperidle/shared";
-import { EventBus } from "@hyperidle/shared";
+import { type HyperIdleDb, items, teamMembers, teams, threads, users } from "@hyperidle/db";
+import type { EventBus, ItemCreatedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
@@ -48,7 +40,10 @@ function makeContext(db: HyperIdleDb, eventBus: EventBus): ToolContext {
 
 describe("create_item tool", () => {
 	describe("AC6: review item with riskTier=high routes to Conversations", () => {
-		test("creates the item, routes to conversations, and emits item_created", async ({ db, eventBus }) => {
+		test("creates the item, routes to conversations, and emits item_created", async ({
+			db,
+			eventBus,
+		}) => {
 			await seed(db);
 			const emitted: ItemCreatedEvent[] = [];
 			eventBus.on("item_created", (e) => {

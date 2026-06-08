@@ -13,7 +13,7 @@
 
 import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { beforeEach, afterEach, describe, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-ab3-teams";
@@ -152,7 +152,10 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 			expect(stratMember?.agentCategory).toBe("strategy");
 		});
 
-		test("roster member with null agentCategory returns null (not undefined)", async ({ db, app }) => {
+		test("roster member with null agentCategory returns null (not undefined)", async ({
+			db,
+			app,
+		}) => {
 			// Seed an agent with no agentCategory set
 			const teamId = "ab3-team-null-cat";
 			const teamMembersId = "ab3-tm-null-cat";
@@ -228,7 +231,10 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 
 	// AC-5: POST /api/agents creates agent with teamMembersId, returns 201
 	describe("POST /api/agents — create with teamId (AC-5)", () => {
-		test("returns 201 with created agent when teamId is a valid teamMembers id", async ({ db, app }) => {
+		test("returns 201 with created agent when teamId is a valid teamMembers id", async ({
+			db,
+			app,
+		}) => {
 			const { teamMembersId } = await seedTeamWithCategorizedAgents(db);
 
 			const res = await app.request("/api/agents", {

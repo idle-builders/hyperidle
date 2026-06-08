@@ -6,13 +6,7 @@
  * AC-12: Outcome revision tracked in audit trail
  */
 
-import {
-	bets,
-	type HyperIdleDb,
-	tasks,
-	teamMembers,
-	teams,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
 import { describe, expect, vi } from "vitest";
 import { test } from "../test-fixtures.js";
 

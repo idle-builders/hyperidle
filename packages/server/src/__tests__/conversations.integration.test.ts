@@ -1,10 +1,4 @@
-import {
-	items,
-	teamMembers,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { items, teamMembers, teams, threads, users } from "@hyperidle/db";
 import type { ItemCreatedEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
 
@@ -83,7 +77,10 @@ describe("Conversations Endpoints (E2)", () => {
 			expect(body.pagination.total).toBe(2);
 		});
 
-		test("sorts by attention_score when requested falls through to recency (O2: attentionScore stripped from items)", async ({ db, app }) => {
+		test("sorts by attention_score when requested falls through to recency (O2: attentionScore stripped from items)", async ({
+			db,
+			app,
+		}) => {
 			// @lore O2: attentionScore column removed from items table.
 			// ?sort=attention_score falls through to recency sort. Test verifies
 			// the endpoint still returns 200 with threads in some order.
@@ -163,7 +160,10 @@ describe("Conversations Endpoints (E2)", () => {
 	// --- GET /api/conversations/:threadId ---
 
 	describe("GET /api/conversations/:threadId", () => {
-		test("returns thread with items and an empty responses[] (verdicts now live on /api/threads)", async ({ db, app }) => {
+		test("returns thread with items and an empty responses[] (verdicts now live on /api/threads)", async ({
+			db,
+			app,
+		}) => {
 			await db.insert(threads).values({
 				id: "thread-1",
 				hostKind: "task",
@@ -293,7 +293,10 @@ describe("Conversations Endpoints (E2)", () => {
 			expect(emitted[0].kind).toBe("chat");
 		});
 
-		test("includes routing info in response (O2: view removed, response is the created item)", async ({ db, app }) => {
+		test("includes routing info in response (O2: view removed, response is the created item)", async ({
+			db,
+			app,
+		}) => {
 			await db.insert(threads).values({
 				id: "thread-1",
 				hostKind: "task",
@@ -541,7 +544,10 @@ describe("Conversations Endpoints (E2)", () => {
 	// field is no longer returned in the response — routing is a strategy concern,
 	// not a kernel concern. Tests updated to verify items are created without routing.
 	describe("Founder routing integration (O2: founderRoute removed)", () => {
-		test("agent with role 'growth' -> item created without founderRoute field", async ({ db, app }) => {
+		test("agent with role 'growth' -> item created without founderRoute field", async ({
+			db,
+			app,
+		}) => {
 			await db.insert(threads).values({
 				id: "thread-1",
 				hostKind: "task",
@@ -577,7 +583,10 @@ describe("Conversations Endpoints (E2)", () => {
 			expect(body.sourceAgentId).toBe("agent-growth");
 		});
 
-		test("agent with role 'builder' -> item created without founderRoute field", async ({ db, app }) => {
+		test("agent with role 'builder' -> item created without founderRoute field", async ({
+			db,
+			app,
+		}) => {
 			await db.insert(threads).values({
 				id: "thread-1",
 				hostKind: "task",

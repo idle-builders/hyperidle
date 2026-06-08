@@ -1,9 +1,4 @@
-import {
-	factorySettings,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { factorySettings, teamMembers, teams, users } from "@hyperidle/db";
 import { isInSilenceWindow, isSilenced } from "@hyperidle/fabric";
 import { describe, expect } from "vitest";
 import { test } from "../test-fixtures.js";

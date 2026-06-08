@@ -233,7 +233,9 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 				teamId: "team-p2",
 				createdAt: NOW,
 			});
-			await db.insert(userSkills).values({ userId: "user-p2-1", skillId: "coding", autonomyLevel: 2 });
+			await db
+				.insert(userSkills)
+				.values({ userId: "user-p2-1", skillId: "coding", autonomyLevel: 2 });
 
 			const res = await app.request("/api/users/user-p2-1/skills/coding", {
 				method: "PATCH",
@@ -265,7 +267,9 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 				teamId: "team-p2",
 				createdAt: NOW,
 			});
-			await db.insert(userSkills).values({ userId: "user-p2-1", skillId: "coding", autonomyLevel: 2 });
+			await db
+				.insert(userSkills)
+				.values({ userId: "user-p2-1", skillId: "coding", autonomyLevel: 2 });
 
 			const res = await app.request("/api/users/user-p2-1/skills/coding", {
 				method: "PATCH",

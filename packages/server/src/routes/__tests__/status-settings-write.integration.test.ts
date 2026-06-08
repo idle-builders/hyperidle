@@ -13,7 +13,7 @@
 import { factorySettings } from "@hyperidle/db";
 import { API_ERROR_CODES } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { beforeEach, afterEach, describe, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-status-write";

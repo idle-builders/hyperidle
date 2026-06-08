@@ -15,7 +15,7 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import { type HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
@@ -63,7 +63,9 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		expect(names.has("write_session_notes")).toBe(true);
 	});
 
-	test("B2 + review W3: builder registry returns FORBIDDEN when invoking a facilitator tool that exists but is role-filtered", async ({ db }) => {
+	test("B2 + review W3: builder registry returns FORBIDDEN when invoking a facilitator tool that exists but is role-filtered", async ({
+		db,
+	}) => {
 		const registry = buildToolRegistry(makeContext(db), { role: "builder" });
 		const result = await registry.invoke("promote_knowledge", {});
 		expect(result.success).toBe(false);
@@ -73,7 +75,9 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		expect(result.code).toBe("FORBIDDEN");
 	});
 
-	test("review W3: invoking a genuinely unknown tool name still returns NOT_FOUND", async ({ db }) => {
+	test("review W3: invoking a genuinely unknown tool name still returns NOT_FOUND", async ({
+		db,
+	}) => {
 		const registry = buildToolRegistry(makeContext(db), { role: "builder" });
 		const result = await registry.invoke("there_is_no_such_tool", {});
 		expect(result.success).toBe(false);

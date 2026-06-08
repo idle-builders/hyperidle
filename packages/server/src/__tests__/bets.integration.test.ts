@@ -1,9 +1,4 @@
-import {
-	bets,
-	createTestDb,
-	teamMembers,
-	teams,
-} from "@hyperidle/db";
+import { bets, createTestDb, teamMembers, teams } from "@hyperidle/db";
 import { describe, expect, test, vi } from "../test-fixtures.js";
 import { createTestApp } from "../test-utils.js";
 
@@ -37,7 +32,9 @@ describe("Bet Endpoints (E3)", () => {
 			formedAt: new Date().toISOString(),
 		});
 
-		async function createBet(overrides?: Record<string, unknown>): Promise<Record<string, unknown>> {
+		async function createBet(
+			overrides?: Record<string, unknown>,
+		): Promise<Record<string, unknown>> {
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
@@ -638,7 +635,9 @@ describe("Bet Endpoints (E3)", () => {
 			formedAt: new Date().toISOString(),
 		});
 
-		async function createBet(overrides?: Record<string, unknown>): Promise<Record<string, unknown>> {
+		async function createBet(
+			overrides?: Record<string, unknown>,
+		): Promise<Record<string, unknown>> {
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),

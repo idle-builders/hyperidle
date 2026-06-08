@@ -12,9 +12,9 @@ import {
 } from "@hyperidle/db";
 // @lore O2: sessions.cost stripped; cost tracking moved to agents.costActual.
 import { eq } from "drizzle-orm";
-import { describe, expect, test, vi } from "../test-fixtures.js";
 import { type HandoffMetadata, handoff } from "../services/handoff-protocol.js";
 import type { SessionContext } from "../services/session-lifecycle.js";
+import { describe, expect, test, vi } from "../test-fixtures.js";
 
 // --- Test helpers ---
 
@@ -127,7 +127,10 @@ function makeMetadata(overrides?: Partial<HandoffMetadata>): HandoffMetadata {
 
 describe("Handoff Protocol", () => {
 	describe("AC1: Agent A hands off to agent B", () => {
-		test("ends A's session, sets B as owner, creates thread message with metadata", async ({ db, eventBus }) => {
+		test("ends A's session, sets B as owner, creates thread message with metadata", async ({
+			db,
+			eventBus,
+		}) => {
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -312,7 +315,10 @@ describe("Handoff Protocol", () => {
 	});
 
 	describe("AC5: Handoff with status failed includes error information", () => {
-		test("includes error field in thread message when status is failed", async ({ db, eventBus }) => {
+		test("includes error field in thread message when status is failed", async ({
+			db,
+			eventBus,
+		}) => {
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -466,7 +472,10 @@ describe("Handoff Protocol", () => {
 
 	// ---------------- I1 / Handoff data integrity (H1, H3) ----------------
 	describe("I1 H1: handoff writes to auditTrail, not notes", () => {
-		test("leaves tasks.notes prose untouched and appends handoff entry to tasks.auditTrail", async ({ db, eventBus }) => {
+		test("leaves tasks.notes prose untouched and appends handoff entry to tasks.auditTrail", async ({
+			db,
+			eventBus,
+		}) => {
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -521,7 +530,10 @@ describe("Handoff Protocol", () => {
 			expect(handoffEntry.reason).toBe("H1 reason");
 		});
 
-		test("never writes the handoff entry into tasks.notes even when notes starts null", async ({ db, eventBus }) => {
+		test("never writes the handoff entry into tasks.notes even when notes starts null", async ({
+			db,
+			eventBus,
+		}) => {
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -595,7 +607,10 @@ describe("Handoff Protocol", () => {
 
 	// ---------------- I1 adversary-M2 / security-M3: handoff is atomic ----------------
 	describe("I1 M2: handoff wraps all DB mutations in one transaction", () => {
-		test("rolls back session, task, auditTrail when messages INSERT throws", async ({ db, eventBus }) => {
+		test("rolls back session, task, auditTrail when messages INSERT throws", async ({
+			db,
+			eventBus,
+		}) => {
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");

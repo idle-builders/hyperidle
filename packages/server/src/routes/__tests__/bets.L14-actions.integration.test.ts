@@ -14,7 +14,7 @@
  */
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
-import { type EventBus } from "@hyperidle/shared";
+import type { EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import type { RevisionLogEntry } from "../../services/bet-state-machine.js";
 import { transitionBet } from "../../services/bet-state-machine.js";
@@ -65,7 +65,11 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 	// Tests for invalid transitions still verify route doesn't exist (404).
 
 	describe("AC-1 — POST /bets/:id/pause", () => {
-		test("returns 404 when transition is invalid (draft → pause route removed in U1)", async ({ db, app, eventBus }) => {
+		test("returns 404 when transition is invalid (draft → pause route removed in U1)", async ({
+			db,
+			app,
+			eventBus,
+		}) => {
 			await seedBase(db, eventBus);
 			// U1 removed the pause route — expect 404 (route not found)
 			const res = await app.request("/api/bets/bet1/pause", {
@@ -107,7 +111,11 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 	// ─── AC-3: Empty reason (pause removed, test 400 from kill as proxy) ────────
 
 	describe("AC-3 — Pause requires non-empty reason", () => {
-		test("returns 400 when reason is empty string (kill route as proxy)", async ({ db, app, eventBus }) => {
+		test("returns 400 when reason is empty string (kill route as proxy)", async ({
+			db,
+			app,
+			eventBus,
+		}) => {
 			await seedBase(db, eventBus);
 			// Pause route is removed; verify 400 from kill (same empty-reason validation)
 			const res = await app.request("/api/bets/bet1/kill", {
@@ -119,7 +127,11 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			expect(res.status).toBe(400);
 		});
 
-		test("returns 400 when reason is missing (kill route as proxy)", async ({ db, app, eventBus }) => {
+		test("returns 400 when reason is missing (kill route as proxy)", async ({
+			db,
+			app,
+			eventBus,
+		}) => {
 			await seedBase(db, eventBus);
 			const res = await app.request("/api/bets/bet1/kill", {
 				method: "POST",
@@ -134,7 +146,11 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 	// ─── AC-4: cost_appetite WireMoney validation (L17 replaces old appetite string) ─
 
 	describe("AC-4 — cost_appetite WireMoney guard on PATCH", () => {
-		test("accepts cost_appetite WireMoney { minor: 10000, currency: 'USD' }", async ({ db, app, eventBus }) => {
+		test("accepts cost_appetite WireMoney { minor: 10000, currency: 'USD' }", async ({
+			db,
+			app,
+			eventBus,
+		}) => {
 			await seedBase(db, eventBus);
 			// @lore U1: Walk to "active" (draft → active via /commit) so cost_appetite update is allowed
 			await transitionBet(db, eventBus, "bet1", "active");
@@ -150,7 +166,11 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			expect(res.status).toBe(200);
 		});
 
-		test("accepts cost_appetite WireMoney { minor: 5000, currency: 'USD' }", async ({ db, app, eventBus }) => {
+		test("accepts cost_appetite WireMoney { minor: 5000, currency: 'USD' }", async ({
+			db,
+			app,
+			eventBus,
+		}) => {
 			await seedBase(db, eventBus);
 			await transitionBet(db, eventBus, "bet1", "active");
 			const res = await app.request("/api/bets/bet1", {
@@ -210,7 +230,11 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			expect(res.status).toBe(400);
 		});
 
-		test("rejects unknown field 'appetite' with 400 (L17 removed old appetite string)", async ({ db, app, eventBus }) => {
+		test("rejects unknown field 'appetite' with 400 (L17 removed old appetite string)", async ({
+			db,
+			app,
+			eventBus,
+		}) => {
 			await seedBase(db, eventBus);
 			await transitionBet(db, eventBus, "bet1", "active");
 			const res = await app.request("/api/bets/bet1", {
@@ -241,7 +265,11 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			expect(res.status).toBe(200);
 		});
 
-		test("allows cost_appetite update when bet is blocked (mapped to active in U1)", async ({ db, app, eventBus }) => {
+		test("allows cost_appetite update when bet is blocked (mapped to active in U1)", async ({
+			db,
+			app,
+			eventBus,
+		}) => {
 			await seedBase(db, eventBus);
 			// @lore U1: "blocked" is no longer a separate status — it maps to "active".
 			// This test verifies the active status allows cost_appetite PATCH.
@@ -263,7 +291,11 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 	// ─── AC-5: Actor field in revision log ───────────────────────────────────
 
 	describe("AC-5 — RevisionLogEntry actor field", () => {
-		test("kill action via existing route also writes actor (kill route must pass actor)", async ({ db, app, eventBus }) => {
+		test("kill action via existing route also writes actor (kill route must pass actor)", async ({
+			db,
+			app,
+			eventBus,
+		}) => {
 			await seedBase(db, eventBus);
 			await transitionBet(db, eventBus, "bet1", "active");
 
@@ -288,7 +320,11 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 	// ─── AC-6: GET /bets/:id enrichment ─────────────────────────────────────
 
 	describe("AC-6 — GET /bets/:id enrichment", () => {
-		test("returns title derived from first heading line of description", async ({ db, app, eventBus }) => {
+		test("returns title derived from first heading line of description", async ({
+			db,
+			app,
+			eventBus,
+		}) => {
 			await seedBase(db, eventBus);
 			// description starts with "# Hello"
 			const res = await app.request("/api/bets/bet1", {
@@ -301,7 +337,11 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 		});
 
 		// @lore U2: `product` field removed (clean cut). Now returns `team` only.
-		test("returns team name joined from teams table (formerly product name)", async ({ db, app, eventBus }) => {
+		test("returns team name joined from teams table (formerly product name)", async ({
+			db,
+			app,
+			eventBus,
+		}) => {
 			await seedBase(db, eventBus);
 			const res = await app.request("/api/bets/bet1", {
 				method: "GET",
@@ -323,7 +363,11 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			expect(typeof body.team).toBe("string");
 		});
 
-		test("returns progress with done and total computed from tasks", async ({ db, app, eventBus }) => {
+		test("returns progress with done and total computed from tasks", async ({
+			db,
+			app,
+			eventBus,
+		}) => {
 			await seedBase(db, eventBus);
 			const now = new Date().toISOString();
 			// Seed two tasks: one done, one in_progress

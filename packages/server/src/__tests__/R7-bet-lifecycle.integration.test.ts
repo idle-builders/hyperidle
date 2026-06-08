@@ -15,20 +15,12 @@
  * Ship rate = completed / (completed + active) * 100.
  */
 
-import {
-	bets,
-	type HyperIdleDb,
-	tasks,
-	teamMembers,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { registerLifecyclePropagation } from "@hyperidle/fabric";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
-import { test } from "../test-fixtures.js";
 import { transitionBet } from "../services/bet-state-machine.js";
+import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-r7-bets";
 const SYSTEM_PROPAGATION_ID = "system:propagation";

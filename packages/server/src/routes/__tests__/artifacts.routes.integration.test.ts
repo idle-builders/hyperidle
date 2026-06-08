@@ -7,15 +7,7 @@
  * PATCH /api/artifacts/:id/preview — set preview (IMMUTABLE)
  */
 
-import {
-	artifacts,
-	bets,
-	type HyperIdleDb,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { artifacts, bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 
@@ -64,7 +56,6 @@ async function seedBase(db: HyperIdleDb): Promise<{ taskId: string }> {
 }
 
 describe("artifacts routes", () => {
-
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});
@@ -113,7 +104,10 @@ describe("artifacts routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		test("returns 200 with empty items when no artifacts exist (axis=task)", async ({ db, app }) => {
+		test("returns 200 with empty items when no artifacts exist (axis=task)", async ({
+			db,
+			app,
+		}) => {
 			await seedBase(db);
 			const res = await app.request("/api/artifacts?axis=task&taskId=task-1", {
 				method: "GET",
@@ -263,7 +257,10 @@ describe("artifacts routes", () => {
 			failed: 0,
 		};
 
-		test("returns 200 on successful preview set (when previewJson IS NULL)", async ({ db, app }) => {
+		test("returns 200 on successful preview set (when previewJson IS NULL)", async ({
+			db,
+			app,
+		}) => {
 			const { taskId } = await seedBase(db);
 			const now = new Date().toISOString();
 			await db.insert(artifacts).values({

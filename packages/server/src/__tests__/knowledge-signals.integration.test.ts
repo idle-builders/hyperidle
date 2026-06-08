@@ -28,7 +28,10 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 	});
 
 	// GET / returns items with signals field
-	test("GET /api/knowledge/:layer response items include a 'signals' field", async ({ db, app }) => {
+	test("GET /api/knowledge/:layer response items include a 'signals' field", async ({
+		db,
+		app,
+	}) => {
 		// @lore O2: knowledgeItems no longer has layer/scopeId/kind/meta columns.
 		await db.insert(knowledgeItems).values({
 			id: "item-l22-1",
@@ -57,7 +60,10 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 	});
 
 	// Signals contain the expected fields
-	test("signals field contains lastActivityAt, accessCount30d, citationCount, relevanceScore", async ({ db, app }) => {
+	test("signals field contains lastActivityAt, accessCount30d, citationCount, relevanceScore", async ({
+		db,
+		app,
+	}) => {
 		await db.insert(knowledgeItems).values({
 			id: "item-l22-2",
 			topic: "testing",
@@ -99,7 +105,10 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 	});
 
 	// Items with no access data have null signals (not fake zeros)
-	test("items with no access data have null signals — never fake zeros (AC-8)", async ({ db, app }) => {
+	test("items with no access data have null signals — never fake zeros (AC-8)", async ({
+		db,
+		app,
+	}) => {
 		await db.insert(knowledgeItems).values({
 			id: "item-l22-3",
 			topic: "testing",

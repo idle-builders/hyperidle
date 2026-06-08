@@ -1,8 +1,8 @@
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
-import { type TaskState } from "@hyperidle/shared";
+import type { TaskState } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { describe, expect, test } from "../test-fixtures.js";
 import { checkAndUnblockDependents } from "../services/dependency-watcher.js";
+import { describe, expect, test } from "../test-fixtures.js";
 
 /**
  * I3 — dependency-watcher SQL filter & benchmark.
@@ -56,7 +56,10 @@ async function insertTask(
 }
 
 describe("I3: dependency-watcher SQL filter benchmark", () => {
-	test("completes in <50ms with 500 tasks (1 dependent, 499 unrelated)", async ({ db, eventBus }) => {
+	test("completes in <50ms with 500 tasks (1 dependent, 499 unrelated)", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedPrerequisites(db);
 		// Target task that just completed.
 		await insertTask(db, "target", "done");
@@ -91,7 +94,10 @@ describe("I3: dependency-watcher SQL filter benchmark", () => {
 		);
 	});
 
-	test("does NOT load unrelated tasks into memory (proxy: row-read counter)", async ({ db, eventBus }) => {
+	test("does NOT load unrelated tasks into memory (proxy: row-read counter)", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedPrerequisites(db);
 		// We can't directly observe Drizzle row-reads from the test, but we
 		// can inspect SQLite's per-statement scan count via PRAGMA stats.
@@ -126,7 +132,10 @@ describe("I3: dependency-watcher SQL filter benchmark", () => {
 });
 
 describe("I3: dependency-watcher LIKE prefix-collision guard", () => {
-	test("completing 'dep-1' does NOT unblock a task waiting on 'dep-12'", async ({ db, eventBus }) => {
+	test("completing 'dep-1' does NOT unblock a task waiting on 'dep-12'", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedPrerequisites(db);
 		// dep-1 just finished.
 		await insertTask(db, "dep-1", "done");
@@ -141,7 +150,10 @@ describe("I3: dependency-watcher LIKE prefix-collision guard", () => {
 		expect(dependent?.state).toBe("hold");
 	});
 
-	test("completing 'dep-1' does not falsely unblock a sibling whose deps array contains 'dep-100'", async ({ db, eventBus }) => {
+	test("completing 'dep-1' does not falsely unblock a sibling whose deps array contains 'dep-100'", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedPrerequisites(db);
 		await insertTask(db, "dep-1", "done");
 		await insertTask(db, "dep-100", "in_progress");

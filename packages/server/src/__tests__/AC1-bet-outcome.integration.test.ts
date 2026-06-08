@@ -8,12 +8,7 @@
  * AC-12: Outcome revision tracked in audit trail (revision log)
  */
 
-import {
-	bets,
-	type HyperIdleDb,
-	teamMembers,
-	teams,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
 import { describe, expect, vi } from "vitest";
 import { test } from "../test-fixtures.js";
 

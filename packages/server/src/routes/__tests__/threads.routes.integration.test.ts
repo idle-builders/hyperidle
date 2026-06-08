@@ -13,15 +13,7 @@
  *  - plan §11 (security/abuse cases)
  */
 
-import {
-	bets,
-	type HyperIdleDb,
-	tasks,
-	teamMembers,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { type DomainEvent, HOST_KINDS, MESSAGE_TYPES } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
@@ -107,7 +99,10 @@ describe("AC-7 / AC-10 — POST /api/threads creates a thread per host_kind", ()
 	});
 
 	for (const hostKind of HOST_KINDS) {
-		test(`accepts host_kind='${hostKind}' and round-trips it through GET /api/threads/:id`, async ({ db, app }) => {
+		test(`accepts host_kind='${hostKind}' and round-trips it through GET /api/threads/:id`, async ({
+			db,
+			app,
+		}) => {
 			await seedBase(db);
 			const res = await app.request("/api/threads", {
 				method: "POST",
@@ -244,7 +239,10 @@ describe("Idempotency on (thread_id, sender_id, client_key)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("re-POST with the same clientKey returns the existing message id, no duplicate row", async ({ db, app }) => {
+	test("re-POST with the same clientKey returns the existing message id, no duplicate row", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 		const create = await app.request("/api/threads", {
 			method: "POST",
@@ -302,7 +300,10 @@ describe("Idempotency on (thread_id, sender_id, client_key)", () => {
 		expect(matches.length).toBe(1);
 	});
 
-	test("re-POST with same clientKey but a DIFFERENT payload returns 409 idempotency_conflict (Adv-C3)", async ({ db, app }) => {
+	test("re-POST with same clientKey but a DIFFERENT payload returns 409 idempotency_conflict (Adv-C3)", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 		const create = await app.request("/api/threads", {
 			method: "POST",
@@ -347,7 +348,10 @@ describe("Idempotency on (thread_id, sender_id, client_key)", () => {
 		expect(body.code).toBe("idempotency_conflict");
 	});
 
-	test("two senders with the same clientKey both succeed (per-sender dedupe namespace)", async ({ db, app }) => {
+	test("two senders with the same clientKey both succeed (per-sender dedupe namespace)", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 		const create = await app.request("/api/threads", {
 			method: "POST",
@@ -502,7 +506,10 @@ describe("Verdict authorization (plan §6.1 REVISED for adversary C4)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("agent participant posting verdict on its own review → 403 verdict_authorization", async ({ db, app }) => {
+	test("agent participant posting verdict on its own review → 403 verdict_authorization", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 		const create = await app.request("/api/threads", {
 			method: "POST",
@@ -584,10 +591,16 @@ describe("Verdict authorization (plan §6.1 REVISED for adversary C4)", () => {
 		expect(res.status).toBe(403);
 	});
 
-	test("founder participant who is NOT the review's sender → 200, thread.resolvedAt set, thread_resolved emitted", async ({ db, app, eventBus }) => {
+	test("founder participant who is NOT the review's sender → 200, thread.resolvedAt set, thread_resolved emitted", async ({
+		db,
+		app,
+		eventBus,
+	}) => {
 		await seedBase(db);
 		const events: DomainEvent[] = [];
-		eventBus.on("*", (e) => { events.push(e); });
+		eventBus.on("*", (e) => {
+			events.push(e);
+		});
 
 		const create = await app.request("/api/threads", {
 			method: "POST",
@@ -648,10 +661,16 @@ describe("Re-open semantics (plan §6.1 REVISED for adversary C5)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("posting a new review on a resolved thread clears thread.resolvedAt and emits thread_reopened", async ({ db, app, eventBus }) => {
+	test("posting a new review on a resolved thread clears thread.resolvedAt and emits thread_reopened", async ({
+		db,
+		app,
+		eventBus,
+	}) => {
 		await seedBase(db);
 		const events: DomainEvent[] = [];
-		eventBus.on("*", (e) => { events.push(e); });
+		eventBus.on("*", (e) => {
+			events.push(e);
+		});
 
 		// Create + verdict a thread so it ends up resolved.
 		const create = await app.request("/api/threads", {
@@ -806,7 +825,10 @@ describe("List threads + GET /api/threads validation", () => {
 		expect(res.status).toBe(400);
 	});
 
-	test("GET /api/threads?host_kind=task&host_id=task-1 returns the matching threads sorted by last_active_at desc", async ({ db, app }) => {
+	test("GET /api/threads?host_kind=task&host_id=task-1 returns the matching threads sorted by last_active_at desc", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 		await app.request("/api/threads", {
 			method: "POST",
@@ -870,10 +892,16 @@ describe("Event emission (plan §6.3)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("POST /api/threads emits thread_created and thread_message_appended", async ({ db, app, eventBus }) => {
+	test("POST /api/threads emits thread_created and thread_message_appended", async ({
+		db,
+		app,
+		eventBus,
+	}) => {
 		await seedBase(db);
 		const events: DomainEvent[] = [];
-		eventBus.on("*", (e) => { events.push(e); });
+		eventBus.on("*", (e) => {
+			events.push(e);
+		});
 
 		const res = await app.request("/api/threads", {
 			method: "POST",
@@ -907,7 +935,10 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("hasUnresolvedReview=true when an unresolved review exists in the thread", async ({ db, app }) => {
+	test("hasUnresolvedReview=true when an unresolved review exists in the thread", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 		const create = await app.request("/api/threads", {
 			method: "POST",
@@ -965,7 +996,10 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 		expect(body.threads[0].hasUnresolvedReview).toBe(false);
 	});
 
-	test("hasUnresolvedReview=false once the review is resolved by a verdict", async ({ db, app }) => {
+	test("hasUnresolvedReview=false once the review is resolved by a verdict", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 		const create = await app.request("/api/threads", {
 			method: "POST",

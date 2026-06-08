@@ -15,7 +15,7 @@ import {
 	recordCostAndCheck,
 	resetCosts,
 } from "@hyperidle/fabric";
-import { type CostCapBreachedEvent, type CostCapWarningEvent } from "@hyperidle/shared";
+import type { CostCapBreachedEvent, CostCapWarningEvent } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, test } from "../test-fixtures.js";
 
@@ -194,7 +194,10 @@ describe("Cost Cap Enforcement", () => {
 
 	// AC2: Team cap $50 -> team total at $50 blocks new sessions even if agent has budget
 	describe("AC2: Team cap enforcement", () => {
-		test("blocks session when team total reaches cap even if agent has budget", async ({ db, eventBus }) => {
+		test("blocks session when team total reaches cap even if agent has budget", async ({
+			db,
+			eventBus,
+		}) => {
 			await seedBase(db);
 			// Add another agent to team
 			await db.insert(users).values({
@@ -570,7 +573,10 @@ describe("Cost Cap Enforcement", () => {
 
 	// Edge case: hierarchy check order (agent checked before team before factory)
 	describe("Hierarchy ordering", () => {
-		test("returns agent level when both agent and team caps are breached", async ({ db, eventBus }) => {
+		test("returns agent level when both agent and team caps are breached", async ({
+			db,
+			eventBus,
+		}) => {
 			await seedBase(db);
 			// Both agent ($10) and team ($50) caps breached
 			await insertSession(db, "s1", "agent-1", 1000); // agent at cap

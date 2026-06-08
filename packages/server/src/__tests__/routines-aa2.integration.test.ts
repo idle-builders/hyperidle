@@ -247,7 +247,10 @@ describe("AA2: Routine Management API", () => {
 			expect(found).toBeDefined();
 		});
 
-		test("newly created routine appears in GET /api/teams/:id routines array", async ({ db, app }) => {
+		test("newly created routine appears in GET /api/teams/:id routines array", async ({
+			db,
+			app,
+		}) => {
 			await seedBase(db);
 			const payload = {
 				name: "Team routine",
@@ -539,7 +542,10 @@ describe("AA2: Routine Management API", () => {
 	// ──────────────────────────────────────────────────────────────────────
 
 	describe("AC-5: Coalescing — trigger skipped when active session exists", () => {
-		test("POST /api/routines/:id/trigger returns coalesced=true when active session exists", async ({ db, app }) => {
+		test("POST /api/routines/:id/trigger returns coalesced=true when active session exists", async ({
+			db,
+			app,
+		}) => {
 			await seedBase(db);
 			await db.insert(routines).values({
 				id: "routine-coalesce-test",
@@ -813,7 +819,9 @@ describe("AA2: Routine Management API", () => {
 			}
 		});
 
-		test("endSession updates routine_run outcome to success and back-populates sessionId", async ({ db }) => {
+		test("endSession updates routine_run outcome to success and back-populates sessionId", async ({
+			db,
+		}) => {
 			await seedBase(db);
 			// Arrange: seed the routine
 			await db.insert(routines).values({
@@ -866,7 +874,9 @@ describe("AA2: Routine Management API", () => {
 			expect(run.endedAt).not.toBeNull();
 		});
 
-		test("crashSession updates routine_run outcome to error and back-populates sessionId", async ({ db }) => {
+		test("crashSession updates routine_run outcome to error and back-populates sessionId", async ({
+			db,
+		}) => {
 			await seedBase(db);
 			// Arrange
 			await db.insert(routines).values({

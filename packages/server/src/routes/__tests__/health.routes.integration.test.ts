@@ -39,7 +39,9 @@ describe("health routes", () => {
 			expect(res.status).toBe(401);
 		});
 
-		test("returns 200 with status ok, timestamp, and userId when authenticated", async ({ app }) => {
+		test("returns 200 with status ok, timestamp, and userId when authenticated", async ({
+			app,
+		}) => {
 			const res = await app.request("/api/health/auth", {
 				method: "GET",
 				headers: authHeaders(),

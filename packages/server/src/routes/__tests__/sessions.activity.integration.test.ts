@@ -5,16 +5,8 @@
  * ring buffer. Response includes session metadata + activity array.
  */
 
-import {
-	bets,
-	type HyperIdleDb,
-	sessions,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
-import { beforeEach, afterEach, describe, expect, vi } from "vitest";
+import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-sessions-activity";
@@ -83,7 +75,10 @@ describe("GET /api/sessions/:id/activity (Q1 §3.2)", () => {
 	});
 
 	// AC6: endpoint returns 200 with session metadata and activity array
-	test("returns 200 with session metadata and empty activity array for fresh session", async ({ db, app }) => {
+	test("returns 200 with session metadata and empty activity array for fresh session", async ({
+		db,
+		app,
+	}) => {
 		await seedSession(db);
 		const res = await app.request("/api/sessions/sess-1/activity", { headers: authHeaders() });
 		expect(res.status).toBe(200);
@@ -101,7 +96,11 @@ describe("GET /api/sessions/:id/activity (Q1 §3.2)", () => {
 	});
 
 	// AC6: activity entries have discriminated union type
-	test("returns activity entries with type, timestamp, and data fields", async ({ db, app, eventBus }) => {
+	test("returns activity entries with type, timestamp, and data fields", async ({
+		db,
+		app,
+		eventBus,
+	}) => {
 		await seedSession(db);
 		// Emit a tool_call_recorded event so the buffer is populated
 		eventBus.emit({

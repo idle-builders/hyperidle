@@ -9,15 +9,7 @@
  *  - 404 returned for an unknown bet id
  */
 
-import {
-	bets,
-	type HyperIdleDb,
-	sessions,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 
@@ -167,7 +159,10 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 		expect(task.latestSessionOutcome).toBeNull();
 	});
 
-	test("mixed bet: one task with session, one without — each correctly enriched", async ({ db, app }) => {
+	test("mixed bet: one task with session, one without — each correctly enriched", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 
 		await db.insert(bets).values({
@@ -234,7 +229,10 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 		expect(withoutSession?.latestSessionOutcome).toBeNull();
 	});
 
-	test("uses the most recent session (by startedAt) when a task has multiple sessions", async ({ db, app }) => {
+	test("uses the most recent session (by startedAt) when a task has multiple sessions", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 
 		await db.insert(bets).values({

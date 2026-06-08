@@ -34,8 +34,8 @@ import {
 } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../../harness/adapter-pool.js";
-import { createTestApp } from "../../test-utils.js";
 import { test } from "../../test-fixtures.js";
+import { createTestApp } from "../../test-utils.js";
 
 const TEST_API_KEY = "test-key-ab1-agent-profile";
 
@@ -806,7 +806,10 @@ describe("AB1 AC-9: Health signal last session crash warning", () => {
 		expect(health.lastSessionCrashed).toBe(false);
 	});
 
-	test("sets lastSessionCrashed=true when most recent session outcome is 'crashed'", async ({ db, app }) => {
+	test("sets lastSessionCrashed=true when most recent session outcome is 'crashed'", async ({
+		db,
+		app,
+	}) => {
 		await seedPrereqs(db);
 		await db.insert(sessions).values({
 			id: "ab1-crashed-session",
@@ -828,7 +831,10 @@ describe("AB1 AC-9: Health signal last session crash warning", () => {
 		expect(health.degraded).toBe(true);
 	});
 
-	test("sets lastSessionCrashed=false when most recent session outcome is 'completed'", async ({ db, app }) => {
+	test("sets lastSessionCrashed=false when most recent session outcome is 'completed'", async ({
+		db,
+		app,
+	}) => {
 		await seedPrereqs(db);
 		await db.insert(sessions).values({
 			id: "ab1-success-session",
@@ -863,7 +869,10 @@ describe("AB1 AC-10: Health signal harness available check", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("sets harnessAvailable=true when agent harnessType is registered in pool", async ({ db, eventBus }) => {
+	test("sets harnessAvailable=true when agent harnessType is registered in pool", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedPrereqs(db);
 		// Create a pool with 'claude-code' adapter registered
 		const adapterPool = new AdapterPool();
@@ -886,7 +895,10 @@ describe("AB1 AC-10: Health signal harness available check", () => {
 		expect(health.harnessAvailable).toBe(true);
 	});
 
-	test("sets harnessAvailable=false when agent harnessType is not in pool", async ({ db, eventBus }) => {
+	test("sets harnessAvailable=false when agent harnessType is not in pool", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedPrereqs(db);
 		// Empty pool — no adapters registered
 		const adapterPool = new AdapterPool();
@@ -903,7 +915,10 @@ describe("AB1 AC-10: Health signal harness available check", () => {
 		expect(health.degraded).toBe(true);
 	});
 
-	test("sets harnessAvailable=true when agent has no harnessType preference", async ({ db, eventBus }) => {
+	test("sets harnessAvailable=true when agent has no harnessType preference", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedPrereqs(db);
 		const adapterPool = new AdapterPool();
 		// Register any adapter
@@ -1080,7 +1095,10 @@ describe("AB1: Idle duration in health signals", () => {
 		expect(health.idleDurationMs === null || typeof health.idleDurationMs === "number").toBe(true);
 	});
 
-	test("returns idleDurationMs as a non-negative number when sessions exist", async ({ db, app }) => {
+	test("returns idleDurationMs as a non-negative number when sessions exist", async ({
+		db,
+		app,
+	}) => {
 		await seedPrereqs(db);
 		await db.insert(sessions).values({
 			id: "ab1-session-for-idle",

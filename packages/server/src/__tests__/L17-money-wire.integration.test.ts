@@ -11,15 +11,7 @@
  */
 
 // @lore U1: `products` renamed to `teams`; old `teams` (membership) renamed to `teamMembers`.
-import {
-	bets,
-	type HyperIdleDb,
-	sessions,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import {
 	checkCostCap,
 	clearDeduplicationCache,
@@ -124,9 +116,7 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 		expect(result.allowed).toBe(true);
 	});
 
-	test("O2: session cost is always 0 (cost columns stripped from kernel table)", async ({
-		db,
-	}) => {
+	test("O2: session cost is always 0 (cost columns stripped from kernel table)", async ({ db }) => {
 		clearDeduplicationCache();
 		await seedAC13Base(db);
 

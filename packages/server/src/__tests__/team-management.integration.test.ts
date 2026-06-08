@@ -11,7 +11,6 @@ import {
 import { ActiveRoutinesError } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
-import { test } from "../test-fixtures.js";
 import {
 	addMember,
 	createTeam,
@@ -20,6 +19,7 @@ import {
 	getTeamCost,
 	removeMember,
 } from "../services/team-management.js";
+import { test } from "../test-fixtures.js";
 
 const NOW = "2026-04-15T00:00:00.000Z";
 

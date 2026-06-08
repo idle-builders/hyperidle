@@ -11,14 +11,8 @@
  * 7. GET /api/teams/:id with teams.cost_cap = null returns burn.costCap: null.
  */
 
-import {
-	bets,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
-import { beforeEach, afterEach, describe, expect, vi } from "vitest";
+import { bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-products";
@@ -55,7 +49,10 @@ describe("GET /api/teams", () => {
 		expect((body.teams as unknown[]).length).toBe(0);
 	});
 
-	test("returns one row with derived activeBets, shipped, shipRate for a seeded product+team+bet+task fixture", async ({ db, app }) => {
+	test("returns one row with derived activeBets, shipped, shipRate for a seeded product+team+bet+task fixture", async ({
+		db,
+		app,
+	}) => {
 		await db
 			.insert(teams)
 			.values({ id: "p1", name: "HyperIdle Core", phase: "build", createdAt: NOW });
@@ -127,7 +124,10 @@ describe("GET /api/teams/:id", () => {
 		expect(res.status).toBe(404);
 	});
 
-	test("returns 500 with code 'team_missing' when the team for a product is absent", async ({ db, app }) => {
+	test("returns 500 with code 'team_missing' when the team for a product is absent", async ({
+		db,
+		app,
+	}) => {
 		await db
 			.insert(teams)
 			.values({ id: "p-no-team", name: "Orphan Product", phase: "build", createdAt: NOW });
@@ -143,7 +143,10 @@ describe("GET /api/teams/:id", () => {
 		expect(body.code).toBe("team_members_missing");
 	});
 
-	test("returns populated ProductDetail for a seeded product+team+roster+bets", async ({ db, app }) => {
+	test("returns populated ProductDetail for a seeded product+team+roster+bets", async ({
+		db,
+		app,
+	}) => {
 		await db
 			.insert(teams)
 			.values({ id: "p1", name: "HyperIdle Core", phase: "build", createdAt: NOW });

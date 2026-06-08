@@ -1,12 +1,8 @@
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
-import {
-	type NotificationEvent,
-	type TaskState,
-	type TaskStateChangedEvent,
-} from "@hyperidle/shared";
+import type { NotificationEvent, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { describe, expect, test } from "../test-fixtures.js";
 import { checkAndUnblockDependents } from "../services/dependency-watcher.js";
+import { describe, expect, test } from "../test-fixtures.js";
 
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
@@ -173,7 +169,10 @@ describe("Dependency Watcher", () => {
 			expect(task?.state).toBe("hold");
 		});
 
-		test("treats `_` in completedTaskId as a literal, not a single-char wildcard", async ({ db, eventBus }) => {
+		test("treats `_` in completedTaskId as a literal, not a single-char wildcard", async ({
+			db,
+			eventBus,
+		}) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "depX1", "done");
 			await insertTask(db, "dependent", "hold", ["depX1"]);
@@ -188,7 +187,10 @@ describe("Dependency Watcher", () => {
 	});
 
 	describe("multiple dependents", () => {
-		test("unblocks multiple tasks that depend on the same completed task", async ({ db, eventBus }) => {
+		test("unblocks multiple tasks that depend on the same completed task", async ({
+			db,
+			eventBus,
+		}) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "dep-1", "done");
 			await insertTask(db, "dependent-a", "hold", ["dep-1"]);

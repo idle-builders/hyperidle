@@ -157,7 +157,10 @@ describe("PATCH /api/users/:id — profile update", () => {
 	// @lore P4: 403 is returned for unknown user ids, not 404, because the
 	// self-only auth check fails first. This prevents leaking user existence
 	// information to unauthorized callers.
-	test("returns 403 for an unknown user id (self-only check fails before existence check)", async ({ db, app }) => {
+	test("returns 403 for an unknown user id (self-only check fails before existence check)", async ({
+		db,
+		app,
+	}) => {
 		await seedUser(db);
 		const res = await app.request("/api/users/u-does-not-exist", {
 			method: "PATCH",

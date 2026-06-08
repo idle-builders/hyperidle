@@ -156,7 +156,10 @@ describe("L18 — GET /api/bets/:id/artifact-thread-summary", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("returns one row per artifact with at least one message, ordered by lastMessageAt desc", async ({ db, app }) => {
+	test("returns one row per artifact with at least one message, ordered by lastMessageAt desc", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 		await insertBet(db, "bet-summary-1");
 		await insertTask(db, "task-sum-a", "bet-summary-1");
@@ -235,7 +238,10 @@ describe("L18 — GET /api/bets/:id/artifact-thread-summary", () => {
 		expect(body.truncated).toBe(false);
 	});
 
-	test("caps results at 10 rows; sets truncated=true and totalCount when more than 10 qualify", async ({ db, app }) => {
+	test("caps results at 10 rows; sets truncated=true and totalCount when more than 10 qualify", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 		await insertBet(db, "bet-summary-3");
 

@@ -11,14 +11,14 @@
  */
 
 import { threads as threadsTable } from "@hyperidle/db";
-import { type ThreadMessageAppendedEvent } from "@hyperidle/shared";
+import type { ThreadMessageAppendedEvent } from "@hyperidle/shared";
 import { afterEach, describe, expect } from "vitest";
-import { test } from "../test-fixtures.js";
 import {
 	createDbSubscribeAuthorizer,
 	WsBroadcaster,
 	type WsClient,
 } from "../services/ws-broadcaster.js";
+import { test } from "../test-fixtures.js";
 
 function createMockClient(): WsClient & { messages: string[] } {
 	const messages: string[] = [];
@@ -57,7 +57,10 @@ describe("WsBroadcaster — subscribe authorization (L1 Adv-C1)", () => {
 		broadcaster.stop();
 	});
 
-	test("non-participant subscribe to thread:<id> → forbidden, no events delivered", async ({ db, eventBus }) => {
+	test("non-participant subscribe to thread:<id> → forbidden, no events delivered", async ({
+		db,
+		eventBus,
+	}) => {
 		const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db));
 		broadcaster.start();
 
@@ -96,7 +99,10 @@ describe("WsBroadcaster — subscribe authorization (L1 Adv-C1)", () => {
 		broadcaster.stop();
 	});
 
-	test("subscribe with no bound identity → forbidden for thread topics", async ({ db, eventBus }) => {
+	test("subscribe with no bound identity → forbidden for thread topics", async ({
+		db,
+		eventBus,
+	}) => {
 		const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db));
 		broadcaster.start();
 
@@ -121,7 +127,10 @@ describe("WsBroadcaster — subscribe authorization (L1 Adv-C1)", () => {
 		broadcaster.stop();
 	});
 
-	test("global topics (`conversations`, `work`, `rail`) accept any identity", async ({ db, eventBus }) => {
+	test("global topics (`conversations`, `work`, `rail`) accept any identity", async ({
+		db,
+		eventBus,
+	}) => {
 		const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db));
 		broadcaster.start();
 

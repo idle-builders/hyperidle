@@ -25,11 +25,11 @@ import {
 import { clearDeduplicationCache } from "@hyperidle/fabric";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe } from "vitest";
-import { test } from "../test-fixtures.js";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { ClaudeAgentSdkAdapter } from "../harness/claude-agent-sdk-adapter.js";
 import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
 import { type ProvisionSessionDeps, provisionSession } from "../services/session-provisioning.js";
+import { test } from "../test-fixtures.js";
 
 const NOW = "2026-04-16T00:00:00.000Z";
 

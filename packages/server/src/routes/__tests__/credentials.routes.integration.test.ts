@@ -197,7 +197,9 @@ describe("credentials routes", () => {
 			expect(body.valid).toBe(false);
 		});
 
-		test("returns 200 with validation result and updates DB state (mock external fetch)", async ({ app }) => {
+		test("returns 200 with validation result and updates DB state (mock external fetch)", async ({
+			app,
+		}) => {
 			// @lore V1: validateLimiter is module-scoped in credentials.ts (shared bucket across tests).
 			// This test combines "validate returns valid:true" + "state updated in DB" into a single
 			// validate call to avoid exhausting the 3/hour bucket shared across all tests in this file.

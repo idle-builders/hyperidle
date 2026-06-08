@@ -1,17 +1,12 @@
-import {
-	bets,
-	type HyperIdleDb,
-	teamMembers,
-	teams,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
 import { CapacityExceededError, InvalidTransitionError } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { describe, expect, test, vi } from "../test-fixtures.js";
 import {
 	type RevisionLogEntry,
 	transitionBet,
 	updateBetField,
 } from "../services/bet-state-machine.js";
+import { describe, expect, test, vi } from "../test-fixtures.js";
 
 // @lore U1: teams = domain entity (products); teamMembers = membership group.
 // bets.teamId references teams.id, NOT teamMembers.id.
@@ -75,7 +70,10 @@ async function seedBaseData(db: HyperIdleDb): Promise<void> {
 
 describe("bet-state-machine", () => {
 	describe("transitionBet", () => {
-		test("creates bet as draft, active transitions to active with revision log entry", async ({ db, eventBus }) => {
+		test("creates bet as draft, active transitions to active with revision log entry", async ({
+			db,
+			eventBus,
+		}) => {
 			await seedBaseData(db);
 			await db.insert(bets).values(makeBet({ status: "draft" }));
 
@@ -127,7 +125,10 @@ describe("bet-state-machine", () => {
 			expect(bet?.status).toBe("completed");
 		});
 
-		test("completes bet with bet_state_changed event (toState=completed)", async ({ db, eventBus }) => {
+		test("completes bet with bet_state_changed event (toState=completed)", async ({
+			db,
+			eventBus,
+		}) => {
 			await seedBaseData(db);
 			await db.update(teamMembers).set({ activeBets: 1 }).where(eq(teamMembers.id, "team-1"));
 			await db.insert(bets).values(makeBet({ status: "active" }));
@@ -209,7 +210,10 @@ describe("bet-state-machine", () => {
 			expect(log[0]?.reason).toBe("No longer viable");
 		});
 
-		test("decrements activeBets when killing active bet (was committed)", async ({ db, eventBus }) => {
+		test("decrements activeBets when killing active bet (was committed)", async ({
+			db,
+			eventBus,
+		}) => {
 			await seedBaseData(db);
 			await db.update(teamMembers).set({ activeBets: 1 }).where(eq(teamMembers.id, "team-1"));
 			await db.insert(bets).values(makeBet({ status: "active" }));
@@ -220,7 +224,10 @@ describe("bet-state-machine", () => {
 			expect(member?.activeBets).toBe(0);
 		});
 
-		test("decrements activeBets when killing active bet (was in_progress)", async ({ db, eventBus }) => {
+		test("decrements activeBets when killing active bet (was in_progress)", async ({
+			db,
+			eventBus,
+		}) => {
 			await seedBaseData(db);
 			await db.update(teamMembers).set({ activeBets: 1 }).where(eq(teamMembers.id, "team-1"));
 			await db.insert(bets).values(makeBet({ status: "active" }));
@@ -231,7 +238,10 @@ describe("bet-state-machine", () => {
 			expect(member?.activeBets).toBe(0);
 		});
 
-		test("throws InvalidTransitionError for active → draft (U1: reshape removed, only active→completed|killed)", async ({ db, eventBus }) => {
+		test("throws InvalidTransitionError for active → draft (U1: reshape removed, only active→completed|killed)", async ({
+			db,
+			eventBus,
+		}) => {
 			// @lore U1: The old "reshape" transition (committed→shaped) no longer exists.
 			// In U1 simplified model: active can only go to completed or killed.
 			await seedBaseData(db);
@@ -283,7 +293,10 @@ describe("bet-state-machine", () => {
 		});
 
 		describe("I1 B3: failed bet UPDATE rolls back activeBets", () => {
-			test("does not leak an activeBets increment when the bet UPDATE fails inside the transaction", async ({ db, eventBus }) => {
+			test("does not leak an activeBets increment when the bet UPDATE fails inside the transaction", async ({
+				db,
+				eventBus,
+			}) => {
 				// @lore U1: transitionBet uses tx.update() inside the transaction — the
 				// db.update spy won't intercept calls made via the transaction handle (tx).
 				// Instead we verify the rollback semantics by attempting an impossible
@@ -323,7 +336,10 @@ describe("bet-state-machine", () => {
 	});
 
 	describe("updateBetField", () => {
-		test("updates done_condition on active bet with revision log and item_created event", async ({ db, eventBus }) => {
+		test("updates done_condition on active bet with revision log and item_created event", async ({
+			db,
+			eventBus,
+		}) => {
 			await seedBaseData(db);
 			await db.insert(bets).values(makeBet({ status: "active", doneCondition: "Old condition" }));
 
@@ -407,7 +423,10 @@ describe("bet-state-machine", () => {
 	});
 
 	describe("revision log shape", () => {
-		test("has correct shape with timestamp, field, old_value, new_value, reason", async ({ db, eventBus }) => {
+		test("has correct shape with timestamp, field, old_value, new_value, reason", async ({
+			db,
+			eventBus,
+		}) => {
 			await seedBaseData(db);
 			await db.insert(bets).values(makeBet({ status: "draft" }));
 
@@ -447,7 +466,10 @@ describe("bet-state-machine", () => {
 
 	// ---------------- I1 adversary-M1: concurrent completed transition double-emit ----------------
 	describe("I1 M1: concurrent transitions are compare-and-set", () => {
-		test("second transitionBet to completed throws InvalidTransitionError and does NOT re-emit bet_state_changed", async ({ db, eventBus }) => {
+		test("second transitionBet to completed throws InvalidTransitionError and does NOT re-emit bet_state_changed", async ({
+			db,
+			eventBus,
+		}) => {
 			await seedBaseData(db);
 			// Walk the bet forward to `active` so "completed" is a valid transition.
 			await db.insert(bets).values(makeBet({ status: "active" }));

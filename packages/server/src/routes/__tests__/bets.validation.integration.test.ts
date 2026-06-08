@@ -49,7 +49,11 @@ describe("I2 V2 — PATCH /api/bets/:id field enum", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("returns 400 (Zod) when field is not in MUTABLE_BET_FIELDS", async ({ db, app, eventBus }) => {
+	test("returns 400 (Zod) when field is not in MUTABLE_BET_FIELDS", async ({
+		db,
+		app,
+		eventBus,
+	}) => {
 		await seedBet(db, eventBus);
 		const res = await app.request("/api/bets/bet1", {
 			method: "PATCH",
@@ -62,7 +66,11 @@ describe("I2 V2 — PATCH /api/bets/:id field enum", () => {
 		expect(body.code).toBe(API_ERROR_CODES.VALIDATION_ERROR);
 	});
 
-	test("accepts each legal field value (done_condition / hypothesis / cost_appetite)", async ({ db, app, eventBus }) => {
+	test("accepts each legal field value (done_condition / hypothesis / cost_appetite)", async ({
+		db,
+		app,
+		eventBus,
+	}) => {
 		await seedBet(db, eventBus);
 		// @lore L17: cost_appetite uses WireMoney (not a string), so each field has
 		// a distinct value shape in the test fixture.

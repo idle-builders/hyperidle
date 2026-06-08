@@ -1,11 +1,4 @@
-import {
-	bets,
-	type HyperIdleDb,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../test-fixtures.js";
 
@@ -61,7 +54,11 @@ describe("Task Endpoints (E3)", () => {
 		});
 	}
 
-	async function seedTask(db: HyperIdleDb, id: string, overrides?: Record<string, unknown>): Promise<void> {
+	async function seedTask(
+		db: HyperIdleDb,
+		id: string,
+		overrides?: Record<string, unknown>,
+	): Promise<void> {
 		const now = new Date().toISOString();
 		await db.insert(tasks).values({
 			id,

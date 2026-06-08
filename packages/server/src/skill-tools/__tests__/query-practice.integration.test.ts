@@ -1,6 +1,6 @@
 import * as os from "node:os";
 import * as path from "node:path";
-import { type HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { create as createKnowledgeItem, setupFts } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
 import { describe, expect } from "vitest";

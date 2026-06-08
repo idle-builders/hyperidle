@@ -10,13 +10,13 @@
 import { factorySettings, type HyperIdleDb } from "@hyperidle/db";
 import type { Logger } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { describe, expect, test } from "../../test-fixtures.js";
 import { createObservabilityRoutes } from "../../routes/observability-routes.js";
 import { createObservabilityDispatcher } from "../../services/observability/dispatcher.js";
 import type {
 	ObservabilityAdapter,
 	ObservabilityDispatcher,
 } from "../../services/observability/types.js";
+import { describe, expect, test } from "../../test-fixtures.js";
 
 function quietAdapter(): ObservabilityAdapter {
 	return {
@@ -160,7 +160,9 @@ describe("H3 observability routes — /status + /flush", () => {
 		expect(body.bufferDepth).toBe(0);
 	});
 
-	test("status reports enabled=true + adapter=noop when config is {adapter:noop, enabled:true}", async ({ db }) => {
+	test("status reports enabled=true + adapter=noop when config is {adapter:noop, enabled:true}", async ({
+		db,
+	}) => {
 		await seedKeys(db, {
 			"observability.enabled": "true",
 			"observability.adapter": "noop",

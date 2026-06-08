@@ -21,6 +21,7 @@
  */
 
 import { factorySettings, type HyperIdleDb } from "@hyperidle/db";
+import type { Logger } from "@hyperidle/shared";
 import {
 	EventBus,
 	type KnowledgeUpdatedEvent,
@@ -29,7 +30,6 @@ import {
 	scrubInlineTokens,
 	type ToolCallRecordedEvent,
 } from "@hyperidle/shared";
-import { describe, expect, test } from "../../test-fixtures.js";
 import { createObservabilityRoutes } from "../../routes/observability-routes.js";
 import {
 	type ObservabilityConfig,
@@ -43,7 +43,7 @@ import type {
 	ObservabilityAdapter,
 	ObservabilityDispatcher,
 } from "../../services/observability/types.js";
-import type { Logger } from "@hyperidle/shared";
+import { describe, expect, test } from "../../test-fixtures.js";
 
 function captureAdapter(
 	name: "console" = "console",

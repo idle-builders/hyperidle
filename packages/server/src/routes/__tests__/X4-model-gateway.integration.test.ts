@@ -250,7 +250,9 @@ describe("X4: GET /api/model-gateway", () => {
 		expect(body.fast.model).toBe("claude-haiku-3-5-20241022");
 	});
 
-	test("strips apiKey from openai-compatible provider — returns hasApiKey: true instead (A-SEC-2)", async ({ app }) => {
+	test("strips apiKey from openai-compatible provider — returns hasApiKey: true instead (A-SEC-2)", async ({
+		app,
+	}) => {
 		// First patch to set openai-compatible config with an apiKey
 		await app.request("/api/model-gateway", {
 			method: "PATCH",
@@ -305,7 +307,9 @@ describe("X4: GET /api/model-gateway", () => {
 		expect(body.fast.apiKey).toBeUndefined();
 	});
 
-	test("returns hasApiKey: false for anthropic provider (no apiKey field at all)", async ({ app }) => {
+	test("returns hasApiKey: false for anthropic provider (no apiKey field at all)", async ({
+		app,
+	}) => {
 		const res = await app.request("/api/model-gateway", {
 			headers: authHeaders(),
 		});
@@ -454,7 +458,9 @@ describe("X4: ServerConfig modelGateway field defaults", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("modelGateway in server config defaults to DEFAULT_GATEWAY_CONFIG when no row exists", async ({ app }) => {
+	test("modelGateway in server config defaults to DEFAULT_GATEWAY_CONFIG when no row exists", async ({
+		app,
+	}) => {
 		// GET /api/model-gateway relies on readServerConfig → modelGateway field
 		const res = await app.request("/api/model-gateway", {
 			headers: authHeaders(),

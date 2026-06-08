@@ -113,7 +113,10 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		vi.restoreAllMocks();
 	});
 
-	test("transitions task to review when session ends with outcome=completed and task is in_progress with no other active sessions", async ({ db, eventBus }) => {
+	test("transitions task to review when session ends with outcome=completed and task is in_progress with no other active sessions", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedBase(db);
 		// Arrange
 		await seedTask(db, "task-1", "in_progress");
@@ -138,7 +141,10 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		});
 	});
 
-	test("logs propagation_log entry with status=applied when transition succeeds", async ({ db, eventBus }) => {
+	test("logs propagation_log entry with status=applied when transition succeeds", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedBase(db);
 		// Arrange
 		await seedTask(db, "task-1", "in_progress");
@@ -170,7 +176,10 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		});
 	});
 
-	test("does NOT transition task when session ends with outcome=crashed (F2: crashed stays in_progress)", async ({ db, eventBus }) => {
+	test("does NOT transition task when session ends with outcome=crashed (F2: crashed stays in_progress)", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedBase(db);
 		// Arrange
 		await seedTask(db, "task-1", "in_progress");
@@ -200,7 +209,10 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		expect(task?.state).toBe("in_progress");
 	});
 
-	test("does NOT transition task when session ends with outcome=stopped (F2: stopped same as crashed)", async ({ db, eventBus }) => {
+	test("does NOT transition task when session ends with outcome=stopped (F2: stopped same as crashed)", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedBase(db);
 		// Arrange
 		await seedTask(db, "task-1", "in_progress");
@@ -230,7 +242,10 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		expect(task?.state).toBe("in_progress");
 	});
 
-	test("does NOT transition task when other sessions are still active", async ({ db, eventBus }) => {
+	test("does NOT transition task when other sessions are still active", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedBase(db);
 		// Arrange: two sessions, session-1 active, session-2 also active
 		await seedTask(db, "task-1", "in_progress");
@@ -261,7 +276,10 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		expect(task?.state).toBe("in_progress");
 	});
 
-	test("does NOT transition task when task is NOT in_progress (already moved)", async ({ db, eventBus }) => {
+	test("does NOT transition task when task is NOT in_progress (already moved)", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedBase(db);
 		// Arrange: task is already in 'review'
 		await seedTask(db, "task-1", "review");
@@ -291,7 +309,10 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		expect(task?.state).toBe("review");
 	});
 
-	test("handles concurrent race: InvalidTransitionError is caught and logged as skipped (F1, F4)", async ({ db, eventBus }) => {
+	test("handles concurrent race: InvalidTransitionError is caught and logged as skipped (F1, F4)", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedBase(db);
 		// Arrange: task manually moved away from in_progress BEFORE propagation fires
 		await seedTask(db, "task-1", "in_progress");
@@ -338,7 +359,10 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 		vi.restoreAllMocks();
 	});
 
-	test("transitions bet to review when all tasks on bet are terminal (done)", async ({ db, eventBus }) => {
+	test("transitions bet to review when all tasks on bet are terminal (done)", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedBase(db);
 		// Arrange: two tasks both done
 		await seedTask(db, "task-1", "done");
@@ -398,7 +422,10 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 		expect(bet?.status).toBe("active");
 	});
 
-	test("transitions bet to review when last task is killed (all remaining terminal)", async ({ db, eventBus }) => {
+	test("transitions bet to review when last task is killed (all remaining terminal)", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedBase(db);
 		// Arrange: one done, one killed
 		await seedTask(db, "task-1", "done");
@@ -427,7 +454,10 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 		});
 	});
 
-	test("creates a ship-confirmation review thread when bet transitions to review", async ({ db, eventBus }) => {
+	test("creates a ship-confirmation review thread when bet transitions to review", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedBase(db);
 		// Arrange
 		await seedTask(db, "task-1", "done");
@@ -468,7 +498,10 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 		});
 	});
 
-	test("handles concurrent race on bet: InvalidTransitionError caught and logged as skipped (F4)", async ({ db, eventBus }) => {
+	test("handles concurrent race on bet: InvalidTransitionError caught and logged as skipped (F4)", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedBase(db);
 		// Arrange: bet manually killed while propagation fires
 		await seedTask(db, "task-1", "done");
@@ -523,7 +556,10 @@ describe("registerLifecyclePropagation — re-entrant cascade", () => {
 		vi.restoreAllMocks();
 	});
 
-	test("session_ended cascades: session->task review, then task->bet completed when task goes done (F4)", async ({ db, eventBus }) => {
+	test("session_ended cascades: session->task review, then task->bet completed when task goes done (F4)", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedBase(db);
 		// Arrange: one task in_progress, one active session
 		await seedTask(db, "task-1", "in_progress");
@@ -610,7 +646,10 @@ describe("registerLifecyclePropagation — bet -> team", () => {
 		vi.restoreAllMocks();
 	});
 
-	test("logs propagation_applied entry when bet transitions to completed", async ({ db, eventBus }) => {
+	test("logs propagation_applied entry when bet transitions to completed", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedBase(db);
 		// Arrange
 		unsubscribe = registerLifecyclePropagation(db, eventBus);
@@ -639,7 +678,10 @@ describe("registerLifecyclePropagation — bet -> team", () => {
 		});
 	});
 
-	test("emits propagation_applied event when bet transitions to completed", async ({ db, eventBus }) => {
+	test("emits propagation_applied event when bet transitions to completed", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedBase(db);
 		// Arrange
 		unsubscribe = registerLifecyclePropagation(db, eventBus);
@@ -700,7 +742,9 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 		vi.restoreAllMocks();
 	});
 
-	test("retryFailedPropagations: retries a pending_retry session->task row and transitions task to applied", async ({ db }) => {
+	test("retryFailedPropagations: retries a pending_retry session->task row and transitions task to applied", async ({
+		db,
+	}) => {
 		await seedBase(db);
 		// Arrange: a real task in in_progress state and a real session that previously
 		// ended completed but whose propagation was stored as pending_retry (simulating
@@ -753,7 +797,9 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 		expect(appliedLogs.length).toBeGreaterThanOrEqual(1);
 	});
 
-	test("retryFailedPropagations: row with attempts=3 (at max) changes status to failed and creates notification", async ({ db }) => {
+	test("retryFailedPropagations: row with attempts=3 (at max) changes status to failed and creates notification", async ({
+		db,
+	}) => {
 		await seedBase(db);
 		// Arrange: insert a pending_retry row that is already at MAX_RETRY_ATTEMPTS (3)
 		const now = new Date().toISOString();
@@ -806,7 +852,10 @@ describe("registerLifecyclePropagation — propagation log", () => {
 		vi.restoreAllMocks();
 	});
 
-	test("creates a propagation_log entry for every propagation attempt", async ({ db, eventBus }) => {
+	test("creates a propagation_log entry for every propagation attempt", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedBase(db);
 		// Arrange
 		await seedTask(db, "task-1", "in_progress");
@@ -834,7 +883,10 @@ describe("registerLifecyclePropagation — propagation log", () => {
 		});
 	});
 
-	test("emits propagation_applied event when session->task propagation succeeds", async ({ db, eventBus }) => {
+	test("emits propagation_applied event when session->task propagation succeeds", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedBase(db);
 		// Arrange
 		await seedTask(db, "task-1", "in_progress");

@@ -12,7 +12,7 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import { type HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
@@ -55,7 +55,9 @@ describe("R6 AC5: create_artifact availability across agent roles", () => {
 		expect(names.has("create_artifact")).toBe(true);
 	});
 
-	test("create_artifact Claude tool spec has correct name and input_schema type", async ({ db }) => {
+	test("create_artifact Claude tool spec has correct name and input_schema type", async ({
+		db,
+	}) => {
 		const registry = buildToolRegistry(makeContext(db), { role: "builder" });
 		const specs = registry.toClaudeToolSpecs();
 		const spec = specs.find((s) => s.name === "create_artifact");
@@ -68,7 +70,9 @@ describe("R6 AC5: create_artifact availability across agent roles", () => {
 		expect(spec?.input_schema.properties).not.toHaveProperty("producingTaskId");
 	});
 
-	test("invoking create_artifact with role=builder returns FORBIDDEN if filtered, or succeeds if registered", async ({ db }) => {
+	test("invoking create_artifact with role=builder returns FORBIDDEN if filtered, or succeeds if registered", async ({
+		db,
+	}) => {
 		// This test proves the tool is NOT filtered out for builders.
 		// A FORBIDDEN result would mean it's in ALL_TOOL_DEFINITIONS with role restriction.
 		// We just verify the registry can find it (no FORBIDDEN or NOT_FOUND).

@@ -108,7 +108,10 @@ describe("write_session_notes tool", () => {
 	describe("AC7: writes to work/session-notes.md, reflected in sessions.notes", () => {
 		test("writes the file at work/session-notes.md", async ({ db }) => {
 			await seed(db);
-			const result = await writeSessionNotesTool.handler({ notes: "Reflection X" }, makeContext(db));
+			const result = await writeSessionNotesTool.handler(
+				{ notes: "Reflection X" },
+				makeContext(db),
+			);
 			expect(result.success).toBe(true);
 
 			const filePath = path.join(workspacePath, "work", "session-notes.md");
@@ -118,7 +121,10 @@ describe("write_session_notes tool", () => {
 
 		test("updates sessions.notes in the database", async ({ db }) => {
 			await seed(db);
-			const result = await writeSessionNotesTool.handler({ notes: "Reflection X" }, makeContext(db));
+			const result = await writeSessionNotesTool.handler(
+				{ notes: "Reflection X" },
+				makeContext(db),
+			);
 			expect(result.success).toBe(true);
 
 			const [session] = await db.select().from(sessions).where(eq(sessions.id, "session-1"));

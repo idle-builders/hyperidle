@@ -99,7 +99,9 @@ describe("promote_knowledge tool", () => {
 		expect(result.code).toBe("INVALID_TRANSITION");
 	});
 
-	test("blocks promotion to validated when an open conflict exists (CONFLICT_OPEN)", async ({ db }) => {
+	test("blocks promotion to validated when an open conflict exists (CONFLICT_OPEN)", async ({
+		db,
+	}) => {
 		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-d", "provisional");
 		await seedConflict(db, "conf-1", "ki-d", "open");
@@ -112,7 +114,9 @@ describe("promote_knowledge tool", () => {
 		expect(result.code).toBe("CONFLICT_OPEN");
 	});
 
-	test("allows promotion to validated when the only conflicts are resolved/discarded", async ({ db }) => {
+	test("allows promotion to validated when the only conflicts are resolved/discarded", async ({
+		db,
+	}) => {
 		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-e", "provisional");
 		await seedConflict(db, "conf-2", "ki-e", "resolved");
@@ -173,7 +177,9 @@ describe("promote_knowledge tool", () => {
 		expect(second.code).toBe("INVALID_TRANSITION");
 	});
 
-	test("returns INVALID_STATE when knowledge_items.status is a value not in the canonical enum", async ({ db }) => {
+	test("returns INVALID_STATE when knowledge_items.status is a value not in the canonical enum", async ({
+		db,
+	}) => {
 		await seedBase(db);
 		// Simulates schema drift / upstream bug: the row's status column holds
 		// a value outside the 6 known statuses. The tool must refuse rather

@@ -13,7 +13,12 @@ export async function createTestApp(options?: AppOptions): Promise<Hono> {
 	const app = await createApp(options);
 	if (TRACE_FILE) {
 		const ms = Math.round((performance.now() - t0) * 10) / 10;
-		try { appendFileSync(TRACE_FILE, JSON.stringify({ ts: Date.now(), pid: process.pid, event: "createTestApp", ms }) + "\n"); } catch {}
+		try {
+			appendFileSync(
+				TRACE_FILE,
+				JSON.stringify({ ts: Date.now(), pid: process.pid, event: "createTestApp", ms }) + "\n",
+			);
+		} catch {}
 	}
 	return app;
 }

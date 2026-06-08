@@ -105,7 +105,9 @@ describe("create_conflict_review tool", () => {
 		expect(rows[0].proposedBy).toBe("agent:agent-fac");
 	});
 
-	test("returns DUPLICATE on a second open conflict from the same agent on the same item", async ({ db }) => {
+	test("returns DUPLICATE on a second open conflict from the same agent on the same item", async ({
+		db,
+	}) => {
 		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-dup", 1);
 		const first = await createConflictReviewTool.handler(

@@ -5,16 +5,8 @@
  * for the recipient picker. Supports ?q=<search> and ?kind=agent|user filters.
  */
 
-import {
-	bets,
-	type HyperIdleDb,
-	sessions,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
-import { beforeEach, afterEach, describe, expect, vi } from "vitest";
+import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-recipients";
@@ -120,7 +112,10 @@ describe("GET /api/recipients (Q1 §3.3)", () => {
 	});
 
 	// AC2: each recipient has the required fields
-	test("returns recipients with id, kind, name, role, status, hasActiveSession, avatarUrl", async ({ db, app }) => {
+	test("returns recipients with id, kind, name, role, status, hasActiveSession, avatarUrl", async ({
+		db,
+		app,
+	}) => {
 		await seedRecipients(db);
 		const res = await app.request("/api/recipients", { headers: authHeaders() });
 		const body = (await res.json()) as {

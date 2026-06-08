@@ -28,14 +28,14 @@ import {
 	users,
 } from "@hyperidle/db";
 import { clearDeduplicationCache, recordCostAndCheck } from "@hyperidle/fabric";
-import { EventBus } from "@hyperidle/shared";
+import type { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { test } from "../test-fixtures.js";
 import { createTaskTool } from "../skill-tools/create-task.js";
 import { readInboxTool } from "../skill-tools/read-inbox.js";
 import { submitReviewTool } from "../skill-tools/submit-review.js";
 import type { ToolContext } from "../skill-tools/tool-registry.js";
+import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-r5-agent-loop";
 const NOW = new Date().toISOString();
@@ -155,10 +155,7 @@ describe("R5: Agent Work Loop integration", () => {
 			expect(newTask?.betId).toBe("b1");
 		});
 
-		test("session's own task starts as in_progress in bet detail (AC5)", async ({
-			db,
-			app,
-		}) => {
+		test("session's own task starts as in_progress in bet detail (AC5)", async ({ db, app }) => {
 			await seedBase(db);
 
 			const res = await app.request("/api/bets/b1", {
@@ -382,10 +379,7 @@ describe("R5: Agent Work Loop integration", () => {
 			expect(body.costActual?.minor).toBeGreaterThanOrEqual(175);
 		});
 
-		test("recordCostAndCheck without taskId does NOT affect bet cost", async ({
-			db,
-			eventBus,
-		}) => {
+		test("recordCostAndCheck without taskId does NOT affect bet cost", async ({ db, eventBus }) => {
 			await seedBase(db);
 
 			// Backward compat: no taskId => bet unchanged

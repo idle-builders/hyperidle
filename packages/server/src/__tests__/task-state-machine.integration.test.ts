@@ -1,15 +1,11 @@
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
-import {
-	type NotificationEvent,
-	type TaskState,
-	type TaskStateChangedEvent,
-} from "@hyperidle/shared";
+import type { NotificationEvent, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
-import { test } from "../test-fixtures.js";
 import { checkAndUnblockDependents } from "../services/dependency-watcher.js";
 import type { StateTransitionAuditEntry, TaskAuditEntry } from "../services/task-audit.js";
 import { InvalidTransitionError, transitionTask } from "../services/task-state-machine.js";
+import { test } from "../test-fixtures.js";
 
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
@@ -305,7 +301,10 @@ describe("Task State Machine", () => {
 	});
 
 	describe("dependency-driven auto-transitions (integration)", () => {
-		test("task B depends on A: complete A -> B auto-transitions to accepted", async ({ db, eventBus }) => {
+		test("task B depends on A: complete A -> B auto-transitions to accepted", async ({
+			db,
+			eventBus,
+		}) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "task-a", "in_progress");
 			await insertTask(db, "task-b", "hold", ["task-a"]);
@@ -319,7 +318,10 @@ describe("Task State Machine", () => {
 			expect(taskB?.state).toBe("accepted");
 		});
 
-		test("task C depends on A and B: complete A -> C stays hold, complete B -> C transitions", async ({ db, eventBus }) => {
+		test("task C depends on A and B: complete A -> C stays hold, complete B -> C transitions", async ({
+			db,
+			eventBus,
+		}) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "task-a", "in_progress");
 			await insertTask(db, "task-b", "in_progress");

@@ -1,7 +1,7 @@
-import { test as dbTest, type DbFixtures } from "@hyperidle/db/test-fixtures";
+import { type DbFixtures, test as dbTest } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
-import { createApp, disposeApp, type AppOptions } from "./app.js";
+import { type AppOptions, createApp, disposeApp } from "./app.js";
 
 export interface IntegrationFixtures extends DbFixtures {
 	app: Hono;
@@ -19,4 +19,4 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 	},
 });
 
-export { describe, expect, it, vi, beforeEach, afterEach, beforeAll, afterAll } from "vitest";
+export { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";

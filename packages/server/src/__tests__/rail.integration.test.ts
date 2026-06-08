@@ -415,7 +415,10 @@ describe("Rail Endpoint (E5)", () => {
 
 	// AC7 / AC18: Cost burn rate in rail response (L17: WireMoney shape)
 	describe("AC7/AC18: Cost burn rate in rail response", () => {
-		test("returns todayCap from factory settings when cost_cap_daily_minor is set", async ({ db, app }) => {
+		test("returns todayCap from factory settings when cost_cap_daily_minor is set", async ({
+			db,
+			app,
+		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await seedBase(db);
 
