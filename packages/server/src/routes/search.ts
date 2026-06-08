@@ -12,7 +12,8 @@
  *
  * @lore AD7: Thread title = first message's payload.text (truncated 80 chars).
  * Thread snippet = latest message's payload.text (truncated 120 chars).
- * Both retrieved via sub-selects to avoid N+1 queries.
+ * Retrieved via 3 batch queries (thread rows, first messages, latest messages)
+ * for the full set of verified thread IDs — not per-thread loops.
  *
  * @lore AD7: Auth boundaries:
  * - Threads: filtered to where participants JSON LIKE-probes userId, then
@@ -28,9 +29,9 @@ import {
 	teams,
 	threads,
 } from "@hyperidle/db";
-import type { ApiErrorResponse, BetStatus, EventBus } from "@hyperidle/shared";
+import type { ApiErrorResponse, EventBus } from "@hyperidle/shared";
 import { API_ERROR_CODES, deriveTitle } from "@hyperidle/shared";
-import { and, eq, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import type { HyperIdleEnv } from "../middleware/auth.js";
@@ -161,7 +162,11 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 			if (verifiedThreadIds.length >= MAX_PER_CATEGORY) break;
 		}
 
-		// Fetch thread metadata with first + latest message for each verified thread
+		// Fetch thread metadata with first + latest message for each verified thread.
+		// @lore AD7: Three batch queries (thread rows, first messages, latest messages)
+		// replace the previous N+1 loop (3 queries per thread). For up to 5 threads
+		// this is always exactly 3 round-trips instead of up to 15.
+
 		const conversationResults: Array<{
 			id: string;
 			title: string;
@@ -170,42 +175,58 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 			kind: "review" | "chat";
 		}> = [];
 
-		for (const threadId of verifiedThreadIds) {
-			// Fetch first message for title
-			const [firstMsg] = await db
-				.select({ payload: messages.payload, createdAt: messages.createdAt })
-				.from(messages)
-				.where(and(eq(messages.threadId, threadId), sql`${messages.deletedAt} IS NULL`))
-				.orderBy(messages.createdAt)
-				.limit(1);
-
-			// Fetch latest message for snippet
-			const [latestMsg] = await db
-				.select({ payload: messages.payload, createdAt: messages.createdAt })
-				.from(messages)
-				.where(and(eq(messages.threadId, threadId), sql`${messages.deletedAt} IS NULL`))
-				.orderBy(sql`${messages.createdAt} DESC`)
-				.limit(1);
-
-			// Fetch thread row for hostKind and timestamp
-			const [thread] = await db
-				.select({ hostKind: threads.hostKind, lastActiveAt: threads.lastActiveAt })
+		if (verifiedThreadIds.length > 0) {
+			// Batch 1: thread rows for hostKind and lastActiveAt
+			const threadRowMap = new Map<string, { hostKind: string; lastActiveAt: string }>();
+			const threadRowsBatch = await db
+				.select({ id: threads.id, hostKind: threads.hostKind, lastActiveAt: threads.lastActiveAt })
 				.from(threads)
-				.where(eq(threads.id, threadId))
-				.limit(1);
+				.where(inArray(threads.id, verifiedThreadIds))
+				.orderBy(desc(threads.lastActiveAt));
+			for (const row of threadRowsBatch) {
+				threadRowMap.set(row.id, { hostKind: row.hostKind, lastActiveAt: row.lastActiveAt });
+			}
 
-			if (!thread) continue;
+			// Batch 2: all non-deleted messages for these threads, ordered by createdAt ASC.
+			// First occurrence per thread = title source; last occurrence = snippet source.
+			const allMsgs = await db
+				.select({
+					threadId: messages.threadId,
+					payload: messages.payload,
+					createdAt: messages.createdAt,
+				})
+				.from(messages)
+				.where(
+					and(inArray(messages.threadId, verifiedThreadIds), sql`${messages.deletedAt} IS NULL`),
+				)
+				.orderBy(messages.createdAt);
 
-			const titleText = firstMsg ? extractPayloadText(firstMsg.payload) : "";
-			const snippetText = latestMsg ? extractPayloadText(latestMsg.payload) : "";
+			// Group messages per thread: first = title, last = snippet
+			const firstMsgMap = new Map<string, string>();
+			const latestMsgMap = new Map<string, string>();
+			for (const msg of allMsgs) {
+				if (!firstMsgMap.has(msg.threadId)) {
+					firstMsgMap.set(msg.threadId, msg.payload);
+				}
+				latestMsgMap.set(msg.threadId, msg.payload); // always overwrite → last wins
+			}
 
-			conversationResults.push({
-				id: threadId,
-				title: titleText.slice(0, 80) || threadId,
-				snippet: snippetText.slice(0, 120),
-				timestamp: thread.lastActiveAt,
-				kind: hostKindToConversationKind(thread.hostKind),
-			});
+			// Build results in lastActiveAt DESC order (threadRowsBatch already sorted)
+			for (const threadRow of threadRowsBatch) {
+				const thread = threadRowMap.get(threadRow.id);
+				if (!thread) continue;
+
+				const titleText = extractPayloadText(firstMsgMap.get(threadRow.id) ?? "");
+				const snippetText = extractPayloadText(latestMsgMap.get(threadRow.id) ?? "");
+
+				conversationResults.push({
+					id: threadRow.id,
+					title: titleText.slice(0, 80) || threadRow.id,
+					snippet: snippetText.slice(0, 120),
+					timestamp: thread.lastActiveAt,
+					kind: hostKindToConversationKind(thread.hostKind),
+				});
+			}
 		}
 
 		// ── 2. Work (bets) ──────────────────────────────────────────────────────
@@ -221,22 +242,27 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 				id: bets.id,
 				description: bets.description,
 				status: bets.status,
-				costAppetiteMinor: bets.costAppetiteMinor,
-				costAppetiteCurrency: bets.costAppetiteCurrency,
 				appetite: bets.appetite,
 				teamName: teams.name,
 			})
 			.from(bets)
 			.innerJoin(teams, eq(bets.teamId, teams.id))
-			.where(sql`${bets.description} ILIKE ${pattern} ESCAPE '\\'`)
+			.where(
+				or(
+					sql`${bets.description} ILIKE ${pattern} ESCAPE '\\'`,
+					sql`${bets.hypothesis} ILIKE ${pattern} ESCAPE '\\'`,
+					sql`${bets.doneCondition} ILIKE ${pattern} ESCAPE '\\'`,
+				),
+			)
+			.orderBy(desc(bets.createdAt))
 			.limit(MAX_PER_CATEGORY);
 
 		const workResults = betRows.map((row) => ({
 			id: row.id,
 			title: deriveTitle(row.description, row.id),
 			team: row.teamName,
-			status: row.status as BetStatus,
-			appetite: row.appetite ?? null,
+			status: row.status,
+			appetite: row.appetite ?? "—",
 		}));
 
 		// ── 3. Knowledge items ──────────────────────────────────────────────────
@@ -272,13 +298,14 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 					),
 				),
 			)
+			.orderBy(desc(knowledgeItems.updatedAt))
 			.limit(MAX_PER_CATEGORY);
 
 		const knowledgeResults = kiRows.map((row) => ({
 			id: row.id,
 			title: row.title,
-			layer: row.layer ?? null,
-			kind: row.kind ?? null,
+			layer: row.layer ?? "L0",
+			kind: row.kind ?? "pattern",
 			status: row.status,
 			timestamp: row.updatedAt,
 		}));
