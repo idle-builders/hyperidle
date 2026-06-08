@@ -31,6 +31,7 @@ import { createOrgRoutes } from "./routes/org.js";
 import { createRailRoutes } from "./routes/rail.js";
 import { createRecipientRoutes } from "./routes/recipients.js";
 import { createRoutineRoutes } from "./routes/routines-routes.js";
+import { createSearchRoutes } from "./routes/search.js";
 import { createSessionRoutes } from "./routes/sessions-routes.js";
 import { createSettingsRoutes } from "./routes/settings.js";
 import { createStatusRoutes } from "./routes/status.js";
@@ -431,6 +432,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route("/dispatch-queue", createDispatchQueueRoutes());
 		api.route("/credentials", createCredentialRoutes(options.db));
 		api.route("/hint-progress", createHintRoutes(options.db));
+		api.route("/search", createSearchRoutes(options.db, eventBus));
 		// O3: defaultNotificationAdapterFactory moved to @hyperidle/fabric (imported at top).
 		// Tests may override via notificationAdapterFactory for route-level adapter injection.
 		api.route(

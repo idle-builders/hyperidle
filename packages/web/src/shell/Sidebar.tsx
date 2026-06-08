@@ -175,7 +175,7 @@ export function Sidebar({
 			data-ds-shell="Sidebar"
 			role="navigation"
 			aria-label="Main navigation"
-			className="flex flex-col w-[200px] shrink-0 h-full p-[12px]"
+			className="flex flex-col w-full shrink-0 h-full p-[12px]"
 		>
 			{/* Brand wordmark */}
 			<div className="px-[12px] py-[6px] mb-[18px] font-[family-name:var(--font-sans)] text-[15px] font-[700] text-[var(--text-primary)] tracking-[-0.01em] shrink-0">
@@ -237,6 +237,7 @@ export function Sidebar({
 												className={[
 													"w-full text-left px-[12px] py-[6px] text-[13px]",
 													"flex items-center gap-[6px]",
+													"min-h-[44px] md:min-h-0",
 													"truncate transition-[background] duration-[var(--motion-fast)]",
 													"hover:bg-[rgba(44,36,26,0.04)] rounded-[var(--r-subtle)]",
 													isSelected
@@ -284,6 +285,7 @@ export function Sidebar({
 											className={[
 												"w-full text-left px-[12px] py-[6px] text-[13px]",
 												"flex items-center gap-[6px]",
+												"min-h-[44px] md:min-h-0",
 												"truncate transition-[background] duration-[var(--motion-fast)]",
 												"hover:bg-[rgba(44,36,26,0.04)] rounded-[var(--r-subtle)]",
 												isActive

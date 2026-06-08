@@ -46,7 +46,7 @@ The systemic risk is **dead wiring** -- features where the backend is complete a
 ---
 
 ## Code-Verified Feature Matrix
-
+ 
 ### Conversations & Review
 
 | Feature | Code Status | Verdict | Notes |

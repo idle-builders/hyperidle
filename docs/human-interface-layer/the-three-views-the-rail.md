@@ -224,7 +224,7 @@ Appetite uses **money + tokens, never duration**. Bets carry `costCapMinor`/`cos
 <!-- @source packages/web/src/pages/KnowledgeList.tsx -->
 
 **What it is:** The company wiki — a catalogue of knowledge items organized by practice and product.
-**Home:** A view in the Main Pane (desktop only). No mobile equivalent.
+**Home:** A view in the Main Pane. Desktop is the primary form factor; mobile browsers provide read access for triage and unblocking.
 **Rhythm:** Weekly. ~20 minutes.
 **Information density:** Medium-high.
 **Borrows from:** Notion databases (views as filtered perspectives on the same data), Guru (card-based knowledge with verification status), Confluence (spaces for organizational structure), the structural-maintenance feel of tending a community-of-practice wiki.
