@@ -10,7 +10,7 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 ---
 
-### AD2 — Wire Review Routing to Humans
+### AD1 — Wire Review Routing to Humans
 
 **Workpackage.** As a founder reviewing agent work, I want review items created by agents to appear in my conversation queue, so that I can actually see and verdict on the work my agents produce. As a second founder on the same factory, I want reviews routed to me based on my team ownership, so that each founder sees the reviews relevant to their domain.
 
@@ -51,7 +51,7 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 ---
 
-### AD3 — Task-to-Session Dispatcher
+### AD2 — Task-to-Session Dispatcher
 
 **Workpackage.** As a founder who writes bets, I want tasks to automatically trigger agent sessions when they're ready for work, so that the flow from "I shaped what I want" to "agents are building it" happens without manual intervention. Humans write bets, agents decompose into tasks, tasks auto-provision sessions — no "Run" button.
 
@@ -96,7 +96,7 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 ---
 
-### AD6 — Single-User UX Polish
+### AD3 — Single-User UX Polish
 
 **Workpackage.** As a solo founder with one team and a few agents, I want the UI to feel clean and purposeful — not cluttered with multi-team features I don't use — so that every element on screen earns its space and I can focus on what matters.
 
@@ -112,7 +112,7 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 **Acceptance criteria.**
 - With 1 team, the sidebar Work section auto-navigates to the team page instead of showing a 1-item team list.
-- Portfolio page removal is handled by AD16 — this workpackage focuses on the remaining 3 simplification points.
+- Portfolio page removal is handled by AD9 — this workpackage focuses on the remaining 3 simplification points.
 - With 1 human user, the Org Chart settings section is hidden or shows a contextual message instead of an empty edge table.
 - With 1 team, the knowledge scope picker shows simplified options (Shared / Personal / contextual scopes like bet/task) instead of all 7 scope kinds.
 - With a solo user, notification settings show only the 2 most relevant toggles (reviews, cost alerts).
@@ -137,7 +137,7 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 ---
 
-### AD9 — Remove Autonomy Product & Simplify Trust Model
+### AD4 — Remove Autonomy Product & Simplify Trust Model
 
 **Workpackage.** As a founder, I want trust in my agents to be based on what they produce (reviews and knowledge quality), not on a per-skill autonomy spreadsheet I can't understand or edit — so that the system feels transparent rather than bureaucratic.
 
@@ -178,7 +178,7 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 ---
 
-### AD11 — Wire Dead Strategy Layer & Cost Visibility
+### AD5 — Wire Dead Strategy Layer & Cost Visibility
 
 **Workpackage.** As a founder running HyperIdle, I want the features that are already built and tested to actually work — routines fire on schedule, task dependencies auto-unblock and trigger new sessions, notification preferences persist, cost data shows real numbers not zeros, and I can see at a glance what needs attention from any view — so that the product delivers on what the UI already promises.
 
@@ -227,7 +227,7 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 ---
 
-### AD13 — Knowledge Cleanup & Scope Simplification
+### AD6 — Knowledge Cleanup & Scope Simplification
 
 **Workpackage.** As a founder creating and curating knowledge, I want the knowledge system to feel like a simple wiki with tags — not a taxonomy research project — so that I spend my time writing useful knowledge instead of classifying it into the right scope/kind/status bucket.
 
@@ -271,7 +271,7 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 ---
 
-### AD14 — Search Backend
+### AD7 — Search Backend
 
 **Workpackage.** As a founder looking for something, I want Cmd+K search to actually find things across conversations, bets, and knowledge items — so that the search modal that opens every time I press Cmd+K delivers results instead of "Search coming soon."
 
@@ -314,7 +314,7 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 ---
 
-### AD15 — Coach / Assistant Restructure
+### AD8 — Coach / Assistant Restructure
 
 **Workpackage.** As a founder, I want a single, clearly-named AI assistant that I can talk to from anywhere in the app — not three different names (Coach, Chief of Staff, CoC) pointing at the same broken thread — so that the assistant concept is coherent and the interaction actually works.
 
@@ -322,10 +322,10 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 **What exists today.** `GET /api/threads/coach` auto-creates a pinned thread with `hostKind="user"`, participant `seed-agent-cos`. `CocOverlay.tsx` renders a ThreadShell in a bottom-right popover (360px wide, max-height 70vh). `CocAttachButton` for context chips. The coach thread works for message persistence — human messages are stored and displayed. But no agent session is ever provisioned to respond.
 
-**What's genuinely missing.** A decision and implementation: (1) Pick one name — "Assistant" is the clearest for the UI, "Chief of Staff" can remain as the agent's role internally. (2) Wire the response loop — when a human posts to the assistant thread, provision a CoS agent session that reads the message and responds. This depends on AD3 (task-to-session dispatcher) or can use the manual trigger path. (3) Don't pin the thread until the assistant has posted at least one real message.
+**What's genuinely missing.** A decision and implementation: (1) Pick one name — "Assistant" is the clearest for the UI, "Chief of Staff" can remain as the agent's role internally. (2) Wire the response loop — when a human posts to the assistant thread, provision a CoS agent session that reads the message and responds. This depends on AD2 (task-to-session dispatcher) or can use the manual trigger path. (3) Don't pin the thread until the assistant has posted at least one real message.
 
 **Depends on.**
-- AD3 — Task-to-Session Dispatcher. The assistant needs session provisioning to respond. Without the dispatcher, the only path is manual trigger per message, which is a stopgap.
+- AD2 — Task-to-Session Dispatcher. The assistant needs session provisioning to respond. Without the dispatcher, the only path is manual trigger per message, which is a stopgap.
 
 **Complexity.** M
 
@@ -341,7 +341,7 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 - Given a new factory with no assistant activity, when the conversation list loads, then no assistant thread is pinned at the top.
 - Given the assistant has responded to 3 messages, when the conversation list loads, then the assistant thread appears (pinned or prominent).
 
-**Plan calls.** `/concept` needed — the assistant's behavioral model needs definition: what can it answer? What tools does it have? Is it a facilitator (observes and surfaces), an operator (creates and modifies per AD5), or a guide (onboarding per AD4)? The concept must settle the identity before design/architecture.
+**Plan calls.** `/concept` needed — the assistant's behavioral model needs definition: what can it answer? What tools does it have? Is it a facilitator (observes and surfaces), an operator (creates and modifies per AE3), or a guide (onboarding per AE2)? The concept must settle the identity before design/architecture.
 
 **Contracts / constraints.**
 - One name, everywhere. No aliases in the UI.
@@ -350,15 +350,15 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 - Internal agent role can remain "chief_of_staff" — only the user-facing label changes.
 
 **Out of scope.**
-- CoS system tools for creating teams/bets (AD5 handles that separately).
-- Onboarding journey guided by CoS (AD4 handles that separately).
+- CoS system tools for creating teams/bets (AE3 handles that separately).
+- Onboarding journey guided by CoS (AE2 handles that separately).
 - Multi-turn stateful conversations (each message provisions a new session that reads thread history).
 
 **Effort.** M (~6h)
 
 ---
 
-### AD16 — Remove Portfolio Page
+### AD9 — Remove Portfolio Page
 
 **Workpackage.** As a founder, I want to navigate directly to my team's work instead of clicking through an intermediate portfolio grid — so that every click in the app takes me somewhere useful.
 
@@ -392,6 +392,6 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 **Out of scope.**
 - Cross-team portfolio dashboard (deferred until 3+ team users exist).
-- Team creation flow changes (AD4 handles that).
+- Team creation flow changes (AE2 handles that).
 
 **Effort.** S (~2h)

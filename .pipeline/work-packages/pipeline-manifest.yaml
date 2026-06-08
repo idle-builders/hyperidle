@@ -806,47 +806,47 @@ stories:
     complexity: L
 
   # Track AD: Fix & Simplify
-  - id: AD2
+  - id: AD1
     title: Wire Review Routing to Humans
     track: AD
     depends: []
     complexity: S
-  - id: AD3
+  - id: AD2
     title: Task-to-Session Dispatcher
     track: AD
     depends: []
     complexity: L
-  - id: AD6
+  - id: AD3
     title: Single-User UX Polish
     track: AD
     depends: []
     complexity: S
-  - id: AD9
+  - id: AD4
     title: Remove Autonomy Product & Simplify Trust Model
     track: AD
     depends: []
     complexity: M
-  - id: AD11
+  - id: AD5
     title: Wire Dead Strategy Layer & Cost Visibility
     track: AD
     depends: []
     complexity: M
-  - id: AD13
+  - id: AD6
     title: Knowledge Cleanup & Scope Simplification
     track: AD
     depends: []
     complexity: M
-  - id: AD14
+  - id: AD7
     title: Search Backend
     track: AD
     depends: []
     complexity: M
-  - id: AD15
+  - id: AD8
     title: Coach / Assistant Restructure
     track: AD
-    depends: [AD3]
+    depends: [AD2]
     complexity: M
-  - id: AD16
+  - id: AD9
     title: Remove Portfolio Page
     track: AD
     depends: []
@@ -861,7 +861,7 @@ stories:
   - id: AE2
     title: Team Creation & Onboarding Journey
     track: AE
-    depends: [AD3, AD15]
+    depends: [AD2, AD8]
     complexity: L
   - id: AE3
     title: Assistant System Tools
