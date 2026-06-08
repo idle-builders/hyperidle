@@ -141,18 +141,13 @@ export async function createTestDb(): Promise<TestDbHandle> {
 	// 1. Take a free slot
 	slot = slots.find((s) => !s.checkedOut);
 
-	// 2. No free slot — reclaim the oldest checked-out one.
-	//    Safe because the previous holder is done (it called createTestDb again
-	//    or moved to a new test). The rare multi-handle case (2 live handles in
-	//    one test) is handled by the pool having POOL_SIZE >= 2.
-	if (!slot && slots.length > 0) {
-		slot = slots.reduce((oldest, s) =>
-			s.checkedOut && s.checkedOutAt < oldest.checkedOutAt ? s : oldest,
-		);
-		trace("reclaim", performance.now() - t0, { fromPid: process.pid });
-	}
-
-	// 3. Pool not warmed yet (e.g. called outside vitest-setup) — allocate fresh
+	// 2. No free slot — allocate a fresh instance.
+	//    @lore isolation: reclaim was removed because concurrent isolation tests
+	//    (e.g. hints AC8 makeIsolatedApp × 2) legitimately hold two live handles
+	//    simultaneously. Reclaiming the first while it's still in use caused both
+	//    apps to share the same db, breaking per-user isolation assertions.
+	//    Allocating fresh is safe: PGlite is in-memory, the extra instance lives
+	//    until close() is called, which the test does in its finally block.
 	if (!slot) {
 		const instance = await allocateInstance();
 		slot = { instance, checkedOut: false, checkedOutAt: 0 };

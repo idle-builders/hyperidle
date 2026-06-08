@@ -472,8 +472,17 @@ describe("Rail Endpoint (E5)", () => {
 	// Additional: auth required
 	describe("Auth required", () => {
 		test("returns 401 without API key", async ({ app }) => {
-			const res = await app.request("/api/rail");
-			expect(res.status).toBe(401);
+			// Must set a non-empty API key so the middleware has something to
+			// compare against. Without this, HYPERIDLE_API_KEY defaults to ""
+			// and a keyless request also produces "" — sha256("") === sha256("")
+			// — causing the middleware to pass the request instead of 401-ing.
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			try {
+				const res = await app.request("/api/rail");
+				expect(res.status).toBe(401);
+			} finally {
+				vi.unstubAllEnvs();
+			}
 		});
 	});
 });

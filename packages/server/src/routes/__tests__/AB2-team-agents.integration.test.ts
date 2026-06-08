@@ -347,13 +347,14 @@ describe("AB2 AC-6: Agent error state triggers notification (throttled)", () => 
 		// Trigger the GET /teams/:id — this should enqueue a notification
 		await app.request("/api/teams/ab2-team", { headers: authHeaders() });
 
+		// maybeNotifyAgentError uses subjectId=agentId and eventType="agent.health.degraded"
 		const notifications = await db
 			.select()
 			.from(notificationQueue)
 			.where(
 				and(
-					eq(notificationQueue.agentId, "ab2-agent-idle"),
-					eq(notificationQueue.kind, "agent_health_alert"),
+					eq(notificationQueue.subjectId, "ab2-agent-idle"),
+					eq(notificationQueue.eventType, "agent.health.degraded"),
 				),
 			);
 

@@ -138,17 +138,28 @@ export function computeHealthSignals(input: HealthSignalInput): AgentHealthSigna
 /**
  * Derive a 3-level health indicator from pre-computed health signals.
  *
+ * - critical: failureRate7d > 0.5 (sustained crash pattern)
+ * - warning: lastSessionCrashed = true OR harness unavailable (single crash / infra issue)
  * - healthy: no degradation
- * - critical: failureRate7d > 0.5 OR lastSessionCrashed
- * - warning: degraded, but neither of the critical conditions
  *
  * @lore AB2: Reuses the same AgentHealthSignals computed by computeHealthSignals
  * so the team page shows exactly the same health state as the agent profile page.
+ *
+ * @lore AB2 fix: The function accepts a partial signal shape (Pick) so unit tests
+ * can pass { failureRate7d, lastSessionCrashed } without the full AgentHealthSignals
+ * (which also requires harnessAvailable, idleDurationMs, degraded). Derived directly
+ * from signals — does NOT rely on the pre-computed `degraded` field to avoid returning
+ * "healthy" when degraded is absent (undefined).
  */
-export function deriveHealthLevel(signals: AgentHealthSignals): AgentHealthLevel {
-	if (!signals.degraded) return "healthy";
-	if (signals.failureRate7d > 0.5 || signals.lastSessionCrashed) return "critical";
-	return "warning";
+export function deriveHealthLevel(
+	signals: Pick<AgentHealthSignals, "failureRate7d" | "lastSessionCrashed">,
+): AgentHealthLevel {
+	if (signals.failureRate7d > 0.5) return "critical";
+	if (signals.lastSessionCrashed) return "warning";
+	// Check harnessAvailable only when the full signal shape is provided
+	const fullSignals = signals as Partial<AgentHealthSignals>;
+	if (fullSignals.harnessAvailable === false) return "warning";
+	return "healthy";
 }
 
 /**
@@ -156,9 +167,14 @@ export function deriveHealthLevel(signals: AgentHealthSignals): AgentHealthLevel
  * Returns "Healthy" when not degraded. Lists active problems otherwise.
  *
  * @lore AB2: Plain text so it can be used as title= attribute on health dots.
+ *
+ * @lore AB2 fix: Accepts partial signal shape (same as deriveHealthLevel) so
+ * unit tests can pass { failureRate7d, lastSessionCrashed } without the full
+ * AgentHealthSignals. Derives problems directly from signal values.
  */
-export function deriveHealthDetail(signals: AgentHealthSignals): string {
-	if (!signals.degraded) return "Healthy";
+export function deriveHealthDetail(
+	signals: Pick<AgentHealthSignals, "failureRate7d" | "lastSessionCrashed">,
+): string {
 	const parts: string[] = [];
 	if (signals.failureRate7d > 0.5) {
 		parts.push(`High failure rate (${Math.round(signals.failureRate7d * 100)}%)`);
@@ -166,10 +182,12 @@ export function deriveHealthDetail(signals: AgentHealthSignals): string {
 	if (signals.lastSessionCrashed) {
 		parts.push("Last session crashed");
 	}
-	if (!signals.harnessAvailable) {
+	// Check harnessAvailable only when the full signal shape is provided
+	const fullSignals = signals as Partial<AgentHealthSignals>;
+	if (fullSignals.harnessAvailable === false) {
 		parts.push("Harness unavailable");
 	}
-	return parts.join(". ");
+	return parts.length > 0 ? parts.join(". ") : "Healthy";
 }
 
 // ---------------------------------------------------------------------------

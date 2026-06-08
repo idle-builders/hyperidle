@@ -205,17 +205,17 @@ describe("X4: DEFAULT_GATEWAY_CONFIG matches current MODEL_TIER_MAP values", () 
 	// DEFAULT_GATEWAY_CONFIG, the behavior will change for users who have no
 	// gateway config stored (they fall back to defaults). The test asserts the
 	// exact model IDs that were in MODEL_TIER_MAP before X4 replaced it.
-	test("reasoning tier defaults to claude-opus-4-20250514 via anthropic", (_ctx) => {
+	test("reasoning tier defaults to claude-opus-4-20250514 via anthropic", ({}) => {
 		expect(DEFAULT_GATEWAY_CONFIG.reasoning.provider).toBe("anthropic");
 		expect(DEFAULT_GATEWAY_CONFIG.reasoning.model).toBe("claude-opus-4-20250514");
 	});
 
-	test("workhorse tier defaults to claude-sonnet-4-20250514 via anthropic", (_ctx) => {
+	test("workhorse tier defaults to claude-sonnet-4-20250514 via anthropic", ({}) => {
 		expect(DEFAULT_GATEWAY_CONFIG.workhorse.provider).toBe("anthropic");
 		expect(DEFAULT_GATEWAY_CONFIG.workhorse.model).toBe("claude-sonnet-4-20250514");
 	});
 
-	test("fast tier defaults to claude-haiku-3-5-20241022 via anthropic", (_ctx) => {
+	test("fast tier defaults to claude-haiku-3-5-20241022 via anthropic", ({}) => {
 		expect(DEFAULT_GATEWAY_CONFIG.fast.provider).toBe("anthropic");
 		expect(DEFAULT_GATEWAY_CONFIG.fast.model).toBe("claude-haiku-3-5-20241022");
 	});
