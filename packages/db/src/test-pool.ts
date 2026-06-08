@@ -78,64 +78,81 @@ async function truncateAllTables(db: HyperIdleDb): Promise<void> {
 
 // ---------------------------------------------------------------------------
 // Pool — one instance per worker, pre-warmed at startup
+//
+// State lives on globalThis so it survives vitest's per-file module reloads.
+// Within a thread, globalThis persists — the PGlite instance is allocated
+// once and reused across all 40-50 test files that thread processes.
 // ---------------------------------------------------------------------------
 
-let primary: PooledInstance | null = null;
-let primaryInUse = false;
-let warmed = false;
+interface PoolState {
+	primary: PooledInstance | null;
+	primaryInUse: boolean;
+	warmed: boolean;
+}
+
+const POOL_KEY = "__hyperidle_test_pool__";
+
+function getState(): PoolState {
+	const g = globalThis as Record<string, unknown>;
+	if (!g[POOL_KEY]) {
+		g[POOL_KEY] = { primary: null, primaryInUse: false, warmed: false };
+	}
+	return g[POOL_KEY] as PoolState;
+}
 
 export async function warmPool(): Promise<void> {
-	if (warmed) return;
+	const state = getState();
+	if (state.warmed) return;
 	const t0 = performance.now();
-	primary = await allocateInstance();
-	warmed = true;
+	state.primary = await allocateInstance();
+	state.warmed = true;
 	trace("warmPool", performance.now() - t0, { size: 1 });
 }
 
 export async function checkout(): Promise<PooledInstance> {
 	const t0 = performance.now();
+	const state = getState();
 
-	if (!primary) {
+	if (!state.primary) {
 		await warmPool();
 	}
 
-	if (primaryInUse) {
-		// Rare path: test needs a second handle (multi-user isolation).
-		// Allocate on demand — slow but correct.
+	if (state.primaryInUse) {
 		trace("checkout:fallback", 0, {});
 		return allocateInstance();
 	}
 
-	primaryInUse = true;
-	await truncateAllTables(primary!.db);
+	state.primaryInUse = true;
+	await truncateAllTables(state.primary!.db);
 	trace("checkout", performance.now() - t0, { source: "pool" });
-	return primary!;
+	return state.primary!;
 }
 
 export function checkin(instance: PooledInstance): void {
-	if (instance === primary) {
-		primaryInUse = false;
+	const state = getState();
+	if (instance === state.primary) {
+		state.primaryInUse = false;
 	} else {
-		// Fallback instance — close it
 		instance.client.close();
 	}
 }
 
 export async function closeAll(): Promise<void> {
-	if (primary) {
-		await primary.client.close();
-		primary = null;
+	const state = getState();
+	if (state.primary) {
+		await state.primary.client.close();
+		state.primary = null;
 	}
-	primaryInUse = false;
-	warmed = false;
+	state.primaryInUse = false;
+	state.warmed = false;
 }
 
-// Cleanup on worker exit
 if (typeof process.send === "function") {
 	process.on("disconnect", () => {
-		if (primary) {
+		const state = getState();
+		if (state.primary) {
 			try {
-				primary.client.close();
+				state.primary.client.close();
 			} catch {}
 		}
 		process.exit(0);
