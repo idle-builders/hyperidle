@@ -26,9 +26,9 @@ test.describe("J8 — keyboard-only navigation", () => {
 			});
 			seen.add(tag);
 		}
-		// Navigation, content, and rail regions together expose well over 6
-		// focusable elements; assert we reached at least that many distinct
-		// elements to prove Tab order is not trapped on one region.
+		// Navigation and content regions expose well over 6 focusable elements;
+		// assert we reached at least that many distinct elements to prove Tab
+		// order is not trapped on one region.
 		expect(seen.size).toBeGreaterThanOrEqual(6);
 	});
 

@@ -7,7 +7,7 @@ Open Factory
   → Glance at Sidebar: blocked count, cost burn, unread count
   → If blocked > 0: see which agents are stuck in the Sidebar → click blocker → lands in Conversations review thread → use verdict actions to approve/request changes (15 seconds each)
   → Scan Submenu thread list: any blocking reviews? Handle them.
-  → Check if Chief of Staff has posted (open overlay from the Chief of Staff button if needed)
+  → Check if the assistant has posted (open overlay from the assistant button if needed)
   → Done. Leave open on side screen.
 ```
 
@@ -54,13 +54,13 @@ Click Knowledge icon → Submenu shows scope selector
   → Done.
 ```
 
-### 5.5 Chief of Staff monthly conversation (30 minutes)
+### 5.5 Assistant monthly conversation (30 minutes)
 
 ```
-Click Chief of Staff button (bottom of Sidebar) → overlay opens
+Click assistant button (bottom of Sidebar) → overlay opens
   → Scroll through recent messages — cross-product patterns, obstacle report
   → Reply with thoughts on what's working, what to change
-  → Chief of Staff proposes edit to PRINCIPLES.md → drafts it as a review thread
+  → Assistant proposes edit to PRINCIPLES.md → drafts it as a review thread
   → Review thread appears in Conversations Submenu list → use verdict actions to approve/comment/request changes
   → Approved changes are written back to factory knowledge
 ```

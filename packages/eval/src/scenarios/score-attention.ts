@@ -222,13 +222,14 @@ Document what you did in session notes.`,
 
 const saItemNoopCosMarketing: EvalScenario = {
 	id: "sa-item-noop-cos-marketing",
-	description: "CoS attempts to score an item (O2 no-op) — session completes without error",
+	description:
+		"System agent attempts to score an item (O2 no-op) — session completes without error",
 	feature: "score_attention",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "chief_of_staff",
-			agentSoulPrompt: `You are a chief of staff managing portfolio items.
+			agentSoulPrompt: `You are a system agent managing portfolio items.
 You can use score_attention on items, but note that the items.attentionScore column was removed in an O2 migration.
 Using score_attention on target="item" is currently a graceful no-op — the tool returns ok but no DB write occurs.
 Try it on a marketing item and document the outcome in session notes.`,

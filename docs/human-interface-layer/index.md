@@ -5,7 +5,7 @@
 How humans and the agent factory actually meet. This doc scopes the app-level architecture, the views inside it, the holistic user journey, and the data model.
 
 Two grounding documents sit underneath this one:
-- `KNOWLEDGE_ARCHITECTURE.md` defined five conceptual modes (Factory Inbox, HUD, Bet Canvas, Coach Conversation, Practice Editor) — since consolidated into three views plus a sidebar.
+- `KNOWLEDGE_ARCHITECTURE.md` defined five conceptual modes (Factory Inbox, HUD, Bet Canvas, Assistant Conversation, Practice Editor) — since consolidated into three views plus a sidebar.
 - `RESEARCH_EXECUTION_LAYER.md` defined the agent-as-employee model and the five things an agent has (workspace, skills, inbox, memory, rhythm).
 
 This doc bridges them. **The interaction modes live inside one app as three views plus an always-visible sidebar.** Two form factors. The human learns one pattern and moves between views without switching products. Think Slack + Linear + Notion — simplified, interleaved, and opinionated for a world where agents and humans collaborate as equals.

@@ -23,6 +23,7 @@ type RouteItemInput = z.infer<typeof routeItemInputSchema>;
 
 interface RouteItemData {
 	readonly itemId: string;
+	// @lore AD8a: "rail" in the type union renamed in AD8b.
 	readonly view: "conversations" | "rail" | "work" | "knowledge";
 	readonly riskTier: string | null;
 	readonly kind: string | null;
@@ -74,5 +75,6 @@ export const routeItemTool: ToolDefinition<RouteItemInput> = {
 	handler,
 	// @lore G3 may add an `item_routed` event when other subscribers need it;
 	// G1 intentionally omits the emit so the shim stays idempotent.
+	// @lore AD8a: role string "chief_of_staff" renamed to "assistant" in AD8b.
 	roles: ["chief_of_staff", "practice_facilitator", "product_manager"],
 };

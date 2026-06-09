@@ -2,7 +2,8 @@
  * L1a step9 — WsBroadcaster subscribe-authz unit tests.
  *
  * Adv-C1 / Plan §6.2 contract:
- *  - global topics (`conversations`, `work`, `rail`) accept any authenticated
+ *  @lore AD8a: "rail" topic renamed in AD8b.
+ *  - global topics (`conversations`, `work`, `rail`) accept any authenticated // @lore AD8a: "rail" WS topic renamed in AD8b
  *    identity.
  *  - `thread:<id>` topics require `senderId ∈ thread.participants`.
  *  - subscribe returns `forbidden` on a non-participant attempt; the WS
@@ -127,7 +128,9 @@ describe("WsBroadcaster — subscribe authorization (L1 Adv-C1)", () => {
 		broadcaster.stop();
 	});
 
+	// @lore AD8a: "rail" WS topic renamed in AD8b.
 	test("global topics (`conversations`, `work`, `rail`) accept any identity", async ({
+		// @lore AD8a: "rail" WS topic renamed in AD8b
 		db,
 		eventBus,
 	}) => {
@@ -139,6 +142,7 @@ describe("WsBroadcaster — subscribe authorization (L1 Adv-C1)", () => {
 
 		expect(await broadcaster.subscribe(client, "conversations")).toBe("ok");
 		expect(await broadcaster.subscribe(client, "work")).toBe("ok");
+		// @lore AD8a: WebSocket topic "rail" renamed in AD8b — keep test as-is.
 		expect(await broadcaster.subscribe(client, "rail")).toBe("ok");
 
 		broadcaster.stop();

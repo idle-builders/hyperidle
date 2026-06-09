@@ -43,7 +43,7 @@ describe("L21 — CocAttachButton", () => {
 	it("button has accessible aria-label including the ref label", () => {
 		renderWithContext(true);
 		expect(
-			screen.getByRole("button", { name: /attach ambrovia v2 to chief of staff/i }),
+			screen.getByRole("button", { name: /attach ambrovia v2 to assistant/i }),
 		).toBeInTheDocument();
 	});
 
@@ -78,7 +78,7 @@ describe("L21 — CocAttachButton", () => {
 			</CocContext.Provider>,
 		);
 		expect(
-			screen.getByRole("button", { name: /attach fix the bug to chief of staff/i }),
+			screen.getByRole("button", { name: /attach fix the bug to assistant/i }),
 		).toBeInTheDocument();
 	});
 });

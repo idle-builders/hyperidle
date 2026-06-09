@@ -33,7 +33,7 @@ vi.mock("../hooks/useCocThread", () => ({
 			messages: [],
 			identities: {
 				"u-founder": { name: "You" },
-				"agent-coc": { name: "Chief of Staff", role: "chief_of_staff" },
+				"agent-coc": { name: "System Agent", role: "chief_of_staff" }, // @lore AD8a: role string renamed in AD8b
 			},
 		},
 		error: null,

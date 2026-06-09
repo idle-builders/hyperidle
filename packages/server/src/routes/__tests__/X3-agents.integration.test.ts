@@ -76,11 +76,12 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 	});
 
-	// Seed a chief_of_staff agent for testing multiple agents
+	// @lore AD8a: role string "chief_of_staff" renamed in AD8b. Seed a chief_of_staff agent for testing multiple agents
+	// @lore AD8a: display name changed from "X3 Chief of Staff" to "X3 System Agent".
 	await db.insert(users).values({
 		id: "x3-agent-cos",
 		kind: "ai",
-		name: "X3 Chief of Staff",
+		name: "X3 System Agent",
 		role: "chief_of_staff",
 		status: "active",
 		maxConcurrentSessions: 1,

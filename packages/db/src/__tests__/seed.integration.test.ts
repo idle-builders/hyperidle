@@ -5,7 +5,12 @@ import { sql } from "drizzle-orm";
 import type { HyperIdleDb } from "../connection.js";
 import { seed } from "../seed.js";
 
-const FACILITATOR_ROLES = ["chief_of_staff", "practice_facilitator", "product_manager"] as const;
+// @lore AD8a: chief_of_staff soul file deleted (docs/souls/chief-of-staff.md removed).
+// AC2 tests only check practice_facilitator and product_manager for soul_prompt_path.
+// biome-ignore lint/correctness/noUnusedVariables: historical documentation of the 3-role set pre-AD8a
+const FACILITATOR_ROLES = ["chief_of_staff", "practice_facilitator", "product_manager"] as const; // @lore AD8a: chief_of_staff role renamed in AD8b
+// Only roles that still have soul files after AD8a
+const SOUL_FILE_ROLES = ["practice_facilitator", "product_manager"] as const;
 
 /** Resolve the repo root from this test file's location. */
 function repoRoot(): string {
@@ -90,15 +95,17 @@ describe("A2: Seed script", () => {
 	});
 
 	// --- G1 AC1: facilitator agent archetypes are seeded ---
-	test("seeds one Chief of Staff, ≥1 Practice Facilitator, ≥1 Product Manager (AC1)", async ({
+	// @lore AD8a: System Agent is the display name for the chief_of_staff role seed.
+	test("seeds one System Agent (chief_of_staff), ≥1 Practice Facilitator, ≥1 Product Manager (AC1)", async ({
 		db,
 	}) => {
+		// @lore AD8a: role string renamed in AD8b
 		await seed(db);
 
 		// @lore P2: agents → users table
 		const cosRows = await queryRows<{ count: string }>(
 			db,
-			"SELECT COUNT(*) AS count FROM users WHERE role = 'chief_of_staff'",
+			"SELECT COUNT(*) AS count FROM users WHERE role = 'chief_of_staff'", // @lore AD8a: role string renamed in AD8b
 		);
 		expect(Number(cosRows[0]?.count)).toBe(1);
 
@@ -115,33 +122,39 @@ describe("A2: Seed script", () => {
 		expect(Number(pmRows[0]?.count)).toBeGreaterThanOrEqual(1);
 	});
 
-	// --- G1 AC2: every facilitator carries a non-empty soul_prompt_path ---
-	test("every seeded facilitator has a non-empty soul_prompt_path (AC2)", async ({ db }) => {
+	// --- G1 AC2: every facilitator with a soul file carries a non-empty soul_prompt_path ---
+	// @lore AD8a: chief_of_staff excluded — docs/souls/chief-of-staff.md deleted; soulPromptPath is null.
+	test("seeded practice_facilitator and product_manager have non-empty soul_prompt_path (AC2)", async ({
+		db,
+	}) => {
 		await seed(db);
 
-		const rolesList = FACILITATOR_ROLES.map((r) => `'${r}'`).join(", ");
+		const rolesList = SOUL_FILE_ROLES.map((r) => `'${r}'`).join(", ");
 		// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case column names
 		const rows = await queryRows<{ id: string; role: string; soul_prompt_path: string | null }>(
 			db,
 			`SELECT id, role, soul_prompt_path FROM users WHERE role IN (${rolesList})`,
 		);
-		expect(rows.length).toBeGreaterThanOrEqual(3);
+		expect(rows.length).toBeGreaterThanOrEqual(2);
 		for (const row of rows) {
 			expect(row.soul_prompt_path, `${row.id} soul_prompt_path must be set`).toBeTruthy();
 			expect(row.soul_prompt_path?.endsWith(".md")).toBe(true);
 		}
 	});
 
-	test("soul_prompt_path files exist on disk", async ({ db }) => {
+	// @lore AD8a: chief_of_staff excluded — its soul file was deleted. Only practice_facilitator and product_manager.
+	test("soul_prompt_path files exist on disk for practice_facilitator and product_manager", async ({
+		db,
+	}) => {
 		await seed(db);
 
-		const rolesList = FACILITATOR_ROLES.map((r) => `'${r}'`).join(", ");
+		const rolesList = SOUL_FILE_ROLES.map((r) => `'${r}'`).join(", ");
 		// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case column names
 		const rows = await queryRows<{ id: string; soul_prompt_path: string | null }>(
 			db,
 			`SELECT id, soul_prompt_path FROM users WHERE role IN (${rolesList})`,
 		);
-		expect(rows.length).toBeGreaterThanOrEqual(3);
+		expect(rows.length).toBeGreaterThanOrEqual(2);
 		const root = repoRoot();
 		for (const row of rows) {
 			expect(row.soul_prompt_path).toBeTruthy();

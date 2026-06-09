@@ -3,9 +3,9 @@
  *
  * Acceptance criteria:
  *   AC-5: Clicking trigger opens CocOverlay (integrated via AppShell tests).
- *   AC-6: CocOverlay uses ThreadShell in coach configuration (hostKind="user", pinned=true).
+ *   AC-6: CocOverlay uses ThreadShell in assistant configuration (hostKind="user", pinned=true).
  *   AC-7: Context attachment: adding a bet creates a ref chip above the composer.
- *   AC-8: Coach thread is user-attached (hostKind="user"), never bet/task.
+ *   AC-8: Assistant thread is user-attached (hostKind="user"), never bet/task.
  *   AC-9: Overlay closes on Escape key.
  *   AC-10: CocContext.overlayOpen is true when overlay is open.
  *
@@ -28,7 +28,7 @@ import { CocContext, type CocContextRef } from "../contexts/CocContext";
 // That's expected — this is the RED phase.
 import { CocOverlay } from "../shell/CocOverlay";
 
-// Module-level mock: provides a "ready" coach thread for all CocOverlay tests.
+// Module-level mock: provides a "ready" assistant thread for all CocOverlay tests.
 vi.mock("../hooks/useCocThread", () => ({
 	useCocThread: () => ({
 		status: "ready",
@@ -47,7 +47,8 @@ vi.mock("../hooks/useCocThread", () => ({
 			messages: [],
 			identities: {
 				"u-founder": { name: "You" },
-				"agent-coc": { name: "Chief of Staff", role: "chief_of_staff" },
+				// @lore AD8a: display name changed from "Chief of Staff" to "System Agent".
+				"agent-coc": { name: "System Agent", role: "chief_of_staff" },
 			},
 		},
 		error: null,
@@ -94,11 +95,10 @@ describe("L21 — CocOverlay open/close behavior", () => {
 		expect(screen.getByRole("dialog")).toBeInTheDocument();
 	});
 
-	it("overlay has aria-label='Chief of Staff conversation'", () => {
+	// @lore AD8a: aria-label changed from "Chief of Staff conversation" to "Assistant conversation".
+	it("overlay has aria-label='Assistant conversation'", () => {
 		renderOverlay(true);
-		expect(
-			screen.getByRole("dialog", { name: /chief of staff conversation/i }),
-		).toBeInTheDocument();
+		expect(screen.getByRole("dialog", { name: /assistant conversation/i })).toBeInTheDocument();
 	});
 
 	it("calls onClose when Escape is pressed", async () => {
@@ -117,19 +117,20 @@ describe("L21 — CocOverlay open/close behavior", () => {
 	});
 });
 
-describe("L21 — CocOverlay ThreadShell integration (coach configuration)", () => {
-	it("renders ThreadShell with coach thread (data-testid='thread-shell')", () => {
+describe("L21 — CocOverlay ThreadShell integration (assistant configuration)", () => {
+	it("renders ThreadShell with assistant thread (data-testid='thread-shell')", () => {
 		renderOverlay(true);
-		// ThreadShell renders with the coach thread.
+		// ThreadShell renders with the assistant thread.
 		expect(screen.getByTestId("thread-shell")).toBeInTheDocument();
 	});
 
-	it("shows 'Chief of Staff' identity in the thread", () => {
+	// @lore AD8a: display name changed from "Chief of Staff" to "System Agent".
+	it("shows 'System Agent' identity in the thread", () => {
 		renderOverlay(true);
-		// The identities include "Chief of Staff" from the mocked useCocThread.
+		// The identities include "System Agent" from the mocked useCocThread.
 		// Multiple elements may carry this text (sr-only heading, identity chips, etc.)
 		// — any match confirms the identity is present in the rendered output.
-		expect(screen.getAllByText(/chief of staff/i).length).toBeGreaterThan(0);
+		expect(screen.getAllByText(/system agent/i).length).toBeGreaterThan(0);
 	});
 
 	it("renders the composer for sending messages", () => {
@@ -138,22 +139,21 @@ describe("L21 — CocOverlay ThreadShell integration (coach configuration)", () 
 		expect(screen.getByPlaceholderText(/reply to thread/i)).toBeInTheDocument();
 	});
 
-	it("shows empty state when no messages exist (new coach thread)", () => {
+	it("shows empty state when no messages exist (new assistant thread)", () => {
 		renderOverlay(true);
 		// ThreadShell empty state.
 		expect(screen.getByText(/no messages yet/i)).toBeInTheDocument();
 	});
 
-	it("AC-8: thread hostKind is 'user' — coach threads never attached to bet/task", () => {
+	// @lore AD8a: aria-label changed from "Chief of Staff conversation" to "Assistant conversation".
+	it("AC-8: thread hostKind is 'user' — assistant threads never attached to bet/task", () => {
 		renderOverlay(true);
-		// ThreadShell is mounted with the coach thread; coach config requires hostKind="user".
+		// ThreadShell is mounted with the assistant thread; assistant config requires hostKind="user".
 		// We verify the underlying data by ensuring the mocked thread with hostKind="user"
 		// is what gets rendered. The ThreadShell is present (proves the hook result is used).
 		expect(screen.getByTestId("thread-shell")).toBeInTheDocument();
 		// The overlay dialog is present and labeled correctly.
-		expect(
-			screen.getByRole("dialog", { name: /chief of staff conversation/i }),
-		).toBeInTheDocument();
+		expect(screen.getByRole("dialog", { name: /assistant conversation/i })).toBeInTheDocument();
 	});
 });
 

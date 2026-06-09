@@ -232,7 +232,7 @@ describe("promote_knowledge tool", () => {
 		await seedKnowledgeItem(db, "ki-bad", "captured");
 		// I2 B1-B4: registry requires explicit role; promote_knowledge is
 		// facilitator-only.
-		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
+		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" }); // @lore AD8a: role string renamed to "assistant" in AD8b
 		const result = await registry.invoke("promote_knowledge", {
 			knowledgeItemId: "ki-bad",
 		});

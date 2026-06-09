@@ -2,14 +2,14 @@
  * L21 — CoC Overlay E2E (RED phase).
  *
  * Full flow acceptance criteria:
- *   AC-E1: CoC trigger is visible in the Rail on any page.
+ *   AC-E1: CoC trigger is visible in the sidebar on any page.
  *   AC-E2: Clicking the trigger opens the CoC overlay.
- *   AC-E3: Overlay shows ThreadShell in coach configuration.
+ *   AC-E3: Overlay shows ThreadShell in assistant configuration.
  *   AC-E4: User can add a bet as context — chip appears in overlay.
  *   AC-E5: User can type a question in the composer and send it.
  *   AC-E6: Message persists in the overlay (renders in the thread stream).
  *   AC-E7: Closing the overlay (Escape) hides it.
- *   AC-E8: Coach thread appears in the Conversations submenu after use.
+ *   AC-E8: Assistant thread appears in the Conversations submenu after use.
  *   AC-E9: Overlay state persists across navigation (not destroyed when navigating).
  *
  * Strategy: page.route() mocks for all API calls. No real DB or server needed.
@@ -42,7 +42,7 @@ const COACH_THREAD_FIXTURE = {
 	headMessageId: null,
 	identities: {
 		"u-founder": { name: "You" },
-		[COC_AGENT_ID]: { name: "Chief of Staff", role: "chief_of_staff" },
+		[COC_AGENT_ID]: { name: "System Agent", role: "chief_of_staff" },
 	},
 };
 
@@ -137,6 +137,7 @@ async function setupApiMocks(page: import("@playwright/test").Page): Promise<voi
 
 		// GET /api/threads/:id — individual thread detail.
 		if (url.match(/\/api\/threads\/[^/]+$/) && !url.includes("/coach")) {
+			// @lore AD8a: /api/threads/coach path stays; route renamed in AD8b
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
@@ -171,7 +172,7 @@ async function setupApiMocks(page: import("@playwright/test").Page): Promise<voi
 		}
 
 		// Unrecognized paths: fall through to auto-use fixture handlers
-		// (auth/me, settings, rail, threads, products).
+		// @lore AD8a: historical — (auth/me, settings, rail [deleted], threads, products).
 		await route.fallback();
 	});
 }
@@ -181,13 +182,13 @@ test.describe("L21 — CoC Overlay E2E", () => {
 		await setupApiMocks(page);
 	});
 
-	test("AC-E1: CoC trigger button is visible in the Rail on the conversations page", async ({
+	test("AC-E1: CoC trigger button is visible in the sidebar on the conversations page", async ({
 		page,
 	}) => {
 		await page.goto("/conversations");
 
-		// The CoC trigger button must be visible in the Rail.
-		const trigger = page.getByRole("button", { name: /chief of staff/i });
+		// The CoC trigger button must be visible in the sidebar.
+		const trigger = page.getByRole("button", { name: /assistant/i });
 		await expect(trigger).toBeVisible();
 	});
 
@@ -196,7 +197,7 @@ test.describe("L21 — CoC Overlay E2E", () => {
 	}) => {
 		await page.goto("/work/portfolio");
 
-		const trigger = page.getByRole("button", { name: /chief of staff/i });
+		const trigger = page.getByRole("button", { name: /assistant/i });
 		await expect(trigger).toBeVisible();
 	});
 
@@ -204,26 +205,26 @@ test.describe("L21 — CoC Overlay E2E", () => {
 		await page.goto("/conversations");
 
 		// Overlay must not be present initially.
-		await expect(page.getByRole("dialog", { name: /chief of staff conversation/i })).toHaveCount(0);
+		await expect(page.getByRole("dialog", { name: /assistant conversation/i })).toHaveCount(0);
 
 		// Click the trigger.
-		const trigger = page.getByRole("button", { name: /chief of staff/i });
+		const trigger = page.getByRole("button", { name: /assistant/i });
 		await trigger.click();
 
 		// Overlay must now be present.
-		await expect(page.getByRole("dialog", { name: /chief of staff conversation/i })).toBeVisible();
+		await expect(page.getByRole("dialog", { name: /assistant conversation/i })).toBeVisible();
 	});
 
-	test("AC-E3: overlay shows ThreadShell in coach configuration (empty thread empty state)", async ({
+	test("AC-E3: overlay shows ThreadShell in assistant configuration (empty thread empty state)", async ({
 		page,
 	}) => {
 		await page.goto("/conversations");
 
-		const trigger = page.getByRole("button", { name: /chief of staff/i });
+		const trigger = page.getByRole("button", { name: /assistant/i });
 		await trigger.click();
 
 		// ThreadShell is mounted inside the dialog.
-		const dialog = page.getByRole("dialog", { name: /chief of staff conversation/i });
+		const dialog = page.getByRole("dialog", { name: /assistant conversation/i });
 		await expect(dialog).toBeVisible();
 
 		// ThreadShell empty state shows when no messages.
@@ -238,10 +239,10 @@ test.describe("L21 — CoC Overlay E2E", () => {
 		await page.goto(`/work/bet/${BET_ID}`);
 
 		// Open the CoC overlay first.
-		const trigger = page.getByRole("button", { name: /chief of staff/i });
+		const trigger = page.getByRole("button", { name: /assistant/i });
 		await trigger.click();
 
-		const dialog = page.getByRole("dialog", { name: /chief of staff conversation/i });
+		const dialog = page.getByRole("dialog", { name: /assistant conversation/i });
 		await expect(dialog).toBeVisible();
 
 		// When the overlay is open, a "+" attach button should appear on the BetCard in Main.
@@ -262,10 +263,10 @@ test.describe("L21 — CoC Overlay E2E", () => {
 	}) => {
 		await page.goto("/conversations");
 
-		const trigger = page.getByRole("button", { name: /chief of staff/i });
+		const trigger = page.getByRole("button", { name: /assistant/i });
 		await trigger.click();
 
-		const dialog = page.getByRole("dialog", { name: /chief of staff conversation/i });
+		const dialog = page.getByRole("dialog", { name: /assistant conversation/i });
 		await expect(dialog).toBeVisible();
 
 		// Type a question in the composer.
@@ -282,38 +283,38 @@ test.describe("L21 — CoC Overlay E2E", () => {
 	test("AC-E7: pressing Escape closes the overlay", async ({ page }) => {
 		await page.goto("/conversations");
 
-		const trigger = page.getByRole("button", { name: /chief of staff/i });
+		const trigger = page.getByRole("button", { name: /assistant/i });
 		await trigger.click();
 
-		await expect(page.getByRole("dialog", { name: /chief of staff conversation/i })).toBeVisible();
+		await expect(page.getByRole("dialog", { name: /assistant conversation/i })).toBeVisible();
 
 		// Press Escape.
 		await page.keyboard.press("Escape");
 
 		// Overlay must be hidden.
-		await expect(page.getByRole("dialog", { name: /chief of staff conversation/i })).toHaveCount(0);
+		await expect(page.getByRole("dialog", { name: /assistant conversation/i })).toHaveCount(0);
 	});
 
 	test("AC-E7: clicking the trigger again closes the overlay", async ({ page }) => {
 		await page.goto("/conversations");
 
-		const trigger = page.getByRole("button", { name: /chief of staff/i });
+		const trigger = page.getByRole("button", { name: /assistant/i });
 		await trigger.click();
 
-		await expect(page.getByRole("dialog", { name: /chief of staff conversation/i })).toBeVisible();
+		await expect(page.getByRole("dialog", { name: /assistant conversation/i })).toBeVisible();
 
 		// Click trigger again to close.
 		await trigger.click();
 
-		await expect(page.getByRole("dialog", { name: /chief of staff conversation/i })).toHaveCount(0);
+		await expect(page.getByRole("dialog", { name: /assistant conversation/i })).toHaveCount(0);
 	});
 
-	test("AC-E8: coach thread appears in Conversations submenu after overlay is opened", async ({
+	test("AC-E8: assistant thread appears in Conversations submenu after overlay is opened", async ({
 		page,
 	}) => {
 		await page.goto("/conversations");
 
-		// The coach thread should appear in the Conversations submenu.
+		// The assistant thread should appear in the Conversations submenu.
 		// Title is derived from hostKind + id prefix: "User thread thr-coac"
 		await page.waitForSelector("[data-ds-component='ThreadRow']");
 		const coachThreadRow = page.locator("[data-ds-component='ThreadRow']").filter({
@@ -328,22 +329,22 @@ test.describe("L21 — CoC Overlay E2E", () => {
 		await page.goto("/conversations");
 
 		// Open the overlay.
-		const trigger = page.getByRole("button", { name: /chief of staff/i });
+		const trigger = page.getByRole("button", { name: /assistant/i });
 		await trigger.click();
-		await expect(page.getByRole("dialog", { name: /chief of staff conversation/i })).toBeVisible();
+		await expect(page.getByRole("dialog", { name: /assistant conversation/i })).toBeVisible();
 
 		// Navigate to the Work view.
 		const workButton = page.getByRole("button", { name: /work/i });
 		await workButton.click();
 
 		// The overlay must still be visible after navigation.
-		await expect(page.getByRole("dialog", { name: /chief of staff conversation/i })).toBeVisible();
+		await expect(page.getByRole("dialog", { name: /assistant conversation/i })).toBeVisible();
 	});
 
 	test("trigger aria-expanded reflects overlay state", async ({ page }) => {
 		await page.goto("/conversations");
 
-		const trigger = page.getByRole("button", { name: /chief of staff/i });
+		const trigger = page.getByRole("button", { name: /assistant/i });
 
 		// Before opening: aria-expanded=false.
 		await expect(trigger).toHaveAttribute("aria-expanded", "false");
@@ -360,16 +361,16 @@ test.describe("L21 — CoC Overlay E2E", () => {
 	}) => {
 		await page.goto("/conversations");
 
-		const trigger = page.getByRole("button", { name: /chief of staff/i });
+		const trigger = page.getByRole("button", { name: /assistant/i });
 		await trigger.click();
 
-		await expect(page.getByRole("dialog", { name: /chief of staff conversation/i })).toBeVisible();
+		await expect(page.getByRole("dialog", { name: /assistant conversation/i })).toBeVisible();
 
 		// Click somewhere in the main content area.
 		const mainContent = page.getByTestId("main-content");
 		await mainContent.click({ position: { x: 10, y: 10 } });
 
 		// Overlay must still be visible.
-		await expect(page.getByRole("dialog", { name: /chief of staff conversation/i })).toBeVisible();
+		await expect(page.getByRole("dialog", { name: /assistant conversation/i })).toBeVisible();
 	});
 });

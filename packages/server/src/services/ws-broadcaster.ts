@@ -57,6 +57,7 @@ export class WsBroadcaster {
 		});
 
 		const unsub5 = this.eventBus.on("cost_cap_warning", (event) => {
+			// @lore AD8a: WebSocket topic "rail" renamed to "indicators" in AD8b.
 			this.broadcast("rail", JSON.stringify(event));
 		});
 
@@ -81,11 +82,12 @@ export class WsBroadcaster {
 		});
 
 		// L20: propagation_applied goes to 'work' so the UI can invalidate data.
-		// propagation_failed goes to 'rail' so the notification system picks it up.
+		// @lore AD8a: 'rail' WS topic name stays — renamed in AD8b. propagation_failed goes to 'rail' so the notification system picks it up.
 		const unsub11 = this.eventBus.on("propagation_applied", (event) => {
 			this.broadcast("work", JSON.stringify(event));
 		});
 		const unsub12 = this.eventBus.on("propagation_failed", (event) => {
+			// @lore AD8a: WebSocket topic "rail" renamed to "indicators" in AD8b.
 			this.broadcast("rail", JSON.stringify(event));
 		});
 
@@ -210,7 +212,7 @@ export class WsBroadcaster {
 /**
  * Build an authorizer that allows:
  *  - any authenticated identity to subscribe to global topics
- *    (`conversations`, `work`, `rail`)
+ *    (`conversations`, `work`, `rail`) @lore AD8a: "rail" topic renamed in AD8b.
  *  - only thread participants to subscribe to `thread:<id>` topics
  *
  * @lore L1 step9 (Adv-C1): subscribe authorization for per-thread topics is
@@ -218,6 +220,7 @@ export class WsBroadcaster {
  * topic membership is cached in `WsBroadcaster`'s set.
  */
 export function createDbSubscribeAuthorizer(db: HyperIdleDb): SubscribeAuthorizer {
+	// @lore AD8a: WebSocket topic "rail" renamed in AD8b. See ws-broadcaster.ts.
 	const GLOBAL_TOPICS = new Set(["conversations", "work", "rail"]);
 	return {
 		async canSubscribe(senderId: string, topic: string): Promise<boolean> {

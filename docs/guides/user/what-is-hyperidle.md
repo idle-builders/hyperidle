@@ -1,6 +1,6 @@
 ## What Is HyperIdle?
 
-You are a founder (CEO or CPO) managing a fleet of AI agents organized into product teams. Each team has a Product Manager, Builders, Growth Agents, and Ops Agents — all AI. Your job is to shape the work, review the output, curate the knowledge, and coach the system. HyperIdle gives you the interface to do this in minutes per day.
+You are a founder (CEO or CPO) managing a fleet of AI agents organized into product teams. Each team has a Product Manager, Builders, Growth Agents, and Ops Agents — all AI. Your job is to shape the work, review the output, curate the knowledge, and coach <!-- @lore AD8a: generic English verb, not the HyperIdle ThreadConfiguration --> the system. HyperIdle gives you the interface to do this in minutes per day.
 
 ### Core Principles
 

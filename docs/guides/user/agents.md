@@ -3,7 +3,7 @@
 ### Agent Types
 
 **Factory-wide agents** (shared across all products):
-- **Chief of Staff** — cross-product patterns, monthly coaching, strategic conversations
+- **assistant** — cross-product patterns, monthly coaching, strategic conversations
 - **Practice Facilitators** (5) — one per discipline (Building, Growth, Product, Ops, Facilitation)
 - **Infra Agent**, **Platform Agent**, **Scout**
 

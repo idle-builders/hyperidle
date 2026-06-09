@@ -117,9 +117,9 @@ Each row: visual signature + DOM/class signature + recommended replacement + reg
 
 ### 14. Full-bleed colored accent navigation
 
-- Visual: nav rail or sidebar painted with a brand/accent color (purple/indigo/teal/violet) covering the entire column.
+- Visual: nav rail <!-- @lore AD8a: "Rail" as HyperIdle UI concept deleted in U6; "nav rail" here is a generic UI pattern term --> or sidebar painted with a brand/accent color (purple/indigo/teal/violet) covering the entire column.
 - DOM: `<aside>` or NavRail root with `class*="bg-(indigo|purple|teal|violet|emerald|sky)-(400|500|600|700)"`.
-- Replacement: neutral surface (`--surface-1`) for the rail; accent color goes on the selected-item indicator only.
+- Replacement: neutral surface (`--surface-1`) for the rail; accent color goes on the selected-item indicator only.  <!-- @lore AD8a: historical research (Rail deleted in U6) -->
 - Regex: navigation root className matching `bg-(indigo|purple|teal|violet|emerald|sky)-\d{3}`.
 
 ### 15. Over-iconification

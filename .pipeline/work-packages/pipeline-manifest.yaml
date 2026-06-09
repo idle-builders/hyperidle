@@ -841,10 +841,20 @@ stories:
     track: AD
     depends: []
     complexity: M
-  - id: AD8
-    title: Coach / Assistant Restructure
+  - id: AD8a
+    title: Agent Type System + Noun Purge
     track: AD
-    depends: [AD2]
+    depends: []
+    complexity: M
+  - id: AD8b
+    title: Assistant Agent + Overlay
+    track: AD
+    depends: [AD8a, AD2]
+    complexity: L
+  - id: AD8c
+    title: Facilitator Agent Cleanup
+    track: AD
+    depends: [AD8a]
     complexity: M
   - id: AD9
     title: Remove Portfolio Page
@@ -861,7 +871,7 @@ stories:
   - id: AE2
     title: Team Creation & Onboarding Journey
     track: AE
-    depends: [AD2, AD8]
+    depends: [AD2, AD8b]
     complexity: L
   - id: AE3
     title: Assistant System Tools

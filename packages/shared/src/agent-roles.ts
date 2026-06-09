@@ -36,7 +36,7 @@ export type TeamFunction = (typeof TEAM_FUNCTIONS)[number];
  *
  * @lore AB0: This replaces USER_ROLES, KERNEL_USER_ROLES, and
  * FABRIC_USER_ROLES. The old kernel/fabric split was about system layer,
- * not agent category. The new category system (team/strategy/personal)
+ * not agent category. The new category system (team/strategy/individual)
  * is the structural distinction.
  */
 export const AGENT_ROLE_CATALOG: readonly AgentRoleCatalogEntry[] = [
@@ -177,15 +177,19 @@ export const AGENT_ROLE_CATALOG: readonly AgentRoleCatalogEntry[] = [
 		teamFunctions: [],
 		hasTemplate: false,
 	},
-	// Personal agents
+	// Individual agents
+	// @lore AD8a: label + category + description updated (personal → individual, display name → System Agent).
+	// role string "chief_of_staff" stays — AD8b renames it to "assistant". // @lore AD8a
+	// hasTemplate false because docs/souls/chief-of-staff.md is deleted in AD8a. // @lore AD8a
+	// AD8b creates a new assistant.md soul and sets hasTemplate back to true.
 	{
 		role: "chief_of_staff",
-		label: "Chief of Staff",
-		category: "personal",
-		description: "L4 facilitator. Routes work, compiles portfolio retros, coaches PMs.",
+		label: "System Agent",
+		category: "individual",
+		description: "Transitional system agent. AD8b replaces with per-user assistant.",
 		community: "ops",
 		teamFunctions: [],
-		hasTemplate: true,
+		hasTemplate: false,
 	},
 ];
 

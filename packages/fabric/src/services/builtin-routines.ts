@@ -152,8 +152,9 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
 
 /**
  * Idempotent seed for the G4 built-in routines. Must be called after G1
- * agents (`seed-agent-cos`, `seed-agent-pf-facilitation`,
+ * agents (`seed-agent-cos` — now "System Agent", `seed-agent-pf-facilitation`,
  * `seed-agent-pm-nimmly`) have been seeded so the FK to `agents.id` resolves.
+ * @lore AD8a: seed-agent-cos renamed from "Chief of Staff" to "System Agent".
  *
  * Uses `onConflictDoNothing` so re-running against an existing DB is a no-op.
  *

@@ -73,7 +73,7 @@ const delSuccessfulDelegation: EvalScenario = {
 			name: "Delegate Agent",
 			role: "chief_of_staff",
 			teamMembersId: world.teamMembersId,
-			soulPrompt: "You are a delegate CoS agent.",
+			soulPrompt: "You are a delegate system agent.",
 		});
 		delSuccessDelegateAgentId = delegateId;
 

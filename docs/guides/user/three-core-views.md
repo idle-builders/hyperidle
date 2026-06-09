@@ -27,9 +27,9 @@ When reviewing an item, you have these actions:
 
 Most reviews take 15-30 seconds. The artifact view shows you exactly what changed — code diffs, content previews, before/after comparisons, or action summaries.
 
-#### Chief of Staff Thread
+#### assistant Thread
 
-A pinned thread at the top of Conversations. Your Chief of Staff agent surfaces cross-product patterns, monthly reflections, and coaching suggestions. This is where strategic conversations happen.
+A pinned thread at the top of Conversations. Your assistant agent surfaces cross-product patterns, monthly reflections, and coaching suggestions. This is where strategic conversations happen.
 
 ---
 

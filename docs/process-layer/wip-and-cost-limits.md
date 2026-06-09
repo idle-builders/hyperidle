@@ -23,7 +23,7 @@ Money is allocated concurrently across agents within a team — each agent draws
 
 ### 10.3 Per factory
 
-The factory has a **factory Money cap** (the sum of all team Money caps, plus a factory-level overhead budget for Chief of Staff routines and cross-product work) and an optional **factory TokenUsage cap**. The Cost Sentinel (a heartbeat routine owned by the Chief of Staff) monitors burn rate against both axes.
+The factory has a **factory Money cap** (the sum of all team Money caps, plus a factory-level overhead budget for assistant routines and cross-product work) and an optional **factory TokenUsage cap**. The Cost Sentinel (a heartbeat routine owned by the assistant) monitors burn rate against both axes.
 
 **When the factory Money or TokenUsage cap is reached, everything stops.** All teams finish in-progress sessions but accept no new work. Critical ops tasks (e.g., incident response) are not killed mid-session but cannot start new sessions either — they resume when the budget resets or the cap is raised. A review thread fires to the founder.
 

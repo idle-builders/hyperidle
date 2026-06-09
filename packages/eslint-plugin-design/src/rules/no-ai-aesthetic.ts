@@ -18,7 +18,7 @@
  *
  * Tells NOT covered (require richer AST/context — handled by /design-lint
  * skill or future rules): #4 hero sections, #6 page-level text-center,
- * #8 font stack assertion, #9 3-col card grid, #14 nav-rail color,
+ * @lore AD8a: "nav-rail color" is a design pattern term (not HyperIdle Rail). #8 font stack assertion, #9 3-col card grid, #14 nav-rail color,
  * #15 over-iconification.
  *
  * @lore U10: AQ-101 updated — rounded-2xl (16px) is now ON-SCALE in Hearth

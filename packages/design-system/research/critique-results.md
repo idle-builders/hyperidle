@@ -275,7 +275,7 @@ shells / page chrome (out of K8 token scope):
   rendered on `bg-base-100`-tinted regions where compounded surface
   layering pushes the painted background dark enough to dip the chip
   text under 4.5:1.
-- The Rail's `CollapsedPill` (`packages/web/src/shell/Rail.tsx`)
+- The Rail's `CollapsedPill` (`packages/web/src/shell/Rail.tsx`)  <!-- @lore AD8a: historical research (Rail deleted in U6) -->
   paints `text-error` on a 15 % danger tint. Even with the K8
   `--danger` darkening, the BLK / REV pill needs an explicit
   small-text guard.

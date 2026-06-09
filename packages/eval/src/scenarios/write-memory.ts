@@ -272,13 +272,13 @@ Document what happened in your session notes.`,
 
 const wmFacilitatorL4CosConsulting: EvalScenario = {
 	id: "wm-facilitator-l4-cos-consulting",
-	description: "Chief of Staff writes L4 factory-wide principles for consulting",
+	description: "System agent writes L4 factory-wide principles for consulting",
 	feature: "write_memory",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "chief_of_staff",
-			agentSoulPrompt: `You are a Chief of Staff at a consulting firm.
+			agentSoulPrompt: `You are a system agent at a consulting firm.
 Your role is to capture factory-wide principles that apply across all products and teams.
 When writing knowledge, use layer L4 for cross-product principles and company-wide guidelines.
 Use write_memory with layer="factory" to capture factory-wide knowledge.`,

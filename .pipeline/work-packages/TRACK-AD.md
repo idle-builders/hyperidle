@@ -314,45 +314,150 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 
 ---
 
-### AD8 — Coach / Assistant Restructure
+### AD8a — Agent Type System + Noun Purge
 
-**Workpackage.** As a founder, I want a single, clearly-named AI assistant that I can talk to from anywhere in the app — not three different names (Coach, Chief of Staff, CoC) pointing at the same broken thread — so that the assistant concept is coherent and the interaction actually works.
+**Workpackage.** As a founder, I want the agent taxonomy cleaned up into three clear types (team, strategy, individual) and all dead nouns (Chief of Staff, CoS, CoC, coach, Rail) purged from every doc, code file, seed, test, and comment — so that the codebase has one vocabulary, not five competing ones.
 
-**Why this matters.** The June 2026 audit found the assistant concept has three names (Coach thread, Chief of Staff, CoC overlay), a UI that invites conversation but never responds, and architectural confusion about what this agent is. The overlay says "Assistant" in the sidebar. The thread is called "coach." The agent is named "Chief of Staff." The docs describe it as a facilitator, coach, and executive assistant simultaneously. The user types a message and gets silence. This needs one name, one concept, and a working interaction — or it should be hidden until it works.
+**Why this matters.** The `/concept` phase for the original AD8 revealed that the "Chief of Staff" was a confused mix of two distinct agent types: a knowledge facilitator (strategy agent) and a personal operator (individual agent). The existing `agentCategory` field already has `team | strategy | personal` — but "personal" needs to become "individual", the CoS noun needs to die, and the docs still describe a two-category model. Additionally, the "Rail" noun was deleted in U6 but persists in docs and orphaned API routes. Everything else (AD8b assistant, AD8c facilitator) depends on clean nouns.
 
-**What exists today.** `GET /api/threads/coach` auto-creates a pinned thread with `hostKind="user"`, participant `seed-agent-cos`. `CocOverlay.tsx` renders a ThreadShell in a bottom-right popover (360px wide, max-height 70vh). `CocAttachButton` for context chips. The coach thread works for message persistence — human messages are stored and displayed. But no agent session is ever provisioned to respond.
+**What exists today.**
+- `users.agentCategory` field with values `team | strategy | personal`
+- `seed-agent-cos` (category: personal, role: chief_of_staff) — a confused singleton
+- `docs/agent-layer/the-two-categories.md` — describes "Central Agents" vs "Product Team Agents" (outdated)
+- `docs/souls/chief-of-staff.md` — CoS soul prompt
+- Thread primitive docs reference "coach" configuration
+- Orphaned Rail API routes: `packages/api-contract/src/rail.ts`, `packages/server/src/routes/rail.ts`, tests
+- "Rail" and "CoS/coach/CoC" references scattered across docs and code
 
-**What's genuinely missing.** A decision and implementation: (1) Pick one name — "Assistant" is the clearest for the UI, "Chief of Staff" can remain as the agent's role internally. (2) Wire the response loop — when a human posts to the assistant thread, provision a CoS agent session that reads the message and responds. This depends on AD2 (task-to-session dispatcher) or can use the manual trigger path. (3) Don't pin the thread until the assistant has posted at least one real message.
+**What needs to happen.**
+1. Schema migration: rename `agentCategory` value `personal` → `individual`
+2. Rewrite `docs/agent-layer/the-two-categories.md` → three-type taxonomy (team, strategy, individual)
+3. Delete `docs/souls/chief-of-staff.md` (replaced by assistant.md + facilitator.md in AD8b/AD8c)
+4. Update thread primitive docs: "coach" configuration → "assistant" configuration
+5. Delete orphaned Rail routes, API contracts, and tests
+6. Purge every reference to "Chief of Staff", "CoS", "CoC", "coach" (as agent name), and "Rail" from all docs, code, seeds, tests, variable names, comments
 
-**Depends on.**
-- AD2 — Task-to-Session Dispatcher. The assistant needs session provisioning to respond. Without the dispatcher, the only path is manual trigger per message, which is a stopgap.
+**Depends on.** None — this is the foundation.
 
 **Complexity.** M
 
 **Acceptance criteria.**
-- The assistant has one user-facing name throughout the entire UI — sidebar trigger, overlay title, thread label, settings.
-- When a human posts a message to the assistant thread, the assistant agent responds within the same thread.
-- The assistant thread is not pinned at the top of the conversation list until the assistant has posted at least one real message.
-- The assistant overlay trigger in the sidebar is clearly labeled with the chosen name.
+- `users.agentCategory` accepts `team | strategy | individual` (not `personal`). Migration applied.
+- Zero occurrences of "Chief of Staff", "CoS" (as agent name), "CoC", "coach" (as agent name) in the entire codebase (docs, code, seeds, tests, comments). Grep verification.
+- Zero occurrences of "Rail" (as UI concept) in the entire codebase. Orphaned rail routes and contracts deleted.
+- `docs/agent-layer/the-two-categories.md` rewritten to describe three agent types with roles, scopes, and examples.
+- Thread primitive docs updated: coach configuration → assistant configuration with conditional pinning note.
+- `npm run check` + `npm run lint` + `npm run test` all pass.
 
 **Validation scenarios.**
-- Given a first-time user, when they click the assistant trigger in the sidebar, then the overlay opens with the assistant's name (not "Coach" or "CoC" or "Chief of Staff").
-- Given a user types "What are my agents working on?" in the assistant overlay, when the message is sent, then the assistant responds with relevant information from the factory state.
-- Given a new factory with no assistant activity, when the conversation list loads, then no assistant thread is pinned at the top.
-- Given the assistant has responded to 3 messages, when the conversation list loads, then the assistant thread appears (pinned or prominent).
-
-**Plan calls.** `/concept` needed — the assistant's behavioral model needs definition: what can it answer? What tools does it have? Is it a facilitator (observes and surfaces), an operator (creates and modifies per AE3), or a guide (onboarding per AE2)? The concept must settle the identity before design/architecture.
+- Given the migration has run, when querying `SELECT DISTINCT agentCategory FROM users WHERE kind='ai'`, then the results include `team`, `strategy`, `individual` — never `personal`.
+- Given the purge is complete, when running `grep -ri "chief.of.staff\|\\bcos\\b\|\\bcoc\\b\|coach.*thread\|coach.*agent" --include="*.ts" --include="*.tsx" --include="*.md" .`, then zero results (excluding this spec file and the concept doc).
+- Given the Rail purge is complete, when running `grep -ri "\\brail\\b" --include="*.ts" --include="*.tsx" --include="*.md" docs/ packages/`, then zero results referencing the Rail UI concept.
 
 **Contracts / constraints.**
-- One name, everywhere. No aliases in the UI.
-- The assistant is a real agent session, not canned responses — quality improves as the agent learns.
-- The assistant must not auto-pin or auto-notify until it has demonstrated value (at least one real response).
-- Internal agent role can remain "chief_of_staff" — only the user-facing label changes.
+- No behavioral changes — this is a vocabulary + schema cleanup. The app works identically after, just with clean nouns.
+- `seed-agent-cos` may be renamed or removed, but the practice facilitator seeds (seed-agent-pf-*) stay (they become the canonical strategy agents).
+- The three-type doc must define: type (team/strategy/individual), scope, visibility, role examples, tool access pattern.
+
+**Effort.** M (~6h)
+
+---
+
+### AD8b — Assistant Agent + Overlay
+
+**Workpackage.** As a founder, I want a personal AI assistant — one per user, built from scratch — that I can talk to from the overlay, that can act on my behalf (create bets, edit blocks, manage tasks), and that shows me what it did through tool calls, artifacts, and review messages with guardrails for dangerous actions.
+
+**Why this matters.** The original CoS overlay invited conversation but never responded. AD8a cleans up the nouns; AD8b builds the actual assistant. This is the individual agent — scoped to one user, powerful enough to be the user's hands in the factory, with risk-assessed guardrails so it doesn't do dangerous things without approval.
+
+**What exists today (after AD8a).** Clean agent type system. No assistant agent exists yet. The overlay shell (formerly CocOverlay, renamed in AD8a purge) may retain basic structure but needs rebuild for the assistant's tool-call and review-message rendering.
+
+**What needs to happen.**
+1. Per-user assistant agent creation: new agent row (kind=ai, agentCategory=individual, role=assistant) created at user registration or first overlay open, with soul prompt copied from a template and editable by the user.
+2. Rebuild overlay as AssistantOverlay: renders tool calls, artifacts, and review messages inline — not just plain text.
+3. Wire response loop: when a human posts to the assistant thread, provision a session via AD2 dispatcher. The session reads thread history, uses tools, responds.
+4. Implement assistant tool surface: `send_message`, `create_task`, `submit_review`, `create_artifact`, `create_item`, `query_practice`, `read_inbox`, `handoff_to`, `promote_knowledge`, `create_bet`, `edit_block`, `update_task_status`, `edit_bet`.
+5. Implement guardrails: risk-assessed review messages for high-risk actions (create_bet, edit_bet, submit_review, handoff_to). Low-risk actions execute and report.
+6. Conditional pinning: thread starts unpinned, pins after first real assistant response.
+7. Refine context attachment: bets, tasks, knowledge items, blocks, thread message copies.
+8. Adopt `portfolio-retro` routine: scoped to the user's teams (not factory-wide).
+9. Assistant soul template in `docs/souls/assistant.md`.
+
+**Depends on.** AD8a (clean types + nouns), AD2 (task-to-session dispatcher — already done).
+
+**Complexity.** L
+
+**Acceptance criteria.**
+- Each human user has exactly one assistant agent (agentCategory=individual, role=assistant). Created automatically.
+- The assistant's soul prompt is editable by the user in settings.
+- When a human posts a message to the assistant thread, the assistant responds with relevant tool calls and information.
+- High-risk actions (create_bet, edit_bet, submit_review, handoff_to) surface as review messages — the user approves before execution.
+- Low/medium-risk actions execute and report results in the thread.
+- The assistant thread is not pinned until the assistant has posted at least one real response.
+- The overlay renders tool calls, artifacts, and review messages — not just plain text.
+- The assistant overlay trigger in the sidebar is labeled "Assistant".
+- Context can be attached from: bet cards, task cards, knowledge items, blocks, thread messages.
+
+**Validation scenarios.**
+- Given a first-time user, when they open the assistant overlay and send "Create a bet called Test Bet with $500 appetite", then the assistant surfaces a review message with the bet details for approval.
+- Given the user approves the review message, then the bet is created and the assistant confirms with an artifact reference.
+- Given a user sends "What tasks are blocked right now?", then the assistant queries and responds with task data (no review gate — read-only).
+- Given a new factory, when the conversation list loads, then no assistant thread is pinned.
+- Given the assistant has responded, when the conversation list loads, then the assistant thread appears pinned.
+- Given a user navigates to settings, they can view and edit their assistant's soul prompt.
+
+**Contracts / constraints.**
+- One assistant per user. No shared seed agent.
+- Guardrails are structural (review messages), not configurable (no on/off toggle).
+- Thread is the memory. Sessions are ephemeral.
+- Actions surface as tool calls / artifacts / review messages, not plain-text summaries.
 
 **Out of scope.**
-- CoS system tools for creating teams/bets (AE3 handles that separately).
-- Onboarding journey guided by CoS (AE2 handles that separately).
-- Multi-turn stateful conversations (each message provisions a new session that reads thread history).
+- Onboarding journey (AE2).
+- Full tool expansion beyond the core set listed above.
+- Multi-turn stateful sessions (each message provisions a new session that reads thread history).
+
+**Effort.** L (~12h)
+
+---
+
+### AD8c — Facilitator Agent Cleanup
+
+**Workpackage.** As a founder, I want the knowledge facilitation responsibilities cleanly owned by strategy agents with proper tooling and routines — not dangling from the dead CoS — so that knowledge management has a clear owner and the agent taxonomy is complete.
+
+**Why this matters.** The CoS decomposition (AD8a purge) removes the agent that owned knowledge-decay, portfolio-retro, and cost-sentinel routines. The practice facilitators (seed-agent-pf-*) already exist as strategy agents but their relationship to the old CoS is unclear. AD8c makes it clean: facilitators own knowledge curation, the cost-sentinel becomes application code, and portfolio-retro moves to the assistant.
+
+**What exists today (after AD8a).** Practice facilitators with `agentCategory=strategy`, `role=practice_facilitator`. The old CoS routines are orphaned (no owner after purge). Facilitator tools (`route_item`, `score_attention`, `promote_knowledge`, `create_conflict_review`) exist but are authorized by role name.
+
+**What needs to happen.**
+1. Update practice facilitator seeds: role `practice_facilitator` → `facilitator`. Update role-based tool authorization.
+2. Create `docs/souls/facilitator.md` — clean soul template for strategy agents focused on knowledge curation.
+3. Reassign `knowledge-decay` routine to a facilitator agent (e.g., seed-agent-pf-facilitation or a new factory-level facilitator).
+4. Convert `cost-sentinel` from agent routine to application code — simple threshold check, no LLM needed. Delete the routine seed.
+5. `portfolio-retro` moves to the assistant (AD8b). Remove from facilitator scope.
+6. Update facilitator tool surface: keep `route_item`, `score_attention`, `promote_knowledge`, `create_conflict_review`, plus shared tools. Remove any assistant-specific tools from facilitator authorization.
+7. Ensure strategy agent roles are open-ended — `facilitator` is the first but the type accommodates future roles.
+
+**Depends on.** AD8a (clean types + nouns). Can run in parallel with AD8b.
+
+**Complexity.** M
+
+**Acceptance criteria.**
+- Practice facilitator seeds have `role=facilitator` (not `practice_facilitator`). Tool authorization updated.
+- `docs/souls/facilitator.md` exists with a clean soul template.
+- `knowledge-decay` routine is owned by a facilitator agent and runs correctly.
+- `cost-sentinel` is application code (scheduled job or reactive check), not an agent routine. The routine seed is deleted.
+- `portfolio-retro` routine seed is removed from facilitator scope (moved to assistant in AD8b).
+- `npm run check` + `npm run lint` + `npm run test` all pass.
+
+**Validation scenarios.**
+- Given the migration has run, when querying agents with `role='facilitator'`, then the 5 practice facilitators are returned.
+- Given `cost-sentinel` is now application code, when spend exceeds the threshold, then an alert fires without provisioning an agent session.
+- Given `knowledge-decay` runs on schedule, then stale knowledge items are transitioned and the owning agent is a facilitator.
+
+**Contracts / constraints.**
+- Strategy agent roles are open-ended (no closure contract). `facilitator` is first, others may follow.
+- Facilitator tools are a subset of assistant tools — facilitators can curate knowledge but cannot create bets, edit bets, or act on reviews.
+- No behavioral regression — knowledge-decay and cost monitoring continue to work, just with clean ownership.
 
 **Effort.** M (~6h)
 

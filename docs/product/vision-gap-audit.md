@@ -131,9 +131,9 @@ The product story documents (`docs/product/`) are written at an aspirational/des
 
 ### M7 — Autonomy levels (L1-L4) have no management UI
 
-**What the docs say:** `docs/product/human-ai-collaboration.md` describes a detailed L1-L4 autonomy system with per-agent per-skill trust levels, and states "Autonomy changes are review items. The Chief of Staff proposes an increase; the founder approves or declines."
+**What the docs say:** `docs/product/human-ai-collaboration.md` describes a detailed L1-L4 autonomy system with per-agent per-skill trust levels, and states "Autonomy changes are review items. The assistant proposes an increase; the founder approves or declines."
 
-**What the system does:** The `user_skills` table exists with `autonomy_level` and related fields. The `PATCH /api/users/:id` and `/api/agents` routes handle user/agent config. However, there is no UI surface for viewing or managing autonomy levels. No route exists for the Chief of Staff autonomy-change proposal flow. The `CocOverlay` provides the Chief of Staff conversation, but no autonomy management page exists in the web app.
+**What the system does:** The `user_skills` table exists with `autonomy_level` and related fields. The `PATCH /api/users/:id` and `/api/agents` routes handle user/agent config. However, there is no UI surface for viewing or managing autonomy levels. No route exists for the assistant autonomy-change proposal flow. The `AssistantOverlay` (rebuilt from CocOverlay in AD8b) provides the assistant conversation, but no autonomy management page exists in the web app.
 
 **Severity:** Major — autonomy-level management is described as a core human oversight mechanism. Without a UI, founders cannot adjust trust levels.
 

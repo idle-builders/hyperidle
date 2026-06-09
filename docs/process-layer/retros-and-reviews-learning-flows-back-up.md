@@ -15,11 +15,11 @@ When a bet hits `shipped` or `killed`, the Product Manager drafts a retro:
 The retro is posted to the bet's thread. It then routes to two places:
 
 1. **The Practice layer** — the patterns and surprises become Practice items (CAPTURED → eventually ACTIVE), curated by the practice facilitators and the human via the Knowledge view.
-2. **The Coach thread** — the rule-shaped insights ("we keep underestimating brand-voice review effort") become Coach thread items for the founder to chew on. If they translate into a `PRINCIPLES.md` change, the Chief of Staff drafts the edit and routes back through Conversations for approval.
+2. **The assistant thread** — the rule-shaped insights ("we keep underestimating brand-voice review effort") become assistant thread items for the founder to chew on. If they translate into a `PRINCIPLES.md` change, the assistant drafts the edit and routes back through Conversations for approval.
 
 ### 11.2 Cycle retro (monthly)
 
-Once a month the Chief of Staff drafts a portfolio-level retro that aggregates across all active products. Cross-product patterns, recurring obstacles, capacity observations, cost trends. This lands in the Coach thread.
+Once a month the assistant drafts a portfolio-level retro that aggregates across all active products. Cross-product patterns, recurring obstacles, capacity observations, cost trends. This lands in the assistant thread.
 
 ### 11.3 Practice contribution loop (continuous, agent-driven)
 

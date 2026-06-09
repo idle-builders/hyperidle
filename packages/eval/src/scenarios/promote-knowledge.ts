@@ -341,13 +341,13 @@ let pkArchiveItemId = "";
 
 const pkArchiveCosMarketing: EvalScenario = {
 	id: "pk-archive-cos-marketing",
-	description: "CoS archives stale marketing knowledge with reason",
+	description: "System agent archives stale marketing knowledge with reason",
 	feature: "promote_knowledge",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "chief_of_staff",
-			agentSoulPrompt: `You are a chief of staff responsible for knowledge quality.
+			agentSoulPrompt: `You are a system agent responsible for knowledge quality.
 When you identify stale or outdated knowledge that is no longer relevant, archive it.
 Use promote_knowledge with toStatus="archived" and provide a reason explaining why the item is outdated.
 Archiving keeps the knowledge base clean without permanently deleting history.`,

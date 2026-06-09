@@ -1,13 +1,16 @@
 /**
  * Shared Playwright test fixtures for HyperIdle e2e tests.
  *
- * @lore M3: M3 wired real API calls for /api/auth/me, /api/settings, /api/rail,
+ * @lore M3: M3 wired real API calls for /api/auth/me, /api/settings,
  * /api/threads, and /api/teams. Every page load now makes these requests. In
  * CI there is no backend server — only Vite serves the SPA bundle. Without mocks
  * every test would get ECONNREFUSED on the proxied /api/* calls.
  *
+ * @lore AD8a: /api/rail mock removed — the Rail API was deleted in U6 and the
+ * route has been purged from the server. See packages/server/src/app.ts.
+ *
  * This file extends Playwright's `test` with an auto-use fixture that intercepts
- * the five core M3 endpoints before every test. Individual tests can register
+ * the core M3 endpoints before every test. Individual tests can register
  * their own page.route() calls to override specific endpoints — Playwright's LIFO
  * route matching means the last-registered handler wins for the same pattern.
  *
@@ -46,20 +49,6 @@ const DEFAULT_SETTINGS = {
 	},
 };
 
-/** Default mock response for GET /api/rail */
-const DEFAULT_RAIL = {
-	bets: [],
-	blockers: [],
-	awaitingOrdering: [],
-	costBurnRate: {
-		todaySpend: null,
-		todayCap: null,
-		weekSpend: null,
-		weekCap: null,
-		weekTokens: null,
-	},
-};
-
 /** Default mock response for GET /api/threads (list) */
 const DEFAULT_THREADS = { threads: [] };
 
@@ -83,7 +72,7 @@ type CoreApiFixtures = {
 /**
  * Extended test with auto-use core API mocks.
  *
- * Registers low-priority fallback handlers for the five M3 core endpoints.
+ * Registers low-priority fallback handlers for the core M3 endpoints.
  * Individual tests may register their own page.route() calls — Playwright's
  * LIFO matching ensures test-specific routes win over these defaults.
  */
@@ -121,19 +110,6 @@ export const test = base.extend<CoreApiFixtures>({
 						status: 200,
 						contentType: "application/json",
 						body: JSON.stringify(DEFAULT_SETTINGS),
-					});
-				} else {
-					await route.continue();
-				}
-			});
-
-			// GET /api/rail — rail data for useRail hook
-			await page.route("**/api/rail", async (route) => {
-				if (route.request().method() === "GET") {
-					await route.fulfill({
-						status: 200,
-						contentType: "application/json",
-						body: JSON.stringify(DEFAULT_RAIL),
 					});
 				} else {
 					await route.continue();
@@ -201,17 +177,6 @@ export async function registerCoreMocks(page: import("@playwright/test").Page): 
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify(DEFAULT_SETTINGS),
-			});
-		} else {
-			await route.continue();
-		}
-	});
-	await page.route("**/api/rail", async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(DEFAULT_RAIL),
 			});
 		} else {
 			await route.continue();

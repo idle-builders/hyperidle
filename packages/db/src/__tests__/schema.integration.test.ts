@@ -279,7 +279,7 @@ describe("A2: Database Schema", () => {
 			await db.insert(users).values({
 				id: "agent-1",
 				kind: "ai",
-				name: "CoS",
+				name: "Test Agent",
 				role: "chief_of_staff",
 				status: "active",
 				maxConcurrentSessions: 1,

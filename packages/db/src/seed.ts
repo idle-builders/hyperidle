@@ -116,14 +116,19 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 		})
 		.onConflictDoNothing();
 
+	// @lore AD8a: Transitional name "System Agent". AD8b creates per-user assistant agents
+	// and retires this shared singleton. The name avoids collision with the concept's per-user
+	// assistant. role: "chief_of_staff" stays — AD8b renames it to "assistant".
+	// @lore AD8a: Stale `soul_template:chief_of_staff` key may persist in existing databases.
+	// AD8b removes it when creating the new assistant soul template.
 	await db
 		.insert(users)
 		.values({
 			id: "seed-agent-cos",
 			kind: "ai",
-			name: "Chief of Staff",
+			name: "System Agent",
 			role: "chief_of_staff",
-			agentCategory: "personal",
+			agentCategory: "individual",
 			status: "active",
 			maxConcurrentSessions: 1,
 			createdAt: now,
@@ -148,12 +153,14 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 		})
 		.onConflictDoNothing();
 
-	// Patch the existing Chief of Staff row with G1 facilitator metadata.
+	// Patch the existing System Agent row with facilitator metadata.
 	// Idempotent: a second run writes the same values.
+	// @lore AD8a: soulPromptPath set to null — docs/souls/chief-of-staff.md is deleted.
+	// AD8b creates a new assistant.md soul and sets soulPromptPath accordingly.
 	await db
 		.update(users)
 		.set({
-			soulPromptPath: "docs/souls/chief-of-staff.md",
+			soulPromptPath: null,
 			skills: JSON.stringify({ scope: null, tools: FACILITATOR_TOOLS }),
 		})
 		.where(eq(users.id, "seed-agent-cos"));
@@ -259,10 +266,11 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 	// CWD during seeding is the monorepo root where docs/ lives.
 	const docsRoot = path.resolve(process.cwd(), "docs");
 	// AB0: Extended with new role templates for builder, growth, designer, qa_engineer, ops.
+	// @lore AD8a: chief-of-staff.md soul deleted — removed from template list.
+	// AD8b adds assistant.md soul and re-inserts the entry with new role name.
 	const soulTemplates: Array<{ role: string; filename: string }> = [
 		{ role: "product_manager", filename: "product-manager.md" },
 		{ role: "practice_facilitator", filename: "practice-facilitator.md" },
-		{ role: "chief_of_staff", filename: "chief-of-staff.md" },
 		{ role: "builder", filename: "builder.md" },
 		{ role: "growth", filename: "growth.md" },
 		{ role: "designer", filename: "designer.md" },
@@ -314,7 +322,9 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 		scout: "strategy",
 		infra: "strategy",
 		platform: "strategy",
-		chief_of_staff: "personal",
+		// @lore AD8a: Renamed "personal" → "individual". role string "chief_of_staff"
+		// stays — AD8b renames it to "assistant".
+		chief_of_staff: "individual", // @lore AD8a: role string renamed to "assistant" in AD8b
 	};
 	for (const [role, category] of Object.entries(categoryByRole)) {
 		await db

@@ -90,7 +90,7 @@ test.describe("L19 — WorkBet session metadata (e2e)", () => {
 			});
 		});
 
-		// Mock all /api/threads calls (host thread list for the bet, conversations rail).
+		// Mock all /api/threads calls (host thread list for the bet, conversations).
 		// The AppShell fires GET /api/threads?participant_id=… which must be absorbed
 		// to prevent a Vite proxy ECONNREFUSED that blocks page hydration.
 		await page.route("**/api/threads**", async (route) => {

@@ -4,7 +4,7 @@
  * AC20: ArtifactCostChip renders money via formatMoney (WireMoney input)
  *
  * @lore U6: Rail (AC23) was removed in U6 (Sidebar replaced IconRail+Rail).
- * The AC23 tests that tested Rail's WireMoney cost display have been removed
+ * @lore AD8a: historical — The AC23 tests that tested Rail's WireMoney cost display have been removed
  * because the component no longer exists. Only ArtifactCostChip tests remain.
  */
 
