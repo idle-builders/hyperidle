@@ -86,13 +86,13 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 	});
 
 	// @lore AD8a: role string "chief_of_staff" renamed in AD8b.
-	test("B3: chief_of_staff registry includes all 15 tools", ({ db }) => {
-		// @lore AD8a: role string renamed in AD8b
+	test("B3: chief_of_staff registry includes all 20 tools (15 + 5 AE3 management tools)", ({ db }) => {
 		// @lore AD8a: role string renamed in AD8b
 		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" }); // @lore AD8a: role string renamed to "assistant" in AD8b
 		const names = registry.definitions.map((d) => d.name).sort();
 		// 12 base + create_task (R5) + submit_review (R5) + create_artifact (R6) = 15
-		expect(names).toHaveLength(15);
+		// + 5 AE3 management tools: create_team, add_agent, create_bet, create_routine, update_routine = 20
+		expect(names).toHaveLength(20);
 		for (const t of FACILITATOR_ONLY) {
 			expect(names).toContain(t);
 		}
@@ -104,5 +104,50 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		for (const t of FACILITATOR_ONLY) {
 			expect(names.has(t), `practice_facilitator must see ${t}`).toBe(true);
 		}
+	});
+
+	// AE3 — AC-5: management tool authorization
+	const MANAGEMENT_TOOLS = [
+		"create_team",
+		"add_agent",
+		"create_bet",
+		"create_routine",
+		"update_routine",
+	] as const;
+
+	test("AE3 AC-5: chief_of_staff registry includes all 5 management tools", ({ db }) => {
+		// @lore AD8b: role string "chief_of_staff" will be renamed to "assistant".
+		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
+		const names = new Set(registry.definitions.map((d) => d.name));
+		for (const t of MANAGEMENT_TOOLS) {
+			expect(names.has(t), `chief_of_staff must see management tool ${t}`).toBe(true);
+		}
+	});
+
+	test("AE3 AC-5: builder registry excludes all 5 management tools", ({ db }) => {
+		const registry = buildToolRegistry(makeContext(db), { role: "builder" });
+		const names = new Set(registry.definitions.map((d) => d.name));
+		for (const t of MANAGEMENT_TOOLS) {
+			expect(names.has(t), `builder must NOT see management tool ${t}`).toBe(false);
+		}
+	});
+
+	test("AE3 AC-5: practice_facilitator registry excludes all 5 management tools", ({ db }) => {
+		const registry = buildToolRegistry(makeContext(db), { role: "practice_facilitator" });
+		const names = new Set(registry.definitions.map((d) => d.name));
+		for (const t of MANAGEMENT_TOOLS) {
+			expect(names.has(t), `practice_facilitator must NOT see management tool ${t}`).toBe(false);
+		}
+	});
+
+	test("AE3 AC-5: builder invoke of create_team returns FORBIDDEN", async ({ db }) => {
+		const registry = buildToolRegistry(makeContext(db), { role: "builder" });
+		const result = await registry.invoke("create_team", {
+			name: "Test",
+			functions: ["development"],
+		});
+		expect(result.success).toBe(false);
+		if (result.success) return;
+		expect(result.code).toBe("FORBIDDEN");
 	});
 });
