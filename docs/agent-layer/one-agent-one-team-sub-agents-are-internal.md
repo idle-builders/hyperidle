@@ -6,9 +6,9 @@ When a product team needs expertise it doesn't have on roster, the answer is **c
 
 ### 5.1 Sub-agents within a session
 
-An "agent" in the factory's sense is one identity, one workspace, one team — the unit the meta layer sees and schedules. But *inside a session*, an agent can spawn sub-agents to parallelize or specialize work. A Builder might spin up a security review sub-agent, a test-writing sub-agent, and a code-review sub-agent within a single session, using Claude SDK subagents or equivalent harness-level primitives.
+An "agent" in the factory's sense is one identity, one workspace, one team — the unit the process layer sees and schedules. But *inside a session*, an agent can spawn sub-agents to parallelize or specialize work. A Builder might spin up a security review sub-agent, a test-writing sub-agent, and a code-review sub-agent within a single session, using Claude SDK subagents or equivalent harness-level primitives.
 
-The meta layer does not see sub-agents. They are internal to the session, the way functions are internal to a program. Sub-agents share the session's workspace, the session's **Money cap and TokenUsage cap** (never a duration cap), and the session's context. When the session ends, sub-agents end. Their work is part of the parent session's output.
+The process layer does not see sub-agents. They are internal to the session, the way functions are internal to a program. Sub-agents share the session's workspace, the session's **Money cap and TokenUsage cap** (never a duration cap), and the session's context. When the session ends, sub-agents end. Their work is part of the parent session's output.
 
 This means:
 - **Specialist capabilities** (security review, accessibility audit, brand-voice check) are packaged as skills that the agent invokes, possibly via sub-agents — not as separate top-level agents the factory manages.

@@ -4,7 +4,9 @@
 
 **Purpose:** Messaging and reviews. The founder spends ~90% of their time here.
 
-**Shell structure:** IconRail | Submenu (Thread List) | Main (Thread Detail) | Rail. The detail pane adapts to the messages in the selected thread; it is one surface, not two routes.
+<!-- @source packages/web/src/pages/Conversations.tsx -->
+
+**Shell structure:** Sidebar | Main (Thread Detail). The detail pane adapts to the messages in the selected thread; it is one surface, not two routes.
 
 ### 2.1 Submenu (Thread List)
 

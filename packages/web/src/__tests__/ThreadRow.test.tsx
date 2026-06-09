@@ -197,18 +197,18 @@ describe("ThreadRow", () => {
 
 	// Avatar group and count badge
 	it("renders overlapping avatar group when avatars prop is provided", () => {
-		const { container } = render(
+		render(
 			<ThreadRow
 				{...defaultProps}
 				avatars={[{ initials: "TG" }, { initials: "AT", agent: true }]}
 			/>,
 		);
-		const avatarSpans = container.querySelectorAll("[aria-hidden='true']");
-		// 1 dot spacer + 2 avatar spans
-		const avatarTexts = Array.from(avatarSpans).filter(
-			(el) => el.textContent === "TG" || el.textContent === "AT",
-		);
-		expect(avatarTexts.length).toBe(2);
+		// AE5: Avatar spans no longer carry aria-hidden (presence dots inside carry aria-label).
+		// Find avatars by their initials text content instead.
+		const tgAvatar = screen.getByText("TG");
+		const atAvatar = screen.getByText("AT");
+		expect(tgAvatar).toBeDefined();
+		expect(atAvatar).toBeDefined();
 	});
 
 	it("renders message count badge when messageCount is provided", () => {

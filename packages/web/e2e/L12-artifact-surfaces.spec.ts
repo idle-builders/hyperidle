@@ -218,8 +218,8 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 		});
 		await mockArtifactsOnPage(page, ARTIFACT_PAGE_RESPONSE);
 
-		await page.goto("/work/product/prod-e2e");
-		await page.waitForSelector("[data-testid='work-product-page']");
+		await page.goto("/work/team/prod-e2e");
+		await page.waitForSelector("[data-testid='work-team-page']");
 
 		await expect(page.locator("[data-ds-component='ArtifactStackItem']").first()).toBeVisible();
 	});

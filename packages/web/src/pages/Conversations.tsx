@@ -21,7 +21,7 @@
  * Clicking "Dial In" opens the companion split: thread on the left (flex-[3]),
  * SessionActivityPanel on the right (flex-[2]).
  */
-import { EmptyState, ErrorState, SkeletonList, ThreadShell } from "@hyperidle/design-system";
+import { EmptyState, ErrorState, SkeletonList, Tag, ThreadShell } from "@hyperidle/design-system";
 import type { ArtifactRef, ArtifactViewShape, BlockRef, InlineRef } from "@hyperidle/shared";
 import {
 	type JSX,
@@ -41,7 +41,15 @@ import { useHint } from "../hooks/useHints";
 import { useThreadDetail } from "../hooks/useThreadDetail";
 import type { AppShellOutletContext } from "../layouts/AppShell";
 import { apiFetch } from "../services/api-fetch.js";
-import { ArtifactView } from "../shell/ArtifactView";
+import { resolveHostRoute } from "../services/host-route.js";
+import {
+	type ActionSummaryData,
+	ArtifactView,
+	type ContentPreviewData,
+	type DataMetricsData,
+	type TextDiffData,
+	type VisualComparisonData,
+} from "../shell/ArtifactView";
 import { ToastContext } from "../shell/ToastRegion";
 
 // ---------------------------------------------------------------------------
@@ -393,13 +401,32 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	// 2. Fallback to hostId only (not hostKind/hostId format)
 	const threadTitle: string = data.identities[data.thread.hostId]?.name ?? data.thread.hostId;
 
+	// AE5: Resolve host context link for navigation.
+	const hostRoute = resolveHostRoute(data.thread.hostKind, data.thread.hostId);
+	const hostTitle =
+		data.hostTitle ?? data.identities[data.thread.hostId]?.name ?? data.thread.hostId;
+
 	return (
 		<div className="flex flex-col h-full" data-testid="conversations-page">
 			{/* Visual parity: main-header with thread title (20px/600) + dial-in button */}
 			<header className="shrink-0 flex items-center justify-between gap-[12px] px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
-				<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] truncate min-w-0">
-					{threadTitle}
-				</h2>
+				<div className="min-w-0">
+					<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] truncate">
+						{threadTitle}
+					</h2>
+					{/* AE5: Thread context link — shows host entity with tag + title */}
+					{hostRoute && (
+						<div className="flex items-center gap-[6px] text-[13px] mt-[3px]">
+							<Tag label={data.thread.hostKind} />
+							<Link
+								to={hostRoute}
+								className="text-[var(--text-secondary)] hover:text-[var(--accent-primary)] hover:underline truncate"
+							>
+								{hostTitle}
+							</Link>
+						</div>
+					)}
+				</div>
 				{dialInButton}
 			</header>
 			{hintReviewVerdict.visible && hasReviewMessages && (

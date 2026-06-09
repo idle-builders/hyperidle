@@ -2,7 +2,9 @@
 
 **Purpose:** Planning and tracking. The Linear/Jira of the factory.
 
-**Shell structure:** IconRail | Submenu (Product Selector) | Main (Portfolio Overview → Team View → Bet Detail) | Rail.
+<!-- @source packages/web/src/pages/work/ -->
+
+**Shell structure:** Sidebar | Main (Portfolio Overview → Team View → Bet Detail).
 
 Three levels of depth: Portfolio → Team → Bet. The submenu always shows the product list; the main pane drills down.
 
@@ -19,11 +21,10 @@ The landing screen when Work is opened. High-level view across all products.
 
 | Component | Information | Actions |
 |---|---|---|
-| **Portfolio header** | Title, cycle phase indicator (Shaping / Betting / Building / Cool-down), export button | Export report |
+| **Portfolio header** | Title, export button | Export report |
 | **Product status card** | Product name, lead avatar, status (operational/shipping/decisions pending), active bets count, shipped count, velocity sparkline | Click to drill into Team View for that product |
 | **Portfolio metrics bar** | Global shipping velocity, active bet count, decisions required | Read-only KPIs |
-| **Cycle management card** | Current cycle number, phase, days remaining, advance cycle button | Advance to next phase (with confirmation); archives expired pitches |
-| **Past cycle summaries** | Per cycle: bets shipped, bets killed, total cost, velocity trend, cost variance (appetite vs. actual) | Click to expand; compare across cycles |
+| **Past bet summaries** | Per bet: status, cost variance (appetite vs. actual), shipped/killed outcome | Click to expand |
 
 ### 3.3 Team View (Level 2, in Main)
 

@@ -239,12 +239,14 @@ test.describe("U9 AC-6: Knowledge scope pills", () => {
 		await expect(page.getByTestId("knowledge-scope-pills")).toBeVisible();
 	});
 
-	test('scope pills include "All", "Practices", "Products", "Factory"', async ({ page }) => {
+	test('scope pills include "All", "Shared", "Team", "Private"', async ({ page }) => {
+		// @lore AE1: Pills were renamed from old category names (Practices/Products/Factory)
+		// to simplified labels (Shared/Team/Private) in AD6.
 		const scopePills = page.getByTestId("knowledge-scope-pills");
 		await expect(scopePills.getByTestId("scope-pill-all")).toBeVisible();
-		await expect(scopePills.getByTestId("scope-pill-practices")).toBeVisible();
-		await expect(scopePills.getByTestId("scope-pill-products")).toBeVisible();
-		await expect(scopePills.getByTestId("scope-pill-factory")).toBeVisible();
+		await expect(scopePills.getByTestId("scope-pill-shared")).toBeVisible();
+		await expect(scopePills.getByTestId("scope-pill-team")).toBeVisible();
+		await expect(scopePills.getByTestId("scope-pill-private")).toBeVisible();
 	});
 
 	test('"All" scope pill is active by default (btn-primary)', async ({ page }) => {

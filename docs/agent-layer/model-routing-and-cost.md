@@ -1,6 +1,6 @@
 ## 6. Model Routing and Cost
 
-Agents don't pick their own model. The meta layer assigns models based on the task's requirements, the agent's role, and the factory's current cost posture.
+Agents don't pick their own model. The process layer assigns models based on the task's requirements, the agent's role, and the factory's current cost posture.
 
 ### 6.1 Model tiers
 
@@ -31,7 +31,7 @@ The factory has a daily **Money ceiling** and an optional daily **TokenUsage cei
 
 There is no duration ceiling. Wall-clock time is informational only — see `docs/process-layer/wip-and-cost-limits.md` §10.6 for the rationale and §10.7 for the anti-pattern rule that rejects any duration-shaped budget axis.
 
-The model tier is a suggestion, not a hard contract — the deployer configures which actual model each tier maps to. A solo builder on a laptop might map all three tiers to Claude Sonnet. A funded team might map Reasoning to Claude Opus and Fast to a local Llama model. The meta layer doesn't care which model it is; it cares about the tier. The tier vocabulary (`reasoning | workhorse | fast`) is the same vocabulary that `TokenUsage.byTier` uses, so a session's reported token spend lines up directly with the routing decision that produced it.
+The model tier is a suggestion, not a hard contract — the deployer configures which actual model each tier maps to. A solo builder on a laptop might map all three tiers to Claude Sonnet. A funded team might map Reasoning to Claude Opus and Fast to a local Llama model. The process layer doesn't care which model it is; it cares about the tier. The tier vocabulary (`reasoning | workhorse | fast`) is the same vocabulary that `TokenUsage.byTier` uses, so a session's reported token spend lines up directly with the routing decision that produced it.
 
 The tier vocabulary is **closed**. Adding a new tier (for example `local`, `frontier`, or a provider-specific tier name a future harness might emit) requires an explicit concept-doc update to this section AND to `docs/process-layer/canonical-shapes.md` Money/TokenUsage entry, in the same change. If a harness reports tokens against a tier name outside the closed enum, the Harness Adapter is contractually required to *coerce-and-flag* (bucket the spend into the closest known tier per the adapter's mapping and emit a `ModelTierUnknownWarning` so the deployer can update the mapping) — never silently drop tokens, never widen the enum at runtime. See `docs/process-layer/canonical-shapes.md` for the rule.
 

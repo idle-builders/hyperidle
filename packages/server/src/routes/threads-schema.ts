@@ -47,10 +47,31 @@ export const blockRefSchema = z.object({
 });
 
 /**
+ * AE5: mentionRefSchema validates mention refs (kind, identityId, displayName).
+ * Exported for testing.
+ *
+ * @lore AE5: sourceText is NOT validated at the Zod boundary — clients send raw text
+ * in payload.text; the server parses @name tokens and constructs MentionRef entries
+ * including sourceText server-side. Client-submitted MentionRefs (round-trip) carry
+ * sourceText as-is. z.string().min(1) guards against empty values.
+ */
+export const mentionRefSchema = z.object({
+	kind: z.literal("mention"),
+	identityId: z.string().min(1),
+	displayName: z.string().min(1),
+	sourceText: z.string().optional(),
+});
+
+/**
  * T4: inlineRefSchema is a discriminated union on "kind".
+ * AE5: Extended to include mentionRefSchema as the third member.
  * Exported for testing.
  */
-export const inlineRefSchema = z.discriminatedUnion("kind", [entityRefSchema, blockRefSchema]);
+export const inlineRefSchema = z.discriminatedUnion("kind", [
+	entityRefSchema,
+	blockRefSchema,
+	mentionRefSchema,
+]);
 
 const artifactRefSchema = z.object({
 	id: z.string(),

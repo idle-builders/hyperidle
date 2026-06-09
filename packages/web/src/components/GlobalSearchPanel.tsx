@@ -250,7 +250,6 @@ export function GlobalSearchPanel({
 										>
 											<KnowledgeRow
 												title={k.title}
-												layer={k.layer}
 												kind={k.kind}
 												status={k.status}
 												timestamp={k.timestamp}

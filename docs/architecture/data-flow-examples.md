@@ -54,7 +54,7 @@
 ### 7.4 A Bet Changes Mid-Flight
 
 ```
-1. Nimmly team is two weeks into a 6-week bet
+1. Nimmly team is two weeks into a committed bet
 2. Growth Agent discovers via analytics that the target audience uses
    the product differently than hypothesized
 3. Growth Agent posts finding to task notes + contributes to next practice meeting
@@ -103,7 +103,7 @@
 4. Platform Builder starts sessions on the task, works it in Platform's rhythm
 5. Task completes → artifact ready → task → "done"
 6. Nimmly bet's dependency resolves → Nimmly team continues
-7. Cross-team task is visible in Nimmly's bet thread and in the Rail
+7. Cross-team task is visible in Nimmly's bet thread and in the WorkTeam task list
 ```
 
 ---

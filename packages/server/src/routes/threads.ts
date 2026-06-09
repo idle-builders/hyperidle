@@ -12,14 +12,19 @@
  */
 
 import {
+	bets,
 	type Message as DbMessage,
 	type Thread as DbThread,
 	type HyperIdleDb,
+	knowledgeItems,
 	messages,
+	sessions,
+	tasks,
 	threads,
 	users,
 } from "@hyperidle/db";
 import type {
+	AgentOperationalStatus,
 	ApiErrorResponse,
 	EventBus,
 	HostKind,
@@ -31,7 +36,13 @@ import type {
 	ThreadReopenedEvent,
 	ThreadResolvedEvent,
 } from "@hyperidle/shared";
-import { API_ERROR_CODES, headCollapsePredicate } from "@hyperidle/shared";
+import {
+	API_ERROR_CODES,
+	deriveTitle,
+	extractMentionCandidates,
+	headCollapsePredicate,
+	resolveMentions,
+} from "@hyperidle/shared";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import type { ZodError } from "zod";
@@ -104,6 +115,12 @@ async function readInitialSenderId(
  * Queries the users table for all supplied senderIds in one round-trip.
  * Returns an empty object when senderIds is empty.
  *
+ * AE5: Extended to include isAgent and operationalStatus for AI users.
+ * operationalStatus is derived from the most recent session state:
+ * - "active" when state === "active"
+ * - "error" when the most recent session outcome === "crashed"
+ * - "idle" otherwise (including no sessions)
+ *
  * @lore R4: All senders — human and AI — live in the users table, distinguished
  * by the `kind` column. We do NOT hard-code agent identities here; a single
  * inArray query covers every sender type uniformly.
@@ -113,14 +130,200 @@ async function readInitialSenderId(
 async function buildThreadIdentities(
 	db: HyperIdleDb,
 	senderIds: string[],
-): Promise<Record<string, { name: string; role?: string }>> {
+): Promise<
+	Record<
+		string,
+		{ name: string; role?: string; isAgent?: boolean; operationalStatus?: AgentOperationalStatus }
+	>
+> {
 	if (senderIds.length === 0) return {};
 	const rows = await db.select().from(users).where(inArray(users.id, senderIds));
-	const result: Record<string, { name: string; role?: string }> = {};
+	const result: Record<
+		string,
+		{ name: string; role?: string; isAgent?: boolean; operationalStatus?: AgentOperationalStatus }
+	> = {};
+
 	for (const row of rows) {
-		result[row.id] = { name: row.name, ...(row.role ? { role: row.role } : {}) };
+		const isAgent = row.kind === "ai";
+		const entry: (typeof result)[string] = {
+			name: row.name,
+			...(row.role ? { role: row.role } : {}),
+		};
+		if (isAgent) {
+			entry.isAgent = true;
+			// Derive operationalStatus from most recent session
+			const [latestSession] = await db
+				.select({ state: sessions.state, outcome: sessions.outcome })
+				.from(sessions)
+				.where(eq(sessions.agentId, row.id))
+				.orderBy(desc(sessions.startedAt))
+				.limit(1);
+			if (latestSession?.state === "active") {
+				entry.operationalStatus = "active";
+			} else if (latestSession?.outcome === "crashed") {
+				entry.operationalStatus = "error";
+			} else {
+				entry.operationalStatus = "idle";
+			}
+		}
+		result[row.id] = entry;
 	}
 	return result;
+}
+
+/**
+ * Build a case-insensitive name→identity map for mention resolution.
+ * Includes all users where teamId IN (teamIds of the given participant list).
+ *
+ * @lore AE5: Resolution scope is deliberately team-wide so users can @mention
+ * agents not yet in the thread. Factory-wide resolution would work too but
+ * team-scoped is more predictable (arch plan §2.1).
+ *
+ * @lore AE5 (WARNING from arch-critique): this pattern is thread-detail-only.
+ * Do NOT use in list endpoints — it would become N+1 queries per thread row.
+ */
+async function buildMentionLookup(
+	db: HyperIdleDb,
+	participantIds: ReadonlyArray<string>,
+): Promise<ReadonlyMap<string, { identityId: string; displayName: string }>> {
+	if (participantIds.length === 0) return new Map();
+
+	// Find the teamIds for all participants.
+	const participantRows = await db
+		.select({ id: users.id, teamId: users.teamId })
+		.from(users)
+		.where(inArray(users.id, [...participantIds]));
+
+	const teamIds = [
+		...new Set(participantRows.map((r) => r.teamId).filter((id): id is string => id !== null)),
+	];
+
+	if (teamIds.length === 0) {
+		// No team-scoped users — still resolve from direct participants.
+		const allRows = await db
+			.select({ id: users.id, name: users.name })
+			.from(users)
+			.where(inArray(users.id, [...participantIds]));
+		const map = new Map<string, { identityId: string; displayName: string }>();
+		// Sort by id for deterministic first-match when names conflict.
+		const sorted = allRows.slice().sort((a, b) => a.id.localeCompare(b.id));
+		for (const row of sorted) {
+			const key = row.name.toLowerCase();
+			if (!map.has(key)) {
+				map.set(key, { identityId: row.id, displayName: row.name });
+			}
+		}
+		return map;
+	}
+
+	// Query all users in the same team(s).
+	const teamUserRows = await db
+		.select({ id: users.id, name: users.name })
+		.from(users)
+		.where(inArray(users.teamId, teamIds));
+
+	const map = new Map<string, { identityId: string; displayName: string }>();
+	// Sort by id for deterministic first-match when names conflict.
+	const sorted = teamUserRows.slice().sort((a, b) => a.id.localeCompare(b.id));
+	for (const row of sorted) {
+		const key = row.name.toLowerCase();
+		if (!map.has(key)) {
+			map.set(key, { identityId: row.id, displayName: row.name });
+		}
+	}
+	return map;
+}
+
+/**
+ * Resolve @mention candidates from a plain message's text.
+ * Returns a tuple of (enriched refs array, new participant ids to add).
+ *
+ * @lore AE5 (concept hard rules):
+ * - Rule #2: Participant addition is atomic with message write.
+ * - Rule #3: Self-mention is a no-op for participant-addition (but MentionRef still renders).
+ * - Rule #4: Unknown @name stays as plain text.
+ */
+async function resolveMentionsForMessage(
+	db: HyperIdleDb,
+	text: string,
+	existingRefs: Array<{ kind: string; [key: string]: unknown }>,
+	participantIds: ReadonlyArray<string>,
+	senderId: string,
+): Promise<{
+	refs: Array<{ kind: string; [key: string]: unknown }>;
+	newParticipantIds: string[];
+}> {
+	const candidates = extractMentionCandidates(text);
+	if (candidates.length === 0) {
+		return { refs: existingRefs, newParticipantIds: [] };
+	}
+
+	const nameMap = await buildMentionLookup(db, participantIds);
+	const resolved = resolveMentions(candidates, nameMap, senderId);
+
+	if (resolved.length === 0) {
+		return { refs: existingRefs, newParticipantIds: [] };
+	}
+
+	const mentionRefs = resolved.map((r) => ({
+		kind: "mention" as const,
+		identityId: r.identityId,
+		displayName: r.displayName,
+		sourceText: r.sourceText,
+	}));
+
+	// New participants = resolved mentions that are not already in the thread and not the sender.
+	const participantSet = new Set(participantIds);
+	const newParticipantIds = resolved
+		.filter((r) => r.identityId !== senderId && !participantSet.has(r.identityId))
+		.map((r) => r.identityId);
+
+	return {
+		refs: [...existingRefs, ...mentionRefs],
+		newParticipantIds,
+	};
+}
+
+/**
+ * Resolve host title for a thread's host entity.
+ * Returns the entity's human-readable title, or null when unresolvable.
+ *
+ * @lore AE5: This per-kind switch is thread-detail-only (one query per thread open).
+ * Do NOT copy this pattern into list endpoints — it becomes N+1. See arch-critique WARNING.
+ */
+async function resolveHostTitle(
+	db: HyperIdleDb,
+	hostKind: string,
+	hostId: string,
+): Promise<string | null> {
+	switch (hostKind) {
+		case "bet": {
+			const [row] = await db
+				.select({ description: bets.description })
+				.from(bets)
+				.where(eq(bets.id, hostId))
+				.limit(1);
+			return row ? deriveTitle(row.description) : null;
+		}
+		case "task": {
+			const [row] = await db
+				.select({ title: tasks.title })
+				.from(tasks)
+				.where(eq(tasks.id, hostId))
+				.limit(1);
+			return row?.title ?? null;
+		}
+		case "knowledge_item": {
+			const [row] = await db
+				.select({ title: knowledgeItems.title })
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, hostId))
+				.limit(1);
+			return row?.title ?? null;
+		}
+		default:
+			return null;
+	}
 }
 
 /**
@@ -323,12 +526,15 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 		const head = headCollapsePredicate(msgsAsc);
 		const uniqueSenderIds = [...new Set(messageRows.map((m) => m.senderId))];
 		const identities = await buildThreadIdentities(db, uniqueSenderIds);
+		// AE5: resolve host title for context link
+		const hostTitle = await resolveHostTitle(db, row.hostKind, row.hostId);
 		return c.json({
 			thread: rowToThread(row),
 			messages: msgsDesc,
 			headMessageId: head.headMessageId,
 			nextMessagesCursor: null,
 			identities,
+			hostTitle,
 		});
 	});
 
@@ -369,6 +575,31 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 
 		const messageId = crypto.randomUUID();
 
+		// AE5: Resolve @mentions in the initial message before the transaction.
+		let initEnrichedPayload = input.initialMessage.payload;
+		let initParticipants = sortedParticipants;
+		if (input.initialMessage.type === "plain") {
+			const { refs: enrichedRefs, newParticipantIds } = await resolveMentionsForMessage(
+				db,
+				input.initialMessage.payload.text,
+				(input.initialMessage.payload.refs as Array<Record<string, unknown>> | undefined) ?? [],
+				participants,
+				senderId,
+			);
+			if (enrichedRefs.length > 0 || newParticipantIds.length > 0) {
+				initEnrichedPayload = {
+					...input.initialMessage.payload,
+					refs: enrichedRefs as typeof input.initialMessage.payload.refs,
+				};
+				// Add newly-mentioned participants (atomic with thread creation).
+				const participantSet = new Set(sortedParticipants);
+				for (const id of newParticipantIds) {
+					participantSet.add(id);
+				}
+				initParticipants = [...participantSet].sort();
+			}
+		}
+
 		try {
 			// @lore PGlite: db.transaction() callback is async (returns Promise<void>).
 			await db.transaction(async (tx) => {
@@ -377,7 +608,8 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 					hostKind: input.hostKind,
 					hostId: input.hostId,
 					initiatorId: senderId,
-					participants: JSON.stringify(sortedParticipants),
+					// AE5: participants may be extended by @mention resolution.
+					participants: JSON.stringify(initParticipants),
 					// @lore PGlite: pinned is native boolean in Postgres.
 					pinned: input.pinned ?? false,
 					lastActiveAt: now,
@@ -393,7 +625,8 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 					senderId,
 					threadId,
 					type: input.initialMessage.type,
-					payload: JSON.stringify(input.initialMessage.payload),
+					// AE5: store enriched payload (with MentionRef entries in refs[]).
+					payload: JSON.stringify(initEnrichedPayload),
 					clientKey: input.initialMessage.clientKey,
 					blockId: initBlockId,
 					createdAt: now,
@@ -541,6 +774,26 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 			const now = new Date().toISOString();
 			const messageId = crypto.randomUUID();
 
+			// AE5: Resolve @mention candidates before the transaction.
+			// The enriched payload (with MentionRef entries) and the newParticipantIds
+			// are computed here so they can be used inside the atomic transaction.
+			let enrichedPayload = input.payload;
+			let newParticipantIds: string[] = [];
+			if (input.type === "plain") {
+				const { refs: enrichedRefs, newParticipantIds: mentionedIds } =
+					await resolveMentionsForMessage(
+						db,
+						input.payload.text,
+						(input.payload.refs as Array<Record<string, unknown>> | undefined) ?? [],
+						participants,
+						senderId,
+					);
+				if (mentionedIds.length > 0 || enrichedRefs.length > 0) {
+					enrichedPayload = { ...input.payload, refs: enrichedRefs as typeof input.payload.refs };
+					newParticipantIds = mentionedIds;
+				}
+			}
+
 			const wasResolved = threadRow.resolvedAt !== null;
 			const willReopen = wasResolved && (input.type === "review" || input.type === "questionnaire");
 
@@ -558,11 +811,27 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 						senderId,
 						threadId,
 						type: input.type,
-						payload: JSON.stringify(input.payload),
+						// AE5: store enriched payload (with MentionRef entries in refs[]).
+						payload: JSON.stringify(enrichedPayload),
 						clientKey: input.clientKey,
 						blockId: appendBlockId,
 						createdAt: now,
 					});
+
+					// AE5: Atomically add new participants from @mentions.
+					// Concept hard rule #2: participant addition is atomic with message write.
+					if (newParticipantIds.length > 0) {
+						const currentParticipants = JSON.parse(threadRow.participants) as string[];
+						const participantSet = new Set(currentParticipants);
+						for (const id of newParticipantIds) {
+							participantSet.add(id);
+						}
+						const updatedParticipants = [...participantSet].sort();
+						await tx
+							.update(threads)
+							.set({ participants: JSON.stringify(updatedParticipants) })
+							.where(eq(threads.id, threadId));
+					}
 
 					if (input.type === "verdict" && resolvesMessageRow) {
 						const updated = await tx

@@ -12,6 +12,7 @@ import {
 	derivePayloads,
 	exhaustiveAssert,
 	isRedactedPayload,
+	segmentMentions,
 	verdictDecisionLabel,
 	verdictDecisionToStatus,
 } from "@hyperidle/shared";
@@ -71,20 +72,83 @@ export interface CommentRowProps extends CommentRowRichSlots {
 }
 
 /**
+ * AE5: MentionToken — inline highlighted span for @mention rendering.
+ *
+ * Visual treatment per design spec:
+ * - Background: var(--accent-primary) at 8% opacity
+ * - Text: var(--accent-primary)
+ * - Border-radius: var(--r-pill)
+ * - Padding: 1px 3px (sub-grid exempt, internal inline padding)
+ *
+ * @lore AE5: Not interactive in v1. No click-to-navigate, no hover card.
+ * Click-to-profile deferred until agent profile page covers all identity types.
+ */
+function MentionToken({ displayName }: { displayName: string }): JSX.Element {
+	return (
+		<span
+			className="inline-flex items-center px-[3px] py-[3px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_8%,transparent)] text-[var(--accent-primary)]"
+			data-testid="mention-token"
+		>
+			@{displayName}
+		</span>
+	);
+}
+
+/**
  * Renders the payloads for a plain message through the block payload pipeline.
+ * AE5: When the message has MentionRef entries in refs[], the text is first
+ * segmented by segmentMentions() so @name tokens render as MentionToken spans.
  *
  * @lore R3: plain messages are rendered through derivePayloads() → renderPayload()
  * so that markdown formatting (bold, code, lists, headings) is displayed correctly.
  * Previously plain messages were rendered as a single <p> with whitespace-pre-wrap.
+ *
+ * @lore AE5: Mention tokens are pre-segmented BEFORE the markdown pipeline. This means
+ * mentions inside code blocks or other markdown constructs will still be highlighted —
+ * this is intentional per the design spec (the mention was intentional regardless of
+ * surrounding formatting).
  */
 function MessagePayloads({
 	text,
+	refs,
 	sanitizeHtml,
 }: {
 	text: string;
+	refs?: Message["payload"] extends { refs?: infer R } ? R : never;
 	sanitizeHtml?: (raw: string) => string;
 }): JSX.Element {
+	// AE5: Check if any MentionRef entries exist in refs.
+	// All hooks must be called unconditionally before any early returns.
+	const hasMentions = useMemo(
+		() => Array.isArray(refs) && refs.some((r) => r.kind === "mention"),
+		[refs],
+	);
+
+	const segments = useMemo(
+		() => (hasMentions && Array.isArray(refs) ? segmentMentions(text, refs) : null),
+		[hasMentions, text, refs],
+	);
+
+	// Always compute payloads (hook called unconditionally — rules of hooks)
 	const payloads = useMemo(() => derivePayloads(text), [text]);
+
+	// If we have mention segments, render as mixed text+token content.
+	if (segments && segments.length > 0) {
+		return (
+			<p className="text-[15px] text-[var(--text-secondary)] leading-[1.7] whitespace-pre-wrap break-words">
+				{segments.map((seg, i) =>
+					seg.type === "mention" && seg.mentionRef ? (
+						// biome-ignore lint/suspicious/noArrayIndexKey: segments are position-stable per render
+						<MentionToken key={i} displayName={seg.mentionRef.displayName} />
+					) : (
+						// biome-ignore lint/suspicious/noArrayIndexKey: segments are position-stable per render
+						<span key={i}>{seg.content}</span>
+					),
+				)}
+			</p>
+		);
+	}
+
 	if (payloads.length === 0) {
 		// Fall back to plain text rendering for empty-after-parse inputs.
 		return (
@@ -137,7 +201,9 @@ function renderBody(message: Message, sanitizeHtml?: (raw: string) => string): R
 				</div>
 			);
 		case "plain":
-			return <MessagePayloads text={payload.text} sanitizeHtml={sanitizeHtml} />;
+			return (
+				<MessagePayloads text={payload.text} refs={payload.refs} sanitizeHtml={sanitizeHtml} />
+			);
 		case "review":
 		case "questionnaire":
 			// review/questionnaire substance lives in the rich slots; standard body is null.

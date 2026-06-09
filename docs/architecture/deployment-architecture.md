@@ -40,7 +40,7 @@ The Factory app is accessed via `https://factory.tailscale-hostname:443` from an
 
 ### 6.3 Cloud Profile
 
-Workspaces run on E2B or Daytona. The meta layer runs on a small VM or container. Postgres replaces SQLite for the Primitive Store.
+Workspaces run on E2B or Daytona. The process layer runs on a small VM or container. Postgres replaces SQLite for the Primitive Store.
 
 ```
 Cloud (AWS/GCP/Hetzner)

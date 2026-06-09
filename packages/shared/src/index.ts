@@ -148,6 +148,18 @@ export { OLD_KIND_MAP } from "./kinds/old-kind-map.js";
 // getKindDefinition and isRegisteredKind exported via types/artifact.ts re-export from registry
 export { getKindDefinition, isRegisteredKind } from "./kinds/registry.js";
 export { createLogger, type Logger } from "./logger.js";
+// ── AE5: Mention parsing utilities ──
+export type {
+	MentionCandidate,
+	MentionSegment,
+	ResolvedMention,
+} from "./mention.js";
+export {
+	extractMentionCandidates,
+	MAX_MENTIONS_PER_MESSAGE,
+	resolveMentions,
+	segmentMentions,
+} from "./mention.js";
 // ── X4: Model Gateway ──
 export type {
 	ModelGatewayConfig,
@@ -216,6 +228,7 @@ export type {
 	IdentityId,
 	InlineRef,
 	InlineRefKind,
+	MentionRef,
 	Message,
 	MessageId,
 	MessageType,
