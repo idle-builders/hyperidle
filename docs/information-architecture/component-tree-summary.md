@@ -33,7 +33,7 @@ App Shell (Sidebar | Main)
 │   ├── Submenu: Thread List
 │   │   ├── SearchField (jump/filter)
 │   │   ├── Filter bar (product, agent, type, status)
-│   │   ├── Pinned: Chief of Staff ThreadRow
+│   │   ├── Pinned: assistant ThreadRow
 │   │   └── ThreadRow × N (review or chat)
 │   │       ├── Sender + role
 │   │       ├── Subject/summary

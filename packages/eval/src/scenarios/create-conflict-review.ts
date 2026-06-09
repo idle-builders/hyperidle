@@ -247,13 +247,13 @@ let ccrVersionGuardKnowledgeItemId = "";
 
 const ccrVersionGuardCosConsulting: EvalScenario = {
 	id: "ccr-version-guard-cos-consulting",
-	description: "CoS version guard rejects conflict with versionBase ahead of current",
+	description: "System agent version guard rejects conflict with versionBase ahead of current",
 	feature: "create_conflict_review",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "chief_of_staff",
-			agentSoulPrompt: `You are a chief of staff reviewing consulting knowledge.
+			agentSoulPrompt: `You are a system agent reviewing consulting knowledge.
 When you identify knowledge that needs correction, try create_conflict_review.
 If you receive an INVALID_INPUT error about the version being ahead of current, acknowledge this in session notes.
 This means the knowledge has already been updated and your proposed conflict is based on stale information.`,

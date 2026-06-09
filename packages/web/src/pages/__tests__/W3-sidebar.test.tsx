@@ -2,7 +2,7 @@
  * W3 — Sidebar AC-1, AC-2, AC-3, AC-4: Red phase tests.
  *
  * AC-1: Bottom strip has search hint (Cmd+K), user avatar (settings trigger), and
- *       Assistant/CoC button — NO separate "Chief of Staff" and "Settings" buttons.
+ *       Assistant/CoC button — no legacy full-width button with the old agent name.
  * AC-2: Work section sub-nav shows teams (verified by existing structure — no change needed).
  * AC-3: Knowledge section has NO sub-items (no Practices/Products/Factory scope items).
  * AC-4: Conversations sub-nav shows recent threads.
@@ -52,15 +52,16 @@ describe("W3 AC-1 — Sidebar bottom strip", () => {
 		expect(kbd?.textContent).toMatch(/⌘K|cmd\+k/i);
 	});
 
-	it("does NOT render a separate 'Chief of Staff' full-width button", () => {
+	// @lore AD8a: regression guard — old agent display name must not appear.
+	it("does NOT render the legacy full-width assistant trigger button", () => {
 		render(<Sidebar {...makeProps()} />);
-		// The old CoC button said "Chief of Staff" as text; it should be gone
+		// Regression guard: the old full-width button text should not appear.
 		expect(screen.queryByText("Chief of Staff")).not.toBeInTheDocument();
 	});
 
 	it("renders an 'Assistant' label/button for CoC trigger", () => {
 		render(<Sidebar {...makeProps()} />);
-		// Bottom strip now has "Assistant" text (not "Chief of Staff")
+		// Bottom strip has "Assistant" text for the assistant overlay trigger.
 		expect(screen.getByText(/assistant/i)).toBeInTheDocument();
 	});
 

@@ -28,7 +28,6 @@ import { createModelGatewayRoutes } from "./routes/model-gateway.js";
 import { createNotificationRoutes } from "./routes/notifications-routes.js";
 import { createObservabilityRoutes } from "./routes/observability-routes.js";
 import { createOrgRoutes } from "./routes/org.js";
-import { createRailRoutes } from "./routes/rail.js";
 import { createRecipientRoutes } from "./routes/recipients.js";
 import { createRoutineRoutes } from "./routes/routines-routes.js";
 import { createSearchRoutes } from "./routes/search.js";
@@ -385,7 +384,6 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route("/artifacts", createArtifactRoutes(options.db));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
 		api.route("/team-members", createTeamMembersRoutes(options.db));
-		api.route("/rail", createRailRoutes(options.db, eventBus));
 		api.route("/settings", createSettingsRoutes(options.db, eventBus));
 		api.route("/conversations", createConversationRoutes(options.db, eventBus));
 		api.route("/threads", createThreadRoutes(options.db, eventBus));

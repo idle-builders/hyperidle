@@ -169,7 +169,7 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		attentionScore: 92,
 		whyNow: "3 new observations since review",
 		content:
-			"Triage highest attention-score items first. Escalate items with conflicting observations to the Chief of Staff agent.",
+			"Triage highest attention-score items first. Escalate items with conflicting observations to the System Agent.",
 		originAgent: "Practice Facilitator",
 		confidence: 0.55,
 	},
@@ -242,7 +242,7 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		whyNow: "Under amendment review",
 		content:
 			"Agents at autonomy level 3 may act without founder approval for reversible actions. Irreversible actions always require review.",
-		originAgent: "Chief of Staff",
+		originAgent: "System Agent",
 		confidence: 0.88,
 		version: "v2.1",
 	},
@@ -259,7 +259,7 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		whyNow: "Breached 2 caps this cycle",
 		content:
 			"On cap breach: pause agent, notify founders, queue amendment proposal for the next review cycle.",
-		originAgent: "Chief of Staff",
+		originAgent: "System Agent",
 		confidence: 0.7,
 		version: "v1.4",
 	},

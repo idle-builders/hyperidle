@@ -37,7 +37,7 @@ export function CocAttachButton({ ref: cocRef }: CocAttachButtonProps): JSX.Elem
 	return (
 		<button
 			type="button"
-			aria-label={`Attach ${cocRef.label} to Chief of Staff`}
+			aria-label={`Attach ${cocRef.label} to Assistant`}
 			data-testid="coc-attach-button"
 			className="ml-auto shrink-0 flex items-center justify-center h-[24px] w-[24px] rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-overlay)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]"
 			onClick={(e) => {

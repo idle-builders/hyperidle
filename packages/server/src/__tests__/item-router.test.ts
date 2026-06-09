@@ -35,6 +35,7 @@ describe("routeItem", () => {
 	});
 
 	it("routes default (no matching rules) to rail", () => {
+		// @lore AD8a: "rail" return value renamed in AD8b.
 		expect(routeItem({})).toBe("rail");
 	});
 

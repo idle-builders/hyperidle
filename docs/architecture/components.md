@@ -36,8 +36,8 @@ routines (id, owner_agent_id, trigger_type, trigger_config, skill_id,
 -- Per §4.5 contracts: a thread attaches to exactly one host (kind + id),
 -- messages carry a typed payload (plain | review | questionnaire — closed
 -- vocabulary), payloads are immutable after persistence, and "review/chat/
--- coach" are NOT thread types — they are message shapes (review,
--- questionnaire, plain) and thread configurations (DM/coach/feed).
+-- coach" <!-- @lore AD8a: ThreadConfiguration "coach" renamed to "assistant" in AD8b --> are NOT thread types — they are message shapes (review,
+-- questionnaire, plain) and thread configurations (DM/assistant/feed).
 messages (id, sender_id, thread_id, type, payload, client_key,
           deleted_at, redacted_at, created_at)
        -- type ∈ {plain, review, questionnaire, verdict} — closed enum,
@@ -54,7 +54,7 @@ threads (id, host_kind, host_id, initiator_id, participants, pinned,
        -- host_kind ∈ {bet, task, knowledge_item, artifact, agent, user,
        --              team, factory}
        -- closed enum; new hosts require concept-doc update first
-       -- `kind` (review/chat/coach) is intentionally absent — the founder
+       -- `kind` (review/chat/assistant) is intentionally absent — the founder
        -- reframe at the post-journey-v3 review removed thread-level kinds.
        -- `blocking` and `sync_mode` are intentionally absent — both are
        -- derived from "can the participating agent continue to work
@@ -118,7 +118,7 @@ IF risk_tier >= medium AND kind == review    → Conversations (push notificatio
 IF kind == skill_change                      → Conversations (push notification)
 IF kind == chat AND flagged_urgent           → Conversations (push notification)
 IF kind == chat AND NOT flagged_urgent       → Conversations (silent, daily digest)
-IF kind == coach                             → Coach thread (pinned)
+IF kind == coach <!-- @lore AD8a: ThreadConfiguration "coach" renamed to "assistant" in AD8b --> → assistant thread (pinned)
 IF verb == prioritize                        → Ambient awareness
 IF verb == bet                               → Work
 IF verb == curate                            → Knowledge
@@ -141,7 +141,7 @@ ELSE                                         → Ambient awareness (catch-all)
 
 The scheduler does not call models. It reads the Primitive Store, evaluates trigger conditions, selects the model tier, and emits events (which the Harness Adapter picks up to actually start agent sessions).
 
-**Cost monitoring.** The Cost Sentinel is a heartbeat routine owned by the Chief of Staff (not a subsystem of the Scheduler). It runs on the same scheduling infrastructure as every other routine. Cost caps are nested: agent < team < factory. Each level has a configurable budget (default: daily cycle). The Sentinel monitors burn rate at all three levels. When any cap is approached, it creates a review thread item. When a team cap is reached, that team stops (agents finish in-progress sessions, no new work). When the factory cap is reached, all teams stop. It emits `cost_cap_warning` and `cost_cap_breached` events (scoped to agent/team/factory) that the Scheduler uses to pause work and downgrade model tiers.
+**Cost monitoring.** The Cost Sentinel is a heartbeat routine owned by the assistant (not a subsystem of the Scheduler). It runs on the same scheduling infrastructure as every other routine. Cost caps are nested: agent < team < factory. Each level has a configurable budget (default: daily cycle). The Sentinel monitors burn rate at all three levels. When any cap is approached, it creates a review thread item. When a team cap is reached, that team stops (agents finish in-progress sessions, no new work). When the factory cap is reached, all teams stop. It emits `cost_cap_warning` and `cost_cap_breached` events (scoped to agent/team/factory) that the Scheduler uses to pause work and downgrade model tiers.
 
 **Interfaces.**
 - Reads: `routines`, `tasks` (dependency graph), cost totals from `sessions`.
@@ -328,7 +328,7 @@ interface WorkspaceAdapter {
 - **SMTP** (fallback) — plain email to the founder's address.
 - **APNs / Firebase** (when native mobile wrapper ships) — push notifications.
 
-The adapter reads the Router's notification policy (push immediately / silent / daily digest) and acts accordingly. Daily digests are assembled by a routine on the Chief of Staff.
+The adapter reads the Router's notification policy (push immediately / silent / daily digest) and acts accordingly. Daily digests are assembled by a routine on the assistant.
 
 ### 2.10 Observability Adapter
 

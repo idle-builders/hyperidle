@@ -180,5 +180,6 @@ export const promoteKnowledgeTool: ToolDefinition<PromoteKnowledgeInput> = {
 		"Transition a knowledge item's lifecycle status (captured → provisional → validated → active → stale → archived). Blocks promotion to 'validated' if any open conflict exists on the item.",
 	inputSchema: promoteKnowledgeInputSchema,
 	handler,
+	// @lore AD8a: role string "chief_of_staff" renamed to "assistant" in AD8b.
 	roles: ["chief_of_staff", "practice_facilitator", "product_manager"],
 };

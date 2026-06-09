@@ -70,7 +70,7 @@ test.describe("W3 AC-1 — Sidebar bottom strip", () => {
 	});
 
 	test("sidebar bottom strip has 'Assistant' CoC button", async ({ page }) => {
-		// 'Chief of Staff' label is gone — now says 'Assistant'
+		// Regression guard: old agent label should not be visible; 'Assistant' is the current label.
 		await expect(page.getByText("Chief of Staff")).not.toBeVisible();
 		await expect(page.getByText("Assistant")).toBeVisible();
 	});

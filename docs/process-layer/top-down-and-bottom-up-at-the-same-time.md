@@ -6,8 +6,8 @@ Knowledge in a healthy flat company doesn't flow one way. The founders set direc
 
 The founders are the source of *what we're trying to do and why*. That comes through three channels:
 
-- **`PRINCIPLES.md` and `FOCUS.md`** — the long-form vision and the current focus of the factory. Edited by humans through the Coach thread (drafted by the Chief of Staff, approved through Conversations). These are read by every agent at the start of every session as part of L4 context.
-- **The Coach Conversation** — the persistent thread where founders shape direction in dialogue with the Chief of Staff. The Chief of Staff distills these conversations into proposed updates to the principles or focus, which loop back through Conversations for approval.
+- **`PRINCIPLES.md` and `FOCUS.md`** — the long-form vision and the current focus of the factory. Edited by humans through the assistant thread (drafted by the assistant, approved through Conversations). These are read by every agent at the start of every session as part of L4 context.
+- **The assistant conversation** — the persistent thread where founders shape direction in dialogue with the assistant. The assistant distills these conversations into proposed updates to the principles or focus, which loop back through Conversations for approval.
 - **The Work view** — when the founder commits a bet, that's a direct top-down signal: "this is what we're doing for the next cycle." The team picks it up and runs.
 
 Top-down does *not* mean the founders dictate tasks. They dictate direction. Tasks emerge from the team, decentralized, grounded in practice knowledge.
@@ -16,8 +16,8 @@ Top-down does *not* mean the founders dictate tasks. They dictate direction. Tas
 
 The work itself produces signal. Agents notice things. Practices accumulate knowledge. Metrics shift. Customers complain. Bets reveal that the original premise was wrong. All of this needs a path back up to the founders and back into the bets.
 
-- **Practice layer (L3)** is the primary bottom-up channel. As agents work, they capture observations into their practice. Practice Facilitators surface the highest-attention items to the human via the Knowledge view (async curation) and to the Chief of Staff (for cross-product patterns).
-- **Bet retros** (see §11) surface what was learned from the cycle into both the Practice layer (knowledge) and the Coach thread (rule changes).
+- **Practice layer (L3)** is the primary bottom-up channel. As agents work, they capture observations into their practice. Practice Facilitators surface the highest-attention items to the human via the Knowledge view (async curation) and to the assistant (for cross-product patterns).
+- **Bet retros** (see §11) surface what was learned from the cycle into both the Practice layer (knowledge) and the assistant thread (rule changes).
 - **Spontaneous escalation** — any agent that notices something it thinks the founders should know about can post a chat thread directly. Agent-initiated chat (from `HUMAN_INTERFACE_LAYER.md` §4.1) is the muscle for this.
 - **Bet revision** — the most important bottom-up channel. When the team learns the bet's premise is wrong, the team proposes a revision through the same review-thread mechanism humans use to approve anything else.
 

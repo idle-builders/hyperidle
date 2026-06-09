@@ -1,6 +1,6 @@
 # Artifact primitive (L3)
 
-The function-agnostic, task-rooted record of something the team has produced. Defined in `docs/human-interface-layer/the-three-views-the-rail.md` §4.7; producer rule in this folder's process-layer docs §3. Implementation stories L11 (rich review messages) and L12 (Work surfaces) consume this contract directly.
+The function-agnostic, task-rooted record of something the team has produced. Defined in `docs/human-interface-layer/the-three-views-the-rail.md` §4.7; producer rule in this folder's process-layer docs §3. Implementation stories L11 (rich review messages) and L12 (Work surfaces) consume this contract directly. <!-- @lore AD8a: historical — Rail removed in U6 -->
 
 ## Canonical shape
 

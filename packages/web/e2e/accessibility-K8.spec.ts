@@ -128,9 +128,9 @@ test.describe("K8 — zero WCAG 2.1 AA violations at mobile viewport", () => {
 		 *  2. Page-level chrome and shell components (Tier 3,
 		 *     `[data-ds-shell]`) carry pre-existing K7 contrast gaps that
 		 *     mirror the chrome touch-target gap (F3): `--text-lo #737378`
-		 *     in inline labels like `<span>Reasoning</span>`, and the
-		 *     Rail's CollapsedPill which renders `--danger #dc2626` on a
-		 *     15% danger tint. Both are tracked as F4 in
+		 *     in inline labels like `<span>Reasoning</span>`.
+		 *     @lore AD8a: Rail's CollapsedPill was removed in U6 (no longer applicable).
+		 *     Both are tracked as F4 in
 		 *     `packages/design-system/research/critique-results.md` and are
 		 *     out of K8 scope (chrome refactor).
 		 *

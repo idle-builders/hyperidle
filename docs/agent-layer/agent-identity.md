@@ -8,7 +8,7 @@ Agent identity is stored in the `users` table (kind = `'ai'`). The canonical fie
 | Harness type | `harness_type` (text, nullable) | Which adapter type to prefer (`claude-code`, `openai`, etc.) — null means any available adapter |
 | Model tier | `model_tier_preference` (text, nullable) | Preferred model cost tier (`reasoning`, `workhorse`, `haiku`) — null means system default |
 | Concurrency | `max_concurrent_sessions` (int) | Maximum parallel sessions this agent runs |
-| Role | `role` (text) | Functional role (`builder`, `product_manager`, `practice_facilitator`, `chief_of_staff`, …) |
+| Role | `role` (text) | Functional role (`builder`, `product_manager`, `practice_facilitator`, `chief_of_staff` <!-- @lore AD8a: renamed to "assistant" in AD8b -->, …) |
 | Status | `status` (text) | Lifecycle state (`active`, `retired`) |
 
 **Soul prompt** defines personality, constraints, and the agent's relationship to its role. A Builder's soul knows it's an engineer who thinks → plans → builds → reviews → tests. A Practice Facilitator's soul knows it surfaces patterns and synthesizes, not decides. Souls are short — ideally under 500 tokens — because they're loaded into every session.

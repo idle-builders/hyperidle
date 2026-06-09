@@ -4,8 +4,8 @@
  * These tests FAIL until:
  *  - AppShell uses useCurrentUser() instead of DEMO_FOUNDER_ID constant
  *  - AppShell uses useSettings() instead of DEFAULT_SETTINGS import
- *  - AppShell uses useRail() instead of MOCK_RAIL_* imports
  *  - count: 12 is removed from knowledge submenu item (F1)
+ * @lore AD8a: "useRail() instead of MOCK_RAIL_*" bullet removed — Rail deleted in U6.
  *  - DEMO_FOUNDER_ID constant is deleted from AppShell.tsx
  */
 
@@ -57,17 +57,7 @@ describe("M3 — AppShell: no 'u-founder' in DOM (A11)", () => {
 						quietHoursEnd: "08:00",
 						mutedTeams: [],
 					},
-					// /api/rail response
-					bets: [],
-					blockers: [],
-					awaitingOrdering: [],
-					costBurnRate: {
-						todaySpend: null,
-						todayCap: null,
-						weekSpend: null,
-						weekCap: null,
-						weekTokens: null,
-					},
+					// @lore AD8a: /api/rail mock stub removed — Rail API deleted in U6.
 					// /api/threads response
 					threads: [],
 					nextCursor: null,
@@ -152,6 +142,6 @@ describe("M3 — AppShell: knowledge submenu count:12 removed (F1)", () => {
 
 // @lore U6: useRail hook and Rail component were deleted in U6.
 // The C4 test ("renders bet title from API response") tested that the AppShell used
-// useRail() instead of MOCK_RAIL_BETS. Since the Rail component no longer exists,
+// @lore AD8a: historical — useRail() instead of MOCK_RAIL_BETS. Since the Rail component no longer exists,
 // the test is no longer applicable. The AppShell now uses a Sidebar with thread list
-// and team sub-items — there is no bet-title rail in the layout.
+// @lore AD8a: historical — and team sub-items — there is no bet-title rail in the layout.

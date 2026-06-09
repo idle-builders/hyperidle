@@ -3,7 +3,7 @@
  *
  * The architecture plan §3 states that create_artifact has no `roles`
  * restriction — all agent roles (builder, practice_facilitator, growth,
- * chief_of_staff, etc.) can produce artifacts.
+ * @lore AD8a: role string stays until AD8b. chief_of_staff, etc.) can produce artifacts.
  *
  * These tests WILL fail until:
  *   - create-artifact.ts is implemented (Task 3)
@@ -43,8 +43,11 @@ describe("R6 AC5: create_artifact availability across agent roles", () => {
 		expect(names.has("create_artifact")).toBe(true);
 	});
 
+	// @lore AD8a: role string "chief_of_staff" renamed in AD8b.
 	test("create_artifact is available to chief_of_staff role", async ({ db }) => {
-		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
+		// @lore AD8a: role string renamed in AD8b
+		// @lore AD8a: role string renamed in AD8b
+		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" }); // @lore AD8a: role string renamed to "assistant" in AD8b
 		const names = new Set(registry.definitions.map((d) => d.name));
 		expect(names.has("create_artifact")).toBe(true);
 	});

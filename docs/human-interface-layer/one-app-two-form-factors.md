@@ -40,7 +40,7 @@ Technical:
 UX / pattern learning:
 
 - The human learns *one* chat grammar — verdicts, inline comments, replies, snooze, escalate — and uses it for every kind of thread.
-- The holistic journey is "open the Factory." Not "check the inbox, then the HUD, then the canvas, then the coach." One door.
+- The holistic journey is "open the Factory." Not "check the inbox, then the HUD, then the canvas, then the assistant." One door.
 - Mode discipline (what belongs where) is enforced by *view routing inside the app*, not by shipping separate products. If we ever discover Work should collapse into Conversations, we just change the route.
 
 ---

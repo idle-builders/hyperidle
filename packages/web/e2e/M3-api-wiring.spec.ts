@@ -4,10 +4,12 @@
  * Covers the main user-visible paths affected by M3:
  *  - Auth: page loads and the user id shown is NOT "u-founder" literal (real auth)
  *  - Settings: settings panel opens and shows data from API (not DEFAULT_SETTINGS mock)
- *  - Rail: rail shows data from API (not MOCK_RAIL_* constants)
  *  - Portfolio: empty state renders when no products are returned
  *
  * All API calls are mocked via page.route() — no real server required.
+ *
+ * @lore AD8a: Rail section deleted — the Rail API (/api/rail) was removed in U6.
+ * @lore AD8a: The RAIL_API_RESPONSE constant and "M3 — Rail" describe block no longer apply.
  */
 
 import { expect, test } from "./fixtures";
@@ -25,30 +27,6 @@ const SETTINGS_API_RESPONSE = {
 		quietHoursStart: "23:00",
 		quietHoursEnd: "07:00",
 		mutedTeams: [],
-	},
-};
-
-// Rail response from GET /api/rail — shape must match the wire format in
-// useRail.ts (RailResponseRaw): bets have progress, cost is named costBurnRate.
-// @lore M3: the test mock was initially written with `cost` and no `progress`.
-// Fixed to match the actual server response shape returned by rail.ts.
-const RAIL_API_RESPONSE = {
-	bets: [
-		{
-			id: "bet-rail-1",
-			title: "M3 Real Rail Bet",
-			status: "in_progress",
-			progress: { done: 1, total: 3 },
-		},
-	],
-	blockers: [],
-	awaitingOrdering: [],
-	costBurnRate: {
-		todaySpend: { minor: 500, currency: "USD" },
-		todayCap: { minor: 5000, currency: "USD" },
-		weekSpend: { minor: 2000, currency: "USD" },
-		weekCap: { minor: 35000, currency: "USD" },
-		weekTokens: 12345,
 	},
 };
 
@@ -88,15 +66,6 @@ async function setupApiMocks(page: import("@playwright/test").Page): Promise<voi
 		} else {
 			await route.continue();
 		}
-	});
-
-	// Mock rail
-	await page.route("**/api/rail", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(RAIL_API_RESPONSE),
-		});
 	});
 
 	// Mock threads (needed by conversations view)
@@ -173,20 +142,6 @@ test.describe("M3 — Settings: panel shows real API data", () => {
 		// Additional runtime check: the AppShell must have rendered (the API was
 		// consumed) and the page text must not expose any "appearance" key leak.
 		await expect(page.getByTestId("main-content")).toBeVisible();
-	});
-});
-
-test.describe("M3 — Rail: shows data from API (not MOCK_RAIL_* constants)", () => {
-	test("rail shows bet title from API response, not MOCK_RAIL_BETS", async ({ page }) => {
-		await setupApiMocks(page);
-		await page.goto("/");
-		await page.waitForSelector("[data-testid='main-content']");
-
-		// "M3 Real Rail Bet" comes from the mocked /api/rail
-		// MOCK_RAIL_BETS had "User auth flow" and "Dashboard redesign" — those must not appear
-		await expect(page.getByText("M3 Real Rail Bet")).toBeVisible();
-		await expect(page.getByText("User auth flow")).toHaveCount(0);
-		await expect(page.getByText("Dashboard redesign")).toHaveCount(0);
 	});
 });
 

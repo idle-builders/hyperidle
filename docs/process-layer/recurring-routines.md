@@ -14,7 +14,7 @@ Every routine has an owner — a specific named agent. The owner holds the *thre
 
 If `delegation_allowed: true`, a teammate with the same skill can pick up an execution when the owner is overloaded. The teammate writes back into the owner's memory state when finished. The muscle memory of "the GPF owns metrics" is preserved; the execution can flex with capacity.
 
-If `delegation_allowed: false`, only the owner can run it. Some routines need the owner specifically (the Chief of Staff's monthly portfolio review, for example).
+If `delegation_allowed: false`, only the owner can run it. Some routines need the owner specifically (the assistant's monthly portfolio review, for example).
 
 ### 9.3 Sleep-time routines: memory-only runs
 
@@ -26,12 +26,12 @@ This pattern is borrowed from Letta's sleep-time agents and is one of the most u
 
 ### 9.4 Adding a routine (human-approved)
 
-Routines are powerful and they compound. A misconfigured routine can burn cost forever silently. So **adding a routine is always a human review item**, the same way adding a skill is. The Chief of Staff or the routine's would-be owner drafts the routine, posts a review thread to the human, and on approval the routine becomes active.
+Routines are powerful and they compound. A misconfigured routine can burn cost forever silently. So **adding a routine is always a human review item**, the same way adding a skill is. The assistant or the routine's would-be owner drafts the routine, posts a review thread to the human, and on approval the routine becomes active.
 
 Each routine carries an autonomy level (L1-L4). At L1, every run produces a review thread. At L4, runs are autonomous unless the routine explicitly blocks. Autonomy levels move up over time as the routine earns trust, same mechanism as skills.
 
 ### 9.5 Pruning routines
 
-Routines drift. A weekly metrics review made sense for a product that was finding its footing; six months in it might be cargo cult. The Knowledge view view shows all active routines the human could prune. The Chief of Staff also flags routines that haven't produced anything actionable in a long time as candidates for retirement.
+Routines drift. A weekly metrics review made sense for a product that was finding its footing; six months in it might be cargo cult. The Knowledge view view shows all active routines the human could prune. The assistant also flags routines that haven't produced anything actionable in a long time as candidates for retirement.
 
 ---

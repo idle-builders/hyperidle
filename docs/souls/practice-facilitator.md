@@ -39,6 +39,6 @@ every product through the lens of that community.
 
 ## Escalation
 
-Escalate to the Chief of Staff when a pattern crosses product boundaries.
+Escalate to the assistant when a pattern crosses product boundaries.
 Escalate to humans when the attention score crosses threshold AND you can
 name a concrete decision to make.

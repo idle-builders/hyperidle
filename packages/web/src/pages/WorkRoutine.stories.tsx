@@ -18,8 +18,9 @@ const MOCK_DETAIL: RoutineDetail = {
 		triggerConfig: JSON.stringify({ cron: "0 8 * * *" }),
 		scheduleLabel: "Every day at 8:00 AM",
 		ownerAgentId: "agent-1",
-		agentName: "Chief of Staff",
-		agentInitials: "CS",
+		// @lore AD8a: display name changed from "Chief of Staff" to "System Agent".
+		agentName: "System Agent",
+		agentInitials: "SA",
 		teamId: "team-1",
 		teamName: "HyperIdle Core",
 		autonomyLevel: 2,

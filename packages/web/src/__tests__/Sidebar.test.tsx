@@ -80,7 +80,7 @@ describe("Sidebar — AC-1: structure and brand", () => {
 
 	it("renders bottom strip with Assistant trigger and Settings (avatar) button", () => {
 		render(<Sidebar {...defaultProps} />);
-		// Assistant button (replaces Chief of Staff per W3 AC-1)
+		// @lore AD8a: Assistant button (W3 AC-1: sidebar trigger for the assistant overlay)
 		expect(screen.getByRole("button", { name: /assistant/i })).toBeInTheDocument();
 		// Settings button (avatar)
 		expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
@@ -295,7 +295,7 @@ describe("Sidebar — AC-7: Active sub-item styling", () => {
 // ---------------------------------------------------------------------------
 
 describe("Sidebar — AC-9: CoC trigger", () => {
-	// W3 AC-1: CoC trigger is now the "Assistant" button (label changed from "Chief of Staff")
+	// @lore AD8a: CoC trigger is the "Assistant" button in the sidebar bottom strip
 	it('CoC trigger button is present with aria-label "Assistant"', () => {
 		render(<Sidebar {...defaultProps} />);
 		expect(screen.getByRole("button", { name: /assistant/i })).toBeInTheDocument();

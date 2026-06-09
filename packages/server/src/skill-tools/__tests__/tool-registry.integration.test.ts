@@ -20,7 +20,7 @@ function makeContext(db: HyperIdleDb, eventBus: EventBus): ToolContext {
 
 describe("buildToolRegistry", () => {
 	test("returns the canonical set of skill tools", ({ db, eventBus }) => {
-		const registry = buildToolRegistry(makeContext(db, eventBus), { role: "chief_of_staff" });
+		const registry = buildToolRegistry(makeContext(db, eventBus), { role: "chief_of_staff" }); // @lore AD8a: role string renamed to "assistant" in AD8b
 		const names = registry.definitions.map((d) => d.name).sort();
 		expect(names).toEqual(
 			[

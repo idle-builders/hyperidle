@@ -66,7 +66,7 @@ describe("groupThreadsForConversations classifier", () => {
 		];
 		const sections = groupThreadsForConversations(threads, { now: NOW });
 		const active = sections.find((s) => s.id === "active");
-		expect(active?.items[0].id).toBe("coach");
+		expect(active?.items[0].id).toBe("coach"); // @lore AD8a: thread ID "coach" stays; route/type renamed in AD8b
 	});
 
 	it("re-opened blocking thread (resolved past 24h) lands in Active when not blocking", () => {
@@ -95,7 +95,7 @@ describe("ThreadSections component", () => {
 		mk({ id: "b1", title: "API key needed", blocking: true }),
 		mk({
 			id: "coach",
-			title: "Chief of Staff — weekly",
+			title: "System Agent — weekly",
 			pinned: true,
 			hostKind: "user",
 		}),

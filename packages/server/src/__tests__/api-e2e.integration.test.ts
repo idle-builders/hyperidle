@@ -676,35 +676,6 @@ describe("E2E API Integration (I5)", () => {
 	});
 
 	// -------------------------------------------------------
-	// 9. Rail
-	// -------------------------------------------------------
-	describe("Rail", () => {
-		test("GET /api/rail returns dashboard data", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/rail", { headers: auth() });
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as {
-				bets: unknown[];
-				blockers: unknown[];
-				awaitingOrdering: unknown[];
-				costBurnRate: {
-					todaySpend: { minor: number; currency: string } | null;
-					todayCap: { minor: number; currency: string } | null;
-					weekSpend: { minor: number; currency: string } | null;
-					weekCap: { minor: number; currency: string } | null;
-					weekTokens: number | null;
-				};
-			};
-			expect(Array.isArray(body.bets)).toBe(true);
-			expect(Array.isArray(body.blockers)).toBe(true);
-			expect(Array.isArray(body.awaitingOrdering)).toBe(true);
-			// L17: costBurnRate uses WireMoney shape
-			expect(body.costBurnRate).toHaveProperty("todaySpend");
-			expect(body.costBurnRate).toHaveProperty("weekSpend");
-		});
-	});
-
-	// -------------------------------------------------------
 	// 10. Status
 	// -------------------------------------------------------
 	describe("Status", () => {

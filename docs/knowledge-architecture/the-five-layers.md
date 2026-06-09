@@ -84,9 +84,9 @@ Four files:
 - `PRINCIPLES.md` — the short list of hard rules (5–10 lines, slow-changing)
 - `FOCUS.md` — what we're trying to improve this month (the current target)
 - `PORTFOLIO.md` — which products get energy this cycle, and why
-- `REFLECTIONS/` — monthly notes from the coaching sessions (one file per month)
+- `REFLECTIONS/` — monthly notes from assistant conversations (one file per month)
 
-The Chief of Staff agent proposes changes to these files. Humans approve, edit, or reject. Git is the history.
+The assistant agent proposes changes to these files. Humans approve, edit, or reject. Git is the history.
 
 The inspiration is double-loop learning (question the rules, not just the work) and the Kata improvement cycle (explicit target, explicit current state, explicit next experiment). We're not naming them anywhere in the interface. We're just structuring the monthly conversation around those bones.
 

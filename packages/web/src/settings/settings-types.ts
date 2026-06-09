@@ -105,6 +105,6 @@ export interface AgentConfig {
 	maxConcurrentSessions: number;
 	status: string;
 	activeSessions: number;
-	/** AB3: "team" | "strategy" | "personal" | null. Matches users.agentCategory. */
+	/** AB3: "team" | "strategy" | "individual" | null. Matches users.agentCategory. @lore AD8a: "personal" renamed to "individual". */
 	agentCategory: string | null;
 }

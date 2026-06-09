@@ -23,7 +23,7 @@ const SAMPLE: ThreadItem[] = [
 	},
 	{
 		id: "p1",
-		title: "Chief of Staff — weekly",
+		title: "System Agent — weekly",
 		snippet: "Pinned to the top",
 		timestamp: "1h",
 		avatarUrl: AVATAR,

@@ -63,7 +63,7 @@ test.describe("L8 — Conversations Submenu list", () => {
 		await page.waitForSelector("[data-ds-component='ThreadRow']");
 		const rows = page.locator("[data-ds-component='ThreadRow']");
 		await expect(rows).toHaveCount(SEVEN_THREADS.length);
-		// Active section header has count=5 (coach + a1..a4)
+		// Active section header has count=5 (assistant thread + a1..a4)
 		const active = page.locator("[data-thread-section='active']");
 		await expect(active).toBeVisible();
 		// Resolved section header has count=2

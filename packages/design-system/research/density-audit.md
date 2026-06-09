@@ -19,7 +19,7 @@ screenshots.
 | Verdict      | Count | Rows |
 |--------------|------:|------|
 | `yes`        |    13 | NavItem, KeyValue, ThreadRow, KnowledgeRow, NotificationRow, BetCard, TaskCard, PitchCard, EmptyState, ErrorState, SkeletonList, SkeletonCard, Submenu (content area) |
-| `partial`    |    11 | StatusChip, Tag, SearchField, Rail (expanded), ArtifactView, ReviewHeader, Canvas, Kanban, PitchSelector, WorkBet, KnowledgeDetail |
+| `partial`    |    11 | StatusChip, Tag, SearchField, Rail (expanded), ArtifactView, ReviewHeader, Canvas, Kanban, PitchSelector, WorkBet, KnowledgeDetail |  <!-- @lore AD8a: historical research (Rail deleted in U6) -->
 | `no`         |     4 | IconRail, ConversationsReview (page chrome), ConversationsChat (page chrome), NotFound |
 
 (Several pages composed mostly of density-aware children appear as `partial`
@@ -38,7 +38,7 @@ full rationale appear under § 4.
 | `--density-page-gutter`|    8 px |   16 px |       24 px | The `<main>` region currently consumes `--density-pad-x` for both the *page gutter* and *content padding*, so widening padding on a card and widening the page margin become the same dial. They are not the same dial. |
 | `--density-icon-size`  |   14 px |   16 px |       20 px | List-row icons (search, chevrons, sort arrows) read as cosmetic noise at compact and as missing-press-target at comfortable. Material 3, Carbon and Fluent all expose an icon-size cascade alongside the spacing cascade. |
 | `--density-avatar-size`|   24 px |   32 px |       40 px | Threading avatars (ThreadRow, ReviewHeader) anchor the row visually; today they're hardcoded at 32 px and feel oversized at compact and undersized at comfortable. Linear / Slack / Notion all scale the chat-row avatar with density. |
-| `--density-card-gap`   |    4 px |    8 px |       12 px | Internal card gap (label-to-value, row-to-row inside a card) needs to shift independently of `--density-gap`, which is used as inter-row gap by Submenu and Rail. Today every card hardcodes `gap-[4px]`. |
+| `--density-card-gap`   |    4 px |    8 px |       12 px | Internal card gap (label-to-value, row-to-row inside a card) needs to shift independently of `--density-gap`, which is used as inter-row gap by Submenu and Rail. Today every card hardcodes `gap-[4px]`. |  <!-- @lore AD8a: historical research (Rail deleted in U6) -->
 
 Rejected new-token candidates and their rationale appear under § 4.6.
 
@@ -54,7 +54,7 @@ When the matrix is applied:
   NotificationRow) and every card (BetCard, TaskCard, PitchCard) becomes
   `yes` on padding + gap + body text. Skeletons mirror their target shape.
   Empty/Error states scale on padding + body text.
-- **Tier 3 shells:** Submenu and Rail (expanded) consume `--density-*`
+- **Tier 3 shells:** Submenu and Rail (expanded) consume `--density-*`  <!-- @lore AD8a: historical research (Rail deleted in U6) -->
   directly; ArtifactView, Kanban and Canvas scale their *content* (rows,
   cards) but keep *structural chrome* (drop-zones, column headers, diff line
   height) literal. IconRail stays fully static.
@@ -206,7 +206,7 @@ density spec (cite 5), Notion property rows (cite 6).
 **Density-aware?** `yes` (already, this is the K9 baseline).
 
 **Tokens stays literal — and why:** **icon stays literal**. The NavItem icon
-is part of the nav-rail brand affordance — it must keep the same metric
+is part of the nav-rail <!-- @lore AD8a: "Rail" as HyperIdle UI concept deleted in U6; "nav-rail" here is a generic pattern term --> brand affordance — it must keep the same metric
 across density tiers so muscle memory works. Material 3 explicitly notes
 that the NavRail icon size is independent of "density" (cite 7); Carbon
 SideNav holds `16 × 16` regardless of density (cite 1). The count badge is
@@ -232,7 +232,7 @@ Carbon SideNav (cite 1).
 **Density-aware?** `partial` — only on the touch-target floor. The input
 height is held constant at 32 px desktop because (a) input height is the
 single most reused affordance vertical metric across the whole app (Submenu
-header, dialog filter, Rail expanded), and (b) AQ-005 already forces a
+header, dialog filter, Rail expanded), and (b) AQ-005 already forces a  <!-- @lore AD8a: historical research (Rail deleted in U6) -->
 16 px font-size override at viewport ≤ 768 px, which a `--density-text` swap
 would silently break.
 
@@ -266,7 +266,7 @@ Textfield density spec which holds the input height constant and only scales
 **Density-aware?** `yes`. The flagship list-row.
 
 **Tokens stays literal — and why:** the trailing timestamp stays literal —
-it is mono chrome shared with KnowledgeRow, NotificationRow and Rail
+it is mono chrome shared with KnowledgeRow, NotificationRow and Rail  <!-- @lore AD8a: historical research (Rail deleted in U6) -->
 collapsed-pill totals. Growing it under comfortable would unbalance the
 right-edge alignment.
 
@@ -508,8 +508,8 @@ abstract content placeholders not subject to the type scale).
 
 **Tokens stays literal — and why:** the IconRail is the user's anchor for
 "where am I in the app". Material 3 NavRail and Carbon UI Shell both fix the
-nav-rail width across all density modes (cite 7, cite 1). Slack and Linear
-both keep the persistent vertical rail at the same 48-64 px regardless of
+nav-rail <!-- @lore AD8a: "Rail" as HyperIdle UI concept deleted in U6; "nav-rail" here is a generic pattern term --> width across all density modes (cite 7, cite 1). Slack and Linear
+both keep the persistent vertical rail at the same 48-64 px regardless of  <!-- @lore AD8a: historical research (Rail deleted in U6) -->
 the user's density preference (cite 9, cite 4). K11's `design/no-density-
 tokens` rule should treat IconRail as the canonical example of a static
 chrome surface.
@@ -517,7 +517,7 @@ chrome surface.
 **New tokens needed:** none.
 
 **Sources:** Material 3 NavRail (cite 7), Carbon UI Shell SideNav (cite 1),
-Linear sidebar (cite 4), Slack rail (cite 9).
+Linear sidebar (cite 4), Slack rail (cite 9).  <!-- @lore AD8a: historical research (Rail deleted in U6) -->
 
 ---
 
@@ -548,7 +548,7 @@ Notion sidebar (cite 6).
 
 ---
 
-#### 3.3.K3 Rail (Tier 3)
+#### 3.3.K3 Rail (Tier 3)  <!-- @lore AD8a: historical research (Rail deleted in U6) -->
 
 | Axis (expanded) | Verdict | Token (after K11)                                       |
 |-----------------|--------:|---------------------------------------------------------|
@@ -567,14 +567,14 @@ Notion sidebar (cite 6).
 **Density-aware?** `partial`. Padding/gap scale; width fixed in both
 expanded and collapsed states; pills and section headers are chrome.
 
-**Tokens stays literal — and why:** Rail is right-edge chrome, mirror of
+**Tokens stays literal — and why:** Rail is right-edge chrome, mirror of  <!-- @lore AD8a: historical research (Rail deleted in U6) -->
 IconRail. Width is fixed for the same column-rhythm reason as Submenu. The
 collapsed-pill width budget (BLK / REV / PSD + N+) is geometrically tuned
 and would overflow at comfortable.
 
 **New tokens needed:** `--density-page-gutter`.
 
-**Sources:** Linear right-rail (cite 4), Slack right-pane (cite 9), GitHub
+**Sources:** Linear right-rail (cite 4), Slack right-pane (cite 9), GitHub  <!-- @lore AD8a: historical research (Rail deleted in U6) -->
 PR sidebar (cite 11).
 
 ---
@@ -970,7 +970,7 @@ comfortable. SearchField uses 16 px / 14 px today (search glyph + clear
 button); WorkBet's sort arrows (`▲▼↕`) are font-glyphs sized by `text-xs`;
 NavItem's icon is intentionally literal (Principle 3). The token would be
 consumed by SearchField, the WorkBet sort headers, the Submenu chevron and
-the Rail expand chevron — *not* by NavItem (which keeps its literal icon).
+the Rail expand chevron — *not* by NavItem (which keeps its literal icon).  <!-- @lore AD8a: historical research (Rail deleted in U6) -->
 
 **Citations.** Material 3 icon-size cascade (`16 / 20 / 24` for
 compact/default/comfortable) (cite 3); Carbon icon-size token set
@@ -1049,7 +1049,7 @@ inbox avatar density (24/32/40) (cite 4); Material 3 avatar size scale
 
 **Rationale.** Internal card gap (label-to-value, row-to-row inside a
 card) needs to shift independently of `--density-gap`, which is used as
-inter-row gap by Submenu and Rail. Today every card hardcodes `gap-[4px]`
+inter-row gap by Submenu and Rail. Today every card hardcodes `gap-[4px]`  <!-- @lore AD8a: historical research (Rail deleted in U6) -->
 and KeyValue hardcodes `gap-[4px]`. The two are visually conflated even
 though they serve different roles (intra-card rhythm vs inter-row
 rhythm). At comfortable, an inter-row gap of 16 px and an intra-card gap of
@@ -1175,8 +1175,8 @@ density isn't doing its job.
 | SearchField          | input 32 px   | 32 px         | 32 px (40 px on `pointer:coarse`) | Input height NEVER grows on desktop. |
 | IconRail             | 48 px wide    | 48 px wide    | 48 px wide    | Width CONSTANT. Icon CONSTANT. Avatar CONSTANT. |
 | Submenu              | 240 px wide   | 240 px wide   | 240 px wide   | Width CONSTANT. Inter-row gap and inner pad widen. |
-| Rail (collapsed)     | 56 px wide    | 56 px wide    | 56 px wide    | CONSTANT entirely. |
-| Rail (expanded)      | 360 px wide   | 360 px wide   | 360 px wide   | Width CONSTANT. Section headers CONSTANT. KeyValue rows widen. |
+| Rail (collapsed)     | 56 px wide    | 56 px wide    | 56 px wide    | CONSTANT entirely. |  <!-- @lore AD8a: historical research (Rail deleted in U6) -->
+| Rail (expanded)      | 360 px wide   | 360 px wide   | 360 px wide   | Width CONSTANT. Section headers CONSTANT. KeyValue rows widen. |  <!-- @lore AD8a: historical research (Rail deleted in U6) -->
 | ArtifactView (text_diff) | line-h 16 px | 16 px      | 16 px         | Diff lines CONSTANT (code is not body text). Container pad widens. |
 | ArtifactView (content_preview) | container pad widens | | | Body markdown grows with `prose-sm`. Metadata strip CONSTANT. |
 | ReviewHeader         | 32 px tall    | 36 px tall    | 44 px tall    | Buttons CONSTANT (`btn-xs` always). Proposer name grows. |
@@ -1223,13 +1223,13 @@ Cited inline in § 3 and § 4. Domain in parentheses.
    page padding density, Textfield density.
 6. **Notion** — `notion.so` (Notion Labs). Property rows, list-row,
    sidebar, proposal/database tabs, page reading mode.
-7. **Material 3 NavRail** — `m3.material.io/components/navigation-rail`
+7. **Material 3 NavRail** — `m3.material.io/components/navigation-rail`  <!-- @lore AD8a: historical research (Rail deleted in U6) -->
    (specifically named separately because the audit references it for the
    "icon stays literal" rule for both NavItem and IconRail).
 8. **iOS Safari ≥16 px input zoom rule** — captured in HyperIdle's
    AESTHETICS.md § Mobile & Touch and AQ-005.
 9. **Slack** — `slack.com` (Salesforce). Thread row density, message
-   density, persistent rail width.
+   density, persistent rail width.  <!-- @lore AD8a: historical research (Rail deleted in U6) -->
 10. **Trello** — `trello.com` (Atlassian). Card density, board view
     column behaviour.
 11. **GitHub** — `github.com` (Microsoft / GitHub). Diff viewer density,
@@ -1296,7 +1296,7 @@ so K11 / K12 don't have to re-read the source.
 - **Submenu.tsx** — `gap-[var(--density-gap)] p-2` outer, inner uses
   `--density-pad-x`. Width fixed `w-60` / `w-0`. Density: partial today;
   correct shape but outer pad should switch to `--density-page-gutter`.
-- **Rail.tsx** — collapsed `w-14 p-2`; expanded `w-[360px] gap-[var(--density-
+- **Rail.tsx** — collapsed `w-14 p-2`; expanded `w-[360px] gap-[var(--density-  <!-- @lore AD8a: historical research (Rail deleted in U6) -->
   gap)] p-2`. Density: partial today; correct shape; outer pad should switch
   to `--density-page-gutter`.
 - **ArtifactView.tsx** — discriminated union of 5 shapes. Padding mostly

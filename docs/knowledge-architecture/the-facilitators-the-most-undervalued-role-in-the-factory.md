@@ -2,15 +2,15 @@
 
 Most agent systems have workers (agents that do things) and maybe an orchestrator (routes work). They're missing the role that actually makes knowledge compound: **the facilitator**. A dedicated agent per layer whose entire job is to organize the layer's knowledge, score what needs human attention, and collect exactly the feedback that converts information into knowledge.
 
-This is the role that a great chief of staff, a great librarian, a great community manager, or a great editor plays in a human org. Without them, information accumulates but knowledge doesn't. With them, the signal finds the right eyes at the right time.
+This is the role that a great chief of staff <!-- @lore AD8a: generic English job title, not the HyperIdle agent noun -->, a great librarian, a great community manager, or a great editor plays in a human org. Without them, information accumulates but knowledge doesn't. With them, the signal finds the right eyes at the right time.
 
-We already had the Chief of Staff at L4. The missing insight: **the same function needs to exist at L2 and L3**, specialized to those layers.
+We already had the assistant at L4. The missing insight: **the same function needs to exist at L2 and L3**, specialized to those layers.
 
 ### The facilitator family
 
 | Layer | Facilitator | Role analogy | What they organize |
 |-------|------------|-------------|-------------------|
-| L4 Factory | **Chief of Staff** | COO / chief of staff | Factory principles, portfolio, cross-product patterns, coaching the Product Managers |
+| L4 Factory | **assistant** | COO / chief of staff <!-- @lore AD8a: generic analogy, not the HyperIdle agent role name --> | Factory principles, portfolio, cross-product patterns, coaching the Product Managers |
 | L3 Practice | **Practice Facilitator** (one per community: build/product/growth/ops, plus facilitation itself) | Guild lead / master craftsperson | Role-specific practices, anti-patterns, conflicts, community-wide learnings |
 | L2 Product | **Product Manager** (one per product) | Team lead | Product cycles, team coordination, shaped pitches, cross-function handoffs — AND its own facilitation quality |
 
@@ -22,7 +22,7 @@ The worker agents sit in a **matrix**: each reports vertically to their Product 
 
 1. **Continuously organize.** Merge duplicates. Resolve conflicts. Archive stale items. Link related artifacts. Tag for retrievability.
 2. **Score every information item for human attention.** (See the attention scoring model below.)
-3. **Shape the human's queue for their layer.** The L3 Practice Facilitator prepares the weekly Knowledge view curation queue. The L2 Product Manager shapes pitches for the weekly Bet Canvas. The L4 Chief of Staff prepares the monthly coaching conversation.
+3. **Shape the human's queue for their layer.** The L3 Practice Facilitator prepares the weekly Knowledge view curation queue. The L2 Product Manager shapes pitches for the weekly Bet Canvas. The L4 assistant prepares the monthly coaching conversation.
 4. **Ask for the right kind of feedback.** Different items need different human input. A contradicting pair needs *resolution*. A novel pattern needs *validation*. A stable-but-stale practice needs *retirement or extension*. The facilitator picks the question.
 5. **Close the loop.** When a human gives feedback, the facilitator writes it back into the knowledge store and bumps the confidence/attention scores accordingly.
 
@@ -106,9 +106,9 @@ Ambrovia         │                   │                   │                
 
 Two jobs running in parallel:
 
-**Job 1 — Coordinator:** Runs the product's cycles: kicks off bets, tracks status, calls the end-of-cycle reflection. Resolves cross-function handoffs within the team. Unblocks the team. Shapes 2–4 pitches for the next cycle's Bet Canvas. Escalates to the Chief of Staff when something is beyond product scope.
+**Job 1 — Coordinator:** Runs the product's cycles: kicks off bets, tracks status, calls the end-of-cycle reflection. Resolves cross-function handoffs within the team. Unblocks the team. Shapes 2–4 pitches for the next cycle's Bet Canvas. Escalates to the assistant when something is beyond product scope.
 
-**Job 2 — Self-improver:** Watches its own coordination and asks: *am I running this team well?* Captures facilitation-level learnings. Runs its own end-of-cycle reflection on facilitation quality. Proposes process changes. Learns from the Chief of Staff's coaching.
+**Job 2 — Self-improver:** Watches its own coordination and asks: *am I running this team well?* Captures facilitation-level learnings. Runs its own end-of-cycle reflection on facilitation quality. Proposes process changes. Learns from the assistant's coaching.
 
 **This self-improvement loop is the critical move.** Without it, the Product Manager is just a static process runner. With it, the facilitator gets better at facilitating over time. It's also the lever that makes the 5th product cheaper than the 4th: the Nimmly Product Manager's facilitation learnings transfer via the Practice Facilitator for "product leadership" to HyperIdle's Product Manager.
 
@@ -116,15 +116,15 @@ And yes — **the facilitators themselves form a community of practice.** There'
 
 ### The team layer stays flat
 
-The agent side of the factory is **always flat**. There is one layer of product teams, each with its own Product Manager. There is never a Business Facilitator or any other middle-management agent layer between the Product Managers and the Chief of Staff.
+The agent side of the factory is **always flat**. There is one layer of product teams, each with its own Product Manager. There is never a Business Facilitator or any other middle-management agent layer between the Product Managers and the assistant.
 
-A product team owns *a unit of value*, in two shapes: a standalone product that IS a business (example: Ambrovia), or a product that is part of a larger multi-product business (example: an "SME Finance Suite" that bundles Ambrovia + Nimmly). Each product still has its own team and Product Manager. **The business leaders are always the humans.** They own suite-level strategy, pricing, positioning, cross-product bundling, and the decision about whether a product is standalone or part of a suite. The Chief of Staff surfaces cross-product items to the humans but doesn't delegate to another agent layer below itself.
+A product team owns *a unit of value*, in two shapes: a standalone product that IS a business (example: Ambrovia), or a product that is part of a larger multi-product business (example: an "SME Finance Suite" that bundles Ambrovia + Nimmly). Each product still has its own team and Product Manager. **The business leaders are always the humans.** They own suite-level strategy, pricing, positioning, cross-product bundling, and the decision about whether a product is standalone or part of a suite. The assistant surfaces cross-product items to the humans but doesn't delegate to another agent layer below itself.
 
 ```
                         Humans
                     (business level)
                            │
-                  Chief of Staff (Factory)
+                  assistant (Factory)
                            │
            ┌───────────────┼───────────────┐
            │               │               │

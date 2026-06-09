@@ -9,7 +9,7 @@ Notification fatigue is the failure mode every 2026 tool is fighting. The discip
 | Conversations (FYI) | Silent. Daily digest. | One push per thread event = unusable. |
 | Ambient indicators (filter chips, health dots, triage badge) | Never push. Ambient only. | They're *there*; they don't need to call. |
 | Work | Calendar reminder once a week. | Weekly cadence is the whole point. |
-| Chief of Staff's chat | Optional. Founder choice. | Some humans want a monthly nudge; others drift in. |
+| Assistant's thread | Optional. Founder choice. | Some humans want a monthly nudge; others drift in. |
 | Knowledge | Calendar reminder once a week. | Weekly. |
 
 **Quiet hours and silence modes.** A human can mark themselves unavailable; blocking review items queue but don't push, and the agent system either waits or falls back to a safe-default action depending on policy. Silence modes are per-human and per-product so a founder can mute Ambrovia for the weekend without going dark on Nimmly.

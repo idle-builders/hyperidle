@@ -8,7 +8,7 @@
  *
  * @lore U6: Settings is opened via the Settings button (aria-label="Settings") in the
  * Sidebar bottom strip. The old "user profile" / "avatar" button was in the deleted IconRail.
- * Rail-related AC-22 and AC-23 tests are removed (Rail deleted in U6).
+ * @lore AD8a: historical — Rail-related AC-22 and AC-23 tests are removed (Rail deleted in U6).
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -190,7 +190,7 @@ describe("AppShell — P4 Settings overlay", () => {
 	});
 
 	// @lore U6: AC-23 (rail wrapper opacity-60) removed — Rail deleted in U6.
-	// The Sidebar does not have a rail wrapper to dim.
+	// @lore AD8a: historical — The Sidebar does not have a rail wrapper to dim.
 
 	// AC-11: Main pane shows Profile form when settings opened
 	it("shows Profile section content in main pane when settings opened", async () => {

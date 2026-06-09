@@ -174,7 +174,7 @@ export const REFERENCE_MAP: ReferenceEntry[] = [
 			await page.waitForTimeout(500);
 		},
 		route: "/conversations",
-		description: "Conversations — Chief of Staff chat view",
+		description: "Conversations — assistant chat view",
 	},
 	{
 		name: "conv_empty",

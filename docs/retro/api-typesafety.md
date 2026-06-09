@@ -33,7 +33,7 @@ Phase 1 delivered Hono RPC type-safety infrastructure (AppType, typed response s
 
 **Process Observations**
 
-1. **Acceptance criteria must be exhaustive**: "Type-safe API layer" is too vague. The spec should have listed "AppType covers 17 routes: products, bets, tasks, artifacts, knowledge, rail, settings, conversations, threads, agents, routines, sessions, status, git-export, notifications, observability, auth." The missing routes weren't detected until Round 2 code review.
+1. **Acceptance criteria must be exhaustive**: "Type-safe API layer" is too vague. The spec should have listed "AppType covers 17 routes: products, bets, tasks, artifacts, knowledge, rail, settings, conversations, threads, agents, routines, sessions, status, git-export, notifications, observability, auth." The missing routes weren't detected until Round 2 code review. <!-- @lore AD8a: historical — Rail removed in U6 -->
 
 2. **TypeScript inference gotchas need explicit guardrails**: `typeof app` is syntactically valid but semantically wrong for AppType. The architecture doc said "use chained expression" but didn't say "do NOT use typeof app" with a @lore explanation. A test-based rule (type-assert that AppType.bets exists) would have caught this on red-phase.
 

@@ -8,12 +8,6 @@
 
 export type { AuthMeResponse } from "./auth.js";
 export type {
-	RailBet,
-	RailBlocker,
-	RailCostBurnRate,
-	RailResponse,
-} from "./rail.js";
-export type {
 	AutonomyLevel,
 	SettingsAgent,
 	SettingsNotifications,

@@ -48,7 +48,7 @@ The `--` before `--profile` is required — it separates npm's flags from the se
 [setup] Next: run `npm run dev` to start the server and web app.
 ```
 
-This creates a `hyperidle-pg/` data directory, runs all schema migrations, and seeds an example Team ("Nimmly") with three agents: Chief of Staff, Product Manager, and Builder.
+This creates a `hyperidle-pg/` data directory, runs all schema migrations, and seeds an example Team ("Nimmly") with three agents: assistant, Product Manager, and Builder.
 
 **Troubleshooting:**
 - `--db-path must not contain '..' segments` — specify an absolute path: `npm run setup -- --profile laptop --db-path /Users/you/hyperidle-data`.
@@ -118,7 +118,7 @@ After setup you land on **Work > Portfolio**. Take 60 seconds to orient.
 - **Work** — your portfolio of Teams and Bets; expands to show Teams as sub-items
 - **Knowledge** — the factory's institutional memory
 
-At the bottom of the Sidebar: `Cmd+K` search, your avatar (opens Settings), and an Assistant button (opens the Chief of Staff overlay).
+At the bottom of the Sidebar: `Cmd+K` search, your avatar (opens Settings), and an Assistant button (opens the assistant overlay).
 
 **Main pane** — shows your Portfolio: a grid of Bet cards. No bets yet means an empty state with a **New bet** button.
 
@@ -171,7 +171,7 @@ Each item has:
 
 **Approve** work that looks correct. **Request changes** if something is wrong — add a comment describing the fix. The agent resumes automatically after your verdict. Most reviews take 15–30 seconds.
 
-The **Chief of Staff** thread (pinned at the top) surfaces cross-Team patterns and coaching suggestions. Check it weekly.
+The **assistant** thread (pinned at the top) surfaces cross-Team patterns and coaching suggestions. Check it weekly.
 
 ---
 

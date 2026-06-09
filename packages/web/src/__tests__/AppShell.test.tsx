@@ -78,7 +78,7 @@ function renderShell(
 
 describe("AppShell", () => {
 	// @lore U6: AppShell now uses Sidebar (data-ds-shell="Sidebar") instead of
-	// IconRail + Submenu + Rail. The test asserts the new layout structure.
+	// @lore AD8a: historical — IconRail + Submenu + Rail. The test asserts the new layout structure.
 	it("renders the shell layout with Sidebar + main regions", async () => {
 		const { container } = renderShell();
 		await waitFor(() => {
@@ -139,7 +139,7 @@ describe("AppShell", () => {
 	});
 
 	// @lore U6: The Rail is deleted. Tests for "Active Bets", "Blockers", "Cost"
-	// in the Rail are removed. Those values are now part of the WorkTeam page context.
+	// @lore AD8a: historical — in the Rail are removed. Those values are now part of the WorkTeam page context.
 
 	// @lore U6: The Submenu collapse/expand behavior is removed (Submenu deleted).
 	// The Sidebar is always visible. Responsive tests for Submenu collapse are removed.

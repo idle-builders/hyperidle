@@ -70,7 +70,7 @@ export const users = pgTable("users", {
 	/** X3: Model tier preference. null = provisioning default ("workhorse"). */
 	modelTierPreference: text("model_tier_preference"),
 	/**
-	 * AB0: Agent category — team | strategy | personal.
+	 * AB0: Agent category — team | strategy | individual.
 	 * Null for human users and system users.
 	 * @lore AB0: This replaces the KERNEL_USER_ROLES / FABRIC_USER_ROLES
 	 * split which was about system layer, not agent category.

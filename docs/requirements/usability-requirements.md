@@ -14,13 +14,13 @@ The human interface ships as a single native macOS desktop application ("the Fac
 
 ### UX-2: One Interaction Grammar
 
-**UX-2.1** The threading UI is built once and reused for review items, chat items, the Coach thread, and agent-to-agent threads the human is copied on. One component, written once.
+**UX-2.1** The threading UI is built once and reused for review items, chat items, the assistant thread, and agent-to-agent threads the human is copied on. One component, written once.
 
 **UX-2.2** Review threads use a streamlined verdict model. Primary actions: approve, request changes, reject, snooze — always visible with keyboard shortcuts (A, R, X, S). Secondary actions in overflow menu: edit, escalate, delegate, comment only. Inline comments on specific artifact parts.
 
 **UX-2.3** Chat threads support reply, start-a-task, close, and escalate.
 
-**UX-2.4** The Chief of Staff is just another agent — communicated with through normal threads, no special UI surface.
+**UX-2.4** The assistant is just another agent — communicated with through normal threads, no special UI surface (beyond the overlay entry point).
 
 **UX-2.5** Every thread item carries visible `reasoning` — why the agent surfaced this. Non-negotiable for trust.
 

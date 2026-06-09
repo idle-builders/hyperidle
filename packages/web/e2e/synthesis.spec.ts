@@ -1,8 +1,7 @@
 /**
  * J8 — Synthesis critical user-flow coverage.
  *
- * @lore 10+ Playwright scenarios spanning Settings overlay, collapsed Rail
- * pills, Triage tab switch, Knowledge edit toggle, scope browser navigation,
+ * @lore 10+ Playwright scenarios spanning Settings overlay, Triage tab switch, Knowledge edit toggle, scope browser navigation,
  * Bet detail page load, PitchSelector detail pane, Reasoning block
  * collapse/expand, keyboard shortcuts, and responsive breakpoints. These
  * tests are the J8 acceptance evidence for "Playwright E2E suite: minimum
@@ -11,26 +10,6 @@
  * will actually walk.
  */
 import { expect, test } from "./fixtures";
-
-const RAIL_FIXTURE_ONE_BLOCKER = {
-	bets: [],
-	blockers: [
-		{
-			taskId: "task-1",
-			title: "Synthesis blocker",
-			owner: null,
-			durationBlockedMs: 90_000_000, // 25 h → high severity
-		},
-	],
-	awaitingOrdering: [],
-	costBurnRate: {
-		todaySpend: null,
-		todayCap: null,
-		weekSpend: null,
-		weekCap: null,
-		weekTokens: null,
-	},
-};
 
 test.describe("J8 synthesis — 10 critical flows", () => {
 	test("1. Settings overlay opens from the avatar and closes via the header X", async ({
@@ -56,27 +35,6 @@ test.describe("J8 synthesis — 10 critical flows", () => {
 		const backdrop = page.getByTestId("settings-backdrop");
 		await backdrop.dispatchEvent("click");
 		await expect(page.getByRole("dialog", { name: /settings/i })).not.toBeVisible();
-	});
-
-	test("3. Collapsed Rail pills appear below 1280px and expand restores the sections", async ({
-		page,
-	}) => {
-		await page.setViewportSize({ width: 1024, height: 800 });
-		await page.route("**/api/rail", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(RAIL_FIXTURE_ONE_BLOCKER),
-			});
-		});
-		await page.goto("/");
-		await page.waitForSelector("[data-testid='main-content']");
-		// Collapsed: semantic BLK pill visible via aria-label.
-		await expect(page.getByLabel(/1 blockers?/i)).toBeVisible();
-		await expect(page.getByText("Active Bets")).not.toBeVisible();
-		// Expand.
-		await page.getByRole("button", { name: /expand rail/i }).click();
-		await expect(page.getByText("Active Bets").first()).toBeVisible();
 	});
 
 	test("4. Triage ↔ Curated tab switch preserves scope and updates the tab state", async ({
