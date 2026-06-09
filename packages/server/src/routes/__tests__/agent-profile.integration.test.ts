@@ -12,7 +12,7 @@
  * AC-8: Health signal: failure rate OK when ≤50%
  * AC-9: Health signal: last session crash warning
  * AC-10: Health signal: harness available (warning when type not in pool)
- * AC-11 (AD4 rewrite): reviewTrackRecord replaces skills in profile response
+ * AC-11: Skills merge: tools from role catalog + userSkills usage stats
  * AC-12: Returns null cost for sessions (honest — no cost data)
  *
  * These tests FAIL until:
@@ -25,13 +25,10 @@
 import {
 	bets,
 	type HyperIdleDb,
-	items,
-	messages,
 	sessions,
 	tasks,
 	teamMembers,
 	teams,
-	threads,
 	userSkills,
 	users,
 } from "@hyperidle/db";
@@ -167,8 +164,8 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		expect(body).toHaveProperty("healthSignals");
 		// Capabilities
 		expect(body).toHaveProperty("harnessCapabilities");
-		// Review track record (AD4: replaces skills)
-		expect(body).toHaveProperty("reviewTrackRecord");
+		// Skills
+		expect(body).toHaveProperty("skills");
 	});
 
 	test("returns correct identity values for the builder agent", async ({ db, app }) => {
@@ -244,18 +241,13 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		expect(Array.isArray(body.recentSessions)).toBe(true);
 	});
 
-	test("reviewTrackRecord is present and has recentVerdicts array (AD4: replaces skills)", async ({
-		db,
-		app,
-	}) => {
+	test("skills is an array", async ({ db, app }) => {
 		await seedPrereqs(db);
 		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
 			headers: authHeaders(),
 		});
 		const body = (await res.json()) as Record<string, unknown>;
-		const trackRecord = body.reviewTrackRecord as Record<string, unknown>;
-		expect(trackRecord).toBeDefined();
-		expect(Array.isArray(trackRecord.recentVerdicts)).toBe(true);
+		expect(Array.isArray(body.skills)).toBe(true);
 	});
 });
 
@@ -963,10 +955,10 @@ describe("AB1 AC-10: Health signal harness available check", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-11 (AD4 rewrite): reviewTrackRecord replaces skills in profile response
+// AC-11: Skills merge: tools from role catalog + userSkills usage stats
 // ---------------------------------------------------------------------------
 
-describe("AB1 AC-11 (AD4): reviewTrackRecord — approval rate from verdict history", () => {
+describe("AB1 AC-11: Skills merge from role catalog + userSkills", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});
@@ -975,30 +967,21 @@ describe("AB1 AC-11 (AD4): reviewTrackRecord — approval rate from verdict hist
 		vi.unstubAllEnvs();
 	});
 
-	test("returns reviewTrackRecord with required field shapes (AD4: replaces skills)", async ({
-		db,
-		app,
-	}) => {
+	test("returns skills array with required field shapes", async ({ db, app }) => {
 		await seedPrereqs(db);
 		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
 			headers: authHeaders(),
 		});
 		const body = (await res.json()) as Record<string, unknown>;
-		const trackRecord = body.reviewTrackRecord as Record<string, unknown>;
+		const skills = body.skills as Array<Record<string, unknown>>;
 
-		expect(trackRecord).toBeDefined();
-		expect(typeof trackRecord.approvalRate).toBe("number");
-		expect(typeof trackRecord.totalVerdicts).toBe("number");
-		expect(Array.isArray(trackRecord.recentVerdicts)).toBe(true);
-		expect(typeof trackRecord.windowDays).toBe("number");
+		// Skills should be an array (possibly empty if no userSkills and role has no catalog tools)
+		expect(Array.isArray(skills)).toBe(true);
 	});
 
-	test("userSkills rows in DB do NOT appear in profile response (AC5: table stays but not surfaced)", async ({
-		db,
-		app,
-	}) => {
+	test("includes userSkill stats when user has skills recorded", async ({ db, app }) => {
 		await seedPrereqs(db);
-		// Seed a userSkill — it should not appear in the response
+		// Seed a userSkill
 		await db.insert(userSkills).values({
 			userId: "ab1-agent-builder",
 			skillId: "write-code",
@@ -1012,64 +995,40 @@ describe("AB1 AC-11 (AD4): reviewTrackRecord — approval rate from verdict hist
 			headers: authHeaders(),
 		});
 		const body = (await res.json()) as Record<string, unknown>;
+		const skills = body.skills as Array<Record<string, unknown>>;
 
-		// skills field should not exist
-		expect(body).not.toHaveProperty("skills");
-		// reviewTrackRecord should exist
-		expect(body).toHaveProperty("reviewTrackRecord");
+		// Find the write-code skill
+		const writeCodeSkill = skills.find((s) => s.skillId === "write-code");
+		expect(writeCodeSkill).toBeDefined();
+		expect(writeCodeSkill?.successCount).toBe(5);
+		expect(writeCodeSkill?.failureCount).toBe(1);
+		expect(writeCodeSkill?.lastUsedAt).toBe(NOW);
 	});
 
-	test("reviewTrackRecord entry has decision, threadId, createdAt shape when verdicts exist", async ({
-		db,
-		app,
-	}) => {
+	test("skill entries have required fields", async ({ db, app }) => {
 		await seedPrereqs(db);
-		// Seed a verdict by inserting directly
-		const threadId = crypto.randomUUID();
-		const itemId = crypto.randomUUID();
-		const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
-
-		await db.insert(threads).values({
-			id: threadId,
-			hostKind: "task",
-			hostId: "task-ac11",
-			initiatorId: "ab1-agent-builder",
-			participants: JSON.stringify(["ab1-agent-builder"]),
-			lastActiveAt: fiveDaysAgo,
-			createdAt: fiveDaysAgo,
-		});
-		await db.insert(items).values({
-			id: itemId,
-			sourceAgentId: "ab1-agent-builder",
-			kind: "approval",
-			title: "AC-11 test item",
-			riskTier: "low",
-			threadId,
-			createdAt: fiveDaysAgo,
-		});
-		await db.insert(messages).values({
-			id: crypto.randomUUID(),
-			senderId: "u-founder-ab1",
-			threadId,
-			type: "verdict",
-			payload: JSON.stringify({ decision: "approve" }),
-			clientKey: `verdict-ac11-${crypto.randomUUID()}`,
-			legacyItemId: itemId,
-			createdAt: fiveDaysAgo,
+		await db.insert(userSkills).values({
+			userId: "ab1-agent-builder",
+			skillId: "review",
+			autonomyLevel: 1,
+			successCount: 3,
+			failureCount: 0,
+			lastUsedAt: NOW,
 		});
 
 		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
 			headers: authHeaders(),
 		});
 		const body = (await res.json()) as Record<string, unknown>;
-		const trackRecord = body.reviewTrackRecord as Record<string, unknown>;
-		const verdicts = trackRecord.recentVerdicts as Array<Record<string, unknown>>;
+		const skills = body.skills as Array<Record<string, unknown>>;
 
-		expect(verdicts.length).toBeGreaterThanOrEqual(1);
-		const v = verdicts[0];
-		expect(v).toHaveProperty("decision");
-		expect(v).toHaveProperty("threadId");
-		expect(v).toHaveProperty("createdAt");
+		const reviewSkill = skills.find((s) => s.skillId === "review");
+		expect(reviewSkill).toBeDefined();
+		expect(reviewSkill).toHaveProperty("skillId");
+		expect(reviewSkill).toHaveProperty("successCount");
+		expect(reviewSkill).toHaveProperty("failureCount");
+		expect(reviewSkill).toHaveProperty("lastUsedAt");
+		expect(reviewSkill).toHaveProperty("autonomyLevel");
 	});
 });
 

@@ -1,6 +1,6 @@
-import { bets, factorySettings, type HyperIdleDb, items, tasks, teamMembers } from "@hyperidle/db";
+import { bets, factorySettings, type HyperIdleDb, items, tasks } from "@hyperidle/db";
 import type { CurrencyCode, EventBus, WireMoney } from "@hyperidle/shared";
-import { eq, inArray, sql } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 
 interface RailBet {
@@ -119,24 +119,16 @@ export function createRailRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 
 		// @lore O2: cost burn rate computed from factory settings only; session-level
 		// spend aggregation removed (cost columns stripped from sessions table).
+		// todaySpend/weekSpend return null until the strategy/fabric layer provides them.
 		const factoryCurrency = ((await getFactorySetting(db, "cost_currency")) ??
 			"USD") as CurrencyCode;
 
 		const dailyCapMinor = await getFactorySettingMinor(db, "cost_cap_daily_minor");
 		const weeklyCapMinor = await getFactorySettingMinor(db, "cost_cap_weekly_minor");
 
-		// AD5 AC-6: read actual cumulative spend from teamMembers.costActual.
-		// @lore AD5: teamMembers.costActual is cumulative (not day-windowed) because
-		// session cost columns were stripped in O2. "todaySpend" naming is misleading
-		// but changing the API shape is out of scope. Cumulative data is better than
-		// zeros — it matches what the team detail page shows.
-		const [spendRow] = await db
-			.select({ total: sql<number>`coalesce(sum(${teamMembers.costActual}), 0)` })
-			.from(teamMembers);
-		const totalSpendMinor = spendRow?.total ?? 0;
-
+		// @lore O2: session cost columns stripped; spend values return 0 until fabric provides aggregation.
 		const costBurnRate: CostBurnRate = {
-			todaySpend: { minor: totalSpendMinor, currency: factoryCurrency },
+			todaySpend: { minor: 0, currency: factoryCurrency },
 			todayCap: dailyCapMinor != null ? { minor: dailyCapMinor, currency: factoryCurrency } : null,
 			weekSpend: { minor: 0, currency: factoryCurrency },
 			weekCap: weeklyCapMinor != null ? { minor: weeklyCapMinor, currency: factoryCurrency } : null,

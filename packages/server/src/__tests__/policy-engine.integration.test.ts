@@ -64,15 +64,6 @@ describe("Policy Engine (E7)", () => {
 				teamId: "team-1",
 				createdAt: now,
 			},
-			{
-				id: "human-1",
-				kind: "human",
-				name: "Founder",
-				role: "founder",
-				status: "active",
-				email: "founder@test.local",
-				createdAt: now,
-			},
 			// @lore L1a: synthetic sender for verdict-typed messages emitted by
 			// the policy engine. The new `messages.sender_id` FK requires
 			// the user row to exist (legacy `responses.approver_id` had
@@ -97,52 +88,6 @@ describe("Policy Engine (E7)", () => {
 		});
 	}
 
-	/** AD4: Seed N past verdicts for agent-1 via legacy_item_id path. */
-	async function seedVerdicts(
-		db: HyperIdleDb,
-		count: number,
-		decision: "approve" | "reject",
-	): Promise<void> {
-		const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
-		for (let i = 0; i < count; i++) {
-			const verdictThreadId = crypto.randomUUID();
-			const itemId = crypto.randomUUID();
-
-			await db.insert(threads).values({
-				id: verdictThreadId,
-				hostKind: "task",
-				hostId: `verdict-task-${i}-${decision}`,
-				initiatorId: "agent-1",
-				participants: JSON.stringify(["agent-1"]),
-				lastActiveAt: fiveDaysAgo,
-				createdAt: fiveDaysAgo,
-			});
-
-			await db.insert(items).values({
-				id: itemId,
-				sourceAgentId: "agent-1",
-				kind: "approval",
-				title: `Past item ${i}`,
-				riskTier: "low",
-				threadId: verdictThreadId,
-				createdAt: fiveDaysAgo,
-			});
-
-			await db.insert(messages).values({
-				id: crypto.randomUUID(),
-				senderId: "human-1",
-				threadId: verdictThreadId,
-				type: "verdict",
-				payload: JSON.stringify({ decision }),
-				clientKey: `verdict-${crypto.randomUUID()}`,
-				legacyItemId: itemId,
-				createdAt: fiveDaysAgo,
-			});
-		}
-	}
-
-	/** @deprecated AD4: userSkills no longer drive policy decisions. Kept only for
-	 * tests that verify userSkills rows are still accepted by the DB schema. */
 	async function seedAgentSkill(db: HyperIdleDb, autonomyLevel: number): Promise<void> {
 		await db.insert(userSkills).values({
 			userId: "agent-1",
@@ -193,13 +138,12 @@ describe("Policy Engine (E7)", () => {
 		unsubscribe?.();
 	});
 
-	test("AC1: high approval rate (10/10) + low risk -> auto-resolve with approverId=policy_engine", async ({
+	test("AC1: L4 + low risk -> auto-resolve with approverId=policy_engine", async ({
 		db,
 		eventBus,
 	}) => {
-		// AD4: replaced L4 autonomy with verdict-based trust (10 approvals = 100% >= 0.90 threshold)
 		await seedBase(db);
-		await seedVerdicts(db, 10, "approve");
+		await seedAgentSkill(db, 4);
 		unsubscribe = registerPolicyEngine(db, eventBus);
 		const itemId = await createItem(db, { riskTier: "low" });
 
@@ -215,14 +159,12 @@ describe("Policy Engine (E7)", () => {
 		expect(resp[0].approverId).toBe("policy_engine");
 	});
 
-	test("AC2: medium approval rate (7/10) + low risk -> queue silently (policy_queued in auditTrail, no notification)", async ({
+	test("AC2: L3 + low risk -> queue silently (policy_queued in auditTrail, no notification)", async ({
 		db,
 		eventBus,
 	}) => {
-		// AD4: replaced L3 autonomy with verdict-based trust (7/10 = 70% >= 0.70 queue threshold)
 		await seedBase(db);
-		await seedVerdicts(db, 7, "approve");
-		await seedVerdicts(db, 3, "reject");
+		await seedAgentSkill(db, 3);
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicyEngine(db, eventBus);
@@ -355,9 +297,8 @@ describe("Policy Engine (E7)", () => {
 		db,
 		eventBus,
 	}) => {
-		// AD4: replaced L4 autonomy with verdict-based trust
 		await seedBase(db);
-		await seedVerdicts(db, 10, "approve");
+		await seedAgentSkill(db, 4);
 		unsubscribe = registerPolicyEngine(db, eventBus);
 		const itemId = await createItem(db, { riskTier: "low" });
 
