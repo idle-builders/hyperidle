@@ -7,7 +7,7 @@ import type { KindDefinition } from "./kind-definition.js";
 
 export const imagePreviewSchema = z.object({
 	kind: z.literal("image"),
-	url: z.string(),
+	url: z.string().url(),
 	width: z.number(),
 	height: z.number(),
 	alt: z.string().optional(),

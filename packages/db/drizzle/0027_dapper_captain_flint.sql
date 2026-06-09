@@ -16,8 +16,8 @@ UPDATE "artifacts" SET "kind" = 'text', "label" = 'contract' WHERE "kind" = 'con
 -- drafted_email -> text + label=email
 UPDATE "artifacts" SET "kind" = 'text', "label" = 'email' WHERE "kind" = 'drafted_email';--> statement-breakpoint
 
--- decision -> text (no label)
-UPDATE "artifacts" SET "kind" = 'text' WHERE "kind" = 'decision';--> statement-breakpoint
+-- decision -> text + label=decision
+UPDATE "artifacts" SET "kind" = 'text', "label" = 'decision' WHERE "kind" = 'decision';--> statement-breakpoint
 
 -- data_analysis -> text + label=analysis
 UPDATE "artifacts" SET "kind" = 'text', "label" = 'analysis' WHERE "kind" = 'data_analysis';--> statement-breakpoint

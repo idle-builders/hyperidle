@@ -7,7 +7,7 @@ import type { KindDefinition } from "./kind-definition.js";
 
 export const urlPreviewSchema = z.object({
 	kind: z.literal("url"),
-	url: z.string(),
+	url: z.string().url(),
 	status: z.enum(["ok", "degraded", "down"]).optional(),
 	statusLabel: z.string().optional(),
 });

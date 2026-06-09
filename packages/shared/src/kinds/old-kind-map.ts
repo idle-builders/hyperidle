@@ -23,7 +23,7 @@ export const OLD_KIND_MAP: Readonly<Record<string, OldKindMapping>> = {
 	code_diff: { kind: "code", label: null },
 	contract: { kind: "text", label: "contract" },
 	drafted_email: { kind: "text", label: "email" },
-	decision: { kind: "text", label: null },
+	decision: { kind: "text", label: "decision" },
 	data_analysis: { kind: "text", label: "analysis" },
 	comm_draft: { kind: "text", label: "communication" },
 	deck: { kind: "html", label: "deck" },
