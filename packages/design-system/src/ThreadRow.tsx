@@ -1,5 +1,5 @@
 // hearth-internal-padding
-import type { HostKind } from "@hyperidle/shared";
+import type { AgentOperationalStatus, HostKind } from "@hyperidle/shared";
 import type { JSX, ReactNode } from "react";
 import { clickableProps } from "./clickable";
 import { dsProps } from "./ds-attrs";
@@ -7,9 +7,36 @@ import { type Status, StatusChip } from "./StatusChip";
 import { Tag } from "./Tag";
 import type { TagKind } from "./tag-kinds";
 
+/**
+ * AE5: PresenceDot for ThreadRow — same visual treatment as ThreadHostBanner.
+ * Extracted to a function to avoid cross-file imports of a 10-line component.
+ *
+ * @lore AE5 (SUGGESTION from arch-critique): shared with ThreadHostBanner's PresenceDot
+ * conceptually but kept inline here. Both are 10 lines — extraction saves nothing without
+ * a design-system export. Keep in sync if the dot style changes.
+ */
+function ThreadRowPresenceDot({
+	status,
+	initials,
+}: {
+	status: AgentOperationalStatus;
+	initials: string;
+}): JSX.Element | null {
+	if (status === "idle") return null;
+	const bg = status === "active" ? "bg-[var(--accent-primary)]" : "bg-[var(--status-error)]";
+	return (
+		<span
+			className={`absolute bottom-0 right-0 w-[6px] h-[6px] rounded-full border-[1.5px] border-[var(--surface-elevated)] ${bg}`}
+			aria-label={`${initials} - ${status}`}
+		/>
+	);
+}
+
 export interface ThreadAvatarItem {
 	initials: string;
 	agent?: boolean;
+	/** AE5: Operational status for agent avatars. When present, shows presence dot. */
+	operationalStatus?: AgentOperationalStatus;
 }
 
 export interface ThreadRowProps {
@@ -184,9 +211,8 @@ export function ThreadRow({
 						{avatars.map((a, i) => (
 							<span
 								key={`${a.initials}-${i}`}
-								aria-hidden="true"
 								className={[
-									"w-[24px] h-[24px] rounded-full inline-flex items-center justify-center shrink-0",
+									"relative w-[24px] h-[24px] rounded-full inline-flex items-center justify-center shrink-0",
 									"text-[9px] font-[600] leading-none",
 									"border-[2px] border-[var(--surface-elevated)]",
 									i > 0 ? "ml-[-6px]" : "",
@@ -196,6 +222,9 @@ export function ThreadRow({
 								].join(" ")}
 							>
 								{a.initials}
+								{a.agent && a.operationalStatus ? (
+									<ThreadRowPresenceDot status={a.operationalStatus} initials={a.initials} />
+								) : null}
 							</span>
 						))}
 					</div>

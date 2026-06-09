@@ -13,7 +13,7 @@ import { ThreadHostBanner } from "./ThreadHostBanner.js";
 export default {
 	title: "ThreadHostBanner",
 	tier: "3" as const,
-	order: ["Default", "Blocking", "Resolved", "Pinned", "Overflow"],
+	order: ["Default", "Blocking", "Resolved", "Pinned", "Overflow", "WithAgentPresence"],
 };
 
 const baseProps = {
@@ -46,6 +46,38 @@ export const Overflow = (): React.JSX.Element => (
 			{ id: "u-3", name: "C" },
 			{ id: "u-4", name: "D" },
 			{ id: "u-5", name: "E" },
+		]}
+	/>
+);
+
+/** AE5: Agent presence dots — active (green dot), error (red dot), idle (no dot). */
+export const WithAgentPresence = (): React.JSX.Element => (
+	<ThreadHostBanner
+		{...baseProps}
+		participants={[
+			{
+				id: "u-1",
+				name: "Alice",
+				isAgent: false,
+			},
+			{
+				id: "agent-aria",
+				name: "Aria",
+				isAgent: true,
+				operationalStatus: "active" as const,
+			},
+			{
+				id: "agent-atlas",
+				name: "Atlas",
+				isAgent: true,
+				operationalStatus: "error" as const,
+			},
+			{
+				id: "agent-scout",
+				name: "Scout",
+				isAgent: true,
+				operationalStatus: "idle" as const,
+			},
 		]}
 	/>
 );

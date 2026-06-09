@@ -16,6 +16,7 @@ export default {
 		"WithHostTag",
 		"BlockingSelected",
 		"WithActions",
+		"WithAgentPresence",
 	],
 };
 
@@ -153,4 +154,38 @@ export const WithActions = (): React.JSX.Element => (
 			</button>
 		}
 	/>
+);
+
+/** AE5: Agent presence dots on avatar chips — active (green), error (red), idle (absent). */
+export const WithAgentPresence = (): React.JSX.Element => (
+	<div>
+		<ThreadRow
+			title="Active agent session in progress"
+			snippet="Aria is currently working on the task..."
+			timestamp="Just now"
+			avatars={[
+				{ initials: "TG" },
+				{ initials: "AR", agent: true, operationalStatus: "active" as const },
+			]}
+			messageCount={3}
+		/>
+		<ThreadRow
+			title="Agent encountered an error"
+			snippet="Atlas hit a blocker — human input needed"
+			timestamp="5m ago"
+			blocking={true}
+			avatars={[
+				{ initials: "AT", agent: true, operationalStatus: "error" as const },
+				{ initials: "TG" },
+			]}
+			messageCount={1}
+		/>
+		<ThreadRow
+			title="Idle agent — no active session"
+			snippet="Scout is available but not currently running"
+			timestamp="1h ago"
+			avatars={[{ initials: "SC", agent: true, operationalStatus: "idle" as const }]}
+			messageCount={2}
+		/>
+	</div>
 );

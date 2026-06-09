@@ -21,8 +21,14 @@ export interface ThreadDetail {
 	thread: Thread;
 	messages: ReadonlyArray<Message>;
 	headMessageId: string | null;
-	identities: Record<string, { name: string; role?: string }>;
+	/** AE5: Extended identities map including isAgent and operationalStatus for AI users. */
+	identities: Record<
+		string,
+		{ name: string; role?: string; isAgent?: boolean; operationalStatus?: string }
+	>;
 	artifactRef?: ArtifactRef;
+	/** AE5: Host entity title for context link. Null when unresolvable. */
+	hostTitle?: string | null;
 }
 
 export type ThreadDetailStatus = "loading" | "ready" | "error" | "not-found";
@@ -65,14 +71,30 @@ function decodeThreadDetail(value: unknown): ThreadDetail {
 		throw new ThreadDetailDecodeError("invalid headMessageId");
 	}
 	const identitiesRaw = isObject(value.identities) ? value.identities : {};
-	const identities: Record<string, { name: string; role?: string }> = {};
+	const identities: Record<
+		string,
+		{ name: string; role?: string; isAgent?: boolean; operationalStatus?: string }
+	> = {};
 	for (const [k, v] of Object.entries(identitiesRaw)) {
 		if (!isObject(v) || typeof v.name !== "string") continue;
 		identities[k] = {
 			name: v.name,
 			...(typeof v.role === "string" ? { role: v.role } : {}),
+			// AE5: optional extended fields for presence indicators
+			...(v.isAgent === true ? { isAgent: true } : {}),
+			...(typeof v.operationalStatus === "string"
+				? { operationalStatus: v.operationalStatus }
+				: {}),
 		};
 	}
+	// AE5: hostTitle for context link in Conversations header.
+	const hostTitle =
+		typeof value.hostTitle === "string"
+			? value.hostTitle
+			: value.hostTitle === null
+				? null
+				: undefined;
+
 	// Server already validates `thread` and each `message` via zod. We trust
 	// the shape here and let runtime narrowing in ThreadShell handle the
 	// per-payload type checks.
@@ -81,6 +103,7 @@ function decodeThreadDetail(value: unknown): ThreadDetail {
 		messages: value.messages as unknown as ReadonlyArray<Message>,
 		headMessageId,
 		identities,
+		hostTitle,
 	};
 }
 
