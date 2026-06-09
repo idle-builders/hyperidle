@@ -2,7 +2,7 @@
 
 # Human Interface Layer
 
-How humans and the agent factory actually meet. This doc scopes the app-level architecture, the views inside it, the holistic user journey, the data model, and what the meta layer ships.
+How humans and the agent factory actually meet. This doc scopes the app-level architecture, the views inside it, the holistic user journey, and the data model.
 
 Two grounding documents sit underneath this one:
 - `KNOWLEDGE_ARCHITECTURE.md` defined five conceptual modes (Factory Inbox, HUD, Bet Canvas, Coach Conversation, Practice Editor) — since consolidated into three views plus a sidebar.
@@ -17,9 +17,9 @@ This doc bridges them. **The interaction modes live inside one app as three view
 ## Sections
 
 - [Why a Dedicated Interface Layer at All](./why-a-dedicated-interface-layer-at-all.md)
-- [Three Views + The Rail](./three-views-the-rail.md)
-- [One App, Two Form Factors](./one-app-two-form-factors.md)
-- [The Three Views + The Rail](./the-three-views-the-rail.md)
+- [Three Views](./three-views-the-rail.md)
+- [One App, One Form Factor](./one-app-two-form-factors.md)
+- [The Three Views (detailed)](./the-three-views-the-rail.md)
 - [The Holistic User Journey](./the-holistic-user-journey.md)
 - [Content Examples (for design reference)](./content-examples-for-design-reference.md)
 - [The Cross-Cutting Data Model](./the-cross-cutting-data-model.md)

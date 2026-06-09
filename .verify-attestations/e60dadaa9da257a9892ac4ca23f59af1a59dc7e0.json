@@ -1,5 +1,9 @@
 {
+<<<<<<<< HEAD:.verify-attestations/e60dadaa9da257a9892ac4ca23f59af1a59dc7e0.json
 	"sha": "e60dadaa9da257a9892ac4ca23f59af1a59dc7e0",
+========
+	"sha": "e263ee7267e8fa9119c244993f692a18d9c3ae2c",
+>>>>>>>> origin/main:.verify-attestations/e263ee7267e8fa9119c244993f692a18d9c3ae2c.json
 	"status": "passed",
 	"dirty": false,
 	"tools": [
@@ -30,6 +34,11 @@
 	],
 	"partial": false,
 	"smartSkipped": [],
+<<<<<<<< HEAD:.verify-attestations/e60dadaa9da257a9892ac4ca23f59af1a59dc7e0.json
 	"timestamp": "2026-06-09T00:24:31.192Z",
 	"hmac": "4332f94337e0bd472b8f28959aa4213697b155fd4a4509dcfa23c5a559e989e6"
+========
+	"timestamp": "2026-06-09T00:11:35.201Z",
+	"hmac": "578cef965f0319c503c707b72f30a060050442314f1a1f3b1785186eca53e067"
+>>>>>>>> origin/main:.verify-attestations/e263ee7267e8fa9119c244993f692a18d9c3ae2c.json
 }

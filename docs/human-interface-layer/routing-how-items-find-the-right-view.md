@@ -7,7 +7,7 @@ The facilitator family (from KNOWLEDGE_ARCHITECTURE.md) does the routing. Each f
 | Concrete, decidable, risk ≥ medium or skill-change | Conversations (review kind) |
 | Agent-initiated conversation, no verdict needed | Conversations (chat kind) |
 | Cross-product pattern, rule change, reflection | Conversations (Chief of Staff's chat, pinned) |
-| Order/rank-able, not yet a decision | The Rail |
+| Order/rank-able, not yet a decision | Conversations filter chips (triage state) |
 | Shaped pitch or task status update | Work |
 | Knowledge update, in-flight or pruning | Knowledge |
 
@@ -18,7 +18,7 @@ Routing rules:
 3. **Knowledge updates → Knowledge.** Never Conversations. Async curation, not approval.
 4. **Strategic / rule-shaped items → Chief of Staff's chat.** If it's about how the factory *operates*, not what it's doing.
 5. **Pitches → Work.** Only when shaped enough to bet on.
-6. **Everything else → The Rail.** The Rail is the catch-all for "the human should be aware but doesn't need to act now."
+6. **Everything else → Conversations with ambient indicators.** Triage badge, filter chips, and agent health dots surface awareness without demanding attention.
 
 When in doubt, facilitators err toward the less interruptive view. Conversations is the most expensive view (it can interrupt a human's day); items that don't earn a phone notification shouldn't push there.
 

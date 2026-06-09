@@ -1,37 +1,28 @@
 ## 6. Component Tree Summary
 
+<!-- @source packages/web/src/shell/AppShell.tsx -->
+
 **Canonical app shell:**
 
 ```
-┌─────────┬──────────────┬─────────────────────────────┬────────┐
-│IconRail │ Submenu      │ Main (view content)         │ Rail   │
-│         │ (per view)   │                             │(right) │
-└─────────┴──────────────┴─────────────────────────────┴────────┘
+┌───────────────────┬─────────────────────────────────────────────┐
+│     Sidebar       │           Main (view content)               │
+│  (200px, always)  │                                             │
+└───────────────────┴─────────────────────────────────────────────┘
 ```
 
 **Full tree:**
 
 ```
-App Shell (IconRail | Submenu | Main | Rail)
+App Shell (Sidebar | Main)
 │
-├── IconRail
-│   ├── Conversations icon
-│   ├── Work icon
-│   ├── Knowledge icon
-│   └── User avatar
+├── Sidebar
+│   ├── Conversations section header (+ triage badge)
+│   ├── Work section header
+│   ├── Knowledge section header
+│   └── Settings gear
 │
-├── Rail (right sidebar)
-│   ├── Minimized: blocked count, unread count, cost burn
-│   └── Expanded
-│       ├── NotificationRow × N (active bets, blocked agents)
-│       ├── Knowledge additions count
-│       ├── Cost burn card
-│       ├── System stability
-│       ├── Unread breakdown
-│       ├── Agent activity summary
-│       └── Recent completions feed
-│
-├── Settings (accessed via IconRail avatar)
+├── Settings (accessed via Sidebar gear)
 │   ├── Notifications tab
 │   ├── Budgets tab
 │   ├── Agents & Permissions tab
@@ -84,8 +75,8 @@ App Shell (IconRail | Submenu | Main | Rail)
 │       ├── Portfolio Overview (Level 1 — default)
 │       │   ├── Product status cards × N
 │       │   ├── Portfolio metrics bar
-│       │   ├── Cycle management card
-│       │   └── Past cycle summaries
+│       │   ├── Portfolio metrics bar (cost burn, decisions required)
+│       │   └── Shipped bet summaries (cost variance per bet)
 │       │
 │       ├── Team View (Level 2)
 │       │   ├── Canvas (top)

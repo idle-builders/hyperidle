@@ -4,10 +4,10 @@
 
 ```
 Open Factory
-  → Glance at Rail (minimized): blocked count, cost burn, unread count
-  → If blocked > 0: expand Rail → see which agents are stuck → click blocker → lands in Conversations review thread → use verdict actions to approve/request changes (15 seconds each)
+  → Glance at Sidebar: blocked count, cost burn, unread count
+  → If blocked > 0: see which agents are stuck in the Sidebar → click blocker → lands in Conversations review thread → use verdict actions to approve/request changes (15 seconds each)
   → Scan Submenu thread list: any blocking reviews? Handle them.
-  → Check if Chief of Staff has posted (open overlay from Rail button if needed)
+  → Check if Chief of Staff has posted (open overlay from the Chief of Staff button if needed)
   → Done. Leave open on side screen.
 ```
 
@@ -57,7 +57,7 @@ Click Knowledge icon → Submenu shows scope selector
 ### 5.5 Chief of Staff monthly conversation (30 minutes)
 
 ```
-Click Chief of Staff button (bottom-right of Rail) → overlay opens
+Click Chief of Staff button (bottom of Sidebar) → overlay opens
   → Scroll through recent messages — cross-product patterns, obstacle report
   → Reply with thoughts on what's working, what to change
   → Chief of Staff proposes edit to PRINCIPLES.md → drafts it as a review thread
@@ -68,8 +68,8 @@ Click Chief of Staff button (bottom-right of Rail) → overlay opens
 ### 5.6 Respond to a blocker (reactive, 30 seconds)
 
 ```
-Rail shows "2 blocked" (visually emphasized)
-  → Expand Rail → see: "Pulse Hardware Agent: waiting on review verdict for PCB layout rev C (2h)"
+Sidebar shows "2 blocked" (visually emphasized)
+  → See in Sidebar: "Pulse Hardware Agent: waiting on review verdict for PCB layout rev C (2h)"
   → Click → lands in Conversations on that review thread
   → Rich message shows: reasoning + ArtifactView (visual_comparison)
   → Review before/after visual, read reasoning

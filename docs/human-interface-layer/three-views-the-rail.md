@@ -1,4 +1,4 @@
-## 2. Three Views + The Rail
+## 2. Three Views
 
 The factory is Slack + Linear + Notion in one app. Each view maps to a well-understood tool category, simplified and opinionated for AI-human collaboration:
 
@@ -8,8 +8,8 @@ The factory is Slack + Linear + Notion in one app. Each view maps to a well-unde
 | **Work** | Planning and tracking | Linear, Jira | Bets, Tasks |
 | **Knowledge** | Wiki — catalogue of knowledge items | Notion databases, Confluence | Topics, knowledge items |
 
-Plus **the Rail** — an always-visible sidebar showing ambient factory state (active bets, blockers, cost burn, unread count). Not a view you switch to; a pane that's always there.
+Ambient awareness surfaces are embedded within each view: Conversations filter chips surface triage state, WorkTeam AgentRow health indicators show agent status, and the Sidebar triage badge shows unread count. The Chief of Staff's chat is a pinned thread in Conversations, not a separate surface.
 
-The Chief of Staff's chat is a pinned thread in Conversations, not a separate surface. The Rail handles ambient awareness and prioritization. Within each view, easy-to-understand objects create the complexity necessary to make it useful.
+Within each view, easy-to-understand objects create the complexity necessary to make it useful.
 
 ---

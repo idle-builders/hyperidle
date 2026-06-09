@@ -10,7 +10,7 @@
 - **Canvas (bet placement)** — symbolic UI, not an actual canvas. Two-column layout (shaped / committed) with hard capacity cap, rendered as `BetCard`s. Standard React components on the DaisyUI stack (see UI_DESIGN.md).
 - **TOON format** — using existing spec at github.com/toon-format/toon.
 - **Scheduler** — async single-process (Node.js event loop). Scale to separate worker only when measured latency demands it.
-- **No external framework integrations in the meta layer.** No Letta, no Agent Mail, no Temporal, no Inngest. All agentic integrations happen through the Agent Runtime (Harness Adapters). Minimal dependencies.
+- **No external framework integrations in the process layer.** No Letta, no Agent Mail, no Temporal, no Inngest. All agentic integrations happen through the Agent Runtime (Harness Adapters). Minimal dependencies.
 - **Minimum install** — `brew install --cask hyperidle`. Under 2 minutes to rendered Factory shell.
 - **Product Manager trajectory assessment** — reads task comments and notes to assess progress. No hardcoded signals or thresholds. Analytics can be layered in later.
 - **No platform team.** HyperIdle is developed by a product team using HyperIdle — dogfooding its own framework.

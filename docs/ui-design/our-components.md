@@ -4,6 +4,8 @@ Built up in four tiers. Each tier composes only from tiers below it. If somethin
 
 ### Tier 1 — Primitives (wrap DaisyUI + tokens to add semantics)
 
+<!-- @source packages/design-system/src/ -->
+
 Five only. Anything more is scope creep.
 
 1. **StatusChip** — a `badge` coloured by state: `healthy / behind / blocked / paused / done / error`. Mono-sm caps text + 6 px dot. The single source of truth for status anywhere in the app.
@@ -29,12 +31,10 @@ No other card shapes. If a new surface needs a card, it reuses one of these or p
 
 ### Tier 3 — Regions (compose Tier 2 into page sections)
 
-Eight. These are the things a page is made of.
+Six. These are the things a page is made of.
 
-1. **IconRail** — 48 px left column: four top-level NavItems (Conversations, Work, Knowledge, Settings) + user Avatar at bottom.
-2. **Submenu** — 240 px contextual column: title, SearchField, filter Tags, scroll list of NavItems or Tier-2 rows. One Submenu per top-level view.
-3. **Rail** — 56 px collapsed / 360 px expanded right column. Collapsed = stacked NavItems per notification category with counts. Expanded = SearchField + grouped NotificationRows. **This is the only notification surface in the app.**
-4. **ArtifactView** — polymorphic review body. Five shapes, selected by artifact kind:
+1. **Sidebar** — 200 px left column: three section headers (Conversations, Work, Knowledge) with triage badge on Conversations + Settings gear at bottom. Ambient awareness via embedded badges and indicators.
+2. **ArtifactView** — polymorphic review body. Five shapes, selected by artifact kind:
    - `text_diff` — stack of diff lines (mono, tinted bg).
    - `content_preview` — rendered content + KeyValue header.
    - `visual_comparison` — two surface-4 panes side by side with labels.
@@ -42,16 +42,16 @@ Eight. These are the things a page is made of.
    - `data_metrics` — grid of KeyValues + inline sparklines.
 
    That's it — one organism, five data shapes. No sixth.
-5. **ReviewHeader** — title + Tag(product) + StatusChip + three `btn`s (approve / request changes / reject). Above every ArtifactView.
-6. **Canvas** — Shape Up lanes (Shaping / Betting / Building / Cool-down) holding BetCards. A `+` slot swaps the Kanban below for the PitchSelector.
-7. **Kanban** — four columns (Planned / Blocked / In Progress / Done) of TaskCards. Gets replaced by PitchSelector when `+` is clicked on the Canvas.
-8. **PitchSelector** — filter Tags + scrollable list of PitchCards + "Add to canvas" action. Overlay that replaces the Kanban.
+3. **ReviewHeader** — title + Tag(product) + StatusChip + three `btn`s (approve / request changes / reject). Above every ArtifactView.
+4. **Canvas** — Two-column bet board (Shaped / Committed) holding BetCards. A `+` slot opens BetCreateDialog for creating new pitches.
+5. **Kanban** — four columns (Planned / Blocked / In Progress / Done) of TaskCards. Gets replaced by PitchSelector when `+` is clicked on the Canvas.
+6. **PitchSelector** — filter Tags + scrollable list of PitchCards + "Add to canvas" action. Overlay that replaces the Kanban.
 
 Detail views (bet detail, knowledge detail, settings form) don't need a dedicated region — they're just a title + KeyValues + Tier-2 rows arranged in the Main pane.
 
 ### Tier 4 — Pages (just compose regions)
 
-The shell is fixed: `IconRail | Submenu | Main | Rail`. Pages differ only in Submenu content and Main content.
+The shell is fixed: `Sidebar | Main content`. Pages differ only in the Main pane content.
 
 | Page | Submenu | Main |
 |---|---|---|
