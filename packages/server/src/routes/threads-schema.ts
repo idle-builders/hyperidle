@@ -85,6 +85,29 @@ const plainPayloadSchema = z.object({
 	blockId: z.string().optional(),
 });
 
+/**
+ * AD8b: ToolCallSummary schema — validates a single tool-call record.
+ * Mirrors the ToolCallSummary type in @hyperidle/shared.
+ */
+const toolCallSummarySchema = z.object({
+	name: z.string().min(1),
+	input: z.record(z.unknown()),
+	output: z.string(),
+	status: z.enum(["ok", "error"]),
+});
+
+/**
+ * AD8b: Plain payload with optional tool-call metadata attached by the assistant.
+ * Extends plainPayloadSchema with an optional `toolCalls` array.
+ *
+ * @lore AD8b: Low/medium-risk assistant tool results are embedded as toolCalls
+ * on the plain message payload. High-risk tools post a review message instead
+ * and never appear as toolCalls on a plain message.
+ */
+export const plainPayloadSchemaWithToolCalls = plainPayloadSchema.extend({
+	toolCalls: z.array(toolCallSummarySchema).optional(),
+});
+
 const reviewPayloadSchema = z.object({
 	title: z.string().min(1).max(512),
 	reasoning: z.array(z.string().max(1024)).max(16),

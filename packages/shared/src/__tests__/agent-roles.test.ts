@@ -25,6 +25,7 @@ import {
 
 describe("AGENT_ROLE_CATALOG", () => {
 	it("has 16 entries", () => {
+		// @lore AD8b: chief_of_staff replaced by assistant — count stays 16.
 		expect(AGENT_ROLE_CATALOG).toHaveLength(16);
 	});
 
@@ -51,16 +52,17 @@ describe("AGENT_ROLE_CATALOG", () => {
 		}
 	});
 
-	it("every legacy role has a catalog entry", () => {
-		const legacyRoles = [
+	it("every known role has a catalog entry", () => {
+		// @lore AD8b: chief_of_staff removed; assistant added.
+		const knownRoles = [
 			"builder",
 			"growth",
 			"product_manager",
 			"practice_facilitator",
-			"chief_of_staff", // @lore AD8a: role string renamed to "assistant" in AD8b
+			"assistant", // @lore AD8b: replaces chief_of_staff
 			"brand_voice",
 		];
-		for (const role of legacyRoles) {
+		for (const role of knownRoles) {
 			expect(
 				findRoleCatalogEntry(role),
 				`role "${role}" should have a catalog entry`,
@@ -121,10 +123,9 @@ describe("findRoleCatalogEntry", () => {
 		expect(entry?.category).toBe("strategy");
 	});
 
-	it("returns the entry for chief_of_staff", () => {
-		// @lore AD8a: role string renamed in AD8b
-		// @lore AD8a: role string renamed to "assistant" in AD8b
-		const entry = findRoleCatalogEntry("chief_of_staff"); // @lore AD8a: role string renamed in AD8b
+	it("returns the entry for assistant (formerly chief_of_staff)", () => {
+		// @lore AD8b: chief_of_staff renamed to assistant.
+		const entry = findRoleCatalogEntry("assistant");
 		expect(entry).toBeDefined();
 		expect(entry?.category).toBe("individual");
 	});
@@ -147,10 +148,9 @@ describe("communityForRole", () => {
 		expect(communityForRole("growth")).toBe("growth");
 	});
 
-	it("returns 'ops' for chief_of_staff", () => {
-		// @lore AD8a: role string renamed in AD8b
-		// @lore AD8a: role string renamed to "assistant" in AD8b
-		expect(communityForRole("chief_of_staff")).toBe("ops"); // @lore AD8a: role string renamed in AD8b
+	it("returns 'ops' for assistant (formerly chief_of_staff)", () => {
+		// @lore AD8b: chief_of_staff renamed to assistant.
+		expect(communityForRole("assistant")).toBe("ops");
 	});
 
 	it("returns 'ops' for practice_facilitator", () => {
@@ -240,7 +240,7 @@ describe("defaultRoster", () => {
 
 	it("does not include strategy or individual category agents", () => {
 		const roster = defaultRoster(["development", "product", "design", "marketing"]);
-		expect(roster).not.toContain("chief_of_staff"); // @lore AD8a: role string renamed in AD8b
+		expect(roster).not.toContain("assistant"); // @lore AD8b: individual-category agents not in team roster
 		expect(roster).not.toContain("practice_facilitator");
 	});
 });

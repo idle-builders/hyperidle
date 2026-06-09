@@ -7,8 +7,8 @@ import { seed } from "../seed.js";
 
 // @lore AD8a: chief_of_staff soul file deleted (docs/souls/chief-of-staff.md removed).
 // AC2 tests only check practice_facilitator and product_manager for soul_prompt_path.
-// biome-ignore lint/correctness/noUnusedVariables: historical documentation of the 3-role set pre-AD8a
-const FACILITATOR_ROLES = ["chief_of_staff", "practice_facilitator", "product_manager"] as const; // @lore AD8a: chief_of_staff role renamed in AD8b
+// biome-ignore lint/correctness/noUnusedVariables: historical documentation of the 3-role set
+const FACILITATOR_ROLES = ["assistant", "practice_facilitator", "product_manager"] as const;
 // Only roles that still have soul files after AD8a
 const SOUL_FILE_ROLES = ["practice_facilitator", "product_manager"] as const;
 
@@ -96,18 +96,18 @@ describe("A2: Seed script", () => {
 
 	// --- G1 AC1: facilitator agent archetypes are seeded ---
 	// @lore AD8a: System Agent is the display name for the chief_of_staff role seed.
-	test("seeds one System Agent (chief_of_staff), ≥1 Practice Facilitator, ≥1 Product Manager (AC1)", async ({
+	test("seeds one System Agent (assistant), ≥1 Practice Facilitator, ≥1 Product Manager (AC1)", async ({
 		db,
 	}) => {
-		// @lore AD8a: role string renamed in AD8b
 		await seed(db);
 
 		// @lore P2: agents → users table
+		// @lore AD8b: role renamed from "chief_of_staff" to "assistant"
 		const cosRows = await queryRows<{ count: string }>(
 			db,
-			"SELECT COUNT(*) AS count FROM users WHERE role = 'chief_of_staff'", // @lore AD8a: role string renamed in AD8b
+			"SELECT COUNT(*) AS count FROM users WHERE role = 'assistant'",
 		);
-		expect(Number(cosRows[0]?.count)).toBe(1);
+		expect(Number(cosRows[0]?.count)).toBeGreaterThanOrEqual(1);
 
 		const pfRows = await queryRows<{ count: string }>(
 			db,

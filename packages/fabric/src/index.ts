@@ -7,7 +7,8 @@ export { bootstrapFabric } from "./bootstrap.js";
 // approval-rate
 export type { ApprovalRateResult } from "./services/approval-rate.js";
 export { computeApprovalRate } from "./services/approval-rate.js";
-
+// assistant-dispatcher
+export { registerAssistantDispatcher } from "./services/assistant-dispatcher.js";
 // attention-service
 export type {
 	AttentionRecomputeResult,
@@ -22,7 +23,6 @@ export {
 	buildAttentionService,
 	MAX_RECOMPUTE_BATCH,
 } from "./services/attention-service.js";
-
 // builtin-routines
 export type {
 	BuiltinRoutineId,
@@ -37,7 +37,6 @@ export {
 	runBuiltinRoutine,
 	seedBuiltinRoutines,
 } from "./services/builtin-routines.js";
-
 // cost-cap
 export type {
 	CheckCostCapParams,
@@ -54,7 +53,6 @@ export {
 	releaseSessionDedup,
 	resetCosts,
 } from "./services/cost-cap.js";
-
 // daily-digest
 export { getDailyDigest } from "./services/daily-digest.js";
 

@@ -280,7 +280,7 @@ describe("A2: Database Schema", () => {
 				id: "agent-1",
 				kind: "ai",
 				name: "Test Agent",
-				role: "chief_of_staff",
+				role: "assistant",
 				status: "active",
 				maxConcurrentSessions: 1,
 				createdAt: now,

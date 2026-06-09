@@ -48,6 +48,7 @@ import { Hono } from "hono";
 import type { ZodError } from "zod";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { escapeLikePattern } from "../services/like-escape.js";
+import { createAssistantThreadRoute } from "./assistant.js";
 import { createCoachRoutes } from "./coach.js";
 import {
 	createThreadBodySchema,
@@ -387,6 +388,11 @@ function err(
 
 export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
+
+	// --- GET /api/threads/assistant ----------------------------------------
+	// @lore AD8b: mounted BEFORE /:id so "assistant" is not swallowed as a
+	// thread id by the Hono wildcard handler.
+	router.route("/assistant", createAssistantThreadRoute(db, eventBus));
 
 	// --- GET /api/threads/coach --------------------------------------------
 	// @lore L21: mounted BEFORE /:id so "coach" is not swallowed as a thread

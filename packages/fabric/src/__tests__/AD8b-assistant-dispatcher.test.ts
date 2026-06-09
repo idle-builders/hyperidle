@@ -15,10 +15,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import {
-	isAssistantThread,
-	shouldDispatchForAssistant,
-} from "../services/assistant-dispatcher.js";
+import { isAssistantThread, shouldDispatchForAssistant } from "../services/assistant-dispatcher.js";
 
 // ---------------------------------------------------------------------------
 // isAssistantThread: thread is an assistant thread iff hostKind="user"
@@ -47,7 +44,9 @@ describe("AD8b — isAssistantThread()", () => {
 	});
 
 	it("returns false for hostKind='factory' thread", () => {
-		expect(isAssistantThread({ hostKind: "factory", hostId: "factory-1", pinned: false })).toBe(false);
+		expect(isAssistantThread({ hostKind: "factory", hostId: "factory-1", pinned: false })).toBe(
+			false,
+		);
 	});
 
 	it("returns false for hostKind='agent' thread", () => {

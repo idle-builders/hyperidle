@@ -10,10 +10,7 @@
 import { render } from "@testing-library/react";
 import { useContext } from "react";
 import { describe, expect, it, vi } from "vitest";
-import {
-	AssistantContext,
-	type AssistantContextRef,
-} from "../contexts/AssistantContext";
+import { AssistantContext, type AssistantContextRef } from "../contexts/AssistantContext";
 
 describe("AD8b — AssistantContext", () => {
 	it("AssistantContext default value has overlayOpen=false", () => {

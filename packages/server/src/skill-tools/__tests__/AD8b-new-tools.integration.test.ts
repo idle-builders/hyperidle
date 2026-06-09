@@ -9,7 +9,7 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import { bets, tasks, teamMembers, teams, threads, users, type HyperIdleDb } from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
@@ -17,8 +17,8 @@ import { test } from "../../test-fixtures.js";
 import { createBetTool } from "../create-bet.js";
 import { editBetTool } from "../edit-bet.js";
 import { editBlockTool } from "../edit-block.js";
-import { updateTaskStatusTool } from "../update-task-status.js";
 import type { ToolContext } from "../tool-registry.js";
+import { updateTaskStatusTool } from "../update-task-status.js";
 
 const NOW = "2026-06-09T00:00:00.000Z";
 
@@ -35,7 +35,9 @@ function makeCtx(db: HyperIdleDb, label = "ad8b"): ToolContext {
 }
 
 async function seedBase(db: HyperIdleDb): Promise<void> {
-	await db.insert(teams).values({ id: "team-ad8b", name: "AD8b Team", phase: "build", createdAt: NOW });
+	await db
+		.insert(teams)
+		.values({ id: "team-ad8b", name: "AD8b Team", phase: "build", createdAt: NOW });
 	await db.insert(teamMembers).values({
 		id: "tm-ad8b",
 		teamId: "team-ad8b",
@@ -79,7 +81,7 @@ async function seedTask(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-async function seedThread(db: HyperIdleDb): Promise<void> {
+async function _seedThread(db: HyperIdleDb): Promise<void> {
 	await db.insert(threads).values({
 		id: "thr-ad8b-1",
 		hostKind: "bet",
@@ -96,7 +98,10 @@ async function seedThread(db: HyperIdleDb): Promise<void> {
 // ---------------------------------------------------------------------------
 
 describe("AD8b — create_bet tool", () => {
-	test("returns ok and inserts a bet row with the given description", async ({ db, eventBus: _eb }) => {
+	test("returns ok and inserts a bet row with the given description", async ({
+		db,
+		eventBus: _eb,
+	}) => {
 		await seedBase(db);
 		const ctx = makeCtx(db, "create-bet");
 
@@ -106,7 +111,9 @@ describe("AD8b — create_bet tool", () => {
 		);
 
 		expect(result.status).toBe("ok");
-		expect(typeof (result as { status: "ok"; value: { betId: string } }).value?.betId).toBe("string");
+		expect(typeof (result as { status: "ok"; value: { betId: string } }).value?.betId).toBe(
+			"string",
+		);
 
 		// Verify DB row was inserted
 		const [row] = await db.select().from(bets).where(eq(bets.description, "New test bet"));

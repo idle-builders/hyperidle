@@ -75,6 +75,5 @@ export const routeItemTool: ToolDefinition<RouteItemInput> = {
 	handler,
 	// @lore G3 may add an `item_routed` event when other subscribers need it;
 	// G1 intentionally omits the emit so the shim stays idempotent.
-	// @lore AD8a: role string "chief_of_staff" renamed to "assistant" in AD8b.
-	roles: ["chief_of_staff", "practice_facilitator", "product_manager"],
+	roles: ["assistant", "practice_facilitator", "product_manager"],
 };

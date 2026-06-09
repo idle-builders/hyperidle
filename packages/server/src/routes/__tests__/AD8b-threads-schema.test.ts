@@ -96,7 +96,12 @@ describe("AD8b — plainPayloadSchema with toolCalls extension", () => {
 			text: "I ran 2 queries for you.",
 			toolCalls: [
 				{ name: "read_inbox", input: {}, output: "2 messages", status: "ok" },
-				{ name: "query_practice", input: { query: "blocked tasks" }, output: "1 task", status: "ok" },
+				{
+					name: "query_practice",
+					input: { query: "blocked tasks" },
+					output: "1 task",
+					status: "ok",
+				},
 			],
 		});
 		expect(result.success).toBe(true);

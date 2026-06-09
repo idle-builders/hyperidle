@@ -199,7 +199,10 @@ describe("AD8b — GET/PATCH /api/users/:userId/assistant (soul prompt)", () => 
 		vi.unstubAllEnvs();
 	});
 
-	test("GET /api/users/:id/assistant returns 200 with id, name, soulPrompt", async ({ db, app }) => {
+	test("GET /api/users/:id/assistant returns 200 with id, name, soulPrompt", async ({
+		db,
+		app,
+	}) => {
 		await seedUser(db, "u-soul-1", "Soul User");
 		const res = await app.request("/api/users/u-soul-1/assistant", {
 			method: "GET",
@@ -331,7 +334,7 @@ describe("AD8b — AC-1: assistant agent created at user registration", () => {
 			body: JSON.stringify({ name: "Agent Check User", email: "agentcheck@example.com" }),
 		});
 		const body = (await res.json()) as { id: string };
-		const userId = body.id;
+		const _userId = body.id;
 
 		// Look up the assistant agent via the DB (it is a user with kind=ai)
 		const { users: usersTable } = await import("@hyperidle/db");
@@ -340,17 +343,12 @@ describe("AD8b — AC-1: assistant agent created at user registration", () => {
 		const assistantRows = await db
 			.select()
 			.from(usersTable)
-			.where(
-				and(
-					eq(usersTable.kind, "ai"),
-					eq(usersTable.role, "assistant"),
-				),
-			);
+			.where(and(eq(usersTable.kind, "ai"), eq(usersTable.role, "assistant")));
 
 		// At least one assistant agent should exist for the new user
 		// The assistant is linked to the user via the thread (hostId=userId)
 		expect(assistantRows.length).toBeGreaterThanOrEqual(1);
-		const agentRow = assistantRows.find((r) => r.id.includes(userId) || true);
+		const agentRow = assistantRows.find((_r) => true);
 		expect(agentRow?.role).toBe("assistant");
 	});
 });

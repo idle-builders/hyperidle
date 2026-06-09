@@ -19,7 +19,7 @@ import { createRef } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AssistantContextRef } from "../contexts/AssistantContext";
-import { AssistantOverlay, type AssistantOverlayProps } from "../shell/AssistantOverlay";
+import { AssistantOverlay } from "../shell/AssistantOverlay";
 
 // Module-level mock: provides a "ready" assistant thread for all AssistantOverlay tests.
 vi.mock("../hooks/useAssistantThread", () => ({

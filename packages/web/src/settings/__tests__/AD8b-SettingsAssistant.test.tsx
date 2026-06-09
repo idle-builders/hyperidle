@@ -30,10 +30,10 @@ function mockFetchSuccess(soulPrompt = MOCK_SOUL_PROMPT): void {
 		const urlStr = typeof url === "string" ? url : url.toString();
 
 		if (urlStr.includes("/assistant") && method === "GET") {
-			return new Response(
-				JSON.stringify({ id: "ast-agent-1", name: "Assistant", soulPrompt }),
-				{ status: 200, headers: { "Content-Type": "application/json" } },
-			);
+			return new Response(JSON.stringify({ id: "ast-agent-1", name: "Assistant", soulPrompt }), {
+				status: 200,
+				headers: { "Content-Type": "application/json" },
+			});
 		}
 		if (urlStr.includes("/assistant") && method === "PATCH") {
 			const body = JSON.parse(opts?.body as string);

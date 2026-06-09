@@ -1,0 +1,50 @@
+/**
+ * AD8b — AssistantAttachButton
+ *
+ * A "+" button that appears on BetCard/TaskCard/KnowledgeRow when the assistant
+ * overlay is open. Clicking it attaches the item as a context ref in the
+ * AssistantOverlay composer.
+ *
+ * @lore AD8b: Renamed from CocAttachButton → AssistantAttachButton.
+ * data-testid changed from "coc-attach-button" → "assistant-attach-button".
+ */
+
+import type { JSX } from "react";
+import { useContext } from "react";
+import type { AssistantContextRef } from "../contexts/AssistantContext";
+import { AssistantContext } from "../contexts/AssistantContext";
+
+export interface AssistantAttachButtonProps {
+	/** The context ref that will be attached when the button is clicked. */
+	ref: AssistantContextRef;
+}
+
+/**
+ * Renders a "+" button when the assistant overlay is open.
+ * Returns null when the overlay is closed (no-op for non-assistant contexts).
+ */
+export function AssistantAttachButton({
+	ref: contextRef,
+}: AssistantAttachButtonProps): JSX.Element | null {
+	const { overlayOpen, attachContext } = useContext(AssistantContext);
+
+	if (!overlayOpen) return null;
+
+	return (
+		<button
+			type="button"
+			aria-label={`Attach ${contextRef.label} to Assistant`}
+			data-testid="assistant-attach-button"
+			className="ml-auto shrink-0 flex items-center justify-center h-[24px] w-[24px] rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-overlay)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]"
+			onClick={(e) => {
+				// Prevent the card's own onClick from triggering (e.g. navigate to bet detail).
+				e.stopPropagation();
+				attachContext(contextRef);
+			}}
+		>
+			<span aria-hidden="true" className="text-[14px] leading-none">
+				+
+			</span>
+		</button>
+	);
+}

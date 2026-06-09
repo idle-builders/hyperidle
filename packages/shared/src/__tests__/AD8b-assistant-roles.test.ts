@@ -9,10 +9,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import {
-	AGENT_ROLE_CATALOG,
-	findRoleCatalogEntry,
-} from "../agent-roles.js";
+import { AGENT_ROLE_CATALOG, findRoleCatalogEntry } from "../agent-roles.js";
 import {
 	classifyThreadConfiguration,
 	type ThreadConfiguration,

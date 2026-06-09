@@ -10,10 +10,10 @@
 import { describe, expect, it } from "vitest";
 import {
 	ASSISTANT_TOOLS,
-	HIGH_RISK_TOOLS,
-	toolsForAssistant,
 	type AssistantToolDef,
+	HIGH_RISK_TOOLS,
 	type ToolRiskLevel,
+	toolsForAssistant,
 } from "../assistant-tools.js";
 
 // ---------------------------------------------------------------------------
