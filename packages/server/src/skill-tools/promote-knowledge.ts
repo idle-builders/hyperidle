@@ -181,5 +181,6 @@ export const promoteKnowledgeTool: ToolDefinition<PromoteKnowledgeInput> = {
 	inputSchema: promoteKnowledgeInputSchema,
 	handler,
 	// @lore AD8a: role string "chief_of_staff" renamed to "assistant" in AD8b.
-	roles: ["chief_of_staff", "practice_facilitator", "product_manager"],
+	// @lore AD8c: role string "practice_facilitator" renamed to "facilitator".
+	roles: ["chief_of_staff", "facilitator", "product_manager"],
 };

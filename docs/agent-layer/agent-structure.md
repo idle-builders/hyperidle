@@ -9,7 +9,7 @@ Every AI agent belongs to exactly one of three structural categories. The catego
 | Category | Binding | Provisioned by | Editability | Examples |
 |---|---|---|---|---|
 | **Team** | Bound to a team (`teamId` non-null) | Default roster per team function | Fully user-controlled | builder, designer, product_manager, qa_engineer, growth, ops |
-| **Strategy** | Factory-wide (`teamId` null) | Strategy at factory setup | Soul editable; operational config strategy-managed | practice_facilitator, scout, infra, platform |
+| **Strategy** | Factory-wide (`teamId` null) | Strategy at factory setup | Soul editable; operational config strategy-managed | facilitator <!-- @lore AD8c: renamed from practice_facilitator -->, scout, infra, platform |
 | **Personal** | Bound to a human user (`teamId` null) | Per-user at setup | Fully user-controlled | chief_of_staff <!-- @lore AD8a: role renamed to "assistant" in AD8b --> |
 
 Category is a closed enum (`team | strategy | personal`). Adding a fourth requires a concept-doc update. Category is immutable after agent creation.
@@ -20,7 +20,7 @@ The functional specialty of an agent. An open string with a catalog of known rol
 
 Known roles and their catalog entries are defined in `packages/shared/src/agent-roles.ts`.
 
-The prior `USER_ROLES` closed enum (`builder | growth | product_manager | practice_facilitator | chief_of_staff <!-- @lore AD8a --> | brand_voice`) is replaced. The `KERNEL_USER_ROLES` / `FABRIC_USER_ROLES` split (which was about system layer, not agent category) is removed.
+The prior `USER_ROLES` closed enum (`builder | growth | product_manager | facilitator <!-- @lore AD8c: renamed from practice_facilitator --> | chief_of_staff <!-- @lore AD8a --> | brand_voice`) is replaced. The `KERNEL_USER_ROLES` / `FABRIC_USER_ROLES` split (which was about system layer, not agent category) is removed.
 
 ### Team Function
 

@@ -12,8 +12,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-	clearCostSentinelCache,
 	COST_SENTINEL_INTERVAL_MS,
+	clearCostSentinelCache,
 	startCostSentinel,
 } from "../services/cost-sentinel.js";
 

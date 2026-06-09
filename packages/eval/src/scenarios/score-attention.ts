@@ -141,7 +141,7 @@ const saRecomputePfDevops: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
-			agentRole: "facilitator" // @lore AD8c: renamed from practice_facilitator,
+			agentRole: "facilitator", // @lore AD8c: renamed from practice_facilitator
 			agentSoulPrompt: `You are a practice facilitator for the DevOps community.
 Use score_attention in "recompute" mode to refresh the attention engine scores for knowledge items.
 Recompute mode does NOT require a score argument — the engine computes it automatically.
