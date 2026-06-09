@@ -41,6 +41,12 @@ export function ArtifactGalleryCard({
 		>
 			<div className={HEADER}>
 				<ArtifactKindBadge kind={data.kind} />
+				{data.label && (
+					<>
+						<span className="text-[var(--text-tertiary)]">/</span>
+						<span className="text-[var(--text-tertiary)]">{data.label}</span>
+					</>
+				)}
 				<span className="text-[var(--text-tertiary)]">·</span>
 				<span>{data.producingTaskTitle}</span>
 			</div>

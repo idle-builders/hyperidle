@@ -1,15 +1,18 @@
-import type { ArtifactKind } from "@hyperidle/shared";
+// AE6: kind widened from ArtifactKind (closed union) to string (open vocabulary).
+// @lore AE6: ArtifactKind was a 13-member closed union. With AE6, Artifact.kind
+// is a string — any registered or unregistered kind passes through.
+// The kindLabel function works for any string.
 import type { JSX } from "react";
 import { dsProps } from "./ds-attrs.js";
 
 export interface ArtifactKindBadgeProps {
-	kind: ArtifactKind;
+	kind: string;
 }
 
 const BADGE_BASE =
 	"inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-default)] bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)] font-mono text-[11px] tracking-[0.02em] uppercase whitespace-nowrap";
 
-function kindLabel(kind: ArtifactKind): string {
+function kindLabel(kind: string): string {
 	return kind.replace(/_/g, " ").toUpperCase();
 }
 

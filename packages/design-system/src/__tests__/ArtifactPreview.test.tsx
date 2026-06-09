@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-// L3 RED — Tier 2 layout: ArtifactPreview (single_full_preview).
+// AE6 updated — Tier 2 layout: ArtifactPreview (single_full_preview).
 // Protected: AC-9 — placeholder "PREVIEW NOT YET RENDERED" + no fake thumbnail.
+// @lore AE6: kind widened to string; fixture now uses 6 fundamental kinds.
 
-import type { Artifact, ArtifactKind } from "@hyperidle/shared";
+import type { Artifact } from "@hyperidle/shared";
 import { ARTIFACT_KINDS } from "@hyperidle/shared";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -11,12 +12,17 @@ import { ArtifactPreview } from "../ArtifactPreview.js";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-function fixture(kind: ArtifactKind, preview: Artifact["preview"] = null): Artifact {
+function fixture(
+	kind: string,
+	preview: Artifact["preview"] = null,
+	label?: string | null,
+): Artifact {
 	return {
 		id: "x",
 		producingTaskId: "t",
 		producingTaskTitle: "Task title",
 		kind,
+		label: label ?? null,
 		preview,
 		cost: { money: { minor: 42, currency: "USD" as const }, tokens: null },
 		threadCount: 0,
@@ -39,22 +45,27 @@ describe("ArtifactPreview (single_full_preview)", () => {
 		container.remove();
 	});
 
-	it("renders the meta row + body", () => {
+	it("renders the kind badge and label in the meta row", () => {
+		// @lore AE6: 'decision' mapped to 'text' + label='decision' (dropped).
+		// Using 'text' kind with plain body content for this test.
 		act(() => {
 			root.render(
 				createElement(ArtifactPreview, {
-					data: fixture("decision", { kind: "decision", claim: "Ship X", rationale: "y" }),
+					data: fixture(
+						"text",
+						{ kind: "text", body: "Ship X decision: proceed with PostgreSQL", format: "plain" },
+						"decision",
+					),
 				}),
 			);
 		});
-		expect(container.textContent).toContain("DECISION");
-		expect(container.textContent).toContain("Ship X");
+		expect(container.textContent).toContain("TEXT");
+		expect(container.textContent).toContain("decision");
 	});
 
-	// Protected: PREVIEW NOT YET RENDERED + no fake thumbnail
 	it("renders 'PREVIEW NOT YET RENDERED' when preview is null and no <img>", () => {
 		act(() => {
-			root.render(createElement(ArtifactPreview, { data: fixture("design", null) }));
+			root.render(createElement(ArtifactPreview, { data: fixture("image", null) }));
 		});
 		expect(container.textContent).toContain("PREVIEW NOT YET RENDERED");
 		expect(container.querySelector("img")).toBeNull();
@@ -62,18 +73,16 @@ describe("ArtifactPreview (single_full_preview)", () => {
 
 	it("does not render a discussion area by default (slot empty)", () => {
 		act(() => {
-			root.render(createElement(ArtifactPreview, { data: fixture("decision", null) }));
+			root.render(createElement(ArtifactPreview, { data: fixture("text", null) }));
 		});
-		// No L1 thread surface yet — the slot's empty rendering must not include
-		// any threading placeholder text that would suggest a fabricated UI.
 		expect(container.textContent).not.toContain("Reply...");
 	});
 
-	// Exhaustive-render smoke for all 12 recognised kinds
-	for (const kind of ARTIFACT_KINDS.filter((k) => k !== "unknown_kind")) {
+	// Exhaustive-render smoke for all 6 fundamental kinds
+	for (const kind of ARTIFACT_KINDS) {
 		it(`renders without throwing for kind '${kind}' (no preview)`, () => {
 			act(() => {
-				root.render(createElement(ArtifactPreview, { data: fixture(kind as ArtifactKind, null) }));
+				root.render(createElement(ArtifactPreview, { data: fixture(kind, null) }));
 			});
 			expect(container.firstElementChild).toBeTruthy();
 		});

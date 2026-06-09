@@ -245,7 +245,14 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 		expect(body.nextCursor).not.toBeNull();
 	});
 
-	test("normalises an unrecognised kind to unknown_kind with preview:null", async ({ db, app }) => {
+	test("AE6: returns unrecognised kind as-is (open vocabulary) with preview:null", async ({
+		db,
+		app,
+	}) => {
+		// @lore AE6: Artifact.kind is now a string (open vocabulary). Unrecognised kinds
+		// are preserved as-is at read time — no normalization to 'unknown_kind'.
+		// The old 'unknown_kind' sentinel is gone. Unregistered kinds are forwarded to
+		// the fallback renderer in the UI.
 		const s = await seed(db);
 		await insertArtifact(db, "art_unk", s.taskId, { kind: "internet_meme", previewJson: null });
 		const res = await app.request(`/api/artifacts?axis=task&taskId=${s.taskId}`, {
@@ -254,7 +261,7 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 		const body = (await res.json()) as {
 			items: Array<{ kind: string; preview: unknown | null }>;
 		};
-		expect(body.items[0]?.kind).toBe("unknown_kind");
+		expect(body.items[0]?.kind).toBe("internet_meme");
 		expect(body.items[0]?.preview).toBeNull();
 	});
 });
@@ -378,15 +385,19 @@ describe("L3 PATCH immutability (preview, cost) — protected", () => {
 	});
 
 	test("second PATCH /preview returns 409 IMMUTABLE", async ({ db, app }) => {
+		// @lore AE6: previewJson is seeded with a valid new-kind preview (text kind).
+		// Old-kind previews (kind: "decision") are no longer valid per patchPreviewSchema.
+		// The artifact kind in the DB is set to "text" to match the preview discriminant.
 		const s = await seed(db);
 		await insertArtifact(db, "art_imm", s.taskId, {
-			previewJson: JSON.stringify({ kind: "decision", claim: "c", rationale: "r" }),
+			kind: "text",
+			previewJson: JSON.stringify({ kind: "text", body: "original decision", format: "plain" }),
 		});
 		const res = await app.request("/api/artifacts/art_imm/preview", {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				preview: { kind: "decision", claim: "x", rationale: "y" },
+				preview: { kind: "text", body: "attempted overwrite", format: "plain" },
 			}),
 		});
 		expect(res.status).toBe(409);

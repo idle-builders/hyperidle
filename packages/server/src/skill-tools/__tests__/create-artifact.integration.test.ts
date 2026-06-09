@@ -102,10 +102,12 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 		const { taskId, betId } = await seed(db);
 		const ctx = makeContext(db, eventBus, taskId);
 
+		// @lore AE6: 'verification' mapped to 'data' kind. Using text kind for simplicity.
 		const result = await createArtifactTool.handler(
 			{
-				kind: "verification",
-				preview: { kind: "verification", suite: "unit", passed: 12, failed: 0 },
+				kind: "text",
+				label: "test_results",
+				preview: { kind: "text", body: "12 passed, 0 failed", format: "plain" },
 			},
 			ctx,
 		);
@@ -133,7 +135,8 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 		const { taskId } = await seed(db, "_portfolio");
 		const ctx = makeContext(db, eventBus, taskId);
 
-		const result = await createArtifactTool.handler({ kind: "decision", preview: null }, ctx);
+		// @lore AE6: 'decision' mapped to 'text' kind.
+		const result = await createArtifactTool.handler({ kind: "text", preview: null }, ctx);
 
 		expect(result.success).toBe(true);
 		if (!result.success) return;
@@ -158,10 +161,12 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 		const { taskId } = await seed(db, "_shape");
 		const ctx = makeContext(db, eventBus, taskId);
 
+		// @lore AE6: Using 'text' kind (was 'verification' in R6). Fundamental kinds only at create time.
 		const result = await createArtifactTool.handler(
 			{
-				kind: "verification",
-				preview: { kind: "verification", suite: "e2e", passed: 7, failed: 0 },
+				kind: "text",
+				label: "test_results",
+				preview: { kind: "text", body: "7 passed, 0 failed in e2e", format: "plain" },
 			},
 			ctx,
 		);
@@ -176,25 +181,25 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 		const body = (await res.json()) as {
 			id: string;
 			kind: string;
+			label: string | null;
 			producingTaskId: string;
 			producingTaskTitle: string;
-			preview: { kind: string; suite: string; passed: number; failed: number } | null;
+			preview: { kind: string; body: string; format?: string } | null;
 			cost: { money: null; tokens: null } | null;
 			threadCount: number;
 			createdAt: string;
 		};
 
 		expect(body.id).toBe(artifactId);
-		expect(body.kind).toBe("verification");
+		expect(body.kind).toBe("text");
+		expect(body.label).toBe("test_results");
 		expect(body.producingTaskId).toBe(taskId);
 		expect(body.producingTaskTitle).toBe("R6 Test task");
 
 		// Preview must be present and correct.
 		expect(body.preview).not.toBeNull();
-		expect(body.preview?.kind).toBe("verification");
-		expect(body.preview?.suite).toBe("e2e");
-		expect(body.preview?.passed).toBe(7);
-		expect(body.preview?.failed).toBe(0);
+		expect(body.preview?.kind).toBe("text");
+		expect(body.preview?.body).toBe("7 passed, 0 failed in e2e");
 
 		// @lore O2: cost columns stripped from kernel table; cost always null shape.
 		expect(body.cost).toBeDefined();
@@ -220,8 +225,13 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 		const { taskId } = await seed(db, "_task");
 		const ctx = makeContext(db, eventBus, taskId);
 
+		// @lore AE6: 'data_analysis' mapped to 'text' kind + label='analysis'.
 		const result = await createArtifactTool.handler(
-			{ kind: "data_analysis", preview: { kind: "data_analysis", findings: ["finding A"] } },
+			{
+				kind: "text",
+				label: "analysis",
+				preview: { kind: "text", body: "finding A", format: "plain" },
+			},
 			ctx,
 		);
 
@@ -249,7 +259,8 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 		const scopeB = await seed(db, "_iso-b");
 
 		const ctxA = makeContext(db, eventBus, scopeA.taskId);
-		const resultA = await createArtifactTool.handler({ kind: "decision", preview: null }, ctxA);
+		// @lore AE6: 'decision' mapped to 'text' kind.
+		const resultA = await createArtifactTool.handler({ kind: "text", preview: null }, ctxA);
 		expect(resultA.success).toBe(true);
 		if (!resultA.success) return;
 		const { artifactId: artifactA } = resultA.data as { artifactId: string };

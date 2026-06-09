@@ -426,10 +426,10 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 			api.route("/workers", createWorkersRoutes(options.adapterPool));
 		}
 		api.route("/git-export", createGitExportRoutes(options.db));
-		// AD2: dispatch queue observability — GET /api/dispatch-queue
-		api.route("/dispatch-queue", createDispatchQueueRoutes());
 		api.route("/credentials", createCredentialRoutes(options.db));
 		api.route("/hint-progress", createHintRoutes(options.db));
+		// AD2: Dispatch queue observer — GET /api/dispatch-queue
+		api.route("/dispatch-queue", createDispatchQueueRoutes());
 		api.route("/search", createSearchRoutes(options.db, eventBus));
 		// O3: defaultNotificationAdapterFactory moved to @hyperidle/fabric (imported at top).
 		// Tests may override via notificationAdapterFactory for route-level adapter injection.

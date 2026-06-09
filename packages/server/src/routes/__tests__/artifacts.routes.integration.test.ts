@@ -123,10 +123,12 @@ describe("artifacts routes", () => {
 		test("returns 200 with paginated artifacts for axis=task", async ({ db, app }) => {
 			const { taskId } = await seedBase(db);
 			const now = new Date().toISOString();
+			// @lore AE6: 'verification' was an old kind; direct DB insert uses any string (bypasses API validation).
+			// Using 'data' (the AE6 mapped kind for verification) for clarity.
 			await db.insert(artifacts).values({
 				id: "art-1",
 				producingTaskId: taskId,
-				kind: "verification",
+				kind: "data",
 				previewJson: null,
 				createdAt: now,
 			});
@@ -158,7 +160,7 @@ describe("artifacts routes", () => {
 			await db.insert(artifacts).values({
 				id: "art-1",
 				producingTaskId: taskId,
-				kind: "verification",
+				kind: "data",
 				previewJson: null,
 				createdAt: now,
 			});
@@ -184,16 +186,17 @@ describe("artifacts routes", () => {
 
 	describe("POST /api/artifacts", () => {
 		test("returns 201 with created artifact on valid input", async ({ db, app }) => {
+			// @lore AE6: POST only accepts the 6 fundamental kinds.
 			const { taskId } = await seedBase(db);
 			const res = await app.request("/api/artifacts", {
 				method: "POST",
 				headers: authHeaders(),
-				body: JSON.stringify({ producingTaskId: taskId, kind: "verification", preview: null }),
+				body: JSON.stringify({ producingTaskId: taskId, kind: "data", preview: null }),
 			});
 			expect(res.status).toBe(201);
 			const body = (await res.json()) as { id: string; kind: string };
 			expect(typeof body.id).toBe("string");
-			expect(body.kind).toBe("verification");
+			expect(body.kind).toBe("data");
 		});
 
 		test("returns 400 when producingTaskId references non-existent task", async ({ db, app }) => {
@@ -203,14 +206,19 @@ describe("artifacts routes", () => {
 				headers: authHeaders(),
 				body: JSON.stringify({
 					producingTaskId: "non-existent",
-					kind: "verification",
+					kind: "data",
 					preview: null,
 				}),
 			});
 			expect(res.status).toBe(400);
 		});
 
-		test("returns 400 when kind is 'unknown_kind'", async ({ db, app }) => {
+		test("returns 400 when kind is 'unknown_kind' (not a fundamental kind)", async ({
+			db,
+			app,
+		}) => {
+			// @lore AE6: 'unknown_kind' is a legacy sentinel — POST rejects it since only
+			// the 6 fundamental kinds are accepted at create time.
 			const { taskId } = await seedBase(db);
 			const res = await app.request("/api/artifacts", {
 				method: "POST",
@@ -222,15 +230,15 @@ describe("artifacts routes", () => {
 
 		test("returns 400 when kind/preview discriminant mismatches", async ({ db, app }) => {
 			const { taskId } = await seedBase(db);
-			// kind=verification but preview is code_diff (discriminant mismatch)
+			// kind=data but preview is code (discriminant mismatch)
 			const res = await app.request("/api/artifacts", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
 					producingTaskId: taskId,
-					kind: "verification",
+					kind: "data",
 					preview: {
-						kind: "code_diff",
+						kind: "code",
 						file: "src/main.ts",
 						hunks: [{ header: "@@ -1,3 +1,3 @@", lines: [{ kind: "ctx", text: "hello" }] }],
 					},
@@ -243,18 +251,19 @@ describe("artifacts routes", () => {
 			const res = await app.request("/api/artifacts", {
 				method: "POST",
 				headers: authHeaders(),
-				body: JSON.stringify({ kind: "verification" }),
+				body: JSON.stringify({ kind: "data" }),
 			});
 			expect(res.status).toBe(400);
 		});
 	});
 
 	describe("PATCH /api/artifacts/:id/preview", () => {
-		const validVerificationPreview = {
-			kind: "verification",
-			suite: "vitest",
-			passed: 5,
-			failed: 0,
+		// @lore AE6: PATCH /preview validates against 6-fundamental-kind schema.
+		// Using 'text' kind preview as the canonical example.
+		const validTextPreview = {
+			kind: "text",
+			body: "Summary of test results",
+			format: "plain",
 		};
 
 		test("returns 200 on successful preview set (when previewJson IS NULL)", async ({
@@ -266,7 +275,7 @@ describe("artifacts routes", () => {
 			await db.insert(artifacts).values({
 				id: "art-noprev",
 				producingTaskId: taskId,
-				kind: "verification",
+				kind: "text",
 				previewJson: null,
 				createdAt: now,
 			});
@@ -274,7 +283,7 @@ describe("artifacts routes", () => {
 			const res = await app.request("/api/artifacts/art-noprev/preview", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ preview: validVerificationPreview }),
+				body: JSON.stringify({ preview: validTextPreview }),
 			});
 			expect(res.status).toBe(200);
 		});
@@ -285,15 +294,15 @@ describe("artifacts routes", () => {
 			await db.insert(artifacts).values({
 				id: "art-withprev",
 				producingTaskId: taskId,
-				kind: "verification",
-				previewJson: JSON.stringify(validVerificationPreview),
+				kind: "text",
+				previewJson: JSON.stringify(validTextPreview),
 				createdAt: now,
 			});
 
 			const res = await app.request("/api/artifacts/art-withprev/preview", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ preview: validVerificationPreview }),
+				body: JSON.stringify({ preview: validTextPreview }),
 			});
 			expect(res.status).toBe(409);
 		});
@@ -302,7 +311,7 @@ describe("artifacts routes", () => {
 			const res = await app.request("/api/artifacts/does-not-exist/preview", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ preview: validVerificationPreview }),
+				body: JSON.stringify({ preview: validTextPreview }),
 			});
 			expect(res.status).toBe(404);
 		});

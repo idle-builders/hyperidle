@@ -767,6 +767,8 @@ export const artifacts = pgTable(
 			.notNull()
 			.references(() => tasks.id, { onDelete: "restrict" }),
 		kind: text("kind").notNull(),
+		// AE6: optional business-domain tag (e.g., 'contract', 'email'). Does NOT affect renderer.
+		label: text("label"),
 		previewJson: text("preview_json"),
 		createdAt: text("created_at").notNull(),
 	},

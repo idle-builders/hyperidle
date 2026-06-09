@@ -32,6 +32,12 @@ export function ArtifactPreview({
 			<div className={HEADER}>
 				<div className={META}>
 					<ArtifactKindBadge kind={data.kind} />
+					{data.label && (
+						<>
+							<span className="text-[var(--text-tertiary)]">/</span>
+							<span className="text-[var(--text-tertiary)]">{data.label}</span>
+						</>
+					)}
 					<span className="text-[var(--text-tertiary)]">·</span>
 					<span>{data.producingTaskTitle}</span>
 					<span className="text-[var(--text-tertiary)]">·</span>

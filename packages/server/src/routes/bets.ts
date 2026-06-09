@@ -11,9 +11,8 @@ import {
 	teams,
 	threads,
 } from "@hyperidle/db";
-import type { ArtifactKind, ArtifactThreadSummary, EventBus } from "@hyperidle/shared";
+import type { ArtifactThreadSummary, EventBus } from "@hyperidle/shared";
 import {
-	ARTIFACT_KINDS,
 	BET_OUTCOME_VERDICTS,
 	CURRENCY_CODES,
 	deriveTitle,
@@ -27,7 +26,6 @@ import { validateBody } from "../middleware/validate.js";
 import { transitionBet, updateBetField } from "../services/bet-state-machine.js";
 import { ApiError, loadTeamMembers } from "../services/team-lookup.js";
 
-const RECOGNISED_ARTIFACT_KIND_VALUES = ARTIFACT_KINDS as readonly string[];
 const SUMMARY_CAP = 10;
 
 /**
@@ -1170,11 +1168,9 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				}
 			}
 
-			// Normalise artifactKind to a recognised value.
-			const recognised =
-				RECOGNISED_ARTIFACT_KIND_VALUES.includes(r.artifactKind) &&
-				r.artifactKind !== "unknown_kind";
-			const artifactKind = (recognised ? r.artifactKind : "unknown_kind") as ArtifactKind;
+			// @lore AE6: artifactKind is now string (open vocabulary). No unknown_kind sentinel.
+			// Pass the raw kind through — unregistered kinds render fallback on the UI.
+			const artifactKind = r.artifactKind;
 
 			// Extract snippet from the last plain-message payload (first 80 chars of text).
 			let lastMessageSnippet: string | null = null;
