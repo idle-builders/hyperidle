@@ -20,7 +20,9 @@
 
 import {
 	bets,
+	factorySettings,
 	type HyperIdleDb,
+	messages,
 	notificationQueue,
 	routineRuns,
 	routines,
@@ -28,6 +30,7 @@ import {
 	tasks,
 	teamMembers,
 	teams,
+	threads,
 	users,
 } from "@hyperidle/db";
 import { enqueueNotification } from "@hyperidle/fabric";
@@ -45,7 +48,7 @@ import type {
 	TeamListItem,
 	WireMoney,
 } from "@hyperidle/shared";
-import { deriveTitle } from "@hyperidle/shared";
+import { AGENT_ROLE_CATALOG, defaultRoster, deriveTitle } from "@hyperidle/shared";
 import { and, count, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import type { AdapterPool } from "../harness/adapter-pool.js";
@@ -309,6 +312,10 @@ export function createTeamRoutes(
 	});
 
 	// POST / — create a new team with a team_members row and default agents
+	// @lore AE2: Rewritten to use defaultRoster() for function-based agent creation.
+	// Backward compat: no `functions` in body defaults to ["development","product"].
+	// The teams.functions column stores the JSON array for future reference.
+	// Best-effort welcome message: failure does not roll back team creation.
 	router.post("/", async (c) => {
 		let body: unknown;
 		try {
@@ -317,23 +324,33 @@ export function createTeamRoutes(
 			return c.json({ error: "Invalid JSON", code: "validation_error" }, 400);
 		}
 
-		const { name, repoPath } = body as CreateTeamRequest;
+		const { name, repoPath, functions, userId } = body as CreateTeamRequest;
 		if (!name || typeof name !== "string" || name.trim().length === 0) {
 			return c.json({ error: "name is required", code: "validation_error" }, 400);
+		}
+
+		// AE2: resolve team functions — default to ["development","product"] for backward compat.
+		const teamFunctions: string[] =
+			Array.isArray(functions) && functions.length > 0 ? functions : ["development", "product"];
+
+		// AE2: compute default roster; reject if empty (unknown functions produce no agents).
+		const rosterRoles = defaultRoster(teamFunctions);
+		if (rosterRoles.length === 0) {
+			return c.json({ error: "No agents for the given functions", code: "validation_error" }, 400);
 		}
 
 		const now = new Date().toISOString();
 		// @lore U2: ID prefix changed from `product-` to `team-` (domain rename).
 		const teamId = `team-${crypto.randomUUID()}`;
 		const teamMembersId = `team-${crypto.randomUUID()}`;
-		const builderId = `agent-builder-${crypto.randomUUID()}`;
-		const pmId = `agent-pm-${crypto.randomUUID()}`;
 
 		await db.insert(teams).values({
 			id: teamId,
 			name: name.trim(),
 			phase: "build",
 			factoryDbPath: typeof repoPath === "string" ? repoPath.trim() || null : null,
+			// AE2: store chosen functions as JSON for future reads.
+			functions: JSON.stringify(teamFunctions),
 			createdAt: now,
 		});
 
@@ -345,32 +362,136 @@ export function createTeamRoutes(
 			formedAt: now,
 		});
 
-		await db.insert(users).values({
-			id: builderId,
-			kind: "ai",
-			name: `${name.trim()} Builder`,
-			role: "builder",
-			status: "active",
-			maxConcurrentSessions: 3,
-			teamId: teamMembersId,
-			createdAt: now,
-		});
+		// AE2: create one agent per role from defaultRoster().
+		// For each role, look up soul template and catalog metadata.
+		const agentIds: string[] = [];
+		let leadAgentId: string | null = null;
+		let firstProductManagerId: string | null = null;
 
-		await db.insert(users).values({
-			id: pmId,
-			kind: "ai",
-			name: `${name.trim()} Product Manager`,
-			role: "product_manager",
-			status: "active",
-			maxConcurrentSessions: 1,
-			teamId: teamMembersId,
-			createdAt: now,
-		});
+		for (const role of rosterRoles) {
+			const catalogEntry = AGENT_ROLE_CATALOG.find((e) => e.role === role);
+			const label = catalogEntry?.label ?? role;
 
-		await db
-			.update(teamMembers)
-			.set({ leadAgentId: builderId })
-			.where(eq(teamMembers.id, teamMembersId));
+			// Look up soul template from factorySettings if hasTemplate=true.
+			let soulPrompt: string | null = null;
+			if (catalogEntry?.hasTemplate) {
+				const [templateRow] = await db
+					.select()
+					.from(factorySettings)
+					.where(eq(factorySettings.key, `soul_template:${role}`))
+					.limit(1);
+				soulPrompt = templateRow?.value ?? null;
+			}
+
+			const agentId = `agent-${role}-${crypto.randomUUID()}`;
+			agentIds.push(agentId);
+
+			await db.insert(users).values({
+				id: agentId,
+				kind: "ai",
+				name: `${name.trim()} ${label}`,
+				role,
+				status: "active",
+				maxConcurrentSessions: role === "builder" ? 3 : 1,
+				teamId: teamMembersId,
+				agentCategory: "team",
+				soulPrompt,
+				createdAt: now,
+			});
+
+			// Track first product_manager for lead assignment preference.
+			if (role === "product_manager" && firstProductManagerId === null) {
+				firstProductManagerId = agentId;
+			}
+		}
+
+		// AE2: set lead agent — prefer first product_manager, fall back to first agent.
+		leadAgentId = firstProductManagerId ?? agentIds[0] ?? null;
+
+		if (leadAgentId) {
+			await db.update(teamMembers).set({ leadAgentId }).where(eq(teamMembers.id, teamMembersId));
+		}
+
+		// AE2: seed welcome message in assistant thread when userId is provided.
+		// Best-effort: failure does not roll back team creation.
+		if (typeof userId === "string" && userId.length > 0) {
+			try {
+				const threadId = `thr-ast-${userId}`;
+				const assistantId = `ast-${userId}`;
+				const participantsList = [userId, assistantId].sort();
+
+				// Ensure the assistant agent exists (may not yet exist for new users).
+				// @lore AE2: The assistant agent is normally created at user registration.
+				// During onboarding, team creation may happen before the assistant agent
+				// is created — we upsert a stub here so the FK on messages.senderId succeeds.
+				const [existingAssistant] = await db
+					.select({ id: users.id })
+					.from(users)
+					.where(eq(users.id, assistantId))
+					.limit(1);
+
+				if (!existingAssistant) {
+					// Lookup user name to personalise the assistant name.
+					const [userRow] = await db
+						.select({ name: users.name })
+						.from(users)
+						.where(eq(users.id, userId))
+						.limit(1);
+					const assistantName = userRow ? `${userRow.name}'s Assistant` : "Assistant";
+
+					await db.insert(users).values({
+						id: assistantId,
+						kind: "ai",
+						name: assistantName,
+						role: "assistant",
+						status: "active",
+						createdAt: now,
+					});
+				}
+
+				// Create the thread if it doesn't exist.
+				const [existingThread] = await db
+					.select({ id: threads.id })
+					.from(threads)
+					.where(eq(threads.id, threadId))
+					.limit(1);
+
+				if (!existingThread) {
+					await db.insert(threads).values({
+						id: threadId,
+						hostKind: "user",
+						hostId: userId,
+						initiatorId: userId,
+						participants: JSON.stringify(participantsList),
+						pinned: true,
+						lastActiveAt: now,
+						createdAt: now,
+					});
+				}
+
+				// Build agent names list for welcome message text.
+				const agentLabels = rosterRoles
+					.map((role) => {
+						const entry = AGENT_ROLE_CATALOG.find((e) => e.role === role);
+						return entry?.label ?? role;
+					})
+					.join(", ");
+
+				const welcomeText = `Welcome! Your team is ready with ${rosterRoles.length} agent${rosterRoles.length !== 1 ? "s" : ""}: ${agentLabels}. I'm here to help you steer them.`;
+
+				await db.insert(messages).values({
+					id: `msg-welcome-${crypto.randomUUID()}`,
+					senderId: assistantId,
+					threadId,
+					type: "plain",
+					payload: JSON.stringify({ text: welcomeText }),
+					clientKey: `welcome-${teamId}`,
+					createdAt: now,
+				});
+			} catch {
+				// Best-effort: ignore welcome message failures.
+			}
+		}
 
 		const result: CreateTeamResponse = {
 			team: { id: teamId, name: name.trim(), phase: "build" },
