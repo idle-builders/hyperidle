@@ -1,7 +1,6 @@
 import * as crypto from "node:crypto";
 import {
 	bets,
-	factorySettings,
 	type HyperIdleDb,
 	items,
 	knowledgeItems,
@@ -11,20 +10,14 @@ import {
 	threads,
 } from "@hyperidle/db";
 import { runStaleSweep } from "@hyperidle/fabric";
-import type {
-	BetStateChangedEvent,
-	CostCapBreachedEvent,
-	CostCapWarningEvent,
-	EventBus,
-	ItemCreatedEvent,
-} from "@hyperidle/shared";
+import type { BetStateChangedEvent, EventBus, ItemCreatedEvent } from "@hyperidle/shared";
 import { and, eq, gte, inArray, like } from "drizzle-orm";
 import { createPracticeMeeting } from "./practice-meeting.js";
 
 // --- Stable IDs ---
 
 /**
- * Stable, non-UUID identifiers for the five built-in routines seeded at
+ * Stable, non-UUID identifiers for the four built-in routines seeded at
  * factory initialisation. Prefix `builtin:` — reserved — distinguishes
  * system-seeded routines from operator-authored ones so the manual-trigger
  * API can route to the correct handler.
@@ -33,9 +26,12 @@ import { createPracticeMeeting } from "./practice-meeting.js";
  * manual-trigger API, which decides whether to call `runBuiltinRoutine`
  * (builtin) vs. the legacy session-creation path (non-builtin). Changing
  * this prefix requires updating `routes/routines-routes.ts` and the seed.
+ *
+ * @lore AD8c: `builtin:cost-sentinel` removed. Cost sentinel is now application
+ * code registered in bootstrapFabric via `startCostSentinel` in
+ * packages/fabric/src/services/cost-sentinel.ts. There are now 4 builtin IDs.
  */
 export const BUILTIN_ROUTINE_IDS = [
-	"builtin:cost-sentinel",
 	"builtin:practice-meeting",
 	"builtin:post-bet-retro",
 	"builtin:portfolio-retro",
@@ -50,7 +46,8 @@ export function isBuiltinRoutineId(id: string): id is BuiltinRoutineId {
 
 // --- Trigger config constants ---
 
-const COST_SENTINEL_INTERVAL_SECONDS = 900; // 15 minutes
+// @lore AD8c: COST_SENTINEL_INTERVAL_SECONDS removed — cost sentinel timing is
+// now COST_SENTINEL_INTERVAL_MS (milliseconds) in cost-sentinel.ts.
 const PRACTICE_MEETING_CRON = "0 10 * * MON"; // weekly Monday 10:00 UTC
 /**
  * Cron expression for the monthly portfolio retro — fires on the first
@@ -71,7 +68,7 @@ const PRACTICE_MEETING_CRON = "0 10 * * MON"; // weekly Monday 10:00 UTC
 const PORTFOLIO_RETRO_CRON = "0 10 1-7 * MON"; // first Monday of the month
 const KNOWLEDGE_DECAY_CRON = "0 2 * * *"; // daily 02:00 UTC
 
-const COST_WARNING_RATIO = 0.8;
+// @lore AD8c: COST_WARNING_RATIO removed (moved to cost-sentinel.ts)
 const PORTFOLIO_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 // --- Seed helper ---
@@ -89,21 +86,13 @@ interface BuiltinSpec {
 }
 
 /**
- * Concrete specs for the five built-in routines. Owner agent ids match G1
+ * Concrete specs for the four built-in routines. Owner agent ids match G1
  * seed ids in `packages/db/src/seed.ts`; keep them in sync.
+ *
+ * @lore AD8c: builtin:cost-sentinel removed — it is now application code.
+ * builtin:knowledge-decay ownership transferred to seed-agent-pf-facilitation.
  */
 const BUILTIN_SPECS: readonly BuiltinSpec[] = [
-	{
-		id: "builtin:cost-sentinel",
-		name: "Cost sentinel",
-		ownerAgentId: "seed-agent-cos",
-		triggerType: "heartbeat",
-		triggerConfig: { intervalSeconds: COST_SENTINEL_INTERVAL_SECONDS },
-		skillId: "cost_watchdog",
-		doneCondition: "Factory cost spend is below warning threshold",
-		humanReview: false,
-		silent: true,
-	},
 	{
 		id: "builtin:practice-meeting",
 		name: "Practice meeting",
@@ -140,7 +129,10 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
 	{
 		id: "builtin:knowledge-decay",
 		name: "Knowledge decay",
-		ownerAgentId: "seed-agent-cos",
+		// @lore AD8c: ownership transferred from seed-agent-cos to seed-agent-pf-facilitation.
+		// Knowledge decay is a practice-layer concern — the facilitation facilitator
+		// is the natural owner of cross-community knowledge lifecycle.
+		ownerAgentId: "seed-agent-pf-facilitation",
 		triggerType: "calendar",
 		triggerConfig: { cron: KNOWLEDGE_DECAY_CRON },
 		skillId: "knowledge_decay",
@@ -225,9 +217,6 @@ export async function runBuiltinRoutine(
 
 	let result: RunBuiltinResult;
 	switch (routineId) {
-		case "builtin:cost-sentinel":
-			result = await runCostSentinel(db, eventBus);
-			break;
 		case "builtin:practice-meeting":
 			result = await runPracticeMeetingRoutine(db, routine);
 			break;
@@ -300,146 +289,10 @@ export function registerBuiltinRoutineHandlers(db: HyperIdleDb, eventBus: EventB
 	};
 }
 
-// --- Cost Sentinel ---
-
-/**
- * Cost sentinel level states. Stored in `factory_settings` under
- * `cost_sentinel_last_level` and checked on every tick to dedupe
- * warning/breach emissions.
- *
- * @lore G4 cost sentinel level-based dedupe: we track the current cost
- * level as persistent state (ok | warning | breach) and only emit when
- * the level CHANGES. Earlier implementations deduped by (cap, actual)
- * pairs in an in-memory Set, but that leaked unbounded strings (every
- * distinct actual value lived forever) and conflated "cap raised" with
- * "we already warned about this spend". Level transitions map cleanly
- * to what operators care about: a single event per change of state. The
- * cache-clear helper remains in-memory only (clears the module-level
- * test sentinel flag); real state lives in `factory_settings`.
- */
-type CostSentinelLevel = "ok" | "warning" | "breach";
-
-const COST_SENTINEL_STATE_KEY = "cost_sentinel_last_level";
-
-/**
- * In-memory flag used by tests to force a reset of the persisted level
- * state between test cases. Tests call `clearBuiltinCostSentinelCache`
- * before asserting — the next sentinel tick treats the stored level as
- * if it were missing, ensuring deterministic test ordering.
- */
-let testResetRequested = false;
-
-export function clearBuiltinCostSentinelCache(): void {
-	testResetRequested = true;
-}
-
-async function readStoredLevel(db: HyperIdleDb): Promise<CostSentinelLevel | null> {
-	if (testResetRequested) return null;
-	const [row] = await db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, COST_SENTINEL_STATE_KEY))
-		.limit(1);
-	const value = row?.value;
-	if (value === "ok" || value === "warning" || value === "breach") return value;
-	return null;
-}
-
-async function writeStoredLevel(db: HyperIdleDb, level: CostSentinelLevel): Promise<void> {
-	const isoNow = new Date().toISOString();
-	const [existing] = await db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, COST_SENTINEL_STATE_KEY))
-		.limit(1);
-	if (existing) {
-		await db
-			.update(factorySettings)
-			.set({ value: level, updatedAt: isoNow })
-			.where(eq(factorySettings.key, COST_SENTINEL_STATE_KEY));
-	} else {
-		await db
-			.insert(factorySettings)
-			.values({ key: COST_SENTINEL_STATE_KEY, value: level, updatedAt: isoNow });
-	}
-	// After any real write, the test-reset flag is consumed.
-	testResetRequested = false;
-}
-
-function classifyLevel(ratio: number): CostSentinelLevel {
-	if (ratio >= 1) return "breach";
-	if (ratio >= COST_WARNING_RATIO) return "warning";
-	return "ok";
-}
-
-async function runCostSentinel(db: HyperIdleDb, eventBus: EventBus): Promise<RunBuiltinResult> {
-	const [capRow] = await db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "cost_cap"))
-		.limit(1);
-	const [actualRow] = await db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "cost_actual"))
-		.limit(1);
-
-	if (!capRow) {
-		return { fired: true, emitted: [] };
-	}
-	const cap = Number.parseInt(capRow.value, 10);
-	const actual = Number.parseInt(actualRow?.value ?? "0", 10);
-	if (!Number.isFinite(cap) || cap <= 0) {
-		return { fired: true, emitted: [] };
-	}
-
-	const ratio = actual / cap;
-	const currentLevel = classifyLevel(ratio);
-	const previousLevel = (await readStoredLevel(db)) ?? "ok";
-	const emitted: string[] = [];
-	const timestamp = Date.now();
-
-	// Only emit when the level transitions.
-	if (currentLevel !== previousLevel) {
-		if (currentLevel === "breach") {
-			const evt: CostCapBreachedEvent = {
-				type: "cost_cap_breached",
-				streamId: crypto.randomUUID(),
-				level: "hard",
-				capLevel: "factory",
-				entityId: "factory",
-				spend: actual,
-				cap,
-				timestamp,
-			};
-			eventBus.emit(evt);
-			emitted.push("cost_cap_breached");
-		} else if (currentLevel === "warning") {
-			const evt: CostCapWarningEvent = {
-				type: "cost_cap_warning",
-				streamId: crypto.randomUUID(),
-				level: "warning",
-				capLevel: "factory",
-				entityId: "factory",
-				spend: actual,
-				cap,
-				timestamp,
-			};
-			eventBus.emit(evt);
-			emitted.push("cost_cap_warning");
-		}
-		// Transitioning back to "ok" resets state silently — no event
-		// type currently exists for "cost recovered".
-	}
-
-	// Always persist the latest level so a reset back to ok is observable
-	// on the next transition.
-	if (currentLevel !== previousLevel || testResetRequested) {
-		await writeStoredLevel(db, currentLevel);
-	}
-
-	return { fired: true, emitted };
-}
+// @lore AD8c: Cost Sentinel code removed from this file. See
+// packages/fabric/src/services/cost-sentinel.ts for the extracted module.
+// The cost sentinel is now registered as an application-level scheduled job
+// via startCostSentinel in bootstrapFabric.
 
 // --- Practice Meeting routine ---
 

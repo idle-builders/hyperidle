@@ -158,20 +158,33 @@ describe("X3 AC-2: soul prompt templates seeded from docs/souls/ into factorySet
 		expect(rows[0]?.value).not.toMatch(/^---/);
 	});
 
-	test("factory_settings has soul_template:practice_facilitator key with non-empty content", async ({
+	// @lore AD8c: key renamed from soul_template:practice_facilitator to soul_template:facilitator
+	test("factory_settings has soul_template:facilitator key with non-empty content (AD8c)", async ({
 		db,
 	}) => {
 		await seed(db);
 
 		const rows = await queryRows<{ key: string; value: string }>(
 			db,
-			`SELECT key, value FROM factory_settings WHERE key = 'soul_template:practice_facilitator'`,
+			`SELECT key, value FROM factory_settings WHERE key = 'soul_template:facilitator'`,
 		);
 		expect(rows).toHaveLength(1);
 		expect(rows[0]?.value).toBeTruthy();
 		expect(rows[0]?.value.length).toBeGreaterThan(50);
 		// Content should not have YAML frontmatter
 		expect(rows[0]?.value).not.toMatch(/^---/);
+	});
+
+	// @lore AD8c: old key must not exist after rename
+	test("factory_settings does NOT have soul_template:practice_facilitator (AD8c renamed)", async ({
+		db,
+	}) => {
+		await seed(db);
+		const rows = await queryRows<{ key: string }>(
+			db,
+			`SELECT key FROM factory_settings WHERE key = 'soul_template:practice_facilitator'`,
+		);
+		expect(rows).toHaveLength(0);
 	});
 
 	// @lore AD8a: soul_template:chief_of_staff deleted — docs/souls/chief-of-staff.md removed.
@@ -211,7 +224,8 @@ describe("X3 AC-2: soul prompt templates seeded from docs/souls/ into factorySet
 			`SELECT COUNT(*) AS count FROM factory_settings WHERE key LIKE 'soul_template:%'`,
 		);
 		// AB0: 8 templates. @lore AD8a: chief_of_staff soul deleted → now 7 templates.
-		// product_manager, practice_facilitator, builder, growth, designer, qa_engineer, ops.
+		// @lore AD8c: practice_facilitator renamed to facilitator — still 7 templates.
+		// facilitator, product_manager, builder, growth, designer, qa_engineer, ops.
 		expect(Number(rows[0]?.count)).toBeGreaterThanOrEqual(7);
 	});
 
@@ -270,18 +284,19 @@ describe("X3 AC-3: existing agents backfilled with soulPrompt from role template
 		expect(agentRows[0]?.soulPrompt).toBeNull();
 	});
 
-	test("practice_facilitator agents have soulPrompt matching practice_facilitator template", async ({
+	// @lore AD8c: role renamed from practice_facilitator to facilitator; template key renamed accordingly.
+	test("facilitator agents have soulPrompt matching facilitator template (AD8c)", async ({
 		db,
 	}) => {
 		await seed(db);
 
 		const agentRows = await queryRows<{ id: string; soulPrompt: string | null }>(
 			db,
-			`SELECT id, soul_prompt AS "soulPrompt" FROM users WHERE role = 'practice_facilitator'`,
+			`SELECT id, soul_prompt AS "soulPrompt" FROM users WHERE role = 'facilitator'`,
 		);
 		const templateRows = await queryRows<{ value: string }>(
 			db,
-			`SELECT value FROM factory_settings WHERE key = 'soul_template:practice_facilitator'`,
+			`SELECT value FROM factory_settings WHERE key = 'soul_template:facilitator'`,
 		);
 
 		expect(agentRows.length).toBeGreaterThanOrEqual(1);

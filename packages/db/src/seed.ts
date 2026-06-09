@@ -186,20 +186,24 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 		})
 		.onConflictDoNothing();
 
-	// Practice Facilitators — one per community of practice.
+	// Facilitators — one per community of practice.
+	// @lore AD8c: renamed from "Practice Facilitator" (role: practice_facilitator) to
+	// "Facilitator" (role: facilitator). Soul file renamed from practice-facilitator.md
+	// to facilitator.md. For production DBs with existing rows, a manual migration is
+	// needed: UPDATE users SET role='facilitator' WHERE role='practice_facilitator'.
 	for (const community of PRACTICE_COMMUNITIES) {
 		await db
 			.insert(users)
 			.values({
 				id: `seed-agent-pf-${community}`,
 				kind: "ai",
-				name: `${COMMUNITY_DISPLAY_NAMES[community]} Practice Facilitator`,
-				role: "practice_facilitator",
+				name: `${COMMUNITY_DISPLAY_NAMES[community]} Facilitator`,
+				role: "facilitator",
 				agentCategory: "strategy",
 				teamId: null,
 				status: "active",
 				maxConcurrentSessions: 1,
-				soulPromptPath: "docs/souls/practice-facilitator.md",
+				soulPromptPath: "docs/souls/facilitator.md",
 				skills: JSON.stringify({
 					scope: community,
 					tools: FACILITATOR_TOOLS,
@@ -270,7 +274,8 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 	// AD8b adds assistant.md soul and re-inserts the entry with new role name.
 	const soulTemplates: Array<{ role: string; filename: string }> = [
 		{ role: "product_manager", filename: "product-manager.md" },
-		{ role: "practice_facilitator", filename: "practice-facilitator.md" },
+		// @lore AD8c: role renamed from practice_facilitator; soul file renamed to facilitator.md
+		{ role: "facilitator", filename: "facilitator.md" },
 		{ role: "builder", filename: "builder.md" },
 		{ role: "growth", filename: "growth.md" },
 		{ role: "designer", filename: "designer.md" },
@@ -318,7 +323,8 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 		sales: "team",
 		content: "team",
 		data_analyst: "team",
-		practice_facilitator: "strategy",
+		// @lore AD8c: renamed from practice_facilitator
+		facilitator: "strategy",
 		scout: "strategy",
 		infra: "strategy",
 		platform: "strategy",
