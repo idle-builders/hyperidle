@@ -30,8 +30,7 @@ const SENDER_HEADER = "X-Identity";
 // @lore AD8a: COC_AGENT_ID and COC_AGENT_ROLE stay as-is — AD8b renames them when restructuring this file.
 const COC_AGENT_ID = "seed-agent-cos";
 const COC_AGENT_DISPLAY_NAME = "System Agent";
-// @lore AD8a: COC_AGENT_ROLE value "chief_of_staff" renamed to "assistant" in AD8b.
-const COC_AGENT_ROLE = "chief_of_staff"; // @lore AD8a: role string renamed to "assistant" in AD8b
+const COC_AGENT_ROLE = "assistant";
 
 /**
  * Read the sender id. Prefers X-Identity header; falls back to the auth context

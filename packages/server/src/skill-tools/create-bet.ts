@@ -1,3 +1,13 @@
+/**
+ * AE3 — create_bet tool.
+ *
+ * Creates a new bet in "draft" status for the given team.
+ * Restricted to the assistant role (renamed from chief_of_staff in AD8b).
+ *
+ * @lore AE3: Cross-team scope is intentional. See create-team.ts @lore AE3 comment.
+ * @lore AD8b: role string "chief_of_staff" renamed to "assistant".
+ */
+
 import { randomUUID } from "node:crypto";
 import { bets, teams } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
@@ -5,19 +15,11 @@ import z from "zod";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
-/**
- * `create_bet` — Create a new draft bet on a specified team.
- * The bet starts in "draft" status and must be committed separately to become active.
- *
- * @lore AE3: Cross-team scope is intentional. See create-team.ts @lore AE3 comment.
- *
- * @lore AD8b: role string "chief_of_staff" will be renamed to "assistant" in AD8b.
- */
 const createBetInputSchema = z.object({
 	teamId: z.string().min(1),
-	description: z.string().min(1).max(10_000),
-	doneCondition: z.string().max(10_000).optional(),
-	hypothesis: z.string().max(10_000).optional(),
+	description: z.string().min(1).max(65_536),
+	doneCondition: z.string().max(65_536).optional(),
+	hypothesis: z.string().max(65_536).optional(),
 });
 
 type CreateBetInput = z.infer<typeof createBetInputSchema>;
@@ -37,6 +39,7 @@ async function handler(
 		return err("INVALID_INPUT", parsed.error.message);
 	}
 	const input = parsed.data;
+
 	// Verify the team exists
 	const [team] = await ctx.db.select().from(teams).where(eq(teams.id, input.teamId)).limit(1);
 	if (!team) {
@@ -63,13 +66,12 @@ async function handler(
 	});
 }
 
-// @lore AD8b: role string "chief_of_staff" renamed to "assistant" in AD8b.
+// @lore AD8b: role string "chief_of_staff" renamed to "assistant".
 export const createBetTool: ToolDefinition<CreateBetInput> = {
 	name: "create_bet",
 	description:
 		"Create a new draft bet (time-boxed work commitment) on the specified team. The bet starts in draft status and must be committed separately to become active.",
 	inputSchema: createBetInputSchema,
 	handler,
-	// @lore AD8b: role string "chief_of_staff" renamed to "assistant" in AD8b.
-	roles: ["chief_of_staff"],
+	roles: ["assistant"],
 };

@@ -522,7 +522,6 @@ export async function seedBuiltinAgents(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 
 	// @lore AD8a: name renamed "Chief of Staff" → "System Agent" (display string purge).
-	// role: "chief_of_staff" stays — AD8b renames it to "assistant".
 	// agentCategory: "individual" (was "personal" — AD8a renamed the value).
 	await db
 		.insert(users)
@@ -530,9 +529,9 @@ export async function seedBuiltinAgents(db: HyperIdleDb): Promise<void> {
 			id: "seed-agent-cos",
 			kind: "ai",
 			name: "System Agent (eval stub)",
-			role: "chief_of_staff",
+			role: "assistant",
 			status: "active",
-			// @lore AD8a: role string "chief_of_staff" renamed in AD8b. AB0: chief_of_staff is an individual-category agent (factory-wide, per-founder).
+			// @lore AD8a: role string "assistant" renamed in AD8b. AB0: chief_of_staff is an individual-category agent (factory-wide, per-founder).
 			agentCategory: "individual",
 			createdAt: now,
 		})
@@ -543,10 +542,12 @@ export async function seedBuiltinAgents(db: HyperIdleDb): Promise<void> {
 		.values({
 			id: "seed-agent-pf-facilitation",
 			kind: "ai",
-			name: "Practice Facilitator - Facilitation (eval stub)",
-			role: "practice_facilitator",
+			// @lore AD8c: renamed from "Practice Facilitator" to "Facilitator"
+			name: "Facilitator - Facilitation (eval stub)",
+			// @lore AD8c: role renamed from practice_facilitator to facilitator
+			role: "facilitator",
 			status: "active",
-			// AB0: practice_facilitator is a strategy-category agent (factory-wide, no team binding).
+			// @lore AD8c: facilitator is a strategy-category agent (factory-wide, no team binding).
 			agentCategory: "strategy",
 			createdAt: now,
 		})

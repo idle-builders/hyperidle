@@ -16,6 +16,7 @@ import { constantTimeStringEqual } from "../middleware/timing-safe.js";
 import { validateBody } from "../middleware/validate.js";
 import { findOrCreateDirectThread } from "../services/direct-thread.js";
 import { escapeLikePattern } from "../services/like-escape.js";
+import { createAssistantSoulRoutes } from "./assistant.js";
 
 const updateSkillSchema = z.object({
 	autonomyLevel: z.number().int().min(1).max(4),
@@ -121,6 +122,23 @@ export function createUserSetupRoute(db: HyperIdleDb): Hono {
 			email,
 			role: "founder",
 			status: "active",
+			createdAt: now,
+		});
+
+		// AC-1 AD8b: Create a per-user assistant agent at registration.
+		// The assistant is an ai-kind user with role="assistant", agentCategory="individual".
+		// Its ID is deterministic: "ast-{userId}" for easy lookup.
+		// @lore AD8b: The assistant agent is created once per human user at registration.
+		// It is the AI counterpart that participates in the user's assistant thread.
+		const assistantAgentId = `ast-${id}`;
+		await db.insert(users).values({
+			id: assistantAgentId,
+			kind: "ai",
+			name: `${name}'s Assistant`,
+			role: "assistant",
+			agentCategory: "individual",
+			status: "active",
+			maxConcurrentSessions: 1,
 			createdAt: now,
 		});
 
@@ -370,6 +388,13 @@ export function createUserRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 		const [created] = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1);
 		return c.json(created, 201);
 	});
+
+	// AD8b Task 8 — soul prompt CRUD: GET + PATCH /api/users/:userId/assistant
+	// @lore AD8b: Mounted BEFORE the generic /:id handler if there is one.
+	// In this router the /:id handler is a GET, so we mount /:userId/assistant
+	// explicitly. Hono routes by registration order — the more specific path
+	// /:id/assistant is registered before /:id to avoid swallowing.
+	router.route("/:userId/assistant", createAssistantSoulRoutes(db));
 
 	return router;
 }

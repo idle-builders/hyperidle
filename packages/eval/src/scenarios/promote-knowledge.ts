@@ -37,7 +37,7 @@ const pkDraftTriagePfConsulting: EvalScenario = {
 	tags: ["quick"],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
-			agentRole: "practice_facilitator",
+			agentRole: "facilitator", // @lore AD8c: renamed from practice_facilitator
 			agentSoulPrompt: `You are a practice facilitator reviewing draft knowledge items.
 When a draft item is ready for community use (well-written, accurate, actionable), promote it to "active".
 Use promote_knowledge with toStatus="active" for items that pass your triage review.
@@ -150,7 +150,7 @@ const pkPipelinePfDevops: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
-			agentRole: "practice_facilitator",
+			agentRole: "facilitator", // @lore AD8c: renamed from practice_facilitator
 			agentSoulPrompt: `You are a practice facilitator managing the DevOps knowledge pipeline.
 When a captured knowledge item has been reviewed and meets quality standards, promote it to provisional.
 Use promote_knowledge with toStatus="provisional" for captured items that pass review.
@@ -346,7 +346,7 @@ const pkArchiveCosMarketing: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
-			agentRole: "chief_of_staff",
+			agentRole: "assistant",
 			agentSoulPrompt: `You are a system agent responsible for knowledge quality.
 When you identify stale or outdated knowledge that is no longer relevant, archive it.
 Use promote_knowledge with toStatus="archived" and provide a reason explaining why the item is outdated.

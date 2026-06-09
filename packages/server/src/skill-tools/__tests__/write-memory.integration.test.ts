@@ -17,11 +17,12 @@ import { writeMemoryTool } from "../write-memory.js";
 
 const NOW = new Date().toISOString();
 
+// @lore AD8c: role renamed from practice_facilitator to facilitator
 async function seedFacilitator(db: HyperIdleDb): Promise<void> {
 	await db.insert(users).values({
 		id: "agent-a",
 		name: "Agent A",
-		role: "practice_facilitator",
+		role: "facilitator",
 		status: "active",
 		maxConcurrentSessions: 1,
 		createdAt: NOW,

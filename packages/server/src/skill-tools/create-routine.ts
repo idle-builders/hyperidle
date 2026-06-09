@@ -159,6 +159,6 @@ export const createRoutineTool: ToolDefinition<CreateRoutineInput> = {
 		"Create a new routine (recurring automated task) for a team agent. Requires a calendar trigger with a cron expression. Creates a stub task for session provisioning.",
 	inputSchema: createRoutineInputSchema,
 	handler,
-	// @lore AD8b: role string "chief_of_staff" renamed to "assistant" in AD8b.
-	roles: ["chief_of_staff"],
+	// @lore AD8b: role string "chief_of_staff" renamed to "assistant".
+	roles: ["assistant"],
 };

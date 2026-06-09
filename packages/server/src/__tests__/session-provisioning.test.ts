@@ -1095,25 +1095,26 @@ describe("Session Provisioning (D5)", () => {
 
 	// ------------------------------------------- G1 AC6: facilitator provisioning
 	describe("G1 AC6: facilitator provisioning + facilitator tools exposed", () => {
-		it("provisions a session for a practice_facilitator agent; registry exposes facilitator tools", async () => {
+		// @lore AD8c: role renamed from practice_facilitator to facilitator
+		it("provisions a session for a facilitator agent; registry exposes facilitator tools", async () => {
 			// Seed the full domain first (gives us t1, b1, task-1).
 			await seedDomain(db);
 
-			// Replace the default builder agent on task-1 with a practice_facilitator.
+			// Replace the default builder agent on task-1 with a facilitator.
 			await db.delete(tasks).where(eq(tasks.id, "task-1"));
 			await db.delete(users).where(eq(users.id, "agent-1"));
 
 			await db.insert(users).values({
 				id: "agent-fac",
-				name: "Ops Practice Facilitator",
-				role: "practice_facilitator",
+				name: "Ops Facilitator",
+				role: "facilitator",
 				status: "active",
 				teamId: null,
 				maxConcurrentSessions: 1,
 				costCap: null,
 				costActual: 0,
 				// X3: soulPromptPath deprecated; soulPrompt holds inline text now
-				soulPrompt: "# Facilitator\n\nYou are a practice facilitator.",
+				soulPrompt: "# Facilitator\n\nYou are a facilitator.",
 				skills:
 					'{"scope":"ops","tools":["route_item","score_attention","promote_knowledge","create_conflict_review"]}',
 				createdAt: NOW,

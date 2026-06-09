@@ -103,6 +103,6 @@ export const addAgentTool: ToolDefinition<AddAgentInput> = {
 		"Add a new AI agent to an existing team with the specified role. If no soul prompt is provided, loads the default template for the role from factory settings.",
 	inputSchema: addAgentInputSchema,
 	handler,
-	// @lore AD8b: role string "chief_of_staff" renamed to "assistant" in AD8b.
-	roles: ["chief_of_staff"],
+	// @lore AD8b: role string "chief_of_staff" renamed to "assistant".
+	roles: ["assistant"],
 };

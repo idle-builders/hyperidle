@@ -42,7 +42,7 @@ export function makeContext(db: HyperIdleDb, overrides: MakeContextOverrides = {
 
 /**
  * Seed the minimum domain needed by every G1 facilitator tool suite:
- * product, team, an active practice_facilitator agent, and an item thread.
+ * product, team, an active facilitator agent, and an item thread.
  */
 export async function seedBase(db: HyperIdleDb): Promise<void> {
 	// @lore U1: teams is the domain entity (formerly products); teamMembers is the membership group.
@@ -51,10 +51,11 @@ export async function seedBase(db: HyperIdleDb): Promise<void> {
 		.insert(teamMembers)
 		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 
+	// @lore AD8c: role renamed from practice_facilitator to facilitator
 	await db.insert(users).values({
 		id: "agent-fac",
 		name: "Facilitator",
-		role: "practice_facilitator",
+		role: "facilitator",
 		status: "active",
 		maxConcurrentSessions: 1,
 		createdAt: NOW,

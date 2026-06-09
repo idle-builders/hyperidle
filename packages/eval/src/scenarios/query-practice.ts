@@ -139,7 +139,7 @@ const qpFacilitatorCurationPfDevops: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
-			agentRole: "practice_facilitator",
+			agentRole: "facilitator", // @lore AD8c: renamed from practice_facilitator
 			agentSoulPrompt: `You are a practice facilitator for the DevOps community.
 Before creating new practices, always query existing ones to avoid duplication.
 Use query_practice systematically to survey what the community already knows.

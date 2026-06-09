@@ -1,5 +1,5 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import { defaultNotificationAdapterFactory } from "@hyperidle/fabric";
+import { defaultNotificationAdapterFactory, registerAssistantDispatcher } from "@hyperidle/fabric";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
 import { Hono } from "hono";
@@ -510,6 +510,11 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		// boundary is now enforced by the package dependency graph.
 		const strategyDisposers = options.strategyBootstrap?.({ db, eventBus }) ?? [];
 		disposers.push(...strategyDisposers);
+
+		// AD8b AC-3: Register assistant dispatcher — listens for thread_message_appended
+		// from human users in user-hosted threads and triggers the assistant agent.
+		const unsubAssistant = registerAssistantDispatcher(eventBus, db);
+		disposers.push(unsubAssistant);
 
 		// AD5 AC-2: Auto-unblock dependent tasks when a task transitions to "done".
 		// @lore AD5 option-A: handler lives in app.ts (server layer) — fabric cannot

@@ -228,7 +228,7 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 		await db.insert(users).values({
 			id: "agent-fac-r7",
 			name: "Facilitator Agent",
-			role: "practice_facilitator",
+			role: "facilitator", // @lore AD8c: renamed from practice_facilitator
 			status: "active",
 			createdAt: NOW,
 		});
@@ -296,7 +296,7 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 		await db.insert(users).values({
 			id: "agent-fac-r7",
 			name: "Facilitator Agent",
-			role: "practice_facilitator",
+			role: "facilitator", // @lore AD8c: renamed from practice_facilitator
 			status: "active",
 			createdAt: NOW,
 		});
@@ -347,7 +347,7 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 		await db.insert(users).values({
 			id: "agent-fac-r7",
 			name: "Facilitator Agent",
-			role: "practice_facilitator",
+			role: "facilitator", // @lore AD8c: renamed from practice_facilitator
 			status: "active",
 			createdAt: NOW,
 		});

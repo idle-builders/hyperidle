@@ -9,7 +9,7 @@
  * 1. POST /api/users — create human user (name only, no email)
  * 2. POST /api/teams — create first team (name derived from repo path or "My Team")
  * 3. Set credential via bridge (window.__HYPERIDLE__.credentials.set)
- * On success: navigate to /work/portfolio.
+ * On success: navigate to /work/portfolio?onboarding=true.
  *
  * @lore P4: Replaces Onboarding.tsx. Single-scroll layout from approved design.
  * @lore R2: Simplified from P4 — removed email, backend mode, team name fields.
@@ -18,12 +18,48 @@
  * @lore visual-parity: Redesigned to match onboarding.html exactly — 3-card
  * abstract visual, step title, step description, left-aligned layout, form-group
  * spacing of 18px, design-system Input + Button components.
+ * @lore AE2: Added function selector (preset pills + custom chips) and roster preview.
+ * Navigates to /work/portfolio?onboarding=true to trigger assistant overlay auto-open.
  */
 
 import { Button, Input } from "@hyperidle/design-system";
+import { AGENT_ROLE_CATALOG, defaultRoster, TEAM_FUNCTIONS } from "@hyperidle/shared";
 import { type FormEvent, type JSX, useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../services/api-fetch.js";
+
+/**
+ * AE2: Preset configurations for team function selection.
+ * Each preset maps to a set of TEAM_FUNCTIONS that drive defaultRoster().
+ */
+const PRESETS = [
+	{ id: "software", label: "Software", functions: ["development", "product"] },
+	{ id: "software_design", label: "Eng+UX", functions: ["development", "product", "design"] },
+	{
+		id: "full_team",
+		label: "Full team",
+		functions: ["development", "product", "design", "marketing"],
+	},
+	{ id: "marketing", label: "Growth", functions: ["marketing"] },
+	{ id: "custom", label: "Custom", functions: [] },
+] as const;
+
+type PresetId = (typeof PRESETS)[number]["id"];
+
+/**
+ * Compute the roster preview label string from a set of functions.
+ * Returns empty string when functions is empty.
+ */
+function rosterPreviewLabel(functions: readonly string[]): string {
+	if (functions.length === 0) return "";
+	const roles = defaultRoster(functions);
+	if (roles.length === 0) return "";
+	const labels = roles.map((role) => {
+		const entry = AGENT_ROLE_CATALOG.find((e) => e.role === role);
+		return entry?.label ?? role;
+	});
+	return `Creates: ${labels.join(", ")}`;
+}
 
 /** Abstract 3-card welcome illustration matching onboarding.html welcome-visual */
 function WelcomeVisual(): JSX.Element {
@@ -71,15 +107,37 @@ export function SetupFlow(): JSX.Element {
 	const [submitting, setSubmitting] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);
 
-	// R2: Start button enabled only when name + API key are filled
-	const canStart = name.trim().length > 0 && apiKey.trim().length > 0 && !submitting;
+	// AE2: function selector state
+	// Default preset is "software" (development + product).
+	const [selectedPreset, setSelectedPreset] = useState<PresetId>("software");
+	// Custom chips — only visible when selectedPreset === "custom".
+	const [customFunctions, setCustomFunctions] = useState<string[]>([]);
+
+	// Resolved functions array based on current preset selection.
+	const resolvedFunctions: readonly string[] =
+		selectedPreset === "custom"
+			? customFunctions
+			: (PRESETS.find((p) => p.id === selectedPreset)?.functions ?? ["development", "product"]);
+
+	const toggleCustomFunction = useCallback((fn: string): void => {
+		setCustomFunctions((prev) =>
+			prev.includes(fn) ? prev.filter((f) => f !== fn) : [...prev, fn],
+		);
+	}, []);
+
+	// AE2: submit requires functions when custom is selected (can't have empty roster).
+	const functionsValid = selectedPreset !== "custom" || customFunctions.length > 0;
+
+	// R2: Start button enabled only when name + API key are filled and functions are valid.
+	const canStart =
+		name.trim().length > 0 && apiKey.trim().length > 0 && functionsValid && !submitting;
 
 	const handleFolderPick = useCallback(async (): Promise<void> => {
 		const folder = await window.__HYPERIDLE__?.shell.selectFolder();
 		if (folder) setRepoPath(folder);
 	}, []);
 
-	// R2: Submit and navigate to /work/portfolio
+	// AE2: Submit and navigate to /work/portfolio?onboarding=true
 	const handleSubmit = useCallback(
 		async (e: FormEvent): Promise<void> => {
 			e.preventDefault();
@@ -101,6 +159,10 @@ export function SetupFlow(): JSX.Element {
 					throw new Error(body?.error ?? `Failed to create user (${userRes.status})`);
 				}
 
+				// AE2: Capture userId from user creation response to seed welcome message.
+				const userBody = (await userRes.json().catch(() => null)) as { id?: string } | null;
+				const createdUserId = userBody?.id ?? undefined;
+
 				// Step 2: Create first team — derive name from repo path or default
 				// @lore R2: team name is not user-visible in setup. Derive from repo
 				// folder basename if a path was given; otherwise use "My Team".
@@ -114,6 +176,9 @@ export function SetupFlow(): JSX.Element {
 					body: JSON.stringify({
 						name: derivedTeamName,
 						repoPath: repoPath.trim() || undefined,
+						// AE2: pass resolved functions and userId for welcome message seeding.
+						functions: [...resolvedFunctions],
+						userId: createdUserId,
 					}),
 				});
 
@@ -127,14 +192,14 @@ export function SetupFlow(): JSX.Element {
 					await window.__HYPERIDLE__.credentials.set("anthropic", apiKey.trim());
 				}
 
-				// Navigate to /work/portfolio on success (R2: was /conversations)
-				navigate("/work/portfolio");
+				// AE2: Navigate to /work/portfolio?onboarding=true to trigger assistant overlay auto-open.
+				navigate("/work/portfolio?onboarding=true");
 			} catch (err: unknown) {
 				setSubmitError(err instanceof Error ? err.message : "Something went wrong");
 				setSubmitting(false);
 			}
 		},
-		[canStart, name, repoPath, apiKey, navigate],
+		[canStart, name, repoPath, apiKey, resolvedFunctions, navigate],
 	);
 
 	return (
@@ -251,6 +316,77 @@ export function SetupFlow(): JSX.Element {
 								Path to a git repository for agents to work in.
 							</span>
 						</div>
+					</div>
+
+					{/* AE2: Function selector — preset pills */}
+					<div className="mb-[18px]">
+						<p className="text-[13px] font-[500] text-[var(--text-primary)] mb-[6px]">
+							What are you building?{" "}
+							<span className="font-[400] text-[var(--text-tertiary)]">(pick a team type)</span>
+						</p>
+						<div className="flex flex-wrap gap-[6px] mb-[9px]">
+							{PRESETS.map((preset) => {
+								const isSelected = selectedPreset === preset.id;
+								return (
+									<button
+										key={preset.id}
+										type="button"
+										aria-pressed={isSelected}
+										data-selected={isSelected ? "true" : undefined}
+										onClick={() => {
+											setSelectedPreset(preset.id);
+											// Reset custom chips when switching away from custom.
+											if (preset.id !== "custom") {
+												setCustomFunctions([]);
+											}
+										}}
+										className={[
+											"min-h-[44px] px-[12px] py-[9px] rounded-[var(--r-pill)] text-[13px] font-[500]",
+											"border-[1.5px] transition-[border-color,background-color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+											isSelected
+												? "border-[var(--accent-primary)] bg-[var(--accent-primary)] text-white btn-primary selected"
+												: "border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-primary)] hover:border-[var(--border-strong)]",
+										].join(" ")}
+									>
+										{preset.label}
+									</button>
+								);
+							})}
+						</div>
+
+						{/* AE2: Custom function chips — visible only when Custom is selected */}
+						{selectedPreset === "custom" && (
+							<div className="flex flex-wrap gap-[6px] mb-[9px]">
+								{TEAM_FUNCTIONS.map((fn) => {
+									const isActive = customFunctions.includes(fn);
+									return (
+										<button
+											key={fn}
+											type="button"
+											aria-pressed={isActive}
+											onClick={() => toggleCustomFunction(fn)}
+											className={[
+												"min-h-[44px] px-[12px] py-[9px] rounded-[var(--r-subtle)] text-[13px] capitalize",
+												"border-[1.5px] transition-[border-color,background-color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+												isActive
+													? "border-[var(--accent-primary)] bg-[var(--surface-elevated)] text-[var(--accent-primary)] font-[600]"
+													: "border-[var(--border-subtle)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:border-[var(--border-default)]",
+											].join(" ")}
+										>
+											{fn}
+										</button>
+									);
+								})}
+							</div>
+						)}
+
+						{/* AE2: Roster preview */}
+						<p
+							data-testid="roster-preview"
+							className="text-[12px] text-[var(--text-tertiary)] min-h-[18px]"
+						>
+							{rosterPreviewLabel(resolvedFunctions)}
+						</p>
 					</div>
 
 					{/* Validation / submit error */}

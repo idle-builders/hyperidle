@@ -85,12 +85,11 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		expect(result.code).toBe("NOT_FOUND");
 	});
 
-	// @lore AD8a: role string "chief_of_staff" renamed in AD8b.
-	test("B3: chief_of_staff registry includes all 20 tools (15 + 5 AE3 management tools)", ({
+	// @lore AD8b: role string "chief_of_staff" renamed to "assistant".
+	test("B3: assistant registry includes all 20 tools (15 + 5 AE3 management tools)", ({
 		db,
 	}) => {
-		// @lore AD8a: role string renamed in AD8b
-		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" }); // @lore AD8a: role string renamed to "assistant" in AD8b
+		const registry = buildToolRegistry(makeContext(db), { role: "assistant" });
 		const names = registry.definitions.map((d) => d.name).sort();
 		// 12 base + create_task (R5) + submit_review (R5) + create_artifact (R6) = 15
 		// + 5 AE3 management tools: create_team, add_agent, create_bet, create_routine, update_routine = 20
@@ -100,11 +99,12 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		}
 	});
 
-	test("B3: practice_facilitator registry includes the facilitator tools", ({ db }) => {
-		const registry = buildToolRegistry(makeContext(db), { role: "practice_facilitator" });
+	// @lore AD8c: role renamed from practice_facilitator to facilitator
+	test("B3: facilitator registry includes the facilitator tools", ({ db }) => {
+		const registry = buildToolRegistry(makeContext(db), { role: "facilitator" });
 		const names = new Set(registry.definitions.map((d) => d.name));
 		for (const t of FACILITATOR_ONLY) {
-			expect(names.has(t), `practice_facilitator must see ${t}`).toBe(true);
+			expect(names.has(t), `facilitator must see ${t}`).toBe(true);
 		}
 	});
 
@@ -117,12 +117,12 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		"update_routine",
 	] as const;
 
-	test("AE3 AC-5: chief_of_staff registry includes all 5 management tools", ({ db }) => {
-		// @lore AD8b: role string "chief_of_staff" will be renamed to "assistant".
-		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
+	// @lore AD8b: role string "chief_of_staff" renamed to "assistant".
+	test("AE3 AC-5: assistant registry includes all 5 management tools", ({ db }) => {
+		const registry = buildToolRegistry(makeContext(db), { role: "assistant" });
 		const names = new Set(registry.definitions.map((d) => d.name));
 		for (const t of MANAGEMENT_TOOLS) {
-			expect(names.has(t), `chief_of_staff must see management tool ${t}`).toBe(true);
+			expect(names.has(t), `assistant must see management tool ${t}`).toBe(true);
 		}
 	});
 

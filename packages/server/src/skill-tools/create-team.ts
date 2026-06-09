@@ -147,6 +147,6 @@ export const createTeamTool: ToolDefinition<CreateTeamInput> = {
 		"Create a new team with the specified functions. Automatically generates an agent roster based on the functions using the role catalog. Each agent is created with appropriate soul prompt templates.",
 	inputSchema: createTeamInputSchema,
 	handler,
-	// @lore AD8b: role string "chief_of_staff" renamed to "assistant" in AD8b.
-	roles: ["chief_of_staff"],
+	// @lore AD8b: role string "chief_of_staff" renamed to "assistant".
+	roles: ["assistant"],
 };

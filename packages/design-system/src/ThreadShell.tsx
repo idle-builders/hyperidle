@@ -102,6 +102,17 @@ export interface ThreadShellProps {
 	 * in any ThreadShell consumer (CocOverlay, Conversations).
 	 */
 	renderRefEmbeds?: (refs: ReadonlyArray<InlineRef>) => ReactNode;
+	/**
+	 * AD8b B3.1: Optional render function for per-message extra content.
+	 * Called per plain message; return value is appended after the message
+	 * body (afterBody). Used by AssistantOverlay to render tinted tool-call
+	 * summary rows for messages with payload.toolCalls.
+	 *
+	 * @lore AD8b: Keeps design-system free of ToolCallSummary rendering
+	 * logic. The web-layer consumer (AssistantOverlay) provides the render
+	 * function; ThreadShell just calls it per message.
+	 */
+	renderMessageExtra?: (message: Message) => ReactNode;
 }
 
 interface SenderGroupedMessage {
@@ -239,6 +250,7 @@ export function ThreadShell({
 	hideHostBanner = false,
 	sanitizeHtml,
 	renderRefEmbeds,
+	renderMessageExtra,
 }: ThreadShellProps): JSX.Element {
 	// Sort ASC by createdAt with id as a stability tiebreaker.
 	const ordered = useMemo(
@@ -473,14 +485,23 @@ export function ThreadShell({
 										}
 									}
 									// T4: compute afterBody for plain messages with refs.
-									const afterBody =
+									// AD8b B3.1: also append renderMessageExtra output (tool-call rows).
+									const refEmbeds =
 										renderRefEmbeds &&
 										message.type === "plain" &&
 										!isRedactedPayload(message.payload) &&
 										message.payload.refs &&
 										message.payload.refs.length > 0
 											? renderRefEmbeds(message.payload.refs)
-											: undefined;
+											: null;
+									const messageExtra = renderMessageExtra ? renderMessageExtra(message) : null;
+									const afterBody =
+										refEmbeds || messageExtra ? (
+											<>
+												{refEmbeds}
+												{messageExtra}
+											</>
+										) : undefined;
 									return (
 										<CommentRow
 											key={message.id}

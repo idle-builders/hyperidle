@@ -1,0 +1,62 @@
+/**
+ * AD8b Task 6 — edit_bet tool.
+ *
+ * High-risk tool (requires review message gate).
+ * Updates the description of an existing bet.
+ */
+
+import { bets } from "@hyperidle/db";
+import { eq } from "drizzle-orm";
+import z from "zod";
+import type { AssistantToolResult, AssistantToolShape } from "./assistant-tool-result.js";
+import type { ToolContext } from "./tool-registry.js";
+
+const editBetInputSchema = z.object({
+	betId: z.string().min(1),
+	description: z.string().min(1).max(65_536).optional(),
+	doneCondition: z.string().max(65_536).optional(),
+	hypothesis: z.string().max(65_536).optional(),
+});
+
+type EditBetInput = z.infer<typeof editBetInputSchema>;
+
+async function handler(
+	args: EditBetInput,
+	ctx: ToolContext,
+): Promise<AssistantToolResult<{ betId: string }>> {
+	const parsed = editBetInputSchema.safeParse(args);
+	if (!parsed.success) {
+		return { status: "error", message: parsed.error.message };
+	}
+	const input = parsed.data;
+
+	const [existing] = await ctx.db.select().from(bets).where(eq(bets.id, input.betId)).limit(1);
+	if (!existing) {
+		return { status: "error", message: `Bet not found: ${input.betId}` };
+	}
+
+	const updates: Partial<{
+		description: string;
+		doneCondition: string | null;
+		hypothesis: string | null;
+	}> = {};
+	if (input.description !== undefined) updates.description = input.description;
+	if (input.doneCondition !== undefined) updates.doneCondition = input.doneCondition;
+	if (input.hypothesis !== undefined) updates.hypothesis = input.hypothesis;
+
+	if (Object.keys(updates).length === 0) {
+		return { status: "error", message: "No fields to update." };
+	}
+
+	await ctx.db.update(bets).set(updates).where(eq(bets.id, input.betId));
+
+	return { status: "ok", value: { betId: input.betId } };
+}
+
+export const editBetTool: AssistantToolShape<EditBetInput> = {
+	name: "edit_bet",
+	description:
+		"Edit a bet's description, done condition, or hypothesis. HIGH RISK: requires human approval.",
+	inputSchema: editBetInputSchema,
+	handler,
+};

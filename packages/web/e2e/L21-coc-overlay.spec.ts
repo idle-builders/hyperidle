@@ -42,7 +42,7 @@ const COACH_THREAD_FIXTURE = {
 	headMessageId: null,
 	identities: {
 		"u-founder": { name: "You" },
-		[COC_AGENT_ID]: { name: "System Agent", role: "chief_of_staff" },
+		[COC_AGENT_ID]: { name: "System Agent", role: "assistant" },
 	},
 };
 

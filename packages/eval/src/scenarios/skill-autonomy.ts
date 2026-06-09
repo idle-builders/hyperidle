@@ -47,7 +47,7 @@ const skaL1ReviewRequired: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
-			agentRole: "practice_facilitator",
+			agentRole: "facilitator", // @lore AD8c: renamed from practice_facilitator
 			taskTitle: "L1 autonomy monitoring task",
 		});
 
@@ -157,7 +157,7 @@ const skaL4Silent: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
-			agentRole: "chief_of_staff",
+			agentRole: "assistant",
 			taskTitle: "L4 autonomy silent execution task",
 		});
 

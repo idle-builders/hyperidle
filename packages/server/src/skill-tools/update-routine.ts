@@ -115,6 +115,6 @@ export const updateRoutineTool: ToolDefinition<UpdateRoutineInput> = {
 		"Update an existing routine's configuration — name, description, schedule, state, or cost caps.",
 	inputSchema: updateRoutineInputSchema,
 	handler,
-	// @lore AD8b: role string "chief_of_staff" renamed to "assistant" in AD8b.
-	roles: ["chief_of_staff"],
+	// @lore AD8b: role string "chief_of_staff" renamed to "assistant".
+	roles: ["assistant"],
 };

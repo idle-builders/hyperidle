@@ -47,10 +47,8 @@ function makeContext(db: HyperIdleDb): ToolContext {
 
 describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 	test("registry produces one spec per expected tool name", ({ db }) => {
-		// @lore AD8a: role string "chief_of_staff" renamed in AD8b. I2 B1-B4: registry requires explicit role. chief_of_staff sees
-		// every tool, matching this test's "all tools present" expectation.
 		const specs = buildToolRegistry(makeContext(db), {
-			role: "chief_of_staff", // @lore AD8a: role string renamed to "assistant" in AD8b,
+			role: "assistant",
 		}).toClaudeToolSpecs();
 		const names = specs.map((s) => s.name).sort();
 		expect(names).toEqual([...EXPECTED_TOOL_NAMES].sort());
@@ -74,7 +72,7 @@ describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 				workspacePath: path.join(os.tmpdir(), "hi-d4-schemas-each"),
 				watcher: { stop: (): void => {} },
 			},
-			{ role: "chief_of_staff" },
+			{ role: "assistant" },
 		);
 		const def = registry.definitions.find((d) => d.name === toolName);
 		expect(def).toBeDefined();
@@ -96,7 +94,7 @@ describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 
 	test("each spec is JSON-serializable (no circular references)", ({ db }) => {
 		const specs = buildToolRegistry(makeContext(db), {
-			role: "chief_of_staff",
+			role: "assistant",
 		}).toClaudeToolSpecs();
 		for (const spec of specs) {
 			expect(() => JSON.stringify(spec)).not.toThrow();

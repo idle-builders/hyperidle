@@ -52,7 +52,7 @@ const rsHeartbeatFire: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
-			agentRole: "chief_of_staff",
+			agentRole: "assistant",
 			taskTitle: "Heartbeat monitoring task",
 		});
 
@@ -161,7 +161,7 @@ const rsCalendarFire: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
-			agentRole: "practice_facilitator",
+			agentRole: "facilitator", // @lore AD8c: renamed from practice_facilitator
 			taskTitle: "Weekly practice meeting task",
 		});
 
@@ -325,7 +325,7 @@ const rsCostCapBlocked: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
-			agentRole: "chief_of_staff",
+			agentRole: "assistant",
 			taskTitle: "Cost-blocked routine task",
 		});
 

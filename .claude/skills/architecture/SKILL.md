@@ -60,6 +60,7 @@ Produce:
 6. **Security & abuse cases** — required block. Default checklist: rate-limit on every POST/PATCH, input-trust boundary for any agent-authored field, secret-handling for any new credential surface, path-traversal for any path input, SSRF for any outbound URL. Plan is not green until each is either marked applicable+addressed or explicitly N/A with reason. (CC-003.)
 7. **Protected tests** — `protectedTests: string[]` listing test files whose assertions must not change. DoD audits the protected set with `git diff --name-only`. (CC-008.)
 8. **Migrations** — when the change renames, removes, or moves an existing symbol (route, testid, table column, function name, file path), enumerate every call site that needs updating. List affected source files, fixtures, unit tests, and Playwright e2e specs by name with the migration step for each (`delete | reroute | rename`). The migration is part of the plan, not a follow-up.
+9. **Shared files** — `sharedFiles: string[]` listing infrastructure files this workpackage modifies that other concurrent workpackages may also touch (schema.ts, shared types, router.tsx, app.ts, seed files). Used by the pipeline to detect overlap and schedule merge order when workpackages run in parallel. (CC-017.)
 
 **Every acceptance criterion MUST have a concrete verification method.** "Write a test" is not specific enough. Say exactly what the test does and what it asserts.
 

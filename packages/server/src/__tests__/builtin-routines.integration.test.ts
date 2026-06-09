@@ -5,6 +5,7 @@ import {
 	items,
 	knowledgeItems,
 	knowledgeStrategyFabric,
+	type Routine,
 	routines,
 	teamMembers,
 	teams,
@@ -12,9 +13,10 @@ import {
 } from "@hyperidle/db";
 import {
 	BUILTIN_ROUTINE_IDS,
-	clearBuiltinCostSentinelCache,
+	clearCostSentinelCache,
 	registerBuiltinRoutineHandlers,
 	runBuiltinRoutine,
+	runCostSentinelCheck,
 	seedBuiltinRoutines,
 } from "@hyperidle/fabric";
 import type {
@@ -45,16 +47,17 @@ async function seedOwners(db: HyperIdleDb): Promise<void> {
 	await db.insert(users).values({
 		id: "seed-agent-cos",
 		name: "System Agent",
-		role: "chief_of_staff",
+		role: "assistant",
 		status: "active",
 		maxConcurrentSessions: 1,
 		createdAt: NOW_ISO,
 	});
 
+	// @lore AD8c: role renamed from practice_facilitator to facilitator
 	await db.insert(users).values({
 		id: "seed-agent-pf-facilitation",
-		name: "Facilitation Practice Facilitator",
-		role: "practice_facilitator",
+		name: "Facilitation Facilitator",
+		role: "facilitator",
 		status: "active",
 		maxConcurrentSessions: 1,
 		createdAt: NOW_ISO,
@@ -73,18 +76,19 @@ async function seedOwners(db: HyperIdleDb): Promise<void> {
 
 describe("G4: Built-in Routines", () => {
 	beforeEach(() => {
-		clearBuiltinCostSentinelCache();
+		clearCostSentinelCache();
 	});
 
 	afterEach(() => {
-		clearBuiltinCostSentinelCache();
+		clearCostSentinelCache();
 	});
 
 	// ------------------------------------------------------------------
-	// AC6: all 5 builtins created by seedBuiltinRoutines with correct config
+	// AC6: all 4 builtins created by seedBuiltinRoutines with correct config
+	// @lore AD8c: cost-sentinel removed from routines table (now app-level scheduled job)
 	// ------------------------------------------------------------------
-	describe("AC6: seedBuiltinRoutines creates all 5 with correct config", () => {
-		test("inserts every builtin routine id with correct trigger_type and trigger_config", async ({
+	describe("AC6: seedBuiltinRoutines creates all 4 with correct config (AD8c)", () => {
+		test("inserts every builtin routine id with correct trigger_type and trigger_config (AD8c: 4 routines)", async ({
 			db,
 		}) => {
 			await seedOwners(db);
@@ -98,10 +102,8 @@ describe("G4: Built-in Routines", () => {
 				rows.map((r: Routine) => [r.id, r] as [string, Routine]),
 			);
 
-			expect(byId.get("builtin:cost-sentinel")?.triggerType).toBe("heartbeat");
-			expect(JSON.parse(byId.get("builtin:cost-sentinel")?.triggerConfig ?? "{}")).toEqual({
-				intervalSeconds: 900,
-			});
+			// @lore AD8c: cost-sentinel is no longer a routine row
+			expect(byId.has("builtin:cost-sentinel")).toBe(false);
 
 			expect(byId.get("builtin:practice-meeting")?.triggerType).toBe("calendar");
 			expect(JSON.parse(byId.get("builtin:practice-meeting")?.triggerConfig ?? "{}")).toEqual({
@@ -124,18 +126,21 @@ describe("G4: Built-in Routines", () => {
 			});
 		});
 
-		test("assigns correct owner agent for each builtin", async ({ db }) => {
+		// @lore AD8c: cost-sentinel removed; knowledge-decay owner changed to seed-agent-pf-facilitation
+		test("assigns correct owner agent for each builtin (AD8c)", async ({ db }) => {
 			await seedOwners(db);
 			await seedBuiltinRoutines(db);
 			const rows = await db.select().from(routines);
 			const byId = new Map<string, Routine>(
 				rows.map((r: Routine) => [r.id, r] as [string, Routine]),
 			);
-			expect(byId.get("builtin:cost-sentinel")?.ownerAgentId).toBe("seed-agent-cos");
+			// @lore AD8c: cost-sentinel is no longer seeded as a routine
+			expect(byId.has("builtin:cost-sentinel")).toBe(false);
 			expect(byId.get("builtin:practice-meeting")?.ownerAgentId).toBe("seed-agent-pf-facilitation");
 			expect(byId.get("builtin:post-bet-retro")?.ownerAgentId).toBe("seed-agent-pm-nimmly");
 			expect(byId.get("builtin:portfolio-retro")?.ownerAgentId).toBe("seed-agent-cos");
-			expect(byId.get("builtin:knowledge-decay")?.ownerAgentId).toBe("seed-agent-cos");
+			// @lore AD8c: knowledge-decay ownership transferred to facilitator agent
+			expect(byId.get("builtin:knowledge-decay")?.ownerAgentId).toBe("seed-agent-pf-facilitation");
 		});
 
 		test("sets all builtins active=true by default", async ({ db }) => {
@@ -156,18 +161,24 @@ describe("G4: Built-in Routines", () => {
 			expect(rows).toHaveLength(BUILTIN_ROUTINE_IDS.length);
 		});
 
-		test("exports exactly 5 stable builtin ids (none crypto.randomUUID)", () => {
-			expect(BUILTIN_ROUTINE_IDS).toHaveLength(5);
+		// @lore AD8c: cost-sentinel extracted to app code — now 4 builtin routine IDs
+		test("exports exactly 4 stable builtin ids (AD8c: cost-sentinel removed)", () => {
+			expect(BUILTIN_ROUTINE_IDS).toHaveLength(4);
 			for (const id of BUILTIN_ROUTINE_IDS) {
 				expect(id.startsWith("builtin:")).toBe(true);
 			}
+			// @lore AD8c: cost-sentinel is no longer a builtin routine ID
+			expect(BUILTIN_ROUTINE_IDS).not.toContain("builtin:cost-sentinel");
 		});
 	});
 
 	// ------------------------------------------------------------------
-	// AC1: Cost Sentinel — 15-min heartbeat, warning @ 80%, breach @ 100%
+	// AC1: Cost Sentinel — extracted to app code, NOT a routine (AD8c)
+	// Tests call runCostSentinelCheck directly (no DB routine row needed).
+	// @lore AD8c: cost-sentinel removed from routines table. Tests migrated
+	// from runBuiltinRoutine("builtin:cost-sentinel") to runCostSentinelCheck.
 	// ------------------------------------------------------------------
-	describe("AC1: Cost Sentinel", () => {
+	describe("AC1: Cost Sentinel (app code, not a routine)", () => {
 		async function setFactoryCost(db: HyperIdleDb, cap: number, actual: number): Promise<void> {
 			await db
 				.insert(factorySettings)
@@ -188,13 +199,11 @@ describe("G4: Built-in Routines", () => {
 		}
 
 		test("emits no events when spend is below 80% of cap", async ({ db, eventBus }) => {
-			await seedOwners(db);
 			const emitted: DomainEvent[] = [];
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
-			await seedBuiltinRoutines(db);
 			await setFactoryCost(db, 1000, 500);
 
-			const result = await runBuiltinRoutine(db, eventBus, "builtin:cost-sentinel");
+			const result = await runCostSentinelCheck(db, eventBus);
 
 			expect(result.fired).toBe(true);
 			const warnings = emitted.filter((e) => e.type === "cost_cap_warning");
@@ -204,13 +213,11 @@ describe("G4: Built-in Routines", () => {
 		});
 
 		test("emits cost_cap_warning when spend reaches 80% of cap", async ({ db, eventBus }) => {
-			await seedOwners(db);
 			const emitted: DomainEvent[] = [];
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
-			await seedBuiltinRoutines(db);
 			await setFactoryCost(db, 1000, 800);
 
-			await runBuiltinRoutine(db, eventBus, "builtin:cost-sentinel");
+			await runCostSentinelCheck(db, eventBus);
 
 			const warnings = emitted.filter(
 				(e): e is CostCapWarningEvent => e.type === "cost_cap_warning",
@@ -222,13 +229,11 @@ describe("G4: Built-in Routines", () => {
 		});
 
 		test("emits cost_cap_breached when spend reaches 100% of cap", async ({ db, eventBus }) => {
-			await seedOwners(db);
 			const emitted: DomainEvent[] = [];
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
-			await seedBuiltinRoutines(db);
 			await setFactoryCost(db, 1000, 1000);
 
-			await runBuiltinRoutine(db, eventBus, "builtin:cost-sentinel");
+			await runCostSentinelCheck(db, eventBus);
 
 			const breaches = emitted.filter(
 				(e): e is CostCapBreachedEvent => e.type === "cost_cap_breached",
@@ -239,33 +244,18 @@ describe("G4: Built-in Routines", () => {
 			expect(breaches[0].cap).toBe(1000);
 		});
 
-		test("uses the 15-minute interval (900 seconds) from trigger config", async ({ db }) => {
-			await seedOwners(db);
-			await seedBuiltinRoutines(db);
-			const [row] = await db
-				.select()
-				.from(routines)
-				.where(eq(routines.id, "builtin:cost-sentinel"))
-				.limit(1);
-			expect(row?.triggerType).toBe("heartbeat");
-			const cfg = JSON.parse(row?.triggerConfig ?? "{}") as { intervalSeconds?: number };
-			expect(cfg.intervalSeconds).toBe(900);
-		});
-
 		// --- G4 review MAJOR-4: level-based dedupe semantics ---
 		test("does not re-emit cost_cap_warning on consecutive ticks while still in warning level", async ({
 			db,
 			eventBus,
 		}) => {
-			await seedOwners(db);
 			const emitted: DomainEvent[] = [];
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
-			await seedBuiltinRoutines(db);
 			await setFactoryCost(db, 1000, 800);
 
-			await runBuiltinRoutine(db, eventBus, "builtin:cost-sentinel");
-			await runBuiltinRoutine(db, eventBus, "builtin:cost-sentinel");
-			await runBuiltinRoutine(db, eventBus, "builtin:cost-sentinel");
+			await runCostSentinelCheck(db, eventBus);
+			await runCostSentinelCheck(db, eventBus);
+			await runCostSentinelCheck(db, eventBus);
 
 			const warnings = emitted.filter((e) => e.type === "cost_cap_warning");
 			expect(warnings).toHaveLength(1);
@@ -275,14 +265,12 @@ describe("G4: Built-in Routines", () => {
 			db,
 			eventBus,
 		}) => {
-			await seedOwners(db);
 			const emitted: DomainEvent[] = [];
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
-			await seedBuiltinRoutines(db);
 			await setFactoryCost(db, 1000, 1200);
 
-			await runBuiltinRoutine(db, eventBus, "builtin:cost-sentinel");
-			await runBuiltinRoutine(db, eventBus, "builtin:cost-sentinel");
+			await runCostSentinelCheck(db, eventBus);
+			await runCostSentinelCheck(db, eventBus);
 
 			const breaches = emitted.filter((e) => e.type === "cost_cap_breached");
 			expect(breaches).toHaveLength(1);
@@ -292,35 +280,31 @@ describe("G4: Built-in Routines", () => {
 			db,
 			eventBus,
 		}) => {
-			await seedOwners(db);
 			const emitted: DomainEvent[] = [];
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
-			await seedBuiltinRoutines(db);
 			await setFactoryCost(db, 1000, 800);
-			await runBuiltinRoutine(db, eventBus, "builtin:cost-sentinel");
+			await runCostSentinelCheck(db, eventBus);
 
 			// Drop below 80% — level transitions to 'ok' (silent reset).
 			await setFactoryCost(db, 1000, 500);
-			await runBuiltinRoutine(db, eventBus, "builtin:cost-sentinel");
+			await runCostSentinelCheck(db, eventBus);
 
 			// Climb back up — this is a new transition and must re-emit.
 			await setFactoryCost(db, 1000, 850);
-			await runBuiltinRoutine(db, eventBus, "builtin:cost-sentinel");
+			await runCostSentinelCheck(db, eventBus);
 
 			const warnings = emitted.filter((e) => e.type === "cost_cap_warning");
 			expect(warnings).toHaveLength(2);
 		});
 
 		test("escalates from warning to breach on the transition tick", async ({ db, eventBus }) => {
-			await seedOwners(db);
 			const emitted: DomainEvent[] = [];
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
-			await seedBuiltinRoutines(db);
 			await setFactoryCost(db, 1000, 800);
-			await runBuiltinRoutine(db, eventBus, "builtin:cost-sentinel");
+			await runCostSentinelCheck(db, eventBus);
 
 			await setFactoryCost(db, 1000, 1100);
-			await runBuiltinRoutine(db, eventBus, "builtin:cost-sentinel");
+			await runCostSentinelCheck(db, eventBus);
 
 			const warnings = emitted.filter((e) => e.type === "cost_cap_warning");
 			const breaches = emitted.filter((e) => e.type === "cost_cap_breached");
@@ -730,6 +714,7 @@ describe("G4: Built-in Routines", () => {
 	// AC8: Disabled routine (active=0) short-circuits execution
 	// ------------------------------------------------------------------
 	describe("AC8: Disabled routine prevents firing", () => {
+		// @lore AD8c: cost-sentinel is no longer a routine; using knowledge-decay as the test subject.
 		test("runBuiltinRoutine returns fired=false when routine active=0", async ({
 			db,
 			eventBus,
@@ -739,9 +724,9 @@ describe("G4: Built-in Routines", () => {
 			await db
 				.update(routines)
 				.set({ active: false })
-				.where(eq(routines.id, "builtin:cost-sentinel"));
+				.where(eq(routines.id, "builtin:knowledge-decay"));
 
-			const result = await runBuiltinRoutine(db, eventBus, "builtin:cost-sentinel");
+			const result = await runBuiltinRoutine(db, eventBus, "builtin:knowledge-decay");
 			expect(result.fired).toBe(false);
 			if (!result.fired) expect(result.reason).toContain("disabled");
 		});

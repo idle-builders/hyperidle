@@ -19,7 +19,7 @@ describe("AD8a — agentCategory 'individual' rename", () => {
 			id,
 			name: "AD8a Test Agent",
 			kind: "ai",
-			role: "chief_of_staff",
+			role: "assistant",
 			status: "active",
 			maxConcurrentSessions: 1,
 			createdAt: new Date().toISOString(),

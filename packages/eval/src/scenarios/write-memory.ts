@@ -277,7 +277,7 @@ const wmFacilitatorL4CosConsulting: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
-			agentRole: "chief_of_staff",
+			agentRole: "assistant",
 			agentSoulPrompt: `You are a system agent at a consulting firm.
 Your role is to capture factory-wide principles that apply across all products and teams.
 When writing knowledge, use layer L4 for cross-product principles and company-wide guidelines.

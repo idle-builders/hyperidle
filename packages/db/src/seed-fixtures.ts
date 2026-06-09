@@ -37,19 +37,12 @@ export interface BuiltinRoutineSeed {
 	readonly silent: boolean;
 }
 
+// @lore AD8c: builtin:cost-sentinel removed from BUILTIN_ROUTINE_SEEDS.
+// The cost sentinel is now application code (startCostSentinel in
+// packages/fabric/src/services/cost-sentinel.ts), registered in bootstrapFabric.
+// Removing it from the routines table prevents operators from disabling cost
+// monitoring by flipping the `active` flag on a routine row.
 export const BUILTIN_ROUTINE_SEEDS: readonly BuiltinRoutineSeed[] = [
-	{
-		id: "builtin:cost-sentinel",
-		name: "Cost sentinel",
-		ownerAgentId: "seed-agent-cos",
-		teamId: "seed-product-1",
-		triggerType: "heartbeat",
-		triggerConfig: { intervalSeconds: 900 },
-		skillId: "cost_watchdog",
-		doneCondition: "Factory cost spend is below warning threshold",
-		humanReview: false,
-		silent: true,
-	},
 	{
 		id: "builtin:practice-meeting",
 		name: "Practice meeting",
@@ -89,7 +82,10 @@ export const BUILTIN_ROUTINE_SEEDS: readonly BuiltinRoutineSeed[] = [
 	{
 		id: "builtin:knowledge-decay",
 		name: "Knowledge decay",
-		ownerAgentId: "seed-agent-cos",
+		// @lore AD8c: ownership transferred from seed-agent-cos to a facilitator agent.
+		// Knowledge decay is a practice-layer concern — the facilitation facilitator
+		// is the natural owner of cross-community knowledge lifecycle.
+		ownerAgentId: "seed-agent-pf-facilitation",
 		teamId: "seed-product-1",
 		triggerType: "calendar",
 		triggerConfig: { cron: "0 2 * * *" },

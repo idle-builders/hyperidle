@@ -135,9 +135,7 @@ describe("createMcpBridge (AC1: tool registration)", () => {
 		const handle = await createTestDb();
 		const eventBus = new EventBus();
 		const ctx = makeContext(handle.db, eventBus);
-		// @lore AD8a: role string "chief_of_staff" stays — AD8b renames it to "assistant".
-		// @lore AD8a: role string "chief_of_staff" renamed to "assistant" in AD8b. Use chief_of_staff to get all 15 tools
-		registry = buildToolRegistry(ctx, { role: "chief_of_staff" });
+		registry = buildToolRegistry(ctx, { role: "assistant" });
 
 		const options: CreateMcpBridgeOptions = {
 			sessionId: "session-ac1",
@@ -166,7 +164,7 @@ describe("createMcpBridge (AC1: tool registration)", () => {
 		const handle = await createTestDb();
 		const eventBus = new EventBus();
 		const ctx = makeContext(handle.db, eventBus);
-		const reg = buildToolRegistry(ctx, { role: "chief_of_staff" });
+		const reg = buildToolRegistry(ctx, { role: "assistant" });
 
 		const bridge2 = await createMcpBridge({ sessionId: "session-ac1-b", registry: reg });
 
@@ -175,9 +173,7 @@ describe("createMcpBridge (AC1: tool registration)", () => {
 		await bridge2.transport.close();
 	});
 
-	// @lore AD8a: role string "chief_of_staff" renamed to "assistant" in AD8b.
-	it("registers exactly 20 tools (all tools for chief_of_staff role, including AE3 management tools)", () => {
-		// @lore AD8a: role string renamed in AD8b
+	it("registers exactly 20 tools (all tools for assistant role, including AE3 management tools)", () => {
 		// The McpServer's internal _registeredTools is private; we verify via
 		// the registry definitions count. AC1 acceptance: all definitions from
 		// the registry are registered.
@@ -288,7 +284,7 @@ describe("createMcpBridge (AC3: handler invokes registry and maps ToolResult)", 
 		const handle = await createTestDb();
 		const eventBus = new EventBus();
 		const ctx = makeContext(handle.db, eventBus);
-		const registry = buildToolRegistry(ctx, { role: "chief_of_staff" });
+		const registry = buildToolRegistry(ctx, { role: "assistant" });
 
 		const bridge = await createMcpBridge({ sessionId: "session-ac3", registry });
 

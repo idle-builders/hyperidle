@@ -47,8 +47,7 @@ vi.mock("../hooks/useCocThread", () => ({
 			messages: [],
 			identities: {
 				"u-founder": { name: "You" },
-				// @lore AD8a: display name changed from "Chief of Staff" to "System Agent".
-				"agent-coc": { name: "System Agent", role: "chief_of_staff" },
+				"agent-coc": { name: "System Agent", role: "assistant" },
 			},
 		},
 		error: null,

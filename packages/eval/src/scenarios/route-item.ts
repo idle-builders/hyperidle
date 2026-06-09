@@ -142,7 +142,7 @@ const roiKindReclassifyPfConsulting: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
-			agentRole: "practice_facilitator",
+			agentRole: "facilitator", // @lore AD8c: renamed from practice_facilitator
 			agentSoulPrompt: `You are a practice facilitator reviewing community items.
 When you find items with valuable reusable knowledge, reclassify them using route_item.
 Set kind="knowledge" to route items to the knowledge view for community benefit.
@@ -249,7 +249,7 @@ const roiVerbOverrideCosMarketing: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
-			agentRole: "chief_of_staff",
+			agentRole: "assistant",
 			agentSoulPrompt: `You are a system agent managing portfolio items.
 When you identify items that represent significant investments requiring bet-level commitment, use route_item.
 Set verb="bet" to route high-value items to the work view for proper bet management.

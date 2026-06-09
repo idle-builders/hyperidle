@@ -26,13 +26,15 @@ describe("O3 AC-5: bootstrapFabric", () => {
 		}
 	});
 
-	test("returns exactly 7 disposers (one per disposer-registered service)", async ({
+	// @lore AD8c: cost-sentinel startCostSentinel added as a disposer in bootstrapFabric.
+	// Count went from 7 to 8.
+	test("returns exactly 8 disposers (one per disposer-registered service)", async ({
 		db,
 		eventBus,
 	}) => {
 		const disposers = bootstrapFabric({ db, eventBus });
 
-		expect(disposers).toHaveLength(7);
+		expect(disposers).toHaveLength(8);
 
 		for (const d of disposers) {
 			d();

@@ -55,7 +55,7 @@ const delSuccessfulDelegation: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
-			agentRole: "chief_of_staff",
+			agentRole: "assistant",
 			taskTitle: "Primary delegation task",
 		});
 		delSuccessOwnerAgentId = world.agentId;
@@ -71,7 +71,7 @@ const delSuccessfulDelegation: EvalScenario = {
 		// Seed delegate agent on the same team
 		const { agentId: delegateId } = await seedAgent(ctx.db, {
 			name: "Delegate Agent",
-			role: "chief_of_staff",
+			role: "assistant",
 			teamMembersId: world.teamMembersId,
 			soulPrompt: "You are a delegate system agent.",
 		});
@@ -198,7 +198,7 @@ const delNoDelegateAvailable: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
-			agentRole: "chief_of_staff",
+			agentRole: "assistant",
 			taskTitle: "No delegate available task",
 		});
 
@@ -211,7 +211,7 @@ const delNoDelegateAvailable: EvalScenario = {
 		});
 		const { agentId: candidateId } = await seedAgent(ctx.db, {
 			name: "Candidate Agent",
-			role: "chief_of_staff",
+			role: "assistant",
 			teamMembersId: world.teamMembersId,
 		});
 		const { taskId: candidateTaskId } = await seedTask(ctx.db, {
@@ -318,7 +318,7 @@ const delDelegationNotAllowed: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
-			agentRole: "practice_facilitator",
+			agentRole: "facilitator", // @lore AD8c: renamed from practice_facilitator
 			taskTitle: "Delegation disabled task",
 		});
 		const { taskId: blockingTaskId } = await seedTask(ctx.db, {
