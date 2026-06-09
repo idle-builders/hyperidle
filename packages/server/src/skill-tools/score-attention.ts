@@ -149,7 +149,7 @@ export const scoreAttentionTool: ToolDefinition<ScoreAttentionInput> = {
 		"Set an attention score on an item or knowledge_item. Two modes: 'override' (default; uses the provided score directly — G1 behavior) and 'recompute' (runs the G2 attention engine; ignores the provided score; knowledge_item only).",
 	inputSchema: scoreAttentionInputSchema,
 	handler,
-	// @lore AD8a: role string "chief_of_staff" renamed to "assistant" in AD8b.
+	// @lore AD8b: role string "chief_of_staff" renamed to "assistant".
 	// @lore AD8c: role string "practice_facilitator" renamed to "facilitator".
-	roles: ["chief_of_staff", "facilitator", "product_manager"],
+	roles: ["assistant", "facilitator", "product_manager"],
 };

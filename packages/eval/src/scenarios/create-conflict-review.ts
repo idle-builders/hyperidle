@@ -252,7 +252,7 @@ const ccrVersionGuardCosConsulting: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
-			agentRole: "chief_of_staff",
+			agentRole: "assistant",
 			agentSoulPrompt: `You are a system agent reviewing consulting knowledge.
 When you identify knowledge that needs correction, try create_conflict_review.
 If you receive an INVALID_INPUT error about the version being ahead of current, acknowledge this in session notes.

@@ -138,9 +138,26 @@ export interface ArtifactRef {
 	readonly kind: ArtifactViewShape;
 }
 
+/**
+ * AD8b: ToolCallSummary — metadata for a single tool invocation by the assistant.
+ * Stored on the plain message payload. Rendered as tinted rows in AssistantOverlay.
+ */
+export interface ToolCallSummary {
+	readonly name: string;
+	readonly input: Record<string, unknown>;
+	readonly output: string;
+	readonly status: "ok" | "error";
+}
+
 export interface PlainPayload {
 	readonly text: string;
 	readonly refs?: ReadonlyArray<InlineRef>;
+	/**
+	 * AD8b: Optional tool-call metadata attached by the assistant session.
+	 * Low/medium-risk actions include their results here; high-risk actions
+	 * instead post a review message (not a plain message with toolCalls).
+	 */
+	readonly toolCalls?: ReadonlyArray<ToolCallSummary>;
 }
 
 export interface ReviewPayload {
@@ -221,16 +238,21 @@ export function isRedactedPayload(payload: unknown): payload is RedactedPayload 
 
 // ── Configuration classifier ────────────────────────────────────
 
-// @lore AD8a: ThreadConfiguration "coach" member renamed to "assistant" in AD8b.
-export type ThreadConfiguration = "dm" | "coach" | "feed" | "attached";
+// @lore AD8b: ThreadConfiguration "coach" member renamed to "assistant".
+export type ThreadConfiguration = "dm" | "assistant" | "feed" | "attached";
 
 /**
  * Plan §4: documentation-only classifier — never persisted. Used by the
  * docs/ section files to describe how a thread reads visually; the data
  * is the host_kind + pinned + participants tuple.
+ *
+ * @lore AD8b: Reviewer C1 fix — the assistant thread starts unpinned.
+ * A pinned user-hosted thread classifies as "assistant". Before the first
+ * response (unpinned), the thread classifies as "dm" — functionally correct:
+ * before the assistant has responded, it is a DM.
  */
 export function classifyThreadConfiguration(thread: Thread): ThreadConfiguration {
-	if (thread.hostKind === "user" && thread.pinned) return "coach";
+	if (thread.hostKind === "user" && thread.pinned) return "assistant";
 	if (thread.hostKind === "team" || thread.hostKind === "factory") return "feed";
 	if (
 		(thread.hostKind === "agent" || thread.hostKind === "user") &&

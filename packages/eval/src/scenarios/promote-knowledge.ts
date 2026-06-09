@@ -346,7 +346,7 @@ const pkArchiveCosMarketing: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
-			agentRole: "chief_of_staff",
+			agentRole: "assistant",
 			agentSoulPrompt: `You are a system agent responsible for knowledge quality.
 When you identify stale or outdated knowledge that is no longer relevant, archive it.
 Use promote_knowledge with toStatus="archived" and provide a reason explaining why the item is outdated.

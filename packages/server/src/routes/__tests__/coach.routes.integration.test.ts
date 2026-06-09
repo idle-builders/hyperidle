@@ -64,7 +64,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	await db.insert(users).values({
 		id: "seed-agent-cos",
 		name: "System Agent",
-		role: "chief_of_staff",
+		role: "assistant",
 		status: "active",
 		createdAt: now,
 	});
@@ -288,8 +288,8 @@ describe("L21 — GET /api/threads/coach", () => {
 		});
 	});
 
-	describe("Coach thread classifies as 'coach' configuration", () => {
-		test("thread with hostKind='user' and pinned=true is classified as 'coach'", async ({
+	describe("Coach thread classifies as 'assistant' configuration (AD8b: coach→assistant rename)", () => {
+		test("thread with hostKind='user' and pinned=true is classified as 'assistant'", async ({
 			db,
 			app,
 		}) => {
@@ -301,6 +301,7 @@ describe("L21 — GET /api/threads/coach", () => {
 			const body = (await res.json()) as { thread: { hostKind: string; pinned: boolean } };
 
 			// Use the pre-imported classifier from shared.
+			// @lore AD8b: "coach" renamed to "assistant" in ThreadConfiguration.
 			const configuration = classifyThreadConfiguration({
 				id: "test",
 				hostKind: body.thread.hostKind as "user",
@@ -312,7 +313,7 @@ describe("L21 — GET /api/threads/coach", () => {
 				lastActiveAt: new Date().toISOString(),
 				createdAt: new Date().toISOString(),
 			});
-			expect(configuration).toBe("coach");
+			expect(configuration).toBe("assistant");
 		});
 	});
 });

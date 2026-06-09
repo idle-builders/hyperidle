@@ -47,7 +47,7 @@ async function seedOwners(db: HyperIdleDb): Promise<void> {
 	await db.insert(users).values({
 		id: "seed-agent-cos",
 		name: "System Agent",
-		role: "chief_of_staff",
+		role: "assistant",
 		status: "active",
 		maxConcurrentSessions: 1,
 		createdAt: NOW_ISO,

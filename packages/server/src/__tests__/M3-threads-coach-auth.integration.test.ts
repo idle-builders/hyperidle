@@ -49,7 +49,7 @@ describe("M3 — Assistant route readSenderId uses auth context, not DEFAULT_FOU
 		await db.insert(users).values({
 			id: "seed-agent-cos",
 			name: "System Agent",
-			role: "chief_of_staff",
+			role: "assistant",
 			status: "active",
 			createdAt: now,
 		});

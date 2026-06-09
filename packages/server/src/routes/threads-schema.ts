@@ -85,6 +85,29 @@ const plainPayloadSchema = z.object({
 	blockId: z.string().optional(),
 });
 
+/**
+ * AD8b: ToolCallSummary schema — validates a single tool-call record.
+ * Mirrors the ToolCallSummary type in @hyperidle/shared.
+ */
+const toolCallSummarySchema = z.object({
+	name: z.string().min(1),
+	input: z.record(z.unknown()),
+	output: z.string(),
+	status: z.enum(["ok", "error"]),
+});
+
+/**
+ * AD8b: Plain payload with optional tool-call metadata attached by the assistant.
+ * Extends plainPayloadSchema with an optional `toolCalls` array.
+ *
+ * @lore AD8b: Low/medium-risk assistant tool results are embedded as toolCalls
+ * on the plain message payload. High-risk tools post a review message instead
+ * and never appear as toolCalls on a plain message.
+ */
+export const plainPayloadSchemaWithToolCalls = plainPayloadSchema.extend({
+	toolCalls: z.array(toolCallSummarySchema).optional(),
+});
+
 const reviewPayloadSchema = z.object({
 	title: z.string().min(1).max(512),
 	reasoning: z.array(z.string().max(1024)).max(16),
@@ -138,11 +161,15 @@ export const messageInputSchema = z.discriminatedUnion("type", [
  * Validates a message row read back from the DB. Each branch accepts the
  * type-specific payload OR the redacted-payload variant — the type guard
  * `isRedactedPayload` then narrows in the consumer (plan §4 / SL-C2).
+ *
+ * AD8b B3.2: plain messages use plainPayloadSchemaWithToolCalls so that
+ * toolCalls survive DB read-back. Using plainPayloadSchema here would strip
+ * the toolCalls field from messages written by the assistant agent.
  */
 export const messageRowSchema = z.discriminatedUnion("type", [
 	z.object({
 		type: z.literal("plain"),
-		payload: z.union([plainPayloadSchema, redactedPayloadSchema]),
+		payload: z.union([plainPayloadSchemaWithToolCalls, redactedPayloadSchema]),
 	}),
 	z.object({
 		type: z.literal("review"),

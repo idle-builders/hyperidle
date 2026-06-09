@@ -240,6 +240,7 @@ export type {
 	Thread,
 	ThreadConfiguration,
 	ThreadId,
+	ToolCallSummary,
 	VerdictDecision,
 	VerdictPayload,
 } from "./thread.js";

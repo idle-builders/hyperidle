@@ -182,18 +182,16 @@ export const AGENT_ROLE_CATALOG: readonly AgentRoleCatalogEntry[] = [
 		hasTemplate: false,
 	},
 	// Individual agents
-	// @lore AD8a: label + category + description updated (personal → individual, display name → System Agent).
-	// role string "chief_of_staff" stays — AD8b renames it to "assistant". // @lore AD8a
-	// hasTemplate false because docs/souls/chief-of-staff.md is deleted in AD8a. // @lore AD8a
-	// AD8b creates a new assistant.md soul and sets hasTemplate back to true.
+	// @lore AD8b: "chief_of_staff" role renamed to "assistant". Per-user personal assistant
+	// with guardrails. One per human user, created at registration. hasTemplate=true.
 	{
-		role: "chief_of_staff",
-		label: "System Agent",
+		role: "assistant",
+		label: "Assistant",
 		category: "individual",
-		description: "Transitional system agent. AD8b replaces with per-user assistant.",
+		description: "Per-user personal assistant. Acts on the user's behalf with guardrails.",
 		community: "ops",
 		teamFunctions: [],
-		hasTemplate: false,
+		hasTemplate: true,
 	},
 ];
 

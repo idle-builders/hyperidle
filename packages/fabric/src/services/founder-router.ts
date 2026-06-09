@@ -12,8 +12,7 @@ export function routeToFounder(agentRole: string | null | undefined): "ceo" | "c
 		// @lore AD8c: renamed from practice_facilitator
 		case "facilitator":
 			return "cpo";
-		// @lore AD8a: role string "chief_of_staff" stays — AD8b renames it to "assistant".
-		case "chief_of_staff":
+		case "assistant":
 			return "both";
 		default:
 			return "both";

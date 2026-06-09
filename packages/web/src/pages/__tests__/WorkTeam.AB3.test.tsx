@@ -86,9 +86,8 @@ const TEAM_WITH_AGENTS: TeamDetail = {
 		},
 		{
 			agentId: "agent-cos-1",
-			// @lore AD8a: display name changed from "Chief of Staff" to "System Agent"; role string unchanged (AD8b scope).
 			name: "System Agent",
-			role: "chief_of_staff",
+			role: "assistant",
 			isLead: false,
 			agentCategory: "individual",
 		},
@@ -130,9 +129,8 @@ const MOCK_AGENT_CONFIGS = [
 	},
 	{
 		id: "agent-cos-1",
-		// @lore AD8a: display name changed from "Chief of Staff" to "System Agent".
 		name: "System Agent",
-		role: "chief_of_staff",
+		role: "assistant",
 		soulPrompt: null,
 		harnessType: null,
 		modelTierPreference: null,

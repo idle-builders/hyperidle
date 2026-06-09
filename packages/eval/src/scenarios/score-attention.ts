@@ -228,7 +228,7 @@ const saItemNoopCosMarketing: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
-			agentRole: "chief_of_staff",
+			agentRole: "assistant",
 			agentSoulPrompt: `You are a system agent managing portfolio items.
 You can use score_attention on items, but note that the items.attentionScore column was removed in an O2 migration.
 Using score_attention on target="item" is currently a graceful no-op — the tool returns ok but no DB write occurs.
