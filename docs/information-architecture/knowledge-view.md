@@ -2,7 +2,9 @@
 
 **Purpose:** The company's wiki. Agent-free curation.
 
-**Shell structure:** IconRail | Submenu (Scope & Topic Browser) | Main (Knowledge Item List or Detail) | Rail.
+<!-- @source packages/web/src/pages/KnowledgeList.tsx -->
+
+**Shell structure:** Sidebar | Main (Knowledge Item List or Detail).
 
 ### 4.1 Submenu (Scope & Topic Browser)
 

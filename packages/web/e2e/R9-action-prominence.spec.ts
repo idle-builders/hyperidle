@@ -1358,13 +1358,12 @@ test.describe("R9 — Knowledge list page", () => {
 		await page.waitForSelector("[data-testid='knowledge-list-page']");
 
 		// @lore R9: Scope filter pills are scoped to the knowledge-scope-pills group.
-		// Without scoping, /team/i would match the "Test Team" nav button in the sidebar.
-		// The scope group has buttons: All, Practices, Products, Factory (no "Team" scope).
+		// @lore AE1: Pills renamed to All/Shared/Team/Private (from old category names).
+		// "Shared" pill now covers factory+practice scope. "Team" covers team+product scope.
 		const scopePills = page.getByTestId("knowledge-scope-pills");
 		const scopePill = scopePills
-			.getByRole("button", { name: /factory/i })
-			.or(scopePills.getByRole("button", { name: /products/i }))
-			.or(scopePills.getByRole("button", { name: /practices/i }));
+			.getByRole("button", { name: /^shared$/i })
+			.or(scopePills.getByRole("button", { name: /^team$/i }));
 
 		if (await scopePill.first().isVisible()) {
 			await scopePill.first().click();

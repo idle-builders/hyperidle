@@ -25,7 +25,7 @@ const MOCK_CANVAS_WITH_BET = {
 		{
 			id: "new-bet-id",
 			title: "My New Feature",
-			product: "Test Product",
+			team: "Test Team",
 			teamId: "test-team-1",
 			status: "shaped",
 			appetite: "—",
@@ -40,7 +40,7 @@ const MOCK_CANVAS_WITH_BOLD_BET = {
 		{
 			id: "bold-bet-id",
 			title: "Bold Feature",
-			product: "Test Product",
+			team: "Test Team",
 			teamId: "test-team-1",
 			status: "shaped",
 			appetite: "—",
@@ -53,8 +53,7 @@ const MOCK_CANVAS_WITH_BOLD_BET = {
 const MOCK_BET_DETAIL = {
 	id: "bold-bet-id",
 	title: "Bold Feature",
-	product: "Test Product",
-	team: "test-team",
+	team: "Test Team",
 	status: "shaped",
 	costAppetite: null,
 	costActual: null,
@@ -138,10 +137,10 @@ test.describe("Q3 — Bet creation flow", () => {
 		// Click new pitch button
 		await page.getByRole("button", { name: /new pitch/i }).click();
 
-		// Dialog opens — fill product and pitch
+		// Dialog opens — fill team and pitch
 		await expect(page.getByRole("dialog")).toBeVisible();
-		const productSelect = page.getByLabel(/product/i);
-		await productSelect.selectOption({ index: 1 }); // select first real product
+		const productSelect = page.getByLabel(/team/i);
+		await productSelect.selectOption({ index: 1 }); // select first real team
 
 		const pitchTextarea = page.getByLabel(/pitch/i);
 		await pitchTextarea.fill("My New Feature");
@@ -223,8 +222,8 @@ test.describe("Q3 — Bet creation flow", () => {
 		await page.getByRole("button", { name: /new pitch/i }).click();
 		await expect(page.getByRole("dialog")).toBeVisible();
 
-		// Select a product but leave pitch empty
-		const productSelect = page.getByLabel(/product/i);
+		// Select a team but leave pitch empty
+		const productSelect = page.getByLabel(/team/i);
 		await productSelect.selectOption({ index: 1 });
 
 		// Create button should be disabled
@@ -232,13 +231,13 @@ test.describe("Q3 — Bet creation flow", () => {
 		await expect(createBtn).toBeDisabled();
 	});
 
-	// AC10: No product selected → Create disabled
-	test("AC10 — No product selected prevents form submission", async ({ page }) => {
+	// AC10: No team selected → Create disabled
+	test("AC10 — No team selected prevents form submission", async ({ page }) => {
 		await page.getByRole("button", { name: /new pitch/i }).click();
 		await expect(page.getByRole("dialog")).toBeVisible();
 
-		// Fill pitch but don't select product
-		await page.getByLabel(/pitch/i).fill("A pitch without a product");
+		// Fill pitch but don't select team
+		await page.getByLabel(/pitch/i).fill("A pitch without a team");
 
 		const createBtn = page.getByRole("button", { name: /create/i });
 		await expect(createBtn).toBeDisabled();

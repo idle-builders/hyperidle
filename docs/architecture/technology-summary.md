@@ -21,7 +21,7 @@
 
 ### Language choices
 
-**TypeScript** for the entire stack (meta layer + frontend). The meta layer (API, Scheduler, Adapters, Knowledge Fabric) runs on **Node.js** with **Hono** as the HTTP framework. Reasons: single language across the monorepo, better-sqlite3 for native SQLite, Drizzle ORM for type-safe queries, and the agent ecosystem's TypeScript SDK support (Claude Agent SDK).
+**TypeScript** for the entire stack (process layer + frontend). The process layer (API, Scheduler, Adapters, Knowledge Fabric) runs on **Node.js** with **Hono** as the HTTP framework. Reasons: single language across the monorepo, better-sqlite3 for native SQLite, Drizzle ORM for type-safe queries, and the agent ecosystem's TypeScript SDK support (Claude Agent SDK).
 
 **TypeScript + React** for the Factory app (frontend). Reasons: Tailwind + DaisyUI compose cleanly with React, sharing types with the server eliminates API contract drift, and Electron bundles the renderer natively.
 

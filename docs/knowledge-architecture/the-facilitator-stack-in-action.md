@@ -5,7 +5,7 @@ Each human view is fed by a matching facilitator. The facilitators do all the or
 | Human view | Fed by | Score type that surfaces items |
 |------------|--------|-------------------------------|
 | Conversations (Review) | **All facilitators** — plus agents directly for approvals | High impact + high novelty + risk-tier ≥ medium |
-| Rail (Prioritize) | **Product Managers** + Chief of Staff | Items awaiting human ordering but not urgent |
+| Sidebar (Prioritize) | **Product Managers** + Chief of Staff | Items awaiting human ordering but not urgent |
 | Work (Bet) | **Product Managers** shape pitches; **Chief of Staff** shapes portfolio bets | Shaped pitches ready for the weekly cycle |
 | Knowledge (Curate) | **Practice Facilitators** (one per community) | Novelty, conflict, staleness, taste-sensitive |
 | Chief of Staff's chat | **Chief of Staff** | Cross-product patterns, recurring obstacles, rule-change proposals |

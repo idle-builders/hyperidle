@@ -1,5 +1,8 @@
 ## 6. Tasks and Sessions
 
+<!-- @source packages/db/src/schema.ts -->
+<!-- @source packages/server/src/routes/tasks.ts -->
+
 ### 6.1 Task lifecycle
 
 Tasks move through a small state machine:
@@ -8,7 +11,7 @@ Tasks move through a small state machine:
 - `accepted` — the team lead has accepted it. The owner is committed.
 - `hold` — the task has unmet upstream dependencies (other tasks that must reach `done` first). The task cannot start until all dependencies clear. **When the last upstream dependency moves to `done`, the Dependency Watcher automatically transitions this task to `accepted` and notifies the owner.** This is the key automation: no agent or human needs to manually unblock held tasks.
 - `in_progress` — at least one session is running or has run. The task has produced some progress.
-- `blocked` — the owner is waiting on something external (a human reply, an external service, a design question). Unlike `hold`, this is a runtime block discovered during execution. Blockers are first-class: they show up in the Rail.
+- `blocked` — the owner is waiting on something external (a human reply, an external service, a design question). Unlike `hold`, this is a runtime block discovered during execution. Blockers are first-class: they surface in Conversations and the WorkTeam AgentRow health indicators.
 - `review` — the task has produced an artifact and is awaiting verdict. For risk-tier ≥ medium tasks, this means a review thread to the human; for low-risk tasks, this means an internal team check.
 - `done` — verdict reached, artifact accepted, task closed.
 - `killed` — abandoned. Reasoning logged.
@@ -17,7 +20,7 @@ The distinction between `hold` and `blocked` is important: `hold` is structural 
 
 > **Vocabulary note.** The lower-case `blocked` workflow state described here is unrelated to the upper-case `Block` content primitive (see [`docs/blocks/`](BLOCKS.md)). They share the English word "block" and nothing else.
 
-Transitions are events in the audit trail. The Rail surfaces blocked and held tasks prominently because they're the most actionable signal of friction.
+Transitions are events in the audit trail. Conversations filter chips and WorkTeam AgentRow health indicators surface blocked and held tasks prominently because they're the most actionable signal of friction.
 
 ### 6.2 Sessions: many runs per task
 
@@ -55,7 +58,7 @@ Three consequences fall out of this:
 - **Where the harness supports it, a pre-compaction trigger fires.** This is part of the Harness Adapter's contract: when the adapter detects context compaction is imminent (via token counting or harness-specific signals), it triggers a final note-writing pass before the session ends. Not all harnesses expose this — for those that don't, the continuous note-writing habit is the fallback.
 - **The task object is the real long-term memory of the work.** L2 (the agent's private memory) holds the agent's identity and accumulated style; the task object holds the *current state of this specific job*. Anything not written to the task before compaction is lost from this work stream.
 
-**What matters in session notes is the flight level and description, not the structure.** LLMs are good at writing prose; if we use notes as text (which we do — they're materialized as markdown for the next session to read), then any reasonable way the agent writes them is fine. Don't enforce a rigid template. What matters is guiding the agent on *what* to write about: what was the goal, what happened, what changed, what's next, what should the next session be careful about. The skill package provides defaults for this guidance, but the meta layer doesn't parse the notes structurally.
+**What matters in session notes is the flight level and description, not the structure.** LLMs are good at writing prose; if we use notes as text (which we do — they're materialized as markdown for the next session to read), then any reasonable way the agent writes them is fine. Don't enforce a rigid template. What matters is guiding the agent on *what* to write about: what was the goal, what happened, what changed, what's next, what should the next session be careful about. The skill package provides defaults for this guidance, but the process layer doesn't parse the notes structurally.
 
 There's no need for a session-length cap beyond the natural one: when context compaction is imminent, the session ends. Different harnesses with different context sizes will produce different natural session lengths, and that's fine.
 
@@ -75,7 +78,7 @@ This pairing of agent-memory + task-memory is what the Letta sleep-time pattern 
 
 Most tasks don't need event-sourced durability. A 5-second copy review doesn't need a Temporal workflow. A 4-hour deploy with twenty external API calls absolutely does.
 
-The skill the task uses declares whether it needs durability and which adapter to use. The meta layer ships adapters for the major options (Temporal, Hatchet/Icepick, LangGraph checkpointers, plain none). The task carries the choice through to its sessions: a `durability: temporal` task means each session is a Temporal workflow execution and the agent's tool calls are durable activities.
+The skill the task uses declares whether it needs durability and which adapter to use. The process layer ships adapters for the major options (Temporal, Hatchet/Icepick, LangGraph checkpointers, plain none). The task carries the choice through to its sessions: a `durability: temporal` task means each session is a Temporal workflow execution and the agent's tool calls are durable activities.
 
 Defaults:
 
@@ -89,6 +92,6 @@ Skill authors can override. This stays consistent with the EXECUTION layer's "du
 
 The thread on a task is *optional*. Most tasks ship without one. When a thread exists, it's structured like comments on a pull request — annotations, questions, clarifications, review feedback — not like a freeform chat. The task's *state* is on the task object; the thread is the narrative around it.
 
-When a task escalates (blocked, needs human input, needs another agent), the escalation produces a thread message and surfaces in the appropriate view (the Rail for blockers, Conversations for human-needed input). The thread is the conversation; the task is the work.
+When a task escalates (blocked, needs human input, needs another agent), the escalation produces a thread message and surfaces in Conversations. Blockers also appear in the WorkTeam AgentRow health indicator. The thread is the conversation; the task is the work.
 
 ---

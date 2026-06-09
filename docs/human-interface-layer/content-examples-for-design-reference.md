@@ -14,18 +14,18 @@ Real examples grounded in the factory's products (Ambrovia — team alignment fo
 - "I noticed three of our recent Ambrovia bets all hit the same auth issue — want to talk about it?" — from Ambrovia Product Manager to Founder.
 - "I'm stuck — Coolify deploy keeps timing out. The webhook signing keys might be wrong. Can you check?" — from Nimmly Backend Builder to Founder.
 
-#### Rail indicators
+#### Sidebar ambient indicators
 
 - Bets: "Nimmly: Pricing overhaul — 4/7 tasks done · week 3 of 6" | "Ambrovia: Onboarding v2 — 1/4 tasks done · week 1 of 4"
-- Blocked: "2 agents blocked" → expand → "Nimmly Backend Builder: waiting on Stripe API keys (3h)" | "Ambrovia Frontend Builder: waiting on review verdict (45min)"
-- Knowledge: "+8 new items this week"
+- Blocked: "2 agents blocked" → "Nimmly Backend Builder: waiting on Stripe API keys (3h)" | "Ambrovia Frontend Builder: waiting on review verdict (45min)"
+- Knowledge triage badge: "+8 new items this week"
 - Cost: "$42 today / $150 budget · $187 this week / $500 budget"
 - System: "6 agents active · 0 failures · 0 conflicts"
 
 #### PitchCard examples (Work)
 
-- Title: "Search results relevance (ranking overhaul)". Product: Nimmly. Appetite: 6 weeks. Body (markdown): the shaped pitch — problem statement, proposed solution sketch, rabbit holes to avoid, what "done" means.
-- Title: "Onboarding v2 — guided setup flow". Product: Ambrovia. Appetite: 4 weeks. Status: committed this cycle.
+- Title: "Search results relevance (ranking overhaul)". Team: Nimmly. Appetite: $2,000. Body (markdown): the shaped pitch — problem statement, proposed solution sketch, rabbit holes to avoid, what "done" means.
+- Title: "Onboarding v2 — guided setup flow". Team: Ambrovia. Appetite: $1,500. Status: committed.
 
 #### Knowledge items
 

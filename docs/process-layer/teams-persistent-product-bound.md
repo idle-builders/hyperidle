@@ -1,10 +1,14 @@
 ## 4. Teams: Persistent, Product-Bound
 
+<!-- @source packages/db/src/schema.ts -->
+<!-- @source packages/server/src/routes/teams.ts -->
+<!-- @source packages/web/src/pages/WorkTeam.tsx -->
+
 A team forms when a product is committed to. The Chief of Staff (with founder approval) assembles it from the available agent pool, drawing from the practices. The team includes whoever the product needs — typically a Product Manager (lead by default), one or more Builders, a Reviewer for the product's primary artifact type, and any specialty agents the product calls for (a growth analyst for a B2C product, a sales agent for a B2B one).
 
 ### 4.1 Forming a team
 
-Team formation runs through Conversations as a review item. The Chief of Staff drafts the proposed team — these agents, this lead, this capacity — and posts it for the founder's verdict. Approving the team kicks off the product. The team's membership is visible in the Rail and Work view and editable through subsequent review items.
+Team formation runs through Conversations as a review item. The Chief of Staff drafts the proposed team — these agents, this lead, this capacity — and posts it for the founder's verdict. Approving the team kicks off the product. The team's membership is visible in the Work view and editable through subsequent review items.
 
 The Chief of Staff considers:
 - **Skill match** — does the team have agents with the skills the product will need?

@@ -35,16 +35,13 @@ test.describe("Navigation", () => {
 		await expect(page.locator("[data-section='work'][data-active='true']")).toBeVisible();
 	});
 
-	test("clicking Knowledge section header shows scope sub-items in Sidebar", async ({ page }) => {
-		// @lore U6: Knowledge scopes are static sub-items in the Sidebar
-		// (Practices, Products, Factory). No separate knowledge-submenu component.
+	test("clicking Knowledge section header activates the Knowledge section", async ({ page }) => {
+		// @lore W3: Knowledge scope sub-items (Practices, Products, Factory) were
+		// removed from the Sidebar in W3 AC-3. The Knowledge section header activates
+		// and navigates to /knowledge without scope sub-items.
 		await page.getByRole("button", { name: /knowledge/i }).click();
 		// Knowledge section becomes active
 		await expect(page.locator("[data-section='knowledge'][data-active='true']")).toBeVisible();
-		// Scope sub-items are visible in the sidebar
-		await expect(page.getByRole("button", { name: /practices/i })).toBeVisible();
-		await expect(page.getByRole("button", { name: /products/i })).toBeVisible();
-		await expect(page.getByRole("button", { name: /factory/i })).toBeVisible();
 	});
 
 	test("default route lands on Conversations", async ({ page }) => {

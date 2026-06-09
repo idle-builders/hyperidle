@@ -1,8 +1,8 @@
 ## 4. Key Interfaces Between Components
 
-### 4.1 Agent → Meta Layer (via skills)
+### 4.1 Agent → Process Layer (via skills)
 
-Agents interact with HyperIdle through skills that wrap the meta layer's APIs:
+Agents interact with HyperIdle through skills that wrap the process layer's APIs:
 
 ```
 read_inbox()              → GET /agents/:id/inbox
@@ -17,7 +17,7 @@ write_session_notes(notes) → PATCH /sessions/:id (called before context compac
 
 These are thin wrappers — they call the API Layer directly via HTTP or, in a single-process deployment, via function call.
 
-### 4.2 Meta Layer → Harness (via Harness Adapter)
+### 4.2 Process Layer → Harness (via Harness Adapter)
 
 When the Scheduler determines an agent should start a session (routine fired, dependency met, inbox message arrived):
 
@@ -29,7 +29,7 @@ When the Scheduler determines an agent should start a session (routine fired, de
 5. Adapter calls Workspace Adapter: spawn(config) or reuse existing workspace
 6. Adapter calls Harness: start_session(agent, context, task, workspace, model_tier)
 7. Harness runs the agent (model calls, tool use — all inside the harness)
-8. Agent uses skills to interact with meta layer (inbox, memory, items, task notes)
+8. Agent uses skills to interact with process layer (inbox, memory, items, task notes)
 9. Session nears context compaction → agent writes session notes to task
 10. Session ends (compaction imminent, task done, or explicit stop)
 11. Adapter calls: stop_session → SessionResult
@@ -37,7 +37,7 @@ When the Scheduler determines an agent should start a session (routine fired, de
 13. Event emitted: session_ended
 ```
 
-### 4.3 Meta Layer → Human Interface (via API + Events)
+### 4.3 Process Layer → Human Interface (via API + Events)
 
 The API Layer serves the Factory app. State flows in two directions:
 

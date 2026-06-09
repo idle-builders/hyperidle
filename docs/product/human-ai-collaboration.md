@@ -94,7 +94,7 @@ Review threads embed artifacts. The renderer is chosen by artifact type:
 
 ## Cost is visible at every level
 
-Every action shows spend. Every review thread includes token and money cost for the session that produced the artifact. The Rail shows a burn-down strip: current spend vs. budget for the day and the week.
+Every action shows spend. Every review thread includes token and money cost for the session that produced the artifact. The WorkTeam burn-vs-cap section shows a burn-down indicator: cost actual vs. cost cap per team.
 
 Cost caps nest at three levels:
 - **Agent** — maximum concurrent sessions, money cap per agent
