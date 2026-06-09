@@ -1,6 +1,6 @@
-## 12. What the Meta Layer Ships at This Layer
+## 12. What the Process Layer Ships at This Layer
 
-To be deployable for anyone (per the EXECUTION layer constraint), the meta layer ships:
+To be deployable for anyone (per the EXECUTION layer constraint), the process layer ships:
 
 1. **The five primitive object stores.** Bet, Task, Session, Team, Routine. SQLite by default; swappable. The schemas in §3 are the contracts.
 2. **A small task scheduler** that watches dependency graphs and notifies owners when their tasks are unblocked. Not a workflow engine — a dependency-aware notifier.
@@ -13,6 +13,6 @@ To be deployable for anyone (per the EXECUTION layer constraint), the meta layer
 9. **Retro templates** — markdown templates the Product Manager fills in at ship/kill, wired to route to Practice and the assistant thread.
 10. **A small CLI** for inspecting bets, tasks, sessions, teams, and routines. Useful for headless deployers and for debugging.
 
-Everything else is downstream of this. The meta layer's job is the primitives, the schedulers, the adapters, and the helpers — not the agent runtime, not the orchestration engine.
+Everything else is downstream of this. The process layer's job is the primitives, the schedulers, the adapters, and the helpers — not the agent runtime, not the orchestration engine.
 
 ---

@@ -1,4 +1,6 @@
-## 4. The Three Views + The Rail <!-- @lore AD8a: historical — Rail removed in U6 -->
+## 4. The Three Views
+
+<!-- @source packages/web/src/pages/Conversations.tsx -->
 
 Each view gets a clear home in the app. They share data, they share identity, they share the thread model where applicable, but each has its own affordances tuned for its purpose.
 
@@ -10,7 +12,7 @@ Each view gets a clear home in the app. They share data, they share identity, th
 
 **What it is:** The Slack of the factory. Messaging and reviews — all as threads.
 **Home:** Thread list (submenu) + thread content (main pane). Mobile Conversations tab.
-**Rhythm:** Whenever; smart-batched. Most items in seconds, some in short back-and-forth threads. The assistant's chat is persistent.
+**Rhythm:** Whenever; smart-batched. Most items in seconds, some in short back-and-forth threads. The Chief of Staff's chat is persistent.
 **Information density:** Minimal per item, but threads can grow.
 **Borrows from:** MCP Agent Mail, LangChain Agent Inbox, builderz Mission Control's Aegis blocking gate, Devin Review's red/yellow/gray triage, **GitHub PR review's approve/comment/request-changes verdict model**, Read AI's persistent-context coach model, Letta's continuous sessions.
 
@@ -25,12 +27,12 @@ The thread list must let the user distinguish two things at a glance without rea
 1. **Review vs. chat.** Review threads have a pending verdict; chat threads don't. The list item for a review thread (ThreadRow) carries a visible review indicator (icon, badge, or label) so the user knows it needs a decision, not just a reply.
 2. **Blocking vs. non-blocking.** Blocking review threads mean an agent is literally paused waiting for the verdict. These need a distinct visual treatment (e.g., a stronger indicator, a different position in the list) so the user sees them first. Non-blocking items can wait.
 
-Each ThreadRow shows: the sender (agent name/role), a subject or first-line summary, a timestamp, and the review/chat + blocking indicators. The assistant's chat thread is pinned at the top — always visible, always accessible.
+Each ThreadRow shows: the sender (agent name/role), a subject or first-line summary, a timestamp, and the review/chat + blocking indicators. The Chief of Staff's chat thread is pinned at the top — always visible, always accessible.
 
 #### Two kinds of threads, one view
 
 1. **Review threads.** An agent proposes a concrete action (deploy this, publish this, ship this skill change) and wants a verdict. These look like PR reviews. Review threads carry a blocking/non-blocking indicator — blocking means an agent is paused waiting for the verdict.
-2. **Chat threads.** An agent starts (or continues) a conversation with a human. No verdict needed — it's a message thread. The human can reply, start a task from the conversation, or close the thread. The assistant's ongoing conversation is just a chat thread — pinned at the top of the thread list, never archived, but structurally identical to any other chat.
+2. **Chat threads.** An agent starts (or continues) a conversation with a human. No verdict needed — it's a message thread. The human can reply, start a task from the conversation, or close the thread. The Chief of Staff's ongoing conversation is just a chat thread — pinned at the top of the thread list, never archived, but structurally identical to any other chat.
 
 Both carry `reasoning`, both thread, both are searchable, both are part of the audit trail. The visual distinction is simple: review threads have a pending verdict and a blocking indicator; chat threads don't.
 
@@ -48,10 +50,10 @@ This matters because not every item is a clean yes/no. Half the interesting ones
 
 #### What lands as a review thread
 
-- Skill changes (new skills, edits, retirements) at the assistant level. *Synchronous gate. Skills are powerful and compound across the factory.*
+- Skill changes (new skills, edits, retirements) at the Chief of Staff level. *Synchronous gate. Skills are powerful and compound across the factory.*
 - Risk-tier ≥ medium task completions (deploys, publishes, customer-facing actions, anything irreversible).
 - Failures the facilitators flagged for human attention.
-- Outputs from the assistant's chat that need final approval before being written into `PRINCIPLES.md` or `FOCUS.md`.
+- Outputs from the Chief of Staff's chat that need final approval before being written into `PRINCIPLES.md` or `FOCUS.md`.
 - File-lease conflicts where two agents want the same artifact.
 
 #### What lands as a chat thread
@@ -60,15 +62,15 @@ This matters because not every item is a clean yes/no. Half the interesting ones
 - Founder ↔ agent conversation: the human messaging a specific agent directly. Good for narrow, agent-specific exchanges.
 - Continuations of review threads after the verdict — the agent reports back on what it did, the human asks a follow-up, the thread ends.
 
-#### What lives in the assistant's chat
+#### What lives in the Chief of Staff's chat
 
 - Cross-product patterns the facilitators noticed.
 - Recurring obstacles across multiple cycles.
 - Proposed changes to `PRINCIPLES.md` or `FOCUS.md` (rule changes, not work changes).
 - Reflections on the previous month — what worked, what didn't, what to try.
-- Things the human raised in passing that the assistant has been chewing on.
+- Things the human raised in passing that the Chief of Staff has been chewing on.
 
-The assistant has five loose anchors it returns to (anchors, not a script):
+The Chief of Staff has five loose anchors it returns to (anchors, not a script):
 
 1. What are we trying to do?
 2. Where are we?
@@ -76,13 +78,13 @@ The assistant has five loose anchors it returns to (anchors, not a script):
 4. What should we try?
 5. When will we know?
 
-Outputs that need approval (e.g. a proposed edit to `PRINCIPLES.md`) get drafted by the assistant and posted back into the thread list as a review thread. The verdict flows through the same grammar as any other review. Then the result is appended to `L4/REFLECTIONS/2026-MM.md` as a summary.
+Outputs that need approval (e.g. a proposed edit to `PRINCIPLES.md`) get drafted by the Chief of Staff and posted back into the thread list as a review thread. The verdict flows through the same grammar as any other review. Then the result is appended to `L4/REFLECTIONS/2026-MM.md` as a summary.
 
 #### What does *not* land in Conversations
 
 - Routine task completions (those go to the audit log, not the inbox).
 - Knowledge updates (Knowledge view, async).
-- Items waiting on prioritization rather than decision (these show up in the Rail). <!-- @lore AD8a: historical — Rail removed in U6 -->
+- Items waiting on prioritization rather than decision (these surface via Conversations filter chips).
 
 #### Interaction grammar
 
@@ -97,14 +99,14 @@ On review threads (PR-shaped):
 - `reject` — block the action with a short reason; the proposal is dead, not revised
 - `reply` — send a message back to the agent without approving or rejecting (e.g. "do you mean X?")
 - `snooze` — defer (default 4h)
-- `escalate` — route to the assistant's chat with the full review thread linked
+- `escalate` — route to the Chief of Staff's chat with the full review thread linked
 
 On chat threads (message-shaped):
 
 - `reply` — continue the thread
 - `start a task` — turn the conversation into a concrete task for the agent to pick up
 - `close` — end the thread; archive it
-- `escalate` — route to the assistant's chat
+- `escalate` — route to the Chief of Staff's chat
 
 **Design principle: decidability, not brevity.** 15-second decidability is the target for simple review items, but the view should never *force* a 15-second decision. When the human wants to have a conversation, the view lets them — and a good chat thread is worth 5 minutes of back-and-forth far more than a bad 15-second approve. Fast when fast is enough, conversational when the problem actually warrants it.
 
@@ -144,45 +146,21 @@ Each ArtifactView shape has its own renderer in the Conversations view. The agen
 
 ---
 
-### 4.2 The Rail — Prioritize <!-- @lore AD8a: historical — Rail removed in U6 -->
+### 4.2 Ambient Awareness Surfaces
 
-**Verb:** Prioritize.
-**Home:** Right sidebar on desktop (always visible, expandable/minimizable); the Home tab on mobile.
-**Rhythm:** Ambient; you glance at it. Engaged use ~3 minutes per day.
-**Information density:** Medium. Compact, dense, no chrome.
-**Borrows from:** oh-my-codex HUD, Windsurf Cascade's anticipation model, Cursor's background-agent status surface.
+Ambient factory state is distributed across embedded indicators rather than a dedicated sidebar:
 
-The Rail is the factory's vital signs. It shows current state at a glance — read it like a thermostat. <!-- @lore AD8a: historical — Rail removed in U6 -->
+- **Conversations filter chips** — "Blocked", "Needs review", "Unread" chips let you triage in seconds without leaving the view. Active bets with pending blockers surface here.
+- **Sidebar triage badge** — The Conversations section header shows an unread count badge. Always visible; never demands attention.
+- **WorkTeam AgentRow health indicators** — Each agent row on a team page shows a live health dot (active, blocked, paused, idle). Cost burn appears in the team's burn-vs-cap section.
 
-What surfaces in the Rail: <!-- @lore AD8a: historical — Rail removed in U6 -->
-
-- **Active bets and their progress.** Each bet shown with a progress indicator (how far through the cycle, how many tasks complete vs. total).
-- **Blocked agents or tasks.** Count of currently blocked items, with the ability to expand and see what's stuck on what. If an agent is paused waiting for a human verdict, this is where you notice.
-- **Recent knowledge additions.** Count of new knowledge items since last visit. A signal that agents are generating learnings — and that curation may be needed.
-- **Cost / token burn.** Current spend vs. budget for the day and week. A burn-down indicator that makes spend ambient rather than something you have to go look up.
-- **System stability.** Basic health: how many agents are active, any session failures, any unresolved conflicts in the knowledge store.
-- **Unread thread count.** Linked to Conversations — how many threads need attention.
-
-What does *not* surface in the Rail: <!-- @lore AD8a: historical — Rail removed in U6 -->
-
-- Approvals (those are Conversations).
-- Chat threads (also Conversations).
-- Knowledge updates (Knowledge view).
-- Detailed audit trails (observability layer, not the Rail). <!-- @lore AD8a: historical — Rail removed in U6 -->
-
-**Interaction grammar:**
-
-- `nudge up` / `nudge down` — adjust the order of items the facilitators surfaced
-- `acknowledge` — mark a blocker as known so it stops blinking
-- `expand` — pop an item out; usually routes to the right view inside the app (Conversations, Work)
-
-**Design principle: ambient, not interruptive.** The Rail can change colors, show counters, animate status indicators. It cannot demand attention. If something needs attention, it goes to Conversations and rings a phone. <!-- @lore AD8a: historical — Rail removed in U6 -->
-
-**Keyboard-first:** arrow keys to move between items, enter to act, no mouse required.
+**Design principle: ambient, not interruptive.** These surfaces can change colors, show counters, animate status indicators. They cannot demand attention. If something needs attention, it goes to Conversations and rings a phone.
 
 ---
 
 ### 4.3 Work — Plan and Track
+
+<!-- @source packages/web/src/pages/work/ -->
 
 **What it is:** The Linear of the factory. Bets and tasks — planning what to do and tracking what's in flight.
 **Home:** A view in the Main Pane. Mobile Work tab (read-only).
@@ -218,7 +196,7 @@ What surfaces in Work:
 - `comment` — add a note to a pitch to redirect shaping (via thread)
 - `reshape` — send back to a Product Manager with notes (this becomes a review thread)
 - `kill` — drop a pitch; it disappears after this cycle
-- `ship` — close out a finished bet (which triggers a retro prompt in the assistant's chat)
+- `ship` — close out a finished bet (which triggers a retro prompt in the Chief of Staff's chat)
 
 **Interaction grammar (tracking):**
 
@@ -242,6 +220,8 @@ Appetite uses **money + tokens, never duration**. Bets carry `costCapMinor`/`cos
 ---
 
 ### 4.4 Knowledge — Curate
+
+<!-- @source packages/web/src/pages/KnowledgeList.tsx -->
 
 **What it is:** The company wiki — a catalogue of knowledge items organized by practice and product.
 **Home:** A view in the Main Pane. Desktop is the primary form factor; mobile browsers provide read access for triage and unblocking.
@@ -351,7 +331,7 @@ All async, none blocking:
 
 #### Knowledge view layout
 
-The Knowledge view uses the standard IconRail → Submenu → Main pane structure. Two layout options to explore in design:
+The Knowledge view uses the standard Sidebar → Main pane structure. Two layout options to explore in design:
 
 **Option A: Split-pane.** The submenu shows the scope selector (Practice / Product / Factory) and, below it, the topic list for the selected scope. Clicking a topic filters the main pane to show items in that topic. Multiple topics can be selected to union their items. The main pane is a list of knowledge items with the view switcher (by topic, needs attention, recently created, most accessed, stale) at the top. This works well for cross-topic curation — the topic list is always visible as a navigation landmark.
 
@@ -376,13 +356,13 @@ Both options share the same usability requirements:
 
 A Thread is a *container* — an append-only, chronologically-ordered sequence of Messages attached to exactly one host entity. The thread itself has no shape; the *messages* do. Most messages are plain text. Some are *rich* and carry their own inline UI — a review message embeds an artifact reference plus a verdict affordance, a questionnaire message embeds a constrained answer set plus an answer slot. This is the generative-UI pattern every modern AI chat product converged on in 2025–2026. The factory leans into it.
 
-This section is the cross-cutting concept the four views share. Conversations is one renderer of threads; the bet detail, task detail, knowledge item detail, artifact detail, and assistant surface are others. Earlier drafts of `§4.1` used "review thread / chat thread / assistant thread" as if they were thread types — they are not. The differences live on *messages* (typed shapes) and on a thread's *configuration* (host + visibility + membership + pinning), never on the thread itself.
+This section is the cross-cutting concept the four views share. Conversations is one renderer of threads; the bet detail, task detail, knowledge item detail, artifact detail, and coach surface are others. Earlier drafts of `§4.1` used "review thread / chat thread / coach thread" as if they were thread types — they are not. The differences live on *messages* (typed shapes) and on a thread's *configuration* (host + visibility + membership + pinning), never on the thread itself.
 
 #### 4.5.1 Definition and essential properties
 
 **Thread.** Every thread has:
 - An **id** — server-generated, opaque.
-- A **host** — exactly one (entity kind + entity id). Host = the entity the thread is *about*. Not the creator (that is `initiator`); no thread has an owner. A thread on a bet exists to discuss that bet. Closed host kinds: `bet`, `task`, `knowledge_item`, `artifact`, `agent`, `user`, `team`, `factory`. There are no orphan threads. A assistant-style thread that has no domain object to attach to attaches to the *user themselves*.
+- A **host** — exactly one (entity kind + entity id). Host = the entity the thread is *about*. Not the creator (that is `initiator`); no thread has an owner. A thread on a bet exists to discuss that bet. Closed host kinds: `bet`, `task`, `knowledge_item`, `artifact`, `agent`, `user`, `team`, `factory`. There are no orphan threads. A coach-style thread that has no domain object to attach to attaches to the *user themselves*.
 - An **initiator** — the identity that opened the thread.
 - **Participants** — the set of subscribed identities. Agents and humans are identities in the same matrix, not separate categories.
 - **blocking** — derived; the rule is in §4.5.5 below.
@@ -411,7 +391,7 @@ Rich messages render via a typed dispatch — a TypeScript discriminant with exh
 A **thread configuration** is a recognisable preset of host / visibility / membership / pinning that produces a familiar experience without being a separate primitive:
 
 - **DM** — host is an agent or user; participants = {sender, recipient}; pinned = false.
-- **assistant thread** — host is the user themselves; participants = {user, assistant}; pinned = true; never auto-archived.
+- **Coach thread** — host is the user themselves; participants = {user, Chief of Staff}; pinned = true; never auto-archived.
 - **Feed** — host is `team` or `factory`; participants = the team's agents plus the founders (or all agents + founders, for `factory`); pinned = false; messages are mostly broadcast plain announcements.
 
 Configurations are *not* a typed enum on the thread row. They are described patterns — recognised by host + participants + pinning, rendered with the same primitive. A Builder sending a question to a Product Manager is a DM whether or not we label it; the queue treats it as such because of its host and participants. Configurations live in the *concept doc* and the *style guide*, not in the schema.
@@ -431,7 +411,7 @@ Configurations are *not* a typed enum on the thread row. They are described patt
 
 - A Thread **carries** Messages (1:N, append-only).
 - A Thread **attaches to** exactly one host entity (1:1; by reference, not embedding).
-- A Thread is **referenced by** filtered views: the Conversations queue, the host's detail surface, the Rail's unread count. <!-- @lore AD8a: historical — Rail removed in U6 -->
+- A Thread is **referenced by** filtered views: the Conversations queue, the host's detail surface, the Sidebar triage badge.
 - A Message **carries** a typed payload. Rich payloads **embed references** to other primitives (artifact, knowledge item, task, bet) but never **own** them — embeddings are fetched and rendered inline as cards. (A *block* is not embedded as a card — the bridge from a thread message to a specific block is the block-anchor metadata, see §4.6.5; cards are reserved for whole-entity references.)
 - A response (verdict, questionnaire answer, plain reply) is **itself a Message** in the thread.
 
@@ -461,7 +441,7 @@ This is a single semantic test, decoupled from session state. The agent may have
 - A `plain` "quick question" message where the agent has paused everything pending the reply → blocking.
 - A `plain` FYI message → not blocking, even if it goes unread.
 - An unanswered review on a thread whose agent has finished and walked away (the work is done from the agent's side) → not blocking.
-- A assistant thread to the user (no agent waiting on the user) → not blocking.
+- A coach thread to the user (no agent waiting on the user) → not blocking.
 
 The architect picks the storage during planning (a `blocked_on_thread_id` reference on the task or session, an explicit lock row, an event-sourced flag, or a deterministic join). The concept rule is the iff above; the storage choice must satisfy it.
 
@@ -476,7 +456,7 @@ Blocking drives ordering: blocking threads sort first in any rendered list, beca
 - **Hosts reference threads, not the other way round.** A bet does not own its threads; it references them. The concept rule (which constrains the architect's schema choice) is:
   1. **Hosts cannot be hard-deleted while threads reference them.** The system uses soft-archive only for hosts that have ever had a thread. Hard delete is reserved for never-discussed entities.
   2. **Archiving a host inherits the archived state on its threads.** Threads disappear from queues but remain queryable via the host's archived view and via direct id.
-  3. **Re-homing is illegal except for one constrained case.** A thread's host is immutable except: when a `user` host is offboarded, its assistant thread re-homes to `factory` (so reflections in `L4/REFLECTIONS/` retain a host). Every other host transition requires a new thread.
+  3. **Re-homing is illegal except for one constrained case.** A thread's host is immutable except: when a `user` host is offboarded, its coach thread re-homes to `factory` (so reflections in `L4/REFLECTIONS/` retain a host). Every other host transition requires a new thread.
 - **Agents and humans are equal participants.** An agent can initiate a thread to a founder. A founder can initiate a thread to an agent. The same model serves both.
 - **Idempotent appends.** Because clients post messages over WebSocket-with-at-least-once-delivery, a message append carries a client-generated idempotency key (`clientKey`); the server treats `(threadId, sender, clientKey)` as the unique constraint and replies with the canonical id on a duplicate. This prevents duplicate appends after a retry.
 
@@ -484,14 +464,14 @@ Blocking drives ordering: blocking threads sort first in any rendered list, beca
 
 | Term | Definition | Aliases not to use |
 |---|---|---|
-| **Thread** | Container for messages, attached to exactly one host. | conversation, chat, dialog, "review thread" (as a primitive), "chat thread" (as a primitive), "assistant thread" (as a primitive) |
+| **Thread** | Container for messages, attached to exactly one host. | conversation, chat, dialog, "review thread" (as a primitive), "chat thread" (as a primitive), "coach thread" (as a primitive) |
 | **Message** | Element inside a thread; typed (`plain` / `review` / `questionnaire`). | post, comment, entry. The `Item` shape in §7 is *one* expression of a thread payload; it is not a synonym for Message. |
 | **Plain message** | The default text shape. | chat message, regular message |
 | **Rich message** | A message that carries its own inline UI via a typed renderer. | embed, card, generative-UI message (descriptive, not the type) |
 | **Review message** | Rich message embedding an artifact reference + a verdict affordance. | review item, review thread (the latter conflates levels) |
 | **Questionnaire message** | Rich message embedding a constrained answer set + an answer slot. | form, survey |
 | **Host entity** | The entity the thread is *about* (bet / task / knowledge_item / artifact / agent / user / team / factory). | parent, owner, target |
-| **Thread configuration** | Recognisable preset of host + visibility + membership + pinning (DM, assistant, feed). | thread shape, thread type, thread kind |
+| **Thread configuration** | Recognisable preset of host + visibility + membership + pinning (DM, coach, feed). | thread shape, thread type, thread kind |
 | **Verdict** | The *binding* response to a review message — one of `approve`, `approve-with-comments`, `request-changes`, `edit`, `reject`. A verdict terminates the review (sets `resolvedAt` on the underlying message). The other five verdict-grammar actions in `docs/human-interface-layer/verdict-actions.md` (`comment`, `inline-comment`, `reply`, `snooze`, `escalate`) are **review actions**, not verdicts. | decision (overloaded), action (overloaded) |
 | **Review action** | A non-binding response to a review message. `comment`, `inline-comment`, `reply` emit a `plain` message in the thread; `snooze`, `escalate` are sidecar workflow operations (see §4.5.8 for which emit messages). | — |
 
@@ -503,10 +483,10 @@ Blocking drives ordering: blocking threads sort first in any rendered list, beca
 - **Redaction.** Sensitive content (a pasted secret, PII flagged for removal) is redacted by *replacement payload*, not in-place edit: the message's payload is replaced with `{ redacted: true, redactedBy, redactedAt, reason }` while preserving the message's id, sender, type, and createdAt. The audit trail records both the redaction event and the replacement. In-place text edits are still not allowed.
 - **Identity.** Threads and messages have opaque, server-generated ids. Message ordering within a thread is by `(createdAt, id)` ascending — the id breaks createdAt ties for deterministic re-render.
 - **Idempotency.** Message appends carry a client-generated `clientKey`; the server's unique constraint is `(threadId, sender, clientKey)`. Duplicates return the canonical id, not a new row.
-- **Verdict semantics.** Five verdict-grammar actions are *binding verdicts* and emit a `verdict`-payload message that terminates the review: `approve`, `approve-with-comments`, `request-changes`, `edit`, `reject`. Three more emit `plain` messages in the thread but do not terminate: `comment`, `inline-comment`, `reply`. Two are sidecar workflow operations and emit no message in the thread itself: `snooze` (a per-recipient defer, recorded on the thread or on the routing item, not in the message stream), `escalate` (creates a *new* thread on the assistant's assistant configuration, with a back-reference to the original — not an in-place message). This split keeps the audit trail clean: every action that *changes the substance of the conversation* is a message; every action that *changes the routing or workflow* is sidecar state.
+- **Verdict semantics.** Five verdict-grammar actions are *binding verdicts* and emit a `verdict`-payload message that terminates the review: `approve`, `approve-with-comments`, `request-changes`, `edit`, `reject`. Three more emit `plain` messages in the thread but do not terminate: `comment`, `inline-comment`, `reply`. Two are sidecar workflow operations and emit no message in the thread itself: `snooze` (a per-recipient defer, recorded on the thread or on the routing item, not in the message stream), `escalate` (creates a *new* thread on the Chief of Staff's coach configuration, with a back-reference to the original — not an in-place message). This split keeps the audit trail clean: every action that *changes the substance of the conversation* is a message; every action that *changes the routing or workflow* is sidecar state.
 - **Hard rules.**
   1. The Conversations view is a *view*, never an owner. Threads do not depend on Conversations to exist.
-  2. Threads carry attachments — no orphan threads. assistant-style threads attach to the user themselves.
+  2. Threads carry attachments — no orphan threads. Coach-style threads attach to the user themselves.
   3. Rich messages render via a typed dispatch (TypeScript discriminant exhaustiveness checked by the compiler). No untyped HTML payloads.
   4. A binding verdict is a message in the thread, not a hidden state on the review message.
   5. Adding a new message type, a new host kind, or a new verdict-grammar action requires updating this section first — not the schema, not the renderer, not `docs/human-interface-layer/thread-primitive.md`.
@@ -519,13 +499,13 @@ This shape comes from the post-journey-v3 alignment review founder reframe (`doc
 
 > "Every discussion should be a thread. Also on the artifacts. Every knowledge/concept/document piece should be a block. Every output an artifact. So these three should be the first 3 stories. Work, Knowledge, Conversation are our 3 domains. And artifacts, blocks, thread is how their objects are shared into other domains where necessary."
 
-The reframe replaces an earlier "thread shape vocabulary" — review thread, chat thread, assistant thread — that had grown by accretion across the journey docs (`§3.4` and `§4.1` of this document still carry fragments of that older framing; cross-references at the top of those sections point here as the corrective). The earlier vocabulary mistook *configurations* (DM/assistant/feed) and *message shapes* (review/questionnaire/plain) for thread types. They are not.
+The reframe replaces an earlier "thread shape vocabulary" — review thread, chat thread, coach thread — that had grown by accretion across the journey docs (`§3.4` and `§4.1` of this document still carry fragments of that older framing; cross-references at the top of those sections point here as the corrective). The earlier vocabulary mistook *configurations* (DM/coach/feed) and *message shapes* (review/questionnaire/plain) for thread types. They are not.
 
 The reframe also consolidates four otherwise-divergent implementations that have already started accreting in code: `MockReviewItem` in `packages/web/src/pages/ConversationsReview.tsx:22-33`, `MockThread` in `ConversationsChat.tsx:14-32`, the `MockBetComment` array in `WorkBet.tsx:24-28`, and the page-local `MOCK_REVIEWS` / `MOCK_THREADS` constants. Each of those would, left alone, become its own "comment thread" / "review thread" / "chat thread" model — four similar models, four implementation paths, four bugs in the same place. One Thread primitive — one schema, one renderer, one set of affordances — replaces them. New cross-domain affordances (per-block discussion in L26, threads on artifacts in L11/L12, threads on tasks) inherit it for free.
 
 #### 4.5.10 Relationship to the legacy Item / Response model (§7)
 
-The Item / Response data model in `§7` predates this section. It expresses a *single* surfaced item plus a *single* response — the unit of routing the meta layer ships. The Thread primitive is broader: a thread carries a sequence of messages over time, of which an Item is one expression (the surfaced ask, often a review message) and a Response is another (the verdict, a message in its own right).
+The Item / Response data model in `§7` predates this section. It expresses a *single* surfaced item plus a *single* response — the unit of routing the process layer ships. The Thread primitive is broader: a thread carries a sequence of messages over time, of which an Item is one expression (the surfaced ask, often a review message) and a Response is another (the verdict, a message in its own right).
 
 The concept rule (which constrains the architect, not just suggests):
 

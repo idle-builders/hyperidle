@@ -215,7 +215,7 @@ describe("AD6 — KnowledgeList static scope pills", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2. "Shared" filter shows factory+product+practice items
+// 2. "Shared" filter shows factory+practice items (not product — moved to Team)
 // ---------------------------------------------------------------------------
 
 describe("AD6 — KnowledgeList Shared scope filter", () => {
@@ -239,7 +239,9 @@ describe("AD6 — KnowledgeList Shared scope filter", () => {
 		vi.clearAllMocks();
 	});
 
-	it("clicking Shared shows factory+product+practice items", async () => {
+	it("clicking Shared shows factory+practice items (product moved to Team pill)", async () => {
+		// @lore AE1: "product" scope moved from Shared to Team pill. Shared now only
+		// includes factory and practice. Product-scoped knowledge appears under Team.
 		const user = userEvent.setup();
 		renderList();
 
@@ -250,9 +252,9 @@ describe("AD6 — KnowledgeList Shared scope filter", () => {
 
 		const curatedView = screen.getByTestId("knowledge-curated-view");
 		expect(within(curatedView).getByText("Factory knowledge")).toBeInTheDocument();
-		expect(within(curatedView).getByText("Product knowledge")).toBeInTheDocument();
 		expect(within(curatedView).getByText("Practice knowledge")).toBeInTheDocument();
-		// Team and Private should be hidden
+		// Product, Team, and Private should be hidden under Shared
+		expect(within(curatedView).queryByText("Product knowledge")).not.toBeInTheDocument();
 		expect(within(curatedView).queryByText("Team knowledge")).not.toBeInTheDocument();
 		expect(within(curatedView).queryByText("Private knowledge")).not.toBeInTheDocument();
 	});
@@ -659,9 +661,10 @@ describe("AD6 — scope-labels utility", () => {
 		expect(scopeKindToLabel("factory")).toBe("Shared");
 	});
 
-	it("scopeKindToLabel returns Shared for product", async () => {
+	it("scopeKindToLabel returns Team for product", async () => {
+		// @lore AE1: Changed from "Shared" to "Team" — product scope renamed in U1.
 		const { scopeKindToLabel } = await import("../utils/scope-labels");
-		expect(scopeKindToLabel("product")).toBe("Shared");
+		expect(scopeKindToLabel("product")).toBe("Team");
 	});
 
 	it("scopeKindToLabel returns Shared for practice", async () => {

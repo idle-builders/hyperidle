@@ -13,7 +13,7 @@ HyperIdle is in active development and most core primitives have working impleme
 However, four categories of gaps exist:
 
 1. **Terminology drift** — the implementation has renamed several core concepts (Product→Team, pitch→description, shaped/committed/shipped→draft/active/completed) but the product docs still use the old vocabulary. This creates a false picture for anyone reading docs alongside code.
-2. **UI simplification gaps** — the factory UI has undergone significant architectural restructuring (the Rail sidebar was removed, the Canvas view does not exist as a standalone surface, the IconRail was replaced by a unified Sidebar) that the product docs do not acknowledge.
+2. **UI simplification gaps** — the factory UI has undergone significant architectural restructuring (the right sidebar was removed in U6, the Canvas view does not exist as a standalone surface, the left nav was replaced by a unified Sidebar) that the product docs do not acknowledge.
 3. **Missing documented features** — several features described as working in the docs are not yet implemented (global search API, agent inbox routes, pitch expiry, autonomy-level UI management, weekly practice meetings UI, mobile form factor).
 4. **Implemented features not mentioned** — git export, MCP bridge, policy engine, hint/onboarding system, and the PGlite migration are implemented but undocumented in the product story layer.
 
@@ -61,15 +61,13 @@ The product story documents (`docs/product/`) are written at an aspirational/des
 
 ## 3. Major Findings
 
-### M1 — The Rail (right sidebar) does not exist in the UI <!-- @lore AD8a: historical — Rail removed in U6 -->
+### M1 — Right sidebar ambient panel does not exist in the UI ✓ RESOLVED (AE1)
 
-**What the docs say:** `docs/product/what-is-hyperidle.md` describes "The Rail — right sidebar, always visible. Active bets, blocked agents, cost burn, recent knowledge additions." `docs/human-interface-layer/one-app-two-form-factors.md` §3.1 describes a four-zone layout: "IconRail | Submenu | Main pane | Rail (right sidebar)." The product doc calls it a core feature.
+**What the docs said:** Multiple docs described a persistent right sidebar showing ambient factory state (active bets, blockers, cost burn) as a core feature.
 
-**What the system does:** Work package U6 replaced the IconRail + Submenu + Rail trio with a single 200px left Sidebar. The `@lore U6` comment in `packages/web/src/shell/Sidebar.tsx` says "Sidebar replaces the IconRail | Submenu | Rail trio." Tests in `packages/web/src/__tests__/L17-money-web.test.tsx` note "Rail (AC23) was removed in U6." There is no right-sidebar "Rail" component in the UI. The Rail API endpoint (`/api/rail`) still exists and returns cost/blocker data, but there is no UI consumer rendering it as an always-visible panel.
+**What the system does:** Work package U6 replaced the old quad-column layout (left icons + submenu + main + right sidebar) with a single 200px left Sidebar. The `@lore U6` comment in `packages/web/src/shell/Sidebar.tsx` confirms the replacement. There is no right-sidebar ambient panel component in the UI. The `/api/rail` endpoint still exists and returns cost/blocker data, but there is no UI consumer rendering it as a panel.
 
-**Severity:** Major — the product docs describe the Rail as a core ambient-awareness surface. Users will not find it. The underlying Rail API works but feeds no visible UI. <!-- @lore AD8a: historical — Rail removed in U6 -->
-
-**Recommended resolution:** Update `docs/product/what-is-hyperidle.md` and `docs/human-interface-layer/one-app-two-form-factors.md` to describe the current Sidebar layout. Document how ambient awareness is surfaced today (Sidebar shows active bets, blockers visible in Work view).
+**Resolution (AE1):** All non-archive docs updated to describe the current layout. Ambient awareness is now documented as: Conversations filter chips (triage state), WorkTeam AgentRow health indicators (agent status), Sidebar triage badge (unread count), and WorkTeam burn-vs-cap section (cost burn).
 
 ---
 
@@ -99,7 +97,7 @@ The product story documents (`docs/product/`) are written at an aspirational/des
 
 **What the docs say:** `docs/product/how-work-flows.md` says "The appetite is a Money cap (and optionally a TokenUsage cap), never a wall-clock-time cap." But the process doc `docs/process-layer/the-five-primitives.md` §3.1 shows `cost_appetite # Money — cap on total spend` — this is correct.
 
-**What the system does:** The schema has `costAppetiteMinor` + `costAppetiteCurrency` (money in minor units). The old `appetite` string column is deprecated (`@lore L17`: "appetite (duration string '1 week'/'2 weeks'/'6 weeks') is deprecated"). The `createBetSchema` in routes rejects the old `appetite` field with a strict Zod schema.
+**What the system does:** The schema has `costAppetiteMinor` + `costAppetiteCurrency` (money in minor units). The old `appetite` duration-string column is deprecated (`@lore L17` — see `packages/db/src/schema.ts`). The `createBetSchema` in routes rejects the old `appetite` field with a strict Zod schema.
 
 **Severity:** Major — the system actively rejects the old appetite string format with a 400, but the `docs/architecture/components.md` §2.1 schema still shows `appetite TEXT` in the `bets` table definition. Any developer copying that schema will build with the wrong field.
 
@@ -133,9 +131,9 @@ The product story documents (`docs/product/`) are written at an aspirational/des
 
 ### M7 — Autonomy levels (L1-L4) have no management UI
 
-**What the docs say:** `docs/product/human-ai-collaboration.md` describes a detailed L1-L4 autonomy system with per-agent per-skill trust levels, and states "Autonomy changes are review items. The assistant proposes an increase; the founder approves or declines."
+**What the docs say:** `docs/product/human-ai-collaboration.md` describes a detailed L1-L4 autonomy system with per-agent per-skill trust levels, and states "Autonomy changes are review items. The Chief of Staff proposes an increase; the founder approves or declines."
 
-**What the system does:** The `user_skills` table exists with `autonomy_level` and related fields. The `PATCH /api/users/:id` and `/api/agents` routes handle user/agent config. However, there is no UI surface for viewing or managing autonomy levels. No route exists for the assistant autonomy-change proposal flow. The `CocOverlay` provides the assistant conversation, but no autonomy management page exists in the web app.
+**What the system does:** The `user_skills` table exists with `autonomy_level` and related fields. The `PATCH /api/users/:id` and `/api/agents` routes handle user/agent config. However, there is no UI surface for viewing or managing autonomy levels. No route exists for the Chief of Staff autonomy-change proposal flow. The `CocOverlay` provides the Chief of Staff conversation, but no autonomy management page exists in the web app.
 
 **Severity:** Major — autonomy-level management is described as a core human oversight mechanism. Without a UI, founders cannot adjust trust levels.
 
@@ -329,7 +327,7 @@ The product story documents (`docs/product/`) are written at an aspirational/des
 | **Global cross-entity search API** | Implied by GlobalSearchPanel component calling `/api/search` | The hook calls `/api/search` which does not exist. Only `/api/knowledge/search` is implemented. |
 | **TOON workspace projection** | `docs/product/how-knowledge-compounds.md` "Formatted in TOON (uses ~40% fewer tokens than JSON)" | TOON codec exists in `packages/shared/src/toon-codec.ts` and works for encoding/decoding. However, workspace materialization and git-export produce markdown files, not TOON-encoded packs. |
 | **Model tier selection by task risk** | `docs/architecture/components.md` §2.3 Scheduler model tier selector | `packages/server/src/services/model-gateway.ts` exists; not clear if risk-based automatic tier selection is wired end-to-end. |
-| **The Rail ambient awareness UI** | `docs/product/what-is-hyperidle.md` "The Rail — right sidebar, always visible" | Removed in U6. API endpoint works; no UI consumer. | <!-- @lore AD8a: historical — Rail removed in U6 -->
+| **Ambient awareness right sidebar** | `docs/product/what-is-hyperidle.md` previously described a right sidebar | Removed in U6. API endpoint works; no UI consumer. ✓ Docs updated in AE1 to describe current ambient surfaces. |
 
 ---
 
@@ -414,17 +412,11 @@ Items ordered by user-facing impact. Each item is self-contained enough for a de
 
 ---
 
-### P4 — Acknowledge the Rail removal in product documentation <!-- @lore AD8a: historical — Rail removed in U6 -->
+### P4 — Acknowledge the ambient sidebar removal in product documentation
 
-**Status:** open
+**Status:** ✓ RESOLVED (AE1)
 
-**Impact:** Founders reading about the Rail as an always-visible ambient sidebar will look for it and not find it. <!-- @lore AD8a: historical — Rail removed in U6 -->
-
-**What to fix:** Update `docs/product/what-is-hyperidle.md` to describe the current Sidebar layout (no right Rail). Note that the Rail API exists and ambient data (blocked agents, cost burn) is accessible via the Work view or future feature. <!-- @lore AD8a: historical — Rail removed in U6 -->
-
-**Files:**
-- `docs/product/what-is-hyperidle.md` — update "The Factory app" section
-- `docs/human-interface-layer/one-app-two-form-factors.md` §3.1 — replace four-zone layout description with the current Sidebar layout
+**What was fixed:** Updated ~30 non-archive doc files to replace old sidebar/nav references with current ambient surfaces (Conversations filter chips, WorkTeam AgentRow health indicators, Sidebar triage badge, WorkTeam burn-vs-cap section). All docs now describe the current two-zone layout (Sidebar | Main content).
 
 ---
 

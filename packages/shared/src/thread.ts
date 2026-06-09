@@ -87,8 +87,20 @@ export interface Thread {
  * discriminated union so block refs can carry the full (blockId, hostKind, hostId)
  * triple without optional fields on the entity path. Narrowing on `ref.kind !== "block"`
  * gives you an EntityRef with `id`; narrowing on `ref.kind === "block"` gives BlockRef.
+ *
+ * @lore AE5: InlineRef widened from 2 to 3 variants — MentionRef added as the 7th kind.
+ * Any exhaustive switch on InlineRefKind must add a "mention" case. Known switch sites:
+ * renderRefEmbedsForConversations (Conversations.tsx filters by kind, no switch needed),
+ * CommentRow (uses segmentMentions to locate mention spans inline).
  */
-export type InlineRefKind = "knowledge_item" | "task" | "artifact" | "bet" | "message" | "block";
+export type InlineRefKind =
+	| "knowledge_item"
+	| "task"
+	| "artifact"
+	| "bet"
+	| "message"
+	| "block"
+	| "mention";
 
 export interface EntityRef {
 	readonly kind: "knowledge_item" | "task" | "artifact" | "bet" | "message";
@@ -102,7 +114,24 @@ export interface BlockRef {
 	readonly hostId: string;
 }
 
-export type InlineRef = EntityRef | BlockRef;
+/**
+ * AE5: MentionRef — inline attention-routing element in a PlainPayload message.
+ * Resolves to an IdentityId; stores displayName for render-time use without lookup.
+ * sourceText preserves the original @name token as written (round-trip fidelity).
+ *
+ * @lore AE5 (CRITICAL from arch-critique): sourceText is required on MentionRef.
+ * Without it, segmentMentions cannot locate the exact spans to highlight — matching
+ * by "@{displayName}" alone fails when the user typed a different casing or partial
+ * name that still resolved to the same identity.
+ */
+export interface MentionRef {
+	readonly kind: "mention";
+	readonly identityId: IdentityId;
+	readonly displayName: string;
+	readonly sourceText: string;
+}
+
+export type InlineRef = EntityRef | BlockRef | MentionRef;
 
 export interface ArtifactRef {
 	readonly id: string;

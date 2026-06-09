@@ -8,7 +8,7 @@ import { CommentRow } from "./CommentRow.js";
 export default {
 	title: "CommentRow",
 	tier: "3" as const,
-	order: ["Plain", "AgentMessage", "Verdict", "InlineComment", "Redacted"],
+	order: ["Plain", "AgentMessage", "Verdict", "InlineComment", "Redacted", "WithMention"],
 };
 
 const sender = { id: "u-founder", name: "Founder", role: "founder" };
@@ -77,4 +77,30 @@ export const InlineComment = (): React.JSX.Element => (
 );
 export const Redacted = (): React.JSX.Element => (
 	<CommentRow message={redactedMsg} sender={sender} showSenderHeader={true} />
+);
+
+/** AE5: @mention tokens render inline in plain messages. */
+const mentionMsg: Message = {
+	...plainMsg,
+	id: "m-mention",
+	payload: {
+		text: "Hey @Aria and @Atlas — can you review the passkey plan?",
+		refs: [
+			{
+				kind: "mention" as const,
+				identityId: "u-aria",
+				displayName: "Aria",
+				sourceText: "@Aria",
+			},
+			{
+				kind: "mention" as const,
+				identityId: "u-atlas",
+				displayName: "Atlas",
+				sourceText: "@Atlas",
+			},
+		],
+	},
+};
+export const WithMention = (): React.JSX.Element => (
+	<CommentRow message={mentionMsg} sender={sender} showSenderHeader={true} />
 );

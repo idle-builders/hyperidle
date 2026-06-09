@@ -22,7 +22,7 @@
 
 ### S-3: Agent Runtime
 
-**S-3.1** HyperIdle is a meta layer, not an agent harness. It does not contain a tool-use loop or a model-calling loop. Those live in the harness.
+**S-3.1** HyperIdle is a process layer, not an agent harness. It does not contain a tool-use loop or a model-calling loop. Those live in the harness.
 
 **S-3.2** The system supports harnesses via a thin adapter interface: spawn an agent with a prompt/tools/skills, stream events, stop, read the conversation. Current harness: Claude Agent SDK via LocalWorkspaceAdapter (desktop gate).
 
@@ -36,7 +36,7 @@
 
 **S-4.2** Progressive disclosure: metadata in system prompt (~100 tokens per skill), SKILL.md on demand, resources on demand.
 
-**S-4.3** Skills must be compatible with vanilla Claude Code SKILL.md format. If the meta layer vanishes, skills keep working in bare Claude Code.
+**S-4.3** Skills must be compatible with vanilla Claude Code SKILL.md format. If the process layer vanishes, skills keep working in bare Claude Code.
 
 **S-4.4** Skill changes (new, edit, retire) always require human approval via review thread.
 

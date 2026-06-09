@@ -32,9 +32,9 @@ HyperIdle solves the organizational problem.
 
 ---
 
-## The Meta Layer sits between agents and humans
+## The process layer sits between agents and humans
 
-HyperIdle is a meta layer. It does not call models or execute tools — those are the agent harnesses' responsibilities. HyperIdle manages the structure: who works on what, what they know, how they coordinate, and how humans stay in the loop.
+HyperIdle is an OS for your agent factory. It does not call models or execute tools — those are the agent harnesses' responsibilities. HyperIdle manages the structure: who works on what, what they know, how they coordinate, and how humans stay in the loop.
 
 The Meta Layer splits into two internal packages:
 
@@ -52,7 +52,7 @@ The Factory is a macOS desktop application with three views and a sidebar.
 - **Conversations** — review threads, chat threads, founder-initiated conversations. An agent proposes deploying a landing page; the founder approves, comments, or requests changes. Same shape as a GitHub pull request.
 - **Work** — bets planned and tracked. The Canvas shows shaped pitches and committed bets. The task list shows what every agent is doing, what is blocked, and what it has cost.
 - **Knowledge** — the company wiki. Knowledge items organized by practice and product. Founders prune stale practices, validate new patterns, and add tacit knowledge agents cannot generate.
-- **The Rail** — right sidebar, always visible. Active bets, blocked agents, cost burn, recent knowledge additions. Ambient awareness without interruption. <!-- @lore AD8a: historical — Rail removed in U6 -->
+- **Ambient awareness** — embedded indicators within each view: Conversations filter chips surface blockers and triage state, WorkTeam health indicators show agent status, cost burn appears in the team burn-vs-cap section. Ambient awareness without interruption.
 
 ---
 

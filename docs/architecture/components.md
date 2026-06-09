@@ -1,5 +1,8 @@
 ## 2. Components
 
+<!-- @source packages/db/src/schema.ts -->
+<!-- @source packages/server/src/app.ts -->
+
 ### 2.1 Primitive Store
 
 **What it is.** The single source of truth for all process state. Every object in the system — Bets, Tasks, Sessions, Teams, Routines, Threads, Messages, Items — lives here. (The legacy "inbox messages" abstraction is folded into the Thread + Message model defined in HUMAN_INTERFACE_LAYER.md §4.5; the legacy `responses` table is dropped, with verdict-payload messages replacing it.)

@@ -130,16 +130,16 @@ test.describe("L13 — Product drill-down", () => {
 		await expect(page.getByText("HyperIdle Core")).toBeVisible();
 
 		// Roster region visible
-		await expect(page.getByTestId("product-roster")).toBeVisible();
+		await expect(page.getByTestId("team-agents")).toBeVisible();
 
 		// Active bets region visible
-		await expect(page.getByTestId("product-active-bets")).toBeVisible();
+		await expect(page.getByTestId("team-active-bets")).toBeVisible();
 
 		// Burn vs cap region visible
-		await expect(page.getByTestId("product-burn-vs-cap")).toBeVisible();
+		await expect(page.getByTestId("team-burn-vs-cap")).toBeVisible();
 	});
 
-	test("(2) empty state: team with zero active bets shows product-active-bets-empty", async ({
+	test("(2) empty state: team with zero active bets shows team-active-bets-empty", async ({
 		page,
 	}) => {
 		const emptyProductId = "p-empty";
@@ -156,7 +156,7 @@ test.describe("L13 — Product drill-down", () => {
 		await page.goto(`/work/team/${emptyProductId}`);
 		await page.waitForSelector("[data-testid='work-team-page']");
 
-		await expect(page.getByTestId("product-active-bets-empty")).toBeVisible();
+		await expect(page.getByTestId("team-active-bets-empty")).toBeVisible();
 	});
 
 	test("(3) roster + bets visible with seeded data", async ({ page }) => {
@@ -164,7 +164,7 @@ test.describe("L13 — Product drill-down", () => {
 		await page.waitForSelector("[data-testid='work-team-page']");
 
 		// At least one roster row
-		const rosterRows = page.getByTestId("product-roster-row");
+		const rosterRows = page.getByTestId("agent-row");
 		await expect(rosterRows.first()).toBeVisible();
 
 		// At least one bet in the active-bets region
@@ -178,7 +178,7 @@ test.describe("L13 — Product drill-down", () => {
 		await page.waitForSelector("[data-testid='work-team-page']");
 
 		// Click the breadcrumb chip
-		await page.getByTestId("product-breadcrumb-back").click();
+		await page.getByTestId("team-breadcrumb-back").click();
 
 		await expect(page).toHaveURL(/\/work\/portfolio/, { timeout: 5000 });
 		await expect(page.getByTestId("work-portfolio-page")).toBeVisible();
@@ -206,7 +206,7 @@ test.describe("L13 — Product drill-down", () => {
 		await page.goto("/work/team/does-not-exist");
 		await page.waitForSelector("[data-testid='work-team-page']");
 
-		await expect(page.getByTestId("product-not-found")).toBeVisible();
+		await expect(page.getByTestId("team-not-found")).toBeVisible();
 	});
 
 	test("(7) no Kanban region on the Team page", async ({ page }) => {

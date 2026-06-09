@@ -4,11 +4,11 @@ Three views plus a sidebar. What matters is how they thread together into a day,
 
 ### 5.1 A day (desktop, ambient)
 
-**Morning.** Open Factory. Glance at Rail (minimized): blocked count, cost burn, unread count. If blocked > 0: expand Rail, see which agents are stuck, click blocker, lands in Conversations review thread. Approve one with a comment. Request changes on the other. Reply to a chat thread from the brand-voice agent asking a quick clarification. 90 seconds total. <!-- @lore AD8a: historical — Rail removed in U6 -->
+**Morning.** Open Factory. Glance at Conversations: triage badge shows blocked count. Filter by "blocked" — see which agents are stuck, click blocker, lands in the review thread. Approve one with a comment. Request changes on the other. Reply to a chat thread from the brand-voice agent asking a quick clarification. 90 seconds total.
 
-**Workday.** Factory sits open on a side screen. The Rail is always visible — bets drift right, cost burn ticks up, a blocker appears and is acknowledged. A notification fires: a new review thread, risk-tier high. Switch to the Factory window, open the thread, leave two inline comments and request changes. Back to primary work. <!-- @lore AD8a: historical — Rail removed in U6 -->
+**Workday.** Factory sits open on a side screen. Agent health indicators in WorkTeam show active agents — cost burn ticks up, a blocker appears and is acknowledged. A notification fires: a new review thread, risk-tier high. Switch to the Factory window, open the thread, leave two inline comments and request changes. Back to primary work.
 
-**Afternoon.** Open the assistant overlay (bottom-right Rail button). The assistant has posted: "I've been noticing that our last three copy reviews all got 'request changes' on tone. Want to talk about whether we need to sharpen the brand-voice skill?" Reply later when there's space. Not now. <!-- @lore AD8a: historical — Rail removed in U6 -->
+**Afternoon.** The Chief of Staff has posted in Conversations: "I've been noticing that our last three copy reviews all got 'request changes' on tone. Want to talk about whether we need to sharpen the brand-voice skill?" Reply later when there's space. Not now.
 
 **Proactive creation.** Notice something needs discussing. Press N to open RecipientPicker, select an agent, start a new conversation thread. Or dial into a running session (D) to observe an agent's live activity stream — read-only, with filter tabs for Tools/Reasoning/Cost.
 
@@ -20,16 +20,16 @@ Three views plus a sidebar. What matters is how they thread together into a day,
 
 ### 5.3 A month
 
-**First Monday, deliberate time block.** Open the assistant overlay. Scroll back through what the assistant raised across the month. Talk about which of those patterns actually matter. Approve two proposed edits to `PRINCIPLES.md` that come back as review threads. Append the month's reflection.
+**First Monday, deliberate time block.** Open the Chief of Staff overlay. Scroll back through what the Chief of Staff raised across the month. Talk about which of those patterns actually matter. Approve two proposed edits to `PRINCIPLES.md` that come back as review threads. Append the month's reflection.
 
 ### 5.4 When something breaks
 
 **Agent stuck.** The agent posts a chat thread: "I can't deploy — Stripe webhook signing keys are missing." Open thread, reply with where the keys live, agent continues. 30 seconds.
 
-**Skill behaving weirdly.** Flag it from the review thread that exposed the problem. Escalate to the assistant overlay. The assistant drafts a skill revision, posts it back as a review thread, human approves or requests changes.
+**Skill behaving weirdly.** Flag it from the review thread that exposed the problem. Escalate to the Chief of Staff overlay. The Chief of Staff drafts a skill revision, posts it back as a review thread, human approves or requests changes.
 
 **Curious about progress.** Dial into a running session (D key) to see an agent's live activity stream — tools being called, reasoning being generated, cost accumulating. Read-only observation. Close when satisfied.
 
-The point of the journey: **the human never thinks "which app do I open?"** They open the Factory. They scan the Rail. They work through Conversations. Once or twice a week they shift the Main Pane to Work or Knowledge. The assistant overlay is always one button away. One door. <!-- @lore AD8a: historical — Rail removed in U6 -->
+The point of the journey: **the human never thinks "which app do I open?"** They open the Factory. They scan Conversations. They work through review threads. Once or twice a week they shift the Main Pane to Work or Knowledge. The Chief of Staff overlay is always one button away. One door.
 
 ---

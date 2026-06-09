@@ -9,6 +9,6 @@
 - **A separate auth service.** Tailscale + API keys for now.
 - **A backlog.** Pitches live on the canvas; unpicked ones expire.
 - **Multiple applications.** One app, two form factors.
-- **Jira-style reporting.** The Rail and assistant thread are the human surfaces for status. <!-- @lore AD8a: historical — Rail removed in U6 -->
+- **Jira-style reporting.** Conversations (review threads) and Work (bet/task views) are the human surfaces for status.
 
 ---

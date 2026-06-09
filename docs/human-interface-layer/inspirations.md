@@ -2,7 +2,7 @@
 
 **For the Conversations view:** MCP Agent Mail (Dicklesworthstone / Steve Yegge fork), LangChain Agent Inbox, builderz Mission Control's Aegis blocking gate, Devin Review's red/yellow/gray triage, Linear AI's "never act in the dark" principle, GitHub pull request reviews, Read AI's persistent-context coach, Letta's continuous sessions, Claude Cowork's ongoing dialogue.
 
-**For the Rail:** oh-my-codex HUD, Windsurf Cascade's anticipation model, Cursor Background Agents' status surface, the macOS menu bar metaphor — reinterpreted as a persistent sidebar inside the app rather than a separate process. <!-- @lore AD8a: historical — Rail removed in U6 -->
+**For ambient awareness surfaces (triage badge, filter chips, agent health indicators):** oh-my-codex HUD, Windsurf Cascade's anticipation model, Cursor Background Agents' status surface, the macOS menu bar metaphor — reinterpreted as embedded state indicators rather than a separate sidebar.
 
 **For Work (Canvas + Kanban):** Shape Up's pitches-and-appetite, Linear's issues-and-cycles model, Glue (YC, stealth). Card-based drag-and-drop with hard capacity limits — not a spatial canvas.
 
