@@ -2,7 +2,7 @@
  * R6 AC5: create_artifact tool is available to all agent roles.
  *
  * The architecture plan §3 states that create_artifact has no `roles`
- * restriction — all agent roles (builder, practice_facilitator, growth,
+ * restriction — all agent roles (builder, facilitator, growth,
  * @lore AD8a: role string stays until AD8b. chief_of_staff, etc.) can produce artifacts.
  *
  * These tests WILL fail until:
