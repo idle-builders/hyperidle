@@ -2,10 +2,14 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { FileWatcher } from "@hyperidle/fabric";
 import type { EventBus, UserRole } from "@hyperidle/shared";
 import z from "zod";
+import { addAgentTool } from "./add-agent.js";
 import { createArtifactTool } from "./create-artifact.js";
+import { createBetTool } from "./create-bet.js";
 import { createConflictReviewTool } from "./create-conflict-review.js";
 import { createItemTool } from "./create-item.js";
+import { createRoutineTool } from "./create-routine.js";
 import { createTaskTool } from "./create-task.js";
+import { createTeamTool } from "./create-team.js";
 import { handoffToTool } from "./handoff-to.js";
 import { logTaskTool } from "./log-task.js";
 import { promoteKnowledgeTool } from "./promote-knowledge.js";
@@ -16,6 +20,7 @@ import { scoreAttentionTool } from "./score-attention.js";
 import { sendMessageTool } from "./send-message.js";
 import { submitReviewTool } from "./submit-review.js";
 import { err, type ToolResult } from "./tool-result.js";
+import { updateRoutineTool } from "./update-routine.js";
 import { writeMemoryTool } from "./write-memory.js";
 import { writeSessionNotesTool } from "./write-session-notes.js";
 
@@ -132,6 +137,13 @@ export const ALL_TOOL_DEFINITIONS: readonly ToolDefinition[] = [
 	scoreAttentionTool,
 	promoteKnowledgeTool,
 	createConflictReviewTool,
+	// AE3 management tools — restricted to individual-category agents (chief_of_staff / assistant).
+	// @lore AD8b: role string "chief_of_staff" renamed to "assistant" in AD8b.
+	createTeamTool,
+	addAgentTool,
+	createBetTool,
+	createRoutineTool,
+	updateRoutineTool,
 ];
 
 /**

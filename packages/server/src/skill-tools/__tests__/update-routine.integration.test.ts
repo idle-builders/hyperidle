@@ -4,14 +4,13 @@
  * RED phase: these tests will fail until update-routine.ts is implemented.
  */
 
-import { eq } from "drizzle-orm";
 import { bets, routines, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { makeContext, NOW } from "./_helpers.js";
-
 // Import will fail until the file is created — that's expected in red phase.
 import { updateRoutineTool } from "../update-routine.js";
+import { makeContext, NOW } from "./_helpers.js";
 
 async function seedRoutine(db: Parameters<typeof makeContext>[0]): Promise<{
 	routineId: string;
@@ -186,10 +185,7 @@ describe("update_routine tool", () => {
 		const { routineId } = await seedRoutine(db);
 
 		// Soft-delete the routine
-		await db
-			.update(routines)
-			.set({ deletedAt: NOW })
-			.where(eq(routines.id, routineId));
+		await db.update(routines).set({ deletedAt: NOW }).where(eq(routines.id, routineId));
 
 		const result = await updateRoutineTool.handler(
 			{ routineId, updates: { name: "Should fail" } },

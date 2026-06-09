@@ -4,14 +4,13 @@
  * RED phase: these tests will fail until create-routine.ts is implemented.
  */
 
-import { eq } from "drizzle-orm";
 import { routines, teamMembers, teams, users } from "@hyperidle/db";
+import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { makeContext, NOW } from "./_helpers.js";
-
 // Import will fail until the file is created — that's expected in red phase.
 import { createRoutineTool } from "../create-routine.js";
+import { makeContext, NOW } from "./_helpers.js";
 
 async function seedTeamAndAgent(db: Parameters<typeof makeContext>[0]): Promise<{
 	teamId: string;

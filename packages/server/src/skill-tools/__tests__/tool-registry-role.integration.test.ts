@@ -86,7 +86,9 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 	});
 
 	// @lore AD8a: role string "chief_of_staff" renamed in AD8b.
-	test("B3: chief_of_staff registry includes all 20 tools (15 + 5 AE3 management tools)", ({ db }) => {
+	test("B3: chief_of_staff registry includes all 20 tools (15 + 5 AE3 management tools)", ({
+		db,
+	}) => {
 		// @lore AD8a: role string renamed in AD8b
 		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" }); // @lore AD8a: role string renamed to "assistant" in AD8b
 		const names = registry.definitions.map((d) => d.name).sort();

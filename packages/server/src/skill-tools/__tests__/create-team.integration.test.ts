@@ -4,16 +4,15 @@
  * RED phase: these tests will fail until create-team.ts is implemented.
  */
 
-import { eq } from "drizzle-orm";
 import { teamMembers, teams, users } from "@hyperidle/db";
 import { defaultRoster } from "@hyperidle/shared";
+import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { makeContext } from "./_helpers.js";
-
 // Import will fail until the file is created — that's expected in red phase.
 // biome-ignore lint/style/useImportType: ToolDefinition is used as value
 import { createTeamTool } from "../create-team.js";
+import { makeContext } from "./_helpers.js";
 
 describe("create_team tool", () => {
 	test("creates team row, teamMembers row, and agent roster from functions", async ({ db }) => {
@@ -137,11 +136,7 @@ describe("create_team tool", () => {
 		const brandVoice = data.roster.find((r) => r.role === "brand_voice");
 		if (!brandVoice) return; // skip if role not in roster for this function set
 
-		const [agent] = await db
-			.select()
-			.from(users)
-			.where(eq(users.id, brandVoice.agentId))
-			.limit(1);
+		const [agent] = await db.select().from(users).where(eq(users.id, brandVoice.agentId)).limit(1);
 		expect(agent.soulPrompt).toBeNull();
 	});
 
@@ -159,10 +154,7 @@ describe("create_team tool", () => {
 	});
 
 	test("INVALID_INPUT when functions array is empty (below min(1))", async ({ db }) => {
-		const result = await createTeamTool.handler(
-			{ name: "Empty", functions: [] },
-			makeContext(db),
-		);
+		const result = await createTeamTool.handler({ name: "Empty", functions: [] }, makeContext(db));
 		expect(result.success).toBe(false);
 		if (result.success) return;
 		expect(result.code).toBe("INVALID_INPUT");

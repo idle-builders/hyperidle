@@ -4,14 +4,13 @@
  * RED phase: these tests will fail until create-bet.ts is implemented.
  */
 
-import { eq } from "drizzle-orm";
 import { bets, teamMembers, teams } from "@hyperidle/db";
+import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { makeContext, NOW } from "./_helpers.js";
-
 // Import will fail until the file is created — that's expected in red phase.
 import { createBetTool } from "../create-bet.js";
+import { makeContext, NOW } from "./_helpers.js";
 
 async function seedTeam(db: Parameters<typeof makeContext>[0]): Promise<{ teamId: string }> {
 	const teamId = `team-${Date.now()}`;
@@ -99,10 +98,7 @@ describe("create_bet tool", () => {
 	test("INVALID_INPUT when description is empty (fails Zod min(1))", async ({ db }) => {
 		const { teamId } = await seedTeam(db);
 
-		const result = await createBetTool.handler(
-			{ teamId, description: "" },
-			makeContext(db),
-		);
+		const result = await createBetTool.handler({ teamId, description: "" }, makeContext(db));
 		expect(result.success).toBe(false);
 		if (result.success) return;
 		expect(result.code).toBe("INVALID_INPUT");

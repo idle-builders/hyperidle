@@ -4,14 +4,13 @@
  * RED phase: these tests will fail until add-agent.ts is implemented.
  */
 
-import { eq } from "drizzle-orm";
 import { factorySettings, teamMembers, teams, users } from "@hyperidle/db";
+import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { makeContext, NOW } from "./_helpers.js";
-
 // Import will fail until the file is created — that's expected in red phase.
 import { addAgentTool } from "../add-agent.js";
+import { makeContext, NOW } from "./_helpers.js";
 
 async function seedTeam(
 	db: Parameters<typeof makeContext>[0],
