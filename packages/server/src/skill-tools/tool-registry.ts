@@ -2,10 +2,15 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { FileWatcher } from "@hyperidle/fabric";
 import type { EventBus, UserRole } from "@hyperidle/shared";
 import z from "zod";
+import { addAgentTool } from "./add-agent.js";
+import type { AssistantToolShape } from "./assistant-tool-result.js";
 import { createArtifactTool } from "./create-artifact.js";
+import { createBetTool } from "./create-bet.js";
 import { createConflictReviewTool } from "./create-conflict-review.js";
 import { createItemTool } from "./create-item.js";
+import { createRoutineTool } from "./create-routine.js";
 import { createTaskTool } from "./create-task.js";
+import { createTeamTool } from "./create-team.js";
 import { handoffToTool } from "./handoff-to.js";
 import { logTaskTool } from "./log-task.js";
 import { promoteKnowledgeTool } from "./promote-knowledge.js";
@@ -15,7 +20,8 @@ import { routeItemTool } from "./route-item.js";
 import { scoreAttentionTool } from "./score-attention.js";
 import { sendMessageTool } from "./send-message.js";
 import { submitReviewTool } from "./submit-review.js";
-import { err, type ToolResult } from "./tool-result.js";
+import { err, ok, type ToolResult } from "./tool-result.js";
+import { updateRoutineTool } from "./update-routine.js";
 import { writeMemoryTool } from "./write-memory.js";
 import { writeSessionNotesTool } from "./write-session-notes.js";
 
@@ -104,6 +110,33 @@ export interface ToolRegistry {
 }
 
 /**
+ * Wrap an AssistantToolShape to produce a ToolDefinition with a role filter.
+ *
+ * @lore AD8b: Tools using AssistantToolShape return `{ status: "ok" | "error" }`
+ * instead of the older `{ success: boolean }` ToolResult. This adapter bridges
+ * the two interfaces so AssistantToolShape tools can live in ALL_TOOL_DEFINITIONS
+ * alongside legacy ToolDefinition tools.
+ */
+function wrapForRegistry<T>(
+	shape: AssistantToolShape<T>,
+	roles: readonly UserRole[],
+): ToolDefinition<T> {
+	return {
+		name: shape.name,
+		description: shape.description,
+		inputSchema: shape.inputSchema,
+		roles,
+		handler: async (args, ctx) => {
+			const result = await shape.handler(args, ctx);
+			if (result.status === "ok") {
+				return ok(result.value);
+			}
+			return err("TOOL_ERROR", result.message);
+		},
+	};
+}
+
+/**
  * The canonical list of every skill tool. Exported so callers can filter by
  * role without needing a `ctx` (e.g. the session-provisioning phase that has
  * to decide which tool names to hand the harness BEFORE the session is live).
@@ -132,6 +165,14 @@ export const ALL_TOOL_DEFINITIONS: readonly ToolDefinition[] = [
 	scoreAttentionTool,
 	promoteKnowledgeTool,
 	createConflictReviewTool,
+	// AE3 management tools — restricted to the assistant role.
+	// @lore AD8b: role string "chief_of_staff" renamed to "assistant".
+	// @lore AE3: createBetTool uses AssistantToolShape; wrapped via wrapForRegistry.
+	createTeamTool,
+	addAgentTool,
+	wrapForRegistry(createBetTool, ["assistant"]),
+	createRoutineTool,
+	updateRoutineTool,
 ];
 
 /**

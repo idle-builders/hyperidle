@@ -1,8 +1,13 @@
 /**
- * AD8b Task 6 — create_bet tool.
+ * AE3 / AD8b — create_bet tool.
  *
- * High-risk tool (requires review message gate in the assistant dispatcher).
  * Creates a new bet in "draft" status for the given team.
+ * Uses AssistantToolShape (status-discriminated result) per AD8b convention.
+ * Wrapped with roles: ["assistant"] in tool-registry.ts for role-based filtering.
+ *
+ * @lore AE3: Cross-team scope is intentional. See create-team.ts @lore AE3 comment.
+ * @lore AD8b: role string "chief_of_staff" renamed to "assistant".
+ * @lore AD8b: Uses AssistantToolShape — tool-registry wraps to ToolDefinition with roles filter.
  */
 
 import { randomUUID } from "node:crypto";
@@ -24,13 +29,14 @@ type CreateBetInput = z.infer<typeof createBetInputSchema>;
 async function handler(
 	args: CreateBetInput,
 	ctx: ToolContext,
-): Promise<AssistantToolResult<{ betId: string }>> {
+): Promise<AssistantToolResult<{ betId: string; status: "draft"; teamId: string }>> {
 	const parsed = createBetInputSchema.safeParse(args);
 	if (!parsed.success) {
 		return { status: "error", message: parsed.error.message };
 	}
 	const input = parsed.data;
 
+	// Verify the team exists
 	const [team] = await ctx.db.select().from(teams).where(eq(teams.id, input.teamId)).limit(1);
 	if (!team) {
 		return { status: "error", message: `Team not found: ${input.teamId}` };
@@ -49,7 +55,7 @@ async function handler(
 		createdAt: now,
 	});
 
-	return { status: "ok", value: { betId } };
+	return { status: "ok", value: { betId, status: "draft", teamId: input.teamId } };
 }
 
 export const createBetTool: AssistantToolShape<CreateBetInput> = {

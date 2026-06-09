@@ -173,12 +173,13 @@ describe("createMcpBridge (AC1: tool registration)", () => {
 		await bridge2.transport.close();
 	});
 
-	it("registers exactly 15 tools (all tools for assistant role)", () => {
+	it("registers exactly 20 tools (all tools for assistant role, including AE3 management tools)", () => {
 		// The McpServer's internal _registeredTools is private; we verify via
 		// the registry definitions count. AC1 acceptance: all definitions from
 		// the registry are registered.
-		expect(registry.definitions).toHaveLength(15);
-		// The bridge was created with this registry, so it must have 15 tools.
+		// 15 (pre-AE3) + 5 (AE3 management tools) = 20
+		expect(registry.definitions).toHaveLength(20);
+		// The bridge was created with this registry, so it must have 20 tools.
 		// We'll verify via a tools/list MCP request in the integration test;
 		// here we assert the registry shape is correct.
 		const names = registry.definitions.map((d) => d.name).sort();
@@ -186,10 +187,16 @@ describe("createMcpBridge (AC1: tool registration)", () => {
 		expect(names).toContain("log_task");
 		expect(names).toContain("send_message");
 		expect(names).toContain("create_artifact");
+		// AE3 management tools
+		expect(names).toContain("create_team");
+		expect(names).toContain("add_agent");
+		expect(names).toContain("create_bet");
+		expect(names).toContain("create_routine");
+		expect(names).toContain("update_routine");
 	});
 
 	it("each registered tool has the expected name from the registry", () => {
-		// Verify the registry definition names are the 15 canonical tools
+		// Verify the registry definition names are the 20 canonical tools (15 pre-AE3 + 5 AE3)
 		const expectedNames = [
 			"read_inbox",
 			"send_message",
@@ -206,6 +213,12 @@ describe("createMcpBridge (AC1: tool registration)", () => {
 			"score_attention",
 			"promote_knowledge",
 			"create_conflict_review",
+			// AE3 management tools
+			"create_team",
+			"add_agent",
+			"create_bet",
+			"create_routine",
+			"update_routine",
 		].sort();
 
 		const actualNames = registry.definitions.map((d) => d.name).sort();

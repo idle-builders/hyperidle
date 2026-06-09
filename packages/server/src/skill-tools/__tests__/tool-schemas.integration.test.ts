@@ -25,6 +25,12 @@ const EXPECTED_TOOL_NAMES = [
 	"create_conflict_review",
 	// R6 artifact tools
 	"create_artifact",
+	// AE3 management tools (chief_of_staff / assistant)
+	"create_team",
+	"add_agent",
+	"create_bet",
+	"create_routine",
+	"update_routine",
 ];
 
 function makeContext(db: HyperIdleDb): ToolContext {

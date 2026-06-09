@@ -42,10 +42,17 @@ describe("buildToolRegistry", () => {
 				"create_conflict_review",
 				// R6 artifact tools
 				"create_artifact",
+				// AE3 management tools
+				"create_team",
+				"add_agent",
+				"create_bet",
+				"create_routine",
+				"update_routine",
 			].sort(),
 		);
 		// 12 base tools + create_task (R5) + submit_review (R5) + create_artifact (R6) = 15
-		expect(registry.definitions).toHaveLength(15);
+		// + 5 AE3 management tools: create_team, add_agent, create_bet, create_routine, update_routine = 20
+		expect(registry.definitions).toHaveLength(20);
 	});
 
 	test("each definition has a non-empty description and a Zod input schema", ({ db, eventBus }) => {

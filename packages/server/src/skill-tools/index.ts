@@ -1,6 +1,10 @@
+export { addAgentTool } from "./add-agent.js";
+export { createBetTool } from "./create-bet.js";
 export { createConflictReviewTool } from "./create-conflict-review.js";
 export { createItemTool } from "./create-item.js";
+export { createRoutineTool } from "./create-routine.js";
 export { createTaskTool } from "./create-task.js";
+export { createTeamTool } from "./create-team.js";
 export { handoffToTool } from "./handoff-to.js";
 export { logTaskTool } from "./log-task.js";
 export { promoteKnowledgeTool } from "./promote-knowledge.js";
@@ -20,5 +24,6 @@ export {
 	toClaudeToolSpec,
 } from "./tool-registry.js";
 export { err, ok, type ToolResult } from "./tool-result.js";
+export { updateRoutineTool } from "./update-routine.js";
 export { writeMemoryTool } from "./write-memory.js";
 export { writeSessionNotesTool } from "./write-session-notes.js";
