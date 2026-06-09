@@ -238,7 +238,7 @@ describe("defaultRoster", () => {
 		expect(roster).toEqual(sorted);
 	});
 
-	it("does not include strategy or personal category agents", () => {
+	it("does not include strategy or individual category agents", () => {
 		const roster = defaultRoster(["development", "product", "design", "marketing"]);
 		expect(roster).not.toContain("chief_of_staff"); // @lore AD8a: role string renamed in AD8b
 		expect(roster).not.toContain("practice_facilitator");

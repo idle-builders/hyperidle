@@ -27,7 +27,7 @@ The systemic risk is **dead wiring** -- features where the backend is complete a
 | 7 | **Notification settings don't persist** -- Toggles use `useState` only. Refresh resets everything. Backend PATCH endpoint ready. | MODERATE | Wire to `useSettings().save()` |
 | 8 | **Search API missing** -- Cmd+K opens, types, shows "Search coming soon." Every time. | MODERATE | Add `/api/search` route |
 | 9 | **No ambient awareness outside Conversations** -- Blocking/unread counts invisible from Work/Knowledge views. Only knowledge triage badge works. | MODERATE | Add sidebar badges |
-| 10 | **CoS thread has no responder** -- Overlay invites conversation, user types, nothing responds. | MODERATE | Wire agent or hide until ready |
+| 10 | **Assistant thread has no responder** -- Overlay invites conversation, user types, nothing responds. | MODERATE | Wire agent or hide until ready (AD8b) |
 
 ### Corrections from Code Verification
 
@@ -54,7 +54,7 @@ The systemic risk is **dead wiring** -- features where the backend is complete a
 | Review threads | WORKS | **BENEFITS** | Core product. Full discriminated union, promoted card, sticky verdict footer. |
 | Verdict system (5 decisions) | WORKS | **BENEFITS** | All 5 buttons render and POST. Approve-with-comments prevents rubber-stamping. |
 | Chat threads + RecipientPicker | WORKS | **BENEFITS** | N key opens picker, creates threads. Human-to-agent DMs work. |
-| Coach thread + CoC overlay | WORKS (UI shell) | **NEUTRAL** | UI exists, messages persist. But no agent processes them. User types, gets silence. |
+| Assistant thread + assistant overlay | WORKS (UI shell) | **NEUTRAL** | UI exists, messages persist. But no agent processes them. User types, gets silence. (AD8b wires the responder) |
 | Session dial-in | WORKS | **BENEFITS** | D key, companion pane (3fr/2fr), filter tabs, auto-scroll. Distinctive feature. |
 | Blocking indicator | WORKS | **BENEFITS** | Red left border, filter chip, derived from session state. Primary triage signal. |
 | Thread filtering (Blocking/Unread) | WORKS | **BENEFITS** | Toggle chips, independently toggleable. Simple, correct. |
@@ -185,7 +185,7 @@ The systemic risk is **dead wiring** -- features where the backend is complete a
 11. **Search API** -- `/api/search` endpoint. Client code is ready, just needs the backend.
 12. **Wire dependency watcher** -- call `checkAndUnblockDependents()` in task transition routes. Function exists and is tested.
 13. **Cost burn rate display** -- populate `/api/rail` with real spend data (not zeros), add a UI surface in Work > Team view.
-14. **CoS agent wiring** -- connect coach thread to actual agent processing so it responds.
+14. **Assistant agent wiring** -- connect assistant thread to actual agent processing so it responds (AD8b).
 
 ### P3 -- Defer Until Scale Demands
 15. Bulk operations (approve-similar, snooze-all)
@@ -224,7 +224,7 @@ The initial doc-based audit (before code verification) identified these themes t
 
 **Money-not-duration appetite** is a genuine conceptual innovation. Time-based timeboxes made sense for human teams; for AI agents that work in bursts, money is the right budget axis.
 
-**One thread primitive** is the best architectural decision. Collapsing review/chat/coach into one Thread with typed messages eliminates N+1 bugs across every cross-domain discussion.
+**One thread primitive** is the best architectural decision. Collapsing review/chat/assistant into one Thread with typed messages eliminates N+1 bugs across every cross-domain discussion.
 
 **The blocking/non-blocking distinction** is the right primary sort axis. Most review products sort by time or priority; HyperIdle sorts by "is an agent literally paused waiting for you."
 

@@ -15,7 +15,7 @@
 9. CPO opens thread, reads summary, approves
 10. Response recorded → bet status → "shipped"
 11. Retro routine fires on Product Manager
-12. Product Manager writes retro, routes to Practice + Coach thread
+12. Product Manager writes retro, routes to Practice + assistant's thread
 ```
 
 ### 7.2 An Agent Gets Stuck

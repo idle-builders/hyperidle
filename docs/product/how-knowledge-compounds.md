@@ -42,7 +42,7 @@ The company's operating principles. Human-readable markdown only. Four files:
 - `PRINCIPLES.md` — the short list of hard rules (slow-changing)
 - `FOCUS.md` — what the company is improving this month
 - `PORTFOLIO.md` — which products get energy this cycle
-- `REFLECTIONS/` — monthly notes from coaching sessions
+- `REFLECTIONS/` — monthly notes from assistant conversations
 
 The assistant proposes changes. Humans approve, edit, or reject. Git holds the history.
 

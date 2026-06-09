@@ -84,12 +84,12 @@ Ranked by (Impact × Severity) / Effort. All are 1–2 days of work.
 **Problem:** The task list on a bet detail page shows an empty message when there are no tasks, but provides no CTA to create one. The task creation path is not discoverable from this surface.
 **Fix:** Add an EmptyState component with a "Create task" button inside the task list section of `WorkBet.tsx` that opens the task creation flow. Check whether a task creation API and form already exist (the schema has tasks table and the server has task routes) — if so, this is wiring only.
 
-### QW-9: CoC overlay — add "close" affordance for non-power-users
+### QW-9: Assistant overlay — add "close" affordance for non-power-users
 
-**Feature:** Navigation & Shell — CoC overlay
+**Feature:** Navigation & Shell — assistant overlay
 **Effort:** 0.5 days | **Impact:** 3 | **Severity:** 4
-**Problem:** The CoC (Chain of Custody) overlay intentionally does not close on click-outside (this is a deliberate design decision per `@lore`). However, a new user encountering it for the first time has no obvious way to dismiss it. The overlay is 360px wide and overlaps content — users unfamiliar with the "click trigger button again" pattern will feel trapped.
-**Fix:** Add a small "×" button in the top-right corner of the CoC overlay that closes it. Preserves the intentional "no click-outside close" behavior while adding a discoverable escape hatch.
+**Problem:** The assistant overlay intentionally does not close on click-outside (this is a deliberate design decision per `@lore`). However, a new user encountering it for the first time has no obvious way to dismiss it. The overlay is 360px wide and overlaps content — users unfamiliar with the "click trigger button again" pattern will feel trapped.
+**Fix:** Add a small "×" button in the top-right corner of the assistant overlay that closes it. Preserves the intentional "no click-outside close" behavior while adding a discoverable escape hatch.
 
 ### QW-10: Session Dial-in — connect "Dial in" button to real session URL
 
@@ -107,7 +107,7 @@ Features that are fully functional but fail discoverability. Each gets a surfaci
 ### HG-1: Block Reference Embed
 
 **Value:** Any message block in the system can be referenced by ID and rendered inline in any other thread. This enables cross-context knowledge linking that is more precise than hyperlinking.
-**Why it's hidden:** There is no UI affordance in the Composer or block actions popover that explains how to create a block reference. The feature is fully wired (BlockRefEmbed, block actions popover, CoC overlay) but users must know the syntax `[[block-id]]` or use the CoC "Share" button — neither of which is labeled.
+**Why it's hidden:** There is no UI affordance in the Composer or block actions popover that explains how to create a block reference. The feature is fully wired (BlockRefEmbed, block actions popover, assistant overlay) but users must know the syntax `[[block-id]]` or use the assistant "Share" button — neither of which is labeled.
 **Recommendation:** Add a "Copy block reference" option to the block actions popover with a label that says "Copy as reference — paste in any thread." Copy the `[[block-id]]` format to clipboard.
 
 ### HG-2: Knowledge Triage Keyboard Shortcuts
@@ -122,11 +122,11 @@ Features that are fully functional but fail discoverability. Each gets a surfaci
 **Why it's hidden:** No UI surface links to artifact permalinks with a "Share" or "Copy link" affordance. The ArtifactSection on bet detail shows a list of artifacts but does not offer a "Open permalink" action. Users who want to share an artifact must know to construct the URL manually.
 **Recommendation:** Add a "Copy permalink" icon button to each artifact card in ArtifactSection. On click, copy `window.location.origin + '/artifacts/' + artifactId` to clipboard and show a toast "Permalink copied."
 
-### HG-4: Coach Thread (L21)
+### HG-4: Assistant Thread (L21)
 
-**Value:** A persistent AI companion thread in the Conversations view that provides context-aware assistance, routing through the CoC overlay's thread shell.
-**Why it's hidden:** There is no visible entry point to the coach thread from the Conversations list. The CoC overlay contains the coach thread but is labeled in a way that suggests "context attachment" rather than "talk to your assistant." First-time users do not discover it.
-**Recommendation:** Add a persistent "Coach" item to the Sidebar under Conversations, below "New thread." This provides a direct entry point. The CoC overlay can remain for context attachment — it does not need to be the only entry.
+**Value:** A persistent AI companion thread in the Conversations view that provides context-aware assistance, routing through the assistant overlay's thread shell.
+**Why it's hidden:** There is no visible entry point to the assistant thread from the Conversations list. The assistant overlay contains the assistant thread but is labeled in a way that suggests "context attachment" rather than "talk to your assistant." First-time users do not discover it.
+**Recommendation:** Add a persistent "Assistant" item to the Sidebar under Conversations, below "New thread." This provides a direct entry point. The assistant overlay can remain for context attachment — it does not need to be the only entry.
 
 ### HG-5: Routine Scheduler
 
@@ -137,8 +137,8 @@ Features that are fully functional but fail discoverability. Each gets a surfaci
 ### HG-6: Block Anchored Comments (T5)
 
 **Value:** In Knowledge detail view, users can anchor a comment to a specific text block and have a threaded discussion attached to that precise location. More precise than page-level comments.
-**Why it's hidden:** The block actions popover (Discuss + Share) appears on hover over text blocks in the knowledge body, but only in the CoC overlay view. There is no visible affordance in the knowledge detail reading view that suggests hovering over text reveals actions.
-**Recommendation:** Add a subtle margin indicator (a faint `+` icon) that appears on text block hover in the knowledge body even outside the CoC context. This telegraphs the block interaction model to new users.
+**Why it's hidden:** The block actions popover (Discuss + Share) appears on hover over text blocks in the knowledge body, but only in the assistant overlay view. There is no visible affordance in the knowledge detail reading view that suggests hovering over text reveals actions.
+**Recommendation:** Add a subtle margin indicator (a faint `+` icon) that appears on text block hover in the knowledge body even outside the assistant overlay context. This telegraphs the block interaction model to new users.
 
 ### HG-7: Global Search (Cmd+K)
 
@@ -146,11 +146,11 @@ Features that are fully functional but fail discoverability. Each gets a surfaci
 **Why it's hidden:** The Cmd+K shortcut is listed in the sidebar bottom section next to the search icon, but the icon has no label ("Search") that would prompt a new user to click or try the shortcut. The affordance text "⌘K" is small and tertiary-colored.
 **Recommendation:** Make the sidebar search area a clickable button that also opens the panel (in addition to Cmd+K). Add the label "Search everything" next to the icon. This is a 30-minute change with high discoverability ROI.
 
-### HG-8: Chain of Custody (CoC) Overlay
+### HG-8: Assistant Overlay
 
-**Value:** The CoC overlay attaches a structured context thread to any page, letting agents and humans build a chain of custody for work items. Precise for knowledge-transfer and audit trails — every decision can be traced to the block and thread where it was made.
-**Why it's hidden:** The trigger button at the bottom of the sidebar is unlabeled — it shows an icon only. Users do not know what it does until they click it. The name "CoC" (Chain of Custody) is not communicated anywhere in the UI.
-**Recommendation:** Add a label "Context" or "CoC" below the trigger button. On first activation, show a one-shot tooltip: "Attach context to your work — build a chain of custody for decisions."
+**Value:** The assistant overlay attaches a structured context thread to any page, letting agents and humans build a chain of custody for work items. Precise for knowledge-transfer and audit trails — every decision can be traced to the block and thread where it was made.
+**Why it's hidden:** The trigger button at the bottom of the sidebar is unlabeled — it shows an icon only. Users do not know what it does until they click it. The assistant overlay is not communicated anywhere in the UI.
+**Recommendation:** Add a label "Assistant" below the trigger button. On first activation, show a one-shot tooltip: "Talk to your assistant — attach context to your work."
 
 ### HG-9: Git Export
 
@@ -232,10 +232,10 @@ Features that are fully functional but fail discoverability. Each gets a surfaci
 **What's rough:** Collapsed state height is always the same regardless of reasoning length — users have no hint of how much content is inside before expanding.
 **Recommendation:** Show a truncated preview line ("Analyzed 3 options…") in the collapsed state using the first sentence of the reasoning.
 
-#### Coach Thread (L21)
+#### Assistant Thread (L21)
 
 **Category:** Hidden Gem
-**UI Path:** No direct entry point — only via CoC overlay
+**UI Path:** No direct entry point — only via assistant overlay
 **Discoverability:** 1
 **Test Coverage:** (see HG-4 above)
 
@@ -252,15 +252,15 @@ See Hidden Gems section HG-4.
 **What's rough:** Button renders but links nowhere when `harnessUrl` is null — in seed data and typical dev setup, no session has a harness URL set. See QW-10 for the fix.
 **Recommendation:** See QW-10.
 
-#### CoC Overlay — Chain of Custody
+#### Assistant Overlay
 
 **Category:** Built But Rough
-**UI Path:** Sidebar > bottom icon button > CoC overlay opens
+**UI Path:** Sidebar > bottom icon button > assistant overlay opens
 **Discoverability:** 2
-**Test Coverage:** `CocOverlay.test.tsx`, `CocOverlay.block-ref.test.tsx`, `L21-coc-overlay.spec.ts`
+**Test Coverage:** `CocOverlay.test.tsx` (being rebuilt as `AssistantOverlay` in AD8b), `CocOverlay.block-ref.test.tsx`, `L21-coc-overlay.spec.ts`
 
-**What works:** Opens a 360px-wide thread shell anchored to the trigger. Thread shell in "coach" configuration. Block reference support. Does not close on click-outside (intentional).
-**What's rough:** No close affordance for new users (see QW-9). Trigger button is unlabeled. The "coach" framing is not communicated in any visible UI text.
+**What works:** Opens a 360px-wide thread shell anchored to the trigger. Thread shell in "assistant" configuration. Block reference support. Does not close on click-outside (intentional).
+**What's rough:** No close affordance for new users (see QW-9). Trigger button is unlabeled. The assistant framing is not communicated in any visible UI text.
 **Recommendation:** See QW-9 and HG-8.
 
 ---
@@ -923,7 +923,7 @@ See Lifecycle Propagation under Work View.
 
 ### 9. Threads & Blocks
 
-These features form the block-level interaction layer across all content surfaces (Bet, Knowledge, CoC overlay). They are referenced throughout earlier sections but were omitted from the original inventory enumeration.
+These features form the block-level interaction layer across all content surfaces (Bet, Knowledge, assistant overlay). They are referenced throughout earlier sections but were omitted from the original inventory enumeration.
 
 #### Host Thread Section
 
@@ -941,7 +941,7 @@ These features form the block-level interaction layer across all content surface
 **Category:** Hidden Gem
 **UI Path:** Any thread message containing `[[block-id]]` syntax → inline block embed rendered
 **Discoverability:** 1 — no UI affordance explains the syntax or how to create a block reference
-**Test Coverage:** `BlockRefEmbed.test.tsx`, `CocOverlay.block-ref.test.tsx`, `T4-block-reference.spec.ts`
+**Test Coverage:** `BlockRefEmbed.test.tsx`, `AssistantOverlay.block-ref.test.tsx` (rebuilt from `CocOverlay.block-ref.test.tsx` in AD8b), `T4-block-reference.spec.ts`
 
 See Hidden Gems section HG-1. The embed itself (`BlockRefEmbed.tsx`) resolves the referenced block via `useBlockResolution`, fetches the host entity body client-side, and renders the block payload inline with a degraded fallback when the block cannot be resolved.
 
@@ -960,7 +960,7 @@ See Hidden Gems section HG-1. The embed itself (`BlockRefEmbed.tsx`) resolves th
 
 **Category:** Hidden Gem
 **UI Path:** Knowledge Detail > body text > hover block > "Discuss" action → thread comment anchored to block
-**Discoverability:** 2 — only visible in CoC overlay context on hover
+**Discoverability:** 2 — only visible in assistant overlay context on hover
 **Test Coverage:** `block-anchor-comment.spec.ts`, `T5-block-discussion.spec.ts`
 
 See Hidden Gems section HG-6. Block anchored comments use the same block-actions popover and HostThreadSection prefill mechanism — the distinction from a standard thread reply is the `blockId` + `blockExcerpt` prefill state passed to the composer.
@@ -968,7 +968,7 @@ See Hidden Gems section HG-6. Block anchored comments use the same block-actions
 #### Thread Host Banner
 
 **Category:** Launch-Ready
-**UI Path:** Any thread rendered via ThreadShell — Bet thread, Task thread, CoC overlay thread
+**UI Path:** Any thread rendered via ThreadShell — Bet thread, Task thread, assistant overlay thread
 **Discoverability:** 4 — always visible at the top of every thread shell
 **Test Coverage:** `ThreadHostBanner.test.tsx`, `ThreadShell.test.tsx`
 
@@ -1014,7 +1014,7 @@ See Hidden Gems section HG-6. Block anchored comments use the same block-actions
 | Direct message creation | `q1-new-dm-thread.spec.ts` |
 | Rich message rendering | `CommentRow.richVariant.test.tsx`, `L11-rich-messages.spec.ts` |
 | Reasoning block view | `Conversations.reasoning.test.tsx` |
-| CoC overlay | `CocOverlay.test.tsx`, `L21-coc-overlay.spec.ts` |
+| Assistant overlay | `CocOverlay.test.tsx` (being rebuilt as `AssistantOverlay` in AD8b), `L21-coc-overlay.spec.ts` |
 | Work portfolio | `WorkPortfolio.test.tsx`, `work.spec.ts` |
 | Team drill-down | `WorkTeam.AB3.test.tsx`, `L13-product-drilldown.spec.ts` |
 | Bet detail | `WorkBet.test.tsx`, `WorkBet.detail.test.tsx`, `bet-thread.spec.ts` |
@@ -1065,6 +1065,6 @@ See Hidden Gems section HG-6. Block anchored comments use the same block-actions
 | Settings > Backend | No dedicated test. Covered only by general settings spec. |
 | Curation suggestion cards (accept/reject) | `CurationSuggestionCard.test.tsx` exists but no E2E spec for the accept/reject flow. |
 | Knowledge scope change | Partially covered in `knowledge-detail.spec.ts` but scope change dialog interaction not fully tested. |
-| CoC overlay trigger discoverability | No test verifying the CoC trigger button is accessible and labeled. |
+| Assistant overlay trigger discoverability | No test verifying the assistant trigger button is accessible and labeled. |
 | Worker WebSocket (non-electron) | Tested in desktop package but not via the web settings UI. |
 | Notification dispatch integration | `silence-policy.test.ts` tests policy; actual dispatch integration with UI toggles is untested. |

@@ -596,7 +596,7 @@ function AgentRow({
 				)}
 			</span>
 
-			{/* Category tag — strategy/personal agents only.
+			{/* Category tag — strategy/individual agents only.
 			    @lore AB2: Preserved from AB3's AgentCard so AB3 tests (agent-card-category)
 			    continue to work after the roster section was replaced with AgentRow. */}
 			{member.agentCategory && member.agentCategory !== "team" && (

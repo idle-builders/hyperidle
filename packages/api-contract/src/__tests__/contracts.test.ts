@@ -12,8 +12,8 @@
  * runtime shape-check assertions so Vitest registers concrete pass/fail.
  *
  * @lore AD8a: Rail contract types (RailBet, RailBlocker, RailCostBurnRate, RailResponse)
- * deleted — the Rail API route and its UI surface were removed in U6. The contract // @lore AD8a: historical — Rail removed in U6
- * @lore AD8a: historical — file rail.ts and the api-contract re-exports have been deleted.
+ * deleted — the Rail API route and its UI surface were removed in U6. The contract
+ * file rail.ts and the api-contract re-exports have been deleted.
  */
 
 import { describe, expect, expectTypeOf, it } from "vitest";
