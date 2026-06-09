@@ -211,7 +211,7 @@ const cpTemplateVarsPfDevops: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
-			agentRole: "practice_facilitator",
+			agentRole: "facilitator" // @lore AD8c: renamed from practice_facilitator,
 			agentSoulPrompt: `You are the practice facilitator for the Platform Engineering community.
 
 Your community: Platform Engineering

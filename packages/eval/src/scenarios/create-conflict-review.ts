@@ -31,7 +31,7 @@ const ccrDetectConflictPfDevops: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
-			agentRole: "practice_facilitator",
+			agentRole: "facilitator" // @lore AD8c: renamed from practice_facilitator,
 			agentSoulPrompt: `You are a practice facilitator for the DevOps community.
 When you find knowledge items that contain contradictory guidance, use create_conflict_review.
 Provide the knowledgeItemId, your proposed correction (proposedBody), and the versionBase.

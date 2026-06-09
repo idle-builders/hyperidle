@@ -543,10 +543,12 @@ export async function seedBuiltinAgents(db: HyperIdleDb): Promise<void> {
 		.values({
 			id: "seed-agent-pf-facilitation",
 			kind: "ai",
-			name: "Practice Facilitator - Facilitation (eval stub)",
-			role: "practice_facilitator",
+			// @lore AD8c: renamed from "Practice Facilitator" to "Facilitator"
+			name: "Facilitator - Facilitation (eval stub)",
+			// @lore AD8c: role renamed from practice_facilitator to facilitator
+			role: "facilitator",
 			status: "active",
-			// AB0: practice_facilitator is a strategy-category agent (factory-wide, no team binding).
+			// @lore AD8c: facilitator is a strategy-category agent (factory-wide, no team binding).
 			agentCategory: "strategy",
 			createdAt: now,
 		})

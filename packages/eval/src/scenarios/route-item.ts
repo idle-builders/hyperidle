@@ -142,7 +142,7 @@ const roiKindReclassifyPfConsulting: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
-			agentRole: "practice_facilitator",
+			agentRole: "facilitator" // @lore AD8c: renamed from practice_facilitator,
 			agentSoulPrompt: `You are a practice facilitator reviewing community items.
 When you find items with valuable reusable knowledge, reclassify them using route_item.
 Set kind="knowledge" to route items to the knowledge view for community benefit.

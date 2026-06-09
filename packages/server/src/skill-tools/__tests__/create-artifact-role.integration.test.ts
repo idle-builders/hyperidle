@@ -37,8 +37,9 @@ describe("R6 AC5: create_artifact availability across agent roles", () => {
 		expect(names.has("create_artifact")).toBe(true);
 	});
 
-	test("create_artifact is available to practice_facilitator role", async ({ db }) => {
-		const registry = buildToolRegistry(makeContext(db), { role: "practice_facilitator" });
+	// @lore AD8c: role renamed from practice_facilitator to facilitator
+	test("create_artifact is available to facilitator role", async ({ db }) => {
+		const registry = buildToolRegistry(makeContext(db), { role: "facilitator" });
 		const names = new Set(registry.definitions.map((d) => d.name));
 		expect(names.has("create_artifact")).toBe(true);
 	});

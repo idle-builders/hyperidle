@@ -51,10 +51,11 @@ export async function seedBase(db: HyperIdleDb): Promise<void> {
 		.insert(teamMembers)
 		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 
+	// @lore AD8c: role renamed from practice_facilitator to facilitator
 	await db.insert(users).values({
 		id: "agent-fac",
 		name: "Facilitator",
-		role: "practice_facilitator",
+		role: "facilitator",
 		status: "active",
 		maxConcurrentSessions: 1,
 		createdAt: NOW,
