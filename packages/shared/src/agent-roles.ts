@@ -141,11 +141,15 @@ export const AGENT_ROLE_CATALOG: readonly AgentRoleCatalogEntry[] = [
 		hasTemplate: false,
 	},
 	// Strategy agents
+	// @lore AD8c: renamed from practice_facilitator to facilitator. All existing
+	// DB rows with role='practice_facilitator' must be migrated manually for production;
+	// for pre-production the seed handles fresh databases. See architecture Risk 1.
 	{
-		role: "practice_facilitator",
-		label: "Practice Facilitator",
+		role: "facilitator",
+		label: "Facilitator",
 		category: "strategy",
-		description: "L3 facilitator. Runs practice meetings, synthesizes findings.",
+		description:
+			"L3 facilitator. Runs practice meetings, synthesizes findings, monitors knowledge decay.",
 		community: "ops",
 		teamFunctions: [],
 		hasTemplate: true,

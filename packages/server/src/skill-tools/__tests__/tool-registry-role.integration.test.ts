@@ -95,11 +95,12 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		}
 	});
 
-	test("B3: practice_facilitator registry includes the facilitator tools", ({ db }) => {
-		const registry = buildToolRegistry(makeContext(db), { role: "practice_facilitator" });
+	// @lore AD8c: role renamed from practice_facilitator to facilitator
+	test("B3: facilitator registry includes the facilitator tools", ({ db }) => {
+		const registry = buildToolRegistry(makeContext(db), { role: "facilitator" });
 		const names = new Set(registry.definitions.map((d) => d.name));
 		for (const t of FACILITATOR_ONLY) {
-			expect(names.has(t), `practice_facilitator must see ${t}`).toBe(true);
+			expect(names.has(t), `facilitator must see ${t}`).toBe(true);
 		}
 	});
 });

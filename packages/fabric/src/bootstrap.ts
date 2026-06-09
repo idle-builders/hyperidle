@@ -2,6 +2,9 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
 import { registerBuiltinRoutineHandlers } from "./services/builtin-routines.js";
 import { registerCostCapDedupReleaser } from "./services/cost-cap.js";
+// @lore AD8c: cost sentinel extracted from routine row to application code.
+// startCostSentinel returns a cleanup disposer consistent with the existing pattern.
+import { startCostSentinel } from "./services/cost-sentinel.js";
 import { registerGitExportHandler } from "./services/git-export.js";
 import { createGitRunner } from "./services/git-export-runner.js";
 import { registerLifecyclePropagation } from "./services/lifecycle-propagation.js";
@@ -54,6 +57,9 @@ export function bootstrapFabric(ctx: {
 	disposers.push(registerLifecyclePropagation(db, eventBus));
 	disposers.push(registerBuiltinRoutineHandlers(db, eventBus));
 	disposers.push(registerCostCapDedupReleaser(eventBus));
+	// @lore AD8c: cost sentinel registered as a 15-minute scheduled job.
+	// Runs unconditionally — cannot be disabled via a routine row's `active` flag.
+	disposers.push(startCostSentinel(db, eventBus));
 	disposers.push(
 		registerGitExportHandler(db, eventBus, {
 			runnerFactory: (repoPath) => createGitRunner(repoPath),

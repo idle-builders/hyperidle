@@ -44,8 +44,11 @@ type WriteMemoryInput = z.infer<typeof writeMemoryInputSchema>;
  * facilitator-class agents should mutate.
  */
 const FACILITATOR_ROLES: ReadonlySet<string> = new Set([
+	// @lore AD8b: role string "chief_of_staff" renamed to "assistant".
 	"assistant",
-	"practice_facilitator",
+	// @lore AD8c: renamed from practice_facilitator. Must match the role string
+	// in seed.ts and AGENT_ROLE_CATALOG or facilitator agents cannot write L3/L4.
+	"facilitator",
 	"product_manager",
 ]);
 

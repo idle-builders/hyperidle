@@ -31,7 +31,6 @@ export type {
 } from "./services/builtin-routines.js";
 export {
 	BUILTIN_ROUTINE_IDS,
-	clearBuiltinCostSentinelCache,
 	isBuiltinRoutineId,
 	registerBuiltinRoutineHandlers,
 	runBuiltinRoutine,
@@ -53,6 +52,17 @@ export {
 	releaseSessionDedup,
 	resetCosts,
 } from "./services/cost-cap.js";
+// cost-sentinel (AD8c: extracted from builtin-routines as application code)
+export type { CostSentinelLevel } from "./services/cost-sentinel.js";
+export {
+	COST_SENTINEL_INTERVAL_MS,
+	COST_WARNING_RATIO,
+	clearCostSentinelCache,
+	runCostSentinelCheck,
+	startCostSentinel,
+} from "./services/cost-sentinel.js";
+
+
 // daily-digest
 export { getDailyDigest } from "./services/daily-digest.js";
 

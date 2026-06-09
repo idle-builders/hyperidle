@@ -6,11 +6,13 @@ import type { HyperIdleDb } from "../connection.js";
 import { seed } from "../seed.js";
 
 // @lore AD8a: chief_of_staff soul file deleted (docs/souls/chief-of-staff.md removed).
-// AC2 tests only check practice_facilitator and product_manager for soul_prompt_path.
-// biome-ignore lint/correctness/noUnusedVariables: historical documentation of the 3-role set
-const FACILITATOR_ROLES = ["assistant", "practice_facilitator", "product_manager"] as const;
-// Only roles that still have soul files after AD8a
-const SOUL_FILE_ROLES = ["practice_facilitator", "product_manager"] as const;
+// @lore AD8b: chief_of_staff role renamed to assistant.
+// @lore AD8c: practice_facilitator role renamed to facilitator.
+// AC2 tests only check facilitator and product_manager for soul_prompt_path.
+// biome-ignore lint/correctness/noUnusedVariables: historical documentation of the 3-role set pre-AD8a
+const FACILITATOR_ROLES = ["assistant", "facilitator", "product_manager"] as const; // @lore AD8b: chief_of_staff → assistant; @lore AD8c: practice_facilitator → facilitator
+// Only roles that still have soul files after AD8a and AD8c
+const SOUL_FILE_ROLES = ["facilitator", "product_manager"] as const;
 
 /** Resolve the repo root from this test file's location. */
 function repoRoot(): string {
@@ -96,7 +98,9 @@ describe("A2: Seed script", () => {
 
 	// --- G1 AC1: facilitator agent archetypes are seeded ---
 	// @lore AD8a: System Agent is the display name for the chief_of_staff role seed.
-	test("seeds one System Agent (assistant), ≥1 Practice Facilitator, ≥1 Product Manager (AC1)", async ({
+	// @lore AD8b: chief_of_staff role renamed to assistant.
+	// @lore AD8c: practice_facilitator role renamed to facilitator.
+	test("seeds one System Agent (assistant), ≥5 Facilitators, ≥1 Product Manager (AC1)", async ({
 		db,
 	}) => {
 		await seed(db);
@@ -109,11 +113,19 @@ describe("A2: Seed script", () => {
 		);
 		expect(Number(cosRows[0]?.count)).toBeGreaterThanOrEqual(1);
 
+		// @lore AD8c: role string renamed from practice_facilitator to facilitator
 		const pfRows = await queryRows<{ count: string }>(
+			db,
+			"SELECT COUNT(*) AS count FROM users WHERE role = 'facilitator'",
+		);
+		expect(Number(pfRows[0]?.count)).toBe(5);
+
+		// @lore AD8c: no agents must remain with the old practice_facilitator role
+		const oldPfRows = await queryRows<{ count: string }>(
 			db,
 			"SELECT COUNT(*) AS count FROM users WHERE role = 'practice_facilitator'",
 		);
-		expect(Number(pfRows[0]?.count)).toBeGreaterThanOrEqual(1);
+		expect(Number(oldPfRows[0]?.count)).toBe(0);
 
 		const pmRows = await queryRows<{ count: string }>(
 			db,
@@ -124,7 +136,8 @@ describe("A2: Seed script", () => {
 
 	// --- G1 AC2: every facilitator with a soul file carries a non-empty soul_prompt_path ---
 	// @lore AD8a: chief_of_staff excluded — docs/souls/chief-of-staff.md deleted; soulPromptPath is null.
-	test("seeded practice_facilitator and product_manager have non-empty soul_prompt_path (AC2)", async ({
+	// @lore AD8c: practice_facilitator renamed to facilitator; soul file renamed to facilitator.md.
+	test("seeded facilitator and product_manager have non-empty soul_prompt_path (AC2)", async ({
 		db,
 	}) => {
 		await seed(db);
@@ -142,8 +155,9 @@ describe("A2: Seed script", () => {
 		}
 	});
 
-	// @lore AD8a: chief_of_staff excluded — its soul file was deleted. Only practice_facilitator and product_manager.
-	test("soul_prompt_path files exist on disk for practice_facilitator and product_manager", async ({
+	// @lore AD8a: chief_of_staff excluded — its soul file was deleted.
+	// @lore AD8c: facilitator.md replaces practice-facilitator.md.
+	test("soul_prompt_path files exist on disk for facilitator and product_manager", async ({
 		db,
 	}) => {
 		await seed(db);
@@ -166,12 +180,15 @@ describe("A2: Seed script", () => {
 		}
 	});
 
-	// --- G4 AC6: seed creates all 5 builtin routines with correct config ---
-	test("seeds all 5 G4 builtin routines with correct triggers (G4 AC6)", async ({ db }) => {
+	// --- G4 AC6: seed creates all 4 builtin routines (AD8c: cost-sentinel removed) ---
+	// @lore AD8c: builtin:cost-sentinel removed from routines; it is now application code.
+	test("seeds exactly 4 G4 builtin routines with correct triggers (G4 AC6 + AD8c)", async ({
+		db,
+	}) => {
 		await seed(db);
 
+		// @lore AD8c: cost-sentinel is no longer a routine row; there are now 4 builtins.
 		const expectedIds = [
-			"builtin:cost-sentinel",
 			"builtin:practice-meeting",
 			"builtin:post-bet-retro",
 			"builtin:portfolio-retro",
@@ -193,6 +210,9 @@ describe("A2: Seed script", () => {
 			"SELECT id, trigger_type, trigger_config, owner_agent_id, active FROM routines WHERE id LIKE 'builtin:%' ORDER BY id",
 		);
 
+		// Exactly 4 builtin routines (cost-sentinel extracted to app code)
+		expect(rows).toHaveLength(4);
+
 		const byId = new Map(rows.map((r) => [r.id, r]));
 		for (const id of expectedIds) {
 			expect(byId.has(id), `routine ${id} must be seeded`).toBe(true);
@@ -200,7 +220,11 @@ describe("A2: Seed script", () => {
 			expect(byId.get(id)?.trigger_config).toBeTruthy();
 		}
 
-		expect(byId.get("builtin:cost-sentinel")?.trigger_type).toBe("heartbeat");
+		// @lore AD8c: cost-sentinel must NOT be in the routines table
+		expect(byId.has("builtin:cost-sentinel"), "cost-sentinel must NOT be seeded as a routine").toBe(
+			false,
+		);
+
 		expect(byId.get("builtin:practice-meeting")?.trigger_type).toBe("calendar");
 		expect(byId.get("builtin:post-bet-retro")?.trigger_type).toBe("event");
 		expect(byId.get("builtin:portfolio-retro")?.trigger_type).toBe("calendar");
@@ -209,10 +233,11 @@ describe("A2: Seed script", () => {
 
 	// --- G4 review MAJOR-3: pin the full builtin-routine spec so any drift
 	//     between packages/db/src/seed.ts and
-	//     packages/server/src/services/builtin-routines.ts BUILTIN_SPECS is
-	//     caught by CI. If you change this test, mirror the change in both
-	//     files. ---
-	test("pins the full trigger_config, owner, skill, human_review, silent for every builtin (G4 drift guard)", async ({
+	//     packages/fabric/src/services/builtin-routines.ts BUILTIN_SPECS is
+	//     caught by CI. If you change this test, mirror the change in both files.
+	// @lore AD8c: cost-sentinel removed; knowledge-decay owner changed to seed-agent-pf-facilitation.
+	// ---
+	test("pins the full trigger_config, owner, skill, human_review, silent for every builtin (G4 drift guard + AD8c)", async ({
 		db,
 	}) => {
 		await seed(db);
@@ -227,16 +252,8 @@ describe("A2: Seed script", () => {
 			readonly silent: boolean;
 		}
 
+		// @lore AD8c: cost-sentinel removed; knowledge-decay owner is now seed-agent-pf-facilitation.
 		const expected: readonly BuiltinPin[] = [
-			{
-				id: "builtin:cost-sentinel",
-				triggerType: "heartbeat",
-				triggerConfig: { intervalSeconds: 900 },
-				ownerAgentId: "seed-agent-cos",
-				skillId: "cost_watchdog",
-				humanReview: false,
-				silent: true,
-			},
 			{
 				id: "builtin:practice-meeting",
 				triggerType: "calendar",
@@ -268,7 +285,8 @@ describe("A2: Seed script", () => {
 				id: "builtin:knowledge-decay",
 				triggerType: "calendar",
 				triggerConfig: { cron: "0 2 * * *" },
-				ownerAgentId: "seed-agent-cos",
+				// @lore AD8c: knowledge-decay ownership transferred from seed-agent-cos to seed-agent-pf-facilitation
+				ownerAgentId: "seed-agent-pf-facilitation",
 				skillId: "knowledge_decay",
 				humanReview: false,
 				silent: true,
@@ -308,5 +326,57 @@ describe("A2: Seed script", () => {
 			expect(row.human_review, `${spec.id} human_review`).toBe(spec.humanReview);
 			expect(row.silent, `${spec.id} silent`).toBe(spec.silent);
 		}
+	});
+
+	// --- AD8c AC3: knowledge-decay owned by facilitator agent ---
+	test("builtin:knowledge-decay is owned by seed-agent-pf-facilitation (AD8c AC3)", async ({
+		db,
+	}) => {
+		await seed(db);
+		// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case
+		const rows = await queryRows<{ owner_agent_id: string }>(
+			db,
+			"SELECT owner_agent_id FROM routines WHERE id = 'builtin:knowledge-decay'",
+		);
+		expect(rows).toHaveLength(1);
+		expect(rows[0]?.owner_agent_id).toBe("seed-agent-pf-facilitation");
+	});
+
+	// --- AD8c AC5: portfolio-retro not owned by a facilitator agent ---
+	test("builtin:portfolio-retro is owned by seed-agent-cos, NOT a facilitator agent (AD8c AC5)", async ({
+		db,
+	}) => {
+		await seed(db);
+		// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case
+		const rows = await queryRows<{ owner_agent_id: string }>(
+			db,
+			"SELECT owner_agent_id FROM routines WHERE id = 'builtin:portfolio-retro'",
+		);
+		expect(rows).toHaveLength(1);
+		expect(rows[0]?.owner_agent_id).toBe("seed-agent-cos");
+		// Must NOT be any seed-agent-pf-* agent
+		expect(rows[0]?.owner_agent_id).not.toMatch(/^seed-agent-pf-/);
+	});
+
+	// --- AD8c AC2: soul_template:facilitator key exists (renamed from practice_facilitator) ---
+	test("factory_settings has soul_template:facilitator key and NOT soul_template:practice_facilitator (AD8c AC2)", async ({
+		db,
+	}) => {
+		await seed(db);
+
+		const facilitatorRows = await queryRows<{ key: string; value: string }>(
+			db,
+			"SELECT key, value FROM factory_settings WHERE key = 'soul_template:facilitator'",
+		);
+		expect(facilitatorRows).toHaveLength(1);
+		expect(facilitatorRows[0]?.value).toBeTruthy();
+		expect(facilitatorRows[0]?.value.length).toBeGreaterThan(50);
+
+		// @lore AD8c: old key must not exist
+		const oldRows = await queryRows<{ key: string }>(
+			db,
+			"SELECT key FROM factory_settings WHERE key = 'soul_template:practice_facilitator'",
+		);
+		expect(oldRows).toHaveLength(0);
 	});
 });
