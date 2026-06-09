@@ -135,6 +135,10 @@ Use this rubric when reviewing documentation. Score each dimension. Total: 50 ma
 
 ## How to Use This Skill
 
+### Codebase verification (MANDATORY for feature/UI documentation)
+
+Before describing any feature, component, or interaction: grep the codebase to confirm it exists, read the source file, and verify the behavior matches what you're about to write. Documentation without codebase evidence is hallucination. Zero tolerance for fabricated features — if you can't find it in the code, don't document it.
+
 ### As a writer (designer or builder)
 
 1. Read the target workpackage's ACs.
