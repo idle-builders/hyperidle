@@ -245,7 +245,7 @@ export function KnowledgeDetail({ overrideKnowledgeId }: KnowledgeDetailProps = 
 	// items (k1, k2, k11, k12) are used when the API returns null (test env or
 	// when item doesn't exist in the DB). Full fixture removal deferred to a
 	// future workpackage once tests are migrated to seeded DB data.
-	const { data: apiItem } = useKnowledgeItem(knowledgeId);
+	const { data: apiItem, isLoading } = useKnowledgeItem(knowledgeId);
 	const fixtureItem = findDetail(knowledgeId);
 
 	let item: DetailItem;
@@ -273,8 +273,10 @@ export function KnowledgeDetail({ overrideKnowledgeId }: KnowledgeDetailProps = 
 	// Q2: Pass the route-resolved knowledgeId to the view so ScopeChangeDialog
 	// uses the actual route param for the PATCH URL, not item.id from fixture data
 	// (FALLBACK_DETAIL.id would be "unknown" for non-fixture item IDs).
+	const hasRealData = apiItem !== null || fixtureItem !== undefined;
+	const viewKey = `${knowledgeId}-${hasRealData ? "loaded" : "fallback"}`;
 	return (
-		<KnowledgeDetailView item={item} legacySource={legacySource} routeKnowledgeId={knowledgeId} />
+		<KnowledgeDetailView key={viewKey} item={item} legacySource={legacySource} routeKnowledgeId={knowledgeId} />
 	);
 }
 
@@ -462,6 +464,7 @@ function KnowledgeDetailView({
 	const [editing, setEditing] = useState(false);
 	// T2: editContent captures body at edit-start time (consumed once by BodyEditor on mount)
 	const [editContent, setEditContent] = useState<string>(initialContent);
+
 
 	// Q2: Scope change dialog state.
 	const [scopeChangeOpen, setScopeChangeOpen] = useState(false);

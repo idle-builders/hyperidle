@@ -107,9 +107,34 @@ function createStaticHandler(
  * in production. Converging on `createApp` is the fix; any future divergence
  * would re-introduce the same bug.
  */
+/**
+ * Resolve a PGlite data directory path to an absolute path.
+ * If the path is already absolute or is the special `:memory:` value, return
+ * it unchanged. Otherwise resolve it relative to the repo root so that
+ * `"./hyperidle-pg"` always points to `<repo-root>/hyperidle-pg` regardless
+ * of the process CWD (which differs between `npm run dev` and direct Node
+ * invocations).
+ *
+ * @lore CWD-mismatch: `npm run dev` starts the server from
+ * `packages/server/` (workspace CWD), so a raw `"./hyperidle-pg"` resolves
+ * to `packages/server/hyperidle-pg` — not the repo-root DB created by
+ * `npm run setup`. We compute the repo root as 3 directories above this
+ * file (`packages/server/src/server-factory.ts`).
+ */
+function resolvePglitePath(rawPath: string): string {
+	if (rawPath === ":memory:" || path.isAbsolute(rawPath)) {
+		return rawPath;
+	}
+	// import.meta.url → file:///…/packages/server/src/server-factory.ts
+	// repoRoot        → file:///…/ (3 levels up)
+	const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../../..");
+	return path.resolve(repoRoot, rawPath);
+}
+
 export async function createServer(port: number): Promise<ServerHandle> {
 	const profile = resolveProfile({ env: process.env });
-	const dbUrl = process.env.DATABASE_URL ?? profile.dbUrlDefault;
+	const rawDbUrl = process.env.DATABASE_URL ?? profile.dbUrlDefault;
+	const dbUrl = profile.dbDriver === "pglite" ? resolvePglitePath(rawDbUrl) : rawDbUrl;
 	let dbHandle: DbHandle;
 	if (profile.dbDriver === "pglite") {
 		dbHandle = await createPgliteDb(dbUrl);
