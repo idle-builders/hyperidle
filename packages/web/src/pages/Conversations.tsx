@@ -42,14 +42,7 @@ import { useThreadDetail } from "../hooks/useThreadDetail";
 import type { AppShellOutletContext } from "../layouts/AppShell";
 import { apiFetch } from "../services/api-fetch.js";
 import { resolveHostRoute } from "../services/host-route.js";
-import {
-	type ActionSummaryData,
-	ArtifactView,
-	type ContentPreviewData,
-	type DataMetricsData,
-	type TextDiffData,
-	type VisualComparisonData,
-} from "../shell/ArtifactView";
+import { ArtifactView } from "../shell/ArtifactView";
 import { ToastContext } from "../shell/ToastRegion";
 
 // ---------------------------------------------------------------------------
