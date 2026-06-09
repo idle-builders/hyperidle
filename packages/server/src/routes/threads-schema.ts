@@ -161,11 +161,15 @@ export const messageInputSchema = z.discriminatedUnion("type", [
  * Validates a message row read back from the DB. Each branch accepts the
  * type-specific payload OR the redacted-payload variant — the type guard
  * `isRedactedPayload` then narrows in the consumer (plan §4 / SL-C2).
+ *
+ * AD8b B3.2: plain messages use plainPayloadSchemaWithToolCalls so that
+ * toolCalls survive DB read-back. Using plainPayloadSchema here would strip
+ * the toolCalls field from messages written by the assistant agent.
  */
 export const messageRowSchema = z.discriminatedUnion("type", [
 	z.object({
 		type: z.literal("plain"),
-		payload: z.union([plainPayloadSchema, redactedPayloadSchema]),
+		payload: z.union([plainPayloadSchemaWithToolCalls, redactedPayloadSchema]),
 	}),
 	z.object({
 		type: z.literal("review"),

@@ -13,7 +13,9 @@
 
 import type { JSX } from "react";
 import { CredentialsTab } from "../components/CredentialsTab.js";
+import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { SettingsAppearance } from "../settings/SettingsAppearance.js";
+import { SettingsAssistant } from "../settings/SettingsAssistant.js";
 import { SettingsBackend } from "../settings/SettingsBackend.js";
 import { SettingsModels } from "../settings/SettingsModels.js";
 import { SettingsNotifications } from "../settings/SettingsNotifications.js";
@@ -30,6 +32,8 @@ function SectionTitle({ children }: { children: string }): JSX.Element {
 }
 
 export function SettingsPage(): JSX.Element {
+	const { user } = useCurrentUser();
+
 	return (
 		<div data-testid="settings-page" className="flex flex-col h-full">
 			{/* Settings header */}
@@ -75,6 +79,18 @@ export function SettingsPage(): JSX.Element {
 						<SectionTitle>Models</SectionTitle>
 						<SettingsModels />
 					</section>
+
+					{/* AD8b AC-2: Assistant section — soul prompt editor, between Models and Appearance */}
+					{user && (
+						<section
+							id="settings-section-assistant"
+							data-testid="settings-section-assistant"
+							className="flex flex-col gap-[18px]"
+						>
+							<SectionTitle>Assistant</SectionTitle>
+							<SettingsAssistant userId={user.id} />
+						</section>
+					)}
 
 					{/* W3 AC-47: Appearance section */}
 					<section

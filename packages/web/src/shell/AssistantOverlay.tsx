@@ -22,12 +22,90 @@
  */
 
 import { ThreadShell } from "@hyperidle/design-system";
-import type { BlockRef, InlineRef, Message } from "@hyperidle/shared";
+import type {
+	BlockRef,
+	InlineRef,
+	Message,
+	PlainPayload,
+	ToolCallSummary,
+} from "@hyperidle/shared";
 import { type JSX, type ReactNode, type RefObject, useCallback, useEffect, useRef } from "react";
 import { BlockRefEmbed } from "../components/BlockRefEmbed.js";
 import type { AssistantContextRef } from "../contexts/AssistantContext";
 import { useAssistantThread } from "../hooks/useAssistantThread";
 import { apiFetch } from "../services/api-fetch.js";
+
+/**
+ * AD8b B3.1: Render a single tinted tool-call row.
+ *
+ * Design spec:
+ *   - Background: rgba(22, 118, 79, 0.03) (forest green tint, very low opacity)
+ *   - Radius: var(--r-subtle, 10px)
+ *   - Padding: 9px 12px
+ *   - Tool name: 11px mono uppercase, --text-tertiary color
+ *   - Result summary: 13px, --text-secondary color
+ */
+function ToolCallRow({ toolCall }: { toolCall: ToolCallSummary }): JSX.Element {
+	return (
+		<div
+			style={{
+				background: "rgba(22, 118, 79, 0.03)",
+				borderRadius: "var(--r-subtle, 10px)",
+				padding: "9px 12px",
+			}}
+		>
+			<div
+				style={{
+					fontFamily: "var(--font-mono)",
+					fontSize: "11px",
+					textTransform: "uppercase",
+					color: "var(--text-tertiary)",
+					letterSpacing: "var(--tracking-caps-sm, 0.06em)",
+					marginBottom: "3px",
+				}}
+			>
+				{toolCall.name}
+			</div>
+			<div
+				style={{
+					fontSize: "13px",
+					color: "var(--text-secondary)",
+					wordBreak: "break-word",
+				}}
+			>
+				{toolCall.output}
+			</div>
+		</div>
+	);
+}
+
+/**
+ * AD8b B3.1: Render tool-call summary rows for a plain message.
+ *
+ * When a plain message has payload.toolCalls, renders tinted rows stacked
+ * vertically with 6px gap per the AC-7 design spec.
+ *
+ * @lore AD8b: Tool-call summaries are embedded on the assistant's plain
+ * response message (not a separate message type). This keeps the thread
+ * timeline clean while surfacing what the assistant actually did.
+ */
+function renderToolCallSummaries(message: Message): ReactNode {
+	if (message.type !== "plain") return null;
+	const payload = message.payload as PlainPayload;
+	if (!payload.toolCalls || payload.toolCalls.length === 0) return null;
+
+	return (
+		<div
+			data-testid="tool-call-summaries"
+			style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "6px" }}
+		>
+			{payload.toolCalls.map((tc, i) => (
+				// biome-ignore lint/suspicious/noArrayIndexKey: tool calls in a message are ordered and stable
+				<ToolCallRow key={i} toolCall={tc} />
+			))}
+		</div>
+	);
+}
 
 /**
  * T4: renderRefEmbeds for AssistantOverlay — builds BlockRefEmbed cards for block refs.
@@ -188,6 +266,7 @@ function AssistantOverlayInner({
 				onAppendMessage={handleAppendMessage}
 				hostTitle="Assistant"
 				renderRefEmbeds={renderRefEmbedsForAssistant}
+				renderMessageExtra={renderToolCallSummaries}
 			/>
 		</>
 	);

@@ -81,6 +81,15 @@ const logger = {
  * AC-3: Subscribes to thread_message_appended. When a human posts to their
  * assistant thread, logs the dispatch intent. Full session provisioning is
  * a future story — this establishes the event-driven skeleton.
+ *
+ * AC-6: When the assistant (AI sender) posts their first response to an
+ * assistant thread, update thread.pinned=true. This is idempotent — already-
+ * pinned threads are not updated again.
+ *
+ * @lore AD8b: The same thread_message_appended event is used for both dispatch
+ * (human → triggers assistant) and pinning (AI response → thread.pinned=true).
+ * Pinning happens on AI responses so the thread is "activated" after first
+ * assistant interaction, not before.
  */
 export function registerAssistantDispatcher(eventBus: EventBus, db: HyperIdleDb): () => void {
 	const unsubscribe = eventBus.on("thread_message_appended", async (event) => {
@@ -112,6 +121,19 @@ export function registerAssistantDispatcher(eventBus: EventBus, db: HyperIdleDb)
 				hostId: threadRow.hostId,
 				pinned: threadRow.pinned === true,
 			};
+
+			// AC-6: When the AI assistant posts their first response to an assistant
+			// thread, pin the thread. Idempotent — skip if already pinned.
+			if (senderRow.kind === "ai" && isAssistantThread(threadLike) && !threadLike.pinned) {
+				await db.update(threads).set({ pinned: true }).where(eq(threads.id, event.threadId));
+
+				logger.info("assistant thread pinned after first response", {
+					threadId: event.threadId,
+					senderId: event.senderId,
+					hostId: event.hostId,
+				});
+				return;
+			}
 
 			if (!shouldDispatchForAssistant({ senderKind: senderRow.kind, thread: threadLike })) {
 				return; // Not an assistant thread or not a human sender
