@@ -74,8 +74,9 @@ async function handler(
 		return err("INVALID_INPUT", "triggerConfig must include a cron field");
 	}
 
+	let parsedCron: ReturnType<typeof parseCron>;
 	try {
-		parseCron(triggerConfigParsed.cron);
+		parsedCron = parseCron(triggerConfigParsed.cron);
 	} catch {
 		return err("INVALID_INPUT", `Invalid cron expression: ${triggerConfigParsed.cron}`);
 	}
@@ -125,14 +126,8 @@ async function handler(
 		});
 	}
 
-	// Compute nextRunAt from the validated cron expression
-	let nextRunAt: string | null = null;
-	try {
-		const cron = parseCron(triggerConfigParsed.cron);
-		nextRunAt = nextCronMatch(cron, new Date()).toISOString();
-	} catch {
-		// Already validated above — this branch should not be reached
-	}
+	// Compute nextRunAt from the already-parsed cron expression (parsedCron set above)
+	const nextRunAt = nextCronMatch(parsedCron, new Date()).toISOString();
 
 	await ctx.db.insert(routines).values({
 		id: routineId,

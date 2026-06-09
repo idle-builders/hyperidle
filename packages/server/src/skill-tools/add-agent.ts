@@ -53,6 +53,10 @@ async function handler(
 		.where(eq(teamMembers.teamId, input.teamId))
 		.limit(1);
 
+	if (!memberGroup) {
+		return err("NOT_FOUND", `Team membership group not found for team ${input.teamId}`);
+	}
+
 	// Look up soul template if no explicit soulPrompt provided
 	let soulPrompt: string | null = input.soulPrompt ?? null;
 	if (soulPrompt === null) {
@@ -80,7 +84,7 @@ async function handler(
 		status: "active",
 		maxConcurrentSessions: 1,
 		// users.teamId references teamMembers.id (the membership group)
-		teamId: memberGroup?.id ?? null,
+		teamId: memberGroup.id,
 		createdAt: now,
 	});
 
