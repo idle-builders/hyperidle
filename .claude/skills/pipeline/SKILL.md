@@ -112,7 +112,7 @@ Then dispatch the persona sessions below, in order. Update `currentStep` in the 
 | Phase | Persona | Effort | Skills | Why |
 |---|---|---|---|---|
 | 1 | **designer** | high | `/concept` → `/design` → `/architecture` | Production only. Concept doc + variant exploration + technical plan. |
-| 2 | **reviewer** | high | `/design-critique` → `/architecture-critique` | Evaluates designer output. True producer/evaluator separation — different agent, not just different mode. Context carries to Phase 4. |
+| 2 | **reviewer** + **designer** | high | `/design-critique` → `/architecture-critique` → designer revision loop | Evaluates designer output. If CRITICAL/WARNING findings, designer revises, reviewer re-critiques (max 3 rounds). Builder receives a clean, approved plan. Context carries to Phase 4. |
 | 3 | **builder** | medium | `/write-tests` → `/write-code` → doc check | TDD red then green. Doc check: if user-facing changes exist, apply `/write-docs`; otherwise justify skip. Must pass `npm run verify` before pushing. |
 | 4 | **reviewer** + **builder** | high | `/review` (+`/write-docs` rubric if docs changed) | Same reviewer from Phase 2 (warm on design/arch). 6 lenses + AC audit + doc funnel scoring if applicable. Builder applies fixes. Verdict DONE required before proceeding. |
 | 5 | **Explore** | low | `/retro` | Fresh-context retro with cost signals. Must run before ship so retro prose is included in the verified tree. |
@@ -138,20 +138,29 @@ Phase 1 — designer (production):
   Run /architecture (interrogate spec, draft plan).
   Commit each skill's output (concept.md, variants, plan) and push.
   Prose commits use [skip ci].
-  Designer exits after Phase 1.
+  DO NOT let the designer exit — it may be needed in Phase 2 to apply critique fixes.
 
-Phase 2 — reviewer (critique):
+Phase 2 — reviewer + designer (critique loop):
   SPAWN: Agent(subagent_type="reviewer", name="reviewer-<id>")
-  Run /design-critique (score variants against 9-dim rubric, ≥7 to advance,
-    max 4 rounds). Skip if no UI surface.
-  Run /architecture-critique (score plan against 9-dim rubric, ≥7 to advance,
-    max 3 rounds).
+  Run /design-critique (score variants against 9-dim rubric). Skip if no UI surface.
+  Run /architecture-critique (score plan against 9-dim rubric).
   True producer/evaluator separation — different agent reads the
   designer's output cold.
+
+  If critique has CRITICAL or WARNING findings:
+    SEND: SendMessage(to="designer-<id>") with the findings.
+    Designer revises the plan/design to address each finding, commits + pushes.
+    SEND: SendMessage(to="reviewer-<id>") to re-critique the revised plan.
+    Repeat until score ≥ 7 or 3 rounds reached.
+  The builder receives a clean, approved plan — not a plan + separate critique doc.
+
   Commit critique output (approved.md, critique doc) and push [skip ci].
-  DO NOT let this agent exit — it will be reused in Phase 4.
+  DO NOT let the reviewer exit — it will be reused in Phase 4.
 
 Phase 3 — builder (TDD):
+  Rebase check before coding: `git fetch origin main && git merge origin/main --no-edit`.
+  Resolve conflicts now — don't let a stale base accumulate drift. (CC-017.)
+
   SPAWN: Agent(subagent_type="builder", name="builder-<id>")
   Run /write-tests — reads the plan, writes failing tests for all ACs,
   commits + pushes. Do NOT write implementation code — requirement

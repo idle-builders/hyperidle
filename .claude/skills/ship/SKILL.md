@@ -14,6 +14,10 @@ min_tool_calls: 5
 
 ## Steps
 
+### 0. Code-review gate (MANDATORY — do not skip)
+
+Verify that code review is complete before shipping. Check that the reviewer emitted "Verdict: DONE" for this workpackage. If no review verdict exists, stop — do not proceed to verify/ship. Ship without code review is a process violation, not an efficiency gain.
+
 ### 1. Stage and commit all code changes
 
 Stage files intentionally — never `git add -A` or `git add .`.
