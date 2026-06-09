@@ -184,8 +184,9 @@ describe("create_routine tool", () => {
 		expect(result.code).toBe("INVALID_INPUT");
 	});
 
-	test("tool is restricted to chief_of_staff role", () => {
+	// @lore AD8b: role "chief_of_staff" renamed to "assistant".
+	test("tool is restricted to assistant role", () => {
 		expect(createRoutineTool.roles).toBeDefined();
-		expect(createRoutineTool.roles).toContain("chief_of_staff");
+		expect(createRoutineTool.roles).toContain("assistant");
 	});
 });

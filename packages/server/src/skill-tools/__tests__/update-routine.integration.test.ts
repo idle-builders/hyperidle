@@ -196,8 +196,9 @@ describe("update_routine tool", () => {
 		expect(result.code).toBe("NOT_FOUND");
 	});
 
-	test("tool is restricted to chief_of_staff role", () => {
+	// @lore AD8b: role "chief_of_staff" renamed to "assistant".
+	test("tool is restricted to assistant role", () => {
 		expect(updateRoutineTool.roles).toBeDefined();
-		expect(updateRoutineTool.roles).toContain("chief_of_staff");
+		expect(updateRoutineTool.roles).toContain("assistant");
 	});
 });

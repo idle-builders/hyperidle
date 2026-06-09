@@ -142,8 +142,9 @@ describe("add_agent tool", () => {
 		expect(data.teamId).toBe(teamId);
 	});
 
-	test("tool is restricted to chief_of_staff role", () => {
+	// @lore AD8b: role "chief_of_staff" renamed to "assistant".
+	test("tool is restricted to assistant role", () => {
 		expect(addAgentTool.roles).toBeDefined();
-		expect(addAgentTool.roles).toContain("chief_of_staff");
+		expect(addAgentTool.roles).toContain("assistant");
 	});
 });

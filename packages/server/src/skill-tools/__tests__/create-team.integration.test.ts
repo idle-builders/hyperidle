@@ -160,8 +160,9 @@ describe("create_team tool", () => {
 		expect(result.code).toBe("INVALID_INPUT");
 	});
 
-	test("tool is restricted to chief_of_staff role", () => {
+	// @lore AD8b: role "chief_of_staff" renamed to "assistant".
+	test("tool is restricted to assistant role", () => {
 		expect(createTeamTool.roles).toBeDefined();
-		expect(createTeamTool.roles).toContain("chief_of_staff");
+		expect(createTeamTool.roles).toContain("assistant");
 	});
 });

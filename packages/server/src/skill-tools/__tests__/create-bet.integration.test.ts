@@ -34,14 +34,13 @@ describe("create_bet tool", () => {
 			{ teamId, description: "Launch the landing page" },
 			makeContext(db),
 		);
-		expect(result.success).toBe(true);
-		if (!result.success) return;
+		expect(result.status).toBe("ok");
+		if (result.status !== "ok") return;
 
-		const data = result.data as { betId: string; status: "draft"; teamId: string };
-		expect(data.status).toBe("draft");
-		expect(data.teamId).toBe(teamId);
+		expect(result.value.status).toBe("draft");
+		expect(result.value.teamId).toBe(teamId);
 
-		const betRows = await db.select().from(bets).where(eq(bets.id, data.betId));
+		const betRows = await db.select().from(bets).where(eq(bets.id, result.value.betId));
 		expect(betRows).toHaveLength(1);
 		expect(betRows[0].status).toBe("draft");
 		expect(betRows[0].teamId).toBe(teamId);
@@ -60,11 +59,10 @@ describe("create_bet tool", () => {
 			},
 			makeContext(db),
 		);
-		expect(result.success).toBe(true);
-		if (!result.success) return;
+		expect(result.status).toBe("ok");
+		if (result.status !== "ok") return;
 
-		const data = result.data as { betId: string };
-		const [bet] = await db.select().from(bets).where(eq(bets.id, data.betId)).limit(1);
+		const [bet] = await db.select().from(bets).where(eq(bets.id, result.value.betId)).limit(1);
 		expect(bet.doneCondition).toBe("All tests pass");
 		expect(bet.hypothesis).toBe("This will unlock self-serve signups");
 	});
@@ -76,36 +74,35 @@ describe("create_bet tool", () => {
 			{ teamId, description: "Some bet" },
 			makeContext(db),
 		);
-		expect(result.success).toBe(true);
-		if (!result.success) return;
+		expect(result.status).toBe("ok");
+		if (result.status !== "ok") return;
 
-		const data = result.data as { betId: string; status: string; teamId: string };
-		expect(typeof data.betId).toBe("string");
-		expect(data.status).toBe("draft");
-		expect(data.teamId).toBe(teamId);
+		expect(typeof result.value.betId).toBe("string");
+		expect(result.value.status).toBe("draft");
+		expect(result.value.teamId).toBe(teamId);
 	});
 
-	test("NOT_FOUND for nonexistent teamId", async ({ db }) => {
+	test("error when teamId does not exist", async ({ db }) => {
 		const result = await createBetTool.handler(
 			{ teamId: "team-does-not-exist", description: "Will fail" },
 			makeContext(db),
 		);
-		expect(result.success).toBe(false);
-		if (result.success) return;
-		expect(result.code).toBe("NOT_FOUND");
+		expect(result.status).toBe("error");
+		if (result.status !== "error") return;
+		expect(result.message).toMatch(/Team not found/);
 	});
 
-	test("INVALID_INPUT when description is empty (fails Zod min(1))", async ({ db }) => {
+	test("error when description is empty (fails Zod min(1))", async ({ db }) => {
 		const { teamId } = await seedTeam(db);
 
 		const result = await createBetTool.handler({ teamId, description: "" }, makeContext(db));
-		expect(result.success).toBe(false);
-		if (result.success) return;
-		expect(result.code).toBe("INVALID_INPUT");
+		expect(result.status).toBe("error");
 	});
 
-	test("tool is restricted to chief_of_staff role", () => {
-		expect(createBetTool.roles).toBeDefined();
-		expect(createBetTool.roles).toContain("chief_of_staff");
+	// @lore AD8b: role "chief_of_staff" renamed to "assistant". The AssistantToolShape
+	// itself has no roles field; roles filter is applied in tool-registry wrapForRegistry.
+	test("createBetTool is an AssistantToolShape (name and handler defined)", () => {
+		expect(createBetTool.name).toBe("create_bet");
+		expect(typeof createBetTool.handler).toBe("function");
 	});
 });

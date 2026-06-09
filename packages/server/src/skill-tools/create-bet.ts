@@ -1,19 +1,21 @@
 /**
- * AE3 — create_bet tool.
+ * AE3 / AD8b — create_bet tool.
  *
  * Creates a new bet in "draft" status for the given team.
- * Restricted to the assistant role (renamed from chief_of_staff in AD8b).
+ * Uses AssistantToolShape (status-discriminated result) per AD8b convention.
+ * Wrapped with roles: ["assistant"] in tool-registry.ts for role-based filtering.
  *
  * @lore AE3: Cross-team scope is intentional. See create-team.ts @lore AE3 comment.
  * @lore AD8b: role string "chief_of_staff" renamed to "assistant".
+ * @lore AD8b: Uses AssistantToolShape — tool-registry wraps to ToolDefinition with roles filter.
  */
 
 import { randomUUID } from "node:crypto";
 import { bets, teams } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
-import type { ToolContext, ToolDefinition } from "./tool-registry.js";
-import { err, ok, type ToolResult } from "./tool-result.js";
+import type { AssistantToolResult, AssistantToolShape } from "./assistant-tool-result.js";
+import type { ToolContext } from "./tool-registry.js";
 
 const createBetInputSchema = z.object({
 	teamId: z.string().min(1),
@@ -24,26 +26,20 @@ const createBetInputSchema = z.object({
 
 type CreateBetInput = z.infer<typeof createBetInputSchema>;
 
-interface CreateBetData {
-	readonly betId: string;
-	readonly status: "draft";
-	readonly teamId: string;
-}
-
 async function handler(
-	rawInput: CreateBetInput,
+	args: CreateBetInput,
 	ctx: ToolContext,
-): Promise<ToolResult<CreateBetData>> {
-	const parsed = createBetInputSchema.safeParse(rawInput);
+): Promise<AssistantToolResult<{ betId: string; status: "draft"; teamId: string }>> {
+	const parsed = createBetInputSchema.safeParse(args);
 	if (!parsed.success) {
-		return err("INVALID_INPUT", parsed.error.message);
+		return { status: "error", message: parsed.error.message };
 	}
 	const input = parsed.data;
 
 	// Verify the team exists
 	const [team] = await ctx.db.select().from(teams).where(eq(teams.id, input.teamId)).limit(1);
 	if (!team) {
-		return err("NOT_FOUND", `Team not found: ${input.teamId}`);
+		return { status: "error", message: `Team not found: ${input.teamId}` };
 	}
 
 	const betId = randomUUID();
@@ -59,19 +55,13 @@ async function handler(
 		createdAt: now,
 	});
 
-	return ok<CreateBetData>({
-		betId,
-		status: "draft",
-		teamId: input.teamId,
-	});
+	return { status: "ok", value: { betId, status: "draft", teamId: input.teamId } };
 }
 
-// @lore AD8b: role string "chief_of_staff" renamed to "assistant".
-export const createBetTool: ToolDefinition<CreateBetInput> = {
+export const createBetTool: AssistantToolShape<CreateBetInput> = {
 	name: "create_bet",
 	description:
-		"Create a new draft bet (time-boxed work commitment) on the specified team. The bet starts in draft status and must be committed separately to become active.",
+		"Create a new bet in draft status for the given team. HIGH RISK: requires human approval before execution.",
 	inputSchema: createBetInputSchema,
 	handler,
-	roles: ["assistant"],
 };
