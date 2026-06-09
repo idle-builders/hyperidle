@@ -1,0 +1,35 @@
+{
+	"sha": "8ade4ba94eea47cbad737d19ecb84ffd30572509",
+	"status": "passed",
+	"dirty": false,
+	"tools": [
+		"check",
+		"lint:biome",
+		"lint:eslint",
+		"knip",
+		"test-coverage",
+		"mock-inventory",
+		"test",
+		"test:integration",
+		"build",
+		"build:desktop",
+		"server:load"
+	],
+	"allTools": [
+		"check",
+		"lint:biome",
+		"lint:eslint",
+		"knip",
+		"test-coverage",
+		"mock-inventory",
+		"test",
+		"test:integration",
+		"build",
+		"build:desktop",
+		"server:load"
+	],
+	"partial": false,
+	"smartSkipped": [],
+	"timestamp": "2026-06-09T01:28:01.088Z",
+	"hmac": "8be9200445ec57c1e941c779e2e9f7f67da64bf225616dfd99d4edd6cfc65fbd"
+}
