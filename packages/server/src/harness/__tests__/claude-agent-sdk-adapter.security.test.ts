@@ -11,6 +11,7 @@
  */
 
 import type { Query, SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { query as sdkQuery } from "@anthropic-ai/claude-agent-sdk";
 import type { SessionConfig } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ClaudeAgentSdkAdapter } from "../claude-agent-sdk-adapter.js";
@@ -31,14 +32,9 @@ function createNoopQuery(): Query {
 	const q = generate() as unknown as Query;
 	q.interrupt = vi.fn(async () => {});
 	q.close = vi.fn();
-	q.getContextUsage = vi.fn(async () => ({
-		categories: [],
-		totalTokens: 0,
-		maxTokens: 200000,
-		rawMaxTokens: 200000,
-		percentage: 0,
-		gridRows: [],
-	}));
+	// Scaffolding — the adapter under test never reads this response. Match the
+	// sibling mocks' `({}) as ReturnType<...>` idiom (file-local convention).
+	q.getContextUsage = vi.fn(async () => ({}) as Awaited<ReturnType<Query["getContextUsage"]>>);
 	q.setPermissionMode = vi.fn(async () => {});
 	q.setModel = vi.fn(async () => {});
 	q.setMaxThinkingTokens = vi.fn(async () => {});
@@ -78,46 +74,46 @@ describe("I2 S1/S2/S3 — ClaudeAgentSdkAdapter security", () => {
 	// --------------------------------------------------------------- S1
 	describe("S1 — env allow-list contains only PATH/HOME/LANG/ANTHROPIC_API_KEY", () => {
 		it("does NOT forward HYPERIDLE_API_KEY into the agent subprocess", async () => {
-			const queryFn = vi.fn(() => createNoopQuery());
+			const queryFn = vi.fn<typeof sdkQuery>(() => createNoopQuery());
 			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
 
 			await adapter.startSession(TEST_CONFIG);
 
 			expect(queryFn).toHaveBeenCalledTimes(1);
-			const call = queryFn.mock.calls[0][0] as { options?: { env?: Record<string, string> } };
+			const call = queryFn.mock.calls[0]![0] as { options?: { env?: Record<string, string> } };
 			const env = call.options?.env ?? {};
 			expect(env.HYPERIDLE_API_KEY).toBeUndefined();
 		});
 
 		it("does NOT forward DATABASE_URL into the agent subprocess", async () => {
-			const queryFn = vi.fn(() => createNoopQuery());
+			const queryFn = vi.fn<typeof sdkQuery>(() => createNoopQuery());
 			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
 
 			await adapter.startSession(TEST_CONFIG);
 
-			const call = queryFn.mock.calls[0][0] as { options?: { env?: Record<string, string> } };
+			const call = queryFn.mock.calls[0]![0] as { options?: { env?: Record<string, string> } };
 			const env = call.options?.env ?? {};
 			expect(env.DATABASE_URL).toBeUndefined();
 		});
 
 		it("does NOT forward SMTP_PASSWORD into the agent subprocess", async () => {
-			const queryFn = vi.fn(() => createNoopQuery());
+			const queryFn = vi.fn<typeof sdkQuery>(() => createNoopQuery());
 			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
 
 			await adapter.startSession(TEST_CONFIG);
 
-			const call = queryFn.mock.calls[0][0] as { options?: { env?: Record<string, string> } };
+			const call = queryFn.mock.calls[0]![0] as { options?: { env?: Record<string, string> } };
 			const env = call.options?.env ?? {};
 			expect(env.SMTP_PASSWORD).toBeUndefined();
 		});
 
 		it("env keys are a subset of the allow-list", async () => {
-			const queryFn = vi.fn(() => createNoopQuery());
+			const queryFn = vi.fn<typeof sdkQuery>(() => createNoopQuery());
 			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
 
 			await adapter.startSession(TEST_CONFIG);
 
-			const call = queryFn.mock.calls[0][0] as { options?: { env?: Record<string, string> } };
+			const call = queryFn.mock.calls[0]![0] as { options?: { env?: Record<string, string> } };
 			const env = call.options?.env ?? {};
 			const ALLOWED = new Set(["PATH", "HOME", "LANG", "ANTHROPIC_API_KEY"]);
 			const extras = Object.keys(env).filter((k) => !ALLOWED.has(k));
@@ -125,12 +121,12 @@ describe("I2 S1/S2/S3 — ClaudeAgentSdkAdapter security", () => {
 		});
 
 		it("forwards ANTHROPIC_API_KEY (the only credential the agent actually needs)", async () => {
-			const queryFn = vi.fn(() => createNoopQuery());
+			const queryFn = vi.fn<typeof sdkQuery>(() => createNoopQuery());
 			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
 
 			await adapter.startSession(TEST_CONFIG);
 
-			const call = queryFn.mock.calls[0][0] as { options?: { env?: Record<string, string> } };
+			const call = queryFn.mock.calls[0]![0] as { options?: { env?: Record<string, string> } };
 			const env = call.options?.env ?? {};
 			expect(env.ANTHROPIC_API_KEY).toBe("ant-test-key");
 		});
@@ -140,12 +136,12 @@ describe("I2 S1/S2/S3 — ClaudeAgentSdkAdapter security", () => {
 	describe("S2 — allowDangerouslySkipPermissions removed by default", () => {
 		it("does NOT pass allowDangerouslySkipPermissions when HYPERIDLE_UNSAFE_AGENT_MODE is unset", async () => {
 			process.env.HYPERIDLE_UNSAFE_AGENT_MODE = undefined;
-			const queryFn = vi.fn(() => createNoopQuery());
+			const queryFn = vi.fn<typeof sdkQuery>(() => createNoopQuery());
 			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
 
 			await adapter.startSession(TEST_CONFIG);
 
-			const call = queryFn.mock.calls[0][0] as {
+			const call = queryFn.mock.calls[0]![0] as {
 				options?: { allowDangerouslySkipPermissions?: boolean; permissionMode?: string };
 			};
 			const opts = call.options ?? {};
@@ -155,12 +151,12 @@ describe("I2 S1/S2/S3 — ClaudeAgentSdkAdapter security", () => {
 
 		it("uses permissionMode: 'default' when unsafe mode is unset", async () => {
 			process.env.HYPERIDLE_UNSAFE_AGENT_MODE = undefined;
-			const queryFn = vi.fn(() => createNoopQuery());
+			const queryFn = vi.fn<typeof sdkQuery>(() => createNoopQuery());
 			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
 
 			await adapter.startSession(TEST_CONFIG);
 
-			const call = queryFn.mock.calls[0][0] as {
+			const call = queryFn.mock.calls[0]![0] as {
 				options?: { permissionMode?: string };
 			};
 			expect(call.options?.permissionMode).toBe("default");
@@ -171,12 +167,12 @@ describe("I2 S1/S2/S3 — ClaudeAgentSdkAdapter security", () => {
 	describe("S3 — HYPERIDLE_UNSAFE_AGENT_MODE=true enables bypass mode", () => {
 		it("passes allowDangerouslySkipPermissions: true when env flag is 'true'", async () => {
 			process.env.HYPERIDLE_UNSAFE_AGENT_MODE = "true";
-			const queryFn = vi.fn(() => createNoopQuery());
+			const queryFn = vi.fn<typeof sdkQuery>(() => createNoopQuery());
 			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
 
 			await adapter.startSession(TEST_CONFIG);
 
-			const call = queryFn.mock.calls[0][0] as {
+			const call = queryFn.mock.calls[0]![0] as {
 				options?: { allowDangerouslySkipPermissions?: boolean; permissionMode?: string };
 			};
 			expect(call.options?.allowDangerouslySkipPermissions).toBe(true);
@@ -184,12 +180,12 @@ describe("I2 S1/S2/S3 — ClaudeAgentSdkAdapter security", () => {
 
 		it("does NOT enable bypass for non-'true' values (defence against typos)", async () => {
 			process.env.HYPERIDLE_UNSAFE_AGENT_MODE = "1";
-			const queryFn = vi.fn(() => createNoopQuery());
+			const queryFn = vi.fn<typeof sdkQuery>(() => createNoopQuery());
 			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
 
 			await adapter.startSession(TEST_CONFIG);
 
-			const call = queryFn.mock.calls[0][0] as {
+			const call = queryFn.mock.calls[0]![0] as {
 				options?: { allowDangerouslySkipPermissions?: boolean };
 			};
 			expect(call.options?.allowDangerouslySkipPermissions).not.toBe(true);
