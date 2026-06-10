@@ -61,9 +61,8 @@ export async function removeMember(
 		.where(and(eq(routines.ownerAgentId, agentId), eq(routines.active, true)));
 
 	if (activeRoutines.length > 0) {
-		throw new ActiveRoutinesError(
-			`Agent ${agentId} has ${activeRoutines.length} active routine(s). Reassign before removing.`,
-		);
+		// @lore AF4/§4g: ActiveRoutinesError owns its message; pass (agentId, count).
+		throw new ActiveRoutinesError(agentId, activeRoutines.length);
 	}
 
 	await db
@@ -108,8 +107,6 @@ export async function getTeamCost(
 	if (teamAgents.length === 0) {
 		return 0;
 	}
-
-	const _agentIds = teamAgents.map((a) => a.id);
 
 	// @lore O2: sessions.cost column stripped (cost tracking is now strategy/fabric concern).
 	// Return 0 — fabric will provide cost aggregation in O3 via extension tables.

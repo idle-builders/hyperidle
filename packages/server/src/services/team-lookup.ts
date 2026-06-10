@@ -44,5 +44,11 @@ export async function loadTeamMembers(db: HyperIdleDb, teamId: string): Promise<
 			`Team ${teamId} has ${rows.length} team_members rows — invariant broken`,
 		);
 	}
-	return rows[0];
+	const [row] = rows;
+	if (!row) {
+		// Unreachable: the length checks above guarantee exactly one row. The guard
+		// re-narrows from `Row | undefined` for noUncheckedIndexedAccess.
+		throw new ApiError(500, "team_members_missing", `Team ${teamId} has no team_members row`);
+	}
+	return row;
 }
