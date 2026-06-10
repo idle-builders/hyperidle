@@ -2,11 +2,6 @@
 	"$schema": "./scripts/typecheck-debt.schema.json",
 	"description": "Packages with known type errors, quarantined by AF1. Drained by AF2-AF5.",
 	"packages": {
-		"fabric": {
-			"owner": "AF3",
-			"errors": 173,
-			"note": "attention-scoring, writeback, types"
-		},
 		"server": {
 			"owner": "AF4",
 			"errors": 3780,
