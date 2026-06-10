@@ -76,14 +76,15 @@ async function handler(
 
 	// Pre-fetch all relevant soul templates in one query to avoid N+1
 	const templateKeys = rosterRoles.map((r) => `soul_template:${r}`);
+	const [firstKey] = templateKeys;
 	const templateRows =
-		templateKeys.length > 0
+		firstKey !== undefined
 			? await ctx.db
 					.select()
 					.from(factorySettings)
 					.where(
 						templateKeys.length === 1
-							? eq(factorySettings.key, templateKeys[0])
+							? eq(factorySettings.key, firstKey)
 							: inArray(factorySettings.key, templateKeys),
 					)
 			: [];

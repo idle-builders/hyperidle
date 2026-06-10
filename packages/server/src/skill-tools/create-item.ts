@@ -145,10 +145,12 @@ async function handler(args: CreateItemInput, ctx: ToolContext): Promise<ToolRes
 		proposedAction: input.proposedAction ?? null,
 		options: input.options ?? null,
 		riskTier: input.riskTier ?? null,
-		attentionScore: input.attentionScore ?? null,
+		// @lore AF4/Z8-167: the `items` table has no attention_score/cost_estimate
+		// columns (those live on knowledge_items), so these tool inputs cannot be
+		// persisted here. Dropped from the insert to type-check; never written at
+		// runtime. Whether they belong on items is routed to the knowledge WP (Batch 7).
 		blocking: input.blocking ?? false,
 		reasoning: input.reasoning ?? null,
-		costEstimate: input.costEstimate ?? null,
 		threadId,
 		createdAt: now,
 	});

@@ -15,6 +15,7 @@ import z from "zod";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { WorkspaceAdapter } from "../harness/workspace-adapter.js";
 import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
+import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import type { CredentialResolver } from "../services/credential-resolver.js";
 import { resolveModelTier } from "../services/model-gateway.js";
@@ -85,8 +86,8 @@ export function createSessionRoutes(
 	eventBus: EventBus,
 	activityBuffer?: SessionActivityBuffer,
 	deps?: SessionRouteDeps,
-): Hono {
-	const router = new Hono();
+): Hono<HyperIdleEnv> {
+	const router = new Hono<HyperIdleEnv>();
 
 	// GET / — List sessions with optional filtering by task_id, agent_id, state.
 	// @lore I6: replaces the bounded resource descriptor with actual filtering.
