@@ -37,12 +37,6 @@ export interface SessionResultMessage {
 	readonly result: SessionResult;
 }
 
-/** Messages the worker receives from the parent. */
-export type WorkerInboundMessage = StartMessage | StopMessage;
-
-/** Messages the parent receives from the worker. */
-export type WorkerOutboundMessage = EventMessage | SessionResultMessage;
-
 /** Narrow an unknown IPC payload to a typed message carrying a `type` field. */
 function hasType(msg: unknown): msg is { readonly type: string } {
 	return typeof msg === "object" && msg !== null && "type" in msg;
