@@ -24,7 +24,7 @@ import { queryPracticeTool } from "./query-practice.js";
 import { readInboxTool } from "./read-inbox.js";
 import { sendMessageTool } from "./send-message.js";
 import { submitReviewTool } from "./submit-review.js";
-import type { ToolDefinition } from "./tool-registry.js";
+import { type RegisteredTool, toRegistered } from "./tool-registry.js";
 import { err, ok } from "./tool-result.js";
 import { updateTaskStatusTool } from "./update-task-status.js";
 import { writeMemoryTool } from "./write-memory.js";
@@ -111,17 +111,17 @@ export const ASSISTANT_TOOLS: readonly AssistantToolDef[] = [
  *
  * AC-7: Returns exactly 13 tool definitions.
  */
-export function toolsForAssistant(): readonly ToolDefinition[] {
+export function toolsForAssistant(): readonly RegisteredTool[] {
 	return [
-		readInboxTool,
-		queryPracticeTool,
-		logTaskTool,
-		sendMessageTool,
-		createTaskTool,
-		writeMemoryTool,
-		createArtifactTool,
-		submitReviewTool,
-		handoffToTool,
+		toRegistered(readInboxTool),
+		toRegistered(queryPracticeTool),
+		toRegistered(logTaskTool),
+		toRegistered(sendMessageTool),
+		toRegistered(createTaskTool),
+		toRegistered(writeMemoryTool),
+		toRegistered(createArtifactTool),
+		toRegistered(submitReviewTool),
+		toRegistered(handoffToTool),
 		// New assistant-specific tools — wrapped to adapt result type.
 		wrapAssistantTool(createBetTool),
 		wrapAssistantTool(editBetTool),
@@ -131,13 +131,13 @@ export function toolsForAssistant(): readonly ToolDefinition[] {
 }
 
 /**
- * Wrap an AssistantToolShape to satisfy the ToolDefinition interface.
+ * Wrap an AssistantToolShape to satisfy the RegisteredTool interface.
  * Converts { status: "ok" | "error" } → { success: boolean }.
  */
 function wrapAssistantTool<T>(
 	shape: import("./assistant-tool-result.js").AssistantToolShape<T>,
-): ToolDefinition<T> {
-	return {
+): RegisteredTool {
+	return toRegistered<T>({
 		name: shape.name,
 		description: shape.description,
 		inputSchema: shape.inputSchema,
@@ -148,5 +148,5 @@ function wrapAssistantTool<T>(
 			}
 			return err("TOOL_ERROR", result.message);
 		},
-	};
+	});
 }

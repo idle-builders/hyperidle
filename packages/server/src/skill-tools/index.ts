@@ -18,10 +18,12 @@ export { submitReviewTool } from "./submit-review.js";
 export {
 	buildToolRegistry,
 	type ClaudeToolSpec,
+	type RegisteredTool,
 	type ToolContext,
 	type ToolDefinition,
 	type ToolRegistry,
 	toClaudeToolSpec,
+	toRegistered,
 } from "./tool-registry.js";
 export { err, ok, type ToolResult } from "./tool-result.js";
 export { updateRoutineTool } from "./update-routine.js";

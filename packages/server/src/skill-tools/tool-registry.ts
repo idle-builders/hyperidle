@@ -65,6 +65,41 @@ export interface ToolDefinition<Input = unknown> {
 }
 
 /**
+ * A `ToolDefinition` after registry boundary-erasure of its `Input` type
+ * parameter. `ToolDefinition<Input>` is INVARIANT in `Input` (it appears both
+ * covariantly in `inputSchema` and contravariantly in `handler`), so a
+ * `ToolDefinition<{specific}>` is genuinely not assignable to
+ * `ToolDefinition<unknown>` — you cannot feed `unknown` to a handler expecting
+ * a narrow shape. The registry only ever invokes `handler` AFTER validating
+ * `args` against `inputSchema` (the single `def.handler(parsed.data, …)` site
+ * below), so erasing the boundary to `unknown` is sound: the runtime always
+ * passes a parsed value of the schema's type. @lore AF4/§4b
+ */
+export interface RegisteredTool {
+	readonly name: string;
+	readonly description: string;
+	readonly inputSchema: z.ZodType;
+	readonly handler: (args: unknown, ctx: ToolContext) => Promise<ToolResult>;
+	readonly roles?: readonly UserRole[];
+}
+
+/**
+ * Erase a `ToolDefinition<Input>` to a `RegisteredTool`. The schema still
+ * validates `args` at call time; the handler is only invoked with the parsed
+ * (schema-typed) value. Behaviour-neutral boundary adapter — replaces the
+ * previous covariant array typing that did not compile under invariance.
+ */
+export function toRegistered<Input>(def: ToolDefinition<Input>): RegisteredTool {
+	return {
+		name: def.name,
+		description: def.description,
+		inputSchema: def.inputSchema,
+		handler: (args, ctx) => def.handler(args as Input, ctx),
+		...(def.roles ? { roles: def.roles } : {}),
+	};
+}
+
+/**
  * Anthropic Messages API tool spec. The shape required by the SDK's `tools`
  * field — `input_schema.type` must be `"object"`.
  *
@@ -86,7 +121,7 @@ export interface ClaudeToolSpec {
  * spec. The Anthropic API requires `type: "object"` at the top level — every
  * skill tool's input is a `z.object(...)` so this invariant holds by design.
  */
-export function toClaudeToolSpec(def: ToolDefinition): ClaudeToolSpec {
+export function toClaudeToolSpec(def: RegisteredTool): ClaudeToolSpec {
 	const json = z.toJSONSchema(def.inputSchema, { target: "draft-7" }) as {
 		properties?: Record<string, unknown>;
 		required?: readonly string[];
@@ -104,7 +139,7 @@ export function toClaudeToolSpec(def: ToolDefinition): ClaudeToolSpec {
 }
 
 export interface ToolRegistry {
-	readonly definitions: readonly ToolDefinition[];
+	readonly definitions: readonly RegisteredTool[];
 	readonly invoke: (name: string, rawArgs: unknown) => Promise<ToolResult>;
 	readonly toClaudeToolSpecs: () => readonly ClaudeToolSpec[];
 }
@@ -120,8 +155,8 @@ export interface ToolRegistry {
 function wrapForRegistry<T>(
 	shape: AssistantToolShape<T>,
 	roles: readonly UserRole[],
-): ToolDefinition<T> {
-	return {
+): RegisteredTool {
+	return toRegistered<T>({
 		name: shape.name,
 		description: shape.description,
 		inputSchema: shape.inputSchema,
@@ -133,7 +168,7 @@ function wrapForRegistry<T>(
 			}
 			return err("TOOL_ERROR", result.message);
 		},
-	};
+	});
 }
 
 /**
@@ -146,33 +181,38 @@ function wrapForRegistry<T>(
  * roles — passing them to builders would break G1 AC6's authorization intent
  * and let a builder mutate knowledge lifecycle state.
  */
-export const ALL_TOOL_DEFINITIONS: readonly ToolDefinition[] = [
-	readInboxTool,
-	sendMessageTool,
-	logTaskTool,
-	queryPracticeTool,
-	writeMemoryTool,
-	handoffToTool,
-	createItemTool,
-	writeSessionNotesTool,
+export const ALL_TOOL_DEFINITIONS: readonly RegisteredTool[] = [
+	// Each definition is erased to a RegisteredTool at the array boundary; the
+	// schema still validates args at invoke time (toRegistered, §4b). Erasure is
+	// per-element so the heterogeneous `ToolDefinition<various>` literals unify
+	// (`ToolDefinition<Input>` is invariant — a covariant array would not compile).
+	toRegistered(readInboxTool),
+	toRegistered(sendMessageTool),
+	toRegistered(logTaskTool),
+	toRegistered(queryPracticeTool),
+	toRegistered(writeMemoryTool),
+	toRegistered(handoffToTool),
+	toRegistered(createItemTool),
+	toRegistered(writeSessionNotesTool),
 	// R5: new agent work loop tools — available to all roles.
-	createTaskTool,
-	submitReviewTool,
+	toRegistered(createTaskTool),
+	toRegistered(submitReviewTool),
 	// R6: create_artifact is available to all agent roles — no `roles` filter.
-	createArtifactTool,
+	toRegistered(createArtifactTool),
 	// G1 facilitator tools — restricted to facilitator roles.
-	routeItemTool,
-	scoreAttentionTool,
-	promoteKnowledgeTool,
-	createConflictReviewTool,
+	toRegistered(routeItemTool),
+	toRegistered(scoreAttentionTool),
+	toRegistered(promoteKnowledgeTool),
+	toRegistered(createConflictReviewTool),
 	// AE3 management tools — restricted to the assistant role.
 	// @lore AD8b: role string "chief_of_staff" renamed to "assistant".
-	// @lore AE3: createBetTool uses AssistantToolShape; wrapped via wrapForRegistry.
-	createTeamTool,
-	addAgentTool,
+	toRegistered(createTeamTool),
+	toRegistered(addAgentTool),
+	// @lore AE3: createBetTool uses AssistantToolShape; wrapForRegistry returns
+	// the already-erased RegisteredTool shape.
 	wrapForRegistry(createBetTool, ["assistant"]),
-	createRoutineTool,
-	updateRoutineTool,
+	toRegistered(createRoutineTool),
+	toRegistered(updateRoutineTool),
 ];
 
 /**
@@ -180,7 +220,7 @@ export const ALL_TOOL_DEFINITIONS: readonly ToolDefinition[] = [
  * A tool with `roles === undefined` is available to all roles; otherwise the
  * role must appear in the tool's `roles` array.
  */
-export function toolsForRole(role: UserRole): readonly ToolDefinition[] {
+export function toolsForRole(role: UserRole): readonly RegisteredTool[] {
 	return ALL_TOOL_DEFINITIONS.filter((d) => d.roles === undefined || d.roles.includes(role));
 }
 
