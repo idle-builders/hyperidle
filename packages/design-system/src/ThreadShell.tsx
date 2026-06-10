@@ -179,7 +179,7 @@ function buildRichSlots(
 					</h3>
 					{payload.reasoning.length > 0 ? (
 						<ol className="list-decimal pl-[18px] text-[13px] text-[var(--text-secondary)] m-0">
-							{payload.reasoning.map((line, i) => (
+							{payload.reasoning.map((line: string, i: number) => (
 								// biome-ignore lint/suspicious/noArrayIndexKey: reasoning entries are immutable once sent.
 								<li key={`${message.id}-r-${i}`} className="my-[3px]">
 									{line}
@@ -218,7 +218,7 @@ function buildRichSlots(
 			// styling — no false hierarchy on neutral-choice questionnaires.
 			actions:
 				payload.options.length > 0
-					? payload.options.map((opt) => (
+					? payload.options.map((opt: string) => (
 							<button
 								key={`${message.id}-opt-${opt}`}
 								type="button"
@@ -296,7 +296,7 @@ export function ThreadShell({
 		cardSubject && cardSubject.message.resolvedAt === null ? cardSubject.message : null;
 	const [reExpanded, setReExpanded] = useState(false);
 
-	const participants = thread.participants.map((id) => ({
+	const participants = thread.participants.map((id: string) => ({
 		id,
 		name: identityFor(identities, id).name,
 	}));

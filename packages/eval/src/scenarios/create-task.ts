@@ -89,7 +89,7 @@ Create at least 3 tasks. Good decompositions include: asset creation, copy revie
 						return { score: 0.0, note: "No tasks created" };
 					}
 					const withDoneCondition = allTasks.filter(
-						(t) => t.doneCondition && t.doneCondition.length > 10,
+						(t: { doneCondition: string | null }) => t.doneCondition && t.doneCondition.length > 10,
 					).length;
 					const ratio = withDoneCondition / allTasks.length;
 					return {
@@ -187,7 +187,7 @@ You must create at least 2 subtasks.`,
 						return { score: 0.0, note: "No subtasks created" };
 					}
 					const withCondition = subtasks.filter(
-						(t) => t.doneCondition && t.doneCondition.length > 5,
+						(t: { doneCondition: string | null }) => t.doneCondition && t.doneCondition.length > 5,
 					).length;
 					return {
 						score: withCondition >= subtasks.length * 0.75 ? 1.0 : 0.5,
@@ -220,7 +220,7 @@ You must create at least 2 subtasks.`,
 						"workflow",
 						"job",
 					];
-					const relevant = subtasks.filter((t) => {
+					const relevant = subtasks.filter((t: { title: string; description: string | null }) => {
 						const text = `${t.title} ${t.description ?? ""}`.toLowerCase();
 						return ciKeywords.some((kw) => text.includes(kw));
 					}).length;
@@ -305,7 +305,7 @@ Create at least 3 tasks with regulatory references in their done conditions.`,
 						return { score: 0.0, note: "No tasks created" };
 					}
 					const withDoneCondition = allTasks.filter(
-						(t) => t.doneCondition && t.doneCondition.length > 10,
+						(t: { doneCondition: string | null }) => t.doneCondition && t.doneCondition.length > 10,
 					).length;
 					const ratio = withDoneCondition / allTasks.length;
 					return {

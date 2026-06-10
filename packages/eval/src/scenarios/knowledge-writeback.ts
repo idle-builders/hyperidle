@@ -95,7 +95,7 @@ Also document what you wrote in session notes.`,
 					}
 
 					// Look for items that mention container orchestration or kubernetes
-					const containerItems = newItems.filter((i) => {
+					const containerItems = newItems.filter((i: { id: string; title: string }) => {
 						const title = (i.title ?? "").toLowerCase();
 						return (
 							title.includes("container") ||
@@ -312,7 +312,7 @@ Document what you created in session notes.`,
 					}
 
 					// Check if the items are about deliverable/consulting (would indicate wrong zone)
-					const workItems = agentWrittenKnowledge.filter((i) => {
+					const workItems = agentWrittenKnowledge.filter((i: { id: string; title: string }) => {
 						const title = (i.title ?? "").toLowerCase();
 						return (
 							title.includes("deliverable") || title.includes("outline") || title.includes("draft")

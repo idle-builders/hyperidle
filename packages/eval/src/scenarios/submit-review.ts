@@ -318,7 +318,7 @@ Use submit_review with:
 						if (!reasoning) {
 							// Plain fallback — check the text
 							const text = (payload.text as string | undefined) ?? msg.payload;
-							const lines = text.split("\n").filter((l) => l.trim().length > 5);
+							const lines = text.split("\n").filter((l: string) => l.trim().length > 5);
 							const count = lines.length;
 							return {
 								score: count >= 3 ? 1.0 : count >= 2 ? 0.5 : 0.0,
@@ -545,7 +545,7 @@ Use submit_review with:
 						const reasoning = payload.reasoning as string[] | undefined;
 						if (!reasoning) {
 							const text = (payload.text as string | undefined) ?? msg.payload;
-							const lines = text.split("\n").filter((l) => l.trim().length > 10);
+							const lines = text.split("\n").filter((l: string) => l.trim().length > 10);
 							const count = lines.length;
 							return {
 								score: count >= 3 ? 1.0 : count >= 2 ? 0.5 : 0.0,

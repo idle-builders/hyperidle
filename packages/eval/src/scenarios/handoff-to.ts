@@ -310,7 +310,7 @@ This creates a review item for a human compliance expert.`,
 						.from(items)
 						.where(and(eq(items.sourceAgentId, ctx.seedResult.agentId)));
 					const escalationItems = reviewItems.filter(
-						(i) => i.kind === "escalation" || i.kind === "review",
+						(i: { id: string; kind: string | null }) => i.kind === "escalation" || i.kind === "review",
 					);
 					return {
 						score: escalationItems.length > 0 ? 1.0 : 0.5,

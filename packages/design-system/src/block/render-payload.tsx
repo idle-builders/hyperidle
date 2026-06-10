@@ -47,4 +47,8 @@ export function renderPayload(
 		case "unknown":
 			return <UnknownPayload raw={payload.raw} reason={payload.reason} />;
 	}
+	// @lore Z8-166: TypeScript does not treat switch-on-discriminant as exhaustive
+	// even when all union members are covered; the unreachable throw satisfies
+	// the "function lacks ending return" TS2366.
+	throw new Error(`Unhandled payload kind: ${(payload as { kind: string }).kind}`);
 }

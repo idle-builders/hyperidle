@@ -52,15 +52,17 @@ export const BET_STATUS_MAP: Record<BetStatus, Status> = {
 };
 
 export function taskStateToStatus(state: TaskState): Status {
-	return TASK_STATE_MAP[state];
+	// noUncheckedIndexedAccess widens Record<K,V>[K] to V|undefined; the Record
+	// is exhaustive so the value is always present — non-null is safe here.
+	return TASK_STATE_MAP[state] as Status;
 }
 
 export function knowledgeStatusToStatus(ks: KnowledgeStatus): Status {
-	return KNOWLEDGE_STATUS_MAP[ks];
+	return KNOWLEDGE_STATUS_MAP[ks] as Status;
 }
 
 export function betStatusToStatus(bs: BetStatus): Status {
-	return BET_STATUS_MAP[bs];
+	return BET_STATUS_MAP[bs] as Status;
 }
 
 /**
@@ -79,7 +81,7 @@ export const SESSION_OUTCOME_MAP: Record<SessionOutcome, Status> = {
 };
 
 export function sessionOutcomeToStatus(outcome: SessionOutcome): Status {
-	return SESSION_OUTCOME_MAP[outcome];
+	return SESSION_OUTCOME_MAP[outcome] as Status;
 }
 
 /**
@@ -97,5 +99,5 @@ export const ROUTINE_STATE_MAP: Record<RoutineState, Status> = {
 };
 
 export function routineStateToStatus(state: RoutineState): Status {
-	return ROUTINE_STATE_MAP[state];
+	return ROUTINE_STATE_MAP[state] as Status;
 }
