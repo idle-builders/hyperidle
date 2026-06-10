@@ -34,7 +34,7 @@ describe("otel", () => {
 
 		const spans = exporter.getFinishedSpans();
 		expect(spans).toHaveLength(1);
-		const attrs = spans[0].attributes;
+		const attrs = spans[0]!.attributes;
 		expect(attrs[HYPERIDLE.storyId]).toBe("L10");
 		expect(attrs[HYPERIDLE.persona]).toBe("architect");
 		expect(attrs[HYPERIDLE.toolCallsActual]).toBe(12);
@@ -50,7 +50,7 @@ describe("otel", () => {
 		});
 		span.end();
 
-		const attrs = exporter.getFinishedSpans()[0].attributes;
+		const attrs = exporter.getFinishedSpans()[0]!.attributes;
 		expect(attrs[HYPERIDLE.storyId]).toBe("L10");
 		expect(HYPERIDLE.persona in attrs).toBe(false);
 		expect(HYPERIDLE.taskType in attrs).toBe(false);
@@ -61,7 +61,7 @@ describe("otel", () => {
 		recordSpanError(span, new Error("boom"));
 		span.end();
 
-		const finished = exporter.getFinishedSpans()[0];
+		const finished = exporter.getFinishedSpans()[0]!;
 		expect(finished.status.code).toBe(2);
 		expect(finished.status.message).toBe("boom");
 		expect(finished.events.some((e) => e.name === "exception")).toBe(true);

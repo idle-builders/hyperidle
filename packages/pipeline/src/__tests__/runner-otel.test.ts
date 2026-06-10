@@ -9,6 +9,11 @@ type SystemMessage = Parameters<typeof handleSystemMessage>[2];
 const STORY_ID = "L99";
 const TASK_ID = "task-1";
 
+// @lore AF2: uuid field requires UUID template literal `${string}-${string}-...` (from crypto).
+// Use proper UUID-format strings so `as SystemMessage` cast is valid.
+const TEST_UUID_1 = "a0000000-0000-0000-0000-000000000001" as const;
+const TEST_UUID_2 = "a0000000-0000-0000-0000-000000000002" as const;
+
 function makeStarted(description: string, taskType?: string): SystemMessage {
 	return {
 		type: "system",
@@ -16,7 +21,7 @@ function makeStarted(description: string, taskType?: string): SystemMessage {
 		task_id: TASK_ID,
 		description,
 		task_type: taskType,
-		uuid: "u-1",
+		uuid: TEST_UUID_1,
 		session_id: "s-1",
 	} as SystemMessage;
 }
@@ -33,7 +38,7 @@ function makeNotification(
 		output_file: "/tmp/x",
 		summary: "done",
 		usage,
-		uuid: "u-2",
+		uuid: TEST_UUID_2,
 		session_id: "s-1",
 	} as SystemMessage;
 }
@@ -94,7 +99,7 @@ describe("handleSystemMessage emits OTel spans", () => {
 
 		const spans = exporter.getFinishedSpans();
 		expect(spans).toHaveLength(1);
-		const attrs = spans[0].attributes;
+		const attrs = spans[0]!.attributes;
 		expect(attrs[HYPERIDLE.storyId]).toBe(STORY_ID);
 		expect(attrs[HYPERIDLE.persona]).toBe("concept");
 		expect(attrs[HYPERIDLE.totalTokens]).toBe(1234);
@@ -109,7 +114,7 @@ describe("handleSystemMessage emits OTel spans", () => {
 		const taskSpans = new Map<string, Span>();
 		handleSystemMessage("g", STORY_ID, makeStarted("design phase"), taskSpans);
 		handleSystemMessage("g", STORY_ID, makeNotification("failed"), taskSpans);
-		const span = exporter.getFinishedSpans()[0];
+		const span = exporter.getFinishedSpans()[0]!;
 		expect(span.status.code).toBe(2);
 	});
 
@@ -123,7 +128,7 @@ describe("handleSystemMessage emits OTel spans", () => {
 		const taskSpans = new Map<string, Span>();
 		handleSystemMessage("g", STORY_ID, makeStarted("UNRECOGNIZED"), taskSpans);
 		handleSystemMessage("g", STORY_ID, makeNotification("completed"), taskSpans);
-		const attrs = exporter.getFinishedSpans()[0].attributes;
+		const attrs = exporter.getFinishedSpans()[0]!.attributes;
 		expect(attrs[HYPERIDLE.taskDescription]).toBe("UNRECOGNIZED");
 		// No matching frontmatter, so the estimate is absent.
 		expect(HYPERIDLE.toolCallsMinimumEstimate in attrs).toBe(false);

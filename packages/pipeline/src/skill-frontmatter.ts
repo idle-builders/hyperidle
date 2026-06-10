@@ -13,6 +13,7 @@ export function parseSkillFrontmatter(source: string): SkillFrontmatter | null {
 	const match = source.match(FRONTMATTER_RE);
 	if (!match) return null;
 	const body = match[1];
+	if (body === undefined) return null;
 	const result: SkillFrontmatter = { name: "" };
 	for (const rawLine of body.split(/\r?\n/)) {
 		const line = rawLine.trim();

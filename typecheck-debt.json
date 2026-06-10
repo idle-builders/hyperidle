@@ -31,11 +31,6 @@
       "owner": "AF5",
       "errors": 235,
       "note": "props mismatches, test-setup, shared refs"
-    },
-    "pipeline": {
-      "owner": "AF2",
-      "errors": 11,
-      "note": "runner-otel test, skill-frontmatter"
     }
   }
 }
