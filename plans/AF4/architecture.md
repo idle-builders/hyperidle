@@ -57,7 +57,7 @@ npx tsc --noEmit -p packages/server/tsconfig.json 2>&1 \
 Distribution: **655 in tests, 103 in src.** Three work buckets (no Config bucket — verified zero `TS2591/TS2552/TS17004`; server's tsconfig already resolves node globals):
 
 - **B. Test strictness (655)** — TS2532/TS18048/TS18046/TS2769/TS2339/TS2345 index-access and possibly-undefined in `*.integration.test.ts`/`*.test.ts`. Mechanical, AF2 policy per-file. **No TS7031** — there is no fixture-destructure mass. See §3.
-- **C. Src genuine-type (≈97)** — route-boundary contracts, `unknown` error handling, invariant generics, drizzle-zod/zod-v3 signature drift. The real work. Fully enumerated by file in §4.
+- **C. Src genuine-type (≈97)** — route-boundary contracts, `unknown` error handling, invariant generics, drizzle-zod/cross-version-zod signature drift (server zod 4.4.3 vs transitive 3.25.76). The real work. Fully enumerated by file in §4.
 - **D. Genuine contract-bug-to-route (≤4 candidates, re-verified at 758)** — errors revealing real drift where the *fix changes behavior or wire shape*. Recorded against `Z8-NNN`, not silently changed. See §5.
 
 ---
@@ -68,7 +68,9 @@ Distribution: **655 in tests, 103 in src.** Three work buckets (no Config bucket
 - **Bucket C (src):** genuine per-site fixes. Two root-cause fixes clear a cluster (§4a, §4b); the rest are per-site. Guards in src are real guards (early-return / `if(!x) throw` / default), never `!` unless an invariant is commented.
 - **Bucket D (route-to-AFxx):** record against the owning entry in `plans/Z8/master-flag-register.md`; do not change behavior here.
 
-zod is **v3 (3.25.76)**; `@hono/zod-validator` is **0.7.6**; drizzle-zod is **0.8.3**. Every schema/validate fix is anchored on **zod v3** signatures (the installed `.d.ts`), NOT v4 export names. `middleware/validate.ts` already uses the v3 `z.ZodTypeAny` constraint.
+**zod version anchoring (AMENDED 2026-06-10 — verified by `traceResolution` + `npm ls zod`):** `@hyperidle/server`, `@hyperidle/shared`, and `@hyperidle/db` each resolve `zod` to their **own local 4.4.3** (`packages/<pkg>/node_modules/zod@4.4.3`). All three declare `"zod": "^4.3.6"`. **Every schema/validate fix in server is anchored on zod 4.4.3 (v4-classic) signatures** — the installed `packages/server/node_modules/zod/v4/classic/*.d.ts` — NOT v3. (`z.ZodTypeAny` exists in v4-classic too; the existing `validate.ts` `T extends z.ZodTypeAny` constraint is still valid under 4.4.3.)
+
+The transitive packages pin an **older zod 3.25.76 at the ROOT hoist** (`node_modules/zod`), pulled by `@hono/zod-validator@0.7.6`, `drizzle-zod@0.8.3`, `@anthropic-ai/sdk`, `@modelcontextprotocol/sdk`, `zod-to-json-schema`, and eslint plugins. **This is the source of the §4a brand mismatch:** the validator typechecks against zod 3.25.76's `zod/v4/core` brand while server schemas carry zod 4.4.3's. The root hoist 3.25.76 does **not** satisfy any of the `^4.3.6` ranges in the workspace packages — a monorepo lockfile/hoist inconsistency recorded as out-of-scope in §9 (do NOT upgrade/relock in AF4). `@hono/zod-validator` is **0.7.6**; `drizzle-zod` is **0.8.3** (deduped to zod **3.25.76**, the seam for §4c's `selectBetSchema` mismatch).
 
 ---
 
@@ -88,12 +90,57 @@ Each file: narrow index-access, type `.json()` results, prefix-or-remove unused 
 
 Two root-cause fixes clear ~53 of the 103; the rest are per-site. Every fix is type-soundness with **no runtime behavior change** unless flagged → D.
 
-### 4a. ROOT-CAUSE FIX #1 — `validateBody` type erasure (clears 20; **this is the AC2 route-boundary fix**)
+### 4a. ROOT-CAUSE FIX #1 — `validateBody` type erasure (clears the `"json"`/`unknown` cluster; **this is the AC2 route-boundary fix**)
 
-**File:** `packages/server/src/middleware/validate.ts:31`.
+> **AMENDED 2026-06-10 — zod re-anchored to 4.4.3 (server-local), inferring-overload path proven unreachable, `ValidatedJson<T>` promoted to PRIMARY.** See the version note at the end of §2.
+
+**File:** `packages/server/src/middleware/validate.ts` (32 lines; `validateBody` at the tail).
 `validateBody<T extends z.ZodTypeAny>(schema)` returns `ReturnType<typeof zValidator>` — the **un-parameterized** middleware return — and casts the hook via `validationHook as Parameters<typeof zValidator>[2]`. The cast erases the typed overload, so the schema's output type never reaches the Hono context's validation map. In every consumer `c.req.valid("json")` fails (`Argument of type '"json"' is not assignable to parameter of type 'never'`, TS2345) and `body` is `unknown` (TS18046), cascading into the `unknown→ConfigPatch` TS2345 at each `updateXConfig(db, body)` call.
 
-**Fix (zod v3, verified against installed `@hono/zod-validator@0.7.6` `dist/index.d.ts`):** the package exports `zValidatorFunction` with two overloads; the second is `<T extends ZodSchema, …, HookFn extends Hook<InferredValue, E, P, Target, {}, T>>(target, schema, hook?, options?): MiddlewareHandler<E, P, V, …>`. The current code defeats inference by widening to `ReturnType<typeof zValidator>` and casting the hook. **Drop both:** return `zValidator("json", schema, validationHook)` and let the return type be inferred (do NOT annotate it as `ReturnType<typeof zValidator>`). Type `validationHook` to the package's `Hook` shape so the `success/data/target` discriminated result types (it already matches: `{ success: boolean; error?: { issues } }` is assignable to the v3 hook result for the failure branch). The `T extends z.ZodTypeAny` constraint is correct and stays (zod v3; `ZodSchema = v3.ZodType | v4.$ZodType` in the validator, and `ZodTypeAny ⊆ v3.ZodType`). **No `as unknown`, no v4 export names.** The `validate.ts:31` `T not assignable to ZodSchema` clears once the `zValidator` call uses the inferring overload (the cast on the hook is what currently routes it to the wrong overload).
+**The inferring-overload path is UNREACHABLE — do not attempt it (empirically verified by the builder; root cause confirmed against the installed `.d.ts`).** The original plan's "drop the `ReturnType` widening + hook cast and let `zValidator("json", schema, validationHook)` infer" does **not compile** under zod 4.4.3 + `@hono/zod-validator@0.7.6`. Mechanism:
+- `@hono/zod-validator@0.7.6/dist/index.d.ts` imports `import * as v4 from "zod/v4/core"` and `import * as v3 from "zod/v3"` resolved from **its own deduped zod 3.25.76**, and constrains both overloads with `T extends ZodSchema = v3.ZodType | v4.$ZodType`.
+- `packages/server` resolves `zod` to its **own local 4.4.3** (`packages/server/node_modules/zod`). A `z.object({...})` in server is a **zod-4.4.3 classic `ZodObject`**, whose `$ZodType` brand comes from **server-local `zod/v4/core@4.4.3`** — a *different* brand identity than the validator's `zod/v4/core@3.25.76`. The two `$ZodType` brands are nominally distinct.
+- Therefore server's `ZodObject` is assignable to **neither** `v3.ZodType` **nor** the validator's `v4.$ZodType`. `T extends ZodSchema` fails → the inferring (2nd) `zValidatorFunction` overload is never selected. TS reports `T` (or the schema) not assignable to `ZodSchema`. No removal of the cast/widening can fix this — it is a cross-package brand mismatch, not an inference defect.
+
+**PRIMARY FIX — typed `ValidatedJson<T>` boundary helper (no `any`/`unknown`/`as Shape` at the boundary):** keep `validateBody` calling `zValidator` for the **runtime** 400-on-invalid behavior (unchanged), but **own the boundary type ourselves** with a server-local `z.output<T>` — sidestepping the validator's brand-mismatched `zInput`/`zOutput` inference entirely. Two equivalent shapes; **prefer (A)**:
+
+**(A) Re-type the existing `zValidator` middleware to the Hono `Input` map we control.** Cast the *middleware function's type* (NOT the request payload) to a `MiddlewareHandler` whose validation map is keyed off server-local `z.output<T>`:
+
+```ts
+import type { MiddlewareHandler } from "hono";
+import type { z } from "zod";              // server-local zod 4.4.3
+import { zValidator } from "@hono/zod-validator";
+
+/** The Hono Input map a route handler reads back via `c.req.valid("json")`. */
+export type ValidatedJson<T extends z.ZodTypeAny> = {
+  in: { json: z.input<T> };
+  out: { json: z.output<T> };
+};
+
+export function validateBody<T extends z.ZodTypeAny>(
+  schema: T,
+): MiddlewareHandler<Env, string, ValidatedJson<T>> {
+  // Runtime unchanged: zValidator still parses + runs validationHook (400 on fail).
+  // The cast is on the MIDDLEWARE TYPE, declaring the Input map we statically own.
+  // It is NOT a cast of the request payload and NOT `any` — the validated body a
+  // handler reads is fully typed as z.output<T>. The brand-mismatch (server zod 4.4.3
+  // vs validator zod 3.25.76) forces us to declare the boundary type locally rather
+  // than inherit the validator's (unreachable) inference. @lore
+  return zValidator("json", schema as never, validationHook) as MiddlewareHandler<
+    Env,
+    string,
+    ValidatedJson<T>
+  >;
+}
+```
+
+- The `schema as never` is the **only** cast needed to satisfy the validator's brand-incompatible `T extends ZodSchema` param; it is on the *schema argument into a third-party validator*, NOT on the request payload at the route boundary. The payload a handler sees stays `z.output<T>`. This is **not** `c.req.valid("json") as Shape` and **not** `any`/`unknown` — AC2 is satisfied.
+- `Env` and `MiddlewareHandler` import from `hono`. Use a bare `Env`/`string` (or `any extends Env`) for the env/path params — they are positional and irrelevant to the `json` boundary the AC and red test assert on; do **not** widen the `out.json` type.
+- **Confirm the AC2 grep gate passes:** the only cast is `schema as never` (a schema-argument bridge, in `middleware/validate.ts`, not a route file). AC2's grep is scoped to route/middleware files and forbids `as Shape` on payloads and `any`/`@ts-ignore`/`as unknown as` — `schema as never` is none of those (it is `as never` on a schema, behavior-neutral). If a stricter reading of the grep flags `as never`, switch to shape (B).
+
+**(B) Fallback — explicit `safeParse` middleware (zero validator cast).** If `as never` is undesirable, write the middleware by hand: `const parsed = schema.safeParse(await c.req.json())`; on failure return the same `validationHook` 400 shape; on success `c.set` / thread the typed value, returning `MiddlewareHandler<Env, string, ValidatedJson<T>>`. This drops `@hono/zod-validator` for body validation entirely and types the payload directly as `z.output<T>` with no cast. Heavier (re-implements the parse + the Hono `set`/`valid` plumbing) but fully cast-free. Pick (A) unless the grep gate rejects `as never`.
+
+**Cross-check against the red test (`packages/server/src/middleware/validate.route-boundary.test.ts`):** the test defines `type ValidatedJson<M> = M extends MiddlewareHandler<infer _E, infer _P, infer I, infer _R> ? I extends { out: { json: infer J } } ? J : never : never`, then asserts `ValidatedJson<ReturnType<typeof validateBody<typeof patchPayloadSchema>>>` `toEqualTypeOf<z.output<typeof patchPayloadSchema>>()`, `.not.toBeUnknown()`, `.not.toBeAny()`. Shape (A) makes `validateBody` return `MiddlewareHandler<Env, string, { in:{json:z.input<T>}; out:{json:z.output<T>} }>`, so the test's `I` infers `{ in:…; out:{ json: z.output<T> } }`, its `J` infers **exactly `z.output<typeof patchPayloadSchema>`** → `toEqualTypeOf` GREEN, and `z.output` of a `.strict()` object is a concrete `{ enabled?: boolean; smtpPort?: number; recipientEmail?: string | null }` → `not.toBeUnknown`/`not.toBeAny` GREEN. **Contract matches.** (The test's own local `ValidatedJson<M>` is a *position-4-Input extractor*; our exported `ValidatedJson<T>` is the *Input map* fed into position 3 of `MiddlewareHandler`. Same `out.json` type surfaces; names coincide but they are distinct type operators — do not try to import one as the other.)
 
 **Clears (all currently TS2345 `"json"→never` / `unknown→ConfigPatch` / TS18046 `body is unknown`):**
 - `routes/notifications-routes.ts:215,216,224,225,240,253` (6)
@@ -102,7 +149,7 @@ Two root-cause fixes clear ~53 of the 103; the rest are per-site. Every fix is t
 
 This is the single most valuable src fix: it makes **request types at the route boundary sound with zero `any`** — AC2 satisfied for the config-PATCH routes (notifications, observability, git-export) the web app consumes.
 
-**Verify before finalizing:** read `node_modules/@hono/zod-validator/dist/index.d.ts` (the `Hook` and `zValidatorFunction` overloads — already inspected: dual v3/v4, `Hook`'s `Schema` defaults `any`). If the inferring return can't be expressed without re-annotation, fallback is a typed thin wrapper exposing a `ValidatedJson<T>` context helper — **never** `c.req.valid("json") as Shape`.
+**Verify before finalizing:** `npx tsc --noEmit -p packages/server/tsconfig.json` reports zero errors inside `validate.route-boundary.test.ts` (RED→GREEN signal) AND zero `"json"→never`/`body is unknown` at the three route files. The 400-on-invalid runtime path (`validationHook`) is untouched — integration tests asserting 400 stay green (§12).
 
 ### 4b. ROOT-CAUSE FIX #2 — `ToolDefinition<Input>` invariance (clears 33; #1 src file)
 
@@ -124,12 +171,14 @@ export interface RegisteredTool {
 ```
 and a single `toRegistered<I>(def: ToolDefinition<I>): RegisteredTool` adapter the arrays map through (`ALL_TOOL_DEFINITIONS.map(toRegistered)` / each literal wrapped). Retype `ALL_TOOL_DEFINITIONS` and `toolsForAssistant()` as `readonly RegisteredTool[]`; update consumers (grep `ToolDefinition\[\]` / `: ToolDefinition` in non-definition files). Fold any existing ad-hoc `wrapForRegistry`/`wrapAssistantTool` into the one adapter. **Net: replaces bespoke wrappers with one named boundary** (naming-is-architecture; no `Manager`/`Helper`).
 
-### 4c. Drizzle-zod / zod-v3 signature drift (clears ~13) — per-site, signature-only
+### 4c. Drizzle-zod / zod cross-version signature drift (clears ~13) — per-site, signature-only
 
-These are zod-3.25 / drizzle-zod-0.8.3 API tightenings, **behavior-neutral**:
+> **AMENDED 2026-06-10 — re-anchored to zod 4.4.3. The `z.record` framing is NOT a v3 deprecation; it is a zod v4 *hard requirement*.** Re-verified against `packages/server/node_modules/zod/v4/classic/schemas.d.ts:534`.
 
-- **`z.record` single-arg deprecation (TS2554 "Expected 2-3 arguments, but got 1"):** `schemas/bet.schema.ts:62` (`z.record(z.unknown())`), `routes/threads-schema.ts:94` (`z.record(z.unknown())`). zod 3.25 requires the key schema: change to `z.record(z.string(), z.unknown())`. Same wire shape (string-keyed record). Behavior-neutral.
-- **`selectBetSchema` inside `z.array()` (TS2345 `BuildSchema → SomeType`):** `schemas/bet.schema.ts:105,106,107,108` — the drizzle-zod 0.8.3 `selectBetSchema` (a `BuildSchema<"select",…>`) isn't directly assignable to zod-3.25's `SomeType` param of `z.array()`. Fix: the drizzle-zod generated schema needs the zod-3.25-compatible wrapper — wrap `betListItemSchema` (= `selectBetSchema`) so its type satisfies `z.ZodTypeAny` (e.g. `selectBetSchema as z.ZodTypeAny` is a **non-boundary** internal schema cast, allowed; or align drizzle-zod/zod versions — but version-alignment is out of AF4 scope, so the local schema-type bridge is correct). This is **not** a route-boundary cast (it's a schema-construction internal); no `any`, no request/response erasure. Re-verify it's still the same parsed shape via the bet route integration tests.
+These are zod-4.4.3 / drizzle-zod-0.8.3 API differences, **behavior-neutral**:
+
+- **`z.record` requires two args under zod 4.4.3 (TS2554 "Expected 2-3 arguments, but got 1"):** `schemas/bet.schema.ts:62` (`z.record(z.unknown())`), `routes/threads-schema.ts:94` (`z.record(z.unknown())`). **Verified:** zod 4.4.3 declares **only** `record<Key extends $ZodRecordKey, Value extends SomeType>(keyType, valueType, params?)` — there is **no single-arg overload** (it was removed in zod v4; v3's `z.record(value)` shorthand is gone). Fix: supply the key schema → `z.record(z.string(), z.unknown())`. Same wire shape (string-keyed record). Behavior-neutral. (The earlier "v3 single-arg deprecation" wording was wrong-anchored to the root 3.25.76; under server's actual 4.4.3 it is simply the required v4 arity.)
+- **`selectBetSchema` inside `z.array()` (TS2345 `BuildSchema → SomeType`):** `schemas/bet.schema.ts:105,106,107,108` — `drizzle-zod@0.8.3` deduped to **zod 3.25.76** (`npm ls zod` → `drizzle-zod → zod@3.25.76 deduped`), so its generated `selectBetSchema` (`BuildSchema<"select",…>`) carries a **zod-3.25 brand**, not assignable to **server-local zod-4.4.3's** `SomeType` param of `z.array()`. This is the *same cross-version seam* as §4a (drizzle-zod's zod ≠ server's zod), just on a schema rather than the validator. Fix: bridge the internal schema type — `selectBetSchema as z.ZodTypeAny` (server-local zod 4.4.3 `ZodTypeAny`) so `z.array(...)` accepts it. This is a **non-boundary internal schema-construction cast** (allowed; not a request/response payload cast, no `any`, no boundary erasure). Version-alignment of drizzle-zod's zod is **out of AF4 scope** (§9), so the local type bridge is the correct in-scope fix. Re-verify same parsed shape via the bet route integration tests.
 
 ### 4d. PlainPayload union mismatch (TS2322, 4 sites) — per-site narrow
 
@@ -211,9 +260,9 @@ Procedure (AF2 §4, server-specialized):
 ## 7. Ordered task list (builder executes)
 
 1. **Build leaves + re-measure baseline** (§0): `npx tsc -b packages/shared packages/db`, then the regen command. Confirm 758 (103 src / 655 test). If you see ~3780/TS7031, the leaves are stale — rebuild before proceeding (phantom).
-2. **ROOT-CAUSE #1 — `middleware/validate.ts` (§4a):** drop the `ReturnType<typeof zValidator>` widening + the hook cast; let `zValidator("json", schema, validationHook)` infer (zod v3, `@hono/zod-validator@0.7.6`). Re-measure: the 16 notifications/observability/git-export `"json"`/`unknown` errors clear.
+2. **ROOT-CAUSE #1 — `middleware/validate.ts` (§4a, AMENDED):** the inferring-overload path is **unreachable** (zod 4.4.3 vs validator's zod 3.25.76 brand mismatch — do NOT attempt it). Apply the **`ValidatedJson<T>` typed-boundary helper (shape A)**: return `MiddlewareHandler<Env, string, ValidatedJson<T>>` with `ValidatedJson<T> = { in:{json:z.input<T>}; out:{json:z.output<T>} }`; the only cast is `schema as never` into `zValidator` (a schema-arg bridge, NOT a payload cast). Re-measure: the 16 notifications/observability/git-export `"json"`/`unknown` errors clear, AND `validate.route-boundary.test.ts` typechecks clean (RED→GREEN). If the AC2 grep rejects `as never`, use shape (B) `safeParse`.
 3. **ROOT-CAUSE #2 — `tool-registry.ts` + `assistant-tools.ts` (§4b):** introduce `RegisteredTool` + one `toRegistered` adapter; retype the arrays + consumers. Re-measure: 33 clear. Run skill-tool integration tests (no behavior change).
-4. **Drizzle-zod / zod-v3 signatures (§4c):** `z.record` two-arg fix (bet.schema, threads-schema); `selectBetSchema`/`z.array` schema-type bridge. Re-measure: ~13 clear. Run bet route integration tests.
+4. **Drizzle-zod / cross-version-zod signatures (§4c):** `z.record` two-arg fix (bet.schema, threads-schema — zod 4.4.3 v4 arity, NOT a v3 deprecation); `selectBetSchema`/`z.array` schema-type bridge (drizzle-zod 3.25.76 brand vs server 4.4.3). Re-measure: ~13 clear. Run bet route integration tests.
 5. **PlainPayload narrows (§4d)** + **harness IPC narrows (§4e):** annotate to the specific union member / discriminated `WorkerMessage`. Run assistant/coach/threads + worker integration tests.
 6. **Src guards + tail (§4f, §4g):** bets/schedule-label/agent-profile guards; `AgentHealthLevel` shared export (rebuild shared leaf after); `AppType` restore-or-delete; `ActiveRoutinesError` import; dispatcher dead-case removal + interval typing; tasks/threads array+update types; drizzle insert/update overloads; mcp-bridge schema+args; team-lookup guard.
 7. **D-candidates (§5):** adjudicate the 4. Fix-here-neutral where neutral; for any behavior change, add the `Z8-NNN` note in `plans/Z8/master-flag-register.md` and satisfy the compiler with the honest current type.
@@ -230,7 +279,7 @@ Commit grouping: §4 src fixes one commit per cluster (validate / tool-registry 
 | AC | Verification method |
 |---|---|
 | **AC1** server compiles zero errors + off exception list | **Precondition:** `npx tsc -b packages/shared packages/db` first (else phantom). `npm run check` → server row = **PASS** (gate `scripts/typecheck-gate.ts`); `jq '.packages \| keys' typecheck-debt.json` → no `server`. **Regression proof:** inject `const x: string = 123` into `packages/server/src/app.ts`, `npm run check` → FAIL naming server. |
-| **AC2** route req/resp types sound, no `any` at boundary | `npm run lint` (`@typescript-eslint/no-explicit-any` + `no-unsafe-*` green); **grep gate:** `git diff origin/main -- packages/server/src \| grep -nE '\bas any\b\|: any\b\|@ts-(ignore\|expect-error)\|as unknown as'` → **zero new** matches in route/middleware files. The §4a fix makes `c.req.valid("json")` typed — verified by the absence of `"json" not assignable to never` (TS2345) post-fix. |
+| **AC2** route req/resp types sound, no `any` at boundary | `npm run lint` (`@typescript-eslint/no-explicit-any` + `no-unsafe-*` green); **grep gate:** `git diff origin/main -- packages/server/src \| grep -nE '\bas any\b\|: any\b\|@ts-(ignore\|expect-error)\|as unknown as'` → **zero new** matches in route/middleware files. The §4a **`ValidatedJson<T>` helper** makes `c.req.valid("json")` resolve to `z.output<schema>` — verified two ways: (1) `validate.route-boundary.test.ts` typechecks clean (`toEqualTypeOf<z.output<schema>>` + `not.toBeUnknown`/`not.toBeAny` GREEN); (2) absence of `"json" not assignable to never` (TS2345) at the three route files post-fix. **Permitted casts (not flagged by the grep):** the single `schema as never` schema-arg bridge into `zValidator` and the `as MiddlewareHandler<…>` middleware-type annotation in `validate.ts` — neither is `as any`/`as unknown as`/`@ts-ignore` and neither is a payload cast. If shape (B) `safeParse` is used, zero casts at all. |
 | **AC3** genuine contract bugs fixed or recorded | Each §5 D-candidate either compiles behavior-neutrally OR has a `Z8-NNN` note in `plans/Z8/master-flag-register.md` naming the owner. `git diff plans/Z8/master-flag-register.md` shows added notes; no silent suppression (AC2 grep gate proves zero `@ts-ignore`). |
 | **AC4** `npm run verify` passes | Run it (after building leaves); green end-to-end (check + lint + knip + test:all + build + attestation). |
 
@@ -239,9 +288,11 @@ Commit grouping: §4 src fixes one commit per cluster (validate / tool-registry 
 ## 9. Risks / ambiguities
 
 - **Build-phantom precondition (§0)** — the #1 operational risk. If the builder runs `check`/`verify` without `tsc -b packages/shared packages/db` first, the baseline shows ~3780/TS7031=3148 and looks unfixable. **It is not server work.** Always build leaves first. CI validates only the attestation signature, so this never fails CI — but it derails local measurement.
-- **`@hono/zod-validator@0.7.6` typing (§4a)** — installed `dist/index.d.ts` is dual v3/v4 (`ZodSchema = v3.ZodType | v4.$ZodType`). The fix relies on the second `zValidatorFunction` overload inferring once the hook cast and the `ReturnType` widening are removed. zod is **v3** — `z.ZodTypeAny ⊆ v3.ZodType`, constraint is fine. If inference can't be expressed cleanly, fallback is a typed `ValidatedJson<T>` helper — never `as Shape` at the boundary.
-- **zod v3.25 `z.record` arity (§4c)** — `z.record(value)` single-arg is what triggers TS2554; v3.25 wants `z.record(key, value)`. NOT a v4 change. Same wire shape.
-- **drizzle-zod 0.8.3 × zod 3.25 `selectBetSchema` (§4c)** — the `BuildSchema → SomeType` mismatch is a version-interaction; the local schema-type bridge (`as z.ZodTypeAny` on the internal schema, NOT a request/response boundary cast) is the in-scope fix. Version-alignment is out of AF4 scope.
+- **`@hono/zod-validator@0.7.6` × zod 4.4.3 brand mismatch (§4a) — AMENDED, now the #1 src risk.** The validator typechecks against **its own deduped zod 3.25.76** (`import * as v4 from "zod/v4/core"` resolves to 3.25.76); server schemas are **zod 4.4.3**. The two `zod/v4/core $ZodType` brands are nominally distinct, so server's `ZodObject` satisfies **neither** arm of the validator's `ZodSchema = v3.ZodType | v4.$ZodType`. **The inferring-overload path is unreachable** (builder verified empirically; confirmed against the `.d.ts`). The fix is the **`ValidatedJson<T>` typed-boundary helper (PRIMARY)** — own the boundary type as server-local `z.output<T>`, with the single `schema as never` bridge into the validator (NOT a payload cast, NOT `any`). Shape (B) `safeParse` is the cast-free fallback. **Never `c.req.valid("json") as Shape`.**
+- **zod 4.4.3 `z.record` arity (§4c) — AMENDED.** `z.record(value)` single-arg triggers TS2554 because zod **v4 removed the single-arg overload** — 4.4.3 declares only `record(keyType, valueType, params?)`. This is a **v4 hard requirement**, not a v3 deprecation (the prior wording mis-anchored to root 3.25.76). Fix: `z.record(z.string(), z.unknown())`. Same wire shape.
+- **drizzle-zod 0.8.3 × zod cross-version `selectBetSchema` (§4c)** — drizzle-zod deduped to **zod 3.25.76**; its generated schema brand ≠ server's **zod 4.4.3** `SomeType`. The local internal schema-type bridge (`as z.ZodTypeAny`, NOT a request/response boundary cast) is the in-scope fix. Version-alignment is out of AF4 scope.
+- **CROSS-PACKAGE ZOD-VERSION SPLIT — GREEN-PHASE WATCH (new, §4a/§4c).** Server compiles against zod 4.4.3; the transitive ecosystem (`@hono/zod-validator`, `drizzle-zod`, `@anthropic-ai/sdk`, `@modelcontextprotocol/sdk`, `zod-to-json-schema`) pins zod **3.25.76** at the root hoist. **`@hyperidle/shared` and `@hyperidle/db` BOTH resolve their own zod 4.4.3** (verified `npm ls zod`), so *shared-exported-schema-meets-server-zod-v4* is generally **same-version and compatible** — NOT the main risk. The real seams are **third-party libs whose zod is 3.25.76** (validator §4a, drizzle-zod §4c). **Builder watch signature:** any TS2345/TS2322 where a schema/type from one of those 3.25.76-pinned libs (or a `BuildSchema`/`$ZodType` from them) meets a server `z.*` 4.4.3 call. **Routing:** if the fix is a behavior-neutral internal type bridge (`as z.ZodTypeAny` on a non-boundary schema, or the `ValidatedJson<T>` boundary helper) → **fix here**. If it would require changing what a `shared`/`db` schema *parses or emits* (wire-shape change) → **flag and route to §5** (it is not a route-boundary fix). **Do NOT** propose a zod upgrade, dedupe, or lockfile change to resolve these — out of AF4 scope (`/upgrade` territory).
+- **OUT-OF-SCOPE NOTE — monorepo zod lockfile/hoist inconsistency (future workpackage).** The root hoist `zod@3.25.76` does **not** satisfy the `^4.3.6` ranges declared by `@hyperidle/server`, `@hyperidle/shared`, `@hyperidle/db`. Two zod major versions coexist (4.4.3 in workspace packages, 3.25.76 transitively). This is a pre-existing dependency-graph inconsistency, **NOT AF4 scope** — record it for a future `/upgrade` workpackage (align `@hono/zod-validator`/`drizzle-zod` to zod-v4-compatible releases, or dedupe). AF4 must not touch `package-lock.json` or any zod range.
 - **`AgentHealthLevel` shared export (§4g)** — editing `packages/shared/src/index.ts` touches a leaf; **re-run `tsc -b packages/shared`** so server sees the new export, else the error appears unfixed.
 - **`AppType` (§4g)** — restore-or-delete decision; grep web (AF5-quarantined) for consumers; note for AF5 if a web import depends on it.
 - **`ToolDefinition` erasure (§4b)** — confirm the only `.handler(` call sites are post-validation (re-grep before committing). If any caller invokes `handler` with a typed narrow arg, the erased `unknown` handler regresses that site.
@@ -259,7 +310,8 @@ Commit grouping: §4 src fixes one commit per cluster (validate / tool-registry 
 - `.claude/rules/typescript.md` — strict-mode / no-`any` contract.
 - `plans/Z8/master-flag-register.md` — Z8 recording target.
 - `packages/server/src/middleware/validate.ts`, `skill-tools/tool-registry.ts`, `skill-tools/assistant-tools.ts` — the two root-cause src fixes.
-- `node_modules/@hono/zod-validator/dist/index.d.ts` + `node_modules/zod` (v3.25.76) + `node_modules/drizzle-zod` (0.8.3) — verify §4a/§4c signatures against the **installed v3** types.
+- `node_modules/@hono/zod-validator/dist/index.d.ts` (validator typechecks against **deduped zod 3.25.76** — `import * as v4 from "zod/v4/core"`) + **`packages/server/node_modules/zod` (4.4.3 — server's actual zod)** + `node_modules/drizzle-zod` (0.8.3, deduped to zod 3.25.76) — verify §4a/§4c signatures against **server-local zod 4.4.3**, NOT the root hoist. The brand split between these is the §4a/§4c root cause.
+- `packages/server/src/middleware/validate.route-boundary.test.ts` — the AC2 RED test; the §4a `ValidatedJson<T>` helper must make its `toEqualTypeOf<z.output<schema>>` + `not.toBeUnknown`/`not.toBeAny` assertions GREEN.
 
 ## 11. protectedTests
 - **All existing `packages/server/src/**/*.test.ts(x)` and `*.integration.test.ts` assertions** — the test bucket (§3) may add type annotations / `!` / `toBeDefined()` narrowing but MUST NOT change any `expect(...)`. DoD audits with `git diff` on the test set: only type-level additions, no assertion deltas.
