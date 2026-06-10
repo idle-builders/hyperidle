@@ -19,7 +19,7 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
-import type { EventBus } from "@hyperidle/shared";
+import type { ArtifactPreview, EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 // Will fail until create-artifact.ts exists
@@ -57,7 +57,6 @@ async function seed(db: HyperIdleDb, suffix = ""): Promise<SeedScope> {
 		appetite: "1w",
 		status: "active",
 		createdAt: NOW,
-		updatedAt: NOW,
 	});
 	await db.insert(tasks).values({
 		id: taskId,
@@ -107,7 +106,7 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 			{
 				kind: "text",
 				label: "test_results",
-				preview: { kind: "text", body: "12 passed, 0 failed", format: "plain" },
+				preview: { kind: "text", body: "12 passed, 0 failed", format: "plain" } as ArtifactPreview,
 			},
 			ctx,
 		);
@@ -166,7 +165,7 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 			{
 				kind: "text",
 				label: "test_results",
-				preview: { kind: "text", body: "7 passed, 0 failed in e2e", format: "plain" },
+				preview: { kind: "text", body: "7 passed, 0 failed in e2e", format: "plain" } as ArtifactPreview,
 			},
 			ctx,
 		);
@@ -230,7 +229,7 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 			{
 				kind: "text",
 				label: "analysis",
-				preview: { kind: "text", body: "finding A", format: "plain" },
+				preview: { kind: "text", body: "finding A", format: "plain" } as ArtifactPreview,
 			},
 			ctx,
 		);
