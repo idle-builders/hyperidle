@@ -7,15 +7,15 @@
 			"errors": 173,
 			"note": "attention-scoring, writeback, types"
 		},
-		"server": {
-			"owner": "AF4",
-			"errors": 3780,
-			"note": "largest cluster — routes, middleware, tests"
-		},
 		"web": {
 			"owner": "AF5",
 			"errors": 235,
 			"note": "props mismatches, test-setup, shared refs"
+		},
+		"eval": {
+			"owner": "AF3",
+			"errors": 8,
+			"note": "PRE-EXISTING (not AF4): fabric API drift - clearBuiltinCostSentinelCache renamed to clearCostSentinelCache + builtin:cost-sentinel routine extraction not propagated to eval scenarios. Fails on origin/main too. Owned by fabric/eval track."
 		}
 	}
 }
