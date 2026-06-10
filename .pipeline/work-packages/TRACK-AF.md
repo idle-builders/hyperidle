@@ -301,13 +301,13 @@ Make HyperIdle actually launch-ready. The Z8 deep audit (June 2026) traced every
 **Complexity.** L
 
 **Acceptance criteria.**
-- A founder receiving a notification can tell what it is about and reach its source — the notification surfaces where the locked concept says it should, and routes back to the originating thread/conversation/entity.
+- A founder receiving a notification can tell what it is about and reach its source — it surfaces in the **notification popover** (the locked concept's in-app surface) and its persisted **source link** routes back to the originating thread *or* place (e.g. cost detail).
 - A notification the system decides to send is delivered automatically through a configured channel, without anyone calling a manual flush endpoint.
 - Quiet-hours/silence policy and retry-deferral are honored by the automatic delivery path.
 - A `notification` event raised by the policy engine or dependency watcher results in a queued and (subject to policy) delivered notification.
 - Stuck or expired notification leases are recovered automatically.
 - Cost-threshold alerting reacts to a cost value that is actually written by the system, not a perpetually-zero field.
-- The Settings notification toggles (AF15) map to the notification categories defined by the concept; turning a category off suppresses its notifications.
+- The Settings notification controls map to the notification **types** defined by the concept (per-type, per-user mute, not editorial categories); muting a type suppresses its notifications, and the Settings list lets the user re-enable any type. (AF15 owns the per-user persistence.)
 
 **Validation scenarios.**
 - Given a pending notification and a running server, when delivery conditions are met, then it is delivered with no manual flush.
@@ -315,7 +315,9 @@ Make HyperIdle actually launch-ready. The Z8 deep audit (June 2026) traced every
 - Given the policy engine emits a `notification` event, when the listener is running, then a corresponding notification is enqueued.
 - Given a cost threshold is crossed, when the sentinel runs, then it sees the real accumulated cost and alerts.
 
-**Plan calls.** Notification is a load-bearing noun that is not yet defined — run `/concept` on the notification model BEFORE any architecture or design, and do not let the pipeline start this workpackage until the concept doc exists (mark `blocked: concept-missing` otherwise). The concept must answer: which event categories notify; where a notification surfaces (a dedicated in-app surface, the originating thread/conversation, OS/web push, email) and what a "channel" means; how a notification references and routes back to its source thread/conversation/entity; how it relates to the existing in-app awareness surfaces (sidebar badges, blocking chips) and the Settings notification toggles (AF15); and the urgency/quiet-hours/silence semantics. After the concept is locked: `/design` for any new in-app notification surface, then a standard architecture pass on the drain loop, event-listener wiring, lease recovery, and the cost-signal source (coordinate with AF10).
+**Concept — LOCKED.** The notification model is defined in **`plans/AF8/concept.md`** (ground truth: **`docs/human-interface-layer/notification-primitive.md`**). Locked decisions: a notification is a discrete record surfaced in a **lightweight ephemeral popover** anchored by the sidebar avatar (not the rail); it carries a persisted **source link** that routes back to a thread *or* a place; the mutable unit is the notification **type** (per-type, per-user mute, exposed both on the popover and as a full type list in Settings); `digest` is an egress delivery mode and `agent.health.degraded`/auto-unblock are ambient (§4.2), not notifications; push/email are a dormant egress tier (the popover is the near-term surface). `/design` is **required** for the popover + Settings type-list before architecture.
+
+**Plan calls.** Notification is a load-bearing noun — `/concept` is DONE (see above). Do not start build until `/design` produces the popover surface. Historical guidance (for reference): the concept had to answer which events notify, where a notification surfaces, how it routes back, how it relates to ambient surfaces (§4.2) and the Settings toggles (AF15), and the urgency/quiet-hours/silence semantics. The concept must answer: which event categories notify; where a notification surfaces (a dedicated in-app surface, the originating thread/conversation, OS/web push, email) and what a "channel" means; how a notification references and routes back to its source thread/conversation/entity; how it relates to the existing in-app awareness surfaces (sidebar badges, blocking chips) and the Settings notification toggles (AF15); and the urgency/quiet-hours/silence semantics. After the concept is locked: `/design` for any new in-app notification surface, then a standard architecture pass on the drain loop, event-listener wiring, lease recovery, and the cost-signal source (coordinate with AF10).
 
 **Contracts / constraints.**
 - The drain must respect existing silence/quiet-hours policy; do not bypass it for convenience.
