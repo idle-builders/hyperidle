@@ -204,6 +204,7 @@ export type {
 export { ROUTINE_RUN_OUTCOMES, ROUTINE_STATES, SCHEDULE_PRESETS } from "./routine.js";
 // ── Team primitive (L13, formerly Product) ──
 export type {
+	AgentOperationalStatus,
 	BetCardSummary,
 	CreateTeamRequest,
 	CreateTeamResponse,

@@ -46,9 +46,9 @@ const PRIMITIVE_CASES: ComponentCase[] = [
 		render: () =>
 			createElement(
 				AvatarGroup,
-				{},
-				createElement(Avatar, { initials: "AB" }),
-				createElement(Avatar, { initials: "CD" }),
+				null,
+				createElement(Avatar, { key: "a", initials: "AB" }),
+				createElement(Avatar, { key: "b", initials: "CD" }),
 			),
 	},
 	{
@@ -215,8 +215,8 @@ describe("W2 — AvatarGroup small variant uses cloneElement (AC-3)", () => {
 				createElement(
 					AvatarGroup,
 					{ small: true },
-					createElement(Avatar, { initials: "AB" }),
-					createElement(Avatar, { initials: "CD" }),
+					createElement(Avatar, { key: "a", initials: "AB" }),
+					createElement(Avatar, { key: "b", initials: "CD" }),
 				),
 			);
 		});

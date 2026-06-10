@@ -7,12 +7,15 @@ import { ArtifactStackItem } from "../ArtifactStackItem.js";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+// @lore AF2: Artifact.kind is open-vocabulary (string). ArtifactPreview is a
+// closed discriminated union (6 AE6 kinds). Use null preview for retired kinds.
 const FIXTURE = {
 	id: "art1",
 	producingTaskId: "task1",
 	producingTaskTitle: "Implement auth flow",
-	kind: "code_diff" as const,
-	preview: { kind: "code_diff" as const, file: "src/auth.ts", hunks: [] },
+	kind: "code_diff" as string,
+	label: null,
+	preview: null,
 	cost: { money: { minor: 42, currency: "USD" as const }, tokens: null },
 	threadCount: 0,
 	createdAt: "2026-04-28T00:00:00.000Z",

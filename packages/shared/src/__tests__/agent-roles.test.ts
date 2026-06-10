@@ -95,7 +95,7 @@ describe("AGENT_ROLE_CATALOG", () => {
 
 	it("type annotation: each entry is assignable to AgentRoleCatalogEntry", () => {
 		// Type-level test — if this compiles, the shape is correct
-		const entry: AgentRoleCatalogEntry = AGENT_ROLE_CATALOG[0];
+		const entry: AgentRoleCatalogEntry = AGENT_ROLE_CATALOG[0]!;
 		expect(entry).toBeDefined();
 	});
 });

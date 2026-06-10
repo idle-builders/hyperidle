@@ -7,7 +7,7 @@
  * (greyed body, "Redacted by X — reason"), grouped vs ungrouped variant.
  */
 
-import type { Message } from "@hyperidle/shared";
+import type { InlineRef, Message } from "@hyperidle/shared";
 import {
 	derivePayloads,
 	exhaustiveAssert,
@@ -114,7 +114,7 @@ function MessagePayloads({
 	sanitizeHtml,
 }: {
 	text: string;
-	refs?: Message["payload"] extends { refs?: infer R } ? R : never;
+	refs?: ReadonlyArray<InlineRef>;
 	sanitizeHtml?: (raw: string) => string;
 }): JSX.Element {
 	// AE5: Check if any MentionRef entries exist in refs.
@@ -179,31 +179,29 @@ function MessagePayloads({
  * surfaces the omission at the type system level.
  */
 function renderBody(message: Message, sanitizeHtml?: (raw: string) => string): ReactNode {
-	const { payload } = message;
-	if (isRedactedPayload(payload)) {
+	if (isRedactedPayload(message.payload)) {
 		return (
 			<div className="italic text-[var(--text-tertiary)] text-[13px]">
-				Redacted by {payload.redactedBy} — {payload.reason}
+				Redacted by {message.payload.redactedBy} — {message.payload.reason}
 			</div>
 		);
 	}
+	// Access message.payload inside each case so TypeScript narrows correctly.
 	switch (message.type) {
-		case "verdict":
+		case "verdict": {
+			const p = message.payload;
 			return (
 				<div className="flex items-center gap-[9px] text-[13px]">
-					<StatusChip status={verdictDecisionToStatus(payload.decision)} />
-					<span className="text-[var(--text-secondary)]">
-						{verdictDecisionLabel(payload.decision)}
-					</span>
-					{payload.note ? (
-						<span className="text-[var(--text-tertiary)]">— {payload.note}</span>
-					) : null}
+					<StatusChip status={verdictDecisionToStatus(p.decision)} />
+					<span className="text-[var(--text-secondary)]">{verdictDecisionLabel(p.decision)}</span>
+					{p.note ? <span className="text-[var(--text-tertiary)]">— {p.note}</span> : null}
 				</div>
 			);
-		case "plain":
-			return (
-				<MessagePayloads text={payload.text} refs={payload.refs} sanitizeHtml={sanitizeHtml} />
-			);
+		}
+		case "plain": {
+			const p = message.payload;
+			return <MessagePayloads text={p.text} refs={p.refs} sanitizeHtml={sanitizeHtml} />;
+		}
 		case "review":
 		case "questionnaire":
 			// review/questionnaire substance lives in the rich slots; standard body is null.

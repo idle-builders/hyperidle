@@ -39,7 +39,7 @@ const sessLifecycleGrowthSales: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const workspaceBasePath = `/tmp/eval-workspace-sess-${Date.now()}`;
 		const { teamId, teamMembersId } = await seedTeam(ctx.db);
-		const { founderId } = await seedFounder(ctx.db);
+		await seedFounder(ctx.db);
 		const { agentId } = await seedAgent(ctx.db, {
 			name: "Growth Agent",
 			role: "growth",
@@ -78,8 +78,6 @@ Use write_session_notes to document your analysis.`,
 
 		return {
 			teamId,
-			teamMembersId,
-			founderId,
 			agentId,
 			betId,
 			taskId,
@@ -149,7 +147,7 @@ const sessModelTierBuilderDevops: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const workspaceBasePath = `/tmp/eval-workspace-tier-${Date.now()}`;
 		const { teamId, teamMembersId } = await seedTeam(ctx.db);
-		const { founderId } = await seedFounder(ctx.db);
+		await seedFounder(ctx.db);
 
 		// Seed agent with reasoning tier preference
 		const { agentId } = await seedAgent(ctx.db, {
@@ -183,8 +181,6 @@ const sessModelTierBuilderDevops: EvalScenario = {
 
 		return {
 			teamId,
-			teamMembersId,
-			founderId,
 			agentId,
 			betId,
 			taskId,
@@ -246,7 +242,7 @@ const sessWorkspaceCleanupBuilderFrontend: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const workspaceBasePath = `/tmp/eval-workspace-cleanup-${Date.now()}`;
 		const { teamId, teamMembersId } = await seedTeam(ctx.db);
-		const { founderId } = await seedFounder(ctx.db);
+		await seedFounder(ctx.db);
 		const { agentId } = await seedAgent(ctx.db, {
 			name: "Frontend Builder",
 			role: "builder",
@@ -278,8 +274,6 @@ const sessWorkspaceCleanupBuilderFrontend: EvalScenario = {
 
 		return {
 			teamId,
-			teamMembersId,
-			founderId,
 			agentId,
 			betId,
 			taskId,

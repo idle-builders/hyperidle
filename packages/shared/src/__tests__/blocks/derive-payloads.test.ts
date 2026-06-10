@@ -105,7 +105,7 @@ describe("derivePayloads() — fenced code blocks (AC-2)", () => {
 		const md = "```ts\nconst x = 1;\n```\n";
 		const payloads = derivePayloads(md);
 		expect(payloads).toHaveLength(1);
-		const [p] = payloads;
+		const p = payloads[0]!;
 		expect(p.kind).toBe("code");
 		if (p.kind !== "code") throw new Error("expected code payload");
 		expect(p.lang).toBe("ts");
@@ -116,7 +116,7 @@ describe("derivePayloads() — fenced code blocks (AC-2)", () => {
 		const md = "```\nsome code\n```\n";
 		const payloads = derivePayloads(md);
 		expect(payloads).toHaveLength(1);
-		const [p] = payloads;
+		const p = payloads[0]!;
 		expect(p.kind).toBe("code");
 		if (p.kind !== "code") throw new Error("expected code payload");
 		expect(p.lang === null || p.lang === "").toBe(true);
@@ -127,7 +127,7 @@ describe("derivePayloads() — fenced code blocks (AC-2)", () => {
 		const md = "```js\r\nconst y = 2\r\n```\r\n";
 		const payloads = derivePayloads(md);
 		expect(payloads).toHaveLength(1);
-		const [p] = payloads;
+		const p = payloads[0]!;
 		if (p.kind !== "code") throw new Error("expected code payload");
 		expect(p.text).not.toContain("\r");
 	});
@@ -136,7 +136,7 @@ describe("derivePayloads() — fenced code blocks (AC-2)", () => {
 		const md = "```bash\nnpm install\n```\n";
 		const payloads = derivePayloads(md);
 		expect(payloads).toHaveLength(1);
-		const [p] = payloads;
+		const p = payloads[0]!;
 		if (p.kind !== "code") throw new Error("expected code payload");
 		expect(p.lang).toBe("bash");
 	});
@@ -150,7 +150,7 @@ describe("derivePayloads() — inline nodes in paragraphs (AC-3)", () => {
 	it("parses bold text → strong inline node", () => {
 		const payloads = derivePayloads("**bold text**");
 		expect(payloads).toHaveLength(1);
-		const [p] = payloads;
+		const p = payloads[0]!;
 		if (p.kind !== "paragraph") throw new Error("expected paragraph");
 		const types = p.inline.map((n) => n.type);
 		expect(types).toContain("strong");
@@ -159,7 +159,7 @@ describe("derivePayloads() — inline nodes in paragraphs (AC-3)", () => {
 	it("parses italic text → emphasis inline node", () => {
 		const payloads = derivePayloads("*italic text*");
 		expect(payloads).toHaveLength(1);
-		const [p] = payloads;
+		const p = payloads[0]!;
 		if (p.kind !== "paragraph") throw new Error("expected paragraph");
 		const types = p.inline.map((n) => n.type);
 		expect(types).toContain("emphasis");
@@ -168,7 +168,7 @@ describe("derivePayloads() — inline nodes in paragraphs (AC-3)", () => {
 	it("parses inline code → inlineCode inline node", () => {
 		const payloads = derivePayloads("`const x = 1`");
 		expect(payloads).toHaveLength(1);
-		const [p] = payloads;
+		const p = payloads[0]!;
 		if (p.kind !== "paragraph") throw new Error("expected paragraph");
 		const types = p.inline.map((n) => n.type);
 		expect(types).toContain("inlineCode");
@@ -180,7 +180,7 @@ describe("derivePayloads() — inline nodes in paragraphs (AC-3)", () => {
 	it("parses a safe link → link inline node with href", () => {
 		const payloads = derivePayloads("[Example](https://example.com)");
 		expect(payloads).toHaveLength(1);
-		const [p] = payloads;
+		const p = payloads[0]!;
 		if (p.kind !== "paragraph") throw new Error("expected paragraph");
 		const linkNode = p.inline.find((n) => n.type === "link");
 		expect(linkNode).toBeDefined();
@@ -192,7 +192,7 @@ describe("derivePayloads() — inline nodes in paragraphs (AC-3)", () => {
 		const md = "**bold** and *italic* and `code` and [link](https://example.com)";
 		const payloads = derivePayloads(md);
 		expect(payloads).toHaveLength(1);
-		const [p] = payloads;
+		const p = payloads[0]!;
 		if (p.kind !== "paragraph") throw new Error("expected paragraph");
 		const types = p.inline.map((n) => n.type);
 		expect(types).toContain("strong");
@@ -211,7 +211,7 @@ describe("derivePayloads() — lists (AC-4)", () => {
 		const md = "- item a\n- item b\n";
 		const payloads = derivePayloads(md);
 		expect(payloads).toHaveLength(1);
-		const [p] = payloads;
+		const p = payloads[0]!;
 		expect(p.kind).toBe("list");
 		if (p.kind !== "list") throw new Error("expected list");
 		expect(p.ordered).toBe(false);
@@ -222,7 +222,7 @@ describe("derivePayloads() — lists (AC-4)", () => {
 		const md = "1. first\n2. second\n3. third\n";
 		const payloads = derivePayloads(md);
 		expect(payloads).toHaveLength(1);
-		const [p] = payloads;
+		const p = payloads[0]!;
 		expect(p.kind).toBe("list");
 		if (p.kind !== "list") throw new Error("expected list");
 		expect(p.ordered).toBe(true);
@@ -234,7 +234,8 @@ describe("derivePayloads() — lists (AC-4)", () => {
 		const payloads = derivePayloads(md);
 		const lists = payloads.filter((p) => p.kind === "list");
 		expect(lists).toHaveLength(2);
-		const [bullet, ordered] = lists;
+		const bullet = lists[0]!;
+		const ordered = lists[1]!;
 		if (bullet.kind !== "list" || ordered.kind !== "list") throw new Error();
 		expect(bullet.ordered).toBe(false);
 		expect(ordered.ordered).toBe(true);
@@ -249,7 +250,7 @@ describe("derivePayloads() — headings (AC-5)", () => {
 	it("parses h1", () => {
 		const payloads = derivePayloads("# H1 title");
 		expect(payloads).toHaveLength(1);
-		const [p] = payloads;
+		const p = payloads[0]!;
 		expect(p.kind).toBe("heading");
 		if (p.kind !== "heading") throw new Error();
 		expect(p.level).toBe(1);
@@ -258,7 +259,7 @@ describe("derivePayloads() — headings (AC-5)", () => {
 	it("parses h2", () => {
 		const payloads = derivePayloads("## H2 title");
 		expect(payloads).toHaveLength(1);
-		const [p] = payloads;
+		const p = payloads[0]!;
 		if (p.kind !== "heading") throw new Error();
 		expect(p.level).toBe(2);
 	});
@@ -268,7 +269,7 @@ describe("derivePayloads() — headings (AC-5)", () => {
 			const hashes = "#".repeat(i);
 			const payloads = derivePayloads(`${hashes} Heading ${i}`);
 			expect(payloads).toHaveLength(1);
-			const [p] = payloads;
+			const p = payloads[0]!;
 			expect(p.kind).toBe("heading");
 			if (p.kind !== "heading") throw new Error();
 			expect(p.level).toBe(i as 1 | 2 | 3 | 4 | 5 | 6);
@@ -281,7 +282,7 @@ describe("derivePayloads() — headings (AC-5)", () => {
 		const headings = payloads.filter((p) => p.kind === "heading");
 		expect(headings).toHaveLength(6);
 		for (let i = 0; i < 6; i++) {
-			const h = headings[i];
+			const h = headings[i]!;
 			if (h.kind !== "heading") throw new Error();
 			expect(h.level).toBe(i + 1);
 		}
@@ -297,7 +298,7 @@ describe("derivePayloads() — image downgrade (AC-6)", () => {
 		const md = "![screenshot](https://example.com/img.png)";
 		const payloads = derivePayloads(md);
 		expect(payloads).toHaveLength(1);
-		const [p] = payloads;
+		const p = payloads[0]!;
 		// Must NOT be an image payload
 		expect(p.kind).not.toBe("image");
 		// Must be a paragraph
@@ -339,7 +340,7 @@ describe("derivePayloads() — URL security (AC-16)", () => {
 		const md = "[click](javascript:alert(1))";
 		const payloads = derivePayloads(md);
 		expect(payloads).toHaveLength(1);
-		const [p] = payloads;
+		const p = payloads[0]!;
 		if (p.kind !== "paragraph") throw new Error("expected paragraph");
 		// No link node — the hostile URL is stripped
 		for (const node of p.inline) {
@@ -354,7 +355,7 @@ describe("derivePayloads() — URL security (AC-16)", () => {
 		const md = "[click](data:text/html,<script>alert(1)</script>)";
 		const payloads = derivePayloads(md);
 		expect(payloads).toHaveLength(1);
-		const [p] = payloads;
+		const p = payloads[0]!;
 		if (p.kind !== "paragraph") throw new Error();
 		for (const node of p.inline) {
 			expect(node.type).not.toBe("link");
@@ -365,7 +366,7 @@ describe("derivePayloads() — URL security (AC-16)", () => {
 		const md = "[click](vbscript:msgbox(1))";
 		const payloads = derivePayloads(md);
 		expect(payloads).toHaveLength(1);
-		const [p] = payloads;
+		const p = payloads[0]!;
 		if (p.kind !== "paragraph") throw new Error();
 		for (const node of p.inline) {
 			expect(node.type).not.toBe("link");
@@ -381,7 +382,7 @@ describe("derivePayloads() — URL security (AC-16)", () => {
 		];
 		for (const md of cases) {
 			const payloads = derivePayloads(md);
-			const [p] = payloads;
+			const p = payloads[0]!;
 			if (!p || p.kind !== "paragraph") throw new Error("expected paragraph");
 			const hasLink = p.inline.some((n) => n.type === "link");
 			expect(hasLink).toBe(true);
@@ -397,7 +398,7 @@ describe("derivePayloads() — plain text and mixed content", () => {
 	it("plain text produces a single paragraph payload", () => {
 		const payloads = derivePayloads("hello world");
 		expect(payloads).toHaveLength(1);
-		const [p] = payloads;
+		const p = payloads[0]!;
 		expect(p.kind).toBe("paragraph");
 	});
 
@@ -409,28 +410,28 @@ describe("derivePayloads() — plain text and mixed content", () => {
 		expect(kinds).toContain("code");
 		expect(kinds).toContain("list");
 		// Paragraph comes first
-		expect(kinds[0]).toBe("paragraph");
+		expect(kinds[0]!).toBe("paragraph");
 	});
 
 	it("blockquote produces a quote payload", () => {
 		const md = "> quoted text";
 		const payloads = derivePayloads(md);
 		expect(payloads).toHaveLength(1);
-		expect(payloads[0].kind).toBe("quote");
+		expect(payloads[0]!.kind).toBe("quote");
 	});
 
 	it("divider (---) produces a divider payload", () => {
 		const md = "---\n";
 		const payloads = derivePayloads(md);
 		expect(payloads).toHaveLength(1);
-		expect(payloads[0].kind).toBe("divider");
+		expect(payloads[0]!.kind).toBe("divider");
 	});
 
 	it("GFM table produces a table payload", () => {
 		const md = "| a | b |\n| :- | -: |\n| 1 | 2 |\n";
 		const payloads = derivePayloads(md);
 		expect(payloads).toHaveLength(1);
-		const [p] = payloads;
+		const p = payloads[0]!;
 		expect(p.kind).toBe("table");
 		if (p.kind !== "table") throw new Error();
 		expect(p.align).toEqual(["left", "right"]);

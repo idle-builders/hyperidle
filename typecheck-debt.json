@@ -2,31 +2,20 @@
 	"$schema": "./scripts/typecheck-debt.schema.json",
 	"description": "Packages with known type errors, quarantined by AF1. Drained by AF2-AF5.",
 	"packages": {
-		"shared": {
-			"owner": "AF2",
-			"errors": 155,
-			"note": "noUncheckedIndexedAccess in tests + toon-codec"
+		"fabric": {
+			"owner": "AF3",
+			"errors": 173,
+			"note": "attention-scoring, writeback, types"
 		},
-		"db": { "owner": "AF2", "errors": 2, "note": "test-utils PgliteDatabase type" },
-		"design-system": {
-			"owner": "AF2",
-			"errors": 23,
-			"note": "ThreadShell implicit any + shared ref"
-		},
-		"desktop": { "owner": "AF2", "errors": 3, "note": "menu template + credential validator" },
-		"eslint-plugin-design": {
-			"owner": "AF2",
-			"errors": 72,
-			"note": "test-fixtures missing JSX types"
-		},
-		"eval": { "owner": "AF2", "errors": 20, "note": "seeding + types shared refs" },
-		"fabric": { "owner": "AF3", "errors": 173, "note": "attention-scoring, writeback, types" },
 		"server": {
 			"owner": "AF4",
 			"errors": 3780,
 			"note": "largest cluster — routes, middleware, tests"
 		},
-		"web": { "owner": "AF5", "errors": 235, "note": "props mismatches, test-setup, shared refs" },
-		"pipeline": { "owner": "AF2", "errors": 11, "note": "runner-otel test, skill-frontmatter" }
+		"web": {
+			"owner": "AF5",
+			"errors": 235,
+			"note": "props mismatches, test-setup, shared refs"
+		}
 	}
 }

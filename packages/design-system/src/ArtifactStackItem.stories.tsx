@@ -10,11 +10,12 @@ const FIXTURE: Artifact = {
 	id: "art_1",
 	producingTaskId: "task_1",
 	producingTaskTitle: "Implement auth flow",
-	kind: "code_diff",
-	preview: { kind: "code_diff", file: "src/auth/jwt-middleware.ts", hunks: [] },
+	kind: "code",
+	label: null,
+	preview: { kind: "code", file: "src/auth/jwt-middleware.ts", hunks: [] },
 	cost: {
 		money: { minor: 42, currency: "USD" },
-		tokens: { byTier: { haiku: { prompt: 8000, completion: 4400 } } },
+		tokens: { byTier: { fast: { prompt: 8000, completion: 4400 } } },
 	},
 	threadCount: 3,
 	createdAt: new Date(Date.now() - 12 * 60_000).toISOString(),
@@ -26,8 +27,9 @@ export const Populated = (): React.JSX.Element => (
 		<ArtifactStackItem
 			data={{
 				...FIXTURE,
-				kind: "decision",
-				preview: { kind: "decision", claim: "Adopt Hono JWT", rationale: "x" },
+				kind: "text",
+				label: "decision",
+				preview: { kind: "text", body: "Adopt Hono JWT. Built in, fast, zero deps." },
 				cost: { money: null, tokens: null },
 				threadCount: 0,
 			}}

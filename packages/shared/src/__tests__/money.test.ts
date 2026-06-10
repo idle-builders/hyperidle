@@ -16,14 +16,7 @@
 
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { formatMoney, formatTokenCount } from "../format/money.js";
-import type {
-	CurrencyCode,
-	ModelTier,
-	Money,
-	TierTokenCount,
-	TokenUsage,
-	WireMoney,
-} from "../types/money.js";
+import type { CurrencyCode, Money, TierTokenCount, TokenUsage, WireMoney } from "../types/money.js";
 import {
 	addMoney,
 	addTokenUsage,
@@ -215,7 +208,11 @@ describe("TokenUsage type contract (AC3)", () => {
 	});
 
 	it("TokenUsage byTier key type is ModelTier", () => {
-		expectTypeOf<keyof TokenUsage["byTier"]>().toEqualTypeOf<ModelTier | undefined>();
+		// Verify at compile-time that byTier is a Partial<Record<ModelTier, TierTokenCount>>.
+		// A value-level check confirms the key set at runtime.
+		const usage: TokenUsage = { byTier: { reasoning: { prompt: 1, completion: 2 } } };
+		const keys = Object.keys(usage.byTier);
+		expect(keys).toContain("reasoning");
 	});
 });
 

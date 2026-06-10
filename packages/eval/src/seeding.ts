@@ -578,6 +578,7 @@ export async function seedRoutine(
 	db: HyperIdleDb,
 	opts: {
 		routineId?: string;
+		teamId: string;
 		ownerAgentId: string;
 		triggerType: "heartbeat" | "calendar" | "event" | "continuous";
 		triggerConfig?: Record<string, unknown>;
@@ -596,6 +597,7 @@ export async function seedRoutine(
 
 	await db.insert(routines).values({
 		id: routineId,
+		teamId: opts.teamId,
 		ownerAgentId: opts.ownerAgentId,
 		triggerType: opts.triggerType,
 		triggerConfig: opts.triggerConfig ? JSON.stringify(opts.triggerConfig) : null,

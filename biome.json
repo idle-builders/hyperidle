@@ -195,6 +195,9 @@
 					"suspicious": {
 						"noEmptyBlockStatements": "off",
 						"useAwait": "off"
+					},
+					"style": {
+						"noNonNullAssertion": "off"
 					}
 				}
 			}

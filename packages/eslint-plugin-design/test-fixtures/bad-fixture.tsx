@@ -14,6 +14,8 @@
  * The no-off-scale-radius arbitrary case uses rounded-[4px] (now off-scale in Hearth).
  */
 
+import type { JSX } from "react";
+
 export const Bad = (): JSX.Element => (
 	<div onClick={() => {}}>
 		{" "}

@@ -122,7 +122,7 @@ export interface BetCardProps {
 
 export function BetCard({
 	title,
-	team,
+	team: _team,
 	status,
 	appetite,
 	actions,

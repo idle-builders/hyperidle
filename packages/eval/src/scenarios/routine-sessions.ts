@@ -57,6 +57,7 @@ const rsHeartbeatFire: EvalScenario = {
 		});
 
 		const { routineId } = await seedRoutine(ctx.db, {
+			teamId: world.teamId,
 			ownerAgentId: world.agentId,
 			triggerType: "heartbeat",
 			// CRITICAL-1: must include taskId
@@ -166,6 +167,7 @@ const rsCalendarFire: EvalScenario = {
 		});
 
 		const { routineId } = await seedRoutine(ctx.db, {
+			teamId: world.teamId,
 			ownerAgentId: world.agentId,
 			triggerType: "calendar",
 			// Cron for every minute — always past due to fire immediately
@@ -248,6 +250,7 @@ const rsHumanReviewFlag: EvalScenario = {
 		});
 
 		const { routineId } = await seedRoutine(ctx.db, {
+			teamId: world.teamId,
 			ownerAgentId: world.agentId,
 			triggerType: "heartbeat",
 			triggerConfig: { intervalSeconds: 3600, taskId: world.taskId },
@@ -336,6 +339,7 @@ const rsCostCapBlocked: EvalScenario = {
 		});
 
 		const { routineId } = await seedRoutine(ctx.db, {
+			teamId: world.teamId,
 			ownerAgentId: world.agentId,
 			triggerType: "heartbeat",
 			triggerConfig: { intervalSeconds: 900, taskId: world.taskId },

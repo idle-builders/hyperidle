@@ -1,4 +1,10 @@
-import type { EventByType, EventHandler, EventType, WildcardHandler } from "./events.js";
+import type {
+	DomainEvent,
+	EventByType,
+	EventHandler,
+	EventType,
+	WildcardHandler,
+} from "./events.js";
 import { createLogger, type Logger } from "./logger.js";
 
 /**
@@ -103,7 +109,13 @@ export class EventBus {
 		if (set) {
 			for (const handler of set) {
 				try {
-					(handler as EventHandler<T>)(event);
+					// @lore AF2: Handlers are stored as EventHandler<EventType> (i.e. (e: DomainEvent) => void)
+					// because the map must hold a uniform type. At runtime the handler stored at event.type
+					// was registered via on<T>(event.type, handler) so it only ever receives events of type T.
+					// Calling with `event as DomainEvent` is safe: the stored handler accepts DomainEvent.
+					// We avoid casting to EventHandler<T> (which fails the overlap check) and instead cast the
+					// event to the stored handler's expected type — the wider direction is always safe.
+					(handler as (e: DomainEvent) => void)(event as DomainEvent);
 				} catch (err) {
 					getLogger().error("event handler threw", {
 						type: event.type,

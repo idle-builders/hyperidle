@@ -120,7 +120,7 @@ export const noHardcodedColor: Rule.RuleModule = createRule({
 		},
 	},
 	create(context) {
-		const filename = context.filename ?? context.getFilename();
+		const filename = context.filename;
 		// Rule only fires inside *.tsx; tokens.css and other CSS files are exempt
 		// because that's where the canonical color values live.
 		if (!filename.endsWith(".tsx")) {

@@ -50,9 +50,9 @@ export const requireStoriesSibling: Rule.RuleModule = createRule({
 		},
 	},
 	create(context) {
-		const filename = context.filename ?? context.getFilename();
+		const filename = context.filename;
 		if (!isComponentFile(filename)) return {};
-		const sourceCode = context.sourceCode ?? context.getSourceCode();
+		const sourceCode = context.sourceCode;
 		if (hasOptOut(sourceCode.text)) return {};
 		const ext = extname(filename);
 		const base = basename(filename, ext);

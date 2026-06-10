@@ -37,9 +37,14 @@ export async function validateCredential(
 			case "shared_backend_key":
 				return await validateSharedBackendKey(value, serverUrl);
 			default: {
-				// TypeScript exhaustive check
-				const _exhaustive: never = name;
-				return { valid: false, error: "Unknown credential name" };
+				// TypeScript exhaustive narrowing — name should be `never` here if all
+				// CredentialName members are handled above. If TS2322 fires, a new member
+				// was added to CREDENTIAL_NAMES without a corresponding case.
+				const exhaustive = (n: never): ValidationResult => ({
+					valid: false,
+					error: `Unknown credential name: ${String(n)}`,
+				});
+				return exhaustive(name);
 			}
 		}
 	} catch (err) {

@@ -25,8 +25,6 @@ function severityColor(severity: Status): string {
 		case "paused":
 		case "behind":
 			return "var(--status-warning)";
-		case "info":
-			return "var(--status-info)";
 		default:
 			return "var(--status-info)";
 	}

@@ -9,8 +9,8 @@ import { seed } from "../seed.js";
 // @lore AD8b: chief_of_staff role renamed to assistant.
 // @lore AD8c: practice_facilitator role renamed to facilitator.
 // AC2 tests only check facilitator and product_manager for soul_prompt_path.
-// biome-ignore lint/correctness/noUnusedVariables: historical documentation of the 3-role set pre-AD8a
-const FACILITATOR_ROLES = ["assistant", "facilitator", "product_manager"] as const; // @lore AD8b: chief_of_staff → assistant; @lore AD8c: practice_facilitator → facilitator
+// @lore AD8b/AD8c: The 3-role set was ["assistant", "facilitator", "product_manager"].
+// chief_of_staff → assistant (AD8b), practice_facilitator → facilitator (AD8c).
 // Only roles that still have soul files after AD8a and AD8c
 const SOUL_FILE_ROLES = ["facilitator", "product_manager"] as const;
 

@@ -104,6 +104,7 @@ const delSuccessfulDelegation: EvalScenario = {
 		});
 
 		const { routineId } = await seedRoutine(ctx.db, {
+			teamId: world.teamId,
 			ownerAgentId: world.agentId,
 			triggerType: "heartbeat",
 			triggerConfig: { intervalSeconds: 900, taskId: routineTaskId },
@@ -236,6 +237,7 @@ const delNoDelegateAvailable: EvalScenario = {
 			title: "Deferred routine task",
 		});
 		const { routineId } = await seedRoutine(ctx.db, {
+			teamId: world.teamId,
 			ownerAgentId: world.agentId,
 			triggerType: "heartbeat",
 			triggerConfig: { intervalSeconds: 900, taskId: routineTaskId },
@@ -337,6 +339,7 @@ const delDelegationNotAllowed: EvalScenario = {
 			title: "Delegation-disabled routine task",
 		});
 		const { routineId } = await seedRoutine(ctx.db, {
+			teamId: world.teamId,
 			ownerAgentId: world.agentId,
 			triggerType: "heartbeat",
 			triggerConfig: { intervalSeconds: 900, taskId: routineTaskId },

@@ -115,7 +115,7 @@ describe("shared/net/ssrf: resolveUrlForSSRF (H3 H-1)", () => {
 		expect(r.ok).toBe(true);
 		if (r.ok) {
 			expect(r.addresses).toHaveLength(1);
-			expect(r.addresses[0].address).toBe("203.0.113.10");
+			expect(r.addresses[0]!.address).toBe("203.0.113.10");
 		}
 	});
 	it("rejects when resolver returns a private IP", async () => {
@@ -142,6 +142,6 @@ describe("shared/net/ssrf: resolveUrlForSSRF (H3 H-1)", () => {
 	it("treats IP literals as already-validated", async () => {
 		const r = await resolveUrlForSSRF("https://203.0.113.10");
 		expect(r.ok).toBe(true);
-		if (r.ok) expect(r.addresses[0].address).toBe("203.0.113.10");
+		if (r.ok) expect(r.addresses[0]!.address).toBe("203.0.113.10");
 	});
 });

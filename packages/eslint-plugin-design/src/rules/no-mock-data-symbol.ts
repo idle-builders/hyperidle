@@ -26,6 +26,7 @@
 
 import { basename } from "node:path";
 import type { Rule } from "eslint";
+import type { VariableDeclarator } from "estree";
 import {
 	DEFAULT_PREFIX_DATA_PATHS,
 	DEFAULT_SUFFIX_TRIGGERS,
@@ -96,9 +97,13 @@ function isDefaultForbidden(symbolName: string, filename: string, init: unknown)
 /**
  * Checks a single declarator and reports if it violates the policy.
  */
-function checkDeclarator(context: Rule.RuleContext, filename: string, declarator: AnyNode): void {
-	const id = declarator.id as { type?: string; name?: string } | undefined;
-	if (!id || id.type !== "Identifier" || !id.name) return;
+function checkDeclarator(
+	context: Rule.RuleContext,
+	filename: string,
+	declarator: VariableDeclarator,
+): void {
+	const id = declarator.id;
+	if (id.type !== "Identifier") return;
 	const symbolName: string = id.name;
 	const init = declarator.init;
 
@@ -106,7 +111,7 @@ function checkDeclarator(context: Rule.RuleContext, filename: string, declarator
 	const prefix = getForbiddenPrefix(symbolName);
 	if (prefix) {
 		context.report({
-			node: declarator as unknown as Rule.Node,
+			node: declarator as Rule.Node,
 			messageId: "mockDataSymbol",
 			data: {
 				url: POLICY_DOC_URL,
@@ -118,7 +123,7 @@ function checkDeclarator(context: Rule.RuleContext, filename: string, declarator
 	// Check DEFAULT_* with disambiguation.
 	if (isDefaultForbidden(symbolName, filename, init)) {
 		context.report({
-			node: declarator as unknown as Rule.Node,
+			node: declarator as Rule.Node,
 			messageId: "mockDataSymbol",
 			data: {
 				url: POLICY_DOC_URL,
@@ -143,21 +148,24 @@ export const noMockDataSymbol: Rule.RuleModule = createRule({
 		},
 	},
 	create(context) {
-		const filename = context.filename ?? context.getFilename();
+		const filename = context.filename;
 		if (isPermittedSurfaceFile(filename)) return {};
 
 		return {
 			VariableDeclaration(node) {
 				// Only top-level declarations (program body, export wrapper).
-				const parent = (node as unknown as { parent?: AnyNode }).parent;
+				// Rule.Node carries a parent property (NodeParentExtension) — access via
+				// the typed Rule.Node to avoid AnyNode casts.
+				const ruleNode = node as Rule.Node;
+				const parent = (ruleNode as { parent?: { type?: string } }).parent;
 				if (!parent) return;
 				// Accept: Program > VariableDeclaration
 				// Accept: ExportNamedDeclaration > VariableDeclaration
-				const parentType = parent.type as string;
+				const parentType = parent.type;
 				if (parentType !== "Program" && parentType !== "ExportNamedDeclaration") return;
 
-				const declarations = node.declarations as AnyNode[];
-				for (const declarator of declarations) {
+				// node.declarations is VariableDeclarator[] per estree — no cast needed.
+				for (const declarator of node.declarations) {
 					checkDeclarator(context, filename, declarator);
 				}
 			},

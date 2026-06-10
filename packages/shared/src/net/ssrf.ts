@@ -65,7 +65,9 @@ export function isPrivateIPv4(ip: string): boolean {
 	if (parts.length !== 4) return false;
 	const nums = parts.map(Number);
 	if (nums.some((n) => !Number.isFinite(n) || n < 0 || n > 255)) return false;
-	const [a, b] = nums;
+	// We checked parts.length === 4 above, so all four elements are present.
+	const a = nums[0] as number;
+	const b = nums[1] as number;
 	if (a === 10) return true; // 10.0.0.0/8
 	if (a === 127) return true; // loopback
 	if (a === 0) return true; // 0.0.0.0/8 "this network"
@@ -87,7 +89,8 @@ export function isPrivateIPv6(ip: string): boolean {
 	if (/^f[cd][0-9a-f]{0,2}:/i.test(lower)) return true;
 	// IPv4-mapped or IPv4-compatible addresses (::ffff:a.b.c.d)
 	const embedded = lower.match(/::(?:ffff:)?(\d+\.\d+\.\d+\.\d+)$/);
-	if (embedded) return isPrivateIPv4(embedded[1]);
+	// embedded[1] is the capture group — present whenever embedded is non-null.
+	if (embedded) return isPrivateIPv4(embedded[1] ?? "");
 	return false;
 }
 
