@@ -16,6 +16,8 @@
 		"typescript": "^6.0.0"
 	},
 	"devDependencies": {
-		"estree-jsx": "^0.0.1"
+		"@types/estree": "^1.0.0",
+		"estree-jsx": "^0.0.1",
+		"react": "^19.0.0"
 	}
 }
