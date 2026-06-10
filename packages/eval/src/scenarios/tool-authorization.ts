@@ -269,7 +269,9 @@ Document this experience in session notes — what you tried and what the restri
 						};
 					}
 
-					const illegalItems = writtenItems.filter((i: { layer: string | null }) => i.layer === "L3" || i.layer === "L4");
+					const illegalItems = writtenItems.filter(
+						(i: { layer: string | null }) => i.layer === "L3" || i.layer === "L4",
+					);
 
 					if (illegalItems.length === 0) {
 						return {

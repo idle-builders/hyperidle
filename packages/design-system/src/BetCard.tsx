@@ -182,7 +182,10 @@ export function BetCard({
 					aria-hidden="true"
 				/>
 				{/* Status badge — human-readable label */}
-				<span className={badgeClasses(STATUS_BADGE_VARIANT[status] as BadgeVariant)} data-status={status}>
+				<span
+					className={badgeClasses(STATUS_BADGE_VARIANT[status] as BadgeVariant)}
+					data-status={status}
+				>
 					{STATUS_LABEL[status]}
 				</span>
 				{/* AC1: Outcome verdict badge — neutral style, only when verdict is set */}
