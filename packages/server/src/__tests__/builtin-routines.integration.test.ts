@@ -545,6 +545,8 @@ describe("G4: Built-in Routines", () => {
 			await db.insert(knowledgeStrategyFabric).values({
 				id: "ksf-ki-recent-l3",
 				knowledgeItemId: "ki-recent-l3",
+				layer: "L3",
+				kind: "pattern",
 			});
 			await db.insert(knowledgeItems).values({
 				id: "ki-recent-l4",
@@ -560,6 +562,8 @@ describe("G4: Built-in Routines", () => {
 			await db.insert(knowledgeStrategyFabric).values({
 				id: "ksf-ki-recent-l4",
 				knowledgeItemId: "ki-recent-l4",
+				layer: "L4",
+				kind: "principle",
 			});
 			await db.insert(knowledgeItems).values({
 				id: "ki-stale-l3",
@@ -575,6 +579,8 @@ describe("G4: Built-in Routines", () => {
 			await db.insert(knowledgeStrategyFabric).values({
 				id: "ksf-ki-stale-l3",
 				knowledgeItemId: "ki-stale-l3",
+				layer: "L3",
+				kind: "pattern",
 			});
 
 			const result = await runBuiltinRoutine(db, eventBus, "builtin:portfolio-retro");
