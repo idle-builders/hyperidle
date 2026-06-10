@@ -37,12 +37,15 @@ import {
 } from "@hyperidle/db";
 import type { PropagationLevel } from "@hyperidle/fabric";
 import {
+	type BetStateChangedEvent,
 	type BetStatus,
 	type EventBus,
 	type PropagationAppliedEvent,
 	type PropagationFailedEvent,
+	type SessionEndedEvent,
 	InvalidTransitionError as SharedInvalidTransitionError,
 	type TaskState,
+	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
 import { and, eq, ne } from "drizzle-orm";
 
@@ -97,7 +100,9 @@ async function transitionTask(
 
 	const fromState = task.state as TaskState;
 	const allowed = VALID_TASK_TRANSITIONS[fromState];
-	if (!allowed.includes(toState)) {
+	// @lore AF3: VALID_TASK_TRANSITIONS covers all TaskState values; undefined is
+	// unreachable at runtime but noUncheckedIndexedAccess requires the guard.
+	if (!allowed?.includes(toState)) {
 		const err = new Error(`Invalid transition for task ${taskId}: ${fromState} -> ${toState}`);
 		err.name = "InvalidTransitionError";
 		throw err;
@@ -133,7 +138,7 @@ async function transitionTask(
 }
 
 /** Type guard: check if an error is an InvalidTransitionError from either source. */
-function isInvalidTransitionError(err: unknown): boolean {
+function isInvalidTransitionError(err: unknown): err is Error & { name: "InvalidTransitionError" } {
 	return err instanceof Error && err.name === "InvalidTransitionError";
 }
 
@@ -666,14 +671,17 @@ export async function retryFailedPropagations(db: HyperIdleDb, eventBus: EventBu
  */
 export function registerLifecyclePropagation(db: HyperIdleDb, eventBus: EventBus): () => void {
 	// Handler 1: session_ended -> evaluate task transition
-	const unsubSessionEnded = eventBus.on("session_ended", (event) => {
+	// @lore AF3 C9b: async handlers fail the EventHandler<T> overload (Promise<void>
+	// vs void). Use sync wrapper with void async IIFE to satisfy the overload.
+	// Explicit event type annotation ensures the on<T> overload resolves correctly.
+	const unsubSessionEnded = eventBus.on("session_ended", (event: SessionEndedEvent) => {
 		void (async () => {
 			await propagateSessionToTask(db, eventBus, event.sessionId, event.taskId, event.outcome);
 		})();
 	});
 
 	// Handler 2: task_state_changed -> evaluate bet transition
-	const unsubTaskChanged = eventBus.on("task_state_changed", (event) => {
+	const unsubTaskChanged = eventBus.on("task_state_changed", (event: TaskStateChangedEvent) => {
 		if (event.toState === "done" || event.toState === "killed") {
 			void (async () => {
 				await propagateTaskToBet(db, eventBus, event.taskId);
@@ -683,7 +691,7 @@ export function registerLifecyclePropagation(db: HyperIdleDb, eventBus: EventBus
 
 	// Handler 3: bet_state_changed -> log bet->team propagation (derived on read)
 	// @lore U1: "shipped" → "completed"; logBetToProductPropagation → logBetToTeamPropagation.
-	const unsubBetChanged = eventBus.on("bet_state_changed", (event) => {
+	const unsubBetChanged = eventBus.on("bet_state_changed", (event: BetStateChangedEvent) => {
 		if (event.toState === "completed" || event.toState === "killed") {
 			void logBetToTeamPropagation(db, eventBus, event.betId, event.toState);
 		}

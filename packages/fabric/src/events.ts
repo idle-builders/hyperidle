@@ -58,6 +58,10 @@ export function setKnowledgeEventBus(emitter: KnowledgeEventEmitterLike): void {
  */
 export const knowledgeEvents = new Proxy({} as KnowledgeEventEmitterLike, {
 	get(_target, prop: string) {
-		return (KnowledgeEvents as Record<string, unknown>)[prop];
+		// @lore AF3: Reflect.get performs a safe property lookup without any cast.
+		// KnowledgeEventEmitterLike has no index signature, so bracket-access
+		// required an unsafe `as unknown as Record<string, unknown>` escape hatch.
+		// Reflect.get(obj, key) returns unknown and preserves runtime behavior exactly.
+		return Reflect.get(KnowledgeEvents, prop);
 	},
 });

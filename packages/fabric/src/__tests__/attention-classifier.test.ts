@@ -1,12 +1,14 @@
-import type { KnowledgeItem } from "@hyperidle/db";
 import { describe, expect, it } from "vitest";
 import { isTasteSensitive } from "../attention-classifier.js";
+import type { KnowledgeItemWithFabric } from "../knowledge-repository.js";
 
-function makeItem(overrides: Partial<KnowledgeItem> = {}): KnowledgeItem {
+// @lore AF3 C1: uses KnowledgeItemWithFabric — fabric fields moved off KnowledgeItem.
+function makeItem(overrides: Partial<KnowledgeItemWithFabric> = {}): KnowledgeItemWithFabric {
 	return {
 		id: overrides.id ?? "ki-test",
-		layer: overrides.layer ?? "L3",
+		scopeKind: overrides.scopeKind ?? "factory",
 		scopeId: overrides.scopeId ?? null,
+		layer: overrides.layer ?? "L3",
 		kind: overrides.kind ?? "pattern",
 		topic: overrides.topic ?? null,
 		title: overrides.title ?? "Test",

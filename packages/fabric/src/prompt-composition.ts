@@ -122,7 +122,8 @@ function truncatePersona(persona: string): string {
 	// Find the first blank line after the heading
 	let blankIdx = -1;
 	for (let i = headingIdx + 1; i < lines.length; i++) {
-		if (lines[i].trim() === "") {
+		const line = lines[i];
+		if (line !== undefined && line.trim() === "") {
 			blankIdx = i;
 			break;
 		}

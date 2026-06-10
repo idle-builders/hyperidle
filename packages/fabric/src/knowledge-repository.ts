@@ -77,10 +77,13 @@ export interface ListFilters {
 /**
  * Augments the kernel KnowledgeItem with strategy-layer fields from the
  * knowledgeStrategyFabric extension table.
+ *
+ * @lore AF3: Do NOT redeclare fields already on KnowledgeItem (scopeId, etc.) —
+ * TS2430 fires if an optional override conflicts with a required base property.
+ * Only declare NEW fields from knowledgeStrategyFabric here.
  */
 export interface KnowledgeItemWithFabric extends KnowledgeItem {
 	layer?: string | null;
-	scopeId?: string | null;
 	kind?: string | null;
 	attentionScore?: string | null;
 	confidence?: string | null;

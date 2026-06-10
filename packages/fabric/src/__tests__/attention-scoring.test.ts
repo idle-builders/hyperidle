@@ -1,25 +1,37 @@
-import type { KnowledgeItem } from "@hyperidle/db";
 import { describe, expect, it } from "vitest";
 import {
 	type AttentionScoringContext,
 	scoreAttention,
 	scoreAttentionBatch,
 } from "../attention-scoring.js";
+import type { KnowledgeItemWithFabric } from "../knowledge-repository.js";
 import { type AttentionWeights, getDefaultAttentionWeights } from "../scoring-config.js";
 
-function makeItem(overrides: Partial<KnowledgeItem> = {}): KnowledgeItem {
+// @lore AF3 C1: makeItem uses KnowledgeItemWithFabric (not KnowledgeItem) because
+// layer/kind/attentionScore/confidence/meta moved to knowledgeStrategyFabric extension
+// table and are no longer on the kernel KnowledgeItem type.
+// attentionScore and confidence accept number | string | null to match legacy test call sites
+// (DB stores as text; attention-scoring.ts already handles both via parseFloat).
+type ItemOverrides = Omit<Partial<KnowledgeItemWithFabric>, "attentionScore" | "confidence"> & {
+	attentionScore?: number | string | null;
+	confidence?: number | string | null;
+};
+function makeItem(overrides: ItemOverrides = {}): KnowledgeItemWithFabric {
+	const toStr = (v: number | string | null | undefined): string | null =>
+		v == null ? null : typeof v === "number" ? String(v) : v;
 	return {
 		id: overrides.id ?? "ki-test",
-		layer: overrides.layer ?? "L3",
+		scopeKind: overrides.scopeKind ?? "factory",
 		scopeId: overrides.scopeId ?? null,
+		layer: overrides.layer ?? "L3",
 		kind: overrides.kind ?? "pattern",
 		topic: overrides.topic ?? null,
 		title: overrides.title ?? "Test",
 		body: overrides.body ?? "Body",
 		format: overrides.format ?? "markdown",
 		status: overrides.status ?? "active",
-		attentionScore: overrides.attentionScore ?? null,
-		confidence: overrides.confidence ?? null,
+		attentionScore: toStr(overrides.attentionScore),
+		confidence: toStr(overrides.confidence),
 		version: overrides.version ?? 1,
 		updatedBy: overrides.updatedBy ?? "agent-1",
 		createdAt: overrides.createdAt ?? "2026-04-18T00:00:00.000Z",
@@ -204,7 +216,7 @@ describe("scoreAttention (pure)", () => {
 	});
 
 	it("AC6: scoring 1000 synthetic items completes in <1000ms", () => {
-		const items: KnowledgeItem[] = [];
+		const items: KnowledgeItemWithFabric[] = [];
 		const cohort = new Map<string, number>();
 		const crossScope = new Map<string, number>();
 		const conflicted = new Set<string>();

@@ -49,6 +49,7 @@ async function seedKi(db: HyperIdleDb, overrides: SeedOverrides): Promise<Knowle
 
 	const kernelRow = {
 		id: overrides.id,
+		scopeKind: "factory" as const,
 		topic: overrides.topic === undefined ? "testing" : overrides.topic,
 		title: overrides.title ?? "Test",
 		body: overrides.body ?? "Body",
@@ -81,7 +82,7 @@ async function seedKi(db: HyperIdleDb, overrides: SeedOverrides): Promise<Knowle
 		attentionScore: null,
 		confidence: null,
 		meta: metaStr,
-	};
+	} satisfies KnowledgeItemWithFabric;
 }
 
 async function seedConflict(
@@ -529,7 +530,7 @@ describe("promotion-pipeline", () => {
 			const eventBus = new EventBus();
 			await seedKi(db, { id: "s-1", status: "active", updatedAt: OLDER_THAN_90_DAYS });
 			const received: KnowledgeUpdatedEvent[] = [];
-			eventBus.on("knowledge_updated", (e) => {
+			eventBus.on("knowledge_updated", (e: KnowledgeUpdatedEvent) => {
 				received.push(e);
 			});
 
@@ -579,7 +580,7 @@ describe("promotion-pipeline", () => {
 			const eventBus = new EventBus();
 			await seedProvisionalClusterOf5(db, "subject");
 			const received: KnowledgeUpdatedEvent[] = [];
-			eventBus.on("knowledge_updated", (e) => {
+			eventBus.on("knowledge_updated", (e: KnowledgeUpdatedEvent) => {
 				received.push(e);
 			});
 
@@ -655,7 +656,7 @@ describe("promotion-pipeline", () => {
 			});
 
 			const received: KnowledgeUpdatedEvent[] = [];
-			eventBus.on("knowledge_updated", (e) => {
+			eventBus.on("knowledge_updated", (e: KnowledgeUpdatedEvent) => {
 				received.push(e);
 			});
 			await runAutoPromotionSweep(db, eventBus);

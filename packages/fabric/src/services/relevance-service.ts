@@ -120,12 +120,14 @@ export function createRelevanceService(db: HyperIdleDb): RelevanceService {
 			const count30d = accessCount30d.get(itemId) ?? null;
 
 			// lastActivityAt = max of all available timestamps
-			let lastActivityAt: string | null = null;
-			if (lastAccess != null && (lastActivityAt == null || lastAccess > lastActivityAt)) {
-				lastActivityAt = lastAccess;
-			}
-			if (lastHumanEdit != null && (lastActivityAt == null || lastHumanEdit > lastActivityAt)) {
-				lastActivityAt = lastHumanEdit;
+			// @lore AF3 C13: TypeScript cannot narrow a mutable `let` variable in
+			// the RHS of `||`. Capture into a const first; null-check the const
+			// so `>` is always `string > string`. The first assignment is a simple
+			// set (prev is null at that point, no comparison needed).
+			let lastActivityAt: string | null = lastAccess ?? null;
+			if (lastHumanEdit != null) {
+				const prev = lastActivityAt;
+				lastActivityAt = prev !== null && prev > lastHumanEdit ? prev : lastHumanEdit;
 			}
 
 			result.set(itemId, {

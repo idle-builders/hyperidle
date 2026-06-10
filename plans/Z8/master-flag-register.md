@@ -1014,6 +1014,12 @@ Fix shapes: **one-liner** (single targeted edit), **small WP** (workpackage-size
 - Doc/code drift that will mislead future agents into "fixing" Redis wiring that was never there.
 - **Fix shape:** one-liner — fix the doc.
 
+### Z8-166 — AF2 false-done: design-system/desktop/eval un-quarantined but never zeroed; green CI over a red gate
+- **Sources:** AF3 builder (discovered during AF3 re-quarantine pass, 2026-06-11)
+- **Files:** `typecheck-debt.json` (AF2 removed these three entries), `scripts/check-attestation.ts` (trusts HMAC, not a live gate), `.verify-attestations/` (AF2's attestation was signed on a tree whose gate was already failing)
+- AF2's spec ("Type-green the shared foundation: shared, db, and leaf packages") explicitly listed `@hyperidle/design-system`, `@hyperidle/eval`, and `@hyperidle/desktop` in its acceptance criteria with the requirement "each compile with zero type errors" and "removed from the exception list". AF2 is marked done/shipped — but empirical verification on AF2's merged tree shows design-system still has 15 errors, desktop has 1, and eval has 17, identical to the AF3 branch. AF2 removed them from `typecheck-debt.json` without zeroing them. CI reported green because CI validates the HMAC-signed attestation (~30s) rather than re-running `npm run check`. **The signed attestation is NOT proof of a green gate if the attestation was generated on a tree whose gate was already failing.** Main's `npm run check` is currently RED while CI is GREEN. AF3 re-quarantined the three packages (attributed to AF2) to avoid shipping its own green gate over unrelated pre-existing debt. Resolution requires: (1) a follow-up workpackage to re-open AF2 and actually zero these 33 errors; (2) a gate-integrity fix so the attestation script verifies that the typecheck gate itself passed rather than just trusting the signed status. See also `@lore AF3` comment in `scripts/typecheck-gate.ts`.
+- **Fix shape:** small WP — re-open AF2 (or create AF2b drain): zero the 33 errors in design-system/desktop/eval. Parallel gate-integrity fix: have `verify-attest.ts` record the typecheck-gate exit code explicitly and have `check-attestation.ts` verify it, or add a CI step that re-runs the typecheck gate independently of the attestation.
+
 ---
 
 ## Cross-cutting themes
@@ -1093,8 +1099,9 @@ TTL/retention job, workspace GC, purge-directive cleanups, doc-drift fixes, dead
 | Critical | 14 |
 | High | 37 |
 | Medium | 51 |
-| Low | 63 |
-| **Total entries** | **165** |
+| Low | 64 |
+| **Total entries** | **166** |
 | Source flags covered | 175 (9 merged entries absorb 19 corroborated flags) |
+| Post-compile additions | 1 (Z8-166: AF3 builder, gate-integrity finding) |
 
 Per-source coverage: conversations 25/25 · work-bets-tasks 28/28 · work-team-routine-agent 20/20 · knowledge 21/21 · settings 17/17 · shell-search-artifacts 25/25 · agent-runtime 20/20 · automated-mechanisms 19/19.

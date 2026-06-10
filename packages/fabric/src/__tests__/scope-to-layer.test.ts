@@ -9,7 +9,6 @@
  */
 
 import { describe, expect, it } from "vitest";
-// @ts-expect-error — scopeToLayer does not exist yet (red phase)
 import { SCOPE_TO_LAYER, scopeToLayer } from "../types.js";
 
 describe("Q2 AC-9: scopeToLayer mapping", () => {

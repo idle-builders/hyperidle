@@ -68,7 +68,10 @@ function cleanDirectory(dirPath: string): void {
 	// Make everything writable first so we can delete
 	const entries = fs.readdirSync(dirPath, { withFileTypes: true, recursive: true });
 	for (const entry of entries) {
-		const fullPath = path.join(entry.parentPath ?? entry.path, entry.name);
+		// @lore AF3 C10: Dirent.path was removed from @types/node on Node 26;
+		// use parentPath (always defined for recursive reads). The `?? entry.path`
+		// fallback was dead code referencing a nonexistent property — drop it.
+		const fullPath = path.join(entry.parentPath, entry.name);
 		if (entry.isFile()) {
 			fs.chmodSync(fullPath, 0o644);
 		}

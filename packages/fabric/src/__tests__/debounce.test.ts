@@ -23,8 +23,8 @@ describe("createDebouncedWatcher", () => {
 		await vi.advanceTimersByTimeAsync(200);
 
 		expect(batches).toHaveLength(1);
-		expect(batches[0].changes).toHaveLength(1);
-		expect(batches[0].changes[0].path).toBe("knowledge/foo.md");
+		expect(batches[0]!.changes).toHaveLength(1);
+		expect(batches[0]!.changes[0]!.path).toBe("knowledge/foo.md");
 
 		watcher.destroy();
 	});
@@ -42,8 +42,8 @@ describe("createDebouncedWatcher", () => {
 		await vi.advanceTimersByTimeAsync(200);
 
 		expect(batches).toHaveLength(1);
-		expect(batches[0].changes).toHaveLength(1);
-		expect(batches[0].changes[0].type).toBe("delete");
+		expect(batches[0]!.changes).toHaveLength(1);
+		expect(batches[0]!.changes[0]!.type).toBe("delete");
 
 		watcher.destroy();
 	});
@@ -63,7 +63,7 @@ describe("createDebouncedWatcher", () => {
 
 		expect(batches).toHaveLength(1);
 		// Each file is distinct, so we get exactly 10 changes
-		expect(batches[0].changes).toHaveLength(10);
+		expect(batches[0]!.changes).toHaveLength(10);
 
 		watcher.destroy();
 	});
@@ -85,7 +85,7 @@ describe("createDebouncedWatcher", () => {
 		await vi.advanceTimersByTimeAsync(100);
 		// Now 200ms since last event
 		expect(batches).toHaveLength(1);
-		expect(batches[0].changes).toHaveLength(2);
+		expect(batches[0]!.changes).toHaveLength(2);
 
 		watcher.destroy();
 	});

@@ -4,25 +4,33 @@
  * AC-2: IMPACT_BY_KIND must be deleted. scoreAttention still returns [0,1]
  * with impact contributing 0.
  */
-import type { KnowledgeItem } from "@hyperidle/db";
 import { describe, expect, it } from "vitest";
 import * as attentionScoring from "../attention-scoring.js";
 import { type AttentionScoringContext, scoreAttention } from "../attention-scoring.js";
+import type { KnowledgeItemWithFabric } from "../knowledge-repository.js";
 import { getDefaultAttentionWeights } from "../scoring-config.js";
 
-function makeItem(overrides: Partial<KnowledgeItem> = {}): KnowledgeItem {
+// @lore AF3 C1: uses KnowledgeItemWithFabric — fabric fields moved off KnowledgeItem.
+type ItemOverrides = Omit<Partial<KnowledgeItemWithFabric>, "attentionScore" | "confidence"> & {
+	attentionScore?: number | string | null;
+	confidence?: number | string | null;
+};
+function makeItem(overrides: ItemOverrides = {}): KnowledgeItemWithFabric {
+	const toStr = (v: number | string | null | undefined): string | null =>
+		v == null ? null : typeof v === "number" ? String(v) : v;
 	return {
 		id: overrides.id ?? "ki-l22-test",
-		layer: overrides.layer ?? "L3",
+		scopeKind: overrides.scopeKind ?? "factory",
 		scopeId: overrides.scopeId ?? null,
+		layer: overrides.layer ?? "L3",
 		kind: overrides.kind ?? "pattern",
 		topic: overrides.topic ?? null,
 		title: overrides.title ?? "Test",
 		body: overrides.body ?? "Body",
 		format: overrides.format ?? "markdown",
 		status: overrides.status ?? "active",
-		attentionScore: overrides.attentionScore ?? null,
-		confidence: overrides.confidence ?? null,
+		attentionScore: toStr(overrides.attentionScore),
+		confidence: toStr(overrides.confidence),
 		version: overrides.version ?? 1,
 		updatedBy: overrides.updatedBy ?? "agent-1",
 		createdAt: overrides.createdAt ?? "2026-05-06T00:00:00.000Z",

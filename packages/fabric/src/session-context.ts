@@ -84,8 +84,16 @@ export async function buildSessionContextData(
 		bet: {
 			id: bet.id,
 			// @lore U1: `description` replaces `pitch`.
-			description: bet.description,
-			appetite: bet.appetite,
+			// @lore AF3 C12: bet.description is string | null in the DB; coerce to
+			// empty string for the context interface (which requires non-null string).
+			// @lore AF3 W2: the previous string | null assignment would flow `null`
+			// through to string interpolation, rendering the literal text "null" into
+			// the composed prompt (e.g. "**Bet:** null"). `?? ""` intentionally corrects
+			// that to an empty string — a safe content fix, not merely a strictness fix.
+			description: bet.description ?? "",
+			// @lore AF3: appetite is nullable in DB but non-null in SessionContextData;
+			// coerce null to empty string to satisfy the interface.
+			appetite: bet.appetite ?? "",
 			doneCondition: bet.doneCondition,
 		},
 		agent: {

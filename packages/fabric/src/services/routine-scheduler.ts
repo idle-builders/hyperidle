@@ -73,8 +73,16 @@ function parseField(field: string, min: number, max: number): number[] | "*" {
 		}
 
 		// Check for ranges like 1-5
+		// @lore AF3 C7: part.includes("-") proves a hyphen exists but not 2 parts.
+		// Guard startStr/endStr for noUncheckedIndexedAccess; malformed cron still
+		// throws via the NaN check (runtime behavior preserved).
 		if (part.includes("-")) {
-			const [startStr, endStr] = part.split("-");
+			const rangeParts = part.split("-");
+			const startStr = rangeParts[0];
+			const endStr = rangeParts[1];
+			if (startStr === undefined || endStr === undefined) {
+				throw new Error(`Invalid cron range: ${part}`);
+			}
 			const start = Number.parseInt(startStr, 10);
 			const end = Number.parseInt(endStr, 10);
 			if (Number.isNaN(start) || Number.isNaN(end) || start < min || end > max) {
@@ -114,12 +122,26 @@ export function parseCron(expr: string): CronFields {
 		throw new Error(`Invalid cron expression: expected 5 fields, got ${parts.length}`);
 	}
 
+	// @lore AF3 C7: parts.length === 5 is proven above; guard each element to
+	// satisfy noUncheckedIndexedAccess. The length guard proves all 5 are present,
+	// so these undefined branches are unreachable at runtime (behavior preserved).
+	const [p0, p1, p2, p3, p4] = parts;
+	if (
+		p0 === undefined ||
+		p1 === undefined ||
+		p2 === undefined ||
+		p3 === undefined ||
+		p4 === undefined
+	) {
+		throw new Error(`Invalid cron expression: expected 5 fields`);
+	}
+
 	return {
-		minute: parseField(parts[0], 0, 59),
-		hour: parseField(parts[1], 0, 23),
-		dayOfMonth: parseField(parts[2], 1, 31),
-		month: parseField(parts[3], 1, 12),
-		dayOfWeek: parseField(parts[4], 0, 6),
+		minute: parseField(p0, 0, 59),
+		hour: parseField(p1, 0, 23),
+		dayOfMonth: parseField(p2, 1, 31),
+		month: parseField(p3, 1, 12),
+		dayOfWeek: parseField(p4, 0, 6),
 	};
 }
 
@@ -225,6 +247,8 @@ async function createRoutineSession(
 	const sessionId = crypto.randomUUID();
 	const now = new Date().toISOString();
 
+	// @lore AF3 C8: `sessions` table has no `cost` column (cost lives on the
+	// costCap table). Removing the stale `cost: 0` field that caused TS2769.
 	await db.insert(sessions).values({
 		id: sessionId,
 		taskId,
@@ -232,7 +256,6 @@ async function createRoutineSession(
 		modelTier: "workhorse",
 		startedAt: now,
 		state: "active",
-		cost: 0,
 	});
 
 	eventBus.emit({
