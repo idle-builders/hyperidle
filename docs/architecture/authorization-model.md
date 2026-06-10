@@ -51,6 +51,16 @@ A **Worker** is a capability-bounded session-execution endpoint — **not** a Pr
 
 Hiding a field from GET responses is **not** protection — `server_config.apiKey` is stripped from reads yet plaintext at rest; that is a defect.
 
+## Enforcement layer & default posture
+
+**Where it runs:** the **application/server layer** (Hono middleware + the single access-boundary decision function). The DB executes whatever the server sends; there is **no Row-Level Security** (`isRLSEnabled: false`).
+
+- **Authentication is already default-on** — `createAuthMiddleware` is mounted globally (`api.use("*", …)`); no `/api/*` route is reachable without a verified credential.
+- **Authorization is default-deny (the principle this model adopts).** Least privilege: a route exposes or mutates per-principal/per-host data only by **explicitly declaring** its access boundary. Absence of a declaration **fails closed**, never open. This is Saltzer–Schroeder *fail-safe defaults* / OWASP *deny-by-default* — a named standard, not a bespoke scheme. It is the structural fix for the recurrence the audit found (a guard added to one endpoint, missed on its neighbour).
+- **Static guardrails (lint).** Because "every route declares a boundary" and "authorization never reads a client header" are *static* properties, they are enforced with **custom ESLint rules** (per CLAUDE.md: static codebase property → lint rule, not a test), catching obviously-wrong patterns at build time: a route handler with no policy declaration, `X-Identity`/header values reaching an authorization decision, or a raw DB query in a route bypassing the policy function.
+
+**RLS — deferred, not rejected.** Postgres RLS would add defense-in-depth (the DB refuses cross-tenant rows even if a route forgets its guard). Deferred because: the dominant deployment is local-trust single-founder (nothing to isolate), and the boundary logic is relational/JSON-array-shaped — awkward to mirror in SQL `USING` clauses, duplicating server logic. **Revisit when** a managed multi-tenant ("Claude") cloud deployment is on the table; that is the trigger to add RLS as a second layer beneath the server-layer chokepoint.
+
 ## Hard rules
 
 1. **Read parity** — detail reads require the same authorization as the list. `GET /api/threads/:id`, the `session:<id>` WS topic, and artifact detail/preview enforce their list endpoint's boundary. No read path is looser than its list path.
@@ -58,6 +68,7 @@ Hiding a field from GET responses is **not** protection — `server_config.apiKe
 3. **Worker confinement** — a worker token cannot read credentials beyond its assigned session, nor act as a different worker.
 4. **No plaintext secret** — no managed secret is ever persisted or logged in plaintext (incl. the `server_config` blob and any on-disk file other than the OS-protected root secret).
 5. **No over-restriction** — host-scoped resources remain readable per host visibility; the fix must not break legitimate whole-team reads.
+6. **Default-deny** — a route touching per-principal/per-host data must declare its access boundary explicitly; an undeclared route fails closed. Enforced at runtime (the chokepoint) and statically (custom ESLint rule).
 
 > **Open contradiction to resolve in implementation:** the `session:<id>` WS topic is currently *intentionally ungated* (Z8-096 / Q1 §3.4, `ws-broadcaster.ts`), which conflicts with Hard Rule 1. This model resolves it as: session visibility inherits from its task's host-scope (safe-open under local-trust, closed under multi-user). Keeping observation deliberately open requires an explicit documented exception, not the current accidental default.
 
