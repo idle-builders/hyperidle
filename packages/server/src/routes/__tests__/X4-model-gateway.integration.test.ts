@@ -36,6 +36,19 @@ import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-x4-gateway";
 
+/** The model-gateway GET response body shape (per-tier config, apiKey stripped). */
+interface GatewayTier {
+	provider: string;
+	model: string;
+	apiKey?: string;
+	hasApiKey?: boolean;
+}
+type GatewayBody = Record<string, GatewayTier> & {
+	reasoning: GatewayTier;
+	workhorse: GatewayTier;
+	fast: GatewayTier;
+};
+
 function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
 }
@@ -241,7 +254,7 @@ describe("X4: GET /api/model-gateway", () => {
 
 		expect(res.status).toBe(200);
 
-		const body = (await res.json()) as Record<string, { provider: string; model: string }>;
+		const body = (await res.json()) as GatewayBody;
 		expect(body.reasoning.provider).toBe("anthropic");
 		expect(body.reasoning.model).toBe("claude-opus-4-20250514");
 		expect(body.workhorse.provider).toBe("anthropic");
@@ -274,7 +287,7 @@ describe("X4: GET /api/model-gateway", () => {
 		});
 		expect(res.status).toBe(200);
 
-		const body = (await res.json()) as Record<string, Record<string, unknown>>;
+		const body = (await res.json()) as GatewayBody;
 		// apiKey must NOT be returned
 		expect(body.fast.apiKey).toBeUndefined();
 		// hasApiKey must be true (key is present)
@@ -302,7 +315,7 @@ describe("X4: GET /api/model-gateway", () => {
 		});
 		expect(res.status).toBe(200);
 
-		const body = (await res.json()) as Record<string, Record<string, unknown>>;
+		const body = (await res.json()) as GatewayBody;
 		expect(body.fast.hasApiKey).toBe(false);
 		expect(body.fast.apiKey).toBeUndefined();
 	});
@@ -315,7 +328,7 @@ describe("X4: GET /api/model-gateway", () => {
 		});
 		expect(res.status).toBe(200);
 
-		const body = (await res.json()) as Record<string, Record<string, unknown>>;
+		const body = (await res.json()) as GatewayBody;
 		// Anthropic never stores apiKey in config — hasApiKey should be false
 		expect(body.reasoning.hasApiKey).toBe(false);
 		expect(body.reasoning.apiKey).toBeUndefined();
@@ -352,7 +365,7 @@ describe("X4: PATCH /api/model-gateway", () => {
 		const getRes = await app.request("/api/model-gateway", {
 			headers: authHeaders(),
 		});
-		const body = (await getRes.json()) as Record<string, { provider: string; model: string }>;
+		const body = (await getRes.json()) as GatewayBody;
 		expect(body.workhorse.provider).toBe("openrouter");
 		expect(body.workhorse.model).toBe("anthropic/claude-sonnet-4");
 	});
@@ -420,7 +433,7 @@ describe("X4: PATCH /api/model-gateway", () => {
 		});
 
 		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, Record<string, unknown>>;
+		const body = (await res.json()) as GatewayBody;
 		expect(body.fast.apiKey).toBeUndefined();
 		expect(body.fast.hasApiKey).toBe(true);
 	});
@@ -467,7 +480,7 @@ describe("X4: ServerConfig modelGateway field defaults", () => {
 		});
 		expect(res.status).toBe(200);
 
-		const body = (await res.json()) as Record<string, { provider: string; model: string }>;
+		const body = (await res.json()) as GatewayBody;
 		// All three tiers should be anthropic direct (default)
 		for (const tier of ["reasoning", "workhorse", "fast"] as const) {
 			expect(body[tier].provider).toBe("anthropic");
@@ -492,7 +505,7 @@ describe("X4: ServerConfig modelGateway field defaults", () => {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, { provider: string; model: string }>;
+		const body = (await res.json()) as GatewayBody;
 		expect(body.reasoning.provider).toBe("openrouter");
 		expect(body.reasoning.model).toBe("anthropic/claude-opus");
 	});

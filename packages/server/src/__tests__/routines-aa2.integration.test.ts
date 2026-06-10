@@ -298,8 +298,8 @@ describe("AA2: Routine Management API", () => {
 			// Verify the routine has a stubTaskId set
 			const [row] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
 			expect(row).toBeDefined();
-			expect(row.stubTaskId).not.toBeNull();
-			expect(typeof row.stubTaskId).toBe("string");
+			expect(row!.stubTaskId).not.toBeNull();
+			expect(typeof row!.stubTaskId).toBe("string");
 		});
 	});
 
@@ -338,9 +338,9 @@ describe("AA2: Routine Management API", () => {
 				.where(eq(routines.id, "routine-to-delete"))
 				.limit(1);
 			expect(row).toBeDefined();
-			expect(row.deletedAt).not.toBeNull();
-			expect(row.state).toBe("paused");
-			expect(row.active).toBe(false);
+			expect(row!.deletedAt).not.toBeNull();
+			expect(row!.state).toBe("paused");
+			expect(row!.active).toBe(false);
 		});
 
 		test("returns 404 when deleting a non-existent routine", async ({ db, app }) => {
@@ -482,7 +482,7 @@ describe("AA2: Routine Management API", () => {
 				.from(routineRuns)
 				.where(eq(routineRuns.routineId, "routine-history-preserved"));
 			expect(runs).toHaveLength(1);
-			expect(runs[0].id).toBe("run-history-kept");
+			expect(runs[0]!.id).toBe("run-history-kept");
 		});
 	});
 
@@ -612,7 +612,7 @@ describe("AA2: Routine Management API", () => {
 				.from(routineRuns)
 				.where(eq(routineRuns.routineId, "routine-coalesce-run"));
 			expect(runs).toHaveLength(1);
-			expect(runs[0].outcome).toBe("skipped");
+			expect(runs[0]!.outcome).toBe("skipped");
 		});
 
 		test("trigger fires normally when no active session exists", async ({ db, app }) => {
@@ -670,7 +670,7 @@ describe("AA2: Routine Management API", () => {
 			const body = (await res.json()) as Record<string, unknown>;
 			const runs = body.runs as Array<Record<string, unknown>>;
 			expect(runs).toHaveLength(1);
-			expect(runs[0].summary).toBe("Sent 5 messages, all delivered.");
+			expect(runs[0]!.summary).toBe("Sent 5 messages, all delivered.");
 		});
 
 		test("returns run history with outcome=running", async ({ db, app }) => {
@@ -700,7 +700,7 @@ describe("AA2: Routine Management API", () => {
 			const body = (await res.json()) as Record<string, unknown>;
 			const runs = body.runs as Array<Record<string, unknown>>;
 			expect(runs).toHaveLength(1);
-			expect(runs[0].outcome).toBe("running");
+			expect(runs[0]!.outcome).toBe("running");
 		});
 
 		test("RoutineInfo includes costCapPerRun and lastRunSummary fields", async ({ db, app }) => {
@@ -869,9 +869,9 @@ describe("AA2: Routine Management API", () => {
 				.limit(1);
 
 			expect(run).toBeDefined();
-			expect(run.outcome).toBe("success");
-			expect(run.sessionId).toBe(ctx.sessionId);
-			expect(run.endedAt).not.toBeNull();
+			expect(run!.outcome).toBe("success");
+			expect(run!.sessionId).toBe(ctx.sessionId);
+			expect(run!.endedAt).not.toBeNull();
 		});
 
 		test("crashSession updates routine_run outcome to error and back-populates sessionId", async ({
@@ -920,9 +920,9 @@ describe("AA2: Routine Management API", () => {
 				.limit(1);
 
 			expect(run).toBeDefined();
-			expect(run.outcome).toBe("error");
-			expect(run.sessionId).toBe(ctx.sessionId);
-			expect(run.endedAt).not.toBeNull();
+			expect(run!.outcome).toBe("error");
+			expect(run!.sessionId).toBe(ctx.sessionId);
+			expect(run!.endedAt).not.toBeNull();
 		});
 
 		test("no-ops when no running routine_run row exists for the routine", async ({ db }) => {
@@ -991,11 +991,11 @@ describe("AA2: Routine Management API", () => {
 				.limit(1);
 
 			expect(row).toBeDefined();
-			expect(row.deletedAt).toBeNull();
-			expect(row.lastRunSummary).toBe("Previous run succeeded.");
-			expect(row.costCapPerRunMinor).toBe(9999);
-			expect(row.createdAt).toBe(now);
-			expect(row.stubTaskId).toBe("task-aa2");
+			expect(row!.deletedAt).toBeNull();
+			expect(row!.lastRunSummary).toBe("Previous run succeeded.");
+			expect(row!.costCapPerRunMinor).toBe(9999);
+			expect(row!.createdAt).toBe(now);
+			expect(row!.stubTaskId).toBe("task-aa2");
 		});
 
 		test("soft-delete filter (isNull(deletedAt)) works correctly", async ({ db }) => {
@@ -1069,9 +1069,9 @@ describe("AA2: Routine Management API", () => {
 				.limit(1);
 
 			expect(row).toBeDefined();
-			expect(row.sessionId).toBe("session-run-schema");
-			expect(row.summary).toBe("Test summary");
-			expect(row.outcome).toBe("running");
+			expect(row!.sessionId).toBe("session-run-schema");
+			expect(row!.summary).toBe("Test summary");
+			expect(row!.outcome).toBe("running");
 		});
 	});
 });
