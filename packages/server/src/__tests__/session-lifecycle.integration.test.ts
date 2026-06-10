@@ -67,8 +67,6 @@ async function seedAll(db: HyperIdleDb): Promise<void> {
 	// Seed a knowledge item so materialization has content
 	await db.insert(knowledgeItems).values({
 		id: "ki-1",
-		layer: "L4",
-		kind: "principle",
 		title: "Test Principle",
 		body: "This is a test principle.",
 		format: "markdown",

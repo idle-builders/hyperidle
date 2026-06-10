@@ -385,9 +385,7 @@ describe("Git Export HTTP routes", () => {
 			});
 			await db.insert(knowledgeItems).values({
 				id: "ki-force",
-				layer: "L4",
 				scopeId: null,
-				kind: "PRINCIPLES",
 				topic: null,
 				title: "Force principles",
 				body: "# forced\n",

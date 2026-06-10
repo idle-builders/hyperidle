@@ -19,8 +19,6 @@ async function seedKnowledgeItem(
 ): Promise<void> {
 	await db.insert(knowledgeItems).values({
 		id,
-		layer: "L3",
-		kind: "pattern",
 		title: `KI ${id}`,
 		body: "Body",
 		format: "markdown",
@@ -186,8 +184,6 @@ describe("promote_knowledge tool", () => {
 		// than unsafely cast and branch.
 		await db.insert(knowledgeItems).values({
 			id: "ki-bad-state",
-			layer: "L3",
-			kind: "pattern",
 			title: "Bad state",
 			body: "Body",
 			format: "markdown",

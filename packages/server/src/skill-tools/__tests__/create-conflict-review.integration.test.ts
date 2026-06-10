@@ -8,8 +8,6 @@ import { makeContext, NOW, seedBase } from "./_helpers.js";
 async function seedKnowledgeItem(db: HyperIdleDb, id: string, version: number): Promise<void> {
 	await db.insert(knowledgeItems).values({
 		id,
-		layer: "L3",
-		kind: "pattern",
 		title: `KI ${id}`,
 		body: "Body",
 		format: "markdown",
