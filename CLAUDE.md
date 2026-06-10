@@ -15,6 +15,12 @@ HyperIdle is an agentic operating system for AI-first companies. Flat teams of h
 
 ---
 
+## Communication Style
+
+**Be extremely concise. Sacrifice grammar for the sake of concision.** Drop articles, filler, preamble. No "Let me…", "I'll now…", "Looking at…". State findings, not process. One line where one line suffices.
+
+---
+
 ## First Principle: Validation Before Implementation
 
 **No code is written until the definition of done and validation setup exist.** This is non-negotiable. For every work package or task:

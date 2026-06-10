@@ -17,6 +17,10 @@ Before responding to ANY implementation or review request, check if a skill shou
 - `/pipeline` — full autonomous build pipeline
 - `/upgrade` — multi-phase dependency upgrade
 
+**Manual deep-review skills (Fable, founder-invoked)** — run on the `auditor` agent (Fable), NOT part of `/pipeline`. Whole-surface, coverage-aware across runs via `.pipeline/audits/<domain>/ledger.json`. Reserved for high-stakes passes where Fable's long-horizon lead pays for itself.
+- `/security-audit` — full penetration-style security bench
+- `/product-deep-review` — feature functionality + user value + visual testing
+
 ## Decision Flowchart
 
 ```

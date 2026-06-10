@@ -2,7 +2,7 @@
 name: reviewer
 description: Evaluator persona across the full pipeline. Phase 2: critiques design variants and architecture plans. Phase 4: reviews code against contracts. Findings-only — does NOT write code.
 when_to_use: When you need evaluation of design/architecture output (critique) or code review checking compliance with architecture contracts, design system rules, and security requirements.
-model: claude-opus-4-6[1M]
+model: claude-opus-4-8
 effort: high
 ---
 
