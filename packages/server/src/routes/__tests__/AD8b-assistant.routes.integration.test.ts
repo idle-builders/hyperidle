@@ -16,7 +16,7 @@
  * Tests use the vitest fixture pattern: `import { test, describe, expect } from "../test-fixtures.js"`.
  */
 
-import { users } from "@hyperidle/db";
+import { type HyperIdleDb, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 
@@ -33,7 +33,7 @@ function authHeaders(extra: Record<string, string> = {}): Record<string, string>
 const NOW = new Date().toISOString();
 
 async function seedUser(
-	db: Parameters<Parameters<typeof test>[1]>[0]["db"],
+	db: HyperIdleDb,
 	id: string,
 	name: string,
 ): Promise<void> {
@@ -328,14 +328,11 @@ describe("AD8b — AC-1: assistant agent created at user registration", () => {
 		db,
 		app,
 	}) => {
-		const res = await app.request("/api/users", {
+		await app.request("/api/users", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ name: "Agent Check User", email: "agentcheck@example.com" }),
 		});
-		const body = (await res.json()) as { id: string };
-		const _userId = body.id;
-
 		// Look up the assistant agent via the DB (it is a user with kind=ai)
 		const { users: usersTable } = await import("@hyperidle/db");
 		const { eq, and } = await import("drizzle-orm");
