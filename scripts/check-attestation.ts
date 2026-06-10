@@ -1,7 +1,15 @@
 #!/usr/bin/env tsx
-// CI-side attestation checker. Validates that `npm run verify` passed locally
-// for the code in this PR. Uses HMAC-SHA256 with a shared secret (VERIFY_SECRET)
-// to prevent forgery.
+// CI-side attestation checker. Validates that the ATTESTED tools (the slow
+// test suite — see scripts/verify-attest.ts) passed locally for the exact
+// source in this PR. Uses HMAC-SHA256 with a shared secret (VERIFY_SECRET) to
+// prevent forgery. All FAST checks (typecheck gate, lint, knip, mock-inventory,
+// build) are re-run live in .github/workflows/ci.yml and are NOT attested.
+//
+// The `sneaked source files` guard below is load-bearing: it rejects any
+// attestation whose tree differs from the commit CI is testing, so the attested
+// test result always corresponds to the source the live fast checks run
+// against. verify-attest derives `status` from the real test exit code, so
+// status==passed here means the tests actually passed.
 //
 // Attestation files are stored per-commit in .verify-attestations/<sha>.json
 // to avoid merge conflicts between concurrent branches.
