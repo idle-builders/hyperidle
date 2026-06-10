@@ -14,19 +14,18 @@
  *  - onOpenSettings callback is wired to Settings... click handler
  */
 
+import type { MenuItemConstructorOptions } from "electron";
 import { describe, expect, it, vi } from "vitest";
-import { buildAppMenuTemplate, type MenuTemplate } from "../src/app-menu.js";
+import { buildAppMenuTemplate } from "../src/app-menu.js";
 
 // ---------------------------------------------------------------------------
-// Mock electron — app.name and Menu are needed for the template builder
+// Mock electron — app.name and shell are needed for the template builder.
+// buildAppMenuTemplate returns the raw template array without calling
+// Menu.buildFromTemplate, so no Menu mock is needed here.
 // ---------------------------------------------------------------------------
 vi.mock("electron", () => ({
 	app: {
 		name: "HyperIdle",
-	},
-	// biome-ignore lint/style/useNamingConvention: matches Electron's PascalCase API
-	Menu: {
-		buildFromTemplate: vi.fn((template: MenuTemplate[]) => template),
 	},
 	shell: {
 		openPath: vi.fn(),
@@ -40,7 +39,10 @@ const BASE_OPTIONS = {
 	onOpenSettings: vi.fn(),
 };
 
-function findMenu(template: MenuTemplate[], label: string): MenuTemplate | undefined {
+function findMenu(
+	template: MenuItemConstructorOptions[],
+	label: string,
+): MenuItemConstructorOptions | undefined {
 	return template.find((m) => m.label === label);
 }
 

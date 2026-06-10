@@ -544,7 +544,7 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	credManager.registerHandlers();
 	registerCommonIpcHandlers(mainWindow, ctx);
 
-	const menu = buildAppMenuTemplate({
+	const menuTemplate = buildAppMenuTemplate({
 		isDev: IS_DEV,
 		logDir: ctx.logDir,
 		dataDir: ctx.userDataDir,
@@ -552,7 +552,7 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 			if (!mainWindow.isDestroyed()) mainWindow.webContents.send("open-settings");
 		},
 	});
-	Menu.setApplicationMenu(menu as unknown as Electron.Menu);
+	Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
 	app.on("before-quit", getBeforeQuitHandler(serverHandle, logRotator));
 	app.on("activate", (): void => {
 		if (BrowserWindow.getAllWindows().length === 0) void startApp();
@@ -746,7 +746,7 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 		}
 	}
 
-	const menu = buildAppMenuTemplate({
+	const menuTemplate = buildAppMenuTemplate({
 		isDev: IS_DEV,
 		logDir: ctx.logDir,
 		dataDir: ctx.userDataDir,
@@ -754,7 +754,7 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 			if (!mainWindow.isDestroyed()) mainWindow.webContents.send("open-settings");
 		},
 	});
-	Menu.setApplicationMenu(menu as unknown as Electron.Menu);
+	Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
 	// No server handle in shared mode
 	// S4: include worker client shutdown in before-quit handler
 	app.on("before-quit", (event) => {

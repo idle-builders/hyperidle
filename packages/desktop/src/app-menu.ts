@@ -2,7 +2,8 @@
  * Five-menu application menu builder.
  */
 
-import { app, Menu, shell } from "electron";
+import { app, shell } from "electron";
+import type { MenuItemConstructorOptions } from "electron";
 
 export interface AppMenuOptions {
 	isDev: boolean;
@@ -11,41 +12,39 @@ export interface AppMenuOptions {
 	onOpenSettings: () => void;
 }
 
-export interface MenuTemplate {
-	label?: string;
-	role?: string;
-	accelerator?: string;
-	type?: "separator" | "submenu" | "normal" | "checkbox" | "radio";
-	submenu?: MenuTemplate[];
-	click?: () => void;
-}
-
 /**
- * Build and return the five-menu application menu template.
+ * Build and return the five-menu application menu template as raw constructor options.
  * Menus: HyperIdle, Edit, View, Window, Help.
  *
  * In dev mode, the View menu includes Reload and Toggle DevTools items.
+ *
+ * @lore AF2: Returns the raw template array (MenuItemConstructorOptions[]) so the caller
+ * can pass it to Menu.buildFromTemplate(). This avoids a cast from Menu → MenuTemplate[]
+ * and keeps the return type accurate. main.ts does Menu.setApplicationMenu(Menu.buildFromTemplate(template)).
  */
-export function buildAppMenuTemplate(options: AppMenuOptions): MenuTemplate[] {
+export function buildAppMenuTemplate(options: AppMenuOptions): MenuItemConstructorOptions[] {
 	const { isDev, logDir, dataDir, onOpenSettings } = options;
 
-	const viewSubmenu: MenuTemplate[] = [
+	const viewSubmenu: MenuItemConstructorOptions[] = [
 		...(isDev
-			? [{ role: "reload" } as MenuTemplate, { role: "toggleDevTools" } as MenuTemplate]
+			? [
+					{ role: "reload" as const },
+					{ role: "toggleDevTools" as const },
+				]
 			: []),
 		{ type: "separator" },
-		{ role: "resetZoom" },
-		{ role: "zoomIn" },
-		{ role: "zoomOut" },
+		{ role: "resetZoom" as const },
+		{ role: "zoomIn" as const },
+		{ role: "zoomOut" as const },
 		{ type: "separator" },
-		{ role: "togglefullscreen" },
+		{ role: "togglefullscreen" as const },
 	];
 
-	const template: MenuTemplate[] = [
+	const template: MenuItemConstructorOptions[] = [
 		{
 			label: app.name,
 			submenu: [
-				{ role: "about" },
+				{ role: "about" as const },
 				{ type: "separator" },
 				{
 					label: "Settings...",
@@ -53,23 +52,23 @@ export function buildAppMenuTemplate(options: AppMenuOptions): MenuTemplate[] {
 					click: onOpenSettings,
 				},
 				{ type: "separator" },
-				{ role: "hide" },
-				{ role: "hideOthers" },
-				{ role: "unhide" },
+				{ role: "hide" as const },
+				{ role: "hideOthers" as const },
+				{ role: "unhide" as const },
 				{ type: "separator" },
-				{ role: "quit" },
+				{ role: "quit" as const },
 			],
 		},
 		{
 			label: "Edit",
 			submenu: [
-				{ role: "undo" },
-				{ role: "redo" },
+				{ role: "undo" as const },
+				{ role: "redo" as const },
 				{ type: "separator" },
-				{ role: "cut" },
-				{ role: "copy" },
-				{ role: "paste" },
-				{ role: "selectAll" },
+				{ role: "cut" as const },
+				{ role: "copy" as const },
+				{ role: "paste" as const },
+				{ role: "selectAll" as const },
 			],
 		},
 		{
@@ -78,7 +77,7 @@ export function buildAppMenuTemplate(options: AppMenuOptions): MenuTemplate[] {
 		},
 		{
 			label: "Window",
-			submenu: [{ role: "minimize" }, { role: "zoom" }, { role: "close" }],
+			submenu: [{ role: "minimize" as const }, { role: "zoom" as const }, { role: "close" as const }],
 		},
 		{
 			label: "Help",
@@ -99,8 +98,5 @@ export function buildAppMenuTemplate(options: AppMenuOptions): MenuTemplate[] {
 		},
 	];
 
-	// @lore N4: buildFromTemplate is called here to allow tests to mock Menu.buildFromTemplate
-	// and intercept the template. The return value from buildFromTemplate in tests
-	// is the template itself (see the vi.mock in app-menu.test.ts).
-	return Menu.buildFromTemplate(template) as unknown as MenuTemplate[];
+	return template;
 }

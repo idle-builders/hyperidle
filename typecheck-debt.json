@@ -7,11 +7,6 @@
       "errors": 23,
       "note": "ThreadShell implicit any + shared ref"
     },
-    "desktop": {
-      "owner": "AF2",
-      "errors": 3,
-      "note": "menu template + credential validator"
-    },
     "eslint-plugin-design": {
       "owner": "AF2",
       "errors": 72,
