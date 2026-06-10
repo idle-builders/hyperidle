@@ -709,6 +709,9 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			throw err;
 		}
 		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+		if (!updated) {
+			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+		}
 		// @lore U2: normalize atRisk 0/1 to boolean on the wire (architecture-critique W-1).
 		return c.json({ ...updated, atRisk: updated.atRisk === 1 });
 	});
@@ -727,6 +730,9 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			throw err;
 		}
 		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+		if (!updated) {
+			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+		}
 		// @lore U2: normalize atRisk 0/1 to boolean on the wire (architecture-critique W-1).
 		return c.json({ ...updated, atRisk: updated.atRisk === 1 });
 	});
@@ -751,6 +757,9 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			throw err;
 		}
 		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+		if (!updated) {
+			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+		}
 		// @lore U2: normalize atRisk 0/1 to boolean on the wire (architecture-critique W-1).
 		return c.json({ ...updated, atRisk: updated.atRisk === 1 });
 	});

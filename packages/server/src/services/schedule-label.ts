@@ -63,6 +63,11 @@ function humanizeCron(cron: string): string | null {
 	if (parts.length !== 5) return null;
 
 	const [minute, hour, dom, , dow] = parts;
+	// The length===5 check above guarantees all five fields are present; the
+	// guard re-narrows them from `string | undefined` for noUncheckedIndexedAccess.
+	if (minute === undefined || hour === undefined || dom === undefined || dow === undefined) {
+		return null;
+	}
 
 	// Only handle simple minute/hour patterns (no ranges/lists in minute/hour)
 	const minuteNum = Number.parseInt(minute, 10);
