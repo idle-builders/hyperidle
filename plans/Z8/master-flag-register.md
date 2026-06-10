@@ -1014,6 +1014,12 @@ Fix shapes: **one-liner** (single targeted edit), **small WP** (workpackage-size
 - Doc/code drift that will mislead future agents into "fixing" Redis wiring that was never there.
 - **Fix shape:** one-liner — fix the doc.
 
+### Z8-167 — `create_item` tool advertises `attentionScore`/`costEstimate` inputs the `items` table cannot store
+- **Sources:** AF4 (type checker confirms drift; TS2769 "Object literal may only specify known properties" at the insert).
+- **Files:** `packages/server/src/skill-tools/create-item.ts:40,46` (input schema), `:148,151` (insert), vs `packages/db/src/schema.ts` `items` table (no `attention_score`/`cost_estimate` columns — those live on `knowledge_items`).
+- AF4: type checker confirms the tool's Zod input schema accepts `attentionScore` and `costEstimate`, but the `items` (inbox-item) table has no such columns, so the `db.insert(items).values({...})` does not type-check. The values were never persistable at runtime. Honest in-scope fix: drop the two phantom columns from the `.values()` so the insert type-checks (no runtime behavior change — they were never written). Whether these inputs SHOULD be persisted (e.g. route the item to `knowledge_items`, or add columns) is a behavioral decision → **owned by the knowledge/inbox workpackage (Batch 7)**. The input-schema fields are left in place (removing them is a tool-contract change for that WP to decide).
+- **Fix shape:** small-WP — decide whether attentionScore/costEstimate belong on items; align tool schema ⇄ table.
+
 ### Z8-166 — Message payload zod schema drifts from the shared domain type (`blockId`, `MentionRef.sourceText`)
 - **Sources:** AF4 (type checker confirms drift; surfaced as TS2322 at `rowToMessage` in assistant/coach/threads).
 - **Files:** `packages/server/src/routes/threads-schema.ts:85` (plainPayloadSchema `blockId`), `:71-75` (mentionRefSchema `sourceText` optional), vs `packages/shared/src/thread.ts:152` (`PlainPayload` lacks `blockId`) + `:131` (`MentionRef.sourceText` REQUIRED).
