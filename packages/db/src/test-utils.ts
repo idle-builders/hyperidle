@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
+import type { PgliteDatabase } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import type { HyperIdleDb } from "./connection.js";
 import * as schema from "./schema.js";
@@ -65,7 +66,11 @@ const POOL_SIZE = Number(process.env.VITEST_POOL_SIZE) || 2;
 
 interface PooledInstance {
 	readonly client: PGlite;
-	readonly db: HyperIdleDb;
+	// @lore AF2: test-utils is pglite-only; PgliteDatabase is the correct type so
+	// drizzle-orm/pglite/migrator.migrate() accepts it without a cast. HyperIdleDb
+	// is the common supertype (uses PgQueryResultHKT) but migrate() requires the
+	// pglite-specific PgliteQueryResultHKT subtype.
+	readonly db: PgliteDatabase<typeof schema>;
 }
 
 interface Slot {

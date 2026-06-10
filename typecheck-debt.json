@@ -2,11 +2,6 @@
   "$schema": "./scripts/typecheck-debt.schema.json",
   "description": "Packages with known type errors, quarantined by AF1. Drained by AF2-AF5.",
   "packages": {
-    "db": {
-      "owner": "AF2",
-      "errors": 2,
-      "note": "test-utils PgliteDatabase type"
-    },
     "design-system": {
       "owner": "AF2",
       "errors": 23,
