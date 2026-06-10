@@ -425,6 +425,8 @@ Make HyperIdle actually launch-ready. The Z8 deep audit (June 2026) traced every
 - The worker connection cannot be used to read credentials it was not issued, nor to act as a different worker identity.
 - No credential is ever stored in plaintext at rest; secrets are encrypted wherever they are persisted.
 - Endpoints that mutate or expose per-user/per-team data enforce an ownership/scope boundary rather than accepting any valid key.
+- Authorization is **default-deny**: every data route declares its access boundary through the single chokepoint; an undeclared data route fails closed rather than serving any authenticated caller. All ~36 data routes are retrofitted to explicit declarations.
+- Static guardrails (custom ESLint rules) fail the build on obviously-wrong patterns: a client-supplied identity header reaching an authorization decision, a data route with no boundary declaration, or a raw DB query in a route bypassing the policy function.
 
 **Validation scenarios.**
 - Given a participant-scoped thread, when a non-participant requests its detail, then access is denied (matching the list endpoint's behavior).
@@ -432,16 +434,16 @@ Make HyperIdle actually launch-ready. The Z8 deep audit (June 2026) traced every
 - Given a worker token, when it is used to request credentials beyond its issuance, then the request is refused.
 - Given an openai-compatible API key is saved, when storage is inspected, then the key is encrypted, not plaintext.
 
-**Plan calls.** Backend security — skip `/design`. This reshapes the system's authorization/identity trust boundary across threads, sessions, artifacts, the assistant, and workers. Before architecture, run `/concept` on the authorization model (participant-scoped vs. host-scoped access, the `X-Identity` trust boundary in local vs. multi-user mode, and the worker-identity/token model) so the boundary is decided once and applied uniformly — a naive per-endpoint patch risks both leaving holes and breaking legitimate host-scoped reads (e.g. a bet discussion thread visible to the whole team).
+**Plan calls.** Backend security — skip `/design`. This reshapes the system's authorization/identity trust boundary across threads, sessions, artifacts, the assistant, and workers. **Concept is locked** — `/architecture` reads `plans/AF11/concept.md` (Principal, Access boundary, Trust mode, Worker, Secret) and the ground-truth `docs/architecture/authorization-model.md` (default posture, enforcement layer, hard rules) as fixed input; do not re-litigate. Sequence: build the single fail-closed policy chokepoint → fix the four audited holes → retrofit all ~36 data routes to explicit boundary declarations (flip the global default to fail-closed only once every data route declares) → add the custom ESLint rules as the regression gate.
 
 **Contracts / constraints.**
 - Host-scoped threads (bet/task/knowledge/artifact discussions) must remain readable per host visibility; the fix must not over-restrict them while closing participant-scoped leaks.
 - Local single-founder mode must keep working without friction; the model must distinguish local-trust from multi-user-trust explicitly.
 - No secret in plaintext anywhere it is persisted or logged.
 
-**Out of scope.** Full role-based access control / enterprise auth (out of product scope). Session execution wiring (AF7) beyond the credential/worker-token boundary owned here.
+**Out of scope.** Full role-based access control / enterprise auth (out of product scope). Session execution wiring (AF7) beyond the credential/worker-token boundary owned here. Postgres Row-Level Security — deferred to a future managed multi-tenant deployment (see `docs/architecture/authorization-model.md` § Enforcement layer); the server-layer chokepoint is the boundary for now.
 
-**Effort.** L (~5d)
+**Effort.** XL (~8d — grew from L when the founder scoped the full system-wide deny-by-default retrofit + lint enforcement into AF11, beyond the four audited holes).
 
 ---
 

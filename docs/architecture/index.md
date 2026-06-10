@@ -23,4 +23,5 @@ This document describes the parts of HyperIdle, how they interface with each oth
 - [Decisions](./decisions.md)
 - [Event bus guarantees](./event-bus-guarantees.md)
 - [WebSocket push contract](./websocket-push-contract.md)
+- [Authorization model](./authorization-model.md)
 
