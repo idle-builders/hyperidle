@@ -116,8 +116,8 @@ describe("EventBus", () => {
 		bus.emit(makeNotification("u1", 2));
 
 		expect(received).toHaveLength(2);
-		expect(received[0].type).toBe("task_state_changed");
-		expect(received[1].type).toBe("notification");
+		expect(received[0]!.type).toBe("task_state_changed");
+		expect(received[1]!.type).toBe("notification");
 	});
 
 	it("wildcard unsubscribe works", () => {
@@ -237,8 +237,8 @@ describe("EventBus", () => {
 			type: "bet_state_changed",
 			streamId: "bet:b1",
 			betId: "b1",
-			fromState: "in_progress",
-			toState: "shipped",
+			fromState: "active",
+			toState: "completed",
 			timestamp: 1,
 		} satisfies BetStateChangedEvent);
 	});

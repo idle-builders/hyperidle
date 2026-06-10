@@ -204,8 +204,9 @@ function mdNodeToPayload(node: MdNode): BlockPayload | null {
 		case "paragraph": {
 			// Solely an image? hoist to image kind.
 			const kids = node.children ?? [];
-			if (kids.length === 1 && kids[0].type === "image") {
-				const img = kids[0];
+			const firstKid = kids[0];
+			if (kids.length === 1 && firstKid !== undefined && firstKid.type === "image") {
+				const img = firstKid;
 				if (!isImageScheme(img.url ?? "")) {
 					// Will be downgraded to unknown by caller via raw source.
 					return {
@@ -382,7 +383,8 @@ export function deriveBlocks(
 		if (node.type === "heading") {
 			const depth = node.depth ?? 1;
 			// Pop stack to depth-1 (any heading at >= this depth is no longer an ancestor).
-			while (headingStack.length > 0 && headingStack[headingStack.length - 1].depth >= depth) {
+			// headingStack.length > 0 guarantees peek is defined; the `?? 0` satisfies noUncheckedIndexedAccess.
+			while (headingStack.length > 0 && (headingStack[headingStack.length - 1]?.depth ?? 0) >= depth) {
 				const popped = headingStack.pop();
 				// Reset intra-counters for any deeper level (out of scope)
 				if (popped) {
@@ -459,7 +461,9 @@ export function assertNoCollisions(
 ): void {
 	const seen = new Map<string, number>();
 	for (let i = 0; i < blocks.length; i++) {
-		const id = blocks[i].id;
+		const block = blocks[i];
+		if (block === undefined) continue;
+		const id = block.id;
 		const prev = seen.get(id);
 		if (prev !== undefined) {
 			logger.critical(`BlockId collision detected: ids[${prev}] and ids[${i}] both = ${id}`);

@@ -86,7 +86,7 @@ describe("BlockId stability", () => {
 		const a = deriveBlocks(md, HOST_A);
 		const b = deriveBlocks(md, HOST_B);
 		expect(a.blocks.map((x) => x.id)).toEqual(b.blocks.map((x) => x.id));
-		expect(a.blocks[0].source.hostId).not.toBe(b.blocks[0].source.hostId);
+		expect(a.blocks[0]!.source.hostId).not.toBe(b.blocks[0]!.source.hostId);
 	});
 
 	it("AC-27a: heading-rename cascades to descendants but spares siblings elsewhere", () => {
@@ -122,7 +122,7 @@ describe("BlockId stability", () => {
 		// Step 1 under the renamed H2 changes id (cascade)
 		const step1A = a.filter((x) => x.payload.kind === "heading" && x.payload.text === "Step 1");
 		const step1B = b.filter((x) => x.payload.kind === "heading" && x.payload.text === "Step 1");
-		expect(step1A[0].id).not.toBe(step1B[0].id);
+		expect(step1A[0]!.id).not.toBe(step1B[0]!.id);
 
 		// step-body paragraph under Step 1 also cascades
 		const stepBodyA = a.find(

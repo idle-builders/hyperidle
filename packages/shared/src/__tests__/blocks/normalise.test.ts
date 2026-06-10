@@ -51,6 +51,6 @@ describe("normalisedPayload()", () => {
 		const { blocks } = deriveBlocks(md, { kind: "bet", id: "x" });
 		const dividers = blocks.filter((b) => b.kind === "divider");
 		expect(dividers).toHaveLength(2);
-		expect(dividers[0].id).not.toBe(dividers[1].id);
+		expect(dividers[0]!.id).not.toBe(dividers[1]!.id);
 	});
 });

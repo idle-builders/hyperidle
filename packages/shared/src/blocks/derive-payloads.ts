@@ -170,8 +170,9 @@ function mdNodeToPayload(node: MdNode): BlockPayload | null {
 			// Solely an image? Downgrade: if alt text present → paragraph with alt
 			// text; if alt text empty → drop (return null).
 			const kids = node.children ?? [];
-			if (kids.length === 1 && kids[0].type === "image") {
-				const img = kids[0];
+			const firstKid = kids[0];
+			if (kids.length === 1 && firstKid !== undefined && firstKid.type === "image") {
+				const img = firstKid;
 				const alt = img.alt ?? "";
 				if (!alt) {
 					// Empty alt → drop the payload entirely.

@@ -24,7 +24,7 @@ const HOST = { kind: "bet" as const, id: "golden-host" };
 
 describe("BlockId golden snapshot", () => {
 	it("snapshot contains entries for every fixture in the corpus", () => {
-		const files = readdirSync(FIXTURES_DIR).filter((f) => f.endsWith(".md"));
+		const files = readdirSync(FIXTURES_DIR).filter((f: string) => f.endsWith(".md"));
 		expect(files.length).toBeGreaterThanOrEqual(10);
 		for (const f of files) {
 			const name = f.replace(/\.md$/, "");
@@ -34,7 +34,7 @@ describe("BlockId golden snapshot", () => {
 
 	const fixtures = (() => {
 		try {
-			return readdirSync(FIXTURES_DIR).filter((f) => f.endsWith(".md"));
+			return readdirSync(FIXTURES_DIR).filter((f: string) => f.endsWith(".md"));
 		} catch {
 			return [];
 		}

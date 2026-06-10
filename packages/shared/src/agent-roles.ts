@@ -1,3 +1,4 @@
+import type { AgentCategory } from "./types.js";
 export { AGENT_CATEGORIES, type AgentCategory } from "./types.js";
 
 /**

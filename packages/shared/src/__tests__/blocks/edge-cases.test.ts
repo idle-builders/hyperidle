@@ -28,15 +28,15 @@ describe("deriveBlocks edge cases", () => {
 		const body = `# H\n${padding}`;
 		expect(body.length).toBeLessThanOrEqual(MAX_BODY_BYTES);
 		const { blocks } = deriveBlocks(body, HOST);
-		expect(blocks[0].kind).toBe("heading");
+		expect(blocks[0]!.kind).toBe("heading");
 	});
 
 	it("body > MAX_BODY_BYTES → single unknown with reason 'body-too-large'", () => {
 		const body = "x".repeat(MAX_BODY_BYTES + 100);
 		const { blocks } = deriveBlocks(body, HOST);
 		expect(blocks).toHaveLength(1);
-		expect(blocks[0].kind).toBe("unknown");
-		const p = blocks[0].payload;
+		expect(blocks[0]!.kind).toBe("unknown");
+		const p = blocks[0]!.payload;
 		if (p.kind !== "unknown") throw new Error();
 		expect(p.reason).toBe("body-too-large");
 	});

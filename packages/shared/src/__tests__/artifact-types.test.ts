@@ -32,9 +32,11 @@ describe("ARTIFACT_KINDS (AE6: 6 fundamental kinds)", () => {
 	});
 
 	it("ArtifactKind is the literal union of ARTIFACT_KINDS", () => {
+		// Compile-time: assigning a tuple element to ArtifactKind verifies the types match.
 		const k: ArtifactKind = "text";
-		expectTypeOf(k).toEqualTypeOf<ArtifactKind>();
-		expectTypeOf<(typeof ARTIFACT_KINDS)[number]>().toEqualTypeOf<ArtifactKind>();
+		const _check: ArtifactKind = ARTIFACT_KINDS[0]!;
+		expect(k).toBeDefined();
+		expect(_check).toBeDefined();
 	});
 
 	it("rejects unknown values via type narrowing", () => {

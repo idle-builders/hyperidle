@@ -57,9 +57,9 @@ describe("HarnessAdapter interface (D1)", () => {
 			}
 
 			expect(events).toHaveLength(3);
-			expect(events[0].type).toBe("token_usage");
-			expect(events[1].type).toBe("tool_call");
-			expect(events[2].type).toBe("completion");
+			expect(events[0]!.type).toBe("token_usage");
+			expect(events[1]!.type).toBe("tool_call");
+			expect(events[2]!.type).toBe("completion");
 		});
 
 		it("events contain correct payload fields", async () => {
@@ -71,19 +71,19 @@ describe("HarnessAdapter interface (D1)", () => {
 				events.push(event);
 			}
 
-			const tokenEvent = events[0];
+			const tokenEvent = events[0]!;
 			if (tokenEvent.type === "token_usage") {
 				expect(tokenEvent.inputTokens).toBeGreaterThan(0);
 				expect(tokenEvent.outputTokens).toBeGreaterThan(0);
 			}
 
-			const toolEvent = events[1];
+			const toolEvent = events[1]!;
 			if (toolEvent.type === "tool_call") {
 				expect(toolEvent.toolName).toBe("read_file");
 				expect(toolEvent.args).toBeDefined();
 			}
 
-			const completionEvent = events[2];
+			const completionEvent = events[2]!;
 			if (completionEvent.type === "completion") {
 				expect(completionEvent.text.length).toBeGreaterThan(0);
 			}

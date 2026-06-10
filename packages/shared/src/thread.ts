@@ -281,7 +281,7 @@ export interface HeadCollapseResult {
 export function headCollapsePredicate(messages: ReadonlyArray<Message>): HeadCollapseResult {
 	for (let i = messages.length - 1; i >= 0; i--) {
 		const m = messages[i];
-		if ((m.type === "review" || m.type === "questionnaire") && m.resolvedAt === null) {
+		if (m !== undefined && (m.type === "review" || m.type === "questionnaire") && m.resolvedAt === null) {
 			return { headMessageId: m.id };
 		}
 	}

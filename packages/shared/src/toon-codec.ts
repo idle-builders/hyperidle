@@ -69,7 +69,8 @@ export function decode(toon: string): Record<string, unknown> {
 	let i = 0;
 
 	while (i < lines.length) {
-		const line = lines[i];
+		// i < lines.length guarantees element exists; the `!` satisfies noUncheckedIndexedAccess.
+		const line = lines[i]!;
 
 		// Skip empty lines and separator lines
 		if (line.trim() === "" || line.trim().startsWith("---")) {
@@ -98,8 +99,11 @@ export function decode(toon: string): Record<string, unknown> {
 		if (rawValue === " |") {
 			const multiLines: string[] = [];
 			i++;
-			while (i < lines.length && lines[i].startsWith("  ")) {
-				multiLines.push(lines[i].substring(2));
+			while (i < lines.length) {
+				// i < lines.length guarantees element; `!` satisfies noUncheckedIndexedAccess.
+				const continuationLine = lines[i]!;
+				if (!continuationLine.startsWith("  ")) break;
+				multiLines.push(continuationLine.substring(2));
 				i++;
 			}
 			setNestedValue(result, key, multiLines.join("\n"), i);
@@ -155,8 +159,9 @@ function setNestedValue(
 	let current: Record<string, unknown> | unknown[] = obj;
 
 	for (let i = 0; i < segments.length - 1; i++) {
-		const seg = segments[i];
-		const nextSeg = segments[i + 1];
+		// Loop bound guarantees elements; `!` satisfies noUncheckedIndexedAccess.
+		const seg = segments[i]!;
+		const nextSeg = segments[i + 1]!;
 
 		if (typeof seg === "number") {
 			const arr = current as unknown[];
@@ -173,7 +178,8 @@ function setNestedValue(
 		}
 	}
 
-	const lastSeg = segments[segments.length - 1];
+	// segments.length >= 1 guaranteed by parseKeyPath (it always produces at least one segment).
+	const lastSeg = segments[segments.length - 1]!;
 	if (typeof lastSeg === "number") {
 		(current as unknown[])[lastSeg] = value;
 	} else {

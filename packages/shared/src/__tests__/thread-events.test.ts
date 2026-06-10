@@ -37,8 +37,8 @@ describe("L1a — Thread primitive events on EventBus", () => {
 		bus.emit(event);
 
 		expect(received).not.toBeNull();
-		expect(received?.threadId).toBe("thr-1");
-		expect(received?.hostKind).toBe("task");
+		expect(received!.threadId).toBe("thr-1");
+		expect(received!.hostKind).toBe("task");
 	});
 
 	it("thread_message_appended carries messageType discriminant", () => {
@@ -60,7 +60,7 @@ describe("L1a — Thread primitive events on EventBus", () => {
 		bus.emit(event);
 
 		expect(received).toHaveLength(1);
-		expect(received[0].messageType).toBe("verdict");
+		expect(received[0]!.messageType).toBe("verdict");
 	});
 
 	it("thread_resolved carries resolvedByMessageId (the verdict that triggered it)", () => {
@@ -80,7 +80,7 @@ describe("L1a — Thread primitive events on EventBus", () => {
 		bus.emit(event);
 
 		expect(received).not.toBeNull();
-		expect(received?.resolvedByMessageId).toBe("verdict-m-1");
+		expect(received!.resolvedByMessageId).toBe("verdict-m-1");
 	});
 
 	it("thread_reopened carries reopenedByMessageId (the new review that re-opened it)", () => {
@@ -100,7 +100,7 @@ describe("L1a — Thread primitive events on EventBus", () => {
 		bus.emit(event);
 
 		expect(received).not.toBeNull();
-		expect(received?.reopenedByMessageId).toBe("rev-m-2");
+		expect(received!.reopenedByMessageId).toBe("rev-m-2");
 	});
 
 	it("thread_archived event delivers", () => {
@@ -119,7 +119,7 @@ describe("L1a — Thread primitive events on EventBus", () => {
 		bus.emit(event);
 
 		expect(received).not.toBeNull();
-		expect(received?.threadId).toBe("thr-1");
+		expect(received!.threadId).toBe("thr-1");
 	});
 
 	it("DomainEvent union covers the 5 new event types (compile-time)", () => {
