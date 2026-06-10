@@ -367,7 +367,9 @@ export function sanitizeRemoteUrl(
 	const scp = /^([A-Za-z0-9._-]+)@([A-Za-z0-9.-]+):([^\s]+)$/;
 	const m = scp.exec(input);
 	if (m) {
-		if (m[1].includes(":")) {
+		// m[1] is the first capture group — always defined when regex matches.
+		const user = m[1];
+		if (user !== undefined && user.includes(":")) {
 			return { ok: false, reason: "remoteUrl must not contain userinfo password" };
 		}
 		return { ok: true, sanitized: input };

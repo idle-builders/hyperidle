@@ -737,7 +737,8 @@ export function registerNotificationDispatcher(
 					? null
 					: buildItemNotification(item, classification.severity, nowFn());
 			await route(classification, notification, "item_created", event.itemId, item.sourceAgentId, {
-				itemKind: item.kind,
+				// item.kind is string | null from DB; route expects string | undefined.
+				itemKind: item.kind ?? undefined,
 			});
 		})();
 	});
