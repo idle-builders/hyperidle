@@ -32,11 +32,7 @@ function authHeaders(extra: Record<string, string> = {}): Record<string, string>
 
 const NOW = new Date().toISOString();
 
-async function seedUser(
-	db: HyperIdleDb,
-	id: string,
-	name: string,
-): Promise<void> {
+async function seedUser(db: HyperIdleDb, id: string, name: string): Promise<void> {
 	await db.insert(users).values({
 		id,
 		kind: "human",

@@ -71,7 +71,7 @@ async function insertTask(
 		betId: "bet-ad5-dep",
 		teamId: "team-ad5-dep",
 		title: `Task ${id}`,
-		state: state as typeof tasks.$inferInsert["state"],
+		state: state as (typeof tasks.$inferInsert)["state"],
 		ownerAgentId: "agent-ad5-dep",
 		dependencies: dependencies ? JSON.stringify(dependencies) : null,
 		createdAt: now,

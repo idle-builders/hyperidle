@@ -47,10 +47,7 @@ interface RemoteErrorMessage {
 	readonly sessionId: string;
 	readonly message: string;
 }
-type RemoteWorkerMessage =
-	| RemoteEventMessage
-	| RemoteSessionResultMessage
-	| RemoteErrorMessage;
+type RemoteWorkerMessage = RemoteEventMessage | RemoteSessionResultMessage | RemoteErrorMessage;
 
 function asRemoteWorkerMessage(msg: unknown): RemoteWorkerMessage | null {
 	if (typeof msg !== "object" || msg === null || !("type" in msg)) return null;

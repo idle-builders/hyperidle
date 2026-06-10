@@ -37,10 +37,17 @@ describe("create_bet tool", () => {
 		expect(result.status).toBe("ok");
 		if (result.status !== "ok") return;
 
-		expect((result.value as { betId: string; status: string; teamId: string }).status).toBe("draft");
+		expect((result.value as { betId: string; status: string; teamId: string }).status).toBe(
+			"draft",
+		);
 		expect((result.value as { betId: string; status: string; teamId: string }).teamId).toBe(teamId);
 
-		const betRows = await db.select().from(bets).where(eq(bets.id, (result.value as { betId: string; status: string; teamId: string }).betId));
+		const betRows = await db
+			.select()
+			.from(bets)
+			.where(
+				eq(bets.id, (result.value as { betId: string; status: string; teamId: string }).betId),
+			);
 		expect(betRows).toHaveLength(1);
 		expect(betRows[0]!.status).toBe("draft");
 		expect(betRows[0]!.teamId).toBe(teamId);
@@ -62,7 +69,11 @@ describe("create_bet tool", () => {
 		expect(result.status).toBe("ok");
 		if (result.status !== "ok") return;
 
-		const [bet] = await db.select().from(bets).where(eq(bets.id, (result.value as { betId: string; status: string; teamId: string }).betId)).limit(1);
+		const [bet] = await db
+			.select()
+			.from(bets)
+			.where(eq(bets.id, (result.value as { betId: string; status: string; teamId: string }).betId))
+			.limit(1);
 		expect(bet!.doneCondition).toBe("All tests pass");
 		expect(bet!.hypothesis).toBe("This will unlock self-serve signups");
 	});
@@ -77,8 +88,12 @@ describe("create_bet tool", () => {
 		expect(result.status).toBe("ok");
 		if (result.status !== "ok") return;
 
-		expect(typeof (result.value as { betId: string; status: string; teamId: string }).betId).toBe("string");
-		expect((result.value as { betId: string; status: string; teamId: string }).status).toBe("draft");
+		expect(typeof (result.value as { betId: string; status: string; teamId: string }).betId).toBe(
+			"string",
+		);
+		expect((result.value as { betId: string; status: string; teamId: string }).status).toBe(
+			"draft",
+		);
 		expect((result.value as { betId: string; status: string; teamId: string }).teamId).toBe(teamId);
 	});
 

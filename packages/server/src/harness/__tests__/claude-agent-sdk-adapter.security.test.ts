@@ -10,8 +10,7 @@
  *   3. has no env-gated branch (S3 fails).
  */
 
-import type { Query, SDKMessage } from "@anthropic-ai/claude-agent-sdk";
-import type { query as sdkQuery } from "@anthropic-ai/claude-agent-sdk";
+import type { Query, SDKMessage, query as sdkQuery } from "@anthropic-ai/claude-agent-sdk";
 import type { SessionConfig } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ClaudeAgentSdkAdapter } from "../claude-agent-sdk-adapter.js";

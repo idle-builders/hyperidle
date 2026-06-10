@@ -52,9 +52,9 @@ export type ValidatedJson<T extends z.ZodTypeAny> = {
 export function validateBody<T extends z.ZodTypeAny>(
 	schema: T,
 ): MiddlewareHandler<Env, string, ValidatedJson<T>> {
-	return zValidator(
-		"json",
-		schema as never,
-		validationHook,
-	) as MiddlewareHandler<Env, string, ValidatedJson<T>>;
+	return zValidator("json", schema as never, validationHook) as MiddlewareHandler<
+		Env,
+		string,
+		ValidatedJson<T>
+	>;
 }

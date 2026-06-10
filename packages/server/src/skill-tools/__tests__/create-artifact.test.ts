@@ -103,7 +103,11 @@ describe("create_artifact tool", () => {
 			const result = await createArtifactTool.handler(
 				{
 					kind: "text",
-					preview: { kind: "text", body: "All 42 unit tests passed.", format: "plain" } as ArtifactPreview,
+					preview: {
+						kind: "text",
+						body: "All 42 unit tests passed.",
+						format: "plain",
+					} as ArtifactPreview,
 				},
 				makeContext(db, eventBus),
 			);
@@ -253,7 +257,11 @@ describe("create_artifact tool", () => {
 			const result = await createArtifactTool.handler(
 				{
 					kind: "text",
-					preview: { kind: "text", body: "10 tests passed, 0 failed.", format: "plain" } as ArtifactPreview,
+					preview: {
+						kind: "text",
+						body: "10 tests passed, 0 failed.",
+						format: "plain",
+					} as ArtifactPreview,
 				},
 				makeContext(db, eventBus, "task-1"),
 			);

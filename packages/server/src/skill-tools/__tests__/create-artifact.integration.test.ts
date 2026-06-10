@@ -165,7 +165,11 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 			{
 				kind: "text",
 				label: "test_results",
-				preview: { kind: "text", body: "7 passed, 0 failed in e2e", format: "plain" } as ArtifactPreview,
+				preview: {
+					kind: "text",
+					body: "7 passed, 0 failed in e2e",
+					format: "plain",
+				} as ArtifactPreview,
 			},
 			ctx,
 		);
