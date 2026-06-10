@@ -282,7 +282,6 @@ describe("Routine Scheduler", () => {
 				modelTier: "workhorse",
 				startedAt: now.toISOString(),
 				state: "active",
-				cost: 0,
 			});
 
 			await db.insert(sessions).values({
@@ -292,7 +291,6 @@ describe("Routine Scheduler", () => {
 				modelTier: "workhorse",
 				startedAt: now.toISOString(),
 				state: "active",
-				cost: 0,
 			});
 
 			await db.insert(routines).values({

@@ -73,7 +73,6 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		modelTier: "workhorse",
 		startedAt: now,
 		state: "active",
-		cost: 0,
 	});
 }
 

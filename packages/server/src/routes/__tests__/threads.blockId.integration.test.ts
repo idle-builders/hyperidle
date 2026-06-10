@@ -416,7 +416,7 @@ describe("AC-4 — anchored messages outlive their block (no cascade delete)", (
 		expect(messageRows).toHaveLength(1);
 		expect(messageRows[0]!.blockId).toBe(blockId);
 
-		const cols = Object.keys(messageRows[0]);
+		const cols = Object.keys(messageRows[0]!);
 		expect(cols).toContain("blockId");
 	});
 });

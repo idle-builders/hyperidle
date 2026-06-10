@@ -40,7 +40,6 @@ async function seed(db: HyperIdleDb, suffix = ""): Promise<SeedScope> {
 		appetite: "1w",
 		status: "draft",
 		createdAt: NOW,
-		updatedAt: NOW,
 	});
 
 	// @lore U1: tasks.teamId references teams.id (domain entity), not teamMembers.id
