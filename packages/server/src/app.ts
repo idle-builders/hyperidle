@@ -246,9 +246,9 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 	// I2 review W4: `/api/health` is a liveness probe target — k8s,
 	// systemd, and load balancers fire it many times per minute and a 429
 	// would mark the pod unhealthy. The limiter exempts it via skipPaths.
-	const rateLimitPerMin = Number.parseInt(process.env.HYPERIDLE_RATE_LIMIT_PER_MIN ?? "60", 10);
+	const rateLimitPerMin = Number.parseInt(process.env.HYPERIDLE_RATE_LIMIT_PER_MIN ?? "300", 10);
 	const baseRateLimit =
-		Number.isFinite(rateLimitPerMin) && rateLimitPerMin > 0 ? rateLimitPerMin : 60;
+		Number.isFinite(rateLimitPerMin) && rateLimitPerMin > 0 ? rateLimitPerMin : 300;
 	api.use(
 		"*",
 		createRateLimiter({

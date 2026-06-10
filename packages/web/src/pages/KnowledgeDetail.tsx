@@ -273,8 +273,15 @@ export function KnowledgeDetail({ overrideKnowledgeId }: KnowledgeDetailProps = 
 	// Q2: Pass the route-resolved knowledgeId to the view so ScopeChangeDialog
 	// uses the actual route param for the PATCH URL, not item.id from fixture data
 	// (FALLBACK_DETAIL.id would be "unknown" for non-fixture item IDs).
+	const hasRealData = apiItem !== null || fixtureItem !== undefined;
+	const viewKey = `${knowledgeId}-${hasRealData ? "loaded" : "fallback"}`;
 	return (
-		<KnowledgeDetailView item={item} legacySource={legacySource} routeKnowledgeId={knowledgeId} />
+		<KnowledgeDetailView
+			key={viewKey}
+			item={item}
+			legacySource={legacySource}
+			routeKnowledgeId={knowledgeId}
+		/>
 	);
 }
 

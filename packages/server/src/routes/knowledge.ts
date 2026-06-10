@@ -297,15 +297,32 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		const id = c.req.param("id");
 		const userId = c.get("userId");
 
-		const [item] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).limit(1);
+		const [row] = await db
+			.select({
+				item: knowledgeItems,
+				kind: knowledgeStrategyFabric.kind,
+				layer: knowledgeStrategyFabric.layer,
+				confidence: knowledgeStrategyFabric.confidence,
+				relevanceScore: knowledgeStrategyFabric.relevanceScore,
+				attentionScore: knowledgeStrategyFabric.attentionScore,
+			})
+			.from(knowledgeItems)
+			.leftJoin(
+				knowledgeStrategyFabric,
+				eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
+			)
+			.where(eq(knowledgeItems.id, id))
+			.limit(1);
 
-		if (!item) {
+		if (!row) {
 			const response: ApiErrorResponse = {
 				error: "Knowledge item not found",
 				code: API_ERROR_CODES.NOT_FOUND,
 			};
 			return c.json(response, 404);
 		}
+
+		const { item } = row;
 
 		// Q2: user-scoped items are private — return 404 (not 403) to avoid leaking existence.
 		if (item.scopeKind === "user" && item.updatedBy !== userId) {
@@ -341,7 +358,12 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		};
 		eventBus.emit(accessedEvent);
 
-		return c.json(item);
+		return c.json({
+			...item,
+			kind: row.kind ?? undefined,
+			layer: row.layer ?? undefined,
+			confidence: row.confidence ? Number.parseFloat(row.confidence) : undefined,
+		});
 	});
 
 	// POST / — create (version=1), status defaults to "draft"
