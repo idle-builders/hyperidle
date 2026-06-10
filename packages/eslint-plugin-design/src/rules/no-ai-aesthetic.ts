@@ -28,6 +28,7 @@
  */
 
 import type { Rule } from "eslint";
+import type { JSXAttribute, JSXText } from "estree-jsx";
 import {
 	collectClassStringsFromExpression,
 	collectClassStringsFromJSXAttribute,
@@ -63,7 +64,8 @@ const GRADIENT_AI_STOP = /\b(?:from|via|to)-(?:indigo|purple|violet|fuchsia|pink
 
 const BACKDROP_BLUR = /\bbackdrop-(?:blur|filter)(?:-[a-z0-9]+)?\b/;
 const HEAVY_SHADOW = /\bshadow-(?:lg|xl|2xl)\b/;
-const GRADIENT_TEXT_PARTS = [/\bbg-clip-text\b/, /\btext-transparent\b/];
+const GRADIENT_TEXT_BG_CLIP = /\bbg-clip-text\b/;
+const GRADIENT_TEXT_TRANSPARENT = /\btext-transparent\b/;
 
 // AESTHETICS.md tell #3 lint hint: regex `/\b(p|px|py)-(8|10|12|14|16)\b/`
 const OVERSIZED_PADDING = /\b(?:p|px|py)-(?:8|10|12|14|16)\b/;
@@ -115,7 +117,7 @@ export const noAiAesthetic: Rule.RuleModule = createRule({
 		},
 	},
 	create(context) {
-		const filename = context.filename ?? context.getFilename();
+		const filename = context.filename;
 		const isOverlayFile = isShadowOverlayFile(filename);
 
 		function checkClassString(text: string, node: unknown): void {
@@ -153,14 +155,18 @@ export const noAiAesthetic: Rule.RuleModule = createRule({
 					data: { cls: mShadow[0] },
 				});
 			}
-			if (GRADIENT_TEXT_PARTS[0].test(text) && GRADIENT_TEXT_PARTS[1].test(text)) {
+			if (GRADIENT_TEXT_BG_CLIP.test(text) && GRADIENT_TEXT_TRANSPARENT.test(text)) {
 				context.report({ node: reportNode, messageId: "gradientText" });
 			}
 		}
 
 		return {
-			JSXAttribute(node) {
-				const name = node.name && node.name.type === "JSXIdentifier" ? node.name.name : null;
+			JSXAttribute(rawNode: unknown) {
+				const node = rawNode as JSXAttribute;
+				const name =
+					node.type === "JSXAttribute" && node.name.type === "JSXIdentifier"
+						? node.name.name
+						: null;
 				if (name !== "className") return;
 				const strings = collectClassStringsFromJSXAttribute(node);
 				for (const { text } of strings) {
@@ -195,8 +201,9 @@ export const noAiAesthetic: Rule.RuleModule = createRule({
 				}
 			},
 			// JSX text nodes: scan for lorem/marketing/leading-emoji.
-			JSXText(node) {
-				const value = (node as unknown as { value: string }).value;
+			JSXText(rawNode: unknown) {
+				const node = rawNode as JSXText;
+				const value = node.value;
 				if (typeof value !== "string") return;
 				const trimmed = value.trim();
 				if (trimmed.length === 0) return;

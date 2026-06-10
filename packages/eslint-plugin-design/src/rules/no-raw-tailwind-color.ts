@@ -8,6 +8,7 @@
  */
 
 import type { Rule } from "eslint";
+import type { JSXAttribute } from "estree-jsx";
 import { createRule, getClassNameLiteral, RAW_TAILWIND_PALETTE } from "../util.js";
 
 const PALETTE_GROUP = RAW_TAILWIND_PALETTE.join("|");
@@ -32,8 +33,12 @@ export const noRawTailwindColor: Rule.RuleModule = createRule({
 	},
 	create(context) {
 		return {
-			JSXAttribute(node) {
-				const name = node.name && node.name.type === "JSXIdentifier" ? node.name.name : null;
+			JSXAttribute(rawNode: unknown) {
+				const node = rawNode as JSXAttribute;
+				const name =
+					node.type === "JSXAttribute" && node.name.type === "JSXIdentifier"
+						? node.name.name
+						: null;
 				if (name !== "className") return;
 				const literal = getClassNameLiteral(
 					node as unknown as { value?: { type?: string; value?: unknown } | null },

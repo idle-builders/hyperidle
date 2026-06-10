@@ -143,7 +143,7 @@ export const noMockDataSymbol: Rule.RuleModule = createRule({
 		},
 	},
 	create(context) {
-		const filename = context.filename ?? context.getFilename();
+		const filename = context.filename;
 		if (isPermittedSurfaceFile(filename)) return {};
 
 		return {
@@ -156,7 +156,7 @@ export const noMockDataSymbol: Rule.RuleModule = createRule({
 				const parentType = parent.type as string;
 				if (parentType !== "Program" && parentType !== "ExportNamedDeclaration") return;
 
-				const declarations = node.declarations as AnyNode[];
+				const declarations = node.declarations as unknown as AnyNode[];
 				for (const declarator of declarations) {
 					checkDeclarator(context, filename, declarator);
 				}

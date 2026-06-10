@@ -13,20 +13,19 @@ import type {
 	ExportDefaultDeclaration,
 	FunctionDeclaration,
 	FunctionExpression,
-	JSXElement,
-	JSXFragment,
 	Node,
 	ReturnStatement,
-} from "estree-jsx";
+} from "estree";
+import type { JSXElement, JSXFragment } from "estree-jsx";
 import { createRule } from "../util.js";
 
 type Component = FunctionDeclaration | FunctionExpression | ArrowFunctionExpression;
 
 function findOutermostJSX(node: Component): JSXElement | JSXFragment | null {
 	if (node.type === "ArrowFunctionExpression" && node.body.type !== "BlockStatement") {
-		const body = node.body as Node;
+		const body = node.body as { type: string };
 		if (body.type === "JSXElement" || body.type === "JSXFragment") {
-			return body as JSXElement | JSXFragment;
+			return body as unknown as JSXElement | JSXFragment;
 		}
 		return null;
 	}
@@ -34,9 +33,9 @@ function findOutermostJSX(node: Component): JSXElement | JSXFragment | null {
 	if (!Array.isArray(body)) return null;
 	for (const stmt of body) {
 		if (stmt.type === "ReturnStatement") {
-			const arg = (stmt as ReturnStatement).argument;
+			const arg = (stmt as ReturnStatement).argument as { type: string } | null | undefined;
 			if (arg && (arg.type === "JSXElement" || arg.type === "JSXFragment")) {
-				return arg as JSXElement | JSXFragment;
+				return arg as unknown as JSXElement | JSXFragment;
 			}
 		}
 	}
@@ -60,7 +59,7 @@ function hasDsAttribute(jsx: JSXElement): boolean {
 				attr.name.type === "JSXIdentifier"
 					? attr.name.name
 					: attr.name.type === "JSXNamespacedName"
-						? attr.name.name.name
+						? (attr.name as unknown as { name: { name: string } }).name.name
 						: null;
 			if (name === "data-ds-component" || name === "data-ds-shell") {
 				return true;
@@ -85,7 +84,7 @@ export const requireDsAttribute: Rule.RuleModule = createRule({
 		},
 	},
 	create(context) {
-		const filename = context.filename ?? context.getFilename();
+		const filename = context.filename;
 		// Only fire inside packages/design-system/src/*.tsx — the rule is a
 		// marker contract for design-system primitives.
 		if (
@@ -108,7 +107,7 @@ export const requireDsAttribute: Rule.RuleModule = createRule({
 					component = decl as Component;
 				} else if (decl.type === "Identifier") {
 					// `export default Foo` — try to find the binding declaration.
-					const sourceCode = context.sourceCode ?? context.getSourceCode();
+					const sourceCode = context.sourceCode;
 					const scope = sourceCode.getScope(node);
 					const variable = scope.references.find(
 						(r) => r.identifier.name === (decl as { name: string }).name,

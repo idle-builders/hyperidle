@@ -8,6 +8,7 @@
  */
 
 import type { Rule } from "eslint";
+import type { JSXOpeningElement } from "estree-jsx";
 import { createRule, getClassNameLiteral } from "../util.js";
 
 const FOCUS_VISIBLE = /\bfocus-visible:/;
@@ -28,7 +29,8 @@ export const requireFocusOnInteractive: Rule.RuleModule = createRule({
 	},
 	create(context) {
 		return {
-			JSXOpeningElement(node) {
+			JSXOpeningElement(rawNode: unknown) {
+				const node = rawNode as JSXOpeningElement;
 				const tagName = node.name.type === "JSXIdentifier" ? node.name.name : null;
 				if (tagName !== "div" && tagName !== "span") return;
 				let hasOnClick = false;

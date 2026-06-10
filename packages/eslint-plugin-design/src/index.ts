@@ -65,6 +65,9 @@ export const configs: Record<string, Linter.Config> = {
 	},
 };
 
-const exported = { ...plugin, configs };
+const exported: ESLint.Plugin & { configs: Record<string, Linter.Config> } = {
+	...plugin,
+	configs,
+};
 
 export default exported;

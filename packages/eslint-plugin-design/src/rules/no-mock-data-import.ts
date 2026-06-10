@@ -58,7 +58,7 @@ export const noMockDataImport: Rule.RuleModule = createRule({
 		},
 	},
 	create(context) {
-		const filename = context.filename ?? context.getFilename();
+		const filename = context.filename;
 		if (isPermittedSurfaceFile(filename)) return {};
 
 		return {

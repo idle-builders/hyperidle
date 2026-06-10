@@ -11,6 +11,9 @@
  * U10 Hearth update: uses rounded-2xl (16px = --r-default, now on-scale) and
  * 6px-grid spacing values.
  */
+
+import type { JSX } from "react";
+
 export const Good = (): JSX.Element => (
 	<button
 		type="button"

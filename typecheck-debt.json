@@ -2,11 +2,6 @@
   "$schema": "./scripts/typecheck-debt.schema.json",
   "description": "Packages with known type errors, quarantined by AF1. Drained by AF2-AF5.",
   "packages": {
-    "eslint-plugin-design": {
-      "owner": "AF2",
-      "errors": 72,
-      "note": "test-fixtures missing JSX types"
-    },
     "fabric": {
       "owner": "AF3",
       "errors": 173,

@@ -46,6 +46,7 @@ function getFirstArgPath(arg: unknown): string | null {
 		const quasis = node.quasis as Array<{ value: { cooked?: string; raw: string } }>;
 		if (quasis.length === 0) return null;
 		const first = quasis[0];
+		if (!first) return null;
 		const text = first.value.cooked ?? first.value.raw;
 		return typeof text === "string" ? text : null;
 	}
@@ -85,7 +86,7 @@ export const noRawActorFetch: Rule.RuleModule = createRule({
 		},
 	},
 	create(context) {
-		const filename = context.filename ?? context.getFilename();
+		const filename = context.filename;
 		if (isAllowlistedFile(filename)) return {};
 
 		return {

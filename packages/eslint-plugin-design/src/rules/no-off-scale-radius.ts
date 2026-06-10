@@ -19,6 +19,7 @@
  */
 
 import type { Rule } from "eslint";
+import type { JSXAttribute } from "estree-jsx";
 import {
 	ALLOWED_NAMED_RADIUS,
 	collectClassStringsFromJSXAttribute,
@@ -94,8 +95,12 @@ export const noOffScaleRadius: Rule.RuleModule = createRule({
 			}
 		}
 		return {
-			JSXAttribute(node) {
-				const name = node.name && node.name.type === "JSXIdentifier" ? node.name.name : null;
+			JSXAttribute(rawNode: unknown) {
+				const node = rawNode as JSXAttribute;
+				const name =
+					node.type === "JSXAttribute" && node.name.type === "JSXIdentifier"
+						? node.name.name
+						: null;
 				if (name !== "className") return;
 				const strings = collectClassStringsFromJSXAttribute(node);
 				for (const { text } of strings) {
