@@ -8,17 +8,15 @@ import { ArtifactGalleryCard } from "../ArtifactGalleryCard.js";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+// @lore AF2: Artifact.kind is open-vocabulary (string). The preview discriminated
+// union only covers the 6 AE6 kinds. Use string cast for open kind + null preview.
 const FIXTURE = {
 	id: "art1",
 	producingTaskId: "task1",
 	producingTaskTitle: "Implement auth flow",
-	kind: "drafted_email" as const,
-	preview: {
-		kind: "drafted_email" as const,
-		to: ["a@b.co"],
-		subject: "Welcome",
-		bodyExcerpt: "Hi there",
-	},
+	kind: "drafted_email" as string,
+	label: null,
+	preview: null,
 	cost: { money: { minor: 42, currency: "USD" as const }, tokens: null },
 	threadCount: 0,
 	createdAt: "2026-04-28T00:00:00.000Z",

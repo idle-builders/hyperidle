@@ -12,8 +12,12 @@ const FIXTURE = {
 	id: "art1",
 	producingTaskId: "task1",
 	producingTaskTitle: "Implement auth flow",
-	kind: "decision" as const,
-	preview: { kind: "decision" as const, claim: "Ship X", rationale: "y" },
+	// @lore AF2: Artifact.kind is open-vocabulary (string), but ArtifactPreview
+	// is a closed discriminated union (6 AE6 kinds). Keep kind as "decision" for
+	// the test assertions but use a valid preview kind or null.
+	kind: "decision" as string,
+	label: null,
+	preview: null,
 	cost: { money: { minor: 42, currency: "USD" as const }, tokens: null },
 	threadCount: 0,
 	createdAt: "2026-04-28T00:00:00.000Z",

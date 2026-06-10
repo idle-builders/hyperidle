@@ -36,7 +36,7 @@ import { isBlocking, isRedactedPayload, promotedRichMessageId } from "@hyperidle
 import { type JSX, type ReactNode, useMemo, useRef, useState } from "react";
 import { CommentRow } from "./CommentRow.js";
 import { Composer } from "./Composer.js";
-import { dsProps } from "./ds-attrs.js";
+import { dsShellProps } from "./ds-attrs.js";
 import { EmptyState } from "./EmptyState.js";
 import { ErrorState } from "./ErrorState.js";
 import { RichMessageCard, type RichMessageCardAction } from "./RichMessageCard.js";
@@ -276,6 +276,7 @@ export function ThreadShell({
 		}
 		for (let i = ordered.length - 1; i >= 0; i--) {
 			const m = ordered[i];
+			if (m === undefined) continue;
 			if ((m.type === "review" || m.type === "questionnaire") && m.resolvedAt !== null) {
 				const verdict = ordered.find(
 					(v) =>
@@ -390,7 +391,7 @@ export function ThreadShell({
 
 	return (
 		<div
-			{...dsProps("ThreadShell", "3")}
+			{...dsShellProps("ThreadShell")}
 			data-testid="thread-shell"
 			aria-live="polite"
 			className="flex flex-col h-full bg-[var(--surface-elevated)] focus-within:outline-none"

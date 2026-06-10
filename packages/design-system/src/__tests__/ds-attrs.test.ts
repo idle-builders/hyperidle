@@ -90,9 +90,9 @@ const TIER_2: ComponentCase[] = [
 		render: () =>
 			createElement(KnowledgeRow, {
 				title: "Item",
-				layer: "factory",
+				layer: "L1",
 				kind: "decision",
-				status: "approved",
+				status: "validated",
 				timestamp: "now",
 			}),
 	},

@@ -44,12 +44,12 @@ const PRIMITIVE_CASES: ComponentCase[] = [
 	{
 		name: "AvatarGroup",
 		render: () =>
-			createElement(
-				AvatarGroup,
-				{},
-				createElement(Avatar, { initials: "AB" }),
-				createElement(Avatar, { initials: "CD" }),
-			),
+			createElement(AvatarGroup, {
+				children: [
+					createElement(Avatar, { key: "a", initials: "AB" }),
+					createElement(Avatar, { key: "b", initials: "CD" }),
+				],
+			}),
 	},
 	{
 		name: "Button",
@@ -212,12 +212,13 @@ describe("W2 — AvatarGroup small variant uses cloneElement (AC-3)", () => {
 	it("AvatarGroup with small=true renders all children avatars as smaller size", async () => {
 		await act(async () => {
 			root.render(
-				createElement(
-					AvatarGroup,
-					{ small: true },
-					createElement(Avatar, { initials: "AB" }),
-					createElement(Avatar, { initials: "CD" }),
-				),
+				createElement(AvatarGroup, {
+					small: true,
+					children: [
+						createElement(Avatar, { key: "a", initials: "AB" }),
+						createElement(Avatar, { key: "b", initials: "CD" }),
+					],
+				}),
 			);
 		});
 		// Both avatars should be present
