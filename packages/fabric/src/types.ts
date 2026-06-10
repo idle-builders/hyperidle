@@ -33,7 +33,9 @@ export const SCOPE_TO_LAYER: Readonly<Record<ScopeKind, KnowledgeLayer | null>> 
 };
 
 export function scopeToLayer(scopeKind: ScopeKind): KnowledgeLayer | null {
-	return SCOPE_TO_LAYER[scopeKind];
+	// @lore AF3: SCOPE_TO_LAYER covers all ScopeKind values; undefined is
+	// unreachable but noUncheckedIndexedAccess requires the guard.
+	return SCOPE_TO_LAYER[scopeKind] ?? null;
 }
 
 export const KNOWLEDGE_STATUSES = [

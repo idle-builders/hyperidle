@@ -377,7 +377,12 @@ function isPrivateIPv4(ip: string): boolean {
 	if (parts.length !== 4) return false;
 	const nums = parts.map(Number);
 	if (nums.some((n) => !Number.isFinite(n) || n < 0 || n > 255)) return false;
-	const [a, b] = nums;
+	// @lore AF3 C4: parts.length === 4 is proven above; guard narrows a and b
+	// to number for the SSRF blocklist checks. Do NOT change which IPs are
+	// classified private — this is a security-critical function.
+	const a = nums[0];
+	const b = nums[1];
+	if (a === undefined || b === undefined) return false;
 	if (a === 10) return true; // 10.0.0.0/8
 	if (a === 127) return true; // loopback
 	if (a === 0) return true; // 0.0.0.0/8 "this network"
@@ -399,7 +404,12 @@ function isPrivateIPv6(ip: string): boolean {
 	if (/^f[cd][0-9a-f]{0,2}:/i.test(lower)) return true;
 	// IPv4-mapped or IPv4-compatible addresses (::ffff:a.b.c.d)
 	const embedded = lower.match(/::(?:ffff:)?(\d+\.\d+\.\d+\.\d+)$/);
-	if (embedded) return isPrivateIPv4(embedded[1]);
+	// @lore AF3 C5: embedded[1] is always defined when the capture-group regex matches;
+	// the presence guard is a narrowing step to satisfy noUncheckedIndexedAccess.
+	if (embedded) {
+		const ipv4Part = embedded[1];
+		if (ipv4Part !== undefined) return isPrivateIPv4(ipv4Part);
+	}
 	return false;
 }
 
