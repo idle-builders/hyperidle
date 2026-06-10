@@ -33,6 +33,18 @@
  * this case and always fails the gate with diagnostic output. We check
  * rawParsedCount (before own-file filtering) rather than ownErrors to avoid
  * false-triggering on packages that only have reference-noise errors.
+ *
+ * @lore AF3: AF3 discovered that main's gate can be RED while CI is GREEN because
+ * CI trusts the HMAC-signed attestation (scripts/check-attestation.ts) rather than
+ * re-running this gate. AF2 removed design-system/desktop/eval from typecheck-debt.json
+ * and declared them zero-error, but those packages still had 15/1/17 errors on AF2's
+ * own merged tree. The attestation was signed on a tree whose gate was failing; CI
+ * validated the signature, saw status="passed", and reported green. A green attestation
+ * is NOT proof of a green gate if the attestation was generated on an already-red tree.
+ * To fix this integrity gap: (a) have verify-attest.ts record the typecheck-gate exit
+ * code explicitly in the attestation payload, and (b) have check-attestation.ts verify
+ * that field — OR add a CI step that re-runs this script independently of the attestation.
+ * See Z8-166 in plans/Z8/master-flag-register.md.
  */
 
 import { execSync } from "node:child_process";
