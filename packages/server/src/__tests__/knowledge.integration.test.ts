@@ -8,6 +8,7 @@
  * Tests updated to match O2 API shape.
  */
 import { knowledgeEditLog } from "@hyperidle/db";
+import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-knowledge";
@@ -28,7 +29,7 @@ describe("Knowledge Endpoints (E4)", () => {
 	// Helper to create a knowledge item via API
 	// @lore O2: POST /api/knowledge (no layer in path)
 	async function createItem(
-		app: { request: (url: string, init?: RequestInit) => Promise<Response> },
+		app: Pick<Hono, "request">,
 		_layer: string,
 		overrides?: Record<string, unknown>,
 	): Promise<Record<string, unknown>> {
