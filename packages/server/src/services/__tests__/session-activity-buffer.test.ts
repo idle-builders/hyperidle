@@ -8,7 +8,7 @@
 import type { ToolCallRecordedEvent } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { SessionActivityBuffer } from "../session-activity-buffer.js";
+import { SessionActivityBuffer, type ToolCallData } from "../session-activity-buffer.js";
 
 function mkToolCallEvent(overrides?: Partial<ToolCallRecordedEvent>): ToolCallRecordedEvent {
 	return {
@@ -42,9 +42,9 @@ describe("SessionActivityBuffer (Q1 §6.1)", () => {
 
 		const entries = buffer.getActivity("sess-1");
 		expect(entries).toHaveLength(2);
-		expect(entries[0].type).toBe("tool_call");
-		expect(entries[0].data.toolName).toBe("bash");
-		expect(entries[1].data.toolName).toBe("read_file");
+		expect(entries[0]!.type).toBe("tool_call");
+		expect((entries[0]!.data as ToolCallData).toolName).toBe("bash");
+		expect((entries[1]!.data as ToolCallData).toolName).toBe("read_file");
 	});
 
 	// Isolation: events for different sessions do not bleed across
@@ -54,7 +54,7 @@ describe("SessionActivityBuffer (Q1 §6.1)", () => {
 
 		expect(buffer.getActivity("sess-1")).toHaveLength(1);
 		expect(buffer.getActivity("sess-2")).toHaveLength(1);
-		expect(buffer.getActivity("sess-2")[0].data.toolName).toBe("write_file");
+		expect((buffer.getActivity("sess-2")[0]!.data as ToolCallData).toolName).toBe("write_file");
 	});
 
 	// Eviction: ring buffer caps at 100 entries per session (FIFO)
@@ -72,7 +72,7 @@ describe("SessionActivityBuffer (Q1 §6.1)", () => {
 		// Should have max 100 entries
 		expect(entries.length).toBeLessThanOrEqual(100);
 		// Oldest entries (tool_0 through tool_4) should be evicted
-		const toolNames = entries.map((e) => e.data.toolName as string);
+		const toolNames = entries.map((e) => (e.data as ToolCallData).toolName);
 		expect(toolNames).not.toContain("tool_0");
 		expect(toolNames).not.toContain("tool_4");
 		// Most recent entry should be present
@@ -91,7 +91,7 @@ describe("SessionActivityBuffer (Q1 §6.1)", () => {
 		bus.emit(mkToolCallEvent({ sessionId: "sess-ts", timestamp: ts }));
 
 		const entries = buffer.getActivity("sess-ts");
-		expect(entries[0].timestamp).toBe(ts);
+		expect(entries[0]!.timestamp).toBe(ts);
 	});
 
 	// stop() halts event collection
@@ -103,7 +103,7 @@ describe("SessionActivityBuffer (Q1 §6.1)", () => {
 		const entries = buffer.getActivity("sess-stop");
 		expect(entries).toHaveLength(1);
 		// Second event (emitted after stop) should not be present
-		expect(entries[0].data.toolName).not.toBe("after_stop");
+		expect((entries[0]!.data as ToolCallData).toolName).not.toBe("after_stop");
 	});
 
 	// start() can be called after stop() to re-subscribe
@@ -122,8 +122,8 @@ describe("SessionActivityBuffer (Q1 §6.1)", () => {
 		bus.emit(mkToolCallEvent({ sessionId: "sess-order", toolName: "third", timestamp: 300 }));
 
 		const entries = buffer.getActivity("sess-order");
-		expect(entries[0].data.toolName).toBe("first");
-		expect(entries[1].data.toolName).toBe("second");
-		expect(entries[2].data.toolName).toBe("third");
+		expect((entries[0]!.data as ToolCallData).toolName).toBe("first");
+		expect((entries[1]!.data as ToolCallData).toolName).toBe("second");
+		expect((entries[2]!.data as ToolCallData).toolName).toBe("third");
 	});
 });
