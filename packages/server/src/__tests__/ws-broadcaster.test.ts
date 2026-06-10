@@ -44,7 +44,7 @@ describe("WsBroadcaster", () => {
 		eventBus.emit(event);
 
 		expect(client.messages).toHaveLength(1);
-		const received = JSON.parse(client.messages[0]);
+		const received = JSON.parse(client.messages[0]!);
 		expect(received.type).toBe("item_created");
 		expect(received.itemId).toBe("item-1");
 	});
@@ -65,7 +65,7 @@ describe("WsBroadcaster", () => {
 		eventBus.emit(event);
 
 		expect(client.messages).toHaveLength(1);
-		const received = JSON.parse(client.messages[0]);
+		const received = JSON.parse(client.messages[0]!);
 		expect(received.type).toBe("knowledge_updated");
 		expect(received.itemId).toBe("ki-1");
 		expect(received.action).toBe("created");
