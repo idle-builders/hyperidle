@@ -163,7 +163,7 @@ function runPackage(root: string, pkg: string): PackageResult {
 
 // -- Summary table printer --
 
-type RowStatus = "PASS" | "QUARANTINED" | "FAIL" | "CRASHED" | "STALE";
+type RowStatus = "PASS" | `QUARANTINED (${string})` | "FAIL" | "CRASHED" | "STALE";
 
 function printSummary(
   results: PackageResult[],
@@ -188,7 +188,7 @@ function printSummary(
       status = "STALE";
     } else if (r.excepted) {
       const owner = debtRaw.packages[r.name]?.owner ?? "?";
-      status = `QUARANTINED (${owner})` as RowStatus;
+      status = `QUARANTINED (${owner})`;
     } else {
       status = "PASS";
     }
@@ -252,7 +252,7 @@ function main(): void {
   }
 
   // 5. Compute verdict
-  const verdict = computeVerdict(results, excepted);
+  const verdict = computeVerdict(results);
 
   const crashedSet = new Set(verdict.crashedPackages.map((r) => r.name));
   const failedSet = new Set(verdict.failedNonExcepted.map((r) => r.name));

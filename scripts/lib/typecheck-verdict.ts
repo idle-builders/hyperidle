@@ -71,12 +71,14 @@ export interface VerdictResult {
  * 3. Excepted package with zero own errors (stale entry) → FAIL.
  * 4. Otherwise → PASS.
  *
+ * Exception status is read from each PackageResult's `excepted` field, which
+ * the gate script sets after loading the debt file. There is no separate
+ * `excepted` parameter — the PackageResult is the single source of truth.
+ *
  * @param results  Per-package tsc results (after error parsing and filtering).
- * @param excepted Set of package names on the debt exception list.
  */
 export function computeVerdict(
   results: PackageResult[],
-  excepted: Set<string>,
 ): VerdictResult {
   const crashedPackages = results.filter((r) => r.crashed);
   const failedNonExcepted = results.filter(
