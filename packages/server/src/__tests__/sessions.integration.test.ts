@@ -95,7 +95,7 @@ describe("Session Endpoints (E6)", () => {
 
 				// Verify event
 				expect(emitted).toHaveLength(1);
-				expect(emitted[0].type).toBe("session_started");
+				expect(emitted[0]!.type).toBe("session_started");
 			} finally {
 				disposeApp(app);
 			}
@@ -251,7 +251,7 @@ describe("Session Endpoints (E6)", () => {
 				expect(body.notes).toBe("All good");
 
 				expect(emitted).toHaveLength(1);
-				expect(emitted[0].type).toBe("session_ended");
+				expect(emitted[0]!.type).toBe("session_ended");
 			} finally {
 				disposeApp(app);
 			}

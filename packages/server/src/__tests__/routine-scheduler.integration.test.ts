@@ -260,7 +260,7 @@ describe("Routine Scheduler", () => {
 			await vi.waitFor(async () => {
 				const sessionsAfter = await db.select().from(sessions);
 				expect(sessionsAfter).toHaveLength(1);
-				expect(sessionsAfter[0].agentId).toBe("agent-1");
+				expect(sessionsAfter[0]!.agentId).toBe("agent-1");
 			});
 
 			const updated = await getRoutine(db, "r-event");
@@ -423,8 +423,8 @@ describe("Routine Scheduler", () => {
 
 			const allItems = await db.select().from(items);
 			expect(allItems).toHaveLength(1);
-			expect(allItems[0].kind).toBe("review");
-			expect(allItems[0].sourceAgentId).toBe("agent-1");
+			expect(allItems[0]!.kind).toBe("review");
+			expect(allItems[0]!.sourceAgentId).toBe("agent-1");
 
 			const allThreads = await db.select().from(threads);
 			expect(allThreads).toHaveLength(1);

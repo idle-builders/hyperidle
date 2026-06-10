@@ -249,7 +249,7 @@ describe("Bet Endpoints (E3)", () => {
 
 		const rows = await db.select().from(bets);
 		const betRow = rows[0];
-		const revisionLog = JSON.parse(betRow.revisionLog ?? "[]") as unknown[];
+		const revisionLog = JSON.parse(betRow!.revisionLog ?? "[]") as unknown[];
 		expect(revisionLog.length).toBeGreaterThan(0);
 		vi.unstubAllEnvs();
 	});

@@ -60,9 +60,9 @@ describe("toolResultToCallToolResult (AC3)", () => {
 		expect(callResult.isError).toBeFalsy();
 		expect(callResult.content).toHaveLength(1);
 		const item = callResult.content[0];
-		expect(item.type).toBe("text");
-		if (item.type === "text") {
-			expect(item.text).toBe(JSON.stringify({ id: "abc", value: 42 }));
+		expect(item!.type).toBe("text");
+		if (item!.type === "text") {
+			expect(item!.text).toBe(JSON.stringify({ id: "abc", value: 42 }));
 		}
 	});
 
@@ -88,9 +88,9 @@ describe("toolResultToCallToolResult (AC3)", () => {
 		expect(callResult.isError).toBe(true);
 		expect(callResult.content).toHaveLength(1);
 		const item = callResult.content[0];
-		expect(item.type).toBe("text");
-		if (item.type === "text") {
-			const parsed = JSON.parse(item.text) as { error: string; code: string };
+		expect(item!.type).toBe("text");
+		if (item!.type === "text") {
+			const parsed = JSON.parse(item!.text) as { error: string; code: string };
 			expect(parsed.error).toBe("Resource not found");
 			expect(parsed.code).toBe("NOT_FOUND");
 		}
@@ -106,9 +106,9 @@ describe("toolResultToCallToolResult (AC3)", () => {
 
 		expect(callResult.isError).toBe(true);
 		const item = callResult.content[0];
-		expect(item.type).toBe("text");
-		if (item.type === "text") {
-			expect(item.text).toContain("FORBIDDEN");
+		expect(item!.type).toBe("text");
+		if (item!.type === "text") {
+			expect(item!.text).toContain("FORBIDDEN");
 		}
 	});
 

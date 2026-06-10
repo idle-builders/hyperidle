@@ -110,9 +110,9 @@ describe("Dependency Watcher", () => {
 			await checkAndUnblockDependents(db, eventBus, "dep-1");
 
 			expect(notifications).toHaveLength(1);
-			expect(notifications[0].targetId).toBe("dependent");
-			expect(notifications[0].message).toContain("dependent");
-			expect(notifications[0].message).toContain("accepted");
+			expect(notifications[0]!.targetId).toBe("dependent");
+			expect(notifications[0]!.message).toContain("dependent");
+			expect(notifications[0]!.message).toContain("accepted");
 		});
 
 		test("emits task_state_changed event on auto-transition", async ({ db, eventBus }) => {
@@ -126,9 +126,9 @@ describe("Dependency Watcher", () => {
 			await checkAndUnblockDependents(db, eventBus, "dep-1");
 
 			expect(events).toHaveLength(1);
-			expect(events[0].taskId).toBe("dependent");
-			expect(events[0].fromState).toBe("hold");
-			expect(events[0].toState).toBe("accepted");
+			expect(events[0]!.taskId).toBe("dependent");
+			expect(events[0]!.fromState).toBe("hold");
+			expect(events[0]!.toState).toBe("accepted");
 		});
 
 		test("does not emit notification when task stays in hold", async ({ db, eventBus }) => {

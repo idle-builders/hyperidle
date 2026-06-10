@@ -47,12 +47,12 @@ describe("add_agent tool", () => {
 		const agentRows = await db.select().from(users).where(eq(users.id, data.agentId));
 		expect(agentRows).toHaveLength(1);
 		const agent = agentRows[0];
-		expect(agent.kind).toBe("ai");
-		expect(agent.status).toBe("active");
-		expect(agent.role).toBe("qa_engineer");
-		expect(agent.name).toBe("QA Bot");
+		expect(agent!.kind).toBe("ai");
+		expect(agent!.status).toBe("active");
+		expect(agent!.role).toBe("qa_engineer");
+		expect(agent!.name).toBe("QA Bot");
 		// teamId on users references teamMembers.id
-		expect(agent.teamId).toBe(teamMembersId);
+		expect(agent!.teamId).toBe(teamMembersId);
 	});
 
 	test("loads soul template from factorySettings when no explicit soulPrompt", async ({ db }) => {
@@ -72,7 +72,7 @@ describe("add_agent tool", () => {
 
 		const data = result.data as { agentId: string };
 		const [agent] = await db.select().from(users).where(eq(users.id, data.agentId)).limit(1);
-		expect(agent.soulPrompt).toBe("You are a QA specialist.");
+		expect(agent!.soulPrompt).toBe("You are a QA specialist.");
 	});
 
 	test("uses explicit soulPrompt override instead of template", async ({ db }) => {
@@ -97,7 +97,7 @@ describe("add_agent tool", () => {
 
 		const data = result.data as { agentId: string };
 		const [agent] = await db.select().from(users).where(eq(users.id, data.agentId)).limit(1);
-		expect(agent.soulPrompt).toBe("Custom soul prompt override.");
+		expect(agent!.soulPrompt).toBe("Custom soul prompt override.");
 	});
 
 	test("soulPrompt is null when no template and no explicit override", async ({ db }) => {
@@ -112,7 +112,7 @@ describe("add_agent tool", () => {
 
 		const data = result.data as { agentId: string };
 		const [agent] = await db.select().from(users).where(eq(users.id, data.agentId)).limit(1);
-		expect(agent.soulPrompt).toBeNull();
+		expect(agent!.soulPrompt).toBeNull();
 	});
 
 	test("NOT_FOUND for nonexistent teamId", async ({ db }) => {

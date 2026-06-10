@@ -129,8 +129,8 @@ describe("write_memory tool", () => {
 				.from(knowledgeEditLog)
 				.where(eq(knowledgeEditLog.itemId, data.knowledgeItemId));
 			expect(log).toHaveLength(1);
-			expect(log[0].editType).toBe("create");
-			expect(log[0].editor).toBe("agent:agent-a");
+			expect(log[0]!.editType).toBe("create");
+			expect(log[0]!.editor).toBe("agent:agent-a");
 		});
 
 		test("accepts optional topic and format/status defaults", async ({ db }) => {

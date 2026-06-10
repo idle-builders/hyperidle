@@ -96,8 +96,8 @@ describe("AA1: Routine Visibility API", () => {
 			expect(r).toHaveProperty("name", "Daily digest");
 			// AC-2: schedule label
 			expect(r).toHaveProperty("scheduleLabel");
-			expect(typeof r.scheduleLabel).toBe("string");
-			expect((r.scheduleLabel as string).length).toBeGreaterThan(0);
+			expect(typeof r!.scheduleLabel).toBe("string");
+			expect((r!.scheduleLabel as string).length).toBeGreaterThan(0);
 			// AC-2: assigned agent
 			expect(r).toHaveProperty("agentName");
 			expect(r).toHaveProperty("agentInitials");
@@ -147,7 +147,7 @@ describe("AA1: Routine Visibility API", () => {
 
 			const body = (await res.json()) as Record<string, unknown>;
 			const routinesArr = body.routines as Array<Record<string, unknown>>;
-			expect(routinesArr[0].agentName).toBe("AA1 Agent");
+			expect(routinesArr[0]!.agentName).toBe("AA1 Agent");
 			vi.unstubAllEnvs();
 		});
 	});
@@ -184,7 +184,7 @@ describe("AA1: Routine Visibility API", () => {
 
 			const body = (await res.json()) as Record<string, unknown>;
 			const routinesArr = body.routines as Array<Record<string, unknown>>;
-			expect(routinesArr[0].lastRunOutcome).toBe("error");
+			expect(routinesArr[0]!.lastRunOutcome).toBe("error");
 			vi.unstubAllEnvs();
 		});
 
@@ -215,7 +215,7 @@ describe("AA1: Routine Visibility API", () => {
 
 			const body = (await res.json()) as Record<string, unknown>;
 			const routinesArr = body.routines as Array<Record<string, unknown>>;
-			expect(routinesArr[0].lastRunOutcome).toBe("success");
+			expect(routinesArr[0]!.lastRunOutcome).toBe("success");
 			vi.unstubAllEnvs();
 		});
 
@@ -239,7 +239,7 @@ describe("AA1: Routine Visibility API", () => {
 
 			const body = (await res.json()) as Record<string, unknown>;
 			const routinesArr = body.routines as Array<Record<string, unknown>>;
-			expect(routinesArr[0].lastRunOutcome).toBeNull();
+			expect(routinesArr[0]!.lastRunOutcome).toBeNull();
 			vi.unstubAllEnvs();
 		});
 	});
@@ -431,7 +431,7 @@ describe("AA1: Routine Visibility API", () => {
 			expect(runs).toHaveLength(1);
 
 			const run = runs[0];
-			expect(run.id).toBe("run-history-1");
+			expect(run!.id).toBe("run-history-1");
 			expect(run).toHaveProperty("startedAt");
 			expect(run).toHaveProperty("endedAt");
 			expect(run).toHaveProperty("outcome", "success");
@@ -603,7 +603,7 @@ describe("AA1: Routine Visibility API", () => {
 				.from(routineRuns)
 				.where(eq(routineRuns.routineId, "routine-trigger-aa1"));
 			expect(runs.length).toBeGreaterThan(0);
-			expect(runs[0].startedAt).toBeTruthy();
+			expect(runs[0]!.startedAt).toBeTruthy();
 			vi.unstubAllEnvs();
 		});
 	});

@@ -223,8 +223,8 @@ describe("promote_knowledge tool", () => {
 			.from(knowledgeEditLog)
 			.where(and(eq(knowledgeEditLog.itemId, "ki-reason"), eq(knowledgeEditLog.field, "status")));
 		expect(logs.length).toBe(1);
-		expect(logs[0].newValue).toContain("provisional");
-		expect(logs[0].newValue).toContain("used 3 times this week");
+		expect(logs[0]!.newValue).toContain("provisional");
+		expect(logs[0]!.newValue).toContain("used 3 times this week");
 	});
 
 	test("INVALID_INPUT surfaces via registry dispatch on missing toStatus", async ({ db }) => {

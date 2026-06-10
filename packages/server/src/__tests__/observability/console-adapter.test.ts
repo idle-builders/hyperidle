@@ -53,12 +53,12 @@ describe("ConsoleObservabilityAdapter (H3 AC1)", () => {
 		];
 		await adapter.record(events);
 		expect(calls).toHaveLength(2);
-		expect(calls[0].level).toBe("info");
-		expect(calls[0].msg).toBe("session_started");
-		expect(calls[0].extra?.traceId).toBe("t1");
-		expect(calls[0].extra?.agentId).toBe("a1");
-		expect(calls[1].msg).toBe("tool_call");
-		expect(calls[1].extra?.toolName).toBe("Read");
+		expect(calls[0]!.level).toBe("info");
+		expect(calls[0]!.msg).toBe("session_started");
+		expect(calls[0]!.extra?.traceId).toBe("t1");
+		expect(calls[0]!.extra?.agentId).toBe("a1");
+		expect(calls[1]!.msg).toBe("tool_call");
+		expect(calls[1]!.extra?.toolName).toBe("Read");
 	});
 
 	it("preserves cost_incurred fields", async () => {
@@ -77,9 +77,9 @@ describe("ConsoleObservabilityAdapter (H3 AC1)", () => {
 				cap: 1000,
 			},
 		]);
-		expect(calls[0].extra?.level).toBe("critical");
-		expect(calls[0].extra?.capLevel).toBe("team");
-		expect(calls[0].extra?.spend).toBe(950);
+		expect(calls[0]!.extra?.level).toBe("critical");
+		expect(calls[0]!.extra?.capLevel).toBe("team");
+		expect(calls[0]!.extra?.spend).toBe(950);
 	});
 
 	it("flush is a no-op and resolves", async () => {

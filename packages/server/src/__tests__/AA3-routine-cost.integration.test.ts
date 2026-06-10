@@ -282,8 +282,8 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 			const body = (await res.json()) as Record<string, unknown>;
 			const runs = body.runs as Array<Record<string, unknown>>;
 			expect(runs).toHaveLength(1);
-			expect(runs[0].outcome).toBe("budget_exhausted");
-			expect((runs[0].cost as Record<string, unknown>).minor).toBe(55);
+			expect(runs[0]!.outcome).toBe("budget_exhausted");
+			expect((runs[0]!.cost as Record<string, unknown>).minor).toBe(55);
 			vi.unstubAllEnvs();
 		});
 

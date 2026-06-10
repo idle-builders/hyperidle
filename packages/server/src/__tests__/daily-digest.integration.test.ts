@@ -65,7 +65,7 @@ describe("Daily Digest (E7)", () => {
 
 		const digest = await getDailyDigest(db, now);
 		expect(digest.items).toHaveLength(1);
-		expect(digest.items[0].id).toBe("item-recent");
+		expect(digest!.items[0].id).toBe("item-recent");
 		expect(digest.generatedAt).toBeTruthy();
 	});
 
@@ -81,7 +81,7 @@ describe("Daily Digest (E7)", () => {
 
 		const digest = await getDailyDigest(db, now);
 		expect(digest.items).toHaveLength(1);
-		expect(digest.items[0].id).toBe("item-recent");
+		expect(digest!.items[0].id).toBe("item-recent");
 	});
 
 	test("AC9: excludes items that already have responses", async ({ db }) => {
@@ -115,7 +115,7 @@ describe("Daily Digest (E7)", () => {
 
 		const digest = await getDailyDigest(db, now);
 		expect(digest.items).toHaveLength(1);
-		expect(digest.items[0].id).toBe("item-pending");
+		expect(digest!.items[0].id).toBe("item-pending");
 	});
 
 	test("returns empty array when no queued items", async ({ db }) => {

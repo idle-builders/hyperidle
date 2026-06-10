@@ -136,7 +136,7 @@ describe("read_inbox tool", () => {
 			if (!result.success) return;
 			const data = result.data as { messages: Array<{ id: string }> };
 			expect(data.messages).toHaveLength(1);
-			expect(data.messages[0].id).toBe("m1");
+			expect(data!.messages[0].id).toBe("m1");
 		});
 
 		test("returns empty array when inbox is empty", async ({ db }) => {

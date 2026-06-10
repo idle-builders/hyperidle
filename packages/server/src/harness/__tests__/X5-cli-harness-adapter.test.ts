@@ -273,7 +273,7 @@ describe("CliHarnessAdapter startSession", () => {
 		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), { spawnFn: spawnSpy });
 		await adapter.startSession(makeSessionConfig({ workspacePath: "/my/workspace" }));
 
-		const options = spawnSpy.mock.calls[0][2] as Record<string, unknown>;
+		const options = spawnSpy!.mock.calls[0][2] as Record<string, unknown>;
 		expect(options?.cwd).toBe("/my/workspace");
 	});
 
@@ -337,7 +337,7 @@ describe("CliHarnessAdapter env sandboxing", () => {
 		);
 		await adapter.startSession(makeSessionConfig());
 
-		const spawnEnv = spawnSpy.mock.calls[0][2]?.env as Record<string, string>;
+		const spawnEnv = spawnSpy!.mock.calls[0][2]?.env as Record<string, string>;
 		expect(spawnEnv["PATH"]).toBe("/usr/bin:/bin");
 		expect(spawnEnv["FAKE_KEY"]).toBe("sk-test-key");
 		// Secret must NOT be forwarded
@@ -364,7 +364,7 @@ describe("CliHarnessAdapter env sandboxing", () => {
 		);
 		await adapter.startSession(makeSessionConfig());
 
-		const spawnEnv = spawnSpy.mock.calls[0][2]?.env as Record<string, string>;
+		const spawnEnv = spawnSpy!.mock.calls[0][2]?.env as Record<string, string>;
 		expect(spawnEnv["DATABASE_URL"]).toBeUndefined();
 		delete process.env["DATABASE_URL"];
 	});

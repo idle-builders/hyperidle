@@ -90,7 +90,7 @@ describe("update_routine tool", () => {
 		expect(data.name).toBe("Weekly sync");
 
 		const [row] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
-		expect(row.name).toBe("Weekly sync");
+		expect(row!.name).toBe("Weekly sync");
 	});
 
 	test("pausing syncs active=false", async ({ db }) => {
@@ -107,8 +107,8 @@ describe("update_routine tool", () => {
 		expect(data.state).toBe("paused");
 
 		const [row] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
-		expect(row.state).toBe("paused");
-		expect(row.active).toBe(false);
+		expect(row!.state).toBe("paused");
+		expect(row!.active).toBe(false);
 	});
 
 	test("resuming with active sets active=true", async ({ db }) => {
@@ -129,8 +129,8 @@ describe("update_routine tool", () => {
 		if (!result.success) return;
 
 		const [row] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
-		expect(row.state).toBe("active");
-		expect(row.active).toBe(true);
+		expect(row!.state).toBe("active");
+		expect(row!.active).toBe(true);
 	});
 
 	test("updates multiple fields in one call", async ({ db }) => {
@@ -150,9 +150,9 @@ describe("update_routine tool", () => {
 		expect(result.success).toBe(true);
 
 		const [row] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
-		expect(row.name).toBe("Updated Name");
-		expect(row.state).toBe("paused");
-		expect(row.description).toBe("New description");
+		expect(row!.name).toBe("Updated Name");
+		expect(row!.state).toBe("paused");
+		expect(row!.description).toBe("New description");
 	});
 
 	test("returns ok({ routineId, name, state })", async ({ db }) => {

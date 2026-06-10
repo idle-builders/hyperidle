@@ -79,8 +79,8 @@ describe("create_item tool", () => {
 
 			// Event emitted with the item ID
 			expect(emitted).toHaveLength(1);
-			expect(emitted[0].itemId).toBe(data.itemId);
-			expect(emitted[0].kind).toBe("review");
+			expect(emitted[0]!.itemId).toBe(data.itemId);
+			expect(emitted[0]!.kind).toBe("review");
 		});
 
 		test("auto-creates a thread when no threadId is provided", async ({ db, eventBus }) => {
@@ -141,11 +141,11 @@ describe("create_item tool", () => {
 			expect(result.success).toBe(true);
 
 			expect(emitted).toHaveLength(1);
-			expect(emitted[0].type).toBe("item_created");
-			expect(typeof emitted[0].itemId).toBe("string");
-			expect(typeof emitted[0].conversationId).toBe("string");
-			expect(emitted[0].kind).toBe("review");
-			expect(typeof emitted[0].timestamp).toBe("number");
+			expect(emitted[0]!.type).toBe("item_created");
+			expect(typeof emitted[0]!.itemId).toBe("string");
+			expect(typeof emitted[0]!.conversationId).toBe("string");
+			expect(emitted[0]!.kind).toBe("review");
+			expect(typeof emitted[0]!.timestamp).toBe("number");
 		});
 	});
 

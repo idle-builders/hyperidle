@@ -113,8 +113,8 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 		expect(body.tasks).toHaveLength(1);
 
 		const task = body.tasks[0];
-		expect(task.id).toBe("task-with-session");
-		expect(task.latestSessionOutcome).toBe("completed");
+		expect(task!.id).toBe("task-with-session");
+		expect(task!.latestSessionOutcome).toBe("completed");
 	});
 
 	test("task with no session has null for all latestSession* fields", async ({ db, app }) => {
@@ -155,8 +155,8 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 		expect(body.tasks).toHaveLength(1);
 
 		const task = body.tasks[0];
-		expect(task.id).toBe("task-no-session");
-		expect(task.latestSessionOutcome).toBeNull();
+		expect(task!.id).toBe("task-no-session");
+		expect(task!.latestSessionOutcome).toBeNull();
 	});
 
 	test("mixed bet: one task with session, one without — each correctly enriched", async ({
@@ -292,6 +292,6 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 		expect(body.tasks).toHaveLength(1);
 		const task = body.tasks[0];
 		// Should reflect the newer session
-		expect(task.latestSessionOutcome).toBe("completed");
+		expect(task!.latestSessionOutcome).toBe("completed");
 	});
 });

@@ -42,9 +42,9 @@ describe("create_bet tool", () => {
 
 		const betRows = await db.select().from(bets).where(eq(bets.id, result.value.betId));
 		expect(betRows).toHaveLength(1);
-		expect(betRows[0].status).toBe("draft");
-		expect(betRows[0].teamId).toBe(teamId);
-		expect(betRows[0].description).toBe("Launch the landing page");
+		expect(betRows[0]!.status).toBe("draft");
+		expect(betRows[0]!.teamId).toBe(teamId);
+		expect(betRows[0]!.description).toBe("Launch the landing page");
 	});
 
 	test("stores optional doneCondition and hypothesis", async ({ db }) => {
@@ -63,8 +63,8 @@ describe("create_bet tool", () => {
 		if (result.status !== "ok") return;
 
 		const [bet] = await db.select().from(bets).where(eq(bets.id, result.value.betId)).limit(1);
-		expect(bet.doneCondition).toBe("All tests pass");
-		expect(bet.hypothesis).toBe("This will unlock self-serve signups");
+		expect(bet!.doneCondition).toBe("All tests pass");
+		expect(bet!.hypothesis).toBe("This will unlock self-serve signups");
 	});
 
 	test("returns ok({ betId, status: 'draft', teamId })", async ({ db }) => {

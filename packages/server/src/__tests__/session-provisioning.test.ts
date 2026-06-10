@@ -396,7 +396,7 @@ describe("Session Provisioning (D5)", () => {
 				.where(eq(knowledgeItems.updatedBy, `session:${result.sessionId}`));
 
 			expect(kiRows).toHaveLength(1);
-			expect(kiRows[0].body).toBe(content);
+			expect(kiRows[0]!.body).toBe(content);
 		});
 	});
 
@@ -471,7 +471,7 @@ describe("Session Provisioning (D5)", () => {
 				.where(eq(knowledgeItems.updatedBy, `session:${result.sessionId}`));
 
 			expect(rows).toHaveLength(1);
-			expect(rows[0].body).toBe(content);
+			expect(rows[0]!.body).toBe(content);
 		});
 	});
 
@@ -620,7 +620,7 @@ describe("Session Provisioning (D5)", () => {
 					.where(eq(knowledgeItems.updatedBy, attribution));
 
 				expect(rows).toHaveLength(1);
-				expect(rows[0].body).toBe(expectedMarker);
+				expect(rows[0]!.body).toBe(expectedMarker);
 			}
 
 			// And no knowledge_items row exists attributed to any OTHER source
@@ -747,11 +747,11 @@ describe("Session Provisioning (D5)", () => {
 
 			// Exactly one breach event — agent-level.
 			expect(breaches).toHaveLength(1);
-			expect(breaches[0].capLevel).toBe("agent");
-			expect(breaches[0].entityId).toBe("agent-1");
-			expect(breaches[0].spend).toBe(5);
-			expect(breaches[0].cap).toBe(3);
-			expect(breaches[0].streamId).toBe(result.sessionId);
+			expect(breaches[0]!.capLevel).toBe("agent");
+			expect(breaches[0]!.entityId).toBe("agent-1");
+			expect(breaches[0]!.spend).toBe(5);
+			expect(breaches[0]!.cap).toBe(3);
+			expect(breaches[0]!.streamId).toBe(result.sessionId);
 		});
 	});
 
@@ -785,9 +785,9 @@ describe("Session Provisioning (D5)", () => {
 
 			expect(received).toHaveLength(1);
 			const ev = received[0];
-			expect(ev.sessionId).toBe(result.sessionId);
-			expect(ev.taskId).toBe("task-1");
-			expect(ev.outcome).toBe("completed");
+			expect(ev!.sessionId).toBe(result.sessionId);
+			expect(ev!.taskId).toBe("task-1");
+			expect(ev!.outcome).toBe("completed");
 			// costDelta was removed in O1 (kernel/strategy separation)
 		});
 
@@ -813,7 +813,7 @@ describe("Session Provisioning (D5)", () => {
 			await provisionSession(deps, baseParams(tmpDir));
 
 			expect(received).toHaveLength(1);
-			expect(received[0].outcome).toBe("crashed");
+			expect(received[0]!.outcome).toBe("crashed");
 			// costDelta was removed in O1 (kernel/strategy separation)
 		});
 
@@ -863,10 +863,10 @@ describe("Session Provisioning (D5)", () => {
 			// happens BEFORE the invoke, so the event is still fired.
 			await provisionSession(deps, baseParams(tmpDir));
 			expect(received).toHaveLength(1);
-			expect(received[0].toolName).toBe("NonExistentTool");
+			expect(received[0]!.toolName).toBe("NonExistentTool");
 			// argsSummary is scrubbed + truncated, and contains the arg.
-			expect(received[0].argsSummary).toContain("/workspace/foo.ts");
-			expect(received[0].sessionId).toMatch(/^[0-9a-f-]{36}$/);
+			expect(received[0]!.argsSummary).toContain("/workspace/foo.ts");
+			expect(received[0]!.sessionId).toMatch(/^[0-9a-f-]{36}$/);
 		});
 
 		it("registerSessionReviewCreator creates a review item for a medium-risk task", async () => {
@@ -909,7 +909,7 @@ describe("Session Provisioning (D5)", () => {
 
 				const reviewItems = await db.select().from(items).where(eq(items.threadId, "thread-1"));
 				expect(reviewItems.length).toBeGreaterThanOrEqual(1);
-				expect(reviewItems[0].kind).toBe("review");
+				expect(reviewItems[0]!.kind).toBe("review");
 			} finally {
 				unsubscribe();
 			}
@@ -1158,7 +1158,7 @@ describe("Session Provisioning (D5)", () => {
 			const cfg = harness.startedConfigs[0];
 
 			// Tools passed to the harness must include all four facilitator tools.
-			const tools = cfg.tools;
+			const tools = cfg!.tools;
 			expect(tools).toContain("route_item");
 			expect(tools).toContain("score_attention");
 			expect(tools).toContain("promote_knowledge");
@@ -1192,7 +1192,7 @@ describe("Session Provisioning (D5)", () => {
 			const cfg = harness.startedConfigs[0];
 
 			// Facilitator-only tools must NOT be present in a builder session.
-			const tools = cfg.tools;
+			const tools = cfg!.tools;
 			expect(tools).not.toContain("route_item");
 			expect(tools).not.toContain("score_attention");
 			expect(tools).not.toContain("promote_knowledge");

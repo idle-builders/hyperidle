@@ -265,12 +265,12 @@ describe("create_artifact tool", () => {
 			const data = result.data as { artifactId: string };
 
 			expect(emitted).toHaveLength(1);
-			expect(emitted[0].type).toBe("artifact_created");
-			expect(emitted[0].artifactId).toBe(data.artifactId);
-			expect(emitted[0].taskId).toBe("task-1");
-			expect(emitted[0].kind).toBe("text");
-			expect(typeof emitted[0].timestamp).toBe("number");
-			expect(typeof emitted[0].streamId).toBe("string");
+			expect(emitted[0]!.type).toBe("artifact_created");
+			expect(emitted[0]!.artifactId).toBe(data.artifactId);
+			expect(emitted[0]!.taskId).toBe("task-1");
+			expect(emitted[0]!.kind).toBe("text");
+			expect(typeof emitted[0]!.timestamp).toBe("number");
+			expect(typeof emitted[0]!.streamId).toBe("string");
 		});
 
 		it("emits exactly one event per artifact creation (no duplicate emission)", async () => {
@@ -286,7 +286,7 @@ describe("create_artifact tool", () => {
 
 			expect(emitted).toHaveLength(2);
 			// Each event must have a distinct artifactId.
-			expect(emitted[0].artifactId).not.toBe(emitted[1].artifactId);
+			expect(emitted[0]!.artifactId).not.toBe(emitted[1]!.artifactId);
 		});
 	});
 

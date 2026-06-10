@@ -137,7 +137,7 @@ describe("AC-7 / AC-10 — POST /api/threads creates a thread per host_kind", ()
 			};
 			expect(detail.thread.hostKind).toBe(hostKind);
 			expect(detail.messages.length).toBeGreaterThanOrEqual(1);
-			expect(detail.messages[0].type).toBe("plain");
+			expect(detail!.messages[0].type).toBe("plain");
 		});
 	}
 });
@@ -175,7 +175,7 @@ describe("AC-12 — POST /api/threads/:id/messages round-trips every MessageType
 				messages: Array<{ id: string; type: string }>;
 			};
 			const threadId = created.thread.id;
-			const reviewId = created.messages[0].id;
+			const reviewId = created!.messages[0].id;
 
 			let payload: unknown;
 			switch (type) {
@@ -531,7 +531,7 @@ describe("Verdict authorization (plan §6.1 REVISED for adversary C4)", () => {
 			messages: Array<{ id: string }>;
 		};
 		const threadId = created.thread.id;
-		const reviewId = created.messages[0].id;
+		const reviewId = created!.messages[0].id;
 
 		// The "agent-1" identity sent the review; it must not verdict its own.
 		const res = await app.request(`/api/threads/${threadId}/messages`, {
@@ -573,7 +573,7 @@ describe("Verdict authorization (plan §6.1 REVISED for adversary C4)", () => {
 			messages: Array<{ id: string }>;
 		};
 		const threadId = created.thread.id;
-		const reviewId = created.messages[0].id;
+		const reviewId = created!.messages[0].id;
 
 		// A different agent with role='builder' is a participant but not a founder.
 		const res = await app.request(`/api/threads/${threadId}/messages`, {
@@ -622,7 +622,7 @@ describe("Verdict authorization (plan §6.1 REVISED for adversary C4)", () => {
 			messages: Array<{ id: string }>;
 		};
 		const threadId = created.thread.id;
-		const reviewId = created.messages[0].id;
+		const reviewId = created!.messages[0].id;
 
 		const res = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
@@ -692,7 +692,7 @@ describe("Re-open semantics (plan §6.1 REVISED for adversary C5)", () => {
 			messages: Array<{ id: string }>;
 		};
 		const threadId = created.thread.id;
-		const oldReviewId = created.messages[0].id;
+		const oldReviewId = created!.messages[0].id;
 		const verdict = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
 			headers: authHeaders({ "X-Identity": "u-founder" }),
@@ -765,7 +765,7 @@ describe("Re-open semantics (plan §6.1 REVISED for adversary C5)", () => {
 			messages: Array<{ id: string }>;
 		};
 		const threadId = created.thread.id;
-		const oldReviewId = created.messages[0].id;
+		const oldReviewId = created!.messages[0].id;
 		const verdict = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
 			headers: authHeaders({ "X-Identity": "u-founder" }),
@@ -965,7 +965,7 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 			threads: Array<{ id: string; hasUnresolvedReview: boolean }>;
 		};
 		expect(body.threads.length).toBeGreaterThan(0);
-		expect(body.threads[0].hasUnresolvedReview).toBe(true);
+		expect(body!.threads[0].hasUnresolvedReview).toBe(true);
 	});
 
 	test("hasUnresolvedReview=false for a plain-only thread", async ({ db, app }) => {
@@ -993,7 +993,7 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 			threads: Array<{ id: string; hasUnresolvedReview: boolean }>;
 		};
 		expect(body.threads.length).toBe(1);
-		expect(body.threads[0].hasUnresolvedReview).toBe(false);
+		expect(body!.threads[0].hasUnresolvedReview).toBe(false);
 	});
 
 	test("hasUnresolvedReview=false once the review is resolved by a verdict", async ({
@@ -1020,7 +1020,7 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 			thread: { id: string };
 			messages: Array<{ id: string }>;
 		};
-		const reviewId = created.messages[0].id;
+		const reviewId = created!.messages[0].id;
 		const verdict = await app.request(`/api/threads/${created.thread.id}/messages`, {
 			method: "POST",
 			headers: authHeaders(),

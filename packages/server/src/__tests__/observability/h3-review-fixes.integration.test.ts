@@ -104,11 +104,11 @@ describe("H3 review fixes — (1) tool_call round-trip", () => {
 		unsub();
 		expect(adapter.events).toHaveLength(1);
 		const tc = adapter.events[0];
-		expect(tc.kind).toBe("tool_call");
-		if (tc.kind !== "tool_call") throw new Error("narrowing failed");
-		expect(tc.toolName).toBe("Read");
-		expect(tc.argsSummary).toContain("/workspace/foo.ts");
-		expect(tc.traceId).toBe("trace-A");
+		expect(tc!.kind).toBe("tool_call");
+		if (tc!.kind !== "tool_call") throw new Error("narrowing failed");
+		expect(tc!.toolName).toBe("Read");
+		expect(tc!.argsSummary).toContain("/workspace/foo.ts");
+		expect(tc!.traceId).toBe("trace-A");
 		await dispatcher.dispose();
 	});
 });
@@ -370,7 +370,7 @@ describe("H3 review fixes — (4) empty sessionId rejected", () => {
 		} satisfies SessionStartedEvent);
 		await dispatcher.flush();
 		unsub();
-		expect(adapter.events[0].traceId).toBe("unknown");
+		expect(adapter!.events[0].traceId).toBe("unknown");
 		await dispatcher.dispose();
 	});
 });

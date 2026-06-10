@@ -169,10 +169,10 @@ describe("registerLifecyclePropagation — session -> task", () => {
 				.from(propagationLog)
 				.where(and(eq(propagationLog.sourceId, "session-1"), eq(propagationLog.status, "applied")));
 			expect(logs).toHaveLength(1);
-			expect(logs[0].sourceLevel).toBe("session");
-			expect(logs[0].targetLevel).toBe("task");
-			expect(logs[0].targetId).toBe("task-1");
-			expect(logs[0].targetTransition).toBe("in_progress -> review");
+			expect(logs[0]!.sourceLevel).toBe("session");
+			expect(logs[0]!.targetLevel).toBe("task");
+			expect(logs[0]!.targetId).toBe("task-1");
+			expect(logs[0]!.targetTransition).toBe("in_progress -> review");
 		});
 	});
 
@@ -344,7 +344,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 				.where(eq(propagationLog.sourceId, "session-1"));
 			expect(logs.length).toBeGreaterThanOrEqual(1);
 			const lastLog = logs[logs.length - 1];
-			expect(["skipped", "failed"]).toContain(lastLog.status);
+			expect(["skipped", "failed"]).toContain(lastLog!.status);
 		});
 	});
 });
@@ -488,7 +488,7 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 			expect(threadRows.length).toBeGreaterThanOrEqual(1);
 
 			const thread = threadRows[0];
-			const allMessages = await db.select().from(messages).where(eq(messages.threadId, thread.id));
+			const allMessages = await db.select().from(messages).where(eq(messages.threadId, thread!.id));
 			expect(allMessages.length).toBeGreaterThanOrEqual(1);
 			const reviewMsg = allMessages.find((m) => m.type === "review");
 			expect(reviewMsg).toBeDefined();
@@ -541,7 +541,7 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 				.where(eq(propagationLog.targetId, "bet-1"));
 			expect(logs.length).toBeGreaterThanOrEqual(1);
 			const lastLog = logs[logs.length - 1];
-			expect(["skipped", "failed"]).toContain(lastLog.status);
+			expect(["skipped", "failed"]).toContain(lastLog!.status);
 		});
 	});
 });
@@ -673,8 +673,8 @@ describe("registerLifecyclePropagation — bet -> team", () => {
 				.from(propagationLog)
 				.where(and(eq(propagationLog.sourceId, "bet-1"), eq(propagationLog.sourceLevel, "bet")));
 			expect(logs.length).toBeGreaterThanOrEqual(1);
-			expect(logs[0].targetLevel).toBe("team"); // @lore U1: renamed from "product" to "team"
-			expect(logs[0].status).toBe("applied");
+			expect(logs[0]!.targetLevel).toBe("team"); // @lore U1: renamed from "product" to "team"
+			expect(logs[0]!.status).toBe("applied");
 		});
 	});
 
@@ -702,8 +702,8 @@ describe("registerLifecyclePropagation — bet -> team", () => {
 		await vi.waitFor(async () => {
 			expect(propagationEvents).toHaveLength(1);
 		});
-		expect(propagationEvents[0].sourceId).toBe("bet-1");
-		expect(propagationEvents[0].targetLevel).toBe("team"); // @lore U1: renamed from "product" to "team"
+		expect(propagationEvents[0]!.sourceId).toBe("bet-1");
+		expect(propagationEvents[0]!.targetLevel).toBe("team"); // @lore U1: renamed from "product" to "team"
 	});
 
 	test("logs propagation entry when bet transitions to killed", async ({ db, eventBus }) => {
@@ -829,8 +829,8 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 			.from(propagationLog)
 			.where(eq(propagationLog.id, "log-exhausted-1"));
 		expect(failedLogs).toHaveLength(1);
-		expect(failedLogs[0].status).toBe("failed");
-		expect(failedLogs[0].attempts).toBe(3);
+		expect(failedLogs[0]!.status).toBe("failed");
+		expect(failedLogs[0]!.attempts).toBe(3);
 
 		// Assert: a notification queue entry was created
 		const notifs = await db
@@ -838,7 +838,7 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 			.from(notificationQueue)
 			.where(eq(notificationQueue.eventType, "propagation_exhausted"));
 		expect(notifs).toHaveLength(1);
-		expect(notifs[0].severity).toBe("warning");
+		expect(notifs[0]!.severity).toBe("warning");
 	});
 });
 
@@ -910,8 +910,8 @@ describe("registerLifecyclePropagation — propagation log", () => {
 		// Assert: propagation_applied event was emitted — use vi.waitFor because the handler is async fire-and-forget
 		await vi.waitFor(() => {
 			expect(appliedEvents).toHaveLength(1);
-			expect(appliedEvents[0].sourceLevel).toBe("session");
-			expect(appliedEvents[0].targetLevel).toBe("task");
+			expect(appliedEvents[0]!.sourceLevel).toBe("session");
+			expect(appliedEvents[0]!.targetLevel).toBe("task");
 		});
 	});
 

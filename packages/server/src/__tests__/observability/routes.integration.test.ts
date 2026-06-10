@@ -112,7 +112,7 @@ describe("H3 observability routes — PATCH /config", () => {
 		expect(body.adapter).toBe("console");
 		expect(body.batchSize).toBe(50);
 		expect(auditCalls).toHaveLength(1);
-		expect(auditCalls[0].msg).toBe("config_changed");
+		expect(auditCalls[0]!.msg).toBe("config_changed");
 	});
 
 	test("rejects invalid adapter with 400", async ({ db }) => {

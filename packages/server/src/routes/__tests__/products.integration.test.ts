@@ -98,11 +98,11 @@ describe("GET /api/teams", () => {
 		};
 		expect(body.teams).toHaveLength(1);
 		const product = body.teams[0];
-		expect(product.id).toBe("p1");
-		expect(product.name).toBe("HyperIdle Core");
-		expect(product.activeBets).toBe(1);
-		expect(product.shipped).toBe(1);
-		expect(typeof product.shipRate).toBe("string");
+		expect(product!.id).toBe("p1");
+		expect(product!.name).toBe("HyperIdle Core");
+		expect(product!.activeBets).toBe(1);
+		expect(product!.shipped).toBe(1);
+		expect(typeof product!.shipRate).toBe("string");
 	});
 });
 

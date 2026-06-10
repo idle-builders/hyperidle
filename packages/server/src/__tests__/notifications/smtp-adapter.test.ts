@@ -102,12 +102,12 @@ describe("H2 SMTP adapter (AC3)", () => {
 		expect(result.ok).toBe(true);
 		expect(fixture.captured).toHaveLength(1);
 		const msg = fixture.captured[0];
-		expect(msg.envelope.from).toBe("hyperidle@example.com");
-		expect(msg.envelope.to).toEqual(["ops@example.com"]);
-		expect(msg.raw).toContain("Subject: Blocking review: secret key rotation");
-		expect(msg.raw).toContain("To: ops@example.com");
-		expect(msg.raw).toContain("From: hyperidle@example.com");
-		expect(msg.raw).toContain("Please review the skill change at /items/42.");
+		expect(msg!.envelope.from).toBe("hyperidle@example.com");
+		expect(msg!.envelope.to).toEqual(["ops@example.com"]);
+		expect(msg!.raw).toContain("Subject: Blocking review: secret key rotation");
+		expect(msg!.raw).toContain("To: ops@example.com");
+		expect(msg!.raw).toContain("From: hyperidle@example.com");
+		expect(msg!.raw).toContain("Please review the skill change at /items/42.");
 	});
 
 	it("returns ok:false when the SMTP server is unreachable", async () => {
@@ -152,8 +152,8 @@ describe("H2 SMTP adapter (AC3)", () => {
 		// a real header line — smtp-server envelope should list only the
 		// legitimate RCPT (ops@example.com), and the raw stream must not
 		// contain a newline-prefixed "Bcc:" header.
-		expect(msg.envelope.to).toEqual(["ops@example.com"]);
-		expect(msg.raw).not.toMatch(/^Bcc:/m);
-		expect(msg.raw).not.toMatch(/\r?\nBcc:/i);
+		expect(msg!.envelope.to).toEqual(["ops@example.com"]);
+		expect(msg!.raw).not.toMatch(/^Bcc:/m);
+		expect(msg!.raw).not.toMatch(/\r?\nBcc:/i);
 	});
 });
