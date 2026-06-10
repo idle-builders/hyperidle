@@ -22,6 +22,8 @@ import {
 	type HostKind,
 	type Message,
 	type MessageType,
+	type PlainPayload,
+	type RedactedPayload,
 	type Thread,
 } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
@@ -95,9 +97,21 @@ function rowToMessage(row: {
 		resolvedAt: row.resolvedAt,
 		createdAt: row.createdAt,
 	} as const;
+	// @lore AF4/§4d + Z8-166: the `plain` branch's persisted zod payload drifts
+	// from the shared `PlainPayload` type (schema carries `blockId`; mentionRef
+	// `sourceText` is optional though the domain type requires it). Reconciling
+	// changes the persisted/wire shape → routed to the conversations WP (Batch 6).
+	// `parsed.payload` is Zod-validated, server-persisted read-back data, surfaced
+	// into the domain type at this INTERNAL DB-row→domain mapping (NOT a request
+	// boundary). Behaviour unchanged. Review/questionnaire/verdict arms match
+	// nominally and need no bridge.
 	switch (parsed.type) {
 		case "plain":
-			return { ...base, type: "plain", payload: parsed.payload };
+			return {
+				...base,
+				type: "plain",
+				payload: parsed.payload as PlainPayload | RedactedPayload,
+			};
 		case "review":
 			return { ...base, type: "review", payload: parsed.payload };
 		case "questionnaire":

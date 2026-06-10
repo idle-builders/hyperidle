@@ -1014,6 +1014,12 @@ Fix shapes: **one-liner** (single targeted edit), **small WP** (workpackage-size
 - Doc/code drift that will mislead future agents into "fixing" Redis wiring that was never there.
 - **Fix shape:** one-liner — fix the doc.
 
+### Z8-166 — Message payload zod schema drifts from the shared domain type (`blockId`, `MentionRef.sourceText`)
+- **Sources:** AF4 (type checker confirms drift; surfaced as TS2322 at `rowToMessage` in assistant/coach/threads).
+- **Files:** `packages/server/src/routes/threads-schema.ts:85` (plainPayloadSchema `blockId`), `:71-75` (mentionRefSchema `sourceText` optional), vs `packages/shared/src/thread.ts:152` (`PlainPayload` lacks `blockId`) + `:131` (`MentionRef.sourceText` REQUIRED).
+- AF4: type checker confirms the wire schema validates/persists a `blockId` field on plain payloads that the domain `PlainPayload` type omits, and accepts mentions WITHOUT `sourceText` though the domain type requires it (contradicting the AE5 lore that sourceText is server-constructed and required). Reconciling either direction changes the wire/persisted shape (add `blockId` to the domain type, or tighten the schema to reject sourceText-less mentions) → **behavioral fix owned by the conversations workpackage (Batch 6 / AF6)**. AF4 keeps the runtime untouched and bridges the read-back mapping at the internal DB-row→domain boundary only (no request-payload cast, no behavior change).
+- **Fix shape:** small-WP — decide canonical Message payload shape, align schema ⇄ `PlainPayload`/`MentionRef`, migrate persisted rows if needed.
+
 ---
 
 ## Cross-cutting themes

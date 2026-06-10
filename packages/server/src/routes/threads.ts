@@ -30,6 +30,8 @@ import type {
 	HostKind,
 	Message,
 	MessageType,
+	PlainPayload,
+	RedactedPayload,
 	Thread,
 	ThreadCreatedEvent,
 	ThreadMessageAppendedEvent,
@@ -45,13 +47,14 @@ import {
 } from "@hyperidle/shared";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
-import type { ZodError } from "zod";
+import type { z, ZodError } from "zod";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { escapeLikePattern } from "../services/like-escape.js";
 import { createAssistantThreadRoute } from "./assistant.js";
 import { createCoachRoutes } from "./coach.js";
 import {
 	createThreadBodySchema,
+	inlineRefSchema,
 	listThreadsQuerySchema,
 	messageInputSchema,
 	messageRowSchema,
@@ -59,6 +62,14 @@ import {
 } from "./threads-schema.js";
 
 const SENDER_HEADER = "X-Identity";
+
+/**
+ * The inline-ref shape as carried by the message zod schema (the wire/persisted
+ * form). Distinct from shared `InlineRef` while Z8-166 drift stands (mentionRef
+ * `sourceText` optional here, required in the domain type). Used for the
+ * internal mention-resolution mapping below.
+ */
+type MessageRef = z.infer<typeof inlineRefSchema>;
 
 /**
  * Read the sender id. Prefers X-Identity header; falls back to the auth context
@@ -247,23 +258,23 @@ async function buildMentionLookup(
 async function resolveMentionsForMessage(
 	db: HyperIdleDb,
 	text: string,
-	existingRefs: Array<{ kind: string; [key: string]: unknown }>,
+	existingRefs: ReadonlyArray<MessageRef>,
 	participantIds: ReadonlyArray<string>,
 	senderId: string,
 ): Promise<{
-	refs: Array<{ kind: string; [key: string]: unknown }>;
+	refs: MessageRef[];
 	newParticipantIds: string[];
 }> {
 	const candidates = extractMentionCandidates(text);
 	if (candidates.length === 0) {
-		return { refs: existingRefs, newParticipantIds: [] };
+		return { refs: [...existingRefs], newParticipantIds: [] };
 	}
 
 	const nameMap = await buildMentionLookup(db, participantIds);
 	const resolved = resolveMentions(candidates, nameMap, senderId);
 
 	if (resolved.length === 0) {
-		return { refs: existingRefs, newParticipantIds: [] };
+		return { refs: [...existingRefs], newParticipantIds: [] };
 	}
 
 	const mentionRefs = resolved.map((r) => ({
@@ -304,7 +315,7 @@ async function resolveHostTitle(
 				.from(bets)
 				.where(eq(bets.id, hostId))
 				.limit(1);
-			return row ? deriveTitle(row.description) : null;
+			return row ? deriveTitle(row.description, hostId) : null;
 		}
 		case "task": {
 			const [row] = await db
@@ -363,9 +374,19 @@ function rowToMessage(row: DbMessage): Message {
 		resolvedAt: row.resolvedAt,
 		createdAt: row.createdAt,
 	} as const;
+	// @lore AF4/§4d + Z8-166: plain-branch persisted payload drifts from the
+	// shared `PlainPayload` type (schema-only `blockId`; optional mentionRef
+	// `sourceText`). Routed to the conversations WP (Batch 6). `parsed.payload`
+	// is Zod-validated, server-persisted read-back data surfaced into the domain
+	// type at this INTERNAL DB-row→domain mapping (NOT a request boundary). No
+	// behavior change.
 	switch (parsed.type) {
 		case "plain":
-			return { ...base, type: "plain", payload: parsed.payload };
+			return {
+				...base,
+				type: "plain",
+				payload: parsed.payload as PlainPayload | RedactedPayload,
+			};
 		case "review":
 			return { ...base, type: "review", payload: parsed.payload };
 		case "questionnaire":
@@ -588,7 +609,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 			const { refs: enrichedRefs, newParticipantIds } = await resolveMentionsForMessage(
 				db,
 				input.initialMessage.payload.text,
-				(input.initialMessage.payload.refs as Array<Record<string, unknown>> | undefined) ?? [],
+				input.initialMessage.payload.refs ?? [],
 				participants,
 				senderId,
 			);
@@ -790,7 +811,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 					await resolveMentionsForMessage(
 						db,
 						input.payload.text,
-						(input.payload.refs as Array<Record<string, unknown>> | undefined) ?? [],
+						input.payload.refs ?? [],
 						participants,
 						senderId,
 					);
