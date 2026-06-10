@@ -12,6 +12,7 @@ sync-reports/
 !.pipeline/work-packages/
 !.pipeline/progress/
 !.pipeline/retro-log.jsonl
+!.pipeline/audits/
 .env
 !infrastructure/langfuse/.env
 .worktrees/
