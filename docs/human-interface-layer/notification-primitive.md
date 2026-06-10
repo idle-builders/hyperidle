@@ -1,71 +1,87 @@
 # Notification primitive
 
-Locked by `/concept` (AF8). The cadence rules live in [Interaction Cadences & Notification Discipline](./interaction-cadences-notification-discipline.md); this doc supplies the vocabulary that doc assumed — Category, Urgency, Surface, Channel — and the contracts that bind them.
+Locked by `/concept` (AF8). Cadence rules live in [Interaction Cadences & Notification Discipline](./interaction-cadences-notification-discipline.md); the in-app attention model lives in [The Three Views](./the-three-views-the-rail.md) §4.1 (Conversations), §4.2 (Ambient Awareness), §4.5 (Thread). This doc supplies the vocabulary those assumed and makes one load-bearing decision: **notifications have no in-app home.**
 
-**Definition.** A *Notification* is a discrete, user-facing alert that something needs or deserves the founder's attention, carrying a durable reference back to its source and a delivery lifecycle. It is the alert *about* a state change — not the state, not the work, not the transport.
+## The decision: no notifications place
 
-**Essential properties.** Every notification has an opaque id; exactly one **Category**; an **Urgency**; a **source reference** that resolves to a route back to the originating thread / conversation / entity; a title (+ optional body); a created-at; and a delivery **status**. External `channel`, `attempts`, `lastError`, `sentAt`, and tags are accidental — some notifications have them, they are not what make it a notification.
+HyperIdle removed the notification rail. Attention is **distributed**, not centralized:
+
+- **Conversations** — threads needing a verdict or reply (in-app *action*).
+- **Ambient indicators** (§4.2) — sidebar triage badge, filter chips, health dots (in-app *awareness*, never interruptive).
+- **The phone ring** — push/email that reaches the founder *away from the app*.
+
+> §4.2: "If something needs attention, it goes to Conversations and rings a phone."
+
+**A Notification is that third tier and only that: the out-of-band ring/email when a thread crosses the interruption threshold.** In-app, a notification is *not displayed* — the thread (Conversations) and the ambient badge already represent it. Tapping the push opens the thread. There is no inbox, bell, center, or list; building one would resurrect the rail.
+
+**Definition.** A *Notification* is an out-of-band delivery (push/email) that interrupts the founder when a thread crosses the interruption threshold, carrying a durable anchor back to that thread. Egress-only.
+
+**Essential properties.** id; exactly one **Category**; an **Urgency**; a durable **anchor** (`threadId`, optional `messageId`); title (+ optional body); created-at; a delivery **status**. `channel`, `attempts`, `lastError`, `sentAt`, tags are accidental.
 
 **What it is not.**
-- **Not an ambient indicator** (sidebar badge, filter chip, health dot, triage badge). Those are continuous awareness state derived from `Item` state; they never push and aren't individually addressable or lifecycle-tracked. A notification may bump an unread count, but the badge is not the notification.
-- **Not the Item / review request.** The Item is the work (in Conversations); the notification is the optional out-of-band signal that the item exists and where it lives. An item can exist and never notify.
-- **Not a thread message.** A message is authored content inside a thread; a notification is system-generated meta about a state change.
-- **Not a bus event / log entry.** Most `notification` / `cost_cap_*` events never become user-facing notifications. Emitting an event ≠ notifying a human; the notification is the derived, delivered artifact for the closed subset that warrants attention.
-- **Not a push or email message.** Those are *channels*. A notification is channel-independent and renders to the in-app surface plus, conditionally, push and/or email.
+- **Not an in-app notifications surface** — no inbox/bell/center/feed/list. That is the removed rail; the Thread + ambient badge are the in-app representation.
+- **Not an ambient indicator.** Ambient indicators are continuous, never-interruptive, derived from thread/item state. A notification is a discrete interruption that leaves the app.
+- **Not the Thread / Item / Message.** The thread is where work and conversation live; the notification is the out-of-band pointer at it. A thread can exist and never ring. A notification is not a message in the thread.
+- **Not a bus event / log entry.** Most events never ring; the notification is the delivered artifact for the closed subset that crosses the threshold.
+- **Not a channel.** Push and email are *channels*; the notification is channel-independent.
 
-**Composition.** A notification *belongs to* one Category; *carries* a source reference `{kind, id}` + title/body + urgency; *is delivered to* one in-app surface (always) and 0..1 external channels (conditional); *is referenced by* the digest (when batched) and an in-app unread count.
+**Composition.** *belongs to* one Category; *anchors to* exactly one Thread; *carries* title/body + anchor; *delivered through* 0..1 Channels. It owns no in-app record — the Thread is that.
 
-**Lifecycle.** Delivery: `pending → sending → {sent | failed | dropped}`. `sending` is a lease claimed before the adapter call; a lease stuck past timeout recovers to `pending`. `dropped` = policy suppressed external delivery (the in-app record persists). Read axis (in-app): `unread → read`.
+**Lifecycle.** Egress only: `pending → sending → {sent | failed | dropped}`. `sending` is a lease claimed before the adapter call; a stuck lease recovers to `pending`. `dropped` = policy suppressed the ring. No read/unread axis on the notification — read state lives on the thread/item.
 
-**Authority.** The **fabric** notification service owns the queue/record. Notification-worthy *events* come from the policy engine, dependency watcher, and cost sentinel. The drain/listener (fabric, run by the server) mutates delivery status. The founder mutates read state and, via **Settings (AF15)**, category enable/disable and quiet-hours/silence policy.
+**Authority.** The **fabric** notification service owns the egress queue. Notification-worthy *events* come from the policy engine, dependency watcher, and cost sentinel — each tied to a thread (or one the alert creates). The drain/listener (fabric, run by the server) mutates delivery status. The founder controls categories + quiet-hours/silence via **Settings (AF15)** — there is no notification surface to control.
 
 ## Axes
 
-A notification is described by four orthogonal axes. Earlier code smeared these into one `severity` field; they are now separate.
-
 | Axis | Values | Meaning |
 |---|---|---|
-| **Category** | `review_request \| blocker_alert \| cost_alert \| digest` (CLOSED) | *What* it's about. Maps 1:1 to a Settings toggle. |
-| **Urgency** | `immediate \| batched` (CLOSED) | *How loud.* `immediate` pushes now (subject to policy); `batched` goes to the digest only. Derived from Category + `risk_tier` + `blocking`. |
-| **Surface** | in-app surface (always) · external channel (conditional) | *Where it's perceived.* The originating thread is the *anchor*, not a surface — the in-app surface routes to it. |
-| **Channel** | `console \| ntfy \| smtp` (CLOSED for now) | *How it leaves the app.* Founder-configured external transport; independent of Category/Urgency. |
+| **Category** | `review_request \| blocker_alert \| cost_alert \| digest` (CLOSED) | *What* it's about. 1:1 with a Settings toggle. |
+| **Urgency** | `immediate` (ring now) · `digest` (batched email) · *ambient-only* (no notification — thread + badge only) | *Whether and how loud* it leaves the app. Derived from Category + `risk_tier` + `blocking`. |
+| **Anchor** | exactly one Thread (persisted `threadId` [+ `messageId`]) | *What it routes back to* — opens in Conversations. No orphan notifications. |
+| **Channel** | `console \| ntfy \| smtp` (CLOSED for now) | *How it leaves the app.* Founder-configured; the only place a notification physically exists. |
 
 ### Category → trigger → toggle
 
-| Category | Triggering event(s) | Settings toggle | Default urgency |
+| Category | Triggering event(s) | Toggle (AF15) | Default urgency |
 |---|---|---|---|
-| `review_request` | `item_created`, `verb = review` | `reviewAlerts` | `immediate` if `risk_tier ≥ medium` or `blocking`, else `batched` |
+| `review_request` | `item_created`, `verb = review` | `reviewAlerts` | `immediate` if `risk_tier ≥ medium` or `blocking`, else *ambient-only* |
 | `blocker_alert` | dependency-watcher / policy-engine "agent blocked" | `blockerAlerts` | `immediate` |
 | `cost_alert` | `cost_cap_warning`, `cost_cap_breached` | `costAlerts` | `immediate` |
-| `digest` | scheduled rollup of batched + FYI items | `emailDigests` | `batched` |
+| `digest` | scheduled rollup of *ambient-only* + FYI backlog | `emailDigests` | `digest` |
+
+### Anchoring systemic alerts
+
+Thread-shaped categories (`review_request`, `blocker_alert`) anchor to the thread carrying the triggering message. `cost_alert` and other systemic alerts have no natural conversation, so they anchor to a **`factory`-hosted feed thread or the founder's `user`-hosted assistant thread** (§4.5 configurations) — consistent with routing rule #4 ("how the factory operates → assistant thread"). Either way the anchor surfaces in Conversations; architecture picks which.
 
 ## Vocabulary
 
 | Term | Definition | Aliases not to use |
 |---|---|---|
-| **Notification** | Discrete user-facing alert about a state change worth attention, with a durable source reference and lifecycle. | alert (as the row), ping, toast, push, message |
-| **Category** | Closed kind of a notification; 1:1 with a Settings toggle. | kind (taken by `Item.kind`), type, severity-as-category |
-| **Channel** | External delivery transport. | adapter, provider |
-| **Surface** | Where a notification is perceived (in-app vs external). | view, sink, target |
-| **Urgency** | `immediate` vs `batched`. | severity, priority |
-| **Ambient indicator** | Always-present awareness state; NOT a notification. | notification badge |
-| **Quiet hours** | Per-human window that *defers* push (never drops). | DND, mute |
-| **Silence** | Factory/product suppression of non-urgent push; record retained. | block |
+| **Notification** | Out-of-band ring/email when a thread crosses the interruption threshold; egress-only, thread-anchored. | alert (as a row), ping, toast, in-app notification, **notification center/inbox/bell/rail** (dead) |
+| **Anchor** | The single Thread a notification routes back to. | source-surface, target page |
+| **Channel** | Out-of-band transport. | adapter, provider |
+| **Urgency** | `immediate` / `digest` / *ambient-only*. | severity, priority |
+| **Category** | Closed kind; 1:1 with a toggle. | kind (taken by `Item.kind`/`Message.type`), type |
+| **Ambient indicator** | Triage badge / chips / dots; NOT a notification. | notification badge |
+| **Quiet hours** | Per-human window that *defers* the ring. | DND, mute |
+| **Silence** | Factory/product suppression of the non-urgent ring. | block |
 
 ## Contracts
 
-- **Cardinality.** One source reference (required) and one Category per notification; one in-app surface record; 0..1 external channels per attempt.
-- **Closure.** Category, Urgency closed (new member ⇒ concept-doc update; new Category ⇒ new toggle). Channel closed for now.
-- **Mutability.** Immutable after creation: id, category, source reference, title/body, created-at. Mutable: delivery status, attempts, lastError, sentAt, claimedAt, channel, read state.
-- **Identity.** Opaque UUID; not content-hashed (recurring alerts must be distinct rows).
+- **Cardinality.** One Category + one anchor Thread per notification (both required); 0..1 Channels per attempt; zero in-app records.
+- **Closure.** Category, Urgency closed (new Category ⇒ new toggle + this doc). Channel closed for now.
+- **Mutability.** Immutable after creation: id, category, anchor, title/body, created-at. Mutable: delivery status, attempts, lastError, sentAt, claimedAt, channel. No read state on the notification.
+- **Identity.** Opaque UUID; not content-hashed (a recurring ring is a distinct row).
 - **Hard rules.**
-  1. **Route-back is durable** — the source reference is persisted; routing back must not depend on reconstructing a deep link in memory at render time.
-  2. **Policy is never bypassed for convenience** — silence + quiet-hours always apply. Sole exception: a hard cost breach bypasses *factory silence* but respects *quiet hours*.
-  3. **A category toggle governs delivery, not the record** — turning a category off suppresses push/email/digest; the in-app record is still created. Nothing is silently dropped.
-  4. **Cost notifications fire off a real value** — `cost_alert` reacts to an accumulated cost the system actually writes (coordinate AF10), never a perpetually-zero field.
-  5. **One event → one category** — events outside the closed map never produce a notification.
-  6. **In-app surface is universal** — every notification of every category/urgency has an in-app record, including `batched` and `dropped` ones.
+  1. **No in-app notifications surface** — routing back targets the anchor thread in Conversations (`/conversations/<threadId>` [+ message]). No inbox/bell/center/list.
+  2. **Every notification anchors to exactly one Thread** — no orphans; systemic alerts anchor to a `factory`/`user` thread.
+  3. **Route-back is durable** — the anchor is persisted on the row, not reconstructed in memory at render time.
+  4. **Suppression silences the ring, not the work** — a category toggle off / silence / quiet-hours suppresses only the out-of-band ring; the anchor thread still surfaces in Conversations + the ambient badge. Nothing is lost.
+  5. **Policy is never bypassed for convenience** — silence + quiet-hours always apply. Sole exception: a hard cost breach bypasses *factory silence* but respects *quiet hours*.
+  6. **Cost notifications fire off a real value** — `cost_alert` reacts to an accumulated cost the system actually writes (coordinate AF10).
+  7. **One event → one category.**
+  8. **The queue is an egress log, not an inbox** — `notification_queue` is never queried to render an in-app list.
 
 ## Rationale
 
-Notifications are how a human-in-the-loop product tells the human something needs them. The audit found the model was undefined: three vocabularies described it and none aligned (the cadence doc's push/digest/ambient model, the code's `severity = blocking | cost_breach | digest`, and the Settings toggles `reviewAlerts/costAlerts/blockerAlerts/emailDigests`), the `notification` event had zero listeners, the deep link was computed but never persisted, and the cost sentinel watched a `cost_actual` field nothing writes — so every alert the system "raised" vanished. The fix is to stop overloading one `severity` field and separate the four orthogonal axes — **Category** (what), **Urgency** (how loud), **Surface** (where it lands), **Channel** (how it leaves the app). Each is then governable independently and maps cleanly onto the four Settings toggles, and the in-app surface becomes the durable home that guarantees no alert is ever silently lost.
+Notifications are how a human-in-the-loop product reaches the human. The audit found the model undefined, but the deepest gap was conceptual: **the product removed the notification rail, so there was no place for a notification to live** — and the obvious fix (build an in-app notification center) is wrong, because it re-creates the rail and duplicates Conversations. The resolution is to recognize that the in-app representation already exists — the Thread in Conversations plus the ambient triage badge (§4.2) — and to scope a Notification narrowly as the *out-of-band* tier: the ring/email that interrupts the founder when they're away, anchored back to a single thread. That also dissolves the three misaligned vocabularies (cadence doc, code `severity`, Settings toggles) into four orthogonal axes — Category (what), Urgency (how loud, incl. an *ambient-only* "don't ring" tier), Anchor (which thread it routes to), Channel (how it leaves the app) — and exposes the real defects: the deep link was computed but never persisted, the `notification` event had zero listeners, and the cost sentinel watched a field nothing writes.
