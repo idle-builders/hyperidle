@@ -14,6 +14,7 @@
  */
 
 import type { SessionConfig } from "@hyperidle/shared";
+import { isStartMessage, isStopMessage } from "./isolated-session-protocol.js";
 
 // Only run when invoked as a main module (not imported in tests)
 if (process.env.NODE_ENV !== "test") {
@@ -24,12 +25,9 @@ function runWorker(): void {
 	let stop = false;
 
 	process.on("message", (msg: unknown) => {
-		if (typeof msg !== "object" || msg === null || !("type" in msg)) return;
-		const typed = msg as { type: string };
-
-		if (typed.type === "start") {
-			const { config } = msg as { config: SessionConfig };
-			void runSession(config).catch((err: unknown) => {
+		if (isStartMessage(msg)) {
+			const { config } = msg;
+			void runSession(config).catch(() => {
 				process.send?.({
 					type: "session_result",
 					result: {
@@ -41,7 +39,7 @@ function runWorker(): void {
 				// Exit after reporting failure
 				void Promise.resolve().then(() => process.exit(1));
 			});
-		} else if (typed.type === "stop") {
+		} else if (isStopMessage(msg)) {
 			stop = true;
 		}
 	});
