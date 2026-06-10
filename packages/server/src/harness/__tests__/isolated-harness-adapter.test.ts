@@ -320,7 +320,8 @@ describe("IsolatedHarnessAdapter stopSession SIGKILL escalation", () => {
 		// Manually resolve the session by emitting exit on the child
 		// (we need to verify the mock was called, stop promise may stay pending)
 		// Just verify SIGKILL was called
-		expect(killMock?.mock.calls.some((c) => c[0] === "SIGKILL")).toBe(true);
+		const killCalls = (killMock as ReturnType<typeof vi.fn> | null)?.mock.calls ?? [];
+		expect(killCalls.some((c: unknown[]) => c[0] === "SIGKILL")).toBe(true);
 
 		// Suppress unhandled promise (stop may never resolve in this mock scenario)
 		stopPromise.catch(() => {});

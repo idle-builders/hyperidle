@@ -458,9 +458,9 @@ describe("practice-meeting (AC6)", () => {
 						const wrappedCb: TxCallback<R> = (tx) => {
 							const txSelect = tx.select.bind(tx);
 							const wrappedSelect = ((...args: Parameters<typeof txSelect>) => {
-								const builder = txSelect(...args);
+								const builder = txSelect(...args) as unknown as ChainBuilder;
 								return wrapBuilder(builder, tx);
-							}) as typeof txSelect;
+							}) as unknown as typeof txSelect;
 							Object.defineProperty(tx, "select", {
 								value: wrappedSelect,
 								configurable: true,

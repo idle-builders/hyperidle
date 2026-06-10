@@ -44,7 +44,7 @@ describe("I2 review HIGH-2 — authMiddleware WARN-logs rejected requests", () =
 
 		// The combined log payload should mention the path + method but
 		// NEVER the supplied key.
-		const output = warnSpy.mock.calls.map((c) => String(c[0])).join("\n");
+		const output = warnSpy.mock.calls.map((c: unknown[]) => String(c[0])).join("\n");
 		expect(output).toContain("/probe");
 		expect(output).toContain("GET");
 		expect(output).not.toContain("wrong-key");

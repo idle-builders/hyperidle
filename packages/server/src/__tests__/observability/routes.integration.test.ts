@@ -63,7 +63,7 @@ function appWithRoutes(
 	});
 	const request = (path: string, init?: RequestInit): Promise<Response> => {
 		const url = new URL(path, "http://test.local");
-		return router.fetch(new Request(url, init));
+		return Promise.resolve(router.fetch(new Request(url, init)));
 	};
 	return { request, auditCalls: calls };
 }

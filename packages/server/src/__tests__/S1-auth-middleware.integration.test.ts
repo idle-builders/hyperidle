@@ -44,7 +44,7 @@ function bearerHeaders(token: string): Record<string, string> {
 }
 
 /** Build a minimal Hono app that echoes userId, authMethod, loginSessionId from context */
-function makeTestApp(db: HyperIdleDb, sharedMode: boolean): Hono {
+function makeTestApp(db: HyperIdleDb, sharedMode: boolean): Hono<HyperIdleEnv> {
 	const app = new Hono<HyperIdleEnv>();
 	app.use("*", createAuthMiddleware({ db, sharedMode }));
 	app.get("/probe", (c) =>
