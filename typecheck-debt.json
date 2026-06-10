@@ -2,6 +2,21 @@
 	"$schema": "./scripts/typecheck-debt.schema.json",
 	"description": "Packages with known type errors, quarantined by AF1. Drained by AF2-AF5.",
 	"packages": {
+		"design-system": {
+			"owner": "AF5",
+			"errors": 15,
+			"note": "pre-existing on main at time of AF3 — BetCard, inline/render-payload exhaustiveness, CommentRow implicit-any, status-mapping noUncheckedIndexedAccess"
+		},
+		"desktop": {
+			"owner": "AF5",
+			"errors": 1,
+			"note": "pre-existing on main at time of AF3 — credential-validator CredentialName never"
+		},
+		"eval": {
+			"owner": "AF5",
+			"errors": 17,
+			"note": "pre-existing on main at time of AF3 — implicit-any in scenario callbacks"
+		},
 		"server": {
 			"owner": "AF4",
 			"errors": 3780,
