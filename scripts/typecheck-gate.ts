@@ -1,0 +1,285 @@
+#!/usr/bin/env tsx
+/**
+ * AF1: Per-package typecheck gate for the HyperIdle monorepo.
+ *
+ * Replaces the vacuous `tsc --noEmit -p tsconfig.json` which compiled nothing
+ * (root tsconfig has `"include": []`). This script:
+ *  1. Discovers all packages dynamically via `packages/<pkg>/tsconfig.json` globs.
+ *  2. Runs tsc --noEmit per package, capturing stdout+stderr.
+ *  3. Filters errors to own-package files, excluding reference-noise codes.
+ *  4. Applies the crash guard, non-excepted failure, and stale-ratchet rules.
+ *  5. Prints a summary table and exits 0 (PASS) or 1 (FAIL).
+ *
+ * Exception list: typecheck-debt.json at repo root.
+ * Verdict logic:  scripts/lib/typecheck-verdict.ts (pure function, unit-tested).
+ *
+ * @lore AF1: The root tsconfig uses `"include": []` + `references`, making
+ * `tsc --noEmit -p tsconfig.json` compile nothing and always exit 0. Even the
+ * correct `tsc -b` would miss `web` and `pipeline` (both `composite: false`
+ * and absent from root references). A per-package fan-out is the only approach
+ * that reaches every package with an independent verdict. See architecture.md.
+ *
+ * @lore AF1 TS6305/TS6307/TS6059: These three codes are cross-package reference
+ * noise. TS6305 = "output file has not been built from source" (--noEmit means
+ * no .d.ts was emitted, so cross-package refs see stale outputs). TS6307 = "file
+ * not listed in project" (a referenced project's file listed by the consumer).
+ * TS6059 = "file is not under rootDir" (same root cause). These errors belong to
+ * the referenced dependency, not the consumer — filtering them gives the consumer
+ * a clean own-error count.
+ *
+ * @lore AF1 crash-guard: If tsc exits non-zero but produces zero parseable error
+ * lines, the naive gate would count 0 errors and wrongly PASS. This happens when
+ * tsc crashes (OOM, invalid tsconfig, internal compiler error). The guard detects
+ * this case and always fails the gate with diagnostic output. We check
+ * rawParsedCount (before own-file filtering) rather than ownErrors to avoid
+ * false-triggering on packages that only have reference-noise errors.
+ */
+
+import { execSync } from "node:child_process";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import {
+  type DebtFile,
+  type PackageResult,
+  computeVerdict,
+} from "./lib/typecheck-verdict.js";
+
+// -- Constants --
+
+/** Error codes that are cross-package reference noise, not own-package errors. */
+const REFERENCE_NOISE_CODES: ReadonlySet<string> = new Set([
+  "TS6305",
+  "TS6307",
+  "TS6059",
+]);
+
+const DEBT_FILE = "typecheck-debt.json";
+const MAX_ERROR_LINES = 10;
+
+// Matches: packages/<name>/path/to/file.ts(line,col): error TS1234: message
+// or:      packages/<name>/path/to/file.ts:line:col - error TS1234: message
+const ERROR_LINE_RE = /^(packages\/([^/]+)\/[^:]+)[:(].*\berror (TS\d+)\b/;
+
+// -- Discovery --
+
+function discoverPackages(root: string): string[] {
+  const packagesDir = resolve(root, "packages");
+  const entries = readdirSync(packagesDir, { withFileTypes: true });
+  return entries
+    .filter(
+      (e) =>
+        e.isDirectory() &&
+        existsSync(resolve(packagesDir, e.name, "tsconfig.json")),
+    )
+    .map((e) => e.name)
+    .sort();
+}
+
+// -- Debt file reading --
+
+function readDebtFile(root: string): { excepted: Set<string>; raw: DebtFile } {
+  const debtPath = resolve(root, DEBT_FILE);
+  if (!existsSync(debtPath)) {
+    process.stderr.write(
+      `typecheck-gate: FATAL — ${DEBT_FILE} not found at ${debtPath}.\n` +
+        `Create it or run AF1 setup to generate it.\n`,
+    );
+    process.exit(1);
+  }
+  let raw: DebtFile;
+  try {
+    raw = JSON.parse(readFileSync(debtPath, "utf-8")) as DebtFile;
+  } catch (err) {
+    process.stderr.write(
+      `typecheck-gate: FATAL — ${DEBT_FILE} is not valid JSON: ${String(err)}\n`,
+    );
+    process.exit(1);
+  }
+  if (!raw.packages || typeof raw.packages !== "object" || Array.isArray(raw.packages)) {
+    process.stderr.write(
+      `typecheck-gate: FATAL — ${DEBT_FILE} is malformed: missing "packages" object.\n`,
+    );
+    process.exit(1);
+  }
+  return { excepted: new Set(Object.keys(raw.packages)), raw };
+}
+
+// -- Per-package tsc runner --
+
+function runPackage(root: string, pkg: string): PackageResult {
+  const tsconfig = `packages/${pkg}/tsconfig.json`;
+  let rawOutput = "";
+  let exitCode = 0;
+
+  try {
+    rawOutput = execSync(`npx tsc --noEmit -p ${tsconfig}`, {
+      encoding: "utf-8",
+      stdio: "pipe",
+      cwd: root,
+    });
+    // tsc exits 0 → clean (or only reference noise)
+  } catch (err: unknown) {
+    // execSync throws on non-zero exit; attach output and record exit code.
+    const nodeErr = err as NodeJS.ErrnoException & {
+      stdout?: string;
+      stderr?: string;
+      status?: number;
+    };
+    rawOutput = (nodeErr.stdout ?? "") + (nodeErr.stderr ?? "");
+    exitCode = nodeErr.status ?? 1;
+  }
+
+  // Parse error lines
+  const lines = rawOutput.split("\n");
+  let rawParsedCount = 0;
+  const ownErrorLines: string[] = [];
+
+  for (const line of lines) {
+    const m = ERROR_LINE_RE.exec(line);
+    if (!m) continue;
+    rawParsedCount++;
+    const linePkg = m[2]; // package directory name from path
+    const tsCode = m[3]; // e.g. "TS2322"
+    if (linePkg === pkg && !REFERENCE_NOISE_CODES.has(tsCode)) {
+      ownErrorLines.push(line);
+    }
+  }
+
+  const ownErrors = ownErrorLines.length;
+
+  // @lore AF1 crash-guard: check rawParsedCount (not ownErrors) to avoid
+  // false-triggering on packages with only reference-noise errors.
+  const crashed = exitCode !== 0 && rawParsedCount === 0;
+
+  return {
+    name: pkg,
+    ownErrors,
+    excepted: false, // set by caller after reading debt file
+    crashed,
+    errorLines: ownErrorLines.slice(0, MAX_ERROR_LINES),
+    rawOutput,
+  };
+}
+
+// -- Summary table printer --
+
+type RowStatus = "PASS" | `QUARANTINED (${string})` | "FAIL" | "CRASHED" | "STALE";
+
+function printSummary(
+  results: PackageResult[],
+  debtRaw: DebtFile,
+  crashedSet: Set<string>,
+  failedSet: Set<string>,
+  staleSet: Set<string>,
+): void {
+  process.stdout.write("\n");
+  process.stdout.write(
+    `${"Package".padEnd(28)} ${"Errors".padStart(8)}   Status\n`,
+  );
+  process.stdout.write(`${"-".repeat(28)} ${"-".repeat(8)}   ${"-".repeat(30)}\n`);
+
+  for (const r of results) {
+    let status: RowStatus;
+    if (crashedSet.has(r.name)) {
+      status = "CRASHED";
+    } else if (failedSet.has(r.name)) {
+      status = "FAIL";
+    } else if (staleSet.has(r.name)) {
+      status = "STALE";
+    } else if (r.excepted) {
+      const owner = debtRaw.packages[r.name]?.owner ?? "?";
+      status = `QUARANTINED (${owner})`;
+    } else {
+      status = "PASS";
+    }
+    process.stdout.write(
+      `${r.name.padEnd(28)} ${String(r.ownErrors).padStart(8)}   ${status}\n`,
+    );
+  }
+  process.stdout.write("\n");
+}
+
+// -- Main --
+
+function main(): void {
+  const root = process.cwd();
+
+  // 1. Discover packages
+  const allPackages = discoverPackages(root);
+  if (allPackages.length === 0) {
+    process.stderr.write(
+      "typecheck-gate: FATAL — no packages found under packages/. Is this the repo root?\n",
+    );
+    process.exit(1);
+  }
+
+  // 2. Read debt file
+  const { excepted, raw: debtRaw } = readDebtFile(root);
+
+  // 3. Validate: every excepted package must exist on disk
+  for (const name of excepted) {
+    if (!allPackages.includes(name)) {
+      process.stderr.write(
+        `typecheck-gate: FATAL — typecheck-debt.json references unknown package "${name}".\n` +
+          `Remove the entry or create the package.\n`,
+      );
+      process.exit(1);
+    }
+  }
+
+  process.stderr.write(
+    `typecheck-gate: checking ${allPackages.length} packages...\n`,
+  );
+
+  // 4. Run tsc per package
+  const results: PackageResult[] = [];
+  for (const pkg of allPackages) {
+    process.stderr.write(`  tsc ${pkg}...`);
+    const result = runPackage(root, pkg);
+    result.excepted = excepted.has(pkg);
+    results.push(result);
+
+    // Brief status hint while running
+    if (result.crashed) {
+      process.stderr.write(" CRASHED\n");
+    } else if (result.ownErrors === 0) {
+      process.stderr.write(" ok\n");
+    } else if (result.excepted) {
+      process.stderr.write(` ${result.ownErrors} errors (quarantined)\n`);
+    } else {
+      process.stderr.write(` ${result.ownErrors} errors FAIL\n`);
+    }
+  }
+
+  // 5. Compute verdict
+  const verdict = computeVerdict(results);
+
+  const crashedSet = new Set(verdict.crashedPackages.map((r) => r.name));
+  const failedSet = new Set(verdict.failedNonExcepted.map((r) => r.name));
+  const staleSet = new Set(verdict.staleExcepted.map((r) => r.name));
+
+  // 6. Print summary table
+  printSummary(results, debtRaw, crashedSet, failedSet, staleSet);
+
+  // 7. Print failure details
+  if (verdict.messages.length > 0) {
+    for (const msg of verdict.messages) {
+      process.stderr.write(`\n${msg}\n`);
+    }
+  }
+
+  // 8. Final verdict
+  if (verdict.outcome === "PASS") {
+    process.stderr.write(
+      `typecheck-gate: PASS — all ${allPackages.length} packages checked.\n`,
+    );
+    process.exit(0);
+  } else {
+    process.stderr.write(
+      `typecheck-gate: FAIL — fix the issues above, then re-run npm run check.\n`,
+    );
+    process.exit(1);
+  }
+}
+
+main();
