@@ -47,14 +47,14 @@ import {
 } from "@hyperidle/shared";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
-import type { z, ZodError } from "zod";
+import type { ZodError, z } from "zod";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { escapeLikePattern } from "../services/like-escape.js";
 import { createAssistantThreadRoute } from "./assistant.js";
 import { createCoachRoutes } from "./coach.js";
 import {
 	createThreadBodySchema,
-	inlineRefSchema,
+	type inlineRefSchema,
 	listThreadsQuerySchema,
 	messageInputSchema,
 	messageRowSchema,

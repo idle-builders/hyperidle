@@ -435,7 +435,7 @@ describe("R5: Agent Work Loop integration", () => {
 			expect(body.tokensActual).not.toBeNull();
 			expect(body.tokensActual?.byTier).toBeDefined();
 			expect(body.tokensActual?.byTier.workhorse).toBeDefined();
-			expect(body!.tokensActual?.byTier.workhorse!.prompt).toBeGreaterThanOrEqual(1000);
+			expect(body!.tokensActual?.byTier.workhorse?.prompt).toBeGreaterThanOrEqual(1000);
 		});
 	});
 });

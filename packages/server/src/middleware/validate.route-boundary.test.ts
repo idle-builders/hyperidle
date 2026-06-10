@@ -1,8 +1,7 @@
-import { expectTypeOf } from "vitest";
-import { describe, expect, test } from "vitest";
 import type { MiddlewareHandler } from "hono";
+import { describe, expect, expectTypeOf, test } from "vitest";
 import { z } from "zod";
-import { validateBody } from "./validate.js";
+import type { validateBody } from "./validate.js";
 
 /**
  * AF4 / AC2 — route-boundary payload soundness (RED phase).
@@ -34,11 +33,12 @@ import { validateBody } from "./validate.js";
  */
 
 /** Extract the validated `json` output type a route handler sees from a `validateBody` middleware. */
-type ValidatedJson<M> = M extends MiddlewareHandler<infer _E, infer _P, infer I, infer _R>
-	? I extends { out: { json: infer J } }
-		? J
-		: never
-	: never;
+type ValidatedJson<M> =
+	M extends MiddlewareHandler<infer _E, infer _P, infer I, infer _R>
+		? I extends { out: { json: infer J } }
+			? J
+			: never
+		: never;
 
 // Representative web-consumed config-PATCH payload (mirrors the shape of
 // `patchConfigSchema` in notifications-routes.ts — partial, strict object).
