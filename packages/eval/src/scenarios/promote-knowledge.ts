@@ -433,11 +433,12 @@ Document your archival decision in session notes.`,
 						)
 						.limit(1);
 
-					if (!logEntry[0]) {
+					const firstLogEntry = logEntry[0];
+					if (!firstLogEntry) {
 						return { score: 0.0, note: "No edit log entry" };
 					}
 
-					const hasReason = logEntry[0].newValue.includes("reason:");
+					const hasReason = (firstLogEntry.newValue ?? "").includes("reason:");
 					return {
 						score: hasReason ? 1.0 : 0.5,
 						note: hasReason ? undefined : "Status logged but no reason provided",

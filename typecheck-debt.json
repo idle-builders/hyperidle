@@ -12,11 +12,6 @@
       "errors": 72,
       "note": "test-fixtures missing JSX types"
     },
-    "eval": {
-      "owner": "AF2",
-      "errors": 20,
-      "note": "seeding + types shared refs"
-    },
     "fabric": {
       "owner": "AF3",
       "errors": 173,

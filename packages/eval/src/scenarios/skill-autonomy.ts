@@ -61,6 +61,7 @@ const skaL1ReviewRequired: EvalScenario = {
 		});
 
 		const { routineId } = await seedRoutine(ctx.db, {
+			teamId: world.teamId,
 			ownerAgentId: world.agentId,
 			triggerType: "heartbeat",
 			triggerConfig: { intervalSeconds: 3600, taskId: world.taskId },
@@ -171,6 +172,7 @@ const skaL4Silent: EvalScenario = {
 		});
 
 		const { routineId } = await seedRoutine(ctx.db, {
+			teamId: world.teamId,
 			ownerAgentId: world.agentId,
 			triggerType: "heartbeat",
 			triggerConfig: { intervalSeconds: 3600, taskId: world.taskId },

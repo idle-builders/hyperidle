@@ -520,8 +520,7 @@ Respond ONLY with the JSON object. No preamble, no markdown.`;
 				const { Anthropic } = await import("@anthropic-ai/sdk");
 				const client = new Anthropic({
 					apiKey: ctx.resolvedModel.apiKey,
-					baseURL: ctx.resolvedModel.baseURL,
-					defaultHeaders: ctx.resolvedModel.defaultHeaders,
+					baseURL: ctx.resolvedModel.baseUrl,
 				});
 
 				const response = await client.messages.create({
