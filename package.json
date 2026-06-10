@@ -20,7 +20,7 @@
 		"test:all": "npm run test && npm run test:integration",
 		"test:coverage": "vitest run --coverage",
 		"test:e2e": "npm run -w @hyperidle/web test:e2e",
-		"check": "tsc --noEmit -p tsconfig.json",
+		"check": "npx tsx scripts/typecheck-gate.ts",
 		"lint": "biome check . --reporter=summary && npx eslint . --quiet",
 		"lint:biome": "biome check . --reporter=summary",
 		"lint:eslint": "npx eslint . --quiet",

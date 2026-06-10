@@ -9,7 +9,7 @@
 | `npm run setup` | Initialize database |
 | `npm run test` | Run all tests |
 | `npm run test:coverage` | Tests with coverage |
-| `npm run check` | TypeScript type check |
+| `npm run check` | TypeScript type check — per-package fan-out gate (see `typecheck-debt.json` for the quarantine list) |
 | `npm run lint` | Biome + ESLint |
 | `npm run lint:fix` | Auto-fix lint issues |
 | `npm run db:generate` | Generate migration from schema changes |

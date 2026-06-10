@@ -78,5 +78,55 @@ export function computeVerdict(
   results: PackageResult[],
   excepted: Set<string>,
 ): VerdictResult {
-  throw new Error("not implemented");
+  const crashedPackages = results.filter((r) => r.crashed);
+  const failedNonExcepted = results.filter(
+    (r) => !r.crashed && !r.excepted && r.ownErrors > 0,
+  );
+  const staleExcepted = results.filter(
+    (r) => !r.crashed && r.excepted && r.ownErrors === 0,
+  );
+
+  const messages: string[] = [];
+
+  if (crashedPackages.length > 0) {
+    for (const pkg of crashedPackages) {
+      messages.push(
+        `CRASHED: tsc exited with errors but produced no parseable type errors for "${pkg.name}". ` +
+        `Possible cause: missing tsconfig, OOM, or internal compiler error. ` +
+        `Raw output:\n${pkg.rawOutput}`,
+      );
+    }
+  }
+
+  if (staleExcepted.length > 0) {
+    const names = staleExcepted.map((r) => r.name);
+    messages.push(
+      `Stale quarantine entries: ${names.join(", ")}.\n` +
+      `These packages now have zero type errors — remove them from typecheck-debt.json in this commit.\n` +
+      names
+        .map(
+          (name) =>
+            `  jq 'del(.packages["${name}"])' typecheck-debt.json > tmp && mv tmp typecheck-debt.json`,
+        )
+        .join("\n"),
+    );
+  }
+
+  if (failedNonExcepted.length > 0) {
+    for (const pkg of failedNonExcepted) {
+      messages.push(
+        `FAIL: "${pkg.name}" has ${pkg.ownErrors} type error(s) and is not on the exception list.\n` +
+        pkg.errorLines.join("\n"),
+      );
+    }
+  }
+
+  const outcome: VerdictOutcome =
+    crashedPackages.length > 0 ||
+    failedNonExcepted.length > 0 ||
+    staleExcepted.length > 0
+      ? "FAIL"
+      : "PASS";
+
+  return { outcome, crashedPackages, failedNonExcepted, staleExcepted, messages };
 }
