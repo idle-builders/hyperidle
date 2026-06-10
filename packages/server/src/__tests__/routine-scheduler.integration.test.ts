@@ -250,8 +250,8 @@ describe("Routine Scheduler", () => {
 				type: "bet_state_changed",
 				streamId: "b1",
 				betId: "b1",
-				fromState: "review",
-				toState: "shipped",
+				fromState: "active",
+				toState: "completed",
 				timestamp: Date.now(),
 			});
 

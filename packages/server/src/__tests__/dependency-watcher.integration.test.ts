@@ -105,7 +105,7 @@ describe("Dependency Watcher", () => {
 			await insertTask(db, "dependent", "hold", ["dep-1"]);
 
 			const notifications: NotificationEvent[] = [];
-			eventBus.on("notification", (e: unknown) => notifications.push(e));
+			eventBus.on("notification", (e) => notifications.push(e));
 
 			await checkAndUnblockDependents(db, eventBus, "dep-1");
 
@@ -121,7 +121,7 @@ describe("Dependency Watcher", () => {
 			await insertTask(db, "dependent", "hold", ["dep-1"]);
 
 			const events: TaskStateChangedEvent[] = [];
-			eventBus.on("task_state_changed", (e: unknown) => events.push(e));
+			eventBus.on("task_state_changed", (e) => events.push(e));
 
 			await checkAndUnblockDependents(db, eventBus, "dep-1");
 
@@ -138,7 +138,7 @@ describe("Dependency Watcher", () => {
 			await insertTask(db, "dependent", "hold", ["dep-1", "dep-2"]);
 
 			const notifications: NotificationEvent[] = [];
-			eventBus.on("notification", (e: unknown) => notifications.push(e));
+			eventBus.on("notification", (e) => notifications.push(e));
 
 			await checkAndUnblockDependents(db, eventBus, "dep-1");
 

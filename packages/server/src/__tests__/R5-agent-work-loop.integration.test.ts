@@ -175,7 +175,7 @@ describe("R5: Agent Work Loop integration", () => {
 
 	// AC2: submit_review tool posts a review message visible in the bet's thread
 	describe("AC2: submit_review tool — review message in bet host thread", () => {
-		test("submitted review message appears in bet host thread", async ({ db, eventBus, app }) => {
+		test("submitted review message appears in bet host thread", async ({ db, eventBus }) => {
 			await seedBase(db);
 			const ctx = makeContext(db, eventBus);
 

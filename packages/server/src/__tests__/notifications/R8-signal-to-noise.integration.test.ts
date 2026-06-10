@@ -124,7 +124,7 @@ async function createItem(
 
 function emitTaskStateChanged(
 	bus: import("@hyperidle/shared").EventBus,
-	fromState: "pending" | "in_progress",
+	fromState: "proposed" | "in_progress",
 	toState: "in_progress" | "done",
 	taskId = "task-r8",
 ): void {
@@ -278,7 +278,7 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 		await enableNotifications(db);
 		unsubscribe = registerNotificationDispatcher(db, eventBus, { adapterFactory: () => adapter });
 
-		emitTaskStateChanged(eventBus, "pending", "in_progress");
+		emitTaskStateChanged(eventBus, "proposed", "in_progress");
 		emitTaskStateChanged(eventBus, "in_progress", "done");
 
 		// Allow async event handlers to fully settle
@@ -344,7 +344,7 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 			adapterFactory: () => adapter,
 		});
 
-		emitTaskStateChanged(eventBus, "pending", "in_progress");
+		emitTaskStateChanged(eventBus, "proposed", "in_progress");
 
 		// Allow all microtasks and async event handlers to settle.
 		await Promise.resolve();
@@ -389,7 +389,7 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 		});
 
 		// Emit multiple transitions
-		emitTaskStateChanged(eventBus, "pending", "in_progress", "task-a");
+		emitTaskStateChanged(eventBus, "proposed", "in_progress", "task-a");
 		emitTaskStateChanged(eventBus, "in_progress", "done", "task-a");
 
 		await Promise.resolve();

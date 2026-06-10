@@ -608,7 +608,7 @@ describe("registerLifecyclePropagation — re-entrant cascade", () => {
 			type: "task_state_changed",
 			streamId: "task-1",
 			taskId: "task-1",
-			fromState: "active",
+			fromState: "in_progress",
 			toState: "done",
 			timestamp: Date.now(),
 		});
@@ -716,7 +716,7 @@ describe("registerLifecyclePropagation — bet -> team", () => {
 			type: "bet_state_changed",
 			streamId: "prod-1",
 			betId: "bet-1",
-			fromState: "in_progress",
+			fromState: "active",
 			toState: "killed",
 			timestamp: Date.now(),
 		});

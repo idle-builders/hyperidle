@@ -9,7 +9,7 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
@@ -78,18 +78,6 @@ async function seedTask(db: HyperIdleDb): Promise<void> {
 		state: "proposed",
 		createdAt: NOW,
 		updatedAt: NOW,
-	});
-}
-
-async function _seedThread(db: HyperIdleDb): Promise<void> {
-	await db.insert(threads).values({
-		id: "thr-ad8b-1",
-		hostKind: "bet",
-		hostId: "bet-ad8b-1",
-		initiatorId: "ast-agent-1",
-		participants: JSON.stringify(["ast-agent-1"]),
-		lastActiveAt: NOW,
-		createdAt: NOW,
 	});
 }
 

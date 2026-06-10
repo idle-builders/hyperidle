@@ -258,7 +258,7 @@ describe("registerObservabilityDispatcher — bus subscriber", () => {
 			type: "bet_state_changed",
 			streamId: "bet-1",
 			betId: "bet-1",
-			fromState: "pitched",
+			fromState: "draft",
 			toState: "active",
 			timestamp: now,
 		} satisfies BetStateChangedEvent);

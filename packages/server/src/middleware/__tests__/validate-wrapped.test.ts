@@ -92,7 +92,6 @@ describe("F2. validationHook is exported", () => {
 		};
 
 		// Mock context
-		const _responseSent: { status: number; body: unknown } | null = null;
 		let capturedResponse: unknown = null;
 		const mockContext = {
 			json: (body: unknown, status: number) => {
