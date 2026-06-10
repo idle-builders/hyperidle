@@ -315,9 +315,11 @@ async function drainQueue(deps: TaskDispatcherDeps, generation: number): Promise
 
 				if (err instanceof CostCapExceededError) {
 					// Over budget — stop draining entirely; entries remain in queue
+					// @lore AF3 C13: after instanceof narrowing, err is CostCapExceededError.
+					const costErr: CostCapExceededError = err;
 					logger.warn("cost cap exceeded; pausing queue drain", {
 						taskId: entry.taskId,
-						entityId: err.entityId,
+						entityId: costErr.entityId,
 					});
 					break;
 				}

@@ -54,8 +54,7 @@ describe("N1 AC6: transaction semantics under PGlite", () => {
 			const now = new Date().toISOString();
 			await tx.insert(knowledgeItems).values({
 				id,
-				layer: "L1",
-				kind: "pattern",
+				scopeKind: "factory",
 				title: "tx-committed",
 				body: "body",
 				format: "markdown",
@@ -87,8 +86,7 @@ describe("N1 AC6: transaction semantics under PGlite", () => {
 				const now = new Date().toISOString();
 				await tx.insert(knowledgeItems).values({
 					id: attemptedId,
-					layer: "L1",
-					kind: "pattern",
+					scopeKind: "factory",
 					title: "tx-rolled-back",
 					body: "body",
 					format: "markdown",
@@ -144,8 +142,7 @@ describe("N1 AC6: transaction semantics under PGlite", () => {
 				const now = new Date().toISOString();
 				await tx.insert(knowledgeItems).values({
 					id: rowId,
-					layer: "L1",
-					kind: "pattern",
+					scopeKind: "factory",
 					title: `sequential-tx-${i}`,
 					body: "body",
 					format: "markdown",

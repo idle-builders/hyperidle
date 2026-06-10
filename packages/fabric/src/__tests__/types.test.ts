@@ -158,7 +158,7 @@ describe("Strategy-specific types", () => {
 
 describe("Propagation types (moved from shared/propagation.ts)", () => {
 	it("PropagationLevel accepts all 5 levels", () => {
-		const levels: PropagationLevel[] = ["session", "task", "bet", "product", "portfolio"];
+		const levels: PropagationLevel[] = ["session", "task", "bet", "team", "portfolio"];
 		expect(levels).toHaveLength(5);
 	});
 

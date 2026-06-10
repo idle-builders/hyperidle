@@ -85,8 +85,14 @@ export function isInSilenceWindow(startStr: string, endStr: string, now: Date): 
 	const startParts = startStr.split(":").map(Number);
 	const endParts = endStr.split(":").map(Number);
 	if (startParts.length !== 2 || endParts.length !== 2) return false;
-	const [startH, startM] = startParts;
-	const [endH, endM] = endParts;
+	// @lore AF3 C6: length guards above prove presence; index directly and guard
+	// undefined to satisfy noUncheckedIndexedAccess without changing behavior.
+	const startH = startParts[0];
+	const startM = startParts[1];
+	const endH = endParts[0];
+	const endM = endParts[1];
+	if (startH === undefined || startM === undefined) return false;
+	if (endH === undefined || endM === undefined) return false;
 	if (!(Number.isFinite(startH) && Number.isFinite(startM))) return false;
 	if (!(Number.isFinite(endH) && Number.isFinite(endM))) return false;
 

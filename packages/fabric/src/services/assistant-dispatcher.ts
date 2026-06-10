@@ -21,7 +21,7 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { threads, users } from "@hyperidle/db";
-import type { EventBus } from "@hyperidle/shared";
+import type { EventBus, ThreadMessageAppendedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
@@ -92,68 +92,79 @@ const logger = {
  * assistant interaction, not before.
  */
 export function registerAssistantDispatcher(eventBus: EventBus, db: HyperIdleDb): () => void {
-	const unsubscribe = eventBus.on("thread_message_appended", async (event) => {
-		try {
-			// Look up the thread to get hostKind/hostId
-			const [threadRow] = await db
-				.select()
-				.from(threads)
-				.where(eq(threads.id, event.threadId))
-				.limit(1);
+	// @lore AF3 C9b: async handlers fail the EventHandler<T> overload (Promise<void>
+	// vs void). Use a sync outer wrapper + void async IIFE so the on<T> overload
+	// resolves correctly. Explicit event type annotation ensures T is inferred.
+	// @lore AF3 C9: ThreadMessageAppendedEvent has no hostId field; the log source
+	// is threadRow.hostId (threadRow loaded at :104, log-only at :133/:145, no
+	// control flow reads hostId). Swap is safe and behavior-preserving.
+	const unsubscribe = eventBus.on(
+		"thread_message_appended",
+		(event: ThreadMessageAppendedEvent) => {
+			void (async () => {
+				try {
+					// Look up the thread to get hostKind/hostId
+					const [threadRow] = await db
+						.select()
+						.from(threads)
+						.where(eq(threads.id, event.threadId))
+						.limit(1);
 
-			if (!threadRow) {
-				return; // Thread not found — skip
-			}
+					if (!threadRow) {
+						return; // Thread not found — skip
+					}
 
-			// Look up the sender to determine their kind (human vs ai)
-			const [senderRow] = await db
-				.select()
-				.from(users)
-				.where(eq(users.id, event.senderId))
-				.limit(1);
+					// Look up the sender to determine their kind (human vs ai)
+					const [senderRow] = await db
+						.select()
+						.from(users)
+						.where(eq(users.id, event.senderId))
+						.limit(1);
 
-			if (!senderRow) {
-				return; // Unknown sender — skip
-			}
+					if (!senderRow) {
+						return; // Unknown sender — skip
+					}
 
-			const threadLike: ThreadLike = {
-				hostKind: threadRow.hostKind,
-				hostId: threadRow.hostId,
-				pinned: threadRow.pinned === true,
-			};
+					const threadLike: ThreadLike = {
+						hostKind: threadRow.hostKind,
+						hostId: threadRow.hostId,
+						pinned: threadRow.pinned === true,
+					};
 
-			// AC-6: When the AI assistant posts their first response to an assistant
-			// thread, pin the thread. Idempotent — skip if already pinned.
-			if (senderRow.kind === "ai" && isAssistantThread(threadLike) && !threadLike.pinned) {
-				await db.update(threads).set({ pinned: true }).where(eq(threads.id, event.threadId));
+					// AC-6: When the AI assistant posts their first response to an assistant
+					// thread, pin the thread. Idempotent — skip if already pinned.
+					if (senderRow.kind === "ai" && isAssistantThread(threadLike) && !threadLike.pinned) {
+						await db.update(threads).set({ pinned: true }).where(eq(threads.id, event.threadId));
 
-				logger.info("assistant thread pinned after first response", {
-					threadId: event.threadId,
-					senderId: event.senderId,
-					hostId: event.hostId,
-				});
-				return;
-			}
+						logger.info("assistant thread pinned after first response", {
+							threadId: event.threadId,
+							senderId: event.senderId,
+							hostId: threadRow.hostId,
+						});
+						return;
+					}
 
-			if (!shouldDispatchForAssistant({ senderKind: senderRow.kind, thread: threadLike })) {
-				return; // Not an assistant thread or not a human sender
-			}
+					if (!shouldDispatchForAssistant({ senderKind: senderRow.kind, thread: threadLike })) {
+						return; // Not an assistant thread or not a human sender
+					}
 
-			logger.info("assistant dispatch triggered", {
-				threadId: event.threadId,
-				senderId: event.senderId,
-				hostId: event.hostId,
-			});
+					logger.info("assistant dispatch triggered", {
+						threadId: event.threadId,
+						senderId: event.senderId,
+						hostId: threadRow.hostId,
+					});
 
-			// @lore AD8b: Full session provisioning (connecting to the assistant
-			// agent and running a session) is deferred to a future story.
-			// This skeleton establishes the event subscription and filtering logic.
-		} catch (err) {
-			logger.error("assistant dispatch failed", {
-				error: err instanceof Error ? err.message : String(err),
-			});
-		}
-	});
+					// @lore AD8b: Full session provisioning (connecting to the assistant
+					// agent and running a session) is deferred to a future story.
+					// This skeleton establishes the event subscription and filtering logic.
+				} catch (err) {
+					logger.error("assistant dispatch failed", {
+						error: err instanceof Error ? err.message : String(err),
+					});
+				}
+			})();
+		},
+	);
 
 	return unsubscribe;
 }

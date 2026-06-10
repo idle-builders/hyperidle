@@ -1014,17 +1014,30 @@ Fix shapes: **one-liner** (single targeted edit), **small WP** (workpackage-size
 - Doc/code drift that will mislead future agents into "fixing" Redis wiring that was never there.
 - **Fix shape:** one-liner — fix the doc.
 
+### Z8-166 — AF2 false-done: design-system/desktop/eval un-quarantined but never zeroed; green CI over a red gate
+- **Sources:** AF3 builder (discovered during AF3 re-quarantine pass, 2026-06-11)
+- **Files:** `typecheck-debt.json` (AF2 removed these three entries), `scripts/check-attestation.ts` (trusts HMAC, not a live gate), `.verify-attestations/` (AF2's attestation was signed on a tree whose gate was already failing)
+- AF2's spec ("Type-green the shared foundation: shared, db, and leaf packages") explicitly listed `@hyperidle/design-system`, `@hyperidle/eval`, and `@hyperidle/desktop` in its acceptance criteria with the requirement "each compile with zero type errors" and "removed from the exception list". AF2 is marked done/shipped — but empirical verification on AF2's merged tree shows design-system still has 15 errors, desktop has 1, and eval has 17, identical to the AF3 branch. AF2 removed them from `typecheck-debt.json` without zeroing them. CI reported green because CI validates the HMAC-signed attestation (~30s) rather than re-running `npm run check`. **The signed attestation is NOT proof of a green gate if the attestation was generated on a tree whose gate was already failing.** Main's `npm run check` is currently RED while CI is GREEN. AF3 re-quarantined the three packages (attributed to AF2) to avoid shipping its own green gate over unrelated pre-existing debt. Resolution requires: (1) a follow-up workpackage to re-open AF2 and actually zero these 33 errors; (2) a gate-integrity fix so the attestation script verifies that the typecheck gate itself passed rather than just trusting the signed status. See also `@lore AF3` comment in `scripts/typecheck-gate.ts`.
+- **Fix shape:** small WP — re-open AF2 (or create AF2b drain): zero the 33 errors in design-system/desktop/eval. Parallel gate-integrity fix: have `verify-attest.ts` record the typecheck-gate exit code explicitly and have `check-attestation.ts` verify it, or add a CI step that re-runs the typecheck gate independently of the attestation.
+
 ### Z8-167 — `create_item` tool advertises `attentionScore`/`costEstimate` inputs the `items` table cannot store
 - **Sources:** AF4 (type checker confirms drift; TS2769 "Object literal may only specify known properties" at the insert).
 - **Files:** `packages/server/src/skill-tools/create-item.ts:40,46` (input schema), `:148,151` (insert), vs `packages/db/src/schema.ts` `items` table (no `attention_score`/`cost_estimate` columns — those live on `knowledge_items`).
 - AF4: type checker confirms the tool's Zod input schema accepts `attentionScore` and `costEstimate`, but the `items` (inbox-item) table has no such columns, so the `db.insert(items).values({...})` does not type-check. The values were never persistable at runtime. Honest in-scope fix: drop the two phantom columns from the `.values()` so the insert type-checks (no runtime behavior change — they were never written). Whether these inputs SHOULD be persisted (e.g. route the item to `knowledge_items`, or add columns) is a behavioral decision → **owned by the knowledge/inbox workpackage (Batch 7)**. The input-schema fields are left in place (removing them is a tool-contract change for that WP to decide).
 - **Fix shape:** small-WP — decide whether attentionScore/costEstimate belong on items; align tool schema ⇄ table.
 
-### Z8-166 — Message payload zod schema drifts from the shared domain type (`blockId`, `MentionRef.sourceText`)
+### Z8-168 — Message payload zod schema drifts from the shared domain type (`blockId`, `MentionRef.sourceText`)
 - **Sources:** AF4 (type checker confirms drift; surfaced as TS2322 at `rowToMessage` in assistant/coach/threads).
 - **Files:** `packages/server/src/routes/threads-schema.ts:85` (plainPayloadSchema `blockId`), `:71-75` (mentionRefSchema `sourceText` optional), vs `packages/shared/src/thread.ts:152` (`PlainPayload` lacks `blockId`) + `:131` (`MentionRef.sourceText` REQUIRED).
 - AF4: type checker confirms the wire schema validates/persists a `blockId` field on plain payloads that the domain `PlainPayload` type omits, and accepts mentions WITHOUT `sourceText` though the domain type requires it (contradicting the AE5 lore that sourceText is server-constructed and required). Reconciling either direction changes the wire/persisted shape (add `blockId` to the domain type, or tighten the schema to reject sourceText-less mentions) → **behavioral fix owned by the conversations workpackage (Batch 6 / AF6)**. AF4 keeps the runtime untouched and bridges the read-back mapping at the internal DB-row→domain boundary only (no request-payload cast, no behavior change).
 - **Fix shape:** small-WP — decide canonical Message payload shape, align schema ⇄ `PlainPayload`/`MentionRef`, migrate persisted rows if needed.
+
+### Z8-169 — `design-system` + `desktop` quarantine entries were stale (0 real errors in built-leaf state); gate forced their removal during AF4 merge
+- **Sources:** AF4 builder (during AF3→AF4 merge re-validation, 2026-06-11).
+- **Files:** `typecheck-debt.json` (removed `design-system` and `desktop`), `scripts/typecheck-gate.ts` (STALE detection).
+- The AF1 gate (`tsc --noEmit -p` per package) reports a package's error count against whatever leaf `.d.ts`/`.tsbuildinfo` exist on disk — it does NOT build leaves first, so its results are **build-state dependent**. The debt counts recorded by AF3 (design-system 15, desktop 1, eval 17, server 3780, web 235) were measured in an **un-built** tree (the cross-package `.d.ts` were absent, so consumers saw cascade errors). In a **clean built-leaf** tree — the only state in which AF4's `server` drains to 0 — both `design-system` and `desktop` resolve to **0 real own-errors** (verified standalone, stable across repeated runs after a clean `tsc -b` of shared/db/fabric/api-contract), so the gate flags them STALE and refuses to PASS until they are removed. Leaving them quarantined is impossible (gate FAIL); removing 0-error entries makes the gate STRICTER, not weaker, and is the gate's own mandated fix — consistent with the Z8-166 anti-false-done principle. **This is a forced deviation from the AF4 plan** (which assumed both packages had real errors to leave quarantined); the plan's premise was measured pre-build and does not hold in the built state that verify/attestation runs in. `eval` (8) and `web` (211) remain >0 in built state and stay quarantined, left exactly as their owners (AF2/AF5) recorded them — only their recorded *counts* (17/235) are stale vs built actuals (8/211), entries are legitimately non-zero so AF4 does not touch them.
+- **Note on flakiness:** during the merge re-validation, `design-system` intermittently showed `1` own-error inside a full 11-package `npm run check` sweep (incremental `.tsbuildinfo` perturbation from sibling packages' `--noEmit` runs) but is a stable `0` standalone and after a clean leaf build. The clean built-leaf fixpoint (which is what `npm run verify` produces, running `check` first) is `0` for both. The intermittent `1` is gate nondeterminism, not a real design-system error.
+- **Fix shape:** root-cause is the build-state-dependent gate (owned by AF1) — it should `tsc -b` the leaves before measuring (deterministic), or record debt counts in built-leaf state. AF2's design-system/desktop/eval drain (Z8-166) supersedes the stale counts. AF4 only removes the two demonstrably-zero entries (`design-system`, `desktop`) needed to pass; it does not alter `eval`/`web`.
 
 ---
 
@@ -1105,8 +1118,9 @@ TTL/retention job, workspace GC, purge-directive cleanups, doc-drift fixes, dead
 | Critical | 14 |
 | High | 37 |
 | Medium | 51 |
-| Low | 63 |
-| **Total entries** | **165** |
+| Low | 64 |
+| **Total entries** | **166** |
 | Source flags covered | 175 (9 merged entries absorb 19 corroborated flags) |
+| Post-compile additions | 1 (Z8-166: AF3 builder, gate-integrity finding) |
 
 Per-source coverage: conversations 25/25 · work-bets-tasks 28/28 · work-team-routine-agent 20/20 · knowledge 21/21 · settings 17/17 · shell-search-artifacts 25/25 · agent-runtime 20/20 · automated-mechanisms 19/19.

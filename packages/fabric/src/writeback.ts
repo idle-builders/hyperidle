@@ -211,7 +211,12 @@ async function handleModify(
 		);
 
 		// Update manifest version
-		manifest.items[existing.itemId].version = updated.version;
+		// @lore AF3 C3: existing.itemId was resolved from this manifest so the entry
+		// is guaranteed present; use a local ref to avoid repeated index access.
+		const manifestEntry = manifest.items[existing.itemId];
+		if (manifestEntry !== undefined) {
+			manifestEntry.version = updated.version;
+		}
 		return "updated";
 	} catch (err) {
 		if (err instanceof VersionConflictError) {
@@ -229,7 +234,10 @@ async function handleModify(
 			});
 
 			// Update manifest to current version so subsequent writes don't keep conflicting
-			manifest.items[existing.itemId].version = err.currentVersion;
+			const conflictEntry = manifest.items[existing.itemId];
+			if (conflictEntry !== undefined) {
+				conflictEntry.version = err.currentVersion;
+			}
 
 			return "conflict";
 		}
