@@ -21,6 +21,7 @@ async function seedItem(
 ): Promise<KnowledgeItemWithFabric> {
 	const kernelRow = {
 		id: overrides.id,
+		scopeKind: overrides.scopeKind ?? "factory",
 		topic: overrides.topic ?? null,
 		title: overrides.title ?? "Seed",
 		body: overrides.body ?? "Body",
@@ -52,7 +53,7 @@ async function seedItem(
 		attentionScore: overrides.attentionScore != null ? String(overrides.attentionScore) : null,
 		confidence: overrides.confidence != null ? String(overrides.confidence) : null,
 		meta: overrides.meta ?? null,
-	};
+	} satisfies KnowledgeItemWithFabric;
 }
 
 describe("buildAttentionContext", () => {

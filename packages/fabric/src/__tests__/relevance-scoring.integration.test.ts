@@ -1,5 +1,6 @@
-import { factorySettings, type KnowledgeItem } from "@hyperidle/db";
+import { factorySettings } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import type { KnowledgeItemWithFabric } from "../knowledge-repository.js";
 import { rankAndBudget, scoreItem } from "../relevance-scoring.js";
 import {
 	CONTEXT_WINDOW_TOKENS,
@@ -12,19 +13,28 @@ import {
 } from "../scoring-config.js";
 import { countItemTokens, countTokens, enforceBudget, type ScoredItem } from "../token-budget.js";
 
-function makeItem(overrides: Partial<KnowledgeItem> = {}): KnowledgeItem {
+// @lore AF3 C1: uses KnowledgeItemWithFabric — fabric fields moved off KnowledgeItem.
+// attentionScore and confidence accept number | string | null to match legacy test call sites.
+type ItemOverrides = Omit<Partial<KnowledgeItemWithFabric>, "attentionScore" | "confidence"> & {
+	attentionScore?: number | string | null;
+	confidence?: number | string | null;
+};
+function makeItem(overrides: ItemOverrides = {}): KnowledgeItemWithFabric {
+	const toStr = (v: number | string | null | undefined): string | null =>
+		v == null ? null : typeof v === "number" ? String(v) : v;
 	return {
 		id: overrides.id ?? crypto.randomUUID(),
-		layer: overrides.layer ?? "L2",
+		scopeKind: overrides.scopeKind ?? "factory",
 		scopeId: overrides.scopeId ?? null,
+		layer: overrides.layer ?? "L2",
 		kind: overrides.kind ?? "pattern",
 		topic: overrides.topic ?? null,
 		title: overrides.title ?? "Test Item",
 		body: overrides.body ?? "This is a test knowledge item body.",
 		format: overrides.format ?? "markdown",
 		status: overrides.status ?? "active",
-		attentionScore: overrides.attentionScore ?? null,
-		confidence: overrides.confidence ?? null,
+		attentionScore: toStr(overrides.attentionScore),
+		confidence: toStr(overrides.confidence),
 		version: overrides.version ?? 1,
 		updatedBy: overrides.updatedBy ?? "agent-1",
 		createdAt: overrides.createdAt ?? new Date().toISOString(),
@@ -117,7 +127,7 @@ describe("relevance-scoring", () => {
 
 	describe("AC3: budget enforcement with 200 items", () => {
 		test("returns fewer items than input when budget is tight", async () => {
-			const items: KnowledgeItem[] = [];
+			const items: KnowledgeItemWithFabric[] = [];
 			for (let i = 0; i < 200; i++) {
 				const words = Array.from({ length: 250 }, (_, j) => `word${j}`).join(" ");
 				items.push(
@@ -142,7 +152,7 @@ describe("relevance-scoring", () => {
 		});
 
 		test("returns all items when budget is large enough", async () => {
-			const items: KnowledgeItem[] = [];
+			const items: KnowledgeItemWithFabric[] = [];
 			for (let i = 0; i < 10; i++) {
 				items.push(
 					makeItem({ id: `item-${i}`, body: "short body", updatedAt: new Date(now).toISOString() }),
@@ -164,7 +174,7 @@ describe("relevance-scoring", () => {
 				updatedAt: new Date(now).toISOString(),
 			});
 
-			const otherItems: KnowledgeItem[] = [];
+			const otherItems: KnowledgeItemWithFabric[] = [];
 			for (let i = 0; i < 50; i++) {
 				const words = Array.from({ length: 100 }, (_, j) => `word${j}`).join(" ");
 				otherItems.push(

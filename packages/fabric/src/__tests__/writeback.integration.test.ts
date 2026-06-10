@@ -191,14 +191,14 @@ describe("processWriteback", () => {
 		// Verify row was created
 		const items = await db.select().from(knowledgeItems);
 		expect(items).toHaveLength(1);
-		expect(items[0].status).toBe("captured");
-		expect(items[0].body).toBe("# My Pattern\nSome content here");
-		expect(items[0].version).toBe(1);
+		expect(items[0]!.status).toBe("captured");
+		expect(items[0]!.body).toBe("# My Pattern\nSome content here");
+		expect(items[0]!.version).toBe(1);
 		// @lore O2: layer moved to knowledgeStrategyFabric extension table
 		const [fabric] = await db
 			.select()
 			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, items[0].id))
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, items[0]!.id))
 			.limit(1);
 		expect(fabric?.layer).toBe("L1");
 	});
@@ -343,9 +343,9 @@ describe("processWriteback", () => {
 		// A conflict/review item was created
 		const conflicts = await db.select().from(knowledgeConflicts);
 		expect(conflicts).toHaveLength(1);
-		expect(conflicts[0].itemId).toBe(itemId);
-		expect(conflicts[0].proposedBody).toBe("[DELETED]");
-		expect(conflicts[0].status).toBe("open");
+		expect(conflicts[0]!.itemId).toBe(itemId);
+		expect(conflicts[0]!.proposedBody).toBe("[DELETED]");
+		expect(conflicts[0]!.status).toBe("open");
 	});
 
 	// AC5: Version conflict creates knowledge_conflicts row
@@ -411,11 +411,11 @@ describe("processWriteback", () => {
 
 		const conflicts = await db.select().from(knowledgeConflicts);
 		expect(conflicts).toHaveLength(1);
-		expect(conflicts[0].itemId).toBe(itemId);
-		expect(conflicts[0].versionBase).toBe(1);
-		expect(conflicts[0].versionCurrent).toBe(3);
-		expect(conflicts[0].proposedBody).toBe("agent's proposed content");
-		expect(conflicts[0].status).toBe("open");
+		expect(conflicts[0]!.itemId).toBe(itemId);
+		expect(conflicts[0]!.versionBase).toBe(1);
+		expect(conflicts[0]!.versionCurrent).toBe(3);
+		expect(conflicts[0]!.proposedBody).toBe("agent's proposed content");
+		expect(conflicts[0]!.status).toBe("open");
 	});
 
 	// AC7: Manifest updated after each writeback
@@ -453,8 +453,8 @@ describe("processWriteback", () => {
 		const updatedManifest = readManifest(path.join(workspace, ".fabric/manifest.json"));
 		const itemIds = Object.keys(updatedManifest.items);
 		expect(itemIds).toHaveLength(1);
-		expect(updatedManifest.items[itemIds[0]].source_path).toBe("knowledge/practices/new-item.md");
-		expect(updatedManifest.items[itemIds[0]].version).toBe(1);
+		expect(updatedManifest.items[itemIds[0]!]!.source_path).toBe("knowledge/practices/new-item.md");
+		expect(updatedManifest.items[itemIds[0]!]!.version).toBe(1);
 	});
 
 	// AC8: work/session-notes.md changes reflected in sessions.notes
@@ -580,7 +580,7 @@ describe("processWriteback", () => {
 		// Conflict was flagged
 		const conflicts = await db.select().from(knowledgeConflicts);
 		expect(conflicts).toHaveLength(1);
-		expect(conflicts[0].proposedBody).toBe("agent updated content");
+		expect(conflicts[0]!.proposedBody).toBe("agent updated content");
 	});
 
 	test("modify on unknown file treats as create", async ({ db }) => {

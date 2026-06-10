@@ -146,13 +146,13 @@ describe("writeback", () => {
 		// Verify the item was created with status 'captured'
 		const items = await db.select().from(knowledgeItems);
 		expect(items.length).toBe(1);
-		expect(items[0].status).toBe("captured");
-		expect(items[0].body).toBe("# New Pattern\nSome content here");
+		expect(items[0]!.status).toBe("captured");
+		expect(items[0]!.body).toBe("# New Pattern\nSome content here");
 		// @lore O2: layer moved to knowledgeStrategyFabric extension table
 		const [fabric] = await db
 			.select()
 			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, items[0].id))
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, items[0]!.id))
 			.limit(1);
 		expect(fabric?.layer).toBe("L1");
 
@@ -160,7 +160,7 @@ describe("writeback", () => {
 		const manifest = readManifest(manifestPath);
 		const itemIds = Object.keys(manifest.items);
 		expect(itemIds.length).toBe(1);
-		expect(manifest.items[itemIds[0]].source_path).toBe("knowledge/practices/new-pattern.md");
+		expect(manifest.items[itemIds[0]!]!.source_path).toBe("knowledge/practices/new-pattern.md");
 	});
 
 	// AC2: Modified file updates corresponding row, version increments
@@ -185,7 +185,7 @@ describe("writeback", () => {
 
 		const itemsBefore = await db.select().from(knowledgeItems);
 		expect(itemsBefore.length).toBe(1);
-		expect(itemsBefore[0].version).toBe(1);
+		expect(itemsBefore[0]!.version).toBe(1);
 
 		// Now modify
 		fs.writeFileSync(filePath, "Updated content");
@@ -204,8 +204,8 @@ describe("writeback", () => {
 		expect(result.updated).toBe(1);
 		const itemsAfter = await db.select().from(knowledgeItems);
 		expect(itemsAfter.length).toBe(1);
-		expect(itemsAfter[0].version).toBe(2);
-		expect(itemsAfter[0].body).toBe("Updated content");
+		expect(itemsAfter[0]!.version).toBe(2);
+		expect(itemsAfter[0]!.body).toBe("Updated content");
 	});
 
 	// AC3: Deleted file flags for facilitator review, NOT auto-deleted
@@ -222,7 +222,7 @@ describe("writeback", () => {
 
 		const itemsBefore = await db.select().from(knowledgeItems);
 		expect(itemsBefore.length).toBe(1);
-		const itemId = itemsBefore[0].id;
+		const itemId = itemsBefore[0]!.id;
 
 		// Now delete
 		fs.unlinkSync(filePath);
@@ -236,14 +236,14 @@ describe("writeback", () => {
 		// Item still exists in DB
 		const itemsAfter = await db.select().from(knowledgeItems);
 		expect(itemsAfter.length).toBe(1);
-		expect(itemsAfter[0].id).toBe(itemId);
+		expect(itemsAfter[0]!.id).toBe(itemId);
 
 		// Conflict record created for review
 		const conflicts = await db.select().from(knowledgeConflicts);
 		expect(conflicts.length).toBe(1);
-		expect(conflicts[0].itemId).toBe(itemId);
-		expect(conflicts[0].proposedBody).toBe("[DELETED]");
-		expect(conflicts[0].status).toBe("open");
+		expect(conflicts[0]!.itemId).toBe(itemId);
+		expect(conflicts[0]!.proposedBody).toBe("[DELETED]");
+		expect(conflicts[0]!.status).toBe("open");
 	});
 
 	// AC4: 10 files written in 200ms debounce collapses to <= 10 writeback operations
@@ -286,7 +286,7 @@ describe("writeback", () => {
 		]);
 
 		const items = await db.select().from(knowledgeItems);
-		const itemId = items[0].id;
+		const itemId = items[0]!.id;
 
 		// Simulate external update: bump version in DB directly
 		await db
@@ -311,11 +311,11 @@ describe("writeback", () => {
 
 		const conflicts = await db.select().from(knowledgeConflicts);
 		expect(conflicts.length).toBe(1);
-		expect(conflicts[0].itemId).toBe(itemId);
-		expect(conflicts[0].versionBase).toBe(1);
-		expect(conflicts[0].versionCurrent).toBe(5);
-		expect(conflicts[0].proposedBody).toBe("Agent's new content");
-		expect(conflicts[0].status).toBe("open");
+		expect(conflicts[0]!.itemId).toBe(itemId);
+		expect(conflicts[0]!.versionBase).toBe(1);
+		expect(conflicts[0]!.versionCurrent).toBe(5);
+		expect(conflicts[0]!.proposedBody).toBe("Agent's new content");
+		expect(conflicts[0]!.status).toBe("open");
 	});
 
 	// AC7: Manifest updated after each writeback
@@ -332,8 +332,8 @@ describe("writeback", () => {
 		const manifest = readManifest(manifestPath);
 		const entries = Object.values(manifest.items);
 		expect(entries.length).toBe(1);
-		expect(entries[0].version).toBe(1);
-		expect(entries[0].source_path).toBe("knowledge/decisions/arch-choice.md");
+		expect(entries[0]!.version).toBe(1);
+		expect(entries[0]!.source_path).toBe("knowledge/decisions/arch-choice.md");
 
 		// Modify the file
 		fs.writeFileSync(filePath, "Updated decision");
@@ -344,7 +344,7 @@ describe("writeback", () => {
 		const manifest2 = readManifest(manifestPath);
 		const entries2 = Object.values(manifest2.items);
 		expect(entries2.length).toBe(1);
-		expect(entries2[0].version).toBe(2);
+		expect(entries2[0]!.version).toBe(2);
 	});
 
 	// AC8: work/session-notes.md changes reflected in sessions.notes
@@ -406,7 +406,7 @@ describe("file-watcher (fs.watch)", () => {
 
 		const items = await db.select().from(knowledgeItems);
 		expect(items.length).toBe(1);
-		expect(items[0].status).toBe("captured");
+		expect(items[0]!.status).toBe("captured");
 	}, 5000);
 
 	// AC4: debounce collapses multiple writes
@@ -466,7 +466,7 @@ describe("file-watcher (fs.watch)", () => {
 
 		const itemsBefore = await db.select().from(knowledgeItems);
 		expect(itemsBefore.length).toBe(1);
-		expect(itemsBefore[0].body).toBe("Before stop");
+		expect(itemsBefore[0]!.body).toBe("Before stop");
 
 		// Write after stop — should NOT be recorded
 		const afterPath = path.join(workspace, "knowledge/practices/after-stop.md");
@@ -504,7 +504,7 @@ describe("file-watcher (fs.watch)", () => {
 		// Verify item was created
 		let items = await db.select().from(knowledgeItems);
 		expect(items.length).toBe(1);
-		const itemId = items[0].id;
+		const itemId = items[0]!.id;
 
 		// T=250ms equivalent: "human" patches the DB directly (external update)
 		await db
@@ -524,12 +524,12 @@ describe("file-watcher (fs.watch)", () => {
 		// A conflict should be flagged
 		const conflicts = await db.select().from(knowledgeConflicts);
 		expect(conflicts.length).toBe(1);
-		expect(conflicts[0].itemId).toBe(itemId);
-		expect(conflicts[0].proposedBody).toBe("Agent overwrites at T=500");
+		expect(conflicts[0]!.itemId).toBe(itemId);
+		expect(conflicts[0]!.proposedBody).toBe("Agent overwrites at T=500");
 
 		// Human's content should still be in DB (not overwritten)
 		items = await db.select().from(knowledgeItems);
-		expect(items[0].body).toBe("Human patched this");
+		expect(items[0]!.body).toBe("Human patched this");
 	}, 10000);
 });
 
@@ -573,8 +573,8 @@ describe("polling-watcher", () => {
 
 		const items = await db.select().from(knowledgeItems);
 		expect(items.length).toBe(1);
-		expect(items[0].status).toBe("captured");
-		expect(items[0].body).toBe("Polled content");
+		expect(items[0]!.status).toBe("captured");
+		expect(items[0]!.body).toBe("Polled content");
 	}, 8000);
 
 	// AC9: Polling detects modification
@@ -609,8 +609,8 @@ describe("polling-watcher", () => {
 
 		const items = await db.select().from(knowledgeItems);
 		expect(items.length).toBe(1);
-		expect(items[0].version).toBe(2);
-		expect(items[0].body).toBe("Modified polled content");
+		expect(items[0]!.version).toBe(2);
+		expect(items[0]!.body).toBe("Modified polled content");
 	}, 8000);
 
 	// AC9: Polling detects deletion
@@ -646,6 +646,6 @@ describe("polling-watcher", () => {
 
 		const conflicts = await db.select().from(knowledgeConflicts);
 		expect(conflicts.length).toBe(1);
-		expect(conflicts[0].proposedBody).toBe("[DELETED]");
+		expect(conflicts[0]!.proposedBody).toBe("[DELETED]");
 	}, 8000);
 });
