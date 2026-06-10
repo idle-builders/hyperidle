@@ -893,3 +893,85 @@ stories:
     track: AE
     depends: []
     complexity: M
+
+  # Track AF: Launch Remediation (Z8 audit fixes)
+  - id: AF1
+    title: Make the typecheck gate real and self-protecting
+    track: AF
+    depends: []
+    complexity: M
+  - id: AF2
+    title: "Type-green the shared foundation: shared, db, and leaf packages"
+    track: AF
+    depends: [AF1]
+    complexity: L
+  - id: AF3
+    title: Type-green the fabric package
+    track: AF
+    depends: [AF2]
+    complexity: L
+  - id: AF4
+    title: Type-green the server package
+    track: AF
+    depends: [AF2]
+    complexity: L
+  - id: AF5
+    title: Type-green the web frontend
+    track: AF
+    depends: [AF2, AF4]
+    complexity: L
+  - id: AF6
+    title: "Automation: routine scheduler and event-driven routines fire"
+    track: AF
+    depends: [AF3]
+    complexity: L
+  - id: AF7
+    title: "Automation: task auto-dispatch and session execution"
+    track: AF
+    depends: [AF3, AF4]
+    complexity: L
+  - id: AF8
+    title: "Notifications: define the model (concept) then deliver them"
+    track: AF
+    depends: [AF3]
+    complexity: L
+  - id: AF9
+    title: "Knowledge fabric: relevance, promotion, and search"
+    track: AF
+    depends: [AF3]
+    complexity: M
+  - id: AF10
+    title: Cost accounting integrity
+    track: AF
+    depends: [AF3, AF4]
+    complexity: L
+  - id: AF11
+    title: Authorization and credential hardening
+    track: AF
+    depends: [AF4]
+    complexity: L
+  - id: AF12
+    title: Complete the bet and task lifecycle
+    track: AF
+    depends: [AF4]
+    complexity: L
+  - id: AF13
+    title: Knowledge authoring and curation that works
+    track: AF
+    depends: [AF4, AF5]
+    complexity: L
+  - id: AF14
+    title: Conversations correctness and live updates
+    track: AF
+    depends: [AF4, AF5]
+    complexity: L
+  - id: AF15
+    title: Settings reachability and persistence
+    track: AF
+    depends: [AF4, AF5]
+    complexity: M
+  - id: AF16
+    title: Display correctness, dead controls, and project hygiene
+    track: AF
+    depends: [AF4, AF5]
+    complexity: L
