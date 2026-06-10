@@ -91,7 +91,8 @@ const plainPayloadSchema = z.object({
  */
 const toolCallSummarySchema = z.object({
 	name: z.string().min(1),
-	input: z.record(z.unknown()),
+	// @lore AF4/§4c: zod v4 requires record(keyType, valueType). Same wire shape.
+	input: z.record(z.string(), z.unknown()),
 	output: z.string(),
 	status: z.enum(["ok", "error"]),
 });

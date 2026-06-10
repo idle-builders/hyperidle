@@ -59,7 +59,10 @@ export const betProgressSchema = progressSchema;
 /**
  * Token usage shape stored as JSON.
  */
-const tokenUsageSchema = z.record(z.unknown());
+// @lore AF4/§4c: zod v4 (server-local 4.4.3) removed the single-arg z.record
+// overload — only record(keyType, valueType, params?) exists. Supply the string
+// key schema; same string-keyed-record wire shape as before. Behaviour-neutral.
+const tokenUsageSchema = z.record(z.string(), z.unknown());
 
 /**
  * Detailed bet response from GET /api/bets/:id.
@@ -91,7 +94,12 @@ export const betDetailResponseSchema = z.object({
  * A raw bet list item — the DB row shape used in the grouped list response.
  * Uses the drizzle-zod generated select schema.
  */
-export const betListItemSchema = selectBetSchema;
+// @lore AF4/§4c: drizzle-zod 0.8.3 dedupes to zod 3.25.76, so selectBetSchema
+// carries a zod-3.25 `$ZodType` brand that is nominally distinct from server's
+// zod 4.4.3 `SomeType` (the z.array() arg). Bridge the internal schema type
+// (NON-boundary, not a request/response payload cast) so z.array() accepts it.
+// Same parsed shape; version-alignment is out of AF4 scope (§9).
+export const betListItemSchema = selectBetSchema as unknown as z.ZodTypeAny;
 
 /**
  * Grouped bet list response from GET /api/bets.
