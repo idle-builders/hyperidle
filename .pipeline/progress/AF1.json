@@ -3,7 +3,7 @@
   "title": "Make the typecheck gate real and self-protecting",
   "track": "AF",
   "status": "in_progress",
-  "currentStep": "1-design",
+  "currentStep": "3-write-tests",
   "startedAt": "2026-06-10T17:52:00+02:00",
   "attempts": 1
 }
