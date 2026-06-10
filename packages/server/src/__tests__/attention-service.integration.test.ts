@@ -128,7 +128,7 @@ describe("attention-service", () => {
 		await seedConflict(db, "c-1", "ki-crosses");
 
 		const received: ItemCreatedEvent[] = [];
-		eventBus.on("item_created", (e: unknown) => {
+		eventBus.on("item_created", (e) => {
 			received.push(e);
 		});
 
@@ -141,7 +141,7 @@ describe("attention-service", () => {
 
 		// items row exists
 		const rows = await db.select().from(items);
-		const review = rows.find((r: { kind: string }) => r.kind === "knowledge");
+		const review = rows.find((r) => r.kind === "knowledge");
 		expect(review).toBeDefined();
 		expect(review?.verb).toBe("review");
 	});
@@ -159,7 +159,7 @@ describe("attention-service", () => {
 		});
 
 		const received: ItemCreatedEvent[] = [];
-		eventBus.on("item_created", (e: unknown) => {
+		eventBus.on("item_created", (e) => {
 			received.push(e);
 		});
 
@@ -180,7 +180,7 @@ describe("attention-service", () => {
 		});
 
 		const received: ItemCreatedEvent[] = [];
-		eventBus.on("item_created", (e: unknown) => {
+		eventBus.on("item_created", (e) => {
 			received.push(e);
 		});
 
@@ -256,7 +256,7 @@ describe("attention-service", () => {
 		});
 
 		const received: ItemCreatedEvent[] = [];
-		eventBus.on("item_created", (e: unknown) => {
+		eventBus.on("item_created", (e) => {
 			received.push(e);
 		});
 
@@ -275,7 +275,7 @@ describe("attention-service", () => {
 		}
 
 		const received: KnowledgeUpdatedEvent[] = [];
-		eventBus.on("knowledge_updated", (e: unknown) => {
+		eventBus.on("knowledge_updated", (e) => {
 			received.push(e);
 		});
 
@@ -394,7 +394,7 @@ describe("attention-service", () => {
 		await seedConflict(db, "c-dup", "ki-dup");
 
 		const received: ItemCreatedEvent[] = [];
-		eventBus.on("item_created", (e: unknown) => {
+		eventBus.on("item_created", (e) => {
 			received.push(e);
 		});
 
@@ -438,7 +438,7 @@ describe("attention-service", () => {
 		await seedConflict(db, "c-race", "ki-race");
 
 		const received: ItemCreatedEvent[] = [];
-		eventBus.on("item_created", (e: unknown) => {
+		eventBus.on("item_created", (e) => {
 			received.push(e);
 		});
 
@@ -548,7 +548,7 @@ describe("attention-service", () => {
 		await seedConflict(db, "conf-edge-at", "edge-at");
 
 		const received: ItemCreatedEvent[] = [];
-		eventBus.on("item_created", (e: unknown) => {
+		eventBus.on("item_created", (e) => {
 			received.push(e);
 		});
 		const service = buildAttentionService({ db, eventBus, now: () => NOW_MS });
