@@ -193,20 +193,14 @@ function renderBody(message: Message, sanitizeHtml?: (raw: string) => string): R
 			return (
 				<div className="flex items-center gap-[9px] text-[13px]">
 					<StatusChip status={verdictDecisionToStatus(p.decision)} />
-					<span className="text-[var(--text-secondary)]">
-						{verdictDecisionLabel(p.decision)}
-					</span>
-					{p.note ? (
-						<span className="text-[var(--text-tertiary)]">— {p.note}</span>
-					) : null}
+					<span className="text-[var(--text-secondary)]">{verdictDecisionLabel(p.decision)}</span>
+					{p.note ? <span className="text-[var(--text-tertiary)]">— {p.note}</span> : null}
 				</div>
 			);
 		}
 		case "plain": {
 			const p = message.payload;
-			return (
-				<MessagePayloads text={p.text} refs={p.refs} sanitizeHtml={sanitizeHtml} />
-			);
+			return <MessagePayloads text={p.text} refs={p.refs} sanitizeHtml={sanitizeHtml} />;
 		}
 		case "review":
 		case "questionnaire":

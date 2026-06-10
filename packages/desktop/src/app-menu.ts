@@ -2,8 +2,8 @@
  * Five-menu application menu builder.
  */
 
-import { app, shell } from "electron";
 import type { MenuItemConstructorOptions } from "electron";
+import { app, shell } from "electron";
 
 export interface AppMenuOptions {
 	isDev: boolean;
@@ -26,12 +26,7 @@ export function buildAppMenuTemplate(options: AppMenuOptions): MenuItemConstruct
 	const { isDev, logDir, dataDir, onOpenSettings } = options;
 
 	const viewSubmenu: MenuItemConstructorOptions[] = [
-		...(isDev
-			? [
-					{ role: "reload" as const },
-					{ role: "toggleDevTools" as const },
-				]
-			: []),
+		...(isDev ? [{ role: "reload" as const }, { role: "toggleDevTools" as const }] : []),
 		{ type: "separator" },
 		{ role: "resetZoom" as const },
 		{ role: "zoomIn" as const },
@@ -77,7 +72,11 @@ export function buildAppMenuTemplate(options: AppMenuOptions): MenuItemConstruct
 		},
 		{
 			label: "Window",
-			submenu: [{ role: "minimize" as const }, { role: "zoom" as const }, { role: "close" as const }],
+			submenu: [
+				{ role: "minimize" as const },
+				{ role: "zoom" as const },
+				{ role: "close" as const },
+			],
 		},
 		{
 			label: "Help",

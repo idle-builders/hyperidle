@@ -384,7 +384,10 @@ export function deriveBlocks(
 			const depth = node.depth ?? 1;
 			// Pop stack to depth-1 (any heading at >= this depth is no longer an ancestor).
 			// headingStack.length > 0 guarantees peek is defined; the `?? 0` satisfies noUncheckedIndexedAccess.
-			while (headingStack.length > 0 && (headingStack[headingStack.length - 1]?.depth ?? 0) >= depth) {
+			while (
+				headingStack.length > 0 &&
+				(headingStack[headingStack.length - 1]?.depth ?? 0) >= depth
+			) {
 				const popped = headingStack.pop();
 				// Reset intra-counters for any deeper level (out of scope)
 				if (popped) {

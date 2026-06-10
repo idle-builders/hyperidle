@@ -1,21 +1,21 @@
 {
-  "$schema": "./scripts/typecheck-debt.schema.json",
-  "description": "Packages with known type errors, quarantined by AF1. Drained by AF2-AF5.",
-  "packages": {
-    "fabric": {
-      "owner": "AF3",
-      "errors": 173,
-      "note": "attention-scoring, writeback, types"
-    },
-    "server": {
-      "owner": "AF4",
-      "errors": 3780,
-      "note": "largest cluster — routes, middleware, tests"
-    },
-    "web": {
-      "owner": "AF5",
-      "errors": 235,
-      "note": "props mismatches, test-setup, shared refs"
-    }
-  }
+	"$schema": "./scripts/typecheck-debt.schema.json",
+	"description": "Packages with known type errors, quarantined by AF1. Drained by AF2-AF5.",
+	"packages": {
+		"fabric": {
+			"owner": "AF3",
+			"errors": 173,
+			"note": "attention-scoring, writeback, types"
+		},
+		"server": {
+			"owner": "AF4",
+			"errors": 3780,
+			"note": "largest cluster — routes, middleware, tests"
+		},
+		"web": {
+			"owner": "AF5",
+			"errors": 235,
+			"note": "props mismatches, test-setup, shared refs"
+		}
+	}
 }

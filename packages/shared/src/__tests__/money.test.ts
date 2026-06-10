@@ -16,13 +16,7 @@
 
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { formatMoney, formatTokenCount } from "../format/money.js";
-import type {
-	CurrencyCode,
-	Money,
-	TierTokenCount,
-	TokenUsage,
-	WireMoney,
-} from "../types/money.js";
+import type { CurrencyCode, Money, TierTokenCount, TokenUsage, WireMoney } from "../types/money.js";
 import {
 	addMoney,
 	addTokenUsage,

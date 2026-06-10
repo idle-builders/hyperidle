@@ -21,7 +21,7 @@ export interface AvatarProps {
 }
 
 export interface AvatarGroupProps {
-	children: ReactNode;
+	children?: ReactNode;
 	small?: boolean;
 	className?: string;
 }

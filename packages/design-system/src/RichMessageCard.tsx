@@ -147,7 +147,9 @@ function deriveQuestionnaire(
 
 function isShortReasoning(reasoning: ReadonlyArray<string>): boolean {
 	const first = reasoning[0];
-	return reasoning.length === 1 && first !== undefined && first.length <= REASONING_INLINE_THRESHOLD;
+	return (
+		reasoning.length === 1 && first !== undefined && first.length <= REASONING_INLINE_THRESHOLD
+	);
 }
 
 // @lore L11 step9 (W5): clientKey contract is "non-empty string, fresh

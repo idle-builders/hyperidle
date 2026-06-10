@@ -1,4 +1,10 @@
-import type { DomainEvent, EventByType, EventHandler, EventType, WildcardHandler } from "./events.js";
+import type {
+	DomainEvent,
+	EventByType,
+	EventHandler,
+	EventType,
+	WildcardHandler,
+} from "./events.js";
 import { createLogger, type Logger } from "./logger.js";
 
 /**

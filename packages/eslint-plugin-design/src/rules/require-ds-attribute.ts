@@ -21,11 +21,27 @@ import { createRule } from "../util.js";
 
 type Component = FunctionDeclaration | FunctionExpression | ArrowFunctionExpression;
 
+/**
+ * @lore AF2: JSX nodes (JSXElement, JSXFragment) are defined in estree-jsx as
+ * extensions of ESTree.BaseNode, but they are NOT part of the estree Node union.
+ * ESLint's parser emits them at runtime, but TypeScript's estree typings don't
+ * include them in any union that ArrowFunctionExpression.body or
+ * ReturnStatement.argument can refine into via discriminated union narrowing.
+ * After a `.type === "JSXElement"` runtime guard, we know the shape is correct
+ * and all field accesses are safe — this single bridge cast is unavoidable.
+ * The alternative (augmenting global estree Node) would pollute all callers and
+ * is explicitly discouraged by the @types/estree maintainers.
+ */
+function asJSXNode(node: { type: string }): JSXElement | JSXFragment {
+	// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+	return node as JSXElement | JSXFragment;
+}
+
 function findOutermostJSX(node: Component): JSXElement | JSXFragment | null {
 	if (node.type === "ArrowFunctionExpression" && node.body.type !== "BlockStatement") {
 		const body = node.body as { type: string };
 		if (body.type === "JSXElement" || body.type === "JSXFragment") {
-			return body as unknown as JSXElement | JSXFragment;
+			return asJSXNode(body);
 		}
 		return null;
 	}
@@ -35,7 +51,7 @@ function findOutermostJSX(node: Component): JSXElement | JSXFragment | null {
 		if (stmt.type === "ReturnStatement") {
 			const arg = (stmt as ReturnStatement).argument as { type: string } | null | undefined;
 			if (arg && (arg.type === "JSXElement" || arg.type === "JSXFragment")) {
-				return arg as unknown as JSXElement | JSXFragment;
+				return asJSXNode(arg);
 			}
 		}
 	}
@@ -55,12 +71,8 @@ function hasDsAttribute(jsx: JSXElement): boolean {
 				return true;
 			}
 		} else if (attr.type === "JSXAttribute") {
-			const name =
-				attr.name.type === "JSXIdentifier"
-					? attr.name.name
-					: attr.name.type === "JSXNamespacedName"
-						? (attr.name as unknown as { name: { name: string } }).name.name
-						: null;
+			// estree-jsx JSXSimpleAttribute.name is JSXIdentifier — access .name directly.
+			const name = attr.name.name;
 			if (name === "data-ds-component" || name === "data-ds-shell") {
 				return true;
 			}
