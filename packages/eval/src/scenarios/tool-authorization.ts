@@ -174,7 +174,8 @@ After promoting the item, document your curation decision in session notes.`,
 						.where(eq(knowledgeItems.updatedBy, `agent:${ctx.seedResult.agentId}`));
 
 					const promotionOccurred = promotedItems.some(
-						(i) => i.status === "provisional" || i.status === "validated" || i.status === "active",
+						(i: { status: string; updatedBy: string }) =>
+							i.status === "provisional" || i.status === "validated" || i.status === "active",
 					);
 
 					if (promotionOccurred) {
@@ -268,7 +269,9 @@ Document this experience in session notes — what you tried and what the restri
 						};
 					}
 
-					const illegalItems = writtenItems.filter((i) => i.layer === "L3" || i.layer === "L4");
+					const illegalItems = writtenItems.filter(
+						(i: { layer: string | null }) => i.layer === "L3" || i.layer === "L4",
+					);
 
 					if (illegalItems.length === 0) {
 						return {
@@ -292,7 +295,7 @@ Document this experience in session notes — what you tried and what the restri
 						.from(messages)
 						.where(eq(messages.senderId, ctx.seedResult.agentId));
 					// Check session notes via the provider
-					return sentMessages.map((m) => m.payload).join("\n");
+					return sentMessages.map((m: { payload: string }) => m.payload).join("\n");
 				},
 				criteria: `Score 1.0 if session notes or messages mention the layer restriction (FORBIDDEN response, L3 being blocked, or needing to use L0-L2 instead). Score 0.5 if the agent wrote knowledge but did not document the restriction experience. Score 0.0 if no relevant content found.`,
 			}),

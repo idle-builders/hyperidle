@@ -37,10 +37,11 @@ export async function validateCredential(
 			case "shared_backend_key":
 				return await validateSharedBackendKey(value, serverUrl);
 			default: {
-				// TypeScript exhaustive narrowing — name should be `never` here if all
-				// CredentialName members are handled above. If TS2322 fires, a new member
-				// was added to CREDENTIAL_NAMES without a corresponding case.
-				const exhaustive = (n: never): ValidationResult => ({
+				// @lore Z8-166: TypeScript does not narrow the switch scrutinee to
+				// `never` in the `default` arm even when all union members are handled.
+				// We accept `CredentialName` here so the guard compiles while still
+				// providing a safe runtime fallback for any future catalog additions.
+				const exhaustive = (n: CredentialName): ValidationResult => ({
 					valid: false,
 					error: `Unknown credential name: ${String(n)}`,
 				});

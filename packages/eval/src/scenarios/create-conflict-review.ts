@@ -322,7 +322,7 @@ When you get the INVALID_INPUT error, note it in session notes and do not retry.
 						};
 					}
 
-					const invalidConflict = conflicts.find((c) => c.versionBase > 0);
+					const invalidConflict = conflicts.find((c: { versionBase: number }) => c.versionBase > 0);
 					if (!invalidConflict) {
 						return {
 							score: 0.75,

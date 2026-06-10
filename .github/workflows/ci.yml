@@ -7,20 +7,28 @@ on:
     branches: [main]
 
 # Cancel stale runs when a fresh push lands. Without this, concurrent CI runs
-# pile up at long Playwright timeouts and mask real failures behind queue
-# backpressure.
+# pile up and mask real failures behind queue backpressure.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# CI validates a locally-signed attestation from `npm run verify` instead of
-# re-running all tools. The HMAC secret (VERIFY_SECRET) must match the one at
-# ~/.config/hyperidle/verify-secret on the developer's machine.
+# CI re-runs EVERY fast check live (typecheck gate, lint, knip, mock-inventory,
+# web + desktop build) so none of them can be bypassed. Only the slow test
+# suite (test:all — unit + component + DB integration) is trusted via a
+# locally-generated, HMAC-signed attestation that RECORDS the real test exit
+# code (scripts/verify-attest.ts runs the tests and derives status). CI then
+# validates that signed attestation (scripts/check-attestation.ts) — including
+# that the source has not changed since the attested run.
+#
+# @lore Z8-166: the previous workflow ran ONLY check-attestation and re-ran
+# nothing, while verify-attest hardcoded status="passed". A red gate could ship
+# green. Re-running the fast checks here closes that for everything except the
+# DB-heavy test suite, and verify-attest no longer signs an unearned pass.
 jobs:
   verify:
     name: npm run verify
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
         with:
@@ -31,7 +39,28 @@ jobs:
           node-version: 26
           cache: npm
 
-      - name: Check attestation
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck gate
+        run: npm run check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Knip
+        run: npm run knip
+
+      - name: Mock inventory
+        run: npm run mock-inventory:check
+
+      - name: Build (web)
+        run: npm run build
+
+      - name: Build (desktop)
+        run: npm run -w @hyperidle/desktop build
+
+      - name: Validate test attestation
         run: npx tsx scripts/check-attestation.ts
         env:
           VERIFY_SECRET: ${{ secrets.VERIFY_SECRET }}

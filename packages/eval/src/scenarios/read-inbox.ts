@@ -94,7 +94,7 @@ Your response should directly address the timeline question asked.`,
 						.select({ payload: messages.payload })
 						.from(messages)
 						.where(eq(messages.senderId, ctx.seedResult.agentId));
-					return sentMessages.map((m) => m.payload).join("\n");
+					return sentMessages.map((m: { payload: string }) => m.payload).join("\n");
 				},
 				criteria: `Score 1.0 if the PM's response addresses the builder's question about the project timeline (mentions meeting schedule, deliverables, or specific timeframes). Score 0.5 if the response is sent but does not directly address the timeline question. Score 0.0 if no response was sent.`,
 			}),

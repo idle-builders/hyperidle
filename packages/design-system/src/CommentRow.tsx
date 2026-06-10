@@ -7,7 +7,7 @@
  * (greyed body, "Redacted by X — reason"), grouped vs ungrouped variant.
  */
 
-import type { InlineRef, Message } from "@hyperidle/shared";
+import type { BlockPayload, InlineRef, MentionSegment, Message } from "@hyperidle/shared";
 import {
 	derivePayloads,
 	exhaustiveAssert,
@@ -136,7 +136,7 @@ function MessagePayloads({
 	if (segments && segments.length > 0) {
 		return (
 			<p className="text-[15px] text-[var(--text-secondary)] leading-[1.7] whitespace-pre-wrap break-words">
-				{segments.map((seg, i) =>
+				{segments.map((seg: MentionSegment, i: number) =>
 					seg.type === "mention" && seg.mentionRef ? (
 						// biome-ignore lint/suspicious/noArrayIndexKey: segments are position-stable per render
 						<MentionToken key={i} displayName={seg.mentionRef.displayName} />
@@ -159,7 +159,7 @@ function MessagePayloads({
 	}
 	return (
 		<div className="flex flex-col gap-[9px] text-[15px] text-[var(--text-secondary)] leading-[1.7]">
-			{payloads.map((payload, i) => (
+			{payloads.map((payload: BlockPayload, i: number) => (
 				// biome-ignore lint/suspicious/noArrayIndexKey: payloads are position-stable within a single message render
 				<div key={i}>{renderPayload(payload, sanitizeHtml)}</div>
 			))}

@@ -2,21 +2,6 @@
 	"$schema": "./scripts/typecheck-debt.schema.json",
 	"description": "Packages with known type errors, quarantined by AF1. Drained by AF2-AF5.",
 	"packages": {
-		"design-system": {
-			"owner": "AF2",
-			"errors": 15,
-			"note": "pre-existing on main (15 errors confirmed on AF2's merged tree). AF2's spec listed design-system in its acceptance criteria and un-quarantined it without zeroing the errors. Re-quarantined by AF3 because AF3 cannot ship a green gate over unrelated pre-existing debt it does not own. See Z8-166."
-		},
-		"desktop": {
-			"owner": "AF2",
-			"errors": 1,
-			"note": "pre-existing on main (1 error confirmed on AF2's merged tree). AF2's spec listed desktop in its acceptance criteria and un-quarantined it without zeroing the error. Re-quarantined by AF3 because AF3 cannot ship a green gate over unrelated pre-existing debt it does not own. See Z8-166."
-		},
-		"eval": {
-			"owner": "AF2",
-			"errors": 17,
-			"note": "pre-existing on main (17 errors confirmed on AF2's merged tree). AF2's spec listed eval in its acceptance criteria and un-quarantined it without zeroing the errors. Re-quarantined by AF3 because AF3 cannot ship a green gate over unrelated pre-existing debt it does not own. See Z8-166."
-		},
 		"server": {
 			"owner": "AF4",
 			"errors": 3780,
