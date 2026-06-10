@@ -86,7 +86,7 @@ describe("ObservabilityDispatcher — enqueue / drain", () => {
 		});
 		await dispatcher.flush();
 		expect(adapter.batches).toHaveLength(1);
-		expect(adapter!.batches[0][0].kind).toBe("session_started");
+		expect(adapter!.batches[0]![0]!.kind).toBe("session_started");
 		expect(dispatcher.status().delivered).toBe(1);
 		await dispatcher.dispose();
 	});

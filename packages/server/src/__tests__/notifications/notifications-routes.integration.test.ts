@@ -234,7 +234,7 @@ describe("H2 /api/notifications routes", () => {
 			};
 			expect(body.status).toBe("pending");
 			expect(body.count).toBe(1);
-			expect(body!.rows[0].title).toBe("Pending one");
+			expect(body!.rows[0]!.title).toBe("Pending one");
 		} finally {
 			disposeApp(app);
 		}

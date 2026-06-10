@@ -370,7 +370,7 @@ describe("H3 review fixes — (4) empty sessionId rejected", () => {
 		} satisfies SessionStartedEvent);
 		await dispatcher.flush();
 		unsub();
-		expect(adapter!.events[0].traceId).toBe("unknown");
+		expect(adapter!.events[0]!.traceId).toBe("unknown");
 		await dispatcher.dispose();
 	});
 });

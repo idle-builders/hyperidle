@@ -152,8 +152,8 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 		await emitItemCreated(bus, "it-blocking");
 		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
 
-		expect(adapter!.calls[0].notification.severity).toBe("blocking");
-		expect(adapter!.calls[0].notification.title).toContain("it-blocking");
+		expect(adapter!.calls[0]!.notification.severity).toBe("blocking");
+		expect(adapter!.calls[0]!.notification.title).toContain("it-blocking");
 	});
 
 	it("AC5b: cost_cap_breached (hard) → pushes via adapter", async () => {
@@ -176,8 +176,8 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 		bus.emit(event);
 		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
 
-		expect(adapter!.calls[0].notification.severity).toBe("cost_breach");
-		expect(adapter!.calls[0].notification.title).toContain("factory");
+		expect(adapter!.calls[0]!.notification.severity).toBe("cost_breach");
+		expect(adapter!.calls[0]!.notification.title).toContain("factory");
 	});
 
 	it("AC5c: cost_cap_warning (warning) → enqueued as digest, NOT pushed", async () => {
@@ -544,7 +544,7 @@ describe("H2 Daily digest (AC6)", () => {
 		expect(result.status).toBe("sent");
 		expect(result.notificationsIncluded).toBe(3);
 		expect(adapter.calls).toHaveLength(1);
-		const batched = adapter!.calls[0].notification;
+		const batched = adapter!.calls[0]!.notification;
 		expect(batched.title).toContain("3");
 		expect(batched.body).toContain("Title q-a");
 		expect(batched.body).toContain("Title q-b");
@@ -611,7 +611,7 @@ describe("flushQueue silence gating (adversary review #2)", () => {
 		expect(result.flushed).toBe(1); // digest only
 		expect(result.deferred).toBe(1); // blocking kept
 		expect(adapter.calls).toHaveLength(1);
-		expect(adapter!.calls[0].notification.severity).toBe("digest");
+		expect(adapter!.calls[0]!.notification.severity).toBe("digest");
 		const [block] = await db
 			.select()
 			.from(notificationQueue)
@@ -641,7 +641,7 @@ describe("flushQueue silence gating (adversary review #2)", () => {
 		const result = await flushQueue(db, () => adapter, cfg, new Date());
 		expect(result.flushed).toBe(1);
 		expect(adapter.calls).toHaveLength(1);
-		expect(adapter!.calls[0].notification.severity).toBe("cost_breach");
+		expect(adapter!.calls[0]!.notification.severity).toBe("cost_breach");
 	});
 });
 

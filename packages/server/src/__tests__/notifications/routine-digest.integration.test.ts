@@ -169,7 +169,7 @@ describe("scheduler → routine_fired → daily digest (AC6 end-to-end)", () => 
 			expect(rows.every((r) => r.status === "sent")).toBe(true);
 		});
 		expect(adapter.calls.length).toBeGreaterThanOrEqual(1);
-		expect(adapter!.calls[0].notification.severity).toBe("digest");
+		expect(adapter!.calls[0]!.notification.severity).toBe("digest");
 
 		dispose();
 	});

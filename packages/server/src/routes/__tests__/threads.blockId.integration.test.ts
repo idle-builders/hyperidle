@@ -164,7 +164,7 @@ describe("AC-1 — blockId written to column on POST /api/threads (initial messa
 		const messageRows = await db
 			.select()
 			.from(messages)
-			.where(eq(messages.id, body!.messages[0].id));
+			.where(eq(messages.id, body!.messages[0]!.id));
 
 		expect(messageRows).toHaveLength(1);
 		expect(messageRows[0]!.blockId).toBe(blockId);
@@ -195,7 +195,7 @@ describe("AC-1 — blockId written to column on POST /api/threads (initial messa
 		const messageRows = await db
 			.select()
 			.from(messages)
-			.where(eq(messages.id, body!.messages[0].id));
+			.where(eq(messages.id, body!.messages[0]!.id));
 
 		expect(messageRows).toHaveLength(1);
 		expect(messageRows[0]!.blockId).toBeNull();
@@ -409,7 +409,7 @@ describe("AC-4 — anchored messages outlive their block (no cascade delete)", (
 
 		expect(res.status).toBe(201);
 		const body = (await res.json()) as { messages: Array<{ id: string }> };
-		const messageId = body!.messages[0].id;
+		const messageId = body!.messages[0]!.id;
 
 		const messageRows = await db.select().from(messages).where(eq(messages.id, messageId));
 

@@ -99,8 +99,8 @@ describe("H2 Ntfy adapter (AC2)", () => {
 				timestamp: Date.now(),
 			},
 		);
-		expect(fixture!.captured[0].headers.authorization).toBe("Bearer tk_abcdef");
-		expect(fixture!.captured[0].headers.priority).toBe("high");
+		expect(fixture!.captured[0]!.headers.authorization).toBe("Bearer tk_abcdef");
+		expect(fixture!.captured[0]!.headers.priority).toBe("high");
 	});
 
 	it("returns ok:false retriable:true on 5xx", async () => {

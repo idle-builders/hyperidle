@@ -244,7 +244,7 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			};
 			expect(body).toHaveProperty("messages");
 			expect(body.messages).toHaveLength(1);
-			const payload = JSON.parse(body!.messages[0].payload) as { text?: string };
+			const payload = JSON.parse(body!.messages[0]!.payload) as { text?: string };
 			expect(payload.text).toBe("Hello!");
 		});
 

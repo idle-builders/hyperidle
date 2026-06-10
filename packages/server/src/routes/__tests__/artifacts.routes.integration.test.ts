@@ -65,14 +65,14 @@ describe("artifacts routes", () => {
 	});
 
 	describe("artifacts auth", () => {
-		test("returns 401 without auth header on GET /api/artifacts", async ({ db, app }) => {
+		test("returns 401 without auth header on GET /api/artifacts", async ({ app }) => {
 			const res = await app.request("/api/artifacts?axis=task&taskId=x", { method: "GET" });
 			expect(res.status).toBe(401);
 		});
 	});
 
 	describe("GET /api/artifacts", () => {
-		test("returns 400 when axis query param is missing or invalid", async ({ db, app }) => {
+		test("returns 400 when axis query param is missing or invalid", async ({ app }) => {
 			const res = await app.request("/api/artifacts", {
 				method: "GET",
 				headers: authHeaders(),
@@ -80,7 +80,7 @@ describe("artifacts routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		test("returns 400 when axis=task but taskId is missing", async ({ db, app }) => {
+		test("returns 400 when axis=task but taskId is missing", async ({ app }) => {
 			const res = await app.request("/api/artifacts?axis=task", {
 				method: "GET",
 				headers: authHeaders(),
@@ -88,7 +88,7 @@ describe("artifacts routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		test("returns 400 when axis=bet but betId is missing", async ({ db, app }) => {
+		test("returns 400 when axis=bet but betId is missing", async ({ app }) => {
 			const res = await app.request("/api/artifacts?axis=bet", {
 				method: "GET",
 				headers: authHeaders(),
@@ -96,7 +96,7 @@ describe("artifacts routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		test("returns 400 when axis=product but teamId is missing", async ({ db, app }) => {
+		test("returns 400 when axis=product but teamId is missing", async ({ app }) => {
 			const res = await app.request("/api/artifacts?axis=product", {
 				method: "GET",
 				headers: authHeaders(),
@@ -175,7 +175,7 @@ describe("artifacts routes", () => {
 			expect(body.producingTaskTitle).toBe("Test task");
 		});
 
-		test("returns 404 for non-existent artifact", async ({ db, app }) => {
+		test("returns 404 for non-existent artifact", async ({ app }) => {
 			const res = await app.request("/api/artifacts/does-not-exist", {
 				method: "GET",
 				headers: authHeaders(),
@@ -247,7 +247,7 @@ describe("artifacts routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		test("returns 400 on missing required fields (Zod validation)", async ({ db, app }) => {
+		test("returns 400 on missing required fields (Zod validation)", async ({ app }) => {
 			const res = await app.request("/api/artifacts", {
 				method: "POST",
 				headers: authHeaders(),
@@ -307,7 +307,7 @@ describe("artifacts routes", () => {
 			expect(res.status).toBe(409);
 		});
 
-		test("returns 404 for non-existent artifact", async ({ db, app }) => {
+		test("returns 404 for non-existent artifact", async ({ app }) => {
 			const res = await app.request("/api/artifacts/does-not-exist/preview", {
 				method: "PATCH",
 				headers: authHeaders(),

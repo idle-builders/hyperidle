@@ -110,7 +110,8 @@ describe("P3 AC-8 — Credential encryption", () => {
 			// Flip the last few base64 characters to tamper with the auth tag
 			const buf = Buffer.from(encrypted, "base64");
 			// Tamper with the last byte (auth tag is at the end)
-			buf[buf.length - 1] ^= 0xff;
+			const lastIdx = buf.length - 1;
+			buf[lastIdx] = (buf[lastIdx] ?? 0) ^ 0xff;
 			const tampered = buf.toString("base64");
 			const result = decryptCredentialValue(tampered, SECRET);
 			expect(result).toBeNull();
