@@ -99,7 +99,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 		const handle = await adapter.startSession(sessionConfig);
 		expect(handle.sessionId).toBeTruthy();
 
-		const spawnCall = spawnSpy.mock.calls[0];
+		const spawnCall = spawnSpy.mock.calls[0]!;
 		expect(spawnCall[1]).toContain("/workspace/test-123");
 		expect(spawnCall[1]).not.toContain("{{workspace}}");
 	});
@@ -115,7 +115,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 		const handle = await adapter.startSession(makeSessionConfig());
 		expect(handle.sessionId).toBeTruthy();
 
-		const spawnCall = spawnSpy.mock.calls[0];
+		const spawnCall = spawnSpy.mock.calls[0]!;
 		expect(spawnCall[1]).toContain("claude-3-5-sonnet-20241022");
 		expect(spawnCall[1]).not.toContain("{{model}}");
 	});
@@ -135,7 +135,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 		);
 		await adapter.startSession(makeSessionConfig());
 
-		const spawnCall = spawnSpy.mock.calls[0];
+		const spawnCall = spawnSpy.mock.calls[0]!;
 		const spawnEnv = spawnCall[2]?.env as Record<string, string>;
 		expect(spawnEnv["FAKE_API_KEY"]).toBe("sk-test-key");
 	});
@@ -155,7 +155,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 		);
 		await adapter.startSession(makeSessionConfig());
 
-		const spawnCall = spawnSpy.mock.calls[0];
+		const spawnCall = spawnSpy.mock.calls[0]!;
 		const spawnEnv = spawnCall[2]?.env as Record<string, string>;
 		expect(spawnEnv["FAKE_BASE_URL"]).toBe("https://api.anthropic.com");
 	});
@@ -175,7 +175,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 		);
 		await adapter.startSession(makeSessionConfig());
 
-		const spawnCall = spawnSpy.mock.calls[0];
+		const spawnCall = spawnSpy.mock.calls[0]!;
 		const spawnEnv = spawnCall[2]?.env as Record<string, string>;
 		expect(spawnEnv["MCP_URL"]).toBe("http://localhost:3001/api/mcp/abc123token");
 	});
@@ -196,7 +196,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 		const sessionConfigNoMcp = makeSessionConfig({ mcpConnectionInfo: undefined });
 		await adapter.startSession(sessionConfigNoMcp);
 
-		const spawnCall = spawnSpy.mock.calls[0];
+		const spawnCall = spawnSpy.mock.calls[0]!;
 		const spawnEnv = spawnCall[2]?.env as Record<string, string>;
 		expect(spawnEnv["MCP_URL"]).toBe("");
 	});
@@ -212,7 +212,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 		);
 		await adapter.startSession(makeSessionConfig({ resolvedModel: undefined }));
 
-		const spawnCall = spawnSpy.mock.calls[0];
+		const spawnCall = spawnSpy.mock.calls[0]!;
 		expect(spawnCall[1]).toContain("");
 		expect(spawnCall[1]).not.toContain("{{model}}");
 	});
@@ -273,7 +273,7 @@ describe("CliHarnessAdapter startSession", () => {
 		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), { spawnFn: spawnSpy });
 		await adapter.startSession(makeSessionConfig({ workspacePath: "/my/workspace" }));
 
-		const options = spawnSpy!.mock.calls[0][2] as Record<string, unknown>;
+		const options = spawnSpy!.mock.calls[0]![2] as Record<string, unknown>;
 		expect(options?.cwd).toBe("/my/workspace");
 	});
 
@@ -337,7 +337,7 @@ describe("CliHarnessAdapter env sandboxing", () => {
 		);
 		await adapter.startSession(makeSessionConfig());
 
-		const spawnEnv = spawnSpy!.mock.calls[0][2]?.env as Record<string, string>;
+		const spawnEnv = spawnSpy!.mock.calls[0]![2]?.env as Record<string, string>;
 		expect(spawnEnv["PATH"]).toBe("/usr/bin:/bin");
 		expect(spawnEnv["FAKE_KEY"]).toBe("sk-test-key");
 		// Secret must NOT be forwarded
@@ -364,7 +364,7 @@ describe("CliHarnessAdapter env sandboxing", () => {
 		);
 		await adapter.startSession(makeSessionConfig());
 
-		const spawnEnv = spawnSpy!.mock.calls[0][2]?.env as Record<string, string>;
+		const spawnEnv = spawnSpy!.mock.calls[0]![2]?.env as Record<string, string>;
 		expect(spawnEnv["DATABASE_URL"]).toBeUndefined();
 		delete process.env["DATABASE_URL"];
 	});
