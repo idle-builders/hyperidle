@@ -1042,6 +1042,26 @@ Fix shapes: **one-liner** (single targeted edit), **small WP** (workpackage-size
 
 ---
 
+### Z8-170 — AF4 server drain is gate-correct but UNSHIPPABLE under #246's live-CI until an AF1 leaf-build prerequisite lands (BLOCKER)
+
+- **Sources:** AF4 orchestrator + builder (2026-06-11), verified empirically in `.worktrees/AF4`.
+- **Owner of the fix:** AF1 (typecheck gate / CI), with an AD8c dependency (see below). **NOT fixable inside AF4.**
+- **Status:** AF4 server type-greening is COMPLETE and CORRECT — `server = 0` under the gate with leaf dist present, `npm run verify` exit 0, code review Verdict DONE, server removed from `typecheck-debt.json` (debt now `web` only). It cannot reach green CI.
+- **The blocker mechanism:**
+  1. #246 ("gate integrity") changed CI (`.github/workflows/ci.yml`) to **re-run every fast check LIVE** — including `npm run check` (the typecheck gate) — on a fresh `npm ci` checkout. Only `test:all` is now trusted via attestation. The old attestation-bypass (Z8-166) is closed.
+  2. The gate (`scripts/typecheck-gate.ts`, AF1-frozen) runs `tsc --noEmit -p <pkg>` per package and **never builds leaf `dist/` first**. A fresh `npm ci` tree has no leaf `dist/`.
+  3. With leaf `dist/` absent, every reference-consumer (server/web/fabric/eval/design-system) sees its cross-package imports resolve to `any` → a cascade (server: **3428 phantom errors** — TS7031 vitest-fixture binding ×3147, plus TS6305/6307/6059 "not built"). The gate filters only the TS6305/6307/6059 codes, NOT the TS7031 cascade.
+  4. While server is **quarantined**, that phantom is excepted and CI passes (this is why origin/main is green). The instant AF4 **removes server from quarantine** (its deliverable), the dist-free phantom is no longer excepted → gate FAILs at CI step "Typecheck gate" → **AF4's PR CI fails red**. There is no in-scope way for AF4 to make the gate see `server = 0` on a dist-free CI tree.
+- **Verified clean fix recipe (for the AF1 prerequisite — all empirically confirmed):**
+  - Build leaf dist **before** `npm run check` (in CI add a step before the gate, and/or have the gate `tsc -b` the leaves itself for local determinism). Build **shared + db ONLY** — with shared+db `dist/` present and fabric `dist/` ABSENT, `npm run check` → **server 0, eval 0, fabric 0, all 11 packages PASS, biome clean**. Server's types are genuinely sound; this is not masking.
+  - **Do NOT build fabric `dist/` in the prerequisite.** Building fabric exposes a REAL pre-existing eval bug (see below) that would fail the gate. fabric stays source-resolved (masked), matching origin/main's current behavior.
+  - Build the leaves **separately/in dependency order** (`tsc -b packages/shared` then `tsc -b packages/db`), NOT in one combined `tsc -b shared db fabric` invocation — the combined form scatters generated `.d.ts/.js/.map` into the packages' `src` dirs, which the live `npm run lint` step then flags as ~714 phantom `noBannedTypes` biome errors. Built separately, each emits cleanly to `dist/` (gitignored) with zero src scatter (only filtered TS6059 reference-noise).
+  - Root-cause cleanliness (optional, AF2/AF3-owned): `packages/db/tsconfig.json` lacks `references: [{ "path": "../shared" }]` and fabric lacks db/shared references — that omission is why `tsc -b` emits TS6059 and (in combined form) scatters. Adding the references makes `tsc -b` exit-0 clean.
+- **Entangled real bug (AD8c-owned, blocks the "proper" full-graph fix):** `packages/eval/src/scenarios/builtin-routines.ts` (byte-identical to origin/main) imports `clearBuiltinCostSentinelCache` and uses `"builtin:cost-sentinel"` — both removed from fabric in AD8c (`clearCostSentinelCache` + 4 builtin IDs now). → 8 errors (TS2724 + 7×TS2345), exposed only when fabric `dist/` is built. main's "eval drained to 0" is itself a dist-free illusion. AD8c must fix eval's imports before the gate can safely build the FULL leaf graph; until then the prerequisite must scope its build to shared+db.
+- **Net:** AF4 is `blocked` (`gate-nondeterminism-blocks-drain`). The server work is done and correct; ship requires the AF1 leaf-build prerequisite above to land first, after which AF4 rebases and ships with no further server changes. See `plans/AF4/lore.md` for the build/verify mechanics.
+
+---
+
 ## Cross-cutting themes
 
 1. **Dead/unwired code — the dominant failure mode.** Entire subsystems are built, tested, and never connected: routine scheduler (Z8-003), task dispatcher (Z8-004), notification drain (Z8-005), FTS (Z8-009), relevance scoring (Z8-037), auto-promotion (Z8-038), SettingsWorker/SettingsAgents (Z8-040/041), Docker/Isolated adapters (Z8-092). Plus dozens of dead components, props, branches, and event types (`bet_revised`, `dependency_met`, `thread_archived` listener, `setKnowledgeEventBus`, polling watcher — see automated-mechanisms "Dead/Unwired Code"). The pattern: workpackages ship the mechanism and its tests but the boot/mount wiring step is skipped — and the vacuous typecheck (Z8-001) plus a verify suite that never exercises boot wiring lets it through.
