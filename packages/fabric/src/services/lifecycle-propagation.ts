@@ -86,6 +86,13 @@ const VALID_TASK_TRANSITIONS: Record<TaskState, readonly TaskState[]> = {
  * never import from the server kernel package. The logic is identical; any future
  * changes to the kernel transitionTask must be mirrored here.
  * See architecture-critique.md CRITICAL finding.
+ *
+ * @lore AF12 AC5: mirrors the kernel `transitionTask` CAS — and "mirror" means the
+ * same TRANSACTION boundary, not just the WHERE-clause guard. The SELECT-validate,
+ * audit read+append, and `UPDATE ... WHERE id AND state = fromState` all run inside
+ * one `db.transaction` so the audit read and the state write serialize together;
+ * the loser matches 0 rows → throws → tx rolls back; the event emits AFTER commit.
+ * Any change to the kernel transitionTask transaction boundary must be mirrored here.
  */
 async function transitionTask(
 	db: HyperIdleDb,
@@ -93,45 +100,61 @@ async function transitionTask(
 	taskId: string,
 	toState: TaskState,
 ): Promise<void> {
-	const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
-	if (!task) {
-		throw new Error(`Task not found: ${taskId}`);
-	}
+	const transitioned = await db.transaction(
+		async (tx): Promise<{ fromState: TaskState } | null> => {
+			// Re-read INSIDE the tx so the audit read and the CAS write serialize together.
+			const [task] = await tx.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+			if (!task) {
+				throw new Error(`Task not found: ${taskId}`);
+			}
 
-	const fromState = task.state as TaskState;
-	const allowed = VALID_TASK_TRANSITIONS[fromState];
-	// @lore AF3: VALID_TASK_TRANSITIONS covers all TaskState values; undefined is
-	// unreachable at runtime but noUncheckedIndexedAccess requires the guard.
-	if (!allowed?.includes(toState)) {
-		const err = new Error(`Invalid transition for task ${taskId}: ${fromState} -> ${toState}`);
-		err.name = "InvalidTransitionError";
-		throw err;
-	}
+			const fromState = task.state as TaskState;
+			const allowed = VALID_TASK_TRANSITIONS[fromState];
+			// @lore AF3: VALID_TASK_TRANSITIONS covers all TaskState values; undefined is
+			// unreachable at runtime but noUncheckedIndexedAccess requires the guard.
+			if (!allowed?.includes(toState)) {
+				const err = new Error(`Invalid transition for task ${taskId}: ${fromState} -> ${toState}`);
+				err.name = "InvalidTransitionError";
+				throw err;
+			}
 
-	// Build audit trail
-	const existingAudit: Array<{ from: string; to: string; timestamp: string }> = task.auditTrail
-		? (JSON.parse(task.auditTrail) as Array<{ from: string; to: string; timestamp: string }>)
-		: [];
-	existingAudit.push({
-		from: fromState,
-		to: toState,
-		timestamp: new Date().toISOString(),
-	});
+			// Build audit trail
+			const existingAudit: Array<{ from: string; to: string; timestamp: string }> = task.auditTrail
+				? (JSON.parse(task.auditTrail) as Array<{ from: string; to: string; timestamp: string }>)
+				: [];
+			existingAudit.push({
+				from: fromState,
+				to: toState,
+				timestamp: new Date().toISOString(),
+			});
 
-	await db
-		.update(tasks)
-		.set({
-			state: toState,
-			auditTrail: JSON.stringify(existingAudit),
-			updatedAt: new Date().toISOString(),
-		})
-		.where(eq(tasks.id, taskId));
+			const updated = await tx
+				.update(tasks)
+				.set({
+					state: toState,
+					auditTrail: JSON.stringify(existingAudit),
+					updatedAt: new Date().toISOString(),
+				})
+				.where(and(eq(tasks.id, taskId), eq(tasks.state, fromState)))
+				.returning({ id: tasks.id });
+
+			if (updated.length === 0) {
+				const err = new Error(`Invalid transition for task ${taskId}: ${fromState} -> ${toState}`);
+				err.name = "InvalidTransitionError";
+				throw err;
+			}
+
+			return { fromState };
+		},
+	);
+
+	if (!transitioned) return;
 
 	eventBus.emit({
 		type: "task_state_changed",
 		streamId: taskId,
 		taskId,
-		fromState,
+		fromState: transitioned.fromState,
 		toState,
 		timestamp: Date.now(),
 	});
@@ -477,7 +500,7 @@ async function propagateTaskToBet(
 		await log({
 			status: "applied",
 			targetId: betId,
-			targetTransition: `${fromStatus} -> review`,
+			targetTransition: `${fromStatus} -> completed`,
 		});
 
 		// Create ship-confirmation review thread

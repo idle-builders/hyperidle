@@ -30,6 +30,17 @@ vi.mock("../services/api-fetch.js", () => ({
 vi.mock("../hooks/useHostThread", () => ({
 	useHostThread: vi.fn(() => ({ data: null, error: null, isLoading: false, refresh: vi.fn() })),
 }));
+// Mock useCurrentUser so WorkBet's mount-time GET /api/auth/me doesn't occupy
+// apiFetch call[0] — the action POST/PATCH must be the first observable call.
+vi.mock("../hooks/useCurrentUser", () => ({
+	useCurrentUser: vi.fn(() => ({ user: null, isLoading: false, error: null })),
+}));
+// Mock ArtifactSection so its mount-time GET /api/artifacts doesn't occupy
+// apiFetch call[0] (same approach as TaskSheet.AF12-sessions.test.tsx).
+vi.mock("../components/ArtifactSection", () => ({
+	ArtifactSection: () => null,
+	useArtifactOpen: () => vi.fn(),
+}));
 vi.mock("../hooks/useArtifactThreadSummary", () => ({
 	useArtifactThreadSummary: vi.fn(() => ({
 		data: null,

@@ -6,9 +6,17 @@
  *
  * AC-8: Escape does NOT close ConsequencePreviewDialog; Cancel DOES close it.
  * AC-9: Fill reason, click Kill bet confirm → POST /kill called; status chip updates.
- * AC-10: Adjust appetite flow → PATCH /bets/:id called with correct body.
+ * AC-10: Adjust appetite flow → PATCH /bets/:id called with a WireMoney value.
  * AC-11: Unblock → composer textarea focused.
- * AC-12: After pause action, revisionLog last entry has actor="u-founder".
+ * AC-12: After kill action, revisionLog last entry has actor="u-founder".
+ *
+ * @lore AF12: updated to the current UI contract. Bet actions live behind the
+ * overflow menu (`data-testid="bet-overflow-btn"` → `data-bet-action="…"`), not
+ * top-level buttons. Statuses are the post-U1 set (draft|active|completed|killed)
+ * — `in_progress`/`paused`/`shipped` are dead. Appetite is a money input emitting
+ * WireMoney, not a duration `<select>` string. Pause/Resume removed (no pause
+ * state in the bet status enum); the AC-12 actor-in-revisionLog coverage now runs
+ * through the kill action.
  */
 
 import { expect, test } from "./fixtures";
@@ -17,7 +25,7 @@ const BET_ID = "bet-l14-actions";
 const FOUNDER_ID = "u-founder";
 const THREAD_ID = "t-l14-thread";
 
-function makeBetResponse(status = "in_progress") {
+function makeBetResponse(status = "active") {
 	return {
 		id: BET_ID,
 		title: "L14 Test Bet",
@@ -49,7 +57,7 @@ async function setupCommonRoutes(
 			? P
 			: never
 		: never,
-	betStatus = "in_progress",
+	betStatus = "active",
 ) {
 	// GET /api/bets/:id
 	await page.route(`**/api/bets/${BET_ID}`, (route) => {
@@ -116,29 +124,36 @@ async function setupCommonRoutes(
 	});
 }
 
+/** Open the bet overflow menu and click the named action item. */
+async function openOverflowAction(
+	page: Parameters<typeof setupCommonRoutes>[0],
+	action: string,
+): Promise<void> {
+	await page.locator('[data-testid="bet-overflow-btn"]').click();
+	await page.locator(`[data-bet-action="${action}"]`).click();
+}
+
 test.describe("L14 — Bet actions E2E", () => {
 	// ─── AC-8: ConsequencePreviewDialog is non-skippable ──────────────────
 
 	test.describe("AC-8 — Kill bet dialog (non-skippable)", () => {
-		test("clicking Kill bet opens the consequence dialog", async ({ page }) => {
-			await setupCommonRoutes(page, "in_progress");
+		test("clicking Kill opens the consequence dialog", async ({ page }) => {
+			await setupCommonRoutes(page, "active");
 			await page.goto(`/work/bet/${BET_ID}`);
 
 			await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible();
 
-			const killBtn = page.getByRole("button", { name: /kill bet/i });
-			await expect(killBtn).toBeVisible();
-			await killBtn.click();
+			await openOverflowAction(page, "kill");
 
 			await expect(page.getByRole("dialog")).toBeVisible();
 		});
 
 		test("pressing Escape does NOT close the dialog", async ({ page }) => {
-			await setupCommonRoutes(page, "in_progress");
+			await setupCommonRoutes(page, "active");
 			await page.goto(`/work/bet/${BET_ID}`);
 			await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible();
 
-			await page.getByRole("button", { name: /kill bet/i }).click();
+			await openOverflowAction(page, "kill");
 			await expect(page.getByRole("dialog")).toBeVisible();
 
 			// Press Escape
@@ -149,11 +164,11 @@ test.describe("L14 — Bet actions E2E", () => {
 		});
 
 		test("clicking Cancel closes the dialog", async ({ page }) => {
-			await setupCommonRoutes(page, "in_progress");
+			await setupCommonRoutes(page, "active");
 			await page.goto(`/work/bet/${BET_ID}`);
 			await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible();
 
-			await page.getByRole("button", { name: /kill bet/i }).click();
+			await openOverflowAction(page, "kill");
 			await expect(page.getByRole("dialog")).toBeVisible();
 
 			await page.getByRole("button", { name: /cancel/i }).click();
@@ -169,7 +184,7 @@ test.describe("L14 — Bet actions E2E", () => {
 			let killBody: Record<string, unknown> = {};
 			let killed = false;
 
-			await setupCommonRoutes(page, "in_progress");
+			await setupCommonRoutes(page, "active");
 
 			// Intercept kill call
 			await page.route(`**/api/bets/${BET_ID}/kill`, (route) => {
@@ -182,13 +197,13 @@ test.describe("L14 — Bet actions E2E", () => {
 				});
 			});
 
-			// Override GET — returns in_progress initially, killed after the action (LIFO: this takes priority)
+			// Override GET — returns active initially, killed after the action (LIFO: this takes priority)
 			await page.route(`**/api/bets/${BET_ID}`, (route) => {
 				if (route.request().method() === "GET") {
 					return route.fulfill({
 						status: 200,
 						contentType: "application/json",
-						body: JSON.stringify(makeBetResponse(killed ? "killed" : "in_progress")),
+						body: JSON.stringify(makeBetResponse(killed ? "killed" : "active")),
 					});
 				}
 				return route.continue();
@@ -197,7 +212,7 @@ test.describe("L14 — Bet actions E2E", () => {
 			await page.goto(`/work/bet/${BET_ID}`);
 			await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible();
 
-			await page.getByRole("button", { name: /kill bet/i }).click();
+			await openOverflowAction(page, "kill");
 			await expect(page.getByRole("dialog")).toBeVisible();
 
 			// Fill reason
@@ -211,17 +226,19 @@ test.describe("L14 — Bet actions E2E", () => {
 			await confirmBtn.click();
 
 			// Assert the API was called with the reason
-			expect(killBody.reason).toBe("No longer viable after pivot");
+			await expect.poll(() => killBody.reason).toBe("No longer viable after pivot");
 		});
 	});
 
-	// ─── AC-10: Appetite dialog → PATCH ────────────────────────────────────
+	// ─── AC-10: Appetite dialog → PATCH (WireMoney) ────────────────────────
 
 	test.describe("AC-10 — Appetite adjust flow", () => {
-		test("changing appetite and confirming calls PATCH /bets/:id", async ({ page }) => {
+		test("changing appetite and confirming calls PATCH /bets/:id with WireMoney", async ({
+			page,
+		}) => {
 			let patchBody: Record<string, unknown> = {};
 
-			await setupCommonRoutes(page, "in_progress");
+			await setupCommonRoutes(page, "active");
 
 			await page.route(`**/api/bets/${BET_ID}`, (route) => {
 				if (route.request().method() === "PATCH") {
@@ -230,7 +247,7 @@ test.describe("L14 — Bet actions E2E", () => {
 						status: 200,
 						contentType: "application/json",
 						body: JSON.stringify({
-							...makeBetResponse("in_progress"),
+							...makeBetResponse("active"),
 							costAppetite: { minor: 50000, currency: "USD" },
 						}),
 					});
@@ -239,7 +256,7 @@ test.describe("L14 — Bet actions E2E", () => {
 					return route.fulfill({
 						status: 200,
 						contentType: "application/json",
-						body: JSON.stringify(makeBetResponse("in_progress")),
+						body: JSON.stringify(makeBetResponse("active")),
 					});
 				}
 				return route.continue();
@@ -248,12 +265,12 @@ test.describe("L14 — Bet actions E2E", () => {
 			await page.goto(`/work/bet/${BET_ID}`);
 			await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible();
 
-			await page.getByRole("button", { name: /adjust appetite/i }).click();
+			await openOverflowAction(page, "adjust-appetite");
 			await expect(page.getByRole("dialog")).toBeVisible();
 
-			// Change select to "1 week"
+			// AF12: money input — numeric amount (major units), not a duration <select>.
 			const dialog = page.getByRole("dialog");
-			await dialog.locator("select").selectOption("1 week");
+			await dialog.getByRole("spinbutton").fill("500");
 
 			// Fill reason
 			const reasonArea = dialog.locator("textarea").first();
@@ -264,9 +281,10 @@ test.describe("L14 — Bet actions E2E", () => {
 			await expect(saveBtn).not.toBeDisabled();
 			await saveBtn.click();
 
-			// Assert PATCH was called with correct body
-			expect(patchBody.field).toBe("cost_appetite");
-			expect(patchBody.value).toBe("1 week");
+			// Assert PATCH was called with a WireMoney value, not a duration string.
+			await expect.poll(() => patchBody.field).toBe("cost_appetite");
+			expect(typeof patchBody.value).toBe("object");
+			expect(patchBody.value).toMatchObject({ minor: 50000, currency: "USD" });
 			expect(patchBody.reason).toBe("Scope reduced significantly");
 		});
 	});
@@ -275,7 +293,7 @@ test.describe("L14 — Bet actions E2E", () => {
 
 	test.describe("AC-11 — Unblock scrolls to thread composer", () => {
 		test("clicking Unblock focuses the composer textarea", async ({ page }) => {
-			await setupCommonRoutes(page, "in_progress");
+			await setupCommonRoutes(page, "active");
 
 			// Mock thread resolve so composer is fully rendered
 			await page.route(`**/api/threads/${THREAD_ID}/messages`, (route) => {
@@ -289,7 +307,7 @@ test.describe("L14 — Bet actions E2E", () => {
 			await page.goto(`/work/bet/${BET_ID}`);
 			await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible();
 
-			await page.getByRole("button", { name: /unblock/i }).click();
+			await openOverflowAction(page, "unblock");
 
 			// Composer textarea should be focused
 			const composerTextarea = page.locator('[data-testid="composer-textarea"]');
@@ -297,51 +315,51 @@ test.describe("L14 — Bet actions E2E", () => {
 		});
 	});
 
-	// ─── AC-12: Revision log actor after pause ─────────────────────────────
+	// ─── AC-12: Revision log actor after a human action ────────────────────
 
 	test.describe("AC-12 — Revision log actor field", () => {
-		test("pause action is reflected with actor='u-founder' in the revision log", async ({
+		test("kill action is reflected with actor='u-founder' in the revision log", async ({
 			page,
 		}) => {
-			let pauseBody: Record<string, unknown> = {};
-			let paused = false;
-			const pausedRevisionLog = JSON.stringify([
+			let killBody: Record<string, unknown> = {};
+			let killed = false;
+			const killedRevisionLog = JSON.stringify([
 				{
 					timestamp: new Date().toISOString(),
 					field: "status",
-					old_value: "in_progress",
-					new_value: "paused",
+					old_value: "active",
+					new_value: "killed",
 					reason: "Team load",
 					actor: FOUNDER_ID,
 				},
 			]);
 
-			await setupCommonRoutes(page, "in_progress");
+			await setupCommonRoutes(page, "active");
 
-			// Intercept pause call
-			await page.route(`**/api/bets/${BET_ID}/pause`, (route) => {
-				pauseBody = JSON.parse(route.request().postData() ?? "{}") as Record<string, unknown>;
-				paused = true;
+			// Intercept kill call
+			await page.route(`**/api/bets/${BET_ID}/kill`, (route) => {
+				killBody = JSON.parse(route.request().postData() ?? "{}") as Record<string, unknown>;
+				killed = true;
 				return route.fulfill({
 					status: 200,
 					contentType: "application/json",
 					body: JSON.stringify({
-						...makeBetResponse("paused"),
-						revisionLog: pausedRevisionLog,
+						...makeBetResponse("killed"),
+						revisionLog: killedRevisionLog,
 					}),
 				});
 			});
 
-			// Override GET — returns in_progress initially, paused after action (LIFO: takes priority)
+			// Override GET — returns active initially, killed after action (LIFO: takes priority)
 			await page.route(`**/api/bets/${BET_ID}`, (route) => {
 				if (route.request().method() === "GET") {
 					return route.fulfill({
 						status: 200,
 						contentType: "application/json",
 						body: JSON.stringify(
-							paused
-								? { ...makeBetResponse("paused"), revisionLog: pausedRevisionLog }
-								: makeBetResponse("in_progress"),
+							killed
+								? { ...makeBetResponse("killed"), revisionLog: killedRevisionLog }
+								: makeBetResponse("active"),
 						),
 					});
 				}
@@ -351,8 +369,7 @@ test.describe("L14 — Bet actions E2E", () => {
 			await page.goto(`/work/bet/${BET_ID}`);
 			await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible();
 
-			// Click Pause
-			await page.getByRole("button", { name: /^pause$/i }).click();
+			await openOverflowAction(page, "kill");
 			await expect(page.getByRole("dialog")).toBeVisible();
 
 			// Fill reason and confirm
@@ -360,11 +377,11 @@ test.describe("L14 — Bet actions E2E", () => {
 			const reasonArea = dialog.locator("textarea").first();
 			await reasonArea.fill("Team load");
 
-			const confirmBtn = dialog.getByRole("button", { name: /pause/i });
+			const confirmBtn = dialog.getByRole("button", { name: /kill bet/i });
 			await confirmBtn.click();
 
-			// Verify the pause route was called with reason
-			expect(pauseBody.reason).toBe("Team load");
+			// Verify the kill route was called with reason
+			await expect.poll(() => killBody.reason).toBe("Team load");
 
 			// Fetch the bet directly and check the revision log
 			const betResponse = await page.evaluate(async (betId: string) => {
@@ -377,31 +394,32 @@ test.describe("L14 — Bet actions E2E", () => {
 				new_value: string;
 				actor?: string;
 			}>;
-			const pauseEntry = log.find((e) => e.field === "status" && e.new_value === "paused");
-			expect(pauseEntry).toBeDefined();
-			expect(pauseEntry?.actor).toBe(FOUNDER_ID);
+			const killEntry = log.find((e) => e.field === "status" && e.new_value === "killed");
+			expect(killEntry).toBeDefined();
+			expect(killEntry?.actor).toBe(FOUNDER_ID);
 		});
 	});
 
-	// ─── AC-7: Action bar renders for paused bet ──────────────────────────
+	// ─── AC-7: Action bar renders per status (E2E smoke) ───────────────────
 
 	test.describe("AC-7 — Action bar per status (E2E smoke)", () => {
-		test("paused bet shows Resume button, not Pause", async ({ page }) => {
-			await setupCommonRoutes(page, "paused");
+		test("draft bet offers Activate, not Adjust appetite", async ({ page }) => {
+			await setupCommonRoutes(page, "draft");
 			await page.goto(`/work/bet/${BET_ID}`);
 			await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible();
 
-			await expect(page.getByRole("button", { name: /resume/i })).toBeVisible();
-			await expect(page.getByRole("button", { name: /^pause$/i })).not.toBeVisible();
+			await page.locator('[data-testid="bet-overflow-btn"]').click();
+			await expect(page.locator('[data-bet-action="activate"]')).toBeVisible();
+			await expect(page.locator('[data-bet-action="adjust-appetite"]')).toHaveCount(0);
 		});
 
-		test("shipped bet shows no action bar", async ({ page }) => {
-			await setupCommonRoutes(page, "shipped");
+		test("completed bet shows no kill action", async ({ page }) => {
+			await setupCommonRoutes(page, "completed");
 			await page.goto(`/work/bet/${BET_ID}`);
 			await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible();
 
-			await expect(page.getByRole("button", { name: /kill bet/i })).not.toBeVisible();
-			await expect(page.getByRole("button", { name: /pause/i })).not.toBeVisible();
+			await page.locator('[data-testid="bet-overflow-btn"]').click();
+			await expect(page.locator('[data-bet-action="kill"]')).toHaveCount(0);
 		});
 	});
 });

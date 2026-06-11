@@ -25,6 +25,7 @@
 import { StatusChip, sessionOutcomeToStatus } from "@hyperidle/design-system";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { ArtifactSection } from "../components/ArtifactSection.js";
+import { type TaskSession, useTaskSessions } from "../hooks/useTaskSessions.js";
 import { isValidHarnessUrl } from "../lib/url-utils.js";
 import { HostThreadSection } from "./HostThreadSection.js";
 
@@ -110,6 +111,92 @@ function getFocusableElements(container: HTMLElement): HTMLElement[] {
 			'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
 		),
 	).filter((el) => !el.hasAttribute("disabled") && el.tabIndex >= 0);
+}
+
+/**
+ * Live indicator dot for an active session (6px pulsing green).
+ *
+ * @lore AF12: duplicated from WorkTask.tsx `LiveDot` — TaskSheet is a
+ * self-contained shell component (it already inlines `KanbanTask`), and
+ * `LiveDot` is a local fn in WorkTask, not an exported design-system component.
+ */
+function LiveDot(): JSX.Element {
+	return (
+		<span
+			aria-hidden="true"
+			className="inline-block w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)] animate-pulse shrink-0"
+		/>
+	);
+}
+
+/**
+ * Renders one session row: title/agent + live-dot/status label.
+ *
+ * @lore AF12: mirrors WorkTask's `SessionRow` but omits the harness link +
+ * effectiveness score for density (design §Surface 4). The status label
+ * preserves the raw-status fallback — `isActive ? "Active" : isDone ? "Done" :
+ * status` — so a cascade-stopped session renders the non-blank label "stopped",
+ * never an empty cell (the load-bearing AC4 guarantee).
+ */
+function SessionRow({ id, title, agent, status, cost }: TaskSession): JSX.Element {
+	const isActive = status === "active";
+	const isDone = status === "done" || status === "completed";
+	return (
+		<div
+			key={id}
+			data-testid="task-sheet-session-row"
+			className="flex items-center gap-[12px] py-[12px] border-b border-[var(--border-subtle)] last:border-b-0"
+		>
+			<div className="flex-1 min-w-0">
+				<div className="text-[14px] font-[500] text-[var(--text-primary)] truncate">{title}</div>
+				<div className="text-[12px] text-[var(--text-tertiary)] truncate mt-[2px]">{agent}</div>
+			</div>
+			{cost !== null && (
+				<span className="text-[12px] font-mono tabular-nums text-[var(--text-tertiary)]">
+					${((cost.minor ?? 0) / 100).toFixed(2)}
+				</span>
+			)}
+			<div className="flex items-center gap-[6px] shrink-0">
+				{isActive && <LiveDot />}
+				<span className="text-[12px] font-[500] text-[var(--text-secondary)]">
+					{isActive ? "Active" : isDone ? "Done" : status}
+				</span>
+			</div>
+		</div>
+	);
+}
+
+/**
+ * Sessions section for the TaskSheet (AF12 AC4). Handles all four states:
+ * loading, error, empty (non-blank "No sessions yet."), and populated.
+ */
+function TaskSheetSessions({ taskId }: { taskId: string }): JSX.Element {
+	const { data, isLoading, error } = useTaskSessions(taskId);
+
+	return (
+		<div className="border-b border-[var(--border-lo)]">
+			<div className="flex items-center px-4 pt-3 pb-1">
+				<span className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
+					Sessions
+				</span>
+			</div>
+			{isLoading ? (
+				<p className="text-xs text-[var(--text-tertiary)] px-4 py-2">Loading sessions…</p>
+			) : error ? (
+				<p role="alert" className="text-sm text-error px-4 py-2">
+					Couldn't load sessions.
+				</p>
+			) : !data || data.sessions.length === 0 ? (
+				<p className="text-[13px] text-[var(--text-tertiary)] px-4 py-2">No sessions yet.</p>
+			) : (
+				<div className="px-4 pb-2">
+					{data.sessions.map((s) => (
+						<SessionRow key={s.id} {...s} />
+					))}
+				</div>
+			)}
+		</div>
+	);
 }
 
 export function TaskSheet({
@@ -367,6 +454,9 @@ export function TaskSheet({
 						)}
 					</div>
 				)}
+
+				{/* AF12: Sessions section — task's session history with live indicators. */}
+				<TaskSheetSessions taskId={task.id} />
 
 				{/* Inline thread — L18: thread is inline; "Open thread" affordance navigates
 			    to the full thread view (AC §621: the L15 affordance must still work). */}

@@ -22,6 +22,11 @@ vi.mock("../../hooks/useHostThread", () => ({
 	})),
 }));
 
+// AF12: mock useTaskSessions so the new Sessions section doesn't fire a real fetch.
+vi.mock("../../hooks/useTaskSessions", () => ({
+	useTaskSessions: vi.fn(() => ({ data: { sessions: [] }, isLoading: false, error: null })),
+}));
+
 // Mock ArtifactSection to capture props.
 // useArtifactOpen must also be exported since TaskSheet calls it.
 vi.mock("../../components/ArtifactSection", () => ({

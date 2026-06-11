@@ -14,6 +14,7 @@ import {
 import type { ArtifactThreadSummary, EventBus } from "@hyperidle/shared";
 import {
 	BET_OUTCOME_VERDICTS,
+	CapacityExceededError,
 	CURRENCY_CODES,
 	deriveTitle,
 	InvalidTransitionError,
@@ -23,6 +24,7 @@ import { Hono } from "hono";
 import z from "zod";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
+import { cascadeBetKill } from "../services/bet-kill-cascade.js";
 import { transitionBet, updateBetField } from "../services/bet-state-machine.js";
 import { ApiError, loadTeamMembers } from "../services/team-lookup.js";
 
@@ -706,6 +708,11 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			if (err instanceof InvalidTransitionError) {
 				return c.json({ error: err.message, code: "VALIDATION_ERROR" }, 400);
 			}
+			// @lore AF12: activating at full team capacity throws CapacityExceededError;
+			// map it to a clean 400 the UI can show instead of falling through to a 500.
+			if (err instanceof CapacityExceededError) {
+				return c.json({ error: err.message, code: "VALIDATION_ERROR" }, 400);
+			}
 			throw err;
 		}
 		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
@@ -756,6 +763,10 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			}
 			throw err;
 		}
+		// @lore AF12: cascade the kill downward AFTER the bet is `killed` so the
+		// task-kill's upward propagation sees a terminal bet and skips (no spurious
+		// review thread). Synchronous so the UI's immediate refresh shows true state.
+		await cascadeBetKill(db, eventBus, betId);
 		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 		if (!updated) {
 			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
