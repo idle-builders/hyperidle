@@ -249,7 +249,7 @@ describe("Bet Endpoints (E3)", () => {
 
 		const rows = await db.select().from(bets);
 		const betRow = rows[0];
-		const revisionLog = JSON.parse(betRow.revisionLog ?? "[]") as unknown[];
+		const revisionLog = JSON.parse(betRow!.revisionLog ?? "[]") as unknown[];
 		expect(revisionLog.length).toBeGreaterThan(0);
 		vi.unstubAllEnvs();
 	});
@@ -670,7 +670,7 @@ describe("Bet Endpoints (E3)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("AC11: returns zero capacity when no teamMembers exist", async ({ app, eventBus }) => {
+	test("AC11: returns zero capacity when no teamMembers exist", async ({ eventBus }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		// Use a fresh db with only teams/products (no teamMembers)

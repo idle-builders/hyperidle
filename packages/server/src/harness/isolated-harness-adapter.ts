@@ -21,6 +21,7 @@ import type {
 	SessionResult,
 } from "@hyperidle/shared";
 import type { CredentialResolver } from "../services/credential-resolver.js";
+import { isEventMessage, isSessionResultMessage } from "./isolated-session-protocol.js";
 
 export interface IsolationConfig {
 	readonly maxMemoryMb: number;
@@ -245,20 +246,15 @@ export class IsolatedHarnessAdapter implements HarnessAdapter {
 		const session = this.sessions.get(sessionId);
 		if (!session || session.done) return;
 
-		if (typeof msg !== "object" || msg === null || !("type" in msg)) return;
-		const typed = msg as { type: string };
-
-		if (typed.type === "event") {
-			const withEvent = msg as { event: HarnessEvent };
-			session.events.push(withEvent.event);
+		if (isEventMessage(msg)) {
+			session.events.push(msg.event);
 			session.notifyStream?.();
-		} else if (typed.type === "session_result") {
-			const withResult = msg as { result: SessionResult };
-			session.result = withResult.result;
+		} else if (isSessionResultMessage(msg)) {
+			session.result = msg.result;
 			session.done = true;
 			clearTimeout(session.timer);
 			session.notifyStream?.();
-			session.resolveStop?.(withResult.result);
+			session.resolveStop?.(msg.result);
 		}
 	}
 }

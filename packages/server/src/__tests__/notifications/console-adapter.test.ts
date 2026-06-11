@@ -54,12 +54,12 @@ describe("H2 Console adapter (AC1)", () => {
 			expect(result.sentAt).toBe("2026-04-18T12:00:00.000Z");
 		}
 		expect(calls).toHaveLength(1);
-		expect(calls[0].level).toBe("info");
-		expect(calls[0].msg).toBe("Item 42 requires attention");
-		expect(calls[0].extra?.severity).toBe("blocking");
-		expect(calls[0].extra?.recipient).toBe("dev-console");
-		expect(calls[0].extra?.bodyLength).toBe(notification.body.length);
-		expect(calls[0].extra?.deepLink).toBe("/conversations/item/42");
+		expect(calls[0]!.level).toBe("info");
+		expect(calls[0]!.msg).toBe("Item 42 requires attention");
+		expect(calls[0]!.extra?.severity).toBe("blocking");
+		expect(calls[0]!.extra?.recipient).toBe("dev-console");
+		expect(calls[0]!.extra?.bodyLength).toBe(notification.body.length);
+		expect(calls[0]!.extra?.deepLink).toBe("/conversations/item/42");
 	});
 
 	it("falls back to channelId when label is missing", async () => {
@@ -74,7 +74,7 @@ describe("H2 Console adapter (AC1)", () => {
 				timestamp: Date.now(),
 			},
 		);
-		expect(calls[0].extra?.recipient).toBe("console");
+		expect(calls[0]!.extra?.recipient).toBe("console");
 	});
 
 	it("exposes name = 'console'", () => {

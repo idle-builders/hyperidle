@@ -105,14 +105,14 @@ describe("Dependency Watcher", () => {
 			await insertTask(db, "dependent", "hold", ["dep-1"]);
 
 			const notifications: NotificationEvent[] = [];
-			eventBus.on("notification", (e: unknown) => notifications.push(e));
+			eventBus.on("notification", (e) => notifications.push(e));
 
 			await checkAndUnblockDependents(db, eventBus, "dep-1");
 
 			expect(notifications).toHaveLength(1);
-			expect(notifications[0].targetId).toBe("dependent");
-			expect(notifications[0].message).toContain("dependent");
-			expect(notifications[0].message).toContain("accepted");
+			expect(notifications[0]!.targetId).toBe("dependent");
+			expect(notifications[0]!.message).toContain("dependent");
+			expect(notifications[0]!.message).toContain("accepted");
 		});
 
 		test("emits task_state_changed event on auto-transition", async ({ db, eventBus }) => {
@@ -121,14 +121,14 @@ describe("Dependency Watcher", () => {
 			await insertTask(db, "dependent", "hold", ["dep-1"]);
 
 			const events: TaskStateChangedEvent[] = [];
-			eventBus.on("task_state_changed", (e: unknown) => events.push(e));
+			eventBus.on("task_state_changed", (e) => events.push(e));
 
 			await checkAndUnblockDependents(db, eventBus, "dep-1");
 
 			expect(events).toHaveLength(1);
-			expect(events[0].taskId).toBe("dependent");
-			expect(events[0].fromState).toBe("hold");
-			expect(events[0].toState).toBe("accepted");
+			expect(events[0]!.taskId).toBe("dependent");
+			expect(events[0]!.fromState).toBe("hold");
+			expect(events[0]!.toState).toBe("accepted");
 		});
 
 		test("does not emit notification when task stays in hold", async ({ db, eventBus }) => {
@@ -138,7 +138,7 @@ describe("Dependency Watcher", () => {
 			await insertTask(db, "dependent", "hold", ["dep-1", "dep-2"]);
 
 			const notifications: NotificationEvent[] = [];
-			eventBus.on("notification", (e: unknown) => notifications.push(e));
+			eventBus.on("notification", (e) => notifications.push(e));
 
 			await checkAndUnblockDependents(db, eventBus, "dep-1");
 

@@ -37,14 +37,21 @@ describe("create_bet tool", () => {
 		expect(result.status).toBe("ok");
 		if (result.status !== "ok") return;
 
-		expect(result.value.status).toBe("draft");
-		expect(result.value.teamId).toBe(teamId);
+		expect((result.value as { betId: string; status: string; teamId: string }).status).toBe(
+			"draft",
+		);
+		expect((result.value as { betId: string; status: string; teamId: string }).teamId).toBe(teamId);
 
-		const betRows = await db.select().from(bets).where(eq(bets.id, result.value.betId));
+		const betRows = await db
+			.select()
+			.from(bets)
+			.where(
+				eq(bets.id, (result.value as { betId: string; status: string; teamId: string }).betId),
+			);
 		expect(betRows).toHaveLength(1);
-		expect(betRows[0].status).toBe("draft");
-		expect(betRows[0].teamId).toBe(teamId);
-		expect(betRows[0].description).toBe("Launch the landing page");
+		expect(betRows[0]!.status).toBe("draft");
+		expect(betRows[0]!.teamId).toBe(teamId);
+		expect(betRows[0]!.description).toBe("Launch the landing page");
 	});
 
 	test("stores optional doneCondition and hypothesis", async ({ db }) => {
@@ -62,9 +69,13 @@ describe("create_bet tool", () => {
 		expect(result.status).toBe("ok");
 		if (result.status !== "ok") return;
 
-		const [bet] = await db.select().from(bets).where(eq(bets.id, result.value.betId)).limit(1);
-		expect(bet.doneCondition).toBe("All tests pass");
-		expect(bet.hypothesis).toBe("This will unlock self-serve signups");
+		const [bet] = await db
+			.select()
+			.from(bets)
+			.where(eq(bets.id, (result.value as { betId: string; status: string; teamId: string }).betId))
+			.limit(1);
+		expect(bet!.doneCondition).toBe("All tests pass");
+		expect(bet!.hypothesis).toBe("This will unlock self-serve signups");
 	});
 
 	test("returns ok({ betId, status: 'draft', teamId })", async ({ db }) => {
@@ -77,9 +88,13 @@ describe("create_bet tool", () => {
 		expect(result.status).toBe("ok");
 		if (result.status !== "ok") return;
 
-		expect(typeof result.value.betId).toBe("string");
-		expect(result.value.status).toBe("draft");
-		expect(result.value.teamId).toBe(teamId);
+		expect(typeof (result.value as { betId: string; status: string; teamId: string }).betId).toBe(
+			"string",
+		);
+		expect((result.value as { betId: string; status: string; teamId: string }).status).toBe(
+			"draft",
+		);
+		expect((result.value as { betId: string; status: string; teamId: string }).teamId).toBe(teamId);
 	});
 
 	test("error when teamId does not exist", async ({ db }) => {

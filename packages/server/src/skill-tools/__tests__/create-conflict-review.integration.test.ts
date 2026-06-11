@@ -8,8 +8,6 @@ import { makeContext, NOW, seedBase } from "./_helpers.js";
 async function seedKnowledgeItem(db: HyperIdleDb, id: string, version: number): Promise<void> {
 	await db.insert(knowledgeItems).values({
 		id,
-		layer: "L3",
-		kind: "pattern",
 		title: `KI ${id}`,
 		body: "Body",
 		format: "markdown",
@@ -42,13 +40,13 @@ describe("create_conflict_review tool", () => {
 			.from(knowledgeConflicts)
 			.where(eq(knowledgeConflicts.itemId, "ki-1"));
 		expect(rows.length).toBe(1);
-		expect(rows[0].status).toBe("open");
-		expect(rows[0].versionCurrent).toBe(3);
-		expect(rows[0].versionBase).toBe(2);
-		expect(rows[0].proposedBy).toBe("agent:agent-fac");
-		expect(rows[0].proposedBody).toBe("new body");
+		expect(rows[0]!.status).toBe("open");
+		expect(rows[0]!.versionCurrent).toBe(3);
+		expect(rows[0]!.versionBase).toBe(2);
+		expect(rows[0]!.proposedBy).toBe("agent:agent-fac");
+		expect(rows[0]!.proposedBody).toBe("new body");
 		expect(data.status).toBe("open");
-		expect(data.conflictId).toBe(rows[0].id);
+		expect(data.conflictId).toBe(rows[0]!.id);
 	});
 
 	test("NOT_FOUND for unknown knowledgeItemId", async ({ db }) => {
@@ -102,7 +100,7 @@ describe("create_conflict_review tool", () => {
 		// ctx.agentId = "agent-fac"; the tool MUST derive this and never trust
 		// a payload-supplied proposedBy. A future regression that adds back a
 		// payload override would fail this assertion.
-		expect(rows[0].proposedBy).toBe("agent:agent-fac");
+		expect(rows[0]!.proposedBy).toBe("agent:agent-fac");
 	});
 
 	test("returns DUPLICATE on a second open conflict from the same agent on the same item", async ({
@@ -138,6 +136,6 @@ describe("create_conflict_review tool", () => {
 			.from(knowledgeConflicts)
 			.where(eq(knowledgeConflicts.itemId, "ki-dup"));
 		expect(rows.length).toBe(1);
-		expect(rows[0].proposedBody).toBe("first proposal");
+		expect(rows[0]!.proposedBody).toBe("first proposal");
 	});
 });

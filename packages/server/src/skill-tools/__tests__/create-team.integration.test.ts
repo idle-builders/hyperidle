@@ -33,10 +33,10 @@ describe("create_team tool", () => {
 		// Teams row exists
 		const teamRows = await db.select().from(teams).where(eq(teams.id, data.teamId));
 		expect(teamRows).toHaveLength(1);
-		expect(teamRows[0].name).toBe("Marketing");
+		expect(teamRows[0]!.name).toBe("Marketing");
 
 		// functions stored as JSON string
-		const storedFunctions = JSON.parse(teamRows[0].functions ?? "[]") as string[];
+		const storedFunctions = JSON.parse(teamRows[0]!.functions ?? "[]") as string[];
 		expect(storedFunctions).toEqual(["marketing"]);
 
 		// teamMembers row exists
@@ -45,7 +45,7 @@ describe("create_team tool", () => {
 			.from(teamMembers)
 			.where(eq(teamMembers.id, data.teamMembersId));
 		expect(memberRows).toHaveLength(1);
-		expect(memberRows[0].teamId).toBe(data.teamId);
+		expect(memberRows[0]!.teamId).toBe(data.teamId);
 
 		// Agent rows match defaultRoster
 		const expectedRoles = defaultRoster(["marketing"]);
@@ -56,10 +56,10 @@ describe("create_team tool", () => {
 			const agentRows = await db.select().from(users).where(eq(users.id, agentId));
 			expect(agentRows).toHaveLength(1);
 			const agent = agentRows[0];
-			expect(agent.kind).toBe("ai");
-			expect(agent.status).toBe("active");
-			expect(agent.teamId).toBe(data.teamMembersId);
-			expect(expectedRoles).toContain(agent.role);
+			expect(agent!.kind).toBe("ai");
+			expect(agent!.status).toBe("active");
+			expect(agent!.teamId).toBe(data.teamMembersId);
+			expect(expectedRoles).toContain(agent!.role);
 		}
 	});
 
@@ -117,7 +117,7 @@ describe("create_team tool", () => {
 			.where(eq(users.id, builderEntry.agentId))
 			.limit(1);
 		expect(builderAgent).toBeDefined();
-		expect(builderAgent.soulPrompt).toBe("You are a builder agent. Build great things.");
+		expect(builderAgent!.soulPrompt).toBe("You are a builder agent. Build great things.");
 	});
 
 	test("agents without a soul template have soulPrompt = null", async ({ db }) => {
@@ -137,7 +137,7 @@ describe("create_team tool", () => {
 		if (!brandVoice) return; // skip if role not in roster for this function set
 
 		const [agent] = await db.select().from(users).where(eq(users.id, brandVoice.agentId)).limit(1);
-		expect(agent.soulPrompt).toBeNull();
+		expect(agent!.soulPrompt).toBeNull();
 	});
 
 	test("stores repoPath in teams.factoryDbPath when provided", async ({ db }) => {
@@ -150,7 +150,7 @@ describe("create_team tool", () => {
 
 		const data = result.data as { teamId: string };
 		const [team] = await db.select().from(teams).where(eq(teams.id, data.teamId)).limit(1);
-		expect(team.factoryDbPath).toBe("/home/projects/myapp");
+		expect(team!.factoryDbPath).toBe("/home/projects/myapp");
 	});
 
 	test("INVALID_INPUT when functions array is empty (below min(1))", async ({ db }) => {

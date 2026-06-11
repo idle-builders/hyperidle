@@ -301,7 +301,7 @@ describe("S1 — E2E: Two users post to same thread → correct senderId", () =>
 		const threadId = threadBody.id;
 
 		// User 1 posts a message
-		const _msg1Res = await app.request(`/api/threads/${threadId}/messages`, {
+		await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
 			headers: bearerHeaders(token1),
 			body: JSON.stringify({
@@ -312,7 +312,7 @@ describe("S1 — E2E: Two users post to same thread → correct senderId", () =>
 		});
 
 		// User 2 posts a message
-		const _msg2Res = await app.request(`/api/threads/${threadId}/messages`, {
+		await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
 			headers: bearerHeaders(token2),
 			body: JSON.stringify({

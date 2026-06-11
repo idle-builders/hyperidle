@@ -164,7 +164,7 @@ describe("Handoff Protocol", () => {
 			expect(threadMsgs).toHaveLength(1);
 			// L1a: handoff message body lives in the JSON `payload` column
 			// (subject/body dropped — see plan §5.3).
-			const body = JSON.parse(threadMsgs[0].payload);
+			const body = JSON.parse(threadMsgs[0]!.payload);
 			expect(body.type).toBe("handoff");
 			expect(body.context_id).toBe("ctx-1");
 			expect(body.reason).toBe("Need a builder to continue");
@@ -218,8 +218,8 @@ describe("Handoff Protocol", () => {
 			// Escalation item should be created
 			const escalationItems = await db.select().from(items);
 			expect(escalationItems).toHaveLength(1);
-			expect(escalationItems[0].kind).toBe("escalation");
-			expect(escalationItems[0].title).toContain("builder");
+			expect(escalationItems[0]!.kind).toBe("escalation");
+			expect(escalationItems[0]!.title).toContain("builder");
 		});
 
 		test("excludes the handing-off agent from role resolution", async ({ db, eventBus }) => {
@@ -267,8 +267,8 @@ describe("Handoff Protocol", () => {
 			// Review item should be created
 			const reviewItems = await db.select().from(items);
 			expect(reviewItems).toHaveLength(1);
-			expect(reviewItems[0].kind).toBe("review");
-			expect(reviewItems[0].title).toContain("task-1");
+			expect(reviewItems[0]!.kind).toBe("review");
+			expect(reviewItems[0]!.title).toContain("task-1");
 		});
 	});
 
@@ -302,7 +302,7 @@ describe("Handoff Protocol", () => {
 			expect(threadMsgs).toHaveLength(1);
 			// L1a: handoff message body lives in the JSON `payload` column
 			// (subject/body dropped — see plan §5.3).
-			const body = JSON.parse(threadMsgs[0].payload);
+			const body = JSON.parse(threadMsgs[0]!.payload);
 			expect(body).toEqual({
 				type: "handoff",
 				context_id: "ctx-42",
@@ -344,7 +344,7 @@ describe("Handoff Protocol", () => {
 				.where(eq(messages.threadId, "thread-task-1"));
 			// L1a: handoff message body lives in the JSON `payload` column
 			// (subject/body dropped — see plan §5.3).
-			const body = JSON.parse(threadMsgs[0].payload);
+			const body = JSON.parse(threadMsgs[0]!.payload);
 			expect(body.status).toBe("failed");
 			expect(body.error).toBe("TypeError: Cannot read properties of undefined");
 		});

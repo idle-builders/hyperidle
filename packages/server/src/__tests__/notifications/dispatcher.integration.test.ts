@@ -114,7 +114,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 			});
 			await vi.waitFor(() => expect(adapter.calls.length).toBeGreaterThanOrEqual(1));
 
-			expect(adapter.calls[0].notification.severity).toBe("blocking");
+			expect(adapter!.calls[0]!.notification.severity).toBe("blocking");
 		} finally {
 			disposeApp(app);
 		}
@@ -149,7 +149,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 			eventBus.emit(event);
 			await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
 
-			expect(adapter.calls[0].notification.severity).toBe("cost_breach");
+			expect(adapter!.calls[0]!.notification.severity).toBe("cost_breach");
 		} finally {
 			disposeApp(app);
 		}
@@ -196,7 +196,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 			eventBus.emit(event);
 			await vi.waitFor(async () => {
 				const rows = await db.select().from(notificationQueue);
-				expect(rows[0].status).toBe("sent");
+				expect(rows[0]!.status).toBe("sent");
 			});
 
 			expect(adapter.calls.length).toBeGreaterThanOrEqual(1);

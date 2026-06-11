@@ -43,14 +43,10 @@ function createMockQuery(messages: SDKMessage[]): Query {
 	query.close = vi.fn(() => {
 		aborted = true;
 	});
-	query.getContextUsage = vi.fn(async () => ({
-		categories: [],
-		totalTokens: 5000,
-		maxTokens: 200000,
-		rawMaxTokens: 200000,
-		percentage: 2.5,
-		gridRows: [],
-	}));
+	// Scaffolding — the return value is not asserted; match the file's
+	// `({}) as ReturnType<...>` mock idiom (the SDK response carries more fields
+	// than the test populates).
+	query.getContextUsage = vi.fn(async () => ({}) as Awaited<ReturnType<Query["getContextUsage"]>>);
 	// Stub other Query methods
 	query.setPermissionMode = vi.fn(async () => {});
 	query.setModel = vi.fn(async () => {});
@@ -282,7 +278,7 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 
 			const tokenEvents = events.filter((e) => e.type === "token_usage");
 			expect(tokenEvents.length).toBeGreaterThanOrEqual(1);
-			const tokenEvent = tokenEvents[0];
+			const tokenEvent = tokenEvents[0]!;
 			if (tokenEvent.type === "token_usage") {
 				expect(tokenEvent.inputTokens).toBe(100);
 				expect(tokenEvent.outputTokens).toBe(50);
@@ -309,9 +305,9 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 
 			const toolEvents = events.filter((e) => e.type === "tool_call");
 			expect(toolEvents).toHaveLength(1);
-			if (toolEvents[0].type === "tool_call") {
-				expect(toolEvents[0].toolName).toBe("Read");
-				expect(toolEvents[0].args).toEqual({ path: "/test.ts" });
+			if (toolEvents[0]!.type === "tool_call") {
+				expect(toolEvents[0]!.toolName).toBe("Read");
+				expect(toolEvents[0]!.args).toEqual({ path: "/test.ts" });
 			}
 		});
 
@@ -330,8 +326,8 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 
 			const completionEvents = events.filter((e) => e.type === "completion");
 			expect(completionEvents.length).toBeGreaterThanOrEqual(1);
-			if (completionEvents[0].type === "completion") {
-				expect(completionEvents[0].text).toBe("Analysis complete.");
+			if (completionEvents[0]!.type === "completion") {
+				expect(completionEvents[0]!.text).toBe("Analysis complete.");
 			}
 		});
 
@@ -353,7 +349,7 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 
 			const costEvents = events.filter((e) => e.type === "cost_update");
 			expect(costEvents.length).toBeGreaterThanOrEqual(1);
-			const lastCostEvent = costEvents[costEvents.length - 1];
+			const lastCostEvent = costEvents[costEvents.length - 1]!;
 			if (lastCostEvent.type === "cost_update") {
 				expect(lastCostEvent.totalCost).toBe(0.0045);
 			}
@@ -378,9 +374,9 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 
 			const preCompactionEvents = events.filter((e) => e.type === "pre_compaction");
 			expect(preCompactionEvents).toHaveLength(1);
-			if (preCompactionEvents[0].type === "pre_compaction") {
-				expect(preCompactionEvents[0].contextTokens).toBe(150000);
-				expect(preCompactionEvents[0].maxTokens).toBeGreaterThan(0);
+			if (preCompactionEvents[0]!.type === "pre_compaction") {
+				expect(preCompactionEvents[0]!.contextTokens).toBe(150000);
+				expect(preCompactionEvents[0]!.maxTokens).toBeGreaterThan(0);
 			}
 		});
 
@@ -435,14 +431,9 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 			const mockQuery = gen as unknown as Query;
 			mockQuery.interrupt = vi.fn(async () => {});
 			mockQuery.close = vi.fn();
-			mockQuery.getContextUsage = vi.fn(async () => ({
-				categories: [],
-				totalTokens: 0,
-				maxTokens: 200000,
-				rawMaxTokens: 200000,
-				percentage: 0,
-				gridRows: [],
-			}));
+			mockQuery.getContextUsage = vi.fn(
+				async () => ({}) as Awaited<ReturnType<Query["getContextUsage"]>>,
+			);
 			mockQuery.setPermissionMode = vi.fn(async () => {});
 			mockQuery.setModel = vi.fn(async () => {});
 			mockQuery.setMaxThinkingTokens = vi.fn(async () => {});
@@ -475,8 +466,8 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 
 			const errorEvents = events.filter((e) => e.type === "error");
 			expect(errorEvents).toHaveLength(1);
-			if (errorEvents[0].type === "error") {
-				expect(errorEvents[0].message).toBe("Connection lost");
+			if (errorEvents[0]!.type === "error") {
+				expect(errorEvents[0]!.message).toBe("Connection lost");
 			}
 		});
 
@@ -568,7 +559,7 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 			const costEvents = events.filter((e) => e.type === "cost_update");
 			expect(costEvents.length).toBeGreaterThanOrEqual(1);
 
-			const lastCost = costEvents[costEvents.length - 1];
+			const lastCost = costEvents[costEvents.length - 1]!;
 			if (lastCost.type === "cost_update") {
 				// Within 10% of SDK reported cost
 				expect(lastCost.totalCost).toBeCloseTo(sdkCost, 4);

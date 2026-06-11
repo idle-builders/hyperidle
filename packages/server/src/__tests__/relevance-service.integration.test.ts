@@ -38,7 +38,6 @@ async function insertItem(
 		updatedBy: "human",
 		createdAt: NOW_ISO,
 		updatedAt: NOW_ISO,
-		meta: null,
 	});
 
 	return id;

@@ -210,9 +210,9 @@ describe("Policy Engine (E7)", () => {
 			expect(resp).toHaveLength(1);
 		});
 		const resp = await selectVerdictsForItem(db, itemId);
-		expect(resp[0].itemId).toBe(itemId);
-		expect(resp[0].decision).toBe("approve");
-		expect(resp[0].approverId).toBe("policy_engine");
+		expect(resp[0]!.itemId).toBe(itemId);
+		expect(resp[0]!.decision).toBe("approve");
+		expect(resp[0]!.approverId).toBe("policy_engine");
 	});
 
 	test("AC2: medium approval rate (7/10) + low risk -> queue silently (policy_queued in auditTrail, no notification)", async ({
@@ -253,7 +253,7 @@ describe("Policy Engine (E7)", () => {
 		emitItemCreated(eventBus, itemId);
 
 		await vi.waitFor(() => expect(notifications).toHaveLength(1));
-		expect(notifications[0].targetId).toBe(itemId);
+		expect(notifications[0]!.targetId).toBe(itemId);
 	});
 
 	test("AC4: L1 -> push for every action", async ({ db, eventBus }) => {
@@ -267,7 +267,7 @@ describe("Policy Engine (E7)", () => {
 		emitItemCreated(eventBus, itemId);
 
 		await vi.waitFor(() => expect(notifications).toHaveLength(1));
-		expect(notifications[0].targetId).toBe(itemId);
+		expect(notifications[0]!.targetId).toBe(itemId);
 	});
 
 	test("AC4: no agentSkills defaults to L1 -> push", async ({ db, eventBus }) => {
@@ -371,9 +371,9 @@ describe("Policy Engine (E7)", () => {
 			expect(verdicts).toHaveLength(1);
 		});
 		const verdicts = await selectVerdictsForItem(db, itemId);
-		expect(verdicts[0].approverId).toBe("policy_engine");
-		expect(verdicts[0].decision).toBe("approve");
-		const [message] = await db.select().from(messages).where(eq(messages.id, verdicts[0].id));
+		expect(verdicts[0]!.approverId).toBe("policy_engine");
+		expect(verdicts[0]!.decision).toBe("approve");
+		const [message] = await db.select().from(messages).where(eq(messages.id, verdicts[0]!.id));
 		expect(message?.createdAt).toBeTruthy();
 	});
 

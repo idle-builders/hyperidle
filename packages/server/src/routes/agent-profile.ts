@@ -206,6 +206,9 @@ export async function handleAgentProfile(
 	adapterPool: AdapterPool | undefined,
 ): Promise<Response> {
 	const agentId = c.req.param("id");
+	if (!agentId) {
+		return c.json({ error: "Agent not found", code: "NOT_FOUND" }, 404);
+	}
 
 	// 1. Fetch the agent (kind='ai', not system)
 	const [agent] = await db.select().from(users).where(eq(users.id, agentId)).limit(1);

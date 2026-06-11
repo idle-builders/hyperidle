@@ -85,7 +85,7 @@ describe("AD8b — ASSISTANT_TOOLS", () => {
 	});
 
 	it("type annotation: each entry is assignable to AssistantToolDef", () => {
-		const entry: AssistantToolDef = ASSISTANT_TOOLS[0];
+		const entry: AssistantToolDef = ASSISTANT_TOOLS[0]!;
 		expect(entry).toBeDefined();
 	});
 

@@ -153,8 +153,8 @@ describe("log_task tool", () => {
 			// did not append its note to the wrong column.
 			const audit = JSON.parse(task?.auditTrail ?? "[]") as Array<Record<string, unknown>>;
 			expect(audit).toHaveLength(1);
-			expect(audit[0].from).toBe("accepted");
-			expect(audit[0].to).toBe("in_progress");
+			expect(audit[0]!.from).toBe("accepted");
+			expect(audit[0]!.to).toBe("in_progress");
 			// Note landed in notes, not auditTrail.
 			expect(task?.notes ?? "").toContain("Another note");
 		});

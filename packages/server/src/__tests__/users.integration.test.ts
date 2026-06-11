@@ -165,11 +165,11 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			// Verify item was created
 			const allItems = await db.select().from(items);
 			expect(allItems).toHaveLength(1);
-			expect(allItems[0].kind).toBe("autonomy_change");
+			expect(allItems[0]!.kind).toBe("autonomy_change");
 
 			// Verify event was emitted
 			expect(emitted).toHaveLength(1);
-			expect(emitted[0].type).toBe("item_created");
+			expect(emitted[0]!.type).toBe("item_created");
 		});
 
 		test("does NOT create review thread when level unchanged", async ({ db, app, eventBus }) => {
@@ -244,7 +244,7 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			};
 			expect(body).toHaveProperty("messages");
 			expect(body.messages).toHaveLength(1);
-			const payload = JSON.parse(body.messages[0].payload) as { text?: string };
+			const payload = JSON.parse(body!.messages[0]!.payload) as { text?: string };
 			expect(payload.text).toBe("Hello!");
 		});
 
@@ -273,8 +273,8 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			// Verify thread was created with the new shape.
 			const allThreads = await db.select().from(threads);
 			expect(allThreads).toHaveLength(1);
-			expect(allThreads[0].hostKind).toBe("agent");
-			expect(allThreads[0].hostId).toBe("agent-1");
+			expect(allThreads[0]!.hostKind).toBe("agent");
+			expect(allThreads[0]!.hostId).toBe("agent-1");
 		});
 
 		test("reuses existing thread for same sender/recipient pair", async ({ db, app }) => {

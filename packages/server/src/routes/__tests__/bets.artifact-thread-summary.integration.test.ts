@@ -193,13 +193,13 @@ describe("L18 — GET /api/bets/:id/artifact-thread-summary", () => {
 		expect(body.truncated).toBe(false);
 
 		// Ordered by lastMessageAt DESC
-		expect(body.summaries[0].artifactId).toBe("art-b");
-		expect(body.summaries[1].artifactId).toBe("art-a");
+		expect(body!.summaries[0]!.artifactId).toBe("art-b");
+		expect(body!.summaries[1]!.artifactId).toBe("art-a");
 
 		// Each row has the expected shape
-		expect(body.summaries[0].messageCount).toBe(2);
-		expect(body.summaries[0].threadId).toBe("t-b");
-		expect(body.summaries[0].artifactKind).toBe("code_diff");
+		expect(body!.summaries[0]!.messageCount).toBe(2);
+		expect(body!.summaries[0]!.threadId).toBe("t-b");
+		expect(body!.summaries[0]!.artifactKind).toBe("code_diff");
 	});
 
 	test("filters out artifacts with zero thread messages", async ({ db, app }) => {
@@ -350,6 +350,6 @@ describe("L18 — GET /api/bets/:id/artifact-thread-summary", () => {
 		};
 
 		expect(body.summaries).toHaveLength(1);
-		expect(body.summaries[0].lastMessageSnippet).toContain("Looks good but the cache TTL");
+		expect(body!.summaries[0]!.lastMessageSnippet).toContain("Looks good but the cache TTL");
 	});
 });

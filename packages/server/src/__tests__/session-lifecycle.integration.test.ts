@@ -67,8 +67,6 @@ async function seedAll(db: HyperIdleDb): Promise<void> {
 	// Seed a knowledge item so materialization has content
 	await db.insert(knowledgeItems).values({
 		id: "ki-1",
-		layer: "L4",
-		kind: "principle",
 		title: "Test Principle",
 		body: "This is a test principle.",
 		format: "markdown",
@@ -158,9 +156,9 @@ describe("Session Lifecycle", () => {
 		expect(session?.endedAt).toBeTruthy();
 
 		expect(endedEvents).toHaveLength(1);
-		expect(endedEvents[0].sessionId).toBe(ctx.sessionId);
-		expect(endedEvents[0].agentId).toBe("agent-1");
-		expect(endedEvents[0].taskId).toBe("task-1");
+		expect(endedEvents[0]!.sessionId).toBe(ctx.sessionId);
+		expect(endedEvents[0]!.agentId).toBe("agent-1");
+		expect(endedEvents[0]!.taskId).toBe("task-1");
 	});
 
 	// AC3: Crash session -> crashed, watcher stopped, final pass complete, knowledge preserved
@@ -259,9 +257,9 @@ describe("Session Lifecycle", () => {
 		cleanupContexts.push(ctx);
 
 		expect(startedEvents).toHaveLength(1);
-		expect(startedEvents[0].sessionId).toBe(ctx.sessionId);
-		expect(startedEvents[0].agentId).toBe("agent-1");
-		expect(startedEvents[0].taskId).toBe("task-1");
+		expect(startedEvents[0]!.sessionId).toBe(ctx.sessionId);
+		expect(startedEvents[0]!.agentId).toBe("agent-1");
+		expect(startedEvents[0]!.taskId).toBe("task-1");
 
 		ctx.watcher.stop();
 	});

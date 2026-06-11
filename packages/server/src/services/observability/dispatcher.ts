@@ -160,7 +160,11 @@ export function createDbTraceIdResolver(db: HyperIdleDb): TraceIdResolver {
 export function createObservabilityDispatcher(deps: DispatcherDeps): ObservabilityDispatcher {
 	const logger = deps.logger ?? createLogger({ pkg: "observability.dispatcher" });
 	const nowFn = deps.now ?? ((): Date => new Date());
-	const setIntervalFn = deps.setInterval ?? setInterval;
+	// @lore AF4/§4g: the global `setInterval` overload set resolves to
+	// `number | NodeJS.Timeout` under this lib config; pin the return to the
+	// node `Timeout` the state field (and clearInterval) expect. Behaviour-neutral.
+	const setIntervalFn: (cb: () => void, ms: number) => ReturnType<typeof setInterval> =
+		deps.setInterval ?? setInterval;
 	const clearIntervalFn = deps.clearInterval ?? clearInterval;
 
 	const state: DispatcherState = {
@@ -450,16 +454,33 @@ export function registerObservabilityDispatcher(
 			// Explicitly-ignored event kinds. Future DomainEvent additions
 			// will either slot into a new case or be dropped here with an
 			// exhaustive default.
+			// @lore AF4/§4g: `response_recorded` and `bet_committed` were removed
+			// from `DomainEvent` (o1-event-split) — their dead `case` labels are
+			// dropped. They fell through to `return false`, identical to the default,
+			// so removal is behaviour-neutral.
 			case "item_created":
-			case "response_recorded":
 			case "routine_fired":
 			case "dependency_met":
-			case "bet_committed":
 			case "bet_revised":
 			case "notification":
 			// R6: artifact_created is a kernel event forwarded to WsBroadcaster
 			// for UI invalidation but not translated to an observability event.
 			case "artifact_created":
+			// @lore AF4/§5: conversation, propagation, and knowledge-lifecycle
+			// events are not translated to observability events — they hit the
+			// (previous) default `return false`. Listed explicitly so the
+			// exhaustive-never default catches genuinely-new DomainEvent kinds.
+			// Behaviour-neutral (identical to the prior default).
+			case "thread_created":
+			case "thread_message_appended":
+			case "thread_resolved":
+			case "thread_reopened":
+			case "thread_archived":
+			case "propagation_applied":
+			case "propagation_failed":
+			case "knowledge_accessed":
+			case "knowledge_archived":
+			case "knowledge_created":
 				return false;
 			default: {
 				// Exhaustiveness check — if a new DomainEvent kind is added

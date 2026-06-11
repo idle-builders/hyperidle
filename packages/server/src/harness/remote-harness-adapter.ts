@@ -22,6 +22,43 @@ import type {
 // Re-export so tests can import WorkerRegisterMessage from this module
 export type { WorkerRegisterMessage };
 
+/**
+ * Inbound messages from a remote worker over the WS transport. All carry a
+ * `sessionId` to route to the originating session.
+ *
+ * @lore AF4/§4e: narrowing on `type` replaces the previous
+ * `typed as { event: HarnessEvent }`-style casts (TS2352: the source
+ * `{ type: string; sessionId?: string }` does not overlap the target). The
+ * guards preserve the exact runtime dispatch; remote-session routing is
+ * unchanged.
+ */
+interface RemoteEventMessage {
+	readonly type: "event";
+	readonly sessionId: string;
+	readonly event: HarnessEvent;
+}
+interface RemoteSessionResultMessage {
+	readonly type: "session_result";
+	readonly sessionId: string;
+	readonly result: SessionResult;
+}
+interface RemoteErrorMessage {
+	readonly type: "error";
+	readonly sessionId: string;
+	readonly message: string;
+}
+type RemoteWorkerMessage = RemoteEventMessage | RemoteSessionResultMessage | RemoteErrorMessage;
+
+function asRemoteWorkerMessage(msg: unknown): RemoteWorkerMessage | null {
+	if (typeof msg !== "object" || msg === null || !("type" in msg)) return null;
+	const m = msg as { type: unknown; sessionId?: unknown };
+	if (typeof m.sessionId !== "string") return null;
+	if (m.type === "event" || m.type === "session_result" || m.type === "error") {
+		return msg as RemoteWorkerMessage;
+	}
+	return null;
+}
+
 /** Minimal WebSocket interface used by RemoteHarnessAdapter (avoids ws/DOM type coupling). */
 interface WsLike {
 	send(data: string): void;
@@ -206,24 +243,18 @@ export class RemoteHarnessAdapter implements HarnessAdapter {
 			return;
 		}
 
-		if (typeof msg !== "object" || msg === null || !("type" in msg)) return;
+		const parsed = asRemoteWorkerMessage(msg);
+		if (!parsed) return;
 
-		const typed = msg as { type: string; sessionId?: string };
-		const sessionId = typed.sessionId;
-		if (!sessionId) return;
-
-		const session = this.activeSessions.get(sessionId);
+		const session = this.activeSessions.get(parsed.sessionId);
 		if (!session) return;
 
-		if (typed.type === "event") {
-			const withEvent = typed as { event: HarnessEvent };
-			session.pushEvent(withEvent.event);
-		} else if (typed.type === "session_result") {
-			const withResult = typed as { result: SessionResult };
-			session.resolve(withResult.result);
-		} else if (typed.type === "error") {
-			const withMsg = typed as { message: string };
-			session.pushEvent({ type: "error", message: withMsg.message, code: "WorkerError" });
+		if (parsed.type === "event") {
+			session.pushEvent(parsed.event);
+		} else if (parsed.type === "session_result") {
+			session.resolve(parsed.result);
+		} else {
+			session.pushEvent({ type: "error", message: parsed.message, code: "WorkerError" });
 			session.resolve({
 				outcome: "crashed",
 				cost: { minor: 0, currency: "USD" },

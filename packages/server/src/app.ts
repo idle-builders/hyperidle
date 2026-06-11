@@ -608,4 +608,18 @@ export function disposeApp(hono: Hono): void {
 }
 
 export type { AppOptions };
+
+/**
+ * The Hono application type, re-exported via `@hyperidle/server/schemas` for the
+ * web package's `hc<AppType>` client.
+ *
+ * @lore AF4/§4g: A fully typed Hono-RPC `AppType` (route-chained schema) was
+ * lost when routes moved to untyped `app.route(path, sub)` mutation. `createApp`
+ * returns a bare `Hono`, so the honest type is `Hono` — the web client keeps a
+ * structural client without a per-route schema. Restoring a typed RPC surface
+ * is a behaviour/architecture change (out of AF4 scope); this re-export only
+ * un-dangles the type so server (and web, AF5) compile against the real shape.
+ */
+export type AppType = Hono;
+
 export { createApp };

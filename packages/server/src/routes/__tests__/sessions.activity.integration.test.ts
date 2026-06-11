@@ -122,9 +122,9 @@ describe("GET /api/sessions/:id/activity (Q1 §3.2)", () => {
 		// At minimum the array is valid
 		expect(Array.isArray(body.activity)).toBe(true);
 		if (body.activity.length > 0) {
-			expect(body.activity[0].type).toBe("tool_call");
-			expect(typeof body.activity[0].timestamp).toBe("number");
-			expect(typeof body.activity[0].data).toBe("object");
+			expect(body!.activity[0]!.type).toBe("tool_call");
+			expect(typeof body!.activity[0]!.timestamp).toBe("number");
+			expect(typeof body!.activity[0]!.data).toBe("object");
 		}
 	});
 

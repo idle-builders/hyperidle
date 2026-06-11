@@ -84,9 +84,9 @@ describe("HarnessCapabilities includes mcpSupport", () => {
 describe("Adapter mcpSupport capability declarations", () => {
 	it("ClaudeAgentSdkAdapter declares mcpSupport: true", () => {
 		const adapter = new ClaudeAgentSdkAdapter({
-			queryFn: vi.fn() as unknown as Parameters<typeof ClaudeAgentSdkAdapter>[0] extends undefined
-				? never
-				: NonNullable<ConstructorParameters<typeof ClaudeAgentSdkAdapter>[0]>["queryFn"],
+			queryFn: vi.fn() as unknown as NonNullable<
+				ConstructorParameters<typeof ClaudeAgentSdkAdapter>[0]
+			>["queryFn"],
 		});
 		expect(adapter.getCapabilities().mcpSupport).toBe(true);
 	});

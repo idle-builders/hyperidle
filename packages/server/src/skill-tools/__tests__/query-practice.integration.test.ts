@@ -119,7 +119,7 @@ describe("query_practice tool", () => {
 			if (!result.success) return;
 			const data = result.data as { items: Array<{ layer: string }> };
 			expect(data.items.length).toBeGreaterThanOrEqual(1);
-			expect(data.items[0].layer).toBe("L1");
+			expect(data!.items[0]!.layer).toBe("L1");
 		});
 	});
 

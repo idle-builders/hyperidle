@@ -4,6 +4,7 @@ import { API_ERROR_CODES, TASK_OUTCOME_VERDICTS, TASK_STATES } from "@hyperidle/
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { handoff } from "../services/handoff-protocol.js";
 import type { SessionContext } from "../services/session-lifecycle.js";
@@ -50,8 +51,8 @@ const handoffSchema = z.object({
  * Create Hono routes for task endpoints.
  * Requires db and eventBus injected.
  */
-export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
-	const router = new Hono();
+export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<HyperIdleEnv> {
+	const router = new Hono<HyperIdleEnv>();
 
 	// POST /tasks — create a new task (agent-driven decomposition)
 	router.post("/", validateBody(createTaskSchema), async (c) => {
@@ -116,7 +117,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		}
 
 		const now = new Date().toISOString();
-		const updates: Record<string, string | null> = {
+		const updates: Partial<typeof tasks.$inferInsert> = {
 			updatedAt: now,
 		};
 		if (body.title !== undefined) updates.title = body.title;

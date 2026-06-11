@@ -281,10 +281,10 @@ describe("Task State Machine", () => {
 			await transitionTask(db, eventBus, "task-1", "accepted");
 
 			expect(events).toHaveLength(1);
-			expect(events[0].taskId).toBe("task-1");
-			expect(events[0].fromState).toBe("proposed");
-			expect(events[0].toState).toBe("accepted");
-			expect(events[0].streamId).toBe("task-1");
+			expect(events[0]!.taskId).toBe("task-1");
+			expect(events[0]!.fromState).toBe("proposed");
+			expect(events[0]!.toState).toBe("accepted");
+			expect(events[0]!.streamId).toBe("task-1");
 		});
 
 		test("does not emit event on invalid transition", async ({ db, eventBus }) => {
@@ -356,9 +356,9 @@ describe("Task State Machine", () => {
 			await checkAndUnblockDependents(db, eventBus, "task-a");
 
 			expect(notifications).toHaveLength(1);
-			expect(notifications[0].targetId).toBe("task-b");
-			expect(notifications[0].message).toContain("task-b");
-			expect(notifications[0].message).toContain("accepted");
+			expect(notifications[0]!.targetId).toBe("task-b");
+			expect(notifications[0]!.message).toContain("task-b");
+			expect(notifications[0]!.message).toContain("accepted");
 		});
 	});
 });

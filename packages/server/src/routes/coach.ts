@@ -18,7 +18,15 @@
  */
 
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
-import type { EventBus, HostKind, Message, MessageType, Thread } from "@hyperidle/shared";
+import type {
+	EventBus,
+	HostKind,
+	Message,
+	MessageType,
+	PlainPayload,
+	RedactedPayload,
+	Thread,
+} from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { HyperIdleEnv } from "../middleware/auth.js";
@@ -98,9 +106,19 @@ function rowToMessage(row: {
 		resolvedAt: row.resolvedAt,
 		createdAt: row.createdAt,
 	} as const;
+	// @lore AF4/§4d + Z8-166: plain-branch persisted payload drifts from the
+	// shared `PlainPayload` type (schema-only `blockId`; optional mentionRef
+	// `sourceText`). Routed to the conversations WP (Batch 6). `parsed.payload`
+	// is Zod-validated, server-persisted read-back data surfaced into the domain
+	// type at this INTERNAL DB-row→domain mapping (NOT a request boundary). No
+	// behavior change.
 	switch (parsed.type) {
 		case "plain":
-			return { ...base, type: "plain", payload: parsed.payload };
+			return {
+				...base,
+				type: "plain",
+				payload: parsed.payload as PlainPayload | RedactedPayload,
+			};
 		case "review":
 			return { ...base, type: "review", payload: parsed.payload };
 		case "questionnaire":

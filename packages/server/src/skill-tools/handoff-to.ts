@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
@@ -57,6 +58,11 @@ async function handler(args: HandoffToInput, ctx: ToolContext): Promise<ToolResu
 		taskId: ctx.taskId,
 		workspacePath: ctx.workspacePath,
 		watcher: ctx.watcher,
+		// @lore AF4/§5: `handoff()` reads only sessionId/agentId/taskId from this
+		// context and never the traceId; `ToolContext` carries no traceId, so we
+		// mint one to satisfy the required field. Behaviour-neutral (the value is
+		// not consumed on the handoff path).
+		traceId: randomUUID(),
 	};
 
 	const params: HandoffParams = {

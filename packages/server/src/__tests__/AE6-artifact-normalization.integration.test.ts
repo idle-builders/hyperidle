@@ -32,7 +32,6 @@ async function seed(db: HyperIdleDb): Promise<{ taskId: string; betId: string }>
 		appetite: "small",
 		status: "active",
 		createdAt: NOW,
-		updatedAt: NOW,
 	});
 	await db.insert(tasks).values({
 		id: "task-ae6",

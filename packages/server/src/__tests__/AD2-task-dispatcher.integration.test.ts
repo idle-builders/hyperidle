@@ -440,7 +440,6 @@ describe("AD2 AC2: session provisioned for new agent after handoff", () => {
 				modelTier: "workhorse",
 				startedAt: NOW,
 				state: "active",
-				cost: 0,
 			});
 
 			const deps = makeDispatcherDeps(db, eventBus, adapter, workspaceBasePath);
@@ -591,7 +590,6 @@ describe("AD2 AC4: concurrency limit causes queuing; session dispatch on capacit
 				modelTier: "workhorse",
 				startedAt: NOW,
 				state: "active",
-				cost: 0,
 			});
 
 			const deps = makeDispatcherDeps(db, eventBus, adapter, workspaceBasePath);
@@ -646,7 +644,6 @@ describe("AD2 AC4: concurrency limit causes queuing; session dispatch on capacit
 				modelTier: "workhorse",
 				startedAt: NOW,
 				state: "active",
-				cost: 0,
 			});
 
 			const deps = makeDispatcherDeps(db, eventBus, adapter, workspaceBasePath);
@@ -889,7 +886,6 @@ describe("AD2 AC6: GET /api/dispatch-queue returns queued entries", () => {
 				modelTier: "workhorse",
 				startedAt: NOW,
 				state: "active",
-				cost: 0,
 			});
 			await db.insert(sessions).values({
 				id: blockingSession2Id,
@@ -898,7 +894,6 @@ describe("AD2 AC6: GET /api/dispatch-queue returns queued entries", () => {
 				modelTier: "workhorse",
 				startedAt: NOW,
 				state: "active",
-				cost: 0,
 			});
 
 			const deps = makeDispatcherDeps(db, eventBus, adapter, workspaceBasePath);
@@ -973,7 +968,6 @@ describe("AD2 AC-idempotency: dispatcher restart does not duplicate sessions", (
 				modelTier: "workhorse",
 				startedAt: NOW,
 				state: "active",
-				cost: 0,
 			});
 
 			const deps = makeDispatcherDeps(db, eventBus, adapter, workspaceBasePath);

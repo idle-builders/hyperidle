@@ -164,10 +164,10 @@ describe("AC-1 — blockId written to column on POST /api/threads (initial messa
 		const messageRows = await db
 			.select()
 			.from(messages)
-			.where(eq(messages.id, body.messages[0].id));
+			.where(eq(messages.id, body!.messages[0]!.id));
 
 		expect(messageRows).toHaveLength(1);
-		expect(messageRows[0].blockId).toBe(blockId);
+		expect(messageRows[0]!.blockId).toBe(blockId);
 	});
 
 	test("message row has null block_id when no blockId is in payload", async ({ db, app }) => {
@@ -195,10 +195,10 @@ describe("AC-1 — blockId written to column on POST /api/threads (initial messa
 		const messageRows = await db
 			.select()
 			.from(messages)
-			.where(eq(messages.id, body.messages[0].id));
+			.where(eq(messages.id, body!.messages[0]!.id));
 
 		expect(messageRows).toHaveLength(1);
-		expect(messageRows[0].blockId).toBeNull();
+		expect(messageRows[0]!.blockId).toBeNull();
 	});
 });
 
@@ -237,7 +237,7 @@ describe("AC-1 — blockId written to column on POST /api/threads/:id/messages (
 		const messageRows = await db.select().from(messages).where(eq(messages.id, body.message.id));
 
 		expect(messageRows).toHaveLength(1);
-		expect(messageRows[0].blockId).toBe(blockId);
+		expect(messageRows[0]!.blockId).toBe(blockId);
 	});
 
 	test("appended message row has null block_id when no blockId is in payload", async ({
@@ -262,7 +262,7 @@ describe("AC-1 — blockId written to column on POST /api/threads/:id/messages (
 		const messageRows = await db.select().from(messages).where(eq(messages.id, body.message.id));
 
 		expect(messageRows).toHaveLength(1);
-		expect(messageRows[0].blockId).toBeNull();
+		expect(messageRows[0]!.blockId).toBeNull();
 	});
 });
 
@@ -409,14 +409,14 @@ describe("AC-4 — anchored messages outlive their block (no cascade delete)", (
 
 		expect(res.status).toBe(201);
 		const body = (await res.json()) as { messages: Array<{ id: string }> };
-		const messageId = body.messages[0].id;
+		const messageId = body!.messages[0]!.id;
 
 		const messageRows = await db.select().from(messages).where(eq(messages.id, messageId));
 
 		expect(messageRows).toHaveLength(1);
-		expect(messageRows[0].blockId).toBe(blockId);
+		expect(messageRows[0]!.blockId).toBe(blockId);
 
-		const cols = Object.keys(messageRows[0]);
+		const cols = Object.keys(messageRows[0]!);
 		expect(cols).toContain("blockId");
 	});
 });

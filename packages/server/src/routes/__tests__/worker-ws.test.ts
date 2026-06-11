@@ -87,7 +87,7 @@ describe("registerWorkerWsRoute — token auth", () => {
 			let rejected = false;
 
 			if (hono.capturedMiddleware) {
-				const result = await hono
+				const result: unknown = await hono
 					.capturedMiddleware(ctx, async () => {
 						// next() was called — not rejected
 					})
@@ -125,7 +125,7 @@ describe("registerWorkerWsRoute — token auth", () => {
 
 			let rejected = false;
 			if (hono.capturedMiddleware) {
-				const result = await hono.capturedMiddleware(ctx, async () => {});
+				const result: unknown = await hono.capturedMiddleware(ctx, async () => {});
 				if (result && (result as { status: number }).status === 401) {
 					rejected = true;
 				}
@@ -279,7 +279,7 @@ describe("WorkerConnectionManager — post-registration message routing", () => 
 		// Set up stream consumer
 		const eventsPromise: Promise<Array<{ type: string }>> = (async () => {
 			const collected: Array<{ type: string }> = [];
-			for await (const event of selected?.adapter.streamEvents(handle) ?? []) {
+			for await (const event of selected?.adapter.streamEvents(handle!) ?? []) {
 				collected.push(event as { type: string });
 			}
 			return collected;

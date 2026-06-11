@@ -2,11 +2,6 @@
 	"$schema": "./scripts/typecheck-debt.schema.json",
 	"description": "Packages with known type errors, quarantined by AF1. Drained by AF2-AF5.",
 	"packages": {
-		"server": {
-			"owner": "AF4",
-			"errors": 3780,
-			"note": "largest cluster — routes, middleware, tests"
-		},
 		"web": {
 			"owner": "AF5",
 			"errors": 235,

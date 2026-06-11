@@ -234,7 +234,7 @@ describe("H2 /api/notifications routes", () => {
 			};
 			expect(body.status).toBe("pending");
 			expect(body.count).toBe(1);
-			expect(body.rows[0].title).toBe("Pending one");
+			expect(body!.rows[0]!.title).toBe("Pending one");
 		} finally {
 			disposeApp(app);
 		}
@@ -480,7 +480,7 @@ describe("H2 /api/notifications routes", () => {
 			expect(result.notificationsIncluded).toBe(1);
 			expect(adapter.calls).toHaveLength(1);
 			const rows = await db.select().from(notificationQueue);
-			expect(rows[0].status).toBe("sent");
+			expect(rows[0]!.status).toBe("sent");
 		} finally {
 			disposeApp(app);
 		}

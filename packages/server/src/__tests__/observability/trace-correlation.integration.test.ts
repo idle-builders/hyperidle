@@ -79,8 +79,8 @@ describe("H3 AC3 — Trace correlation", () => {
 		unsub();
 		expect(adapter.events).toHaveLength(2);
 		const [session, cost] = adapter.events;
-		expect(session.traceId).toBe("trace-X");
-		expect(cost.traceId).toBe("trace-X");
+		expect(session!.traceId).toBe("trace-X");
+		expect(cost!.traceId).toBe("trace-X");
 		await dispatcher.dispose();
 	});
 });

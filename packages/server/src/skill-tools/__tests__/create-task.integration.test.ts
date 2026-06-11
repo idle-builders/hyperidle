@@ -151,7 +151,7 @@ describe("create_task tool", () => {
 			if (!result.success) return;
 
 			const data = result.data as { taskId: string };
-			expect(emitted[0].taskId).toBe(data.taskId);
+			expect(emitted[0]!.taskId).toBe(data.taskId);
 		});
 	});
 

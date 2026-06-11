@@ -223,9 +223,9 @@ describe("G4: Built-in Routines", () => {
 				(e): e is CostCapWarningEvent => e.type === "cost_cap_warning",
 			);
 			expect(warnings).toHaveLength(1);
-			expect(warnings[0].capLevel).toBe("factory");
-			expect(warnings[0].spend).toBe(800);
-			expect(warnings[0].cap).toBe(1000);
+			expect(warnings[0]!.capLevel).toBe("factory");
+			expect(warnings[0]!.spend).toBe(800);
+			expect(warnings[0]!.cap).toBe(1000);
 		});
 
 		test("emits cost_cap_breached when spend reaches 100% of cap", async ({ db, eventBus }) => {
@@ -239,9 +239,9 @@ describe("G4: Built-in Routines", () => {
 				(e): e is CostCapBreachedEvent => e.type === "cost_cap_breached",
 			);
 			expect(breaches).toHaveLength(1);
-			expect(breaches[0].level).toBe("hard");
-			expect(breaches[0].spend).toBe(1000);
-			expect(breaches[0].cap).toBe(1000);
+			expect(breaches[0]!.level).toBe("hard");
+			expect(breaches[0]!.spend).toBe(1000);
+			expect(breaches[0]!.cap).toBe(1000);
 		});
 
 		// --- G4 review MAJOR-4: level-based dedupe semantics ---
@@ -330,12 +330,12 @@ describe("G4: Built-in Routines", () => {
 				.where(eq(knowledgeItems.topic, "practice_meeting"));
 			expect(anchors.length).toBeGreaterThanOrEqual(1);
 			const anchor = anchors[0];
-			expect(anchor.status).toBe("captured");
+			expect(anchor!.status).toBe("captured");
 			// @lore O2: layer/kind/meta are in knowledgeStrategyFabric
 			const [anchorFabric] = await db
 				.select()
 				.from(knowledgeStrategyFabric)
-				.where(eq(knowledgeStrategyFabric.knowledgeItemId, anchor.id))
+				.where(eq(knowledgeStrategyFabric.knowledgeItemId, anchor!.id))
 				.limit(1);
 			expect(anchorFabric?.layer).toBe("L2");
 			expect(anchorFabric?.kind).toBe("reflection");
@@ -380,10 +380,10 @@ describe("G4: Built-in Routines", () => {
 			const reviewRows = await db.select().from(items);
 			expect(reviewRows).toHaveLength(1);
 			const row = reviewRows[0];
-			expect(row.kind).toBe("review");
-			expect(row.title).toContain("Post-bet retro");
-			expect(row.body ?? "").toContain("Users will complete onboarding in <3 minutes.");
-			expect((row.body ?? "").toLowerCase()).toContain("reality");
+			expect(row!.kind).toBe("review");
+			expect(row!.title).toContain("Post-bet retro");
+			expect(row!.body ?? "").toContain("Users will complete onboarding in <3 minutes.");
+			expect((row!.body ?? "").toLowerCase()).toContain("reality");
 		});
 
 		test("emits an item_created event", async ({ db, eventBus }) => {
@@ -424,7 +424,7 @@ describe("G4: Built-in Routines", () => {
 
 				const reviewRows = await db.select().from(items);
 				expect(reviewRows).toHaveLength(1);
-				expect(reviewRows[0].kind).toBe("review");
+				expect(reviewRows[0]!.kind).toBe("review");
 			} finally {
 				unsub();
 			}
@@ -588,7 +588,7 @@ describe("G4: Built-in Routines", () => {
 
 			const reviewRows = await db.select().from(items);
 			expect(reviewRows).toHaveLength(1);
-			const body = reviewRows[0].body ?? "";
+			const body = reviewRows[0]!.body ?? "";
 			expect(body).toContain("Recent L3 pattern");
 			expect(body).toContain("Recent L4 principle");
 			expect(body).not.toContain("Stale L3 pattern");
@@ -606,8 +606,6 @@ describe("G4: Built-in Routines", () => {
 			const longAgo = new Date(Date.now() - 95 * 24 * 60 * 60 * 1000).toISOString();
 			await db.insert(knowledgeItems).values({
 				id: "ki-old",
-				layer: "L3",
-				kind: "pattern",
 				title: "Old pattern",
 				body: "old",
 				format: "markdown",
@@ -650,8 +648,6 @@ describe("G4: Built-in Routines", () => {
 			for (let i = 0; i < 3; i++) {
 				await db.insert(knowledgeItems).values({
 					id: `ki-silent-${i}`,
-					layer: "L3",
-					kind: "pattern",
 					title: `Old pattern ${i}`,
 					body: "old",
 					format: "markdown",
@@ -691,8 +687,6 @@ describe("G4: Built-in Routines", () => {
 			const longAgo = new Date(Date.now() - 95 * 24 * 60 * 60 * 1000).toISOString();
 			await db.insert(knowledgeItems).values({
 				id: "ki-noisy",
-				layer: "L3",
-				kind: "pattern",
 				title: "Old pattern",
 				body: "old",
 				format: "markdown",

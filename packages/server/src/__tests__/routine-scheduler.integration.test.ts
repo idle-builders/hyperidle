@@ -250,8 +250,8 @@ describe("Routine Scheduler", () => {
 				type: "bet_state_changed",
 				streamId: "b1",
 				betId: "b1",
-				fromState: "review",
-				toState: "shipped",
+				fromState: "active",
+				toState: "completed",
 				timestamp: Date.now(),
 			});
 
@@ -260,7 +260,7 @@ describe("Routine Scheduler", () => {
 			await vi.waitFor(async () => {
 				const sessionsAfter = await db.select().from(sessions);
 				expect(sessionsAfter).toHaveLength(1);
-				expect(sessionsAfter[0].agentId).toBe("agent-1");
+				expect(sessionsAfter[0]!.agentId).toBe("agent-1");
 			});
 
 			const updated = await getRoutine(db, "r-event");
@@ -282,7 +282,6 @@ describe("Routine Scheduler", () => {
 				modelTier: "workhorse",
 				startedAt: now.toISOString(),
 				state: "active",
-				cost: 0,
 			});
 
 			await db.insert(sessions).values({
@@ -292,7 +291,6 @@ describe("Routine Scheduler", () => {
 				modelTier: "workhorse",
 				startedAt: now.toISOString(),
 				state: "active",
-				cost: 0,
 			});
 
 			await db.insert(routines).values({
@@ -423,8 +421,8 @@ describe("Routine Scheduler", () => {
 
 			const allItems = await db.select().from(items);
 			expect(allItems).toHaveLength(1);
-			expect(allItems[0].kind).toBe("review");
-			expect(allItems[0].sourceAgentId).toBe("agent-1");
+			expect(allItems[0]!.kind).toBe("review");
+			expect(allItems[0]!.sourceAgentId).toBe("agent-1");
 
 			const allThreads = await db.select().from(threads);
 			expect(allThreads).toHaveLength(1);

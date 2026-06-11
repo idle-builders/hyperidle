@@ -57,7 +57,7 @@ describe("Task Endpoints (E3)", () => {
 	async function seedTask(
 		db: HyperIdleDb,
 		id: string,
-		overrides?: Record<string, unknown>,
+		overrides?: Partial<typeof tasks.$inferInsert>,
 	): Promise<void> {
 		const now = new Date().toISOString();
 		await db.insert(tasks).values({
@@ -69,7 +69,7 @@ describe("Task Endpoints (E3)", () => {
 			createdAt: now,
 			updatedAt: now,
 			...overrides,
-		} as Record<string, unknown>);
+		});
 	}
 
 	// AC8: GET /api/tasks — list, filterable by bet_id, state, owner

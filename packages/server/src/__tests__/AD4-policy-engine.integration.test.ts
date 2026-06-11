@@ -169,7 +169,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 	// -------------------------------------------------------------------------
 	async function createItem(
 		db: HyperIdleDb,
-		eventBus: import("@hyperidle/shared").EventBus,
+		_eventBus: import("@hyperidle/shared").EventBus,
 		overrides: Partial<{
 			id: string;
 			kind: string;

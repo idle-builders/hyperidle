@@ -377,7 +377,6 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 				teamId: "p1",
 				title: "Done task",
 				state: "done",
-				priority: 0,
 				createdAt: now,
 				updatedAt: now,
 			});
@@ -388,7 +387,6 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 				teamId: "p1",
 				title: "WIP task",
 				state: "in_progress",
-				priority: 1,
 				createdAt: now,
 				updatedAt: now,
 			});

@@ -115,12 +115,12 @@ describe("registerSessionReviewCreator", () => {
 		await vi.waitFor(async () => {
 			const createdItems = await db.select().from(items).where(eq(items.threadId, "thread-1"));
 			expect(createdItems).toHaveLength(1);
-			expect(createdItems[0].kind).toBe("review");
-			expect(createdItems[0].title).toBe("Session completed: success");
+			expect(createdItems[0]!.kind).toBe("review");
+			expect(createdItems[0]!.title).toBe("Session completed: success");
 		});
 
 		expect(emittedEvents).toHaveLength(1);
-		expect(emittedEvents[0].kind).toBe("review");
+		expect(emittedEvents[0]!.kind).toBe("review");
 
 		unsubscribe();
 	});
@@ -214,18 +214,18 @@ describe("registerSessionReviewCreator", () => {
 		await vi.waitFor(async () => {
 			const allThreads = await db.select().from(threads);
 			expect(allThreads).toHaveLength(1);
-			expect(allThreads[0].hostKind).toBe("task");
-			expect(allThreads[0].hostId).toBe("task-no-thread");
+			expect(allThreads[0]!.hostKind).toBe("task");
+			expect(allThreads[0]!.hostId).toBe("task-no-thread");
 		});
 
 		const allThreads = await db.select().from(threads);
 		const allItems = await db.select().from(items);
 		expect(allItems).toHaveLength(1);
-		expect(allItems[0].threadId).toBe(allThreads[0].id);
-		expect(allItems[0].title).toBe("Session completed: partial");
+		expect(allItems[0]!.threadId).toBe(allThreads[0]!.id);
+		expect(allItems[0]!.title).toBe("Session completed: partial");
 
 		const [updatedTask] = await db.select().from(tasks).where(eq(tasks.id, "task-no-thread"));
-		expect(updatedTask?.threadId).toBe(allThreads[0].id);
+		expect(updatedTask?.threadId).toBe(allThreads[0]!.id);
 
 		unsubscribe();
 	});

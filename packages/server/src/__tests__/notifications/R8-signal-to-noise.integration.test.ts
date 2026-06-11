@@ -124,7 +124,7 @@ async function createItem(
 
 function emitTaskStateChanged(
 	bus: import("@hyperidle/shared").EventBus,
-	fromState: "pending" | "in_progress",
+	fromState: "proposed" | "in_progress",
 	toState: "in_progress" | "done",
 	taskId = "task-r8",
 ): void {
@@ -215,7 +215,7 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 
 		// Handler is subscribed — adapter should receive the notification
 		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
-		expect(adapter.calls[0].notification.severity).toBe("blocking");
+		expect(adapter!.calls[0]!.notification.severity).toBe("blocking");
 	});
 
 	test("cost_cap_breached (hard) → dispatcher handler fires (subscribed)", async ({
@@ -240,7 +240,7 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 
 		// Handler is subscribed — cost_breach severity pushed
 		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
-		expect(adapter.calls[0].notification.severity).toBe("cost_breach");
+		expect(adapter!.calls[0]!.notification.severity).toBe("cost_breach");
 	});
 
 	test("cost_cap_warning (critical) → dispatcher handler fires (subscribed)", async ({
@@ -265,7 +265,7 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 
 		// Critical warning → push (cost_breach severity)
 		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
-		expect(adapter.calls[0].notification.severity).toBe("cost_breach");
+		expect(adapter!.calls[0]!.notification.severity).toBe("cost_breach");
 	});
 
 	test("task_state_changed → dispatcher does NOT fire (not subscribed — intentionally silent)", async ({
@@ -278,7 +278,7 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 		await enableNotifications(db);
 		unsubscribe = registerNotificationDispatcher(db, eventBus, { adapterFactory: () => adapter });
 
-		emitTaskStateChanged(eventBus, "pending", "in_progress");
+		emitTaskStateChanged(eventBus, "proposed", "in_progress");
 		emitTaskStateChanged(eventBus, "in_progress", "done");
 
 		// Allow async event handlers to fully settle
@@ -318,7 +318,7 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 			expect(rows).toHaveLength(1);
 		});
 		const rows = await db.select().from(notificationQueue);
-		expect(rows[0].severity).toBe("digest");
+		expect(rows[0]!.severity).toBe("digest");
 		expect(adapter.calls).toHaveLength(0);
 	});
 });
@@ -344,7 +344,7 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 			adapterFactory: () => adapter,
 		});
 
-		emitTaskStateChanged(eventBus, "pending", "in_progress");
+		emitTaskStateChanged(eventBus, "proposed", "in_progress");
 
 		// Allow all microtasks and async event handlers to settle.
 		await Promise.resolve();
@@ -389,7 +389,7 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 		});
 
 		// Emit multiple transitions
-		emitTaskStateChanged(eventBus, "pending", "in_progress", "task-a");
+		emitTaskStateChanged(eventBus, "proposed", "in_progress", "task-a");
 		emitTaskStateChanged(eventBus, "in_progress", "done", "task-a");
 
 		await Promise.resolve();
@@ -462,7 +462,7 @@ describe("R8 AC3 — Blocker alerts respect blockerAlerts preference", () => {
 		eventBus.emit(event);
 
 		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
-		expect(adapter.calls[0].notification.severity).toBe("blocking");
+		expect(adapter!.calls[0]!.notification.severity).toBe("blocking");
 	});
 });
 
@@ -553,7 +553,7 @@ describe("R8 AC3 — Cost alerts respect costAlerts preference", () => {
 		eventBus.emit(event);
 
 		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
-		expect(adapter.calls[0].notification.severity).toBe("cost_breach");
+		expect(adapter!.calls[0]!.notification.severity).toBe("cost_breach");
 	});
 
 	test("costAlerts=true (default) pushes cost_cap_warning (critical)", async ({ db, eventBus }) => {
@@ -576,7 +576,7 @@ describe("R8 AC3 — Cost alerts respect costAlerts preference", () => {
 		eventBus.emit(event);
 
 		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
-		expect(adapter.calls[0].notification.severity).toBe("cost_breach");
+		expect(adapter!.calls[0]!.notification.severity).toBe("cost_breach");
 	});
 });
 
@@ -658,7 +658,7 @@ describe("R8 AC4 — Review alerts respect reviewAlerts preference", () => {
 		eventBus.emit(event);
 
 		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
-		expect(adapter.calls[0].notification.severity).toBe("blocking");
+		expect(adapter!.calls[0]!.notification.severity).toBe("blocking");
 	});
 
 	test("reviewAlerts=false does NOT suppress non-review blocking items", async ({
@@ -693,7 +693,7 @@ describe("R8 AC4 — Review alerts respect reviewAlerts preference", () => {
 		eventBus.emit(event);
 
 		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
-		expect(adapter.calls[0].notification.severity).toBe("blocking");
+		expect(adapter!.calls[0]!.notification.severity).toBe("blocking");
 	});
 });
 
@@ -801,7 +801,7 @@ describe("R8 AC5 — Quiet hours dispatcher integration", () => {
 
 		// Should push — quiet hours are disabled
 		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
-		expect(adapter.calls[0].notification.severity).toBe("blocking");
+		expect(adapter!.calls[0]!.notification.severity).toBe("blocking");
 
 		// No silence queue rows created
 		const silenceRows = await db
@@ -852,8 +852,8 @@ describe("R8 AC5 — Quiet hours dispatcher integration", () => {
 		expect(adapter.calls).toHaveLength(0);
 
 		const rows = await db.select().from(notificationQueue);
-		expect(rows[0].reason).toBe("silence");
-		expect(rows[0].severity).toBe("blocking");
+		expect(rows[0]!.reason).toBe("silence");
+		expect(rows[0]!.severity).toBe("blocking");
 	});
 });
 

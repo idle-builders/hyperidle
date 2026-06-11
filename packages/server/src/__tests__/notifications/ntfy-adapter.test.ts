@@ -78,13 +78,13 @@ describe("H2 Ntfy adapter (AC2)", () => {
 		expect(result.ok).toBe(true);
 		expect(fixture.captured).toHaveLength(1);
 		const req = fixture.captured[0];
-		expect(req.method).toBe("POST");
-		expect(req.path).toBe("/factory-alerts");
-		expect(req.headers.title).toBe("Blocking review");
-		expect(req.headers.priority).toBe("urgent");
-		expect(req.headers.tags).toBe("blocking,review");
-		expect(req.body).toBe("Operator intervention requested.");
-		expect(req.headers.authorization).toBeUndefined();
+		expect(req!.method).toBe("POST");
+		expect(req!.path).toBe("/factory-alerts");
+		expect(req!.headers.title).toBe("Blocking review");
+		expect(req!.headers.priority).toBe("urgent");
+		expect(req!.headers.tags).toBe("blocking,review");
+		expect(req!.body).toBe("Operator intervention requested.");
+		expect(req!.headers.authorization).toBeUndefined();
 	});
 
 	it("includes Authorization: Bearer <token> when a token is configured", async () => {
@@ -99,8 +99,8 @@ describe("H2 Ntfy adapter (AC2)", () => {
 				timestamp: Date.now(),
 			},
 		);
-		expect(fixture.captured[0].headers.authorization).toBe("Bearer tk_abcdef");
-		expect(fixture.captured[0].headers.priority).toBe("high");
+		expect(fixture!.captured[0]!.headers.authorization).toBe("Bearer tk_abcdef");
+		expect(fixture!.captured[0]!.headers.priority).toBe("high");
 	});
 
 	it("returns ok:false retriable:true on 5xx", async () => {

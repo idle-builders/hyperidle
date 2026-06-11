@@ -103,8 +103,8 @@ describe("WorkspaceAdapter interface (D3)", () => {
 			const execResults = await Promise.all(execPromises);
 
 			for (let i = 0; i < 5; i++) {
-				expect(execResults[i].exitCode).toBe(0);
-				expect(execResults[i].stdout).toBe(`workspace-${i}`);
+				expect(execResults[i]!.exitCode).toBe(0);
+				expect(execResults[i]!.stdout).toBe(`workspace-${i}`);
 			}
 
 			// Clean up

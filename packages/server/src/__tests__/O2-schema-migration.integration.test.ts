@@ -34,7 +34,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
 
 	describe("1. Extension tables exist with correct structure", () => {
-		test("knowledge_strategy_fabric table exists in the database", async ({ app, db }) => {
+		test("knowledge_strategy_fabric table exists in the database", async ({ db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			// If the table doesn't exist this will throw
 			await expect(
@@ -58,7 +58,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_strategy_fabric"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).toContain("id");
 			expect(colNames).toContain("knowledge_item_id");
 			vi.unstubAllEnvs();
@@ -69,7 +69,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"task_strategy_fabric"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).toContain("id");
 			expect(colNames).toContain("task_id");
 			vi.unstubAllEnvs();
@@ -82,7 +82,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_strategy_fabric"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("strategy");
 			vi.unstubAllEnvs();
 		});
@@ -92,7 +92,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"task_strategy_fabric"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("strategy");
 			vi.unstubAllEnvs();
 		});
@@ -108,7 +108,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("layer");
 			vi.unstubAllEnvs();
 		});
@@ -125,7 +125,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			// Q2: scope_kind is a kernel column — should exist.
 			expect(colNames).toContain("scope_kind");
 			// scope_id from the strategy layer was removed in O2;
@@ -139,7 +139,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("kind");
 			vi.unstubAllEnvs();
 		});
@@ -151,7 +151,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("attention_score");
 			vi.unstubAllEnvs();
 		});
@@ -163,7 +163,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("relevance_score");
 			vi.unstubAllEnvs();
 		});
@@ -175,7 +175,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("citation_count");
 			vi.unstubAllEnvs();
 		});
@@ -185,7 +185,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("last_cited_at");
 			vi.unstubAllEnvs();
 		});
@@ -195,7 +195,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("confidence");
 			vi.unstubAllEnvs();
 		});
@@ -205,7 +205,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("meta");
 			vi.unstubAllEnvs();
 		});
@@ -215,7 +215,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).toContain("topic");
 			vi.unstubAllEnvs();
 		});
@@ -231,7 +231,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"tasks"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("risk_tier");
 			vi.unstubAllEnvs();
 		});
@@ -241,7 +241,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"tasks"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("attention_score");
 			vi.unstubAllEnvs();
 		});
@@ -251,7 +251,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"tasks"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("durability");
 			vi.unstubAllEnvs();
 		});
@@ -261,7 +261,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"tasks"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("cross_team");
 			vi.unstubAllEnvs();
 		});
@@ -277,7 +277,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"sessions"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("cost");
 			vi.unstubAllEnvs();
 		});
@@ -287,7 +287,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"sessions"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("cost_minor");
 			vi.unstubAllEnvs();
 		});
@@ -297,7 +297,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"sessions"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("cost_currency");
 			vi.unstubAllEnvs();
 		});
@@ -307,7 +307,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"sessions"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("tokens_json");
 			vi.unstubAllEnvs();
 		});
@@ -317,7 +317,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"sessions"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("tokens_input");
 			vi.unstubAllEnvs();
 		});
@@ -327,7 +327,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"sessions"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("tokens_output");
 			vi.unstubAllEnvs();
 		});
@@ -337,7 +337,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"sessions"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("trace_id");
 			vi.unstubAllEnvs();
 		});
@@ -347,7 +347,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"sessions"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("harness_url");
 			vi.unstubAllEnvs();
 		});
@@ -363,7 +363,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"items"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("attention_score");
 			vi.unstubAllEnvs();
 		});
@@ -373,7 +373,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"items"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("reversibility");
 			vi.unstubAllEnvs();
 		});
@@ -383,7 +383,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"items"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("sandbox_result");
 			vi.unstubAllEnvs();
 		});
@@ -393,7 +393,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"items"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("cost_estimate");
 			vi.unstubAllEnvs();
 		});
@@ -409,7 +409,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"artifacts"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("cost_money_micros");
 			vi.unstubAllEnvs();
 		});
@@ -419,7 +419,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"artifacts"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("cost_tokens_input");
 			vi.unstubAllEnvs();
 		});
@@ -429,7 +429,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"artifacts"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("cost_tokens_output");
 			vi.unstubAllEnvs();
 		});
@@ -439,7 +439,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"artifacts"}`,
 			);
-			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("cost_settled_at");
 			vi.unstubAllEnvs();
 		});
@@ -916,7 +916,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const beforeResult = await db.execute(
 				sql.raw(`SELECT id FROM knowledge_strategy_fabric WHERE knowledge_item_id = '${itemId}'`),
 			);
-			const before = beforeResult.rows as Array<{ id: string }>;
+			const before = (beforeResult as { rows: Array<{ id: string }> }).rows;
 			expect(before).toHaveLength(1);
 
 			// Delete the knowledge item — cascade should remove extension rows
@@ -926,7 +926,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const afterResult = await db.execute(
 				sql.raw(`SELECT id FROM knowledge_strategy_fabric WHERE knowledge_item_id = '${itemId}'`),
 			);
-			const after = afterResult.rows as Array<{ id: string }>;
+			const after = (afterResult as { rows: Array<{ id: string }> }).rows;
 			expect(after).toHaveLength(0);
 			vi.unstubAllEnvs();
 		});
@@ -970,7 +970,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const beforeResult = await db.execute(
 				sql.raw(`SELECT id FROM task_strategy_fabric WHERE task_id = '${taskId}'`),
 			);
-			const before = beforeResult.rows as Array<{ id: string }>;
+			const before = (beforeResult as { rows: Array<{ id: string }> }).rows;
 			expect(before).toHaveLength(1);
 
 			// Delete the task — cascade should remove extension rows
@@ -979,7 +979,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const afterResult = await db.execute(
 				sql.raw(`SELECT id FROM task_strategy_fabric WHERE task_id = '${taskId}'`),
 			);
-			const after = afterResult.rows as Array<{ id: string }>;
+			const after = (afterResult as { rows: Array<{ id: string }> }).rows;
 			expect(after).toHaveLength(0);
 			vi.unstubAllEnvs();
 		});

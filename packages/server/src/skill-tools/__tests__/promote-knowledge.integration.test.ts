@@ -19,8 +19,6 @@ async function seedKnowledgeItem(
 ): Promise<void> {
 	await db.insert(knowledgeItems).values({
 		id,
-		layer: "L3",
-		kind: "pattern",
 		title: `KI ${id}`,
 		body: "Body",
 		format: "markdown",
@@ -186,8 +184,6 @@ describe("promote_knowledge tool", () => {
 		// than unsafely cast and branch.
 		await db.insert(knowledgeItems).values({
 			id: "ki-bad-state",
-			layer: "L3",
-			kind: "pattern",
 			title: "Bad state",
 			body: "Body",
 			format: "markdown",
@@ -223,8 +219,8 @@ describe("promote_knowledge tool", () => {
 			.from(knowledgeEditLog)
 			.where(and(eq(knowledgeEditLog.itemId, "ki-reason"), eq(knowledgeEditLog.field, "status")));
 		expect(logs.length).toBe(1);
-		expect(logs[0].newValue).toContain("provisional");
-		expect(logs[0].newValue).toContain("used 3 times this week");
+		expect(logs[0]!.newValue).toContain("provisional");
+		expect(logs[0]!.newValue).toContain("used 3 times this week");
 	});
 
 	test("INVALID_INPUT surfaces via registry dispatch on missing toStatus", async ({ db }) => {

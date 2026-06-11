@@ -29,7 +29,7 @@ import {
 	teamMembers,
 	teams,
 } from "@hyperidle/db";
-import type { ArtifactCreatedEvent } from "@hyperidle/shared";
+import type { ArtifactCreatedEvent, ArtifactPreview } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -53,7 +53,6 @@ async function seed(db: HyperIdleDb): Promise<{ taskId: string; betId: string }>
 		appetite: "1w",
 		status: "active",
 		createdAt: NOW,
-		updatedAt: NOW,
 	});
 	await db.insert(tasks).values({
 		id: "task-1",
@@ -104,7 +103,11 @@ describe("create_artifact tool", () => {
 			const result = await createArtifactTool.handler(
 				{
 					kind: "text",
-					preview: { kind: "text", body: "All 42 unit tests passed.", format: "plain" },
+					preview: {
+						kind: "text",
+						body: "All 42 unit tests passed.",
+						format: "plain",
+					} as ArtifactPreview,
 				},
 				makeContext(db, eventBus),
 			);
@@ -163,7 +166,7 @@ describe("create_artifact tool", () => {
 								],
 							},
 						],
-					},
+					} as ArtifactPreview,
 				},
 				makeContext(db, eventBus),
 			);
@@ -254,7 +257,11 @@ describe("create_artifact tool", () => {
 			const result = await createArtifactTool.handler(
 				{
 					kind: "text",
-					preview: { kind: "text", body: "10 tests passed, 0 failed.", format: "plain" },
+					preview: {
+						kind: "text",
+						body: "10 tests passed, 0 failed.",
+						format: "plain",
+					} as ArtifactPreview,
 				},
 				makeContext(db, eventBus, "task-1"),
 			);
@@ -265,12 +272,12 @@ describe("create_artifact tool", () => {
 			const data = result.data as { artifactId: string };
 
 			expect(emitted).toHaveLength(1);
-			expect(emitted[0].type).toBe("artifact_created");
-			expect(emitted[0].artifactId).toBe(data.artifactId);
-			expect(emitted[0].taskId).toBe("task-1");
-			expect(emitted[0].kind).toBe("text");
-			expect(typeof emitted[0].timestamp).toBe("number");
-			expect(typeof emitted[0].streamId).toBe("string");
+			expect(emitted[0]!.type).toBe("artifact_created");
+			expect(emitted[0]!.artifactId).toBe(data.artifactId);
+			expect(emitted[0]!.taskId).toBe("task-1");
+			expect(emitted[0]!.kind).toBe("text");
+			expect(typeof emitted[0]!.timestamp).toBe("number");
+			expect(typeof emitted[0]!.streamId).toBe("string");
 		});
 
 		it("emits exactly one event per artifact creation (no duplicate emission)", async () => {
@@ -286,7 +293,7 @@ describe("create_artifact tool", () => {
 
 			expect(emitted).toHaveLength(2);
 			// Each event must have a distinct artifactId.
-			expect(emitted[0].artifactId).not.toBe(emitted[1].artifactId);
+			expect(emitted[0]!.artifactId).not.toBe(emitted[1]!.artifactId);
 		});
 	});
 
@@ -335,7 +342,7 @@ describe("create_artifact tool", () => {
 				{
 					kind: "code",
 					// preview.kind is "text" but kind is "code" -> mismatch
-					preview: { kind: "text", body: "hello", format: "plain" },
+					preview: { kind: "text", body: "hello", format: "plain" } as ArtifactPreview,
 				},
 				makeContext(db, eventBus),
 			);
@@ -355,7 +362,7 @@ describe("create_artifact tool", () => {
 						kind: "code",
 						file: "src/x.ts",
 						hunks: [],
-					},
+					} as ArtifactPreview,
 				},
 				makeContext(db, eventBus),
 			);
@@ -373,7 +380,7 @@ describe("create_artifact tool", () => {
 					kind: "text",
 					// preview is kind=text but missing required fields
 					// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
-					preview: { kind: "text" } as any,
+					preview: { kind: "text" } as ArtifactPreview as any,
 				},
 				makeContext(db, eventBus),
 			);

@@ -273,10 +273,10 @@ describe("Cost Cap Enforcement", () => {
 			});
 
 			expect(events).toHaveLength(1);
-			expect(events[0].capLevel).toBe("agent");
-			expect(events[0].spend).toBe(1000);
-			expect(events[0].cap).toBe(1000);
-			expect(events[0].entityId).toBe("agent-1");
+			expect(events[0]!.capLevel).toBe("agent");
+			expect(events[0]!.spend).toBe(1000);
+			expect(events[0]!.cap).toBe(1000);
+			expect(events[0]!.entityId).toBe("agent-1");
 		});
 
 		test("emits cost_cap_breached event when team cap is breached", async ({ db, eventBus }) => {
@@ -309,8 +309,8 @@ describe("Cost Cap Enforcement", () => {
 			// Should have team breach
 			const teamEvents = events.filter((e) => e.capLevel === "team");
 			expect(teamEvents).toHaveLength(1);
-			expect(teamEvents[0].spend).toBe(5000);
-			expect(teamEvents[0].cap).toBe(5000);
+			expect(teamEvents[0]!.spend).toBe(5000);
+			expect(teamEvents[0]!.cap).toBe(5000);
 		});
 	});
 
@@ -331,9 +331,9 @@ describe("Cost Cap Enforcement", () => {
 			});
 
 			expect(warnings).toHaveLength(1);
-			expect(warnings[0].capLevel).toBe("agent");
-			expect(warnings[0].spend).toBe(800);
-			expect(warnings[0].cap).toBe(1000);
+			expect(warnings[0]!.capLevel).toBe("agent");
+			expect(warnings[0]!.spend).toBe(800);
+			expect(warnings[0]!.cap).toBe(1000);
 		});
 
 		test("emits cost_cap_warning when team spend reaches 80% of cap", async ({ db, eventBus }) => {
@@ -365,7 +365,7 @@ describe("Cost Cap Enforcement", () => {
 
 			const teamWarnings = warnings.filter((e) => e.capLevel === "team");
 			expect(teamWarnings).toHaveLength(1);
-			expect(teamWarnings[0].spend).toBe(4000);
+			expect(teamWarnings[0]!.spend).toBe(4000);
 		});
 
 		test("emits cost_cap_warning for factory at 80%", async ({ db, eventBus }) => {
@@ -386,8 +386,8 @@ describe("Cost Cap Enforcement", () => {
 
 			const factoryWarnings = warnings.filter((e) => e.capLevel === "factory");
 			expect(factoryWarnings).toHaveLength(1);
-			expect(factoryWarnings[0].spend).toBe(16000);
-			expect(factoryWarnings[0].cap).toBe(20000);
+			expect(factoryWarnings[0]!.spend).toBe(16000);
+			expect(factoryWarnings[0]!.cap).toBe(20000);
 		});
 	});
 
@@ -505,9 +505,9 @@ describe("Cost Cap Enforcement", () => {
 
 			const reviewItems = await db.select().from(items);
 			expect(reviewItems).toHaveLength(1);
-			expect(reviewItems[0].title).toContain("Cost cap breached");
-			expect(reviewItems[0].threadId).toBe("thread-1");
-			expect(reviewItems[0].kind).toBe("cost_cap_breach");
+			expect(reviewItems[0]!.title).toContain("Cost cap breached");
+			expect(reviewItems[0]!.threadId).toBe("thread-1");
+			expect(reviewItems[0]!.kind).toBe("cost_cap_breach");
 		});
 	});
 

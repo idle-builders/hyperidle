@@ -290,7 +290,7 @@ describe("Conversations Endpoints (E2)", () => {
 			});
 
 			expect(emitted).toHaveLength(1);
-			expect(emitted[0].kind).toBe("chat");
+			expect(emitted[0]!.kind).toBe("chat");
 		});
 
 		test("includes routing info in response (O2: view removed, response is the created item)", async ({

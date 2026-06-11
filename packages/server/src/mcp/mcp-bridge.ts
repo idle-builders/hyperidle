@@ -1,9 +1,35 @@
 import * as crypto from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import type { AnySchema as McpAnySchema } from "@modelcontextprotocol/sdk/server/zod-compat.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { ToolRegistry } from "../skill-tools/tool-registry.js";
 import type { ToolResult } from "../skill-tools/tool-result.js";
+
+/**
+ * The `inputSchema` type the MCP SDK's `registerTool` config accepts. Extracted
+ * from the SDK method so we don't hand-roll the `AnySchema` (z3 | z4.$ZodType)
+ * union.
+ *
+ * @lore AF4/§9: the MCP SDK dedupes to zod 3.25.76 while server schemas are zod
+ * 4.4.3 — the `zod/v4/core $ZodType` brands are nominally distinct, so a server
+ * `z.ZodType` is not directly assignable to the SDK's `AnySchema`. The bridge
+ * below (`asMcpInputSchema`) is an internal, behaviour-neutral schema-type
+ * bridge (NOT a wire-shape change): the schema still validates identically; only
+ * its static brand is reconciled. Version-alignment is out of AF4 scope.
+ */
+/**
+ * Reconcile a server-local zod 4.4.3 schema's brand with the MCP SDK's
+ * `AnySchema` (deduped zod 3.25.76). The runtime object is identical; only the
+ * static `$ZodType` brand differs (the §9 cross-version seam). The cast is the
+ * documented internal schema-type bridge — it is not a wire/request payload cast
+ * and does not alter what the schema parses. Returning the SDK's single-schema
+ * `AnySchema` arm keeps `registerTool`'s `(args, extra)` callback resolvable
+ * (the full `ZodRawShapeCompat | AnySchema` union would collapse `cb` to never).
+ */
+function asMcpInputSchema(schema: unknown): McpAnySchema {
+	return schema as McpAnySchema;
+}
 
 /**
  * A live MCP bridge instance for a single agent session.
@@ -97,11 +123,12 @@ export async function createMcpBridge(options: CreateMcpBridgeOptions): Promise<
 			def.name,
 			{
 				description: def.description,
-				// Pass the full Zod schema — MCP SDK's AnySchema accepts z4.$ZodType.
-				// The SDK's zod-compat layer handles schema extraction internally.
-				inputSchema: def.inputSchema,
+				// @lore AF4/§9: bridge the server zod-4.4.3 schema to the MCP SDK's
+				// AnySchema (its zod dedupes to 3.25.76). Behaviour-neutral schema-type
+				// bridge — same validation, distinct brand. NOT a wire-shape change.
+				inputSchema: asMcpInputSchema(def.inputSchema),
 			},
-			async (args) => {
+			async (args: unknown) => {
 				const result = await registry.invoke(def.name, args);
 				return toolResultToCallToolResult(result);
 			},

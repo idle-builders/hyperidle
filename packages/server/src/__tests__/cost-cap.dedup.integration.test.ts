@@ -76,7 +76,7 @@ async function seedSession(
 	{
 		sessionId,
 		agentId,
-		teamId,
+		teamId: _teamId,
 		productId,
 	}: { sessionId: string; agentId: string; teamId: string; productId: string },
 ): Promise<void> {

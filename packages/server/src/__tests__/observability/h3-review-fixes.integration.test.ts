@@ -104,11 +104,11 @@ describe("H3 review fixes — (1) tool_call round-trip", () => {
 		unsub();
 		expect(adapter.events).toHaveLength(1);
 		const tc = adapter.events[0];
-		expect(tc.kind).toBe("tool_call");
-		if (tc.kind !== "tool_call") throw new Error("narrowing failed");
-		expect(tc.toolName).toBe("Read");
-		expect(tc.argsSummary).toContain("/workspace/foo.ts");
-		expect(tc.traceId).toBe("trace-A");
+		expect(tc!.kind).toBe("tool_call");
+		if (tc!.kind !== "tool_call") throw new Error("narrowing failed");
+		expect(tc!.toolName).toBe("Read");
+		expect(tc!.argsSummary).toContain("/workspace/foo.ts");
+		expect(tc!.traceId).toBe("trace-A");
 		await dispatcher.dispose();
 	});
 });
@@ -135,14 +135,8 @@ describe("H3 review fixes — (2) wildcard subscription", () => {
 			kind: "response",
 			timestamp: Date.now(),
 		});
-		bus.emit<"response_recorded">({
-			type: "response_recorded",
-			streamId: "conv-1",
-			responseId: "r-1",
-			itemId: "item-1",
-			decision: "accept",
-			timestamp: Date.now(),
-		});
+		// @lore AF4: response_recorded removed from DomainEvent (o1-event-split);
+		// its drop-path test is moot now the event type no longer exists.
 		bus.emit<"routine_fired">({
 			type: "routine_fired",
 			streamId: "r-1",
@@ -157,13 +151,8 @@ describe("H3 review fixes — (2) wildcard subscription", () => {
 			dependencyId: "t-0",
 			timestamp: Date.now(),
 		});
-		bus.emit<"bet_committed">({
-			type: "bet_committed",
-			streamId: "b-1",
-			betId: "b-1",
-			teamId: "team-1",
-			timestamp: Date.now(),
-		});
+		// @lore AF4: bet_committed removed from DomainEvent (o1-event-split);
+		// its drop-path test is moot now the event type no longer exists.
 		bus.emit<"bet_revised">({
 			type: "bet_revised",
 			streamId: "b-1",
@@ -370,7 +359,7 @@ describe("H3 review fixes — (4) empty sessionId rejected", () => {
 		} satisfies SessionStartedEvent);
 		await dispatcher.flush();
 		unsub();
-		expect(adapter.events[0].traceId).toBe("unknown");
+		expect(adapter!.events[0]!.traceId).toBe("unknown");
 		await dispatcher.dispose();
 	});
 });

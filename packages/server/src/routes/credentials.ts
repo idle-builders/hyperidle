@@ -307,8 +307,13 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 				break;
 			}
 			default: {
-				// TypeScript exhaustive check
-				const _exhaustive: never = name;
+				// TypeScript exhaustive check — all CredentialName members are handled
+				// above, so `name` narrows to `never` here. Kept as a fail-closed guard
+				// (any future unhandled credential validates as invalid, never valid).
+				// @lore AF4/§5: switch is exhaustive over CredentialName (3 members);
+				// `void` marks the never-binding used (TS6133). No missing validator.
+				const exhaustive: never = name;
+				void exhaustive;
 				validationResult = { valid: false, error: "Unknown credential name" };
 			}
 		}

@@ -293,7 +293,11 @@ describe("AC-4: Tool call execution via ToolRegistry.invoke()", () => {
 		expect(toolResultMessage).toBeDefined();
 
 		const toolResultBlock = (
-			toolResultMessage?.content as Array<{ type: string; isError?: boolean; content?: string }>
+			toolResultMessage?.content as unknown as Array<{
+				type: string;
+				isError?: boolean;
+				content?: string;
+			}>
 		)?.find((b) => b.type === "tool_result");
 		expect(toolResultBlock?.isError).toBe(false);
 		expect(toolResultBlock?.content).toBe(JSON.stringify({ id: "123" }));

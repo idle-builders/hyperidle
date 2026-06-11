@@ -86,7 +86,7 @@ describe("ObservabilityDispatcher — enqueue / drain", () => {
 		});
 		await dispatcher.flush();
 		expect(adapter.batches).toHaveLength(1);
-		expect(adapter.batches[0][0].kind).toBe("session_started");
+		expect(adapter!.batches[0]![0]!.kind).toBe("session_started");
 		expect(dispatcher.status().delivered).toBe(1);
 		await dispatcher.dispose();
 	});
@@ -258,7 +258,7 @@ describe("registerObservabilityDispatcher — bus subscriber", () => {
 			type: "bet_state_changed",
 			streamId: "bet-1",
 			betId: "bet-1",
-			fromState: "pitched",
+			fromState: "draft",
 			toState: "active",
 			timestamp: now,
 		} satisfies BetStateChangedEvent);
@@ -330,7 +330,7 @@ describe("registerObservabilityDispatcher — bus subscriber", () => {
 		await dispatcher.flush();
 		unsub();
 		const flat = adapter.batches.flat();
-		expect(flat[0].traceId).toBe("missing-sess");
+		expect(flat[0]!.traceId).toBe("missing-sess");
 		await dispatcher.dispose();
 	});
 

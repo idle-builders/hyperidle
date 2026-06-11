@@ -64,12 +64,12 @@ describe("create_routine tool", () => {
 		const routineRows = await db.select().from(routines).where(eq(routines.id, data.routineId));
 		expect(routineRows).toHaveLength(1);
 		const routine = routineRows[0];
-		expect(routine.name).toBe("Daily standup");
-		expect(routine.teamId).toBe(teamId);
-		expect(routine.ownerAgentId).toBe(agentId);
-		expect(routine.triggerConfig).toBe(JSON.stringify({ cron: "0 9 * * 1-5" }));
+		expect(routine!.name).toBe("Daily standup");
+		expect(routine!.teamId).toBe(teamId);
+		expect(routine!.ownerAgentId).toBe(agentId);
+		expect(routine!.triggerConfig).toBe(JSON.stringify({ cron: "0 9 * * 1-5" }));
 		// stub task must be set
-		expect(routine.stubTaskId).toBe(data.stubTaskId);
+		expect(routine!.stubTaskId).toBe(data.stubTaskId);
 	});
 
 	test("returns ok({ routineId, name, stubTaskId })", async ({ db }) => {

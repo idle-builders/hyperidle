@@ -65,7 +65,7 @@ describe("L1a WsBroadcaster — per-thread topic routing", () => {
 		bus.emit(ev);
 
 		expect(client.messages.length).toBeGreaterThanOrEqual(1);
-		const received = JSON.parse(client.messages[0]) as { type: string };
+		const received = JSON.parse(client.messages[0]!) as { type: string };
 		expect(received.type).toBe("thread_message_appended");
 	});
 
@@ -106,7 +106,7 @@ describe("L1a WsBroadcaster — per-thread topic routing", () => {
 		bus.emit(ev);
 
 		expect(client.messages.length).toBeGreaterThanOrEqual(1);
-		const received = JSON.parse(client.messages[0]) as { type: string };
+		const received = JSON.parse(client.messages[0]!) as { type: string };
 		expect(received.type).toBe("thread_resolved");
 	});
 
@@ -125,7 +125,7 @@ describe("L1a WsBroadcaster — per-thread topic routing", () => {
 		bus.emit(ev);
 
 		expect(client.messages.length).toBeGreaterThanOrEqual(1);
-		const received = JSON.parse(client.messages[0]) as { type: string };
+		const received = JSON.parse(client.messages[0]!) as { type: string };
 		expect(received.type).toBe("thread_reopened");
 	});
 
@@ -143,7 +143,7 @@ describe("L1a WsBroadcaster — per-thread topic routing", () => {
 		bus.emit(ev);
 
 		expect(client.messages.length).toBeGreaterThanOrEqual(1);
-		const received = JSON.parse(client.messages[0]) as { type: string };
+		const received = JSON.parse(client.messages[0]!) as { type: string };
 		expect(received.type).toBe("thread_archived");
 	});
 
@@ -164,7 +164,7 @@ describe("L1a WsBroadcaster — per-thread topic routing", () => {
 		bus.emit(ev);
 
 		expect(client.messages.length).toBeGreaterThanOrEqual(1);
-		const received = JSON.parse(client.messages[0]) as { type: string };
+		const received = JSON.parse(client.messages[0]!) as { type: string };
 		expect(received.type).toBe("thread_created");
 	});
 

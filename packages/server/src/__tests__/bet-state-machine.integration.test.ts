@@ -84,11 +84,11 @@ describe("bet-state-machine", () => {
 
 			const log = await getRevisionLog(db, "bet-1");
 			expect(log).toHaveLength(1);
-			expect(log[0].field).toBe("status");
-			expect(log[0].old_value).toBe("draft");
-			expect(log[0].new_value).toBe("active");
-			expect(log[0].timestamp).toBeDefined();
-			expect(log[0].reason).toBeDefined();
+			expect(log[0]!.field).toBe("status");
+			expect(log[0]!.old_value).toBe("draft");
+			expect(log[0]!.new_value).toBe("active");
+			expect(log[0]!.timestamp).toBeDefined();
+			expect(log[0]!.reason).toBeDefined();
 		});
 
 		test("increments team activeBets on active transition", async ({ db, eventBus }) => {
@@ -146,7 +146,7 @@ describe("bet-state-machine", () => {
 				(c) => c[0].toState === "completed",
 			);
 			expect(completedCalls).toHaveLength(1);
-			expect(completedCalls[0][0]).toEqual(
+			expect(completedCalls[0]![0]).toEqual(
 				expect.objectContaining({
 					type: "bet_state_changed",
 					betId: "bet-1",
@@ -457,10 +457,10 @@ describe("bet-state-machine", () => {
 
 			const log = await getRevisionLog(db, "bet-1");
 			expect(log).toHaveLength(2);
-			expect(log[0].old_value).toBe("draft");
-			expect(log[0].new_value).toBe("active");
-			expect(log[1].old_value).toBe("active");
-			expect(log[1].new_value).toBe("completed");
+			expect(log[0]!.old_value).toBe("draft");
+			expect(log[0]!.new_value).toBe("active");
+			expect(log[1]!.old_value).toBe("active");
+			expect(log[1]!.new_value).toBe("completed");
 		});
 	});
 

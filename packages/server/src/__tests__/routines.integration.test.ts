@@ -201,7 +201,7 @@ describe("Routine Endpoints (E6)", () => {
 
 			// Verify event emitted
 			expect(emitted).toHaveLength(1);
-			expect(emitted[0].type).toBe("session_started");
+			expect(emitted[0]!.type).toBe("session_started");
 		});
 
 		test("updates routine lastRunAt", async ({ db, app }) => {

@@ -388,6 +388,11 @@ export async function provisionSession(
 		taskId: params.taskId,
 		workspacePath,
 		watcher,
+		// @lore AF4/§5: traceId correlates observability events for this session
+		// (H3). The provisioning path owns the session, so it mints the id (the
+		// crash/end consumers key events on it). Behaviour-neutral — previously the
+		// field was simply absent (the path quarantined under the type gate).
+		traceId: randomUUID(),
 		// AA2: pass routineId so endSession/crashSession can update routine_runs.
 		...(params.routineId ? { routineId: params.routineId } : {}),
 	};

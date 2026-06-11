@@ -82,18 +82,18 @@ describe("I2 S5/S6 — DockerWorkspaceAdapter shell-injection safety", () => {
 		const call = spawnCalls[0];
 
 		// Must be the docker binary (no shell wrapping).
-		expect(call.file).toBe("docker");
+		expect(call!.file).toBe("docker");
 		// shell option must not be enabled (default: false). If the adapter
 		// passes `shell: true` the host shell would interpret the payload.
-		expect(call.opts?.shell).not.toBe(true);
+		expect(call!.opts?.shell).not.toBe(true);
 
 		// The payload must appear verbatim as ONE element in argv (no
 		// pre-expansion, no quote-stripping).
-		expect(call.args).toContain(PAYLOAD);
+		expect(call!.args).toContain(PAYLOAD);
 
 		// The args should look like ["exec", "<id>", "sh", "-c", PAYLOAD].
-		expect(call.args[0]).toBe("exec");
-		expect(call.args[call.args.length - 1]).toBe(PAYLOAD);
+		expect(call!.args[0]).toBe("exec");
+		expect(call!.args[call!.args.length - 1]).toBe(PAYLOAD);
 	});
 
 	it("S6: spawn() (workspace creation) builds argv as an array — no interpolation", async () => {
