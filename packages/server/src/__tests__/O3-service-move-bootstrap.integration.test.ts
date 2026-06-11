@@ -30,13 +30,14 @@ describe("O3 AC-5: bootstrapFabric", () => {
 	// @lore AF6: routine-scheduler deferred disposer (Option A) added. Count 8 → 9.
 	// @lore AF8: registerNotificationListener + startNotificationDrain added. Count went from 9 to 11.
 	// Note: AF8 builder lore said 9→10 but AF6's scheduler disposer was already in place, so actual: 9→11.
-	test("returns exactly 11 disposers (one per disposer-registered service)", async ({
+	// @lore AF9: registerRelevanceListener added. Count 11 → 12.
+	test("returns exactly 12 disposers (one per disposer-registered service)", async ({
 		db,
 		eventBus,
 	}) => {
 		const disposers = bootstrapFabric({ db, eventBus });
 
-		expect(disposers).toHaveLength(11);
+		expect(disposers).toHaveLength(12);
 
 		for (const d of disposers) {
 			d();

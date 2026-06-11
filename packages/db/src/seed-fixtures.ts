@@ -94,4 +94,20 @@ export const BUILTIN_ROUTINE_SEEDS: readonly BuiltinRoutineSeed[] = [
 		humanReview: false,
 		silent: true,
 	},
+	// @lore AF9: production seed replica — mirrors BUILTIN_SPECS in
+	// packages/fabric/src/services/builtin-routines.ts exactly. The db package
+	// cannot depend on the fabric package (layer boundary), so this replica must
+	// be kept in sync manually. See seed.ts:395-403 for the sync-required comment.
+	{
+		id: "builtin:knowledge-promotion",
+		name: "Knowledge promotion",
+		ownerAgentId: "seed-agent-pf-facilitation",
+		teamId: "seed-product-1",
+		triggerType: "calendar",
+		triggerConfig: { cron: "0 3 * * *" },
+		skillId: "knowledge_promotion",
+		doneCondition: "Provisional items meeting repetition threshold promoted",
+		humanReview: false,
+		silent: false,
+	},
 ];
