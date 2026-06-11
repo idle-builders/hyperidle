@@ -195,6 +195,17 @@ async function enqueue(db: HyperIdleDb, entry: DispatchQueueEntry): Promise<void
 	if (await hasActiveSession(db, entry.taskId)) {
 		return;
 	}
+	// @lore AD2: re-check the queue AFTER the `await hasActiveSession` gap. Two
+	// enqueue paths can race for the same task — the startup sweep and the
+	// task_state_changed handler. Both pass the synchronous `queue.some` guard while
+	// the queue is still empty, then both await `hasActiveSession`; without this
+	// second synchronous check both would `push`, queuing the task twice → two
+	// sessions provisioned. The check-after-await closes the interleaving window.
+	// (Surfaced by AF12 wrapping transitionTask in a db.transaction, which shifted
+	// the relative timing of the accepted-state write vs. the concurrent sweep.)
+	if (queue.some((e) => e.taskId === entry.taskId)) {
+		return;
+	}
 	queue.push(entry);
 }
 

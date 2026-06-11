@@ -137,7 +137,7 @@ A **Bet** is a time-boxed chunk of work — the unit agents pick up and execute.
 
 **Expected:** The dialog closes. The new Bet appears as a `draft` card in the portfolio grid.
 
-To start agents, open the Bet card and change its status to `active` using the action menu.
+To start agents, open the Bet, click the overflow menu (`···`) next to the status badge, and choose **Activate bet**. The status flips from `draft` to `active`. If your team is already at its bet capacity, activation is blocked and an inline message explains why — complete or kill another active bet first.
 
 **Troubleshooting:**
 - Create button stays disabled — the description field is required.

@@ -23,6 +23,7 @@ import { Hono } from "hono";
 import z from "zod";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
+import { cascadeBetKill } from "../services/bet-kill-cascade.js";
 import { transitionBet, updateBetField } from "../services/bet-state-machine.js";
 import { ApiError, loadTeamMembers } from "../services/team-lookup.js";
 
@@ -706,6 +707,12 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			if (err instanceof InvalidTransitionError) {
 				return c.json({ error: err.message, code: "VALIDATION_ERROR" }, 400);
 			}
+			// @lore AF12: activating at full team capacity throws CapacityExceededError.
+			// Do NOT map it locally — let it propagate to the global error handler,
+			// which returns 409 CONFLICT. That is the system-wide contract: 409 is
+			// reserved for capacity conflicts (see middleware/error-handler.ts and the
+			// `@lore U2` on the E3 bets.integration tests). An earlier AF12 plan mapped
+			// this to 400 on the false premise that it otherwise 500s — it does not.
 			throw err;
 		}
 		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
@@ -756,6 +763,10 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			}
 			throw err;
 		}
+		// @lore AF12: cascade the kill downward AFTER the bet is `killed` so the
+		// task-kill's upward propagation sees a terminal bet and skips (no spurious
+		// review thread). Synchronous so the UI's immediate refresh shows true state.
+		await cascadeBetKill(db, eventBus, betId);
 		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 		if (!updated) {
 			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);

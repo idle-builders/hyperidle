@@ -1,6 +1,6 @@
 import { type HyperIdleDb, tasks } from "@hyperidle/db";
 import type { EventBus, TaskState } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { StateTransitionAuditEntry, TaskAuditEntry } from "./task-audit.js";
 
 /** Map of each state to its valid target states. `killed` is always valid. */
@@ -40,6 +40,17 @@ export class InvalidTransitionError extends Error {
  * `task-audit.ts` so all writers (this function, `handoff`, `revertTaskToAccepted`)
  * produce values of the same `TaskAuditEntry` union. Readers discriminate via the
  * `type: "handoff"` tag on handoff entries.
+ *
+ * @lore AF12 AC5: mirrors `transitionBet`'s CAS contract — and "mirror" means the
+ * same TRANSACTION boundary, not just the WHERE-clause guard. The SELECT-validate,
+ * audit read+append, and CAS-UPDATE all run inside one `db.transaction` so the
+ * audit read and the state write serialize together on the SQLite/PG write-lock.
+ * Without the shared tx, two concurrent transitions both read the same audit blob
+ * outside any lock and the second UPDATE clobbers the first (last-writer-wins) —
+ * one audit entry is silently lost even with a WHERE-only CAS. The loser's
+ * `UPDATE ... WHERE id AND state = fromState` matches 0 rows → InvalidTransitionError
+ * → tx rolls back (no partial write). `task_state_changed` emits AFTER commit so
+ * only the winner emits exactly once.
  */
 export async function transitionTask(
 	db: HyperIdleDb,
@@ -47,42 +58,58 @@ export async function transitionTask(
 	taskId: string,
 	toState: TaskState,
 ): Promise<void> {
-	const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
-	if (!task) {
-		throw new Error(`Task not found: ${taskId}`);
-	}
+	const transitioned = await db.transaction(
+		async (tx): Promise<{ fromState: TaskState } | null> => {
+			// Re-read INSIDE the tx so the audit read and the CAS write serialize together.
+			const [task] = await tx.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+			if (!task) {
+				throw new Error(`Task not found: ${taskId}`);
+			}
 
-	const fromState = task.state as TaskState;
-	const allowed = VALID_TRANSITIONS[fromState];
-	if (!allowed.includes(toState)) {
-		throw new InvalidTransitionError(taskId, fromState, toState);
-	}
+			const fromState = task.state as TaskState;
+			const allowed = VALID_TRANSITIONS[fromState];
+			if (!allowed.includes(toState)) {
+				throw new InvalidTransitionError(taskId, fromState, toState);
+			}
 
-	// Build audit trail — stored in auditTrail column (notes is for agent-authored prose)
-	const existingAudit: TaskAuditEntry[] = task.auditTrail
-		? (JSON.parse(task.auditTrail) as TaskAuditEntry[])
-		: [];
-	const entry: StateTransitionAuditEntry = {
-		from: fromState,
-		to: toState,
-		timestamp: new Date().toISOString(),
-	};
-	existingAudit.push(entry);
+			// Build audit trail — stored in auditTrail column (notes is for agent-authored prose)
+			const existingAudit: TaskAuditEntry[] = task.auditTrail
+				? (JSON.parse(task.auditTrail) as TaskAuditEntry[])
+				: [];
+			const entry: StateTransitionAuditEntry = {
+				from: fromState,
+				to: toState,
+				timestamp: new Date().toISOString(),
+			};
+			existingAudit.push(entry);
 
-	await db
-		.update(tasks)
-		.set({
-			state: toState,
-			auditTrail: JSON.stringify(existingAudit),
-			updatedAt: new Date().toISOString(),
-		})
-		.where(eq(tasks.id, taskId));
+			const updated = await tx
+				.update(tasks)
+				.set({
+					state: toState,
+					auditTrail: JSON.stringify(existingAudit),
+					updatedAt: new Date().toISOString(),
+				})
+				.where(and(eq(tasks.id, taskId), eq(tasks.state, fromState)))
+				.returning({ id: tasks.id });
+
+			// Lost the race: another concurrent transition already moved the task out
+			// of `fromState`. Throwing rolls back the tx (no partial state/audit write).
+			if (updated.length === 0) {
+				throw new InvalidTransitionError(taskId, fromState, toState);
+			}
+
+			return { fromState };
+		},
+	);
+
+	if (!transitioned) return;
 
 	eventBus.emit({
 		type: "task_state_changed",
 		streamId: taskId,
 		taskId,
-		fromState,
+		fromState: transitioned.fromState,
 		toState,
 		timestamp: Date.now(),
 	});
