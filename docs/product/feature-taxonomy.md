@@ -34,7 +34,7 @@ Product group > product > feature. Code-verified June 2026.
 - Pinned thread with assistant agent, auto-created | WORKS · OVERBUILT — pinned at top of thread list from Day 1 before it has value. Takes prime real estate. No conditional: always pinned, even when empty.
 - Assistant overlay accessible from any view | WORKS (rebuilt from CocOverlay in AD8a, wired to responder in AD8b)
 - Agent responds to messages | DEAD · BROKEN PROMISE — overlay invites conversation, user types, nothing responds. Silence.
->> This has been restructured in AD8a: the assistant is now the canonical individual agent. The old "coach/CoS/CoC" naming is purged. AD8b wires the actual agent response.
+>> @lore AD8a: Restructured — the assistant is now the canonical individual agent. The old "coach/CoS/CoC" naming is purged. AD8b wires the actual agent response.
 
 ---
 

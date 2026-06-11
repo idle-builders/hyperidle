@@ -60,8 +60,18 @@ async function readAllSettings(db: HyperIdleDb): Promise<Map<string, string>> {
 	return map;
 }
 
-function buildConfig(kv: Map<string, string>): ObservabilityConfig {
-	const enabled = kv.get(KEYS.enabled) === "true";
+/**
+ * AF16 T14 (Z8-100): exported for unit testing and direct construction.
+ * Default flipped: enabled defaults TRUE when unset (`kv.get(KEYS.enabled) !== "false"`).
+ * `noop` is the explicit opt-out, not the silent default.
+ *
+ * @lore AF16 T14: old default was `enabled = kv.get(...) === "true"` → false when unset.
+ * Tracing was silently off on fresh DBs. Flip to default-on with console adapter so
+ * observability is "configured rather than silently off" without operator action.
+ */
+export function buildObservabilityConfig(kv: Map<string, string>): ObservabilityConfig {
+	// true when unset (default-on); false only when explicitly set to "false"
+	const enabled = kv.get(KEYS.enabled) !== "false";
 	const adapterRaw = kv.get(KEYS.adapter);
 	// @lore P1 (W-3): Existing databases that have observability.adapter set to
 	// a previously-supported value (e.g. the purged adapter) in factory_settings
@@ -92,7 +102,7 @@ function buildConfig(kv: Map<string, string>): ObservabilityConfig {
  * observability is disabled inline the `cfg.enabled` check.
  */
 export async function readObservabilityConfig(db: HyperIdleDb): Promise<ObservabilityConfig> {
-	return buildConfig(await readAllSettings(db));
+	return buildObservabilityConfig(await readAllSettings(db));
 }
 
 /**

@@ -7,8 +7,8 @@
 | Knowledge exports (human-readable) | Git repo (markdown exports from SQLite) | Same |
 | Session context | TOON format ([github.com/toon-format/toon](https://github.com/toon-format/toon)) | Same |
 | API Layer | Hono on `@hono/node-server` | Same + load balancer |
-| Event Bus | In-process EventBus (TypeScript) | Redis pub/sub or NATS |
-| Scheduler | setInterval + EventBus + SQLite polling | BullMQ / Temporal |
+| Event Bus | In-process EventBus (TypeScript) | _Future candidate:_ Redis pub/sub or NATS (cloud profile only) |
+| Scheduler | setInterval + EventBus + SQLite polling | _Future candidate:_ BullMQ / Temporal (cloud profile only) |
 | Harness (default) | Claude Agent SDK | — |
 | Workspace (default) | LocalWorkspaceAdapter (filesystem) | Docker, E2B |
 | Human Interface | React + TypeScript (Electron renderer) | Same |
@@ -37,7 +37,7 @@
 | `desktop` | Interface | Electron main process, preload bridge |
 | `api-contract` | Shared | Zod response schemas, Hono RPC types |
 | `design-system` | Interface | React components + stories |
-| `pipeline` | Infra | Async job execution (BullMQ) |
+| `pipeline` | Infra | Async job execution (in-process `setInterval` services) |
 | `eslint-plugin-design` | Tooling | Design system lint rules |
 
 The kernel never imports from fabric. Fabric subscribes to kernel events via the EventBus.

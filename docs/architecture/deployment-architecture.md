@@ -47,7 +47,7 @@ Cloud (AWS/GCP/Hetzner)
 ├── VM: hyperidle (API + Scheduler)
 ├── Postgres (Primitive Store + Knowledge)
 ├── E2B / Daytona (agent workspaces)
-├── Redis (Event Bus, optional)
+├── Redis or NATS (Event Bus — cloud profile only, not used on laptop/VPS)
 └── Managed observability (OpenTelemetry planned)
 ```
 
