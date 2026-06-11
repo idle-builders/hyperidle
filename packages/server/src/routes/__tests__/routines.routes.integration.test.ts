@@ -8,8 +8,26 @@
  */
 
 import { bets, type HyperIdleDb, routines, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { runBuiltinRoutine } from "@hyperidle/fabric";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
+
+/** Seed a built-in routine (knowledge-decay) owned by agent-1. */
+async function seedBuiltinRoutine(db: HyperIdleDb): Promise<string> {
+	await seedRoutine(db);
+	await db.insert(routines).values({
+		id: "builtin:knowledge-decay",
+		name: "Knowledge decay",
+		teamId: "team-1",
+		state: "active",
+		ownerAgentId: "agent-1",
+		triggerType: "calendar",
+		triggerConfig: JSON.stringify({ cron: "0 2 * * *" }),
+		active: true,
+	});
+	return "builtin:knowledge-decay";
+}
 
 const TEST_API_KEY = "test-key-routines";
 
@@ -210,6 +228,56 @@ describe("routines routes", () => {
 			});
 
 			expect(emittedEvents).toHaveLength(1);
+		});
+	});
+
+	// AF6 AC5 — founder observes a built-in self-run from the existing GET /:id
+	// surface. runBuiltinRoutine must insert a terminal routine_runs row (§3a) so
+	// the route's runs[] is populated, with a terminal outcome.
+	describe("AF6 AC5: built-in auto-run appears in GET /api/routines/:id runs[]", () => {
+		test("after a built-in fire, runs[] has a terminal run and lastRunAt is set", async ({
+			db,
+			app,
+			eventBus,
+		}) => {
+			const routineId = await seedBuiltinRoutine(db);
+
+			// Simulate an auto-fire (same code path the scheduler uses; no session).
+			const result = await runBuiltinRoutine(db, eventBus, "builtin:knowledge-decay");
+			expect(result.fired).toBe(true);
+
+			const res = await app.request(`/api/routines/${routineId}`, {
+				method: "GET",
+				headers: authHeaders(),
+			});
+			expect(res.status).toBe(200);
+			const body = (await res.json()) as {
+				routine: { lastRunAt: string | null };
+				runs: Array<{ outcome: string; endedAt: string | null }>;
+			};
+
+			expect(body.runs.length).toBeGreaterThanOrEqual(1);
+			const latest = body.runs[0];
+			expect(["success", "skipped"]).toContain(latest?.outcome);
+			expect(latest?.endedAt).toBeTruthy();
+			expect(body.routine.lastRunAt).toBeTruthy();
+		});
+
+		// AC2 negative parity at the run-row level: a disabled built-in writes NO
+		// run row (the disabled short-circuit returns before any insert).
+		test("a disabled built-in writes no run row", async ({ db, app, eventBus }) => {
+			const routineId = await seedBuiltinRoutine(db);
+			await db.update(routines).set({ active: false }).where(eq(routines.id, routineId));
+
+			const result = await runBuiltinRoutine(db, eventBus, "builtin:knowledge-decay");
+			expect(result.fired).toBe(false);
+
+			const res = await app.request(`/api/routines/${routineId}`, {
+				method: "GET",
+				headers: authHeaders(),
+			});
+			const body = (await res.json()) as { runs: unknown[] };
+			expect(body.runs).toHaveLength(0);
 		});
 	});
 });

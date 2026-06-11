@@ -27,7 +27,8 @@ describe("O3 AC-5: bootstrapFabric", () => {
 	});
 
 	// @lore AD8c: cost-sentinel startCostSentinel added as a disposer in bootstrapFabric. Count went from 7 to 8.
-	// @lore AF8: registerNotificationListener + startNotificationDrain added. Count went from 8 to 10.
+	// @lore AF6: routine-scheduler deferred disposer (Option A) added. Count 8 → 9.
+	// @lore AF8: registerNotificationListener + startNotificationDrain added. Count went from 9 to 10.
 	test("returns exactly 10 disposers (one per disposer-registered service)", async ({
 		db,
 		eventBus,

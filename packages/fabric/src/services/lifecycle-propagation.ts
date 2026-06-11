@@ -257,23 +257,58 @@ async function logPropagation(db: HyperIdleDb, entry: LogPropagationEntry): Prom
 
 // ─── Session -> Task propagation ─────────────────────────────────────────────
 
+/**
+ * AF7 §7: a propagation outcome. On the retry path the caller resolves the
+ * ORIGINAL pending_retry row in place using this status (no new row), closing the
+ * queue entry. On the first-attempt path the status is unused (the fns log a new
+ * row as before).
+ */
+type PropagationStatus = "applied" | "skipped" | "pending_retry";
+
+/**
+ * AF7 §7: when set, the propagate fns call this INSTEAD of logPropagation, so the
+ * retry caller resolves the original row in place (no double-log). The fns still
+ * emit propagation_applied on the applied path (a retry that truly landed). When
+ * absent (first-attempt), logPropagation writes a fresh row as before.
+ */
+type LogSink = (status: PropagationStatus, reason?: string) => Promise<void>;
+
 async function propagateSessionToTask(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	sessionId: string,
 	taskId: string,
 	outcome: string,
+	onResolve?: LogSink,
 ): Promise<void> {
-	// F2: Only propagate on completed outcome. crashed and stopped do not trigger transitions.
-	if (outcome !== "completed") {
+	// AF7 §7: on the retry path, resolve the original row in place instead of
+	// logging a new one. log() routes to either logPropagation (first attempt) or
+	// the in-place resolver (retry).
+	const log = async (entry: {
+		status: PropagationStatus;
+		targetTransition: string | null;
+		failureReason?: string;
+	}): Promise<void> => {
+		if (onResolve) {
+			await onResolve(entry.status, entry.failureReason);
+			return;
+		}
 		await logPropagation(db, {
 			sourceLevel: "session",
 			sourceId: sessionId,
 			sourceEvent: "session_ended",
 			targetLevel: "task",
 			targetId: taskId,
-			targetTransition: null,
+			targetTransition: entry.targetTransition,
+			status: entry.status,
+			failureReason: entry.failureReason,
+		});
+	};
+	// F2: Only propagate on completed outcome. crashed and stopped do not trigger transitions.
+	if (outcome !== "completed") {
+		await log({
 			status: "skipped",
+			targetTransition: null,
 			failureReason: `outcome=${outcome} does not trigger propagation`,
 		});
 		return;
@@ -282,28 +317,18 @@ async function propagateSessionToTask(
 	// Check task exists and is in_progress
 	const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
 	if (!task) {
-		await logPropagation(db, {
-			sourceLevel: "session",
-			sourceId: sessionId,
-			sourceEvent: "session_ended",
-			targetLevel: "task",
-			targetId: taskId,
-			targetTransition: null,
+		await log({
 			status: "skipped",
+			targetTransition: null,
 			failureReason: `task ${taskId} not found`,
 		});
 		return;
 	}
 
 	if (task.state !== "in_progress") {
-		await logPropagation(db, {
-			sourceLevel: "session",
-			sourceId: sessionId,
-			sourceEvent: "session_ended",
-			targetLevel: "task",
-			targetId: taskId,
-			targetTransition: null,
+		await log({
 			status: "skipped",
+			targetTransition: null,
 			failureReason: `task state is '${task.state}', not 'in_progress'`,
 		});
 		return;
@@ -318,14 +343,9 @@ async function propagateSessionToTask(
 		);
 
 	if (otherActiveSessions.length > 0) {
-		await logPropagation(db, {
-			sourceLevel: "session",
-			sourceId: sessionId,
-			sourceEvent: "session_ended",
-			targetLevel: "task",
-			targetId: taskId,
-			targetTransition: null,
+		await log({
 			status: "skipped",
+			targetTransition: null,
 			failureReason: `${otherActiveSessions.length} other active session(s) still running`,
 		});
 		return;
@@ -334,14 +354,9 @@ async function propagateSessionToTask(
 	// Transition task to review
 	try {
 		await transitionTask(db, eventBus, taskId, "review");
-		await logPropagation(db, {
-			sourceLevel: "session",
-			sourceId: sessionId,
-			sourceEvent: "session_ended",
-			targetLevel: "task",
-			targetId: taskId,
-			targetTransition: "in_progress -> review",
+		await log({
 			status: "applied",
+			targetTransition: "in_progress -> review",
 		});
 
 		// Emit propagation_applied event
@@ -359,27 +374,17 @@ async function propagateSessionToTask(
 	} catch (err) {
 		// F1: InvalidTransitionError from a race condition is logged as skipped, not failed.
 		if (isInvalidTransitionError(err)) {
-			await logPropagation(db, {
-				sourceLevel: "session",
-				sourceId: sessionId,
-				sourceEvent: "session_ended",
-				targetLevel: "task",
-				targetId: taskId,
-				targetTransition: null,
+			await log({
 				status: "skipped",
+				targetTransition: null,
 				failureReason: `InvalidTransitionError (race): ${err.message}`,
 			});
 			return;
 		}
 		// Unexpected error — log as pending_retry for the heartbeat to handle
-		await logPropagation(db, {
-			sourceLevel: "session",
-			sourceId: sessionId,
-			sourceEvent: "session_ended",
-			targetLevel: "task",
-			targetId: taskId,
-			targetTransition: null,
+		await log({
 			status: "pending_retry",
+			targetTransition: null,
 			failureReason: err instanceof Error ? err.message : String(err),
 		});
 	}
@@ -396,7 +401,31 @@ async function propagateTaskToBet(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	taskId: string,
+	onResolve?: LogSink,
 ): Promise<void> {
+	// AF7 §7: on the retry path, resolve the original row in place (no new row).
+	const log = async (entry: {
+		status: PropagationStatus;
+		targetId: string;
+		targetTransition: string | null;
+		failureReason?: string;
+	}): Promise<void> => {
+		if (onResolve) {
+			await onResolve(entry.status, entry.failureReason);
+			return;
+		}
+		await logPropagation(db, {
+			sourceLevel: "task",
+			sourceId: taskId,
+			sourceEvent: "task_state_changed",
+			targetLevel: "bet",
+			targetId: entry.targetId,
+			targetTransition: entry.targetTransition,
+			status: entry.status,
+			failureReason: entry.failureReason,
+		});
+	};
+
 	// Look up the task to get its betId
 	const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
 	if (!task) return;
@@ -411,14 +440,10 @@ async function propagateTaskToBet(
 	const TERMINAL_BET_STATES = new Set(["completed", "killed"]);
 	if (TERMINAL_BET_STATES.has(bet.status)) {
 		// Bet is already terminal or in review — nothing to do
-		await logPropagation(db, {
-			sourceLevel: "task",
-			sourceId: taskId,
-			sourceEvent: "task_state_changed",
-			targetLevel: "bet",
+		await log({
+			status: "skipped",
 			targetId: betId,
 			targetTransition: null,
-			status: "skipped",
 			failureReason: `bet status is '${bet.status}', not propagatable`,
 		});
 		return;
@@ -433,14 +458,10 @@ async function propagateTaskToBet(
 	const allTerminal = allBetTasks.every((t) => TERMINAL_TASK_STATES.has(t.state));
 	if (!allTerminal) {
 		// Some tasks still open — no bet transition. Log skipped for observability and test synchronization.
-		await logPropagation(db, {
-			sourceLevel: "task",
-			sourceId: taskId,
-			sourceEvent: "task_state_changed",
-			targetLevel: "bet",
+		await log({
+			status: "skipped",
 			targetId: betId,
 			targetTransition: null,
-			status: "skipped",
 			failureReason: "Not all tasks are terminal",
 		});
 		return;
@@ -453,14 +474,10 @@ async function propagateTaskToBet(
 		// @lore U1: `active` → `completed` (formerly active → review).
 		await transitionBetToCompletedAsync(db, eventBus, betId);
 
-		await logPropagation(db, {
-			sourceLevel: "task",
-			sourceId: taskId,
-			sourceEvent: "task_state_changed",
-			targetLevel: "bet",
+		await log({
+			status: "applied",
 			targetId: betId,
 			targetTransition: `${fromStatus} -> review`,
-			status: "applied",
 		});
 
 		// Create ship-confirmation review thread
@@ -468,26 +485,18 @@ async function propagateTaskToBet(
 	} catch (err) {
 		if (isInvalidTransitionError(err)) {
 			// F4: Race condition — bet was already moved by human. Log as skipped.
-			await logPropagation(db, {
-				sourceLevel: "task",
-				sourceId: taskId,
-				sourceEvent: "task_state_changed",
-				targetLevel: "bet",
+			await log({
+				status: "skipped",
 				targetId: betId,
 				targetTransition: null,
-				status: "skipped",
 				failureReason: `InvalidTransitionError (race): ${err instanceof Error ? err.message : String(err)}`,
 			});
 			return;
 		}
-		await logPropagation(db, {
-			sourceLevel: "task",
-			sourceId: taskId,
-			sourceEvent: "task_state_changed",
-			targetLevel: "bet",
+		await log({
+			status: "pending_retry",
 			targetId: betId,
 			targetTransition: null,
-			status: "pending_retry",
 			failureReason: err instanceof Error ? err.message : String(err),
 		});
 	}
@@ -610,11 +619,21 @@ export async function retryFailedPropagations(db: HyperIdleDb, eventBus: EventBu
 
 	for (const row of pendingRows) {
 		if (row.attempts >= MAX_RETRY_ATTEMPTS) {
-			// Exhausted retries — mark as failed and notify
-			await db
+			// AF7 §7: CAS-guarded terminal fail. Mark failed ONLY when the row is
+			// still pending_retry — so a row a prior/concurrent pass already resolved
+			// to applied is NEVER flipped to failed (the "succeeded-retry-marked-
+			// failed" bug). Gate the notification + propagation_failed event on the
+			// CAS actually affecting a row, preventing a double-notify.
+			const failedRows = await db
 				.update(propagationLog)
 				.set({ status: "failed", failureReason: "Max retries exceeded" })
-				.where(eq(propagationLog.id, row.id));
+				.where(and(eq(propagationLog.id, row.id), eq(propagationLog.status, "pending_retry")))
+				.returning({ id: propagationLog.id });
+
+			if (failedRows.length === 0) {
+				// Already resolved by another pass — no notify, no event.
+				continue;
+			}
 
 			// Create notification queue entry
 			const now = new Date().toISOString();
@@ -652,11 +671,41 @@ export async function retryFailedPropagations(db: HyperIdleDb, eventBus: EventBu
 			.set({ attempts: row.attempts + 1 })
 			.where(eq(propagationLog.id, row.id));
 
-		// Re-execute the propagation based on source level
+		// AF7 §7: resolve the ORIGINAL row in place by the retry outcome — never
+		// append a parallel row (no double-log). applied/skipped → close the queue
+		// entry; still-failing → keep pending_retry (attempts already bumped) so the
+		// next heartbeat retries. This is the only way the heartbeat can ever drain.
+		const resolveInPlace: LogSink = async (status, reason) => {
+			if (status === "pending_retry") {
+				// Keep the row pending; just refresh the failure reason for visibility.
+				await db
+					.update(propagationLog)
+					.set({ failureReason: reason ?? row.failureReason ?? null })
+					.where(eq(propagationLog.id, row.id));
+				return;
+			}
+			await db
+				.update(propagationLog)
+				.set({
+					status,
+					failureReason: reason ?? null,
+					appliedAt: status === "applied" ? new Date().toISOString() : null,
+				})
+				.where(eq(propagationLog.id, row.id));
+		};
+
+		// Re-execute the propagation based on source level, resolving in place.
 		if (row.sourceLevel === "session" && row.sourceEvent === "session_ended") {
-			await propagateSessionToTask(db, eventBus, row.sourceId, row.targetId, "completed");
+			await propagateSessionToTask(
+				db,
+				eventBus,
+				row.sourceId,
+				row.targetId,
+				"completed",
+				resolveInPlace,
+			);
 		} else if (row.sourceLevel === "task" && row.sourceEvent === "task_state_changed") {
-			await propagateTaskToBet(db, eventBus, row.sourceId);
+			await propagateTaskToBet(db, eventBus, row.sourceId, resolveInPlace);
 		}
 	}
 }

@@ -22,6 +22,7 @@ describe("SessionResult (AC9)", () => {
 	it("mock adapter returns cost as WireMoney with minor and currency", async () => {
 		const adapter = new MockHarnessAdapter();
 		const handle = await adapter.startSession({
+			sessionId: "test-session",
 			workspacePath: "/tmp/ws",
 			soulPromptPath: "/tmp/soul.md",
 			composedPrompt: "",
@@ -38,6 +39,7 @@ describe("SessionResult (AC9)", () => {
 	it("mock adapter returns tokenUsage with byTier breakdown", async () => {
 		const adapter = new MockHarnessAdapter();
 		const handle = await adapter.startSession({
+			sessionId: "test-session",
 			workspacePath: "/tmp/ws",
 			soulPromptPath: "/tmp/soul.md",
 			composedPrompt: "",

@@ -10,6 +10,7 @@ import type {
 import { MockHarnessAdapter } from "../harness/index.js";
 
 const TEST_CONFIG: SessionConfig = {
+	sessionId: "test-session",
 	workspacePath: "/workspace/test",
 	soulPromptPath: "/workspace/prompts/builder.md",
 	composedPrompt: "",

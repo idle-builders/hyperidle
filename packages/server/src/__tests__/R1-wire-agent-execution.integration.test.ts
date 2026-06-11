@@ -217,8 +217,8 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 	});
 
 	// -------------------------------------------------------------------- AC2, AC3, AC4
-	describe("AC2/AC3/AC4: POST /api/sessions calls provisionSession and returns completed session", () => {
-		test("returns 200 with state=done and outcome=completed, task transitions to in_progress", async ({
+	describe("AC2/AC3/AC4: POST /api/sessions admits via provisionSession and completes asynchronously", () => {
+		test("returns 202 with an active row, then the session reaches done (AF7 §2: 200→202)", async ({
 			db,
 			eventBus,
 		}) => {
@@ -266,20 +266,29 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 				}),
 			});
 
-			// After provisionSession, the session is complete — return 200 not 201.
-			expect(res.status).toBe(200);
+			// AF7 §2: the POST admits the session (non-blocking) and returns 202
+			// with the freshly-inserted ACTIVE row — NOT the completed row.
+			expect(res.status).toBe(202);
 
 			const body = (await res.json()) as Record<string, unknown>;
 			expect(body.id).toBeTruthy();
-			expect(body.state).toBe("done");
-			expect(body.outcome).toBe("completed");
+			expect(body.state).toBe("active");
 			expect(body.taskId).toBe("task-r1");
 			expect(body.agentId).toBe("agent-r1");
 
-			// Task must have been transitioned to in_progress during provisioning.
+			// The detached tail runs the harness to completion; poll until done.
+			const sessionId = body.id as string;
+			await vi.waitFor(
+				async () => {
+					const [row] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+					expect(row?.state).toBe("done");
+					expect(row?.outcome).toBe("completed");
+				},
+				{ timeout: 10_000 },
+			);
+
+			// Task must have been transitioned away from accepted during provisioning.
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-r1")).limit(1);
-			// After a completed session task may be done/in_progress — at minimum
-			// it must have been transitioned away from accepted.
 			expect(task?.state).not.toBe("accepted");
 
 			// Both session_started and session_ended events must have been emitted.
@@ -340,8 +349,8 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 	});
 
 	// -------------------------------------------------------------------- AC4 (crash path)
-	describe("AC4: Crashed harness returns crashed session", () => {
-		test("returns 200 with state=crashed when the harness throws during streaming", async ({
+	describe("AC4: Crashed harness yields a crashed session (async)", () => {
+		test("returns 202 with active row, then the session reaches crashed (AF7 §2: 200→202)", async ({
 			db,
 			eventBus,
 		}) => {
@@ -376,11 +385,22 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 				}),
 			});
 
-			expect(res.status).toBe(200);
+			// AF7 §2: admission returns 202 + active row; the crash happens in the
+			// detached tail and is observed by polling the row state.
+			expect(res.status).toBe(202);
 
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.state).toBe("crashed");
-			expect(body.outcome).toBe("crashed");
+			expect(body.state).toBe("active");
+
+			const sessionId = body.id as string;
+			await vi.waitFor(
+				async () => {
+					const [row] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+					expect(row?.state).toBe("crashed");
+					expect(row?.outcome).toBe("crashed");
+				},
+				{ timeout: 10_000 },
+			);
 		});
 	});
 
