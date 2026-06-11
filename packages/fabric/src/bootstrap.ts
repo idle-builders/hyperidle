@@ -19,11 +19,11 @@ import { defaultMutePreferenceReader } from "./services/notifications/mute.js";
 import { registerNotificationListener } from "./services/notifications/notification-listener.js";
 import { registerPolicyEngine } from "./services/policy-engine.js";
 import { registerRelevanceListener } from "./services/relevance-listener.js";
+import { startRetentionReaper } from "./services/retention-reaper.js";
 import { startRoutineScheduler } from "./services/routine-scheduler.js";
 import { reapStaleRoutineSessions } from "./services/routine-session-reaper.js";
 import { registerSessionReviewCreator } from "./services/session-review-creator.js";
 import { registerTaskDispatcher, type TaskDispatcherDeps } from "./services/task-dispatcher.js";
-import { startRetentionReaper } from "./services/retention-reaper.js";
 import { startWorkspaceReaper } from "./services/workspace-reaper.js";
 
 const bootstrapLog = createLogger({ pkg: "fabric" });
