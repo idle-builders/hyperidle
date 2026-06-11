@@ -52,6 +52,7 @@ const RESOLVED_FAST_MODEL = {
 function makeSessionConfig(overrides: Partial<SessionConfig> = {}): SessionConfig {
 	return {
 		workspacePath: "/workspace/test",
+		sessionId: "test-session",
 		soulPromptPath: "/workspace/prompts/builder.md",
 		composedPrompt: "You are a helpful assistant.",
 		modelTier: "workhorse",
@@ -186,7 +187,7 @@ describe("AC-4: Tool definitions sourced from registry.toClaudeToolSpecs()", () 
 
 		adapter.setSessionToolRegistry(sessionId, registry);
 
-		const handle = await adapter.startSession(makeSessionConfig());
+		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
 		await collectEvents(adapter, handle);
 
 		expect(registry.toClaudeToolSpecs).toHaveBeenCalled();
@@ -209,7 +210,7 @@ describe("AC-2: Structured loop (plan → execute → stop)", () => {
 		const sessionId = "sess-plan";
 		adapter.setSessionToolRegistry(sessionId, registry);
 
-		const handle = await adapter.startSession(makeSessionConfig());
+		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
 		const events = await collectEvents(adapter, handle);
 
 		const completionEvents = events.filter((e) => e.type === "completion");
@@ -229,7 +230,7 @@ describe("AC-2: Structured loop (plan → execute → stop)", () => {
 		const sessionId = "sess-stop";
 		adapter.setSessionToolRegistry(sessionId, registry);
 
-		const handle = await adapter.startSession(makeSessionConfig());
+		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
 		const events = await collectEvents(adapter, handle);
 
 		// Stream must end (not hang)
@@ -258,7 +259,7 @@ describe("AC-4: Tool call execution via ToolRegistry.invoke()", () => {
 		const sessionId = "sess-tool-exec";
 		adapter.setSessionToolRegistry(sessionId, registry);
 
-		const handle = await adapter.startSession(makeSessionConfig());
+		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
 		await collectEvents(adapter, handle);
 
 		expect(registry.invoke).toHaveBeenCalledWith("write_session_notes", { notes: "test" });
@@ -279,7 +280,7 @@ describe("AC-4: Tool call execution via ToolRegistry.invoke()", () => {
 		const sessionId = "sess-success-result";
 		adapter.setSessionToolRegistry(sessionId, registry);
 
-		const handle = await adapter.startSession(makeSessionConfig());
+		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
 		await collectEvents(adapter, handle);
 
 		// The subsequent LLM call must include the tool result.
@@ -322,7 +323,7 @@ describe("AC-4: Tool call execution via ToolRegistry.invoke()", () => {
 		const sessionId = "sess-error-result";
 		adapter.setSessionToolRegistry(sessionId, registry);
 
-		const handle = await adapter.startSession(makeSessionConfig());
+		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
 		await collectEvents(adapter, handle);
 
 		const thirdCallMessages = callLlmMock.mock.calls[2]?.[0]?.messages;
@@ -352,7 +353,7 @@ describe("AC-7: Event streaming (token_usage, tool_call, completion, error, cost
 		const sessionId = "sess-token-events";
 		adapter.setSessionToolRegistry(sessionId, registry);
 
-		const handle = await adapter.startSession(makeSessionConfig());
+		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
 		const events = await collectEvents(adapter, handle);
 
 		const tokenEvents = events.filter((e) => e.type === "token_usage");
@@ -373,7 +374,7 @@ describe("AC-7: Event streaming (token_usage, tool_call, completion, error, cost
 		const sessionId = "sess-tool-call-event";
 		adapter.setSessionToolRegistry(sessionId, registry);
 
-		const handle = await adapter.startSession(makeSessionConfig());
+		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
 		const events = await collectEvents(adapter, handle);
 
 		const toolCallEvents = events.filter((e) => e.type === "tool_call");
@@ -391,7 +392,7 @@ describe("AC-7: Event streaming (token_usage, tool_call, completion, error, cost
 		const sessionId = "sess-cost-event";
 		adapter.setSessionToolRegistry(sessionId, registry);
 
-		const handle = await adapter.startSession(makeSessionConfig());
+		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
 		const events = await collectEvents(adapter, handle);
 
 		const costEvents = events.filter((e) => e.type === "cost_update");
@@ -412,7 +413,7 @@ describe("AC-7: Event streaming (token_usage, tool_call, completion, error, cost
 		const sessionId = "sess-error-event";
 		adapter.setSessionToolRegistry(sessionId, registry);
 
-		const handle = await adapter.startSession(makeSessionConfig());
+		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
 		const events = await collectEvents(adapter, handle);
 
 		const errorEvents = events.filter((e) => e.type === "error");
@@ -468,7 +469,7 @@ describe("AC-9: Planning turn writes plan to session notes", () => {
 		const sessionId = "sess-plan-notes";
 		adapter.setSessionToolRegistry(sessionId, registry);
 
-		const handle = await adapter.startSession(makeSessionConfig());
+		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
 		await collectEvents(adapter, handle);
 
 		const writeNotesCalls = (registry.invoke as ReturnType<typeof vi.fn>).mock.calls.filter(
@@ -508,7 +509,7 @@ describe("AC-10: Reflection checkpoint every N tool calls (default 5)", () => {
 		const sessionId = "sess-reflection";
 		adapter.setSessionToolRegistry(sessionId, registry);
 
-		const handle = await adapter.startSession(makeSessionConfig());
+		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
 		await collectEvents(adapter, handle);
 
 		// Find the call to callLlm that includes a reflection prompt in the messages
@@ -550,7 +551,7 @@ describe("AC-11: Pre-compaction at 80% using LATEST call's inputTokens (critique
 		const sessionId = "sess-precompact";
 		adapter.setSessionToolRegistry(sessionId, registry);
 
-		const handle = await adapter.startSession(makeSessionConfig());
+		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
 		const events = await collectEvents(adapter, handle);
 
 		const preCompactEvents = events.filter((e) => e.type === "pre_compaction");
@@ -577,7 +578,7 @@ describe("AC-11: Pre-compaction at 80% using LATEST call's inputTokens (critique
 		const sessionId = "sess-no-precompact";
 		adapter.setSessionToolRegistry(sessionId, registry);
 
-		const handle = await adapter.startSession(makeSessionConfig());
+		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
 		const events = await collectEvents(adapter, handle);
 
 		const preCompactEvents = events.filter((e) => e.type === "pre_compaction");
@@ -610,7 +611,7 @@ describe("AC-11: Pre-compaction at 80% using LATEST call's inputTokens (critique
 		const sessionId = "sess-no-cumulative";
 		adapter.setSessionToolRegistry(sessionId, registry);
 
-		const handle = await adapter.startSession(makeSessionConfig());
+		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
 		const events = await collectEvents(adapter, handle);
 
 		// Must NOT have pre_compaction — latest tokens (40_000) is only 20% of 200_000
@@ -714,7 +715,7 @@ describe("AC-13: Max-iterations guard", () => {
 		const sessionId = "sess-max-iter";
 		adapter.setSessionToolRegistry(sessionId, registry);
 
-		const handle = await adapter.startSession(makeSessionConfig());
+		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
 		const events = await collectEvents(adapter, handle);
 
 		// Must have emitted at least one completion event (the wrap-up)
@@ -739,7 +740,7 @@ describe("AC-13: Max-iterations guard", () => {
 		const sessionId = "sess-max-iter-completion";
 		adapter.setSessionToolRegistry(sessionId, registry);
 
-		const handle = await adapter.startSession(makeSessionConfig());
+		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
 		const events = await collectEvents(adapter, handle);
 
 		const completionEvents = events.filter(
@@ -788,7 +789,7 @@ describe("AC-14: Session history management — sliding window + summarization",
 		const sessionId = "sess-history";
 		adapter.setSessionToolRegistry(sessionId, registry);
 
-		const handle = await adapter.startSession(makeSessionConfig());
+		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
 		const events = await collectEvents(adapter, handle);
 
 		// Verify pre_compaction event was emitted
@@ -841,7 +842,7 @@ describe("AC-14: Session history management — sliding window + summarization",
 		const sessionId = "sess-preserve-recent";
 		adapter.setSessionToolRegistry(sessionId, registry);
 
-		const handle = await adapter.startSession(makeSessionConfig());
+		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
 		await collectEvents(adapter, handle);
 
 		// After summarization, the next execute callLlm must have received
@@ -874,7 +875,7 @@ describe("stopSession", () => {
 		const sessionId = "sess-stop-result";
 		adapter.setSessionToolRegistry(sessionId, registry);
 
-		const handle = await adapter.startSession(makeSessionConfig());
+		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
 		await collectEvents(adapter, handle);
 
 		const result = await adapter.stopSession(handle);
@@ -897,7 +898,7 @@ describe("stopSession", () => {
 		const sessionId = "sess-stop-early";
 		adapter.setSessionToolRegistry(sessionId, registry);
 
-		const handle = await adapter.startSession(makeSessionConfig());
+		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
 
 		// Stop before the pending call resolves
 		const resultPromise = adapter.stopSession(handle);

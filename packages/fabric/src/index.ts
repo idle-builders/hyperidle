@@ -283,6 +283,13 @@ export {
 	getDispatchQueueSnapshot,
 	registerTaskDispatcher,
 } from "./services/task-dispatcher.js";
+// workspace-reaper (AF7 §6)
+export type { WorkspaceReaperOptions } from "./services/workspace-reaper.js";
+export {
+	reapWorkspacesOnce,
+	startWorkspaceReaper,
+	WORKSPACE_REAPER_INTERVAL_MS,
+} from "./services/workspace-reaper.js";
 
 // --- Strategy types (O1: moved from @hyperidle/shared) ---
 

@@ -32,6 +32,7 @@ describe("SessionConfig accepts optional mcpConnectionInfo", () => {
 	it("SessionConfig with mcpConnectionInfo is valid", () => {
 		const config: SessionConfig = {
 			workspacePath: "/workspace/test",
+			sessionId: "test-session",
 			soulPromptPath: "",
 			composedPrompt: "Do the task.",
 			modelTier: "workhorse",
@@ -48,6 +49,7 @@ describe("SessionConfig accepts optional mcpConnectionInfo", () => {
 	it("SessionConfig without mcpConnectionInfo is valid (optional field)", () => {
 		const config: SessionConfig = {
 			workspacePath: "/workspace/test",
+			sessionId: "test-session",
 			soulPromptPath: "",
 			composedPrompt: "Do the task.",
 			modelTier: "workhorse",

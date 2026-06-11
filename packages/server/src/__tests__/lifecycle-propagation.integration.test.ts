@@ -797,6 +797,168 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 		expect(appliedLogs.length).toBeGreaterThanOrEqual(1);
 	});
 
+	// ─── AF7 §7: in-place retry resolution (no double-log, CAS-guarded fail) ──────
+	//
+	// The OLD behavior appended a NEW `applied` row on a successful retry while
+	// leaving the ORIGINAL `pending_retry` row stuck — so the heartbeat could never
+	// drain (a residual `pending_retry` remained forever) and the propagation was
+	// double-logged. The §7 rewrite resolves the ORIGINAL row IN PLACE. These
+	// assertions use EXACT counts (not `>=`) so they FAIL against the old double-log
+	// behavior: old → 2 rows for the target (1 stuck pending_retry + 1 new applied);
+	// new → exactly 1 row, resolved in place, zero residual pending_retry.
+
+	test("§7: a successful retry resolves the ORIGINAL row in place — zero residual pending_retry, exactly one row", async ({
+		db,
+	}) => {
+		await seedBase(db);
+		const now = new Date().toISOString();
+		await seedTask(db, "task-inplace-1", "in_progress");
+		await db.insert(sessions).values({
+			id: "session-inplace-1",
+			taskId: "task-inplace-1",
+			agentId: "agent-1",
+			modelTier: "capable",
+			startedAt: now,
+			endedAt: now,
+			state: "ended",
+			outcome: "completed",
+		});
+		await db.insert(propagationLog).values({
+			id: "log-inplace-1",
+			sourceLevel: "session",
+			sourceId: "session-inplace-1",
+			sourceEvent: "session_ended",
+			targetLevel: "task",
+			targetId: "task-inplace-1",
+			targetTransition: null,
+			status: "pending_retry",
+			failureReason: "Transient DB error",
+			attempts: 1,
+			createdAt: now,
+			appliedAt: null,
+		});
+
+		const eventBus = new EventBus();
+		await retryFailedPropagations(db, eventBus);
+
+		// Exactly ONE propagation_log row for this target — the original, resolved in
+		// place. The OLD behavior left 2 (stuck pending_retry + new applied).
+		const allRows = await db
+			.select()
+			.from(propagationLog)
+			.where(eq(propagationLog.targetId, "task-inplace-1"));
+		expect(allRows).toHaveLength(1);
+		// It is the SAME row (resolved in place), now applied with an appliedAt stamp.
+		expect(allRows[0]!.id).toBe("log-inplace-1");
+		expect(allRows[0]!.status).toBe("applied");
+		expect(allRows[0]!.appliedAt).not.toBeNull();
+
+		// ZERO residual pending_retry rows remain — the heartbeat fully drained.
+		const residualPending = await db
+			.select()
+			.from(propagationLog)
+			.where(eq(propagationLog.status, "pending_retry"));
+		expect(residualPending).toHaveLength(0);
+
+		// The task did transition (sanity).
+		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-inplace-1"));
+		expect(task?.state).toBe("review");
+	});
+
+	test("§7: exactly ONE propagation_applied event for a retry that retried once then succeeded (no double-emit)", async ({
+		db,
+	}) => {
+		await seedBase(db);
+		const now = new Date().toISOString();
+		await seedTask(db, "task-emit-1", "in_progress");
+		await db.insert(sessions).values({
+			id: "session-emit-1",
+			taskId: "task-emit-1",
+			agentId: "agent-1",
+			modelTier: "capable",
+			startedAt: now,
+			endedAt: now,
+			state: "ended",
+			outcome: "completed",
+		});
+		await db.insert(propagationLog).values({
+			id: "log-emit-1",
+			sourceLevel: "session",
+			sourceId: "session-emit-1",
+			sourceEvent: "session_ended",
+			targetLevel: "task",
+			targetId: "task-emit-1",
+			targetTransition: null,
+			status: "pending_retry",
+			failureReason: "Transient DB error",
+			attempts: 1,
+			createdAt: now,
+			appliedAt: null,
+		});
+
+		const eventBus = new EventBus();
+		const appliedEvents: PropagationAppliedEvent[] = [];
+		eventBus.on("propagation_applied", (e) => appliedEvents.push(e));
+
+		await retryFailedPropagations(db, eventBus);
+
+		// Exactly one propagation_applied for the single retry that landed — no
+		// double-emit from a parallel-row re-log.
+		expect(appliedEvents).toHaveLength(1);
+		expect(appliedEvents[0]!.targetId).toBe("task-emit-1");
+		expect(appliedEvents[0]!.sourceId).toBe("session-emit-1");
+	});
+
+	test("§7 CAS-guard: a retry that SUCCEEDS on its last allowed attempt is NOT marked failed", async ({
+		db,
+	}) => {
+		await seedBase(db);
+		const now = new Date().toISOString();
+		// attempts = MAX_RETRY_ATTEMPTS - 1 (2): the heartbeat bumps to 3 and retries.
+		// The retry SUCCEEDS, so the row must end `applied`, NEVER flipped to `failed`
+		// by the terminal-fail branch (the CAS-guarded fail only fires for rows still
+		// `pending_retry` at attempts >= MAX — a succeeded row no longer qualifies).
+		await seedTask(db, "task-cas-1", "in_progress");
+		await db.insert(sessions).values({
+			id: "session-cas-1",
+			taskId: "task-cas-1",
+			agentId: "agent-1",
+			modelTier: "capable",
+			startedAt: now,
+			endedAt: now,
+			state: "ended",
+			outcome: "completed",
+		});
+		await db.insert(propagationLog).values({
+			id: "log-cas-1",
+			sourceLevel: "session",
+			sourceId: "session-cas-1",
+			sourceEvent: "session_ended",
+			targetLevel: "task",
+			targetId: "task-cas-1",
+			targetTransition: null,
+			status: "pending_retry",
+			failureReason: "Transient DB error",
+			attempts: 2,
+			createdAt: now,
+			appliedAt: null,
+		});
+
+		const eventBus = new EventBus();
+		await retryFailedPropagations(db, eventBus);
+
+		const [row] = await db.select().from(propagationLog).where(eq(propagationLog.id, "log-cas-1"));
+		expect(row?.status).toBe("applied");
+		expect(row?.status).not.toBe("failed");
+
+		// No exhaustion notification — the row succeeded, it was not exhausted.
+		const notifs = await db
+			.select()
+			.from(notificationQueue)
+			.where(eq(notificationQueue.eventType, "propagation_exhausted"));
+		expect(notifs).toHaveLength(0);
+	});
+
 	test("retryFailedPropagations: row with attempts=3 (at max) changes status to failed and creates notification", async ({
 		db,
 	}) => {

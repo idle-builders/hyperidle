@@ -39,6 +39,7 @@ function makeConfig(overrides: Partial<CliAdapterConfig> = {}): CliAdapterConfig
 function makeSessionConfig(overrides: Partial<SessionConfig> = {}): SessionConfig {
 	return {
 		workspacePath: "/workspace/test-123",
+		sessionId: "test-session",
 		soulPromptPath: "",
 		composedPrompt: "Do the task.",
 		modelTier: "workhorse",
