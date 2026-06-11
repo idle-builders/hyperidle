@@ -248,11 +248,14 @@ export {
 // routine-scheduler
 export type {
 	FireResult,
+	ReapStaleSessions,
 	RoutineScheduler,
 	RoutineSchedulerConfig,
 } from "./services/routine-scheduler.js";
 export {
+	backfillMissingNextRunAt,
 	checkAndFireRoutine,
+	computeNextRunAt,
 	getRoutineMonthlySpend,
 	nextCronMatch,
 	parseCron,
@@ -260,6 +263,9 @@ export {
 	shouldCoalesce,
 	startRoutineScheduler,
 } from "./services/routine-scheduler.js";
+// routine-session-reaper (AF6 §4)
+export type { ReapStaleRoutineSessionsOpts } from "./services/routine-session-reaper.js";
+export { reapStaleRoutineSessions } from "./services/routine-session-reaper.js";
 // session-review-creator
 export { registerSessionReviewCreator } from "./services/session-review-creator.js";
 // silence-policy

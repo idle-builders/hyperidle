@@ -167,6 +167,10 @@ export async function createServer(port: number): Promise<ServerHandle> {
 		strategyBootstrap: (ctx) =>
 			bootstrapFabric({
 				...ctx,
+				// AF6: production boots the routine scheduler at the default 30s
+				// cadence with canProvision:false (scope iii — built-in auto-fire
+				// only; generic auto-fire is AF7). The periodic reaper is wired
+				// inside bootstrapFabric.
 				readAlertPreferences: async () => {
 					const cfg = await readServerConfig(db);
 					return {

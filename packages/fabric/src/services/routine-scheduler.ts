@@ -11,8 +11,11 @@ import {
 	userSkills,
 	users,
 } from "@hyperidle/db";
-import type { EventBus, EventType } from "@hyperidle/shared";
-import { and, eq, gte, sql } from "drizzle-orm";
+import { createLogger, type EventBus, type EventType } from "@hyperidle/shared";
+import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
+import { isBuiltinRoutineId, runBuiltinRoutine } from "./builtin-routines.js";
+
+const schedulerLog = createLogger({ pkg: "fabric" });
 
 // --- Types ---
 
@@ -23,8 +26,31 @@ export interface FireResult {
 	delegatedTo?: string;
 }
 
+/**
+ * Periodic reaper hook (AF6 §4, WARNING 2). Injected by the boot wiring so the
+ * scheduler can run an in-process stale-session sweep without fabric importing
+ * the server layer. Returns the number of sessions reaped.
+ */
+export type ReapStaleSessions = () => Promise<number>;
+
 export interface RoutineSchedulerConfig {
 	pollIntervalMs: number;
+	/**
+	 * AF6 scope (iii): when false (production default), generic (taskId) routines
+	 * are NOT auto-fired — the production dispatcher is unregistered, so a generic
+	 * fire would create a zombie session. Built-ins (no session) always fire. AF7
+	 * flips this true once the dispatcher is wired. Default false.
+	 */
+	canProvision?: boolean;
+	/**
+	 * AF6 §4 (WARNING 2): non-optional in-process periodic reaper. When provided,
+	 * the poll loop invokes it on a ~5-min cadence (guarded by a last-reaped
+	 * timestamp) to finalize stale `active` routine sessions that hung during the
+	 * current process (no restart).
+	 */
+	reap?: ReapStaleSessions;
+	/** Reaper cadence in ms (default 5 min). 0 = run every poll (tests). */
+	reaperCadenceMs?: number;
 }
 
 export interface RoutineScheduler {
@@ -315,7 +341,7 @@ async function createReviewItem(
 
 // --- Compute next_run_at ---
 
-function computeNextRunAt(routine: Routine, now: Date): string {
+export function computeNextRunAt(routine: Routine, now: Date): string {
 	const config = JSON.parse(routine.triggerConfig ?? "{}") as TriggerConfig;
 
 	if (routine.triggerType === "heartbeat" || routine.triggerType === "continuous") {
@@ -518,16 +544,69 @@ export async function registerEventTriggers(
 	};
 }
 
+// --- Backfill missing nextRunAt (AF6 §2b, self-heal existing DBs) ---
+
+/**
+ * For every active scheduled routine (calendar/heartbeat/continuous) with a NULL
+ * nextRunAt, compute and persist nextRunAt so the poll loop will select it.
+ * Idempotent and self-healing — runs once at scheduler start before the first poll.
+ *
+ * @lore AF6 §2b: backfill computes the NEXT match (not back-firing overdue runs)
+ * to avoid a thundering herd of catch-up runs after downtime. A routine that was
+ * due during downtime simply fires at its next scheduled slot.
+ */
+export async function backfillMissingNextRunAt(db: HyperIdleDb): Promise<number> {
+	const now = new Date();
+	const candidates = await db
+		.select()
+		.from(routines)
+		.where(
+			and(
+				eq(routines.active, true),
+				inArray(routines.triggerType, ["calendar", "heartbeat", "continuous"]),
+				isNull(routines.nextRunAt),
+			),
+		);
+
+	let count = 0;
+	for (const routine of candidates) {
+		const nextRunAt = computeNextRunAt(routine, now);
+		if (!nextRunAt) continue;
+		await db.update(routines).set({ nextRunAt }).where(eq(routines.id, routine.id));
+		count += 1;
+	}
+	return count;
+}
+
 // --- Scheduler ---
+
+const DEFAULT_REAPER_CADENCE_MS = 5 * 60 * 1000;
 
 export async function startRoutineScheduler(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	config: RoutineSchedulerConfig,
 ): Promise<RoutineScheduler> {
+	const canProvision = config.canProvision ?? false;
+	const reaperCadenceMs = config.reaperCadenceMs ?? DEFAULT_REAPER_CADENCE_MS;
+	let lastReapedAt = 0;
+
+	// Self-heal: ensure scheduled routines have a nextRunAt before the first poll.
+	await backfillMissingNextRunAt(db);
+
 	const intervalId = setInterval(() => {
 		const now = new Date().toISOString();
 		void (async () => {
+			// AF6 §4 (WARNING 2): non-optional in-process periodic reaper sweep,
+			// guarded by a last-reaped timestamp so it runs ~every reaperCadenceMs
+			// rather than every poll. Catches sessions that hung during this process.
+			if (config.reap && Date.now() - lastReapedAt >= reaperCadenceMs) {
+				lastReapedAt = Date.now();
+				config.reap().catch(() => {
+					/* fire-and-forget: reaper errors must not block routine dispatch */
+				});
+			}
+
 			const allRoutines = await db.select().from(routines).where(eq(routines.active, true));
 			const dueRoutines = allRoutines.filter((r) => {
 				if (r.triggerType === "event") return false;
@@ -536,15 +615,42 @@ export async function startRoutineScheduler(
 			});
 
 			for (const routine of dueRoutines) {
-				checkAndFireRoutine(db, eventBus, routine).catch(() => {
-					/* fire-and-forget: errors do not block subsequent routines */
-				});
+				if (isBuiltinRoutineId(routine.id)) {
+					// post-bet-retro is event-driven (needs betId args) — never dispatched
+					// from the calendar poll. Its triggerType is "event" so it's already
+					// filtered above; this is belt-and-suspenders.
+					if (routine.id === "builtin:post-bet-retro") continue;
+
+					// WARNING 1: advance nextRunAt SYNCHRONOUSLY, BEFORE dispatch.
+					// runBuiltinRoutine is async; a fire-and-forget advance would let the
+					// next poll re-select this still-due routine and double-fire. Advancing
+					// first makes the row no longer due before the next poll observes it.
+					const nextRunAt = computeNextRunAt(routine, new Date());
+					await db.update(routines).set({ nextRunAt }).where(eq(routines.id, routine.id));
+					void runBuiltinRoutine(db, eventBus, routine.id).catch(() => {
+						/* runBuiltinRoutine writes its own terminal run row (§3a) */
+					});
+				} else {
+					// AF6 scope (iii): generic routines are NOT auto-fired unless the
+					// dispatcher is wired (canProvision). Production passes false → skip,
+					// preventing the zombie stub-session path.
+					if (!canProvision) continue;
+					checkAndFireRoutine(db, eventBus, routine).catch(() => {
+						/* fire-and-forget: errors do not block subsequent routines */
+					});
+				}
 			}
 		})();
 	}, config.pollIntervalMs);
 
 	// Register event triggers
 	const unsubEvents = await registerEventTriggers(db, eventBus);
+
+	schedulerLog.info("routine scheduler started", {
+		pollIntervalMs: config.pollIntervalMs,
+		canProvision,
+		reaperEnabled: !!config.reap,
+	});
 
 	return {
 		stop: () => {

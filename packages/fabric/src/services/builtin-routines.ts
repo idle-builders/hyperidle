@@ -6,13 +6,21 @@ import {
 	knowledgeItems,
 	knowledgeStrategyFabric,
 	type Routine,
+	routineRuns,
 	routines,
 	threads,
 } from "@hyperidle/db";
-import { runStaleSweep } from "@hyperidle/fabric";
 import type { BetStateChangedEvent, EventBus, ItemCreatedEvent } from "@hyperidle/shared";
 import { and, eq, gte, inArray, like } from "drizzle-orm";
+// @lore AF6: import runStaleSweep from its source module, NOT from the package
+// index (@hyperidle/fabric). routine-scheduler.ts now imports this module, so an
+// index round-trip would form a circular import (scheduler→builtin→index→scheduler).
+import { runStaleSweep } from "../promotion-pipeline.js";
 import { createPracticeMeeting } from "./practice-meeting.js";
+// @lore AF6: cron helpers used only at runtime inside seedBuiltinRoutines. The
+// scheduler↔builtin-routines import cycle is init-safe because neither module
+// calls the other at top level (only runBuiltinRoutine / parseCron at call time).
+import { nextCronMatch, parseCron } from "./routine-scheduler.js";
 
 // --- Stable IDs ---
 
@@ -159,7 +167,17 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
  * which team id the production seed uses.
  */
 export async function seedBuiltinRoutines(db: HyperIdleDb, teamId = "prod-1"): Promise<void> {
+	const now = new Date();
 	for (const spec of BUILTIN_SPECS) {
+		// AF6 §2a: calendar built-ins need a nextRunAt at seed time so the poll
+		// loop's built-in dispatch fork selects them. Event built-ins (post-bet-retro)
+		// have no schedule. Backfill (§2b) self-heals any gap on existing DBs.
+		let nextRunAt: string | null = null;
+		const cron = (spec.triggerConfig as { cron?: string }).cron;
+		if (spec.triggerType === "calendar" && cron) {
+			nextRunAt = nextCronMatch(parseCron(cron), now).toISOString();
+		}
+
 		await db
 			.insert(routines)
 			.values({
@@ -176,6 +194,7 @@ export async function seedBuiltinRoutines(db: HyperIdleDb, teamId = "prod-1"): P
 				humanReview: spec.humanReview,
 				silent: spec.silent,
 				active: true,
+				nextRunAt,
 			})
 			.onConflictDoNothing();
 	}
@@ -212,8 +231,19 @@ export async function runBuiltinRoutine(
 		return { fired: false, reason: `routine ${routineId} not found` };
 	}
 	if (!routine.active) {
+		// @lore AF6 CRITICAL 1: the disabled short-circuit returns BEFORE inserting
+		// any routine_runs row. A disabled routine produces no run record — this
+		// preserves AC2's negative assertion (disabled → no fire, no row).
 		return { fired: false, reason: `routine ${routineId} is disabled (active=false)` };
 	}
+
+	// @lore AF6 CRITICAL 1: built-in fires must write a terminal routine_runs row
+	// so GET /api/routines/:id (which builds runs[] from routineRuns) surfaces the
+	// self-run (AC5) and "last run reflects real execution" holds (AC1). This is the
+	// single source of truth across manual trigger AND scheduled auto-fire — the §3
+	// scheduler fork only advances nextRunAt, it writes no row. costMinor:0 because
+	// built-ins do bounded DB work with no provisioned session / harness cost.
+	const startedAt = new Date();
 
 	let result: RunBuiltinResult;
 	switch (routineId) {
@@ -238,10 +268,23 @@ export async function runBuiltinRoutine(
 		}
 	}
 
+	const endedAt = new Date();
+	// Terminal on insert (no "running" intermediate) — built-in execution is
+	// synchronous and cannot leave a zombie. `skipped` rows are still recorded so
+	// runs[] stays honest about scheduler activity (observability, Hard rule 1).
+	await db.insert(routineRuns).values({
+		id: crypto.randomUUID(),
+		routineId,
+		startedAt: startedAt.toISOString(),
+		endedAt: endedAt.toISOString(),
+		outcome: result.fired ? "success" : "skipped",
+		costMinor: 0,
+	});
+
 	if (result.fired) {
 		await db
 			.update(routines)
-			.set({ lastRunAt: new Date().toISOString() })
+			.set({ lastRunAt: endedAt.toISOString() })
 			.where(eq(routines.id, routineId));
 	}
 
