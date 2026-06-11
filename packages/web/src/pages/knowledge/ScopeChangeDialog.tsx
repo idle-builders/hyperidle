@@ -88,6 +88,9 @@ function ScopeChangeDialogInner({
 	const dialogRef = useRef<HTMLDialogElement>(null);
 	const { user } = useCurrentUser();
 
+	// AF13 plan §6: Gate Team option by hasTeam, matching KnowledgeCreate's logic.
+	const hasTeam: boolean = user?.teamId !== undefined;
+
 	// AF13 §4A: Replace raw 7-enum select with 3 labeled SCOPE_CREATE_OPTIONS.
 	// The selected option holds both the user-facing label and the API scopeKind.
 	const [selectedOption, setSelectedOption] = useState<ScopeCreateOption>(
@@ -164,8 +167,10 @@ function ScopeChangeDialogInner({
 					Change scope
 				</h2>
 
-				{/* AF13 §4A: Scope kind — 3 labeled options (Shared/Team/Private). */}
-				{/* Previously rendered all 7 SCOPE_KINDS as raw enum values.       */}
+				{/* AF13 §4A: Scope kind — 3 labeled options (Shared/Team/Private).      */}
+				{/* Previously rendered all 7 SCOPE_KINDS as raw enum values.          */}
+				{/* AF13 plan §6: Team option disabled when user has no teamId,         */}
+				{/* matching the same hasTeam gate in KnowledgeCreate.                  */}
 				<label className="flex flex-col gap-1">
 					<span className="text-xs text-[var(--text-tertiary)]">New scope</span>
 					<select
@@ -181,11 +186,14 @@ function ScopeChangeDialogInner({
 						}}
 						disabled={submitting}
 					>
-						{SCOPE_CREATE_OPTIONS.map((opt) => (
-							<option key={opt.id} value={opt.label}>
-								{opt.label}
-							</option>
-						))}
+						{SCOPE_CREATE_OPTIONS.map((opt) => {
+							const isTeamOption = opt.id === "team";
+							return (
+								<option key={opt.id} value={opt.label} disabled={isTeamOption && !hasTeam}>
+									{opt.label}
+								</option>
+							);
+						})}
 					</select>
 				</label>
 

@@ -348,3 +348,71 @@ describe("AF13 §4A SUGGESTION — default-option resolution: factory and practi
 		expect(optionTexts).not.toContain("practice");
 	});
 });
+
+// ---------------------------------------------------------------------------
+// AF13 plan §6 — ScopeChangeDialog Team option gated by hasTeam
+// ---------------------------------------------------------------------------
+
+describe("AF13 §6 — ScopeChangeDialog Team option gated by hasTeam (parity with KnowledgeCreate)", () => {
+	afterEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("Team option is disabled when user has no teamId", async () => {
+		const { useCurrentUser } = await import("../hooks/useCurrentUser.js");
+		vi.mocked(useCurrentUser).mockReturnValue({
+			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
+			status: "ready",
+			error: null,
+		});
+
+		render(
+			<MemoryRouter>
+				<ScopeChangeDialog
+					open={true}
+					onClose={() => {}}
+					onSaved={() => {}}
+					knowledgeId="k1"
+					currentVersion={1}
+					currentScopeKind="factory"
+				/>
+			</MemoryRouter>,
+		);
+
+		const selectEl = screen.getByLabelText("Scope kind");
+		const teamOption = Array.from(selectEl.querySelectorAll("option")).find((o) =>
+			o.textContent?.includes("Team"),
+		);
+		expect(teamOption).toBeDefined();
+		expect(teamOption?.disabled).toBe(true);
+	});
+
+	it("Team option is enabled when user has a teamId", async () => {
+		const { useCurrentUser } = await import("../hooks/useCurrentUser.js");
+		vi.mocked(useCurrentUser).mockReturnValue({
+			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null, teamId: "t1" },
+			status: "ready",
+			error: null,
+		});
+
+		render(
+			<MemoryRouter>
+				<ScopeChangeDialog
+					open={true}
+					onClose={() => {}}
+					onSaved={() => {}}
+					knowledgeId="k1"
+					currentVersion={1}
+					currentScopeKind="factory"
+				/>
+			</MemoryRouter>,
+		);
+
+		const selectEl = screen.getByLabelText("Scope kind");
+		const teamOption = Array.from(selectEl.querySelectorAll("option")).find(
+			(o) => o.textContent?.trim() === "Team",
+		);
+		expect(teamOption).toBeDefined();
+		expect(teamOption?.disabled).toBe(false);
+	});
+});

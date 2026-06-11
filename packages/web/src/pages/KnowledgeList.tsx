@@ -408,62 +408,58 @@ function KnowledgeListRow({
 		);
 	}
 
-	// AF13 §3: Curated items rendered as <li> with click on the <li> itself (no inner <button>).
-	// This ensures getAllByRole("listitem") works AND getByRole("button", { name: /frequency/i })
-	// finds only the sort pill (not items whose title contains "Frequency").
-	// @lore AF13: The test expects listitem role for curated rows. An inner <button> was still
-	// found by getByRole("button") due to text content including the item title. Moving onClick
-	// to the <li> removes the conflicting <button> from the accessibility tree.
-	// @lore AF13: using <li> (not inner <button>) ensures getByRole("button", { name: /frequency/i })
-	// finds ONLY the sort pill and NOT curated items with "Frequency" in the title. The <li>
-	// role="listitem" (implicit) does NOT appear in getByRole("button") queries. No tabIndex needed
-	// since the click target is the list item; keyboard navigation is provided by the parent container.
+	// Curated row: <li> inside a <ul> (rendered by KnowledgeTopicGroup) with an inner <button>
+	// for keyboard accessibility (focusable, Enter/Space activatable — WCAG 2.1.1).
 	return (
-		// biome-ignore lint/a11y/useKeyWithClickEvents: keyboard access handled by parent list; item click is supplementary for mouse/touch
-		<li
-			className="flex items-center gap-[12px] px-[24px] py-[12px] border-b border-[var(--border-subtle)] cursor-pointer last:border-b-0 hover:bg-[rgba(44,36,26,0.02)] w-full text-left list-none"
-			style={{ transition: "background 240ms ease" }}
-			onClick={onClick}
-		>
-			<div className="flex-1 min-w-0">
-				<div className="text-[15px] text-[var(--text-primary)] truncate">{title}</div>
-				{preview && (
-					<div className="text-[13px] text-[var(--text-tertiary)] truncate mt-[2px]">{preview}</div>
-				)}
-			</div>
-			<div className="flex items-center gap-[6px] shrink-0">
-				{isPrivate && (
-					<span
-						className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
-						style={{ background: "var(--surface-container)", color: "var(--text-secondary)" }}
-						title="Private — only visible to you"
-						data-testid="private-badge"
-					>
-						Private
+		<li className="list-none">
+			<button
+				type="button"
+				className="flex items-center gap-[12px] px-[24px] py-[12px] border-b border-[var(--border-subtle)] cursor-pointer last:border-b-0 hover:bg-[rgba(44,36,26,0.02)] w-full text-left bg-transparent border-x-0 border-t-0"
+				style={{ transition: "background 240ms ease" }}
+				onClick={onClick}
+			>
+				<div className="flex-1 min-w-0">
+					<div className="text-[15px] text-[var(--text-primary)] truncate">{title}</div>
+					{preview && (
+						<div className="text-[13px] text-[var(--text-tertiary)] truncate mt-[2px]">
+							{preview}
+						</div>
+					)}
+				</div>
+				<div className="flex items-center gap-[6px] shrink-0">
+					{isPrivate && (
+						<span
+							className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
+							style={{ background: "var(--surface-container)", color: "var(--text-secondary)" }}
+							title="Private — only visible to you"
+							data-testid="private-badge"
+						>
+							Private
+						</span>
+					)}
+					{kind && kStyle && (
+						<span
+							className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
+							style={kStyle}
+							data-testid="kind-badge"
+						>
+							{kind}
+						</span>
+					)}
+					{status && sStyle && (
+						<span
+							className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
+							style={sStyle}
+							data-testid="status-badge"
+						>
+							{status === "archived" ? "Stale" : status.charAt(0).toUpperCase() + status.slice(1)}
+						</span>
+					)}
+					<span className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap">
+						{timestamp}
 					</span>
-				)}
-				{kind && kStyle && (
-					<span
-						className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
-						style={kStyle}
-						data-testid="kind-badge"
-					>
-						{kind}
-					</span>
-				)}
-				{status && sStyle && (
-					<span
-						className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
-						style={sStyle}
-						data-testid="status-badge"
-					>
-						{status === "archived" ? "Stale" : status.charAt(0).toUpperCase() + status.slice(1)}
-					</span>
-				)}
-				<span className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap">
-					{timestamp}
-				</span>
-			</div>
+				</div>
+			</button>
 		</li>
 	);
 }
@@ -844,7 +840,9 @@ export function KnowledgeList({
 	// @lore AF13: The old Set only removed items from Triage but never added them to Curated.
 	// The Map approach applies status overrides before the triage/curated split so one render
 	// handles both the departure from Triage and the arrival in Curated.
-	const [optimisticStatuses, setOptimisticStatuses] = useState<Map<string, string>>(new Map());
+	const [optimisticStatuses, setOptimisticStatuses] = useState<Map<string, "active" | "archived">>(
+		new Map(),
+	);
 
 	const {
 		data: apiData,

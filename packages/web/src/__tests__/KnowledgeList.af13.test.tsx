@@ -127,8 +127,9 @@ describe("AF13 §3 — Sort pills actually reorder the curated tab", () => {
 		// Switch to Curated tab
 		await user.click(screen.getByRole("tab", { name: /curated/i }));
 
-		// Click Recency sort pill
-		const recencyPill = screen.getByRole("button", { name: /recency/i });
+		// Click Recency sort pill — scoped to sort bar to avoid matching item titles
+		const sortBar = screen.getByTestId("knowledge-sort-bar");
+		const recencyPill = within(sortBar).getByRole("button", { name: /recency/i });
 		await user.click(recencyPill);
 
 		// After sort: Newest first, then Middle, then Oldest
@@ -176,7 +177,10 @@ describe("AF13 §3 — Sort pills actually reorder the curated tab", () => {
 		renderAt("/knowledge");
 		await user.click(screen.getByRole("tab", { name: /curated/i }));
 
-		const freqPill = screen.getByRole("button", { name: /frequency/i });
+		// Click Frequency sort pill — scoped to sort bar to avoid matching item titles
+		// ("High Frequency", "Low Frequency", "No Frequency" are in the curated list)
+		const sortBar = screen.getByTestId("knowledge-sort-bar");
+		const freqPill = within(sortBar).getByRole("button", { name: /frequency/i });
 		await user.click(freqPill);
 
 		// After sort: High (20) → Low (2) → No (null)
@@ -231,8 +235,9 @@ describe("AF13 §3 — Sort pills reorder the triage tab", () => {
 		const user = userEvent.setup();
 		renderAt("/knowledge");
 
-		// Click Recency on triage tab
-		const recencyPill = screen.getByRole("button", { name: /recency/i });
+		// Click Recency on triage tab — scoped to sort bar to avoid matching item titles
+		const sortBar = screen.getByTestId("knowledge-sort-bar");
+		const recencyPill = within(sortBar).getByRole("button", { name: /recency/i });
 		await user.click(recencyPill);
 
 		// After recency sort: New Draft first, Old Draft second
