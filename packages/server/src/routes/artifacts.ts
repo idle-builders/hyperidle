@@ -2,12 +2,15 @@
 // Updated from L3 (13 business-domain kinds) to AE6 (6 fundamental kinds + labels).
 // Source: plans/AE6/architecture.md §3.
 
-import { artifacts, type HyperIdleDb, tasks } from "@hyperidle/db";
+import * as crypto from "node:crypto";
+import { artifacts, type HyperIdleDb, tasks, users } from "@hyperidle/db";
+import { recordCostAndCheck } from "@hyperidle/fabric";
 import {
 	ARTIFACT_KINDS,
 	type Artifact,
 	type ArtifactCostFromSession,
 	type ArtifactPage,
+	type EventBus,
 	isRegisteredKind,
 	OLD_KIND_MAP,
 } from "@hyperidle/shared";
@@ -36,8 +39,10 @@ const createArtifactSchema = z.object({
 		.optional()
 		.nullable(),
 	preview: artifactPreviewSchema.nullable(),
-	// @lore O2: cost is accepted as a no-op field for wire compat; values are
-	// ignored since cost columns were stripped from the kernel artifacts table.
+	// @lore O2: cost is accepted for wire compat; money_micros is now routed through
+	// recordCostAndCheck when agentId resolves (AF10 §5.2). The artifacts table has no
+	// cost columns — cost lands in bet/agent/team/factory accumulators, not the artifact
+	// row itself (AC4 narrowed: per-artifact chip stays NULL_COST on GET, per §5.4).
 	cost: z
 		.object({
 			money_micros: z.number().int().nonnegative().finite().nullable(),
@@ -46,6 +51,13 @@ const createArtifactSchema = z.object({
 		})
 		.nullable()
 		.optional(),
+	// AF10 §5.1: optional agentId for cost attribution.
+	// When absent, falls back to tasks.ownerAgentId. When neither resolves,
+	// artifact is still created (201) but cost is not recorded (§5.3).
+	agentId: z.string().min(1).optional(),
+	// AF10 §5.4: optional sessionId for the dedup key.
+	// When absent, synthesized as "artifact:<artifactId>" after id generation.
+	sessionId: z.string().min(1).optional(),
 });
 
 const patchPreviewSchema = z.object({ preview: artifactPreviewSchema });
@@ -140,7 +152,7 @@ function rowToArtifact(row: ArtifactRow, producingTaskTitle: string): Artifact {
 	};
 }
 
-export function createArtifactRoutes(db: HyperIdleDb): Hono {
+export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono {
 	const router = new Hono();
 
 	router.get("/", async (c) => {
@@ -289,7 +301,7 @@ export function createArtifactRoutes(db: HyperIdleDb): Hono {
 			}
 
 			const [taskRow] = await db
-				.select({ title: tasks.title })
+				.select({ title: tasks.title, ownerAgentId: tasks.ownerAgentId })
 				.from(tasks)
 				.where(eq(tasks.id, body.producingTaskId))
 				.limit(1);
@@ -300,9 +312,6 @@ export function createArtifactRoutes(db: HyperIdleDb): Hono {
 			const id = crypto.randomUUID();
 			const now = new Date().toISOString();
 
-			// @lore O2: cost fields from the request body are intentionally ignored
-			// (cost columns stripped from artifacts table). The body still accepts
-			// cost for wire compat with existing callers.
 			await db.insert(artifacts).values({
 				id,
 				producingTaskId: body.producingTaskId,
@@ -311,6 +320,44 @@ export function createArtifactRoutes(db: HyperIdleDb): Hono {
 				previewJson: body.preview ? JSON.stringify(body.preview) : null,
 				createdAt: now,
 			});
+
+			// AF10 §5.2: Route artifact cost through recordCostAndCheck accumulators.
+			// agentId: prefer body.agentId, fall back to tasks.ownerAgentId (both nullable).
+			// teamId: resolved via users.teamId = teamMembers.id (@lore U1: NOT tasks.teamId).
+			// sessionId: body.sessionId or synthesized as "artifact:<id>" (dedup scope, §5.4).
+			// Null-owner rule (§5.3): if no agentId resolves, create artifact but skip recording.
+			const moneyMicros = body.cost?.money_micros;
+			const resolvedAgentId = body.agentId ?? taskRow.ownerAgentId ?? null;
+
+			if (
+				resolvedAgentId !== null &&
+				moneyMicros !== null &&
+				moneyMicros !== undefined &&
+				moneyMicros > 0 &&
+				eventBus !== undefined
+			) {
+				// Resolve teamMembers.id from users.teamId (§5.2 — NOT tasks.teamId which is teams.id)
+				const [agentRow] = await db
+					.select({ teamId: users.teamId })
+					.from(users)
+					.where(eq(users.id, resolvedAgentId))
+					.limit(1);
+
+				if (agentRow) {
+					const resolvedSessionId = body.sessionId ?? `artifact:${id}`;
+					// @lore AF10 AC4: costMinor = money_micros / 10000 (micros→cents conversion).
+					// This is a delta w.r.t. the accumulators (artifact cost recorded once, §1 contract).
+					// sessionId "artifact:<id>" is used exactly once — releaseSessionDedup is moot.
+					await recordCostAndCheck(db, eventBus, {
+						sessionId: resolvedSessionId,
+						costMinor: Math.round(moneyMicros / 10000),
+						currency: "USD",
+						agentId: resolvedAgentId,
+						teamId: agentRow.teamId ?? undefined,
+						taskId: body.producingTaskId,
+					});
+				}
+			}
 
 			const result: Artifact = {
 				id,

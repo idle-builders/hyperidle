@@ -23,7 +23,7 @@
  * have tabIndex) we fall back to document.body silently.
  */
 import { StatusChip, sessionOutcomeToStatus } from "@hyperidle/design-system";
-import { scaleForCurrency } from "@hyperidle/shared";
+import { formatMoney, scaleForCurrency } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { ArtifactSection } from "../components/ArtifactSection.js";
 import { type TaskSession, useTaskSessions } from "../hooks/useTaskSessions.js";
@@ -46,6 +46,8 @@ export interface KanbanTask {
 	// L19: latest session metadata (all optional — callers that don't have session data don't break)
 	latestSessionOutcome?: import("@hyperidle/shared").SessionOutcome | null;
 	latestSessionCost?: number | null;
+	/** AF10: currency code for latestSessionCost (defaults to "USD"). */
+	latestSessionCurrency?: string | null;
 	latestSessionTokensInput?: number | null;
 	latestSessionTokensOutput?: number | null;
 	latestSessionHarnessUrl?: string | null;
@@ -427,15 +429,15 @@ export function TaskSheet({
 						{task.latestSessionCost != null && (
 							<>
 								<span aria-hidden>|</span>
-								{/*
-								 * AF12: money-contract — derive the minor→major divisor from the
-								 * currency table (scaleForCurrency) instead of hardcoding /100.
-								 * KanbanTask.latestSessionCost is a bare minor-unit number with no
-								 * currency field; this task-row data path is USD-only, so USD is the
-								 * source currency (mirrors the SessionRow cost render above, which
-								 * carries an explicit Money.currency).
-								 */}
-								<span>${(task.latestSessionCost / 10 ** scaleForCurrency("USD")).toFixed(2)}</span>
+								<span>
+									{formatMoney({
+										minor: task.latestSessionCost,
+										// @lore AF10: latestSessionCurrency threads currency through the shape.
+										// Defaults to "USD" (single-currency factory today; AF10 §2 tech-debt).
+										currency: (task.latestSessionCurrency ||
+											"USD") as import("@hyperidle/shared").CurrencyCode,
+									})}
+								</span>
 							</>
 						)}
 						{(task.latestSessionTokensInput != null || task.latestSessionTokensOutput != null) && (

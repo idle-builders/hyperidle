@@ -19,6 +19,7 @@
  */
 
 import { ErrorState } from "@hyperidle/design-system";
+import { formatMoney } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
@@ -112,7 +113,7 @@ function SessionRow({
 	title: string;
 	agent: string;
 	status: string;
-	cost: { minor?: number | null } | null;
+	cost: { minor?: number | null; currency?: string | null } | null;
 	/** AC1: Float 0-1 effectiveness score. Null/undefined = not evaluated. */
 	effectivenessScore?: number | null;
 }): JSX.Element {
@@ -139,9 +140,12 @@ function SessionRow({
 					{effectivenessScore.toFixed(2)}
 				</span>
 			)}
-			{cost !== null && (
+			{cost !== null && cost.minor != null && (
 				<span className="text-[12px] font-mono tabular-nums text-[var(--text-tertiary)]">
-					${((cost?.minor ?? 0) / 100).toFixed(2)}
+					{formatMoney({
+						minor: cost.minor,
+						currency: (cost.currency || "USD") as import("@hyperidle/shared").CurrencyCode,
+					})}
 				</span>
 			)}
 			<div className="flex items-center gap-[6px] shrink-0">
@@ -331,7 +335,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 									Cost
 								</span>
 								<span className="text-[13px] font-[500] font-mono tabular-nums text-[var(--text-primary)]">
-									${((task.costActual.minor ?? 0) / 100).toFixed(2)}
+									{formatMoney(task.costActual)}
 								</span>
 							</div>
 						)}
