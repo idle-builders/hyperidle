@@ -33,10 +33,7 @@ describe("AF12 AC1 — activate at capacity returns 409", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("POST /bets/:id/commit at full capacity returns 409 CONFLICT", async ({
-		db,
-		app,
-	}) => {
+	test("POST /bets/:id/commit at full capacity returns 409 CONFLICT", async ({ db, app }) => {
 		const now = new Date().toISOString();
 		await db.insert(teams).values({ id: "prod-1", name: "Test", phase: "build", createdAt: now });
 		// Team is at capacity: capacity 1, activeBets 1.
