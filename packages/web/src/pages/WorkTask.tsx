@@ -239,7 +239,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 				<nav data-testid="task-breadcrumb" aria-label="Breadcrumb">
 					<div className="flex items-center gap-[4px] text-[13px] text-[var(--text-tertiary)] mb-[6px] flex-wrap">
 						<Link
-							to="/work"
+							to="/work/portfolio"
 							className="hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]"
 						>
 							Work

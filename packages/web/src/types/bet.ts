@@ -31,7 +31,8 @@ export interface BetDetail {
 	tokenAppetite: TokenUsage | null;
 	costActual: WireMoney | null;
 	tokensActual: TokenUsage | null;
-	progress: { done: number; total: number };
+	/** AF16 T1: optional for API older shape (older API may omit progress). */
+	progress?: { done: number; total: number };
 	/** Markdown description body (renamed from 'pitch' in L16, aligned with API in T3). */
 	description: string;
 	/** AC2: The bet hypothesis text. Null if no hypothesis was recorded. */

@@ -51,28 +51,27 @@ function renderBet(bet: BetDetail): ReturnType<typeof render> {
 }
 
 describe("AF16 T1 — WorkBet progress card", () => {
-	it("zero-task bet: renders 'No tasks yet', no NaN, no progress bar (Z8-019, Z8-020)", () => {
+	it("zero-task bet: renders 'No tasks yet' in stats row, no NaN, no progress bar (Z8-019, Z8-020)", () => {
 		renderBet(makeBet({ done: 0, total: 0 }));
 
 		// Must not contain NaN
 		const statsRow = document.querySelector("[data-testid='bet-stats-row']");
 		expect(statsRow?.textContent).not.toContain("NaN");
 
-		// Must show "No tasks yet"
-		expect(screen.getByText("No tasks yet")).toBeTruthy();
+		// Must show "No tasks yet" inside the stats row
+		expect(statsRow?.textContent).toContain("No tasks yet");
 
-		// Must NOT render a progress bar element
-		const progressBar = document.querySelector("[data-testid='bet-stats-row'] .bg-\\[var\\(--accent-primary\\)\\]");
-		// No inner bar should exist when total=0
+		// Must NOT render a progress bar element inside stats row
+		const progressBar = statsRow?.querySelector("[data-testid='bet-progress-bar']");
 		expect(progressBar).toBeNull();
 	});
 
-	it("null progress: same as zero-task (no NaN, shows 'No tasks yet', no bar)", () => {
+	it("null progress: same as zero-task (no NaN, shows 'No tasks yet' in stats, no bar)", () => {
 		renderBet(makeBet(undefined));
 
 		const statsRow = document.querySelector("[data-testid='bet-stats-row']");
 		expect(statsRow?.textContent).not.toContain("NaN");
-		expect(screen.getByText("No tasks yet")).toBeTruthy();
+		expect(statsRow?.textContent).toContain("No tasks yet");
 	});
 
 	it("50% progress: renders '50%' and a bar with 50% width", () => {

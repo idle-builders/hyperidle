@@ -1041,10 +1041,10 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 		<div className="flex flex-col h-full" data-testid="work-bet-page">
 			{/* W3: Fixed bordered header — breadcrumb + title + badges + overflow */}
 			<header className="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
-				{/* Breadcrumb */}
+				{/* Breadcrumb — AF16 T4 (Z8-046): /work → /work/portfolio (no /work route exists) */}
 				<nav aria-label="Breadcrumb" className="text-[13px] text-[var(--text-tertiary)] mb-[6px]">
 					<Link
-						to="/work"
+						to="/work/portfolio"
 						className="hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]"
 					>
 						Work
@@ -1213,26 +1213,39 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 
 					{/* W3 AC-20: Stat cards row */}
 					<div data-testid="bet-stats-row" className="flex gap-[18px]">
-						{/* Progress stat card */}
+						{/* Progress stat card — AF16 T1 (Z8-019/020): branch on total>0, not object truthiness */}
 						<div className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] flex-1">
 							<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
 								Progress
 							</span>
-							<span className="text-[24px] font-[600] tracking-[-0.01em] tabular-nums text-[var(--text-primary)]">
-								{bet.progress
-									? `${Math.round((bet.progress.done / bet.progress.total) * 100)}%`
-									: "0%"}
-							</span>
-							{bet.progress && (
-								<div className="w-full h-[8px] bg-[var(--surface-container)] rounded-[var(--r-pill)] overflow-hidden mt-[9px]">
-									<div
-										className="h-full bg-[var(--accent-primary)] rounded-[var(--r-pill)]"
-										style={{
-											width: `${Math.round((bet.progress.done / bet.progress.total) * 100)}%`,
-										}}
-									/>
-								</div>
-							)}
+							{/* @lore AF16 T1: old guard `bet.progress ?` was truthy even when total=0,
+							    producing 0/0=NaN. Now branch on hasTasks (total>0). */}
+							{(() => {
+								const total = bet.progress?.total ?? 0;
+								const done = bet.progress?.done ?? 0;
+								const hasTasks = total > 0;
+								const pct = hasTasks
+									? Math.min(100, Math.max(0, Math.round((done / total) * 100)))
+									: 0;
+								return hasTasks ? (
+									<>
+										<span className="text-[24px] font-[600] tracking-[-0.01em] tabular-nums text-[var(--text-primary)]">
+											{pct}%
+										</span>
+										<div className="w-full h-[8px] bg-[var(--surface-container)] rounded-[var(--r-pill)] overflow-hidden mt-[9px]">
+											<div
+												data-testid="bet-progress-bar"
+												className="h-full bg-[var(--accent-primary)] rounded-[var(--r-pill)]"
+												style={{ width: `${pct}%` }}
+											/>
+										</div>
+									</>
+								) : (
+									<span className="text-[13px] text-[var(--text-secondary)] mt-[3px]">
+										No tasks yet
+									</span>
+								);
+							})()}
 						</div>
 						{/* Budget stat card */}
 						<div className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] flex-1">
