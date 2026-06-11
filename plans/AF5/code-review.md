@@ -71,3 +71,23 @@ No user-facing doc changes. Justification ("type-level only, no behavior change"
 ---
 
 **Final verdict: DONE.** Ship via `/ship`. Commit the pending attestation (`88b0...json`) and the old-attestation deletion on a clean tree per the verify-commit-order rule.
+
+---
+
+## Post-ship integrity addendum — gate leaf-build change (commit 495042d1 / 495042d1)
+
+**Commit reviewed:** `495042d1` "fix(AF5): build design-system declarations before web typecheck" — landed AFTER the DONE verdict, so initially unreviewed. Touches ONLY `scripts/typecheck-gate.ts` (18+/5-): adds `design-system` to the `buildLeafDeclarations` list `["shared","db"]` → `["shared","db","design-system"]`, plus @lore comments. Z8-166 integrity-risk class (a gate change could let a red tree ship green). Verified rigorously.
+
+**VERDICT: LEGITIMATE — adds measurement accuracy, cannot hide errors, no verdict-logic change. AF5 NOT blocked.**
+
+1. **Consistent with Z8-170 rationale.** `web/tsconfig.json` references BOTH `../shared` AND `../design-system`. design-system is a genuine composite leaf (references shared, emits `.d.ts` to gitignored `dist/`). It qualifies for the same pre-build as shared/db: without a fresh `.d.ts`, the reference-consumer (web) resolves cross-package imports to `any`. Ordering is correct — design-system depends on shared, so it is built AFTER shared.
+
+2. **The 5 errors are phantom `any`-cascade, NOT masked real bugs — proven by reproduction.** Cleaned all leaf `dist/`+`.tsbuildinfo` (fresh `npm ci` simulation), built `shared`+`db` only, removed `design-system/dist`, measured web own-errors: **exactly 5**, at the exact lines the lore cites — `ThreadShell.test.tsx(304,312,320)` TS7006 and `tag-kinds.test.ts(30,37)` TS18046. Restoring `design-system/dist` → **0** own-errors. Mechanism: `computeSenderGrouping(...)` resolves to `any[]` so `.map((g)=>...)` infers `g:any`; `Object.values(TAG_KIND_ICONS)` resolves to `unknown[]` so `m`/`meta` are `unknown`. With real `.d.ts` the return types (`SenderGroupedMessage[]`, `Record<TagKind,TagKindMeta>`) type the callbacks correctly. Test source needs NO change — identical Z8-170 class.
+
+3. **Cannot suppress a genuine own-package error — proven by injection.** With design-system pre-built, injected a deliberate `const __probe: number = "..."` into `packages/web/src/services/host-route.ts`. Gate output: `web ... 2 errors FAIL`, TS2322 surfaced, gate exit 1. A leaf pre-build only upgrades cross-package imports from `any` to real types; it can NEVER hide an own-package error. Confirmed directionally safe.
+
+4. **No side-effects / no src pollution.** Separate ordered builds (not combined `tsc -b shared db design-system`), each emits to gitignored `dist/` only. `git status` shows no stray emitted files in any `src/` dir (the lone `css-modules.d.ts` is a pre-existing tracked file, not an emit). `npm run lint` exits **0** (320 warnings = pre-existing baseline, no errors). All three dist dirs confirmed gitignored.
+
+5. **No verdict/exception/ratchet logic touched.** `git diff origin/main..HEAD -- scripts/lib/typecheck-verdict.ts` is EMPTY — `computeVerdict`, debt-schema reader, crash-guard, stale-ratchet, REFERENCE_NOISE_CODES all byte-identical to main. Only the leaf-build array + comments changed. The web debt-quarantine removal (commit 186efc14) is the legitimate AF5 drain, not a logic weakening.
+
+**Full gate re-run:** all 11 packages PASS, web = 0 errors, no quarantine. The change makes the gate measure REAL web errors deterministically on CI's dist-free tree — it strengthens, not weakens, the gate.
