@@ -41,6 +41,7 @@ type UseNotificationsMock = {
 	unseenCount: number;
 	rows: NotificationRow[];
 	status: "loading" | "ready" | "error";
+	refetch: ReturnType<typeof vi.fn>;
 	markSeen: ReturnType<typeof vi.fn>;
 	markRead: ReturnType<typeof vi.fn>;
 	muteType: ReturnType<typeof vi.fn>;
@@ -65,16 +66,20 @@ describe("AF8 — NotificationPopover component (AC10)", () => {
 	let markReadMock: ReturnType<typeof vi.fn>;
 	let muteTypeMock: ReturnType<typeof vi.fn>;
 
+	let refetchMock: ReturnType<typeof vi.fn>;
+
 	beforeEach(async () => {
 		markSeenMock = vi.fn().mockResolvedValue(undefined);
 		markReadMock = vi.fn().mockResolvedValue(undefined);
 		muteTypeMock = vi.fn().mockResolvedValue(undefined);
+		refetchMock = vi.fn().mockResolvedValue(undefined);
 
 		const { useNotifications } = await import("../hooks/useNotifications");
 		vi.mocked(useNotifications).mockReturnValue({
 			unseenCount: 0,
 			rows: [],
 			status: "ready",
+			refetch: refetchMock,
 			markSeen: markSeenMock,
 			markRead: markReadMock,
 			muteType: muteTypeMock,
@@ -99,6 +104,7 @@ describe("AF8 — NotificationPopover component (AC10)", () => {
 			unseenCount: 0,
 			rows: [],
 			status: "loading",
+			refetch: refetchMock,
 			markSeen: markSeenMock,
 			markRead: markReadMock,
 			muteType: muteTypeMock,
@@ -107,10 +113,10 @@ describe("AF8 — NotificationPopover component (AC10)", () => {
 		const { NotificationPopover } = await import("../shell/NotificationPopover.js");
 		render(<NotificationPopover open={true} onClose={vi.fn()} />);
 
-		// Loading spinner or loading indicator present
-		expect(
-			screen.getByRole("status", { hidden: true }) ?? document.querySelector(".loading"),
-		).toBeDefined();
+		// Loading spinner: role="status" with aria-label is present
+		expect(screen.getByRole("status", { name: /loading notifications/i })).toBeInTheDocument();
+		// Row list must NOT be present in loading state
+		expect(screen.queryByRole("list")).not.toBeInTheDocument();
 	});
 
 	it("renders error state with retry", async () => {
@@ -119,6 +125,7 @@ describe("AF8 — NotificationPopover component (AC10)", () => {
 			unseenCount: 0,
 			rows: [],
 			status: "error",
+			refetch: refetchMock,
 			markSeen: markSeenMock,
 			markRead: markReadMock,
 			muteType: muteTypeMock,
@@ -131,12 +138,36 @@ describe("AF8 — NotificationPopover component (AC10)", () => {
 		expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
 	});
 
+	it("Retry button calls refetch when clicked", async () => {
+		const { useNotifications } = await import("../hooks/useNotifications");
+		vi.mocked(useNotifications).mockReturnValue({
+			unseenCount: 0,
+			rows: [],
+			status: "error",
+			refetch: refetchMock,
+			markSeen: markSeenMock,
+			markRead: markReadMock,
+			muteType: muteTypeMock,
+		} as UseNotificationsMock);
+
+		const { NotificationPopover } = await import("../shell/NotificationPopover.js");
+		render(<NotificationPopover open={true} onClose={vi.fn()} />);
+
+		const user = userEvent.setup();
+		await user.click(screen.getByRole("button", { name: /retry/i }));
+
+		await waitFor(() => {
+			expect(refetchMock).toHaveBeenCalledOnce();
+		});
+	});
+
 	it("renders rows with title, type label, and relative time", async () => {
 		const { useNotifications } = await import("../hooks/useNotifications");
 		vi.mocked(useNotifications).mockReturnValue({
 			unseenCount: 1,
 			rows: [makeMockRow()],
 			status: "ready",
+			refetch: refetchMock,
 			markSeen: markSeenMock,
 			markRead: markReadMock,
 			muteType: muteTypeMock,
@@ -156,6 +187,7 @@ describe("AF8 — NotificationPopover component (AC10)", () => {
 			unseenCount: 2,
 			rows: [makeMockRow()],
 			status: "ready",
+			refetch: refetchMock,
 			markSeen: markSeenMock,
 			markRead: markReadMock,
 			muteType: muteTypeMock,
@@ -175,6 +207,7 @@ describe("AF8 — NotificationPopover component (AC10)", () => {
 			unseenCount: 1,
 			rows: [makeMockRow({ id: "notif-dismiss" })],
 			status: "ready",
+			refetch: refetchMock,
 			markSeen: markSeenMock,
 			markRead: markReadMock,
 			muteType: muteTypeMock,
@@ -198,6 +231,7 @@ describe("AF8 — NotificationPopover component (AC10)", () => {
 			unseenCount: 1,
 			rows: [makeMockRow({ id: "notif-mute", typeKey: "review_request" })],
 			status: "ready",
+			refetch: refetchMock,
 			markSeen: markSeenMock,
 			markRead: markReadMock,
 			muteType: muteTypeMock,

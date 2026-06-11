@@ -27,6 +27,8 @@ export interface UseNotificationsResult {
 	unseenCount: number;
 	rows: NotificationRow[];
 	status: "loading" | "ready" | "error";
+	/** Re-fetch the inbox. Used by the error-state Retry button. */
+	refetch: () => Promise<void>;
 	markSeen: () => Promise<void>;
 	markRead: (id: string) => Promise<void>;
 	muteType: (typeKey: string) => Promise<void>;
@@ -87,5 +89,5 @@ export function useNotifications(): UseNotificationsResult {
 		}
 	}, []);
 
-	return { unseenCount, rows, status, markSeen, markRead, muteType };
+	return { unseenCount, rows, status, refetch: fetchInbox, markSeen, markRead, muteType };
 }
