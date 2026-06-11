@@ -37,15 +37,6 @@ type NotificationRow = {
 	readAt: string | null;
 };
 
-type UseNotificationsMock = {
-	unseenCount: number;
-	rows: NotificationRow[];
-	status: "loading" | "ready" | "error";
-	refetch: ReturnType<typeof vi.fn>;
-	markSeen: ReturnType<typeof vi.fn>;
-	markRead: ReturnType<typeof vi.fn>;
-	muteType: ReturnType<typeof vi.fn>;
-};
 
 function makeMockRow(overrides: Partial<NotificationRow> = {}): NotificationRow {
 	return {
@@ -83,7 +74,7 @@ describe("AF8 — NotificationPopover component (AC10)", () => {
 			markSeen: markSeenMock,
 			markRead: markReadMock,
 			muteType: muteTypeMock,
-		} as UseNotificationsMock);
+		} as unknown as import("../hooks/useNotifications.js").UseNotificationsResult);
 	});
 
 	afterEach(() => {
@@ -108,7 +99,7 @@ describe("AF8 — NotificationPopover component (AC10)", () => {
 			markSeen: markSeenMock,
 			markRead: markReadMock,
 			muteType: muteTypeMock,
-		} as UseNotificationsMock);
+		} as unknown as import("../hooks/useNotifications.js").UseNotificationsResult);
 
 		const { NotificationPopover } = await import("../shell/NotificationPopover.js");
 		render(<NotificationPopover open={true} onClose={vi.fn()} />);
@@ -129,7 +120,7 @@ describe("AF8 — NotificationPopover component (AC10)", () => {
 			markSeen: markSeenMock,
 			markRead: markReadMock,
 			muteType: muteTypeMock,
-		} as UseNotificationsMock);
+		} as unknown as import("../hooks/useNotifications.js").UseNotificationsResult);
 
 		const { NotificationPopover } = await import("../shell/NotificationPopover.js");
 		render(<NotificationPopover open={true} onClose={vi.fn()} />);
@@ -148,7 +139,7 @@ describe("AF8 — NotificationPopover component (AC10)", () => {
 			markSeen: markSeenMock,
 			markRead: markReadMock,
 			muteType: muteTypeMock,
-		} as UseNotificationsMock);
+		} as unknown as import("../hooks/useNotifications.js").UseNotificationsResult);
 
 		const { NotificationPopover } = await import("../shell/NotificationPopover.js");
 		render(<NotificationPopover open={true} onClose={vi.fn()} />);
@@ -171,7 +162,7 @@ describe("AF8 — NotificationPopover component (AC10)", () => {
 			markSeen: markSeenMock,
 			markRead: markReadMock,
 			muteType: muteTypeMock,
-		} as UseNotificationsMock);
+		} as unknown as import("../hooks/useNotifications.js").UseNotificationsResult);
 
 		const { NotificationPopover } = await import("../shell/NotificationPopover.js");
 		render(<NotificationPopover open={true} onClose={vi.fn()} />);
@@ -191,7 +182,7 @@ describe("AF8 — NotificationPopover component (AC10)", () => {
 			markSeen: markSeenMock,
 			markRead: markReadMock,
 			muteType: muteTypeMock,
-		} as UseNotificationsMock);
+		} as unknown as import("../hooks/useNotifications.js").UseNotificationsResult);
 
 		const { NotificationPopover } = await import("../shell/NotificationPopover.js");
 		render(<NotificationPopover open={true} onClose={vi.fn()} />);
@@ -211,7 +202,7 @@ describe("AF8 — NotificationPopover component (AC10)", () => {
 			markSeen: markSeenMock,
 			markRead: markReadMock,
 			muteType: muteTypeMock,
-		} as UseNotificationsMock);
+		} as unknown as import("../hooks/useNotifications.js").UseNotificationsResult);
 
 		const { NotificationPopover } = await import("../shell/NotificationPopover.js");
 		render(<NotificationPopover open={true} onClose={vi.fn()} />);
@@ -235,7 +226,7 @@ describe("AF8 — NotificationPopover component (AC10)", () => {
 			markSeen: markSeenMock,
 			markRead: markReadMock,
 			muteType: muteTypeMock,
-		} as UseNotificationsMock);
+		} as unknown as import("../hooks/useNotifications.js").UseNotificationsResult);
 
 		const { NotificationPopover } = await import("../shell/NotificationPopover.js");
 		render(<NotificationPopover open={true} onClose={vi.fn()} />);
