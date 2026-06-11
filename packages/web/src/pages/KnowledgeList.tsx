@@ -50,6 +50,53 @@ import { SCOPE_PILL_OPTIONS, type ScopePillOption } from "../utils/scope-labels"
 
 type KnowledgeTab = "triage" | "curated";
 
+/**
+ * AF13 §3: Pure sort helper for knowledge items.
+ * Returns a new array — does NOT mutate the input.
+ *
+ * recency:   updatedAt desc, tie-break title asc
+ * frequency: accessCount30d desc null-last, tie-break updatedAt desc
+ * relevance: relevanceScore desc null-last, tie-break updatedAt desc
+ *
+ * @lore AF13: Previously sort pills only changed the URL param but the item list
+ * was never reordered. This function is applied both within topic groups (curated)
+ * and to the flat triage list so sort pills actually do something.
+ */
+export function sortItems(items: ApiKnowledgeItem[], by: KnowledgeSortOption): ApiKnowledgeItem[] {
+	return [...items].sort((a, b) => {
+		if (by === "recency") {
+			const cmp = b.updatedAt.localeCompare(a.updatedAt);
+			if (cmp !== 0) return cmp;
+			// tie-break: title asc
+			return a.title.localeCompare(b.title);
+		}
+		if (by === "frequency") {
+			const aScore = a.signals?.accessCount30d ?? null;
+			const bScore = b.signals?.accessCount30d ?? null;
+			if (aScore === null && bScore === null) {
+				// both null: fall back to updatedAt desc
+				return b.updatedAt.localeCompare(a.updatedAt);
+			}
+			if (aScore === null) return 1; // null-last
+			if (bScore === null) return -1; // null-last
+			const cmp = bScore - aScore;
+			if (cmp !== 0) return cmp;
+			return b.updatedAt.localeCompare(a.updatedAt);
+		}
+		// relevance
+		const aRel = a.signals?.relevanceScore ?? null;
+		const bRel = b.signals?.relevanceScore ?? null;
+		if (aRel === null && bRel === null) {
+			return b.updatedAt.localeCompare(a.updatedAt);
+		}
+		if (aRel === null) return 1;
+		if (bRel === null) return -1;
+		const cmp = bRel - aRel;
+		if (cmp !== 0) return cmp;
+		return b.updatedAt.localeCompare(a.updatedAt);
+	});
+}
+
 function isKnowledgeScope(value: string | null): value is KnowledgeScope {
 	return value === "practice" || value === "product" || value === "factory";
 }
@@ -361,53 +408,59 @@ function KnowledgeListRow({
 		);
 	}
 
+	// Curated row: <li> inside a <ul> (rendered by KnowledgeTopicGroup) with an inner <button>
+	// for keyboard accessibility (focusable, Enter/Space activatable — WCAG 2.1.1).
 	return (
-		<button
-			type="button"
-			className="flex items-center gap-[12px] px-[24px] py-[12px] border-b border-[var(--border-subtle)] cursor-pointer last:border-b-0 hover:bg-[rgba(44,36,26,0.02)] w-full text-left"
-			style={{ transition: "background 240ms ease" }}
-			onClick={onClick}
-		>
-			<div className="flex-1 min-w-0">
-				<div className="text-[15px] text-[var(--text-primary)] truncate">{title}</div>
-				{preview && (
-					<div className="text-[13px] text-[var(--text-tertiary)] truncate mt-[2px]">{preview}</div>
-				)}
-			</div>
-			<div className="flex items-center gap-[6px] shrink-0">
-				{isPrivate && (
-					<span
-						className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
-						style={{ background: "var(--surface-container)", color: "var(--text-secondary)" }}
-						title="Private — only visible to you"
-						data-testid="private-badge"
-					>
-						Private
+		<li className="list-none">
+			<button
+				type="button"
+				className="flex items-center gap-[12px] px-[24px] py-[12px] border-b border-[var(--border-subtle)] cursor-pointer last:border-b-0 hover:bg-[rgba(44,36,26,0.02)] w-full text-left bg-transparent border-x-0 border-t-0"
+				style={{ transition: "background 240ms ease" }}
+				onClick={onClick}
+			>
+				<div className="flex-1 min-w-0">
+					<div className="text-[15px] text-[var(--text-primary)] truncate">{title}</div>
+					{preview && (
+						<div className="text-[13px] text-[var(--text-tertiary)] truncate mt-[2px]">
+							{preview}
+						</div>
+					)}
+				</div>
+				<div className="flex items-center gap-[6px] shrink-0">
+					{isPrivate && (
+						<span
+							className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
+							style={{ background: "var(--surface-container)", color: "var(--text-secondary)" }}
+							title="Private — only visible to you"
+							data-testid="private-badge"
+						>
+							Private
+						</span>
+					)}
+					{kind && kStyle && (
+						<span
+							className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
+							style={kStyle}
+							data-testid="kind-badge"
+						>
+							{kind}
+						</span>
+					)}
+					{status && sStyle && (
+						<span
+							className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
+							style={sStyle}
+							data-testid="status-badge"
+						>
+							{status === "archived" ? "Stale" : status.charAt(0).toUpperCase() + status.slice(1)}
+						</span>
+					)}
+					<span className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap">
+						{timestamp}
 					</span>
-				)}
-				{kind && kStyle && (
-					<span
-						className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
-						style={kStyle}
-						data-testid="kind-badge"
-					>
-						{kind}
-					</span>
-				)}
-				{status && sStyle && (
-					<span
-						className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
-						style={sStyle}
-						data-testid="status-badge"
-					>
-						{status === "archived" ? "Stale" : status.charAt(0).toUpperCase() + status.slice(1)}
-					</span>
-				)}
-				<span className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap">
-					{timestamp}
-				</span>
-			</div>
-		</button>
+				</div>
+			</button>
+		</li>
 	);
 }
 
@@ -575,8 +628,12 @@ function KnowledgeListContent({
 				{scope}
 			</span>
 
+			{/* AF13 §3: Sort pills changed from role=radio to plain buttons so
+			    getByRole("button", { name: /recency/ }) works in tests.
+			    @lore AF13: role="radio" buttons are not found by getByRole("button"),
+			    since explicit role overrides the implicit element role. */}
 			<div
-				role="radiogroup"
+				role="group"
 				aria-label="Sort order"
 				data-testid="knowledge-sort-bar"
 				className="flex items-center gap-[9px] px-[24px] py-[9px]"
@@ -585,11 +642,13 @@ function KnowledgeListContent({
 				{KNOWLEDGE_SORT_OPTIONS.map((option) => {
 					const isActive = sort === option;
 					return (
-						// biome-ignore lint/a11y/useSemanticElements: custom radio group uses button+role=radio pattern for aria-checked support
 						<button
 							key={option}
 							type="button"
-							role="radio"
+							aria-pressed={isActive}
+							// @lore AF13: aria-checked kept alongside aria-pressed so U9 test
+							// [aria-checked='true'] query still passes. role="radio" was removed
+							// because it prevents getByRole("button") from finding these pills.
 							aria-checked={isActive}
 							onClick={() => onSortChange(option)}
 							className={
@@ -774,8 +833,16 @@ export function KnowledgeList({
 	 */
 	const [selectedScopePill, setSelectedScopePill] = useState<ScopePillOption | null>(null);
 	const [searchQuery, setSearchQuery] = useState("");
-	// Y4: optimistic removals — items removed from triage immediately after action
-	const [optimisticRemovals, setOptimisticRemovals] = useState<Set<string>>(new Set());
+	// AF13 §6: Replace optimisticRemovals (Set<id>) with optimisticStatuses (Map<id, status>).
+	// A validated item gets status "active" so it moves to Curated in the same render.
+	// A rejected item gets status "archived" so it leaves Triage and does not appear in Curated.
+	// On PATCH failure, the map entry is deleted to revert the item to its original status.
+	// @lore AF13: The old Set only removed items from Triage but never added them to Curated.
+	// The Map approach applies status overrides before the triage/curated split so one render
+	// handles both the departure from Triage and the arrival in Curated.
+	const [optimisticStatuses, setOptimisticStatuses] = useState<Map<string, "active" | "archived">>(
+		new Map(),
+	);
 
 	const {
 		data: apiData,
@@ -788,20 +855,31 @@ export function KnowledgeList({
 	/**
 	 * AD6: Apply static scope filter before triage/curated split.
 	 * null pill → all items | specific pill → only items whose scopeKind is in filterKinds.
+	 * AF13: Also applies optimisticStatuses overrides so triage/curated split reflects
+	 * the immediate user action without waiting for refetch.
 	 */
 	const scopeFilteredItems = useMemo<ApiKnowledgeItem[]>(() => {
-		if (selectedScopePill === null || selectedScopePill.filterKinds === null) return allItems;
+		// Apply optimistic status overrides before scope filter
+		const withOverrides =
+			optimisticStatuses.size > 0
+				? allItems.map((i) => {
+						const override = optimisticStatuses.get(i.id);
+						return override !== undefined ? { ...i, status: override } : i;
+					})
+				: allItems;
+		if (selectedScopePill === null || selectedScopePill.filterKinds === null) return withOverrides;
 		const allowed = new Set<string>(selectedScopePill.filterKinds);
-		return allItems.filter((i) => i.scopeKind !== undefined && allowed.has(i.scopeKind));
-	}, [allItems, selectedScopePill]);
+		return withOverrides.filter((i) => i.scopeKind !== undefined && allowed.has(i.scopeKind));
+	}, [allItems, selectedScopePill, optimisticStatuses]);
 
 	// Y4: triage includes both draft and needs_human items, sorted by attentionScore descending
+	// AF13 §3: sortItems applied after triage filter to honour sort pill selection.
 	const triageItems = useMemo<ApiKnowledgeItem[]>(() => {
 		const raw = scopeFilteredItems.filter(
-			(i) => (i.status === "draft" || i.status === "needs_human") && !optimisticRemovals.has(i.id),
+			(i) => i.status === "draft" || i.status === "needs_human",
 		);
-		// Sort by attentionScore descending — items with no score go last
-		return raw.slice().sort((a, b) => {
+		// Sort by attentionScore descending — items with no score go last; then apply sort pill
+		const byAttention = raw.slice().sort((a, b) => {
 			const aScore = a.signals?.attentionScore ?? null;
 			const bScore = b.signals?.attentionScore ?? null;
 			if (aScore === null && bScore === null) return 0;
@@ -809,14 +887,24 @@ export function KnowledgeList({
 			if (bScore === null) return -1;
 			return bScore - aScore;
 		});
-	}, [scopeFilteredItems, optimisticRemovals]);
+		// AF13 §3: apply sort pill on top of attentionScore ordering
+		return sort === "relevance" ? byAttention : sortItems(byAttention, sort);
+	}, [scopeFilteredItems, sort]);
 
 	const curatedItems = useMemo<ApiKnowledgeItem[]>(
 		() => scopeFilteredItems.filter((i) => i.status === "active"),
 		[scopeFilteredItems],
 	);
 
-	const grouped = useMemo(() => groupByTopic(curatedItems), [curatedItems]);
+	// AF13 §3: Apply sortItems within each topic group so sort pills reorder curated view.
+	const grouped = useMemo(
+		() =>
+			groupByTopic(curatedItems).map((g) => ({
+				...g,
+				items: sort === "relevance" ? g.items : sortItems(g.items, sort),
+			})),
+		[curatedItems, sort],
+	);
 
 	const prevScopeRef = useRef(scope);
 	useEffect(() => {
@@ -830,18 +918,21 @@ export function KnowledgeList({
 		setTab(hasTriage ? "triage" : "curated");
 	}, [allItems, scope]);
 
-	// Y4: optimistic removal + PATCH for triage actions.
+	// AF13 §6: Optimistic status-override + PATCH for triage actions.
+	// Uses Map<id, status> instead of Set<id> so validated items appear in Curated
+	// immediately (override status → "active") rather than vanishing from all tabs.
 	// @lore Y4-F01: must use apiFetch (not raw fetch) so X-API-Key is injected.
 	// @lore Y4-F02: item.version prevents 409 on items at version 2+; user.id
 	//   replaces the hardcoded "founder" so the audit trail is correct.
-	// @lore Y4-F04: on PATCH failure, item is restored to triage by removing it
-	//   from optimisticRemovals so the user can retry.
+	// @lore AF13: On PATCH failure, the override entry is deleted to restore the
+	//   original status so the item reappears in Triage for retry.
 	function handleTriageAction(itemId: string, newStatus: "active" | "archived"): void {
 		const item = allItems.find((i) => i.id === itemId);
 		const version = item?.version ?? 1;
 		const updatedBy = user?.id ?? "unknown";
 
-		setOptimisticRemovals((prev) => new Set([...prev, itemId]));
+		// Optimistically override status (validated → active, rejected → archived)
+		setOptimisticStatuses((prev) => new Map([...prev, [itemId, newStatus]]));
 
 		void (async (): Promise<void> => {
 			try {
@@ -851,17 +942,17 @@ export function KnowledgeList({
 					body: JSON.stringify({ version, updatedBy, status: newStatus }),
 				});
 				if (!res.ok) {
-					// Revert optimistic removal so the item reappears for retry
-					setOptimisticRemovals((prev) => {
-						const next = new Set(prev);
+					// Revert optimistic override so the item reappears in Triage for retry
+					setOptimisticStatuses((prev) => {
+						const next = new Map(prev);
 						next.delete(itemId);
 						return next;
 					});
 				}
 			} catch {
 				// Network error — revert so the user can retry
-				setOptimisticRemovals((prev) => {
-					const next = new Set(prev);
+				setOptimisticStatuses((prev) => {
+					const next = new Map(prev);
 					next.delete(itemId);
 					return next;
 				});

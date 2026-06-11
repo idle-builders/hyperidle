@@ -16,9 +16,9 @@
 
 // @lore U1: `teams` renamed to `teamMembers` (membership group); `products` renamed to `teams` (domain entity).
 // `mechanism: "team"` targets the agent membership group → check `teamMembers`.
-import { type HyperIdleDb, orgEdges, teamMembers, users } from "@hyperidle/db";
+import { type HyperIdleDb, orgEdges, teamMembers, teams, users } from "@hyperidle/db";
 import { ORG_EDGE_MECHANISMS } from "@hyperidle/shared";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -37,6 +37,9 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	// GET / — full org chart
+	// AF15 AC-6: Extends response with teams: {id, name}[] (teamMembers.id, teams.name)
+	// so the UI can populate the team-edge target select without a separate fetch.
+	// id = teamMembers.id (what PUT /edges validates for mechanism:"team").
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const edges = await db.select().from(orgEdges);
 		const allUsers = await db
@@ -48,7 +51,17 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 			})
 			.from(users);
 
-		return c.json({ edges, users: allUsers });
+		// AF15: Include non-dissolved teamMembers rows joined to teams.name.
+		// @lore AF15: teamMembers.id is the correct target for mechanism:"team" edges
+		// (org.ts line 106 validates target against teamMembers.id, not teams.id).
+		// The UI shows teams.name as the label but submits teamMembers.id as value.
+		const teamRows = await db
+			.select({ id: teamMembers.id, name: teams.name })
+			.from(teamMembers)
+			.innerJoin(teams, eq(teams.id, teamMembers.teamId))
+			.where(isNull(teamMembers.dissolvedAt));
+
+		return c.json({ edges, users: allUsers, teams: teamRows });
 	});
 
 	// PUT /edges — upsert an edge

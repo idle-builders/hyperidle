@@ -82,7 +82,8 @@ interface DetailItem {
 	id: string;
 	title: string;
 	layer: string;
-	kind: string;
+	/** AF13 §5: kind is optional — undefined renders as "—" in the metadata aside */
+	kind?: string;
 	status: KnowledgeStatus;
 	timestamp: string;
 	content: string;
@@ -254,7 +255,7 @@ export function KnowledgeDetail({ overrideKnowledgeId }: KnowledgeDetailProps = 
 			id: apiItem.id,
 			title: apiItem.title,
 			layer: apiItem.layer ?? "unknown",
-			kind: apiItem.kind ?? "unknown",
+			kind: apiItem.kind,
 			status: toKnowledgeStatus(apiItem.status),
 			timestamp: apiItem.updatedAt,
 			content: apiItem.body,
@@ -530,6 +531,19 @@ function KnowledgeDetailView({
 	// T2: Current user for updatedBy
 	const { user } = useCurrentUser();
 
+	// AF13 §2: self-authored factory items are editable; agent-authored factory items
+	// remain read-only.
+	// Predicate: editable only when BOTH updatedBy is the current user AND user is loaded.
+	// When either is absent (fixture items with no updatedBy, or user not yet loaded),
+	// factory items default to read-only to preserve the invariant.
+	// @lore AF13: Previously isFactory unconditionally suppressed the Edit button.
+	// The fix: allow edit when isFactory AND user is known AND updatedBy === user.id.
+	// Self-created factory items (the default human-create scope) are editable.
+	// Declared after useCurrentUser() so user is guaranteed in scope.
+	const isSelfAuthoredFactory =
+		isFactory && user !== null && item.updatedBy !== undefined && item.updatedBy === user.id;
+	const isReadOnly = isFactory && !isSelfAuthoredFactory;
+
 	// T2: Auto-save hook wiring
 	const { status: saveStatus, save: triggerSave } = useAutoSave({
 		endpoint: `/api/knowledge/${effectiveKnowledgeId}`,
@@ -685,8 +699,9 @@ function KnowledgeDetailView({
 				<div className="flex items-center gap-[6px] shrink-0">
 					{/* W3 AC-44: save indicator in header (only in edit mode) */}
 					{editing && <SaveIndicator saveStatus={saveStatus} />}
-					{/* W3 AC-39: Edit/Done button — factory items are read-only */}
-					{!(editing || isFactory) ? (
+					{/* W3 AC-39: Edit/Done button — read-only when agent-authored factory item */}
+					{/* AF13 §2: self-authored factory items show Edit; isReadOnly gates this */}
+					{!(editing || isReadOnly) ? (
 						<button
 							type="button"
 							className="inline-flex items-center text-[12px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border border-transparent cursor-pointer"
@@ -860,7 +875,8 @@ function KnowledgeDetailView({
 							</div>
 							<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">
 								<span className="text-[var(--text-tertiary)]">Kind</span>
-								<span className="text-[var(--text-primary)] font-[500]">{item.kind}</span>
+								{/* AF13 §5: null/undefined kind renders "—" not blank or "undefined" */}
+								<span className="text-[var(--text-primary)] font-[500]">{item.kind ?? "—"}</span>
 							</div>
 							{/* AD6: Scope row — shows human-readable scope label */}
 							<div

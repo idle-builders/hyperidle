@@ -185,11 +185,14 @@ describe("W3 AC-51 — Backend section showing mode", () => {
 		expect(screen.getByTestId("settings-section-backend")).toBeInTheDocument();
 	});
 
-	it("Backend section shows mode text (Local or Shared)", () => {
+	it("Backend section shows mode text (Web, Local, or Shared)", () => {
+		// AF15 AC-3: SettingsBackend now derives mode from window.__HYPERIDLE__
+		// instead of hardcoding isLocal=true. In the test environment there is no
+		// bridge, so resolveBackendState() returns "web" → label "Web".
 		renderSettingsPage();
 		const backendSection = screen.getByTestId("settings-section-backend");
 		expect(backendSection).toHaveTextContent(/mode/i);
-		expect(backendSection).toHaveTextContent(/local|shared/i);
+		expect(backendSection).toHaveTextContent(/web|local|shared/i);
 	});
 });
 

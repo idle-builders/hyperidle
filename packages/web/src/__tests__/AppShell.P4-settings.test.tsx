@@ -107,8 +107,10 @@ describe("AppShell — P4 Settings overlay", () => {
 		});
 	});
 
-	// AC-12: Settings has 7 sections
-	it("shows 7 settings section NavItems in Sidebar when settings is open", async () => {
+	// AC-12: Settings sections in Sidebar
+	// AF15: Updated — "teams" removed (no SettingsTeams component),
+	// "agents" and "worker" added. Count is now 9 sections.
+	it("shows settings section NavItems in Sidebar when settings is open", async () => {
 		const user = userEvent.setup();
 		renderShell();
 
@@ -131,8 +133,8 @@ describe("AppShell — P4 Settings overlay", () => {
 			expect(screen.getAllByText("Notifications").length).toBeGreaterThanOrEqual(1);
 			// "Appearance" appears in both sidebar + SettingsPage section heading
 			expect(screen.getAllByText("Appearance").length).toBeGreaterThanOrEqual(1);
-			// @lore U1: "Products" renamed to "Teams" in settings menu
-			expect(screen.getByText("Teams")).toBeInTheDocument();
+			// AF15 AC-1: "Agents" section added (SettingsAgents now mounted)
+			expect(screen.getAllByText("Agents").length).toBeGreaterThanOrEqual(1);
 			// "Backend" appears in both sidebar + SettingsPage section heading
 			expect(screen.getAllByText("Backend").length).toBeGreaterThanOrEqual(1);
 		});
