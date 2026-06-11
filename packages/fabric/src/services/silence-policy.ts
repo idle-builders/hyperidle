@@ -78,6 +78,78 @@ export async function isSilenced(db: HyperIdleDb, item: SilenceItem, now: Date):
 }
 
 /**
+ * AF8: FACTORY SILENCE only (no quiet-hours window check).
+ *
+ * Returns true when silence_mode=true OR per-product silence applies.
+ * Does NOT check the silence_window_start/end.
+ *
+ * Used by the drain's cost-breach split: a hard cost_breach bypasses factory
+ * silence but RESPECTS quiet hours (concept hard rule #8). Checking them
+ * independently (this function + isInSilenceWindow) is the split.
+ *
+ * @lore AF8: COST-BREACH SILENCE SPLIT — the original flushQueue collapsed
+ * both factory silence and quiet-hours into one isSilenced() boolean, then
+ * exempted cost_breach from all of it. This violated hard rule #8 (a cost
+ * breach during quiet hours would page the founder). The fix: two independent
+ * predicates. cost_breach: bypass isFactorySilenced, respect isInSilenceWindow.
+ * isSilenced() is kept as the OR-of-both for the blocking-row path (back-compat).
+ */
+export async function isFactorySilenced(db: HyperIdleDb, item: SilenceItem): Promise<boolean> {
+	// 1. Factory-wide silence
+	const [silenceMode] = await db
+		.select()
+		.from(factorySettings)
+		.where(eq(factorySettings.key, "silence_mode"))
+		.limit(1);
+	if (silenceMode?.value === "true") return true;
+
+	// 2. Per-product (per-team) silence
+	if (item.sourceAgentId) {
+		const [agent] = await db.select().from(users).where(eq(users.id, item.sourceAgentId)).limit(1);
+		if (agent?.teamId) {
+			const [memberGroup] = await db
+				.select()
+				.from(teamMembers)
+				.where(eq(teamMembers.id, agent.teamId))
+				.limit(1);
+			if (memberGroup) {
+				const [productSilence] = await db
+					.select()
+					.from(factorySettings)
+					.where(eq(factorySettings.key, `silence_product_${memberGroup.teamId}`))
+					.limit(1);
+				if (productSilence?.value === "true") return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+/**
+ * AF8: Read the quiet-hours window endpoints from factory_settings.
+ * Returns null if not configured.
+ */
+export async function readSilenceWindow(
+	db: HyperIdleDb,
+): Promise<{ start: string; end: string } | null> {
+	const [windowStart] = await db
+		.select()
+		.from(factorySettings)
+		.where(eq(factorySettings.key, "silence_window_start"))
+		.limit(1);
+	const [windowEnd] = await db
+		.select()
+		.from(factorySettings)
+		.where(eq(factorySettings.key, "silence_window_end"))
+		.limit(1);
+	if (windowStart && windowEnd) {
+		return { start: windowStart.value, end: windowEnd.value };
+	}
+	return null;
+}
+
+/**
  * True when `now` falls within the "HH:MM" UTC window [start, end]. Both
  * endpoints are inclusive. Supports overnight windows where `start > end`.
  */

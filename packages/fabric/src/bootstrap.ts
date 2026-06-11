@@ -13,6 +13,9 @@ import {
 	type AlertPreferences,
 	registerNotificationDispatcher,
 } from "./services/notifications/dispatcher.js";
+import { startNotificationDrain } from "./services/notifications/drain.js";
+import { defaultMutePreferenceReader } from "./services/notifications/mute.js";
+import { registerNotificationListener } from "./services/notifications/notification-listener.js";
 import { registerPolicyEngine } from "./services/policy-engine.js";
 import { startRoutineScheduler } from "./services/routine-scheduler.js";
 import { reapStaleRoutineSessions } from "./services/routine-session-reaper.js";
@@ -97,6 +100,13 @@ export function bootstrapFabric(ctx: {
 			readAlertPreferences: ctx.readAlertPreferences,
 		}),
 	);
+
+	// AF8: notification listener (event→typed row) + drain loop (automatic delivery)
+	// The listener subscribes to "notification" and enriches policy-engine push events
+	// into typed, source-linked notification_queue rows. The drain makes lease recovery automatic.
+	const muteReader = defaultMutePreferenceReader(db);
+	disposers.push(registerNotificationListener(db, eventBus, { mute: muteReader }));
+	disposers.push(startNotificationDrain(db, defaultNotificationAdapterFactory, {}));
 
 	// AD2: Register task dispatcher when provisioning deps are provided.
 	// When absent (kernel-only tests without an adapter pool), dispatcher is skipped.

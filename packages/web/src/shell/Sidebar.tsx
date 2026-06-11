@@ -101,6 +101,22 @@ export interface SidebarProps {
 	 * When > 0, a numeric badge renders adjacent to the Conversations header.
 	 */
 	conversationsBlockingCount?: number;
+
+	/**
+	 * AF8: count of unseen notifications. When > 0, a red dot renders on the
+	 * notification trigger button in the bottom strip.
+	 */
+	unseenNotificationCount?: number;
+
+	/**
+	 * AF8: handler for the notification trigger click (opens NotificationPopover).
+	 */
+	onNotificationClick?: () => void;
+
+	/**
+	 * AF8: whether the NotificationPopover is currently open (for aria-expanded).
+	 */
+	notificationPopoverOpen?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -173,6 +189,9 @@ export function Sidebar({
 	userInitials,
 	knowledgeTriageCount,
 	conversationsBlockingCount,
+	unseenNotificationCount,
+	onNotificationClick,
+	notificationPopoverOpen,
 }: SidebarProps): JSX.Element {
 	// Cap threads at 5
 	const visibleThreads = threads.slice(0, 5);
@@ -393,6 +412,52 @@ export function Sidebar({
 							(userInitials ?? "?")
 						)}
 					</button>
+
+					{/* AF8: Notification trigger button with unread dot */}
+					{onNotificationClick !== undefined && (
+						<button
+							type="button"
+							data-testid="sidebar-notification-btn"
+							onClick={onNotificationClick}
+							aria-label={
+								(unseenNotificationCount ?? 0) > 0
+									? `Notifications (${unseenNotificationCount} unseen)`
+									: "Notifications"
+							}
+							style={{ position: "relative" }}
+							className={[
+								"inline-flex w-7 h-7 items-center justify-center rounded-full shrink-0",
+								"transition-[background] duration-[var(--motion-fast)] cursor-pointer",
+								"border-[1.5px]",
+								notificationPopoverOpen
+									? "border-[var(--accent-primary)] text-[var(--accent-primary)]"
+									: "border-[var(--border-default)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]",
+							].join(" ")}
+						>
+							<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+								<path
+									d="M7 1a4 4 0 0 0-4 4v2.5L2 9h10l-1-1.5V5a4 4 0 0 0-4-4zm0 12a1.5 1.5 0 0 0 1.5-1.5h-3A1.5 1.5 0 0 0 7 13z"
+									fill="currentColor"
+								/>
+							</svg>
+							{(unseenNotificationCount ?? 0) > 0 && (
+								<span
+									data-testid="notification-unread-dot"
+									aria-hidden="true"
+									style={{
+										position: "absolute",
+										top: "1px",
+										right: "1px",
+										width: "8px",
+										height: "8px",
+										borderRadius: "50%",
+										background: "var(--accent-primary)",
+										border: "1.5px solid var(--surface-page)",
+									}}
+								/>
+							)}
+						</button>
+					)}
 
 					{/* Assistant button */}
 					<button

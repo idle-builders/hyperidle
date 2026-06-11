@@ -2,8 +2,10 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { notificationQueue } from "@hyperidle/db";
 import {
 	type AdapterFactory,
+	defaultMutePreferenceWriter,
 	dispatchDigest,
 	flushQueue,
+	getMutedTypeKeys,
 	loadNotificationConfig,
 	type Notification,
 	type NotificationChannel,
@@ -20,9 +22,9 @@ import {
 	sanitizeTopic,
 	updateNotificationConfig,
 } from "@hyperidle/fabric";
-import type { ApiErrorResponse, Logger } from "@hyperidle/shared";
-import { API_ERROR_CODES, createLogger } from "@hyperidle/shared";
-import { desc, eq } from "drizzle-orm";
+import type { ApiErrorResponse, Logger, NotificationTypeKey } from "@hyperidle/shared";
+import { API_ERROR_CODES, createLogger, NOTIFICATION_TYPES } from "@hyperidle/shared";
+import { desc, eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { validateBody } from "../middleware/validate.js";
@@ -334,6 +336,118 @@ export function createNotificationRoutes(
 	router.post("/digest", validateBody(digestBodySchema), async (c) => {
 		const result = await dispatchDigest(db, { adapterFactory: factory, now: nowFn });
 		return c.json(result);
+	});
+
+	// ──────────────────────────────────────────────────────────────────────────
+	// AF8: In-app notification popover API
+	// ──────────────────────────────────────────────────────────────────────────
+
+	/**
+	 * GET /inbox — list unread (readAt IS NULL) notifications, urgency+recency order, cap 50.
+	 * Drives the popover row list and unread dot count.
+	 */
+	router.get("/inbox", async (c) => {
+		const rows = await db
+			.select()
+			.from(notificationQueue)
+			.where(isNull(notificationQueue.readAt))
+			.orderBy(desc(notificationQueue.createdAt))
+			.limit(50);
+
+		// Sort: immediate urgency first, then ambient; within each group, newest first
+		const sorted = [...rows].sort((a, b) => {
+			if (a.urgency === "immediate" && b.urgency !== "immediate") return -1;
+			if (a.urgency !== "immediate" && b.urgency === "immediate") return 1;
+			return a.createdAt < b.createdAt ? 1 : -1;
+		});
+
+		const unseenCount = sorted.filter((r) => r.seenAt === null).length;
+
+		return c.json({
+			unseenCount,
+			rows: sorted.map((r) => ({
+				id: r.id,
+				typeKey: r.typeKey,
+				urgency: r.urgency,
+				title: r.title,
+				sourceLink: r.sourceLink,
+				createdAt: r.createdAt,
+				seenAt: r.seenAt,
+				readAt: r.readAt,
+			})),
+		});
+	});
+
+	/**
+	 * POST /seen — mark all currently-unseen rows as seen.
+	 * Called on popover open to clear the unread dot.
+	 *
+	 * @lore AF8 W3: single bulk UPDATE instead of per-row loop — one statement
+	 * regardless of how many unseen rows exist. The previous N+1 loop issued one
+	 * round-trip per unseen row (50+ rows = 50+ DB calls on every popover open).
+	 */
+	router.post("/seen", async (c) => {
+		const now = nowFn().toISOString();
+		await db.update(notificationQueue).set({ seenAt: now }).where(isNull(notificationQueue.seenAt));
+		return c.json({ ok: true });
+	});
+
+	/**
+	 * POST /:id/read — mark a specific notification as read (jump or dismiss).
+	 *
+	 * @lore AF8 W4: Use z.string().uuid() for strict UUID validation (version/variant
+	 * nibbles + hyphen positions). The previous regex /^[0-9a-f-]{36}$/ accepted
+	 * 36-dash strings and other non-UUID inputs. The plan promised z.string().uuid().
+	 */
+	router.post("/:id/read", async (c) => {
+		const id = c.req.param("id");
+		const parsed = z.string().uuid().safeParse(id);
+		if (!parsed.success) {
+			const response: ApiErrorResponse = {
+				error: "invalid notification id",
+				code: API_ERROR_CODES.VALIDATION_ERROR,
+			};
+			return c.json(response, 400);
+		}
+		const now = nowFn().toISOString();
+		await db
+			.update(notificationQueue)
+			.set({ readAt: now })
+			.where(eq(notificationQueue.id, parsed.data));
+		return c.json({ ok: true });
+	});
+
+	/**
+	 * GET /mute — return the list of muted notification type keys.
+	 * Used by Settings to render initial toggle states.
+	 */
+	router.get("/mute", async (c) => {
+		const muted = await getMutedTypeKeys(db);
+		return c.json({ muted });
+	});
+
+	/**
+	 * PUT /mute/:key — set mute state for a notification type.
+	 * Validates that :key is a registered type from NOTIFICATION_TYPES.
+	 * Writes via MutePreferenceWriter (factory-level until AF15).
+	 *
+	 * @lore AF8: No rate limiter — idempotent set-to-value, founder-tier auth,
+	 * no fan-out. See architecture §Security for full justification.
+	 */
+	router.put("/mute/:key", validateBody(z.object({ muted: z.boolean() }).strict()), async (c) => {
+		const key = c.req.param("key");
+		const validKeys = NOTIFICATION_TYPES.map((t) => t.key);
+		if (!validKeys.includes(key as NotificationTypeKey)) {
+			const response: ApiErrorResponse = {
+				error: `unknown notification type key '${key}'; must be one of: ${validKeys.join(", ")}`,
+				code: API_ERROR_CODES.VALIDATION_ERROR,
+			};
+			return c.json(response, 400);
+		}
+		const body = c.req.valid("json");
+		const writer = defaultMutePreferenceWriter(db);
+		await writer.setMuted(key as NotificationTypeKey, body.muted);
+		return c.json({ ok: true });
 	});
 
 	return router;

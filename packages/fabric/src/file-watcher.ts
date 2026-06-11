@@ -35,6 +35,12 @@ export function startWatcher(config: FileWatcherConfig): FileWatcher {
 		const changes = Array.from(pendingChanges.values());
 		pendingChanges.clear();
 
+		// @lore file-watcher flush: processWriteback is async, so errors inside
+		// it become Promise rejections — a sync try/catch does NOT catch them.
+		// Attach a .catch() to suppress ENOENT when the workspace directory is
+		// removed (test cleanup, session end with workspace reaper) before the
+		// debounce timer fires. Stop the watcher on ENOENT to prevent further
+		// flushes — the workspace is gone and there is nothing left to flush.
 		processWriteback(
 			{
 				db: config.db,
@@ -43,7 +49,21 @@ export function startWatcher(config: FileWatcherConfig): FileWatcher {
 				manifestPath: config.manifestPath,
 			},
 			changes,
-		);
+		).catch((err: unknown) => {
+			if (err !== null && typeof err === "object" && "code" in err && err.code === "ENOENT") {
+				stopped = true;
+				if (debounceTimer) {
+					clearTimeout(debounceTimer);
+					debounceTimer = null;
+				}
+				for (const watcher of watchers) {
+					watcher.close();
+				}
+				return;
+			}
+			// Re-throw non-ENOENT errors as unhandled rejections
+			throw err;
+		});
 	}
 
 	function scheduleFlush(): void {

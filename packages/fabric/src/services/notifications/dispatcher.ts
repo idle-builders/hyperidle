@@ -41,7 +41,7 @@ import {
 	type RoutineFiredEvent,
 } from "@hyperidle/shared";
 import { and, asc, eq, lt, sql } from "drizzle-orm";
-import { isInSilenceWindow, isSilenced } from "../silence-policy.js";
+import { isFactorySilenced, isInSilenceWindow, readSilenceWindow } from "../silence-policy.js";
 import { loadNotificationConfig, type NotificationConfig, pickRecipient } from "./config.js";
 import { type DigestResult, runDailyDigest } from "./digest.js";
 import { scrubErrorMessage } from "./redact.js";
@@ -233,6 +233,10 @@ export async function enqueueNotification(
 		reason: QueueReason;
 		channel: NotificationChannel | null;
 		now: Date;
+		// AF8: in-app notification model fields (all optional for back-compat)
+		typeKey?: string | null;
+		urgency?: string | null;
+		sourceLink?: string | null;
 	},
 	cap: number = QUEUE_CAP,
 ): Promise<void> {
@@ -282,6 +286,10 @@ export async function enqueueNotification(
 		status: "pending",
 		attempts: 0,
 		createdAt: params.now.toISOString(),
+		// AF8: in-app notification model — persisted at enqueue, never reconstructed at render
+		typeKey: params.typeKey ?? null,
+		urgency: params.urgency ?? null,
+		sourceLink: params.sourceLink ?? null,
 	});
 }
 
@@ -370,11 +378,23 @@ function adapterForRow(
  * silence lift and (optionally) by admin `/flush`. Rows marked `sent`
  * on success or `failed` + `lastError` on permanent failure.
  *
- * @lore Silence-aware: rows whose severity would be blocked by the
- * current silence state stay `pending` (rescheduled at next silence
- * lift). `cost_breach` and `digest` severities always flush — cost
- * breaches page unconditionally; digest is non-interruptive. This
- * matches the per-event routing inside {@link registerNotificationDispatcher}.
+ * @lore AF8: COST-BREACH SILENCE SPLIT (concept hard rule #8).
+ * The old implementation collapsed factory silence AND quiet-hours into one
+ * isSilenced() boolean, then exempted cost_breach from ALL of it. This
+ * violated rule #8: a cost breach during quiet hours would page the founder.
+ *
+ * The fix — two independent predicates read once per tick:
+ *   factorySilenced = silence_mode=true OR per-product silence (no window check)
+ *   inQuietHours = silence_window_start/end covers now
+ *
+ * Per-row decision:
+ *   cost_breach: bypass factorySilenced (BYPASSES factory kill switch),
+ *                respect inQuietHours (DEFERS during founder's sleep window)
+ *   blocking:    defer on EITHER factorySilenced OR inQuietHours
+ *   digest:      always flush (non-interruptive)
+ *
+ * isSilenced() is kept for backward-compat with the route() blocking path
+ * inside registerNotificationDispatcher; it is NOT used here anymore.
  */
 export async function flushQueue(
 	db: HyperIdleDb,
@@ -391,16 +411,33 @@ export async function flushQueue(
 	let flushed = 0;
 	let failed = 0;
 	let deferred = 0;
-	const silenced = await isSilenced(db, { sourceAgentId: null }, now);
+
+	// Read the two predicates once per tick (not per row) — they are config-level.
+	const factorySilenced = await isFactorySilenced(db, { sourceAgentId: null });
+	const silenceWindow = await readSilenceWindow(db);
+	const inQuietHours = silenceWindow
+		? isInSilenceWindow(silenceWindow.start, silenceWindow.end, now)
+		: false;
+
 	for (const row of rows) {
 		const severity = row.severity as NotificationSeverity;
-		// Silence-aware flush: blocking rows are held; cost_breach + digest
-		// flush through unconditionally. Digest rows are non-interruptive
-		// by definition; cost breaches must always page.
-		if (silenced && severity === "blocking") {
-			deferred += 1;
-			continue;
+
+		// AF8 cost-breach split: two independent predicates.
+		if (severity === "cost_breach") {
+			// cost_breach BYPASSES factory silence (rule #8), RESPECTS quiet hours.
+			if (inQuietHours) {
+				deferred += 1;
+				continue;
+			}
+			// fall through → flush (bypassing factory silence)
+		} else if (severity === "blocking") {
+			// blocking defers on EITHER factory silence OR quiet hours.
+			if (factorySilenced || inQuietHours) {
+				deferred += 1;
+				continue;
+			}
 		}
+		// digest: always flush (non-interruptive) — no silence check.
 		if (!(await claimRow(db, row.id, now))) {
 			// A concurrent flush took this row; skip.
 			continue;
@@ -647,30 +684,37 @@ export function registerNotificationDispatcher(
 
 		const now = nowFn();
 
-		// Quiet hours check — only when quietHoursEnabled=true.
-		// Hard cost breaches bypass quiet hours (same as factory-level silence).
-		// @lore R8: quietHoursEnabled is the gate. When false, start/end are
-		// irrelevant even if they cover the current time. This is a separate check
-		// from isSilenced() which reads factorySettings silence_window_*.
-		if (!prefMeta.isHardCostBreach && prefs.quietHoursEnabled) {
-			if (isInSilenceWindow(prefs.quietHoursStart, prefs.quietHoursEnd, now)) {
-				await enqueueNotification(db, {
-					eventType,
-					subjectId,
-					severity: classification.severity,
-					title: notification.title,
-					body: notification.body,
-					reason: "silence",
-					channel: null,
-					now,
-				});
-				return;
-			}
-		}
+		// AF8: COST-BREACH SILENCE SPLIT (concept hard rule #8) — direct-send path.
+		// Mirrors the flushQueue split. Two independent predicates:
+		//   factorySilenced = silence_mode OR per-product silence (no window)
+		//   inQuietHours    = silence_window_start/end covers now
+		//
+		// @lore AF8: The previous logic (inherited from R8) checked quietHoursEnabled
+		// from AlertPreferences and bypassed quiet hours for hard cost breaches, making
+		// it safe but coarser (no factory_settings window check). The AF8 split aligns
+		// the direct-send path with the drain's logic: cost_breach respects quiet hours
+		// from factory_settings (not just AlertPreferences quietHoursEnabled).
+		// AlertPreferences quietHoursEnabled check is kept as an additional gate because
+		// it may be set independently (e.g. by users who have not set a factory window).
+		//
+		// Decision precedence:
+		//   1. AlertPreferences quiet hours (R8 gate)
+		//   2. factory_settings silence_window (AF8 gate — read once from DB)
+		// Either gate triggers deferral for non-breach rows.
+		// cost_breach defers on quiet hours from either source; bypasses factory silence.
 
-		// Factory-level silence check (except for hard cost_breach which still pages).
-		if (classification.severity !== "cost_breach") {
-			if (await isSilenced(db, { sourceAgentId }, now)) {
+		const factSilenced = await isFactorySilenced(db, { sourceAgentId });
+		const silenceWin = await readSilenceWindow(db);
+		const inQuietHoursFactory = silenceWin
+			? isInSilenceWindow(silenceWin.start, silenceWin.end, now)
+			: false;
+		const inQuietHoursPrefs =
+			prefs.quietHoursEnabled && isInSilenceWindow(prefs.quietHoursStart, prefs.quietHoursEnd, now);
+		const inQuietHours = inQuietHoursFactory || inQuietHoursPrefs;
+
+		if (prefMeta.isHardCostBreach) {
+			// cost_breach: bypass factory silence, RESPECT quiet hours
+			if (inQuietHours) {
 				await enqueueNotification(db, {
 					eventType,
 					subjectId,
@@ -683,6 +727,20 @@ export function registerNotificationDispatcher(
 				});
 				return;
 			}
+			// fall through → dispatch (bypasses factory silence)
+		} else if (factSilenced || inQuietHours) {
+			// non-breach: defer on factory silence OR quiet hours
+			await enqueueNotification(db, {
+				eventType,
+				subjectId,
+				severity: classification.severity,
+				title: notification.title,
+				body: notification.body,
+				reason: "silence",
+				channel: null,
+				now,
+			});
+			return;
 		}
 
 		if (classification.kind === "digest") {

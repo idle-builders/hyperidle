@@ -84,11 +84,13 @@ export async function checkAndUnblockDependents(
 		// Auto-transition hold -> accepted
 		await transitionTask(db, eventBus, task.id, "accepted");
 
-		// Emit notification
+		// Emit ambient event — NOT a notification (concept hard rule #6: auto-unblock is ambient)
+		// AF8: kind="auto_unblock" → the notification listener filters this out entirely
 		eventBus.emit({
 			type: "notification",
 			streamId: task.id,
 			targetId: task.id,
+			kind: "auto_unblock",
 			message: `Task ${task.id} auto-transitioned to accepted: all dependencies are done`,
 			timestamp: Date.now(),
 		});

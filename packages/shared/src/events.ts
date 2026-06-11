@@ -80,6 +80,20 @@ export interface NotificationEvent {
 	targetId: string;
 	message: string;
 	timestamp: number;
+	/**
+	 * AF8: MANDATORY discriminator. Distinguishes policy-engine "attention"
+	 * push notifications from dep-watcher "auto_unblock" ambient events.
+	 *
+	 * @lore AF8: This field is MANDATORY (not optional) so TypeScript forces
+	 * both emit sites to set it. The notification listener filters on `kind`
+	 * ONLY — never on message text. auto_unblock is ambient (concept hard
+	 * rule #6) and must never produce a notification_queue row.
+	 *
+	 * Emit sites:
+	 *   policy-engine.ts   → kind: "attention"
+	 *   dependency-watcher.ts → kind: "auto_unblock"
+	 */
+	kind: "attention" | "auto_unblock";
 }
 
 /**

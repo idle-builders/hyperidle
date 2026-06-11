@@ -164,6 +164,8 @@ describe("H3 review fixes — (2) wildcard subscription", () => {
 			type: "notification",
 			streamId: "note-1",
 			targetId: "t-1",
+			// AF8: kind is now mandatory on NotificationEvent
+			kind: "attention",
 			message: "hi",
 			timestamp: Date.now(),
 		});

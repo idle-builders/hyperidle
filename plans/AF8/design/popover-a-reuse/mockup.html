@@ -1,0 +1,84 @@
+<!doctype html>
+<html data-theme="hearth-dark">
+<head>
+<meta charset="utf-8" />
+<style>
+  :root {
+    --r-subtle:10px; --r-pill:9999px;
+    --motion-fast:120ms; --tracking-caps:.08em; --tracking-caps-sm:.06em;
+    --surface-container:#231e16; --surface-elevated:#2c261c; --surface-overlay:#352e23;
+    --accent-primary:#2eaa7a; --status-success:#2eaa7a; --status-warning:#d97706;
+    --status-error:#dc4a3a; --status-info:#2e7dba;
+    --text-primary:#ede5d8; --text-secondary:#a89880; --text-tertiary:#9a8e7e;
+    --border-subtle:#3d342a; --border-default:#554a3c; --border-strong:#756850;
+    --shadow-elevated:0 8px 24px rgba(0,0,0,.5);
+    --font-sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+    --font-mono:ui-monospace,"SF Mono","Cascadia Code",monospace;
+  }
+  body{background:var(--surface-container);margin:0;font-family:var(--font-sans);height:100vh;display:flex;align-items:flex-end;padding:16px;}
+  .popover{position:relative;bottom:0;left:0;width:360px;max-height:70vh;display:flex;flex-direction:column;overflow:hidden;
+    border-radius:var(--r-subtle);border:1px solid var(--border-default);background:var(--surface-overlay);box-shadow:var(--shadow-elevated);}
+  .hdr{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid var(--border-subtle);}
+  .hdr h2{font-size:15px;font-weight:600;color:var(--text-primary);margin:0;}
+  .hdr .right{display:flex;align-items:center;gap:9px;}
+  .markall{font-size:12px;color:var(--text-secondary);background:none;border:none;cursor:pointer;}
+  .x{width:24px;height:24px;border:none;background:none;color:var(--text-secondary);cursor:pointer;}
+  .list{overflow-y:auto;}
+  /* NotificationRow primitive shape */
+  .nrow{display:flex;align-items:center;gap:12px;padding:12px 24px;border-radius:var(--r-subtle);border-left:3px solid;transition:background var(--motion-fast);}
+  .nrow:hover{background:color-mix(in oklab,var(--accent-primary) 4%,var(--surface-elevated));}
+  .circle{width:24px;height:24px;border-radius:50%;flex-shrink:0;}
+  .chip{display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--r-pill);font-family:var(--font-mono);font-size:10px;letter-spacing:var(--tracking-caps);text-transform:uppercase;border:1px solid var(--border-default);color:var(--text-secondary);}
+  .msg{flex:1;font-size:15px;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .tag{display:inline-flex;padding:1px 8px;border-radius:var(--r-pill);font-size:11px;color:var(--text-secondary);background:var(--surface-container);border:1px solid var(--border-subtle);}
+  .ts{font-size:12px;color:var(--text-tertiary);white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .acts{display:flex;gap:4px;}
+  .acts button{width:20px;height:20px;border:none;background:none;color:var(--text-tertiary);cursor:pointer;font-size:13px;}
+</style>
+</head>
+<body>
+  <div class="popover">
+    <div class="hdr">
+      <h2>Notifications</h2>
+      <div class="right">
+        <button class="markall">Mark all read</button>
+        <button class="x">✕</button>
+      </div>
+    </div>
+    <div class="list">
+      <div class="nrow" style="border-left-color:var(--status-error)">
+        <span class="circle" style="background:color-mix(in oklab,var(--status-error) 14%,transparent)"></span>
+        <span class="chip">ERROR</span>
+        <span class="msg">Review needed: pricing-page copy v3</span>
+        <span class="tag">Review</span>
+        <span class="ts">4m</span>
+        <span class="acts"><button title="Mute">⊘</button><button title="Dismiss">✕</button></span>
+      </div>
+      <div class="nrow" style="border-left-color:var(--status-error)">
+        <span class="circle" style="background:color-mix(in oklab,var(--status-error) 14%,transparent)"></span>
+        <span class="chip">ERROR</span>
+        <span class="msg">Factory spend hit 100% of cap</span>
+        <span class="tag">Cost</span>
+        <span class="ts">1h</span>
+        <span class="acts"><button title="Mute">⊘</button><button title="Dismiss">✕</button></span>
+      </div>
+      <div class="nrow" style="border-left-color:var(--status-error)">
+        <span class="circle" style="background:color-mix(in oklab,var(--status-error) 14%,transparent)"></span>
+        <span class="chip">ERROR</span>
+        <span class="msg">Agent Wren blocked on auth-service task</span>
+        <span class="tag">Blocker</span>
+        <span class="ts">2h</span>
+        <span class="acts"><button title="Mute">⊘</button><button title="Dismiss">✕</button></span>
+      </div>
+      <div class="nrow" style="border-left-color:var(--status-info)">
+        <span class="circle" style="background:color-mix(in oklab,var(--status-info) 14%,transparent)"></span>
+        <span class="chip">INFO</span>
+        <span class="msg">Review needed: onboarding email draft</span>
+        <span class="tag">Review</span>
+        <span class="ts">yest</span>
+        <span class="acts"><button title="Mute">⊘</button><button title="Dismiss">✕</button></span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

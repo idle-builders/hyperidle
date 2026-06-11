@@ -171,6 +171,13 @@ export { MODEL_PROVIDERS } from "./model-gateway.js";
 // SSRF utilities use node:dns/net/util and cannot be imported in the browser.
 // Server code imports them via "@hyperidle/shared/net" subpath export instead.
 export type { ResolveResult, SanitizeResult, SanitizeUrlOptions } from "./net/ssrf.js";
+// ── AF8: Notification type registry ──
+export type {
+	NotificationType,
+	NotificationTypeKey,
+	NotificationUrgency,
+} from "./notifications.js";
+export { NOTIFICATION_TYPES, urgencyForType } from "./notifications.js";
 export type { ObservabilityEvent } from "./observability/events.js";
 export {
 	AWS_AKIA_RE,
