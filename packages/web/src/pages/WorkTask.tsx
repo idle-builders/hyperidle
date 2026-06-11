@@ -214,7 +214,8 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 	}
 
 	const sessions = sessionsData?.sessions ?? [];
-	const activeSession = sessions.find((s) => s.status === "active");
+	// @lore AF16 AC-2: activeSession removed — the "Dial in" button that used it
+	// was removed (no session route exists). Re-add when work/session route is built.
 	const activeSessions = sessions.filter((s) => s.status === "active");
 	const completedSessions = sessions.filter((s) => s.status === "done" || s.status === "completed");
 
@@ -266,15 +267,12 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 					<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] mt-[4px]">
 						{task.title}
 					</h2>
+					{/* AC-2: "More actions" overflow button removed — no task-level overflow
+					    actions are defined for WorkTask (archive, scope, etc. are not yet
+					    modelled here). A button with no onClick is a no-op; removing is
+					    correct per AC-2. Add back when real actions exist. */}
 					<div className="flex items-center gap-[6px] shrink-0">
 						<span className={statusBadgeClass}>{statusLabel}</span>
-						<button
-							type="button"
-							aria-label="More actions"
-							className="inline-flex items-center justify-center w-[32px] h-[32px] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] text-[16px] cursor-pointer hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)]"
-						>
-							&#xB7;&#xB7;&#xB7;
-						</button>
 					</div>
 				</div>
 			</header>
@@ -350,16 +348,11 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 							>
 								{activeSessions.length} active / {completedSessions.length} completed
 							</span>
-							{activeSession && (
-								<button
-									type="button"
-									className="inline-flex items-center px-[9px] py-[4px] text-[12px] font-[500] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] cursor-pointer hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)] mt-[3px] w-fit"
-									data-testid="task-dial-in-btn"
-									aria-label="Dial in to active session"
-								>
-									Dial in
-								</button>
-							)}
+							{/* AC-2: "Dial in" button removed — no work/session/:id route or
+							    dial-in handler exists anywhere in the codebase. A visible,
+							    labeled button that cannot navigate or invoke any action is
+							    a no-op and violates AC-2. Re-add when a session detail route
+							    is built (e.g. work/bet/:betId/session/:sessionId). */}
 						</div>
 						{/* AC1: Outcome cell — always rendered; shows "--" when not evaluated */}
 						<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px]">
