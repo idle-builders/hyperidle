@@ -30,7 +30,7 @@ describe("Composer (approved.md §2.5)", () => {
 		await userEvent.type(ta, "hello");
 		await userEvent.click(screen.getByRole("button", { name: /send/i }));
 		expect(onSubmit).toHaveBeenCalled();
-		const call = onSubmit.mock.calls[0][0] as { text: string; clientKey: string };
+		const call = onSubmit.mock.calls[0]![0] as { text: string; clientKey: string };
 		expect(call.text).toBe("hello");
 		expect(call.clientKey.length).toBeGreaterThanOrEqual(8);
 	});

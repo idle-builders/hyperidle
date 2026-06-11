@@ -58,12 +58,15 @@ const MOCK_BETS_RESPONSE = {
 	killed: [],
 };
 
-function makeMockFetch(data: unknown, ok = true): ReturnType<typeof vi.fn> {
+function makeMockFetch(
+	data: unknown,
+	ok = true,
+): (_input: string | URL | Request, _init?: RequestInit) => Promise<Response> {
 	return vi.fn().mockResolvedValue({
 		ok,
 		status: ok ? 200 : 500,
 		json: vi.fn().mockResolvedValue(data),
-	});
+	}) as (_input: string | URL | Request, _init?: RequestInit) => Promise<Response>;
 }
 
 afterEach(() => {

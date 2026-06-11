@@ -95,7 +95,7 @@ describe("ThreadRow", () => {
 		const row =
 			screen.getByText("Deploy pipeline stuck").closest("[role='button']") ??
 			screen.getByText("Deploy pipeline stuck").parentElement;
-		row?.click();
+		(row as HTMLElement | null)?.click();
 		expect(handleClick).toHaveBeenCalledOnce();
 	});
 

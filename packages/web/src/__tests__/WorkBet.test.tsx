@@ -8,7 +8,7 @@ import { WorkBet } from "../pages/WorkBet";
 // inject fixture data without crossing the __fixtures__/ import boundary
 // in production code.
 
-function renderPage(overrideBet = MOCK_BETS.b1): ReturnType<typeof render> {
+function renderPage(overrideBet = MOCK_BETS.b1!): ReturnType<typeof render> {
 	return render(
 		<MemoryRouter initialEntries={[`/work/bet/${overrideBet.id}`]}>
 			<Routes>

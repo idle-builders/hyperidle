@@ -11,7 +11,7 @@
  * `AnchoredMessages` inside KnowledgeBody.tsx.
  */
 
-import type { Message } from "@hyperidle/shared";
+import type { Message, PlainPayload } from "@hyperidle/shared";
 import { deriveBlocks } from "@hyperidle/shared";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -33,7 +33,7 @@ const { blocks: DERIVED_BLOCKS } = deriveBlocks(BODY_WITH_TWO_BLOCKS, {
 const ORPHAN_BLOCK_ID = "block-orphan-that-no-longer-exists-in-body";
 
 // A blockId that DOES exist in BODY_WITH_TWO_BLOCKS.
-const LIVE_BLOCK_ID = DERIVED_BLOCKS[0].id;
+const LIVE_BLOCK_ID = DERIVED_BLOCKS[0]!.id;
 
 function makeMessage(id: string, blockId?: string): Message {
 	return {
@@ -41,9 +41,9 @@ function makeMessage(id: string, blockId?: string): Message {
 		threadId: "t-anchor-test",
 		senderId: "u-founder",
 		type: "plain",
-		payload: blockId
+		payload: (blockId
 			? { text: `Message anchored to ${blockId}`, blockId }
-			: { text: "Plain message" },
+			: { text: "Plain message" }) as PlainPayload & { blockId?: string },
 		clientKey: `ck-${id}`,
 		deletedAt: null,
 		redactedAt: null,

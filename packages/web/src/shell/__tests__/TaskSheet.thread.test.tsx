@@ -33,7 +33,6 @@ const MOCK_TASK: KanbanTask = {
 	title: "Build the feature",
 	owner: "Dev Agent",
 	state: "in_progress",
-	betId: "bet-001",
 	betTag: "BET-001",
 	cost: "$5.00",
 };

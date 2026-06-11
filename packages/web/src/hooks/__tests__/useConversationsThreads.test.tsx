@@ -67,9 +67,9 @@ describe("useConversationsThreads", () => {
 			expect(result.current.status).toBe("ready");
 		});
 		expect(result.current.threads.length).toBe(1);
-		expect(result.current.threads[0].id).toBe("t1");
+		expect(result.current.threads[0]!.id).toBe("t1");
 		expect(fetchMock).toHaveBeenCalledTimes(1);
-		const url = fetchMock.mock.calls[0][0] as string;
+		const url = fetchMock.mock.calls[0]![0] as string;
 		expect(url).toContain("/api/threads");
 		expect(url).toContain("participant_id=u-founder");
 		expect(url).toContain("limit=50");

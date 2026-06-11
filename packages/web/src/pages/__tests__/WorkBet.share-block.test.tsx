@@ -170,7 +170,7 @@ describe("T4 — WorkBet: clicking '+' attach button calls attachContext (AC-5)"
 		await user.click(pitchAttachButtons[0] as HTMLElement);
 
 		expect(attachContext).toHaveBeenCalledOnce();
-		const calledRef = attachContext.mock.calls[0][0] as CocContextRef;
+		const calledRef = attachContext.mock.calls[0]![0] as CocContextRef;
 		expect(calledRef.kind).toBe("block");
 		// Block refs must carry blockId, hostKind, hostId
 		expect("blockId" in calledRef).toBe(true);

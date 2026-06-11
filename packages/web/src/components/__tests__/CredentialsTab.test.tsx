@@ -189,7 +189,7 @@ describe("P3 AC-13 — CredentialsTab: fixed catalog display", () => {
 			await waitFor(() => screen.getAllByRole("button", { name: /set|update/i }));
 
 			const setButtons = screen.getAllByRole("button", { name: /set|update/i });
-			await userEvent.click(setButtons[0]);
+			await userEvent.click(setButtons[0]!);
 
 			await waitFor(() => {
 				// Look for a password-type input
@@ -296,7 +296,7 @@ describe("P3 AC-13 — CredentialsTab: fixed catalog display", () => {
 
 			// Click the first Set button (anthropic_api_key)
 			const setButtons = screen.getAllByRole("button", { name: /set|update/i });
-			await userEvent.click(setButtons[0]);
+			await userEvent.click(setButtons[0]!);
 
 			// Find the password input and type a value
 			await waitFor(() => {

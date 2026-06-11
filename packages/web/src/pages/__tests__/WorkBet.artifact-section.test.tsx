@@ -61,7 +61,7 @@ vi.mock("../../components/ArtifactSection", () => ({
 }));
 
 function renderBet(id = "b1"): ReturnType<typeof render> {
-	const bet = MOCK_BETS[id];
+	const bet = MOCK_BETS[id]!;
 	return render(
 		<MemoryRouter initialEntries={[`/work/bet/${bet.id}`]}>
 			<Routes>

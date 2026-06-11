@@ -30,7 +30,7 @@ describe("M3 — resolveOrCreateHostThread with null agentParticipantId (D1)", (
 
 	beforeEach(() => {
 		fetchSpy = vi.fn();
-		global.fetch = fetchSpy;
+		global.fetch = fetchSpy as unknown as typeof fetch;
 	});
 
 	afterEach(() => {
@@ -91,7 +91,6 @@ describe("M3 — resolveOrCreateHostThread with null agentParticipantId (D1)", (
 	it("PLACEHOLDER_AGENT_PARTICIPANT_ID is NOT exported from host-threads", async () => {
 		// Import the module and check the export does not exist
 		const module = await import("../../services/host-threads");
-		// @ts-expect-error — testing that the export was deleted
 		expect((module as Record<string, unknown>).PLACEHOLDER_AGENT_PARTICIPANT_ID).toBeUndefined();
 	});
 });
