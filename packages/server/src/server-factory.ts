@@ -2,20 +2,65 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
-import { createPgliteDb, createPostgresDb, type DbHandle, resolveProfile } from "@hyperidle/db";
-import { bootstrapFabric } from "@hyperidle/fabric";
-import { EventBus } from "@hyperidle/shared";
+import {
+	createPgliteDb,
+	createPostgresDb,
+	type DbHandle,
+	type HyperIdleDb,
+	resolveProfile,
+} from "@hyperidle/db";
+import { bootstrapFabric, setProvisionSessionFn } from "@hyperidle/fabric";
+import { EventBus, type ModelTier, type ResolvedModel } from "@hyperidle/shared";
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
-import { createLocalAdapterPool } from "./harness/adapter-pool.js";
+import { type AdapterPool, createLocalAdapterPool } from "./harness/adapter-pool.js";
 import { LocalWorkspaceAdapter } from "./harness/local-workspace-adapter.js";
+import type { WorkspaceAdapter } from "./harness/workspace-adapter.js";
 import { createMcpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
 import { createMcpRoute } from "./routes/mcp-route.js";
 import { registerWorkerWsRoute } from "./routes/worker-ws.js";
 import { registerWsRoute } from "./routes/ws.js";
-import { EnvCredentialResolver } from "./services/credential-resolver.js";
+import { type CredentialResolver, EnvCredentialResolver } from "./services/credential-resolver.js";
+import { resolveModelTier } from "./services/model-gateway.js";
 import { readServerConfig } from "./services/server-config.js";
+import { provisionSession } from "./services/session-provisioning.js";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "./services/ws-broadcaster.js";
+
+/**
+ * AF7 §1: build the dispatcher's `resolveModel(tier)`. The HTTP path resolves
+ * models in sessions-routes via resolveModelTier; the dispatcher (no request
+ * context) needs the same resolution. Reuses the server config + the production
+ * credential resolver. When resolution fails (missing credential), the dispatcher
+ * treats it as unrecoverable-per-task — correct.
+ */
+function makeResolveModel(
+	db: HyperIdleDb,
+	credentialResolver: CredentialResolver,
+): (tier: string) => Promise<ResolvedModel | undefined> {
+	return async (tier: string): Promise<ResolvedModel | undefined> => {
+		const cfg = await readServerConfig(db);
+		return resolveModelTier(tier as ModelTier, cfg.modelGateway, credentialResolver);
+	};
+}
+
+/**
+ * AF7 §1 / §14.3: test-only dependency overrides for `createServer`. Lets an
+ * integration test inject a stub adapter pool + workspace adapter + a migrated
+ * fixture DB so the production boot wire (dispatcher registration) runs without a
+ * real LLM or a throwaway unmigrated DB.
+ *
+ * @lore AF7 §1: this widens a production entry point for tests ONLY — production
+ * call sites pass nothing and `createServer` constructs the real DB + adapter
+ * pool. The optional branch is reached by af7-dispatch-wiring.integration.test.ts,
+ * so knip does not flag it as dead. Mirrors createApp's existing SessionRouteDeps
+ * DI pattern.
+ */
+export interface CreateServerDeps {
+	readonly db?: HyperIdleDb;
+	readonly adapterPool?: AdapterPool;
+	readonly workspaceAdapter?: WorkspaceAdapter;
+	readonly workspaceBasePath?: string;
+}
 
 /**
  * Handle returned from `createServer` so callers can shut the server down
@@ -131,24 +176,42 @@ function resolvePglitePath(rawPath: string): string {
 	return path.resolve(repoRoot, rawPath);
 }
 
-export async function createServer(port: number): Promise<ServerHandle> {
-	const profile = resolveProfile({ env: process.env });
-	const rawDbUrl = process.env.DATABASE_URL ?? profile.dbUrlDefault;
-	const dbUrl = profile.dbDriver === "pglite" ? resolvePglitePath(rawDbUrl) : rawDbUrl;
-	let dbHandle: DbHandle;
-	if (profile.dbDriver === "pglite") {
-		dbHandle = await createPgliteDb(dbUrl);
+export async function createServer(port: number, deps?: CreateServerDeps): Promise<ServerHandle> {
+	// AF7 §1: when a test injects `deps.db`, use the migrated fixture DB and do NOT
+	// construct/own a throwaway DB. Production passes nothing → real DB + close.
+	let dbHandle: DbHandle | null = null;
+	let db: HyperIdleDb;
+	if (deps?.db) {
+		db = deps.db;
 	} else {
-		dbHandle = createPostgresDb(dbUrl);
+		const profile = resolveProfile({ env: process.env });
+		const rawDbUrl = process.env.DATABASE_URL ?? profile.dbUrlDefault;
+		const dbUrl = profile.dbDriver === "pglite" ? resolvePglitePath(rawDbUrl) : rawDbUrl;
+		if (profile.dbDriver === "pglite") {
+			dbHandle = await createPgliteDb(dbUrl);
+		} else {
+			dbHandle = createPostgresDb(dbUrl);
+		}
+		db = dbHandle.db;
 	}
-	const db = dbHandle.db;
 	const eventBus = new EventBus();
 
 	const credentialResolver = new EnvCredentialResolver();
-	const adapterPool = await createLocalAdapterPool();
-	const workspaceAdapter = new LocalWorkspaceAdapter();
+	// AF7 §1: test-only overrides for the adapter pool + workspace adapter + base
+	// path so the dispatcher wire can run against a stub pool (no real LLM).
+	const adapterPool = deps?.adapterPool ?? (await createLocalAdapterPool());
+	const workspaceAdapter = deps?.workspaceAdapter ?? new LocalWorkspaceAdapter();
 	const workspaceBasePath =
-		process.env.HYPERIDLE_WORKSPACES_DIR ?? path.join(os.tmpdir(), "hyperidle-workspaces");
+		deps?.workspaceBasePath ??
+		process.env.HYPERIDLE_WORKSPACES_DIR ??
+		path.join(os.tmpdir(), "hyperidle-workspaces");
+
+	// AF7 §1 (Z8-004 / dispatch-half of Z8-010): register provisionSession into the
+	// runtime registry so the task dispatcher can resolve it across the
+	// fabric→server boundary. This is the only legal way to cross that boundary
+	// (the leaf registry exists precisely for this — provision-registry.ts). Do NOT
+	// add a static import of provisionSession into fabric.
+	setProvisionSessionFn(provisionSession);
 
 	// X2: Create the MCP bridge registry that maps session tokens to transport instances.
 	const mcpBridgeRegistry = createMcpBridgeRegistry();
@@ -181,6 +244,18 @@ export async function createServer(port: number): Promise<ServerHandle> {
 						quietHoursStart: cfg.notifications.quietHoursStart,
 						quietHoursEnd: cfg.notifications.quietHoursEnd,
 					};
+				},
+				// AF7 §1: feed the task dispatcher's injection seam. bootstrapFabric
+				// forwards this to registerTaskDispatcher; without it the dispatcher
+				// never registers and a ready task never gets a session (Z8-004).
+				// The TaskDispatcherDeps fields already exist — no fabric type change.
+				dispatcherDeps: {
+					adapterPool,
+					workspace: workspaceAdapter,
+					workspaceBasePath,
+					resolveModel: makeResolveModel(db, credentialResolver),
+					mcpBridgeRegistry,
+					mcpBaseUrl,
 				},
 			}),
 		adapterPool,
@@ -255,7 +330,11 @@ export async function createServer(port: number): Promise<ServerHandle> {
 			wsDispose = null;
 		}
 		httpServer.close();
-		void dbHandle.close();
+		// AF7 §1: only close the DB we own. When a test injected `deps.db`, the
+		// fixture owns its lifecycle — closing it here would break the test harness.
+		if (dbHandle) {
+			void dbHandle.close();
+		}
 	};
 
 	return { httpServer, dispose };

@@ -16,6 +16,7 @@ function makeHandle() {
 function makeSessionConfig() {
 	return {
 		workspacePath: "/workspace/test",
+		sessionId: "test-session",
 		soulPromptPath: "",
 		composedPrompt: "Do the task.",
 		modelTier: "workhorse" as const,

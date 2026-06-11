@@ -18,6 +18,7 @@ import { startRoutineScheduler } from "./services/routine-scheduler.js";
 import { reapStaleRoutineSessions } from "./services/routine-session-reaper.js";
 import { registerSessionReviewCreator } from "./services/session-review-creator.js";
 import { registerTaskDispatcher, type TaskDispatcherDeps } from "./services/task-dispatcher.js";
+import { startWorkspaceReaper } from "./services/workspace-reaper.js";
 
 const bootstrapLog = createLogger({ pkg: "fabric" });
 
@@ -106,6 +107,14 @@ export function bootstrapFabric(ctx: {
 				eventBus,
 				...ctx.dispatcherDeps,
 			}),
+		);
+
+		// AF7 §6 (Z8-039): TTL workspace reaper. Reclaims terminal/orphan workspace
+		// dirs older than the TTL, preserving active dirs and the crash post-mortem
+		// window. workspaceBasePath comes from dispatcherDeps (already in scope at
+		// the boot path) — fabric takes it as data, not a server fs import.
+		disposers.push(
+			startWorkspaceReaper(db, { workspaceBasePath: ctx.dispatcherDeps.workspaceBasePath }),
 		);
 	}
 

@@ -80,19 +80,21 @@ export interface TaskDispatcherDeps {
 	readonly workspace: any;
 	readonly workspaceBasePath: string;
 	/**
-	 * Optional: resolve a model tier to a concrete model + provider.
-	 * Server-factory.ts provides the implementation closing over CredentialResolver.
-	 * When absent (tests without credential setup), resolvedModel is omitted from
-	 * the provisionSession call (provisionSession uses env-based fallback).
+	 * Optional: resolve a model tier to a concrete ResolvedModel (provider, model,
+	 * apiKey, baseUrl). Server-factory.ts provides the implementation closing over
+	 * CredentialResolver. When absent (tests without credential setup),
+	 * resolvedModel is omitted from the provisionSession call.
+	 *
+	 * @lore AF7 §1: the return is the full ResolvedModel — it is forwarded opaquely
+	 * as `resolvedModel` to provisionSession, which assigns it to
+	 * SessionConfig.resolvedModel. (Earlier this was loosely typed as
+	 * `{provider, modelId, apiKey?}`, which did not match what the value actually
+	 * had to be; AF7 wires the real production resolveModel so the honest type is
+	 * ResolvedModel.)
 	 */
-	readonly resolveModel?: (modelTier: string) => Promise<
-		| {
-				provider: string;
-				modelId: string;
-				apiKey?: string;
-		  }
-		| undefined
-	>;
+	readonly resolveModel?: (
+		modelTier: string,
+	) => Promise<import("@hyperidle/shared").ResolvedModel | undefined>;
 	/** Optional MCP bridge registry (passed through to provisionSession). */
 	// biome-ignore lint/suspicious/noExplicitAny: structural typing across package boundary
 	readonly mcpBridgeRegistry?: any;

@@ -21,7 +21,8 @@ import type { CredentialResolver } from "../services/credential-resolver.js";
 import { resolveModelTier } from "../services/model-gateway.js";
 import { readServerConfig } from "../services/server-config.js";
 import type { SessionActivityBuffer } from "../services/session-activity-buffer.js";
-import { provisionSession } from "../services/session-provisioning.js";
+import { startSessionProvision } from "../services/session-provisioning.js";
+import { sessionRunRegistry } from "../services/session-run-registry.js";
 
 // @lore O2: harnessUrl, tokensInput, tokensOutput fields removed from session
 // schemas. Those columns were stripped from the sessions kernel table as part
@@ -72,6 +73,108 @@ export interface SessionRouteDeps {
 	readonly mcpBridgeRegistry?: McpBridgeRegistry;
 	/** X2: Base URL for MCP bridge (e.g., "http://localhost:3001"). */
 	readonly mcpBaseUrl?: string;
+}
+
+/** Input for a state-changing PATCH (§4 abort-or-guarded-write). */
+interface StateChangePatchInput {
+	readonly sessionId: string;
+	readonly existing: typeof sessions.$inferSelect;
+	readonly state: "done" | "crashed";
+	readonly outcome?: string;
+	readonly notes?: string;
+	readonly effectivenessScore?: number;
+	readonly actor?: string;
+	readonly now: string;
+}
+
+/**
+ * AF7 §4: apply a state-changing PATCH. The runtime is the sole terminal-state
+ * writer for a running session, so this:
+ *   - rejects (409) a PATCH on an already-terminal session (no desync, no double
+ *     session_ended);
+ *   - if a live runtime entry exists, ABORTS it and lets the runtime teardown do
+ *     the terminal write + single session_ended emit;
+ *   - otherwise does a CAS-guarded direct write (active→terminal only) and emits
+ *     session_ended IFF the CAS affected a row (§4.3 rowcount invariant).
+ * Returns a `{ status, body }` so the caller emits the response.
+ */
+async function applyStateChangePatch(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	input: StateChangePatchInput,
+): Promise<{ status: 200 | 202 | 409; body: unknown }> {
+	const { sessionId, existing, state, now, actor } = input;
+
+	// Guard: reject a PATCH that would move an already-terminal session.
+	if (existing.state !== "active") {
+		return {
+			status: 409,
+			body: {
+				error: `Session is already ${existing.state}; cannot transition via PATCH`,
+				code: API_ERROR_CODES.CONFLICT,
+			},
+		};
+	}
+
+	// If a live runtime entry exists, abort it — the runtime teardown performs the
+	// DB transition + session_ended emit exactly once. We do NOT write state here.
+	//
+	// @lore AF7 §4 M3: `abort()` only awaits the harness `stopSession`; the terminal
+	// DB write happens LATER, in the detached `runSession` teardown (the runtime is
+	// the SOLE terminal writer — §4.3). The row is therefore still `state:"active"`
+	// at this point, so we MUST NOT read it back and return it as the body — that
+	// would assert a stale terminal state the caller cannot trust. Instead we return
+	// 202 Accepted (in-flight abort acknowledged) and direct the caller to poll
+	// `GET /api/sessions/:id` for terminal convergence. We do NOT block on teardown
+	// here because that would couple the route to the harness's full stream drain.
+	if (sessionRunRegistry.has(sessionId)) {
+		await sessionRunRegistry.abort(sessionId);
+		return {
+			status: 202,
+			body: {
+				sessionId,
+				state: "aborting",
+				message:
+					"Abort requested; the runtime is tearing the session down. Poll GET /api/sessions/:id for the terminal state.",
+			},
+		};
+	}
+
+	// Fallback: no running loop. CAS-guarded direct write (active → terminal only).
+	const outcome: SessionOutcome = state === "crashed" ? "crashed" : "completed";
+	// W-1: a combined PATCH may carry effectivenessScore alongside state.
+	const stateUpdates: Record<string, unknown> = {
+		state,
+		outcome: input.outcome ?? outcome,
+		notes: input.notes,
+		endedAt: now,
+	};
+	if (input.effectivenessScore !== undefined) {
+		stateUpdates.effectivenessScore = input.effectivenessScore.toString();
+		stateUpdates.effectivenessRecordedAt = now;
+		stateUpdates.effectivenessRecordedBy = actor ?? existing.agentId;
+	}
+	const transitioned = await db
+		.update(sessions)
+		.set(stateUpdates)
+		.where(and(eq(sessions.id, sessionId), eq(sessions.state, "active")))
+		.returning({ id: sessions.id });
+
+	// Emit session_ended IFF we actually transitioned a row (CAS, §4.3).
+	if (transitioned.length > 0) {
+		eventBus.emit<"session_ended">({
+			type: "session_ended",
+			streamId: sessionId,
+			sessionId,
+			agentId: existing.agentId,
+			taskId: existing.taskId,
+			timestamp: Date.now(),
+			outcome,
+		} satisfies SessionEndedEvent);
+	}
+
+	const [updated] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+	return { status: 200, body: updated };
 }
 
 /**
@@ -186,7 +289,13 @@ export function createSessionRoutes(
 			const workspaceBasePath = deps.workspaceBasePath ?? "/tmp/hyperidle-workspaces";
 
 			try {
-				const result = await provisionSession(
+				// AF7 §2 (Z8-047): admit the session synchronously (phases 1-7) and
+				// DETACH the long-running harness run (phases 8-11) so the HTTP caller
+				// is not blocked for the full agent run. Returns as soon as the active
+				// session row is committed. All admission failures (cost 422 /
+				// concurrency 429 / missing credential 500) throw from admit BEFORE the
+				// row insert, so they still map to HTTP status here, not the tail.
+				const result = await startSessionProvision(
 					{
 						db,
 						eventBus,
@@ -214,13 +323,22 @@ export function createSessionRoutes(
 					.from(sessions)
 					.where(eq(sessions.id, result.sessionId))
 					.limit(1);
-				return c.json(sessionRow, 200);
+				// AF7 §2: 202 Accepted — the session is admitted (active) but the work
+				// is not done. The body is the freshly-inserted ACTIVE row (no outcome).
+				return c.json(sessionRow, 202);
 			} catch (err) {
 				if (err instanceof CostCapExceededError) {
 					return c.json({ error: err.message, code: "COST_CAP_EXCEEDED" }, 422);
 				}
 				if (err instanceof ConcurrencyLimitError) {
 					return c.json({ error: err.message, code: "CONCURRENCY_LIMIT" }, 429);
+				}
+				// AF7 §2 (WARNING-2): the synchronous resolvedModel-presence guard in
+				// admitSession throws MissingCredentialError (local mode, builtin,
+				// resolvedModel absent) BEFORE the row insert — map it to 500 here so the
+				// failure surfaces on the POST path, not as a later crashed session.
+				if (err instanceof MissingCredentialError) {
+					return c.json({ error: err.message, code: "MISSING_CREDENTIAL" }, 500);
 				}
 				return c.json({ error: "Session provisioning failed", code: "INTERNAL_ERROR" }, 500);
 			}
@@ -291,13 +409,26 @@ export function createSessionRoutes(
 
 		const now = new Date().toISOString();
 		const actor = c.get("userId");
-		const updates: Record<string, unknown> = {};
 
-		// AC1 W-1: state is optional — only update state/endedAt when state is present
+		// AF7 §4 (Z8-094/095): a state-changing PATCH must REQUEST termination, not
+		// assert it. The runtime is the sole terminal-state writer for a session it
+		// is actively running. Delegated to a helper to keep this handler simple.
 		if (body.state !== undefined) {
-			updates.state = body.state;
-			updates.endedAt = now;
+			const result = await applyStateChangePatch(db, eventBus, {
+				sessionId,
+				existing,
+				state: body.state,
+				outcome: body.outcome,
+				notes: body.notes,
+				effectivenessScore: body.effectivenessScore,
+				actor,
+				now,
+			});
+			return c.json(result.body, result.status);
 		}
+
+		// Effectiveness-only PATCH (no state) — never ends a session.
+		const updates: Record<string, unknown> = {};
 		if (body.outcome !== undefined) updates.outcome = body.outcome;
 		if (body.notes !== undefined) updates.notes = body.notes;
 
@@ -311,21 +442,8 @@ export function createSessionRoutes(
 			updates.effectivenessRecordedBy = actor ?? existing.agentId;
 		}
 
-		await db.update(sessions).set(updates).where(eq(sessions.id, sessionId));
-
-		// AC1 W-1: Only emit session_ended when state is present in the body.
-		// Effectiveness-only PATCHes do not end the session.
-		if (body.state !== undefined) {
-			const outcome: SessionOutcome = body.state === "crashed" ? "crashed" : "completed";
-			eventBus.emit<"session_ended">({
-				type: "session_ended",
-				streamId: sessionId,
-				sessionId,
-				agentId: existing.agentId,
-				taskId: existing.taskId,
-				timestamp: Date.now(),
-				outcome,
-			} satisfies SessionEndedEvent);
+		if (Object.keys(updates).length > 0) {
+			await db.update(sessions).set(updates).where(eq(sessions.id, sessionId));
 		}
 
 		const [updated] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);

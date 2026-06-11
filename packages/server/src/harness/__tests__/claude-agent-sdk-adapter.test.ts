@@ -16,6 +16,7 @@ const KNOWN_MODELS = {
 
 const TEST_CONFIG: SessionConfig = {
 	workspacePath: "/workspace/test",
+	sessionId: "test-session",
 	soulPromptPath: "/workspace/prompts/builder.md",
 	composedPrompt: "",
 	modelTier: "workhorse",

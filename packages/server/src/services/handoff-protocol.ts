@@ -13,6 +13,7 @@ import { releaseSessionDedup } from "@hyperidle/fabric";
 import type { DomainEvent, EventBus, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import type { SessionContext } from "./session-lifecycle.js";
+import { sessionRunRegistry } from "./session-run-registry.js";
 import type { HandoffAuditEntry, TaskAuditEntry } from "./task-audit.js";
 import { InvalidTransitionError, VALID_TRANSITIONS } from "./task-state-machine.js";
 
@@ -324,6 +325,18 @@ export async function handoff(
 	// per-session entry. Release it explicitly here, post-commit, so the
 	// release happens exactly when the session row's state has flipped.
 	releaseSessionDedup(sessionContext.sessionId);
+
+	// AF7 §5 (Z8-048): stop the prior session's tool access. The handoff set the
+	// session row to 'done' in-tx but the prior agent's harness loop + tool
+	// registry keep running. Abort it POST-COMMIT: for builtin this calls
+	// stopSession → sets the internal `aborted` flag → halts runLoop/
+	// executeToolCalls (where builtin tools actually run); for non-builtin it
+	// breaks the provisioning loop so registry.invoke stops. Handoff NEVER emits
+	// session_ended — abort drives stopSession + teardown, and the detached run's
+	// teardown calls endSession on an already-'done' row, which the §4.3 CAS guard
+	// makes a no-op (zero rows, no spurious session_ended). If no live runtime
+	// entry exists (already torn down), abort is a no-op.
+	await sessionRunRegistry.abort(sessionContext.sessionId);
 
 	return result;
 }
