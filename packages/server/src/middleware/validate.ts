@@ -5,18 +5,22 @@ import type { Context, Env, MiddlewareHandler } from "hono";
 import type { z } from "zod";
 
 /**
- * @lore AF4 (build/verify): Do NOT run `tsc -b packages/shared db fabric` to
- * "refresh dist/*.d.ts" before `npm run lint`/`verify`. The AF1 typecheck gate
- * (scripts/typecheck-gate.ts) runs `tsc --noEmit -p` per package and FILTERS
- * TS6305/6307/6059 reference noise; cross-package imports resolve via root
- * tsconfig `paths` → `src` (not `dist`), so the gate needs no pre-built dist and
- * there is no stale-dist phantom to defeat. Worse, `tsc -b` scatters generated
- * `.d.ts`/`.js`/`.map` into the packages' src dirs; biome lints src (it ignores
- * the dist glob) and reports ~714 phantom noBannedTypes errors from droppings. Correct
- * sequence is simply `npm run verify` on a clean tree (server=0, gate PASS,
- * biome 0 errors — all verified empirically). If droppings exist, delete the
- * src `.d.ts/.js/.map` (keep dist). Upstream cause is AF1-owned. Full writeup:
- * plans/AF4/lore.md.
+ * @lore AF4 (build/verify): The AF1 typecheck gate (scripts/typecheck-gate.ts)
+ * runs `tsc --noEmit -p` per package. server/web/fabric are project-`references`
+ * consumers of shared+db and DO need the leaves' emitted `dist/*.d.ts` present:
+ * with leaf `dist/` ABSENT, cross-package symbols (e.g. the vitest `dbTest`
+ * fixture) resolve to `any` → a ~3400-error TS7031/TS2xxx phantom and server
+ * FAILS. The reference-noise filter only hides TS6305/6307/6059, NOT this
+ * cascade. Proof: removing every leaf dist then `npm run check` → server 3428
+ * FAIL; rebuild dist → server 0 PASS. `dist` is gitignored so a "clean" tree can
+ * silently still have it — always `ls packages/shared/dist` before trusting a
+ * gate count. To populate dist: `tsc -b packages/shared packages/db packages/fabric`
+ * (ignore its TS6059 rootDir notices — it still emits), THEN delete the
+ * generated `.d.ts/.js/.map` it scatters into the packages' `src` dirs (biome
+ * lints src and would report ~714 phantom noBannedTypes errors from them).
+ * Then `npm run verify` → server=0, gate PASS, biome 0 errors. CI never sees the
+ * fragility (it validates the attestation signature, not the live gate). Upstream
+ * cause is AF1-owned. Full writeup: plans/AF4/lore.md.
  */
 
 /**

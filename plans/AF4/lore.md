@@ -1,46 +1,72 @@
 # AF4 Lore
 
-## The `tsc -b` dropping trap — and why the verify sequence is just `npm run verify`
+## The typecheck gate IS leaf-dist-dependent (and `tsc -b` scatters src droppings)
 
-**Symptom that recurs:** Running `npx tsc -b packages/shared packages/db packages/fabric`
-to "populate dist" before `npm run lint`/`verify` scatters generated
-`.d.ts`/`.js`/`.map` files into `packages/*/src/` (~96 in shared/src, ~18 in db/src).
-Biome ignores `**/dist` but lints `src/`, so it lints those generated droppings and
-reports ~714 `noBannedTypes` errors (580 of them from generated `.d.ts`). These are NOT
-real source errors — they vanish when the droppings are deleted.
+Two coupled gotchas bite anyone draining a non-leaf package (server/web/fabric) from
+`typecheck-debt.json`. Both are empirically verified (orchestrator ran the definitive
+tests during the AF4 pipeline).
 
-**Root cause / why the leaf build was thought necessary (and is NOT):**
-The AF1 typecheck gate (`scripts/typecheck-gate.ts`, frozen/AF1-owned) runs
-`tsc --noEmit -p packages/<pkg>/tsconfig.json` per package and **explicitly filters out
-TS6305/TS6307/TS6059 as cross-package reference noise** (see its `@lore AF1 TS6305/...`
-block). Cross-package imports resolve through the root tsconfig `paths` aliases, which
-point at **`src`, not `dist`**. Therefore the gate does **not** need fresh leaf
-`dist/*.d.ts` to see real server errors — there is no "stale-dist TS7031 phantom" to
-defeat. Verified empirically on a bare clean checkout (no leaf build, zero droppings):
+### 1. The gate needs leaf `dist/*.d.ts` present, or it reports a phantom error count
 
-- `npm run check` → PASS, all 11 packages, **server = 0 errors**
-  (eval=8, web=211, both pre-existing QUARANTINED in `typecheck-debt.json`).
-- `npm run lint:biome` → **0 errors**, 323 warnings (exit 0).
-- full `npm run verify` → **exit 0** end-to-end.
+`scripts/typecheck-gate.ts` (AF1-owned, frozen) runs `tsc --noEmit -p packages/<pkg>/tsconfig.json`
+per package. `server`/`fabric`/`web` are project-`references` consumers of `shared`+`db`.
+With `--noEmit`, tsc does NOT build those references — it reads their **emitted
+declarations** (`packages/<leaf>/dist/*.d.ts`) to resolve cross-package symbols.
 
-`tsc -b` across these three packages additionally FAILS (114 TS6059/TS6307 rootDir
-errors) because their tsconfigs are not wired as composite project references for a
-combined `-b` invocation — another reason it is the wrong tool here.
+- **Leaf `dist/` PRESENT & fresh** → server resolves real types → **server = 0** (the true count).
+- **Leaf `dist/` ABSENT** (fresh clone, `git clean -fdx`, or after `rm -rf packages/*/dist`)
+  → cross-package symbols (notably the vitest fixture `dbTest`) resolve to `any` →
+  a cascade of **~3400 phantom `TS7031`/`TS2xxx` errors**. The gate's reference-noise
+  filter only suppresses `TS6305/6307/6059` (the "not built" notices) — it does **NOT**
+  suppress the downstream cascade, so the phantom count is real to the gate and the
+  package FAILS.
 
-**Correct procedure:** Do NOT pre-build leaf packages. Just run `npm run verify` on a
-clean tree. If droppings already exist from a stray `tsc -b`, delete them (keep `dist/`):
+**Proof:** `rm -rf packages/{shared,db,fabric}/dist packages/*/*.tsbuildinfo && npm run check`
+→ `server 3428 FAIL`, `design-system 15 FAIL`, `desktop 1 FAIL`. Rebuild the leaf dist
+→ `server 0 PASS`, all 11 packages PASS.
 
-    git status --short | grep -E '^\?\? packages/.*src/.*\.(d\.ts|js|map)$' \
-      | awk '{print $2}' | xargs -r rm -f
+> An earlier draft of this file claimed the gate needs no pre-build ("server=0 on a bare
+> checkout"). That was WRONG: the "bare" checkout still had gitignored `dist/` left over
+> from an earlier build. A genuinely dist-free tree phantom-fails. `dist/` is gitignored,
+> so it never shows in `git status` — easy to believe you have a dist-free tree when you
+> do not. Always confirm with `ls packages/shared/dist` before trusting a gate count.
 
-Then `git status --short` should show only intended changes — no `.d.ts`/`.js`/`.map`
-under any `src/`.
+### 2. Building the leaf dist scatters `.d.ts/.js` into `src/`, which biome lints
 
-**Upstream fix (AF1-owned, not done here):** the gate's per-package
-`tsc --noEmit -p` already tolerates missing dist via the reference-noise filter, so no
-pre-build is warranted. If a future change ever makes the gate depend on real emitted
-`.d.ts`, emit to `dist` only and keep biome's `**/dist` ignore — never let emit land in
-`src/`.
+`npx tsc -b packages/shared packages/db packages/fabric` is the obvious way to populate
+dist, but these packages are NOT wired as clean composite references for a combined `-b`
+(db imports `shared/src` outside db's `rootDir`), so `-b` emits with `TS6059/TS6307`
+rootDir notices AND scatters generated `.d.ts/.js/.map` into `packages/{shared,db}/src/`
+(~96 + ~18 files). Biome ignores `**/dist` but lints `src/`, so it flags those generated
+files as **~714 `noBannedTypes` errors** (mostly from generated `.d.ts`). They are NOT
+real source errors — delete the droppings and biome is clean (323 warnings, 0 errors).
+`tsc -b` still emits usable `dist/*.d.ts` despite the rootDir notices, so it does satisfy
+gotcha #1 — you just must clean the src droppings afterward.
+
+### Correct procedure for draining server (or any leaf consumer) and shipping
+
+1. **Populate leaf dist** so the gate sees real counts: `npx tsc -b packages/shared packages/db packages/fabric`
+   (ignore the TS6059/TS6307 rootDir notices — it still emits the dist).
+2. **Delete the src droppings, keep `dist/`:**
+
+       git status --short | grep -E '^\?\? packages/.*src/.*\.(d\.ts|js|map)$' \
+         | awk '{print $2}' | xargs -r rm -f
+
+   Confirm `git status --short` shows only intended changes — no `.d.ts/.js/.map` under
+   any `src/`.
+3. **Run `npm run verify`** with dist present + src clean → check sees server=0, biome
+   sees clean src → exit 0, attestation written.
+
+### Why this ships anyway (and why CI never sees the phantom)
+
+CI does NOT re-run the gate. `.github/workflows/ci.yml` runs `scripts/check-attestation.ts`,
+which validates the HMAC signature of the locally-produced `npm run verify` attestation.
+The attestation is generated locally where leaf `dist/` exists (server=0), so CI accepts
+it. The leaf-dist fragility only bites a developer running `npm run check`/`verify` on a
+genuinely dist-free tree. This is the AF1 systemic gap (the gate should build references
+first, or be made deterministic w.r.t. dist) — recorded for AF1, out of AF4 scope. See
+also `plans/Z8/master-flag-register.md` (Z8-166 attestation-bypass, Z8-169 gate
+build-state nondeterminism).
 
 ## Attestation churn
 
