@@ -54,6 +54,16 @@ export interface CliAdapterConfig {
 	 * ClaudeAgentSdkAdapter's ALLOWED_ENV_KEYS allowlist.
 	 */
 	readonly envAllowlist: readonly string[];
+	/**
+	 * @lore AF10 (Z8-049/Z8-088): The JSON field name on the CLI terminal result
+	 * line that carries the total cost in USD. Defaults to "total_cost_usd" (the
+	 * field the `claude` CLI uses, same as the SDK adapter at
+	 * claude-agent-sdk-adapter.ts:287). Override for CLI tools that use a
+	 * different field name — this makes version drift a one-line config change
+	 * rather than a code change. Only a finite non-negative number is accepted;
+	 * anything else is treated as missing (no cost_update emitted).
+	 */
+	readonly costField?: string;
 }
 
 /** Injected dependencies (for testing). */
@@ -82,6 +92,16 @@ interface CliSession {
 	notifyStream: (() => void) | null;
 	resolveStop: ((result: SessionResult) => void) | null;
 	killTimer: ReturnType<typeof setTimeout> | null;
+	/**
+	 * @lore AF10 (Z8-049): Total session cost in USD captured from the terminal
+	 * result line (e.g. `{"type":"result","total_cost_usd":0.0123,...}`).
+	 * Set by parseStdoutLine when the result line is detected.
+	 * Emitted as a single terminal cost_update in streamEvents before break.
+	 * Undefined until a result line with a valid cost field is seen.
+	 */
+	totalCostUsd?: number;
+	/** True once the terminal cost_update has been yielded (prevents double-emit). */
+	costEmitted: boolean;
 }
 
 /** Replace all template variables in a string. */
@@ -187,6 +207,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			notifyStream: null,
 			resolveStop: null,
 			killTimer: null,
+			costEmitted: false,
 		};
 
 		this.sessions.set(sessionId, session);
@@ -197,6 +218,12 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 		// Wire exit handler
 		child.on("exit", (code, signal) => {
+			// @lore AF10: process all remaining stdout lines before building the
+			// result so that any terminal result line (with total_cost_usd) is
+			// captured into session.totalCostUsd BEFORE buildResult reads it.
+			for (const bufferedLine of session.stdoutLines) {
+				this.parseStdoutLine(bufferedLine, session);
+			}
 			session.exitCode = code;
 			session.exitSignal = signal;
 			session.done = true;
@@ -205,7 +232,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 				session.killTimer = null;
 			}
 			session.notifyStream?.();
-			const result = this.buildResult(code, signal);
+			const result = this.buildResult(code, signal, session.totalCostUsd);
 			session.resolveStop?.(result);
 		});
 
@@ -275,7 +302,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 				while (stdoutCursor < session.stdoutLines.length) {
 					const line = session.stdoutLines[stdoutCursor++];
 					if (line !== undefined) {
-						yield adapter.parseStdoutLine(line);
+						yield adapter.parseStdoutLine(line, session);
 					}
 				}
 
@@ -290,6 +317,22 @@ export class CliHarnessAdapter implements HarnessAdapter {
 						};
 						yield ev;
 					}
+				}
+
+				// @lore AF10 (Z8-049): Emit one terminal cost_update when the CLI
+				// result line carried a total_cost_usd (or configured costField).
+				// Done here (not in parseStdoutLine) so the event is yielded AFTER
+				// all stdout lines have been emitted, consistent with the SDK adapter.
+				// deltaCost == totalCostUsd: the whole session is one delta (§4 plan).
+				if (session.done && session.totalCostUsd !== undefined && !session.costEmitted) {
+					session.costEmitted = true;
+					const costEvent: HarnessEvent = {
+						type: "cost_update",
+						deltaCost: session.totalCostUsd,
+						totalCost: session.totalCostUsd,
+						currency: "USD",
+					};
+					yield costEvent;
 				}
 
 				if (session.done) break;
@@ -311,7 +354,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 		if (session.done) {
 			this.sessions.delete(handle.sessionId);
-			return this.buildResult(session.exitCode, session.exitSignal);
+			return this.buildResult(session.exitCode, session.exitSignal, session.totalCostUsd);
 		}
 
 		// Send SIGTERM first (graceful shutdown)
@@ -347,7 +390,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 	// ── Private helpers ───────────────────────────────────────────────────────
 
-	private parseStdoutLine(line: string): HarnessEvent {
+	private parseStdoutLine(line: string, session?: CliSession): HarnessEvent {
 		if (this.config.eventFormat === "text") {
 			return { type: "completion", text: line };
 		}
@@ -361,6 +404,22 @@ export class CliHarnessAdapter implements HarnessAdapter {
 				"type" in parsed &&
 				typeof (parsed as Record<string, unknown>)["type"] === "string"
 			) {
+				const obj = parsed as Record<string, unknown>;
+
+				// @lore AF10 (Z8-049/Z8-088): If this is a terminal result line from
+				// the CLI, capture the total cost. The CLI reports the full session
+				// total in a single result line; we store it on the session and emit
+				// one synthetic terminal cost_update in streamEvents (after all stdout
+				// lines are drained). Only a finite non-negative number is accepted —
+				// anything else (missing, string, negative) is ignored (fallback = 0).
+				if (obj["type"] === "result" && session) {
+					const costField = this.config.costField ?? "total_cost_usd";
+					const rawCost = obj[costField];
+					if (typeof rawCost === "number" && Number.isFinite(rawCost) && rawCost >= 0) {
+						session.totalCostUsd = rawCost;
+					}
+				}
+
 				// Trust the parsed object as a HarnessEvent
 				return parsed as HarnessEvent;
 			}
@@ -371,7 +430,11 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		return { type: "completion", text: line };
 	}
 
-	private buildResult(code: number | null, signal: string | null): SessionResult {
+	private buildResult(
+		code: number | null,
+		signal: string | null,
+		totalCostUsd?: number,
+	): SessionResult {
 		let outcome: SessionResult["outcome"];
 		if (signal !== null) {
 			outcome = "stopped";
@@ -380,10 +443,13 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		} else {
 			outcome = "crashed";
 		}
+		// @lore AF10 (Z8-049): Return the captured CLI cost from the terminal
+		// result line (total_cost_usd → minor cents). 0 when the CLI reported
+		// nothing — honest absent, not a silent drop (§4 plan constraint).
+		const minor = totalCostUsd !== undefined ? Math.round(totalCostUsd * 100) : 0;
 		return {
 			outcome,
-			// CLI tools don't report cost/tokens through our event channel
-			cost: { minor: 0, currency: "USD" },
+			cost: { minor, currency: "USD" },
 			tokenUsage: { byTier: {} },
 		};
 	}

@@ -258,16 +258,13 @@ function WorkTeamLoaded({
 				</h2>
 				<div className="flex flex-col gap-1">
 					{/* AA3: Bet vs routine cost breakdown */}
-					<KeyValue
-						label="Bet cost"
-						value={burn.betCostActual ? formatMoney(burn.betCostActual) : "$0.00"}
-					/>
+					<KeyValue label="Bet cost" value={formatMoney(burn.betCostActual ?? null)} />
 					<KeyValue
 						label="Routine cost"
 						value={
 							burn.routineCostThisMonth
 								? `${formatMoney(burn.routineCostThisMonth)} (this month)`
-								: "$0.00 (this month)"
+								: `${formatMoney({ minor: 0, currency: "USD" })} (this month)`
 						}
 					/>
 					<KeyValue label="Total cost" value={formatMoney(burn.costActual)} />

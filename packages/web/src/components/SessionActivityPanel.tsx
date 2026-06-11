@@ -19,6 +19,7 @@
  * #12: Emoji 💭 replaced with an SVG reasoning icon.
  */
 
+import { formatMoney } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import type { ActivityEntry } from "../hooks/useSessionActivity.js";
 import { useSessionActivity } from "../hooks/useSessionActivity.js";
@@ -93,11 +94,15 @@ function ActivityEntryRow({ entry }: { entry: ActivityEntry }): JSX.Element | nu
 	}
 
 	if (entry.type === "cost_tick") {
-		const { deltaMinor, totalMinor } = entry.data;
+		const { deltaMinor, totalMinor, currency } = entry.data;
+		// CostTickData.currency is `string`; cast to CurrencyCode for formatMoney.
+		// Defaults to "USD" (the only currency in use today — AF10 §2 tech-debt).
+		const cur = (currency || "USD") as import("@hyperidle/shared").CurrencyCode;
 		return (
 			<div className="flex items-center gap-[8px] py-[4px] px-[8px] rounded-[var(--r-subtle)] hover:bg-[var(--surface-container)]">
 				<span className="text-[11px] text-[var(--text-tertiary)] tabular-nums">
-					+{(deltaMinor / 100).toFixed(4)} / total {(totalMinor / 100).toFixed(2)}
+					+{formatMoney({ minor: deltaMinor, currency: cur })} / total{" "}
+					{formatMoney({ minor: totalMinor, currency: cur })}
 				</span>
 				<span className="ml-auto text-[10px] text-[var(--text-tertiary)] font-mono">{time}</span>
 			</div>

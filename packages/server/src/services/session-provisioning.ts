@@ -752,7 +752,13 @@ export async function runSession(
 					// currency ever changes (e.g. JPY has 0 decimal places = 1:1).
 					const currency = event.currency ?? "USD";
 					const scale = 10 ** scaleForCurrency(currency);
-					totalCostCents += Math.round(delta * scale);
+					// @lore AF10: deltaMinor is the PER-EVENT delta in minor units.
+					// recordCostAndCheck does costActual += costMinor (cost-cap.ts:247).
+					// Passing totalCostCents here caused Z8-002 quadratic inflation
+					// (events 10,5,5 → 45 not 20). totalCostCents is kept ONLY for the
+					// per-run cap check and teardown plumbing — NOT for the boundary call.
+					const deltaMinor = Math.round(delta * scale);
+					totalCostCents += deltaMinor;
 					// AA3: Per-run cap enforcement for routine sessions.
 					// Checked after each cost accumulation. A single large delta may overshoot
 					// the cap — that is acceptable; the cap is a guardrail, not a billing truncation.
@@ -765,7 +771,7 @@ export async function runSession(
 					// R5: taskId is passed so bet cost accumulates per-event.
 					await recordCostAndCheck(db, eventBus, {
 						sessionId,
-						costMinor: totalCostCents,
+						costMinor: deltaMinor,
 						currency,
 						agentId: params.agentId,
 						teamId,

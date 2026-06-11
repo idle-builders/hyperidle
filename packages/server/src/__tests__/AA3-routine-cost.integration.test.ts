@@ -1109,11 +1109,13 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as Record<string, unknown>;
+			// GET /api/routines/:id returns RoutineDetail = { routine: RoutineInfo, runs, budget }
+			// costActual lives on body.routine (not body directly)
+			const body = (await res.json()) as { routine: Record<string, unknown> };
 
 			// FAILS until T4: currently null
-			expect(body.costActual).not.toBeNull();
-			const costActual = body.costActual as Record<string, unknown>;
+			expect(body.routine.costActual).not.toBeNull();
+			const costActual = body.routine.costActual as Record<string, unknown>;
 			expect(costActual.minor).toBe(500);
 			vi.unstubAllEnvs();
 		});

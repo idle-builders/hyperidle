@@ -348,10 +348,7 @@ function BudgetSection({ budget }: { budget: RoutineBudget }): JSX.Element {
 					label="Avg cost per run"
 					value={budget.avgCostPerRun ? formatMoney(budget.avgCostPerRun) : "---"}
 				/>
-				<KeyValue
-					label="Cost this month"
-					value={budget.costThisMonth ? formatMoney(budget.costThisMonth) : "$0.00"}
-				/>
+				<KeyValue label="Cost this month" value={formatMoney(budget.costThisMonth ?? null)} />
 				<KeyValue
 					label="Cost cap per run"
 					value={budget.costCapPerRun ? formatMoney(budget.costCapPerRun) : "No cap"}

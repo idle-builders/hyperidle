@@ -797,7 +797,11 @@ export function createTeamRoutes(
 			// 6. Derive team status
 			// L17: prefer costCapMinor over legacy costCap
 			const teamCostCapMinor = memberGroup.costCapMinor ?? memberGroup.costCap ?? null;
-			// Compute team actual spend from sessions (via legacy costActual for now)
+			// @lore AF10 U1: team actual spend lives on teamMembers.costActual (the L17/O2
+			// minor-unit accumulator incremented by recordCostAndCheck cost-cap.ts:255).
+			// Do NOT confuse with the orphaned costActualMinor-style naming on other tables.
+			// tasks.teamId and bets.teamId reference teams.id (domain entity), NOT teamMembers.id.
+			// A future multi-currency change must thread factoryCurrency instead of assuming USD.
 			const teamCostActualMinor = memberGroup.costActual ?? null;
 			const teamStatus = deriveTeamStatus(
 				{

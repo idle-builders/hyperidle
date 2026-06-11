@@ -105,11 +105,22 @@ async function updateRoutineRunOnSessionEnd(
 		})
 		.where(eq(routineRuns.id, run.id));
 
-	// Update routines.lastRunAt and lastRunSummary.
+	// AF10 AC2: increment routines.costActualMinor (cumulative, += per run).
+	// costInCents is the per-run session total — a true delta w.r.t. the running
+	// cumulative field. Uses atomic SQL coalesce to avoid lost updates under
+	// concurrent routine runs (same pattern as recordCostAndCheck cost-cap.ts:247).
+	// @lore AF10: currency literal "USD" matches routineRuns.costCurrency write above.
+	// Single-currency factory assumption — see architecture.md §2 tech-debt note.
 	await db
 		.update(routines)
 		.set({
 			lastRunAt: endedAt,
+			...(costInCents > 0
+				? {
+						costActualMinor: sql`coalesce(${routines.costActualMinor}, 0) + ${costInCents}`,
+						costActualCurrency: "USD",
+					}
+				: {}),
 			...(summary ? { lastRunSummary: summary } : {}),
 		})
 		.where(eq(routines.id, routineId));

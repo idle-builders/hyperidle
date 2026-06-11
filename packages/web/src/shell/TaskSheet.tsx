@@ -23,6 +23,7 @@
  * have tabIndex) we fall back to document.body silently.
  */
 import { StatusChip, sessionOutcomeToStatus } from "@hyperidle/design-system";
+import { formatMoney } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { ArtifactSection } from "../components/ArtifactSection.js";
 import { isValidHarnessUrl } from "../lib/url-utils.js";
@@ -44,6 +45,8 @@ export interface KanbanTask {
 	// L19: latest session metadata (all optional — callers that don't have session data don't break)
 	latestSessionOutcome?: import("@hyperidle/shared").SessionOutcome | null;
 	latestSessionCost?: number | null;
+	/** AF10: currency code for latestSessionCost (defaults to "USD"). */
+	latestSessionCurrency?: string | null;
 	latestSessionTokensInput?: number | null;
 	latestSessionTokensOutput?: number | null;
 	latestSessionHarnessUrl?: string | null;
@@ -339,7 +342,15 @@ export function TaskSheet({
 						{task.latestSessionCost != null && (
 							<>
 								<span aria-hidden>|</span>
-								<span>${(task.latestSessionCost / 100).toFixed(2)}</span>
+								<span>
+									{formatMoney({
+										minor: task.latestSessionCost,
+										// @lore AF10: latestSessionCurrency threads currency through the shape.
+										// Defaults to "USD" (single-currency factory today; AF10 §2 tech-debt).
+										currency: (task.latestSessionCurrency ||
+											"USD") as import("@hyperidle/shared").CurrencyCode,
+									})}
+								</span>
 							</>
 						)}
 						{(task.latestSessionTokensInput != null || task.latestSessionTokensOutput != null) && (

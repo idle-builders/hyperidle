@@ -363,12 +363,10 @@ export async function recordCostAndCheck(
  * If AF10 lands first and rewrites recordCostAndCheck, AF10 MUST preserve this
  * trailing call — it fixes Z8-008 (cost sentinel reads a never-written field).
  *
- * @lore AF8 INFLATION WARNING: Until AF10 fixes the quadratic delta-accumulation
- * bug in session-provisioning.ts, users.costActual is real-but-inflated (deltas of
- * 10,5,5 record 45 not 20). The SUM here is therefore directionally correct but
- * biased HIGH. This fails SAFE toward over-alerting (sentinel fires slightly early,
- * never late). The bias disappears automatically once AF10 ships — AF8 changes
- * nothing, same SUM, now over a correct column.
+ * @lore AF8 INFLATION RESOLVED (AF10): The quadratic delta-accumulation bug in
+ * session-provisioning.ts (Z8-002) has been fixed. The caller now passes per-event
+ * deltas (not running totals), so users.costActual is correct (10+5+5=20, not 45).
+ * The SUM here is now accurate. The over-alerting bias noted above is gone.
  */
 export async function recordFactoryCost(db: HyperIdleDb): Promise<void> {
 	const [sumRow] = await db

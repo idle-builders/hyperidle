@@ -147,8 +147,9 @@ describe("AF10 AC5 surface 5: WorkRoutine.tsx:353 — cost this month uses forma
 		const costThisMonthLabel = screen.queryByText(/cost this month/i);
 		if (costThisMonthLabel) {
 			// The parent container should contain ¥, not $
+			// Use parentElement to get the KeyValue div (label+value), not just the label span
 			const container = costThisMonthLabel.closest("[class]") ?? document.body;
-			const text = container.textContent ?? "";
+			const text = (container.parentElement ?? container).textContent ?? "";
 			// Must use yen symbol for JPY
 			expect(text).toContain("¥");
 			expect(text).not.toContain("$0.00");
@@ -316,6 +317,7 @@ describe("AF10 AC5 surface 4: TaskSheet.tsx:342 — latestSessionCost uses forma
 			// 15000 minor JPY = ¥15,000 (not ¥150.00 and not $150.00)
 			// Hardcoded: `$${(15000 / 100).toFixed(2)}` = "$150.00" (wrong symbol + division)
 			latestSessionCost: 15000,
+			latestSessionCurrency: "JPY",
 			latestSessionOutcome: "completed" as const,
 		};
 

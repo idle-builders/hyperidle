@@ -204,8 +204,7 @@ describe("AF10 AC3 — CLI result line with total_cost_usd emits cost_update", (
 		// Config with non-default costField
 		const config = makeConfig({
 			eventFormat: "ndjson",
-			// @lore AF10: costField is the plan-required config option for version drift
-			// @ts-expect-error — costField is not on CliAdapterConfig yet (added in T7)
+			// @lore AF10: costField is the plan-required config option for version drift (§4.1)
 			costField: "custom_cost_usd",
 		});
 		const adapter = new CliHarnessAdapter(config, { spawnFn: spawnSpy });
