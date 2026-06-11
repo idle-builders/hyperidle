@@ -23,6 +23,7 @@
  * have tabIndex) we fall back to document.body silently.
  */
 import { StatusChip, sessionOutcomeToStatus } from "@hyperidle/design-system";
+import { scaleForCurrency } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { ArtifactSection } from "../components/ArtifactSection.js";
 import { type TaskSession, useTaskSessions } from "../hooks/useTaskSessions.js";
@@ -153,7 +154,7 @@ function SessionRow({ id, title, agent, status, cost }: TaskSession): JSX.Elemen
 			</div>
 			{cost !== null && (
 				<span className="text-[12px] font-mono tabular-nums text-[var(--text-tertiary)]">
-					${((cost.minor ?? 0) / 100).toFixed(2)}
+					${((cost.minor ?? 0) / 10 ** scaleForCurrency(cost.currency)).toFixed(2)}
 				</span>
 			)}
 			<div className="flex items-center gap-[6px] shrink-0">
