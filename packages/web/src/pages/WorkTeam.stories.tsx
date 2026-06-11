@@ -33,7 +33,14 @@ const MOCK_DETAIL = {
 			agentCategory: "team",
 		},
 	],
-	burn: { costActual: null, costCap: null, capacity: 5, activeBets: 2 },
+	burn: {
+		costActual: null,
+		costCap: null,
+		capacity: 5,
+		activeBets: 2,
+		betCostActual: null,
+		routineCostThisMonth: null,
+	},
 	activeBets: [
 		{
 			id: "b1",
@@ -47,7 +54,7 @@ const MOCK_DETAIL = {
 			id: "b2",
 			descriptionTitle: "Onboarding revamp",
 			costAppetite: null,
-			status: "in_progress" as const,
+			status: "active" as const,
 			progressDone: 0,
 			progressTotal: 5,
 		},

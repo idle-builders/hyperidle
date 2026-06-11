@@ -12,7 +12,7 @@
  * browser story renderer), no component prop surgery.
  */
 
-import type { ArtifactPage } from "@hyperidle/shared";
+import type { Artifact, ArtifactPage } from "@hyperidle/shared";
 import { useEffect, useState } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { ArtifactSection } from "./ArtifactSection.js";
@@ -21,13 +21,16 @@ export default { title: "ArtifactSection", tier: "component" as const };
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
-const CODE_DIFF_ARTIFACT = {
+// AE6: artifacts use 6 fundamental kinds (code, text, image, data, html, url).
+// Story fixtures updated from L3 business-domain kinds (code_diff, deck, contract).
+const CODE_DIFF_ARTIFACT: Artifact = {
 	id: "art-story-1",
 	producingTaskId: "task-story-1",
 	producingTaskTitle: "Build auth service",
-	kind: "code_diff" as const,
+	kind: "code" as const,
+	label: "auth-migration" as const,
 	preview: {
-		kind: "code_diff" as const,
+		kind: "code" as const,
 		file: "packages/web/src/auth.ts",
 		hunks: [
 			{
@@ -40,41 +43,47 @@ const CODE_DIFF_ARTIFACT = {
 		],
 	},
 	cost: {
-		money: { minor: 4, currency: "USD" },
-		tokens: { byTier: { haiku: { prompt: 800, completion: 400 } } },
+		money: { minor: 4, currency: "USD" as const },
+		tokens: { byTier: { fast: { prompt: 800, completion: 400 } } },
 	},
 	threadCount: 2,
 	createdAt: "2026-05-01T10:00:00.000Z",
 };
 
-const DECK_ARTIFACT = {
+const DECK_ARTIFACT: Artifact = {
 	...CODE_DIFF_ARTIFACT,
 	id: "art-story-2",
 	producingTaskId: "task-story-2",
 	producingTaskTitle: "Design pitch deck",
-	kind: "deck" as const,
-	preview: { kind: "deck" as const, slideCount: 8, firstSlideTitle: "Executive summary" },
+	kind: "text" as const,
+	label: "pitch-deck" as const,
+	preview: {
+		kind: "text" as const,
+		body: "Executive summary slide content",
+		format: "markdown" as const,
+	},
 	cost: {
-		money: { minor: 12, currency: "USD" },
-		tokens: { byTier: { haiku: { prompt: 5000, completion: 3000 } } },
+		money: { minor: 12, currency: "USD" as const },
+		tokens: { byTier: { fast: { prompt: 5000, completion: 3000 } } },
 	},
 	threadCount: 0,
 };
 
-const CONTRACT_ARTIFACT = {
+const CONTRACT_ARTIFACT: Artifact = {
 	...CODE_DIFF_ARTIFACT,
 	id: "art-story-3",
 	producingTaskId: "task-story-3",
 	producingTaskTitle: "Draft contract",
-	kind: "contract" as const,
+	kind: "text" as const,
+	label: "service-agreement" as const,
 	preview: {
-		kind: "contract" as const,
-		parties: ["Acme Corp", "HyperIdle"],
-		title: "Service Agreement",
+		kind: "text" as const,
+		body: "Service Agreement between Acme Corp and HyperIdle",
+		format: "plain" as const,
 	},
 	cost: {
-		money: { minor: 8, currency: "USD" },
-		tokens: { byTier: { haiku: { prompt: 2500, completion: 1500 } } },
+		money: { minor: 8, currency: "USD" as const },
+		tokens: { byTier: { fast: { prompt: 2500, completion: 1500 } } },
 	},
 	threadCount: 1,
 };

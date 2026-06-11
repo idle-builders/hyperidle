@@ -82,7 +82,7 @@ export const Empty = (): React.JSX.Element => (
 
 export const ActiveQuiet = (): React.JSX.Element => (
 	<div className="max-w-sm">
-		<ThreadSections threads={[SAMPLE[0]]} now={NOW} />
+		<ThreadSections threads={SAMPLE[0] ? [SAMPLE[0]] : []} now={NOW} />
 	</div>
 );
 

@@ -28,6 +28,15 @@ import { SCOPE_CREATE_OPTIONS, type ScopeCreateOption } from "../../utils/scope-
 
 // AD3 AC-3: Simplified scope options shown when there is exactly 1 team (solo/single-team mode).
 
+// SCOPE_CREATE_OPTIONS is a constant array of 3 items; index 0 is always defined.
+// The nullish coalescing fallback satisfies noUncheckedIndexedAccess; it is unreachable.
+// Module-level constant avoids capturing a per-render binding in useEffect deps.
+const INITIAL_SCOPE_OPTION: ScopeCreateOption = SCOPE_CREATE_OPTIONS[0] ?? {
+	label: "Shared",
+	id: "shared",
+	scopeKind: "factory",
+};
+
 export interface KnowledgeCreateDialogProps {
 	open: boolean;
 	onClose: () => void;
@@ -54,7 +63,7 @@ export function KnowledgeCreateDialog({
 	 * AD6: 3-pill scope picker replaces 7-item SCOPE_KINDS dropdown.
 	 * Default: Shared (→ factory scopeKind).
 	 */
-	const [selectedScope, setSelectedScope] = useState<ScopeCreateOption>(SCOPE_CREATE_OPTIONS[0]);
+	const [selectedScope, setSelectedScope] = useState<ScopeCreateOption>(INITIAL_SCOPE_OPTION);
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -75,7 +84,7 @@ export function KnowledgeCreateDialog({
 			// Reset form state on open.
 			setTitle("");
 			setBody("");
-			setSelectedScope(SCOPE_CREATE_OPTIONS[0]);
+			setSelectedScope(INITIAL_SCOPE_OPTION);
 			setError(null);
 			setSubmitting(false);
 			if (!dialogRef.current.open) {
@@ -171,7 +180,7 @@ export function KnowledgeCreateDialog({
 					</span>
 					<BodyEditor
 						initialContent=""
-						onChange={(md) => setBody(md)}
+						onChange={(md: string) => setBody(md)}
 						placeholder="Describe it in markdown..."
 						variant="full"
 						minHeight="128px"

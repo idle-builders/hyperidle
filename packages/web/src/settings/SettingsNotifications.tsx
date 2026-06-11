@@ -134,7 +134,7 @@ export function SettingsNotifications(): JSX.Element {
 					on={values[setting.key] ?? setting.defaultOn}
 					label={setting.label}
 					description={setting.description}
-					onChange={(on) => handleChange(setting.key, on)}
+					onChange={(on: boolean) => handleChange(setting.key, on)}
 				/>
 			))}
 		</div>

@@ -33,7 +33,6 @@ export interface UseSettingsResult {
 
 function buildDefaultAppearance(): SettingsData["appearance"] {
 	return {
-		density: "auto",
 		theme: getInitialTheme(),
 	};
 }

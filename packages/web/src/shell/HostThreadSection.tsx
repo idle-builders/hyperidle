@@ -30,7 +30,7 @@
 
 import type { CommentRowSender } from "@hyperidle/design-system";
 import { CommentRow, ErrorState, SkeletonList } from "@hyperidle/design-system";
-import type { HostKind, Message, PlainPayloadWithBlockId } from "@hyperidle/shared";
+import type { HostKind, Message, PlainPayload } from "@hyperidle/shared";
 import { isRedactedPayload } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
@@ -85,7 +85,14 @@ export interface HostThreadSectionProps {
  * PlainPayloadWithBlockId interface has `text: string` and optional `blockId`.
  * We check for the shape rather than casting so TypeScript can narrow safely.
  */
-function isPlainPayloadWithBlockId(payload: unknown): payload is PlainPayloadWithBlockId {
+// @lore AF5/G: PlainPayloadWithBlockId is structurally distinct from PlainPayload —
+// TS won't narrow PlainPayload|RedactedPayload to PlainPayloadWithBlockId because the
+// two interfaces are unrelated in the type hierarchy. Using a local intersection type
+// (PlainPayload & { blockId?: string }) makes the guard compose with the existing union
+// while preserving the same runtime predicate and adding blockId to the narrowed type.
+function isPlainPayloadWithBlockId(
+	payload: unknown,
+): payload is PlainPayload & { blockId?: string } {
 	return (
 		typeof payload === "object" &&
 		payload !== null &&
@@ -262,7 +269,8 @@ export function HostThreadSection({
 					{messages.map((msg, index) => {
 						const sender = resolveSender(msg.senderId, identities);
 						// Show sender header when: first message, or sender differs from previous message
-						const prevMsg = index > 0 ? messages[index - 1] : null;
+						// Guard: index > 0 proves messages[index - 1] is present (noUncheckedIndexedAccess).
+						const prevMsg = index > 0 ? (messages[index - 1] ?? null) : null;
 						const showSenderHeader = prevMsg === null || prevMsg.senderId !== msg.senderId;
 						return (
 							<CommentRow
