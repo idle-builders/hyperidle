@@ -125,7 +125,7 @@ Use send_message with the builder's agentId as the recipient.`,
 						.select({ payload: messages.payload })
 						.from(messages)
 						.where(eq(messages.senderId, ctx.seedResult.agentId));
-					return sentMessages.map((m) => m.payload).join("\n");
+					return sentMessages.map((m: { payload: string }) => m.payload).join("\n");
 				},
 				criteria: `Score 1.0 if the message clearly communicates task priorities to the builder (mentions keyboard navigation as highest priority, ARIA labels as next, and some reference to the deadline or audit). Score 0.5 if the message mentions priorities but omits key details. Score 0.0 if the message is generic or missing priority information.`,
 			}),
@@ -194,7 +194,7 @@ Your message should summarize: root cause, fix applied, and what still needs to 
 						.select({ payload: messages.payload })
 						.from(messages)
 						.where(eq(messages.senderId, ctx.seedResult.agentId));
-					return sentMessages.map((m) => m.payload).join("\n");
+					return sentMessages.map((m: { payload: string }) => m.payload).join("\n");
 				},
 				criteria: `Score 1.0 if the message contains all three: (1) root cause or what was found, (2) what action was taken or fix applied, (3) what work remains. Score 0.5 if 2 of 3 are present. Score 0.0 if fewer than 2 are present or no message was sent.`,
 			}),
@@ -277,7 +277,7 @@ Use send_message to tell the PM:
 
 					// Check if the message was sent in the pre-existing thread
 					const inExistingThread = sentMessages.some(
-						(m) => m.threadId === smThreadReuseExistingThreadId,
+						(m: { threadId: string | null }) => m.threadId === smThreadReuseExistingThreadId,
 					);
 
 					// Count total direct threads to see if a new one was created
