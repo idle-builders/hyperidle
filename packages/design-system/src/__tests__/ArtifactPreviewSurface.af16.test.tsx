@@ -59,7 +59,12 @@ describe("AF16 T10, T11 — ArtifactPreviewSurface (registry dispatch + fallback
 				createElement(ArtifactPreviewSurface, {
 					kind: "image",
 					size: "full",
-					preview: { url: "https://example.com/chart.png", width: 800, height: 600, alt: "My chart" },
+					preview: {
+						url: "https://example.com/chart.png",
+						width: 800,
+						height: 600,
+						alt: "My chart",
+					},
 				}),
 			);
 		});

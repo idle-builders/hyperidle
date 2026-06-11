@@ -19,9 +19,20 @@ function authHeaders(): Record<string, string> {
 
 async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: "srch-team", name: "Search Team", phase: "build", createdAt: now });
-	await db.insert(teamMembers).values({ id: "srch-tm", teamId: "srch-team", capacity: 5, activeBets: 0, formedAt: now });
-	await db.insert(users).values({ id: "srch-user", kind: "human", name: "Searcher", role: "admin", status: "active", createdAt: now });
+	await db
+		.insert(teams)
+		.values({ id: "srch-team", name: "Search Team", phase: "build", createdAt: now });
+	await db
+		.insert(teamMembers)
+		.values({ id: "srch-tm", teamId: "srch-team", capacity: 5, activeBets: 0, formedAt: now });
+	await db.insert(users).values({
+		id: "srch-user",
+		kind: "human",
+		name: "Searcher",
+		role: "admin",
+		status: "active",
+		createdAt: now,
+	});
 }
 
 describe("AF16 T7 — Search determinism (Z8-033)", () => {
@@ -32,7 +43,10 @@ describe("AF16 T7 — Search determinism (Z8-033)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("tied timestamps: same query twice returns identical ordered id lists", async ({ db, app }) => {
+	test("tied timestamps: same query twice returns identical ordered id lists", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 		const tiedTs = "2024-01-15T10:00:00.000Z";
 		// Insert bets with the same createdAt but different ids (id order: "srch-bet-a" < "srch-bet-b")
@@ -55,8 +69,12 @@ describe("AF16 T7 — Search determinism (Z8-033)", () => {
 
 		const q = "Determinism test";
 
-		const res1 = await app.request(`/api/search?q=${encodeURIComponent(q)}`, { headers: authHeaders() });
-		const res2 = await app.request(`/api/search?q=${encodeURIComponent(q)}`, { headers: authHeaders() });
+		const res1 = await app.request(`/api/search?q=${encodeURIComponent(q)}`, {
+			headers: authHeaders(),
+		});
+		const res2 = await app.request(`/api/search?q=${encodeURIComponent(q)}`, {
+			headers: authHeaders(),
+		});
 
 		expect(res1.status).toBe(200);
 		expect(res2.status).toBe(200);
@@ -108,7 +126,9 @@ describe("AF16 T8 — Search relevance ordering (Z8-033)", () => {
 		]);
 
 		// Query "hyper drive" — exact title in srch-exact description should rank first
-		const res = await app.request(`/api/search?q=${encodeURIComponent("hyper drive")}`, { headers: authHeaders() });
+		const res = await app.request(`/api/search?q=${encodeURIComponent("hyper drive")}`, {
+			headers: authHeaders(),
+		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { work: Array<{ id: string }> };
 

@@ -36,7 +36,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "rr-team", name: "RR Team", phase: "build", createdAt: now });
-	await db.insert(teamMembers).values({ id: "rr-tm", teamId: "rr-team", capacity: 5, activeBets: 0, formedAt: now });
+	await db
+		.insert(teamMembers)
+		.values({ id: "rr-tm", teamId: "rr-team", capacity: 5, activeBets: 0, formedAt: now });
 	await db.insert(users).values({
 		id: "rr-user",
 		kind: "human",
@@ -65,7 +67,9 @@ async function seedKnowledgeItem(db: HyperIdleDb): Promise<void> {
 
 describe("AF16 T16 — retention reaper (Z8-097)", () => {
 	// (a) login_sessions — expiry-based
-	test("expired login session (expiresAt < now) is deleted; unexpired is retained", async ({ db }) => {
+	test("expired login session (expiresAt < now) is deleted; unexpired is retained", async ({
+		db,
+	}) => {
 		await seedBase(db);
 		const now = Date.now();
 		const nowFn = () => now;
@@ -102,7 +106,9 @@ describe("AF16 T16 — retention reaper (Z8-097)", () => {
 	});
 
 	// (b) notification_queue — age-based, terminal only
-	test("terminal notification past TTL is deleted; within TTL is retained; non-terminal past TTL is retained", async ({ db }) => {
+	test("terminal notification past TTL is deleted; within TTL is retained; non-terminal past TTL is retained", async ({
+		db,
+	}) => {
 		await seedBase(db);
 		const now = Date.now();
 		const nowFn = () => now;
@@ -151,7 +157,9 @@ describe("AF16 T16 — retention reaper (Z8-097)", () => {
 	});
 
 	// (c) propagation_log — age-based, terminal only
-	test("propagation_log: applied past TTL deleted; pending_retry past TTL retained", async ({ db }) => {
+	test("propagation_log: applied past TTL deleted; pending_retry past TTL retained", async ({
+		db,
+	}) => {
 		await seedBase(db);
 		const now = Date.now();
 		const nowFn = () => now;
@@ -203,7 +211,9 @@ describe("AF16 T16 — retention reaper (Z8-097)", () => {
 	});
 
 	// (d) invite_codes — expiry-based + consumed age
-	test("invite_codes: expired unclaimed deleted; consumed past window deleted; unexpired retained; consumed fresh retained", async ({ db }) => {
+	test("invite_codes: expired unclaimed deleted; consumed past window deleted; unexpired retained; consumed fresh retained", async ({
+		db,
+	}) => {
 		await seedBase(db);
 		const now = Date.now();
 		const nowFn = () => now;
@@ -301,7 +311,9 @@ describe("AF16 T16 — retention reaper (Z8-097)", () => {
 	});
 
 	// WARNING-3 regression guard: expiry tables must NOT add TTL to expiresAt
-	test("WARNING-3: just-expired login session (expiresAt = now−1ms) is pruned immediately, NOT after a TTL delay", async ({ db }) => {
+	test("WARNING-3: just-expired login session (expiresAt = now−1ms) is pruned immediately, NOT after a TTL delay", async ({
+		db,
+	}) => {
 		await seedBase(db);
 		const now = Date.now();
 		const nowFn = () => now;

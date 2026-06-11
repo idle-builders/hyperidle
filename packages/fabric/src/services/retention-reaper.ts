@@ -119,9 +119,7 @@ export async function reapRetentionOnce(
 			.select({ id: inviteCodes.id, claimedBy: inviteCodes.claimedBy })
 			.from(inviteCodes)
 			.where(lt(inviteCodes.expiresAt, expiredCutoff));
-		const expiredUnclaimedIds = expiredRows
-			.filter((r) => r.claimedBy === null)
-			.map((r) => r.id);
+		const expiredUnclaimedIds = expiredRows.filter((r) => r.claimedBy === null).map((r) => r.id);
 
 		// Consumed rows past the audit window
 		const consumedOldRows = await db
