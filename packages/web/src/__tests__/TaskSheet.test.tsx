@@ -43,6 +43,12 @@ vi.mock("../components/ArtifactSection", () => ({
 	useArtifactOpen: () => vi.fn(),
 }));
 
+// AF12: TaskSheet now renders a Sessions section backed by useTaskSessions;
+// mock it to avoid a real fetch and render the (empty) populated state.
+vi.mock("../hooks/useTaskSessions", () => ({
+	useTaskSessions: vi.fn(() => ({ data: { sessions: [] }, isLoading: false, error: null })),
+}));
+
 const sampleTask: KanbanTask = {
 	id: "task-abc",
 	title: "Implement login endpoint",

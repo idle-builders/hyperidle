@@ -102,12 +102,26 @@ describe("L14 — BetActionsBar (AC-7)", () => {
 		expect(killItem).not.toBeNull();
 	});
 
-	it("shows Adjust appetite in overflow dropdown for draft status", () => {
+	// AF12: appetite is mutable on active bets only — a draft bet shows
+	// "Activate bet", not "Adjust appetite".
+	it("shows Activate bet (not Adjust appetite) in overflow dropdown for draft status", () => {
 		renderBet(makeBet("draft"));
+		const activateItem = document.querySelector("[data-dropdown-item][data-bet-action='activate']");
+		expect(activateItem).not.toBeNull();
+		const adjustItem = document.querySelector(
+			"[data-dropdown-item][data-bet-action='adjust-appetite']",
+		);
+		expect(adjustItem).toBeNull();
+	});
+
+	it("shows Adjust appetite (not Activate bet) in overflow dropdown for active status", () => {
+		renderBet(makeBet("active"));
 		const adjustItem = document.querySelector(
 			"[data-dropdown-item][data-bet-action='adjust-appetite']",
 		);
 		expect(adjustItem).not.toBeNull();
+		const activateItem = document.querySelector("[data-dropdown-item][data-bet-action='activate']");
+		expect(activateItem).toBeNull();
 	});
 
 	it("renders no Kill or Pause in overflow dropdown for completed status", () => {
@@ -218,7 +232,7 @@ describe("L14 — AppetiteDialog (AC-10)", () => {
 		await user.click(screen.getByRole("button", { name: /adjust appetite/i }));
 
 		const select = screen.getByRole("combobox");
-		// The AppetiteDialog defaults to APPETITE_OPTIONS[1] when currentAppetite is not one of the valid options.
+		// AF12: the appetite dialog's currency select defaults to the bet's currency (USD here).
 		expect((select as HTMLSelectElement).value).toBeTruthy();
 	});
 

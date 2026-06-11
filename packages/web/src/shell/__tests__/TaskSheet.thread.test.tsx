@@ -28,6 +28,11 @@ vi.mock("../../components/ArtifactSection", () => ({
 	useArtifactOpen: () => vi.fn(),
 }));
 
+// AF12: mock useTaskSessions so the new Sessions section doesn't fire a real fetch.
+vi.mock("../../hooks/useTaskSessions", () => ({
+	useTaskSessions: vi.fn(() => ({ data: { sessions: [] }, isLoading: false, error: null })),
+}));
+
 const MOCK_TASK: KanbanTask = {
 	id: "task-sheet-001",
 	title: "Build the feature",

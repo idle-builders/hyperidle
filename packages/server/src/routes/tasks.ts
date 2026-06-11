@@ -106,6 +106,46 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 		return c.json(result);
 	});
 
+	// GET /tasks/:id/sessions — read-only list of a task's sessions (AF12 AC4).
+	// Returns the exact `{ sessions: TaskSession[] }` shape the `useTaskSessions`
+	// hook expects. `status` is the session `state` (drives the live dot); a
+	// cascade-stopped session reports 'stopped' (non-blank label downstream).
+	// @lore O2: session cost/harness columns were stripped from the kernel table,
+	// so `cost`/`harnessUrl`/`tokens` are null here. AF7 owns dispatch — no writes.
+	router.get("/:id/sessions", async (c) => {
+		const taskId = c.req.param("id");
+		const [task] = await db
+			.select({ id: tasks.id })
+			.from(tasks)
+			.where(eq(tasks.id, taskId))
+			.limit(1);
+		if (!task) {
+			return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
+		const rows = await db
+			.select()
+			.from(sessions)
+			.where(eq(sessions.taskId, taskId))
+			.orderBy(sessions.startedAt);
+		const out = rows.map((s, i) => ({
+			id: s.id,
+			title: `Session ${i + 1}`,
+			agent: s.agentId,
+			cost: null,
+			tokens: null,
+			// @lore AF12: state-based contract — the frontend keys the live dot off
+			// status === 'active'. Use `state` (not `outcome`) so a cascade-stopped
+			// session renders 'stopped' via the raw-status fallback, never blank.
+			status: s.state,
+			harnessUrl: null,
+			effectivenessScore:
+				s.effectivenessScore != null && !Number.isNaN(Number.parseFloat(s.effectivenessScore))
+					? Number.parseFloat(s.effectivenessScore)
+					: null,
+		}));
+		return c.json({ sessions: out });
+	});
+
 	// PATCH /tasks/:id — update mutable fields
 	router.patch("/:id", validateBody(updateTaskSchema), async (c) => {
 		const taskId = c.req.param("id");
