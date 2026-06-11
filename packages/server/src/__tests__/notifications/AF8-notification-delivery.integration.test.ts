@@ -33,7 +33,7 @@ import {
 	startNotificationDrain,
 } from "@hyperidle/fabric";
 import type { NotificationEvent } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
+import { eq, isNotNull } from "drizzle-orm";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { expect, test } from "../../test-fixtures.js";
 
@@ -628,15 +628,23 @@ describe("AF8 AC10 — popover API routes", () => {
 			headers: { "X-API-Key": "test-key-AF8" },
 		});
 		expect(res.status).toBe(200);
-		const body = (await res.json()) as { updated: number };
-		expect(typeof body.updated).toBe("number");
-		expect(body.updated).toBeGreaterThanOrEqual(1);
+		// W3: response is now { ok: true } after bulk UPDATE simplification
+		const body = (await res.json()) as { ok: boolean };
+		expect(body.ok).toBe(true);
+		// Verify the row was actually marked seen
+		const [seen] = await db
+			.select({ seenAt: notificationQueue.seenAt })
+			.from(notificationQueue)
+			.where(isNotNull(notificationQueue.seenAt))
+			.limit(1);
+		expect(seen?.seenAt).toBeTruthy();
 	});
 
 	test("POST /notifications/:id/read marks a row as read", async ({ db, app }) => {
 		const nowIso = new Date().toISOString();
-		// Use a UUID-format id so the route's UUID validation passes
-		const notifId = "00000000-0000-0000-0000-000000000001";
+		// Valid UUID v4 — zod v4 z.string().uuid() requires version nibble [1-8] per RFC
+		// (00000000-0000-0000-0000-000000000001 fails zod v4 strict UUID pattern)
+		const notifId = "a1b2c3d4-e5f6-4789-abcd-ef0123456789";
 		await db.insert(notificationQueue).values({
 			id: notifId,
 			eventType: "test",
