@@ -4,7 +4,7 @@
  * P4 Task 10: Settings section (AC-12, AC-14)
  * Displays org chart edges with Add/Delete functionality.
  *
- * - Fetches edges from GET /api/org (returns { edges, users })
+ * - Fetches edges from GET /api/org (returns { edges, users, teams })
  * - Edge table: FROM | MECHANISM | TARGET | delete button
  * - "Add Edge" expands inline form with From select, Mechanism select, Target select
  * - Delete calls DELETE /api/org/edges/:id
@@ -13,13 +13,26 @@
  * @lore visual-parity W-06: DaisyUI form classes replaced with Hearth token styling.
  * @lore visual-parity issue-16: Target field is now context-aware:
  * - mechanism "direct" → select from users list
- * - mechanism "team" → select from team names derived from org edges
+ * - mechanism "team" → select from teams list from GET /api/org (id=teamMembers.id, name=teams.name)
  * - mechanism "function" → free-text input
  * Inline error display added below the form (not just toast).
+ *
+ * @lore AF15: Three fixes:
+ * 1. OrgData now includes teams:{id,name}[] from GET /api/org.
+ * 2. Team select uses data.teams (real ids from teamMembers) instead of deriveTeams
+ *    (circular edge-derived derivation). deriveTeams deleted — was a circular dependency
+ *    that made the first team edge impossible to create.
+ * 3. Solo short-circuit (1 human) relaxed: Add-Edge form still renders. Mechanism
+ *    defaults to "function" in solo mode — the zero-dependency path. Guidance text
+ *    becomes a hint above the form, not a blocker.
+ *
+ * @lore AF15: Empty team state copy fixed — no longer says "create one in Work"
+ * (Work roster does not create teams; only SetupFlow does). Now points to the
+ * function mechanism and Setup, which are real affordances.
  */
 
 // hearth-internal-padding
-import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
+import { type JSX, useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 import { useToast } from "../shell/ToastRegion.js";
 
@@ -40,9 +53,16 @@ interface OrgUser {
 	role: string;
 }
 
+interface OrgTeam {
+	id: string;
+	name: string;
+}
+
 interface OrgData {
 	edges: OrgEdge[];
 	users: OrgUser[];
+	/** AF15: Real teams list from teamMembers joined to teams.name. id = teamMembers.id. */
+	teams: OrgTeam[];
 }
 
 const MECHANISMS: OrgEdgeMechanism[] = ["direct", "function", "team"];
@@ -180,25 +200,34 @@ export function SettingsOrgChart(): JSX.Element {
 		);
 	}
 
-	const { edges, users } = data;
+	const { edges, users, teams } = data;
 
-	// AD3 AC-2: solo contextual message when exactly 1 human user.
-	// 0 humans (all-agent org) sees the full UI since there's nothing to hide.
+	// AD3 AC-2 / AF15: solo contextual hint when exactly 1 human user.
+	// AF15: RELAXED — we still render the Add-Edge form but show guidance above it.
+	// Default mechanism to "function" in solo mode (zero-dependency path).
+	// 0 humans (all-agent org) sees the full UI.
 	const humanUsers = users.filter((u) => u.kind === "human");
-	if (humanUsers.length === 1) {
-		return (
-			<p className="text-[13px] text-[var(--text-secondary)]">
-				Org chart manages reporting lines between humans. Add a second human user to start defining
-				your org structure.
-			</p>
-		);
-	}
+	const isSolo = humanUsers.length === 1;
 
 	// Resolve display name for a user id
 	const userName = (id: string): string => users.find((u) => u.id === id)?.name ?? id;
 
+	// Solo: show hint + form (mechanism defaults to "function")
+	const soloHint = isSolo ? (
+		<p className="text-[13px] text-[var(--text-secondary)]">
+			Add a function (e.g. "Engineering") to describe your role, or add a second human to define
+			reporting lines.
+		</p>
+	) : null;
+
+	// Effective mechanism in solo mode: open the form with "function" default
+	const effectiveMechanism = isSolo && !showAddForm ? "function" : mechanism;
+
 	return (
 		<div className="flex flex-col gap-[12px]">
+			{/* Solo guidance hint (shown above the form, not instead of it) */}
+			{soloHint}
+
 			{/* Edge table */}
 			{edges.length === 0 ? (
 				<p className="text-[13px] text-[var(--text-tertiary)]">No edges defined.</p>
@@ -242,7 +271,11 @@ export function SettingsOrgChart(): JSX.Element {
 				<button
 					type="button"
 					className="inline-flex items-center text-[13px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-transparent border-[1.5px] border-[var(--border-default)] text-[var(--text-secondary)] cursor-pointer hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)] self-start transition-colors duration-[var(--motion-fast)]"
-					onClick={() => setShowAddForm(true)}
+					onClick={() => {
+						// Default to "function" in solo mode
+						if (isSolo) setMechanism("function");
+						setShowAddForm(true);
+					}}
 					data-testid="add-edge-btn"
 				>
 					+ Add Edge
@@ -250,9 +283,10 @@ export function SettingsOrgChart(): JSX.Element {
 			) : (
 				<AddEdgeForm
 					users={users}
-					edges={edges}
+					teams={teams}
+					isSolo={isSolo}
 					fromUserId={fromUserId}
-					mechanism={mechanism}
+					mechanism={effectiveMechanism}
 					target={target}
 					adding={adding}
 					formError={formError}
@@ -278,7 +312,10 @@ export function SettingsOrgChart(): JSX.Element {
 
 interface AddEdgeFormProps {
 	users: OrgUser[];
-	edges: OrgEdge[];
+	/** AF15: Real teams from GET /api/org. id=teamMembers.id, name=teams.name. */
+	teams: OrgTeam[];
+	/** AF15: True when exactly 1 human — defaults mechanism to "function". */
+	isSolo: boolean;
 	fromUserId: string;
 	mechanism: OrgEdgeMechanism;
 	target: string;
@@ -291,28 +328,9 @@ interface AddEdgeFormProps {
 	onCancel: () => void;
 }
 
-/**
- * Derives team names from existing org edges with mechanism="team".
- * Falls back to an empty list when no team edges exist.
- *
- * @lore visual-parity issue-16: the /api/org endpoint returns edges and users,
- * not a separate teams list. Teams are derived from edges where mechanism="team"
- * and the target field contains the team name. This gives a best-effort list of
- * known teams without a separate API call.
- */
-function deriveTeams(edges: OrgEdge[]): string[] {
-	const seen = new Set<string>();
-	for (const edge of edges) {
-		if (edge.mechanism === "team" && edge.target) {
-			seen.add(edge.target);
-		}
-	}
-	return Array.from(seen).sort();
-}
-
 function AddEdgeForm({
 	users,
-	edges,
+	teams,
 	fromUserId,
 	mechanism,
 	target,
@@ -324,7 +342,6 @@ function AddEdgeForm({
 	onAdd,
 	onCancel,
 }: AddEdgeFormProps): JSX.Element {
-	const teams = useMemo(() => deriveTeams(edges), [edges]);
 	const canAdd = Boolean(fromUserId && target && !adding);
 
 	return (
@@ -404,6 +421,12 @@ function AddEdgeForm({
 							))}
 						</select>
 					) : mechanism === "team" ? (
+						/* AF15: Team select from real teams (teamMembers joined to teams.name).
+						 * value=team.id (teamMembers.id — what server validates for mechanism:"team").
+						 * label=team.name (teams.name — human-readable).
+						 * Empty state: disabled option pointing to function mechanism or Setup.
+						 * @lore AF15: The old deriveTeams() derived from existing edges — circular.
+						 * Now sourced from GET /api/org `teams` array. */
 						<select
 							id="org-target"
 							style={selectStyle}
@@ -412,14 +435,21 @@ function AddEdgeForm({
 							aria-label="Target team"
 							disabled={adding}
 						>
-							<option value="">Select team…</option>
-							{teams.map((t) => (
-								<option key={t} value={t}>
-									{t}
+							{teams.length === 0 ? (
+								<option value="" disabled>
+									No teams yet — use a Function relationship instead, or run Setup to create your
+									first team.
 								</option>
-							))}
-							{/* Allow typing a new team name not yet in the list */}
-							{target && !teams.includes(target) && <option value={target}>{target}</option>}
+							) : (
+								<>
+									<option value="">Select team…</option>
+									{teams.map((t) => (
+										<option key={t.id} value={t.id}>
+											{t.name}
+										</option>
+									))}
+								</>
+							)}
 						</select>
 					) : (
 						/* mechanism === "function": free-text input */
