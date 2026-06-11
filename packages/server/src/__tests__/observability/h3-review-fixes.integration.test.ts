@@ -318,11 +318,21 @@ describe("H3 review fixes — (3) PATCH /config live rebuild", () => {
 		await currentDispatcher?.dispose();
 	});
 
+	// @lore AF16 T14: default-on. Seed enabled=false first so the PATCH-to-true
+	// transition is observable. Previously "false by default" was the starting state.
 	test("invalidates /status config cache after PATCH", async ({ db }) => {
+		// Explicitly disable to establish a known starting state (default is now ON).
+		const { factorySettings: fs } = await import("@hyperidle/db");
+		const now = new Date().toISOString();
+		await db
+			.insert(fs)
+			.values({ key: "observability.enabled", value: "false", updatedAt: now })
+			.onConflictDoUpdate({ target: fs.key, set: { value: "false", updatedAt: now } });
+
 		const router = createObservabilityRoutes(db, {
 			getDispatcher: (): ObservabilityDispatcher | null => null,
 		});
-		// First GET /status — returns enabled=false (default).
+		// First GET /status — returns enabled=false (explicitly seeded).
 		const a = await (await router.fetch(new Request("http://test.local/status"))).json();
 		expect((a as Record<string, unknown>).enabled).toBe(false);
 		// PATCH to enable.

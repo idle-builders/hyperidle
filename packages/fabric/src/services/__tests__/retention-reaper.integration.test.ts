@@ -52,6 +52,7 @@ async function seedKnowledgeItem(db: HyperIdleDb): Promise<void> {
 		id: "rr-ki",
 		title: "RR Knowledge",
 		body: "body",
+		format: "markdown",
 		status: "active",
 		scopeKind: "team",
 		scopeId: "rr-team",

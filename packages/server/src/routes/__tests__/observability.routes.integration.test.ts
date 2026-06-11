@@ -159,16 +159,28 @@ describe("observability routes", () => {
 	});
 
 	describe("POST /api/observability/flush", () => {
-		test("returns 200 with flushed:0 reason:disabled when no dispatcher", async ({ app }) => {
-			const res = await app.request("/api/observability/flush", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({}),
+		// @lore AF16 T14: default-on means the fixture app now wires a real dispatcher
+		// on an empty DB. Use the direct router approach (no dispatcher injected) to
+		// test the reason:disabled path — same pattern as the sibling test below.
+		test("returns 200 with flushed:0 reason:disabled when no dispatcher", async () => {
+			const handle = await createTestDb();
+			const stubDb = handle.db;
+			const router = createObservabilityRoutes(stubDb, {
+				getDispatcher: () => null,
 			});
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { flushed: number; reason?: string };
-			expect(body.flushed).toBe(0);
-			expect(body.reason).toBe("disabled");
+			try {
+				const res = await router.request("/flush", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({}),
+				});
+				expect(res.status).toBe(200);
+				const body = (await res.json()) as { flushed: number; reason?: string };
+				expect(body.flushed).toBe(0);
+				expect(body.reason).toBe("disabled");
+			} finally {
+				await handle.close();
+			}
 		});
 
 		test("returns 200 with flush result when dispatcher exists (direct route)", async () => {
