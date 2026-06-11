@@ -124,6 +124,8 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 		// @lore AD7: ILIKE (case-insensitive LIKE) used for search UX — users expect
 		// case-insensitive matching. The ESCAPE clause is still supported by ILIKE in
 		// PostgreSQL. The participant probe uses plain LIKE (JSON structure is ASCII).
+		// AF16 T7: over-fetch is ordered desc(lastActiveAt), asc(threads.id) so the
+		// JS cap picks the same top rows regardless of DB page order (deterministic).
 		const matchingThreadRows = await db
 			.select({
 				id: threads.id,
@@ -143,6 +145,7 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 					sql`${messages.deletedAt} IS NULL`,
 				),
 			)
+			.orderBy(desc(threads.lastActiveAt), threads.id)
 			.limit(MAX_PER_CATEGORY * 10); // over-fetch so we can JS-filter then cap
 
 		// JS-verify exact participant membership and deduplicate threads
@@ -179,11 +182,12 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 		if (verifiedThreadIds.length > 0) {
 			// Batch 1: thread rows for hostKind and lastActiveAt
 			const threadRowMap = new Map<string, { hostKind: string; lastActiveAt: string }>();
+			// AF16 T7: id ASC tiebreaker for deterministic order on tied lastActiveAt
 			const threadRowsBatch = await db
 				.select({ id: threads.id, hostKind: threads.hostKind, lastActiveAt: threads.lastActiveAt })
 				.from(threads)
 				.where(inArray(threads.id, verifiedThreadIds))
-				.orderBy(desc(threads.lastActiveAt));
+				.orderBy(desc(threads.lastActiveAt), threads.id);
 			for (const row of threadRowsBatch) {
 				threadRowMap.set(row.id, { hostKind: row.hostKind, lastActiveAt: row.lastActiveAt });
 			}
@@ -238,6 +242,16 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 		// @lore AD7: No auth boundary on bets — all authenticated users see all bets.
 		// Bets are team-scoped, not user-private.
 
+		// AF16 T7 (Z8-033): stable secondary sort by id ASC eliminates nondeterministic
+		// ordering when multiple rows share the same createdAt timestamp.
+		// AF16 T8 (Z8-033): match-rank CASE biases exact/prefix matches above mid-string
+		// substring matches. Order: matchRank ASC, createdAt DESC, id ASC.
+		const matchRankExpr = sql<number>`CASE
+			WHEN ${bets.description} ILIKE ${`${escapeLikePattern(query)}%`} ESCAPE '\\' THEN 0
+			WHEN ${bets.description} ILIKE ${`% ${escapeLikePattern(query)}%`} ESCAPE '\\' THEN 1
+			ELSE 2
+		END`;
+
 		const betRows = await db
 			.select({
 				id: bets.id,
@@ -255,7 +269,7 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 					sql`${bets.doneCondition} ILIKE ${pattern} ESCAPE '\\'`,
 				),
 			)
-			.orderBy(desc(bets.createdAt))
+			.orderBy(matchRankExpr, desc(bets.createdAt), bets.id)
 			.limit(MAX_PER_CATEGORY);
 
 		const workResults = betRows.map((row) => ({
@@ -299,7 +313,8 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 					),
 				),
 			)
-			.orderBy(desc(knowledgeItems.updatedAt))
+			// AF16 T7: stable sort — id ASC tiebreaker for equal updatedAt
+			.orderBy(desc(knowledgeItems.updatedAt), knowledgeItems.id)
 			.limit(MAX_PER_CATEGORY);
 
 		const knowledgeResults = kiRows.map((row) => ({
