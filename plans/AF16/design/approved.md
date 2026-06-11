@@ -75,17 +75,22 @@ Make the embodied surface dispatch through the same per-kind renderers the rest 
 
 1. **Visual kinds render visually.** For `full` size (the permalink surface), `ArtifactPreviewSurface` dispatches to the kind renderer (`ImageRenderer`, `CodeRenderer`, `DataRenderer`, `HtmlRenderer`, `UrlRenderer`, `TextRenderer`) when a preview is present — an image becomes `<img>`, code becomes a code block. The dimension caption ("400 × 300") stays as a *caption under the image*, never as the whole render.
 2. **Gallery size stays a summary.** The small `gallery` thumbnail (min-h-96px) keeps the terse `summarize()` text — it is a list-cell, not a content viewer. Dispatching full renderers into a 96px cell would be wrong. So: `size==="full"` → renderer dispatch; `size==="gallery"` → summary text (unchanged).
-3. **Honest "no preview available" affordance.** Replace `PlaceholderText`'s aspirational copy with a neutral, true statement:
+3. **Honest "no preview available" affordance — also the error/loading fallback (WARNING-4).** Replace `PlaceholderText`'s aspirational copy with a neutral, true statement, and route ALL non-paintable cases — not just `preview == null` — to the same honest affordance:
    - `full`: **"No preview available"** (not "not yet rendered").
    - `gallery`: **"No preview"**.
-   - Same `--surface-container` chrome, `--text-tertiary`, mono 11px uppercase, centered — the existing placeholder styling is correct; only the *copy* and the *trigger* change. It shows when `preview == null` **or** when a registered visual kind has a preview that the renderer itself can't display.
+   - Same `--surface-container` chrome, `--text-tertiary`, mono 11px uppercase, centered — the existing placeholder styling is correct; only the *copy* and the *trigger* change.
+   - **Trigger set (all collapse to the same affordance):** (a) `preview == null`; (b) the kind renderer **throws** during render — wrap the `getRenderer(kind)` dispatch in an error boundary whose fallback IS this same affordance; (c) a non-null but malformed preview the renderer can't display (e.g. an `image` preview missing `url`) — the renderer returns/falls through to the fallback rather than rendering a broken `<img>`. One honest affordance for null, error, and bad-preview alike. No distinct error chrome (a thrown renderer is, to the user, simply "no preview available").
+   - **Image `alt` (WARNING-4).** The `<img>` carries `alt` sourced from `preview.alt ?? "${width}×${height} image"` (the existing `ImageRenderer` already does this — confirmed at `packages/web/src/kinds/image-renderer.tsx:21`). The dimension **caption** under the image is decorative and is NOT the alt. Where the surface has the artifact title available, prefer passing it as `preview.alt` so the alt is meaningful (title) rather than dimensional; the dimensional string remains the fallback when no title/alt is supplied. Pin: routing the permalink through `getRenderer` must NOT lose `alt` — it inherits `ImageRenderer`'s `alt`.
 
 **States (full size).**
-- `image` + preview → `<img>` + dimension caption.
+- `image` + valid preview → `<img>` (with `alt`, see below) + dimension caption.
 - `code`/`data`/`html`/`url`/`text` + preview → respective renderer.
 - Registered kind, `preview == null` → "No preview available".
+- Registered visual kind, preview present but **renderer throws** → error boundary fallback → "No preview available" (WARNING-4 — same affordance, no separate error chrome).
+- Registered visual kind, preview present but **malformed** (e.g. `image` missing `url`) → renderer falls through → "No preview available".
 - Unregistered kind, preview present → `FallbackRenderer` key-value table (already honest).
 - Unregistered kind, `preview == null` → "No preview available".
+- Loading: the surface itself does not own async load (preview is passed in by the parent already-resolved); while the parent has no preview yet it passes `preview == null` → "No preview available" is the honest interim. No separate spinner state introduced (the surface is synchronous over its props).
 
 **Signature.** One render path for artifacts. The surface that *embodies* an artifact reuses the same `getRenderer(kind)` registry as the inline renderers — no second, lying text path.
 
