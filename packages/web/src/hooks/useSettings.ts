@@ -10,8 +10,9 @@
  * locally-computed default (appearance only, from useTheme) rather than a
  * hardcoded profile/products/agents mock.
  *
- * @lore M3: appearance (density/theme) is composed client-side via useTheme
+ * @lore M3: appearance (theme) is composed client-side via useTheme
  * and NOT from the API response. The API only sends profile/products/agents/notifications.
+ * @lore AF5: density was removed from the appearance shape; only theme remains.
  */
 
 import { useCallback, useEffect, useState } from "react";
