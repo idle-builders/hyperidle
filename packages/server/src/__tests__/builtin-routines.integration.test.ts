@@ -162,13 +162,16 @@ describe("G4: Built-in Routines", () => {
 		});
 
 		// @lore AD8c: cost-sentinel extracted to app code — now 4 builtin routine IDs
-		test("exports exactly 4 stable builtin ids (AD8c: cost-sentinel removed)", () => {
-			expect(BUILTIN_ROUTINE_IDS).toHaveLength(4);
+		// @lore AF9: knowledge-promotion added — now 5 builtin routine IDs
+		test("exports exactly 5 stable builtin ids (AF9: knowledge-promotion added)", () => {
+			expect(BUILTIN_ROUTINE_IDS).toHaveLength(5);
 			for (const id of BUILTIN_ROUTINE_IDS) {
 				expect(id.startsWith("builtin:")).toBe(true);
 			}
 			// @lore AD8c: cost-sentinel is no longer a builtin routine ID
 			expect(BUILTIN_ROUTINE_IDS).not.toContain("builtin:cost-sentinel");
+			// AF9: promotion sweep is a builtin
+			expect(BUILTIN_ROUTINE_IDS).toContain("builtin:knowledge-promotion");
 		});
 	});
 

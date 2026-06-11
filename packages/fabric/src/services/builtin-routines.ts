@@ -10,12 +10,20 @@ import {
 	routines,
 	threads,
 } from "@hyperidle/db";
-import type { BetStateChangedEvent, EventBus, ItemCreatedEvent } from "@hyperidle/shared";
+import {
+	type BetStateChangedEvent,
+	createLogger,
+	type EventBus,
+	type ItemCreatedEvent,
+} from "@hyperidle/shared";
 import { and, eq, gte, inArray, like } from "drizzle-orm";
 // @lore AF6: import runStaleSweep from its source module, NOT from the package
 // index (@hyperidle/fabric). routine-scheduler.ts now imports this module, so an
 // index round-trip would form a circular import (scheduler→builtin→index→scheduler).
-import { runStaleSweep } from "../promotion-pipeline.js";
+// @lore AF9: same reasoning applies to runAutoPromotionSweep — import from the
+// source module, not the index, to avoid the circular import chain.
+import { runAutoPromotionSweep, runStaleSweep } from "../promotion-pipeline.js";
+import { buildAttentionService } from "./attention-service.js";
 import { createPracticeMeeting } from "./practice-meeting.js";
 // @lore AF6: cron helpers used only at runtime inside seedBuiltinRoutines. The
 // scheduler↔builtin-routines import cycle is init-safe because neither module
@@ -44,6 +52,7 @@ export const BUILTIN_ROUTINE_IDS = [
 	"builtin:post-bet-retro",
 	"builtin:portfolio-retro",
 	"builtin:knowledge-decay",
+	"builtin:knowledge-promotion", // AF9: auto-promote provisional items meeting threshold
 ] as const;
 
 export type BuiltinRoutineId = (typeof BUILTIN_ROUTINE_IDS)[number];
@@ -75,6 +84,13 @@ const PRACTICE_MEETING_CRON = "0 10 * * MON"; // weekly Monday 10:00 UTC
  */
 const PORTFOLIO_RETRO_CRON = "0 10 1-7 * MON"; // first Monday of the month
 const KNOWLEDGE_DECAY_CRON = "0 2 * * *"; // daily 02:00 UTC
+/**
+ * Cron for the knowledge-promotion sweep — daily 03:00 UTC.
+ * Deliberately one hour after knowledge-decay (02:00) so the two heavy
+ * sweeps don't collide on the same scheduler tick.
+ * @lore AF9 R2: offset from decay to avoid concurrent sweep load.
+ */
+const KNOWLEDGE_PROMOTION_CRON = "0 3 * * *"; // daily 03:00 UTC
 
 // @lore AD8c: COST_WARNING_RATIO removed (moved to cost-sentinel.ts)
 const PORTFOLIO_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
@@ -147,6 +163,23 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
 		doneCondition: "Stale knowledge items transitioned",
 		humanReview: false,
 		silent: true,
+	},
+	{
+		id: "builtin:knowledge-promotion",
+		name: "Knowledge promotion",
+		// @lore AF9: same owner as knowledge-decay — both are practice-layer lifecycle concerns.
+		ownerAgentId: "seed-agent-pf-facilitation",
+		triggerType: "calendar",
+		triggerConfig: { cron: KNOWLEDGE_PROMOTION_CRON },
+		skillId: "knowledge_promotion",
+		doneCondition: "Provisional items meeting repetition threshold promoted",
+		humanReview: false,
+		// silent: false — promotions emit knowledge_updated events so triage/git-export
+		// consumers receive them. Decay is silent to avoid daily floods; promotion
+		// touches far fewer items and the events are editorially significant.
+		// @lore AF9 R5: the sweep already emits per-promotion events; the builtin
+		// handler must NOT additionally emit — only call runAutoPromotionSweep.
+		silent: false,
 	},
 ];
 
@@ -261,6 +294,9 @@ export async function runBuiltinRoutine(
 			break;
 		case "builtin:knowledge-decay":
 			result = await runKnowledgeDecay(db, eventBus, routine);
+			break;
+		case "builtin:knowledge-promotion":
+			result = await runKnowledgePromotion(db, eventBus, routine);
 			break;
 		default: {
 			const exhaustive: never = routineId;
@@ -552,6 +588,69 @@ async function runPortfolioRetro(
 	}
 
 	return { fired: true, extra: { itemId, threadId, count: recentRows.length } };
+}
+
+// --- Knowledge Promotion ---
+
+const promotionLog = createLogger({ pkg: "fabric" });
+
+/**
+ * Sweep provisional items for auto-promotion, then recompute attention scores
+ * for the bounded candidate set.
+ *
+ * @lore AF9 Task 2+4: this handler calls runAutoPromotionSweep (which emits
+ * one `knowledge_updated action=auto_promoted` per promoted item) and then
+ * piggybacks a bounded attention recompute over the sweep's candidate set.
+ * The handler must NOT double-emit — do not emit any additional events.
+ *
+ * @lore AF9 CRITIQUE WARNING 2 (R3): `recomputeScope` requires a filter and
+ * rejects oversize batches. We drive the narrow `{ ids: candidateIds }` form —
+ * the sweep's scanned candidate set is already bounded by DEFAULT_SWEEP_MAX_BATCH_SIZE.
+ * This is the primary design, not a fallback.
+ */
+async function runKnowledgePromotion(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	_routine: Routine,
+): Promise<RunBuiltinResult> {
+	// Step 1: run the promotion sweep. The sweep emits per-promotion events itself.
+	const sweep = await runAutoPromotionSweep(db, eventBus);
+
+	// Step 2 (Task 4): recompute attention scores for the candidates the sweep
+	// touched. Use the narrow { ids } form to satisfy FILTER_REQUIRED and stay
+	// within BATCH_TOO_LARGE. The sweep already bounded the candidate set.
+	if (sweep.scanned > 0) {
+		// Collect all scanned candidate ids by querying current provisional items
+		// plus what was just promoted — use the promotedIds + flaggedForReviewIds
+		// + skippedIds that the sweep returned (they are the full scanned set).
+		const candidateIds: readonly string[] = [
+			...sweep.promotedIds,
+			...sweep.flaggedForReviewIds,
+			...sweep.skippedIds,
+		];
+
+		if (candidateIds.length > 0) {
+			const attentionResult = await buildAttentionService({ db, eventBus }).recomputeScope({
+				ids: candidateIds,
+			});
+			if (!attentionResult.ok) {
+				promotionLog.error("attention recompute failed on promotion sweep", {
+					code: attentionResult.error.code,
+					message: attentionResult.error.message,
+				});
+			}
+		}
+	}
+
+	return {
+		fired: true,
+		extra: {
+			promotedCount: sweep.promotedIds.length,
+			flaggedCount: sweep.flaggedForReviewIds.length,
+			skippedCount: sweep.skippedIds.length,
+			scanned: sweep.scanned,
+		},
+	};
 }
 
 // --- Knowledge Decay ---
