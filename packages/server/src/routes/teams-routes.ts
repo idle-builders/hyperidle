@@ -330,6 +330,16 @@ export function createTeamRoutes(
 			return c.json({ error: "name is required", code: "validation_error" }, 400);
 		}
 
+		// AF15 AC-4: Idempotency guard — if any team already exists, return it.
+		// Setup creates exactly one default team; re-running setup must not duplicate it.
+		// Mirrors the POST /api/users idempotency pattern.
+		// @lore AF15: "first team" approach (not name-keyed) — mirrors the proven
+		// user-idempotency model. Setup is the only caller; it creates one default team.
+		const [existingTeam] = await db.select().from(teams).limit(1);
+		if (existingTeam) {
+			return c.json(existingTeam, 200);
+		}
+
 		// AE2: resolve team functions — default to ["development","product"] for backward compat.
 		const teamFunctions: string[] =
 			Array.isArray(functions) && functions.length > 0 ? functions : ["development", "product"];

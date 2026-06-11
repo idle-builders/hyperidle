@@ -9,23 +9,44 @@
  * would be non-functional without the bridge.
  * @lore visual-parity: Simplified to match HTML mockup which shows mode as a plain
  * text label (13px, text-secondary) with a hint below — no badge or switch button.
+ *
+ * @lore AF15: Fixed to read backendMode from window.__HYPERIDLE__.backendMode instead
+ * of the dead-code `isLocal = true` constant. Three states:
+ *   - no bridge (web)              → "Web" / "Running in a browser against a remote server."
+ *   - bridge, backendMode="shared" → "Shared (remote)" / "Connected to a shared backend server."
+ *   - bridge, backendMode="local"|null/undefined → "Local (laptop)" / "Agent sessions run locally on this machine."
+ * backendMode is already declared on the bridge type (window.d.ts line 26) — no type change needed.
  */
 
 import type { JSX } from "react";
 
+type BackendState = "web" | "local" | "shared";
+
+function resolveBackendState(): BackendState {
+	if (typeof window === "undefined" || window.__HYPERIDLE__ === undefined) {
+		return "web";
+	}
+	return window.__HYPERIDLE__.backendMode === "shared" ? "shared" : "local";
+}
+
+const LABELS: Record<BackendState, { mode: string; hint: string }> = {
+	web: {
+		mode: "Web",
+		hint: "Running in a browser against a remote server.",
+	},
+	local: {
+		mode: "Local (laptop)",
+		hint: "Agent sessions run locally on this machine.",
+	},
+	shared: {
+		mode: "Shared (remote)",
+		hint: "Connected to a shared backend server.",
+	},
+};
+
 export function SettingsBackend(): JSX.Element {
-	// @lore AF5/L: `platform` is a closed literal "electron" (window.d.ts:24) that
-	// identifies the HOST, never the backend mode. The comparison `platform !== "shared"`
-	// is provably always-true (TS2367), so `isLocal` is statically always true and the
-	// "Shared (remote)" branch is dead/unreachable UI at runtime. The TYPE-ONLY fix here
-	// removes the dead comparison. The actual local-vs-shared mode lives in `backendMode`
-	// (window.d.ts:26) — fixing the displayed mode to read `backendMode` is a behavioral
-	// change deferred to AF13–AF16.
-	const isLocal = true;
-	const modeLabel = isLocal ? "Local (laptop)" : "Shared (remote)";
-	const modeHint = isLocal
-		? "Agent sessions run locally on this machine."
-		: "Connected to a shared backend server.";
+	const state = resolveBackendState();
+	const { mode: modeLabel, hint: modeHint } = LABELS[state];
 
 	return (
 		<div className="flex flex-col gap-[6px] max-w-[400px]">

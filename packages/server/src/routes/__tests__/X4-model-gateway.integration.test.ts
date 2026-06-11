@@ -384,18 +384,32 @@ describe("X4: PATCH /api/model-gateway", () => {
 		expect(res.status).toBe(400);
 	});
 
-	test("returns 400 for missing tier (incomplete config)", async ({ app }) => {
+	test("returns 400 for empty body (no tiers present)", async ({ app }) => {
+		// AF15: Schema is now partial — any subset of tiers is valid. But an
+		// empty PATCH (no tiers at all) is rejected with "at least one tier".
+		// Previously this test asserted missing-'fast' was a 400 — that is no
+		// longer the case since partial patches are intentionally supported.
+		const res = await app.request("/api/model-gateway", {
+			method: "PATCH",
+			headers: authHeaders(),
+			body: JSON.stringify({}),
+		});
+
+		expect(res.status).toBe(400);
+	});
+
+	test("accepts 2-tier PATCH (missing fast tier) — partial schema (AF15)", async ({ app }) => {
+		// AF15: A 2-tier PATCH is valid with the new partial schema.
 		const res = await app.request("/api/model-gateway", {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				// missing 'fast' tier
 				reasoning: { provider: "anthropic", model: "claude-opus-4-20250514" },
 				workhorse: { provider: "anthropic", model: "claude-sonnet-4-20250514" },
 			}),
 		});
 
-		expect(res.status).toBe(400);
+		expect(res.status).toBe(200);
 	});
 
 	test("returns 400 when apiKey provided for non-openai-compatible provider", async ({ app }) => {

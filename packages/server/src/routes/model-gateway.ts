@@ -2,7 +2,7 @@
  * X4: Model Gateway API endpoints.
  *
  * GET  /api/model-gateway — returns current gateway config (apiKey stripped)
- * PATCH /api/model-gateway — validates and persists a new gateway config
+ * PATCH /api/model-gateway — validates and persists a partial gateway config
  *
  * Security:
  *  - apiKey fields are NEVER returned in GET responses. Instead, hasApiKey: boolean
@@ -21,44 +21,80 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ModelGatewayConfig, ModelTierConfig } from "@hyperidle/shared";
+import { MODEL_PROVIDERS, type ModelGatewayConfig, type ModelTierConfig } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
-import {
-	ModelGatewayConfigSchema,
-	readServerConfig,
-	updateServerConfig,
-} from "../services/server-config.js";
+import { readServerConfig, updateServerConfig } from "../services/server-config.js";
 
 // ---------------------------------------------------------------------------
 // Validation schemas
 // ---------------------------------------------------------------------------
 
 /**
- * X4: PATCH body validation. Stricter than ModelGatewayConfigSchema:
- *  - apiKey is only allowed when provider is "openai-compatible"
- *  - baseUrl is required when provider is "openai-compatible"
+ * AF15: Partial PATCH body validation.
  *
- * Implemented as a refinement on top of ModelGatewayConfigSchema.
+ * Each tier is fully optional. Within a present tier, every field is optional
+ * (a PATCH may touch only e.g. { model } on one tier).
+ *
+ * Three load-bearing guards in superRefine:
+ *  (a) Skip omitted tiers — `if (!tc) continue`
+ *  (b) apiKey rejection guarded by `provider !== undefined` — only reject a
+ *      stray apiKey when the patch is ALSO setting the provider in the same tier.
+ *  (c) baseUrl-required guarded by `provider === "openai-compatible"` IN the
+ *      patch — validate the rule against what the patch SETS, not the merged
+ *      result. This means a model-only patch on an existing oai tier is accepted.
+ *
+ * At least one tier must be present (empty PATCH is a no-op and should 400).
+ *
+ * @lore AF15: Replaced the strict full-replacement PatchModelGatewaySchema
+ * (required all 3 tiers, provider+model required) with this deep-partial schema.
+ * The old schema made single-tier patches impossible. The plan specifies exactly
+ * which predicates to use — validate-patch-not-merge is the chosen approach.
  */
-const PatchModelGatewaySchema = ModelGatewayConfigSchema.superRefine((data, ctx) => {
-	for (const [tier, tierConfig] of Object.entries(data) as [
+const PartialModelTierSchema = z.object({
+	provider: z.enum(MODEL_PROVIDERS).optional(),
+	model: z.string().min(1).optional(),
+	baseUrl: z.string().url().optional(),
+	apiKey: z.string().optional(),
+});
+
+const PartialModelGatewaySchema = z
+	.object({
+		reasoning: PartialModelTierSchema.optional(),
+		workhorse: PartialModelTierSchema.optional(),
+		fast: PartialModelTierSchema.optional(),
+	})
+	.refine((g) => g.reasoning ?? g.workhorse ?? g.fast, {
+		message: "PATCH must include at least one tier",
+	});
+
+const PatchModelGatewaySchema = PartialModelGatewaySchema.superRefine((data, ctx) => {
+	for (const [tier, tc] of Object.entries(data) as [
 		string,
-		{ provider: string; model: string; baseUrl?: string; apiKey?: string },
+		{ provider?: string; model?: string; baseUrl?: string; apiKey?: string } | undefined,
 	][]) {
-		if (tierConfig.provider !== "openai-compatible" && tierConfig.apiKey) {
+		if (!tc) continue; // (a) skip omitted tiers entirely
+
+		// (b) apiKey rejection — only when provider is also being set in this patch
+		if (
+			tc.provider !== undefined &&
+			tc.provider !== "openai-compatible" &&
+			tc.apiKey !== undefined
+		) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
 				message: `apiKey is only allowed for openai-compatible providers (tier: ${tier})`,
 				path: [tier, "apiKey"],
 			});
 		}
-		if (tierConfig.provider === "openai-compatible" && !tierConfig.baseUrl) {
+
+		// (c) baseUrl required only when switching TO openai-compatible in this patch
+		if (tc.provider === "openai-compatible" && !tc.baseUrl) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
-				message: `baseUrl is required for openai-compatible providers (tier: ${tier})`,
+				message: `baseUrl is required when setting provider to openai-compatible (tier: ${tier})`,
 				path: [tier, "baseUrl"],
 			});
 		}
@@ -108,14 +144,18 @@ export function createModelGatewayRoutes(db: HyperIdleDb): Hono {
 
 	/**
 	 * PATCH /api/model-gateway
-	 * Accepts a full ModelGatewayConfig. Validates, persists, returns sanitized config.
+	 * Accepts a partial ModelGatewayConfig (any subset of tiers, any subset of fields).
+	 * Validates, merges with stored config via per-tier merge, persists, returns sanitized config.
+	 *
+	 * @lore AF15: Body is a deep-partial (PartialModelGatewaySchema). The merge happens
+	 * in updateServerConfig's mergeTier — stored apiKey is preserved when patch omits it.
 	 */
 	router.patch(
 		"/",
 		requireBoundary({ kind: "public-data" }),
 		validateBody(PatchModelGatewaySchema),
 		async (c) => {
-			const body = c.req.valid("json" as never) as ModelGatewayConfig;
+			const body = c.req.valid("json" as never) as z.infer<typeof PartialModelGatewaySchema>;
 
 			const updated = await updateServerConfig(db, { modelGateway: body });
 			return c.json(sanitizeConfig(updated.modelGateway));

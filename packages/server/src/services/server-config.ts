@@ -111,10 +111,30 @@ type DeepPartialNotifications = {
 	mutedTeams?: string[];
 };
 
+type DeepPartialModelTier = {
+	provider?: ModelTierConfig["provider"];
+	model?: string;
+	baseUrl?: string;
+	apiKey?: string;
+};
+
+type DeepPartialModelGateway = {
+	reasoning?: DeepPartialModelTier;
+	workhorse?: DeepPartialModelTier;
+	fast?: DeepPartialModelTier;
+};
+
 type ServerConfigPatch = {
 	notifications?: DeepPartialNotifications;
-	/** X4: Full replacement — not deep merged. 3 tiers is the complete shape. */
-	modelGateway?: ModelGatewayConfig;
+	/**
+	 * AF15: Deep-partial — each tier is optional; within a present tier, every field is optional.
+	 * The merge layer (mergeTier) preserves stored apiKey when the patch omits it.
+	 *
+	 * @lore AF15: Changed from full-replacement (ModelGatewayConfig) to deep-partial so a
+	 * PATCH of only one tier does not clobber adjacent tiers' stored (encrypted) API keys.
+	 * The prior "Full replacement — 3 tiers is the complete shape" lore is now wrong.
+	 */
+	modelGateway?: DeepPartialModelGateway;
 };
 
 /**
@@ -170,6 +190,33 @@ export async function readServerConfig(db: HyperIdleDb): Promise<ServerConfig> {
 }
 
 /**
+ * Merge a partial tier patch with the current stored tier, preserving the stored
+ * apiKey when the patch does not supply one.
+ *
+ * @lore AF15: KEY PRESERVATION — incoming `undefined` apiKey keeps the stored key
+ * (ciphertext). Empty string is not a clear signal (UI never sends ""); only an
+ * explicit non-empty apiKey replaces. Switching provider AWAY from openai-compatible
+ * drops the key (it is invalid for the new provider).
+ *
+ * After merge, `encryptModelGatewayKeys` (called below) sees the preserved ciphertext
+ * and leaves it untouched (idempotent decrypt-detect loop). No double-encrypt,
+ * no plaintext introduced.
+ */
+function mergeTier(current: ModelTierConfig, patch: DeepPartialModelTier): ModelTierConfig {
+	return {
+		provider: patch.provider ?? current.provider,
+		model: patch.model ?? current.model,
+		baseUrl: patch.baseUrl ?? current.baseUrl,
+		// Drop the key when switching provider away from openai-compatible.
+		// Otherwise preserve the stored key when the patch omits apiKey.
+		apiKey:
+			patch.provider !== undefined && patch.provider !== "openai-compatible"
+				? undefined
+				: (patch.apiKey ?? current.apiKey),
+	};
+}
+
+/**
  * Patch config in the server_config table.
  * Deep-merges with the existing config. Returns the new merged config.
  */
@@ -184,8 +231,14 @@ export async function updateServerConfig(
 			patch.notifications !== undefined
 				? { ...current.notifications, ...patch.notifications }
 				: current.notifications,
-		// X4: Full replacement — 3 tiers is the complete shape, no deep merge needed.
-		modelGateway: patch.modelGateway !== undefined ? patch.modelGateway : current.modelGateway,
+		// AF15: Per-tier merge — preserves adjacent tiers' stored apiKey when patch omits them.
+		modelGateway: patch.modelGateway
+			? {
+					reasoning: mergeTier(current.modelGateway.reasoning, patch.modelGateway.reasoning ?? {}),
+					workhorse: mergeTier(current.modelGateway.workhorse, patch.modelGateway.workhorse ?? {}),
+					fast: mergeTier(current.modelGateway.fast, patch.modelGateway.fast ?? {}),
+				}
+			: current.modelGateway,
 	};
 
 	// AF11 Hole 4: encrypt any apiKey values before persisting.

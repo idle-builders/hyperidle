@@ -14,6 +14,7 @@
 import type { JSX } from "react";
 import { CredentialsTab } from "../components/CredentialsTab.js";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
+import { SettingsAgents } from "../settings/SettingsAgents.js";
 import { SettingsAppearance } from "../settings/SettingsAppearance.js";
 import { SettingsAssistant } from "../settings/SettingsAssistant.js";
 import { SettingsBackend } from "../settings/SettingsBackend.js";
@@ -21,6 +22,7 @@ import { SettingsModels } from "../settings/SettingsModels.js";
 import { SettingsNotifications } from "../settings/SettingsNotifications.js";
 import { SettingsOrgChart } from "../settings/SettingsOrgChart.js";
 import { SettingsProfile } from "../settings/SettingsProfile.js";
+import { SettingsWorker } from "../settings/SettingsWorker.js";
 
 /** Shared section title style: 13px/600 uppercase, text-tertiary, border-bottom */
 function SectionTitle({ children }: { children: string }): JSX.Element {
@@ -80,7 +82,17 @@ export function SettingsPage(): JSX.Element {
 						<SettingsModels />
 					</section>
 
-					{/* AD8b AC-2: Assistant section — soul prompt editor, between Models and Appearance */}
+					{/* AF15 AC-1: Agents section — after Models, before Assistant (design spec) */}
+					<section
+						id="settings-section-agents"
+						data-testid="settings-section-agents"
+						className="flex flex-col gap-[18px]"
+					>
+						<SectionTitle>Agents</SectionTitle>
+						<SettingsAgents />
+					</section>
+
+					{/* AD8b AC-2: Assistant section — soul prompt editor, between Agents and Appearance */}
 					{user && (
 						<section
 							id="settings-section-assistant"
@@ -120,6 +132,16 @@ export function SettingsPage(): JSX.Element {
 					>
 						<SectionTitle>Notifications</SectionTitle>
 						<SettingsNotifications />
+					</section>
+
+					{/* AF15 AC-1: Worker section — before Backend (design spec) */}
+					<section
+						id="settings-section-worker"
+						data-testid="settings-section-worker"
+						className="flex flex-col gap-[18px]"
+					>
+						<SectionTitle>Worker</SectionTitle>
+						<SettingsWorker />
 					</section>
 
 					{/* W3 AC-47 / AC-51: Backend section */}

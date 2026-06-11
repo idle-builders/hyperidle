@@ -74,9 +74,11 @@ describe("AC-1: /api/teams routes", () => {
 	});
 
 	// AC-1c: POST /api/teams creates a team (201)
-	test("POST /api/teams creates a team and returns 201", async ({ db, app }) => {
+	// @lore AF15: seedAC1 is intentionally NOT called here — the idempotency
+	// guard (AF15 AC-4) returns 200 when a team already exists. Creating the
+	// first team must be tested on an empty DB to get 201.
+	test("POST /api/teams creates a team and returns 201", async ({ app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedAC1(db);
 		const res = await app.request("/api/teams", {
 			method: "POST",
 			headers: authHeaders(),
