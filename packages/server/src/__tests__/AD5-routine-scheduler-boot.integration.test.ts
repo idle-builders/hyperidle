@@ -131,8 +131,12 @@ describe("AD5 — AC-1: Routine Scheduler Auto-Fire", () => {
 			nextRunAt: pastTime,
 		});
 
+		// AF6: generic (taskId) routines only auto-fire when canProvision is true.
+		// This direct-call harness has no real dispatcher, so the stub session is
+		// harmless — pass canProvision:true to exercise the generic fire path.
 		const scheduler = await startRoutineScheduler(db, eventBus, {
 			pollIntervalMs: POLL_INTERVAL_MS,
+			canProvision: true,
 		});
 
 		// Wait for the scheduler to poll and fire
@@ -166,6 +170,7 @@ describe("AD5 — AC-1: Routine Scheduler Auto-Fire", () => {
 
 		const scheduler = await startRoutineScheduler(db, eventBus, {
 			pollIntervalMs: POLL_INTERVAL_MS,
+			canProvision: true,
 		});
 
 		await new Promise<void>((resolve) => setTimeout(resolve, POLL_INTERVAL_MS * 3));
@@ -290,10 +295,7 @@ describe("AF6 AC1 — built-in routine auto-fire", () => {
 		scheduler.stop();
 
 		// A terminal routine_runs row must exist (AC5 surface depends on this).
-		const runs = await db
-			.select()
-			.from(routineRuns)
-			.where(eq(routineRuns.routineId, BUILTIN_ID));
+		const runs = await db.select().from(routineRuns).where(eq(routineRuns.routineId, BUILTIN_ID));
 		expect(runs.length).toBeGreaterThanOrEqual(1);
 		// Terminal outcome — never left "running".
 		for (const run of runs) {
@@ -331,10 +333,7 @@ describe("AF6 AC1 — built-in routine auto-fire", () => {
 		await new Promise<void>((resolve) => setTimeout(resolve, POLL_INTERVAL_MS * 8));
 		scheduler.stop();
 
-		const runs = await db
-			.select()
-			.from(routineRuns)
-			.where(eq(routineRuns.routineId, BUILTIN_ID));
+		const runs = await db.select().from(routineRuns).where(eq(routineRuns.routineId, BUILTIN_ID));
 		expect(runs).toHaveLength(1);
 	});
 });
