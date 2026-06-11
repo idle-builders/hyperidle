@@ -14,6 +14,7 @@ import { type HyperIdleDb, sessions, users } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { escapeLikePattern } from "../services/like-escape.js";
 
 export interface RecipientRow {
@@ -31,7 +32,7 @@ export function createRecipientRoutes(db: HyperIdleDb): Hono;
 export function createRecipientRoutes(db: HyperIdleDb, _eventBus?: EventBus): Hono {
 	const router = new Hono();
 
-	router.get("/", async (c) => {
+	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const q = c.req.query("q") ?? "";
 		const kind = c.req.query("kind");
 

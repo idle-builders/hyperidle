@@ -1,4 +1,4 @@
-import { type HyperIdleDb, threads } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, tasks, threads } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 
@@ -225,13 +225,35 @@ export function createDbSubscribeAuthorizer(db: HyperIdleDb): SubscribeAuthorize
 	return {
 		async canSubscribe(senderId: string, topic: string): Promise<boolean> {
 			if (GLOBAL_TOPICS.has(topic)) return true;
-			// Q1 §3.4: any authenticated identity may subscribe to session topics.
-			// Observation is read-only and intentionally not participant-gated —
-			// the spec says "observe mode is read-only; the agent's session is not
-			// interrupted or notified by observation alone." No participant check needed.
+			// Q1 §3.4 / AF11 Hole 1 (WS): session topics are host-scope — any authenticated
+			// principal may observe a valid session. However, the session must EXIST and its
+			// task host must be resolvable; a non-existent or host-unresolvable session now
+			// denies (fail-closed), rather than the prior "ok-for-any-non-empty-id" bypass.
+			//
+			// @lore AF11: The prior `return sessionId.length > 0` allowed subscription to
+			// any session topic regardless of existence — an accidental bypass of read-parity.
+			// Valid sessions still return true (host-scope = true); only non-existent or
+			// unresolvable sessions now return false.
 			if (topic.startsWith("session:")) {
 				const sessionId = topic.slice("session:".length);
-				return sessionId.length > 0;
+				if (!sessionId) return false;
+
+				// Load the session row
+				const [sessionRow] = await db
+					.select()
+					.from(sessions)
+					.where(eq(sessions.id, sessionId))
+					.limit(1);
+				if (!sessionRow) return false;
+
+				// Resolve the task host to verify it exists and confirm host-scope
+				const [taskRow] = await db
+					.select()
+					.from(tasks)
+					.where(eq(tasks.id, sessionRow.taskId))
+					.limit(1);
+				// Task must exist; host-scope = any authenticated principal → true
+				return taskRow !== undefined;
 			}
 			if (!topic.startsWith("thread:")) return false;
 			const threadId = topic.slice("thread:".length);

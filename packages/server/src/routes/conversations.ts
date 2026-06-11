@@ -1,9 +1,12 @@
 import { type HyperIdleDb, type Item, items, threads } from "@hyperidle/db";
-import type { ApiErrorResponse, EventBus, ItemCreatedEvent } from "@hyperidle/shared";
+import type { ApiErrorResponse, EventBus, HostKind, ItemCreatedEvent } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
 import { desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import { authorizeRead } from "../auth/authorize.js";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
+import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 
 // @lore L1 step5 (S-C2): the legacy `POST /api/conversations/responses` path
@@ -39,12 +42,13 @@ const createItemSchema = z.object({
 /**
  * Create Hono routes for conversation endpoints.
  */
-export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
-	const router = new Hono();
+export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<HyperIdleEnv> {
+	const router = new Hono<HyperIdleEnv>();
 
+	// Row 8: GET /api/conversations — S/P (list, scoped by principal via thread participants)
 	// GET / — list threads, paginated, sorted by recency
 	// O2: attention_score sort removed (column stripped from items table)
-	router.get("/", async (c) => {
+	router.get("/", requireBoundary({ kind: "principal-self" }), async (c) => {
 		const sort = c.req.query("sort") ?? "recency";
 		const page = Math.max(1, Number(c.req.query("page") ?? "1"));
 		const limit = Math.max(1, Math.min(100, Number(c.req.query("limit") ?? "20")));
@@ -87,8 +91,9 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 		});
 	});
 
+	// Row 9: GET /api/conversations/:threadId — D (enforced: authorizeRead below)
 	// GET /:threadId — thread with items and responses
-	router.get("/:threadId", async (c) => {
+	router.get("/:threadId", requireBoundary({ kind: "enforced" }), async (c) => {
 		const threadId = c.req.param("threadId");
 		const [thread] = await db.select().from(threads).where(eq(threads.id, threadId)).limit(1);
 
@@ -98,6 +103,23 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 				code: API_ERROR_CODES.NOT_FOUND,
 			};
 			return c.json(response, 404);
+		}
+
+		// AF11 Hole 1: read-parity authorization on conversation thread detail.
+		{
+			const participants = (() => {
+				try {
+					return JSON.parse(thread.participants) as string[];
+				} catch {
+					return [];
+				}
+			})();
+			const deny = authorizeRead(c, {
+				hostKind: thread.hostKind as HostKind,
+				hostId: thread.hostId,
+				participants,
+			});
+			if (deny) return deny;
 		}
 
 		// Get items sorted by createdAt ASC
@@ -120,57 +142,67 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 		return c.json({ ...thread, items: itemsWithResponses });
 	});
 
+	// Row 10: POST /api/conversations/items — S (principal-self: item created by principal)
 	// POST /items — create item
 	// O2: routeItem/routeToFounder calls removed; view/founderRoute fields removed from response
-	router.post("/items", validateBody(createItemSchema), async (c) => {
-		const body = c.req.valid("json" as never) as z.infer<typeof createItemSchema>;
-		const id = crypto.randomUUID();
-		const now = new Date().toISOString();
+	router.post(
+		"/items",
+		requireBoundary({ kind: "principal-self" }),
+		validateBody(createItemSchema),
+		async (c) => {
+			const body = c.req.valid("json" as never) as z.infer<typeof createItemSchema>;
+			const id = crypto.randomUUID();
+			const now = new Date().toISOString();
 
-		// Verify thread exists
-		const [thread] = await db.select().from(threads).where(eq(threads.id, body.threadId)).limit(1);
-		if (!thread) {
-			const response: ApiErrorResponse = {
-				error: "Thread not found",
-				code: API_ERROR_CODES.NOT_FOUND,
+			// Verify thread exists
+			const [thread] = await db
+				.select()
+				.from(threads)
+				.where(eq(threads.id, body.threadId))
+				.limit(1);
+			if (!thread) {
+				const response: ApiErrorResponse = {
+					error: "Thread not found",
+					code: API_ERROR_CODES.NOT_FOUND,
+				};
+				return c.json(response, 404);
+			}
+
+			// O2: agents routing logic removed; sourceAgentId stored for audit purposes only
+			await db.insert(items).values({
+				id,
+				sourceAgentId: body.sourceAgentId ?? null,
+				layer: body.layer ?? null,
+				verb: body.verb ?? null,
+				kind: body.kind ?? null,
+				title: body.title,
+				body: body.body ?? null,
+				attachments: body.attachments ?? null,
+				proposedAction: body.proposedAction ?? null,
+				options: body.options ?? null,
+				riskTier: body.riskTier ?? null,
+				blocking: body.blocking ?? false,
+				reasoning: body.reasoning ?? null,
+				threadId: body.threadId,
+				createdAt: now,
+			});
+
+			const [created] = await db.select().from(items).where(eq(items.id, id)).limit(1);
+
+			// Emit item_created event
+			const event: ItemCreatedEvent = {
+				type: "item_created",
+				streamId: crypto.randomUUID(),
+				itemId: id,
+				conversationId: body.threadId,
+				kind: body.kind ?? "unknown",
+				timestamp: Date.now(),
 			};
-			return c.json(response, 404);
-		}
+			eventBus.emit(event);
 
-		// O2: agents routing logic removed; sourceAgentId stored for audit purposes only
-		await db.insert(items).values({
-			id,
-			sourceAgentId: body.sourceAgentId ?? null,
-			layer: body.layer ?? null,
-			verb: body.verb ?? null,
-			kind: body.kind ?? null,
-			title: body.title,
-			body: body.body ?? null,
-			attachments: body.attachments ?? null,
-			proposedAction: body.proposedAction ?? null,
-			options: body.options ?? null,
-			riskTier: body.riskTier ?? null,
-			blocking: body.blocking ?? false,
-			reasoning: body.reasoning ?? null,
-			threadId: body.threadId,
-			createdAt: now,
-		});
-
-		const [created] = await db.select().from(items).where(eq(items.id, id)).limit(1);
-
-		// Emit item_created event
-		const event: ItemCreatedEvent = {
-			type: "item_created",
-			streamId: crypto.randomUUID(),
-			itemId: id,
-			conversationId: body.threadId,
-			kind: body.kind ?? "unknown",
-			timestamp: Date.now(),
-		};
-		eventBus.emit(event);
-
-		return c.json(created, 201);
-	});
+			return c.json(created, 201);
+		},
+	);
 
 	// `POST /responses` removed in L1 step5 (S-C2). Verdicts go through the
 	// canonical `POST /api/threads/:id/messages` surface.

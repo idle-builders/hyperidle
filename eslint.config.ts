@@ -7,6 +7,7 @@
 // Biome remains primary for everything else (formatting, style, correctness, a11y, security).
 
 import tsParser from "@typescript-eslint/parser";
+import authz from "eslint-plugin-authz";
 import design from "eslint-plugin-design";
 import drizzle from "eslint-plugin-drizzle";
 import reactCompiler from "eslint-plugin-react-compiler";
@@ -392,6 +393,30 @@ export default [
 					],
 				},
 			],
+		},
+	},
+
+	// AF11 — Authorization boundary enforcement (Hard Rules 2 + 6).
+	// Scoped to route files only. Tests and utility files excluded.
+	//   authz/no-header-identity-in-authz        — Hard Rule 2: no header in authz sink
+	//   authz/require-boundary-declaration       — Hard Rule 6: every route must declare a boundary
+	//   authz/no-raw-db-in-route-bypassing-policy — Hard Rule 6: enforced routes need authorizeRead/Write
+	{
+		files: ["packages/server/src/routes/**/*.ts"],
+		ignores: [
+			"packages/server/src/routes/**/__tests__/**",
+			"packages/server/src/routes/**/*.test.ts",
+			"packages/server/src/routes/**/*.integration.test.ts",
+			"packages/server/src/routes/**/*.spec.ts",
+		],
+		languageOptions: {
+			parser: tsParser,
+		},
+		plugins: { authz },
+		rules: {
+			"authz/no-header-identity-in-authz": "error",
+			"authz/require-boundary-declaration": "error",
+			"authz/no-raw-db-in-route-bypassing-policy": "error",
 		},
 	},
 

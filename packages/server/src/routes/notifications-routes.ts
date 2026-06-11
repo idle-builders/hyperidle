@@ -27,6 +27,7 @@ import { API_ERROR_CODES, createLogger, NOTIFICATION_TYPES } from "@hyperidle/sh
 import { desc, eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
 
 const channelEnum = z.enum(["console", "ntfy", "smtp"]);
@@ -193,7 +194,7 @@ export function createNotificationRoutes(
 	// @lore I1 simplification-#2: previous handler read the full
 	// NotificationConfig + redacted it on every request. The descriptor
 	// shape is DB-free; callers that want config hit `/config`.
-	router.get("/", (c) =>
+	router.get("/", requireBoundary({ kind: "principal-self" }), (c) =>
 		c.json({
 			ok: true,
 			resource: "notifications",
@@ -208,81 +209,91 @@ export function createNotificationRoutes(
 		}),
 	);
 
-	router.get("/config", async (c) => {
+	router.get("/config", requireBoundary({ kind: "public-data" }), async (c) => {
 		const cfg = await readNotificationConfig(db);
 		return c.json(redactNotificationConfig(cfg));
 	});
 
-	router.patch("/config", validateBody(patchConfigSchema), async (c) => {
-		const body = c.req.valid("json");
-		const reason = validatePatchBody(body);
-		if (reason !== null) {
-			const response: ApiErrorResponse = {
-				error: reason,
-				code: API_ERROR_CODES.VALIDATION_ERROR,
-			};
-			return c.json(response, 400);
-		}
-		const diff = auditDiff(body);
-		const updated = await updateNotificationConfig(db, body);
-		// @lore Emit an admin-action audit record on every PATCH so any
-		// rewrite of `recipientEmail`, `ntfyBaseUrl`, or SMTP creds is
-		// attributable. Secret fields are replaced with "***" before
-		// logging; we never log plaintext passwords or tokens.
-		auditLogger.info("config_changed", {
-			resource: "notifications.config",
-			actor: "api-key",
-			diff,
-			timestamp: nowFn().toISOString(),
-		});
-		return c.json(redactNotificationConfig(updated));
-	});
+	router.patch(
+		"/config",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(patchConfigSchema),
+		async (c) => {
+			const body = c.req.valid("json");
+			const reason = validatePatchBody(body);
+			if (reason !== null) {
+				const response: ApiErrorResponse = {
+					error: reason,
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+				};
+				return c.json(response, 400);
+			}
+			const diff = auditDiff(body);
+			const updated = await updateNotificationConfig(db, body);
+			// @lore Emit an admin-action audit record on every PATCH so any
+			// rewrite of `recipientEmail`, `ntfyBaseUrl`, or SMTP creds is
+			// attributable. Secret fields are replaced with "***" before
+			// logging; we never log plaintext passwords or tokens.
+			auditLogger.info("config_changed", {
+				resource: "notifications.config",
+				actor: "api-key",
+				diff,
+				timestamp: nowFn().toISOString(),
+			});
+			return c.json(redactNotificationConfig(updated));
+		},
+	);
 
-	router.post("/test", validateBody(testBodySchema), async (c) => {
-		const body = c.req.valid("json");
-		const cfg = await readNotificationConfig(db);
-		const capacity = Math.max(0, cfg.testMaxPerHour);
-		const took = takeTestToken(testBucket, capacity, nowFn().getTime());
-		if (!took) {
-			const wait = retryAfterSeconds(testBucket, capacity);
-			c.header("Retry-After", String(wait));
-			const response: ApiErrorResponse = {
-				error: `rate limit exceeded: max ${capacity} test sends per hour`,
-				code: API_ERROR_CODES.VALIDATION_ERROR,
+	router.post(
+		"/test",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(testBodySchema),
+		async (c) => {
+			const body = c.req.valid("json");
+			const cfg = await readNotificationConfig(db);
+			const capacity = Math.max(0, cfg.testMaxPerHour);
+			const took = takeTestToken(testBucket, capacity, nowFn().getTime());
+			if (!took) {
+				const wait = retryAfterSeconds(testBucket, capacity);
+				c.header("Retry-After", String(wait));
+				const response: ApiErrorResponse = {
+					error: `rate limit exceeded: max ${capacity} test sends per hour`,
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+				};
+				return c.json(response, 429);
+			}
+			const channel: NotificationChannel = body.channel ?? cfg.primaryChannel;
+			const recipient = pickRecipient(cfg, channel);
+			if (!recipient) {
+				const response: ApiErrorResponse = {
+					error: `recipient not configured for channel '${channel}'`,
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+				};
+				return c.json(response, 400);
+			}
+			const adapter = factory({ ...cfg, primaryChannel: channel });
+			const notification: Notification = {
+				title: "HyperIdle notification test",
+				body: "This is a test notification from HyperIdle.",
+				severity: "digest",
+				timestamp: nowFn().getTime(),
 			};
-			return c.json(response, 429);
-		}
-		const channel: NotificationChannel = body.channel ?? cfg.primaryChannel;
-		const recipient = pickRecipient(cfg, channel);
-		if (!recipient) {
-			const response: ApiErrorResponse = {
-				error: `recipient not configured for channel '${channel}'`,
-				code: API_ERROR_CODES.VALIDATION_ERROR,
-			};
-			return c.json(response, 400);
-		}
-		const adapter = factory({ ...cfg, primaryChannel: channel });
-		const notification: Notification = {
-			title: "HyperIdle notification test",
-			body: "This is a test notification from HyperIdle.",
-			severity: "digest",
-			timestamp: nowFn().getTime(),
-		};
-		let result: SendResult;
-		try {
-			result = await adapter.send(recipient, notification);
-		} catch (err) {
-			result = {
-				ok: false,
-				channel: adapter.name,
-				error: err instanceof Error ? err.message : String(err),
-				retriable: true,
-			};
-		}
-		return c.json(result);
-	});
+			let result: SendResult;
+			try {
+				result = await adapter.send(recipient, notification);
+			} catch (err) {
+				result = {
+					ok: false,
+					channel: adapter.name,
+					error: err instanceof Error ? err.message : String(err),
+					retriable: true,
+				};
+			}
+			return c.json(result);
+		},
+	);
 
-	router.get("/queue", async (c) => {
+	router.get("/queue", requireBoundary({ kind: "public-data" }), async (c) => {
 		const statusParam = c.req.query("status") ?? "pending";
 		const limitParam = c.req.query("limit");
 		const limitNum = limitParam ? Number.parseInt(limitParam, 10) : 50;
@@ -324,19 +335,29 @@ export function createNotificationRoutes(
 		});
 	});
 
-	router.post("/flush", validateBody(flushBodySchema), async (c) => {
-		const cfg = await loadNotificationConfig(db);
-		if (!cfg) {
-			return c.json({ flushed: 0, failed: 0, reason: "disabled" });
-		}
-		const result = await flushQueue(db, factory, cfg, nowFn());
-		return c.json(result);
-	});
+	router.post(
+		"/flush",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(flushBodySchema),
+		async (c) => {
+			const cfg = await loadNotificationConfig(db);
+			if (!cfg) {
+				return c.json({ flushed: 0, failed: 0, reason: "disabled" });
+			}
+			const result = await flushQueue(db, factory, cfg, nowFn());
+			return c.json(result);
+		},
+	);
 
-	router.post("/digest", validateBody(digestBodySchema), async (c) => {
-		const result = await dispatchDigest(db, { adapterFactory: factory, now: nowFn });
-		return c.json(result);
-	});
+	router.post(
+		"/digest",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(digestBodySchema),
+		async (c) => {
+			const result = await dispatchDigest(db, { adapterFactory: factory, now: nowFn });
+			return c.json(result);
+		},
+	);
 
 	// ──────────────────────────────────────────────────────────────────────────
 	// AF8: In-app notification popover API
@@ -346,7 +367,7 @@ export function createNotificationRoutes(
 	 * GET /inbox — list unread (readAt IS NULL) notifications, urgency+recency order, cap 50.
 	 * Drives the popover row list and unread dot count.
 	 */
-	router.get("/inbox", async (c) => {
+	router.get("/inbox", requireBoundary({ kind: "principal-self" }), async (c) => {
 		const rows = await db
 			.select()
 			.from(notificationQueue)
@@ -386,7 +407,7 @@ export function createNotificationRoutes(
 	 * regardless of how many unseen rows exist. The previous N+1 loop issued one
 	 * round-trip per unseen row (50+ rows = 50+ DB calls on every popover open).
 	 */
-	router.post("/seen", async (c) => {
+	router.post("/seen", requireBoundary({ kind: "principal-self" }), async (c) => {
 		const now = nowFn().toISOString();
 		await db.update(notificationQueue).set({ seenAt: now }).where(isNull(notificationQueue.seenAt));
 		return c.json({ ok: true });
@@ -399,7 +420,7 @@ export function createNotificationRoutes(
 	 * nibbles + hyphen positions). The previous regex /^[0-9a-f-]{36}$/ accepted
 	 * 36-dash strings and other non-UUID inputs. The plan promised z.string().uuid().
 	 */
-	router.post("/:id/read", async (c) => {
+	router.post("/:id/read", requireBoundary({ kind: "principal-self" }), async (c) => {
 		const id = c.req.param("id");
 		const parsed = z.string().uuid().safeParse(id);
 		if (!parsed.success) {
@@ -421,7 +442,7 @@ export function createNotificationRoutes(
 	 * GET /mute — return the list of muted notification type keys.
 	 * Used by Settings to render initial toggle states.
 	 */
-	router.get("/mute", async (c) => {
+	router.get("/mute", requireBoundary({ kind: "public-data" }), async (c) => {
 		const muted = await getMutedTypeKeys(db);
 		return c.json({ muted });
 	});
@@ -434,21 +455,26 @@ export function createNotificationRoutes(
 	 * @lore AF8: No rate limiter — idempotent set-to-value, founder-tier auth,
 	 * no fan-out. See architecture §Security for full justification.
 	 */
-	router.put("/mute/:key", validateBody(z.object({ muted: z.boolean() }).strict()), async (c) => {
-		const key = c.req.param("key");
-		const validKeys = NOTIFICATION_TYPES.map((t) => t.key);
-		if (!validKeys.includes(key as NotificationTypeKey)) {
-			const response: ApiErrorResponse = {
-				error: `unknown notification type key '${key}'; must be one of: ${validKeys.join(", ")}`,
-				code: API_ERROR_CODES.VALIDATION_ERROR,
-			};
-			return c.json(response, 400);
-		}
-		const body = c.req.valid("json");
-		const writer = defaultMutePreferenceWriter(db);
-		await writer.setMuted(key as NotificationTypeKey, body.muted);
-		return c.json({ ok: true });
-	});
+	router.put(
+		"/mute/:key",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(z.object({ muted: z.boolean() }).strict()),
+		async (c) => {
+			const key = c.req.param("key");
+			const validKeys = NOTIFICATION_TYPES.map((t) => t.key);
+			if (!validKeys.includes(key as NotificationTypeKey)) {
+				const response: ApiErrorResponse = {
+					error: `unknown notification type key '${key}'; must be one of: ${validKeys.join(", ")}`,
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+				};
+				return c.json(response, 400);
+			}
+			const body = c.req.valid("json");
+			const writer = defaultMutePreferenceWriter(db);
+			await writer.setMuted(key as NotificationTypeKey, body.muted);
+			return c.json({ ok: true });
+		},
+	);
 
 	return router;
 }

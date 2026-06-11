@@ -35,6 +35,7 @@
 		{ "path": "packages/fabric" },
 		{ "path": "packages/design-system" },
 		{ "path": "packages/eslint-plugin-design" },
+		{ "path": "packages/eslint-plugin-authz" },
 		{ "path": "packages/api-contract" },
 		{ "path": "packages/desktop" },
 		{ "path": "packages/eval" }

@@ -48,6 +48,8 @@ import {
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import type { ZodError, z } from "zod";
+import { authorizeRead, authorizeWrite } from "../auth/authorize.js";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { escapeLikePattern } from "../services/like-escape.js";
 import { createAssistantThreadRoute } from "./assistant.js";
@@ -71,22 +73,9 @@ const SENDER_HEADER = "X-Identity";
  */
 type MessageRef = z.infer<typeof inlineRefSchema>;
 
-/**
- * Read the sender id. Prefers X-Identity header; falls back to the auth context
- * userId set by createAuthMiddleware(db).
- *
- * @lore M3 A7: DEFAULT_FOUNDER_ID constant deleted. The fallback is now the
- * auth context userId (resolved from users WHERE kind = 'human' LIMIT 1).
- */
-function readSenderId(c: {
-	req: { header: (k: string) => string | undefined };
-	get: (k: "userId") => string;
-}): string {
-	// L1a: identity attribution. Tests pass `X-Identity` to disambiguate
-	// the sender when an API key is shared across multiple senders. For
-	// production, identity comes from the auth middleware via c.get("userId").
-	return c.req.header(SENDER_HEADER) ?? c.get("userId");
-}
+// @lore AF11-IDOR: readSenderId removed. POST /api/threads/:id/messages now
+// derives senderId from c.get("userId") (the authenticated Principal). The
+// removed function was header-preferred and enabled authz bypass.
 
 /**
  * Initial-message sender for `POST /api/threads`. Convention: review and
@@ -422,7 +411,8 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 	router.route("/coach", createCoachRoutes(db, eventBus));
 
 	// --- GET /api/threads ---------------------------------------------------
-	router.get("/", async (c) => {
+	// Row 2: GET /api/threads — S (principal-self: AD1 guard scopes list by principal)
+	router.get("/", requireBoundary({ kind: "principal-self" }), async (c) => {
 		const parsed = listThreadsQuerySchema.safeParse({
 			host_kind: c.req.query("host_kind"),
 			host_id: c.req.query("host_id"),
@@ -515,7 +505,8 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 	});
 
 	// --- GET /api/threads/:id -----------------------------------------------
-	router.get("/:id", async (c) => {
+	// Row 1: GET /api/threads/:id — D (enforced: authorizeRead called after loading thread)
+	router.get("/:id", requireBoundary({ kind: "enforced" }), async (c) => {
 		const id = c.req.param("id");
 
 		// T5: optional block_id filter. Reject empty strings and oversized values (AC-5 security).
@@ -535,6 +526,27 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 		if (!row) {
 			const e = err(API_ERROR_CODES.NOT_FOUND, "Thread not found", 404);
 			return c.json(e.body, e.status);
+		}
+
+		// AF11 Hole 1: read-parity authorization. participant-scope threads (user/agent host)
+		// require principal ∈ participants. host-scope threads (bet/task/knowledge/etc.)
+		// return true for any authenticated principal (Hard Rule 5 — no over-restriction).
+		// The predicate is strictly stronger than the AD1 list guard: we verify actual
+		// membership in the loaded participants array, not just a query-param match.
+		{
+			const participants = (() => {
+				try {
+					return JSON.parse(row.participants) as string[];
+				} catch {
+					return [];
+				}
+			})();
+			const deny = authorizeRead(c, {
+				hostKind: row.hostKind as import("@hyperidle/shared").HostKind,
+				hostId: row.hostId,
+				participants,
+			});
+			if (deny) return deny;
 		}
 
 		// Build message query — optionally filter by block_id column.
@@ -566,7 +578,8 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 	});
 
 	// --- POST /api/threads --------------------------------------------------
-	router.post("/", async (c) => {
+	// Row 3: POST /api/threads — S (principal-self: sender is set to principal)
+	router.post("/", requireBoundary({ kind: "principal-self" }), async (c) => {
 		let body: unknown;
 		try {
 			body = await c.req.json();
@@ -703,8 +716,14 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 	});
 
 	// --- POST /api/threads/:id/messages -------------------------------------
+	// Row 4: POST /api/threads/:id/messages — D (enforced: participant guard via authorizeWrite)
+	// @lore AF11: eslint-disable removed — guard now compares against c.get("userId")
+	// (the authenticated Principal), satisfying the authz/no-raw-db-in-route-bypassing-policy
+	// rule. Previous code used readSenderId (header-preferred) which allowed a non-participant
+	// attacker to forge the senderId and bypass the authz check.
 	router.post(
 		"/:id/messages",
+		requireBoundary({ kind: "enforced" }),
 		// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: canonical L1a contract — idempotency, verdict authz, re-open semantics, and event emission must live in one transactional path.
 		async (c) => {
 			const threadId = c.req.param("id");
@@ -720,7 +739,11 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 				return c.json(zodErrorToBody(parsed.error), 400);
 			}
 			const input = parsed.data;
-			const senderId = readSenderId(c);
+			// @lore AF11-IDOR: senderId for authorization AND attribution MUST come
+			// from the authenticated Principal (c.get("userId")), never from X-Identity
+			// header. Using a client-supplied id lets a non-participant forge writes
+			// into any thread by spoofing the senderId header.
+			const senderId = c.get("userId");
 
 			const [threadRow] = await db.select().from(threads).where(eq(threads.id, threadId)).limit(1);
 			if (!threadRow) {
@@ -737,11 +760,14 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 				return c.json(e.body, e.status);
 			}
 
-			// Authz: sender must be a participant.
-			if (!participants.includes(senderId)) {
-				const e = err("forbidden", "Sender is not a participant", 403);
-				return c.json(e.body, e.status);
-			}
+			// Authz: sender (authenticated principal) must be a participant.
+			// authorizeWrite uses c.get("userId") internally — matches senderId above.
+			const writedenial = authorizeWrite(c, {
+				hostKind: threadRow.hostKind as import("@hyperidle/shared").HostKind,
+				hostId: threadRow.hostId,
+				participants,
+			});
+			if (writedenial) return writedenial;
 
 			// Idempotency check before transaction.
 			const [existing] = await db

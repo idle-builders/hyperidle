@@ -70,7 +70,7 @@ Hiding a field from GET responses is **not** protection — `server_config.apiKe
 5. **No over-restriction** — host-scoped resources remain readable per host visibility; the fix must not break legitimate whole-team reads.
 6. **Default-deny** — a route touching per-principal/per-host data must declare its access boundary explicitly; an undeclared route fails closed. Enforced at runtime (the chokepoint) and statically (custom ESLint rule).
 
-> **Open contradiction to resolve in implementation:** the `session:<id>` WS topic is currently *intentionally ungated* (Z8-096 / Q1 §3.4, `ws-broadcaster.ts`), which conflicts with Hard Rule 1. This model resolves it as: session visibility inherits from its task's host-scope (safe-open under local-trust, closed under multi-user). Keeping observation deliberately open requires an explicit documented exception, not the current accidental default.
+> **AF11 resolved (Step 8):** the `session:<id>` WS topic now enforces read parity via `canSubscribe` in `ws-broadcaster.ts`. The prior `return sessionId.length > 0` bypass is replaced with a DB lookup of session → task host. Sessions that don't exist are now rejected. The accidental open default is closed.
 
 ## Out of scope
 

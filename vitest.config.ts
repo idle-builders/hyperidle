@@ -24,6 +24,7 @@ export default defineConfig({
 			"packages/web",
 			"packages/design-system",
 			"packages/eslint-plugin-design",
+			"packages/eslint-plugin-authz",
 			"packages/pipeline",
 		],
 	},

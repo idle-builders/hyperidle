@@ -20,6 +20,7 @@ import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
 import { Hono } from "hono";
 import z from "zod";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
 
 const patchConfigSchema = z
@@ -112,7 +113,7 @@ export function createGitExportRoutes(
 	// config hit `/config`.
 	// @lore I1 simplification-#2: previous handler read + redacted the
 	// git-export config on every request.
-	router.get("/", (c) =>
+	router.get("/", requireBoundary({ kind: "public-data" }), (c) =>
 		c.json({
 			ok: true,
 			resource: "git-export",
@@ -120,43 +121,55 @@ export function createGitExportRoutes(
 		}),
 	);
 
-	router.get("/config", async (c) => c.json(toSafeConfig(await readGitExportConfig(db))));
+	router.get("/config", requireBoundary({ kind: "public-data" }), async (c) =>
+		c.json(toSafeConfig(await readGitExportConfig(db))),
+	);
 
-	router.patch("/config", validateBody(patchConfigSchema), async (c) => {
-		const body = c.req.valid("json");
-		const reason = validatePatchBody(body);
-		if (reason !== null) {
-			const response: ApiErrorResponse = {
-				error: reason,
-				code: API_ERROR_CODES.VALIDATION_ERROR,
-			};
-			return c.json(response, 400);
-		}
-		const updated = await updateGitExportConfig(db, body);
-		return c.json(toSafeConfig(updated));
-	});
+	router.patch(
+		"/config",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(patchConfigSchema),
+		async (c) => {
+			const body = c.req.valid("json");
+			const reason = validatePatchBody(body);
+			if (reason !== null) {
+				const response: ApiErrorResponse = {
+					error: reason,
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+				};
+				return c.json(response, 400);
+			}
+			const updated = await updateGitExportConfig(db, body);
+			return c.json(toSafeConfig(updated));
+		},
+	);
 
-	router.post("/run", validateBody(runBodySchema), async (c) => {
-		const body = c.req.valid("json");
-		const cfg = await readGitExportConfig(db);
-		if (!cfg.repoPath || cfg.repoPath.length === 0) {
-			const response: ApiErrorResponse = {
-				error: "repoPath is not configured",
-				code: API_ERROR_CODES.VALIDATION_ERROR,
-			};
-			return c.json(response, 400);
-		}
-		const runner = createRunner(cfg.repoPath);
-		const result = await runGitExport(db, {
-			runner,
-			fs,
-			trigger: body.trigger ?? "manual",
-			force: body.force,
-		});
-		return c.json(result);
-	});
+	router.post(
+		"/run",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(runBodySchema),
+		async (c) => {
+			const body = c.req.valid("json");
+			const cfg = await readGitExportConfig(db);
+			if (!cfg.repoPath || cfg.repoPath.length === 0) {
+				const response: ApiErrorResponse = {
+					error: "repoPath is not configured",
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+				};
+				return c.json(response, 400);
+			}
+			const runner = createRunner(cfg.repoPath);
+			const result = await runGitExport(db, {
+				runner,
+				fs,
+				trigger: body.trigger ?? "manual",
+				force: body.force,
+			});
+			return c.json(result);
+		},
+	);
 
-	router.get("/status", async (c) => {
+	router.get("/status", requireBoundary({ kind: "public-data" }), async (c) => {
 		const cfg = await readGitExportConfig(db);
 		const meta = await getLastExportMeta(db);
 		return c.json({

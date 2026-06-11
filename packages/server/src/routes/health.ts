@@ -1,10 +1,11 @@
 import type { HealthResponse } from "@hyperidle/shared";
 import { Hono } from "hono";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 
 const health = new Hono();
 
-health.get("/health", (c) => {
+health.get("/health", requireBoundary({ kind: "public-data" }), (c) => {
 	const response: HealthResponse = {
 		status: "ok",
 		timestamp: new Date().toISOString(),
@@ -23,7 +24,7 @@ health.get("/health", (c) => {
  */
 const authHealth = new Hono<HyperIdleEnv>();
 
-authHealth.get("/auth", (c) => {
+authHealth.get("/auth", requireBoundary({ kind: "public-data" }), (c) => {
 	const userId = c.get("userId");
 	return c.json({
 		status: "ok" as const,

@@ -45,6 +45,7 @@ import {
 import { and, eq, inArray, ne, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { escapeLikePattern } from "../services/like-escape.js";
@@ -171,7 +172,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 	// GET /search — FTS search across all knowledge items
 	// Must be registered before /:id to avoid route conflict
-	router.get("/search", async (c) => {
+	router.get("/search", requireBoundary({ kind: "public-data" }), async (c) => {
 		const rawQuery = c.req.query("q");
 		const parsed = SEARCH_QUERY_SCHEMA.safeParse(rawQuery?.trim());
 		if (!parsed.success) {
@@ -209,7 +210,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	// pragmatic boundary compromise to avoid a second round-trip from the fabric.
 	// @lore Q2: The filter is: include item if scope_kind != 'user' OR updatedBy = userId.
 	// Using 404 (not 403) for unauthorized access prevents leaking existence.
-	router.get("/", async (c) => {
+	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const userId = c.get("userId");
 
 		const rawItems = await db
@@ -277,7 +278,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	// Must be registered before /:id to avoid route conflict.
 	// @lore Y4: The filter mirrors GET / user-scope visibility: include item if scope_kind != 'user'
 	// OR updatedBy = userId. This ensures private items from other users don't inflate the count.
-	router.get("/triage-count", async (c) => {
+	router.get("/triage-count", requireBoundary({ kind: "public-data" }), async (c) => {
 		const userId = c.get("userId");
 		const [result] = await db
 			.select({ count: sql<number>`count(*)` })
@@ -293,7 +294,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 	// GET /:id — single item, emit knowledge_accessed event
 	// Q2: returns 404 for user-scoped items not authored by the requesting user.
-	router.get("/:id", async (c) => {
+	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const id = c.req.param("id");
 		const userId = c.get("userId");
 
@@ -371,444 +372,469 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	//     factory and user scopes need no external scopeId.
 	//     user scope auto-fills scopeId from userId.
 	//     Fabric layer assigned inline on creation.
-	router.post("/", validateBody(createKnowledgeSchema), async (c) => {
-		const body = c.req.valid("json" as never) as z.infer<typeof createKnowledgeSchema>;
-		const userId = c.get("userId");
+	router.post(
+		"/",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(createKnowledgeSchema),
+		async (c) => {
+			const body = c.req.valid("json" as never) as z.infer<typeof createKnowledgeSchema>;
+			const userId = c.get("userId");
 
-		// Q2: scopeId validation — required for scopes that reference an external entity.
-		if (requiresScopeId(body.scopeKind) && !body.scopeId) {
-			const response: ApiErrorResponse = {
-				error: `scopeId is required for scopeKind '${body.scopeKind}'`,
-				code: API_ERROR_CODES.VALIDATION_ERROR,
-			};
-			return c.json(response, 400);
-		}
+			// Q2: scopeId validation — required for scopes that reference an external entity.
+			if (requiresScopeId(body.scopeKind) && !body.scopeId) {
+				const response: ApiErrorResponse = {
+					error: `scopeId is required for scopeKind '${body.scopeKind}'`,
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+				};
+				return c.json(response, 400);
+			}
 
-		// Q2: user scope auto-fills scopeId from userId (private to the requesting user).
-		const resolvedScopeId =
-			body.scopeKind === "user" ? (body.scopeId ?? userId) : (body.scopeId ?? null);
+			// Q2: user scope auto-fills scopeId from userId (private to the requesting user).
+			const resolvedScopeId =
+				body.scopeKind === "user" ? (body.scopeId ?? userId) : (body.scopeId ?? null);
 
-		const id = crypto.randomUUID();
-		const now = new Date().toISOString();
+			const id = crypto.randomUUID();
+			const now = new Date().toISOString();
 
-		await db.insert(knowledgeItems).values({
-			id,
-			scopeKind: body.scopeKind,
-			scopeId: resolvedScopeId,
-			topic: body.topic ?? null,
-			title: body.title,
-			body: body.body,
-			format: body.format,
-			// O2: default status is "draft" (was "captured" in old implementation)
-			status: body.status ?? "draft",
-			version: 1,
-			updatedBy: body.updatedBy,
-			createdAt: now,
-			updatedAt: now,
-		});
-
-		// Q2: assign fabric layer inline on creation.
-		await upsertFabricLayer(db, id, body.scopeKind);
-
-		const [created] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, id))
-			.limit(1);
-
-		// O2: emit knowledge_created event
-		const createdEvent: KnowledgeCreatedEvent = {
-			type: "knowledge_created",
-			streamId: `knowledge:${id}`,
-			itemId: id,
-			timestamp: Date.now(),
-		};
-		eventBus.emit(createdEvent);
-
-		return c.json(created, 201);
-	});
-
-	// PATCH /:id/scope — Q2: change scope_kind and scope_id with version tracking.
-	// Bumps version, logs change in knowledgeEditLog, updates fabric layer.
-	router.patch("/:id/scope", validateBody(changeScopeSchema), async (c) => {
-		const id = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof changeScopeSchema>;
-
-		const [existing] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, id))
-			.limit(1);
-
-		if (!existing) {
-			const response: ApiErrorResponse = {
-				error: "Knowledge item not found",
-				code: API_ERROR_CODES.NOT_FOUND,
-			};
-			return c.json(response, 404);
-		}
-
-		// Optimistic locking: check version
-		if (existing.version !== body.version) {
-			const response: ApiErrorResponse = {
-				error: `Version conflict: expected ${body.version}, current is ${existing.version}`,
-				code: API_ERROR_CODES.CONFLICT,
-				details: { currentVersion: existing.version },
-			};
-			return c.json(response, 409);
-		}
-
-		// Q2: scopeId validation for the new scope kind
-		if (requiresScopeId(body.scopeKind) && !body.scopeId) {
-			const response: ApiErrorResponse = {
-				error: `scopeId is required for scopeKind '${body.scopeKind}'`,
-				code: API_ERROR_CODES.VALIDATION_ERROR,
-			};
-			return c.json(response, 400);
-		}
-
-		const now = new Date().toISOString();
-		const resolvedScopeId = body.scopeId ?? null;
-
-		// Log scope_kind change to knowledgeEditLog (with reason in newValue)
-		if (existing.scopeKind !== body.scopeKind) {
-			await db.insert(knowledgeEditLog).values({
-				id: crypto.randomUUID(),
-				itemId: id,
-				editor: body.updatedBy,
-				field: "scope_kind",
-				oldValue: existing.scopeKind,
-				newValue: `${body.scopeKind} (reason: ${body.reason})`,
-				editType: "scope_change",
-				createdAt: now,
-			});
-		}
-
-		// Log scope_id change to knowledgeEditLog if it changed
-		if (existing.scopeId !== resolvedScopeId) {
-			await db.insert(knowledgeEditLog).values({
-				id: crypto.randomUUID(),
-				itemId: id,
-				editor: body.updatedBy,
-				field: "scope_id",
-				oldValue: existing.scopeId ?? null,
-				newValue: resolvedScopeId ?? null,
-				editType: "scope_change",
-				createdAt: now,
-			});
-		}
-
-		await db
-			.update(knowledgeItems)
-			.set({
+			await db.insert(knowledgeItems).values({
+				id,
 				scopeKind: body.scopeKind,
 				scopeId: resolvedScopeId,
-				version: existing.version + 1,
-				updatedBy: body.updatedBy,
-				updatedAt: now,
-			})
-			.where(eq(knowledgeItems.id, id));
-
-		// Q2: update fabric layer for new scope
-		await upsertFabricLayer(db, id, body.scopeKind);
-
-		const [updated] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, id))
-			.limit(1);
-
-		// Emit knowledge_updated event for scope change
-		const updatedEvent: KnowledgeUpdatedEvent = {
-			type: "knowledge_updated",
-			streamId: `knowledge:${id}`,
-			itemId: id,
-			action: "updated",
-			timestamp: Date.now(),
-		};
-		eventBus.emit(updatedEvent);
-
-		return c.json(updated);
-	});
-
-	// PATCH /:id — update (optimistic locking)
-	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: knowledge PATCH handler validates version and diff fields in one route
-	router.patch("/:id", validateBody(updateKnowledgeSchema), async (c) => {
-		const id = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof updateKnowledgeSchema>;
-
-		const [existing] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, id))
-			.limit(1);
-
-		if (!existing) {
-			const response: ApiErrorResponse = {
-				error: "Knowledge item not found",
-				code: API_ERROR_CODES.NOT_FOUND,
-			};
-			return c.json(response, 404);
-		}
-
-		// Optimistic locking: check version
-		if (existing.version !== body.version) {
-			const response: ApiErrorResponse = {
-				error: `Version conflict: expected ${body.version}, current is ${existing.version}`,
-				code: API_ERROR_CODES.CONFLICT,
-				details: { currentVersion: existing.version },
-			};
-			return c.json(response, 409);
-		}
-
-		const now = new Date().toISOString();
-
-		// Track changes for edit log (O2: removed kind, confidence, meta fields)
-		const updatableFields = ["title", "body", "topic", "format", "status"] as const;
-		type UpdatableField = (typeof updatableFields)[number];
-
-		for (const field of updatableFields) {
-			const newValue = body[field as keyof typeof body];
-			if (newValue !== undefined) {
-				const oldValue = existing[field as UpdatableField];
-				const oldStr = oldValue != null ? String(oldValue) : null;
-				const newStr = String(newValue);
-				if (oldStr !== newStr) {
-					await db.insert(knowledgeEditLog).values({
-						id: crypto.randomUUID(),
-						itemId: id,
-						editor: body.updatedBy,
-						field,
-						oldValue: oldStr,
-						newValue: newStr,
-						editType: "update",
-						createdAt: now,
-					});
-				}
-			}
-		}
-
-		// Build update object
-		const updates: Record<string, unknown> = {
-			version: existing.version + 1,
-			updatedBy: body.updatedBy,
-			updatedAt: now,
-		};
-
-		if (body.title !== undefined) updates.title = body.title;
-		if (body.body !== undefined) updates.body = body.body;
-		if (body.topic !== undefined) updates.topic = body.topic;
-		if (body.format !== undefined) updates.format = body.format;
-		if (body.status !== undefined) updates.status = body.status;
-
-		await db.update(knowledgeItems).set(updates).where(eq(knowledgeItems.id, id));
-
-		const [updated] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, id))
-			.limit(1);
-
-		// O2: emit knowledge_updated event
-		const updatedEvent: KnowledgeUpdatedEvent = {
-			type: "knowledge_updated",
-			streamId: `knowledge:${id}`,
-			itemId: id,
-			action: "updated",
-			timestamp: Date.now(),
-		};
-		eventBus.emit(updatedEvent);
-
-		return c.json(updated);
-	});
-
-	// POST /:id/merge — merge two items
-	router.post("/:id/merge", validateBody(mergeSchema), async (c) => {
-		const targetId = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof mergeSchema>;
-
-		const [target] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, targetId))
-			.limit(1);
-
-		if (!target) {
-			const response: ApiErrorResponse = {
-				error: "Target knowledge item not found",
-				code: API_ERROR_CODES.NOT_FOUND,
-			};
-			return c.json(response, 404);
-		}
-
-		const [source] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, body.sourceId))
-			.limit(1);
-
-		if (!source) {
-			const response: ApiErrorResponse = {
-				error: "Source knowledge item not found",
-				code: API_ERROR_CODES.NOT_FOUND,
-			};
-			return c.json(response, 404);
-		}
-
-		const now = new Date().toISOString();
-		const mergedBody = `${target.body}\n\n---\n\n${source.body}`;
-
-		// Update target with merged body
-		await db
-			.update(knowledgeItems)
-			.set({
-				body: mergedBody,
-				version: target.version + 1,
-				updatedBy: body.updatedBy,
-				updatedAt: now,
-			})
-			.where(eq(knowledgeItems.id, targetId));
-
-		// Archive source
-		await db
-			.update(knowledgeItems)
-			.set({
-				status: "archived",
-				updatedBy: body.updatedBy,
-				updatedAt: now,
-			})
-			.where(eq(knowledgeItems.id, body.sourceId));
-
-		// Edit log for merge
-		await db.insert(knowledgeEditLog).values({
-			id: crypto.randomUUID(),
-			itemId: targetId,
-			editor: body.updatedBy,
-			field: "body",
-			oldValue: target.body,
-			newValue: mergedBody,
-			editType: "merge",
-			createdAt: now,
-		});
-
-		await db.insert(knowledgeEditLog).values({
-			id: crypto.randomUUID(),
-			itemId: body.sourceId,
-			editor: body.updatedBy,
-			field: "status",
-			oldValue: source.status,
-			newValue: "archived",
-			editType: "merge",
-			createdAt: now,
-		});
-
-		const [merged] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, targetId))
-			.limit(1);
-
-		// O2: emit knowledge_updated event for merge
-		const mergedEvent: KnowledgeUpdatedEvent = {
-			type: "knowledge_updated",
-			streamId: `knowledge:${targetId}`,
-			itemId: targetId,
-			action: "merged",
-			timestamp: Date.now(),
-		};
-		eventBus.emit(mergedEvent);
-
-		return c.json(merged);
-	});
-
-	// POST /:id/split — split into two or more items
-	router.post("/:id/split", validateBody(splitSchema), async (c) => {
-		const id = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof splitSchema>;
-
-		const [original] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, id))
-			.limit(1);
-
-		if (!original) {
-			const response: ApiErrorResponse = {
-				error: "Knowledge item not found",
-				code: API_ERROR_CODES.NOT_FOUND,
-			};
-			return c.json(response, 404);
-		}
-
-		const now = new Date().toISOString();
-		const createdItems: unknown[] = [];
-
-		for (const newItem of body.newItems) {
-			const newId = crypto.randomUUID();
-			await db.insert(knowledgeItems).values({
-				id: newId,
-				scopeKind: original.scopeKind,
-				scopeId: original.scopeId,
-				topic: newItem.topic ?? original.topic,
-				title: newItem.title,
-				body: newItem.body,
-				format: original.format,
-				// O2 reviewer finding: split handler must set status: "draft"
-				status: "draft",
+				topic: body.topic ?? null,
+				title: body.title,
+				body: body.body,
+				format: body.format,
+				// O2: default status is "draft" (was "captured" in old implementation)
+				status: body.status ?? "draft",
 				version: 1,
 				updatedBy: body.updatedBy,
 				createdAt: now,
 				updatedAt: now,
 			});
 
-			// Q2: assign fabric layer for split items (inherits parent scope)
-			await upsertFabricLayer(db, newId, original.scopeKind);
+			// Q2: assign fabric layer inline on creation.
+			await upsertFabricLayer(db, id, body.scopeKind);
 
 			const [created] = await db
 				.select()
 				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, newId))
+				.where(eq(knowledgeItems.id, id))
 				.limit(1);
-			createdItems.push(created);
-		}
 
-		// Archive original
-		await db
-			.update(knowledgeItems)
-			.set({
-				status: "archived",
+			// O2: emit knowledge_created event
+			const createdEvent: KnowledgeCreatedEvent = {
+				type: "knowledge_created",
+				streamId: `knowledge:${id}`,
+				itemId: id,
+				timestamp: Date.now(),
+			};
+			eventBus.emit(createdEvent);
+
+			return c.json(created, 201);
+		},
+	);
+
+	// PATCH /:id/scope — Q2: change scope_kind and scope_id with version tracking.
+	// Bumps version, logs change in knowledgeEditLog, updates fabric layer.
+	router.patch(
+		"/:id/scope",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(changeScopeSchema),
+		async (c) => {
+			const id = c.req.param("id");
+			const body = c.req.valid("json" as never) as z.infer<typeof changeScopeSchema>;
+
+			const [existing] = await db
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, id))
+				.limit(1);
+
+			if (!existing) {
+				const response: ApiErrorResponse = {
+					error: "Knowledge item not found",
+					code: API_ERROR_CODES.NOT_FOUND,
+				};
+				return c.json(response, 404);
+			}
+
+			// Optimistic locking: check version
+			if (existing.version !== body.version) {
+				const response: ApiErrorResponse = {
+					error: `Version conflict: expected ${body.version}, current is ${existing.version}`,
+					code: API_ERROR_CODES.CONFLICT,
+					details: { currentVersion: existing.version },
+				};
+				return c.json(response, 409);
+			}
+
+			// Q2: scopeId validation for the new scope kind
+			if (requiresScopeId(body.scopeKind) && !body.scopeId) {
+				const response: ApiErrorResponse = {
+					error: `scopeId is required for scopeKind '${body.scopeKind}'`,
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+				};
+				return c.json(response, 400);
+			}
+
+			const now = new Date().toISOString();
+			const resolvedScopeId = body.scopeId ?? null;
+
+			// Log scope_kind change to knowledgeEditLog (with reason in newValue)
+			if (existing.scopeKind !== body.scopeKind) {
+				await db.insert(knowledgeEditLog).values({
+					id: crypto.randomUUID(),
+					itemId: id,
+					editor: body.updatedBy,
+					field: "scope_kind",
+					oldValue: existing.scopeKind,
+					newValue: `${body.scopeKind} (reason: ${body.reason})`,
+					editType: "scope_change",
+					createdAt: now,
+				});
+			}
+
+			// Log scope_id change to knowledgeEditLog if it changed
+			if (existing.scopeId !== resolvedScopeId) {
+				await db.insert(knowledgeEditLog).values({
+					id: crypto.randomUUID(),
+					itemId: id,
+					editor: body.updatedBy,
+					field: "scope_id",
+					oldValue: existing.scopeId ?? null,
+					newValue: resolvedScopeId ?? null,
+					editType: "scope_change",
+					createdAt: now,
+				});
+			}
+
+			await db
+				.update(knowledgeItems)
+				.set({
+					scopeKind: body.scopeKind,
+					scopeId: resolvedScopeId,
+					version: existing.version + 1,
+					updatedBy: body.updatedBy,
+					updatedAt: now,
+				})
+				.where(eq(knowledgeItems.id, id));
+
+			// Q2: update fabric layer for new scope
+			await upsertFabricLayer(db, id, body.scopeKind);
+
+			const [updated] = await db
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, id))
+				.limit(1);
+
+			// Emit knowledge_updated event for scope change
+			const updatedEvent: KnowledgeUpdatedEvent = {
+				type: "knowledge_updated",
+				streamId: `knowledge:${id}`,
+				itemId: id,
+				action: "updated",
+				timestamp: Date.now(),
+			};
+			eventBus.emit(updatedEvent);
+
+			return c.json(updated);
+		},
+	);
+
+	// PATCH /:id — update (optimistic locking)
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: knowledge PATCH handler validates version and diff fields in one route
+	router.patch(
+		"/:id",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(updateKnowledgeSchema),
+		async (c) => {
+			const id = c.req.param("id");
+			const body = c.req.valid("json" as never) as z.infer<typeof updateKnowledgeSchema>;
+
+			const [existing] = await db
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, id))
+				.limit(1);
+
+			if (!existing) {
+				const response: ApiErrorResponse = {
+					error: "Knowledge item not found",
+					code: API_ERROR_CODES.NOT_FOUND,
+				};
+				return c.json(response, 404);
+			}
+
+			// Optimistic locking: check version
+			if (existing.version !== body.version) {
+				const response: ApiErrorResponse = {
+					error: `Version conflict: expected ${body.version}, current is ${existing.version}`,
+					code: API_ERROR_CODES.CONFLICT,
+					details: { currentVersion: existing.version },
+				};
+				return c.json(response, 409);
+			}
+
+			const now = new Date().toISOString();
+
+			// Track changes for edit log (O2: removed kind, confidence, meta fields)
+			const updatableFields = ["title", "body", "topic", "format", "status"] as const;
+			type UpdatableField = (typeof updatableFields)[number];
+
+			for (const field of updatableFields) {
+				const newValue = body[field as keyof typeof body];
+				if (newValue !== undefined) {
+					const oldValue = existing[field as UpdatableField];
+					const oldStr = oldValue != null ? String(oldValue) : null;
+					const newStr = String(newValue);
+					if (oldStr !== newStr) {
+						await db.insert(knowledgeEditLog).values({
+							id: crypto.randomUUID(),
+							itemId: id,
+							editor: body.updatedBy,
+							field,
+							oldValue: oldStr,
+							newValue: newStr,
+							editType: "update",
+							createdAt: now,
+						});
+					}
+				}
+			}
+
+			// Build update object
+			const updates: Record<string, unknown> = {
+				version: existing.version + 1,
 				updatedBy: body.updatedBy,
 				updatedAt: now,
-			})
-			.where(eq(knowledgeItems.id, id));
+			};
 
-		// Edit log
-		await db.insert(knowledgeEditLog).values({
-			id: crypto.randomUUID(),
-			itemId: id,
-			editor: body.updatedBy,
-			field: "status",
-			oldValue: original.status,
-			newValue: "archived",
-			editType: "split",
-			createdAt: now,
-		});
+			if (body.title !== undefined) updates.title = body.title;
+			if (body.body !== undefined) updates.body = body.body;
+			if (body.topic !== undefined) updates.topic = body.topic;
+			if (body.format !== undefined) updates.format = body.format;
+			if (body.status !== undefined) updates.status = body.status;
 
-		// O2: emit knowledge_updated event for split
-		const splitEvent: KnowledgeUpdatedEvent = {
-			type: "knowledge_updated",
-			streamId: `knowledge:${id}`,
-			itemId: id,
-			action: "split",
-			timestamp: Date.now(),
-		};
-		eventBus.emit(splitEvent);
+			await db.update(knowledgeItems).set(updates).where(eq(knowledgeItems.id, id));
 
-		return c.json({ items: createdItems });
-	});
+			const [updated] = await db
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, id))
+				.limit(1);
+
+			// O2: emit knowledge_updated event
+			const updatedEvent: KnowledgeUpdatedEvent = {
+				type: "knowledge_updated",
+				streamId: `knowledge:${id}`,
+				itemId: id,
+				action: "updated",
+				timestamp: Date.now(),
+			};
+			eventBus.emit(updatedEvent);
+
+			return c.json(updated);
+		},
+	);
+
+	// POST /:id/merge — merge two items
+	router.post(
+		"/:id/merge",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(mergeSchema),
+		async (c) => {
+			const targetId = c.req.param("id");
+			const body = c.req.valid("json" as never) as z.infer<typeof mergeSchema>;
+
+			const [target] = await db
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, targetId))
+				.limit(1);
+
+			if (!target) {
+				const response: ApiErrorResponse = {
+					error: "Target knowledge item not found",
+					code: API_ERROR_CODES.NOT_FOUND,
+				};
+				return c.json(response, 404);
+			}
+
+			const [source] = await db
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, body.sourceId))
+				.limit(1);
+
+			if (!source) {
+				const response: ApiErrorResponse = {
+					error: "Source knowledge item not found",
+					code: API_ERROR_CODES.NOT_FOUND,
+				};
+				return c.json(response, 404);
+			}
+
+			const now = new Date().toISOString();
+			const mergedBody = `${target.body}\n\n---\n\n${source.body}`;
+
+			// Update target with merged body
+			await db
+				.update(knowledgeItems)
+				.set({
+					body: mergedBody,
+					version: target.version + 1,
+					updatedBy: body.updatedBy,
+					updatedAt: now,
+				})
+				.where(eq(knowledgeItems.id, targetId));
+
+			// Archive source
+			await db
+				.update(knowledgeItems)
+				.set({
+					status: "archived",
+					updatedBy: body.updatedBy,
+					updatedAt: now,
+				})
+				.where(eq(knowledgeItems.id, body.sourceId));
+
+			// Edit log for merge
+			await db.insert(knowledgeEditLog).values({
+				id: crypto.randomUUID(),
+				itemId: targetId,
+				editor: body.updatedBy,
+				field: "body",
+				oldValue: target.body,
+				newValue: mergedBody,
+				editType: "merge",
+				createdAt: now,
+			});
+
+			await db.insert(knowledgeEditLog).values({
+				id: crypto.randomUUID(),
+				itemId: body.sourceId,
+				editor: body.updatedBy,
+				field: "status",
+				oldValue: source.status,
+				newValue: "archived",
+				editType: "merge",
+				createdAt: now,
+			});
+
+			const [merged] = await db
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, targetId))
+				.limit(1);
+
+			// O2: emit knowledge_updated event for merge
+			const mergedEvent: KnowledgeUpdatedEvent = {
+				type: "knowledge_updated",
+				streamId: `knowledge:${targetId}`,
+				itemId: targetId,
+				action: "merged",
+				timestamp: Date.now(),
+			};
+			eventBus.emit(mergedEvent);
+
+			return c.json(merged);
+		},
+	);
+
+	// POST /:id/split — split into two or more items
+	router.post(
+		"/:id/split",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(splitSchema),
+		async (c) => {
+			const id = c.req.param("id");
+			const body = c.req.valid("json" as never) as z.infer<typeof splitSchema>;
+
+			const [original] = await db
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, id))
+				.limit(1);
+
+			if (!original) {
+				const response: ApiErrorResponse = {
+					error: "Knowledge item not found",
+					code: API_ERROR_CODES.NOT_FOUND,
+				};
+				return c.json(response, 404);
+			}
+
+			const now = new Date().toISOString();
+			const createdItems: unknown[] = [];
+
+			for (const newItem of body.newItems) {
+				const newId = crypto.randomUUID();
+				await db.insert(knowledgeItems).values({
+					id: newId,
+					scopeKind: original.scopeKind,
+					scopeId: original.scopeId,
+					topic: newItem.topic ?? original.topic,
+					title: newItem.title,
+					body: newItem.body,
+					format: original.format,
+					// O2 reviewer finding: split handler must set status: "draft"
+					status: "draft",
+					version: 1,
+					updatedBy: body.updatedBy,
+					createdAt: now,
+					updatedAt: now,
+				});
+
+				// Q2: assign fabric layer for split items (inherits parent scope)
+				await upsertFabricLayer(db, newId, original.scopeKind);
+
+				const [created] = await db
+					.select()
+					.from(knowledgeItems)
+					.where(eq(knowledgeItems.id, newId))
+					.limit(1);
+				createdItems.push(created);
+			}
+
+			// Archive original
+			await db
+				.update(knowledgeItems)
+				.set({
+					status: "archived",
+					updatedBy: body.updatedBy,
+					updatedAt: now,
+				})
+				.where(eq(knowledgeItems.id, id));
+
+			// Edit log
+			await db.insert(knowledgeEditLog).values({
+				id: crypto.randomUUID(),
+				itemId: id,
+				editor: body.updatedBy,
+				field: "status",
+				oldValue: original.status,
+				newValue: "archived",
+				editType: "split",
+				createdAt: now,
+			});
+
+			// O2: emit knowledge_updated event for split
+			const splitEvent: KnowledgeUpdatedEvent = {
+				type: "knowledge_updated",
+				streamId: `knowledge:${id}`,
+				itemId: id,
+				action: "split",
+				timestamp: Date.now(),
+			};
+			eventBus.emit(splitEvent);
+
+			return c.json({ items: createdItems });
+		},
+	);
 
 	// POST /:id/archive — archive item, emit knowledge_archived event
-	router.post("/:id/archive", async (c) => {
+	router.post("/:id/archive", requireBoundary({ kind: "public-data" }), async (c) => {
 		const id = c.req.param("id");
 
 		const [item] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).limit(1);
@@ -862,58 +888,67 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 	// POST /:id/flag — flag for review, emit knowledge_updated with action "flagged"
 	// O2: removed attentionScore write (column stripped from kernel table)
-	router.post("/:id/flag", validateBody(flagSchema), async (c) => {
-		const id = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof flagSchema>;
+	router.post(
+		"/:id/flag",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(flagSchema),
+		async (c) => {
+			const id = c.req.param("id");
+			const body = c.req.valid("json" as never) as z.infer<typeof flagSchema>;
 
-		const [item] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).limit(1);
+			const [item] = await db
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, id))
+				.limit(1);
 
-		if (!item) {
-			const response: ApiErrorResponse = {
-				error: "Knowledge item not found",
-				code: API_ERROR_CODES.NOT_FOUND,
+			if (!item) {
+				const response: ApiErrorResponse = {
+					error: "Knowledge item not found",
+					code: API_ERROR_CODES.NOT_FOUND,
+				};
+				return c.json(response, 404);
+			}
+
+			const now = new Date().toISOString();
+			// O2: no attentionScore write (column stripped). Flag is recorded in the edit log.
+			// Status set to "draft" so flagged items re-enter the review queue.
+			await db
+				.update(knowledgeItems)
+				.set({ status: "draft", updatedAt: now })
+				.where(eq(knowledgeItems.id, id));
+
+			// Edit log — include flag reason
+			await db.insert(knowledgeEditLog).values({
+				id: crypto.randomUUID(),
+				itemId: id,
+				editor: item.updatedBy,
+				field: "status",
+				oldValue: item.status,
+				newValue: `flagged (reason: ${body.reason})`,
+				editType: "flag",
+				createdAt: now,
+			});
+
+			const [updated] = await db
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, id))
+				.limit(1);
+
+			// O2: emit knowledge_updated with action "flagged"
+			const flaggedEvent: KnowledgeUpdatedEvent = {
+				type: "knowledge_updated",
+				streamId: `knowledge:${id}`,
+				itemId: id,
+				action: "flagged",
+				timestamp: Date.now(),
 			};
-			return c.json(response, 404);
-		}
+			eventBus.emit(flaggedEvent);
 
-		const now = new Date().toISOString();
-		// O2: no attentionScore write (column stripped). Flag is recorded in the edit log.
-		// Status set to "draft" so flagged items re-enter the review queue.
-		await db
-			.update(knowledgeItems)
-			.set({ status: "draft", updatedAt: now })
-			.where(eq(knowledgeItems.id, id));
-
-		// Edit log — include flag reason
-		await db.insert(knowledgeEditLog).values({
-			id: crypto.randomUUID(),
-			itemId: id,
-			editor: item.updatedBy,
-			field: "status",
-			oldValue: item.status,
-			newValue: `flagged (reason: ${body.reason})`,
-			editType: "flag",
-			createdAt: now,
-		});
-
-		const [updated] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, id))
-			.limit(1);
-
-		// O2: emit knowledge_updated with action "flagged"
-		const flaggedEvent: KnowledgeUpdatedEvent = {
-			type: "knowledge_updated",
-			streamId: `knowledge:${id}`,
-			itemId: id,
-			action: "flagged",
-			timestamp: Date.now(),
-		};
-		eventBus.emit(flaggedEvent);
-
-		return c.json(updated);
-	});
+			return c.json(updated);
+		},
+	);
 
 	return router;
 }
@@ -935,7 +970,8 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 export function createTeamMembersRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
-	router.get("/", async (c) => {
+	// Row 11: GET /api/team-members — P (host-scope team listing)
+	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const rows = await db
 			.select({
 				id: teamMembers.id,

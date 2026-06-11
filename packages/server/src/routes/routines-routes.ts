@@ -33,6 +33,7 @@ import { Hono } from "hono";
 import z from "zod";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { WorkspaceAdapter } from "../harness/workspace-adapter.js";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
 import { deriveInitials } from "../services/agent-utils.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
@@ -131,142 +132,147 @@ export function createRoutineRoutes(
 	const router = new Hono();
 
 	// POST / — Create routine (AA2 AC-1)
-	router.post("/", validateBody(createRoutineSchema), async (c) => {
-		const body = c.req.valid("json" as never) as z.infer<typeof createRoutineSchema>;
+	router.post(
+		"/",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(createRoutineSchema),
+		async (c) => {
+			const body = c.req.valid("json" as never) as z.infer<typeof createRoutineSchema>;
 
-		// Verify teamId exists
-		const [team] = await db.select().from(teams).where(eq(teams.id, body.teamId)).limit(1);
-		if (!team) {
-			return c.json({ error: "Team not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-		}
+			// Verify teamId exists
+			const [team] = await db.select().from(teams).where(eq(teams.id, body.teamId)).limit(1);
+			if (!team) {
+				return c.json({ error: "Team not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+			}
 
-		// Verify ownerAgentId exists
-		const [agent] = await db.select().from(users).where(eq(users.id, body.ownerAgentId)).limit(1);
-		if (!agent) {
-			return c.json({ error: "Agent not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-		}
+			// Verify ownerAgentId exists
+			const [agent] = await db.select().from(users).where(eq(users.id, body.ownerAgentId)).limit(1);
+			if (!agent) {
+				return c.json({ error: "Agent not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+			}
 
-		// Validate cron expression
-		let triggerConfigParsed: { cron?: string };
-		try {
-			triggerConfigParsed = JSON.parse(body.triggerConfig) as { cron?: string };
-		} catch {
-			return c.json(
-				{
-					error: "Invalid triggerConfig: must be valid JSON",
-					code: API_ERROR_CODES.VALIDATION_ERROR,
-				},
-				400,
-			);
-		}
+			// Validate cron expression
+			let triggerConfigParsed: { cron?: string };
+			try {
+				triggerConfigParsed = JSON.parse(body.triggerConfig) as { cron?: string };
+			} catch {
+				return c.json(
+					{
+						error: "Invalid triggerConfig: must be valid JSON",
+						code: API_ERROR_CODES.VALIDATION_ERROR,
+					},
+					400,
+				);
+			}
 
-		if (!triggerConfigParsed.cron) {
-			return c.json(
-				{
-					error: "Invalid triggerConfig: cron field required",
-					code: API_ERROR_CODES.VALIDATION_ERROR,
-				},
-				400,
-			);
-		}
+			if (!triggerConfigParsed.cron) {
+				return c.json(
+					{
+						error: "Invalid triggerConfig: cron field required",
+						code: API_ERROR_CODES.VALIDATION_ERROR,
+					},
+					400,
+				);
+			}
 
-		try {
-			parseCron(triggerConfigParsed.cron);
-		} catch {
-			return c.json(
-				{ error: "Invalid cron expression", code: API_ERROR_CODES.VALIDATION_ERROR },
-				400,
-			);
-		}
+			try {
+				parseCron(triggerConfigParsed.cron);
+			} catch {
+				return c.json(
+					{ error: "Invalid cron expression", code: API_ERROR_CODES.VALIDATION_ERROR },
+					400,
+				);
+			}
 
-		const routineId = crypto.randomUUID();
-		const now = new Date().toISOString();
+			const routineId = crypto.randomUUID();
+			const now = new Date().toISOString();
 
-		// Create stub task (AA2: dedicated task to satisfy sessions.taskId NOT NULL FK)
-		const stubTaskId = crypto.randomUUID();
+			// Create stub task (AA2: dedicated task to satisfy sessions.taskId NOT NULL FK)
+			const stubTaskId = crypto.randomUUID();
 
-		// Find any existing bet to parent the stub task (required NOT NULL FK)
-		const [anyBet] = await db.select().from(bets).where(eq(bets.teamId, body.teamId)).limit(1);
-		const [anyBetFallback] = anyBet ? [] : await db.select().from(bets).limit(1);
-		const betForStub = anyBet ?? anyBetFallback;
+			// Find any existing bet to parent the stub task (required NOT NULL FK)
+			const [anyBet] = await db.select().from(bets).where(eq(bets.teamId, body.teamId)).limit(1);
+			const [anyBetFallback] = anyBet ? [] : await db.select().from(bets).limit(1);
+			const betForStub = anyBet ?? anyBetFallback;
 
-		if (!betForStub) {
-			// No bet exists at all — create a minimal system bet to parent the stub task
-			// @lore AA2: If no bets exist (e.g. fresh install), we need a bet to satisfy
-			// the tasks.betId NOT NULL constraint. We create a "Routine Operations" system
-			// bet per team. This is a one-time creation; subsequent routines in the same
-			// team reuse it.
-			const systemBetId = crypto.randomUUID();
-			await db.insert(bets).values({
-				id: systemBetId,
+			if (!betForStub) {
+				// No bet exists at all — create a minimal system bet to parent the stub task
+				// @lore AA2: If no bets exist (e.g. fresh install), we need a bet to satisfy
+				// the tasks.betId NOT NULL constraint. We create a "Routine Operations" system
+				// bet per team. This is a one-time creation; subsequent routines in the same
+				// team reuse it.
+				const systemBetId = crypto.randomUUID();
+				await db.insert(bets).values({
+					id: systemBetId,
+					teamId: body.teamId,
+					description: "Routine Operations (system)",
+					status: "active",
+					createdAt: now,
+				});
+				await db.insert(tasks).values({
+					id: stubTaskId,
+					betId: systemBetId,
+					teamId: body.teamId,
+					title: `Routine: ${body.name}`,
+					state: "accepted",
+					ownerAgentId: body.ownerAgentId,
+					createdAt: now,
+					updatedAt: now,
+				});
+			} else {
+				await db.insert(tasks).values({
+					id: stubTaskId,
+					betId: betForStub.id,
+					teamId: body.teamId,
+					title: `Routine: ${body.name}`,
+					state: "accepted",
+					ownerAgentId: body.ownerAgentId,
+					createdAt: now,
+					updatedAt: now,
+				});
+			}
+
+			// Compute nextRunAt from the cron expression
+			const { nextCronMatch } = await import("@hyperidle/fabric");
+			let nextRunAt: string | null = null;
+			try {
+				const cron = parseCron(triggerConfigParsed.cron);
+				nextRunAt = nextCronMatch(cron, new Date()).toISOString();
+			} catch {
+				// Should not reach here — already validated above
+			}
+
+			await db.insert(routines).values({
+				id: routineId,
+				name: body.name,
+				description: body.description ?? null,
 				teamId: body.teamId,
-				description: "Routine Operations (system)",
-				status: "active",
-				createdAt: now,
-			});
-			await db.insert(tasks).values({
-				id: stubTaskId,
-				betId: systemBetId,
-				teamId: body.teamId,
-				title: `Routine: ${body.name}`,
-				state: "accepted",
 				ownerAgentId: body.ownerAgentId,
+				triggerType: body.triggerType,
+				triggerConfig: body.triggerConfig,
+				state: "active",
+				active: true,
 				createdAt: now,
-				updatedAt: now,
+				costCapPerRunMinor: body.costCapPerRunMinor ?? null,
+				// AA3: monthly cost cap
+				costCapMonthlyMinor: body.costCapMonthlyMinor ?? null,
+				stubTaskId,
+				nextRunAt,
 			});
-		} else {
-			await db.insert(tasks).values({
-				id: stubTaskId,
-				betId: betForStub.id,
-				teamId: body.teamId,
-				title: `Routine: ${body.name}`,
-				state: "accepted",
-				ownerAgentId: body.ownerAgentId,
-				createdAt: now,
-				updatedAt: now,
-			});
-		}
 
-		// Compute nextRunAt from the cron expression
-		const { nextCronMatch } = await import("@hyperidle/fabric");
-		let nextRunAt: string | null = null;
-		try {
-			const cron = parseCron(triggerConfigParsed.cron);
-			nextRunAt = nextCronMatch(cron, new Date()).toISOString();
-		} catch {
-			// Should not reach here — already validated above
-		}
-
-		await db.insert(routines).values({
-			id: routineId,
-			name: body.name,
-			description: body.description ?? null,
-			teamId: body.teamId,
-			ownerAgentId: body.ownerAgentId,
-			triggerType: body.triggerType,
-			triggerConfig: body.triggerConfig,
-			state: "active",
-			active: true,
-			createdAt: now,
-			costCapPerRunMinor: body.costCapPerRunMinor ?? null,
-			// AA3: monthly cost cap
-			costCapMonthlyMinor: body.costCapMonthlyMinor ?? null,
-			stubTaskId,
-			nextRunAt,
-		});
-
-		const [created] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
-		return c.json(created, 201);
-	});
+			const [created] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
+			return c.json(created, 201);
+		},
+	);
 
 	// GET / — List all non-deleted routines (AA2: filter soft-deleted)
-	router.get("/", async (c) => {
+	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const allRoutines = await db.select().from(routines).where(isNull(routines.deletedAt));
 		return c.json(allRoutines);
 	});
 
 	// DELETE /:id — Soft delete routine (AA2 AC-2)
-	router.delete("/:id", async (c) => {
+	router.delete("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const routineId = c.req.param("id");
 
 		const [existing] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
@@ -288,7 +294,7 @@ export function createRoutineRoutes(
 	});
 
 	// GET /:id — RoutineDetail with run history (AC-5)
-	router.get("/:id", async (c) => {
+	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const routineId = c.req.param("id");
 
 		const [routine] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
@@ -456,58 +462,68 @@ export function createRoutineRoutes(
 	});
 
 	// PATCH /:id — Update routine
-	router.patch("/:id", validateBody(updateRoutineSchema), async (c) => {
-		const routineId = c.req.param("id");
-		// @lore G4 Hono zValidator typing: `c.req.valid("json")` returns
-		// `never` when the route builder cannot infer the validator target
-		// chain — specifically when the `validateBody` helper wraps
-		// `zValidator` and the resulting middleware is passed through
-		// Hono's handler positional overloads. The `"json" as never` +
-		// `as z.infer<…>` double cast is load-bearing: dropping either
-		// half resurrects the TS error. This matches the pattern used
-		// across `bets.ts`, `tasks.ts`, `knowledge.ts`, `sessions-routes.ts`,
-		// and `agents.ts`; `git-export-routes.ts` gets away without the
-		// cast because it does not re-export the route factory. Fixing
-		// this properly requires either rewriting `validateBody` to
-		// preserve the generic parameter chain or inlining `zValidator`
-		// at every call site — out of scope for the G4 fix-pack.
-		const body = c.req.valid("json" as never) as z.infer<typeof updateRoutineSchema>;
+	router.patch(
+		"/:id",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(updateRoutineSchema),
+		async (c) => {
+			const routineId = c.req.param("id");
+			// @lore G4 Hono zValidator typing: `c.req.valid("json")` returns
+			// `never` when the route builder cannot infer the validator target
+			// chain — specifically when the `validateBody` helper wraps
+			// `zValidator` and the resulting middleware is passed through
+			// Hono's handler positional overloads. The `"json" as never` +
+			// `as z.infer<…>` double cast is load-bearing: dropping either
+			// half resurrects the TS error. This matches the pattern used
+			// across `bets.ts`, `tasks.ts`, `knowledge.ts`, `sessions-routes.ts`,
+			// and `agents.ts`; `git-export-routes.ts` gets away without the
+			// cast because it does not re-export the route factory. Fixing
+			// this properly requires either rewriting `validateBody` to
+			// preserve the generic parameter chain or inlining `zValidator`
+			// at every call site — out of scope for the G4 fix-pack.
+			const body = c.req.valid("json" as never) as z.infer<typeof updateRoutineSchema>;
 
-		const [existing] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
-		// AA2: treat soft-deleted routines as not found for PATCH
-		if (!existing || existing.deletedAt) {
-			return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-		}
+			const [existing] = await db
+				.select()
+				.from(routines)
+				.where(eq(routines.id, routineId))
+				.limit(1);
+			// AA2: treat soft-deleted routines as not found for PATCH
+			if (!existing || existing.deletedAt) {
+				return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+			}
 
-		const updates: Record<string, unknown> = {};
-		if (body.active !== undefined) updates.active = body.active;
-		if (body.triggerConfig !== undefined) updates.triggerConfig = body.triggerConfig;
-		if (body.autonomyLevel !== undefined) updates.autonomyLevel = body.autonomyLevel;
-		if (body.silent !== undefined) updates.silent = body.silent;
-		// AA1: extended fields
-		if (body.name !== undefined) updates.name = body.name;
-		if (body.description !== undefined) updates.description = body.description;
-		if (body.state !== undefined) {
-			updates.state = body.state;
-			// Sync active boolean with state for backward compat
-			updates.active = stateToActive(body.state);
-		}
-		// AA2: cost cap per run (null removes the cap)
-		if ("costCapPerRunMinor" in body) updates.costCapPerRunMinor = body.costCapPerRunMinor ?? null;
-		// AA3: monthly cost cap (null removes the cap)
-		if ("costCapMonthlyMinor" in body)
-			updates.costCapMonthlyMinor = body.costCapMonthlyMinor ?? null;
+			const updates: Record<string, unknown> = {};
+			if (body.active !== undefined) updates.active = body.active;
+			if (body.triggerConfig !== undefined) updates.triggerConfig = body.triggerConfig;
+			if (body.autonomyLevel !== undefined) updates.autonomyLevel = body.autonomyLevel;
+			if (body.silent !== undefined) updates.silent = body.silent;
+			// AA1: extended fields
+			if (body.name !== undefined) updates.name = body.name;
+			if (body.description !== undefined) updates.description = body.description;
+			if (body.state !== undefined) {
+				updates.state = body.state;
+				// Sync active boolean with state for backward compat
+				updates.active = stateToActive(body.state);
+			}
+			// AA2: cost cap per run (null removes the cap)
+			if ("costCapPerRunMinor" in body)
+				updates.costCapPerRunMinor = body.costCapPerRunMinor ?? null;
+			// AA3: monthly cost cap (null removes the cap)
+			if ("costCapMonthlyMinor" in body)
+				updates.costCapMonthlyMinor = body.costCapMonthlyMinor ?? null;
 
-		if (Object.keys(updates).length > 0) {
-			await db.update(routines).set(updates).where(eq(routines.id, routineId));
-		}
+			if (Object.keys(updates).length > 0) {
+				await db.update(routines).set(updates).where(eq(routines.id, routineId));
+			}
 
-		const [updated] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
-		return c.json(updated);
-	});
+			const [updated] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
+			return c.json(updated);
+		},
+	);
 
 	// POST /:id/retire — Retire routine
-	router.post("/:id/retire", async (c) => {
+	router.post("/:id/retire", requireBoundary({ kind: "public-data" }), async (c) => {
 		const routineId = c.req.param("id");
 
 		const [existing] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
@@ -522,7 +538,7 @@ export function createRoutineRoutes(
 	});
 
 	// POST /:id/trigger — Manually trigger routine
-	router.post("/:id/trigger", async (c) => {
+	router.post("/:id/trigger", requireBoundary({ kind: "public-data" }), async (c) => {
 		const routineId = c.req.param("id");
 
 		const [routine] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);

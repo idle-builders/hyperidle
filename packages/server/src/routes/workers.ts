@@ -7,6 +7,7 @@
 
 import { Hono } from "hono";
 import type { AdapterPool } from "../harness/adapter-pool.js";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { constantTimeStringEqual } from "../middleware/timing-safe.js";
 
 /**
@@ -19,7 +20,7 @@ import { constantTimeStringEqual } from "../middleware/timing-safe.js";
 export function createWorkersRoutes(pool: AdapterPool): Hono {
 	const router = new Hono();
 
-	router.get("/", (c) => {
+	router.get("/", requireBoundary({ kind: "public-data" }), (c) => {
 		const expectedKey = process.env.HYPERIDLE_API_KEY;
 		const providedKey = c.req.header("X-API-Key");
 

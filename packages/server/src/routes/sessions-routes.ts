@@ -15,6 +15,7 @@ import z from "zod";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { WorkspaceAdapter } from "../harness/workspace-adapter.js";
 import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import type { CredentialResolver } from "../services/credential-resolver.js";
@@ -194,7 +195,7 @@ export function createSessionRoutes(
 
 	// GET / — List sessions with optional filtering by task_id, agent_id, state.
 	// @lore I6: replaces the bounded resource descriptor with actual filtering.
-	router.get("/", async (c) => {
+	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const taskId = c.req.query("task_id");
 		const agentId = c.req.query("agent_id");
 		const state = c.req.query("state");
@@ -225,155 +226,160 @@ export function createSessionRoutes(
 	// returns 200 with the completed session row. When adapters are absent it
 	// falls back to the legacy bare DB insert returning 201 — this preserves
 	// backward compat for tests and deployments that haven't wired the harness.
-	router.post("/", validateBody(createSessionSchema), async (c) => {
-		const body = c.req.valid("json" as never) as z.infer<typeof createSessionSchema>;
+	router.post(
+		"/",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(createSessionSchema),
+		async (c) => {
+			const body = c.req.valid("json" as never) as z.infer<typeof createSessionSchema>;
 
-		// ── Full provisionSession path (adapters present) ─────────────────────
-		if (deps?.adapterPool && deps.workspaceAdapter) {
-			// X4 A-IMP-1: credential pre-flight via gateway — must fail BEFORE any DB write.
-			// The gateway resolves the correct credential name based on the configured provider,
-			// replacing the hardcoded "anthropic_api_key" check. If no credentialResolver is
-			// wired (local mode), resolveModelTier uses the apiKey from the tier config directly
-			// (for openai-compatible) or falls back to a no-op resolver that always returns null.
-			//
-			// @lore X4: In local mode (no credentialResolver), the adapter reads from process.env.
-			// The pre-flight here is a best-effort check — it catches shared-mode missing credentials
-			// early. Local mode may proceed with null from the resolver if the key is in env.
-			let resolvedModel: import("@hyperidle/shared").ResolvedModel | undefined;
-			let resolvedFastModel: import("@hyperidle/shared").ResolvedModel | undefined;
-			if (deps.credentialResolver) {
-				try {
-					const serverCfg = await readServerConfig(db);
-					resolvedModel = await resolveModelTier(
-						body.modelTier,
-						serverCfg.modelGateway,
-						deps.credentialResolver,
-					);
-					// Resolve the fast tier for use by the builtin harness summarizer.
-					// Failure is non-fatal — the harness falls back to the primary tier.
-					//
-					// @lore X6: Fast tier is resolved alongside primary so the builtin harness
-					// can use a cheaper/faster model for context-window summarization passes,
-					// avoiding the full primary-tier cost for what is effectively a compression
-					// operation. If the fast tier credential is missing, summarization silently
-					// falls back to resolvedModel.
+			// ── Full provisionSession path (adapters present) ─────────────────────
+			if (deps?.adapterPool && deps.workspaceAdapter) {
+				// X4 A-IMP-1: credential pre-flight via gateway — must fail BEFORE any DB write.
+				// The gateway resolves the correct credential name based on the configured provider,
+				// replacing the hardcoded "anthropic_api_key" check. If no credentialResolver is
+				// wired (local mode), resolveModelTier uses the apiKey from the tier config directly
+				// (for openai-compatible) or falls back to a no-op resolver that always returns null.
+				//
+				// @lore X4: In local mode (no credentialResolver), the adapter reads from process.env.
+				// The pre-flight here is a best-effort check — it catches shared-mode missing credentials
+				// early. Local mode may proceed with null from the resolver if the key is in env.
+				let resolvedModel: import("@hyperidle/shared").ResolvedModel | undefined;
+				let resolvedFastModel: import("@hyperidle/shared").ResolvedModel | undefined;
+				if (deps.credentialResolver) {
 					try {
-						resolvedFastModel = await resolveModelTier(
-							"fast",
+						const serverCfg = await readServerConfig(db);
+						resolvedModel = await resolveModelTier(
+							body.modelTier,
 							serverCfg.modelGateway,
 							deps.credentialResolver,
 						);
-					} catch {
-						// Non-fatal: fast tier unavailable — builtin harness will use primary tier
+						// Resolve the fast tier for use by the builtin harness summarizer.
+						// Failure is non-fatal — the harness falls back to the primary tier.
+						//
+						// @lore X6: Fast tier is resolved alongside primary so the builtin harness
+						// can use a cheaper/faster model for context-window summarization passes,
+						// avoiding the full primary-tier cost for what is effectively a compression
+						// operation. If the fast tier credential is missing, summarization silently
+						// falls back to resolvedModel.
+						try {
+							resolvedFastModel = await resolveModelTier(
+								"fast",
+								serverCfg.modelGateway,
+								deps.credentialResolver,
+							);
+						} catch {
+							// Non-fatal: fast tier unavailable — builtin harness will use primary tier
+						}
+					} catch (err) {
+						if (err instanceof MissingCredentialError) {
+							return c.json(
+								{
+									error: err.message,
+									code: "MISSING_CREDENTIAL",
+								},
+								500,
+							);
+						}
+						throw err;
 					}
+				}
+
+				// Look up task to get productId.
+				const [task] = await db.select().from(tasks).where(eq(tasks.id, body.taskId)).limit(1);
+				if (!task) {
+					return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+				}
+
+				const workspaceBasePath = deps.workspaceBasePath ?? "/tmp/hyperidle-workspaces";
+
+				try {
+					// AF7 §2 (Z8-047): admit the session synchronously (phases 1-7) and
+					// DETACH the long-running harness run (phases 8-11) so the HTTP caller
+					// is not blocked for the full agent run. Returns as soon as the active
+					// session row is committed. All admission failures (cost 422 /
+					// concurrency 429 / missing credential 500) throw from admit BEFORE the
+					// row insert, so they still map to HTTP status here, not the tail.
+					const result = await startSessionProvision(
+						{
+							db,
+							eventBus,
+							adapterPool: deps.adapterPool,
+							workspace: deps.workspaceAdapter,
+							mcpBridgeRegistry: deps.mcpBridgeRegistry,
+							mcpBaseUrl: deps.mcpBaseUrl,
+						},
+						{
+							agentId: body.agentId,
+							taskId: body.taskId,
+							// @lore U1: `teamId` replaces `productId` (tasks.productId column dropped).
+							productId: task.teamId,
+							modelTier: body.modelTier,
+							workspaceBasePath,
+							// X4: Pass resolved model so adapter uses the correct provider.
+							resolvedModel,
+							// X6: Pass resolved fast-tier model for builtin harness summarization.
+							resolvedFastModel,
+						},
+					);
+
+					const [sessionRow] = await db
+						.select()
+						.from(sessions)
+						.where(eq(sessions.id, result.sessionId))
+						.limit(1);
+					// AF7 §2: 202 Accepted — the session is admitted (active) but the work
+					// is not done. The body is the freshly-inserted ACTIVE row (no outcome).
+					return c.json(sessionRow, 202);
 				} catch (err) {
-					if (err instanceof MissingCredentialError) {
-						return c.json(
-							{
-								error: err.message,
-								code: "MISSING_CREDENTIAL",
-							},
-							500,
-						);
+					if (err instanceof CostCapExceededError) {
+						return c.json({ error: err.message, code: "COST_CAP_EXCEEDED" }, 422);
 					}
-					throw err;
+					if (err instanceof ConcurrencyLimitError) {
+						return c.json({ error: err.message, code: "CONCURRENCY_LIMIT" }, 429);
+					}
+					// AF7 §2 (WARNING-2): the synchronous resolvedModel-presence guard in
+					// admitSession throws MissingCredentialError (local mode, builtin,
+					// resolvedModel absent) BEFORE the row insert — map it to 500 here so the
+					// failure surfaces on the POST path, not as a later crashed session.
+					if (err instanceof MissingCredentialError) {
+						return c.json({ error: err.message, code: "MISSING_CREDENTIAL" }, 500);
+					}
+					return c.json({ error: "Session provisioning failed", code: "INTERNAL_ERROR" }, 500);
 				}
 			}
 
-			// Look up task to get productId.
-			const [task] = await db.select().from(tasks).where(eq(tasks.id, body.taskId)).limit(1);
-			if (!task) {
-				return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-			}
+			// ── Legacy bare-insert path (no adapters) ─────────────────────────────
+			const sessionId = crypto.randomUUID();
+			const now = new Date().toISOString();
 
-			const workspaceBasePath = deps.workspaceBasePath ?? "/tmp/hyperidle-workspaces";
+			await db.insert(sessions).values({
+				id: sessionId,
+				agentId: body.agentId,
+				taskId: body.taskId,
+				modelTier: body.modelTier,
+				startedAt: now,
+				state: "active",
+			});
 
-			try {
-				// AF7 §2 (Z8-047): admit the session synchronously (phases 1-7) and
-				// DETACH the long-running harness run (phases 8-11) so the HTTP caller
-				// is not blocked for the full agent run. Returns as soon as the active
-				// session row is committed. All admission failures (cost 422 /
-				// concurrency 429 / missing credential 500) throw from admit BEFORE the
-				// row insert, so they still map to HTTP status here, not the tail.
-				const result = await startSessionProvision(
-					{
-						db,
-						eventBus,
-						adapterPool: deps.adapterPool,
-						workspace: deps.workspaceAdapter,
-						mcpBridgeRegistry: deps.mcpBridgeRegistry,
-						mcpBaseUrl: deps.mcpBaseUrl,
-					},
-					{
-						agentId: body.agentId,
-						taskId: body.taskId,
-						// @lore U1: `teamId` replaces `productId` (tasks.productId column dropped).
-						productId: task.teamId,
-						modelTier: body.modelTier,
-						workspaceBasePath,
-						// X4: Pass resolved model so adapter uses the correct provider.
-						resolvedModel,
-						// X6: Pass resolved fast-tier model for builtin harness summarization.
-						resolvedFastModel,
-					},
-				);
+			eventBus.emit<"session_started">({
+				type: "session_started",
+				streamId: sessionId,
+				sessionId,
+				agentId: body.agentId,
+				taskId: body.taskId,
+				timestamp: Date.now(),
+			} satisfies SessionStartedEvent);
 
-				const [sessionRow] = await db
-					.select()
-					.from(sessions)
-					.where(eq(sessions.id, result.sessionId))
-					.limit(1);
-				// AF7 §2: 202 Accepted — the session is admitted (active) but the work
-				// is not done. The body is the freshly-inserted ACTIVE row (no outcome).
-				return c.json(sessionRow, 202);
-			} catch (err) {
-				if (err instanceof CostCapExceededError) {
-					return c.json({ error: err.message, code: "COST_CAP_EXCEEDED" }, 422);
-				}
-				if (err instanceof ConcurrencyLimitError) {
-					return c.json({ error: err.message, code: "CONCURRENCY_LIMIT" }, 429);
-				}
-				// AF7 §2 (WARNING-2): the synchronous resolvedModel-presence guard in
-				// admitSession throws MissingCredentialError (local mode, builtin,
-				// resolvedModel absent) BEFORE the row insert — map it to 500 here so the
-				// failure surfaces on the POST path, not as a later crashed session.
-				if (err instanceof MissingCredentialError) {
-					return c.json({ error: err.message, code: "MISSING_CREDENTIAL" }, 500);
-				}
-				return c.json({ error: "Session provisioning failed", code: "INTERNAL_ERROR" }, 500);
-			}
-		}
-
-		// ── Legacy bare-insert path (no adapters) ─────────────────────────────
-		const sessionId = crypto.randomUUID();
-		const now = new Date().toISOString();
-
-		await db.insert(sessions).values({
-			id: sessionId,
-			agentId: body.agentId,
-			taskId: body.taskId,
-			modelTier: body.modelTier,
-			startedAt: now,
-			state: "active",
-		});
-
-		eventBus.emit<"session_started">({
-			type: "session_started",
-			streamId: sessionId,
-			sessionId,
-			agentId: body.agentId,
-			taskId: body.taskId,
-			timestamp: Date.now(),
-		} satisfies SessionStartedEvent);
-
-		const [created] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
-		return c.json(created, 201);
-	});
+			const [created] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+			return c.json(created, 201);
+		},
+	);
 
 	// GET /:id/activity — Session activity stream (Q1 §3.2)
 	// Returns session metadata + recent activity entries from the in-memory buffer.
 	// Capped at 50 most-recent entries to bound response size.
-	router.get("/:id/activity", async (c) => {
+	router.get("/:id/activity", requireBoundary({ kind: "public-data" }), async (c) => {
 		const sessionId = c.req.param("id");
 		const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
 		if (!session) {
@@ -398,57 +404,66 @@ export function createSessionRoutes(
 	});
 
 	// PATCH /:id — Update session state and/or effectiveness score
-	router.patch("/:id", validateBody(updateSessionSchema), async (c) => {
-		const sessionId = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof updateSessionSchema>;
+	router.patch(
+		"/:id",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(updateSessionSchema),
+		async (c) => {
+			const sessionId = c.req.param("id");
+			const body = c.req.valid("json" as never) as z.infer<typeof updateSessionSchema>;
 
-		const [existing] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
-		if (!existing) {
-			return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-		}
+			const [existing] = await db
+				.select()
+				.from(sessions)
+				.where(eq(sessions.id, sessionId))
+				.limit(1);
+			if (!existing) {
+				return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+			}
 
-		const now = new Date().toISOString();
-		const actor = c.get("userId");
+			const now = new Date().toISOString();
+			const actor = c.get("userId");
 
-		// AF7 §4 (Z8-094/095): a state-changing PATCH must REQUEST termination, not
-		// assert it. The runtime is the sole terminal-state writer for a session it
-		// is actively running. Delegated to a helper to keep this handler simple.
-		if (body.state !== undefined) {
-			const result = await applyStateChangePatch(db, eventBus, {
-				sessionId,
-				existing,
-				state: body.state,
-				outcome: body.outcome,
-				notes: body.notes,
-				effectivenessScore: body.effectivenessScore,
-				actor,
-				now,
-			});
-			return c.json(result.body, result.status);
-		}
+			// AF7 §4 (Z8-094/095): a state-changing PATCH must REQUEST termination, not
+			// assert it. The runtime is the sole terminal-state writer for a session it
+			// is actively running. Delegated to a helper to keep this handler simple.
+			if (body.state !== undefined) {
+				const result = await applyStateChangePatch(db, eventBus, {
+					sessionId,
+					existing,
+					state: body.state,
+					outcome: body.outcome,
+					notes: body.notes,
+					effectivenessScore: body.effectivenessScore,
+					actor,
+					now,
+				});
+				return c.json(result.body, result.status);
+			}
 
-		// Effectiveness-only PATCH (no state) — never ends a session.
-		const updates: Record<string, unknown> = {};
-		if (body.outcome !== undefined) updates.outcome = body.outcome;
-		if (body.notes !== undefined) updates.notes = body.notes;
+			// Effectiveness-only PATCH (no state) — never ends a session.
+			const updates: Record<string, unknown> = {};
+			if (body.outcome !== undefined) updates.outcome = body.outcome;
+			if (body.notes !== undefined) updates.notes = body.notes;
 
-		// AC1: Record effectiveness score when present.
-		// @lore AC1 S-1: stored as text, validated as number[0,1] at API boundary.
-		// Use .toString() on write, parseFloat() + Number.isNaN() guard on read.
-		if (body.effectivenessScore !== undefined) {
-			updates.effectivenessScore = body.effectivenessScore.toString();
-			updates.effectivenessRecordedAt = now;
-			// Use actor from auth context; fall back to session's agentId (for agent-authored writes)
-			updates.effectivenessRecordedBy = actor ?? existing.agentId;
-		}
+			// AC1: Record effectiveness score when present.
+			// @lore AC1 S-1: stored as text, validated as number[0,1] at API boundary.
+			// Use .toString() on write, parseFloat() + Number.isNaN() guard on read.
+			if (body.effectivenessScore !== undefined) {
+				updates.effectivenessScore = body.effectivenessScore.toString();
+				updates.effectivenessRecordedAt = now;
+				// Use actor from auth context; fall back to session's agentId (for agent-authored writes)
+				updates.effectivenessRecordedBy = actor ?? existing.agentId;
+			}
 
-		if (Object.keys(updates).length > 0) {
-			await db.update(sessions).set(updates).where(eq(sessions.id, sessionId));
-		}
+			if (Object.keys(updates).length > 0) {
+				await db.update(sessions).set(updates).where(eq(sessions.id, sessionId));
+			}
 
-		const [updated] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
-		return c.json(updated);
-	});
+			const [updated] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+			return c.json(updated);
+		},
+	);
 
 	return router;
 }

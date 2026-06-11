@@ -11,6 +11,7 @@ import { API_ERROR_CODES, type EventBus, type ItemCreatedEvent } from "@hyperidl
 import { and, desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { constantTimeStringEqual } from "../middleware/timing-safe.js";
 import { validateBody } from "../middleware/validate.js";
@@ -69,7 +70,7 @@ const createHumanUserSchema = z.object({
 export function createUserSetupRoute(db: HyperIdleDb): Hono {
 	const router = new Hono();
 
-	router.post("/", async (c) => {
+	router.post("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		let rawBody: unknown;
 		try {
 			rawBody = await c.req.json();
@@ -160,7 +161,7 @@ export function createUserRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 	const router = new Hono<HyperIdleEnv>();
 
 	// GET / — List all users with active session counts
-	router.get("/", async (c) => {
+	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const allUsers = await db.select().from(users);
 		const activeSessions = await db.select().from(sessions).where(eq(sessions.state, "active"));
 
@@ -173,7 +174,7 @@ export function createUserRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 	});
 
 	// GET /:id — User detail with skills
-	router.get("/:id", async (c) => {
+	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const userId = c.req.param("id");
 		const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
 
@@ -189,7 +190,7 @@ export function createUserRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 	// PATCH /:id — Update human user profile (name + email)
 	// @lore P4: Only the authenticated user can patch their own profile.
 	// The userId from auth context must match the :id param — 403 otherwise.
-	router.patch("/:id", async (c) => {
+	router.patch("/:id", requireBoundary({ kind: "principal-self" }), async (c) => {
 		const targetId = c.req.param("id");
 		const authenticatedUserId = c.get("userId");
 
@@ -238,78 +239,93 @@ export function createUserRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 	});
 
 	// PATCH /:id/skills/:skillId — Update autonomy level
-	router.patch("/:id/skills/:skillId", validateBody(updateSkillSchema), async (c) => {
-		const userId = c.req.param("id");
-		const skillId = c.req.param("skillId");
-		const body = c.req.valid("json" as never) as z.infer<typeof updateSkillSchema>;
+	router.patch(
+		"/:id/skills/:skillId",
+		requireBoundary({ kind: "principal-self" }),
+		validateBody(updateSkillSchema),
+		async (c) => {
+			const userId = c.req.param("id");
+			const skillId = c.req.param("skillId");
+			const body = c.req.valid("json" as never) as z.infer<typeof updateSkillSchema>;
 
-		const [existing] = await db
-			.select()
-			.from(userSkills)
-			.where(and(eq(userSkills.userId, userId), eq(userSkills.skillId, skillId)))
-			.limit(1);
+			const [existing] = await db
+				.select()
+				.from(userSkills)
+				.where(and(eq(userSkills.userId, userId), eq(userSkills.skillId, skillId)))
+				.limit(1);
 
-		if (!existing) {
-			return c.json({ error: "User skill not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-		}
+			if (!existing) {
+				return c.json({ error: "User skill not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+			}
 
-		const oldLevel = existing.autonomyLevel;
-		const newLevel = body.autonomyLevel;
+			const oldLevel = existing.autonomyLevel;
+			const newLevel = body.autonomyLevel;
 
-		await db
-			.update(userSkills)
-			.set({ autonomyLevel: newLevel })
-			.where(and(eq(userSkills.userId, userId), eq(userSkills.skillId, skillId)));
+			await db
+				.update(userSkills)
+				.set({ autonomyLevel: newLevel })
+				.where(and(eq(userSkills.userId, userId), eq(userSkills.skillId, skillId)));
 
-		const [updated] = await db
-			.select()
-			.from(userSkills)
-			.where(and(eq(userSkills.userId, userId), eq(userSkills.skillId, skillId)))
-			.limit(1);
+			const [updated] = await db
+				.select()
+				.from(userSkills)
+				.where(and(eq(userSkills.userId, userId), eq(userSkills.skillId, skillId)))
+				.limit(1);
 
-		if (oldLevel !== newLevel) {
-			const threadId = crypto.randomUUID();
-			const now = new Date().toISOString();
+			if (oldLevel !== newLevel) {
+				const threadId = crypto.randomUUID();
+				const now = new Date().toISOString();
 
-			await db.insert(threads).values({
-				id: threadId,
-				hostKind: "agent",
-				hostId: userId,
-				initiatorId: userId,
-				participants: JSON.stringify([userId]),
-				lastActiveAt: now,
-				createdAt: now,
-			});
+				await db.insert(threads).values({
+					id: threadId,
+					hostKind: "agent",
+					hostId: userId,
+					initiatorId: userId,
+					participants: JSON.stringify([userId]),
+					lastActiveAt: now,
+					createdAt: now,
+				});
 
-			const itemId = crypto.randomUUID();
-			await db.insert(items).values({
-				id: itemId,
-				sourceAgentId: userId,
-				layer: "meta",
-				verb: "review",
-				kind: "autonomy_change",
-				title: `Autonomy level changed for skill ${skillId}`,
-				body: `Autonomy level changed from ${oldLevel} to ${newLevel} for user ${userId}, skill ${skillId}`,
-				threadId,
-				createdAt: now,
-			});
+				const itemId = crypto.randomUUID();
+				await db.insert(items).values({
+					id: itemId,
+					sourceAgentId: userId,
+					layer: "meta",
+					verb: "review",
+					kind: "autonomy_change",
+					title: `Autonomy level changed for skill ${skillId}`,
+					body: `Autonomy level changed from ${oldLevel} to ${newLevel} for user ${userId}, skill ${skillId}`,
+					threadId,
+					createdAt: now,
+				});
 
-			eventBus.emit<"item_created">({
-				type: "item_created",
-				streamId: threadId,
-				itemId,
-				conversationId: threadId,
-				kind: "autonomy_change",
-				timestamp: Date.now(),
-			} satisfies ItemCreatedEvent);
-		}
+				eventBus.emit<"item_created">({
+					type: "item_created",
+					streamId: threadId,
+					itemId,
+					conversationId: threadId,
+					kind: "autonomy_change",
+					timestamp: Date.now(),
+				} satisfies ItemCreatedEvent);
+			}
 
-		return c.json(updated);
-	});
+			return c.json(updated);
+		},
+	);
 
 	// GET /:id/inbox — User's inbox with pagination
-	router.get("/:id/inbox", async (c) => {
+	// AC5 AF11: inbox is participant-scope (principal-self). Only the authenticated
+	// user can read their own inbox — 403 for any other principal.
+	router.get("/:id/inbox", requireBoundary({ kind: "principal-self" }), async (c) => {
 		const userId = c.req.param("id");
+		const principalId = c.get("userId");
+
+		if (principalId !== userId) {
+			return c.json(
+				{ error: "Forbidden: can only access your own inbox", code: API_ERROR_CODES.FORBIDDEN },
+				403,
+			);
+		}
 
 		const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
 		if (!user) {
@@ -342,52 +358,49 @@ export function createUserRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 	});
 
 	// POST /:id/inbox — Send message to user
-	router.post("/:id/inbox", validateBody(sendMessageSchema), async (c) => {
-		const recipientId = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof sendMessageSchema>;
+	router.post(
+		"/:id/inbox",
+		requireBoundary({ kind: "principal-self" }),
+		validateBody(sendMessageSchema),
+		async (c) => {
+			const recipientId = c.req.param("id");
+			const body = c.req.valid("json" as never) as z.infer<typeof sendMessageSchema>;
 
-		// L1 step9 (Adv-C2): derive senderId from the authenticated identity,
-		// never from the request body.
-		const senderId = c.req.header("X-Identity");
-		if (!senderId) {
-			return c.json(
-				{
-					error: "Missing X-Identity header",
-					code: API_ERROR_CODES.UNAUTHORIZED,
-				},
-				400,
-			);
-		}
+			// @lore AF11-IDOR: senderId MUST come from c.get("userId") (auth middleware),
+			// never from the X-Identity request header which is client-supplied.
+			// Previous code accepted the header, enabling impersonation (WARNING-1).
+			const senderId = c.get("userId");
 
-		const [user] = await db.select().from(users).where(eq(users.id, recipientId)).limit(1);
-		if (!user) {
-			return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-		}
+			const [user] = await db.select().from(users).where(eq(users.id, recipientId)).limit(1);
+			if (!user) {
+				return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+			}
 
-		const [senderUser] = await db.select().from(users).where(eq(users.id, senderId)).limit(1);
-		if (!senderUser) {
-			return c.json({ error: "Sender identity not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-		}
+			const [senderUser] = await db.select().from(users).where(eq(users.id, senderId)).limit(1);
+			if (!senderUser) {
+				return c.json({ error: "Sender identity not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+			}
 
-		const now = new Date().toISOString();
+			const now = new Date().toISOString();
 
-		const threadId = await findOrCreateDirectThread(db, senderId, recipientId, now);
+			const threadId = await findOrCreateDirectThread(db, senderId, recipientId, now);
 
-		const messageId = crypto.randomUUID();
-		const text = body.subject ? `${body.subject}\n\n${body.body}` : body.body;
-		await db.insert(messages).values({
-			id: messageId,
-			senderId,
-			threadId,
-			type: "plain",
-			payload: JSON.stringify({ text }),
-			clientKey: messageId,
-			createdAt: now,
-		});
+			const messageId = crypto.randomUUID();
+			const text = body.subject ? `${body.subject}\n\n${body.body}` : body.body;
+			await db.insert(messages).values({
+				id: messageId,
+				senderId,
+				threadId,
+				type: "plain",
+				payload: JSON.stringify({ text }),
+				clientKey: messageId,
+				createdAt: now,
+			});
 
-		const [created] = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1);
-		return c.json(created, 201);
-	});
+			const [created] = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1);
+			return c.json(created, 201);
+		},
+	);
 
 	// AD8b Task 8 — soul prompt CRUD: GET + PATCH /api/users/:userId/assistant
 	// @lore AD8b: Mounted BEFORE the generic /:id handler if there is one.

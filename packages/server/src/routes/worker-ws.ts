@@ -64,6 +64,20 @@ const WorkerToServerMessageSchema = z.discriminatedUnion("type", [
 ]);
 
 /**
+ * Module-level registry of live worker sockets, keyed by worker id.
+ * Used to probe incumbent liveness before accepting a duplicate-id register.
+ *
+ * @lore AF11 Hole 3: AdapterPool only stores HarnessAdapter entries (no WS ref).
+ * We track WS readyState separately so liveness can be determined without coupling
+ * the pool to WebSocket internals. A worker id maps to its socket's isLive() probe.
+ *
+ * Why module-level: WorkerConnectionManager instances are ephemeral (one per WS
+ * connection). The registry must survive across manager instances to detect
+ * cross-connection id collisions.
+ */
+const LIVE_WORKER_SOCKETS = new Map<string, { isLive: () => boolean }>();
+
+/**
  * Manages the lifecycle of a single worker WebSocket connection.
  * Exported so tests can exercise the message-handling logic without
  * spinning up a real WebSocket server.
@@ -108,7 +122,38 @@ export class WorkerConnectionManager {
 		const msg = parsed.data;
 
 		if (msg.type === "register") {
+			// AF11 Hole 3: reject duplicate-active-id to prevent identity hijack.
+			// A second connection claiming an in-use worker id is rejected unless the
+			// incumbent socket is already dead (closed/closing) — in which case it is
+			// a legitimate reconnect and the stale entry is evicted.
+			//
+			// @lore AF11: LIVE_WORKER_SOCKETS probes incumbent WS readyState independently
+			// of AdapterPool. Pool entries are keyed by id; socket liveness is not stored
+			// in the pool. The two registries are kept in sync by onClose cleanup.
+			if (this.pool.has(msg.id)) {
+				const incumbent = LIVE_WORKER_SOCKETS.get(msg.id);
+				if (incumbent?.isLive()) {
+					// Incumbent is live → reject the new registration (identity hijack attempt)
+					ws.send(JSON.stringify({ type: "register_rejected", reason: "id_in_use" }));
+					return;
+				}
+				// Incumbent socket is dead → evict stale entry and accept reconnect
+				this.pool.unregister(msg.id);
+				LIVE_WORKER_SOCKETS.delete(msg.id);
+			}
+
 			this.workerId = msg.id;
+
+			// Register the ws socket liveness probe for future duplicate-id detection.
+			// readyState 1 = OPEN; any other value (2=CLOSING, 3=CLOSED) means dead.
+			// WSContext may not expose readyState; fall back to "live unless proven dead".
+			const wsWithReadyState = ws as { send(data: string): void; readyState?: number };
+			LIVE_WORKER_SOCKETS.set(msg.id, {
+				isLive: () => {
+					const rs = wsWithReadyState.readyState;
+					return rs === undefined || rs === 1; // undefined = can't probe → assume live
+				},
+			});
 
 			// Create adapter; it owns the session routing map.
 			// Pass ws as the WsLike interface — RemoteHarnessAdapter.dispatchMessage
@@ -144,6 +189,7 @@ export class WorkerConnectionManager {
 	onClose(): void {
 		if (this.workerId) {
 			this.pool.unregister(this.workerId);
+			LIVE_WORKER_SOCKETS.delete(this.workerId);
 			this.workerId = null;
 		}
 		this.adapter = null;

@@ -8,10 +8,15 @@
  */
 
 import { type HyperIdleDb, serverConfig } from "@hyperidle/db";
-import type { ModelGatewayConfig } from "@hyperidle/shared";
+import type { ModelGatewayConfig, ModelTierConfig } from "@hyperidle/shared";
 import { MODEL_PROVIDERS } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import {
+	decryptCredentialValue,
+	encryptCredentialValue,
+	getServerSecret,
+} from "./credential-encryption.js";
 import { BUILT_IN_GATEWAY_CONFIG } from "./model-gateway.js";
 
 /**
@@ -183,8 +188,15 @@ export async function updateServerConfig(
 		modelGateway: patch.modelGateway !== undefined ? patch.modelGateway : current.modelGateway,
 	};
 
+	// AF11 Hole 4: encrypt any apiKey values before persisting.
+	// We encrypt the merged modelGateway in-place so the blob never contains plaintext.
+	// @lore AF11 R3: detection uses decryptCredentialValue → null ⟺ plaintext.
+	// GCM auth-tag throws on non-ciphertext, caught → null. Idempotent.
+	const encryptedGateway = encryptModelGatewayKeys(merged.modelGateway);
+	const toStore: ServerConfig = { ...merged, modelGateway: encryptedGateway };
+
 	const now = new Date().toISOString();
-	const configJson = JSON.stringify(merged);
+	const configJson = JSON.stringify(toStore);
 
 	// Upsert: update if row exists, insert if not
 	const [existing] = await db
@@ -206,3 +218,115 @@ export async function updateServerConfig(
 }
 
 export { ModelGatewayConfigSchema, ModelTierConfigSchema, NotificationsSchema, ServerConfigSchema };
+
+// ---------------------------------------------------------------------------
+// AF11 Hole 4: encryption helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Encrypt a model tier's apiKey if present and not already ciphertext.
+ * Idempotent: already-encrypted values are left untouched.
+ *
+ * @lore AF11 R3: Detection uses decryptCredentialValue → non-null ⟺ already
+ * ciphertext (GCM auth-tag verification catches plaintext). null → plaintext →
+ * encrypt. This means running encrypt twice never double-encrypts.
+ */
+function encryptTierApiKey(tier: ModelTierConfig): ModelTierConfig {
+	if (!tier.apiKey) return tier;
+	const secret = getServerSecret();
+	if (!secret) return tier; // no secret configured → skip (boot will warn)
+	// Check if already encrypted: try decryption — non-null means it's our ciphertext
+	const tryDecrypt = decryptCredentialValue(tier.apiKey, secret);
+	if (tryDecrypt !== null) {
+		// Already a valid ciphertext — leave untouched (idempotency)
+		return tier;
+	}
+	// Plaintext: encrypt it
+	return { ...tier, apiKey: encryptCredentialValue(tier.apiKey, secret) };
+}
+
+/**
+ * Encrypt all apiKey fields in a ModelGatewayConfig.
+ * Returns a new config object (no mutation).
+ */
+function encryptModelGatewayKeys(gateway: ModelGatewayConfig): ModelGatewayConfig {
+	return {
+		reasoning: encryptTierApiKey(gateway.reasoning),
+		workhorse: encryptTierApiKey(gateway.workhorse),
+		fast: encryptTierApiKey(gateway.fast),
+	};
+}
+
+/**
+ * Decrypt the apiKey for a given model tier at the point of use.
+ * Returns plaintext, or null if no apiKey is set or secret is missing.
+ *
+ * @lore AF11 Hole 4: single decrypt-at-use seam. Both resolveModelTier call
+ * sites (server-factory.ts and sessions-routes.ts) use this helper — one
+ * implementation, two callers. The decrypted value lives only in-memory,
+ * never persisted.
+ *
+ * @lore AF11: The stored apiKey may be either ciphertext (post-AF11) or
+ * plaintext (pre-AF11 legacy row not yet migrated). If decrypt returns null
+ * AND the value is non-empty, it is treated as legacy plaintext and returned
+ * as-is. This makes the migration non-breaking: routes work before and after.
+ */
+export function resolveTierApiKey(
+	modelGateway: ModelGatewayConfig,
+	tier: "reasoning" | "workhorse" | "fast",
+): string | null {
+	const apiKey = modelGateway[tier].apiKey;
+	if (!apiKey) return null;
+	const secret = getServerSecret();
+	if (!secret) return apiKey; // no secret → return as-is (dev/test without secret)
+	const decrypted = decryptCredentialValue(apiKey, secret);
+	if (decrypted !== null) return decrypted;
+	// Decrypt failed → legacy plaintext (migration hasn't run yet)
+	return apiKey;
+}
+
+/**
+ * One-shot boot migration: re-encrypts any plaintext apiKey values in the
+ * server_config row. Idempotent: safe to run N times (ciphertext detected by
+ * AES-256-GCM auth-tag invariant → skip).
+ *
+ * @lore AF11 Hole 4 R3: detection uses `decryptCredentialValue` → null ⟺
+ * not our ciphertext (GCM auth-tag verification throws on non-ciphertext,
+ * caught → null). Idempotency: after first pass all keys are ciphertext;
+ * second run decrypts successfully → value untouched. No double-encryption.
+ *
+ * @lore AF11: This runs at server boot before routes open. It re-reads the
+ * DB config, re-encrypts any plaintext apiKeys, and writes back. Corrupt blobs
+ * fall back to defaults (existing behavior from readServerConfig).
+ */
+export async function migrateServerConfigEncryption(db: HyperIdleDb): Promise<void> {
+	const secret = getServerSecret();
+	if (!secret) return; // No secret → nothing to encrypt; boot warning elsewhere
+
+	const [row] = await db.select().from(serverConfig).where(eq(serverConfig.id, "default")).limit(1);
+
+	if (!row) return; // No config row → nothing to migrate
+
+	let rawJson: unknown;
+	try {
+		rawJson = JSON.parse(row.config);
+	} catch {
+		return; // Corrupt JSON → skip (readServerConfig handles this via defaults)
+	}
+
+	const parsed = ServerConfigSchema.safeParse(rawJson);
+	if (!parsed.success) return; // Invalid schema → skip
+
+	const current = applyDefaults(parsed.data);
+	if (!current.modelGateway) return;
+
+	// Encrypt any plaintext apiKeys. encryptModelGatewayKeys is idempotent.
+	const encryptedGateway = encryptModelGatewayKeys(current.modelGateway);
+	const migrated: ServerConfig = { ...current, modelGateway: encryptedGateway };
+	const now = new Date().toISOString();
+
+	await db
+		.update(serverConfig)
+		.set({ config: JSON.stringify(migrated), updatedAt: now })
+		.where(eq(serverConfig.id, "default"));
+}

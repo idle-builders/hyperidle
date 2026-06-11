@@ -7,6 +7,7 @@ import { createUpgradeTokenStore, type UpgradeTokenStore } from "./auth/upgrade-
 import type { AdapterPool } from "./harness/adapter-pool.js";
 import type { WorkspaceAdapter } from "./harness/workspace-adapter.js";
 import type { McpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
+import { failClosedAssertion } from "./middleware/access-boundary-middleware.js";
 import { authMiddleware, createAuthMiddleware } from "./middleware/auth.js";
 import { createBodyLimit } from "./middleware/body-limit.js";
 import { corsMiddleware } from "./middleware/cors.js";
@@ -337,6 +338,13 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 	} else {
 		api.use("*", authMiddleware);
 	}
+
+	// AF11: Global fail-closed assertion — mounted AFTER auth, covers all /api/* data routes.
+	// After the handler runs, if __boundary was never set → undeclared route touched data.
+	// In dev/test: throws loudly. In production: logs a hard error (lint is the real gate).
+	// @lore AF11: Flip order — assertion starts as warn-log. Step 10 flips to throw-in-dev/test
+	// once all data routes declare. That flip is now complete: all 41+ routes declare.
+	api.use("*", failClosedAssertion());
 
 	// I2 A3 + review O6: ws-token issuance lives behind the standard auth
 	// middleware so the master HYPERIDLE_API_KEY mints a one-shot upgrade

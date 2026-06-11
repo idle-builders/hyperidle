@@ -14,7 +14,16 @@
  * - MAX_MENTIONS_PER_MESSAGE cap prevents unbounded lookups.
  */
 
-import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import {
+	bets,
+	type HyperIdleDb,
+	messages,
+	tasks,
+	teamMembers,
+	teams,
+	threads,
+	users,
+} from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 
@@ -413,37 +422,45 @@ describe("AE5 — thread detail with hostTitle and extended identities (Task 5)"
 		vi.unstubAllEnvs();
 	});
 
+	// @lore AF11-IDOR: Agent message seeded via DB rather than API POST.
+	// After the fix, POST /api/threads/:id/messages always attributes to c.get("userId")
+	// (the auth principal = u-founder), so agent-aria cannot send via X-Identity.
+	// Seeding agent messages directly tests the same observable: isAgent in identities.
 	test("AI agent identity includes isAgent: true in thread detail", async ({ db, app }) => {
 		await seedBase(db);
+		const now = new Date().toISOString();
 
-		const create = await app.request("/api/threads", {
-			method: "POST",
-			headers: authHeaders({ "X-Identity": "u-founder" }),
-			body: JSON.stringify({
-				hostKind: "task",
-				hostId: "task-1",
-				participants: ["u-founder", "agent-aria"],
-				initialMessage: {
-					type: "plain",
-					payload: { text: "hello" },
-					clientKey: "ae5-identity-009",
-				},
-			}),
+		// Seed thread + messages directly
+		await db.insert(threads).values({
+			id: "thr-ae5-identity-009",
+			hostKind: "task",
+			hostId: "task-1",
+			initiatorId: "u-founder",
+			participants: JSON.stringify(["u-founder", "agent-aria"]),
+			lastActiveAt: now,
+			createdAt: now,
 		});
-		const createBody = (await create.json()) as { thread: { id: string } };
-
-		// Agent sends a message so they appear in identities
-		await app.request(`/api/threads/${createBody.thread.id}/messages`, {
-			method: "POST",
-			headers: authHeaders({ "X-Identity": "agent-aria" }),
-			body: JSON.stringify({
-				type: "plain",
-				payload: { text: "agent reply" },
-				clientKey: "ae5-identity-agent-009",
-			}),
+		await db.insert(messages).values({
+			id: "msg-human-009",
+			threadId: "thr-ae5-identity-009",
+			senderId: "u-founder",
+			type: "plain",
+			payload: JSON.stringify({ text: "hello" }),
+			clientKey: "ae5-identity-009",
+			createdAt: now,
+		});
+		// Agent message seeded directly (not via API) to test isAgent identity field
+		await db.insert(messages).values({
+			id: "msg-agent-009",
+			threadId: "thr-ae5-identity-009",
+			senderId: "agent-aria",
+			type: "plain",
+			payload: JSON.stringify({ text: "agent reply" }),
+			clientKey: "ae5-identity-agent-009",
+			createdAt: now,
 		});
 
-		const res = await app.request(`/api/threads/${createBody.thread.id}`, {
+		const res = await app.request("/api/threads/thr-ae5-identity-009", {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -522,37 +539,42 @@ describe("AE5 — thread detail with hostTitle and extended identities (Task 5)"
 		expect(body.hostTitle).toBe("Test task");
 	});
 
+	// @lore AF11-IDOR: Agent message seeded via DB rather than API POST.
 	test("agent operationalStatus is 'idle' when no active session", async ({ db, app }) => {
 		await seedBase(db);
+		const now = new Date().toISOString();
 
-		const create = await app.request("/api/threads", {
-			method: "POST",
-			headers: authHeaders({ "X-Identity": "u-founder" }),
-			body: JSON.stringify({
-				hostKind: "task",
-				hostId: "task-1",
-				participants: ["u-founder", "agent-aria"],
-				initialMessage: {
-					type: "plain",
-					payload: { text: "hello" },
-					clientKey: "ae5-status-idle-012",
-				},
-			}),
+		// Seed thread + agent message directly
+		await db.insert(threads).values({
+			id: "thr-ae5-idle-012",
+			hostKind: "task",
+			hostId: "task-1",
+			initiatorId: "u-founder",
+			participants: JSON.stringify(["u-founder", "agent-aria"]),
+			lastActiveAt: now,
+			createdAt: now,
 		});
-		const createBody = (await create.json()) as { thread: { id: string } };
-
-		// Agent sends a message to appear in identities
-		await app.request(`/api/threads/${createBody.thread.id}/messages`, {
-			method: "POST",
-			headers: authHeaders({ "X-Identity": "agent-aria" }),
-			body: JSON.stringify({
-				type: "plain",
-				payload: { text: "reply" },
-				clientKey: "ae5-status-idle-reply-012",
-			}),
+		await db.insert(messages).values({
+			id: "msg-human-idle-012",
+			threadId: "thr-ae5-idle-012",
+			senderId: "u-founder",
+			type: "plain",
+			payload: JSON.stringify({ text: "hello" }),
+			clientKey: "ae5-status-idle-012",
+			createdAt: now,
+		});
+		// Agent message seeded directly to test operationalStatus
+		await db.insert(messages).values({
+			id: "msg-agent-idle-012",
+			threadId: "thr-ae5-idle-012",
+			senderId: "agent-aria",
+			type: "plain",
+			payload: JSON.stringify({ text: "reply" }),
+			clientKey: "ae5-status-idle-reply-012",
+			createdAt: now,
 		});
 
-		const res = await app.request(`/api/threads/${createBody.thread.id}`, {
+		const res = await app.request("/api/threads/thr-ae5-idle-012", {
 			method: "GET",
 			headers: authHeaders(),
 		});

@@ -43,11 +43,14 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		formedAt: NOW,
 	});
 
-	// Seed AI users (formerly agents)
+	// Seed AI users (formerly agents).
+	// AF11: agent-1 is kind='human' so auth middleware resolves it as the principal.
+	// GET /api/users/:id/inbox is principal-self only (AC5 AF11); the resolved
+	// principal must match the inbox owner. All seedBase tests resolve principal = "agent-1".
 	await db.insert(users).values([
 		{
 			id: "agent-1",
-			kind: "ai",
+			kind: "human",
 			name: "Builder Bot",
 			role: "builder",
 			status: "idle",
@@ -248,19 +251,29 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			expect(payload.text).toBe("Hello!");
 		});
 
-		test("returns 404 for unknown user", async ({ app }) => {
+		test("returns 403 for unknown user (self-guard fires before 404)", async ({ app }) => {
+			// AF11 AC5: GET /:id/inbox is principal-self only. The self-guard
+			// compares c.get("userId") to the path :id BEFORE checking DB existence.
+			// A non-existent path user can never equal the real principal, so the
+			// 403 fires first (security-correct: don't reveal resource existence).
+			// Without seedBase, principal resolves to "u-founder" fallback.
+			// "u-founder" !== "nonexistent" → 403, not 404.
 			const res = await app.request("/api/users/nonexistent/inbox", { headers: authHeaders() });
-			expect(res.status).toBe(404);
+			expect(res.status).toBe(403);
 		});
 	});
 
 	// AC9: POST /api/users/:id/inbox — send message to user
+	// @lore AF11-IDOR: senderId now comes from c.get("userId") (auth principal = "agent-1")
+	// rather than the X-Identity header. Tests updated to reflect the fixed behavior.
 	describe("AC9: POST /api/users/:id/inbox — send message", () => {
 		test("sends a message and creates thread if needed", async ({ db, app }) => {
 			await seedBase(db);
-			const res = await app.request("/api/users/agent-1/inbox", {
+			// Agent-2 (ai, not human) receives the inbox message.
+			// Agent-1 (the auth principal, kind='human') is the sender.
+			const res = await app.request("/api/users/agent-2/inbox", {
 				method: "POST",
-				headers: authHeaders({ "X-Identity": "agent-2" }),
+				headers: authHeaders(),
 				body: JSON.stringify({ body: "Hey there!" }),
 			});
 			expect(res.status).toBe(201);
@@ -268,28 +281,30 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			const body = (await res.json()) as Record<string, unknown>;
 			// L1a: messages now carry payload (JSON), not body/recipientId.
 			expect(typeof body.payload).toBe("string");
-			expect(body.senderId).toBe("agent-2");
+			// AF11-IDOR: senderId is the authenticated principal (agent-1), never the header
+			expect(body.senderId).toBe("agent-1");
 
 			// Verify thread was created with the new shape.
 			const allThreads = await db.select().from(threads);
 			expect(allThreads).toHaveLength(1);
+			// findOrCreateDirectThread defaults recipientKind="agent" for DM threads
 			expect(allThreads[0]!.hostKind).toBe("agent");
-			expect(allThreads[0]!.hostId).toBe("agent-1");
+			expect(allThreads[0]!.hostId).toBe("agent-2");
 		});
 
 		test("reuses existing thread for same sender/recipient pair", async ({ db, app }) => {
 			await seedBase(db);
 			// Send first message
-			await app.request("/api/users/agent-1/inbox", {
+			await app.request("/api/users/agent-2/inbox", {
 				method: "POST",
-				headers: authHeaders({ "X-Identity": "agent-2" }),
+				headers: authHeaders(),
 				body: JSON.stringify({ body: "First" }),
 			});
 
 			// Send second message
-			await app.request("/api/users/agent-1/inbox", {
+			await app.request("/api/users/agent-2/inbox", {
 				method: "POST",
-				headers: authHeaders({ "X-Identity": "agent-2" }),
+				headers: authHeaders(),
 				body: JSON.stringify({ body: "Second" }),
 			});
 
@@ -303,7 +318,7 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 		test("returns 404 for unknown recipient user", async ({ app }) => {
 			const res = await app.request("/api/users/nonexistent/inbox", {
 				method: "POST",
-				headers: authHeaders({ "X-Identity": "agent-2" }),
+				headers: authHeaders(),
 				body: JSON.stringify({ body: "Hello" }),
 			});
 			expect(res.status).toBe(404);
@@ -311,32 +326,43 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 
 		test("returns 400 for missing body text", async ({ db, app }) => {
 			await seedBase(db);
-			const res = await app.request("/api/users/agent-1/inbox", {
+			const res = await app.request("/api/users/agent-2/inbox", {
 				method: "POST",
-				headers: authHeaders({ "X-Identity": "agent-2" }),
+				headers: authHeaders(),
 				body: JSON.stringify({}),
 			});
 			expect(res.status).toBe(400);
 		});
 
-		test("rejects body-supplied senderId — no spoofing", async ({ db, app }) => {
+		test("rejects body-supplied senderId — no spoofing via body", async ({ db, app }) => {
 			await seedBase(db);
-			const res = await app.request("/api/users/agent-1/inbox", {
+			// schema is strict() — extra field senderId in body → 400 validation error
+			const res = await app.request("/api/users/agent-2/inbox", {
 				method: "POST",
-				headers: authHeaders({ "X-Identity": "agent-2" }),
+				headers: authHeaders(),
 				body: JSON.stringify({ senderId: "u-founder", body: "spoof" }),
 			});
 			expect(res.status).toBe(400);
 		});
 
-		test("returns 400 when X-Identity header is missing", async ({ db, app }) => {
+		// AF11-IDOR: Removed "returns 400 when X-Identity header is missing" —
+		// after the fix, the X-Identity header is no longer used for senderId.
+		// Missing header is NOT an error; auth principal is used instead.
+		test("missing X-Identity header is accepted — senderId comes from auth", async ({
+			db,
+			app,
+		}) => {
 			await seedBase(db);
-			const res = await app.request("/api/users/agent-1/inbox", {
+			const res = await app.request("/api/users/agent-2/inbox", {
 				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ body: "no identity" }),
+				headers: authHeaders(), // No X-Identity — this is now fine
+				body: JSON.stringify({ body: "auth-only sender" }),
 			});
-			expect(res.status).toBe(400);
+			expect(res.status).toBe(201);
+
+			const body = (await res.json()) as Record<string, unknown>;
+			// senderId must be the auth principal, not a fallback error
+			expect(body.senderId).toBe("agent-1");
 		});
 	});
 });

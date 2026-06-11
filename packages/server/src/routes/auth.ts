@@ -44,6 +44,7 @@ import { API_ERROR_CODES, INVITE_ROLES } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { UpgradeTokenStore } from "../auth/upgrade-token-store.js";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { createInvite } from "../services/invite-code.js";
 import { revokeLoginSession } from "../services/login-session.js";
@@ -57,7 +58,7 @@ export function createAuthRoutes(
 
 	// GET /me — returns the authenticated user's identity.
 	// P2: reads from users table instead of factorySettings founder_name/founder_email.
-	router.get("/me", async (c) => {
+	router.get("/me", requireBoundary({ kind: "principal-self" }), async (c) => {
 		const userId = c.get("userId") ?? "u-founder";
 
 		if (!db) {
@@ -82,7 +83,7 @@ export function createAuthRoutes(
 
 	// POST /ws-token — only mounted when WebSocket support is active.
 	if (store) {
-		router.post("/ws-token", (c) => {
+		router.post("/ws-token", requireBoundary({ kind: "public-data" }), (c) => {
 			// Clients compute remaining seconds from `expiresAt` themselves; emitting
 			// a server-derived `expiresInSec` adds a clock-skew footgun for no value.
 			// @lore S1: In shared mode, identity comes from the auth middleware context
@@ -109,7 +110,7 @@ export function createAuthRoutes(
 	 * only legitimate users can obtain the WS token. Never logged or exposed in
 	 * error messages.
 	 */
-	router.post("/worker-token", (c) => {
+	router.post("/worker-token", requireBoundary({ kind: "public-data" }), (c) => {
 		const workerToken = process.env.HYPERIDLE_WORKER_TOKEN;
 		if (!workerToken) {
 			return c.json(
@@ -132,7 +133,7 @@ export function createAuthRoutes(
 		 * Body: { role?: "admin" | "member" }
 		 * Response: { code: string, expiresAt: string } (201)
 		 */
-		router.post("/invite", async (c) => {
+		router.post("/invite", requireBoundary({ kind: "public-data" }), async (c) => {
 			// Admin key only — Bearer token users cannot create invites
 			if (c.get("authMethod") !== "api_key") {
 				const response: ApiErrorResponse = {
@@ -176,7 +177,7 @@ export function createAuthRoutes(
 		 * Only valid for Bearer token auth (authMethod === "login_session").
 		 * Returns 400 if called with API key (no session to revoke).
 		 */
-		router.post("/logout", async (c) => {
+		router.post("/logout", requireBoundary({ kind: "public-data" }), async (c) => {
 			const authMethod = c.get("authMethod");
 
 			if (authMethod !== "login_session") {

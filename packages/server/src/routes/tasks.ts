@@ -4,6 +4,7 @@ import { API_ERROR_CODES, TASK_OUTCOME_VERDICTS, TASK_STATES } from "@hyperidle/
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { handoff } from "../services/handoff-protocol.js";
@@ -55,37 +56,42 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 	const router = new Hono<HyperIdleEnv>();
 
 	// POST /tasks — create a new task (agent-driven decomposition)
-	router.post("/", validateBody(createTaskSchema), async (c) => {
-		const body = c.req.valid("json" as never) as z.infer<typeof createTaskSchema>;
-		const now = new Date().toISOString();
+	router.post(
+		"/",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(createTaskSchema),
+		async (c) => {
+			const body = c.req.valid("json" as never) as z.infer<typeof createTaskSchema>;
+			const now = new Date().toISOString();
 
-		// Validate bet exists
-		const [bet] = await db.select().from(bets).where(eq(bets.id, body.betId)).limit(1);
-		if (!bet) {
-			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
-		}
+			// Validate bet exists
+			const [bet] = await db.select().from(bets).where(eq(bets.id, body.betId)).limit(1);
+			if (!bet) {
+				return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+			}
 
-		const taskId = crypto.randomUUID();
-		await db.insert(tasks).values({
-			id: taskId,
-			betId: body.betId,
-			teamId: bet.teamId,
-			title: body.title,
-			description: body.description ?? null,
-			doneCondition: body.doneCondition ?? null,
-			ownerAgentId: body.ownerAgentId ?? null,
-			state: "proposed",
-			costCap: body.costCap ?? null,
-			createdAt: now,
-			updatedAt: now,
-		});
+			const taskId = crypto.randomUUID();
+			await db.insert(tasks).values({
+				id: taskId,
+				betId: body.betId,
+				teamId: bet.teamId,
+				title: body.title,
+				description: body.description ?? null,
+				doneCondition: body.doneCondition ?? null,
+				ownerAgentId: body.ownerAgentId ?? null,
+				state: "proposed",
+				costCap: body.costCap ?? null,
+				createdAt: now,
+				updatedAt: now,
+			});
 
-		const [created] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
-		return c.json(created, 201);
-	});
+			const [created] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+			return c.json(created, 201);
+		},
+	);
 
 	// GET /tasks — list, filterable by bet_id, state, owner
-	router.get("/", async (c) => {
+	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const betId = c.req.query("bet_id");
 		const state = c.req.query("state");
 		const owner = c.req.query("owner");
@@ -112,7 +118,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 	// cascade-stopped session reports 'stopped' (non-blank label downstream).
 	// @lore O2: session cost/harness columns were stripped from the kernel table,
 	// so `cost`/`harnessUrl`/`tokens` are null here. AF7 owns dispatch — no writes.
-	router.get("/:id/sessions", async (c) => {
+	router.get("/:id/sessions", requireBoundary({ kind: "public-data" }), async (c) => {
 		const taskId = c.req.param("id");
 		const [task] = await db
 			.select({ id: tasks.id })
@@ -147,116 +153,131 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 	});
 
 	// PATCH /tasks/:id — update mutable fields
-	router.patch("/:id", validateBody(updateTaskSchema), async (c) => {
-		const taskId = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof updateTaskSchema>;
+	router.patch(
+		"/:id",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(updateTaskSchema),
+		async (c) => {
+			const taskId = c.req.param("id");
+			const body = c.req.valid("json" as never) as z.infer<typeof updateTaskSchema>;
 
-		const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
-		if (!task) {
-			return c.json({ error: "Task not found", code: "NOT_FOUND" }, 404);
-		}
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+			if (!task) {
+				return c.json({ error: "Task not found", code: "NOT_FOUND" }, 404);
+			}
 
-		const now = new Date().toISOString();
-		const updates: Partial<typeof tasks.$inferInsert> = {
-			updatedAt: now,
-		};
-		if (body.title !== undefined) updates.title = body.title;
-		if (body.description !== undefined) updates.description = body.description;
-		if (body.doneCondition !== undefined) updates.doneCondition = body.doneCondition;
-		if (body.ownerAgentId !== undefined) updates.ownerAgentId = body.ownerAgentId;
+			const now = new Date().toISOString();
+			const updates: Partial<typeof tasks.$inferInsert> = {
+				updatedAt: now,
+			};
+			if (body.title !== undefined) updates.title = body.title;
+			if (body.description !== undefined) updates.description = body.description;
+			if (body.doneCondition !== undefined) updates.doneCondition = body.doneCondition;
+			if (body.ownerAgentId !== undefined) updates.ownerAgentId = body.ownerAgentId;
 
-		// AC1: Record task outcome verdict with audit trail
-		if (body.outcomeVerdict !== undefined) {
-			updates.outcomeVerdict = body.outcomeVerdict;
-			updates.outcomeRecordedAt = now;
-			updates.outcomeRecordedBy = c.get("userId") ?? null;
+			// AC1: Record task outcome verdict with audit trail
+			if (body.outcomeVerdict !== undefined) {
+				updates.outcomeVerdict = body.outcomeVerdict;
+				updates.outcomeRecordedAt = now;
+				updates.outcomeRecordedBy = c.get("userId") ?? null;
 
-			// Append to audit trail
-			const auditTrail: Array<Record<string, unknown>> = task.auditTrail
-				? (JSON.parse(task.auditTrail) as Array<Record<string, unknown>>)
-				: [];
-			auditTrail.push({
-				timestamp: now,
-				field: "outcomeVerdict",
-				old_value: task.outcomeVerdict ?? null,
-				new_value: body.outcomeVerdict,
-				actor: c.get("userId") ?? null,
-			});
-			updates.auditTrail = JSON.stringify(auditTrail);
-		}
+				// Append to audit trail
+				const auditTrail: Array<Record<string, unknown>> = task.auditTrail
+					? (JSON.parse(task.auditTrail) as Array<Record<string, unknown>>)
+					: [];
+				auditTrail.push({
+					timestamp: now,
+					field: "outcomeVerdict",
+					old_value: task.outcomeVerdict ?? null,
+					new_value: body.outcomeVerdict,
+					actor: c.get("userId") ?? null,
+				});
+				updates.auditTrail = JSON.stringify(auditTrail);
+			}
 
-		await db.update(tasks).set(updates).where(eq(tasks.id, taskId));
+			await db.update(tasks).set(updates).where(eq(tasks.id, taskId));
 
-		const [updated] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
-		return c.json(updated);
-	});
+			const [updated] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+			return c.json(updated);
+		},
+	);
 
 	// POST /tasks/:id/transition — state transition
-	router.post("/:id/transition", validateBody(transitionTaskSchema), async (c) => {
-		const taskId = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof transitionTaskSchema>;
+	router.post(
+		"/:id/transition",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(transitionTaskSchema),
+		async (c) => {
+			const taskId = c.req.param("id");
+			const body = c.req.valid("json" as never) as z.infer<typeof transitionTaskSchema>;
 
-		await transitionTask(db, eventBus, taskId, body.state);
+			await transitionTask(db, eventBus, taskId, body.state);
 
-		const [updated] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
-		return c.json(updated);
-	});
+			const [updated] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+			return c.json(updated);
+		},
+	);
 
 	// POST /tasks/:id/handoff — hand off task to another agent/role/human
-	router.post("/:id/handoff", validateBody(handoffSchema), async (c) => {
-		const taskId = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof handoffSchema>;
+	router.post(
+		"/:id/handoff",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(handoffSchema),
+		async (c) => {
+			const taskId = c.req.param("id");
+			const body = c.req.valid("json" as never) as z.infer<typeof handoffSchema>;
 
-		const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
-		if (!task) {
-			return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-		}
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+			if (!task) {
+				return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+			}
 
-		const [session] = await db
-			.select()
-			.from(sessions)
-			.where(eq(sessions.id, body.sessionId))
-			.limit(1);
-		if (!session) {
-			return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-		}
+			const [session] = await db
+				.select()
+				.from(sessions)
+				.where(eq(sessions.id, body.sessionId))
+				.limit(1);
+			if (!session) {
+				return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+			}
 
-		// Build a minimal SessionContext for handoff.
-		// @lore I6: workspacePath must be non-empty or endSession's fs.promises.rm()
-		// would attempt to rm(""), which is dangerous. Use a safe sentinel that
-		// points to a non-existent path so rm() fails silently (force: true).
-		const resolvedWorkspacePath =
-			session.workspaceSnapshot?.trim() || `/tmp/.hyperidle-noop-${session.id}`;
-		const sessionContext: SessionContext = {
-			sessionId: session.id,
-			agentId: session.agentId,
-			taskId,
-			workspacePath: resolvedWorkspacePath,
-			watcher: {
-				stop: (): void => {
-					/* no-op */
+			// Build a minimal SessionContext for handoff.
+			// @lore I6: workspacePath must be non-empty or endSession's fs.promises.rm()
+			// would attempt to rm(""), which is dangerous. Use a safe sentinel that
+			// points to a non-existent path so rm() fails silently (force: true).
+			const resolvedWorkspacePath =
+				session.workspaceSnapshot?.trim() || `/tmp/.hyperidle-noop-${session.id}`;
+			const sessionContext: SessionContext = {
+				sessionId: session.id,
+				agentId: session.agentId,
+				taskId,
+				workspacePath: resolvedWorkspacePath,
+				watcher: {
+					stop: (): void => {
+						/* no-op */
+					},
 				},
-			},
-			// @lore O2: traceId stripped from sessions kernel table; use empty string until strategy layer provides it.
-			traceId: "",
-		};
+				// @lore O2: traceId stripped from sessions kernel table; use empty string until strategy layer provides it.
+				traceId: "",
+			};
 
-		const result = await handoff(db, eventBus, {
-			sessionContext,
-			toAgent: body.toAgent,
-			toRole: body.toRole,
-			toHuman: body.toHuman,
-			metadata: {
-				context_id: session.id,
-				status: "completed",
-				reason: body.reason,
-				artifacts: body.artifacts ?? [],
-				remaining_work: body.remainingWork ?? [],
-			},
-		});
+			const result = await handoff(db, eventBus, {
+				sessionContext,
+				toAgent: body.toAgent,
+				toRole: body.toRole,
+				toHuman: body.toHuman,
+				metadata: {
+					context_id: session.id,
+					status: "completed",
+					reason: body.reason,
+					artifacts: body.artifacts ?? [],
+					remaining_work: body.remainingWork ?? [],
+				},
+			});
 
-		return c.json(result);
-	});
+			return c.json(result);
+		},
+	);
 
 	return router;
 }

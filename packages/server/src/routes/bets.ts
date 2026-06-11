@@ -21,6 +21,7 @@ import {
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { cascadeBetKill } from "../services/bet-kill-cascade.js";
@@ -357,7 +358,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 
 	// GET /bets — list all bets grouped by status, with pagination
 	// @lore U1: grouped by new simplified statuses (draft, active, completed, killed).
-	router.get("/", async (c) => {
+	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const limit = Math.min(Number.parseInt(c.req.query("limit") ?? "50", 10) || 50, 200);
 		const offset = Number.parseInt(c.req.query("offset") ?? "0", 10) || 0;
 
@@ -386,7 +387,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	// formatted appetite string. Uses a Map for batch team lookup to avoid
 	// N+1 queries (Q3 arch critique W-4).
 	// @lore U1: uses `teams` (domain entity, formerly `products`) and `teamMembers`.
-	router.get("/canvas", async (c) => {
+	router.get("/canvas", requireBoundary({ kind: "public-data" }), async (c) => {
 		const allBets = await db.select().from(bets);
 		const allTeamMembers = await db.select().from(teamMembers);
 
@@ -444,7 +445,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	//   - progress: { done, total } computed from the tasks already fetched.
 	// Keeping enrichment in the API layer preserves the three-layer boundary.
 	// @lore U1: `description` (formerly `pitch`), `teamId`, `completedAt` (formerly `shippedAt`).
-	router.get("/:id", async (c) => {
+	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const betId = c.req.param("id");
 		const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 
@@ -560,109 +561,127 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	// @lore Q3 T2: the server creates the bet in 'draft' status.
 	// @lore U1: `teamId` (formerly `productId`), `description` (formerly `pitch`),
 	// status 'draft' (formerly 'shaped').
-	router.post("/", validateBody(createBetSchema), async (c) => {
-		const body = c.req.valid("json" as never) as z.infer<typeof createBetSchema>;
+	router.post(
+		"/",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(createBetSchema),
+		async (c) => {
+			const body = c.req.valid("json" as never) as z.infer<typeof createBetSchema>;
 
-		// Check team existence before team_members lookup.
-		const [teamRow] = await db
-			.select({ id: teams.id })
-			.from(teams)
-			.where(eq(teams.id, body.teamId))
-			.limit(1);
-		if (!teamRow) {
-			return c.json({ error: `Team '${body.teamId}' not found`, code: "VALIDATION_ERROR" }, 400);
-		}
+			// Check team existence before team_members lookup.
+			const [teamRow] = await db
+				.select({ id: teams.id })
+				.from(teams)
+				.where(eq(teams.id, body.teamId))
+				.limit(1);
+			if (!teamRow) {
+				return c.json({ error: `Team '${body.teamId}' not found`, code: "VALIDATION_ERROR" }, 400);
+			}
 
-		const id = crypto.randomUUID();
-		const now = new Date().toISOString();
-		const actor = c.get("userId");
+			const id = crypto.randomUUID();
+			const now = new Date().toISOString();
+			const actor = c.get("userId");
 
-		// Seed initial revisionLog entry for the creation event.
-		const initialLog: Array<Record<string, unknown>> = [
-			{
-				timestamp: now,
-				field: "status",
-				old_value: null,
-				new_value: "draft",
-				reason: "Bet created",
-				...(actor !== undefined ? { actor } : {}),
-			},
-		];
+			// Seed initial revisionLog entry for the creation event.
+			const initialLog: Array<Record<string, unknown>> = [
+				{
+					timestamp: now,
+					field: "status",
+					old_value: null,
+					new_value: "draft",
+					reason: "Bet created",
+					...(actor !== undefined ? { actor } : {}),
+				},
+			];
 
-		await db.insert(bets).values({
-			id,
-			teamId: body.teamId,
-			description: body.description,
-			doneCondition: body.doneCondition ?? null,
-			hypothesis: body.hypothesis ?? null,
-			status: "draft",
-			createdAt: now,
-			costAppetiteMinor: body.costAppetite?.minor ?? null,
-			costAppetiteCurrency: body.costAppetite?.currency ?? null,
-			revisionLog: JSON.stringify(initialLog),
-		});
+			await db.insert(bets).values({
+				id,
+				teamId: body.teamId,
+				description: body.description,
+				doneCondition: body.doneCondition ?? null,
+				hypothesis: body.hypothesis ?? null,
+				status: "draft",
+				createdAt: now,
+				costAppetiteMinor: body.costAppetite?.minor ?? null,
+				costAppetiteCurrency: body.costAppetite?.currency ?? null,
+				revisionLog: JSON.stringify(initialLog),
+			});
 
-		const [created] = await db.select().from(bets).where(eq(bets.id, id)).limit(1);
-		if (!created) {
-			return c.json({ error: "Failed to create bet", code: "INTERNAL_ERROR" }, 500);
-		}
+			const [created] = await db.select().from(bets).where(eq(bets.id, id)).limit(1);
+			if (!created) {
+				return c.json({ error: "Failed to create bet", code: "INTERNAL_ERROR" }, 500);
+			}
 
-		// Return structured costAppetite in the response
-		return c.json(
-			{
-				...created,
-				costAppetite:
-					created.costAppetiteMinor != null && created.costAppetiteCurrency != null
-						? { minor: created.costAppetiteMinor, currency: created.costAppetiteCurrency }
-						: null,
-			},
-			201,
-		);
-	});
+			// Return structured costAppetite in the response
+			return c.json(
+				{
+					...created,
+					costAppetite:
+						created.costAppetiteMinor != null && created.costAppetiteCurrency != null
+							? { minor: created.costAppetiteMinor, currency: created.costAppetiteCurrency }
+							: null,
+				},
+				201,
+			);
+		},
+	);
 
 	// PATCH /bets/:id — update mutable fields on active bets.
 	// M3 A5: actor comes from auth context (c.get("userId")), not a hardcoded founder constant.
 	// L17: cost_appetite replaced the old appetite string; handled directly in the route.
 	// @lore U1: `description` (formerly `pitch`) is the patchable text field.
-	router.patch("/:id", validateBody(updateBetSchema), async (c) => {
-		const betId = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof updateBetSchema>;
+	router.patch(
+		"/:id",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(updateBetSchema),
+		async (c) => {
+			const betId = c.req.param("id");
+			const body = c.req.valid("json" as never) as z.infer<typeof updateBetSchema>;
 
-		// @lore U1: `description` (formerly `pitch`) is mutable in draft/active.
-		// Delegated to patchDescription() to reduce PATCH handler complexity.
-		if (body.field === "description") {
-			const result = await patchDescription(db, betId, body.value, body.reason, c.get("userId"));
-			if (!result.ok) return c.json(result.body, result.status);
-			return c.json(result.row);
-		}
+			// @lore U1: `description` (formerly `pitch`) is mutable in draft/active.
+			// Delegated to patchDescription() to reduce PATCH handler complexity.
+			if (body.field === "description") {
+				const result = await patchDescription(db, betId, body.value, body.reason, c.get("userId"));
+				if (!result.ok) return c.json(result.body, result.status);
+				return c.json(result.row);
+			}
 
-		// @lore U2: at_risk PATCH — delegated to patchAtRisk() for complexity management.
-		if (body.field === "at_risk") {
-			const result = await patchAtRisk(db, betId, body.value, body.reason, c.get("userId"));
-			if (!result.ok) return c.json(result.body, result.status);
-			return c.json(result.row);
-		}
+			// @lore U2: at_risk PATCH — delegated to patchAtRisk() for complexity management.
+			if (body.field === "at_risk") {
+				const result = await patchAtRisk(db, betId, body.value, body.reason, c.get("userId"));
+				if (!result.ok) return c.json(result.body, result.status);
+				return c.json(result.row);
+			}
 
-		// @lore L17: cost_appetite PATCH — delegated to patchCostAppetite().
-		// WireMoney value cannot go through updateBetField (string-only columns).
-		// @lore U1: mutable in 'active' status only.
-		if (body.field === "cost_appetite") {
-			const result = await patchCostAppetite(db, betId, body.value, body.reason, c.get("userId"));
-			if (!result.ok) return c.json(result.body, result.status);
-			return c.json(result.row);
-		}
+			// @lore L17: cost_appetite PATCH — delegated to patchCostAppetite().
+			// WireMoney value cannot go through updateBetField (string-only columns).
+			// @lore U1: mutable in 'active' status only.
+			if (body.field === "cost_appetite") {
+				const result = await patchCostAppetite(db, betId, body.value, body.reason, c.get("userId"));
+				if (!result.ok) return c.json(result.body, result.status);
+				return c.json(result.row);
+			}
 
-		await updateBetField(db, eventBus, betId, body.field, body.value, body.reason, c.get("userId"));
+			await updateBetField(
+				db,
+				eventBus,
+				betId,
+				body.field,
+				body.value,
+				body.reason,
+				c.get("userId"),
+			);
 
-		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
-		return c.json(updated);
-	});
+			const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+			return c.json(updated);
+		},
+	);
 
 	// POST /bets/:id/commit — transition draft→active
 	// @lore U1: formerly "shaped→committed". Now "draft→active".
 	// @lore U1: body is optional — all fields are optional so we parse manually
 	// instead of using validateBody to avoid "Malformed JSON" when body is absent.
-	router.post("/:id/commit", async (c) => {
+	router.post("/:id/commit", requireBoundary({ kind: "public-data" }), async (c) => {
 		const betId = c.req.param("id");
 
 		// Parse optional body — default to {} if absent or empty
@@ -725,7 +744,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 
 	// POST /bets/:id/ship — transition active→completed
 	// @lore U1: formerly "in_progress→shipped". Now "active→completed".
-	router.post("/:id/ship", async (c) => {
+	router.post("/:id/ship", requireBoundary({ kind: "public-data" }), async (c) => {
 		const betId = c.req.param("id");
 		// @lore U2: catch InvalidTransitionError here (not global handler) so bets return 400.
 		try {
@@ -745,102 +764,112 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	});
 
 	// POST /bets/:id/kill — kill with reason (required)
-	router.post("/:id/kill", validateBody(killBetSchema), async (c) => {
-		const betId = c.req.param("id");
-		if (!(await assertBetReadable(db, betId))) {
-			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
-		}
-		const body = c.req.valid("json" as never) as z.infer<typeof killBetSchema>;
-		// @lore U2: catch InvalidTransitionError here (not global handler) so bets return 400.
-		try {
-			await transitionBet(db, eventBus, betId, "killed", {
-				reason: body.reason,
-				actor: c.get("userId"),
-			});
-		} catch (err) {
-			if (err instanceof InvalidTransitionError) {
-				return c.json({ error: err.message, code: "VALIDATION_ERROR" }, 400);
+	router.post(
+		"/:id/kill",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(killBetSchema),
+		async (c) => {
+			const betId = c.req.param("id");
+			if (!(await assertBetReadable(db, betId))) {
+				return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 			}
-			throw err;
-		}
-		// @lore AF12: cascade the kill downward AFTER the bet is `killed` so the
-		// task-kill's upward propagation sees a terminal bet and skips (no spurious
-		// review thread). Synchronous so the UI's immediate refresh shows true state.
-		await cascadeBetKill(db, eventBus, betId);
-		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
-		if (!updated) {
-			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
-		}
-		// @lore U2: normalize atRisk 0/1 to boolean on the wire (architecture-critique W-1).
-		return c.json({ ...updated, atRisk: updated.atRisk === 1 });
-	});
+			const body = c.req.valid("json" as never) as z.infer<typeof killBetSchema>;
+			// @lore U2: catch InvalidTransitionError here (not global handler) so bets return 400.
+			try {
+				await transitionBet(db, eventBus, betId, "killed", {
+					reason: body.reason,
+					actor: c.get("userId"),
+				});
+			} catch (err) {
+				if (err instanceof InvalidTransitionError) {
+					return c.json({ error: err.message, code: "VALIDATION_ERROR" }, 400);
+				}
+				throw err;
+			}
+			// @lore AF12: cascade the kill downward AFTER the bet is `killed` so the
+			// task-kill's upward propagation sees a terminal bet and skips (no spurious
+			// review thread). Synchronous so the UI's immediate refresh shows true state.
+			await cascadeBetKill(db, eventBus, betId);
+			const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+			if (!updated) {
+				return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+			}
+			// @lore U2: normalize atRisk 0/1 to boolean on the wire (architecture-critique W-1).
+			return c.json({ ...updated, atRisk: updated.atRisk === 1 });
+		},
+	);
 
 	// POST /bets/:id/outcome — record or update bet outcome (AC1).
 	// Only valid for completed or killed bets (hypothesis can only be evaluated after the bet ends).
-	router.post("/:id/outcome", validateBody(betOutcomeSchema), async (c) => {
-		const betId = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof betOutcomeSchema>;
+	router.post(
+		"/:id/outcome",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(betOutcomeSchema),
+		async (c) => {
+			const betId = c.req.param("id");
+			const body = c.req.valid("json" as never) as z.infer<typeof betOutcomeSchema>;
 
-		const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
-		if (!bet) {
-			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
-		}
+			const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+			if (!bet) {
+				return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+			}
 
-		// AC1 AC-9: outcome can only be recorded for completed or killed bets
-		if (bet.status !== "completed" && bet.status !== "killed") {
-			return c.json(
-				{
-					error: `Outcome cannot be recorded for a bet in '${bet.status}' status. Only completed or killed bets can have outcomes.`,
-					code: "VALIDATION_ERROR",
-				},
-				400,
-			);
-		}
+			// AC1 AC-9: outcome can only be recorded for completed or killed bets
+			if (bet.status !== "completed" && bet.status !== "killed") {
+				return c.json(
+					{
+						error: `Outcome cannot be recorded for a bet in '${bet.status}' status. Only completed or killed bets can have outcomes.`,
+						code: "VALIDATION_ERROR",
+					},
+					400,
+				);
+			}
 
-		const now = new Date().toISOString();
-		const actor = c.get("userId");
+			const now = new Date().toISOString();
+			const actor = c.get("userId");
 
-		// AC1 AC-12: append to revision log when overriding an existing outcome
-		const revisionLog: Array<Record<string, unknown>> = bet.revisionLog
-			? (JSON.parse(bet.revisionLog) as Array<Record<string, unknown>>)
-			: [];
+			// AC1 AC-12: append to revision log when overriding an existing outcome
+			const revisionLog: Array<Record<string, unknown>> = bet.revisionLog
+				? (JSON.parse(bet.revisionLog) as Array<Record<string, unknown>>)
+				: [];
 
-		if (bet.outcomeVerdict !== null) {
-			revisionLog.push({
-				timestamp: now,
-				field: "outcome",
-				old_value: {
-					verdict: bet.outcomeVerdict,
-					summary: bet.outcomeSummary ?? null,
-					recordedAt: bet.outcomeRecordedAt,
-					recordedBy: bet.outcomeRecordedBy,
-				},
-				new_value: {
-					verdict: body.verdict,
-					summary: body.summary ?? null,
-				},
-				actor,
-			});
-		}
+			if (bet.outcomeVerdict !== null) {
+				revisionLog.push({
+					timestamp: now,
+					field: "outcome",
+					old_value: {
+						verdict: bet.outcomeVerdict,
+						summary: bet.outcomeSummary ?? null,
+						recordedAt: bet.outcomeRecordedAt,
+						recordedBy: bet.outcomeRecordedBy,
+					},
+					new_value: {
+						verdict: body.verdict,
+						summary: body.summary ?? null,
+					},
+					actor,
+				});
+			}
 
-		await db
-			.update(bets)
-			.set({
-				outcomeVerdict: body.verdict,
-				outcomeSummary: body.summary ?? null,
-				outcomeRecordedAt: now,
-				outcomeRecordedBy: actor ?? null,
-				revisionLog: JSON.stringify(revisionLog),
-			})
-			.where(eq(bets.id, betId));
+			await db
+				.update(bets)
+				.set({
+					outcomeVerdict: body.verdict,
+					outcomeSummary: body.summary ?? null,
+					outcomeRecordedAt: now,
+					outcomeRecordedBy: actor ?? null,
+					revisionLog: JSON.stringify(revisionLog),
+				})
+				.where(eq(bets.id, betId));
 
-		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
-		if (!updated) {
-			return c.json({ error: "Bet not found after update", code: "INTERNAL_ERROR" }, 500);
-		}
-		// @lore U2: normalize atRisk 0/1 to boolean on the wire.
-		return c.json({ ...updated, atRisk: updated.atRisk === 1 });
-	});
+			const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+			if (!updated) {
+				return c.json({ error: "Bet not found after update", code: "INTERNAL_ERROR" }, 500);
+			}
+			// @lore U2: normalize atRisk 0/1 to boolean on the wire.
+			return c.json({ ...updated, atRisk: updated.atRisk === 1 });
+		},
+	);
 
 	// POST /bets/:id/retro/draft — AI-assisted draft (stub) for AC2.
 	// Must be registered BEFORE /:id/retro to avoid partial-segment match.
@@ -850,7 +879,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	// from task outcome verdicts and composes a summary from task titles + states.
 	// When LLM integration lands, replace this logic with a single bounded LLM call.
 	// The endpoint shape and frontend integration are already in place.
-	router.post("/:id/retro/draft", async (c) => {
+	router.post("/:id/retro/draft", requireBoundary({ kind: "public-data" }), async (c) => {
 		const betId = c.req.param("id");
 
 		const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
@@ -915,185 +944,190 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	// creation in one transaction to prevent the partial-failure mode (outcome saved
 	// but knowledge failed). The hypothesis snapshot is stored in the fabric meta at
 	// creation time and never updated by subsequent retro calls (immutability by convention).
-	router.post("/:id/retro", validateBody(betRetroSchema), async (c) => {
-		const betId = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof betRetroSchema>;
+	router.post(
+		"/:id/retro",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(betRetroSchema),
+		async (c) => {
+			const betId = c.req.param("id");
+			const body = c.req.valid("json" as never) as z.infer<typeof betRetroSchema>;
 
-		const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
-		if (!bet) {
-			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
-		}
+			const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+			if (!bet) {
+				return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+			}
 
-		if (bet.status !== "completed" && bet.status !== "killed") {
-			return c.json(
-				{
-					error: `Retro cannot be recorded for a bet in '${bet.status}' status. Only completed or killed bets can be evaluated.`,
-					code: "VALIDATION_ERROR",
-				},
-				400,
-			);
-		}
+			if (bet.status !== "completed" && bet.status !== "killed") {
+				return c.json(
+					{
+						error: `Retro cannot be recorded for a bet in '${bet.status}' status. Only completed or killed bets can be evaluated.`,
+						code: "VALIDATION_ERROR",
+					},
+					400,
+				);
+			}
 
-		const now = new Date().toISOString();
-		const actor = c.get("userId");
+			const now = new Date().toISOString();
+			const actor = c.get("userId");
 
-		// AC1 AC-12: append to revision log when overriding an existing outcome
-		const revisionLog: Array<Record<string, unknown>> = bet.revisionLog
-			? (JSON.parse(bet.revisionLog) as Array<Record<string, unknown>>)
-			: [];
+			// AC1 AC-12: append to revision log when overriding an existing outcome
+			const revisionLog: Array<Record<string, unknown>> = bet.revisionLog
+				? (JSON.parse(bet.revisionLog) as Array<Record<string, unknown>>)
+				: [];
 
-		if (bet.outcomeVerdict !== null) {
-			revisionLog.push({
-				timestamp: now,
-				field: "outcome",
-				old_value: {
-					verdict: bet.outcomeVerdict,
-					summary: bet.outcomeSummary ?? null,
-					recordedAt: bet.outcomeRecordedAt,
-					recordedBy: bet.outcomeRecordedBy,
-				},
-				new_value: {
-					verdict: body.verdict,
-					summary: body.summary,
-				},
-				actor,
-			});
-		}
+			if (bet.outcomeVerdict !== null) {
+				revisionLog.push({
+					timestamp: now,
+					field: "outcome",
+					old_value: {
+						verdict: bet.outcomeVerdict,
+						summary: bet.outcomeSummary ?? null,
+						recordedAt: bet.outcomeRecordedAt,
+						recordedBy: bet.outcomeRecordedBy,
+					},
+					new_value: {
+						verdict: body.verdict,
+						summary: body.summary,
+					},
+					actor,
+				});
+			}
 
-		// Compose retro knowledge item body (markdown only — no YAML frontmatter in body per arch critique)
-		const learningsSection =
-			body.learnings && body.learnings.trim() ? body.learnings.trim() : "(No learnings recorded)";
+			// Compose retro knowledge item body (markdown only — no YAML frontmatter in body per arch critique)
+			const learningsSection =
+				body.learnings && body.learnings.trim() ? body.learnings.trim() : "(No learnings recorded)";
 
-		const kiBody = `## Reality\n\n${body.summary}\n\n## Learnings\n\n${learningsSection}`;
+			const kiBody = `## Reality\n\n${body.summary}\n\n## Learnings\n\n${learningsSection}`;
 
-		// Derive knowledge item title: "Retro: {bet title}"
-		const betTitle = deriveTitle(bet.description, bet.id);
-		const kiTitle = `Retro: ${betTitle}`;
+			// Derive knowledge item title: "Retro: {bet title}"
+			const betTitle = deriveTitle(bet.description, bet.id);
+			const kiTitle = `Retro: ${betTitle}`;
 
-		// Find existing retro knowledge item for this bet (upsert pattern)
-		// Query: knowledge_items scoped to this bet + fabric kind='reflection'
-		const existingKiRows = await db
-			.select({ id: knowledgeItems.id, version: knowledgeItems.version })
-			.from(knowledgeItems)
-			.innerJoin(
-				knowledgeStrategyFabric,
-				eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
-			)
-			.where(
-				and(
-					eq(knowledgeItems.scopeKind, "bet"),
-					eq(knowledgeItems.scopeId, betId),
-					eq(knowledgeStrategyFabric.kind, "reflection"),
-				),
-			)
-			.limit(1);
+			// Find existing retro knowledge item for this bet (upsert pattern)
+			// Query: knowledge_items scoped to this bet + fabric kind='reflection'
+			const existingKiRows = await db
+				.select({ id: knowledgeItems.id, version: knowledgeItems.version })
+				.from(knowledgeItems)
+				.innerJoin(
+					knowledgeStrategyFabric,
+					eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
+				)
+				.where(
+					and(
+						eq(knowledgeItems.scopeKind, "bet"),
+						eq(knowledgeItems.scopeId, betId),
+						eq(knowledgeStrategyFabric.kind, "reflection"),
+					),
+				)
+				.limit(1);
 
-		const existingKi = existingKiRows[0];
-		let retroKnowledgeItemId: string;
-
-		if (existingKi) {
-			retroKnowledgeItemId = existingKi.id;
-		} else {
-			retroKnowledgeItemId = crypto.randomUUID();
-		}
-
-		// @lore AC2: Atomic transaction wrapping bet-outcome write + knowledge-item upsert.
-		// Without this, a partial failure (outcome saved, knowledge item not) leaves the bet
-		// in an inconsistent state. The existingKi/retroKnowledgeItemId are resolved outside
-		// the transaction (read-only queries) so the transaction only covers the writes.
-		await db.transaction(async (tx) => {
-			// Write outcome fields on bet
-			await tx
-				.update(bets)
-				.set({
-					outcomeVerdict: body.verdict,
-					outcomeSummary: body.summary,
-					outcomeRecordedAt: now,
-					outcomeRecordedBy: actor ?? null,
-					revisionLog: JSON.stringify(revisionLog),
-				})
-				.where(eq(bets.id, betId));
+			const existingKi = existingKiRows[0];
+			let retroKnowledgeItemId: string;
 
 			if (existingKi) {
-				// Upsert: update existing knowledge item — version incremented, body updated
+				retroKnowledgeItemId = existingKi.id;
+			} else {
+				retroKnowledgeItemId = crypto.randomUUID();
+			}
+
+			// @lore AC2: Atomic transaction wrapping bet-outcome write + knowledge-item upsert.
+			// Without this, a partial failure (outcome saved, knowledge item not) leaves the bet
+			// in an inconsistent state. The existingKi/retroKnowledgeItemId are resolved outside
+			// the transaction (read-only queries) so the transaction only covers the writes.
+			await db.transaction(async (tx) => {
+				// Write outcome fields on bet
 				await tx
-					.update(knowledgeItems)
+					.update(bets)
 					.set({
+						outcomeVerdict: body.verdict,
+						outcomeSummary: body.summary,
+						outcomeRecordedAt: now,
+						outcomeRecordedBy: actor ?? null,
+						revisionLog: JSON.stringify(revisionLog),
+					})
+					.where(eq(bets.id, betId));
+
+				if (existingKi) {
+					// Upsert: update existing knowledge item — version incremented, body updated
+					await tx
+						.update(knowledgeItems)
+						.set({
+							title: kiTitle,
+							body: kiBody,
+							version: existingKi.version + 1,
+							updatedAt: now,
+							updatedBy: actor ?? "system",
+						})
+						.where(eq(knowledgeItems.id, existingKi.id));
+
+					// Update fabric meta (verdict changes; hypothesis snapshot stays from first write)
+					const existingFabricRows = await tx
+						.select()
+						.from(knowledgeStrategyFabric)
+						.where(eq(knowledgeStrategyFabric.knowledgeItemId, existingKi.id))
+						.limit(1);
+					const existingFabric = existingFabricRows[0];
+					if (existingFabric) {
+						const existingMeta = existingFabric.meta
+							? (JSON.parse(existingFabric.meta) as Record<string, unknown>)
+							: {};
+						// AC2-4: hypothesis snapshot is immutable — preserve the original
+						const updatedMeta = {
+							...existingMeta,
+							verdict: body.verdict,
+							validatedAt: now,
+							validatedBy: actor ?? null,
+						};
+						await tx
+							.update(knowledgeStrategyFabric)
+							.set({ meta: JSON.stringify(updatedMeta) })
+							.where(eq(knowledgeStrategyFabric.knowledgeItemId, existingKi.id));
+					}
+				} else {
+					// Insert: create new knowledge item + fabric row
+					const hypothesisSnapshot = bet.hypothesis?.trim() || "(no hypothesis recorded)";
+
+					await tx.insert(knowledgeItems).values({
+						id: retroKnowledgeItemId,
+						scopeKind: "bet",
+						scopeId: betId,
+						topic: null,
 						title: kiTitle,
 						body: kiBody,
-						version: existingKi.version + 1,
-						updatedAt: now,
+						format: "markdown",
+						status: "active",
+						version: 1,
 						updatedBy: actor ?? "system",
-					})
-					.where(eq(knowledgeItems.id, existingKi.id));
+						createdAt: now,
+						updatedAt: now,
+					});
 
-				// Update fabric meta (verdict changes; hypothesis snapshot stays from first write)
-				const existingFabricRows = await tx
-					.select()
-					.from(knowledgeStrategyFabric)
-					.where(eq(knowledgeStrategyFabric.knowledgeItemId, existingKi.id))
-					.limit(1);
-				const existingFabric = existingFabricRows[0];
-				if (existingFabric) {
-					const existingMeta = existingFabric.meta
-						? (JSON.parse(existingFabric.meta) as Record<string, unknown>)
-						: {};
-					// AC2-4: hypothesis snapshot is immutable — preserve the original
-					const updatedMeta = {
-						...existingMeta,
+					const fabricMeta = {
+						betId,
+						hypothesis: hypothesisSnapshot,
 						verdict: body.verdict,
 						validatedAt: now,
 						validatedBy: actor ?? null,
 					};
-					await tx
-						.update(knowledgeStrategyFabric)
-						.set({ meta: JSON.stringify(updatedMeta) })
-						.where(eq(knowledgeStrategyFabric.knowledgeItemId, existingKi.id));
+
+					await tx.insert(knowledgeStrategyFabric).values({
+						id: crypto.randomUUID(),
+						knowledgeItemId: retroKnowledgeItemId,
+						layer: null,
+						kind: "reflection",
+						meta: JSON.stringify(fabricMeta),
+					});
 				}
-			} else {
-				// Insert: create new knowledge item + fabric row
-				const hypothesisSnapshot = bet.hypothesis?.trim() || "(no hypothesis recorded)";
+			});
 
-				await tx.insert(knowledgeItems).values({
-					id: retroKnowledgeItemId,
-					scopeKind: "bet",
-					scopeId: betId,
-					topic: null,
-					title: kiTitle,
-					body: kiBody,
-					format: "markdown",
-					status: "active",
-					version: 1,
-					updatedBy: actor ?? "system",
-					createdAt: now,
-					updatedAt: now,
-				});
-
-				const fabricMeta = {
-					betId,
-					hypothesis: hypothesisSnapshot,
-					verdict: body.verdict,
-					validatedAt: now,
-					validatedBy: actor ?? null,
-				};
-
-				await tx.insert(knowledgeStrategyFabric).values({
-					id: crypto.randomUUID(),
-					knowledgeItemId: retroKnowledgeItemId,
-					layer: null,
-					kind: "reflection",
-					meta: JSON.stringify(fabricMeta),
-				});
+			const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+			if (!updated) {
+				return c.json({ error: "Bet not found after update", code: "INTERNAL_ERROR" }, 500);
 			}
-		});
-
-		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
-		if (!updated) {
-			return c.json({ error: "Bet not found after update", code: "INTERNAL_ERROR" }, 500);
-		}
-		// @lore U2: normalize atRisk 0/1 to boolean on the wire.
-		return c.json({ ...updated, atRisk: updated.atRisk === 1, retroKnowledgeItemId });
-	});
+			// @lore U2: normalize atRisk 0/1 to boolean on the wire.
+			return c.json({ ...updated, atRisk: updated.atRisk === 1, retroKnowledgeItemId });
+		},
+	);
 
 	// GET /bets/:id/artifact-thread-summary — per-bet aggregate of artifact threads.
 	// Returns up to SUMMARY_CAP summaries ordered by lastMessageAt DESC.
@@ -1104,122 +1138,126 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	// fetches the last message in one pass. SQLite handles this efficiently at
 	// expected volumes (< 100 artifacts per bet). The server-enforced cap of 10
 	// bounds the worst-case payload and query cost.
-	router.get("/:id/artifact-thread-summary", async (c) => {
-		const betId = c.req.param("id");
+	router.get(
+		"/:id/artifact-thread-summary",
+		requireBoundary({ kind: "public-data" }),
+		async (c) => {
+			const betId = c.req.param("id");
 
-		if (!(await assertBetReadable(db, betId))) {
-			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
-		}
+			if (!(await assertBetReadable(db, betId))) {
+				return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+			}
 
-		// 1. Collect all task ids for this bet (fan-out guard: bets have bounded tasks).
-		const taskRows = await db.select({ id: tasks.id }).from(tasks).where(eq(tasks.betId, betId));
-		const taskIds = taskRows.map((r) => r.id);
+			// 1. Collect all task ids for this bet (fan-out guard: bets have bounded tasks).
+			const taskRows = await db.select({ id: tasks.id }).from(tasks).where(eq(tasks.betId, betId));
+			const taskIds = taskRows.map((r) => r.id);
 
-		if (taskIds.length === 0) {
-			return c.json({ summaries: [], totalCount: 0, truncated: false });
-		}
+			if (taskIds.length === 0) {
+				return c.json({ summaries: [], totalCount: 0, truncated: false });
+			}
 
-		// 2. For each artifact linked to those tasks, compute:
-		//    - thread id (if any) via LEFT JOIN threads WHERE host_kind='artifact'
-		//    - messageCount, lastMessageAt, lastMessageSnippet via correlated subquery on messages
-		//    - hasUnresolvedReview: whether any review-type message in the thread has resolvedAt IS NULL
-		const rows = await db
-			.select({
-				artifactId: artifacts.id,
-				artifactKind: artifacts.kind,
-				artifactPreviewJson: artifacts.previewJson,
-				taskTitle: tasks.title,
-				threadId: threads.id,
-				messageCount:
-					sql<number>`COALESCE((SELECT COUNT(*) FROM ${messages} WHERE ${messages.threadId} = ${threads.id}), 0)`.as(
-						"message_count",
+			// 2. For each artifact linked to those tasks, compute:
+			//    - thread id (if any) via LEFT JOIN threads WHERE host_kind='artifact'
+			//    - messageCount, lastMessageAt, lastMessageSnippet via correlated subquery on messages
+			//    - hasUnresolvedReview: whether any review-type message in the thread has resolvedAt IS NULL
+			const rows = await db
+				.select({
+					artifactId: artifacts.id,
+					artifactKind: artifacts.kind,
+					artifactPreviewJson: artifacts.previewJson,
+					taskTitle: tasks.title,
+					threadId: threads.id,
+					messageCount:
+						sql<number>`COALESCE((SELECT COUNT(*) FROM ${messages} WHERE ${messages.threadId} = ${threads.id}), 0)`.as(
+							"message_count",
+						),
+					lastMessageAt: sql<
+						string | null
+					>`(SELECT ${messages.createdAt} FROM ${messages} WHERE ${messages.threadId} = ${threads.id} AND ${messages.deletedAt} IS NULL ORDER BY ${messages.createdAt} DESC LIMIT 1)`.as(
+						"last_message_at",
 					),
-				lastMessageAt: sql<
-					string | null
-				>`(SELECT ${messages.createdAt} FROM ${messages} WHERE ${messages.threadId} = ${threads.id} AND ${messages.deletedAt} IS NULL ORDER BY ${messages.createdAt} DESC LIMIT 1)`.as(
-					"last_message_at",
-				),
-				lastMessagePayload: sql<
-					string | null
-				>`(SELECT ${messages.payload} FROM ${messages} WHERE ${messages.threadId} = ${threads.id} AND ${messages.type} = 'plain' AND ${messages.deletedAt} IS NULL ORDER BY ${messages.createdAt} DESC LIMIT 1)`.as(
-					"last_message_payload",
-				),
-				hasUnresolvedReview:
-					sql<number>`COALESCE((SELECT 1 FROM ${messages} WHERE ${messages.threadId} = ${threads.id} AND ${messages.type} = 'review' AND ${messages.resolvedAt} IS NULL LIMIT 1), 0)`.as(
-						"has_unresolved_review",
+					lastMessagePayload: sql<
+						string | null
+					>`(SELECT ${messages.payload} FROM ${messages} WHERE ${messages.threadId} = ${threads.id} AND ${messages.type} = 'plain' AND ${messages.deletedAt} IS NULL ORDER BY ${messages.createdAt} DESC LIMIT 1)`.as(
+						"last_message_payload",
 					),
-			})
-			.from(artifacts)
-			.innerJoin(tasks, eq(tasks.id, artifacts.producingTaskId))
-			.leftJoin(threads, and(eq(threads.hostKind, "artifact"), eq(threads.hostId, artifacts.id)))
-			.where(inArray(artifacts.producingTaskId, taskIds));
+					hasUnresolvedReview:
+						sql<number>`COALESCE((SELECT 1 FROM ${messages} WHERE ${messages.threadId} = ${threads.id} AND ${messages.type} = 'review' AND ${messages.resolvedAt} IS NULL LIMIT 1), 0)`.as(
+							"has_unresolved_review",
+						),
+				})
+				.from(artifacts)
+				.innerJoin(tasks, eq(tasks.id, artifacts.producingTaskId))
+				.leftJoin(threads, and(eq(threads.hostKind, "artifact"), eq(threads.hostId, artifacts.id)))
+				.where(inArray(artifacts.producingTaskId, taskIds));
 
-		// 3. Filter to only artifacts with at least one message.
-		const withMessages = rows.filter((r) => r.threadId !== null && (r.messageCount ?? 0) >= 1);
+			// 3. Filter to only artifacts with at least one message.
+			const withMessages = rows.filter((r) => r.threadId !== null && (r.messageCount ?? 0) >= 1);
 
-		// 4. Sort by lastMessageAt DESC (already stable since we control the ordering).
-		withMessages.sort((a, b) => {
-			if (a.lastMessageAt && b.lastMessageAt) {
-				if (a.lastMessageAt > b.lastMessageAt) return -1;
-				if (a.lastMessageAt < b.lastMessageAt) return 1;
-			}
-			// Tie-break by artifactId ASC for determinism.
-			return a.artifactId < b.artifactId ? -1 : 1;
-		});
-
-		const totalCount = withMessages.length;
-		const truncated = totalCount > SUMMARY_CAP;
-		const capped = withMessages.slice(0, SUMMARY_CAP);
-
-		const summaries: ArtifactThreadSummary[] = capped.map((r) => {
-			// Derive artifact title from previewJson (look for 'file' or 'title' fields),
-			// falling back to the producing task's title.
-			let artifactTitle = r.taskTitle;
-			if (r.artifactPreviewJson) {
-				try {
-					const preview = JSON.parse(r.artifactPreviewJson) as Record<string, unknown>;
-					if (typeof preview.file === "string" && preview.file) {
-						artifactTitle = preview.file;
-					} else if (typeof preview.title === "string" && preview.title) {
-						artifactTitle = preview.title;
-					}
-				} catch {
-					// ignore malformed previewJson; fall back to task title
+			// 4. Sort by lastMessageAt DESC (already stable since we control the ordering).
+			withMessages.sort((a, b) => {
+				if (a.lastMessageAt && b.lastMessageAt) {
+					if (a.lastMessageAt > b.lastMessageAt) return -1;
+					if (a.lastMessageAt < b.lastMessageAt) return 1;
 				}
-			}
+				// Tie-break by artifactId ASC for determinism.
+				return a.artifactId < b.artifactId ? -1 : 1;
+			});
 
-			// @lore AE6: artifactKind is now string (open vocabulary). No unknown_kind sentinel.
-			// Pass the raw kind through — unregistered kinds render fallback on the UI.
-			const artifactKind = r.artifactKind;
+			const totalCount = withMessages.length;
+			const truncated = totalCount > SUMMARY_CAP;
+			const capped = withMessages.slice(0, SUMMARY_CAP);
 
-			// Extract snippet from the last plain-message payload (first 80 chars of text).
-			let lastMessageSnippet: string | null = null;
-			if (r.lastMessagePayload) {
-				try {
-					const payload = JSON.parse(r.lastMessagePayload) as Record<string, unknown>;
-					const text = payload.text;
-					if (typeof text === "string" && text) {
-						lastMessageSnippet = text.slice(0, 80);
+			const summaries: ArtifactThreadSummary[] = capped.map((r) => {
+				// Derive artifact title from previewJson (look for 'file' or 'title' fields),
+				// falling back to the producing task's title.
+				let artifactTitle = r.taskTitle;
+				if (r.artifactPreviewJson) {
+					try {
+						const preview = JSON.parse(r.artifactPreviewJson) as Record<string, unknown>;
+						if (typeof preview.file === "string" && preview.file) {
+							artifactTitle = preview.file;
+						} else if (typeof preview.title === "string" && preview.title) {
+							artifactTitle = preview.title;
+						}
+					} catch {
+						// ignore malformed previewJson; fall back to task title
 					}
-				} catch {
-					// ignore malformed payload
 				}
-			}
 
-			return {
-				artifactId: r.artifactId,
-				artifactKind,
-				artifactTitle,
-				threadId: r.threadId ?? null,
-				messageCount: r.messageCount ?? 0,
-				lastMessageAt: r.lastMessageAt ?? null,
-				lastMessageSnippet,
-				hasUnresolvedReview: r.hasUnresolvedReview === 1,
-			};
-		});
+				// @lore AE6: artifactKind is now string (open vocabulary). No unknown_kind sentinel.
+				// Pass the raw kind through — unregistered kinds render fallback on the UI.
+				const artifactKind = r.artifactKind;
 
-		return c.json({ summaries, totalCount, truncated });
-	});
+				// Extract snippet from the last plain-message payload (first 80 chars of text).
+				let lastMessageSnippet: string | null = null;
+				if (r.lastMessagePayload) {
+					try {
+						const payload = JSON.parse(r.lastMessagePayload) as Record<string, unknown>;
+						const text = payload.text;
+						if (typeof text === "string" && text) {
+							lastMessageSnippet = text.slice(0, 80);
+						}
+					} catch {
+						// ignore malformed payload
+					}
+				}
+
+				return {
+					artifactId: r.artifactId,
+					artifactKind,
+					artifactTitle,
+					threadId: r.threadId ?? null,
+					messageCount: r.messageCount ?? 0,
+					lastMessageAt: r.lastMessageAt ?? null,
+					lastMessageSnippet,
+					hasUnresolvedReview: r.hasUnresolvedReview === 1,
+				};
+			});
+
+			return c.json({ summaries, totalCount, truncated });
+		},
+	);
 
 	return router;
 }
