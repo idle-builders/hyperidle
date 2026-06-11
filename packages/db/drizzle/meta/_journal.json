@@ -204,6 +204,13 @@
 			"when": 1783500000000,
 			"tag": "0028_dapper_captain_flint",
 			"breakpoints": true
+		},
+		{
+			"idx": 29,
+			"version": "7",
+			"when": 1784000000000,
+			"tag": "0029_dizzy_frog_thor",
+			"breakpoints": true
 		}
 	]
 }

@@ -3,7 +3,15 @@ import * as crypto from "node:crypto";
 // Cost tracking uses `teamMembers` (the agent-membership group) which has costActual/costCap.
 // params.teamId in cost-cap service refers to the teamMembers.id, not teams.id.
 // @lore R5: `bets` and `tasks` added for bet cost accumulation via taskId lookup.
-import { bets, type HyperIdleDb, items, tasks, teamMembers, users } from "@hyperidle/db";
+import {
+	bets,
+	factorySettings,
+	type HyperIdleDb,
+	items,
+	tasks,
+	teamMembers,
+	users,
+} from "@hyperidle/db";
 import type { EventBus, SessionEndedEvent } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
 
@@ -336,6 +344,45 @@ export async function recordCostAndCheck(
 			teamId: params.teamId,
 		});
 	}
+
+	// AF8: Write canonical factory cost so the cost sentinel reads a real value.
+	// @lore AF8 / AF10 CONTRACT: This call must be preserved by AF10 when it
+	// rewrites recordCostAndCheck. See recordFactoryCost @lore for details.
+	await recordFactoryCost(db);
+}
+
+/**
+ * AF8: Write the canonical factory cost to `factory_settings.cost_actual`.
+ *
+ * Factory cost = SUM(users.costActual) — the authoritative per-agent running
+ * totals accumulated by recordCostAndCheck. Both consumers (cost-sentinel.ts and
+ * routine-scheduler.ts) read `factory_settings.cost_actual`; this function
+ * keeps that value current after every cost recording event.
+ *
+ * @lore AF8 / AF10 CONTRACT: Call this at the tail of recordCostAndCheck.
+ * If AF10 lands first and rewrites recordCostAndCheck, AF10 MUST preserve this
+ * trailing call — it fixes Z8-008 (cost sentinel reads a never-written field).
+ *
+ * @lore AF8 INFLATION WARNING: Until AF10 fixes the quadratic delta-accumulation
+ * bug in session-provisioning.ts, users.costActual is real-but-inflated (deltas of
+ * 10,5,5 record 45 not 20). The SUM here is therefore directionally correct but
+ * biased HIGH. This fails SAFE toward over-alerting (sentinel fires slightly early,
+ * never late). The bias disappears automatically once AF10 ships — AF8 changes
+ * nothing, same SUM, now over a correct column.
+ */
+export async function recordFactoryCost(db: HyperIdleDb): Promise<void> {
+	const [sumRow] = await db
+		.select({ total: sql<number>`coalesce(sum(${users.costActual}), 0)` })
+		.from(users);
+	const total = sumRow?.total ?? 0;
+	const isoNow = new Date().toISOString();
+	await db
+		.insert(factorySettings)
+		.values({ key: "cost_actual", value: String(total), updatedAt: isoNow })
+		.onConflictDoUpdate({
+			target: factorySettings.key,
+			set: { value: String(total), updatedAt: isoNow },
+		});
 }
 
 interface CheckAndEmitParams {

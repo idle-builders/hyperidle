@@ -7,10 +7,10 @@
  *           registry-driven toggles render
  */
 
+import { NOTIFICATION_TYPES } from "@hyperidle/shared";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { NOTIFICATION_TYPES } from "@hyperidle/shared";
 import { SettingsNotifications } from "../settings/SettingsNotifications.js";
 
 // Mock the mute API calls used by SettingsNotifications
@@ -93,9 +93,7 @@ describe("AF8 AC11 — Old hardcoded toggles removed from Settings", () => {
 	it("section intro text is present", async () => {
 		render(<SettingsNotifications />);
 		// Section intro per approved.md design
-		expect(
-			screen.getByText(/each type below is a real notification source/i),
-		).toBeInTheDocument();
+		expect(screen.getByText(/each type below is a real notification source/i)).toBeInTheDocument();
 	});
 });
 

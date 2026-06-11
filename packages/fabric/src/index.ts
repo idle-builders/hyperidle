@@ -48,6 +48,7 @@ export {
 	clearDeduplicationCache,
 	getDedupCacheSize,
 	recordCostAndCheck,
+	recordFactoryCost,
 	registerCostCapDedupReleaser,
 	releaseSessionDedup,
 	resetCosts,
@@ -177,6 +178,24 @@ export {
 	registerNotificationDispatcher,
 	tryFloodReserve,
 } from "./services/notifications/dispatcher.js";
+
+// notifications/drain (AF8)
+export {
+	NOTIFICATION_DRAIN_INTERVAL_MS,
+	startNotificationDrain,
+} from "./services/notifications/drain.js";
+
+// notifications/mute (AF8)
+export type { MutePreferenceReader, MutePreferenceWriter } from "./services/notifications/mute.js";
+export {
+	defaultMutePreferenceReader,
+	defaultMutePreferenceWriter,
+	getMutedTypeKeys,
+} from "./services/notifications/mute.js";
+
+// notifications/notification-listener (AF8)
+export type { NotificationListenerDeps } from "./services/notifications/notification-listener.js";
+export { registerNotificationListener } from "./services/notifications/notification-listener.js";
 
 // notifications/ntfy-adapter
 export type { NtfyAdapterOptions } from "./services/notifications/ntfy-adapter.js";

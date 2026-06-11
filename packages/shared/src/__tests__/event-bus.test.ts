@@ -42,6 +42,8 @@ function makeNotification(targetId: string, seq: number): NotificationEvent {
 		type: "notification",
 		streamId: `user:${targetId}`,
 		targetId,
+		// AF8: kind is now mandatory. Tests use "attention" as the default.
+		kind: "attention",
 		message: `msg-${seq}`,
 		timestamp: seq,
 	};

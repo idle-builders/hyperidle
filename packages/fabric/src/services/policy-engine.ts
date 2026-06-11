@@ -210,6 +210,10 @@ async function executeAction(
 				type: "notification",
 				streamId: crypto.randomUUID(),
 				targetId: itemId,
+				// AF8: MANDATORY kind discriminator — policy-engine push is "attention"
+				// so the notification listener can distinguish it from dep-watcher
+				// auto_unblock events (concept hard rule #6).
+				kind: "attention",
 				message: `Item ${itemId} requires attention`,
 				timestamp: Date.now(),
 			};

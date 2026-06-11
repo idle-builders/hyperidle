@@ -698,10 +698,31 @@ export const notificationQueue = pgTable(
 		sentAt: text("sent_at"),
 		/** ISO timestamp when the row entered the `sending` state. */
 		claimedAt: text("claimed_at"),
+		// AF8: in-app notification model (popover). severity/channel stay for egress.
+		/** Concept type key: "review_request" | "blocker_alert" | "cost_alert". Nullable for back-compat. */
+		typeKey: text("type_key"),
+		/** "immediate" | "ambient" — from type registry default, adjusted per-instance. Nullable for back-compat. */
+		urgency: text("urgency"),
+		/**
+		 * Persisted route. Thread-keyed `/conversations/${threadId}` for review/blocker;
+		 * "/work/portfolio" for cost_alert. NEVER reconstructed at render (concept hard rule #2).
+		 * Nullable for back-compat with existing egress rows.
+		 *
+		 * @lore AF8: The original dispatcher.ts:178 deepLink used `/conversations/item/<id>`
+		 * which 404s — the router only defines `/conversations/:threadId`. This column stores
+		 * the CORRECTED shape built by notification-listener.ts at enqueue time.
+		 */
+		sourceLink: text("source_link"),
+		/** ISO timestamp when the popover was opened (clears unread dot). */
+		seenAt: text("seen_at"),
+		/** ISO timestamp when the notification was jumped-to or dismissed. */
+		readAt: text("read_at"),
 	},
 	(table) => [
 		index("nq_status_created_idx").on(table.status, table.createdAt),
 		index("nq_severity_idx").on(table.severity),
+		// AF8: popover query — list unread notifications newest-first
+		index("nq_inapp_idx").on(table.readAt, table.createdAt),
 	],
 );
 

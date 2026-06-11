@@ -22,23 +22,19 @@ import {
 	users,
 } from "@hyperidle/db";
 import {
-	type AlertPreferences,
+	clearCostSentinelCache,
+	flushQueue,
 	type Notification,
 	type NotificationAdapter,
 	type Recipient,
-	registerNotificationDispatcher,
-	type SendResult,
-} from "@hyperidle/fabric";
-import {
-	clearCostSentinelCache,
-	flushQueue,
 	recordFactoryCost,
 	registerNotificationListener,
+	type SendResult,
 	startNotificationDrain,
 } from "@hyperidle/fabric";
 import type { NotificationEvent } from "@hyperidle/shared";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, vi } from "vitest";
-import { createApp, disposeApp } from "../../app.js";
 import { expect, test } from "../../test-fixtures.js";
 
 // --- helpers ---
@@ -113,7 +109,6 @@ describe("AF8 AC1 — drain loop delivers pending row without manual flush", () 
 
 	test("startNotificationDrain interval calls flushQueue and marks pending rows sent", async ({
 		db,
-		eventBus,
 	}) => {
 		const adapter = createFakeAdapter();
 		await enableNotifications(db);
@@ -121,9 +116,9 @@ describe("AF8 AC1 — drain loop delivers pending row without manual flush", () 
 
 		// Start drain with a short interval; call it directly via the returned disposer
 		// The drain function is imported from fabric — call it once
-		const { default: loadedFlushQueue } = await import(
-			"@hyperidle/fabric"
-		).then(() => ({ default: flushQueue }));
+		const { default: loadedFlushQueue } = await import("@hyperidle/fabric").then(() => ({
+			default: flushQueue,
+		}));
 		// Call flushQueue directly (the drain loop wraps this)
 		const { loadNotificationConfig } = await import("@hyperidle/fabric");
 		const cfg = await loadNotificationConfig(db);
@@ -133,7 +128,7 @@ describe("AF8 AC1 — drain loop delivers pending row without manual flush", () 
 		const rows = await db
 			.select()
 			.from(notificationQueue)
-			.where((t) => t.id === "drain-row-1");
+			.where(eq(notificationQueue.id, "drain-row-1"));
 		// Row should be sent (or in-flight via adapter)
 		// After flush: status = sent OR the adapter was called
 		expect(adapter.calls.length + rows.filter((r) => r.status === "sent").length).toBeGreaterThan(
@@ -141,10 +136,7 @@ describe("AF8 AC1 — drain loop delivers pending row without manual flush", () 
 		);
 	});
 
-	test("startNotificationDrain returns a disposer that stops the interval", async ({
-		db,
-		eventBus,
-	}) => {
+	test("startNotificationDrain returns a disposer that stops the interval", async ({ db }) => {
 		const adapter = createFakeAdapter();
 		// startNotificationDrain must be importable from fabric
 		const dispose = startNotificationDrain(db, () => adapter, {});
@@ -314,7 +306,7 @@ describe("AF8 AC4 — quiet-hours deferral then delivery", () => {
 		const rows = await db
 			.select()
 			.from(notificationQueue)
-			.where((t) => t.status === "pending");
+			.where(eq(notificationQueue.status, "pending"));
 		expect(rows.some((r) => r.id === "quiet-block-1")).toBe(true);
 
 		// Clear quiet hours (set window to past times that don't cover now)
@@ -347,7 +339,6 @@ describe("AF8 AC4 — quiet-hours deferral then delivery", () => {
 
 describe("AF8 AC5 — stuck/expired sending lease recovery", () => {
 	test("drain tick requeues sending rows older than 6 minutes", async ({ db }) => {
-		const adapter = createFakeAdapter();
 		await enableNotifications(db);
 
 		// Insert a row that appears stuck in 'sending' for 6 minutes
@@ -367,7 +358,7 @@ describe("AF8 AC5 — stuck/expired sending lease recovery", () => {
 			createdAt: stuckClaimedAt,
 		});
 
-		const { loadNotificationConfig, recoverStuckLeases } = await import("@hyperidle/fabric");
+		const { recoverStuckLeases } = await import("@hyperidle/fabric");
 
 		// Call recoverStuckLeases directly — the drain calls this at its top
 		const recovered = await recoverStuckLeases(db, new Date());
@@ -407,12 +398,12 @@ describe("AF8 AC6 — cost sentinel reacts to real written value", () => {
 		await recordFactoryCost(db);
 
 		// Verify cost_actual was written
-		const rows = await db
+		const factRows = await db
 			.select()
 			.from(factorySettings)
-			.where((t) => t.key === "cost_actual");
-		expect(rows.length).toBe(1);
-		const actual = Number.parseInt(rows[0]!.value, 10);
+			.where(eq(factorySettings.key, "cost_actual"));
+		expect(factRows.length).toBe(1);
+		const actual = Number.parseInt(factRows[0]!.value, 10);
 		expect(actual).toBeGreaterThan(0);
 
 		// Set a cap that will be breached
@@ -604,9 +595,9 @@ describe("AF8 AC10 — popover API routes", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("GET /notifications/inbox returns unseenCount and rows", async ({ db, app }) => {
+	test("GET /notifications/inbox returns unseenCount and rows", async ({ app }) => {
 		const res = await app.request("/api/notifications/inbox", {
-			headers: { Authorization: "Bearer test-key-AF8" },
+			headers: { "X-API-Key": "test-key-AF8" },
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { unseenCount: number; rows: unknown[] };
@@ -634,7 +625,7 @@ describe("AF8 AC10 — popover API routes", () => {
 
 		const res = await app.request("/api/notifications/seen", {
 			method: "POST",
-			headers: { Authorization: "Bearer test-key-AF8" },
+			headers: { "X-API-Key": "test-key-AF8" },
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { updated: number };
@@ -644,8 +635,10 @@ describe("AF8 AC10 — popover API routes", () => {
 
 	test("POST /notifications/:id/read marks a row as read", async ({ db, app }) => {
 		const nowIso = new Date().toISOString();
+		// Use a UUID-format id so the route's UUID validation passes
+		const notifId = "00000000-0000-0000-0000-000000000001";
 		await db.insert(notificationQueue).values({
-			id: "notif-read-1",
+			id: notifId,
 			eventType: "test",
 			subjectId: null,
 			severity: "blocking",
@@ -658,29 +651,29 @@ describe("AF8 AC10 — popover API routes", () => {
 			createdAt: nowIso,
 		});
 
-		const res = await app.request("/api/notifications/notif-read-1/read", {
+		const res = await app.request(`/api/notifications/${notifId}/read`, {
 			method: "POST",
-			headers: { Authorization: "Bearer test-key-AF8" },
+			headers: { "X-API-Key": "test-key-AF8" },
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { ok: boolean };
 		expect(body.ok).toBe(true);
 	});
 
-	test("GET /notifications/mute returns muted type keys", async ({ db, app }) => {
+	test("GET /notifications/mute returns muted type keys", async ({ app }) => {
 		const res = await app.request("/api/notifications/mute", {
-			headers: { Authorization: "Bearer test-key-AF8" },
+			headers: { "X-API-Key": "test-key-AF8" },
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { muted: string[] };
 		expect(Array.isArray(body.muted)).toBe(true);
 	});
 
-	test("PUT /notifications/mute/:key sets mute state", async ({ db, app }) => {
+	test("PUT /notifications/mute/:key sets mute state", async ({ app }) => {
 		const res = await app.request("/api/notifications/mute/review_request", {
 			method: "PUT",
 			headers: {
-				Authorization: "Bearer test-key-AF8",
+				"X-API-Key": "test-key-AF8",
 				"Content-Type": "application/json",
 			},
 			body: JSON.stringify({ muted: true }),
@@ -690,11 +683,11 @@ describe("AF8 AC10 — popover API routes", () => {
 		expect(body.ok).toBe(true);
 	});
 
-	test("PUT /notifications/mute/:key rejects unknown type keys", async ({ db, app }) => {
+	test("PUT /notifications/mute/:key rejects unknown type keys", async ({ app }) => {
 		const res = await app.request("/api/notifications/mute/unknown_type", {
 			method: "PUT",
 			headers: {
-				Authorization: "Bearer test-key-AF8",
+				"X-API-Key": "test-key-AF8",
 				"Content-Type": "application/json",
 			},
 			body: JSON.stringify({ muted: true }),

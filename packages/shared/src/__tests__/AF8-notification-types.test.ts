@@ -11,10 +11,10 @@
 import { describe, expect, it } from "vitest";
 import {
 	NOTIFICATION_TYPES,
-	urgencyForType,
 	type NotificationType,
 	type NotificationTypeKey,
 	type NotificationUrgency,
+	urgencyForType,
 } from "../notifications.js";
 
 describe("AF8 — notification type registry (AC8)", () => {

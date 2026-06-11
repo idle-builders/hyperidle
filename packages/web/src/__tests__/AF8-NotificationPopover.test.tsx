@@ -108,7 +108,9 @@ describe("AF8 — NotificationPopover component (AC10)", () => {
 		render(<NotificationPopover open={true} onClose={vi.fn()} />);
 
 		// Loading spinner or loading indicator present
-		expect(screen.getByRole("status", { hidden: true }) ?? document.querySelector(".loading")).toBeDefined();
+		expect(
+			screen.getByRole("status", { hidden: true }) ?? document.querySelector(".loading"),
+		).toBeDefined();
 	});
 
 	it("renders error state with retry", async () => {
@@ -144,8 +146,8 @@ describe("AF8 — NotificationPopover component (AC10)", () => {
 		render(<NotificationPopover open={true} onClose={vi.fn()} />);
 
 		expect(screen.getByText("Review needed for task")).toBeInTheDocument();
-		// Type label (uppercased REVIEW)
-		expect(screen.getByText(/review/i)).toBeInTheDocument();
+		// Type label (uppercased REVIEW) — exact match to avoid ambiguity with title text
+		expect(screen.getByText("REVIEW")).toBeInTheDocument();
 	});
 
 	it("opening the popover calls markSeen", async () => {

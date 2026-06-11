@@ -1,98 +1,43 @@
 /**
  * AD5 — Settings Notifications Persistence (AC-3)
  *
- * Tests that SettingsNotifications reads initial values from useSettings and
- * calls PATCH /api/settings when a toggle changes.
+ * @lore AF8: SettingsNotifications was rewritten in AF8 to be registry-driven
+ * (uses useNotificationMute instead of useSettings + SERVER_KEY_MAP).
+ * AD5 AC-3 is superseded by AF8 AC8/AC11.
  *
- * Red phase: SettingsNotifications currently uses local useState only — it does
- * NOT call useSettings or persist changes. These tests will FAIL until
- * SettingsNotifications is wired to useSettings.
+ * The tests below have been updated to match the AF8 behavior:
+ * - Toggle ON/OFF maps to muted/un-muted state (useNotificationMute)
+ * - No email-digests toggle (removed per AF8 AC11)
+ * - No blocker-notifications/SERVER_KEY_MAP (replaced by NOTIFICATION_TYPES registry)
+ * - No useSettings or save() calls in SettingsNotifications
  */
 
+import { NOTIFICATION_TYPES } from "@hyperidle/shared";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsNotifications } from "../settings/SettingsNotifications";
 
-// The architecture says SettingsNotifications should call useSettings internally.
-// We mock the module to control server-side values.
-vi.mock("../hooks/useSettings", () => ({
-	useSettings: vi.fn(),
+// Mock the mute hook used by AF8 SettingsNotifications
+vi.mock("../hooks/useNotificationMute", () => ({
+	useNotificationMute: vi.fn(),
 }));
 
-// Mock useHumanCount — AD3 AC-4 requires it; in tests we want all 4 toggles
-// visible (non-solo mode), so return humanCount: null (fail-open = all shown).
-vi.mock("../settings/useHumanCount", () => ({
-	useHumanCount: vi.fn(() => ({ humanCount: null, loading: false })),
-}));
-
-// Mock apiFetch used by useSettings.save
+// Mock apiFetch
 vi.mock("../services/api-fetch", () => ({
 	apiFetch: vi.fn(),
 }));
 
-type UseSettingsMock = {
-	settings: {
-		profile: { name: string; email: string; avatarUrl: string };
-		teams: [];
-		users: [];
-		notifications: {
-			reviewAlerts: boolean;
-			costAlerts: boolean;
-			blockerAlerts: boolean;
-			quietHoursEnabled: boolean;
-			quietHoursStart: string;
-			quietHoursEnd: string;
-			mutedTeams: string[];
-		};
-		appearance: { theme: "dark"; density: "auto" };
-	} | null;
-	status: "loading" | "ready" | "error";
-	error: string | null;
-	save: ReturnType<typeof vi.fn>;
-	retry: ReturnType<typeof vi.fn>;
-	data: null;
-};
-
-function makeSettings(
-	notificationOverrides: Partial<UseSettingsMock["settings"]["notifications"]> = {},
-): UseSettingsMock["settings"] {
-	return {
-		profile: { name: "Test", email: "test@test.com", avatarUrl: "" },
-		teams: [],
-		users: [],
-		notifications: {
-			reviewAlerts: true,
-			costAlerts: true,
-			blockerAlerts: false,
-			quietHoursEnabled: false,
-			quietHoursStart: "22:00",
-			quietHoursEnd: "08:00",
-			mutedTeams: [],
-			...notificationOverrides,
-		},
-		appearance: { theme: "dark", density: "auto" },
-	};
-}
-
-describe("AD5 — AC-3: SettingsNotifications persists via useSettings", () => {
-	let saveMock: ReturnType<typeof vi.fn>;
+describe("AD5 — AC-3: SettingsNotifications persists via useNotificationMute (AF8 updated)", () => {
+	let setMutedMock: ReturnType<typeof vi.fn>;
 
 	beforeEach(async () => {
-		saveMock = vi.fn().mockResolvedValue(undefined);
-
-		const { useSettings } = await import("../hooks/useSettings");
-		vi.mocked(useSettings).mockReturnValue({
-			settings: makeSettings({
-				reviewAlerts: false, // server value: OFF
-				costAlerts: true,
-				blockerAlerts: true,
-			}),
+		setMutedMock = vi.fn().mockResolvedValue(undefined);
+		const { useNotificationMute } = await import("../hooks/useNotificationMute");
+		vi.mocked(useNotificationMute).mockReturnValue({
+			mutedKeys: ["review_request"], // review_request is muted (OFF)
+			setMuted: setMutedMock,
 			status: "ready",
-			error: null,
-			save: saveMock,
-			retry: vi.fn(),
-			data: null,
 		});
 	});
 
@@ -100,48 +45,19 @@ describe("AD5 — AC-3: SettingsNotifications persists via useSettings", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("initializes 'Review requests' toggle to server value (OFF when reviewAlerts=false)", async () => {
+	it("initializes 'Review requests' toggle to muted state (OFF when muted)", async () => {
 		render(<SettingsNotifications />);
-
-		// Find the Review requests toggle — it should reflect the server value (off)
 		const reviewToggle = screen.getByRole("switch", { name: /review requests/i });
-		// Server value is reviewAlerts: false → toggle should be OFF
 		expect(reviewToggle).not.toBeChecked();
 	});
 
-	it("initializes 'Cost alerts' toggle to server value (ON when costAlerts=true)", async () => {
+	it("initializes 'Cost alerts' toggle as ON (not muted)", async () => {
 		render(<SettingsNotifications />);
-
 		const costToggle = screen.getByRole("switch", { name: /cost alerts/i });
-		// Server value is costAlerts: true → toggle should be ON
 		expect(costToggle).toBeChecked();
 	});
 
-	it("initializes 'Blocker notifications' toggle to server value (ON when blockerAlerts=true)", async () => {
-		render(<SettingsNotifications />);
-
-		const blockerToggle = screen.getByRole("switch", { name: /blocker notifications/i });
-		// Server value is blockerAlerts: true → toggle should be ON
-		expect(blockerToggle).toBeChecked();
-	});
-
-	it("calls save() with updated notifications when Review requests toggle is clicked", async () => {
-		const user = userEvent.setup();
-		render(<SettingsNotifications />);
-
-		const reviewToggle = screen.getByRole("switch", { name: /review requests/i });
-		await user.click(reviewToggle);
-
-		await waitFor(() => {
-			expect(saveMock).toHaveBeenCalledOnce();
-		});
-
-		// save() should receive updated settings with reviewAlerts: true (was false)
-		const savedArg = saveMock.mock.calls[0][0] as { notifications: { reviewAlerts: boolean } };
-		expect(savedArg.notifications.reviewAlerts).toBe(true);
-	});
-
-	it("calls save() with updated notifications when Cost alerts toggle is clicked", async () => {
+	it("calls setMuted when a toggle is clicked", async () => {
 		const user = userEvent.setup();
 		render(<SettingsNotifications />);
 
@@ -149,32 +65,19 @@ describe("AD5 — AC-3: SettingsNotifications persists via useSettings", () => {
 		await user.click(costToggle);
 
 		await waitFor(() => {
-			expect(saveMock).toHaveBeenCalledOnce();
+			expect(setMutedMock).toHaveBeenCalled();
 		});
-
-		// save() should receive updated settings with costAlerts: false (was true)
-		const savedArg = saveMock.mock.calls[0][0] as { notifications: { costAlerts: boolean } };
-		expect(savedArg.notifications.costAlerts).toBe(false);
 	});
 
-	it("does NOT call save() when Email digests toggle is clicked (local-only field)", async () => {
-		const user = userEvent.setup();
+	it("does NOT render email-digests toggle (AF8 AC11: removed)", async () => {
 		render(<SettingsNotifications />);
-
-		const emailToggle = screen.getByRole("switch", { name: /email digests/i });
-		await user.click(emailToggle);
-
-		// Email digests has no server field — save must NOT be called
-		await new Promise<void>((resolve) => setTimeout(resolve, 50));
-		expect(saveMock).not.toHaveBeenCalled();
+		const emailDigestsToggle = screen.queryByRole("switch", { name: /email digests/i });
+		expect(emailDigestsToggle).toBeNull();
 	});
 
-	it("renders all four toggles regardless of server state", async () => {
+	it("renders exactly NOTIFICATION_TYPES.length toggles", async () => {
 		render(<SettingsNotifications />);
-
-		expect(screen.getByRole("switch", { name: /review requests/i })).toBeInTheDocument();
-		expect(screen.getByRole("switch", { name: /cost alerts/i })).toBeInTheDocument();
-		expect(screen.getByRole("switch", { name: /blocker notifications/i })).toBeInTheDocument();
-		expect(screen.getByRole("switch", { name: /email digests/i })).toBeInTheDocument();
+		const switches = screen.getAllByRole("switch");
+		expect(switches).toHaveLength(NOTIFICATION_TYPES.length);
 	});
 });
