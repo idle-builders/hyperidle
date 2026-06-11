@@ -161,8 +161,8 @@ describe("G4: Built-in Routines", () => {
 			expect(rows).toHaveLength(BUILTIN_ROUTINE_IDS.length);
 		});
 
-		// @lore AD8c: cost-sentinel extracted to app code — now 4 builtin routine IDs
 		// @lore AF9: knowledge-promotion added — now 5 builtin routine IDs
+		// (AD8c removed cost-sentinel from routines; AF9 added knowledge-promotion)
 		test("exports exactly 5 stable builtin ids (AF9: knowledge-promotion added)", () => {
 			expect(BUILTIN_ROUTINE_IDS).toHaveLength(5);
 			for (const id of BUILTIN_ROUTINE_IDS) {

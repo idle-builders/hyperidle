@@ -180,19 +180,22 @@ describe("A2: Seed script", () => {
 		}
 	});
 
-	// --- G4 AC6: seed creates all 4 builtin routines (AD8c: cost-sentinel removed) ---
+	// --- G4 AC6: seed creates all 5 builtin routines (AF9: knowledge-promotion added) ---
 	// @lore AD8c: builtin:cost-sentinel removed from routines; it is now application code.
-	test("seeds exactly 4 G4 builtin routines with correct triggers (G4 AC6 + AD8c)", async ({
+	// @lore AF9: builtin:knowledge-promotion added — production seed now has 5 builtins.
+	test("seeds exactly 5 G4 builtin routines with correct triggers (G4 AC6 + AD8c + AF9)", async ({
 		db,
 	}) => {
 		await seed(db);
 
-		// @lore AD8c: cost-sentinel is no longer a routine row; there are now 4 builtins.
+		// @lore AD8c: cost-sentinel is no longer a routine row.
+		// @lore AF9: knowledge-promotion added; there are now 5 builtins.
 		const expectedIds = [
 			"builtin:practice-meeting",
 			"builtin:post-bet-retro",
 			"builtin:portfolio-retro",
 			"builtin:knowledge-decay",
+			"builtin:knowledge-promotion",
 		] as const;
 
 		type RoutineRow = {
@@ -210,8 +213,8 @@ describe("A2: Seed script", () => {
 			"SELECT id, trigger_type, trigger_config, owner_agent_id, active FROM routines WHERE id LIKE 'builtin:%' ORDER BY id",
 		);
 
-		// Exactly 4 builtin routines (cost-sentinel extracted to app code)
-		expect(rows).toHaveLength(4);
+		// 5 builtin routines: cost-sentinel extracted to app code (AD8c); knowledge-promotion added (AF9)
+		expect(rows).toHaveLength(5);
 
 		const byId = new Map(rows.map((r) => [r.id, r]));
 		for (const id of expectedIds) {
@@ -236,8 +239,9 @@ describe("A2: Seed script", () => {
 	//     packages/fabric/src/services/builtin-routines.ts BUILTIN_SPECS is
 	//     caught by CI. If you change this test, mirror the change in both files.
 	// @lore AD8c: cost-sentinel removed; knowledge-decay owner changed to seed-agent-pf-facilitation.
+	// @lore AF9: knowledge-promotion added to production seed replica (seed-fixtures.ts).
 	// ---
-	test("pins the full trigger_config, owner, skill, human_review, silent for every builtin (G4 drift guard + AD8c)", async ({
+	test("pins the full trigger_config, owner, skill, human_review, silent for every builtin (G4 drift guard + AD8c + AF9)", async ({
 		db,
 	}) => {
 		await seed(db);
@@ -253,6 +257,7 @@ describe("A2: Seed script", () => {
 		}
 
 		// @lore AD8c: cost-sentinel removed; knowledge-decay owner is now seed-agent-pf-facilitation.
+		// @lore AF9: knowledge-promotion added; mirrors BUILTIN_SPECS in builtin-routines.ts.
 		const expected: readonly BuiltinPin[] = [
 			{
 				id: "builtin:practice-meeting",
@@ -290,6 +295,16 @@ describe("A2: Seed script", () => {
 				skillId: "knowledge_decay",
 				humanReview: false,
 				silent: true,
+			},
+			{
+				id: "builtin:knowledge-promotion",
+				triggerType: "calendar",
+				triggerConfig: { cron: "0 3 * * *" },
+				// @lore AF9: same owner as knowledge-decay — both are practice-layer lifecycle concerns.
+				ownerAgentId: "seed-agent-pf-facilitation",
+				skillId: "knowledge_promotion",
+				humanReview: false,
+				silent: false,
 			},
 		];
 

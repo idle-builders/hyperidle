@@ -45,7 +45,9 @@ import { nextCronMatch, parseCron } from "./routine-scheduler.js";
  *
  * @lore AD8c: `builtin:cost-sentinel` removed. Cost sentinel is now application
  * code registered in bootstrapFabric via `startCostSentinel` in
- * packages/fabric/src/services/cost-sentinel.ts. There are now 4 builtin IDs.
+ * packages/fabric/src/services/cost-sentinel.ts. There are now 5 builtin IDs.
+ * @lore AF9: `builtin:knowledge-promotion` added — daily 03:00 UTC sweep that
+ * auto-promotes provisional items meeting the repetition threshold.
  */
 export const BUILTIN_ROUTINE_IDS = [
 	"builtin:practice-meeting",
