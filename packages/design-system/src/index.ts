@@ -1,23 +1,5 @@
 // @hyperidle/design-system — barrel export
 
-// ── AF16 T9: Renderer registry + per-kind renderers (moved from packages/web/src/kinds/) ──
-export type { RendererProps, RendererComponent } from "./kinds/renderer-registry.js";
-export { getRenderer } from "./kinds/renderer-registry.js";
-export type { CodeRendererProps } from "./kinds/code-renderer.js";
-export { CodeRenderer } from "./kinds/code-renderer.js";
-export type { DataRendererProps } from "./kinds/data-renderer.js";
-export { DataRenderer } from "./kinds/data-renderer.js";
-export type { FallbackRendererProps } from "./kinds/fallback-renderer.js";
-export { FallbackRenderer } from "./kinds/fallback-renderer.js";
-export type { HtmlRendererProps } from "./kinds/html-renderer.js";
-export { HtmlRenderer } from "./kinds/html-renderer.js";
-export type { ImageRendererProps } from "./kinds/image-renderer.js";
-export { ImageRenderer } from "./kinds/image-renderer.js";
-export type { TextRendererProps } from "./kinds/text-renderer.js";
-export { TextRenderer } from "./kinds/text-renderer.js";
-export type { UrlRendererProps } from "./kinds/url-renderer.js";
-export { UrlRenderer } from "./kinds/url-renderer.js";
-
 // ── Artifact view family (closed: 4 sub-primitives + 4 layouts; L3) ──
 export type { ArtifactCostChipProps } from "./ArtifactCostChip.js";
 export { ArtifactCostChip } from "./ArtifactCostChip.js";
@@ -80,6 +62,23 @@ export type { KeyValueProps } from "./KeyValue.js";
 export { KeyValue } from "./KeyValue.js";
 export type { KnowledgeRowProps } from "./KnowledgeRow.js";
 export { KnowledgeRow } from "./KnowledgeRow.js";
+export type { CodeRendererProps } from "./kinds/code-renderer.js";
+export { CodeRenderer } from "./kinds/code-renderer.js";
+export type { DataRendererProps } from "./kinds/data-renderer.js";
+export { DataRenderer } from "./kinds/data-renderer.js";
+export type { FallbackRendererProps } from "./kinds/fallback-renderer.js";
+export { FallbackRenderer } from "./kinds/fallback-renderer.js";
+export type { HtmlRendererProps } from "./kinds/html-renderer.js";
+export { HtmlRenderer } from "./kinds/html-renderer.js";
+export type { ImageRendererProps } from "./kinds/image-renderer.js";
+export { ImageRenderer } from "./kinds/image-renderer.js";
+// ── AF16 T9: Renderer registry + per-kind renderers (moved from packages/web/src/kinds/) ──
+export type { RendererComponent, RendererProps } from "./kinds/renderer-registry.js";
+export { getRenderer } from "./kinds/renderer-registry.js";
+export type { TextRendererProps } from "./kinds/text-renderer.js";
+export { TextRenderer } from "./kinds/text-renderer.js";
+export type { UrlRendererProps } from "./kinds/url-renderer.js";
+export { UrlRenderer } from "./kinds/url-renderer.js";
 export type { NavItemProps } from "./NavItem.js";
 export { NavItem } from "./NavItem.js";
 export type { NotificationRowProps } from "./NotificationRow.js";
