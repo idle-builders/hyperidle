@@ -14,7 +14,6 @@ import {
 import type { ArtifactThreadSummary, EventBus } from "@hyperidle/shared";
 import {
 	BET_OUTCOME_VERDICTS,
-	CapacityExceededError,
 	CURRENCY_CODES,
 	deriveTitle,
 	InvalidTransitionError,
@@ -708,11 +707,12 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			if (err instanceof InvalidTransitionError) {
 				return c.json({ error: err.message, code: "VALIDATION_ERROR" }, 400);
 			}
-			// @lore AF12: activating at full team capacity throws CapacityExceededError;
-			// map it to a clean 400 the UI can show instead of falling through to a 500.
-			if (err instanceof CapacityExceededError) {
-				return c.json({ error: err.message, code: "VALIDATION_ERROR" }, 400);
-			}
+			// @lore AF12: activating at full team capacity throws CapacityExceededError.
+			// Do NOT map it locally — let it propagate to the global error handler,
+			// which returns 409 CONFLICT. That is the system-wide contract: 409 is
+			// reserved for capacity conflicts (see middleware/error-handler.ts and the
+			// `@lore U2` on the E3 bets.integration tests). An earlier AF12 plan mapped
+			// this to 400 on the false premise that it otherwise 500s — it does not.
 			throw err;
 		}
 		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);

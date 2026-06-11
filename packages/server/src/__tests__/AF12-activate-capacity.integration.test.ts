@@ -1,15 +1,17 @@
 /**
- * AF12 — AC1: Activating a draft bet at team capacity returns a clean 400
- * (VALIDATION_ERROR) the UI can show — NOT a 500.
+ * AF12 — AC1: Activating a draft bet at team capacity returns a clean 409
+ * (CONFLICT) the UI can show — NOT a 500.
  *
  * The happy path (draft → active = 200) is already covered by
  * R7-bet-lifecycle.integration.test.ts. This file pins the capacity-exceeded
  * branch: `transitionBet(..., 'active')` throws `CapacityExceededError`, which
- * the `/commit` handler must catch and map to 400.
+ * propagates to the global error handler and is mapped to 409 CONFLICT.
  *
- * @lore AF12 RED: `/commit` currently catches only `InvalidTransitionError`, so
- * a capacity-at-limit activate falls through to the global handler → 500. This
- * test fails (gets 500) until the green phase adds the CapacityExceededError catch.
+ * @lore AF12: 409 (not 400) is the system-wide contract for capacity conflicts —
+ * see middleware/error-handler.ts (CapacityExceededError → 409 CONFLICT) and the
+ * `@lore U2` on bets.integration.test.ts E3 ("409 is reserved for capacity
+ * conflicts"). The `/commit` handler must NOT locally map CapacityExceededError
+ * to 400; an earlier AF12 plan did so on the false premise that it otherwise 500s.
  */
 
 import { bets, teamMembers, teams } from "@hyperidle/db";
@@ -23,7 +25,7 @@ function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
 }
 
-describe("AF12 AC1 — activate at capacity returns 400", () => {
+describe("AF12 AC1 — activate at capacity returns 409", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});
@@ -31,7 +33,7 @@ describe("AF12 AC1 — activate at capacity returns 400", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("POST /bets/:id/commit at full capacity returns 400 VALIDATION_ERROR", async ({
+	test("POST /bets/:id/commit at full capacity returns 409 CONFLICT", async ({
 		db,
 		app,
 	}) => {
@@ -55,9 +57,9 @@ describe("AF12 AC1 — activate at capacity returns 400", () => {
 			headers: authHeaders(),
 		});
 
-		expect(res.status).toBe(400);
+		expect(res.status).toBe(409);
 		const body = (await res.json()) as { code?: string };
-		expect(body.code).toBe("VALIDATION_ERROR");
+		expect(body.code).toBe("CONFLICT");
 
 		// The bet stayed draft — the failed activate did not partially apply.
 		const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-draft"));
