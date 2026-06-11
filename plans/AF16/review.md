@@ -148,3 +148,40 @@ Z8-147 (RedirectProductToTeam empty-id → portfolio), Z8-148 (NotFound go-back 
 | AC-6 | PASS | no regression |
 
 Re-submit and I will re-review.
+
+---
+
+# AF16 — Phase 4 FINAL RE-REVIEW (Reviewer, round 3)
+
+**Verdict: DONE** — CRITICAL-1 resolved. All 6 ACs PASS.
+
+## CRITICAL-1 — RESOLVED
+Both live no-op buttons in `WorkTask.tsx` are removed cleanly:
+- ~L271 "More actions" overflow button — removed; replaced with an explanatory `// AC-2` comment. No dangling render.
+- ~L354 "Dial in" (`data-testid="task-dial-in-btn"`) — removed; explanatory comment. The `activeSession` var that fed it removed; plural `activeSessions` (used in the session-count cell, L349) retained.
+- No dangling refs: `grep task-dial-in-btn / "Dial in to active session"` over `packages/web` is empty. The remaining `activeSession` / "Dial in" / "More actions" grep hits are unrelated and all wired — Conversations.tsx ("Dial in" with real `onClick={() => setDialInSessionId(...)}`), WorkBet.tsx:1078 ("More actions" with `onClick` toggling the overflow dropdown), AgentProfile (`activeSession` data field). `SessionActivityPanel.test.tsx` hit is a doc comment.
+- WorkTask tests green (`W3-work-task.test.tsx`, `WorkTask.outcome.test.tsx` — 9 passed); no test asserted the removed buttons. WorkBet progress tests green (10).
+
+**Rule is enforcing, not suppressed.** `eslint.config.ts` adds a dedicated K6-AC2 block promoting `design/no-op-button` to `"error"` for `packages/web/src/pages/**/*.tsx` + `components/**/*.tsx`, with `ignores` for `__tests__`, `*.stories.tsx`, `*.test.tsx`. Errors are not swallowed by `--quiet`.
+- Positive proof: config-driven eslint over `pages/` + `components/` → QUIET EXIT 0, zero `no-op-button` errors.
+- Negative proof: a fresh handler-less `<button type="button">` dropped into `pages/` fires `design/no-op-button` at error (`<button> has no action…`). The gate has teeth — a future no-op fails lint.
+- Config diff adds only the two `no-op-button` lines (warn in K6, error in K6-AC2); no other rule loosened.
+
+## Regression pass (latest diff only)
+- Button/var removal: no broken render, no dangling ref, no test regression (confirmed above).
+- eslint config change: scoped block, only `no-op-button` promoted; other rules untouched.
+- No AC 1–6 regressed.
+
+## Final AC table (round 3)
+| AC | Status | Note |
+|----|--------|------|
+| AC-1 | PASS | NaN%/full-bar lie fixed; clean empty-state; tests assert no NaN/no bar |
+| AC-2 | **PASS** | Breadcrumb → `/work/portfolio`; both WorkTask no-ops removed cleanly; `no-op-button` rule enforced at error for pages/components (proven both directions) |
+| AC-3 | PASS | deterministic search; id-ASC tiebreaker + match-rank; stable across runs |
+| AC-4 | PASS | per-kind render via design-system; WARNING-4 malformed-preview guard live; honest fallback |
+| AC-5 | PASS | post-mutation refetch wired (`useTeam.refetch` + `onCreated`) |
+| AC-6 | PASS | banned-term purge; false-claim removal; docs match code |
+
+AC-2 is enforced and clean: zero live no-op buttons in pages/components, and the `design/no-op-button` rule fails the gate at error on any future no-op.
+
+Verify GREEN on branch (2727 tests). Ship.
