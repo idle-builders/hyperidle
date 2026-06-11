@@ -1,5 +1,6 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger, type EventBus } from "@hyperidle/shared";
+import { setupFts } from "./fts.js";
 import { registerBuiltinRoutineHandlers } from "./services/builtin-routines.js";
 import { registerCostCapDedupReleaser } from "./services/cost-cap.js";
 // @lore AD8c: cost sentinel extracted from routine row to application code.
@@ -17,6 +18,7 @@ import { startNotificationDrain } from "./services/notifications/drain.js";
 import { defaultMutePreferenceReader } from "./services/notifications/mute.js";
 import { registerNotificationListener } from "./services/notifications/notification-listener.js";
 import { registerPolicyEngine } from "./services/policy-engine.js";
+import { registerRelevanceListener } from "./services/relevance-listener.js";
 import { startRoutineScheduler } from "./services/routine-scheduler.js";
 import { reapStaleRoutineSessions } from "./services/routine-session-reaper.js";
 import { registerSessionReviewCreator } from "./services/session-review-creator.js";
@@ -80,6 +82,22 @@ export function bootstrapFabric(ctx: {
 }): Array<() => void> {
 	const { db, eventBus } = ctx;
 	const disposers: Array<() => void> = [];
+
+	// AF9 Task 3b: fire-and-forget FTS setup at every boot so the fts_vector
+	// column exists even when production createServer skips the drizzle migrator.
+	// setupFts is idempotent (IF NOT EXISTS), so double-apply via the migration
+	// path is a no-op.
+	setupFts(db).catch((err) => {
+		bootstrapLog.error("FTS setup failed at boot", { err });
+	});
+
+	// AF9 Task 1: wire the access→relevance subscriber.
+	// @lore AF9: viewing a knowledge item now materialises a fabric row as a
+	// side effect of the GET — this is the first time recomputeScores runs on
+	// the live read path (not just in tests). The subscriber is async
+	// fire-and-forget; the synchronous event bus invokes the handler wrapper
+	// but does not await the async recompute.
+	disposers.push(registerRelevanceListener(db, eventBus));
 
 	disposers.push(registerSessionReviewCreator(db, eventBus));
 	disposers.push(registerPolicyEngine(db, eventBus));

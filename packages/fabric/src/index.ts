@@ -248,6 +248,8 @@ export {
 	getProvisionSessionFn,
 	setProvisionSessionFn,
 } from "./services/provision-registry.js";
+// relevance-listener (AF9: access→relevance subscriber)
+export { registerRelevanceListener } from "./services/relevance-listener.js";
 // relevance-service
 export type {
 	RelevanceService,
