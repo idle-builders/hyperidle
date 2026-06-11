@@ -427,7 +427,15 @@ export function TaskSheet({
 						{task.latestSessionCost != null && (
 							<>
 								<span aria-hidden>|</span>
-								<span>${(task.latestSessionCost / 100).toFixed(2)}</span>
+								{/*
+								 * AF12: money-contract — derive the minor→major divisor from the
+								 * currency table (scaleForCurrency) instead of hardcoding /100.
+								 * KanbanTask.latestSessionCost is a bare minor-unit number with no
+								 * currency field; this task-row data path is USD-only, so USD is the
+								 * source currency (mirrors the SessionRow cost render above, which
+								 * carries an explicit Money.currency).
+								 */}
+								<span>${(task.latestSessionCost / 10 ** scaleForCurrency("USD")).toFixed(2)}</span>
 							</>
 						)}
 						{(task.latestSessionTokensInput != null || task.latestSessionTokensOutput != null) && (
