@@ -63,6 +63,9 @@ function main(): void {
 	// Capture identity + cleanliness BEFORE running tests so that gitignored
 	// test artifacts (coverage, tmp DBs) cannot flip the `dirty` flag.
 	const sha = execSync("git rev-parse HEAD", { encoding: "utf-8" }).trim();
+	// The tree hash survives squash-merge (commit changes, tree does not), so
+	// check-attestation can match source by tree even when `sha` is unreachable.
+	const tree = execSync("git rev-parse HEAD^{tree}", { encoding: "utf-8" }).trim();
 	const dirty =
 		execSync("git status --porcelain", { encoding: "utf-8" }).trim().length > 0;
 
@@ -77,6 +80,7 @@ function main(): void {
 
 	const payload = {
 		sha,
+		tree,
 		status,
 		dirty,
 		tools: ATTESTED_TOOLS,

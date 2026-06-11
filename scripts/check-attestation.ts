@@ -27,6 +27,9 @@ const ATTESTATION_DIR = ".verify-attestations";
 
 interface Attestation {
 	sha: string;
+	/** Git tree hash (`HEAD^{tree}`) the attested run executed against. Robust
+	 * to squash-merge, which preserves the tree but discards the commit. */
+	tree?: string;
 	status: string;
 	dirty: boolean;
 	tools: string[];
@@ -116,17 +119,38 @@ function main(): void {
 		fail("verify ran with uncommitted changes — commit all changes, then re-run verify");
 	}
 
-	// Check no source files changed after the attested commit
-	const changedFiles = execSync(`git diff --name-only ${attestation.sha}..HEAD`, {
-		encoding: "utf-8",
-	}).trim();
-	const sneakedFiles = changedFiles
-		.split("\n")
-		.filter((f) => f && !f.startsWith(ATTESTATION_DIR) && f !== ".verify-attestation.json");
+	// Source-integrity: the attested tests must correspond to the source CI is
+	// checking. Prefer a TREE-HASH match — it is robust to squash-merge, which
+	// gives main a brand-new commit (so `attestation.sha` is unreachable) but an
+	// IDENTICAL tree. Fall back to the commit diff only when the trees differ
+	// (e.g. main advanced under the PR) AND the attested commit is reachable.
+	//
+	// @lore Z8-166: the old code unconditionally ran `git diff <sha>..HEAD`,
+	// which crashed every squash-merged push-to-main run with "Invalid revision
+	// range" because the branch commit no longer exists. Matching on the tree
+	// hash fixes that without weakening the guarantee.
+	const headTree = execSync("git rev-parse HEAD^{tree}", { encoding: "utf-8" }).trim();
 
-	if (sneakedFiles.length > 0) {
+	if (attestation.tree && attestation.tree === headTree) {
+		// Identical tree — no source change is possible. Accept.
+	} else if (isReachable(attestation.sha)) {
+		const changedFiles = execSync(`git diff --name-only ${attestation.sha}..HEAD`, {
+			encoding: "utf-8",
+		}).trim();
+		const sneakedFiles = changedFiles
+			.split("\n")
+			.filter((f) => f && !f.startsWith(ATTESTATION_DIR) && f !== ".verify-attestation.json");
+
+		if (sneakedFiles.length > 0) {
+			fail(
+				`source files changed after verify ran:\n  ${sneakedFiles.join("\n  ")}\nRe-run \`npm run verify\` and commit the new attestation`,
+			);
+		}
+	} else {
 		fail(
-			`source files changed after verify ran:\n  ${sneakedFiles.join("\n  ")}\nRe-run \`npm run verify\` and commit the new attestation`,
+			`attested commit ${attestation.sha.slice(0, 8)} is unreachable and its tree ` +
+				`(${attestation.tree?.slice(0, 8) ?? "absent"}) does not match HEAD tree ` +
+				`(${headTree.slice(0, 8)}). Re-run \`npm run verify\` on this commit and commit the attestation.`,
 		);
 	}
 
