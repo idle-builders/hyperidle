@@ -1,0 +1,50 @@
+<!doctype html>
+<html data-theme="hearth-dark">
+<head>
+<meta charset="utf-8"/>
+<style>
+  :root{
+    --r-pill:9999px;--motion-fast:120ms;
+    --surface-container:#231e16;--surface-elevated:#2c261c;
+    --accent-primary:#2eaa7a;--text-on-accent:#fff;
+    --text-primary:#ede5d8;--text-secondary:#a89880;--text-tertiary:#9a8e7e;
+    --border-default:#554a3c;--border-strong:#756850;
+    --font-sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  body{background:var(--surface-elevated);margin:0;font-family:var(--font-sans);padding:36px;}
+  .wrap{max-width:560px;}
+  h1{font-size:17px;font-weight:600;color:var(--text-primary);margin:0 0 6px;}
+  .sub{font-size:13px;color:var(--text-tertiary);margin:0 0 24px;}
+  .stack{display:flex;flex-direction:column;gap:18px;}
+  .toggle-row{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;}
+  .labels{display:flex;flex-direction:column;gap:2px;}
+  .lbl{font-size:15px;color:var(--text-primary);}
+  .desc{font-size:13px;color:var(--text-secondary);}
+  .tg{width:44px;height:24px;border-radius:var(--r-pill);flex-shrink:0;position:relative;transition:background var(--motion-fast);cursor:pointer;}
+  .tg.on{background:var(--accent-primary);}
+  .tg.off{background:var(--border-strong);}
+  .knob{position:absolute;top:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left var(--motion-fast);}
+  .tg.on .knob{left:22px;} .tg.off .knob{left:2px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Notifications</h1>
+  <p class="sub">Each type below is a real notification source. Turn one off to stop being notified; turn it back on here anytime.</p>
+  <div class="stack">
+    <div class="toggle-row">
+      <div class="labels"><span class="lbl">Review requests</span><span class="desc">When an agent needs your review</span></div>
+      <div class="tg on"><span class="knob"></span></div>
+    </div>
+    <div class="toggle-row">
+      <div class="labels"><span class="lbl">Blocker alerts</span><span class="desc">When an agent is blocked and needs you to intervene</span></div>
+      <div class="tg on"><span class="knob"></span></div>
+    </div>
+    <div class="toggle-row">
+      <div class="labels"><span class="lbl">Cost alerts</span><span class="desc">When factory spend crosses a configured cost cap</span></div>
+      <div class="tg off"><span class="knob"></span></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
