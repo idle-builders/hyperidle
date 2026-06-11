@@ -23,7 +23,7 @@
  * have tabIndex) we fall back to document.body silently.
  */
 import { StatusChip, sessionOutcomeToStatus } from "@hyperidle/design-system";
-import { formatMoney } from "@hyperidle/shared";
+import { formatMoney, scaleForCurrency } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { ArtifactSection } from "../components/ArtifactSection.js";
 import { type TaskSession, useTaskSessions } from "../hooks/useTaskSessions.js";
