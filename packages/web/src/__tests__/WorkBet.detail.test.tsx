@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 import { MOCK_BETS } from "../pages/__fixtures__/work-bet-fixtures";
 import { WorkBet } from "../pages/WorkBet";
 
-function renderBet(overrideBet = MOCK_BETS.b1): ReturnType<typeof render> {
+function renderBet(overrideBet = MOCK_BETS.b1!): ReturnType<typeof render> {
 	return render(
 		<MemoryRouter initialEntries={[`/work/bet/${overrideBet.id}`]}>
 			<Routes>

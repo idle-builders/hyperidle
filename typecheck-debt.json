@@ -1,11 +1,5 @@
 {
 	"$schema": "./scripts/typecheck-debt.schema.json",
 	"description": "Packages with known type errors, quarantined by AF1. Drained by AF2-AF5.",
-	"packages": {
-		"web": {
-			"owner": "AF5",
-			"errors": 235,
-			"note": "props mismatches, test-setup, shared refs"
-		}
-	}
+	"packages": {}
 }

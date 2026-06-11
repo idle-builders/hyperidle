@@ -8,6 +8,12 @@
  * 4. Electron, shared mode — enabled worker (connecting — enabled but not yet connected)
  * 5. Electron, shared mode — enabled worker (connected)
  * 6. Electron, shared mode — enabled worker (paused)
+ *
+ * @lore AF5/S: window.__HYPERIDLE__ is typed as HyperIdleElectronBridge (window.d.ts).
+ * Casting `window as Window & { __HYPERIDLE__?: T }` still intersects T with
+ * HyperIdleElectronBridge, requiring the full bridge interface. Stories use partial
+ * mocks for visual testing, so we cast through `unknown` to install a minimal stub
+ * without needing a full bridge implementation.
  */
 
 import { SettingsWorker } from "./SettingsWorker";
@@ -16,6 +22,9 @@ export default {
 	title: "SettingsWorker",
 	tier: "3" as const,
 };
+
+// @lore AF5/S: Type alias for the cast-through-unknown pattern used by all stories.
+type PartialBridgeWindow = { __HYPERIDLE__: Partial<HyperIdleElectronBridge> };
 
 /**
  * Running in a plain browser — no electron bridge present.
@@ -36,7 +45,7 @@ export const NoBridge = (): React.JSX.Element => {
  */
 export const ElectronLocalMode = (): React.JSX.Element => {
 	if (typeof window !== "undefined") {
-		(window as Window & { __HYPERIDLE__?: { backendMode: string } }).__HYPERIDLE__ = {
+		(window as unknown as PartialBridgeWindow).__HYPERIDLE__ = {
 			backendMode: "local",
 		};
 	}
@@ -52,32 +61,10 @@ export const ElectronLocalMode = (): React.JSX.Element => {
  */
 export const SharedModeDisabled = (): React.JSX.Element => {
 	if (typeof window !== "undefined") {
-		(
-			window as Window & {
-				__HYPERIDLE__?: {
-					backendMode: string;
-					worker: {
-						enable: (n: number) => Promise<void>;
-						disable: () => Promise<void>;
-						pause: () => Promise<void>;
-						resume: () => Promise<void>;
-						status: () => Promise<{
-							enabled: boolean;
-							connected: boolean;
-							paused: boolean;
-							activeSessions: number;
-							maxConcurrent: number;
-							deviceId: string | null;
-							modelProviders: string[];
-						}>;
-						onStatusChange: (cb: (s: unknown) => void) => () => void;
-					};
-				};
-			}
-		).__HYPERIDLE__ = {
+		(window as unknown as PartialBridgeWindow).__HYPERIDLE__ = {
 			backendMode: "shared",
 			worker: {
-				enable: async () => {},
+				enable: async (_n: number) => {},
 				disable: async () => {},
 				pause: async () => {},
 				resume: async () => {},
@@ -90,7 +77,7 @@ export const SharedModeDisabled = (): React.JSX.Element => {
 					deviceId: null,
 					modelProviders: [],
 				}),
-				onStatusChange: () => () => {},
+				onStatusChange: (_cb) => () => {},
 			},
 		};
 	}
@@ -106,32 +93,10 @@ export const SharedModeDisabled = (): React.JSX.Element => {
  */
 export const SharedModeConnecting = (): React.JSX.Element => {
 	if (typeof window !== "undefined") {
-		(
-			window as Window & {
-				__HYPERIDLE__?: {
-					backendMode: string;
-					worker: {
-						enable: (n: number) => Promise<void>;
-						disable: () => Promise<void>;
-						pause: () => Promise<void>;
-						resume: () => Promise<void>;
-						status: () => Promise<{
-							enabled: boolean;
-							connected: boolean;
-							paused: boolean;
-							activeSessions: number;
-							maxConcurrent: number;
-							deviceId: string | null;
-							modelProviders: string[];
-						}>;
-						onStatusChange: (cb: (s: unknown) => void) => () => void;
-					};
-				};
-			}
-		).__HYPERIDLE__ = {
+		(window as unknown as PartialBridgeWindow).__HYPERIDLE__ = {
 			backendMode: "shared",
 			worker: {
-				enable: async () => {},
+				enable: async (_n: number) => {},
 				disable: async () => {},
 				pause: async () => {},
 				resume: async () => {},
@@ -144,7 +109,7 @@ export const SharedModeConnecting = (): React.JSX.Element => {
 					deviceId: "device-abc123",
 					modelProviders: ["anthropic"],
 				}),
-				onStatusChange: () => () => {},
+				onStatusChange: (_cb) => () => {},
 			},
 		};
 	}
@@ -160,32 +125,10 @@ export const SharedModeConnecting = (): React.JSX.Element => {
  */
 export const SharedModeConnected = (): React.JSX.Element => {
 	if (typeof window !== "undefined") {
-		(
-			window as Window & {
-				__HYPERIDLE__?: {
-					backendMode: string;
-					worker: {
-						enable: (n: number) => Promise<void>;
-						disable: () => Promise<void>;
-						pause: () => Promise<void>;
-						resume: () => Promise<void>;
-						status: () => Promise<{
-							enabled: boolean;
-							connected: boolean;
-							paused: boolean;
-							activeSessions: number;
-							maxConcurrent: number;
-							deviceId: string | null;
-							modelProviders: string[];
-						}>;
-						onStatusChange: (cb: (s: unknown) => void) => () => void;
-					};
-				};
-			}
-		).__HYPERIDLE__ = {
+		(window as unknown as PartialBridgeWindow).__HYPERIDLE__ = {
 			backendMode: "shared",
 			worker: {
-				enable: async () => {},
+				enable: async (_n: number) => {},
 				disable: async () => {},
 				pause: async () => {},
 				resume: async () => {},
@@ -198,7 +141,7 @@ export const SharedModeConnected = (): React.JSX.Element => {
 					deviceId: "device-abc123",
 					modelProviders: ["anthropic"],
 				}),
-				onStatusChange: () => () => {},
+				onStatusChange: (_cb) => () => {},
 			},
 		};
 	}
@@ -214,32 +157,10 @@ export const SharedModeConnected = (): React.JSX.Element => {
  */
 export const SharedModePaused = (): React.JSX.Element => {
 	if (typeof window !== "undefined") {
-		(
-			window as Window & {
-				__HYPERIDLE__?: {
-					backendMode: string;
-					worker: {
-						enable: (n: number) => Promise<void>;
-						disable: () => Promise<void>;
-						pause: () => Promise<void>;
-						resume: () => Promise<void>;
-						status: () => Promise<{
-							enabled: boolean;
-							connected: boolean;
-							paused: boolean;
-							activeSessions: number;
-							maxConcurrent: number;
-							deviceId: string | null;
-							modelProviders: string[];
-						}>;
-						onStatusChange: (cb: (s: unknown) => void) => () => void;
-					};
-				};
-			}
-		).__HYPERIDLE__ = {
+		(window as unknown as PartialBridgeWindow).__HYPERIDLE__ = {
 			backendMode: "shared",
 			worker: {
-				enable: async () => {},
+				enable: async (_n: number) => {},
 				disable: async () => {},
 				pause: async () => {},
 				resume: async () => {},
@@ -252,7 +173,7 @@ export const SharedModePaused = (): React.JSX.Element => {
 					deviceId: "device-abc123",
 					modelProviders: ["anthropic"],
 				}),
-				onStatusChange: () => () => {},
+				onStatusChange: (_cb) => () => {},
 			},
 		};
 	}

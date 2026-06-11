@@ -60,7 +60,7 @@ describe("useRecipients (Q1 §4.8)", () => {
 			expect(result.current.status).toBe("ready");
 		});
 		expect(result.current.recipients.length).toBe(3);
-		expect(result.current.recipients[0].id).toBe("agent-builder");
+		expect(result.current.recipients[0]!.id).toBe("agent-builder");
 	});
 
 	// AC2: search query is passed to the fetch URL
@@ -75,7 +75,7 @@ describe("useRecipients (Q1 §4.8)", () => {
 		await waitFor(() => expect(result.current.status).toBe("ready"));
 
 		expect(fetchMock).toHaveBeenCalledTimes(1);
-		const url = fetchMock.mock.calls[0][0] as string;
+		const url = fetchMock.mock.calls[0]![0] as string;
 		expect(url).toContain("/api/recipients");
 		expect(url).toContain("builder");
 	});

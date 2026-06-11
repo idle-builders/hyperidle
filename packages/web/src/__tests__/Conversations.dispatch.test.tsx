@@ -138,7 +138,7 @@ describe("Conversations — verdict dispatch (AC-11)", () => {
 
 		await waitFor(() => expect(posts.length).toBeGreaterThan(0));
 
-		const post = posts[0];
+		const post = posts[0]!;
 		expect(post.url).toContain(`/api/threads/${THREAD_ID}/messages`);
 		const body = post.body as {
 			type?: string;

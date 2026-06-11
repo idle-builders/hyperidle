@@ -24,7 +24,7 @@
 
 import { Button, Input } from "@hyperidle/design-system";
 import { AGENT_ROLE_CATALOG, defaultRoster, TEAM_FUNCTIONS } from "@hyperidle/shared";
-import { type FormEvent, type JSX, useCallback, useState } from "react";
+import { type ChangeEvent, type FormEvent, type JSX, useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../services/api-fetch.js";
 
@@ -241,7 +241,7 @@ export function SetupFlow(): JSX.Element {
 							type="text"
 							placeholder="Tobias Grundtner"
 							value={name}
-							onChange={(e) => setName(e.target.value)}
+							onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
 							required
 							autoFocus
 						/>
@@ -255,7 +255,7 @@ export function SetupFlow(): JSX.Element {
 							type="password"
 							placeholder="sk-ant-..."
 							value={apiKey}
-							onChange={(e) => setApiKey(e.target.value)}
+							onChange={(e: ChangeEvent<HTMLInputElement>) => setApiKey(e.target.value)}
 							hint="Required. Your key stays on this device."
 							required
 						/>

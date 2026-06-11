@@ -98,7 +98,10 @@ function formatRelative(iso: string): string {
 }
 
 function capitalize(s: string): string {
-	return s.length === 0 ? s : s[0].toUpperCase() + s.slice(1);
+	if (s.length === 0) return s;
+	// Guard: s.length > 0 proves s[0] is defined (noUncheckedIndexedAccess).
+	const first = s[0];
+	return first !== undefined ? first.toUpperCase() + s.slice(1) : s;
 }
 
 function rowToItem(row: ThreadListRow): ThreadItem {

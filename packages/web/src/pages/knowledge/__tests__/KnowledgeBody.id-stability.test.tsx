@@ -87,8 +87,8 @@ describe("KnowledgeBody — T6 block-id stability", () => {
 
 		// The first paragraph under "Section A" (the one that changed) must have a different id.
 		// It is the second paragraph in the body (index 1 among paragraphs).
-		const changedV1 = paragraphsV1[1];
-		const changedV2 = paragraphsV2[1];
+		const changedV1 = paragraphsV1[1]!;
+		const changedV2 = paragraphsV2[1]!;
 
 		expect(changedV1).toBeDefined();
 		expect(changedV2).toBeDefined();

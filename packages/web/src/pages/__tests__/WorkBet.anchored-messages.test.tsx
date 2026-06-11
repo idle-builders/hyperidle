@@ -6,6 +6,7 @@
  *  - the same anchored messages also appear in the chronological thread log
  */
 
+import type { PlainPayload } from "@hyperidle/shared";
 import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -87,7 +88,10 @@ describe("WorkBet anchored messages (L18)", () => {
 						threadId: THREAD_ID,
 						senderId: "u-founder",
 						type: "plain" as const,
-						payload: { text: "Anchored comment on this block", blockId: BLOCK_ID },
+						payload: {
+							text: "Anchored comment on this block",
+							blockId: BLOCK_ID,
+						} as PlainPayload & { blockId?: string },
 						clientKey: "ck-anch-1",
 						deletedAt: null,
 						redactedAt: null,
@@ -95,6 +99,7 @@ describe("WorkBet anchored messages (L18)", () => {
 						createdAt: "2026-05-05T09:05:00Z",
 					},
 				],
+				identities: {},
 			},
 			error: null,
 			isLoading: false,

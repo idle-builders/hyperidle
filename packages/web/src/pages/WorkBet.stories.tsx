@@ -22,9 +22,11 @@ export const WithRichDescription = (): React.JSX.Element => (
 );
 
 /** EmptyDescription — description field is empty string; the pitch section must not render. */
-export const EmptyDescription = (): React.JSX.Element => (
-	<WorkBet overrideBet={{ ...MOCK_BETS.b1, description: "" }} />
-);
+export const EmptyDescription = (): React.JSX.Element => {
+	const bet: BetDetail | undefined = MOCK_BETS.b1;
+	if (!bet) return <div>No fixture</div>;
+	return <WorkBet overrideBet={{ ...bet, description: "" }} />;
+};
 
 /**
  * MalformedDescription — description content that maps to an unknown block kind.
@@ -33,13 +35,29 @@ export const EmptyDescription = (): React.JSX.Element => (
  * Sized at cap + 1 byte to stay as small as possible while reliably
  * triggering the fallback.
  */
-const MALFORMED_BET: BetDetail = {
-	...MOCK_BETS.b1,
-	id: "b_malformed",
-	title: "Malformed Description (body-too-large fallback)",
-	// Slightly over MAX_BODY_BYTES triggers the body-too-large unknown block.
-	description: "x".repeat(MAX_BODY_BYTES + 1),
-};
+// Guard: MOCK_BETS is Record<string, BetDetail>; noUncheckedIndexedAccess makes [0] possibly undefined.
+const MALFORMED_BET: BetDetail = MOCK_BETS.b1
+	? {
+			...MOCK_BETS.b1,
+			id: "b_malformed",
+			title: "Malformed Description (body-too-large fallback)",
+			// Slightly over MAX_BODY_BYTES triggers the body-too-large unknown block.
+			description: "x".repeat(MAX_BODY_BYTES + 1),
+		}
+	: {
+			id: "b_malformed",
+			title: "Malformed Description",
+			team: "Alpha Core",
+			status: "completed",
+			atRisk: false,
+			costAppetite: null,
+			tokenAppetite: null,
+			costActual: null,
+			tokensActual: null,
+			progress: { done: 0, total: 0 },
+			description: "x".repeat(MAX_BODY_BYTES + 1),
+			tasks: [],
+		};
 
 export const MalformedDescription = (): React.JSX.Element => (
 	<WorkBet overrideBet={MALFORMED_BET} />

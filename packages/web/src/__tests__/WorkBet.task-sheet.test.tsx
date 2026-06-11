@@ -108,7 +108,7 @@ describe("WorkBet — task rows (W3 flat list, L13 updated)", () => {
 			ok: true,
 			json: () => Promise.resolve({ threads: [] }),
 		});
-		global.fetch = fetchSpy;
+		global.fetch = fetchSpy as unknown as typeof fetch;
 	});
 
 	afterEach(() => {

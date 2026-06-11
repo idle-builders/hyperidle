@@ -147,7 +147,7 @@ describe("WorkRoutine — AA2 Delete & New Fields", () => {
 			mockApiFetch.mockResolvedValueOnce({
 				ok: true,
 				json: vi.fn().mockResolvedValue({ deleted: true, deletedAt: new Date().toISOString() }),
-			});
+			} as unknown as Response);
 
 			renderPage(MOCK_DETAIL_AA2);
 			fireEvent.click(screen.getByTestId("routine-delete-btn"));

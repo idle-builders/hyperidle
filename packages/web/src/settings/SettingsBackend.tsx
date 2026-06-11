@@ -13,15 +13,15 @@
 
 import type { JSX } from "react";
 
-function isElectron(): boolean {
-	return typeof window !== "undefined" && window.__HYPERIDLE__ !== undefined;
-}
-
 export function SettingsBackend(): JSX.Element {
-	const electron = isElectron();
-
-	const platform = electron ? (window.__HYPERIDLE__?.platform ?? "electron") : null;
-	const isLocal = !platform || platform !== "shared";
+	// @lore AF5/L: `platform` is a closed literal "electron" (window.d.ts:24) that
+	// identifies the HOST, never the backend mode. The comparison `platform !== "shared"`
+	// is provably always-true (TS2367), so `isLocal` is statically always true and the
+	// "Shared (remote)" branch is dead/unreachable UI at runtime. The TYPE-ONLY fix here
+	// removes the dead comparison. The actual local-vs-shared mode lives in `backendMode`
+	// (window.d.ts:26) — fixing the displayed mode to read `backendMode` is a behavioral
+	// change deferred to AF13–AF16.
+	const isLocal = true;
 	const modeLabel = isLocal ? "Local (laptop)" : "Shared (remote)";
 	const modeHint = isLocal
 		? "Agent sessions run locally on this machine."

@@ -132,7 +132,7 @@ describe("T4 — KnowledgeDetail: clicking '+' calls attachContext (AC-5)", () =
 		await user.click(firstBtn);
 
 		expect(attachContext).toHaveBeenCalledOnce();
-		const calledRef = attachContext.mock.calls[0][0] as CocContextRef;
+		const calledRef = attachContext.mock.calls[0]![0] as CocContextRef;
 		expect(calledRef.kind).toBe("block");
 		if ("hostKind" in calledRef) {
 			expect(calledRef.hostKind).toBe("knowledge_item");

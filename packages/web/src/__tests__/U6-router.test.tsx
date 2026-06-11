@@ -11,6 +11,7 @@
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
+import type { JSX } from "react";
 import { createMemoryRouter, Navigate, RouterProvider, useParams } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "../layouts/AppShell";

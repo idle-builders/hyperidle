@@ -83,7 +83,7 @@ describe("CommentRow rich-row variant (approved.md §2.2, AC-7)", () => {
 			/>,
 		);
 		const rows = screen.getAllByTestId("comment-row");
-		const row = rows[0];
+		const row = rows[0]!;
 		expect(row.getAttribute("data-variant")).toBe("rich-review");
 	});
 
@@ -98,7 +98,7 @@ describe("CommentRow rich-row variant (approved.md §2.2, AC-7)", () => {
 				richActions={<div>a</div>}
 			/>,
 		);
-		const row = screen.getAllByTestId("comment-row")[0];
+		const row = screen.getAllByTestId("comment-row")[0]!;
 		expect(row.getAttribute("data-variant")).toBe("rich-questionnaire");
 	});
 
@@ -125,7 +125,7 @@ describe("CommentRow rich-row variant (approved.md §2.2, AC-7)", () => {
 		);
 		expect(screen.queryByTestId("rh")).toBeNull();
 		// Plain text body renders as before.
-		const row = screen.getAllByTestId("comment-row")[0];
+		const row = screen.getAllByTestId("comment-row")[0]!;
 		expect(within(row).getByText("hello")).toBeInTheDocument();
 	});
 

@@ -123,7 +123,7 @@ describe("KnowledgeBody — T3 heading hierarchy", () => {
 		const { container } = render(<KnowledgeBody body={HEADING_BODY} hostId="k-playbook" />);
 		const h1s = container.querySelectorAll("h1");
 		expect(h1s.length).toBeGreaterThanOrEqual(1);
-		expect(h1s[0].textContent).toContain("Onboarding playbook");
+		expect(h1s[0]!.textContent).toContain("Onboarding playbook");
 	});
 
 	it("renders <h2> elements for level-2 headings", () => {
@@ -137,7 +137,7 @@ describe("KnowledgeBody — T3 heading hierarchy", () => {
 		const { container } = render(<KnowledgeBody body={HEADING_BODY} hostId="k-playbook" />);
 		const h3s = container.querySelectorAll("h3");
 		expect(h3s.length).toBeGreaterThanOrEqual(1);
-		expect(h3s[0].textContent).toContain("Edge cases");
+		expect(h3s[0]!.textContent).toContain("Edge cases");
 	});
 
 	it("heading blocks carry data-ds-kind=heading", () => {
@@ -205,7 +205,7 @@ describe("KnowledgeBody — T-SEC-1 XSS defence", () => {
 		const { container } = render(<KnowledgeBody body={body} hostId="k-xss-a" />);
 		const scripts = container.querySelectorAll("script");
 		expect(scripts).toHaveLength(0);
-		expect((window as Record<string, unknown>).__pwn).toBeUndefined();
+		expect((window as unknown as Record<string, unknown>).__pwn).toBeUndefined();
 	});
 
 	it("(b) strips onerror from <img> tags", () => {

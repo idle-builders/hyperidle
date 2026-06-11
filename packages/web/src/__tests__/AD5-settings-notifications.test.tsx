@@ -55,7 +55,7 @@ type UseSettingsMock = {
 };
 
 function makeSettings(
-	notificationOverrides: Partial<UseSettingsMock["settings"]["notifications"]> = {},
+	notificationOverrides: Partial<NonNullable<UseSettingsMock["settings"]>["notifications"]> = {},
 ): UseSettingsMock["settings"] {
 	return {
 		profile: { name: "Test", email: "test@test.com", avatarUrl: "" },
@@ -90,7 +90,7 @@ describe("AD5 — AC-3: SettingsNotifications persists via useSettings", () => {
 			}),
 			status: "ready",
 			error: null,
-			save: saveMock,
+			save: saveMock as unknown as (...args: unknown[]) => Promise<void>,
 			retry: vi.fn(),
 			data: null,
 		});
@@ -137,7 +137,7 @@ describe("AD5 — AC-3: SettingsNotifications persists via useSettings", () => {
 		});
 
 		// save() should receive updated settings with reviewAlerts: true (was false)
-		const savedArg = saveMock.mock.calls[0][0] as { notifications: { reviewAlerts: boolean } };
+		const savedArg = saveMock.mock.calls[0]![0] as { notifications: { reviewAlerts: boolean } };
 		expect(savedArg.notifications.reviewAlerts).toBe(true);
 	});
 
@@ -153,7 +153,7 @@ describe("AD5 — AC-3: SettingsNotifications persists via useSettings", () => {
 		});
 
 		// save() should receive updated settings with costAlerts: false (was true)
-		const savedArg = saveMock.mock.calls[0][0] as { notifications: { costAlerts: boolean } };
+		const savedArg = saveMock.mock.calls[0]![0] as { notifications: { costAlerts: boolean } };
 		expect(savedArg.notifications.costAlerts).toBe(false);
 	});
 

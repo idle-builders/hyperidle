@@ -8,7 +8,7 @@ describe("SkeletonList", () => {
 		const rows = screen.getAllByTestId("skeleton-row");
 		expect(rows).toHaveLength(4);
 		// Custom skeleton-pulse animation is part of every row.
-		expect(rows[0].className).toMatch(/skeleton-pulse/);
+		expect(rows[0]!.className).toMatch(/skeleton-pulse/);
 	});
 
 	it("exposes an aria-live status so loading is announced", () => {

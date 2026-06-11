@@ -42,7 +42,7 @@ describe("HostThreadSection prefill (L18)", () => {
 
 	it("renders the Re: chip when prefill is set", () => {
 		vi.mocked(useHostThread).mockReturnValue({
-			data: { thread: THREAD_FIXTURE, messages: [] },
+			data: { thread: THREAD_FIXTURE, messages: [], identities: {} },
 			error: null,
 			isLoading: false,
 			refresh: vi.fn(),
@@ -64,7 +64,7 @@ describe("HostThreadSection prefill (L18)", () => {
 
 	it("does not render the Re: chip when no prefill is set", () => {
 		vi.mocked(useHostThread).mockReturnValue({
-			data: { thread: THREAD_FIXTURE, messages: [] },
+			data: { thread: THREAD_FIXTURE, messages: [], identities: {} },
 			error: null,
 			isLoading: false,
 			refresh: vi.fn(),
@@ -79,7 +79,7 @@ describe("HostThreadSection prefill (L18)", () => {
 		const user = userEvent.setup();
 		const onClearPrefill = vi.fn();
 		vi.mocked(useHostThread).mockReturnValue({
-			data: { thread: THREAD_FIXTURE, messages: [] },
+			data: { thread: THREAD_FIXTURE, messages: [], identities: {} },
 			error: null,
 			isLoading: false,
 			refresh: vi.fn(),
@@ -103,7 +103,7 @@ describe("HostThreadSection prefill (L18)", () => {
 
 	it("does not render dismiss button when onClearPrefill is not provided", () => {
 		vi.mocked(useHostThread).mockReturnValue({
-			data: { thread: THREAD_FIXTURE, messages: [] },
+			data: { thread: THREAD_FIXTURE, messages: [], identities: {} },
 			error: null,
 			isLoading: false,
 			refresh: vi.fn(),

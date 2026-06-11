@@ -28,6 +28,7 @@ const baseProps = {
 	onCocClick: vi.fn(),
 	cocOverlayOpen: false,
 	onSettingsClick: vi.fn(),
+	onSearchClick: vi.fn(),
 	settingsOpen: false,
 };
 

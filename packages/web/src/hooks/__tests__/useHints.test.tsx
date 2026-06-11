@@ -224,7 +224,7 @@ describe("useHint — via HintProvider", () => {
 		});
 
 		// Second call is the POST dismiss
-		const secondCall = fetchSpy.mock.calls[1];
+		const secondCall = fetchSpy.mock.calls[1]!;
 		const url = secondCall[0] as string;
 		expect(url).toContain("/api/hint-progress/create-bet/dismiss");
 		const init = secondCall[1] as RequestInit;

@@ -96,6 +96,8 @@ const TEAM_WITH_AGENTS: TeamDetail = {
 		costActual: null,
 		costCap: null,
 		capacity: 5,
+		betCostActual: null,
+		routineCostThisMonth: null,
 		activeBets: 0,
 	},
 	activeBets: [],

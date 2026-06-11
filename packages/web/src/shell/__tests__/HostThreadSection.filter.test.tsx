@@ -110,7 +110,7 @@ describe("AC-5 — filterBlockId prop shows only matching messages", () => {
 
 	it("shows only block-A messages when filterBlockId='block-filter-A'", () => {
 		vi.mocked(useHostThread).mockReturnValue({
-			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE },
+			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE, identities: {} },
 			error: null,
 			isLoading: false,
 			refresh: vi.fn(),
@@ -137,7 +137,7 @@ describe("AC-5 — filterBlockId prop shows only matching messages", () => {
 
 	it("shows only block-B message when filterBlockId='block-filter-B'", () => {
 		vi.mocked(useHostThread).mockReturnValue({
-			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE },
+			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE, identities: {} },
 			error: null,
 			isLoading: false,
 			refresh: vi.fn(),
@@ -160,7 +160,7 @@ describe("AC-5 — filterBlockId prop shows only matching messages", () => {
 
 	it("shows all 5 messages when filterBlockId is not set", () => {
 		vi.mocked(useHostThread).mockReturnValue({
-			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE },
+			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE, identities: {} },
 			error: null,
 			isLoading: false,
 			refresh: vi.fn(),
@@ -187,7 +187,7 @@ describe("AC-5 — 'Show all messages' toggle when filter is active", () => {
 
 	it("renders a 'Show all messages' toggle when filterBlockId is set", () => {
 		vi.mocked(useHostThread).mockReturnValue({
-			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE },
+			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE, identities: {} },
 			error: null,
 			isLoading: false,
 			refresh: vi.fn(),
@@ -208,7 +208,7 @@ describe("AC-5 — 'Show all messages' toggle when filter is active", () => {
 
 	it("does NOT render a 'Show all messages' toggle when filterBlockId is not set", () => {
 		vi.mocked(useHostThread).mockReturnValue({
-			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE },
+			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE, identities: {} },
 			error: null,
 			isLoading: false,
 			refresh: vi.fn(),
@@ -232,7 +232,7 @@ describe("AC-5 — clicking 'Show all messages' reveals all messages", () => {
 	it("clicking 'Show all messages' shows all 5 messages", async () => {
 		const user = userEvent.setup();
 		vi.mocked(useHostThread).mockReturnValue({
-			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE },
+			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE, identities: {} },
 			error: null,
 			isLoading: false,
 			refresh: vi.fn(),
@@ -266,7 +266,7 @@ describe("AC-5 — clicking 'Show all messages' reveals all messages", () => {
 	it("after clicking 'Show all', the toggle is no longer visible", async () => {
 		const user = userEvent.setup();
 		vi.mocked(useHostThread).mockReturnValue({
-			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE },
+			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE, identities: {} },
 			error: null,
 			isLoading: false,
 			refresh: vi.fn(),
@@ -293,7 +293,7 @@ describe("AC-5 — clicking 'Show all messages' reveals all messages", () => {
 		// immediately applies to block-A's messages instead of remaining expanded.
 		const user = userEvent.setup();
 		vi.mocked(useHostThread).mockReturnValue({
-			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE },
+			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE, identities: {} },
 			error: null,
 			isLoading: false,
 			refresh: vi.fn(),

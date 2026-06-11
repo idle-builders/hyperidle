@@ -209,7 +209,7 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 		});
 
 		const textareas = screen.queryAllByRole("textbox");
-		const messageInput = textareas[textareas.length - 1];
+		const messageInput = textareas[textareas.length - 1]!;
 		await user.click(messageInput);
 		await user.type(messageInput, "Hello agent");
 
@@ -220,7 +220,7 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 			await waitFor(() => {
 				expect(posts.length).toBeGreaterThan(0);
 			});
-			const body = posts[0].body as Record<string, unknown>;
+			const body = posts[0]!.body as Record<string, unknown>;
 			expect(body.hostKind).toBeDefined();
 		}
 	});

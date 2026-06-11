@@ -34,7 +34,7 @@ describe("parseStoryModules", () => {
 		const fake = parsed.find((m) => m.meta.title === "Fake");
 		expect(fake).toBeDefined();
 		expect(fake?.variants).toHaveLength(1);
-		expect(fake?.variants[0].Component).toBe(TestComponent);
+		expect(fake?.variants[0]?.Component).toBe(TestComponent);
 	});
 
 	it("keeps legacy function-style stories working (additive)", () => {
@@ -49,7 +49,7 @@ describe("parseStoryModules", () => {
 		const parsed = parseStoryModules(fakeModules) as ParsedStory[];
 		const legacy = parsed.find((m) => m.meta.title === "Legacy");
 		expect(legacy).toBeDefined();
-		expect(legacy?.variants[0].Component).toBe(Legacy);
+		expect(legacy?.variants[0]?.Component).toBe(Legacy);
 	});
 
 	it("uses the object's .name field as the variant name when available", () => {
@@ -63,7 +63,7 @@ describe("parseStoryModules", () => {
 		};
 		const parsed = parseStoryModules(fakeModules) as ParsedStory[];
 		const named = parsed.find((m) => m.meta.title === "Named");
-		expect(named?.variants[0].name).toBe("Primary variant");
+		expect(named?.variants[0]?.name).toBe("Primary variant");
 	});
 
 	it("ignores objects that do not have a function .render", () => {

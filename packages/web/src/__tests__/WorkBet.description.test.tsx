@@ -78,6 +78,7 @@ function makeBet(status: BetDetail["status"], overrides?: Partial<BetDetail>): B
 		title: "Test Bet",
 		team: "Test Team",
 		status,
+		atRisk: false,
 		costAppetite: null,
 		tokenAppetite: null,
 		costActual: null,

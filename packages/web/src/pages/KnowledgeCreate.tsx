@@ -48,7 +48,13 @@ export function KnowledgeCreate(): JSX.Element {
 	 * AD6: 3-pill scope picker replaces 7-item SCOPE_KINDS dropdown.
 	 * Default: Shared (→ factory scopeKind).
 	 */
-	const [selectedScope, setSelectedScope] = useState<ScopeCreateOption>(SCOPE_CREATE_OPTIONS[0]);
+	// SCOPE_CREATE_OPTIONS is a constant array of 3 items; index 0 is always defined.
+	const defaultScope: ScopeCreateOption = SCOPE_CREATE_OPTIONS[0] ?? {
+		label: "Shared",
+		id: "shared",
+		scopeKind: "factory",
+	};
+	const [selectedScope, setSelectedScope] = useState<ScopeCreateOption>(defaultScope);
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -182,7 +188,7 @@ export function KnowledgeCreate(): JSX.Element {
 						>
 							<BodyEditor
 								initialContent=""
-								onChange={(md) => setBody(md)}
+								onChange={(md: string) => setBody(md)}
 								placeholder="Describe it in markdown…"
 								variant="full"
 								minHeight="260px"

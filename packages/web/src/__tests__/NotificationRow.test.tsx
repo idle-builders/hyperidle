@@ -90,8 +90,8 @@ describe("NotificationRow", () => {
 		const severities = ["healthy", "behind", "blocked", "paused", "done", "error"] as const;
 		const expectedTexts = ["HEALTHY", "BEHIND", "BLOCKED", "PAUSED", "DONE", "ERROR"];
 		for (let i = 0; i < severities.length; i++) {
-			const { unmount } = render(<NotificationRow {...defaultProps} severity={severities[i]} />);
-			expect(screen.getByText(expectedTexts[i])).toBeInTheDocument();
+			const { unmount } = render(<NotificationRow {...defaultProps} severity={severities[i]!} />);
+			expect(screen.getByText(expectedTexts[i]!)).toBeInTheDocument();
 			unmount();
 		}
 	});

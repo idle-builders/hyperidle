@@ -56,10 +56,15 @@ if (typeof window !== "undefined" && window.localStorage === undefined) {
  * vi.useFakeTimers(), causing every waitFor call to hang until test timeout.
  * Vitest does not expose a `jest` global even with globals:true.
  */
-globalThis.jest = {
-	...globalThis.jest,
+// @lore AF5: globalThis has no index signature; cast to Record to suppress TS7017.
+// typeof jest is a namespace not a value; cast via unknown to suppress TS2708.
+// This shim is test-only and the cast is safe — we are constructing the minimal
+// jest-compat shape that RTL's waitFor checks for fake-timer detection.
+const globalAny = globalThis as Record<string, unknown>;
+globalAny.jest = {
+	...(globalAny.jest as Record<string, unknown>),
 	advanceTimersByTime: vi.advanceTimersByTime.bind(vi),
-} as typeof jest;
+};
 
 /**
  * @lore React Router v7 creates Request objects with AbortSignal via
