@@ -32,6 +32,8 @@ interface CreateKnowledgePayload {
 	format: string;
 	scopeKind: ScopeKind;
 	updatedBy: string;
+	/** AF13 §1: human-authored items are created as active immediately. */
+	status: "active";
 }
 
 interface CreateKnowledgeResponse {
@@ -58,11 +60,11 @@ export function KnowledgeCreate(): JSX.Element {
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	// Team pill is disabled when the user has no teamId.
-	// @lore AD6: CurrentUser does not yet include teamId — team feature is not
-	// fully implemented. Until the user model is extended, team scope is always
-	// disabled. When teamId is added to CurrentUser, use user?.teamId !== undefined.
-	const hasTeam: boolean = false;
+	// AF13 §6: Team pill is data-driven — enabled only when the user belongs to a team.
+	// @lore AF13: CurrentUser.teamId is now populated from the API (GET /api/auth/me).
+	// The previous hardcoded false is replaced by a live check so the team scope
+	// pill becomes available as soon as the user joins a team.
+	const hasTeam: boolean = user?.teamId !== undefined;
 
 	const canCreate = title.trim().length > 0 && body.trim().length > 0 && !submitting;
 
@@ -80,6 +82,9 @@ export function KnowledgeCreate(): JSX.Element {
 			format: "markdown",
 			scopeKind: selectedScope.scopeKind,
 			updatedBy: user?.id ?? "human",
+			// AF13 §1: human-initiated creates are immediately active (not draft).
+			// The server honors the requested status; agents omit status and get "draft".
+			status: "active",
 		};
 
 		const res = await apiFetch("/api/knowledge", {

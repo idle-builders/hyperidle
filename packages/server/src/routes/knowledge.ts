@@ -294,6 +294,10 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 	// GET /:id — single item, emit knowledge_accessed event
 	// Q2: returns 404 for user-scoped items not authored by the requesting user.
+	// AF13 §5: accessCount (30-day window) computed BEFORE the best-effort access-log
+	// insert so the current page-load is NOT counted (WARNING 1 from architecture-critique).
+	// AF13 §5: relatedItems computed as same-topic items visible to the requesting user,
+	// capped at 10, null-topic → [] (WARNING 2 from architecture-critique).
 	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const id = c.req.param("id");
 		const userId = c.get("userId");
@@ -334,8 +338,44 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			return c.json(response, 404);
 		}
 
+		// AF13 §5 WARNING 1: Count access-log rows STRICTLY BEFORE the insert so the
+		// current page-load is not counted. accessCount reflects historical accesses only.
+		// @lore AF13: Order matters: count → insert. Swapping would produce N+1 counts.
+		const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+		const [accessCountRow] = await db
+			.select({ count: sql<number>`count(*)` })
+			.from(knowledgeAccessLog)
+			.where(
+				and(
+					eq(knowledgeAccessLog.itemId, item.id),
+					sql`${knowledgeAccessLog.accessedAt} >= ${thirtyDaysAgo}`,
+				),
+			);
+		const accessCount = Number(accessCountRow?.count ?? 0);
+
+		// AF13 §5 WARNING 2: relatedItems — same-topic items visible to this user, capped at 10.
+		// null-topic → [] (no topic match means no related items).
+		// User-scope filter: exclude other users' private (user-scoped) items.
+		let relatedItems: Array<{ id: string; title: string }> = [];
+		if (item.topic !== null) {
+			const relatedRows = await db
+				.select({ id: knowledgeItems.id, title: knowledgeItems.title })
+				.from(knowledgeItems)
+				.where(
+					and(
+						eq(knowledgeItems.topic, item.topic),
+						ne(knowledgeItems.id, item.id),
+						// User-scope filter: same as GET / — include if not user-scoped OR author is requester
+						or(ne(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.updatedBy, userId)),
+					),
+				)
+				.limit(10);
+			relatedItems = relatedRows;
+		}
+
 		// L22: append access-log row (best-effort — never break the read)
 		// @lore O2: accessor_kind defaults to "human" for browser-initiated reads.
+		// @lore AF13: INSERT happens AFTER the count query so accessCount excludes own load.
 		try {
 			await db.insert(knowledgeAccessLog).values({
 				id: crypto.randomUUID(),
@@ -364,6 +404,9 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			kind: row.kind ?? undefined,
 			layer: row.layer ?? undefined,
 			confidence: row.confidence ? Number.parseFloat(row.confidence) : undefined,
+			// AF13 §5: computed metadata fields
+			accessCount,
+			relatedItems,
 		});
 	});
 
