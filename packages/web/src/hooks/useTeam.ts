@@ -5,8 +5,10 @@
  * @lore U11: Migrated from /api/products/:id to /api/teams/:id (server route renamed in U2).
  * @lore L13: No caching, no retry, no SWR — when a real data layer
  * (React Query, RSC, etc.) lands track-wide, replace this hook in one edit.
- * @lore AF16 T3: Added `refetch` (fetchCount bump) to mirror useTeamAgents.refetch pattern,
- * so post-mutation callers (e.g. RoutineCreateDialog.onCreated) can trigger a fresh load.
+ *
+ * @lore AF16 T3: Added `refetch()` callback (fetchCount increment) so WorkTeam
+ * can re-fetch team data after a routine is created without a page reload.
+ * The fetchCount trick is an intentional trigger pattern — biome suppressed below.
  */
 
 import type { TeamDetail } from "@hyperidle/shared";
@@ -17,20 +19,20 @@ export interface UseTeamResult {
 	data: TeamDetail | null;
 	loading: boolean;
 	error: Error | null;
-	/** Re-fetches the team. Call after create/update to refresh. */
 	refetch: () => void;
 }
 
 export function useTeam(teamId: string | undefined): UseTeamResult {
-	const [fetchCount, setFetchCount] = useState(0);
 	const [data, setData] = useState<TeamDetail | null>(null);
 	const [loading, setLoading] = useState(teamId !== undefined);
 	const [error, setError] = useState<Error | null>(null);
+	const [fetchCount, setFetchCount] = useState(0);
 
 	const refetch = useCallback((): void => {
 		setFetchCount((c) => c + 1);
 	}, []);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: fetchCount is an intentional trigger dep (counter pattern)
 	useEffect(() => {
 		if (!teamId) {
 			setData(null);
@@ -63,7 +65,7 @@ export function useTeam(teamId: string | undefined): UseTeamResult {
 		return (): void => {
 			cancelled = true;
 		};
-		// fetchCount in deps so refetch() triggers a new fetch
+		// fetchCount in deps so refetch() triggers a new fetch (counter pattern).
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [teamId, fetchCount]);
 

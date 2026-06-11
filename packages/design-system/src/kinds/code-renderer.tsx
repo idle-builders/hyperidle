@@ -48,7 +48,7 @@ export function CodeRenderer({ preview }: CodeRendererProps): JSX.Element {
 							<div
 								key={`${hunk.header}-${li}-${line.kind}`}
 								data-diff-type={line.kind}
-								className={`px-2 py-[2px] ${LINE_CLASSES[line.kind]}`}
+								className={`px-2 py-[3px] ${LINE_CLASSES[line.kind]}`}
 							>
 								<span className="select-none text-[var(--text-tertiary)] mr-2">
 									{LINE_PREFIX[line.kind]}

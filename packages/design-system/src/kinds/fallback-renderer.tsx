@@ -37,7 +37,7 @@ export function FallbackRenderer({ preview, kind }: FallbackRendererProps): JSX.
 		<section aria-label={`${kind} preview`} className="flex flex-col gap-1">
 			{entries.map(([key, val]) => (
 				<div key={key} className="flex gap-3 text-sm">
-					<span className="text-[var(--text-tertiary)] font-mono text-[11px] uppercase tracking-[0.06em] w-24 shrink-0 pt-[1px]">
+					<span className="text-[var(--text-tertiary)] font-mono text-[11px] uppercase tracking-[0.06em] w-24 shrink-0 pt-[3px]">
 						{key}
 					</span>
 					<span className="text-[var(--text-primary)] break-all">{renderValue(val)}</span>

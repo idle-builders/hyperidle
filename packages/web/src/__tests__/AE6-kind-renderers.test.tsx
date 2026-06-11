@@ -4,20 +4,20 @@
 //
 // These tests will FAIL until the green phase creates the implementations.
 
-import { render, screen } from "@testing-library/react";
-import { Suspense } from "react";
-import { describe, expect, it } from "vitest";
 // AF16 T9: renderer imports updated — moved from packages/web/src/kinds/ to @hyperidle/design-system
 import {
 	CodeRenderer,
 	DataRenderer,
 	FallbackRenderer,
+	getRenderer,
 	HtmlRenderer,
 	ImageRenderer,
 	TextRenderer,
 	UrlRenderer,
-	getRenderer,
 } from "@hyperidle/design-system";
+import { render, screen } from "@testing-library/react";
+import { Suspense } from "react";
+import { describe, expect, it } from "vitest";
 
 // -------------------------------------------------------------------
 // TextRenderer
