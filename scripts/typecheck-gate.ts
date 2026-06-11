@@ -211,6 +211,41 @@ function printSummary(
   process.stdout.write("\n");
 }
 
+// -- Leaf declaration pre-build --
+
+/**
+ * @lore Z8-170: Build composite leaf declarations (shared, db) to `dist/` before
+ * the per-package measurement loop. Without fresh leaf `.d.ts`, reference-consumers
+ * (server/web) resolve cross-package imports to `any`, producing a ~3400-error
+ * TS7031 fixture-binding cascade phantom — which silently passes while those
+ * packages are quarantined but makes DRAINING them (AF4 server / AF5 web)
+ * impossible. CI re-runs this gate live on a dist-free `npm ci` tree (post-#246),
+ * so the build must happen here for the gate to measure real errors deterministically.
+ *
+ * Built SEPARATELY in dependency order (shared, then db). A combined
+ * `tsc -b shared db` scatters generated files into the packages' `src` dirs, which
+ * the downstream biome lint step then flags as ~714 phantom noBannedTypes errors;
+ * separate ordered builds emit cleanly to `dist/` (gitignored) only. The `tsc -b`
+ * exit code is ignored — db emits TS6059 reference-noise (its tsconfig declares no
+ * `references` entry for shared) but still emits the declarations, and any genuine
+ * shared/db error is still caught by their own `tsc --noEmit -p` measurement below.
+ *
+ * fabric is intentionally NOT built: building it exposes a real pre-existing eval
+ * bug (AD8c — `clearBuiltinCostSentinelCache` removed from fabric, unpropagated to
+ * eval scenarios) that is out of scope here. fabric stays source-resolved, exactly
+ * as on origin/main. See plans/Z8/master-flag-register.md Z8-170.
+ */
+function buildLeafDeclarations(root: string): void {
+  for (const leaf of ["shared", "db"]) {
+    try {
+      execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });
+    } catch {
+      // tsc -b exits non-zero on reference-noise (TS6059) but still emits the
+      // declarations to dist/. Real errors surface in the per-package measurement.
+    }
+  }
+}
+
 // -- Main --
 
 function main(): void {
@@ -238,6 +273,13 @@ function main(): void {
       process.exit(1);
     }
   }
+
+  // 3.5 Build leaf declarations so reference-consumers (server/web) measure real
+  // errors instead of the dist-free `any`-cascade phantom. See @lore above (Z8-170).
+  process.stderr.write(
+    "typecheck-gate: building leaf declarations (shared, db)...\n",
+  );
+  buildLeafDeclarations(root);
 
   process.stderr.write(
     `typecheck-gate: checking ${allPackages.length} packages...\n`,
