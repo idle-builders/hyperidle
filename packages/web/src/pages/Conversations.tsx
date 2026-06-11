@@ -46,9 +46,8 @@ import { ArtifactView } from "../shell/ArtifactView";
 import { ToastContext } from "../shell/ToastRegion";
 
 // ---------------------------------------------------------------------------
-// AF14 AC4: FilterChip (local helper) removed — Blocking/Unread chips removed from
-// Conversations page. The FilterChip design-system component remains available
-// for re-introduction when AF7 backing state lands.
+// AF14 AC4: Blocking/Unread chip bar removed from Conversations page — neither chip
+// matched real state. The blocking/unread fields remain on ThreadItem for AF7 forward-compat.
 
 /**
  * T4: renderRefEmbeds for Conversations — builds BlockRefEmbed cards for block refs.

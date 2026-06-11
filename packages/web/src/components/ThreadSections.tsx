@@ -43,6 +43,21 @@ export interface ThreadItem {
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
 /**
+ * AF14 AC1: Sort comparator for the flat thread list.
+ * Sorts by ISO `lastActiveAt` DESC; falls back to `id.localeCompare` when either
+ * timestamp is missing or unparseable (NaN).
+ *
+ * Exported so tests can assert directly on the production sort path rather than
+ * reimplementing the comparator inline (which would be a tautology).
+ */
+export function compareThreadsByLastActive(a: ThreadItem, b: ThreadItem): number {
+	const at = Date.parse(a.lastActiveAt);
+	const bt = Date.parse(b.lastActiveAt);
+	if (!(Number.isNaN(at) || Number.isNaN(bt))) return bt - at;
+	return a.id.localeCompare(b.id);
+}
+
+/**
  * Closed vocabulary for the Conversations filter chips (legacy string form).
  * Still used in AppShell OutletContext for backwards compatibility.
  *
@@ -217,18 +232,12 @@ export function ThreadSections({
 		// The blocking/unread fields remain on ThreadItem (forward-compatible for AF7).
 		const flatFiltered = [...threads];
 		// AF14 AC1: sort by ISO lastActiveAt DESC (not display timestamp — "5m" → NaN).
-		flatFiltered.sort((a, b) => {
-			const at = Date.parse(a.lastActiveAt);
-			const bt = Date.parse(b.lastActiveAt);
-			if (!(Number.isNaN(at) || Number.isNaN(bt))) return bt - at;
-			return a.id.localeCompare(b.id);
-		});
+		flatFiltered.sort(compareThreadsByLastActive);
 
 		return (
 			<div className="flex flex-col flex-1 overflow-y-auto">
 				{/* AF14 AC4: Blocking/Unread chip bar removed — neither chip matched real state.
-				    The blocking/unread FIELDS remain on ThreadItem (forward-compatible for AF7).
-				    The FilterChip component is retained for future re-introduction. */}
+				    The blocking/unread FIELDS remain on ThreadItem for AF7 forward-compat. */}
 				{flatFiltered.length === 0 ? (
 					<div className="flex flex-1 items-center justify-center p-[48px_24px]">
 						<EmptyState
