@@ -15,6 +15,7 @@ import { CREDENTIAL_CATALOG, CREDENTIAL_STATES, isCredentialName } from "@hyperi
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { createRateLimiter } from "../middleware/rate-limit.js";
 import {
@@ -176,7 +177,7 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	/** GET /api/credentials — list all catalog entries with state */
-	router.get("/", async (c) => {
+	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const rows = await db.select().from(serverCredentials);
 		const rowMap = new Map(rows.map((r) => [r.name, r]));
 
@@ -188,7 +189,7 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	});
 
 	/** PUT /api/credentials/:name — set credential (encrypt + store) */
-	router.put("/:name", mutateLimiter, async (c) => {
+	router.put("/:name", requireBoundary({ kind: "public-data" }), mutateLimiter, async (c) => {
 		const name = c.req.param("name");
 		if (!isCredentialName(name)) {
 			return c.json({ error: "Unknown credential name", code: "VALIDATION_ERROR" }, 400);
@@ -251,7 +252,7 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	});
 
 	/** DELETE /api/credentials/:name — remove credential */
-	router.delete("/:name", mutateLimiter, async (c) => {
+	router.delete("/:name", requireBoundary({ kind: "public-data" }), mutateLimiter, async (c) => {
 		const name = c.req.param("name");
 		if (!isCredentialName(name)) {
 			return c.json({ error: "Unknown credential name", code: "VALIDATION_ERROR" }, 400);
@@ -263,77 +264,82 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	});
 
 	/** POST /api/credentials/:name/validate — validate against external service */
-	router.post("/:name/validate", validateLimiter, async (c) => {
-		const name = c.req.param("name");
-		if (!isCredentialName(name)) {
-			return c.json({ error: "Unknown credential name", code: "VALIDATION_ERROR" }, 400);
-		}
-
-		// Check if credential exists
-		const [row] = await db
-			.select()
-			.from(serverCredentials)
-			.where(eq(serverCredentials.name, name))
-			.limit(1);
-
-		if (!row) {
-			return c.json({ valid: false, error: "Credential not set" }, 200);
-		}
-
-		// Decrypt the stored value for validation
-		const serverSecret = getServerSecret();
-		const plaintext = decryptCredentialValue(row.encryptedValue, serverSecret);
-
-		if (!plaintext) {
-			return c.json({ valid: false, error: "Credential decryption failed" }, 200);
-		}
-
-		// Call the appropriate external service to validate the key.
-		// @lore P3 F-ARCH-4: Each credential type dispatches to its own validator.
-		// Tests mock these external calls via vi.spyOn / global fetch mocking.
-		let validationResult: { valid: boolean; error?: string };
-		switch (name) {
-			case "anthropic_api_key":
-				validationResult = await validateAnthropicApiKey(plaintext);
-				break;
-			case "openrouter_api_key":
-				validationResult = await validateOpenRouterApiKey(plaintext);
-				break;
-			case "shared_backend_key": {
-				// Self-validate: use local server address
-				const port = process.env.PORT ?? "3001";
-				const selfUrl = `http://127.0.0.1:${port}`;
-				validationResult = await validateSharedBackendKey(plaintext, selfUrl);
-				break;
+	router.post(
+		"/:name/validate",
+		requireBoundary({ kind: "public-data" }),
+		validateLimiter,
+		async (c) => {
+			const name = c.req.param("name");
+			if (!isCredentialName(name)) {
+				return c.json({ error: "Unknown credential name", code: "VALIDATION_ERROR" }, 400);
 			}
-			default: {
-				// TypeScript exhaustive check — all CredentialName members are handled
-				// above, so `name` narrows to `never` here. Kept as a fail-closed guard
-				// (any future unhandled credential validates as invalid, never valid).
-				// @lore AF4/§5: switch is exhaustive over CredentialName (3 members);
-				// `void` marks the never-binding used (TS6133). No missing validator.
-				const exhaustive: never = name;
-				void exhaustive;
-				validationResult = { valid: false, error: "Unknown credential name" };
+
+			// Check if credential exists
+			const [row] = await db
+				.select()
+				.from(serverCredentials)
+				.where(eq(serverCredentials.name, name))
+				.limit(1);
+
+			if (!row) {
+				return c.json({ valid: false, error: "Credential not set" }, 200);
 			}
-		}
 
-		// Update validation state in DB
-		const now = new Date().toISOString();
-		const newState: CredentialState = validationResult.valid ? "valid" : "invalid";
+			// Decrypt the stored value for validation
+			const serverSecret = getServerSecret();
+			const plaintext = decryptCredentialValue(row.encryptedValue, serverSecret);
 
-		await db
-			.update(serverCredentials)
-			.set({ validationState: newState, lastValidatedAt: now, updatedAt: now })
-			.where(eq(serverCredentials.name, name));
+			if (!plaintext) {
+				return c.json({ valid: false, error: "Credential decryption failed" }, 200);
+			}
 
-		// Response MUST NOT include the raw value
-		const result: { valid: boolean; error?: string } = { valid: validationResult.valid };
-		if (validationResult.error) {
-			result.error = validationResult.error;
-		}
-		return c.json(result);
-	});
+			// Call the appropriate external service to validate the key.
+			// @lore P3 F-ARCH-4: Each credential type dispatches to its own validator.
+			// Tests mock these external calls via vi.spyOn / global fetch mocking.
+			let validationResult: { valid: boolean; error?: string };
+			switch (name) {
+				case "anthropic_api_key":
+					validationResult = await validateAnthropicApiKey(plaintext);
+					break;
+				case "openrouter_api_key":
+					validationResult = await validateOpenRouterApiKey(plaintext);
+					break;
+				case "shared_backend_key": {
+					// Self-validate: use local server address
+					const port = process.env.PORT ?? "3001";
+					const selfUrl = `http://127.0.0.1:${port}`;
+					validationResult = await validateSharedBackendKey(plaintext, selfUrl);
+					break;
+				}
+				default: {
+					// TypeScript exhaustive check — all CredentialName members are handled
+					// above, so `name` narrows to `never` here. Kept as a fail-closed guard
+					// (any future unhandled credential validates as invalid, never valid).
+					// @lore AF4/§5: switch is exhaustive over CredentialName (3 members);
+					// `void` marks the never-binding used (TS6133). No missing validator.
+					const exhaustive: never = name;
+					void exhaustive;
+					validationResult = { valid: false, error: "Unknown credential name" };
+				}
+			}
+
+			// Update validation state in DB
+			const now = new Date().toISOString();
+			const newState: CredentialState = validationResult.valid ? "valid" : "invalid";
+
+			await db
+				.update(serverCredentials)
+				.set({ validationState: newState, lastValidatedAt: now, updatedAt: now })
+				.where(eq(serverCredentials.name, name));
+
+			// Response MUST NOT include the raw value
+			const result: { valid: boolean; error?: string } = { valid: validationResult.valid };
+			if (validationResult.error) {
+				result.error = validationResult.error;
+			}
+			return c.json(result);
+		},
+	);
 
 	return router;
 }

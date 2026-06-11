@@ -13,6 +13,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
 import { Hono } from "hono";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { claimInvite } from "../services/invite-code.js";
 
 export function createPublicAuthRoutes(db: HyperIdleDb): Hono {
@@ -26,7 +27,7 @@ export function createPublicAuthRoutes(db: HyperIdleDb): Hono {
 	 * Response: { token: string, user: { id, name, email, kind, role } } (201)
 	 * Errors: 410 INVITE_CLAIMED, 410 INVITE_EXPIRED, 404 NOT_FOUND, 400 on validation
 	 */
-	router.post("/claim", async (c) => {
+	router.post("/claim", requireBoundary({ kind: "public-data" }), async (c) => {
 		let body: { code?: unknown; name?: unknown; email?: unknown };
 		try {
 			body = (await c.req.json()) as { code?: unknown; name?: unknown; email?: unknown };

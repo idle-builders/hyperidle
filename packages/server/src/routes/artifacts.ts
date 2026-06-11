@@ -17,6 +17,7 @@ import {
 import { and, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { createBodyLimit } from "../middleware/body-limit.js";
 import { validateBody } from "../middleware/validate.js";
 import { artifactPreviewSchema, fallbackPreviewSchema } from "../schemas/artifact-preview.js";
@@ -155,7 +156,7 @@ function rowToArtifact(row: ArtifactRow, producingTaskTitle: string): Artifact {
 export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono {
 	const router = new Hono();
 
-	router.get("/", async (c) => {
+	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const axis = c.req.query("axis");
 		if (axis !== "task" && axis !== "bet" && axis !== "product" && axis !== "portfolio") {
 			return c.json({ error: "Invalid axis", code: "INVALID_QUERY" }, 400);
@@ -265,7 +266,7 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 		return c.json(page);
 	});
 
-	router.get("/:id", async (c) => {
+	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const id = c.req.param("id");
 		const [row] = await db
 			.select({ artifact: artifacts, taskTitle: tasks.title })
@@ -291,6 +292,7 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 
 	router.post(
 		"/",
+		requireBoundary({ kind: "public-data" }),
 		createBodyLimit({ maxSize: PREVIEW_BODY_LIMIT }),
 		validateBody(createArtifactSchema),
 		async (c) => {
@@ -376,6 +378,7 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 
 	router.patch(
 		"/:id/preview",
+		requireBoundary({ kind: "public-data" }),
 		createBodyLimit({ maxSize: PREVIEW_BODY_LIMIT }),
 		validateBody(patchPreviewSchema),
 		async (c) => {

@@ -21,6 +21,7 @@ import { ORG_EDGE_MECHANISMS } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 
 const putOrgEdgeSchema = z.object({
@@ -36,7 +37,7 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	// GET / — full org chart
-	router.get("/", async (c) => {
+	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const edges = await db.select().from(orgEdges);
 		const allUsers = await db
 			.select({
@@ -51,7 +52,7 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	});
 
 	// PUT /edges — upsert an edge
-	router.put("/edges", async (c) => {
+	router.put("/edges", requireBoundary({ kind: "public-data" }), async (c) => {
 		let rawBody: unknown;
 		try {
 			rawBody = await c.req.json();
@@ -149,7 +150,7 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	});
 
 	// DELETE /edges/:id — delete an edge
-	router.delete("/edges/:id", async (c) => {
+	router.delete("/edges/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const id = c.req.param("id");
 
 		const [existing] = await db.select().from(orgEdges).where(eq(orgEdges.id, id)).limit(1);

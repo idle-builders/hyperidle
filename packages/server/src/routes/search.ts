@@ -34,6 +34,7 @@ import { API_ERROR_CODES, deriveTitle } from "@hyperidle/shared";
 import { and, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { escapeLikePattern } from "../services/like-escape.js";
 
@@ -82,7 +83,7 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 	const SEARCH_QUERY_SCHEMA = z.string().min(1).max(200);
 
 	// GET / — global search across conversations, work (bets), and knowledge
-	router.get("/", async (c) => {
+	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const userId = c.get("userId");
 		const rawQuery = c.req.query("q");
 

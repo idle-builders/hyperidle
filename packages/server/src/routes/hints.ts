@@ -14,6 +14,7 @@ import { type HyperIdleDb, hintProgress } from "@hyperidle/db";
 import { isHintId } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 
 export function createHintRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
@@ -24,7 +25,7 @@ export function createHintRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	 *
 	 * Response: { dismissed: Array<{ hintId: string; seenAt: string }> }
 	 */
-	router.get("/", async (c) => {
+	router.get("/", requireBoundary({ kind: "principal-self" }), async (c) => {
 		const userId = c.get("userId");
 		const rows = await db.select().from(hintProgress).where(eq(hintProgress.userId, userId));
 		return c.json({
@@ -47,7 +48,7 @@ export function createHintRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	 * existed (empty result). This avoids the SELECT-then-INSERT TOCTOU race condition
 	 * and does not rely on the SQLite-only `.changes` property.
 	 */
-	router.post("/:hintId/dismiss", async (c) => {
+	router.post("/:hintId/dismiss", requireBoundary({ kind: "principal-self" }), async (c) => {
 		const userId = c.get("userId");
 		const hintId = c.req.param("hintId");
 

@@ -9,6 +9,7 @@
 
 import { getDispatchQueueSnapshot } from "@hyperidle/fabric";
 import { Hono } from "hono";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 
 /**
  * Create a Hono router that exposes GET / → DispatchQueueSnapshot.
@@ -19,7 +20,7 @@ import { Hono } from "hono";
 export function createDispatchQueueRoutes(): Hono {
 	const router = new Hono();
 
-	router.get("/", (c) => {
+	router.get("/", requireBoundary({ kind: "public-data" }), (c) => {
 		const snapshot = getDispatchQueueSnapshot();
 		return c.json(snapshot);
 	});

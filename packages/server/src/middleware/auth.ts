@@ -48,6 +48,12 @@ export type HyperIdleEnv = {
 		userId: string;
 		authMethod: "api_key" | "login_session";
 		loginSessionId: string | undefined;
+		/**
+		 * AF11: Set by requireBoundary() middleware to record the declared
+		 * boundary kind for this route. The global fail-closed assertion
+		 * (in app.ts) checks this after the handler runs.
+		 */
+		__boundary: "enforced" | "principal-self" | "public-data" | undefined;
 	};
 };
 

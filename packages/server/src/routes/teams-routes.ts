@@ -52,6 +52,7 @@ import { AGENT_ROLE_CATALOG, defaultRoster, deriveTitle } from "@hyperidle/share
 import { and, count, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import type { AdapterPool } from "../harness/adapter-pool.js";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { deriveInitials } from "../services/agent-utils.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
 import { ApiError, loadTeamMembers } from "../services/team-lookup.js";
@@ -150,7 +151,7 @@ export function createTeamRoutes(
 	const router = new Hono();
 
 	// GET / — list all teams with portfolio counters
-	router.get("/", async (c) => {
+	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const allTeams = await db.select().from(teams);
 
 		const result: TeamListItem[] = await Promise.all(
@@ -316,7 +317,7 @@ export function createTeamRoutes(
 	// Backward compat: no `functions` in body defaults to ["development","product"].
 	// The teams.functions column stores the JSON array for future reference.
 	// Best-effort welcome message: failure does not roll back team creation.
-	router.post("/", async (c) => {
+	router.post("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		let body: unknown;
 		try {
 			body = await c.req.json();
@@ -503,7 +504,7 @@ export function createTeamRoutes(
 
 	// PATCH /:teamId — update team phase (active ↔ archived)
 	// P4 AC-18: SettingsTeams needs to toggle team active/archived state.
-	router.patch("/:teamId", async (c) => {
+	router.patch("/:teamId", requireBoundary({ kind: "public-data" }), async (c) => {
 		const teamId = c.req.param("teamId");
 
 		const [team] = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1);
@@ -544,7 +545,7 @@ export function createTeamRoutes(
 	});
 
 	// GET /:teamId — full TeamDetail
-	router.get("/:teamId", async (c) => {
+	router.get("/:teamId", requireBoundary({ kind: "public-data" }), async (c) => {
 		const teamId = c.req.param("teamId");
 
 		// 1. Look up the team

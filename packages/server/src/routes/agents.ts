@@ -23,6 +23,7 @@ import { and, count, eq, ne } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import type { AdapterPool } from "../harness/adapter-pool.js";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { handleAgentProfile } from "./agent-profile.js";
 
@@ -88,7 +89,7 @@ export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): H
 	// @lore AB1: Must be registered BEFORE /:id so "profile" is not captured
 	// as the id param when the URL is /api/agents/someId/profile.
 	// Hono matches routes by registration order within the same method.
-	router.get("/:id/profile", async (c) => {
+	router.get("/:id/profile", requireBoundary({ kind: "public-data" }), async (c) => {
 		return handleAgentProfile(c, db, adapterPool);
 	});
 
@@ -96,7 +97,7 @@ export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): H
 	// @lore X3: Hono matches routes in registration order. If /:id was registered
 	// first, "templates" would be captured as the id param. Register the static
 	// path prefix first.
-	router.get("/templates/:role", async (c) => {
+	router.get("/templates/:role", requireBoundary({ kind: "public-data" }), async (c) => {
 		const role = c.req.param("role");
 		const key = `soul_template:${role}`;
 
@@ -114,7 +115,7 @@ export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): H
 	});
 
 	// ── GET / — list AI agents (excludes system role and retired) ──
-	router.get("/", async (c) => {
+	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		// Query all non-system, non-retired AI agents
 		const agentRows = await db
 			.select()
@@ -147,7 +148,7 @@ export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): H
 	});
 
 	// ── POST / — create new agent ──
-	router.post("/", async (c) => {
+	router.post("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		let rawBody: unknown;
 		try {
 			rawBody = await c.req.json();
@@ -204,7 +205,7 @@ export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): H
 	});
 
 	// ── PATCH /:id — update agent config ──
-	router.patch("/:id", async (c) => {
+	router.patch("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const id = c.req.param("id");
 
 		const [existing] = await db.select().from(users).where(eq(users.id, id)).limit(1);
@@ -266,7 +267,7 @@ export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): H
 	});
 
 	// ── DELETE /:id — soft-delete (status = "retired") ──
-	router.delete("/:id", async (c) => {
+	router.delete("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const id = c.req.param("id");
 
 		const [existing] = await db.select().from(users).where(eq(users.id, id)).limit(1);

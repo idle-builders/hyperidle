@@ -24,6 +24,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { ModelGatewayConfig, ModelTierConfig } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { z } from "zod";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
 import {
 	ModelGatewayConfigSchema,
@@ -100,7 +101,7 @@ export function createModelGatewayRoutes(db: HyperIdleDb): Hono {
 	 * GET /api/model-gateway
 	 * Returns current gateway config. Strips apiKey, returns hasApiKey instead.
 	 */
-	router.get("/", async (c) => {
+	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const config = await readServerConfig(db);
 		return c.json(sanitizeConfig(config.modelGateway));
 	});
@@ -109,12 +110,17 @@ export function createModelGatewayRoutes(db: HyperIdleDb): Hono {
 	 * PATCH /api/model-gateway
 	 * Accepts a full ModelGatewayConfig. Validates, persists, returns sanitized config.
 	 */
-	router.patch("/", validateBody(PatchModelGatewaySchema), async (c) => {
-		const body = c.req.valid("json" as never) as ModelGatewayConfig;
+	router.patch(
+		"/",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(PatchModelGatewaySchema),
+		async (c) => {
+			const body = c.req.valid("json" as never) as ModelGatewayConfig;
 
-		const updated = await updateServerConfig(db, { modelGateway: body });
-		return c.json(sanitizeConfig(updated.modelGateway));
-	});
+			const updated = await updateServerConfig(db, { modelGateway: body });
+			return c.json(sanitizeConfig(updated.modelGateway));
+		},
+	);
 
 	return router;
 }

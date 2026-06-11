@@ -29,31 +29,20 @@ import type {
 } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
 
-const SENDER_HEADER = "X-Identity";
+// @lore AF11-IDOR: SENDER_HEADER and readSenderId removed. Authorization paths
+// (thread scoping, participant checks) MUST derive identity from c.get("userId")
+// (the authenticated Principal set by auth middleware). X-Identity is a client-
+// supplied header — using it for authz allows IDOR.
 
 /** @lore L21: The system agent uses the existing seed-agent-cos id (not "agent-coc"). */
 // @lore AD8a: COC_AGENT_ID and COC_AGENT_ROLE stay as-is — AD8b renames them when restructuring this file.
 const COC_AGENT_ID = "seed-agent-cos";
 const COC_AGENT_DISPLAY_NAME = "System Agent";
 const COC_AGENT_ROLE = "assistant";
-
-/**
- * Read the sender id. Prefers X-Identity header; falls back to the auth context
- * userId set by createAuthMiddleware(db).
- *
- * @lore M3 A6: DEFAULT_FOUNDER_ID constant deleted. The fallback is now the
- * auth context userId (resolved from users WHERE kind = 'human' LIMIT 1). This
- * ensures the coach thread is created for the configured founder, not a hardcoded literal.
- */
-function readSenderId(c: {
-	req: { header: (k: string) => string | undefined };
-	get: (k: "userId") => string;
-}): string {
-	return c.req.header(SENDER_HEADER) ?? c.get("userId");
-}
 
 function rowToThread(row: {
 	id: string;
@@ -163,8 +152,11 @@ export function createCoachRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<Hy
 	 * to its creation the way they would to a new task thread. This keeps the
 	 * event stream clean.
 	 */
-	router.get("/", async (c) => {
-		const userId = readSenderId(c);
+	router.get("/", requireBoundary({ kind: "principal-self" }), async (c) => {
+		// @lore AF11-IDOR: identity for data-scoping MUST come from c.get("userId")
+		// (the authenticated Principal set by auth middleware), never from X-Identity
+		// header which is client-supplied and enables IDOR. See AF11 fix.
+		const userId = c.get("userId");
 
 		// Find existing pinned coach thread for this user.
 		const [existing] = await db

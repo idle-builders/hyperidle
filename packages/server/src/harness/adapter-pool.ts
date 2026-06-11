@@ -90,6 +90,11 @@ export class AdapterPool {
 		this.entries.delete(id);
 	}
 
+	/** Returns true if an adapter is registered under the given id. */
+	has(id: string): boolean {
+		return this.entries.has(id);
+	}
+
 	/** List all registered adapters as AdapterInfo (snapshot). */
 	list(): AdapterInfo[] {
 		return Array.from(this.entries.entries()).map(([id, entry]) => ({

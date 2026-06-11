@@ -24,6 +24,7 @@ import type { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { readServerConfig, updateServerConfig } from "../services/server-config.js";
 
@@ -59,11 +60,11 @@ type SettingsPatchBody = z.infer<typeof settingsPatchSchema>;
 export function createSettingsRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
-	router.get("/", async (c) => {
+	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		return c.json(await buildSettingsResponse(db));
 	});
 
-	router.patch("/", async (c) => {
+	router.patch("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		let rawBody: unknown;
 		try {
 			rawBody = await c.req.json();

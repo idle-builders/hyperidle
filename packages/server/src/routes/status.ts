@@ -5,6 +5,7 @@ import { API_ERROR_CODES } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
 
 const updateSettingSchema = z.object({
@@ -70,12 +71,12 @@ export function createStatusRoutes(db: HyperIdleDb): Hono {
 	// GET /health — Authenticated status probe. Distinct from the public
 	// `/api/health` (liveness) — this route sits behind the auth middleware
 	// and is the canonical "status/health" endpoint referenced by I1 S1.
-	router.get("/health", (c) => {
+	router.get("/health", requireBoundary({ kind: "public-data" }), (c) => {
 		return c.json({ status: "ok", timestamp: new Date().toISOString() });
 	});
 
 	// GET / — Factory-wide status
-	router.get("/", async (c) => {
+	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const activeSessions = await db.select().from(sessions).where(eq(sessions.state, "active"));
 
 		const allAgents = await db.select().from(users);
@@ -107,7 +108,7 @@ export function createStatusRoutes(db: HyperIdleDb): Hono {
 	// GET /settings — List all factory settings. Credentials in
 	// SECRET_SETTING_KEYS are redacted before the response leaves the
 	// process (I1 security-H1).
-	router.get("/settings", async (c) => {
+	router.get("/settings", requireBoundary({ kind: "public-data" }), async (c) => {
 		const allSettings = await db.select().from(factorySettings);
 		return c.json(allSettings.map(redactSettingRow));
 	});
@@ -119,42 +120,47 @@ export function createStatusRoutes(db: HyperIdleDb): Hono {
 	// I2 V5: keys with reserved namespace prefixes are routed to their
 	// domain-specific config endpoints; this generic write rejects them
 	// with 400 so structured-config invariants stay intact.
-	router.patch("/settings", validateBody(updateSettingSchema), async (c) => {
-		const body = c.req.valid("json" as never) as z.infer<typeof updateSettingSchema>;
+	router.patch(
+		"/settings",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(updateSettingSchema),
+		async (c) => {
+			const body = c.req.valid("json" as never) as z.infer<typeof updateSettingSchema>;
 
-		if (isBlockedSettingKey(body.key)) {
-			const response: ApiErrorResponse = {
-				error: `Setting key '${body.key}' is reserved. Use the dedicated /api/{notifications,observability,git-export}/config routes instead.`,
-				code: API_ERROR_CODES.VALIDATION_ERROR,
-			};
-			return c.json(response, 400);
-		}
+			if (isBlockedSettingKey(body.key)) {
+				const response: ApiErrorResponse = {
+					error: `Setting key '${body.key}' is reserved. Use the dedicated /api/{notifications,observability,git-export}/config routes instead.`,
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+				};
+				return c.json(response, 400);
+			}
 
-		const now = new Date().toISOString();
+			const now = new Date().toISOString();
 
-		await db
-			.insert(factorySettings)
-			.values({
-				key: body.key,
-				value: body.value,
-				updatedAt: now,
-			})
-			.onConflictDoUpdate({
-				target: factorySettings.key,
-				set: { value: body.value, updatedAt: now },
-			});
+			await db
+				.insert(factorySettings)
+				.values({
+					key: body.key,
+					value: body.value,
+					updatedAt: now,
+				})
+				.onConflictDoUpdate({
+					target: factorySettings.key,
+					set: { value: body.value, updatedAt: now },
+				});
 
-		const [updated] = await db
-			.select()
-			.from(factorySettings)
-			.where(eq(factorySettings.key, body.key))
-			.limit(1);
+			const [updated] = await db
+				.select()
+				.from(factorySettings)
+				.where(eq(factorySettings.key, body.key))
+				.limit(1);
 
-		return c.json(updated ? redactSettingRow(updated) : updated);
-	});
+			return c.json(updated ? redactSettingRow(updated) : updated);
+		},
+	);
 
 	// GET /digest — Daily digest of queued items from past 24h
-	router.get("/digest", async (c) => {
+	router.get("/digest", requireBoundary({ kind: "public-data" }), async (c) => {
 		const digest = await getDailyDigest(db);
 		return c.json(digest);
 	});

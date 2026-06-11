@@ -3,6 +3,7 @@ import type { ApiErrorResponse, Logger } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger } from "@hyperidle/shared";
 import { Hono, type MiddlewareHandler } from "hono";
 import z from "zod";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
 import {
 	type ObservabilityConfig,
@@ -112,7 +113,7 @@ export function createObservabilityRoutes(
 	// @lore I1 simplification-#2: previous handler read + redacted the
 	// observability config on every request. Callers that want config
 	// hit `/config`.
-	router.get("/", (c) =>
+	router.get("/", requireBoundary({ kind: "public-data" }), (c) =>
 		c.json({
 			ok: true,
 			resource: "observability",
@@ -120,43 +121,49 @@ export function createObservabilityRoutes(
 		}),
 	);
 
-	router.get("/config", async (c) => {
+	router.get("/config", requireBoundary({ kind: "public-data" }), async (c) => {
 		const cfg = await readObservabilityConfig(db);
 		return c.json(redactObservabilityConfig(cfg));
 	});
 
-	router.patch("/config", requestSizeCap, validateBody(patchConfigSchema), async (c) => {
-		const body = c.req.valid("json");
-		const reason = validatePatchBody(body);
-		if (reason !== null) {
-			const response: ApiErrorResponse = {
-				error: reason,
-				code: API_ERROR_CODES.VALIDATION_ERROR,
-			};
-			return c.json(response, 400);
-		}
-		const diff = auditDiff(body);
-		const updated = await updateObservabilityConfig(db, body);
-		auditLogger.info("config_changed", {
-			resource: "observability.config",
-			actor: "api-key",
-			diff,
-			timestamp: nowFn().toISOString(),
-		});
-		invalidateStatusCache();
-		if (opts.onConfigChange) {
-			try {
-				opts.onConfigChange(updated);
-			} catch (err) {
-				auditLogger.error("observability config rebuild failed", {
-					error: err instanceof Error ? err.message : String(err),
-				});
+	router.patch(
+		"/config",
+		requireBoundary({ kind: "public-data" }),
+		requestSizeCap,
+		validateBody(patchConfigSchema),
+		async (c) => {
+			const body = c.req.valid("json");
+			const reason = validatePatchBody(body);
+			if (reason !== null) {
+				const response: ApiErrorResponse = {
+					error: reason,
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+				};
+				return c.json(response, 400);
 			}
-		}
-		return c.json(redactObservabilityConfig(updated));
-	});
+			const diff = auditDiff(body);
+			const updated = await updateObservabilityConfig(db, body);
+			auditLogger.info("config_changed", {
+				resource: "observability.config",
+				actor: "api-key",
+				diff,
+				timestamp: nowFn().toISOString(),
+			});
+			invalidateStatusCache();
+			if (opts.onConfigChange) {
+				try {
+					opts.onConfigChange(updated);
+				} catch (err) {
+					auditLogger.error("observability config rebuild failed", {
+						error: err instanceof Error ? err.message : String(err),
+					});
+				}
+			}
+			return c.json(redactObservabilityConfig(updated));
+		},
+	);
 
-	router.get("/status", async (c) => {
+	router.get("/status", requireBoundary({ kind: "public-data" }), async (c) => {
 		const dispatcher = opts.getDispatcher();
 		if (dispatcher) {
 			const snapshot = dispatcher.status();
@@ -179,7 +186,7 @@ export function createObservabilityRoutes(
 		});
 	});
 
-	router.post("/flush", requestSizeCap, async (c) => {
+	router.post("/flush", requireBoundary({ kind: "public-data" }), requestSizeCap, async (c) => {
 		const dispatcher = opts.getDispatcher();
 		if (!dispatcher) {
 			return c.json({ flushed: 0, reason: "disabled" });

@@ -29,22 +29,19 @@ import {
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
 
-const SENDER_HEADER = "X-Identity";
+// @lore AF11-IDOR: SENDER_HEADER and readSenderId removed. Authorization paths
+// (thread scoping, participant checks) MUST derive identity from c.get("userId")
+// (the authenticated Principal set by auth middleware). X-Identity is a client-
+// supplied header — using it for authz allows IDOR.
 const SOUL_PROMPT_MAX_LENGTH = 50_000;
 
 const patchSoulPromptSchema = z.object({
 	soulPrompt: z.string().max(SOUL_PROMPT_MAX_LENGTH),
 });
-
-function readSenderId(c: {
-	req: { header: (k: string) => string | undefined };
-	get: (k: "userId") => string;
-}): string {
-	return c.req.header(SENDER_HEADER) ?? c.get("userId");
-}
 
 function rowToThread(row: {
 	id: string;
@@ -176,8 +173,13 @@ export function createAssistantThreadRoute(
 	 * @lore AD8b: The thread is found by hostKind="user" + hostId=userId.
 	 * A user may have at most one assistant thread (ensured by create-at-most-once logic).
 	 */
-	router.get("/", async (c) => {
-		const userId = readSenderId(c);
+	// Row 5: GET /api/threads/assistant — S (principal-self: thread is scoped to principal)
+	router.get("/", requireBoundary({ kind: "principal-self" }), async (c) => {
+		// @lore AF11-IDOR: identity for data-scoping MUST come from c.get("userId")
+		// (the authenticated Principal set by auth middleware), never from X-Identity
+		// header which is client-supplied and enables IDOR. readSenderId is only
+		// legitimate for message attribution (e.g., PATCH soul-prompt sender).
+		const userId = c.get("userId");
 		const assistantAgentId = assistantAgentIdForUser(userId);
 
 		// AC-6 Reviewer C1: Query by hostKind="user" + hostId, NOT by pinned.
@@ -254,10 +256,14 @@ export function createAssistantThreadRoute(
 export function createAssistantSoulRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
+	// Row 6: GET /api/users/:userId/assistant — S (principal-self: self-only guard below)
 	// GET /api/users/:userId/assistant
-	router.get("/", async (c) => {
+	router.get("/", requireBoundary({ kind: "principal-self" }), async (c) => {
 		const targetUserId = c.req.param("userId");
-		const authenticatedUserId = readSenderId(c);
+		// AF11 Hole 2: authorization derives from the authenticated Principal
+		// (c.get("userId")), never from X-Identity header. The header may only
+		// be used for message attribution (readSenderId), not for access control.
+		const authenticatedUserId = c.get("userId");
 
 		// Only the user can access their own assistant
 		if (authenticatedUserId !== targetUserId) {
@@ -308,10 +314,12 @@ export function createAssistantSoulRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		});
 	});
 
+	// Row 7: PATCH /api/users/:userId/assistant — S (principal-self: self-only guard below)
 	// PATCH /api/users/:userId/assistant
-	router.patch("/", async (c) => {
+	router.patch("/", requireBoundary({ kind: "principal-self" }), async (c) => {
 		const targetUserId = c.req.param("userId");
-		const authenticatedUserId = readSenderId(c);
+		// AF11 Hole 2: use authenticated Principal for authorization, not header.
+		const authenticatedUserId = c.get("userId");
 
 		// Only the user can edit their own assistant
 		if (authenticatedUserId !== targetUserId) {
