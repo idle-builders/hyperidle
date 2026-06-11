@@ -7,15 +7,17 @@
 import { render, screen } from "@testing-library/react";
 import { Suspense } from "react";
 import { describe, expect, it } from "vitest";
-import { CodeRenderer } from "../kinds/code-renderer.js";
-import { DataRenderer } from "../kinds/data-renderer.js";
-import { FallbackRenderer } from "../kinds/fallback-renderer.js";
-import { HtmlRenderer } from "../kinds/html-renderer.js";
-import { ImageRenderer } from "../kinds/image-renderer.js";
-import { getRenderer } from "../kinds/renderer-registry.js";
-// These imports will fail until the implementation exists.
-import { TextRenderer } from "../kinds/text-renderer.js";
-import { UrlRenderer } from "../kinds/url-renderer.js";
+// AF16 T9: renderer imports updated — moved from packages/web/src/kinds/ to @hyperidle/design-system
+import {
+	CodeRenderer,
+	DataRenderer,
+	FallbackRenderer,
+	HtmlRenderer,
+	ImageRenderer,
+	TextRenderer,
+	UrlRenderer,
+	getRenderer,
+} from "@hyperidle/design-system";
 
 // -------------------------------------------------------------------
 // TextRenderer

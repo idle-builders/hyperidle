@@ -1,4 +1,5 @@
-// AE6: ArtifactPreviewSurface stories updated for 6 fundamental kinds.
+// AF16 T12: Updated stories to cover image-with-preview, image-no-preview, code, unregistered-no-preview.
+// AE6: ArtifactPreviewSurface stories.
 
 import { ArtifactPreviewSurface } from "./ArtifactPreviewSurface.js";
 
@@ -7,19 +8,67 @@ export default {
 	tier: "1" as const,
 };
 
-export const PendingGallery = (): React.JSX.Element => (
+// T11: null preview → "No preview available" (full), "No preview" (gallery)
+export const NoPreviewFull = (): React.JSX.Element => (
+	<div className="w-[480px]">
+		<ArtifactPreviewSurface kind="image" preview={null} size="full" />
+	</div>
+);
+
+export const NoPreviewGallery = (): React.JSX.Element => (
 	<div className="w-[280px]">
 		<ArtifactPreviewSurface kind="image" preview={null} size="gallery" />
 	</div>
 );
 
-export const PendingFull = (): React.JSX.Element => (
+// T10: image + valid preview → <img>
+export const ImageFull = (): React.JSX.Element => (
 	<div className="w-[480px]">
-		<ArtifactPreviewSurface kind="text" preview={null} size="full" />
+		<ArtifactPreviewSurface
+			kind="image"
+			size="full"
+			preview={{
+				url: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=400",
+				width: 400,
+				height: 300,
+				alt: "Circuit board",
+			}}
+		/>
 	</div>
 );
 
-export const TextPopulated = (): React.JSX.Element => (
+// T12: code kind + preview → code block (full)
+export const CodeFull = (): React.JSX.Element => (
+	<div className="w-[480px]">
+		<ArtifactPreviewSurface
+			kind="code"
+			size="full"
+			preview={{
+				file: "src/index.ts",
+				hunks: [
+					{
+						header: "@@ -1,3 +1,4 @@",
+						lines: [
+							{ kind: "ctx", text: "import React from 'react';" },
+							{ kind: "add", text: "import { useState } from 'react';" },
+							{ kind: "ctx", text: "" },
+						],
+					},
+				],
+			}}
+		/>
+	</div>
+);
+
+// T12: unregistered kind + null preview → "No preview available"
+export const UnregisteredKindNoPreview = (): React.JSX.Element => (
+	<div className="w-[280px]">
+		<ArtifactPreviewSurface kind="blog_post" preview={null} size="gallery" />
+	</div>
+);
+
+// Gallery text path (unchanged)
+export const TextGallery = (): React.JSX.Element => (
 	<div className="w-[280px]">
 		<ArtifactPreviewSurface
 			kind="text"
@@ -33,7 +82,7 @@ export const TextPopulated = (): React.JSX.Element => (
 	</div>
 );
 
-export const DataPopulated = (): React.JSX.Element => (
+export const DataGallery = (): React.JSX.Element => (
 	<div className="w-[280px]">
 		<ArtifactPreviewSurface
 			kind="data"
@@ -46,11 +95,5 @@ export const DataPopulated = (): React.JSX.Element => (
 			}}
 			size="gallery"
 		/>
-	</div>
-);
-
-export const UnregisteredKind = (): React.JSX.Element => (
-	<div className="w-[280px]">
-		<ArtifactPreviewSurface kind="blog_post" preview={null} size="gallery" />
 	</div>
 );
