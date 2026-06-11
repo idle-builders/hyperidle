@@ -53,15 +53,6 @@ const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 export type ConversationsFilter = "all" | "blocking" | "async";
 
 /**
- * W3: New toggle-style filter type used when groupBySection=false.
- * Each chip is independently toggleable; "all" means both are false.
- */
-export interface ConversationsToggleFilter {
-	blocking: boolean;
-	unread: boolean;
-}
-
-/**
  * Single source of truth for the filter predicate. Reused by ThreadSections
  * (filter before sectioning) and AppShell (post-filter count badge) so the
  * rendered list and the count badge cannot drift.
