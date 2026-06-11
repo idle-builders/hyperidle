@@ -29,13 +29,52 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { sessions } from "@hyperidle/db";
+import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { test } from "@hyperidle/db/test-fixtures";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 // RED: this export does not exist yet (AF7 §6 adds it).
 import { reapWorkspacesOnce } from "../workspace-reaper.js";
 
 const HOUR_MS = 60 * 60 * 1000;
+
+/** Seed the FK parents (team, member, bet, agent, task) the session rows reference. */
+async function seedReaperGraph(db: HyperIdleDb): Promise<void> {
+	const now = new Date().toISOString();
+	await db
+		.insert(teams)
+		.values({ id: "af7-reaper-team", name: "AF7 Reaper", phase: "build", createdAt: now });
+	await db.insert(teamMembers).values({
+		id: "af7-reaper-tm",
+		teamId: "af7-reaper-team",
+		capacity: 5,
+		activeBets: 0,
+		formedAt: now,
+	});
+	await db.insert(users).values({
+		id: "af7-agent-reaper",
+		name: "AF7 Reaper Agent",
+		role: "builder",
+		status: "active",
+		teamId: "af7-reaper-tm",
+		createdAt: now,
+	});
+	await db.insert(bets).values({
+		id: "af7-reaper-bet",
+		teamId: "af7-reaper-team",
+		description: "AF7 reaper",
+		status: "active",
+		createdAt: now,
+	});
+	await db.insert(tasks).values({
+		id: "af7-task-reaper",
+		betId: "af7-reaper-bet",
+		teamId: "af7-reaper-team",
+		title: "AF7 Reaper Task",
+		state: "in_progress",
+		createdAt: now,
+		updatedAt: now,
+	});
+}
 
 describe("AF7 AC6: workspace reaper reclaims terminal/orphan dirs past TTL", () => {
 	let baseDir: string;
@@ -51,6 +90,7 @@ describe("AF7 AC6: workspace reaper reclaims terminal/orphan dirs past TTL", () 
 	test("reclaims a crashed session's old workspace; keeps an active session's workspace", async ({
 		db,
 	}) => {
+		await seedReaperGraph(db);
 		const ttlMs = 24 * HOUR_MS;
 		const oldEndedAt = new Date(Date.now() - 48 * HOUR_MS).toISOString();
 		const nowIso = new Date().toISOString();
@@ -93,6 +133,7 @@ describe("AF7 AC6: workspace reaper reclaims terminal/orphan dirs past TTL", () 
 	test("preserves a crashed workspace YOUNGER than the TTL (post-mortem window)", async ({
 		db,
 	}) => {
+		await seedReaperGraph(db);
 		const ttlMs = 24 * HOUR_MS;
 		const recentEndedAt = new Date(Date.now() - 1 * HOUR_MS).toISOString();
 

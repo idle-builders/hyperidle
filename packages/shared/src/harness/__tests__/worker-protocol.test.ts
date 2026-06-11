@@ -91,6 +91,7 @@ describe("ServerToWorkerMessage", () => {
 			type: "dispatch",
 			sessionId: "sess-4",
 			config: {
+				sessionId: "sess-4",
 				workspacePath: "/workspace/test",
 				soulPromptPath: "/workspace/prompts/builder.md",
 				composedPrompt: "",
@@ -170,6 +171,7 @@ describe("ServerDispatchMessage shape", () => {
 			type: "dispatch",
 			sessionId: "sess-dispatch",
 			config: {
+				sessionId: "sess-dispatch",
 				workspacePath: "/tmp/ws",
 				soulPromptPath: "",
 				composedPrompt: "",

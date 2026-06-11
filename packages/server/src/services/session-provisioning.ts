@@ -20,6 +20,8 @@ import {
 	ConcurrencyLimitError,
 	CostCapExceededError,
 	type EventBus,
+	type HarnessAdapter,
+	MissingCredentialError,
 	MODEL_TIERS,
 	type ModelTier,
 	type SessionHandle,
@@ -27,6 +29,7 @@ import {
 	scaleForCurrency,
 	type TaskState,
 	type TierTokenCount,
+	type UserRole,
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
 import type { AdapterPool } from "../harness/adapter-pool.js";
@@ -37,6 +40,7 @@ import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
 import { buildToolRegistry, type ToolContext, toolsForRole } from "../skill-tools/tool-registry.js";
 import { summarizeToolArgs } from "./observability/dispatcher.js";
 import { crashSession, endSession, type SessionContext } from "./session-lifecycle.js";
+import { sessionRunRegistry } from "./session-run-registry.js";
 import type { StateTransitionAuditEntry, TaskAuditEntry } from "./task-audit.js";
 import { transitionTask } from "./task-state-machine.js";
 
@@ -217,22 +221,60 @@ export interface ProvisionSessionResult {
 }
 
 /**
- * Provision an end-to-end agent session.
- *
- * Orchestrates the 11 phases spanning pre-flight validation, workspace setup,
- * harness start, event stream consumption, and teardown. Normal completion
- * calls `endSession`; any thrown error triggers `crashSession`. The workspace
- * is destroyed on normal completion and preserved on crash so that any
- * pre-crash writes remain available for post-mortem inspection.
- *
- * See plans/work-packages/D5-plan.md for the full phase breakdown.
+ * AF7 §2: The synchronous result of admission (phases 1-7). Carries everything
+ * `runSession` (phases 8-11) needs to run the harness and tear down. Produced by
+ * `admitSession` AFTER the session row is committed and `session_started` emitted.
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: session provisioning coordinates multi-phase lifecycle with error handling
-export async function provisionSession(
+export interface AdmittedSession {
+	readonly sessionId: string;
+	readonly sessionContext: SessionContext;
+	readonly agentRole: UserRole;
+	readonly teamId: string | undefined;
+	readonly soulPromptText: string;
+	readonly modelTier: ModelTier;
+	readonly workspaceHandle: WorkspaceHandle;
+	readonly workspacePath: string;
+	readonly watcher: FileWatcher;
+	// biome-ignore lint/suspicious/noExplicitAny: SelectedEntry type from adapter-pool; avoid importing the concrete type to keep this signature light
+	readonly selectedAdapter: any;
+	readonly harness: HarnessAdapter;
+	readonly adapterId: string;
+	readonly routinePerRunCap: number | null;
+}
+
+/**
+ * AF7 §2 — Admit a session synchronously (phases 1-7).
+ *
+ * Runs the HTTP-observable prefix: load agent, cost pre-flight (P2), adapter
+ * select + concurrency check (P3), **resolvedModel presence guard (WARNING-2,
+ * pre-P5)**, task transition, workspace spawn (P4), session row insert (P5),
+ * materialize (P6), start watcher (P7), emit `session_started`. ALL admission
+ * failures (CostCapExceeded 422 / ConcurrencyLimit 429 / MissingCredential 500)
+ * throw BEFORE the P5 row insert — the detach boundary — so they map to HTTP
+ * status on the POST path and never leave a doomed row.
+ *
+ * @lore AF7 §2: the resolvedModel presence guard lives here (not at P9
+ * `harness.startSession`) so that in local mode (no credentialResolver) a missing
+ * resolved model for a builtin adapter surfaces as a synchronous 500 on the POST
+ * path, NOT as a later `state=crashed` from the detached tail. Throwing
+ * MissingCredentialError pre-insert keeps the honest contract: no row inserted,
+ * harness never started.
+ */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: admission coordinates multi-phase pre-flight with error handling
+export async function admitSession(
 	deps: ProvisionSessionDeps,
 	params: ProvisionSessionParams,
-): Promise<ProvisionSessionResult> {
-	const { db, eventBus, adapterPool, workspace, mcpBridgeRegistry, mcpBaseUrl } = deps;
+	/**
+	 * AF7 §2: enforce the synchronous resolvedModel-presence guard for builtin
+	 * adapters. Set ONLY on the HTTP POST path (startSessionProvision) so a missing
+	 * resolved model maps to a 500 + no row. The dispatcher path leaves it false: a
+	 * missing credential there is unrecoverable-PER-TASK (the dispatcher drops the
+	 * task), not an HTTP error — and dispatcher fixtures legitimately run
+	 * builtin-typed stub adapters that do not require a resolved model.
+	 */
+	enforceResolvedModelGuard = false,
+): Promise<AdmittedSession> {
+	const { db, eventBus, adapterPool, workspace } = deps;
 
 	// ── Phase 1: load agent
 	const [agent] = await db.select().from(users).where(eq(users.id, params.agentId)).limit(1);
@@ -300,6 +342,25 @@ export async function provisionSession(
 	if ((activeCount?.count ?? 0) >= agent.maxConcurrentSessions) {
 		adapterPool.release(adapterId);
 		throw new ConcurrencyLimitError(params.agentId, agent.maxConcurrentSessions);
+	}
+
+	// AF7 §2 (WARNING-2): resolvedModel presence guard — synchronous, pre-P5.
+	// The builtin adapter requires a resolved model and throws "resolvedModel is
+	// required" at P9 startSession. Under the detached run tail that throw would
+	// land in crashSession (state=crashed) instead of an HTTP 500. We check here,
+	// before the row insert and before detach, so a missing credential in local
+	// mode (no credentialResolver ⇒ resolvedModel undefined) maps to a 500
+	// MISSING_CREDENTIAL on the POST path with NO session row and harness never
+	// started. We release the adapter slot reserved by select() before throwing.
+	if (
+		enforceResolvedModelGuard &&
+		selectedAdapter.meta.type === "builtin" &&
+		!params.resolvedModel
+	) {
+		adapterPool.release(adapterId);
+		throw new MissingCredentialError(
+			`anthropic_api_key (required for builtin harness, tier: ${modelTier}) — set it in Settings > Models`,
+		);
 	}
 
 	// AD2: Only transition if not already in_progress (handoff re-dispatch path).
@@ -396,6 +457,85 @@ export async function provisionSession(
 		// AA2: pass routineId so endSession/crashSession can update routine_runs.
 		...(params.routineId ? { routineId: params.routineId } : {}),
 	};
+
+	// AA3: Read per-run cost cap once at admission time for routine sessions.
+	// Non-routine sessions always get null (no cap to check).
+	let routinePerRunCap: number | null = null;
+	if (params.routineId) {
+		const [routineRow] = await db
+			.select({ costCapPerRunMinor: routines.costCapPerRunMinor })
+			.from(routines)
+			.where(eq(routines.id, params.routineId))
+			.limit(1);
+		routinePerRunCap = routineRow?.costCapPerRunMinor ?? null;
+	}
+
+	return {
+		sessionId,
+		sessionContext,
+		agentRole,
+		teamId,
+		soulPromptText,
+		modelTier,
+		workspaceHandle,
+		workspacePath,
+		watcher,
+		selectedAdapter,
+		harness,
+		adapterId,
+		routinePerRunCap,
+	};
+}
+
+/**
+ * AF7 §2 — Run an admitted session (phases 8-11).
+ *
+ * Builds the session-scoped tool registry, composes the prompt, starts the
+ * harness (P9), drains the event stream (P10), and tears down (P11). Normal
+ * completion calls `endSession`; an error mid-stream calls `crashSession`.
+ *
+ * Registers itself in the `sessionRunRegistry` (AF7 §4/§5) at harness-start so a
+ * PATCH/handoff can cooperatively abort it, and deregisters at teardown. The
+ * abort signal flips a local `aborted` flag the event loop checks each iteration
+ * (secondary, non-builtin) while `stopSession` halts builtin's internal loop
+ * (primary — wired through the registry's abort()).
+ */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: run coordinates harness lifecycle, event-stream consumption, abort, and teardown
+export async function runSession(
+	deps: ProvisionSessionDeps,
+	params: ProvisionSessionParams,
+	admitted: AdmittedSession,
+	/**
+	 * AF7 §2: fired exactly once right after `harness.startSession` resolves
+	 * (success OR failure). `startSessionProvision` awaits this so the HTTP POST
+	 * returns AFTER the harness has started (the test-observable "startSession was
+	 * called") but BEFORE the long event-stream drain (P10) completes. The
+	 * dispatcher/await callers omit it.
+	 */
+	onHarnessStarted?: () => void,
+): Promise<ProvisionSessionResult> {
+	const { db, eventBus, adapterPool, workspace, mcpBridgeRegistry, mcpBaseUrl } = deps;
+	const {
+		sessionId,
+		sessionContext,
+		agentRole,
+		teamId,
+		soulPromptText,
+		modelTier,
+		workspaceHandle,
+		workspacePath,
+		watcher,
+		selectedAdapter,
+		harness,
+		adapterId,
+		routinePerRunCap,
+	} = admitted;
+
+	// AF7 §5: cooperative abort flag for non-builtin adapters (the provisioning
+	// event loop checks this each iteration). For builtin the real stop is
+	// stopSession (wired via sessionRunRegistry.abort), which halts its internal
+	// loop where builtin tools actually execute.
+	let aborted = false;
 
 	// ── Phase 8: build tool registry bound to this context.
 	const toolContext: ToolContext = {
@@ -521,18 +661,6 @@ export async function provisionSession(
 	/** L17: accumulated tokens by tier for the session's tokensJson column. */
 	const accumulatedTokens: Partial<Record<ModelTier, TierTokenCount>> = {};
 
-	// AA3: Read per-run cost cap once at provisioning time for routine sessions.
-	// Non-routine sessions always get null (no cap to check).
-	let routinePerRunCap: number | null = null;
-	if (params.routineId) {
-		const [routineRow] = await db
-			.select({ costCapPerRunMinor: routines.costCapPerRunMinor })
-			.from(routines)
-			.where(eq(routines.id, params.routineId))
-			.limit(1);
-		routinePerRunCap = routineRow?.costCapPerRunMinor ?? null;
-	}
-
 	try {
 		// Role-based tool authorization: facilitator-only tools are stripped
 		// from builder/growth/brand_voice sessions. See G1 AC6 and
@@ -542,6 +670,10 @@ export async function provisionSession(
 		// tool list, not the registry.
 		const allowedToolNames = toolsForRole(agentRole).map((d) => d.name);
 		harnessHandle = await harness.startSession({
+			// AF7 §3: pass the provisioning-assigned sessionId so the builtin adapter
+			// binds the registry pre-registered under this exact id (no map-scan
+			// reconcile). Matches the setSessionToolRegistry(sessionId, ...) call above.
+			sessionId,
 			workspacePath,
 			soulPromptPath: "", // @deprecated X3: soul prompt now composed from inline text (soulPromptText)
 			composedPrompt,
@@ -564,6 +696,26 @@ export async function provisionSession(
 	}
 
 	if (harnessHandle !== null) {
+		// AF7 §4/§5: register this live session so a PATCH or handoff can
+		// cooperatively abort it. signalAbort() flips the local `aborted` flag the
+		// event loop checks (secondary, non-builtin); the registry's abort() also
+		// calls stopSession (primary — halts builtin's internal loop).
+		const liveHandle = harnessHandle;
+		sessionRunRegistry.register(sessionId, {
+			signalAbort: () => {
+				aborted = true;
+			},
+			handle: liveHandle,
+			adapter: harness,
+		});
+	}
+
+	// AF7 §2: the harness has now started (or failed to start). Signal the
+	// detached caller so the HTTP POST can return 202 — AFTER startSession, BEFORE
+	// the long event-stream drain below. Fired exactly once on every path.
+	onHarnessStarted?.();
+
+	if (harnessHandle !== null) {
 		// ── Phase 10: drain the event stream.
 		//
 		// X5: Determine whether to intercept tool_call events from the stream.
@@ -581,6 +733,15 @@ export async function provisionSession(
 
 		try {
 			for await (const event of harness.streamEvents(harnessHandle)) {
+				// AF7 §5 (secondary abort): on abort, break the provisioning loop so
+				// non-builtin adapters stop routing tools through registry.invoke.
+				// Builtin tool execution is halted by stopSession (primary), not here.
+				// Break with crashed=false so teardown calls endSession (normal branch);
+				// with the §4.3 CAS guard a handoff-ended row (already 'done') affects
+				// zero rows and emits no spurious session_ended.
+				if (aborted) {
+					break;
+				}
 				if (event.type === "cost_update") {
 					// Defensive clamp: never let a harness-reported deltaCost
 					// decrement the running total. A negative delta would
@@ -689,6 +850,10 @@ export async function provisionSession(
 	// @lore O2: tokensJson column stripped from sessions table.
 	// Token accumulation kept in-memory for the result object only.
 
+	// AF7 §4/§5: the run is over — drop the abort affordance so a late PATCH/handoff
+	// falls back to the guarded direct-write path instead of stopping a dead loop.
+	sessionRunRegistry.deregister(sessionId);
+
 	// X2: Unregister the MCP bridge BEFORE calling endSession/crashSession.
 	// Both paths MUST unregister — the critique flagged crash-path cleanup as a
 	// requirement. Orphaned entries block token GC until process restart.
@@ -737,4 +902,85 @@ export async function provisionSession(
 		totalCostCents,
 		taskId: params.taskId,
 	};
+}
+
+/**
+ * AF7 §2 — Admit a session synchronously and DETACH its run.
+ *
+ * `POST /api/sessions` calls this: it awaits `admitSession` (phases 1-7, all
+ * admission errors throw pre-insert) and then fires the long-running `runSession`
+ * (phases 8-11) WITHOUT awaiting it, so the HTTP caller is not blocked for the
+ * full agent run. Resolves with `{ sessionId, taskId }` as soon as the session
+ * row is committed and `session_started` emitted.
+ *
+ * @lore AF7 §2: admission errors (CostCapExceeded/ConcurrencyLimit/
+ * MissingCredential) propagate from `admitSession` to the caller and map to HTTP
+ * status — they are NOT swallowed by the detached tail. The detached tail's
+ * `.catch → crashSession` only handles genuine RUNTIME failures (harness errors
+ * mid-stream), which legitimately become state=crashed, not HTTP errors. The
+ * `.catch` is defensive: `runSession` already funnels its own exits through
+ * end/crashSession, so a throw escaping it is unexpected.
+ */
+export async function startSessionProvision(
+	deps: ProvisionSessionDeps,
+	params: ProvisionSessionParams,
+): Promise<{ sessionId: string; taskId: string }> {
+	// AF7 §2: HTTP path — enforce the resolvedModel guard so a missing credential
+	// (local mode, builtin, resolvedModel absent) maps to a 500 + no row.
+	const admitted = await admitSession(deps, params, true);
+
+	// AF7 §2: await the harness-started signal so the POST returns AFTER
+	// harness.startSession (the observable "session is running") but BEFORE the
+	// long event-stream drain. The detached run continues independently.
+	let signalStarted!: () => void;
+	const started = new Promise<void>((resolve) => {
+		signalStarted = resolve;
+	});
+
+	// Detach the run — do NOT await its completion. A throw escaping runSession is
+	// unexpected (it tears itself down internally); crashSession is the last-resort
+	// funnel. We still resolve `started` on a pre-start throw so the caller never
+	// hangs.
+	void runSession(deps, params, admitted, signalStarted)
+		.catch(async (err) => {
+			try {
+				await crashSession(deps.db, deps.eventBus, admitted.sessionContext, 0, 0);
+			} catch (teardownErr) {
+				// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
+				console.error(
+					`[session-provisioning] detached runSession crash teardown failed for ${admitted.sessionId}:`,
+					teardownErr,
+				);
+			}
+			// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
+			console.error(
+				`[session-provisioning] detached runSession threw for ${admitted.sessionId}:`,
+				err,
+			);
+		})
+		.finally(() => {
+			// Defensive: if runSession settled without ever firing onHarnessStarted
+			// (e.g. an early throw before harness start), unblock the caller.
+			signalStarted();
+		});
+
+	await started;
+
+	return { sessionId: admitted.sessionId, taskId: admitted.sessionContext.taskId };
+}
+
+/**
+ * Provision an end-to-end agent session, awaiting the full run.
+ *
+ * AF7 §2: retained as a thin wrapper over `admitSession` + `runSession` for the
+ * dispatcher (which is already off the request path in a fire-and-forget drain)
+ * and for tests that assert on the final outcome. The phase logic lives in
+ * `admitSession`/`runSession` — no duplication.
+ */
+export async function provisionSession(
+	deps: ProvisionSessionDeps,
+	params: ProvisionSessionParams,
+): Promise<ProvisionSessionResult> {
+	const admitted = await admitSession(deps, params);
+	return runSession(deps, params, admitted);
 }

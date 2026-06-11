@@ -27,7 +27,7 @@
  *     `session_ended` on an already-terminal session.
  */
 
-import { bets, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import type { DomainEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -53,7 +53,7 @@ function makeContext(sessionId: string, agentId: string, taskId: string): Sessio
 	};
 }
 
-type FixtureDb = Parameters<Parameters<typeof test>[1]>[0]["db"];
+type FixtureDb = HyperIdleDb;
 
 async function seedTaskGraph(db: FixtureDb, taskId: string, agentId: string): Promise<void> {
 	await db

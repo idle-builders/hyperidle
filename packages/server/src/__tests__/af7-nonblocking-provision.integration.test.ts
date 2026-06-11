@@ -32,7 +32,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { bets, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { clearDeduplicationCache } from "@hyperidle/fabric";
 import type {
 	HarnessAdapter,
@@ -150,7 +150,7 @@ function makePool(adapter: HarnessAdapter, type?: string): AdapterPool {
 const NOW = "2026-06-11T00:00:00.000Z";
 
 async function seedDomain(
-	db: Parameters<Parameters<typeof test>[1]>[0]["db"],
+	db: HyperIdleDb,
 	overrides: { costCap?: number | null; maxConcurrentSessions?: number; harnessType?: string } = {},
 ): Promise<void> {
 	await db.insert(teams).values({ id: "p1", name: "AF7", phase: "build", createdAt: NOW });
@@ -227,13 +227,13 @@ describe("AF7 AC2: POST /api/sessions is non-blocking (202 + active row)", () =>
 		// open — so we race it against a short deadline. `gateSettled` records
 		// whether the run finished before the POST returned.
 		let gateSettled = false;
-		const postPromise = app
-			.request("/api/sessions", {
+		const postPromise = Promise.resolve(
+			app.request("/api/sessions", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({ agentId: "agent-af7", taskId: "task-af7", modelTier: "workhorse" }),
-			})
-			.then((r) => ({ kind: "post" as const, res: r }));
+			}),
+		).then((r) => ({ kind: "post" as const, res: r }));
 
 		const deadline = new Promise<{ kind: "timeout" }>((resolve) =>
 			setTimeout(() => resolve({ kind: "timeout" }), 2000),

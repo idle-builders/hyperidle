@@ -227,30 +227,42 @@ export async function endSession(
 	void baselineCost;
 	void costInCents;
 	const now = new Date().toISOString();
-	await db
+	// AF7 §4.3 (Z8-094/095): CAS terminal write. SET only WHERE state='active', so
+	// a duplicate teardown — or a teardown for a session a different writer already
+	// finalized (e.g. a handoff that set state='done') — affects ZERO rows and is a
+	// no-op. The runtime is the SOLE terminal-state writer for a session it runs.
+	const updated = await db
 		.update(sessions)
 		.set({
 			state: "done",
 			outcome: "completed",
 			endedAt: now,
 		})
-		.where(eq(sessions.id, context.sessionId));
+		.where(and(eq(sessions.id, context.sessionId), eq(sessions.state, "active")))
+		.returning({ id: sessions.id });
 
-	// 3. Emit session_ended event
-	eventBus.emit({
-		type: "session_ended",
-		streamId: context.sessionId,
-		sessionId: context.sessionId,
-		agentId: context.agentId,
-		taskId: context.taskId,
-		timestamp: Date.now(),
-		outcome: "completed",
-	});
+	// 3. Emit session_ended IFF the CAS UPDATE actually transitioned a row.
+	// HARD INVARIANT (AF7 §4.3): gate the emit on rowCount, NOT merely on "the
+	// UPDATE ran". A handoff-ended session (already 'done') whose detached
+	// runSession tail later calls endSession would otherwise emit a spurious
+	// session_ended that handoff is forbidden to emit (handoff-protocol.ts).
+	if (updated.length > 0) {
+		eventBus.emit({
+			type: "session_ended",
+			streamId: context.sessionId,
+			sessionId: context.sessionId,
+			agentId: context.agentId,
+			taskId: context.taskId,
+			timestamp: Date.now(),
+			outcome: "completed",
+		});
+	}
 
 	// 4. AA2: If this is a routine session, update the routine_run row.
 	// AA3: routineRunOutcome defaults to "success"; "budget_exhausted" is passed through
 	// from the per-run cap enforcement path to avoid write-then-overwrite (critique Warning 1).
-	if (context.routineId) {
+	// Only run routine-run finalization when WE performed the terminal transition.
+	if (updated.length > 0 && context.routineId) {
 		await updateRoutineRunOnSessionEnd(
 			db,
 			context.routineId,
@@ -298,28 +310,33 @@ export async function crashSession(
 	void baselineCost;
 	void costInCents;
 	const now = new Date().toISOString();
-	await db
+	// AF7 §4.3: CAS terminal write — see endSession. Crashing an already-terminal
+	// session affects zero rows and emits nothing.
+	const updated = await db
 		.update(sessions)
 		.set({
 			state: "crashed",
 			outcome: "crashed",
 			endedAt: now,
 		})
-		.where(eq(sessions.id, context.sessionId));
+		.where(and(eq(sessions.id, context.sessionId), eq(sessions.state, "active")))
+		.returning({ id: sessions.id });
 
-	// 3. Emit session_ended event
-	eventBus.emit({
-		type: "session_ended",
-		streamId: context.sessionId,
-		sessionId: context.sessionId,
-		agentId: context.agentId,
-		taskId: context.taskId,
-		timestamp: Date.now(),
-		outcome: "crashed",
-	});
+	// 3. Emit session_ended IFF the CAS UPDATE transitioned a row (AF7 §4.3 invariant).
+	if (updated.length > 0) {
+		eventBus.emit({
+			type: "session_ended",
+			streamId: context.sessionId,
+			sessionId: context.sessionId,
+			agentId: context.agentId,
+			taskId: context.taskId,
+			timestamp: Date.now(),
+			outcome: "crashed",
+		});
+	}
 
 	// 4. AA2: If this is a routine session, update the routine_run row with error outcome.
-	if (context.routineId) {
+	if (updated.length > 0 && context.routineId) {
 		await updateRoutineRunOnSessionEnd(
 			db,
 			context.routineId,

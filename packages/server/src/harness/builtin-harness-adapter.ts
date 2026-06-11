@@ -138,7 +138,6 @@ function formatMessagesForSummary(messages: LlmMessage[]): string {
 export class BuiltinHarnessAdapter implements HarnessAdapter {
 	private readonly options: Required<BuiltinHarnessOptions>;
 	private readonly sessions: Map<string, BuiltinSession>;
-	private nextId: number;
 
 	constructor(options?: BuiltinHarnessOptions) {
 		this.options = {
@@ -147,8 +146,8 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			preCompactionThreshold: options?.preCompactionThreshold ?? 0.8,
 			maxOutputTokens: options?.maxOutputTokens ?? 16_384,
 		};
+		// AF7 §3: no more internal id-minting — sessions are keyed by config.sessionId.
 		this.sessions = new Map();
-		this.nextId = 1;
 	}
 
 	/**
@@ -196,42 +195,30 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			throw new Error("BuiltinHarnessAdapter: resolvedModel is required in SessionConfig");
 		}
 
-		const sessionId = `builtin-${this.nextId++}`;
-
-		// Check if setSessionToolRegistry was called with a pre-registered sessionId
-		// If so, we need to find it by the sessionId passed to setSessionToolRegistry.
-		// But we don't know which sessionId was used... The test pattern calls
-		// setSessionToolRegistry(sessionId, registry) before startSession(config).
-		// startSession generates a NEW sessionId internally. We need to reconcile.
+		// AF7 §3 (Z8-092/093): the sessionId is the isolation contract. We key the
+		// session map on the EXACT id supplied in config (the same id the
+		// provisioning orchestrator used in setSessionToolRegistry), never on a
+		// freshly-minted `builtin-N`. The old code minted a new id and *scanned* the
+		// map for "the first un-started pre-registered session" to reconcile the
+		// registry — under two concurrent provisions that scan could bind session
+		// B's registry to session A. Keying by config.sessionId removes the scan and
+		// the ambiguity entirely.
 		//
-		// @lore X6: The test pattern passes a pre-registered sessionId to
-		// setSessionToolRegistry, then calls startSession without the same sessionId.
-		// We match the most recently pre-registered session that hasn't been started yet.
-		let preRegistered: BuiltinSession | null = null;
-		for (const [, session] of this.sessions) {
-			if (session.loopPromise === null && session.registry !== null && !session.done) {
-				preRegistered = session;
-				break;
-			}
-		}
+		// @lore AF7 Z8-092/093: do NOT reintroduce id-minting + map-scan reconcile —
+		// it is the exact cross-session registry-swap bug AF7 closes. The registry
+		// is pre-registered under config.sessionId by setSessionToolRegistry.
+		const { sessionId } = config;
+
+		const preRegistered = this.sessions.get(sessionId);
 
 		let session: BuiltinSession;
-
-		if (preRegistered) {
-			// Remove from map under old key, re-register under new sessionId
-			for (const [key, s] of this.sessions) {
-				if (s === preRegistered) {
-					this.sessions.delete(key);
-					break;
-				}
-			}
+		if (preRegistered && preRegistered.loopPromise === null && !preRegistered.done) {
+			// Reuse the pre-registered session (its registry/toolDefs were injected
+			// under this exact id) and fill in the now-known config.
 			session = {
 				...preRegistered,
-				sessionId,
 				config,
-				messages: [
-					// Start with system message (planning turn will add user message)
-				],
+				messages: [],
 			};
 		} else {
 			session = {
@@ -593,6 +580,18 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 		const results: LlmToolResultBlock[] = [];
 
 		for (const toolCall of toolCalls) {
+			// AF7 §5.3 (AC5, Z8-048): per-invoke abort guard. A handoff aborts the
+			// session via stopSession() which sets `aborted`; the run loop only
+			// observes that flag BETWEEN iterations, so a batch of tool calls already
+			// inside executeToolCalls would otherwise all run after the handoff
+			// landed. Check `aborted` before STARTING each invoke so no new tool call
+			// begins once the handoff completes. An invoke already in flight at the
+			// instant of abort may finish (cooperative abort), but the next one does
+			// not start — this is the "no new tool call starts after handoff" contract.
+			if (session.aborted) {
+				break;
+			}
+
 			// Emit tool_call event before execution
 			this.emitEvent(session, {
 				type: "tool_call",

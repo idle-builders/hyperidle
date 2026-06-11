@@ -123,6 +123,12 @@ describe("AF7 AC1: production createServer wires the dispatcher", () => {
 
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		// The booted server's dispatcher resolves the workhorse model via the real
+		// model gateway (EnvCredentialResolver). The builtin agent requires a
+		// resolved model, so the production wire legitimately needs a credential —
+		// provide one so dispatch provisions the session via the stub adapter (no
+		// real LLM is called; the stub ignores the resolved model).
+		vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-af7-dispatch-test");
 		// Point createServer's own DB at a throwaway tmp path. Until the green
 		// phase adds the `deps.db` override, createServer builds this DB itself;
 		// keeping it in tmp (not CWD) leaves the worktree clean.
@@ -204,9 +210,11 @@ describe("AF7 AC1: production createServer wires the dispatcher", () => {
 			const base = `http://127.0.0.1:${addr.port}`;
 
 			// Drive the task to accepted through the running server — emits
-			// task_state_changed(toState=accepted), the dispatcher's trigger.
-			const res = await fetch(`${base}/api/tasks/af7-task`, {
-				method: "PATCH",
+			// task_state_changed(toState=accepted), the dispatcher's trigger. State
+			// transitions go through the dedicated transition endpoint (PATCH /:id is
+			// for field edits and does not carry `state`).
+			const res = await fetch(`${base}/api/tasks/af7-task/transition`, {
+				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({ state: "accepted" }),
 			});

@@ -12,6 +12,14 @@ export interface McpConnectionInfo {
 }
 
 export interface SessionConfig {
+	/**
+	 * AF7 §3: The provisioning-assigned session id. This is the isolation
+	 * contract — adapters key their per-session state on this exact id rather
+	 * than minting their own. Only the builtin adapter's correctness depends on
+	 * it (it pre-registers a tool registry under this id before startSession);
+	 * other adapters may keep their handles internal and ignore it.
+	 */
+	readonly sessionId: string;
 	readonly workspacePath: string;
 	/** @deprecated Use composedPrompt instead. Retained for path validation. */
 	readonly soulPromptPath: string;
