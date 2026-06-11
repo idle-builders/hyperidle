@@ -118,7 +118,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 	// cascade-stopped session reports 'stopped' (non-blank label downstream).
 	// @lore O2: session cost/harness columns were stripped from the kernel table,
 	// so `cost`/`harnessUrl`/`tokens` are null here. AF7 owns dispatch — no writes.
-	router.get("/:id/sessions", async (c) => {
+	router.get("/:id/sessions", requireBoundary({ kind: "public-data" }), async (c) => {
 		const taskId = c.req.param("id");
 		const [task] = await db
 			.select({ id: tasks.id })
