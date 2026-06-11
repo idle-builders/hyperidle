@@ -16,10 +16,15 @@
  * free-text input satisfies the AC and unblocks the E2E tests.
  */
 
-import { SCOPE_KINDS, SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/shared";
+import { SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/shared";
 import { type JSX, useEffect, useRef, useState } from "react";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
 import { apiFetch } from "../../services/api-fetch.js";
+import {
+	SCOPE_CREATE_OPTIONS,
+	type ScopeCreateOption,
+	scopeKindToLabel,
+} from "../../utils/scope-labels.js";
 
 export interface ScopeChangeDialogProps {
 	open: boolean;
@@ -53,6 +58,26 @@ export function ScopeChangeDialog({
 	);
 }
 
+/**
+ * Maps a raw scopeKind to the matching SCOPE_CREATE_OPTIONS entry.
+ * Both "factory" and "practice" (shared scopes) map to the "Shared" option.
+ * "team" and "product" map to "Team". "user" maps to "Private".
+ * Any unrecognized scope defaults to "Shared".
+ *
+ * @lore AF13 §4A: The previous raw 7-enum select used SCOPE_KINDS directly,
+ * leaking internal vocabulary to users. This helper maps current scope kind
+ * to one of the 3 user-facing options, with "factory" and "practice" both
+ * resolving to "Shared" so there is no phantom "practice" option.
+ */
+function resolveDefaultOption(scopeKind: ScopeKind): ScopeCreateOption {
+	const label = scopeKindToLabel(scopeKind); // "Shared" | "Team" | "Private"
+	return (
+		SCOPE_CREATE_OPTIONS.find((o) => o.label === label) ??
+		// Safe fallback: SCOPE_CREATE_OPTIONS always has 3 entries; index 0 is Shared.
+		(SCOPE_CREATE_OPTIONS[0] as ScopeCreateOption)
+	);
+}
+
 function ScopeChangeDialogInner({
 	onClose,
 	onSaved,
@@ -63,7 +88,12 @@ function ScopeChangeDialogInner({
 	const dialogRef = useRef<HTMLDialogElement>(null);
 	const { user } = useCurrentUser();
 
-	const [scopeKind, setScopeKind] = useState<ScopeKind>(currentScopeKind);
+	// AF13 §4A: Replace raw 7-enum select with 3 labeled SCOPE_CREATE_OPTIONS.
+	// The selected option holds both the user-facing label and the API scopeKind.
+	const [selectedOption, setSelectedOption] = useState<ScopeCreateOption>(
+		resolveDefaultOption(currentScopeKind),
+	);
+	const scopeKind: ScopeKind = selectedOption.scopeKind;
 	const [scopeId, setScopeId] = useState<string>("");
 	const [reason, setReason] = useState<string>("");
 	const [submitting, setSubmitting] = useState(false);
@@ -134,22 +164,26 @@ function ScopeChangeDialogInner({
 					Change scope
 				</h2>
 
-				{/* Scope kind select */}
+				{/* AF13 §4A: Scope kind — 3 labeled options (Shared/Team/Private). */}
+				{/* Previously rendered all 7 SCOPE_KINDS as raw enum values.       */}
 				<label className="flex flex-col gap-1">
 					<span className="text-xs text-[var(--text-tertiary)]">New scope</span>
 					<select
 						className="select select-bordered select-sm"
 						aria-label="Scope kind"
-						value={scopeKind}
+						value={selectedOption.label}
 						onChange={(e) => {
-							setScopeKind(e.target.value as ScopeKind);
-							setScopeId("");
+							const opt = SCOPE_CREATE_OPTIONS.find((o) => o.label === e.target.value);
+							if (opt) {
+								setSelectedOption(opt);
+								setScopeId("");
+							}
 						}}
 						disabled={submitting}
 					>
-						{SCOPE_KINDS.map((kind) => (
-							<option key={kind} value={kind}>
-								{kind}
+						{SCOPE_CREATE_OPTIONS.map((opt) => (
+							<option key={opt.id} value={opt.label}>
+								{opt.label}
 							</option>
 						))}
 					</select>
