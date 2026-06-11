@@ -3,6 +3,7 @@ import {
 	factorySettings,
 	type HyperIdleDb,
 	items,
+	routineRuns,
 	routines,
 	sessions,
 	tasks,
@@ -466,6 +467,74 @@ describe("Routine Scheduler", () => {
 
 			expect(nextRun).toBeGreaterThanOrEqual(now.getTime() + 115000);
 			expect(nextRun).toBeLessThanOrEqual(now.getTime() + 130000);
+		});
+	});
+
+	// AF6 AC2 — event/state-driven routines react to CURRENT routine state, not a
+	// snapshot taken at registration. TWO-PHASE FLIP: register → disable → assert
+	// NO fire + NO run row (kills snapshot-at-registration); re-enable → assert fire.
+	describe("AF6 AC2: event routines read current state (two-phase flip)", () => {
+		test("disable-after-register suppresses fire; re-enable restores it", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedBase(db);
+
+			await db.insert(routines).values({
+				id: "r-af6-event",
+				name: "AF6 event routine",
+				teamId: "p1",
+				state: "active",
+				ownerAgentId: "agent-1",
+				triggerType: "event",
+				triggerConfig: JSON.stringify({ eventType: "bet_state_changed", taskId: "task-1" }),
+				active: true,
+			});
+
+			// Register while active — a snapshot impl would capture active=true here.
+			const unsub = await registerEventTriggers(db, eventBus);
+
+			// PHASE 1 — disable AFTER registration, then emit.
+			await db.update(routines).set({ active: false }).where(eq(routines.id, "r-af6-event"));
+			eventBus.emit({
+				type: "bet_state_changed",
+				streamId: "b1",
+				betId: "b1",
+				fromState: "active",
+				toState: "completed",
+				timestamp: Date.now(),
+			});
+
+			// Give the async handler time to (not) run.
+			await new Promise<void>((resolve) => setTimeout(resolve, 100));
+
+			// NO fire: no session, no run row. This negative assertion discriminates
+			// fresh-read from snapshot-at-registration.
+			const sessionsAfterDisable = await db.select().from(sessions);
+			expect(sessionsAfterDisable).toHaveLength(0);
+			const runsAfterDisable = await db
+				.select()
+				.from(routineRuns)
+				.where(eq(routineRuns.routineId, "r-af6-event"));
+			expect(runsAfterDisable).toHaveLength(0);
+
+			// PHASE 2 — re-enable, emit again, assert it fires.
+			await db.update(routines).set({ active: true }).where(eq(routines.id, "r-af6-event"));
+			eventBus.emit({
+				type: "bet_state_changed",
+				streamId: "b1",
+				betId: "b1",
+				fromState: "active",
+				toState: "completed",
+				timestamp: Date.now(),
+			});
+
+			await vi.waitFor(async () => {
+				const sessionsAfterEnable = await db.select().from(sessions);
+				expect(sessionsAfterEnable).toHaveLength(1);
+			});
+
+			unsub();
 		});
 	});
 
