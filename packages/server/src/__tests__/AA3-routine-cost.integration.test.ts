@@ -10,9 +10,13 @@
  */
 
 import * as crypto from "node:crypto";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import {
 	bets,
 	type HyperIdleDb,
+	knowledgeItems,
 	routineRuns,
 	routines,
 	tasks,
@@ -23,7 +27,12 @@ import {
 import { checkAndFireRoutine } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { describe, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import {
+	type CreateSessionParams,
+	createSession,
+	endSession,
+} from "../services/session-lifecycle.js";
 import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-aa3";
@@ -865,6 +874,247 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 			const budget = body.budget as Record<string, unknown>;
 
 			expect(budget.monthlyUtilizationPercent).toBe(100);
+			vi.unstubAllEnvs();
+		});
+	});
+
+	// ──────────────────────────────────────────────────────────────────────
+	// AF10 AC-2: routines.costActualMinor cumulative write (Z8-030/Z8-119)
+	//
+	// The existing AA3 tests above are FROZEN per CC-008 — we extend here.
+	// ──────────────────────────────────────────────────────────────────────
+
+	describe("AF10 AC-2: routines.costActualMinor cumulative write", () => {
+		let tmpDir: string;
+
+		beforeEach(() => {
+			tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "af10-routine-cost-"));
+		});
+
+		afterEach(() => {
+			if (fs.existsSync(tmpDir)) {
+				fs.rmSync(tmpDir, { recursive: true, force: true });
+			}
+		});
+
+		async function seedRoutineSession(db: HyperIdleDb): Promise<void> {
+			const now = new Date().toISOString();
+
+			await db.insert(teams).values({
+				id: "team-af10-rt",
+				name: "AF10 Routine Team",
+				phase: "build",
+				createdAt: now,
+			});
+			await db.insert(teamMembers).values({
+				id: "tm-af10-rt",
+				teamId: "team-af10-rt",
+				capacity: 3,
+				activeBets: 0,
+				formedAt: now,
+			});
+			await db.insert(users).values({
+				id: "agent-af10-rt",
+				name: "Routine Agent",
+				role: "builder",
+				status: "active",
+				teamId: "tm-af10-rt",
+				maxConcurrentSessions: 2,
+				createdAt: now,
+			});
+			await db.insert(bets).values({
+				id: "bet-af10-rt",
+				teamId: "team-af10-rt",
+				description: "Routine bet",
+				status: "active",
+				createdAt: now,
+			});
+			await db.insert(tasks).values({
+				id: "task-af10-rt",
+				betId: "bet-af10-rt",
+				teamId: "team-af10-rt",
+				title: "Routine task",
+				state: "in_progress",
+				createdAt: now,
+				updatedAt: now,
+			});
+			await db.insert(routines).values({
+				id: "routine-af10",
+				name: "AF10 Routine",
+				ownerAgentId: "agent-af10-rt",
+				teamId: "team-af10-rt",
+				state: "active",
+				triggerType: "calendar",
+				triggerConfig: JSON.stringify({ cron: "0 9 * * *" }),
+				active: true,
+				costActualMinor: null, // starts null — must be incremented, not overwritten
+			});
+			await db.insert(knowledgeItems).values({
+				id: "ki-af10-rt",
+				title: "AF10 Routine Principle",
+				body: "Routine principle body.",
+				format: "markdown",
+				status: "active",
+				version: 1,
+				updatedBy: "system",
+				createdAt: now,
+				updatedAt: now,
+			});
+		}
+
+		/**
+		 * AC-2 core scenario: a routine session with cost 300 minor units must
+		 * increment `routines.costActualMinor` by 300 when the session ends.
+		 *
+		 * FAILS until session-lifecycle.ts `updateRoutineRunOnSessionEnd` is
+		 * updated to do: `costActualMinor: sql\`coalesce(..., 0) + costInCents\``
+		 */
+		test("endSession with costInCents=300 increments routines.costActualMinor to 300", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedRoutineSession(db);
+			const now = new Date().toISOString();
+
+			// Insert a "running" routine_run row (as the scheduler would)
+			const runId = crypto.randomUUID();
+			await db.insert(routineRuns).values({
+				id: runId,
+				routineId: "routine-af10",
+				startedAt: now,
+				outcome: "running",
+			});
+
+			// Create and end a session that belongs to this routine
+			const params: CreateSessionParams = {
+				taskId: "task-af10-rt",
+				agentId: "agent-af10-rt",
+				agentRole: "builder",
+				productId: "team-af10-rt",
+				modelTier: "workhorse",
+				workspaceBasePath: tmpDir,
+			};
+
+			const ctx = await createSession(db, eventBus, params);
+			// Attach routineId so endSession calls updateRoutineRunOnSessionEnd
+			ctx.routineId = "routine-af10";
+
+			await endSession(db, eventBus, ctx, 300);
+
+			// AF10 AC-2: routines.costActualMinor must be 300 (incremented from null)
+			const [routine] = await db
+				.select({ costActualMinor: routines.costActualMinor })
+				.from(routines)
+				.where(eq(routines.id, "routine-af10"))
+				.limit(1);
+
+			// FAILS until T4: currently NULL because no writer sets costActualMinor
+			expect(routine?.costActualMinor).toBe(300);
+		});
+
+		/**
+		 * Two sequential runs must accumulate: run1=300, run2=150 → total=450.
+		 * Uses COALESCE so null+300 = 300, then 300+150 = 450.
+		 *
+		 * FAILS until T4 fix lands.
+		 */
+		test("two sequential routine runs accumulate costActualMinor additively", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedRoutineSession(db);
+			const now = new Date().toISOString();
+
+			// First run
+			const runId1 = crypto.randomUUID();
+			await db.insert(routineRuns).values({
+				id: runId1,
+				routineId: "routine-af10",
+				startedAt: now,
+				outcome: "running",
+			});
+
+			const params: CreateSessionParams = {
+				taskId: "task-af10-rt",
+				agentId: "agent-af10-rt",
+				agentRole: "builder",
+				productId: "team-af10-rt",
+				modelTier: "workhorse",
+				workspaceBasePath: tmpDir,
+			};
+
+			const ctx1 = await createSession(db, eventBus, params);
+			ctx1.routineId = "routine-af10";
+			await endSession(db, eventBus, ctx1, 300);
+
+			// Insert second "running" routine_run row
+			const runId2 = crypto.randomUUID();
+			await db.insert(routineRuns).values({
+				id: runId2,
+				routineId: "routine-af10",
+				startedAt: new Date().toISOString(),
+				outcome: "running",
+			});
+
+			const ctx2 = await createSession(db, eventBus, params);
+			ctx2.routineId = "routine-af10";
+			await endSession(db, eventBus, ctx2, 150);
+
+			const [routine] = await db
+				.select({ costActualMinor: routines.costActualMinor })
+				.from(routines)
+				.where(eq(routines.id, "routine-af10"))
+				.limit(1);
+
+			// FAILS until T4: currently NULL (no writer exists)
+			expect(routine?.costActualMinor).toBe(450);
+		});
+
+		/**
+		 * GET /api/routines/:id must return non-null costActual after a run with cost.
+		 * Complements the above unit-level assertions with a route-level check.
+		 *
+		 * FAILS until T4.
+		 */
+		test("GET /api/routines/:id returns non-null costActual after a run with cost", async ({
+			db,
+			app,
+			eventBus,
+		}) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			await seedRoutineSession(db);
+			const now = new Date().toISOString();
+
+			const runId = crypto.randomUUID();
+			await db.insert(routineRuns).values({
+				id: runId,
+				routineId: "routine-af10",
+				startedAt: now,
+				outcome: "running",
+			});
+
+			const params: CreateSessionParams = {
+				taskId: "task-af10-rt",
+				agentId: "agent-af10-rt",
+				agentRole: "builder",
+				productId: "team-af10-rt",
+				modelTier: "workhorse",
+				workspaceBasePath: tmpDir,
+			};
+			const ctx = await createSession(db, eventBus, params);
+			ctx.routineId = "routine-af10";
+			await endSession(db, eventBus, ctx, 500);
+
+			const res = await app.request("/api/routines/routine-af10", {
+				headers: authHeaders(),
+			});
+			expect(res.status).toBe(200);
+			const body = (await res.json()) as Record<string, unknown>;
+
+			// FAILS until T4: currently null
+			expect(body.costActual).not.toBeNull();
+			const costActual = body.costActual as Record<string, unknown>;
+			expect(costActual.minor).toBe(500);
 			vi.unstubAllEnvs();
 		});
 	});
