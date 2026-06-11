@@ -18,7 +18,6 @@
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "../layouts/AppShell";
@@ -117,68 +116,41 @@ afterEach(() => {
 });
 
 describe("Conversations page — L10 filter wiring (via AppShell OutletContext)", () => {
-	it("renders the W3 toggle vocabulary on /conversations: Blocking, Unread (aria-pressed)", async () => {
+	it("AF14 AC4: no Blocking/Unread toggle chips on /conversations (removed by AF14)", async () => {
 		stubFetchOk(MIXED_THREADS);
 		renderShellAt("/conversations");
-		// W3: Blocking and Unread are aria-pressed toggle buttons, not role="tab"
-		const blocking = await screen.findByRole("button", { name: /^blocking$/i });
-		expect(blocking).toHaveAttribute("aria-pressed");
-		const unread = screen.getByRole("button", { name: /^unread$/i });
-		expect(unread).toHaveAttribute("aria-pressed");
-		// Old tab chips must NOT be in the document
+		// Wait for threads to render
+		await waitFor(() => {
+			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBeGreaterThan(
+				0,
+			);
+		});
+		// AF14 AC4: chips removed
+		expect(screen.queryByRole("button", { name: /^blocking$/i })).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /^unread$/i })).not.toBeInTheDocument();
+		// Old tab chips must NOT be in the document (unchanged)
 		expect(screen.queryByRole("tab", { name: /^all$/i })).not.toBeInTheDocument();
 		expect(screen.queryByRole("tab", { name: /^async$/i })).not.toBeInTheDocument();
 	});
 
-	it("clicking 'Blocking' narrows the rendered list to blocking threads only", async () => {
+	it("AF14 AC4: all threads render without chip filtering (no chip to narrow list)", async () => {
 		stubFetchOk(MIXED_THREADS);
-		const user = userEvent.setup();
 		renderShellAt("/conversations");
-		// Wait for hook resolution.
+		// Wait for threads to render
 		await waitFor(() => {
-			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(5);
-		});
-
-		await user.click(await screen.findByRole("button", { name: /^blocking$/i }));
-		await waitFor(() => {
-			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(2);
-		});
-	});
-
-	it("clicking 'Blocking' again restores the full list (toggle off = show all)", async () => {
-		stubFetchOk(MIXED_THREADS);
-		const user = userEvent.setup();
-		renderShellAt("/conversations");
-		await waitFor(() => {
-			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(5);
-		});
-
-		const blockingBtn = await screen.findByRole("button", { name: /^blocking$/i });
-		await user.click(blockingBtn);
-		await waitFor(() => {
-			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(2);
-		});
-		// Toggle off — restores full list
-		await user.click(blockingBtn);
-		await waitFor(() => {
+			// All 5 mixed threads should be visible (no active filter)
 			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(5);
 		});
 	});
 
-	it("filter-empty: clicking 'Blocking' on an async-only fixture shows EmptyState", async () => {
+	it("AF14 AC4: async-only fixture renders all threads (no chip to filter)", async () => {
 		stubFetchOk(ASYNC_ONLY);
-		const user = userEvent.setup();
 		renderShellAt("/conversations");
-
 		await waitFor(() => {
 			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(2);
 		});
-
-		await user.click(await screen.findByRole("button", { name: /^blocking$/i }));
-
-		// W3: flat mode shows thread-sections-empty (not thread-sections-filter-empty)
-		const emptyState = await screen.findByTestId("thread-sections-empty");
-		expect(emptyState).toBeInTheDocument();
+		// No chip bar — all 2 threads visible
+		expect(screen.queryByRole("button", { name: /^blocking$/i })).not.toBeInTheDocument();
 	});
 
 	it("error state: shows error state when fetch fails", async () => {
@@ -193,9 +165,8 @@ describe("Conversations page — L10 filter wiring (via AppShell OutletContext)"
 		await screen.findByTestId("thread-sections-error");
 	});
 
-	it("error state: clicking Blocking while errored keeps error state visible", async () => {
-		// When the threads fetch fails, the error state should persist even if toggles are clicked.
-		const user = userEvent.setup();
+	it("error state: error state persists when fetch fails (chips removed by AF14)", async () => {
+		// AF14 AC4: no Blocking chip to click, but error state behavior unchanged.
 		global.fetch = vi.fn(async (input: RequestInfo | URL) => {
 			const url = typeof input === "string" ? input : input.toString();
 			if (url.includes("/api/auth/me")) {
@@ -207,11 +178,9 @@ describe("Conversations page — L10 filter wiring (via AppShell OutletContext)"
 
 		// Wait for error state
 		await screen.findByTestId("thread-sections-error");
-		// Visual parity: filter chips are in the page header (always visible), even on error.
-		// Clicking Blocking should not clear the error state.
-		const blockingBtn = screen.getByRole("button", { name: /^blocking$/i });
-		await user.click(blockingBtn);
-		// Error state should still be visible after toggle
+		// No chip buttons present (AF14 AC4 removed them)
+		expect(screen.queryByRole("button", { name: /^blocking$/i })).not.toBeInTheDocument();
+		// Error state still visible
 		expect(screen.getByTestId("thread-sections-error")).toBeInTheDocument();
 	});
 

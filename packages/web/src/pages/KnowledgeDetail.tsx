@@ -54,7 +54,7 @@ import type { Message, PlainPayloadWithBlockId, ScopeKind } from "@hyperidle/sha
 import { isRedactedPayload, SCOPE_KINDS } from "@hyperidle/shared";
 import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { CocContext } from "../contexts/CocContext.js";
+import { AssistantContext } from "../contexts/AssistantContext.js";
 // eslint-disable-next-line design/no-mock-data-import -- tracked in #93
 import { knowledgeItems, type MockKnowledgeItem } from "../fixtures/knowledge-data";
 import { useAutoSave } from "../hooks/useAutoSave.js";
@@ -460,8 +460,8 @@ function KnowledgeDetailView({
 	const effectiveKnowledgeId = routeKnowledgeId ?? item.id;
 	// AD6: navigate after successful archive
 	const navigate = useNavigate();
-	// T4: CocContext for block share action
-	const { overlayOpen, attachContext } = useContext(CocContext);
+	// T4: AssistantContext for block share action
+	const { overlayOpen, attachContext } = useContext(AssistantContext);
 	const isFactory = item.scope === "factory" || item.scopeKind === "factory";
 	const amendableBanner = isFactory && item.status === "needs_human";
 	const initialContent = item.content ?? "";

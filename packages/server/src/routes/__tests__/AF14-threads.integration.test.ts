@@ -8,7 +8,17 @@
  * RED phase — these tests fail until implementation.
  */
 
-import { bets, type HyperIdleDb, knowledgeItems, messages, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
+import {
+	bets,
+	type HyperIdleDb,
+	knowledgeItems,
+	messages,
+	tasks,
+	teamMembers,
+	teams,
+	threads,
+	users,
+} from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
@@ -118,10 +128,10 @@ describe("AF14 AC1 — GET /api/threads returns human-readable titles", () => {
 		});
 		expect(createRes.status).toBe(201);
 
-		const listRes = await app.request(
-			"/api/threads?participant_id=u-founder&limit=50",
-			{ method: "GET", headers: authHeaders() },
-		);
+		const listRes = await app.request("/api/threads?participant_id=u-founder&limit=50", {
+			method: "GET",
+			headers: authHeaders(),
+		});
 		expect(listRes.status).toBe(200);
 		const body = (await listRes.json()) as { threads: Array<{ id: string; title?: string }> };
 		expect(body.threads.length).toBeGreaterThanOrEqual(1);
@@ -153,18 +163,16 @@ describe("AF14 AC1 — GET /api/threads returns human-readable titles", () => {
 		});
 		expect(createRes.status).toBe(201);
 
-		const listRes = await app.request(
-			"/api/threads?participant_id=u-founder&limit=50",
-			{ method: "GET", headers: authHeaders() },
-		);
+		const listRes = await app.request("/api/threads?participant_id=u-founder&limit=50", {
+			method: "GET",
+			headers: authHeaders(),
+		});
 		expect(listRes.status).toBe(200);
 		const body = (await listRes.json()) as { threads: Array<{ id: string; title?: string }> };
-		const betThread = body.threads.find(
-			(t: { id: string; title?: string }) => {
-				// Find any thread — we just created one
-				return t.title !== undefined;
-			},
-		);
+		const betThread = body.threads.find((t: { id: string; title?: string }) => {
+			// Find any thread — we just created one
+			return t.title !== undefined;
+		});
 		expect(betThread?.title).toBeDefined();
 		// Should be bet description derived, not a uuid
 		expect(betThread?.title).not.toMatch(/^[0-9a-f-]{36}$/i);
@@ -192,10 +200,10 @@ describe("AF14 AC1 — GET /api/threads returns human-readable titles", () => {
 		expect(createRes.status).toBe(201);
 		const created = (await createRes.json()) as { thread: { id: string } };
 
-		const listRes = await app.request(
-			"/api/threads?participant_id=u-founder&limit=50",
-			{ method: "GET", headers: authHeaders() },
-		);
+		const listRes = await app.request("/api/threads?participant_id=u-founder&limit=50", {
+			method: "GET",
+			headers: authHeaders(),
+		});
 		expect(listRes.status).toBe(200);
 		const body = (await listRes.json()) as { threads: Array<{ id: string; title?: string }> };
 		const taskThread = body.threads.find((t: { id: string }) => t.id === created.thread.id);
@@ -203,7 +211,10 @@ describe("AF14 AC1 — GET /api/threads returns human-readable titles", () => {
 		expect(taskThread?.title).not.toMatch(/^[0-9a-f-]{36}$/i);
 	});
 
-	test("no thread title is a raw uuid (W1 static guard — all titles are human strings)", async ({ db, app }) => {
+	test("no thread title is a raw uuid (W1 static guard — all titles are human strings)", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 
 		// Create multiple threads of different kinds
@@ -228,10 +239,10 @@ describe("AF14 AC1 — GET /api/threads returns human-readable titles", () => {
 			});
 		}
 
-		const listRes = await app.request(
-			"/api/threads?participant_id=u-founder&limit=50",
-			{ method: "GET", headers: authHeaders() },
-		);
+		const listRes = await app.request("/api/threads?participant_id=u-founder&limit=50", {
+			method: "GET",
+			headers: authHeaders(),
+		});
 		const body = (await listRes.json()) as { threads: Array<{ id: string; title?: string }> };
 		for (const thread of body.threads) {
 			expect(thread.title).toBeDefined();
@@ -253,7 +264,10 @@ describe("AF14 W1 — fallback titles when host is deleted", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("bet-scoped thread with deleted bet → title is 'Deleted bet', not the hostId uuid", async ({ db, app }) => {
+	test("bet-scoped thread with deleted bet → title is 'Deleted bet', not the hostId uuid", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 
 		// Create thread referencing a bet that will be deleted
@@ -262,7 +276,7 @@ describe("AF14 W1 — fallback titles when host is deleted", () => {
 		await db.insert(threads).values({
 			id: "orphan-thread-1",
 			hostKind: "bet",
-			hostId: "bet-deleted-999",  // does not exist in bets table
+			hostId: "bet-deleted-999", // does not exist in bets table
 			initiatorId: "u-founder",
 			participants: JSON.stringify(["u-founder", "agent-1"]),
 			pinned: false,
@@ -270,10 +284,10 @@ describe("AF14 W1 — fallback titles when host is deleted", () => {
 			createdAt: now,
 		});
 
-		const listRes = await app.request(
-			"/api/threads?participant_id=u-founder&limit=50",
-			{ method: "GET", headers: authHeaders() },
-		);
+		const listRes = await app.request("/api/threads?participant_id=u-founder&limit=50", {
+			method: "GET",
+			headers: authHeaders(),
+		});
 		expect(listRes.status).toBe(200);
 		const body = (await listRes.json()) as { threads: Array<{ id: string; title?: string }> };
 		const orphan = body.threads.find((t: { id: string }) => t.id === "orphan-thread-1");
@@ -318,15 +332,24 @@ describe("AF14 AC6 — POST /api/threads DM dedup", () => {
 		expect(typeof body.thread.id).toBe("string");
 
 		// Verify direct_key is set in the DB
-		const [threadRow] = await db.select().from(threads).where(eq(threads.id, body.thread.id)).limit(1);
+		const [threadRow] = await db
+			.select()
+			.from(threads)
+			.where(eq(threads.id, body.thread.id))
+			.limit(1);
 		expect(threadRow).toBeDefined();
 		// direct_key should be set (non-null) — this fails until schema + implementation land
 		// The cast handles the pre-migration state where directKey doesn't exist yet.
-		const threadWithKey = threadRow as (typeof threadRow & { directKey?: string | null }) | undefined;
+		const threadWithKey = threadRow as
+			| (typeof threadRow & { directKey?: string | null })
+			| undefined;
 		expect(threadWithKey?.directKey).not.toBeNull();
 	});
 
-	test("second POST to same DM recipient returns 200 and reuses the same thread id", async ({ db, app }) => {
+	test("second POST to same DM recipient returns 200 and reuses the same thread id", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 
 		const first = await app.request("/api/threads", {
@@ -386,7 +409,9 @@ describe("AF14 AC6 — POST /api/threads DM dedup", () => {
 			}),
 		});
 		expect(first.status).toBe(201);
-		const { thread: { id: threadId } } = (await first.json()) as { thread: { id: string } };
+		const {
+			thread: { id: threadId },
+		} = (await first.json()) as { thread: { id: string } };
 
 		// Second POST appends
 		const second = await app.request("/api/threads", {
@@ -452,7 +477,10 @@ describe("AF14 AC6 — POST /api/threads DM dedup", () => {
 		expect(secondBody.thread.id).not.toBe(firstBody.thread.id);
 	});
 
-	test("C2 race — concurrent POSTs to same DM recipient produce exactly one thread", async ({ db, app }) => {
+	test("C2 race — concurrent POSTs to same DM recipient produce exactly one thread", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 
 		// Fire two concurrent POSTs to the same DM recipient

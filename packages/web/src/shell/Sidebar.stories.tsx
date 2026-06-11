@@ -16,8 +16,8 @@ const commonProps = {
 	onSelectThread: noop,
 	activeTeamId: null,
 	onSelectTeam: noop,
-	onCocClick: noop,
-	cocOverlayOpen: false,
+	onAssistantClick: noop,
+	assistantOverlayOpen: false,
 	onSettingsClick: noop,
 	settingsOpen: false,
 	onSearchClick: noop,
@@ -109,7 +109,7 @@ export function WithSelectedThread(): JSX.Element {
 	);
 }
 
-export function CocOverlayOpen(): JSX.Element {
+export function AssistantOverlayOpen(): JSX.Element {
 	return (
 		<div style={{ height: "600px", display: "flex", width: "200px" }}>
 			<Sidebar
@@ -117,7 +117,7 @@ export function CocOverlayOpen(): JSX.Element {
 				activeView="conversations"
 				threads={sampleThreads}
 				teams={sampleTeams}
-				cocOverlayOpen={true}
+				assistantOverlayOpen={true}
 				userInitials="TG"
 			/>
 		</div>

@@ -6,7 +6,7 @@ import {
 	ThreadRow,
 } from "@hyperidle/design-system";
 import type { HostKind } from "@hyperidle/shared";
-import { type CSSProperties, type JSX, useState } from "react";
+import type { CSSProperties, JSX } from "react";
 
 /**
  * @lore L1a (T17) / L8 §3.2: ThreadItem carries `hostKind` + the derived
@@ -29,6 +29,15 @@ export interface ThreadItem {
 	status?: Status;
 	tag?: string;
 	unread?: boolean;
+	/**
+	 * AF14 AC1: ISO sort key for the flat-list comparator (distinct from display `timestamp`).
+	 * `timestamp` is a relative display string (e.g. "5m") — Date.parse("5m") → NaN → wrong order.
+	 * `lastActiveAt` is an ISO 8601 string (e.g. "2026-06-11T10:00:00.000Z") → stable sort.
+	 *
+	 * @lore AF14: The flat-list comparator previously used `Date.parse(a.timestamp)` which
+	 * always returned NaN for relative strings, falling through to id.localeCompare (wrong order).
+	 */
+	lastActiveAt: string;
 }
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
@@ -173,28 +182,14 @@ export interface ThreadSectionsProps {
 	/** Handler for the filter-empty `Clear filter` action. Only fires when `activeFilter !== 'all'`. */
 	onClearFilter?: () => void;
 	/**
-	 * W3 AC-5: when false, renders a flat chronological list with toggle chips
-	 * (Blocking, Unread) instead of the section-grouped view.
+	 * AF14 AC4: when false, renders a flat chronological list ordered by lastActiveAt DESC.
+	 * Filter chips (Blocking, Unread) have been removed — they never matched real state.
+	 * The blocking/unread fields on ThreadItem remain for forward-compatibility (AF7).
 	 * Defaults to true for backwards compatibility.
 	 */
 	groupBySection?: boolean;
-	/**
-	 * Controlled toggle filter state for flat list mode. When provided, the chip
-	 * bar is NOT rendered inside ThreadSections — the parent (Conversations header)
-	 * renders them inline with the title (visual parity fix).
-	 *
-	 * When absent, ThreadSections manages chip state internally (standalone mode,
-	 * preserving W3 AC-6 test compatibility).
-	 *
-	 * @lore visual-parity: Conversations.tsx lifts this state so filter chips
-	 * appear in the bordered header bar matching the mockup layout.
-	 */
-	toggleFilter?: ConversationsToggleFilter;
-	/** Setter paired with `toggleFilter` for controlled mode. */
-	onToggleFilter?: (f: ConversationsToggleFilter) => void;
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: multi-state thread list rendering
 export function ThreadSections({
 	threads,
 	now = Date.now(),
@@ -206,27 +201,7 @@ export function ThreadSections({
 	activeFilter = "all",
 	onClearFilter,
 	groupBySection = true,
-	toggleFilter: controlledToggleFilter,
-	onToggleFilter,
 }: ThreadSectionsProps): JSX.Element {
-	// W3 AC-6: toggle filter state for flat list mode.
-	// In controlled mode (controlledToggleFilter provided), the parent owns state.
-	// In uncontrolled mode, ThreadSections manages state internally (standalone/tests).
-	const [internalToggleFilter, setInternalToggleFilter] = useState<ConversationsToggleFilter>({
-		blocking: false,
-		unread: false,
-	});
-
-	const isControlled = controlledToggleFilter !== undefined;
-	const toggleFilter = isControlled ? controlledToggleFilter : internalToggleFilter;
-	const setToggleFilter = isControlled
-		? (updater: (prev: ConversationsToggleFilter) => ConversationsToggleFilter): void => {
-				if (onToggleFilter) {
-					onToggleFilter(updater(controlledToggleFilter));
-				}
-			}
-		: setInternalToggleFilter;
-
 	// Flat list mode (W3 AC-5, AC-6)
 	if (!groupBySection) {
 		if (errorMessage) {
@@ -247,51 +222,22 @@ export function ThreadSections({
 			);
 		}
 
-		// Apply toggle filters
-		let flatFiltered = [...threads];
-		if (toggleFilter.blocking) {
-			flatFiltered = flatFiltered.filter((t) => t.blocking === true);
-		}
-		if (toggleFilter.unread) {
-			flatFiltered = flatFiltered.filter((t) => t.unread === true);
-		}
-		// Sort by timestamp descending (most recent first)
+		// AF14 AC4: chip filtering removed — render the full list directly.
+		// The blocking/unread fields remain on ThreadItem (forward-compatible for AF7).
+		const flatFiltered = [...threads];
+		// AF14 AC1: sort by ISO lastActiveAt DESC (not display timestamp — "5m" → NaN).
 		flatFiltered.sort((a, b) => {
-			const at = Date.parse(a.timestamp);
-			const bt = Date.parse(b.timestamp);
+			const at = Date.parse(a.lastActiveAt);
+			const bt = Date.parse(b.lastActiveAt);
 			if (!(Number.isNaN(at) || Number.isNaN(bt))) return bt - at;
 			return a.id.localeCompare(b.id);
 		});
 
 		return (
 			<div className="flex flex-col flex-1 overflow-y-auto">
-				{/* W3 AC-6: toggle chips (Blocking, Unread).
-				    Rendered only in uncontrolled mode — in controlled mode the parent
-				    (Conversations header) renders them inline with the title. */}
-				{!isControlled && (
-					<div className="flex items-center gap-[6px] px-[24px] py-[12px] shrink-0">
-						<button
-							type="button"
-							aria-pressed={toggleFilter.blocking}
-							onClick={() => setToggleFilter((prev) => ({ ...prev, blocking: !prev.blocking }))}
-							className={["btn btn-xs", toggleFilter.blocking ? "btn-primary" : "btn-ghost"].join(
-								" ",
-							)}
-						>
-							Blocking
-						</button>
-						<button
-							type="button"
-							aria-pressed={toggleFilter.unread}
-							onClick={() => setToggleFilter((prev) => ({ ...prev, unread: !prev.unread }))}
-							className={["btn btn-xs", toggleFilter.unread ? "btn-primary" : "btn-ghost"].join(
-								" ",
-							)}
-						>
-							Unread
-						</button>
-					</div>
-				)}
+				{/* AF14 AC4: Blocking/Unread chip bar removed — neither chip matched real state.
+				    The blocking/unread FIELDS remain on ThreadItem (forward-compatible for AF7).
+				    The FilterChip component is retained for future re-introduction. */}
 				{flatFiltered.length === 0 ? (
 					<div className="flex flex-1 items-center justify-center p-[48px_24px]">
 						<EmptyState

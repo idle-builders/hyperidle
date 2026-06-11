@@ -328,6 +328,214 @@ async function resolveHostTitle(
 }
 
 /**
+ * AF14 AC6: Compute the direct-thread dedup key for a 2-participant thread.
+ * Format: `${hostKind}:${hostId}:${sortedParticipants.join(",")}` (stable sort).
+ * Only call for DM threads (2 participants, host=user|agent, not assistant thread).
+ */
+function directKeyFor(
+	hostKind: string,
+	hostId: string,
+	sortedParticipants: readonly string[],
+): string {
+	return `${hostKind}:${hostId}:${[...sortedParticipants].sort().join(",")}`;
+}
+
+/**
+ * AF14 R3: Guard that returns true when the thread is the assistant thread.
+ * The assistant thread is created via /api/threads/assistant (not POST /api/threads),
+ * but as a safety backstop: hostKind=user, hostId===senderId, one participant is ast-<hostId>.
+ */
+function isAssistantThread(
+	hostKind: string,
+	hostId: string,
+	sortedParticipants: readonly string[],
+): boolean {
+	if (hostKind !== "user") return false;
+	return sortedParticipants.some((p) => p === `ast-${hostId}`);
+}
+
+/**
+ * AF14 AC1: Batched thread title resolver.
+ *
+ * Resolves a human-readable title for each thread row — exactly ONE query per
+ * host-kind bucket (no N+1). Title ladder (first match wins):
+ *   1. Assistant thread → "Assistant"
+ *   2. DM (2-participant, user/agent host) → other participant's name
+ *      (fall-through: ast-* → "Assistant", other-agent → "Agent", deleted human → "Unknown participant")
+ *   3. Host-scoped (bet/task/knowledge_item) → entity title
+ *      (fall-through: deleted host → "Deleted <kind>")
+ *   4. Group/feed → deterministic participant-name join ("Aria, Maverick +N")
+ *      (fall-through: empty join → rung 5)
+ *   5. Last resort → "Untitled conversation"
+ *
+ * Never returns a bare uuid or undefined for any row (W1 guarantee).
+ *
+ * @lore AF14: resolveHostTitle (per-row N+1) must NOT be called in list endpoints.
+ * This batched resolver replaces it for GET /api/threads.
+ */
+async function resolveThreadTitles(
+	db: HyperIdleDb,
+	rows: DbThread[],
+	requestingUserId: string,
+): Promise<Map<string, string>> {
+	const titleMap = new Map<string, string>();
+	if (rows.length === 0) return titleMap;
+
+	// ── collect IDs for batched lookups ──────────────────────────────────────
+	const betIds: string[] = [];
+	const taskIds: string[] = [];
+	const kiIds: string[] = [];
+	const allParticipantIds = new Set<string>();
+
+	for (const row of rows) {
+		const parts = (() => {
+			try {
+				return threadParticipantsSchema.parse(JSON.parse(row.participants)) as string[];
+			} catch {
+				return [] as string[];
+			}
+		})();
+
+		// Collect all participant ids for the users lookup
+		for (const p of parts) allParticipantIds.add(p);
+
+		switch (row.hostKind) {
+			case "bet":
+				betIds.push(row.hostId);
+				break;
+			case "task":
+				taskIds.push(row.hostId);
+				break;
+			case "knowledge_item":
+				kiIds.push(row.hostId);
+				break;
+			default:
+				break;
+		}
+	}
+
+	// ── batched queries ───────────────────────────────────────────────────────
+	const [betRows, taskRows, kiRows, userRows] = await Promise.all([
+		betIds.length > 0
+			? db
+					.select({ id: bets.id, description: bets.description })
+					.from(bets)
+					.where(inArray(bets.id, betIds))
+			: Promise.resolve([] as Array<{ id: string; description: string }>),
+		taskIds.length > 0
+			? db
+					.select({ id: tasks.id, title: tasks.title })
+					.from(tasks)
+					.where(inArray(tasks.id, taskIds))
+			: Promise.resolve([] as Array<{ id: string; title: string }>),
+		kiIds.length > 0
+			? db
+					.select({ id: knowledgeItems.id, title: knowledgeItems.title })
+					.from(knowledgeItems)
+					.where(inArray(knowledgeItems.id, kiIds))
+			: Promise.resolve([] as Array<{ id: string; title: string }>),
+		allParticipantIds.size > 0
+			? db
+					.select({ id: users.id, name: users.name })
+					.from(users)
+					.where(inArray(users.id, [...allParticipantIds]))
+			: Promise.resolve([] as Array<{ id: string; name: string }>),
+	]);
+
+	const betMap = new Map(betRows.map((r) => [r.id, r.description]));
+	const taskMap = new Map(taskRows.map((r) => [r.id, r.title]));
+	const kiMap = new Map(kiRows.map((r) => [r.id, r.title]));
+	const userNameMap = new Map(userRows.map((r) => [r.id, r.name]));
+
+	// ── resolve per row ───────────────────────────────────────────────────────
+	for (const row of rows) {
+		const parts: string[] = (() => {
+			try {
+				return threadParticipantsSchema.parse(JSON.parse(row.participants)) as string[];
+			} catch {
+				return [];
+			}
+		})();
+
+		// Rung 1: assistant thread
+		if (
+			row.hostKind === "user" &&
+			row.hostId === requestingUserId &&
+			parts.some((p) => p === `ast-${requestingUserId}`)
+		) {
+			titleMap.set(row.id, "Assistant");
+			continue;
+		}
+
+		// Rung 2: DM (2 participants, user or agent host)
+		if ((row.hostKind === "user" || row.hostKind === "agent") && parts.length === 2) {
+			const otherId = parts.find((p) => p !== requestingUserId);
+			if (otherId !== undefined) {
+				const name = userNameMap.get(otherId);
+				if (name) {
+					titleMap.set(row.id, name);
+					continue;
+				}
+				// Fall-through W1: no name row
+				if (otherId.startsWith("ast-")) {
+					titleMap.set(row.id, "Assistant");
+				} else {
+					// Heuristic: check if it looks like an agent id or has no users row
+					titleMap.set(row.id, "Unknown participant");
+				}
+				continue;
+			}
+		}
+
+		// Rung 3: host-scoped (bet, task, knowledge_item)
+		if (row.hostKind === "bet") {
+			const desc = betMap.get(row.hostId);
+			if (desc !== undefined) {
+				titleMap.set(row.id, deriveTitle(desc, row.hostId));
+			} else {
+				titleMap.set(row.id, "Deleted bet");
+			}
+			continue;
+		}
+		if (row.hostKind === "task") {
+			const title = taskMap.get(row.hostId);
+			if (title !== undefined) {
+				titleMap.set(row.id, title);
+			} else {
+				titleMap.set(row.id, "Deleted task");
+			}
+			continue;
+		}
+		if (row.hostKind === "knowledge_item") {
+			const title = kiMap.get(row.hostId);
+			if (title !== undefined) {
+				titleMap.set(row.id, title);
+			} else {
+				titleMap.set(row.id, "Deleted knowledge item");
+			}
+			continue;
+		}
+
+		// Rung 4: group/feed — deterministic participant-name join
+		const resolvedNames = parts
+			.map((p) => userNameMap.get(p))
+			.filter((n): n is string => n !== undefined)
+			.sort(); // deterministic: alphabetical name sort (stable across reloads)
+		if (resolvedNames.length > 0) {
+			const first2 = resolvedNames.slice(0, 2).join(", ");
+			const extra = resolvedNames.length > 2 ? ` +${resolvedNames.length - 2}` : "";
+			titleMap.set(row.id, `${first2}${extra}`);
+			continue;
+		}
+
+		// Rung 5: last resort
+		titleMap.set(row.id, "Untitled conversation");
+	}
+
+	return titleMap;
+}
+
+/**
  * @lore L1 step5 (SL-C2): the DB→Message boundary parses the row's JSON
  * `payload` and `participants` columns through Zod. A malformed row (e.g.
  * legacy data, manual edit) fails loudly here instead of crashing somewhere
@@ -495,10 +703,14 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 			}
 		}
 
+		// AF14 AC1: batched title resolver — no N+1.
+		const titleMap = await resolveThreadTitles(db, rows, c.get("userId"));
+
 		return c.json({
 			threads: rows.map((r) => ({
 				...rowToThread(r),
 				hasUnresolvedReview: unresolvedThreadIds.has(r.id),
+				title: titleMap.get(r.id) ?? "Untitled conversation",
 			})),
 			nextCursor: null,
 		});
@@ -604,14 +816,123 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 			: [...input.participants, senderId];
 		const sortedParticipants = [...participants].sort();
 
-		const now = new Date().toISOString();
-		const threadId = crypto.randomUUID();
-
 		// Verdict cannot be the initial message.
 		if (input.initialMessage.type === "verdict") {
 			const e = err("validation_error", "Initial message cannot be verdict", 400);
 			return c.json(e.body, e.status);
 		}
+
+		// AF14 AC6: DM dedup — resolve-or-append for direct (2-participant) threads.
+		// A direct thread is: hostKind ∈ {user, agent}, exactly 2 participants,
+		// and NOT the assistant thread (R3 guard: hostId === senderId + ast-<hostId> participant).
+		const isDirect =
+			(input.hostKind === "user" || input.hostKind === "agent") &&
+			sortedParticipants.length === 2 &&
+			!isAssistantThread(input.hostKind, input.hostId, sortedParticipants);
+
+		const dmDirectKey = isDirect
+			? directKeyFor(input.hostKind, input.hostId, sortedParticipants)
+			: null;
+
+		if (dmDirectKey) {
+			// Happy path: existing thread lookup (read-before-insert — the DB index backstops the race).
+			const [existing] = await db
+				.select()
+				.from(threads)
+				.where(eq(threads.directKey, dmDirectKey))
+				.limit(1);
+
+			if (existing) {
+				// Option B: append the initial message to the existing thread + bump lastActiveAt.
+				const nowReuse = new Date().toISOString();
+				const reuseMessageId = crypto.randomUUID();
+
+				// Resolve @mentions for the initial message before appending.
+				let reusePayload = input.initialMessage.payload;
+				const reuseParticipants = (() => {
+					try {
+						return threadParticipantsSchema.parse(JSON.parse(existing.participants)) as string[];
+					} catch {
+						return sortedParticipants;
+					}
+				})();
+
+				if (input.initialMessage.type === "plain") {
+					const { refs: enrichedRefs } = await resolveMentionsForMessage(
+						db,
+						input.initialMessage.payload.text,
+						input.initialMessage.payload.refs ?? [],
+						reuseParticipants,
+						senderId,
+					);
+					if (enrichedRefs.length > 0) {
+						reusePayload = {
+							...input.initialMessage.payload,
+							refs: enrichedRefs as typeof input.initialMessage.payload.refs,
+						};
+					}
+				}
+
+				const reuseBlockId =
+					input.initialMessage.type === "plain"
+						? (input.initialMessage.payload.blockId ?? null)
+						: null;
+
+				try {
+					await db.transaction(async (tx) => {
+						await tx.insert(messages).values({
+							id: reuseMessageId,
+							senderId,
+							threadId: existing.id,
+							type: input.initialMessage.type,
+							payload: JSON.stringify(reusePayload),
+							clientKey: input.initialMessage.clientKey,
+							blockId: reuseBlockId,
+							createdAt: nowReuse,
+						});
+						await tx
+							.update(threads)
+							.set({ lastActiveAt: nowReuse })
+							.where(eq(threads.id, existing.id));
+					});
+				} catch (cause) {
+					return c.json(
+						{
+							error: "Failed to append to existing thread",
+							code: "internal_error",
+							detail: String(cause),
+						},
+						500,
+					);
+				}
+
+				// Emit events for the reused thread
+				const appendedEvent: ThreadMessageAppendedEvent = {
+					type: "thread_message_appended",
+					streamId: existing.id,
+					threadId: existing.id,
+					messageId: reuseMessageId,
+					messageType: input.initialMessage.type,
+					senderId,
+					timestamp: Date.now(),
+				};
+				eventBus.emit(appendedEvent);
+
+				const [reusedThread] = await db
+					.select()
+					.from(threads)
+					.where(eq(threads.id, existing.id))
+					.limit(1);
+				if (!reusedThread) {
+					const e = err("internal_error", "Reused thread missing", 500);
+					return c.json(e.body, e.status);
+				}
+				return c.json({ thread: rowToThread(reusedThread) }, 200);
+			}
+		}
+
+		const now = new Date().toISOString();
+		const threadId = crypto.randomUUID();
 
 		const messageId = crypto.randomUUID();
 
@@ -654,6 +975,8 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 					pinned: input.pinned ?? false,
 					lastActiveAt: now,
 					createdAt: now,
+					// AF14 AC6: write directKey for DM threads (null for others).
+					directKey: dmDirectKey,
 				});
 				// T5: dual-write blockId to the structured column (safe narrowing — no `as` cast).
 				const initBlockId =
@@ -673,6 +996,68 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 				});
 			});
 		} catch (cause) {
+			// AF14 C2: Unique constraint violation on threads_direct_key_uq means a
+			// concurrent writer won the race. Re-select the winner and append the initial
+			// message to it (Option B — preserves user intent).
+			if (
+				dmDirectKey &&
+				cause instanceof Error &&
+				cause.message.toLowerCase().includes("threads_direct_key_uq")
+			) {
+				const [winner] = await db
+					.select()
+					.from(threads)
+					.where(eq(threads.directKey, dmDirectKey))
+					.limit(1);
+				if (winner) {
+					const nowRace = new Date().toISOString();
+					const raceMsgId = crypto.randomUUID();
+					const raceBlockId =
+						input.initialMessage.type === "plain"
+							? (input.initialMessage.payload.blockId ?? null)
+							: null;
+					try {
+						await db.transaction(async (tx) => {
+							await tx.insert(messages).values({
+								id: raceMsgId,
+								senderId,
+								threadId: winner.id,
+								type: input.initialMessage.type,
+								payload: JSON.stringify(initEnrichedPayload),
+								clientKey: input.initialMessage.clientKey,
+								blockId: raceBlockId,
+								createdAt: nowRace,
+							});
+							await tx
+								.update(threads)
+								.set({ lastActiveAt: nowRace })
+								.where(eq(threads.id, winner.id));
+						});
+					} catch {
+						// Best-effort — if append fails, still return the winner thread (idempotent)
+					}
+					const appendedRaceEvent: ThreadMessageAppendedEvent = {
+						type: "thread_message_appended",
+						streamId: winner.id,
+						threadId: winner.id,
+						messageId: raceMsgId,
+						messageType: input.initialMessage.type,
+						senderId,
+						timestamp: Date.now(),
+					};
+					eventBus.emit(appendedRaceEvent);
+					const [reloadedWinner] = await db
+						.select()
+						.from(threads)
+						.where(eq(threads.id, winner.id))
+						.limit(1);
+					if (!reloadedWinner) {
+						const e = err("internal_error", "Race winner thread missing", 500);
+						return c.json(e.body, e.status);
+					}
+					return c.json({ thread: rowToThread(reloadedWinner) }, 200);
+				}
+			}
 			return c.json(
 				{ error: "Failed to create thread", code: "internal_error", detail: String(cause) },
 				500,

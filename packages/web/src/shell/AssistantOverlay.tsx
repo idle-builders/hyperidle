@@ -175,7 +175,8 @@ function AssistantOverlayInner({
 	contextRefs: ReadonlyArray<AssistantContextRef>;
 	onRemoveContextRef: (index: number) => void;
 }): JSX.Element {
-	const { status, data, error, retry } = useAssistantThread();
+	// AF14 AC2: destructure `refresh` so sent messages stay visible immediately.
+	const { status, data, error, retry, refresh } = useAssistantThread();
 
 	const handleAppendMessage = useCallback(
 		async (input: { type: string; payload: unknown; clientKey: string }): Promise<void> => {
@@ -207,8 +208,12 @@ function AssistantOverlayInner({
 				const text = await res.text().catch(() => res.statusText);
 				throw new Error(`Failed to send message: ${res.status} ${text}`);
 			}
+			// AF14 AC2: re-fetch thread so the sent message appears without
+			// closing and reopening the overlay. The WS update will arrive
+			// shortly after, but refresh() ensures immediate visibility.
+			refresh();
 		},
-		[data?.thread, contextRefs],
+		[data?.thread, contextRefs, refresh],
 	);
 
 	if (status === "loading" || (!data && status !== "error")) {
@@ -326,7 +331,7 @@ export function AssistantOverlay({
 				"rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-[var(--surface-overlay)]",
 				"shadow-[var(--shadow-elevated)]",
 				"z-30",
-				"animate-[coc-open_var(--motion-fast)_ease-out_forwards]",
+				"animate-[assistant-open_var(--motion-fast)_ease-out_forwards]",
 			].join(" ")}
 		>
 			{/* Overlay header bar: "Assistant" title + close button */}
@@ -365,5 +370,5 @@ export function AssistantOverlay({
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
-// @lore AD8b: CocOverlay.tsx re-exports from this module for backward compat.
+// @lore AF14: Coc→Assistant rename complete. CocOverlay.tsx deleted. AssistantOverlay is the sole mount point.
 // ---------------------------------------------------------------------------

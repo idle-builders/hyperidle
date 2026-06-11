@@ -69,16 +69,16 @@ describe("AE2 — AppShell ?onboarding=true auto-open", () => {
 	it("opens the CoC/Assistant overlay when ?onboarding=true is in the URL", async () => {
 		renderShell("/work/portfolio?onboarding=true");
 
-		// The CocOverlay renders with data-testid="coc-overlay" or similar when open.
-		// The overlay is controlled by cocOverlayOpen state in AppShell.
+		// The AssistantOverlay renders with data-testid="coc-overlay" or similar when open.
+		// The overlay is controlled by assistantOverlayOpen state in AppShell.
 		// It should open automatically because of the ?onboarding=true param.
 		await waitFor(
 			() => {
-				// The overlay should appear — either the CocOverlay dialog or the coc-context-chips section
-				// CocOverlay renders nothing when open=false, so any content from it signals it's open
+				// The overlay should appear — either the AssistantOverlay dialog or the assistant-context-chips section
+				// AssistantOverlay renders nothing when open=false, so any content from it signals it's open
 				const overlay =
 					screen.queryByTestId("coc-overlay") ??
-					screen.queryByTestId("coc-context-chips") ??
+					screen.queryByTestId("assistant-context-chips") ??
 					screen.queryByRole("dialog", { name: /assistant/i }) ??
 					screen.queryByRole("dialog");
 				expect(overlay).not.toBeNull();
@@ -111,7 +111,7 @@ describe("AE2 — AppShell ?onboarding=true auto-open", () => {
 			() => {
 				const overlay =
 					screen.queryByTestId("coc-overlay") ??
-					screen.queryByTestId("coc-context-chips") ??
+					screen.queryByTestId("assistant-context-chips") ??
 					screen.queryByRole("dialog");
 				expect(overlay).not.toBeNull();
 			},
@@ -136,7 +136,7 @@ describe("AE2 — AppShell ?onboarding=true auto-open", () => {
 			{ timeout: 3000 },
 		);
 
-		// The overlay should NOT be open — CocOverlay returns null when open=false.
+		// The overlay should NOT be open — AssistantOverlay returns null when open=false.
 		// The dialog should not be present
 		const dialog = screen.queryByRole("dialog");
 		expect(dialog).toBeNull();

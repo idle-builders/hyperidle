@@ -12,7 +12,6 @@
 
 import { Composer, ThreadRow } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { ThreadItem } from "../../components/ThreadSections";
@@ -53,6 +52,7 @@ function makeThread(overrides: Partial<ThreadItem> = {}): ThreadItem {
 		hasUnresolvedReview: false,
 		blocking: false,
 		pinned: false,
+		lastActiveAt: "2026-01-01T10:00:00.000Z",
 		...overrides,
 	};
 }
@@ -93,21 +93,19 @@ describe("W3 AC-5 — Flat thread list (no Active/Resolved grouping)", () => {
 // AC-6: Toggle filter chips (Blocking, Unread) — independently toggleable
 // ---------------------------------------------------------------------------
 describe("W3 AC-6 — Toggle-style filter chips", () => {
-	it("renders a 'Blocking' toggle chip (not a tab)", () => {
+	it("AF14 AC4: Blocking chip is NOT rendered (removed by AF14)", () => {
+		// AF14 AC4 supersedes W3 AC-6: Blocking and Unread chips removed from flat-list view.
+		// The chip bar is gone; no aria-pressed buttons should be present.
 		const threads: ThreadItem[] = [makeThread({ id: "t1" })];
 		render(<ThreadSections threads={threads} groupBySection={false} />);
-		// AC-6: chip is a toggle button (aria-pressed), NOT role="tab"
-		const blockingChip = screen.getByRole("button", { name: /^blocking$/i });
-		expect(blockingChip).toBeInTheDocument();
-		expect(blockingChip).toHaveAttribute("aria-pressed");
+		expect(screen.queryByRole("button", { name: /^blocking$/i })).not.toBeInTheDocument();
 	});
 
-	it("renders an 'Unread' toggle chip", () => {
+	it("AF14 AC4: Unread chip is NOT rendered (removed by AF14)", () => {
+		// AF14 AC4 supersedes W3 AC-6: Blocking and Unread chips removed from flat-list view.
 		const threads: ThreadItem[] = [makeThread({ id: "t1" })];
 		render(<ThreadSections threads={threads} groupBySection={false} />);
-		const unreadChip = screen.getByRole("button", { name: /^unread$/i });
-		expect(unreadChip).toBeInTheDocument();
-		expect(unreadChip).toHaveAttribute("aria-pressed");
+		expect(screen.queryByRole("button", { name: /^unread$/i })).not.toBeInTheDocument();
 	});
 
 	it("does NOT render an 'All' tab (not mutually exclusive)", () => {
@@ -123,23 +121,18 @@ describe("W3 AC-6 — Toggle-style filter chips", () => {
 		expect(screen.queryByRole("tab", { name: /^async$/i })).not.toBeInTheDocument();
 	});
 
-	it("toggling Blocking chip filters to blocking threads only", async () => {
-		const user = userEvent.setup();
+	it("AF14 AC4: flat list shows all threads with no chip filtering (chips removed)", () => {
+		// AF14 AC4 supersedes W3 AC-6 chip-filter behavior: chips removed, all threads show.
 		const threads: ThreadItem[] = [
 			makeThread({ id: "b1", blocking: true }),
 			makeThread({ id: "a1", blocking: false }),
 			makeThread({ id: "a2", blocking: false }),
 		];
 		render(<ThreadSections threads={threads} groupBySection={false} />);
-		// Initially shows all 3
+		// All 3 threads are visible (no chip to filter them)
 		expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(3);
-
-		// Toggle Blocking chip
-		const blockingChip = screen.getByRole("button", { name: /^blocking$/i });
-		await user.click(blockingChip);
-
-		// Should filter to 1 blocking thread
-		expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(1);
+		// No chip buttons
+		expect(screen.queryByRole("button", { name: /^blocking$/i })).not.toBeInTheDocument();
 	});
 
 	it("filter type is object { blocking: boolean; unread: boolean }, not string enum", () => {

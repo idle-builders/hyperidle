@@ -68,13 +68,9 @@ export interface SidebarProps {
 	/** Handler for team sub-item click */
 	onSelectTeam: (id: string) => void;
 
-	/** Assistant overlay trigger (preferred) */
+	/** Assistant overlay trigger */
 	onAssistantClick?: () => void;
 	assistantOverlayOpen?: boolean;
-	/** @deprecated Use onAssistantClick */
-	onCocClick?: () => void;
-	/** @deprecated Use assistantOverlayOpen */
-	cocOverlayOpen?: boolean;
 
 	/** Settings trigger */
 	onSettingsClick: () => void;
@@ -178,9 +174,6 @@ export function Sidebar({
 	onSelectTeam,
 	onAssistantClick,
 	assistantOverlayOpen,
-	// backward-compat aliases
-	onCocClick,
-	cocOverlayOpen,
 	onSettingsClick,
 	settingsOpen,
 	onSearchClick,
@@ -462,13 +455,13 @@ export function Sidebar({
 					{/* Assistant button */}
 					<button
 						type="button"
-						onClick={onAssistantClick ?? onCocClick}
-						aria-expanded={assistantOverlayOpen ?? cocOverlayOpen ?? false}
+						onClick={onAssistantClick}
+						aria-expanded={assistantOverlayOpen ?? false}
 						aria-label="Assistant"
 						className={[
 							"flex-1 text-left text-[13px]",
 							"transition-[color] duration-[var(--motion-fast)]",
-							(assistantOverlayOpen ?? cocOverlayOpen)
+							assistantOverlayOpen
 								? "text-[var(--accent-primary)]"
 								: "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]",
 						].join(" ")}

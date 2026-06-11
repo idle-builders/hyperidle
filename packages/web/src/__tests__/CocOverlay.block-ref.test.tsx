@@ -1,5 +1,5 @@
 /**
- * T4 — CocOverlay block ref integration tests (AC-4, AC-5).
+ * AF14 — AssistantOverlay block ref integration tests (renamed from CocOverlay.block-ref).
  *
  * Tests:
  *   - Block ref chip renders correctly in the overlay (kind, label)
@@ -11,12 +11,12 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { CocContextRef } from "../contexts/CocContext";
-import { CocOverlay } from "../shell/CocOverlay";
+import type { AssistantContextRef } from "../contexts/AssistantContext";
+import { AssistantOverlay } from "../shell/AssistantOverlay";
 
-// Module-level mock for useCocThread
-vi.mock("../hooks/useCocThread", () => ({
-	useCocThread: () => ({
+// Module-level mock for useAssistantThread
+vi.mock("../hooks/useAssistantThread", () => ({
+	useAssistantThread: () => ({
 		status: "ready",
 		data: {
 			thread: {
@@ -48,10 +48,13 @@ vi.mock("../services/api-fetch.js", () => ({
 	apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
-function renderOverlay(contextRefs: ReadonlyArray<CocContextRef>, onRemoveContextRef = vi.fn()) {
+function renderOverlay(
+	contextRefs: ReadonlyArray<AssistantContextRef>,
+	onRemoveContextRef = vi.fn(),
+) {
 	return render(
 		<MemoryRouter>
-			<CocOverlay
+			<AssistantOverlay
 				open={true}
 				onClose={vi.fn()}
 				contextRefs={contextRefs}
@@ -61,13 +64,13 @@ function renderOverlay(contextRefs: ReadonlyArray<CocContextRef>, onRemoveContex
 	);
 }
 
-describe("T4 — CocOverlay block ref chip rendering (AC-5)", () => {
+describe("AF14 — AssistantOverlay block ref chip rendering (AC-5)", () => {
 	afterEach(() => {
 		vi.clearAllMocks();
 	});
 
 	it("renders a chip for a block ref with kind='block'", () => {
-		const blockRef: CocContextRef = {
+		const blockRef: AssistantContextRef = {
 			kind: "block",
 			blockId: "blk:v1:abc",
 			hostKind: "bet",
@@ -76,13 +79,13 @@ describe("T4 — CocOverlay block ref chip rendering (AC-5)", () => {
 		};
 		renderOverlay([blockRef]);
 		// The chip area should appear
-		expect(screen.getByTestId("coc-context-chips")).toBeInTheDocument();
+		expect(screen.getByTestId("assistant-context-chips")).toBeInTheDocument();
 		// The label should be visible
 		expect(screen.getByText("Bet pitch paragraph 1")).toBeInTheDocument();
 	});
 
 	it("renders 'block' kind label in the chip", () => {
-		const blockRef: CocContextRef = {
+		const blockRef: AssistantContextRef = {
 			kind: "block",
 			blockId: "blk:v1:xyz",
 			hostKind: "knowledge_item",
@@ -95,7 +98,7 @@ describe("T4 — CocOverlay block ref chip rendering (AC-5)", () => {
 	});
 
 	it("renders multiple chips for mixed entity and block refs", () => {
-		const refs: ReadonlyArray<CocContextRef> = [
+		const refs: ReadonlyArray<AssistantContextRef> = [
 			{ kind: "bet", id: "bet-1", label: "Bet Alpha" },
 			{
 				kind: "block",
@@ -113,7 +116,7 @@ describe("T4 — CocOverlay block ref chip rendering (AC-5)", () => {
 	it("dismiss button for block ref chip calls onRemoveContextRef", async () => {
 		const user = userEvent.setup();
 		const onRemove = vi.fn();
-		const blockRef: CocContextRef = {
+		const blockRef: AssistantContextRef = {
 			kind: "block",
 			blockId: "blk:v1:abc",
 			hostKind: "bet",
@@ -127,7 +130,7 @@ describe("T4 — CocOverlay block ref chip rendering (AC-5)", () => {
 	});
 });
 
-describe("T4 — CocOverlay wire serialization for block refs (AC-5)", () => {
+describe("AF14 — AssistantOverlay wire serialization for block refs (AC-5)", () => {
 	beforeEach(() => {
 		mockApiFetch.mockResolvedValue({ ok: true, text: async () => "" });
 	});
@@ -138,7 +141,7 @@ describe("T4 — CocOverlay wire serialization for block refs (AC-5)", () => {
 
 	it("sends block ref shape (kind/blockId/hostKind/hostId) when message has block context", async () => {
 		const user = userEvent.setup();
-		const blockRef: CocContextRef = {
+		const blockRef: AssistantContextRef = {
 			kind: "block",
 			blockId: "blk:v1:theblock",
 			hostKind: "bet",
@@ -171,7 +174,7 @@ describe("T4 — CocOverlay wire serialization for block refs (AC-5)", () => {
 
 	it("sends entity ref shape (kind/id) for entity context refs", async () => {
 		const user = userEvent.setup();
-		const entityRef: CocContextRef = {
+		const entityRef: AssistantContextRef = {
 			kind: "bet",
 			id: "bet-999",
 			label: "My Bet",

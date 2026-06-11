@@ -15,7 +15,7 @@
 
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import type { ThreadItem } from "../components/ThreadSections";
 import { ThreadSections } from "../components/ThreadSections";
 
@@ -43,7 +43,7 @@ function makeItem(overrides: Partial<ThreadItem> & { id: string }): ThreadItem {
 
 describe("AF14 AC4 — filter chips removed from flat-list view", () => {
 	beforeEach(() => {
-		vi.restoreAllMocks();
+		// No mocks needed — using real ThreadSections component
 	});
 
 	it("flat-list (uncontrolled) renders no aria-pressed buttons", () => {
@@ -56,27 +56,20 @@ describe("AF14 AC4 — filter chips removed from flat-list view", () => {
 		);
 
 		// After AC4: no aria-pressed buttons (chips removed)
-		const pressedButtons = document.querySelectorAll('[aria-pressed]');
+		const pressedButtons = document.querySelectorAll("[aria-pressed]");
 		expect(pressedButtons.length).toBe(0);
 	});
 
-	it("flat-list (controlled mode) renders no Unread/Blocking chip text", () => {
+	it("flat-list (groupBySection=false) renders no Unread/Blocking chip text", () => {
 		const threads = [makeItem({ id: "t1" }), makeItem({ id: "t2" })];
-		const toggleFilter = { blocking: false, unread: false };
-		const onToggleFilter = vi.fn();
 
 		render(
 			<MemoryRouter>
-				<ThreadSections
-					threads={threads}
-					groupBySection={false}
-					toggleFilter={toggleFilter}
-					onToggleFilter={onToggleFilter}
-				/>
+				<ThreadSections threads={threads} groupBySection={false} />
 			</MemoryRouter>,
 		);
 
-		// After AC4: no "Unread" or "Blocking" button text in controlled mode
+		// After AC4: no "Unread" or "Blocking" button text
 		const unreadEl = screen.queryByText("Unread");
 		const blockingEl = screen.queryByText("Blocking");
 		expect(unreadEl).toBeNull();

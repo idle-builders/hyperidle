@@ -54,12 +54,7 @@ export const AssistantContext = createContext<AssistantContextValue>({
 });
 
 // ---------------------------------------------------------------------------
-// Backward-compat aliases: CocContext is still imported by pre-AD8b tests and
-// a few pages. We re-export as the old names so the test files that import
-// CocContext continue to compile during the transition. These are the ONLY
-// allowed uses of the old names — new code must use Assistant*.
-//
-// @lore AD8b: These aliases allow the existing CocAttachButton.test.tsx,
-// CocOverlay.test.tsx etc. to stay green without file-level changes. The old
-// test files are left in place; the new AD8b tests use AssistantContext.
+// AF14: Coc→Assistant rename complete. CocContext.tsx, CocOverlay.tsx,
+// CocAttachButton.tsx, useCocThread.ts are all deleted. All callers use
+// AssistantContext, AssistantOverlay, AssistantAttachButton, useAssistantThread.
 // ---------------------------------------------------------------------------

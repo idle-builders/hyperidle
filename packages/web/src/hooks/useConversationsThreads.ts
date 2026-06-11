@@ -35,6 +35,12 @@ interface ThreadListRow {
 	 * `blocking=true` rows without a server change.
 	 */
 	blocking?: boolean;
+	/**
+	 * AF14 AC1: Server-resolved human-readable title (batched, no N+1).
+	 * Required after AF14 — the server always returns a title string.
+	 * Optional guard for backward-compat with pre-AF14 snapshots.
+	 */
+	title?: string;
 }
 
 export interface UseConversationsThreadsResult {
@@ -80,7 +86,9 @@ function isThreadListRow(value: unknown): value is ThreadListRow {
 		typeof v.lastActiveAt === "string" &&
 		typeof v.createdAt === "string" &&
 		typeof v.hasUnresolvedReview === "boolean" &&
-		(v.blocking === undefined || typeof v.blocking === "boolean")
+		(v.blocking === undefined || typeof v.blocking === "boolean") &&
+		// AF14 AC1: server-resolved title — optional for backward-compat
+		(v.title === undefined || typeof v.title === "string")
 	);
 }
 
@@ -105,17 +113,19 @@ function capitalize(s: string): string {
 }
 
 function rowToItem(row: ThreadListRow): ThreadItem {
-	// @lore L8: title and snippet are placeholders. The /api/threads list
-	// endpoint does not yet return a thread title or last-message preview;
-	// follow-up story will surface real values. Until then the title is a
-	// host-kind-derived stub and snippet is intentionally left blank so it
-	// does not duplicate the timestamp on the right of the row.
+	// AF14 AC1: use server-resolved title. Falls back to a typed stub if the
+	// server predates AF14 (pre-AF14 responses omit `title`).
+	// @lore L8: The L8 stub `${capitalize(hostKind)} thread ${id.slice(0,8)}`
+	// is replaced by the server-resolved title from AF14 onwards.
+	const title = row.title ?? `${capitalize(row.hostKind)} thread ${row.id.slice(0, 8)}`;
 	const relative = formatRelative(row.lastActiveAt);
 	return {
 		id: row.id,
-		title: `${capitalize(row.hostKind)} thread ${row.id.slice(0, 8)}`,
+		title,
 		snippet: "",
 		timestamp: relative,
+		// AF14 AC1: carry lastActiveAt as the ISO sort key for flat-list comparator.
+		lastActiveAt: row.lastActiveAt,
 		avatarUrl: null,
 		hostKind: row.hostKind,
 		hasUnresolvedReview: row.hasUnresolvedReview,

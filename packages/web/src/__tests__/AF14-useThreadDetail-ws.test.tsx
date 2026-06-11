@@ -101,10 +101,7 @@ describe("AF14 AC3 — useThreadDetail WS subscription", () => {
 		});
 
 		// Should have subscribed to the thread-specific channel
-		expect(subscribeMock).toHaveBeenCalledWith(
-			"thread:thread-abc",
-			expect.any(Function),
-		);
+		expect(subscribeMock).toHaveBeenCalledWith("thread:thread-abc", expect.any(Function));
 	});
 
 	it("calls unsubscribe on unmount (no leak)", async () => {

@@ -16,6 +16,7 @@
 import type { ArtifactRef, Message, Thread } from "@hyperidle/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
+import { getWsClient } from "../services/ws-client.js";
 
 export interface ThreadDetail {
 	thread: Thread;
@@ -160,6 +161,30 @@ export function useThreadDetail(threadId: string): ThreadDetailState {
 	const retry = useCallback((): void => {
 		setTick((n) => n + 1);
 	}, []);
+
+	// AF14 AC3: Subscribe to the per-thread WS channel so replies appear
+	// without a manual reload. Mirrors `useConversationsThreads.ts:213-225`.
+	// The `thread:<id>` channel is already broadcast + participant-authorized
+	// server-side (ws-broadcaster.ts:71, :258-268). We bump tick to re-fetch
+	// via the existing tick path (same approach as useConversationsThreads).
+	// @lore AF14: WS is unavailable in JSDOM — mock ws-client in tests per
+	// the global mock in test-setup.ts (`./services/ws-client.js` path).
+	useEffect(() => {
+		const ws = getWsClient();
+		const unsubscribe = ws.subscribe(`thread:${threadId}`, (data) => {
+			if (typeof data !== "object" || data === null) return;
+			const msg = data as Record<string, unknown>;
+			if (
+				msg.threadId === threadId &&
+				(msg.type === "thread_message_appended" ||
+					msg.type === "thread_resolved" ||
+					msg.type === "thread_reopened")
+			) {
+				setTick((n) => n + 1);
+			}
+		});
+		return unsubscribe;
+	}, [threadId]);
 
 	return { status, data, error, retry };
 }

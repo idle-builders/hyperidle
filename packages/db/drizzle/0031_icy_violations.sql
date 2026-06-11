@@ -1,0 +1,2 @@
+ALTER TABLE "threads" ADD COLUMN "direct_key" text;--> statement-breakpoint
+CREATE UNIQUE INDEX "threads_direct_key_uq" ON "threads" USING btree ("direct_key") WHERE "threads"."direct_key" IS NOT NULL;

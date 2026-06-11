@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
 	boolean,
 	index,
@@ -383,10 +384,28 @@ export const threads = pgTable(
 		resolvedAt: text("resolved_at"),
 		lastActiveAt: text("last_active_at").notNull(),
 		createdAt: text("created_at").notNull(),
+		/**
+		 * AF14 AC6 / C2: Dedup key for direct (2-participant) threads only.
+		 * Format: `${hostKind}:${hostId}:${sortedParticipants.join(",")}`
+		 * NULL for group/feed/host-scoped threads — they are never deduped.
+		 * The partial unique index (WHERE direct_key IS NOT NULL) enforces
+		 * one row per direct identity under concurrency.
+		 *
+		 * @lore AF14: directKey is nullable and NOT backfilled for pre-AF14 threads.
+		 * Historical duplicates (if any) are not retroactively merged.
+		 * The assistant thread (host=user, hostId===senderId, participant=ast-<userId>)
+		 * is exempt (directKey=null) to avoid overlap with assistant.ts.
+		 */
+		directKey: text("direct_key"),
 	},
 	(table) => [
 		index("threads_host_idx").on(table.hostKind, table.hostId, table.lastActiveAt),
 		index("threads_initiator_idx").on(table.initiatorId, table.lastActiveAt),
+		// AF14 C2: partial unique index — only for direct (DM) threads.
+		// WHERE clause prevents group/host-scoped threads from colliding.
+		uniqueIndex("threads_direct_key_uq")
+			.on(table.directKey)
+			.where(sql`${table.directKey} IS NOT NULL`),
 	],
 );
 

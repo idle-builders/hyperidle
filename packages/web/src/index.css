@@ -15,17 +15,18 @@
  * be reused for future Bet pitch bodies under a different attribute without
  * polluting global heading styles.
  */
-/* L21 — CocOverlay entrance animation.
+/* AF14 — AssistantOverlay entrance animation (renamed from coc-open in AF14).
  *
- * @lore L21 review D1: the animate-[coc-open] Tailwind arbitrary-value class
+ * @lore L21 review D1: the animate-[assistant-open] Tailwind arbitrary-value class
  * references this keyframe. Defined here (not in tokens.css) because it is a
  * shell-level choreography concern, not a design-system primitive. AQ-013
  * requires motion durations from --motion-fast/medium/slow; the keyframe
  * itself is duration-agnostic — the CSS custom property is supplied by the
- * Tailwind class at call-site: animate-[coc-open_var(--motion-fast)_...].
+ * Tailwind class at call-site: animate-[assistant-open_var(--motion-fast)_...].
  * AQ-014: only transforms opacity + translateY — no layout-property transitions.
+ * @lore AF14: Renamed from @keyframes coc-open → assistant-open (AC5 purge).
  */
-@keyframes coc-open {
+@keyframes assistant-open {
 	from {
 		opacity: 0;
 		transform: translateY(8px);
