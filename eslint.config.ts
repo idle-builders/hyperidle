@@ -111,6 +111,10 @@ export default [
 			"design/require-ds-attribute": "warn",
 			"design/require-stories-sibling": "warn",
 			"design/require-focus-on-interactive": "warn",
+			// AF16 AC-2: no button is a no-op — enforces every <button> has an action.
+			// Warn-level so the baseline codebase scan can identify and wire/remove
+			// findings without blocking CI while the sweep is in-flight.
+			"design/no-op-button": "warn",
 			// @lore W2: density rules (use-density-tokens, no-density-tokens) removed.
 			// The density system was stripped in W2.
 		},

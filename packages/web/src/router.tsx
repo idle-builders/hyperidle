@@ -37,7 +37,9 @@ import { WorkTeam } from "./pages/WorkTeam";
  */
 function RedirectProductToTeam(): JSX.Element {
 	const { productId } = useParams<{ productId: string }>();
-	return <Navigate to={`/work/team/${productId ?? ""}`} replace />;
+	// Z8-147: empty productId → /work/team/ matches no route (NotFound). Redirect to portfolio.
+	if (!productId) return <Navigate to="/work/portfolio" replace />;
+	return <Navigate to={`/work/team/${productId}`} replace />;
 }
 
 function buildRoutes(): RouteObject[] {
