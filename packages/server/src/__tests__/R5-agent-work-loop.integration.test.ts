@@ -72,7 +72,11 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 			createdAt: NOW,
 		},
 		{
+			// @lore AF11-IDOR: kind="human" is required so createAuthMiddleware resolves
+			// "founder-1" as the authenticated principal via `users WHERE kind = 'human' LIMIT 1`.
+			// Previously relied on X-Identity header override; now uses auth principal directly.
 			id: "founder-1",
+			kind: "human",
 			name: "Founder",
 			role: "founder",
 			teamId: "tm-1",

@@ -136,22 +136,36 @@ describe("AD8b — GET /api/threads/assistant", () => {
 		expect(secondBody.thread.id).toBe(firstBody.thread.id);
 	});
 
-	test("different users get different threads", async ({ db, app }) => {
+	// @lore AF11-IDOR: "different users get different threads" via X-Identity header
+	// was the IDOR hole — rewritten to verify the security fix. The authenticated
+	// principal (auth middleware) controls the thread, NOT the X-Identity header.
+	// Same API key + same auth principal → same thread, regardless of X-Identity.
+	test("authenticated principal always gets their own thread (X-Identity ignored for scoping)", async ({
+		db,
+		app,
+	}) => {
+		// Insert u-ad8b-8a first → auth middleware resolves it as the principal
 		await seedUser(db, "u-ad8b-8a", "Harry A");
 		await seedUser(db, "u-ad8b-8b", "Harry B");
 
+		// Two requests with different X-Identity headers, same auth credential
 		const resA = await app.request("/api/threads/assistant", {
 			method: "GET",
 			headers: authHeaders({ "X-Identity": "u-ad8b-8a" }),
 		});
 		const resB = await app.request("/api/threads/assistant", {
 			method: "GET",
-			headers: authHeaders({ "X-Identity": "u-ad8b-8b" }),
+			headers: authHeaders({ "X-Identity": "u-ad8b-8b" }), // spoofed
 		});
 
-		const bodyA = (await resA.json()) as { thread: { id: string } };
-		const bodyB = (await resB.json()) as { thread: { id: string } };
-		expect(bodyA.thread.id).not.toBe(bodyB.thread.id);
+		const bodyA = (await resA.json()) as { thread: { id: string; hostId: string } };
+		const bodyB = (await resB.json()) as { thread: { id: string; hostId: string } };
+
+		// Both must return the authenticated principal's thread (u-ad8b-8a)
+		expect(bodyA.thread.id).toBe(bodyB.thread.id);
+		// Neither can return u-ad8b-8b's thread (that would be the IDOR)
+		expect(bodyA.thread.hostId).toBe("u-ad8b-8a");
+		expect(bodyB.thread.hostId).toBe("u-ad8b-8a");
 	});
 
 	test("identities include the user", async ({ db, app }) => {
@@ -277,12 +291,21 @@ describe("AD8b — GET/PATCH /api/users/:userId/assistant (soul prompt)", () => 
 		expect(res.status).toBe(403);
 	});
 
-	test("GET non-existent user returns 404", async ({ db: _db, app }) => {
+	test("GET non-existent user returns 403 (self-guard fires before 404)", async ({
+		db: _db,
+		app,
+	}) => {
+		// AF11 AC5/Hole 2: GET /api/users/:userId/assistant is principal-self only.
+		// The self-guard compares c.get("userId") to the path :userId BEFORE
+		// checking DB existence. No kind='human' user is seeded, so principal
+		// resolves to "u-founder" fallback. "u-founder" !== "u-nonexistent-xyz"
+		// → 403 (not 404). This is security-correct: don't reveal resource existence
+		// to callers who are not the resource owner.
 		const res = await app.request("/api/users/u-nonexistent-xyz/assistant", {
 			method: "GET",
 			headers: authHeaders({ "X-Identity": "u-nonexistent-xyz" }),
 		});
-		expect(res.status).toBe(404);
+		expect(res.status).toBe(403);
 	});
 });
 

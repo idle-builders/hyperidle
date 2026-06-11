@@ -299,7 +299,10 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 			});
 			await db.insert(users).values({
 				id: "user-p2-1",
-				kind: "ai",
+				// AF11: kind='human' so auth middleware resolves this user as the principal.
+				// GET /api/users/:id/inbox is principal-self only (AC5 AF11); principal must
+				// match the inbox owner. With kind='human', resolved principal = "user-p2-1".
+				kind: "human",
 				name: "Builder Bot",
 				role: "builder",
 				status: "active",

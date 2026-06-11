@@ -204,45 +204,52 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 		});
 	});
 
+	// @lore AF11-IDOR: AI agent identity tests rewritten to seed messages via DB
+	// rather than API POST requests. After the fix, POST /api/threads/:id/messages
+	// always attributes the message to c.get("userId") (the auth principal = u-human),
+	// so an AI agent can no longer "send" a message via X-Identity header.
+	// The identities map is built from message.senderId rows in the DB, so seeding
+	// agent-builder messages directly produces the same observable effect.
 	describe("AC-1: AI agent identity has correct name and role", () => {
 		test("AI agent sender appears in identities with exact name 'Builder Bot' and role 'builder'", async ({
 			db,
 			app,
 		}) => {
 			await seedBase(db);
-			// Arrange: create thread, then have agent-builder post a message.
-			const create = await app.request("/api/threads", {
-				method: "POST",
-				headers: authHeaders({ "X-Identity": "u-human" }),
-				body: JSON.stringify({
-					hostKind: "task",
-					hostId: "task-1",
-					participants: ["u-human", "agent-builder"],
-					initialMessage: {
-						type: "plain",
-						payload: { text: "human creates thread" },
-						clientKey: "r4-agent-key-0004",
-					},
-				}),
-			});
-			expect(create.status).toBe(201);
-			const created = (await create.json()) as { thread: { id: string } };
-			const threadId = created.thread.id;
+			const now = new Date().toISOString();
 
-			// Agent posts a reply.
-			const agentPost = await app.request(`/api/threads/${threadId}/messages`, {
-				method: "POST",
-				headers: authHeaders({ "X-Identity": "agent-builder" }),
-				body: JSON.stringify({
-					type: "plain",
-					payload: { text: "agent reply" },
-					clientKey: "r4-agent-reply-0004",
-				}),
+			// Arrange: seed thread + messages directly (avoids X-Identity on POST /:id/messages)
+			await db.insert(threads).values({
+				id: "thr-r4-agent-0004",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "u-human",
+				participants: JSON.stringify(["u-human", "agent-builder"]),
+				lastActiveAt: now,
+				createdAt: now,
 			});
-			expect(agentPost.status).toBe(201);
+			await db.insert(messages).values({
+				id: "msg-human-0004",
+				threadId: "thr-r4-agent-0004",
+				senderId: "u-human",
+				type: "plain",
+				payload: JSON.stringify({ text: "human creates thread" }),
+				clientKey: "r4-agent-key-0004",
+				createdAt: now,
+			});
+			// Agent message seeded directly — senderId = "agent-builder" (not via API)
+			await db.insert(messages).values({
+				id: "msg-agent-0004",
+				threadId: "thr-r4-agent-0004",
+				senderId: "agent-builder",
+				type: "plain",
+				payload: JSON.stringify({ text: "agent reply" }),
+				clientKey: "r4-agent-reply-0004",
+				createdAt: now,
+			});
 
 			// Act
-			const res = await app.request(`/api/threads/${threadId}`, {
+			const res = await app.request("/api/threads/thr-r4-agent-0004", {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -261,37 +268,39 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			app,
 		}) => {
 			await seedBase(db);
-			// Arrange: both participants post messages.
-			const create = await app.request("/api/threads", {
-				method: "POST",
-				headers: authHeaders({ "X-Identity": "u-human" }),
-				body: JSON.stringify({
-					hostKind: "task",
-					hostId: "task-1",
-					participants: ["u-human", "agent-builder"],
-					initialMessage: {
-						type: "plain",
-						payload: { text: "human start" },
-						clientKey: "r4-both-key-0005",
-					},
-				}),
-			});
-			expect(create.status).toBe(201);
-			const created = (await create.json()) as { thread: { id: string } };
-			const threadId = created.thread.id;
+			const now = new Date().toISOString();
 
-			await app.request(`/api/threads/${threadId}/messages`, {
-				method: "POST",
-				headers: authHeaders({ "X-Identity": "agent-builder" }),
-				body: JSON.stringify({
-					type: "plain",
-					payload: { text: "agent reply" },
-					clientKey: "r4-both-agent-0005",
-				}),
+			// Arrange: seed thread + messages from both human and agent directly
+			await db.insert(threads).values({
+				id: "thr-r4-both-0005",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "u-human",
+				participants: JSON.stringify(["u-human", "agent-builder"]),
+				lastActiveAt: now,
+				createdAt: now,
+			});
+			await db.insert(messages).values({
+				id: "msg-human-0005",
+				threadId: "thr-r4-both-0005",
+				senderId: "u-human",
+				type: "plain",
+				payload: JSON.stringify({ text: "human start" }),
+				clientKey: "r4-both-key-0005",
+				createdAt: now,
+			});
+			await db.insert(messages).values({
+				id: "msg-agent-0005",
+				threadId: "thr-r4-both-0005",
+				senderId: "agent-builder",
+				type: "plain",
+				payload: JSON.stringify({ text: "agent reply" }),
+				clientKey: "r4-both-agent-0005",
+				createdAt: now,
 			});
 
 			// Act
-			const res = await app.request(`/api/threads/${threadId}`, {
+			const res = await app.request("/api/threads/thr-r4-both-0005", {
 				method: "GET",
 				headers: authHeaders(),
 			});

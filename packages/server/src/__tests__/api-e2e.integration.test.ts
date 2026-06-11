@@ -37,6 +37,10 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	await db.insert(users).values([
 		{
 			id: "agent-1",
+			// AF11: kind='human' so auth middleware resolves this user as the principal.
+			// GET /api/users/:id/inbox is self-only (AC5); the resolved principal must
+			// match the inbox owner. All seedBase tests resolve principal = "agent-1".
+			kind: "human",
 			name: "Test Agent",
 			role: "builder",
 			status: "active",
@@ -398,28 +402,60 @@ describe("E2E API Integration (I5)", () => {
 			db,
 			app,
 		}) => {
-			await seedBase(db);
-			await seedTaskData(db);
-			// L1 step5 (S-C2): legacy `POST /api/conversations/responses` was
-			// removed; verdicts go through the canonical `/api/threads` surface.
-			// `agent-1` is already seeded by seedBase; we just
-			// add a founder so the verdict authz check (founder + not-self)
-			// has a sender to claim.
+			// @lore AF11-IDOR: This test does NOT call seedBase because seedBase inserts
+			// agent-1 as kind='human' (role='builder') which would be the auth principal.
+			// A verdict requires a founder (not the review author). We seed our own users:
+			// - founder-1: kind='human', role='founder' → auth principal for this test
+			// - agent-1-e2e: non-human agent who sends the review (via X-Identity on POST /threads)
+			const now = new Date().toISOString();
+			await db
+				.insert(teams)
+				.values({ id: "prod-1", name: "E2E Product", phase: "build", createdAt: now });
+			await db
+				.insert(teamMembers)
+				.values({ id: "team-1", teamId: "prod-1", capacity: 5, activeBets: 0, formedAt: now });
+			await db.insert(bets).values({
+				id: "bet-1",
+				teamId: "prod-1",
+				description: "Test bet",
+				status: "active",
+				createdAt: now,
+			});
+			await db.insert(tasks).values({
+				id: "task-1",
+				betId: "bet-1",
+				teamId: "prod-1",
+				title: "Task A",
+				state: "proposed",
+				createdAt: now,
+				updatedAt: now,
+			});
+
+			// founder-1 inserted first (kind='human') → becomes auth principal
 			await db.insert(users).values({
 				id: "founder-1",
+				kind: "human",
 				name: "Founder",
 				role: "founder",
 				status: "active",
-				createdAt: new Date().toISOString(),
+				createdAt: now,
+			});
+			// agent-1-e2e: non-human, will be attributed review via X-Identity
+			await db.insert(users).values({
+				id: "agent-1-e2e",
+				name: "Agent",
+				role: "builder",
+				status: "active",
+				createdAt: now,
 			});
 
 			const create = await app.request("/api/threads", {
 				method: "POST",
-				headers: auth({ "X-Identity": "agent-1" }),
+				headers: auth({ "X-Identity": "agent-1-e2e" }),
 				body: JSON.stringify({
 					hostKind: "task",
 					hostId: "task-1",
-					participants: ["agent-1", "founder-1"],
+					participants: ["agent-1-e2e", "founder-1"],
 					initialMessage: {
 						type: "review",
 						clientKey: "init-r-e2e",
@@ -437,9 +473,10 @@ describe("E2E API Integration (I5)", () => {
 				messages: Array<{ id: string }>;
 			};
 
+			// founder-1 (auth principal, role='founder', NOT the review author) → 201
 			const res = await app.request(`/api/threads/${created.thread.id}/messages`, {
 				method: "POST",
-				headers: auth({ "X-Identity": "founder-1" }),
+				headers: auth(), // senderId = founder-1 (auth principal)
 				body: JSON.stringify({
 					type: "verdict",
 					clientKey: "verdict-e2e",

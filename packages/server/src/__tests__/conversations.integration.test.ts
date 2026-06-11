@@ -357,8 +357,11 @@ describe("Conversations Endpoints (E2)", () => {
 
 			// Seed a founder approver and a non-founder review author so the
 			// canonical route's authz check (founder + not-self) passes.
+			// @lore AF11-IDOR: kind="human" added to founder-1 so auth middleware
+			// resolves it as the authenticated principal (not the "u-founder" fallback).
 			await db.insert(users).values({
 				id: "founder-1",
+				kind: "human",
 				name: "Founder",
 				role: "founder",
 				status: "active",

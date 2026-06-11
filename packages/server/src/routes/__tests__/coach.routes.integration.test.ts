@@ -207,24 +207,33 @@ describe("L21 — GET /api/threads/coach", () => {
 		});
 	});
 
-	describe("AC-15: X-Identity header selects the correct user's coach thread", () => {
-		test("returns different coach threads for different users", async ({ db, app }) => {
+	// @lore AF11-IDOR: AC-15 rewritten after fixing the X-Identity IDOR hole.
+	// The old test expected X-Identity to control which user's thread was resolved —
+	// that was the security hole. After the fix, the auth principal (c.get("userId"))
+	// controls the thread. X-Identity is ignored for authorization/scoping.
+	describe("AC-15: X-Identity header is IGNORED — authenticated principal controls coach thread", () => {
+		test("X-Identity header cannot change which coach thread is returned", async ({ db, app }) => {
 			await seedBase(db);
-			const founderRes = await app.request("/api/threads/coach", {
+
+			// Both requests use the same auth credential → same auth principal → same thread
+			// X-Identity headers differ but are ignored for thread scoping.
+			const firstRes = await app.request("/api/threads/coach", {
 				method: "GET",
 				headers: authHeaders({ "X-Identity": "u-founder" }),
 			});
-			const otherRes = await app.request("/api/threads/coach", {
+			const secondRes = await app.request("/api/threads/coach", {
 				method: "GET",
 				headers: authHeaders({ "X-Identity": "u-other" }),
 			});
 
-			const founderBody = (await founderRes.json()) as { thread: { id: string; hostId: string } };
-			const otherBody = (await otherRes.json()) as { thread: { id: string; hostId: string } };
+			const firstBody = (await firstRes.json()) as { thread: { id: string; hostId: string } };
+			const secondBody = (await secondRes.json()) as { thread: { id: string; hostId: string } };
 
-			expect(founderBody.thread.id).not.toBe(otherBody.thread.id);
-			expect(founderBody.thread.hostId).toBe("u-founder");
-			expect(otherBody.thread.hostId).toBe("u-other");
+			// Both requests must return the SAME thread (for the auth principal), not different ones
+			expect(firstBody.thread.id).toBe(secondBody.thread.id);
+			// Neither thread's hostId can be the spoofed X-Identity value
+			expect(firstBody.thread.hostId).not.toBe("u-other");
+			expect(secondBody.thread.hostId).not.toBe("u-other");
 		});
 	});
 
