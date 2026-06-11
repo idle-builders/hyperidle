@@ -52,41 +52,50 @@ vi.mock("../hooks/useAutoSave.js", () => ({
 	useAutoSave: () => ({ status: "idle", save: vi.fn() }),
 }));
 
+// @lore AF13: vi.mock() calls are hoisted to top regardless of scope (describe/it/beforeEach).
+// Multiple vi.mock() calls for the same module path in one file → LAST factory wins for ALL tests.
+// Fix: single file-level vi.mock with vi.fn() stubs; configure per-describe via mockReturnValue.
+vi.mock("../hooks/useCurrentUser.js", () => ({
+	useCurrentUser: vi.fn(),
+}));
+
+vi.mock("../hooks/useKnowledgeItem.js", () => ({
+	useKnowledgeItem: vi.fn(),
+}));
+
 // ---------------------------------------------------------------------------
 // §2 — Editability predicate
 // ---------------------------------------------------------------------------
 
 describe("AF13 §2 — Editability: self-authored factory item shows Edit button", () => {
-	beforeEach(() => {
-		vi.mock("../hooks/useCurrentUser.js", () => ({
-			useCurrentUser: () => ({
-				user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
-				status: "ready",
-				error: null,
-			}),
-		}));
+	beforeEach(async () => {
+		const { useCurrentUser } = await import("../hooks/useCurrentUser.js");
+		vi.mocked(useCurrentUser).mockReturnValue({
+			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
+			status: "ready",
+			error: null,
+		});
 
 		// Factory item authored by "u1" (same as current user)
-		vi.mock("../hooks/useKnowledgeItem.js", () => ({
-			useKnowledgeItem: () => ({
-				data: {
-					id: "self-factory",
-					title: "My Factory Item",
-					body: "content",
-					format: "markdown",
-					status: "active",
-					version: 1,
-					updatedBy: "u1",
-					scopeKind: "factory",
-					scopeId: null,
-					topic: null,
-					createdAt: "2024-01-01T00:00:00Z",
-					updatedAt: "2024-01-01T00:00:00Z",
-				},
-				isLoading: false,
-				error: null,
-			}),
-		}));
+		const { useKnowledgeItem } = await import("../hooks/useKnowledgeItem.js");
+		vi.mocked(useKnowledgeItem).mockReturnValue({
+			data: {
+				id: "self-factory",
+				title: "My Factory Item",
+				body: "content",
+				format: "markdown",
+				status: "active",
+				version: 1,
+				updatedBy: "u1",
+				scopeKind: "factory",
+				scopeId: null,
+				topic: null,
+				createdAt: "2024-01-01T00:00:00Z",
+				updatedAt: "2024-01-01T00:00:00Z",
+			},
+			isLoading: false,
+			error: null,
+		});
 	});
 
 	afterEach(() => {
@@ -111,36 +120,34 @@ describe("AF13 §2 — Editability: self-authored factory item shows Edit button
 });
 
 describe("AF13 §2 — Editability: agent-authored factory item stays read-only", () => {
-	beforeEach(() => {
-		vi.mock("../hooks/useCurrentUser.js", () => ({
-			useCurrentUser: () => ({
-				user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
-				status: "ready",
-				error: null,
-			}),
-		}));
+	beforeEach(async () => {
+		const { useCurrentUser } = await import("../hooks/useCurrentUser.js");
+		vi.mocked(useCurrentUser).mockReturnValue({
+			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
+			status: "ready",
+			error: null,
+		});
 
 		// Factory item authored by a different agent
-		vi.mock("../hooks/useKnowledgeItem.js", () => ({
-			useKnowledgeItem: () => ({
-				data: {
-					id: "agent-factory",
-					title: "Agent-curated Item",
-					body: "content",
-					format: "markdown",
-					status: "active",
-					version: 1,
-					updatedBy: "agent-x",
-					scopeKind: "factory",
-					scopeId: null,
-					topic: null,
-					createdAt: "2024-01-01T00:00:00Z",
-					updatedAt: "2024-01-01T00:00:00Z",
-				},
-				isLoading: false,
-				error: null,
-			}),
-		}));
+		const { useKnowledgeItem } = await import("../hooks/useKnowledgeItem.js");
+		vi.mocked(useKnowledgeItem).mockReturnValue({
+			data: {
+				id: "agent-factory",
+				title: "Agent-curated Item",
+				body: "content",
+				format: "markdown",
+				status: "active",
+				version: 1,
+				updatedBy: "agent-x",
+				scopeKind: "factory",
+				scopeId: null,
+				topic: null,
+				createdAt: "2024-01-01T00:00:00Z",
+				updatedAt: "2024-01-01T00:00:00Z",
+			},
+			isLoading: false,
+			error: null,
+		});
 	});
 
 	afterEach(() => {
@@ -168,37 +175,35 @@ describe("AF13 §2 — Editability: agent-authored factory item stays read-only"
 // ---------------------------------------------------------------------------
 
 describe("AF13 §5 — Kind aside renders '—' for unknown/null kind", () => {
-	beforeEach(() => {
-		vi.mock("../hooks/useCurrentUser.js", () => ({
-			useCurrentUser: () => ({
-				user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
-				status: "ready",
-				error: null,
-			}),
-		}));
+	beforeEach(async () => {
+		const { useCurrentUser } = await import("../hooks/useCurrentUser.js");
+		vi.mocked(useCurrentUser).mockReturnValue({
+			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
+			status: "ready",
+			error: null,
+		});
 
 		// API item with no kind
-		vi.mock("../hooks/useKnowledgeItem.js", () => ({
-			useKnowledgeItem: () => ({
-				data: {
-					id: "item-no-kind",
-					title: "Unclassified Item",
-					body: "content",
-					format: "markdown",
-					status: "active",
-					version: 1,
-					updatedBy: "u1",
-					scopeKind: "factory",
-					scopeId: null,
-					topic: null,
-					createdAt: "2024-01-01T00:00:00Z",
-					updatedAt: "2024-01-01T00:00:00Z",
-					kind: undefined, // no kind from API
-				},
-				isLoading: false,
-				error: null,
-			}),
-		}));
+		const { useKnowledgeItem } = await import("../hooks/useKnowledgeItem.js");
+		vi.mocked(useKnowledgeItem).mockReturnValue({
+			data: {
+				id: "item-no-kind",
+				title: "Unclassified Item",
+				body: "content",
+				format: "markdown",
+				status: "active",
+				version: 1,
+				updatedBy: "u1",
+				scopeKind: "factory",
+				scopeId: null,
+				topic: null,
+				createdAt: "2024-01-01T00:00:00Z",
+				updatedAt: "2024-01-01T00:00:00Z",
+				kind: undefined, // no kind from API
+			},
+			isLoading: false,
+			error: null,
+		});
 	});
 
 	afterEach(() => {
@@ -230,12 +235,13 @@ describe("AF13 §5 — Kind aside renders '—' for unknown/null kind", () => {
 // ---------------------------------------------------------------------------
 
 describe("AF13 §4A — ScopeChangeDialog renders 3 labeled options (not raw enums)", () => {
-	beforeEach(() => {
-		vi.mock("../hooks/useCurrentUser.js", () => ({
-			useCurrentUser: () => ({
-				user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
-			}),
-		}));
+	beforeEach(async () => {
+		const { useCurrentUser } = await import("../hooks/useCurrentUser.js");
+		vi.mocked(useCurrentUser).mockReturnValue({
+			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
+			status: "ready",
+			error: null,
+		});
 	});
 
 	afterEach(() => {
@@ -283,12 +289,13 @@ describe("AF13 §4A — ScopeChangeDialog renders 3 labeled options (not raw enu
 // ---------------------------------------------------------------------------
 
 describe("AF13 §4A SUGGESTION — default-option resolution: factory and practice both map to Shared", () => {
-	beforeEach(() => {
-		vi.mock("../hooks/useCurrentUser.js", () => ({
-			useCurrentUser: () => ({
-				user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
-			}),
-		}));
+	beforeEach(async () => {
+		const { useCurrentUser } = await import("../hooks/useCurrentUser.js");
+		vi.mocked(useCurrentUser).mockReturnValue({
+			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
+			status: "ready",
+			error: null,
+		});
 	});
 
 	afterEach(() => {

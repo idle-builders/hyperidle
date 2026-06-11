@@ -19,8 +19,6 @@ import { describe, expect, it } from "vitest";
 // @lore AF13: sortItems is defined at module scope in KnowledgeList.tsx and
 // exported for testability. Import from the page file directly.
 // If the builder locates it in a utility file, update this path.
-// @ts-expect-error — sortItems does not exist yet; this test file is the red phase.
-// The green phase adds the export, at which point this @ts-expect-error must be removed.
 import { sortItems } from "../pages/KnowledgeList.js";
 
 interface TestItem {

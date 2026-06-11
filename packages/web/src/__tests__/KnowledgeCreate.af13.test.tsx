@@ -35,24 +35,29 @@ vi.mock("../services/api-fetch.js", () => ({
 	apiFetch: vi.fn(),
 }));
 
+// @lore AF13: vi.mock() calls are hoisted to top regardless of scope (describe/it/beforeEach).
+// Multiple vi.mock() calls for the same module path in one file → LAST factory wins for ALL tests.
+// Fix: single file-level vi.mock with a vi.fn() stub; configure per-describe via mockReturnValue.
+vi.mock("../hooks/useCurrentUser.js", () => ({
+	useCurrentUser: vi.fn(),
+}));
+
 // ---------------------------------------------------------------------------
 // §1 — Create payload includes status:"active"
 // ---------------------------------------------------------------------------
 
 describe("AF13 §1 — KnowledgeCreate sends status:active in create payload", () => {
-	beforeEach(() => {
-		vi.mock("../hooks/useCurrentUser.js", () => ({
-			useCurrentUser: () => ({
-				user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
-				status: "ready",
-				error: null,
-			}),
-		}));
+	beforeEach(async () => {
+		const { useCurrentUser } = await import("../hooks/useCurrentUser.js");
+		vi.mocked(useCurrentUser).mockReturnValue({
+			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
+			status: "ready",
+			error: null,
+		});
 	});
 
 	afterEach(() => {
 		vi.clearAllMocks();
-		vi.resetModules();
 	});
 
 	it("POST payload includes status:active when Create is submitted", async () => {
@@ -108,24 +113,22 @@ describe("AF13 §1 — KnowledgeCreate sends status:active in create payload", (
 describe("AF13 §6 — Team scope pill is data-driven (WARNING 3 positive-path proof)", () => {
 	afterEach(() => {
 		vi.clearAllMocks();
-		vi.resetModules();
 	});
 
 	it("Team pill is ENABLED when useCurrentUser returns a user with teamId", async () => {
 		// Positive-path: user has teamId — Team pill must not be disabled
-		vi.mock("../hooks/useCurrentUser.js", () => ({
-			useCurrentUser: () => ({
-				user: {
-					id: "u1",
-					name: "Founder",
-					email: "f@example.com",
-					avatarUrl: null,
-					teamId: "t1", // has a team
-				},
-				status: "ready",
-				error: null,
-			}),
-		}));
+		const { useCurrentUser } = await import("../hooks/useCurrentUser.js");
+		vi.mocked(useCurrentUser).mockReturnValue({
+			user: {
+				id: "u1",
+				name: "Founder",
+				email: "f@example.com",
+				avatarUrl: null,
+				teamId: "t1", // has a team
+			},
+			status: "ready",
+			error: null,
+		});
 
 		const { KnowledgeCreate } = await import("../pages/KnowledgeCreate.js");
 
@@ -144,19 +147,18 @@ describe("AF13 §6 — Team scope pill is data-driven (WARNING 3 positive-path p
 
 	it("Team pill is DISABLED when useCurrentUser returns a user without teamId", async () => {
 		// Negative-path: user has no teamId — Team pill stays disabled (data-driven, not hardcoded)
-		vi.mock("../hooks/useCurrentUser.js", () => ({
-			useCurrentUser: () => ({
-				user: {
-					id: "u1",
-					name: "Founder",
-					email: "f@example.com",
-					avatarUrl: null,
-					// no teamId field
-				},
-				status: "ready",
-				error: null,
-			}),
-		}));
+		const { useCurrentUser } = await import("../hooks/useCurrentUser.js");
+		vi.mocked(useCurrentUser).mockReturnValue({
+			user: {
+				id: "u1",
+				name: "Founder",
+				email: "f@example.com",
+				avatarUrl: null,
+				// no teamId field
+			},
+			status: "ready",
+			error: null,
+		});
 
 		const { KnowledgeCreate } = await import("../pages/KnowledgeCreate.js");
 
@@ -173,13 +175,12 @@ describe("AF13 §6 — Team scope pill is data-driven (WARNING 3 positive-path p
 	});
 
 	it("Team pill has tooltip when disabled", async () => {
-		vi.mock("../hooks/useCurrentUser.js", () => ({
-			useCurrentUser: () => ({
-				user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
-				status: "ready",
-				error: null,
-			}),
-		}));
+		const { useCurrentUser } = await import("../hooks/useCurrentUser.js");
+		vi.mocked(useCurrentUser).mockReturnValue({
+			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
+			status: "ready",
+			error: null,
+		});
 
 		const { KnowledgeCreate } = await import("../pages/KnowledgeCreate.js");
 
@@ -194,19 +195,18 @@ describe("AF13 §6 — Team scope pill is data-driven (WARNING 3 positive-path p
 	});
 
 	it("clicking an enabled Team pill selects the Team scope", async () => {
-		vi.mock("../hooks/useCurrentUser.js", () => ({
-			useCurrentUser: () => ({
-				user: {
-					id: "u1",
-					name: "Founder",
-					email: "f@example.com",
-					avatarUrl: null,
-					teamId: "t1",
-				},
-				status: "ready",
-				error: null,
-			}),
-		}));
+		const { useCurrentUser } = await import("../hooks/useCurrentUser.js");
+		vi.mocked(useCurrentUser).mockReturnValue({
+			user: {
+				id: "u1",
+				name: "Founder",
+				email: "f@example.com",
+				avatarUrl: null,
+				teamId: "t1",
+			},
+			status: "ready",
+			error: null,
+		});
 
 		const { KnowledgeCreate } = await import("../pages/KnowledgeCreate.js");
 		const user = userEvent.setup();
