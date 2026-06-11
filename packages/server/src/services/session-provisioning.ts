@@ -32,7 +32,7 @@ import {
 	type UserRole,
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
-import type { AdapterPool } from "../harness/adapter-pool.js";
+import type { AdapterPool, SelectedEntry } from "../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
 import type { WorkspaceAdapter, WorkspaceHandle } from "../harness/workspace-adapter.js";
 import { createMcpBridge } from "../mcp/mcp-bridge.js";
@@ -235,8 +235,7 @@ export interface AdmittedSession {
 	readonly workspaceHandle: WorkspaceHandle;
 	readonly workspacePath: string;
 	readonly watcher: FileWatcher;
-	// biome-ignore lint/suspicious/noExplicitAny: SelectedEntry type from adapter-pool; avoid importing the concrete type to keep this signature light
-	readonly selectedAdapter: any;
+	readonly selectedAdapter: SelectedEntry;
 	readonly harness: HarnessAdapter;
 	readonly adapterId: string;
 	readonly routinePerRunCap: number | null;

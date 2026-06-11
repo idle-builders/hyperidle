@@ -102,7 +102,7 @@ async function applyStateChangePatch(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	input: StateChangePatchInput,
-): Promise<{ status: 200 | 409; body: unknown }> {
+): Promise<{ status: 200 | 202 | 409; body: unknown }> {
 	const { sessionId, existing, state, now, actor } = input;
 
 	// Guard: reject a PATCH that would move an already-terminal session.
@@ -118,10 +118,26 @@ async function applyStateChangePatch(
 
 	// If a live runtime entry exists, abort it — the runtime teardown performs the
 	// DB transition + session_ended emit exactly once. We do NOT write state here.
+	//
+	// @lore AF7 §4 M3: `abort()` only awaits the harness `stopSession`; the terminal
+	// DB write happens LATER, in the detached `runSession` teardown (the runtime is
+	// the SOLE terminal writer — §4.3). The row is therefore still `state:"active"`
+	// at this point, so we MUST NOT read it back and return it as the body — that
+	// would assert a stale terminal state the caller cannot trust. Instead we return
+	// 202 Accepted (in-flight abort acknowledged) and direct the caller to poll
+	// `GET /api/sessions/:id` for terminal convergence. We do NOT block on teardown
+	// here because that would couple the route to the harness's full stream drain.
 	if (sessionRunRegistry.has(sessionId)) {
 		await sessionRunRegistry.abort(sessionId);
-		const [aborted] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
-		return { status: 200, body: aborted };
+		return {
+			status: 202,
+			body: {
+				sessionId,
+				state: "aborting",
+				message:
+					"Abort requested; the runtime is tearing the session down. Poll GET /api/sessions/:id for the terminal state.",
+			},
+		};
 	}
 
 	// Fallback: no running loop. CAS-guarded direct write (active → terminal only).

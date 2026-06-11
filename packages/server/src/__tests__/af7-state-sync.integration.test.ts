@@ -28,10 +28,11 @@
  */
 
 import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import type { DomainEvent } from "@hyperidle/shared";
+import type { DomainEvent, HarnessAdapter, SessionHandle, SessionResult } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { crashSession, endSession, type SessionContext } from "../services/session-lifecycle.js";
+import { sessionRunRegistry } from "../services/session-run-registry.js";
 import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-af7-statesync";
@@ -202,5 +203,90 @@ describe("AF7 AC4: PATCH /api/sessions/:id cannot desync an already-terminal ses
 		// DB state is unchanged (still done, not desynced to crashed).
 		const [row] = await db.select().from(sessions).where(eq(sessions.id, "af7-terminal"));
 		expect(row?.state).toBe("done");
+	});
+});
+
+// ─── M3: live-abort PATCH read-back (response coherence) ────────────────────────
+
+/**
+ * M3 — PATCH on a session with a LIVE runtime entry must REQUEST termination and
+ * acknowledge it as in-flight (202), NOT read the row back and return a stale
+ * `active` body. The runtime is the sole terminal-state writer (§4.3); its
+ * teardown runs in the detached `runSession` loop, so at the moment the route
+ * returns the row is still `active`. The route must never assert a terminal state
+ * it did not write, and must never write terminal state itself.
+ *
+ * Against the OLD behavior (re-read the row, return `{ status: 200, body: row }`),
+ * this test fails on BOTH assertions: the status would be 200 (not 202) and the
+ * body would carry `state: "active"` (a stale terminal-ish body) rather than the
+ * `aborting` ack.
+ */
+describe("AF7 M3: live-abort PATCH acknowledges in-flight, never returns stale active body", () => {
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+	});
+	afterEach(() => {
+		vi.unstubAllEnvs();
+		sessionRunRegistry.deregister("af7-live-abort");
+	});
+
+	test("PATCH state=done on a live session → 202 aborting, no terminal write by route", async ({
+		db,
+		app,
+		eventBus,
+	}) => {
+		await seedTaskGraph(db, "af7-task-live", "af7-agent-live");
+		await db.insert(sessions).values({
+			id: "af7-live-abort",
+			taskId: "af7-task-live",
+			agentId: "af7-agent-live",
+			modelTier: "workhorse",
+			startedAt: NOW,
+			state: "active",
+		});
+
+		// Register a LIVE runtime entry whose stopSession resolves WITHOUT writing
+		// terminal DB state — exactly the real timing where the detached runSession
+		// teardown has not yet converged when the route returns.
+		let stopCalled = false;
+		const stubAdapter = {
+			async stopSession(_handle: SessionHandle): Promise<SessionResult> {
+				stopCalled = true;
+				return {
+					outcome: "completed",
+					cost: { minor: 0, currency: "USD" },
+					tokenUsage: { byTier: {} },
+				};
+			},
+		} as unknown as HarnessAdapter;
+		sessionRunRegistry.register("af7-live-abort", {
+			signalAbort: () => {},
+			handle: { sessionId: "af7-live-abort" },
+			adapter: stubAdapter,
+		});
+
+		const ended: DomainEvent[] = [];
+		eventBus.on("session_ended", (e) => ended.push(e));
+
+		const res = await app.request("/api/sessions/af7-live-abort", {
+			method: "PATCH",
+			headers: authHeaders(),
+			body: JSON.stringify({ state: "done" }),
+		});
+
+		// 202 Accepted — the abort is in-flight, not asserted complete.
+		expect(res.status).toBe(202);
+		const body = (await res.json()) as { state: string; sessionId: string };
+		expect(body.state).toBe("aborting");
+		expect(body.sessionId).toBe("af7-live-abort");
+		// The abort was actually dispatched to the harness.
+		expect(stopCalled).toBe(true);
+
+		// The route did NOT write terminal state — the runtime is the sole terminal
+		// writer, and here it has not torn down yet, so the row is still active.
+		const [row] = await db.select().from(sessions).where(eq(sessions.id, "af7-live-abort"));
+		expect(row?.state).toBe("active");
+		// The route did NOT emit session_ended — only the runtime teardown may.
+		expect(ended).toHaveLength(0);
 	});
 });
