@@ -19,17 +19,45 @@
 // directory for any .json file rather than requiring an exact HEAD match.
 
 import { execSync } from "node:child_process";
-import { createHmac } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const ATTESTATION_DIR = ".verify-attestations";
 
+/**
+ * Deterministic fingerprint of all tracked source — every file's blob hash and
+ * path from `git ls-tree -r HEAD`, EXCLUDING the attestation artifacts
+ * themselves. Two trees with identical source produce the same fingerprint
+ * regardless of commit identity (survives squash-merge) and regardless of which
+ * attestation file is committed (the artifacts are filtered out, so committing
+ * the attestation cannot change its own expected value).
+ *
+ * @lore Z8-166: a raw `HEAD^{tree}` hash does NOT work here — committing the
+ * attestation file into the tree changes the tree hash, so the value recorded
+ * before that commit never matches the final tree. Filtering the attestation
+ * paths out of the listing is what makes the fingerprint self-consistent.
+ */
+function sourceHash(): string {
+	const listing = execSync("git ls-tree -r HEAD", { encoding: "utf-8" })
+		.split("\n")
+		.filter(
+			(l) =>
+				l &&
+				!l.includes(`\t${ATTESTATION_DIR}/`) &&
+				!l.includes("\t.verify-attestation.json"),
+		)
+		.sort()
+		.join("\n");
+	return createHash("sha256").update(listing).digest("hex");
+}
+
 interface Attestation {
 	sha: string;
-	/** Git tree hash (`HEAD^{tree}`) the attested run executed against. Robust
-	 * to squash-merge, which preserves the tree but discards the commit. */
-	tree?: string;
+	/** Fingerprint of tracked source (excl. attestation artifacts) the attested
+	 * run executed against. Robust to squash-merge AND to committing the
+	 * attestation file itself. See sourceHash(). */
+	srcHash?: string;
 	status: string;
 	dirty: boolean;
 	tools: string[];
@@ -120,20 +148,26 @@ function main(): void {
 	}
 
 	// Source-integrity: the attested tests must correspond to the source CI is
-	// checking. Prefer a TREE-HASH match — it is robust to squash-merge, which
-	// gives main a brand-new commit (so `attestation.sha` is unreachable) but an
-	// IDENTICAL tree. Fall back to the commit diff only when the trees differ
-	// (e.g. main advanced under the PR) AND the attested commit is reachable.
+	// checking. Match on a fingerprint of the source (excluding attestation
+	// artifacts) — robust to squash-merge (commit identity changes, source does
+	// not) and to committing the attestation file itself.
 	//
-	// @lore Z8-166: the old code unconditionally ran `git diff <sha>..HEAD`,
-	// which crashed every squash-merged push-to-main run with "Invalid revision
-	// range" because the branch commit no longer exists. Matching on the tree
-	// hash fixes that without weakening the guarantee.
-	const headTree = execSync("git rev-parse HEAD^{tree}", { encoding: "utf-8" }).trim();
+	// @lore Z8-166: this replaced `git diff <sha>..HEAD`, which crashed every
+	// squash-merged push-to-main run ("Invalid revision range") because the
+	// branch commit is unreachable after squash. A legacy attestation without
+	// `srcHash` falls back to the reachable-commit diff for backward compat.
+	const headSrc = sourceHash();
 
-	if (attestation.tree && attestation.tree === headTree) {
-		// Identical tree — no source change is possible. Accept.
+	if (attestation.srcHash) {
+		if (attestation.srcHash !== headSrc) {
+			fail(
+				"tracked source differs from the attested run — re-run `npm run verify` " +
+					"and commit the new attestation",
+			);
+		}
+		// srcHash matches — source identical, attested tests are valid.
 	} else if (isReachable(attestation.sha)) {
+		// Legacy attestation (no srcHash): fall back to the commit diff.
 		const changedFiles = execSync(`git diff --name-only ${attestation.sha}..HEAD`, {
 			encoding: "utf-8",
 		}).trim();
@@ -148,9 +182,8 @@ function main(): void {
 		}
 	} else {
 		fail(
-			`attested commit ${attestation.sha.slice(0, 8)} is unreachable and its tree ` +
-				`(${attestation.tree?.slice(0, 8) ?? "absent"}) does not match HEAD tree ` +
-				`(${headTree.slice(0, 8)}). Re-run \`npm run verify\` on this commit and commit the attestation.`,
+			`attested commit ${attestation.sha.slice(0, 8)} is unreachable and the attestation ` +
+				"has no srcHash. Re-run `npm run verify` on this commit and commit the attestation.",
 		);
 	}
 

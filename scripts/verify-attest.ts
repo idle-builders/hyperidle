@@ -19,7 +19,7 @@
  *      actually passed. No code path in this repo signs an unearned pass.
  */
 import { execSync } from "node:child_process";
-import { createHmac, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import {
 	existsSync,
 	mkdirSync,
@@ -32,6 +32,26 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
 const ATTESTATION_DIR = ".verify-attestations";
+
+/**
+ * Deterministic fingerprint of tracked source, EXCLUDING attestation artifacts.
+ * MUST stay byte-identical to `sourceHash()` in scripts/check-attestation.ts —
+ * the two are compared. Survives squash-merge and committing the attestation.
+ */
+function sourceHash(): string {
+	const listing = execSync("git ls-tree -r HEAD", { encoding: "utf-8" })
+		.split("\n")
+		.filter(
+			(l) =>
+				l &&
+				!l.includes(`\t${ATTESTATION_DIR}/`) &&
+				!l.includes("\t.verify-attestation.json"),
+		)
+		.sort()
+		.join("\n");
+	return createHash("sha256").update(listing).digest("hex");
+}
+
 const SECRET_DIR = join(homedir(), ".config", "hyperidle");
 const SECRET_PATH = join(SECRET_DIR, "verify-secret");
 
@@ -63,9 +83,9 @@ function main(): void {
 	// Capture identity + cleanliness BEFORE running tests so that gitignored
 	// test artifacts (coverage, tmp DBs) cannot flip the `dirty` flag.
 	const sha = execSync("git rev-parse HEAD", { encoding: "utf-8" }).trim();
-	// The tree hash survives squash-merge (commit changes, tree does not), so
-	// check-attestation can match source by tree even when `sha` is unreachable.
-	const tree = execSync("git rev-parse HEAD^{tree}", { encoding: "utf-8" }).trim();
+	// Source fingerprint (excl. attestation artifacts) — check-attestation
+	// matches on this; survives squash-merge and committing the attestation.
+	const srcHash = sourceHash();
 	const dirty =
 		execSync("git status --porcelain", { encoding: "utf-8" }).trim().length > 0;
 
@@ -80,7 +100,7 @@ function main(): void {
 
 	const payload = {
 		sha,
-		tree,
+		srcHash,
 		status,
 		dirty,
 		tools: ATTESTED_TOOLS,
