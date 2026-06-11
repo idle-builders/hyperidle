@@ -5,6 +5,21 @@ import type { Context, Env, MiddlewareHandler } from "hono";
 import type { z } from "zod";
 
 /**
+ * @lore AF4 (build/verify): Do NOT run `tsc -b packages/shared db fabric` to
+ * "refresh dist/*.d.ts" before `npm run lint`/`verify`. The AF1 typecheck gate
+ * (scripts/typecheck-gate.ts) runs `tsc --noEmit -p` per package and FILTERS
+ * TS6305/6307/6059 reference noise; cross-package imports resolve via root
+ * tsconfig `paths` → `src` (not `dist`), so the gate needs no pre-built dist and
+ * there is no stale-dist phantom to defeat. Worse, `tsc -b` scatters generated
+ * `.d.ts`/`.js`/`.map` into the packages' src dirs; biome lints src (it ignores
+ * the dist glob) and reports ~714 phantom noBannedTypes errors from droppings. Correct
+ * sequence is simply `npm run verify` on a clean tree (server=0, gate PASS,
+ * biome 0 errors — all verified empirically). If droppings exist, delete the
+ * src `.d.ts/.js/.map` (keep dist). Upstream cause is AF1-owned. Full writeup:
+ * plans/AF4/lore.md.
+ */
+
+/**
  * Validation hook for Zod validators — returns 400 with ApiErrorResponse
  * format on failure. Exported for use in tests and as the canonical
  * validation error shape.
