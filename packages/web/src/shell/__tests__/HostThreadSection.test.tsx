@@ -94,7 +94,7 @@ describe("HostThreadSection (L18)", () => {
 
 	it("renders populated state with messages", () => {
 		vi.mocked(useHostThread).mockReturnValue({
-			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE },
+			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE, identities: {} },
 			error: null,
 			isLoading: false,
 			refresh: vi.fn(),

@@ -20,7 +20,7 @@ vi.mock("../hooks/useCurrentUser", () => ({
 
 import { useCurrentUser } from "../hooks/useCurrentUser";
 
-function renderPage(overrideBet = MOCK_BETS.b1): ReturnType<typeof render> {
+function renderPage(overrideBet = MOCK_BETS.b1!): ReturnType<typeof render> {
 	return render(
 		<MemoryRouter initialEntries={[`/work/bet/${overrideBet.id}`]}>
 			<Routes>

@@ -23,7 +23,7 @@ import userEvent from "@testing-library/user-event";
 import { createRef, useContext } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CocContext, type CocContextRef } from "../contexts/CocContext";
+import { CocContext, type CocContextRef, type CocContextValue } from "../contexts/CocContext";
 // These imports will FAIL until the green phase creates these modules.
 // That's expected — this is the RED phase.
 import { CocOverlay } from "../shell/CocOverlay";
@@ -208,10 +208,7 @@ describe("L21 — CocContext (AC-10)", () => {
 	it("CocContext is importable and has correct default shape", () => {
 		// Verify the context exports exist and have the expected interface.
 		// The context default value must have overlayOpen=false and attachContext as a function.
-		let capturedValue: {
-			overlayOpen: boolean;
-			attachContext: (ref: CocContextRef) => void;
-		} | null = null;
+		let capturedValue: CocContextValue | null = null;
 
 		function Consumer(): null {
 			capturedValue = useContext(CocContext);
@@ -225,8 +222,8 @@ describe("L21 — CocContext (AC-10)", () => {
 		);
 
 		expect(capturedValue).not.toBeNull();
-		expect(capturedValue?.overlayOpen).toBe(false);
-		expect(typeof capturedValue?.attachContext).toBe("function");
+		expect(capturedValue!.overlayOpen).toBe(false);
+		expect(typeof capturedValue!.attachContext).toBe("function");
 	});
 
 	it("CocContext.Provider passes overlayOpen=true to consumers when overlay is open", () => {

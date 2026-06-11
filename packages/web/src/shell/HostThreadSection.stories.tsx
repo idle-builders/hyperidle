@@ -108,7 +108,7 @@ export const WithMessages = (): React.JSX.Element => (
 					aria-label="Discussion messages"
 				>
 					{STORY_MESSAGES_HUMAN.map((msg, index) => {
-						const prevMsg = index > 0 ? STORY_MESSAGES_HUMAN[index - 1] : null;
+						const prevMsg = index > 0 ? (STORY_MESSAGES_HUMAN[index - 1] ?? null) : null;
 						const showSenderHeader = prevMsg === null || prevMsg.senderId !== msg.senderId;
 						const isAgent = msg.senderId.startsWith("agent");
 						return (

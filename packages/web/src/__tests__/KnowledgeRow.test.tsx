@@ -51,7 +51,7 @@ describe("KnowledgeRow", () => {
 		const row =
 			screen.getByText("API Rate Limiting Pattern").closest("[role='button'], button, [onClick]") ??
 			screen.getByText("API Rate Limiting Pattern").parentElement;
-		row?.click();
+		(row as HTMLElement | null)?.click();
 		expect(handleClick).toHaveBeenCalledOnce();
 	});
 

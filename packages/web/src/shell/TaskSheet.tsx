@@ -204,8 +204,10 @@ export function TaskSheet({
 		const focusables = getFocusableElements(dialogRef.current);
 		if (focusables.length === 0) return;
 
+		// Guards: length > 0 proves first/last are defined (noUncheckedIndexedAccess).
 		const first = focusables[0];
 		const last = focusables[focusables.length - 1];
+		if (first === undefined || last === undefined) return;
 
 		if (e.shiftKey) {
 			// Shift+Tab: if focus is at the first element, wrap to last.

@@ -3,6 +3,7 @@
  * Renders key states at /designsystem for visual verification.
  */
 
+import type { JSX } from "react";
 import { createRef } from "react";
 import type { CocContextRef } from "../contexts/CocContext";
 import { CocOverlay } from "./CocOverlay";

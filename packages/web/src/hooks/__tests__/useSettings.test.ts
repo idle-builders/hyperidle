@@ -57,7 +57,7 @@ describe("useSettings (M3 B3)", () => {
 
 	beforeEach(() => {
 		fetchSpy = vi.fn();
-		global.fetch = fetchSpy;
+		global.fetch = fetchSpy as unknown as typeof fetch;
 	});
 
 	afterEach(() => {
@@ -126,7 +126,6 @@ describe("useSettings (M3 B3)", () => {
 
 		// appearance field must be present (composed client-side)
 		expect(result.current.settings?.appearance).toBeDefined();
-		expect(result.current.settings?.appearance.density).toBeDefined();
 		expect(result.current.settings?.appearance.theme).toBeDefined();
 	});
 

@@ -30,7 +30,7 @@ function noop(): void {
 	// dev preview — open handlers intentionally do nothing.
 }
 
-export function ArtifactDemo(): JSX.Element {
+export function ArtifactDemo(): JSX.Element | null {
 	const { data, error, isLoading } = useArtifacts({ axis: "portfolio" });
 
 	if (isLoading) {
@@ -55,7 +55,9 @@ export function ArtifactDemo(): JSX.Element {
 		);
 	}
 
+	// Guards: items.length > 0 is proven by the early return above (noUncheckedIndexedAccess).
 	const first = items[0];
+	if (first === undefined) return null;
 	const second = items[1] ?? first;
 	return (
 		<div className="p-[24px] flex flex-col gap-[24px]">

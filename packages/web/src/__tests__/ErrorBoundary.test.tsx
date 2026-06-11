@@ -121,7 +121,7 @@ describe("ErrorBoundary", () => {
 			);
 			expect(screen.queryByText(/prod-leaked-secret-xyz/)).not.toBeInTheDocument();
 		} finally {
-			vi.stubEnv("DEV", originalDev ? "true" : "false");
+			vi.stubEnv("DEV", originalDev);
 			vi.unstubAllEnvs();
 			spy.mockRestore();
 		}

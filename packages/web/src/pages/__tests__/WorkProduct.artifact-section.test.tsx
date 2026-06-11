@@ -77,6 +77,8 @@ const MOCK_TEAM: TeamDetail = {
 		costCap: { minor: 1000, currency: "USD" },
 		activeBets: 1,
 		capacity: 3,
+		betCostActual: null,
+		routineCostThisMonth: null,
 	},
 	activeBets: [],
 };

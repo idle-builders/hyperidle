@@ -86,7 +86,7 @@ describe("BetCard", () => {
 		const card =
 			screen.getByText("Mobile App V2").closest("[role='button'], button, [onClick]") ??
 			screen.getByText("Mobile App V2").parentElement;
-		card?.click();
+		(card as HTMLElement | null)?.click();
 		expect(handleClick).toHaveBeenCalledOnce();
 	});
 
@@ -116,8 +116,8 @@ describe("BetCard", () => {
 		const statuses = ["draft", "active", "completed", "killed"] as const;
 		const expectedLabels = ["Draft", "Active", "Completed", "Killed"];
 		for (let i = 0; i < statuses.length; i++) {
-			const { unmount } = render(<BetCard {...defaultProps} status={statuses[i]} />);
-			expect(screen.getByText(expectedLabels[i])).toBeInTheDocument();
+			const { unmount } = render(<BetCard {...defaultProps} status={statuses[i]!} />);
+			expect(screen.getByText(expectedLabels[i]!)).toBeInTheDocument();
 			unmount();
 		}
 	});

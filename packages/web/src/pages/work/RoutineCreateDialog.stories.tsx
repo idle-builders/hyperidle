@@ -38,7 +38,7 @@ export const SingleTeam = (): JSX.Element => (
 		open={true}
 		onClose={noop}
 		onCreated={noop}
-		teams={[MOCK_TEAMS[0]]}
+		teams={MOCK_TEAMS[0] ? [MOCK_TEAMS[0]] : []}
 		agents={MOCK_AGENTS}
 	/>
 );

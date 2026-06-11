@@ -59,7 +59,7 @@ function useMockFetch(payload: Record<string, unknown>, enabled: boolean): void 
 			Promise.resolve({
 				ok: true,
 				json: () => Promise.resolve(payload),
-			})) as typeof window.fetch;
+			})) as unknown as typeof window.fetch;
 		return () => {
 			window.fetch = original;
 		};

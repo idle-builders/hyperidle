@@ -32,7 +32,9 @@ const MOCK_GATEWAY_CONFIG_MIXED = {
 	},
 };
 
-function withMockedFetch(config: typeof MOCK_GATEWAY_CONFIG_DEFAULT | null): React.ComponentType {
+type StoryComponent = React.ComponentType & { storyName?: string };
+
+function withMockedFetch(config: typeof MOCK_GATEWAY_CONFIG_DEFAULT | null): StoryComponent {
 	return function Story(): React.ReactElement {
 		// Patch global fetch for the story
 		if (config === null) {

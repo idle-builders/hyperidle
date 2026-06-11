@@ -5,6 +5,7 @@
  *  - block-anchored messages render inline after the block payload in the knowledge body
  */
 
+import type { PlainPayload } from "@hyperidle/shared";
 import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -51,7 +52,7 @@ describe("KnowledgeDetail anchored messages (L18)", () => {
 						payload: {
 							text: "Knowledge block anchored comment",
 							blockId: "some-block-id",
-						},
+						} as PlainPayload & { blockId?: string },
 						clientKey: "ck-k-1",
 						deletedAt: null,
 						redactedAt: null,
@@ -59,6 +60,7 @@ describe("KnowledgeDetail anchored messages (L18)", () => {
 						createdAt: "2026-05-05T09:05:00Z",
 					},
 				],
+				identities: {},
 			},
 			error: null,
 			isLoading: false,

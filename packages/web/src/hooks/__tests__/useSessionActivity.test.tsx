@@ -8,7 +8,7 @@
 
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useSessionActivity } from "../useSessionActivity.js";
+import { type ToolCallData, useSessionActivity } from "../useSessionActivity.js";
 
 interface MockActivityEntry {
 	type: "tool_call" | "reasoning" | "cost_tick";
@@ -77,9 +77,9 @@ describe("useSessionActivity (Q1 §4.7)", () => {
 		const { result } = renderHook(() => useSessionActivity("sess-1"));
 		await waitFor(() => expect(result.current.status).toBe("streaming"));
 
-		expect(result.current.entries[0].type).toBe("tool_call");
-		expect(typeof result.current.entries[0].timestamp).toBe("number");
-		expect(result.current.entries[0].data.toolName).toBe("tool_0");
+		expect(result.current.entries[0]!.type).toBe("tool_call");
+		expect(typeof result.current.entries[0]!.timestamp).toBe("number");
+		expect((result.current.entries[0]!.data as ToolCallData).toolName).toBe("tool_0");
 	});
 
 	// AC9: when session is already ended (REST response shows state=done),

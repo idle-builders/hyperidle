@@ -55,7 +55,6 @@ const MOCK_TASK: KanbanTask = {
 	title: "Task sheet test",
 	owner: "Dev Agent",
 	state: "in_progress",
-	betId: "bet-l12",
 	betTag: "BET-L12",
 	cost: "$3.00",
 };

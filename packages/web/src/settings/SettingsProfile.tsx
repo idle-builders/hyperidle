@@ -10,7 +10,7 @@
  */
 
 import { Button, Input } from "@hyperidle/design-system";
-import { type JSX, useCallback, useEffect, useState } from "react";
+import { type ChangeEvent, type JSX, useCallback, useEffect, useState } from "react";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { useToast } from "../shell/ToastRegion.js";
@@ -81,7 +81,7 @@ export function SettingsProfile(): JSX.Element {
 				label="Display name"
 				type="text"
 				value={name}
-				onChange={(e) => setName(e.target.value)}
+				onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
 				aria-label="Display name"
 			/>
 
@@ -90,7 +90,7 @@ export function SettingsProfile(): JSX.Element {
 				label="Email"
 				type="email"
 				value={email}
-				onChange={(e) => setEmail(e.target.value)}
+				onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
 				hint="Used for notifications and login."
 				aria-label="Email"
 			/>

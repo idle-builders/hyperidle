@@ -65,20 +65,6 @@ function renderBet(bet: BetDetail): ReturnType<typeof render> {
 	);
 }
 
-/**
- * W3 AC-19: Find action buttons in the overflow dropdown (data-dropdown-item).
- * The dropdown is always in the DOM (just visually hidden by CSS); JSDOM renders it
- * regardless of CSS visibility, so we can query it without clicking the overflow button.
- */
-// biome-ignore lint/correctness/noUnusedVariables: helper kept for future test use
-function getDropdownItem(name: RegExp): HTMLElement | null {
-	return document.querySelector<HTMLElement>(`[data-dropdown-item][data-bet-action]`) !== null
-		? (Array.from(document.querySelectorAll<HTMLElement>("[data-dropdown-item]")).find((el) =>
-				name.test(el.textContent ?? ""),
-			) ?? null)
-		: null;
-}
-
 describe("L14 — BetActionsBar (AC-7)", () => {
 	it("AD5: shows Kill but NOT Pause in overflow dropdown for active status (pause removed)", () => {
 		renderBet(makeBet("active"));

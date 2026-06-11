@@ -42,7 +42,7 @@ describe("resolveOrCreateTaskThread (L15)", () => {
 
 	beforeEach(() => {
 		fetchSpy = vi.fn();
-		global.fetch = fetchSpy;
+		global.fetch = fetchSpy as unknown as typeof fetch;
 	});
 
 	afterEach(() => {
@@ -128,7 +128,7 @@ describe("postRequestMessage (L15)", () => {
 
 	beforeEach(() => {
 		fetchSpy = vi.fn();
-		global.fetch = fetchSpy;
+		global.fetch = fetchSpy as unknown as typeof fetch;
 	});
 
 	afterEach(() => {

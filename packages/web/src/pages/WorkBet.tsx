@@ -245,7 +245,9 @@ function BetPitch({
 	// messages regardless to avoid data loss UX.
 	const allAnchoredMessages = useMemo((): ReadonlyArray<Message> => {
 		if (!messagesByBlockId) return [];
-		const renderedBlockIds = new Set(blocks.map((b) => b.id));
+		// Widen to Set<string> so string keys from messagesByBlockId compare
+		// without brand mismatch (BlockId is string & {__brand}).
+		const renderedBlockIds = new Set<string>(blocks.map((b) => b.id));
 		const unmatched: Message[] = [];
 		for (const [blockId, msgs] of messagesByBlockId) {
 			if (!renderedBlockIds.has(blockId)) {
@@ -637,8 +639,8 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 
 	const bet = overrideBet ?? fetched.data;
 
-	const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
-	const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+	const [sortColumn] = useState<SortColumn | null>(null);
+	const [sortDirection] = useState<SortDirection>("asc");
 
 	// L13: TaskSheet state — selectedTaskId tracks which task row was clicked.
 	const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -904,15 +906,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 		);
 	}
 
-	function _handleSort(column: SortColumn): void {
-		if (sortColumn === column) {
-			setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
-		} else {
-			setSortColumn(column);
-			setSortDirection("asc");
-		}
-	}
-
 	/**
 	 * L18: "Discuss" handler — called when the user selects "Discuss" on a block.
 	 * Sets the thread prefill and closes the popover.
@@ -941,6 +934,8 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	 * overlay is open — matching the CocAttachButton behavior.
 	 */
 	function handleShareBlock(blockId: string): void {
+		// Guard: this function is only reachable after the `if (!bet) return` early exit above.
+		if (!bet) return;
 		const blockEl = document.querySelector<HTMLElement>(`[data-block-id="${blockId}"]`);
 		const rawText = blockEl?.textContent?.trim() ?? "";
 		const blockExcerpt = rawText.slice(0, 60) || blockId;

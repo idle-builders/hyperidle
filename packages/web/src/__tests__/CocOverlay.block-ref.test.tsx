@@ -155,7 +155,7 @@ describe("T4 — CocOverlay wire serialization for block refs (AC-5)", () => {
 
 		// Verify the API call was made with the correct block ref shape in refs
 		expect(mockApiFetch).toHaveBeenCalled();
-		const callArgs = mockApiFetch.mock.calls[0];
+		const callArgs = mockApiFetch.mock.calls[0]!;
 		const body = JSON.parse(callArgs[1].body as string) as {
 			payload: { refs: unknown[] };
 		};
@@ -184,7 +184,7 @@ describe("T4 — CocOverlay wire serialization for block refs (AC-5)", () => {
 		await user.keyboard("{Meta>}{Enter}{/Meta}");
 
 		expect(mockApiFetch).toHaveBeenCalled();
-		const callArgs = mockApiFetch.mock.calls[0];
+		const callArgs = mockApiFetch.mock.calls[0]!;
 		const body = JSON.parse(callArgs[1].body as string) as {
 			payload: { refs: unknown[] };
 		};

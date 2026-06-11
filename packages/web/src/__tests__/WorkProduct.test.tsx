@@ -38,7 +38,7 @@ const MOCK_PRODUCT_DETAIL = {
 		id: "p1",
 		name: "HyperIdle Core",
 		phase: "build",
-		status: "healthy",
+		status: "healthy" as const,
 		leadAgentId: "agent-lead",
 	},
 	teamMembers: { id: "t1", formedAt: "2024-01-01T00:00:00.000Z", dissolvedAt: null },
@@ -60,19 +60,21 @@ const MOCK_PRODUCT_DETAIL = {
 	],
 	// L17: costActual/costCap are now WireMoney|null; costAppetite replaces appetite.
 	burn: {
-		costActual: { minor: 4200, currency: "USD" },
-		costCap: { minor: 10000, currency: "USD" },
+		costActual: { minor: 4200, currency: "USD" as const },
+		costCap: { minor: 10000, currency: "USD" as const },
 		capacity: 5,
 		activeBets: 2,
+		betCostActual: null,
+		routineCostThisMonth: null,
 	},
 	activeBets: [
 		{
 			id: "b1",
 			// @lore U1: descriptionTitle (formerly pitchTitle)
 			descriptionTitle: "Auth migration",
-			costAppetite: { minor: 20000, currency: "USD" },
+			costAppetite: { minor: 20000, currency: "USD" as const },
 			// @lore U1: "committed" merged into "active"
-			status: "active",
+			status: "active" as const,
 			progressDone: 1,
 			progressTotal: 2,
 		},

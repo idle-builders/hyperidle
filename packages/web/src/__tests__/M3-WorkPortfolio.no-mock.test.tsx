@@ -30,11 +30,11 @@ import { useBets } from "../hooks/useBets";
 import { useTeams } from "../hooks/useTeams";
 
 function renderPage(
-	props: { loading?: boolean; products?: unknown } = {},
+	_props: { loading?: boolean; products?: unknown } = {},
 ): ReturnType<typeof render> {
 	return render(
 		<MemoryRouter>
-			<WorkPortfolio {...props} />
+			<WorkPortfolio />
 		</MemoryRouter>,
 	);
 }

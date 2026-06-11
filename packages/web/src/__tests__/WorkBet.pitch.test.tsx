@@ -188,13 +188,13 @@ describe("L16 — WorkBet pitch as L2 blocks", () => {
 		expect(after).toHaveLength(4);
 
 		// Block 0 (heading 1) — unchanged.
-		expect(before[0].id).toBe(after[0].id);
+		expect(before[0]!.id).toBe(after[0]!.id);
 		// Block 1 (paragraph) — changed.
-		expect(before[1].id).not.toBe(after[1].id);
+		expect(before[1]!.id).not.toBe(after[1]!.id);
 		// Block 2 (heading 3) — unchanged.
-		expect(before[2].id).toBe(after[2].id);
+		expect(before[2]!.id).toBe(after[2]!.id);
 		// Block 3 (paragraph) — unchanged.
-		expect(before[3].id).toBe(after[3].id);
+		expect(before[3]!.id).toBe(after[3]!.id);
 	});
 
 	// ----------------------------------------------------------------
@@ -223,7 +223,7 @@ describe("L16 — WorkBet pitch as L2 blocks", () => {
 		// Verify deriveBlocks produces unknown for oversize content.
 		const { blocks } = deriveBlocks(oversize, { kind: "bet", id: "over-test" });
 		expect(blocks.length).toBe(1);
-		expect(blocks[0].payload.kind).toBe("unknown");
+		expect(blocks[0]!.payload.kind).toBe("unknown");
 
 		// Render the page — it must not crash.
 		renderWithBet({ ...BASE_BET, description: oversize });
@@ -245,7 +245,12 @@ describe("L16 — WorkBet pitch as L2 blocks", () => {
 
 		// Override the module-level mock for this test.
 		const { useBet } = await import("../hooks/useBet");
-		vi.mocked(useBet).mockReturnValue({ data: shapedBet, loading: false, error: null });
+		vi.mocked(useBet).mockReturnValue({
+			data: shapedBet,
+			loading: false,
+			error: null,
+			refresh: vi.fn(),
+		});
 
 		renderWithoutOverride("api-bet");
 

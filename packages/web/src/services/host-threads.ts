@@ -45,7 +45,9 @@ export async function resolveOrCreateHostThread(
 	}
 	const listData = (await listResp.json()) as { threads: Array<{ id: string }> };
 	if (listData.threads.length > 0) {
-		return listData.threads[0].id;
+		// Guard: length > 0 proves threads[0] is defined (noUncheckedIndexedAccess).
+		const first = listData.threads[0];
+		if (first !== undefined) return first.id;
 	}
 
 	// Build participant list: always include the founder; include the agent only

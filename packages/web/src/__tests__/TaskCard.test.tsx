@@ -48,7 +48,7 @@ describe("TaskCard", () => {
 		const card =
 			screen.getByText("Implement login flow").closest("[role='button'], button, [onClick]") ??
 			screen.getByText("Implement login flow").parentElement;
-		card?.click();
+		(card as HTMLElement | null)?.click();
 		expect(handleClick).toHaveBeenCalledOnce();
 	});
 
@@ -132,8 +132,8 @@ describe("TaskCard", () => {
 			"ERROR",
 		];
 		for (let i = 0; i < states.length; i++) {
-			const { unmount } = render(<TaskCard {...defaultProps} state={states[i]} />);
-			expect(screen.getByText(expectedChips[i])).toBeInTheDocument();
+			const { unmount } = render(<TaskCard {...defaultProps} state={states[i]!} />);
+			expect(screen.getByText(expectedChips[i]!)).toBeInTheDocument();
 			unmount();
 		}
 	});

@@ -113,7 +113,9 @@ export function KnowledgeBody({
 	// so they're never silently dropped.
 	const orphanMessages = useMemo((): ReadonlyArray<Message> => {
 		if (!messagesByBlockId) return [];
-		const renderedIds = new Set(blocks.map((b) => b.id));
+		// Widen to Set<string> so string keys from messagesByBlockId compare
+		// without brand mismatch (BlockId is string & {__brand}).
+		const renderedIds = new Set<string>(blocks.map((b) => b.id));
 		const out: Message[] = [];
 		for (const [blockId, msgs] of messagesByBlockId) {
 			if (!renderedIds.has(blockId)) out.push(...msgs);

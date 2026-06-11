@@ -133,7 +133,7 @@ describe("RichMessageCard — review variant (AC-1, AC-8, AC-11)", () => {
 		);
 		fireEvent.click(screen.getByRole("button", { name: /^approve$/i }));
 		expect(onAction).toHaveBeenCalledTimes(1);
-		const payload = onAction.mock.calls[0][0];
+		const payload = onAction.mock.calls[0]![0]!;
 		expect(payload.kind).toBe("verdict");
 		expect(payload.decision).toBe("approve");
 		expect(typeof payload.clientKey).toBe("string");
@@ -153,8 +153,8 @@ describe("RichMessageCard — review variant (AC-1, AC-8, AC-11)", () => {
 		);
 		fireEvent.click(screen.getByRole("button", { name: /^approve$/i }));
 		fireEvent.click(screen.getByRole("button", { name: /reject/i }));
-		const k1 = onAction.mock.calls[0][0].clientKey;
-		const k2 = onAction.mock.calls[1][0].clientKey;
+		const k1 = onAction.mock.calls[0]![0]!.clientKey;
+		const k2 = onAction.mock.calls[1]![0]!.clientKey;
 		expect(k1).not.toBe(k2);
 	});
 
@@ -207,7 +207,7 @@ describe("RichMessageCard — questionnaire variant (AC-9)", () => {
 		);
 		fireEvent.click(screen.getByRole("button", { name: /enterprise/i }));
 		expect(onAction).toHaveBeenCalledTimes(1);
-		const payload = onAction.mock.calls[0][0];
+		const payload = onAction.mock.calls[0]![0]!;
 		expect(payload.kind).toBe("answer");
 		expect(payload.option).toBe("Enterprise");
 		expect(typeof payload.clientKey).toBe("string");
@@ -257,7 +257,7 @@ describe("RichMessageCard — states (approved.md §4, plan §9)", () => {
 		);
 		fireEvent.click(screen.getByRole("button", { name: /retry/i }));
 		expect(onAction).toHaveBeenCalledTimes(1);
-		expect(onAction.mock.calls[0][0].kind).toBe("retry");
+		expect(onAction.mock.calls[0]![0]!.kind).toBe("retry");
 	});
 
 	it("resolved state: renders the single-line summary with the verdict label and a Re-expand control", () => {

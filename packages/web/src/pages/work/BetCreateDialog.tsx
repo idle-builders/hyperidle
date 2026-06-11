@@ -166,7 +166,7 @@ export function BetCreateDialog({
 						</span>
 						<BodyEditor
 							initialContent=""
-							onChange={(md) => setDescription(md)}
+							onChange={(md: string) => setDescription(md)}
 							placeholder="Describe the bet..."
 							variant="full"
 							minHeight="160px"

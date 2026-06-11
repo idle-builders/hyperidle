@@ -475,7 +475,6 @@ export function Conversations(): JSX.Element {
 	// AppShell (e.g., tests that mount Conversations directly). Fallback to "all".
 	const ctx = useOutletContext<AppShellOutletContext | undefined>();
 	const conversationsFilter: ConversationsFilter = ctx?.conversationsFilter ?? "all";
-	const _onFilterChange = ctx?.onFilterChange ?? (() => undefined);
 	const onClearFilter = ctx?.onClearFilter ?? (() => undefined);
 	// @lore U9 AC-1: onNewThread opens RecipientPicker via AppShell context.
 	// Undefined when Conversations is rendered outside AppShell (tests/stories).

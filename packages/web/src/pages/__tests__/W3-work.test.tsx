@@ -22,6 +22,7 @@ import { describe, expect, it, vi } from "vitest";
 import { MOCK_BETS } from "../../pages/__fixtures__/work-bet-fixtures";
 import { WorkBet } from "../../pages/WorkBet";
 import { WorkPortfolio } from "../../pages/WorkPortfolio";
+import type { BetDetail } from "../../types/bet";
 
 // Mocks for WorkBet
 vi.mock("../../shell/HostThreadSection", () => ({
@@ -73,7 +74,7 @@ function renderPortfolio(): ReturnType<typeof render> {
 }
 
 function renderBet(betId = "b1"): ReturnType<typeof render> {
-	const bet = MOCK_BETS[betId];
+	const bet = MOCK_BETS[betId]!;
 	return render(
 		<MemoryRouter initialEntries={[`/work/bet/${bet.id}`]}>
 			<Routes>
@@ -230,8 +231,8 @@ describe("W3 AC-19 — Bet detail overflow action menu", () => {
 
 	it("does NOT render inline Pause/Kill/Unblock/Adjust buttons in active state", () => {
 		// These are now inside the overflow dropdown, not inline
-		const activeBet = {
-			...MOCK_BETS.b1,
+		const activeBet: BetDetail = {
+			...MOCK_BETS.b1!,
 			status: "active" as const,
 		};
 		render(
@@ -251,7 +252,7 @@ describe("W3 AC-19 — Bet detail overflow action menu", () => {
 
 	it("overflow dropdown shows Adjust appetite/Kill after clicking '...' (Pause removed in AD5)", async () => {
 		const user = userEvent.setup();
-		const activeBet = { ...MOCK_BETS.b1, status: "active" as const };
+		const activeBet: BetDetail = { ...MOCK_BETS.b1!, status: "active" as const };
 		render(
 			<MemoryRouter initialEntries={[`/work/bet/${activeBet.id}`]}>
 				<Routes>
@@ -336,8 +337,8 @@ describe("W3 AC-22 — Task rows in bet detail", () => {
 
 	it("clicking a task row navigates to task detail route", async () => {
 		const user = userEvent.setup();
-		const betWithTask = {
-			...MOCK_BETS.b1,
+		const betWithTask: BetDetail = {
+			...MOCK_BETS.b1!,
 			tasks: [
 				{
 					id: "t1",

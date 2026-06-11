@@ -222,9 +222,17 @@ function printSummary(
  * impossible. CI re-runs this gate live on a dist-free `npm ci` tree (post-#246),
  * so the build must happen here for the gate to measure real errors deterministically.
  *
- * Built SEPARATELY in dependency order (shared, then db). A combined
- * `tsc -b shared db` scatters generated files into the packages' `src` dirs, which
- * the downstream biome lint step then flags as ~714 phantom noBannedTypes errors;
+ * @lore AF5: design-system also added to the leaf pre-build. Web imports
+ * `computeSenderGrouping` and `TAG_KIND_ICONS` from `@hyperidle/design-system`.
+ * Without a pre-built design-system dist, TypeScript cannot resolve the unexported
+ * `SenderGroupedMessage` interface and the `TagKindMeta` value type, so it infers
+ * `any`/`unknown` for map callbacks — producing 5 spurious TS7006/TS18046 errors in
+ * `ThreadShell.test.tsx` and `tag-kinds.test.ts`. Adding design-system to the leaf
+ * build (after shared, which it depends on) fixes this deterministically.
+ *
+ * Built SEPARATELY in dependency order (shared, then db, then design-system). A
+ * combined `tsc -b shared db` scatters generated files into the packages' `src` dirs,
+ * which the downstream biome lint step then flags as ~714 phantom noBannedTypes errors;
  * separate ordered builds emit cleanly to `dist/` (gitignored) only. The `tsc -b`
  * exit code is ignored — db emits TS6059 reference-noise (its tsconfig declares no
  * `references` entry for shared) but still emits the declarations, and any genuine
@@ -236,7 +244,12 @@ function printSummary(
  * as on origin/main. See plans/Z8/master-flag-register.md Z8-170.
  */
 function buildLeafDeclarations(root: string): void {
-  for (const leaf of ["shared", "db"]) {
+  // @lore AF5: design-system added after shared — web typechecks import from
+  // @hyperidle/design-system; without a pre-built dist the tsc reference resolver
+  // can't find SenderGroupedMessage / TagKindMeta and infers `any`/`unknown` for
+  // callbacks, producing 5 spurious TS7006/TS18046 errors. Building design-system
+  // declarations (which depend on shared) before the measurement loop fixes this.
+  for (const leaf of ["shared", "db", "design-system"]) {
     try {
       execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });
     } catch {
@@ -277,7 +290,7 @@ function main(): void {
   // 3.5 Build leaf declarations so reference-consumers (server/web) measure real
   // errors instead of the dist-free `any`-cascade phantom. See @lore above (Z8-170).
   process.stderr.write(
-    "typecheck-gate: building leaf declarations (shared, db)...\n",
+    "typecheck-gate: building leaf declarations (shared, db, design-system)...\n",
   );
   buildLeafDeclarations(root);
 

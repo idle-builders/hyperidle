@@ -116,7 +116,7 @@ describe("RoutineCreateDialog", () => {
 		mockApiFetch.mockResolvedValueOnce({
 			ok: true,
 			json: vi.fn().mockResolvedValue({ id: "new-routine", name: "Test Routine" }),
-		});
+		} as unknown as Response);
 
 		renderDialog({ onCreated, onClose });
 
@@ -146,7 +146,7 @@ describe("RoutineCreateDialog", () => {
 			ok: false,
 			status: 400,
 			json: vi.fn().mockResolvedValue({ error: "Invalid cron expression" }),
-		});
+		} as unknown as Response);
 
 		renderDialog();
 

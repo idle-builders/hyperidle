@@ -58,6 +58,8 @@ const BASE_TEAM_DETAIL: TeamDetail = {
 		costActual: null,
 		costCap: null,
 		capacity: 5,
+		betCostActual: null,
+		routineCostThisMonth: null,
 		activeBets: 0,
 	},
 	activeBets: [],
@@ -67,6 +69,8 @@ const TEAM_WITH_ACTIVE_BET: TeamDetail = {
 	...BASE_TEAM_DETAIL,
 	burn: {
 		...BASE_TEAM_DETAIL.burn,
+		betCostActual: null,
+		routineCostThisMonth: null,
 		activeBets: 1,
 	},
 	activeBets: [
