@@ -37,7 +37,6 @@ type NotificationRow = {
 	readAt: string | null;
 };
 
-
 function makeMockRow(overrides: Partial<NotificationRow> = {}): NotificationRow {
 	return {
 		id: "notif-1",

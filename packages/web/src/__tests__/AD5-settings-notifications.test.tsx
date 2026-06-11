@@ -36,7 +36,10 @@ describe("AD5 — AC-3: SettingsNotifications persists via useNotificationMute (
 		const { useNotificationMute } = await import("../hooks/useNotificationMute");
 		vi.mocked(useNotificationMute).mockReturnValue({
 			mutedKeys: ["review_request"], // review_request is muted (OFF)
-			setMuted: setMutedMock as unknown as (key: import("@hyperidle/shared").NotificationTypeKey, muted: boolean) => Promise<void>,
+			setMuted: setMutedMock as unknown as (
+				key: import("@hyperidle/shared").NotificationTypeKey,
+				muted: boolean,
+			) => Promise<void>,
 			status: "ready",
 		});
 	});
