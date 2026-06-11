@@ -42,7 +42,11 @@ export interface NotificationListenerDeps {
 
 /**
  * Derive the notification type key and urgency from item properties.
- * blocking or high risk → blocker/review immediate; low risk → ambient.
+ * blocking or high/medium risk → blocker/review immediate; low risk → ambient.
+ *
+ * @lore AF8 W5: medium and high risk both map to immediate (concept rule: "≥ medium →
+ * immediate"). The two formerly-separate if-branches were identical — collapsed to one
+ * predicate for clarity. Behavior unchanged.
  */
 function classifyItem(item: {
 	blocking: boolean | null;
@@ -53,10 +57,8 @@ function classifyItem(item: {
 		return { typeKey: "blocker_alert", urgency: "immediate" };
 	}
 	const risk = item.riskTier ?? "low";
-	if (risk === "high" || risk === "blocking") {
-		return { typeKey: "review_request", urgency: "immediate" };
-	}
-	if (risk === "medium") {
+	// ≥ medium risk → immediate review request (high, blocking-tier, and medium all qualify)
+	if (risk === "high" || risk === "blocking" || risk === "medium") {
 		return { typeKey: "review_request", urgency: "immediate" };
 	}
 	// low risk → ambient review
