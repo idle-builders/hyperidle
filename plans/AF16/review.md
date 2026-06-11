@@ -106,3 +106,45 @@ Already diverging — the design-system copies got the AF16 fixes, the old copie
 4. `npm run test` — confirm no story-discovery test regressed.
 
 Re-submit and I will re-review.
+
+---
+
+# AF16 — Phase 4 RE-REVIEW (Reviewer, round 2)
+
+**Verdict: NOT DONE** — CRITICAL-2 resolved; CRITICAL-1 NOT resolved.
+
+## CRITICAL-2 — RESOLVED ✅
+`packages/web/src/kinds/` is gone (dir absent, all 14 files `git rm`'d in 59207d00). No live importer of the old path (only 4 explanatory comments noting the move). Live render path uses `@hyperidle/design-system` copies; `image-renderer.tsx:16` carries the WARNING-4 guard `if (!preview || !preview.url)`. Shadow-file drift eliminated. Confirmed.
+
+## CRITICAL-1 — NOT RESOLVED ❌
+The rule itself is **correct and strict** — built right:
+- `packages/eslint-plugin-design/src/rules/no-op-button.ts` exists, registered in `index.ts`, wired in `eslint.config.ts` (K6 web-tsx block), tests cover all three cases incl. the real no-op (`type="button"` no handler → `noOp`; dangling submit → `danglingSubmit`). `--print-config` confirms it resolves for web pages. Flipped to `error` + supported `npm run lint:eslint`, it fires correctly.
+
+**But the builder's "ZERO live violations" claim is FALSE.** Running the rule at `error` over the real tree surfaces **2 live production no-ops in `packages/web/src/pages/WorkTask.tsx`** (the other 13 hits are test-fixture `<button>`s in `__tests__/*`, true false positives):
+
+- **WorkTask.tsx:271** — `<button type="button" aria-label="More actions">···</button>` — overflow-menu button, **no onClick**. (Sibling KnowledgeDetail overflow button got `onClick={onToggle}`; this one was missed.)
+- **WorkTask.tsx:354** — `<button type="button" data-testid="task-dial-in-btn" aria-label="Dial in to active session">Dial in</button>` — **no onClick**. A visible, enabled, labeled "Dial in" control that does nothing.
+
+`grep onClick packages/web/src/pages/WorkTask.tsx` returns **nothing** — the file has zero handlers; neither button is wired at any level. Both are exactly the AC-2 failure mode ("no button is a no-op; every visible interactive control performs an action or is removed"). They ship green only because the rule is wired `"warn"` and `npm run lint` runs `eslint . --quiet`, which suppresses warnings — so the rule never fails CI and these two slipped through. The rule did its job; the sweep did not act on the rule's own output.
+
+**AC-2 still FAILS.** Breadcrumb half intact (`to="/work/portfolio"` at WorkTask:242/249, WorkBet:1047/1054). No-op half: 2 live defects.
+
+## A11y / UX (Task 6) — landed, correct
+Z8-147 (RedirectProductToTeam empty-id → portfolio), Z8-148 (NotFound go-back history fallback), Z8-150 (Sidebar search hint div→button + aria-label + focus-visible), Z8-156 (like-escape SQLite→Postgres comment), Z8-158 (SetupFlow Windows path split), GlobalSearchPanel cleanup. All sound. (Ironic: a11y polish landed while two genuine no-ops — the AC's core target — were left unwired.)
+
+## Required to reach DONE
+1. Wire or remove **WorkTask.tsx:271** (overflow "More actions") and **WorkTask.tsx:354** ("Dial in") — give each a real onClick or remove the control. These are the AC-2 no-ops; non-negotiable.
+2. Add a `pages/__tests__/` exception (or biome/eslint-disable with reason) for the test-fixture `<button>`s so the rule can be raised to a level that surfaces real findings — OR raise `no-op-button` to a level whose findings aren't swallowed by `--quiet` for production source. With the rule at `warn`+`--quiet`, AC-2 has no enforcement teeth: a future no-op ships silently. At minimum, prove the 2 WorkTask buttons are gone by running the rule at error over `pages/**`+`components/**` (excluding `__tests__`) and showing zero.
+3. Re-submit; I will re-verify the WorkTask buttons and the enforcement level.
+
+## AC table (round 2)
+| AC | Status | Note |
+|----|--------|------|
+| AC-1 | PASS | no regression |
+| AC-2 | **FAIL** | no-op half: 2 live no-ops in WorkTask.tsx (271, 354). Breadcrumb half PASS. |
+| AC-3 | PASS | no regression |
+| AC-4 | PASS | design-system render path; WARNING-4 guard live |
+| AC-5 | PASS | no regression |
+| AC-6 | PASS | no regression |
+
+Re-submit and I will re-review.
