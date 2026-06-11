@@ -35,15 +35,35 @@ export function startWatcher(config: FileWatcherConfig): FileWatcher {
 		const changes = Array.from(pendingChanges.values());
 		pendingChanges.clear();
 
-		processWriteback(
-			{
-				db: config.db,
-				workspacePath: config.workspacePath,
-				sessionId: config.sessionId,
-				manifestPath: config.manifestPath,
-			},
-			changes,
-		);
+		try {
+			processWriteback(
+				{
+					db: config.db,
+					workspacePath: config.workspacePath,
+					sessionId: config.sessionId,
+					manifestPath: config.manifestPath,
+				},
+				changes,
+			);
+		} catch (err: unknown) {
+			// @lore file-watcher flush: If the workspace directory is removed
+			// (test cleanup, session end with workspace reaper) before the
+			// debounce timer fires, processWriteback throws ENOENT reading the
+			// manifest. Stop the watcher to prevent further flushes — the
+			// workspace is gone and there is nothing left to flush.
+			if (err !== null && typeof err === "object" && "code" in err && err.code === "ENOENT") {
+				stopped = true;
+				if (debounceTimer) {
+					clearTimeout(debounceTimer);
+					debounceTimer = null;
+				}
+				for (const watcher of watchers) {
+					watcher.close();
+				}
+				return;
+			}
+			throw err;
+		}
 	}
 
 	function scheduleFlush(): void {
