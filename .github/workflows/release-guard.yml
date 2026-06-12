@@ -15,7 +15,11 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  # `write` (not read) is required: the staged release is a DRAFT, and GitHub
+  # only exposes draft releases to tokens with push access. Read-only can't see
+  # it, so `gh release view` would 404. Same-repo PRs get this; forks are
+  # downgraded to read (a fork PR can't stage a draft anyway).
+  contents: write
 
 jobs:
   release-guard:
