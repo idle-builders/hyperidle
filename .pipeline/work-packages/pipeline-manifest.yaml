@@ -980,3 +980,25 @@ stories:
     track: AF
     depends: []
     complexity: L
+
+  # Track AH: Onboarding, Configuration & Runtime Coherence
+  - id: AH1
+    title: One credential model, no plaintext, reaches the runtime
+    track: AH
+    depends: []
+    complexity: L
+  - id: AH2
+    title: Per-agent model and a harness that actually selects
+    track: AH
+    depends: []
+    complexity: L
+  - id: AH3
+    title: The Assistant actually responds (one soul, real textareas)
+    track: AH
+    depends: [AH1, AH2]
+    complexity: L
+  - id: AH4
+    title: Teams and agents land in the org chart
+    track: AH
+    depends: []
+    complexity: M
