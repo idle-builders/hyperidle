@@ -27,7 +27,6 @@ import {
 	betStatusToStatus,
 	EmptyState,
 	ErrorState,
-	KeyValue,
 	routineStateToStatus,
 	SkeletonCard,
 	StatusChip,
@@ -104,11 +103,13 @@ export function WorkTeam({
 	// Loading state
 	if (overrideLoading === true || (overrideData === undefined && fetched.loading)) {
 		return (
-			<div className="flex flex-col gap-[12px] h-full" data-testid="work-team-page">
-				<SkeletonCard ariaLabel="Loading team header" />
-				<SkeletonCard ariaLabel="Loading burn vs cap" />
-				<SkeletonCard ariaLabel="Loading active bets" />
-				<SkeletonCard ariaLabel="Loading roster" />
+			<div className="flex-1 overflow-y-auto" data-testid="work-team-page">
+				<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
+					<SkeletonCard ariaLabel="Loading team header" />
+					<SkeletonCard ariaLabel="Loading burn vs cap" />
+					<SkeletonCard ariaLabel="Loading active bets" />
+					<SkeletonCard ariaLabel="Loading roster" />
+				</div>
 			</div>
 		);
 	}
@@ -118,18 +119,22 @@ export function WorkTeam({
 		const is404 = error.message.includes("404");
 		if (is404) {
 			return (
-				<div className="flex flex-col gap-[12px] h-full" data-testid="work-team-page">
-					<EmptyState
-						title="Team not found"
-						description="The team you are looking for does not exist or has been removed."
-						dataTestId="team-not-found"
-					/>
+				<div className="flex-1 overflow-y-auto" data-testid="work-team-page">
+					<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
+						<EmptyState
+							title="Team not found"
+							description="The team you are looking for does not exist or has been removed."
+							dataTestId="team-not-found"
+						/>
+					</div>
 				</div>
 			);
 		}
 		return (
-			<div className="flex flex-col gap-[12px] h-full" data-testid="work-team-page">
-				<ErrorState title="Failed to load team" description={error.message} />
+			<div className="flex-1 overflow-y-auto" data-testid="work-team-page">
+				<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
+					<ErrorState title="Failed to load team" description={error.message} />
+				</div>
 			</div>
 		);
 	}
@@ -137,12 +142,14 @@ export function WorkTeam({
 	// Null data after loading/error — 404 from overrideData=null path
 	if (data === null) {
 		return (
-			<div className="flex flex-col gap-[12px] h-full" data-testid="work-team-page">
-				<EmptyState
-					title="Team not found"
-					description="The team you are looking for does not exist or has been removed."
-					dataTestId="team-not-found"
-				/>
+			<div className="flex-1 overflow-y-auto" data-testid="work-team-page">
+				<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
+					<EmptyState
+						title="Team not found"
+						description="The team you are looking for does not exist or has been removed."
+						dataTestId="team-not-found"
+					/>
+				</div>
 			</div>
 		);
 	}
@@ -153,12 +160,14 @@ export function WorkTeam({
 	// than crashing in WorkTeamLoaded at `data.team.leadAgentId`.
 	if (!data.team) {
 		return (
-			<div className="flex flex-col gap-[12px] h-full" data-testid="work-team-page">
-				<EmptyState
-					title="Team not found"
-					description="The team you are looking for does not exist or has been removed."
-					dataTestId="team-not-found"
-				/>
+			<div className="flex-1 overflow-y-auto" data-testid="work-team-page">
+				<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
+					<EmptyState
+						title="Team not found"
+						description="The team you are looking for does not exist or has been removed."
+						dataTestId="team-not-found"
+					/>
+				</div>
 			</div>
 		);
 	}
@@ -231,7 +240,8 @@ function WorkTeamLoaded({
 			: 0;
 
 	return (
-		<div className="flex flex-col gap-[12px] h-full" data-testid="work-team-page">
+		<div className="flex-1 overflow-y-auto" data-testid="work-team-page">
+			<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
 			{/* R1 — Team header */}
 			<section aria-label="Team header">
 				{/* Breadcrumb chip (N1 design) */}
@@ -256,46 +266,75 @@ function WorkTeamLoaded({
 				</div>
 			</section>
 
-			{/* R4 — Team burn vs cap */}
-			<section
-				aria-label="Team burn vs cap"
-				data-testid="team-burn-vs-cap"
-				className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
-			>
-				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
-					Burn vs Cap
-				</h2>
-				<div className="flex flex-col gap-1">
-					{/* AA3: Bet vs routine cost breakdown */}
-					<KeyValue label="Bet cost" value={formatMoney(burn.betCostActual ?? null)} />
-					<KeyValue
-						label="Routine cost"
-						value={
-							burn.routineCostThisMonth
-								? `${formatMoney(burn.routineCostThisMonth)} (this month)`
-								: `${formatMoney({ minor: 0, currency: "USD" })} (this month)`
+			{/* R4 — Team summary stat strip (AG1: replaces KeyValue burn list) */}
+			<section aria-label="Team summary" data-testid="team-burn-vs-cap">
+				{/*
+				 * @lore AG1: 4 stat tiles (Burn/Cap/Capacity/Status) replace the KeyValue
+				 * burn list. flex-wrap (not grid-cols-N) avoids AQ-108. Status tile is
+				 * mandatory — empty roster → "—"/"No agents", never "Healthy". See
+				 * plans/AG1/design/approved.md §2 + §4a.
+				 */}
+				<div className="flex gap-[12px] flex-wrap">
+					{/* Burn tile */}
+					<StatTile
+						label="Burn"
+						value={formatMoney(burn.costActual)}
+						sub={`bets ${formatMoney(burn.betCostActual)} · routines ${formatMoney(burn.routineCostThisMonth)}/mo`}
+					/>
+					{/* Cap tile */}
+					<StatTile
+						label="Cap"
+						value={burn.costCap !== null ? formatMoney(burn.costCap) : "—"}
+						sub={
+							burn.costCap !== null
+								? `${Math.round(capPercent * 100)}% used`
+								: "no cap"
 						}
 					/>
-					<KeyValue label="Total cost" value={formatMoney(burn.costActual)} />
-					<KeyValue label="Cap" value={formatMoney(burn.costCap)} />
-					<KeyValue label="Capacity" value={`${burn.activeBets} / ${burn.capacity}`} />
+					{/* Capacity tile */}
+					<StatTile
+						label="Capacity"
+						value={`${burn.activeBets} / ${burn.capacity}`}
+						sub="active bets"
+					/>
+					{/* Status tile — derives from roster; empty → "—"/"No agents" */}
+					{(() => {
+						if (roster.length === 0) {
+							return <StatTile label="Status" value="—" sub="No agents" />;
+						}
+						const hasAttention = roster.some(
+							(m) => (m.healthLevel ?? "healthy") !== "healthy",
+						);
+						const idleCount = roster.filter(
+							(m) => (m.operationalStatus ?? "idle") === "idle",
+						).length;
+						return (
+							<StatTile
+								label="Status"
+								value={hasAttention ? "Attention" : "Healthy"}
+								sub={`${idleCount} idle agent${idleCount !== 1 ? "s" : ""}`}
+							/>
+						);
+					})()}
 				</div>
-				{burn.costCap !== null && (
-					<progress
-						className="progress progress-primary w-full mt-2"
-						value={capPercent}
-						max={1}
-						aria-label={`${Math.round(capPercent * 100)}% of cap used`}
-					/>
-				)}
-				{burn.costCap === null && (
-					<progress
-						className="progress w-full mt-2"
-						value={0}
-						max={1}
-						aria-label="Cost cap not set"
-					/>
-				)}
+				<div className="mt-[12px]">
+					{burn.costCap !== null && (
+						<progress
+							className="progress progress-primary w-full"
+							value={capPercent}
+							max={1}
+							aria-label={`${Math.round(capPercent * 100)}% of cap used`}
+						/>
+					)}
+					{burn.costCap === null && (
+						<progress
+							className="progress w-full"
+							value={0}
+							max={1}
+							aria-label="Cost cap not set"
+						/>
+					)}
+				</div>
 			</section>
 
 			{/* R2 — Active bets */}
@@ -493,6 +532,39 @@ function WorkTeamLoaded({
 						.filter((m) => m.role !== "human")
 						.map((m) => ({ id: m.agentId, name: m.name }))}
 				/>
+			)}
+			</div>
+		</div>
+	);
+}
+
+// ---------------------------------------------------------------------------
+// StatTile — AG1: private display tile for the summary stat strip.
+// Label-over-value layout. Not exported — file-local helper only.
+// Each tile gets data-testid="stat-tile" so tests can count and inspect them.
+// ---------------------------------------------------------------------------
+
+/**
+ * AG1: Private stat tile. One tile per summary metric (Burn/Cap/Capacity/Status).
+ * Display-only; no interactivity. value and sub are pre-formatted strings.
+ *
+ * @lore AG1: flex-1 min-w-[180px] allows tiles to wrap (flex-wrap on container)
+ * at narrow viewports without breaking to 4 stacked rows at normal desktop widths.
+ */
+function StatTile({ label, value, sub }: { label: string; value: string; sub?: string }): JSX.Element {
+	return (
+		<div
+			data-testid="stat-tile"
+			className="flex-1 min-w-[180px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px]"
+		>
+			<span className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]">
+				{label}
+			</span>
+			<span className="text-[20px] font-semibold text-[var(--text-primary)] tabular-nums">
+				{value}
+			</span>
+			{sub !== undefined && (
+				<span className="text-[11px] text-[var(--text-tertiary)] tabular-nums">{sub}</span>
 			)}
 		</div>
 	);
