@@ -25,20 +25,18 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { type BuiltinRoutineId, runBuiltinRoutine, seedBuiltinRoutines } from "@hyperidle/fabric";
+import { type BuiltinRoutineId, provisionTeamRoutines, runBuiltinRoutine } from "@hyperidle/fabric";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../test-fixtures.js";
 
 const NOW_ISO = "2026-06-11T00:00:00.000Z";
 
-// @lore AF9 red phase: PROMOTION_ROUTINE_ID does not exist in
-// BuiltinRoutineId until Task 2. Cast lets tests compile and fail at runtime.
-const PROMOTION_ROUTINE_ID = "builtin:knowledge-promotion" as BuiltinRoutineId;
+const TEST_TEAM_ID = "prod-1";
+// @lore AF17: per-team routine id scheme — builtin:<kind>:<teamId>
+const PROMOTION_ROUTINE_ID = `builtin:knowledge-promotion:${TEST_TEAM_ID}` as BuiltinRoutineId;
 
 async function seedOwners(db: HyperIdleDb): Promise<void> {
-	await db
-		.insert(teams)
-		.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: NOW_ISO });
+	await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: NOW_ISO });
 	await db.insert(teamMembers).values({
 		id: "team-1",
 		teamId: "prod-1",
@@ -63,13 +61,29 @@ async function seedOwners(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW_ISO,
 	});
 	await db.insert(users).values({
-		id: "seed-agent-pm-nimmly",
-		name: "Nimmly PM",
+		id: "demo-agent-pm",
+		name: "Acme PM",
 		role: "product_manager",
 		status: "active",
 		maxConcurrentSessions: 1,
 		teamId: "team-1",
 		createdAt: NOW_ISO,
+	});
+}
+
+/**
+ * @lore AF17: replaces seedBuiltinRoutines(db, teamId).
+ * Uses provisionTeamRoutines so ids are per-team: `builtin:<kind>:<teamId>`.
+ */
+async function seedBuiltinRoutines(db: HyperIdleDb, teamId = TEST_TEAM_ID): Promise<void> {
+	await provisionTeamRoutines(db, {
+		teamId,
+		ownerByRole: {
+			facilitator: "seed-agent-pf-facilitation",
+			product_manager: "demo-agent-pm",
+			assistant: "seed-agent-cos",
+		},
+		leadAgentId: "seed-agent-cos",
 	});
 }
 

@@ -48,7 +48,7 @@ The `--` before `--profile` is required — it separates npm's flags from the se
 [setup] Next: run `npm run dev` to start the server and web app.
 ```
 
-This creates a `hyperidle-pg/` data directory, runs all schema migrations, and seeds an example Team ("Nimmly") with three agents: assistant, Product Manager, and Builder.
+This creates a `hyperidle-pg/` data directory, runs all schema migrations, and applies the factory bootstrap (system agents, facilitators, and factory settings). To start with a demo team pre-populated, add `--demo` (creates an example "Acme" team with assistant, Product Manager, and Builder agents).
 
 **Troubleshooting:**
 - `--db-path must not contain '..' segments` — specify an absolute path: `npm run setup -- --profile laptop --db-path /Users/you/hyperidle-data`.

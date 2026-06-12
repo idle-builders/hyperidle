@@ -48,12 +48,16 @@ describe("H4 AC1: `bun run setup --profile laptop`", () => {
 		const client = new PGlite(dataDir);
 		await client.waitReady;
 		try {
-			// @lore U1: `products` table renamed to `teams`
-			const teamsResult = await client.query<{ id: string }>("SELECT id FROM teams");
-			expect(teamsResult.rows.length).toBeGreaterThan(0);
-
+			// @lore AF17: applyFactoryBootstrap does NOT insert teams — teams are
+			// created at onboarding, not at setup time. Assert factory agents present.
 			const usersResult = await client.query<{ id: string }>("SELECT id FROM users");
 			expect(usersResult.rows.length).toBeGreaterThan(0);
+
+			// system:propagation must be present (factory-bootstrap row)
+			const propagation = await client.query<{ id: string }>(
+				"SELECT id FROM users WHERE id = 'system:propagation'",
+			);
+			expect(propagation.rows.length).toBe(1);
 		} finally {
 			await client.close();
 		}
@@ -166,6 +170,80 @@ describe("H4 security: --db-path validation", () => {
 	});
 });
 
+describe("AF17 CRITICAL-2: --demo flag behavior", () => {
+	it("without --demo: setup produces no demo team (factory only)", {
+		timeout: 60_000,
+	}, async () => {
+		const dataDir = path.join(tmpdir, "hyperidle-pg-nodemo");
+		const { io } = makeIo();
+
+		const exit = await runSetup(["--profile", "laptop", "--db-path", dataDir], io, { env: {} });
+		expect(exit).toBe(0);
+
+		const client = new PGlite(dataDir);
+		await client.waitReady;
+		try {
+			// No teams inserted (factory bootstrap only, no demo world)
+			const teamsResult = await client.query<{ count: string }>(
+				"SELECT COUNT(*) AS count FROM teams",
+			);
+			expect(Number(teamsResult.rows[0]?.count)).toBe(0);
+
+			// No human users (factory has no humans)
+			const humanResult = await client.query<{ count: string }>(
+				"SELECT COUNT(*) AS count FROM users WHERE kind = 'human'",
+			);
+			expect(Number(humanResult.rows[0]?.count)).toBe(0);
+		} finally {
+			await client.close();
+		}
+	});
+
+	it("with --demo: setup produces the Acme demo team + demo founder", {
+		timeout: 60_000,
+	}, async () => {
+		const dataDir = path.join(tmpdir, "hyperidle-pg-demo");
+		const { io, captured } = makeIo();
+
+		const exit = await runSetup(["--profile", "laptop", "--db-path", dataDir, "--demo"], io, {
+			env: {},
+		});
+		expect(exit).toBe(0);
+
+		// stdout mentions demo mode
+		expect(captured.stdout.join("\n")).toMatch(/demo/i);
+
+		const client = new PGlite(dataDir);
+		await client.waitReady;
+		try {
+			// Demo team "Acme" must exist
+			const teamsResult = await client.query<{ id: string; name: string }>(
+				"SELECT id, name FROM teams WHERE id = 'demo-team-acme'",
+			);
+			expect(teamsResult.rows.length).toBe(1);
+			expect(teamsResult.rows[0]?.name).toBe("Acme");
+
+			// Demo founder must exist
+			const founderResult = await client.query<{ id: string; kind: string }>(
+				"SELECT id, kind FROM users WHERE id = 'demo-founder'",
+			);
+			expect(founderResult.rows.length).toBe(1);
+			expect(founderResult.rows[0]?.kind).toBe("human");
+		} finally {
+			await client.close();
+		}
+	});
+
+	it("--demo dry-run mentions demo seeding without executing", async () => {
+		const { io, captured } = makeIo();
+		const exit = await runSetup(["--profile", "laptop", "--dry-run", "--demo"], io, { env: {} });
+		expect(exit).toBe(0);
+		const all = captured.stdout.join("\n");
+		expect(all).toMatch(/demo/i);
+		expect(all).toMatch(/dry[-\s]?run/i);
+	});
+});
+
 describe("H4 idempotency: laptop setup is safe to run twice", () => {
 	it("running setup --profile laptop twice does not corrupt the DB", {
 		timeout: 60_000,
@@ -191,11 +269,12 @@ describe("H4 idempotency: laptop setup is safe to run twice", () => {
 			// @lore P2: agents → users table
 			const agentsResult = await client.query<{ id: string }>("SELECT id FROM users");
 			expect(agentsResult.rows.length).toBeGreaterThan(0);
-			// @lore U1: `products` renamed to `teams`; seed row id stays 'seed-product-1'
-			const teamsResult = await client.query<{ n: string }>(
-				"SELECT COUNT(*) AS n FROM teams WHERE id = 'seed-product-1'",
+			// @lore AF17: factory bootstrap does NOT insert teams (teams come from onboarding).
+			// Assert the factory system:propagation row is still present after second run.
+			const propagationResult = await client.query<{ n: string }>(
+				"SELECT COUNT(*) AS n FROM users WHERE id = 'system:propagation'",
 			);
-			expect(Number(teamsResult.rows[0]?.n)).toBe(1);
+			expect(Number(propagationResult.rows[0]?.n)).toBe(1);
 		} finally {
 			await client.close();
 		}

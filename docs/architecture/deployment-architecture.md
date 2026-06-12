@@ -13,11 +13,11 @@ MacBook / Linux laptop
 │   └── SQLite database
 │       └── hyperidle.db (primitives + knowledge_items)
 ├── Docker (agent workspaces)
-│   ├── container: nimmly-builder-session-42
-│   └── container: nimmly-growth-session-43
+│   ├── container: acme-builder-session-42
+│   └── container: acme-growth-session-43
 ├── Git repo (markdown artifacts)
 │   ├── factory/ (PRINCIPLES.md, FOCUS.md, ...)
-│   └── products/nimmly/ (BRIEF.md, ARCHITECTURE.md, ...)
+│   └── products/acme/ (BRIEF.md, ARCHITECTURE.md, ...)
 └── Browser → http://localhost:5173 (the Factory)
 ```
 

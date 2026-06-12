@@ -63,7 +63,7 @@ Workflow engines wire transitions in advance. Handoff is decided at runtime by t
 
 ### 8.6 Cross-team work: chat thread + cross-team tasks
 
-Sometimes a bet needs work from a team that isn't the bet's owning team. The most common case is a **platform team** — a team whose product is a shared substrate (auth, billing, design system, infrastructure) that other product teams rely on. The Ambrovia team's bet might need a new endpoint from the platform team. The Nimmly team might need a new component from the design-system team.
+Sometimes a bet needs work from a team that isn't the bet's owning team. The most common case is a **platform team** — a team whose product is a shared substrate (auth, billing, design system, infrastructure) that other product teams rely on. The Ambrovia team's bet might need a new endpoint from the platform team. The Acme team might need a new component from the design-system team.
 
 The protocol is deliberately lightweight:
 

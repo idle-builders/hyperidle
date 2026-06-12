@@ -53,6 +53,17 @@ Adding a new permitted location requires updating `plans/mock-data-purge/concept
 
 `MOCK_*`, `FAKE_*`, `STUB_*`, `SAMPLE_*`, `DUMMY_*`, `PLACEHOLDER_*`, `FALLBACK_*` (when the shape mirrors a real source), `DEMO_*`, `LEGACY_*`, `EXAMPLE_*`, `HARDCODED_*`. `DEFAULT_*` is forbidden when standing in for fetched data; allowed for theme / UI / density defaults (the lint rule's allowlist disambiguates).
 
+## Banned fictional names
+
+`Nimmly` is a real, separate product — it must not appear anywhere in the HyperIdle codebase (code, tests, stories, docs, mockups). The nimmly-guard script (`npm run nimmly-guard:check`) enforces this and runs in `npm run verify`.
+
+The sanctioned fictional name for demo data is **`Acme`** (team id `demo-team-acme`, agents `demo-agent-*`). Use it for:
+- Test fixtures and stories that need a believable team name
+- Setup-cli demo mode (`--demo` flag)
+- Design mockups needing realistic example content
+
+Any other clearly-fictional placeholder (`ACME Corp`, `Test Team`, `Demo Co`) is fine too — as long as it is not `Nimmly`.
+
 ## Forbidden literal-id strings (in runtime production code)
 
 The M1 inventory script also flags hardcoded identity strings used as stand-ins for the auth context: `"u-founder"`, `"agent-unassigned"`, `"founder@hyperidle.com"`, and any further entries the architect adds during M2. Tests / stories / e2e are exempt by path.

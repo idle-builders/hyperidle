@@ -3,6 +3,8 @@ import * as path from "node:path";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { sql } from "drizzle-orm";
 import type { HyperIdleDb } from "../connection.js";
+import { seedDemoWorld } from "../demo-fixture.js";
+import { applyFactoryBootstrap } from "../factory-bootstrap.js";
 import { seed } from "../seed.js";
 
 // @lore AD8a: chief_of_staff soul file deleted (docs/souls/chief-of-staff.md removed).
@@ -36,6 +38,8 @@ describe("A2: Seed script", () => {
 
 		// @lore U1: `products` renamed to `teams`; old `teams` renamed to `team_members`.
 		// @lore P2: agents → users table
+		// @lore AF17: seed() now calls applyFactoryBootstrap + seedDemoWorld.
+		// factory_bootstrap inserts users/knowledge_items/factory_settings; demo_fixture inserts teams/team_members.
 		const majorTables = ["users", "teams", "team_members", "knowledge_items", "factory_settings"];
 
 		for (const table of majorTables) {
@@ -49,6 +53,7 @@ describe("A2: Seed script", () => {
 
 		// Verify we can read back with all fields.
 		// @lore U1: `products` table renamed to `teams`.
+		// @lore AF17: demo team id is now "demo-team-acme"
 		const products = await queryRows<{ id: string; name: string }>(
 			db,
 			"SELECT id, name FROM teams LIMIT 1",
@@ -180,199 +185,6 @@ describe("A2: Seed script", () => {
 		}
 	});
 
-	// --- G4 AC6: seed creates all 5 builtin routines (AF9: knowledge-promotion added) ---
-	// @lore AD8c: builtin:cost-sentinel removed from routines; it is now application code.
-	// @lore AF9: builtin:knowledge-promotion added — production seed now has 5 builtins.
-	test("seeds exactly 5 G4 builtin routines with correct triggers (G4 AC6 + AD8c + AF9)", async ({
-		db,
-	}) => {
-		await seed(db);
-
-		// @lore AD8c: cost-sentinel is no longer a routine row.
-		// @lore AF9: knowledge-promotion added; there are now 5 builtins.
-		const expectedIds = [
-			"builtin:practice-meeting",
-			"builtin:post-bet-retro",
-			"builtin:portfolio-retro",
-			"builtin:knowledge-decay",
-			"builtin:knowledge-promotion",
-		] as const;
-
-		type RoutineRow = {
-			id: string;
-			// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case
-			trigger_type: string;
-			// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case
-			trigger_config: string | null;
-			// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case
-			owner_agent_id: string;
-			active: boolean;
-		};
-		const rows = await queryRows<RoutineRow>(
-			db,
-			"SELECT id, trigger_type, trigger_config, owner_agent_id, active FROM routines WHERE id LIKE 'builtin:%' ORDER BY id",
-		);
-
-		// 5 builtin routines: cost-sentinel extracted to app code (AD8c); knowledge-promotion added (AF9)
-		expect(rows).toHaveLength(5);
-
-		const byId = new Map(rows.map((r) => [r.id, r]));
-		for (const id of expectedIds) {
-			expect(byId.has(id), `routine ${id} must be seeded`).toBe(true);
-			expect(byId.get(id)?.active).toBe(true);
-			expect(byId.get(id)?.trigger_config).toBeTruthy();
-		}
-
-		// @lore AD8c: cost-sentinel must NOT be in the routines table
-		expect(byId.has("builtin:cost-sentinel"), "cost-sentinel must NOT be seeded as a routine").toBe(
-			false,
-		);
-
-		expect(byId.get("builtin:practice-meeting")?.trigger_type).toBe("calendar");
-		expect(byId.get("builtin:post-bet-retro")?.trigger_type).toBe("event");
-		expect(byId.get("builtin:portfolio-retro")?.trigger_type).toBe("calendar");
-		expect(byId.get("builtin:knowledge-decay")?.trigger_type).toBe("calendar");
-	});
-
-	// --- G4 review MAJOR-3: pin the full builtin-routine spec so any drift
-	//     between packages/db/src/seed.ts and
-	//     packages/fabric/src/services/builtin-routines.ts BUILTIN_SPECS is
-	//     caught by CI. If you change this test, mirror the change in both files.
-	// @lore AD8c: cost-sentinel removed; knowledge-decay owner changed to seed-agent-pf-facilitation.
-	// @lore AF9: knowledge-promotion added to production seed replica (seed-fixtures.ts).
-	// ---
-	test("pins the full trigger_config, owner, skill, human_review, silent for every builtin (G4 drift guard + AD8c + AF9)", async ({
-		db,
-	}) => {
-		await seed(db);
-
-		interface BuiltinPin {
-			readonly id: string;
-			readonly triggerType: "heartbeat" | "calendar" | "event";
-			readonly triggerConfig: Record<string, unknown>;
-			readonly ownerAgentId: string;
-			readonly skillId: string;
-			readonly humanReview: boolean;
-			readonly silent: boolean;
-		}
-
-		// @lore AD8c: cost-sentinel removed; knowledge-decay owner is now seed-agent-pf-facilitation.
-		// @lore AF9: knowledge-promotion added; mirrors BUILTIN_SPECS in builtin-routines.ts.
-		const expected: readonly BuiltinPin[] = [
-			{
-				id: "builtin:practice-meeting",
-				triggerType: "calendar",
-				triggerConfig: { cron: "0 10 * * MON" },
-				ownerAgentId: "seed-agent-pf-facilitation",
-				skillId: "practice_meeting",
-				humanReview: false,
-				silent: false,
-			},
-			{
-				id: "builtin:post-bet-retro",
-				triggerType: "event",
-				triggerConfig: { eventType: "bet_state_changed" },
-				ownerAgentId: "seed-agent-pm-nimmly",
-				skillId: "bet_retro",
-				humanReview: true,
-				silent: false,
-			},
-			{
-				id: "builtin:portfolio-retro",
-				triggerType: "calendar",
-				triggerConfig: { cron: "0 10 1-7 * MON" },
-				ownerAgentId: "seed-agent-cos",
-				skillId: "portfolio_retro",
-				humanReview: true,
-				silent: false,
-			},
-			{
-				id: "builtin:knowledge-decay",
-				triggerType: "calendar",
-				triggerConfig: { cron: "0 2 * * *" },
-				// @lore AD8c: knowledge-decay ownership transferred from seed-agent-cos to seed-agent-pf-facilitation
-				ownerAgentId: "seed-agent-pf-facilitation",
-				skillId: "knowledge_decay",
-				humanReview: false,
-				silent: true,
-			},
-			{
-				id: "builtin:knowledge-promotion",
-				triggerType: "calendar",
-				triggerConfig: { cron: "0 3 * * *" },
-				// @lore AF9: same owner as knowledge-decay — both are practice-layer lifecycle concerns.
-				ownerAgentId: "seed-agent-pf-facilitation",
-				skillId: "knowledge_promotion",
-				humanReview: false,
-				silent: false,
-			},
-		];
-
-		type RoutineDetailRow = {
-			id: string;
-			// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case
-			trigger_type: string;
-			// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case
-			trigger_config: string | null;
-			// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case
-			owner_agent_id: string;
-			// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case
-			skill_id: string | null;
-			// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case
-			human_review: boolean;
-			silent: boolean;
-		};
-		const rows = await queryRows<RoutineDetailRow>(
-			db,
-			"SELECT id, trigger_type, trigger_config, owner_agent_id, skill_id, human_review, silent FROM routines WHERE id LIKE 'builtin:%' ORDER BY id",
-		);
-		const byId = new Map(rows.map((r) => [r.id, r]));
-
-		for (const spec of expected) {
-			const row = byId.get(spec.id);
-			expect(row, `routine ${spec.id} must be seeded`).toBeTruthy();
-			if (!row) continue;
-			expect(row.trigger_type, `${spec.id} trigger_type`).toBe(spec.triggerType);
-			expect(JSON.parse(row.trigger_config ?? "{}"), `${spec.id} trigger_config`).toEqual(
-				spec.triggerConfig,
-			);
-			expect(row.owner_agent_id, `${spec.id} owner_agent_id`).toBe(spec.ownerAgentId);
-			expect(row.skill_id, `${spec.id} skill_id`).toBe(spec.skillId);
-			expect(row.human_review, `${spec.id} human_review`).toBe(spec.humanReview);
-			expect(row.silent, `${spec.id} silent`).toBe(spec.silent);
-		}
-	});
-
-	// --- AD8c AC3: knowledge-decay owned by facilitator agent ---
-	test("builtin:knowledge-decay is owned by seed-agent-pf-facilitation (AD8c AC3)", async ({
-		db,
-	}) => {
-		await seed(db);
-		// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case
-		const rows = await queryRows<{ owner_agent_id: string }>(
-			db,
-			"SELECT owner_agent_id FROM routines WHERE id = 'builtin:knowledge-decay'",
-		);
-		expect(rows).toHaveLength(1);
-		expect(rows[0]?.owner_agent_id).toBe("seed-agent-pf-facilitation");
-	});
-
-	// --- AD8c AC5: portfolio-retro not owned by a facilitator agent ---
-	test("builtin:portfolio-retro is owned by seed-agent-cos, NOT a facilitator agent (AD8c AC5)", async ({
-		db,
-	}) => {
-		await seed(db);
-		// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case
-		const rows = await queryRows<{ owner_agent_id: string }>(
-			db,
-			"SELECT owner_agent_id FROM routines WHERE id = 'builtin:portfolio-retro'",
-		);
-		expect(rows).toHaveLength(1);
-		expect(rows[0]?.owner_agent_id).toBe("seed-agent-cos");
-		// Must NOT be any seed-agent-pf-* agent
-		expect(rows[0]?.owner_agent_id).not.toMatch(/^seed-agent-pf-/);
-	});
-
 	// --- AD8c AC2: soul_template:facilitator key exists (renamed from practice_facilitator) ---
 	test("factory_settings has soul_template:facilitator key and NOT soul_template:practice_facilitator (AD8c AC2)", async ({
 		db,
@@ -393,5 +205,67 @@ describe("A2: Seed script", () => {
 			"SELECT key FROM factory_settings WHERE key = 'soul_template:practice_facilitator'",
 		);
 		expect(oldRows).toHaveLength(0);
+	});
+});
+
+// @lore AF17: Builtin routine tests (G4 AC6) were removed from seed.integration.test.ts.
+// After the seed split, builtins are provisioned per-team by provisionTeamRoutines at
+// team-creation time, not by the seed function. Tests for per-team routine provisioning
+// live in packages/server/src/__tests__/AF17-team-routines.integration.test.ts.
+
+describe("AF17: seed() = applyFactoryBootstrap + seedDemoWorld", () => {
+	test("seed() produces factory layer (bootstrap) + demo world (Acme team)", async ({ db }) => {
+		await seed(db);
+
+		// Factory layer: system:propagation exists
+		const propagation = await queryRows<{ id: string }>(
+			db,
+			"SELECT id FROM users WHERE id = 'system:propagation'",
+		);
+		expect(propagation).toHaveLength(1);
+
+		// Demo world: Acme team exists
+		const acme = await queryRows<{ id: string; name: string }>(
+			db,
+			"SELECT id, name FROM teams WHERE id = 'demo-team-acme'",
+		);
+		expect(acme).toHaveLength(1);
+		expect(acme[0]?.name).toBe("Acme");
+	});
+
+	test("applyFactoryBootstrap alone produces 0 teams (factory isolation)", async ({ db }) => {
+		await applyFactoryBootstrap(db);
+
+		const teamRows = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM teams");
+		expect(Number(teamRows[0]?.count)).toBe(0);
+
+		const humanRows = await queryRows<{ count: string }>(
+			db,
+			"SELECT COUNT(*) AS count FROM users WHERE kind = 'human'",
+		);
+		expect(Number(humanRows[0]?.count)).toBe(0);
+	});
+
+	test("seedDemoWorld alone produces Acme team + demo founder + demo agents", async ({ db }) => {
+		// seedDemoWorld requires factory agents (seed-agent-cos) to exist for task.ownerAgentId
+		await applyFactoryBootstrap(db);
+		const { teamId, founderId } = await seedDemoWorld(db);
+
+		expect(teamId).toBe("demo-team-acme");
+		expect(founderId).toBe("demo-founder");
+
+		const acme = await queryRows<{ id: string; name: string }>(
+			db,
+			`SELECT id, name FROM teams WHERE id = '${teamId}'`,
+		);
+		expect(acme).toHaveLength(1);
+		expect(acme[0]?.name).toBe("Acme");
+
+		const founder = await queryRows<{ id: string; kind: string }>(
+			db,
+			`SELECT id, kind FROM users WHERE id = '${founderId}'`,
+		);
+		expect(founder).toHaveLength(1);
+		expect(founder[0]?.kind).toBe("human");
 	});
 });

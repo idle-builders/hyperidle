@@ -24,7 +24,7 @@ const BET_ID = "seed-bet-daily-digest";
 const RICH_BET_FIXTURE = {
 	id: BET_ID,
 	title: "Daily Digest",
-	product: "Nimmly",
+	product: "Acme",
 	team: "Alpha Core",
 	status: "completed",
 	costAppetite: { minor: 50000, currency: "USD" },

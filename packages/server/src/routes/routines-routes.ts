@@ -9,6 +9,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import {
+	extractBuiltinKind,
 	getRoutineMonthlySpend,
 	isBuiltinRoutineId,
 	type PostBetRetroArgs,
@@ -556,9 +557,12 @@ export function createRoutineRoutes(
 
 		// G4 AC7: dispatch to the builtin handler when the routine id is a
 		// builtin. The builtin handlers do not create sessions.
+		// @lore AF17: isBuiltinRoutineId now checks the kind prefix so per-team
+		// ids (`builtin:post-bet-retro:<teamId>`) are correctly recognised.
 		if (isBuiltinRoutineId(routineId)) {
 			let args: PostBetRetroArgs | undefined;
-			if (routineId === "builtin:post-bet-retro") {
+			// Check if this is a post-bet-retro by kind prefix (not exact id)
+			if (extractBuiltinKind(routineId) === "builtin:post-bet-retro") {
 				const body = (await c.req.json().catch(() => ({}))) as Partial<PostBetRetroArgs>;
 				if (!body.betId || typeof body.betId !== "string") {
 					return c.json(

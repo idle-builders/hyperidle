@@ -91,7 +91,7 @@ The Product Manager isn't just a librarian. It's the **team lead** — the CEO o
                  │ Build community   │ Product community │ Growth community  │ Ops community
                  │ (Practice Facil.) │ (Practice Facil.) │ (Practice Facil.) │ (Practice Facil.)
 ─────────────────┼───────────────────┼───────────────────┼───────────────────┼───────────────────
-Nimmly           │                   │                   │                   │
+Acme           │                   │                   │                   │
   (Product       │     Builder       │   Product Agent   │      Growth       │       Ops
    Manager)      │                   │                   │                   │
 ─────────────────┼───────────────────┼───────────────────┼───────────────────┼───────────────────
@@ -110,7 +110,7 @@ Two jobs running in parallel:
 
 **Job 2 — Self-improver:** Watches its own coordination and asks: *am I running this team well?* Captures facilitation-level learnings. Runs its own end-of-cycle reflection on facilitation quality. Proposes process changes. Learns from the assistant's coaching.
 
-**This self-improvement loop is the critical move.** Without it, the Product Manager is just a static process runner. With it, the facilitator gets better at facilitating over time. It's also the lever that makes the 5th product cheaper than the 4th: the Nimmly Product Manager's facilitation learnings transfer via the Practice Facilitator for "product leadership" to HyperIdle's Product Manager.
+**This self-improvement loop is the critical move.** Without it, the Product Manager is just a static process runner. With it, the facilitator gets better at facilitating over time. It's also the lever that makes the 5th product cheaper than the 4th: the Acme Product Manager's facilitation learnings transfer via the Practice Facilitator for "product leadership" to HyperIdle's Product Manager.
 
 And yes — **the facilitators themselves form a community of practice.** There's a fifth Practice Facilitator for "facilitation itself" — it organizes how the Product Managers learn from each other. Turtles, but only this far down.
 
@@ -118,7 +118,7 @@ And yes — **the facilitators themselves form a community of practice.** There'
 
 The agent side of the factory is **always flat**. There is one layer of product teams, each with its own Product Manager. There is never a Business Facilitator or any other middle-management agent layer between the Product Managers and the assistant.
 
-A product team owns *a unit of value*, in two shapes: a standalone product that IS a business (example: Ambrovia), or a product that is part of a larger multi-product business (example: an "SME Finance Suite" that bundles Ambrovia + Nimmly). Each product still has its own team and Product Manager. **The business leaders are always the humans.** They own suite-level strategy, pricing, positioning, cross-product bundling, and the decision about whether a product is standalone or part of a suite. The assistant surfaces cross-product items to the humans but doesn't delegate to another agent layer below itself.
+A product team owns *a unit of value*, in two shapes: a standalone product that IS a business (example: Ambrovia), or a product that is part of a larger multi-product business (example: an "SME Finance Suite" that bundles Ambrovia + Acme). Each product still has its own team and Product Manager. **The business leaders are always the humans.** They own suite-level strategy, pricing, positioning, cross-product bundling, and the decision about whether a product is standalone or part of a suite. The assistant surfaces cross-product items to the humans but doesn't delegate to another agent layer below itself.
 
 ```
                         Humans
@@ -129,7 +129,7 @@ A product team owns *a unit of value*, in two shapes: a standalone product that 
            ┌───────────────┼───────────────┐
            │               │               │
   Product Manager  Product Manager  Product Manager
-      (Ambrovia)       (Nimmly)        (HyperIdle)
+      (Ambrovia)       (Acme)        (HyperIdle)
 ```
 
 File structure reflects this — the business dimension lives as metadata the humans maintain, not as a nested agent hierarchy. The markdown files below are **exports** from the canonical `knowledge_items` table, maintained in Git for version history:
@@ -139,7 +139,7 @@ exports/
   products/
     ambrovia/
       BRIEF.md, ARCHITECTURE.md, BRAND.md, PRINCIPLES.md
-    nimmly/
+    acme/
       BRIEF.md, ARCHITECTURE.md, BRAND.md, PRINCIPLES.md
     hyperidle/
       ...
@@ -155,7 +155,7 @@ No `businesses/` directory. No nesting. The business-level thinking lives in two
 
 ### What the Practice Facilitator does
 
-One per community (build, product, growth, ops). They: ingest task outcomes and failures flagged as potentially reusable by Product Managers; merge duplicates across products ("Nimmly and Ambrovia both hit this chunk-size issue"); resolve conflicts ("practice X says one thing, practice Y says the opposite — surface for human"); score everything for attention; curate the weekly Knowledge view queue for the founders; retire practices that aren't being used.
+One per community (build, product, growth, ops). They: ingest task outcomes and failures flagged as potentially reusable by Product Managers; merge duplicates across products ("Acme and Ambrovia both hit this chunk-size issue"); resolve conflicts ("practice X says one thing, practice Y says the opposite — surface for human"); score everything for attention; curate the weekly Knowledge view queue for the founders; retire practices that aren't being used.
 
 They're the community's librarian. They don't write the practices. They make sure the right ones exist, are findable, and are trusted.
 

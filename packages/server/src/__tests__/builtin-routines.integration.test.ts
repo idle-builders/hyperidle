@@ -14,10 +14,10 @@ import {
 import {
 	BUILTIN_ROUTINE_IDS,
 	clearCostSentinelCache,
+	provisionTeamRoutines,
 	registerBuiltinRoutineHandlers,
 	runBuiltinRoutine,
 	runCostSentinelCheck,
-	seedBuiltinRoutines,
 } from "@hyperidle/fabric";
 import type {
 	BetStateChangedEvent,
@@ -30,15 +30,26 @@ import { afterEach, beforeEach, describe, expect, test } from "../test-fixtures.
 
 const NOW_ISO = "2026-04-18T10:00:00.000Z";
 
-/** Seed the owner agents the G4 builtins reference. */
+// @lore AF17: Per-team routine ids — builtin:<kind>:<teamId>.
+// provisionTeamRoutines uses this scheme so multiple teams don't collide.
+const TEST_TEAM_ID = "prod-1";
+const BID = {
+	practiceMeeting: `builtin:practice-meeting:${TEST_TEAM_ID}`,
+	postBetRetro: `builtin:post-bet-retro:${TEST_TEAM_ID}`,
+	portfolioRetro: `builtin:portfolio-retro:${TEST_TEAM_ID}`,
+	knowledgeDecay: `builtin:knowledge-decay:${TEST_TEAM_ID}`,
+	knowledgePromotion: `builtin:knowledge-promotion:${TEST_TEAM_ID}`,
+} as const;
+
+/** Seed the owner agents and provision built-in routines for the test team. */
 async function seedOwners(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(teams)
-		.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: NOW_ISO });
+		.values({ id: TEST_TEAM_ID, name: "Acme", phase: "build", createdAt: NOW_ISO });
 
 	await db.insert(teamMembers).values({
 		id: "team-1",
-		teamId: "prod-1",
+		teamId: TEST_TEAM_ID,
 		capacity: 5,
 		activeBets: 0,
 		formedAt: NOW_ISO,
@@ -64,13 +75,29 @@ async function seedOwners(db: HyperIdleDb): Promise<void> {
 	});
 
 	await db.insert(users).values({
-		id: "seed-agent-pm-nimmly",
-		name: "Nimmly Product Manager",
+		id: "demo-agent-pm",
+		name: "Acme Product Manager",
 		role: "product_manager",
 		status: "active",
 		maxConcurrentSessions: 1,
 		teamId: "team-1",
 		createdAt: NOW_ISO,
+	});
+}
+
+/**
+ * @lore AF17: replaces seedBuiltinRoutines(db, teamId).
+ * Uses provisionTeamRoutines so ids are per-team: `builtin:<kind>:prod-1`.
+ */
+async function seedBuiltinRoutines(db: HyperIdleDb, teamId = TEST_TEAM_ID): Promise<void> {
+	await provisionTeamRoutines(db, {
+		teamId,
+		ownerByRole: {
+			facilitator: "seed-agent-pf-facilitation",
+			product_manager: "demo-agent-pm",
+			assistant: "seed-agent-cos",
+		},
+		leadAgentId: "seed-agent-cos",
 	});
 }
 
@@ -103,25 +130,26 @@ describe("G4: Built-in Routines", () => {
 			);
 
 			// @lore AD8c: cost-sentinel is no longer a routine row
-			expect(byId.has("builtin:cost-sentinel")).toBe(false);
+			// @lore AF17: per-team ids — no global "builtin:cost-sentinel" row
+			expect(rows.some((r: Routine) => r.id.startsWith("builtin:cost-sentinel"))).toBe(false);
 
-			expect(byId.get("builtin:practice-meeting")?.triggerType).toBe("calendar");
-			expect(JSON.parse(byId.get("builtin:practice-meeting")?.triggerConfig ?? "{}")).toEqual({
+			expect(byId.get(BID.practiceMeeting)?.triggerType).toBe("calendar");
+			expect(JSON.parse(byId.get(BID.practiceMeeting)?.triggerConfig ?? "{}")).toEqual({
 				cron: "0 10 * * MON",
 			});
 
-			expect(byId.get("builtin:post-bet-retro")?.triggerType).toBe("event");
-			expect(JSON.parse(byId.get("builtin:post-bet-retro")?.triggerConfig ?? "{}")).toEqual({
+			expect(byId.get(BID.postBetRetro)?.triggerType).toBe("event");
+			expect(JSON.parse(byId.get(BID.postBetRetro)?.triggerConfig ?? "{}")).toEqual({
 				eventType: "bet_state_changed",
 			});
 
-			expect(byId.get("builtin:portfolio-retro")?.triggerType).toBe("calendar");
-			expect(JSON.parse(byId.get("builtin:portfolio-retro")?.triggerConfig ?? "{}")).toEqual({
+			expect(byId.get(BID.portfolioRetro)?.triggerType).toBe("calendar");
+			expect(JSON.parse(byId.get(BID.portfolioRetro)?.triggerConfig ?? "{}")).toEqual({
 				cron: "0 10 1-7 * MON",
 			});
 
-			expect(byId.get("builtin:knowledge-decay")?.triggerType).toBe("calendar");
-			expect(JSON.parse(byId.get("builtin:knowledge-decay")?.triggerConfig ?? "{}")).toEqual({
+			expect(byId.get(BID.knowledgeDecay)?.triggerType).toBe("calendar");
+			expect(JSON.parse(byId.get(BID.knowledgeDecay)?.triggerConfig ?? "{}")).toEqual({
 				cron: "0 2 * * *",
 			});
 		});
@@ -135,12 +163,13 @@ describe("G4: Built-in Routines", () => {
 				rows.map((r: Routine) => [r.id, r] as [string, Routine]),
 			);
 			// @lore AD8c: cost-sentinel is no longer seeded as a routine
-			expect(byId.has("builtin:cost-sentinel")).toBe(false);
-			expect(byId.get("builtin:practice-meeting")?.ownerAgentId).toBe("seed-agent-pf-facilitation");
-			expect(byId.get("builtin:post-bet-retro")?.ownerAgentId).toBe("seed-agent-pm-nimmly");
-			expect(byId.get("builtin:portfolio-retro")?.ownerAgentId).toBe("seed-agent-cos");
+			// @lore AF17: per-team ids used; no global "builtin:cost-sentinel" row
+			expect(rows.some((r: Routine) => r.id.startsWith("builtin:cost-sentinel"))).toBe(false);
+			expect(byId.get(BID.practiceMeeting)?.ownerAgentId).toBe("seed-agent-pf-facilitation");
+			expect(byId.get(BID.postBetRetro)?.ownerAgentId).toBe("demo-agent-pm");
+			expect(byId.get(BID.portfolioRetro)?.ownerAgentId).toBe("seed-agent-cos");
 			// @lore AD8c: knowledge-decay ownership transferred to facilitator agent
-			expect(byId.get("builtin:knowledge-decay")?.ownerAgentId).toBe("seed-agent-pf-facilitation");
+			expect(byId.get(BID.knowledgeDecay)?.ownerAgentId).toBe("seed-agent-pf-facilitation");
 		});
 
 		test("sets all builtins active=true by default", async ({ db }) => {
@@ -324,7 +353,7 @@ describe("G4: Built-in Routines", () => {
 			await seedOwners(db);
 			await seedBuiltinRoutines(db);
 
-			const result = await runBuiltinRoutine(db, eventBus, "builtin:practice-meeting");
+			const result = await runBuiltinRoutine(db, eventBus, BID.practiceMeeting);
 
 			expect(result.fired).toBe(true);
 			const anchors = await db
@@ -374,7 +403,7 @@ describe("G4: Built-in Routines", () => {
 			await seedBuiltinRoutines(db);
 			await seedShippedBet(db);
 
-			const result = await runBuiltinRoutine(db, eventBus, "builtin:post-bet-retro", {
+			const result = await runBuiltinRoutine(db, eventBus, BID.postBetRetro, {
 				betId: "bet-shipped-1",
 			});
 
@@ -396,7 +425,7 @@ describe("G4: Built-in Routines", () => {
 			await seedBuiltinRoutines(db);
 			await seedShippedBet(db);
 
-			await runBuiltinRoutine(db, eventBus, "builtin:post-bet-retro", {
+			await runBuiltinRoutine(db, eventBus, BID.postBetRetro, {
 				betId: "bet-shipped-1",
 			});
 
@@ -442,12 +471,12 @@ describe("G4: Built-in Routines", () => {
 			await seedBuiltinRoutines(db);
 			await seedShippedBet(db);
 
-			const first = await runBuiltinRoutine(db, eventBus, "builtin:post-bet-retro", {
+			const first = await runBuiltinRoutine(db, eventBus, BID.postBetRetro, {
 				betId: "bet-shipped-1",
 			});
 			expect(first.fired).toBe(true);
 
-			const second = await runBuiltinRoutine(db, eventBus, "builtin:post-bet-retro", {
+			const second = await runBuiltinRoutine(db, eventBus, BID.postBetRetro, {
 				betId: "bet-shipped-1",
 			});
 			expect(second.fired).toBe(false);
@@ -586,7 +615,7 @@ describe("G4: Built-in Routines", () => {
 				kind: "pattern",
 			});
 
-			const result = await runBuiltinRoutine(db, eventBus, "builtin:portfolio-retro");
+			const result = await runBuiltinRoutine(db, eventBus, BID.portfolioRetro);
 			expect(result.fired).toBe(true);
 
 			const reviewRows = await db.select().from(items);
@@ -619,7 +648,7 @@ describe("G4: Built-in Routines", () => {
 				updatedAt: longAgo,
 			});
 
-			const result = await runBuiltinRoutine(db, eventBus, "builtin:knowledge-decay");
+			const result = await runBuiltinRoutine(db, eventBus, BID.knowledgeDecay);
 			expect(result.fired).toBe(true);
 
 			const [row] = await db
@@ -643,7 +672,7 @@ describe("G4: Built-in Routines", () => {
 			const [row] = await db
 				.select()
 				.from(routines)
-				.where(eq(routines.id, "builtin:knowledge-decay"))
+				.where(eq(routines.id, BID.knowledgeDecay))
 				.limit(1);
 			expect(row?.silent).toBe(true);
 
@@ -662,7 +691,7 @@ describe("G4: Built-in Routines", () => {
 				});
 			}
 
-			await runBuiltinRoutine(db, eventBus, "builtin:knowledge-decay");
+			await runBuiltinRoutine(db, eventBus, BID.knowledgeDecay);
 
 			// DB writes still happen — verify the transitions succeeded.
 			const markedStale = await db
@@ -682,10 +711,7 @@ describe("G4: Built-in Routines", () => {
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await seedBuiltinRoutines(db);
 			// Flip silent off for this test.
-			await db
-				.update(routines)
-				.set({ silent: false })
-				.where(eq(routines.id, "builtin:knowledge-decay"));
+			await db.update(routines).set({ silent: false }).where(eq(routines.id, BID.knowledgeDecay));
 
 			const longAgo = new Date(Date.now() - 95 * 24 * 60 * 60 * 1000).toISOString();
 			await db.insert(knowledgeItems).values({
@@ -700,7 +726,7 @@ describe("G4: Built-in Routines", () => {
 				updatedAt: longAgo,
 			});
 
-			await runBuiltinRoutine(db, eventBus, "builtin:knowledge-decay");
+			await runBuiltinRoutine(db, eventBus, BID.knowledgeDecay);
 
 			const events = emitted.filter((e) => e.type === "knowledge_updated");
 			expect(events).toHaveLength(1);
@@ -718,12 +744,9 @@ describe("G4: Built-in Routines", () => {
 		}) => {
 			await seedOwners(db);
 			await seedBuiltinRoutines(db);
-			await db
-				.update(routines)
-				.set({ active: false })
-				.where(eq(routines.id, "builtin:knowledge-decay"));
+			await db.update(routines).set({ active: false }).where(eq(routines.id, BID.knowledgeDecay));
 
-			const result = await runBuiltinRoutine(db, eventBus, "builtin:knowledge-decay");
+			const result = await runBuiltinRoutine(db, eventBus, BID.knowledgeDecay);
 			expect(result.fired).toBe(false);
 			if (!result.fired) expect(result.reason).toContain("disabled");
 		});
@@ -731,10 +754,7 @@ describe("G4: Built-in Routines", () => {
 		test("event handler does not run when event routine active=0", async ({ db, eventBus }) => {
 			await seedOwners(db);
 			await seedBuiltinRoutines(db);
-			await db
-				.update(routines)
-				.set({ active: false })
-				.where(eq(routines.id, "builtin:post-bet-retro"));
+			await db.update(routines).set({ active: false }).where(eq(routines.id, BID.postBetRetro));
 			await db.insert(bets).values({
 				id: "bet-inactive-1",
 				teamId: "prod-1",

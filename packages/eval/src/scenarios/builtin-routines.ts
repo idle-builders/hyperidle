@@ -10,16 +10,32 @@
  */
 
 import { randomUUID } from "node:crypto";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { items, knowledgeStrategyFabric } from "@hyperidle/db";
 import {
 	clearBuiltinCostSentinelCache,
+	provisionTeamRoutines,
 	runBuiltinRoutine,
-	seedBuiltinRoutines,
 } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
 import { and, eq, isNotNull, like } from "drizzle-orm";
 import { judgeReviewItemCreated, judgeRoutineFired, judgeStaleItemsMarked } from "../judges.js";
 import { seedBet, seedBuiltinAgents, seedFactorySettings, seedMinimalWorld } from "../seeding.js";
+
+// @lore AF17: per-team routine ids — eval scenarios use "prod-1" as the test team id.
+// seedBuiltinRoutines (local helper) provisions with this teamId.
+const EVAL_TEAM_ID = "prod-1";
+const EVAL_BID = {
+	practiceMeeting: `builtin:practice-meeting:${EVAL_TEAM_ID}`,
+	postBetRetro: `builtin:post-bet-retro:${EVAL_TEAM_ID}`,
+	portfolioRetro: `builtin:portfolio-retro:${EVAL_TEAM_ID}`,
+	knowledgeDecay: `builtin:knowledge-decay:${EVAL_TEAM_ID}`,
+	knowledgePromotion: `builtin:knowledge-promotion:${EVAL_TEAM_ID}`,
+	// @lore AD8c: cost-sentinel is no longer a routine — keeping this id for legacy
+	// eval scenarios that reference it; runBuiltinRoutine returns fired=false for unknown routines.
+	costSentinel: "builtin:cost-sentinel",
+};
+
 import type {
 	DimensionScore,
 	EvalScenario,
@@ -32,6 +48,25 @@ import type {
 
 // ---------------------------------------------------------------------------
 // Shared trigger helper for builtin routines (no real session)
+// ---------------------------------------------------------------------------
+
+/**
+ * @lore AF17: replaces seedBuiltinRoutines(db) from @hyperidle/fabric (deleted shim).
+ * Inserts per-team routine rows using the factory agent stubs seeded by seedBuiltinAgents.
+ * Team id defaults to "prod-1" which is what seedMinimalWorld uses via seedTeam.
+ */
+async function seedBuiltinRoutines(db: HyperIdleDb, teamId = "prod-1"): Promise<void> {
+	await provisionTeamRoutines(db, {
+		teamId,
+		ownerByRole: {
+			facilitator: "seed-agent-pf-facilitation",
+			product_manager: "demo-agent-pm",
+			assistant: "seed-agent-cos",
+		},
+		leadAgentId: "seed-agent-cos",
+	});
+}
+
 // ---------------------------------------------------------------------------
 
 function makeSyntheticResult(startMs: number, fired: boolean): TriggerResult {
@@ -76,19 +111,19 @@ const brCostSentinelWarning: EvalScenario = {
 	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
 		const startMs = Date.now();
 		const eventBus = new EventBus();
-		const result = await runBuiltinRoutine(ctx.db, eventBus, "builtin:cost-sentinel");
+		const result = await runBuiltinRoutine(ctx.db, eventBus, EVAL_BID.costSentinel);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
 		dimensions: [
-			judgeRoutineFired("builtin:cost-sentinel"),
+			judgeRoutineFired(EVAL_BID.costSentinel),
 			{
 				id: "warning_emitted",
 				label: "Cost Warning Event Emitted",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					const eventBus = new EventBus();
 					clearBuiltinCostSentinelCache();
-					const result = await runBuiltinRoutine(ctx.db, eventBus, "builtin:cost-sentinel");
+					const result = await runBuiltinRoutine(ctx.db, eventBus, EVAL_BID.costSentinel);
 					if (!result.fired) {
 						return { score: 0.0, note: "Routine did not fire" };
 					}
@@ -106,7 +141,7 @@ const brCostSentinelWarning: EvalScenario = {
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					const eventBus = new EventBus();
 					clearBuiltinCostSentinelCache();
-					const result = await runBuiltinRoutine(ctx.db, eventBus, "builtin:cost-sentinel");
+					const result = await runBuiltinRoutine(ctx.db, eventBus, EVAL_BID.costSentinel);
 					if (!result.fired) return { score: 0.5, note: "Routine did not fire" };
 					const emitted = result.emitted ?? [];
 					const noBreach = !emitted.includes("cost_cap_breached");
@@ -143,19 +178,19 @@ const brCostSentinelBreach: EvalScenario = {
 	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
 		const startMs = Date.now();
 		const eventBus = new EventBus();
-		const result = await runBuiltinRoutine(ctx.db, eventBus, "builtin:cost-sentinel");
+		const result = await runBuiltinRoutine(ctx.db, eventBus, EVAL_BID.costSentinel);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
 		dimensions: [
-			judgeRoutineFired("builtin:cost-sentinel"),
+			judgeRoutineFired(EVAL_BID.costSentinel),
 			{
 				id: "breach_emitted",
 				label: "Cost Breach Event Emitted",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					const eventBus = new EventBus();
 					clearBuiltinCostSentinelCache();
-					const result = await runBuiltinRoutine(ctx.db, eventBus, "builtin:cost-sentinel");
+					const result = await runBuiltinRoutine(ctx.db, eventBus, EVAL_BID.costSentinel);
 					if (!result.fired) return { score: 0.0, note: "Routine did not fire" };
 					const emitted = result.emitted ?? [];
 					const breached = emitted.includes("cost_cap_breached");
@@ -192,19 +227,19 @@ const brCostSentinelOk: EvalScenario = {
 	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
 		const startMs = Date.now();
 		const eventBus = new EventBus();
-		const result = await runBuiltinRoutine(ctx.db, eventBus, "builtin:cost-sentinel");
+		const result = await runBuiltinRoutine(ctx.db, eventBus, EVAL_BID.costSentinel);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
 		dimensions: [
-			judgeRoutineFired("builtin:cost-sentinel"),
+			judgeRoutineFired(EVAL_BID.costSentinel),
 			{
 				id: "no_events_emitted",
 				label: "No Events Emitted at OK Level",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					const eventBus = new EventBus();
 					clearBuiltinCostSentinelCache();
-					const result = await runBuiltinRoutine(ctx.db, eventBus, "builtin:cost-sentinel");
+					const result = await runBuiltinRoutine(ctx.db, eventBus, EVAL_BID.costSentinel);
 					if (!result.fired) return { score: 0.0, note: "Routine did not fire" };
 					const emitted = result.emitted ?? [];
 					const noEvents = emitted.length === 0;
@@ -236,12 +271,12 @@ const brPracticeMeeting: EvalScenario = {
 	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
 		const startMs = Date.now();
 		const eventBus = new EventBus();
-		const result = await runBuiltinRoutine(ctx.db, eventBus, "builtin:practice-meeting");
+		const result = await runBuiltinRoutine(ctx.db, eventBus, EVAL_BID.practiceMeeting);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
 		dimensions: [
-			judgeRoutineFired("builtin:practice-meeting"),
+			judgeRoutineFired(EVAL_BID.practiceMeeting),
 			{
 				id: "meeting_anchor_created",
 				label: "Practice Meeting Anchor Created",
@@ -301,14 +336,14 @@ const brPostBetRetroFired: EvalScenario = {
 	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
 		const startMs = Date.now();
 		const eventBus = new EventBus();
-		const result = await runBuiltinRoutine(ctx.db, eventBus, "builtin:post-bet-retro", {
+		const result = await runBuiltinRoutine(ctx.db, eventBus, EVAL_BID.postBetRetro, {
 			betId: postBetRetroFiredBetId,
 		});
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
 		dimensions: [
-			judgeRoutineFired("builtin:post-bet-retro"),
+			judgeRoutineFired(EVAL_BID.postBetRetro),
 			judgeReviewItemCreated(),
 			{
 				id: "hypothesis_present",
@@ -360,7 +395,7 @@ const brPostBetRetroDedup: EvalScenario = {
 		// Seed first retro to trigger dedup on second call
 		const { runBuiltinRoutine: run } = await import("@hyperidle/fabric");
 		const eventBus = new EventBus();
-		await run(ctx.db, eventBus, "builtin:post-bet-retro", { betId });
+		await run(ctx.db, eventBus, EVAL_BID.postBetRetro, { betId });
 
 		return { ...world, betId };
 	},
@@ -368,7 +403,7 @@ const brPostBetRetroDedup: EvalScenario = {
 		const startMs = Date.now();
 		const eventBus = new EventBus();
 		// Second call — should dedup
-		const result = await runBuiltinRoutine(ctx.db, eventBus, "builtin:post-bet-retro", {
+		const result = await runBuiltinRoutine(ctx.db, eventBus, EVAL_BID.postBetRetro, {
 			betId: postBetRetroDedupBetId,
 		});
 		return makeSyntheticResult(startMs, result.fired);
@@ -380,7 +415,7 @@ const brPostBetRetroDedup: EvalScenario = {
 				label: "Routine Not Fired (dedup)",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					const eventBus = new EventBus();
-					const result = await runBuiltinRoutine(ctx.db, eventBus, "builtin:post-bet-retro", {
+					const result = await runBuiltinRoutine(ctx.db, eventBus, EVAL_BID.postBetRetro, {
 						betId: postBetRetroDedupBetId,
 					});
 					const notFired = !result.fired;
@@ -397,7 +432,7 @@ const brPostBetRetroDedup: EvalScenario = {
 				label: "Dedup Reason Correct",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					const eventBus = new EventBus();
-					const result = await runBuiltinRoutine(ctx.db, eventBus, "builtin:post-bet-retro", {
+					const result = await runBuiltinRoutine(ctx.db, eventBus, EVAL_BID.postBetRetro, {
 						betId: postBetRetroDedupBetId,
 					});
 					if (result.fired) {
@@ -459,12 +494,12 @@ const brPortfolioRetro: EvalScenario = {
 	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
 		const startMs = Date.now();
 		const eventBus = new EventBus();
-		const result = await runBuiltinRoutine(ctx.db, eventBus, "builtin:portfolio-retro");
+		const result = await runBuiltinRoutine(ctx.db, eventBus, EVAL_BID.portfolioRetro);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
 		dimensions: [
-			judgeRoutineFired("builtin:portfolio-retro"),
+			judgeRoutineFired(EVAL_BID.portfolioRetro),
 			judgeReviewItemCreated(),
 			{
 				id: "knowledge_summary_present",
@@ -540,11 +575,11 @@ const brKnowledgeDecay: EvalScenario = {
 	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
 		const startMs = Date.now();
 		const eventBus = new EventBus();
-		const result = await runBuiltinRoutine(ctx.db, eventBus, "builtin:knowledge-decay");
+		const result = await runBuiltinRoutine(ctx.db, eventBus, EVAL_BID.knowledgeDecay);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
-		dimensions: [judgeRoutineFired("builtin:knowledge-decay"), judgeStaleItemsMarked()],
+		dimensions: [judgeRoutineFired(EVAL_BID.knowledgeDecay), judgeStaleItemsMarked()],
 	},
 };
 

@@ -13,7 +13,7 @@ import {
 } from "@hyperidle/db";
 import { createLogger, type EventBus, type EventType } from "@hyperidle/shared";
 import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
-import { isBuiltinRoutineId, runBuiltinRoutine } from "./builtin-routines.js";
+import { extractBuiltinKind, isBuiltinRoutineId, runBuiltinRoutine } from "./builtin-routines.js";
 
 const schedulerLog = createLogger({ pkg: "fabric" });
 
@@ -619,7 +619,10 @@ export async function startRoutineScheduler(
 					// post-bet-retro is event-driven (needs betId args) — never dispatched
 					// from the calendar poll. Its triggerType is "event" so it's already
 					// filtered above; this is belt-and-suspenders.
-					if (routine.id === "builtin:post-bet-retro") continue;
+					// @lore AF17: check the kind prefix, not exact id, since stored ids
+					// are now per-team (`builtin:post-bet-retro:<teamId>`).
+					const kind = extractBuiltinKind(routine.id);
+					if (kind === "builtin:post-bet-retro") continue;
 
 					// WARNING 1: advance nextRunAt SYNCHRONOUSLY, BEFORE dispatch.
 					// runBuiltinRoutine is async; a fire-and-forget advance would let the

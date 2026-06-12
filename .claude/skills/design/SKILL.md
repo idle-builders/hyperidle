@@ -14,8 +14,8 @@ UX/UI counterpart to `/architecture`. Architecture decides *how* (file paths, sc
 
 Inspired by:
 - Garry Tan's **gstack** `/design-shotgun` — three variants on a comparison board.
-- Matt Pocock / nimmly **`/interface-design`** — *Design It Twice* from "A Philosophy of Software Design", with parallel sub-agents under different constraints.
-- nimmly **`/find-design-language`** — broad → variants → spec → embodied artifacts.
+- Matt Pocock / **`/interface-design`** — *Design It Twice* from "A Philosophy of Software Design", with parallel sub-agents under different constraints.
+- **`/find-design-language`** — broad → variants → spec → embodied artifacts.
 
 ## When this runs
 

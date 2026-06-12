@@ -72,7 +72,7 @@ Inspired by Knowledge-Centered Service (how good support teams work): before sol
 - **Anti-patterns are first-class**. When a task fails in L1, the failure promotes to a candidate anti-pattern. The agent that wrote it or a later reviewer confirms, and it becomes searchable: "don't do X because Y (see TASK-042)."
 - **Human touch**: the Knowledge view in the Factory app (see `HUMAN_INTERFACE_LAYER.md` §4.4). Humans review new/updated practices weekly. Sharpen wording. Retire stale ones. Add tacit knowledge agents can't generate — customer taste, market intuition.
 
-This is where Communities of Practice comes in as an inspiration, not a label: all Builders across all products share the same practice community (`layer='L3'`, `scope_id='building'` in `knowledge_items`). Knowledge that emerges in Nimmly is available to HyperIdle immediately. No copy-paste. No "did you know Ambrovia already solved this?" moments.
+This is where Communities of Practice comes in as an inspiration, not a label: all Builders across all products share the same practice community (`layer='L3'`, `scope_id='building'` in `knowledge_items`). Knowledge that emerges in Acme is available to HyperIdle immediately. No copy-paste. No "did you know Ambrovia already solved this?" moments.
 
 ### L4: Factory — the meta
 

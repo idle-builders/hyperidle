@@ -29,7 +29,7 @@ import { SettingsAgents } from "../SettingsAgents.js";
 const MOCK_AGENTS = [
 	{
 		id: "agent-pm-1",
-		name: "Nimmly PM",
+		name: "Acme PM",
 		role: "product_manager",
 		soulPrompt: "# PM\n\nYou are the product manager.",
 		harnessType: "claude-code",
@@ -120,7 +120,7 @@ describe("X3 AC-9: SettingsAgents renders agent table", () => {
 		render(<SettingsAgents />);
 
 		await waitFor(() => {
-			expect(screen.getByText("Nimmly PM")).toBeInTheDocument();
+			expect(screen.getByText("Acme PM")).toBeInTheDocument();
 			expect(screen.getByText("Builder Bot")).toBeInTheDocument();
 		});
 	});
@@ -252,7 +252,7 @@ describe("X3 AC-10: Settings UI edit form opens inline and saves", () => {
 		const user = userEvent.setup();
 		render(<SettingsAgents />);
 
-		await waitFor(() => expect(screen.getByText("Nimmly PM")).toBeInTheDocument());
+		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
 
 		const editButtons = screen.getAllByRole("button", { name: /edit/i });
 		await user.click(editButtons[0] as HTMLElement);
@@ -267,14 +267,14 @@ describe("X3 AC-10: Settings UI edit form opens inline and saves", () => {
 		const user = userEvent.setup();
 		render(<SettingsAgents />);
 
-		await waitFor(() => expect(screen.getByText("Nimmly PM")).toBeInTheDocument());
+		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
 
 		const editButtons = screen.getAllByRole("button", { name: /edit/i });
 		await user.click(editButtons[0] as HTMLElement);
 
 		await waitFor(() => {
 			const nameInput = screen.getByLabelText(/name/i) as HTMLInputElement;
-			expect(nameInput.value).toBe("Nimmly PM");
+			expect(nameInput.value).toBe("Acme PM");
 		});
 	});
 
@@ -282,7 +282,7 @@ describe("X3 AC-10: Settings UI edit form opens inline and saves", () => {
 		const user = userEvent.setup();
 		render(<SettingsAgents />);
 
-		await waitFor(() => expect(screen.getByText("Nimmly PM")).toBeInTheDocument());
+		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
 
 		const editButtons = screen.getAllByRole("button", { name: /edit/i });
 		await user.click(editButtons[0] as HTMLElement);
@@ -311,7 +311,7 @@ describe("X3 AC-10: Settings UI edit form opens inline and saves", () => {
 		const user = userEvent.setup();
 		render(<SettingsAgents />);
 
-		await waitFor(() => expect(screen.getByText("Nimmly PM")).toBeInTheDocument());
+		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
 
 		const editButtons = screen.getAllByRole("button", { name: /edit/i });
 		await user.click(editButtons[0] as HTMLElement);
@@ -329,7 +329,7 @@ describe("X3 AC-10: Settings UI edit form opens inline and saves", () => {
 		const user = userEvent.setup();
 		render(<SettingsAgents />);
 
-		await waitFor(() => expect(screen.getByText("Nimmly PM")).toBeInTheDocument());
+		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
 
 		const editButtons = screen.getAllByRole("button", { name: /edit/i });
 		await user.click(editButtons[0] as HTMLElement);
@@ -405,7 +405,7 @@ describe("X3 AC-11: Settings UI add form creates agent with template pre-fill", 
 		const user = userEvent.setup();
 		render(<SettingsAgents />);
 
-		await waitFor(() => expect(screen.getByText("Nimmly PM")).toBeInTheDocument());
+		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
 
 		const addButton = screen.getByRole("button", { name: /add agent/i });
 		await user.click(addButton);
@@ -419,7 +419,7 @@ describe("X3 AC-11: Settings UI add form creates agent with template pre-fill", 
 		const user = userEvent.setup();
 		render(<SettingsAgents />);
 
-		await waitFor(() => expect(screen.getByText("Nimmly PM")).toBeInTheDocument());
+		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
 
 		const addButton = screen.getByRole("button", { name: /add agent/i });
 		await user.click(addButton);
@@ -434,7 +434,7 @@ describe("X3 AC-11: Settings UI add form creates agent with template pre-fill", 
 		const user = userEvent.setup();
 		render(<SettingsAgents />);
 
-		await waitFor(() => expect(screen.getByText("Nimmly PM")).toBeInTheDocument());
+		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
 
 		const addButton = screen.getByRole("button", { name: /add agent/i });
 		await user.click(addButton);
@@ -454,7 +454,7 @@ describe("X3 AC-11: Settings UI add form creates agent with template pre-fill", 
 		const user = userEvent.setup();
 		render(<SettingsAgents />);
 
-		await waitFor(() => expect(screen.getByText("Nimmly PM")).toBeInTheDocument());
+		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
 
 		const addButton = screen.getByRole("button", { name: /add agent/i });
 		await user.click(addButton);
@@ -482,7 +482,7 @@ describe("X3 AC-11: Settings UI add form creates agent with template pre-fill", 
 		const user = userEvent.setup();
 		render(<SettingsAgents />);
 
-		await waitFor(() => expect(screen.getByText("Nimmly PM")).toBeInTheDocument());
+		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
 
 		const addButton = screen.getByRole("button", { name: /add agent/i });
 		await user.click(addButton);
@@ -538,7 +538,7 @@ describe("X3 AC-12: Settings UI delete with two-click confirmation", () => {
 		const user = userEvent.setup();
 		render(<SettingsAgents />);
 
-		await waitFor(() => expect(screen.getByText("Nimmly PM")).toBeInTheDocument());
+		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
 
 		const deleteButtons = screen.getAllByRole("button", { name: /delete/i });
 		await user.click(deleteButtons[0] as HTMLElement);
@@ -552,7 +552,7 @@ describe("X3 AC-12: Settings UI delete with two-click confirmation", () => {
 		const user = userEvent.setup();
 		render(<SettingsAgents />);
 
-		await waitFor(() => expect(screen.getByText("Nimmly PM")).toBeInTheDocument());
+		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
 
 		const deleteButtons = screen.getAllByRole("button", { name: /delete/i });
 		await user.click(deleteButtons[0] as HTMLElement);
@@ -578,7 +578,7 @@ describe("X3 AC-12: Settings UI delete with two-click confirmation", () => {
 		const user = userEvent.setup();
 		render(<SettingsAgents />);
 
-		await waitFor(() => expect(screen.getByText("Nimmly PM")).toBeInTheDocument());
+		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
 
 		const deleteButtons = screen.getAllByRole("button", { name: /delete/i });
 		await user.click(deleteButtons[0] as HTMLElement);
@@ -596,7 +596,7 @@ describe("X3 AC-12: Settings UI delete with two-click confirmation", () => {
 		const user = userEvent.setup({ delay: null });
 		render(<SettingsAgents />);
 
-		await waitFor(() => expect(screen.getByText("Nimmly PM")).toBeInTheDocument());
+		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
 
 		const deleteButtons = screen.getAllByRole("button", { name: /delete/i });
 		await user.click(deleteButtons[0] as HTMLElement);

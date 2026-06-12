@@ -2,8 +2,9 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { redactDbUrl } from "@hyperidle/shared";
+import { seedDemoWorld } from "./demo-fixture.js";
+import { applyFactoryBootstrap } from "./factory-bootstrap.js";
 import { type DeploymentProfile, resolveProfile } from "./profiles.js";
-import { seed } from "./seed.js";
 
 const Filename = typeof __filename === "string" ? __filename : fileURLToPath(import.meta.url);
 const Dirname = path.dirname(Filename);
@@ -28,6 +29,7 @@ interface ParsedArgs {
 	readonly root: string | undefined;
 	readonly help: boolean;
 	readonly dryRun: boolean;
+	readonly demo: boolean;
 }
 
 const USAGE = [
@@ -38,6 +40,7 @@ const USAGE = [
 	"  --db-path <path>              PGlite data directory (laptop profile). Default: ./hyperidle-pg",
 	"  --db-url <url>                Postgres URL (vps/cloud profile). Default from env DATABASE_URL.",
 	"  --root <path>                 Repo root override (used to locate docker-compose.yml).",
+	"  --demo                        Seed a demo 'Acme' team with example agents after factory bootstrap.",
 	"  --dry-run                     Print planned actions without executing.",
 	"  --help                        Show this message.",
 	"",
@@ -50,6 +53,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
 	let root: string | undefined;
 	let help = false;
 	let dryRun = false;
+	let demo = false;
 
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
@@ -60,6 +64,9 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
 				break;
 			case "--dry-run":
 				dryRun = true;
+				break;
+			case "--demo":
+				demo = true;
 				break;
 			case "--profile":
 				profile = argv[++i];
@@ -78,7 +85,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
 				break;
 		}
 	}
-	return { profile, dbPath, dbUrl, root, help, dryRun };
+	return { profile, dbPath, dbUrl, root, help, dryRun, demo };
 }
 
 function defaultRoot(cwd: string | undefined): string {
@@ -138,15 +145,24 @@ export function validateDbPath(input: string, cwd: string): string {
  * Architecture §6.1: "Option A. The migration logic must be a single source of
  * truth. The setup-cli and the desktop must run identical migrations."
  */
-async function applyLaptopMigrations(dataDir: string, migrationsFolder: string): Promise<void> {
+async function applyLaptopMigrations(
+	dataDir: string,
+	migrationsFolder: string,
+	demo = false,
+): Promise<void> {
 	const { applyMigrations } = await import("./migrate.js");
 	await applyMigrations(dataDir, migrationsFolder);
 
-	// Seed the database — setup-cli always seeds; desktop does not.
+	// Apply factory bootstrap — always; idempotent.
 	const { createPgliteDb } = await import("./connection.js");
 	const handle = await createPgliteDb(dataDir);
 	try {
-		await seed(handle.db);
+		await applyFactoryBootstrap(handle.db);
+		// @lore AF17: demo mode seeds the Acme demo team — opt-in only.
+		// Without --demo, factory bootstrap only (no demo data in production DBs).
+		if (demo) {
+			await seedDemoWorld(handle.db);
+		}
 	} finally {
 		await handle.close();
 	}
@@ -171,13 +187,19 @@ async function runLaptop(
 	if (args.dryRun) {
 		io.stdout(`[setup] (dry-run) Would create PGlite data directory at ${dataDir}`);
 		io.stdout("[setup] (dry-run) Would run migrations from packages/db/drizzle");
-		io.stdout("[setup] (dry-run) Would seed database");
+		io.stdout("[setup] (dry-run) Would apply factory bootstrap");
+		if (args.demo) {
+			io.stdout("[setup] (dry-run) Would seed demo world (--demo flag)");
+		}
 		return 0;
 	}
 
 	const migrationsFolder = path.resolve(Dirname, "..", "drizzle");
-	await applyLaptopMigrations(dataDir, migrationsFolder);
+	await applyLaptopMigrations(dataDir, migrationsFolder, args.demo);
 
+	if (args.demo) {
+		io.stdout("[setup] Demo mode: seeded Acme demo team with example agents.");
+	}
 	io.stdout(`[setup] Ready. PGlite data at ${dataDir}`);
 	io.stdout("[setup] Next: run `npm run dev` to start the server and web app.");
 	return 0;

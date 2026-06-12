@@ -332,7 +332,7 @@ describe("loadGitExportConfig", () => {
 
 describe("sanitizePathSegment", () => {
 	test("accepts a plain segment", () => {
-		expect(sanitizePathSegment("nimmly")).toBe("nimmly");
+		expect(sanitizePathSegment("acme")).toBe("acme");
 		expect(sanitizePathSegment("2026-04")).toBe("2026-04");
 		expect(sanitizePathSegment("foo_bar")).toBe("foo_bar");
 	});
@@ -512,8 +512,8 @@ describe("buildCommitMessage (AC2)", () => {
 					knowledgeItemId: "ki-2",
 					layer: "L2",
 					kind: "BRIEF",
-					scopeId: "nimmly",
-					relPath: "products/nimmly/BRIEF.md",
+					scopeId: "acme",
+					relPath: "products/acme/BRIEF.md",
 					version: 3,
 					title: "Ambient intelligence for small teams",
 				}),
@@ -521,7 +521,7 @@ describe("buildCommitMessage (AC2)", () => {
 			"event",
 		);
 		expect(msg).toContain("L4 PRINCIPLES [factory]");
-		expect(msg).toContain("L2 BRIEF [nimmly]");
+		expect(msg).toContain("L2 BRIEF [acme]");
 		expect(msg).toContain("Ship every Friday");
 		expect(msg).toContain("Ambient intelligence for small teams");
 	});
@@ -539,10 +539,10 @@ describe("buildCommitMessage (AC2)", () => {
 
 	test("includes layer, kind, scope, and version for each entry", async () => {
 		const msg = buildCommitMessage(
-			[entry({ layer: "L2", kind: "BRAND", scopeId: "nimmly", version: 11 })],
+			[entry({ layer: "L2", kind: "BRAND", scopeId: "acme", version: 11 })],
 			"event",
 		);
-		expect(msg).toMatch(/L2 BRAND \[nimmly\].*v11/);
+		expect(msg).toMatch(/L2 BRAND \[acme\].*v11/);
 	});
 });
 
@@ -565,17 +565,17 @@ describe("computeExportPlan", () => {
 
 	test("maps L2 items under products/<scopeId>/<KIND>.md", async ({ db }) => {
 		await seedKnowledge(db, [
-			{ layer: "L2", kind: "BRIEF", scopeId: "nimmly", body: "# Brief\n" },
-			{ layer: "L2", kind: "ARCHITECTURE", scopeId: "nimmly", body: "# Arch\n" },
-			{ layer: "L2", kind: "BRAND", scopeId: "nimmly", body: "# Brand\n" },
-			{ layer: "L2", kind: "PRINCIPLES", scopeId: "nimmly", body: "# Prin\n" },
+			{ layer: "L2", kind: "BRIEF", scopeId: "acme", body: "# Brief\n" },
+			{ layer: "L2", kind: "ARCHITECTURE", scopeId: "acme", body: "# Arch\n" },
+			{ layer: "L2", kind: "BRAND", scopeId: "acme", body: "# Brand\n" },
+			{ layer: "L2", kind: "PRINCIPLES", scopeId: "acme", body: "# Prin\n" },
 		]);
 		const plan = await computeExportPlan(db);
 		const paths = plan.entries.map((e) => e.relPath).sort();
-		expect(paths).toContain("products/nimmly/BRIEF.md");
-		expect(paths).toContain("products/nimmly/ARCHITECTURE.md");
-		expect(paths).toContain("products/nimmly/BRAND.md");
-		expect(paths).toContain("products/nimmly/PRINCIPLES.md");
+		expect(paths).toContain("products/acme/BRIEF.md");
+		expect(paths).toContain("products/acme/ARCHITECTURE.md");
+		expect(paths).toContain("products/acme/BRAND.md");
+		expect(paths).toContain("products/acme/PRINCIPLES.md");
 	});
 
 	test("maps L4 REFLECTION with topic -> factory/REFLECTIONS/<topic>.md", async ({ db }) => {
@@ -722,7 +722,7 @@ describe("runGitExport", () => {
 		await enableExport(db);
 		await seedKnowledge(db, [
 			{ layer: "L4", kind: "PRINCIPLES", scopeId: null, body: "# Principles\n", version: 7 },
-			{ layer: "L2", kind: "BRIEF", scopeId: "nimmly", body: "# Brief\n", version: 3 },
+			{ layer: "L2", kind: "BRIEF", scopeId: "acme", body: "# Brief\n", version: 3 },
 		]);
 		const runner = new FakeGitRunner(REPO);
 		const fs = createMemFs();

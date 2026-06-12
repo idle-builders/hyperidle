@@ -507,16 +507,18 @@ export async function seedConflict(
 }
 
 /**
- * Seed the three builtin agent stubs that `seedBuiltinRoutines()` references via
- * hardcoded owner IDs (`seed-agent-cos`, `seed-agent-pf-facilitation`,
- * `seed-agent-pm-nimmly`). Must be called before `seedBuiltinRoutines()` in any
- * eval scenario that exercises the builtin routine subsystem.
+ * Seed the three builtin agent stubs that `provisionTeamRoutines()` references via
+ * owner role resolution (`seed-agent-cos`, `seed-agent-pf-facilitation`, `demo-agent-pm`).
+ * Must be called before `provisionTeamRoutines()` in any eval scenario that exercises
+ * the builtin routine subsystem.
  *
- * @lore X8 BUILTIN-FK: `seedBuiltinRoutines` (in @hyperidle/fabric) uses stable
- * IDs from the production seed. The eval ephemeral PGlite DB does NOT run the
- * production seed, so FK constraints on `routines.ownerAgentId → users.id`
- * fail unless we pre-insert these three stubs. We use `onConflictDoNothing`
- * so this is idempotent in case a scenario somehow already inserted them.
+ * @lore X8 BUILTIN-FK: `provisionTeamRoutines` resolves ownerByRole to users.id.
+ * The eval ephemeral PGlite DB does NOT run the production seed, so FK constraints
+ * on `routines.ownerAgentId → users.id` fail unless we pre-insert these three stubs.
+ * We use `onConflictDoNothing` so this is idempotent.
+ *
+ * @lore AF17: Updated from the old `seedBuiltinRoutines` shim (deleted) to
+ * `provisionTeamRoutines`. The owner agent ids remain the same stable factory stubs.
  */
 export async function seedBuiltinAgents(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
@@ -556,9 +558,9 @@ export async function seedBuiltinAgents(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(users)
 		.values({
-			id: "seed-agent-pm-nimmly",
+			id: "demo-agent-pm",
 			kind: "ai",
-			name: "Nimmly Product Manager (eval stub)",
+			name: "Acme Product Manager (eval stub)",
 			role: "product_manager",
 			status: "active",
 			// AB0: product_manager is a team-category agent.

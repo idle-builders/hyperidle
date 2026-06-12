@@ -31,10 +31,11 @@ export type {
 } from "./services/builtin-routines.js";
 export {
 	BUILTIN_ROUTINE_IDS,
+	extractBuiltinKind,
 	isBuiltinRoutineId,
+	provisionTeamRoutines,
 	registerBuiltinRoutineHandlers,
 	runBuiltinRoutine,
-	seedBuiltinRoutines,
 } from "./services/builtin-routines.js";
 // cost-cap
 export type {

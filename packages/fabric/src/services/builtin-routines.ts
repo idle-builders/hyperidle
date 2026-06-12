@@ -59,8 +59,52 @@ export const BUILTIN_ROUTINE_IDS = [
 
 export type BuiltinRoutineId = (typeof BUILTIN_ROUTINE_IDS)[number];
 
-export function isBuiltinRoutineId(id: string): id is BuiltinRoutineId {
-	return (BUILTIN_ROUTINE_IDS as readonly string[]).includes(id);
+/**
+ * Returns true when `id` is a builtin routine id or a per-team builtin id.
+ *
+ * Per-team builtin ids use the scheme `builtin:<kind>:<teamId>` where
+ * `builtin:<kind>` is one of the 5 stable BUILTIN_ROUTINE_IDS. This allows
+ * multiple teams to each have their own 5 builtin routines without id collision.
+ *
+ * @lore AF17: changed from exact equality to kind-prefix check so that
+ * per-team scoped ids (`builtin:post-bet-retro:<teamId>`) are recognised by the
+ * scheduler and manual-trigger route. The kind is always recoverable from the
+ * stored id via `extractBuiltinKind`.
+ */
+export function isBuiltinRoutineId(id: string): boolean {
+	const kind = extractBuiltinKind(id);
+	return kind !== null;
+}
+
+/**
+ * Extract the builtin kind prefix from a stored routine id.
+ * Returns the `BuiltinRoutineId` kind if the id is a builtin (global or per-team),
+ * or null if it is not a builtin.
+ *
+ * Examples:
+ *   `"builtin:post-bet-retro"` → `"builtin:post-bet-retro"`
+ *   `"builtin:post-bet-retro:team-abc"` → `"builtin:post-bet-retro"`
+ *   `"user-routine-123"` → `null`
+ */
+export function extractBuiltinKind(id: string): BuiltinRoutineId | null {
+	// Global id (legacy / pre-AF17)
+	if ((BUILTIN_ROUTINE_IDS as readonly string[]).includes(id)) {
+		return id as BuiltinRoutineId;
+	}
+	// Per-team id: `builtin:<kind>:<teamId>` — extract the first two segments
+	if (id.startsWith("builtin:")) {
+		const parts = id.split(":");
+		// builtin:kind or builtin:kind:teamId
+		if (parts.length >= 3) {
+			// @lore AF17: per-team ids have the form builtin:<kind-part>:<teamId>
+			// The kind is always "builtin:" + parts[1] (e.g. "post-bet-retro")
+			const kindCandidate = `builtin:${parts[1]}` as BuiltinRoutineId;
+			if ((BUILTIN_ROUTINE_IDS as readonly string[]).includes(kindCandidate)) {
+				return kindCandidate;
+			}
+		}
+	}
+	return null;
 }
 
 // --- Trigger config constants ---
@@ -97,12 +141,18 @@ const KNOWLEDGE_PROMOTION_CRON = "0 3 * * *"; // daily 03:00 UTC
 // @lore AD8c: COST_WARNING_RATIO removed (moved to cost-sentinel.ts)
 const PORTFOLIO_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
-// --- Seed helper ---
+// --- Provision helper ---
 
+/**
+ * @lore AF17: Added ownerRole so provisionTeamRoutines can resolve owners from
+ * the team's own roster rather than from hardcoded factory agent ids. The role
+ * is used to look up the ownerByRole map; falls back to leadAgentId if absent.
+ */
 interface BuiltinSpec {
 	readonly id: BuiltinRoutineId;
 	readonly name: string;
-	readonly ownerAgentId: string;
+	/** AF17: replaced ownerAgentId — resolved at provision time from team roster. */
+	readonly ownerRole: string;
 	readonly triggerType: "heartbeat" | "calendar" | "event";
 	readonly triggerConfig: Record<string, unknown>;
 	readonly skillId: string;
@@ -112,17 +162,19 @@ interface BuiltinSpec {
 }
 
 /**
- * Concrete specs for the four built-in routines. Owner agent ids match G1
- * seed ids in `packages/db/src/seed.ts`; keep them in sync.
+ * Concrete specs for the 5 built-in routines.
  *
+ * @lore AF17: `ownerAgentId` replaced by `ownerRole` — owners are resolved at
+ * provision time from the team's roster (ownerByRole map), not hardcoded factory
+ * agent ids. This allows each team to own its built-ins via its own agents.
  * @lore AD8c: builtin:cost-sentinel removed — it is now application code.
- * builtin:knowledge-decay ownership transferred to seed-agent-pf-facilitation.
+ * builtin:knowledge-decay ownership transferred to facilitator role.
  */
 const BUILTIN_SPECS: readonly BuiltinSpec[] = [
 	{
 		id: "builtin:practice-meeting",
 		name: "Practice meeting",
-		ownerAgentId: "seed-agent-pf-facilitation",
+		ownerRole: "facilitator",
 		triggerType: "calendar",
 		triggerConfig: { cron: PRACTICE_MEETING_CRON },
 		skillId: "practice_meeting",
@@ -133,7 +185,7 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
 	{
 		id: "builtin:post-bet-retro",
 		name: "Post-bet retro",
-		ownerAgentId: "seed-agent-pm-nimmly",
+		ownerRole: "product_manager",
 		triggerType: "event",
 		triggerConfig: { eventType: "bet_state_changed" },
 		skillId: "bet_retro",
@@ -144,7 +196,7 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
 	{
 		id: "builtin:portfolio-retro",
 		name: "Portfolio retro",
-		ownerAgentId: "seed-agent-cos",
+		ownerRole: "assistant",
 		triggerType: "calendar",
 		triggerConfig: { cron: PORTFOLIO_RETRO_CRON },
 		skillId: "portfolio_retro",
@@ -155,10 +207,8 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
 	{
 		id: "builtin:knowledge-decay",
 		name: "Knowledge decay",
-		// @lore AD8c: ownership transferred from seed-agent-cos to seed-agent-pf-facilitation.
-		// Knowledge decay is a practice-layer concern — the facilitation facilitator
-		// is the natural owner of cross-community knowledge lifecycle.
-		ownerAgentId: "seed-agent-pf-facilitation",
+		// @lore AD8c: ownership transferred to facilitator (practice-layer concern).
+		ownerRole: "facilitator",
 		triggerType: "calendar",
 		triggerConfig: { cron: KNOWLEDGE_DECAY_CRON },
 		skillId: "knowledge_decay",
@@ -170,7 +220,7 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
 		id: "builtin:knowledge-promotion",
 		name: "Knowledge promotion",
 		// @lore AF9: same owner as knowledge-decay — both are practice-layer lifecycle concerns.
-		ownerAgentId: "seed-agent-pf-facilitation",
+		ownerRole: "facilitator",
 		triggerType: "calendar",
 		triggerConfig: { cron: KNOWLEDGE_PROMOTION_CRON },
 		skillId: "knowledge_promotion",
@@ -186,41 +236,59 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
 ];
 
 /**
- * Idempotent seed for the G4 built-in routines. Must be called after G1
- * agents (`seed-agent-cos` — now "System Agent", `seed-agent-pf-facilitation`,
- * `seed-agent-pm-nimmly`) have been seeded so the FK to `agents.id` resolves.
- * @lore AD8a: seed-agent-cos renamed from "Chief of Staff" to "System Agent".
+ * Per-team provisioning of the 5 built-in routines.
  *
- * Uses `onConflictDoNothing` so re-running against an existing DB is a no-op.
+ * Each routine id is scoped to the team: `builtin:<kind>:<teamId>` so a
+ * second team does not collide with the first team's routines.
+ * `onConflictDoNothing` gives per-team idempotency: re-provisioning the same
+ * team is a no-op; each new team gets its own 5 rows.
  *
- * @param teamId - The teams.id to assign as team_id on every builtin routine.
- *   Defaults to `"prod-1"` which matches the test seed fixture. Production
- *   callers should pass the canonical team id (e.g. `"seed-product-1"`).
+ * @param teamId - `teams.id` (NOT `team_members.id`). FK on routines.team_id.
+ * @param ownerByRole - map of role → users.id (roster agent id). Used to resolve
+ *   the ownerAgentId for each spec's ownerRole.
+ * @param leadAgentId - Fallback `users.id` when a role is absent from ownerByRole.
  *
- * @lore AA1: team_id is NOT NULL on routines; seedBuiltinRoutines must receive
- * the team id from the caller because the fabric package has no knowledge of
- * which team id the production seed uses.
+ * @lore AF17: Replaces `seedBuiltinRoutines(db, teamId)`. Key changes:
+ *   - per-team id scheme prevents collision across multiple teams
+ *   - owners resolved from the team's own roster (not hardcoded factory agents)
+ *   - ownerByRole[spec.ownerRole] ?? leadAgentId for honest attribution with total fallback
+ *
+ * @lore AF17 dispatch ripple: `runBuiltinRoutine` and `isBuiltinRoutineId` now
+ * key on the kind prefix (`builtin:<kind>`) not the full stored id. This keeps
+ * the dispatch contract on the 5 stable kinds while storage is per-team.
  */
-export async function seedBuiltinRoutines(db: HyperIdleDb, teamId = "prod-1"): Promise<void> {
+export async function provisionTeamRoutines(
+	db: HyperIdleDb,
+	opts: {
+		teamId: string;
+		ownerByRole: Partial<Record<string, string>>;
+		leadAgentId: string;
+	},
+): Promise<void> {
+	const { teamId, ownerByRole, leadAgentId } = opts;
 	const now = new Date();
 	for (const spec of BUILTIN_SPECS) {
-		// AF6 §2a: calendar built-ins need a nextRunAt at seed time so the poll
-		// loop's built-in dispatch fork selects them. Event built-ins (post-bet-retro)
-		// have no schedule. Backfill (§2b) self-heals any gap on existing DBs.
+		// Per-team id: builtin:<kind>:<teamId>
+		const routineId = `${spec.id}:${teamId}`;
+
+		// AF6 §2a: calendar built-ins need a nextRunAt so the poll loop selects them.
 		let nextRunAt: string | null = null;
 		const cron = (spec.triggerConfig as { cron?: string }).cron;
 		if (spec.triggerType === "calendar" && cron) {
 			nextRunAt = nextCronMatch(parseCron(cron), now).toISOString();
 		}
 
+		// Resolve owner: role → roster agent; fall back to lead.
+		const ownerAgentId = ownerByRole[spec.ownerRole] ?? leadAgentId;
+
 		await db
 			.insert(routines)
 			.values({
-				id: spec.id,
+				id: routineId,
 				name: spec.name,
 				teamId,
 				state: "active",
-				ownerAgentId: spec.ownerAgentId,
+				ownerAgentId,
 				triggerType: spec.triggerType,
 				triggerConfig: JSON.stringify(spec.triggerConfig),
 				skillId: spec.skillId,
@@ -258,7 +326,7 @@ export interface PostBetRetroArgs {
 export async function runBuiltinRoutine(
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	routineId: BuiltinRoutineId,
+	routineId: string,
 	args?: PostBetRetroArgs,
 ): Promise<RunBuiltinResult> {
 	const [routine] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
@@ -272,6 +340,14 @@ export async function runBuiltinRoutine(
 		return { fired: false, reason: `routine ${routineId} is disabled (active=false)` };
 	}
 
+	// @lore AF17: dispatch on the kind prefix extracted from the stored id so that
+	// per-team ids (`builtin:post-bet-retro:<teamId>`) route correctly.
+	// The DB lookup above stays on the full id; only the switch uses the kind.
+	const kind = extractBuiltinKind(routineId);
+	if (!kind) {
+		return { fired: false, reason: `${routineId} is not a builtin routine` };
+	}
+
 	// @lore AF6 CRITICAL 1: built-in fires must write a terminal routine_runs row
 	// so GET /api/routines/:id (which builds runs[] from routineRuns) surfaces the
 	// self-run (AC5) and "last run reflects real execution" holds (AC1). This is the
@@ -281,7 +357,7 @@ export async function runBuiltinRoutine(
 	const startedAt = new Date();
 
 	let result: RunBuiltinResult;
-	switch (routineId) {
+	switch (kind) {
 		case "builtin:practice-meeting":
 			result = await runPracticeMeetingRoutine(db, routine);
 			break;
@@ -301,8 +377,8 @@ export async function runBuiltinRoutine(
 			result = await runKnowledgePromotion(db, eventBus, routine);
 			break;
 		default: {
-			const exhaustive: never = routineId;
-			throw new Error(`Unknown builtin routine: ${exhaustive as string}`);
+			const exhaustive: never = kind;
+			throw new Error(`Unknown builtin routine kind: ${exhaustive as string}`);
 		}
 	}
 
@@ -352,15 +428,44 @@ export function registerBuiltinRoutineHandlers(db: HyperIdleDb, eventBus: EventB
 	const betCompletedHandler = (event: BetStateChangedEvent): void => {
 		if (event.toState !== "completed") return;
 		void (async () => {
-			const [routine] = await db
-				.select()
-				.from(routines)
-				.where(eq(routines.id, "builtin:post-bet-retro"))
+			// @lore AF17 NIT: look up the post-bet-retro routine by kind + teamId.
+			// After AF17, each team has its own builtin routine with id
+			// `builtin:post-bet-retro:<teamId>`. The teamId comes from the bet row.
+			// Fall back to the legacy global id for DBs seeded before AF17.
+			const betId = event.betId;
+
+			// Look up the bet's teamId
+			const [betRow] = await db
+				.select({ teamId: bets.teamId })
+				.from(bets)
+				.where(eq(bets.id, betId))
 				.limit(1);
-			if (!(routine && routine.active)) return;
-			// Best-effort fire-and-forget: the EventBus emit contract is synchronous.
-			// runBuiltinRoutine is async; we await it inside the void wrapper.
-			await runBuiltinRoutine(db, eventBus, "builtin:post-bet-retro", { betId: event.betId });
+			const betTeamId = betRow?.teamId;
+
+			// Try per-team id first
+			let routineRow: typeof routines.$inferSelect | undefined;
+			if (betTeamId) {
+				const perTeamId = `builtin:post-bet-retro:${betTeamId}`;
+				const [perTeamRow] = await db
+					.select()
+					.from(routines)
+					.where(eq(routines.id, perTeamId))
+					.limit(1);
+				routineRow = perTeamRow;
+			}
+			// Fall back to legacy global id (backward compat)
+			if (!routineRow) {
+				const [globalRow] = await db
+					.select()
+					.from(routines)
+					.where(eq(routines.id, "builtin:post-bet-retro"))
+					.limit(1);
+				routineRow = globalRow;
+			}
+			if (!(routineRow && routineRow.active)) return;
+
+			// Best-effort fire-and-forget
+			await runBuiltinRoutine(db, eventBus, routineRow.id, { betId });
 		})();
 	};
 	unsubs.push(eventBus.on("bet_state_changed", betCompletedHandler));

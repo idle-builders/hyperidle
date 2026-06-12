@@ -12,7 +12,7 @@ Notification fatigue is the failure mode every 2026 tool is fighting. The discip
 | Assistant's thread | Optional. Founder choice. | Some humans want a monthly nudge; others drift in. |
 | Knowledge | Calendar reminder once a week. | Weekly. |
 
-**Quiet hours and silence modes.** A human can mark themselves unavailable; blocking review items queue but don't push, and the agent system either waits or falls back to a safe-default action depending on policy. Silence modes are per-human and per-product so a founder can mute Ambrovia for the weekend without going dark on Nimmly.
+**Quiet hours and silence modes.** A human can mark themselves unavailable; blocking review items queue but don't push, and the agent system either waits or falls back to a safe-default action depending on policy. Silence modes are per-human and per-product so a founder can mute Ambrovia for the weekend without going dark on Acme.
 
 **Per-agent notification preferences.** Humans can dial down a noisy agent without affecting the rest. If the growth Practice Facilitator is generating too many low-value items, cap it at 5/day in Conversations without the system silently dropping anything.
 
