@@ -3,6 +3,7 @@ import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { drizzle as drizzlePglite } from "drizzle-orm/pglite";
 import { drizzle as drizzlePostgres } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { resolvePostgresSsl, sanitizePostgresUrl } from "./pg-ssl.js";
 import * as schema from "./schema.js";
 
 // @lore Phase 2 PGlite migration: the unified HyperIdleDb type covers both
@@ -112,7 +113,10 @@ export function createPostgresDb(url: string, opts?: { maxConnections?: number }
 		globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }
 	).process?.env?.[PG_POOL_SIZE_ENV];
 	const poolSize = opts?.maxConnections ?? parsePgPoolSize(procEnvPoolSize) ?? DEFAULT_PG_POOL_SIZE;
-	const client = postgres(url, { max: poolSize });
+	const client = postgres(sanitizePostgresUrl(url), {
+		max: poolSize,
+		ssl: resolvePostgresSsl(url),
+	});
 	const db = drizzlePostgres(client, { schema });
 	return {
 		db,
@@ -135,7 +139,10 @@ export function createPgDb(opts: PgDbOptions): PgDbHandle {
 		maxConnections: opts.maxConnections,
 		env: opts.env,
 	});
-	const client = postgres(opts.url, { max: poolSize });
+	const client = postgres(sanitizePostgresUrl(opts.url), {
+		max: poolSize,
+		ssl: resolvePostgresSsl(opts.url),
+	});
 	const db = drizzlePostgres(client, { schema });
 	return {
 		db,

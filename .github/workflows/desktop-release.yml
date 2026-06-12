@@ -4,8 +4,18 @@ name: Desktop Release — Distribute
 # Downloads the signed+notarized DMG, mirrors it to the public releases repo,
 # and updates the Homebrew tap. Runs on ubuntu — no macOS minutes needed.
 on:
+  # Direct trigger for manual/local PAT-published releases (back-compat).
   release:
     types: [published]
+  # Called by release.yml after it publishes on merge. A release published by
+  # the Actions GITHUB_TOKEN does NOT emit `release: published` to other
+  # workflows, so the CD path invokes this reusable workflow explicitly.
+  workflow_call:
+    inputs:
+      version:
+        description: "Version without leading v (e.g. 0.5.0)"
+        required: true
+        type: string
 
 concurrency:
   group: desktop-release
@@ -16,14 +26,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Extract version from tag
+      - name: Resolve version
         id: release
         run: |
-          TAG="${{ github.event.release.tag_name }}"
-          VERSION="${TAG#v}"
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            TAG="${{ github.event.release.tag_name }}"
+            VERSION="${TAG#v}"
+          fi
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "Distributing HyperIdle $TAG"
+          echo "Distributing HyperIdle v$VERSION"
 
       - name: Download DMG from this release
         env:

@@ -74,9 +74,19 @@ A Deploy never provisions — do these once before the first tag:
      --from-literal=HYPERIDLE_API_KEY=$(openssl rand -hex 32)
    ```
    Distribute that key to each desktop client's shared-mode config.
-4. **Ingress host** — set `chart/values.yaml` `ingress.host` to the real internal
-   domain (must be in the tenant domain allowlist), point its DNS at the ingress
-   floating IP. cert-manager issues TLS automatically.
+4. **Ingress host** — `ingress.enabled` is **off by default**: the tenant's
+   `platform.infra/allowed-hosts` allowlist gates Ingress hostnames via a
+   ValidatingAdmissionPolicy, so an un-allowlisted host fails the whole helm
+   apply. Add a real host (e.g. `api.hyperidle.org`) to the tenant allowlist,
+   set `ingress.host` + `ingress.enabled: true`, and point DNS at the ingress
+   floating IP. Until then the backend runs and is reachable in-cluster via the
+   Service.
+
+**Postgres TLS note.** The tenant `DATABASE_URL` uses `sslmode=verify-ca` against
+the cluster's self-signed Postgres whose cert SANs don't include the primary
+ClusterIP name. The app honors verify-ca semantics (trust the CA, skip the
+hostname check) via `packages/db/src/pg-ssl.ts` — used by both the runtime
+connection and `drizzle-kit migrate`.
 
 Then, to ship a release: bump `version` in the root `package.json` in a PR and
 merge it to `main`. `deploy.yml` builds, publishes, tags `vX.Y.Z`, and deploys

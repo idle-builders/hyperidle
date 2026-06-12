@@ -34,6 +34,11 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: {{ toYaml .Values.migration.command | nindent 12 }}
           env:
+            # postgres-js (drizzle-kit's driver) ignores sslrootcert in the
+            # DATABASE_URL, so load the tenant PG CA into Node's trust store to
+            # satisfy sslmode=verify-ca against the self-signed cluster CA.
+            - name: NODE_EXTRA_CA_CERTS
+              value: /etc/ssl/pg/ca.crt
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -65,6 +70,9 @@ spec:
           ports:
             - containerPort: {{ .Values.service.port }}
           env:
+            # See migrate init-container — same self-signed PG CA trust.
+            - name: NODE_EXTRA_CA_CERTS
+              value: /etc/ssl/pg/ca.crt
             - name: PORT
               value: {{ .Values.service.port | quote }}
             - name: DATABASE_URL
