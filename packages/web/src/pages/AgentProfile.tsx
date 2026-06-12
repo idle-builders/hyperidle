@@ -30,11 +30,15 @@ import {
 	EmptyState,
 	ErrorState,
 	KeyValue,
+	LiveDot,
 	SkeletonCard,
+	StatusChip,
 	Tag,
+	agentOperationalStatusToStatus,
+	sessionOutcomeToStatus,
 } from "@hyperidle/design-system";
-import type { AgentProfileResponse } from "@hyperidle/shared";
-import { findRoleCatalogEntry } from "@hyperidle/shared";
+import type { AgentProfileResponse, SessionOutcome } from "@hyperidle/shared";
+import { AGENT_OPERATIONAL_STATUS_LABEL, findRoleCatalogEntry } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAgentProfile } from "../hooks/useAgentProfile.js";
@@ -171,18 +175,12 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 					<div className="flex-1 min-w-0">
 						<div className="flex items-center gap-[9px] flex-wrap">
 							<h1 className="text-[15px] font-semibold text-[var(--text-primary)]">{data.name}</h1>
-							{/* Operational status chip */}
-							<span
-								className={`text-[10px] font-medium uppercase tracking-[var(--tracking-caps)] px-[6px] py-[3px] rounded-[var(--r-pill)] ${
-									operationalStatus === "active"
-										? "bg-[var(--accent-primary)] text-white"
-										: operationalStatus === "error"
-											? "bg-[var(--status-error)] text-white"
-											: "bg-[var(--surface-elevated)] text-[var(--text-tertiary)]"
-								}`}
-							>
-								{operationalStatus}
-							</span>
+							{/* AI4 Decision 3a: Operational status chip — StatusChip + LiveDot for active */}
+							{operationalStatus === "active" && <LiveDot />}
+							<StatusChip
+								status={agentOperationalStatusToStatus(operationalStatus)}
+								label={AGENT_OPERATIONAL_STATUS_LABEL[operationalStatus]}
+							/>
 							{/* Category tag */}
 							{data.agentCategory && data.agentCategory !== "team" && (
 								<Tag
@@ -328,7 +326,15 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 										{session.taskTitle}
 									</td>
 									<td className="py-[6px]">
-										<OutcomeChip outcome={session.outcome} />
+										{/* AI4 AC1: session outcome via StatusChip (was text-only OutcomeChip) */}
+									{session.outcome ? (
+										<StatusChip
+											status={sessionOutcomeToStatus(session.outcome as SessionOutcome)}
+											label={session.outcome}
+										/>
+									) : (
+										<span className="text-[var(--text-tertiary)]">—</span>
+									)}
 									</td>
 									<td className="py-[6px] tabular-nums text-[var(--text-tertiary)]">—</td>
 									<td className="py-[6px] text-[var(--text-tertiary)]">
@@ -401,16 +407,7 @@ function VerdictDot({ decision, createdAt }: { decision: string; createdAt: stri
 	);
 }
 
-/** Outcome badge for a session row. */
-function OutcomeChip({ outcome }: { outcome: string | null }): JSX.Element {
-	if (outcome === null) {
-		return <span className="text-[var(--text-tertiary)]">—</span>;
-	}
-	const colors: Record<string, string> = {
-		completed: "text-[var(--accent-primary)]",
-		crashed: "text-[var(--status-error)]",
-		stopped: "text-[var(--text-tertiary)]",
-	};
-	const color = colors[outcome] ?? "text-[var(--text-secondary)]";
-	return <span className={`${color} font-medium`}>{outcome}</span>;
-}
+// AI4 AC1: OutcomeChip deleted — replaced with StatusChip at the call site.
+// Session outcomes now render as full StatusChip pills (deliberate visual change:
+// text-only colored label → chrome pill with dot). VerdictDot and CapabilityBadge
+// are correctly left in place (not status — Decision 3 scope ruling).

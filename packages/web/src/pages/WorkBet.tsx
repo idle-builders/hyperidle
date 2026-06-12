@@ -23,15 +23,25 @@ import {
 	BodyEditor,
 	EmptyState,
 	ErrorState,
+	LiveDot,
 	Menu,
 	Select,
 	SkeletonCard,
 	SkeletonList,
+	StatusChip,
+	betOutcomeVerdictToStatus,
+	betStatusToStatus,
+	taskOutcomeVerdictToStatus,
+	taskStateToStatus,
 } from "@hyperidle/design-system";
 import type { BetOutcomeVerdict, BetStatus, Message, WireMoney } from "@hyperidle/shared";
 import {
+	BET_OUTCOME_VERDICT_LABEL,
 	BET_OUTCOME_VERDICTS,
+	BET_STATUS_LABEL,
 	CURRENCY_CODES,
+	TASK_OUTCOME_VERDICT_LABEL,
+	TASK_STATE_LABEL,
 	deriveBlocks,
 	formatMoney,
 	isRedactedPayload,
@@ -61,50 +71,9 @@ import { KnowledgeCreateDialog } from "./knowledge/KnowledgeCreateDialog";
 type SortColumn = "title" | "status" | "owner" | "costActual" | "outcome";
 type SortDirection = "asc" | "desc";
 
-/**
- * AC1: Human-readable label per TaskOutcomeVerdict for task row outcome badges.
- * @lore AC1: "Rework" abbreviates "Met with rework" to fit compact row layout.
- */
-const TASK_VERDICT_LABEL: Record<string, string> = {
-	met: "Met",
-	met_with_rework: "Rework",
-	partially_met: "Partial",
-	not_met: "Not met",
-};
-
-/**
- * AC1: Human-readable label per BetOutcomeVerdict for the outcome section.
- */
-const BET_VERDICT_LABEL: Record<string, string> = {
-	validated: "Validated",
-	refuted: "Refuted",
-	partial: "Partial",
-	inconclusive: "Inconclusive",
-};
-
-/** Human-readable label per TaskState for task row badges. */
-const TASK_STATE_LABEL: Record<string, string> = {
-	proposed: "Planned",
-	accepted: "Planned",
-	hold: "On hold",
-	in_progress: "In progress",
-	blocked: "Blocked",
-	review: "In review",
-	done: "Done",
-	killed: "Killed",
-};
-
-/** Badge appearance per TaskState for task row display. */
-function taskStateBadgeClass(state: string): string {
-	const base =
-		"inline-flex items-center text-[12px] font-[500] px-[9px] py-[3px] rounded-[var(--r-pill)] leading-[1.4] whitespace-nowrap shrink-0";
-	if (state === "in_progress")
-		return `${base} bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)]`;
-	if (state === "done") return `${base} bg-[var(--surface-container)] text-[var(--text-secondary)]`;
-	if (state === "blocked") return `${base} bg-[rgba(200,60,30,0.08)] text-[var(--status-error)]`;
-	if (state === "review") return `${base} bg-[rgba(217,119,6,0.08)] text-[var(--accent-secondary)]`;
-	return `${base} bg-[var(--surface-container)] text-[var(--text-secondary)]`;
-}
+// AI4: TASK_VERDICT_LABEL, BET_VERDICT_LABEL, TASK_STATE_LABEL, taskStateBadgeClass
+// deleted — now sourced from @hyperidle/shared (TASK_OUTCOME_VERDICT_LABEL,
+// BET_OUTCOME_VERDICT_LABEL, TASK_STATE_LABEL) and @hyperidle/design-system (StatusChip).
 
 /**
  * Format an ISO timestamp as a simple relative time label.
@@ -1011,33 +980,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 		setOpenBlockId(null);
 	}
 
-	// Compute status badge for header
-	const statusBadgeClass = (() => {
-		switch (bet.status) {
-			case "active":
-				return "inline-flex items-center px-[9px] py-[3px] text-[12px] font-[500] rounded-[var(--r-pill)] bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)]";
-			case "draft":
-				return "inline-flex items-center px-[9px] py-[3px] text-[12px] font-[500] rounded-[var(--r-pill)] bg-[rgba(46,125,186,0.08)] text-[var(--status-info)]";
-			case "completed":
-				return "inline-flex items-center px-[9px] py-[3px] text-[12px] font-[500] rounded-[var(--r-pill)] bg-[var(--surface-container)] text-[var(--text-secondary)]";
-			default:
-				return "inline-flex items-center px-[9px] py-[3px] text-[12px] font-[500] rounded-[var(--r-pill)] bg-[rgba(217,119,6,0.10)] text-[var(--accent-secondary)]";
-		}
-	})();
-	const statusBadgeLabel = (() => {
-		switch (bet.status) {
-			case "active":
-				return "Active";
-			case "draft":
-				return "Draft";
-			case "completed":
-				return "Completed";
-			case "killed":
-				return "Killed";
-			default:
-				return bet.status;
-		}
-	})();
+	// AI4: statusBadgeClass/statusBadgeLabel IIFEs deleted — now use StatusChip + BET_STATUS_LABEL.
 
 	return (
 		<div className="flex flex-col h-full" data-testid="work-bet-page">
@@ -1067,7 +1010,10 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 					</h2>
 					<div className="flex items-center gap-[9px] shrink-0">
 						<AssistantAttachButton ref={{ kind: "bet", id: bet.id, label: bet.title }} />
-						<span className={statusBadgeClass}>{statusBadgeLabel}</span>
+						<StatusChip
+							status={betStatusToStatus(bet.status)}
+							label={BET_STATUS_LABEL[bet.status]}
+						/>
 						{bet.costAppetite && (
 							<span className="inline-flex items-center px-[9px] py-[3px] text-[12px] font-[500] rounded-[var(--r-pill)] bg-[rgba(217,119,6,0.10)] text-[var(--accent-secondary)]">
 								{formatMoney(bet.costAppetite)} appetite
@@ -1329,9 +1275,11 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 													<span
 														data-testid="outcome-verdict-badge"
 														aria-label={`Outcome: ${bet.outcomeVerdict}`}
-														className="inline-flex items-center text-[12px] font-[500] px-[9px] py-[3px] rounded-[var(--r-pill)] bg-[var(--surface-container)] text-[var(--text-secondary)] leading-[1.4]"
 													>
-														{BET_VERDICT_LABEL[bet.outcomeVerdict] ?? bet.outcomeVerdict}
+														<StatusChip
+															status={betOutcomeVerdictToStatus(bet.outcomeVerdict as BetOutcomeVerdict)}
+															label={BET_OUTCOME_VERDICT_LABEL[bet.outcomeVerdict as BetOutcomeVerdict] ?? bet.outcomeVerdict}
+														/>
 													</span>
 													<button
 														type="button"
@@ -1442,12 +1390,12 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 													onChange={(e) =>
 														setOutcomeVerdictForm(e.target.value as typeof outcomeVerdictForm)
 													}
-													placeholder="Select verdict…"
-													options={BET_OUTCOME_VERDICTS.map((v) => ({
-														value: v,
-														label: BET_VERDICT_LABEL[v] ?? v,
-													}))}
-												/>
+												placeholder="Select verdict…"
+												options={BET_OUTCOME_VERDICTS.map((v) => ({
+													value: v,
+													label: BET_OUTCOME_VERDICT_LABEL[v] ?? v,
+												}))}
+											/>
 											</div>
 											{/* Reality / summary textarea */}
 											<div className="flex flex-col gap-[6px]">
@@ -1657,16 +1605,23 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 													{metaParts.join(" · ")}
 												</div>
 											</div>
-											{/* AC1: Task outcome verdict badge — shown when verdict is set */}
+											{/* AI4 AC1: Task outcome verdict badge — shown when verdict is set */}
 											{task.outcomeVerdict && (
-												<span
-													data-testid={`task-outcome-badge-${task.id}`}
-													className="inline-flex items-center text-[12px] font-[500] px-[9px] py-[3px] rounded-[var(--r-pill)] bg-[var(--surface-container)] text-[var(--text-secondary)] leading-[1.4] whitespace-nowrap shrink-0"
-												>
-													{TASK_VERDICT_LABEL[task.outcomeVerdict] ?? task.outcomeVerdict}
+												<span data-testid={`task-outcome-badge-${task.id}`}>
+													<StatusChip
+														status={taskOutcomeVerdictToStatus(task.outcomeVerdict)}
+														label={TASK_OUTCOME_VERDICT_LABEL[task.outcomeVerdict] ?? task.outcomeVerdict}
+													/>
 												</span>
 											)}
-											<span className={taskStateBadgeClass(task.state)}>{stateLabel}</span>
+											{/* AI4 AC1: StatusChip for task state + LiveDot for in_progress */}
+											<span className="flex items-center gap-[6px]">
+												{task.state === "in_progress" && <LiveDot />}
+												<StatusChip
+													status={taskStateToStatus(task.state)}
+													label={TASK_STATE_LABEL[task.state]}
+												/>
+											</span>
 										</button>
 									);
 								})}
