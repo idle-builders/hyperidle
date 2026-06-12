@@ -30,7 +30,7 @@ describe("ArtifactTimestamp", () => {
 		expect(text.length).toBeGreaterThan(0);
 	});
 
-	it("renders an absolute ISO-style date when format='absolute'", () => {
+	it("renders an absolute calendar date when format='absolute'", () => {
 		act(() => {
 			root.render(
 				createElement(ArtifactTimestamp, {
