@@ -261,9 +261,9 @@ describe("AI1 AC3: findUndefinedReferences — reports undefined var() with file
 	test("reports multiple undefined tokens, each with correct line number", () => {
 		const defined = new Set(["--border-subtle"]);
 		const text = [
-			`.a { border: var(--does-not-exist); }`,   // line 1
-			`.b { color: var(--also-missing); }`,       // line 2
-			`.c { border: var(--border-subtle); }`,     // line 3 — defined, no report
+			`.a { border: var(--does-not-exist); }`, // line 1
+			`.b { color: var(--also-missing); }`, // line 2
+			`.c { border: var(--border-subtle); }`, // line 3 — defined, no report
 		].join("\n");
 		const result = findUndefinedReferences(text, defined);
 		expect(result).toHaveLength(2);
@@ -416,9 +416,9 @@ describe("AI1 AC3: comment-strip + find pipeline — lore comments do not cause 
 	test("CSS: live token in @lore body comment removed, same-line live reference in rule still reported", () => {
 		// Multi-line fixture: comment on line 1, dead token on line 2, defined on line 3
 		const rawCss = [
-			"/* @lore T1: replaces var(--density-text-h2) */",   // line 1 — in comment
-			"h2 { font-size: var(--density-text-h2); }",          // line 2 — LIVE dead ref
-			"p { font-size: var(--text-base); }",                  // line 3 — defined
+			"/* @lore T1: replaces var(--density-text-h2) */", // line 1 — in comment
+			"h2 { font-size: var(--density-text-h2); }", // line 2 — LIVE dead ref
+			"p { font-size: var(--text-base); }", // line 3 — defined
 		].join("\n");
 		const defined = new Set(["--text-base"]);
 		const stripped = stripComments(rawCss, "css");
