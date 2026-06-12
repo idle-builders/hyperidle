@@ -383,7 +383,7 @@ protectedTests:
   - packages/web/src/__tests__/AD8b-AssistantOverlay.test.tsx   # SANCTIONED CHANGE #3 — :108 /z-30/ → --z-overlay (40)
   - packages/web/src/__tests__/CocOverlay.test.tsx              # SANCTIONED CHANGE #3 — :108 /z-30/ → --z-overlay (40), or remove if dead (CoC purged)
   - packages/web/src/__tests__/TaskSheet.test.tsx               # audited: role="dialog", no z-/showModal assertion → unchanged
-  - packages/web/src/__tests__/GlobalSearchPanel.cmdk.test.tsx  # SANCTIONED CHANGE #2 — :40 /z-50/ → --z-dialog (60); :50 max-w-[640px] SURVIVES
+  - packages/web/src/__tests__/GlobalSearchPanel.cmdk.test.tsx  # SANCTIONED CHANGE #2 — :38/:45 selectors .modal.modal-open/.modal-box → [data-dialog-layer="dialog"]/data-testid; :40 /z-50/ → --z-dialog (60); :50 max-w-[640px] SURVIVES (re-found via new selector)
   - packages/web/src/pages/__tests__/WorkBet.L14-actions.test.tsx # SANCTIONED CHANGE #1 — AC-8 "Escape doesn't close" → "Esc closes"
 ```
 ### Sanctioned assertion changes (the carve-out — these protected tests MUST change)
@@ -402,16 +402,37 @@ to change** — the reviewer accepts them as spec-driven corrections, not weaken
    2 and is dropped this round). The `WorkBet.L14-actions.test.tsx` AC-8 comment ("Escape doesn't
    close") and any Esc assertion update in lockstep.
 
-2. **`GlobalSearchPanel.cmdk.test.tsx` (`:40` + `:50`) (resolves arch C-3).** Verified at source:
-   `:40` asserts `overlay.className` matches `/z-50/`; `:50` asserts `max-w-[640px]`. The migration
-   removes raw `z-50` (→ `--z-dialog`) and AC-3's static gate **forbids** `z-50` on overlays, so
-   the `z-50` assertion **must change**. Updated assertion: the overlay no longer carries
-   `.modal.modal-open`/`z-50`; instead assert the resolved layer — either the computed
-   `zIndex === "60"` (`--z-dialog`) on the overlay container **or** a `data-dialog-layer="dialog"`
-   attribute the primitive sets. **`max-w-[640px]` SURVIVES** unchanged: GlobalSearchPanel consumes
-   `useDialogBehavior` (not boxed `Dialog`), so it keeps its own palette chrome and its 640px
-   max-width is legitimately preserved — the test for it stays green. Sanctioned: the `z-50`
-   assertion only.
+2. **`GlobalSearchPanel.cmdk.test.tsx` (`:38`/`:40` + `:45`/`:50`) (resolves arch C-3 + W-new).**
+   Verified at source: `:38` queries `container.querySelector(".modal.modal-open")` and `:40`
+   asserts that overlay's `className` matches `/z-50/`; `:45` queries `container.querySelector(".modal-box")`
+   and `:50` asserts `max-w-[640px]`. The migration of `GlobalSearchPanel` to `useDialogBehavior`
+   **deletes the DaisyUI `modal modal-open` / `modal-box` chrome**, so **both `querySelector`
+   calls return `null` and each `it()` throws on the `not.toBeNull()` guard before any className
+   matcher runs** — the `z-50`→`--z-dialog` assertion edit alone is insufficient; the **selectors
+   that feed those assertions must migrate too**. Sanctioned change is therefore TWO-PART:
+   - **Selector migration (both `it()` blocks).** Replace `.modal.modal-open` (`:38`) and
+     `.modal-box` (`:45`) with the new dialog-container query the migrated panel emits. Use the
+     stable hook-set hook over a class: query the overlay container by
+     `container.querySelector('[data-dialog-layer="dialog"]')` (the attribute
+     `useDialogBehavior`/`getOverlayProps` sets), and re-find the inner palette box by its own
+     `data-testid`/role (the panel already carries `[data-testid="search-recent-queries"]` at
+     `:56` as precedent) or by the same `[data-dialog-layer="dialog"]` container element if the
+     box and overlay collapse to one node post-migration. No `.modal*` DaisyUI class survives the
+     query.
+   - **Assertion update (`:40`), max-width preserved (`:50`).** Once the overlay is re-found, the
+     `z-50` assertion (`:40`) updates to assert the resolved layer — either computed
+     `zIndex === "60"` (`--z-dialog`) on the container **or** the presence of the
+     `data-dialog-layer="dialog"` attribute itself (no longer a `/z-50/` className regex).
+     **`max-w-[640px]` SURVIVES** (`:50`): GlobalSearchPanel consumes `useDialogBehavior` (not
+     boxed `Dialog`), so it keeps its own palette chrome and 640px max-width — but the assertion
+     must **re-find** the box via the replacement selector above (NOT `.modal-box`, which is gone),
+     then `expect(/max-w-\[640px\]/.test(box.className)).toBe(true)` stays green.
+
+   Sanctioned: the `.modal.modal-open`/`.modal-box` **selectors** (migrate to
+   `[data-dialog-layer="dialog"]` / `data-testid` / role) AND the `z-50`→`--z-dialog` **assertion**.
+   The `max-w-[640px]` expectation is unchanged in value but re-targeted through the new selector.
+   A builder updating only the `:40` matcher (leaving `.modal.modal-open` at `:38`) leaves the
+   test red — both parts are required.
 
 3. **`AD8b-AssistantOverlay.test.tsx` (`:108`) and `CocOverlay.test.tsx` (`:108`) (from the §task 8
    audit).** Both assert `dialog.className` matches `/z-30/`. AssistantOverlay migrates to
