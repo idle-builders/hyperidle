@@ -650,3 +650,46 @@ Make HyperIdle actually launch-ready. The Z8 deep audit (June 2026) traced every
 **Out of scope.** Anything already owned by AF6–AF15. Net-new features (this is correctness and hygiene only).
 
 **Effort.** L (~4d)
+
+---
+
+### AF17 — Seed factory split and Nimmly purge
+
+**Workpackage.** As a HyperIdle user — on desktop or on the shared backend — I want a freshly-set-up environment to come with its complete factory layer (system identities, facilitator agents, agent soul templates, factory principles) and only *my own* team and agents, so the strategy and automation layer actually works and I never see another product's demo data. Today the desktop runs no seed at all (so it silently lacks the factory layer), the only seed path plants a fake "Nimmly" team, founder, and demo agents, and the shared backend ships with an empty database. After this, the genuine factory bootstrap is applied automatically and idempotently in both environments, a user's team and its automation are created by onboarding (not pre-seeded), and the word "Nimmly" — a separate product — appears nowhere in the codebase.
+
+**Why this matters.** The desktop app limps today: because it skips the seed it has no facilitators, no built-in routines, and no soul templates, and is one foreign-key failure away from breaking when a bet enters review (the propagation system identity is missing). The shared backend deploys as an empty shell, so the release cycle produces something nobody can use. And "Nimmly," a real and separate product, is smeared across ~148 places including the production seed — cross-product contamination that misleads every reader and ships demo rows into real databases. The founder and every end user benefit: the app stops silently degrading, the deployed backend becomes usable, and the codebase stops claiming to be a different product. Not building this leaves the desktop subtly broken and the shared-backend release cycle with no working payload.
+
+**What exists today.** `packages/db/src/seed.ts` seeds everything in one function — genuinely team-agnostic factory data (the `system:propagation` user, a system assistant, facilitator agents per community of practice, soul-prompt templates, a factory principle, cost settings) **welded to** demo data (a "Nimmly" team `seed-product-1`, a "Founder" human, demo builder/PM agents, a daily-digest bet/task/routine) and the built-in routines (`post-bet-retro`, `portfolio-retro`, `knowledge-decay`, `practice-meeting`), which are scoped to that demo team. `setup-cli` runs the full seed; **desktop runs no seed** and relies on onboarding — `SetupFlow` calls create-user (which creates the human plus their assistant) and create-team (which generates an agent roster from the team's functions). The shared backend (`deploy.yml` + Helm chart + `migrate-pg.ts`, all on `main`) migrates but does not seed. ~10 db integration tests call `seed()` directly.
+
+**What's genuinely missing.** The factory layer never reaches a real user's database (desktop skips the seed; the deploy never seeds), so both environments run without it. There is no seam that applies *only* the factory bootstrap, no path that provisions a team's built-in routines when the team is created (they are hard-wired to the demo team instead), and no boundary keeping demo/example data out of production seeds and out of a product that is not "Nimmly."
+
+**Depends on.** None. Builds on the already-merged shared-backend deploy (`deploy.yml`, Helm chart, `migrate-pg.ts` exist on `main`).
+
+**Complexity.** L
+
+**Acceptance criteria.**
+- A freshly-set-up desktop environment has the complete factory layer present (system identities, facilitator agents per community of practice, agent soul templates, factory principles) without any manual step.
+- A freshly-deployed shared backend has that same factory layer applied automatically; re-applying it changes nothing (idempotent).
+- A user's own team and its automation — agent roster and built-in routines — are created when the team is created at onboarding, owned by that team's own agents, in both local and shared environments.
+- A real user's database (desktop or shared) contains no demo or example team, user, or agent — the user sees only their own.
+- A bet entering review never fails because the propagation / review-thread system identity is missing, in any environment.
+- The product contains no reference to "Nimmly" anywhere — code, seed, tests, stories, or docs; any example data that remains in tests uses a neutral, clearly-fictional name.
+
+**Validation scenarios.**
+- Given a brand-new desktop install, when the user finishes onboarding, then facilitators, soul templates, and the user's team-scoped built-in routines all exist and the user's database has no second/demo team.
+- Given a freshly-deployed shared backend, when the deploy completes, then the factory layer is present; and when the deploy runs again, then no rows are duplicated or changed.
+- Given a bet that transitions into review on a freshly-set-up environment, when the review thread is authored, then it succeeds because the system author exists.
+- Given the whole repository, when searched for "nimmly" (any case), then there are zero matches.
+
+**Plan calls.** Backend + data + light desktop/deploy wiring — skip `/design` (no UI surface). Standard architecture pass with one load-bearing decision to lock: the factory-vs-team-vs-test-fixture boundary (which rows are team-agnostic factory bootstrap, which are provisioned per-team at onboarding, and which are demo fixtures for tests / `setup-cli` only). `/architecture` is expected to split this into coherent sub-batches (seed split + factory wiring into desktop and deploy; per-team routine/roster provisioning at team creation; Nimmly purge across code/tests/docs) — that split is welcome. Built-in routines have `team_id` and `owner_agent_id` NOT NULL, so they cannot be factory-level — plan their creation at team-creation time.
+
+**Contracts / constraints.**
+- No demo or example data in any production seed path; example data lives only in test / `setup-cli` fixtures under a neutral, clearly-fictional name.
+- No reference to "Nimmly" anywhere (hard purge, same class as the Rail/CoC directives); add a guard so it cannot be reintroduced.
+- The factory bootstrap must be idempotent (safe to re-run on every desktop launch and every deploy).
+- Onboarding remains the sole creator of a user's team, human identity, and assistant in both local and shared modes — the seed never creates a user-facing team.
+- `npm run verify` passes after merge (Track AF constraint).
+
+**Out of scope.** External reachability of the shared backend (Cloudflare tunnel / ingress host — separate infra task). Distribution of the shared API key to clients. Any redesign of onboarding UX beyond making it the owner of team/routine provisioning. Purging other example names not covered here.
+
+**Effort.** L (~3d)

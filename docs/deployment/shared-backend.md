@@ -39,13 +39,36 @@ GHCR image; a **Deploy** is one `helm upgrade --install` revision.
 
 | | Provisioning — founder/infra, one-time | Deploy — CI, every release |
 |---|---|---|
-| **SQL** | Schema + role + `database-url` secret via infra **Terraform** | Drizzle **table migrations** in the migrate init-container (additive-only) |
+| **SQL** | Schema + role + `database-url` secret via infra **Terraform** | Drizzle **table migrations** in the migrate init-container (additive-only), then **factory bootstrap** (idempotent baseline rows) |
 | **Auth** | `KUBE_*` GitHub secrets from Terraform output; `HYPERIDLE_API_KEY` secret via admin kubeconfig | Pod **reads** secrets via `secretKeyRef` |
 | **CI** | Store `KUBE_*` secrets, confirm GHCR perms | `deploy.yml`: tag → build → push → `helm upgrade --install` (driver=configmap) |
 
 A Deploy **never provisions** — it consumes what provisioning created and applies
 additive migrations. The deployer ServiceAccount stays least-privilege (no Secret
 reads, no deletes); don't widen RBAC to make a deploy easier.
+
+### Factory bootstrap (AF17) — applied every deploy + every desktop launch
+
+The **factory bootstrap** is the team-agnostic baseline row-set every HyperIdle
+instance needs to function: the `system:propagation` identity, the system-assistant
+singleton, the per-community **facilitator** agents, the `soul_template:<role>`
+settings, factory cost settings, and the `scope_kind="factory"` principle. It is
+**idempotent** (safe to re-run) and **carries no user-facing `team_id`**. It runs
+after table migrations on every deploy (a bootstrap step alongside the migrate
+init-container) and on every desktop launch (after the desktop migrate step).
+
+Factory bootstrap is **not** team provisioning and **not** demo data:
+
+- A user's own **team**, its **agent roster**, and its **built-in routines**
+  (`practice-meeting`, `post-bet-retro`, `portfolio-retro`, `knowledge-decay`,
+  `knowledge-promotion`) are created by **onboarding / `create_team`**, owned by
+  that team's own agents — never seeded. Built-in routines have NOT-NULL `team_id`
+  + `owner_agent_id`, so they cannot be factory-level.
+- The seed **never** creates a user-facing team, human, or assistant (local or
+  shared). Demo/example world-state lives only in tests / stories / e2e /
+  `setup-cli` demo mode, under a neutral fictional name.
+
+Locked concept: [`plans/AF17/concept.md`](../../plans/AF17/concept.md).
 
 ### What it is NOT
 

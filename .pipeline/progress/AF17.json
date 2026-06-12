@@ -1,0 +1,19 @@
+{
+  "id": "AF17",
+  "title": "Seed factory split and Nimmly purge",
+  "track": "AF",
+  "complexity": "L",
+  "status": "in_progress",
+  "currentStep": "3-builder",
+  "branch": "feat/AF17-seed-factory-nimmly-purge",
+  "pr": 266,
+  "startedAt": "2026-06-12",
+  "phases": {
+    "1-designer": "in_progress",
+    "2-critique": "done",
+    "3-builder": "in_progress",
+    "4-review": "pending",
+    "5-retro": "pending",
+    "ship": "pending"
+  }
+}
