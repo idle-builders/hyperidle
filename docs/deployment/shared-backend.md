@@ -27,9 +27,13 @@ the ground-truth summary; the locked concept lives in
 
 ### "Always latest" = latest **release**, not latest commit
 
-Deploys fire on a **version tag**, not on every push to `main`. The shared dataset
-advances on a deliberate cadence. A (container) **Release** is an immutable GHCR
-image built from a tag; a **Deploy** is one `helm upgrade --install` revision.
+A release is marked by **bumping the root `package.json` `version`** in a PR. When
+that PR merges to `main`, `deploy.yml` detects the changed version and — in one
+automatic chain — builds the image, publishes it to GHCR, tags the commit
+`vX.Y.Z`, and rolls the new backend + SPA onto the cluster. Merges that don't
+change `version` are a no-op, so the shared dataset advances on a deliberate
+cadence rather than on every commit. A (container) **Release** is an immutable
+GHCR image; a **Deploy** is one `helm upgrade --install` revision.
 
 ### Provisioning (once) vs Deploy (every release)
 
@@ -74,7 +78,10 @@ A Deploy never provisions — do these once before the first tag:
    domain (must be in the tenant domain allowlist), point its DNS at the ingress
    floating IP. cert-manager issues TLS automatically.
 
-Then: `git tag vX.Y.Z && git push origin vX.Y.Z` → `deploy.yml` builds + rolls it out.
+Then, to ship a release: bump `version` in the root `package.json` in a PR and
+merge it to `main`. `deploy.yml` builds, publishes, tags `vX.Y.Z`, and deploys
+automatically. (Manual re-deploy/rollback: run the workflow via `workflow_dispatch`
+with a ref.)
 
 ### Reference
 
