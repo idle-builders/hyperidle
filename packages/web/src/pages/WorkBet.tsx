@@ -37,8 +37,8 @@ import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
 import { ArtifactThreadsSummary } from "../components/ArtifactThreadsSummary.js";
-import { CocAttachButton } from "../components/CocAttachButton";
-import { CocContext } from "../contexts/CocContext.js";
+import { AssistantAttachButton } from "../components/AssistantAttachButton";
+import { AssistantContext } from "../contexts/AssistantContext.js";
 import { useBet } from "../hooks/useBet";
 import { useBetDescriptionSave } from "../hooks/useBetDescriptionSave.js";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
@@ -263,7 +263,7 @@ function BetPitch({
 	return (
 		<section aria-label="Bet pitch" data-testid="bet-pitch">
 			{blocks.map((b) => (
-				// T4: relative wrapper so CocAttachButton can be absolutely positioned in the gutter.
+				// T4: relative wrapper so AssistantAttachButton can be absolutely positioned in the gutter.
 				<div key={b.id} className="relative group/block-attach">
 					<Block
 						id={b.id}
@@ -277,8 +277,8 @@ function BetPitch({
 							) : undefined,
 						}}
 					/>
-					{/* T4: CocAttachButton — shows when overlay is open, attaches block ref */}
-					<CocAttachButton
+					{/* T4: AssistantAttachButton — shows when overlay is open, attaches block ref */}
+					<AssistantAttachButton
 						ref={{
 							kind: "block",
 							blockId: b.id,
@@ -664,8 +664,8 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	const { user } = useCurrentUser();
 	const onOpenArtifact = useArtifactOpen();
 	const hintAddCredential = useHint("add-credential");
-	// T4: CocContext for block share action
-	const { overlayOpen, attachContext } = useContext(CocContext);
+	// T4: AssistantContext for block share action
+	const { overlayOpen, attachContext } = useContext(AssistantContext);
 
 	// Only call useBet when there is no override. When overrideBet is provided,
 	// pass undefined so the hook short-circuits to { data: null, loading: false, error: null }.
@@ -985,13 +985,13 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	}
 
 	/**
-	 * T4: "Share" handler — attaches the block as a context ref in the CoC overlay.
-	 * Only available when the CoC overlay is open (per reviewer critique: Share action
+	 * T4: "Share" handler — attaches the block as a context ref in the Assistant overlay.
+	 * Only available when the overlay is open (per reviewer critique: Share action
 	 * must handle the case where overlay is not open).
 	 *
-	 * @lore T4: Uses CocContext.attachContext which is a no-op when overlayOpen=false.
+	 * @lore T4: Uses AssistantContext.attachContext which is a no-op when overlayOpen=false.
 	 * The "Share" menu item is conditionally included so it only appears when the
-	 * overlay is open — matching the CocAttachButton behavior.
+	 * overlay is open — matching the AssistantAttachButton behavior.
 	 */
 	function handleShareBlock(blockId: string): void {
 		// Guard: this function is only reachable after the `if (!bet) return` early exit above.
@@ -1064,7 +1064,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 						{bet.title}
 					</h2>
 					<div className="flex items-center gap-[9px] shrink-0">
-						<CocAttachButton ref={{ kind: "bet", id: bet.id, label: bet.title }} />
+						<AssistantAttachButton ref={{ kind: "bet", id: bet.id, label: bet.title }} />
 						<span className={statusBadgeClass}>{statusBadgeLabel}</span>
 						{bet.costAppetite && (
 							<span className="inline-flex items-center px-[9px] py-[3px] text-[12px] font-[500] rounded-[var(--r-pill)] bg-[rgba(217,119,6,0.10)] text-[var(--accent-secondary)]">

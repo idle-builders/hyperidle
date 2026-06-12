@@ -20,6 +20,7 @@ const SAMPLE: ThreadItem[] = [
 		blocking: true,
 		pinned: false,
 		status: "blocked",
+		lastActiveAt: new Date(NOW - 2 * 60 * 1000).toISOString(),
 	},
 	{
 		id: "p1",
@@ -31,6 +32,7 @@ const SAMPLE: ThreadItem[] = [
 		hasUnresolvedReview: false,
 		blocking: false,
 		pinned: true,
+		lastActiveAt: new Date(NOW - 60 * 60 * 1000).toISOString(),
 	},
 	{
 		id: "r1",
@@ -42,6 +44,7 @@ const SAMPLE: ThreadItem[] = [
 		hasUnresolvedReview: true,
 		blocking: false,
 		pinned: false,
+		lastActiveAt: new Date(NOW - 14 * 60 * 1000).toISOString(),
 	},
 	{
 		id: "c1",
@@ -53,6 +56,7 @@ const SAMPLE: ThreadItem[] = [
 		hasUnresolvedReview: false,
 		blocking: false,
 		pinned: false,
+		lastActiveAt: new Date(NOW - 60 * 60 * 1000).toISOString(),
 	},
 	{
 		id: "res1",
@@ -65,6 +69,7 @@ const SAMPLE: ThreadItem[] = [
 		blocking: false,
 		pinned: false,
 		resolvedAt: new Date(NOW - 2 * 60 * 60 * 1000).toISOString(),
+		lastActiveAt: new Date(NOW - 2 * 60 * 60 * 1000).toISOString(),
 	},
 ];
 

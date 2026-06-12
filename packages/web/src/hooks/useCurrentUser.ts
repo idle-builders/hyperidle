@@ -15,6 +15,8 @@ export interface CurrentUser {
 	name: string;
 	email: string;
 	avatarUrl: string | null;
+	/** AF13 §6: team membership — present when the user belongs to a team. */
+	teamId?: string;
 }
 
 export type UseCurrentUserStatus = "loading" | "ready" | "error";
@@ -49,9 +51,16 @@ export function useCurrentUser(): UseCurrentUserResult {
 					name: string;
 					email: string;
 					avatarUrl: string | null;
+					teamId?: string;
 				};
 				if (cancelled) return;
-				setUser({ id: data.id, name: data.name, email: data.email, avatarUrl: data.avatarUrl });
+				setUser({
+					id: data.id,
+					name: data.name,
+					email: data.email,
+					avatarUrl: data.avatarUrl,
+					teamId: data.teamId,
+				});
 				setStatus("ready");
 			} catch (cause) {
 				if (cancelled) return;

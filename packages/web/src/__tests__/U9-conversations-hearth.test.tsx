@@ -13,7 +13,6 @@
  * - "New thread" button has btn-primary class
  */
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { Conversations } from "../pages/Conversations";
@@ -70,28 +69,22 @@ describe("U9 AC-1: Conversations Hearth styling (W3 toggle-button pattern)", () 
 		expect(screen.getByTestId("conversations-page")).toBeInTheDocument();
 	});
 
-	it("toggle chips use aria-pressed (not aria-selected)", () => {
+	it("AF14 AC4: Blocking chip NOT rendered (chips removed by AF14)", () => {
 		renderConversationsPage();
-		// W3: Blocking and Unread are toggle buttons with aria-pressed
-		const blockingBtn = screen.getByRole("button", { name: /^blocking$/i });
-		expect(blockingBtn).not.toBeNull();
-		expect(blockingBtn).toHaveAttribute("aria-pressed");
+		// AF14 AC4 supersedes W3 AC-6: chips removed from Conversations flat list.
+		expect(screen.queryByRole("button", { name: /^blocking$/i })).not.toBeInTheDocument();
 	});
 
-	it("inactive toggle chip has aria-pressed=false", () => {
+	it("AF14 AC4: Unread chip NOT rendered (chips removed by AF14)", () => {
 		renderConversationsPage();
-		const blockingBtn = screen.getByRole("button", { name: /^blocking$/i });
-		// By default, Blocking is not active — aria-pressed should be false
-		expect(blockingBtn).toHaveAttribute("aria-pressed", "false");
+		expect(screen.queryByRole("button", { name: /^unread$/i })).not.toBeInTheDocument();
 	});
 
-	it("active toggle chip has aria-pressed=true after click", async () => {
-		const user = userEvent.setup();
+	it("AF14 AC4: no aria-pressed buttons in flat list (no chip bar)", () => {
 		renderConversationsPage();
-		const blockingBtn = screen.getByRole("button", { name: /^blocking$/i });
-		await user.click(blockingBtn);
-		// After click, Blocking becomes active — aria-pressed should be true
-		expect(blockingBtn).toHaveAttribute("aria-pressed", "true");
+		// No chip bar = no aria-pressed buttons
+		const pressed = document.querySelectorAll("[aria-pressed]");
+		expect(pressed.length).toBe(0);
 	});
 
 	it("New thread button is visible in the page", () => {

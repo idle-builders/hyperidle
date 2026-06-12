@@ -5,8 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "../layouts/AppShell";
 import { Conversations } from "../pages/Conversations";
 
-// @lore visual-parity: filter chips (Blocking, Unread) are hidden in empty state.
-// We need at least one thread so the chips are visible and clickable.
+// AF14 AC4: filter chips (Blocking, Unread) removed from Conversations.
+// One thread is still needed so the list renders.
 const ONE_THREAD = {
 	id: "t-filter-test",
 	hostKind: "task",
@@ -22,7 +22,6 @@ const ONE_THREAD = {
 
 beforeEach(() => {
 	// L8: AppShell fetches /api/threads on mount — stub it for this suite.
-	// Must return a valid user so useCurrentUser resolves participantId.
 	global.fetch = vi.fn(async (input: RequestInfo | URL) => {
 		const url = typeof input === "string" ? input : input.toString();
 		if (url.includes("/api/auth/me")) {
@@ -33,21 +32,17 @@ beforeEach(() => {
 		}
 		return {
 			ok: true,
-			// Return one thread so filter chips are visible (hidden in empty state)
 			json: async () => ({ threads: [ONE_THREAD], nextCursor: null }),
 		} as Response;
 	}) as unknown as typeof fetch;
 });
 
 /**
- * J2 review O2 / AC 64: when the active view changes, the filter must
- * reset to inactive state. The filter is local ThreadSections state —
- * switching views remounts the component and resets the toggles.
+ * J2 review O2 / AC 64: filter reset on view change.
  *
- * @lore W3: Filter chips moved from FilterPillBar (role="tab", All/Blocking/Async)
- * to ThreadSections toggle buttons (aria-pressed, Blocking/Unread). The reset
- * behavior is tested by verifying the Blocking toggle returns to aria-pressed=false
- * after navigating away and back.
+ * AF14 AC4: Blocking/Unread chips removed from flat list. The filter-reset
+ * behavior is now verified by: (1) no chips present on /conversations,
+ * (2) navigation away and back still renders the list without chips.
  */
 function renderShellAt(initialPath: string): ReturnType<typeof render> {
 	const router = createMemoryRouter(
@@ -56,7 +51,6 @@ function renderShellAt(initialPath: string): ReturnType<typeof render> {
 				path: "/",
 				element: <AppShell />,
 				children: [
-					// W3: Use real Conversations component so ThreadSections renders.
 					{ path: "conversations", element: <Conversations /> },
 					{ path: "conversations/:threadId", element: <Conversations /> },
 					{ path: "work/portfolio", element: <div>Work Page</div> },
@@ -70,40 +64,41 @@ function renderShellAt(initialPath: string): ReturnType<typeof render> {
 }
 
 describe("AppShell — filter reset on view change (J2 AC 64)", () => {
-	it("resets the conversations filter to 'All' when the user navigates to a different view and back", async () => {
+	it("AF14 AC4: no filter chips on /conversations — list renders all threads without chips", async () => {
+		// AF14 supersedes the old chip-toggle-reset flow.
+		// No chips = no filter state to reset. Threads just render.
+		renderShellAt("/conversations");
+		// Threads section renders
+		await waitFor(() => {
+			expect(screen.getByTestId("flat-thread-list")).toBeInTheDocument();
+		});
+		// No chip buttons (AF14 AC4)
+		expect(screen.queryByRole("button", { name: /^blocking$/i })).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /^unread$/i })).not.toBeInTheDocument();
+	});
+
+	it("navigating away and back to /conversations keeps no chip buttons (reset is a no-op)", async () => {
 		const user = userEvent.setup();
 		renderShellAt("/conversations");
 
-		// W3: Filter chips are aria-pressed toggle buttons (Blocking, Unread) in ThreadSections.
-		// Default state: Blocking is aria-pressed=false (all threads visible).
-		const blocking = await screen.findByRole("button", { name: /^blocking$/i });
-		expect(blocking).toHaveAttribute("aria-pressed", "false");
-
-		// Switch the filter to "Blocking" (toggle on).
-		await user.click(blocking);
+		// Wait for threads to render
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: /^blocking$/i })).toHaveAttribute(
-				"aria-pressed",
-				"true",
-			);
+			expect(screen.getByTestId("flat-thread-list")).toBeInTheDocument();
 		});
 
-		// Navigate to Work via sidebar. Work has no filter row.
+		// Navigate to Work via sidebar
 		await user.click(screen.getByRole("button", { name: /work/i }));
 		await waitFor(() => {
 			expect(screen.getByText("Work Page")).toBeInTheDocument();
 		});
-		// Work page has no blocking toggle.
-		expect(screen.queryByRole("button", { name: /^blocking$/i })).not.toBeInTheDocument();
 
-		// Navigate back to Conversations via sidebar. The toggle must be reset to inactive.
+		// Navigate back to Conversations
 		await user.click(screen.getByRole("button", { name: /conversations/i }));
 		await waitFor(() => {
-			// Blocking toggle should be back to aria-pressed=false (reset by remount)
-			expect(screen.getByRole("button", { name: /^blocking$/i })).toHaveAttribute(
-				"aria-pressed",
-				"false",
-			);
+			expect(screen.getByTestId("flat-thread-list")).toBeInTheDocument();
 		});
+
+		// Still no chip buttons after remount
+		expect(screen.queryByRole("button", { name: /^blocking$/i })).not.toBeInTheDocument();
 	});
 });

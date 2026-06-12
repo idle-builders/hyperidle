@@ -1,22 +1,14 @@
 /**
- * U6 — Filter relocation tests (AC-16, updated for W3).
+ * U6 — Filter relocation tests (AC-16, updated for AF14).
  *
  * AC-16: Conversations filter controls live in the main pane (Conversations page),
  *        NOT in the Sidebar.
  *
- * @lore W3: The filter pill bar (All/Blocking/Async with role="tab") was replaced
- * by toggle buttons (Blocking/Unread with aria-pressed) in ThreadSections flat mode.
- * These tests verify the W3 toggle pattern and that filters remain in the main pane.
- *
- * Architecture:
- *   - AppShellOutletContext passes conversationsFilter, onFilterChange, onClearFilter
- *   - Conversations.tsx (State A) renders ThreadSections with groupBySection=false
- *   - ThreadSections renders Blocking/Unread toggle buttons
- *   - Sidebar has no filter chip elements
+ * AF14 AC4 update: Blocking/Unread chips have been removed from the flat list.
+ * Tests now verify absence of chip elements and that threads render without filtering.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "../layouts/AppShell";
@@ -111,78 +103,64 @@ afterEach(() => {
 });
 
 describe("Conversations page — AC-16: filter controls in main pane (W3 toggle pattern)", () => {
-	it("renders W3 toggle buttons (Blocking, Unread) in the main pane on /conversations", async () => {
+	it("AF14 AC4: Blocking/Unread chips NOT in the main pane (removed by AF14)", async () => {
 		stubFetch(MIXED_THREADS);
 		renderShell("/conversations");
-		// W3: toggle buttons with aria-pressed (not role="tab")
-		const blockingBtn = await screen.findByRole("button", { name: /^blocking$/i });
-		expect(blockingBtn).toHaveAttribute("aria-pressed");
-		const unreadBtn = screen.getByRole("button", { name: /^unread$/i });
-		expect(unreadBtn).toHaveAttribute("aria-pressed");
+		// Wait for threads to render
+		await waitFor(() => {
+			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBeGreaterThan(
+				0,
+			);
+		});
+		// AF14 AC4: chips removed
+		expect(screen.queryByRole("button", { name: /^blocking$/i })).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /^unread$/i })).not.toBeInTheDocument();
 	});
 
-	it("the Blocking toggle is NOT inside the sidebar element", async () => {
+	it("the sidebar does NOT contain any aria-pressed buttons (no chips anywhere)", async () => {
 		stubFetch(MIXED_THREADS);
 		const { container } = renderShell("/conversations");
-		// Wait for the toggle to appear
-		await screen.findByRole("button", { name: /^blocking$/i });
+		// Wait for the page to load
+		await waitFor(() => {
+			expect(container.querySelector("[data-testid='main-content']")).toBeInTheDocument();
+		});
 
-		// The sidebar should not contain the Blocking toggle button
+		// The sidebar should not contain any aria-pressed buttons
 		const sidebar = container.querySelector("[data-ds-shell='Sidebar']");
 		if (sidebar) {
-			const blockingInSidebar = sidebar.querySelector("[aria-pressed]");
-			expect(blockingInSidebar).toBeNull();
+			const pressedInSidebar = sidebar.querySelector("[aria-pressed]");
+			expect(pressedInSidebar).toBeNull();
 		}
-		// The Blocking toggle should be in the main content area
+		// The main content area has no chip buttons either (AF14 AC4)
 		const mainContent = container.querySelector("[data-testid='main-content']");
 		expect(mainContent).toBeInTheDocument();
-		const blockingInMain = mainContent?.querySelector(
+		const chipsInMain = mainContent?.querySelector(
 			"button[aria-pressed][aria-label*='Blocking'], button[aria-pressed]",
 		);
-		expect(blockingInMain).not.toBeNull();
+		expect(chipsInMain).toBeNull();
 	});
 
-	it("clicking 'Blocking' in the main pane filter narrows the thread list", async () => {
+	it("AF14 AC4: all threads render unfiltered (no chip to narrow list)", async () => {
 		stubFetch(MIXED_THREADS);
-		const user = userEvent.setup();
 		renderShell("/conversations");
-		await waitFor(() => {
-			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(5);
-		});
-
-		await user.click(await screen.findByRole("button", { name: /^blocking$/i }));
-		await waitFor(() => {
-			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(2);
-		});
-	});
-
-	it("clicking 'Blocking' again after narrowing restores the full thread list", async () => {
-		stubFetch(MIXED_THREADS);
-		const user = userEvent.setup();
-		renderShell("/conversations");
-		await waitFor(() => {
-			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(5);
-		});
-
-		const blockingBtn = await screen.findByRole("button", { name: /^blocking$/i });
-		await user.click(blockingBtn);
-		await waitFor(() => {
-			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(2);
-		});
-
-		// Toggle off — restores full list (replaces clicking "All" in old UI)
-		await user.click(blockingBtn);
 		await waitFor(() => {
 			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(5);
 		});
 	});
 
-	it("W3: no 'All' or 'Async' tabs (removed in W3 — only Blocking/Unread toggles)", async () => {
+	it("AF14 AC4: no All/Async tabs (removed in W3) and no Blocking/Unread chips (removed in AF14)", async () => {
 		stubFetch(MIXED_THREADS);
 		renderShell("/conversations");
-		await screen.findByRole("button", { name: /^blocking$/i });
+		await waitFor(() => {
+			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBeGreaterThan(
+				0,
+			);
+		});
 		// Old tab pattern must not exist
 		expect(screen.queryByRole("tab", { name: /^all$/i })).not.toBeInTheDocument();
 		expect(screen.queryByRole("tab", { name: /^async$/i })).not.toBeInTheDocument();
+		// AF14: chip buttons also removed
+		expect(screen.queryByRole("button", { name: /^blocking$/i })).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /^unread$/i })).not.toBeInTheDocument();
 	});
 });

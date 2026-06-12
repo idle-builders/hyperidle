@@ -27,7 +27,7 @@ import type { Message } from "@hyperidle/shared";
 import { deriveBlocks, isRedactedPayload } from "@hyperidle/shared";
 import DOMPurify from "dompurify";
 import { type JSX, useMemo } from "react";
-import { CocAttachButton } from "../../components/CocAttachButton.js";
+import { AssistantAttachButton } from "../../components/AssistantAttachButton.js";
 import { blockExcerptFromPayload } from "../../utils/block-excerpt.js";
 
 export interface KnowledgeBodyProps {
@@ -129,7 +129,7 @@ export function KnowledgeBody({
 				<p className="text-[var(--text-tertiary)] text-sm m-0">(no content yet)</p>
 			) : (
 				blocks.map((block) => (
-					// T4: relative wrapper so CocAttachButton can be positioned in the gutter.
+					// T4: relative wrapper so AssistantAttachButton can be positioned in the gutter.
 					<div key={block.id} className="relative group/block-attach">
 						<Block
 							id={block.id}
@@ -144,8 +144,8 @@ export function KnowledgeBody({
 								) : undefined,
 							}}
 						/>
-						{/* T4: CocAttachButton — shows when CoC overlay is open */}
-						<CocAttachButton
+						{/* T4: AssistantAttachButton — shows when Assistant overlay is open */}
+						<AssistantAttachButton
 							ref={{
 								kind: "block",
 								blockId: block.id,
