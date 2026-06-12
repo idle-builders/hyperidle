@@ -193,18 +193,27 @@ describe("WorkPortfolio", () => {
 
 	describe("AG2 AC-5 — Filter-excluded empty state", () => {
 		it("shows filter-excluded empty state when bets exist but filteredBets is empty", async () => {
-			// Single bet with status "active", then attempt a status filter that excludes it
-			// We need bets to exist but filtering to exclude them.
-			// We test this via the no-matches testid after the component applies filters.
-			// This is covered more thoroughly in the outcome test file; here we verify testid contract.
+			// Need ≥2 distinct status buckets so the status filter appears,
+			// then click a filter that excludes all remaining bets.
+			// Fixture: 1 active bet + 1 draft bet (2 buckets → showStatusFilter = true)
+			// Then click "Completed" — no completed bets → filter-excluded state.
 			mockUseBets.mockReturnValue({
 				bets: [
 					{
-						id: "bet-filter-test",
+						id: "bet-active",
 						title: "Active Bet",
 						teamId: "p1",
 						status: "active",
-						description: "A bet",
+						description: "An active bet",
+						costAppetite: null,
+						outcomeVerdict: null,
+					},
+					{
+						id: "bet-draft",
+						title: "Draft Bet",
+						teamId: "p1",
+						status: "draft",
+						description: "A draft bet",
 						costAppetite: null,
 						outcomeVerdict: null,
 					},
@@ -215,8 +224,8 @@ describe("WorkPortfolio", () => {
 			});
 			const user = userEvent.setup();
 			renderPage();
-			// Click "Draft" status filter — excludes the active bet
-			await user.click(screen.getByRole("button", { name: /^draft$/i }));
+			// Status filter shows because there are 2 buckets (active + draft)
+			await user.click(screen.getByRole("button", { name: /^completed$/i }));
 			expect(screen.getByTestId("portfolio-no-matches")).toBeInTheDocument();
 			expect(screen.queryByTestId("portfolio-empty")).not.toBeInTheDocument();
 		});

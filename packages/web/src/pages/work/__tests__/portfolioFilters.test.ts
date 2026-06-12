@@ -81,9 +81,7 @@ describe("distinctStatusBuckets", () => {
 	});
 
 	it("returns size 1 for all-draft bets", () => {
-		const bets: MinBet[] = [
-			{ id: "b1", teamId: "t1", status: "draft", outcomeVerdict: null },
-		];
+		const bets: MinBet[] = [{ id: "b1", teamId: "t1", status: "draft", outcomeVerdict: null }];
 		expect(distinctStatusBuckets(bets).size).toBe(1);
 	});
 
@@ -168,9 +166,7 @@ describe("formatPortfolioCount", () => {
 	});
 
 	it("singular bet, singular team", () => {
-		const bets: MinBet[] = [
-			{ id: "b1", teamId: "t1", status: "active", outcomeVerdict: null },
-		];
+		const bets: MinBet[] = [{ id: "b1", teamId: "t1", status: "active", outcomeVerdict: null }];
 		expect(formatPortfolioCount(bets)).toBe("1 bet · 1 team");
 	});
 

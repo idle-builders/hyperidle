@@ -121,8 +121,8 @@ describe("M3 — WorkPortfolio: renders real data from useTeams (G1)", () => {
 			},
 		} as unknown as ReturnType<typeof useTeams>);
 
-		// @lore visual-parity: team pill filters are hidden in empty state (bets.length === 0).
-		// Return a bet for this team so the team name pill is visible.
+		// @lore AG2: team pill filters require ≥2 distinct team ids in bets to show.
+		// Provide two bets from different teams so "Real Product One" name pill renders.
 		vi.mocked(useBets).mockReturnValue({
 			bets: [
 				{
@@ -130,6 +130,16 @@ describe("M3 — WorkPortfolio: renders real data from useTeams (G1)", () => {
 					teamId: "p-real-1",
 					title: "Real Bet",
 					description: "Test bet",
+					status: "active",
+					costAppetite: null,
+					createdAt: "2026-01-01T00:00:00Z",
+					updatedAt: "2026-01-01T00:00:00Z",
+				},
+				{
+					id: "b-real-2",
+					teamId: "p-real-2",
+					title: "Other Bet",
+					description: "Another team bet",
 					status: "active",
 					costAppetite: null,
 					createdAt: "2026-01-01T00:00:00Z",
