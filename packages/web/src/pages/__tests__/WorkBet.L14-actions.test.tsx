@@ -2,7 +2,10 @@
  * L14 — WorkBet action bar and dialogs: Vitest unit tests.
  *
  * AC-7: Action bar renders correct buttons per bet status.
- * AC-8: ConsequencePreviewDialog is non-skippable (Escape doesn't close; Cancel closes).
+ * AC-8: ConsequencePreviewDialog closes on Escape (confirmation-never-dirty rule, §1.1).
+ *        SANCTIONED CHANGE #1 (AI2): was "Escape doesn't close". Under the confirmation-never-dirty
+ *        rule (approved.md §1.1), ConsequencePreviewDialog passes isDirty=false ALWAYS — so Esc
+ *        closes whether reason is empty or typed. See architecture.md §Sanctioned changes #1.
  * AC-9: ConsequencePreview confirm button is disabled when reason is empty.
  * AC-10: AppetiteDialog — current appetite is pre-selected; Save disabled without reason.
  * AC-11: Unblock button is present for active status.

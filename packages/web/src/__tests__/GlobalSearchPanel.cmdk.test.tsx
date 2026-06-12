@@ -33,20 +33,31 @@ describe("GlobalSearchPanel Command-K visual (J3)", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("overlay container carries z-50 so it stacks above Settings (z-40)", () => {
+	// SANCTIONED CHANGE #2 (AI2): GlobalSearchPanel migrates from DaisyUI .modal.modal-open
+	// chrome to useDialogBehavior. Both selectors AND the z assertion update:
+	//   - .modal.modal-open → [data-dialog-layer="dialog"]   (selector migration)
+	//   - /z-50/             → data-dialog-layer="dialog"     (assertion — layer attribute proves the band)
+	// The .modal.modal-box chrome is gone; the panel keeps its own palette chrome + 640px max-width.
+	// See architecture.md §Sanctioned assertion changes #2 for full rationale.
+	it("overlay container carries --z-dialog layer so it stacks above Settings (--z-overlay)", () => {
 		const { container } = render(<GlobalSearchPanel {...defaultProps} />);
-		const overlay = container.querySelector(".modal.modal-open");
+		// After migration: the overlay is queried by data-dialog-layer, NOT .modal.modal-open
+		const overlay = container.querySelector('[data-dialog-layer="dialog"]');
 		expect(overlay).not.toBeNull();
-		expect(overlay?.className).toMatch(/z-50/);
+		// The layer attribute itself proves the z-band (--z-dialog = 60, above --z-overlay = 40)
+		expect(overlay?.getAttribute("data-dialog-layer")).toBe("dialog");
 	});
 
 	it("inner box enforces the 640px max-width from the spec", () => {
 		const { container } = render(<GlobalSearchPanel {...defaultProps} />);
-		const box = container.querySelector(".modal-box");
-		expect(box).not.toBeNull();
-		// We accept either the Tailwind arbitrary max-w-[640px] or the
-		// semantically equivalent style attribute.
-		const cls = box?.className ?? "";
+		// After migration: .modal-box is gone; find the palette box by the overlay container
+		// (GlobalSearchPanel uses useDialogBehavior — the overlay and box may collapse to one node)
+		// or by data-testid if the panel emits one. Try the overlay container first, then testid.
+		const overlay = container.querySelector('[data-dialog-layer="dialog"]');
+		expect(overlay).not.toBeNull();
+		// max-w-[640px] SURVIVES — GlobalSearchPanel keeps its palette chrome and 640px max-width.
+		// Re-targeted through [data-dialog-layer="dialog"] instead of the removed .modal-box.
+		const cls = overlay?.className ?? "";
 		const hasArbitraryMax = /max-w-\[640px\]/.test(cls);
 		expect(hasArbitraryMax).toBe(true);
 	});
