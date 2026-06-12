@@ -16,10 +16,13 @@ service:
   port: 3001
 
 ingress:
-  enabled: true
-  # Internal-only host. Set to the real internal domain before first deploy;
-  # must be in the tenant's domain allowlist annotation (platform-enforced).
-  host: hyperidle.internal.example
+  # Disabled until a real host is added to the tenant's allowlist annotation
+  # (platform.infra/allowed-hosts) — a ValidatingAdmissionPolicy rejects any
+  # Ingress whose host isn't allowlisted, which fails the whole helm apply.
+  # The backend runs and is reachable in-cluster via the Service; flip this on
+  # once an allowlisted host (e.g. api.hyperidle.org) is provisioned.
+  enabled: false
+  host: hyperidle.org
   rateLimit: 20
 
 # Drizzle table migrations run as an init-container on every deploy (additive

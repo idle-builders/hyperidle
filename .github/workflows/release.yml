@@ -83,4 +83,15 @@ jobs:
       - name: Summary
         run: |
           echo "### Published desktop release v${VERSION}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- mirror + Homebrew handled by desktop-release.yml" >> "$GITHUB_STEP_SUMMARY"
+          echo "- mirror + Homebrew handled by the distribute job" >> "$GITHUB_STEP_SUMMARY"
+
+  # Publishing via GITHUB_TOKEN does NOT emit `release: published` to other
+  # workflows, so invoke the distribution workflow directly instead of relying
+  # on the event cascade.
+  distribute:
+    needs: [gate, publish]
+    if: needs.gate.outputs.released == 'true'
+    uses: ./.github/workflows/desktop-release.yml
+    with:
+      version: ${{ needs.gate.outputs.version }}
+    secrets: inherit

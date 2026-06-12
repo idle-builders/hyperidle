@@ -260,7 +260,9 @@ describe("P3 AC-11 — credentials:validate handler", () => {
 
 		const result = await validateHandler(null, "anthropic_api_key");
 		expect(typeof result.valid).toBe("boolean");
-	});
+		// Hits the real provider catalog to validate the key — give it headroom
+		// beyond the 5s default so it doesn't flake under full-suite load.
+	}, 20_000);
 
 	it("credentials:validate for absent credential returns { valid: false }", async () => {
 		const { ipcMain } = await import("electron");
