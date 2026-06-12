@@ -19,7 +19,7 @@
  * #12: Emoji 💭 replaced with an SVG reasoning icon.
  */
 
-import { formatMoney } from "@hyperidle/shared";
+import { clockTime, formatMoney } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import type { ActivityEntry } from "../hooks/useSessionActivity.js";
 import { useSessionActivity } from "../hooks/useSessionActivity.js";
@@ -42,11 +42,7 @@ function ReasoningIcon(): JSX.Element {
 }
 
 function ActivityEntryRow({ entry }: { entry: ActivityEntry }): JSX.Element | null {
-	const time = new Date(entry.timestamp).toLocaleTimeString(undefined, {
-		hour: "2-digit",
-		minute: "2-digit",
-		second: "2-digit",
-	});
+	const time = clockTime(entry.timestamp, { seconds: true });
 
 	if (entry.type === "tool_call") {
 		const { toolName, argsSummary } = entry.data;
@@ -70,7 +66,10 @@ function ActivityEntryRow({ entry }: { entry: ActivityEntry }): JSX.Element | nu
 						<p className="text-[11px] text-[var(--text-tertiary)] truncate">{argsSummary}</p>
 					)}
 				</div>
-				<span className="flex-shrink-0 text-[10px] text-[var(--text-tertiary)] font-mono">
+				<span
+					data-testid="activity-time"
+					className="flex-shrink-0 text-[10px] text-[var(--text-tertiary)] font-mono"
+				>
 					{time}
 				</span>
 			</div>
@@ -86,7 +85,10 @@ function ActivityEntryRow({ entry }: { entry: ActivityEntry }): JSX.Element | nu
 					<ReasoningIcon />
 				</span>
 				<p className="flex-1 text-[12px] text-[var(--text-secondary)] italic">{excerpt}</p>
-				<span className="flex-shrink-0 text-[10px] text-[var(--text-tertiary)] font-mono">
+				<span
+					data-testid="activity-time"
+					className="flex-shrink-0 text-[10px] text-[var(--text-tertiary)] font-mono"
+				>
 					{time}
 				</span>
 			</div>
@@ -104,7 +106,12 @@ function ActivityEntryRow({ entry }: { entry: ActivityEntry }): JSX.Element | nu
 					+{formatMoney({ minor: deltaMinor, currency: cur })} / total{" "}
 					{formatMoney({ minor: totalMinor, currency: cur })}
 				</span>
-				<span className="ml-auto text-[10px] text-[var(--text-tertiary)] font-mono">{time}</span>
+				<span
+					data-testid="activity-time"
+					className="ml-auto text-[10px] text-[var(--text-tertiary)] font-mono"
+				>
+					{time}
+				</span>
 			</div>
 		);
 	}

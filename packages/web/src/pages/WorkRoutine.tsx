@@ -22,7 +22,7 @@ import {
 	StatusChip,
 } from "@hyperidle/design-system";
 import type { RoutineBudget, RoutineDetail, RoutineRunSummary } from "@hyperidle/shared";
-import { formatMoney } from "@hyperidle/shared";
+import { absoluteDate, absoluteDateTime, formatMoney } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useRoutine } from "../hooks/useRoutine.js";
@@ -165,7 +165,7 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 
 	const lastRunLabel =
 		routine.lastRunAt != null
-			? `${new Date(routine.lastRunAt).toLocaleString()}${routine.lastRunOutcome ? ` — ${routine.lastRunOutcome}` : ""}`
+			? `${absoluteDateTime(routine.lastRunAt)}${routine.lastRunOutcome ? ` — ${routine.lastRunOutcome}` : ""}`
 			: "Never";
 
 	return (
@@ -216,15 +216,23 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 					<KeyValue label="Autonomy level" value={autonomyLabel} />
 					<KeyValue
 						label="Next run"
-						value={
-							routine.nextRunAt ? new Date(routine.nextRunAt).toLocaleString() : "On next event"
-						}
+						value={routine.nextRunAt ? absoluteDateTime(routine.nextRunAt) : "On next event"}
 					/>
 					{/* AA3: Cumulative cost and cost caps moved to Budget section */}
 					<KeyValue label="Last run" value={lastRunLabel} />
 					{/* AA2: created date (always shown when present) */}
 					{routine.createdAt && (
-						<KeyValue label="Created" value={new Date(routine.createdAt).toLocaleDateString()} />
+						<div className="flex flex-row gap-[6px] items-center justify-between">
+							<span className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]">
+								Created
+							</span>
+							<span
+								className="text-[15px] text-[var(--text-primary)]"
+								data-testid="routine-created"
+							>
+								{absoluteDate(routine.createdAt)}
+							</span>
+						</div>
 					)}
 				</div>
 
@@ -412,7 +420,7 @@ function RunRow({ run, isLast }: { run: RoutineRunSummary; isLast: boolean }): J
 		>
 			{/* Time — flex-1 mono */}
 			<span className="flex-1 text-[11px] font-mono text-[var(--text-tertiary)]">
-				{new Date(run.startedAt).toLocaleString()}
+				{absoluteDateTime(run.startedAt)}
 			</span>
 
 			{/* Duration — 60px right tabular */}

@@ -38,6 +38,7 @@ import type {
 	KnowledgeTopicHealth,
 } from "@hyperidle/fabric/types";
 import { KNOWLEDGE_SORT_OPTIONS } from "@hyperidle/fabric/types";
+import { relativeShort } from "@hyperidle/shared";
 import { type JSX, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { KnowledgeTopicGroup } from "../components/KnowledgeTopicGroup";
@@ -45,7 +46,6 @@ import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useFetch } from "../hooks/useFetch";
 import { useHint } from "../hooks/useHints";
 import { apiFetch } from "../services/api-fetch.js";
-import { relativeTime } from "../utils/relative-time";
 import { SCOPE_PILL_OPTIONS, type ScopePillOption } from "../utils/scope-labels";
 
 type KnowledgeTab = "triage" | "curated";
@@ -696,7 +696,7 @@ function KnowledgeListContent({
 											title={item.title}
 											preview={item.body?.slice(0, 120) || null}
 											status={toKnowledgeStatus(item.status)}
-											timestamp={relativeTime(item.updatedAt)}
+											timestamp={relativeShort(item.updatedAt)}
 											isPrivate={isPrivate}
 											showActions
 											isFocused={focusedIndex === index}
@@ -794,7 +794,7 @@ function KnowledgeListContent({
 											title={item.title}
 											preview={item.body?.slice(0, 120) || null}
 											status={toKnowledgeStatus(item.status)}
-											timestamp={relativeTime(item.updatedAt)}
+											timestamp={relativeShort(item.updatedAt)}
 											isPrivate={isPrivate}
 											onClick={() => onNavigate(item.id)}
 										/>

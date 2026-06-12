@@ -31,6 +31,7 @@ import {
 	deriveBlocks,
 	formatMoney,
 	isRedactedPayload,
+	relativeLong,
 	scaleForCurrency,
 } from "@hyperidle/shared";
 import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
@@ -100,24 +101,6 @@ function taskStateBadgeClass(state: string): string {
 	if (state === "blocked") return `${base} bg-[rgba(200,60,30,0.08)] text-[var(--status-error)]`;
 	if (state === "review") return `${base} bg-[rgba(217,119,6,0.08)] text-[var(--accent-secondary)]`;
 	return `${base} bg-[var(--surface-container)] text-[var(--text-secondary)]`;
-}
-
-/**
- * Format an ISO timestamp as a simple relative time label.
- * Duplicated from WorkTask for locality — both pages are self-contained.
- */
-function formatTaskRelativeTime(isoString: string | null | undefined): string {
-	if (!isoString) return "";
-	const diffMs = Date.now() - new Date(isoString).getTime();
-	if (Number.isNaN(diffMs)) return "";
-	const diffSec = Math.floor(diffMs / 1000);
-	if (diffSec < 60) return "just now";
-	const diffMin = Math.floor(diffSec / 60);
-	if (diffMin < 60) return `${diffMin}m ago`;
-	const diffH = Math.floor(diffMin / 60);
-	if (diffH < 24) return `${diffH}h ago`;
-	const diffD = Math.floor(diffH / 24);
-	return `${diffD}d ago`;
 }
 
 /**
@@ -1642,7 +1625,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 							<div className="flex flex-col">
 								{sortedTasks.map((task) => {
 									const stateLabel = TASK_STATE_LABEL[task.state] ?? task.state;
-									const relTime = formatTaskRelativeTime(task.startedAt);
+									const relTime = task.startedAt ? relativeLong(task.startedAt) : "";
 									const metaParts = [task.owner, stateLabel, relTime].filter(Boolean);
 									return (
 										<button
