@@ -1,4 +1,5 @@
 import { type JSX, useEffect, useRef, useState } from "react";
+import { Menu, type MenuItem } from "./Menu.js";
 
 export interface BlockAction {
 	id: string;
@@ -31,6 +32,11 @@ const COPY_FEEDBACK_MS = 1500;
  *
  * @lore The "copy" item rotates its label to "Copied" for 1500ms after
  * invocation; the popover then closes automatically.
+ *
+ * @lore AG5 C1: Refactored to render through <Menu> — BlockActionsPopover is now a thin
+ * wrapper. Menu owns: role=menu container, item chrome, Escape, click-outside, keyboard nav.
+ * BlockActionsPopover owns: copy-feedback label flip, aria-live region, id/aria-controls wiring.
+ * This eliminates the duplicate menu anatomy that AG5 was created to kill.
  */
 export function BlockActionsPopover({
 	id,
@@ -44,18 +50,6 @@ export function BlockActionsPopover({
 	const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	useEffect(() => {
-		if (!open) return;
-		const onKey = (e: KeyboardEvent): void => {
-			if (e.key === "Escape") {
-				e.stopPropagation();
-				onClose();
-			}
-		};
-		document.addEventListener("keydown", onKey);
-		return () => document.removeEventListener("keydown", onKey);
-	}, [open, onClose]);
-
-	useEffect(() => {
 		return () => {
 			if (closeTimer.current) clearTimeout(closeTimer.current);
 		};
@@ -65,6 +59,31 @@ export function BlockActionsPopover({
 
 	const isCopied = copiedAt !== null && Date.now() - copiedAt < COPY_FEEDBACK_MS;
 
+	const menuItems: MenuItem[] = items.map((item) => {
+		const isCopyItem = item.id === "copy";
+		const label = isCopyItem && isCopied ? "Copied" : item.label;
+
+		return {
+			id: item.id,
+			label,
+			shortcut: item.shortcut,
+			disabled: item.disabled,
+			onSelect: () => {
+				if (item.disabled) return;
+				item.onSelect();
+				if (isCopyItem) {
+					setAnnounce("Copied");
+					setCopiedAt(Date.now());
+					if (closeTimer.current) clearTimeout(closeTimer.current);
+					closeTimer.current = setTimeout(() => {
+						setCopiedAt(null);
+						onClose();
+					}, COPY_FEEDBACK_MS);
+				}
+			},
+		};
+	});
+
 	return (
 		<div
 			id={id}
@@ -72,44 +91,8 @@ export function BlockActionsPopover({
 			data-testid="block-actions-popover"
 			data-ds-tier="2"
 			data-ds-source="design-system"
-			role="menu"
-			className="absolute z-50 min-w-[200px] bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-default)] shadow-[var(--shadow-elevated)] p-[3px] flex flex-col gap-[3px]"
 		>
-			{items.map((item) => {
-				const isCopyItem = item.id === "copy";
-				const label = isCopyItem && isCopied ? "Copied" : item.label;
-				return (
-					<button
-						key={item.id}
-						type="button"
-						role="menuitem"
-						aria-disabled={item.disabled || undefined}
-						disabled={item.disabled}
-						onClick={() => {
-							if (item.disabled) return;
-							item.onSelect();
-							if (isCopyItem) {
-								setAnnounce("Copied");
-								setCopiedAt(Date.now());
-								if (closeTimer.current) clearTimeout(closeTimer.current);
-								closeTimer.current = setTimeout(() => {
-									setCopiedAt(null);
-									onClose();
-								}, COPY_FEEDBACK_MS);
-							}
-						}}
-						className="text-left text-[length:var(--text-sm,13px)] text-[var(--text-primary)] px-[12px] py-[9px] rounded-[var(--r-subtle)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] disabled:opacity-50 flex items-center justify-between gap-[12px]"
-						style={isCopyItem && isCopied ? { color: "var(--status-success)" } : undefined}
-					>
-						<span>{label}</span>
-						{item.shortcut ? (
-							<span className="font-mono text-[11px] text-[var(--text-tertiary)]">
-								{item.shortcut}
-							</span>
-						) : null}
-					</button>
-				);
-			})}
+			<Menu open={open} onClose={onClose} items={menuItems} label="Block actions" align="end" />
 			<span id={liveRegionId} aria-live="polite" className="sr-only">
 				{announce}
 			</span>
