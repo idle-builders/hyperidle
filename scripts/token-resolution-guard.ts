@@ -117,7 +117,7 @@ export function findUndefinedReferences(
 }
 
 // ---------------------------------------------------------------------------
-// File walker (same pattern as nimmly-guard.ts)
+// File walker (same pattern as the other guard scripts in scripts/)
 // ---------------------------------------------------------------------------
 
 const SKIP_EXTENSIONS_SUFFIX = [".d.ts", ".d.ts.map"];

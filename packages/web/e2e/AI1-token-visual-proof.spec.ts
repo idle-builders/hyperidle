@@ -14,11 +14,7 @@ import { expect, test } from "./fixtures";
 const SCREENSHOTS_DIR = path.resolve(import.meta.dirname, "../../../plans/AI1/screenshots");
 
 /** Thread row shape per packages/web/src/hooks/useConversationsThreads.ts */
-function makeThreadRow(
-	id: string,
-	title: string,
-	blocking = false,
-): Record<string, unknown> {
+function makeThreadRow(id: string, title: string, blocking = false): Record<string, unknown> {
 	return {
 		id,
 		hostKind: "task",
