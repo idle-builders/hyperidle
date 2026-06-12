@@ -41,7 +41,7 @@ ruleTester.run("no-handrolled-select", noHandrolledSelect, {
 		// A plain <select> without the DaisyUI marker classes is not flagged
 		{
 			filename: "packages/web/src/pages/Foo.tsx",
-			code: 'const J = <select value={v} onChange={onChange} />;',
+			code: "const J = <select value={v} onChange={onChange} />;",
 		},
 	],
 	invalid: [

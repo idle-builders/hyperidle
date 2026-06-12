@@ -117,7 +117,6 @@ test("AG5-S2: BetCreateDialog — team Select control is full-width", async ({ p
 	// The inner <select> must be full-width (not narrowed by wrapper)
 	const selectEl = teamSelect.locator("select");
 	const box = await selectEl.boundingBox();
-	const dialogBox = await dialog.boundingBox();
 	expect(box).not.toBeNull();
 	// Full-width means close to the dialog/form width — at least 200px
 	expect(box!.width).toBeGreaterThan(200);
@@ -130,13 +129,8 @@ test("AG5-S2b: WorkBet — currency Select control bounding box ≈ 88px (C3)", 
 	await setupBetRoutes(page);
 	await page.goto(`/work/bets/${BET_ID}`);
 
-	// The currency select is the one with className containing w-[88px]
-	// After migration it renders as a canonical Select primitive
-	const currencySelect = page.locator("[data-ds-component='Select'] select").filter({
-		// Currency select is narrow — all others are wider
-	});
-
 	// Find the narrow select among all selects on the page
+	// The currency select is the w-[88px] one — narrow compared to full-width form selects
 	const allSelects = page.locator("[data-ds-component='Select'] select");
 	const count = await allSelects.count();
 	expect(count).toBeGreaterThan(0);
@@ -150,7 +144,9 @@ test("AG5-S2b: WorkBet — currency Select control bounding box ≈ 88px (C3)", 
 			break;
 		}
 	}
-	expect(foundNarrow, "expected a ~88px-wide currency select control on the WorkBet page").toBe(true);
+	expect(foundNarrow, "expected a ~88px-wide currency select control on the WorkBet page").toBe(
+		true,
+	);
 });
 
 // ─── Surface 3: RoutineCreateDialog ──────────────────────────────────────────
@@ -177,7 +173,9 @@ test("AG5-S3: RoutineCreateDialog — canonical Select primitives render", async
 
 // ─── Surface 4: WorkBet overflow Menu — keyboard navigation ──────────────────
 
-test("AG5-S4: WorkBet overflow Menu — open, keyboard nav (ArrowDown+Enter), close", async ({ page }) => {
+test("AG5-S4: WorkBet overflow Menu — open, keyboard nav (ArrowDown+Enter), close", async ({
+	page,
+}) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await setupBetRoutes(page);
 	await page.goto(`/work/bets/${BET_ID}`);
@@ -212,7 +210,9 @@ test("AG5-S4: WorkBet overflow Menu — open, keyboard nav (ArrowDown+Enter), cl
 
 // ─── Surface 4b: WorkBet overflow Menu — bet action data attrs preserved ─────
 
-test("AG5-S4b: WorkBet overflow Menu — data-bet-action attrs present on items (C4)", async ({ page }) => {
+test("AG5-S4b: WorkBet overflow Menu — data-bet-action attrs present on items (C4)", async ({
+	page,
+}) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await setupBetRoutes(page);
 	await page.goto(`/work/bets/${BET_ID}`);
