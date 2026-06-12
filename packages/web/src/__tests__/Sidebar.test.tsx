@@ -37,8 +37,8 @@ const defaultProps = {
 	activeTeamId: null,
 	onSelectTeam: vi.fn(),
 	// W3 AC-3: activeScope/onSelectScope removed — scope pills are now in KnowledgeList
-	onCocClick: vi.fn(),
-	cocOverlayOpen: false,
+	onAssistantClick: vi.fn(),
+	assistantOverlayOpen: false,
 	onSettingsClick: vi.fn(),
 	settingsOpen: false,
 	onSearchClick: vi.fn(),
@@ -301,19 +301,19 @@ describe("Sidebar — AC-9: CoC trigger", () => {
 		expect(screen.getByRole("button", { name: /assistant/i })).toBeInTheDocument();
 	});
 
-	it("clicking CoC trigger calls onCocClick", async () => {
+	it("clicking Assistant trigger calls onAssistantClick", async () => {
 		const user = userEvent.setup();
-		const onCocClick = vi.fn();
-		render(<Sidebar {...defaultProps} onCocClick={onCocClick} />);
+		const onAssistantClick = vi.fn();
+		render(<Sidebar {...defaultProps} onAssistantClick={onAssistantClick} />);
 		await user.click(screen.getByRole("button", { name: /assistant/i }));
-		expect(onCocClick).toHaveBeenCalledOnce();
+		expect(onAssistantClick).toHaveBeenCalledOnce();
 	});
 
-	it("CoC trigger is in the sidebar bottom strip (below main section content)", () => {
+	it("Assistant trigger is in the sidebar bottom strip (below main section content)", () => {
 		const { container } = render(<Sidebar {...defaultProps} />);
 		const bottomStrip = container.querySelector("[data-sidebar-bottom]");
 		expect(bottomStrip).toBeInTheDocument();
-		// W3 AC-1: "Assistant" button is the CoC trigger in the bottom strip
+		// W3 AC-1: "Assistant" button in the bottom strip
 		const cocButton = bottomStrip?.querySelector("button[aria-label='Assistant']");
 		expect(cocButton).toBeInTheDocument();
 	});

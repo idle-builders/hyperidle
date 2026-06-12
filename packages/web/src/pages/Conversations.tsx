@@ -35,7 +35,7 @@ import {
 import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
 import { BlockRefEmbed } from "../components/BlockRefEmbed.js";
 import { SessionActivityPanel } from "../components/SessionActivityPanel";
-import type { ConversationsFilter, ConversationsToggleFilter } from "../components/ThreadSections";
+import type { ConversationsFilter } from "../components/ThreadSections";
 import { ThreadSections } from "../components/ThreadSections";
 import { useHint } from "../hooks/useHints";
 import { useThreadDetail } from "../hooks/useThreadDetail";
@@ -46,38 +46,8 @@ import { ArtifactView } from "../shell/ArtifactView";
 import { ToastContext } from "../shell/ToastRegion";
 
 // ---------------------------------------------------------------------------
-// FilterChip — custom chip matching the mockup's .filter-chip style.
-// Not a DaisyUI btn — uses border/pill shape per visual parity spec.
-// hearth-internal-padding
-// ---------------------------------------------------------------------------
-function FilterChip({
-	label,
-	active,
-	onToggle,
-}: {
-	label: string;
-	active: boolean;
-	onToggle: () => void;
-}): JSX.Element {
-	return (
-		<button
-			type="button"
-			aria-pressed={active}
-			onClick={onToggle}
-			style={{ padding: "4px 12px" }}
-			className={[
-				"inline-flex items-center text-[12px] font-[500] rounded-[var(--r-pill)]",
-				"border-[1.5px] cursor-pointer transition-colors duration-[var(--motion-default)]",
-				"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]",
-				active
-					? "border-[var(--accent-primary)] bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)]"
-					: "border-[var(--border-default)] bg-transparent text-[var(--text-secondary)]",
-			].join(" ")}
-		>
-			{label}
-		</button>
-	);
-}
+// AF14 AC4: Blocking/Unread chip bar removed from Conversations page — neither chip
+// matched real state. The blocking/unread fields remain on ThreadItem for AF7 forward-compat.
 
 /**
  * T4: renderRefEmbeds for Conversations — builds BlockRefEmbed cards for block refs.
@@ -494,14 +464,9 @@ export function Conversations(): JSX.Element {
 	};
 	const navigate = useNavigate();
 
-	// W3 AC-6 (lifted): toggle filter state lives at page level so filter chips
-	// render inline in the header bar (visual parity with mockup). ThreadSections
-	// receives toggleFilter + onToggleFilter props and skips rendering its own
-	// chip bar in controlled mode.
-	const [toggleFilter, setToggleFilter] = useState<ConversationsToggleFilter>({
-		blocking: false,
-		unread: false,
-	});
+	// AF14 AC4: toggleFilter state removed — Blocking/Unread chips never matched
+	// real state (unread has no backing concept; blocking lands in AF7).
+	// The header now shows title + New-thread button only.
 
 	const handleSelectThread = useCallback(
 		(id: string): void => {
@@ -530,23 +495,8 @@ export function Conversations(): JSX.Element {
 						<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] shrink-0">
 							Conversations
 						</h2>
-						{/* W3 AC-6: filter chips inline with title in header — hidden in empty state */}
-						{!isEmpty && (
-							<div className="flex items-center gap-[6px]">
-								<FilterChip
-									label="Blocking"
-									active={toggleFilter.blocking}
-									onToggle={() =>
-										setToggleFilter((prev) => ({ ...prev, blocking: !prev.blocking }))
-									}
-								/>
-								<FilterChip
-									label="Unread"
-									active={toggleFilter.unread}
-									onToggle={() => setToggleFilter((prev) => ({ ...prev, unread: !prev.unread }))}
-								/>
-							</div>
-						)}
+						{/* AF14 AC4: Blocking/Unread filter chips removed — never matched real state.
+						    Header: title (left) + New-thread button (right) only. */}
 					</div>
 					{/* W3 AC-8: New thread button in header — only shown when threads exist.
 					    In empty state the action lives inside the EmptyState card. */}
@@ -613,8 +563,6 @@ export function Conversations(): JSX.Element {
 						activeFilter={conversationsFilter}
 						onClearFilter={onClearFilter}
 						groupBySection={false}
-						toggleFilter={toggleFilter}
-						onToggleFilter={setToggleFilter}
 					/>
 				)}
 			</div>

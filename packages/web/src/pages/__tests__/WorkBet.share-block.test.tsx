@@ -4,14 +4,14 @@
  * RED phase: tests verify that:
  *  - BlockActionsPopover in WorkBet includes "Share" action alongside "Discuss"
  *  - Clicking "Share" calls attachContext with the correct block ref shape
- *  - CocAttachButton renders on blocks when overlay is open
+ *  - AssistantAttachButton renders on blocks when overlay is open
  */
 
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
-import { CocContext, type CocContextRef } from "../../contexts/CocContext";
+import { AssistantContext, type AssistantContextRef } from "../../contexts/AssistantContext";
 import type { BetDetail } from "../../types/bet";
 import { WorkBet } from "../WorkBet";
 
@@ -94,9 +94,9 @@ const betWithPitch: BetDetail = {
 function renderWithContext(attachContext = vi.fn(), overlayOpen = true) {
 	return render(
 		<MemoryRouter>
-			<CocContext.Provider value={{ overlayOpen, attachContext }}>
+			<AssistantContext.Provider value={{ overlayOpen, attachContext }}>
 				<WorkBet overrideBet={betWithPitch} />
-			</CocContext.Provider>
+			</AssistantContext.Provider>
 		</MemoryRouter>,
 	);
 }
@@ -129,48 +129,48 @@ describe("T4 — WorkBet: 'Share' action in BlockActionsPopover (AC-3)", () => {
 	});
 });
 
-describe("T4 — WorkBet: CocAttachButton on blocks (AC-4)", () => {
-	it("renders CocAttachButton inside bet-pitch blocks when overlay is open", () => {
+describe("T4 — WorkBet: AssistantAttachButton on blocks (AC-4)", () => {
+	it("renders AssistantAttachButton inside bet-pitch blocks when overlay is open", () => {
 		renderWithContext(vi.fn(), true);
 		// The bet-pitch renders blocks. When overlayOpen=true, each block should
-		// have a CocAttachButton ("+") visible inside the pitch section.
+		// have an AssistantAttachButton ("+") visible inside the pitch section.
 		const betPitch = screen.queryByTestId("bet-pitch");
 		if (!betPitch) return; // no pitch
 
-		const pitchAttachButtons = betPitch.querySelectorAll('[data-testid="coc-attach-button"]');
+		const pitchAttachButtons = betPitch.querySelectorAll('[data-testid="assistant-attach-button"]');
 		// At least one block attach button should be present
 		expect(pitchAttachButtons.length).toBeGreaterThan(0);
 	});
 
-	it("CocAttachButton not rendered inside bet-pitch when overlay is closed", () => {
+	it("AssistantAttachButton not rendered inside bet-pitch when overlay is closed", () => {
 		renderWithContext(vi.fn(), false);
-		// When overlayOpen=false, CocAttachButton returns null
+		// When overlayOpen=false, AssistantAttachButton returns null
 		const betPitch = screen.queryByTestId("bet-pitch");
 		if (!betPitch) return;
 
-		const pitchAttachButtons = betPitch.querySelectorAll('[data-testid="coc-attach-button"]');
+		const pitchAttachButtons = betPitch.querySelectorAll('[data-testid="assistant-attach-button"]');
 		expect(pitchAttachButtons.length).toBe(0);
 	});
 });
 
 describe("T4 — WorkBet: clicking '+' attach button calls attachContext (AC-5)", () => {
-	it("clicking CocAttachButton on a bet pitch block calls attachContext with block ref shape", async () => {
+	it("clicking AssistantAttachButton on a bet pitch block calls attachContext with block ref shape", async () => {
 		const user = userEvent.setup();
 		const attachContext = vi.fn();
 		renderWithContext(attachContext, true);
 
-		// The block-level CocAttachButtons are inside the "bet-pitch" section
+		// The block-level AssistantAttachButtons are inside the "bet-pitch" section
 		const betPitch = screen.queryByTestId("bet-pitch");
 		if (!betPitch) return; // no pitch in test fixture
 
 		// Find attach buttons inside the pitch (these are block-level, not bet-level)
-		const pitchAttachButtons = betPitch.querySelectorAll('[data-testid="coc-attach-button"]');
+		const pitchAttachButtons = betPitch.querySelectorAll('[data-testid="assistant-attach-button"]');
 		if (pitchAttachButtons.length === 0) return; // no blocks rendered
 
 		await user.click(pitchAttachButtons[0] as HTMLElement);
 
 		expect(attachContext).toHaveBeenCalledOnce();
-		const calledRef = attachContext.mock.calls[0]![0] as CocContextRef;
+		const calledRef = attachContext.mock.calls[0]![0] as AssistantContextRef;
 		expect(calledRef.kind).toBe("block");
 		// Block refs must carry blockId, hostKind, hostId
 		expect("blockId" in calledRef).toBe(true);

@@ -3,7 +3,7 @@
  *
  * RED phase: tests verify that:
  *  - BlockActionsPopover in KnowledgeDetail includes "Share" alongside "Discuss"
- *  - CocAttachButton renders on blocks when overlay is open
+ *  - AssistantAttachButton renders on blocks when overlay is open
  *  - Clicking "+" on a knowledge body block calls attachContext with block ref shape
  */
 
@@ -11,7 +11,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
-import { CocContext, type CocContextRef } from "../../contexts/CocContext";
+import { AssistantContext, type AssistantContextRef } from "../../contexts/AssistantContext";
 import { KnowledgeDetail } from "../KnowledgeDetail";
 
 // ---------------------------------------------------------------------------
@@ -50,15 +50,15 @@ vi.mock("../../pages/knowledge/ScopeChangeDialog", () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Helper: render KnowledgeDetail for k1 (has content) with CocContext
+// Helper: render KnowledgeDetail for k1 (has content) with AssistantContext
 // ---------------------------------------------------------------------------
 
 function renderKnowledgeDetail(attachContext = vi.fn(), overlayOpen = true) {
 	return render(
 		<MemoryRouter initialEntries={["/knowledge/k1"]}>
-			<CocContext.Provider value={{ overlayOpen, attachContext }}>
+			<AssistantContext.Provider value={{ overlayOpen, attachContext }}>
 				<KnowledgeDetail overrideKnowledgeId="k1" />
-			</CocContext.Provider>
+			</AssistantContext.Provider>
 		</MemoryRouter>,
 	);
 }
@@ -93,38 +93,38 @@ describe("T4 — KnowledgeDetail: 'Share' in BlockActionsPopover (AC-3)", () => 
 	});
 });
 
-describe("T4 — KnowledgeDetail: CocAttachButton on blocks (AC-4)", () => {
-	it("renders CocAttachButton on knowledge body blocks when overlay is open", () => {
+describe("T4 — KnowledgeDetail: AssistantAttachButton on blocks (AC-4)", () => {
+	it("renders AssistantAttachButton on knowledge body blocks when overlay is open", () => {
 		renderKnowledgeDetail(vi.fn(), true);
 		// k1 has content -> KnowledgeBody renders blocks
-		// Each block should have a CocAttachButton when overlayOpen=true
+		// Each block should have an AssistantAttachButton when overlayOpen=true
 		const bodyEl = screen.queryByTestId("knowledge-body");
 		if (bodyEl) {
 			const blocks = bodyEl.querySelectorAll("[data-block-id]");
 			if (blocks.length > 0) {
-				// CocAttachButton should be present in the knowledge body area
-				const attachButtons = screen.getAllByTestId("coc-attach-button");
+				// AssistantAttachButton should be present in the knowledge body area
+				const attachButtons = screen.getAllByTestId("assistant-attach-button");
 				expect(attachButtons.length).toBeGreaterThan(0);
 			}
 		}
 	});
 
-	it("CocAttachButton not rendered when overlay is closed", () => {
+	it("AssistantAttachButton not rendered when overlay is closed", () => {
 		renderKnowledgeDetail(vi.fn(), false);
-		// When overlayOpen=false, CocAttachButton returns null
+		// When overlayOpen=false, AssistantAttachButton returns null
 		// There should be no attach buttons visible
-		const betCard = screen.queryByTestId("coc-attach-button");
+		const betCard = screen.queryByTestId("assistant-attach-button");
 		expect(betCard).not.toBeInTheDocument();
 	});
 });
 
 describe("T4 — KnowledgeDetail: clicking '+' calls attachContext (AC-5)", () => {
-	it("clicking CocAttachButton calls attachContext with block ref for knowledge_item", async () => {
+	it("clicking AssistantAttachButton calls attachContext with block ref for knowledge_item", async () => {
 		const user = userEvent.setup();
 		const attachContext = vi.fn();
 		renderKnowledgeDetail(attachContext, true);
 
-		const attachButtons = screen.queryAllByTestId("coc-attach-button");
+		const attachButtons = screen.queryAllByTestId("assistant-attach-button");
 		if (attachButtons.length === 0) return; // no blocks rendered from k1 content
 
 		const firstBtn = attachButtons[0];
@@ -132,7 +132,7 @@ describe("T4 — KnowledgeDetail: clicking '+' calls attachContext (AC-5)", () =
 		await user.click(firstBtn);
 
 		expect(attachContext).toHaveBeenCalledOnce();
-		const calledRef = attachContext.mock.calls[0]![0] as CocContextRef;
+		const calledRef = attachContext.mock.calls[0]![0] as AssistantContextRef;
 		expect(calledRef.kind).toBe("block");
 		if ("hostKind" in calledRef) {
 			expect(calledRef.hostKind).toBe("knowledge_item");

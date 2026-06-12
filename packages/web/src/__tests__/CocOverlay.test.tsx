@@ -1,21 +1,13 @@
 /**
- * L21 — CocOverlay component tests (RED phase).
+ * AF14 — AssistantOverlay component tests (AF14: renamed from CocOverlay).
  *
  * Acceptance criteria:
- *   AC-5: Clicking trigger opens CocOverlay (integrated via AppShell tests).
- *   AC-6: CocOverlay uses ThreadShell in assistant configuration (hostKind="user", pinned=true).
+ *   AC-5: Clicking trigger opens AssistantOverlay (integrated via AppShell tests).
+ *   AC-6: AssistantOverlay uses ThreadShell in assistant configuration (hostKind="user", pinned=true).
  *   AC-7: Context attachment: adding a bet creates a ref chip above the composer.
  *   AC-8: Assistant thread is user-attached (hostKind="user"), never bet/task.
  *   AC-9: Overlay closes on Escape key.
- *   AC-10: CocContext.overlayOpen is true when overlay is open.
- *
- * Tests import CocOverlay from shell/CocOverlay (not yet created — will FAIL
- * until the green phase creates it).
- *
- * @lore L21 RED phase: vi.mock must be at module top level in Vitest. The
- * useCocThread mock below provides a stable ready state for all tests in
- * this describe block. Loading-state is tested in a sibling describe with
- * a dedicated mock factory (not vi.doMock which is hoisting-incompatible).
+ *   AC-10: AssistantContext.overlayOpen is true when overlay is open.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -23,14 +15,16 @@ import userEvent from "@testing-library/user-event";
 import { createRef, useContext } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CocContext, type CocContextRef, type CocContextValue } from "../contexts/CocContext";
-// These imports will FAIL until the green phase creates these modules.
-// That's expected — this is the RED phase.
-import { CocOverlay } from "../shell/CocOverlay";
+import {
+	AssistantContext,
+	type AssistantContextRef,
+	type AssistantContextValue,
+} from "../contexts/AssistantContext";
+import { AssistantOverlay } from "../shell/AssistantOverlay";
 
-// Module-level mock: provides a "ready" assistant thread for all CocOverlay tests.
-vi.mock("../hooks/useCocThread", () => ({
-	useCocThread: () => ({
+// Module-level mock: provides a "ready" assistant thread for all AssistantOverlay tests.
+vi.mock("../hooks/useAssistantThread", () => ({
+	useAssistantThread: () => ({
 		status: "ready",
 		data: {
 			thread: {
@@ -60,13 +54,13 @@ const mockAnchorRef = createRef<HTMLButtonElement>();
 
 function renderOverlay(
 	open: boolean,
-	contextRefs: ReadonlyArray<CocContextRef> = [],
+	contextRefs: ReadonlyArray<AssistantContextRef> = [],
 	onClose = vi.fn(),
 	onRemoveContextRef = vi.fn(),
 ): ReturnType<typeof render> {
 	return render(
 		<MemoryRouter>
-			<CocOverlay
+			<AssistantOverlay
 				open={open}
 				onClose={onClose}
 				anchorRef={mockAnchorRef}
@@ -77,7 +71,7 @@ function renderOverlay(
 	);
 }
 
-describe("L21 — CocOverlay open/close behavior", () => {
+describe("AF14 — AssistantOverlay open/close behavior", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});
@@ -94,7 +88,6 @@ describe("L21 — CocOverlay open/close behavior", () => {
 		expect(screen.getByRole("dialog")).toBeInTheDocument();
 	});
 
-	// @lore AD8a: aria-label changed from "Chief of Staff conversation" to "Assistant conversation".
 	it("overlay has aria-label='Assistant conversation'", () => {
 		renderOverlay(true);
 		expect(screen.getByRole("dialog", { name: /assistant conversation/i })).toBeInTheDocument();
@@ -116,20 +109,22 @@ describe("L21 — CocOverlay open/close behavior", () => {
 	});
 });
 
-describe("L21 — CocOverlay ThreadShell integration (assistant configuration)", () => {
+describe("AF14 — AssistantOverlay ThreadShell integration (assistant configuration)", () => {
 	it("renders ThreadShell with assistant thread (data-testid='thread-shell')", () => {
 		renderOverlay(true);
 		// ThreadShell renders with the assistant thread.
 		expect(screen.getByTestId("thread-shell")).toBeInTheDocument();
 	});
 
-	// @lore AD8a: display name changed from "Chief of Staff" to "System Agent".
-	it("shows 'System Agent' identity in the thread", () => {
-		renderOverlay(true);
-		// The identities include "System Agent" from the mocked useCocThread.
-		// Multiple elements may carry this text (sr-only heading, identity chips, etc.)
-		// — any match confirms the identity is present in the rendered output.
-		expect(screen.getAllByText(/system agent/i).length).toBeGreaterThan(0);
+	it("shows 'System Agent' identity in the thread (via title or aria-label)", () => {
+		const { container } = renderOverlay(true);
+		// The identities include "System Agent" from the mocked useAssistantThread.
+		// The identity renders as an avatar with title="System Agent" (initials "S" as text).
+		// We query by title attribute since the visible text content is abbreviated.
+		const agentEl =
+			container.querySelector('[title="System Agent"]') ??
+			container.querySelector('[aria-label*="System Agent" i]');
+		expect(agentEl).not.toBeNull();
 	});
 
 	it("renders the composer for sending messages", () => {
@@ -144,7 +139,6 @@ describe("L21 — CocOverlay ThreadShell integration (assistant configuration)",
 		expect(screen.getByText(/no messages yet/i)).toBeInTheDocument();
 	});
 
-	// @lore AD8a: aria-label changed from "Chief of Staff conversation" to "Assistant conversation".
 	it("AC-8: thread hostKind is 'user' — assistant threads never attached to bet/task", () => {
 		renderOverlay(true);
 		// ThreadShell is mounted with the assistant thread; assistant config requires hostKind="user".
@@ -156,9 +150,9 @@ describe("L21 — CocOverlay ThreadShell integration (assistant configuration)",
 	});
 });
 
-describe("L21 — CocOverlay context attachment (AC-7)", () => {
+describe("AF14 — AssistantOverlay context attachment (AC-7)", () => {
 	it("renders context chips above the composer when contextRefs is non-empty", () => {
-		const contextRefs: ReadonlyArray<CocContextRef> = [
+		const contextRefs: ReadonlyArray<AssistantContextRef> = [
 			{ kind: "bet", id: "bet-123", label: "Ambrovia v2" },
 		];
 		renderOverlay(true, contextRefs);
@@ -167,7 +161,7 @@ describe("L21 — CocOverlay context attachment (AC-7)", () => {
 	});
 
 	it("renders a dismiss button for each context chip", () => {
-		const contextRefs: ReadonlyArray<CocContextRef> = [
+		const contextRefs: ReadonlyArray<AssistantContextRef> = [
 			{ kind: "bet", id: "bet-123", label: "Ambrovia v2" },
 			{ kind: "task", id: "task-456", label: "Fix bug" },
 		];
@@ -180,7 +174,7 @@ describe("L21 — CocOverlay context attachment (AC-7)", () => {
 	it("calls onRemoveContextRef with the correct index when a chip is dismissed", async () => {
 		const user = userEvent.setup();
 		const onRemoveContextRef = vi.fn();
-		const contextRefs: ReadonlyArray<CocContextRef> = [
+		const contextRefs: ReadonlyArray<AssistantContextRef> = [
 			{ kind: "bet", id: "bet-123", label: "Ambrovia v2" },
 		];
 		renderOverlay(true, contextRefs, vi.fn(), onRemoveContextRef);
@@ -192,26 +186,26 @@ describe("L21 — CocOverlay context attachment (AC-7)", () => {
 	it("renders no context chips area when contextRefs is empty", () => {
 		renderOverlay(true, []);
 		// No chip containers should be present.
-		expect(screen.queryByTestId("coc-context-chips")).not.toBeInTheDocument();
+		expect(screen.queryByTestId("assistant-context-chips")).not.toBeInTheDocument();
 	});
 
 	it("renders context chips area with test-id when contextRefs is non-empty", () => {
-		const contextRefs: ReadonlyArray<CocContextRef> = [
+		const contextRefs: ReadonlyArray<AssistantContextRef> = [
 			{ kind: "bet", id: "bet-1", label: "My Bet" },
 		];
 		renderOverlay(true, contextRefs);
-		expect(screen.getByTestId("coc-context-chips")).toBeInTheDocument();
+		expect(screen.getByTestId("assistant-context-chips")).toBeInTheDocument();
 	});
 });
 
-describe("L21 — CocContext (AC-10)", () => {
-	it("CocContext is importable and has correct default shape", () => {
+describe("AF14 — AssistantContext (AC-10)", () => {
+	it("AssistantContext is importable and has correct default shape", () => {
 		// Verify the context exports exist and have the expected interface.
 		// The context default value must have overlayOpen=false and attachContext as a function.
-		let capturedValue: CocContextValue | null = null;
+		let capturedValue: AssistantContextValue | null = null;
 
 		function Consumer(): null {
-			capturedValue = useContext(CocContext);
+			capturedValue = useContext(AssistantContext);
 			return null;
 		}
 
@@ -226,7 +220,7 @@ describe("L21 — CocContext (AC-10)", () => {
 		expect(typeof capturedValue!.attachContext).toBe("function");
 	});
 
-	it("CocContext.Provider passes overlayOpen=true to consumers when overlay is open", () => {
+	it("AssistantContext.Provider passes overlayOpen=true to consumers when overlay is open", () => {
 		const mockAttachContext = vi.fn();
 		const contextValue = {
 			overlayOpen: true,
@@ -235,15 +229,15 @@ describe("L21 — CocContext (AC-10)", () => {
 
 		let capturedOverlayOpen = false;
 		function Consumer(): null {
-			const ctx = useContext(CocContext);
+			const ctx = useContext(AssistantContext);
 			capturedOverlayOpen = ctx.overlayOpen;
 			return null;
 		}
 
 		render(
-			<CocContext.Provider value={contextValue}>
+			<AssistantContext.Provider value={contextValue}>
 				<Consumer />
-			</CocContext.Provider>,
+			</AssistantContext.Provider>,
 		);
 
 		expect(capturedOverlayOpen).toBe(true);
@@ -256,18 +250,18 @@ describe("L21 — CocContext (AC-10)", () => {
 			attachContext: mockAttachContext,
 		};
 
-		const testRef: CocContextRef = { kind: "bet", id: "bet-xyz", label: "Test Bet" };
+		const testRef: AssistantContextRef = { kind: "bet", id: "bet-xyz", label: "Test Bet" };
 
 		function Consumer(): null {
-			const { attachContext } = useContext(CocContext);
+			const { attachContext } = useContext(AssistantContext);
 			attachContext(testRef);
 			return null;
 		}
 
 		render(
-			<CocContext.Provider value={contextValue}>
+			<AssistantContext.Provider value={contextValue}>
 				<Consumer />
-			</CocContext.Provider>,
+			</AssistantContext.Provider>,
 		);
 
 		expect(mockAttachContext).toHaveBeenCalledWith(testRef);

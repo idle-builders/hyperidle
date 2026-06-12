@@ -28,6 +28,7 @@ const mk = (overrides: Partial<ThreadItem>): ThreadItem => ({
 	hasUnresolvedReview: false,
 	blocking: false,
 	pinned: false,
+	lastActiveAt: "2026-04-30T12:00:00.000Z",
 	...overrides,
 });
 

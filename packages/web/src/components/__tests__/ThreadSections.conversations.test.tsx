@@ -28,6 +28,7 @@ const mk = (overrides: Partial<ThreadItem>): ThreadItem => ({
 	blocking: overrides.blocking ?? false,
 	pinned: overrides.pinned ?? false,
 	resolvedAt: overrides.resolvedAt,
+	lastActiveAt: overrides.lastActiveAt ?? "2026-04-30T12:00:00.000Z",
 });
 
 describe("groupThreadsForConversations classifier", () => {
