@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en" data-theme="hearth-light">
+<head>
+<meta charset="utf-8" />
+<title>AG1 Variant A — Constrained reading column</title>
+<style>
+  :root{
+    --surface-page:#f5f0e6; --surface-container:#ede7db; --surface-elevated:#fff;
+    --text-primary:#2c241a; --text-secondary:#6b5d4d; --text-tertiary:#9a8d7e;
+    --accent-primary:#16764f; --status-success:#16764f; --status-warning:#d97706; --status-error:#dc4a3a;
+    --border-subtle:#e8e0d0; --r-subtle:10px; --r-default:16px; --r-pill:9999px;
+    --shadow-subtle:0 1px 4px rgba(44,36,26,0.06); --shadow-default:0 4px 12px rgba(44,36,26,0.08);
+    --font-sans:system-ui,-apple-system,"Segoe UI",sans-serif; --font-mono:ui-monospace,"SF Mono",monospace;
+    --tracking-caps:0.08em;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font-sans);background:var(--surface-container);color:var(--text-primary)}
+  /* simulate AppShell: 200px sidebar + main pane */
+  .shell{display:flex;height:100vh;gap:3px;padding:3px}
+  .sidebar{width:200px;flex-shrink:0;background:var(--surface-container);border-radius:var(--r-subtle)}
+  .main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--surface-elevated);border-radius:var(--r-subtle);box-shadow:var(--shadow-subtle);min-width:0}
+  /* the AG1 fix: scroll body + capped centered gutter column */
+  .scrollbody{flex:1;overflow-y:auto}
+  .col{max-width:760px;margin:0 auto;width:100%;padding:24px;display:flex;flex-direction:column;gap:24px}
+
+  .crumb{font-size:11px;color:var(--text-tertiary);font-family:var(--font-mono)}
+  .head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:6px}
+  .title{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:var(--tracking-caps);flex:1}
+  .chip{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:var(--tracking-caps);padding:3px 9px;border-radius:var(--r-pill);background:rgba(22,118,79,0.1);color:var(--accent-primary)}
+  .subline{font-size:12px;color:var(--text-tertiary);margin-top:6px}
+
+  .card{background:var(--surface-container);border-radius:var(--r-subtle);padding:18px}
+  .sectitle{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:var(--tracking-caps);color:var(--text-tertiary);margin-bottom:6px}
+  .sechead{display:flex;align-items:center;margin-bottom:6px}
+  .sechead .sectitle{flex:1;margin-bottom:0}
+  .ghostbtn{font-size:11px;font-weight:600;color:var(--accent-primary);background:none;border:none;cursor:pointer;padding:6px 9px;border-radius:var(--r-pill)}
+
+  .kv{display:flex;align-items:center;justify-content:space-between;gap:6px}
+  .kv__l{font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:var(--tracking-caps);font-weight:500;color:var(--text-tertiary)}
+  .kv__v{font-size:15px;color:var(--text-primary);font-variant-numeric:tabular-nums}
+  .kvlist{display:flex;flex-direction:column;gap:6px}
+  .progress{width:100%;height:6px;border-radius:var(--r-pill);background:var(--border-subtle);margin-top:12px;overflow:hidden}
+  .progress>span{display:block;height:100%;background:var(--accent-primary);border-radius:var(--r-pill)}
+
+  .betcard{display:block;width:100%;text-align:left;background:var(--surface-container);border-radius:var(--r-subtle);padding:18px;border:none;cursor:pointer;margin-bottom:6px}
+  .betcard:hover{background:var(--surface-elevated);box-shadow:var(--shadow-default)}
+  .betrow{display:flex;align-items:center;gap:12px}
+  .betname{flex:1;font-size:13px;font-weight:500}
+  .mono-t{font-size:10px;font-family:var(--font-mono);color:var(--text-tertiary);font-variant-numeric:tabular-nums}
+
+  .listcard{background:var(--surface-container);border-radius:var(--r-subtle);padding:12px}
+  .row{display:flex;align-items:center;gap:9px;min-height:44px;padding:0 6px;border-bottom:1px solid var(--border-subtle)}
+  .row:last-child{border-bottom:none}
+  .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+  .av{width:24px;height:24px;border-radius:50%;background:rgba(22,118,79,0.08);color:var(--accent-primary);font-size:9px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .rname{flex:1;font-size:13px;font-weight:500;min-width:0}
+  .rmeta{font-size:11px;font-family:var(--font-mono);color:var(--text-tertiary);font-variant-numeric:tabular-nums}
+  .customize{font-size:11px;color:var(--accent-primary);background:none;border:none;cursor:pointer;flex-shrink:0}
+  .sidelbl{padding:18px 12px;color:var(--text-tertiary);font-size:12px}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="sidebar"><div class="sidelbl">HyperIdle · sidebar</div></div>
+  <div class="main">
+    <div class="scrollbody">
+      <div class="col">
+        <section>
+          <div class="crumb">← Portfolio</div>
+          <div class="head"><h1 class="title">Growth Experiments</h1><span class="chip">Active</span></div>
+          <div class="subline">Phase: build &nbsp;·&nbsp; Lead: Atlas</div>
+        </section>
+
+        <section class="card">
+          <div class="sectitle">Burn vs Cap</div>
+          <div class="kvlist">
+            <div class="kv"><span class="kv__l">Bet cost</span><span class="kv__v">$4,200.00</span></div>
+            <div class="kv"><span class="kv__l">Routine cost</span><span class="kv__v">$310.00 (this month)</span></div>
+            <div class="kv"><span class="kv__l">Total cost</span><span class="kv__v">$4,510.00</span></div>
+            <div class="kv"><span class="kv__l">Cap</span><span class="kv__v">$8,000.00</span></div>
+            <div class="kv"><span class="kv__l">Capacity</span><span class="kv__v">2 / 4</span></div>
+          </div>
+          <div class="progress"><span style="width:56%"></span></div>
+        </section>
+
+        <section>
+          <div class="sectitle">Active Bets</div>
+          <button class="betcard"><div class="betrow"><span class="betname">Onboarding activation rework</span><span class="chip">Active</span><span class="mono-t">$5,000</span><span class="mono-t">3/8</span></div></button>
+          <button class="betcard"><div class="betrow"><span class="betname">Pricing page A/B test</span><span class="chip">Active</span><span class="mono-t">$3,000</span><span class="mono-t">1/4</span></div></button>
+        </section>
+
+        <section>
+          <div class="sechead"><div class="sectitle">Routines</div><button class="ghostbtn">+ New routine</button></div>
+          <div class="listcard">
+            <div class="row"><span class="dot" style="background:var(--status-success)"></span><span class="rname">Weekly metrics digest</span><span class="av">AT</span><span class="rmeta" style="width:80px">Mon 09:00</span><span class="rmeta" style="width:60px;text-align:right">2d ago</span><span class="rmeta" style="width:54px;text-align:right">$12</span></div>
+            <div class="row"><span class="dot" style="background:var(--status-info, #2e7dba)"></span><span class="rname">Churn alert sweep</span><span class="av">NV</span><span class="rmeta" style="width:80px">Daily</span><span class="rmeta" style="width:60px;text-align:right">5h ago</span><span class="rmeta" style="width:54px;text-align:right">$3</span></div>
+          </div>
+        </section>
+
+        <section>
+          <div class="sechead"><div class="sectitle">Agents</div><button class="ghostbtn">+ Add agent</button></div>
+          <div class="listcard">
+            <div class="row"><span class="dot" style="background:var(--status-success)"></span><span class="av">AT</span><span class="rname">Atlas <span style="color:var(--accent-primary);font-size:10px">— Lead</span></span><span class="rmeta" style="width:48px">active</span><span class="rmeta" style="flex:1">Drafting pricing variants</span><button class="customize">Customize</button></div>
+            <div class="row"><span class="dot" style="background:var(--status-success)"></span><span class="av">NV</span><span class="rname">Nova</span><span class="rmeta" style="width:48px">idle</span><span class="rmeta" style="flex:1">Growth analyst</span><button class="customize">Customize</button></div>
+            <div class="row"><span class="dot" style="background:var(--status-warning)"></span><span class="av">OR</span><span class="rname">Orion</span><span class="rmeta" style="width:48px">idle</span><span class="rmeta" style="flex:1">Content writer</span><button class="customize">Customize</button></div>
+          </div>
+        </section>
+
+        <section>
+          <div class="sectitle">Artifacts</div>
+          <div class="card" style="color:var(--text-tertiary);font-size:13px">Artifacts appear as agents complete tasks for this team.</div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
