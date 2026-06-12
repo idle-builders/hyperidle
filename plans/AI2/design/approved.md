@@ -7,17 +7,58 @@ hatch for the 3 non-box surfaces. One public design-system primitive: **`Dialog`
 
 ## 1. The dismissal/guard rule (locked — do not re-decide)
 
-> A dialog guards dismissal **iff** it holds dirty user input. Escape, backdrop-click, and the
-> close affordance (✕ / Cancel) are *dismissal intents*.
+> A dialog guards dismissal **iff** it holds dirty *authoring* input. Escape, backdrop-click, and
+> the close affordance (✕ / Cancel) are *dismissal intents*.
 > - **Clean** → any dismissal intent closes immediately.
 > - **Dirty** (`isDirty===true`) → first dismissal intent intercepted; footer is replaced by an
->   inline discard strip. "Keep editing" is the safe default (second Esc picks it); "Discard"
->   closes and drops input.
+>   inline discard strip. "Keep editing" is the safe default; "Discard" closes and drops input.
 > - **Non-modal** (`modal={false}`) → no scrim, no backdrop-dismiss, page interactive, focus
 >   moves in but not trapped; Escape still closes (guarded if dirty).
 
 The consumer owns its form state and passes `isDirty`. The primitive owns the consequence. No
 per-surface guard logic anywhere.
+
+### 1.1 Confirmation dialogs are *never dirty* (resolves the scenario-2 conflict)
+
+> **A confirmation dialog never sets `isDirty=true`.** Its body is a decision gate, not authored
+> work. Any text it collects (the kill-bet *reason*, an appetite override note) is re-typed
+> trivially; losing it is not the headline harm the guard exists to prevent. Therefore Escape on
+> **any** confirmation closes immediately — empty reason *or* typed reason, both close.
+
+**Rationale.** Spec validation scenario 2 is binding and unqualified: *"Given any confirmation
+dialog, when Escape is pressed, then it closes — same as every other confirmation."* The earlier
+draft mapped `WorkBet` kill-confirm to `isDirty = reason non-empty`, which made Escape on a typed
+reason *guard* — contradicting scenario 2 verbatim and failing the protected `L14-bet-actions`
+intent. This pipeline is autonomous; no founder is available to amend the spec, so the design
+conforms to the spec text exactly.
+
+The boundary is **authoring surface vs decision gate**, not "has a text field":
+
+- **Authoring surfaces** (create/edit forms — Knowledge, Bet, Routine, Agent, Scope, appetite
+  *value-edit*) hold work the user is composing. These pass `isDirty` truthfully and **guard**.
+  This is the unsaved-input AC: a half-typed pitch is never lost to one Escape.
+- **Confirmation surfaces** (kill-bet confirm, any yes/no gate, the consequence-preview) hold a
+  *decision*, optionally annotated. These pass `isDirty={false}` **always** and **close** on
+  Escape. This is scenario 2.
+
+Both ACs are satisfied simultaneously because they govern *different surface kinds*. The rule that
+encodes this (no per-surface logic) is: **`isDirty` reflects authored work, and a confirmation has
+none — so a confirmation passes the literal `false`, not a derived expression.** See §8 for the
+per-surface `isDirty` column updated to this rule.
+
+### 1.2 Keyboard path to Discard (resolves the no-keyboard-discard gap)
+
+> When the guard strip appears, **focus moves to "Keep editing"** (the safe default). From there:
+> - **Esc** (or **Enter** on the focused button) re-selects Keep editing → strip closes, dialog
+>   stays open with input intact. Esc is never a discard.
+> - **Tab → Enter** reaches and activates **Discard** → dialog closes, input dropped. The strip is
+>   a two-button row; one Tab moves from Keep editing to Discard. This is the keyboard discard path.
+> - **Mouse click** on either button does the same.
+
+This holds for the **non-modal `AssistantOverlay`** too: a dirty composer + Esc raises the strip,
+focus lands on Keep editing, Tab+Enter discards the draft. There is no three-press dead-end — the
+sequence is *intentional* (Esc protects, Tab+Enter is the deliberate discard). Discard is reachable
+by keyboard alone; it is never mouse-only.
 
 ## 2. Layering — the documented z-scale (the spec deliverable)
 
@@ -33,12 +74,37 @@ once, consume by name; no raw `z-[N]` on any overlay after migration.
 --z-dialog:  60   /* modal dialogs + GlobalSearch palette (sit on their own scrim) */
 --z-toast:   70   /* toasts — always on top, never blocked */
 ```
-Plus a scrim color token: `--scrim: rgba(26,21,16,0.45)` (light) / matching warm value (dark).
-Reuses the mobile-drawer's existing `rgba(26,21,16,0.55)` family — pick one value, document it.
+Plus a scrim color token: `--scrim: rgba(26,21,16,0.45)` (light). Reuses the mobile-drawer's
+existing `rgba(26,21,16,0.55)` warm family — picks `0.45` for the modal scrim, documented as the
+single value every modal uses.
 
-All `Dialog` instances render through one portal node `#overlay-root` (appended to `body`).
-Two simultaneously-open dialogs stack by **mount order within their band**, independent of
-source DOM position — satisfies "stack predictably regardless of DOM order."
+**`--scrim` is a *placeholder* AI2 mints, not the final semantic token (resolves W-2).** AI6
+explicitly lists "the AppShell scrim" as a *missing* semantic token that consumers currently
+hardcode. AI2 introduces `--scrim` to unblock this workpackage and stop the per-surface rgba
+copies; AI6 owns the eventual derivation (e.g. `color-mix(in oklab, var(--text-primary) 45%,
+transparent)`) and may reshape the value/name. AI2's obligation is only to (a) define it as a
+single named token both light **and** dark, never a raw rgba in a component, and (b) leave a
+`/* AI6: candidate for color-mix derivation — see AI6 */` comment so AI6 finds it. The dark-mode
+value lives in the `[data-theme="hearth-dark"]` block: `--scrim: rgba(0,0,0,0.55)` is **not**
+used (AQ-009 forbids pure black); dark uses the same warm family at higher opacity:
+`--scrim: rgba(20,16,12,0.62)` (warm, ≥0.55 so the lighter dark-mode surfaces still read as
+"behind"). Both values are in §2's token block; the architecture task that lands them defines both.
+
+All `Dialog` instances render through one portal node `#overlay-root`. **`#overlay-root` is a
+sibling of `#root` under `<body>`, not a child of `#root`** (so `inert` on `#root` does not
+disable the dialog — see architecture §D3). Two simultaneously-open dialogs stack by **mount order
+within their band**, independent of source DOM position — satisfies "stack predictably regardless
+of DOM order."
+
+**Toasts stay clickable over an open modal (resolves W-3).** `--z-toast: 70` sits above the
+modal (`60`) and its scrim (`50`). For a toast to remain actionable while a modal is open and the
+background is `inert`, **toasts must render into `#overlay-root`** (the one node `inert` exempts),
+not into `#root`. Because `#overlay-root` is the sibling that never receives `inert`, every layer
+inside it — scrim, dialog, and toast — stays interactive; only the background `#root` is inerted.
+Toast *positioning* itself is out of AI2 scope (AG5/Toast workpackage owns it); AI2's only
+contract is the `--z-toast: 70` band and the "toasts portal into `#overlay-root`" requirement so
+the topmost layer is never trapped behind the scrim. Architecture restates this in §task 3 / Risk
+notes.
 
 ## 3. Component composition & API
 
@@ -77,6 +143,15 @@ pair's, promoted verbatim (the reference implementation).
 
 1. **Title** — `--text-primary`, **15px / 600**, left-aligned, in a header row with ✕ on the
    right. (Fixes the knowledge/bet dialogs' off-scale 14px + undefined `font-heading`.)
+
+   **15px = `--text-base` is the *intentional* dialog-title treatment — not a missing heading
+   step (resolves W-1).** The Hearth scale has explicit heading steps (`--text-lg` 17px,
+   `--text-xl` 20px). A dialog title deliberately renders at *body* size + `--fw-semibold` (600),
+   relying on weight (not size) for hierarchy, because dialog chrome is compact: a 17/20px title
+   would over-shout a 320–640px box and break the density credo. This is a conscious divergence
+   from `PageHeader`/`SectionHeader` (which use the lg/xl steps for full-page hierarchy). **Do
+   not "correct" 15/600 to 17px.** AI7 (header/scroll anatomy) and the builder must treat
+   `--text-base` + `--fw-semibold` as the locked dialog-title token pair.
 2. **Body** (children) — padding `--space-6` (18px) desktop, `--space-4` (12px) phone.
 3. **Footer** — right-aligned action pair above a 1px `--border-subtle` rule + 18px top margin.
    When dirty + dismissal intent fires, the footer region is **replaced** by `DiscardConfirmStrip`
@@ -100,6 +175,12 @@ pair's, promoted verbatim (the reference implementation).
   Carry `tabbableOptions.displayCheck:"none"` for JSDOM (existing lore) into the hook.
 - **Keyboard**: Esc → dismissal intent (guarded). Tab trapped, Shift-Tab wraps. Enter submits a
   single-field confirm.
+- **Guard-strip focus (the keyboard discard path — see §1.2)**: when the strip appears, focus
+  moves to **"Keep editing"** (the safe default). Esc / Enter on it re-selects Keep editing (strip
+  closes, dialog stays open, input intact). **Tab → Enter** moves to and activates **Discard**
+  (closes, drops input). This is the *only* discard path that does not require a mouse; it holds
+  for the non-modal `AssistantOverlay` (dirty composer) identically. Within the guard strip the
+  trap is two buttons: one Tab between them, Shift-Tab back.
 - **Scroll-lock**: `body` locked while any modal `Dialog` is open.
 - **Motion**: scrim opacity `--motion-fast` (120ms); box `translateY(8px)→0` + opacity
   `--motion-fast`; guard strip cross-fades `--motion-fast`. Honor `prefers-reduced-motion`.
@@ -107,9 +188,23 @@ pair's, promoted verbatim (the reference implementation).
 
 ## 7. Mobile adaptation
 
-- `size` resolves to desktop `max-width`. At ≤480px **every** dialog becomes full-width-minus-
-  12px-gutter bottom-sheet, `max-height: 85vh`, internal scroll — owned by the primitive, no
-  consumer touches it. Generalizes TaskSheet's existing sheet↔drawer responsive split.
+- `size` resolves to desktop `max-width`. At ≤480px **every** dialog becomes a **bottom-anchored**
+  full-width-minus-12px-gutter bottom-sheet, `max-height: 85vh`, internal scroll — owned by the
+  primitive, no consumer touches it. Generalizes TaskSheet's existing sheet↔drawer responsive split.
+
+  **Bottom-anchored is mandatory and must be *proven*, not asserted (resolves W-4).** The static
+  375px mockup of the approved variant renders the box top-anchored, which contradicts this
+  thumb-reach claim; that mockup is a non-responsive snapshot, so it is **not** the source of truth
+  for mobile position. The responsive primitive is. Concretely:
+  - The sheet pins to the **bottom** of the viewport (`position: fixed; left: 6px; right: 6px;
+    bottom: 0;`), slides up from below (`translateY(100%)→0`, replacing the desktop
+    `translateY(8px)→0`), and rounds only its top corners. Thumb reach: actions sit at the bottom.
+  - **`Dialog.stories.tsx` must include a `MobileSheet` story** (375px viewport) rendering the
+    bottom-anchored state, and **AC-4's Playwright capture at 375px must assert bottom-anchoring**
+    (e.g. the sheet's bounding box `bottom` ≈ viewport height, `top > 0`) and screenshot it — not
+    merely "no horizontal overflow." This pins the mobile claim at AC time instead of discovering a
+    top-anchored regression late. (The static mockup may be regenerated bottom-anchored later; the
+    story + AC-4 are the binding proof.)
 - Inputs ≥16px font (AQ-005) — already true in the dialogs; the primitive enforces it for chrome.
 - Maps to the three-tab mobile layout as a portal surface over the active tab.
 
@@ -120,10 +215,11 @@ pair's, promoted verbatim (the reference implementation).
 | AgentAddDialog / AgentEditDialog | `Dialog` | true | dialog | name/soul/config touched |
 | KnowledgeCreateDialog | `Dialog` (+ fix 15/600 title) | true | dialog | title/body non-empty |
 | ScopeChangeDialog | `Dialog` | true | dialog | selection changed |
-| BetCreateDialog (AG3 not started — IN scope) | `Dialog` (+ fix title) | true | dialog | pitch non-empty |
-| RoutineCreateDialog | `Dialog` | true | dialog | fields touched |
-| WorkBet kill-confirm | `Dialog` | true | dialog | reason non-empty (replaces hard Esc-block) |
-| WorkBet appetite | `Dialog` | true | dialog | value changed |
+| BetCreateDialog (AG3 not started — IN scope) | `Dialog` | true | dialog | pitch non-empty (authoring → guards) |
+| RoutineCreateDialog | `Dialog` | true | dialog | fields touched (authoring → guards) |
+| WorkBet kill-confirm (**confirmation**) | `Dialog` | true | dialog | **`false` always** — confirmation, never dirty (§1.1); Esc always closes, replacing the hard Esc-block |
+| WorkBet appetite (**value-edit form**) | `Dialog` | true | dialog | value changed (authoring → guards) |
+| WorkBet ConsequencePreview (**confirmation**) | `Dialog` | true | dialog | **`false` always** — confirmation, never dirty (§1.1); Esc closes (was hard Esc-block) |
 | TaskSheet | `useDialogBehavior` (bespoke drawer chrome) | false | drawer | n/a |
 | AssistantOverlay | `useDialogBehavior` (bespoke popover, L21 no-click-outside) | false | overlay | composer dirty |
 | NotificationPopover | `useDialogBehavior` (bespoke popover) | false | overlay | n/a |

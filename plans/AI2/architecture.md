@@ -38,7 +38,7 @@ process-layer changes" (track preamble) — concept-free by the spec's own bound
 | Native `<dialog>` + `showModal` boilerplate in 6 files | Confirmed: KnowledgeCreate, BetCreate, RoutineCreate, ScopeChange, WorkBet×2 carry the JSDOM-guarded open/close effect | Approved design = portal, NOT native dialog → the boilerplate is **deleted**, not relocated |
 | z-50 collisions, z-30 collisions | Confirmed: GlobalSearchPanel `modal-open z-50`, TaskSheet `z-50`, mobile-drawer `z-50`, mobile-scrim `z-40`, AssistantOverlay `z-30`, NotificationPopover `z-30` | New `--z-*` scale in tokens.css resolves all |
 | No z/scrim tokens exist | Confirmed `grep` → NONE in tokens.css | Add 7 z-tokens + `--scrim` (Decision D2; AI1 overlap flagged) |
-| Kill-confirm hard-blocks Escape | Confirmed L14 `cancel`-event `preventDefault` in WorkBet | Replaced by the dirty-guard rule: empty reason = clean → Esc closes; typed = dirty → guard |
+| Kill-confirm hard-blocks Escape | Confirmed L14 `cancel`-event `preventDefault` in WorkBet | **Replaced by the *confirmation-never-dirty* rule (approved.md §1.1): kill-confirm passes `isDirty={false}` ALWAYS → Esc closes whether the reason is empty or typed.** Satisfies spec scenario 2 verbatim. Removes the hard Esc-block. (NOT "typed = dirty → guard" — that drafted rule contradicted scenario 2; corrected this round.) |
 | `font-heading` utility | **Undefined** — used in KnowledgeCreate/BetCreate `<h2>`; off-scale 14px (`text-sm`) | Dialog title chrome = 15px/600; migration drops `font-heading` + `text-sm` headings |
 | DS tests run in jsdom with react-dom createRoot | Confirmed (`@vitest-environment jsdom`, `createRoot` + `act`, `pool:'forks'`) | Portal + focus-trap testable; carry `displayCheck:"none"` lore into the hook |
 
@@ -50,10 +50,13 @@ process-layer changes" (track preamble) — concept-free by the spec's own bound
 
 1. **Where does `focus-trap-react` live?** → It must move into the DS package (D1). The
    primitive cannot import a web-only dep. Confirmed by inspection.
-2. **Portal mount point?** → A single `#overlay-root` mounted once. Decision D3: a
-   `<DialogPortalRoot/>` rendered once inside `AppShell` (both mobile + desktop branches),
-   appended after content. Avoids per-dialog `createPortal(document.body)` races and gives a
-   deterministic stacking container.
+2. **Portal mount point?** → A single `#overlay-root` that is a **sibling of `#root` under
+   `<body>`**, not a child of `#root`. Decision D3 (corrected): `<DialogPortalRoot/>` is rendered
+   inside `AppShell` but **imperatively appends the `#overlay-root` node to `document.body`** via
+   `useEffect` (it does *not* render `#overlay-root` as a JSX child of `AppShell`, which would
+   nest it inside `#root`). `createPortal` targets that body-level node. This keeps a single
+   deterministic stacking container while making `#overlay-root` a true sibling of `#root` — the
+   precondition for `inert` (see below).
 3. **Does the guard need a confirm sub-dialog or in-place strip?** → In-place footer swap
    (approved design; 2-deep stacking is out of scope). One `<DiscardConfirmStrip>`.
 4. **AI1 token collision?** → Real. AI1 edits `tokens.css` concurrently (dead-token gate).
@@ -85,13 +88,35 @@ process-layer changes" (track preamble) — concept-free by the spec's own bound
   single source the dead-token gate (AI1) already governs.
 - **Chosen: A.** One token block; `Dialog`/hook resolve `layer` → `var(--z-*)`.
 
-### D3 — Public surface: one component, private hook
+### D3 — Public surface: one component, private hook + `#overlay-root` as a `body` sibling
 - **Chosen (from approved.md):** public `Dialog` only. Private `useDialogBehavior` +
   `DiscardConfirmStrip` + `DialogPortalRoot` are internal to the DS, re-exported *only* for
   the 3 non-box surfaces (TaskSheet/Assistant/GlobalSearch/drawer) that need the contract
   without box chrome. Keeps "exactly one primitive" while letting non-box surfaces conform.
   *Note for reviewer:* `useDialogBehavior` IS exported from `index.ts` so web can consume it —
   this is the deliberate "compose with flags, not forks" escape hatch, not a second primitive.
+
+- **`#overlay-root` mount — corrected to a `document.body` sibling of `#root` (resolves C-1/arch
+  C-1).** Verified: `packages/web/index.html` ships only `<div id="root">`, and `main.tsx` mounts
+  React into `#root`. The earlier draft mounted `<DialogPortalRoot/>` *inside `AppShell`* as a JSX
+  child — which makes `#overlay-root` a **child of `#root`**. That breaks `inert`: inerting the
+  background means inerting `#root`, but if the dialog lives inside `#root`, the dialog gets
+  inerted too. **Fix:** `DialogPortalRoot` is still rendered once in `AppShell`, but it
+  *imperatively* creates/appends a `<div id="overlay-root">` to `document.body` in a `useEffect`
+  (returns `null` from render — it renders nothing into the React tree). `createPortal` targets
+  that body-level node. Result tree:
+  ```
+  <body>
+    <div id="root">…AppShell + all app content…</div>   ← receives inert while a modal is open
+    <div id="overlay-root">…scrim + dialog + toasts…</div> ← never inerted; siblings, not nested
+  </body>
+  ```
+  **The element that receives `inert` is `#root`** (the single app root, a sibling of
+  `#overlay-root`). `inert` is *never* applied to `#overlay-root` or `document.body`. Alternative
+  considered and rejected: a static `<div id="overlay-root">` in `index.html` — works, but splits
+  the overlay-root's existence across HTML + a React effect and the DS package can't edit the web
+  app's `index.html`; the imperative-append keeps the contract inside the DS primitive where it
+  belongs.
 
 ---
 
@@ -100,10 +125,10 @@ process-layer changes" (track preamble) — concept-free by the spec's own bound
 ### New — design-system
 ```
 packages/design-system/src/Dialog.tsx              # public primitive
-packages/design-system/src/Dialog.stories.tsx      # states: clean, dirty/guarding, non-modal, sm/md/lg, mobile-sheet
+packages/design-system/src/Dialog.stories.tsx      # states: clean, dirty/guarding, confirmation(never-dirty), non-modal, sm/md/lg, MobileSheet(375px, BOTTOM-anchored — AC-4 proof)
 packages/design-system/src/useDialogBehavior.ts    # private-ish hook: esc/backdrop/focus-trap/guard/scroll-lock/layer
 packages/design-system/src/DiscardConfirmStrip.tsx # the one guard strip (no .stories needed — rendered inside Dialog story)
-packages/design-system/src/DialogPortalRoot.tsx    # mounts #overlay-root once
+packages/design-system/src/DialogPortalRoot.tsx    # imperatively appends #overlay-root to document.body as a SIBLING of #root (renders null); exposes ensureOverlayRoot() helper
 packages/design-system/src/__tests__/Dialog.test.tsx
 packages/design-system/src/__tests__/useDialogBehavior.test.tsx
 ```
@@ -158,23 +183,44 @@ export interface UseDialogBehavior {
   requestDismiss: () => void;                // call from Esc / backdrop / ✕ — applies the rule
   confirmDiscard: () => void;                // user chose Discard
   cancelDiscard: () => void;                 // user chose Keep editing (safe default)
-  getOverlayProps: () => { role: string; "aria-modal": boolean; style: { zIndex: string }; ref: Ref<HTMLElement>; onKeyDown: KeyboardEventHandler };
+  getOverlayProps: () => { role: "dialog"; "aria-modal": boolean; style: { zIndex: string }; ref: Ref<HTMLElement>; onKeyDown: KeyboardEventHandler };
   getScrimProps: () => { style: { zIndex: string; background: string }; onMouseDown: MouseEventHandler } | null; // null when !modal
 }
 export function useDialogBehavior(o: UseDialogBehaviorOptions): UseDialogBehavior;
 ```
 
-The **dismissal rule** lives entirely in `requestDismiss()`:
+The **dismissal rule** lives entirely in `requestDismiss()`. The consumer's `isDirty` is the only
+input; **confirmation dialogs pass the literal `false`** (approved.md §1.1) so Esc always closes
+them — there is no per-surface branch for "confirmation vs form" in the primitive, the distinction
+lives in what the consumer passes:
 ```
-requestDismiss(): if (!isDirty) onClose();
-                  else setGuarding(true);
-confirmDiscard(): setGuarding(false); onClose();
-cancelDiscard():  setGuarding(false);   // a second Esc while guarding calls cancelDiscard
+requestDismiss(): if (guarding) { cancelDiscard(); return; }  // 2nd Esc while guarding = Keep editing
+                  if (!isDirty) onClose();                    // confirmations (isDirty=false) close here
+                  else setGuarding(true);                     // authoring forms raise the strip
+confirmDiscard(): setGuarding(false); onClose();              // Tab+Enter on Discard, or click
+cancelDiscard():  setGuarding(false);                         // Esc/Enter on Keep editing, or click
 ```
+On `setGuarding(true)` the strip mounts with focus on Keep editing (see guard-strip focus above).
+`getOverlayProps().role` is the closed literal **`"dialog"`** (not open `string`) so a consumer
+can't pass a wrong role and defeat the "dismissal can't-go-wrong" goal; `aria-modal` is the
+boolean that differs between modal and non-modal surfaces (W-2 resolved).
+
 Focus: `focus-trap-react` with `{ initialFocus, returnFocusOnDeactivate:true,
 tabbableOptions:{ displayCheck:"none" } }` (the existing jsdom lore). Scroll-lock: toggle
-`document.body.style.overflow` while `modal && open`. `inert`: set on `#root` siblings of
-`#overlay-root` while a modal is open (feature-detect; no-op fallback).
+`document.body.style.overflow` while `modal && open`. **`inert`: set the `inert` attribute on
+`#root`** (the single app root, which is a *sibling* of `#overlay-root` — see D3) while any modal
+`Dialog` is open; cleared on every close path. `#overlay-root` and `document.body` are never
+inerted, so the scrim, dialog, and toasts (all portaled into `#overlay-root`) stay interactive.
+Feature-detect `inert` (`"inert" in HTMLElement.prototype`); no-op fallback when absent (jsdom may
+not implement it — the focus trap still contains focus, so the a11y AC degrades gracefully).
+
+### Guard-strip focus + keyboard discard path (design §1.2 — pins design C-1 / arch S-2)
+When `guarding` flips true, `DiscardConfirmStrip` mounts with focus on **"Keep editing"** (the
+safe default). `requestDismiss` while already guarding (a second Esc) calls `cancelDiscard` (= Keep
+editing). **Discard is keyboard-reachable**: the strip is a two-button row inside the trap —
+`Tab` → Discard, `Enter` activates it (`confirmDiscard`). No mouse required, including the non-modal
+`AssistantOverlay` (dirty composer). The AC-1 Playwright test asserts this path (focus lands on
+Keep editing; Tab+Enter discards).
 
 ---
 
@@ -185,8 +231,14 @@ tabbableOptions:{ displayCheck:"none" } }` (the existing jsdom lore). Scroll-loc
    ⚠️ AI1 overlap: this block is added to tokens.css concurrently with AI1's token work. */
 --z-base: 0; --z-sticky: 10; --z-drawer: 30; --z-overlay: 40;
 --z-scrim: 50; --z-dialog: 60; --z-toast: 70;
---scrim: rgba(26, 21, 16, 0.45);   /* dark-mode variant in the [data-theme] block */
+
+/* AI6: candidate for color-mix(in oklab, var(--text-primary) 45%, transparent) — placeholder rgba for now */
+--scrim: rgba(26, 21, 16, 0.45);                    /* light */
+/* in [data-theme="hearth-dark"]: */
+--scrim: rgba(20, 16, 12, 0.62);                    /* dark — warm, no pure black (AQ-009) */
 ```
+Toasts (`--z-toast: 70`) render into `#overlay-root` (never inerted) so they stay clickable over an
+open modal — see §task 3.
 Documentation location: a `## Overlay layering` section in
 `packages/design-system/DESIGN.md` + the inline token comment. No raw `z-[30/40/50]` may
 remain on any overlay after migration (enforced by AC-7's grep).
@@ -197,10 +249,10 @@ remain on any overlay after migration (enforced by AC-7's grep).
 
 | # | Criterion | Verification |
 |---|---|---|
-| AC-1 | One dismissal grammar; dirty input never lost to one Esc/backdrop | `useDialogBehavior.test.tsx`: dirty+`requestDismiss` keeps open & sets `guarding`; clean+`requestDismiss` calls `onClose`. Playwright `Q3-bet-creation`/`L16-bet-pitch`: type pitch, press Esc once → guard strip visible, input intact (screenshot). |
+| AC-1 | One dismissal grammar; dirty input never lost to one Esc/backdrop; **confirmations always close** | `useDialogBehavior.test.tsx`: dirty+`requestDismiss` keeps open & sets `guarding`; clean+`requestDismiss` calls `onClose`; **`isDirty={false}` (confirmation) + Esc → `onClose` (scenario 2)**; second `requestDismiss` while guarding → `cancelDiscard` (Keep editing). Playwright `Q3-bet-creation`/`L16-bet-pitch`: type pitch, press Esc once → guard strip visible, input intact, **focus on "Keep editing"**, then **Tab+Enter → Discard closes** (pins design §1.2 keyboard discard path); screenshot the guard state. |
 | AC-2 | Focus in on open, trapped, returns to trigger on close — uniformly | `Dialog.test.tsx`: focus moves into dialog on open; `document.activeElement` returns to trigger after close. Playwright `accessibility.spec.ts` keeps passing on ≥2 migrated dialogs. |
-| AC-3 | Layering deterministic + documented; no two compete; 2 stack predictably regardless of DOM order | Static: grep asserts no `z-[30]`/`z-[40]`/`z-50`/`modal-open z-50` on overlay surfaces (lint-style check in a `*.test.ts` reading source? NO — use a Playwright assertion on computed `z-index`). Playwright: open TaskSheet + NotificationPopover, assert TaskSheet(`--z-drawer`) below Popover(`--z-overlay`) in **both** open orders (the spec scenario). |
-| AC-4 | Every dialog fits 375px | Playwright at 375px on ≥4 migrated dialogs: no horizontal overflow (`scrollWidth<=clientWidth`), screenshot. `touch-targets.spec.ts` keeps passing. |
+| AC-3 | Layering deterministic + documented; no two compete; 2 stack predictably regardless of DOM order | **Split into two methods (resolves W-3), one static + one runtime:** **(a) Static — lint gate** (`eslint-plugin-design` rule, subsumed by the AC-5 gate / lives in `verify:quick`): no raw `z-[30]`/`z-[40]`/`z-50`/`z-30`/`modal-open z-50` class on any overlay surface; only `var(--z-*)` permitted. This is a static codebase property → lint, not a test (per CLAUDE.md). **(b) Runtime — Playwright** `dialog-layering.spec.ts`: open TaskSheet + NotificationPopover, read **computed `z-index`** off both elements, assert TaskSheet (`--z-drawer`=30) renders below Popover (`--z-overlay`=40) in **both** open orders (open A-then-B and B-then-A — the "regardless of DOM order" spec scenario). No grep-in-a-`.test.ts`. |
+| AC-4 | Every dialog fits 375px; mobile = **bottom-anchored** sheet | Playwright at 375px on ≥4 migrated dialogs: no horizontal overflow (`scrollWidth<=clientWidth`), **AND assert bottom-anchoring** — the sheet's `boundingBox().bottom` ≈ viewport height and `top > 0` (resolves W-4; the static mockup's top-anchored render is not binding, the responsive primitive is). Screenshot each. `Dialog.stories.tsx` includes a `MobileSheet` story rendering the bottom-anchored state. `touch-targets.spec.ts` keeps passing. |
 | AC-5 | New dialog built by composing the primitive — boilerplate gone | Static grep gate: zero `showModal(`/`setAttribute("open"`/per-file `cancel`-event blocks in the 6 migrated files (a `*.test.ts` that imports nothing but asserts via a build/grep check is a **lint rule**, not a test — implement as an `eslint-plugin-design` check OR a `scripts/` grep in `verify:quick`). Per CLAUDE.md: static property → lint/build script, not test. |
 | AC-6 | Chrome consistent across ≥4 dialogs (side-by-side Playwright) | Playwright screenshots 4 migrated dialogs desktop+375px; review judges one chrome (title 15/600, footer divider, ✕). |
 
@@ -216,8 +268,9 @@ boilerplate, (c) use a named `--z-*` layer not a raw number:
 4. `ScopeChangeDialog.tsx` — Dialog, dialog
 5. `BetCreateDialog.tsx` — Dialog, dialog (+ drop `font-heading`; AG3 not started → in scope)
 6. `RoutineCreateDialog.tsx` — Dialog, dialog
-7. `WorkBet.tsx` ConsequencePreviewDialog — Dialog, dialog (Esc-hard-block → dirty-guard)
-8. `WorkBet.tsx` AppetiteDialog — Dialog, dialog
+7. `WorkBet.tsx` ConsequencePreviewDialog — Dialog, dialog, **confirmation → `isDirty={false}`
+   ALWAYS → Esc closes** (Esc-hard-block removed; satisfies scenario 2). NOT a dirty-guard.
+8. `WorkBet.tsx` AppetiteDialog — Dialog, dialog, value-edit form → `isDirty` truthful (guards)
 9. `TaskSheet.tsx` — useDialogBehavior, `modal=false`, drawer
 10. `AssistantOverlay.tsx` — useDialogBehavior, `modal=false`, overlay (L21 no-click-outside preserved)
 11. `NotificationPopover.tsx` — useDialogBehavior, `modal=false`, overlay
@@ -231,18 +284,62 @@ boilerplate, (c) use a named `--z-*` layer not a raw number:
 1. **(red)** `useDialogBehavior.test.tsx` — dismissal rule (clean closes, dirty guards,
    confirm/cancel), layer→zIndex resolution, `modal=false` → no scrim props. Fails (no impl).
 2. **(red)** `Dialog.test.tsx` — renders title chrome (15/600), portals into `#overlay-root`,
-   focus-in/return, dirty→`DiscardConfirmStrip` swap, mobile-sheet class at narrow width.
+   focus-in/return, dirty→`DiscardConfirmStrip` swap, bottom-anchored mobile-sheet class at narrow
+   width, confirmation (`isDirty={false}`) closes on Esc, guard-strip keyboard discard
+   (focus on Keep editing, Tab+Enter → `confirmDiscard`).
+   **jsdom portal-root setup (resolves W-1):** there is *no* `createPortal` or mounted overlay-root
+   precedent in DS today, and a bare DS jsdom test has no `#overlay-root`. The hook/primitive must
+   be **self-sufficient in tests**: `DialogPortalRoot`'s append logic is factored into an
+   `ensureOverlayRoot()` helper that `useDialogBehavior` calls on mount — it *lazily creates and
+   appends* `#overlay-root` to `document.body` if absent (idempotent; returns the existing node
+   otherwise). So `Dialog`/the hook works in a bare test render without the app shell mounting
+   `DialogPortalRoot` first. `DialogPortalRoot` in the app just calls the same `ensureOverlayRoot()`
+   once for a deterministic eager mount. `inert` is **feature-detected** (`"inert" in
+   HTMLElement.prototype`) — jsdom does not implement it, so the test asserts the focus-trap path
+   and treats `inert` as a graceful no-op (do NOT assert the `inert` attribute under jsdom; assert
+   it under Playwright/AC-2 instead).
 3. Add `--z-*` + `--scrim` to `tokens.css`; document in `DESIGN.md`. (Before any consumer
-   references them — AI1 gate ordering.)
+   references them — AI1 gate ordering.) **`--scrim` is a placeholder AI2 mints, not AI2's final
+   semantic token (approved.md §2 / resolves S-1):** AI6 owns the eventual `color-mix` derivation;
+   AI2 only guarantees it is a single named token in **both** themes and never a raw rgba in a
+   component. **Task 3 must add the dark value too**, not just light:
+   - light (`:root` / `[data-theme="hearth-light"]`): `--scrim: rgba(26,21,16,0.45);`
+   - dark (`[data-theme="hearth-dark"]`): `--scrim: rgba(20,16,12,0.62);` (warm family, no pure
+     black per AQ-009, higher opacity so lighter dark surfaces still read as "behind").
+   Leave a `/* AI6: candidate for color-mix(in oklab, var(--text-primary) 45%, transparent) */`
+   comment so AI6 finds it. **Toasts portal into `#overlay-root`** (approved.md §2 / W-3): the
+   `--z-toast: 70` band sits above the modal+scrim, and because `#overlay-root` is never inerted,
+   a toast there stays clickable over an open modal. (Toast *positioning* is out of AI2 scope; the
+   z-band + the "toasts render into `#overlay-root`" rule are AI2's only toast contract.)
 4. Add `focus-trap-react` to DS `package.json`; `npm install`.
 5. **(green)** Implement `useDialogBehavior.ts`, `DiscardConfirmStrip.tsx`,
    `DialogPortalRoot.tsx`, `Dialog.tsx`; export from `index.ts`. Write `Dialog.stories.tsx`.
-6. Mount `<DialogPortalRoot/>` once in `AppShell` (both branches).
+6. Mount `<DialogPortalRoot/>` once in `AppShell` (both branches). **It renders `null` and
+   appends `#overlay-root` to `document.body` (sibling of `#root`) — do NOT render `#overlay-root`
+   as a JSX child of `AppShell` (that nests it in `#root` and breaks `inert` — see D3/Risk #4).**
 7. Migrate the **reference pair** first (AgentAdd/Edit) — validates chrome parity against the
    promoted reference. Keep their existing tests green.
 8. Migrate the **bare-`<dialog>` family** (Knowledge, ScopeChange, Bet, Routine, WorkBet×2) —
    deletes the most boilerplate; fix `font-heading`/`text-sm` titles. Update each file's
-   component tests in lockstep (assertions unchanged; only open/close plumbing differs).
+   component tests in lockstep.
+
+   **Audit of migrated-file component tests for assertions that MUST change (resolves W-4).**
+   Ran `grep -nE "showModal|setAttribute\(.open|font-heading|text-sm|z-(30|40|50)|toMatch\(/z-"`
+   across the migrated dialogs' `*.test.tsx`. Results — the "assertions unchanged" claim is TRUE
+   for the bare-`<dialog>` form family and FALSE for three overlay tests (now carved out above):
+   - `KnowledgeCreateDialog.test.tsx`, `BetCreateDialog.test.tsx`, `RoutineCreateDialog.test.tsx`,
+     `AD3-KnowledgeCreateDialog-scope.test.tsx`, `KnowledgeCreate.af13.test.tsx` — **no**
+     `showModal`/`open`-attr/`font-heading`/`text-sm`/`z-` assertions found → assertions
+     **unchanged**; only open/close plumbing differs. ✅
+   - `WorkBet.L14-actions.test.tsx` — AC-8 "Escape doesn't close" comment + Esc behavior →
+     **SANCTIONED CHANGE #1** (Esc now closes the confirmation).
+   - `GlobalSearchPanel.cmdk.test.tsx` (`:40` `/z-50/`) → **SANCTIONED CHANGE #2**.
+   - `AD8b-AssistantOverlay.test.tsx` (`:108` `/z-30/`) + `CocOverlay.test.tsx` (`:108` `/z-30/`)
+     → **SANCTIONED CHANGE #3**.
+   - `KnowledgeRow.factory.test.tsx:40` asserts title `.not.toContain("font-heading")` — this is a
+     row (not a dialog), already font-heading-free; the dialog migration does not touch it →
+     unchanged.
+   No migrated-file test outside the three carve-outs needs an assertion change.
 9. Migrate the **non-box surfaces** via `useDialogBehavior` (TaskSheet, Assistant,
    NotificationPopover, GlobalSearch, mobile drawer). Preserve L21 no-click-outside on
    Assistant via `modal=false` (no scrim, no backdrop handler).
@@ -274,7 +371,7 @@ boilerplate, (c) use a named `--z-*` layer not a raw number:
 
 ```
 protectedTests:
-  - packages/web/e2e/L14-bet-actions.spec.ts        # kill-bet flow — behavior preserved, only Esc semantics change (empty=clean)
+  - packages/web/e2e/L14-bet-actions.spec.ts        # SANCTIONED CHANGE #1 — :151 "Esc does NOT close" flips to "Esc closes" (confirmation-never-dirty, §1.1)
   - packages/web/e2e/Q3-bet-creation.spec.ts        # bet create — extend for Esc-guard, don't weaken existing asserts
   - packages/web/e2e/L16-bet-pitch.spec.ts
   - packages/web/e2e/knowledge-q2-create.spec.ts
@@ -283,15 +380,48 @@ protectedTests:
   - packages/web/e2e/touch-targets.spec.ts
   - packages/web/e2e/accessibility.spec.ts
   - packages/web/e2e/accessibility-K8.spec.ts
-  - packages/web/src/__tests__/AD8b-AssistantOverlay.test.tsx
-  - packages/web/src/__tests__/TaskSheet.test.tsx
-  - packages/web/src/__tests__/GlobalSearchPanel.cmdk.test.tsx
+  - packages/web/src/__tests__/AD8b-AssistantOverlay.test.tsx   # SANCTIONED CHANGE #3 — :108 /z-30/ → --z-overlay (40)
+  - packages/web/src/__tests__/CocOverlay.test.tsx              # SANCTIONED CHANGE #3 — :108 /z-30/ → --z-overlay (40), or remove if dead (CoC purged)
+  - packages/web/src/__tests__/TaskSheet.test.tsx               # audited: role="dialog", no z-/showModal assertion → unchanged
+  - packages/web/src/__tests__/GlobalSearchPanel.cmdk.test.tsx  # SANCTIONED CHANGE #2 — :40 /z-50/ → --z-dialog (60); :50 max-w-[640px] SURVIVES
+  - packages/web/src/pages/__tests__/WorkBet.L14-actions.test.tsx # SANCTIONED CHANGE #1 — AC-8 "Escape doesn't close" → "Esc closes"
 ```
-Note: `L14-bet-actions` asserts Esc does NOT close the kill dialog. Under the new rule, Esc on
-an **empty-reason** kill dialog (clean) WILL close. This assertion changes — it is a
-*deliberate behavior correction* named in the spec ("the bet-kill confirmation blocks Escape"
-is the bug). Flag to reviewer: this single protected assertion is updated in lockstep, with a
-new assert that Esc on a **typed** reason guards instead. Document as the one sanctioned change.
+### Sanctioned assertion changes (the carve-out — these protected tests MUST change)
+
+Three protected test files carry assertions that the migration *guarantees* must change. They are
+listed under `protectedTests` for vigilance, but the assertions below are **explicitly sanctioned
+to change** — the reviewer accepts them as spec-driven corrections, not weakenings:
+
+1. **`e2e/L14-bet-actions.spec.ts` (`:151` + `WorkBet.L14-actions.test.tsx` AC-8).** Today asserts
+   *"pressing Escape does NOT close the dialog"* (the kill-confirm + ConsequencePreview hard-block).
+   Under the **confirmation-never-dirty rule (approved.md §1.1)**, a confirmation passes
+   `isDirty={false}` ALWAYS, so **Esc closes the kill-confirm whether the reason is empty or
+   typed** — satisfying spec validation scenario 2 verbatim. The `:151` assertion flips from "Esc
+   does NOT close" to **"Esc closes"** (both empty and typed reason). This corrects the headline
+   bug named in the spec; it is NOT "typed reason guards" (that drafted rule contradicted scenario
+   2 and is dropped this round). The `WorkBet.L14-actions.test.tsx` AC-8 comment ("Escape doesn't
+   close") and any Esc assertion update in lockstep.
+
+2. **`GlobalSearchPanel.cmdk.test.tsx` (`:40` + `:50`) (resolves arch C-3).** Verified at source:
+   `:40` asserts `overlay.className` matches `/z-50/`; `:50` asserts `max-w-[640px]`. The migration
+   removes raw `z-50` (→ `--z-dialog`) and AC-3's static gate **forbids** `z-50` on overlays, so
+   the `z-50` assertion **must change**. Updated assertion: the overlay no longer carries
+   `.modal.modal-open`/`z-50`; instead assert the resolved layer — either the computed
+   `zIndex === "60"` (`--z-dialog`) on the overlay container **or** a `data-dialog-layer="dialog"`
+   attribute the primitive sets. **`max-w-[640px]` SURVIVES** unchanged: GlobalSearchPanel consumes
+   `useDialogBehavior` (not boxed `Dialog`), so it keeps its own palette chrome and its 640px
+   max-width is legitimately preserved — the test for it stays green. Sanctioned: the `z-50`
+   assertion only.
+
+3. **`AD8b-AssistantOverlay.test.tsx` (`:108`) and `CocOverlay.test.tsx` (`:108`) (from the §task 8
+   audit).** Both assert `dialog.className` matches `/z-30/`. AssistantOverlay migrates to
+   `useDialogBehavior` with `layer="overlay"` → `--z-overlay`=40, so the `z-30` assertion **must
+   change** to assert `--z-overlay` (computed `zIndex === "40"` or `data-dialog-layer="overlay"`).
+   `CocOverlay.test.tsx` is a stale alias of the same surface (CoC purged) — if it still exercises
+   the overlay it gets the same update; if it is dead it is removed by the migration, not silently
+   left red. Sanctioned: the `z-30` assertion (or file removal if dead).
+
+No other protected-test assertions change (see §task 8 audit results).
 
 ## Shared files (concurrent-workpackage overlap)
 
@@ -316,9 +446,13 @@ sharedFiles:
    verify it carries into DS's `pool:'forks'` jsdom env. If the trap can't init in jsdom,
    gate trap activation behind `open` and test the dismissal rule (pure) separately from the
    trap (Playwright).
-4. **`inert` background while modal.** Setting `inert` on `#root` siblings assumes a single
-   app root; verify `#overlay-root` is a sibling of `#root`, not a child, or `inert` will
-   disable the dialog too. `DialogPortalRoot` mount point matters.
+4. **`inert` background while modal — RESOLVED (was self-contradictory).** The earlier draft
+   mounted `<DialogPortalRoot/>` as a JSX child of `AppShell`, nesting `#overlay-root` *inside*
+   `#root` — so inerting the background (`#root`) would have inerted the dialog too. **Fixed in
+   D3:** `DialogPortalRoot` imperatively appends `#overlay-root` to `document.body` as a **sibling
+   of `#root`** (renders `null`). `inert` is applied to **`#root`** (verified: the only child of
+   `<body>` in `index.html`); `#overlay-root` and `body` are never inerted, so scrim + dialog +
+   toasts stay interactive. The a11y / focus-escape ACs can now pass. No remaining ambiguity.
 5. **AssistantOverlay `modal=false` + composer dirty.** Non-modal means no backdrop-dismiss,
    but Esc still applies the guard. Confirm the composer's dirty state is cheap to derive so
    an accidental Esc mid-message doesn't nuke a draft — matches the headline UX goal.
