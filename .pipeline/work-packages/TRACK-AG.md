@@ -8,7 +8,7 @@ Founder feedback from daily desktop use (2026-06-12): the Work view fails the He
 
 **Reference docs:** `docs/ui-design/`, `docs/human-interface-layer/`, `docs/information-architecture/`, `docs/blocks/`, `docs/requirements/usability-requirements.md` (UX-8), `.claude/rules/aesthetic-quality.md`, `packages/design-system/DESIGN.md`.
 
-**Boundary with Track AH (Onboarding, Configuration & Runtime Coherence).** AG and AH share no outcome, but they touch overlapping surfaces; AG owns *presentation/consistency*, AH owns *function/data*. Specifically: the shared textarea pill-shape fix and the Assistant persona-surface consolidation are **AH3's**, not AG7's; per-agent model *selection working* is **AH2's**, while making the model/role pickers visually consistent is **AG5's**; the add-agent team-placement and org-chart edge creation are **AH4's**, while the visual consistency of those same Settings surfaces is **AG7's**. Where AG and AH touch the same file, AG applies its presentation layer on top of whatever AH lands and does not re-own AH's functional change. (No manifest dependency is declared: AH is a separate, not-yet-merged spec track, and no AG workpackage is hard-blocked by it — the boundaries below keep them from colliding.)
+**Boundary with Track AH (Onboarding, Configuration & Runtime Coherence).** AG and AH share no outcome, but they touch overlapping surfaces; AG owns *presentation/consistency*, AH owns *function/data*. Specifically: the shared textarea pill-shape fix and the Assistant persona-surface consolidation are **AH3's**, not AG7's; per-agent model *selection working* is **AH2's**, while making the model/role pickers visually consistent is **AG5's**; the add-agent team-placement and org-chart edge creation are **AH4's**, while the visual consistency of those same Settings surfaces is **AG7's**. Where AG and AH touch the same file, AG applies its presentation layer on top of whatever AH lands and does not re-own AH's functional change. **AG7 is blocked-by AH3 and AH4** (declared as a real manifest dependency): the settings consistency pass must run after AH3 restructures the Assistant persona surface/textareas and AH4 reshapes the add-agent and org-chart settings, so AG7 styles their final shape rather than reworking it. AG and AH ship to master together; the AH spec is carried in this branch as a shared commit so the dependency resolves in the manifest and dedups cleanly at merge.
 
 ---
 
@@ -285,6 +285,8 @@ Founder feedback from daily desktop use (2026-06-12): the Work view fails the He
 **Depends on.**
 - AG5 — the settings sections are among the heaviest dropdown offenders (model, agent, org-chart pickers); bringing them onto consistent dropdowns requires the canonical dropdown to exist first.
 - AG6 — the agent and org-chart sections render list/table surfaces; unifying them onto the shared row/table primitive requires that primitive to exist first.
+- AH3 (Track AH) — AH3 restructures the Assistant persona surface and fixes the shared textarea style; AG7 styles the Settings → Assistant section, so it must run after AH3 to avoid restyling a section AH3 then reshapes.
+- AH4 (Track AH) — AH4 adds team-placement to the add-agent form and reshapes the org-chart settings; AG7's consistency pass over those same surfaces must run after AH4 so it styles their final shape, not the pre-AH4 one.
 
 **Complexity.** M
 
