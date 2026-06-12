@@ -1,9 +1,17 @@
 // hearth-internal-padding
-import type { BetStatus } from "@hyperidle/shared";
+import type { BetOutcomeVerdict, BetStatus } from "@hyperidle/shared";
+import { BET_OUTCOME_VERDICT_LABEL, BET_STATUS_LABEL } from "@hyperidle/shared";
 import type { JSX, ReactNode } from "react";
 import { clickableProps } from "./clickable";
 import { dsProps } from "./ds-attrs";
 import { KeyValue } from "./KeyValue";
+import { StatusChip } from "./StatusChip";
+import {
+	BET_OUTCOME_VERDICT_STATUS,
+	BET_STATUS_MAP,
+	betOutcomeVerdictToStatus,
+	betStatusToStatus,
+} from "./status-mapping";
 
 /**
  * @lore J5: BetCard gained portfolio-mode props (leadAvatar / activeBets /
@@ -37,47 +45,12 @@ export interface BetCardAvatarGroup {
 	agent?: boolean;
 }
 
-/** Status dot color per BetStatus — 8px pill, colored by status */
-const STATUS_DOT_COLOR: Record<BetStatus, string> = {
-	draft: "var(--status-info)",
-	active: "var(--accent-primary)",
-	completed: "var(--border-strong)",
-	killed: "var(--status-error)",
-};
-
-/** Human-readable badge label per BetStatus */
-const STATUS_LABEL: Record<BetStatus, string> = {
-	draft: "Draft",
-	active: "Active",
-	completed: "Completed",
-	killed: "Killed",
-};
-
-/** Badge variant per BetStatus — maps to CSS color treatment */
-type BadgeVariant = "green" | "amber" | "blue" | "default";
-
-const STATUS_BADGE_VARIANT: Record<BetStatus, BadgeVariant> = {
-	draft: "blue",
-	active: "green",
-	completed: "default",
-	killed: "default",
-};
-
-/** Returns inline style classes for badge variants using semantic tokens */
-function badgeClasses(variant: BadgeVariant): string {
-	const base =
-		"inline-flex items-center text-[12px] font-[500] px-[9px] py-[3px] rounded-[var(--r-pill)] leading-[1.4] whitespace-nowrap";
-	switch (variant) {
-		case "green":
-			return `${base} bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)]`;
-		case "amber":
-			return `${base} bg-[rgba(217,119,6,0.1)] text-[var(--accent-secondary)]`;
-		case "blue":
-			return `${base} bg-[rgba(46,125,186,0.08)] text-[var(--status-info)]`;
-		case "default":
-			return `${base} bg-[var(--surface-container)] text-[var(--text-secondary)]`;
-	}
-}
+// AI4 Decision 5: STATUS_DOT_COLOR, STATUS_LABEL, STATUS_BADGE_VARIANT, badgeClasses deleted.
+// Status rendering now uses StatusChip + BET_STATUS_LABEL from shared (label path, Decision 1a).
+// Outcome verdict rendering uses StatusChip + BET_OUTCOME_VERDICT_LABEL + betOutcomeVerdictToStatus.
+// The _unused_ imports are needed for exhaustiveness validation at type-check time:
+void BET_STATUS_MAP;
+void BET_OUTCOME_VERDICT_STATUS;
 
 /** Progress fill color per BetStatus */
 function progressFillColor(status: BetStatus): string {
@@ -175,31 +148,32 @@ export function BetCard({
 						{leadAvatar.initials}
 					</span>
 				)}
-				{/* 8px status dot */}
-				<span
-					className="inline-block w-[8px] h-[8px] rounded-[var(--r-pill)] shrink-0"
-					style={{ background: STATUS_DOT_COLOR[status] }}
-					aria-hidden="true"
+				{/* AI4 Decision 5: status rendering via StatusChip (label prop preserves human-readable labels) */}
+				{/* Note: rounded-[var(--r-pill)] NOT used — StatusChip uses rounded-full (BetCard.test.tsx line 33) */}
+				<StatusChip
+					status={betStatusToStatus(status)}
+					label={BET_STATUS_LABEL[status]}
 				/>
-				{/* Status badge — human-readable label */}
-				<span
-					className={badgeClasses(STATUS_BADGE_VARIANT[status] as BadgeVariant)}
-					data-status={status}
-				>
-					{STATUS_LABEL[status]}
-				</span>
-				{/* AC1: Outcome verdict badge — neutral style, only when verdict is set */}
+				{/* AI4 AC5: Outcome verdict badge — semantic coloring via StatusChip */}
 				{outcomeVerdict && (
 					<span
-						className={badgeClasses("default")}
 						aria-label={`Outcome: ${outcomeVerdict}`}
 						data-testid={id ? `bet-card-verdict-badge-${id}` : "bet-card-verdict-badge"}
 					>
-						{outcomeVerdict.charAt(0).toUpperCase() + outcomeVerdict.slice(1)}
+						<StatusChip
+							status={betOutcomeVerdictToStatus(outcomeVerdict as BetOutcomeVerdict)}
+							label={BET_OUTCOME_VERDICT_LABEL[outcomeVerdict as BetOutcomeVerdict] ?? outcomeVerdict}
+						/>
 					</span>
 				)}
 				{/* Budget badge — amber, right-aligned via ml-auto */}
-				{budgetLabel && <span className={`${badgeClasses("amber")} ml-auto`}>{budgetLabel}</span>}
+				{budgetLabel && (
+					<span
+						className="inline-flex items-center text-[12px] font-[500] px-[9px] py-[3px] rounded-[var(--r-pill)] leading-[1.4] whitespace-nowrap ml-auto bg-[color-mix(in_oklab,var(--status-warning)_10%,transparent)] text-[var(--accent-secondary)]"
+					>
+						{budgetLabel}
+					</span>
+				)}
 			</div>
 
 			{/* Title */}

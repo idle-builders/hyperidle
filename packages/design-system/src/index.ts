@@ -54,6 +54,8 @@ export { dsProps, dsShellProps } from "./ds-attrs.js";
 export type { EmptyStateProps } from "./EmptyState.js";
 // ── Utility Components ──
 export { EmptyState } from "./EmptyState.js";
+// ── AI4 Task 5: LiveDot — promoted from WorkTask/TaskSheet ──
+export { LiveDot } from "./LiveDot.js";
 export type { ErrorStateProps } from "./ErrorState.js";
 export { ErrorState } from "./ErrorState.js";
 export type { InputProps } from "./Input.js";
@@ -105,7 +107,13 @@ export { SkeletonCard, SkeletonList } from "./Skeleton.js";
 export type { Status, StatusChipProps } from "./StatusChip.js";
 // ── Tier 1: Primitives ──
 export { StatusChip } from "./StatusChip.js";
+// ── AI4: Re-export AgentOperationalStatus type (lives in shared, needed by ds consumers) ──
+export type { AgentOperationalStatus } from "@hyperidle/shared";
 export {
+	AGENT_OPERATIONAL_STATUS_MAP,
+	agentOperationalStatusToStatus,
+	BET_OUTCOME_VERDICT_STATUS,
+	betOutcomeVerdictToStatus,
 	BET_STATUS_MAP,
 	betStatusToStatus,
 	KNOWLEDGE_STATUS_MAP,
@@ -114,6 +122,8 @@ export {
 	routineStateToStatus,
 	SESSION_OUTCOME_MAP,
 	sessionOutcomeToStatus,
+	TASK_OUTCOME_VERDICT_STATUS,
+	taskOutcomeVerdictToStatus,
 	TASK_STATE_MAP,
 	taskStateToStatus,
 } from "./status-mapping.js";
