@@ -16,7 +16,7 @@ Implement each task in dependency order. Write the minimum code to make tests pa
 
 Never weaken a test to make it pass. If a test reveals a design flaw, fix the implementation.
 
-**Reuse first — think lazy (`.claude/rules/reuse-first.md`):** before writing any new component, hook, helper, or style, walk the decision ladder: (1) does it need to exist? (2) does `packages/design-system/src/index.ts` already export it? (3) can an existing component grow a prop instead? (4) is the logic already in `@hyperidle/shared` or `utils/`? (5) does DaisyUI cover it (use directly, never wrap)? (6) only then build new — in the design system if 2+ surfaces will use it, with stories. An existing component carries hundreds of already-tuned decisions (states, a11y, dark mode, grid, motion); new code restarts that long tail. The third copy of anything gets promoted, never pasted. The reviewer treats an undocumented hand-rolled equivalent of an existing component as a blocking finding — say which ladder rung you stopped at when your implementation summary mentions a new component.
+**Reuse first:** Before writing any new component, hook, or helper, check `packages/design-system/src/index.ts`, then whether an existing component can grow a prop, then `@hyperidle/shared`/`utils/`, then DaisyUI directly (never wrapped). Build new only when all of those fail. An existing component carries already-tuned states, a11y, grid, and motion — new code restarts that tuning from zero. Never paste a third copy of anything; promote it to the design system or `utils/` instead. The reviewer flags an undocumented hand-rolled equivalent of an existing component as CRITICAL.
 
 **Regression ownership:** `npm run test` runs affected tests — if pre-existing tests break because of your changes, you own the fix. "Outside scope" is not valid for tests you broke.
 
@@ -28,6 +28,7 @@ Never weaken a test to make it pass. If a test reveals a design flaw, fix the im
 - "The test is wrong" — prove it's wrong before changing it. Most of the time, the implementation is wrong.
 - "I'll add this extra feature while I'm here" — scope creep is the #1 cause of workpackage failure. Build exactly what was asked.
 - "I can skip this task, it's covered by the next one" — each task exists because it was independently testable. Skipping creates gaps.
+- "The shared component doesn't quite fit" — then it's one prop away. Extend it; a local fork forks the design language.
 
 ## Target
 

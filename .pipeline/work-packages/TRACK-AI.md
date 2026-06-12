@@ -2,7 +2,7 @@
 
 Source: the exhaustive UI consistency review of 2026-06-12 — all 121 non-story `.tsx` files in `packages/web` and `packages/design-system` read in full, every claim verified against the tree (working artifact: `plans/reviews/area-ui-consistency.md`, regenerable; the load-bearing evidence is carried inline in each workpackage below). The headline: the design system is good and underused. The app ships ~30 references to CSS tokens that do not exist (the browser silently drops them — invisible borders, unstyled editor typography), eight independent relative-time formatters, page-local forks of the shared status system, two design-system row components reimplemented by the very pages they were built for, and a dialog layer with three incompatible implementations. None of this is new capability — it is making what exists true everywhere.
 
-**Relationship to the reuse-first rule.** This track exists because duplication was cheaper than reuse at authoring time. `.claude/rules/reuse-first.md` (landed with this track) changes that default for all future work; Track AI pays down the existing debt so the rule has a clean baseline to defend.
+**Relationship to the reuse-first gates.** This track exists because duplication was cheaper than reuse at authoring time. The reuse-first gates landed with this track — `/design` Phase 0b reuse inventory, the `/write-code` reuse-first rule, and the `/review` reuse lens — change that default for all future work; Track AI pays down the existing debt so the gates have a clean baseline to defend.
 
 **Track-wide proof bar.** Consistency claims are proven by looking, not by code reading: every workpackage that changes rendered output captures Playwright screenshots of the same element/state on multiple surfaces and the review judges them identical. Zero hard-rule violations against `.claude/rules/aesthetic-quality.md` on touched surfaces.
 
@@ -10,7 +10,7 @@ Source: the exhaustive UI consistency review of 2026-06-12 — all 121 non-story
 
 **Boundary with Tracks AG and AH.** AG owns the Work-view experience and three named primitives: **AG5** owns dropdowns/select-pickers and the popover menus, **AG6** owns the item-row/table primitive, **AG7** owns the Settings-page consistency pass, **AG1** owns the team-screen composition. **AH3** owns the shared textarea pill-shape fix and the Assistant persona surface. Track AI owns everything those do not: token integrity (AI1), the dialog layer (AI2), time (AI3) and status (AI4) vocabulary, app-wide adoption of avatars/buttons/state-components outside Settings (AI5), the design system's internal coherence (AI6), and cross-page header/scroll anatomy (AI7). Where an AI workpackage touches a Settings file, it fixes only its own dimension (e.g. AI1 fixes a dead token in `SettingsAssistant.tsx`) and leaves the section's restyling to AG7.
 
-**Reference docs:** `packages/design-system/DESIGN.md`, `AESTHETICS.md`, `PRINCIPLES.md`, `src/tokens.css`, `.claude/rules/aesthetic-quality.md`, `.claude/rules/reuse-first.md`, `docs/ui-design/`.
+**Reference docs:** `packages/design-system/DESIGN.md`, `AESTHETICS.md`, `PRINCIPLES.md`, `src/tokens.css`, `.claude/rules/aesthetic-quality.md`, `.claude/rules/frontend.md`, `docs/ui-design/`.
 
 ---
 
@@ -204,7 +204,7 @@ Source: the exhaustive UI consistency review of 2026-06-12 — all 121 non-story
 **Plan calls.** Standard architecture pass. `/design` only for the new compact state-component variants and the scope-picker anatomy (small, single-variant decisions). Where a primitive needs a prop the holdout requires, extend the primitive — do not fork it.
 
 **Contracts / constraints.**
-- `.claude/rules/reuse-first.md` is the operating rule: extend primitives over creating page-local equivalents; any surviving local implementation carries a written justification.
+- Extend primitives over creating page-local equivalents (the /design and /write-code reuse-first gates); any surviving local implementation carries a written justification.
 - No behavior changes — identical data, identical interactions, consistent rendering.
 - Primitive extensions land with updated `.stories.tsx` states.
 

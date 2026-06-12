@@ -70,9 +70,9 @@ Output one machine-greppable line at the top of `brief.md`:
 DESIGN-CLASS: <routine|routine-low-conf|novel>  ref=<existing-component-or-none>  pattern=<html-file-or-none>
 ```
 
-## Phase 0b — Reuse inventory (hard gate, `.claude/rules/reuse-first.md`)
+## Phase 0b — Reuse inventory (hard gate)
 
-Before generating any variant, read `packages/design-system/src/index.ts` (the barrel export IS the live inventory — DESIGN.md's count can lag) and write a **Reuse inventory** section into `brief.md`: every visual element the workpackage needs, mapped to the existing component that renders it, the existing component that could render it with one new prop/variant, or — last resort — `NEW`. A `NEW` entry must state which decision-ladder rung failed and why extension is impossible; "doesn't quite fit" is not a reason, it is a prop request. The designer's default posture is lazy: an existing component carries hundreds of already-tuned decisions (states, a11y, grid, dark mode, motion); every `NEW` shape restarts that long tail. Variants are judged partly on how little they invent — the variant that ships the outcome with zero new shapes beats the one that needs two, unless the critique proves the new shape earns its cost.
+Read `packages/design-system/src/index.ts` — the barrel export is the live inventory. Write a **Reuse inventory** into `brief.md`: every visual element the workpackage needs, mapped to the existing component that renders it, the component that could with one new prop, or `NEW`. A `NEW` entry must state why extension is impossible — "doesn't quite fit" is a prop request, not a reason. Existing components carry already-tuned states, a11y, grid, and motion; the variant with zero new shapes beats the one that needs two unless the critique proves the new shape earns its cost.
 
 ## Phase 0 — Interrogate the user task
 
