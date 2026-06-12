@@ -8,6 +8,8 @@ Founder feedback from daily desktop use (2026-06-12): the Work view fails the He
 
 **Reference docs:** `docs/ui-design/`, `docs/human-interface-layer/`, `docs/information-architecture/`, `docs/blocks/`, `docs/requirements/usability-requirements.md` (UX-8), `.claude/rules/aesthetic-quality.md`, `packages/design-system/DESIGN.md`.
 
+**Boundary with Track AH (Onboarding, Configuration & Runtime Coherence).** AG and AH share no outcome, but they touch overlapping surfaces; AG owns *presentation/consistency*, AH owns *function/data*. Specifically: the shared textarea pill-shape fix and the Assistant persona-surface consolidation are **AH3's**, not AG7's; per-agent model *selection working* is **AH2's**, while making the model/role pickers visually consistent is **AG5's**; the add-agent team-placement and org-chart edge creation are **AH4's**, while the visual consistency of those same Settings surfaces is **AG7's**. Where AG and AH touch the same file, AG applies its presentation layer on top of whatever AH lands and does not re-own AH's functional change. (No manifest dependency is declared: AH is a separate, not-yet-merged spec track, and no AG workpackage is hard-blocked by it — the boundaries below keep them from colliding.)
+
 ---
 
 ### AG1 — Team screen composes at desktop widths
@@ -219,7 +221,7 @@ Founder feedback from daily desktop use (2026-06-12): the Work view fails the He
 - Every replaced call site keeps its existing data and selection behavior — this is a presentation/consolidation change, not a behavior change.
 - Component lives in the design system with a `.stories.tsx` rendering its key states at `/designsystem`.
 
-**Out of scope.** The shared item-row/table primitive (AG6). The settings consistency pass (AG7). Net-new dropdown features (multi-select, async search) beyond what the replaced controls already do.
+**Out of scope.** The shared item-row/table primitive (AG6). The settings consistency pass (AG7). Net-new dropdown features (multi-select, async search) beyond what the replaced controls already do. The *functional* correctness of per-agent model/role/harness selection — whether the chosen value actually drives the runtime — is **AH2's**; AG5 only unifies how these pickers look and behave as controls.
 
 **Effort.** M (~1d)
 
@@ -306,8 +308,9 @@ Founder feedback from daily desktop use (2026-06-12): the Work view fails the He
 - This is a consistency/presentation pass — no settings behavior, persistence, or section set changes.
 - Adopt AG5 and AG6 primitives rather than introducing new bespoke controls.
 - Hearth tokens only; the page must pass the AQ lint rules with zero violations after the pass.
+- Do not re-own AH-owned changes that touch Settings: the textarea pill-shape fix and the Assistant persona-surface consolidation belong to **AH3**, and the add-agent placement + org-edge changes belong to **AH4**. AG7 applies visual consistency on top of whatever those land; if they have not landed when AG7 runs, AG7 brings the controls onto the shared primitives without re-litigating AH's functional change.
 - Existing settings tests updated, not deleted; persistence tests must stay green.
 
-**Out of scope.** Adding or removing settings sections. Changing what any setting does. Reworking credential/account security flows. The density toggle (already removed).
+**Out of scope.** Adding or removing settings sections. Changing what any setting does. Reworking credential/account security flows. The density toggle (already removed). The shared textarea/input pill-shape fix and the Assistant persona-surface consolidation (**AH3**). The add-agent team-placement and org-chart edge behavior (**AH4**) — AG7 governs only how those Settings surfaces look, not what they do.
 
 **Effort.** M (~1d)
