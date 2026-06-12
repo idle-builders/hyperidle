@@ -30,7 +30,15 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const DEMO_FIXTURE_IMPORT_RE = /['"](\.\.\/)*demo-fixture(\.js)?['"]/;
+/**
+ * @lore AF17-R2: The original regex `['"](\.\.\/)*demo-fixture(\.js)?['"]` only matched
+ * `"../demo-fixture.js"` (zero-or-more `../` forms) but NOT `"./demo-fixture.js"` — the
+ * exact form used by every sibling file in `packages/db/src/`. The guard was green by
+ * blindness. Fixed to cover: `./demo-fixture`, `../demo-fixture`, `../../demo-fixture` (any
+ * depth), and the workspace subpath `@hyperidle/db/demo-fixture`.
+ */
+const DEMO_FIXTURE_IMPORT_RE =
+	/['"](?:\.{1,2}\/(?:\.\.\/)*demo-fixture(?:\.js)?|@hyperidle\/db\/demo-fixture)['"]/;
 
 /**
  * Permitted importers of demo-fixture.ts.
@@ -43,6 +51,21 @@ const PERMITTED_SUFFIXES: string[] = [
 	// The backward-compat wrapper (tests call seed() which delegates here)
 	"packages/db/src/seed.ts",
 	"packages/db/src/seed.js",
+	// The barrel: re-exports seedDemoWorld so callers use @hyperidle/db named export
+	"packages/db/src/index.ts",
+	"packages/db/src/index.js",
+];
+
+/**
+ * Individual files excluded from scanning entirely.
+ * @lore AF17-R2: The guard script itself contains import-pattern strings in lore comments
+ * — it must be self-excluded. The guard test file contains the pattern in string literals
+ * passed to writeFile() — it is a .test.ts so it matches PERMITTED_TEST_PATTERNS already.
+ */
+const EXCLUDED_FILES: string[] = [
+	// This script — contains the demo-fixture path strings in lore comments, not real imports
+	"scripts/demo-fixture-guard.ts",
+	"scripts/demo-fixture-guard.js",
 ];
 
 const PERMITTED_TEST_PATTERNS = [
@@ -129,6 +152,11 @@ function walkFiles(dir: string, repoRoot: string): string[] {
 	return results;
 }
 
+function isExcludedFile(relPath: string): boolean {
+	const normalized = relPath.replace(/\\/g, "/");
+	return EXCLUDED_FILES.some((p) => normalized === p || normalized.endsWith(`/${p}`) || normalized.endsWith(p));
+}
+
 function isPermittedImporter(relPath: string): boolean {
 	const normalized = relPath.replace(/\\/g, "/");
 	if (PERMITTED_SUFFIXES.some((s) => normalized.endsWith(s))) return true;
@@ -152,6 +180,7 @@ export function runDemoFixtureGuard(repoRoot: string): { ok: boolean; violations
 
 	for (const file of files) {
 		const relPath = path.relative(repoRoot, file).replace(/\\/g, "/");
+		if (isExcludedFile(relPath)) continue;
 		let content: string;
 		try {
 			content = fs.readFileSync(file, "utf8");

@@ -141,3 +141,38 @@ Additional blind spots in the same regex: `"./demo-fixture"` / `"demo-fixture"` 
 | **AC6** zero "Nimmly"; neutral example data | **PASS** | Full `verify` (incl. `nimmly-guard:check`) green; guard scope now principled (WARNING-1 fixed). |
 
 **Verdict Round 2: NOT DONE.** Two CRITICALs and CRITICAL-3 resolved; CRITICAL-1's guard is structurally defective (re-opened as CRITICAL-1-R2) and the tree is not clean. Fix the regex + add the defeat-test, and clean the tree, then re-review.
+
+---
+
+# AF17 — Code Review Round 3 (FINAL — re-review of R2 fixes)
+
+**Verify:** GREEN — full `npm run verify` exit 0 (check + lint + knip + mock-inventory + nimmly-guard + demo-fixture-guard + build + desktop build + attestation). 2781 passed / 6 skipped. Attestation status=passed (HEAD `8ab37680`). Only post-verify tree churn is the attestation JSON itself (normal; `/ship` commits it).
+**Verdict:** **DONE.**
+
+Both R2 blockers verified resolved against live code, not prose.
+
+## R2 finding disposition
+
+| Finding | Status | Evidence (independently reproduced) |
+|---|---|---|
+| **CRITICAL-1-R2** guard regex blind to `./demo-fixture.js` | **RESOLVED** | New regex `/['"](?:\.{1,2}\/(?:\.\.\/)*demo-fixture(?:\.js)?\|@hyperidle\/db\/demo-fixture)['"]/` covers `./`, `../`, deep `../../`, extensionless, and workspace subpath. **Live defeat test reproduced:** planted `import { seedDemoWorld } from "./demo-fixture.js";` into `factory-bootstrap.ts` → `demo-fixture-guard:check` exits **1** ("FORBIDDEN production path imports demo-fixture"); reverted → exits **0**. Planted `@hyperidle/db/demo-fixture` into `seed-pg-cli.ts` → exits **1**; reverted → **0**. Permitted importers (`setup-cli.ts`, `seed.ts`, `index.ts`, test files) stay green. Tree clean after each revert. |
+| **CRITICAL-1-R2** unit test vacuity | **RESOLVED** | `packages/db/src/__tests__/AF17-demo-fixture-guard.test.ts` (12 tests, all green) builds real temp-dir trees and calls `runDemoFixtureGuard(tmpRoot)`. Genuinely asserts RED (`ok===false`, `reason:"forbidden"`) for `./demo-fixture.js` / no-extension / `../` / workspace-subpath forms in forbidden paths AND `unlisted-non-test` for a stray non-test importer; asserts GREEN for `setup-cli.ts`, `seed.ts`, integration + unit test files, clean files, and empty root. Not vacuous. |
+| **WARNING-R2** tree not clean (3 stray progress files) | **RESOLVED** | `git status --porcelain` shows no untracked source/progress files — only normal `.verify-attestations/*` churn. |
+
+## Final AC audit
+
+| AC | Met? | Proven by |
+|----|------|-----------|
+| **AC1** — fresh desktop/env has full factory layer (no manual step) | **PASS** | `AF17-factory-bootstrap.integration.test.ts` + desktop `main.ts bootLocalMode` wiring. Unchanged, green. |
+| **AC2** — shared deploy applies factory layer, idempotent re-run | **PASS** | `AF17-factory-bootstrap.integration.test.ts` AC2 block (equal counts + deep-equal rows after 2nd run, no throw). Unchanged, green. |
+| **AC3** — team + automation provisioned at team creation, team-owned, both seams | **PASS** | `AF17-team-routines.integration.test.ts` (FK `team_id==teams.id`, owners∈roster, per-team non-collision, lead fallback). Both seams (`teams-routes.ts` L442, `create-team.ts` L148) `await provisionTeamRoutines(...)` bare — **no `.catch`**, errors propagate (500 / tool failure); CRITICAL-3 fix lore-documented. |
+| **AC4** — real DB has no demo data **AND** structural import-allowlist guard enforces it | **PASS** | `AF17-factory-isolation.integration.test.ts` (bootstrap-only DB: 0 teams/humans, no demo rows). Demo world isolated in `demo-fixture.ts`; `seed.ts` is a thin `applyFactoryBootstrap + seedDemoWorld` wrapper. All four forbidden production paths (`seed-pg-cli`, `bootstrap-pg`, `factory-bootstrap`, `migrate-pg`) confirmed clean of any demo-fixture import. **Guard now functional** — live defeat test reds correctly (CRITICAL-1-R2 resolved) + 12 unit tests. |
+| **AC5** — bet→review never fails on missing propagation identity | **PASS** | `AF17-propagation-bootstrap.integration.test.ts` (`system:propagation` present post-bootstrap; review-thread insert resolves; PATCH bet→review non-500/422). Unchanged, green. |
+| **AC6** — zero "Nimmly" in shipped source; neutral example name; reintroduction guard real | **PASS** | `nimmly-guard:check` green. Grep over `.ts/.tsx` source (excl `dist/`, the guard, the nimmly-guard test) finds only `AF17-factory-isolation.integration.test.ts` — a test asserting absence of nimmly-named rows (legitimate; guard self-excludes test files). Example data renamed `Acme`/`demo-agent-*`. Guard scope principled (WARNING-1 fixed in R2). |
+
+## Lens summary (delta from R2)
+- **Architecture:** Seed split complete and correct — leaf `demo-fixture.ts`, thin `seed.ts` wrapper, four forbidden paths clean. Import-allowlist guard is now a real static barrier (verified by live planted-import defeat test, both `./` and workspace forms). FK discipline and dispatch ripple unchanged from R2-green.
+- **Security:** No new surface. Empty-catch observability defects gone (R2). Guard reads files only, no traversal risk.
+- **Adversarial / Simplification / Slop:** The Saboteur's remaining win (a careless production import of demo data) is now closed by a guard that actually reds. No dead scaffolding, no `--demo` doc-lie, no dual seeders (all resolved R1/R2).
+
+**Verdict: DONE.** Ready for retro + ship.
