@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Menu — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    body { font-family: var(--ui); color: var(--text); background: var(--surface-page); margin: 0; padding: 24px; }
+    .demo-grid { display: flex; gap: 48px; flex-wrap: wrap; align-items: flex-start; max-width: 800px; }
+    .demo-section { display: flex; flex-direction: column; gap: 8px; }
+    .demo-section-title { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-tertiary); }
+    .menu {
+      position: relative;
+      z-index: 50;
+      min-width: 160px;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r-default);
+      box-shadow: var(--shadow-elevated);
+      padding: 3px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .menu [role="menuitem"] {
+      text-align: left;
+      font-size: 13px;
+      color: var(--text-primary);
+      padding: 9px 12px;
+      border-radius: var(--r-subtle);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+    }
+    .menu [role="menuitem"]:hover {
+      background: color-mix(in oklab, var(--text-secondary) 8%, transparent);
+    }
+    .menu [role="menuitem"]:focus-visible {
+      outline: 1px solid var(--accent-primary);
+      outline-offset: -1px;
+    }
+    .menu [role="menuitem"][aria-disabled="true"] {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .menu [role="menuitem"].destructive {
+      color: var(--status-error);
+    }
+    .shortcut {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+  </style>
+</head>
+<body>
+  <div class="demo-grid">
+    <div class="demo-section">
+      <div class="demo-section-title">Bet overflow (default)</div>
+      <div role="menu" aria-label="Bet actions" class="menu" data-ds-component="Menu" data-tier="1">
+        <button type="button" role="menuitem" data-bet-action="activate">Activate bet</button>
+        <button type="button" role="menuitem" data-bet-action="adjust-appetite">Adjust appetite</button>
+        <button type="button" role="menuitem" data-bet-action="unblock">Unblock</button>
+        <button type="button" role="menuitem" class="destructive" data-bet-action="kill">Kill</button>
+      </div>
+    </div>
+
+    <div class="demo-section">
+      <div class="demo-section-title">Block actions (with shortcuts)</div>
+      <div role="menu" aria-label="Block actions" class="menu" data-ds-component="Menu" data-tier="1">
+        <button type="button" role="menuitem">
+          <span>Copy permalink</span><span class="shortcut">⌘L</span>
+        </button>
+        <button type="button" role="menuitem">
+          <span>View threads</span><span class="shortcut">↵</span>
+        </button>
+        <button type="button" role="menuitem">
+          <span>Move to bet</span>
+        </button>
+        <button type="button" role="menuitem" class="destructive">
+          <span>Delete block</span><span class="shortcut">⌫</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="demo-section">
+      <div class="demo-section-title">Knowledge actions (disabled item)</div>
+      <div role="menu" aria-label="Knowledge actions" class="menu" data-ds-component="Menu" data-tier="1">
+        <button type="button" role="menuitem" aria-disabled="true" disabled data-testid="knowledge-archive">Archive</button>
+        <button type="button" role="menuitem" data-testid="knowledge-change-scope">Change scope</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

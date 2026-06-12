@@ -93,10 +93,20 @@ describe("AG5 — Menu: rendering", () => {
 	it("clicking an item invokes its onSelect", async () => {
 		let chosen = "";
 		await render({
-			items: [{ id: "activate", label: "Activate", onSelect: () => { chosen = "activate"; } }],
+			items: [
+				{
+					id: "activate",
+					label: "Activate",
+					onSelect: () => {
+						chosen = "activate";
+					},
+				},
+			],
 		});
 		const item = container.querySelector("[role='menuitem']") as HTMLElement;
-		await act(async () => { item.click(); });
+		await act(async () => {
+			item.click();
+		});
 		expect(chosen).toBe("activate");
 	});
 
@@ -104,10 +114,14 @@ describe("AG5 — Menu: rendering", () => {
 		let closed = 0;
 		await render({
 			items: [{ id: "activate", label: "Activate", onSelect: noop }],
-			onClose: () => { closed++; },
+			onClose: () => {
+				closed++;
+			},
 		});
 		const item = container.querySelector("[role='menuitem']") as HTMLElement;
-		await act(async () => { item.click(); });
+		await act(async () => {
+			item.click();
+		});
 		expect(closed).toBeGreaterThan(0);
 	});
 });
@@ -133,7 +147,9 @@ describe("AG5 — Menu: Escape closes the menu", () => {
 			root.render(
 				createElement(Menu, {
 					open: true,
-					onClose: () => { closed++; },
+					onClose: () => {
+						closed++;
+					},
 					items: DEFAULT_ITEMS,
 					label: "Bet actions",
 				}) as ReactElement,
@@ -167,7 +183,9 @@ describe("AG5 — Menu: click-outside closes the menu", () => {
 			root.render(
 				createElement(Menu, {
 					open: true,
-					onClose: () => { closed++; },
+					onClose: () => {
+						closed++;
+					},
 					items: DEFAULT_ITEMS,
 					label: "Bet actions",
 				}) as ReactElement,
@@ -186,7 +204,9 @@ describe("AG5 — Menu: click-outside closes the menu", () => {
 			root.render(
 				createElement(Menu, {
 					open: true,
-					onClose: () => { closed++; },
+					onClose: () => {
+						closed++;
+					},
 					items: DEFAULT_ITEMS,
 					label: "Bet actions",
 				}) as ReactElement,
@@ -215,7 +235,10 @@ describe("AG5 — Menu: keyboard navigation", () => {
 		container.remove();
 	});
 
-	const renderMenu = async (items: MenuItem[] = DEFAULT_ITEMS, onClose: () => void = noop): Promise<void> => {
+	const renderMenu = async (
+		items: MenuItem[] = DEFAULT_ITEMS,
+		onClose: () => void = noop,
+	): Promise<void> => {
 		await act(async () => {
 			root.render(
 				createElement(Menu, {
@@ -232,7 +255,9 @@ describe("AG5 — Menu: keyboard navigation", () => {
 		await renderMenu();
 		const items = container.querySelectorAll("[role='menuitem']") as NodeListOf<HTMLElement>;
 		// Focus first item manually then press ArrowDown
-		await act(async () => { items[0]?.focus(); });
+		await act(async () => {
+			items[0]?.focus();
+		});
 		await act(async () => {
 			items[0]?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
 		});
@@ -242,7 +267,9 @@ describe("AG5 — Menu: keyboard navigation", () => {
 	it("ArrowUp moves focus to previous item", async () => {
 		await renderMenu();
 		const items = container.querySelectorAll("[role='menuitem']") as NodeListOf<HTMLElement>;
-		await act(async () => { items[1]?.focus(); });
+		await act(async () => {
+			items[1]?.focus();
+		});
 		await act(async () => {
 			items[1]?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }));
 		});
@@ -256,7 +283,9 @@ describe("AG5 — Menu: keyboard navigation", () => {
 			{ id: "c", label: "C", onSelect: noop },
 		]);
 		const items = container.querySelectorAll("[role='menuitem']") as NodeListOf<HTMLElement>;
-		await act(async () => { items[2]?.focus(); });
+		await act(async () => {
+			items[2]?.focus();
+		});
 		await act(async () => {
 			items[2]?.dispatchEvent(new KeyboardEvent("keydown", { key: "Home", bubbles: true }));
 		});
@@ -270,7 +299,9 @@ describe("AG5 — Menu: keyboard navigation", () => {
 			{ id: "c", label: "C", onSelect: noop },
 		]);
 		const items = container.querySelectorAll("[role='menuitem']") as NodeListOf<HTMLElement>;
-		await act(async () => { items[0]?.focus(); });
+		await act(async () => {
+			items[0]?.focus();
+		});
 		await act(async () => {
 			items[0]?.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
 		});
@@ -280,10 +311,18 @@ describe("AG5 — Menu: keyboard navigation", () => {
 	it("Enter key invokes the focused item's onSelect", async () => {
 		let chosen = "";
 		await renderMenu([
-			{ id: "activate", label: "Activate", onSelect: () => { chosen = "activate"; } },
+			{
+				id: "activate",
+				label: "Activate",
+				onSelect: () => {
+					chosen = "activate";
+				},
+			},
 		]);
 		const item = container.querySelector("[role='menuitem']") as HTMLElement;
-		await act(async () => { item.focus(); });
+		await act(async () => {
+			item.focus();
+		});
 		await act(async () => {
 			item.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
 		});
@@ -293,10 +332,18 @@ describe("AG5 — Menu: keyboard navigation", () => {
 	it("Space key invokes the focused item's onSelect", async () => {
 		let chosen = "";
 		await renderMenu([
-			{ id: "activate", label: "Activate", onSelect: () => { chosen = "activate"; } },
+			{
+				id: "activate",
+				label: "Activate",
+				onSelect: () => {
+					chosen = "activate";
+				},
+			},
 		]);
 		const item = container.querySelector("[role='menuitem']") as HTMLElement;
-		await act(async () => { item.focus(); });
+		await act(async () => {
+			item.focus();
+		});
 		await act(async () => {
 			item.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
 		});
@@ -305,9 +352,13 @@ describe("AG5 — Menu: keyboard navigation", () => {
 
 	it("Tab key calls onClose", async () => {
 		let closed = 0;
-		await renderMenu(DEFAULT_ITEMS, () => { closed++; });
+		await renderMenu(DEFAULT_ITEMS, () => {
+			closed++;
+		});
 		const item = container.querySelector("[role='menuitem']") as HTMLElement;
-		await act(async () => { item.focus(); });
+		await act(async () => {
+			item.focus();
+		});
 		await act(async () => {
 			item.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
 		});
