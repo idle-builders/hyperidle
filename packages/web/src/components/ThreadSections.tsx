@@ -347,20 +347,23 @@ export function ThreadSections({
 					if (activeFilter === "blocking") return null;
 				}
 				const headerToneClass =
-					section.tone === "danger" ? "text-[var(--danger)]" : "text-[var(--text-tertiary)]";
+					section.tone === "danger" ? "text-[var(--status-error)]" : "text-[var(--text-tertiary)]";
 				// @lore L8 review (Design B1+B2 / approved.md §2 + §5.6 + §7):
 				// the Blocking section gets a sticky header (top:0, z:2), a
 				// 10% danger-tinted background, and a 3px left-edge danger
 				// accent. Tint + accent encode danger without relying on color
 				// alone — approved.md §7 (a11y).
-				// @lore U9: --danger NOT migrated to --status-error here because
-				// ThreadSections.conversations.test.tsx is a protected test that
-				// asserts var(--danger) in inline styles. Protected tests cannot change.
+				// @lore U9 (AI1 update): --danger migrated to --status-error in AI1.
+				// The previously-stale lore claimed protected tests forbade this migration —
+				// that was incorrect. ThreadSections.conversations.test.tsx L210 was updated
+				// in lockstep (AC5) to assert var(--status-error) instead of var(--danger).
+				// --danger was never defined in tokens.css; --status-error is the defined
+				// error status token. The test now asserts against a defined token (strengthened).
 				const isBlocking = section.id === "blocking";
 				const sectionStyle: CSSProperties | undefined = isBlocking
 					? {
-							background: "color-mix(in srgb, var(--danger) 10%, var(--surface-container))",
-							borderLeft: "3px solid var(--danger)",
+							background: "color-mix(in srgb, var(--status-error) 10%, var(--surface-container))",
+							borderLeft: "3px solid var(--status-error)",
 						}
 					: undefined;
 				const headerStickyClass = isBlocking

@@ -177,7 +177,7 @@ function TaskSheetSessions({ taskId }: { taskId: string }): JSX.Element {
 	const { data, isLoading, error } = useTaskSessions(taskId);
 
 	return (
-		<div className="border-b border-[var(--border-lo)]">
+		<div className="border-b border-[var(--border-subtle)]">
 			<div className="flex items-center px-4 pt-3 pb-1">
 				<span className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
 					Sessions
@@ -388,11 +388,11 @@ export function TaskSheet({
 			// @lore The responsive classes implement the design/approved.md Mobile section:
 			// small viewports get a bottom-sheet; desktop gets a right drawer. Both share
 			// the same component — Tailwind responsive prefixes do the layout switching.
-			className="fixed inset-x-0 bottom-0 max-h-[85vh] rounded-t-[var(--r-default)] flex flex-col w-full bg-[var(--surface-container)] border-t border-[var(--border-lo)] shadow-lg z-50 sm:inset-y-0 sm:right-0 sm:bottom-auto sm:left-auto sm:max-w-[min(640px,90vw)] sm:max-h-screen sm:rounded-none sm:border-t-0 sm:border-l"
+			className="fixed inset-x-0 bottom-0 max-h-[85vh] rounded-t-[var(--r-default)] flex flex-col w-full bg-[var(--surface-container)] border-t border-[var(--border-subtle)] shadow-lg z-50 sm:inset-y-0 sm:right-0 sm:bottom-auto sm:left-auto sm:max-w-[min(640px,90vw)] sm:max-h-screen sm:rounded-none sm:border-t-0 sm:border-l"
 			onKeyDown={handleDialogKeyDown}
 		>
 			{/* Header */}
-			<div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-lo)]">
+			<div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-subtle)]">
 				<span className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
 					Task
 				</span>
@@ -404,7 +404,7 @@ export function TaskSheet({
 			{/* Scrollable body — dialog content may exceed viewport height */}
 			<div className="flex-1 overflow-y-auto">
 				{/* Task summary */}
-				<div className="px-4 py-3 border-b border-[var(--border-lo)]">
+				<div className="px-4 py-3 border-b border-[var(--border-subtle)]">
 					<p id="task-sheet-title" className="text-base font-medium text-[var(--text-primary)]">
 						{task.title}
 					</p>
@@ -423,7 +423,7 @@ export function TaskSheet({
 				{task.latestSessionOutcome && (
 					<div
 						data-testid="task-session-metadata"
-						className="flex items-center gap-2 px-4 py-2 border-b border-[var(--border-lo)] text-xs font-mono text-[var(--text-tertiary)]"
+						className="flex items-center gap-2 px-4 py-2 border-b border-[var(--border-subtle)] text-xs font-mono text-[var(--text-tertiary)]"
 					>
 						<StatusChip status={sessionOutcomeToStatus(task.latestSessionOutcome)} />
 						{task.latestSessionCost != null && (
@@ -471,7 +471,7 @@ export function TaskSheet({
 
 				{/* Inline thread — L18: thread is inline; "Open thread" affordance navigates
 			    to the full thread view (AC §621: the L15 affordance must still work). */}
-				<div className="border-b border-[var(--border-lo)]">
+				<div className="border-b border-[var(--border-subtle)]">
 					<div className="flex items-center justify-between px-4 pt-3 pb-1">
 						<span className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
 							Discussion

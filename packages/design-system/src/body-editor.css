@@ -4,10 +4,13 @@
  * All styles are scoped under .body-editor to prevent global style pollution.
  * All values use semantic Hearth tokens — no hex values, no raw Tailwind palette.
  *
- * @lore T1: h3 uses calc(var(--density-text-h2) * 0.9) instead of
+ * @lore T1 (AI1 update): h3 uses calc(var(--text-xl) * 0.9) instead of
  * calc(var(--density-text) * 1.1) as recommended by architecture-critique I4.
- * The tokens.css defines --density-text-h1 and --density-text-h2 but not h3.
- * Using 90% of h2 keeps h3 within the defined scale.
+ * The W2 density-token removal replaced --density-text-h1/h2 with Hearth type
+ * scale tokens: --text-2xl (24px) for h1, --text-xl (20px) for h2, --text-base
+ * (15px) for body. h3 stays at calc(--text-xl * 0.9) = 18px, keeping h3 within
+ * the closed type scale (AI1 AC1 token-resolution; R2: h1 26→24px is a deliberate
+ * normalization to the nearest on-scale step, no 26px step exists in Hearth).
  *
  * @lore T1: The .is-editor-empty:first-child::before pseudo-element is how
  * TipTap's Placeholder extension displays placeholder text — it sets
@@ -16,26 +19,26 @@
 
 .body-editor .ProseMirror {
 	outline: none;
-	font-family: var(--ui);
-	font-size: var(--density-text);
+	font-family: var(--font-sans);
+	font-size: var(--text-base);
 	line-height: var(--leading-body);
 	color: var(--text-primary);
 }
 
 /* Headings */
 .body-editor .ProseMirror h1 {
-	font-size: var(--density-text-h1);
-	line-height: var(--leading-heading);
-	font-weight: var(--fw-emphasis);
+	font-size: var(--text-2xl);
+	line-height: var(--leading-tight);
+	font-weight: var(--fw-semibold);
 	color: var(--text-primary);
 	margin-top: 1.5em;
 	margin-bottom: 0.5em;
 }
 
 .body-editor .ProseMirror h2 {
-	font-size: var(--density-text-h2);
-	line-height: var(--leading-heading);
-	font-weight: var(--fw-emphasis);
+	font-size: var(--text-xl);
+	line-height: var(--leading-tight);
+	font-weight: var(--fw-semibold);
 	color: var(--text-primary);
 	margin-top: 1.25em;
 	margin-bottom: 0.5em;
@@ -43,8 +46,8 @@
 
 /* @lore T1: h3 at 90% of h2 keeps it within the closed type scale (I4). */
 .body-editor .ProseMirror h3 {
-	font-size: calc(var(--density-text-h2) * 0.9);
-	line-height: var(--leading-heading);
+	font-size: calc(var(--text-xl) * 0.9);
+	line-height: var(--leading-tight);
 	font-weight: var(--fw-medium);
 	color: var(--text-primary);
 	margin-top: 1em;
@@ -80,7 +83,7 @@
 
 /* Blockquote */
 .body-editor .ProseMirror blockquote {
-	border-left: 2px solid var(--border-emphasis);
+	border-left: 2px solid var(--border-strong);
 	padding-left: 1em;
 	color: var(--text-secondary);
 	margin-bottom: 0.5em;
@@ -88,11 +91,11 @@
 
 /* Inline code — less specific selector comes first per CSS specificity order */
 .body-editor .ProseMirror code {
-	font-family: var(--mono);
+	font-family: var(--font-mono);
 	font-size: 0.875em;
-	background: var(--surface-ghost);
+	background: var(--surface-container);
 	padding: 0.125em 0.375em;
-	border-radius: var(--r1);
+	border-radius: var(--r-subtle);
 	color: var(--text-primary);
 }
 
@@ -100,7 +103,7 @@
 .body-editor .ProseMirror pre {
 	background: var(--surface-container);
 	border: 1px solid var(--border-subtle);
-	border-radius: var(--r1);
+	border-radius: var(--r-subtle);
 	padding: 0.75em 1em;
 	margin-bottom: 0.5em;
 	overflow-x: auto;
@@ -110,7 +113,7 @@
  * avoid biome noDescendingSpecificity lint error. The pre code selector resets
  * the inline code styles that don't apply inside a code block. */
 .body-editor .ProseMirror pre code {
-	font-family: var(--mono);
+	font-family: var(--font-mono);
 	font-size: 0.875em;
 	color: var(--text-primary);
 	background: none;
@@ -131,7 +134,7 @@
 	border: 1px solid var(--border-default);
 	padding: 0.375em 0.75em;
 	text-align: left;
-	font-size: var(--density-text);
+	font-size: var(--text-base);
 	font-variant-numeric: tabular-nums;
 }
 
@@ -156,19 +159,19 @@
 .body-editor .ProseMirror img {
 	max-width: 100%;
 	height: auto;
-	border-radius: var(--r1);
+	border-radius: var(--r-subtle);
 	margin-bottom: 0.5em;
 }
 
 /* Links */
 .body-editor .ProseMirror a {
-	color: var(--primary);
+	color: var(--accent-primary);
 	text-decoration: underline;
 }
 
 /* Bold */
 .body-editor .ProseMirror strong {
-	font-weight: var(--fw-emphasis);
+	font-weight: var(--fw-semibold);
 }
 
 /* Strikethrough */
@@ -188,5 +191,5 @@
 
 /* Selection */
 .body-editor .ProseMirror ::selection {
-	background: var(--primary-dim);
+	background: var(--accent-primary-dim);
 }
