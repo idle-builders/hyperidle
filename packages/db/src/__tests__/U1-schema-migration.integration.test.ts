@@ -99,14 +99,12 @@ describe("U1 AC1+AC2: Table renames — products→teams, teams→team_members",
 		expect(cols).not.toContain("product_id");
 	});
 
-	test("AC1+AC2: seed data round-trips — `teams` table holds the former product row", async ({
-		db,
-	}) => {
+	test("AC1+AC2: seed data round-trips — `teams` table holds the demo team row", async ({ db }) => {
 		await seed(db);
 
-		// After migration, the product formerly named "Acme" must live in teams
+		// @lore AF17: demo team id is now "demo-team-acme" (split from seed-product-1).
 		const teamResult = await db.execute(
-			sql.raw(`SELECT id, name FROM teams WHERE id = 'seed-product-1'`),
+			sql.raw(`SELECT id, name FROM teams WHERE id = 'demo-team-acme'`),
 		);
 		const teamRows = (teamResult as { rows: Array<{ id: string; name: string }> }).rows;
 		expect(teamRows.length).toBe(1);
@@ -114,7 +112,7 @@ describe("U1 AC1+AC2: Table renames — products→teams, teams→team_members",
 
 		// And the old team membership group lives in team_members
 		const memberResult = await db.execute(
-			sql.raw(`SELECT id FROM team_members WHERE id = 'seed-team-1'`),
+			sql.raw(`SELECT id FROM team_members WHERE id = 'demo-team-members-acme'`),
 		);
 		const memberRows = (memberResult as { rows: Array<{ id: string }> }).rows;
 		expect(memberRows.length).toBe(1);
@@ -531,8 +529,9 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 	test("after seeding, bet uses 'description' column (not pitch)", async ({ db }) => {
 		await seed(db);
 
+		// @lore AF17: daily digest bet id updated to demo-bet-daily-digest (demo-fixture split)
 		const result = await db.execute(
-			sql.raw(`SELECT id, description FROM bets WHERE id = 'seed-bet-daily-digest'`),
+			sql.raw(`SELECT id, description FROM bets WHERE id = 'demo-bet-daily-digest'`),
 		);
 		const rows = (result as { rows: Array<{ id: string; description: string }> }).rows;
 		expect(rows.length).toBe(1);
@@ -542,34 +541,36 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 	test("after seeding, bet status is 'draft' (not 'shaped')", async ({ db }) => {
 		await seed(db);
 
+		// @lore AF17: daily digest bet id updated to demo-bet-daily-digest (demo-fixture split)
 		const result = await db.execute(
-			sql.raw(`SELECT status FROM bets WHERE id = 'seed-bet-daily-digest'`),
+			sql.raw(`SELECT status FROM bets WHERE id = 'demo-bet-daily-digest'`),
 		);
 		const rows = (result as { rows: Array<{ status: string }> }).rows;
 		expect(rows[0]?.status).toBe("draft");
 	});
 
-	test("after seeding, seed bet uses team_id (not product_id)", async ({ db }) => {
+	test("after seeding, demo bet uses team_id (not product_id)", async ({ db }) => {
 		await seed(db);
 
-		// team_id must be present and set to 'seed-product-1' (the former product, now team)
+		// @lore AF17: team_id now points to 'demo-team-acme' (split from seed-product-1)
 		const result = await db.execute(
-			sql.raw(`SELECT team_id FROM bets WHERE id = 'seed-bet-daily-digest'`),
+			sql.raw(`SELECT team_id FROM bets WHERE id = 'demo-bet-daily-digest'`),
 		);
 		const rows = (result as { rows: Array<{ team_id: string }> }).rows;
 		expect(rows.length).toBe(1);
-		expect(rows[0]?.team_id).toBe("seed-product-1");
+		expect(rows[0]?.team_id).toBe("demo-team-acme");
 	});
 
-	test("after seeding, seed task uses team_id (not product_id)", async ({ db }) => {
+	test("after seeding, demo task uses team_id (not product_id)", async ({ db }) => {
 		await seed(db);
 
+		// @lore AF17: task id updated to demo-task-daily-digest; team_id points to demo-team-acme
 		const result = await db.execute(
-			sql.raw(`SELECT team_id FROM tasks WHERE id = 'seed-task-daily-digest'`),
+			sql.raw(`SELECT team_id FROM tasks WHERE id = 'demo-task-daily-digest'`),
 		);
 		const rows = (result as { rows: Array<{ team_id: string }> }).rows;
 		expect(rows.length).toBe(1);
-		expect(rows[0]?.team_id).toBe("seed-product-1");
+		expect(rows[0]?.team_id).toBe("demo-team-acme");
 	});
 
 	test("seed is idempotent after migration (running twice does not error)", async ({ db }) => {

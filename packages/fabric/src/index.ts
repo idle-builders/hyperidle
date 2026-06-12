@@ -36,7 +36,6 @@ export {
 	provisionTeamRoutines,
 	registerBuiltinRoutineHandlers,
 	runBuiltinRoutine,
-	seedBuiltinRoutines,
 } from "./services/builtin-routines.js";
 // cost-cap
 export type {

@@ -68,23 +68,37 @@ const SKIP_EXTENSIONS_SUFFIX = [".d.ts", ".d.ts.map"];
 
 /**
  * Directories to skip entirely (not recurse into).
- * @lore AF17: .pipeline/ excluded because it contains spec text + progress JSONs
- * that legitimately reference "Nimmly" as the workpackage title/branch.
- * docs/archive/ excluded as superseded history.
- * plans/ excluded — intermediate pipeline artifacts (architecture docs, critiques,
- * design mockups, test result files) legitimately discuss Nimmly as the purge target.
- * These are generated/transient artifacts, not live shipped code.
+ *
+ * @lore AF17 WARNING-1: Exclusions must be principled — only non-shipped artifacts.
+ * The guard scans SOURCE that ships to users. Pipeline tracking state and planning
+ * artifacts are explicitly out of scope for two reasons:
+ *   1. They legitimately reference "Nimmly" as the workpackage title / branch name.
+ *   2. They are not live code — they are never deployed, bundled, or seen by users.
+ *
+ * Excluded categories:
+ *   - .pipeline/work-packages/  — workpackage spec files; AF17 spec describes the purge
+ *   - .pipeline/progress/       — per-workpackage progress JSON; AF17.json has "Nimmly" in title
+ *   - .pipeline/retro-log.jsonl — retro log; may reference Nimmly as workpackage context
+ *   - plans/                    — intermediate architecture docs, critiques, design mockups
+ *   - docs/archive/             — superseded history (not deployed)
+ *
+ * IMPORTANT: Shipped source (packages/, scripts/, docs/ outside archive) IS scanned.
+ * Nothing in shipped code may contain "Nimmly".
  */
 const EXCLUDED_DIR_PATTERNS: string[] = [
 	"node_modules",
 	".git",
-	// Exclude the entire .pipeline directory — contains spec text + progress JSONs
-	// that legitimately reference Nimmly as the workpackage title/branch.
-	".pipeline",
-	"docs/archive",
-	// Exclude intermediate pipeline planning artifacts — architecture docs, critiques,
-	// design mockups, test results. They legitimately discuss Nimmly as the purge target.
+	// Pipeline tracking state — not shipped; legitimately references Nimmly as WP title/branch.
+	// @lore AF17 WARNING-1: narrowed from blanket ".pipeline" to the two sub-dirs that hold
+	// Nimmly references. .pipeline/audits/ is intentionally NOT excluded — audit ledgers
+	// should not reference Nimmly in live-code findings.
+	".pipeline/work-packages",
+	".pipeline/progress",
+	// Intermediate pipeline planning artifacts — architecture docs, critiques, design mockups.
+	// They legitimately discuss Nimmly as the purge target but are never shipped.
 	"plans",
+	// Superseded documentation history — not deployed.
+	"docs/archive",
 	// Build outputs
 	"dist",
 	".next",

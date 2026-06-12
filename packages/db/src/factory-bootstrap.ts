@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { HyperIdleDb } from "./connection.js";
 import { factorySettings, knowledgeItems, knowledgeStrategyFabric, users } from "./schema.js";
 import {
@@ -190,12 +190,8 @@ export async function applyFactoryBootstrap(db: HyperIdleDb): Promise<void> {
 		await db
 			.update(users)
 			.set({ soulPrompt: template })
-			.where(and(eq(users.role, role), eq(users.kind, "ai")));
-		// Note: this backfill only runs on agents in the DB at bootstrap time,
-		// which on a fresh DB is only factory agents.
+			.where(and(eq(users.role, role), eq(users.kind, "ai"), inArray(users.id, factoryAgentIds)));
 	}
-	// Suppress unused variable warning — factoryAgentIds is conceptually used above
-	void factoryAgentIds;
 
 	// ── AB0: Backfill agentCategory on factory agents (idempotent) ──
 	const categoryByRole: Record<string, string> = {

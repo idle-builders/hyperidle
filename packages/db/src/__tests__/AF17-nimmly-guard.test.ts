@@ -12,23 +12,7 @@
  */
 
 import { describe, expect, test } from "vitest";
-
-// @lore AF17: This dynamic import will fail until nimmly-guard.ts is created.
-// biome-ignore lint/suspicious/noExplicitAny: Red phase — module doesn't exist yet
-let checkContent: (content: string) => { clean: boolean; hits: string[] };
-
-try {
-	const mod = await import("../../../../scripts/nimmly-guard.js").catch(() => null);
-	checkContent =
-		((mod as Record<string, unknown>)?.checkContent as typeof checkContent) ??
-		(() => {
-			throw new Error("checkContent not implemented yet (AF17 red phase)");
-		});
-} catch {
-	checkContent = () => {
-		throw new Error("checkContent not implemented yet");
-	};
-}
+import { checkContent } from "../../../../scripts/nimmly-guard.js";
 
 describe("AF17 AC6: nimmly-guard checkContent", () => {
 	test("returns clean=false when content contains 'nimmly' (lowercase)", () => {

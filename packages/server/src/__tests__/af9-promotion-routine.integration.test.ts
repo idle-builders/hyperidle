@@ -27,8 +27,8 @@ import {
 import {
 	BUILTIN_ROUTINE_IDS,
 	type BuiltinRoutineId,
+	provisionTeamRoutines,
 	runBuiltinRoutine,
-	seedBuiltinRoutines,
 } from "@hyperidle/fabric";
 import type { KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
@@ -36,10 +36,9 @@ import { describe, expect, test } from "../test-fixtures.js";
 
 const NOW_ISO = "2026-06-11T00:00:00.000Z";
 
-// @lore AF9 red phase: PROMOTION_ROUTINE_ID does not exist in
-// BUILTIN_ROUTINE_IDS until Task 2. The cast lets these tests compile and run,
-// failing at runtime behavior (not at import-time type error).
-const PROMOTION_ROUTINE_ID = "builtin:knowledge-promotion" as BuiltinRoutineId;
+const TEST_TEAM_ID = "prod-1";
+// @lore AF17: per-team routine id scheme — builtin:<kind>:<teamId>
+const PROMOTION_ROUTINE_ID = `builtin:knowledge-promotion:${TEST_TEAM_ID}` as BuiltinRoutineId;
 
 /**
  * Seed the agent rows referenced by builtin routines.
@@ -78,6 +77,22 @@ async function seedOwners(db: HyperIdleDb): Promise<void> {
 		maxConcurrentSessions: 1,
 		teamId: "team-1",
 		createdAt: NOW_ISO,
+	});
+}
+
+/**
+ * @lore AF17: replaces seedBuiltinRoutines(db, teamId).
+ * Uses provisionTeamRoutines so ids are per-team: `builtin:<kind>:<teamId>`.
+ */
+async function seedBuiltinRoutines(db: HyperIdleDb, teamId = TEST_TEAM_ID): Promise<void> {
+	await provisionTeamRoutines(db, {
+		teamId,
+		ownerByRole: {
+			facilitator: "seed-agent-pf-facilitation",
+			product_manager: "demo-agent-pm",
+			assistant: "seed-agent-cos",
+		},
+		leadAgentId: "seed-agent-cos",
 	});
 }
 
@@ -122,8 +137,8 @@ async function seedPromotionCandidates(db: HyperIdleDb, prefix: string): Promise
 describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 	test("BUILTIN_ROUTINE_IDS contains 'builtin:knowledge-promotion'", () => {
 		// This test asserts a static property via runtime import.
-		// Fails until Task 2 adds the id.
-		expect(BUILTIN_ROUTINE_IDS as readonly string[]).toContain(PROMOTION_ROUTINE_ID);
+		// BUILTIN_ROUTINE_IDS contains the kind (global), not the per-team id.
+		expect(BUILTIN_ROUTINE_IDS as readonly string[]).toContain("builtin:knowledge-promotion");
 	});
 
 	test("seedBuiltinRoutines creates 'builtin:knowledge-promotion' with nextRunAt (scheduler eligible)", async ({

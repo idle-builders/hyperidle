@@ -35,3 +35,13 @@ hyperidle-pg/
 eval-results*.json
 docs/product/.vitepress/cache
 .vitepress/cache
+# @lore AF17 NIT-3: guard scripts run via tsx (no compilation step). If tsc emits
+# these declaration/map files, they must not pollute the tracked tree.
+scripts/nimmly-guard.js
+scripts/nimmly-guard.js.map
+scripts/nimmly-guard.d.ts
+scripts/nimmly-guard.d.ts.map
+scripts/demo-fixture-guard.js
+scripts/demo-fixture-guard.js.map
+scripts/demo-fixture-guard.d.ts
+scripts/demo-fixture-guard.d.ts.map

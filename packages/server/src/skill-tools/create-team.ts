@@ -142,12 +142,13 @@ async function handler(
 		for (const { role, agentId } of roster) {
 			ownerByRole[role] = agentId;
 		}
+		// AF17: provisioning errors propagate — tool invocation must fail loudly if
+		// routine provisioning fails, not silently create a team without automation.
+		// @lore AF17: empty .catch(() => {}) removed per code-review CRITICAL-3.
 		await provisionTeamRoutines(ctx.db, {
 			teamId,
 			ownerByRole,
 			leadAgentId: leadAgentId ?? agentIds[0] ?? "",
-		}).catch(() => {
-			// Non-fatal: don't fail tool invocation
 		});
 	}
 

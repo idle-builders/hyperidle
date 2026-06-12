@@ -436,12 +436,13 @@ export function createTeamRoutes(
 					ownerByRole[role] = agentId;
 				}
 			}
+			// AF17: provisioning errors propagate — a team must not be created silently
+			// without its automation. If this throws, the caller gets a 500 with details.
+			// @lore AF17: empty .catch(() => {}) removed per code-review CRITICAL-3.
 			await provisionTeamRoutines(db, {
 				teamId,
 				ownerByRole,
 				leadAgentId: leadAgentId ?? agentIds[0] ?? "",
-			}).catch(() => {
-				// Non-fatal: log but don't fail team creation
 			});
 		}
 

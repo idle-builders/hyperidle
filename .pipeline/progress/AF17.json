@@ -4,16 +4,17 @@
   "track": "AF",
   "complexity": "L",
   "status": "in_progress",
-  "currentStep": "3-builder",
+  "currentStep": "3-builder-fix",
   "branch": "feat/AF17-seed-factory-nimmly-purge",
   "pr": 266,
   "startedAt": "2026-06-12",
   "phases": {
     "1-designer": "in_progress",
     "2-critique": "done",
-    "3-builder": "in_progress",
-    "4-review": "pending",
+    "3-builder": "done",
+    "4-review": "changes-requested",
     "5-retro": "pending",
     "ship": "pending"
-  }
+  },
+  "attempts": 2
 }

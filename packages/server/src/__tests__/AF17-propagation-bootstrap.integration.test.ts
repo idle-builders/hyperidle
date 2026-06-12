@@ -8,31 +8,21 @@
  * before any review-thread creation path runs.
  */
 
-import { bets, type HyperIdleDb, teamMembers, teams, threads, users } from "@hyperidle/db";
+import {
+	applyFactoryBootstrap,
+	bets,
+	type HyperIdleDb,
+	teamMembers,
+	teams,
+	threads,
+	users,
+} from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-AF17-ac5";
 const NOW = new Date().toISOString();
-
-// biome-ignore lint/suspicious/noExplicitAny: Red phase — module doesn't exist yet
-let applyFactoryBootstrap: (db: HyperIdleDb) => Promise<void>;
-try {
-	const mod = await import("@hyperidle/db").catch(() => null);
-	// applyFactoryBootstrap will be exported from @hyperidle/db after implementation
-	applyFactoryBootstrap =
-		((mod as Record<string, unknown>)?.applyFactoryBootstrap as (
-			db: HyperIdleDb,
-		) => Promise<void>) ??
-		(async () => {
-			throw new Error("applyFactoryBootstrap not implemented yet (AF17 red phase)");
-		});
-} catch {
-	applyFactoryBootstrap = async () => {
-		throw new Error("applyFactoryBootstrap not implemented yet");
-	};
-}
 
 function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };

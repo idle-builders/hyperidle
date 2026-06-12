@@ -14,24 +14,7 @@
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { sql } from "drizzle-orm";
 import type { HyperIdleDb } from "../connection.js";
-
-// @lore AF17: import will fail until factory-bootstrap.ts is created — that is the
-// intended red-phase failure. The test proves AC1/AC2 behaviorally once the module exists.
-// biome-ignore lint/suspicious/noExplicitAny: Red phase — module doesn't exist yet
-let applyFactoryBootstrap: (db: HyperIdleDb) => Promise<void>;
-try {
-	// Dynamic import so compilation doesn't fail at module load; import errors surface at test run
-	const mod = await import("../factory-bootstrap.js").catch(() => null);
-	applyFactoryBootstrap =
-		mod?.applyFactoryBootstrap ??
-		(async () => {
-			throw new Error("applyFactoryBootstrap not implemented yet");
-		});
-} catch {
-	applyFactoryBootstrap = async () => {
-		throw new Error("applyFactoryBootstrap not implemented yet");
-	};
-}
+import { applyFactoryBootstrap } from "../factory-bootstrap.js";
 
 async function queryRows<T extends Record<string, unknown>>(
 	db: HyperIdleDb,

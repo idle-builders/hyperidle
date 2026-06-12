@@ -303,60 +303,6 @@ export async function provisionTeamRoutines(
 	}
 }
 
-/**
- * @deprecated Use `provisionTeamRoutines` instead. Kept for test backward
- * compatibility until all callers are migrated.
- *
- * @lore AF17: seedBuiltinRoutines used global ids (`builtin:*`) — these collide
- * when a second team is provisioned. provisionTeamRoutines uses per-team ids.
- * This shim exists so existing integration tests that call seedBuiltinRoutines
- * can still pass during the AF17 migration without being broken.
- */
-export async function seedBuiltinRoutines(db: HyperIdleDb, teamId = "prod-1"): Promise<void> {
-	// Build a minimal ownerByRole using the factory agents that the old tests seed.
-	// Tests that call seedBuiltinRoutines also call seedOwners which inserts:
-	//   seed-agent-cos (assistant), seed-agent-pf-facilitation (facilitator),
-	//   demo-agent-pm (product_manager — renamed from the old demo PM id in AF17).
-	// We allow either id to be the PM owner for backward compatibility.
-	const ownerByRole: Partial<Record<string, string>> = {
-		facilitator: "seed-agent-pf-facilitation",
-		product_manager: "demo-agent-pm",
-		assistant: "seed-agent-cos",
-	};
-	// Use global ids (no teamId suffix) for backward compat with existing tests
-	// that assert on exact ids like "builtin:practice-meeting".
-	const now = new Date();
-	for (const spec of BUILTIN_SPECS) {
-		// Legacy: use the global id (no per-team suffix) so existing tests pass.
-		const routineId = spec.id;
-		let nextRunAt: string | null = null;
-		const cron = (spec.triggerConfig as { cron?: string }).cron;
-		if (spec.triggerType === "calendar" && cron) {
-			nextRunAt = nextCronMatch(parseCron(cron), now).toISOString();
-		}
-		const ownerAgentId = ownerByRole[spec.ownerRole] ?? "seed-agent-cos";
-		await db
-			.insert(routines)
-			.values({
-				id: routineId,
-				name: spec.name,
-				teamId,
-				state: "active",
-				ownerAgentId,
-				triggerType: spec.triggerType,
-				triggerConfig: JSON.stringify(spec.triggerConfig),
-				skillId: spec.skillId,
-				doneCondition: spec.doneCondition,
-				delegationAllowed: false,
-				humanReview: spec.humanReview,
-				silent: spec.silent,
-				active: true,
-				nextRunAt,
-			})
-			.onConflictDoNothing();
-	}
-}
-
 // --- Dispatcher ---
 
 export type RunBuiltinResult =

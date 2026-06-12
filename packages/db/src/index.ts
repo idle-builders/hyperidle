@@ -11,6 +11,7 @@ export {
 	parsePgPoolSize,
 	resolvePgPoolSize,
 } from "./connection.js";
+export { seedDemoWorld } from "./demo-fixture.js";
 export { applyFactoryBootstrap } from "./factory-bootstrap.js";
 export { applyMigrations, isDowngrade, type MigrationResult } from "./migrate.js";
 export {

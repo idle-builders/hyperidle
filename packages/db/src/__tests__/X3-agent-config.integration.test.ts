@@ -307,12 +307,13 @@ describe("X3 AC-3: existing agents backfilled with soulPrompt from role template
 	});
 
 	// AB0: builder now has a template (docs/souls/builder.md added)
-	test("seed-agent-builder has soulPrompt matching builder template", async ({ db }) => {
+	// @lore AF17: renamed from seed-agent-builder (pre-purge) to demo-agent-builder.
+	test("demo-agent-builder has soulPrompt matching builder template", async ({ db }) => {
 		await seed(db);
 
 		const agentRows = await queryRows<{ soulPrompt: string | null }>(
 			db,
-			`SELECT soul_prompt AS "soulPrompt" FROM users WHERE id = 'seed-agent-builder'`,
+			`SELECT soul_prompt AS "soulPrompt" FROM users WHERE id = 'demo-agent-builder'`,
 		);
 		const templateRows = await queryRows<{ value: string }>(
 			db,

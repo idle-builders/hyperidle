@@ -15,21 +15,7 @@
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { sql } from "drizzle-orm";
 import type { HyperIdleDb } from "../connection.js";
-
-// biome-ignore lint/suspicious/noExplicitAny: Red phase — module doesn't exist yet
-let applyFactoryBootstrap: (db: HyperIdleDb) => Promise<void>;
-try {
-	const mod = await import("../factory-bootstrap.js").catch(() => null);
-	applyFactoryBootstrap =
-		mod?.applyFactoryBootstrap ??
-		(async () => {
-			throw new Error("applyFactoryBootstrap not implemented yet");
-		});
-} catch {
-	applyFactoryBootstrap = async () => {
-		throw new Error("applyFactoryBootstrap not implemented yet");
-	};
-}
+import { applyFactoryBootstrap } from "../factory-bootstrap.js";
 
 async function queryRows<T extends Record<string, unknown>>(
 	db: HyperIdleDb,
