@@ -92,8 +92,6 @@ factory_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)
 knowledge_edit_log (id, item_id, editor, field, old_value, new_value,
                     edit_type, created_at)
 
--- File leases
-file_leases (id, agent_id, file_path, acquired_at, released_at)
 ```
 
 **Key differences from v0.1:**
@@ -137,7 +135,7 @@ ELSE                                         → Ambient awareness (catch-all)
 2. **Dependency Watcher** — watches task state transitions and notifies owners when dependencies are met.
 3. **Model Tier Selector** — picks the model tier (Reasoning / Workhorse / Fast) for each new session based on: task risk_tier, routine type (sleep-time → Fast), factory cost posture, and explicit skill overrides.
 
-**Technology.** A background worker running in the same Node.js process as the API server. Uses `setInterval`-based polling against SQLite + EventBus-triggered routines (`packages/server/src/services/routine-scheduler.ts`). For VPS/cloud profiles: optionally backed by BullMQ for distributed job scheduling.
+**Technology.** A background worker running in the same Node.js process as the API server. Uses `setInterval`-based polling against SQLite + EventBus-triggered routines (`packages/server/src/services/routine-scheduler.ts`). For VPS/cloud profiles, a distributed scheduler (candidate: BullMQ or Temporal) **could** back this; not used today.
 
 The scheduler does not call models. It reads the Primitive Store, evaluates trigger conditions, selects the model tier, and emits events (which the Harness Adapter picks up to actually start agent sessions).
 

@@ -115,7 +115,7 @@ Each folder has an `index.md` with section links. `/concept` and `/architecture`
 
 ## Tech Stack
 
-Node.js, npm, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React + Vite, Tailwind CSS + DaisyUI (factory-dark theme), Vitest, Playwright, Biome, BullMQ.
+Node.js, npm, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React + Vite, Tailwind CSS + DaisyUI (factory-dark theme), Vitest, Playwright, Biome, in-process `setInterval` schedulers (`packages/fabric/src/services/`).
 
 ---
 

@@ -1,8 +1,9 @@
 /**
- * Escape SQLite LIKE-pattern metacharacters so a user-supplied substring is
+ * Escape LIKE-pattern metacharacters so a user-supplied substring is
  * matched literally.
  *
- * SQLite's LIKE recognizes:
+ * Z8-156: comment corrected from "SQLite" to reflect the actual stack
+ * (Postgres/PGlite). Postgres LIKE recognizes the same metacharacters:
  *   - `%` — match any sequence (including empty)
  *   - `_` — match any single character
  *   - the escape character (we use `\`) when paired with `ESCAPE '\\'` in the

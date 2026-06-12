@@ -10,7 +10,10 @@ export interface ImageRendererProps {
 }
 
 export function ImageRenderer({ preview }: ImageRendererProps): JSX.Element {
-	if (!preview) {
+	// @lore AF16 T11 WARNING-4: null or malformed preview (missing url) both return the
+	// pending state. Do NOT render <img src=""> — a broken image link is worse UX than
+	// the "Image pending." state that the parent surface maps to "No preview available".
+	if (!preview || !preview.url) {
 		return <p className="text-sm text-[var(--text-tertiary)] italic">Image pending.</p>;
 	}
 

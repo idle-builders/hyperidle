@@ -37,8 +37,10 @@ interface FlatItem {
  * without fighting the native dialog behavior.
  */
 
+// Z8-149: replaced #374151 (cool gray-700, AQ-008/AQ-018 violation) with
+// #5c4f3d (warm earth mid-tone matching --surface-container token family).
 const AVATAR_PLACEHOLDER =
-	"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Crect width='32' height='32' fill='%23374151'/%3E%3C/svg%3E";
+	"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Crect width='32' height='32' fill='%235c4f3d'/%3E%3C/svg%3E";
 
 export function GlobalSearchPanel({
 	open,
@@ -143,40 +145,16 @@ export function GlobalSearchPanel({
 						ref={focusRef}
 					/>
 
-					{search.error &&
-						// @lore visual-parity S-02: when /api/search returns 404 (not yet implemented),
-						// show an informative "coming soon" empty state instead of a generic error.
-						// This distinguishes "search not built yet" from "search broke".
-						(search.error.includes("404") || search.error.includes("HTTP 404") ? (
-							<EmptyState
-								title="Search coming soon"
-								description="Full-text search across conversations, bets, and knowledge is being built."
-								icon={
-									<svg
-										width="24"
-										height="24"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										strokeWidth="2"
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										aria-hidden="true"
-									>
-										<circle cx="11" cy="11" r="8" />
-										<line x1="21" y1="21" x2="16.65" y2="16.65" />
-									</svg>
-								}
-								iconBg="rgba(46,125,186,0.08)"
-								dataTestId="search-coming-soon"
-							/>
-						) : (
-							<ErrorState
-								title="Search failed"
-								description={search.error}
-								dataTestId="search-error"
-							/>
-						))}
+					{/* Z8-152: removed 404-as-"coming-soon" branch. /api/search is always
+					    mounted; a 404 now indicates a real route regression and should surface
+					    as a generic search error, not a "coming soon" affordance that masks it. */}
+					{search.error && (
+						<ErrorState
+							title="Search failed"
+							description={search.error}
+							dataTestId="search-error"
+						/>
+					)}
 
 					<div className="overflow-y-auto flex flex-col gap-1">
 						{search.results.conversations.length > 0 && (

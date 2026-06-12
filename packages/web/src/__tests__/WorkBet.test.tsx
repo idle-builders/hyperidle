@@ -46,6 +46,8 @@ describe("WorkBet", () => {
 	it("renders fallback bet data correctly", () => {
 		renderPage(FALLBACK_BET);
 		expect(screen.getByText("Unknown Bet")).toBeInTheDocument();
-		expect(screen.getByText("No tasks yet")).toBeInTheDocument();
+		// AF16 T1: "No tasks yet" now appears in both the progress card and the
+		// tasks section when total=0. Use getAllByText to allow multiple matches.
+		expect(screen.getAllByText("No tasks yet").length).toBeGreaterThan(0);
 	});
 });

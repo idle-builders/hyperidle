@@ -16,6 +16,7 @@ import { noMockDataSymbol } from "./rules/no-mock-data-symbol.js";
 import { noOffGridSpacing } from "./rules/no-off-grid-spacing.js";
 import { noOffScaleFontSize } from "./rules/no-off-scale-font-size.js";
 import { noOffScaleRadius } from "./rules/no-off-scale-radius.js";
+import { noOpButton } from "./rules/no-op-button.js";
 import { noRawActorFetch } from "./rules/no-raw-actor-fetch.js";
 import { noRawTailwindColor } from "./rules/no-raw-tailwind-color.js";
 import { requireDsAttribute } from "./rules/require-ds-attribute.js";
@@ -30,6 +31,7 @@ export const rules: Record<string, Rule.RuleModule> = {
 	"no-off-scale-radius": noOffScaleRadius,
 	"no-off-scale-font-size": noOffScaleFontSize,
 	"no-ai-aesthetic": noAiAesthetic,
+	"no-op-button": noOpButton,
 	"no-raw-actor-fetch": noRawActorFetch,
 	"no-raw-tailwind-color": noRawTailwindColor,
 	"require-ds-attribute": requireDsAttribute,

@@ -86,10 +86,14 @@ describe("H3 observability routes — GET /config", () => {
 		expect(body).toHaveProperty("bufferCap");
 	});
 
-	test("returns enabled=false and adapter=console by default", async ({ db }) => {
+	// @lore AF16 T14: default flipped from false to true (default-on).
+	// No factory_settings row → enabled=true (was false before AF16 T14).
+	test("returns enabled=true and adapter=console by default (default-on, AF16 T14)", async ({
+		db,
+	}) => {
 		const { request } = appWithRoutes(db, null);
 		const body = (await (await request("/config")).json()) as Record<string, unknown>;
-		expect(body.enabled).toBe(false);
+		expect(body.enabled).toBe(true);
 		expect(body.adapter).toBe("console");
 	});
 });
@@ -153,7 +157,11 @@ describe("H3 observability routes — PATCH /config", () => {
 });
 
 describe("H3 observability routes — /status + /flush", () => {
-	test("status reports enabled=false when no dispatcher and disabled in config", async ({ db }) => {
+	// @lore AF16 T14: must explicitly seed enabled=false; default is now true (default-on).
+	test("status reports enabled=false when no dispatcher and explicitly disabled in config", async ({
+		db,
+	}) => {
+		await seedKeys(db, { "observability.enabled": "false" });
 		const { request } = appWithRoutes(db, null);
 		const body = (await (await request("/status")).json()) as Record<string, unknown>;
 		expect(body.enabled).toBe(false);

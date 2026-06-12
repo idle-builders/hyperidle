@@ -1,16 +1,18 @@
+// AF16 T9 — Renderer registry moved from packages/web/src/kinds/ to packages/design-system/src/kinds/.
 // AE6 — Renderer registry: maps kind strings to React renderer components.
 //
 // Adding a new kind renderer:
-// 1. Create the renderer component in packages/web/src/kinds/<kind>-renderer.tsx
+// 1. Create the renderer component in packages/design-system/src/kinds/<kind>-renderer.tsx
 // 2. Add it to the RENDERER_MAP below.
 //
 // @lore AE6 F2: Uses static imports (not require()) because packages/web is ESM.
 // The original architecture sketch used require() for lazy loading — that would
 // break ESM. Static imports are used here and the registry is a simple Map.
 //
-// @lore AE6: The registry lives in packages/web (not packages/shared) because
-// React components are a browser concern. packages/shared holds only the Kind
-// Definition (schema + display functions), not rendering components.
+// @lore AF16 T9: Moved from packages/web/src/kinds/ to packages/design-system/src/kinds/ so
+// ArtifactPreviewSurface (design-system) can dispatch through getRenderer() without an
+// upward dependency on packages/web. Renderers are presentation primitives — design-system
+// is their natural home. packages/web imports are updated to use @hyperidle/design-system.
 
 import type { ComponentType } from "react";
 import { CodeRenderer } from "./code-renderer.js";
@@ -27,7 +29,7 @@ export interface RendererProps {
 	kind: string;
 }
 
-type RendererComponent = ComponentType<RendererProps>;
+export type RendererComponent = ComponentType<RendererProps>;
 
 const RENDERER_MAP: ReadonlyMap<string, RendererComponent> = new Map([
 	["text", TextRenderer as RendererComponent],

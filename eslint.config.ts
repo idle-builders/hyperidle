@@ -111,8 +111,43 @@ export default [
 			"design/require-ds-attribute": "warn",
 			"design/require-stories-sibling": "warn",
 			"design/require-focus-on-interactive": "warn",
+			// AF16 AC-2: no button is a no-op — enforces every <button> has an action.
+			// Warn-level so the baseline codebase scan can identify and wire/remove
+			// findings without blocking CI while the sweep is in-flight.
+			"design/no-op-button": "warn",
 			// @lore W2: density rules (use-density-tokens, no-density-tokens) removed.
 			// The density system was stripped in W2.
+		},
+	},
+
+	// K6-AC2 — Promote design/no-op-button to error for production pages and
+	// components (excludes stories and test fixtures so false-positive test
+	// <button>s don't pollute the gate). This makes AC-2 ("no button is a
+	// no-op") an enforced gate: a future no-op in pages/** or components/**
+	// fails lint, not just warns silently under --quiet.
+	//
+	// @lore AF16 AC-2: The K6 block above wires the rule at warn so it
+	// surfaces backlog findings. This block promotes only the no-op-button
+	// rule to error for the two highest-impact dirs (pages, components) while
+	// exempting __tests__ and .stories.tsx — the rule's 13 false-positive
+	// hits are all in test fixtures. Separate block so the promotion scope is
+	// explicit and doesn't silently widen other warn-level rules.
+	{
+		files: ["packages/web/src/pages/**/*.tsx", "packages/web/src/components/**/*.tsx"],
+		ignores: [
+			"packages/web/src/**/__tests__/**",
+			"packages/web/src/**/*.stories.tsx",
+			"packages/web/src/**/*.test.tsx",
+		],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				ecmaFeatures: { jsx: true },
+			},
+		},
+		plugins: { design },
+		rules: {
+			"design/no-op-button": "error",
 		},
 	},
 

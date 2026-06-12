@@ -360,23 +360,26 @@ export function Sidebar({
 			{/* Bottom strip — W3 AC-1: search hint + avatar + Assistant */}
 			<div data-sidebar-bottom className="shrink-0">
 				{/* Search hint row */}
-				{/* biome-ignore lint/a11y/useKeyWithClickEvents: click-only search hint; cmd+K is the canonical trigger */}
-				{/* biome-ignore lint/a11y/noStaticElementInteractions: search hint div is a keyboard affordance, not a true button — cmd+K is primary */}
-				<div
+				{/* Z8-150: converted from div to button for keyboard accessibility.
+				    Keyboard users can Tab to this and press Enter/Space to open search. */}
+				<button
+					type="button"
 					data-testid="sidebar-search-hint"
 					onClick={onSearchClick}
+					aria-label="Search (⌘K)"
 					className={[
 						"flex w-full items-center justify-between px-[12px] py-[6px]",
-						"text-[12px] text-[var(--text-tertiary)] cursor-pointer",
+						"text-[12px] text-[var(--text-tertiary)] cursor-pointer bg-transparent border-none",
 						"transition-[background] duration-[var(--motion-fast)]",
 						"hover:bg-[rgba(44,36,26,0.04)]",
+						"focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)]",
 					].join(" ")}
 				>
 					<span>Search</span>
 					<kbd className="inline-flex items-center px-[6px] py-[2px] rounded-[4px] bg-[var(--surface-container)] text-[11px] font-mono text-[var(--text-tertiary)] border border-[var(--border-subtle)]">
 						⌘K
 					</kbd>
-				</div>
+				</button>
 
 				<hr className="border-t border-[var(--border-subtle)] mx-[12px]" />
 

@@ -63,11 +63,12 @@ describe("ArtifactPreview (single_full_preview)", () => {
 		expect(container.textContent).toContain("decision");
 	});
 
-	it("renders 'PREVIEW NOT YET RENDERED' when preview is null and no <img>", () => {
+	// @lore AF16 T9: "PREVIEW NOT YET RENDERED" replaced with "No preview available" (full size).
+	it("renders 'No preview available' when preview is null and no <img>", () => {
 		act(() => {
 			root.render(createElement(ArtifactPreview, { data: fixture("image", null) }));
 		});
-		expect(container.textContent).toContain("PREVIEW NOT YET RENDERED");
+		expect(container.textContent).toContain("No preview available");
 		expect(container.querySelector("img")).toBeNull();
 	});
 

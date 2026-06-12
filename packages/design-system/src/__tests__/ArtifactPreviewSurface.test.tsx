@@ -1,5 +1,7 @@
+// AF16 T10/T11 — ArtifactPreviewSurface updated tests.
+// Replaces the old AE6 tests since component behavior changed: "PREVIEW PENDING"/"PREVIEW NOT YET RENDERED"
+// replaced with honest "No preview available"/"No preview" (AF16 T11).
 // @vitest-environment jsdom
-// L3 RED — sub-primitive ArtifactPreviewSurface (kind dispatcher).
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -22,21 +24,23 @@ describe("ArtifactPreviewSurface", () => {
 		container.remove();
 	});
 
-	it("renders 'PREVIEW PENDING' for size='gallery' when preview is null (placeholder; no <img>)", () => {
+	// T11: null preview → honest affordance (not old aspirational copy)
+	it("renders 'No preview' for size='gallery' when preview is null (AF16 T11)", () => {
 		act(() => {
 			root.render(
 				createElement(ArtifactPreviewSurface, {
-					kind: "design",
+					kind: "image",
 					preview: null,
 					size: "gallery",
 				}),
 			);
 		});
-		expect(container.textContent).toContain("PREVIEW PENDING");
+		expect(container.textContent).toContain("No preview");
+		expect(container.textContent).not.toContain("PREVIEW PENDING");
 		expect(container.querySelector("img")).toBeNull();
 	});
 
-	it("renders 'PREVIEW NOT YET RENDERED' for size='full' when preview is null", () => {
+	it("renders 'No preview available' for size='full' when preview is null (AF16 T11)", () => {
 		act(() => {
 			root.render(
 				createElement(ArtifactPreviewSurface, {
@@ -46,13 +50,12 @@ describe("ArtifactPreviewSurface", () => {
 				}),
 			);
 		});
-		expect(container.textContent).toContain("PREVIEW NOT YET RENDERED");
+		expect(container.textContent).toContain("No preview available");
+		expect(container.textContent).not.toContain("PREVIEW NOT YET RENDERED");
 		expect(container.querySelector("img")).toBeNull();
 	});
 
-	it("AE6: renders PREVIEW PENDING for unregistered kind with null preview (open vocabulary)", () => {
-		// @lore AE6: 'unknown_kind' is no longer special-cased.
-		// Unregistered kinds with null preview show the generic placeholder.
+	it("AE6: unregistered kind with null preview shows 'No preview' (gallery)", () => {
 		act(() => {
 			root.render(
 				createElement(ArtifactPreviewSurface, {
@@ -62,12 +65,10 @@ describe("ArtifactPreviewSurface", () => {
 				}),
 			);
 		});
-		expect(container.textContent).toContain("PREVIEW PENDING");
+		expect(container.textContent).toContain("No preview");
 	});
 
-	it("AE6: renders 'kind: preview not available' for unregistered kind with unrecognised preview", () => {
-		// @lore AE6: Old 'deck' kind is no longer registered. Its preview data is
-		// not understood by any Kind Definition. The fallback message shows the kind name.
+	it("AE6: renders 'kind: preview not available' for unregistered kind with unrecognised preview (gallery)", () => {
 		act(() => {
 			root.render(
 				createElement(ArtifactPreviewSurface, {
@@ -81,9 +82,7 @@ describe("ArtifactPreviewSurface", () => {
 		expect(container.textContent).toContain("preview not available");
 	});
 
-	it("AE6: renders summary for registered kind (html=deck mapped) with valid preview", () => {
-		// @lore AE6: 'html' is the fundamental kind for old 'deck'. Test that html kind
-		// with its own preview schema renders a summary via Kind Definition.
+	it("AE6: renders summary for html kind with valid preview (gallery)", () => {
 		act(() => {
 			root.render(
 				createElement(ArtifactPreviewSurface, {
@@ -98,5 +97,21 @@ describe("ArtifactPreviewSurface", () => {
 			);
 		});
 		expect(container.textContent).toContain("Q3 Strategy Review");
+	});
+
+	// T10: full size dispatches through registry → image renders <img>
+	it("T10: full+image+preview → renders <img> with src (not dimension text)", () => {
+		act(() => {
+			root.render(
+				createElement(ArtifactPreviewSurface, {
+					kind: "image",
+					size: "full",
+					preview: { url: "https://example.com/img.png", width: 400, height: 300 },
+				}),
+			);
+		});
+		const img = container.querySelector("img");
+		expect(img).not.toBeNull();
+		expect(img?.getAttribute("src")).toBe("https://example.com/img.png");
 	});
 });

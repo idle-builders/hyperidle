@@ -166,8 +166,9 @@ export function SetupFlow(): JSX.Element {
 				// Step 2: Create first team — derive name from repo path or default
 				// @lore R2: team name is not user-visible in setup. Derive from repo
 				// folder basename if a path was given; otherwise use "My Team".
+				// Z8-158: split on both / and \ to handle Windows paths (C:\repos\app).
 				const derivedTeamName = repoPath.trim()
-					? (repoPath.trim().split("/").filter(Boolean).pop() ?? "My Team")
+					? (repoPath.trim().split(/[/\\]/).filter(Boolean).pop() ?? "My Team")
 					: "My Team";
 
 				const teamRes = await apiFetch("/api/teams", {

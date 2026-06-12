@@ -9,10 +9,10 @@
 // @lore J4: The metadata strip and related-history section are preserved from the
 // old implementation. They now show `kind` (and optional `label`) in the badge area.
 
-import { dsShellProps } from "@hyperidle/design-system";
+// AF16 T9: getRenderer moved from packages/web/src/kinds/ to @hyperidle/design-system
+import { dsShellProps, getRenderer } from "@hyperidle/design-system";
 import type { JSX } from "react";
 import { Suspense } from "react";
-import { getRenderer } from "../kinds/renderer-registry.js";
 
 // --- Metadata strip types (J4) ---
 

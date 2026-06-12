@@ -19,6 +19,7 @@ import { defaultMutePreferenceReader } from "./services/notifications/mute.js";
 import { registerNotificationListener } from "./services/notifications/notification-listener.js";
 import { registerPolicyEngine } from "./services/policy-engine.js";
 import { registerRelevanceListener } from "./services/relevance-listener.js";
+import { startRetentionReaper } from "./services/retention-reaper.js";
 import { startRoutineScheduler } from "./services/routine-scheduler.js";
 import { reapStaleRoutineSessions } from "./services/routine-session-reaper.js";
 import { registerSessionReviewCreator } from "./services/session-review-creator.js";
@@ -145,6 +146,12 @@ export function bootstrapFabric(ctx: {
 			startWorkspaceReaper(db, { workspaceBasePath: ctx.dispatcherDeps.workspaceBasePath }),
 		);
 	}
+
+	// AF16 T17 (Z8-097): start the retention TTL reaper (6-hour interval).
+	// @lore AF16 T17: in-process setInterval scheduler — NOT BullMQ. Runs
+	// unconditionally (no dispatcherDeps gate). startRetentionReaper returns a
+	// disposer; the sweeper fires immediately on next tick then every 6h.
+	disposers.push(startRetentionReaper(db));
 
 	// AF6 §4: boot one-shot reaper — clear zombie routine sessions left by a
 	// previous process (process death mid-run). Fire-and-forget; never blocks boot.

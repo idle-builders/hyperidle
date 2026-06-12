@@ -101,8 +101,9 @@ describe("ArtifactGalleryCard", () => {
 		expect(container.textContent).toContain("5 threads");
 	});
 
-	// Protected — AC-9: placeholder, never fake thumbnail
-	it("renders 'PREVIEW PENDING' when preview is null and shows no <img>", () => {
+	// Protected — AC-9: honest placeholder, never fake thumbnail.
+	// @lore AF16 T9: "PREVIEW PENDING" replaced with "No preview" (gallery size).
+	it("renders 'No preview' when preview is null and shows no <img>", () => {
 		act(() => {
 			root.render(
 				createElement(ArtifactGalleryCard, {
@@ -111,7 +112,7 @@ describe("ArtifactGalleryCard", () => {
 				}),
 			);
 		});
-		expect(container.textContent).toContain("PREVIEW PENDING");
+		expect(container.textContent).toContain("No preview");
 		expect(container.querySelector("img")).toBeNull();
 	});
 

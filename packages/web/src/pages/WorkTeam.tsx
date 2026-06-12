@@ -163,13 +163,20 @@ export function WorkTeam({
 		);
 	}
 
-	return <WorkTeamLoaded data={data} skipArtifacts={skipArtifacts} />;
+	return (
+		<WorkTeamLoaded
+			data={data}
+			skipArtifacts={skipArtifacts}
+			refetchTeam={overrideData !== undefined ? undefined : fetched.refetch}
+		/>
+	);
 }
 
 /** Internal component rendered when data is fully resolved. */
 function WorkTeamLoaded({
 	data,
 	skipArtifacts = false,
+	refetchTeam,
 }: {
 	// @lore U1: TeamDetail replaces ProductDetail.
 	data: TeamDetail;
@@ -183,6 +190,8 @@ function WorkTeamLoaded({
 	 * overrideData in tests, skipping ArtifactSection prevents fetch-order races.
 	 */
 	skipArtifacts?: boolean;
+	/** AF16 T3: Callback to re-fetch team data after a mutation (e.g. routine created). */
+	refetchTeam?: () => void;
 }): JSX.Element {
 	const navigate = useNavigate();
 	// @lore U1: `team` replaces `product` in TeamDetail.
@@ -473,7 +482,12 @@ function WorkTeamLoaded({
 				<RoutineCreateDialog
 					open={createRoutineOpen}
 					onClose={() => setCreateRoutineOpen(false)}
-					onCreated={() => setCreateRoutineOpen(false)}
+					onCreated={() => {
+						// AF16 T3 (Z8-128): refetch team data so the new routine appears
+						// without a page reload. Mirrors the agent path (refetchAgents above).
+						refetchTeam?.();
+						setCreateRoutineOpen(false);
+					}}
 					teams={[{ id: team.id, name: team.name }]}
 					agents={roster
 						.filter((m) => m.role !== "human")
