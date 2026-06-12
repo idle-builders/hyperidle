@@ -222,3 +222,55 @@ specified), Verifiability 6→8 (protected-test audit concrete and accurate, AC-
 not a design flaw.
 
 **ARCHITECTURE VERDICT: REVISE — one remaining WARNING (W-new). One-line fix; no CRITICAL.**
+
+---
+
+## Re-critique round 2 (commit 0a87de3c — cmdk carve-out widened to selectors)
+
+ARCHITECTURE-SCORE: 9/10  rounds=3  score-line: SA:9 LI:9 AC:9 DM:n/a N:9 MD:8 FMC:8 S:8 V:9
+
+Scope: the one open finding (W-new). Verified the widened carve-out (architecture.md §389-435 +
+protectedTests inline comment :386) against `GlobalSearchPanel.cmdk.test.tsx` line-by-line.
+
+**W-new — RESOLVED.** Every line citation in the carve-out is exact against source:
+- `:38` `container.querySelector(".modal.modal-open")`, `:39` `not.toBeNull()` guard, `:40`
+  `toMatch(/z-50/)`, `:45` `.modal-box`, `:46` `not.toBeNull()` guard, `:50` `/max-w-\[640px\]/`,
+  `:56` `[data-testid="search-recent-queries"]` precedent — all verified present at the cited lines.
+- The throw mechanism is diagnosed correctly: post-migration both `querySelector` calls return
+  `null`, the `:39`/`:46` `not.toBeNull()` guards throw **before** any className matcher runs — so
+  a `:40`-only edit leaves the test red. The carve-out now sanctions BOTH selectors (`:38` overlay
+  + `:45` box) across BOTH `it()` blocks, the `:40` assertion update, and re-targets the surviving
+  `:50` `max-w-[640px]` through the replacement selector. The "both parts required / `:40`-only
+  leaves it red" warning is explicit. The two-part sanctioned change is **complete and builder-proof
+  on its core promise: no protected test is left red.**
+
+The original C-3 / W-new omission class (assertion sanctioned but feeding selector left broken) is
+fully closed.
+
+### SUGGESTION (new, non-blocking — does not reopen W-new)
+
+- **S-4 [carve-out lead selector `[data-dialog-layer="dialog"]` is unbacked by the
+  `getOverlayProps` contract].** The carve-out names `[data-dialog-layer="dialog"]` as the primary
+  replacement selector in 5 places (:386, :416, :419, :425, :432) and `data-dialog-layer="overlay"`
+  for SANCTIONED CHANGE #3 (:440). But the `getOverlayProps()` typed return shape (architecture.md
+  :186) emits only `{ role: "dialog"; "aria-modal": boolean; style: { zIndex }; ref; onKeyDown }`
+  — **no `data-dialog-layer` key.** approved.md carries no overlay-props contract either (:122 is
+  only the `layer` prop enum). So the attribute the carve-out tells the builder to query is not in
+  the primitive's contract. This is **not** a reopening of W-new and **not** build-blocking: every
+  carve-out location pairs the unbacked attribute with a working fallback — `data-testid`/role, the
+  "same container element," or computed `zIndex === "60"`/`"40"` — so a builder always reaches green
+  without the attribute. The defect is coherence, not correctness. → One-line fix, pick one:
+  (a) add `"data-dialog-layer": DialogLayer` to the `getOverlayProps` return type at :186 (makes the
+  lead selector real and is the cleaner test hook), OR (b) demote `data-dialog-layer` to the
+  fallback and lead the carve-out with computed-`zIndex`/`data-testid` (which the contract already
+  backs). Builder can proceed regardless; flagging so the lead recommendation matches the API.
+
+**New score: ARCHITECTURE 9/10 (was 8).** Verifiability 8→9 (the last protected-test carve-out is
+now complete and its throw mechanism correctly diagnosed; both `it()` blocks + both selectors +
+re-targeted max-width covered). Held off a 10 by S-4 — a non-blocking coherence gap between the
+carve-out's lead selector and the `getOverlayProps` type, with a working fallback already present in
+every location.
+
+**ARCHITECTURE VERDICT: APPROVED — W-new resolved and verified against source. The cmdk carve-out
+is complete and builder-proof (no protected test left red). One non-blocking SUGGESTION (S-4,
+lead-selector coherence); no CRITICAL, no WARNING. Cleared to build.**
