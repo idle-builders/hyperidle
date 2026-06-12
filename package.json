@@ -48,6 +48,7 @@
 		"mock-inventory:check": "npx tsx scripts/mock-inventory.ts --check",
 		"nimmly-guard:check": "npx tsx scripts/nimmly-guard.ts --check",
 		"demo-fixture-guard:check": "npx tsx scripts/demo-fixture-guard.ts --check",
+		"token-guard:check": "npx tsx scripts/token-resolution-guard.ts --check",
 		"db:bootstrap:pg": "npx tsx packages/db/src/bootstrap-pg.ts",
 		"check:native": "npx tsx packages/desktop/scripts/check-native.ts",
 		"eval": "npm run -w @hyperidle/eval eval",
