@@ -16,7 +16,8 @@ export type BetFilterInput = {
 	id: string;
 	teamId: string;
 	status: string;
-	outcomeVerdict: string | null | undefined;
+	/** Optional so BetListItem (which uses ?: syntax) is assignable without cast. */
+	outcomeVerdict?: string | null | undefined;
 };
 
 /**

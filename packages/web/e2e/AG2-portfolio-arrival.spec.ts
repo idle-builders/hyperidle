@@ -295,8 +295,11 @@ test.describe("AG2 — Unevaluated portfolio state (AC-2, AC-3)", () => {
 	});
 
 	test("AC-3: team filter appears when ≥2 distinct teams", async ({ page }) => {
-		await expect(page.getByRole("button", { name: /alpha team/i })).toBeVisible();
-		await expect(page.getByRole("button", { name: /beta team/i })).toBeVisible();
+		// @lore AG2: scope to team-pill-filters to avoid strict-mode violation — sidebar
+		// also renders team buttons (Alpha Team, Beta Team) when Work section is active.
+		const teamPills = page.getByTestId("team-pill-filters");
+		await expect(teamPills.getByRole("button", { name: /alpha team/i })).toBeVisible();
+		await expect(teamPills.getByRole("button", { name: /beta team/i })).toBeVisible();
 	});
 
 	test("AC-3: status filter appears when ≥2 distinct status buckets", async ({ page }) => {
@@ -342,19 +345,31 @@ test.describe("AG2 — Evaluated portfolio state (AC-2 inverse, AC-3 verdict)", 
 	});
 
 	test("AC-3: clicking a verdict filter narrows the visible bet set", async ({ page }) => {
-		// Click "Validated" — only the validated bet should remain visible
-		await page.getByRole("button", { name: /validated/i }).click();
+		// Click "Validated" — only the validated bet should remain visible.
+		// @lore AG2: scope to verdict-filter-pills to avoid strict-mode violation with
+		// verdict pill buttons vs any other "Validated" text in the page.
+		await page
+			.getByTestId("verdict-filter-pills")
+			.getByRole("button", { name: /validated/i })
+			.click();
 
-		await expect(page.getByText("Validated Bet")).toBeVisible();
-		await expect(page.getByText("Refuted Bet")).not.toBeVisible();
-		await expect(page.getByText("Active Bet Beta")).not.toBeVisible();
+		// Use getByRole("link") because BetCard is wrapped in a <Link> (role=link) for navigation.
+		// getByText("Validated Bet") hits both the title span and description paragraph — strict mode fails.
+		const betGrid = page.getByTestId("bet-grid");
+		await expect(betGrid.getByRole("link", { name: "Validated Bet" })).toBeVisible();
+		await expect(betGrid.getByRole("link", { name: "Refuted Bet" })).not.toBeVisible();
+		await expect(betGrid.getByRole("link", { name: "Active Bet Beta" })).not.toBeVisible();
 	});
 
 	test("AC-3: clicking 'Refuted' narrows to refuted bets only", async ({ page }) => {
-		await page.getByRole("button", { name: /refuted/i }).click();
+		await page
+			.getByTestId("verdict-filter-pills")
+			.getByRole("button", { name: /refuted/i })
+			.click();
 
-		await expect(page.getByText("Refuted Bet")).toBeVisible();
-		await expect(page.getByText("Validated Bet")).not.toBeVisible();
+		const betGrid = page.getByTestId("bet-grid");
+		await expect(betGrid.getByRole("link", { name: "Refuted Bet" })).toBeVisible();
+		await expect(betGrid.getByRole("link", { name: "Validated Bet" })).not.toBeVisible();
 	});
 });
 
@@ -363,7 +378,10 @@ test.describe("AG2 — Evaluated portfolio state (AC-2 inverse, AC-3 verdict)", 
 test.describe("AG2 — Entry from sidebar (AC-6)", () => {
 	test.beforeEach(async ({ page }) => {
 		await page.setViewportSize({ width: 1440, height: 900 });
-		await registerTeamMock(page, TEAMS_FIXTURE_SINGLE);
+		// @lore AG2: Must use TEAMS_FIXTURE (2 teams) not TEAMS_FIXTURE_SINGLE.
+		// AD3 AC-1: with exactly 1 team, AppShell's handleViewChange navigates directly
+		// to that team's page (not /work/portfolio). 2+ teams lands on portfolio.
+		await registerTeamMock(page, TEAMS_FIXTURE);
 		await registerBetsMock(page, BETS_FIXTURE_EMPTY);
 		await registerCanvasMock(page);
 	});
@@ -398,19 +416,40 @@ test.describe("AG2 — Entry from team screen (AC-6)", () => {
 		await registerBetsMock(page, BETS_FIXTURE_EMPTY);
 		await registerCanvasMock(page);
 
-		// Mock team detail endpoint
+		// @lore AG2: Mock team detail endpoint MUST return TeamDetail shape (not flat TeamSummary).
+		// WorkTeam guards: if (!data.team) → "Team not found". Flat { id, name } fails this guard.
+		// TeamDetail = { team: TeamSummary, roster: [], burn: TeamBurn, activeBets: [], teamMembers }
+		// TeamBurn = { costActual, costCap, capacity, activeBets, betCostActual, routineCostThisMonth }
 		await page.route("**/api/teams/team-alpha", async (route) => {
+			// Only intercept the exact team detail endpoint (not sub-paths like /budget, /agents).
+			const url = route.request().url();
+			if (url.includes("/api/teams/team-alpha/")) {
+				await route.continue();
+				return;
+			}
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify({
-					id: "team-alpha",
-					name: "Alpha Team",
-					status: "healthy",
-					activeBets: 0,
-					shipped: 0,
+					team: {
+						id: "team-alpha",
+						name: "Alpha Team",
+						status: "healthy",
+						phase: "active",
+						leadAgentId: null,
+					},
+					teamMembers: { id: "tm-1", formedAt: new Date().toISOString(), dissolvedAt: null },
+					roster: [],
+					burn: {
+						costActual: null,
+						costCap: null,
+						capacity: 1,
+						activeBets: 0,
+						betCostActual: null,
+						routineCostThisMonth: null,
+					},
+					activeBets: [],
 					routines: [],
-					agents: [],
 				}),
 			});
 		});
