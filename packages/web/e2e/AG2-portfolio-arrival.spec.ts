@@ -231,7 +231,7 @@ test.describe("AG2 — Empty portfolio state (AC-1)", () => {
 		await expect(page.getByTestId("create-bet-cta")).toBeVisible();
 		// Screenshot: ag2-portfolio-empty.png
 		await page.screenshot({
-			path: "packages/web/e2e/screenshots/ag2-portfolio-empty.png",
+			path: "e2e/screenshots/ag2-portfolio-empty.png",
 			fullPage: false,
 		});
 	});
@@ -289,7 +289,7 @@ test.describe("AG2 — Unevaluated portfolio state (AC-2, AC-3)", () => {
 		await expect(page.getByRole("button", { name: /refuted/i })).toHaveCount(0);
 		// Screenshot: ag2-portfolio-unevaluated.png
 		await page.screenshot({
-			path: "packages/web/e2e/screenshots/ag2-portfolio-unevaluated.png",
+			path: "e2e/screenshots/ag2-portfolio-unevaluated.png",
 			fullPage: false,
 		});
 	});
@@ -339,7 +339,7 @@ test.describe("AG2 — Evaluated portfolio state (AC-2 inverse, AC-3 verdict)", 
 		await expect(page.getByRole("button", { name: /refuted/i })).toBeVisible();
 		// Screenshot: ag2-portfolio-evaluated.png
 		await page.screenshot({
-			path: "packages/web/e2e/screenshots/ag2-portfolio-evaluated.png",
+			path: "e2e/screenshots/ag2-portfolio-evaluated.png",
 			fullPage: false,
 		});
 	});
@@ -401,7 +401,7 @@ test.describe("AG2 — Entry from sidebar (AC-6)", () => {
 		await expect(page.getByTestId("work-portfolio-page")).toBeVisible();
 
 		await page.screenshot({
-			path: "packages/web/e2e/screenshots/ag2-entry-sidebar.png",
+			path: "e2e/screenshots/ag2-entry-sidebar.png",
 			fullPage: false,
 		});
 	});
@@ -484,7 +484,7 @@ test.describe("AG2 — Entry from team screen (AC-6)", () => {
 		await expect(page.getByTestId("work-portfolio-page")).toBeVisible();
 
 		await page.screenshot({
-			path: "packages/web/e2e/screenshots/ag2-entry-breadcrumb.png",
+			path: "e2e/screenshots/ag2-entry-breadcrumb.png",
 			fullPage: false,
 		});
 	});
