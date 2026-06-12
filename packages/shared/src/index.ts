@@ -177,7 +177,7 @@ export type {
 	NotificationTypeKey,
 	NotificationUrgency,
 } from "./notifications.js";
-export { NOTIFICATION_TYPES, urgencyForType } from "./notifications.js";
+export { NOTIFICATION_TYPES, shortLabelForType, urgencyForType } from "./notifications.js";
 export type { ObservabilityEvent } from "./observability/events.js";
 export {
 	AWS_AKIA_RE,
@@ -332,7 +332,10 @@ export type {
 } from "./types.js";
 export {
 	AGENT_CATEGORIES,
+	AGENT_OPERATIONAL_STATUS_LABEL,
+	BET_OUTCOME_VERDICT_LABEL,
 	BET_OUTCOME_VERDICTS,
+	BET_STATUS_LABEL,
 	BET_STATUSES,
 	KERNEL_KNOWLEDGE_STATUSES,
 	MODEL_TIERS,
@@ -340,7 +343,9 @@ export {
 	ORG_EDGE_MECHANISMS,
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
+	TASK_OUTCOME_VERDICT_LABEL,
 	TASK_OUTCOME_VERDICTS,
+	TASK_STATE_LABEL,
 	TASK_STATES,
 	USER_KINDS,
 } from "./types.js";

@@ -21,6 +21,25 @@ export const TASK_STATES = [
 export type TaskState = (typeof TASK_STATES)[number];
 
 /**
+ * AI4: Human-readable labels for each TaskState. Exhaustive `Record` so adding
+ * a 9th TaskState is a TS error until labelled here.
+ *
+ * @lore AC1: "met_with_rework"→"Rework" and "partially_met"→"Partial" preserve
+ * WorkBet's pre-existing abbreviations. Labels render verbatim into DOM;
+ * CSS `uppercase` in StatusChip provides visual uppercasing (Decision 1a).
+ */
+export const TASK_STATE_LABEL: Record<TaskState, string> = {
+	proposed: "Planned",
+	accepted: "Planned",
+	hold: "On hold",
+	in_progress: "In progress",
+	blocked: "Blocked",
+	review: "In review",
+	done: "Done",
+	killed: "Killed",
+};
+
+/**
  * The mutable fields a bet caller can patch via PATCH /api/bets/:id while
  * the bet is in `in_progress`. Mirrored by the server's
  * `bet-state-machine.MUTABLE_FIELDS` set; both must stay in sync.
@@ -73,6 +92,16 @@ export type KernelKnowledgeStatus = (typeof KERNEL_KNOWLEDGE_STATUSES)[number];
 export const BET_STATUSES = ["draft", "active", "completed", "killed"] as const;
 
 export type BetStatus = (typeof BET_STATUSES)[number];
+
+/**
+ * AI4: Human-readable labels for each BetStatus. Exhaustive `Record`.
+ */
+export const BET_STATUS_LABEL: Record<BetStatus, string> = {
+	draft: "Draft",
+	active: "Active",
+	completed: "Completed",
+	killed: "Killed",
+};
 
 export type SessionState = "active" | "paused" | "done" | "crashed";
 
@@ -179,6 +208,16 @@ export const BET_OUTCOME_VERDICTS = ["validated", "refuted", "partial", "inconcl
 export type BetOutcomeVerdict = (typeof BET_OUTCOME_VERDICTS)[number];
 
 /**
+ * AI4: Human-readable labels for each BetOutcomeVerdict (AC2, AC5).
+ */
+export const BET_OUTCOME_VERDICT_LABEL: Record<BetOutcomeVerdict, string> = {
+	validated: "Validated",
+	refuted: "Refuted",
+	partial: "Partial",
+	inconclusive: "Inconclusive",
+};
+
+/**
  * AC1: Closed enum of task outcome verdicts.
  * Adding a fifth value requires updating plans/AC1/concept.md first.
  *
@@ -193,3 +232,26 @@ export const TASK_OUTCOME_VERDICTS = [
 	"not_met",
 ] as const;
 export type TaskOutcomeVerdict = (typeof TASK_OUTCOME_VERDICTS)[number];
+
+/**
+ * AI4: Human-readable labels for each TaskOutcomeVerdict (AC2, AC5).
+ *
+ * @lore AC1: "met_with_rework"→"Rework" and "partially_met"→"Partial" preserve
+ * WorkBet's pre-existing abbreviated rendering (not a truncation error).
+ */
+export const TASK_OUTCOME_VERDICT_LABEL: Record<TaskOutcomeVerdict, string> = {
+	met: "Met",
+	met_with_rework: "Rework",
+	partially_met: "Partial",
+	not_met: "Not met",
+};
+
+/**
+ * AI4: Human-readable labels for each AgentOperationalStatus (Decision 3a, AC2).
+ * AgentOperationalStatus type lives in @hyperidle/shared/team.ts (pre-existing).
+ */
+export const AGENT_OPERATIONAL_STATUS_LABEL: Record<"active" | "error" | "idle", string> = {
+	active: "Active",
+	error: "Error",
+	idle: "Idle",
+};
