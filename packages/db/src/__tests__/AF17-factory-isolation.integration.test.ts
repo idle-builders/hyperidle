@@ -20,9 +20,15 @@ import type { HyperIdleDb } from "../connection.js";
 let applyFactoryBootstrap: (db: HyperIdleDb) => Promise<void>;
 try {
 	const mod = await import("../factory-bootstrap.js").catch(() => null);
-	applyFactoryBootstrap = mod?.applyFactoryBootstrap ?? (async () => { throw new Error("applyFactoryBootstrap not implemented yet"); });
+	applyFactoryBootstrap =
+		mod?.applyFactoryBootstrap ??
+		(async () => {
+			throw new Error("applyFactoryBootstrap not implemented yet");
+		});
 } catch {
-	applyFactoryBootstrap = async () => { throw new Error("applyFactoryBootstrap not implemented yet"); };
+	applyFactoryBootstrap = async () => {
+		throw new Error("applyFactoryBootstrap not implemented yet");
+	};
 }
 
 async function queryRows<T extends Record<string, unknown>>(
@@ -41,7 +47,9 @@ describe("AF17 AC4: bootstrap-only DB contains no demo data", () => {
 		expect(Number(rows[0]?.count)).toBe(0);
 	});
 
-	test("no human users exist after bootstrap (human created at onboarding only)", async ({ db }) => {
+	test("no human users exist after bootstrap (human created at onboarding only)", async ({
+		db,
+	}) => {
 		await applyFactoryBootstrap(db);
 
 		const rows = await queryRows<{ count: string }>(

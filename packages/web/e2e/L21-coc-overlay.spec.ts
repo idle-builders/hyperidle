@@ -49,7 +49,7 @@ const COACH_THREAD_FIXTURE = {
 const BET_FIXTURE = {
 	id: BET_ID,
 	title: "Daily Digest",
-	product: "Nimmly",
+	product: "Acme",
 	team: "Alpha Core",
 	status: "draft",
 	costAppetite: { minor: 25000, currency: "USD" },

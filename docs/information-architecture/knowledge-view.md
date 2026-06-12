@@ -12,7 +12,7 @@
 |---|---|---|
 | **Scope selector** | Three options: Practice / Product / Factory | Click to switch scope |
 | **Practice list** (Practice scope) | Building, Growth, Product, Ops, Hardware, Facilitation — each with item count | Click to filter main pane |
-| **Product list** (Product scope) | Ambrovia, Nimmly, HyperIdle, Pulse — each with item count | Click to filter |
+| **Product list** (Product scope) | Ambrovia, Acme, HyperIdle, Pulse — each with item count | Click to filter |
 | **Topic list** | Per topic: name, item count, health indicator (stable/degraded), stale count | Click to filter; multi-select with Cmd |
 | **Quick filter links** | Drafts, Index, Curated, Stale, Archive — with counts | Click to jump to view |
 

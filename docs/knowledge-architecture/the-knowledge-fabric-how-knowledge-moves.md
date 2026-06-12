@@ -92,7 +92,7 @@ Tracks the version of every materialized item so the writeback can detect confli
       "editable_path": "knowledge/practices/file-handling.md",
       "format": "toon"
     },
-    "ki-brief-nimmly": {
+    "ki-brief-acme": {
       "version": 7,
       "source_path": "context/product/BRIEF.md",
       "format": "markdown"

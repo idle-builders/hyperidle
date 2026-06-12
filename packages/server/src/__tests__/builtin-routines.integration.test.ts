@@ -32,9 +32,7 @@ const NOW_ISO = "2026-04-18T10:00:00.000Z";
 
 /** Seed the owner agents the G4 builtins reference. */
 async function seedOwners(db: HyperIdleDb): Promise<void> {
-	await db
-		.insert(teams)
-		.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: NOW_ISO });
+	await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: NOW_ISO });
 
 	await db.insert(teamMembers).values({
 		id: "team-1",
@@ -64,8 +62,8 @@ async function seedOwners(db: HyperIdleDb): Promise<void> {
 	});
 
 	await db.insert(users).values({
-		id: "seed-agent-pm-nimmly",
-		name: "Nimmly Product Manager",
+		id: "demo-agent-pm",
+		name: "Acme Product Manager",
 		role: "product_manager",
 		status: "active",
 		maxConcurrentSessions: 1,
@@ -137,7 +135,7 @@ describe("G4: Built-in Routines", () => {
 			// @lore AD8c: cost-sentinel is no longer seeded as a routine
 			expect(byId.has("builtin:cost-sentinel")).toBe(false);
 			expect(byId.get("builtin:practice-meeting")?.ownerAgentId).toBe("seed-agent-pf-facilitation");
-			expect(byId.get("builtin:post-bet-retro")?.ownerAgentId).toBe("seed-agent-pm-nimmly");
+			expect(byId.get("builtin:post-bet-retro")?.ownerAgentId).toBe("demo-agent-pm");
 			expect(byId.get("builtin:portfolio-retro")?.ownerAgentId).toBe("seed-agent-cos");
 			// @lore AD8c: knowledge-decay ownership transferred to facilitator agent
 			expect(byId.get("builtin:knowledge-decay")?.ownerAgentId).toBe("seed-agent-pf-facilitation");

@@ -19,10 +19,15 @@ let checkContent: (content: string) => { clean: boolean; hits: string[] };
 
 try {
 	const mod = await import("../../../../scripts/nimmly-guard.js").catch(() => null);
-	checkContent = (mod as Record<string, unknown>)?.checkContent as typeof checkContent ??
-		(() => { throw new Error("checkContent not implemented yet (AF17 red phase)"); });
+	checkContent =
+		((mod as Record<string, unknown>)?.checkContent as typeof checkContent) ??
+		(() => {
+			throw new Error("checkContent not implemented yet (AF17 red phase)");
+		});
 } catch {
-	checkContent = () => { throw new Error("checkContent not implemented yet"); };
+	checkContent = () => {
+		throw new Error("checkContent not implemented yet");
+	};
 }
 
 describe("AF17 AC6: nimmly-guard checkContent", () => {

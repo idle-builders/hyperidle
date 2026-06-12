@@ -31,7 +31,9 @@ export type {
 } from "./services/builtin-routines.js";
 export {
 	BUILTIN_ROUTINE_IDS,
+	extractBuiltinKind,
 	isBuiltinRoutineId,
+	provisionTeamRoutines,
 	registerBuiltinRoutineHandlers,
 	runBuiltinRoutine,
 	seedBuiltinRoutines,

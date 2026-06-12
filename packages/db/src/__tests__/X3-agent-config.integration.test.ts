@@ -256,12 +256,12 @@ describe("X3 AC-2: soul prompt templates seeded from docs/souls/ into factorySet
 // ---------------------------------------------------------------------------
 
 describe("X3 AC-3: existing agents backfilled with soulPrompt from role template", () => {
-	test("seed-agent-pm-nimmly has soulPrompt matching product_manager template", async ({ db }) => {
+	test("demo-agent-pm has soulPrompt matching product_manager template", async ({ db }) => {
 		await seed(db);
 
 		const agentRows = await queryRows<{ soulPrompt: string | null }>(
 			db,
-			`SELECT soul_prompt AS "soulPrompt" FROM users WHERE id = 'seed-agent-pm-nimmly'`,
+			`SELECT soul_prompt AS "soulPrompt" FROM users WHERE id = 'demo-agent-pm'`,
 		);
 		const templateRows = await queryRows<{ value: string }>(
 			db,

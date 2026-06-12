@@ -14,11 +14,11 @@ HyperIdle has five process primitives. Everything else is mechanics on top of th
 
 ## Teams persist across products, not per task
 
-A team is a small group of agents bound to a product — not to a bet, not to a project. The Nimmly team works on Nimmly. The Ambrovia team works on Ambrovia. Both teams exist for the life of their respective products.
+A team is a small group of agents bound to a product — not to a bet, not to a project. The Acme team works on Acme. The Ambrovia team works on Ambrovia. Both teams exist for the life of their respective products.
 
 This is the biggest departure from agent frameworks. CrewAI forms a crew per task. LangGraph assembles a graph per invocation. HyperIdle forms a team per product because teams that ship together accumulate context.
 
-The Nimmly Builder that shipped auth in January ships payments in March. It has read every Nimmly decision, failure, and architecture document. That context is why the tenth bet is faster than the first.
+The Acme Builder that shipped auth in January ships payments in March. It has read every Acme decision, failure, and architecture document. That context is why the tenth bet is faster than the first.
 
 A typical team: a Product Manager (team lead), one or more Builders, a Growth Agent, and an Ops Agent. The roster flexes with the product's lifecycle phase. Agents belong to exactly one team. An agent needed on a new product must finish its current work and transfer cleanly.
 
@@ -54,7 +54,7 @@ Each task has:
 - An optional discussion thread
 - Artifacts it has produced
 
-**Example.** Mika (the Nimmly Builder) owns "Implement Stripe webhook handler." It depends on "Define payment schema," which must finish first. Done condition: "webhook endpoint returns 200 for all test events and logs to the canonical store." Cost cap: $12. When Mika completes it, the dependent task "Connect payments UI to API" moves from hold to accepted automatically.
+**Example.** Mika (the Acme Builder) owns "Implement Stripe webhook handler." It depends on "Define payment schema," which must finish first. Done condition: "webhook endpoint returns 200 for all test events and logs to the canonical store." Cost cap: $12. When Mika completes it, the dependent task "Connect payments UI to API" moves from hold to accepted automatically.
 
 Tasks are the unique producers of artifacts. A task that builds the signup flow produces a code artifact. A task that writes landing page copy produces a content artifact. The bet aggregates these; it does not own them.
 
@@ -66,7 +66,7 @@ Tasks are the unique producers of artifacts. A task that builds the signup flow 
 
 A session is one agent's bounded run on a task. When an agent picks up a task, it starts a session. When the context window is about to compact, the session ends. The agent writes session notes. A new session picks up where the last left off.
 
-A task can span many sessions. Mika works a session on Nimmly payments, makes progress, hits a question about Stripe fee structure, and hands off to a human. The human answers. Mika starts a new session and continues. Two weeks later, the original session notes and handoff history are still there.
+A task can span many sessions. Mika works a session on Acme payments, makes progress, hits a question about Stripe fee structure, and hands off to a human. The human answers. Mika starts a new session and continues. Two weeks later, the original session notes and handoff history are still there.
 
 The agent's memory persists between sessions through product knowledge (L2) and practice knowledge (L3). Sessions give resumability without locking the model into a single long-running process.
 
@@ -78,7 +78,7 @@ There is no pre-wired routing. When Mika finishes a backend API and the work mov
 
 Handoffs to humans work the same way. When an agent hits something it cannot resolve — a product decision, an approval for a risky action — it creates a handoff with `to: human` and `reason: blocked`. The task moves to blocked. The human replies; the task resumes.
 
-**Cross-team work** uses the same mechanism. The Nimmly team needs a platform endpoint. The Nimmly PM opens a chat thread to the Platform PM. They agree on a cross-team task. It lives on the Nimmly bet for tracking but the work happens inside the platform team's rhythm.
+**Cross-team work** uses the same mechanism. The Acme team needs a platform endpoint. The Acme PM opens a chat thread to the Platform PM. They agree on a cross-team task. It lives on the Acme bet for tracking but the work happens inside the platform team's rhythm.
 
 ---
 

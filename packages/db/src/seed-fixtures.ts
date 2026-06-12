@@ -58,7 +58,7 @@ export const BUILTIN_ROUTINE_SEEDS: readonly BuiltinRoutineSeed[] = [
 	{
 		id: "builtin:post-bet-retro",
 		name: "Post-bet retro",
-		ownerAgentId: "seed-agent-pm-nimmly",
+		ownerAgentId: "demo-agent-pm",
 		teamId: "seed-product-1",
 		triggerType: "event",
 		triggerConfig: { eventType: "bet_state_changed" },

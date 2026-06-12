@@ -24,7 +24,7 @@ function makeActiveBetFixture() {
 	return {
 		id: BET_ID,
 		title: "T3 Active Bet",
-		product: "Nimmly",
+		product: "Acme",
 		team: "Alpha Core",
 		status: "active",
 		costAppetite: null,

@@ -33,7 +33,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { enqueueNotification } from "@hyperidle/fabric";
+import { enqueueNotification, provisionTeamRoutines } from "@hyperidle/fabric";
 import type {
 	AgentOperationalStatus,
 	BetCardSummary,
@@ -421,6 +421,28 @@ export function createTeamRoutes(
 
 		if (leadAgentId) {
 			await db.update(teamMembers).set({ leadAgentId }).where(eq(teamMembers.id, teamMembersId));
+		}
+
+		// AF17: provision built-in routines for this team — owned by this team's own agents.
+		// @lore AF17: routines.team_id must be teams.id (teamId), NOT team_members.id (teamMembersId).
+		// ownerByRole and leadAgentId are users.id values from the just-created roster.
+		{
+			// Build ownerByRole from the created roster (agentId indexed by role)
+			const ownerByRole: Partial<Record<string, string>> = {};
+			for (let i = 0; i < rosterRoles.length; i++) {
+				const role = rosterRoles[i];
+				const agentId = agentIds[i];
+				if (role && agentId) {
+					ownerByRole[role] = agentId;
+				}
+			}
+			await provisionTeamRoutines(db, {
+				teamId,
+				ownerByRole,
+				leadAgentId: leadAgentId ?? agentIds[0] ?? "",
+			}).catch(() => {
+				// Non-fatal: log but don't fail team creation
+			});
 		}
 
 		// AE2: seed welcome message in assistant thread when userId is provided.

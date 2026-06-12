@@ -8,14 +8,7 @@
  * before any review-thread creation path runs.
  */
 
-import {
-	bets,
-	type HyperIdleDb,
-	teamMembers,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../test-fixtures.js";
@@ -28,9 +21,17 @@ let applyFactoryBootstrap: (db: HyperIdleDb) => Promise<void>;
 try {
 	const mod = await import("@hyperidle/db").catch(() => null);
 	// applyFactoryBootstrap will be exported from @hyperidle/db after implementation
-	applyFactoryBootstrap = (mod as Record<string, unknown>)?.applyFactoryBootstrap as ((db: HyperIdleDb) => Promise<void>) ?? (async () => { throw new Error("applyFactoryBootstrap not implemented yet (AF17 red phase)"); });
+	applyFactoryBootstrap =
+		((mod as Record<string, unknown>)?.applyFactoryBootstrap as (
+			db: HyperIdleDb,
+		) => Promise<void>) ??
+		(async () => {
+			throw new Error("applyFactoryBootstrap not implemented yet (AF17 red phase)");
+		});
 } catch {
-	applyFactoryBootstrap = async () => { throw new Error("applyFactoryBootstrap not implemented yet"); };
+	applyFactoryBootstrap = async () => {
+		throw new Error("applyFactoryBootstrap not implemented yet");
+	};
 }
 
 function authHeaders(): Record<string, string> {
@@ -38,7 +39,9 @@ function authHeaders(): Record<string, string> {
 }
 
 /** Minimal world to drive a bet to review without any demo data. */
-async function seedMinimalWorld(db: HyperIdleDb): Promise<{ teamId: string; betId: string; sessionId: string; founderId: string }> {
+async function seedMinimalWorld(
+	db: HyperIdleDb,
+): Promise<{ teamId: string; betId: string; sessionId: string; founderId: string }> {
 	const teamId = "team-ac5-test";
 	const tmId = "tm-ac5-test";
 	const founderId = "user-ac5-founder";
@@ -47,7 +50,9 @@ async function seedMinimalWorld(db: HyperIdleDb): Promise<{ teamId: string; betI
 	const agentId = "agent-ac5-builder";
 
 	await db.insert(teams).values({ id: teamId, name: "Acme Test", phase: "build", createdAt: NOW });
-	await db.insert(teamMembers).values({ id: tmId, teamId, capacity: 5, activeBets: 1, formedAt: NOW });
+	await db
+		.insert(teamMembers)
+		.values({ id: tmId, teamId, capacity: 5, activeBets: 1, formedAt: NOW });
 
 	// The founder human — normally created at onboarding, not bootstrap
 	await db.insert(users).values({

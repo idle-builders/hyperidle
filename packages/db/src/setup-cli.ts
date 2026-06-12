@@ -2,8 +2,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { redactDbUrl } from "@hyperidle/shared";
+import { applyFactoryBootstrap } from "./factory-bootstrap.js";
 import { type DeploymentProfile, resolveProfile } from "./profiles.js";
-import { seed } from "./seed.js";
 
 const Filename = typeof __filename === "string" ? __filename : fileURLToPath(import.meta.url);
 const Dirname = path.dirname(Filename);
@@ -142,11 +142,11 @@ async function applyLaptopMigrations(dataDir: string, migrationsFolder: string):
 	const { applyMigrations } = await import("./migrate.js");
 	await applyMigrations(dataDir, migrationsFolder);
 
-	// Seed the database — setup-cli always seeds; desktop does not.
+	// Apply factory bootstrap — always; idempotent.
 	const { createPgliteDb } = await import("./connection.js");
 	const handle = await createPgliteDb(dataDir);
 	try {
-		await seed(handle.db);
+		await applyFactoryBootstrap(handle.db);
 	} finally {
 		await handle.close();
 	}

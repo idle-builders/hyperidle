@@ -33,7 +33,7 @@
 ### 7.3 A Practice Learns Something (the contribution loop)
 
 ```
-1. Nimmly Builder discovers chunked upload >10MB works better
+1. Acme Builder discovers chunked upload >10MB works better
 2. Builder logs finding to task notes at session end (before context compaction)
 3. At next practice meeting (weekly routine on Build Practice Facilitator):
    a. Facilitator collects findings from all Builders across all products
@@ -54,7 +54,7 @@
 ### 7.4 A Bet Changes Mid-Flight
 
 ```
-1. Nimmly team is two weeks into a committed bet
+1. Acme team is two weeks into a committed bet
 2. Growth Agent discovers via analytics that the target audience uses
    the product differently than hypothesized
 3. Growth Agent posts finding to task notes + contributes to next practice meeting
@@ -83,7 +83,7 @@
 3. Model tier selected: Fast (sleep-time routine)
 4. Session starts, agent queries for new copy artifacts since last run
 5. Agent summarizes patterns into its own L2 memory
-   ("Nimmly shifted to more formal tone this week; Ambrovia added humor")
+   ("Acme shifted to more formal tone this week; Ambrovia added humor")
 6. Session ends → session_ended event → cost logged
 7. No Item created, no thread, no notification
 8. Next time Brand Voice agent reviews copy in a task session,
@@ -94,16 +94,16 @@
 ### 7.6 Cross-Team Work
 
 ```
-1. Nimmly Product Manager's bet needs a new billing webhook
-2. Nimmly PF opens a chat thread to Platform Team lead:
+1. Acme Product Manager's bet needs a new billing webhook
+2. Acme PF opens a chat thread to Platform Team lead:
    "We need a billing webhook for subscription changes.
     Appetite: 3 days of Platform work."
-3. Platform lead agrees → creates a cross-team task on Nimmly's bet
+3. Platform lead agrees → creates a cross-team task on Acme's bet
    (owner: Platform Builder, cross_team: true)
 4. Platform Builder starts sessions on the task, works it in Platform's rhythm
 5. Task completes → artifact ready → task → "done"
-6. Nimmly bet's dependency resolves → Nimmly team continues
-7. Cross-team task is visible in Nimmly's bet thread and in the WorkTeam task list
+6. Acme bet's dependency resolves → Acme team continues
+7. Cross-team task is visible in Acme's bet thread and in the WorkTeam task list
 ```
 
 ---

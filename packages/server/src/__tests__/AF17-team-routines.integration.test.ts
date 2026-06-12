@@ -14,11 +14,11 @@
 
 import {
 	factorySettings,
+	type HyperIdleDb,
 	routines,
 	teamMembers,
 	teams,
 	users,
-	type HyperIdleDb,
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
@@ -65,10 +65,7 @@ describe("AF17 AC3: POST /api/teams provisions built-in routines", () => {
 		const teamId = body.team.id;
 
 		// Must have exactly 5 builtin routines scoped to this team
-		const builtinRoutines = await db
-			.select()
-			.from(routines)
-			.where(eq(routines.teamId, teamId));
+		const builtinRoutines = await db.select().from(routines).where(eq(routines.teamId, teamId));
 
 		const builtinRows = builtinRoutines.filter((r) => r.id.startsWith("builtin:"));
 		expect(builtinRows).toHaveLength(5);
@@ -90,10 +87,7 @@ describe("AF17 AC3: POST /api/teams provisions built-in routines", () => {
 		const body = (await res.json()) as { team: { id: string }; teamMembers: { id: string } };
 		const teamId = body.team.id;
 
-		const builtinRoutines = await db
-			.select()
-			.from(routines)
-			.where(eq(routines.teamId, teamId));
+		const builtinRoutines = await db.select().from(routines).where(eq(routines.teamId, teamId));
 
 		const builtinRows = builtinRoutines.filter((r) => r.id.startsWith("builtin:"));
 		for (const r of builtinRows) {
@@ -125,10 +119,7 @@ describe("AF17 AC3: POST /api/teams provisions built-in routines", () => {
 		// These two ids must be different (both are UUIDs with different prefixes)
 		expect(teamsId).not.toBe(teamMembersId);
 
-		const builtinRows = await db
-			.select()
-			.from(routines)
-			.where(eq(routines.teamId, teamsId));
+		const builtinRows = await db.select().from(routines).where(eq(routines.teamId, teamsId));
 
 		expect(builtinRows.filter((r) => r.id.startsWith("builtin:")).length).toBe(5);
 
@@ -168,16 +159,16 @@ describe("AF17 AC3: POST /api/teams provisions built-in routines", () => {
 		const rosterIds = new Set(rosterAgents.map((a) => a.id));
 		expect(rosterIds.size).toBeGreaterThan(0);
 
-		const builtinRows = await db
-			.select()
-			.from(routines)
-			.where(eq(routines.teamId, teamId));
+		const builtinRows = await db.select().from(routines).where(eq(routines.teamId, teamId));
 
 		const builtinFiltered = builtinRows.filter((r) => r.id.startsWith("builtin:"));
 		expect(builtinFiltered.length).toBe(5);
 
 		for (const r of builtinFiltered) {
-			expect(rosterIds.has(r.ownerAgentId!), `routine ${r.id} owner ${r.ownerAgentId} must be a roster agent`).toBe(true);
+			expect(
+				rosterIds.has(r.ownerAgentId!),
+				`routine ${r.id} owner ${r.ownerAgentId} must be a roster agent`,
+			).toBe(true);
 		}
 
 		vi.unstubAllEnvs();
@@ -211,8 +202,16 @@ describe("AF17 AC3: per-team id scheme prevents collision across two teams", () 
 
 		// Import provisionTeamRoutines — fails in red phase (module doesn't exist)
 		// biome-ignore lint/suspicious/noExplicitAny: Red phase dynamic import
-		const fabricMod = await import("@hyperidle/fabric").catch(() => null) as Record<string, unknown> | null;
-		const provisionTeamRoutines = fabricMod?.provisionTeamRoutines as ((db: HyperIdleDb, opts: { teamId: string; ownerByRole: Record<string, string>; leadAgentId: string }) => Promise<void>) | undefined;
+		const fabricMod = (await import("@hyperidle/fabric").catch(() => null)) as Record<
+			string,
+			unknown
+		> | null;
+		const provisionTeamRoutines = fabricMod?.provisionTeamRoutines as
+			| ((
+					db: HyperIdleDb,
+					opts: { teamId: string; ownerByRole: Record<string, string>; leadAgentId: string },
+			  ) => Promise<void>)
+			| undefined;
 
 		if (!provisionTeamRoutines) {
 			// If not yet implemented, this test expectation is: fail (red phase)
@@ -224,8 +223,12 @@ describe("AF17 AC3: per-team id scheme prevents collision across two teams", () 
 		const teamMembers2Id = "team-af17-tm-2";
 		const agent2Id = "agent-pm-af17-test-2";
 
-		await db.insert(teams).values({ id: team2Id, name: "Team Beta", phase: "build", createdAt: NOW });
-		await db.insert(teamMembers).values({ id: teamMembers2Id, teamId: team2Id, capacity: 5, activeBets: 0, formedAt: NOW });
+		await db
+			.insert(teams)
+			.values({ id: team2Id, name: "Team Beta", phase: "build", createdAt: NOW });
+		await db
+			.insert(teamMembers)
+			.values({ id: teamMembers2Id, teamId: team2Id, capacity: 5, activeBets: 0, formedAt: NOW });
 		await db.insert(users).values({
 			id: agent2Id,
 			kind: "ai",
@@ -244,7 +247,10 @@ describe("AF17 AC3: per-team id scheme prevents collision across two teams", () 
 		});
 
 		// Count all builtin routines across both teams
-		const team1Routines = await db.select().from(routines).where(eq(routines.teamId, body1.team.id));
+		const team1Routines = await db
+			.select()
+			.from(routines)
+			.where(eq(routines.teamId, body1.team.id));
 		const team2Routines = await db.select().from(routines).where(eq(routines.teamId, team2Id));
 
 		const t1Builtins = team1Routines.filter((r) => r.id.startsWith("builtin:"));
@@ -273,8 +279,16 @@ describe("AF17 AC3: owner fallback when team lacks a product_manager", () => {
 		db,
 	}) => {
 		// biome-ignore lint/suspicious/noExplicitAny: Red phase dynamic import
-		const fabricMod = await import("@hyperidle/fabric").catch(() => null) as Record<string, unknown> | null;
-		const provisionTeamRoutines = fabricMod?.provisionTeamRoutines as ((db: HyperIdleDb, opts: { teamId: string; ownerByRole: Record<string, string>; leadAgentId: string }) => Promise<void>) | undefined;
+		const fabricMod = (await import("@hyperidle/fabric").catch(() => null)) as Record<
+			string,
+			unknown
+		> | null;
+		const provisionTeamRoutines = fabricMod?.provisionTeamRoutines as
+			| ((
+					db: HyperIdleDb,
+					opts: { teamId: string; ownerByRole: Record<string, string>; leadAgentId: string },
+			  ) => Promise<void>)
+			| undefined;
 
 		if (!provisionTeamRoutines) {
 			throw new Error("provisionTeamRoutines not implemented yet (AF17 red phase)");
@@ -284,8 +298,12 @@ describe("AF17 AC3: owner fallback when team lacks a product_manager", () => {
 		const tmId = "team-af17-fallback-tm";
 		const leadId = "agent-af17-fallback-lead";
 
-		await db.insert(teams).values({ id: teamId, name: "Marketing Team", phase: "build", createdAt: NOW });
-		await db.insert(teamMembers).values({ id: tmId, teamId, capacity: 3, activeBets: 0, formedAt: NOW });
+		await db
+			.insert(teams)
+			.values({ id: teamId, name: "Marketing Team", phase: "build", createdAt: NOW });
+		await db
+			.insert(teamMembers)
+			.values({ id: tmId, teamId, capacity: 3, activeBets: 0, formedAt: NOW });
 		await db.insert(users).values({
 			id: leadId,
 			kind: "ai",
@@ -304,10 +322,7 @@ describe("AF17 AC3: owner fallback when team lacks a product_manager", () => {
 			leadAgentId: leadId,
 		});
 
-		const builtinRows = await db
-			.select()
-			.from(routines)
-			.where(eq(routines.teamId, teamId));
+		const builtinRows = await db.select().from(routines).where(eq(routines.teamId, teamId));
 
 		const builtinFiltered = builtinRows.filter((r) => r.id.startsWith("builtin:"));
 		expect(builtinFiltered).toHaveLength(5);

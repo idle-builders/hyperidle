@@ -37,13 +37,13 @@ The product story documents (`docs/product/`) are written at an aspirational/des
 
 ### C2 — Core domain terminology mismatch: Product vs Team
 
-**What the docs say:** Product docs (`what-is-hyperidle.md`, `how-work-flows.md`, `how-knowledge-compounds.md`) consistently use "product" as the core domain entity — "the Nimmly team works on Nimmly," "teams form per product," "product-bound agents." `docs/architecture/components.md` schema shows `products (id, name, phase, ...)` and `teams (id, product_id, members, ...)`.
+**What the docs say:** Product docs (`what-is-hyperidle.md`, `how-work-flows.md`, `how-knowledge-compounds.md`) consistently use "product" as the core domain entity — "the Acme team works on Acme," "teams form per product," "product-bound agents." `docs/architecture/components.md` schema shows `products (id, name, phase, ...)` and `teams (id, product_id, members, ...)`.
 
 **What the system does:** The implementation uses `teams` as the product entity and `team_members` as the agent-membership group. The schema has `teams` (formerly `products`) and `team_members` (formerly `teams`). The rename is documented in `@lore U1` comments throughout the codebase: "Team (formerly Product) is the domain entity. TeamMember (formerly Team) is the agent-membership group." Routes use `/api/teams` (not `/api/products`).
 
 **Severity:** Critical — every `products` table reference in `docs/architecture/components.md` and every "team" vs "product" usage in process docs is semantically inverted relative to the codebase. A developer onboarding from the docs will immediately fail to find the `products` table.
 
-**Recommended resolution:** Update `docs/architecture/components.md` schema section to use `teams`/`team_members`. Update any doc that refers to "product" as the DB entity to use "team." The product docs (`what-is-hyperidle.md`) use "product" correctly in the UX sense (e.g., "the Nimmly product") — those are fine.
+**Recommended resolution:** Update `docs/architecture/components.md` schema section to use `teams`/`team_members`. Update any doc that refers to "product" as the DB entity to use "team." The product docs (`what-is-hyperidle.md`) use "product" correctly in the UX sense (e.g., "the Acme product") — those are fine.
 
 ---
 

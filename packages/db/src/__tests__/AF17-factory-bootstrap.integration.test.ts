@@ -22,9 +22,15 @@ let applyFactoryBootstrap: (db: HyperIdleDb) => Promise<void>;
 try {
 	// Dynamic import so compilation doesn't fail at module load; import errors surface at test run
 	const mod = await import("../factory-bootstrap.js").catch(() => null);
-	applyFactoryBootstrap = mod?.applyFactoryBootstrap ?? (async () => { throw new Error("applyFactoryBootstrap not implemented yet"); });
+	applyFactoryBootstrap =
+		mod?.applyFactoryBootstrap ??
+		(async () => {
+			throw new Error("applyFactoryBootstrap not implemented yet");
+		});
 } catch {
-	applyFactoryBootstrap = async () => { throw new Error("applyFactoryBootstrap not implemented yet"); };
+	applyFactoryBootstrap = async () => {
+		throw new Error("applyFactoryBootstrap not implemented yet");
+	};
 }
 
 async function queryRows<T extends Record<string, unknown>>(
@@ -50,7 +56,9 @@ describe("AF17 AC1: applyFactoryBootstrap creates the complete factory layer", (
 		expect(rows).toHaveLength(1);
 	});
 
-	test("System Agent singleton (seed-agent-cos) exists with individual category", async ({ db }) => {
+	test("System Agent singleton (seed-agent-cos) exists with individual category", async ({
+		db,
+	}) => {
 		await applyFactoryBootstrap(db);
 
 		const rows = await queryRows<{ id: string; agent_category: string | null }>(
@@ -107,7 +115,9 @@ describe("AF17 AC1: applyFactoryBootstrap creates the complete factory layer", (
 		expect(rows.map((r) => r.key)).toEqual(["cost_cap", "cost_cycle"]);
 	});
 
-	test("factory principle knowledge item (seed-ki-1) exists with scope_kind=factory", async ({ db }) => {
+	test("factory principle knowledge item (seed-ki-1) exists with scope_kind=factory", async ({
+		db,
+	}) => {
 		await applyFactoryBootstrap(db);
 
 		const rows = await queryRows<{ id: string; scope_kind: string }>(
@@ -133,10 +143,7 @@ describe("AF17 AC1: applyFactoryBootstrap creates the complete factory layer", (
 	test("no teams row is created by bootstrap (team_id null constraint)", async ({ db }) => {
 		await applyFactoryBootstrap(db);
 
-		const rows = await queryRows<{ count: string }>(
-			db,
-			"SELECT COUNT(*) AS count FROM teams",
-		);
+		const rows = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM teams");
 		expect(Number(rows[0]?.count)).toBe(0);
 	});
 
@@ -153,10 +160,7 @@ describe("AF17 AC1: applyFactoryBootstrap creates the complete factory layer", (
 	test("no routines row is created by bootstrap (routines require a team)", async ({ db }) => {
 		await applyFactoryBootstrap(db);
 
-		const rows = await queryRows<{ count: string }>(
-			db,
-			"SELECT COUNT(*) AS count FROM routines",
-		);
+		const rows = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM routines");
 		expect(Number(rows[0]?.count)).toBe(0);
 	});
 
@@ -203,11 +207,17 @@ describe("AF17 AC2: applyFactoryBootstrap is idempotent", () => {
 
 	test("running bootstrap twice produces the same factory_settings count", async ({ db }) => {
 		await applyFactoryBootstrap(db);
-		const rows1 = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM factory_settings");
+		const rows1 = await queryRows<{ count: string }>(
+			db,
+			"SELECT COUNT(*) AS count FROM factory_settings",
+		);
 		const count1 = Number(rows1[0]?.count);
 
 		await applyFactoryBootstrap(db);
-		const rows2 = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM factory_settings");
+		const rows2 = await queryRows<{ count: string }>(
+			db,
+			"SELECT COUNT(*) AS count FROM factory_settings",
+		);
 		const count2 = Number(rows2[0]?.count);
 
 		expect(count2).toBe(count1);

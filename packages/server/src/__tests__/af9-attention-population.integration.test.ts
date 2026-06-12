@@ -36,9 +36,7 @@ const NOW_ISO = "2026-06-11T00:00:00.000Z";
 const PROMOTION_ROUTINE_ID = "builtin:knowledge-promotion" as BuiltinRoutineId;
 
 async function seedOwners(db: HyperIdleDb): Promise<void> {
-	await db
-		.insert(teams)
-		.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: NOW_ISO });
+	await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: NOW_ISO });
 	await db.insert(teamMembers).values({
 		id: "team-1",
 		teamId: "prod-1",
@@ -63,8 +61,8 @@ async function seedOwners(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW_ISO,
 	});
 	await db.insert(users).values({
-		id: "seed-agent-pm-nimmly",
-		name: "Nimmly PM",
+		id: "demo-agent-pm",
+		name: "Acme PM",
 		role: "product_manager",
 		status: "active",
 		maxConcurrentSessions: 1,

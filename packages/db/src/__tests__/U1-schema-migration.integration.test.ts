@@ -104,13 +104,13 @@ describe("U1 AC1+AC2: Table renames — products→teams, teams→team_members",
 	}) => {
 		await seed(db);
 
-		// After migration, the product formerly named "Nimmly" must live in teams
+		// After migration, the product formerly named "Acme" must live in teams
 		const teamResult = await db.execute(
 			sql.raw(`SELECT id, name FROM teams WHERE id = 'seed-product-1'`),
 		);
 		const teamRows = (teamResult as { rows: Array<{ id: string; name: string }> }).rows;
 		expect(teamRows.length).toBe(1);
-		expect(teamRows[0]?.name).toBe("Nimmly");
+		expect(teamRows[0]?.name).toBe("Acme");
 
 		// And the old team membership group lives in team_members
 		const memberResult = await db.execute(

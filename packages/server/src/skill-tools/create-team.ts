@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { factorySettings, teamMembers, teams, users } from "@hyperidle/db";
+import { provisionTeamRoutines } from "@hyperidle/fabric";
 import { defaultRoster, findRoleCatalogEntry } from "@hyperidle/shared";
 import { eq, inArray } from "drizzle-orm";
 import z from "zod";
@@ -131,6 +132,23 @@ async function handler(
 	// Set the lead agent on the team members row
 	if (leadAgentId !== null) {
 		await ctx.db.update(teamMembers).set({ leadAgentId }).where(eq(teamMembers.id, teamMembersId));
+	}
+
+	// AF17: provision built-in routines for this team — owned by this team's own agents.
+	// @lore AF17: routines.team_id must be teams.id (teamId), NOT team_members.id (teamMembersId).
+	// ownerByRole and leadAgentId are users.id values from the just-created roster.
+	{
+		const ownerByRole: Partial<Record<string, string>> = {};
+		for (const { role, agentId } of roster) {
+			ownerByRole[role] = agentId;
+		}
+		await provisionTeamRoutines(ctx.db, {
+			teamId,
+			ownerByRole,
+			leadAgentId: leadAgentId ?? agentIds[0] ?? "",
+		}).catch(() => {
+			// Non-fatal: don't fail tool invocation
+		});
 	}
 
 	return ok<CreateTeamData>({

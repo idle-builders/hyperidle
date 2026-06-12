@@ -29,7 +29,7 @@ L0      Session    minutes     pure agent working set (ephemeral)
 - *Human-readable:* stable markdown files — `BRIEF.md` (what the product is), `ARCHITECTURE.md` (how it is built), `BRAND.md` (voice and positioning), `PRINCIPLES.md` (hard rules). These are the product's soul.
 - *Agent-native:* structured rows in the canonical store — decisions, handoffs, cycle reflections, active and historical bets.
 
-**L3 — Practice.** The highest-leverage layer. Knowledge from one product is available to every agent in the same practice. The Nimmly Builder who discovers the right approach to chunked uploads writes it into the building practice. The Ambrovia Builder gets it at the next relevant session — no "did you know Nimmly solved this?" moment, no copy-paste.
+**L3 — Practice.** The highest-leverage layer. Knowledge from one product is available to every agent in the same practice. The Acme Builder who discovers the right approach to chunked uploads writes it into the building practice. The Ambrovia Builder gets it at the next relevant session — no "did you know Acme solved this?" moment, no copy-paste.
 
 One building practice for all Builders. One growth practice for all Growth Agents. One product practice for all Product Managers. This is where Communities of Practice become real.
 

@@ -12,7 +12,7 @@ Three levels of depth: Portfolio → Team → Bet. The submenu always shows the 
 
 | Component | Information | Actions |
 |---|---|---|
-| **Product selector** | List of products (Ambrovia, Nimmly, HyperIdle, Pulse) with status dot | Click to open Team View for that product |
+| **Product selector** | List of products (Ambrovia, Acme, HyperIdle, Pulse) with status dot | Click to open Team View for that product |
 | **"All products" option** | Portfolio-level overview | Click to show Portfolio Overview (default landing) |
 
 ### 3.2 Portfolio Overview (Level 1 — default, in Main)

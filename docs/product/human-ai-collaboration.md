@@ -12,9 +12,9 @@ Agents execute. Humans validate. That is the collaboration model. Not zero-human
 
 ## Agents are team members, not tools
 
-The Builder agent on the Nimmly team is a member of that team. It picks up tasks, runs sessions, ships artifacts, and writes to the practice when it learns something. It is not a tool the founder invokes. Agents initiate conversations with founders. They surface problems. They propose changes. They flag uncertainty.
+The Builder agent on the Acme team is a member of that team. It picks up tasks, runs sessions, ships artifacts, and writes to the practice when it learns something. It is not a tool the founder invokes. Agents initiate conversations with founders. They surface problems. They propose changes. They flag uncertainty.
 
-**Example.** Mika is the Nimmly Builder. On Tuesday, she picks up "Implement Stripe webhook handler" from the payments bet. She works through the implementation and hits a product question: which webhook events does the product actually need? She creates a handoff to the founder: "I can implement all 27 Stripe event types or scope to the 4 we need for checkout. Which?"
+**Example.** Mika is the Acme Builder. On Tuesday, she picks up "Implement Stripe webhook handler" from the payments bet. She works through the implementation and hits a product question: which webhook events does the product actually need? She creates a handoff to the founder: "I can implement all 27 Stripe event types or scope to the 4 we need for checkout. Which?"
 
 The founder replies in the thread. Mika starts a new session with the answer and completes the task. When she finds that optimal retry logic conflicts with the growth practice docs, she writes a new practice item and flags the Growth Practice Facilitator. That knowledge becomes available to every Builder the next time webhooks come up.
 

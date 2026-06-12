@@ -509,7 +509,7 @@ export async function seedConflict(
 /**
  * Seed the three builtin agent stubs that `seedBuiltinRoutines()` references via
  * hardcoded owner IDs (`seed-agent-cos`, `seed-agent-pf-facilitation`,
- * `seed-agent-pm-nimmly`). Must be called before `seedBuiltinRoutines()` in any
+ * `demo-agent-pm`). Must be called before `seedBuiltinRoutines()` in any
  * eval scenario that exercises the builtin routine subsystem.
  *
  * @lore X8 BUILTIN-FK: `seedBuiltinRoutines` (in @hyperidle/fabric) uses stable
@@ -556,9 +556,9 @@ export async function seedBuiltinAgents(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(users)
 		.values({
-			id: "seed-agent-pm-nimmly",
+			id: "demo-agent-pm",
 			kind: "ai",
-			name: "Nimmly Product Manager (eval stub)",
+			name: "Acme Product Manager (eval stub)",
 			role: "product_manager",
 			status: "active",
 			// AB0: product_manager is a team-category agent.

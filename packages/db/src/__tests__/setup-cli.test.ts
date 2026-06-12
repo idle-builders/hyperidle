@@ -48,12 +48,16 @@ describe("H4 AC1: `bun run setup --profile laptop`", () => {
 		const client = new PGlite(dataDir);
 		await client.waitReady;
 		try {
-			// @lore U1: `products` table renamed to `teams`
-			const teamsResult = await client.query<{ id: string }>("SELECT id FROM teams");
-			expect(teamsResult.rows.length).toBeGreaterThan(0);
-
+			// @lore AF17: applyFactoryBootstrap does NOT insert teams — teams are
+			// created at onboarding, not at setup time. Assert factory agents present.
 			const usersResult = await client.query<{ id: string }>("SELECT id FROM users");
 			expect(usersResult.rows.length).toBeGreaterThan(0);
+
+			// system:propagation must be present (factory-bootstrap row)
+			const propagation = await client.query<{ id: string }>(
+				"SELECT id FROM users WHERE id = 'system:propagation'",
+			);
+			expect(propagation.rows.length).toBe(1);
 		} finally {
 			await client.close();
 		}
@@ -191,11 +195,12 @@ describe("H4 idempotency: laptop setup is safe to run twice", () => {
 			// @lore P2: agents → users table
 			const agentsResult = await client.query<{ id: string }>("SELECT id FROM users");
 			expect(agentsResult.rows.length).toBeGreaterThan(0);
-			// @lore U1: `products` renamed to `teams`; seed row id stays 'seed-product-1'
-			const teamsResult = await client.query<{ n: string }>(
-				"SELECT COUNT(*) AS n FROM teams WHERE id = 'seed-product-1'",
+			// @lore AF17: factory bootstrap does NOT insert teams (teams come from onboarding).
+			// Assert the factory system:propagation row is still present after second run.
+			const propagationResult = await client.query<{ n: string }>(
+				"SELECT COUNT(*) AS n FROM users WHERE id = 'system:propagation'",
 			);
-			expect(Number(teamsResult.rows[0]?.n)).toBe(1);
+			expect(Number(propagationResult.rows[0]?.n)).toBe(1);
 		} finally {
 			await client.close();
 		}

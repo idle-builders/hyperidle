@@ -66,7 +66,7 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 		.insert(teams)
 		.values({
 			id: "seed-product-1",
-			name: "Nimmly",
+			name: "Acme",
 			phase: "build",
 			functions: JSON.stringify(["development", "product"]),
 			createdAt: now,
@@ -106,7 +106,7 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 		.values({
 			id: "seed-agent-builder",
 			kind: "ai",
-			name: "Nimmly Builder",
+			name: "Acme Builder",
 			role: "builder",
 			agentCategory: "team",
 			status: "active",
@@ -166,9 +166,9 @@ export async function seed(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(users)
 		.values({
-			id: "seed-agent-pm-nimmly",
+			id: "demo-agent-pm",
 			kind: "ai",
-			name: "Nimmly Product Manager",
+			name: "Acme Product Manager",
 			role: "product_manager",
 			agentCategory: "team",
 			teamId: "seed-team-1",

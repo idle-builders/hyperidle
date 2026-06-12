@@ -25,7 +25,7 @@ const PRODUCT_ID = "test-product-l17";
 const BET_DETAIL_FIXTURE = {
 	id: BET_ID,
 	title: "Cost Test Bet",
-	product: "Nimmly",
+	product: "Acme",
 	team: "Alpha Core",
 	status: "in_progress",
 	// L17: structured money — no more "2 weeks" string
@@ -77,7 +77,7 @@ const BET_DETAIL_FIXTURE = {
 const PRODUCT_DETAIL_FIXTURE = {
 	product: {
 		id: PRODUCT_ID,
-		name: "Nimmly",
+		name: "Acme",
 		phase: "build",
 		status: "healthy",
 		leadAgentId: null,
@@ -108,7 +108,7 @@ const PRODUCTS_LIST_FIXTURE = {
 	teams: [
 		{
 			id: PRODUCT_ID,
-			name: "Nimmly",
+			name: "Acme",
 			phase: "build",
 			status: "healthy",
 			leadAgentId: null,

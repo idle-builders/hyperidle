@@ -18,7 +18,7 @@ export default {
 const MOCK_AGENTS = [
 	{
 		id: "story-agent-pm",
-		name: "Nimmly PM",
+		name: "Acme PM",
 		role: "product_manager",
 		soulPrompt: "# PM\n\nYou are the product manager for {{product}}.",
 		harnessType: "claude-code",

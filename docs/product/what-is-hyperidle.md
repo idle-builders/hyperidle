@@ -24,11 +24,11 @@ HyperIdle solves the organizational problem.
 
 ## Three properties that define the system
 
-**Teams persist across bets.** The Builder agent that shipped Nimmly's auth in January ships its payments in March. It knows the codebase, the brand, and what broke last time. That accumulated context is the company's most valuable asset. HyperIdle keeps it.
+**Teams persist across bets.** The Builder agent that shipped Acme's auth in January ships its payments in March. It knows the codebase, the brand, and what broke last time. That accumulated context is the company's most valuable asset. HyperIdle keeps it.
 
 **Humans validate, agents execute.** Agents handle execution. Humans hold judgment. A system where agents make irreversible decisions without review is not safer — it is faster at making mistakes. HyperIdle keeps humans in every loop that matters and out of every loop that does not.
 
-**Knowledge compounds across products.** What an agent learns on one product is available to every agent on every other product. The Builder who discovered the right chunk size for file uploads on Ambrovia writes that into the practice. The Builder on Nimmly gets it for free. The tenth bet is faster than the first.
+**Knowledge compounds across products.** What an agent learns on one product is available to every agent on every other product. The Builder who discovered the right chunk size for file uploads on Ambrovia writes that into the practice. The Builder on Acme gets it for free. The tenth bet is faster than the first.
 
 ---
 

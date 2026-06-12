@@ -46,9 +46,7 @@ const PROMOTION_ROUTINE_ID = "builtin:knowledge-promotion" as BuiltinRoutineId;
  * Mirrors `seedOwners` in `builtin-routines.integration.test.ts`.
  */
 async function seedOwners(db: HyperIdleDb): Promise<void> {
-	await db
-		.insert(teams)
-		.values({ id: "prod-1", name: "Nimmly", phase: "build", createdAt: NOW_ISO });
+	await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: NOW_ISO });
 	await db.insert(teamMembers).values({
 		id: "team-1",
 		teamId: "prod-1",
@@ -73,8 +71,8 @@ async function seedOwners(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW_ISO,
 	});
 	await db.insert(users).values({
-		id: "seed-agent-pm-nimmly",
-		name: "Nimmly PM",
+		id: "demo-agent-pm",
+		name: "Acme PM",
 		role: "product_manager",
 		status: "active",
 		maxConcurrentSessions: 1,

@@ -431,6 +431,28 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	}
 	log("boot:local migrations complete");
 
+	// AF17: apply factory bootstrap after migrations — idempotent, runs every launch.
+	// @lore AF17: factory bootstrap must run before the server starts so system:propagation
+	// and facilitator agents are present when the first request arrives. The call is
+	// idempotent (onConflictDoNothing) so repeated launches are safe.
+	try {
+		const { createPgliteDb } = await import("@hyperidle/db");
+		const { applyFactoryBootstrap } = await import("@hyperidle/db");
+		const handle = await createPgliteDb(dbPath);
+		try {
+			await applyFactoryBootstrap(handle.db);
+			log("boot:local factory bootstrap complete");
+		} finally {
+			await handle.close();
+		}
+	} catch (err) {
+		log("boot:local factory bootstrap FAILED (non-fatal)", {
+			error: (err as Error).message,
+		});
+		// Non-fatal: the server will start but may be missing factory rows.
+		// The next launch will retry.
+	}
+
 	process.env.DATABASE_URL = dbPath;
 	process.env.HYPERIDLE_API_KEY = apiKey;
 	if (!IS_DEV) {
