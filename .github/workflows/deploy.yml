@@ -1,0 +1,164 @@
+name: Release & Deploy Shared Backend
+
+# "Always latest" = the latest RELEASE. A release is marked by bumping the
+# root package.json `version` in a PR. When that merges to main, this workflow
+# detects the changed version and, in one chain: builds the image, publishes it
+# to GHCR, tags the commit `vX.Y.Z`, and deploys the new backend + SPA to the
+# shared cluster. Merges that don't change the version are a no-op.
+#
+# workflow_dispatch is a manual escape hatch (re-deploy / rollback a ref).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref (tag/sha) to build and deploy"
+        required: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }} # ambrovia/hyperidle
+  NAMESPACE: hyperidle
+
+permissions:
+  contents: write # push the vX.Y.Z tag
+  packages: write # push the image to GHCR
+
+# Never roll two deploys at once; never cancel a deploy mid-rollout.
+concurrency:
+  group: deploy-shared-backend
+  cancel-in-progress: false
+
+jobs:
+  # Gate: did the root package.json version change on this push? (Always true
+  # for manual dispatch.) Emits `released` + the resolved `version`.
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      released: ${{ steps.check.outputs.released }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+          fetch-depth: 2 # need HEAD~1 to diff the version
+
+      - id: check
+        run: |
+          CURRENT=$(jq -r .version package.json)
+          if [ -z "$CURRENT" ] || [ "$CURRENT" = "null" ]; then
+            echo "::error::root package.json has no version field"
+            exit 1
+          fi
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual dispatch — deploying version $CURRENT"
+            echo "released=true" >> "$GITHUB_OUTPUT"
+            echo "version=$CURRENT" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          PREV=$(git show HEAD~1:package.json 2>/dev/null | jq -r .version || echo "")
+          echo "version: $PREV -> $CURRENT"
+          if [ "$CURRENT" != "$PREV" ]; then
+            echo "released=true" >> "$GITHUB_OUTPUT"
+            echo "version=$CURRENT" >> "$GITHUB_OUTPUT"
+          else
+            echo "version unchanged — no release"
+            echo "released=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build-and-deploy:
+    needs: gate
+    if: needs.gate.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VERSION: ${{ needs.gate.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.deploy
+          push: true
+          # SHA tag is the immutable deploy target; vX.Y.Z + latest are aliases.
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ env.VERSION }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Tagging is owned by release.yml (publishing the staged desktop release
+      # creates the v<version> tag) so the two merge-triggered workflows don't
+      # race to create the same tag.
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Write kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          cat > ~/.kube/config <<EOF
+          apiVersion: v1
+          kind: Config
+          clusters:
+            - cluster:
+                server: ${{ secrets.KUBE_SERVER }}
+                certificate-authority-data: ${{ secrets.KUBE_CA_CERT }}
+              name: infra
+          contexts:
+            - context:
+                cluster: infra
+                namespace: ${{ env.NAMESPACE }}
+                user: deployer
+              name: deployer
+          current-context: deployer
+          users:
+            - name: deployer
+              user:
+                token: ${{ secrets.KUBE_TOKEN }}
+          EOF
+          chmod 600 ~/.kube/config
+
+      - name: Deploy with Helm
+        # Deployer SA has no Secret RBAC — Helm stores release state in
+        # ConfigMaps. --wait gates success on the migrate init-container + the
+        # readiness probe; a failed rollout leaves the old pods serving.
+        env:
+          HELM_DRIVER: configmap
+        run: |
+          helm upgrade --install ${{ env.NAMESPACE }} ./chart \
+            --namespace ${{ env.NAMESPACE }} \
+            --set image.tag=${{ github.sha }} \
+            --wait --timeout 5m
+
+      - name: Smoke check
+        run: |
+          kubectl --namespace ${{ env.NAMESPACE }} rollout status \
+            deployment/hyperidle --timeout=120s
+
+      - name: Summary
+        run: |
+          echo "### Deployed v${VERSION}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- image: \`${REGISTRY}/${IMAGE_NAME}:${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- namespace: \`${NAMESPACE}\`" >> "$GITHUB_STEP_SUMMARY"

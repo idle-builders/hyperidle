@@ -1,0 +1,104 @@
+name: Release Guard
+
+# PR gate for the release pipeline. If a PR bumps the root package.json version,
+# it must ALSO carry proof that the notarized DMG for that version was staged:
+#   - version sources in sync (root == desktop == chart appVersion)
+#   - packages/desktop/release-manifest.json present + matching the new version
+#   - a DRAFT GitHub Release v<version> exists on this repo with the DMG asset,
+#     whose sha256 matches the manifest
+#
+# Bumping the version without staging the DMG (via packages/desktop/scripts/release.sh)
+# fails this check — so a version bump can never merge without its artifact.
+# PRs that don't touch the version are a no-op.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  # `write` (not read) is required: the staged release is a DRAFT, and GitHub
+  # only exposes draft releases to tokens with push access. Read-only can't see
+  # it, so `gh release view` would 404. Same-repo PRs get this; forks are
+  # downgraded to read (a fork PR can't stage a draft anyway).
+  contents: write
+
+jobs:
+  release-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+
+      - name: Detect version bump
+        id: bump
+        run: |
+          BASE=$(git show "origin/${{ github.base_ref }}:package.json" | jq -r .version)
+          HEAD=$(jq -r .version package.json)
+          echo "base=$BASE head=$HEAD"
+          if [ "$BASE" = "$HEAD" ]; then
+            echo "bumped=false" >> "$GITHUB_OUTPUT"
+            echo "No version change — Release Guard is a no-op."
+          else
+            echo "bumped=true" >> "$GITHUB_OUTPUT"
+            echo "version=$HEAD" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Version sources in sync
+        if: steps.bump.outputs.bumped == 'true'
+        run: npx tsx scripts/check-version-sync.ts
+
+      - name: Manifest present and matches
+        if: steps.bump.outputs.bumped == 'true'
+        id: manifest
+        run: |
+          VERSION="${{ steps.bump.outputs.version }}"
+          MF=packages/desktop/release-manifest.json
+          if [ ! -f "$MF" ]; then
+            echo "::error::$MF missing — run packages/desktop/scripts/release.sh $VERSION to stage the DMG"
+            exit 1
+          fi
+          MV=$(jq -r .version "$MF")
+          if [ "$MV" != "$VERSION" ]; then
+            echo "::error::manifest version $MV != bumped version $VERSION"
+            exit 1
+          fi
+          echo "sha256=$(jq -r .sha256 "$MF")" >> "$GITHUB_OUTPUT"
+          echo "dmg=$(jq -r .dmgName "$MF")" >> "$GITHUB_OUTPUT"
+
+      - name: Staged DMG exists with matching sha256
+        if: steps.bump.outputs.bumped == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.bump.outputs.version }}"
+          TAG="v$VERSION"
+          DMG="${{ steps.manifest.outputs.dmg }}"
+          EXPECTED="${{ steps.manifest.outputs.sha256 }}"
+
+          # The staged release is a DRAFT on this private repo — GITHUB_TOKEN can read it.
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets,isDraft > rel.json 2>/dev/null; then
+            echo "::error::No staged release $TAG found. Run packages/desktop/scripts/release.sh $VERSION (it uploads the DMG to a draft release)."
+            exit 1
+          fi
+          if [ "$(jq -r .isDraft rel.json)" != "true" ]; then
+            echo "::warning::release $TAG is already published (expected a draft pre-merge)"
+          fi
+          if ! jq -e --arg n "$DMG" '.assets[] | select(.name == $n)' rel.json >/dev/null; then
+            echo "::error::staged release $TAG has no asset named $DMG"
+            jq -r '.assets[].name' rel.json
+            exit 1
+          fi
+
+          echo "Downloading $DMG to verify sha256…"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$DMG" --dir _staged
+          ACTUAL=$(sha256sum "_staged/$DMG" | cut -d' ' -f1)
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::sha256 mismatch — manifest $EXPECTED vs staged $ACTUAL"
+            exit 1
+          fi
+          echo "✓ staged DMG $DMG verified (sha256 $ACTUAL)"

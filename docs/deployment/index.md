@@ -28,6 +28,8 @@ This starts the Hono server on port 3001 and Vite dev server on port 5173.
 ## Sections
 
 - [Development setup](./laptop.md)
+- [Release pipeline](./releases.md) — one version bump → backend (cluster) + desktop (Homebrew) on merge
+- [Shared Backend (cluster)](./shared-backend.md) — headless server as a tenant on the shared K8s cluster, for internal team usage
 - [VPS (future)](./vps.md) — self-hosted Docker Compose with Postgres
 - [Cloud (future)](./cloud.md) — managed Postgres + E2B sandboxes
 - [Switching SQLite to Postgres](./switching-sqlite-to-postgres.md)

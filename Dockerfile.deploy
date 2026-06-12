@@ -1,0 +1,59 @@
+# syntax=docker/dockerfile:1
+#
+# Production image for the HyperIdle Shared Backend (cluster deploy).
+#
+# This is NOT the dev-environment image (that's ./Dockerfile). This image runs
+# the headless Hono server + fabric under HYPERIDLE_PROFILE=cloud, serving the
+# built web SPA. Desktop shared-mode clients loadURL() this server directly, so
+# the web bundle must ship inside the image (HYPERIDLE_STATIC_DIR).
+#
+# The server runs via tsx (no compiled server dist exists — `npm run start` is
+# `node --import tsx src/index.ts` everywhere, including the embedded desktop
+# server), so the runtime image keeps source + node_modules. drizzle-kit (for
+# the migrate init-container) and tsx both come from the installed dev deps.
+#
+# Restricted Pod Security Standard compliant: runs as non-root (UID 1000),
+# tolerates a read-only root filesystem — all writes go to /tmp and /data
+# emptyDir mounts (HOME, npm cache, tsx/esbuild temp, agent workspaces).
+
+# ---- Build stage: install all deps, build the web SPA ----
+FROM node:26-bookworm-slim AS builder
+WORKDIR /app
+
+# Full monorepo copy — npm workspaces needs every package.json present to
+# resolve the install. .dockerignore keeps host node_modules / .git / *.db out.
+COPY . .
+
+# --ignore-scripts: skip Playwright browser downloads and other heavy
+# postinstalls. esbuild resolves its platform binary via optionalDependencies
+# (no install script needed); the server runtime has no native modules under
+# the cloud profile (postgres-js + pglite-WASM, both script-free).
+RUN npm ci --ignore-scripts
+
+# Build the web SPA -> packages/web/dist (served by the server at runtime).
+RUN npm run build
+
+# ---- Runtime stage ----
+FROM node:26-bookworm-slim
+WORKDIR /app
+
+# node:bookworm-slim ships a `node` user at UID/GID 1000. Own the tree so the
+# non-root user can read it under a read-only root filesystem.
+COPY --from=builder --chown=node:node /app /app
+
+ENV NODE_ENV=production \
+    HYPERIDLE_PROFILE=cloud \
+    HYPERIDLE_STATIC_DIR=/app/packages/web/dist \
+    HYPERIDLE_WORKSPACES_DIR=/data/workspaces \
+    PORT=3001 \
+    HOME=/tmp \
+    TMPDIR=/tmp \
+    XDG_CACHE_HOME=/tmp/.cache \
+    npm_config_cache=/tmp/.npm
+
+EXPOSE 3001
+USER 1000
+
+# Exec form so the server is PID 1 and receives SIGTERM for graceful shutdown.
+# DATABASE_URL and HYPERIDLE_API_KEY are injected from Kubernetes secrets.
+CMD ["node", "--import", "tsx", "packages/server/src/index.ts"]
