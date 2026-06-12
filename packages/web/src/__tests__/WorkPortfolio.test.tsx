@@ -115,12 +115,11 @@ describe("WorkPortfolio", () => {
 		});
 	});
 
-	// R2 AC-7 behaviour replaced in U9: "New bet" btn-primary triggers dialog
-	// @lore visual-parity: "New bet" header button hidden in empty state (bets.length === 0).
-	// Tests that need the header button must mock useBets with at least one bet.
-	describe("U9 AC-2 — New bet button", () => {
-		it('renders "New bet" button with btn-primary', () => {
-			// Provide a bet so the header "New bet" button is visible
+	// AG2 AC-4: Frame invariant — "New bet" header button always present (0 or N bets).
+	// @lore AG2: Header "new-bet-btn" is unconditional (removed bets.length>0 gate).
+	// R2 contract: empty state carries data-testid="create-bet-cta" with button label "Create bet".
+	describe("AG2 AC-4 — New bet button frame invariant", () => {
+		it('renders "New bet" header button (new-bet-btn) when bets exist', () => {
 			mockUseBets.mockReturnValue({
 				bets: [
 					{
@@ -137,14 +136,20 @@ describe("WorkPortfolio", () => {
 				refresh: vi.fn(),
 			});
 			renderPage();
-			// data-testid targets the header button (not the EmptyState CTA)
 			const btn = screen.getByTestId("new-bet-btn");
 			expect(btn).toBeInTheDocument();
 			expect(btn.className).toContain("btn-primary");
 		});
 
+		it('renders "New bet" header button (new-bet-btn) even when NO bets exist (frame invariant)', () => {
+			// AG2: The header "new-bet-btn" is unconditional — present at zero bets.
+			// Default mock: bets: []
+			renderPage();
+			const btn = screen.getByTestId("new-bet-btn");
+			expect(btn).toBeInTheDocument();
+		});
+
 		it('"New bet" opens BetCreateDialog when clicked', async () => {
-			// Provide a bet so the header "New bet" button is visible
 			mockUseBets.mockReturnValue({
 				bets: [
 					{
@@ -162,9 +167,7 @@ describe("WorkPortfolio", () => {
 			});
 			const user = userEvent.setup();
 			renderPage();
-			// data-testid targets the header button (not the EmptyState CTA)
 			await user.click(screen.getByTestId("new-bet-btn"));
-			// Dialog should be open
 			expect(screen.getByRole("dialog")).toBeInTheDocument();
 		});
 
@@ -172,6 +175,50 @@ describe("WorkPortfolio", () => {
 			// Default mock: bets: []
 			renderPage();
 			expect(screen.getByTestId("portfolio-empty")).toBeInTheDocument();
+		});
+
+		it("AG2 R2 contract: empty state carries create-bet-cta testid", () => {
+			// Default mock: bets: []
+			renderPage();
+			expect(screen.getByTestId("create-bet-cta")).toBeInTheDocument();
+		});
+
+		it("AG2 R2 contract: empty state CTA button accessible name is exactly 'Create bet'", () => {
+			// Default mock: bets: []
+			renderPage();
+			// Must be "Create bet" — not "Create a bet" or "Create your first bet"
+			expect(screen.getByRole("button", { name: /^create bet$/i })).toBeInTheDocument();
+		});
+	});
+
+	describe("AG2 AC-5 — Filter-excluded empty state", () => {
+		it("shows filter-excluded empty state when bets exist but filteredBets is empty", async () => {
+			// Single bet with status "active", then attempt a status filter that excludes it
+			// We need bets to exist but filtering to exclude them.
+			// We test this via the no-matches testid after the component applies filters.
+			// This is covered more thoroughly in the outcome test file; here we verify testid contract.
+			mockUseBets.mockReturnValue({
+				bets: [
+					{
+						id: "bet-filter-test",
+						title: "Active Bet",
+						teamId: "p1",
+						status: "active",
+						description: "A bet",
+						costAppetite: null,
+						outcomeVerdict: null,
+					},
+				],
+				loading: false,
+				error: null,
+				refresh: vi.fn(),
+			});
+			const user = userEvent.setup();
+			renderPage();
+			// Click "Draft" status filter — excludes the active bet
+			await user.click(screen.getByRole("button", { name: /^draft$/i }));
+			expect(screen.getByTestId("portfolio-no-matches")).toBeInTheDocument();
+			expect(screen.queryByTestId("portfolio-empty")).not.toBeInTheDocument();
 		});
 	});
 });
