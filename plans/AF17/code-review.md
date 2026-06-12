@@ -85,3 +85,59 @@ The test still `import { seed } from "../seed.js"` and asserts `teams`/`team_mem
 - **AI Slop:** "not implemented yet (red phase)" stubs on implemented modules (NIT-1); doc text promising `--demo` "to start with a demo team" that no-ops (CRITICAL-2); comment claiming scoping that the query doesn't do (NIT-2).
 
 **Verdict: NOT DONE.**
+
+---
+
+# AF17 — Code Review Round 2 (re-review of builder fixes)
+
+**Verify:** GREEN — full `npm run verify` exit 0 (check + lint + knip + mock-inventory + nimmly-guard + demo-fixture-guard + build + desktop build + attestation). 2781 passed / 6 skipped. Attestation status=passed.
+**Verdict:** **NOT DONE.** One re-opened CRITICAL: the demo-fixture import-guard's regex cannot match the only realistic forbidden import form (`"./demo-fixture.js"`), so the AC4 structural barrier is non-functional. Plus the tree is not clean (3 untracked stray progress files).
+
+The other two CRITICALs (`--demo` flag, swallowed errors) and all WARNINGs/NITs are genuinely resolved — verified against the live diff, not prose.
+
+## Round-1 finding disposition
+
+| Finding | Status | Evidence |
+|---|---|---|
+| **CRITICAL-1** seed split + import-guard | **PARTIAL — guard defective** | Split is real: `seed.ts` is a thin wrapper (`applyFactoryBootstrap` + `seedDemoWorld`); demo world fully in `demo-fixture.ts`. Guard exists (`scripts/demo-fixture-guard.ts`) and is wired into `verify` (`demo-fixture-guard:check`). **BUT the guard regex is blind to the real attack** — see CRITICAL-1-R2. |
+| **CRITICAL-2** `--demo` flag | **RESOLVED** | `setup-cli.ts` parses `--demo` (ParsedArgs.demo, USAGE line, `runLaptop`→`applyLaptopMigrations(…, args.demo)` → `if (demo) seedDemoWorld(handle.db)`). Default = factory only. `setup-cli.test.ts` grew +95 lines proving `--demo` yields the demo team and default does not (per stat). |
+| **CRITICAL-3** swallowed errors | **RESOLVED** | Both empty `.catch(() => {})` blocks gone. `teams-routes.ts` L442 and `create-team.ts` L148 now `await provisionTeamRoutines(...)` bare — errors propagate (500 / tool failure). Happy path unaffected (provisioning runs inline, AC3 test green). |
+| **WARNING-1** guard scope | **RESOLVED** | nimmly-guard narrows `.pipeline` → `.pipeline/work-packages` + `.pipeline/progress` only; keeps `plans/`, `docs/archive`, build outputs; scans all shipped source (packages/scripts/docs-non-archive). Documented rationale in header. |
+| **WARNING-3** `@deprecated` shim | **RESOLVED** | Production `seedBuiltinRoutines` deleted from `fabric/services/builtin-routines.ts` (no `@deprecated`, not exported). Remaining refs are per-file local test helpers wrapping `provisionTeamRoutines` (per-team ids) — single seeder, no divergent-id duplicate in shipped code. |
+| **NIT-1** red-phase scaffolding | **RESOLVED** | All 5 AF17 test files use static top-level imports (`import { applyFactoryBootstrap } from "../factory-bootstrap.js"` etc.). No `await import(...)`, no "not implemented yet", no `any`/`biome-ignore` scaffolding. |
+| **NIT-2** `void factoryAgentIds` | **RESOLVED** | `factory-bootstrap.ts` L193 now actually scopes the backfill: `.where(and(eq(role), eq(kind,'ai'), inArray(users.id, factoryAgentIds)))`. No `void`. |
+| **NIT-3** stray compiled artifacts | **RESOLVED (for scripts/)** | `scripts/nimmly-guard.{js,js.map,d.ts,d.ts.map}` no longer block — gitignored (absent from `git status`). |
+| **NIT-4** stale comment | **RESOLVED** | `seed.ts` fully rewritten as wrapper; stale `packages/server/.../builtin-routines.ts` path comment gone. |
+
+## CRITICAL-1-R2 — demo-fixture guard regex is blind to the only realistic forbidden import
+
+`scripts/demo-fixture-guard.ts:33`:
+```ts
+const DEMO_FIXTURE_IMPORT_RE = /['"](\.\.\/)*demo-fixture(\.js)?['"]/;
+```
+This matches `"demo-fixture.js"` and `"../demo-fixture.js"` but **NOT `"./demo-fixture.js"`** — there is no alternative for a leading single-dot `./`. All four forbidden files (`seed-pg-cli.ts`, `bootstrap-pg.ts`, `factory-bootstrap.ts`, `migrate-pg.ts`) are **siblings** of `demo-fixture.ts` in `packages/db/src/`, so a real forbidden import would be `import { seedDemoWorld } from "./demo-fixture.js"` — the exact form the guard cannot see.
+
+**Defeat test (reproduced):** planted `import { seedDemoWorld } from "./demo-fixture.js";` into both `factory-bootstrap.ts` and `seed-pg-cli.ts` (forbidden paths) — guard exited **0 / "clean"** both times. The guard does not red on the attack it exists to prevent.
+
+Compounding: the two *permitted* importers (`setup-cli.ts:5`, `seed.ts:20`) also use `"./demo-fixture.js"`, which the regex also can't match — so the guard has effectively **zero true detection coverage** in the current layout. It passes green by never matching anything, not by enforcing the allowlist. There is also no unit test for `runDemoFixtureGuard` to have caught this.
+
+Additional blind spots in the same regex: `"./demo-fixture"` / `"demo-fixture"` without the `.js` extension, and the workspace subpath form `"@hyperidle/db/demo-fixture"`.
+
+**Fix:** broaden the matcher to cover the leading `./` (and ideally extensionless + workspace forms), e.g. `/from\s+['"](?:\.\.?\/)+demo-fixture(?:\.js)?['"]/` plus a `@hyperidle/db/demo-fixture` clause; then add a unit test that (a) reds on a `./demo-fixture.js` import in a forbidden path and (b) stays green for `setup-cli.ts`/`seed.ts`/test files. The fix is not done until the planted-`./`-import defeat test exits 1.
+
+## WARNING-R2 — working tree not clean (blocks ship)
+
+`git status` shows three untracked files: `.pipeline/progress/AD8.json`, `AE2.json`, `AE3.json`. They are not on `origin/main` (only `AD8a/b/c` are), not part of AF17's diff, and not gitignored — stray local pipeline artifacts from other workpackages. `verify-attest` already warns "working tree is dirty." Ship requires a clean tree; these must be removed (or the attestation re-run on a clean tree) before `/ship`. Not AF17-authored, but it blocks the gate. (The `.verify-attestations/*` churn is normal verify output that `/ship` commits.)
+
+## AC-by-AC (round 2)
+
+| AC | Met? | Notes |
+|----|------|-------|
+| **AC1** factory layer on fresh env | **PASS** | Unchanged — `applyFactoryBootstrap` + desktop/setup-cli wiring; integration test green. |
+| **AC2** idempotent re-apply | **PASS** | Unchanged. |
+| **AC3** team automation provisioned, team-owned, both seams | **PASS** | Both seams now propagate errors (CRITICAL-3 fixed). Test green. |
+| **AC4** no demo data in real user DB | **PARTIAL / AT RISK** | Split delivered; demo world isolated to `demo-fixture.ts`; no production entrypoint imports it today. **BUT the import-allowlist guard is non-functional** (CRITICAL-1-R2) — it cannot detect a `./demo-fixture.js` import from a forbidden sibling, so the structural guarantee AC4 requires is not actually enforced. |
+| **AC5** bet→review never fails on missing propagation identity | **PASS** | Unchanged. |
+| **AC6** zero "Nimmly"; neutral example data | **PASS** | Full `verify` (incl. `nimmly-guard:check`) green; guard scope now principled (WARNING-1 fixed). |
+
+**Verdict Round 2: NOT DONE.** Two CRITICALs and CRITICAL-3 resolved; CRITICAL-1's guard is structurally defective (re-opened as CRITICAL-1-R2) and the tree is not clean. Fix the regex + add the defeat-test, and clean the tree, then re-review.
