@@ -4,7 +4,7 @@ Founder feedback from first real startup (2026-06-12): the setup story doesn't h
 
 This track makes the configuration surface coherent and the agent runtime actually run: one credential model with no plaintext, per-agent model + harness chosen from real options, an Assistant that visibly responds, and an org chart that reflects what was created.
 
-**Scope rules.** Onboarding, Settings, credential storage, agent/model/harness configuration, the assistant response path, and the org-chart wiring around team/agent creation. No new process-layer primitives, no cost-model changes, no knowledge-fabric changes beyond what the assistant turn needs. `npm run verify` must pass after every workpackage merges (same rule as Tracks AD–AG). Open source, no enterprise features. **Hard requirement for every workpackage in this track: the acceptance criteria are proven by driving the real running app with Playwright and capturing screenshots of the working state — not by unit tests alone.** See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.yaml` for the dependency graph.
+**Scope rules.** Onboarding, Settings, credential storage, agent/model/harness configuration, the assistant response path, the org-chart wiring around team/agent creation, and a live agent-path test lane. No new process-layer primitives, no cost-model changes, no knowledge-fabric changes beyond what the assistant turn needs. `npm run verify` must pass after every workpackage merges (same rule as Tracks AD–AG). Open source, no enterprise features. **Hard requirement for every workpackage in this track: the acceptance criteria are proven by driving the real running app with Playwright against a real backend and a real model — the live agent-path lane defined in AH5 — with NO mocked agent, credential, session, or LLM routes on the proof path. Screenshots of the working state are captured. Unit tests alone do not satisfy any acceptance criterion here.** This rule exists because the current suite is green while the Assistant is dead: all 72 E2E specs mock every HTTP route, every integration test injects a fake/scripted harness, the one real-adapter test mocks `callLlm`, and the agent-layer evals (the only real-LLM path) never run in CI and never go through the frontend. See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.yaml` for the dependency graph.
 
 **Reference docs:** `docs/agent-layer/`, `docs/architecture/`, `docs/human-interface-layer/`, `docs/information-architecture/`, `docs/ui-design/`, `.claude/rules/aesthetic-quality.md`. Relevant prior tracks: X3 (Agent Configuration DB+UI), X4 (Model Gateway), X5 (Multi-Harness Adapter), X6 (Built-in Harness), AD8b (Assistant Agent + Overlay), AE2 (Team Creation & Onboarding), AF11 (credential hardening), AF15 (Settings reachability).
 
@@ -177,5 +177,55 @@ This track makes the configuration surface coherent and the agent runtime actual
 - Agent placement must be explicit in the API, not inferred after the fact.
 
 **Out of scope.** Org-chart visual redesign beyond showing the new edges correctly. Multi-team membership for a single agent. Reporting-relationship semantics changes. The assistant agent's wiring (AH3).
+
+**Effort.** M (~1d)
+
+---
+
+### AH5 — Live agent-path smoke lane (real model, frontend-driven, in CI)
+
+**Workpackage.** As a maintainer, I want an automated lane that drives the real UI through the real backend to a real — cheap, fast — model and asserts the Assistant actually responds, so that a dead-Assistant-class regression fails CI instead of shipping green. This lane is the execution vehicle for every other workpackage's Playwright proof in this track.
+
+**Why this matters.** The whole reason the inert Assistant reached the founder is that nothing automated exercises the message→turn→stream→render path against anything real. The 72 Playwright specs intercept every call with `page.route()` and assert only that UI chrome renders; the integration tests inject `ScriptedHarnessAdapter` / `CapturingHarnessAdapter` that yield canned events; the single test touching the real `BuiltinHarnessAdapter` mocks `callLlm`; and `packages/eval` (the one place with real LLM calls) is not in `.github/workflows/ci.yml` and never goes through the frontend. The result is a test pyramid that mocks the entire span between the UI boundary and the LLM boundary — exactly where the bug lives. Without a real-path lane, AH1–AH4 can be "proven" by mocked specs and the product can still be dead. This lane makes "the agent works" a thing CI can fail on.
+
+**What exists today.** Agent-layer evals (`packages/eval`, real `@anthropic-ai/sdk` calls, headless, scenario-based) exist but run nowhere in CI and never drive the UI. The model gateway already supports `openrouter` and `openai-compatible` providers (baseUrl + model + key), so a real third-party model is reachable without a new adapter. Playwright is wired for E2E. CI runs check/lint/knip/mock-inventory/build/attestation — no live agent step. There is no test at any tier that posts a user message to the assistant and asserts a real response renders.
+
+**What's genuinely missing.** A frontend-driven, no-mock Playwright lane that runs a real agent turn against a genuinely cheap and fast model, with the model selected dynamically from OpenRouter's live catalog (never a hardcoded permanent id), plus a CI job that runs the lane off the hot per-PR path with a real key supplied as a secret and a bounded token budget.
+
+**Model selection (the crux).** The lane does not need a *smart* model — it needs the cheapest, fastest *recent* model that reliably emits a tool call when the test prompt names the exact tool and arguments. Determinism comes from **prescriptive prompts** ("call `create_task` with `title=X`"), not from model intelligence, so the model only has to follow an explicit instruction and format one tool call. Agent *quality* — judging whether the agent makes good decisions — is the evals' job, and the evals use more expensive models; that is a separate lane, not this one. Two things still matter here: the model must be **current (2026-generation)** so it exercises modern tool-calling behavior rather than a 2024 relic, and the serving must be **redundant** so a single provider outage can't redden CI. The architecture queries OpenRouter's authenticated endpoints API at selection time (`GET /api/v1/models` and `GET /api/v1/models/{id}/endpoints`) and applies, in order:
+
+- **Hard gates (disqualify):** the *serving provider's* `supported_parameters` must include `tools` — tool support is per-provider, not per-model, so some providers of a nominally tool-capable model drop it (e.g. the cheapest gpt-oss-20b endpoint lacks `tools`); the model is 2026-generation; combined prompt+completion price under a documented ceiling (~$0.50 / 1M completion); and **at least two** tool-capable providers above an `uptime_last_30m` floor (≥99%), so no single endpoint outage can flake the lane. Exclude `:free` variants — they are rate-limited and unreliable in CI.
+- **Rank the survivors** by live `throughput_last_30m` (higher better) and `latency_last_30m` (lower TTFT better), price as the final tiebreaker. Route the winner through OpenRouter's `:nitro` suffix so the fastest qualifying provider serves it. (These throughput/latency fields populate only on authenticated reads — the selection logic has a key; anonymous reads return them as 0/null.)
+
+Current best fits — all 2026, tool-capable, cheap, multi-provider (verified 2026-06-12): **`deepseek/deepseek-v4-flash`** is the default — strongest performer of the cheap 2026 set, tool-capable on Baidu / DeepInfra / Cloudflare at ≥99% uptime (redundant), ~$0.10/$0.20 per 1M, 1M context. Alternates: **`google/gemma-4-26b-a4b-it`** (MoE, ~4B active → fast; ~$0.06/$0.34; DeepInfra/Cloudflare/Novita) and **`qwen/qwen3.5-flash-02-23`** (cheapest/fastest, ~$0.065/$0.26, but currently single-provider on Alibaba — a redundancy risk, so ranked below despite the price). The 2025 **`openai/gpt-oss-20b`** remains a proven-tool-reliability fallback. **No single id is hardcoded as permanent — the default is the top-ranked survivor at run time; on delisting or an uptime/redundancy drop, selection falls through to the next candidate automatically.**
+
+**Depends on.** AH1 (the credential must reach the runtime), AH2 (an agent must have a working OpenRouter-capable model + harness). The lane then becomes the proof target for AH3 and AH4.
+
+**Complexity.** M
+
+**Acceptance criteria.**
+- An automated, frontend-driven lane sends a message to the Assistant and asserts a real, streamed model response renders — against a real model, with no mocked agent, credential, session, or LLM routes anywhere on the path.
+- The lane's model is selected at run time from OpenRouter's live catalog by the documented gates (per-provider tool support, 2026-generation, price ceiling, ≥2 providers ≥99% uptime, no `:free`) ranked by live throughput/latency and routed `:nitro` — not a hardcoded id; if the top choice is delisted or drops below the redundancy/uptime floor, selection falls through to the next candidate and the lane still runs.
+- The lane exercises at least one real tool-using agent action driven by a prescriptive prompt (the prompt names the exact tool and arguments), so the tool-call path is covered without depending on model intelligence.
+- The lane runs in CI (pre-merge and/or scheduled, off the hot per-PR path given E2E cost/latency) and genuinely gates: a deliberately re-broken trigger or stream path makes the lane fail.
+- Each run's token cost is bounded by a configured cap and reported; a single run costs cents, not dollars.
+
+**Validation scenarios.**
+- **(Playwright, required)** Given the lane configured with an OpenRouter key, when it drives onboarding → open Assistant → send a message, then a screenshot captures a real model response distinct from the seeded welcome text, with no `page.route` mock on the assistant/session/credential path.
+- **(Playwright, required)** Given an agent task that requires a tool call, when the lane runs the turn, then the tool is actually invoked and its effect is observable in the UI (screenshot).
+- Given the preferred model is delisted from OpenRouter, when model selection runs, then it resolves to the next qualifying tool-capable cheap model and the lane completes.
+- Given a regression that breaks the message→turn trigger, when the lane runs in CI, then it fails (proving the lane guards the path, not just exercises it).
+- Given a completed run, when its cost is reported, then total tokens and dollar cost are within the configured budget.
+
+**Plan calls.** `/architecture` required — the live model-selection-from-catalog logic, where the lane plugs into CI, how the real key is provided as a CI secret and budget-capped, and how it reuses the openrouter/openai-compatible provider seam. No `/concept` (no new nouns). No `/design` (it's test infrastructure, not a user surface).
+
+**Contracts / constraints.**
+- Reuse the existing `openrouter` / `openai-compatible` provider path in the model gateway; no new harness adapter for the lane.
+- No mocked agent, credential, session, or LLM calls on the proof path — that prohibition is the entire point of the workpackage.
+- Model id is resolved dynamically from OpenRouter's live catalog every run; the allowlist and price ceiling are the policy, not a frozen id.
+- The real OpenRouter key is a CI secret, never committed; runs are budget-capped and the lane fails closed if the budget is exceeded.
+- This lane is the execution target for the Playwright proofs required by AH1–AH4; those workpackages do not stand up their own parallel real-path harness.
+
+**Out of scope.** Judging agent *output quality* — that is the agent-layer evals' job and the evals run more expensive models; this lane only proves the path is alive and a tool call fires, not that the answer is good (wiring the existing evals into CI is a sensible sibling follow-up). On-device/local-model inference as a future cost optimization. Replacing or deleting the existing mocked E2E specs (they still have value for UI-chrome coverage).
 
 **Effort.** M (~1d)

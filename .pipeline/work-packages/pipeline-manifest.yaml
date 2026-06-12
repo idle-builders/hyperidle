@@ -1002,6 +1002,11 @@ stories:
     track: AH
     depends: []
     complexity: M
+  - id: AH5
+    title: Live agent-path smoke lane (real model, frontend-driven, in CI)
+    track: AH
+    depends: [AH1, AH2]
+    complexity: M
 
   # Track AG: Work View Experience
   - id: AG1
