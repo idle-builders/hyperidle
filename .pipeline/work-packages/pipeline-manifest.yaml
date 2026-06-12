@@ -980,3 +980,103 @@ stories:
     track: AF
     depends: []
     complexity: L
+
+  # Track AH: Onboarding, Configuration & Runtime Coherence
+  - id: AH1
+    title: One credential model, no plaintext, reaches the runtime
+    track: AH
+    depends: []
+    complexity: L
+  - id: AH2
+    title: Per-agent model and a harness that actually selects
+    track: AH
+    depends: []
+    complexity: L
+  - id: AH3
+    title: The Assistant actually responds (one soul, real textareas)
+    track: AH
+    depends: [AH1, AH2]
+    complexity: L
+  - id: AH4
+    title: Teams and agents land in the org chart
+    track: AH
+    depends: []
+    complexity: M
+  - id: AH5
+    title: Live agent-path smoke lane (real model, frontend-driven, in CI)
+    track: AH
+    depends: [AH1, AH2]
+    complexity: M
+
+  # Track AG: Work View Experience
+  - id: AG1
+    title: Team screen composes at desktop widths
+    track: AG
+    depends: []
+    complexity: M
+  - id: AG2
+    title: Portfolio arrival and honest filters
+    track: AG
+    depends: []
+    complexity: M
+  - id: AG3
+    title: Bet authoring is block editing
+    track: AG
+    depends: []
+    complexity: M
+  - id: AG4
+    title: "Desktop navigation: back, up, and shortcuts"
+    track: AG
+    depends: []
+    complexity: M
+  - id: AG5
+    title: One canonical dropdown
+    track: AG
+    depends: []
+    complexity: M
+  - id: AG6
+    title: One shared item-row / table primitive
+    track: AG
+    depends: []
+    complexity: M
+  - id: AG7
+    title: Settings design-consistency pass
+    track: AG
+    depends: [AG5, AG6, AH3, AH4]
+    complexity: M
+  # Track AI: Style Consolidation
+  - id: AI1
+    title: Every styling token resolves
+    track: AI
+    depends: []
+    complexity: M
+  - id: AI2
+    title: One dialog experience
+    track: AI
+    depends: []
+    complexity: L
+  - id: AI3
+    title: One clock
+    track: AI
+    depends: []
+    complexity: M
+  - id: AI4
+    title: One status language
+    track: AI
+    depends: []
+    complexity: M
+  - id: AI5
+    title: Shared-primitive adoption sweep
+    track: AI
+    depends: []
+    complexity: L
+  - id: AI6
+    title: The design system holds itself to its own rules
+    track: AI
+    depends: []
+    complexity: M
+  - id: AI7
+    title: Every page shares one anatomy
+    track: AI
+    depends: []
+    complexity: M

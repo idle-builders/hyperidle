@@ -70,6 +70,10 @@ Output one machine-greppable line at the top of `brief.md`:
 DESIGN-CLASS: <routine|routine-low-conf|novel>  ref=<existing-component-or-none>  pattern=<html-file-or-none>
 ```
 
+## Phase 0b — Reuse inventory (hard gate)
+
+Read `packages/design-system/src/index.ts` — the barrel export is the live inventory. Write a **Reuse inventory** into `brief.md`: every visual element the workpackage needs, mapped to the existing component that renders it, the component that could with one new prop, or `NEW`. A `NEW` entry must state why extension is impossible — "doesn't quite fit" is a prop request, not a reason. Existing components carry already-tuned states, a11y, grid, and motion; the variant with zero new shapes beats the one that needs two unless the critique proves the new shape earns its cost.
+
 ## Phase 0 — Interrogate the user task
 
 Pick only the questions that are actually unsettled — skip what the brief, the design system rules, or existing mockups already answer. For each remaining question, propose your read with evidence, then ask the human (or reviewer in autonomous mode) to confirm. Issue all probes in one parallel batch — independent questions don't need separate round-trips.
@@ -101,7 +105,8 @@ Variant A — "Minimal scaffold"
   Constraint: smallest possible component count; reuse existing primitives without
               inventing anything new. The shape is whatever falls out of recombining
               what's already in packages/design-system/src/.
-  Thesis: prove the feature can ship inside the 19-component budget with zero new shapes.
+  Thesis: prove the feature can ship inside the existing catalogued component budget
+          with zero new shapes (the Phase 0b reuse inventory is this variant's spec).
 
 Variant B — "Power-density rethink"
   Constraint: optimise for the single most common power-user task. Cut everything

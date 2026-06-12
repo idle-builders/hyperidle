@@ -52,8 +52,9 @@ Read every function body. Check every `as` cast. Open every test file and verify
 
 Check every component against its spec. If the spec says 4 columns, count the columns. If it specifies motion values (80/150/250ms), check the CSS transitions.
 
-- **Component budget** — only the 19 approved custom components. Any additions need a written reason.
-- **Component reuse** — is existing design system code used where it should be? Read `packages/design-system/src/` to know what exists.
+- **Component budget** — only the custom components catalogued in `packages/design-system/DESIGN.md`. Any additions need a written reason.
+- **Reuse** — read `packages/design-system/src/index.ts` before the diff. Any new component, hook, or helper whose job an existing design-system export, `@hyperidle/shared` registry, or `utils/` function already does is CRITICAL — the fix is adoption or extension, not a polished fork. A deliberate exception needs a `@lore` comment naming the reason.
+- **Reinvention tells** — grep for hand-rolled `rounded-full` initials (→ `Avatar`), local status→color/label builders (→ `StatusChip` + `status-mapping.ts`), inline date math or `toLocaleDateString` (→ shared time formatter), bare `animate-pulse` (→ `Skeleton`), hand-built button styling (→ `Button`), a third copy of anything (→ promote it).
 - **Consistency** — same visual role = same treatment everywhere. Compare borders, spacing, radii, typography, hover states across sibling components.
 - **Token compliance** — no hardcoded colors, spacing, radii, or font sizes. No raw Tailwind color classes.
 - **States** — are ALL states handled (empty, loading, error, populated)?
@@ -61,8 +62,8 @@ Check every component against its spec. If the spec says 4 columns, count the co
 - **State-conditional affordances** — menus and action lists must filter options by what is semantically valid in the current state.
 - **DS promotion** — if a new component will be consumed by 2+ pages, it belongs in `packages/design-system/`, not page-local.
 - **Accessibility** — focus management, aria labels, keyboard navigation, focus traps, roving tabindex
-- **Design system** — does a `.stories.tsx` file exist? Do classes match Lucid theme tokens?
-- **Layout** — does the page layout match the spec (IconRail | Submenu | Main | Rail)?
+- **Design system** — does a `.stories.tsx` file exist? Do classes use Hearth tokens (`packages/design-system/src/tokens.css`)? Does every referenced `var(--…)` actually exist in tokens.css? A dangling token reference renders as silent breakage — CRITICAL.
+- **Layout** — does the page layout match the approved design and the app-shell structure in `docs/information-architecture/`?
 - **AI aesthetic violations** — oversized padding, purple gradients, hero sections, decorative icons
 - **Information density** — 8-12px padding, tight spacing, precision instrument aesthetic
 - **Motion** — transitions match spec values (80/150/250ms), no instant snaps

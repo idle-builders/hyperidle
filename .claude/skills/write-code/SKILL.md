@@ -16,6 +16,8 @@ Implement each task in dependency order. Write the minimum code to make tests pa
 
 Never weaken a test to make it pass. If a test reveals a design flaw, fix the implementation.
 
+**Reuse first:** Before writing any new component, hook, or helper, check `packages/design-system/src/index.ts`, then whether an existing component can grow a prop, then `@hyperidle/shared`/`utils/`, then DaisyUI directly (never wrapped). Build new only when all of those fail. An existing component carries already-tuned states, a11y, grid, and motion — new code restarts that tuning from zero. Never paste a third copy of anything; promote it to the design system or `utils/` instead. The reviewer flags an undocumented hand-rolled equivalent of an existing component as CRITICAL.
+
 **Regression ownership:** `npm run test` runs affected tests — if pre-existing tests break because of your changes, you own the fix. "Outside scope" is not valid for tests you broke.
 
 **Rename sweep:** When your changes rename, remove, or replace a symbol (field, type, token, status value, route), grep the full codebase for the old name before pushing: `grep -rn 'OLD_NAME' packages/ --include='*.ts' --include='*.tsx'`. Zero matches required (excluding test assertions that verify absence).
@@ -26,6 +28,7 @@ Never weaken a test to make it pass. If a test reveals a design flaw, fix the im
 - "The test is wrong" — prove it's wrong before changing it. Most of the time, the implementation is wrong.
 - "I'll add this extra feature while I'm here" — scope creep is the #1 cause of workpackage failure. Build exactly what was asked.
 - "I can skip this task, it's covered by the next one" — each task exists because it was independently testable. Skipping creates gaps.
+- "The shared component doesn't quite fit" — then it's one prop away. Extend it; a local fork forks the design language.
 
 ## Target
 
