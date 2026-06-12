@@ -1044,3 +1044,39 @@ stories:
     track: AG
     depends: [AG5, AG6, AH3, AH4]
     complexity: M
+  # Track AI: Style Consolidation
+  - id: AI1
+    title: Every styling token resolves
+    track: AI
+    depends: []
+    complexity: M
+  - id: AI2
+    title: One dialog experience
+    track: AI
+    depends: []
+    complexity: L
+  - id: AI3
+    title: One clock
+    track: AI
+    depends: []
+    complexity: M
+  - id: AI4
+    title: One status language
+    track: AI
+    depends: []
+    complexity: M
+  - id: AI5
+    title: Shared-primitive adoption sweep
+    track: AI
+    depends: []
+    complexity: L
+  - id: AI6
+    title: The design system holds itself to its own rules
+    track: AI
+    depends: []
+    complexity: M
+  - id: AI7
+    title: Every page shares one anatomy
+    track: AI
+    depends: []
+    complexity: M
