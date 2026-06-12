@@ -1,0 +1,138 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Chart.Name }}
+  labels:
+    app: {{ .Chart.Name }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Chart.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Chart.Name }}
+    spec:
+      # Deployer SA token is never needed by the app pod.
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      {{- if .Values.migration.enabled }}
+      initContainers:
+        # Additive Drizzle migrations against the tenant schema. If this fails,
+        # the pod stays Init:Error and the old pods keep serving (zero downtime).
+        - name: migrate
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: {{ toYaml .Values.migration.command | nindent 12 }}
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: database-url
+                  key: DATABASE_URL
+          volumeMounts:
+            - name: pg-ca-cert
+              mountPath: /etc/ssl/pg
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              cpu: 500m
+              memory: 384Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+          env:
+            - name: PORT
+              value: {{ .Values.service.port | quote }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: database-url
+                  key: DATABASE_URL
+            # Shared team API key. Network-exposed cloud profile rejects boot
+            # without it (validate-env.ts). Created during provisioning with the
+            # admin kubeconfig — the deployer SA cannot write Secrets.
+            - name: HYPERIDLE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: HYPERIDLE_API_KEY
+            {{- range .Values.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: pg-ca-cert
+              mountPath: /etc/ssl/pg
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readiness.path }}
+              port: {{ .Values.service.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.liveness.path }}
+              port: {{ .Values.service.port }}
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: {{ .Values.resources.requests.cpu }}
+              memory: {{ .Values.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.resources.limits.cpu }}
+              memory: {{ .Values.resources.limits.memory }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: {{ .Chart.Name }}
+      volumes:
+        - name: pg-ca-cert
+          secret:
+            secretName: pg-ca-cert
+        # Writable scratch for HOME, npm cache, tsx/esbuild temp under the
+        # read-only root filesystem.
+        - name: tmp
+          emptyDir: {}
+        # Writable agent-workspace base (HYPERIDLE_WORKSPACES_DIR). Empty in v1
+        # since no agents run in-cluster, but present so boot can't fail on a
+        # read-only rootfs.
+        - name: data
+          emptyDir: {}
