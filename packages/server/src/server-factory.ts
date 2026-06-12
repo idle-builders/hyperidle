@@ -14,6 +14,7 @@ import { EventBus, type ModelTier, type ResolvedModel } from "@hyperidle/shared"
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
 import { type AdapterPool, createLocalAdapterPool } from "./harness/adapter-pool.js";
+import { DisabledWorkspaceAdapter } from "./harness/disabled-workspace-adapter.js";
 import { LocalWorkspaceAdapter } from "./harness/local-workspace-adapter.js";
 import type { WorkspaceAdapter } from "./harness/workspace-adapter.js";
 import { createMcpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
@@ -200,7 +201,15 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 	// AF7 §1: test-only overrides for the adapter pool + workspace adapter + base
 	// path so the dispatcher wire can run against a stub pool (no real LLM).
 	const adapterPool = deps?.adapterPool ?? (await createLocalAdapterPool());
-	const workspaceAdapter = deps?.workspaceAdapter ?? new LocalWorkspaceAdapter();
+	// Server profiles (production, non-laptop) run no agents — LocalWorkspaceAdapter
+	// refuses to construct there. Use a disabled no-op adapter so the server boots;
+	// it fails loudly only if something actually tries to provision a workspace.
+	const isServerProfile =
+		process.env.NODE_ENV === "production" &&
+		(process.env.HYPERIDLE_PROFILE ?? "laptop") !== "laptop";
+	const workspaceAdapter =
+		deps?.workspaceAdapter ??
+		(isServerProfile ? new DisabledWorkspaceAdapter() : new LocalWorkspaceAdapter());
 	const workspaceBasePath =
 		deps?.workspaceBasePath ??
 		process.env.HYPERIDLE_WORKSPACES_DIR ??
