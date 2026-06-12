@@ -70,6 +70,10 @@ Output one machine-greppable line at the top of `brief.md`:
 DESIGN-CLASS: <routine|routine-low-conf|novel>  ref=<existing-component-or-none>  pattern=<html-file-or-none>
 ```
 
+## Phase 0b — Reuse inventory (hard gate, `.claude/rules/reuse-first.md`)
+
+Before generating any variant, read `packages/design-system/src/index.ts` (the barrel export IS the live inventory — DESIGN.md's count can lag) and write a **Reuse inventory** section into `brief.md`: every visual element the workpackage needs, mapped to the existing component that renders it, the existing component that could render it with one new prop/variant, or — last resort — `NEW`. A `NEW` entry must state which decision-ladder rung failed and why extension is impossible; "doesn't quite fit" is not a reason, it is a prop request. The designer's default posture is lazy: an existing component carries hundreds of already-tuned decisions (states, a11y, grid, dark mode, motion); every `NEW` shape restarts that long tail. Variants are judged partly on how little they invent — the variant that ships the outcome with zero new shapes beats the one that needs two, unless the critique proves the new shape earns its cost.
+
 ## Phase 0 — Interrogate the user task
 
 Pick only the questions that are actually unsettled — skip what the brief, the design system rules, or existing mockups already answer. For each remaining question, propose your read with evidence, then ask the human (or reviewer in autonomous mode) to confirm. Issue all probes in one parallel batch — independent questions don't need separate round-trips.
@@ -101,7 +105,8 @@ Variant A — "Minimal scaffold"
   Constraint: smallest possible component count; reuse existing primitives without
               inventing anything new. The shape is whatever falls out of recombining
               what's already in packages/design-system/src/.
-  Thesis: prove the feature can ship inside the 19-component budget with zero new shapes.
+  Thesis: prove the feature can ship inside the existing catalogued component budget
+          with zero new shapes (the Phase 0b reuse inventory is this variant's spec).
 
 Variant B — "Power-density rethink"
   Constraint: optimise for the single most common power-user task. Cut everything

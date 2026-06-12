@@ -6,7 +6,7 @@ paths:
 
 # Frontend Rules
 
-- Only the 19 custom components catalogued in `packages/design-system/DESIGN.md` (and rendered live at `/designsystem`). Use DaisyUI primitives directly — never wrap them.
+- **Reuse first** (`.claude/rules/reuse-first.md`): the design-system components catalogued in `packages/design-system/DESIGN.md` (live at `/designsystem`, inventory = `packages/design-system/src/index.ts`) are the FIRST choice for any UI element — check there before writing anything. Reach for DaisyUI classes directly only for primitives the design system deliberately doesn't own — and never wrap DaisyUI in thin one-line components. Hand-rolling an equivalent of an existing design-system component is a defect.
 - Tailwind utility classes with Hearth theme tokens. Use Hearth spacing tokens (`--space-*`) for all padding. Card padding: `--space-6` (18px). Small element padding: `--space-4` (12px). Component padding uses the 6px grid: `{3, 6, 9, 12, 18, 24, 36, 48}` px.
 - Handle all states: empty, loading, error, populated.
 - API endpoints in `packages/server/src/routes/`. RESTful naming. Consistent error response format.

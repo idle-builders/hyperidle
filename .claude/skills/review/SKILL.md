@@ -52,8 +52,8 @@ Read every function body. Check every `as` cast. Open every test file and verify
 
 Check every component against its spec. If the spec says 4 columns, count the columns. If it specifies motion values (80/150/250ms), check the CSS transitions.
 
-- **Component budget** — only the 19 approved custom components. Any additions need a written reason.
-- **Component reuse** — is existing design system code used where it should be? Read `packages/design-system/src/` to know what exists.
+- **Component budget** — only the custom components catalogued in `packages/design-system/DESIGN.md`. Any additions need a written reason.
+- **Reuse-first lens (`.claude/rules/reuse-first.md`) — be lazy on the builder's behalf.** Read `packages/design-system/src/index.ts` (the inventory) BEFORE reading the diff, then hunt for reinvention: any NEW component, hook, helper, formatter, or style-builder in the diff whose job an existing design-system export, `@hyperidle/shared` registry, or `utils/` function already does is a **CRITICAL** finding — the fix is adoption or extension, not a polished fork. Greppable tells: hand-rolled `rounded-full` initials circles (→ `Avatar`), local `*BadgeClass`/`*BadgeStyle`/status→color ternaries (→ `StatusChip` + `status-mapping.ts`), inline `Date.now() - …` age math or `toLocaleDateString` (→ the shared time formatter), bare `animate-pulse` skeletons (→ `Skeleton`), hand-built `<button>` styling (→ `Button`), local label maps duplicating `@hyperidle/shared`, a third copy of anything (two-copy ceiling — third copy must be promoted). A deliberate exception is acceptable ONLY with a `@lore` comment naming the reason; undocumented = finding. Also flag the inverse: a new prop bolted onto a page-local copy when the design-system component should have grown it.
 - **Consistency** — same visual role = same treatment everywhere. Compare borders, spacing, radii, typography, hover states across sibling components.
 - **Token compliance** — no hardcoded colors, spacing, radii, or font sizes. No raw Tailwind color classes.
 - **States** — are ALL states handled (empty, loading, error, populated)?
@@ -61,8 +61,8 @@ Check every component against its spec. If the spec says 4 columns, count the co
 - **State-conditional affordances** — menus and action lists must filter options by what is semantically valid in the current state.
 - **DS promotion** — if a new component will be consumed by 2+ pages, it belongs in `packages/design-system/`, not page-local.
 - **Accessibility** — focus management, aria labels, keyboard navigation, focus traps, roving tabindex
-- **Design system** — does a `.stories.tsx` file exist? Do classes match Lucid theme tokens?
-- **Layout** — does the page layout match the spec (IconRail | Submenu | Main | Rail)?
+- **Design system** — does a `.stories.tsx` file exist? Do classes use Hearth tokens (`packages/design-system/src/tokens.css`)? Does every referenced `var(--…)` actually exist in tokens.css? A dangling token reference renders as silent breakage — CRITICAL.
+- **Layout** — does the page layout match the approved design and the app-shell structure in `docs/information-architecture/`?
 - **AI aesthetic violations** — oversized padding, purple gradients, hero sections, decorative icons
 - **Information density** — 8-12px padding, tight spacing, precision instrument aesthetic
 - **Motion** — transitions match spec values (80/150/250ms), no instant snaps
