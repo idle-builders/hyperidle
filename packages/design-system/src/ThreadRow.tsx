@@ -247,7 +247,10 @@ export function ThreadRow({
 					</span>
 				)}
 
-				<span className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap">
+				<span
+					data-testid="thread-time"
+					className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap"
+				>
 					{timestamp}
 				</span>
 			</div>

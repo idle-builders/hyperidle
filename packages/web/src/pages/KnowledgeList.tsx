@@ -272,6 +272,7 @@ function KnowledgeListRow({
 		// Inline action buttons (validate/reject/open) are visible on hover or when focused.
 		return (
 			<li
+				data-testid="knowledge-row"
 				data-focused={isFocused ? "true" : undefined}
 				className="flex items-center gap-[12px] px-[24px] py-[12px] border-b border-[var(--border-subtle)] last:border-b-0 list-none"
 				style={{
@@ -400,7 +401,10 @@ function KnowledgeListRow({
 							)}
 						</div>
 					)}
-					<span className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap">
+					<span
+						data-testid="knowledge-time"
+						className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap"
+					>
 						{timestamp}
 					</span>
 				</div>
@@ -411,7 +415,7 @@ function KnowledgeListRow({
 	// Curated row: <li> inside a <ul> (rendered by KnowledgeTopicGroup) with an inner <button>
 	// for keyboard accessibility (focusable, Enter/Space activatable — WCAG 2.1.1).
 	return (
-		<li className="list-none">
+		<li data-testid="knowledge-row" className="list-none">
 			<button
 				type="button"
 				className="flex items-center gap-[12px] px-[24px] py-[12px] border-b border-[var(--border-subtle)] cursor-pointer last:border-b-0 hover:bg-[rgba(44,36,26,0.02)] w-full text-left bg-transparent border-x-0 border-t-0"
@@ -455,7 +459,10 @@ function KnowledgeListRow({
 							{status === "archived" ? "Stale" : status.charAt(0).toUpperCase() + status.slice(1)}
 						</span>
 					)}
-					<span className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap">
+					<span
+						data-testid="knowledge-time"
+						className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap"
+					>
 						{timestamp}
 					</span>
 				</div>

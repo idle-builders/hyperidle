@@ -16,6 +16,12 @@
  * @lore AI3: E2E verifies one-clock consolidation. page.route() LIFO means
  * test-specific routes registered AFTER the fixture's auto-use routes win.
  * No real DB or server is required — all data comes from mock responses.
+ *
+ * @lore AI3 selectors: ThreadRow uses data-testid="thread-time" (added AI3).
+ * KnowledgeListRow uses data-testid="knowledge-row" and data-testid="knowledge-time"
+ * (added AI3 — inline component, not the design-system KnowledgeRow primitive).
+ * NotificationPopover uses data-testid="notification-time" (added AI3).
+ * AppShell wires NotificationPopover via onNotificationClick → notifOpen state (added AI3).
  */
 
 import { expect, test } from "./fixtures";
@@ -41,18 +47,26 @@ const FUTURE_CREATED_AT = "2030-03-15T09:00:00.000Z";
 
 // ── Mock data builders ──────────────────────────────────────────────────────
 
+/**
+ * ThreadListRow shape expected by useConversationsThreads.isThreadListRow validator.
+ * Must have: id, hostKind (one of: bet/task/knowledge_item/artifact/agent/user/team/factory),
+ * hostId, initiatorId, participants (string[]), pinned, lastActiveAt, createdAt,
+ * hasUnresolvedReview. Optional: blocking, title.
+ */
 function makeSeedThread() {
 	return {
 		id: "ai3-seed-thread",
 		title: "AI3 seed thread",
-		kind: "dm",
-		status: "open",
-		createdAt: SEED_CREATED_AT,
-		updatedAt: SEED_CREATED_AT,
+		hostKind: "task",
+		hostId: "ai3-seed-task",
+		initiatorId: "test-founder",
+		participants: ["test-founder"],
+		pinned: false,
+		resolvedAt: null,
 		lastActiveAt: SEED_CREATED_AT,
-		teamId: "test-team-1",
-		participants: [],
-		messageCount: 1,
+		createdAt: SEED_CREATED_AT,
+		hasUnresolvedReview: false,
+		blocking: false,
 	};
 }
 
@@ -60,14 +74,16 @@ function makeBadThread() {
 	return {
 		id: "ai3-bad-thread",
 		title: "AI3 bad-timestamp thread",
-		kind: "dm",
-		status: "open",
-		createdAt: BAD_TIMESTAMP,
-		updatedAt: BAD_TIMESTAMP,
+		hostKind: "task",
+		hostId: "ai3-bad-task",
+		initiatorId: "test-founder",
+		participants: ["test-founder"],
+		pinned: false,
+		resolvedAt: null,
 		lastActiveAt: BAD_TIMESTAMP,
-		teamId: "test-team-1",
-		participants: [],
-		messageCount: 0,
+		createdAt: BAD_TIMESTAMP,
+		hasUnresolvedReview: false,
+		blocking: false,
 	};
 }
 
@@ -117,36 +133,47 @@ function makeBadKnowledgeItem() {
 	};
 }
 
-function makeSeedNotification() {
+/**
+ * useNotifications fetches GET /api/notifications/inbox and expects:
+ * { unseenCount: number; rows: NotificationRow[] }
+ * where NotificationRow: { id, typeKey, urgency, title, sourceLink, createdAt, seenAt, readAt }
+ */
+function makeSeedNotificationRow() {
 	return {
 		id: "ai3-seed-notif",
-		type: "mention",
+		typeKey: "mention",
+		urgency: "ambient" as const,
 		title: "Seeded notification",
-		body: "AI3 seed notification for one-clock",
-		read: false,
+		sourceLink: "/conversations/ai3-seed-thread",
 		createdAt: SEED_CREATED_AT,
-		threadId: null,
-		betId: null,
-		taskId: null,
+		seenAt: null,
+		readAt: null,
 	};
 }
 
-function makeBadNotification() {
+function makeBadNotificationRow() {
 	return {
-		...makeSeedNotification(),
+		...makeSeedNotificationRow(),
 		id: "ai3-bad-notif",
 		title: "Bad timestamp notification",
 		createdAt: BAD_TIMESTAMP,
 	};
 }
 
+function makeNotificationInboxResponse(rows: ReturnType<typeof makeSeedNotificationRow>[]) {
+	return { unseenCount: rows.length, rows };
+}
+
 // ── AC-1: Same age → same label across ≥ 4 surfaces ───────────────────────
 
 test.describe("AC-1: one-clock label agreement across surfaces", () => {
 	test.beforeEach(async ({ page }) => {
-		// Override threads with seed data
-		await page.route("**/api/threads", async (route) => {
-			if (route.request().method() === "GET") {
+		// Override threads with seed data. Using the same pattern as the fixture
+		// so LIFO ensures this handler wins over the fixture's empty-array response.
+		await page.route("**/api/threads**", async (route) => {
+			const url = route.request().url();
+			// Only intercept the list endpoint, not thread detail (/api/threads/:id)
+			if (route.request().method() === "GET" && !url.match(/\/api\/threads\/[^?/]+/)) {
 				await route.fulfill({
 					status: 200,
 					contentType: "application/json",
@@ -157,13 +184,13 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 			}
 		});
 
-		// Override notifications
-		await page.route("**/api/notifications**", async (route) => {
+		// Override notifications inbox — useNotifications fetches /api/notifications/inbox
+		await page.route("**/api/notifications/inbox**", async (route) => {
 			if (route.request().method() === "GET") {
 				await route.fulfill({
 					status: 200,
 					contentType: "application/json",
-					body: JSON.stringify({ notifications: [makeSeedNotification()] }),
+					body: JSON.stringify(makeNotificationInboxResponse([makeSeedNotificationRow()])),
 				});
 			} else {
 				await route.continue();
@@ -189,11 +216,10 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 
 	test("thread list renders relative label with shared register", async ({ page }) => {
 		await page.goto("/conversations");
-		// The thread list (useConversationsThreads → relativeShort) should show a
-		// non-empty relative age from the shared module.
-		const threadRow = page.locator("[data-testid='thread-row']").first();
+		// ThreadRow uses data-ds-component="ThreadRow" (from dsProps) and data-testid="thread-time"
+		const threadRow = page.locator("[data-ds-component='ThreadRow']").first();
 		await expect(threadRow).toBeVisible();
-		const timeEl = threadRow.locator("[data-testid='thread-time'], .text-tertiary").first();
+		const timeEl = threadRow.locator("[data-testid='thread-time']").first();
 		// Should contain a relative label — not empty, not "—"
 		await expect(timeEl).not.toBeEmpty();
 		const text = await timeEl.textContent();
@@ -202,12 +228,10 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 
 	test("knowledge list renders relative label with shared register", async ({ page }) => {
 		await page.goto("/knowledge");
-		const row = page
-			.locator("[data-component='KnowledgeRow'], [data-testid='knowledge-row']")
-			.first();
+		// KnowledgeListRow uses data-testid="knowledge-row" and data-testid="knowledge-time"
+		const row = page.locator("[data-testid='knowledge-row']").first();
 		await expect(row).toBeVisible();
-		// Relative time chip in knowledge row
-		const timeEl = row.locator(".font-mono, [data-testid='relative-time']").first();
+		const timeEl = row.locator("[data-testid='knowledge-time']").first();
 		await expect(timeEl).not.toBeEmpty();
 		const text = await timeEl.textContent();
 		expect(text).not.toBe("—");
@@ -215,19 +239,14 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 
 	test("notification popover shows relative label matching shared register", async ({ page }) => {
 		await page.goto("/");
-		// Open notification popover
-		const notifBtn = page
-			.getByRole("button", { name: /notification/i })
-			.or(page.locator("[data-testid='notification-bell'], [aria-label*='notification' i]"))
-			.first();
+		// Click the sidebar notification button (data-testid="sidebar-notification-btn")
+		const notifBtn = page.locator("[data-testid='sidebar-notification-btn']");
 		await notifBtn.click();
-		const popover = page
-			.locator("[data-testid='notification-popover'], [role='dialog']")
-			.or(page.locator(".notification-popover"))
-			.first();
+		// The popover has data-testid="notification-popover"
+		const popover = page.locator("[data-testid='notification-popover']");
 		await expect(popover).toBeVisible();
-		// Should have at least one row with a time label
-		const timeEl = popover.locator(".font-mono, [data-testid='notification-time']").first();
+		// Should have at least one row with a time label (data-testid="notification-time")
+		const timeEl = popover.locator("[data-testid='notification-time']").first();
 		await expect(timeEl).not.toBeEmpty();
 		const text = await timeEl.textContent();
 		expect(text).not.toBe("—");
@@ -238,8 +257,9 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 
 test.describe("AC-3: invalid timestamps → TIME_PLACEHOLDER or hidden chip", () => {
 	test("thread list with bad timestamp shows '—' placeholder", async ({ page }) => {
-		await page.route("**/api/threads", async (route) => {
-			if (route.request().method() === "GET") {
+		await page.route("**/api/threads**", async (route) => {
+			const url = route.request().url();
+			if (route.request().method() === "GET" && !url.match(/\/api\/threads\/[^?/]+/)) {
 				await route.fulfill({
 					status: 200,
 					contentType: "application/json",
@@ -251,7 +271,7 @@ test.describe("AC-3: invalid timestamps → TIME_PLACEHOLDER or hidden chip", ()
 		});
 
 		await page.goto("/conversations");
-		const threadRow = page.locator("[data-testid='thread-row']").first();
+		const threadRow = page.locator("[data-ds-component='ThreadRow']").first();
 		await expect(threadRow).toBeVisible();
 		// Should show em-dash for unparseable time
 		await expect(threadRow).toContainText("—");
@@ -274,20 +294,18 @@ test.describe("AC-3: invalid timestamps → TIME_PLACEHOLDER or hidden chip", ()
 		});
 
 		await page.goto("/knowledge");
-		const row = page
-			.locator("[data-component='KnowledgeRow'], [data-testid='knowledge-row']")
-			.first();
+		const row = page.locator("[data-testid='knowledge-row']").first();
 		await expect(row).toBeVisible();
 		await expect(row).toContainText("—");
 	});
 
 	test("notification popover with bad timestamp shows '—'", async ({ page }) => {
-		await page.route("**/api/notifications**", async (route) => {
+		await page.route("**/api/notifications/inbox**", async (route) => {
 			if (route.request().method() === "GET") {
 				await route.fulfill({
 					status: 200,
 					contentType: "application/json",
-					body: JSON.stringify({ notifications: [makeBadNotification()] }),
+					body: JSON.stringify(makeNotificationInboxResponse([makeBadNotificationRow()])),
 				});
 			} else {
 				await route.continue();
@@ -295,15 +313,9 @@ test.describe("AC-3: invalid timestamps → TIME_PLACEHOLDER or hidden chip", ()
 		});
 
 		await page.goto("/");
-		const notifBtn = page
-			.getByRole("button", { name: /notification/i })
-			.or(page.locator("[data-testid='notification-bell'], [aria-label*='notification' i]"))
-			.first();
+		const notifBtn = page.locator("[data-testid='sidebar-notification-btn']");
 		await notifBtn.click();
-		const popover = page
-			.locator("[data-testid='notification-popover'], [role='dialog']")
-			.or(page.locator(".notification-popover"))
-			.first();
+		const popover = page.locator("[data-testid='notification-popover']");
 		await expect(popover).toBeVisible();
 		await expect(popover).toContainText("—");
 	});
@@ -314,55 +326,49 @@ test.describe("AC-3: invalid timestamps → TIME_PLACEHOLDER or hidden chip", ()
 		// Seed a thread detail with a message carrying a bad timestamp.
 		const THREAD_ID = "ai3-bad-comment-thread";
 
-		await page.route(`**/api/threads/${THREAD_ID}`, async (route) => {
+		// useThreadDetail fetches GET /api/threads/:id and expects a combined
+		// { thread, messages, headMessageId, identities } response (not separate endpoints).
+		await page.route(`**/api/threads/${THREAD_ID}*`, async (route) => {
 			if (route.request().method() === "GET") {
 				await route.fulfill({
 					status: 200,
 					contentType: "application/json",
 					body: JSON.stringify({
-						id: THREAD_ID,
-						title: "Bad comment thread",
-						kind: "dm",
-						status: "open",
-						createdAt: SEED_CREATED_AT,
-						updatedAt: SEED_CREATED_AT,
-						lastActiveAt: SEED_CREATED_AT,
-						teamId: "test-team-1",
-						participants: [],
-					}),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		await page.route(`**/api/threads/${THREAD_ID}/messages**`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
+						thread: {
+							id: THREAD_ID,
+							title: "Bad comment thread",
+							kind: "dm",
+							status: "open",
+							hostKind: "user",
+							hostId: "test-founder",
+							createdAt: SEED_CREATED_AT,
+							updatedAt: SEED_CREATED_AT,
+							lastActiveAt: SEED_CREATED_AT,
+							teamId: "test-team-1",
+							participants: ["test-founder"],
+						},
 						messages: [
 							{
 								id: "msg-bad-ts",
 								threadId: THREAD_ID,
-								role: "human",
-								authorId: "test-founder",
-								authorName: "Test Founder",
-								authorAvatarUrl: null,
-								isAgent: false,
+								type: "plain",
+								senderId: "test-founder",
+								clientKey: "ck-bad-ts",
+								deletedAt: null,
+								redactedAt: null,
+								resolvedAt: null,
 								createdAt: BAD_TIMESTAMP, // ← unparseable
-								blocks: [
-									{
-										id: "blk-1",
-										kind: "text",
-										payload: { text: "Hello bad timestamp" },
-										version: 1,
-									},
-								],
+								payload: { text: "Hello bad timestamp" },
 							},
 						],
-						cursor: null,
+						headMessageId: null,
+						identities: {
+							"test-founder": {
+								name: "Test Founder",
+								role: "founder",
+								isAgent: false,
+							},
+						},
 					}),
 				});
 			} else {
@@ -373,9 +379,7 @@ test.describe("AC-3: invalid timestamps → TIME_PLACEHOLDER or hidden chip", ()
 		await page.goto(`/conversations/${THREAD_ID}`);
 
 		// The comment row must render (body visible)
-		const commentRow = page
-			.locator("[data-component='CommentRow'], [data-testid='comment-row']")
-			.first();
+		const commentRow = page.locator("[data-testid='comment-row']").first();
 		await expect(commentRow).toBeVisible();
 		await expect(commentRow).toContainText("Hello bad timestamp");
 
@@ -395,26 +399,42 @@ test.describe("AC-4: absolute format and SessionActivityPanel 24h", () => {
 	test("WorkRoutine 'Created' field renders MMM D, YYYY format", async ({ page }) => {
 		const ROUTINE_ID = "ai3-seed-routine";
 
-		await page.route("**/api/teams/**", async (route) => {
-			if (route.request().method() === "GET" && route.request().url().includes("/routines")) {
+		// WorkRoutine fetches GET /api/routines/:routineId → RoutineDetail shape
+		await page.route(`**/api/routines/${ROUTINE_ID}**`, async (route) => {
+			if (route.request().method() === "GET") {
 				await route.fulfill({
 					status: 200,
 					contentType: "application/json",
 					body: JSON.stringify({
-						routines: [
-							{
-								id: ROUTINE_ID,
-								name: "AI3 Seed Routine",
-								description: "Seeded for one-clock",
-								status: "active",
-								trigger: { kind: "manual" },
-								createdAt: FUTURE_CREATED_AT,
-								updatedAt: FUTURE_CREATED_AT,
-								lastRunAt: null,
-								nextRunAt: null,
-								runCount: 0,
-							},
-						],
+						routine: {
+							id: ROUTINE_ID,
+							name: "AI3 Seed Routine",
+							description: "Seeded for one-clock",
+							state: "active",
+							triggerType: "manual",
+							triggerConfig: null,
+							scheduleLabel: "Manual",
+							ownerAgentId: "test-agent",
+							agentName: "Test Agent",
+							agentInitials: "TA",
+							teamId: "test-team-1",
+							teamName: "Test Team",
+							autonomyLevel: null,
+							humanReview: false,
+							delegationAllowed: false,
+							lastRunAt: null,
+							lastRunOutcome: null,
+							nextRunAt: null,
+							costActual: null,
+							createdAt: FUTURE_CREATED_AT,
+							costCapPerRun: null,
+						},
+						runs: [],
+						budget: {
+							avgCostPerRun: null,
+							totalCostThisMonth: null,
+							totalRunsThisMonth: 0,
+						},
 					}),
 				});
 			} else {
@@ -422,11 +442,9 @@ test.describe("AC-4: absolute format and SessionActivityPanel 24h", () => {
 			}
 		});
 
-		// Navigate to a team's routines page (actual path TBD by app navigation)
-		await page.goto("/work/test-team-1/routines");
-		const createdField = page
-			.locator("[data-testid='routine-created'], [data-testid='created-at']")
-			.first();
+		// Navigate to the routine detail page
+		await page.goto(`/work/routine/${ROUTINE_ID}`);
+		const createdField = page.locator("[data-testid='routine-created']").first();
 		await expect(createdField).toBeVisible();
 		const text = (await createdField.textContent()) ?? "";
 		// Must match "MMM D, YYYY" — e.g. "Mar 15, 2030"
@@ -434,23 +452,97 @@ test.describe("AC-4: absolute format and SessionActivityPanel 24h", () => {
 	});
 
 	test("SessionActivityPanel entries render 24h HH:mm:ss time", async ({ page }) => {
+		const THREAD_ID = "ai3-session-thread";
+		const TASK_ID = "ai3-seed-task";
 		const SESSION_ID = "ai3-seed-session";
 
+		// Mock the thread detail — useThreadDetail fetches GET /api/threads/:id
+		// and expects { thread, messages, headMessageId, identities }.
+		// hostKind="task" + hostId=TASK_ID enables dial-in button.
+		await page.route(`**/api/threads/${THREAD_ID}*`, async (route) => {
+			if (route.request().method() === "GET") {
+				await route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify({
+						thread: {
+							id: THREAD_ID,
+							title: "AI3 Session Thread",
+							kind: "task",
+							status: "open",
+							hostKind: "task",
+							hostId: TASK_ID,
+							createdAt: SEED_CREATED_AT,
+							updatedAt: SEED_CREATED_AT,
+							lastActiveAt: SEED_CREATED_AT,
+							teamId: "test-team-1",
+							participants: ["test-founder"],
+						},
+						messages: [],
+						headMessageId: null,
+						identities: {
+							"test-founder": {
+								name: "Test Founder",
+								role: "founder",
+								isAgent: false,
+							},
+						},
+					}),
+				});
+			} else {
+				await route.continue();
+			}
+		});
+
+		// Mock active session for the task — useActiveSessionForTask fetches
+		// GET /api/sessions?task_id=<taskId>&state=active and expects an array.
+		await page.route(`**/api/sessions?**`, async (route) => {
+			if (route.request().method() === "GET") {
+				await route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify([
+						{
+							id: SESSION_ID,
+							agentId: "test-agent",
+							taskId: TASK_ID,
+							state: "active",
+							startedAt: SEED_CREATED_AT,
+							modelTier: "standard",
+						},
+					]),
+				});
+			} else {
+				await route.continue();
+			}
+		});
+
+		// Mock activity entries.
+		// useSessionActivity expects { session: {...}, activity: [...] }
+		// where each entry is { type, timestamp: number (epoch ms), data: {...} }.
+		// For tool_call: data = { toolName: string, argsSummary: string }.
 		await page.route(`**/api/sessions/${SESSION_ID}/activity**`, async (route) => {
 			if (route.request().method() === "GET") {
 				await route.fulfill({
 					status: 200,
 					contentType: "application/json",
 					body: JSON.stringify({
-						entries: [
+						session: {
+							id: SESSION_ID,
+							agentId: "test-agent",
+							taskId: TASK_ID,
+							state: "active",
+							startedAt: SEED_CREATED_AT,
+							modelTier: "standard",
+						},
+						activity: [
 							{
-								id: "entry-1",
-								sessionId: SESSION_ID,
-								kind: "tool_call",
-								label: "read_file",
-								timestamp: "2026-06-12T14:32:07.000Z",
-								durationMs: 123,
-								metadata: null,
+								type: "tool_call",
+								timestamp: new Date("2026-06-12T14:32:07.000Z").getTime(),
+								data: {
+									toolName: "read_file",
+									argsSummary: "path=/example.ts",
+								},
 							},
 						],
 					}),
@@ -460,11 +552,15 @@ test.describe("AC-4: absolute format and SessionActivityPanel 24h", () => {
 			}
 		});
 
-		// Navigate to a page that renders SessionActivityPanel
-		await page.goto(`/work/test-team-1/sessions/${SESSION_ID}`);
-		const activityPanel = page
-			.locator("[data-testid='session-activity-panel'], [data-component='SessionActivityPanel']")
-			.first();
+		// Navigate to the conversation thread
+		await page.goto(`/conversations/${THREAD_ID}`);
+
+		// Click "Dial In" to open the SessionActivityPanel
+		const dialInBtn = page.locator("[data-testid='dial-in-btn']");
+		await expect(dialInBtn).toBeVisible();
+		await dialInBtn.click();
+
+		const activityPanel = page.locator("[data-testid='session-activity-panel']").first();
 		await expect(activityPanel).toBeVisible();
 
 		// Each activity entry time must be in 24h HH:mm:ss format (no AM/PM)

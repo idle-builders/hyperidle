@@ -288,6 +288,7 @@ export function NotificationPopover({
 
 										{/* 4. Relative time */}
 										<span
+											data-testid="notification-time"
 											style={{
 												fontFamily: "var(--font-sans)",
 												fontSize: "12px",
