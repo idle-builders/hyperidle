@@ -167,3 +167,58 @@ CRITICALs and this is an 8–9.
   `pages/work/BetCreateDialog.tsx`) → BetCreate correctly kept in scope; AG5 popovers and toast positioning
   explicitly excluded; security block honestly N/A'd rather than padded. The plan delivers exactly the 13
   surfaces, nothing more.
+
+---
+
+## Re-critique round 1 (commit 52aac41d, designer claimed 12/12 resolved)
+
+ARCHITECTURE-SCORE: 8/10  rounds=2  score-line: SA:9 LI:9 AC:9 DM:n/a N:9 MD:8 FMC:8 S:8 V:8
+
+Verified all source-grounded claims against real files: `packages/web/index.html` (only
+`<div id="root">` under `<body>`), `main.tsx` (mounts into `#root`),
+`GlobalSearchPanel.cmdk.test.tsx` (`:40` `/z-50/`, `:47` `max-w-[640px]`, `:38` `.modal.modal-open`,
+`:45` `.modal-box`), `AD8b-AssistantOverlay.test.tsx` (`:108` `/z-30/`), `CocOverlay.test.tsx`
+(`:108` `/z-30/`), `WorkBet.L14-actions.test.tsx` (AC-8 `:5` "Escape doesn't close"),
+`KnowledgeRow.factory.test.tsx` (`:40` `.not.toContain("font-heading")`), `L14-bet-actions.spec.ts`
+(`:151` "pressing Escape does NOT close the dialog"). The §task-8 audit's per-file claims are
+**accurate** — every cited line/assertion exists exactly as described, and the files claimed
+clean (Knowledge/Bet/Routine/Scope/af13/TaskSheet) carry no z-/showModal/font-heading/text-sm
+assertion.
+
+| Finding | Verdict | Evidence |
+|---|---|---|
+| **C-1** `inert` mount self-contradiction (`#overlay-root` child of `#root`) | **RESOLVED** | D3 corrected: `DialogPortalRoot` renders `null` and *imperatively appends* `#overlay-root` to `document.body` via `useEffect` → true sibling of `#root`; `inert` applied to `#root` only; `#overlay-root` + `body` never inerted. Verified precondition holds: `index.html` ships only `<div id="root">`, `main.tsx` mounts into it — so inerting `#root` inerts exactly the app background and nothing in the overlay tree. Task 6 + Risk #4 + the result-tree diagram all restate it consistently; the `ensureOverlayRoot()` factoring makes it test-self-sufficient (resolves W-1 too). Sound. |
+| **C-2** kill-confirm dirty-guard vs validation scenario 2 (adopted unresolved) | **RESOLVED** | Plan recon line + route checklist #7/#8 + sanctioned-change #1 now all state: confirmation passes `isDirty={false}` ALWAYS → Esc closes (empty or typed). The drafted "typed = dirty → guard" rule is explicitly dropped. Scenario 2 satisfied verbatim; L14 flip is now "Esc closes" (not "typed guards"). Matches design §1.1. No residual conflict. |
+| **C-3** cmdk protected-test assertions break, unflagged | **RESOLVED** (with a narrow residual — see W-new) | New "Sanctioned assertion changes" section #2 names `GlobalSearchPanel.cmdk.test.tsx` `:40` `/z-50/` (must change → assert `--z-dialog`/zIndex 60 or `data-dialog-layer`) and confirms `:50` `max-w-[640px]` SURVIVES with rationale (palette uses `useDialogBehavior`, not boxed `Dialog`). Carve-out is real and correct. |
+| **W-1** jsdom `#overlay-root` / portal precedent absent | **RESOLVED** | Task 2 now specifies `ensureOverlayRoot()` lazily creates/appends `#overlay-root` (idempotent) so a bare DS jsdom test is self-sufficient; `inert` feature-detected (`"inert" in HTMLElement.prototype`), no-op under jsdom, asserted under Playwright instead. Directly addresses the gap. |
+| **W-2** `getOverlayProps` `role: string` open type | **RESOLVED** | Type signature changed to `role: "dialog"` (closed literal); `aria-modal` boolean documented as the modal/non-modal differentiator. |
+| **W-3** AC-3 method waffles static vs Playwright | **RESOLVED** | AC-3 row split cleanly: (a) static lint gate (no raw `z-[N]`, subsumed by AC-5 gate / `verify:quick`) + (b) Playwright `dialog-layering.spec.ts` computed-z assertion in both open orders. No more in-cell waffle. |
+| **W-4** unaudited migrated-file test assertions | **RESOLVED** | Task 8 now carries a concrete grep audit naming every migrated test, separating the 5 clean files from the 3 carve-outs (L14, cmdk, AssistantOverlay/CocOverlay). Spot-checked all named files — audit is accurate. |
+| **S-1** `--scrim` AI6 token shape + dark value | **RESOLVED** | Task 3 mints `--scrim` as explicit placeholder, adds dark value `rgba(20,16,12,0.62)`, AI6 finder comment. |
+| **S-2** keyboard discard path in AC-1 Playwright | **RESOLVED** | AC-1 row now asserts focus-on-"Keep editing" + Tab+Enter→Discard, pinning design §1.2. |
+| **S-3** portal-mount wording vs body-sibling fix | **RESOLVED** | Task 6 + D3 reworded to forbid the JSX-child mount explicitly. |
+
+### WARNING (new this round)
+
+- **W-new [Sanctioned change #2 — cmdk carve-out under-specifies the broken *selectors*, not just the
+  `z-50` className].** The cmdk test does more than assert `/z-50/`. Verified at source: line 38
+  queries `container.querySelector(".modal.modal-open")` and line 45 queries `.modal-box`. The
+  migration of `GlobalSearchPanel` to `useDialogBehavior` deletes the DaisyUI `modal modal-open` /
+  `modal-box` chrome — so **both query selectors return `null` and the test throws before reaching
+  any className assertion**, regardless of the `z-50`→`--z-dialog` edit the carve-out names. The
+  carve-out sanctions the *assertion* (`/z-50/` → zIndex 60) but not the *selector* the assertion
+  reads from. A builder following the carve-out literally updates the matcher and leaves the
+  `.modal.modal-open` query, and the protected test stays red. → Widen sanctioned-change #2 one
+  line: the cmdk overlay/box **selectors** also migrate (e.g. to a `data-dialog-layer`/role-based
+  query or the new overlay container class), and `max-w-[640px]` must be re-found via whatever
+  selector replaces `.modal-box`. Narrow, but it keeps a protected test green vs red. (This is the
+  same class of omission the original C-3 caught, one level deeper.)
+
+**New score: ARCHITECTURE 8/10 (was 7).** All three CRITICALs resolved and verified against real
+source; all four WARNINGs + three SUGGESTIONs addressed. Spec Alignment 8→9 (scenario-2 conflict
+gone), API Contracts 8→9 (`role` closed), Failure-Mode 7→8 (inert resolved, jsdom portal-root
+specified), Verifiability 6→8 (protected-test audit concrete and accurate, AC-3 split). Held off a
+9 by the one new WARNING (cmdk selector under-specification) — a narrow build-time correctness gap,
+not a design flaw.
+
+**ARCHITECTURE VERDICT: REVISE — one remaining WARNING (W-new). One-line fix; no CRITICAL.**

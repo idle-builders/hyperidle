@@ -143,3 +143,38 @@ DESIGN SCORE (9-dim average): **8.0 / 9-dim-total** → APPROVED threshold (≥7
   two surfaces competing, deterministic by mount-order-within-band — it satisfies every layer AC
   literally and lives in the one file AI1's gate already governs. The "inspect the DOM, read the
   scale in ten seconds" signature is a real design virtue.
+
+---
+
+## Re-critique round 1 (commit 52aac41d, designer claimed 12/12 resolved)
+
+DESIGN-CRITIQUE: variant=b-react-portal-stack(+approved synthesis) score=9/10 rounds=2
+axes: H:8 S:8 T:8 C:9 Co:9 St:9 A:9 AS:9 PP:8
+
+Verified each finding against the revised `approved.md` and (for source-grounded claims) against
+real files: `packages/web/index.html`, `main.tsx`, `GlobalSearchPanel.cmdk.test.tsx`,
+`AD8b-AssistantOverlay.test.tsx`, `CocOverlay.test.tsx`, `WorkBet.L14-actions.test.tsx`,
+`KnowledgeRow.factory.test.tsx`.
+
+| Finding | Verdict | Evidence |
+|---|---|---|
+| **C-1** non-modal dirty has no keyboard discard / Esc dead-end | **RESOLVED** | New §1.2 specifies: guard strip mounts focus on "Keep editing"; Esc/Enter = Keep editing; **Tab → Enter = Discard**; explicitly holds for non-modal AssistantOverlay. Discard is keyboard-reachable, not mouse-only. The three-press "dead-end" is reframed correctly as intentional (Esc protects, Tab+Enter discards). Grammar is now complete and unambiguous. |
+| **C-2** confirmation dirty-guard violates validation scenario 2 | **RESOLVED** | New §1.1: a confirmation **never** sets `isDirty=true` → passes literal `false` → Esc **always** closes (empty or typed reason). Satisfies scenario 2 verbatim. The unsaved-input AC is preserved because it now governs only *authoring* surfaces (§1.1 draws the authoring-vs-decision-gate boundary). §8 table marks kill-confirm AND ConsequencePreview as **`false` always**. The rule is encoded as "isDirty reflects authored work; a confirmation has none → pass the literal `false`, not a derived expression" — crisp enough that a builder cannot misapply it. Confirmed against L14 e2e `:151` ("Escape does NOT close") which the flip correctly inverts. |
+| **W-1** 15px title is body size, document the deliberate choice | **RESOLVED** | §4.1 added: "15px = `--text-base` is the *intentional* dialog-title treatment", rationale (compact chrome, weight-not-size hierarchy), explicit "do not correct to 17px", locked for AI7 + builder. |
+| **W-2** `--scrim` hardcoded rgba vs AI6 token shape | **RESOLVED** | §2 now declares `--scrim` an explicit *placeholder* AI2 mints (not final), names AI6 as owner of the `color-mix` derivation, requires a finder comment, AND adds the dark value `rgba(20,16,12,0.62)` with AQ-009 (no pure black) rationale. Both themes specified. |
+| **W-3** toast above scrim — clickable while modal inert? | **RESOLVED** | §2 toast block: toasts **must render into `#overlay-root`** (the node `inert` exempts); only `#root` is inerted; topmost layer never trapped. Positioning fenced out of AI2 scope; the z-band + portal-target rule are AI2's only toast contract. Unambiguous. |
+| **W-4** mobile bottom-sheet asserted but mockup is top-anchored | **RESOLVED** | §7: bottom-anchored declared mandatory with concrete CSS (`position:fixed; bottom:0; translateY(100%)→0`), the static top-anchored mockup explicitly demoted as non-binding, and a binding `MobileSheet` story + AC-4 Playwright bottom-anchoring assertion (`box.bottom ≈ vh, top > 0`) named as the proof. |
+| **S-1** per-surface discard copy | **RESOLVED** | §8 + §1.1 distinguish authoring vs confirmation; `discardCopy` prop carried; authoring surfaces guard with appropriate copy. Adequate. |
+| **S-2** error chrome state | **RESOLVED** | §5 table: loading/empty/error are the consumer's body, chrome identical/persistent. Confirmed. |
+| **S-3** A/C mockup fold | **RESOLVED** (cosmetic, no change needed; chosen variant B fully rendered). |
+
+**New score: DESIGN 9 / 9-dim (was 8).** Both CRITICALs resolved soundly; all four WARNINGs and
+all three SUGGESTIONs addressed. Accessibility rises 8→9 (keyboard discard path now complete,
+inert/toast interaction resolved); Premium Polish rises 7→8 (mobile bottom-sheet now specified +
+provable). No remaining CRITICAL or WARNING in the design.
+
+One narrow note carried to the architecture critique (not a design defect): the cmdk protected-test
+carve-out under-specifies which *selectors* (beyond the `z-50` className) must change — see arch
+re-critique W-new. It does not affect the design rubric.
+
+**DESIGN VERDICT: APPROVED (9 ≥ 7, no remaining CRITICAL/WARNING).**
