@@ -1002,3 +1002,40 @@ stories:
     track: AH
     depends: []
     complexity: M
+
+  # Track AG: Work View Experience
+  - id: AG1
+    title: Team screen composes at desktop widths
+    track: AG
+    depends: []
+    complexity: M
+  - id: AG2
+    title: Portfolio arrival and honest filters
+    track: AG
+    depends: []
+    complexity: M
+  - id: AG3
+    title: Bet authoring is block editing
+    track: AG
+    depends: []
+    complexity: M
+  - id: AG4
+    title: "Desktop navigation: back, up, and shortcuts"
+    track: AG
+    depends: []
+    complexity: M
+  - id: AG5
+    title: One canonical dropdown
+    track: AG
+    depends: []
+    complexity: M
+  - id: AG6
+    title: One shared item-row / table primitive
+    track: AG
+    depends: []
+    complexity: M
+  - id: AG7
+    title: Settings design-consistency pass
+    track: AG
+    depends: [AG5, AG6, AH3, AH4]
+    complexity: M
