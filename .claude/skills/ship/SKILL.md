@@ -173,41 +173,50 @@ The HMAC secret must exist both locally and in GitHub Actions:
 gh secret set VERIFY_SECRET < ~/.config/hyperidle/verify-secret
 ```
 
-## Optional: Desktop Release
+## Releasing (backend + desktop, unified)
 
-After CI is green, ask the user: **"Should I also cut a desktop release?"**
+Releases go through the **unified pipeline** — one version bump, one PR, both
+surfaces shipped on merge. The full design is in `docs/deployment/releases.md`.
+The desktop DMG is built+notarized **locally**; publish/mirror/Homebrew and the
+backend cluster deploy all happen in **CI on merge**. `release.sh` no longer
+pushes or publishes — it **stages**.
 
-If yes, the release flow runs from the repo root. It builds, signs, notarizes, and uploads a DMG to GitHub Releases.
+### Prerequisites (local)
 
-### Prerequisites
-
-- Apple credentials in `.env` or environment: `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`
+- Apple credentials in `.env`: `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`
 - Developer ID Application certificate in the keychain
-- `gh` CLI authenticated
+- `gh` CLI authenticated with write access to `ambrovia/hyperidle`
 
-### Release steps
+### Steps
 
-1. **Determine version.** Ask the user for the version string (e.g. `0.2.0`). Check `packages/desktop/package.json` for the current version.
-
-2. **Run the release script:**
+1. **Stage locally** (builds + signs + notarizes the DMG, uploads it to a hidden
+   draft release, bumps root+desktop+chart versions, writes `release-manifest.json`):
 
 ```bash
-./packages/desktop/scripts/release.sh <version>
+./packages/desktop/scripts/release.sh <version>   # e.g. 0.5.0
 ```
 
-This script does everything in sequence:
-- Bumps `packages/desktop/package.json` version
-- Builds the web SPA (`npm run -w @hyperidle/web build`)
-- Bundles desktop (`npx tsx packages/desktop/scripts/bundle.ts`)
-- Generates `package-lock.json` for electron-rebuild
-- Runs `electron-builder` with signing + notarization
-- Commits the version bump, tags `v<version>`, pushes both
-- Creates a GitHub Release with the DMG attached
-
-3. **Verify the release exists:**
+2. **Commit + open a PR** with what the script changed:
 
 ```bash
-gh release view v<version>
+git add -A && git commit -m "release: HyperIdle v<version>"
+gh pr create --base main --fill
+```
+
+3. **Merge once green.** The PR's **Release Guard** check verifies the staged DMG
+   (asset present + sha256 matches the manifest), so a version bump can't merge
+   half-built. On merge, CD runs automatically: `deploy.yml` ships the backend to
+   the cluster; `release.yml` publishes the draft release → `desktop-release.yml`
+   mirrors the DMG to `hyperidle-releases` and updates Homebrew.
+
+Do **not** run `release.sh` after a release is merged — it stages, it does not
+publish. Publishing is CI's job, triggered by the version-bump merge.
+
+### Local-only test build (no signing)
+
+```bash
+./packages/desktop/scripts/build-local.sh
+open packages/desktop/release/mac-arm64/HyperIdle.app
 ```
 
 ### Local-only test build (no signing)

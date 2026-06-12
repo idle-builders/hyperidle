@@ -105,13 +105,9 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Tag the release commit
-        # Annotated tag for traceability. Skipped on manual dispatch of an
-        # already-tagged ref (|| true keeps re-deploys idempotent).
-        if: github.event_name == 'push'
-        run: |
-          git tag -a "v${VERSION}" -m "Release v${VERSION}" || true
-          git push origin "v${VERSION}" || true
+      # Tagging is owned by release.yml (publishing the staged desktop release
+      # creates the v<version> tag) so the two merge-triggered workflows don't
+      # race to create the same tag.
 
       - name: Setup Helm
         uses: azure/setup-helm@v4

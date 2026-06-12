@@ -1,0 +1,86 @@
+name: Release — Publish desktop on merge
+
+# CD for the desktop release. When a version-bump PR merges to main, this
+# publishes the DRAFT release that was staged locally (build+notarize) — flipping
+# it from draft to published on this repo. That emits `release: published`, which
+# desktop-release.yml picks up to mirror the DMG to ambrovia/hyperidle-releases
+# and update the Homebrew tap.
+#
+# Pairs with deploy.yml (backend → cluster). Both trigger on the same version
+# bump, so one merge = backend deployed + desktop published + Homebrew updated.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (without v), e.g. 0.5.0"
+        required: true
+
+permissions:
+  contents: write # publish the release + create the tag
+
+concurrency:
+  group: release-publish
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      released: ${{ steps.check.outputs.released }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - id: check
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "released=true" >> "$GITHUB_OUTPUT"
+            echo "version=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          CURRENT=$(jq -r .version package.json)
+          PREV=$(git show HEAD~1:package.json 2>/dev/null | jq -r .version || echo "")
+          echo "version: $PREV -> $CURRENT"
+          if [ "$CURRENT" != "$PREV" ]; then
+            echo "released=true" >> "$GITHUB_OUTPUT"
+            echo "version=$CURRENT" >> "$GITHUB_OUTPUT"
+          else
+            echo "released=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  publish:
+    needs: gate
+    if: needs.gate.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VERSION: ${{ needs.gate.outputs.version }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publish the staged draft release
+        run: |
+          TAG="v$VERSION"
+          # Sanity: the draft must exist (staged locally + verified by Release Guard).
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft > rel.json 2>/dev/null; then
+            echo "::error::No staged release $TAG to publish. Was the DMG staged before merge?"
+            exit 1
+          fi
+          if [ "$(jq -r .isDraft rel.json)" = "false" ]; then
+            echo "release $TAG already published — nothing to do"
+            exit 0
+          fi
+          # Re-target the tag to the merge commit, then publish. Publishing a draft
+          # creates the tag at --target and emits `release: published`.
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --draft=false --latest
+          echo "Published $TAG → desktop-release.yml will mirror + update Homebrew"
+
+      - name: Summary
+        run: |
+          echo "### Published desktop release v${VERSION}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- mirror + Homebrew handled by desktop-release.yml" >> "$GITHUB_STEP_SUMMARY"
