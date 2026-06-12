@@ -16,7 +16,9 @@
 			"ignoreDependencies": ["@typescript-eslint/utils", "vitepress"]
 		},
 		"packages/shared": {},
-		"packages/db": {},
+		"packages/db": {
+			"entry": ["src/migrate-pg.ts"]
+		},
 		"packages/fabric": {},
 		"packages/api-contract": {},
 		"packages/server": {
