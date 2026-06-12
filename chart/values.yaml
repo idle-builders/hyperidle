@@ -30,7 +30,9 @@ ingress:
 # and applies packages/db/drizzle/*.sql against the tenant schema.
 migration:
   enabled: true
-  command: ["npm", "run", "db:migrate"]
+  # Custom runner (not drizzle-kit) — the schema-scoped tenant role can't
+  # CREATE SCHEMA, so the tracking table is created in the search_path schema.
+  command: ["npx", "tsx", "packages/db/src/migrate-pg.ts"]
 
 # Extra plain (non-secret) env. Profile is baked into the image but pinned here
 # too so it's visible/overridable. DATABASE_URL + HYPERIDLE_API_KEY come from

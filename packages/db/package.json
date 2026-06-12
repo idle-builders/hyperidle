@@ -11,7 +11,7 @@
 	},
 	"scripts": {
 		"check": "tsc --noEmit",
-		"generate": "drizzle-kit generate",
+		"generate": "drizzle-kit generate && npx tsx scripts/strip-public-schema.ts",
 		"migrate": "drizzle-kit migrate"
 	},
 	"dependencies": {

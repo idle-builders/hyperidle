@@ -32,7 +32,7 @@ CREATE TABLE "notification_queue" (
 ALTER TABLE "knowledge_items" ALTER COLUMN "attention_score" SET DATA TYPE real;--> statement-breakpoint
 ALTER TABLE "knowledge_items" ALTER COLUMN "confidence" SET DATA TYPE real;--> statement-breakpoint
 ALTER TABLE "tasks" ADD COLUMN "audit_trail" text;--> statement-breakpoint
-ALTER TABLE "knowledge_conflicts" ADD CONSTRAINT "knowledge_conflicts_item_id_knowledge_items_id_fk" FOREIGN KEY ("item_id") REFERENCES "public"."knowledge_items"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "knowledge_conflicts" ADD CONSTRAINT "knowledge_conflicts_item_id_knowledge_items_id_fk" FOREIGN KEY ("item_id") REFERENCES "knowledge_items"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "nq_status_created_idx" ON "notification_queue" USING btree ("status","created_at");--> statement-breakpoint
 CREATE INDEX "nq_severity_idx" ON "notification_queue" USING btree ("severity");--> statement-breakpoint
 CREATE INDEX "ki_layer_scope_idx" ON "knowledge_items" USING btree ("layer","scope_id");--> statement-breakpoint

@@ -20,7 +20,7 @@ CREATE TABLE "knowledge_strategy_fabric" (
     "last_cited_at" text,
     "meta" text,
     CONSTRAINT "knowledge_strategy_fabric_knowledge_item_id_knowledge_items_id_fk"
-        FOREIGN KEY ("knowledge_item_id") REFERENCES "public"."knowledge_items"("id") ON DELETE CASCADE ON UPDATE NO ACTION
+        FOREIGN KEY ("knowledge_item_id") REFERENCES "knowledge_items"("id") ON DELETE CASCADE ON UPDATE NO ACTION
 );
 --> statement-breakpoint
 CREATE INDEX "ksf_knowledge_item_id_idx" ON "knowledge_strategy_fabric" USING btree ("knowledge_item_id");
@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS "task_strategy_fabric" (
     "task_id" text NOT NULL UNIQUE,
     "risk_tier" text,
     CONSTRAINT "task_strategy_fabric_task_id_tasks_id_fk"
-        FOREIGN KEY ("task_id") REFERENCES "public"."tasks"("id") ON DELETE CASCADE ON UPDATE NO ACTION
+        FOREIGN KEY ("task_id") REFERENCES "tasks"("id") ON DELETE CASCADE ON UPDATE NO ACTION
 );
 --> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "tsf_task_id_idx" ON "task_strategy_fabric" USING btree ("task_id");
