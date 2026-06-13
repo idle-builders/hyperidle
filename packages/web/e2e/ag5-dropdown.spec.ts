@@ -123,8 +123,10 @@ async function setupSettingsRoutes(
 	});
 }
 
-/** Mock GET /api/bets (grouped response for WorkPortfolio useBets hook) */
-async function setupBetsListRoutes(
+/** Mock GET /api/bets (grouped response for WorkPortfolio useBets hook).
+ * AG3: Formerly used by S2 (BetCreateDialog), now unused since S2 targets WorkBetCreate directly.
+ * Prefixed with _ to suppress lint. */
+async function _setupBetsListRoutes(
 	page: Parameters<typeof test>[1] extends infer T
 		? T extends { page: infer P }
 			? P
@@ -246,38 +248,82 @@ test("AG5-S1: Settings/Models — canonical Select renders on model tier rows", 
 	});
 });
 
-// ─── Surface 2: BetCreateDialog — full-width Select ──────────────────────────
+// ─── Surface 2: WorkBetCreate — full-width team Select on new full-page route ────
+// AG3: BetCreateDialog deleted. Team Select is now on /work/bet/new (WorkBetCreate).
+// With multi-team fixture, the team Select appears in the commitments aside.
 
-test("AG5-S2: BetCreateDialog — team Select control is full-width", async ({ page }) => {
+test("AG5-S2: WorkBetCreate — team Select control is full-width in commitments aside", async ({
+	page,
+}) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
-	await setupBetsListRoutes(page);
 
-	// @lore AG5 fix: work portfolio is at /work/portfolio, not /work.
-	await page.goto("/work/portfolio");
-	await page.waitForSelector("[data-testid='main-content']");
+	// Override teams to provide 2 teams so WorkBetCreate shows the team Select.
+	// (With 1 team, WorkBetCreate auto-resolves and shows a static label per AC4.)
+	await page.route("**/api/teams", (route) => {
+		if (route.request().method() === "GET") {
+			return route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					teams: [
+						{
+							id: "test-team-1",
+							name: "Test Team Alpha",
+							phase: "build",
+							status: "healthy",
+							leadAgentId: null,
+							activeBets: 0,
+							shipped: 0,
+							shipRate: "—",
+							progress: { done: 0, total: 0 },
+							routineCount: 0,
+							agentCount: 0,
+							activeAgentCount: 0,
+							agentHealthWarning: false,
+						},
+						{
+							id: "test-team-2",
+							name: "Test Team Beta",
+							phase: "build",
+							status: "healthy",
+							leadAgentId: null,
+							activeBets: 0,
+							shipped: 0,
+							shipRate: "—",
+							progress: { done: 0, total: 0 },
+							routineCount: 0,
+							agentCount: 0,
+							activeAgentCount: 0,
+							agentHealthWarning: false,
+						},
+					],
+				}),
+			});
+		}
+		return route.continue();
+	});
 
-	// Click "New bet" button (visible when bets exist)
-	const newBetBtn = page.getByTestId("new-bet-btn");
-	await expect(newBetBtn).toBeVisible({ timeout: 10000 });
-	await newBetBtn.click();
+	// Navigate directly to the new full-page bet create route
+	await page.goto("/work/bet/new");
+	await page.waitForSelector("[data-testid='bet-create-page']", { timeout: 10000 });
 
-	// Find the dialog
-	const dialog = page.getByRole("dialog");
-	await expect(dialog).toBeVisible({ timeout: 10000 });
+	// Find the commitments aside
+	const aside = page.getByTestId("bet-create-commitments");
+	await expect(aside).toBeVisible({ timeout: 10000 });
 
-	const teamSelect = dialog.locator("[data-ds-component='Select']").first();
+	const teamSelect = aside.locator("[data-ds-component='Select']").first();
 	await expect(teamSelect).toBeVisible();
 
-	// The inner <select> must be full-width (not narrowed by wrapper)
+	// The inner <select> must be full-width
 	const selectEl = teamSelect.locator("select");
 	const box = await selectEl.boundingBox();
 	expect(box).not.toBeNull();
-	// Full-width means close to the dialog/form width — at least 200px
-	expect(box!.width).toBeGreaterThan(200);
+	// Full-width means close to the aside width (~240px) — at least 150px
+	expect(box!.width).toBeGreaterThan(150);
 
-	// Screenshot: BetCreateDialog with Select visible (surface 2)
+	// Screenshot: WorkBetCreate with team Select visible (surface 2 replacement)
 	await page.screenshot({
-		path: "test-results/ag5-s2-bet-create-dialog.png",
+		path: "test-results/ag5-s2-bet-create-page.png",
 		fullPage: false,
 	});
 });

@@ -65,143 +65,149 @@ function makeGroupedBets() {
 	};
 }
 
-test.describe("AI2 — Authoring form Esc guard (AC-1, scenario 1)", () => {
-	test.beforeEach(async ({ page }) => {
-		await page.route(`**/api/bets/${BET_ID}`, (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeBetDetail()),
-			}),
-		);
-		// @lore AI2 C-1: grouped shape required by useBets hook; ≥1 active bet
-		// ensures header "New bet" button (bets.length > 0) renders.
-		await page.route("**/api/bets", (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeGroupedBets()),
-			}),
-		);
-		await page.route("**/api/knowledge**", (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ items: [] }),
-			}),
-		);
+// AG3: BetCreateDialog deleted — bet creation is now a full-page route (/work/bet/new).
+// The Esc-guard (isDirty) was provided by the Dialog primitive wrapping BetCreateDialog.
+// The new WorkBetCreate page uses window.confirm instead (see WorkBetCreate.tsx @lore).
+// These tests are skipped because the BetCreate dialog surface no longer exists.
+// The Dialog Esc-guard contract is still tested via other Dialog hosts (kill-bet, etc).
+test.describe
+	.skip("AI2 — Authoring form Esc guard (AC-1, scenario 1) [AG3: BetCreateDialog deleted]", () => {
+		test.beforeEach(async ({ page }) => {
+			await page.route(`**/api/bets/${BET_ID}`, (route) =>
+				route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify(makeBetDetail()),
+				}),
+			);
+			// @lore AI2 C-1: grouped shape required by useBets hook; ≥1 active bet
+			// ensures header "New bet" button (bets.length > 0) renders.
+			await page.route("**/api/bets", (route) =>
+				route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify(makeGroupedBets()),
+				}),
+			);
+			await page.route("**/api/knowledge**", (route) =>
+				route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify({ items: [] }),
+				}),
+			);
+		});
+
+		test("type into BetCreate dialog, press Esc once → guard strip visible, input intact", async ({
+			page,
+		}) => {
+			await page.goto("/work/portfolio");
+			await expect(page.locator("[data-testid='work-portfolio-page']")).toBeVisible();
+
+			// Open the bet-create dialog via the "New bet" header button (requires bets.length > 0)
+			const createBtn = page.locator("[data-testid='new-bet-btn']");
+			await expect(
+				createBtn,
+				"New bet button must be visible — bets mock must return ≥1 bet",
+			).toBeVisible();
+			await createBtn.click();
+
+			// The dialog should be open
+			await expect(page.getByRole("dialog")).toBeVisible();
+
+			// BetCreateDialog uses ProseMirror (contenteditable) for the description field.
+			// @lore AI2 C-1: BodyEditor renders a [contenteditable] div, not a textarea.
+			// Click into it, then type via keyboard.
+			const editor = page.locator("[role='dialog'] [contenteditable]").first();
+			await expect(editor, "ProseMirror editor must be visible inside dialog").toBeVisible();
+			await editor.click();
+			await page.keyboard.type("My half-typed pitch");
+
+			// Wait for isDirty to update (BodyEditor onChange fires asynchronously)
+			await page.waitForTimeout(100);
+
+			// Press Escape once — dirty dialog must NOT close; guard strip must appear
+			await page.keyboard.press("Escape");
+
+			// Dialog must still be open
+			await expect(page.getByRole("dialog")).toBeVisible();
+
+			// Guard strip must be visible
+			const keepBtn = page.getByRole("button", { name: /keep editing/i });
+			await expect(
+				keepBtn,
+				"Guard strip must appear after first Escape on dirty dialog",
+			).toBeVisible();
+
+			// Screenshot the guard state (AC-1 proof)
+			await page.screenshot({ path: "test-results/ai2-guard-strip-visible.png" });
+		});
+
+		test("guard strip: focus lands on Keep editing (the safe default)", async ({ page }) => {
+			await page.goto("/work/portfolio");
+			await expect(page.locator("[data-testid='work-portfolio-page']")).toBeVisible();
+
+			const createBtn = page.locator("[data-testid='new-bet-btn']");
+			await expect(createBtn, "New bet button must be visible").toBeVisible();
+			await createBtn.click();
+			await expect(page.getByRole("dialog")).toBeVisible();
+
+			const editor = page.locator("[role='dialog'] [contenteditable]").first();
+			await expect(editor, "ProseMirror editor must exist inside dialog").toBeVisible();
+			await editor.click();
+			await page.keyboard.type("Typed input");
+			await page.waitForTimeout(100);
+			await page.keyboard.press("Escape");
+
+			// Guard strip must appear
+			await expect(
+				page.getByRole("button", { name: /keep editing/i }),
+				"Guard strip must appear",
+			).toBeVisible();
+
+			// Focus must be on Keep editing
+			const focusedText = await page.evaluate(() => document.activeElement?.textContent?.trim());
+			expect(focusedText).toMatch(/keep editing/i);
+		});
+
+		test("guard strip: Tab+Enter → Discard closes the dialog (keyboard discard path §1.2)", async ({
+			page,
+		}) => {
+			await page.goto("/work/portfolio");
+			await expect(page.locator("[data-testid='work-portfolio-page']")).toBeVisible();
+
+			const createBtn = page.locator("[data-testid='new-bet-btn']");
+			await expect(createBtn, "New bet button must be visible").toBeVisible();
+			await createBtn.click();
+			await expect(page.getByRole("dialog")).toBeVisible();
+
+			const editor = page.locator("[role='dialog'] [contenteditable]").first();
+			await expect(editor, "ProseMirror editor must exist inside dialog").toBeVisible();
+			await editor.click();
+			await page.keyboard.type("Draft pitch text");
+			await page.waitForTimeout(100);
+			await page.keyboard.press("Escape");
+
+			// Guard strip appears — focus is on Keep editing
+			await expect(
+				page.getByRole("button", { name: /keep editing/i }),
+				"Guard strip must appear",
+			).toBeVisible();
+
+			// Press Tab to move to Discard
+			await page.keyboard.press("Tab");
+
+			// Focused element should be Discard
+			const focusedText = await page.evaluate(() => document.activeElement?.textContent?.trim());
+			expect(focusedText).toMatch(/^discard$/i);
+
+			// Press Enter to activate Discard
+			await page.keyboard.press("Enter");
+
+			// Dialog must be closed
+			await expect(page.getByRole("dialog")).not.toBeVisible();
+		});
 	});
-
-	test("type into BetCreate dialog, press Esc once → guard strip visible, input intact", async ({
-		page,
-	}) => {
-		await page.goto("/work/portfolio");
-		await expect(page.locator("[data-testid='work-portfolio-page']")).toBeVisible();
-
-		// Open the bet-create dialog via the "New bet" header button (requires bets.length > 0)
-		const createBtn = page.locator("[data-testid='new-bet-btn']");
-		await expect(
-			createBtn,
-			"New bet button must be visible — bets mock must return ≥1 bet",
-		).toBeVisible();
-		await createBtn.click();
-
-		// The dialog should be open
-		await expect(page.getByRole("dialog")).toBeVisible();
-
-		// BetCreateDialog uses ProseMirror (contenteditable) for the description field.
-		// @lore AI2 C-1: BodyEditor renders a [contenteditable] div, not a textarea.
-		// Click into it, then type via keyboard.
-		const editor = page.locator("[role='dialog'] [contenteditable]").first();
-		await expect(editor, "ProseMirror editor must be visible inside dialog").toBeVisible();
-		await editor.click();
-		await page.keyboard.type("My half-typed pitch");
-
-		// Wait for isDirty to update (BodyEditor onChange fires asynchronously)
-		await page.waitForTimeout(100);
-
-		// Press Escape once — dirty dialog must NOT close; guard strip must appear
-		await page.keyboard.press("Escape");
-
-		// Dialog must still be open
-		await expect(page.getByRole("dialog")).toBeVisible();
-
-		// Guard strip must be visible
-		const keepBtn = page.getByRole("button", { name: /keep editing/i });
-		await expect(
-			keepBtn,
-			"Guard strip must appear after first Escape on dirty dialog",
-		).toBeVisible();
-
-		// Screenshot the guard state (AC-1 proof)
-		await page.screenshot({ path: "test-results/ai2-guard-strip-visible.png" });
-	});
-
-	test("guard strip: focus lands on Keep editing (the safe default)", async ({ page }) => {
-		await page.goto("/work/portfolio");
-		await expect(page.locator("[data-testid='work-portfolio-page']")).toBeVisible();
-
-		const createBtn = page.locator("[data-testid='new-bet-btn']");
-		await expect(createBtn, "New bet button must be visible").toBeVisible();
-		await createBtn.click();
-		await expect(page.getByRole("dialog")).toBeVisible();
-
-		const editor = page.locator("[role='dialog'] [contenteditable]").first();
-		await expect(editor, "ProseMirror editor must exist inside dialog").toBeVisible();
-		await editor.click();
-		await page.keyboard.type("Typed input");
-		await page.waitForTimeout(100);
-		await page.keyboard.press("Escape");
-
-		// Guard strip must appear
-		await expect(
-			page.getByRole("button", { name: /keep editing/i }),
-			"Guard strip must appear",
-		).toBeVisible();
-
-		// Focus must be on Keep editing
-		const focusedText = await page.evaluate(() => document.activeElement?.textContent?.trim());
-		expect(focusedText).toMatch(/keep editing/i);
-	});
-
-	test("guard strip: Tab+Enter → Discard closes the dialog (keyboard discard path §1.2)", async ({
-		page,
-	}) => {
-		await page.goto("/work/portfolio");
-		await expect(page.locator("[data-testid='work-portfolio-page']")).toBeVisible();
-
-		const createBtn = page.locator("[data-testid='new-bet-btn']");
-		await expect(createBtn, "New bet button must be visible").toBeVisible();
-		await createBtn.click();
-		await expect(page.getByRole("dialog")).toBeVisible();
-
-		const editor = page.locator("[role='dialog'] [contenteditable]").first();
-		await expect(editor, "ProseMirror editor must exist inside dialog").toBeVisible();
-		await editor.click();
-		await page.keyboard.type("Draft pitch text");
-		await page.waitForTimeout(100);
-		await page.keyboard.press("Escape");
-
-		// Guard strip appears — focus is on Keep editing
-		await expect(
-			page.getByRole("button", { name: /keep editing/i }),
-			"Guard strip must appear",
-		).toBeVisible();
-
-		// Press Tab to move to Discard
-		await page.keyboard.press("Tab");
-
-		// Focused element should be Discard
-		const focusedText = await page.evaluate(() => document.activeElement?.textContent?.trim());
-		expect(focusedText).toMatch(/^discard$/i);
-
-		// Press Enter to activate Discard
-		await page.keyboard.press("Enter");
-
-		// Dialog must be closed
-		await expect(page.getByRole("dialog")).not.toBeVisible();
-	});
-});
 
 test.describe("AI2 — Confirmation dialog always closes on Esc (AC-1, scenario 2)", () => {
 	test.beforeEach(async ({ page }) => {

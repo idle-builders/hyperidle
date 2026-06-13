@@ -1,0 +1,30 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Variant A — Container with payload</title>
+<style>
+:root{--surface-page:#f5f0e6;--surface-container:#ede7db;--surface-elevated:#fff;--accent-primary:#16764f;--accent-primary-dim:rgba(22,118,79,.08);--text-primary:#2c241a;--text-secondary:#5c5345;--text-tertiary:#8a7d6a;--status-success:#16764f;--status-warning:#d97706;--status-error:#dc4a3a;--status-info:#2e7dba;--border-subtle:#e8e0d0;--border-default:#d5cbb8;--r-subtle:10px;--r-pill:9999px;--font-sans:system-ui,-apple-system,"Segoe UI",sans-serif;--font-mono:ui-monospace,"SF Mono",monospace;}
+*{box-sizing:border-box;margin:0;padding:0}body{background:var(--surface-page);font-family:var(--font-sans);color:var(--text-primary);padding:24px;font-size:14px}
+.page{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+h1{font-size:20px;font-weight:600}h2{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-tertiary);margin-bottom:8px}
+.note{font-size:12px;color:var(--text-tertiary);margin-top:4px}
+.list{border-radius:var(--r-subtle);background:var(--surface-container);padding:12px}
+.row{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 6px;cursor:pointer;border-bottom:1px solid var(--border-subtle)}
+.row:last-child{border-bottom:none}.row:hover{background:rgba(44,36,26,.02)}
+.dot{width:6px;height:6px;border-radius:9999px;flex:none}
+.avatar{width:28px;height:28px;border-radius:9999px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex:none;background:var(--accent-primary-dim);color:var(--accent-primary);border:1.5px solid var(--accent-primary)}
+/* consumer-supplied — each list hand-styles its own columns (the divergence A allows) */
+.t{flex:1;min-width:0;font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.meta{font-size:11px;font-family:var(--font-mono);color:var(--text-tertiary);flex:none}
+.btn{font-size:12px;padding:6px 12px;border-radius:9999px;border:none;background:transparent;color:var(--text-secondary);cursor:pointer;flex:none}
+.k .t{font-size:15px} /* knowledge list chose 15px — divergence */
+</style></head><body><div class="page">
+<div><h1>Variant A — Container with payload</h1><p class="note">Row owns only chrome (align, separator, hover, focus, 44px). Consumer hand-arranges every child — so two lists still diverge (note 13px vs 15px title below).</p></div>
+
+<section><h2>Agents</h2><div class="list">
+  <div class="row"><span class="dot" style="background:var(--status-success)"></span><span class="avatar">AT</span><span class="t">Atlas</span><span class="meta" style="width:48px;color:var(--status-success)">active</span><span class="meta" style="flex:1">Reviewing migration plan</span><button class="btn">Customize</button></div>
+  <div class="row"><span class="dot" style="background:var(--status-warning)"></span><span class="avatar">SC</span><span class="t">Scout</span><span class="meta" style="width:48px">idle</span><span class="meta" style="flex:1">Researcher</span><button class="btn">Customize</button></div>
+</div></section>
+
+<section class="k"><h2>Knowledge (consumer used 15px title — diverged)</h2><div class="list">
+  <div class="row"><span class="t">Passkey rollout decision</span><span class="tag" style="display:inline-flex;padding:3px 9px;border-radius:9999px;font-size:12px;background:var(--accent-primary-dim);color:var(--accent-primary)">Decision</span><span class="meta">2d ago</span></div>
+  <div class="row"><span class="t">WebAuthn browser matrix</span><span class="meta">5d ago</span></div>
+</div></section>
+</div></body></html>
