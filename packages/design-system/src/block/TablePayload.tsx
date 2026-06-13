@@ -21,7 +21,7 @@ export function TablePayload({ align, header, rows }: TablePayloadProps): JSX.El
 								key={i}
 								scope="col"
 								style={{ textAlign: align[i] ?? "left" }}
-								className="font-mono text-[11px] uppercase tracking-[0.05em] text-[var(--text-secondary)] px-[12px] py-[9px] border-b border-[var(--border-subtle)]"
+								className="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-secondary)] px-[12px] py-[9px] border-b border-[var(--border-subtle)]"
 							>
 								{renderInline(cell)}
 							</th>

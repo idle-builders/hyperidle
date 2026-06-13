@@ -29,11 +29,11 @@ const VARIANT_CLASSES: Record<NonNullable<ButtonProps["variant"]>, string> = {
 	secondary:
 		"bg-[var(--surface-elevated)] border-[var(--border-default)] text-[var(--text-primary)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-page)]",
 	ghost:
-		"bg-transparent border-transparent text-[var(--accent-primary)] hover:bg-[rgba(22,118,79,0.06)]",
+		"bg-transparent border-transparent text-[var(--accent-primary)] hover:bg-[var(--accent-primary-dim)]",
 	destructive:
-		"bg-[var(--status-error)] border-[var(--status-error)] text-[var(--text-on-accent)] hover:bg-[#c53e30] hover:border-[#c53e30]",
+		"bg-[var(--status-error)] border-[var(--status-error)] text-[var(--text-on-accent)] hover:bg-[var(--status-error-hover)] hover:border-[var(--status-error-hover)]",
 	amber:
-		"bg-[var(--accent-secondary)] border-[var(--accent-secondary)] text-[var(--text-on-accent)] hover:bg-[#b86305] hover:border-[#b86305]",
+		"bg-[var(--accent-secondary)] border-[var(--accent-secondary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-secondary-hover)] hover:border-[var(--accent-secondary-hover)]",
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
@@ -54,7 +54,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 			className={[
 				"inline-flex items-center justify-center gap-[6px] rounded-full border-[1.5px] font-medium cursor-pointer",
 				"active:scale-[0.97]",
-				"focus-visible:outline focus-visible:outline-[2px] focus-visible:outline-[var(--accent-primary)] focus-visible:outline-offset-[2px]",
+				"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]",
 				"disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none",
 				"transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
 				sizeClass,

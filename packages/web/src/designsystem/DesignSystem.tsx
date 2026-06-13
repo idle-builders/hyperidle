@@ -11,8 +11,11 @@ import type { StoryMeta, StoryModule } from "./types.js";
 // @lore L1 step9 (Design pre-existing): the path was `../../../../` (4 levels)
 // which resolved to `<repo>/design-system/...` instead of `packages/design-system/`.
 // The L1 stories file existed but could never be discovered. Fixed to 3 levels.
+// @lore AI6: glob uses ** to discover stories in subdirectories (kinds/, block/, etc.).
+// The original * pattern was an accidental omission that prevented kinds/ renderer
+// stories from appearing in the catalog.
 const dsModules = import.meta.glob<Record<string, unknown>>(
-	"../../../design-system/src/*.stories.tsx",
+	"../../../design-system/src/**/*.stories.tsx",
 	{ eager: true },
 );
 const componentModules = import.meta.glob<Record<string, unknown>>("../components/*.stories.tsx", {

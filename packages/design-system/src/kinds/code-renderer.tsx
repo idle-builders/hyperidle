@@ -12,9 +12,13 @@ export interface CodeRendererProps {
 // @lore AE6: Line kind in CodePreview uses "add"/"del"/"ctx" while
 // the old ArtifactView used "addition"/"deletion"/"context". Keep consistent
 // with the shared CodePreview schema.
+// @lore AI6: Replaced undefined bg-success/10 and bg-error/10 opacity utilities
+// (not defined in Hearth's Tailwind config — would silently render as nothing)
+// with color-mix equivalents. Container now matches block/CodePayload chrome:
+// bg-surface-container + rounded-r-default + p-12.
 const LINE_CLASSES: Record<"add" | "del" | "ctx", string> = {
-	add: "bg-success/10",
-	del: "bg-error/10",
+	add: "bg-[color-mix(in_oklab,var(--status-success)_10%,transparent)]",
+	del: "bg-[color-mix(in_oklab,var(--status-error)_10%,transparent)]",
 	ctx: "",
 };
 
@@ -40,7 +44,7 @@ export function CodeRenderer({ preview }: CodeRendererProps): JSX.Element {
 	return (
 		<section aria-label="Code diff">
 			<p className="text-xs font-mono text-[var(--text-secondary)] mb-2">{preview.file}</p>
-			<pre className="overflow-x-auto text-xs font-mono leading-[1.4]">
+			<pre className="bg-[var(--surface-container)] rounded-[var(--r-default)] p-[12px] overflow-x-auto text-xs font-mono leading-[1.4] m-0">
 				{preview.hunks.map((hunk) => (
 					<div key={hunk.header}>
 						<div className="text-[var(--text-tertiary)] select-none px-2 py-1">{hunk.header}</div>

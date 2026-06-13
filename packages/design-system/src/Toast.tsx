@@ -25,22 +25,22 @@ const VARIANT_STYLES: Record<
 > = {
 	success: {
 		border: "border-l-[var(--status-success)]",
-		iconBg: "bg-[rgba(22,118,79,0.1)]",
+		iconBg: "bg-[var(--accent-primary-dim)]",
 		iconText: "text-[var(--status-success)]",
 	},
 	error: {
 		border: "border-l-[var(--status-error)]",
-		iconBg: "bg-[rgba(220,74,58,0.1)]",
+		iconBg: "bg-[var(--status-error-dim)]",
 		iconText: "text-[var(--status-error)]",
 	},
 	warning: {
 		border: "border-l-[var(--status-warning)]",
-		iconBg: "bg-[rgba(217,119,6,0.1)]",
+		iconBg: "bg-[var(--accent-secondary-dim)]",
 		iconText: "text-[var(--status-warning)]",
 	},
 	info: {
 		border: "border-l-[var(--status-info)]",
-		iconBg: "bg-[rgba(46,125,186,0.1)]",
+		iconBg: "bg-[var(--status-info-dim)]",
 		iconText: "text-[var(--status-info)]",
 	},
 };
@@ -72,7 +72,7 @@ export function Toast({ variant, icon, title, message, onClose }: ToastProps): J
 					type="button"
 					aria-label="Close notification"
 					onClick={onClose}
-					className="shrink-0 text-[17px] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors duration-[120ms] ease-[var(--motion-ease)] leading-none"
+					className="shrink-0 text-[17px] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] leading-none"
 				>
 					×
 				</button>

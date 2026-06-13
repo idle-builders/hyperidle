@@ -92,11 +92,11 @@ describe("EmptyState", () => {
 		expect(iconContainer).toBeNull();
 	});
 
-	it("uses default green-tinted iconBg when icon is provided without iconBg", () => {
+	it("uses default green-tinted iconBg when icon is provided without iconBg (AI6: token form)", () => {
 		const { container } = render(<EmptyState title="T" description="D" icon={<svg />} />);
 		const iconContainer = container.querySelector(".w-\\[48px\\]") as HTMLElement | null;
-		// Browser normalizes rgba values with spaces after commas
-		expect(iconContainer?.style.background).toBe("rgba(22, 118, 79, 0.08)");
+		// AI6: default iconBg changed from rgba(22,118,79,0.08) to var(--accent-primary-dim) token.
+		expect(iconContainer?.style.background).toBe("var(--accent-primary-dim)");
 	});
 
 	it("uses custom iconBg when provided", () => {

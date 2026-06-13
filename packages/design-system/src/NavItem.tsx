@@ -57,12 +57,12 @@ export function NavItem({
 		"text-[var(--text-secondary)]",
 		"rounded-[var(--r-subtle)] border-none",
 		"cursor-pointer",
-		"transition-[background] duration-[var(--motion-default)] ease-[ease]",
+		"transition-[background] duration-[var(--motion-default)] ease-[var(--motion-ease)]",
 	].join(" ");
 
 	const stateClasses = selected
 		? "bg-[var(--surface-elevated)] text-[var(--text-primary)] font-[500] shadow-[var(--shadow-subtle)]"
-		: "bg-transparent hover:bg-[rgba(44,36,26,0.04)]";
+		: "bg-transparent hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)]";
 
 	return (
 		<li {...dsProps("NavItem", "1")}>

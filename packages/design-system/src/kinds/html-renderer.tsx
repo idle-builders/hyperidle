@@ -31,7 +31,7 @@ export function HtmlRenderer({ preview }: HtmlRendererProps): JSX.Element {
 				title={preview.title ?? "HTML artifact preview"}
 				srcDoc={preview.html}
 				sandbox="allow-scripts"
-				className="w-full rounded-[var(--r-subtle)] border border-[var(--border-subtle)]"
+				className="w-full rounded-[var(--r-default)] border border-[var(--border-subtle)]"
 				style={{ minHeight: 300 }}
 			/>
 		</section>

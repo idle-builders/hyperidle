@@ -17,7 +17,7 @@ const WRAP =
 	"bg-[var(--surface-container)] rounded-[var(--r-default)] p-[24px] grid grid-cols-1 [@media(min-width:1024px)]:grid-cols-[1fr_320px] gap-[24px]";
 const HEADER = "[grid-column:1/-1] flex flex-col gap-[8px]";
 const META =
-	"flex items-center gap-[6px] font-mono text-[11px] text-[var(--text-secondary)] uppercase tracking-[0.02em] flex-wrap";
+	"flex items-center gap-[6px] font-mono text-[11px] text-[var(--text-secondary)] uppercase tracking-[var(--tracking-caps-sm)] flex-wrap";
 const TITLE = "text-[20px] font-semibold text-[var(--text-primary)] leading-[1.2] normal-case";
 const DISCUSSION =
 	"bg-[var(--surface-elevated)] rounded-[var(--r-subtle)] p-[16px] text-[var(--text-tertiary)] text-[12px]";

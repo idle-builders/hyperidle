@@ -10,15 +10,15 @@ export interface UrlRendererProps {
 	kind: string;
 }
 
-/** Maps the url status enum value to a Tailwind background color class. */
+/** Maps the url status enum value to a Tailwind background color class using semantic tokens. */
 function statusDotClass(status: "ok" | "degraded" | "down"): string {
 	switch (status) {
 		case "ok":
-			return "bg-green-500";
+			return "bg-[var(--status-success)]";
 		case "degraded":
-			return "bg-amber-400";
+			return "bg-[var(--status-warning)]";
 		case "down":
-			return "bg-red-500";
+			return "bg-[var(--status-error)]";
 	}
 }
 

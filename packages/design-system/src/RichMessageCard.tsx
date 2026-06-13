@@ -204,10 +204,10 @@ function ResolvedView({
 			className="ml-[36px] bg-[var(--surface-elevated)] border border-[var(--border-strong)] rounded-[var(--r-default)] overflow-hidden"
 		>
 			<div className="flex items-center gap-[9px] px-[12px] py-[9px] text-[13px] text-[var(--text-secondary)] flex-wrap">
-				<span className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[11px] font-mono tracking-[0.03em] bg-[color-mix(in oklab,var(--text-secondary) 8%,transparent)] text-[var(--text-secondary)]">
+				<span className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[11px] font-mono tracking-[var(--tracking-caps-sm)] bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)]">
 					RESOLVED
 				</span>
-				<span className="font-mono text-[11px] tracking-[0.05em] uppercase font-medium text-[var(--status-success)]">
+				<span className="font-mono text-[11px] tracking-[var(--tracking-caps-sm)] uppercase font-medium text-[var(--status-success)]">
 					{verdictDecisionLabel(resolved.decision)}
 				</span>
 				<span id={titleId} className="text-[var(--text-primary)]">
@@ -480,13 +480,13 @@ export function RichMessageCard({
 			className={`ml-[36px] bg-[var(--surface-elevated)] border border-[var(--border-strong)] rounded-[var(--r-default)] overflow-hidden flex flex-col ${blocking ? "border-l-2 border-l-[var(--status-error)]" : ""}`}
 		>
 			<div className="flex items-center gap-[9px] px-[12px] pt-[9px] pb-[6px] text-[12px] text-[var(--text-secondary)] flex-wrap">
-				<span className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[11px] font-mono tracking-[0.03em] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-primary)]">
+				<span className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[11px] font-mono tracking-[var(--tracking-caps-sm)] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-primary)]">
 					{tagLabel}
 				</span>
 				<span className="text-[var(--text-primary)] font-medium">{sender.name}</span>
 				{sender.role ? <span className="text-[var(--text-tertiary)]">· {sender.role}</span> : null}
 				{blocking ? (
-					<span className="ml-auto text-[11px] font-mono tracking-[0.05em] uppercase">
+					<span className="ml-auto text-[11px] font-mono tracking-[var(--tracking-caps-sm)] uppercase">
 						<StatusChip status="blocked" />
 					</span>
 				) : null}

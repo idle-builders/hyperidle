@@ -49,7 +49,7 @@ export function EmptyState({
 	title,
 	description,
 	icon,
-	iconBg = "rgba(22,118,79,0.08)",
+	iconBg = "var(--accent-primary-dim)",
 	action,
 	compact = false,
 	dataTestId,
