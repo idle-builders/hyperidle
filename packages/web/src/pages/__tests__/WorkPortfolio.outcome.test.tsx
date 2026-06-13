@@ -1,17 +1,68 @@
 /**
- * AC1 RED — WorkPortfolio verdict filter component tests.
+ * AG2 — WorkPortfolio verdict filter component tests (updated).
  *
- * AC-7:  Outcome data visible in portfolio (BetCard verdict badge)
- * AC-8:  Portfolio filterable by verdict (multi-select verdict pills)
+ * AC-2 (AG2): Outcome-verdict filters appear ONLY when ≥1 bet has a recorded outcome.
+ * AC-7 (original): Outcome data visible in portfolio (BetCard verdict badge).
+ * AC-8 (original): Portfolio filterable by verdict (multi-select verdict pills).
+ *
+ * Split into two describe blocks:
+ *   1. "no recorded outcomes" — the KEY RED test proving AC-2 bug fix.
+ *   2. "with recorded outcomes" — existing pill/filter assertions, re-fixtured.
+ *
+ * @lore AG2: vi.mock must be at module scope (hoisted by vitest). Use a mutable
+ * mockUseBets variable (same pattern as WorkPortfolio.test.tsx) so both describe
+ * blocks can use different fixtures without re-declaring the mock.
  */
 
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkPortfolio } from "../WorkPortfolio";
 
-// Bets fixture — mix of verdict statuses
+// ─── Fixtures ────────────────────────────────────────────────────────────────
+
+/**
+ * All bets have null outcomeVerdict — young portfolio with no evaluated bets.
+ * The AC-2 fix: verdict pills must NOT appear for this fixture.
+ */
+const MOCK_BETS_NO_OUTCOMES = [
+	{
+		id: "b1",
+		title: "Active Bet Alpha",
+		teamId: "t1",
+		status: "active" as const,
+		description: "An active bet",
+		costAppetite: null,
+		atRisk: false,
+		outcomeVerdict: null,
+	},
+	{
+		id: "b2",
+		title: "Draft Bet Beta",
+		teamId: "t2",
+		status: "draft" as const,
+		description: "A draft bet",
+		costAppetite: null,
+		atRisk: false,
+		outcomeVerdict: null,
+	},
+	{
+		id: "b3",
+		title: "Active Bet Gamma",
+		teamId: "t1",
+		status: "active" as const,
+		description: "Another active bet",
+		costAppetite: null,
+		atRisk: false,
+		outcomeVerdict: null,
+	},
+];
+
+/**
+ * Mix of verdict statuses — ≥1 bet has a recorded outcome.
+ * Verdict pills SHOULD appear for this fixture.
+ */
 const MOCK_BETS_WITH_OUTCOMES = [
 	{
 		id: "b1",
@@ -65,13 +116,18 @@ const MOCK_BETS_WITH_OUTCOMES = [
 	},
 ];
 
+// ─── Module-level mock (vitest hoists vi.mock) ────────────────────────────────
+
+// Mutable reference — updated per describe block
+const mockUseBets = vi.fn().mockReturnValue({
+	bets: MOCK_BETS_NO_OUTCOMES,
+	loading: false,
+	error: null,
+	refresh: vi.fn(),
+});
+
 vi.mock("../../hooks/useBets", () => ({
-	useBets: () => ({
-		bets: MOCK_BETS_WITH_OUTCOMES,
-		loading: false,
-		error: null,
-		refresh: vi.fn(),
-	}),
+	useBets: (...args: unknown[]) => mockUseBets(...args),
 }));
 
 vi.mock("../../hooks/useTeams", () => ({
@@ -87,6 +143,19 @@ vi.mock("../../hooks/useTeams", () => ({
 	}),
 }));
 
+afterEach(() => {
+	vi.clearAllMocks();
+	// Reset to no-outcomes fixture (safe default)
+	mockUseBets.mockReturnValue({
+		bets: MOCK_BETS_NO_OUTCOMES,
+		loading: false,
+		error: null,
+		refresh: vi.fn(),
+	});
+});
+
+// ─── Render helper ────────────────────────────────────────────────────────────
+
 function renderPortfolio(): ReturnType<typeof render> {
 	return render(
 		<MemoryRouter initialEntries={["/work/portfolio"]}>
@@ -97,10 +166,64 @@ function renderPortfolio(): ReturnType<typeof render> {
 	);
 }
 
-describe("WorkPortfolio — Verdict filter pills (AC-8)", () => {
-	it("AC-8: renders verdict filter pills (Validated, Refuted, Partial, Inconclusive, Not evaluated)", () => {
+// ─── Block 1: No recorded outcomes (AC-2 core — the headline bug fix) ─────────
+
+describe("WorkPortfolio — AC-2: no verdict pills when all outcomeVerdict null", () => {
+	// mockUseBets defaults to MOCK_BETS_NO_OUTCOMES (set in module scope and afterEach)
+
+	it("AC-2 (KEY): does NOT render verdict-filter-pills when all bets have null outcomeVerdict", () => {
+		renderPortfolio();
+		// This is the RED test — current code renders verdict pills whenever bets.length > 0.
+		// After AG2 fix: verdict pills only appear when hasAnyRecordedOutcome === true.
+		expect(screen.queryByTestId("verdict-filter-pills")).not.toBeInTheDocument();
+	});
+
+	it("AC-2: no verdict pill buttons rendered when no outcomes recorded", () => {
+		renderPortfolio();
+		expect(screen.queryByRole("button", { name: /validated/i })).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /refuted/i })).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /partial/i })).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /inconclusive/i })).not.toBeInTheDocument();
+		// "Not evaluated" verdict pill must not render; "New bet" button is expected
+		expect(screen.queryByRole("button", { name: /^not evaluated$/i })).not.toBeInTheDocument();
+	});
+
+	it("AC-3 (status gate): status filter renders when ≥2 distinct status buckets exist", () => {
+		// MOCK_BETS_NO_OUTCOMES has active + draft = 2 buckets
+		renderPortfolio();
+		expect(screen.getByRole("button", { name: /^all$/i })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /^active$/i })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /^draft$/i })).toBeInTheDocument();
+	});
+
+	it("AC-3 (team gate): team filter renders when ≥2 distinct team ids", () => {
+		// MOCK_BETS_NO_OUTCOMES has t1 + t2 = 2 teams
+		renderPortfolio();
+		expect(screen.getByRole("button", { name: /alpha core/i })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /beta surface/i })).toBeInTheDocument();
+	});
+});
+
+// ─── Block 2: With recorded outcomes (existing tests, re-fixtured) ────────────
+
+describe("WorkPortfolio — Verdict filter pills (AC-8, with outcomes)", () => {
+	// Switch fixture to with-outcomes for this block
+	beforeEach(() => {
+		mockUseBets.mockReturnValue({
+			bets: MOCK_BETS_WITH_OUTCOMES,
+			loading: false,
+			error: null,
+			refresh: vi.fn(),
+		});
+	});
+
+	it("AC-2 inverse: renders verdict-filter-pills when ≥1 bet has recorded outcome", () => {
 		renderPortfolio();
 		expect(screen.getByTestId("verdict-filter-pills")).toBeInTheDocument();
+	});
+
+	it("AC-8: renders all five verdict pill options", () => {
+		renderPortfolio();
 		expect(screen.getByRole("button", { name: /validated/i })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: /refuted/i })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: /partial/i })).toBeInTheDocument();
@@ -114,7 +237,6 @@ describe("WorkPortfolio — Verdict filter pills (AC-8)", () => {
 
 		await user.click(screen.getByRole("button", { name: /refuted/i }));
 
-		// Only "Refuted Bet" should be visible in the grid
 		expect(screen.getByText("Refuted Bet")).toBeInTheDocument();
 		expect(screen.queryByText("Validated Bet")).not.toBeInTheDocument();
 		expect(screen.queryByText("Partial Bet")).not.toBeInTheDocument();
@@ -127,7 +249,6 @@ describe("WorkPortfolio — Verdict filter pills (AC-8)", () => {
 
 		await user.click(screen.getByRole("button", { name: /not evaluated/i }));
 
-		// "Not Evaluated Bet" and "Active Bet" (both have null outcomeVerdict)
 		expect(screen.getByText("Not Evaluated Bet")).toBeInTheDocument();
 		expect(screen.getByText("Active Bet")).toBeInTheDocument();
 		expect(screen.queryByText("Validated Bet")).not.toBeInTheDocument();
@@ -138,14 +259,11 @@ describe("WorkPortfolio — Verdict filter pills (AC-8)", () => {
 		const user = userEvent.setup();
 		renderPortfolio();
 
-		// Select both Validated and Refuted
 		await user.click(screen.getByRole("button", { name: /validated/i }));
 		await user.click(screen.getByRole("button", { name: /refuted/i }));
 
-		// Both Validated Bet and Refuted Bet should appear
 		expect(screen.getByText("Validated Bet")).toBeInTheDocument();
 		expect(screen.getByText("Refuted Bet")).toBeInTheDocument();
-		// Partial should not appear
 		expect(screen.queryByText("Partial Bet")).not.toBeInTheDocument();
 	});
 
@@ -153,11 +271,9 @@ describe("WorkPortfolio — Verdict filter pills (AC-8)", () => {
 		const user = userEvent.setup();
 		renderPortfolio();
 
-		// Select Validated
 		await user.click(screen.getByRole("button", { name: /validated/i }));
 		expect(screen.queryByText("Refuted Bet")).not.toBeInTheDocument();
 
-		// Deselect Validated — should show all bets again
 		await user.click(screen.getByRole("button", { name: /validated/i }));
 		expect(screen.getByText("Refuted Bet")).toBeInTheDocument();
 		expect(screen.getByText("Validated Bet")).toBeInTheDocument();
@@ -165,13 +281,11 @@ describe("WorkPortfolio — Verdict filter pills (AC-8)", () => {
 
 	it("AC-7: BetCard shows verdict badge when outcomeVerdict is set", () => {
 		renderPortfolio();
-		// The BetCard for "Validated Bet" should show the verdict badge
 		expect(screen.getByTestId("bet-card-verdict-badge-b1")).toBeInTheDocument();
 	});
 
 	it("AC-7: BetCard shows no verdict badge when outcomeVerdict is null", () => {
 		renderPortfolio();
-		// The BetCard for "Not Evaluated Bet" should NOT show the verdict badge
 		expect(screen.queryByTestId("bet-card-verdict-badge-b4")).not.toBeInTheDocument();
 	});
 });

@@ -3,7 +3,7 @@ import { StatusChip } from "./StatusChip.js";
 export default {
 	title: "StatusChip",
 	tier: "1" as const,
-	order: ["AllStatusVariants", "UnknownFallback", "InContextDemoCard"],
+	order: ["AllStatusVariants", "WithLabelProp", "UnknownFallback", "InContextDemoCard"],
 };
 
 export const AllStatusVariants = (): React.JSX.Element => (
@@ -14,6 +14,26 @@ export const AllStatusVariants = (): React.JSX.Element => (
 		<StatusChip status="paused" />
 		<StatusChip status="done" />
 		<StatusChip status="error" />
+	</div>
+);
+
+/**
+ * When `label` is provided it renders verbatim in DOM; CSS `uppercase` provides
+ * visual casing. This is the AC1 contract: labels from shared registries come
+ * in title-case, displayed as uppercase via CSS only.
+ */
+export const WithLabelProp = (): React.JSX.Element => (
+	<div className="flex flex-wrap gap-2">
+		{/* BET_STATUS_LABEL values: title-case in DOM, uppercase visually */}
+		<StatusChip status="healthy" label="Active" />
+		<StatusChip status="paused" label="On hold" />
+		<StatusChip status="done" label="Completed" />
+		<StatusChip status="error" label="Killed" />
+		{/* TASK_OUTCOME_VERDICT_LABEL */}
+		<StatusChip status="healthy" label="Met" />
+		<StatusChip status="behind" label="Rework" />
+		<StatusChip status="paused" label="Partial" />
+		<StatusChip status="error" label="Not met" />
 	</div>
 );
 

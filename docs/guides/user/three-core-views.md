@@ -37,23 +37,19 @@ A pinned thread at the top of Conversations. Your assistant agent surfaces cross
 
 Work is organized in three levels:
 
-**Portfolio** — All your products at a glance. Status cards show each product's cycle phase, lead agent, active bets, shipped work, and cost variance.
+**Portfolio** — All your bets in one place. A flat list of bet cards across all teams. Filter by status (active, completed, draft) or by team. Outcome-verdict filters (validated, refuted, partial, inconclusive) appear only once at least one bet has a recorded outcome — before that they are not shown. When the portfolio is empty, a create affordance explains what bets are and invites you to create the first one.
 
-**Team** — Click a product to see its team view, which has two panels:
-
-- **Canvas** (top): Shaped bets ready to be committed. Drag pitches onto the canvas to commit work. A hard capacity limit prevents overloading — the badge turns red if you exceed it.
-- **Kanban** (bottom): Active tasks in four columns: Planned, In Progress, Blocked, Done. Tasks are grouped under their parent bet.
+**Team** — Click a team name from the team screen to see its team view: burn-vs-capacity metrics, active bets, routines, and agents.
 
 **Bet Detail** — Click a bet to see its full pitch, progress bar, cost tracker, task list, and comment thread.
 
 #### Weekly Planning Workflow
 
 1. Open **Work > Portfolio**
-2. Click a product to enter **Team View**
-3. Click **"+"** to open the **Pitch Selector** — browse shaped pitches
-4. Commit 2-3 bets (drag to canvas, capacity is enforced)
-5. Kill or reshape stale pitches
-6. Done — agents start working
+2. Click a team in the sidebar or navigate via a bet's team link to enter **Team View**
+3. Click **"New bet"** to create a bet (title, pitch, team, appetite)
+4. Review active bets and their progress
+5. Done — agents start working
 
 ---
 

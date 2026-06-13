@@ -36,6 +36,8 @@ vi.mock("../../hooks/useHostThread", () => ({
 }));
 
 // Mocks for WorkPortfolio
+// @lore AG2: Status filter only shows when ≥2 distinct status buckets.
+// Fixture has active + draft to ensure showStatusFilter=true for AC-13 tests.
 vi.mock("../../hooks/useBets", () => ({
 	useBets: () => ({
 		bets: [
@@ -49,6 +51,19 @@ vi.mock("../../hooks/useBets", () => ({
 				description: "Migrate auth to JWT with refresh rotation.",
 				progress: { done: 3, total: 8 },
 				budget: "$200",
+				outcomeVerdict: null,
+			},
+			{
+				id: "b2",
+				title: "Auth Draft",
+				teamId: "t1",
+				team: "Alpha Core",
+				status: "draft",
+				appetite: "$1k",
+				description: "Draft for auth phase 2.",
+				progress: { done: 0, total: 0 },
+				budget: "$0",
+				outcomeVerdict: null,
 			},
 		],
 		loading: false,

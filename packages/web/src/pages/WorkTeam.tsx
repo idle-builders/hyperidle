@@ -40,7 +40,12 @@ import type {
 	RoutineCardSummary,
 	TeamDetail,
 } from "@hyperidle/shared";
-import { findRoleCatalogEntry, formatMoney } from "@hyperidle/shared";
+import {
+	BET_STATUS_LABEL,
+	findRoleCatalogEntry,
+	formatMoney,
+	relativeShort,
+} from "@hyperidle/shared";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -48,7 +53,6 @@ import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.
 import { useHint } from "../hooks/useHints";
 import { useTeam } from "../hooks/useTeam";
 import { useTeamAgents } from "../hooks/useTeamAgents.js";
-import { formatRelativeTime } from "../utils/format-time.js";
 import { AgentAddDialog } from "./AgentAddDialog.js";
 import { AgentEditDialog } from "./AgentEditDialog.js";
 import { RoutineCreateDialog } from "./work/RoutineCreateDialog.js";
@@ -686,7 +690,7 @@ function RoutineRow({
 					? "var(--status-info)"
 					: "var(--text-tertiary)";
 
-	const lastRunLabel = routine.lastRunAt ? formatRelativeTime(routine.lastRunAt) : "Never";
+	const lastRunLabel = routine.lastRunAt ? relativeShort(routine.lastRunAt) : "Never";
 
 	const costLabel = routine.costActual ? formatMoney(routine.costActual) : "—";
 
@@ -762,7 +766,8 @@ function BetRow({ bet, onNavigate }: { bet: BetCardSummary; onNavigate: () => vo
 					{/* @lore U1: descriptionTitle replaces pitchTitle */}
 					{bet.descriptionTitle}
 				</span>
-				<StatusChip status={betStatusToStatus(bet.status)} />
+				{/* C1: add label so team surface reads "ACTIVE" not "HEALTHY" */}
+				<StatusChip status={betStatusToStatus(bet.status)} label={BET_STATUS_LABEL[bet.status]} />
 				<span className="text-[10px] font-mono text-[var(--text-tertiary)]">
 					{formatMoney(bet.costAppetite)}
 				</span>

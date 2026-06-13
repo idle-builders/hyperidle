@@ -1,5 +1,7 @@
 // @hyperidle/design-system — barrel export
 
+// ── AI4: Re-export AgentOperationalStatus type (lives in shared, needed by ds consumers) ──
+export type { AgentOperationalStatus } from "@hyperidle/shared";
 // ── Artifact view family (closed: 4 sub-primitives + 4 layouts; L3) ──
 export type { ArtifactCostChipProps } from "./ArtifactCostChip.js";
 export { ArtifactCostChip } from "./ArtifactCostChip.js";
@@ -83,6 +85,8 @@ export type { TextRendererProps } from "./kinds/text-renderer.js";
 export { TextRenderer } from "./kinds/text-renderer.js";
 export type { UrlRendererProps } from "./kinds/url-renderer.js";
 export { UrlRenderer } from "./kinds/url-renderer.js";
+// ── AI4 Task 5: LiveDot — promoted from WorkTask/TaskSheet ──
+export { LiveDot } from "./LiveDot.js";
 export type { MenuItem, MenuProps } from "./Menu.js";
 export { Menu } from "./Menu.js";
 export type { NavItemProps } from "./NavItem.js";
@@ -110,7 +114,11 @@ export type { Status, StatusChipProps } from "./StatusChip.js";
 // ── Tier 1: Primitives ──
 export { StatusChip } from "./StatusChip.js";
 export {
+	AGENT_OPERATIONAL_STATUS_MAP,
+	agentOperationalStatusToStatus,
+	BET_OUTCOME_VERDICT_STATUS,
 	BET_STATUS_MAP,
+	betOutcomeVerdictToStatus,
 	betStatusToStatus,
 	KNOWLEDGE_STATUS_MAP,
 	knowledgeStatusToStatus,
@@ -118,7 +126,9 @@ export {
 	routineStateToStatus,
 	SESSION_OUTCOME_MAP,
 	sessionOutcomeToStatus,
+	TASK_OUTCOME_VERDICT_STATUS,
 	TASK_STATE_MAP,
+	taskOutcomeVerdictToStatus,
 	taskStateToStatus,
 } from "./status-mapping.js";
 export type { TabBarProps } from "./TabBar.js";

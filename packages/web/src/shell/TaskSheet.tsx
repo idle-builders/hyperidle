@@ -22,7 +22,7 @@
  * restored element must be focusable; if it isn't (e.g. the task card doesn't
  * have tabIndex) we fall back to document.body silently.
  */
-import { StatusChip, sessionOutcomeToStatus, useDialogBehavior } from "@hyperidle/design-system";
+import { LiveDot, StatusChip, sessionOutcomeToStatus, useDialogBehavior } from "@hyperidle/design-system";
 import { formatMoney, scaleForCurrency } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { ArtifactSection } from "../components/ArtifactSection.js";
@@ -116,21 +116,8 @@ function getFocusableElements(container: HTMLElement): HTMLElement[] {
 	).filter((el) => !el.hasAttribute("disabled") && el.tabIndex >= 0);
 }
 
-/**
- * Live indicator dot for an active session (6px pulsing green).
- *
- * @lore AF12: duplicated from WorkTask.tsx `LiveDot` — TaskSheet is a
- * self-contained shell component (it already inlines `KanbanTask`), and
- * `LiveDot` is a local fn in WorkTask, not an exported design-system component.
- */
-function LiveDot(): JSX.Element {
-	return (
-		<span
-			aria-hidden="true"
-			className="inline-block w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)] animate-pulse shrink-0"
-		/>
-	);
-}
+// AI4 Task 8: Local LiveDot removed — promoted to @hyperidle/design-system.
+// @lore AF12 fulfilled: promotion complete. Import LiveDot from design-system above.
 
 /**
  * Renders one session row: title/agent + live-dot/status label.
