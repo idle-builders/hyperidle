@@ -40,7 +40,12 @@ import type {
 	RoutineCardSummary,
 	TeamDetail,
 } from "@hyperidle/shared";
-import { BET_STATUS_LABEL, findRoleCatalogEntry, formatMoney, relativeShort } from "@hyperidle/shared";
+import {
+	BET_STATUS_LABEL,
+	findRoleCatalogEntry,
+	formatMoney,
+	relativeShort,
+} from "@hyperidle/shared";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
