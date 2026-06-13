@@ -410,11 +410,7 @@ export function WorkPortfolio(): JSX.Element {
 								 * Selector and label preserved per @lore AG2 CRITICAL-2/3.
 								 */
 								<div data-testid="create-bet-cta">
-									<Button
-										variant="primary"
-										size="sm"
-										onClick={() => navigate("/work/bet/new")}
-									>
+									<Button variant="primary" size="sm" onClick={() => navigate("/work/bet/new")}>
 										Create bet
 									</Button>
 								</div>
