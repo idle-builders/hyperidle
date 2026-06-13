@@ -71,6 +71,20 @@ export const users = pgTable("users", {
 	/** X3: Model tier preference. null = provisioning default ("workhorse"). */
 	modelTierPreference: text("model_tier_preference"),
 	/**
+	 * AH2: Per-agent model ID override.
+	 * null = use modelTierPreference fallback.
+	 * Must be a valid ID from MODEL_CATALOG in @hyperidle/shared.
+	 */
+	modelId: text("model_id"),
+	/**
+	 * AH2: Per-agent provider override.
+	 * null = defaults to "anthropic" (the only v1 per-agent provider).
+	 * Only meaningful when modelId is non-null.
+	 * @lore AH2: Stored separately from modelId so that future multi-provider
+	 * catalog expansion can be additive — no column rename needed.
+	 */
+	modelProvider: text("model_provider"),
+	/**
 	 * AB0: Agent category — team | strategy | individual.
 	 * Null for human users and system users.
 	 * @lore AB0: This replaces the KERNEL_USER_ROLES / FABRIC_USER_ROLES

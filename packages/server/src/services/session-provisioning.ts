@@ -24,6 +24,7 @@ import {
 	MissingCredentialError,
 	MODEL_TIERS,
 	type ModelTier,
+	NoEligibleHarnessError,
 	type SessionHandle,
 	type SessionOutcome,
 	scaleForCurrency,
@@ -322,10 +323,22 @@ export async function admitSession(
 	// available we should not strand the task in `in_progress`.
 	// X3: Pass harnessType to select() so the pool filters by agent preference.
 	// When agent.harnessType is null, all adapters are eligible (backward compat).
-	const selectedAdapter = adapterPool.select({
+	// AH2: Pass modelProviders when agent has a per-agent modelProvider so the pool
+	// enforces cross-axis harness↔provider compatibility (ARCH-1). An agent whose
+	// only registered harness cannot serve its provider gets NoEligibleHarnessError
+	// instead of silently picking a provider-incompatible adapter.
+	const selectRequirements = {
 		harnessType: agent.harnessType ?? undefined,
-	});
+		...(agent.modelProvider ? { modelProviders: [agent.modelProvider] as readonly string[] } : {}),
+	};
+	const selectedAdapter = adapterPool.select(selectRequirements);
 	if (!selectedAdapter) {
+		// AH2: If the agent has a harnessType configured, throw NoEligibleHarnessError
+		// (no registered adapter of that type can serve this agent's provider).
+		// Otherwise fall back to a generic capacity error.
+		if (agent.harnessType) {
+			throw new NoEligibleHarnessError(agent.harnessType);
+		}
 		throw new Error(
 			`No available adapter in pool — all adapters are at capacity${agent.harnessType ? ` (harnessType: ${agent.harnessType})` : ""}`,
 		);

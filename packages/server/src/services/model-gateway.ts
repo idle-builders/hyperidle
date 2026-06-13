@@ -14,9 +14,28 @@
  *  4. Return { provider, model, apiKey, baseUrl }
  */
 
-import type { ModelGatewayConfig, ModelTier, ResolvedModel } from "@hyperidle/shared";
+import type {
+	ModelGatewayConfig,
+	ModelProvider,
+	ModelTier,
+	ResolvedModel,
+} from "@hyperidle/shared";
 import { MissingCredentialError } from "@hyperidle/shared";
 import type { CredentialResolver } from "./credential-resolver.js";
+
+/**
+ * AH2: Error thrown when a per-agent model uses an unsupported provider.
+ * Only "anthropic" is supported for per-agent model selection in v1.
+ */
+export class UnsupportedAgentProviderError extends Error {
+	constructor(public readonly provider: string) {
+		super(
+			`Per-agent model provider '${provider}' is not supported. ` +
+				`Only 'anthropic' models are available for per-agent selection.`,
+		);
+		this.name = "UnsupportedAgentProviderError";
+	}
+}
 
 /**
  * X4: Built-in gateway configuration — matches the old MODEL_TIER_MAP values exactly.
@@ -31,12 +50,93 @@ import type { CredentialResolver } from "./credential-resolver.js";
  * because the ESLint mock-data-policy flags DEFAULT_* symbols in the /services/
  * path fragment as potentially mock data. This is not mock data — it is the
  * genuine production fallback. Callers may import and re-alias if desired.
+ *
+ * @lore AH2: Re-keyed to current catalog IDs. See MODEL_CATALOG in @hyperidle/shared.
  */
 export const BUILT_IN_GATEWAY_CONFIG: ModelGatewayConfig = {
-	reasoning: { provider: "anthropic", model: "claude-opus-4-20250514" },
-	workhorse: { provider: "anthropic", model: "claude-sonnet-4-20250514" },
-	fast: { provider: "anthropic", model: "claude-haiku-3-5-20241022" },
+	reasoning: { provider: "anthropic", model: "claude-opus-4-8" },
+	workhorse: { provider: "anthropic", model: "claude-sonnet-4-6" },
+	fast: { provider: "anthropic", model: "claude-haiku-4-5" },
 } as const;
+
+/**
+ * AH2: Shared provider resolution logic — extracts the provider-specific
+ * credential/baseUrl lookup so it can be reused by both resolveModelTier
+ * and resolveAgentModel without duplicating the switch.
+ *
+ * @throws {MissingCredentialError} when the required API key is absent.
+ * @throws {Error} when openai-compatible provider has no baseUrl.
+ * @throws {UnsupportedAgentProviderError} when called from the per-agent
+ *   path with a non-anthropic provider (agentPath: true).
+ */
+async function resolveProvider(
+	provider: ModelProvider,
+	model: string,
+	credentialResolver: CredentialResolver,
+	options: {
+		baseUrl?: string;
+		apiKey?: string;
+		agentPath?: boolean;
+		context?: string;
+	} = {},
+): Promise<ResolvedModel> {
+	switch (provider) {
+		case "anthropic": {
+			const apiKey = await credentialResolver.resolve("anthropic_api_key");
+			if (!apiKey) {
+				throw new MissingCredentialError(
+					`anthropic_api_key (required for anthropic provider${options.context ? `, ${options.context}` : ""})`,
+				);
+			}
+			return {
+				provider: "anthropic",
+				model,
+				apiKey,
+				baseUrl: "https://api.anthropic.com",
+			};
+		}
+
+		case "openrouter": {
+			// openrouter IS supported for per-agent model selection (unlike openai-compatible)
+			const apiKey = await credentialResolver.resolve("openrouter_api_key");
+			if (!apiKey) {
+				throw new MissingCredentialError(
+					`openrouter_api_key (required for openrouter provider${options.context ? `, ${options.context}` : ""})`,
+				);
+			}
+			return {
+				provider: "openrouter",
+				model,
+				apiKey,
+				baseUrl: "https://openrouter.ai/api",
+			};
+		}
+
+		case "openai-compatible": {
+			if (options.agentPath) {
+				throw new UnsupportedAgentProviderError("openai-compatible");
+			}
+			// A-ERR-2: Defensive check for missing baseUrl
+			if (!options.baseUrl) {
+				throw new Error(
+					`openai-compatible provider${options.context ? ` for ${options.context}` : ""} requires a baseUrl`,
+				);
+			}
+			// A-ERR-1: Defensive check for missing apiKey
+			if (!options.apiKey) {
+				throw new MissingCredentialError(
+					`apiKey for openai-compatible provider${options.context ? ` (${options.context})` : ""} — set it in Settings > Models`,
+				);
+			}
+			return {
+				provider: "openai-compatible",
+				model,
+				apiKey: options.apiKey,
+				baseUrl: options.baseUrl,
+			};
+		}
+	}
+}
 
 /**
  * Resolve a ModelTier to a fully-specified ResolvedModel.
@@ -50,55 +150,56 @@ export async function resolveModelTier(
 	credentialResolver: CredentialResolver,
 ): Promise<ResolvedModel> {
 	const tierConfig = config[tier];
+	return resolveProvider(tierConfig.provider, tierConfig.model, credentialResolver, {
+		baseUrl: tierConfig.baseUrl,
+		apiKey: tierConfig.apiKey,
+		context: `tier: ${tier}`,
+	});
+}
 
-	switch (tierConfig.provider) {
-		case "anthropic": {
-			const apiKey = await credentialResolver.resolve("anthropic_api_key");
-			if (!apiKey) {
-				throw new MissingCredentialError(
-					`anthropic_api_key (required for anthropic provider, tier: ${tier})`,
-				);
-			}
-			return {
-				provider: "anthropic",
-				model: tierConfig.model,
-				apiKey,
-				baseUrl: "https://api.anthropic.com",
-			};
-		}
+/**
+ * AH2: Per-agent model parameters — what's stored on the users row.
+ */
+export interface AgentModelParams {
+	/** Per-agent model ID override. null = use tier fallback. */
+	modelId: string | null;
+	/** Per-agent provider override. null = use tier fallback. */
+	modelProvider: string | null;
+}
 
-		case "openrouter": {
-			const apiKey = await credentialResolver.resolve("openrouter_api_key");
-			if (!apiKey) {
-				throw new MissingCredentialError(
-					`openrouter_api_key (required for openrouter provider, tier: ${tier})`,
-				);
-			}
-			return {
-				provider: "openrouter",
-				model: tierConfig.model,
-				apiKey,
-				baseUrl: "https://openrouter.ai/api",
-			};
-		}
-
-		case "openai-compatible": {
-			// A-ERR-2: Defensive check for missing baseUrl
-			if (!tierConfig.baseUrl) {
-				throw new Error(`openai-compatible provider for tier '${tier}' requires a baseUrl`);
-			}
-			// A-ERR-1: Defensive check for missing apiKey
-			if (!tierConfig.apiKey) {
-				throw new MissingCredentialError(
-					`apiKey for openai-compatible provider (tier: ${tier}) — set it in Settings > Models`,
-				);
-			}
-			return {
-				provider: "openai-compatible",
-				model: tierConfig.model,
-				apiKey: tierConfig.apiKey,
-				baseUrl: tierConfig.baseUrl,
-			};
-		}
+/**
+ * AH2: Resolve the model for a specific agent.
+ *
+ * Priority:
+ * 1. If agent has modelId → use agent's (modelProvider, modelId) pair directly.
+ *    Supports "anthropic" and "openrouter" providers for per-agent selection.
+ *    "openai-compatible" throws UnsupportedAgentProviderError.
+ * 2. If agent has no modelId → fall back to resolveModelTier using tierFallback.
+ *
+ * @param agent — per-agent model params from the DB row
+ * @param tierFallback — the tier to use when agent.modelId is null (e.g. "workhorse")
+ * @param config — the full gateway config (for tier resolution)
+ * @param credentialResolver — for key lookups
+ *
+ * @throws {UnsupportedAgentProviderError} when agent.modelProvider is "openai-compatible".
+ * @throws {MissingCredentialError} when the required API key is absent.
+ */
+export async function resolveAgentModel(
+	agent: AgentModelParams,
+	tierFallback: string,
+	config: ModelGatewayConfig,
+	credentialResolver: CredentialResolver,
+): Promise<ResolvedModel> {
+	if (agent.modelId) {
+		// Per-agent path: anthropic + openrouter supported; openai-compatible rejected
+		const provider = (agent.modelProvider ?? "anthropic") as ModelProvider;
+		return resolveProvider(provider, agent.modelId, credentialResolver, {
+			agentPath: true,
+			context: `agent model: ${agent.modelId}`,
+		});
 	}
+
+	// Tier fallback
+	const tier = (tierFallback ?? "workhorse") as ModelTier;
+	return resolveModelTier(tier, config, credentialResolver);
 }

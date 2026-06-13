@@ -25,6 +25,9 @@ const TEAM_AGENT: AgentConfig = {
 	soulPrompt: "You are a meticulous builder who values clean code and thorough documentation.",
 	harnessType: "claude-code",
 	modelTierPreference: "workhorse",
+	// AH2: per-agent model fields
+	modelId: "claude-sonnet-4-6",
+	modelProvider: "anthropic",
 	maxConcurrentSessions: 2,
 	status: "active",
 	activeSessions: 0,
@@ -38,6 +41,9 @@ const STRATEGY_AGENT: AgentConfig = {
 	soulPrompt: null,
 	harnessType: null,
 	modelTierPreference: null,
+	// AH2: per-agent model fields
+	modelId: null,
+	modelProvider: null,
 	maxConcurrentSessions: 1,
 	status: "active",
 	activeSessions: 0,

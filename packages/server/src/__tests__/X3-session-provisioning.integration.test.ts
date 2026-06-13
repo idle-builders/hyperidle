@@ -485,8 +485,9 @@ describe("X3 AC-15: session provisioning filters adapters by harnessType", () =>
 			workspaceBasePath,
 		};
 
-		// Should fail because no adapter with type "goose" exists
-		await expect(provisionSession(deps, params)).rejects.toThrow(/no available adapter/i);
+		// AH2: NoEligibleHarnessError thrown when agent.harnessType has no matching adapter.
+		// Message matches "No registered adapter matches harness type 'goose'".
+		await expect(provisionSession(deps, params)).rejects.toThrow(/no.*adapter|harness type/i);
 	});
 });
 

@@ -225,6 +225,13 @@
 			"when": 1784200000000,
 			"tag": "0031_icy_violations",
 			"breakpoints": true
+		},
+		{
+			"idx": 32,
+			"version": "7",
+			"when": 1784300000000,
+			"tag": "0032_wild_nova",
+			"breakpoints": true
 		}
 	]
 }

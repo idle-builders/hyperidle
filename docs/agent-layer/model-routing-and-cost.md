@@ -1,18 +1,27 @@
 ## 6. Model Routing and Cost
 
-Agents don't pick their own model. The process layer assigns models based on the task's requirements, the agent's role, and the factory's current cost posture.
+Each agent has a **per-agent model** (`modelId` + `modelProvider`) set in Settings → Agents. When a session starts, the gateway resolves the agent's configured model first; only when the agent has no model configured does it fall back to the system-level tier. This means two agents can run different models even during the same bet — a PM on Opus while a builder runs Sonnet.
+
+The **model tier** (`reasoning | workhorse | fast`) is now a cost-posture and fallback mechanism, not the primary model selector. It determines which model new, unconfigured, or migrated agents use, and it remains the axis for the cost-downgrade logic in §6.3. Token accounting in `TokenUsage.byTier` still uses the tier vocabulary so spend lines up with the routing decision.
 
 ### 6.1 Model tiers
 
-| Tier | When to use | Examples (as of April 2026) |
-|------|------------|-----------------------------|
-| **Reasoning** | Complex analysis, code generation, product decisions, skill execution for high-risk tasks | Claude Opus, o3, Gemini Ultra |
-| **Workhorse** | Standard task execution, content creation, routine code, most sessions | Claude Sonnet, GPT-4o, Gemini Pro |
-| **Fast** | Formatting, classification, bulk processing, context compaction, summarization, sleep-time routine runs | Claude Haiku, Gemini Flash, Cerebras, local models (Ollama) |
+| Tier | When to use | Default mapping (June 2026) |
+|------|-------------|-----------------------------|
+| **Reasoning** | Complex analysis, code generation, product decisions, skill execution for high-risk tasks | `claude-opus-4-8` |
+| **Workhorse** | Standard task execution, content creation, routine code, most sessions | `claude-sonnet-4-6` |
+| **Fast** | Formatting, classification, bulk processing, context compaction, summarization, sleep-time routine runs | `claude-haiku-4-5` |
+
+The system model catalog (`MODEL_CATALOG` in `packages/shared/src/model-gateway.ts`) is the closed set of supported models. The current catalog: `claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5`, `claude-fable-5`. Any model id outside this set is rejected at the API boundary.
 
 ### 6.2 Routing logic
 
-The Scheduler (see `ARCHITECTURE.md` §2.3) picks the model tier when starting a session:
+Resolution order when provisioning a session:
+
+1. **Per-agent model** — if the agent has `modelId` set, `resolveAgentModel()` resolves it directly (using `modelProvider` for the credential lookup). Supported providers: `anthropic`, `openrouter`. The `openai-compatible` provider is not supported per-agent (configure it at the tier level instead).
+2. **Tier fallback** — if the agent has no `modelId`, `resolveModelTier()` applies the factory's tier → model mapping from Settings → Models.
+
+The Scheduler (see `ARCHITECTURE.md` §2.3) picks the model tier when starting a session (used as the tier fallback above):
 
 - **Risk tier high** → Reasoning tier.
 - **Risk tier medium** → Workhorse tier.

@@ -15,16 +15,21 @@ import {
 // ── contextWindowForModel ────────────────────────────────────────────────────
 
 describe("contextWindowForModel", () => {
-	it("returns 200_000 for claude-opus-4-20250514", () => {
-		expect(contextWindowForModel("claude-opus-4-20250514")).toBe(200_000);
+	// AH2: Re-keyed to current catalog IDs.
+	it("returns 1_000_000 for claude-opus-4-8", () => {
+		expect(contextWindowForModel("claude-opus-4-8")).toBe(1_000_000);
 	});
 
-	it("returns 200_000 for claude-sonnet-4-20250514", () => {
-		expect(contextWindowForModel("claude-sonnet-4-20250514")).toBe(200_000);
+	it("returns 1_000_000 for claude-sonnet-4-6", () => {
+		expect(contextWindowForModel("claude-sonnet-4-6")).toBe(1_000_000);
 	});
 
-	it("returns 200_000 for claude-haiku-3-5-20241022", () => {
-		expect(contextWindowForModel("claude-haiku-3-5-20241022")).toBe(200_000);
+	it("returns 200_000 for claude-haiku-4-5", () => {
+		expect(contextWindowForModel("claude-haiku-4-5")).toBe(200_000);
+	});
+
+	it("returns 1_000_000 for claude-fable-5", () => {
+		expect(contextWindowForModel("claude-fable-5")).toBe(1_000_000);
 	});
 
 	it("returns DEFAULT_CONTEXT_WINDOW (128_000) for an unknown model", () => {
@@ -36,16 +41,16 @@ describe("contextWindowForModel", () => {
 		expect(contextWindowForModel("")).toBe(DEFAULT_CONTEXT_WINDOW);
 	});
 
-	it("MODEL_CONTEXT_WINDOWS includes claude-opus-4-20250514", () => {
-		expect(MODEL_CONTEXT_WINDOWS["claude-opus-4-20250514"]).toBe(200_000);
+	it("MODEL_CONTEXT_WINDOWS includes claude-opus-4-8", () => {
+		expect(MODEL_CONTEXT_WINDOWS["claude-opus-4-8"]).toBe(1_000_000);
 	});
 
-	it("MODEL_CONTEXT_WINDOWS includes claude-sonnet-4-20250514", () => {
-		expect(MODEL_CONTEXT_WINDOWS["claude-sonnet-4-20250514"]).toBe(200_000);
+	it("MODEL_CONTEXT_WINDOWS includes claude-sonnet-4-6", () => {
+		expect(MODEL_CONTEXT_WINDOWS["claude-sonnet-4-6"]).toBe(1_000_000);
 	});
 
-	it("MODEL_CONTEXT_WINDOWS includes claude-haiku-3-5-20241022", () => {
-		expect(MODEL_CONTEXT_WINDOWS["claude-haiku-3-5-20241022"]).toBe(200_000);
+	it("MODEL_CONTEXT_WINDOWS includes claude-haiku-4-5", () => {
+		expect(MODEL_CONTEXT_WINDOWS["claude-haiku-4-5"]).toBe(200_000);
 	});
 });
 

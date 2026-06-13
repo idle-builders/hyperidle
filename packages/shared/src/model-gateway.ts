@@ -68,3 +68,55 @@ export interface ResolvedModel {
 	readonly apiKey: string;
 	readonly baseUrl: string;
 }
+
+/**
+ * AH2: A single entry in the closed model catalog.
+ * All models are Anthropic models for now; the catalog is the source of truth
+ * for valid modelId values on agent records.
+ */
+export interface ModelCatalogEntry {
+	readonly id: string;
+	readonly label: string;
+	readonly provider: ModelProvider;
+	readonly contextWindow: number;
+}
+
+/**
+ * AH2: Closed catalog of current Claude models.
+ * This is the only set of valid modelId values for per-agent model selection.
+ *
+ * @lore AH2: The catalog is intentionally small and closed — every model here
+ * has been validated against the Anthropic Messages API and has known cost/
+ * context-window data in the harness layer. Adding a new model requires updating
+ * both this catalog AND the cost/context-window maps in the server package.
+ */
+export const MODEL_CATALOG: readonly ModelCatalogEntry[] = [
+	{ id: "claude-opus-4-8", label: "Opus 4.8", provider: "anthropic", contextWindow: 1_000_000 },
+	{
+		id: "claude-sonnet-4-6",
+		label: "Sonnet 4.6",
+		provider: "anthropic",
+		contextWindow: 1_000_000,
+	},
+	{ id: "claude-haiku-4-5", label: "Haiku 4.5", provider: "anthropic", contextWindow: 200_000 },
+	{ id: "claude-fable-5", label: "Fable 5", provider: "anthropic", contextWindow: 1_000_000 },
+] as const;
+
+/** AH2: Default modelId for per-agent model selection. */
+export const DEFAULT_AGENT_MODEL_ID = "claude-sonnet-4-6";
+
+/** AH2: Default provider for per-agent model selection. */
+export const DEFAULT_AGENT_MODEL_PROVIDER: ModelProvider = "anthropic";
+
+/** AH2: Default harnessType for per-agent harness selection. */
+export const DEFAULT_AGENT_HARNESS = "builtin";
+
+/** AH2: Returns true if `id` is a valid catalog model ID. */
+export function isCatalogModel(id: string): boolean {
+	return MODEL_CATALOG.some((m) => m.id === id);
+}
+
+/** AH2: Returns the catalog entry for `id`, or undefined if not found. */
+export function catalogEntry(id: string): ModelCatalogEntry | undefined {
+	return MODEL_CATALOG.find((m) => m.id === id);
+}

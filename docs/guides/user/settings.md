@@ -7,7 +7,7 @@ Click the **Settings** button in the Sidebar to open Settings. Sections stack ve
 | **Profile** | Your name, email, avatar |
 | **Org chart** | Reporting lines between humans (direct / function / team relationships) |
 | **Models** | AI model tier selection (reasoning, workhorse, fast) and API credentials |
-| **Agents** | Autonomy levels per agent, pause/resume, soul prompt |
+| **Agents** | Per-agent model and harness, autonomy levels, pause/resume, soul prompt |
 | **Assistant** | Your personal AI assistant soul prompt and settings |
 | **Appearance** | Theme (light / dark / system) |
 | **Credentials** | Desktop app: saved credentials and API keys |
@@ -26,6 +26,15 @@ The **Org chart** section shows reporting lines between humans in your team. You
 - **Delete an edge** — click the delete button on any row
 
 If you are the only human in the system, a guidance hint appears above the form. You can still add **Function** edges to describe your role before adding other humans.
+
+### Per-Agent Model and Harness
+
+Each agent can run a different model. In **Settings → Agents**, click **Edit** on any agent and select:
+
+- **Model** — the specific Claude model this agent uses (e.g. Sonnet 4.6, Opus 4.8, Haiku 4.5). Defaults to Sonnet 4.6. Overrides the system-level model tier for this agent only.
+- **Harness** — which execution environment runs this agent (e.g. Built-in, Claude Code). Must match one registered on the worker device. Defaults to Built-in.
+
+A warning badge appears next to an agent if its harness type is not currently registered on any available worker.
 
 ### Autonomy Levels
 

@@ -117,6 +117,10 @@ export interface AgentConfig {
 	soulPrompt: string | null;
 	harnessType: string | null;
 	modelTierPreference: string | null;
+	/** AH2: Per-agent model ID. null = use tier fallback. */
+	modelId: string | null;
+	/** AH2: Per-agent model provider. null = use tier fallback ("anthropic"). */
+	modelProvider: string | null;
 	maxConcurrentSessions: number;
 	status: string;
 	activeSessions: number;

@@ -15,14 +15,15 @@ export default {
 	tier: "3" as const,
 };
 
+// AH2: Updated to current catalog IDs.
 const MOCK_GATEWAY_CONFIG_DEFAULT = {
-	reasoning: { provider: "anthropic", model: "claude-opus-4-20250514", hasApiKey: false },
-	workhorse: { provider: "anthropic", model: "claude-sonnet-4-20250514", hasApiKey: false },
-	fast: { provider: "anthropic", model: "claude-haiku-3-5-20241022", hasApiKey: false },
+	reasoning: { provider: "anthropic", model: "claude-opus-4-8", hasApiKey: false },
+	workhorse: { provider: "anthropic", model: "claude-sonnet-4-6", hasApiKey: false },
+	fast: { provider: "anthropic", model: "claude-haiku-4-5", hasApiKey: false },
 };
 
 const MOCK_GATEWAY_CONFIG_MIXED = {
-	reasoning: { provider: "anthropic", model: "claude-opus-4-20250514", hasApiKey: true },
+	reasoning: { provider: "anthropic", model: "claude-opus-4-8", hasApiKey: true },
 	workhorse: { provider: "openrouter", model: "anthropic/claude-sonnet-4", hasApiKey: true },
 	fast: {
 		provider: "openai-compatible",

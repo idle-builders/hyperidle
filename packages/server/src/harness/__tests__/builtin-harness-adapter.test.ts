@@ -35,16 +35,17 @@ const callLlmMock = vi.mocked(callLlm);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+// AH2: Updated to current catalog IDs.
 const RESOLVED_MODEL = {
 	provider: "anthropic" as const,
-	model: "claude-sonnet-4-20250514",
+	model: "claude-sonnet-4-6",
 	apiKey: "sk-test-key",
 	baseUrl: "https://api.anthropic.com",
 };
 
 const RESOLVED_FAST_MODEL = {
 	provider: "anthropic" as const,
-	model: "claude-haiku-3-5-20241022",
+	model: "claude-haiku-4-5",
 	apiKey: "sk-test-key-fast",
 	baseUrl: "https://api.anthropic.com",
 };
@@ -537,10 +538,10 @@ describe("AC-11: Pre-compaction at 80% using LATEST call's inputTokens (critique
 	});
 
 	it("emits pre_compaction event when latest inputTokens exceeds 80% of context window", async () => {
-		// claude-sonnet-4-20250514 has 200_000 context window.
-		// 80% of 200_000 = 160_000.
-		// We mock a response returning 165_000 inputTokens (82.5% fill) on the execute turn.
-		const highTokenResponse = makeTextResponse("Done.", 165_000, 100);
+		// AH2: claude-sonnet-4-6 has 1_000_000 context window.
+		// 80% of 1_000_000 = 800_000.
+		// We mock a response returning 850_000 inputTokens (85% fill) on the execute turn.
+		const highTokenResponse = makeTextResponse("Done.", 850_000, 100);
 
 		callLlmMock
 			.mockResolvedValueOnce(makeTextResponse("Planning...")) // planning (low tokens)
@@ -561,13 +562,13 @@ describe("AC-11: Pre-compaction at 80% using LATEST call's inputTokens (critique
 			HarnessEvent,
 			{ type: "pre_compaction" }
 		>;
-		expect(preCompactEvent.contextTokens).toBe(165_000);
-		expect(preCompactEvent.maxTokens).toBe(200_000);
+		expect(preCompactEvent.contextTokens).toBe(850_000);
+		expect(preCompactEvent.maxTokens).toBe(1_000_000);
 	});
 
 	it("does NOT emit pre_compaction when latest inputTokens is below 80%", async () => {
-		// 79% of 200_000 = 158_000 — should NOT trigger pre-compaction
-		const lowTokenResponse = makeTextResponse("Done.", 158_000, 100);
+		// AH2: 79% of 1_000_000 = 790_000 — should NOT trigger pre-compaction
+		const lowTokenResponse = makeTextResponse("Done.", 790_000, 100);
 
 		callLlmMock
 			.mockResolvedValueOnce(makeTextResponse("Planning..."))
@@ -586,9 +587,9 @@ describe("AC-11: Pre-compaction at 80% using LATEST call's inputTokens (critique
 	});
 
 	it("uses the LATEST inputTokens, not a cumulative sum (critique CRITICAL-1 regression test)", async () => {
-		// Scenario: 5 calls each returning 40_000 input tokens.
-		// Cumulative sum = 200_000 (would incorrectly trigger pre-compaction at 100%).
-		// Latest call's inputTokens = 40_000 (only 20% fill — must NOT trigger).
+		// AH2: Scenario: 5 calls each returning 40_000 input tokens.
+		// Cumulative sum = 200_000 (4% of 1_000_000 — still fine even cumulatively).
+		// Latest call's inputTokens = 40_000 (only 4% fill — must NOT trigger).
 		const lowTokenResponse = makeToolCallResponse(
 			"write_session_notes",
 			{ notes: "x" },
@@ -614,7 +615,7 @@ describe("AC-11: Pre-compaction at 80% using LATEST call's inputTokens (critique
 		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
 		const events = await collectEvents(adapter, handle);
 
-		// Must NOT have pre_compaction — latest tokens (40_000) is only 20% of 200_000
+		// Must NOT have pre_compaction — latest tokens (40_000) is only 4% of 1_000_000
 		const preCompactEvents = events.filter((e) => e.type === "pre_compaction");
 		expect(preCompactEvents).toHaveLength(0);
 	});
@@ -770,8 +771,9 @@ describe("AC-14: Session history management — sliding window + summarization",
 		// is made with a system prompt containing "summarizer" (SUMMARIZE_SYSTEM).
 
 		const toolResponse = makeToolCallResponse("write_session_notes", { notes: "note" });
-		// 165,000 input tokens on a 200k context window = 82.5% > 80% threshold → triggers pre-compaction
-		const highTokenDone = makeTextResponse("Done.", 165_000, 100);
+		// AH2: claude-sonnet-4-6 has 1_000_000 context window.
+		// 850_000 input tokens = 85% > 80% threshold → triggers pre-compaction
+		const highTokenDone = makeTextResponse("Done.", 850_000, 100);
 		const summaryResponse = makeTextResponse("Summary: planned, ran 4 tool calls, made progress.");
 
 		callLlmMock
@@ -823,7 +825,8 @@ describe("AC-14: Session history management — sliding window + summarization",
 		//   Next execute (call after summarization) sees summary message at position 0.
 
 		const toolResponse = makeToolCallResponse("write_session_notes", { notes: "recent" });
-		const highTokenDone = makeTextResponse("Done.", 165_000, 100);
+		// AH2: claude-sonnet-4-6 has 1_000_000 context window; need >80% to trigger pre-compaction
+		const highTokenDone = makeTextResponse("Done.", 850_000, 100);
 		const summaryResponse = makeTextResponse("Summary: made progress on the task.");
 		const afterSummaryDone = makeTextResponse("Continuing work after summary.");
 

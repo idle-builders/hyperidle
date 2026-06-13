@@ -407,6 +407,10 @@ export function createTeamRoutes(
 				teamId: teamMembersId,
 				agentCategory: "team",
 				soulPrompt,
+				// AH2: New agents get runnable defaults — no config needed after onboarding.
+				harnessType: "builtin",
+				modelId: "claude-sonnet-4-6",
+				modelProvider: "anthropic",
 				createdAt: now,
 			});
 

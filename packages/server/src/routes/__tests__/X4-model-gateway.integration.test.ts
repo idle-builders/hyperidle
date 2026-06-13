@@ -71,7 +71,7 @@ describe("X4: resolveModelTier — anthropic provider", () => {
 		const result = await resolveModelTier("workhorse", config, resolver);
 
 		expect(result.provider).toBe("anthropic");
-		expect(result.model).toBe("claude-sonnet-4-20250514");
+		expect(result.model).toBe("claude-sonnet-4-6"); // AH2: updated from claude-sonnet-4-20250514 (drift-catch)
 		expect(result.apiKey).toBe("ant-key-abc");
 		expect(result.baseUrl).toBe("https://api.anthropic.com");
 	});
@@ -81,7 +81,7 @@ describe("X4: resolveModelTier — anthropic provider", () => {
 		const result = await resolveModelTier("reasoning", DEFAULT_GATEWAY_CONFIG, resolver);
 
 		expect(result.provider).toBe("anthropic");
-		expect(result.model).toBe("claude-opus-4-20250514");
+		expect(result.model).toBe("claude-opus-4-8"); // AH2: updated from claude-opus-4-20250514 (drift-catch)
 		expect(result.apiKey).toBe("ant-key-reasoning");
 		expect(result.baseUrl).toBe("https://api.anthropic.com");
 	});
@@ -91,7 +91,7 @@ describe("X4: resolveModelTier — anthropic provider", () => {
 		const result = await resolveModelTier("fast", DEFAULT_GATEWAY_CONFIG, resolver);
 
 		expect(result.provider).toBe("anthropic");
-		expect(result.model).toBe("claude-haiku-3-5-20241022");
+		expect(result.model).toBe("claude-haiku-4-5"); // AH2: updated from claude-haiku-3-5-20241022 (drift-catch)
 		expect(result.apiKey).toBe("ant-key-fast");
 		expect(result.baseUrl).toBe("https://api.anthropic.com");
 	});
@@ -218,19 +218,20 @@ describe("X4: DEFAULT_GATEWAY_CONFIG matches current MODEL_TIER_MAP values", () 
 	// DEFAULT_GATEWAY_CONFIG, the behavior will change for users who have no
 	// gateway config stored (they fall back to defaults). The test asserts the
 	// exact model IDs that were in MODEL_TIER_MAP before X4 replaced it.
-	test("reasoning tier defaults to claude-opus-4-20250514 via anthropic", ({}) => {
+	// AH2: drift-catch — updated to current catalog ids (was *-20250514 / haiku-3-5-20241022)
+	test("reasoning tier defaults to claude-opus-4-8 via anthropic", ({}) => {
 		expect(DEFAULT_GATEWAY_CONFIG.reasoning.provider).toBe("anthropic");
-		expect(DEFAULT_GATEWAY_CONFIG.reasoning.model).toBe("claude-opus-4-20250514");
+		expect(DEFAULT_GATEWAY_CONFIG.reasoning.model).toBe("claude-opus-4-8");
 	});
 
-	test("workhorse tier defaults to claude-sonnet-4-20250514 via anthropic", ({}) => {
+	test("workhorse tier defaults to claude-sonnet-4-6 via anthropic", ({}) => {
 		expect(DEFAULT_GATEWAY_CONFIG.workhorse.provider).toBe("anthropic");
-		expect(DEFAULT_GATEWAY_CONFIG.workhorse.model).toBe("claude-sonnet-4-20250514");
+		expect(DEFAULT_GATEWAY_CONFIG.workhorse.model).toBe("claude-sonnet-4-6");
 	});
 
-	test("fast tier defaults to claude-haiku-3-5-20241022 via anthropic", ({}) => {
+	test("fast tier defaults to claude-haiku-4-5 via anthropic", ({}) => {
 		expect(DEFAULT_GATEWAY_CONFIG.fast.provider).toBe("anthropic");
-		expect(DEFAULT_GATEWAY_CONFIG.fast.model).toBe("claude-haiku-3-5-20241022");
+		expect(DEFAULT_GATEWAY_CONFIG.fast.model).toBe("claude-haiku-4-5");
 	});
 });
 
@@ -256,11 +257,11 @@ describe("X4: GET /api/model-gateway", () => {
 
 		const body = (await res.json()) as GatewayBody;
 		expect(body.reasoning.provider).toBe("anthropic");
-		expect(body.reasoning.model).toBe("claude-opus-4-20250514");
+		expect(body.reasoning.model).toBe("claude-opus-4-8"); // AH2: drift-catch
 		expect(body.workhorse.provider).toBe("anthropic");
-		expect(body.workhorse.model).toBe("claude-sonnet-4-20250514");
+		expect(body.workhorse.model).toBe("claude-sonnet-4-6"); // AH2: drift-catch
 		expect(body.fast.provider).toBe("anthropic");
-		expect(body.fast.model).toBe("claude-haiku-3-5-20241022");
+		expect(body.fast.model).toBe("claude-haiku-4-5"); // AH2: drift-catch
 	});
 
 	test("strips apiKey from openai-compatible provider — returns hasApiKey: true instead (A-SEC-2)", async ({
@@ -271,8 +272,8 @@ describe("X4: GET /api/model-gateway", () => {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				reasoning: { provider: "anthropic", model: "claude-opus-4-20250514" },
-				workhorse: { provider: "anthropic", model: "claude-sonnet-4-20250514" },
+				reasoning: { provider: "anthropic", model: "claude-opus-4-8" }, // AH2: drift-catch
+				workhorse: { provider: "anthropic", model: "claude-sonnet-4-6" }, // AH2: drift-catch
 				fast: {
 					provider: "openai-compatible",
 					model: "gemma-3",
@@ -299,8 +300,8 @@ describe("X4: GET /api/model-gateway", () => {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				reasoning: { provider: "anthropic", model: "claude-opus-4-20250514" },
-				workhorse: { provider: "anthropic", model: "claude-sonnet-4-20250514" },
+				reasoning: { provider: "anthropic", model: "claude-opus-4-8" }, // AH2: drift-catch
+				workhorse: { provider: "anthropic", model: "claude-sonnet-4-6" }, // AH2: drift-catch
 				fast: {
 					provider: "openai-compatible",
 					model: "gemma-3",
@@ -346,12 +347,12 @@ describe("X4: PATCH /api/model-gateway", () => {
 
 	test("validates and persists a valid config", async ({ app }) => {
 		const patchBody = {
-			reasoning: { provider: "anthropic", model: "claude-opus-4-20250514" },
+			reasoning: { provider: "anthropic", model: "claude-opus-4-8" }, // AH2: drift-catch
 			workhorse: {
 				provider: "openrouter",
 				model: "anthropic/claude-sonnet-4",
 			},
-			fast: { provider: "anthropic", model: "claude-haiku-3-5-20241022" },
+			fast: { provider: "anthropic", model: "claude-haiku-4-5" }, // AH2: drift-catch
 		};
 
 		const patchRes = await app.request("/api/model-gateway", {
@@ -376,8 +377,8 @@ describe("X4: PATCH /api/model-gateway", () => {
 			headers: authHeaders(),
 			body: JSON.stringify({
 				reasoning: { provider: "invalid-provider", model: "some-model" },
-				workhorse: { provider: "anthropic", model: "claude-sonnet-4-20250514" },
-				fast: { provider: "anthropic", model: "claude-haiku-3-5-20241022" },
+				workhorse: { provider: "anthropic", model: "claude-sonnet-4-6" }, // AH2: drift-catch
+				fast: { provider: "anthropic", model: "claude-haiku-4-5" }, // AH2: drift-catch
 			}),
 		});
 
@@ -404,8 +405,8 @@ describe("X4: PATCH /api/model-gateway", () => {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				reasoning: { provider: "anthropic", model: "claude-opus-4-20250514" },
-				workhorse: { provider: "anthropic", model: "claude-sonnet-4-20250514" },
+				reasoning: { provider: "anthropic", model: "claude-opus-4-8" }, // AH2: drift-catch
+				workhorse: { provider: "anthropic", model: "claude-sonnet-4-6" }, // AH2: drift-catch
 			}),
 		});
 
@@ -419,11 +420,11 @@ describe("X4: PATCH /api/model-gateway", () => {
 			body: JSON.stringify({
 				reasoning: {
 					provider: "anthropic",
-					model: "claude-opus-4-20250514",
+					model: "claude-opus-4-8", // AH2: drift-catch
 					apiKey: "should-not-be-allowed",
 				},
-				workhorse: { provider: "anthropic", model: "claude-sonnet-4-20250514" },
-				fast: { provider: "anthropic", model: "claude-haiku-3-5-20241022" },
+				workhorse: { provider: "anthropic", model: "claude-sonnet-4-6" }, // AH2: drift-catch
+				fast: { provider: "anthropic", model: "claude-haiku-4-5" }, // AH2: drift-catch
 			}),
 		});
 
@@ -435,8 +436,8 @@ describe("X4: PATCH /api/model-gateway", () => {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				reasoning: { provider: "anthropic", model: "claude-opus-4-20250514" },
-				workhorse: { provider: "anthropic", model: "claude-sonnet-4-20250514" },
+				reasoning: { provider: "anthropic", model: "claude-opus-4-8" }, // AH2: drift-catch
+				workhorse: { provider: "anthropic", model: "claude-sonnet-4-6" }, // AH2: drift-catch
 				fast: {
 					provider: "openai-compatible",
 					model: "gemma-3",
@@ -457,8 +458,8 @@ describe("X4: PATCH /api/model-gateway", () => {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				reasoning: { provider: "anthropic", model: "claude-opus-4-20250514" },
-				workhorse: { provider: "anthropic", model: "claude-sonnet-4-20250514" },
+				reasoning: { provider: "anthropic", model: "claude-opus-4-8" }, // AH2: drift-catch
+				workhorse: { provider: "anthropic", model: "claude-sonnet-4-6" }, // AH2: drift-catch
 				fast: {
 					provider: "openai-compatible",
 					model: "gemma-3",
@@ -504,8 +505,8 @@ describe("X4: ServerConfig modelGateway field defaults", () => {
 	test("persisted modelGateway config survives a second GET call", async ({ app }) => {
 		const patchBody = {
 			reasoning: { provider: "openrouter", model: "anthropic/claude-opus" },
-			workhorse: { provider: "anthropic", model: "claude-sonnet-4-20250514" },
-			fast: { provider: "anthropic", model: "claude-haiku-3-5-20241022" },
+			workhorse: { provider: "anthropic", model: "claude-sonnet-4-6" }, // AH2: drift-catch
+			fast: { provider: "anthropic", model: "claude-haiku-4-5" }, // AH2: drift-catch
 		};
 
 		await app.request("/api/model-gateway", {

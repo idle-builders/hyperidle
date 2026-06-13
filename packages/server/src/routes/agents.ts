@@ -14,11 +14,24 @@
  *
  * @lore X3: System-role agents (role = "system") are excluded from all CRUD.
  * They are internal infrastructure (system:propagation) and must not be configurable.
+ *
+ * @lore AH2: Validation order on POST/PATCH: UNSUPPORTED_PROVIDER → UNKNOWN_HARNESS
+ * → UNKNOWN_MODEL → INCOMPATIBLE_HARNESS_MODEL. The effective (harness, provider) pair
+ * on PATCH is derived from data.harnessType ?? existing?.harnessType (reviewer NEW-1).
  */
 
 import { randomUUID } from "node:crypto";
 import { factorySettings, type HyperIdleDb, sessions, users } from "@hyperidle/db";
-import { AGENT_CATEGORIES, findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/shared";
+import {
+	AGENT_CATEGORIES,
+	catalogEntry,
+	DEFAULT_AGENT_HARNESS,
+	DEFAULT_AGENT_MODEL_ID,
+	DEFAULT_AGENT_MODEL_PROVIDER,
+	findRoleCatalogEntry,
+	isCatalogModel,
+	MODEL_TIERS,
+} from "@hyperidle/shared";
 import { and, count, eq, ne } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
@@ -38,6 +51,8 @@ const createAgentSchema = z.object({
 	soulPrompt: z.string().max(50_000).nullable().optional(),
 	harnessType: z.string().max(100).nullable().optional(),
 	modelTierPreference: z.enum(MODEL_TIERS).nullable().optional(),
+	modelId: z.string().max(200).nullable().optional(),
+	modelProvider: z.string().max(100).nullable().optional(),
 	maxConcurrentSessions: z.number().int().min(1).max(20).default(1),
 	teamId: z.string().nullable().optional(),
 });
@@ -48,6 +63,8 @@ const patchAgentSchema = z.object({
 	soulPrompt: z.string().max(50_000).nullable().optional(),
 	harnessType: z.string().max(100).nullable().optional(),
 	modelTierPreference: z.enum(MODEL_TIERS).nullable().optional(),
+	modelId: z.string().max(200).nullable().optional(),
+	modelProvider: z.string().max(100).nullable().optional(),
 	maxConcurrentSessions: z.number().int().min(1).max(20).optional(),
 });
 
@@ -66,9 +83,77 @@ function buildPatchUpdateSet(data: PatchAgentData): Record<string, unknown> {
 	if ("harnessType" in data) updateSet.harnessType = data.harnessType ?? null;
 	if ("modelTierPreference" in data)
 		updateSet.modelTierPreference = data.modelTierPreference ?? null;
+	if ("modelId" in data) updateSet.modelId = data.modelId ?? null;
+	if ("modelProvider" in data) updateSet.modelProvider = data.modelProvider ?? null;
 	if (data.maxConcurrentSessions !== undefined)
 		updateSet.maxConcurrentSessions = data.maxConcurrentSessions;
 	return updateSet;
+}
+
+/**
+ * AH2: Validate the (harnessType, modelProvider, modelId) triple against the adapter pool.
+ *
+ * Validation order (per plan + reviewer NEW-1):
+ *  1. UNSUPPORTED_PROVIDER — openai-compatible cannot be used for per-agent model
+ *  2. UNKNOWN_HARNESS — harnessType must be registered in the pool (when non-null)
+ *  3. UNKNOWN_MODEL — for anthropic providers, modelId must be in the catalog
+ *  4. INCOMPATIBLE_HARNESS_MODEL — provider must be in harness's modelProviders list
+ *
+ * @param effectiveHarnessType — the harness to validate (POST: data.harnessType ?? default;
+ *   PATCH: data.harnessType ?? existing.harnessType).
+ * @param effectiveProvider — the provider to validate (POST: data.modelProvider ?? default;
+ *   PATCH: data.modelProvider ?? existing.modelProvider).
+ * @param modelId — the model ID to validate (only for anthropic; null = no per-agent model)
+ * @param pool — the adapter pool (null = no pool, skip registry checks)
+ */
+function validateAgentConfig(
+	effectiveHarnessType: string | null,
+	effectiveProvider: string | null,
+	modelId: string | null | undefined,
+	pool: AdapterPool | null,
+): { error: string; code: string } | null {
+	// 1. UNSUPPORTED_PROVIDER — openai-compatible is not valid for per-agent model
+	if (effectiveProvider === "openai-compatible") {
+		return {
+			error:
+				"Per-agent model provider 'openai-compatible' is not supported. Only 'anthropic' and 'openrouter' models are available for per-agent selection.",
+			code: "UNSUPPORTED_PROVIDER",
+		};
+	}
+
+	// 2. UNKNOWN_HARNESS — harnessType must match a registered adapter type
+	if (effectiveHarnessType && pool) {
+		const caps = pool.getCapabilitiesByType(effectiveHarnessType);
+		if (!caps) {
+			return {
+				error: `Harness type '${effectiveHarnessType}' is not registered. Check Settings → Agents.`,
+				code: "UNKNOWN_HARNESS",
+			};
+		}
+	}
+
+	// 3. UNKNOWN_MODEL — for anthropic, modelId must be in the catalog
+	if (modelId && effectiveProvider === "anthropic") {
+		if (!isCatalogModel(modelId)) {
+			return {
+				error: `Model '${modelId}' is not in the catalog. Use a current model ID from the catalog.`,
+				code: "UNKNOWN_MODEL",
+			};
+		}
+	}
+
+	// 4. INCOMPATIBLE_HARNESS_MODEL — provider must be in harness's modelProviders list
+	if (effectiveHarnessType && effectiveProvider && pool) {
+		const caps = pool.getCapabilitiesByType(effectiveHarnessType);
+		if (caps && !caps.modelProviders.includes(effectiveProvider)) {
+			return {
+				error: `Harness '${effectiveHarnessType}' does not support provider '${effectiveProvider}'. Supported: ${caps.modelProviders.join(", ")}.`,
+				code: "INCOMPATIBLE_HARNESS_MODEL",
+			};
+		}
+	}
+
+	return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -139,6 +224,8 @@ export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): H
 			soulPrompt: agent.soulPrompt ?? null,
 			harnessType: agent.harnessType ?? null,
 			modelTierPreference: agent.modelTierPreference ?? null,
+			modelId: agent.modelId ?? null,
+			modelProvider: agent.modelProvider ?? null,
 			maxConcurrentSessions: agent.maxConcurrentSessions,
 			status: agent.status,
 			activeSessions: countMap.get(agent.id) ?? 0,
@@ -165,12 +252,29 @@ export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): H
 		}
 
 		const data = parsed.data;
-		const id = randomUUID();
-		const now = new Date().toISOString();
+
+		// AH2: Apply defaults for harness and model when not specified
+		const effectiveHarnessType = data.harnessType ?? DEFAULT_AGENT_HARNESS;
+		const effectiveProvider = data.modelProvider ?? DEFAULT_AGENT_MODEL_PROVIDER;
+		const effectiveModelId = data.modelId ?? DEFAULT_AGENT_MODEL_ID;
+
+		// AH2: Validate (harness, provider, modelId) triple
+		const validationError = validateAgentConfig(
+			effectiveHarnessType,
+			effectiveProvider,
+			effectiveModelId,
+			adapterPool ?? null,
+		);
+		if (validationError) {
+			return c.json(validationError, 422);
+		}
 
 		// Derive agentCategory: explicit field > catalog lookup > default "team"
-		const catalogEntry = findRoleCatalogEntry(data.role);
-		const agentCategory = data.agentCategory ?? catalogEntry?.category ?? "team";
+		const agentCatalogEntry = findRoleCatalogEntry(data.role);
+		const agentCategory = data.agentCategory ?? agentCatalogEntry?.category ?? "team";
+
+		const id = randomUUID();
+		const now = new Date().toISOString();
 
 		await db.insert(users).values({
 			id,
@@ -180,8 +284,10 @@ export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): H
 			agentCategory,
 			status: "active",
 			soulPrompt: data.soulPrompt ?? null,
-			harnessType: data.harnessType ?? null,
+			harnessType: effectiveHarnessType,
 			modelTierPreference: data.modelTierPreference ?? null,
+			modelId: effectiveModelId,
+			modelProvider: effectiveProvider,
 			maxConcurrentSessions: data.maxConcurrentSessions,
 			teamId: data.teamId ?? null,
 			createdAt: now,
@@ -194,8 +300,10 @@ export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): H
 				role: data.role,
 				agentCategory,
 				soulPrompt: data.soulPrompt ?? null,
-				harnessType: data.harnessType ?? null,
+				harnessType: effectiveHarnessType,
 				modelTierPreference: data.modelTierPreference ?? null,
+				modelId: effectiveModelId,
+				modelProvider: effectiveProvider,
 				maxConcurrentSessions: data.maxConcurrentSessions,
 				status: "active",
 				activeSessions: 0,
@@ -232,6 +340,27 @@ export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): H
 		}
 
 		const data = parsed.data;
+
+		// AH2 reviewer NEW-1: derive effective pair from data fields ?? existing fields
+		// so a single-field PATCH still validates the full cross-axis pair.
+		const effectiveHarnessType =
+			"harnessType" in data ? (data.harnessType ?? null) : (existing.harnessType ?? null);
+		const effectiveProvider =
+			"modelProvider" in data ? (data.modelProvider ?? null) : (existing.modelProvider ?? null);
+		const effectiveModelId =
+			"modelId" in data ? (data.modelId ?? null) : (existing.modelId ?? null);
+
+		// AH2: Validate the effective (harness, provider, modelId) triple
+		const validationError = validateAgentConfig(
+			effectiveHarnessType,
+			effectiveProvider,
+			effectiveModelId,
+			adapterPool ?? null,
+		);
+		if (validationError) {
+			return c.json(validationError, 422);
+		}
+
 		// Build update set — only include fields explicitly provided
 		const updateSet = buildPatchUpdateSet(data);
 
@@ -260,6 +389,8 @@ export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): H
 			soulPrompt: updated.soulPrompt ?? null,
 			harnessType: updated.harnessType ?? null,
 			modelTierPreference: updated.modelTierPreference ?? null,
+			modelId: updated.modelId ?? null,
+			modelProvider: updated.modelProvider ?? null,
 			maxConcurrentSessions: updated.maxConcurrentSessions,
 			status: updated.status,
 			activeSessions: activeCount?.count ?? 0,
@@ -288,3 +419,6 @@ export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): H
 
 	return router;
 }
+
+// Re-export catalogEntry for legacy callers that import from here
+export { catalogEntry };
