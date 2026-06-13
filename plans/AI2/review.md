@@ -97,3 +97,64 @@ The section is short (11 lines) and scannable, but contains a factual inversion 
 3. **C-3** leaves the AC-3/AC-5 static gates at `warn` (toothless), and **C-4** ships a user doc that inverts the guard's safety behavior.
 
 Fix C-1, C-2, C-3, C-4 (and W-1, W-2 to clear the AC-2/AC-4 proof gaps; rebase per W-4 before `/ship`). Re-run `npm run test:e2e -- e2e/dialog-` and confirm zero skips on the AC-bearing tests, with the guard-state and two-overlay-stack screenshots produced and inspectable.
+
+---
+
+# Re-review (Phase 4) — 2026-06-13
+
+**Branch:** `feat/AI2-one-dialog-experience` @ `aab9db9e` (re-synced with origin/main: AI3 #271, AI4 #272, AG2 #276 merged in). **Scope:** verify the 7 prior findings (C-1..C-4, W-1, W-2, W-4) resolved + the sanctioned WorkBet behavior reversion + no merge regression in shared files.
+
+## Per-finding verdicts
+
+| # | Prior finding | Verdict | Evidence |
+|---|---|---|---|
+| **C-1** | AC-1 scenario 1 guard-flow e2e all `test.skip` | **RESOLVED** | `dialog-dismissal.spec.ts` now has 5 executing tests, **zero `test.skip`**. Guard flow drives the real BetCreate dialog (opened via `new-bet-btn`, grouped-bets mock w/ ≥1 active bet so the header button renders; ProseMirror `[contenteditable]` typed via keyboard). Dirty+Esc → guard strip visible + input intact; focus on "Keep editing" asserted via `document.activeElement`; Tab→Discard→Enter closes. Screenshot `ai2-guard-strip-visible.png` produced and inspected: shows "My half-typed pitch" intact, dialog open, DiscardConfirmStrip with focus-ring on **Keep editing** + **Discard**. Headline AC proven by looking. |
+| **C-2** | AC-3 scenario 3 two-overlay stacking both orders `test.skip` | **RESOLVED** | `dialog-layering.spec.ts` now has 3 executing tests, **zero `test.skip`**. Rewritten onto two genuinely-reachable Sidebar surfaces: AssistantOverlay (overlay, z=40) + GlobalSearchPanel (dialog, z=60). Both orders pass — overlay-first and dialog-first — each asserts `dialogZ > overlayZ` with both surfaces co-rendered in the DOM. Screenshots `ai2-z-order-overlay-first.png` / `-dialog-first.png` inspected: GlobalSearchPanel renders opaque on top, AssistantOverlay dimmed beneath. Third test asserts modal Dialog z≥60. **The orphaned TaskSheet was NOT revived** — the spec correctly notes TaskSheet has no live trigger on this branch (AG scope) and routes around it. |
+| **C-2 (reversion)** | WorkBet task-row onClick must === `navigate()` matching origin/main | **RESOLVED (verified real)** | `WorkBet.tsx:1525` onClick = `navigate(\`/work/bet/${bet.id}/task/${task.id}\`)` — byte-identical intent to `origin/main:1586`. No `setSelectedTaskId(<non-null>)` call exists anywhere (`:1593` only `setSelectedTaskId(null)`). TaskSheet still imported + rendered with `open={selectedTaskId !== null}` — but this is **origin/main's exact pre-existing pattern** (origin/main also renders TaskSheet with a never-set-non-null selectedTaskId), NOT an AI2 artifact. The round-1 scope violation (onClick→setSelectedTaskId opening the orphaned sheet) is fully reverted. |
+| **C-3** | dialog lint rules at `warn` (toothless) | **RESOLVED** | `eslint-plugin-design/src/index.ts:62-63` and `eslint.config.ts:123,127` both set `design/no-raw-overlay-z` and `design/no-dialog-boilerplate` to `"error"`. `npm run lint` exits 0 (377 warnings, 0 errors) — code is clean against both gates; a future raw overlay-z or `showModal()` now fails CI. |
+| **C-4** | doc inverts 2nd-Escape behavior | **RESOLVED** | `docs/guides/user/the-interface.md:20`: "focus lands on **Keep editing**… **A second Escape also keeps your work — it does not discard.**" Correct. Discard reachable only via Tab→Enter or click. Doc accuracy dimension now passes. |
+| **W-1** | AC-2 close-then-return-focus unproven | **RESOLVED** | `Dialog.test.tsx:382` "focus returns to the trigger element after dialog closes" — focuses a real trigger, opens (asserts focus moves into `#overlay-root`), closes (`open=false`), asserts focus returns to trigger. Meaningful, not a tautology. Part of the 81 passing DS/web dialog unit tests. |
+| **W-2** | AC-4 proven for only 1 of 4 dialogs | **RESOLVED** | `dialog-mobile.spec.ts` has 4 executing tests at 375px (BetCreate, ScopeChange, ConsequencePreview/kill-confirm, Appetite), **zero `test.skip`**. Each asserts no horizontal overflow + bottom-anchoring. 4 screenshots produced. |
+| **W-4** | branch stale vs origin/main | **RESOLVED** | Branch re-synced via merge `f93b2f0a` + `4d63cd1c` (import-order/format fix). AI3/AI4/AG2 present. `git diff origin/main...HEAD` no longer shows spurious deletions. |
+
+## Merge-integrity re-check (adversarial + simplification on AI3/AI4/AG2 shared files)
+
+- **No conflict markers** (`<<<<<<<`/`=======`/`>>>>>>>`) anywhere in `packages/web/src` or `packages/design-system/src`.
+- **No duplicate imports** in NotificationPopover / TaskSheet / WorkBet / GlobalSearchPanel.
+- **AI4 intent preserved** in `WorkBet.tsx`: hand-rolled `taskStateBadgeClass` deleted (`:905`); now consumes `StatusChip` + `TASK_STATE_LABEL` + `BET_STATUS_LABEL` from shared. NotificationPopover uses `shortLabelForType` (shared registry), local `TYPE_LABELS` deleted (`:45`).
+- **AI3 intent preserved**: NotificationPopover row time via `relativeShort` (one-clock source).
+- **AI2 intent preserved through the merge**: NotificationPopover + TaskSheet + AppShell drawer + GlobalSearchPanel all still consume `useDialogBehavior` with correct `modal`/`layer`; AppShell mobile drawer wiring (`drawerBehavior`, `getScrimProps`, `data-dialog-layer="drawer"`) intact post-merge. Tokens (`--z-base..--z-toast`, `--scrim` light+dark) and DS exports (`Dialog`, `DialogPortalRoot`, `useDialogBehavior`, `ensureOverlayRoot`) intact. No half-migrated surface, no dead/duplicate import introduced by the merge.
+
+## Verification run (this re-review)
+
+- `npm run check` → **PASS** (12 packages, 0 type errors).
+- `npm run lint` → **exit 0** (377 warnings, 0 errors; dialog rules at `error` and clean).
+- `npm run test -- Dialog useDialogBehavior` → **81 passed** (incl. W-1 return-focus test).
+- `npm run test:e2e -- dialog-dismissal dialog-layering dialog-mobile dialog-chrome` → **15 passed, 3 skipped**. The 3 skips are the dialog-**chrome** create-knowledge surfaces (`dialog-chrome.spec.ts:132/149/167…`) that have no reachable button in the harness — **not AC-bearing** (AC-6 chrome is proven by ≥4 other surfaces: BetCreate desktop+375, kill-confirm, appetite). All AC-bearing dismissal/layering/mobile tests execute with **zero skips** (12/12).
+- Visual: `ai2-guard-strip-visible.png` and `ai2-z-order-dialog-first.png` inspected — both correct.
+
+## Updated AC table
+
+| AC | Verdict | Evidence |
+|---|---|---|
+| **AC-1** dismissal grammar; dirty never lost; confirmations close | **PASS** | Hook unit tests (logic) + 5 executing dismissal e2e (3 guard-flow scenario 1 + 2 confirmation scenario 2) + guard-strip screenshot. |
+| **AC-2** focus in/trapped/returns to trigger | **PASS** | Dialog.test.tsx focus-in (`:349`) + return-focus (`:382`); both in the 81 green unit tests. |
+| **AC-3** layering deterministic + documented; 2 stack predictably both orders | **PASS** | Static lint gate at `error` + 3 executing layering e2e (both orders + modal) + 2 z-order screenshots. |
+| **AC-4** fits 375px, bottom-anchored | **PASS** | 4 executing mobile e2e, no-overflow + bottom-anchor asserts, 4 screenshots. |
+| **AC-5** composed from primitive, boilerplate gone | **PASS** | 13 surfaces consume Dialog/useDialogBehavior; `no-dialog-boilerplate` at `error`, lint clean. |
+| **AC-6** chrome consistent ≥4 dialogs | **PASS** | 4 chrome screenshots inspected prior round; chrome family unchanged by merge. |
+
+## New findings
+
+None blocking.
+
+- **OBS-1 (plan deviation, non-blocking):** `<DialogPortalRoot/>` is never mounted in `AppShell` (architecture task 6 / D3 asked for one eager mount). This was never present on the AI2 branch (verified at `353da60b`) — the merge did NOT drop it. It is functionally moot: `useDialogBehavior` calls `ensureOverlayRoot()` lazily on every overlay mount (the exact self-sufficient fallback the plan designed in task 2), and the e2e z-order proofs confirm `#overlay-root` is created and stacks correctly at runtime. `DialogPortalRoot` remains a (currently-unused) DS public export. Optional: mount it in AppShell for eager determinism, or drop the export. Not a correctness defect.
+- Prior N-1/N-2 (redundant focus useEffect; dead `ref` in `getOverlayProps`) remain as-was — low-priority observations, not regressions.
+
+## Doc rubric
+
+`docs/guides/user/the-interface.md` "Dialogs and Overlays" — accuracy dimension corrected (C-4). Re-scored accuracy 1→5; total now above the ≥35 bar with all dimensions ≥3. Doc passes.
+
+## Re-review verdict
+
+**DONE.** All 7 prior findings (C-1, C-2, C-3, C-4, W-1, W-2, W-4) RESOLVED with executing-test + screenshot evidence. The sanctioned WorkBet behavior reversion is real and matches origin/main. The origin/main re-sync preserved AI3/AI4/AG2 intent in every shared file with no conflict marker, dead import, or half-migrated surface. `check`/`lint`/dialog-unit/dialog-e2e all green; the only e2e skips are non-AC-bearing chrome surfaces. One non-blocking observation (OBS-1, DialogPortalRoot not mounted but functionally covered by the lazy `ensureOverlayRoot` fallback).
