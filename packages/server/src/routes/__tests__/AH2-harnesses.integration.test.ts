@@ -6,16 +6,19 @@
  * - Response includes type, name, modelProviders
  * - Does NOT include any secrets (apiKey, baseUrl)
  * - Requires founder auth (public-data boundary)
+ * - Accepts BOTH X-API-Key (local mode) AND Bearer token (shared mode) — H-1 fix
  *
  * These tests FAIL until:
  *  - packages/server/src/routes/harnesses.ts is created
  *  - GET /api/harnesses is mounted in app.ts
  */
 
+import { users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../../harness/builtin-harness-adapter.js";
 import { ClaudeAgentSdkAdapter } from "../../harness/claude-agent-sdk-adapter.js";
+import { createLoginSession } from "../../services/login-session.js";
 import { test } from "../../test-fixtures.js";
 import { createTestApp } from "../../test-utils.js";
 
@@ -132,5 +135,62 @@ describe("AH2 AC2: GET /api/harnesses — returns registered harness types", () 
 		const types = body.map((h) => h.type);
 		const uniqueTypes = [...new Set(types)];
 		expect(types.length).toBe(uniqueTypes.length);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// H-1 regression: shared-mode Bearer auth must succeed (no in-route X-API-Key check)
+// ---------------------------------------------------------------------------
+
+describe("AH2 H-1 regression: GET /api/harnesses accepts Bearer token (shared mode)", () => {
+	const NOW = new Date().toISOString();
+
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+	});
+
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test("200 with valid Bearer token (no X-API-Key sent)", async ({ db, eventBus }) => {
+		// Arrange: seed a human user and create a login session token
+		await db
+			.insert(users)
+			.values({
+				id: "u-harness-bearer",
+				kind: "human",
+				name: "Founder",
+				role: "founder",
+				status: "active",
+				createdAt: NOW,
+			})
+			.onConflictDoNothing();
+
+		const { token } = await createLoginSession(db, "u-harness-bearer");
+
+		// sharedMode=true activates Bearer token path in the auth middleware.
+		// This simulates shared mode (e.g. cloud/VPS install) where the Settings
+		// UI sends Authorization: Bearer rather than X-API-Key.
+		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool(), sharedMode: true });
+
+		// Act: send ONLY a Bearer token — no X-API-Key header
+		const res = await app.request("/api/harnesses", {
+			headers: { Authorization: `Bearer ${token}` },
+		});
+
+		// Assert: must succeed (not 401) — proves the in-route X-API-Key check is gone.
+		// If harnesses.ts had an in-route X-API-Key check, this would return 401.
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as unknown[];
+		expect(Array.isArray(body)).toBe(true);
+	});
+
+	test("401 with invalid Bearer token", async ({ db, eventBus }) => {
+		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
+		const res = await app.request("/api/harnesses", {
+			headers: { Authorization: "Bearer invalid-garbage-token" },
+		});
+		expect(res.status).toBe(401);
 	});
 });
