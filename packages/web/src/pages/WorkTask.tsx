@@ -19,7 +19,7 @@
  */
 
 import { ErrorState, LiveDot, StatusChip, taskStateToStatus } from "@hyperidle/design-system";
-import { formatMoney, TASK_STATE_LABEL } from "@hyperidle/shared";
+import { formatMoney, relativeLong, TASK_STATE_LABEL } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
@@ -28,26 +28,10 @@ import { useTaskSessions } from "../hooks/useTaskSessions.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
 
 /**
- * Format an ISO timestamp as a simple relative time label ("2 days ago", "just now", etc.).
- * No external dependency — sufficient precision for a metadata strip.
- *
- * @lore W3 AC-28: Keep this local. Adding a date library for one use case is overkill.
+ * @lore AI3: relativeLong replaces local formatRelativeTime.
+ * AI4: Local LiveDot, TASK_STATUS_LABEL, getTaskStatusLabel removed.
+ * LiveDot promoted to @hyperidle/design-system; TASK_STATE_LABEL is from @hyperidle/shared.
  */
-function formatRelativeTime(isoString: string): string {
-	const diffMs = Date.now() - new Date(isoString).getTime();
-	if (Number.isNaN(diffMs)) return "—";
-	const diffSec = Math.floor(diffMs / 1000);
-	if (diffSec < 60) return "just now";
-	const diffMin = Math.floor(diffSec / 60);
-	if (diffMin < 60) return `${diffMin}m ago`;
-	const diffH = Math.floor(diffMin / 60);
-	if (diffH < 24) return `${diffH}h ago`;
-	const diffD = Math.floor(diffH / 24);
-	return `${diffD}d ago`;
-}
-
-// AI4: Local LiveDot, TASK_STATUS_LABEL, getTaskStatusLabel removed.
-// LiveDot promoted to @hyperidle/design-system; TASK_STATE_LABEL is from @hyperidle/shared.
 
 /** Section title class — uppercase label with border-bottom divider. */
 const SECTION_TITLE_CLASS =
@@ -281,7 +265,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 									data-testid="task-started-at"
 									className="text-[13px] font-[500] text-[var(--text-primary)]"
 								>
-									{formatRelativeTime(task.startedAt)}
+									{relativeLong(task.startedAt)}
 								</span>
 							</div>
 						)}

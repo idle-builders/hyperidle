@@ -33,7 +33,7 @@
 
 import { EmptyState } from "@hyperidle/design-system";
 import type { NotificationTypeKey } from "@hyperidle/shared";
-import { shortLabelForType } from "@hyperidle/shared";
+import { relativeShort, shortLabelForType } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import type { NotificationRow, UseNotificationsResult } from "../hooks/useNotifications.js";
@@ -43,17 +43,6 @@ import { useNotifications } from "../hooks/useNotifications.js";
 export type { NotificationRow };
 
 // AI4 Decision 4: TYPE_LABELS deleted — derive from shortLabelForType (shared registry).
-
-function formatRelativeTime(isoString: string): string {
-	const diff = Date.now() - new Date(isoString).getTime();
-	const secs = Math.floor(diff / 1000);
-	if (secs < 60) return `${secs}s`;
-	const mins = Math.floor(secs / 60);
-	if (mins < 60) return `${mins}m`;
-	const hrs = Math.floor(mins / 60);
-	if (hrs < 24) return `${hrs}h`;
-	return `${Math.floor(hrs / 24)}d`;
-}
 
 export interface NotificationPopoverProps {
 	open: boolean;
@@ -295,6 +284,7 @@ export function NotificationPopover({
 
 										{/* 4. Relative time */}
 										<span
+											data-testid="notification-time"
 											style={{
 												fontFamily: "var(--font-sans)",
 												fontSize: "12px",
@@ -304,7 +294,7 @@ export function NotificationPopover({
 												flexShrink: 0,
 											}}
 										>
-											{formatRelativeTime(row.createdAt)}
+											{relativeShort(row.createdAt)}
 										</span>
 
 										{/* 5. Trailing affordances — hover-reveal mute + dismiss */}

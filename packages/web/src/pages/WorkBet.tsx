@@ -43,6 +43,7 @@ import {
 	deriveBlocks,
 	formatMoney,
 	isRedactedPayload,
+	relativeLong,
 	scaleForCurrency,
 	TASK_OUTCOME_VERDICT_LABEL,
 	TASK_STATE_LABEL,
@@ -74,24 +75,6 @@ type SortDirection = "asc" | "desc";
 // AI4: TASK_VERDICT_LABEL, BET_VERDICT_LABEL, TASK_STATE_LABEL, taskStateBadgeClass
 // deleted — now sourced from @hyperidle/shared (TASK_OUTCOME_VERDICT_LABEL,
 // BET_OUTCOME_VERDICT_LABEL, TASK_STATE_LABEL) and @hyperidle/design-system (StatusChip).
-
-/**
- * Format an ISO timestamp as a simple relative time label.
- * Duplicated from WorkTask for locality — both pages are self-contained.
- */
-function formatTaskRelativeTime(isoString: string | null | undefined): string {
-	if (!isoString) return "";
-	const diffMs = Date.now() - new Date(isoString).getTime();
-	if (Number.isNaN(diffMs)) return "";
-	const diffSec = Math.floor(diffMs / 1000);
-	if (diffSec < 60) return "just now";
-	const diffMin = Math.floor(diffSec / 60);
-	if (diffMin < 60) return `${diffMin}m ago`;
-	const diffH = Math.floor(diffMin / 60);
-	if (diffH < 24) return `${diffH}h ago`;
-	const diffD = Math.floor(diffH / 24);
-	return `${diffD}d ago`;
-}
 
 /**
  * T3: Bet statuses where the description is mutable (editable via BodyEditor).
@@ -1592,7 +1575,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 							<div className="flex flex-col">
 								{sortedTasks.map((task) => {
 									const stateLabel = TASK_STATE_LABEL[task.state] ?? task.state;
-									const relTime = formatTaskRelativeTime(task.startedAt);
+									const relTime = task.startedAt ? relativeLong(task.startedAt) : "";
 									const metaParts = [task.owner, stateLabel, relTime].filter(Boolean);
 									return (
 										<button

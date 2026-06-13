@@ -110,6 +110,15 @@ export type { ArtifactCostInput } from "./format/artifact-cost.js";
 export { formatArtifactCost } from "./format/artifact-cost.js";
 export { deriveTitle, deriveTitleFromPitch } from "./format/bet.js";
 export { formatMoney, formatTokenCount } from "./format/money.js";
+export type { TimestampInput } from "./format/time.js";
+export {
+	absoluteDate,
+	absoluteDateTime,
+	clockTime,
+	relativeLong,
+	relativeShort,
+	TIME_PLACEHOLDER,
+} from "./format/time.js";
 export type {
 	CompletionEvent,
 	CostUpdateEvent,

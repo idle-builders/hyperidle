@@ -44,6 +44,7 @@ import type {
 	KnowledgeTopicHealth,
 } from "@hyperidle/fabric/types";
 import { KNOWLEDGE_SORT_OPTIONS, KNOWLEDGE_STATUS_LABEL } from "@hyperidle/fabric/types";
+import { relativeShort } from "@hyperidle/shared";
 import { type JSX, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { KnowledgeTopicGroup } from "../components/KnowledgeTopicGroup";
@@ -51,7 +52,6 @@ import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useFetch } from "../hooks/useFetch";
 import { useHint } from "../hooks/useHints";
 import { apiFetch } from "../services/api-fetch.js";
-import { relativeTime } from "../utils/relative-time";
 import { SCOPE_PILL_OPTIONS, type ScopePillOption } from "../utils/scope-labels";
 
 type KnowledgeTab = "triage" | "curated";
@@ -268,6 +268,7 @@ function KnowledgeListRow({
 		// Inline action buttons (validate/reject/open) are visible on hover or when focused.
 		return (
 			<li
+				data-testid="knowledge-row"
 				data-focused={isFocused ? "true" : undefined}
 				className="flex items-center gap-[12px] px-[24px] py-[12px] border-b border-[var(--border-subtle)] last:border-b-0 list-none"
 				style={{
@@ -396,7 +397,10 @@ function KnowledgeListRow({
 							)}
 						</div>
 					)}
-					<span className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap">
+					<span
+						data-testid="knowledge-time"
+						className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap"
+					>
 						{timestamp}
 					</span>
 				</div>
@@ -407,7 +411,7 @@ function KnowledgeListRow({
 	// Curated row: <li> inside a <ul> (rendered by KnowledgeTopicGroup) with an inner <button>
 	// for keyboard accessibility (focusable, Enter/Space activatable — WCAG 2.1.1).
 	return (
-		<li className="list-none">
+		<li data-testid="knowledge-row" className="list-none">
 			<button
 				type="button"
 				className="flex items-center gap-[12px] px-[24px] py-[12px] border-b border-[var(--border-subtle)] cursor-pointer last:border-b-0 hover:bg-[rgba(44,36,26,0.02)] w-full text-left bg-transparent border-x-0 border-t-0"
@@ -451,7 +455,10 @@ function KnowledgeListRow({
 							/>
 						</span>
 					)}
-					<span className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap">
+					<span
+						data-testid="knowledge-time"
+						className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap"
+					>
 						{timestamp}
 					</span>
 				</div>
@@ -692,7 +699,7 @@ function KnowledgeListContent({
 											title={item.title}
 											preview={item.body?.slice(0, 120) || null}
 											status={toKnowledgeStatus(item.status)}
-											timestamp={relativeTime(item.updatedAt)}
+											timestamp={relativeShort(item.updatedAt)}
 											isPrivate={isPrivate}
 											showActions
 											isFocused={focusedIndex === index}
@@ -790,7 +797,7 @@ function KnowledgeListContent({
 											title={item.title}
 											preview={item.body?.slice(0, 120) || null}
 											status={toKnowledgeStatus(item.status)}
-											timestamp={relativeTime(item.updatedAt)}
+											timestamp={relativeShort(item.updatedAt)}
 											isPrivate={isPrivate}
 											onClick={() => onNavigate(item.id)}
 										/>
