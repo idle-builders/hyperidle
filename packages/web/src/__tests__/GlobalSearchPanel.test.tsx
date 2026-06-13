@@ -310,11 +310,11 @@ describe("GlobalSearchPanel", () => {
 		expect(screen.queryByTestId("search-empty")).not.toBeInTheDocument();
 	});
 
-	// AC8: Only composes existing Tier 1/2 + DaisyUI (structural test)
-	it("uses DaisyUI modal class", () => {
+	// AC8: Dialog layer carries data-dialog-layer="dialog" (AI2: DaisyUI .modal replaced by useDialogBehavior)
+	it("renders with dialog layer attribute", () => {
 		const { container } = render(<GlobalSearchPanel {...defaultProps} />);
-		const modal = container.querySelector(".modal");
-		expect(modal).toBeInTheDocument();
+		const panel = container.querySelector('[data-dialog-layer="dialog"]');
+		expect(panel).toBeInTheDocument();
 	});
 
 	// Additional integration behaviors

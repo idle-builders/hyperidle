@@ -4,7 +4,10 @@
  * Strategy: hermetic page.route() mocks for all API calls.
  * No DB seeding — dev server serves only the SPA bundle.
  *
- * AC-8: Escape does NOT close ConsequencePreviewDialog; Cancel DOES close it.
+ * AC-8: Escape closes ConsequencePreviewDialog (confirmation-never-dirty rule §1.1).
+ *        SANCTIONED CHANGE #1 (AI2): was "Escape does NOT close". ConsequencePreviewDialog
+ *        passes isDirty=false ALWAYS — so Esc closes, empty or typed reason. Cancel DOES
+ *        also close it. See architecture.md §Sanctioned assertion changes #1.
  * AC-9: Fill reason, click Kill bet confirm → POST /kill called; status chip updates.
  * AC-10: Adjust appetite flow → PATCH /bets/:id called with a WireMoney value.
  * AC-11: Unblock → composer textarea focused.
@@ -148,7 +151,13 @@ test.describe("L14 — Bet actions E2E", () => {
 			await expect(page.getByRole("dialog")).toBeVisible();
 		});
 
-		test("pressing Escape does NOT close the dialog", async ({ page }) => {
+		// SANCTIONED CHANGE #1 (AI2): was "pressing Escape does NOT close the dialog".
+		// Under the confirmation-never-dirty rule (approved.md §1.1), ConsequencePreviewDialog
+		// passes isDirty=false ALWAYS — so Esc closes whether reason is empty or typed.
+		// This corrects the headline bug; the assertion flips from "still visible" to "not visible".
+		test("pressing Escape closes the dialog (confirmation-never-dirty rule §1.1)", async ({
+			page,
+		}) => {
 			await setupCommonRoutes(page, "active");
 			await page.goto(`/work/bet/${BET_ID}`);
 			await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible();
@@ -156,11 +165,11 @@ test.describe("L14 — Bet actions E2E", () => {
 			await openOverflowAction(page, "kill");
 			await expect(page.getByRole("dialog")).toBeVisible();
 
-			// Press Escape
+			// Press Escape — confirmation dialog always closes (isDirty=false always)
 			await page.keyboard.press("Escape");
 
-			// Dialog must still be visible
-			await expect(page.getByRole("dialog")).toBeVisible();
+			// Dialog must be closed (not blocked by the guard, because isDirty=false)
+			await expect(page.getByRole("dialog")).not.toBeVisible();
 		});
 
 		test("clicking Cancel closes the dialog", async ({ page }) => {

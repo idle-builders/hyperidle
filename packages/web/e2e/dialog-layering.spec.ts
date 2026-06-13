@@ -1,0 +1,283 @@
+/**
+ * AI2 — Dialog layering: computed z-index ordering spec (AC-3, runtime half).
+ *
+ * AC-3 (b): Runtime — open two overlay surfaces in both orders; assert the
+ * one with the higher --z-* band has a strictly higher computed z-index,
+ * regardless of DOM mount order. This satisfies "stack predictably regardless
+ * of DOM order."
+ *
+ * Strategy: page.route() mocks — no DB required. Desktop viewport (default).
+ *
+ * @lore AI2: AC-3's static half (no raw z-[N] on overlays) is a lint/grep gate,
+ * not a test. Only the runtime computed-z ordering is verified here.
+ *
+ * @lore AI2 C-2 fix round 2: The original spec used TaskSheet (drawer=30) + AssistantOverlay
+ * (overlay=40). TaskSheet has no live trigger on this branch (WorkBet task-row onClick restores
+ * navigate() per origin/main — AG scope). Substituting with two genuinely reachable surfaces:
+ *   - AssistantOverlay (layer="overlay", --z-overlay=40): triggered by the "Assistant" button
+ *     in Sidebar (wired via AppShell.handleAssistantClick → sidebarProps.onAssistantClick).
+ *   - GlobalSearchPanel (layer="dialog", --z-dialog=60): triggered by the "Search" button
+ *     (data-testid="sidebar-search-hint") in Sidebar (wired via AppShell.commandK.open →
+ *     sidebarProps.onSearchClick).
+ * Both surfaces are always rendered by AppShell on desktop viewport (default project fixture).
+ * TaskSheet reachability (no live trigger on AI2 branch) is a pre-existing gap owned by AG
+ * (Work-view experience workpackage). See plans/AI2/review-notes.md.
+ */
+
+import { expect, test } from "./fixtures";
+
+// ---------------------------------------------------------------------------
+// Parse a CSS z-index value into a number.
+// Returns 0 for "auto" or unparseable strings.
+// ---------------------------------------------------------------------------
+async function computedZIndex(
+	page: import("@playwright/test").Page,
+	selector: string,
+): Promise<number> {
+	return page.evaluate((sel) => {
+		const el = document.querySelector(sel) as HTMLElement | null;
+		if (!el) return -1;
+		const z = window.getComputedStyle(el).zIndex;
+		return z === "auto" ? 0 : Number.parseInt(z, 10);
+	}, selector);
+}
+
+// ---------------------------------------------------------------------------
+// Common route mocks for AppShell on /conversations
+// (in addition to the auto-use fixture defaults: auth/me, settings, threads, teams)
+// ---------------------------------------------------------------------------
+
+async function setupAppShellMocks(page: import("@playwright/test").Page): Promise<void> {
+	// knowledge/triage-count — AppShell useFetch (sidebar badge)
+	await page.route("**/api/knowledge/triage-count", (route) =>
+		route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ count: 0 }),
+		}),
+	);
+	// threads/assistant — useAssistantThread hook (loads when AssistantOverlay mounts)
+	await page.route("**/api/threads/assistant", (route) =>
+		route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({
+				thread: { id: "t-assistant", title: "Assistant", messages: [] },
+			}),
+		}),
+	);
+	// threads (list with cursor) — broad fallback for useConversationsThreads
+	await page.route("**/api/threads**", (route) =>
+		route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ threads: [], nextCursor: null }),
+		}),
+	);
+	// notifications inbox — guard against fetch errors
+	await page.route("**/api/notifications**", (route) =>
+		route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ unseenCount: 0, rows: [] }),
+		}),
+	);
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// AssistantOverlay (--z-overlay=40) vs GlobalSearchPanel (--z-dialog=60)
+// ---------------------------------------------------------------------------
+
+test.describe("AI2 — overlay z-layer ordering (AC-3 runtime)", () => {
+	test.beforeEach(async ({ page }) => {
+		await setupAppShellMocks(page);
+	});
+
+	test("GlobalSearchPanel (--z-dialog=60) stacks above AssistantOverlay (--z-overlay=40): open overlay first", async ({
+		page,
+	}) => {
+		// Navigate to /conversations — no extra route mocks needed beyond AppShell defaults.
+		await page.goto("/conversations");
+
+		// Wait for Sidebar to render (search-hint is always present on desktop).
+		const searchHint = page.locator("[data-testid='sidebar-search-hint']");
+		await expect(
+			searchHint,
+			"sidebar-search-hint must be visible — AppShell desktop layout rendered",
+		).toBeVisible({ timeout: 15000 });
+
+		// Step 1: Open AssistantOverlay (overlay layer) first.
+		// @lore AI2 C-2 round2: "Assistant" button in Sidebar is wired via AppShell.handleAssistantClick.
+		// Non-modal: no scrim, no focus trap → other Sidebar elements remain clickable.
+		const assistantBtn = page.getByRole("button", { name: /^assistant$/i });
+		await expect(assistantBtn, "Assistant button must be visible in Sidebar").toBeVisible();
+		await assistantBtn.click();
+
+		const assistantOverlay = page.locator("[data-dialog-layer='overlay']");
+		await expect(
+			assistantOverlay,
+			"AssistantOverlay must be visible after clicking Assistant button",
+		).toBeVisible();
+
+		const overlayZ = await computedZIndex(page, "[data-dialog-layer='overlay']");
+		expect(
+			overlayZ,
+			"AssistantOverlay z-index must be > 0 (--z-overlay=40 CSS token applied)",
+		).toBeGreaterThan(0);
+
+		// Step 2: Open GlobalSearchPanel (dialog layer) while AssistantOverlay is already open.
+		// AssistantOverlay is non-modal (no focus trap) so the search-hint button remains clickable.
+		await searchHint.click();
+
+		const searchPanel = page.locator("[data-dialog-layer='dialog']");
+		await expect(
+			searchPanel,
+			"GlobalSearchPanel must be visible after clicking sidebar-search-hint",
+		).toBeVisible();
+
+		const dialogZ = await computedZIndex(page, "[data-dialog-layer='dialog']");
+
+		// Dialog (60) must be strictly higher than overlay (40) when dialog is DOM-second.
+		expect(
+			dialogZ,
+			"GlobalSearchPanel z-index (--z-dialog=60) must exceed AssistantOverlay z-index (--z-overlay=40) when dialog mounts after overlay",
+		).toBeGreaterThan(overlayZ);
+
+		await page.screenshot({ path: "test-results/ai2-z-order-overlay-first.png" });
+	});
+
+	test("GlobalSearchPanel (--z-dialog=60) stacks above AssistantOverlay (--z-overlay=40): open dialog first then overlay", async ({
+		page,
+	}) => {
+		// Navigate to /conversations.
+		await page.goto("/conversations");
+
+		// Wait for Sidebar.
+		const searchHint = page.locator("[data-testid='sidebar-search-hint']");
+		await expect(
+			searchHint,
+			"sidebar-search-hint must be visible — AppShell desktop layout rendered",
+		).toBeVisible({ timeout: 15000 });
+
+		// Step 1: Open GlobalSearchPanel (dialog layer) FIRST — it mounts before AssistantOverlay.
+		await searchHint.click();
+
+		const searchPanel = page.locator("[data-dialog-layer='dialog']");
+		await expect(
+			searchPanel,
+			"GlobalSearchPanel must be visible after clicking sidebar-search-hint",
+		).toBeVisible();
+
+		const dialogZFirst = await computedZIndex(page, "[data-dialog-layer='dialog']");
+		expect(
+			dialogZFirst,
+			"GlobalSearchPanel z-index must be > 0 (--z-dialog=60 token active)",
+		).toBeGreaterThan(0);
+
+		// Step 2: Open AssistantOverlay (overlay layer) WHILE GlobalSearchPanel is already open.
+		// @lore AI2: GlobalSearchPanel FocusTrap uses allowOutsideClick=true — clicks outside
+		// the panel are not blocked by the trap. However, the scrim (position:fixed, inset:0,
+		// z=50) sits above the Sidebar visually and blocks Playwright pointer-event hit-tests.
+		// We use page.evaluate to fire a native click() on the Assistant button directly,
+		// bypassing both the pointer-event layer and Playwright's hit-testing. The native
+		// click() call invokes React's event delegation at the document root, triggering
+		// handleAssistantClick and setting assistantOverlayOpen=true.
+		await page.evaluate(() => {
+			const btn = document.querySelector(
+				'button[aria-label="Assistant"]',
+			) as HTMLButtonElement | null;
+			btn?.click();
+		});
+
+		const assistantOverlay = page.locator("[data-dialog-layer='overlay']");
+		await expect(
+			assistantOverlay,
+			"AssistantOverlay must mount after Assistant button click — both overlays now in DOM",
+		).toBeVisible();
+
+		// Both surfaces are now in the DOM simultaneously.
+		// dialog was DOM-first; overlay was DOM-second.
+		// CSS token scale must hold regardless: dialog (60) > overlay (40).
+		const overlayZ = await computedZIndex(page, "[data-dialog-layer='overlay']");
+		const dialogZ = await computedZIndex(page, "[data-dialog-layer='dialog']");
+
+		expect(
+			overlayZ,
+			"AssistantOverlay z-index must be > 0 (--z-overlay=40 token active)",
+		).toBeGreaterThan(0);
+
+		expect(
+			dialogZ,
+			"GlobalSearchPanel z-index (--z-dialog=60) must exceed AssistantOverlay z-index (--z-overlay=40) even when dialog was DOM-first and overlay is DOM-second",
+		).toBeGreaterThan(overlayZ);
+
+		await page.screenshot({ path: "test-results/ai2-z-order-dialog-first.png" });
+	});
+
+	test("modal Dialog (--z-dialog=60) stacks above NotificationPopover (--z-overlay=40)", async ({
+		page,
+	}) => {
+		// Need the WorkBet route for the kill-bet dialog (ConsequencePreviewDialog).
+		const BET_ID = "bet-dialog-layer-test";
+		await page.route(`**/api/bets/${BET_ID}/**`, (route) =>
+			route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) }),
+		);
+		await page.route(`**/api/bets/${BET_ID}/artifact-thread-summary`, (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
+			}),
+		);
+		await page.route(`**/api/bets/${BET_ID}`, (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					id: BET_ID,
+					title: "Layering test bet",
+					team: "Test Team",
+					status: "active",
+					atRisk: false,
+					costAppetite: null,
+					tokenAppetite: null,
+					costActual: null,
+					tokensActual: null,
+					progress: { done: 0, total: 0 },
+					description: "# Test",
+					tasks: [],
+				}),
+			}),
+		);
+		await page.route("**/api/artifacts**", (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ items: [], nextCursor: null }),
+			}),
+		);
+
+		await page.goto(`/work/bet/${BET_ID}`);
+
+		// @lore AI2: wait for success state via overflow button (not work-bet-page testid
+		// which appears in loading/error states). Matches pattern from dialog-dismissal.spec.ts.
+		const overflowBtn = page.locator("[data-testid='bet-overflow-btn']");
+		await expect(
+			overflowBtn,
+			"bet-overflow-btn must be visible — WorkBet success state must render",
+		).toBeVisible({ timeout: 15000 });
+
+		// Wait for network to settle before interacting (prevents re-render detach)
+		await page.waitForLoadState("networkidle");
+		await overflowBtn.first().click();
+		const killItem = page.locator("[data-bet-action='kill']");
+		await expect(killItem, "Kill dropdown item must appear").toBeVisible();
+		await killItem.click();
+
+		const dialogZ = await computedZIndex(page, "[data-dialog-layer='dialog']");
+		// A dialog (60) must be higher than overlay (40) — even if no overlay is open,
+		// we assert the raw z-value satisfies the scale contract.
+		expect(dialogZ).toBeGreaterThanOrEqual(60);
+	});
+});

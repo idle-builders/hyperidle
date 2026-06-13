@@ -73,8 +73,13 @@ export function ToastRegion({ children }: ToastRegionProps): JSX.Element {
 	return (
 		<ToastContext.Provider value={{ showToast }}>
 			{children}
+			{/* @lore AI2: z-50 removed; z-layer now via --z-toast token (AC-3). Toasts sit above dialogs. */}
 			{message !== null ? (
-				<div className="toast toast-end z-50" data-testid="toast-region">
+				<div
+					className="toast toast-end"
+					data-testid="toast-region"
+					style={{ zIndex: "var(--z-toast)" }}
+				>
 					<div
 						role="status"
 						className="alert bg-[var(--surface-container)] text-[var(--text-secondary)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-[12px] py-[8px] text-[13px]"

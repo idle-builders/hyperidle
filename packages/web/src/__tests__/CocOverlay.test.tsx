@@ -101,11 +101,14 @@ describe("AF14 — AssistantOverlay open/close behavior", () => {
 		expect(onClose).toHaveBeenCalledOnce();
 	});
 
-	it("overlay z-index is z-30 (above Main at z-0, below Settings at z-40)", () => {
+	// SANCTIONED CHANGE #3 (AI2): AssistantOverlay migrates to useDialogBehavior with
+	// layer="overlay" → --z-overlay (40). The old hardcoded z-30 class is gone.
+	// Assert via data-dialog-layer attribute which getOverlayProps emits.
+	// See architecture.md §Sanctioned assertion changes #3.
+	it("overlay has data-dialog-layer='overlay' (--z-overlay = 40, above main, below modal)", () => {
 		renderOverlay(true);
 		const dialog = screen.getByRole("dialog");
-		// z-30 per design spec — verified via class name.
-		expect(dialog.className).toMatch(/z-30/);
+		expect(dialog.getAttribute("data-dialog-layer")).toBe("overlay");
 	});
 });
 

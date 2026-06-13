@@ -50,6 +50,10 @@ export type { ComposerProps, ComposerSubmitInput } from "./Composer.js";
 export { Composer } from "./Composer.js";
 // ── Support ──
 export { clickableProps } from "./clickable.js";
+// ── AI2: Dialog primitive + behavioral hook + portal root ──
+export type { DialogLayer, DialogProps, DialogSize } from "./Dialog.js";
+export { Dialog } from "./Dialog.js";
+export { DialogPortalRoot } from "./DialogPortalRoot.js";
 // ── DOM markers (K2) ──
 export type { DsAttrs, DsShellAttrs, DsSource, DsTier } from "./ds-attrs.js";
 export { dsProps, dsShellProps } from "./ds-attrs.js";
@@ -154,3 +158,5 @@ export type { ToggleProps } from "./Toggle.js";
 export { Toggle } from "./Toggle.js";
 export type { TagKind, TagKindMeta } from "./tag-kinds.js";
 export { TAG_KIND_ICONS } from "./tag-kinds.js";
+export type { UseDialogBehavior, UseDialogBehaviorOptions } from "./useDialogBehavior.js";
+export { ensureOverlayRoot, useDialogBehavior } from "./useDialogBehavior.js";

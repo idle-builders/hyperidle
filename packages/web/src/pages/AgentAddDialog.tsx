@@ -7,10 +7,14 @@
  * @lore AB3: teamMembersId is explicitly named to prevent passing team.id
  * (the public team identifier) by mistake. users.teamId references
  * team_members.id, not teams.id. Passing team.id would fail the FK constraint.
+ *
+ * @lore AI2: Migrated from native <dialog> + showModal() boilerplate to the
+ * Dialog primitive. isDirty is true when the user has modified name or soulPrompt
+ * from the initial empty state. Authoring surface — guards on dismissal when dirty.
  */
 
 // hearth-internal-padding
-import { Button, Select } from "@hyperidle/design-system";
+import { Button, Dialog, Select } from "@hyperidle/design-system";
 import { AGENT_ROLE_CATALOG, findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
@@ -53,37 +57,18 @@ export function AgentAddDialog({
 	onCreated,
 }: AgentAddDialogProps): JSX.Element {
 	const { showToast } = useToast();
-	const dialogRef = useRef<HTMLDialogElement>(null);
 	const [formValues, setFormValues] = useState<AddFormValues>(INITIAL_FORM);
 	const [creating, setCreating] = useState(false);
 	const templateFetchAbortRef = useRef<AbortController | null>(null);
 
-	// Open/close native dialog
+	// Reset form on open
 	useEffect(() => {
-		const dialog = dialogRef.current;
-		if (!dialog) return;
 		if (open) {
 			setFormValues(INITIAL_FORM);
-			if (!dialog.open) {
-				dialog.showModal();
-			}
-		} else if (dialog.open) {
-			dialog.close();
 		}
 	}, [open]);
 
-	// Listen for native dialog close
-	useEffect(() => {
-		const dialog = dialogRef.current;
-		if (!dialog) return;
-		const handleClose = (): void => {
-			onClose();
-		};
-		dialog.addEventListener("close", handleClose);
-		return (): void => {
-			dialog.removeEventListener("close", handleClose);
-		};
-	}, [onClose]);
+	const isDirty = formValues.name.trim().length > 0 || formValues.soulPrompt.trim().length > 0;
 
 	// Fetch template for the selected role (abort on rapid changes)
 	const fetchTemplate = useCallback(async (role: string): Promise<void> => {
@@ -148,154 +133,14 @@ export function AgentAddDialog({
 	const roleDescription = selectedEntry?.description ?? formValues.role;
 
 	return (
-		<dialog
-			ref={dialogRef}
-			aria-label="Add agent"
-			className="modal"
-			style={{ maxWidth: "560px", width: "100%" }}
-		>
-			<div className="modal-box max-w-[560px] w-full bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[24px]">
-				{/* Header — editable name + role select */}
-				<div className="flex items-start justify-between gap-[12px] mb-[18px]">
-					<div className="flex-1">
-						<div className="form-control">
-							<label className="label" htmlFor="add-dialog-name">
-								<span className="label-text text-[var(--text-secondary)]">Agent name</span>
-							</label>
-							<input
-								id="add-dialog-name"
-								type="text"
-								aria-label="Agent name"
-								className="input input-sm input-bordered"
-								placeholder="Agent name"
-								value={formValues.name}
-								onChange={(e) => setFormValues((prev) => ({ ...prev, name: e.target.value }))}
-								autoFocus
-							/>
-						</div>
-						<div className="form-control mt-[6px]">
-							<label className="label" htmlFor="add-dialog-role">
-								<span className="label-text text-[var(--text-secondary)]">Role</span>
-							</label>
-							<Select
-								id="add-dialog-role"
-								aria-label="Role"
-								size="sm"
-								value={formValues.role}
-								onChange={(e) => handleRoleChange(e.target.value)}
-								options={TEAM_ROLES.map((entry) => ({ value: entry.role, label: entry.label }))}
-							/>
-						</div>
-						{roleDescription && (
-							<p className="text-[12px] text-[var(--text-tertiary)] mt-[6px]">{roleDescription}</p>
-						)}
-					</div>
-					<button
-						type="button"
-						aria-label="Close"
-						className="btn btn-ghost btn-sm shrink-0"
-						onClick={onClose}
-					>
-						✕
-					</button>
-				</div>
-
-				{/* Soul section */}
-				<div>
-					<h3 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[var(--text-tertiary)] mb-[6px]">
-						SOUL
-					</h3>
-					<p className="text-[12px] text-[var(--text-tertiary)] mb-[6px]">
-						Personality, style, and values. You define the soul; the system provides tools, context,
-						and knowledge.
-					</p>
-					<textarea
-						aria-label="Soul Prompt"
-						className="textarea textarea-bordered w-full mt-[6px]"
-						rows={10}
-						value={formValues.soulPrompt}
-						onChange={(e) => setFormValues((prev) => ({ ...prev, soulPrompt: e.target.value }))}
-						placeholder="Describe this agent's personality, communication style, and values..."
-						disabled={creating}
-					/>
-				</div>
-
-				{/* Config section — starts expanded in create mode */}
-				<div className="mt-[12px]">
-					<h3 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[var(--text-tertiary)] mb-[6px]">
-						CONFIGURATION
-					</h3>
-					<div className="flex flex-wrap gap-[12px]">
-						<div className="form-control min-w-[140px] flex-1">
-							<label className="label" htmlFor="add-dialog-harness">
-								<span className="label-text text-[var(--text-secondary)]">Harness</span>
-							</label>
-							<input
-								id="add-dialog-harness"
-								type="text"
-								aria-label="Harness"
-								className="input input-sm input-bordered"
-								value={formValues.harnessType}
-								onChange={(e) =>
-									setFormValues((prev) => ({ ...prev, harnessType: e.target.value }))
-								}
-								placeholder="e.g. claude-code"
-								disabled={creating}
-							/>
-						</div>
-
-						<div className="form-control min-w-[140px] flex-1">
-							<label className="label" htmlFor="add-dialog-tier">
-								<span className="label-text text-[var(--text-secondary)]">Model tier</span>
-							</label>
-							<Select
-								id="add-dialog-tier"
-								aria-label="Model tier"
-								size="sm"
-								value={formValues.modelTierPreference}
-								onChange={(e) =>
-									setFormValues((prev) => ({
-										...prev,
-										modelTierPreference: e.target.value,
-									}))
-								}
-								disabled={creating}
-								options={[
-									{ value: "", label: "Default" },
-									...MODEL_TIERS.map((t) => ({ value: t, label: t })),
-								]}
-							/>
-						</div>
-
-						<div className="form-control min-w-[100px] flex-1">
-							<label className="label" htmlFor="add-dialog-sessions">
-								<span className="label-text text-[var(--text-secondary)]">Max sessions</span>
-							</label>
-							<input
-								id="add-dialog-sessions"
-								type="number"
-								aria-label="Max sessions"
-								className="input input-sm input-bordered"
-								value={formValues.maxConcurrentSessions}
-								min={1}
-								max={20}
-								onChange={(e) =>
-									setFormValues((prev) => ({
-										...prev,
-										maxConcurrentSessions: Number(e.target.value),
-									}))
-								}
-								disabled={creating}
-							/>
-						</div>
-					</div>
-				</div>
-
-				{/* Footer */}
-				<div
-					className="flex justify-end gap-[6px] mt-[18px] pt-[12px]"
-					style={{ borderTop: "1px solid var(--border-subtle)" }}
-				>
+		<Dialog
+			open={open}
+			onClose={onClose}
+			title="Add agent"
+			isDirty={isDirty}
+			size="md"
+			footer={
+				<>
 					<Button variant="ghost" size="sm" type="button" onClick={onClose} disabled={creating}>
 						Cancel
 					</Button>
@@ -309,12 +154,131 @@ export function AgentAddDialog({
 						{creating && <span className="loading loading-spinner loading-xs" />}
 						Create
 					</Button>
+				</>
+			}
+		>
+			{/* Header — editable name + role select */}
+			<div className="flex flex-col gap-[12px]">
+				<div className="form-control">
+					<label className="label" htmlFor="add-dialog-name">
+						<span className="label-text text-[var(--text-secondary)]">Agent name</span>
+					</label>
+					<input
+						id="add-dialog-name"
+						type="text"
+						aria-label="Agent name"
+						className="input input-sm input-bordered"
+						placeholder="Agent name"
+						value={formValues.name}
+						onChange={(e) => setFormValues((prev) => ({ ...prev, name: e.target.value }))}
+					/>
+				</div>
+				<div className="form-control">
+					<label className="label" htmlFor="add-dialog-role">
+						<span className="label-text text-[var(--text-secondary)]">Role</span>
+					</label>
+					<Select
+						id="add-dialog-role"
+						aria-label="Role"
+						size="sm"
+						value={formValues.role}
+						onChange={(e) => handleRoleChange(e.target.value)}
+						options={TEAM_ROLES.map((entry) => ({ value: entry.role, label: entry.label }))}
+					/>
+				</div>
+				{roleDescription && (
+					<p className="text-[12px] text-[var(--text-tertiary)]">{roleDescription}</p>
+				)}
+			</div>
+
+			{/* Soul section */}
+			<div className="mt-[18px]">
+				<h3 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[var(--text-tertiary)] mb-[6px]">
+					SOUL
+				</h3>
+				<p className="text-[12px] text-[var(--text-tertiary)] mb-[6px]">
+					Personality, style, and values. You define the soul; the system provides tools, context,
+					and knowledge.
+				</p>
+				<textarea
+					aria-label="Soul Prompt"
+					className="textarea textarea-bordered w-full mt-[6px]"
+					rows={10}
+					value={formValues.soulPrompt}
+					onChange={(e) => setFormValues((prev) => ({ ...prev, soulPrompt: e.target.value }))}
+					placeholder="Describe this agent's personality, communication style, and values..."
+					disabled={creating}
+				/>
+			</div>
+
+			{/* Config section — starts expanded in create mode */}
+			<div className="mt-[12px]">
+				<h3 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[var(--text-tertiary)] mb-[6px]">
+					CONFIGURATION
+				</h3>
+				<div className="flex flex-wrap gap-[12px]">
+					<div className="form-control min-w-[140px] flex-1">
+						<label className="label" htmlFor="add-dialog-harness">
+							<span className="label-text text-[var(--text-secondary)]">Harness</span>
+						</label>
+						<input
+							id="add-dialog-harness"
+							type="text"
+							aria-label="Harness"
+							className="input input-sm input-bordered"
+							value={formValues.harnessType}
+							onChange={(e) => setFormValues((prev) => ({ ...prev, harnessType: e.target.value }))}
+							placeholder="e.g. claude-code"
+							disabled={creating}
+						/>
+					</div>
+
+					<div className="form-control min-w-[140px] flex-1">
+						<label className="label" htmlFor="add-dialog-tier">
+							<span className="label-text text-[var(--text-secondary)]">Model tier</span>
+						</label>
+						<Select
+							id="add-dialog-tier"
+							aria-label="Model tier"
+							size="sm"
+							value={formValues.modelTierPreference}
+							onChange={(e) =>
+								setFormValues((prev) => ({
+									...prev,
+									modelTierPreference: e.target.value,
+								}))
+							}
+							disabled={creating}
+							options={[
+								{ value: "", label: "Default" },
+								...MODEL_TIERS.map((t) => ({ value: t, label: t })),
+							]}
+						/>
+					</div>
+
+					<div className="form-control min-w-[100px] flex-1">
+						<label className="label" htmlFor="add-dialog-sessions">
+							<span className="label-text text-[var(--text-secondary)]">Max sessions</span>
+						</label>
+						<input
+							id="add-dialog-sessions"
+							type="number"
+							aria-label="Max sessions"
+							className="input input-sm input-bordered"
+							value={formValues.maxConcurrentSessions}
+							min={1}
+							max={20}
+							onChange={(e) =>
+								setFormValues((prev) => ({
+									...prev,
+									maxConcurrentSessions: Number(e.target.value),
+								}))
+							}
+							disabled={creating}
+						/>
+					</div>
 				</div>
 			</div>
-			{/* Backdrop click closes dialog */}
-			<form method="dialog" className="modal-backdrop">
-				<button type="submit">close</button>
-			</form>
-		</dialog>
+		</Dialog>
 	);
 }

@@ -1,19 +1,19 @@
 /**
  * AB3 — AgentEditDialog: soul-first edit dialog for a roster agent.
  *
- * Opens as a native <dialog> (modal) when `agent` is non-null.
- * Closes when `agent` becomes null.
+ * Opens when `agent` is non-null. Closes when `agent` becomes null.
  *
  * Category-aware:
  * - Strategy agents: shows amber note, config fields disabled.
  * - Team/personal agents: no note, config fields enabled.
  *
- * @lore AB3: Native <dialog> avoids any portal or z-index wrestling.
- * showModal() gives us free backdrop, Escape-close, and focus-trap.
+ * @lore AI2: Migrated from native <dialog> + showModal() to Dialog primitive.
+ * isDirty tracks whether soulPrompt has changed from the initial value.
+ * Authoring surface — guards on Esc when soul text is modified.
  */
 
 // hearth-internal-padding
-import { Avatar, Button, Select } from "@hyperidle/design-system";
+import { Avatar, Button, Dialog, Select } from "@hyperidle/design-system";
 import type { RosterMember } from "@hyperidle/shared";
 import { findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
@@ -54,45 +54,31 @@ export function AgentEditDialog({
 	onSaved,
 }: AgentEditDialogProps): JSX.Element {
 	const { showToast } = useToast();
-	const dialogRef = useRef<HTMLDialogElement>(null);
 	const [formValues, setFormValues] = useState<EditFormValues>({
 		soulPrompt: "",
 		harnessType: "",
 		modelTierPreference: "",
 		maxConcurrentSessions: 1,
 	});
+	const [initialSoulPrompt, setInitialSoulPrompt] = useState("");
 	const [configVisible, setConfigVisible] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [templateLoading, setTemplateLoading] = useState(false);
 	const templateFetchAbortRef = useRef<AbortController | null>(null);
 
-	// Open/close the native dialog when agent prop changes
+	const open = agent !== null;
+
+	// Sync form when agent changes
 	useEffect(() => {
-		const dialog = dialogRef.current;
-		if (!dialog) return;
 		if (agent !== null) {
-			setFormValues(agentToForm(agent));
+			const form = agentToForm(agent);
+			setFormValues(form);
+			setInitialSoulPrompt(form.soulPrompt);
 			setConfigVisible(false);
-			if (!dialog.open) {
-				dialog.showModal();
-			}
-		} else if (dialog.open) {
-			dialog.close();
 		}
 	}, [agent]);
 
-	// Listen for native dialog close (Escape key / backdrop click)
-	useEffect(() => {
-		const dialog = dialogRef.current;
-		if (!dialog) return;
-		const handleClose = (): void => {
-			onClose();
-		};
-		dialog.addEventListener("close", handleClose);
-		return (): void => {
-			dialog.removeEventListener("close", handleClose);
-		};
-	}, [onClose]);
+	const isDirty = formValues.soulPrompt !== initialSoulPrompt;
 
 	const handleSave = useCallback(async (): Promise<void> => {
 		if (!agent) return;
@@ -121,7 +107,6 @@ export function AgentEditDialog({
 
 	const handleLoadTemplate = useCallback(async (): Promise<void> => {
 		if (!agent) return;
-		// Abort any in-flight template request before starting a new one
 		if (templateFetchAbortRef.current) {
 			templateFetchAbortRef.current.abort();
 		}
@@ -132,12 +117,11 @@ export function AgentEditDialog({
 			const res = await apiFetch(`/api/agents/templates/${encodeURIComponent(agent.role)}`, {
 				signal: controller.signal,
 			});
-			if (!res.ok) return; // No template — leave textarea empty
+			if (!res.ok) return;
 			const json = (await res.json()) as { role: string; content: string };
 			setFormValues((prev) => ({ ...prev, soulPrompt: json.content }));
 		} catch (err) {
 			if (err instanceof Error && err.name === "AbortError") return;
-			// Other template fetch errors are best-effort
 		} finally {
 			if (templateFetchAbortRef.current === controller) {
 				templateFetchAbortRef.current = null;
@@ -158,170 +142,14 @@ export function AgentEditDialog({
 		!formValues.soulPrompt && catalogEntry?.hasTemplate === true && !templateLoading;
 
 	return (
-		<dialog
-			ref={dialogRef}
-			aria-label={`Edit ${agentName}`}
-			className="modal"
-			style={{ maxWidth: "560px", width: "100%" }}
-		>
-			<div className="modal-box max-w-[560px] w-full bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[24px]">
-				{/* Header */}
-				<div className="flex items-start justify-between gap-[12px] mb-[18px]">
-					<div className="flex items-start gap-[12px]">
-						<Avatar initials={initials} size="sm" agent />
-						<div>
-							<p className="text-[17px] font-semibold text-[var(--text-primary)] leading-tight">
-								{agentName}
-							</p>
-							<p className="text-[13px] text-[var(--text-secondary)] mt-[3px]">{roleLabel}</p>
-							<p className="text-[13px] text-[var(--text-secondary)] mt-[3px]">{roleDescription}</p>
-						</div>
-					</div>
-					<button
-						type="button"
-						aria-label="Close"
-						className="btn btn-ghost btn-sm"
-						onClick={onClose}
-					>
-						✕
-					</button>
-				</div>
-
-				{/* Soul section */}
-				<div className="mt-[18px]">
-					<h3 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[var(--text-tertiary)] mb-[6px]">
-						SOUL
-					</h3>
-					<p className="text-[12px] text-[var(--text-tertiary)] mb-[6px]">
-						Personality, style, and values. You define the soul; the system provides tools, context,
-						and knowledge.
-					</p>
-
-					{isStrategy && (
-						<div
-							className="rounded-[var(--r-subtle)] p-[9px] mt-[6px] mb-[6px]"
-							style={{ background: "rgba(217,119,6,0.06)" }}
-						>
-							<p className="text-[12px] text-[var(--text-secondary)]">
-								This agent is managed by your strategy. Your soul edits are preserved, but
-								operational configuration may be refreshed on strategy updates.
-							</p>
-						</div>
-					)}
-
-					<textarea
-						aria-label="Soul Prompt"
-						className="textarea textarea-bordered w-full mt-[6px]"
-						rows={12}
-						value={formValues.soulPrompt}
-						onChange={(e) => setFormValues((prev) => ({ ...prev, soulPrompt: e.target.value }))}
-						placeholder="Describe this agent's personality, communication style, and values..."
-						disabled={saving}
-					/>
-
-					{showTemplateButton && (
-						<Button
-							variant="ghost"
-							size="sm"
-							type="button"
-							onClick={handleLoadTemplate}
-							className="mt-[6px]"
-						>
-							Load {roleLabel} template
-						</Button>
-					)}
-				</div>
-
-				{/* Config section toggle */}
-				<div className="mt-[12px]">
-					<Button
-						variant="ghost"
-						size="sm"
-						type="button"
-						onClick={() => setConfigVisible((v) => !v)}
-					>
-						{isStrategy
-							? configVisible
-								? "Hide configuration (managed by strategy)"
-								: "Show configuration (managed by strategy)"
-							: configVisible
-								? "Hide configuration"
-								: "Show configuration"}
-					</Button>
-
-					{configVisible && (
-						<div className="mt-[6px] flex flex-wrap gap-[12px]">
-							<div className="form-control min-w-[140px] flex-1">
-								<label className="label" htmlFor="edit-dialog-harness">
-									<span className="label-text text-[var(--text-secondary)]">Harness</span>
-								</label>
-								<input
-									id="edit-dialog-harness"
-									type="text"
-									aria-label="Harness"
-									className="input input-sm input-bordered"
-									value={formValues.harnessType}
-									onChange={(e) =>
-										setFormValues((prev) => ({ ...prev, harnessType: e.target.value }))
-									}
-									placeholder="e.g. claude-code"
-									disabled={isStrategy || saving}
-								/>
-							</div>
-
-							<div className="form-control min-w-[140px] flex-1">
-								<label className="label" htmlFor="edit-dialog-tier">
-									<span className="label-text text-[var(--text-secondary)]">Model tier</span>
-								</label>
-								<Select
-									id="edit-dialog-tier"
-									aria-label="Model tier"
-									size="sm"
-									value={formValues.modelTierPreference}
-									onChange={(e) =>
-										setFormValues((prev) => ({
-											...prev,
-											modelTierPreference: e.target.value,
-										}))
-									}
-									disabled={isStrategy || saving}
-									options={[
-										{ value: "", label: "Default" },
-										...MODEL_TIERS.map((t) => ({ value: t, label: t })),
-									]}
-								/>
-							</div>
-
-							<div className="form-control min-w-[100px] flex-1">
-								<label className="label" htmlFor="edit-dialog-sessions">
-									<span className="label-text text-[var(--text-secondary)]">Max sessions</span>
-								</label>
-								<input
-									id="edit-dialog-sessions"
-									type="number"
-									aria-label="Max sessions"
-									className="input input-sm input-bordered"
-									value={formValues.maxConcurrentSessions}
-									min={1}
-									max={20}
-									onChange={(e) =>
-										setFormValues((prev) => ({
-											...prev,
-											maxConcurrentSessions: Number(e.target.value),
-										}))
-									}
-									disabled={isStrategy || saving}
-								/>
-							</div>
-						</div>
-					)}
-				</div>
-
-				{/* Footer */}
-				<div
-					className="flex justify-end gap-[6px] mt-[18px] pt-[12px]"
-					style={{ borderTop: "1px solid var(--border-subtle)" }}
-				>
+		<Dialog
+			open={open}
+			onClose={onClose}
+			title={`Edit ${agentName}`}
+			isDirty={isDirty}
+			size="md"
+			footer={
+				<>
 					<Button variant="ghost" size="sm" type="button" onClick={onClose} disabled={saving}>
 						Cancel
 					</Button>
@@ -329,13 +157,146 @@ export function AgentEditDialog({
 						{saving && <span className="loading loading-spinner loading-xs" />}
 						Save
 					</Button>
+				</>
+			}
+		>
+			{/* Header */}
+			<div className="flex items-start gap-[12px] mb-[18px]">
+				<Avatar initials={initials} size="sm" agent />
+				<div>
+					<p className="text-[17px] font-semibold text-[var(--text-primary)] leading-tight">
+						{agentName}
+					</p>
+					<p className="text-[13px] text-[var(--text-secondary)] mt-[3px]">{roleLabel}</p>
+					<p className="text-[13px] text-[var(--text-secondary)] mt-[3px]">{roleDescription}</p>
 				</div>
 			</div>
-			{/* Backdrop click closes dialog */}
-			<form method="dialog" className="modal-backdrop">
-				<button type="submit">close</button>
-			</form>
-		</dialog>
+
+			{/* Soul section */}
+			<div className="mt-[18px]">
+				<h3 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[var(--text-tertiary)] mb-[6px]">
+					SOUL
+				</h3>
+				<p className="text-[12px] text-[var(--text-tertiary)] mb-[6px]">
+					Personality, style, and values. You define the soul; the system provides tools, context,
+					and knowledge.
+				</p>
+
+				{isStrategy && (
+					<div
+						className="rounded-[var(--r-subtle)] p-[9px] mt-[6px] mb-[6px]"
+						style={{ background: "rgba(217,119,6,0.06)" }}
+					>
+						<p className="text-[12px] text-[var(--text-secondary)]">
+							This agent is managed by your strategy. Your soul edits are preserved, but operational
+							configuration may be refreshed on strategy updates.
+						</p>
+					</div>
+				)}
+
+				<textarea
+					aria-label="Soul Prompt"
+					className="textarea textarea-bordered w-full mt-[6px]"
+					rows={12}
+					value={formValues.soulPrompt}
+					onChange={(e) => setFormValues((prev) => ({ ...prev, soulPrompt: e.target.value }))}
+					placeholder="Describe this agent's personality, communication style, and values..."
+					disabled={saving}
+				/>
+
+				{showTemplateButton && (
+					<Button
+						variant="ghost"
+						size="sm"
+						type="button"
+						onClick={handleLoadTemplate}
+						className="mt-[6px]"
+					>
+						Load {roleLabel} template
+					</Button>
+				)}
+			</div>
+
+			{/* Config section toggle */}
+			<div className="mt-[12px]">
+				<Button variant="ghost" size="sm" type="button" onClick={() => setConfigVisible((v) => !v)}>
+					{isStrategy
+						? configVisible
+							? "Hide configuration (managed by strategy)"
+							: "Show configuration (managed by strategy)"
+						: configVisible
+							? "Hide configuration"
+							: "Show configuration"}
+				</Button>
+
+				{configVisible && (
+					<div className="mt-[6px] flex flex-wrap gap-[12px]">
+						<div className="form-control min-w-[140px] flex-1">
+							<label className="label" htmlFor="edit-dialog-harness">
+								<span className="label-text text-[var(--text-secondary)]">Harness</span>
+							</label>
+							<input
+								id="edit-dialog-harness"
+								type="text"
+								aria-label="Harness"
+								className="input input-sm input-bordered"
+								value={formValues.harnessType}
+								onChange={(e) =>
+									setFormValues((prev) => ({ ...prev, harnessType: e.target.value }))
+								}
+								placeholder="e.g. claude-code"
+								disabled={isStrategy || saving}
+							/>
+						</div>
+
+						<div className="form-control min-w-[140px] flex-1">
+							<label className="label" htmlFor="edit-dialog-tier">
+								<span className="label-text text-[var(--text-secondary)]">Model tier</span>
+							</label>
+							<Select
+								id="edit-dialog-tier"
+								aria-label="Model tier"
+								size="sm"
+								value={formValues.modelTierPreference}
+								onChange={(e) =>
+									setFormValues((prev) => ({
+										...prev,
+										modelTierPreference: e.target.value,
+									}))
+								}
+								disabled={isStrategy || saving}
+								options={[
+									{ value: "", label: "Default" },
+									...MODEL_TIERS.map((t) => ({ value: t, label: t })),
+								]}
+							/>
+						</div>
+
+						<div className="form-control min-w-[100px] flex-1">
+							<label className="label" htmlFor="edit-dialog-sessions">
+								<span className="label-text text-[var(--text-secondary)]">Max sessions</span>
+							</label>
+							<input
+								id="edit-dialog-sessions"
+								type="number"
+								aria-label="Max sessions"
+								className="input input-sm input-bordered"
+								value={formValues.maxConcurrentSessions}
+								min={1}
+								max={20}
+								onChange={(e) =>
+									setFormValues((prev) => ({
+										...prev,
+										maxConcurrentSessions: Number(e.target.value),
+									}))
+								}
+								disabled={isStrategy || saving}
+							/>
+						</div>
+					</div>
+				)}
+			</div>
+		</Dialog>
 	);
 }
 

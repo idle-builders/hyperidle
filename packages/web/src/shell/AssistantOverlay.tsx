@@ -21,7 +21,7 @@
  * not a design-system custom component. It lives in packages/web/src/shell/.
  */
 
-import { ThreadShell } from "@hyperidle/design-system";
+import { ThreadShell, useDialogBehavior } from "@hyperidle/design-system";
 import type {
 	BlockRef,
 	InlineRef,
@@ -29,7 +29,7 @@ import type {
 	PlainPayload,
 	ToolCallSummary,
 } from "@hyperidle/shared";
-import { type JSX, type ReactNode, type RefObject, useCallback, useEffect, useRef } from "react";
+import { type JSX, type ReactNode, type RefObject, useCallback, useEffect } from "react";
 import { BlockRefEmbed } from "../components/BlockRefEmbed.js";
 import type { AssistantContextRef } from "../contexts/AssistantContext";
 import { useAssistantThread } from "../hooks/useAssistantThread";
@@ -281,6 +281,12 @@ function AssistantOverlayInner({
  * AssistantOverlay — the popover dialog anchored to the assistant trigger button.
  *
  * Renders nothing when `open === false`.
+ *
+ * @lore AI2: Migrated to useDialogBehavior with modal=false, layer="overlay".
+ * modal=false: no scrim, no backdrop dismiss (L21 design rule: user must be able
+ * to interact with Main content while overlay stays open). Escape still closes.
+ * The overlay carries data-dialog-layer="overlay" (--z-overlay = 40) instead of
+ * the old hardcoded z-30 class.
  */
 export function AssistantOverlay({
 	open,
@@ -289,50 +295,51 @@ export function AssistantOverlay({
 	contextRefs,
 	onRemoveContextRef,
 }: AssistantOverlayProps): JSX.Element | null {
-	const dialogRef = useRef<HTMLDivElement>(null);
+	// @lore L21: modal=false → no scrim, no backdrop dismiss. Escape closes via behavior.
+	const behavior = useDialogBehavior({
+		open,
+		onClose,
+		isDirty: false,
+		modal: false,
+		layer: "overlay",
+	});
 
-	// Escape key closes the overlay.
+	// @lore AI2: modal=false surfaces don't use a focus trap, so Escape must be caught
+	// at document level (the overlay div won't receive keyboard events unless focused).
+	// behavior.requestDismiss() is called on Escape so the guard rule applies.
 	useEffect(() => {
 		if (!open) return;
 		const handler = (e: KeyboardEvent): void => {
 			if (e.key === "Escape") {
-				onClose();
+				behavior.requestDismiss();
 			}
 		};
 		document.addEventListener("keydown", handler);
 		return () => {
 			document.removeEventListener("keydown", handler);
 		};
-	}, [open, onClose]);
-
-	// Focus management: move focus into the overlay when it opens.
-	useEffect(() => {
-		if (!open) return;
-		const el = dialogRef.current;
-		if (!el) return;
-		const focusable = el.querySelector<HTMLElement>(
-			"button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
-		);
-		focusable?.focus();
-	}, [open]);
+	}, [open, behavior.requestDismiss]);
 
 	if (!open) return null;
 
+	const overlayProps = behavior.getOverlayProps();
+
 	return (
 		<div
-			ref={dialogRef}
-			role="dialog"
+			role={overlayProps.role}
 			aria-label="Assistant conversation"
-			aria-modal="false"
+			aria-modal={overlayProps["aria-modal"]}
+			data-dialog-layer={overlayProps["data-dialog-layer"]}
+			onKeyDown={overlayProps.onKeyDown}
 			className={[
 				"fixed bottom-16 right-4",
 				"w-[360px] min-h-[200px] max-h-[70vh]",
 				"flex flex-col overflow-hidden",
 				"rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-[var(--surface-overlay)]",
 				"shadow-[var(--shadow-elevated)]",
-				"z-30",
 				"animate-[assistant-open_var(--motion-fast)_ease-out_forwards]",
 			].join(" ")}
+			style={{ zIndex: overlayProps.style.zIndex }}
 		>
 			{/* Overlay header bar: "Assistant" title + close button */}
 			<div className="flex items-center justify-between px-[12px] py-[9px] border-b border-[var(--border-subtle)] shrink-0">
@@ -346,7 +353,7 @@ export function AssistantOverlay({
 					type="button"
 					aria-label="Close assistant"
 					className="flex items-center justify-center w-[24px] h-[24px] rounded-[var(--r-pill)] bg-transparent border-none text-[var(--text-secondary)] cursor-pointer hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]"
-					onClick={onClose}
+					onClick={behavior.requestDismiss}
 				>
 					<svg
 						width="14"

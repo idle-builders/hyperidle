@@ -22,7 +22,12 @@
  * restored element must be focusable; if it isn't (e.g. the task card doesn't
  * have tabIndex) we fall back to document.body silently.
  */
-import { LiveDot, StatusChip, sessionOutcomeToStatus } from "@hyperidle/design-system";
+import {
+	LiveDot,
+	StatusChip,
+	sessionOutcomeToStatus,
+	useDialogBehavior,
+} from "@hyperidle/design-system";
 import { formatMoney, scaleForCurrency } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { ArtifactSection } from "../components/ArtifactSection.js";
@@ -206,6 +211,14 @@ export function TaskSheet({
 	const [status, setStatus] = useState<FeedbackStatus>(null);
 	const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+	// @lore AI2: Migrated to useDialogBehavior with modal=false, layer="drawer".
+	// modal=false: TaskSheet is a non-modal drawer — no scrim, no backdrop dismiss.
+	// Esc is caught at document level (non-modal divs don't receive keyboard events
+	// unless focused). behavior.requestDismiss() routes through the guard rule.
+	// Layer "drawer" (--z-drawer=30) replaces the old hardcoded z-50 class.
+	const behavior = useDialogBehavior({ open, onClose, modal: false, layer: "drawer" });
+	const overlayProps = behavior.getOverlayProps();
+
 	// @lore Focus restoration: capture the active element the moment the sheet
 	// opens (before any DOM mutation) so we can restore it on close. We use a
 	// ref (not state) because it never needs to trigger a re-render.
@@ -261,43 +274,51 @@ export function TaskSheet({
 		};
 	}, []);
 
-	// ESC closes the sheet.
+	// @lore AI2: Esc is caught at document level for non-modal surfaces (the drawer
+	// div won't receive keyboard events unless focused). behavior.requestDismiss()
+	// routes through the unified guard rule (AC-1). Replaces the old bare onClose().
 	useEffect(() => {
 		if (!open) return;
-		function handleKeyDown(e: KeyboardEvent): void {
+		const handler = (e: KeyboardEvent): void => {
 			if (e.key === "Escape") {
-				onClose();
+				behavior.requestDismiss();
 			}
-		}
-		document.addEventListener("keydown", handleKeyDown);
-		return () => {
-			document.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [open, onClose]);
+		document.addEventListener("keydown", handler);
+		return () => {
+			document.removeEventListener("keydown", handler);
+		};
+	}, [open, behavior.requestDismiss]);
 
 	// Focus trap: intercept Tab/Shift-Tab and cycle within the dialog.
-	const handleDialogKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>): void => {
-		if (e.key !== "Tab" || !dialogRef.current) return;
-		const focusables = getFocusableElements(dialogRef.current);
-		if (focusables.length === 0) return;
+	// @lore AI2: TaskSheet keeps its hand-rolled Tab-cycling trap (not focus-trap-react)
+	// because it is non-modal. The onKeyDown handler from getOverlayProps() handles Esc;
+	// Tab cycling is added on top via a separate callback. Both are merged in the div.
+	const handleDialogKeyDown = useCallback(
+		(e: React.KeyboardEvent<HTMLDivElement>): void => {
+			// Let the behavior hook handle Escape
+			overlayProps.onKeyDown(e);
+			// Handle Tab cycling
+			if (e.key !== "Tab" || !dialogRef.current) return;
+			const focusables = getFocusableElements(dialogRef.current);
+			if (focusables.length === 0) return;
 
-		// Guards: length > 0 proves first/last are defined (noUncheckedIndexedAccess).
-		const first = focusables[0];
-		const last = focusables[focusables.length - 1];
-		if (first === undefined || last === undefined) return;
+			const first = focusables[0];
+			const last = focusables[focusables.length - 1];
+			if (first === undefined || last === undefined) return;
 
-		if (e.shiftKey) {
-			// Shift+Tab: if focus is at the first element, wrap to last.
-			if (document.activeElement === first) {
+			if (e.shiftKey) {
+				if (document.activeElement === first) {
+					e.preventDefault();
+					last.focus();
+				}
+			} else if (document.activeElement === last) {
 				e.preventDefault();
-				last.focus();
+				first.focus();
 			}
-		} else if (document.activeElement === last) {
-			// Tab: if focus is at the last element, wrap to first.
-			e.preventDefault();
-			first.focus();
-		}
-	}, []);
+		},
+		[overlayProps],
+	);
 
 	if (!(task && open)) {
 		return null;
@@ -366,16 +387,19 @@ export function TaskSheet({
 	return (
 		<div
 			ref={dialogRef}
-			role="dialog"
-			aria-modal="true"
+			role={overlayProps.role}
+			aria-modal={overlayProps["aria-modal"]}
 			aria-labelledby="task-sheet-title"
 			data-testid="task-sheet"
+			data-dialog-layer={overlayProps["data-dialog-layer"]}
 			// Mobile: bottom-sheet (inset-x-0 bottom-0 max-h-[85vh] rounded-t-[var(--r-default)])
 			// sm+: right-anchored drawer (~360px wide)
 			// @lore The responsive classes implement the design/approved.md Mobile section:
 			// small viewports get a bottom-sheet; desktop gets a right drawer. Both share
 			// the same component — Tailwind responsive prefixes do the layout switching.
-			className="fixed inset-x-0 bottom-0 max-h-[85vh] rounded-t-[var(--r-default)] flex flex-col w-full bg-[var(--surface-container)] border-t border-[var(--border-subtle)] shadow-lg z-50 sm:inset-y-0 sm:right-0 sm:bottom-auto sm:left-auto sm:max-w-[min(640px,90vw)] sm:max-h-screen sm:rounded-none sm:border-t-0 sm:border-l"
+			// @lore AI2: z-50 removed; z-layer now via --z-drawer token in style prop (AC-3).
+			className="fixed inset-x-0 bottom-0 max-h-[85vh] rounded-t-[var(--r-default)] flex flex-col w-full bg-[var(--surface-container)] border-t border-[var(--border-subtle)] shadow-lg sm:inset-y-0 sm:right-0 sm:bottom-auto sm:left-auto sm:max-w-[min(640px,90vw)] sm:max-h-screen sm:rounded-none sm:border-t-0 sm:border-l"
+			style={{ zIndex: overlayProps.style.zIndex }}
 			onKeyDown={handleDialogKeyDown}
 		>
 			{/* Header */}

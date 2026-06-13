@@ -1,19 +1,20 @@
 /**
  * AA2 — RoutineCreateDialog: routine creation flow.
  *
- * Opens as a native <dialog>. Fields: name, description, schedule picker
+ * Opens as a Dialog primitive. Fields: name, description, schedule picker
  * (presets + custom cron), agent select, optional cost cap per run.
- *
- * Follows the BetCreateDialog pattern exactly (JSDOM guard, reset on open,
- * single team auto-resolve, onCreated callback).
  *
  * @lore AA2: SCHEDULE_PRESETS are imported from @hyperidle/shared so the
  * same cron expressions are used across frontend and backend validation.
+ *
+ * @lore AI2: Migrated from native <dialog> + showModal() to Dialog primitive.
+ * isDirty = name or description non-empty. Authoring surface — guards on
+ * dismissal when dirty.
  */
 
-import { Select } from "@hyperidle/design-system";
+import { Dialog, Select } from "@hyperidle/design-system";
 import { SCHEDULE_PRESETS } from "@hyperidle/shared";
-import { type JSX, useEffect, useRef, useState } from "react";
+import { type JSX, useEffect, useState } from "react";
 import { apiFetch } from "../../services/api-fetch.js";
 
 export interface RoutineCreateDialogProps {
@@ -33,8 +34,6 @@ export function RoutineCreateDialog({
 	teams,
 	agents,
 }: RoutineCreateDialogProps): JSX.Element | null {
-	const dialogRef = useRef<HTMLDialogElement>(null);
-
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
 	const [agentId, setAgentId] = useState("");
@@ -52,6 +51,8 @@ export function RoutineCreateDialog({
 	const isCustom = scheduleValue === "custom";
 	const resolvedCron = isCustom ? customCron.trim() : scheduleValue;
 
+	const isDirty = name.trim().length > 0 || description.trim().length > 0;
+
 	// Create button enabled when required fields are filled
 	const canCreate =
 		name.trim().length > 0 &&
@@ -60,13 +61,9 @@ export function RoutineCreateDialog({
 		resolvedCron.trim().length > 0 &&
 		!submitting;
 
-	// Sync the native dialog open/closed state with the `open` prop.
-	// @lore Q3: same JSDOM guard as BetCreateDialog — showModal() is not
-	// implemented in JSDOM so we fall back to setAttribute("open", "").
+	// Reset form state on open.
 	useEffect(() => {
-		if (!dialogRef.current) return;
 		if (open) {
-			// Reset form state on open
 			setName("");
 			setDescription("");
 			setAgentId("");
@@ -77,19 +74,6 @@ export function RoutineCreateDialog({
 			setCostCapMonthlyRaw("");
 			setError(null);
 			setSubmitting(false);
-			if (!dialogRef.current.open) {
-				if (typeof dialogRef.current.showModal === "function") {
-					dialogRef.current.showModal();
-				} else {
-					dialogRef.current.setAttribute("open", "");
-				}
-			}
-		} else if (dialogRef.current.open) {
-			if (typeof dialogRef.current.close === "function") {
-				dialogRef.current.close();
-			} else {
-				dialogRef.current.removeAttribute("open");
-			}
 		}
 	}, [open]);
 
@@ -138,182 +122,178 @@ export function RoutineCreateDialog({
 		onClose();
 	};
 
-	const handleCancel = (): void => {
-		if (submitting) return;
-		onClose();
-	};
-
 	return (
-		<dialog ref={dialogRef} aria-modal="true" aria-label="Create new routine">
-			{open && (
-				<div className="p-[18px] flex flex-col gap-[9px] min-w-[320px] max-w-[480px] w-full">
-					<h2 className="text-sm font-heading font-semibold uppercase tracking-wider">
-						New routine
-					</h2>
+		<Dialog
+			open={open}
+			onClose={onClose}
+			title="New routine"
+			isDirty={isDirty}
+			size="md"
+			footer={
+				<>
+					<button
+						type="button"
+						className="btn btn-sm btn-ghost min-h-[44px]"
+						onClick={onClose}
+						disabled={submitting}
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						className="btn btn-sm btn-primary min-h-[44px]"
+						onClick={() => void handleSubmit()}
+						disabled={!canCreate}
+					>
+						{submitting ? "…" : "Create"}
+					</button>
+				</>
+			}
+		>
+			<div className="flex flex-col gap-[9px]">
+				{/* Name field */}
+				<label className="flex flex-col gap-[3px]">
+					<span className="text-xs text-[var(--text-tertiary)]">
+						Name <span aria-hidden>(required)</span>
+					</span>
+					<input
+						type="text"
+						className="input input-bordered input-sm text-base w-full"
+						value={name}
+						onChange={(e) => setName(e.target.value)}
+						placeholder="Daily digest"
+						disabled={submitting}
+						aria-label="Name"
+					/>
+				</label>
 
-					{/* Name field */}
-					<label className="flex flex-col gap-[3px]">
+				{/* Description field */}
+				<label className="flex flex-col gap-[3px]">
+					<span className="text-xs text-[var(--text-tertiary)]">Description</span>
+					<textarea
+						className="textarea textarea-bordered textarea-sm text-base w-full"
+						value={description}
+						onChange={(e) => setDescription(e.target.value)}
+						placeholder="Description of what this routine does"
+						disabled={submitting}
+						rows={2}
+					/>
+				</label>
+
+				{/* Team select — only shown when multiple teams */}
+				{teams.length > 1 && (
+					<label htmlFor="routine-create-team" className="flex flex-col gap-[3px]">
 						<span className="text-xs text-[var(--text-tertiary)]">
-							Name <span aria-hidden>(required)</span>
+							Team <span aria-hidden>(required)</span>
 						</span>
+						<Select
+							id="routine-create-team"
+							size="sm"
+							className="w-full"
+							value={teamId}
+							onChange={(e) => setTeamId(e.target.value)}
+							disabled={submitting}
+							placeholder="Select a team…"
+							options={teams.map((t) => ({ value: t.id, label: t.name }))}
+						/>
+					</label>
+				)}
+
+				{/* Agent select */}
+				<label htmlFor="routine-create-agent" className="flex flex-col gap-[3px]">
+					<span className="text-xs text-[var(--text-tertiary)]">
+						Agent <span aria-hidden>(required)</span>
+					</span>
+					<Select
+						id="routine-create-agent"
+						size="sm"
+						className="w-full"
+						value={agentId}
+						onChange={(e) => setAgentId(e.target.value)}
+						disabled={submitting}
+						aria-label="Agent"
+						placeholder="Select an agent…"
+						options={agents.map((a) => ({ value: a.id, label: a.name }))}
+					/>
+				</label>
+
+				{/* Schedule picker */}
+				<label htmlFor="routine-create-schedule" className="flex flex-col gap-[3px]">
+					<span className="text-xs text-[var(--text-tertiary)]">
+						Schedule <span aria-hidden>(required)</span>
+					</span>
+					<Select
+						id="routine-create-schedule"
+						size="sm"
+						className="w-full"
+						value={scheduleValue}
+						onChange={(e) => setScheduleValue(e.target.value)}
+						disabled={submitting}
+						aria-label="Schedule"
+						options={[
+							...SCHEDULE_PRESETS.map((preset) => ({ value: preset.cron, label: preset.label })),
+							{ value: "custom", label: "Custom…" },
+						]}
+					/>
+				</label>
+
+				{/* Custom cron input — shown only when "Custom..." selected */}
+				{isCustom && (
+					<label className="flex flex-col gap-[3px]">
+						<span className="text-xs text-[var(--text-tertiary)]">Custom cron expression</span>
 						<input
 							type="text"
-							className="input input-bordered input-sm text-base w-full"
-							value={name}
-							onChange={(e) => setName(e.target.value)}
-							placeholder="Daily digest"
+							className="input input-bordered input-sm font-mono text-base w-full"
+							value={customCron}
+							onChange={(e) => setCustomCron(e.target.value)}
+							placeholder="cron: * * * * *"
 							disabled={submitting}
-							aria-label="Name"
 						/>
 					</label>
+				)}
 
-					{/* Description field */}
-					<label className="flex flex-col gap-[3px]">
-						<span className="text-xs text-[var(--text-tertiary)]">Description</span>
-						<textarea
-							className="textarea textarea-bordered textarea-sm text-base w-full"
-							value={description}
-							onChange={(e) => setDescription(e.target.value)}
-							placeholder="Description of what this routine does"
-							disabled={submitting}
-							rows={2}
-						/>
-					</label>
+				{/* Cost cap per run */}
+				<label className="flex flex-col gap-[3px]">
+					<span className="text-xs text-[var(--text-tertiary)]">
+						Cost cap per run (USD, optional)
+					</span>
+					<input
+						type="number"
+						className="input input-bordered input-sm text-base w-full"
+						value={costCapRaw}
+						onChange={(e) => setCostCapRaw(e.target.value)}
+						placeholder="e.g. 0.50"
+						disabled={submitting}
+						min="0"
+						step="0.01"
+						aria-label="Cost cap per run"
+					/>
+				</label>
 
-					{/* Team select — only shown when multiple teams */}
-					{teams.length > 1 && (
-						<label htmlFor="routine-create-team" className="flex flex-col gap-[3px]">
-							<span className="text-xs text-[var(--text-tertiary)]">
-								Team <span aria-hidden>(required)</span>
-							</span>
-							<Select
-								id="routine-create-team"
-								size="sm"
-								className="w-full"
-								value={teamId}
-								onChange={(e) => setTeamId(e.target.value)}
-								disabled={submitting}
-								placeholder="Select a team…"
-								options={teams.map((t) => ({ value: t.id, label: t.name }))}
-							/>
-						</label>
-					)}
+				{/* AA3: Monthly cost cap */}
+				<label className="flex flex-col gap-[3px]">
+					<span className="text-xs text-[var(--text-tertiary)]">
+						Monthly cost cap (USD, optional)
+					</span>
+					<input
+						type="number"
+						className="input input-bordered input-sm text-base w-full"
+						value={costCapMonthlyRaw}
+						onChange={(e) => setCostCapMonthlyRaw(e.target.value)}
+						placeholder="e.g. 25.00"
+						disabled={submitting}
+						min="0"
+						step="0.01"
+						aria-label="Monthly cost cap"
+					/>
+				</label>
 
-					{/* Agent select */}
-					<label htmlFor="routine-create-agent" className="flex flex-col gap-[3px]">
-						<span className="text-xs text-[var(--text-tertiary)]">
-							Agent <span aria-hidden>(required)</span>
-						</span>
-						<Select
-							id="routine-create-agent"
-							size="sm"
-							className="w-full"
-							value={agentId}
-							onChange={(e) => setAgentId(e.target.value)}
-							disabled={submitting}
-							aria-label="Agent"
-							placeholder="Select an agent…"
-							options={agents.map((a) => ({ value: a.id, label: a.name }))}
-						/>
-					</label>
-
-					{/* Schedule picker */}
-					<label htmlFor="routine-create-schedule" className="flex flex-col gap-[3px]">
-						<span className="text-xs text-[var(--text-tertiary)]">
-							Schedule <span aria-hidden>(required)</span>
-						</span>
-						<Select
-							id="routine-create-schedule"
-							size="sm"
-							className="w-full"
-							value={scheduleValue}
-							onChange={(e) => setScheduleValue(e.target.value)}
-							disabled={submitting}
-							aria-label="Schedule"
-							options={[
-								...SCHEDULE_PRESETS.map((preset) => ({ value: preset.cron, label: preset.label })),
-								{ value: "custom", label: "Custom…" },
-							]}
-						/>
-					</label>
-
-					{/* Custom cron input — shown only when "Custom..." selected */}
-					{isCustom && (
-						<label className="flex flex-col gap-[3px]">
-							<span className="text-xs text-[var(--text-tertiary)]">Custom cron expression</span>
-							<input
-								type="text"
-								className="input input-bordered input-sm font-mono text-base w-full"
-								value={customCron}
-								onChange={(e) => setCustomCron(e.target.value)}
-								placeholder="cron: * * * * *"
-								disabled={submitting}
-							/>
-						</label>
-					)}
-
-					{/* Cost cap per run */}
-					<label className="flex flex-col gap-[3px]">
-						<span className="text-xs text-[var(--text-tertiary)]">
-							Cost cap per run (USD, optional)
-						</span>
-						<input
-							type="number"
-							className="input input-bordered input-sm text-base w-full"
-							value={costCapRaw}
-							onChange={(e) => setCostCapRaw(e.target.value)}
-							placeholder="e.g. 0.50"
-							disabled={submitting}
-							min="0"
-							step="0.01"
-							aria-label="Cost cap per run"
-						/>
-					</label>
-
-					{/* AA3: Monthly cost cap */}
-					<label className="flex flex-col gap-[3px]">
-						<span className="text-xs text-[var(--text-tertiary)]">
-							Monthly cost cap (USD, optional)
-						</span>
-						<input
-							type="number"
-							className="input input-bordered input-sm text-base w-full"
-							value={costCapMonthlyRaw}
-							onChange={(e) => setCostCapMonthlyRaw(e.target.value)}
-							placeholder="e.g. 25.00"
-							disabled={submitting}
-							min="0"
-							step="0.01"
-							aria-label="Monthly cost cap"
-						/>
-					</label>
-
-					{error && (
-						<p role="alert" className="text-xs text-error">
-							{error}
-						</p>
-					)}
-
-					<div className="flex gap-[9px] justify-end mt-[9px]">
-						<button
-							type="button"
-							className="btn btn-sm btn-ghost min-h-[44px]"
-							onClick={handleCancel}
-							disabled={submitting}
-						>
-							Cancel
-						</button>
-						<button
-							type="button"
-							className="btn btn-sm btn-primary min-h-[44px]"
-							onClick={() => void handleSubmit()}
-							disabled={!canCreate}
-						>
-							{submitting ? "…" : "Create"}
-						</button>
-					</div>
-				</div>
-			)}
-		</dialog>
+				{error && (
+					<p role="alert" className="text-xs text-error">
+						{error}
+					</p>
+				)}
+			</div>
+		</Dialog>
 	);
 }

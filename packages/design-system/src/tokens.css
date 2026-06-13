@@ -116,6 +116,19 @@
 		 * See L11 plan §5.7 lore.
 		 */
 		--card-max-h: 70vh;
+
+		/* AI2 — overlay z-layer scale. Single source of truth for every overlay surface.
+		   ⚠️ AI1 overlap: this block is added to tokens.css concurrently with AI1's token work.
+		   Do not reorder or renumber; surfaces reference these by name (var(--z-*)).
+		   --z-toast sits above the modal + scrim — toasts portal into #overlay-root
+		   (a body sibling never inerted) so they stay clickable over open modals. */
+		--z-base: 0;
+		--z-sticky: 10;
+		--z-drawer: 30;
+		--z-overlay: 40;
+		--z-scrim: 50;
+		--z-dialog: 60;
+		--z-toast: 70;
 	}
 
 	/* ── Mobile override: tighter card height cap on small viewports ── */
@@ -168,6 +181,10 @@
 		--shadow-subtle: 0 1px 4px rgba(44, 36, 26, 0.06);
 		--shadow-default: 0 4px 12px rgba(44, 36, 26, 0.08);
 		--shadow-elevated: 0 8px 24px rgba(44, 36, 26, 0.1);
+
+		/* AI2 — modal scrim color. Placeholder token; AI6 will derive via color-mix.
+		   AI6: candidate for color-mix(in oklab, var(--text-primary) 45%, transparent) */
+		--scrim: rgba(26, 21, 16, 0.45);
 
 		color-scheme: light;
 	}
@@ -231,6 +248,10 @@
 		--shadow-subtle: 0 1px 4px rgba(0, 0, 0, 0.3);
 		--shadow-default: 0 4px 12px rgba(0, 0, 0, 0.4);
 		--shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+		/* AI2 — dark scrim. Warm family, higher opacity so lighter dark surfaces read as "behind".
+		   AQ-009: no pure black. AI6: candidate for color-mix derivation. */
+		--scrim: rgba(20, 16, 12, 0.62);
 
 		color-scheme: dark;
 	}
@@ -313,6 +334,41 @@
 	.skeleton {
 		/* biome-ignore lint/complexity/noImportantStyles: WCAG SC 2.3.3 — reduced-motion override must beat Tailwind's arbitrary-value `animate-[skeleton-pulse]` utility, which carries equal specificity. !important is the canonical mechanism (MDN, Material 3 motion). */
 		animation: none !important;
+	}
+}
+
+/*
+ * AI2 — Dialog mobile bottom-sheet (AC-4).
+ *
+ * At ≤480px, the Dialog box transitions from centered desktop positioning to a
+ * bottom-anchored full-width sheet. The overlay wrapper aligns to the bottom;
+ * the box stretches full-width with rounded top corners only.
+ *
+ * @lore AI2: Dialog.tsx uses inline styles for the overlay and box geometry.
+ * Inline styles have higher specificity than any CSS selector. However, CSS
+ * `!important` declarations override inline styles per the CSS cascade spec
+ * (Cascading Order §6.4 — !important > inline style). This is the canonical
+ * mechanism for design-system overrides of component inline geometry.
+ *
+ * The attributes [data-dialog-layer] and [data-dialog-box] are stable —
+ * they are emitted by useDialogBehavior.getOverlayProps() and Dialog.tsx
+ * respectively (AI2 contract, documented in architecture.md).
+ */
+@media (max-width: 480px) {
+	[data-dialog-layer] {
+		/* biome-ignore lint/complexity/noImportantStyles: Override inline style via !important (CSS cascade §6.4). Required to switch desktop center-positioning to mobile bottom-anchoring. */
+		align-items: flex-end !important;
+		/* biome-ignore lint/complexity/noImportantStyles: Same rationale as align-items override above. */
+		padding: 0 !important;
+	}
+
+	[data-dialog-box] {
+		/* biome-ignore lint/complexity/noImportantStyles: Override inline maxWidth set to SIZE_MAX_WIDTH[size] (460/560/720px) — must stretch full-width on mobile. */
+		max-width: 100% !important;
+		/* biome-ignore lint/complexity/noImportantStyles: Override inline borderRadius to round top corners only (bottom-sheet UX). */
+		border-radius: var(--r-default) var(--r-default) 0 0 !important;
+		/* biome-ignore lint/complexity/noImportantStyles: Override inline maxHeight for the sheet variant (85vh matches approved.md mobile spec). */
+		max-height: 85vh !important;
 	}
 }
 

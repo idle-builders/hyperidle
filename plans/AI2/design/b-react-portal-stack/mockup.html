@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Variant B — Portal stack</title>
+<link rel="stylesheet" href="../../../../packages/design-system/src/tokens.css" />
+<style>
+  body { margin:0; font-family: var(--font-sans, system-ui); background: var(--surface-container,#ede7db); color: var(--text-primary,#2c241a); }
+  .stage{ position:relative; height:640px; overflow:hidden; }
+  /* faux app content behind */
+  .app-bg{ position:absolute; inset:0; padding:24px; opacity:0.5; }
+  .app-bg h1{ font-size:18px; } .app-bg p{ font-size:13px; color:var(--text-secondary); max-width:420px; }
+  .scrim{ position:absolute; inset:0; background:rgba(26,21,16,0.45); }
+  .modal-box{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    background: var(--surface-elevated,#fff); border-radius:var(--r-default,16px);
+    box-shadow: var(--shadow-elevated,0 8px 24px rgba(44,36,26,0.1)); width:520px; max-width:92%; padding:18px;
+  }
+  .hdr{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:18px; }
+  .title{ font-size:15px; font-weight:600; margin:0; }
+  .x{ width:28px;height:28px;border:none;background:transparent;color:var(--text-secondary);cursor:pointer;border-radius:9999px; }
+  .lbl{ font-size:12px; color:var(--text-tertiary); display:block; margin-bottom:4px; }
+  textarea{ width:100%; box-sizing:border-box; font-size:16px; font-family:inherit; color:var(--text-primary); background:var(--surface-page,#f5f0e6); border:1px solid var(--border-default,#d5cbb8); border-radius:var(--r-subtle,10px); padding:8px 10px; min-height:80px; }
+  .guard{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:18px; padding:12px; border-top:1px solid var(--border-subtle); background:rgba(217,119,6,0.06); border-radius:var(--r-subtle); }
+  .guard .msg{ font-size:13px; color:var(--text-secondary); }
+  .btn{ font-size:13px; font-weight:500; border-radius:9999px; padding:7px 16px; border:none; cursor:pointer; }
+  .btn-ghost{ background:transparent; color:var(--text-secondary); } .btn-danger{ background:var(--status-error,#dc4a3a); color:#fff; }
+  /* the z-token scale, embodied: a notification popover sits at --z-overlay BELOW the modal scrim --z-scrim */
+  .popover{ position:absolute; bottom:16px; left:16px; width:240px; background:var(--surface-elevated); border:1px solid var(--border-default,#d5cbb8); border-radius:var(--r-subtle); box-shadow:var(--shadow-elevated); padding:12px; }
+  .popover .t{ font-size:12px; font-weight:600; } .popover .r{ font-size:12px; color:var(--text-secondary); margin-top:6px; }
+  .scale{ position:absolute; right:16px; top:16px; width:230px; background:var(--surface-elevated); border:1px solid var(--border-subtle); border-radius:var(--r-subtle); padding:12px; font-family:var(--font-mono); font-size:11px; line-height:1.7; color:var(--text-secondary); box-shadow:var(--shadow-elevated); }
+  .scale b{ color:var(--accent-primary); }
+  .toast{ position:absolute; left:50%; bottom:16px; transform:translateX(-50%); background:var(--surface-elevated); border-left:1.5px solid var(--accent-primary); border-radius:var(--r-subtle); box-shadow:var(--shadow-elevated); padding:10px 14px; font-size:13px; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <!-- z-base -->
+    <div class="app-bg"><h1>Auth migration · portfolio</h1><p>This content is behind the scrim and inert while a modal is open. Everything renders into one #overlay-root and stacks by a named z-token.</p></div>
+
+    <!-- z-overlay (40): a non-modal popover, correctly BELOW the modal scrim -->
+    <div class="popover"><div class="t">Notifications · z-overlay (40)</div><div class="r">Atlas finished “passkey rollout” review.</div></div>
+
+    <!-- z-scrim (50) -->
+    <div class="scrim"></div>
+
+    <!-- z-dialog (60): the modal, dirty → guard strip -->
+    <div class="modal-box" role="dialog" aria-modal="true" aria-label="New knowledge item">
+      <div class="hdr"><h2 class="title">New knowledge item</h2><button class="x">✕</button></div>
+      <span class="lbl">Body (required)</span>
+      <textarea>Passkey enrollment must precede password-reset deprecation — staggered by team to avoid lockout.</textarea>
+      <div class="guard">
+        <span class="msg">Discard your changes?</span>
+        <span><button class="btn btn-ghost">Keep editing</button><button class="btn btn-danger">Discard</button></span>
+      </div>
+    </div>
+
+    <!-- the scale itself, the deliverable -->
+    <div class="scale">
+      --z-drawer:&nbsp;&nbsp;30<br>
+      --z-overlay:&nbsp;40&nbsp;&larr; popover<br>
+      --z-scrim:&nbsp;&nbsp;<b>50</b><br>
+      --z-dialog:&nbsp;<b>60</b>&nbsp;&larr; this<br>
+      --z-toast:&nbsp;&nbsp;<b>70</b>&nbsp;&larr; toast
+    </div>
+
+    <!-- z-toast (70): above even the modal -->
+    <div class="toast">Saved to Shared knowledge · z-toast (70)</div>
+  </div>
+</body>
+</html>

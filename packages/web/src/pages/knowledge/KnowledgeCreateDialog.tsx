@@ -1,8 +1,7 @@
 /**
  * KnowledgeCreateDialog — Q2 / AD6 creation flow.
  *
- * Opens as a native <dialog> (same pattern as ConsequencePreviewDialog /
- * AppetiteDialog in WorkBet.tsx). Title + body required; scopeKind defaults
+ * Opens as a Dialog primitive. Title + body required; scopeKind defaults
  * to "factory" (Shared). When a lockedScopeKind is provided the scope is
  * displayed as a read-only Tag and the pill picker is hidden (bet/task
  * contextual creation).
@@ -13,14 +12,18 @@
  * scopeKind values: Shared → factory | Team → team (disabled without teamId)
  * | Private → user.
  *
- * @lore Q2 reviewer warning: mobile dialog sizing — the dialog container uses
- * min-w-[320px] max-w-[480px] w-full so it never overflows on small screens.
- * Inputs are text-base (16px) to prevent iOS Safari zoom on focus.
+ * @lore Q2 reviewer warning: mobile dialog sizing — Dialog primitive handles
+ * this via its built-in mobile bottom-sheet.
+ *
+ * @lore AI2: Migrated from native <dialog> + showModal() JSDOM boilerplate to
+ * Dialog primitive. isDirty = title or body non-empty (authoring surface, guards).
+ * Title is now 15px/600 (--text-base/--fw-semibold) via Dialog chrome — the
+ * old font-heading + text-sm h2 is removed (fixes off-scale 14px heading).
  */
 
-import { BodyEditor } from "@hyperidle/design-system";
+import { BodyEditor, Dialog } from "@hyperidle/design-system";
 import type { ScopeKind } from "@hyperidle/shared";
-import { type JSX, useEffect, useRef, useState } from "react";
+import { type JSX, useState } from "react";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
 
 import { apiFetch } from "../../services/api-fetch.js";
@@ -54,7 +57,6 @@ export function KnowledgeCreateDialog({
 	lockedScopeKind,
 	lockedScopeId,
 }: KnowledgeCreateDialogProps): JSX.Element | null {
-	const dialogRef = useRef<HTMLDialogElement>(null);
 	const { user } = useCurrentUser();
 
 	const [title, setTitle] = useState("");
@@ -73,35 +75,8 @@ export function KnowledgeCreateDialog({
 	// @lore AD6: CurrentUser does not yet include teamId — team feature pending.
 	// Until extended, team scope is always disabled in the dialog.
 	const hasTeam: boolean = false;
+	const isDirty = title.trim().length > 0 || body.trim().length > 0;
 	const canCreate = title.trim().length > 0 && body.trim().length > 0 && !submitting;
-
-	// Sync the native dialog open/closed state with the `open` prop.
-	// @lore Q2: same JSDOM guard as ConsequencePreviewDialog — showModal() is not
-	// implemented in JSDOM so we fall back to setAttribute("open", "").
-	useEffect(() => {
-		if (!dialogRef.current) return;
-		if (open) {
-			// Reset form state on open.
-			setTitle("");
-			setBody("");
-			setSelectedScope(INITIAL_SCOPE_OPTION);
-			setError(null);
-			setSubmitting(false);
-			if (!dialogRef.current.open) {
-				if (typeof dialogRef.current.showModal === "function") {
-					dialogRef.current.showModal();
-				} else {
-					dialogRef.current.setAttribute("open", "");
-				}
-			}
-		} else if (dialogRef.current.open) {
-			if (typeof dialogRef.current.close === "function") {
-				dialogRef.current.close();
-			} else {
-				dialogRef.current.removeAttribute("open");
-			}
-		}
-	}, [open]);
 
 	const handleSubmit = async (): Promise<void> => {
 		const trimmedTitle = title.trim();
@@ -138,22 +113,43 @@ export function KnowledgeCreateDialog({
 		}
 
 		setSubmitting(false);
+		// Reset form state after successful creation
+		setTitle("");
+		setBody("");
+		setSelectedScope(INITIAL_SCOPE_OPTION);
 		onCreated();
 		onClose();
 	};
 
-	const handleCancel = (): void => {
-		if (submitting) return;
-		onClose();
-	};
-
 	return (
-		<dialog ref={dialogRef} aria-modal="true" aria-label="New knowledge item">
-			<div className="p-4 flex flex-col gap-3 min-w-[320px] max-w-[480px] w-full">
-				<h2 className="text-sm font-heading font-semibold uppercase tracking-wider">
-					New knowledge item
-				</h2>
-
+		<Dialog
+			open={open}
+			onClose={onClose}
+			title="New knowledge item"
+			isDirty={isDirty}
+			size="md"
+			footer={
+				<>
+					<button
+						type="button"
+						className="btn btn-xs btn-ghost"
+						onClick={onClose}
+						disabled={submitting}
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						className="btn btn-xs btn-primary"
+						onClick={() => void handleSubmit()}
+						disabled={!canCreate}
+					>
+						{submitting ? "…" : "Create"}
+					</button>
+				</>
+			}
+		>
+			<div className="flex flex-col gap-3">
 				{/* Title input */}
 				<label className="flex flex-col gap-1">
 					<span className="text-xs text-[var(--text-tertiary)]">
@@ -170,21 +166,17 @@ export function KnowledgeCreateDialog({
 					/>
 				</label>
 
-				{/* Body field — T2: replaced textarea with BodyEditor */}
-				{/* @lore T2: <div> instead of <label> — BodyEditor renders a ProseMirror contenteditable
-				    which is not a labelable element; <label> with no associated control triggers
-				    lint/a11y/noLabelWithoutControl. The inner ProseMirror sets its own aria role. */}
+				{/* Body — BodyEditor (TipTap WYSIWYG, GFM markdown) */}
 				<div className="flex flex-col gap-1">
 					<span className="text-xs text-[var(--text-tertiary)]">
 						Body <span aria-hidden>(required)</span>
 					</span>
 					<BodyEditor
-						initialContent=""
-						onChange={(md: string) => setBody(md)}
+						initialContent={body}
+						onChange={setBody}
 						placeholder="Describe it in markdown..."
-						variant="full"
-						minHeight="128px"
 						editable={!submitting}
+						minHeight="120px"
 					/>
 				</div>
 
@@ -240,26 +232,7 @@ export function KnowledgeCreateDialog({
 						{error}
 					</p>
 				)}
-
-				<div className="flex gap-2 justify-end">
-					<button
-						type="button"
-						className="btn btn-xs btn-ghost"
-						onClick={handleCancel}
-						disabled={submitting}
-					>
-						Cancel
-					</button>
-					<button
-						type="button"
-						className="btn btn-xs btn-primary"
-						onClick={() => void handleSubmit()}
-						disabled={!canCreate}
-					>
-						{submitting ? "…" : "Create"}
-					</button>
-				</div>
 			</div>
-		</dialog>
+		</Dialog>
 	);
 }
