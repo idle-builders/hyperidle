@@ -30,20 +30,21 @@ import { SettingsModels } from "../SettingsModels.js";
 // Mock data
 // ---------------------------------------------------------------------------
 
+// AH2: Updated mock to use current catalog IDs (stale -20250514 ids removed in task 1)
 const MOCK_GATEWAY_CONFIG = {
 	reasoning: {
 		provider: "anthropic",
-		model: "claude-opus-4-20250514",
+		model: "claude-opus-4-8",
 		hasApiKey: false,
 	},
 	workhorse: {
 		provider: "anthropic",
-		model: "claude-sonnet-4-20250514",
+		model: "claude-sonnet-4-6",
 		hasApiKey: false,
 	},
 	fast: {
 		provider: "anthropic",
-		model: "claude-haiku-3-5-20241022",
+		model: "claude-haiku-4-5",
 		hasApiKey: false,
 	},
 };
@@ -51,7 +52,7 @@ const MOCK_GATEWAY_CONFIG = {
 const MOCK_GATEWAY_WITH_OPENROUTER = {
 	reasoning: {
 		provider: "anthropic",
-		model: "claude-opus-4-20250514",
+		model: "claude-opus-4-8",
 		hasApiKey: false,
 	},
 	workhorse: {
@@ -61,7 +62,7 @@ const MOCK_GATEWAY_WITH_OPENROUTER = {
 	},
 	fast: {
 		provider: "anthropic",
-		model: "claude-haiku-3-5-20241022",
+		model: "claude-haiku-4-5",
 		hasApiKey: false,
 	},
 };
@@ -126,14 +127,15 @@ describe("X4 AC: SettingsModels renders 3 tier rows", () => {
 	});
 
 	it("renders model name for each tier", async () => {
+		// AH2: Updated to current catalog IDs — stale -20250514 ids removed
 		render(<SettingsModels />);
 
 		await waitFor(() => {
 			// Model names appear as option text in the select dropdowns —
 			// use getAllByText since each model name may appear in multiple option elements.
-			expect(screen.getAllByText(/claude-opus-4-20250514/i).length).toBeGreaterThanOrEqual(1);
-			expect(screen.getAllByText(/claude-sonnet-4-20250514/i).length).toBeGreaterThanOrEqual(1);
-			expect(screen.getAllByText(/claude-haiku-3-5-20241022/i).length).toBeGreaterThanOrEqual(1);
+			expect(screen.getAllByText(/claude-opus-4-8/i).length).toBeGreaterThanOrEqual(1);
+			expect(screen.getAllByText(/claude-sonnet-4-6/i).length).toBeGreaterThanOrEqual(1);
+			expect(screen.getAllByText(/claude-haiku-4-5/i).length).toBeGreaterThanOrEqual(1);
 		});
 	});
 });

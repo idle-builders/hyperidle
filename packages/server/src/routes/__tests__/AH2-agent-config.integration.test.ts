@@ -15,7 +15,11 @@
 
 import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { AdapterPool } from "../../harness/adapter-pool.js";
+import { BuiltinHarnessAdapter } from "../../harness/builtin-harness-adapter.js";
+import { ClaudeAgentSdkAdapter } from "../../harness/claude-agent-sdk-adapter.js";
 import { test } from "../../test-fixtures.js";
+import { createTestApp } from "../../test-utils.js";
 
 const TEST_API_KEY = "test-key-ah2-agents";
 const NOW = new Date().toISOString();
@@ -24,8 +28,30 @@ function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
 }
 
+/** Minimal adapter pool for AH2 validation tests (builtin + claude-code only). */
+function makeAH2Pool(): AdapterPool {
+	const pool = new AdapterPool();
+	pool.register("local-builtin", new BuiltinHarnessAdapter(), {
+		name: "Built-in Harness",
+		kind: "local",
+		type: "builtin",
+		modelProviders: ["anthropic", "openrouter", "openai-compatible"],
+		maxConcurrent: 4,
+	});
+	pool.register("local-claude-code", new ClaudeAgentSdkAdapter(), {
+		name: "Claude Code",
+		kind: "local",
+		type: "claude-code",
+		modelProviders: ["anthropic"],
+		maxConcurrent: 4,
+	});
+	return pool;
+}
+
 async function seedPrereqs(db: HyperIdleDb) {
-	await db.insert(teams).values({ id: "ah2-team", name: "AH2 Team", phase: "build", createdAt: NOW });
+	await db
+		.insert(teams)
+		.values({ id: "ah2-team", name: "AH2 Team", phase: "build", createdAt: NOW });
 	await db.insert(teamMembers).values({
 		id: "ah2-tm",
 		teamId: "ah2-team",
@@ -58,8 +84,9 @@ describe("AH2 AC1: per-agent model — distinct models on different agents", () 
 		vi.unstubAllEnvs();
 	});
 
-	test("POST creates agent with modelId and modelProvider", async ({ db, app }) => {
+	test("POST creates agent with modelId and modelProvider", async ({ db, eventBus }) => {
 		await seedPrereqs(db);
+		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 
 		const res = await app.request("/api/agents", {
 			method: "POST",
@@ -79,8 +106,9 @@ describe("AH2 AC1: per-agent model — distinct models on different agents", () 
 		expect(body.modelProvider).toBe("anthropic");
 	});
 
-	test("two agents can have different modelId values", async ({ db, app }) => {
+	test("two agents can have different modelId values", async ({ db, eventBus }) => {
 		await seedPrereqs(db);
+		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 
 		const res1 = await app.request("/api/agents", {
 			method: "POST",
@@ -116,7 +144,10 @@ describe("AH2 AC1: per-agent model — distinct models on different agents", () 
 		expect(a1.modelId).not.toBe(a2.modelId);
 	});
 
-	test("GET /api/agents response includes modelId and modelProvider fields", async ({ db, app }) => {
+	test("GET /api/agents response includes modelId and modelProvider fields", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedPrereqs(db);
 		await db.insert(users).values({
 			id: "ah2-builder",
@@ -131,6 +162,7 @@ describe("AH2 AC1: per-agent model — distinct models on different agents", () 
 			createdAt: NOW,
 		});
 
+		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 		const res = await app.request("/api/agents", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 
@@ -138,11 +170,13 @@ describe("AH2 AC1: per-agent model — distinct models on different agents", () 
 		const agent = body.find((a) => a.id === "ah2-builder");
 		expect(agent).toBeDefined();
 		// Fields must be present in response (even if null before migration — post-migration they'll be set)
-		expect(Object.prototype.hasOwnProperty.call(agent, "modelId")).toBe(true);
-		expect(Object.prototype.hasOwnProperty.call(agent, "modelProvider")).toBe(true);
+		// biome-ignore lint/style/noNonNullAssertion: asserted defined above
+		expect(Object.hasOwn(agent!, "modelId")).toBe(true);
+		// biome-ignore lint/style/noNonNullAssertion: asserted defined above
+		expect(Object.hasOwn(agent!, "modelProvider")).toBe(true);
 	});
 
-	test("PATCH updates modelId on existing agent", async ({ db, app }) => {
+	test("PATCH updates modelId on existing agent", async ({ db, eventBus }) => {
 		await seedPrereqs(db);
 		await db.insert(users).values({
 			id: "ah2-patchable",
@@ -155,6 +189,7 @@ describe("AH2 AC1: per-agent model — distinct models on different agents", () 
 			createdAt: NOW,
 		});
 
+		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 		const res = await app.request("/api/agents/ah2-patchable", {
 			method: "PATCH",
 			headers: authHeaders(),
@@ -180,8 +215,12 @@ describe("AH2 AC2: unknown harness rejected", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("POST with unregistered harnessType returns 422 UNKNOWN_HARNESS", async ({ db, app }) => {
+	test("POST with unregistered harnessType returns 422 UNKNOWN_HARNESS", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedPrereqs(db);
+		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 
 		const res = await app.request("/api/agents", {
 			method: "POST",
@@ -200,7 +239,10 @@ describe("AH2 AC2: unknown harness rejected", () => {
 		expect(body.code).toBe("UNKNOWN_HARNESS");
 	});
 
-	test("PATCH with unregistered harnessType returns 422 UNKNOWN_HARNESS", async ({ db, app }) => {
+	test("PATCH with unregistered harnessType returns 422 UNKNOWN_HARNESS", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedPrereqs(db);
 		await db.insert(users).values({
 			id: "ah2-harness-patch",
@@ -213,6 +255,7 @@ describe("AH2 AC2: unknown harness rejected", () => {
 			createdAt: NOW,
 		});
 
+		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 		const res = await app.request("/api/agents/ah2-harness-patch", {
 			method: "PATCH",
 			headers: authHeaders(),
@@ -224,8 +267,12 @@ describe("AH2 AC2: unknown harness rejected", () => {
 		expect(body.code).toBe("UNKNOWN_HARNESS");
 	});
 
-	test("POST with registered harnessType 'builtin' succeeds (200/201)", async ({ db, app }) => {
+	test("POST with registered harnessType 'builtin' succeeds (200/201)", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedPrereqs(db);
+		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 
 		const res = await app.request("/api/agents", {
 			method: "POST",
@@ -242,8 +289,9 @@ describe("AH2 AC2: unknown harness rejected", () => {
 		expect(res.status).toBe(201);
 	});
 
-	test("POST with unknown anthropic model returns 422 UNKNOWN_MODEL", async ({ db, app }) => {
+	test("POST with unknown anthropic model returns 422 UNKNOWN_MODEL", async ({ db, eventBus }) => {
 		await seedPrereqs(db);
+		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 
 		const res = await app.request("/api/agents", {
 			method: "POST",
@@ -278,9 +326,10 @@ describe("AH2 AC2b: cross-axis harness↔provider rejection", () => {
 
 	test("POST with claude-code harness + openrouter provider returns 422 INCOMPATIBLE_HARNESS_MODEL", async ({
 		db,
-		app,
+		eventBus,
 	}) => {
 		await seedPrereqs(db);
+		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 
 		const res = await app.request("/api/agents", {
 			method: "POST",
@@ -301,9 +350,10 @@ describe("AH2 AC2b: cross-axis harness↔provider rejection", () => {
 
 	test("POST with builtin harness + openrouter provider succeeds (builtin is multi-provider)", async ({
 		db,
-		app,
+		eventBus,
 	}) => {
 		await seedPrereqs(db);
+		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 
 		const res = await app.request("/api/agents", {
 			method: "POST",
@@ -322,9 +372,10 @@ describe("AH2 AC2b: cross-axis harness↔provider rejection", () => {
 
 	test("PATCH that flips only modelProvider to incompatible value returns 422 INCOMPATIBLE_HARNESS_MODEL", async ({
 		db,
-		app,
+		eventBus,
 	}) => {
 		await seedPrereqs(db);
+		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 
 		// Start with claude-code (anthropic-only) + anthropic — valid pair
 		await db.insert(users).values({
@@ -353,9 +404,10 @@ describe("AH2 AC2b: cross-axis harness↔provider rejection", () => {
 
 	test("PATCH to claude-code harness on agent already having openrouter returns 422", async ({
 		db,
-		app,
+		eventBus,
 	}) => {
 		await seedPrereqs(db);
+		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 
 		// Start with builtin + openrouter (valid)
 		await db.insert(users).values({
@@ -403,9 +455,10 @@ describe("AH2 AC2c: per-agent openai-compatible rejected (ARCH-3)", () => {
 
 	test("POST with modelProvider openai-compatible returns 422 UNSUPPORTED_PROVIDER", async ({
 		db,
-		app,
+		eventBus,
 	}) => {
 		await seedPrereqs(db);
+		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 
 		const res = await app.request("/api/agents", {
 			method: "POST",
@@ -426,7 +479,7 @@ describe("AH2 AC2c: per-agent openai-compatible rejected (ARCH-3)", () => {
 
 	test("PATCH with modelProvider openai-compatible returns 422 UNSUPPORTED_PROVIDER", async ({
 		db,
-		app,
+		eventBus,
 	}) => {
 		await seedPrereqs(db);
 		await db.insert(users).values({
@@ -440,6 +493,7 @@ describe("AH2 AC2c: per-agent openai-compatible rejected (ARCH-3)", () => {
 			createdAt: NOW,
 		});
 
+		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 		const res = await app.request("/api/agents/ah2-oai-patch", {
 			method: "PATCH",
 			headers: authHeaders(),
@@ -467,9 +521,10 @@ describe("AH2 AC3: new agents get default model + harness", () => {
 
 	test("POST without explicit model/harness still creates agent with defaults", async ({
 		db,
-		app,
+		eventBus,
 	}) => {
 		await seedPrereqs(db);
+		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 
 		const res = await app.request("/api/agents", {
 			method: "POST",

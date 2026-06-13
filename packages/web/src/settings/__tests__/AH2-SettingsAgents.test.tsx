@@ -171,7 +171,9 @@ describe("AH2 AC2: harness is a constrained <select>, not a text input", () => {
 			const textInputs = screen.queryAllByRole("textbox");
 			// Name input is expected; harness must not be among textboxes
 			const harnessTextInput = textInputs.find(
-				(el) => (el as HTMLInputElement).name === "harnessType" || el.getAttribute("aria-label")?.toLowerCase().includes("harness"),
+				(el) =>
+					(el as HTMLInputElement).name === "harnessType" ||
+					el.getAttribute("aria-label")?.toLowerCase().includes("harness"),
 			);
 			expect(harnessTextInput).toBeUndefined();
 		});
@@ -311,7 +313,10 @@ describe("AH2 DESIGN-1: 422 server error rendered inline (not just toast)", () =
 	it("edit form stays open when 422 is returned (values intact)", async () => {
 		mockFetchHappy({
 			patchStatus: 422,
-			patchBody: { error: "Harness 'ghost' does not support provider 'openrouter'.", code: "INCOMPATIBLE_HARNESS_MODEL" },
+			patchBody: {
+				error: "Harness 'ghost' does not support provider 'openrouter'.",
+				code: "INCOMPATIBLE_HARNESS_MODEL",
+			},
 		});
 
 		const user = userEvent.setup();

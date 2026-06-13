@@ -160,16 +160,17 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 		// SessionConfig (set by the gateway) rather than calling resolveModel.
 		// These tests validate the legacy fallback model strings used when no
 		// resolvedModel is provided (e.g. direct adapter tests without gateway).
+		// AH2: Re-keyed to current catalog IDs.
 		it("maps Reasoning → opus (via legacy fallback)", () => {
-			expect(KNOWN_MODELS.reasoning).toBe("claude-opus-4-20250514");
+			expect(KNOWN_MODELS.reasoning).toBe("claude-opus-4-8");
 		});
 
 		it("maps Workhorse → sonnet (via legacy fallback)", () => {
-			expect(KNOWN_MODELS.workhorse).toBe("claude-sonnet-4-20250514");
+			expect(KNOWN_MODELS.workhorse).toBe("claude-sonnet-4-6");
 		});
 
 		it("maps Fast → haiku (via legacy fallback)", () => {
-			expect(KNOWN_MODELS.fast).toBe("claude-haiku-3-5-20241022");
+			expect(KNOWN_MODELS.fast).toBe("claude-haiku-4-5");
 		});
 
 		it("covers all ModelTier values", () => {
@@ -236,10 +237,11 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 				modelTier: "reasoning",
 			});
 
+			// AH2: Re-keyed to current catalog ID.
 			expect(queryFn).toHaveBeenCalledWith(
 				expect.objectContaining({
 					options: expect.objectContaining({
-						model: "claude-opus-4-20250514",
+						model: "claude-opus-4-8",
 					}),
 				}),
 			);

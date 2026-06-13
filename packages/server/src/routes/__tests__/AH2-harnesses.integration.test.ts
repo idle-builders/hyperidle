@@ -13,12 +13,36 @@
  */
 
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { AdapterPool } from "../../harness/adapter-pool.js";
+import { BuiltinHarnessAdapter } from "../../harness/builtin-harness-adapter.js";
+import { ClaudeAgentSdkAdapter } from "../../harness/claude-agent-sdk-adapter.js";
 import { test } from "../../test-fixtures.js";
+import { createTestApp } from "../../test-utils.js";
 
 const TEST_API_KEY = "test-key-ah2-harnesses";
 
 function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY };
+}
+
+/** Minimal adapter pool for AH2 harness tests (builtin + claude-code only). */
+function makeAH2Pool(): AdapterPool {
+	const pool = new AdapterPool();
+	pool.register("local-builtin", new BuiltinHarnessAdapter(), {
+		name: "Built-in Harness",
+		kind: "local",
+		type: "builtin",
+		modelProviders: ["anthropic", "openrouter", "openai-compatible"],
+		maxConcurrent: 4,
+	});
+	pool.register("local-claude-code", new ClaudeAgentSdkAdapter(), {
+		name: "Claude Code",
+		kind: "local",
+		type: "claude-code",
+		modelProviders: ["anthropic"],
+		maxConcurrent: 4,
+	});
+	return pool;
 }
 
 describe("AH2 AC2: GET /api/harnesses — returns registered harness types", () => {
@@ -30,7 +54,8 @@ describe("AH2 AC2: GET /api/harnesses — returns registered harness types", () 
 		vi.unstubAllEnvs();
 	});
 
-	test("returns 200 with an array", async ({ app }) => {
+	test("returns 200 with an array", async ({ db, eventBus }) => {
+		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 		const res = await app.request("/api/harnesses", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 
@@ -38,12 +63,14 @@ describe("AH2 AC2: GET /api/harnesses — returns registered harness types", () 
 		expect(Array.isArray(body)).toBe(true);
 	});
 
-	test("returns 401 without auth", async ({ app }) => {
+	test("returns 401 without auth", async ({ db, eventBus }) => {
+		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 		const res = await app.request("/api/harnesses");
 		expect(res.status).toBe(401);
 	});
 
-	test("each entry has type, name, modelProviders fields", async ({ app }) => {
+	test("each entry has type, name, modelProviders fields", async ({ db, eventBus }) => {
+		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 		const res = await app.request("/api/harnesses", { headers: authHeaders() });
 		const body = (await res.json()) as Array<Record<string, unknown>>;
 
@@ -57,7 +84,8 @@ describe("AH2 AC2: GET /api/harnesses — returns registered harness types", () 
 		}
 	});
 
-	test("response does NOT include apiKey or baseUrl (no secret leak)", async ({ app }) => {
+	test("response does NOT include apiKey or baseUrl (no secret leak)", async ({ db, eventBus }) => {
+		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 		const res = await app.request("/api/harnesses", { headers: authHeaders() });
 		const body = (await res.json()) as Array<Record<string, unknown>>;
 
@@ -67,7 +95,8 @@ describe("AH2 AC2: GET /api/harnesses — returns registered harness types", () 
 		}
 	});
 
-	test("includes 'builtin' harness type (always registered)", async ({ app }) => {
+	test("includes 'builtin' harness type (always registered)", async ({ db, eventBus }) => {
+		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 		const res = await app.request("/api/harnesses", { headers: authHeaders() });
 		const body = (await res.json()) as Array<Record<string, unknown>>;
 
@@ -75,7 +104,8 @@ describe("AH2 AC2: GET /api/harnesses — returns registered harness types", () 
 		expect(builtin).toBeDefined();
 	});
 
-	test("includes 'claude-code' harness type (always registered)", async ({ app }) => {
+	test("includes 'claude-code' harness type (always registered)", async ({ db, eventBus }) => {
+		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 		const res = await app.request("/api/harnesses", { headers: authHeaders() });
 		const body = (await res.json()) as Array<Record<string, unknown>>;
 
@@ -83,7 +113,8 @@ describe("AH2 AC2: GET /api/harnesses — returns registered harness types", () 
 		expect(claudeCode).toBeDefined();
 	});
 
-	test("builtin modelProviders includes anthropic", async ({ app }) => {
+	test("builtin modelProviders includes anthropic", async ({ db, eventBus }) => {
+		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 		const res = await app.request("/api/harnesses", { headers: authHeaders() });
 		const body = (await res.json()) as Array<Record<string, unknown>>;
 
@@ -93,7 +124,8 @@ describe("AH2 AC2: GET /api/harnesses — returns registered harness types", () 
 		expect(builtin?.modelProviders).toContain("anthropic");
 	});
 
-	test("deduplicates by type (no duplicate type values)", async ({ app }) => {
+	test("deduplicates by type (no duplicate type values)", async ({ db, eventBus }) => {
+		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 		const res = await app.request("/api/harnesses", { headers: authHeaders() });
 		const body = (await res.json()) as Array<Record<string, unknown>>;
 

@@ -78,6 +78,21 @@ describe("X3 AC-9: SettingsAgents renders agent table", () => {
 		vi.stubGlobal(
 			"fetch",
 			vi.fn().mockImplementation((url: string) => {
+				// AH2: mock /api/harnesses so SettingsAgents doesn't show "Harness unavailable" badges
+				if (url.includes("/api/harnesses")) {
+					return Promise.resolve({
+						ok: true,
+						status: 200,
+						json: async () => [
+							{ type: "claude-code", name: "Claude Code", modelProviders: ["anthropic"] },
+							{
+								type: "builtin",
+								name: "Built-in Harness",
+								modelProviders: ["anthropic", "openrouter"],
+							},
+						],
+					});
+				}
 				if (url.includes("/api/agents") && !url.includes("/templates")) {
 					return Promise.resolve({
 						ok: true,
@@ -103,16 +118,18 @@ describe("X3 AC-9: SettingsAgents renders agent table", () => {
 		});
 	});
 
-	it("renders table headers: Name, Role, Harness, Model Tier, Sessions, Actions", async () => {
+	it("renders table headers: Name, Role, Harness, Model, Sessions, Actions", async () => {
+		// AH2: column renamed from 'Model Tier' to 'Model' (per-agent model replaces tier select)
 		render(<SettingsAgents />);
 
 		await waitFor(() => {
-			expect(screen.getByText(/name/i)).toBeInTheDocument();
-			expect(screen.getByText(/role/i)).toBeInTheDocument();
-			expect(screen.getByText(/harness/i)).toBeInTheDocument();
-			expect(screen.getByText(/model tier/i)).toBeInTheDocument();
-			expect(screen.getByText(/sessions/i)).toBeInTheDocument();
-			expect(screen.getByText(/actions/i)).toBeInTheDocument();
+			// Use queryAllByText for headers that may appear in both <th> and badge text
+			expect(screen.getAllByText(/name/i).length).toBeGreaterThanOrEqual(1);
+			expect(screen.getAllByText(/role/i).length).toBeGreaterThanOrEqual(1);
+			expect(screen.getAllByText(/harness/i).length).toBeGreaterThanOrEqual(1);
+			expect(screen.getAllByText(/^model$/i).length).toBeGreaterThanOrEqual(1);
+			expect(screen.getAllByText(/sessions/i).length).toBeGreaterThanOrEqual(1);
+			expect(screen.getAllByText(/actions/i).length).toBeGreaterThanOrEqual(1);
 		});
 	});
 
@@ -134,21 +151,24 @@ describe("X3 AC-9: SettingsAgents renders agent table", () => {
 		});
 	});
 
-	it("shows 'Any' when harnessType is null", async () => {
+	it("shows 'Default' when harnessType is null", async () => {
+		// AH2: null harnessType now renders "Default" (previously "Any")
 		render(<SettingsAgents />);
 
 		await waitFor(() => {
-			// Builder Bot has no harness type → shows "Any"
-			expect(screen.getByText("Any")).toBeInTheDocument();
+			// Builder Bot has no harness type → shows "Default"
+			const defaults = screen.getAllByText("Default");
+			expect(defaults.length).toBeGreaterThanOrEqual(1);
 		});
 	});
 
-	it("shows 'Default' when modelTierPreference is null", async () => {
+	it("shows 'Default' when modelId is null", async () => {
+		// AH2: Model column replaced Model Tier column; null modelId shows "Default"
 		render(<SettingsAgents />);
 
 		await waitFor(() => {
-			// Builder Bot has no tier preference → shows "Default"
-			expect(screen.getByText("Default")).toBeInTheDocument();
+			const defaults = screen.getAllByText("Default");
+			expect(defaults.length).toBeGreaterThanOrEqual(1);
 		});
 	});
 
@@ -218,6 +238,16 @@ describe("X3 AC-10: Settings UI edit form opens inline and saves", () => {
 		vi.stubGlobal(
 			"fetch",
 			vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+				// AH2: mock /api/harnesses
+				if (url.includes("/api/harnesses")) {
+					return Promise.resolve({
+						ok: true,
+						status: 200,
+						json: async () => [
+							{ type: "claude-code", name: "Claude Code", modelProviders: ["anthropic"] },
+						],
+					});
+				}
 				if (url.includes("/api/agents") && !url.includes("/templates")) {
 					if (!opts?.method || opts.method === "GET") {
 						return Promise.resolve({
@@ -354,6 +384,16 @@ describe("X3 AC-11: Settings UI add form creates agent with template pre-fill", 
 		vi.stubGlobal(
 			"fetch",
 			vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+				// AH2: mock /api/harnesses
+				if (url.includes("/api/harnesses")) {
+					return Promise.resolve({
+						ok: true,
+						status: 200,
+						json: async () => [
+							{ type: "builtin", name: "Built-in Harness", modelProviders: ["anthropic"] },
+						],
+					});
+				}
 				if (url.includes("/api/agents/templates/product_manager")) {
 					return Promise.resolve({
 						ok: true,
@@ -508,6 +548,16 @@ describe("X3 AC-12: Settings UI delete with two-click confirmation", () => {
 		vi.stubGlobal(
 			"fetch",
 			vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+				// AH2: mock /api/harnesses
+				if (url.includes("/api/harnesses")) {
+					return Promise.resolve({
+						ok: true,
+						status: 200,
+						json: async () => [
+							{ type: "builtin", name: "Built-in Harness", modelProviders: ["anthropic"] },
+						],
+					});
+				}
 				if (url.includes("/api/agents") && !url.includes("/templates")) {
 					if (!opts?.method || opts.method === "GET") {
 						return Promise.resolve({
