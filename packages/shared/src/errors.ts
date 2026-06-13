@@ -66,3 +66,22 @@ export class ActiveRoutinesError extends Error {
 		this.name = "ActiveRoutinesError";
 	}
 }
+
+/**
+ * AH2: Thrown by session provisioning when no registered adapter matches the
+ * agent's harnessType. The agent's harness must be registered in the adapter
+ * pool before sessions can be created.
+ *
+ * @lore AH2: Distinct from MissingCredentialError — this is a configuration
+ * problem (no adapter registered for that type), not a credential problem.
+ * The message points to Settings → Agents so the user knows where to fix it.
+ */
+export class NoEligibleHarnessError extends Error {
+	constructor(public readonly harnessType: string) {
+		super(
+			`No registered adapter matches harness type '${harnessType}'. ` +
+				`Check Settings → Agents or ensure the harness is registered at startup.`,
+		);
+		this.name = "NoEligibleHarnessError";
+	}
+}

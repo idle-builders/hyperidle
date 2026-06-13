@@ -67,6 +67,7 @@ export {
 	CostCapExceededError,
 	InvalidTransitionError,
 	MissingCredentialError,
+	NoEligibleHarnessError,
 	VersionConflictError,
 } from "./errors.js";
 export { EventBus } from "./event-bus.js";
@@ -171,12 +172,21 @@ export {
 } from "./mention.js";
 // ── X4: Model Gateway ──
 export type {
+	ModelCatalogEntry,
 	ModelGatewayConfig,
 	ModelProvider,
 	ModelTierConfig,
 	ResolvedModel,
 } from "./model-gateway.js";
-export { MODEL_PROVIDERS } from "./model-gateway.js";
+export {
+	catalogEntry,
+	DEFAULT_AGENT_HARNESS,
+	DEFAULT_AGENT_MODEL_ID,
+	DEFAULT_AGENT_MODEL_PROVIDER,
+	isCatalogModel,
+	MODEL_CATALOG,
+	MODEL_PROVIDERS,
+} from "./model-gateway.js";
 // SSRF utilities use node:dns/net/util and cannot be imported in the browser.
 // Server code imports them via "@hyperidle/shared/net" subpath export instead.
 export type { ResolveResult, SanitizeResult, SanitizeUrlOptions } from "./net/ssrf.js";
