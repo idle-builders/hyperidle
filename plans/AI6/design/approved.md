@@ -64,7 +64,9 @@ Most DS uppercase labels are 11px mono kickers → `--tracking-caps-sm`. The har
 
 | Hardcoded | file:line | → |
 |---|---|---|
-| `tracking-[0.05em]` (11px mono kicker) | `ThreadShell.tsx:172,202`, `RichMessageCard.tsx:210,489`, `CommentRow.tsx:277`, `StatusChip.tsx:104`, `block/TablePayload.tsx:24`, `block/CodePayload.tsx:21` | `--tracking-caps-sm` |
+| `tracking-[0.05em]` (11px mono kicker) | `ThreadShell.tsx:172,202`, `RichMessageCard.tsx:210,489`, `CommentRow.tsx:277`, `StatusChip.tsx:104` †, `block/TablePayload.tsx:24`, `block/CodePayload.tsx:21` | `--tracking-caps-sm` |
+
+> † **StatusChip ownership (resolves both critiques' WARNING).** `TRACK-AI.md:211` reserves "status chips (**AI4**)" out of AI5's scope; AI6's own spec (`:221`) names StatusChip tracking among the divergences. This is an ownership ambiguity. **Before editing `StatusChip.tsx:104`, architecture/builder must confirm AI4 has not already ratified or migrated StatusChip's caps tracking** (check AI4's `approved.md`/`architecture.md` + the live `StatusChip.tsx:104` value). If AI4 owns it or has already migrated it, **drop `StatusChip.tsx:104` from AI6's scope** — two WPs editing one line is the exact incoherence this track exists to end. AI6 only touches it if AI4 has not claimed StatusChip typography.
 | `tracking-[0.02em]` (11px mono label) | `ArtifactEmbed.tsx:31`, `ArtifactPreview.tsx:20`, `ArtifactPreviewSurface.tsx:23`, `ArtifactGalleryCard.tsx:19`, `ArtifactKindBadge.tsx:13`, `ArtifactStackItem.tsx:41`, `block/UnknownPayload.tsx:20` | `--tracking-caps-sm` |
 | `tracking-[0.03em]` (11px pill) | `RichMessageCard.tsx:207,483` | `--tracking-caps-sm` |
 | `tracking-[0.04em]` (10px badge) | `CommentRow.tsx:267` | `--tracking-caps-sm` |
@@ -77,21 +79,25 @@ Most DS uppercase labels are 11px mono kickers → `--tracking-caps-sm`. The har
 
 ## 4. Hovered vs Selected — must be distinct
 
-**The bug:** `slash-menu.tsx:215-216` renders the selected item and the hover state with the *identical* class `bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)]`. A keyboard-selected item and a mouse-hovered item are visually indistinguishable — fails the AC directly.
-
-**Ratified two-tone rule** for any menu/list with both states:
+**The two-tone rule** for any component that holds hover and selection as *independent* states:
 - **Hover** (transient pointer): neutral tint `color-mix(in oklab, var(--text-secondary) 8%, transparent)` — the existing idiom.
-- **Selected** (committed / keyboard-active / current): accent tint `var(--accent-primary-dim)` + `text-[var(--accent-primary)]` (matches TabBar selected `TabBar.tsx:42`, NavItem active, AQ-011 green = active).
+- **Selected** (committed / current / active): accent tint `var(--accent-primary-dim)` + `text-[var(--accent-primary)]` (matches TabBar selected `TabBar.tsx:42`, NavItem active, AQ-011 green = active).
 
 Selected = accent-colored; hover = neutral grey. Distinct hue, not just opacity.
 
-| Component | Has both? | Action |
-|---|---|---|
-| `slash-menu.tsx` | yes (selectedIndex + hover) | selected → `bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]`; hover stays neutral mix |
-| `Menu.tsx:184` | hover only (no selected/current concept) | no change — but if a `selected`/`current` item prop exists check; current Menu has no selected state, leave |
-| `TabBar.tsx` | yes | already correct (accent selected vs neutral hover) — reference implementation |
+**slash-menu is NOT the proof surface — and is correct as-is.** Verified `slash-menu.tsx:218`: `onMouseEnter={() => setSelectedIndex(index)}`. Pointer-hover *sets* `selectedIndex` by design — hover and selection are the **same state variable** in this component (keyboard arrow and mouse hover both drive the one cursor). A hovered item therefore *is* the selected item; there is no "hovered-but-not-selected" state to render differently. A single highlight is the **correct** treatment here, not a bug. The slash-menu's selected/hover highlight stays as one accent-or-neutral class (whichever the §2/§4 idiom dictates for a single committed cursor); we do NOT introduce a second tone it can never reach.
 
-(Dropdown AG5 and Row AG6 will consume this rule; out of scope here but the rule is documented for them.)
+> **Decision (resolves design-critique WARNING §4):** Option (b). We keep slash-menu's hover-follows-selection behavior unchanged — no `onMouseEnter` decoupling, honoring the spec's "no behavior changes / chrome only" constraint. The "hovered vs selected are visually distinct" AC is **re-targeted onto a component that genuinely holds both states independently: TabBar** (and any list/menu that gains independent selection in AG5/AG6). Option (a) — decoupling `onMouseEnter` from `setSelectedIndex` — was rejected: it is a behavior change requiring a waiver, it would degrade slash-menu UX (mouse and keyboard cursors would desync), and it is unnecessary because TabBar already satisfies the AC.
+
+**Convergence / proof targets:**
+
+| Component | Independent hover + selected? | Action / role |
+|---|---|---|
+| `TabBar.tsx` | yes — `selected` prop is independent of pointer hover | **reference + AC proof surface.** Already correct (accent selected vs neutral hover). The hover-vs-selected validation runs here. |
+| `slash-menu.tsx` | no — hover sets `selectedIndex` (`:218`) | selection-follows-hover by design; single highlight is correct. No two-tone change, no behavior change. |
+| `Menu.tsx:184` | hover only (no selected/current concept) | no change — Menu has no selected state. |
+
+(Dropdown AG5 and Row AG6 will introduce components with independent selection; the two-tone rule is documented for them.)
 
 ---
 

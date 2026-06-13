@@ -77,16 +77,22 @@ Add to **both** light (`:root,[data-theme="hearth-light"]` ~`tokens.css:163-173`
 | `NavItem.tsx:65` | `hover:bg-[rgba(44,36,26,0.04)]` → `hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)]`. |
 
 ### Tracking (§3) — all uppercase mono labels → `--tracking-caps-sm`
-`ThreadShell.tsx:172,202`; `ArtifactEmbed.tsx:31`; `RichMessageCard.tsx:207,210,483,489`; `CommentRow.tsx:267,277`; `ArtifactPreview.tsx:20`; `StatusChip.tsx:104`; `ArtifactPreviewSurface.tsx:23`; `ArtifactGalleryCard.tsx:19`; `ArtifactKindBadge.tsx:13`; `ArtifactStackItem.tsx:41`; `kinds/data-renderer.tsx:59`; `kinds/fallback-renderer.tsx:40`; `block/TablePayload.tsx:24`; `block/CodePayload.tsx:21`; `block/UnknownPayload.tsx:20` → `tracking-[var(--tracking-caps-sm)]`.
+`ThreadShell.tsx:172,202`; `ArtifactEmbed.tsx:31`; `RichMessageCard.tsx:207,210,483,489`; `CommentRow.tsx:267,277`; `ArtifactPreview.tsx:20`; `StatusChip.tsx:104` **(conditional — see ownership note)**; `ArtifactPreviewSurface.tsx:23`; `ArtifactGalleryCard.tsx:19`; `ArtifactKindBadge.tsx:13`; `ArtifactStackItem.tsx:41`; `kinds/data-renderer.tsx:59`; `kinds/fallback-renderer.tsx:40`; `block/TablePayload.tsx:24`; `block/CodePayload.tsx:21`; `block/UnknownPayload.tsx:20` → `tracking-[var(--tracking-caps-sm)]`.
+
+**StatusChip ownership gate.** `TRACK-AI.md:211` reserves "status chips (**AI4**)"; the AI6 spec (`:221`) names StatusChip tracking as a divergence. Before editing `StatusChip.tsx:104`, the builder MUST confirm AI4 has not already ratified/migrated StatusChip's caps tracking (check AI4 `approved.md`/`architecture.md` + the live `StatusChip.tsx:104` value). **If AI4 owns it or already migrated it, drop `StatusChip.tsx:104` from AI6's scope** and remove it from the §3 list above. AI6 edits that line only if AI4 has not claimed StatusChip typography.
 Also fix the space-in-arbitrary-value bug at `RichMessageCard.tsx:207` (`bg-[color-mix(in oklab,...)]` has spaces → must be `_`).
 Leave negative-tracking titles (`ErrorState.tsx:103`, `EmptyState.tsx:63`, `BetCard.tsx:169`, `block/HeadingPayload.tsx:28`) — not uppercase-caps.
 Remove the stale comment `KeyValue.tsx:19` (already migrated).
 
 ### Hover vs Selected (§4)
+
+**Decision (resolves CRITICAL): Option (b) — no slash-menu behavior change; proof on TabBar.** Verified `slash-menu.tsx:218`: `onMouseEnter={() => setSelectedIndex(index)}` — pointer-hover *sets* `selectedIndex`, so hover and selection are one state. A className two-tone swap on slash-menu is unsatisfiable (a hovered item is always selected; the neutral hover branch is dead for pointer users, and the "hover A / select B" e2e cannot pass). Option (a) decoupling `onMouseEnter` is a behavior change forbidden by the "chrome only" constraint and would desync mouse/keyboard cursors — rejected. slash-menu's single highlight is **correct by design**, so it is left unchanged. The "hovered vs selected distinct" AC + validation are re-targeted onto **TabBar**, which holds `selected` independently of pointer hover and already implements the two-tone rule correctly (reference implementation).
+
 | File:line | Change |
 |---|---|
-| `slash-menu.tsx:214-216` | selected (`index===selectedIndex`) → `bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]`; non-selected hover stays neutral `hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)]`. |
-| `TabBar.tsx`, `Menu.tsx` | no change (TabBar correct; Menu has no selected concept). |
+| `slash-menu.tsx` | **no change.** Selection-follows-hover by design (`:218`); single committed-cursor highlight is correct. No two-tone swap, no `onMouseEnter` change — preserves the no-behavior-change constraint. |
+| `TabBar.tsx` | **no change — reference + AC proof surface.** Already renders accent selected vs neutral hover with `selected` independent of hover. |
+| `Menu.tsx` | no change (no selected concept). |
 
 ### Renderer container (§5)
 | File:line | Change |
@@ -127,7 +133,8 @@ Remove the stale comment `KeyValue.tsx:19` (already migrated).
 Update stories ONLY where focus/hover/selected rendering changed (per spec constraint):
 - `Button.stories.tsx`, `Toggle.stories.tsx`, `TabBar.stories.tsx` — add/verify a focus-visible state story (ring is now 1px).
 - `ArtifactEmbed.stories.tsx`, `ArtifactGalleryCard.stories.tsx`, `ArtifactStackItem.stories.tsx` — focus state stories (treatment changed).
-- slash-menu has **no** story today → add `body-editor/slash-menu.stories.tsx` rendering a state with one item hovered + another selected (the validation scenario needs a catalog surface to capture). This is the one new story file. (Per `.claude/rules/design-system.md` every custom component must have a stories file — slash-menu currently violates this; AI6 fixes it.)
+- Hover-vs-selected validation is on **TabBar** (independent states) — its `.stories.tsx` already exists; verify/add a story showing one tab selected + another hovered. slash-menu is unchanged (selection-follows-hover by design) and needs no new story for this AC.
+- slash-menu has **no** story today and `require-stories-sibling` would flag it. Whether AI6 adds `body-editor/slash-menu.stories.tsx` is a separate concern from the hover/selected AC — since AI6 does not change slash-menu rendering, leave its story status to the component's owner unless `npm run lint` already fails on it today; do not add it solely for an AC it no longer serves.
 - Token-only color swaps (Toast, Avatar, CommentRow, Empty/ErrorState) need no story change — rendering is pixel-identical (same values, now via token).
 - Renderer changes: `kinds/image-renderer.stories.tsx`, `kinds/data-renderer.stories.tsx`, `kinds/code-renderer.stories.tsx`, `kinds/html-renderer.stories.tsx`, `kinds/text-renderer.stories.tsx`, `kinds/url-renderer.stories.tsx` already exist — verify they still render; chrome changes visible there for the side-by-side capture.
 
@@ -136,10 +143,10 @@ Update stories ONLY where focus/hover/selected rendering changed (per spec const
 | AC | Verification |
 |---|---|
 | One focus treatment on every interactive DS component | E2E `packages/web/e2e/AI6-ds-focus.spec.ts`: navigate `/designsystem`, for Button/Input/Select/TabBar/ThreadRow/Block (+ Toggle, Menu, slash-menu) `page.keyboard.press('Tab')` to each, screenshot the focused element, assert computed `outline-width` ∈ {1px} for controls and the glow (box-shadow with `--accent-primary-dim`) for inputs. Two documented classes only. |
-| Every uppercase DS label uses a tracking token; no hardcoded tracking | Lint/static: extend a check OR a focused vitest that imports each component source is wrong (filesystem read ≠ test). Use a **lint** approach — the existing rule set has `no-off-scale-*`; add nothing new for tracking, instead enforce via a grep gate in the AI6 e2e is also wrong. Correct: assert via the existing pattern — there is no tracking lint rule. Verification = a `*.test.tsx` that renders each touched component and asserts `getComputedStyle(label).letterSpacing` resolves from the token (the token computes to a px value; assert it equals the `--tracking-caps-sm` computed value), OR accept the simpler proof: the design-system visual-regression (`npm run ds:sync`) + a `no-hardcoded-tracking` lint rule. **Decision (design-it-twice below): add a lint rule `no-hardcoded-tracking`** flagging `tracking-[<number>em]` inside DS `.tsx`, allowlisting negative-em title kerning. Test: invalid `tracking-[0.05em]`, valid `tracking-[var(--tracking-caps-sm)]`, valid `tracking-[-0.01em]`. |
-| Zero hardcoded colors; tints+scrim have tokens; lint catches template-string + arbitrary-value | (a) `npm run lint` green after migration (existing `no-hardcoded-color` fires on any remaining rgba). (b) New lint tests above prove template-string + `bg-success/10` detection. (c) Tokens present: a `tokens.test.ts`-style assert that `getComputedStyle(:root)` exposes the 5 new tokens (component test rendering a probe div). |
+| Every uppercase DS label uses a tracking token; no hardcoded tracking | Static AC → new `no-hardcoded-tracking` lint rule (per Design-it-twice Option B), registered at `error` in the existing K8 block (`eslint.config.ts:202-225`), scoped to `packages/design-system/src/**/*.tsx`. Rule flags `tracking-[<number>em]`, allowlisting negative-em title kerning. Rule tests: invalid `tracking-[0.05em]`; valid `tracking-[var(--tracking-caps-sm)]`; valid (allowlisted) `tracking-[-0.01em]`. |
+| Zero hardcoded colors; tints+scrim have tokens; lint catches template-string + arbitrary-value | (a) `npm run lint` green after migration (existing `no-hardcoded-color` fires on any remaining rgba). (b) New lint tests above prove template-string + `bg-success/10` detection. (c) Tokens present: a `tokens.test.ts`-style probe component test asserts `getComputedStyle(:root)` resolves **6 tokens** — the 5 new (`--accent-secondary-dim`, `--status-info-dim`, `--status-error-dim`, `--accent-secondary-hover`, `--status-error-hover`) **and the pre-existing `--scrim`** (the color AC names scrim; assert it resolves to a non-empty value so the "scrim has a token" half is proven). |
 | Same content kind via block payload vs artifact kind-renderer shares container treatment | E2E `AI6-renderer-parity.spec.ts`: render an image + a table as block payload and as artifact preview at `/designsystem`, capture both; assert matching computed `border-radius` (16px), `border-width`, presence of border. Side-by-side screenshot for review. |
-| Hovered vs selected distinct in every menu/list with both | E2E: slash-menu story, hover item A + select item B, assert A's bg = neutral text-secondary mix and B's bg = `--accent-primary-dim` + `color: --accent-primary` — distinct computed backgrounds. Screenshot. |
+| Hovered vs selected distinct in components with both states independent | E2E on **TabBar** (the surface that holds `selected` independently of hover — slash-menu's selection follows hover by design, see §"Hover vs Selected"): render a TabBar with tab B `selected`, hover tab A. Assert A's bg = neutral `text-secondary` mix and B's bg = `--accent-primary-dim` + `color: --accent-primary` — distinct computed backgrounds. Screenshot. |
 | All component motion uses Hearth motion scale | Lint: extend OR rely on green lint after the `Checkbox`/`ease-[ease]` fixes. Add a `no-off-scale-motion`? — scope-check: only 4 sites, all fixed; a rule is justified to prevent regression. **Decision: add `no-off-scale-duration`** flagging `duration-[<number>ms]` and `ease-[ease]` in DS `.tsx`. Test invalid `duration-[120ms]`, `ease-[ease]`; valid `duration-[var(--motion-fast)]`, `ease-[var(--motion-ease)]`. |
 
 ## Design-it-twice — tracking & motion enforcement
@@ -152,12 +159,12 @@ Update stories ONLY where focus/hover/selected rendering changed (per spec const
 
 ## Ordered task list
 
-1. **Tokens** — add 5 tokens to `tokens.css` (light + dark + prefers-dark); add rows + Conventions § to `DESIGN.md`. Proof: probe component test reads the 5 computed tokens.
+1. **Tokens** — add 5 tokens to `tokens.css` (light + dark + prefers-dark); add rows + Conventions § to `DESIGN.md`. Proof: probe component test (`packages/design-system/src/__tests__/tokens.test.tsx`) reads **6 computed tokens** — the 5 new + the pre-existing `--scrim` (color AC names scrim).
 2. **Lint rules (red first)** — write failing tests for: `no-raw-tailwind-color` template-string + `bg-token/NN` cases; new `no-hardcoded-tracking`; new `no-off-scale-duration`; `no-hardcoded-color` template-string regression. Then implement: edit `no-raw-tailwind-color.ts` (collect helper + 2nd regex), create `no-hardcoded-tracking.ts` + `no-off-scale-duration.ts`, register in `index.ts` + flat config. Proof: rule tests green.
 3. **Focus convergence** — apply §1 changes (Button, Toggle, TabBar, Artifact* ×3, input glow→token). Proof: focus e2e.
 4. **Hover-tint / color** — apply §2 changes (Button hexes, avatar/comment/empty/error/toast tints, ThreadRow/NavItem color-mix). Proof: `npm run lint` (now catches everything), token tests.
 5. **Tracking** — replace all hardcoded `tracking-[Nem]` uppercase labels → `--tracking-caps-sm`; fix `RichMessageCard.tsx:207` space-in-arbitrary-value bug; remove stale `KeyValue.tsx:19` comment. Proof: `no-hardcoded-tracking` lint green.
-6. **Hover vs selected** — slash-menu §4; add `slash-menu.stories.tsx`. Proof: hover/selected e2e.
+6. **Hover vs selected** — §4: no slash-menu change (selection-follows-hover by design); AC proof is TabBar. Verify TabBar story shows selected + hovered tabs. Proof: hover/selected e2e on TabBar.
 7. **Renderer container** — kinds/ → block/ chrome (§5, 6 files). Proof: renderer-parity e2e + side-by-side screenshot.
 8. **Motion** — Checkbox + 3× ease-[ease] (§6). Proof: `no-off-scale-duration` lint green.
 9. **Stories** — update focus/hover stories (§stories list). Proof: stories render at `/designsystem`.
@@ -190,8 +197,12 @@ Same applies to the `RichMessageCard.tsx:207` space-bug fix and any renderer chr
 
 ## ESLint config (eslint.config.ts)
 
-Rules are registered at `eslint.config.ts:88-110` as **`"warn"`** for the design plugin (waivers backlog, `eslint-plugin-design/waivers.md`). Plan:
-- Register `design/no-hardcoded-tracking` and `design/no-off-scale-duration` in `index.ts` + `eslint.config.ts`. Set to **`"error"`** scoped to `packages/design-system/**` (the AC requires lint to *fail* on a hardcoded value — `warn` does not fail `npm run lint`). Verify the config block's `files` glob covers `packages/design-system/**`; if the design rules currently apply repo-wide at `warn`, add a DS-scoped override at `error` for the three color/tracking/motion rules so AI6's "lint catches" ACs actually gate. Confirm `no-raw-tailwind-color` is `error` (not just `warn`) for the DS package so the template-string/`bg-success/10` ACs fail the build as required.
+**Verified `eslint.config.ts:202-225` (K8 block):** the design rules are **already registered at `error`**, scoped to `files: ["packages/design-system/src/**/*.tsx"]`, `ignores: ["packages/design-system/src/**/*.stories.tsx"]`. `no-hardcoded-color`, `no-raw-tailwind-color`, `no-off-scale-radius`, `no-off-grid-spacing`, etc. are all `error` here. No warn→error promotion is needed; no new override block is needed; the DS-scoped error gate already exists.
+
+Plan:
+- Register the two new rules `design/no-hardcoded-tracking` and `design/no-off-scale-duration` in `packages/eslint-plugin-design/src/index.ts`, then add each at `"error"` inside the existing K8 block (`eslint.config.ts:202-225`). The block's `files` glob already covers `packages/design-system/src/**/*.tsx` and the new rules inherit it.
+- The K8 `ignores` already excludes `**/*.stories.tsx`, so both new rules inherit the stories exemption (correct — stories may demo hardcoded states).
+- The mutated `no-raw-tailwind-color` rule is already `error` in this block — its new template-string + `bg-success/10` coverage fails `npm run lint` automatically. No config edit for it beyond the rule-body change.
 
 ## Risks / ambiguities
 1. **HTML-reference tracking edit** — resolved above as a documented visual-parity exception; the builder MUST update both TSX and the listed `.html` files together, else `ds:sync` diffs.
