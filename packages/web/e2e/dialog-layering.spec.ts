@@ -63,26 +63,51 @@ test.describe("AI2 — overlay z-layer ordering (AC-3 runtime)", () => {
 			route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({ id: "u-test", name: "Tester", email: "t@test.com", avatarUrl: null }),
+				body: JSON.stringify({
+					id: "u-test",
+					name: "Tester",
+					email: "t@test.com",
+					avatarUrl: null,
+				}),
 			}),
 		);
 		await page.route("**/api/teams**", (route) =>
-			route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ teams: [] }) }),
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ teams: [] }),
+			}),
 		);
 		await page.route("**/api/knowledge/triage-count", (route) =>
-			route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ count: 0 }) }),
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ count: 0 }),
+			}),
 		);
 		await page.route("**/api/threads**", (route) =>
-			route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ threads: [], nextCursor: null }) }),
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ threads: [], nextCursor: null }),
+			}),
 		);
 		// @lore AI2: notifications/inbox returns { unseenCount, rows } — not { notifications }.
 		// Using correct shape prevents rows.length throw in NotificationPopover.
 		await page.route("**/api/notifications**", (route) =>
-			route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ unseenCount: 0, rows: [] }) }),
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ unseenCount: 0, rows: [] }),
+			}),
 		);
 		// WorkBet renders ArtifactSection which calls /api/artifacts — mock with empty page.
 		await page.route("**/api/artifacts**", (route) =>
-			route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [], nextCursor: null }) }),
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ items: [], nextCursor: null }),
+			}),
 		);
 		// @lore AI2: Playwright LIFO — last-registered route wins. Register from
 		// broadest to most specific so specific routes take precedence.
