@@ -46,7 +46,7 @@ export const rules: Record<string, Rule.RuleModule> = {
 const recommendedRules: Linter.RulesRecord = {
 	"design/no-handrolled-select": "error",
 	"design/no-hardcoded-color": "warn",
-	"design/no-local-status-builder": "warn",
+	"design/no-local-status-builder": "error",
 	"design/no-off-grid-spacing": "warn",
 	"design/no-off-scale-radius": "warn",
 	"design/no-off-scale-font-size": "warn",

@@ -6,12 +6,7 @@ import { clickableProps } from "./clickable";
 import { dsProps } from "./ds-attrs";
 import { KeyValue } from "./KeyValue";
 import { StatusChip } from "./StatusChip";
-import {
-	BET_OUTCOME_VERDICT_STATUS,
-	BET_STATUS_MAP,
-	betOutcomeVerdictToStatus,
-	betStatusToStatus,
-} from "./status-mapping";
+import { betOutcomeVerdictToStatus, betStatusToStatus } from "./status-mapping";
 
 /**
  * @lore J5: BetCard gained portfolio-mode props (leadAvatar / activeBets /
@@ -48,9 +43,6 @@ export interface BetCardAvatarGroup {
 // AI4 Decision 5: STATUS_DOT_COLOR, STATUS_LABEL, STATUS_BADGE_VARIANT, badgeClasses deleted.
 // Status rendering now uses StatusChip + BET_STATUS_LABEL from shared (label path, Decision 1a).
 // Outcome verdict rendering uses StatusChip + BET_OUTCOME_VERDICT_LABEL + betOutcomeVerdictToStatus.
-// The _unused_ imports are needed for exhaustiveness validation at type-check time:
-void BET_STATUS_MAP;
-void BET_OUTCOME_VERDICT_STATUS;
 
 /** Progress fill color per BetStatus */
 function progressFillColor(status: BetStatus): string {
@@ -89,8 +81,9 @@ export interface BetCardProps {
 	/**
 	 * AC1: Optional outcome verdict for display. Shown as a neutral badge after
 	 * the status badge. Only rendered when not null/undefined.
+	 * F3: typed as BetOutcomeVerdict (not string) to remove unsafe cast at render site.
 	 */
-	outcomeVerdict?: string;
+	outcomeVerdict?: BetOutcomeVerdict;
 }
 
 export function BetCard({
@@ -150,10 +143,7 @@ export function BetCard({
 				)}
 				{/* AI4 Decision 5: status rendering via StatusChip (label prop preserves human-readable labels) */}
 				{/* Note: rounded-[var(--r-pill)] NOT used — StatusChip uses rounded-full (BetCard.test.tsx line 33) */}
-				<StatusChip
-					status={betStatusToStatus(status)}
-					label={BET_STATUS_LABEL[status]}
-				/>
+				<StatusChip status={betStatusToStatus(status)} label={BET_STATUS_LABEL[status]} />
 				{/* AI4 AC5: Outcome verdict badge — semantic coloring via StatusChip */}
 				{outcomeVerdict && (
 					<span
@@ -161,16 +151,14 @@ export function BetCard({
 						data-testid={id ? `bet-card-verdict-badge-${id}` : "bet-card-verdict-badge"}
 					>
 						<StatusChip
-							status={betOutcomeVerdictToStatus(outcomeVerdict as BetOutcomeVerdict)}
-							label={BET_OUTCOME_VERDICT_LABEL[outcomeVerdict as BetOutcomeVerdict] ?? outcomeVerdict}
+							status={betOutcomeVerdictToStatus(outcomeVerdict)}
+							label={BET_OUTCOME_VERDICT_LABEL[outcomeVerdict]}
 						/>
 					</span>
 				)}
 				{/* Budget badge — amber, right-aligned via ml-auto */}
 				{budgetLabel && (
-					<span
-						className="inline-flex items-center text-[12px] font-[500] px-[9px] py-[3px] rounded-[var(--r-pill)] leading-[1.4] whitespace-nowrap ml-auto bg-[color-mix(in_oklab,var(--status-warning)_10%,transparent)] text-[var(--accent-secondary)]"
-					>
+					<span className="inline-flex items-center text-[12px] font-[500] px-[9px] py-[3px] rounded-[var(--r-pill)] leading-[1.4] whitespace-nowrap ml-auto bg-[color-mix(in_oklab,var(--status-warning)_10%,transparent)] text-[var(--accent-secondary)]">
 						{budgetLabel}
 					</span>
 				)}
