@@ -1,0 +1,47 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Variant B — Self-contained (column-config)</title>
+<style>
+:root{--surface-page:#f5f0e6;--surface-container:#ede7db;--surface-elevated:#fff;--accent-primary:#16764f;--accent-primary-dim:rgba(22,118,79,.08);--text-primary:#2c241a;--text-secondary:#5c5345;--text-tertiary:#8a7d6a;--status-success:#16764f;--status-warning:#d97706;--status-error:#dc4a3a;--status-info:#2e7dba;--border-subtle:#e8e0d0;--border-default:#d5cbb8;--r-subtle:10px;--r-pill:9999px;--bw-strong:2.5px;--shadow-subtle:0 1px 4px rgba(44,36,26,.06);--font-sans:system-ui,-apple-system,"Segoe UI",sans-serif;--font-mono:ui-monospace,"SF Mono",monospace;}
+*{box-sizing:border-box;margin:0;padding:0}body{background:var(--surface-page);font-family:var(--font-sans);color:var(--text-primary);padding:24px;font-size:14px}
+.page{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+h1{font-size:20px;font-weight:600}h2{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-tertiary);margin-bottom:8px}
+.note{font-size:12px;color:var(--text-tertiary);margin-top:4px}
+.list{border-radius:var(--r-subtle);background:var(--surface-container);padding:12px}
+/* PRIMITIVE-OWNED — identical for every list */
+.row{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 6px;cursor:pointer;border-bottom:1px solid var(--border-subtle)}
+.row:last-child{border-bottom:none}.row:hover{background:rgba(44,36,26,.02)}
+.row.sel{background:var(--surface-elevated);box-shadow:var(--shadow-subtle);border-left:2.5px solid var(--accent-primary);border-radius:var(--r-subtle)}
+.lead{flex:none;display:inline-flex;align-items:center}
+.dot{width:6px;height:6px;border-radius:9999px}
+.avatar{width:28px;height:28px;border-radius:9999px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;background:var(--accent-primary-dim);color:var(--accent-primary);border:1.5px solid var(--accent-primary)}
+.main{flex:1;min-width:0}
+.title{font-size:13px;font-weight:500;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.subtitle{font-size:12px;color:var(--text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cells{display:flex;align-items:center;gap:9px;flex:none}
+.cell{font-size:11px;font-family:var(--font-mono);color:var(--text-tertiary);text-align:right}
+.cell.num{font-variant-numeric:tabular-nums}
+.actions{flex:none;display:flex;gap:3px}
+.btn{font-size:12px;padding:6px 12px;border-radius:9999px;border:none;background:transparent;color:var(--text-secondary);cursor:pointer}.btn:hover{background:rgba(44,36,26,.06)}
+.tag{display:inline-flex;align-items:center;padding:3px 9px;border-radius:9999px;font-size:12px;font-weight:500;background:var(--surface-container);color:var(--text-secondary)}
+.kind{display:inline-flex;padding:3px 9px;border-radius:9999px;font-size:12px;font-weight:500;background:var(--accent-primary-dim);color:var(--accent-primary)}
+.empty{background:var(--surface-page);border-radius:var(--r-subtle);padding:36px;text-align:left}
+.empty .et{font-size:15px;font-weight:600;margin-bottom:6px}.empty .ed{font-size:13px;color:var(--text-secondary)}
+</style></head><body><div class="page">
+<div><h1>Variant B — Self-contained, column-config</h1><p class="note">Primitive owns anatomy. Consumer supplies lead/title/subtitle/cells/actions. Same alignment, same 13px title, same mono tertiary cells across every list — by construction.</p></div>
+
+<section><h2>Agents (lead=dot+avatar, cells=[status, context], actions=[Customize])</h2><div class="list">
+  <div class="row"><span class="lead" style="gap:9px"><span class="dot" style="background:var(--status-success)"></span><span class="avatar">AT</span></span><div class="main"><div class="title">Atlas <span style="color:var(--accent-primary);font-size:10px">— Lead</span></div></div><div class="cells"><span class="cell" style="width:48px;color:var(--status-success)">active</span><span class="cell" style="width:140px;text-align:left">Reviewing migration plan</span></div><div class="actions"><button class="btn">Customize</button></div></div>
+  <div class="row"><span class="lead" style="gap:9px"><span class="dot" style="background:var(--status-warning)"></span><span class="avatar">SC</span></span><div class="main"><div class="title">Scout</div></div><div class="cells"><span class="cell" style="width:48px">idle</span><span class="cell" style="width:140px;text-align:left">Researcher</span></div><div class="actions"><button class="btn">Customize</button></div></div>
+</div></section>
+
+<section><h2>Routines (lead=dot, cells=[avatar, schedule, last run, cost/mo])</h2><div class="list">
+  <div class="row"><span class="lead"><span class="dot" style="background:var(--status-success)"></span></span><div class="main"><div class="title">Daily standup digest</div></div><div class="cells"><span class="avatar" style="width:24px;height:24px;font-size:9px;border-width:0;background:var(--accent-primary-dim)">AR</span><span class="cell" style="width:80px;text-align:left">9:00 daily</span><span class="cell num" style="width:60px">2h ago</span><span class="cell num" style="width:54px">$1.20</span></div></div>
+  <div class="row"><span class="lead"><span class="dot" style="background:var(--text-tertiary)"></span></span><div class="main"><div class="title">Weekly retro</div></div><div class="cells"><span class="avatar" style="width:24px;height:24px;font-size:9px;border-width:0;background:var(--accent-primary-dim)">SC</span><span class="cell" style="width:80px;text-align:left">Fri 17:00</span><span class="cell num" style="width:60px">3d ago</span><span class="cell num" style="width:54px">$0.40</span></div></div>
+</div></section>
+
+<section><h2>Knowledge (lead=none → NO placeholder, title+subtitle, cells=[kind, time]) + a selected row</h2><div class="list">
+  <div class="row sel"><div class="main"><div class="title">Passkey rollout decision</div><div class="subtitle">Decided to ship phase 1 to 10% cohort first…</div></div><div class="cells"><span class="kind">Decision</span><span class="cell" style="width:60px">2d ago</span></div></div>
+  <div class="row"><div class="main"><div class="title">WebAuthn browser matrix</div><div class="subtitle">Coverage across target browsers is 96.3%…</div></div><div class="cells"><span class="cell" style="width:60px">5d ago</span></div></div>
+</div></section>
+
+<section><h2>Empty (ItemList companion)</h2><div class="list"><div class="empty"><div class="et">No routines</div><div class="ed">This team has no recurring work configured.</div></div></div></section>
+</div></body></html>

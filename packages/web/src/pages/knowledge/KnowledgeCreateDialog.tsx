@@ -21,7 +21,7 @@
  * old font-heading + text-sm h2 is removed (fixes off-scale 14px heading).
  */
 
-import { BodyEditor, Dialog } from "@hyperidle/design-system";
+import { BodyEditor, Dialog, ScopePicker } from "@hyperidle/design-system";
 import type { ScopeKind } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
@@ -188,42 +188,22 @@ export function KnowledgeCreateDialog({
 							{lockedScopeKind}
 						</span>
 					) : (
-						/* AD6: 3-pill scope picker — same pattern as KnowledgeCreate */
-						<div role="radiogroup" aria-label="Scope" className="flex gap-[6px] flex-wrap">
-							{SCOPE_CREATE_OPTIONS.map((option) => {
-								const isTeam = option.id === "team";
-								const isDisabled = submitting || (isTeam && !hasTeam);
-								const isActive = selectedScope.id === option.id;
-								return (
-									// biome-ignore lint/a11y/useSemanticElements: button+role="radio" used for pill styling with aria-checked; <input type="radio"> cannot be styled as a pill without full custom CSS reset
-									<button
-										key={option.id}
-										type="button"
-										data-testid={`scope-pill-dialog-${option.id}`}
-										role="radio"
-										aria-checked={isActive}
-										aria-disabled={isDisabled ? "true" : undefined}
-										data-active={isActive ? "true" : "false"}
-										disabled={isDisabled}
-										onClick={() => {
-											if (!isDisabled) setSelectedScope(option);
-										}}
-										className={
-											isActive
-												? "border-[1.5px] border-[var(--accent-primary)] bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)] px-[12px] py-[4px] rounded-[var(--r-pill)] text-[12px] font-[500] cursor-pointer"
-												: isDisabled
-													? "border-[1.5px] border-[var(--border-default)] text-[var(--text-secondary)] opacity-40 px-[12px] py-[4px] rounded-[var(--r-pill)] text-[12px] font-[500] cursor-not-allowed bg-transparent"
-													: "border-[1.5px] border-[var(--border-default)] text-[var(--text-secondary)] px-[12px] py-[4px] rounded-[var(--r-pill)] text-[12px] font-[500] cursor-pointer bg-transparent"
-										}
-										title={
-											isTeam && !hasTeam ? "Join a team to use team-scoped knowledge" : undefined
-										}
-									>
-										{option.label}
-									</button>
-								);
-							})}
-						</div>
+						/* AI5: consolidated to the shared ScopePicker primitive (select mode). */
+						<ScopePicker
+							options={SCOPE_CREATE_OPTIONS.map((option) => ({
+								id: option.id,
+								label: option.label,
+								disabled: submitting || (option.id === "team" && !hasTeam),
+							}))}
+							value={selectedScope.id}
+							onChange={(id) => {
+								const next = SCOPE_CREATE_OPTIONS.find((o) => o.id === id);
+								if (next) setSelectedScope(next);
+							}}
+							ariaLabel="Scope"
+							testIdPrefix="scope-pill-dialog"
+							disabledTitle="Join a team to use team-scoped knowledge"
+						/>
 					)}
 				</div>
 

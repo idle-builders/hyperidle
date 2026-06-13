@@ -25,6 +25,18 @@ import { dsProps } from "./ds-attrs";
 const RETRY_BTN_CLASS =
 	"inline-flex items-center justify-center px-[18px] py-[10px] text-[13px] font-[500] text-[var(--text-on-accent)] bg-[var(--accent-primary)] rounded-[var(--r-pill)] border-[1.5px] border-transparent cursor-pointer leading-[1] transition-[background-color] duration-[var(--motion-default)] ease-[var(--motion-ease)] hover:bg-[var(--accent-primary-hover)] active:scale-[0.97]";
 
+/**
+ * Compact retry pill — smaller than the full variant, inline-sized.
+ *
+ * @lore AI5 AQ-015: touch mechanism is `min-h-[44px] xl:min-h-[30px]`, NOT a
+ * bare min-h. The 44px floor holds at every viewport up to and including
+ * 1024px (where the K8 e2e gate measures); `xl:` (≥1280px) restores the
+ * dense ~30px inline height so it reads as an inline control inside the
+ * 18px-padded panel, not a floating slab. Mirrors `Select.tsx` `@lore AG5 fix-1`.
+ */
+const RETRY_BTN_COMPACT_CLASS =
+	"inline-flex items-center justify-center px-[12px] py-[7px] min-h-[44px] xl:min-h-[30px] text-[13px] font-[500] text-[var(--text-on-accent)] bg-[var(--accent-primary)] rounded-[var(--r-pill)] border-[1.5px] border-transparent cursor-pointer leading-[1] transition-[background-color] duration-[var(--motion-default)] ease-[var(--motion-ease)] hover:bg-[var(--accent-primary-hover)] active:scale-[0.97]";
+
 const DEFAULT_ERROR_ICON = (
 	<svg
 		width="24"
@@ -68,6 +80,14 @@ export interface ErrorStateProps {
 	 * Renders inline beside the retry button.
 	 */
 	action?: ReactNode;
+	/**
+	 * Compact (panel-inline) variant. When true: 18px padding, no max-width,
+	 * surface-page (not elevated) + NO shadow (inline, not floating), never the
+	 * 48px icon block, 15px/600 title, 13px desc, smaller retry pill with the
+	 * AQ-015 touch mechanism, 12px mono detail block.
+	 * @lore AI5: gives BlockRefEmbed's bare bordered error rows a primitive.
+	 */
+	compact?: boolean;
 	/** data-testid passthrough so pages can scope E2E selectors. */
 	dataTestId?: string;
 }
@@ -80,9 +100,49 @@ export function ErrorState({
 	detail,
 	onRetry,
 	action,
+	compact = false,
 	dataTestId,
 }: ErrorStateProps): JSX.Element {
 	const resolvedIcon = icon === false ? null : (icon ?? DEFAULT_ERROR_ICON);
+
+	if (compact) {
+		return (
+			<div
+				{...dsProps("ErrorState", "2")}
+				role="alert"
+				data-testid={dataTestId ?? "error-state"}
+				// hearth-internal-padding
+				className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] text-left"
+			>
+				<p className="text-[15px] font-[600] text-[var(--text-primary)] leading-[1.4] tracking-[-0.01em] mb-[6px]">
+					{title}
+				</p>
+				<p className="text-[13px] text-[var(--text-secondary)] leading-[1.6] mb-[12px]">
+					{description}
+				</p>
+				{detail && (
+					<div className="text-[12px] font-[family-name:var(--font-mono)] text-[var(--text-tertiary)] bg-[var(--surface-container)] px-[12px] py-[9px] rounded-[var(--r-subtle)] mb-[12px] leading-[1.55]">
+						{detail}
+					</div>
+				)}
+				{(onRetry || action) && (
+					<div className="flex items-center gap-[9px]">
+						{onRetry && (
+							<button
+								type="button"
+								className={RETRY_BTN_COMPACT_CLASS}
+								onClick={onRetry}
+								data-testid="error-state-retry"
+							>
+								Retry
+							</button>
+						)}
+						{action}
+					</div>
+				)}
+			</div>
+		);
+	}
 
 	return (
 		<div

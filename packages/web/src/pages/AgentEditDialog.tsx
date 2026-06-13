@@ -20,6 +20,7 @@ import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 import type { AgentConfig } from "../settings/settings-types.js";
 import { useToast } from "../shell/ToastRegion.js";
+import { deriveInitials } from "../utils/initials.js";
 
 export interface AgentEditDialogProps {
 	/** Non-null = dialog open; null = dialog closed. */
@@ -136,7 +137,7 @@ export function AgentEditDialog({
 	const roleDescription = catalogEntry?.description ?? role;
 	const isStrategy = (rosterMember?.agentCategory ?? agent?.agentCategory) === "strategy";
 	const agentName = rosterMember?.name ?? agent?.name ?? "";
-	const initials = agentName.slice(0, 2).toUpperCase();
+	const initials = deriveInitials(agentName);
 
 	const showTemplateButton =
 		!formValues.soulPrompt && catalogEntry?.hasTemplate === true && !templateLoading;

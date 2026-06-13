@@ -244,9 +244,11 @@ test.describe("AG2 — Empty portfolio state (AC-1)", () => {
 		await expect(createBtn).toBeVisible();
 	});
 
-	test("AC-1: clicking 'Create bet' CTA opens BetCreateDialog", async ({ page }) => {
+	// AG3: 'Create bet' CTA navigates to full-page /work/bet/new (not dialog)
+	test("AC-1: clicking 'Create bet' CTA navigates to /work/bet/new", async ({ page }) => {
 		await page.getByRole("button", { name: /create bet/i }).click();
-		await expect(page.getByRole("dialog")).toBeVisible();
+		await expect(page).toHaveURL(/\/work\/bet\/new/, { timeout: 5_000 });
+		await expect(page.getByRole("dialog")).toHaveCount(0);
 	});
 
 	test("AC-2: no verdict filter pills when no bets (empty state)", async ({ page }) => {

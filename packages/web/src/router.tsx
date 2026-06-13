@@ -25,6 +25,7 @@ import { NotFound } from "./pages/NotFound";
 import { RedirectLegacyConversation } from "./pages/RedirectLegacyConversation";
 import { SetupFlow } from "./pages/SetupFlow";
 import { WorkBet } from "./pages/WorkBet";
+import { WorkBetCreate } from "./pages/WorkBetCreate";
 import { WorkPortfolio } from "./pages/WorkPortfolio";
 import { WorkRoutine } from "./pages/WorkRoutine";
 import { WorkTask } from "./pages/WorkTask";
@@ -77,6 +78,7 @@ function buildRoutes(): RouteObject[] {
 				{ path: "work/team/:teamId", element: <WorkTeam /> },
 				{ path: "work/product/:productId", element: <RedirectProductToTeam /> },
 				{ path: "work/routine/:routineId", element: <WorkRoutine /> },
+				{ path: "work/bet/new", element: <WorkBetCreate /> },
 				{ path: "work/bet/:betId", element: <WorkBet /> },
 				{ path: "work/bet/:betId/task/:taskId", element: <WorkTask /> },
 				{ path: "agents/:agentId", element: <AgentProfile /> },

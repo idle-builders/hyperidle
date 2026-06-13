@@ -19,6 +19,7 @@
  * #12: Emoji 💭 replaced with an SVG reasoning icon.
  */
 
+import { EmptyState, TabBar } from "@hyperidle/design-system";
 import { clockTime, formatMoney } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import type { ActivityEntry } from "../hooks/useSessionActivity.js";
@@ -210,7 +211,8 @@ export function SessionActivityPanel({
 				<button
 					type="button"
 					aria-label="Close activity panel"
-					className="flex-shrink-0 inline-flex items-center justify-center w-[24px] h-[24px] rounded-[var(--r-subtle)] bg-transparent text-[var(--text-tertiary)] border-none cursor-pointer transition-[background,color] duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
+					/* AI5 AQ-015: 44px touch floor ≤1024px, dense 24px ≥1280px. */
+					className="flex-shrink-0 inline-flex items-center justify-center w-[24px] h-[24px] min-h-[44px] min-w-[44px] xl:min-h-[24px] xl:min-w-[24px] rounded-[var(--r-subtle)] bg-transparent text-[var(--text-tertiary)] border-none cursor-pointer transition-[background,color] duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
 					onClick={onClose}
 				>
 					<svg
@@ -228,22 +230,14 @@ export function SessionActivityPanel({
 				</button>
 			</div>
 
-			{/* Q1 review issue #11: filter tabs */}
+			{/* Q1 review issue #11: filter tabs — AI5: shared TabBar (underline). */}
 			<div className="flex-shrink-0 px-[8px] pt-[6px] pb-[2px] border-b border-[var(--border-subtle)]">
-				<div role="tablist" aria-label="Activity filter" className="tabs tabs-bordered tabs-xs">
-					{FILTER_TABS.map((tab) => (
-						<button
-							key={tab.id}
-							type="button"
-							role="tab"
-							aria-selected={activeFilter === tab.id}
-							className={`tab${activeFilter === tab.id ? " tab-active" : ""}`}
-							onClick={() => setActiveFilter(tab.id)}
-						>
-							{tab.label}
-						</button>
-					))}
-				</div>
+				<TabBar
+					variant="underline"
+					tabs={FILTER_TABS}
+					activeId={activeFilter}
+					onChange={(id) => setActiveFilter(id as ActivityFilter)}
+				/>
 			</div>
 
 			{/* Activity stream */}
@@ -265,9 +259,12 @@ export function SessionActivityPanel({
 				)}
 
 				{(status === "streaming" || status === "ended") && filteredEntries.length === 0 && (
-					<div className="py-[16px] text-center text-[var(--text-tertiary)] text-[12px]">
-						No activity yet
-					</div>
+					/* AI5: shared compact EmptyState. */
+					<EmptyState
+						compact
+						title="No activity yet"
+						description="Tool calls and reasoning will appear here as the session runs."
+					/>
 				)}
 
 				{filteredEntries.map((entry, i) => (

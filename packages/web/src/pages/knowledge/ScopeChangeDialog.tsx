@@ -18,7 +18,7 @@
  * isDirty = reason entered or scope changed from current. Authoring surface — guards.
  */
 
-import { Dialog, Select } from "@hyperidle/design-system";
+import { Dialog, ScopePicker } from "@hyperidle/design-system";
 import { SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
@@ -157,31 +157,30 @@ export function ScopeChangeDialog({
 				{/* Previously rendered all 7 SCOPE_KINDS as raw enum values.          */}
 				{/* AF13 plan §6: Team option disabled when user has no teamId,         */}
 				{/* matching the same hasTeam gate in KnowledgeCreate.                  */}
-				<label htmlFor="scope-change-kind" className="flex flex-col gap-1">
+				{/* AI5: migrated from <Select> to the canonical ScopePicker pill group
+				    (scope-picker is AI5-owned; the pill group is the one anatomy
+				    rendered at all 4 scope sites). New testid prefix scope-pill-change. */}
+				<div className="flex flex-col gap-1">
 					<span className="text-xs text-[var(--text-tertiary)]">New scope</span>
-					<Select
-						id="scope-change-kind"
-						aria-label="Scope kind"
-						size="sm"
-						value={selectedOption.label}
-						onChange={(e) => {
-							const opt = SCOPE_CREATE_OPTIONS.find((o) => o.label === e.target.value);
+					<ScopePicker
+						options={SCOPE_CREATE_OPTIONS.map((opt) => ({
+							id: opt.id,
+							label: opt.label,
+							disabled: submitting || (opt.id === "team" && !hasTeam),
+						}))}
+						value={selectedOption.id}
+						onChange={(id) => {
+							const opt = SCOPE_CREATE_OPTIONS.find((o) => o.id === id);
 							if (opt) {
 								setSelectedOption(opt);
 								setScopeId("");
 							}
 						}}
-						disabled={submitting}
-						options={SCOPE_CREATE_OPTIONS.map((opt) => {
-							const isTeamOption = opt.id === "team";
-							return {
-								value: opt.label,
-								label: opt.label,
-								disabled: isTeamOption && !hasTeam,
-							};
-						})}
+						ariaLabel="Scope kind"
+						testIdPrefix="scope-pill-change"
+						disabledTitle="Join a team to use team-scoped knowledge"
 					/>
-				</label>
+				</div>
 
 				{/* Scope ID — free text for scopes that need an external id. */}
 				{needsScopeId && (

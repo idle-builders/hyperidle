@@ -1,10 +1,22 @@
-import { SkeletonCard, SkeletonList } from "./Skeleton.js";
+import { Skeleton, SkeletonCard, SkeletonList } from "./Skeleton.js";
 
 export default {
 	title: "Skeleton",
 	tier: "utility" as const,
-	order: ["List3Rows", "List6Rows", "Card", "CardGrid2x2"],
+	order: ["SingleBar", "SingleBarNarrow", "List3Rows", "List6Rows", "Card", "CardGrid2x2"],
 };
+
+export const SingleBar = (): React.JSX.Element => (
+	<div style={{ maxWidth: "320px" }}>
+		<Skeleton ariaLabel="Loading block reference" />
+	</div>
+);
+
+export const SingleBarNarrow = (): React.JSX.Element => (
+	<div style={{ maxWidth: "320px" }}>
+		<Skeleton height="16px" width="33%" ariaLabel="Loading discussions" />
+	</div>
+);
 
 export const List3Rows = (): React.JSX.Element => (
 	<div style={{ maxWidth: "320px" }}>

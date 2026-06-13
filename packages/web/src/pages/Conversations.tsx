@@ -21,7 +21,14 @@
  * Clicking "Dial In" opens the companion split: thread on the left (flex-[3]),
  * SessionActivityPanel on the right (flex-[2]).
  */
-import { EmptyState, ErrorState, SkeletonList, Tag, ThreadShell } from "@hyperidle/design-system";
+import {
+	Button,
+	EmptyState,
+	ErrorState,
+	SkeletonList,
+	Tag,
+	ThreadShell,
+} from "@hyperidle/design-system";
 import type { ArtifactRef, ArtifactViewShape, BlockRef, InlineRef } from "@hyperidle/shared";
 import {
 	type JSX,
@@ -304,10 +311,11 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	// hearth-internal-padding
 	const dialInButton =
 		activeSession && !dialInSessionId ? (
-			<button
-				type="button"
-				style={{ padding: "7px 12px" }}
-				className="inline-flex items-center gap-[6px] text-[12px] font-[500] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-primary)] cursor-pointer hover:border-[var(--border-strong)] transition-colors duration-[var(--motion-default)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]"
+			/* AI5: shared Button primitive (secondary). The live-pulse dot is one of
+			   the 3 AC3-allowlisted animate-pulse survivors and is preserved. */
+			<Button
+				variant="secondary"
+				size="sm"
 				onClick={() => setDialInSessionId(activeSession.id)}
 				data-testid="dial-in-btn"
 			>
@@ -322,7 +330,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 					data-testid="live-session-badge"
 				/>
 				Dial in
-			</button>
+			</Button>
 		) : null;
 
 	// Q1 §4.6: companion split layout when dialed in
@@ -501,15 +509,16 @@ export function Conversations(): JSX.Element {
 					{/* W3 AC-8: New thread button in header — only shown when threads exist.
 					    In empty state the action lives inside the EmptyState card. */}
 					{!isEmpty && (
-						<button
-							type="button"
-							style={{ padding: "7px 12px" }}
-							className="inline-flex items-center text-[12px] font-[500] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-[1.5px] border-transparent cursor-pointer hover:bg-[var(--accent-primary-hover)] transition-colors duration-[var(--motion-default)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] shrink-0"
+						/* AI5: shared Button primitive. */
+						<Button
+							variant="primary"
+							size="sm"
+							className="shrink-0"
 							onClick={onNewThread ?? (() => undefined)}
 							data-testid="new-thread-btn"
 						>
 							New thread
-						</button>
+						</Button>
 					)}
 				</header>
 				{isEmpty ? (
@@ -535,15 +544,14 @@ export function Conversations(): JSX.Element {
 								</svg>
 							}
 							action={
-								<button
-									type="button"
-									style={{ padding: "10px 18px" }}
-									className="inline-flex items-center text-[13px] font-[500] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-[1.5px] border-transparent cursor-pointer hover:bg-[var(--accent-primary-hover)] transition-colors duration-[var(--motion-default)]"
+								/* AI5: shared Button primitive. */
+								<Button
+									variant="primary"
 									onClick={onNewThread ?? (() => undefined)}
 									data-testid="empty-new-thread-btn"
 								>
 									Start a thread
-								</button>
+								</Button>
 							}
 							dataTestId="thread-sections-empty"
 						/>

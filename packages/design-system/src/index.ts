@@ -64,6 +64,9 @@ export type { ErrorStateProps } from "./ErrorState.js";
 export { ErrorState } from "./ErrorState.js";
 export type { InputProps } from "./Input.js";
 export { Input } from "./Input.js";
+// ── AG6: Row + ItemList + RowDot shared list-row primitives ──
+export type { ItemListEmpty, ItemListError, ItemListProps } from "./ItemList.js";
+export { ItemList } from "./ItemList.js";
 export type { KeyValueProps } from "./KeyValue.js";
 export { KeyValue } from "./KeyValue.js";
 export type { KnowledgeRowProps } from "./KnowledgeRow.js";
@@ -104,12 +107,18 @@ export type {
 	RichMessageCardState,
 } from "./RichMessageCard.js";
 export { RichMessageCard } from "./RichMessageCard.js";
+export type { ItemListContextValue, RowCell, RowProps } from "./Row.js";
+export { ItemListContext, Row } from "./Row.js";
+export type { RowDotProps, RowTone } from "./RowDot.js";
+export { RowDot } from "./RowDot.js";
+export type { ScopePickerOption, ScopePickerProps } from "./ScopePicker.js";
+export { ScopePicker } from "./ScopePicker.js";
 export type { SearchFieldProps } from "./SearchField.js";
 export { SearchField } from "./SearchField.js";
 export type { SelectProps } from "./Select.js";
 export { Select } from "./Select.js";
-export type { SkeletonCardProps, SkeletonListProps } from "./Skeleton.js";
-export { SkeletonCard, SkeletonList } from "./Skeleton.js";
+export type { SkeletonCardProps, SkeletonListProps, SkeletonProps } from "./Skeleton.js";
+export { Skeleton, SkeletonCard, SkeletonList } from "./Skeleton.js";
 export type { Status, StatusChipProps } from "./StatusChip.js";
 // ── Tier 1: Primitives ──
 export { StatusChip } from "./StatusChip.js";

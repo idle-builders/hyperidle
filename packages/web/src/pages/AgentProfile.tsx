@@ -47,6 +47,7 @@ import {
 import type { JSX } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAgentProfile } from "../hooks/useAgentProfile.js";
+import { deriveInitials } from "../utils/initials.js";
 
 /** F2: Narrow string|null to SessionOutcome without an unsafe cast. */
 const SESSION_OUTCOMES: ReadonlySet<SessionOutcome> = new Set<SessionOutcome>([
@@ -126,7 +127,7 @@ export function AgentProfile({
 /** Internal component rendered when data is fully resolved. */
 function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Element {
 	const catalogEntry = findRoleCatalogEntry(data.role);
-	const initials = data.name.slice(0, 2).toUpperCase();
+	const initials = deriveInitials(data.name);
 
 	// A2: Derive operational status from data, not DB status column
 	const isActive = data.activeSession !== null;

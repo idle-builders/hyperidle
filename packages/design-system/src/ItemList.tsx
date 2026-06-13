@@ -1,0 +1,115 @@
+/**
+ * AG6: Container for Row-based lists. Owns the list surface and the
+ * empty/loading/error/populated state machine.
+ *
+ * State precedence: error → loading → empty (when isEmpty===true) → children.
+ *
+ * @lore AG6: isEmpty is a REQUIRED explicit signal — no implicit React.Children
+ * counting. Consumers pass x.length===0. Implicit detection was rejected as
+ * a footgun (an empty children slot is not the same as "no data").
+ */
+
+import type { JSX, ReactNode } from "react";
+import { dsProps } from "./ds-attrs.js";
+import { EmptyState } from "./EmptyState.js";
+import { ErrorState } from "./ErrorState.js";
+import { ItemListContext } from "./Row.js";
+import { SkeletonList } from "./Skeleton.js";
+
+export interface ItemListEmpty {
+	title: string;
+	description: string;
+	icon?: ReactNode;
+	iconBg?: string;
+	action?: ReactNode;
+	dataTestId?: string;
+}
+
+export interface ItemListError {
+	title?: string;
+	description: string;
+	onRetry?: () => void;
+}
+
+export interface ItemListProps {
+	children?: ReactNode;
+	/** default "contained" */
+	variant?: "contained" | "flush";
+	/** "ul" → semantic list element; default "div" */
+	as?: "div" | "ul";
+	loading?: boolean;
+	/** default 4 */
+	loadingRows?: number;
+	/** aria-label for the SkeletonList */
+	loadingLabel?: string;
+	error?: ItemListError | null;
+	/** empty-state content, rendered when isEmpty && not loading/error */
+	empty?: ItemListEmpty;
+	/** REQUIRED explicit empty flag. No implicit React.Children counting. */
+	isEmpty: boolean;
+	"data-testid"?: string;
+}
+
+export function ItemList({
+	children,
+	variant = "contained",
+	as: Tag = "div",
+	loading = false,
+	loadingRows = 4,
+	loadingLabel,
+	error,
+	empty,
+	isEmpty,
+	"data-testid": dataTestId,
+}: ItemListProps): JSX.Element {
+	const containerClass =
+		variant === "contained"
+			? "rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[12px]"
+			: "";
+
+	// State precedence: error → loading → empty → children
+	let content: JSX.Element;
+
+	if (error) {
+		content = (
+			<ErrorState
+				title={error.title ?? "Error"}
+				description={error.description}
+				onRetry={error.onRetry}
+			/>
+		);
+	} else if (loading) {
+		content = <SkeletonList rows={loadingRows} ariaLabel={loadingLabel ?? "Loading"} />;
+	} else if (isEmpty) {
+		content = empty ? (
+			<EmptyState
+				title={empty.title}
+				description={empty.description}
+				icon={empty.icon}
+				iconBg={empty.iconBg}
+				action={empty.action}
+				dataTestId={empty.dataTestId}
+			/>
+		) : (
+			<div />
+		);
+	} else {
+		// render children inside the semantic list element
+		return (
+			<ItemListContext.Provider value={{ variant, as: Tag }}>
+				<Tag {...dsProps("ItemList", "2")} data-testid={dataTestId} className={containerClass}>
+					{children}
+				</Tag>
+			</ItemListContext.Provider>
+		);
+	}
+
+	// For error/loading/empty states, wrap in a div (not ul — no list items)
+	return (
+		<ItemListContext.Provider value={{ variant, as: Tag }}>
+			<div {...dsProps("ItemList", "2")} data-testid={dataTestId} className={containerClass}>
+				{content}
+			</div>
+		</ItemListContext.Provider>
+	);
+}
