@@ -23,6 +23,7 @@ import {
 	BlockActionsPopover,
 	BodyEditor,
 	Breadcrumb,
+	Button,
 	betOutcomeVerdictToStatus,
 	betStatusToStatus,
 	Dialog,

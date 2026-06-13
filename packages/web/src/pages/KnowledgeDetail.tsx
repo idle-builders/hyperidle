@@ -3,6 +3,7 @@ import {
 	BlockActionsPopover,
 	BodyEditor,
 	Breadcrumb,
+	Button,
 	knowledgeStatusToStatus,
 	Menu,
 	StatusChip,

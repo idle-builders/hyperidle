@@ -16,21 +16,23 @@ import { expect, test } from "./fixtures";
 const BET_ID = "bet-ag4-1";
 const TEAM_ID = "team-ag4-1";
 
+// BetDetail shape: matches packages/web/src/types/bet.ts BetDetail interface.
+// Fields WorkBet.tsx accesses: id, title, team, status, atRisk, costAppetite,
+// costActual, description, tasks.
 function makeBetDetailResponse() {
 	return {
 		id: BET_ID,
 		title: "AG4 test bet",
-		pitchTitle: "AG4 test bet",
+		team: "AG4 Team",
 		teamId: TEAM_ID,
-		teamName: "AG4 Team",
 		status: "committed",
+		atRisk: false,
 		costAppetite: { minor: 100000, currency: "USD" },
+		tokenAppetite: null,
 		costActual: { minor: 50000, currency: "USD" },
-		progressDone: 1,
-		progressTotal: 3,
-		doneCondition: "Ship it",
-		problemStatement: "Test problem",
-		solutionSketch: "Test solution",
+		tokensActual: null,
+		progress: { done: 1, total: 3 },
+		description: "# AG4 test bet\n\nTest description",
 		tasks: [],
 		artifacts: [],
 	};
@@ -198,22 +200,34 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 	});
 
 	// AC-5: shortcut guard — does NOT fire while typing in an input
+	// W2: deterministic — Knowledge create page at /knowledge/new has a real <input>
+	// for the title. We navigate there, focus the title input (which is always present
+	// and clickable), then press ⌘2 and assert it does NOT navigate.
+	//
+	// Note: the global-search dialog's SearchField auto-focus is unreliable in the
+	// headless Playwright runner (the focusRef fires but Playwright shows the element
+	// as "inactive"). Using the KnowledgeCreate title input is deterministic because
+	// it's a plain <input type="text"> we can directly focus via click().
 	test("AC-5: ⌘2 does not switch views while typing in input", async ({ page }) => {
-		await page.goto("/");
-		await page.waitForSelector("[data-testid='main-content']");
+		// Navigate to a page with a real text input (knowledge create).
+		await page.goto("/knowledge/new");
+		await page.waitForSelector("[data-testid='knowledge-create-page']");
 
-		// Open command-k search (which is an input)
-		await page.keyboard.press("Meta+k");
-		// Wait for search input to appear
-		const searchInput = page.getByRole("combobox").or(page.getByPlaceholder(/search/i));
-		if (await searchInput.isVisible({ timeout: 2000 }).catch(() => false)) {
-			await searchInput.focus();
-			// ⌘2 should NOT navigate away while in search input
-			await page.keyboard.press("Meta+2");
-			// Should still be on conversations (no navigation happened)
-			await expect(page).toHaveURL(/\/conversations/, { timeout: 1000 });
-		}
-		// If search input not found, the test still passes (guard tested via unit tests)
+		// The title input is a plain <input type="text"> with placeholder "Untitled".
+		const titleInput = page.getByPlaceholder("Untitled");
+		await expect(titleInput).toBeVisible();
+		// Click to focus — deterministic in Playwright (no focus-trap complications).
+		await titleInput.click();
+		await expect(titleInput).toBeFocused();
+
+		// ⌘2 must NOT navigate away — useNavShortcuts guard checks e.target.tagName === "input".
+		await page.keyboard.press("Meta+2");
+
+		// URL must still be /knowledge/new (no navigation happened while typing in input).
+		await expect(page).toHaveURL(/\/knowledge\/new/, { timeout: 1000 });
+
+		// The input must still be focused (not blurred by ⌘2).
+		await expect(titleInput).toBeFocused();
 	});
 
 	// AC-6: Screenshot visual check — breadcrumb visible on bet detail
@@ -227,6 +241,118 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 
 		// Screenshot for reviewer visual inspection (non-blocking)
 		await page.screenshot({ path: "plans/AG4/proof/breadcrumb-bet-detail.png", fullPage: false });
+	});
+
+	// C1 — AC-1: portfolio → team → bet; click Back chevron → team; ⌘[ → portfolio.
+	// Asserts Back affordance visible at each step (desktop width = 1280×720 default).
+	//
+	// Strategy: use in-app navigation (clicks on breadcrumb links and sidebar) rather than
+	// page.goto() for the second and third hops. This ensures React Router pushes real
+	// history entries (idx increments), making canGoBack=true on the bet page.
+	// page.goto() creates a fresh navigation that resets history.state.idx to 0.
+	test("AC-1: portfolio→team→bet — Back chevron returns to team, ⌘[ returns to portfolio", async ({
+		page,
+	}) => {
+		await mockBetAndTeam(page);
+
+		// 1. Start at portfolio (page.goto is ok for the first navigation — sets idx=0 baseline).
+		await page.goto("/work/portfolio");
+		await page.waitForSelector("[data-testid='work-portfolio-page']");
+
+		// 2. Navigate to team page via in-app click (pushes history entry, idx becomes 1).
+		// The portfolio shows the team in the sidebar or as a link — navigate via URL push.
+		// We use page.evaluate to push via history.pushState (simulates a React Router push).
+		await page.evaluate((url) => {
+			window.history.pushState({ idx: 1 }, "", url);
+		}, `/work/team/${TEAM_ID}`);
+		// Trigger the React Router location update via a popstate — RR listens to popstate.
+		// Actually, we need React Router to recognize the navigation. Use page.goto for the team,
+		// but then navigate to bet via history.pushState to preserve history.
+		// Simpler: goto team, then use the Sidebar/Work section → team → bet breadcrumb click.
+
+		// Better approach: goto portfolio, then navigate to bet by changing URL twice using
+		// page.evaluate to push state, which React Router picks up via its popstate listener.
+		// Step 2a: goto team URL (fresh navigation, resets to idx=1)
+		await page.goto(`/work/team/${TEAM_ID}`);
+		await page.waitForSelector("[data-testid='work-team-page']");
+
+		// Step 2b: navigate to bet via in-app SPA navigation (breadcrumb click or programmatic).
+		// Click the first bet card link on the team page to navigate to bet.
+		// Or: use page.evaluate to call history.pushState for SPA navigation.
+		await page.evaluate((url) => {
+			// Simulate React Router push: increment idx to simulate in-app navigation.
+			const currentIdx = (window.history.state?.idx ?? 0) as number;
+			window.history.pushState({ idx: currentIdx + 1 }, "", url);
+			// Dispatch popstate to trigger React Router's listener.
+			window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
+		}, `/work/bet/${BET_ID}`);
+
+		// Wait for the loaded breadcrumb on the bet page (not the skeleton)
+		const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
+		await expect(breadcrumb).toBeVisible({ timeout: 10000 });
+
+		// 3. On bet detail: Back button is visible (desktop) and enabled (idx > 0 → canGoBack=true).
+		const backBtn = page.getByRole("button", { name: "Back" });
+		await expect(backBtn).toBeVisible();
+		await expect(backBtn).not.toBeDisabled();
+
+		// 4. Click Back chevron → should return to team screen.
+		await backBtn.click();
+		await expect(page).toHaveURL(new RegExp(`/work/team/${TEAM_ID}`), { timeout: 5000 });
+
+		// 5. Back button is still visible on team screen (we can still go back to portfolio).
+		await expect(page.getByRole("button", { name: "Back" })).toBeVisible({ timeout: 5000 });
+		await expect(page.getByRole("button", { name: "Back" })).not.toBeDisabled();
+
+		// 6. Press ⌘[ → should return to portfolio.
+		await page.keyboard.press("Meta+[");
+		await expect(page).toHaveURL(/\/work\/portfolio/, { timeout: 5000 });
+	});
+
+	// C1 — AC-2: cross-view history traversal — bet → knowledge → Back → bet.
+	// This is the heart of the workpackage: Back traverses temporal history across views.
+	//
+	// Strategy: navigate bet → knowledge via history.pushState (simulates in-app navigation
+	// from ⌘K search result click). The global-search dialog focus is unreliable in headless
+	// Playwright, so we simulate the navigation outcome directly. The AC verifies the
+	// temporal history traversal, not the search UI itself (that's covered by global-search.spec.ts).
+	test("AC-2: cross-view history — bet→knowledge→Back returns to bet", async ({ page }) => {
+		const KNOWLEDGE_ID = "k1";
+
+		await mockBetAndTeam(page);
+
+		// 1. Navigate to bet detail (establishes history base).
+		await page.goto(`/work/bet/${BET_ID}`);
+		// Wait for breadcrumb (not skeleton) to confirm bet data loaded.
+		await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toBeVisible({
+			timeout: 10000,
+		});
+		const betUrl = page.url();
+
+		// 2. Navigate to knowledge item via history.pushState (simulates search-result click).
+		// This is what happens in the app when ⌘K result is clicked — React Router pushes history.
+		await page.evaluate((url) => {
+			const currentIdx = (window.history.state?.idx ?? 0) as number;
+			window.history.pushState({ idx: currentIdx + 1 }, "", url);
+			window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
+		}, `/knowledge/${KNOWLEDGE_ID}`);
+
+		// 3. Should be on the knowledge detail page now.
+		await expect(page).toHaveURL(new RegExp(`/knowledge/${KNOWLEDGE_ID}`), { timeout: 5000 });
+		await page.waitForSelector("[data-testid='knowledge-detail-page']");
+
+		// 4. The Breadcrumb on the knowledge detail page confirms we're at the right screen.
+		await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toBeVisible({
+			timeout: 5000,
+		});
+
+		// 5. Press Back (⌘[) → must return to the bet URL (cross-view history traversal).
+		await page.keyboard.press("Meta+[");
+		await expect(page).toHaveURL(betUrl, { timeout: 5000 });
+		// Verify back on the bet page (confirms the history traversal landed correctly).
+		await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toBeVisible({
+			timeout: 5000,
+		});
 	});
 });
 
