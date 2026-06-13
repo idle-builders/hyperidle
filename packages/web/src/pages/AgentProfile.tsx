@@ -27,15 +27,15 @@
 
 import {
 	Avatar,
+	agentOperationalStatusToStatus,
 	EmptyState,
 	ErrorState,
 	KeyValue,
 	LiveDot,
 	SkeletonCard,
 	StatusChip,
-	Tag,
-	agentOperationalStatusToStatus,
 	sessionOutcomeToStatus,
+	Tag,
 } from "@hyperidle/design-system";
 import type { AgentProfileResponse, SessionOutcome } from "@hyperidle/shared";
 import { AGENT_OPERATIONAL_STATUS_LABEL, findRoleCatalogEntry } from "@hyperidle/shared";
@@ -43,6 +43,16 @@ import type { JSX } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAgentProfile } from "../hooks/useAgentProfile.js";
 import { formatRelativeTime } from "../utils/format-time.js";
+
+/** F2: Narrow string|null to SessionOutcome without an unsafe cast. */
+const SESSION_OUTCOMES: ReadonlySet<SessionOutcome> = new Set<SessionOutcome>([
+	"completed",
+	"crashed",
+	"stopped",
+]);
+function isSessionOutcome(v: string | null): v is SessionOutcome {
+	return v !== null && (SESSION_OUTCOMES as ReadonlySet<string>).has(v);
+}
 
 export interface AgentProfileProps {
 	/** Override the profile data. Used by stories and tests. */
@@ -326,15 +336,15 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 										{session.taskTitle}
 									</td>
 									<td className="py-[6px]">
-										{/* AI4 AC1: session outcome via StatusChip (was text-only OutcomeChip) */}
-									{session.outcome ? (
-										<StatusChip
-											status={sessionOutcomeToStatus(session.outcome as SessionOutcome)}
-											label={session.outcome}
-										/>
-									) : (
-										<span className="text-[var(--text-tertiary)]">—</span>
-									)}
+										{/* AI4 AC1: session outcome via StatusChip (was text-only OutcomeChip).
+										     F2: narrowed from `as SessionOutcome` cast; label omitted so chip
+										     renders the presentation status name (DONE/ERROR/PAUSED) from
+										     SESSION_OUTCOME_MAP — no SESSION_OUTCOME_LABEL registry in plan. */}
+										{isSessionOutcome(session.outcome) ? (
+											<StatusChip status={sessionOutcomeToStatus(session.outcome)} />
+										) : (
+											<span className="text-[var(--text-tertiary)]">—</span>
+										)}
 									</td>
 									<td className="py-[6px] tabular-nums text-[var(--text-tertiary)]">—</td>
 									<td className="py-[6px] text-[var(--text-tertiary)]">
