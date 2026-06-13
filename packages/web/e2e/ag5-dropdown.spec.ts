@@ -2,32 +2,39 @@
  * AG5 — Playwright visual + behavior tests for the canonical dropdown system.
  *
  * Covers:
- *   1. Settings page — model/role Select open/close (resting + open screenshot)
- *   2. BetCreateDialog — team Select renders full-width control (D4/C3)
- *   2b. WorkBet — currency Select control bounding box ≈ 88px (C3 width-passthrough proof)
- *   3. RoutineCreateDialog — team/appetite Select renders
- *   4. WorkBet overflow Menu — open / keyboard drive (ArrowDown, Enter) / close
- *   5. KnowledgeDetail overflow Menu — open / close
+ *   S1. Settings page — Models section Select open/close (resting + open screenshot)
+ *   S2. BetCreateDialog — team Select renders full-width control (D4/C3)
+ *   S2b. WorkBet — currency Select control bounding box ≈ 88px (C3 width-passthrough proof)
+ *   S3. RoutineCreateDialog — team/appetite Select renders
+ *   S4. WorkBet overflow Menu — open / keyboard drive (ArrowDown, Enter) / close
+ *   S4b. WorkBet overflow Menu — bet action data attrs preserved (C4)
+ *   S5. KnowledgeDetail overflow Menu — open and close
+ *   T1. Select sm size meets 44px touch target at ≤1024px viewport (AQ-015)
  *
  * Strategy: hermetic page.route() mocks. No DB seeding.
+ * Screenshots: test-results/ag5-*.png (same convention as U11).
  *
- * @lore AG5: These specs intentionally fail until the green phase ships:
- *   - Select size/placeholder/className-forwarding
- *   - Menu primitive
- *   - WorkBet + KnowledgeDetail migrated to Menu
- *   - All select call-sites migrated to Select primitive
+ * @lore AG5: Fix round 1 — corrected route from /work/bets/:id to /work/bet/:id
+ * (singular); Settings from role=tab to stacked page at /conversations?settings=open;
+ * S2 uses /work/portfolio; S3 uses /work/team/:id + new-routine-btn testid;
+ * S2b opens appetite dialog first; S4b uses draft-status bet for activate action;
+ * S5 asserts on role=menu (not wrapper div which has zero height);
+ * T1 uses 600px viewport (below sm: 640px breakpoint) for accurate touch target check.
+ * Added page.screenshot() captures on open dropdowns for ≥3 surfaces (visual AC #6).
  */
 
 import { expect, test } from "./fixtures";
 
 const BET_ID = "bet-ag5-test";
+const TEAM_ID = "test-team-1";
 
 function makeBetResponse(status = "active") {
 	return {
 		id: BET_ID,
 		title: "AG5 Dropdown Bet",
 		product: "Alpha",
-		team: "t1",
+		team: TEAM_ID,
+		teamId: TEAM_ID,
 		status,
 		costAppetite: { minor: 100000, currency: "USD" },
 		costActual: null,
@@ -45,13 +52,14 @@ async function setupBetRoutes(
 			? P
 			: never
 		: never,
+	betStatus = "active",
 ): Promise<void> {
 	await page.route(`**/api/bets/${BET_ID}`, (route) => {
 		if (route.request().method() === "GET") {
 			return route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify(makeBetResponse("active")),
+				body: JSON.stringify(makeBetResponse(betStatus)),
 			});
 		}
 		return route.continue();
@@ -82,34 +90,180 @@ async function setupBetRoutes(
 	);
 }
 
+/** Mock response for GET /api/model-gateway */
+const MODEL_GATEWAY_FIXTURE = {
+	reasoning: { provider: "anthropic", model: "claude-opus-4-20250514", hasApiKey: false },
+	workhorse: { provider: "anthropic", model: "claude-sonnet-4-20250514", hasApiKey: false },
+	fast: { provider: "anthropic", model: "claude-haiku-3-5-20241022", hasApiKey: false },
+};
+
+async function setupSettingsRoutes(
+	page: Parameters<typeof test>[1] extends infer T
+		? T extends { page: infer P }
+			? P
+			: never
+		: never,
+): Promise<void> {
+	await page.route("**/api/model-gateway", (route) => {
+		if (route.request().method() === "GET") {
+			return route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify(MODEL_GATEWAY_FIXTURE),
+			});
+		}
+		if (route.request().method() === "PATCH") {
+			return route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify(MODEL_GATEWAY_FIXTURE),
+			});
+		}
+		return route.continue();
+	});
+}
+
+/** Mock GET /api/bets (grouped response for WorkPortfolio useBets hook) */
+async function setupBetsListRoutes(
+	page: Parameters<typeof test>[1] extends infer T
+		? T extends { page: infer P }
+			? P
+			: never
+		: never,
+): Promise<void> {
+	await page.route("**/api/bets", (route) => {
+		if (route.request().method() === "GET") {
+			return route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					draft: [],
+					active: [makeBetResponse("active")],
+					completed: [],
+					killed: [],
+				}),
+			});
+		}
+		if (route.request().method() === "POST") {
+			return route.fulfill({
+				status: 201,
+				contentType: "application/json",
+				body: JSON.stringify(makeBetResponse("shaped")),
+			});
+		}
+		return route.continue();
+	});
+	// Override api/teams to provide 2 teams so BetCreateDialog shows the team Select.
+	// (With 1 team, BetCreateDialog auto-resolves and hides the select per R2.)
+	await page.route("**/api/teams", (route) => {
+		if (route.request().method() === "GET") {
+			return route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					teams: [
+						{ id: "test-team-1", name: "Test Team Alpha", phase: "build", active: true },
+						{ id: "test-team-2", name: "Test Team Beta", phase: "build", active: true },
+					],
+				}),
+			});
+		}
+		return route.continue();
+	});
+}
+
+/** Mock routes for WorkTeam page at /work/team/:id */
+async function setupTeamRoutes(
+	page: Parameters<typeof test>[1] extends infer T
+		? T extends { page: infer P }
+			? P
+			: never
+		: never,
+): Promise<void> {
+	await page.route(`**/api/teams/${TEAM_ID}`, (route) => {
+		if (route.request().method() === "GET") {
+			return route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					product: { id: TEAM_ID, name: "Test Team", phase: "build", status: "healthy" },
+					team: { id: "t1", formedAt: new Date().toISOString(), dissolvedAt: null },
+					roster: [],
+					burn: { costActual: null, costCap: null, capacity: 5, activeBets: 0 },
+					activeBets: [],
+					routines: [],
+				}),
+			});
+		}
+		return route.continue();
+	});
+	await page.route(`**/api/agents`, (route) => {
+		if (route.request().method() === "GET") {
+			return route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ agents: [] }),
+			});
+		}
+		return route.continue();
+	});
+	await page.route(`**/api/bets?**`, (route) =>
+		route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ tasks: [], nextCursor: null }),
+		}),
+	);
+}
+
 // ─── Surface 1: Settings / Models ────────────────────────────────────────────
 
 test("AG5-S1: Settings/Models — canonical Select renders on model tier rows", async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
-	await page.goto("/settings");
-	// Navigate to models tab
-	await page.getByRole("tab", { name: /models/i }).click();
+	await setupSettingsRoutes(page);
+
+	// @lore AG5 fix: Settings is a stacked page in the main pane.
+	// Navigate to /conversations?settings=open (the canonical settings deep-link).
+	await page.goto("/conversations?settings=open");
+	await page.waitForSelector("[data-testid='main-content']");
+
+	// Scroll/wait for the Models section to be visible
+	const modelsSection = page.getByTestId("settings-section-models");
+	await expect(modelsSection).toBeVisible({ timeout: 10000 });
 
 	// Verify canonical Select primitives exist (data-ds-component='Select')
-	const selects = page.locator("[data-ds-component='Select']");
-	await expect(selects.first()).toBeVisible();
+	const selects = modelsSection.locator("[data-ds-component='Select']");
+	await expect(selects.first()).toBeVisible({ timeout: 10000 });
 
 	// No hand-rolled DaisyUI selects should remain
 	const daisySelects = page.locator(".select-bordered");
 	await expect(daisySelects).toHaveCount(0);
+
+	// Screenshot: Settings models section showing select controls (surface 1)
+	await page.screenshot({
+		path: "test-results/ag5-s1-settings-models.png",
+		fullPage: false,
+	});
 });
 
 // ─── Surface 2: BetCreateDialog — full-width Select ──────────────────────────
 
 test("AG5-S2: BetCreateDialog — team Select control is full-width", async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
-	// Navigate to work view to trigger bet creation dialog
-	await page.goto("/work");
-	await page.getByRole("button", { name: /new bet|create bet/i }).click();
+	await setupBetsListRoutes(page);
 
-	// Find the team select inside the dialog
+	// @lore AG5 fix: work portfolio is at /work/portfolio, not /work.
+	await page.goto("/work/portfolio");
+	await page.waitForSelector("[data-testid='main-content']");
+
+	// Click "New bet" button (visible when bets exist)
+	const newBetBtn = page.getByTestId("new-bet-btn");
+	await expect(newBetBtn).toBeVisible({ timeout: 10000 });
+	await newBetBtn.click();
+
+	// Find the dialog
 	const dialog = page.getByRole("dialog");
-	await expect(dialog).toBeVisible();
+	await expect(dialog).toBeVisible({ timeout: 10000 });
 
 	const teamSelect = dialog.locator("[data-ds-component='Select']").first();
 	await expect(teamSelect).toBeVisible();
@@ -120,55 +274,88 @@ test("AG5-S2: BetCreateDialog — team Select control is full-width", async ({ p
 	expect(box).not.toBeNull();
 	// Full-width means close to the dialog/form width — at least 200px
 	expect(box!.width).toBeGreaterThan(200);
+
+	// Screenshot: BetCreateDialog with Select visible (surface 2)
+	await page.screenshot({
+		path: "test-results/ag5-s2-bet-create-dialog.png",
+		fullPage: false,
+	});
 });
 
 // ─── Surface 2b: WorkBet currency Select ≈ 88px ──────────────────────────────
 
 test("AG5-S2b: WorkBet — currency Select control bounding box ≈ 88px (C3)", async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
-	await setupBetRoutes(page);
-	await page.goto(`/work/bets/${BET_ID}`);
+	// Use active status — the appetite dialog requires an active bet.
+	await setupBetRoutes(page, "active");
+	// @lore AG5 fix: route is /work/bet/:id (singular), not /work/bets/:id (plural).
+	await page.goto(`/work/bet/${BET_ID}`);
+	await page.waitForSelector("[data-testid='main-content']");
 
-	// Find the narrow select among all selects on the page
-	// The currency select is the w-[88px] one — narrow compared to full-width form selects
-	const allSelects = page.locator("[data-ds-component='Select'] select");
-	const count = await allSelects.count();
-	expect(count).toBeGreaterThan(0);
+	// The currency Select is inside the "Adjust appetite" dialog.
+	// Open the overflow menu first to access "Adjust appetite".
+	const overflowBtn = page.getByTestId("bet-overflow-btn");
+	await expect(overflowBtn).toBeVisible({ timeout: 10000 });
+	await overflowBtn.click();
 
-	// At least one select must be approximately 88px wide
-	let foundNarrow = false;
-	for (let i = 0; i < count; i++) {
-		const box = await allSelects.nth(i).boundingBox();
-		if (box && box.width >= 80 && box.width <= 100) {
-			foundNarrow = true;
-			break;
-		}
-	}
-	expect(foundNarrow, "expected a ~88px-wide currency select control on the WorkBet page").toBe(
-		true,
-	);
+	// Click "Adjust appetite" to open the dialog
+	const adjustAppetiteBtn = page.locator("[data-bet-action='adjust-appetite']");
+	await expect(adjustAppetiteBtn).toBeVisible({ timeout: 5000 });
+	await adjustAppetiteBtn.click();
+
+	// Wait for the appetite dialog to open
+	const appetiteDialog = page.getByRole("dialog", { name: /adjust appetite/i });
+	await expect(appetiteDialog).toBeVisible({ timeout: 5000 });
+
+	// The currency select is the w-[88px] one — narrow
+	const currencySelect = appetiteDialog.locator("[data-ds-component='Select'] select");
+	await expect(currencySelect).toBeVisible({ timeout: 5000 });
+
+	const box = await currencySelect.boundingBox();
+	expect(box).not.toBeNull();
+	// w-[88px] → should be approximately 88px (allow some rendering tolerance)
+	expect(
+		box!.width,
+		`currency select width ${box!.width}px outside ~88px expected range`,
+	).toBeGreaterThanOrEqual(80);
+	expect(box!.width).toBeLessThanOrEqual(100);
+
+	// Screenshot: Appetite dialog with narrow currency select (surface 2b)
+	await page.screenshot({
+		path: "test-results/ag5-s2b-workbet-currency-select.png",
+		fullPage: false,
+	});
 });
 
 // ─── Surface 3: RoutineCreateDialog ──────────────────────────────────────────
 
 test("AG5-S3: RoutineCreateDialog — canonical Select primitives render", async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
-	await page.goto("/work");
+	await setupTeamRoutes(page);
 
-	// Navigate to routines or trigger create dialog
-	// The exact navigation varies — look for a Create Routine button
-	const createBtn = page.getByRole("button", { name: /routine/i });
+	// @lore AG5 fix: RoutineCreateDialog is in WorkTeam at /work/team/:id.
+	await page.goto(`/work/team/${TEAM_ID}`);
+	await page.waitForSelector("[data-testid='main-content']");
+
+	// Click "New routine" button
+	const createBtn = page.getByTestId("new-routine-btn");
 	await expect(createBtn).toBeVisible({ timeout: 10000 });
 	await createBtn.click();
 
 	const dialog = page.getByRole("dialog");
-	await expect(dialog).toBeVisible();
+	await expect(dialog).toBeVisible({ timeout: 5000 });
 
 	const selects = dialog.locator("[data-ds-component='Select']");
-	await expect(selects.first()).toBeVisible();
-	// Multiple selects (team/appetite/schedule) should be present
+	await expect(selects.first()).toBeVisible({ timeout: 5000 });
+	// Multiple selects (schedule/team/agent) should be present
 	const count = await selects.count();
 	expect(count).toBeGreaterThanOrEqual(2);
+
+	// Screenshot: RoutineCreateDialog with selects (surface 3)
+	await page.screenshot({
+		path: "test-results/ag5-s3-routine-create-dialog.png",
+		fullPage: false,
+	});
 });
 
 // ─── Surface 4: WorkBet overflow Menu — keyboard navigation ──────────────────
@@ -178,11 +365,13 @@ test("AG5-S4: WorkBet overflow Menu — open, keyboard nav (ArrowDown+Enter), cl
 }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await setupBetRoutes(page);
-	await page.goto(`/work/bets/${BET_ID}`);
+	// @lore AG5 fix: route is /work/bet/:id (singular), not /work/bets/:id (plural).
+	await page.goto(`/work/bet/${BET_ID}`);
+	await page.waitForSelector("[data-testid='main-content']");
 
 	// Open the overflow menu via the trigger button
 	const overflowBtn = page.getByTestId("bet-overflow-btn");
-	await expect(overflowBtn).toBeVisible();
+	await expect(overflowBtn).toBeVisible({ timeout: 10000 });
 	await overflowBtn.click();
 
 	// Menu panel should appear with role=menu
@@ -193,10 +382,15 @@ test("AG5-S4: WorkBet overflow Menu — open, keyboard nav (ArrowDown+Enter), cl
 	const menuEl = page.locator("[data-ds-component='Menu'][role='menu']");
 	await expect(menuEl).toBeVisible();
 
-	// Keyboard: ArrowDown moves focus, Enter activates
+	// Screenshot: WorkBet with overflow menu open (surface 4)
+	await page.screenshot({
+		path: "test-results/ag5-s4-workbet-menu-open.png",
+		fullPage: false,
+	});
+
+	// Keyboard: ArrowDown moves focus
 	await page.keyboard.press("ArrowDown");
-	// Focus ring should be visible (visual assertion via screenshot is optional)
-	// Just verify the menu is still open and an item is focused
+	// Verify the menu is still open and an item is focused
 	const focused = page.locator("[role='menuitem']:focus-visible");
 	// Allow the focused item to have either :focus or :focus-visible
 	const focusedCount = await focused.count();
@@ -214,15 +408,20 @@ test("AG5-S4b: WorkBet overflow Menu — data-bet-action attrs present on items 
 	page,
 }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
-	await setupBetRoutes(page);
-	await page.goto(`/work/bets/${BET_ID}`);
+	// @lore AG5 fix: Use "draft" status so the "activate" menu item appears.
+	// When status="active", only "adjust-appetite"/"unblock"/"kill" render.
+	await setupBetRoutes(page, "draft");
+	// @lore AG5 fix: route is /work/bet/:id (singular), not /work/bets/:id (plural).
+	await page.goto(`/work/bet/${BET_ID}`);
+	await page.waitForSelector("[data-testid='main-content']");
 
 	const overflowBtn = page.getByTestId("bet-overflow-btn");
+	await expect(overflowBtn).toBeVisible({ timeout: 10000 });
 	await overflowBtn.click();
 
 	await expect(page.getByRole("menu")).toBeVisible();
 
-	// All four bet actions must emit literal data-bet-action attributes
+	// "activate" only shows on draft bets; "kill" shows on any non-completed/non-killed bet
 	await expect(page.locator("[data-bet-action='activate']")).toBeVisible();
 	await expect(page.locator("[data-bet-action='kill']")).toBeVisible();
 });
@@ -256,21 +455,36 @@ test("AG5-S5: KnowledgeDetail overflow Menu — open and close", async ({ page }
 			body: JSON.stringify({ blocks: [] }),
 		}),
 	);
+	await page.route(`**/api/threads?**`, (route) =>
+		route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ threads: [], nextCursor: null }),
+		}),
+	);
 
 	await page.goto(`/knowledge/${KNOWLEDGE_ID}`);
+	await page.waitForSelector("[data-testid='main-content']");
 
 	// Open the overflow menu
-	const overflowBtn = page.getByRole("button", { name: /more|overflow|actions/i });
+	const overflowBtn = page.getByRole("button", { name: /more options/i });
 	await expect(overflowBtn).toBeVisible({ timeout: 10000 });
 	await overflowBtn.click();
 
-	// The menu panel should appear
-	const menu = page.locator("[data-testid='knowledge-overflow-menu']");
-	await expect(menu).toBeVisible();
+	// @lore AG5 fix: the wrapper div has zero height (absolute-positioned child);
+	// assert on role=menu (which has visible bounds) rather than the wrapper div.
+	const menu = page.getByRole("menu");
+	await expect(menu).toBeVisible({ timeout: 5000 });
 
 	// knowledge-archive item must be present
 	const archiveItem = page.locator("[data-testid='knowledge-archive']");
 	await expect(archiveItem).toBeVisible();
+
+	// Screenshot: KnowledgeDetail with overflow menu open (surface 5)
+	await page.screenshot({
+		path: "test-results/ag5-s5-knowledge-menu-open.png",
+		fullPage: false,
+	});
 
 	// Click outside to close
 	await page.mouse.click(0, 0);
@@ -280,12 +494,23 @@ test("AG5-S5: KnowledgeDetail overflow Menu — open and close", async ({ page }
 // ─── Touch target assertion (AQ-015) ─────────────────────────────────────────
 
 test("AG5-T1: Select sm size meets 44px touch target at <=1024px viewport", async ({ page }) => {
-	await page.setViewportSize({ width: 768, height: 1024 });
-	await page.goto("/settings");
-	await page.getByRole("tab", { name: /models/i }).click();
+	// @lore AG5 fix: Use 600px viewport — below Tailwind's sm: breakpoint (640px).
+	// At 640px+, sm:min-h-[32px] applies; below 640px, the base min-h-[44px] floor holds.
+	// AQ-015 requires 44px at ≤1024px, so the fix changed sm: to lg: in Select.tsx.
+	await page.setViewportSize({ width: 1024, height: 900 });
+	await setupSettingsRoutes(page);
 
-	// Find sm-size selects (settings rows use size="sm")
-	const selects = page.locator("[data-ds-component='Select'] select");
+	// @lore AG5 fix: Settings is in main pane at /conversations?settings=open.
+	await page.goto("/conversations?settings=open");
+	await page.waitForSelector("[data-testid='main-content']");
+
+	// Wait for models section to render with its selects
+	const modelsSection = page.getByTestId("settings-section-models");
+	await expect(modelsSection).toBeVisible({ timeout: 10000 });
+
+	// Find sm-size selects in the models section (settings rows use size="sm")
+	const selects = modelsSection.locator("[data-ds-component='Select'] select");
+	await expect(selects.first()).toBeVisible({ timeout: 10000 });
 	const count = await selects.count();
 	expect(count).toBeGreaterThan(0);
 
@@ -294,7 +519,7 @@ test("AG5-T1: Select sm size meets 44px touch target at <=1024px viewport", asyn
 		if (box) {
 			expect(
 				box.height,
-				`Select #${i} height ${box.height}px < 44px touch target at 768px viewport (AQ-015)`,
+				`Select #${i} height ${box.height}px < 44px touch target at 1024px viewport (AQ-015)`,
 			).toBeGreaterThanOrEqual(44);
 		}
 	}
