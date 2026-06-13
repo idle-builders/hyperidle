@@ -18,13 +18,8 @@
  * external date library is needed.
  */
 
-import {
-	ErrorState,
-	LiveDot,
-	StatusChip,
-	taskStateToStatus,
-} from "@hyperidle/design-system";
-import { TASK_STATE_LABEL, formatMoney } from "@hyperidle/shared";
+import { ErrorState, LiveDot, StatusChip, taskStateToStatus } from "@hyperidle/design-system";
+import { formatMoney, TASK_STATE_LABEL } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";

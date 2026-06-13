@@ -12,16 +12,16 @@ import { describe, expect, it } from "vitest";
 import {
 	AGENT_OPERATIONAL_STATUS_LABEL,
 	BET_OUTCOME_VERDICT_LABEL,
+	BET_OUTCOME_VERDICTS,
 	BET_STATUS_LABEL,
 	BET_STATUSES,
 	type BetOutcomeVerdict,
-	BET_OUTCOME_VERDICTS,
 	type BetStatus,
 	TASK_OUTCOME_VERDICT_LABEL,
 	TASK_OUTCOME_VERDICTS,
-	type TaskOutcomeVerdict,
 	TASK_STATE_LABEL,
 	TASK_STATES,
+	type TaskOutcomeVerdict,
 	type TaskState,
 } from "../index.js";
 
@@ -223,7 +223,10 @@ describe("AGENT_OPERATIONAL_STATUS_LABEL (AI4 AC2, Decision 3a)", () => {
 		const agentStatuses = ["active", "error", "idle"] as const;
 		for (const s of agentStatuses) {
 			const label = AGENT_OPERATIONAL_STATUS_LABEL[s];
-			expect(label, `AGENT_OPERATIONAL_STATUS_LABEL["${s}"] must be a non-empty string`).toBeTruthy();
+			expect(
+				label,
+				`AGENT_OPERATIONAL_STATUS_LABEL["${s}"] must be a non-empty string`,
+			).toBeTruthy();
 		}
 	});
 

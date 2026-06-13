@@ -41,8 +41,8 @@ const TEAM_ID = "team-ai4-proof";
 // ESM: use import.meta.url instead of __dirname (not available in ES module scope).
 // import.meta.url = file:///…/packages/web/e2e/AI4-status-language.spec.ts
 // → up 3 levels → monorepo root → plans/AI4/proof/
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PROOF_DIR = path.resolve(__dirname, "../../../plans/AI4/proof");
+const Dirname = path.dirname(fileURLToPath(import.meta.url));
+const PROOF_DIR = path.resolve(Dirname, "../../../plans/AI4/proof");
 
 // Selectors
 const STATUS_CHIP = '[data-ds-component="StatusChip"]';
@@ -210,7 +210,11 @@ function makeEmptyMessagesResponse() {
 
 /** Wire standard routes needed by WorkBet page. */
 async function setupBetRoutes(
-	page: Parameters<typeof test>[1] extends infer T ? (T extends { page: infer P } ? P : never) : never,
+	page: Parameters<typeof test>[1] extends infer T
+		? T extends { page: infer P }
+			? P
+			: never
+		: never,
 ) {
 	await page.route(`**/api/bets/${BET_ID}`, (route) => {
 		if (route.request().method() === "GET") {

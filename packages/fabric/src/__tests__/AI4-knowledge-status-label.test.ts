@@ -29,10 +29,7 @@ describe("KNOWLEDGE_STATUS_LABEL (AI4 Note A2, Decision 2)", () => {
 	it("covers all 7 KnowledgeStatus values with non-empty strings", () => {
 		for (const status of KNOWLEDGE_STATUSES) {
 			const label = KNOWLEDGE_STATUS_LABEL[status];
-			expect(
-				label,
-				`KNOWLEDGE_STATUS_LABEL["${status}"] must be a non-empty string`,
-			).toBeTruthy();
+			expect(label, `KNOWLEDGE_STATUS_LABEL["${status}"] must be a non-empty string`).toBeTruthy();
 			expect(typeof label).toBe("string");
 		}
 	});

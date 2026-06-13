@@ -33,9 +33,9 @@
 import {
 	EmptyState,
 	ErrorState,
+	knowledgeStatusToStatus,
 	SkeletonList,
 	StatusChip,
-	knowledgeStatusToStatus,
 } from "@hyperidle/design-system";
 import type {
 	KnowledgeScope,
@@ -43,7 +43,7 @@ import type {
 	KnowledgeStatus,
 	KnowledgeTopicHealth,
 } from "@hyperidle/fabric/types";
-import { KNOWLEDGE_STATUS_LABEL, KNOWLEDGE_SORT_OPTIONS } from "@hyperidle/fabric/types";
+import { KNOWLEDGE_SORT_OPTIONS, KNOWLEDGE_STATUS_LABEL } from "@hyperidle/fabric/types";
 import { type JSX, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { KnowledgeTopicGroup } from "../components/KnowledgeTopicGroup";

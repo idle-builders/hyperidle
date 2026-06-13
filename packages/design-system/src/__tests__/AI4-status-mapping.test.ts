@@ -16,13 +16,13 @@
 
 import { describe, expect, it } from "vitest";
 import {
-	BET_OUTCOME_VERDICT_STATUS,
-	TASK_OUTCOME_VERDICT_STATUS,
-	type AgentOperationalStatus,
 	AGENT_OPERATIONAL_STATUS_MAP,
-	type Status,
+	type AgentOperationalStatus,
 	agentOperationalStatusToStatus,
+	BET_OUTCOME_VERDICT_STATUS,
 	betOutcomeVerdictToStatus,
+	type Status,
+	TASK_OUTCOME_VERDICT_STATUS,
 	taskOutcomeVerdictToStatus,
 } from "../index.js";
 

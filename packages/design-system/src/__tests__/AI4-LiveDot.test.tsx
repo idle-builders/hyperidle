@@ -18,10 +18,10 @@
  * `packages/design-system/src/LiveDot.tsx` and exported from index.ts.
  */
 
-import { describe, expect, it } from "vitest";
+import React from "react";
 // Import as a module check first — rendering via renderToStaticMarkup avoids jsdom
 import * as ReactDOMServer from "react-dom/server";
-import React from "react";
+import { describe, expect, it } from "vitest";
 import { LiveDot } from "../index.js";
 
 describe("LiveDot (AI4 AC3, Task 5)", () => {

@@ -21,6 +21,8 @@ import {
 	Block,
 	BlockActionsPopover,
 	BodyEditor,
+	betOutcomeVerdictToStatus,
+	betStatusToStatus,
 	EmptyState,
 	ErrorState,
 	LiveDot,
@@ -29,8 +31,6 @@ import {
 	SkeletonCard,
 	SkeletonList,
 	StatusChip,
-	betOutcomeVerdictToStatus,
-	betStatusToStatus,
 	taskOutcomeVerdictToStatus,
 	taskStateToStatus,
 } from "@hyperidle/design-system";
@@ -40,12 +40,12 @@ import {
 	BET_OUTCOME_VERDICTS,
 	BET_STATUS_LABEL,
 	CURRENCY_CODES,
-	TASK_OUTCOME_VERDICT_LABEL,
-	TASK_STATE_LABEL,
 	deriveBlocks,
 	formatMoney,
 	isRedactedPayload,
 	scaleForCurrency,
+	TASK_OUTCOME_VERDICT_LABEL,
+	TASK_STATE_LABEL,
 } from "@hyperidle/shared";
 import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -1277,8 +1277,14 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 														aria-label={`Outcome: ${bet.outcomeVerdict}`}
 													>
 														<StatusChip
-															status={betOutcomeVerdictToStatus(bet.outcomeVerdict as BetOutcomeVerdict)}
-															label={BET_OUTCOME_VERDICT_LABEL[bet.outcomeVerdict as BetOutcomeVerdict] ?? bet.outcomeVerdict}
+															status={betOutcomeVerdictToStatus(
+																bet.outcomeVerdict as BetOutcomeVerdict,
+															)}
+															label={
+																BET_OUTCOME_VERDICT_LABEL[
+																	bet.outcomeVerdict as BetOutcomeVerdict
+																] ?? bet.outcomeVerdict
+															}
 														/>
 													</span>
 													<button
@@ -1610,7 +1616,9 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 												<span data-testid={`task-outcome-badge-${task.id}`}>
 													<StatusChip
 														status={taskOutcomeVerdictToStatus(task.outcomeVerdict)}
-														label={TASK_OUTCOME_VERDICT_LABEL[task.outcomeVerdict] ?? task.outcomeVerdict}
+														label={
+															TASK_OUTCOME_VERDICT_LABEL[task.outcomeVerdict] ?? task.outcomeVerdict
+														}
 													/>
 												</span>
 											)}
