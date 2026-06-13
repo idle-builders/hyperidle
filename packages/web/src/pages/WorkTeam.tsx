@@ -27,18 +27,16 @@ import {
 	betStatusToStatus,
 	EmptyState,
 	ErrorState,
+	ItemList,
+	Row,
+	RowDot,
 	routineStateToStatus,
 	SkeletonCard,
 	StatusChip,
 	Tag,
 } from "@hyperidle/design-system";
 // @lore U1: `ProductDetail` → `TeamDetail`, `BetCardSummary.pitchTitle` → `descriptionTitle`.
-import type {
-	BetCardSummary,
-	RosterMember,
-	RoutineCardSummary,
-	TeamDetail,
-} from "@hyperidle/shared";
+import type { BetCardSummary, TeamDetail } from "@hyperidle/shared";
 import {
 	BET_STATUS_LABEL,
 	findRoleCatalogEntry,
@@ -399,26 +397,57 @@ function WorkTeamLoaded({
 							+ New routine
 						</Button>
 					</div>
-					<div className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[12px]">
-						{routines.length === 0 ? (
-							<EmptyState
-								title="No routines"
-								description="This team has no recurring work configured."
-								dataTestId="team-routines-empty"
-							/>
-						) : (
-							routines.map((routine, idx) => (
-								<RoutineRow
+					<ItemList
+						variant="contained"
+						isEmpty={routines.length === 0}
+						empty={{
+							title: "No routines",
+							description: "This team has no recurring work configured.",
+							dataTestId: "team-routines-empty",
+						}}
+					>
+						{routines.map((routine) => {
+							const routineStatus = routineStateToStatus(routine.state);
+							const routineTone =
+								routineStatus === "healthy"
+									? ("success" as const)
+									: routineStatus === "error"
+										? ("error" as const)
+										: routineStatus === "paused"
+											? ("info" as const)
+											: ("neutral" as const);
+							const lastRunLabel = routine.lastRunAt ? relativeShort(routine.lastRunAt) : "Never";
+							const costLabel = routine.costActual ? formatMoney(routine.costActual) : "—";
+							return (
+								<Row
 									key={routine.id}
-									routine={routine}
-									isLast={idx === routines.length - 1}
-									onNavigate={() => {
+									data-testid="routine-row"
+									lead={<RowDot tone={routineTone} />}
+									title={routine.name}
+									cells={[
+										{
+											content: (
+												<span
+													className="w-[24px] h-[24px] rounded-full shrink-0 flex items-center justify-center text-[9px] font-semibold text-[var(--accent-primary)]"
+													style={{ background: "rgba(22,118,79,0.08)" }}
+													aria-label={routine.agentName}
+													title={routine.agentName}
+												>
+													{routine.agentInitials}
+												</span>
+											),
+										},
+										{ content: routine.scheduleLabel, width: 80, align: "start" },
+										{ content: lastRunLabel, width: 60, numeric: true },
+										{ content: costLabel, width: 54, numeric: true },
+									]}
+									onClick={() => {
 										navigate(`/work/routine/${encodeURIComponent(routine.id)}`);
 									}}
 								/>
-							))
-						)}
-					</div>
+							);
+						})}
+					</ItemList>
 				</section>
 
 				{/* R3 — Agents (AB2: replaces Roster/AgentCard with flat AgentRow rows) */}
@@ -457,21 +486,120 @@ function WorkTeamLoaded({
 						</div>
 					)}
 
-					<div className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[12px]">
-						{roster.length === 0 ? (
-							<EmptyState title="No agents" description="No agents are assigned to this team." />
-						) : (
-							roster.map((member, idx) => (
-								<AgentRow
+					<ItemList
+						variant="contained"
+						isEmpty={roster.length === 0}
+						empty={{
+							title: "No agents",
+							description: "No agents are assigned to this team.",
+						}}
+					>
+						{roster.map((member) => {
+							const memberStatus = member.operationalStatus ?? "idle";
+							const healthLevel = member.healthLevel ?? "healthy";
+							const healthDetail = member.healthDetail ?? "Healthy";
+							const initials = member.name.slice(0, 2).toUpperCase();
+
+							const healthTone =
+								healthLevel === "healthy"
+									? ("success" as const)
+									: healthLevel === "warning"
+										? ("warning" as const)
+										: ("error" as const);
+
+							const statusTone =
+								memberStatus === "active"
+									? ("success" as const)
+									: memberStatus === "error"
+										? ("error" as const)
+										: undefined;
+
+							let contextText = (() => {
+								const catalogEntry = findRoleCatalogEntry(member.role);
+								return catalogEntry?.description ?? member.role;
+							})();
+							let contextIsError = false;
+							if (memberStatus === "active" && member.activeTaskTitle) {
+								contextText = member.activeTaskTitle;
+							} else if (memberStatus === "error") {
+								contextText = healthDetail;
+								contextIsError = true;
+							}
+
+							const categoryLabel =
+								member.agentCategory === "strategy"
+									? "Strategy"
+									: member.agentCategory === "individual"
+										? "Individual"
+										: (member.agentCategory ?? "");
+
+							// Category cell — first cell when non-team category.
+							// @lore AG6: team agents do NOT render agent-card-category testid
+							// (AB3 protected test: strategy + individual only, team = 0). The
+							// AG6 "first cell" test renders strategy agents where this is present.
+							const hasCategory = member.agentCategory && member.agentCategory !== "team";
+
+							return (
+								<Row
 									key={member.agentId}
-									member={member}
-									isLast={idx === roster.length - 1}
-									onNavigate={() => navigate(`/agents/${encodeURIComponent(member.agentId)}`)}
-									onCustomize={() => setEditingAgentId(member.agentId)}
+									data-testid="agent-row"
+									lead={
+										<>
+											<RowDot tone={healthTone} label={healthDetail} title={healthDetail} />
+											<Avatar initials={initials} size="sm" agent />
+										</>
+									}
+									title={
+										<>
+											{member.name}
+											{member.isLead && (
+												<span className="ml-1 text-[var(--accent-primary)] text-[10px]">
+													" — Lead"
+												</span>
+											)}
+										</>
+									}
+									cells={[
+										...(hasCategory
+											? [
+													{
+														content: <Tag label={categoryLabel} />,
+														"data-testid": "agent-card-category" as const,
+													},
+												]
+											: []),
+										{
+											content: memberStatus,
+											width: 48,
+											tone: statusTone,
+											"data-testid": "agent-status",
+										},
+										{
+											content: contextText,
+											width: 140,
+											align: "start",
+											tone: contextIsError ? ("error" as const) : undefined,
+											"data-testid": "agent-context",
+										},
+									]}
+									actions={
+										<button
+											type="button"
+											className="btn btn-ghost btn-xs shrink-0"
+											onClick={(e) => {
+												e.stopPropagation();
+												setEditingAgentId(member.agentId);
+											}}
+											data-testid="agent-customize-btn"
+										>
+											Customize
+										</button>
+									}
+									onClick={() => navigate(`/agents/${encodeURIComponent(member.agentId)}`)}
 								/>
-							))
-						)}
-					</div>
+							);
+						})}
+					</ItemList>
 				</section>
 
 				{/* L12: Artifact stack — product axis, limit=10, replaces placeholder */}
@@ -573,255 +701,6 @@ function StatTile({
 				<span className="text-[11px] text-[var(--text-tertiary)] tabular-nums">{sub}</span>
 			)}
 		</div>
-	);
-}
-
-// ---------------------------------------------------------------------------
-// AgentRow — AB2: flat row for the Agents section (replaces AgentCard)
-// ---------------------------------------------------------------------------
-
-/**
- * AB2: Flat agent row replacing AgentCard. Matches RoutineRow pattern.
- *
- * Layout: [6px health dot] [avatar sm] [name flex-1] [status 48px] [context flex-1] [Customize btn-xs]
- * Height: 36px minimum (min-h-[44px] for touch target). Hairline separator between rows.
- *
- * @lore AB2 S4/W4: Outer element is a <div role="button"> NOT a <button> because the
- * inner "Customize" is a real <button>. Nested <button> elements are invalid HTML and
- * break screen readers. role="button" + tabIndex + onKeyDown gives equivalent keyboard
- * accessibility without the HTML validity violation.
- *
- * @lore AB2 S2: Health dot uses role="img" with aria-label instead of aria-hidden,
- * so screen readers can convey health status to users.
- */
-function AgentRow({
-	member,
-	isLast,
-	onNavigate,
-	onCustomize,
-}: {
-	member: RosterMember;
-	isLast: boolean;
-	onNavigate: () => void;
-	onCustomize: () => void;
-}): JSX.Element {
-	const catalogEntry = findRoleCatalogEntry(member.role);
-	const description = catalogEntry?.description ?? member.role;
-	const initials = member.name.slice(0, 2).toUpperCase();
-
-	// Derive display values from operational fields (default to idle/healthy if absent)
-	const status = member.operationalStatus ?? "idle";
-	const healthLevel = member.healthLevel ?? "healthy";
-	const healthDetail = member.healthDetail ?? "Healthy";
-
-	// Context column: task title (active), error detail (error), role description (idle)
-	let contextText = description;
-	let contextIsError = false;
-	if (status === "active" && member.activeTaskTitle) {
-		contextText = member.activeTaskTitle;
-	} else if (status === "error") {
-		contextText = healthDetail;
-		contextIsError = true;
-	}
-
-	// Health dot color
-	const dotColor =
-		healthLevel === "healthy"
-			? "var(--status-success)"
-			: healthLevel === "warning"
-				? "var(--status-warning)"
-				: "var(--status-error)";
-
-	// Status text color
-	const statusColor =
-		status === "active"
-			? "var(--status-success)"
-			: status === "error"
-				? "var(--status-error)"
-				: "var(--text-tertiary)";
-
-	return (
-		// biome-ignore lint/a11y/useSemanticElements: div intentional — nested <button> (Customize) inside would be invalid HTML
-		<div
-			role="button"
-			tabIndex={0}
-			data-testid="agent-row"
-			onClick={onNavigate}
-			onKeyDown={(e) => {
-				if (e.key === "Enter" || e.key === " ") {
-					e.preventDefault();
-					onNavigate();
-				}
-			}}
-			className={[
-				"w-full flex items-center gap-[9px] px-[6px]",
-				"border-none bg-transparent text-left cursor-pointer",
-				"transition-[background-color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
-				"hover:bg-[rgba(44,36,26,0.02)]",
-				"focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)]",
-				!isLast ? "border-b border-[var(--border-subtle)]" : "",
-			]
-				.filter(Boolean)
-				.join(" ")}
-			style={{ minHeight: "44px" }}
-		>
-			{/* Health dot — role="img" per reviewer S2 so screen readers convey health state */}
-			<span
-				className="w-[6px] h-[6px] rounded-full shrink-0"
-				style={{ background: dotColor }}
-				role="img"
-				aria-label={healthDetail}
-				title={healthDetail}
-			/>
-
-			{/* Avatar */}
-			<Avatar initials={initials} size="sm" agent />
-
-			{/* Name + Lead marker */}
-			<span className="flex-1 min-w-0 text-[13px] font-medium text-[var(--text-primary)] truncate">
-				{member.name}
-				{member.isLead && (
-					<span className="ml-1 text-[var(--accent-primary)] text-[10px]"> — Lead</span>
-				)}
-			</span>
-
-			{/* Category tag — strategy/individual agents only.
-			    @lore AB2: Preserved from AB3's AgentCard so AB3 tests (agent-card-category)
-			    continue to work after the roster section was replaced with AgentRow. */}
-			{member.agentCategory && member.agentCategory !== "team" && (
-				<span data-testid="agent-card-category" className="shrink-0">
-					<Tag
-						label={
-							member.agentCategory === "strategy"
-								? "Strategy"
-								: member.agentCategory === "individual"
-									? "Individual"
-									: member.agentCategory
-						}
-					/>
-				</span>
-			)}
-
-			{/* Status label */}
-			<span
-				className="w-[48px] shrink-0 text-[11px] font-mono truncate"
-				style={{ color: statusColor }}
-				data-testid="agent-status"
-			>
-				{status}
-			</span>
-
-			{/* Context column */}
-			<span
-				className={`flex-1 min-w-0 text-[11px] truncate ${contextIsError ? "text-[var(--status-error)]" : "text-[var(--text-tertiary)]"}`}
-				data-testid="agent-context"
-			>
-				{contextText}
-			</span>
-
-			{/* Customize button — stopPropagation prevents row click */}
-			<button
-				type="button"
-				className="btn btn-ghost btn-xs shrink-0"
-				onClick={(e) => {
-					e.stopPropagation();
-					onCustomize();
-				}}
-				data-testid="agent-customize-btn"
-			>
-				Customize
-			</button>
-		</div>
-	);
-}
-
-/**
- * Single routine row rendered inside R5 (AA1). Variant B flat table design.
- *
- * Layout: [6px dot] [name flex-1] [24px agent avatar] [schedule 80px] [last run 60px] [cost 54px]
- * Height: 36px. Hairline separator between rows (not on last row).
- *
- * @lore AA1: Routines use flat table rows (infrastructure monitoring) while bets use
- * elevated cards (decision objects). Visual differentiation supports faster status scanning.
- * Row hover uses rgba(44,36,26,0.02) per AQ-010 flat-list hover pattern.
- */
-function RoutineRow({
-	routine,
-	isLast,
-	onNavigate,
-}: {
-	routine: RoutineCardSummary;
-	isLast: boolean;
-	onNavigate: () => void;
-}): JSX.Element {
-	const status = routineStateToStatus(routine.state);
-	const dotColor =
-		status === "healthy"
-			? "var(--status-success)"
-			: status === "error"
-				? "var(--status-error)"
-				: status === "paused"
-					? "var(--status-info)"
-					: "var(--text-tertiary)";
-
-	const lastRunLabel = routine.lastRunAt ? relativeShort(routine.lastRunAt) : "Never";
-
-	const costLabel = routine.costActual ? formatMoney(routine.costActual) : "—";
-
-	return (
-		<button
-			type="button"
-			data-testid="routine-row"
-			onClick={onNavigate}
-			className={[
-				"w-full flex items-center gap-[9px] h-[36px] px-[6px]",
-				"border-none bg-transparent text-left cursor-pointer",
-				"transition-[background-color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
-				"hover:bg-[rgba(44,36,26,0.02)]",
-				"focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)]",
-				!isLast ? "border-b border-[var(--border-subtle)]" : "",
-			]
-				.filter(Boolean)
-				.join(" ")}
-			style={{ minHeight: "44px" }}
-		>
-			{/* Status dot — 6px circle */}
-			<span
-				className="w-[6px] h-[6px] rounded-full shrink-0"
-				style={{ background: dotColor }}
-				aria-hidden="true"
-			/>
-
-			{/* Routine name — flex-1 */}
-			<span className="flex-1 min-w-0 text-[13px] font-medium text-[var(--text-primary)] truncate">
-				{routine.name}
-			</span>
-
-			{/* Agent avatar — 24px */}
-			<span
-				className="w-[24px] h-[24px] rounded-full shrink-0 flex items-center justify-center text-[9px] font-semibold text-[var(--accent-primary)]"
-				style={{ background: "rgba(22,118,79,0.08)" }}
-				aria-label={routine.agentName}
-				title={routine.agentName}
-			>
-				{routine.agentInitials}
-			</span>
-
-			{/* Schedule — 80px mono tertiary */}
-			<span className="w-[80px] shrink-0 text-[11px] font-mono text-[var(--text-tertiary)] truncate">
-				{routine.scheduleLabel}
-			</span>
-
-			{/* Last run — 60px mono right-aligned tabular */}
-			<span className="w-[60px] shrink-0 text-[11px] font-mono text-[var(--text-tertiary)] text-right tabular-nums">
-				{lastRunLabel}
-			</span>
-
-			{/* Cost — 54px mono right-aligned tabular */}
-			<span className="w-[54px] shrink-0 text-[11px] font-mono text-[var(--text-tertiary)] text-right tabular-nums">
-				{costLabel}
-			</span>
-		</button>
 	);
 }
 

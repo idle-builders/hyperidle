@@ -11,7 +11,6 @@ import React from "react";
 import * as ReactDOMServer from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-// @ts-expect-error — module doesn't exist yet (red phase)
 import { RowDot } from "../RowDot.js";
 
 describe("RowDot (AG6 T1)", () => {

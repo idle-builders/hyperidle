@@ -12,7 +12,6 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-// @ts-expect-error — module doesn't exist yet (red phase)
 import { Row } from "../Row.js";
 
 // biome-ignore lint/style/useNamingConvention: React flag
