@@ -18,10 +18,10 @@
  */
 
 // hearth-internal-padding
-import { BodyEditor, Button, ScopePicker } from "@hyperidle/design-system";
+import { BodyEditor, Breadcrumb } from "@hyperidle/design-system";
 import type { ScopeKind } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link as RRLink, useNavigate } from "react-router-dom";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { SCOPE_CREATE_OPTIONS, type ScopeCreateOption } from "../utils/scope-labels.js";
@@ -113,16 +113,13 @@ export function KnowledgeCreate(): JSX.Element {
 		<div className="flex flex-col h-full" data-testid="knowledge-create-page">
 			{/* Bordered header */}
 			<header className="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
-				{/* Breadcrumb */}
-				<nav aria-label="Breadcrumb" className="text-[13px] text-[var(--text-tertiary)] mb-[6px]">
-					<Link
-						to="/knowledge"
-						className="hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]"
-					>
-						Knowledge
-					</Link>{" "}
-					/ New
-				</nav>
+				{/* AG4: DS Breadcrumb — create page, NO leading cluster (not a detail route) */}
+				<div className="mb-[6px]">
+					<Breadcrumb
+						segments={[{ label: "Knowledge", to: "/knowledge" }, { label: "New" }]}
+						LinkComponent={RRLink}
+					/>
+				</div>
 				{/* Title input + actions row */}
 				<div className="flex items-center justify-between gap-[12px]">
 					<input

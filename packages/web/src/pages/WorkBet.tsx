@@ -22,7 +22,7 @@ import {
 	Block,
 	BlockActionsPopover,
 	BodyEditor,
-	Button,
+	Breadcrumb,
 	betOutcomeVerdictToStatus,
 	betStatusToStatus,
 	Dialog,
@@ -52,7 +52,7 @@ import {
 	TASK_STATE_LABEL,
 } from "@hyperidle/shared";
 import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
 import { ArtifactThreadsSummary } from "../components/ArtifactThreadsSummary.js";
 import { AssistantAttachButton } from "../components/AssistantAttachButton";
@@ -62,9 +62,11 @@ import { useBetDescriptionSave } from "../hooks/useBetDescriptionSave.js";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useHint } from "../hooks/useHints";
 import { useHostThread } from "../hooks/useHostThread.js";
+import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { postRequestMessage, resolveOrCreateTaskThread } from "../services/task-threads";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
+import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 import { TaskSheet } from "../shell/TaskSheet";
 import type { BetDetail } from "../types/bet";
 import { blockExcerptFromPayload } from "../utils/block-excerpt.js";
@@ -555,6 +557,7 @@ export interface WorkBetProps {
 export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JSX.Element {
 	const { betId: routeBetId } = useParams<{ betId: string }>();
 	const navigate = useNavigate();
+	const { sidebarMobile } = useViewportBreakpoint();
 	const { user } = useCurrentUser();
 	const onOpenArtifact = useArtifactOpen();
 	const hintAddCredential = useHint("add-credential");
@@ -911,23 +914,22 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 		<div className="flex flex-col h-full" data-testid="work-bet-page">
 			{/* W3: Fixed bordered header — breadcrumb + title + badges + overflow */}
 			<header className="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
-				{/* Breadcrumb — AF16 T4 (Z8-046): /work → /work/portfolio (no /work route exists) */}
-				<nav aria-label="Breadcrumb" className="text-[13px] text-[var(--text-tertiary)] mb-[6px]">
-					<Link
-						to="/work/portfolio"
-						className="hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]"
-					>
-						Work
-					</Link>{" "}
-					/{" "}
-					<Link
-						to="/work/portfolio"
-						className="hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]"
-					>
-						{bet.team}
-					</Link>{" "}
-					/ {bet.title}
-				</nav>
+				{/* AG4: Breadcrumb — DS Breadcrumb replaces hand-rolled nav */}
+				<div className="mb-[6px]">
+					<Breadcrumb
+						segments={[
+							{ label: "Work", to: "/work/portfolio" },
+							{ label: bet.team, to: "/work/portfolio" },
+							{ label: bet.title },
+						]}
+						leading={
+							!sidebarMobile ? (
+								<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
+							) : undefined
+						}
+						LinkComponent={RRLink}
+					/>
+				</div>
 				{/* Title row */}
 				<div className="flex items-start justify-between gap-[12px]">
 					<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)]">

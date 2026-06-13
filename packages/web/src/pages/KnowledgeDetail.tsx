@@ -2,7 +2,7 @@ import type { MenuItem } from "@hyperidle/design-system";
 import {
 	BlockActionsPopover,
 	BodyEditor,
-	Button,
+	Breadcrumb,
 	knowledgeStatusToStatus,
 	Menu,
 	StatusChip,
@@ -56,7 +56,7 @@ import {
 import type { Message, PlainPayloadWithBlockId, ScopeKind } from "@hyperidle/shared";
 import { isRedactedPayload, SCOPE_KINDS } from "@hyperidle/shared";
 import { type JSX, useCallback, useContext, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import { AssistantContext } from "../contexts/AssistantContext.js";
 // eslint-disable-next-line design/no-mock-data-import -- tracked in #93
 import { knowledgeItems, type MockKnowledgeItem } from "../fixtures/knowledge-data";
@@ -64,8 +64,10 @@ import { useAutoSave } from "../hooks/useAutoSave.js";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useHostThread } from "../hooks/useHostThread.js";
 import { useKnowledgeItem } from "../hooks/useKnowledgeItem.js";
+import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
+import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 import { scopeKindToLabel } from "../utils/scope-labels.js";
 import { KnowledgeBody } from "./knowledge/KnowledgeBody";
 import { ScopeChangeDialog } from "./knowledge/ScopeChangeDialog";
@@ -289,34 +291,7 @@ export function KnowledgeDetail({ overrideKnowledgeId }: KnowledgeDetailProps = 
 	);
 }
 
-/** Breadcrumb: Knowledge / scope / topic */
-function KnowledgeDetailBreadcrumb({
-	scope,
-	topic,
-}: {
-	scope?: string;
-	topic?: string;
-}): JSX.Element {
-	return (
-		<div className="text-[13px] text-[var(--text-tertiary)] mb-[6px]">
-			<Link to="/knowledge" className="text-[var(--accent-primary)] hover:underline">
-				Knowledge
-			</Link>
-			{scope && (
-				<>
-					{" "}
-					/ <span className="capitalize">{scope}</span>
-				</>
-			)}
-			{topic && (
-				<>
-					{" "}
-					/ <span>{topic}</span>
-				</>
-			)}
-		</div>
-	);
-}
+// AG4: KnowledgeDetailBreadcrumb local fn deleted — replaced by DS Breadcrumb in KnowledgeDetailView.
 
 /** Backlinks card shown in the aside */
 function BacklinksCard({
@@ -342,12 +317,12 @@ function BacklinksCard({
 				<ul className="flex flex-col">
 					{items.map((ri) => (
 						<li key={ri.id} data-testid="related-item">
-							<Link
+							<RRLink
 								to={`/knowledge/${ri.id}`}
 								className="flex items-center gap-[9px] py-[6px] text-[13px] text-[var(--accent-primary)] hover:underline cursor-pointer"
 							>
 								{ri.title}
-							</Link>
+							</RRLink>
 						</li>
 					))}
 				</ul>
@@ -479,6 +454,7 @@ function KnowledgeDetailView({
 	const effectiveKnowledgeId = routeKnowledgeId ?? item.id;
 	// AD6: navigate after successful archive
 	const navigate = useNavigate();
+	const { sidebarMobile } = useViewportBreakpoint();
 	// T4: AssistantContext for block share action
 	const { overlayOpen, attachContext } = useContext(AssistantContext);
 	const isFactory = item.scope === "factory" || item.scopeKind === "factory";
@@ -659,8 +635,22 @@ function KnowledgeDetailView({
 			{/* Fixed header — matches .main-header in knowledge-detail.html mockup */}
 			<header className="px-[24px] py-[18px] border-b border-[var(--border-subtle)] flex items-start justify-between gap-[12px] shrink-0">
 				<div className="flex-1 min-w-0">
-					{/* Breadcrumb */}
-					<KnowledgeDetailBreadcrumb scope={item.scope} topic={item.topic} />
+					{/* AG4: DS Breadcrumb replaces local KnowledgeDetailBreadcrumb fn */}
+					<div className="mb-[6px]">
+						<Breadcrumb
+							segments={[
+								{ label: "Knowledge", to: "/knowledge" },
+								...(item.scope ? [{ label: item.scope }] : []),
+								...(item.topic ? [{ label: item.topic }] : []),
+							]}
+							leading={
+								!sidebarMobile ? (
+									<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
+								) : undefined
+							}
+							LinkComponent={RRLink}
+						/>
+					</div>
 					{/* Title */}
 					<h1 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)]">
 						{item.title}

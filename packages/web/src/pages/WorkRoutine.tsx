@@ -13,7 +13,7 @@
  */
 
 import {
-	Button,
+	Breadcrumb,
 	EmptyState,
 	ErrorState,
 	KeyValue,
@@ -25,9 +25,11 @@ import {
 import type { RoutineBudget, RoutineDetail, RoutineRunSummary } from "@hyperidle/shared";
 import { absoluteDate, absoluteDateTime, formatMoney } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import { useRoutine } from "../hooks/useRoutine.js";
+import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { apiFetch } from "../services/api-fetch.js";
+import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 
 export interface WorkRoutineProps {
 	/**
@@ -94,6 +96,7 @@ export function WorkRoutine({
 function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 	const { routine, runs, budget } = detail;
 	const navigate = useNavigate();
+	const { sidebarMobile } = useViewportBreakpoint();
 
 	// Local state for optimistic state toggle (Pause/Resume)
 	const [currentState, setCurrentState] = useState(routine.state);
@@ -171,20 +174,22 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 
 	return (
 		<div className="flex flex-col gap-[12px] h-full" data-testid="work-routine-page">
-			{/* Breadcrumb: <- Portfolio / {team} / {routine.name} */}
+			{/* AG4: DS Breadcrumb — routine-breadcrumb-back testId preserved on first segment */}
 			<section aria-label="Routine header">
 				<div className="mb-1">
-					<Link
-						to="/work/portfolio"
-						data-testid="routine-breadcrumb-back"
-						className="btn btn-ghost btn-xs"
-					>
-						← Portfolio
-					</Link>
-					{routine.teamName && (
-						<span className="text-xs text-[var(--text-tertiary)] ml-1">/ {routine.teamName}</span>
-					)}
-					<span className="text-xs text-[var(--text-tertiary)] ml-1">/ {routine.name}</span>
+					<Breadcrumb
+						segments={[
+							{ label: "Work", to: "/work/portfolio", testId: "routine-breadcrumb-back" },
+							...(routine.teamName ? [{ label: routine.teamName }] : []),
+							{ label: routine.name },
+						]}
+						leading={
+							!sidebarMobile ? (
+								<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
+							) : undefined
+						}
+						LinkComponent={RRLink}
+					/>
 				</div>
 				<div className="flex items-center gap-[12px] flex-wrap">
 					<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-primary)] flex-1">

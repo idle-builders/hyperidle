@@ -26,7 +26,8 @@ describe("WorkBet", () => {
 
 	it("renders bet details for known bet", () => {
 		renderPage(MOCK_BETS.b1);
-		expect(screen.getByText("User auth flow")).toBeInTheDocument();
+		// AG4: bet title now appears in both breadcrumb and h1; use heading role
+		expect(screen.getByRole("heading", { name: "User auth flow" })).toBeInTheDocument();
 		expect(screen.getByText("Tasks")).toBeInTheDocument();
 	});
 
@@ -39,13 +40,15 @@ describe("WorkBet", () => {
 
 	it("renders second bet with its tasks", () => {
 		renderPage(MOCK_BETS.b2);
-		expect(screen.getByText("Dashboard redesign")).toBeInTheDocument();
+		// AG4: bet title in breadcrumb + heading; use heading role for specificity
+		expect(screen.getByRole("heading", { name: "Dashboard redesign" })).toBeInTheDocument();
 		expect(screen.getByText("Wireframe layouts")).toBeInTheDocument();
 	});
 
 	it("renders fallback bet data correctly", () => {
 		renderPage(FALLBACK_BET);
-		expect(screen.getByText("Unknown Bet")).toBeInTheDocument();
+		// AG4: "Unknown Bet" appears in breadcrumb + heading
+		expect(screen.getByRole("heading", { name: "Unknown Bet" })).toBeInTheDocument();
 		// AF16 T1: "No tasks yet" now appears in both the progress card and the
 		// tasks section when total=0. Use getAllByText to allow multiple matches.
 		expect(screen.getAllByText("No tasks yet").length).toBeGreaterThan(0);

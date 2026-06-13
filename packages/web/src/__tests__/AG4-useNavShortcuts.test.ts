@@ -58,21 +58,27 @@ describe("AG4 — useNavShortcuts", () => {
 		it("fires onBack on Meta+[", () => {
 			const opts = makeOpts();
 			renderHook(() => useNavShortcuts(opts));
-			act(() => { dispatchKey("[", { metaKey: true }); });
+			act(() => {
+				dispatchKey("[", { metaKey: true });
+			});
 			expect(opts.onBack).toHaveBeenCalledOnce();
 		});
 
 		it("fires onBack on Ctrl+[", () => {
 			const opts = makeOpts();
 			renderHook(() => useNavShortcuts(opts));
-			act(() => { dispatchKey("[", { ctrlKey: true }); });
+			act(() => {
+				dispatchKey("[", { ctrlKey: true });
+			});
 			expect(opts.onBack).toHaveBeenCalledOnce();
 		});
 
 		it("does NOT fire onBack on plain [", () => {
 			const opts = makeOpts();
 			renderHook(() => useNavShortcuts(opts));
-			act(() => { dispatchKey("["); });
+			act(() => {
+				dispatchKey("[");
+			});
 			expect(opts.onBack).not.toHaveBeenCalled();
 		});
 
@@ -87,21 +93,27 @@ describe("AG4 — useNavShortcuts", () => {
 		it("fires onForward on Meta+]", () => {
 			const opts = makeOpts();
 			renderHook(() => useNavShortcuts(opts));
-			act(() => { dispatchKey("]", { metaKey: true }); });
+			act(() => {
+				dispatchKey("]", { metaKey: true });
+			});
 			expect(opts.onForward).toHaveBeenCalledOnce();
 		});
 
 		it("fires onForward on Ctrl+]", () => {
 			const opts = makeOpts();
 			renderHook(() => useNavShortcuts(opts));
-			act(() => { dispatchKey("]", { ctrlKey: true }); });
+			act(() => {
+				dispatchKey("]", { ctrlKey: true });
+			});
 			expect(opts.onForward).toHaveBeenCalledOnce();
 		});
 
 		it("does NOT fire onForward on plain ]", () => {
 			const opts = makeOpts();
 			renderHook(() => useNavShortcuts(opts));
-			act(() => { dispatchKey("]"); });
+			act(() => {
+				dispatchKey("]");
+			});
 			expect(opts.onForward).not.toHaveBeenCalled();
 		});
 
@@ -116,28 +128,36 @@ describe("AG4 — useNavShortcuts", () => {
 		it("fires onSwitchView('conversations') on Meta+1", () => {
 			const opts = makeOpts();
 			renderHook(() => useNavShortcuts(opts));
-			act(() => { dispatchKey("1", { metaKey: true }); });
+			act(() => {
+				dispatchKey("1", { metaKey: true });
+			});
 			expect(opts.onSwitchView).toHaveBeenCalledWith("conversations");
 		});
 
 		it("fires onSwitchView('work') on Meta+2", () => {
 			const opts = makeOpts();
 			renderHook(() => useNavShortcuts(opts));
-			act(() => { dispatchKey("2", { metaKey: true }); });
+			act(() => {
+				dispatchKey("2", { metaKey: true });
+			});
 			expect(opts.onSwitchView).toHaveBeenCalledWith("work");
 		});
 
 		it("fires onSwitchView('knowledge') on Meta+3", () => {
 			const opts = makeOpts();
 			renderHook(() => useNavShortcuts(opts));
-			act(() => { dispatchKey("3", { metaKey: true }); });
+			act(() => {
+				dispatchKey("3", { metaKey: true });
+			});
 			expect(opts.onSwitchView).toHaveBeenCalledWith("knowledge");
 		});
 
 		it("fires onSwitchView on Ctrl+1", () => {
 			const opts = makeOpts();
 			renderHook(() => useNavShortcuts(opts));
-			act(() => { dispatchKey("1", { ctrlKey: true }); });
+			act(() => {
+				dispatchKey("1", { ctrlKey: true });
+			});
 			expect(opts.onSwitchView).toHaveBeenCalledWith("conversations");
 		});
 
@@ -150,7 +170,9 @@ describe("AG4 — useNavShortcuts", () => {
 		it("does NOT fire on plain digit 1", () => {
 			const opts = makeOpts();
 			renderHook(() => useNavShortcuts(opts));
-			act(() => { dispatchKey("1"); });
+			act(() => {
+				dispatchKey("1");
+			});
 			expect(opts.onSwitchView).not.toHaveBeenCalled();
 		});
 	});
@@ -230,7 +252,9 @@ describe("AG4 — useNavShortcuts", () => {
 		it("does NOT fire any callback for Meta+K", () => {
 			const opts = makeOpts();
 			renderHook(() => useNavShortcuts(opts));
-			act(() => { dispatchKey("k", { metaKey: true }); });
+			act(() => {
+				dispatchKey("k", { metaKey: true });
+			});
 			expect(opts.onBack).not.toHaveBeenCalled();
 			expect(opts.onForward).not.toHaveBeenCalled();
 			expect(opts.onSwitchView).not.toHaveBeenCalled();
@@ -243,7 +267,9 @@ describe("AG4 — useNavShortcuts", () => {
 				metaKey: true,
 				cancelable: true,
 			});
-			act(() => { document.dispatchEvent(event); });
+			act(() => {
+				document.dispatchEvent(event);
+			});
 			expect(event.defaultPrevented).toBe(false);
 		});
 	});
@@ -253,7 +279,9 @@ describe("AG4 — useNavShortcuts", () => {
 			const opts = makeOpts();
 			const { unmount } = renderHook(() => useNavShortcuts(opts));
 			unmount();
-			act(() => { dispatchKey("[", { metaKey: true }); });
+			act(() => {
+				dispatchKey("[", { metaKey: true });
+			});
 			expect(opts.onBack).not.toHaveBeenCalled();
 		});
 	});

@@ -11,6 +11,29 @@
 - **Submenu**: Context-sensitive filters for the current view.
 - **Main Pane**: Where the work happens — review threads, kanban boards, knowledge items.
 
+## Keyboard Shortcuts
+
+HyperIdle is keyboard-first. The most common shortcuts:
+
+| Shortcut | Action |
+|---|---|
+| ⌘K | Global search |
+| ⌘[ | Go back (browser history) |
+| ⌘] | Go forward (browser history) |
+| ⌘1 | Switch to Conversations |
+| ⌘2 | Switch to Work |
+| ⌘3 | Switch to Knowledge |
+| J / K | Next / previous item in a list |
+| A / R / X / S | Verdict actions in review threads (Approve / Request changes / Reject / Snooze) |
+| Escape | Close any dialog, sheet, or popover |
+| ? | Show shortcut help overlay |
+
+**Navigation shortcuts (⌘[ and ⌘])** move through your browser history — the same path you took through the app. They do not fire while you are typing in a text field.
+
+**View shortcuts (⌘1/2/3)** are pinned: 1 is always Conversations, 2 is always Work, 3 is always Knowledge. The mapping never changes.
+
+**Back vs. Up:** The breadcrumb trail at the top of detail screens shows your structural position (Work → Bet → Task). Clicking a breadcrumb segment goes *up* to the parent route. ⌘[ goes *back* to wherever you were before — which may be a different view entirely.
+
 ## Dialogs and Overlays
 
 HyperIdle uses a consistent dismissal grammar across all overlays:

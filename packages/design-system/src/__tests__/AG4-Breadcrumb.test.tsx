@@ -19,10 +19,10 @@
 
 // @vitest-environment jsdom
 
-import React from "react";
 import { render, screen } from "@testing-library/react";
+import type React from "react";
 import { describe, expect, it, vi } from "vitest";
-import { Breadcrumb, type BreadcrumbProps, type BreadcrumbSegment } from "../Breadcrumb.js";
+import { Breadcrumb } from "../Breadcrumb.js";
 
 // Router-agnostic link stub — simulates what web passes (RR Link)
 function StubLink({
@@ -46,10 +46,7 @@ function StubLink({
 function render2Seg(): ReturnType<typeof render> {
 	return render(
 		<Breadcrumb
-			segments={[
-				{ label: "Work", to: "/work/portfolio" },
-				{ label: "My Bet" },
-			]}
+			segments={[{ label: "Work", to: "/work/portfolio" }, { label: "My Bet" }]}
 			LinkComponent={StubLink}
 		/>,
 	);
@@ -96,10 +93,7 @@ describe("AG4 — Breadcrumb component", () => {
 					LinkComponent={StubLink}
 				/>,
 			);
-			expect(screen.getByRole("link", { name: "Work" })).toHaveAttribute(
-				"href",
-				"/work/portfolio",
-			);
+			expect(screen.getByRole("link", { name: "Work" })).toHaveAttribute("href", "/work/portfolio");
 			expect(screen.getByRole("link", { name: "Acme" })).toHaveAttribute(
 				"href",
 				"/work/team/team-1",
@@ -146,7 +140,7 @@ describe("AG4 — Breadcrumb component", () => {
 		});
 
 		it("first segment does NOT have truncation class", () => {
-			const { container } = render(
+			render(
 				<Breadcrumb
 					segments={[
 						{ label: "Work", to: "/work/portfolio" },
@@ -164,10 +158,14 @@ describe("AG4 — Breadcrumb component", () => {
 
 	describe("Leading slot", () => {
 		it("renders the leading slot before segments", () => {
-			const { container } = render(
+			render(
 				<Breadcrumb
 					segments={[{ label: "Work", to: "/work/portfolio" }, { label: "Bet" }]}
-					leading={<button data-testid="back-btn" type="button">←</button>}
+					leading={
+						<button data-testid="back-btn" type="button">
+							←
+						</button>
+					}
 					LinkComponent={StubLink}
 				/>,
 			);
@@ -177,7 +175,9 @@ describe("AG4 — Breadcrumb component", () => {
 			// back-btn must appear before the work link in DOM order
 			expect(nav).toContainElement(backBtn);
 			expect(nav).toContainElement(workLink);
-			const children = Array.from(nav.querySelectorAll("[data-testid='back-btn'], a[href='/work/portfolio']"));
+			const children = Array.from(
+				nav.querySelectorAll("[data-testid='back-btn'], a[href='/work/portfolio']"),
+			);
 			expect(children[0]).toBe(backBtn);
 		});
 
@@ -220,12 +220,7 @@ describe("AG4 — Breadcrumb component", () => {
 
 	describe("Single segment (current page only)", () => {
 		it("renders a single non-link segment without crashing", () => {
-			render(
-				<Breadcrumb
-					segments={[{ label: "Knowledge" }]}
-					LinkComponent={StubLink}
-				/>,
-			);
+			render(<Breadcrumb segments={[{ label: "Knowledge" }]} LinkComponent={StubLink} />);
 			expect(screen.getByText("Knowledge")).toBeInTheDocument();
 			expect(screen.queryAllByRole("link")).toHaveLength(0);
 		});

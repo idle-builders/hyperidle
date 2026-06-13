@@ -29,5 +29,9 @@ export default defineProject({
 		pool: "forks",
 		hookTimeout: 30_000,
 		testTimeout: 30_000,
+		// @lore AG4: jest-dom matchers needed for Breadcrumb + future component
+		// tests that use @testing-library/react render/screen. Pre-existing DS
+		// tests use createRoot directly and are unaffected.
+		setupFiles: ["./src/test-setup.ts"],
 	},
 });

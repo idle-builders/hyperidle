@@ -25,6 +25,7 @@ vi.mock("../hooks/useHistoryAvailability.js", () => ({
 
 // Import the mock so tests can override it per case
 import { useHistoryAvailability } from "../hooks/useHistoryAvailability.js";
+
 const mockUseHistoryAvailability = vi.mocked(useHistoryAvailability);
 
 describe("AG4 — NavHistoryCluster", () => {
