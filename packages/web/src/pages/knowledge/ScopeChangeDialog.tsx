@@ -18,7 +18,7 @@
  * isDirty = reason entered or scope changed from current. Authoring surface — guards.
  */
 
-import { Dialog } from "@hyperidle/design-system";
+import { Dialog, Select } from "@hyperidle/design-system";
 import { SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
@@ -157,11 +157,12 @@ export function ScopeChangeDialog({
 				{/* Previously rendered all 7 SCOPE_KINDS as raw enum values.          */}
 				{/* AF13 plan §6: Team option disabled when user has no teamId,         */}
 				{/* matching the same hasTeam gate in KnowledgeCreate.                  */}
-				<label className="flex flex-col gap-1">
+				<label htmlFor="scope-change-kind" className="flex flex-col gap-1">
 					<span className="text-xs text-[var(--text-tertiary)]">New scope</span>
-					<select
-						className="select select-bordered select-sm"
+					<Select
+						id="scope-change-kind"
 						aria-label="Scope kind"
+						size="sm"
 						value={selectedOption.label}
 						onChange={(e) => {
 							const opt = SCOPE_CREATE_OPTIONS.find((o) => o.label === e.target.value);
@@ -171,16 +172,15 @@ export function ScopeChangeDialog({
 							}
 						}}
 						disabled={submitting}
-					>
-						{SCOPE_CREATE_OPTIONS.map((opt) => {
+						options={SCOPE_CREATE_OPTIONS.map((opt) => {
 							const isTeamOption = opt.id === "team";
-							return (
-								<option key={opt.id} value={opt.label} disabled={isTeamOption && !hasTeam}>
-									{opt.label}
-								</option>
-							);
+							return {
+								value: opt.label,
+								label: opt.label,
+								disabled: isTeamOption && !hasTeam,
+							};
 						})}
-					</select>
+					/>
 				</label>
 
 				{/* Scope ID — free text for scopes that need an external id. */}

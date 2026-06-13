@@ -26,7 +26,7 @@
  * isDirty = description non-empty. Authoring surface — guards on dismissal when dirty.
  */
 
-import { BodyEditor, Dialog } from "@hyperidle/design-system";
+import { BodyEditor, Dialog, Select } from "@hyperidle/design-system";
 import { deriveTitleFromPitch } from "@hyperidle/shared";
 import { type JSX, useEffect, useState } from "react";
 import { apiFetch } from "../../services/api-fetch.js";
@@ -136,23 +136,20 @@ export function BetCreateDialog({
 			<div className="flex flex-col gap-3">
 				{/* R2: Team select — only shown when multiple teams exist */}
 				{teams.length > 1 && (
-					<label className="flex flex-col gap-1">
+					<label htmlFor="bet-create-team" className="flex flex-col gap-1">
 						<span className="text-xs text-[var(--text-tertiary)]">
 							Team <span aria-hidden>(required)</span>
 						</span>
-						<select
-							className="select select-bordered select-sm text-base w-full"
+						<Select
+							id="bet-create-team"
+							size="sm"
+							className="w-full"
 							value={teamId}
 							onChange={(e) => setTeamId(e.target.value)}
 							disabled={submitting}
-						>
-							<option value="">Select a team…</option>
-							{teams.map((t) => (
-								<option key={t.id} value={t.id}>
-									{t.name}
-								</option>
-							))}
-						</select>
+							placeholder="Select a team…"
+							options={teams.map((t) => ({ value: t.id, label: t.name }))}
+						/>
 					</label>
 				)}
 

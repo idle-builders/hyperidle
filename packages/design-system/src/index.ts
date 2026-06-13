@@ -83,6 +83,8 @@ export type { TextRendererProps } from "./kinds/text-renderer.js";
 export { TextRenderer } from "./kinds/text-renderer.js";
 export type { UrlRendererProps } from "./kinds/url-renderer.js";
 export { UrlRenderer } from "./kinds/url-renderer.js";
+export type { MenuItem, MenuProps } from "./Menu.js";
+export { Menu } from "./Menu.js";
 export type { NavItemProps } from "./NavItem.js";
 export { NavItem } from "./NavItem.js";
 export type { NotificationRowProps } from "./NotificationRow.js";

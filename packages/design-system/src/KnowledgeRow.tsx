@@ -118,14 +118,14 @@ export function KnowledgeRow({
 							<span className="text-[var(--text-tertiary)] uppercase tracking-[var(--tracking-caps)]">
 								recency
 							</span>{" "}
-							<span className="font-[var(--mono)] tabular-nums">{signals.recency ?? "—"}</span>
+							<span className="font-[var(--font-mono)] tabular-nums">{signals.recency ?? "—"}</span>
 						</span>
 						<span aria-hidden="true">·</span>
 						<span>
 							<span className="text-[var(--text-tertiary)] uppercase tracking-[var(--tracking-caps)]">
 								freq
 							</span>{" "}
-							<span className="font-[var(--mono)] tabular-nums">
+							<span className="font-[var(--font-mono)] tabular-nums">
 								{signals.frequency != null ? String(signals.frequency) : "—"}
 							</span>
 						</span>
@@ -134,7 +134,7 @@ export function KnowledgeRow({
 							<span className="text-[var(--text-tertiary)] uppercase tracking-[var(--tracking-caps)]">
 								impact
 							</span>{" "}
-							<span className="font-[var(--mono)] tabular-nums">
+							<span className="font-[var(--font-mono)] tabular-nums">
 								{signals.citation != null ? String(signals.citation) : "—"}
 							</span>
 						</span>

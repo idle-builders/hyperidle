@@ -11,6 +11,7 @@ import type { ESLint, Linter, Rule } from "eslint";
 
 import { noAiAesthetic } from "./rules/no-ai-aesthetic.js";
 import { noDialogBoilerplate } from "./rules/no-dialog-boilerplate.js";
+import { noHandrolledSelect } from "./rules/no-handrolled-select.js";
 import { noHardcodedColor } from "./rules/no-hardcoded-color.js";
 import { noMockDataImport } from "./rules/no-mock-data-import.js";
 import { noMockDataSymbol } from "./rules/no-mock-data-symbol.js";
@@ -28,6 +29,7 @@ import { requireStoriesSibling } from "./rules/require-stories-sibling.js";
 export const rules: Record<string, Rule.RuleModule> = {
 	"no-mock-data-import": noMockDataImport,
 	"no-mock-data-symbol": noMockDataSymbol,
+	"no-handrolled-select": noHandrolledSelect,
 	"no-hardcoded-color": noHardcodedColor,
 	"no-off-grid-spacing": noOffGridSpacing,
 	"no-off-scale-radius": noOffScaleRadius,
@@ -44,6 +46,7 @@ export const rules: Record<string, Rule.RuleModule> = {
 };
 
 const recommendedRules: Linter.RulesRecord = {
+	"design/no-handrolled-select": "error",
 	"design/no-hardcoded-color": "warn",
 	"design/no-off-grid-spacing": "warn",
 	"design/no-off-scale-radius": "warn",

@@ -83,6 +83,11 @@ function okJson(body: unknown = {}): Promise<Response> {
 	return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) } as Response);
 }
 
+// AG5: Menu returns null when closed — open overflow trigger before querying items.
+async function openOverflow(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+	await user.click(screen.getByTestId("bet-overflow-btn"));
+}
+
 describe("WorkBet AF12 — AC1 activate control", () => {
 	beforeEach(() => {
 		apiFetchMock.mockReset();
@@ -90,12 +95,15 @@ describe("WorkBet AF12 — AC1 activate control", () => {
 	});
 	afterEach(() => vi.clearAllMocks());
 
-	it("shows an 'Activate bet' overflow item for a draft bet", () => {
+	it("shows an 'Activate bet' overflow item for a draft bet", async () => {
+		const user = userEvent.setup();
 		renderBet(DRAFT_BET);
+		await openOverflow(user);
 		expect(screen.getByText("Activate bet")).toBeInTheDocument();
 	});
 
 	it("does NOT show 'Activate bet' for an active bet", () => {
+		// Menu is closed — text is not in DOM for any status
 		renderBet(ACTIVE_BET);
 		expect(screen.queryByText("Activate bet")).not.toBeInTheDocument();
 	});
@@ -103,6 +111,7 @@ describe("WorkBet AF12 — AC1 activate control", () => {
 	it("clicking 'Activate bet' POSTs to /commit", async () => {
 		const user = userEvent.setup();
 		renderBet(DRAFT_BET);
+		await openOverflow(user);
 		await user.click(screen.getByText("Activate bet"));
 		await waitFor(() => {
 			expect(apiFetchMock).toHaveBeenCalled();
@@ -121,18 +130,20 @@ describe("WorkBet AF12 — AC2 appetite money input", () => {
 	});
 	afterEach(() => vi.clearAllMocks());
 
-	it("does NOT offer 'Adjust appetite' for a draft bet (server allows active only)", () => {
-		const { container } = renderBet(DRAFT_BET);
-		expect(container.querySelector('[data-bet-action="adjust-appetite"]')).toBeNull();
+	it("does NOT offer 'Adjust appetite' for a draft bet (server allows active only)", async () => {
+		const user = userEvent.setup();
+		renderBet(DRAFT_BET);
+		await openOverflow(user);
+		// draft bet shows 'Activate bet', not 'Adjust appetite'
+		expect(document.querySelector('[data-bet-action="adjust-appetite"]')).toBeNull();
 	});
 
 	it("the appetite dialog sends a WireMoney object (not a duration string)", async () => {
 		const user = userEvent.setup();
-		const { container } = renderBet(ACTIVE_BET);
+		renderBet(ACTIVE_BET);
+		await openOverflow(user);
 
-		const adjustItem = container.querySelector(
-			'[data-bet-action="adjust-appetite"]',
-		) as HTMLElement;
+		const adjustItem = document.querySelector('[data-bet-action="adjust-appetite"]') as HTMLElement;
 		await user.click(adjustItem);
 
 		// Money input: a numeric amount + currency select (no duration <select>).
@@ -156,8 +167,9 @@ describe("WorkBet AF12 — AC2 appetite money input", () => {
 
 	it("the duration picker options are gone (no '2 weeks' etc.)", async () => {
 		const user = userEvent.setup();
-		const { container } = renderBet(ACTIVE_BET);
-		await user.click(container.querySelector('[data-bet-action="adjust-appetite"]') as HTMLElement);
+		renderBet(ACTIVE_BET);
+		await openOverflow(user);
+		await user.click(document.querySelector('[data-bet-action="adjust-appetite"]') as HTMLElement);
 		await screen.findByPlaceholderText(/why is the appetite changing/i);
 		expect(screen.queryByText("2 weeks")).not.toBeInTheDocument();
 		expect(screen.queryByText("6 weeks")).not.toBeInTheDocument();
@@ -171,13 +183,16 @@ describe("WorkBet AF12 — AC3 kill-dialog copy honesty", () => {
 	});
 	afterEach(() => vi.clearAllMocks());
 
-	function openKillDialog(): void {
-		fireEvent.click(screen.getByText("Kill"));
+	// AG5: menu closed by default; open overflow then click Kill item
+	async function openKillDialog(): Promise<void> {
+		const user = userEvent.setup();
+		await openOverflow(user);
+		fireEvent.click(document.querySelector('[data-bet-action="kill"]') as HTMLElement);
 	}
 
 	it("the kill dialog describes the cascade: in-progress tasks killed, sessions stopped", async () => {
 		renderBet(ACTIVE_BET);
-		openKillDialog();
+		await openKillDialog();
 		const dialog = await screen.findByRole("dialog");
 		expect(dialog).toHaveTextContent(/in-progress tasks/i);
 		expect(dialog).toHaveTextContent(/sessions/i);
@@ -185,7 +200,7 @@ describe("WorkBet AF12 — AC3 kill-dialog copy honesty", () => {
 
 	it("the SAVED line does NOT claim cost stops 'immediately'", async () => {
 		renderBet(ACTIVE_BET);
-		openKillDialog();
+		await openKillDialog();
 		const dialog = await screen.findByRole("dialog");
 		// "freed immediately" would falsely imply cost stops the instant Kill is clicked.
 		expect(dialog.textContent ?? "").not.toMatch(/immediately/i);
@@ -193,7 +208,7 @@ describe("WorkBet AF12 — AC3 kill-dialog copy honesty", () => {
 
 	it("the dialog includes the 'finish their current step' running-agents qualifier", async () => {
 		renderBet(ACTIVE_BET);
-		openKillDialog();
+		await openKillDialog();
 		const dialog = await screen.findByRole("dialog");
 		expect(dialog).toHaveTextContent(/finish their current step/i);
 	});

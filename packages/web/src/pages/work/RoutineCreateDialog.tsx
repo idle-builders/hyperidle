@@ -12,7 +12,7 @@
  * dismissal when dirty.
  */
 
-import { Dialog } from "@hyperidle/design-system";
+import { Dialog, Select } from "@hyperidle/design-system";
 import { SCHEDULE_PRESETS } from "@hyperidle/shared";
 import { type JSX, useEffect, useState } from "react";
 import { apiFetch } from "../../services/api-fetch.js";
@@ -182,66 +182,59 @@ export function RoutineCreateDialog({
 
 				{/* Team select — only shown when multiple teams */}
 				{teams.length > 1 && (
-					<label className="flex flex-col gap-[3px]">
+					<label htmlFor="routine-create-team" className="flex flex-col gap-[3px]">
 						<span className="text-xs text-[var(--text-tertiary)]">
 							Team <span aria-hidden>(required)</span>
 						</span>
-						<select
-							className="select select-bordered select-sm text-base w-full"
+						<Select
+							id="routine-create-team"
+							size="sm"
+							className="w-full"
 							value={teamId}
 							onChange={(e) => setTeamId(e.target.value)}
 							disabled={submitting}
-						>
-							<option value="">Select a team…</option>
-							{teams.map((t) => (
-								<option key={t.id} value={t.id}>
-									{t.name}
-								</option>
-							))}
-						</select>
+							placeholder="Select a team…"
+							options={teams.map((t) => ({ value: t.id, label: t.name }))}
+						/>
 					</label>
 				)}
 
 				{/* Agent select */}
-				<label className="flex flex-col gap-[3px]">
+				<label htmlFor="routine-create-agent" className="flex flex-col gap-[3px]">
 					<span className="text-xs text-[var(--text-tertiary)]">
 						Agent <span aria-hidden>(required)</span>
 					</span>
-					<select
-						className="select select-bordered select-sm text-base w-full"
+					<Select
+						id="routine-create-agent"
+						size="sm"
+						className="w-full"
 						value={agentId}
 						onChange={(e) => setAgentId(e.target.value)}
 						disabled={submitting}
 						aria-label="Agent"
-					>
-						<option value="">Select an agent…</option>
-						{agents.map((a) => (
-							<option key={a.id} value={a.id}>
-								{a.name}
-							</option>
-						))}
-					</select>
+						placeholder="Select an agent…"
+						options={agents.map((a) => ({ value: a.id, label: a.name }))}
+					/>
 				</label>
 
 				{/* Schedule picker */}
-				<label className="flex flex-col gap-[3px]">
+				<label htmlFor="routine-create-schedule" className="flex flex-col gap-[3px]">
 					<span className="text-xs text-[var(--text-tertiary)]">
 						Schedule <span aria-hidden>(required)</span>
 					</span>
-					<select
-						className="select select-bordered select-sm text-base w-full"
+					<Select
+						id="routine-create-schedule"
+						size="sm"
+						className="w-full"
 						value={scheduleValue}
 						onChange={(e) => setScheduleValue(e.target.value)}
 						disabled={submitting}
 						aria-label="Schedule"
-					>
-						{SCHEDULE_PRESETS.map((preset) => (
-							<option key={preset.cron} value={preset.cron}>
-								{preset.label}
-							</option>
-						))}
-						<option value="custom">Custom…</option>
-					</select>
+						options={[
+							...SCHEDULE_PRESETS.map((preset) => ({ value: preset.cron, label: preset.label })),
+							{ value: "custom", label: "Custom…" },
+						]}
+					/>
 				</label>
 
 				{/* Custom cron input — shown only when "Custom..." selected */}

@@ -13,7 +13,7 @@
  */
 
 // hearth-internal-padding
-import { Avatar, Button, Dialog } from "@hyperidle/design-system";
+import { Avatar, Button, Dialog, Select } from "@hyperidle/design-system";
 import type { RosterMember } from "@hyperidle/shared";
 import { findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
@@ -253,10 +253,10 @@ export function AgentEditDialog({
 							<label className="label" htmlFor="edit-dialog-tier">
 								<span className="label-text text-[var(--text-secondary)]">Model tier</span>
 							</label>
-							<select
+							<Select
 								id="edit-dialog-tier"
 								aria-label="Model tier"
-								className="select select-sm select-bordered"
+								size="sm"
 								value={formValues.modelTierPreference}
 								onChange={(e) =>
 									setFormValues((prev) => ({
@@ -265,14 +265,11 @@ export function AgentEditDialog({
 									}))
 								}
 								disabled={isStrategy || saving}
-							>
-								<option value="">Default</option>
-								{MODEL_TIERS.map((t) => (
-									<option key={t} value={t}>
-										{t}
-									</option>
-								))}
-							</select>
+								options={[
+									{ value: "", label: "Default" },
+									...MODEL_TIERS.map((t) => ({ value: t, label: t })),
+								]}
+							/>
 						</div>
 
 						<div className="form-control min-w-[100px] flex-1">
