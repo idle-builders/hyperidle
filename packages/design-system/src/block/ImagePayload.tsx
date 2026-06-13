@@ -34,7 +34,11 @@ export function ImagePayload({ alt, url, title }: ImagePayloadProps): JSX.Elemen
 		return <UnknownPayload raw={`![${alt}](${url})`} reason="parser-unrecognised" />;
 	}
 	return (
-		<figure className="m-0 relative rounded-[var(--r-default)] border border-[var(--border-subtle)] overflow-hidden">
+		// data-component is a test-support marker (E2E selector hook; no behavior).
+		<figure
+			data-component="ImagePayload"
+			className="m-0 relative rounded-[var(--r-default)] border border-[var(--border-subtle)] overflow-hidden"
+		>
 			<img src={url} alt={alt} title={title ?? undefined} className="block max-w-full h-auto" />
 			<button
 				type="button"

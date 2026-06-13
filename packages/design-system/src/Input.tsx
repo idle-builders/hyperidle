@@ -23,10 +23,10 @@ export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElem
 }
 
 const INPUT_BASE =
-	"w-full text-[15px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-none focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_rgba(22,118,79,0.1)] disabled:opacity-50 disabled:cursor-not-allowed";
+	"w-full text-[15px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-none focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed";
 
 const INPUT_ERROR =
-	"border-[var(--status-error)] focus:border-[var(--status-error)] focus:shadow-[0_0_0_3px_rgba(220,74,58,0.1)]";
+	"border-[var(--status-error)] focus:border-[var(--status-error)] focus:shadow-[0_0_0_3px_var(--status-error-dim)]";
 
 export function Input({
 	label,

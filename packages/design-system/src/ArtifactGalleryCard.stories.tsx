@@ -50,3 +50,13 @@ export const Loading = (): React.JSX.Element => (
 		<ArtifactGalleryCard data={FIXTURE} onOpen={() => undefined} state="loading" />
 	</div>
 );
+
+/**
+ * AI6: Card focus ring — `focus-visible:outline-1` (converged from `focus:outline-2`).
+ * Tab to the card to see the 1px ring.
+ */
+export const FocusState = (): React.JSX.Element => (
+	<div className="grid grid-cols-2 gap-4 w-[600px]">
+		<ArtifactGalleryCard data={FIXTURE} onOpen={() => undefined} />
+	</div>
+);

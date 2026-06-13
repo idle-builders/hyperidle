@@ -37,3 +37,14 @@ export const Populated = (): React.JSX.Element => (
 		/>
 	</div>
 );
+
+/**
+ * AI6: Row focus ring — `focus-visible:outline-1` with inset offset
+ * (`focus-visible:[outline-offset:-1px]`). Converged from `focus:outline-2` (no offset).
+ * Tab to the row to see the 1px inset ring.
+ */
+export const FocusState = (): React.JSX.Element => (
+	<div className="bg-[var(--surface-elevated)] w-[720px]">
+		<ArtifactStackItem data={FIXTURE} onOpen={() => undefined} />
+	</div>
+);

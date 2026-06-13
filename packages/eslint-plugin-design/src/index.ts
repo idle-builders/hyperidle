@@ -13,10 +13,12 @@ import { noAiAesthetic } from "./rules/no-ai-aesthetic.js";
 import { noDialogBoilerplate } from "./rules/no-dialog-boilerplate.js";
 import { noHandrolledSelect } from "./rules/no-handrolled-select.js";
 import { noHardcodedColor } from "./rules/no-hardcoded-color.js";
+import { noHardcodedTracking } from "./rules/no-hardcoded-tracking.js";
 import { noLocalStatusBuilder } from "./rules/no-local-status-builder.js";
 import { noMockDataImport } from "./rules/no-mock-data-import.js";
 import { noMockDataSymbol } from "./rules/no-mock-data-symbol.js";
 import { noOffGridSpacing } from "./rules/no-off-grid-spacing.js";
+import { noOffScaleDuration } from "./rules/no-off-scale-duration.js";
 import { noOffScaleFontSize } from "./rules/no-off-scale-font-size.js";
 import { noOffScaleRadius } from "./rules/no-off-scale-radius.js";
 import { noOpButton } from "./rules/no-op-button.js";
@@ -32,8 +34,10 @@ export const rules: Record<string, Rule.RuleModule> = {
 	"no-mock-data-symbol": noMockDataSymbol,
 	"no-handrolled-select": noHandrolledSelect,
 	"no-hardcoded-color": noHardcodedColor,
+	"no-hardcoded-tracking": noHardcodedTracking,
 	"no-local-status-builder": noLocalStatusBuilder,
 	"no-off-grid-spacing": noOffGridSpacing,
+	"no-off-scale-duration": noOffScaleDuration,
 	"no-off-scale-radius": noOffScaleRadius,
 	"no-off-scale-font-size": noOffScaleFontSize,
 	"no-ai-aesthetic": noAiAesthetic,
@@ -50,8 +54,10 @@ export const rules: Record<string, Rule.RuleModule> = {
 const recommendedRules: Linter.RulesRecord = {
 	"design/no-handrolled-select": "error",
 	"design/no-hardcoded-color": "warn",
+	"design/no-hardcoded-tracking": "warn",
 	"design/no-local-status-builder": "error",
 	"design/no-off-grid-spacing": "warn",
+	"design/no-off-scale-duration": "warn",
 	"design/no-off-scale-radius": "warn",
 	"design/no-off-scale-font-size": "warn",
 	"design/no-ai-aesthetic": "warn",

@@ -18,14 +18,17 @@ export function ImageRenderer({ preview }: ImageRendererProps): JSX.Element {
 	}
 
 	return (
-		<section aria-label="Image preview">
-			<img
-				src={preview.url}
-				alt={preview.alt ?? `${preview.width}×${preview.height} image`}
-				width={preview.width}
-				height={preview.height}
-				className="max-w-full rounded-[var(--r-subtle)]"
-			/>
+		// data-component is a test-support marker (E2E selector hook; no behavior).
+		<section aria-label="Image preview" data-component="image-renderer">
+			<figure className="rounded-[var(--r-default)] border border-[var(--border-subtle)] overflow-hidden m-0">
+				<img
+					src={preview.url}
+					alt={preview.alt ?? `${preview.width}×${preview.height} image`}
+					width={preview.width}
+					height={preview.height}
+					className="max-w-full block"
+				/>
+			</figure>
 			<p className="text-xs text-[var(--text-tertiary)] mt-1 font-mono">
 				{preview.width} × {preview.height}
 			</p>

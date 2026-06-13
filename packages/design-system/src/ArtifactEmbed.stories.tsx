@@ -28,3 +28,16 @@ export const InReviewMessage = (): React.JSX.Element => (
 		<p className="mt-2">Mostly clean — one nit on naming.</p>
 	</div>
 );
+
+/**
+ * AI6: Arrow button focus ring — `focus-visible:outline-1` with inset offset
+ * (`focus-visible:[outline-offset:-1px]`). Converged from `focus:outline-2` (no offset).
+ */
+export const ArrowFocusState = (): React.JSX.Element => (
+	<div className="bg-[var(--surface-elevated)] rounded-[var(--r-subtle)] p-4 max-w-[720px]">
+		<p className="text-[11px] text-[var(--text-tertiary)] mb-[6px]">
+			Tab to the arrow — 1px inset ring
+		</p>
+		<ArtifactEmbed data={FIXTURE} onOpen={() => undefined} />
+	</div>
+);

@@ -18,7 +18,7 @@ export function CodePayload({ lang, text }: CodePayloadProps): JSX.Element {
 	return (
 		<div className="flex flex-col gap-[6px]">
 			{lang ? (
-				<div className="font-mono text-[11px] uppercase tracking-[0.05em] text-[var(--text-tertiary)]">
+				<div className="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
 					{lang}
 				</div>
 			) : null}
