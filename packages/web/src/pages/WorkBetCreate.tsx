@@ -18,7 +18,7 @@
  */
 
 // hearth-internal-padding
-import { BodyEditor, Select } from "@hyperidle/design-system";
+import { BodyEditor, Input, Select } from "@hyperidle/design-system";
 import {
 	CURRENCY_CODES,
 	deriveTitleFromPitch,
@@ -239,7 +239,7 @@ export function WorkBetCreate(): JSX.Element {
 									<Select
 										aria-label="Appetite currency"
 										size="sm"
-										className="w-[72px]"
+										className="w-[88px]"
 										value={appetiteCurrency}
 										onChange={(e) => setAppetiteCurrency(e.target.value)}
 										disabled={submitting}
@@ -248,11 +248,18 @@ export function WorkBetCreate(): JSX.Element {
 											label: code,
 										}))}
 									/>
-									<input
+									{/*
+									 * @lore AG3: DS Input used here (not raw DaisyUI input) per plan
+									 * architecture.md:112 and approved.md Appetite row spec.
+									 * className targets the wrapper div (flex-1 for grow in the flex row).
+									 * AQ-005 is satisfied: Input.tsx @lore states the component adds
+									 * a ≥16px responsive override at ≤768px.
+									 */}
+									<Input
 										id="bet-create-appetite-amount"
 										type="number"
 										aria-label="Appetite amount"
-										className="input input-bordered input-sm flex-1 text-base"
+										className="flex-1"
 										min={0}
 										step="0.01"
 										placeholder="0"

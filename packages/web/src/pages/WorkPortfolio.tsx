@@ -7,7 +7,9 @@
  * useTeams() provides team names for pills and card labels.
  *
  * @lore U9 AC-2: "All bets" heading replaces "Portfolio".
- * "New bet" button opens BetCreateDialog.
+ * @lore AG3: "New bet" button navigates to /work/bet/new (full-page create).
+ * BetCreateDialog removed; both entry points (header button + portfolio-empty CTA)
+ * call navigate("/work/bet/new").
  *
  * @lore U9 AC-3: Team pills: one pill per team from useTeams() — bordered style.
  * Active pill: accent border + tinted bg. Inactive: border-default.
