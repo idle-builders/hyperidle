@@ -66,7 +66,7 @@ Most DS uppercase labels are 11px mono kickers → `--tracking-caps-sm`. The har
 |---|---|---|
 | `tracking-[0.05em]` (11px mono kicker) | `ThreadShell.tsx:172,202`, `RichMessageCard.tsx:210,489`, `CommentRow.tsx:277`, `StatusChip.tsx:104` †, `block/TablePayload.tsx:24`, `block/CodePayload.tsx:21` | `--tracking-caps-sm` |
 
-> † **StatusChip ownership (resolves both critiques' WARNING).** `TRACK-AI.md:211` reserves "status chips (**AI4**)" out of AI5's scope; AI6's own spec (`:221`) names StatusChip tracking among the divergences. This is an ownership ambiguity. **Before editing `StatusChip.tsx:104`, architecture/builder must confirm AI4 has not already ratified or migrated StatusChip's caps tracking** (check AI4's `approved.md`/`architecture.md` + the live `StatusChip.tsx:104` value). If AI4 owns it or has already migrated it, **drop `StatusChip.tsx:104` from AI6's scope** — two WPs editing one line is the exact incoherence this track exists to end. AI6 only touches it if AI4 has not claimed StatusChip typography.
+> † **StatusChip ownership — RESOLVED: AI6 migrates `:104`.** `TRACK-AI.md:211` reserves "status chips (**AI4**)" out of AI5's scope; AI6's spec (`:221`) names StatusChip tracking among the divergences. AI4 is **merged** (#272) and owns the chip component, but migrated labels/casing only — `StatusChip.tsx:104` `tracking-[0.05em]` is **still hardcoded**. AI4 owns the component; AI4 did not ratify the tracking. **AI6 migrates `StatusChip.tsx:104` → `tracking-[var(--tracking-caps-sm)]`** — required because AI6's `no-hardcoded-tracking` rule (set to `error` over `packages/design-system/src/**`) would flag the un-migrated chip and break `npm run lint` the moment AI6 lands. Gate and rule must agree: dropping the line is NOT an option.
 | `tracking-[0.02em]` (11px mono label) | `ArtifactEmbed.tsx:31`, `ArtifactPreview.tsx:20`, `ArtifactPreviewSurface.tsx:23`, `ArtifactGalleryCard.tsx:19`, `ArtifactKindBadge.tsx:13`, `ArtifactStackItem.tsx:41`, `block/UnknownPayload.tsx:20` | `--tracking-caps-sm` |
 | `tracking-[0.03em]` (11px pill) | `RichMessageCard.tsx:207,483` | `--tracking-caps-sm` |
 | `tracking-[0.04em]` (10px badge) | `CommentRow.tsx:267` | `--tracking-caps-sm` |
@@ -93,7 +93,7 @@ Selected = accent-colored; hover = neutral grey. Distinct hue, not just opacity.
 
 | Component | Independent hover + selected? | Action / role |
 |---|---|---|
-| `TabBar.tsx` | yes — `selected` prop is independent of pointer hover | **reference + AC proof surface.** Already correct (accent selected vs neutral hover). The hover-vs-selected validation runs here. |
+| `TabBar.tsx` | yes — `selected` prop is independent of pointer hover | **reference + AC proof surface.** Already correct. NOTE: TabBar expresses the two-tone via **text color + bg-presence**, not the row bg color-mix idiom — selected = `bg-[var(--accent-primary-dim)]` + accent text/border; hovered-inactive = transparent bg + `hover:text-[var(--text-secondary)]` (verified `TabBar.tsx:43,76`, no `hover:bg-`). The §4 `text-secondary` 8% bg-mix is the rule for **rows/list-items** (AG6), not TabBar. The hover-vs-selected validation runs here and asserts accent-bg/accent-text vs no-bg/neutral-text. |
 | `slash-menu.tsx` | no — hover sets `selectedIndex` (`:218`) | selection-follows-hover by design; single highlight is correct. No two-tone change, no behavior change. |
 | `Menu.tsx:184` | hover only (no selected/current concept) | no change — Menu has no selected state. |
 
