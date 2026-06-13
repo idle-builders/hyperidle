@@ -62,12 +62,12 @@ import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useHint } from "../hooks/useHints";
 import { useHostThread } from "../hooks/useHostThread.js";
 import { apiFetch } from "../services/api-fetch.js";
-import { deriveInitials } from "../utils/initials.js";
 import { postRequestMessage, resolveOrCreateTaskThread } from "../services/task-threads";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
 import { TaskSheet } from "../shell/TaskSheet";
 import type { BetDetail } from "../types/bet";
 import { blockExcerptFromPayload } from "../utils/block-excerpt.js";
+import { deriveInitials } from "../utils/initials.js";
 import { KnowledgeCreateDialog } from "./knowledge/KnowledgeCreateDialog";
 
 // L17: "cost" column maps to costActual (WireMoney|null); sort by minor units.
@@ -954,7 +954,8 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 								data-testid="bet-overflow-btn"
 								aria-haspopup="menu"
 								aria-expanded={betOverflowOpen}
-								className="inline-flex items-center justify-center w-[32px] h-[32px] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] text-[16px] cursor-pointer hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)]"
+								/* AI5 AQ-015: hit-area expansion only (AG5 menu trigger stays a button). */
+								className="inline-flex items-center justify-center w-[32px] h-[32px] min-h-[44px] min-w-[44px] xl:min-h-[32px] xl:min-w-[32px] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] text-[16px] cursor-pointer hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)]"
 								onClick={() => setBetOverflowOpen((v) => !v)}
 							>
 								&#xB7;&#xB7;&#xB7;

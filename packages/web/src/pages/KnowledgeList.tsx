@@ -329,7 +329,7 @@ function KnowledgeListRow({
 										e.stopPropagation();
 										onValidate();
 									}}
-									className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[rgba(44,36,26,0.06)] border-none bg-transparent cursor-pointer"
+									className="w-[24px] h-[24px] min-h-[44px] min-w-[44px] xl:min-h-[24px] xl:min-w-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[rgba(44,36,26,0.06)] border-none bg-transparent cursor-pointer"
 								>
 									<svg
 										width="14"
@@ -354,7 +354,7 @@ function KnowledgeListRow({
 										e.stopPropagation();
 										onReject();
 									}}
-									className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[rgba(44,36,26,0.06)] border-none bg-transparent cursor-pointer"
+									className="w-[24px] h-[24px] min-h-[44px] min-w-[44px] xl:min-h-[24px] xl:min-w-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[rgba(44,36,26,0.06)] border-none bg-transparent cursor-pointer"
 								>
 									<svg
 										width="14"
@@ -379,7 +379,7 @@ function KnowledgeListRow({
 										e.stopPropagation();
 										onOpen();
 									}}
-									className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[rgba(44,36,26,0.06)] border-none bg-transparent cursor-pointer"
+									className="w-[24px] h-[24px] min-h-[44px] min-w-[44px] xl:min-h-[24px] xl:min-w-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[rgba(44,36,26,0.06)] border-none bg-transparent cursor-pointer"
 								>
 									<svg
 										width="14"

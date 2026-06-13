@@ -16,7 +16,10 @@ export default {
 };
 
 export const Compact = (): React.JSX.Element => (
-	<div className="rounded-[var(--r-default)] bg-[var(--surface-container)] p-[12px]" style={{ maxWidth: "360px" }}>
+	<div
+		className="rounded-[var(--r-default)] bg-[var(--surface-container)] p-[12px]"
+		style={{ maxWidth: "360px" }}
+	>
 		<EmptyState
 			compact
 			title="No discussions"
@@ -26,7 +29,10 @@ export const Compact = (): React.JSX.Element => (
 );
 
 export const CompactWithAction = (): React.JSX.Element => (
-	<div className="rounded-[var(--r-default)] bg-[var(--surface-container)] p-[12px]" style={{ maxWidth: "360px" }}>
+	<div
+		className="rounded-[var(--r-default)] bg-[var(--surface-container)] p-[12px]"
+		style={{ maxWidth: "360px" }}
+	>
 		<EmptyState
 			compact
 			title="No activity yet"

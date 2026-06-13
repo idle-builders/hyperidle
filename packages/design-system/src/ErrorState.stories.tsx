@@ -15,7 +15,10 @@ export default {
 };
 
 export const Compact = (): React.JSX.Element => (
-	<div className="rounded-[var(--r-default)] bg-[var(--surface-container)] p-[12px]" style={{ maxWidth: "360px" }}>
+	<div
+		className="rounded-[var(--r-default)] bg-[var(--surface-container)] p-[12px]"
+		style={{ maxWidth: "360px" }}
+	>
 		<ErrorState
 			compact
 			title="Couldn't load reference"
@@ -25,7 +28,10 @@ export const Compact = (): React.JSX.Element => (
 );
 
 export const CompactWithRetry = (): React.JSX.Element => (
-	<div className="rounded-[var(--r-default)] bg-[var(--surface-container)] p-[12px]" style={{ maxWidth: "360px" }}>
+	<div
+		className="rounded-[var(--r-default)] bg-[var(--surface-container)] p-[12px]"
+		style={{ maxWidth: "360px" }}
+	>
 		<ErrorState
 			compact
 			title="Couldn't load reference"

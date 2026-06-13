@@ -18,9 +18,9 @@ import type { RosterMember } from "@hyperidle/shared";
 import { findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
-import { deriveInitials } from "../utils/initials.js";
 import type { AgentConfig } from "../settings/settings-types.js";
 import { useToast } from "../shell/ToastRegion.js";
+import { deriveInitials } from "../utils/initials.js";
 
 export interface AgentEditDialogProps {
 	/** Non-null = dialog open; null = dialog closed. */

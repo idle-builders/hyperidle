@@ -304,7 +304,7 @@ export function WorkPortfolio(): JSX.Element {
 											aria-pressed={isActive}
 											className={`inline-flex items-center px-[12px] py-[4px] text-[12px] font-[500] rounded-[var(--r-pill)] border-[1.5px] cursor-pointer transition-all duration-[var(--motion-default)] ${
 												isActive
-													? "border-[var(--accent-primary)] bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)]"
+													? "border-[var(--accent-primary)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
 													: "border-[var(--border-default)] bg-transparent text-[var(--text-secondary)]"
 											}`}
 											onClick={() => {
@@ -339,7 +339,7 @@ export function WorkPortfolio(): JSX.Element {
 										aria-pressed={selectedTeamId === team.id}
 										className={`inline-flex items-center px-[12px] py-[4px] text-[12px] font-[500] rounded-[var(--r-pill)] border-[1.5px] cursor-pointer transition-all duration-[var(--motion-default)] ${
 											selectedTeamId === team.id
-												? "border-[var(--accent-primary)] bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)]"
+												? "border-[var(--accent-primary)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
 												: "border-[var(--border-default)] bg-transparent text-[var(--text-secondary)]"
 										}`}
 										onClick={() => setSelectedTeamId((prev) => (prev === team.id ? null : team.id))}
