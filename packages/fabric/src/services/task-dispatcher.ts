@@ -371,12 +371,18 @@ async function drainQueue(deps: TaskDispatcherDeps, generation: number): Promise
  * because lifecycle-propagation is not wired in tests), re-registering would
  * find the in_progress task with no active session and dispatch again.
  */
-async function startupSweep(db: HyperIdleDb): Promise<void> {
+async function startupSweep(db: HyperIdleDb, generation: number): Promise<void> {
 	// Find active session task IDs to exclude
 	const activeSessions = await db
 		.select({ taskId: sessions.taskId })
 		.from(sessions)
 		.where(eq(sessions.state, "active"));
+
+	// Stale-generation check: if the dispatcher was disposed and re-registered while
+	// the DB queries were in-flight, this sweep's results belong to a stale
+	// registration. Pushing stale entries would pollute the new registration's queue.
+	if (generation !== currentGeneration) return;
+
 	const activeTaskIds = new Set(activeSessions.map((s) => s.taskId));
 
 	// Find dispatchable tasks (accepted state only)
@@ -390,9 +396,14 @@ async function startupSweep(db: HyperIdleDb): Promise<void> {
 		.from(tasks)
 		.where(and(isNotNull(tasks.ownerAgentId), eq(tasks.state, "accepted")));
 
+	// Second generation check after second await
+	if (generation !== currentGeneration) return;
+
 	for (const task of dispatchableTasks) {
 		if (!task.ownerAgentId) continue;
 		if (activeTaskIds.has(task.id)) continue;
+		// Skip if already in queue (event handler may have enqueued while sweep ran)
+		if (queue.some((e) => e.taskId === task.id)) continue;
 
 		queue.push({
 			taskId: task.id,
@@ -512,10 +523,12 @@ export function registerTaskDispatcher(deps: TaskDispatcherDeps): () => void {
 	const unsubTaskStateChanged = eventBus.on("task_state_changed", handleTaskStateChanged);
 	const unsubSessionEnded = eventBus.on("session_ended", handleSessionEnded);
 
-	// Perform startup sweep (async, fire-and-forget drain after sweep)
-	void startupSweep(db)
+	// Perform startup sweep (async, fire-and-forget drain after sweep).
+	// Pass myGeneration so the sweep can bail out if it becomes stale
+	// (dispose + re-register) while its DB queries are in-flight.
+	void startupSweep(db, myGeneration)
 		.then(() => {
-			if (queue.length > 0) {
+			if (myGeneration === currentGeneration && queue.length > 0) {
 				scheduleDrain();
 			}
 		})
