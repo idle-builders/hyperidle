@@ -231,42 +231,45 @@ test.describe("R2 — Work-First Landing", () => {
 			await expect(createBetBtn).toBeVisible();
 		});
 
-		// AC-7: "Create bet" button opens BetCreateDialog
-		test("AC7 — Clicking 'Create bet' CTA opens BetCreateDialog", async ({ page }) => {
+		// AG3: "Create bet" CTA navigates to /work/bet/new (full-page authoring, not dialog)
+		test("AC7 — Clicking 'Create bet' CTA navigates to /work/bet/new", async ({ page }) => {
 			await page.goto("/work/portfolio");
 			await page.waitForSelector("[data-testid='work-portfolio-page']");
 
 			await page.getByRole("button", { name: /create bet/i }).click();
 
-			// Dialog should open
-			await expect(page.getByRole("dialog")).toBeVisible();
+			// AG3: navigates to full-page route, no dialog
+			await expect(page).toHaveURL(/\/work\/bet\/new/, { timeout: 5_000 });
+			await expect(page.getByRole("dialog")).toHaveCount(0);
 		});
 
-		// AC-6: BetCreateDialog has only pitch field (no product selector for single product)
-		test("AC6 — BetCreateDialog has no product selector when single product", async ({ page }) => {
+		// AG3: Full-page create has no team picker for single-team (auto-resolved in aside)
+		test("AC6 — Full-page bet create has no team picker when single team", async ({ page }) => {
 			await page.goto("/work/portfolio");
 			await page.waitForSelector("[data-testid='work-portfolio-page']");
 
-			// Open dialog via "new pitch" button or "Create bet" CTA
 			const createBetBtn = page.getByRole("button", { name: /create bet/i });
 			await createBetBtn.click();
 
-			await expect(page.getByRole("dialog")).toBeVisible();
+			await expect(page).toHaveURL(/\/work\/bet\/new/, { timeout: 5_000 });
 
-			// With one product in fixtures.ts (DEFAULT_PRODUCTS), no product selector
-			await expect(page.getByLabel(/product/i)).toHaveCount(0);
+			// Single team → no team combobox (auto-resolved)
+			await expect(page.getByRole("combobox", { name: /team/i })).toHaveCount(0);
 		});
 
-		// AC-6: BetCreateDialog has no appetite fields
-		test("AC6 — BetCreateDialog has no appetite amount or currency fields", async ({ page }) => {
+		// AG3: Full-page create now HAS appetite fields in the commitments aside (AC4)
+		test("AC6 — Full-page bet create has appetite fields in commitments aside", async ({
+			page,
+		}) => {
 			await page.goto("/work/portfolio");
 			await page.waitForSelector("[data-testid='work-portfolio-page']");
 
 			await page.getByRole("button", { name: /create bet/i }).click();
-			await expect(page.getByRole("dialog")).toBeVisible();
+			await expect(page).toHaveURL(/\/work\/bet\/new/, { timeout: 5_000 });
 
-			await expect(page.getByLabel(/appetite amount/i)).toHaveCount(0);
-			await expect(page.getByLabel(/currency/i)).toHaveCount(0);
+			// AG3 AC4: appetite returns to create (was removed from dialog in R2)
+			// bet-create-commitments aside must be present
+			await expect(page.getByTestId("bet-create-commitments")).toBeVisible();
 		});
 
 		// AC-7: CTA is hidden when bets exist
