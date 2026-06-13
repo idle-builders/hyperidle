@@ -18,7 +18,8 @@ export function ImageRenderer({ preview }: ImageRendererProps): JSX.Element {
 	}
 
 	return (
-		<section aria-label="Image preview">
+		// data-component is a test-support marker (E2E selector hook; no behavior).
+		<section aria-label="Image preview" data-component="image-renderer">
 			<figure className="rounded-[var(--r-default)] border border-[var(--border-subtle)] overflow-hidden m-0">
 				<img
 					src={preview.url}

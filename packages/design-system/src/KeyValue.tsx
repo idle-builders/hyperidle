@@ -16,7 +16,7 @@ export function KeyValue({ label, value, layout = "inline" }: KeyValueProps): JS
 			className={`flex ${direction} gap-[6px] ${layout === "inline" ? "items-center justify-between" : ""}`}
 		>
 			{/* @lore K7 / AESTHETICS.md § Typography row "Letter-spacing for caps":
-			    +0.02em (designer-call) on uppercase labels. tracking-[0.05em] → tracking-[var(--tracking-caps)]. */}
+			    +0.02em (designer-call) on uppercase labels. */}
 			<span className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]">
 				{label}
 			</span>

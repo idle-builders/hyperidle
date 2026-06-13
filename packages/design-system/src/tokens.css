@@ -86,6 +86,13 @@
 		 * titles; 0.06em for smaller labels (subtitles, sidebar categories).
 		 * Previous Lucid-era value 0.02em was too tight for the warm, generous
 		 * Hearth aesthetic. */
+		/* @lore AI6: ArtifactEmbed.html, ArtifactPreview.html, and Block.html
+		 * were migrated from literal `letter-spacing: 0.02em / 0.05em` to
+		 * `var(--tracking-caps-sm)` in this WP. This is a deliberate visual-parity
+		 * exception (architecture.md §VISUAL-PARITY CONFLICT) — the HTML references
+		 * now consume the token so TSX↔HTML remain in agreement. The 0.02em
+		 * literals were Lucid-era leftovers; the token is the ratified value
+		 * (AQ-013). Do NOT revert to literal values without updating TSX too. */
 		--tracking-caps: 0.08em;
 		--tracking-caps-sm: 0.06em;
 

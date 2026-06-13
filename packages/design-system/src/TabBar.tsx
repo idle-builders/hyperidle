@@ -70,7 +70,7 @@ export function TabBar({ tabs, activeId, onChange, variant = "pill" }: TabBarPro
 						className={[
 							"px-[12px] py-[6px] rounded-full text-[13px]",
 							"transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
-							"focus-visible:outline focus-visible:outline-[2px] focus-visible:outline-[var(--accent-primary)]",
+							"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]",
 							isActive
 								? "bg-[var(--surface-elevated)] text-[var(--accent-primary)] font-semibold shadow-[var(--shadow-subtle)]"
 								: "text-[var(--text-secondary)] font-medium hover:text-[var(--text-primary)]",

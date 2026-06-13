@@ -9,11 +9,11 @@
  *   - border border-[var(--border-subtle)] (visible border)
  *   - overflow-hidden (where applicable)
  *
- * Strategy: render both families at /designsystem, capture screenshots, and
- * assert computed border-radius matches between block payload and kind renderer
- * for the same content kind (image + table).
- *
- * These tests FAIL until kinds/ renderer changes in §5 of architecture.md are applied.
+ * C2 fix: catalog defaults to modules[0] — navigate to each component section
+ * (/designsystem#Block for block/ImagePayload, /designsystem#Kinds/ImageRenderer
+ * for kinds/ImageRenderer) before asserting.
+ * data-component markers added to image-renderer.tsx and block/ImagePayload.tsx
+ * as test-support hooks (no behavior change).
  */
 
 import * as fs from "node:fs";
@@ -31,75 +31,104 @@ test.beforeAll(() => {
 });
 
 test.describe("AI6 — renderer container parity (block/ vs kinds/)", () => {
-	test.beforeEach(async ({ page }) => {
-		await page.goto("/designsystem", { waitUntil: "domcontentloaded" });
+	// ── image-renderer: kinds/ must use r-default ─────────────────────────────
+
+	test("kinds/image-renderer has r-default (16px) border-radius class", async ({ page }) => {
+		// Navigate to the Kinds/ImageRenderer section in the design-system catalog.
+		await page.goto("/designsystem#Kinds%2FImageRenderer", { waitUntil: "domcontentloaded" });
 		await page.waitForTimeout(1500);
+
+		// image-renderer.tsx has data-component="image-renderer" on the <section> element.
+		// The <figure> inside carries the rounded-[var(--r-default)] class.
+		const imageRendererSection = page.locator('[data-component="image-renderer"]').first();
+		await expect(imageRendererSection).toBeVisible();
+
+		// The figure inside the section must have r-default class.
+		const figure = imageRendererSection.locator("figure").first();
+		await expect(figure).toBeVisible();
+		const classAttr = await figure.getAttribute("class");
+		expect(classAttr).toContain("r-default");
 	});
 
-	// ── Image: block/ImagePayload vs kinds/image-renderer ────────────────────
+	test("kinds/image-renderer figure has border-subtle class", async ({ page }) => {
+		await page.goto("/designsystem#Kinds%2FImageRenderer", { waitUntil: "domcontentloaded" });
+		await page.waitForTimeout(1500);
 
-	test("image-renderer has r-default (16px) border-radius matching block/ImagePayload", async ({
+		const imageRendererSection = page.locator('[data-component="image-renderer"]').first();
+		await expect(imageRendererSection).toBeVisible();
+
+		const figure = imageRendererSection.locator("figure").first();
+		const classAttr = await figure.getAttribute("class");
+		// Must have border-subtle treatment to match block/ImagePayload.
+		expect(classAttr).toContain("border-subtle");
+	});
+
+	// ── block/ImagePayload: has same r-default treatment ──────────────────────
+
+	test("block/ImagePayload has r-default border-radius class", async ({ page }) => {
+		// Navigate to Block → Image variant.
+		await page.goto("/designsystem#Block", { waitUntil: "domcontentloaded" });
+		await page.waitForTimeout(1500);
+
+		// block/ImagePayload.tsx has data-component="ImagePayload" on the <figure>.
+		const imageFigure = page.locator('[data-component="ImagePayload"]').first();
+		await expect(imageFigure).toBeVisible();
+
+		const classAttr = await imageFigure.getAttribute("class");
+		expect(classAttr).toContain("r-default");
+	});
+
+	// ── Border-radius parity between kinds/ and block/ ────────────────────────
+
+	test("kinds/image-renderer and block/ImagePayload border-radius are equal (16px)", async ({
 		page,
 	}) => {
-		// The design system catalog renders both families.
-		// kinds/image-renderer is rendered via artifact preview stories.
-		// We look for the [data-ds-component] markers.
-		const kindImageRenderer = page
-			.locator('[data-component="image-renderer"], [data-kind="image"]')
-			.first();
-		const blockImagePayload = page
-			.locator('[data-component="ImagePayload"], [data-ds-component="ImagePayload"]')
-			.first();
+		// Check kinds/ renderer.
+		await page.goto("/designsystem#Kinds%2FImageRenderer", { waitUntil: "domcontentloaded" });
+		await page.waitForTimeout(1500);
+		const imageRendererSection = page.locator('[data-component="image-renderer"]').first();
+		await expect(imageRendererSection).toBeVisible();
+		const kindFigure = imageRendererSection.locator("figure").first();
+		const kindRadius = await kindFigure.evaluate((el) => getComputedStyle(el).borderRadius);
 
-		// If both exist, assert matching border-radius.
-		// If either doesn't exist yet, the test still captures the state.
-		const kindVisible = await kindImageRenderer.isVisible().catch(() => false);
-		const blockVisible = await blockImagePayload.isVisible().catch(() => false);
+		// Check block/ payload.
+		await page.goto("/designsystem#Block", { waitUntil: "domcontentloaded" });
+		await page.waitForTimeout(1500);
+		const blockFigure = page.locator('[data-component="ImagePayload"]').first();
+		await expect(blockFigure).toBeVisible();
+		const blockRadius = await blockFigure.evaluate((el) => getComputedStyle(el).borderRadius);
 
-		if (kindVisible && blockVisible) {
-			const kindRadius = await kindImageRenderer.evaluate(
-				(el) => getComputedStyle(el).borderRadius,
-			);
-			const blockRadius = await blockImagePayload.evaluate(
-				(el) => getComputedStyle(el).borderRadius,
-			);
-			// Both should resolve to 16px (var(--r-default)).
-			expect(kindRadius).toBe(blockRadius);
-		} else {
-			// At minimum, assert that the kinds/image-renderer uses r-default class.
-			// Find any element with an image renderer class that should have the correct radius.
-			const imageRendererContainer = page
-				.locator('[class*="image-renderer"], [class*="ImagePayload"]')
-				.first();
-			if (await imageRendererContainer.isVisible().catch(() => false)) {
-				const classAttr = await imageRendererContainer.getAttribute("class");
-				// After migration, kinds/image-renderer must use r-default.
-				expect(classAttr).toContain("r-default");
-			} else {
-				// Take a screenshot for manual review and note that renderer elements
-				// are not yet identifiable via the current markup.
-				await page.screenshot({
-					path: path.join(PROOF_DIR, "AI6-renderer-parity-no-markers.png"),
-				});
-				// This test cannot pass until the renderer stories expose data markers.
-				// The explicit assertion here fails as expected (red).
-				expect(
-					false,
-					"kinds/image-renderer or block/ImagePayload not found on /designsystem — ensure renderer stories render these components with identifiable markers",
-				).toBe(true);
-			}
-		}
+		// Both must resolve to 16px (var(--r-default)).
+		expect(kindRadius).toBe("16px");
+		expect(blockRadius).toBe("16px");
+		expect(kindRadius).toBe(blockRadius);
 	});
 
 	// ── Screenshot: side-by-side renderer capture ─────────────────────────────
 
 	test("screenshot: renderer families side-by-side for reviewer inspection", async ({ page }) => {
-		// Navigate to artifact preview or renderer section if there's a story nav.
-		// Capture full design system page for side-by-side review.
+		// Capture kinds/ImageRenderer.
+		await page.goto("/designsystem#Kinds%2FImageRenderer", { waitUntil: "domcontentloaded" });
+		await page.waitForTimeout(1500);
+		await page.screenshot({
+			path: path.join(PROOF_DIR, "AI6-renderer-parity-kinds.png"),
+			fullPage: false,
+		});
+
+		// Capture block/ImagePayload (Block → Image variant).
+		await page.goto("/designsystem#Block", { waitUntil: "domcontentloaded" });
+		await page.waitForTimeout(1500);
+		await page.screenshot({
+			path: path.join(PROOF_DIR, "AI6-renderer-parity-block.png"),
+			fullPage: false,
+		});
+
+		// Side-by-side full screenshot.
 		await page.screenshot({
 			path: path.join(PROOF_DIR, "AI6-renderer-parity-full.png"),
 			fullPage: false,
 		});
+
 		expect(fs.existsSync(path.join(PROOF_DIR, "AI6-renderer-parity-full.png"))).toBe(true);
 	});
 
@@ -108,8 +137,11 @@ test.describe("AI6 — renderer container parity (block/ vs kinds/)", () => {
 	test("code-renderer does not use undefined bg-success/10 class in rendered output", async ({
 		page,
 	}) => {
+		// Navigate to the code renderer section.
+		await page.goto("/designsystem#Kinds%2FCodeRenderer", { waitUntil: "domcontentloaded" });
+		await page.waitForTimeout(1500);
+
 		// After migration, kinds/code-renderer must NOT contain the broken class.
-		// We check the page source for any element with the exact broken class.
 		const brokenElement = page.locator('[class*="bg-success/10"], [class*="bg-error/10"]');
 		const count = await brokenElement.count();
 		expect(
@@ -120,28 +152,23 @@ test.describe("AI6 — renderer container parity (block/ vs kinds/)", () => {
 
 	// ── Border assertions: kinds/ must have border-subtle ────────────────────
 
-	test("kinds/ renderers: image and table containers have visible border (border-subtle class)", async ({
+	test("kinds/ image-renderer: container has no r-subtle-only (old) radius class", async ({
 		page,
 	}) => {
-		// After migration, kinds/image-renderer and kinds/data-renderer wrap content
-		// in a container with border-[var(--border-subtle)].
-		// Check that no kinds/ renderer uses the old rounded-[--r-subtle] (10px) without a border.
-		//
-		// This test specifically checks that the broken `rounded-[var(--r-subtle)]` class
-		// (10px, no border) is gone from the rendered artifact preview surfaces.
-		const subtleRadiusWithoutBorder = page.locator('[class*="r-subtle"]:not([class*="border"])');
-		// We only care about renderer containers — not all components using r-subtle are wrong.
-		// The test is intentionally broad in red phase; green phase will narrow via data markers.
-		const rendererContainersWithOldRadius = await subtleRadiusWithoutBorder
-			.filter({ hasText: "" })
-			.count();
+		// After migration, kinds/image-renderer no longer uses rounded-[var(--r-subtle)].
+		await page.goto("/designsystem#Kinds%2FImageRenderer", { waitUntil: "domcontentloaded" });
+		await page.waitForTimeout(1500);
 
-		// In red phase, this may be non-zero (kinds/ still use r-subtle).
-		// In green phase, kinds/ image + table + html renderers use r-default + border-subtle.
-		// The test records current state; the assertion that matters is 0 after migration.
-		expect(
-			rendererContainersWithOldRadius,
-			`Found ${rendererContainersWithOldRadius} elements with r-subtle but no border — kinds/ renderers must use r-default + border-subtle after migration`,
-		).toBe(0);
+		const imageRendererSection = page.locator('[data-component="image-renderer"]').first();
+		await expect(imageRendererSection).toBeVisible();
+
+		// The outer container (figure) must not carry rounded-[var(--r-subtle)] (the old 10px radius).
+		// Note: the class DOES carry border-[var(--border-subtle)] which is correct, but
+		// we check for the rounded- class specifically (NOT border-).
+		const figure = imageRendererSection.locator("figure").first();
+		const classAttr = await figure.getAttribute("class");
+		// Must use r-default (16px), not r-subtle (10px).
+		expect(classAttr).toContain("r-default");
+		expect(classAttr).not.toContain("rounded-[var(--r-subtle)]");
 	});
 });

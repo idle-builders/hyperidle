@@ -5,20 +5,17 @@
  * Proof surface: TabBar (slash-menu's selection follows hover by design — excluded per §4).
  *
  * TabBar implements the distinction via:
- *   - Selected:       bg-[var(--accent-primary-dim)] + text-[var(--accent-primary)] + accent border
- *   - Hovered-inactive: transparent bg + hover:text-[var(--text-secondary)]
+ *   - Underline variant selected:   bg-[var(--accent-primary-dim)] + text-[var(--accent-primary)] + accent border
+ *   - Underline variant inactive:   transparent bg + hover:text-[var(--text-secondary)]
+ *   - Pill variant selected:        bg-[var(--surface-elevated)] + text-[var(--accent-primary)] + shadow
+ *   - Pill variant inactive:        transparent bg + hover:text-[var(--text-primary)]
  *
- * The discriminator is bg-PRESENCE (non-transparent) on selected vs NO bg on hovered-inactive.
+ * Discriminator for underline: `accent-primary-dim` on selected bg vs no bg on inactive.
+ * Discriminator for both:      selected has non-transparent bg class; inactive has no bg class.
+ * Text discriminator (both):   selected has `accent-primary` text; inactive does not.
  *
- * These tests FAIL until the TabBar focus + hover assertions are verified against
- * the actual rendered classes (the test probes class attributes, not computed styles,
- * since jsdom-level Tailwind doesn't compute CSS variables).
- *
- * Strategy: render a TabBar with tab B selected, hover tab A (index 0), take a
- * screenshot, and assert:
- *   - Selected B has `accent-primary-dim` in its class list (bg token).
- *   - Hovered-inactive A does NOT have `accent-primary-dim` in its class list.
- *   - Selected B has `accent-primary` in its text-color class.
+ * C2 fix: catalog defaults to modules[0] — navigate to #TabBar before asserting.
+ * The UnderlineVariant story renders the tab with accent-primary-dim bg on selected.
  */
 
 import * as path from "node:path";
@@ -38,21 +35,25 @@ test.beforeAll(() => {
 
 test.describe("AI6 — TabBar hover vs selected two-tone", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.goto("/designsystem", { waitUntil: "domcontentloaded" });
+		// Navigate directly to the TabBar section — NOT the default landing.
+		// UnderlineVariant story renders the tab with accent-primary-dim on selected.
+		await page.goto("/designsystem#TabBar::UnderlineVariant", {
+			waitUntil: "domcontentloaded",
+		});
 		await page.waitForTimeout(1500);
 	});
 
-	test("selected TabBar tab has accent-primary-dim background class", async ({ page }) => {
-		// The TabBar is rendered in the design system catalog.
-		// The 'underline' variant uses selected state directly.
+	test("underline-variant selected TabBar tab has accent-primary-dim background class", async ({
+		page,
+	}) => {
+		// The UnderlineVariant story renders data-ds-component="TabBar" with underline variant.
+		// Selected tab (aria-selected="true") must carry accent-primary-dim.
 		const tabBar = page.locator("[data-ds-component='TabBar']").first();
 		await expect(tabBar).toBeVisible();
 
-		// Selected tab button (aria-selected="true")
 		const selectedTab = tabBar.locator("button[aria-selected='true']").first();
 		await expect(selectedTab).toBeVisible();
 
-		// Selected tab must carry the accent-primary-dim background class.
 		const className = await selectedTab.getAttribute("class");
 		expect(className).toContain("accent-primary-dim");
 	});
@@ -63,22 +64,23 @@ test.describe("AI6 — TabBar hover vs selected two-tone", () => {
 		const tabBar = page.locator("[data-ds-component='TabBar']").first();
 		await expect(tabBar).toBeVisible();
 
-		// Inactive tab (not selected)
+		// Need at least one inactive tab.
 		const inactiveTabs = tabBar.locator("button[aria-selected='false']");
 		const inactiveCount = await inactiveTabs.count();
-		// Need at least one inactive tab to prove the two-tone.
 		expect(inactiveCount).toBeGreaterThan(0);
 
 		// Hover the first inactive tab.
 		await inactiveTabs.first().hover();
-		await page.waitForTimeout(100); // allow hover state to settle
+		await page.waitForTimeout(100);
 
 		// Hovered-inactive tab must NOT have accent-primary-dim background.
 		const className = await inactiveTabs.first().getAttribute("class");
 		expect(className).not.toContain("accent-primary-dim");
 	});
 
-	test("selected tab has accent-primary text class; inactive does not", async ({ page }) => {
+	test("selected tab has accent-primary text color class; inactive uses tertiary/secondary text", async ({
+		page,
+	}) => {
 		const tabBar = page.locator("[data-ds-component='TabBar']").first();
 		await expect(tabBar).toBeVisible();
 
@@ -90,10 +92,17 @@ test.describe("AI6 — TabBar hover vs selected two-tone", () => {
 		const selectedClass = await selectedTab.getAttribute("class");
 		const inactiveClass = await inactiveTab.getAttribute("class");
 
-		// Selected: accent-primary text.
-		expect(selectedClass).toContain("accent-primary");
-		// Inactive: text-secondary (or text-tertiary at rest) — no accent.
-		expect(inactiveClass).not.toContain("accent-primary");
+		// Selected: must carry text-[var(--accent-primary)] (text color) and accent border.
+		// This is the underline variant: "text-[var(--accent-primary)] font-semibold border-[var(--accent-primary)]"
+		expect(selectedClass).toContain("text-[var(--accent-primary)]");
+		// Inactive: uses text-tertiary or text-secondary (not accent text).
+		// The hover class has "hover:text-[var(--text-secondary)]" — at rest it's text-tertiary.
+		// Neither carries "text-[var(--accent-primary)]" as a non-hover class.
+		expect(inactiveClass).not.toContain("text-[var(--accent-primary)]");
+		// The inactive tab DOES have the focus-visible:outline-[var(--accent-primary)] class
+		// (focus ring), but that's NOT a text color and is focus-only.
+		// Asserting on "text-[var(--accent-primary)]" correctly excludes the focus ring.
+		expect(inactiveClass).toContain("text-[var(--text-tertiary)]");
 	});
 
 	test("side-by-side screenshot: selected + hovered inactive TabBar tabs", async ({ page }) => {
