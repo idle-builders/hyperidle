@@ -49,6 +49,28 @@ export const KNOWLEDGE_STATUSES = [
 ] as const;
 export type KnowledgeStatus = (typeof KNOWLEDGE_STATUSES)[number];
 
+/**
+ * AI4 Note A2: Human-readable labels for each KnowledgeStatus. Lives in
+ * @hyperidle/fabric (not shared) because KnowledgeStatus is fabric-owned
+ * post-O1 type split. Exhaustive `Record` — adding a new KnowledgeStatus is
+ * a TS error until labelled here.
+ *
+ * @lore AI4: archived→"Stale" is a deliberate copy choice (not a bug).
+ * `stale` is a separate KnowledgeStatus value; `archived` rows are shown
+ * as "Stale" in KnowledgeList because semantically they represent stale
+ * knowledge that has been superseded/archived. Single-sourced here to
+ * satisfy AC4 (no page-local label map).
+ */
+export const KNOWLEDGE_STATUS_LABEL: Record<KnowledgeStatus, string> = {
+	captured: "Captured",
+	provisional: "Provisional",
+	validated: "Validated",
+	active: "Active",
+	stale: "Stale",
+	archived: "Stale",
+	needs_human: "Needs review",
+};
+
 export type KnowledgeKind =
 	| "pattern"
 	| "anti_pattern"

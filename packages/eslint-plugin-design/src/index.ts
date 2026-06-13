@@ -12,6 +12,7 @@ import type { ESLint, Linter, Rule } from "eslint";
 import { noAiAesthetic } from "./rules/no-ai-aesthetic.js";
 import { noHandrolledSelect } from "./rules/no-handrolled-select.js";
 import { noHardcodedColor } from "./rules/no-hardcoded-color.js";
+import { noLocalStatusBuilder } from "./rules/no-local-status-builder.js";
 import { noMockDataImport } from "./rules/no-mock-data-import.js";
 import { noMockDataSymbol } from "./rules/no-mock-data-symbol.js";
 import { noOffGridSpacing } from "./rules/no-off-grid-spacing.js";
@@ -29,6 +30,7 @@ export const rules: Record<string, Rule.RuleModule> = {
 	"no-mock-data-symbol": noMockDataSymbol,
 	"no-handrolled-select": noHandrolledSelect,
 	"no-hardcoded-color": noHardcodedColor,
+	"no-local-status-builder": noLocalStatusBuilder,
 	"no-off-grid-spacing": noOffGridSpacing,
 	"no-off-scale-radius": noOffScaleRadius,
 	"no-off-scale-font-size": noOffScaleFontSize,
@@ -44,6 +46,7 @@ export const rules: Record<string, Rule.RuleModule> = {
 const recommendedRules: Linter.RulesRecord = {
 	"design/no-handrolled-select": "error",
 	"design/no-hardcoded-color": "warn",
+	"design/no-local-status-builder": "error",
 	"design/no-off-grid-spacing": "warn",
 	"design/no-off-scale-radius": "warn",
 	"design/no-off-scale-font-size": "warn",

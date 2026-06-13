@@ -40,7 +40,12 @@ import type {
 	RoutineCardSummary,
 	TeamDetail,
 } from "@hyperidle/shared";
-import { findRoleCatalogEntry, formatMoney, relativeShort } from "@hyperidle/shared";
+import {
+	BET_STATUS_LABEL,
+	findRoleCatalogEntry,
+	formatMoney,
+	relativeShort,
+} from "@hyperidle/shared";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -761,7 +766,8 @@ function BetRow({ bet, onNavigate }: { bet: BetCardSummary; onNavigate: () => vo
 					{/* @lore U1: descriptionTitle replaces pitchTitle */}
 					{bet.descriptionTitle}
 				</span>
-				<StatusChip status={betStatusToStatus(bet.status)} />
+				{/* C1: add label so team surface reads "ACTIVE" not "HEALTHY" */}
+				<StatusChip status={betStatusToStatus(bet.status)} label={BET_STATUS_LABEL[bet.status]} />
 				<span className="text-[10px] font-mono text-[var(--text-tertiary)]">
 					{formatMoney(bet.costAppetite)}
 				</span>

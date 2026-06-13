@@ -32,7 +32,8 @@
  */
 
 import { EmptyState } from "@hyperidle/design-system";
-import { relativeShort } from "@hyperidle/shared";
+import type { NotificationTypeKey } from "@hyperidle/shared";
+import { relativeShort, shortLabelForType } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import type { NotificationRow, UseNotificationsResult } from "../hooks/useNotifications.js";
@@ -41,12 +42,7 @@ import { useNotifications } from "../hooks/useNotifications.js";
 // Re-export for consumers
 export type { NotificationRow };
 
-// Type label map (friendly display of notification type keys)
-const TYPE_LABELS: Record<string, string> = {
-	review_request: "REVIEW",
-	blocker_alert: "BLOCKER",
-	cost_alert: "COST",
-};
+// AI4 Decision 4: TYPE_LABELS deleted — derive from shortLabelForType (shared registry).
 
 export interface NotificationPopoverProps {
 	open: boolean;
@@ -216,7 +212,7 @@ export function NotificationPopover({
 				{status === "ready" && rows.length > 0 && (
 					<ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
 						{rows.map((row) => {
-							const typeLabel = TYPE_LABELS[row.typeKey] ?? row.typeKey.toUpperCase();
+							const typeLabel = shortLabelForType(row.typeKey as NotificationTypeKey);
 							return (
 								<li
 									key={row.id}

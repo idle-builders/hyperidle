@@ -30,14 +30,20 @@
  * segmented pill tab control, outlined scope pills, plain-text sort bar,
  * inline KnowledgeListRow replacing KnowledgeRow primitive.
  */
-import { EmptyState, ErrorState, SkeletonList } from "@hyperidle/design-system";
+import {
+	EmptyState,
+	ErrorState,
+	knowledgeStatusToStatus,
+	SkeletonList,
+	StatusChip,
+} from "@hyperidle/design-system";
 import type {
 	KnowledgeScope,
 	KnowledgeSortOption,
 	KnowledgeStatus,
 	KnowledgeTopicHealth,
 } from "@hyperidle/fabric/types";
-import { KNOWLEDGE_SORT_OPTIONS } from "@hyperidle/fabric/types";
+import { KNOWLEDGE_SORT_OPTIONS, KNOWLEDGE_STATUS_LABEL } from "@hyperidle/fabric/types";
 import { relativeShort } from "@hyperidle/shared";
 import { type JSX, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -212,6 +218,8 @@ interface KnowledgeListRowProps {
 /**
  * Returns inline style for a knowledge kind badge.
  * Colors per mockup: Pattern → green, Decision → blue, Failure → red.
+ * AI4 Note A: kind is NOT status — this stays local (Tag would be the ideal
+ * primitive but kind badge style matches existing visual treatment).
  */
 function kindBadgeStyle(kind: string): { background: string; color: string } {
 	const k = kind.toLowerCase();
@@ -233,22 +241,10 @@ function kindBadgeStyle(kind: string): { background: string; color: string } {
 	return { background: "var(--surface-container)", color: "var(--text-secondary)" };
 }
 
-/**
- * Returns inline style for a knowledge status badge.
- * Colors per mockup: Active → green, Stale/archived → amber.
- */
-function statusBadgeStyle(status: KnowledgeStatus): { background: string; color: string } | null {
-	if (status === "active") {
-		return { background: "var(--accent-primary-dim)", color: "var(--accent-primary)" };
-	}
-	if (status === "archived") {
-		return {
-			background: "color-mix(in oklab, var(--accent-secondary) 8%, transparent)",
-			color: "var(--accent-secondary)",
-		};
-	}
-	return null;
-}
+// AI4 Note A2: statusBadgeStyle deleted. Status rendering now uses StatusChip
+// gated on (status === "active" || status === "archived") — same two-status
+// condition as before. KNOWLEDGE_STATUS_LABEL from @hyperidle/fabric provides
+// the "Stale" relabel for archived.
 
 function KnowledgeListRow({
 	title,
@@ -265,7 +261,7 @@ function KnowledgeListRow({
 	onOpen,
 }: KnowledgeListRowProps): JSX.Element {
 	const kStyle = kind ? kindBadgeStyle(kind) : null;
-	const sStyle = status ? statusBadgeStyle(status) : null;
+	// AI4 Note A2: sStyle removed — StatusChip gated on active/archived condition below.
 
 	if (showActions) {
 		// Y4: triage row — wraps in <li> for keyboard navigation and test selectors.
@@ -312,13 +308,13 @@ function KnowledgeListRow({
 							{kind}
 						</span>
 					)}
-					{status && sStyle && (
-						<span
-							className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
-							style={sStyle}
-							data-testid="status-badge"
-						>
-							{status === "archived" ? "Stale" : status.charAt(0).toUpperCase() + status.slice(1)}
+					{/* AI4 Note A2: gated on same two-status condition; StatusChip replaces sStyle fork */}
+					{status && (status === "active" || status === "archived") && (
+						<span data-testid="status-badge">
+							<StatusChip
+								status={knowledgeStatusToStatus(status)}
+								label={KNOWLEDGE_STATUS_LABEL[status]}
+							/>
 						</span>
 					)}
 					{/* Y4: inline action buttons — validate, reject, open */}
@@ -450,13 +446,13 @@ function KnowledgeListRow({
 							{kind}
 						</span>
 					)}
-					{status && sStyle && (
-						<span
-							className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
-							style={sStyle}
-							data-testid="status-badge"
-						>
-							{status === "archived" ? "Stale" : status.charAt(0).toUpperCase() + status.slice(1)}
+					{/* AI4 Note A2: gated on same two-status condition; StatusChip replaces sStyle fork */}
+					{status && (status === "active" || status === "archived") && (
+						<span data-testid="status-badge">
+							<StatusChip
+								status={knowledgeStatusToStatus(status)}
+								label={KNOWLEDGE_STATUS_LABEL[status]}
+							/>
 						</span>
 					)}
 					<span
