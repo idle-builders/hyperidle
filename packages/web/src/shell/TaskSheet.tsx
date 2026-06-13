@@ -22,7 +22,12 @@
  * restored element must be focusable; if it isn't (e.g. the task card doesn't
  * have tabIndex) we fall back to document.body silently.
  */
-import { LiveDot, StatusChip, sessionOutcomeToStatus, useDialogBehavior } from "@hyperidle/design-system";
+import {
+	LiveDot,
+	StatusChip,
+	sessionOutcomeToStatus,
+	useDialogBehavior,
+} from "@hyperidle/design-system";
 import { formatMoney, scaleForCurrency } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { ArtifactSection } from "../components/ArtifactSection.js";
