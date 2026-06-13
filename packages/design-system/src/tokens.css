@@ -337,6 +337,41 @@
 	}
 }
 
+/*
+ * AI2 — Dialog mobile bottom-sheet (AC-4).
+ *
+ * At ≤480px, the Dialog box transitions from centered desktop positioning to a
+ * bottom-anchored full-width sheet. The overlay wrapper aligns to the bottom;
+ * the box stretches full-width with rounded top corners only.
+ *
+ * @lore AI2: Dialog.tsx uses inline styles for the overlay and box geometry.
+ * Inline styles have higher specificity than any CSS selector. However, CSS
+ * `!important` declarations override inline styles per the CSS cascade spec
+ * (Cascading Order §6.4 — !important > inline style). This is the canonical
+ * mechanism for design-system overrides of component inline geometry.
+ *
+ * The attributes [data-dialog-layer] and [data-dialog-box] are stable —
+ * they are emitted by useDialogBehavior.getOverlayProps() and Dialog.tsx
+ * respectively (AI2 contract, documented in architecture.md).
+ */
+@media (max-width: 480px) {
+	[data-dialog-layer] {
+		/* biome-ignore lint/complexity/noImportantStyles: Override inline style via !important (CSS cascade §6.4). Required to switch desktop center-positioning to mobile bottom-anchoring. */
+		align-items: flex-end !important;
+		/* biome-ignore lint/complexity/noImportantStyles: Same rationale as align-items override above. */
+		padding: 0 !important;
+	}
+
+	[data-dialog-box] {
+		/* biome-ignore lint/complexity/noImportantStyles: Override inline maxWidth set to SIZE_MAX_WIDTH[size] (460/560/720px) — must stretch full-width on mobile. */
+		max-width: 100% !important;
+		/* biome-ignore lint/complexity/noImportantStyles: Override inline borderRadius to round top corners only (bottom-sheet UX). */
+		border-radius: var(--r-default) var(--r-default) 0 0 !important;
+		/* biome-ignore lint/complexity/noImportantStyles: Override inline maxHeight for the sheet variant (85vh matches approved.md mobile spec). */
+		max-height: 85vh !important;
+	}
+}
+
 /* ── Tag kind tints ── */
 @layer components {
 	.tag-tint-pattern {

@@ -57,7 +57,51 @@ async function computedZIndex(
 
 test.describe("AI2 — overlay z-layer ordering (AC-3 runtime)", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/bets/**", (route) =>
+		// @lore AI2: Mock all common API endpoints to prevent ECONNREFUSED errors
+		// from triggering re-renders that detach DOM elements mid-Playwright-click.
+		await page.route("**/api/auth/me", (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ id: "u-test", name: "Tester", email: "t@test.com", avatarUrl: null }),
+			}),
+		);
+		await page.route("**/api/teams**", (route) =>
+			route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ teams: [] }) }),
+		);
+		await page.route("**/api/knowledge/triage-count", (route) =>
+			route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ count: 0 }) }),
+		);
+		await page.route("**/api/threads**", (route) =>
+			route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ threads: [], nextCursor: null }) }),
+		);
+		// @lore AI2: notifications/inbox returns { unseenCount, rows } — not { notifications }.
+		// Using correct shape prevents rows.length throw in NotificationPopover.
+		await page.route("**/api/notifications**", (route) =>
+			route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ unseenCount: 0, rows: [] }) }),
+		);
+		// WorkBet renders ArtifactSection which calls /api/artifacts — mock with empty page.
+		await page.route("**/api/artifacts**", (route) =>
+			route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [], nextCursor: null }) }),
+		);
+		// @lore AI2: Playwright LIFO — last-registered route wins. Register from
+		// broadest to most specific so specific routes take precedence.
+		//
+		// 1. Broad: any bet sub-resource → empty 200 (fallback)
+		await page.route(`**/api/bets/${BET_ID}/**`, (route) =>
+			route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) }),
+		);
+		// 2. More specific: artifact-thread-summary needs correct shape to avoid
+		//    `data.summaries.length` throw in ArtifactThreadsSummary.
+		await page.route(`**/api/bets/${BET_ID}/artifact-thread-summary`, (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
+			}),
+		);
+		// 3. Most specific: the main bet endpoint (registered last → highest priority).
+		await page.route(`**/api/bets/${BET_ID}`, (route) =>
 			route.fulfill({
 				status: 200,
 				contentType: "application/json",
@@ -137,12 +181,17 @@ test.describe("AI2 — overlay z-layer ordering (AC-3 runtime)", () => {
 		await page.goto(`/work/bet/${BET_ID}`);
 		await expect(page.locator("[data-testid='work-bet-page']")).toBeVisible();
 
-		// Open a modal dialog via the overflow menu (bet action)
+		// Open a modal dialog via the overflow menu (bet action).
+		// @lore AI2: The overflow button check uses count() as a guard and then
+		// skips if not found — this spec is best-effort (the static AC-3 lint gate
+		// is the binding enforcement; this test adds runtime computed-z proof).
 		const overflowBtn = page.locator("[data-testid='bet-overflow-btn']");
 		if ((await overflowBtn.count()) === 0) {
 			test.skip(true, "No overflow button — skipping dialog-above-overlay ordering test");
 		}
-		await overflowBtn.click();
+		// Wait for network to settle before interacting (prevents re-render detach)
+		await page.waitForLoadState("networkidle");
+		await overflowBtn.first().click();
 		const killItem = page.locator("[data-dropdown-item][data-bet-action='kill']");
 		if ((await killItem.count()) === 0) {
 			test.skip(true, "No kill dropdown item — skipping");

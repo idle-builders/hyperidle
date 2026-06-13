@@ -45,8 +45,10 @@ export function useNotifications(): UseNotificationsResult {
 			const res = await apiFetch("/api/notifications/inbox");
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const body = (await res.json()) as { unseenCount: number; rows: NotificationRow[] };
-			setUnseenCount(body.unseenCount);
-			setRows(body.rows);
+			setUnseenCount(body.unseenCount ?? 0);
+			// @lore AI2: null-coalesce rows to [] to guard against malformed API responses
+			// where the key is missing (e.g. stale mocks returning { notifications } not { rows }).
+			setRows(body.rows ?? []);
 			setStatus("ready");
 		} catch {
 			setStatus("error");

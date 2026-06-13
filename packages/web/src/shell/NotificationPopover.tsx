@@ -31,7 +31,7 @@
  * defense-in-depth against future agent-authored content reaching this path.
  */
 
-import { EmptyState } from "@hyperidle/design-system";
+import { EmptyState, useDialogBehavior } from "@hyperidle/design-system";
 import { type JSX, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import type { NotificationRow, UseNotificationsResult } from "../hooks/useNotifications.js";
@@ -81,6 +81,13 @@ export function NotificationPopover({
 	const { unseenCount, rows, status, refetch, markSeen, markRead, muteType } = _data ?? hookData;
 	const overlayRef = useRef<HTMLDivElement>(null);
 
+	// @lore AI2: Migrated to useDialogBehavior with modal=false, layer="overlay".
+	// modal=false: popover is non-modal — no scrim, no backdrop dismiss.
+	// Escape is caught at document level (non-modal divs don't receive keyboard
+	// events unless focused). Layer "overlay" (--z-overlay=40) replaces z-30.
+	const behavior = useDialogBehavior({ open, onClose, modal: false, layer: "overlay" });
+	const overlayProps = behavior.getOverlayProps();
+
 	// Mark all unseen on open — intentionally only depends on `open` so this fires
 	// exactly once when the popover opens, not on every unseenCount/markSeen update.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: intentional — fires on open toggle only
@@ -90,17 +97,20 @@ export function NotificationPopover({
 		}
 	}, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
-	// Escape-to-close
+	// @lore AI2: Esc caught at document level for non-modal surfaces (popover div won't
+	// receive keyboard events unless focused). behavior.requestDismiss() routes through
+	// the unified guard rule. Outside-click-to-close preserved: popover dismisses on
+	// mousedown outside, matching the old AF8 behavior.
 	useEffect(() => {
 		if (!open) return;
 		const handler = (e: KeyboardEvent): void => {
 			if (e.key === "Escape") {
-				onClose();
+				behavior.requestDismiss();
 			}
 		};
 		document.addEventListener("keydown", handler);
 		return () => document.removeEventListener("keydown", handler);
-	}, [open, onClose]);
+	}, [open, behavior.requestDismiss]);
 
 	// Outside-click-to-close
 	useEffect(() => {
@@ -132,12 +142,14 @@ export function NotificationPopover({
 	return (
 		<div
 			ref={overlayRef}
-			role="dialog"
-			aria-modal="false"
+			role={overlayProps.role}
+			aria-modal={overlayProps["aria-modal"]}
 			aria-label="Notifications"
 			data-testid="notification-popover"
-			className="fixed bottom-16 left-4 z-30 flex w-[360px] flex-col overflow-hidden rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-elevated)]"
-			style={{ maxHeight: "70vh" }}
+			data-dialog-layer={overlayProps["data-dialog-layer"]}
+			// @lore AI2: z-30 removed; z-layer now via --z-overlay token in style prop (AC-3).
+			className="fixed bottom-16 left-4 flex w-[360px] flex-col overflow-hidden rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-elevated)]"
+			style={{ zIndex: overlayProps.style.zIndex, maxHeight: "70vh" }}
 		>
 			{/* Header */}
 			<div

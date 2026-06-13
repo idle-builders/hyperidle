@@ -10,6 +10,7 @@
 import type { ESLint, Linter, Rule } from "eslint";
 
 import { noAiAesthetic } from "./rules/no-ai-aesthetic.js";
+import { noDialogBoilerplate } from "./rules/no-dialog-boilerplate.js";
 import { noHardcodedColor } from "./rules/no-hardcoded-color.js";
 import { noMockDataImport } from "./rules/no-mock-data-import.js";
 import { noMockDataSymbol } from "./rules/no-mock-data-symbol.js";
@@ -18,6 +19,7 @@ import { noOffScaleFontSize } from "./rules/no-off-scale-font-size.js";
 import { noOffScaleRadius } from "./rules/no-off-scale-radius.js";
 import { noOpButton } from "./rules/no-op-button.js";
 import { noRawActorFetch } from "./rules/no-raw-actor-fetch.js";
+import { noRawOverlayZ } from "./rules/no-raw-overlay-z.js";
 import { noRawTailwindColor } from "./rules/no-raw-tailwind-color.js";
 import { requireDsAttribute } from "./rules/require-ds-attribute.js";
 import { requireFocusOnInteractive } from "./rules/require-focus-on-interactive.js";
@@ -34,6 +36,8 @@ export const rules: Record<string, Rule.RuleModule> = {
 	"no-op-button": noOpButton,
 	"no-raw-actor-fetch": noRawActorFetch,
 	"no-raw-tailwind-color": noRawTailwindColor,
+	"no-raw-overlay-z": noRawOverlayZ,
+	"no-dialog-boilerplate": noDialogBoilerplate,
 	"require-ds-attribute": requireDsAttribute,
 	"require-stories-sibling": requireStoriesSibling,
 	"require-focus-on-interactive": requireFocusOnInteractive,
@@ -47,6 +51,8 @@ const recommendedRules: Linter.RulesRecord = {
 	"design/no-ai-aesthetic": "warn",
 	"design/no-raw-actor-fetch": "warn",
 	"design/no-raw-tailwind-color": "warn",
+	"design/no-raw-overlay-z": "warn",
+	"design/no-dialog-boilerplate": "warn",
 	"design/require-ds-attribute": "warn",
 	"design/require-stories-sibling": "warn",
 	"design/require-focus-on-interactive": "warn",

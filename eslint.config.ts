@@ -117,6 +117,12 @@ export default [
 			"design/no-op-button": "warn",
 			// @lore W2: density rules (use-density-tokens, no-density-tokens) removed.
 			// The density system was stripped in W2.
+			// AI2 AC-3 (static half): no raw z-index Tailwind classes on overlay surfaces.
+			// All z-layers must come from the --z-* token scale.
+			"design/no-raw-overlay-z": "warn",
+			// AI2 AC-5: no native-dialog boilerplate (showModal/setAttribute("open")/cancel event)
+			// in migrated overlay surfaces. Use useDialogBehavior/Dialog instead.
+			"design/no-dialog-boilerplate": "warn",
 		},
 	},
 
