@@ -398,7 +398,7 @@ describe("AH2 DESIGN-1: 422 server error rendered inline (not just toast)", () =
 // AC2: Save disabled when harness is "not available"
 // ---------------------------------------------------------------------------
 
-describe("AH2 AC2: Save blocked when harness is unavailable", () => {
+describe("AH2 AC2: Warns when agent harness is unavailable (server 422 is the save gate)", () => {
 	it("shows StatusChip warning when agent harness is not in registry", async () => {
 		// Agent with unregistered harness type
 		vi.stubGlobal(
