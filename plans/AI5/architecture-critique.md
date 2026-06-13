@@ -36,3 +36,37 @@ Adoption/consolidation workpackage. Bar: one implementation per atom, exhaustive
 ### What's Working Well
 - The **boundary-yields table** (§13) is excellent: it correctly resolves the spec-named KnowledgeList/NotificationPopover row reimpls to AG6, scopes the AI4 live-dots out, and sanctions the ScopePicker-replaces-AG5-Select as concept-blessed (not a breach). This is exactly the cross-track discipline the track preamble demands, and it cites PR #273 / progress-file status as evidence.
 - **Naming** is load-bearing and correct: `ScopePicker` (not `ScopeSelect`/`ScopeDropdown`) cleanly fences AI5 from AG5; `deriveInitials` as a web util (not an Avatar method) keeps Avatar a dumb renderer per the concept. Layer integrity is clean — presentation-only, no data/route/secret surface (§Security N/A is correctly justified).
+
+---
+
+## Re-review (round 1)
+
+ARCHITECTURE-SCORE: 9/10  rounds=2  score-line: SA:9 LI:9 AC:9 DM:8 N:9 MD:8 FMC:9 S:8 V:9
+DESIGN-CRITIQUE: variant=approved score=9/10  rounds=2  axes: H:9 S:8 T:9 C:9 Co:9 St:8 A:9 AS:9 PP:9
+
+**Verdict: APPROVED** (architecture 9, design 9; zero CRITICAL, zero open WARNING). Both prior CRITICALs and all six WARNINGs are genuinely fixed against the tree — verified by spot-checking the revised file:line claims directly, not by trusting the summary.
+
+### CRITICAL 1 (scope inventory: 3 pill rows + 1 Select) — FIXED, verified
+- §reconciliation row 1 now reads "3 hand-rolled pill `radiogroup`s + 1 `<Select>`, NOT 2+2 (CC-007 correction)" with `KnowledgeCreateDialog:192` explicitly named as a pill row hardcoding `rgba(22,118,79,0.08)` at :213.
+- §E4 NOTE, §bypass-inventory ScopePicker, §design Decision 2, §risks all corrected to the same 3+1 framing. No surviving "2 Selects" / "KnowledgeCreateDialog uses Select" language anywhere.
+- **Tree-verified:** `KnowledgeCreateDialog.tsx:192` is `<div role="radiogroup">` with `<button role="radio">` pills, `data-testid="scope-pill-dialog-${id}"`, `data-active`, and `bg-[rgba(22,118,79,0.08)]` on the active class at :213. `ScopeChangeDialog.tsx:162` is a `<Select … aria-label="Scope kind">`. `KnowledgeList:599` and `KnowledgeCreate:220` are both `radiogroup`s. Inventory now matches the tree exactly.
+
+### CRITICAL 2 (testIdPrefix + 4-prefix map + data-active) — FIXED, verified
+- §E4 makes `testIdPrefix` REQUIRED with per-pill testid `${testIdPrefix}-${id}`, and the 4-site mapping table pins all four: `scope-pill` (List), `scope-pill-create` (Create), `scope-pill-dialog` (CreateDialog), `scope-pill-change` (ScopeChangeDialog — NEW, none today). §design Decision 2 mirrors it.
+- E4 explicitly requires ScopePicker to emit BOTH `data-testid` AND `data-active={isActive ? "true" : "false"}` unchanged ("both are asserted by existing tests").
+- **Tree-verified:** existing pills emit `scope-pill-dialog-${option.id}` + `data-active` + `aria-checked` (KnowledgeCreateDialog:202–207). All five named protectedTests files exist on disk. The "preserve every behavioral test" claim is now backed by an exhaustive prefix map.
+
+### WARNINGs — all resolved, verified
+1. **EmptyState/ErrorState protected tests** — both added to §protectedTests with the exact frozen assertions (48px icon container absent/present, default icon bg `rgba(22,118,79,0.08)`). Tree-verified: `EmptyState.test.tsx:80–96` asserts the 48px container + default green tint; `ErrorState.test.tsx` exists. Stories-don't-gate-this caveat noted.
+2. **Presence decision** — §reconciliation + AC1 row make an explicit decision: presence is OUT of Avatar's scope (Avatar stays a dumb renderer); AC1's "presence signal" is the per-surface AI4 Live pill (RecipientPicker:200, SessionActivityPanel:198), untouched. No phantom 4th Avatar extension. Clean resolution.
+3. **WorkPortfolio tint** — §tint-sweep adds `WorkPortfolio:307,342` as mandatory swaps independent of the Button-shape decision. Tree-verified: both lines hardcode `bg-[rgba(22,118,79,0.08)]` on `aria-pressed` multi-select toggles.
+4. **KnowledgeDetail/WorkBet overflow** — pinned to hit-area-only, NO `<Button>` swap, "or Button icon variant" option removed for these two. Tree-verified: both carry `aria-haspopup="menu"` (KnowledgeDetail:411, WorkBet:953) → AG5 menu triggers; the no-swap pin correctly prevents an AG5 breach.
+5. **Initials algorithm** — E5 pins canonical `slice(0,2)` with a per-site delta table; WorkBet "GT"→"GR" change flagged intentional for AC1 visual review. Tree-verified: WorkBet:1145–1146 is `.split(/\s+/).slice(0,2)` word-initials — the change is real and correctly documented.
+6. **AC3 live-dot allowlist** — enumerated to exactly 3 file:line (Conversations:316, SessionActivityPanel:198, RecipientPicker:200). Tree-verified: these are the only 3 `animate-pulse` survivors in non-test, non-story source; the 2 holdouts (ArtifactThreadsSummary:35, BlockRefEmbed:45) are correctly slated for migration. Gate is deterministic.
+7. **Focus state + touch-target mechanism** — E4 adds the `focus-visible` 2px outset ring (fixes latent `outline:none` a11y defect) and pins the `min-h-[44px] xl:min-h-[<dense>]` mechanism (not bare min-h) with the K8-gate rationale (`@lore AG5 fix-1`). Design Decision 1+2 show the same mechanism. Both prior design WARNINGs (focus, touch mechanism) resolved.
+
+### Residual (non-blocking, not WARNING)
+- `--accent-primary-dim` is theme-dependent: `tokens.css:165` = `rgba(22,118,79,0.08)` (default), but `:223`/`:283` resolve to `rgba(46,170,122,0.1)` (other themes). The swap is lossless on factory-dark and *gains* theme-portability — correct. The `EmptyState.test.tsx` assertion that freezes the literal `rgba(22,118,79,0.08)` for the icon bg is full-variant only (not touched by AI5) so it stays green. No action needed; flagged for builder awareness.
+- DM:8 / MD:8 / S:8 held just below 9 — the plan is dense and the builder must execute a long per-site checklist faithfully; that's inherent to a consolidation sweep, not a plan defect.
+
+The CC-007 class of error (spec/tree drift on the sharpest AC) that drove the round-1 6/10 is now exhaustively corrected and tree-accurate. No remaining blocker.
