@@ -1043,6 +1043,198 @@ describe("AD2 AC-idempotency: dispatcher restart does not duplicate sessions", (
 });
 
 // ---------------------------------------------------------------------------
+// AC-sweep-race: startupSweep generation-guard prevents double-dispatch on
+// dispose + re-register before the sweep's DB queries resolve.
+// ---------------------------------------------------------------------------
+
+describe("AD2 AC-sweep-race: stale startupSweep does not pollute new registration queue", () => {
+	let dispose: (() => void) | undefined;
+
+	afterEach(() => {
+		dispose?.();
+		dispose = undefined;
+	});
+
+	/**
+	 * Regression test for the dispose+re-register race.
+	 *
+	 * Without the generation-guard, the scenario below causes double-dispatch:
+	 *
+	 *   1. registerTaskDispatcher (gen=N) fires startupSweep (fire-and-forget).
+	 *   2. dispose() bumps gen to N+1; re-register bumps gen to N+2.
+	 *   3. The stale gen-N sweep's DB queries finish after gen is now N+2.
+	 *   4. WITHOUT guard: sweep pushes entries into what is now gen-N+2's queue
+	 *      → double-dispatch; two sessions created for the same task.
+	 *   5. WITH guard: sweep sees gen-N !== currentGen (N+2) → returns immediately.
+	 *
+	 * The test makes the race deterministic by controlling timing:
+	 *   - Seed an accepted task.
+	 *   - Insert an active session to fill the concurrency slot, so the gen-N
+	 *     sweep would find the task but NOT immediately dispatch (it needs drain
+	 *     to run later). This means the sweep's queue-push is the observable action.
+	 *   - Register (gen-N) + immediately dispose + re-register (gen-N+2).
+	 *   - Release the barrier so the stale gen-N sweep can run.
+	 *   - Assert queue stays empty from the stale sweep's perspective, and no
+	 *     duplicate sessions appear after capacity is freed.
+	 *
+	 * Implementation note: we delay the sweep's DB query by intercepting the
+	 * `select` method with a controlled promise barrier.
+	 *
+	 * @lore AD2: The generation-guard in startupSweep checks generation !== currentGeneration
+	 * after EACH DB await. Two checks: after sessions query, after tasks query. Both needed
+	 * because either query could complete after a dispose+re-register cycle.
+	 */
+	test("dispose+re-register during sweep does not cause double-dispatch for accepted task", async ({
+		db,
+		eventBus,
+	}) => {
+		const workspaceBasePath = makeWorkspaceBasePath();
+		try {
+			// Arrange: accepted task + a blocking session (fills the concurrency slot
+			// so that the stale gen's queue-push is the observable action, not the drain).
+			const adapter = new CapturingHarnessAdapter();
+			const { agentId, taskId } = await seedDomain(
+				db,
+				"sweep-race",
+				{ maxConcurrentSessions: 1 },
+				{ state: "accepted" },
+			);
+			await db.update(tasks).set({ state: "accepted", updatedAt: NOW }).where(eq(tasks.id, taskId));
+
+			// Create a blocking session so drainQueue parks after gen-2 sweep runs.
+			// When we later end it, we can check the session count precisely.
+			const blockTaskId = "ad2-block-task-sweep-race";
+			const blockSessionId = "ad2-block-session-sweep-race";
+			await db.insert(tasks).values({
+				id: blockTaskId,
+				betId: `ad2-bet-sweep-race`,
+				teamId: `ad2-team-sweep-race`,
+				title: "Block",
+				state: "in_progress",
+				createdAt: NOW,
+				updatedAt: NOW,
+			});
+			await db.insert(sessions).values({
+				id: blockSessionId,
+				taskId: blockTaskId,
+				agentId,
+				modelTier: "workhorse",
+				startedAt: NOW,
+				state: "active",
+			});
+
+			// Barrier controls when the stale gen-1 sweep's DB queries resolve.
+			let releaseBarrier: () => void = () => {};
+			const barrier = new Promise<void>((resolve) => {
+				releaseBarrier = resolve;
+			});
+
+			// Build a delayedDb that makes the first select().from() chain awaitable
+			// only after the barrier resolves. This stalls the stale sweep mid-flight
+			// while we dispose+re-register.
+			let selectCallCount = 0;
+			const delayedDb = new Proxy(db, {
+				get(target, prop, receiver) {
+					if (prop !== "select") {
+						return Reflect.get(target, prop, receiver);
+					}
+					// biome-ignore lint/suspicious/noExplicitAny: proxy for test interception only
+					return (...selectArgs: any[]) => {
+						// biome-ignore lint/suspicious/noExplicitAny: proxy for test interception only
+						const chain = (target.select as (...a: any[]) => any)(...selectArgs);
+						selectCallCount++;
+						const callIndex = selectCallCount;
+
+						// Only delay the FIRST select (the sessions query in startupSweep).
+						// The second select (tasks query) will also stall because it awaits
+						// the same async context. We wrap the chain's `then` to inject the barrier.
+						if (callIndex > 1) {
+							return chain;
+						}
+
+						// Return a thenable wrapper: awaiting this chain waits for the barrier.
+						// biome-ignore lint/suspicious/noExplicitAny: proxy thenable — intentional
+						const wrapped: any = new Proxy(chain, {
+							get(chainTarget, chainProp, chainReceiver) {
+								if (chainProp !== "then") {
+									return Reflect.get(chainTarget, chainProp, chainReceiver);
+								}
+								// biome-ignore lint/suspicious/noExplicitAny: proxy thenable — intentional
+								return (onFulfilled: any, onRejected: any) =>
+									barrier
+										.then(() => (chainTarget as Promise<unknown>).then(onFulfilled, onRejected))
+										.then(onFulfilled, onRejected);
+							},
+						});
+						return wrapped;
+					};
+				},
+			}) as typeof db;
+
+			// Act step 1: register with delayedDb — gen-1 sweep starts but stalls at barrier.
+			const delayedDeps = makeDispatcherDeps(delayedDb, eventBus, adapter, workspaceBasePath);
+			const dispose1 = registerTaskDispatcher(delayedDeps);
+
+			// Act step 2: synchronously dispose gen-1 and re-register with real db (gen → gen+2).
+			dispose1();
+			const realDeps = makeDispatcherDeps(db, eventBus, adapter, workspaceBasePath);
+			dispose = registerTaskDispatcher(realDeps);
+
+			// Act step 3: release barrier — stale gen-1 sweep can now proceed.
+			// The generation guard inside startupSweep will see gen-1 !== currentGen
+			// and return before pushing any entries.
+			releaseBarrier();
+
+			// Allow stale sweep to complete (and bail) + gen-2 sweep to also complete.
+			await new Promise((resolve) => setTimeout(resolve, 500));
+
+			// Gen-2's startupSweep ran with real db and found the accepted task.
+			// The blocking session fills concurrency=1, so the task is in queue but not dispatched yet.
+			const queueSnapshot = getDispatchQueueSnapshot();
+			const queuedByGen2 = queueSnapshot.entries.filter((e) => e.taskId === taskId);
+
+			// The task should appear in the queue at most ONCE (gen-2 sweep enqueued it once).
+			// If the stale gen-1 sweep had also pushed an entry, it would appear twice.
+			expect(queuedByGen2.length).toBeLessThanOrEqual(1);
+
+			// Now end the blocking session to free capacity and trigger drain.
+			await db
+				.update(sessions)
+				.set({ state: "done", endedAt: NOW })
+				.where(eq(sessions.id, blockSessionId));
+			eventBus.emit({
+				type: "session_ended",
+				streamId: blockSessionId,
+				sessionId: blockSessionId,
+				agentId,
+				taskId: blockTaskId,
+				timestamp: Date.now(),
+				outcome: "completed",
+			});
+
+			// Wait for exactly one session to be created for our task.
+			await vi.waitFor(
+				async () => {
+					const sessionRows = await db.select().from(sessions).where(eq(sessions.taskId, taskId));
+					expect(sessionRows.length).toBeGreaterThanOrEqual(1);
+				},
+				{ timeout: 10_000 },
+			);
+
+			// Allow time for any spurious second dispatch (would indicate race not fixed).
+			await new Promise((resolve) => setTimeout(resolve, 300));
+
+			// Assert: exactly 1 session — stale gen-1 sweep did NOT double-enqueue.
+			const sessionRows = await db.select().from(sessions).where(eq(sessions.taskId, taskId));
+			expect(sessionRows).toHaveLength(1);
+			expect(sessionRows[0]?.agentId).toBe(agentId);
+		} finally {
+			fs.rmSync(workspaceBasePath, { recursive: true, force: true });
+		}
+	});
+});
+
+// ---------------------------------------------------------------------------
 // AC-provisioning: provisionSession conditional transition (Task 1 prerequisite)
 // ---------------------------------------------------------------------------
 
