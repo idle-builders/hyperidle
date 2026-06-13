@@ -3,7 +3,7 @@
 PR #273 · branch `feat/AG5-canonical-dropdown` · `git diff origin/main...HEAD`
 Scope: one canonical dropdown. Reviewed against AG5 spec (TRACK-AG.md), `plans/AG5/architecture.md`, both critique rounds, `.claude/rules/aesthetic-quality.md`.
 
-## Verdict: **NOT DONE**
+## Verdict: **NOT DONE** (round 1) → **DONE** (round 2 — see addendum at bottom)
 
 The migration code itself is correct and the contracts are respected (single `Select`, single `Menu`, `BlockActionsPopover` renders through `Menu`, `RecipientPicker` documented-distinct, lint rule registered+enforcing, behavior-preservation gate L14+AF12 green). **But the visual/Playwright AC — the one the spec calls out as non-closable without rendered-app evidence — is unmet: the e2e spec is broken (8/8 fail), captures zero screenshots, and was never run green.** Two code WARNINGs (focus management, width regex) round it out.
 
@@ -68,3 +68,43 @@ Clean. `overflow-dropdown-${bet.id}` id + `[&[open]]:block` toggle fully removed
 3. **WARNING-B:** fix `hasWidthToken` regex so `max-w-`/`min-w-` don't false-trigger; add a `max-w-md` test.
 
 NOTE-1 (DESIGN.md wording) is a one-line cleanup. NOTEs 2–4 are non-blocking.
+
+---
+
+# Round 2 — Re-review addendum (reviewer)
+
+Builder applied fixes in 5 commits (`e08bc779` e2e+evidence, `65eb38d0` Menu focus, `ce1419fc` Select regex+AQ-015, `e58478af` DESIGN.md, `ac2f3369` visual evidence). Each finding verified against live code + by running things.
+
+## Verified-fix table
+
+| Finding | Fix | Verified how | Result |
+|---|---|---|---|
+| **CRITICAL-A** — e2e broken (8/8 fail), 0 screenshots, never green | Routes corrected to `/work/bet/:id` (singular), Settings via `/conversations?settings=open`, WorkTeam `/work/team/:id`, portfolio `/work/portfolio`; 6 `page.screenshot()` added across 5 surfaces | Ran `npx playwright test ag5-dropdown` → **8 passed (6.1s)**. Opened all 6 `test-results/ag5-s*.png` myself — rendered app, real chrome | **FIXED** |
+| **CRITICAL-A (visual judgment)** — chrome consistency + AQ hard-rules | n/a (evidence) | My own eyes on S1/S2/S2b/S3/S4/S5: identical warm-tan 1.5px border, white `--surface-elevated`, same CSS-triangle arrow, `--r-default` containers across all 5 surfaces. S2b currency select renders narrow (~88px "USD" beside "1000") — width passthrough confirmed visually. S4 bet menu + S5 knowledge menu = identical panel chrome; S4 "Kill" in `--status-error` red. Zero AQ hard-rule violations observed. `visual-review.md` judgment **confirmed independently** | **FIXED** |
+| **WARNING-A** — Menu no focus-on-open / no focus-restore | `useEffect([open])` captures `document.activeElement` into `previousFocusRef`, rAF-focuses first `[role='menuitem']:not([disabled])` on open, restores on close (`Menu.tsx:60–81`) | 3 new tests (`Menu.test.tsx:473,493,515`) assert `document.activeElement` is auto-focused first item **with no manual `.focus()`** — including the disabled-skip path and trigger-restore. Ran → 41/41 Menu+Select tests pass. Not masked | **FIXED** |
+| **WARNING-B** — `hasWidthToken` false-positives on `max-w-`/`min-w-` | Regex tightened to `/(?:^|\s)w-/` (`Select.tsx:56`) | `Select.ag5.test.tsx:254,270` assert `max-w-md` + `min-w-[100px]` preserve `w-full`; `:283` asserts `w-[88px]` suppresses it. All green | **FIXED** |
+| **WARNING-B (AQ-015 deviation)** — builder changed `SELECT_SIZE` `sm:`→`xl:` | `sm` size now `min-h-[44px] xl:min-h-[32px]` (`Select.tsx:44`) | **Correct and AQ-015-justified.** AQ-015 requires ≥44px at viewport ≤1024px. `xl:` = 1280px, so the 32px dense variant only applies at ≥1280px; the 44px floor holds for the entire ≤1024px band. The old `sm:` (640px) violated AQ-015 in the 640–1024px window. No visual regression: at 1440px (S1) `xl:` applies → settings selects dense, matching the screenshot; below 1280px the floor is a strict a11y improvement. e2e T1 (`:496`, 1024px viewport) asserts every settings select ≥44px → green | **FIXED (sound deviation)** |
+| **NOTE-1** — DESIGN.md `pointer-events-none` claim | Reworded to "native `disabled` attr + onClick guard" (`DESIGN.md:238`) | Read; matches `Menu.tsx` implementation | **FIXED** |
+
+## AC completeness — round-2 re-run (flipped rows)
+
+| # | Acceptance criterion | R1 | R2 | Evidence |
+|---|---|---|---|---|
+| 5 | Narrow-viewport + a11y ≥ replaced controls | PARTIAL/WARNING | **PASS** | WARNING-A closed — Menu now focuses first enabled item on open + restores to trigger on close, asserted without manual focus. Keyboard-only open→ArrowDown→Enter→Escape path now works end-to-end (e2e S4 green) |
+| 6 | Consolidation visually tested via Playwright: ≥3 surfaces screenshotted, reviewed side-by-side, consistent + aesthetic, zero AQ hard-rule violations | FAIL | **PASS** | e2e spec **8/8 green**; 6 screenshots across 5 surfaces captured + reviewed by reviewer's own eyes; chrome consistent; zero AQ hard-rule violations. Rendered-app proof bar met |
+
+ACs 1–4 unchanged (PASS). Validation scenarios S1 (3-surface identical) and S2 (keyboard-only drive + focus ring) now **proven** — were NOT proven in R1.
+
+## Regression spot-check
+- `npm run test` (fast) → **421 files / 4331 tests pass**.
+- `npm run check` → all 12 packages PASS (0 type errors).
+- `npm run lint` → 0 errors (warnings/infos are pre-existing repo baseline).
+- `grep "select-bordered\|select select-sm"` → 0; `grep 'role="menu"' packages/web/src` → 0. Consolidation intact.
+
+## Remaining (non-blocking)
+- **NOTE-3** (Menu `act()` warnings) — still emits; tests pass; cosmetic noise. Not fixed, not required.
+- **Attestation coverage** — `verify` (`package.json`) still excludes `test:e2e`, so `ag5-dropdown.spec` does not run in the CI fast-attestation chain. The spec was run green manually this round and screenshots reviewed, which satisfies AC #6's rendered-app evidence bar. Future tracks relying on this spec for regression protection should wire it into `test:e2e`/CI — out of scope for AG5, noted for the track.
+
+## Verdict: **DONE**
+
+All R1 blockers (CRITICAL-A, WARNING-A, WARNING-B) verified fixed against live code and by running the e2e spec to green + viewing every screenshot. NOTE-1 corrected. The AQ-015 `sm:`→`xl:` deviation is sound and improves touch-target compliance. Every AC now PASS with proof; the visual/Playwright proof bar the track flagged as non-closable-without-rendered-evidence is met.

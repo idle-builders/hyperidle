@@ -247,7 +247,7 @@ Every component has two representations:
 - Click outside closes (mousedown outside the panel).
 - ArrowUp/Down/Home/End move focus between items.
 - Enter/Space activate the focused item.
-- Disabled items are un-clickable (`aria-disabled=true`, pointer-events-none).
+- Disabled items are un-clickable (`aria-disabled=true`, native `disabled` attr + onClick guard).
 - Destructive items render in `--status-error` color.
 - `dataAttrs` spreads verbatim onto the button element (C4 — E2E selector preservation).
 
