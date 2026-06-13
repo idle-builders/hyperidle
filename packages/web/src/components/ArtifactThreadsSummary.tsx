@@ -16,7 +16,7 @@
  * summary components in the shell layer.
  */
 
-import { ErrorState } from "@hyperidle/design-system";
+import { EmptyState, ErrorState, Skeleton } from "@hyperidle/design-system";
 import { relativeShort } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { Link } from "react-router-dom";
@@ -31,8 +31,14 @@ export function ArtifactThreadsSummary({ betId }: ArtifactThreadsSummaryProps): 
 
 	if (isLoading) {
 		return (
-			<div data-testid="artifact-threads-summary-loading" className="p-3">
-				<div className="animate-pulse h-4 bg-[var(--surface-elevated)] rounded w-1/3" />
+			<div className="p-3">
+				{/* AI5: shared Skeleton single bar (skeleton-pulse, not animate-pulse). */}
+				<Skeleton
+					height="16px"
+					width="33%"
+					ariaLabel="Loading discussions"
+					dataTestId="artifact-threads-summary-loading"
+				/>
 			</div>
 		);
 	}
@@ -76,12 +82,13 @@ export function ArtifactThreadsSummary({ betId }: ArtifactThreadsSummaryProps): 
 			</h3>
 
 			{data.summaries.length === 0 ? (
-				<div
-					data-testid="artifact-threads-summary-empty"
-					className="text-sm text-[var(--text-tertiary)] px-3 py-2"
-				>
-					No artifact discussions yet.
-				</div>
+				/* AI5: shared compact EmptyState. */
+				<EmptyState
+					compact
+					title="No discussions"
+					description="No artifact discussions yet."
+					dataTestId="artifact-threads-summary-empty"
+				/>
 			) : (
 				<ul className="flex flex-col gap-1">
 					{data.summaries.map((summary) => (

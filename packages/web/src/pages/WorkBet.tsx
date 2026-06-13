@@ -18,6 +18,7 @@
 
 import type { MenuItem } from "@hyperidle/design-system";
 import {
+	Avatar,
 	Block,
 	BlockActionsPopover,
 	BodyEditor,
@@ -61,6 +62,7 @@ import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useHint } from "../hooks/useHints";
 import { useHostThread } from "../hooks/useHostThread.js";
 import { apiFetch } from "../services/api-fetch.js";
+import { deriveInitials } from "../utils/initials.js";
 import { postRequestMessage, resolveOrCreateTaskThread } from "../services/task-threads";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
 import { TaskSheet } from "../shell/TaskSheet";
@@ -1137,16 +1139,9 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 								Team
 							</span>
 							<div className="flex items-center gap-[9px] mt-[9px]">
-								<span
-									className="inline-flex w-[28px] h-[28px] items-center justify-center rounded-full bg-[var(--surface-container)] text-[var(--text-secondary)] text-[11px] font-[600] shrink-0"
-									aria-hidden="true"
-								>
-									{bet.team
-										.split(/\s+/)
-										.slice(0, 2)
-										.map((w) => w[0]?.toUpperCase() ?? "")
-										.join("")}
-								</span>
+								{/* AI5: shared Avatar primitive. Initials now derive via slice
+								    (deriveInitials) — was word-initials ("GT"), now slice ("GR"). */}
+								<Avatar initials={deriveInitials(bet.team)} size="sm" className="shrink-0" />
 								<span className="text-[13px] font-[500] text-[var(--text-primary)] truncate">
 									{bet.team}
 								</span>

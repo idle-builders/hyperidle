@@ -50,6 +50,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
 import { useHint } from "../hooks/useHints";
+import { deriveInitials } from "../utils/initials.js";
 import { useTeam } from "../hooks/useTeam";
 import { useTeamAgents } from "../hooks/useTeamAgents.js";
 import { AgentAddDialog } from "./AgentAddDialog.js";
@@ -607,7 +608,7 @@ function AgentRow({
 }): JSX.Element {
 	const catalogEntry = findRoleCatalogEntry(member.role);
 	const description = catalogEntry?.description ?? member.role;
-	const initials = member.name.slice(0, 2).toUpperCase();
+	const initials = deriveInitials(member.name);
 
 	// Derive display values from operational fields (default to idle/healthy if absent)
 	const status = member.operationalStatus ?? "idle";
@@ -797,14 +798,10 @@ function RoutineRow({
 				{routine.name}
 			</span>
 
-			{/* Agent avatar — 24px */}
-			<span
-				className="w-[24px] h-[24px] rounded-full shrink-0 flex items-center justify-center text-[9px] font-semibold text-[var(--accent-primary)]"
-				style={{ background: "rgba(22,118,79,0.08)" }}
-				aria-label={routine.agentName}
-				title={routine.agentName}
-			>
-				{routine.agentInitials}
+			{/* Agent avatar — AI5: shared Avatar primitive (sm, agent green).
+			    Wrapped to preserve the agent-name title/aria-label affordance. */}
+			<span className="shrink-0" aria-label={routine.agentName} title={routine.agentName}>
+				<Avatar initials={deriveInitials(routine.agentName)} size="sm" agent />
 			</span>
 
 			{/* Schedule — 80px mono tertiary */}
