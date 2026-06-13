@@ -62,10 +62,13 @@ type GatewayEditState = Record<ModelTier, TierEditState>;
 
 const ALL_TIERS: ModelTier[] = ["reasoning", "workhorse", "fast"];
 
+// AH2: Updated to current catalog IDs. These power the system-level tier config
+// (not per-agent model selection — that uses MODEL_CATALOG from @hyperidle/shared).
 const KNOWN_ANTHROPIC_MODELS = [
-	"claude-opus-4-20250514",
-	"claude-sonnet-4-20250514",
-	"claude-haiku-3-5-20241022",
+	"claude-opus-4-8",
+	"claude-sonnet-4-6",
+	"claude-haiku-4-5",
+	"claude-fable-5",
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -371,6 +374,11 @@ export function SettingsModels(): JSX.Element {
 
 	return (
 		<div className="flex flex-col gap-3">
+			{/* AH2: System default helper copy — clarifies scope */}
+			<p className="text-[12px] text-[var(--text-tertiary)]">
+				System default models. Used only when an agent has no per-agent model configured. Set
+				per-agent models in Settings → Agents.
+			</p>
 			{saving && <p className="text-[12px] text-[var(--text-tertiary)]">Saving…</p>}
 			{ALL_TIERS.map((tier) => (
 				<TierRow

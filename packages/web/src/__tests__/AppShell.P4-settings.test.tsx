@@ -40,12 +40,22 @@ describe("AppShell — P4 Settings overlay", () => {
 	beforeEach(() => {
 		// W3: URL-aware mock so SettingsOrgChart (/api/org) doesn't crash.
 		// X3: Also mock /api/agents so SettingsAgents doesn't break the page.
+		// AH2: Also mock /api/harnesses so SettingsAgents harness fetch doesn't error.
 		global.fetch = vi.fn().mockImplementation((url: unknown) => {
 			const urlStr = typeof url === "string" ? url : String(url);
 			if (urlStr.includes("/api/org")) {
 				return Promise.resolve({
 					ok: true,
 					json: () => Promise.resolve({ edges: [], users: [] }),
+				});
+			}
+			if (urlStr.includes("/api/harnesses")) {
+				return Promise.resolve({
+					ok: true,
+					json: () =>
+						Promise.resolve([
+							{ type: "builtin", name: "Built-in Harness", modelProviders: ["anthropic"] },
+						]),
 				});
 			}
 			if (urlStr.includes("/api/agents")) {
