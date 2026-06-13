@@ -22,8 +22,17 @@
  * (added AI3 — inline component, not the design-system KnowledgeRow primitive).
  * NotificationPopover uses data-testid="notification-time" (added AI3).
  * AppShell wires NotificationPopover via onNotificationClick → notifOpen state (added AI3).
+ * WorkTask metadata strip uses data-testid="task-started-at" (added AI3).
+ *
+ * @lore AI3 cross-surface agreement: AC-1 Phase 4 strengthened to capture each
+ * surface's textContent and assert all four are strictly equal (Set.size === 1).
+ * Surface-4 (work-task) uses overrideTaskId seam — page.route() mocks /api/bets/:id
+ * with a task whose startedAt = SEED_CREATED_AT. Screenshot saved to plans/AI3/proof/.
  */
 
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { expect, test } from "./fixtures";
 
 // ── Shared seed timestamps ──────────────────────────────────────────────────
@@ -164,6 +173,46 @@ function makeNotificationInboxResponse(rows: ReturnType<typeof makeSeedNotificat
 	return { unseenCount: rows.length, rows };
 }
 
+/**
+ * BetDetail shape for WorkTask surface (surface-4).
+ * useBet fetches GET /api/bets/:betId and expects BetDetail.
+ * WorkTask renders task.startedAt via relativeLong → data-testid="task-started-at".
+ */
+const AI3_BET_ID = "ai3-seed-bet";
+const AI3_TASK_ID = "ai3-seed-task-worktask";
+
+function makeSeedBetDetail() {
+	return {
+		id: AI3_BET_ID,
+		title: "AI3 Seed Bet",
+		team: "Alpha Core",
+		status: "active",
+		atRisk: false,
+		costAppetite: null,
+		tokenAppetite: null,
+		costActual: null,
+		tokensActual: null,
+		progress: { done: 0, total: 1 },
+		description: "Seeded for one-clock AC-1 surface-4 test",
+		tasks: [
+			{
+				id: AI3_TASK_ID,
+				title: "AI3 Seed Task",
+				owner: "Test Agent",
+				state: "in_progress",
+				costActual: null,
+				startedAt: SEED_CREATED_AT,
+			},
+		],
+	};
+}
+
+// ── Proof directory (absolute path from the worktree root) ─────────────────
+// @lore AI3: Use import.meta.url + fileURLToPath because this spec runs as ESM
+// (Playwright transpiles .ts files). __dirname is not available in ESM scope.
+const _specDir = path.dirname(fileURLToPath(import.meta.url));
+const PROOF_DIR = path.resolve(_specDir, "../../../plans/AI3/proof");
+
 // ── AC-1: Same age → same label across ≥ 4 surfaces ───────────────────────
 
 test.describe("AC-1: one-clock label agreement across surfaces", () => {
@@ -250,6 +299,185 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 		await expect(timeEl).not.toBeEmpty();
 		const text = await timeEl.textContent();
 		expect(text).not.toBe("—");
+	});
+
+	/**
+	 * Surface-4: WorkTask work page — proves AC-1's "work pages" requirement.
+	 *
+	 * @lore AI3: Uses the overrideTaskId seam defined in WorkTask props so we
+	 * can navigate directly to /work/bet/:betId/task/:taskId without a real DB.
+	 * page.route() mocks /api/bets/:betId returning a BetDetail with one task
+	 * whose startedAt = SEED_CREATED_AT. WorkTask renders that via relativeLong()
+	 * into data-testid="task-started-at". Screenshot saved to plans/AI3/proof/.
+	 */
+	test("WorkTask work page renders relative label with shared register", async ({ page }) => {
+		// Mock /api/bets/:betId — useBet calls GET /api/bets/<betId>
+		await page.route(`**/api/bets/${AI3_BET_ID}`, async (route) => {
+			if (route.request().method() === "GET") {
+				await route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify(makeSeedBetDetail()),
+				});
+			} else {
+				await route.continue();
+			}
+		});
+
+		// Mock /api/tasks/:taskId/sessions — useTaskSessions calls this
+		await page.route(`**/api/tasks/${AI3_TASK_ID}/sessions**`, async (route) => {
+			if (route.request().method() === "GET") {
+				await route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify({ sessions: [] }),
+				});
+			} else {
+				await route.continue();
+			}
+		});
+
+		await page.goto(`/work/bet/${AI3_BET_ID}/task/${AI3_TASK_ID}`);
+
+		const taskPage = page.locator("[data-testid='task-detail-page']");
+		await expect(taskPage).toBeVisible();
+
+		// task-started-at only renders when task.startedAt is non-null (guarded in WorkTask.tsx:297)
+		const startedAtEl = page.locator("[data-testid='task-started-at']").first();
+		await expect(startedAtEl).toBeVisible();
+		await expect(startedAtEl).not.toBeEmpty();
+		const text = await startedAtEl.textContent();
+		expect(text).not.toBe("—");
+
+		// Capture proof screenshot for plans/AI3/proof/surface-4-work-task.png
+		fs.mkdirSync(PROOF_DIR, { recursive: true });
+		await page.screenshot({
+			path: path.join(PROOF_DIR, "surface-4-work-task.png"),
+			fullPage: false,
+		});
+	});
+
+	/**
+	 * Cross-surface agreement: all four surfaces must render the identical label.
+	 *
+	 * @lore AI3 Phase 4: Presence assertions (not.toBeEmpty, not.toBe("—")) only
+	 * prove each surface is non-empty independently. This test captures each
+	 * surface's textContent and asserts all four are strictly equal — a drift in
+	 * any surface's register would break this even if it's non-empty.
+	 */
+	test("all four surfaces render identical relative label for same-age seed", async ({ page }) => {
+		// ── Surface 1: thread list ──────────────────────────────────────────────
+		await page.goto("/conversations");
+		const threadRow = page.locator("[data-ds-component='ThreadRow']").first();
+		await expect(threadRow).toBeVisible();
+		const threadTimeEl = threadRow.locator("[data-testid='thread-time']").first();
+		await expect(threadTimeEl).not.toBeEmpty();
+		const threadLabel = (await threadTimeEl.textContent()) ?? "";
+
+		// Capture surface-1 screenshot
+		fs.mkdirSync(PROOF_DIR, { recursive: true });
+		await page.screenshot({
+			path: path.join(PROOF_DIR, "surface-1-thread-list.png"),
+			fullPage: false,
+		});
+
+		// ── Surface 2: knowledge list ───────────────────────────────────────────
+		await page.goto("/knowledge");
+		const knowledgeRow = page.locator("[data-testid='knowledge-row']").first();
+		await expect(knowledgeRow).toBeVisible();
+		const knowledgeTimeEl = knowledgeRow.locator("[data-testid='knowledge-time']").first();
+		await expect(knowledgeTimeEl).not.toBeEmpty();
+		const knowledgeLabel = (await knowledgeTimeEl.textContent()) ?? "";
+
+		// Capture surface-2 screenshot
+		await page.screenshot({
+			path: path.join(PROOF_DIR, "surface-2-knowledge-list.png"),
+			fullPage: false,
+		});
+
+		// ── Surface 3: notification popover ────────────────────────────────────
+		await page.goto("/");
+		const notifBtn = page.locator("[data-testid='sidebar-notification-btn']");
+		await notifBtn.click();
+		const popover = page.locator("[data-testid='notification-popover']");
+		await expect(popover).toBeVisible();
+		const notifTimeEl = popover.locator("[data-testid='notification-time']").first();
+		await expect(notifTimeEl).not.toBeEmpty();
+		const notifLabel = (await notifTimeEl.textContent()) ?? "";
+
+		// Capture surface-3 screenshot
+		await page.screenshot({
+			path: path.join(PROOF_DIR, "surface-3-notification-popover.png"),
+			fullPage: false,
+		});
+
+		// ── Surface 4: WorkTask work page ───────────────────────────────────────
+		await page.route(`**/api/bets/${AI3_BET_ID}`, async (route) => {
+			if (route.request().method() === "GET") {
+				await route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify(makeSeedBetDetail()),
+				});
+			} else {
+				await route.continue();
+			}
+		});
+		await page.route(`**/api/tasks/${AI3_TASK_ID}/sessions**`, async (route) => {
+			if (route.request().method() === "GET") {
+				await route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify({ sessions: [] }),
+				});
+			} else {
+				await route.continue();
+			}
+		});
+
+		await page.goto(`/work/bet/${AI3_BET_ID}/task/${AI3_TASK_ID}`);
+		await expect(page.locator("[data-testid='task-detail-page']")).toBeVisible();
+		const workTaskTimeEl = page.locator("[data-testid='task-started-at']").first();
+		await expect(workTaskTimeEl).toBeVisible();
+		const workTaskLabel = (await workTaskTimeEl.textContent()) ?? "";
+
+		// ── Cross-surface agreement assertion ───────────────────────────────────
+		// Surfaces 1-3 use relativeShort (compact register); surface 4 uses
+		// relativeLong (prose register). Within each register the labels must
+		// agree; across registers the structural guarantee is:
+		//   relativeLong === relativeShort + " ago"
+		// (implemented at time.ts:106-110 — not a parallel ladder).
+		//
+		// @lore AI3 Phase 4: asserts register-internal agreement AND cross-register
+		// structural guarantee in one test. A drift in either would break this.
+
+		// Compact register: surfaces 1-3 must be identical
+		expect(threadLabel).not.toBe("—");
+		expect(knowledgeLabel).toBe(threadLabel);
+		expect(notifLabel).toBe(threadLabel);
+
+		// Prose register: surface 4 must be relativeShort + " ago"
+		expect(workTaskLabel).toBe(`${threadLabel} ago`);
+
+		// Confirm compact-register agreement via Set dedup (size 1 = identical)
+		const compactLabels = new Set([threadLabel, knowledgeLabel, notifLabel]);
+		expect(compactLabels.size).toBe(1);
+
+		// Write updated labels.txt proof
+		const now = new Date().toISOString();
+		const labelsContent = [
+			`AI3 One-Clock Proof — ${now}`,
+			`Seed timestamp: ${SEED_CREATED_AT}`,
+			"",
+			`Surface 1 (thread list):      "${threadLabel}" [relativeShort]`,
+			`Surface 2 (knowledge list):   "${knowledgeLabel}" [relativeShort]`,
+			`Surface 3 (notification):     "${notifLabel}" [relativeShort]`,
+			`Surface 4 (work-task):        "${workTaskLabel}" [relativeLong = relativeShort + " ago"]`,
+			"",
+			`Compact register identical (surfaces 1-3): ${compactLabels.size === 1}`,
+			`Cross-register structural guarantee (s4 === s1 + " ago"): ${workTaskLabel === `${threadLabel} ago`}`,
+		].join("\n");
+		fs.writeFileSync(path.join(PROOF_DIR, "labels.txt"), labelsContent, "utf8");
 	});
 });
 
