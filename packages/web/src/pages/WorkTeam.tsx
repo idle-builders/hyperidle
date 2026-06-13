@@ -554,7 +554,7 @@ function WorkTeamLoaded({
 											{member.name}
 											{member.isLead && (
 												<span className="ml-1 text-[var(--accent-primary)] text-[10px]">
-													" — Lead"
+													— Lead
 												</span>
 											)}
 										</>

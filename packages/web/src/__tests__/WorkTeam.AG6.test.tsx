@@ -162,6 +162,27 @@ describe("AG6 AC-2 — agent rows via Row primitive (T6)", () => {
 	});
 });
 
+// ── C1: isLead=true renders " — Lead" text, no literal quote glyphs ──────────
+
+describe("AG6 C1 — lead agent marker renders without literal quote characters", () => {
+	it("lead marker renders ' — Lead' (no surrounding quote glyphs) when isLead=true", () => {
+		const teamWithLead: TeamDetail = {
+			...TEAM,
+			roster: [{ ...AGENT, agentId: "lead-1", name: "Builder Agent", isLead: true }],
+		};
+		renderPage(teamWithLead);
+		const agentRows = screen.getAllByTestId("agent-row");
+		expect(agentRows.length).toBeGreaterThan(0);
+		const leadRow = agentRows[0] as HTMLElement;
+		const text = leadRow.textContent ?? "";
+		// Must contain the em-dash lead marker (with or without leading space — ml-1 provides visual spacing)
+		expect(text).toMatch(/— Lead/);
+		// Must NOT contain literal quote characters adjacent to the marker
+		expect(text).not.toMatch(/"[^"]*—[^"]*Lead[^"]*"/);
+		expect(text).not.toContain('" — Lead"');
+	});
+});
+
 // ── AC-2: Routine rows rendered via Row primitive ────────────────────────────
 
 describe("AG6 AC-2 — routine rows via Row primitive (T7)", () => {

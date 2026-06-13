@@ -18,7 +18,7 @@
  * clickableProps bundles the correct color-mix token + focus ring + motion.
  */
 
-import { createContext, type JSX, type KeyboardEvent, type ReactNode, useContext } from "react";
+import { createContext, type JSX, type ReactNode, useContext } from "react";
 import { clickableProps } from "./clickable.js";
 import { dsProps } from "./ds-attrs.js";
 import type { RowTone } from "./RowDot.js";
@@ -104,6 +104,38 @@ function toneColor(tone: RowTone | undefined): string {
 }
 
 // ---------------------------------------------------------------------------
+// Shared cell renderer — single implementation for all wrapper branches (W1/W2)
+// ---------------------------------------------------------------------------
+
+function renderCell(cell: RowCell, i: number): JSX.Element {
+	const cellStyle: React.CSSProperties = {};
+	if (cell.width !== undefined) cellStyle.width = `${cell.width}px`;
+	// W1 fix: collapsed no-op if/else — toneColor handles neutral/undefined via default case
+	cellStyle.color = toneColor(cell.tone);
+	const align = cell.align === "start" ? "text-left" : "text-right";
+	const numericClass = cell.numeric ? "tabular-nums" : "";
+	const hideClass = cell.hideBelow !== undefined ? `max-[${cell.hideBelow}px]:hidden` : "";
+	return (
+		<span
+			// biome-ignore lint/suspicious/noArrayIndexKey: fixed-position cell columns — order is stable by design
+			key={i}
+			data-testid={cell["data-testid"]}
+			className={[
+				"shrink-0 text-[11px] font-[family-name:var(--font-mono)] truncate",
+				align,
+				numericClass,
+				hideClass,
+			]
+				.filter(Boolean)
+				.join(" ")}
+			style={cellStyle}
+		>
+			{cell.content}
+		</span>
+	);
+}
+
+// ---------------------------------------------------------------------------
 // Row
 // ---------------------------------------------------------------------------
 
@@ -165,41 +197,7 @@ export function Row({
 					<span className="block text-[12px] text-[var(--text-tertiary)] truncate">{subtitle}</span>
 				)}
 			</span>
-			{cells && cells.length > 0 && (
-				<>
-					{cells.map((cell, i) => {
-						const cellStyle: React.CSSProperties = {};
-						if (cell.width !== undefined) cellStyle.width = `${cell.width}px`;
-						if ((cell.tone && cell.tone !== "neutral") || cell.tone === undefined) {
-							cellStyle.color = toneColor(cell.tone);
-						} else {
-							cellStyle.color = toneColor(cell.tone);
-						}
-						const align = cell.align === "start" ? "text-left" : "text-right";
-						const numericClass = cell.numeric ? "tabular-nums" : "";
-						const hideClass =
-							cell.hideBelow !== undefined ? `max-[${cell.hideBelow}px]:hidden` : "";
-						return (
-							<span
-								// biome-ignore lint/suspicious/noArrayIndexKey: fixed-position cell columns — order is stable by design
-								key={i}
-								data-testid={cell["data-testid"]}
-								className={[
-									"shrink-0 text-[11px] font-[family-name:var(--font-mono)] truncate",
-									align,
-									numericClass,
-									hideClass,
-								]
-									.filter(Boolean)
-									.join(" ")}
-								style={cellStyle}
-							>
-								{cell.content}
-							</span>
-						);
-					})}
-				</>
-			)}
+			{cells && cells.length > 0 && <>{cells.map((cell, i) => renderCell(cell, i))}</>}
 			{actions !== undefined && actions !== null && (
 				<span className="shrink-0 flex gap-[3px]">{actions}</span>
 			)}
@@ -214,10 +212,27 @@ export function Row({
 		className: baseClasses,
 	};
 
+	// W2 fix: clickableProps is the single source of hover+focus+motion for ALL
+	// interactive branches. The button branch gets it via merged className; the
+	// li>div[role=button] branches get it via spread; the div+actions branch no
+	// longer hand-rolls the utilities.
+	//
+	// @lore AG6 W2: previously only the div+actions branch applied clickableProps
+	// (and even that discarded the className by hand-rolling duplicates). The
+	// button and li>div branches had zero hover/focus. Now every interactive
+	// wrapper goes through clickableProps(onClick, baseClasses) — one path to rule them all.
+	const clickable = onClick ? clickableProps(onClick, baseClasses) : null;
+
 	if (resolvedAs === "button") {
 		// Simple: onClick + no actions → native <button type="button">
+		// W2 fix: button also gets hover/focus classes from clickableProps.
 		return (
-			<button type="button" {...commonProps} onClick={onClick}>
+			<button
+				type="button"
+				{...commonProps}
+				className={clickable?.className ?? baseClasses}
+				onClick={onClick}
+			>
 				{inner}
 			</button>
 		);
@@ -232,9 +247,12 @@ export function Row({
 		// div[role=button] (matches original KnowledgeList triage pattern). The li
 		// stays semantic; the div[role=button] handles row-level interactivity.
 		if (onClick && hasActions) {
-			// li + click + actions → li wraps inner div[role=button] + action slot
-			// The inner div[role=button] carries the row chrome and activates on click.
-			// Action buttons live alongside the div[role=button] inside the li.
+			// li + click + actions → li wraps inner div[role=button] + action slot.
+			// W2 fix: inner div gets clickable classes so hover/focus works on Knowledge rows.
+			// The inner div takes flex-1 to fill the li; actions slot lives beside it.
+			const innerDivClass = clickable?.className
+				? `${clickable.className} flex-1 min-w-0`
+				: "flex-1 min-w-0";
 			return (
 				<li
 					{...dsProps("Row", "2")}
@@ -244,18 +262,7 @@ export function Row({
 					className={baseClasses}
 				>
 					{/* biome-ignore lint/a11y/useSemanticElements: div[role=button] required — inner <button> elements (actions) cannot be nested inside a <button>; li keeps listitem role */}
-					<div
-						role="button"
-						tabIndex={0}
-						onClick={onClick}
-						onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
-							if (e.key === "Enter" || e.key === " ") {
-								e.preventDefault();
-								onClick();
-							}
-						}}
-						className="flex items-center gap-[12px] flex-1 min-w-0 cursor-pointer"
-					>
+					<div {...clickableProps(onClick, "")} className={innerDivClass}>
 						{lead !== undefined && lead !== null && (
 							<span className="shrink-0 inline-flex items-center">{lead}</span>
 						)}
@@ -269,37 +276,7 @@ export function Row({
 								</span>
 							)}
 						</span>
-						{cells && cells.length > 0 && (
-							<>
-								{cells.map((cell, i) => {
-									const cellStyle: React.CSSProperties = {};
-									if (cell.width !== undefined) cellStyle.width = `${cell.width}px`;
-									cellStyle.color = toneColor(cell.tone);
-									const align = cell.align === "start" ? "text-left" : "text-right";
-									const numericClass = cell.numeric ? "tabular-nums" : "";
-									const hideClass =
-										cell.hideBelow !== undefined ? `max-[${cell.hideBelow}px]:hidden` : "";
-									return (
-										<span
-											// biome-ignore lint/suspicious/noArrayIndexKey: fixed-position cell columns — order is stable by design
-											key={i}
-											data-testid={cell["data-testid"]}
-											className={[
-												"shrink-0 text-[11px] font-[family-name:var(--font-mono)] truncate",
-												align,
-												numericClass,
-												hideClass,
-											]
-												.filter(Boolean)
-												.join(" ")}
-											style={cellStyle}
-										>
-											{cell.content}
-										</span>
-									);
-								})}
-							</>
-						)}
+						{cells && cells.length > 0 && <>{cells.map((cell, i) => renderCell(cell, i))}</>}
 					</div>
 					{actions !== undefined && actions !== null && (
 						<span className="shrink-0 flex gap-[3px]">{actions}</span>
@@ -314,6 +291,10 @@ export function Row({
 			// @lore AG6: DO NOT put role="button" on the <li> itself — that overrides
 			// the listitem role and breaks getAllByRole("listitem") in tests and AT.
 			// The inner div[role=button] handles all interactivity; the li is semantic.
+			// W2 fix: inner div uses clickableProps for uniform hover/focus treatment.
+			const innerDivClass = clickable?.className
+				? `${clickable.className} flex-1 min-w-0`
+				: "flex-1 min-w-0";
 			return (
 				<li
 					{...dsProps("Row", "2")}
@@ -323,18 +304,7 @@ export function Row({
 					className={baseClasses}
 				>
 					{/* biome-ignore lint/a11y/useSemanticElements: div[role=button] required — li must keep listitem role; inner button not possible without actions (nested button would duplicate semantic) */}
-					<div
-						role="button"
-						tabIndex={0}
-						onClick={onClick}
-						onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
-							if (e.key === "Enter" || e.key === " ") {
-								e.preventDefault();
-								onClick();
-							}
-						}}
-						className="flex items-center gap-[12px] flex-1 min-w-0 cursor-pointer"
-					>
+					<div {...clickableProps(onClick, "")} className={innerDivClass}>
 						{inner}
 					</div>
 				</li>
@@ -346,27 +316,11 @@ export function Row({
 	// div case
 	if (onClick && hasActions) {
 		// nested-button rule: div[role=button]
+		// W2 fix: spread clickableProps directly — no hand-rolled duplicate utilities,
+		// no discarded className. commonProps className is overridden by clickableProps.
 		return (
 			// biome-ignore lint/a11y/useSemanticElements: div[role=button] required — inner <button> elements (actions) cannot be nested inside a <button>
-			<div
-				{...commonProps}
-				role="button"
-				tabIndex={0}
-				onClick={onClick}
-				onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
-					if (e.key === "Enter" || e.key === " ") {
-						e.preventDefault();
-						onClick();
-					}
-				}}
-				{...clickableProps(onClick, "")}
-				className={[
-					baseClasses,
-					"cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))] transition-colors duration-[var(--motion-fast)]",
-				]
-					.filter(Boolean)
-					.join(" ")}
-			>
+			<div {...commonProps} {...clickableProps(onClick, baseClasses)}>
 				{inner}
 			</div>
 		);
@@ -374,20 +328,10 @@ export function Row({
 
 	if (onClick) {
 		// This case is covered by button branch above (no actions), but as="div" override
+		// W2 fix: route through clickableProps for consistent hover/focus.
 		return (
 			// biome-ignore lint/a11y/useSemanticElements: forced via as="div" prop override
-			<div
-				{...commonProps}
-				role="button"
-				tabIndex={0}
-				onClick={onClick}
-				onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
-					if (e.key === "Enter" || e.key === " ") {
-						e.preventDefault();
-						onClick();
-					}
-				}}
-			>
+			<div {...commonProps} {...clickableProps(onClick, baseClasses)}>
 				{inner}
 			</div>
 		);

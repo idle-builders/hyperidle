@@ -59,6 +59,12 @@ import { SCOPE_PILL_OPTIONS, type ScopePillOption } from "../utils/scope-labels"
 type KnowledgeTab = "triage" | "curated";
 
 /**
+ * S1 fix: hoisted to module scope — was rebuilt per-row as new Set([...]) inside .map(),
+ * one allocation per row per render. Single const reused across both triage and curated paths.
+ */
+const KNOWLEDGE_KINDS = new Set(["pattern", "decision", "failure"]);
+
+/**
  * AF13 §3: Pure sort helper for knowledge items.
  * Returns a new array — does NOT mutate the input.
  *
@@ -456,7 +462,6 @@ function KnowledgeListContent({
 									// @lore AG6: AD6 AC-4 (kind badge removed from rows) coexists with AG6
 									// protected kind-badge testid because real scopeKind values are scope
 									// identifiers; only "pattern"/"decision"/"failure" render a kind badge.
-									const KNOWLEDGE_KINDS = new Set(["pattern", "decision", "failure"]);
 									const itemKind =
 										item.scopeKind && KNOWLEDGE_KINDS.has(item.scopeKind)
 											? item.scopeKind
@@ -686,9 +691,8 @@ function KnowledgeListContent({
 									{g.items.map((item) => {
 										const isPrivate = item.scopeKind === "user";
 										// AG6/AD6: kind-badge only for knowledge-kind values, not scope values.
-										const KNOWLEDGE_KINDS_C = new Set(["pattern", "decision", "failure"]);
 										const itemKind =
-											item.scopeKind && KNOWLEDGE_KINDS_C.has(item.scopeKind)
+											item.scopeKind && KNOWLEDGE_KINDS.has(item.scopeKind)
 												? item.scopeKind
 												: undefined;
 										const kStyle = itemKind ? kindBadgeStyle(itemKind) : null;
