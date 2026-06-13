@@ -29,6 +29,7 @@ test-output.toon
 .verify-attestation.json
 .verify.pid
 plans/*
+packages/*/plans/
 packages/design-system/03-hearth.html
 packages/design-system/inspiration/
 packages/server/hyperidle-pg/
