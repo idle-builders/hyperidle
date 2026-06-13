@@ -81,9 +81,12 @@ interface BuiltinSession {
 }
 
 const COST_PER_MILLION_TOKENS: Record<string, { input: number; output: number }> = {
-	"claude-opus-4-20250514": { input: 15, output: 75 },
-	"claude-sonnet-4-20250514": { input: 3, output: 15 },
-	"claude-haiku-3-5-20241022": { input: 0.8, output: 4 },
+	// AH2 catalog — must stay in sync with MODEL_CATALOG in @hyperidle/shared
+	// @lore AH2: See also MODEL_CONTEXT_WINDOWS in context-window.ts.
+	"claude-opus-4-8": { input: 5, output: 25 },
+	"claude-sonnet-4-6": { input: 3, output: 15 },
+	"claude-haiku-4-5": { input: 1, output: 5 },
+	"claude-fable-5": { input: 10, output: 50 },
 };
 
 const DEFAULT_COST = { input: 3, output: 15 };
