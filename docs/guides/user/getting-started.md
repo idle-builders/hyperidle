@@ -129,13 +129,14 @@ At the bottom of the Sidebar: `Cmd+K` search, your avatar (opens Settings), and 
 A **Bet** is a time-boxed chunk of work — the unit agents pick up and execute.
 
 1. Click **New bet** in the Portfolio header (or in the empty-state centre if no bets exist yet).
-2. A dialog opens with:
-   - **Team** select — shown only when you have more than one team; the single team is used automatically otherwise.
-   - **Description** (required) — for example: `Build a landing page with a hero section and a features list.`
-   - **Title preview** — auto-derived from your description.
+2. A full-page authoring surface opens with:
+   - **Description editor** (required) — write the bet's pitch using headings, lists, and paragraphs. For example: `Build a landing page with a hero section and a features list.`
+   - **Title preview** — auto-derived from the first heading in your description.
+   - **Team** select (in the Commitments aside) — shown only when you have more than one team; the single team is used automatically otherwise.
+   - **Appetite** (optional) — set a cost budget for this bet.
 3. Click **Create**.
 
-**Expected:** The dialog closes. The new Bet appears as a `draft` card in the portfolio grid.
+**Expected:** You are navigated to the new Bet detail page. The Bet also appears as a `draft` card in the portfolio grid.
 
 To start agents, open the Bet, click the overflow menu (`···`) next to the status badge, and choose **Activate bet**. The status flips from `draft` to `active`. If your team is already at its bet capacity, activation is blocked and an inline message explains why — complete or kill another active bet first.
 
