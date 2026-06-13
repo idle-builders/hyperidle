@@ -2,7 +2,7 @@
 
 Branch `feat/AI5-shared-primitive-adoption` vs `origin/main`. Reviewer = Phase-2 critic, warm on contracts.
 
-## Verdict: NOT DONE
+## Verdict: NOT DONE → DONE after round-1 fix (see "## Re-review (round 1 fix)" at end)
 
 AC2 fails. A set of standalone DaisyUI `btn btn-*` action buttons on **surfaces this diff touched** (WorkRoutine, WorkPortfolio, WorkTeam, WorkBet, AgentProfile) were left unmigrated although the plan listed them as "Candidate migrate" and the builder's keep-justification only covers dialog footers + AG5 menu triggers — not these. They are exactly the "hand-rolled equivalent left in the tree to copy from" AC2 forbids. Everything else (AC1, AC3, AC4, AC5, AC6) is met and proven green. This is a bounded, finishable gap — migrate the standalone `btn` actions (or justify each per-site in the plan's keep-list grammar) and it ships.
 
@@ -62,3 +62,58 @@ Legitimately kept (NOT findings — confirmed correct):
 - ScopePicker filter-mode "All"→null logic correct against `SCOPE_PILL_OPTIONS[0] = {id:"all", filterKinds:null}`.
 - `npm run check` PASS (12 packages). `npm run lint` PASS (warnings only, zero errors; ESLint design plugin incl. touch-target + no-handrolled clean).
 - Targeted AI5 tests 61/61 green; protected tests 126/126 green.
+
+---
+
+## Re-review (round 1 fix)
+
+Builder applied fixes for CRITICAL-1 (AC2) + WARNING-1 (Skeleton). Re-verified against the live tree (not the summary). **All prior findings resolved. No regressions.**
+
+### AC2 — VERDICT FLIPS to MET
+
+Every standalone `btn btn-*` action button I flagged on touched surfaces is now `<Button variant size>`:
+- `WorkRoutine.tsx` — Confirm delete (`destructive sm`, :249), Cancel (`ghost sm`, :259), Pause/Resume (`ghost sm`, :272), Trigger Now (`primary sm`, :281), Delete (`destructive sm`, :292).
+- `WorkPortfolio.tsx` — New bet (`primary sm`, :244), Create bet (`primary sm`, :409), Clear filters (`ghost sm`, :443 — the EmptyState `action`-slot CTA).
+- `WorkTeam.tsx` — Customize (`<Button>`, :724, stopPropagation preserved).
+- `WorkBet.tsx` — Add knowledge (`ghost sm`, :1051), Draft with AI (:1285), retro Cancel (:1363) + Save (:1371).
+
+Legitimate keeps confirmed still keeps:
+- Dialog footers: WorkBet Kill-bet Cancel/Kill (:323/331, inside `Dialog footer={…}`), Adjust-appetite Cancel/Save (:467/475, same). KnowledgeCreateDialog/ScopeChangeDialog footers untouched.
+- Router `<Link>` with shared `btn` treatment: WorkRoutine:180, WorkTeam:257, AgentProfile:147/226 (`<Button>` renders `<button>`, no `asChild` — Links can't migrate). AgentProfile diff is solely the `deriveInitials` AC1 swap.
+
+Residual `btn btn-*` grep hits triaged — every remaining hit is a documented legitimate keep or untouched out-of-scope surface, NOT a new finding:
+- **Untouched on main (no diff):** WorkBet:1040, Conversations:415, KnowledgeList:763, WorkTeam:363 (hint-dismiss "Got it"/dismiss controls — `git diff origin/main` empty for each), RecipientPicker:256/264, SessionActivityPanel:280.
+- **Out of AI5 scope (not in diff):** CredentialsTab, SettingsAgents/Assistant/Worker (AG7), TaskSheet, NotificationPopover, ErrorBoundary, AssistantOverlay:233, BetCreateDialog/RoutineCreateDialog footers, stories/foundation tests.
+
+### WARNING-1 — RESOLVED
+
+`Skeleton.tsx:72` now passes dimensions via inline `style={{ width, height }}`; interpolated `h-[${height}]`/`w-[${width}]` arbitrary classes removed; WARNING-1 lore captured at :64–71. Test reconciled — `Skeleton.singlebar.test.tsx:39/40/46/47` assert `outer.style.height`/`outer.style.width` (rendered inline dims), proving arbitrary values (`33%`, `16px`) actually render. No fragile JIT dependency remains.
+
+### NIT-1 — RESOLVED
+
+`e2e/time-vocabulary.spec.ts` diff vs `origin/main` is empty (the out-of-scope `_specDir`→`SpecDir` rename reverted).
+
+### Protected-test assertion swaps — confirmed legit, not bent
+
+`WorkPortfolio.test.tsx:141` and `U9-work-portfolio-bet-grid.test.tsx:145` swap retired `btn-primary` → `bg-[var(--accent-primary)]`. Verified `Button.tsx:27–28` primary variant emits exactly `bg-[var(--accent-primary)]`, so the assertions are real (not vacuous) and track the legit `<Button variant="primary">` migration. Button still present, still matches `/new bet/i`, still primary-styled — behavioral contract preserved.
+
+### Re-verification
+
+- `npm run check` PASS (12 packages). `npm run lint:eslint --quiet` PASS (zero errors; design plugin touch-target + no-handrolled clean).
+- Targeted AI5 + protected tests: 83/83 green across Skeleton.singlebar, EmptyState.compact, ErrorState.compact, ScopePicker, WorkPortfolio (12/12), U9-bet-grid, KnowledgeDetail.af13, AI5-ScopeChangeDialog, initials.
+- No-regression spot-check: AC4 tint = ZERO in production src (only hit is the negative assertion in ScopePicker.test); AC1 `.slice(0,2)` = ZERO; AC3 animate-pulse = exactly the 3 AI4 live-dots.
+
+### Updated AC table
+
+| AC | Status |
+|---|---|
+| AC1 — identity renders identically | MET |
+| **AC2 — one treatment per role; no hand-rolled button stylings** | **MET** (was NOT MET) |
+| AC3 — one loading family; compact empty/error variants | MET |
+| AC4 — scope picker one implementation in all 4 sites | MET |
+| AC5 — 44px touch targets ≤1024px | MET |
+| AC6 — 2 intentional bypasses stay; no new undocumented bypass | MET |
+
+## Verdict: DONE
+
+All six ACs MET. CRITICAL-1 and WARNING-1 resolved, NIT-1 reverted. No protected test weakened. No remaining findings.
