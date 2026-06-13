@@ -21,9 +21,11 @@ import { createMcpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
 import { createMcpRoute } from "./routes/mcp-route.js";
 import { registerWorkerWsRoute } from "./routes/worker-ws.js";
 import { registerWsRoute } from "./routes/ws.js";
-import { type CredentialResolver, EnvCredentialResolver } from "./services/credential-resolver.js";
+import { getServerSecret } from "./services/credential-encryption.js";
+import type { CredentialResolver } from "./services/credential-resolver.js";
+import { DbCredentialResolver } from "./services/credential-resolver.js";
 import { resolveModelTier } from "./services/model-gateway.js";
-import { readServerConfig } from "./services/server-config.js";
+import { migrateCredentialsToStore, readServerConfig } from "./services/server-config.js";
 import { provisionSession } from "./services/session-provisioning.js";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "./services/ws-broadcaster.js";
 
@@ -197,7 +199,28 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 	}
 	const eventBus = new EventBus();
 
-	const credentialResolver = new EnvCredentialResolver();
+	// AH1 §3: DbCredentialResolver is the sole production resolver.
+	// @lore AH1 §3: EnvCredentialResolver is retained ONLY for packages/eval (CI-secret
+	// env key, no DB). Production always uses DbCredentialResolver. The single-resolver
+	// invariant is tested in server-factory.resolver.test.ts (instanceof check).
+	const serverSecret = getServerSecret();
+	if (!serverSecret) {
+		// @lore AH1 §6: Boot is non-fatal but we log a warning so misconfigured deployments
+		// are visible. The write boundary (PUT /api/credentials) rejects loudly (500
+		// MISSING_ROOT_SECRET). console.warn is intentional here — the observability adapter
+		// is not yet constructed at this point in the boot sequence.
+		// biome-ignore lint/suspicious/noConsole: intentional boot-time warning before observability adapter is constructed
+		console.warn(
+			"[HyperIdle] No HYPERIDLE_CREDENTIAL_KEY/HYPERIDLE_API_KEY set — credential writes will be refused (MISSING_ROOT_SECRET). Agents cannot resolve keys until a secret is configured.",
+		);
+	}
+	const credentialResolver: CredentialResolver = new DbCredentialResolver(db, serverSecret);
+
+	// AH1 §4: Run the one-time credential migration at boot.
+	// Relocates legacy server_config blob apiKeys → server_credentials.
+	// Seeds anthropic_api_key from env if the DB slot is absent.
+	// No-op when already migrated. Non-fatal: migration skips if no root secret.
+	await migrateCredentialsToStore(db);
 	// AF7 §1: test-only overrides for the adapter pool + workspace adapter + base
 	// path so the dispatcher wire can run against a stub pool (no real LLM).
 	const adapterPool = deps?.adapterPool ?? (await createLocalAdapterPool());

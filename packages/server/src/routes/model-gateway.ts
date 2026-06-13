@@ -106,23 +106,25 @@ const PatchModelGatewaySchema = PartialModelGatewaySchema.superRefine((data, ctx
 // ---------------------------------------------------------------------------
 
 /**
- * X4 A-SEC-2: Strip apiKey from a tier config and return hasApiKey boolean.
- * The UI uses hasApiKey to show a credential status dot without navigation link.
+ * AH1 §2: apiKey no longer in ModelTierConfig — it lives in server_credentials.
+ * hasApiKey is now always false from the tier config perspective; the credentials
+ * route is the source of truth for credential presence/state.
+ *
+ * @lore AH1 A-SEC-2: stripApiKey kept for API shape compatibility (hasApiKey: boolean
+ * in response). hasApiKey is now always false because the tier has no apiKey field.
+ * The credentials tab shows the real state via GET /api/credentials.
  */
-function stripApiKey(
-	config: ModelTierConfig,
-): Omit<ModelTierConfig, "apiKey"> & { hasApiKey: boolean } {
-	const { apiKey, ...rest } = config;
-	return { ...rest, hasApiKey: Boolean(apiKey) };
-}
-
 function sanitizeConfig(
 	config: ModelGatewayConfig,
-): Record<string, Omit<ModelTierConfig, "apiKey"> & { hasApiKey: boolean }> {
+): Record<string, ModelTierConfig & { hasApiKey: boolean }> {
+	const sanitizeTier = (tier: ModelTierConfig): ModelTierConfig & { hasApiKey: boolean } => ({
+		...tier,
+		hasApiKey: false, // AH1: key now in server_credentials, not tier config
+	});
 	return {
-		reasoning: stripApiKey(config.reasoning),
-		workhorse: stripApiKey(config.workhorse),
-		fast: stripApiKey(config.fast),
+		reasoning: sanitizeTier(config.reasoning),
+		workhorse: sanitizeTier(config.workhorse),
+		fast: sanitizeTier(config.fast),
 	};
 }
 

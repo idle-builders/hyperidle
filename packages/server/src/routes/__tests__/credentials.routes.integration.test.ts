@@ -21,7 +21,8 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 describe("credentials routes", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		vi.stubEnv("HYPERIDLE_SERVER_SECRET", TEST_SERVER_SECRET);
+		// AH1: Fixed bug — was HYPERIDLE_SERVER_SECRET (wrong), correct var is HYPERIDLE_CREDENTIAL_KEY.
+		vi.stubEnv("HYPERIDLE_CREDENTIAL_KEY", TEST_SERVER_SECRET);
 	});
 
 	afterEach(() => {

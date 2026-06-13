@@ -116,7 +116,7 @@ test.describe("AH1 AC1 — onboarding key visible in Settings Credentials", () =
 		await page.goto("/setup");
 
 		// Step 2: Fill name and API key.
-		await page.getByLabel(/^name/i).fill("AH1 Founder");
+		await page.getByLabel(/your name/i).fill("AH1 Founder");
 		await page.getByLabel(/anthropic api key/i).fill(TEST_ANTHROPIC_KEY);
 
 		// Step 3: Submit setup form.
@@ -137,12 +137,9 @@ test.describe("AH1 AC1 — onboarding key visible in Settings Credentials", () =
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
 
-		// Open Settings.
-		await page.getByRole("button", { name: /^user profile$/i }).click();
-		await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
-
-		// Navigate to Credentials tab.
-		await page.getByRole("tab", { name: /credentials/i }).click();
+		// Open Settings and navigate to Credentials section.
+		await page.getByTestId("sidebar-avatar-btn").click();
+		await page.getByTestId("settings-section-credentials").scrollIntoViewIfNeeded();
 
 		// Step 5: Assert Anthropic row shows set/valid state (not absent).
 		// The chip should show "Valid" or "Untested" (not "Not set" / absent).
@@ -162,7 +159,7 @@ test.describe("AH1 AC1 — onboarding key visible in Settings Credentials", () =
 	});
 
 	test("AC5: Settings Credentials tab shows exactly 4 credential slots", async ({ page }) => {
-		// Auth is present (not setup flow).
+		// Auth is present (not setup flow). Override beforeEach fresh-install mocks.
 		await page.route("**/api/auth/me", async (route) => {
 			await route.fulfill({
 				status: 200,
@@ -170,20 +167,34 @@ test.describe("AH1 AC1 — onboarding key visible in Settings Credentials", () =
 				body: JSON.stringify({ id: "u-ah1-test", name: "Test", avatarUrl: null }),
 			});
 		});
+		// beforeEach mocks teams as empty (fresh install). Override to return a team
+		// so the app shell renders instead of redirecting to setup.
+		await page.route("**/api/teams", async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					teams: [{ id: "t-ah1-test", name: "Test Team", phase: "build", active: true }],
+				}),
+			});
+		});
 
+		// Navigate directly to settings credentials section.
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
-		await page.getByRole("button", { name: /^user profile$/i }).click();
-		await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
-		await page.getByRole("tab", { name: /credentials/i }).click();
+		await page.getByTestId("sidebar-avatar-btn").click();
+		// Settings opens as a page; navigate to the credentials section via the settings nav.
+		await page.getByTestId("settings-section-credentials").scrollIntoViewIfNeeded();
+		await expect(page.getByTestId("settings-section-credentials")).toBeVisible({ timeout: 10_000 });
 
-		// Fails today: CredentialsTab shows 3 rows (catalog has 3 names).
-		// After AH1, 4 rows must be visible.
+		// AH1: CredentialsTab now shows 4 rows (openai_compatible_api_key promoted to catalog).
+		// Rows render from CREDENTIAL_CATALOG even when GET /api/credentials fails (graceful fallback).
 		const credentialRows = page.getByTestId(/credential-row-/);
 		await expect(credentialRows).toHaveCount(4, { timeout: 10_000 });
 	});
 
 	test("AC5: Settings Credentials tab shows openai-compatible slot", async ({ page }) => {
+		// Override beforeEach fresh-install mocks for this settings-view test.
 		await page.route("**/api/auth/me", async (route) => {
 			await route.fulfill({
 				status: 200,
@@ -191,14 +202,23 @@ test.describe("AH1 AC1 — onboarding key visible in Settings Credentials", () =
 				body: JSON.stringify({ id: "u-ah1-test", name: "Test", avatarUrl: null }),
 			});
 		});
+		await page.route("**/api/teams", async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					teams: [{ id: "t-ah1-test", name: "Test Team", phase: "build", active: true }],
+				}),
+			});
+		});
 
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
-		await page.getByRole("button", { name: /^user profile$/i }).click();
-		await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
-		await page.getByRole("tab", { name: /credentials/i }).click();
+		await page.getByTestId("sidebar-avatar-btn").click();
+		await page.getByTestId("settings-section-credentials").scrollIntoViewIfNeeded();
+		await expect(page.getByTestId("settings-section-credentials")).toBeVisible({ timeout: 10_000 });
 
-		// Fails today: no openai_compatible_api_key row in CredentialsTab.
+		// AH1: openai_compatible_api_key promoted from server_config blob to catalog.
 		const openaiRow = page.getByTestId("credential-row-openai_compatible_api_key");
 		await expect(openaiRow).toBeVisible({ timeout: 10_000 });
 	});

@@ -92,7 +92,48 @@ export function decryptCredentialValue(encrypted: string, serverSecret: string):
  * Get the server secret from env vars.
  * HYPERIDLE_CREDENTIAL_KEY takes priority (operator override for key rotation).
  * Falls back to HYPERIDLE_API_KEY (root of trust).
+ *
+ * @lore AH1 §6: Returns null (not empty string) when both vars are absent/empty.
+ * Callers on the READ path (resolvers, DB read) use this and tolerate null — they
+ * surface MissingCredentialError downstream. The WRITE/VALIDATE boundaries use
+ * requireServerSecret() which throws MISSING_ROOT_SECRET. This separation is what
+ * makes boot non-fatal while writes fail loudly.
  */
-export function getServerSecret(): string {
-	return process.env.HYPERIDLE_CREDENTIAL_KEY ?? process.env.HYPERIDLE_API_KEY ?? "";
+export function getServerSecret(): string | null {
+	// HYPERIDLE_CREDENTIAL_KEY takes priority.
+	// @lore AH1 §6: If HYPERIDLE_CREDENTIAL_KEY is explicitly set (even to ""),
+	// we do NOT fall back to HYPERIDLE_API_KEY. An empty CREDENTIAL_KEY means "no
+	// encryption key configured" — a deliberate operator choice to separate auth
+	// key from credential encryption key. Only when CREDENTIAL_KEY is entirely
+	// absent (undefined) do we fall back to HYPERIDLE_API_KEY (legacy single-key
+	// deployments where HYPERIDLE_API_KEY served both purposes).
+	if (process.env.HYPERIDLE_CREDENTIAL_KEY !== undefined) {
+		const credKey = process.env.HYPERIDLE_CREDENTIAL_KEY;
+		return credKey !== "" ? credKey : null;
+	}
+	// HYPERIDLE_CREDENTIAL_KEY is unset → fall back to HYPERIDLE_API_KEY.
+	const apiKey = process.env.HYPERIDLE_API_KEY;
+	if (apiKey !== undefined && apiKey !== "") return apiKey;
+	return null;
+}
+
+/**
+ * Require the server secret, throwing if absent.
+ * Used at credential WRITE and VALIDATE boundaries — fail loud.
+ *
+ * @lore AH1 §6: This is the fail-loud gate. Never call encryptCredentialValue or
+ * decryptCredentialValue without a real non-empty secret. Boot uses getServerSecret()
+ * (nullable, non-fatal); write/validate boundaries use requireServerSecret() (throws).
+ * @throws {Error & { code: "MISSING_ROOT_SECRET" }} when no secret is configured.
+ */
+export function requireServerSecret(): string {
+	const secret = getServerSecret();
+	if (!secret) {
+		const err = new Error(
+			"No encryption secret configured. Set HYPERIDLE_CREDENTIAL_KEY or HYPERIDLE_API_KEY.",
+		) as Error & { code: string };
+		err.code = "MISSING_ROOT_SECRET";
+		throw err;
+	}
+	return secret;
 }

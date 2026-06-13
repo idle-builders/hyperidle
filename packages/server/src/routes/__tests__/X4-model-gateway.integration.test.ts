@@ -156,17 +156,18 @@ describe("X4: resolveModelTier — openrouter provider", () => {
 });
 
 describe("X4: resolveModelTier — openai-compatible provider", () => {
-	test("returns correct ResolvedModel with custom base URL and apiKey", async ({}) => {
+	test("AH1: returns correct ResolvedModel with custom base URL — key comes from resolver", async ({}) => {
+		// AH1 §2: apiKey no longer in tier config. It's resolved from server_credentials
+		// via the credential resolver. Pass it via the resolver.
 		const config = {
 			...DEFAULT_GATEWAY_CONFIG,
 			fast: {
 				provider: "openai-compatible" as const,
 				model: "gemma-3",
 				baseUrl: "https://api.together.xyz/v1",
-				apiKey: "together-key-abc",
 			},
 		};
-		const resolver = makeResolver({});
+		const resolver = makeResolver({ openai_compatible_api_key: "together-key-abc" });
 
 		const result = await resolveModelTier("fast", config, resolver);
 
@@ -176,17 +177,17 @@ describe("X4: resolveModelTier — openai-compatible provider", () => {
 		expect(result.baseUrl).toBe("https://api.together.xyz/v1");
 	});
 
-	test("throws when openai-compatible has no apiKey (A-ERR-1)", async ({}) => {
+	test("AH1: throws MissingCredentialError when openai_compatible_api_key not in resolver (A-ERR-1)", async ({}) => {
+		// AH1 §2: key comes from resolver, not tier config. No key in resolver = MissingCredentialError.
 		const config = {
 			...DEFAULT_GATEWAY_CONFIG,
 			fast: {
 				provider: "openai-compatible" as const,
 				model: "gemma-3",
 				baseUrl: "https://api.together.xyz/v1",
-				// no apiKey
 			},
 		};
-		const resolver = makeResolver({});
+		const resolver = makeResolver({}); // no openai_compatible_api_key
 
 		await expect(resolveModelTier("fast", config, resolver)).rejects.toThrow(
 			MissingCredentialError,
@@ -199,11 +200,10 @@ describe("X4: resolveModelTier — openai-compatible provider", () => {
 			fast: {
 				provider: "openai-compatible" as const,
 				model: "gemma-3",
-				apiKey: "some-key",
 				// no baseUrl
 			},
 		};
-		const resolver = makeResolver({});
+		const resolver = makeResolver({ openai_compatible_api_key: "some-key" });
 
 		await expect(resolveModelTier("fast", config, resolver)).rejects.toThrow(/baseUrl/i);
 	});
@@ -264,10 +264,12 @@ describe("X4: GET /api/model-gateway", () => {
 		expect(body.fast.model).toBe("claude-haiku-4-5"); // AH2: drift-catch
 	});
 
-	test("strips apiKey from openai-compatible provider — returns hasApiKey: true instead (A-SEC-2)", async ({
+	test("AH1: apiKey never in GET response — hasApiKey always false (key now in server_credentials)", async ({
 		app,
 	}) => {
-		// First patch to set openai-compatible config with an apiKey
+		// AH1 §2: apiKey is no longer stored in the tier config blob.
+		// hasApiKey is always false in the model-gateway GET response.
+		// The real state is in GET /api/credentials (credential store).
 		await app.request("/api/model-gateway", {
 			method: "PATCH",
 			headers: authHeaders(),
@@ -278,7 +280,7 @@ describe("X4: GET /api/model-gateway", () => {
 					provider: "openai-compatible",
 					model: "gemma-3",
 					baseUrl: "https://api.together.xyz/v1",
-					apiKey: "secret-key-should-not-return",
+					// apiKey is ignored (schema strips it); key goes to PUT /api/credentials/openai_compatible_api_key
 				},
 			}),
 		});
@@ -289,10 +291,10 @@ describe("X4: GET /api/model-gateway", () => {
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as GatewayBody;
-		// apiKey must NOT be returned
+		// apiKey must NOT be returned (never was, never will be)
 		expect(body.fast.apiKey).toBeUndefined();
-		// hasApiKey must be true (key is present)
-		expect(body.fast.hasApiKey).toBe(true);
+		// AH1: hasApiKey is always false — key presence is in GET /api/credentials
+		expect(body.fast.hasApiKey).toBe(false);
 	});
 
 	test("returns hasApiKey: false when openai-compatible has no apiKey", async ({ app }) => {
@@ -431,7 +433,12 @@ describe("X4: PATCH /api/model-gateway", () => {
 		expect(res.status).toBe(400);
 	});
 
-	test("PATCH response strips apiKey and returns saved config (A-SEC-2)", async ({ app }) => {
+	test("AH1: PATCH response never includes apiKey — hasApiKey always false (key in server_credentials)", async ({
+		app,
+	}) => {
+		// AH1 §2: apiKey removed from ModelTierConfig. The PATCH body's apiKey field
+		// is accepted by the validation schema (for backward compat) but ignored — the
+		// schema strips unknown fields and the tier config has no apiKey member.
 		const res = await app.request("/api/model-gateway", {
 			method: "PATCH",
 			headers: authHeaders(),
@@ -442,7 +449,7 @@ describe("X4: PATCH /api/model-gateway", () => {
 					provider: "openai-compatible",
 					model: "gemma-3",
 					baseUrl: "https://api.together.xyz/v1",
-					apiKey: "sensitive-key",
+					// apiKey is accepted but ignored by AH1 (no longer stored in tier config)
 				},
 			}),
 		});
@@ -450,7 +457,8 @@ describe("X4: PATCH /api/model-gateway", () => {
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as GatewayBody;
 		expect(body.fast.apiKey).toBeUndefined();
-		expect(body.fast.hasApiKey).toBe(true);
+		// AH1: key is in server_credentials, not tier config — hasApiKey is always false here
+		expect(body.fast.hasApiKey).toBe(false);
 	});
 
 	test("accepts openai-compatible with apiKey and baseUrl", async ({ app }) => {
