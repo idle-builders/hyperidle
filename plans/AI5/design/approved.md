@@ -47,7 +47,7 @@ A single `compact?: boolean` (default `false`). When `true`:
 | Title | 20px/600 | 15px/600 |
 | Description | 15px, `mb-[18px]` | 13px, `mb-[12px]` |
 | Action (EmptyState) | pill button | unchanged, but `mb` tightened |
-| Retry (ErrorState) | full pill (`px-[18px] py-[10px]`) | smaller pill (`px-[12px] py-[7px]`), still ≥44px target via min-height |
+| Retry (ErrorState) | full pill (`px-[18px] py-[10px]`) | smaller pill (`px-[12px] py-[7px]`), `min-h-[44px] xl:min-h-[30px]` (44px touch floor ≤1024px, dense inline ≥1280px — see touch note) |
 | `role` | `status` / `alert` | unchanged |
 | Alignment | `text-left` | `text-left` |
 
@@ -55,7 +55,7 @@ A single `compact?: boolean` (default `false`). When `true`:
 
 **Rejected:** dropping the icon entirely in compact with no opt-in — `ErrorState` benefits from a 16px inline warning glyph for scannability; allow an optional inline icon but never the 48px block.
 
-**Touch-target note (AQ-015):** compact retry button keeps `min-h-[44px]` at ≤1024px even though its visual padding is `py-[7px]` (same exemption pattern as the existing button — `// hearth-internal-padding`). The visible chrome stays compact; the hit area meets 44px.
+**Touch-target note (AQ-015) — same mechanism as ScopePicker:** the compact retry button uses `min-h-[44px] xl:min-h-[30px]` (not a bare `min-h-[44px]`). At ≤1024px the 44px floor satisfies the K8 gate; at `xl:` (≥1280px) it returns to its natural ~30px compact height so it reads as an *inline* control inside the 18px-padded panel, not a floating slab. Visual padding stays `py-[7px]` (`// hearth-internal-padding`). This mirrors `Select.tsx:44` `@lore AG5 fix-1` — chosen over a `::after` overlay because the K8 gate measures the live bounding box at a fine-pointer 1024px viewport.
 
 ### States covered
 
@@ -72,21 +72,30 @@ A single `compact?: boolean` (default `false`). When `true`:
 
 ### The problem (grounded)
 
-The scope picker renders **two different shapes** across the 4 sites today, which is itself the inconsistency:
+The scope picker renders **two different shapes** across the 4 sites today, which is itself the inconsistency. **Re-verified against the tree (CC-007 correction): the split is 3 pill rows + 1 Select, NOT 2 + 2.**
 
-1. **Inline pill row** — `KnowledgeList.tsx:600` (filter: All / Shared / Team / Private) and `KnowledgeCreate.tsx:220` (create radiogroup: Shared / Team / Private). Both hardcode active tint `bg-[rgba(22,118,79,0.08)]` (= `--accent-primary-dim`), border `1.5px accent`, `px-[12px] py-[4px]`, `r-pill`, 12px/500.
-2. **Dialog `Select` dropdown** — `ScopeChangeDialog.tsx:162` and `KnowledgeCreateDialog.tsx` use DaisyUI `<Select>` instead of pills.
+1. **Inline pill row (3 sites)** — `KnowledgeList:599` (filter: All / Shared / Team / Private), `KnowledgeCreate:220` (create: Shared / Team / Private), and **`KnowledgeCreateDialog:192` (create: Shared / Team / Private) — already a hand-rolled pill `radiogroup`, NOT a Select**. All three hardcode active tint `bg-[rgba(22,118,79,0.08)]` (= `--accent-primary-dim`), border `1.5px accent`, `px-[12px] py-[4px]`, `r-pill`, 12px/500, and carry `data-active` + `aria-checked`.
+2. **Dialog `Select` dropdown (1 site)** — only `ScopeChangeDialog:162` uses DaisyUI `<Select>`.
 
-AC: "The knowledge scope picker is one implementation rendered in all four locations… all four pixel-identical in chrome." So the **pill group is the canonical anatomy**; the two dialog Selects migrate to the pill group too.
+AC: "The knowledge scope picker is one implementation rendered in all four locations… all four pixel-identical in chrome." So the **pill group is the canonical anatomy**: the 3 hand-rolled pill rows consolidate into ScopePicker (also killing 3 tint literals), and the 1 Select migrates to the pill group too.
 
 ### Approved anatomy — `ScopePicker` (DS Tier-1 primitive)
 
-A horizontal pill group. Active pill = `--accent-primary-dim` background + `1.5px --accent-primary` border + `--accent-primary` text. Inactive = transparent + `1.5px --border-default` + `--text-secondary`. Disabled = inactive + `opacity-40` + `cursor-not-allowed`. Pills: `px-[12px] py-[4px]`, `r-pill`, 12px/500, gap `6px`, `flex-wrap`.
+A horizontal pill group. States (now complete — **focus added**):
+
+| State | Treatment |
+|---|---|
+| Active | `--accent-primary-dim` bg + `1.5px --accent-primary` border + `--accent-primary` text |
+| Inactive | transparent bg + `1.5px --border-default` border + `--text-secondary` text |
+| Disabled | inactive + `opacity-40` + `cursor-not-allowed` + `aria-disabled` |
+| **Focus** | `focus-visible` 2px outset ring on `--accent-primary`, `outline-offset-[2px]` (Button/`clickable.ts` convention). The hand-rolled pills ship no focus ring today — migration MUST add it (fixes a latent a11y defect; do NOT carry `outline:none` forward). |
+
+Pills: `px-[12px] py-[4px]`, `r-pill`, 12px/500, gap `6px`, `flex-wrap`.
 
 **Two modes (one component, parameter not fork):**
 
-- `mode="select"` (default) — `role="radiogroup"`; single active option; `aria-checked` per pill; used by KnowledgeCreate, KnowledgeCreateDialog, ScopeChangeDialog.
-- `mode="filter"` — same `role="radiogroup"`; supports a null/"All" selection (All pill present, active when value is null); used by KnowledgeList.
+- `mode="select"` (default) — `role="radiogroup"`; single active option; `aria-checked` per pill; used by KnowledgeCreate, KnowledgeCreateDialog, ScopeChangeDialog (3 of 4 sites).
+- `mode="filter"` — same `role="radiogroup"`; supports a null/"All" selection (All pill present, active when value is null); used by KnowledgeList (1 site).
 
 **Props contract (design level — architecture finalizes types):**
 
@@ -97,10 +106,20 @@ A horizontal pill group. Active pill = `--accent-primary-dim` background + `1.5p
 | `onChange(id)` | selection callback |
 | `mode` | `"select" \| "filter"` |
 | `ariaLabel` | radiogroup label ("Scope" / "Filter by scope") |
-| `disabledTitle?` | tooltip for disabled pills (e.g. "Join a team to use team-scoped knowledge") |
-| `dataTestId?` | passthrough; per-pill testid derives as `scope-pill-{id}` (filter) / `scope-pill-create-{id}` (select) to keep existing E2E selectors green |
+| `disabledTitle?` | tooltip for disabled pills (single string — closure: only "team" is ever disabled, one reason; a future per-option-reason caller would need a richer prop, noted so no one assumes per-option today) |
+| `testIdPrefix` (required) | per-pill testid = `${testIdPrefix}-${id}`; one of the 4 mapped prefixes below |
+| `dataTestId?` | container testid passthrough (e.g. `knowledge-scope-pills`) |
 
-**Critical: preserve existing data-testids.** KnowledgeList tests target `scope-pill-{id}` + `knowledge-scope-pills`; KnowledgeCreate targets `scope-pill-create-{id}`. The component must emit the right prefix per call site (pass via a `testIdPrefix` prop or `dataTestId` + derived suffix) so no behavioral test breaks. Architecture pins the exact prop.
+**Critical: preserve existing data-testids — all 4 prefixes (re-verified in tree).** The earlier draft enumerated only 2 prefixes; the tree has 3 existing + 1 site with none:
+
+| Call site | `testIdPrefix` | tests asserting it |
+|---|---|---|
+| `KnowledgeList:599` (filter) | `scope-pill` | `U9-knowledge-scope-pills`, `AD6-knowledge-simplification`, `W3-knowledge` |
+| `KnowledgeCreate:220` | `scope-pill-create` | `KnowledgeCreate.af13`, `AD6-knowledge-simplification` |
+| `KnowledgeCreateDialog:192` | `scope-pill-dialog` | `AD3-KnowledgeCreateDialog-scope` |
+| `ScopeChangeDialog:162` (was Select) | `scope-pill-change` (NEW) | none today; red-phase adds one |
+
+ScopePicker MUST also emit `data-active={isActive}` per pill — `AD6-knowledge-simplification` asserts it. Architecture pins the exact prop + the per-site mapping.
 
 **The locked-scope case** (KnowledgeCreateDialog `lockedScopeKind`) does **not** render ScopePicker — it renders a read-only `Tag` (already the behavior). ScopePicker is only for the choosable case. Do not fold locked-display into the picker.
 
@@ -108,18 +127,24 @@ A horizontal pill group. Active pill = `--accent-primary-dim` background + `1.5p
 
 All four sites currently hardcode `rgba(22,118,79,0.08)`. ScopePicker uses `--accent-primary-dim` (the token that already names that value). The hardcoded literal disappears from every call site.
 
-### Touch targets (AQ-015)
+### Touch targets (AQ-015) — mechanism SHOWN, not just asserted
 
-Current pills are `py-[4px]` → ~24px tall. At ≤1024px each pill must reach ≥44px hit area. Approved: pills keep `py-[4px]` visual but gain `min-h-[44px]` at the mobile breakpoint (or wrap hit area), same pattern as other touched controls. Architecture specifies the responsive class.
+Current pills are `py-[4px]` → ~24px tall. The design critique correctly flagged that a bare `min-h-[44px]` would make a 44px-tall lozenge at all widths — breaking the dense row AND AC4's "all four pixel-identical in chrome" (desktop would diverge from mobile).
+
+**Approved mechanism (verified against the canonical Hearth pattern, `Select.tsx:44` `@lore AG5 fix-1`):** `min-h-[44px] xl:min-h-[24px]`.
+- The 44px floor holds at every viewport **up to and including 1024px** — which is exactly where the AQ-015 K8 e2e gate (`packages/web/e2e/touch-targets.spec.ts`) measures `getBoundingClientRect()`. (Tailwind `lg:` = `min-width:1024px` applies AT 1024 and would prematurely shrink the pill, so the override uses `xl:` = 1280px+.)
+- At `xl:` (desktop ≥1280px) the pill returns to its dense 24px height → the filter row (KnowledgeList, in a `pt-[12px]` header) and the create rows render identically dense, and all four ScopePicker sites are pixel-identical at the same breakpoint.
+
+**Why not `[@media(pointer:coarse)]` or a `::before` overlay:** the K8 gate runs at viewport 1024px with a *fine* pointer (Playwright Chromium default), so a coarse-pointer query would not satisfy it; a pseudo-element overlay is harder to prove via `getBoundingClientRect()`. The viewport `xl:` override is the proven, gate-passing approach already shipped by `Select`/`Composer`/`BlockHandle`.
 
 ### Stories
 
-New `ScopePicker.stories.tsx`: `FilterMode` (with All), `SelectMode`, `WithDisabledOption` (Team disabled, tooltip), `MobileTouchTarget` (≤1024px frame).
+New `ScopePicker.stories.tsx`: `FilterMode` (with All), `SelectMode`, `WithDisabledOption` (Team disabled, tooltip), `Focused` (focus ring visible — regression-checks the new focus state), `MobileTouchTarget` (1024px frame, 44px verified; render an xl frame too to show the dense desktop height).
 
 ---
 
-## Open questions for architecture
+## Open questions for architecture — RESOLVED (round 1)
 
-1. **Single-bar Skeleton** — `BlockRefEmbed` needs one 32px bar; DS exports only `SkeletonList`/`SkeletonCard`. Decide: export a `Skeleton` single-bar primitive (cleanest — `ArtifactThreadsSummary` header bar also wants it), or use `SkeletonList rows={1}` with a height override. Recommend exporting `Skeleton` (one shape, two existing callers).
-2. **ScopePicker testid strategy** — exact prop to keep `scope-pill-{id}` vs `scope-pill-create-{id}` selectors green.
-3. **Compact retry hit-area** — confirm `min-h-[44px]` on the compact retry meets AQ-015 lint without tripping off-grid padding rules.
+1. **Single-bar Skeleton** — RESOLVED: export a `Skeleton` single-bar primitive (cleanest — `ArtifactThreadsSummary` + `BlockRefEmbed` both want it). Architecture E1.
+2. **ScopePicker testid strategy** — RESOLVED: required `testIdPrefix` prop; 4-site mapping pinned (`scope-pill` / `scope-pill-create` / `scope-pill-dialog` / `scope-pill-change`) + `data-active` preserved. See §props table + architecture E4.
+3. **Compact retry hit-area** — RESOLVED: `min-h-[44px] xl:min-h-[30px]` (viewport-scoped, not bare min-h; not a pseudo-overlay). Same mechanism as ScopePicker pills. `py-[7px]` is `// hearth-internal-padding` exempt, so no off-grid lint trip. See touch-target note.
