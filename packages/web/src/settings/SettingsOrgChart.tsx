@@ -32,6 +32,8 @@
  */
 
 // hearth-internal-padding
+import { Select } from "@hyperidle/design-system";
+import type React from "react";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 import { useToast } from "../shell/ToastRegion.js";
@@ -66,19 +68,6 @@ interface OrgData {
 }
 
 const MECHANISMS: OrgEdgeMechanism[] = ["direct", "function", "team"];
-
-/** Shared Hearth token styling for form selects */
-const selectStyle: React.CSSProperties = {
-	fontFamily: "var(--font-sans)",
-	fontSize: "15px",
-	padding: "10px 12px",
-	border: "1.5px solid var(--border-default)",
-	borderRadius: "var(--r-default)",
-	background: "var(--surface-elevated)",
-	color: "var(--text-primary)",
-	outline: "none",
-	width: "100%",
-};
 
 /** Shared Hearth token styling for form inputs */
 const inputStyle: React.CSSProperties = {
@@ -355,21 +344,15 @@ function AddEdgeForm({
 					>
 						From
 					</label>
-					<select
+					<Select
 						id="org-from"
-						style={selectStyle}
 						value={fromUserId}
 						onChange={(e) => onFromChange(e.target.value)}
 						aria-label="From user"
 						disabled={adding}
-					>
-						<option value="">Select user…</option>
-						{users.map((u) => (
-							<option key={u.id} value={u.id}>
-								{u.name}
-							</option>
-						))}
-					</select>
+						placeholder="Select user…"
+						options={users.map((u) => ({ value: u.id, label: u.name }))}
+					/>
 				</div>
 
 				{/* Mechanism */}
@@ -380,20 +363,14 @@ function AddEdgeForm({
 					>
 						Mechanism
 					</label>
-					<select
+					<Select
 						id="org-mechanism"
-						style={selectStyle}
 						value={mechanism}
 						onChange={(e) => onMechanismChange(e.target.value as OrgEdgeMechanism)}
 						aria-label="Mechanism"
 						disabled={adding}
-					>
-						{MECHANISMS.map((m) => (
-							<option key={m} value={m}>
-								{m}
-							</option>
-						))}
-					</select>
+						options={MECHANISMS.map((m) => ({ value: m, label: m }))}
+					/>
 				</div>
 
 				{/* Target — context-aware by mechanism */}
@@ -405,21 +382,15 @@ function AddEdgeForm({
 						Target
 					</label>
 					{mechanism === "direct" ? (
-						<select
+						<Select
 							id="org-target"
-							style={selectStyle}
 							value={target}
 							onChange={(e) => onTargetChange(e.target.value)}
 							aria-label="Target user"
 							disabled={adding}
-						>
-							<option value="">Select user…</option>
-							{users.map((u) => (
-								<option key={u.id} value={u.id}>
-									{u.name}
-								</option>
-							))}
-						</select>
+							placeholder="Select user…"
+							options={users.map((u) => ({ value: u.id, label: u.name }))}
+						/>
 					) : mechanism === "team" ? (
 						/* AF15: Team select from real teams (teamMembers joined to teams.name).
 						 * value=team.id (teamMembers.id — what server validates for mechanism:"team").
@@ -427,30 +398,28 @@ function AddEdgeForm({
 						 * Empty state: disabled option pointing to function mechanism or Setup.
 						 * @lore AF15: The old deriveTeams() derived from existing edges — circular.
 						 * Now sourced from GET /api/org `teams` array. */
-						<select
+						<Select
 							id="org-target"
-							style={selectStyle}
 							value={target}
 							onChange={(e) => onTargetChange(e.target.value)}
 							aria-label="Target team"
 							disabled={adding}
-						>
-							{teams.length === 0 ? (
-								<option value="" disabled>
-									No teams yet — use a Function relationship instead, or run Setup to create your
-									first team.
-								</option>
-							) : (
-								<>
-									<option value="">Select team…</option>
-									{teams.map((t) => (
-										<option key={t.id} value={t.id}>
-											{t.name}
-										</option>
-									))}
-								</>
-							)}
-						</select>
+							options={
+								teams.length === 0
+									? [
+											{
+												value: "",
+												label:
+													"No teams yet — use a Function relationship instead, or run Setup to create your first team.",
+												disabled: true,
+											},
+										]
+									: [
+											{ value: "", label: "Select team…" },
+											...teams.map((t) => ({ value: t.id, label: t.name })),
+										]
+							}
+						/>
 					) : (
 						/* mechanism === "function": free-text input */
 						<input

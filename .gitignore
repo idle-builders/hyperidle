@@ -46,3 +46,7 @@ scripts/demo-fixture-guard.js
 scripts/demo-fixture-guard.js.map
 scripts/demo-fixture-guard.d.ts
 scripts/demo-fixture-guard.d.ts.map
+scripts/token-resolution-guard.js
+scripts/token-resolution-guard.js.map
+scripts/token-resolution-guard.d.ts
+scripts/token-resolution-guard.d.ts.map

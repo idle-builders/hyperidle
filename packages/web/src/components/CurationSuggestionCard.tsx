@@ -25,7 +25,7 @@ export function CurationSuggestionCard({
 }: CurationSuggestionCardProps): JSX.Element {
 	return (
 		<div
-			className="flex items-start gap-3 px-3 py-2 border border-[var(--border-emphasis)] bg-[var(--primary-dim)] rounded-lg"
+			className="flex items-start gap-3 px-3 py-2 border border-[var(--border-strong)] bg-[var(--accent-primary-dim)] rounded-lg"
 			data-testid="curation-suggestion-card"
 			role="group"
 			aria-label="Curation suggestion"
