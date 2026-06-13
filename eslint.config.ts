@@ -484,4 +484,78 @@ export default [
 			],
 		},
 	},
+
+	// AI3 — One-clock static gate (AC-2/AC-5).
+	//
+	// Bans two categories of local timestamp formatting in packages/web/src + packages/design-system/src:
+	//
+	// 1. toLocale* calls on a Date receiver (new Date(...).toLocale*)
+	//    Selector is pinned to the inline `new Date(…).toLocale*` construction to avoid
+	//    false-positives on Number.prototype.toLocaleString (number formatting) and on the
+	//    six exempt ms-arithmetic sites (sort comparators, window checks, UI timers, ID gen).
+	//    The six exempt sites use Date.now()/getTime() for computation, not for rendering via
+	//    toLocale* — they are NOT in scope of this rule.
+	//    Allow-list: packages/shared/src/format/time.ts is the one permitted formatting module.
+	//
+	// 2. Imports of the deleted utils/format-time or utils/relative-time paths (dead-import ban).
+	//    Prevents resurrection of the deleted files under any import depth.
+	//
+	// @lore AI3: The arithmetic half of AC-2 ("no surface computes time for display locally")
+	// is NOT statically expressible — Date-diff arithmetic and sort/group/timer arithmetic
+	// share the same AST. The ban covers only what is architecturally distinguishable:
+	// toLocale* rendering on a Date receiver. See plans/AI3/architecture.md §"AC-2/AC-5 static gate (split)".
+	{
+		files: ["packages/web/src/**/*.{ts,tsx}", "packages/design-system/src/**/*.{ts,tsx}"],
+		ignores: [
+			// The one module permitted to call toLocale* for formatting
+			"packages/shared/src/format/time.ts",
+			// Stories and tests are exempt from the display-formatting gate
+			"packages/web/src/**/*.stories.tsx",
+			"packages/web/src/**/__tests__/**",
+			"packages/web/src/**/*.test.{ts,tsx}",
+			"packages/web/src/**/*.spec.{ts,tsx}",
+			"packages/design-system/src/**/*.stories.tsx",
+			"packages/design-system/src/**/__tests__/**",
+			"packages/design-system/src/**/*.test.{ts,tsx}",
+		],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				ecmaFeatures: { jsx: true },
+			},
+		},
+		rules: {
+			// Dead-import ban: the deleted file names must not resurrect
+			"no-restricted-imports": [
+				"error",
+				{
+					patterns: [
+						{
+							group: ["**/utils/format-time", "**/utils/format-time/**"],
+							message:
+								"AI3: utils/format-time is deleted. Use relativeShort/relativeLong/absoluteDate/absoluteDateTime/clockTime from @hyperidle/shared.",
+						},
+						{
+							group: ["**/utils/relative-time", "**/utils/relative-time/**"],
+							message:
+								"AI3: utils/relative-time is deleted. Use relativeShort/relativeLong from @hyperidle/shared.",
+						},
+					],
+				},
+			],
+			// toLocale* on inline new Date(...) receiver — display formatting ban.
+			// Pinned to CallExpression with MemberExpression callee whose object is
+			// a NewExpression constructing Date. This avoids false-positives on
+			// Number.toLocaleString and on bare Date.now()/getTime() arithmetic.
+			"no-restricted-syntax": [
+				"error",
+				{
+					selector:
+						"CallExpression[callee.type='MemberExpression'][callee.property.name=/^(toLocaleDateString|toLocaleTimeString|toLocaleString)$/][callee.object.type='NewExpression'][callee.object.callee.name='Date']",
+					message:
+						"AI3: Use the shared time formatter (relativeShort/relativeLong/absoluteDate/absoluteDateTime/clockTime from @hyperidle/shared) instead of new Date(...).toLocale*(). AC-2 one-clock gate.",
+				},
+			],
+		},
+	},
 ];

@@ -17,27 +17,13 @@
  */
 
 import { ErrorState } from "@hyperidle/design-system";
+import { relativeShort } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { Link } from "react-router-dom";
 import { useArtifactThreadSummary } from "../hooks/useArtifactThreadSummary.js";
 
 export interface ArtifactThreadsSummaryProps {
 	betId: string;
-}
-
-/**
- * Format a relative time string for display. Returns a simple relative label.
- * @lore L18: No date library is used — we derive a simple relative approximation.
- */
-function relativeTime(isoString: string): string {
-	const diff = Date.now() - new Date(isoString).getTime();
-	const minutes = Math.floor(diff / 60_000);
-	if (minutes < 1) return "just now";
-	if (minutes < 60) return `${minutes}m ago`;
-	const hours = Math.floor(minutes / 60);
-	if (hours < 24) return `${hours}h ago`;
-	const days = Math.floor(hours / 24);
-	return `${days}d ago`;
 }
 
 export function ArtifactThreadsSummary({ betId }: ArtifactThreadsSummaryProps): JSX.Element | null {
@@ -110,7 +96,7 @@ export function ArtifactThreadsSummary({ betId }: ArtifactThreadsSummaryProps): 
 										{summary.artifactTitle}
 									</span>
 									<div className="flex items-center gap-2 shrink-0 text-xs text-[var(--text-tertiary)]">
-										{summary.lastMessageAt && <span>{relativeTime(summary.lastMessageAt)}</span>}
+										{summary.lastMessageAt && <span>{relativeShort(summary.lastMessageAt)}</span>}
 										<span>{summary.messageCount}</span>
 									</div>
 								</div>
