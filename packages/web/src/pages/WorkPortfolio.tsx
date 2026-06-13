@@ -30,7 +30,7 @@
  */
 
 // hearth-internal-padding
-import { BetCard, EmptyState, SkeletonCard } from "@hyperidle/design-system";
+import { BetCard, Button, EmptyState, SkeletonCard } from "@hyperidle/design-system";
 import { BET_OUTCOME_VERDICTS, formatMoney } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
@@ -241,14 +241,15 @@ export function WorkPortfolio(): JSX.Element {
 					)}
 
 					{/* "New bet" button — ALWAYS present (frame invariant, AG2 AC-4) */}
-					<button
-						type="button"
-						className="btn btn-sm btn-primary ml-auto"
+					<Button
+						variant="primary"
+						size="sm"
+						className="ml-auto"
 						onClick={() => setDialogOpen(true)}
 						data-testid="new-bet-btn"
 					>
 						New bet
-					</button>
+					</Button>
 				</div>
 
 				{/*
@@ -405,13 +406,9 @@ export function WorkPortfolio(): JSX.Element {
 								 * word breaks adjacency). R2-work-first-landing.spec.ts asserts this selector.
 								 */
 								<div data-testid="create-bet-cta">
-									<button
-										type="button"
-										className="btn btn-sm btn-primary"
-										onClick={() => setDialogOpen(true)}
-									>
+									<Button variant="primary" size="sm" onClick={() => setDialogOpen(true)}>
 										Create bet
-									</button>
+									</Button>
 								</div>
 							}
 						/>
@@ -443,9 +440,9 @@ export function WorkPortfolio(): JSX.Element {
 							title="No bets match these filters"
 							description="Try adjusting or clearing your filters to see more bets."
 							action={
-								<button type="button" className="btn btn-sm btn-ghost" onClick={clearFilters}>
+								<Button variant="ghost" size="sm" onClick={clearFilters}>
 									Clear filters
-								</button>
+								</Button>
 							}
 						/>
 					</div>

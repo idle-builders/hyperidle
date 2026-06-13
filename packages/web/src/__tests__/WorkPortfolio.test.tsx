@@ -138,7 +138,9 @@ describe("WorkPortfolio", () => {
 			renderPage();
 			const btn = screen.getByTestId("new-bet-btn");
 			expect(btn).toBeInTheDocument();
-			expect(btn.className).toContain("btn-primary");
+			// AI5: migrated to shared <Button variant="primary"> — assert the canonical
+			// primary treatment (accent-primary surface), not the retired DaisyUI class.
+			expect(btn.className).toContain("bg-[var(--accent-primary)]");
 		});
 
 		it('renders "New bet" header button (new-bet-btn) even when NO bets exist (frame invariant)', () => {

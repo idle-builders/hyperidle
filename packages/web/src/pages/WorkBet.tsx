@@ -22,6 +22,7 @@ import {
 	Block,
 	BlockActionsPopover,
 	BodyEditor,
+	Button,
 	betOutcomeVerdictToStatus,
 	betStatusToStatus,
 	Dialog,
@@ -1047,13 +1048,9 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 
 					{/* Q2: Add knowledge button — opens KnowledgeCreateDialog with bet scope locked */}
 					<div className="flex items-center gap-2">
-						<button
-							type="button"
-							className="btn btn-xs btn-ghost"
-							onClick={() => setAddKnowledgeOpen(true)}
-						>
+						<Button variant="ghost" size="sm" onClick={() => setAddKnowledgeOpen(true)}>
 							Add knowledge
-						</button>
+						</Button>
 					</div>
 
 					{/* L14: Consequence preview dialog — kill */}
@@ -1285,14 +1282,14 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 										<div className="flex flex-col gap-[12px]">
 											{/* Draft with AI button */}
 											<div className="flex items-center gap-[9px]">
-												<button
-													type="button"
-													className="btn btn-xs btn-ghost border border-[var(--border-default)]"
+												<Button
+													variant="secondary"
+													size="sm"
 													disabled={retroDrafting}
 													onClick={() => void handleRetroDraft()}
 												>
 													{retroDrafting ? "Drafting…" : "Draft with AI"}
-												</button>
+												</Button>
 												{retroDraftError && (
 													<span className="text-[12px] text-[var(--status-error)]">
 														{retroDraftError}
@@ -1363,21 +1360,22 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 									)}
 									{/* Actions */}
 									<div className="flex gap-[9px] justify-end">
-										<button
-											type="button"
-											className="btn btn-xs btn-ghost"
+										<Button
+											variant="ghost"
+											size="sm"
 											disabled={outcomeSaving}
 											onClick={() => setOutcomeEditMode("view")}
 										>
 											Cancel
-										</button>
-										<button
+										</Button>
+										<Button
 											type="submit"
-											className="btn btn-xs btn-primary"
+											variant="primary"
+											size="sm"
 											disabled={!outcomeVerdictForm || outcomeSaving}
 										>
 											{outcomeSaving ? "Saving…" : "Save"}
-										</button>
+										</Button>
 									</div>
 								</form>
 							)}

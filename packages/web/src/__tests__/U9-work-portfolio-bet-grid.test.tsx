@@ -4,7 +4,7 @@
  * Verifies:
  * - AC-2: 2-column grid of BetCard components from /api/bets (all statuses)
  * - AC-2: Canvas team card grid removed
- * - AC-2: "New bet" button styled as btn-primary
+ * - AC-2: "New bet" button uses the shared primary Button treatment
  * - AC-3: Team pill filter bar shows "All teams" + one pill per team
  * - AC-3: Clicking a team pill filters bets
  * - AC-3: Active pill uses btn-primary, inactive btn-ghost
@@ -136,11 +136,13 @@ describe("U9 AC-2: WorkPortfolio bet grid", () => {
 		expect(screen.queryByTestId("canvas-board")).not.toBeInTheDocument();
 	});
 
-	it('"New bet" button uses btn-primary class', () => {
+	it('"New bet" button uses the shared primary Button treatment', () => {
 		renderPage();
 		const newBetBtn = screen.getByRole("button", { name: /new bet/i });
 		expect(newBetBtn).toBeInTheDocument();
-		expect(newBetBtn.className).toContain("btn-primary");
+		// AI5: migrated to shared <Button variant="primary"> — assert the canonical
+		// primary accent surface, not the retired DaisyUI btn-primary class.
+		expect(newBetBtn.className).toContain("bg-[var(--accent-primary)]");
 	});
 });
 

@@ -210,8 +210,8 @@ function makeSeedBetDetail() {
 // ── Proof directory (absolute path from the worktree root) ─────────────────
 // @lore AI3: Use import.meta.url + fileURLToPath because this spec runs as ESM
 // (Playwright transpiles .ts files). __dirname is not available in ESM scope.
-const SpecDir = path.dirname(fileURLToPath(import.meta.url));
-const PROOF_DIR = path.resolve(SpecDir, "../../../plans/AI3/proof");
+const _specDir = path.dirname(fileURLToPath(import.meta.url));
+const PROOF_DIR = path.resolve(_specDir, "../../../plans/AI3/proof");
 
 // ── AC-1: Same age → same label across ≥ 4 surfaces ───────────────────────
 

@@ -721,9 +721,10 @@ function AgentRow({
 			</span>
 
 			{/* Customize button — stopPropagation prevents row click */}
-			<button
-				type="button"
-				className="btn btn-ghost btn-xs shrink-0"
+			<Button
+				variant="ghost"
+				size="sm"
+				className="shrink-0"
 				onClick={(e) => {
 					e.stopPropagation();
 					onCustomize();
@@ -731,7 +732,7 @@ function AgentRow({
 				data-testid="agent-customize-btn"
 			>
 				Customize
-			</button>
+			</Button>
 		</div>
 	);
 }

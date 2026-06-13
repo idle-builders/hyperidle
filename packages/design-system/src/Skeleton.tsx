@@ -61,7 +61,16 @@ export function Skeleton({
 			role="status"
 			aria-label={ariaLabel}
 			data-testid={dataTestId ?? "skeleton"}
-			className={`${SKELETON_BAR} h-[${height}] w-[${width}] ${className}`}
+			/*
+			 * @lore AI5 review WARNING-1: dimensions go through inline `style`, not
+			 * interpolated `h-[${height}]`/`w-[${width}]` arbitrary Tailwind classes.
+			 * Tailwind's JIT only emits CSS for *literal* class strings it can scan;
+			 * a runtime-interpolated arbitrary value (e.g. width="50%") would render
+			 * a zero-dimension bar. Inline style matches Avatar/SearchField's pattern
+			 * for dynamic dims and delivers the arbitrary dims the prop API promises.
+			 */
+			style={{ width, height }}
+			className={`${SKELETON_BAR} ${className}`}
 		/>
 	);
 }

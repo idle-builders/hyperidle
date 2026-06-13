@@ -33,16 +33,18 @@ describe("Skeleton (single bar)", () => {
 
 	it("defaults to height 32px and width 100%", () => {
 		const { container } = render(<Skeleton ariaLabel="Loading" />);
-		const outer = container.firstElementChild;
-		expect(outer?.className).toContain("h-[32px]");
-		expect(outer?.className).toContain("w-[100%]");
+		const outer = container.firstElementChild as HTMLElement;
+		// Dimensions render via inline style (Tailwind JIT can't emit runtime-interpolated
+		// arbitrary classes); the contract is the rendered dimension, not a fragile class.
+		expect(outer.style.height).toBe("32px");
+		expect(outer.style.width).toBe("100%");
 	});
 
 	it("applies an explicit width and height when provided", () => {
 		const { container } = render(<Skeleton ariaLabel="Loading" width="33%" height="16px" />);
-		const outer = container.firstElementChild;
-		expect(outer?.className).toContain("h-[16px]");
-		expect(outer?.className).toContain("w-[33%]");
+		const outer = container.firstElementChild as HTMLElement;
+		expect(outer.style.height).toBe("16px");
+		expect(outer.style.width).toBe("33%");
 	});
 
 	it("supports a dataTestId passthrough", () => {
