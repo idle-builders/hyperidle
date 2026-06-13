@@ -1080,3 +1080,20 @@ stories:
     track: AI
     depends: []
     complexity: M
+
+  # Track AJ: Interactive Pipeline & TSX-First Design
+  - id: AJ1
+    title: TSX is the single design source of truth
+    track: AJ
+    depends: []
+    complexity: L
+  - id: AJ2
+    title: The founder can see and steer the pipeline
+    track: AJ
+    depends: []
+    complexity: M
+  - id: AJ3
+    title: Design variants are real TSX, reviewed and annotated in the browser
+    track: AJ
+    depends: [AJ1, AJ2]
+    complexity: L
