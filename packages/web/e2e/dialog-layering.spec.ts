@@ -272,23 +272,20 @@ test.describe("AI2 — overlay z-layer ordering (AC-3 runtime)", () => {
 	}) => {
 		// Open any modal dialog
 		await page.goto(`/work/bet/${BET_ID}`);
-		await expect(page.locator("[data-testid='work-bet-page']")).toBeVisible();
 
-		// Open a modal dialog via the overflow menu (bet action).
-		// @lore AI2: The overflow button check uses count() as a guard and then
-		// skips if not found — this spec is best-effort (the static AC-3 lint gate
-		// is the binding enforcement; this test adds runtime computed-z proof).
+		// @lore AI2: wait for success state via overflow button (not work-bet-page testid
+		// which appears in loading/error states). Matches pattern from dialog-dismissal.spec.ts.
 		const overflowBtn = page.locator("[data-testid='bet-overflow-btn']");
-		if ((await overflowBtn.count()) === 0) {
-			test.skip(true, "No overflow button — skipping dialog-above-overlay ordering test");
-		}
+		await expect(
+			overflowBtn,
+			"bet-overflow-btn must be visible — WorkBet success state must render",
+		).toBeVisible({ timeout: 15000 });
+
 		// Wait for network to settle before interacting (prevents re-render detach)
 		await page.waitForLoadState("networkidle");
 		await overflowBtn.first().click();
 		const killItem = page.locator("[data-bet-action='kill']");
-		if ((await killItem.count()) === 0) {
-			test.skip(true, "No kill dropdown item — skipping");
-		}
+		await expect(killItem, "Kill dropdown item must appear").toBeVisible();
 		await killItem.click();
 
 		const dialogZ = await computedZIndex(page, "[data-dialog-layer='dialog']");
