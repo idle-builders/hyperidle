@@ -1,5 +1,13 @@
 import type { KnowledgeStatus } from "@hyperidle/fabric/types";
-import type { BetStatus, RoutineState, SessionOutcome, TaskState } from "@hyperidle/shared";
+import type {
+	AgentOperationalStatus,
+	BetOutcomeVerdict,
+	BetStatus,
+	RoutineState,
+	SessionOutcome,
+	TaskOutcomeVerdict,
+	TaskState,
+} from "@hyperidle/shared";
 import type { Status } from "./StatusChip";
 
 /**
@@ -100,4 +108,55 @@ export const ROUTINE_STATE_MAP: Record<RoutineState, Status> = {
 
 export function routineStateToStatus(state: RoutineState): Status {
 	return ROUTINE_STATE_MAP[state] as Status;
+}
+
+/**
+ * AI4 Decision 6: Bet outcome verdict → presentation Status. Exhaustive.
+ *
+ * Color rationale (reviewer-approved):
+ *   validated → healthy (green) — hypothesis held
+ *   refuted → error (red) — hypothesis failed
+ *   partial → behind (amber) — "not a clean win, look closer"
+ *   inconclusive → paused (blue) — insufficient evidence
+ */
+export const BET_OUTCOME_VERDICT_STATUS: Record<BetOutcomeVerdict, Status> = {
+	validated: "healthy",
+	refuted: "error",
+	partial: "behind",
+	inconclusive: "paused",
+};
+
+export function betOutcomeVerdictToStatus(v: BetOutcomeVerdict): Status {
+	return BET_OUTCOME_VERDICT_STATUS[v] as Status;
+}
+
+/**
+ * AI4 Decision 6: Task outcome verdict → presentation Status. Exhaustive.
+ *
+ * @lore AI4 Decision 6: partial/rework → behind (amber). "Not a clean win."
+ */
+export const TASK_OUTCOME_VERDICT_STATUS: Record<TaskOutcomeVerdict, Status> = {
+	met: "healthy",
+	met_with_rework: "behind",
+	partially_met: "behind",
+	not_met: "error",
+};
+
+export function taskOutcomeVerdictToStatus(v: TaskOutcomeVerdict): Status {
+	return TASK_OUTCOME_VERDICT_STATUS[v] as Status;
+}
+
+/**
+ * AI4 Decision 3a: Agent operational status → presentation Status.
+ * Closed 3-value set; lives in design-system (mapping presentation).
+ * The AgentOperationalStatus type + label registry live in @hyperidle/shared.
+ */
+export const AGENT_OPERATIONAL_STATUS_MAP: Record<AgentOperationalStatus, Status> = {
+	active: "healthy",
+	error: "error",
+	idle: "paused",
+};
+
+export function agentOperationalStatusToStatus(s: AgentOperationalStatus): Status {
+	return AGENT_OPERATIONAL_STATUS_MAP[s] as Status;
 }

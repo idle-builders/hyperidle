@@ -23,6 +23,13 @@ export type NotificationTypeKey = "review_request" | "blocker_alert" | "cost_ale
 export interface NotificationType {
 	readonly key: NotificationTypeKey;
 	readonly label: string;
+	/**
+	 * AI4 Decision 4 (B2): compact uppercase label for space-constrained surfaces
+	 * (e.g. NotificationPopover's meta-strip row). Stored as uppercase literal so
+	 * DOM textContent equals the registry value without JS `.toUpperCase()` —
+	 * the casing contract (Decision 1a) requires verbatim render on the label path.
+	 */
+	readonly shortLabel: string;
 	readonly description: string;
 	readonly defaultUrgency: NotificationUrgency;
 }
@@ -42,18 +49,21 @@ export const NOTIFICATION_TYPES: readonly NotificationType[] = [
 	{
 		key: "review_request",
 		label: "Review requests",
+		shortLabel: "REVIEW",
 		description: "When an agent needs your review",
 		defaultUrgency: "immediate",
 	},
 	{
 		key: "blocker_alert",
 		label: "Blocker alerts",
+		shortLabel: "BLOCKER",
 		description: "When an agent is blocked and needs you to intervene",
 		defaultUrgency: "immediate",
 	},
 	{
 		key: "cost_alert",
 		label: "Cost alerts",
+		shortLabel: "COST",
 		description: "When factory spend crosses a configured cost cap",
 		defaultUrgency: "immediate",
 	},
@@ -67,4 +77,14 @@ export const NOTIFICATION_TYPES: readonly NotificationType[] = [
 export function urgencyForType(key: NotificationTypeKey): NotificationUrgency {
 	const entry = NOTIFICATION_TYPES.find((t) => t.key === key);
 	return entry?.defaultUrgency ?? "ambient";
+}
+
+/**
+ * AI4 Decision 4: Returns the compact uppercase shortLabel for a notification
+ * type key. Replaces the page-local TYPE_LABELS map in NotificationPopover.
+ * Falls back to the key string for unknown keys (defensive).
+ */
+export function shortLabelForType(key: NotificationTypeKey): string {
+	const entry = NOTIFICATION_TYPES.find((t) => t.key === key);
+	return entry?.shortLabel ?? key;
 }

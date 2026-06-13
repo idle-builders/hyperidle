@@ -13,6 +13,25 @@ export interface StatusChipProps {
 	 * See I4 adversary W4.
 	 */
 	status: Status;
+	/**
+	 * AI4 Decision 1 / Decision 1a — Casing contract:
+	 * When provided, renders the string VERBATIM into the DOM — no JS
+	 * `.toUpperCase()`. The CSS `uppercase` class in CHIP_BASE provides
+	 * visual uppercasing so the chip still reads uppercase, but `textContent`
+	 * preserves the canonical registry string (e.g. "Active" not "ACTIVE").
+	 *
+	 * This is load-bearing: BetCard.test.tsx asserts `getByText("Active")`
+	 * against DOM `textContent`. If JS-uppercasing were applied here it would
+	 * break those protected assertions.
+	 *
+	 * When omitted, the default path renders `safeStatus.toUpperCase()` (the
+	 * presentation Status name) — existing consumer behavior unchanged.
+	 *
+	 * @lore AI4: Two-layer casing — CSS `uppercase` (visual) + registry string
+	 * verbatim (DOM). The JS `.toUpperCase()` lives only on the default
+	 * (status-name) branch, NOT on the label branch.
+	 */
+	label?: string;
 }
 
 /**
@@ -84,7 +103,7 @@ const KNOWN_STATUSES: ReadonlySet<string> = new Set<Status>([
 const CHIP_BASE =
 	"inline-flex items-center gap-[6px] px-[8px] py-[2px] rounded-full font-[family-name:var(--font-mono)] text-[11px] tracking-[0.05em] uppercase font-medium leading-[1.4] whitespace-nowrap shrink-0";
 
-export function StatusChip({ status }: StatusChipProps): JSX.Element {
+export function StatusChip({ status, label }: StatusChipProps): JSX.Element {
 	const safeStatus: Status | "unknown" =
 		typeof status === "string" && KNOWN_STATUSES.has(status) ? (status as Status) : "unknown";
 
@@ -98,7 +117,7 @@ export function StatusChip({ status }: StatusChipProps): JSX.Element {
 			data-status={safeStatus}
 		>
 			<span className={`h-[6px] w-[6px] rounded-full shrink-0 ${style.dot}`} />
-			{safeStatus.toUpperCase()}
+			{label ? label : safeStatus.toUpperCase()}
 		</span>
 	);
 }

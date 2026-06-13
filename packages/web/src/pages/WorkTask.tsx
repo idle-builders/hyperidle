@@ -18,8 +18,8 @@
  * external date library is needed.
  */
 
-import { ErrorState } from "@hyperidle/design-system";
-import { formatMoney, relativeLong } from "@hyperidle/shared";
+import { ErrorState, LiveDot, StatusChip, taskStateToStatus } from "@hyperidle/design-system";
+import { formatMoney, relativeLong, TASK_STATE_LABEL } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
@@ -28,41 +28,10 @@ import { useTaskSessions } from "../hooks/useTaskSessions.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
 
 /**
- * LiveDot — 6px pulsing green circle shown next to active/in-progress states.
- * Uses Tailwind's built-in `animate-pulse` (opacity 50%->100% cycle, 2s).
- *
- * @lore visual-parity-audit D-30: The mockup shows a 6px green dot with
- * pulse animation next to "In progress" / "Active" status text in the
- * meta-strip. We use Tailwind animate-pulse which matches the 2s infinite
- * opacity animation described in the audit.
+ * @lore AI3: relativeLong replaces local formatRelativeTime.
+ * AI4: Local LiveDot, TASK_STATUS_LABEL, getTaskStatusLabel removed.
+ * LiveDot promoted to @hyperidle/design-system; TASK_STATE_LABEL is from @hyperidle/shared.
  */
-function LiveDot(): JSX.Element {
-	return (
-		<span
-			aria-hidden="true"
-			className="inline-block w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)] animate-pulse shrink-0"
-		/>
-	);
-}
-
-/**
- * Human-readable status label lookup — used in meta strip status cell.
- * Extracted to reduce cognitive complexity of WorkTask.
- */
-const TASK_STATUS_LABEL: Record<string, string> = {
-	in_progress: "In progress",
-	done: "Done",
-	blocked: "Blocked",
-	review: "In review",
-	hold: "On hold",
-	proposed: "Planned",
-	accepted: "Planned",
-	killed: "Killed",
-};
-
-function getTaskStatusLabel(state: string): string {
-	return TASK_STATUS_LABEL[state] ?? state.replace(/_/g, " ");
-}
 
 /** Section title class — uppercase label with border-bottom divider. */
 const SECTION_TITLE_CLASS =
@@ -200,18 +169,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 	const activeSessions = sessions.filter((s) => s.status === "active");
 	const completedSessions = sessions.filter((s) => s.status === "done" || s.status === "completed");
 
-	// Status badge for header
-	const statusBadgeClass = (() => {
-		const state = task.state;
-		if (state === "in_progress") {
-			return "inline-flex items-center px-[9px] py-[3px] text-[12px] font-[500] rounded-[var(--r-pill)] bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)]";
-		}
-		if (state === "done") {
-			return "inline-flex items-center px-[9px] py-[3px] text-[12px] font-[500] rounded-[var(--r-pill)] bg-[var(--surface-container)] text-[var(--text-secondary)]";
-		}
-		return "inline-flex items-center px-[9px] py-[3px] text-[12px] font-[500] rounded-[var(--r-pill)] bg-[var(--surface-container)] text-[var(--text-secondary)]";
-	})();
-	const statusLabel = task.state.replace(/_/g, " ");
+	// AI4: statusBadgeClass/statusLabel IIFEs removed — use StatusChip + TASK_STATE_LABEL.
 
 	return (
 		<div data-testid="task-detail-page" className="flex flex-col h-full">
@@ -253,7 +211,11 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 					    modelled here). A button with no onClick is a no-op; removing is
 					    correct per AC-2. Add back when real actions exist. */}
 					<div className="flex items-center gap-[6px] shrink-0">
-						<span className={statusBadgeClass}>{statusLabel}</span>
+						{task.state === "in_progress" && <LiveDot />}
+						<StatusChip
+							status={taskStateToStatus(task.state)}
+							label={TASK_STATE_LABEL[task.state]}
+						/>
 					</div>
 				</div>
 			</header>
@@ -279,18 +241,18 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 								{task.owner}
 							</span>
 						</div>
-						{/* Status — plain text + live dot instead of StatusChip
-						    @lore visual-parity-audit D-28: mockup shows "In progress" text + green dot,
-						    not a StatusChip component with mono uppercase label. */}
+						{/* Status — StatusChip + LiveDot for in_progress.
+						    AI4: Replaced plain text + local LiveDot with design-system StatusChip. */}
 						<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-r border-[var(--border-subtle)]">
 							<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
 								Status
 							</span>
 							<div className="flex items-center gap-[6px] mt-[3px]">
 								{task.state === "in_progress" && <LiveDot />}
-								<span className="text-[13px] font-[500] text-[var(--text-primary)]">
-									{getTaskStatusLabel(task.state)}
-								</span>
+								<StatusChip
+									status={taskStateToStatus(task.state)}
+									label={TASK_STATE_LABEL[task.state]}
+								/>
 							</div>
 						</div>
 						{/* Started */}
