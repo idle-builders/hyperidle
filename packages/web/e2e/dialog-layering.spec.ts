@@ -6,61 +6,30 @@
  * regardless of DOM mount order. This satisfies "stack predictably regardless
  * of DOM order."
  *
- * Strategy: page.route() mocks — no DB required.
+ * Strategy: page.route() mocks — no DB required. Desktop viewport (default).
  *
  * @lore AI2: AC-3's static half (no raw z-[N] on overlays) is a lint/grep gate,
  * not a test. Only the runtime computed-z ordering is verified here.
  *
- * @lore AI2 C-2 fix: Tests navigate to /work/bet/${BET_ID} (not portfolio).
- * makeBetResponse() includes ≥1 task so task-row renders. Clicking task-row
- * opens TaskSheet (layer="drawer", --z-drawer=30) via setSelectedTaskId.
- * Clicking the "Assistant" button in Sidebar opens AssistantOverlay
- * (layer="overlay", --z-overlay=40). Both open orders are tested.
- *
- * @lore AI2 C-2: WorkBet task-row onClick was previously navigate() — fixed
- * to setSelectedTaskId() so TaskSheet actually opens (drawer layer).
+ * @lore AI2 C-2 fix round 2: The original spec used TaskSheet (drawer=30) + AssistantOverlay
+ * (overlay=40). TaskSheet has no live trigger on this branch (WorkBet task-row onClick restores
+ * navigate() per origin/main — AG scope). Substituting with two genuinely reachable surfaces:
+ *   - AssistantOverlay (layer="overlay", --z-overlay=40): triggered by the "Assistant" button
+ *     in Sidebar (wired via AppShell.handleAssistantClick → sidebarProps.onAssistantClick).
+ *   - GlobalSearchPanel (layer="dialog", --z-dialog=60): triggered by the "Search" button
+ *     (data-testid="sidebar-search-hint") in Sidebar (wired via AppShell.commandK.open →
+ *     sidebarProps.onSearchClick).
+ * Both surfaces are always rendered by AppShell on desktop viewport (default project fixture).
+ * TaskSheet reachability (no live trigger on AI2 branch) is a pre-existing gap owned by AG
+ * (Work-view experience workpackage). See plans/AI2/review-notes.md.
  */
 
 import { expect, test } from "./fixtures";
 
-const BET_ID = "bet-dialog-layer-test";
-const TASK_ID = "task-layer-test";
-
-function makeBetResponse() {
-	return {
-		id: BET_ID,
-		title: "Layering test bet",
-		team: "Test Team",
-		status: "active",
-		atRisk: false,
-		costAppetite: null,
-		tokenAppetite: null,
-		costActual: null,
-		tokensActual: null,
-		progress: { done: 0, total: 1 },
-		description: "# Test",
-		tasks: [
-			{
-				id: TASK_ID,
-				title: "Layering test task",
-				owner: "Agent",
-				state: "active",
-				costActual: null,
-				latestSessionOutcome: null,
-				latestSessionHarnessUrl: null,
-				latestSessionModelTier: null,
-				ownerAgentId: null,
-				startedAt: null,
-				outcomeVerdict: null,
-			},
-		],
-	};
-}
-
-/**
- * Parse a CSS z-index value into a number.
- * Returns -1 for "auto" or unparseable strings.
- */
+// ---------------------------------------------------------------------------
+// Parse a CSS z-index value into a number.
+// Returns 0 for "auto" or unparseable strings.
+// ---------------------------------------------------------------------------
 async function computedZIndex(
 	page: import("@playwright/test").Page,
 	selector: string,
@@ -74,92 +43,186 @@ async function computedZIndex(
 }
 
 // ---------------------------------------------------------------------------
-// Open TaskSheet (drawer=30) and AssistantOverlay (overlay=40)
-// Assert overlay (40) > drawer (30) in both open orders
+// Common route mocks for AppShell on /conversations
+// (in addition to the auto-use fixture defaults: auth/me, settings, threads, teams)
+// ---------------------------------------------------------------------------
+
+async function setupAppShellMocks(page: import("@playwright/test").Page): Promise<void> {
+	// knowledge/triage-count — AppShell useFetch (sidebar badge)
+	await page.route("**/api/knowledge/triage-count", (route) =>
+		route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ count: 0 }),
+		}),
+	);
+	// threads/assistant — useAssistantThread hook (loads when AssistantOverlay mounts)
+	await page.route("**/api/threads/assistant", (route) =>
+		route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({
+				thread: { id: "t-assistant", title: "Assistant", messages: [] },
+			}),
+		}),
+	);
+	// threads (list with cursor) — broad fallback for useConversationsThreads
+	await page.route("**/api/threads**", (route) =>
+		route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ threads: [], nextCursor: null }),
+		}),
+	);
+	// notifications inbox — guard against fetch errors
+	await page.route("**/api/notifications**", (route) =>
+		route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ unseenCount: 0, rows: [] }),
+		}),
+	);
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// AssistantOverlay (--z-overlay=40) vs GlobalSearchPanel (--z-dialog=60)
 // ---------------------------------------------------------------------------
 
 test.describe("AI2 — overlay z-layer ordering (AC-3 runtime)", () => {
 	test.beforeEach(async ({ page }) => {
-		// @lore AI2: Mock all API endpoints the WorkBet page and its sub-components need.
-		// @lore AI2: Playwright LIFO — last-registered route wins. Register broadest first,
-		// most specific last, so the specific routes take priority.
+		await setupAppShellMocks(page);
+	});
 
-		await page.route("**/api/auth/me", (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					id: "u-test",
-					name: "Tester",
-					email: "t@test.com",
-					avatarUrl: null,
-				}),
-			}),
-		);
-		await page.route("**/api/teams**", (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ teams: [] }),
-			}),
-		);
-		await page.route("**/api/knowledge/triage-count", (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ count: 0 }),
-			}),
-		);
-		await page.route("**/api/threads/assistant", (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					thread: {
-						id: "t-assistant",
-						title: "Assistant",
-						messages: [],
-					},
-				}),
-			}),
-		);
-		await page.route("**/api/threads**", (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ threads: [], nextCursor: null }),
-			}),
-		);
-		// @lore AI2: notifications/inbox returns { unseenCount, rows } — not { notifications }.
-		await page.route("**/api/notifications**", (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ unseenCount: 0, rows: [] }),
-			}),
-		);
-		// WorkBet renders ArtifactSection which calls /api/artifacts — mock with empty page.
-		await page.route("**/api/artifacts**", (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ items: [], nextCursor: null }),
-			}),
-		);
-		// TaskSheet calls useTaskSessions → /api/tasks/${TASK_ID}/sessions
-		await page.route("**/api/tasks/**", (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ sessions: [] }),
-			}),
-		);
-		// @lore AI2: Register broad bet sub-resource fallback first (LIFO → lowest priority).
-		// 1. Broad: any bet sub-resource → empty 200 (fallback)
+	test("GlobalSearchPanel (--z-dialog=60) stacks above AssistantOverlay (--z-overlay=40): open overlay first", async ({
+		page,
+	}) => {
+		// Navigate to /conversations — no extra route mocks needed beyond AppShell defaults.
+		await page.goto("/conversations");
+
+		// Wait for Sidebar to render (search-hint is always present on desktop).
+		const searchHint = page.locator("[data-testid='sidebar-search-hint']");
+		await expect(
+			searchHint,
+			"sidebar-search-hint must be visible — AppShell desktop layout rendered",
+		).toBeVisible({ timeout: 15000 });
+
+		// Step 1: Open AssistantOverlay (overlay layer) first.
+		// @lore AI2 C-2 round2: "Assistant" button in Sidebar is wired via AppShell.handleAssistantClick.
+		// Non-modal: no scrim, no focus trap → other Sidebar elements remain clickable.
+		const assistantBtn = page.getByRole("button", { name: /^assistant$/i });
+		await expect(assistantBtn, "Assistant button must be visible in Sidebar").toBeVisible();
+		await assistantBtn.click();
+
+		const assistantOverlay = page.locator("[data-dialog-layer='overlay']");
+		await expect(
+			assistantOverlay,
+			"AssistantOverlay must be visible after clicking Assistant button",
+		).toBeVisible();
+
+		const overlayZ = await computedZIndex(page, "[data-dialog-layer='overlay']");
+		expect(
+			overlayZ,
+			"AssistantOverlay z-index must be > 0 (--z-overlay=40 CSS token applied)",
+		).toBeGreaterThan(0);
+
+		// Step 2: Open GlobalSearchPanel (dialog layer) while AssistantOverlay is already open.
+		// AssistantOverlay is non-modal (no focus trap) so the search-hint button remains clickable.
+		await searchHint.click();
+
+		const searchPanel = page.locator("[data-dialog-layer='dialog']");
+		await expect(
+			searchPanel,
+			"GlobalSearchPanel must be visible after clicking sidebar-search-hint",
+		).toBeVisible();
+
+		const dialogZ = await computedZIndex(page, "[data-dialog-layer='dialog']");
+
+		// Dialog (60) must be strictly higher than overlay (40) when dialog is DOM-second.
+		expect(
+			dialogZ,
+			"GlobalSearchPanel z-index (--z-dialog=60) must exceed AssistantOverlay z-index (--z-overlay=40) when dialog mounts after overlay",
+		).toBeGreaterThan(overlayZ);
+
+		await page.screenshot({ path: "test-results/ai2-z-order-overlay-first.png" });
+	});
+
+	test("GlobalSearchPanel (--z-dialog=60) stacks above AssistantOverlay (--z-overlay=40): open dialog first then overlay", async ({
+		page,
+	}) => {
+		// Navigate to /conversations.
+		await page.goto("/conversations");
+
+		// Wait for Sidebar.
+		const searchHint = page.locator("[data-testid='sidebar-search-hint']");
+		await expect(
+			searchHint,
+			"sidebar-search-hint must be visible — AppShell desktop layout rendered",
+		).toBeVisible({ timeout: 15000 });
+
+		// Step 1: Open GlobalSearchPanel (dialog layer) FIRST — it mounts before AssistantOverlay.
+		await searchHint.click();
+
+		const searchPanel = page.locator("[data-dialog-layer='dialog']");
+		await expect(
+			searchPanel,
+			"GlobalSearchPanel must be visible after clicking sidebar-search-hint",
+		).toBeVisible();
+
+		const dialogZFirst = await computedZIndex(page, "[data-dialog-layer='dialog']");
+		expect(
+			dialogZFirst,
+			"GlobalSearchPanel z-index must be > 0 (--z-dialog=60 token active)",
+		).toBeGreaterThan(0);
+
+		// Step 2: Open AssistantOverlay (overlay layer) WHILE GlobalSearchPanel is already open.
+		// @lore AI2: GlobalSearchPanel FocusTrap uses allowOutsideClick=true — clicks outside
+		// the panel are not blocked by the trap. However, the scrim (position:fixed, inset:0,
+		// z=50) sits above the Sidebar visually and blocks Playwright pointer-event hit-tests.
+		// We use page.evaluate to fire a native click() on the Assistant button directly,
+		// bypassing both the pointer-event layer and Playwright's hit-testing. The native
+		// click() call invokes React's event delegation at the document root, triggering
+		// handleAssistantClick and setting assistantOverlayOpen=true.
+		await page.evaluate(() => {
+			const btn = document.querySelector(
+				'button[aria-label="Assistant"]',
+			) as HTMLButtonElement | null;
+			btn?.click();
+		});
+
+		const assistantOverlay = page.locator("[data-dialog-layer='overlay']");
+		await expect(
+			assistantOverlay,
+			"AssistantOverlay must mount after Assistant button click — both overlays now in DOM",
+		).toBeVisible();
+
+		// Both surfaces are now in the DOM simultaneously.
+		// dialog was DOM-first; overlay was DOM-second.
+		// CSS token scale must hold regardless: dialog (60) > overlay (40).
+		const overlayZ = await computedZIndex(page, "[data-dialog-layer='overlay']");
+		const dialogZ = await computedZIndex(page, "[data-dialog-layer='dialog']");
+
+		expect(
+			overlayZ,
+			"AssistantOverlay z-index must be > 0 (--z-overlay=40 token active)",
+		).toBeGreaterThan(0);
+
+		expect(
+			dialogZ,
+			"GlobalSearchPanel z-index (--z-dialog=60) must exceed AssistantOverlay z-index (--z-overlay=40) even when dialog was DOM-first and overlay is DOM-second",
+		).toBeGreaterThan(overlayZ);
+
+		await page.screenshot({ path: "test-results/ai2-z-order-dialog-first.png" });
+	});
+
+	test("modal Dialog (--z-dialog=60) stacks above NotificationPopover (--z-overlay=40)", async ({
+		page,
+	}) => {
+		// Need the WorkBet route for the kill-bet dialog (ConsequencePreviewDialog).
+		const BET_ID = "bet-dialog-layer-test";
 		await page.route(`**/api/bets/${BET_ID}/**`, (route) =>
 			route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) }),
 		);
-		// 2. More specific: artifact-thread-summary needs correct shape.
 		await page.route(`**/api/bets/${BET_ID}/artifact-thread-summary`, (route) =>
 			route.fulfill({
 				status: 200,
@@ -167,110 +230,34 @@ test.describe("AI2 — overlay z-layer ordering (AC-3 runtime)", () => {
 				body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
 			}),
 		);
-		// 3. Most specific: the main bet endpoint (registered last → highest priority).
 		await page.route(`**/api/bets/${BET_ID}`, (route) =>
 			route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify(makeBetResponse()),
+				body: JSON.stringify({
+					id: BET_ID,
+					title: "Layering test bet",
+					team: "Test Team",
+					status: "active",
+					atRisk: false,
+					costAppetite: null,
+					tokenAppetite: null,
+					costActual: null,
+					tokensActual: null,
+					progress: { done: 0, total: 0 },
+					description: "# Test",
+					tasks: [],
+				}),
 			}),
 		);
-	});
-
-	test("AssistantOverlay (--z-overlay=40) stacks above TaskSheet (--z-drawer=30): open drawer first", async ({
-		page,
-	}) => {
-		await page.goto(`/work/bet/${BET_ID}`);
-
-		// Wait for success state (overflow button only visible when bet data loads)
-		const overflowBtn = page.locator("[data-testid='bet-overflow-btn']");
-		await expect(
-			overflowBtn,
-			"bet-overflow-btn must be visible — WorkBet success state must render",
-		).toBeVisible({ timeout: 15000 });
-
-		// Open TaskSheet (drawer layer) by clicking a task row.
-		// @lore AI2 C-2: WorkBet task-row onClick was fixed from navigate() to setSelectedTaskId()
-		// so that TaskSheet (drawer) is activated instead of navigating away.
-		const taskRow = page.locator("[data-testid='task-row']").first();
-		await expect(
-			taskRow,
-			"task-row must be visible — makeBetResponse() includes 1 task",
-		).toBeVisible();
-		await taskRow.click();
-
-		// TaskSheet should be open
-		const taskSheet = page.locator("[data-testid='task-sheet']");
-		await expect(taskSheet, "TaskSheet must be visible after clicking task-row").toBeVisible();
-
-		const drawerZ = await computedZIndex(page, "[data-dialog-layer='drawer']");
-		expect(drawerZ, "Drawer z-index must be > 0 (--z-drawer=30 token active)").toBeGreaterThan(0);
-
-		// Open AssistantOverlay (overlay layer) via the Assistant button in Sidebar.
-		// @lore AI2 C-2: The "Assistant" button in Sidebar opens AssistantOverlay (--z-overlay=40).
-		const assistantBtn = page.getByRole("button", { name: /^assistant$/i });
-		await expect(assistantBtn, "Assistant button must be visible in Sidebar").toBeVisible();
-		await assistantBtn.click();
-
-		const assistantOverlay = page.locator("[data-dialog-layer='overlay']");
-		await expect(assistantOverlay, "AssistantOverlay must be visible after click").toBeVisible();
-
-		const overlayZ = await computedZIndex(page, "[data-dialog-layer='overlay']");
-
-		// Overlay (40) must be strictly higher than drawer (30)
-		expect(overlayZ, "overlay z-index must be > drawer z-index (40 > 30)").toBeGreaterThan(drawerZ);
-
-		await page.screenshot({ path: "test-results/ai2-z-order-drawer-first.png" });
-	});
-
-	test("AssistantOverlay (--z-overlay=40) stacks above TaskSheet (--z-drawer=30): open overlay first", async ({
-		page,
-	}) => {
-		await page.goto(`/work/bet/${BET_ID}`);
-
-		// Wait for success state
-		const overflowBtn = page.locator("[data-testid='bet-overflow-btn']");
-		await expect(
-			overflowBtn,
-			"bet-overflow-btn must be visible — WorkBet success state must render",
-		).toBeVisible({ timeout: 15000 });
-
-		// Open AssistantOverlay (overlay layer) FIRST.
-		const assistantBtn = page.getByRole("button", { name: /^assistant$/i });
-		await expect(assistantBtn, "Assistant button must be visible in Sidebar").toBeVisible();
-		await assistantBtn.click();
-
-		const assistantOverlay = page.locator("[data-dialog-layer='overlay']");
-		await expect(assistantOverlay, "AssistantOverlay must be visible after click").toBeVisible();
-
-		const overlayZ = await computedZIndex(page, "[data-dialog-layer='overlay']");
-		expect(overlayZ, "Overlay z-index must be > 0 (--z-overlay=40 token active)").toBeGreaterThan(
-			0,
+		await page.route("**/api/artifacts**", (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ items: [], nextCursor: null }),
+			}),
 		);
 
-		// Now open TaskSheet (drawer layer).
-		const taskRow = page.locator("[data-testid='task-row']").first();
-		await expect(taskRow, "task-row must be visible").toBeVisible();
-		await taskRow.click();
-
-		const taskSheet = page.locator("[data-testid='task-sheet']");
-		await expect(taskSheet, "TaskSheet must be visible after clicking task-row").toBeVisible();
-
-		const drawerZ = await computedZIndex(page, "[data-dialog-layer='drawer']");
-
-		// Even when opened in reverse order, z-values follow the token scale
-		expect(
-			overlayZ,
-			"overlay z-index must be > drawer z-index (40 > 30), even when opened second",
-		).toBeGreaterThan(drawerZ);
-
-		await page.screenshot({ path: "test-results/ai2-z-order-overlay-first.png" });
-	});
-
-	test("modal Dialog (--z-dialog=60) stacks above NotificationPopover (--z-overlay=40)", async ({
-		page,
-	}) => {
-		// Open any modal dialog
 		await page.goto(`/work/bet/${BET_ID}`);
 
 		// @lore AI2: wait for success state via overflow button (not work-bet-page testid
