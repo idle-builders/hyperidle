@@ -21,6 +21,6 @@ Total offenders: **11**
 | `packages/web/src/fixtures/knowledge-data.ts` | 82 | `MOCK_KNOWLEDGE_ITEMS` | symbol | array |
 | `packages/web/src/fixtures/knowledge-data.ts` | 290 | `MOCK_CURATION_SUGGESTIONS` | symbol | array |
 | `packages/web/src/pages/KnowledgeDetail.tsx` | 62 | `../fixtures/knowledge-data` | import | import |
-| `packages/web/src/pages/KnowledgeDetail.tsx` | 117 | `LEGACY_DETAILS` | symbol | object |
-| `packages/web/src/pages/KnowledgeDetail.tsx` | 155 | `LEGACY_SOURCES` | symbol | object |
-| `packages/web/src/pages/KnowledgeDetail.tsx` | 161 | `FALLBACK_DETAIL` | symbol | object |
+| `packages/web/src/pages/KnowledgeDetail.tsx` | 119 | `LEGACY_DETAILS` | symbol | object |
+| `packages/web/src/pages/KnowledgeDetail.tsx` | 157 | `LEGACY_SOURCES` | symbol | object |
+| `packages/web/src/pages/KnowledgeDetail.tsx` | 163 | `FALLBACK_DETAIL` | symbol | object |
