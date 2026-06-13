@@ -4,6 +4,16 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkPortfolio } from "../pages/WorkPortfolio";
 
+// AG3: mock navigate so we can assert navigation without a real router
+const mockNavigate = vi.fn();
+vi.mock("react-router-dom", async (importOriginal) => {
+	const original = await importOriginal<typeof import("react-router-dom")>();
+	return {
+		...original,
+		useNavigate: () => mockNavigate,
+	};
+});
+
 /**
  * @lore U9: WorkPortfolio restructured to bet grid. Old team-card grid, Canvas,
  * useCanvasBets, and "Portfolio" heading removed. Now uses useBets hook.
@@ -58,6 +68,7 @@ afterEach(() => {
 		error: null,
 		refresh: vi.fn(),
 	});
+	mockNavigate.mockReset();
 });
 
 function renderPage(): ReturnType<typeof render> {
@@ -149,12 +160,13 @@ describe("WorkPortfolio", () => {
 			expect(btn).toBeInTheDocument();
 		});
 
-		it('"New bet" opens BetCreateDialog when clicked', async () => {
+		// AG3: "New bet" navigates to /work/bet/new (full-page route, no dialog)
+		it('"New bet" navigates to /work/bet/new when clicked (AG3)', async () => {
 			mockUseBets.mockReturnValue({
 				bets: [
 					{
-						id: "bet-dialog-test",
-						title: "Dialog Bet",
+						id: "bet-nav-test",
+						title: "Nav Bet",
 						teamId: "p1",
 						status: "active",
 						description: "Test bet",
@@ -168,7 +180,9 @@ describe("WorkPortfolio", () => {
 			const user = userEvent.setup();
 			renderPage();
 			await user.click(screen.getByTestId("new-bet-btn"));
-			expect(screen.getByRole("dialog")).toBeInTheDocument();
+			// AG3: navigates instead of opening dialog
+			expect(mockNavigate).toHaveBeenCalledWith("/work/bet/new");
+			expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 		});
 
 		it("shows empty state when no bets exist", () => {
