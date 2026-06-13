@@ -7,7 +7,7 @@
  * Corrupt JSON in the DB falls back to defaults — the app always boots.
  */
 
-import { type HyperIdleDb, serverConfig } from "@hyperidle/db";
+import { type HyperIdleDb, serverConfig, serverCredentials } from "@hyperidle/db";
 import type { ModelGatewayConfig, ModelTierConfig } from "@hyperidle/shared";
 import { MODEL_PROVIDERS } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
@@ -55,19 +55,13 @@ const NotificationsSchema = z.object({
 /**
  * X4: Per-tier model configuration schema — used within the ModelGateway schema.
  *
- * @lore X4 A-SEC-1: The PATCH endpoint uses the global rate limiter (60 req/min).
- * The model-gateway PATCH effectively becomes a credential mutation endpoint when
- * storing openai-compatible apiKey. The global limiter is sufficient because:
- * (a) the endpoint is authenticated (X-API-Key), (b) a dedicated limiter would
- * require restructuring the route registration. A future hardening pass could
- * add a mutateLimiter mirroring the credentials route.
+ * @lore AH1 §2: apiKey removed from ModelTierConfigSchema. The openai-compatible key
+ * now lives in server_credentials (not the config blob). baseUrl (non-secret) stays.
  */
 const ModelTierConfigSchema = z.object({
 	provider: z.enum(MODEL_PROVIDERS),
 	model: z.string().min(1),
 	baseUrl: z.string().url().optional(),
-	/** X4 A-TYPE-1: apiKey only for openai-compatible — stripped from GET responses. */
-	apiKey: z.string().optional(),
 });
 
 const ModelGatewayConfigSchema = z.object({
@@ -115,7 +109,6 @@ type DeepPartialModelTier = {
 	provider?: ModelTierConfig["provider"];
 	model?: string;
 	baseUrl?: string;
-	apiKey?: string;
 };
 
 type DeepPartialModelGateway = {
@@ -128,11 +121,10 @@ type ServerConfigPatch = {
 	notifications?: DeepPartialNotifications;
 	/**
 	 * AF15: Deep-partial — each tier is optional; within a present tier, every field is optional.
-	 * The merge layer (mergeTier) preserves stored apiKey when the patch omits it.
 	 *
 	 * @lore AF15: Changed from full-replacement (ModelGatewayConfig) to deep-partial so a
-	 * PATCH of only one tier does not clobber adjacent tiers' stored (encrypted) API keys.
-	 * The prior "Full replacement — 3 tiers is the complete shape" lore is now wrong.
+	 * PATCH of only one tier does not clobber adjacent tiers.
+	 * @lore AH1 §2: apiKey removed from patch. Keys go to server_credentials via PUT /api/credentials.
 	 */
 	modelGateway?: DeepPartialModelGateway;
 };
@@ -190,29 +182,16 @@ export async function readServerConfig(db: HyperIdleDb): Promise<ServerConfig> {
 }
 
 /**
- * Merge a partial tier patch with the current stored tier, preserving the stored
- * apiKey when the patch does not supply one.
+ * Merge a partial tier patch with the current stored tier.
  *
- * @lore AF15: KEY PRESERVATION — incoming `undefined` apiKey keeps the stored key
- * (ciphertext). Empty string is not a clear signal (UI never sends ""); only an
- * explicit non-empty apiKey replaces. Switching provider AWAY from openai-compatible
- * drops the key (it is invalid for the new provider).
- *
- * After merge, `encryptModelGatewayKeys` (called below) sees the preserved ciphertext
- * and leaves it untouched (idempotent decrypt-detect loop). No double-encrypt,
- * no plaintext introduced.
+ * @lore AH1 §2: apiKey removed from tiers — keys live in server_credentials.
+ * baseUrl (non-secret) merges normally.
  */
 function mergeTier(current: ModelTierConfig, patch: DeepPartialModelTier): ModelTierConfig {
 	return {
 		provider: patch.provider ?? current.provider,
 		model: patch.model ?? current.model,
 		baseUrl: patch.baseUrl ?? current.baseUrl,
-		// Drop the key when switching provider away from openai-compatible.
-		// Otherwise preserve the stored key when the patch omits apiKey.
-		apiKey:
-			patch.provider !== undefined && patch.provider !== "openai-compatible"
-				? undefined
-				: (patch.apiKey ?? current.apiKey),
 	};
 }
 
@@ -241,15 +220,9 @@ export async function updateServerConfig(
 			: current.modelGateway,
 	};
 
-	// AF11 Hole 4: encrypt any apiKey values before persisting.
-	// We encrypt the merged modelGateway in-place so the blob never contains plaintext.
-	// @lore AF11 R3: detection uses decryptCredentialValue → null ⟺ plaintext.
-	// GCM auth-tag throws on non-ciphertext, caught → null. Idempotent.
-	const encryptedGateway = encryptModelGatewayKeys(merged.modelGateway);
-	const toStore: ServerConfig = { ...merged, modelGateway: encryptedGateway };
-
+	// AH1 §2: no apiKey in tiers — no encryption step needed here. Keys go to server_credentials.
 	const now = new Date().toISOString();
-	const configJson = JSON.stringify(toStore);
+	const configJson = JSON.stringify(merged);
 
 	// Upsert: update if row exists, insert if not
 	const [existing] = await db
@@ -273,113 +246,131 @@ export async function updateServerConfig(
 export { ModelGatewayConfigSchema, ModelTierConfigSchema, NotificationsSchema, ServerConfigSchema };
 
 // ---------------------------------------------------------------------------
-// AF11 Hole 4: encryption helpers
+// AH1 §4: One-shot boot migration — relocate legacy openai-compatible key +
+//          seed anthropic key from env. Replaces migrateServerConfigEncryption.
 // ---------------------------------------------------------------------------
 
 /**
- * Encrypt a model tier's apiKey if present and not already ciphertext.
- * Idempotent: already-encrypted values are left untouched.
+ * Migrate legacy credentials into the server_credentials store.
+ * Idempotent: safe to run N times.
  *
- * @lore AF11 R3: Detection uses decryptCredentialValue → non-null ⟺ already
- * ciphertext (GCM auth-tag verification catches plaintext). null → plaintext →
- * encrypt. This means running encrypt twice never double-encrypts.
+ * 1. Strip any legacy apiKey fields from server_config blob tiers (AH1 §2 removed
+ *    apiKey from ModelTierConfig; legacy rows may still carry them). This is a
+ *    forward-only schema cleanup — we relocate any non-empty legacy tier apiKey to
+ *    server_credentials as openai_compatible_api_key (if the slot is absent).
+ *
+ * 2. Seed anthropic_api_key from ANTHROPIC_API_KEY env (desktop safeStorage path)
+ *    if the slot in server_credentials is absent and the env var is set.
+ *
+ * Guards:
+ * - Never writes a row if getServerSecret() is null (no encryption secret).
+ * - Never overwrites an existing server_credentials row (absent-only seed).
+ * - Never seeds an empty-string value.
+ *
+ * @lore AH1 §4: Replaces migrateServerConfigEncryption (AF11 hole 4).
+ * migrateServerConfigEncryption is deleted because apiKey no longer lives in
+ * the server_config blob. Legacy rows carrying apiKey in the blob are cleaned up here.
+ * @lore AH1 §4.2: The env→store seed bridges existing installs where the key
+ * only lived in safeStorage/env (main.ts boot env-injection). The env resolver
+ * is no longer wired in production (server-factory.ts §3), so this one-time seed
+ * is the migration path. Guarded: only when slot absent + secret non-null + non-empty.
  */
-function encryptTierApiKey(tier: ModelTierConfig): ModelTierConfig {
-	if (!tier.apiKey) return tier;
+export async function migrateCredentialsToStore(db: HyperIdleDb): Promise<void> {
 	const secret = getServerSecret();
-	if (!secret) return tier; // no secret configured → skip (boot will warn)
-	// Check if already encrypted: try decryption — non-null means it's our ciphertext
-	const tryDecrypt = decryptCredentialValue(tier.apiKey, secret);
-	if (tryDecrypt !== null) {
-		// Already a valid ciphertext — leave untouched (idempotency)
-		return tier;
-	}
-	// Plaintext: encrypt it
-	return { ...tier, apiKey: encryptCredentialValue(tier.apiKey, secret) };
-}
-
-/**
- * Encrypt all apiKey fields in a ModelGatewayConfig.
- * Returns a new config object (no mutation).
- */
-function encryptModelGatewayKeys(gateway: ModelGatewayConfig): ModelGatewayConfig {
-	return {
-		reasoning: encryptTierApiKey(gateway.reasoning),
-		workhorse: encryptTierApiKey(gateway.workhorse),
-		fast: encryptTierApiKey(gateway.fast),
-	};
-}
-
-/**
- * Decrypt the apiKey for a given model tier at the point of use.
- * Returns plaintext, or null if no apiKey is set or secret is missing.
- *
- * @lore AF11 Hole 4: single decrypt-at-use seam. Both resolveModelTier call
- * sites (server-factory.ts and sessions-routes.ts) use this helper — one
- * implementation, two callers. The decrypted value lives only in-memory,
- * never persisted.
- *
- * @lore AF11: The stored apiKey may be either ciphertext (post-AF11) or
- * plaintext (pre-AF11 legacy row not yet migrated). If decrypt returns null
- * AND the value is non-empty, it is treated as legacy plaintext and returned
- * as-is. This makes the migration non-breaking: routes work before and after.
- */
-export function resolveTierApiKey(
-	modelGateway: ModelGatewayConfig,
-	tier: "reasoning" | "workhorse" | "fast",
-): string | null {
-	const apiKey = modelGateway[tier].apiKey;
-	if (!apiKey) return null;
-	const secret = getServerSecret();
-	if (!secret) return apiKey; // no secret → return as-is (dev/test without secret)
-	const decrypted = decryptCredentialValue(apiKey, secret);
-	if (decrypted !== null) return decrypted;
-	// Decrypt failed → legacy plaintext (migration hasn't run yet)
-	return apiKey;
-}
-
-/**
- * One-shot boot migration: re-encrypts any plaintext apiKey values in the
- * server_config row. Idempotent: safe to run N times (ciphertext detected by
- * AES-256-GCM auth-tag invariant → skip).
- *
- * @lore AF11 Hole 4 R3: detection uses `decryptCredentialValue` → null ⟺
- * not our ciphertext (GCM auth-tag verification throws on non-ciphertext,
- * caught → null). Idempotency: after first pass all keys are ciphertext;
- * second run decrypts successfully → value untouched. No double-encryption.
- *
- * @lore AF11: This runs at server boot before routes open. It re-reads the
- * DB config, re-encrypts any plaintext apiKeys, and writes back. Corrupt blobs
- * fall back to defaults (existing behavior from readServerConfig).
- */
-export async function migrateServerConfigEncryption(db: HyperIdleDb): Promise<void> {
-	const secret = getServerSecret();
-	if (!secret) return; // No secret → nothing to encrypt; boot warning elsewhere
-
-	const [row] = await db.select().from(serverConfig).where(eq(serverConfig.id, "default")).limit(1);
-
-	if (!row) return; // No config row → nothing to migrate
-
-	let rawJson: unknown;
-	try {
-		rawJson = JSON.parse(row.config);
-	} catch {
-		return; // Corrupt JSON → skip (readServerConfig handles this via defaults)
+	if (!secret) {
+		// No root secret — cannot encrypt, skip migration. Boot warning already logged.
+		return;
 	}
 
-	const parsed = ServerConfigSchema.safeParse(rawJson);
-	if (!parsed.success) return; // Invalid schema → skip
-
-	const current = applyDefaults(parsed.data);
-	if (!current.modelGateway) return;
-
-	// Encrypt any plaintext apiKeys. encryptModelGatewayKeys is idempotent.
-	const encryptedGateway = encryptModelGatewayKeys(current.modelGateway);
-	const migrated: ServerConfig = { ...current, modelGateway: encryptedGateway };
 	const now = new Date().toISOString();
 
-	await db
-		.update(serverConfig)
-		.set({ config: JSON.stringify(migrated), updatedAt: now })
-		.where(eq(serverConfig.id, "default"));
+	// Step 1: Read the existing server_config blob and strip legacy apiKey fields.
+	const [configRow] = await db
+		.select()
+		.from(serverConfig)
+		.where(eq(serverConfig.id, "default"))
+		.limit(1);
+
+	if (configRow) {
+		let rawJson: unknown;
+		try {
+			rawJson = JSON.parse(configRow.config);
+		} catch {
+			rawJson = null;
+		}
+
+		if (rawJson && typeof rawJson === "object") {
+			// Look for legacy tier blobs with apiKey — not typed since ModelTierConfig
+			// no longer has apiKey, but the raw DB JSON may still carry it.
+			const raw = rawJson as Record<string, unknown>;
+			const gateway = raw.modelGateway as Record<string, Record<string, unknown>> | undefined;
+			let needsRewrite = false;
+			let legacyApiKey: string | null = null;
+
+			if (gateway && typeof gateway === "object") {
+				for (const [_tierName, tier] of Object.entries(gateway)) {
+					if (tier && typeof tier === "object" && "apiKey" in tier) {
+						const rawKey = tier.apiKey;
+						if (typeof rawKey === "string" && rawKey !== "") {
+							// Decrypt-or-take-as-is: if it's our ciphertext, decrypt; else it's legacy plaintext.
+							const decrypted = decryptCredentialValue(rawKey, secret);
+							const plaintext = decrypted !== null ? decrypted : rawKey;
+							if (plaintext !== "" && legacyApiKey === null) {
+								legacyApiKey = plaintext;
+							}
+						}
+						// Strip the apiKey from the tier blob.
+						delete tier.apiKey;
+						needsRewrite = true;
+					}
+				}
+			}
+
+			if (needsRewrite) {
+				await db
+					.update(serverConfig)
+					.set({ config: JSON.stringify(raw), updatedAt: now })
+					.where(eq(serverConfig.id, "default"));
+			}
+
+			// If we found a legacy openai-compatible key, seed server_credentials (absent-only).
+			if (legacyApiKey !== null) {
+				const [existing] = await db
+					.select()
+					.from(serverCredentials)
+					.where(eq(serverCredentials.name, "openai_compatible_api_key"))
+					.limit(1);
+				if (!existing) {
+					const encryptedValue = encryptCredentialValue(legacyApiKey, secret);
+					await db.insert(serverCredentials).values({
+						name: "openai_compatible_api_key",
+						encryptedValue,
+						validationState: "present_untested",
+						lastValidatedAt: null,
+						updatedAt: now,
+					});
+				}
+			}
+		}
+	}
+
+	// Step 2: Seed anthropic_api_key from env (desktop safeStorage one-time bridge).
+	const envAnthropicKey = process.env.ANTHROPIC_API_KEY;
+	if (envAnthropicKey && envAnthropicKey !== "") {
+		const [existing] = await db
+			.select()
+			.from(serverCredentials)
+			.where(eq(serverCredentials.name, "anthropic_api_key"))
+			.limit(1);
+		if (!existing) {
+			const encryptedValue = encryptCredentialValue(envAnthropicKey, secret);
+			await db.insert(serverCredentials).values({
+				name: "anthropic_api_key",
+				encryptedValue,
+				validationState: "present_untested",
+				lastValidatedAt: null,
+				updatedAt: now,
+			});
+		}
+	}
 }

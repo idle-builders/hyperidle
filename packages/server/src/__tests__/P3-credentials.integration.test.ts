@@ -44,12 +44,14 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 				lastValidatedAt: string | null;
 			}>;
 			expect(Array.isArray(body)).toBe(true);
-			expect(body).toHaveLength(3);
+			// AH1: openai_compatible_api_key promoted from server_config blob to catalog (4th entry)
+			expect(body).toHaveLength(4);
 
 			const names = body.map((e) => e.name);
 			expect(names).toContain("anthropic_api_key");
 			expect(names).toContain("openrouter_api_key");
 			expect(names).toContain("shared_backend_key");
+			expect(names).toContain("openai_compatible_api_key");
 
 			for (const entry of body) {
 				expect(entry.state).toBe("absent");

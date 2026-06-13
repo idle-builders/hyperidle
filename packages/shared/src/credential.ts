@@ -12,6 +12,7 @@ export const CREDENTIAL_NAMES = [
 	"anthropic_api_key",
 	"openrouter_api_key",
 	"shared_backend_key",
+	"openai_compatible_api_key", // AH1: promoted from server_config blob
 ] as const;
 
 export type CredentialName = (typeof CREDENTIAL_NAMES)[number];
@@ -51,6 +52,13 @@ export const CREDENTIAL_CATALOG: readonly CredentialCatalogEntry[] = [
 		description: "Authenticates this client to a shared HyperIdle server.",
 		required: false, // Only required when backendMode = "shared"
 		testable: true, // Test via health check to remote server
+	},
+	{
+		name: "openai_compatible_api_key",
+		label: "OpenAI-compatible API Key",
+		description: "API key for any OpenAI-compatible provider (Together, Groq, etc.).",
+		required: false,
+		testable: true,
 	},
 ] as const;
 

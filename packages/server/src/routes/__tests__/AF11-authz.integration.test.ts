@@ -443,9 +443,10 @@ describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => 
 
 // ---------------------------------------------------------------------------
 // AC4 — No plaintext secret at rest (Hard Rule 4)
+// Updated for AH1: apiKey moved from server_config blob → server_credentials.
 // ---------------------------------------------------------------------------
 
-describe("AC4: server_config apiKey encrypted at rest", () => {
+describe("AC4: openai-compatible key in server_credentials, not server_config blob", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		vi.stubEnv("HYPERIDLE_CREDENTIAL_KEY", TEST_SERVER_SECRET);
@@ -455,9 +456,12 @@ describe("AC4: server_config apiKey encrypted at rest", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("PATCH /api/model-gateway stores ciphertext, not plaintext apiKey", async ({ db, app }) => {
-		const testApiKey = "sk-openai-compat-test-plain-check";
-
+	test("PATCH /api/model-gateway stores tier config WITHOUT apiKey field in blob", async ({
+		db,
+		app,
+	}) => {
+		// AH1 §2: apiKey is no longer accepted in the model-gateway PATCH (schema change).
+		// The blob must never contain an apiKey field.
 		const patchRes = await app.request("/api/model-gateway", {
 			method: "PATCH",
 			headers: authHeaders(),
@@ -466,76 +470,42 @@ describe("AC4: server_config apiKey encrypted at rest", () => {
 					provider: "openai-compatible",
 					model: "gpt-4",
 					baseUrl: "https://api.example.com",
-					apiKey: testApiKey,
 				},
 				workhorse: {
 					provider: "openai-compatible",
 					model: "gpt-4",
 					baseUrl: "https://api.example.com",
-					apiKey: testApiKey,
 				},
 				fast: {
 					provider: "openai-compatible",
 					model: "gpt-4",
 					baseUrl: "https://api.example.com",
-					apiKey: testApiKey,
 				},
 			}),
 		});
 		expect(patchRes.status).toBe(200);
 
-		// Read the raw DB row directly
+		// Read the raw DB row directly — must have no apiKey field in any tier.
 		const rows = await db.select().from(serverConfig);
 		expect(rows.length).toBe(1);
 
 		const rawConfig = rows[0]?.config ?? "";
-		// The plaintext API key must NOT appear in the raw JSON blob
-		expect(rawConfig).not.toContain(testApiKey);
+		const parsed = JSON.parse(rawConfig) as Record<string, unknown>;
+		const gateway = parsed.modelGateway as Record<string, Record<string, unknown>> | undefined;
+		if (gateway) {
+			for (const [tierName, tier] of Object.entries(gateway)) {
+				expect(tier, `tier ${tierName} must not have apiKey in blob`).not.toHaveProperty("apiKey");
+			}
+		}
 	});
 
-	test("resolveTierApiKey round-trips to plaintext", async ({ db, app }) => {
-		const testApiKey = "sk-roundtrip-test-af11-plaintext";
-
-		// Store via PATCH
-		await app.request("/api/model-gateway", {
-			method: "PATCH",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				reasoning: {
-					provider: "openai-compatible",
-					model: "gpt-4",
-					baseUrl: "https://api.example.com",
-					apiKey: testApiKey,
-				},
-				workhorse: {
-					provider: "openai-compatible",
-					model: "gpt-4",
-					baseUrl: "https://api.example.com",
-					apiKey: testApiKey,
-				},
-				fast: {
-					provider: "openai-compatible",
-					model: "gpt-4",
-					baseUrl: "https://api.example.com",
-					apiKey: testApiKey,
-				},
-			}),
-		});
-
-		// Read via service — the decrypt-at-use seam should return the original plaintext
-		const { readServerConfig } = await import("../../services/server-config.js");
-		const { resolveTierApiKey } = await import("../../services/server-config.js");
-		const cfg = await readServerConfig(db);
-
-		const decrypted = resolveTierApiKey(cfg.modelGateway, "reasoning");
-		expect(decrypted).toBe(testApiKey);
-	});
-
-	test("migration: plaintext apiKey in DB is re-encrypted on read (idempotent)", async ({ db }) => {
+	test("AH1 migration: legacy apiKey in server_config blob is relocated to server_credentials", async ({
+		db,
+	}) => {
 		const plaintextApiKey = "sk-legacy-plaintext-af11";
 		const now = new Date().toISOString();
 
-		// Seed a raw DB row with a plaintext apiKey (simulating pre-AF11 data)
+		// Seed a raw DB row with a legacy plaintext apiKey (simulating pre-AH1 data).
 		const rawBlob = JSON.stringify({
 			modelGateway: {
 				reasoning: {
@@ -561,22 +531,51 @@ describe("AC4: server_config apiKey encrypted at rest", () => {
 
 		await db.insert(serverConfig).values({ id: "default", config: rawBlob, updatedAt: now });
 
-		// After calling the migration function, the blob should be encrypted
-		const { migrateServerConfigEncryption } = await import("../../services/server-config.js");
-		await migrateServerConfigEncryption(db);
+		// Run the AH1 migration — relocates blob apiKey to server_credentials.
+		const { migrateCredentialsToStore } = await import("../../services/server-config.js");
+		await migrateCredentialsToStore(db);
 
+		// After migration: blob has no apiKey field.
 		const rows = await db.select().from(serverConfig);
-		expect(rows[0]?.config ?? "").not.toContain(plaintextApiKey);
+		const blobRaw = rows[0]?.config ?? "";
+		expect(blobRaw).not.toContain(plaintextApiKey);
+		const blobParsed = JSON.parse(blobRaw) as Record<string, unknown>;
+		const gateway = blobParsed.modelGateway as Record<string, Record<string, unknown>> | undefined;
+		if (gateway) {
+			for (const [tierName, tier] of Object.entries(gateway)) {
+				expect(
+					tier,
+					`tier ${tierName} must not have apiKey in blob after migration`,
+				).not.toHaveProperty("apiKey");
+			}
+		}
 
-		// Run migration a second time — idempotent (no double-encryption)
-		await migrateServerConfigEncryption(db);
-		const rows2 = await db.select().from(serverConfig);
-		expect(rows2[0]?.config ?? "").not.toContain(plaintextApiKey);
+		// The key was relocated to server_credentials as openai_compatible_api_key.
+		const { serverCredentials } = await import("@hyperidle/db");
+		const { eq } = await import("drizzle-orm");
+		const credRows = await db
+			.select()
+			.from(serverCredentials)
+			.where(eq(serverCredentials.name, "openai_compatible_api_key"));
+		expect(credRows).toHaveLength(1);
 
-		// The decrypted value should still round-trip to the original plaintext
-		const { resolveTierApiKey, readServerConfig } = await import("../../services/server-config.js");
-		const cfg = await readServerConfig(db);
-		expect(resolveTierApiKey(cfg.modelGateway, "reasoning")).toBe(plaintextApiKey);
+		// The stored value must be ciphertext (not plaintext).
+		const encryptedValue = credRows[0]!.encryptedValue;
+		expect(encryptedValue).not.toBe(plaintextApiKey);
+
+		// It must decrypt back to the original plaintext.
+		const { decryptCredentialValue } = await import("../../services/credential-encryption.js");
+		const decrypted = decryptCredentialValue(encryptedValue, TEST_SERVER_SECRET);
+		expect(decrypted).toBe(plaintextApiKey);
+
+		// Run migration again — idempotent (does not overwrite the existing credential row).
+		await migrateCredentialsToStore(db);
+		const credRows2 = await db
+			.select()
+			.from(serverCredentials)
+			.where(eq(serverCredentials.name, "openai_compatible_api_key"));
+		expect(credRows2).toHaveLength(1);
+		expect(credRows2[0]!.encryptedValue).toBe(encryptedValue);
 	});
 });
 

@@ -26,30 +26,18 @@ export type ModelProvider = (typeof MODEL_PROVIDERS)[number];
  * X4: Per-tier gateway configuration as stored in serverConfig.
  * Each tier maps to one provider + model + optional base URL.
  *
- * @lore X4 A-TYPE-1: apiKey is included here (as optional) even though it is
- * a storage concern rather than a pure domain concern. The alternative was a
- * separate StoredModelTierConfig type, but that would require two parallel type
- * trees and make the code harder to follow. apiKey is only populated for
- * "openai-compatible" providers — the GET endpoint always strips it and returns
- * hasApiKey: boolean instead (A-SEC-2).
+ * @lore AH1 §2: apiKey was removed from ModelTierConfig. It now lives exclusively
+ * in the server_credentials table as openai_compatible_api_key (for openai-compatible
+ * providers) or anthropic_api_key / openrouter_api_key (for others). baseUrl (non-secret)
+ * remains here. resolveModelTier reads the key via the credential resolver, not this config.
+ * @lore X4 A-TYPE-1: Original note superseded by AH1. The "apiKey in ModelTierConfig"
+ * approach was the X4 A-SEC-3 known gap — AH1 closes it.
  */
 export interface ModelTierConfig {
 	readonly provider: ModelProvider;
 	readonly model: string;
 	/** Only used for "openai-compatible" provider. Ignored for anthropic/openrouter. */
 	readonly baseUrl?: string;
-	/**
-	 * API key for "openai-compatible" providers only.
-	 * Stored in serverConfig JSON — NOT in the encrypted credential catalog.
-	 *
-	 * @lore X4 A-SEC-3: openai-compatible API keys are stored as plain JSON in
-	 * serverConfig (server_config.config TEXT column), not in the encrypted
-	 * server_credentials table. In local mode, the SQLite file has filesystem-
-	 * level protection. In shared mode, anyone with DB access can read this key.
-	 * This is a known gap for v1 — a follow-up should add dynamic credential
-	 * catalog entries or encrypt the serverConfig blob.
-	 */
-	readonly apiKey?: string;
 }
 
 /**

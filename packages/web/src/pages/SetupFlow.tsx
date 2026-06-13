@@ -188,9 +188,18 @@ export function SetupFlow(): JSX.Element {
 					throw new Error(body?.error ?? `Failed to create team (${teamRes.status})`);
 				}
 
-				// Step 3: Optionally set API credential via bridge
-				if (apiKey.trim() && window.__HYPERIDLE__?.credentials?.set) {
-					await window.__HYPERIDLE__.credentials.set("anthropic", apiKey.trim());
+				// Step 3: Write anthropic API key via HTTP (AH1 §5).
+				// @lore AH1: Replaced bridge write (window.__HYPERIDLE__.credentials.set)
+				// with HTTP write. apiFetch works in desktop-local AND web/E2E.
+				// The DB write is the runtime + Settings truth.
+				// The bridge mirror is dropped — no surviving non-resolution reader
+				// of the safeStorage credential value after AH1 §3 resolver swap.
+				if (apiKey.trim()) {
+					await apiFetch("/api/credentials/anthropic_api_key", {
+						method: "PUT",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ value: apiKey.trim() }),
+					});
 				}
 
 				// AE2: Navigate to /work/portfolio?onboarding=true to trigger assistant overlay auto-open.

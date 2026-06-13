@@ -21,8 +21,9 @@ import { createRateLimiter } from "../middleware/rate-limit.js";
 import {
 	decryptCredentialValue,
 	encryptCredentialValue,
-	getServerSecret,
+	requireServerSecret,
 } from "../services/credential-encryption.js";
+import { readServerConfig } from "../services/server-config.js";
 
 /** Validation timeout: 10 seconds for all external service calls. */
 const VALIDATE_TIMEOUT_MS = 10_000;
@@ -211,7 +212,21 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		}
 
 		const { value } = parsed.data;
-		const serverSecret = getServerSecret();
+
+		// AH1 §6: Fail-loud at the write boundary — refuse to write a ""-keyed row.
+		let serverSecret: string;
+		try {
+			serverSecret = requireServerSecret();
+		} catch {
+			return c.json(
+				{
+					error: "Encryption secret not configured",
+					code: "MISSING_ROOT_SECRET",
+				},
+				500,
+			);
+		}
+
 		const encryptedValue = encryptCredentialValue(value, serverSecret);
 		const now = new Date().toISOString();
 
@@ -285,8 +300,16 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 				return c.json({ valid: false, error: "Credential not set" }, 200);
 			}
 
-			// Decrypt the stored value for validation
-			const serverSecret = getServerSecret();
+			// AH1 §6 CRITICAL-3: Fail-loud at validate boundary.
+			// getServerSecret() returning null → deriveKey(null) throws uncaught 500.
+			// Use requireServerSecret()-or-clean-error: return 200 {valid:false} on missing secret.
+			let serverSecret: string;
+			try {
+				serverSecret = requireServerSecret();
+			} catch {
+				return c.json({ valid: false, error: "Encryption secret not configured" }, 200);
+			}
+
 			const plaintext = decryptCredentialValue(row.encryptedValue, serverSecret);
 
 			if (!plaintext) {
@@ -311,14 +334,56 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 					validationResult = await validateSharedBackendKey(plaintext, selfUrl);
 					break;
 				}
+				case "openai_compatible_api_key": {
+					// AH1 §5 CRITICAL-3: Validate against the configured baseUrl.
+					// Read baseUrl from server_config (non-secret, lives in tier config).
+					// @lore AH1 SSRF deferral: this fetches a user-supplied baseUrl.
+					// For v1 (single-founder local-trust) this is acceptable.
+					// Hardening follow-up: block link-local/metadata IPs for multi-user deployments.
+					const cfg = await readServerConfig(db);
+					const openaiCompatibleTiers = (["reasoning", "workhorse", "fast"] as const).filter(
+						(t) =>
+							cfg.modelGateway[t].provider === "openai-compatible" && cfg.modelGateway[t].baseUrl,
+					);
+					const firstOaiTier = openaiCompatibleTiers[0];
+					if (openaiCompatibleTiers.length === 0 || !firstOaiTier) {
+						validationResult = {
+							valid: false,
+							error:
+								"Set a base URL first (configure an openai-compatible tier in Settings > Models)",
+						};
+					} else {
+						const baseUrl = cfg.modelGateway[firstOaiTier].baseUrl ?? "";
+						try {
+							const controller = new AbortController();
+							const timer = setTimeout(() => controller.abort(), VALIDATE_TIMEOUT_MS);
+							try {
+								const response = await fetch(`${baseUrl.replace(/\/$/, "")}/v1/models`, {
+									headers: { Authorization: `Bearer ${plaintext}` },
+									signal: controller.signal,
+								});
+								if (response.status === 401 || response.status === 403) {
+									validationResult = { valid: false, error: "Invalid API key" };
+								} else {
+									validationResult = { valid: true };
+								}
+							} finally {
+								clearTimeout(timer);
+							}
+						} catch (err) {
+							validationResult = {
+								valid: false,
+								error: err instanceof Error ? err.message : "Network error",
+							};
+						}
+					}
+					break;
+				}
 				default: {
-					// TypeScript exhaustive check — all CredentialName members are handled
-					// above, so `name` narrows to `never` here. Kept as a fail-closed guard
-					// (any future unhandled credential validates as invalid, never valid).
-					// @lore AF4/§5: switch is exhaustive over CredentialName (3 members);
-					// `void` marks the never-binding used (TS6133). No missing validator.
-					const exhaustive: never = name;
-					void exhaustive;
+					// AH1 §5 CRITICAL-3: Removed the `const exhaustive: never = name` guard.
+					// The 4th case (openai_compatible_api_key) makes `name` non-`never` here.
+					// isCredentialName() at the top already rejects unknown names — this branch
+					// is a fail-closed runtime guard for any unhandled future member.
 					validationResult = { valid: false, error: "Unknown credential name" };
 				}
 			}

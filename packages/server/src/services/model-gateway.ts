@@ -9,7 +9,7 @@
  *  2. Based on provider:
  *     - "anthropic"       → resolve anthropic_api_key from credentialResolver
  *     - "openrouter"      → resolve openrouter_api_key from credentialResolver
- *     - "openai-compatible" → apiKey comes from config[tier].apiKey itself
+ *     - "openai-compatible" → resolve openai_compatible_api_key from credentialResolver
  *  3. If required key is null → throw MissingCredentialError
  *  4. Return { provider, model, apiKey, baseUrl }
  */
@@ -75,7 +75,6 @@ async function resolveProvider(
 	credentialResolver: CredentialResolver,
 	options: {
 		baseUrl?: string;
-		apiKey?: string;
 		agentPath?: boolean;
 		context?: string;
 	} = {},
@@ -122,16 +121,18 @@ async function resolveProvider(
 					`openai-compatible provider${options.context ? ` for ${options.context}` : ""} requires a baseUrl`,
 				);
 			}
-			// A-ERR-1: Defensive check for missing apiKey
-			if (!options.apiKey) {
+			// AH1 §2: Key now lives in server_credentials, resolved via the credential resolver.
+			// No more plaintext apiKey from config.
+			const apiKey = await credentialResolver.resolve("openai_compatible_api_key");
+			if (!apiKey) {
 				throw new MissingCredentialError(
-					`apiKey for openai-compatible provider${options.context ? ` (${options.context})` : ""} — set it in Settings > Models`,
+					`openai_compatible_api_key (required for openai-compatible provider${options.context ? ` (${options.context})` : ""})`,
 				);
 			}
 			return {
 				provider: "openai-compatible",
 				model,
-				apiKey: options.apiKey,
+				apiKey,
 				baseUrl: options.baseUrl,
 			};
 		}
@@ -150,9 +151,9 @@ export async function resolveModelTier(
 	credentialResolver: CredentialResolver,
 ): Promise<ResolvedModel> {
 	const tierConfig = config[tier];
+	// AH1 §2: No plaintext apiKey passed from config — credentials resolved via credentialResolver.
 	return resolveProvider(tierConfig.provider, tierConfig.model, credentialResolver, {
 		baseUrl: tierConfig.baseUrl,
-		apiKey: tierConfig.apiKey,
 		context: `tier: ${tier}`,
 	});
 }

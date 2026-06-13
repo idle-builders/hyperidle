@@ -38,13 +38,22 @@ interface RenderResult {
 }
 
 function renderSetupFlow(initialPath = "/setup"): RenderResult {
-	let lastCapturedBody: Record<string, unknown> | null = null;
+	// AH1: capture the teams POST body specifically (not the last-captured body).
+	// After AH1, SetupFlow makes 3 fetch calls:
+	//   1. POST /api/users, 2. POST /api/teams, 3. PUT /api/credentials/:name
+	// capturedBody() returns the teams POST body for AE2 assertions.
+	let teamsCreateBody: Record<string, unknown> | null = null;
 
 	// Track the body sent for each fetch call
 	global.fetch = vi.fn().mockImplementation((_url: string, options?: RequestInit) => {
-		if (options?.body) {
+		if (
+			options?.body &&
+			typeof _url === "string" &&
+			_url.includes("/api/teams") &&
+			options.method === "POST"
+		) {
 			try {
-				lastCapturedBody = JSON.parse(options.body as string) as Record<string, unknown>;
+				teamsCreateBody = JSON.parse(options.body as string) as Record<string, unknown>;
 			} catch {
 				// ignore
 			}
@@ -71,7 +80,7 @@ function renderSetupFlow(initialPath = "/setup"): RenderResult {
 		</MemoryRouter>,
 	);
 
-	return { capturedBody: () => lastCapturedBody };
+	return { capturedBody: () => teamsCreateBody };
 }
 
 afterEach(() => {

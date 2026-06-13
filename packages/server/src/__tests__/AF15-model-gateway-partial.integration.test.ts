@@ -142,21 +142,22 @@ describe("AF15 AC-2 — PATCH /api/model-gateway partial-tier merge", () => {
 
 	// ── Headline AC-2: adjacent key preserved ────────────────────────────────
 
-	test("PATCH fast.model preserves reasoning tier apiKey (hasApiKey stays true)", async ({
+	test("PATCH fast.model preserves reasoning tier config (AH1: hasApiKey always false — key in server_credentials)", async ({
 		app,
 		db,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		await seedWithOaiKey(db);
 
-		// Verify reasoning has a key before patch
+		// AH1: hasApiKey is always false from model-gateway endpoint — key now lives in server_credentials
 		const getRes1 = await app.request("/api/model-gateway", { headers: authHeaders() });
 		expect(getRes1.status).toBe(200);
 		const before = (await getRes1.json()) as {
 			reasoning: { hasApiKey: boolean };
 			fast: { model: string };
 		};
-		expect(before.reasoning.hasApiKey).toBe(true);
+		// AH1: key in server_credentials, not tier blob — always false here
+		expect(before.reasoning.hasApiKey).toBe(false);
 
 		// Patch only fast tier's model
 		const patchRes = await app.request("/api/model-gateway", {
@@ -166,22 +167,28 @@ describe("AF15 AC-2 — PATCH /api/model-gateway partial-tier merge", () => {
 		});
 		expect(patchRes.status).toBe(200);
 
-		// Reasoning key must still be present
+		// After patch, reasoning tier's config should still be openai-compatible (provider preserved)
 		const getRes2 = await app.request("/api/model-gateway", { headers: authHeaders() });
-		const after = (await getRes2.json()) as { reasoning: { hasApiKey: boolean } };
-		expect(after.reasoning.hasApiKey).toBe(true);
+		const after = (await getRes2.json()) as { reasoning: { provider: string; hasApiKey: boolean } };
+		expect(after.reasoning.provider).toBe("openai-compatible");
+		// AH1: hasApiKey always false — credential state is in GET /api/credentials
+		expect(after.reasoning.hasApiKey).toBe(false);
 		vi.unstubAllEnvs();
 	});
 
-	test("changing reasoning tier provider to anthropic drops its apiKey", async ({ app, db }) => {
+	test("changing reasoning tier provider to anthropic switches provider (AH1: hasApiKey always false)", async ({
+		app,
+		db,
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		await seedWithOaiKey(db);
 
-		// Verify reasoning has a key
+		// AH1: hasApiKey is always false from model-gateway — key in server_credentials
 		const before = (await (
 			await app.request("/api/model-gateway", { headers: authHeaders() })
-		).json()) as { reasoning: { hasApiKey: boolean } };
-		expect(before.reasoning.hasApiKey).toBe(true);
+		).json()) as { reasoning: { hasApiKey: boolean; provider: string } };
+		expect(before.reasoning.provider).toBe("openai-compatible");
+		expect(before.reasoning.hasApiKey).toBe(false); // AH1: always false
 
 		// Switch reasoning provider away from openai-compatible
 		const patchRes = await app.request("/api/model-gateway", {
@@ -191,10 +198,11 @@ describe("AF15 AC-2 — PATCH /api/model-gateway partial-tier merge", () => {
 		});
 		expect(patchRes.status).toBe(200);
 
-		// hasApiKey should be false now
+		// Provider changed — hasApiKey still false (key in server_credentials, not tier blob)
 		const after = (await (
 			await app.request("/api/model-gateway", { headers: authHeaders() })
-		).json()) as { reasoning: { hasApiKey: boolean } };
+		).json()) as { reasoning: { hasApiKey: boolean; provider: string } };
+		expect(after.reasoning.provider).toBe("anthropic");
 		expect(after.reasoning.hasApiKey).toBe(false);
 		vi.unstubAllEnvs();
 	});
@@ -254,7 +262,7 @@ describe("AF15 AC-2 — PATCH /api/model-gateway partial-tier merge", () => {
 
 	// ── GET sanitizes apiKey ──────────────────────────────────────────────────
 
-	test("GET /api/model-gateway returns hasApiKey boolean, never apiKey string", async ({
+	test("GET /api/model-gateway returns hasApiKey boolean, never apiKey string (AH1: always false)", async ({
 		app,
 		db,
 	}) => {
@@ -263,9 +271,10 @@ describe("AF15 AC-2 — PATCH /api/model-gateway partial-tier merge", () => {
 		const res = await app.request("/api/model-gateway", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Record<string, unknown>;
-		// Must have hasApiKey, must NOT have apiKey
+		// Must NOT have apiKey (security: never leak)
 		expect(body).not.toHaveProperty("reasoning.apiKey");
-		expect((body as { reasoning: { hasApiKey: boolean } }).reasoning.hasApiKey).toBe(true);
+		// AH1: hasApiKey is always false — key now in server_credentials, use GET /api/credentials for state
+		expect((body as { reasoning: { hasApiKey: boolean } }).reasoning.hasApiKey).toBe(false);
 		vi.unstubAllEnvs();
 	});
 });
