@@ -46,6 +46,17 @@ beforeEach(async () => {
 				new Response(JSON.stringify({ edges: [], users: [], teams: [] }), { status: 200 }),
 			);
 		}
+		if (urlStr.includes("/api/harnesses")) {
+			return Promise.resolve(
+				new Response(
+					// AH2: return empty array so SettingsAgents harness select has no options but doesn't crash
+					JSON.stringify([
+						{ type: "builtin", name: "Built-in Harness", modelProviders: ["anthropic"] },
+					]),
+					{ status: 200 },
+				),
+			);
+		}
 		if (urlStr.includes("/api/agents")) {
 			return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
 		}

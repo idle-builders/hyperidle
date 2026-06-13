@@ -128,7 +128,10 @@ export function SettingsAgents(): JSX.Element {
 			setAgents(agentsJson);
 			if (harnessesRes.ok) {
 				const harnessesJson = (await harnessesRes.json()) as HarnessEntry[];
-				setHarnesses(harnessesJson);
+				// AH2: Guard against non-array response (e.g. error body or test catch-all)
+				if (Array.isArray(harnessesJson)) {
+					setHarnesses(harnessesJson);
+				}
 			}
 			setStatus("ready");
 		} catch {
