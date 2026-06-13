@@ -92,17 +92,25 @@ export async function applyFactoryBootstrap(db: HyperIdleDb): Promise<void> {
 			agentCategory: "individual",
 			status: "active",
 			maxConcurrentSessions: 1,
+			// AH2: runnable defaults so the agent can start without configuration.
+			harnessType: "builtin",
+			modelId: "claude-sonnet-4-6",
+			modelProvider: "anthropic",
 			createdAt: now,
 		})
 		.onConflictDoNothing();
 
 	// Patch the System Agent row with facilitator metadata (idempotent).
 	// @lore AD8a: soulPromptPath set to null — docs/souls/chief-of-staff.md is deleted.
+	// AH2: also set runnable defaults on PATCH so existing rows get them on upgrade.
 	await db
 		.update(users)
 		.set({
 			soulPromptPath: null,
 			skills: JSON.stringify({ scope: null, tools: FACILITATOR_TOOLS }),
+			harnessType: "builtin",
+			modelId: "claude-sonnet-4-6",
+			modelProvider: "anthropic",
 		})
 		.where(eq(users.id, "seed-agent-cos"));
 
@@ -127,6 +135,10 @@ export async function applyFactoryBootstrap(db: HyperIdleDb): Promise<void> {
 					scope: community,
 					tools: FACILITATOR_TOOLS,
 				}),
+				// AH2: runnable defaults so factory agents can start without configuration.
+				harnessType: "builtin",
+				modelId: "claude-sonnet-4-6",
+				modelProvider: "anthropic",
 				createdAt: now,
 			})
 			.onConflictDoNothing();
