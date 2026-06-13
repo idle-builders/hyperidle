@@ -1396,12 +1396,12 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 													onChange={(e) =>
 														setOutcomeVerdictForm(e.target.value as typeof outcomeVerdictForm)
 													}
-												placeholder="Select verdict…"
-												options={BET_OUTCOME_VERDICTS.map((v) => ({
-													value: v,
-													label: BET_OUTCOME_VERDICT_LABEL[v] ?? v,
-												}))}
-											/>
+													placeholder="Select verdict…"
+													options={BET_OUTCOME_VERDICTS.map((v) => ({
+														value: v,
+														label: BET_OUTCOME_VERDICT_LABEL[v] ?? v,
+													}))}
+												/>
 											</div>
 											{/* Reality / summary textarea */}
 											<div className="flex flex-col gap-[6px]">
