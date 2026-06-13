@@ -108,8 +108,10 @@ export type { SearchFieldProps } from "./SearchField.js";
 export { SearchField } from "./SearchField.js";
 export type { SelectProps } from "./Select.js";
 export { Select } from "./Select.js";
-export type { SkeletonCardProps, SkeletonListProps } from "./Skeleton.js";
-export { SkeletonCard, SkeletonList } from "./Skeleton.js";
+export type { ScopePickerOption, ScopePickerProps } from "./ScopePicker.js";
+export { ScopePicker } from "./ScopePicker.js";
+export type { SkeletonCardProps, SkeletonListProps, SkeletonProps } from "./Skeleton.js";
+export { Skeleton, SkeletonCard, SkeletonList } from "./Skeleton.js";
 export type { Status, StatusChipProps } from "./StatusChip.js";
 // ── Tier 1: Primitives ──
 export { StatusChip } from "./StatusChip.js";

@@ -3,8 +3,38 @@ import { ErrorState } from "./ErrorState.js";
 export default {
 	title: "ErrorState",
 	tier: "utility" as const,
-	order: ["WithRetry", "WithDetail", "WithAction", "WithoutRetry", "InContextStackedErrors"],
+	order: [
+		"WithRetry",
+		"WithDetail",
+		"WithAction",
+		"WithoutRetry",
+		"InContextStackedErrors",
+		"Compact",
+		"CompactWithRetry",
+	],
 };
+
+export const Compact = (): React.JSX.Element => (
+	<div className="rounded-[var(--r-default)] bg-[var(--surface-container)] p-[12px]" style={{ maxWidth: "360px" }}>
+		<ErrorState
+			compact
+			title="Couldn't load reference"
+			description="The block reference failed to resolve."
+		/>
+	</div>
+);
+
+export const CompactWithRetry = (): React.JSX.Element => (
+	<div className="rounded-[var(--r-default)] bg-[var(--surface-container)] p-[12px]" style={{ maxWidth: "360px" }}>
+		<ErrorState
+			compact
+			title="Couldn't load reference"
+			description="The block reference failed to resolve. Retry in a moment."
+			detail="Error 404: block not found"
+			onRetry={() => undefined}
+		/>
+	</div>
+);
 
 export const WithRetry = (): React.JSX.Element => (
 	<ErrorState

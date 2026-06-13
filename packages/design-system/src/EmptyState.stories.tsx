@@ -10,8 +10,39 @@ export default {
 		"PortfolioEmpty",
 		"WithActionSlot",
 		"WithoutIcon",
+		"Compact",
+		"CompactWithAction",
 	],
 };
+
+export const Compact = (): React.JSX.Element => (
+	<div className="rounded-[var(--r-default)] bg-[var(--surface-container)] p-[12px]" style={{ maxWidth: "360px" }}>
+		<EmptyState
+			compact
+			title="No discussions"
+			description="Start a thread to discuss this artifact with your team."
+		/>
+	</div>
+);
+
+export const CompactWithAction = (): React.JSX.Element => (
+	<div className="rounded-[var(--r-default)] bg-[var(--surface-container)] p-[12px]" style={{ maxWidth: "360px" }}>
+		<EmptyState
+			compact
+			title="No activity yet"
+			description="Tool calls and reasoning will appear here."
+			action={
+				<button
+					type="button"
+					// hearth-internal-padding
+					className="inline-flex items-center px-[12px] py-[7px] text-[12px] font-[500] text-[var(--text-on-accent)] bg-[var(--accent-primary)] rounded-[var(--r-pill)] border-[1.5px] border-transparent cursor-pointer"
+				>
+					Start session
+				</button>
+			}
+		/>
+	</div>
+);
 
 export const ConversationsEmpty = (): React.JSX.Element => (
 	<EmptyState
