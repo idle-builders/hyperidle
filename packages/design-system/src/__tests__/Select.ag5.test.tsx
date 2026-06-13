@@ -250,4 +250,47 @@ describe("AG5 — Select: className forwarded to inner <select> (C3 width fix)",
 		// base default is w-full when no caller className overrides width
 		expect(sel?.className).toContain("w-full");
 	});
+
+	it("className='max-w-md' does NOT suppress the default w-full (WARNING-B regex fix)", async () => {
+		// max-w-md contains 'w-' as a substring but is NOT a Tailwind width token.
+		// The regex /\bw-/ incorrectly matched it; /(?:^|\s)w-/ must not.
+		await act(async () => {
+			root.render(
+				createElement(Select, {
+					options: BASE_OPTIONS,
+					className: "max-w-md",
+				}),
+			);
+		});
+		const sel = container.querySelector("select");
+		// Should still have w-full from the base class (caller only narrowed the max width)
+		expect(sel?.className).toContain("w-full");
+	});
+
+	it("className='min-w-[100px]' does NOT suppress the default w-full (WARNING-B regex fix)", async () => {
+		await act(async () => {
+			root.render(
+				createElement(Select, {
+					options: BASE_OPTIONS,
+					className: "min-w-[100px]",
+				}),
+			);
+		});
+		const sel = container.querySelector("select");
+		expect(sel?.className).toContain("w-full");
+	});
+
+	it("className='w-[88px]' DOES suppress the default w-full (caller width token wins)", async () => {
+		await act(async () => {
+			root.render(
+				createElement(Select, {
+					options: BASE_OPTIONS,
+					className: "w-[88px]",
+				}),
+			);
+		});
+		const sel = container.querySelector("select");
+		// w-full must NOT be injected; only the caller's w-[88px] controls width
+		expect(sel?.className).not.toMatch(/(?:^|\s)w-full/);
+	});
 });

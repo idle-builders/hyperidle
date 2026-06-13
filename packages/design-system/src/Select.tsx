@@ -36,14 +36,24 @@ const SELECT_CLASS_BASE =
 // hearth-internal-padding
 // "md": py-[10px] optically tuned form padding.
 // "sm": py-[6px] dense row; at ≤1024px the min-h-[44px] floor enforces AQ-015 touch target.
+// @lore AG5 fix-1: AQ-015 requires 44px touch target at viewport ≤ 1024px.
+// Tailwind's lg: breakpoint is min-width:1024px, which applies AT 1024px.
+// Use xl: (1280px+) to reduce height so the 44px floor holds up to and including 1024px.
 const SELECT_SIZE: Record<NonNullable<SelectProps["size"]>, string> = {
-	md: "py-[10px] min-h-[44px] sm:min-h-0",
-	sm: "py-[6px] min-h-[44px] sm:min-h-[32px]",
+	md: "py-[10px] min-h-[44px] xl:min-h-0",
+	sm: "py-[6px] min-h-[44px] xl:min-h-[32px]",
 };
 
-/** True when the caller className contains a Tailwind width utility (w-*). */
+/**
+ * True when the caller className contains a Tailwind width utility (w-*).
+ *
+ * @lore AG5 fix-1: /\bw-/ false-positives on max-w-/min-w- because `-` is a
+ * non-word character so \b matches the position between the `-` and the `w`.
+ * Use /(?:^|\s)w-/ instead: matches `w-` only at the start of a class token,
+ * not inside `max-w-` or `min-w-`.
+ */
 function hasWidthToken(cls: string): boolean {
-	return /\bw-/.test(cls);
+	return /(?:^|\s)w-/.test(cls);
 }
 
 export function Select({
