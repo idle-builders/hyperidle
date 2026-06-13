@@ -178,12 +178,15 @@ describe("BetCreateDialog (R2)", () => {
 			// field because BodyEditor (TipTap ProseMirror) renders a contenteditable, not a native
 			// form control. A <label> with no associated form control violates lint/a11y rules.
 			// This test asserts the accessible label is a <span>, not a <label>.
-			const { container } = openDialog({ teams: SINGLE_TEAM });
+			// @lore AI2: Dialog primitive portals content to #overlay-root (body sibling). Query
+			// document.body instead of container to find portaled elements.
+			openDialog({ teams: SINGLE_TEAM });
 			// With single team: no team <label>, description uses <div>/<span> — zero <label> elements.
-			const labels = container.querySelectorAll("label");
+			// Query the portaled content via document.body (Dialog portals to #overlay-root).
+			const labels = document.body.querySelectorAll("[data-dialog-box] label");
 			expect(labels.length).toBe(0);
 			// The description section is identified by its <span> label
-			const descriptionSpan = container.querySelector("span");
+			const descriptionSpan = document.body.querySelector("[data-dialog-box] span");
 			expect(descriptionSpan).not.toBeNull();
 		});
 	});

@@ -116,6 +116,19 @@
 		 * See L11 plan §5.7 lore.
 		 */
 		--card-max-h: 70vh;
+
+		/* AI2 — overlay z-layer scale. Single source of truth for every overlay surface.
+		   ⚠️ AI1 overlap: this block is added to tokens.css concurrently with AI1's token work.
+		   Do not reorder or renumber; surfaces reference these by name (var(--z-*)).
+		   --z-toast sits above the modal + scrim — toasts portal into #overlay-root
+		   (a body sibling never inerted) so they stay clickable over open modals. */
+		--z-base: 0;
+		--z-sticky: 10;
+		--z-drawer: 30;
+		--z-overlay: 40;
+		--z-scrim: 50;
+		--z-dialog: 60;
+		--z-toast: 70;
 	}
 
 	/* ── Mobile override: tighter card height cap on small viewports ── */
@@ -168,6 +181,10 @@
 		--shadow-subtle: 0 1px 4px rgba(44, 36, 26, 0.06);
 		--shadow-default: 0 4px 12px rgba(44, 36, 26, 0.08);
 		--shadow-elevated: 0 8px 24px rgba(44, 36, 26, 0.1);
+
+		/* AI2 — modal scrim color. Placeholder token; AI6 will derive via color-mix.
+		   AI6: candidate for color-mix(in oklab, var(--text-primary) 45%, transparent) */
+		--scrim: rgba(26, 21, 16, 0.45);
 
 		color-scheme: light;
 	}
@@ -231,6 +248,10 @@
 		--shadow-subtle: 0 1px 4px rgba(0, 0, 0, 0.3);
 		--shadow-default: 0 4px 12px rgba(0, 0, 0, 0.4);
 		--shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+		/* AI2 — dark scrim. Warm family, higher opacity so lighter dark surfaces read as "behind".
+		   AQ-009: no pure black. AI6: candidate for color-mix derivation. */
+		--scrim: rgba(20, 16, 12, 0.62);
 
 		color-scheme: dark;
 	}

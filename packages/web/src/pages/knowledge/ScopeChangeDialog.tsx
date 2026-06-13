@@ -6,18 +6,21 @@
  * Uses optimistic version tracking — the current version is sent with the PATCH
  * so the server can reject stale mutations.
  *
- * @lore Q2: Same native <dialog> pattern as ConsequencePreviewDialog /
- * KnowledgeCreateDialog. PATCH /api/knowledge/:id/scope carries
- * { scopeKind, scopeId?, reason, updatedBy, version }.
+ * @lore Q2: Same Dialog primitive pattern as KnowledgeCreateDialog.
+ * PATCH /api/knowledge/:id/scope carries { scopeKind, scopeId?, reason, updatedBy, version }.
  *
  * @lore Q2 reviewer warning: scope_id dropdown loading state. For v1 the
  * scopeId is a free-text input (no dropdown). A dropdown requires fetching the
  * list of products/practices/teams etc. which is out of scope for Q2. The
  * free-text input satisfies the AC and unblocks the E2E tests.
+ *
+ * @lore AI2: Migrated from native <dialog> + showModal() to Dialog primitive.
+ * isDirty = reason entered or scope changed from current. Authoring surface — guards.
  */
 
+import { Dialog } from "@hyperidle/design-system";
 import { SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/shared";
-import { type JSX, useEffect, useRef, useState } from "react";
+import { type JSX, useState } from "react";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
 import { apiFetch } from "../../services/api-fetch.js";
 import {
@@ -36,26 +39,6 @@ export interface ScopeChangeDialogProps {
 	currentVersion: number;
 	/** Current scope kind to pre-fill the select. */
 	currentScopeKind: ScopeKind;
-}
-
-export function ScopeChangeDialog({
-	open,
-	onClose,
-	onSaved,
-	knowledgeId,
-	currentVersion,
-	currentScopeKind,
-}: ScopeChangeDialogProps): JSX.Element | null {
-	if (!open) return null;
-	return (
-		<ScopeChangeDialogInner
-			onClose={onClose}
-			onSaved={onSaved}
-			knowledgeId={knowledgeId}
-			currentVersion={currentVersion}
-			currentScopeKind={currentScopeKind}
-		/>
-	);
 }
 
 /**
@@ -78,21 +61,20 @@ function resolveDefaultOption(scopeKind: ScopeKind): ScopeCreateOption {
 	);
 }
 
-function ScopeChangeDialogInner({
+export function ScopeChangeDialog({
+	open,
 	onClose,
 	onSaved,
 	knowledgeId,
 	currentVersion,
 	currentScopeKind,
-}: Omit<ScopeChangeDialogProps, "open">): JSX.Element {
-	const dialogRef = useRef<HTMLDialogElement>(null);
+}: ScopeChangeDialogProps): JSX.Element | null {
 	const { user } = useCurrentUser();
 
-	// AF13 plan §6: Gate Team option by hasTeam, matching KnowledgeCreate's logic.
+	// AF13 §4A: Gate Team option by hasTeam, matching KnowledgeCreate's logic.
 	const hasTeam: boolean = user?.teamId !== undefined;
 
 	// AF13 §4A: Replace raw 7-enum select with 3 labeled SCOPE_CREATE_OPTIONS.
-	// The selected option holds both the user-facing label and the API scopeKind.
 	const [selectedOption, setSelectedOption] = useState<ScopeCreateOption>(
 		resolveDefaultOption(currentScopeKind),
 	);
@@ -103,21 +85,8 @@ function ScopeChangeDialogInner({
 	const [error, setError] = useState<string | null>(null);
 
 	const needsScopeId = SCOPES_REQUIRING_ID.has(scopeKind);
+	const isDirty = reason.trim().length > 0 || selectedOption.scopeKind !== currentScopeKind;
 	const canSave = reason.trim().length > 0 && !submitting;
-
-	// Open the native dialog on mount.
-	// @lore Q2: JSDOM guard — same as other dialogs in the codebase.
-	// The inner component is only rendered when open=true, so we always show on mount.
-	useEffect(() => {
-		if (!dialogRef.current) return;
-		if (!dialogRef.current.open) {
-			if (typeof dialogRef.current.showModal === "function") {
-				dialogRef.current.showModal();
-			} else {
-				dialogRef.current.setAttribute("open", "");
-			}
-		}
-	}, []);
 
 	const handleSave = async (): Promise<void> => {
 		const trimmedReason = reason.trim();
@@ -155,18 +124,35 @@ function ScopeChangeDialogInner({
 		onClose();
 	};
 
-	const handleCancel = (): void => {
-		if (submitting) return;
-		onClose();
-	};
-
 	return (
-		<dialog ref={dialogRef} aria-modal="true" aria-label="Change scope">
-			<div className="p-4 flex flex-col gap-3 min-w-[320px] max-w-[480px] w-full">
-				<h2 className="text-sm font-heading font-semibold uppercase tracking-wider">
-					Change scope
-				</h2>
-
+		<Dialog
+			open={open}
+			onClose={onClose}
+			title="Change scope"
+			isDirty={isDirty}
+			size="sm"
+			footer={
+				<>
+					<button
+						type="button"
+						className="btn btn-xs btn-ghost"
+						onClick={onClose}
+						disabled={submitting}
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						className="btn btn-xs btn-primary"
+						onClick={() => void handleSave()}
+						disabled={!canSave}
+					>
+						{submitting ? "…" : "Save"}
+					</button>
+				</>
+			}
+		>
+			<div className="flex flex-col gap-3">
 				{/* AF13 §4A: Scope kind — 3 labeled options (Shared/Team/Private).      */}
 				{/* Previously rendered all 7 SCOPE_KINDS as raw enum values.          */}
 				{/* AF13 plan §6: Team option disabled when user has no teamId,         */}
@@ -232,26 +218,7 @@ function ScopeChangeDialogInner({
 						{error}
 					</p>
 				)}
-
-				<div className="flex gap-2 justify-end">
-					<button
-						type="button"
-						className="btn btn-xs btn-ghost"
-						onClick={handleCancel}
-						disabled={submitting}
-					>
-						Cancel
-					</button>
-					<button
-						type="button"
-						className="btn btn-xs btn-primary"
-						onClick={() => void handleSave()}
-						disabled={!canSave}
-					>
-						{submitting ? "…" : "Save"}
-					</button>
-				</div>
 			</div>
-		</dialog>
+		</Dialog>
 	);
 }

@@ -19,6 +19,7 @@ import {
 	Block,
 	BlockActionsPopover,
 	BodyEditor,
+	Dialog,
 	EmptyState,
 	ErrorState,
 	SkeletonCard,
@@ -303,20 +304,16 @@ function BetPitch({
 type BetActionKind = "kill" | "adjust-appetite" | "unblock" | "activate";
 
 /**
- * ConsequencePreviewDialog — non-skippable confirmation dialog for destructive
- * actions. The user must explicitly Cancel or provide a reason and confirm.
- * Escape and backdrop click do not close the dialog.
+ * ConsequencePreviewDialog — confirmation dialog for the Kill bet action.
  *
- * @lore L14: native <dialog> with showModal() is used for the Escape-prevention
- * guarantee. We cancel the `cancel` event (fired before `close` by Escape key)
- * and prevent the default close behavior. Clicking the backdrop fires the
- * `cancel` event first in Chrome/Safari; capturing it at the dialog level
- * prevents close on backdrop click as well.
+ * @lore AI2: Migrated from native <dialog> + showModal() cancel-event block to
+ * Dialog primitive with isDirty=false (confirmation-never-dirty rule, §1.1).
+ * Under this rule Escape closes the dialog immediately — the old Esc-block via
+ * `cancel` event preventDefault is REMOVED. The user must provide a reason to
+ * confirm; the dialog does NOT block Escape. (SANCTIONED CHANGE #1).
  *
- * @lore L14: The dialog renders via React state (open prop) rather than
- * imperative showModal() so that tests can inspect it in JSDOM via
- * getByRole("dialog"). We call showModal() in a useEffect so the native
- * element is synchronised with React state.
+ * @lore L14: The reason field is required to activate the "Kill bet" confirm
+ * button. Empty reason → disabled button. This rule is unchanged.
  */
 interface ConsequencePreviewDialogProps {
 	open: boolean;
@@ -333,55 +330,14 @@ function ConsequencePreviewDialog({
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	const confirmLabel = "Kill bet";
-	const title = "Kill this bet?";
-
-	const dialogRef = useRef<HTMLDialogElement>(null);
-
-	// Sync native dialog open/closed state with the `open` prop.
-	// @lore L14: showModal() is guarded with typeof check because JSDOM (used in
-	// Vitest) does not implement it. In production (real browser) showModal() is
-	// always available on HTMLDialogElement. The open attribute on the <dialog>
-	// element drives JSDOM's getByRole("dialog") visibility, so tests work without
-	// the native method.
+	// Reset form when dialog closes
 	useEffect(() => {
-		if (!dialogRef.current) return;
-		if (open) {
+		if (!open) {
 			setReason("");
 			setError(null);
 			setSubmitting(false);
-			if (!dialogRef.current.open) {
-				if (typeof dialogRef.current.showModal === "function") {
-					dialogRef.current.showModal();
-				} else {
-					dialogRef.current.setAttribute("open", "");
-				}
-			}
-		} else if (dialogRef.current.open) {
-			if (typeof dialogRef.current.close === "function") {
-				dialogRef.current.close();
-			} else {
-				dialogRef.current.removeAttribute("open");
-			}
 		}
 	}, [open]);
-
-	// Prevent Escape (and backdrop click) from closing the dialog (AC-8).
-	// @lore L14: the native dialog `cancel` event fires before `close` when the
-	// user presses Escape or clicks the backdrop. Calling e.preventDefault()
-	// here is the only reliable cross-browser way to make a dialog non-closable
-	// by those means.
-	useEffect(() => {
-		const el = dialogRef.current;
-		if (!el) return;
-		const handleCancel = (e: Event): void => {
-			e.preventDefault();
-		};
-		el.addEventListener("cancel", handleCancel);
-		return (): void => {
-			el.removeEventListener("cancel", handleCancel);
-		};
-	}, []);
 
 	const handleConfirm = async (): Promise<void> => {
 		const trimmed = reason.trim();
@@ -397,53 +353,14 @@ function ConsequencePreviewDialog({
 	};
 
 	return (
-		<dialog ref={dialogRef} aria-modal="true" aria-label={title}>
-			<div className="p-4 flex flex-col gap-3 min-w-[320px] max-w-[480px]">
-				<h2 className="text-sm font-heading font-semibold uppercase tracking-wider">{title}</h2>
-
-				{/* AF12: cost-honest cascade copy. The SAVED line drops "immediately" (cost
-				    does not stop the instant Kill is clicked) and the NOTE qualifier states
-				    that running agents finish their current step before halting. */}
-				<div className="text-xs text-[var(--text-tertiary)] space-y-1">
-					<p>
-						<span className="font-semibold text-error">STOPS:</span> In-progress tasks are killed
-						and their sessions are stopped.
-					</p>
-					<p>
-						<span className="font-semibold text-[var(--text-primary)]">CONTINUES:</span> Existing
-						artifacts are preserved.
-					</p>
-					<p>
-						<span className="font-semibold text-[var(--text-primary)]">SAVED:</span> Team capacity
-						is freed.
-					</p>
-					<p>
-						<span className="font-semibold text-[var(--text-primary)]">NOTE:</span> Running agents
-						finish their current step, so cost may tick up briefly before they halt.
-					</p>
-				</div>
-
-				<label className="flex flex-col gap-1">
-					<span className="text-xs text-[var(--text-tertiary)]">
-						Reason <span aria-hidden>(required)</span>
-					</span>
-					<textarea
-						className="textarea textarea-bordered text-base resize-none h-20"
-						placeholder="Why is this bet being killed?"
-						value={reason}
-						onChange={(e) => setReason(e.target.value)}
-						disabled={submitting}
-						maxLength={500}
-					/>
-				</label>
-
-				{error && (
-					<p role="alert" className="text-xs text-error">
-						{error}
-					</p>
-				)}
-
-				<div className="flex gap-2 justify-end">
+		<Dialog
+			open={open}
+			onClose={onCancel}
+			title="Kill this bet?"
+			isDirty={false}
+			size="sm"
+			footer={
+				<>
 					<button
 						type="button"
 						className="btn btn-xs btn-ghost"
@@ -458,20 +375,62 @@ function ConsequencePreviewDialog({
 						onClick={() => void handleConfirm()}
 						disabled={!reason.trim() || submitting}
 					>
-						{submitting ? "…" : confirmLabel}
+						{submitting ? "…" : "Kill bet"}
 					</button>
-				</div>
+				</>
+			}
+		>
+			{/* AF12: cost-honest cascade copy. The SAVED line drops "immediately" (cost
+			    does not stop the instant Kill is clicked) and the NOTE qualifier states
+			    that running agents finish their current step before halting. */}
+			<div className="text-xs text-[var(--text-tertiary)] space-y-1 mb-3">
+				<p>
+					<span className="font-semibold text-error">STOPS:</span> In-progress tasks are killed and
+					their sessions are stopped.
+				</p>
+				<p>
+					<span className="font-semibold text-[var(--text-primary)]">CONTINUES:</span> Existing
+					artifacts are preserved.
+				</p>
+				<p>
+					<span className="font-semibold text-[var(--text-primary)]">SAVED:</span> Team capacity is
+					freed.
+				</p>
+				<p>
+					<span className="font-semibold text-[var(--text-primary)]">NOTE:</span> Running agents
+					finish their current step, so cost may tick up briefly before they halt.
+				</p>
 			</div>
-		</dialog>
+
+			<label className="flex flex-col gap-1">
+				<span className="text-xs text-[var(--text-tertiary)]">
+					Reason <span aria-hidden>(required)</span>
+				</span>
+				<textarea
+					className="textarea textarea-bordered text-base resize-none h-20 w-full"
+					placeholder="Why is this bet being killed?"
+					value={reason}
+					onChange={(e) => setReason(e.target.value)}
+					disabled={submitting}
+					maxLength={500}
+				/>
+			</label>
+
+			{error && (
+				<p role="alert" className="text-xs text-error mt-2">
+					{error}
+				</p>
+			)}
+		</Dialog>
 	);
 }
 
 /**
  * AppetiteDialog — lets the founder adjust the bet appetite with a reason.
  *
- * @lore L14: Same non-skippable dialog pattern as ConsequencePreviewDialog.
- * Escape is cancelled; backdrop click is blocked by the native dialog modal
- * cancel event handler.
+ * @lore AI2: Migrated from native <dialog> to Dialog primitive. isDirty tracks
+ * whether the form has been modified (amount or reason entered). Guards on Esc
+ * when dirty. Authoring surface — truthful isDirty.
  */
 interface AppetiteDialogProps {
 	open: boolean;
@@ -502,47 +461,24 @@ function AppetiteDialog({
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	const dialogRef = useRef<HTMLDialogElement>(null);
-
+	// Reset form when dialog opens (preserve defaults when re-opened for a new appetite).
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reset only when open changes
 	useEffect(() => {
-		if (!dialogRef.current) return;
 		if (open) {
 			setAmount(defaultAmount);
 			setCurrency(defaultCurrency);
 			setReason("");
 			setError(null);
 			setSubmitting(false);
-			if (!dialogRef.current.open) {
-				if (typeof dialogRef.current.showModal === "function") {
-					dialogRef.current.showModal();
-				} else {
-					dialogRef.current.setAttribute("open", "");
-				}
-			}
-		} else if (dialogRef.current.open) {
-			if (typeof dialogRef.current.close === "function") {
-				dialogRef.current.close();
-			} else {
-				dialogRef.current.removeAttribute("open");
-			}
 		}
 	}, [open]);
 
-	useEffect(() => {
-		const el = dialogRef.current;
-		if (!el) return;
-		const handleCancel = (e: Event): void => {
-			e.preventDefault();
-		};
-		el.addEventListener("cancel", handleCancel);
-		return (): void => {
-			el.removeEventListener("cancel", handleCancel);
-		};
-	}, []);
-
 	const parsedAmount = Number.parseFloat(amount);
 	const amountValid = Number.isFinite(parsedAmount) && parsedAmount >= 0;
+
+	// isDirty: any field modified from defaults
+	const isDirty =
+		reason.trim().length > 0 || amount !== defaultAmount || currency !== defaultCurrency;
 
 	const handleSave = async (): Promise<void> => {
 		const trimmed = reason.trim();
@@ -561,12 +497,34 @@ function AppetiteDialog({
 	};
 
 	return (
-		<dialog ref={dialogRef} aria-modal="true" aria-label="Adjust appetite">
-			<div className="p-4 flex flex-col gap-3 min-w-[320px] max-w-[400px]">
-				<h2 className="text-sm font-heading font-semibold uppercase tracking-wider">
-					Adjust appetite
-				</h2>
-
+		<Dialog
+			open={open}
+			onClose={onCancel}
+			title="Adjust appetite"
+			isDirty={isDirty}
+			size="sm"
+			footer={
+				<>
+					<button
+						type="button"
+						className="btn btn-xs btn-ghost"
+						onClick={onCancel}
+						disabled={submitting}
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						className="btn btn-xs btn-primary"
+						onClick={() => void handleSave()}
+						disabled={!(reason.trim() && amountValid) || submitting}
+					>
+						{submitting ? "…" : "Save"}
+					</button>
+				</>
+			}
+		>
+			<div className="flex flex-col gap-3">
 				<label className="flex flex-col gap-1">
 					<span className="text-xs text-[var(--text-tertiary)]">New appetite</span>
 					<div className="flex gap-2">
@@ -602,7 +560,7 @@ function AppetiteDialog({
 						Reason <span aria-hidden>(required)</span>
 					</span>
 					<textarea
-						className="textarea textarea-bordered text-base resize-none h-16"
+						className="textarea textarea-bordered text-base resize-none h-16 w-full"
 						placeholder="Why is the appetite changing?"
 						value={reason}
 						onChange={(e) => setReason(e.target.value)}
@@ -616,27 +574,8 @@ function AppetiteDialog({
 						{error}
 					</p>
 				)}
-
-				<div className="flex gap-2 justify-end">
-					<button
-						type="button"
-						className="btn btn-xs btn-ghost"
-						onClick={onCancel}
-						disabled={submitting}
-					>
-						Cancel
-					</button>
-					<button
-						type="button"
-						className="btn btn-xs btn-primary"
-						onClick={() => void handleSave()}
-						disabled={!(reason.trim() && amountValid) || submitting}
-					>
-						{submitting ? "…" : "Save"}
-					</button>
-				</div>
 			</div>
-		</dialog>
+		</Dialog>
 	);
 }
 

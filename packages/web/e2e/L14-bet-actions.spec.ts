@@ -155,7 +155,9 @@ test.describe("L14 — Bet actions E2E", () => {
 		// Under the confirmation-never-dirty rule (approved.md §1.1), ConsequencePreviewDialog
 		// passes isDirty=false ALWAYS — so Esc closes whether reason is empty or typed.
 		// This corrects the headline bug; the assertion flips from "still visible" to "not visible".
-		test("pressing Escape closes the dialog (confirmation-never-dirty rule §1.1)", async ({ page }) => {
+		test("pressing Escape closes the dialog (confirmation-never-dirty rule §1.1)", async ({
+			page,
+		}) => {
 			await setupCommonRoutes(page, "active");
 			await page.goto(`/work/bet/${BET_ID}`);
 			await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible();

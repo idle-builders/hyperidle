@@ -70,7 +70,10 @@ test.describe("AI2 — Authoring form Esc guard (AC-1, scenario 1)", () => {
 		await expect(page.locator("[data-testid='work-portfolio-page']")).toBeVisible();
 
 		// Open the bet-create dialog via the UI (not direct navigation)
-		const createBtn = page.locator("button").filter({ hasText: /new bet|create bet|pitch/i }).first();
+		const createBtn = page
+			.locator("button")
+			.filter({ hasText: /new bet|create bet|pitch/i })
+			.first();
 		if ((await createBtn.count()) === 0) {
 			test.skip(true, "No create-bet button found — skipping guard strip test");
 		}
@@ -80,7 +83,9 @@ test.describe("AI2 — Authoring form Esc guard (AC-1, scenario 1)", () => {
 		await expect(page.getByRole("dialog")).toBeVisible();
 
 		// Type into the pitch field
-		const pitchField = page.locator("[role='dialog'] textarea, [role='dialog'] input[type='text']").first();
+		const pitchField = page
+			.locator("[role='dialog'] textarea, [role='dialog'] input[type='text']")
+			.first();
 		if ((await pitchField.count()) === 0) {
 			test.skip(true, "No text field inside dialog — skipping");
 		}
@@ -108,14 +113,19 @@ test.describe("AI2 — Authoring form Esc guard (AC-1, scenario 1)", () => {
 		await page.goto("/work/portfolio");
 		await expect(page.locator("[data-testid='work-portfolio-page']")).toBeVisible();
 
-		const createBtn = page.locator("button").filter({ hasText: /new bet|create bet|pitch/i }).first();
+		const createBtn = page
+			.locator("button")
+			.filter({ hasText: /new bet|create bet|pitch/i })
+			.first();
 		if ((await createBtn.count()) === 0) {
 			test.skip(true, "No create-bet button");
 		}
 		await createBtn.click();
 		await expect(page.getByRole("dialog")).toBeVisible();
 
-		const pitchField = page.locator("[role='dialog'] textarea, [role='dialog'] input[type='text']").first();
+		const pitchField = page
+			.locator("[role='dialog'] textarea, [role='dialog'] input[type='text']")
+			.first();
 		if ((await pitchField.count()) === 0) {
 			test.skip(true, "No input field");
 		}
@@ -133,14 +143,19 @@ test.describe("AI2 — Authoring form Esc guard (AC-1, scenario 1)", () => {
 		await page.goto("/work/portfolio");
 		await expect(page.locator("[data-testid='work-portfolio-page']")).toBeVisible();
 
-		const createBtn = page.locator("button").filter({ hasText: /new bet|create bet|pitch/i }).first();
+		const createBtn = page
+			.locator("button")
+			.filter({ hasText: /new bet|create bet|pitch/i })
+			.first();
 		if ((await createBtn.count()) === 0) {
 			test.skip(true, "No create-bet button");
 		}
 		await createBtn.click();
 		await expect(page.getByRole("dialog")).toBeVisible();
 
-		const pitchField = page.locator("[role='dialog'] textarea, [role='dialog'] input[type='text']").first();
+		const pitchField = page
+			.locator("[role='dialog'] textarea, [role='dialog'] input[type='text']")
+			.first();
 		if ((await pitchField.count()) === 0) {
 			test.skip(true, "No input field");
 		}
@@ -172,7 +187,11 @@ test.describe("AI2 — Confirmation dialog always closes on Esc (AC-1, scenario 
 			}),
 		);
 		await page.route("**/api/bets/*/kill", (route) =>
-			route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) }),
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ ok: true }),
+			}),
 		);
 	});
 

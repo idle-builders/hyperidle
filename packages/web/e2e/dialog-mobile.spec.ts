@@ -127,7 +127,10 @@ test.describe("AI2 — Mobile bottom-sheet at 375px (AC-4)", () => {
 		await page.goto("/work/portfolio");
 		await expect(page.locator("[data-testid='work-portfolio-page']")).toBeVisible();
 
-		const createBtn = page.locator("button").filter({ hasText: /new bet|create bet|pitch/i }).first();
+		const createBtn = page
+			.locator("button")
+			.filter({ hasText: /new bet|create bet|pitch/i })
+			.first();
 		if ((await createBtn.count()) === 0) {
 			test.skip(true, "No create-bet button at 375px");
 		}

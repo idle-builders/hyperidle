@@ -207,6 +207,28 @@ Every component has two representations:
 
 ---
 
+## Overlay Layering
+
+All overlay surfaces use the AI2 z-layer token scale. No raw `z-[N]` classes are permitted on any overlay after migration.
+
+| Token | Value | Surface |
+|---|---|---|
+| `--z-base` | 0 | App content (default) |
+| `--z-sticky` | 10 | Sticky headers, in-flow anchored popovers |
+| `--z-drawer` | 30 | TaskSheet, mobile nav drawer (non-modal slide-ins) |
+| `--z-overlay` | 40 | AssistantOverlay, NotificationPopover (anchored non-modal popovers) |
+| `--z-scrim` | 50 | The modal scrim |
+| `--z-dialog` | 60 | Modal dialogs + GlobalSearch palette |
+| `--z-toast` | 70 | Toasts — always on top, never blocked |
+
+All overlays portal into `#overlay-root`, which is a sibling of `#root` under `<body>`.
+This ensures the `inert` attribute on `#root` (applied when a modal is open) never disables
+dialog content. Toasts at `--z-toast: 70` stay clickable over an open modal because they
+also live in `#overlay-root`, which is never inerted.
+
+The modal scrim color is `--scrim` (defined in `tokens.css`). AI6 will refine this token
+via `color-mix(in oklab, ...)`.
+
 ## Further Reading
 
 - **PRINCIPLES.md** -- the seven universals (Clarity, Hierarchy, Restraint, Content First, Consistency, Feedback, Accessibility) + surprise principles that govern every design decision in Hearth.

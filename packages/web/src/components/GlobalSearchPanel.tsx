@@ -5,6 +5,7 @@ import {
 	KnowledgeRow,
 	SearchField,
 	ThreadRow,
+	useDialogBehavior,
 } from "@hyperidle/design-system";
 import FocusTrap from "focus-trap-react";
 import { type JSX, useCallback, useEffect, useMemo, useRef } from "react";
@@ -49,6 +50,16 @@ export function GlobalSearchPanel({
 }: GlobalSearchPanelProps): JSX.Element | null {
 	const search = useGlobalSearch();
 	const prevOpenRef = useRef(open);
+	// @lore AI2: useDialogBehavior with layer="dialog" replaces DaisyUI .modal.modal-open chrome.
+	// The overlay div carries data-dialog-layer="dialog" (--z-dialog = 60, above --z-overlay = 40).
+	// modal=true: scrim + backdrop dismiss. isDirty=false: command palette, always clean.
+	const behavior = useDialogBehavior({
+		open,
+		onClose,
+		isDirty: false,
+		modal: true,
+		layer: "dialog",
+	});
 
 	// Clear search state when panel closes and reopens
 	useEffect(() => {
@@ -105,6 +116,12 @@ export function GlobalSearchPanel({
 		return null;
 	}
 
+	const overlayProps = behavior.getOverlayProps();
+
+	// @lore AI2: nav.onKeyDown handles Escape (→ onClose) and ArrowUp/Down/Enter navigation.
+	// We do NOT also call overlayProps.onKeyDown here because isDirty=false always for the
+	// command palette, so both handlers would call onClose on Escape (double-fire).
+	// behavior.requestDismiss is used only for the Close button (confirmations not relevant here).
 	const handleKeyDown = (e: React.KeyboardEvent): void => {
 		nav.onKeyDown(e.nativeEvent);
 	};
@@ -114,15 +131,28 @@ export function GlobalSearchPanel({
 
 	let itemIndex = 0;
 
+	/*
+	 * @lore AI2: DaisyUI .modal.modal-open replaced by useDialogBehavior overlay.
+	 * The panel div carries data-dialog-layer="dialog" (--z-dialog = 60, above --z-overlay = 40).
+	 * max-w-[640px] SURVIVES on this same element — the sanctioned test asserts both attributes
+	 * on the same node. The scrim (backdrop) is rendered as a separate fixed sibling div.
+	 * See architecture.md §Sanctioned assertion changes #2.
+	 */
 	return (
-		<div
-			className="modal modal-open z-50"
-			role="dialog"
-			aria-modal="true"
-			aria-label="Global search"
-			onKeyDown={handleKeyDown}
-		>
-			{/**
+		<>
+			{/* Scrim / backdrop — closes on click */}
+			{/* biome-ignore lint/a11y/useKeyWithClickEvents: Backdrop is a visual overlay; keyboard close is handled by Escape via useKeyboardNavigation */}
+			<div
+				aria-hidden="true"
+				style={{
+					position: "fixed",
+					inset: 0,
+					zIndex: "var(--z-scrim)",
+					background: "var(--scrim)",
+				}}
+				onClick={onClose}
+			/>
+			{/*
 			 * @lore focus-trap-react requires tabbableOptions.displayCheck="none" in jsdom
 			 * because jsdom doesn't implement CSS visibility/display checks. The fallbackFocus
 			 * ensures activation succeeds even when jsdom cannot detect tabbable nodes.
@@ -131,11 +161,26 @@ export function GlobalSearchPanel({
 				focusTrapOptions={{
 					initialFocus: false,
 					allowOutsideClick: true,
-					fallbackFocus: ".modal-box",
+					fallbackFocus: "[data-dialog-layer]",
 					tabbableOptions: { displayCheck: "none" },
 				}}
 			>
-				<div className="modal-box max-w-[640px] p-3 flex flex-col gap-2 max-h-[80vh]">
+				{/* Panel — data-dialog-layer + max-w-[640px] on the same node (sanctioned assertion) */}
+				<div
+					role={overlayProps.role}
+					aria-modal={overlayProps["aria-modal"]}
+					data-dialog-layer={overlayProps["data-dialog-layer"]}
+					aria-label="Global search"
+					onKeyDown={handleKeyDown}
+					style={{
+						position: "fixed",
+						top: "10vh",
+						left: "50%",
+						transform: "translateX(-50%)",
+						zIndex: overlayProps.style.zIndex,
+					}}
+					className="max-w-[640px] w-full p-3 flex flex-col gap-2 max-h-[80vh] bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-elevated)]"
+				>
 					<SearchField
 						placeholder="Search conversations, work, knowledge..."
 						value={search.query}
@@ -265,8 +310,6 @@ export function GlobalSearchPanel({
 					</div>
 				</div>
 			</FocusTrap>
-			{/* biome-ignore lint/a11y/useKeyWithClickEvents: Backdrop is a visual overlay; keyboard close is handled by Escape via useKeyboardNavigation */}
-			<div className="modal-backdrop" onClick={onClose} />
-		</div>
+		</>
 	);
 }

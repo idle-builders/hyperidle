@@ -91,7 +91,10 @@ test.describe("AI2 — Dialog chrome consistency (AC-6)", () => {
 		await page.goto("/work/portfolio");
 		await expect(page.locator("[data-testid='work-portfolio-page']")).toBeVisible();
 
-		const createBtn = page.locator("button").filter({ hasText: /new bet|create bet|pitch/i }).first();
+		const createBtn = page
+			.locator("button")
+			.filter({ hasText: /new bet|create bet|pitch/i })
+			.first();
 		if ((await createBtn.count()) === 0) {
 			test.skip(true, "No create-bet button");
 		}
@@ -105,7 +108,10 @@ test.describe("AI2 — Dialog chrome consistency (AC-6)", () => {
 		await page.goto("/work/portfolio");
 		await expect(page.locator("[data-testid='work-portfolio-page']")).toBeVisible();
 
-		const createBtn = page.locator("button").filter({ hasText: /new bet|create bet|pitch/i }).first();
+		const createBtn = page
+			.locator("button")
+			.filter({ hasText: /new bet|create bet|pitch/i })
+			.first();
 		if ((await createBtn.count()) === 0) {
 			test.skip(true, "No create-bet button at mobile");
 		}

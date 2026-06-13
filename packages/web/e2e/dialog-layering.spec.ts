@@ -15,7 +15,7 @@
 import { expect, test } from "./fixtures";
 
 const BET_ID = "bet-dialog-layer-test";
-const KNOWLEDGE_ID = "k-dialog-layer-test";
+const _KNOWLEDGE_ID = "k-dialog-layer-test";
 
 function makeBetResponse() {
 	return {
@@ -46,7 +46,7 @@ async function computedZIndex(
 		const el = document.querySelector(sel) as HTMLElement | null;
 		if (!el) return -1;
 		const z = window.getComputedStyle(el).zIndex;
-		return z === "auto" ? 0 : parseInt(z, 10);
+		return z === "auto" ? 0 : Number.parseInt(z, 10);
 	}, selector);
 }
 
@@ -81,7 +81,10 @@ test.describe("AI2 — overlay z-layer ordering (AC-3 runtime)", () => {
 			// No task visible — skip ordering test; leave a soft pass with note
 			// The full ordering test requires real data; CI uses mocks.
 			// Layering is still verified via the static lint gate (AC-3 static half).
-			test.skip(true, "No task card visible in mocked portfolio — skipping drawer-first order test");
+			test.skip(
+				true,
+				"No task card visible in mocked portfolio — skipping drawer-first order test",
+			);
 		}
 
 		// Get computed z of the drawer (TaskSheet should be open)
@@ -131,7 +134,7 @@ test.describe("AI2 — overlay z-layer ordering (AC-3 runtime)", () => {
 		page,
 	}) => {
 		// Open any modal dialog
-		await page.goto("/work/bet/" + BET_ID);
+		await page.goto(`/work/bet/${BET_ID}`);
 		await expect(page.locator("[data-testid='work-bet-page']")).toBeVisible();
 
 		// Open a modal dialog via the overflow menu (bet action)
