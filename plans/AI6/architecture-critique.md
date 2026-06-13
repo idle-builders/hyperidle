@@ -28,3 +28,44 @@ Plan audited against the spec (TRACK-AI.md:217-254), `concept.md`, `approved.md`
 
 ## Verdict for the plan
 Two items must be addressed before `/write-tests`: the **CRITICAL slash-menu behavioral coupling** (the validation is currently impossible) and the **tracking-AC verification cell rewrite** (unreviewable as written). The other warnings (stale eslint-config premise, scrim in probe, StatusChip ownership) are quick corrections. Architecture is otherwise strong and ships once the CRITICAL is resolved.
+
+---
+
+# Re-critique R1
+
+ARCHITECTURE-SCORE: 9/10  rounds=2  | DESIGN-SCORE: 9/10
+Re-verified the revised `architecture.md` + `approved.md` against source (`TabBar.tsx`, `StatusChip.tsx:104`, `eslint.config.ts:203-225`, AI4 plans/review). Five prior findings checked; one NEW finding surfaced by the Option-(b) re-targeting.
+
+## Prior findings
+
+**1. CRITICAL — slash-menu hover/selected (Option b chosen) — RESOLVED (with one new sub-finding, see N1).**
+The designer chose Option (b): slash-menu unchanged, AC re-targeted to TabBar. Verified the justification is sound, not papering over a bug:
+- `slash-menu.tsx:218` `onMouseEnter={() => setSelectedIndex(index)}` genuinely makes hover and selection one state — a single committed-cursor highlight is the *correct* treatment for a keyboard+mouse menu; there is no reachable "hovered-but-not-selected" state. Leaving it unchanged honors the "chrome only / no behavior change" constraint. Correctly reasoned in approved.md §4 and architecture.md §4.
+- TabBar genuinely holds `selected` independent of hover: verified `TabBar.tsx:35-43,68-76` — `isActive = tab.id === activeId` is driven by the `activeId` prop via `onClick`/`onChange`, never by pointer hover. Selected renders accent (`bg-[var(--accent-primary-dim)]` + accent text/border); inactive renders neutral with a `hover:` class. A tab can be hovered-but-not-selected while another is selected. **The AC is now satisfiable.** Validation re-target is legitimate, not a dodge.
+
+**2. WARNING — tracking verification cell rewrite — RESOLVED.**
+architecture.md:146 now states only the chosen method: "Static AC → new `no-hardcoded-tracking` lint rule … registered at `error` in the existing K8 block … Rule flags `tracking-[<number>em]`, allowlisting negative-em title kerning. Rule tests: invalid `tracking-[0.05em]`; valid `tracking-[var(--tracking-caps-sm)]`; valid (allowlisted) `tracking-[-0.01em]`." The stream-of-consciousness alternatives are gone. Reviewable as written.
+
+**3. WARNING — ESLint stale premise (warn→error framing) — RESOLVED.**
+architecture.md:198-205 ("ESLint config" §) now correctly states the K8 block already registers the design rules at `error`, no warn→error promotion, no new override block — just register the two new rules in `index.ts` + add at `"error"` in the existing block, inheriting the `**/*.stories.tsx` ignore. Verified against `eslint.config.ts:203-225`: all design rules are `error`, `files: ["packages/design-system/src/**/*.tsx"]`, `ignores: ["…/*.stories.tsx"]`. Substance correct. Minor: the cite `eslint.config.ts:202-225` is off-by-one (the block opens at `{` on 202, `files:` on 203) — immaterial. (Note for builder: the block's *header comment* at lines 197-201 is itself stale — it claims "two rules … remain warn," but the rule list has zero warn. Not AI6's to fix, but don't be misled by it.)
+
+**4. WARNING — `--scrim` in token probe — RESOLVED.**
+architecture.md:147 AC row and task 1 (`:162`) now assert **6 tokens** — the 5 new + the pre-existing `--scrim` — explicitly: "assert it resolves to a non-empty value so the 'scrim has a token' half is proven." The scrim half of the color AC now has a proof.
+
+**5. WARNING — StatusChip confirm-before-edit gate vs AI4 — RESOLVED (gate present; I can now resolve the gate's outcome — see N2 for a sharpening, non-blocking).**
+architecture.md:82 + approved.md §3 † both carry the explicit gate: confirm AI4 hasn't ratified StatusChip tracking before editing `:104`; if AI4 owns it, drop it. The gate is correctly written. I resolved the underlying fact during this pass (see N2) — it does not block, but the gate can be made deterministic.
+
+## NEW findings (introduced by the revision)
+
+**N1 (WARNING) [architecture.md:149 — hover/selected AC validation assertion mismatches TabBar's actual hover].**
+The re-targeted e2e asserts: "Assert A's bg = neutral `text-secondary` mix and B's bg = `--accent-primary-dim`." But TabBar's inactive-tab hover changes **text color only, not background**: verified `TabBar.tsx:43` `hover:text-[var(--text-secondary)]` (underline variant) and `:76` `hover:text-[var(--text-primary)]` (pill) — there is **no `hover:bg-` on TabBar**. A hovered inactive tab has a transparent background, not a `text-secondary` color-mix. The "neutral `text-secondary` mix" assertion was carried over verbatim from the §4 *row* two-tone idiom (`approved.md §4`, which is the rule for rows/list-items), but TabBar implements the distinction via text-color + border, not bg-mix. As written the e2e would **fail on a correct TabBar** (A's computed bg ≠ a text-secondary mix). → Rewrite the assertion to TabBar's real two-tone: selected B → `bg-[var(--accent-primary-dim)]` + `color: var(--accent-primary)` + accent border; hovered-inactive A → transparent bg + `color: var(--text-secondary)` (changed from the `--text-tertiary` resting color) + transparent border. The distinction to assert is **accent-bg/accent-text on B vs no-bg/neutral-text on A** — distinct, but the discriminator is background-presence + text color, not a bg color-mix. (Equivalently: pick a list/row surface that uses the bg-mix idiom as the proof target — but TabBar is the cleaner independent-state holder, so fix the assertion to match it.)
+
+**N2 (SUGGESTION) [StatusChip gate is now deterministically resolvable — make it a decision, not a builder runtime-check].**
+AI4 is **merged** (`09405bf6 feat(AI4): WIP — one status language (#272)`) and owns StatusChip (label prop, casing contract, `CHIP_BASE`). But verified `StatusChip.tsx:104` **still carries `tracking-[0.05em]`** — AI4 migrated labels/casing but never ratified the chip's tracking. So: AI4 owns the component, AI4 did *not* own/migrate the tracking, and the line is still divergent. The plan's gate ("drop if AI4 owns it or already migrated it") is ambiguous on this exact split — AI4 owns the *chip* but not the *tracking decision*. Recommend the plan resolve it now rather than defer to a builder check: **AI6 migrates `StatusChip.tsx:104` tracking → `--tracking-caps-sm`**, because (a) AI4 is merged and demonstrably left it hardcoded, (b) tracking coherence is squarely AI6's mandate and no other WP claims it, (c) leaving it is the exact self-contradiction this WP exists to end. This also makes `no-hardcoded-tracking` (which AI6 sets to `error` over `packages/design-system/src/**`) green — otherwise the new rule would flag `StatusChip.tsx:104` and break `npm run lint` the moment AI6 lands, regardless of the gate's outcome. That last point is load-bearing: **if the builder drops `:104` from the migration but still ships the lint rule at error, `npm run lint` fails** on the un-migrated chip. The gate and the rule must agree — migrating the line is the only outcome consistent with shipping the rule. Strongly recommend stating this in the plan so the builder doesn't drop the line and then hit a red lint.
+
+## Re-critique verdict
+**NEEDS-REVISION (minor).** All five prior findings are resolved — the CRITICAL is genuinely closed (TabBar holds independent state; slash-menu single-highlight correctly justified). Two new items from the re-targeting:
+- **N1 (WARNING, must-fix before `/write-tests`):** the hover/selected e2e assertion describes a row bg-mix that TabBar does not use; the red test would be impossible to make green on a correct TabBar. One-line fix to the assertion (or pick a bg-mix row surface).
+- **N2 (SUGGESTION, should-fix):** resolve the StatusChip gate to "migrate `:104`" — the `no-hardcoded-tracking` rule at error makes dropping the line a guaranteed lint failure; gate + rule must agree.
+
+Fix N1's assertion and converge N2's gate, and the plan is ready for the builder. Architecture 8→9, Design 8→9.
