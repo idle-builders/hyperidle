@@ -56,7 +56,7 @@ export function DataRenderer({ preview }: DataRendererProps): JSX.Element {
 				<div className="flex flex-wrap gap-3 mb-3">
 					{preview.headlines.map((h) => (
 						<div key={h.label} className="flex flex-col">
-							<span className="text-[11px] font-mono uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
+							<span className="text-[11px] font-mono uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
 								{h.label}
 							</span>
 							<span className="text-base font-semibold text-[var(--text-primary)] tabular-nums">
@@ -67,19 +67,21 @@ export function DataRenderer({ preview }: DataRendererProps): JSX.Element {
 				</div>
 			)}
 			{preview.rows && preview.rows.length > 0 && (
-				<table className="w-full text-sm">
-					<tbody>
-						{preview.rows.map((row, ri) => (
-							<tr key={ri} className="border-t border-[var(--border-subtle)]">
-								{Object.entries(row).map(([k, v]) => (
-									<td key={k} className="py-1 pr-3 text-[var(--text-primary)]">
-										{v}
-									</td>
-								))}
-							</tr>
-						))}
-					</tbody>
-				</table>
+				<div className="overflow-x-auto rounded-[var(--r-default)] border border-[var(--border-subtle)]">
+					<table className="w-full text-sm border-collapse">
+						<tbody>
+							{preview.rows.map((row, ri) => (
+								<tr key={ri} className="border-t border-[var(--border-subtle)]">
+									{Object.entries(row).map(([k, v]) => (
+										<td key={k} className="py-1 pr-3 px-2 text-[var(--text-primary)]">
+											{v}
+										</td>
+									))}
+								</tr>
+							))}
+						</tbody>
+					</table>
+				</div>
 			)}
 			{preview.charts && preview.charts.length > 0 && (
 				<div className="flex flex-col gap-2 mt-2">

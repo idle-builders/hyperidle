@@ -179,6 +179,86 @@ Easing: `cubic-bezier(0.25, 0.1, 0.25, 1)` for most transitions. Toggle thumb us
 
 Status is always communicated through color + text + shape. Never color alone.
 
+### Status tint tokens (AI6)
+
+Tinted backgrounds for icon containers, hover states, and focus glows. Use these instead of hardcoded rgba values.
+
+| Token | Light | Dark | Usage |
+|-------|-------|------|-------|
+| `--accent-primary-dim` | `rgba(22,118,79,0.08)` | `rgba(46,170,122,0.10)` | Success/primary icon bg, ghost hover, input focus glow |
+| `--accent-secondary-dim` | `rgba(217,119,6,0.08)` | `rgba(217,119,6,0.10)` | Warning/amber icon bg, amber badge tint |
+| `--status-error-dim` | `rgba(220,74,58,0.08)` | `rgba(238,106,90,0.10)` | Error icon bg, error input focus glow |
+| `--status-info-dim` | `rgba(46,125,186,0.08)` | `rgba(68,152,212,0.10)` | Info icon bg, info badge tint |
+| `--accent-secondary-hover` | `#b86305` | `#b86305` | Amber button hover state |
+| `--status-error-hover` | `#c53e30` | `#c53e30` | Destructive button hover state |
+| `--scrim` | `rgba(26,21,16,0.45)` | `rgba(20,16,12,0.62)` | Modal overlay scrim (AI2) |
+
+---
+
+## Conventions (AI6)
+
+These conventions are enforced by ESLint rules scoped to `packages/design-system/src/**/*.tsx`. Violations fail `npm run lint`.
+
+### Focus treatments
+
+Exactly two documented focus treatments exist in Hearth. No others.
+
+**Control-ring** — buttons, toggles, tabs, cards, rows, menu items (any interactive element that is NOT a text input):
+```
+focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]
+```
+Add `focus-visible:[outline-offset:-1px]` for inset surfaces (rows, list items that sit inside a container edge).
+
+**Input-glow** — text inputs, textareas, select elements:
+```
+focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]
+```
+Error variant uses `var(--status-error-dim)` instead of `var(--accent-primary-dim)`.
+
+The distinction is intentional and documented: `control-ring` for pointers, `input-glow` for text fields. Both appear consistently within their element class.
+
+### Tracking tokens
+
+Every uppercase label uses a tracking token. Never a bare `tracking-[0.Xem]`.
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--tracking-caps` | `0.08em` | 13px+ section titles, standalone uppercase headers |
+| `--tracking-caps-sm` | `0.06em` | 11px / 10px inline uppercase labels, badges, chips, kicker rows |
+
+Allowed exception: negative-em optical kerning on display titles (`tracking-[-0.01em]`, `tracking-[-0.005em]`). These are NOT caps-tracking and are not flagged.
+
+### Hover vs Selected (two-tone rule)
+
+For any component that holds hover and selection as independent states:
+- **Hover** (transient): neutral `color-mix(in oklab, var(--text-secondary) 8%, transparent)` — same warm-family idiom as row hover tints.
+- **Selected / active**: `bg-[var(--accent-primary-dim)]` + `text-[var(--accent-primary)]` — accent signals commitment.
+
+Selected = accent-colored; hover = neutral grey. Distinct hue, not just opacity.
+
+See `TabBar.tsx` as the reference implementation (selected independent of hover). Components where selection-follows-hover by design (e.g. `slash-menu.tsx`) use a single committed-cursor highlight — that is correct, not a bug.
+
+### Renderer container rule
+
+Same content kind = same container chrome, whether rendered as a block payload or an artifact kind-renderer:
+
+- **Image / media**: `figure` with `rounded-[var(--r-default)] border border-[var(--border-subtle)] overflow-hidden`
+- **Table**: outer `div` with `overflow-x-auto rounded-[var(--r-default)] border border-[var(--border-subtle)]`
+- **Code / HTML embedded panel**: `rounded-[var(--r-default)]` + `bg-[var(--surface-container)]` + `p-[12px]`
+
+The `block/*Payload.tsx` family is the reference. `kinds/*-renderer.tsx` must match it.
+
+### Motion tokens
+
+No bare `duration-[Nms]` or `ease-[ease]` in DS components. Use Hearth motion tokens:
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--motion-fast` | `120ms` | Hover, checkbox, toast close |
+| `--motion-default` | `240ms` | Most transitions |
+| `--motion-slow` | `450ms` | Progress bar, slow reveals |
+| `--motion-ease` | `cubic-bezier(0.25,0.1,0.25,1)` | All standard easing |
+
 ---
 
 ## Theme Modes

@@ -244,7 +244,7 @@ export function CommentRow({
 	const timeString = timeRaw === TIME_PLACEHOLDER ? null : timeRaw;
 
 	const avatarClass = isAgent
-		? "inline-flex items-center justify-center w-[36px] h-[36px] rounded-full bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)] text-[13px] font-[600] border-[1.5px] border-[var(--accent-primary)] shrink-0"
+		? "inline-flex items-center justify-center w-[36px] h-[36px] rounded-full bg-[var(--accent-primary-dim)] text-[var(--accent-primary)] text-[13px] font-[600] border-[1.5px] border-[var(--accent-primary)] shrink-0"
 		: "inline-flex items-center justify-center w-[36px] h-[36px] rounded-full bg-[var(--surface-page)] text-[var(--text-secondary)] text-[13px] font-[600] border-[1.5px] border-[var(--border-subtle)] shrink-0";
 
 	return (
@@ -264,7 +264,7 @@ export function CommentRow({
 					<div className="flex items-baseline gap-[6px] mb-[3px]">
 						<span className="text-[13px] font-[600] text-[var(--text-primary)]">{sender.name}</span>
 						{isAgent ? (
-							<span className="inline-flex items-center px-[6px] py-[3px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary)] text-[10px] font-[600] tracking-[0.04em]">
+							<span className="inline-flex items-center px-[6px] py-[3px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary)] text-[10px] font-[600] tracking-[var(--tracking-caps-sm)]">
 								Agent
 							</span>
 						) : null}
@@ -274,7 +274,7 @@ export function CommentRow({
 					</div>
 				) : null}
 				{inlineAnchor ? (
-					<div className="text-[11px] text-[var(--text-tertiary)] uppercase tracking-[0.05em]">
+					<div className="text-[11px] text-[var(--text-tertiary)] uppercase tracking-[var(--tracking-caps-sm)]">
 						INLINE COMMENT ON <span className="text-[var(--text-secondary)]">{inlineAnchor}</span>
 					</div>
 				) : null}

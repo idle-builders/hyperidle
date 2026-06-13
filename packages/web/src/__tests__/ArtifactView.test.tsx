@@ -37,22 +37,24 @@ describe("ArtifactView", () => {
 			expect(screen.getByRole("region", { name: /diff/i })).toBeInTheDocument();
 		});
 
-		it("renders additions with green tinted background", () => {
+		it("renders additions with green tinted background (AI6: color-mix token)", () => {
 			render(<ArtifactView {...codeProps} />);
 			const additions = screen.getAllByText(/const y = 3;|const z = 4;/);
 			for (const el of additions) {
 				const line = el.closest("[data-diff-type='add']");
 				expect(line).toBeInTheDocument();
-				expect(line?.className).toMatch(/bg-success/);
+				// AI6: bg-success/10 replaced with color-mix form per no-raw-tailwind-color rule.
+				expect(line?.className).toMatch(/status-success/);
 			}
 		});
 
-		it("renders deletions with red tinted background", () => {
+		it("renders deletions with red tinted background (AI6: color-mix token)", () => {
 			render(<ArtifactView {...codeProps} />);
 			const deletion = screen.getByText("const y = 2;");
 			const line = deletion.closest("[data-diff-type='del']");
 			expect(line).toBeInTheDocument();
-			expect(line?.className).toMatch(/bg-error/);
+			// AI6: bg-error/10 replaced with color-mix form per no-raw-tailwind-color rule.
+			expect(line?.className).toMatch(/status-error/);
 		});
 
 		it("renders context lines without tint", () => {
@@ -60,7 +62,7 @@ describe("ArtifactView", () => {
 			const context = screen.getByText("const x = 1;");
 			const line = context.closest("[data-diff-type='ctx']");
 			expect(line).toBeInTheDocument();
-			expect(line?.className).not.toMatch(/bg-success|bg-error/);
+			expect(line?.className).not.toMatch(/status-success|status-error/);
 		});
 
 		it("renders hunk headers", () => {

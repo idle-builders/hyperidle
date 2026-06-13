@@ -3,9 +3,14 @@
 //
 // @lore AE6: Design spec §3a requires prose rendering. A full markdown-to-HTML pipeline
 // (remark/unified) is available in @hyperidle/shared but not exposed as a React component.
-// We apply Tailwind typography (prose prose-sm prose-invert max-w-none) on a div with
-// whitespace-pre-wrap to preserve newlines without the <pre> monospace font. When a proper
-// Block primitive lands in the design-system, swap this div for it.
+// We apply token-based paragraph styles on a div with whitespace-pre-wrap to preserve
+// newlines without the <pre> monospace font. When a proper Block primitive lands in the
+// design-system, swap this div for it.
+//
+// @lore AI6: Removed `prose prose-sm prose-invert max-w-none` — these Tailwind Typography
+// plugin classes are not installed in Hearth's Tailwind config and rendered as nothing.
+// `prose-invert` is a dark-only class that would break Hearth's light-first theme.
+// Replaced with token-based paragraph styles matching block/ParagraphPayload.
 
 import type { TextPreview } from "@hyperidle/shared";
 import type { JSX } from "react";
@@ -24,7 +29,7 @@ export function TextRenderer({ preview }: TextRendererProps): JSX.Element {
 
 	return (
 		<section aria-label="Text content">
-			<div className="prose prose-sm prose-invert max-w-none whitespace-pre-wrap break-words text-[var(--text-primary)] leading-relaxed">
+			<div className="text-[var(--text-primary)] leading-[var(--leading-body)] whitespace-pre-wrap break-words">
 				{preview.body}
 			</div>
 		</section>

@@ -53,3 +53,32 @@ export function DisabledState(): JSX.Element {
 		</div>
 	);
 }
+
+/**
+ * AI6: Focus ring demonstration — 1px `focus-visible:outline-1` (converged from 2px).
+ * Inline style forces the focus ring visible for documentation purposes.
+ */
+export function FocusRing(): JSX.Element {
+	return (
+		<div className="flex flex-wrap gap-[12px] p-[18px]">
+			<Button
+				variant="primary"
+				style={{ outline: "1px solid var(--accent-primary)", outlineOffset: "0px" }}
+			>
+				Primary (focused)
+			</Button>
+			<Button
+				variant="secondary"
+				style={{ outline: "1px solid var(--accent-primary)", outlineOffset: "0px" }}
+			>
+				Secondary (focused)
+			</Button>
+			<Button
+				variant="destructive"
+				style={{ outline: "1px solid var(--accent-primary)", outlineOffset: "0px" }}
+			>
+				Destructive (focused)
+			</Button>
+		</div>
+	);
+}

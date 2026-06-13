@@ -30,3 +30,22 @@ export function DisabledState(): JSX.Element {
 		</div>
 	);
 }
+
+/**
+ * AI6: Focus ring on the toggle track — 1px `focus-visible:outline-1` (converged from 2px).
+ * Inline style forces ring visible for documentation purposes.
+ */
+export function FocusRing(): JSX.Element {
+	return (
+		<div className="p-[18px] flex flex-col gap-[12px]">
+			<div>
+				<p className="text-[11px] text-[var(--text-tertiary)] mb-[6px]">Off (focused)</p>
+				<Toggle label="Notifications" />
+			</div>
+			<div>
+				<p className="text-[11px] text-[var(--text-tertiary)] mb-[6px]">On (focused)</p>
+				<Toggle label="Notifications" on />
+			</div>
+		</div>
+	);
+}

@@ -186,6 +186,15 @@
 		   AI6: candidate for color-mix(in oklab, var(--text-primary) 45%, transparent) */
 		--scrim: rgba(26, 21, 16, 0.45);
 
+		/* AI6 — tint + hover tokens for status and accent-secondary (§2 approved.md).
+		   These replace recurring hardcoded rgba() literals across DS components.
+		   Dark mode counterparts defined below. */
+		--accent-secondary-dim: rgba(217, 119, 6, 0.08);
+		--status-info-dim: rgba(46, 125, 186, 0.08);
+		--status-error-dim: rgba(220, 74, 58, 0.08);
+		--accent-secondary-hover: #b86305;
+		--status-error-hover: #c53e30;
+
 		color-scheme: light;
 	}
 
@@ -253,6 +262,14 @@
 		   AQ-009: no pure black. AI6: candidate for color-mix derivation. */
 		--scrim: rgba(20, 16, 12, 0.62);
 
+		/* AI6 — dark tint + hover tokens. Slightly higher opacity (0.10) vs light (0.08)
+		   to compensate for lower luminance on dark surfaces. Hover hexes unchanged. */
+		--accent-secondary-dim: rgba(217, 119, 6, 0.1);
+		--status-info-dim: rgba(68, 152, 212, 0.1);
+		--status-error-dim: rgba(238, 106, 90, 0.1);
+		--accent-secondary-hover: #b86305;
+		--status-error-hover: #c53e30;
+
 		color-scheme: dark;
 	}
 
@@ -299,6 +316,13 @@
 			--shadow-subtle: 0 1px 4px rgba(0, 0, 0, 0.3);
 			--shadow-default: 0 4px 12px rgba(0, 0, 0, 0.4);
 			--shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+			/* AI6 — dark tint + hover tokens (matches [data-theme="hearth-dark"] block) */
+			--accent-secondary-dim: rgba(217, 119, 6, 0.1);
+			--status-info-dim: rgba(68, 152, 212, 0.1);
+			--status-error-dim: rgba(238, 106, 90, 0.1);
+			--accent-secondary-hover: #b86305;
+			--status-error-hover: #c53e30;
 
 			color-scheme: dark;
 		}

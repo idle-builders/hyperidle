@@ -83,10 +83,9 @@ describe("ErrorState", () => {
 		const { container } = render(<ErrorState title="Error" description="Desc." />);
 		const iconContainer = container.querySelector(".w-\\[48px\\]");
 		expect(iconContainer).not.toBeNull();
-		// Icon container should have the error-tinted background
-		// Browser normalizes rgba values with spaces after commas
+		// AI6: Icon container uses --status-error-dim token (replaces hardcoded rgba).
 		const iconEl = iconContainer as HTMLElement | null;
-		expect(iconEl?.style.background).toBe("rgba(220, 74, 58, 0.08)");
+		expect(iconEl?.style.background).toBe("var(--status-error-dim)");
 	});
 
 	it("renders icon in status-error color", () => {
@@ -108,11 +107,11 @@ describe("ErrorState", () => {
 		expect(screen.getByTestId("custom-icon")).toBeInTheDocument();
 	});
 
-	it("uses default red-tinted iconBg", () => {
+	it("uses default red-tinted iconBg (AI6: token form)", () => {
 		const { container } = render(<ErrorState title="E" description="D" />);
 		const iconContainer = container.querySelector(".w-\\[48px\\]") as HTMLElement | null;
-		// Browser normalizes rgba values with spaces after commas
-		expect(iconContainer?.style.background).toBe("rgba(220, 74, 58, 0.08)");
+		// AI6: default iconBg changed from rgba(220,74,58,0.08) to var(--status-error-dim) token.
+		expect(iconContainer?.style.background).toBe("var(--status-error-dim)");
 	});
 
 	it("uses custom iconBg when provided", () => {

@@ -27,9 +27,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 function stripAtLayer(css: string): string {
 	// Remove `@layer base {` opener and matching closing `}`.
 	// tokens.css wraps everything in `@layer base { ... }`.
-	return css
-		.replace(/@layer\s+base\s*\{/, "")
-		.replace(/^\}$/m, ""); // remove the final closing brace
+	return css.replace(/@layer\s+base\s*\{/, "").replace(/^\}$/m, ""); // remove the final closing brace
 }
 
 describe("AI6 — token presence: 5 new tokens + --scrim resolve on :root", () => {

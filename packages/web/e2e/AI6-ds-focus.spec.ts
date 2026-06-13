@@ -35,9 +35,9 @@ test.describe("AI6 — focus treatment catalog", () => {
 
 		// Tab to the first Button element and assert computed outline-width.
 		await buttonSection.first().focus();
-		const outlineWidth = await buttonSection.first().evaluate(
-			(el) => getComputedStyle(el).outlineWidth,
-		);
+		const outlineWidth = await buttonSection
+			.first()
+			.evaluate((el) => getComputedStyle(el).outlineWidth);
 		expect(outlineWidth).toBe("1px");
 	});
 
@@ -52,9 +52,7 @@ test.describe("AI6 — focus treatment catalog", () => {
 		await expect(firstTab).toBeVisible();
 		await firstTab.focus();
 
-		const outlineWidth = await firstTab.evaluate(
-			(el) => getComputedStyle(el).outlineWidth,
-		);
+		const outlineWidth = await firstTab.evaluate((el) => getComputedStyle(el).outlineWidth);
 		expect(outlineWidth).toBe("1px");
 	});
 

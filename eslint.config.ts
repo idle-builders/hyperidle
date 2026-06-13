@@ -221,6 +221,9 @@ export default [
 			// Promoted to error post-U10 — all design-system components now conform to the Hearth 6px grid.
 			"design/no-off-grid-spacing": "error",
 			"design/no-ai-aesthetic": "error",
+			// AI6 — tracking + motion token enforcement.
+			"design/no-hardcoded-tracking": "error",
+			"design/no-off-scale-duration": "error",
 			// @lore W2: density rules removed. Density system stripped in W2.
 		},
 	},

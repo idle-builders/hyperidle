@@ -76,7 +76,7 @@ export function ErrorState({
 	title,
 	description,
 	icon,
-	iconBg = "rgba(220,74,58,0.08)",
+	iconBg = "var(--status-error-dim)",
 	detail,
 	onRetry,
 	action,
