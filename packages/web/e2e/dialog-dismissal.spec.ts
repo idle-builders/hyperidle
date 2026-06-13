@@ -14,6 +14,14 @@
  * @lore AI2: The guard strip must mount with focus on "Keep editing" — this is
  * verifiable via page.evaluate(document.activeElement.textContent). The keyboard
  * discard path (Tab+Enter → Discard) proves discard is reachable without mouse.
+ *
+ * @lore AI2 C-1 fix: BetCreateDialog uses ProseMirror (contenteditable), not a
+ * textarea. The pitchField selector uses [contenteditable] and typing is done via
+ * page.keyboard.type() after clicking into the editor.
+ * The /api/bets mock uses the grouped shape {draft,active,completed,killed} so
+ * useBets can flatten correctly. ≥1 active bet is included so the header
+ * "New bet" button (data-testid=new-bet-btn) renders without needing the
+ * EmptyState fallback.
  */
 
 import { expect, test } from "./fixtures";
@@ -37,6 +45,26 @@ function makeBetDetail(status = "active") {
 	};
 }
 
+/** Grouped bets response shape matching useBets hook expectations. */
+function makeGroupedBets() {
+	return {
+		draft: [],
+		active: [
+			{
+				id: BET_ID,
+				title: "Dismissal test bet",
+				teamId: "test-team-1",
+				status: "active",
+				description: "Test bet",
+				costAppetite: null,
+				atRisk: false,
+			},
+		],
+		completed: [],
+		killed: [],
+	};
+}
+
 test.describe("AI2 — Authoring form Esc guard (AC-1, scenario 1)", () => {
 	test.beforeEach(async ({ page }) => {
 		await page.route(`**/api/bets/${BET_ID}`, (route) =>
@@ -46,15 +74,16 @@ test.describe("AI2 — Authoring form Esc guard (AC-1, scenario 1)", () => {
 				body: JSON.stringify(makeBetDetail()),
 			}),
 		);
+		// @lore AI2 C-1: grouped shape required by useBets hook; ≥1 active bet
+		// ensures header "New bet" button (bets.length > 0) renders.
 		await page.route("**/api/bets", (route) =>
 			route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({ bets: [] }),
+				body: JSON.stringify(makeGroupedBets()),
 			}),
 		);
-		// Mock knowledge create endpoint to intercept the dialog flow
-		await page.route("**/api/knowledge", (route) =>
+		await page.route("**/api/knowledge**", (route) =>
 			route.fulfill({
 				status: 200,
 				contentType: "application/json",
@@ -69,28 +98,27 @@ test.describe("AI2 — Authoring form Esc guard (AC-1, scenario 1)", () => {
 		await page.goto("/work/portfolio");
 		await expect(page.locator("[data-testid='work-portfolio-page']")).toBeVisible();
 
-		// Open the bet-create dialog via the UI (not direct navigation)
-		const createBtn = page
-			.locator("button")
-			.filter({ hasText: /new bet|create bet|pitch/i })
-			.first();
-		if ((await createBtn.count()) === 0) {
-			test.skip(true, "No create-bet button found — skipping guard strip test");
-		}
+		// Open the bet-create dialog via the "New bet" header button (requires bets.length > 0)
+		const createBtn = page.locator("[data-testid='new-bet-btn']");
+		await expect(
+			createBtn,
+			"New bet button must be visible — bets mock must return ≥1 bet",
+		).toBeVisible();
 		await createBtn.click();
 
 		// The dialog should be open
 		await expect(page.getByRole("dialog")).toBeVisible();
 
-		// Type into the pitch field
-		const pitchField = page
-			.locator("[role='dialog'] textarea, [role='dialog'] input[type='text']")
-			.first();
-		if ((await pitchField.count()) === 0) {
-			test.skip(true, "No text field inside dialog — skipping");
-		}
-		await pitchField.fill("My half-typed pitch");
-		await expect(pitchField).toHaveValue("My half-typed pitch");
+		// BetCreateDialog uses ProseMirror (contenteditable) for the description field.
+		// @lore AI2 C-1: BodyEditor renders a [contenteditable] div, not a textarea.
+		// Click into it, then type via keyboard.
+		const editor = page.locator("[role='dialog'] [contenteditable]").first();
+		await expect(editor, "ProseMirror editor must be visible inside dialog").toBeVisible();
+		await editor.click();
+		await page.keyboard.type("My half-typed pitch");
+
+		// Wait for isDirty to update (BodyEditor onChange fires asynchronously)
+		await page.waitForTimeout(100);
 
 		// Press Escape once — dirty dialog must NOT close; guard strip must appear
 		await page.keyboard.press("Escape");
@@ -98,12 +126,12 @@ test.describe("AI2 — Authoring form Esc guard (AC-1, scenario 1)", () => {
 		// Dialog must still be open
 		await expect(page.getByRole("dialog")).toBeVisible();
 
-		// Input must still hold the typed text
-		await expect(pitchField).toHaveValue("My half-typed pitch");
-
 		// Guard strip must be visible
 		const keepBtn = page.getByRole("button", { name: /keep editing/i });
-		await expect(keepBtn).toBeVisible();
+		await expect(
+			keepBtn,
+			"Guard strip must appear after first Escape on dirty dialog",
+		).toBeVisible();
 
 		// Screenshot the guard state (AC-1 proof)
 		await page.screenshot({ path: "test-results/ai2-guard-strip-visible.png" });
@@ -113,24 +141,23 @@ test.describe("AI2 — Authoring form Esc guard (AC-1, scenario 1)", () => {
 		await page.goto("/work/portfolio");
 		await expect(page.locator("[data-testid='work-portfolio-page']")).toBeVisible();
 
-		const createBtn = page
-			.locator("button")
-			.filter({ hasText: /new bet|create bet|pitch/i })
-			.first();
-		if ((await createBtn.count()) === 0) {
-			test.skip(true, "No create-bet button");
-		}
+		const createBtn = page.locator("[data-testid='new-bet-btn']");
+		await expect(createBtn, "New bet button must be visible").toBeVisible();
 		await createBtn.click();
 		await expect(page.getByRole("dialog")).toBeVisible();
 
-		const pitchField = page
-			.locator("[role='dialog'] textarea, [role='dialog'] input[type='text']")
-			.first();
-		if ((await pitchField.count()) === 0) {
-			test.skip(true, "No input field");
-		}
-		await pitchField.fill("Typed input");
+		const editor = page.locator("[role='dialog'] [contenteditable]").first();
+		await expect(editor, "ProseMirror editor must exist inside dialog").toBeVisible();
+		await editor.click();
+		await page.keyboard.type("Typed input");
+		await page.waitForTimeout(100);
 		await page.keyboard.press("Escape");
+
+		// Guard strip must appear
+		await expect(
+			page.getByRole("button", { name: /keep editing/i }),
+			"Guard strip must appear",
+		).toBeVisible();
 
 		// Focus must be on Keep editing
 		const focusedText = await page.evaluate(() => document.activeElement?.textContent?.trim());
@@ -143,26 +170,25 @@ test.describe("AI2 — Authoring form Esc guard (AC-1, scenario 1)", () => {
 		await page.goto("/work/portfolio");
 		await expect(page.locator("[data-testid='work-portfolio-page']")).toBeVisible();
 
-		const createBtn = page
-			.locator("button")
-			.filter({ hasText: /new bet|create bet|pitch/i })
-			.first();
-		if ((await createBtn.count()) === 0) {
-			test.skip(true, "No create-bet button");
-		}
+		const createBtn = page.locator("[data-testid='new-bet-btn']");
+		await expect(createBtn, "New bet button must be visible").toBeVisible();
 		await createBtn.click();
 		await expect(page.getByRole("dialog")).toBeVisible();
 
-		const pitchField = page
-			.locator("[role='dialog'] textarea, [role='dialog'] input[type='text']")
-			.first();
-		if ((await pitchField.count()) === 0) {
-			test.skip(true, "No input field");
-		}
-		await pitchField.fill("Draft pitch text");
+		const editor = page.locator("[role='dialog'] [contenteditable]").first();
+		await expect(editor, "ProseMirror editor must exist inside dialog").toBeVisible();
+		await editor.click();
+		await page.keyboard.type("Draft pitch text");
+		await page.waitForTimeout(100);
 		await page.keyboard.press("Escape");
 
-		// Focus is on Keep editing — press Tab to move to Discard
+		// Guard strip appears — focus is on Keep editing
+		await expect(
+			page.getByRole("button", { name: /keep editing/i }),
+			"Guard strip must appear",
+		).toBeVisible();
+
+		// Press Tab to move to Discard
 		await page.keyboard.press("Tab");
 
 		// Focused element should be Discard
@@ -179,6 +205,23 @@ test.describe("AI2 — Authoring form Esc guard (AC-1, scenario 1)", () => {
 
 test.describe("AI2 — Confirmation dialog always closes on Esc (AC-1, scenario 2)", () => {
 	test.beforeEach(async ({ page }) => {
+		// @lore AI2 C-1 fix: WorkBet page requires many API endpoints.
+		// @lore AI2: Playwright LIFO — last-registered route wins. Register from
+		// broadest to most specific so specific routes take precedence.
+
+		// 1. Broad: any bet sub-resource → empty 200 (fallback)
+		await page.route(`**/api/bets/${BET_ID}/**`, (route) =>
+			route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) }),
+		);
+		// 2. More specific: artifact-thread-summary needs correct shape
+		await page.route(`**/api/bets/${BET_ID}/artifact-thread-summary`, (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
+			}),
+		);
+		// 3. Most specific: main bet endpoint
 		await page.route(`**/api/bets/${BET_ID}`, (route) =>
 			route.fulfill({
 				status: 200,
@@ -193,24 +236,55 @@ test.describe("AI2 — Confirmation dialog always closes on Esc (AC-1, scenario 
 				body: JSON.stringify({ ok: true }),
 			}),
 		);
+		await page.route("**/api/artifacts**", (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ items: [], nextCursor: null }),
+			}),
+		);
+		await page.route("**/api/threads**", (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ threads: [], nextCursor: null }),
+			}),
+		);
+		await page.route("**/api/notifications**", (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ unseenCount: 0, rows: [] }),
+			}),
+		);
+		await page.route("**/api/knowledge/triage-count", (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ count: 0 }),
+			}),
+		);
 	});
 
 	test("kill-confirm: Esc with empty reason closes dialog (confirmation-never-dirty rule)", async ({
 		page,
 	}) => {
 		await page.goto(`/work/bet/${BET_ID}`);
-		await expect(page.locator("[data-testid='work-bet-page']")).toBeVisible();
 
-		// Open kill dialog via overflow
+		// Wait for network to settle and bet data to render (not just loading skeleton)
+		await page.waitForLoadState("networkidle");
+
+		// The overflow button only renders in the success state (bet loaded).
+		// @lore AI2: work-bet-page testid appears in loading + error + success; wait for
+		// the overflow button directly to confirm the success state is rendered.
 		const overflowBtn = page.locator("[data-testid='bet-overflow-btn']");
-		if ((await overflowBtn.count()) === 0) {
-			test.skip(true, "No overflow button");
-		}
+		await expect(
+			overflowBtn,
+			"bet-overflow-btn must be visible — WorkBet success state must render",
+		).toBeVisible({ timeout: 15000 });
 		await overflowBtn.click();
-		const killItem = page.locator("[data-dropdown-item][data-bet-action='kill']");
-		if ((await killItem.count()) === 0) {
-			test.skip(true, "No kill dropdown item");
-		}
+		const killItem = page.locator("[data-bet-action='kill']");
+		await expect(killItem, "Kill dropdown item must appear").toBeVisible();
 		await killItem.click();
 		await expect(page.getByRole("dialog")).toBeVisible();
 
@@ -223,17 +297,16 @@ test.describe("AI2 — Confirmation dialog always closes on Esc (AC-1, scenario 
 		page,
 	}) => {
 		await page.goto(`/work/bet/${BET_ID}`);
-		await expect(page.locator("[data-testid='work-bet-page']")).toBeVisible();
+		await page.waitForLoadState("networkidle");
 
 		const overflowBtn = page.locator("[data-testid='bet-overflow-btn']");
-		if ((await overflowBtn.count()) === 0) {
-			test.skip(true, "No overflow button");
-		}
+		await expect(
+			overflowBtn,
+			"bet-overflow-btn must be visible — WorkBet success state must render",
+		).toBeVisible({ timeout: 15000 });
 		await overflowBtn.click();
-		const killItem = page.locator("[data-dropdown-item][data-bet-action='kill']");
-		if ((await killItem.count()) === 0) {
-			test.skip(true, "No kill dropdown item");
-		}
+		const killItem = page.locator("[data-bet-action='kill']");
+		await expect(killItem, "Kill dropdown item must appear").toBeVisible();
 		await killItem.click();
 		await expect(page.getByRole("dialog")).toBeVisible();
 

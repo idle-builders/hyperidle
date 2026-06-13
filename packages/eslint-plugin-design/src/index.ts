@@ -54,8 +54,10 @@ const recommendedRules: Linter.RulesRecord = {
 	"design/no-ai-aesthetic": "warn",
 	"design/no-raw-actor-fetch": "warn",
 	"design/no-raw-tailwind-color": "warn",
-	"design/no-raw-overlay-z": "warn",
-	"design/no-dialog-boilerplate": "warn",
+	// AI2 AC-3/AC-5: promoted from warn to error post-migration (code is clean).
+	// A future raw z-[N] on an overlay or re-introduced showModal() fails lint, not warns.
+	"design/no-raw-overlay-z": "error",
+	"design/no-dialog-boilerplate": "error",
 	"design/require-ds-attribute": "warn",
 	"design/require-stories-sibling": "warn",
 	"design/require-focus-on-interactive": "warn",

@@ -162,7 +162,7 @@ test.describe("AI2 — Dialog chrome consistency (AC-6)", () => {
 			test.skip(true, "No overflow button");
 		}
 		await overflowBtn.click();
-		const killItem = page.locator("[data-dropdown-item][data-bet-action='kill']");
+		const killItem = page.locator("[data-bet-action='kill']");
 		if ((await killItem.count()) === 0) {
 			test.skip(true, "No kill item");
 		}
@@ -180,7 +180,7 @@ test.describe("AI2 — Dialog chrome consistency (AC-6)", () => {
 			test.skip(true, "No overflow button");
 		}
 		await overflowBtn.click();
-		const adjustItem = page.locator("[data-dropdown-item][data-bet-action='adjust-appetite']");
+		const adjustItem = page.locator("[data-bet-action='adjust-appetite']");
 		if ((await adjustItem.count()) === 0) {
 			test.skip(true, "No adjust-appetite item");
 		}

@@ -119,10 +119,12 @@ export default [
 			// The density system was stripped in W2.
 			// AI2 AC-3 (static half): no raw z-index Tailwind classes on overlay surfaces.
 			// All z-layers must come from the --z-* token scale.
-			"design/no-raw-overlay-z": "warn",
+			// Promoted from warn → error: code is clean post-migration (C-3 review finding).
+			"design/no-raw-overlay-z": "error",
 			// AI2 AC-5: no native-dialog boilerplate (showModal/setAttribute("open")/cancel event)
 			// in migrated overlay surfaces. Use useDialogBehavior/Dialog instead.
-			"design/no-dialog-boilerplate": "warn",
+			// Promoted from warn → error: code is clean post-migration (C-3 review finding).
+			"design/no-dialog-boilerplate": "error",
 		},
 	},
 

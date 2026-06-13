@@ -335,7 +335,10 @@ describe("W3 AC-22 — Task rows in bet detail", () => {
 		expect(taskRows.length).toBeGreaterThan(0);
 	});
 
-	it("clicking a task row navigates to task detail route", async () => {
+	it("clicking a task row opens the TaskSheet (drawer) — not navigate()", async () => {
+		// @lore AI2 C-2 fix: task-row onClick was changed from navigate() to setSelectedTaskId()
+		// so that TaskSheet (the drawer layer) opens instead of navigating to WorkTask.
+		// This enables the z-layer ordering tests (drawer < overlay < dialog).
 		const user = userEvent.setup();
 		const betWithTask: BetDetail = {
 			...MOCK_BETS.b1!,
@@ -366,8 +369,10 @@ describe("W3 AC-22 — Task rows in bet detail", () => {
 		if (taskRow) {
 			await user.click(taskRow as HTMLElement);
 		}
-		// After clicking, MemoryRouter navigates to the task detail route
-		expect(document.querySelector("[data-testid='task-detail-page']")).toBeInTheDocument();
+		// TaskSheet opens (data-testid="task-sheet") — no navigation to task-detail-page
+		expect(document.querySelector("[data-testid='task-sheet']")).toBeInTheDocument();
+		// We did NOT navigate away — task-detail-page must NOT be in the DOM
+		expect(document.querySelector("[data-testid='task-detail-page']")).not.toBeInTheDocument();
 	});
 });
 

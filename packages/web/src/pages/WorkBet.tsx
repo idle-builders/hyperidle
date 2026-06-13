@@ -1585,7 +1585,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 											type="button"
 											data-testid="task-row"
 											className="flex items-center gap-[12px] py-[12px] border-b border-[var(--border-subtle)] last:border-b-0 cursor-pointer hover:bg-[rgba(44,36,26,0.02)] transition-colors duration-[var(--motion-fast)] text-left w-full"
-											onClick={() => navigate(`/work/bet/${bet.id}/task/${task.id}`)}
+											onClick={() => setSelectedTaskId(task.id)}
 											aria-label={task.title}
 										>
 											<div className="flex-1 min-w-0">

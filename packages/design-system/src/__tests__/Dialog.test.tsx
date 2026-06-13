@@ -378,6 +378,64 @@ describe("AI2 — Dialog focus behavior (AC-2)", () => {
 
 		trigger.remove();
 	});
+
+	it("focus returns to the trigger element after dialog closes (AC-2 return-focus)", async () => {
+		// @lore AI2 AC-2 W-1: FocusTrap returnFocusOnDeactivate=true wires return-focus.
+		// We verify it actually fires by: focus trigger → open → focus is in dialog →
+		// close (open=false) → focus returns to trigger.
+		const trigger = document.createElement("button");
+		trigger.textContent = "Trigger";
+		document.body.appendChild(trigger);
+		trigger.focus();
+		expect(document.activeElement).toBe(trigger);
+
+		const onClose = vi.fn();
+
+		// Open the dialog (focus moves in)
+		await act(async () => {
+			root.render(
+				createElement(
+					Dialog,
+					makeProps({
+						open: true,
+						onClose,
+						children: createElement(
+							"button",
+							{ "data-testid": "inner-btn", type: "button" as const },
+							"Inner",
+						),
+					}),
+				),
+			);
+		});
+
+		// Focus is now inside the dialog
+		const overlay = document.getElementById("overlay-root");
+		expect(overlay?.contains(document.activeElement)).toBe(true);
+
+		// Close the dialog (open=false) — FocusTrap deactivates → returns focus to trigger
+		await act(async () => {
+			root.render(
+				createElement(
+					Dialog,
+					makeProps({
+						open: false,
+						onClose,
+						children: createElement(
+							"button",
+							{ "data-testid": "inner-btn", type: "button" as const },
+							"Inner",
+						),
+					}),
+				),
+			);
+		});
+
+		// Focus must be back on the original trigger
+		expect(document.activeElement).toBe(trigger);
+
+		trigger.remove();
+	});
 });
 
 // ---------------------------------------------------------------------------
