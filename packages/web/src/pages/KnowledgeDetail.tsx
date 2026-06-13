@@ -2,6 +2,7 @@ import type { MenuItem } from "@hyperidle/design-system";
 import {
 	BlockActionsPopover,
 	BodyEditor,
+	Button,
 	knowledgeStatusToStatus,
 	Menu,
 	StatusChip,
@@ -701,21 +702,14 @@ function KnowledgeDetailView({
 					{/* W3 AC-39: Edit/Done button — read-only when agent-authored factory item */}
 					{/* AF13 §2: self-authored factory items show Edit; isReadOnly gates this */}
 					{!(editing || isReadOnly) ? (
-						<button
-							type="button"
-							className="inline-flex items-center text-[12px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border border-transparent cursor-pointer"
-							onClick={startEdit}
-						>
+						/* AI5: shared Button primitive. */
+						<Button variant="primary" size="sm" onClick={startEdit}>
 							Edit
-						</button>
+						</Button>
 					) : editing ? (
-						<button
-							type="button"
-							className="inline-flex items-center text-[12px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border border-transparent cursor-pointer"
-							onClick={exitEdit}
-						>
+						<Button variant="primary" size="sm" onClick={exitEdit}>
 							Done
-						</button>
+						</Button>
 					) : null}
 					{/* W3 AC-39 / AD6: "..." overflow dropdown — Flag removed, Archive wired. */}
 					{!editing && (
@@ -779,13 +773,10 @@ function KnowledgeDetailView({
 								<span className="text-[var(--text-secondary)]">
 									Version conflict — someone else saved this item. Reload to see their changes.
 								</span>
-								<button
-									type="button"
-									className="inline-flex items-center text-[12px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-primary)] cursor-pointer"
-									onClick={() => window.location.reload()}
-								>
+								{/* AI5: shared Button primitive (secondary). */}
+								<Button variant="secondary" size="sm" onClick={() => window.location.reload()}>
 									Reload
-								</button>
+								</Button>
 							</div>
 						)}
 

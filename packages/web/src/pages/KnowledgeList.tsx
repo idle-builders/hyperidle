@@ -31,6 +31,7 @@
  * inline KnowledgeListRow replacing KnowledgeRow primitive.
  */
 import {
+	Button,
 	EmptyState,
 	ErrorState,
 	knowledgeStatusToStatus,
@@ -1061,13 +1062,10 @@ export function KnowledgeList({
 								outline: "none",
 							}}
 						/>
-						<button
-							type="button"
-							className="inline-flex items-center text-[12px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-none cursor-pointer"
-							onClick={() => navigate("/knowledge/new")}
-						>
+						{/* AI5: shared Button primitive. */}
+						<Button variant="primary" size="sm" onClick={() => navigate("/knowledge/new")}>
 							+ New
-						</button>
+						</Button>
 					</div>
 				)}
 			</header>
@@ -1096,13 +1094,10 @@ export function KnowledgeList({
 							}
 							iconBg="rgba(46,125,186,0.08)"
 							action={
-								<button
-									type="button"
-									className="inline-flex items-center text-[13px] font-[500] px-[18px] py-[10px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-none cursor-pointer"
-									onClick={() => navigate("/knowledge/new")}
-								>
+								/* AI5: shared Button primitive. */
+								<Button variant="primary" onClick={() => navigate("/knowledge/new")}>
 									Create first item
-								</button>
+								</Button>
 							}
 							dataTestId="knowledge-curated-empty"
 						/>

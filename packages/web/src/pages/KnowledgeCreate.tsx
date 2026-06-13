@@ -18,7 +18,7 @@
  */
 
 // hearth-internal-padding
-import { BodyEditor, ScopePicker } from "@hyperidle/design-system";
+import { BodyEditor, Button, ScopePicker } from "@hyperidle/design-system";
 import type { ScopeKind } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -149,23 +149,18 @@ export function KnowledgeCreate(): JSX.Element {
 						}}
 					/>
 					<div className="flex items-center gap-[9px] shrink-0">
-						<button
-							type="button"
-							className="inline-flex items-center text-[13px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-transparent border-[1.5px] border-[var(--border-default)] text-[var(--text-secondary)] cursor-pointer hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)]"
-							onClick={handleCancel}
-							disabled={submitting}
-						>
+						{/* AI5: shared Button primitive (secondary/primary). */}
+						<Button variant="secondary" onClick={handleCancel} disabled={submitting}>
 							Cancel
-						</button>
-						<button
-							type="button"
+						</Button>
+						<Button
+							variant="primary"
 							data-testid="knowledge-create-submit"
-							className="inline-flex items-center text-[13px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-opacity duration-[var(--motion-fast)]"
 							onClick={() => void handleCreate()}
 							disabled={!canCreate}
 						>
 							{submitting ? "Creating…" : "Create"}
-						</button>
+						</Button>
 					</div>
 				</div>
 			</header>

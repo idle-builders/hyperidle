@@ -8,6 +8,7 @@
  * passive." Implemented as a bordered card with an explicit CTA row rather
  * than a passive list row. This preserves the contrast the spec calls for.
  */
+import { Button } from "@hyperidle/design-system";
 import type { JSX } from "react";
 
 export interface CurationSuggestionCardProps {
@@ -41,22 +42,13 @@ export function CurationSuggestionCard({
 				<p className="text-xs text-[var(--text-secondary)] truncate">{detail}</p>
 			</div>
 			<div className="flex items-center gap-1 shrink-0">
-				<button
-					type="button"
-					className="btn btn-xs btn-primary"
-					onClick={onAccept}
-					aria-label="Accept suggestion"
-				>
+				{/* AI5: shared Button primitive (primary/ghost, sm). */}
+				<Button variant="primary" size="sm" onClick={onAccept} aria-label="Accept suggestion">
 					Review
-				</button>
-				<button
-					type="button"
-					className="btn btn-xs btn-ghost"
-					onClick={onDismiss}
-					aria-label="Dismiss suggestion"
-				>
+				</Button>
+				<Button variant="ghost" size="sm" onClick={onDismiss} aria-label="Dismiss suggestion">
 					Dismiss
-				</button>
+				</Button>
 			</div>
 		</div>
 	);
