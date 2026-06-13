@@ -455,6 +455,109 @@ describe("AG5 — Menu: dataAttrs passthrough (C4)", () => {
 	});
 });
 
+describe("AG5 — Menu: focus management (WARNING-A)", () => {
+	let container: HTMLDivElement;
+	let root: Root;
+
+	beforeEach(() => {
+		container = document.createElement("div");
+		document.body.appendChild(container);
+		root = createRoot(container);
+	});
+
+	afterEach(() => {
+		root.unmount();
+		container.remove();
+	});
+
+	it("opening the menu focuses the first enabled menuitem", async () => {
+		// Render with open=true; focus should move to first item automatically.
+		await act(async () => {
+			root.render(
+				createElement(Menu, {
+					open: true,
+					onClose: noop,
+					items: DEFAULT_ITEMS,
+					label: "Bet actions",
+				}) as ReactElement,
+			);
+		});
+		// Wait for the rAF that defers the focus call.
+		await act(async () => {
+			await new Promise((resolve) => setTimeout(resolve, 20));
+		});
+		const items = container.querySelectorAll("[role='menuitem']") as NodeListOf<HTMLElement>;
+		expect(document.activeElement).toBe(items[0]);
+	});
+
+	it("opening the menu skips disabled items and focuses the first enabled one", async () => {
+		await act(async () => {
+			root.render(
+				createElement(Menu, {
+					open: true,
+					onClose: noop,
+					items: [
+						{ id: "disabled-first", label: "Unavailable", onSelect: noop, disabled: true },
+						{ id: "enabled-second", label: "Activate", onSelect: noop },
+					],
+					label: "Bet actions",
+				}) as ReactElement,
+			);
+		});
+		await act(async () => {
+			await new Promise((resolve) => setTimeout(resolve, 20));
+		});
+		const items = container.querySelectorAll("[role='menuitem']") as NodeListOf<HTMLElement>;
+		// First item is disabled — focus should land on second
+		expect(document.activeElement).toBe(items[1]);
+	});
+
+	it("closing the menu restores focus to the previously-focused element", async () => {
+		// Create a trigger button to simulate the real trigger pattern.
+		const trigger = document.createElement("button");
+		trigger.textContent = "Open menu";
+		document.body.appendChild(trigger);
+
+		try {
+			// Focus the trigger before opening the menu.
+			await act(async () => {
+				trigger.focus();
+			});
+			expect(document.activeElement).toBe(trigger);
+
+			// Open menu — focus moves to first item.
+			await act(async () => {
+				root.render(
+					createElement(Menu, {
+						open: true,
+						onClose: noop,
+						items: DEFAULT_ITEMS,
+						label: "Bet actions",
+					}) as ReactElement,
+				);
+			});
+			await act(async () => {
+				await new Promise((resolve) => setTimeout(resolve, 20));
+			});
+
+			// Close the menu — focus should return to trigger.
+			await act(async () => {
+				root.render(
+					createElement(Menu, {
+						open: false,
+						onClose: noop,
+						items: DEFAULT_ITEMS,
+						label: "Bet actions",
+					}) as ReactElement,
+				);
+			});
+			expect(document.activeElement).toBe(trigger);
+		} finally {
+			trigger.remove();
+		}
+	});
+});
+
 describe("AG5 — Menu: align prop", () => {
 	let container: HTMLDivElement;
 	let root: Root;

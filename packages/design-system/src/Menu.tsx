@@ -54,6 +54,31 @@ export function Menu({
 	align = "end",
 }: MenuProps): JSX.Element | null {
 	const menuRef = useRef<HTMLDivElement>(null);
+	/** Element that had focus before the menu opened — restored on close. */
+	const previousFocusRef = useRef<Element | null>(null);
+
+	// On open: capture previously-focused element + move focus to first enabled item.
+	// On close: restore focus to the previously-focused element.
+	useEffect(() => {
+		if (open) {
+			previousFocusRef.current = document.activeElement;
+			// Defer one tick so the menu has rendered its items before we query them.
+			const raf = requestAnimationFrame(() => {
+				const first = menuRef.current?.querySelector<HTMLElement>(
+					"[role='menuitem']:not([disabled])",
+				);
+				first?.focus();
+			});
+			return () => cancelAnimationFrame(raf);
+		}
+		// Closed: restore focus to trigger.
+		const prev = previousFocusRef.current;
+		if (prev && (prev as HTMLElement).focus) {
+			(prev as HTMLElement).focus();
+		}
+		previousFocusRef.current = null;
+		return undefined;
+	}, [open]);
 
 	// Escape closes + stopPropagation (prevents outer handlers firing on Escape)
 	useEffect(() => {
