@@ -1,4 +1,4 @@
-import { ErrorState } from "@hyperidle/design-system";
+import { Button, ErrorState } from "@hyperidle/design-system";
 import type { JSX } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -34,14 +34,6 @@ const SAD_FACE_ICON = (
 	</svg>
 );
 
-/** Primary pill button matching Button.html / ErrorState retry style. */
-const PRIMARY_BTN =
-	"inline-flex items-center justify-center px-[18px] py-[10px] text-[13px] font-[500] text-[var(--text-on-accent)] bg-[var(--accent-primary)] rounded-[var(--r-pill)] border-[1.5px] border-transparent cursor-pointer leading-[1] hover:bg-[var(--accent-primary-hover)] active:scale-[0.97]";
-
-/** Secondary pill button matching Button.html secondary variant. */
-const SECONDARY_BTN =
-	"inline-flex items-center justify-center px-[18px] py-[10px] text-[13px] font-[500] text-[var(--text-primary)] bg-[var(--surface-elevated)] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] cursor-pointer leading-[1] hover:border-[var(--border-strong)] hover:bg-[var(--surface-page)] active:scale-[0.97]";
-
 export function NotFound(): JSX.Element {
 	const navigate = useNavigate();
 
@@ -57,17 +49,16 @@ export function NotFound(): JSX.Element {
 				iconBg="rgba(217,119,6,0.08)"
 				action={
 					<>
-						<button
-							type="button"
-							className={PRIMARY_BTN}
+						{/* AI5: shared Button primitive (primary/secondary). */}
+						<Button
+							variant="primary"
 							onClick={() => navigate("/conversations")}
 							data-testid="not-found-go-to-conversations"
 						>
 							Go to conversations
-						</button>
-						<button
-							type="button"
-							className={SECONDARY_BTN}
+						</Button>
+						<Button
+							variant="secondary"
 							// Z8-148: navigate(-1) exits the app on direct entry (history.length === 1).
 							// Fall back to /work/portfolio when there is no history to go back to.
 							onClick={() =>
@@ -76,7 +67,7 @@ export function NotFound(): JSX.Element {
 							data-testid="not-found-go-back"
 						>
 							Go back
-						</button>
+						</Button>
 					</>
 				}
 			/>

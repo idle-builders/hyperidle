@@ -18,7 +18,7 @@
  */
 
 // hearth-internal-padding
-import { BodyEditor } from "@hyperidle/design-system";
+import { BodyEditor, Button, ScopePicker } from "@hyperidle/design-system";
 import type { ScopeKind } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -149,23 +149,18 @@ export function KnowledgeCreate(): JSX.Element {
 						}}
 					/>
 					<div className="flex items-center gap-[9px] shrink-0">
-						<button
-							type="button"
-							className="inline-flex items-center text-[13px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-transparent border-[1.5px] border-[var(--border-default)] text-[var(--text-secondary)] cursor-pointer hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)]"
-							onClick={handleCancel}
-							disabled={submitting}
-						>
+						{/* AI5: shared Button primitive (secondary/primary). */}
+						<Button variant="secondary" onClick={handleCancel} disabled={submitting}>
 							Cancel
-						</button>
-						<button
-							type="button"
+						</Button>
+						<Button
+							variant="primary"
 							data-testid="knowledge-create-submit"
-							className="inline-flex items-center text-[13px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-opacity duration-[var(--motion-fast)]"
 							onClick={() => void handleCreate()}
 							disabled={!canCreate}
 						>
 							{submitting ? "Creating…" : "Create"}
-						</button>
+						</Button>
 					</div>
 				</div>
 			</header>
@@ -217,43 +212,23 @@ export function KnowledgeCreate(): JSX.Element {
 								<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
 									Scope
 								</span>
-								<div className="flex gap-[6px] flex-wrap" role="radiogroup" aria-label="Scope">
-									{SCOPE_CREATE_OPTIONS.map((option) => {
-										const isTeam = option.id === "team";
-										const isDisabled = submitting || (isTeam && !hasTeam);
-										const isActive = selectedScope.id === option.id;
-										return (
-											// biome-ignore lint/a11y/useSemanticElements: button+role="radio" used for pill styling with aria-checked; <input type="radio"> cannot be styled as a pill without full custom CSS reset
-											<button
-												key={option.id}
-												type="button"
-												role="radio"
-												aria-checked={isActive}
-												aria-disabled={isDisabled ? "true" : undefined}
-												data-testid={`scope-pill-create-${option.id}`}
-												data-active={isActive ? "true" : "false"}
-												disabled={isDisabled}
-												onClick={() => {
-													if (!isDisabled) setSelectedScope(option);
-												}}
-												className={
-													isActive
-														? "border-[1.5px] border-[var(--accent-primary)] bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)] px-[12px] py-[4px] rounded-[var(--r-pill)] text-[12px] font-[500] cursor-pointer"
-														: isDisabled
-															? "border-[1.5px] border-[var(--border-default)] text-[var(--text-secondary)] opacity-40 px-[12px] py-[4px] rounded-[var(--r-pill)] text-[12px] font-[500] cursor-not-allowed bg-transparent"
-															: "border-[1.5px] border-[var(--border-default)] text-[var(--text-secondary)] px-[12px] py-[4px] rounded-[var(--r-pill)] text-[12px] font-[500] cursor-pointer bg-transparent"
-												}
-												title={
-													isTeam && !hasTeam
-														? "Join a team to use team-scoped knowledge"
-														: undefined
-												}
-											>
-												{option.label}
-											</button>
-										);
-									})}
-								</div>
+								{/* AI5: consolidated to the shared ScopePicker primitive (select mode).
+								    Team is disabled while submitting or when the user has no team. */}
+								<ScopePicker
+									options={SCOPE_CREATE_OPTIONS.map((option) => ({
+										id: option.id,
+										label: option.label,
+										disabled: submitting || (option.id === "team" && !hasTeam),
+									}))}
+									value={selectedScope.id}
+									onChange={(id) => {
+										const next = SCOPE_CREATE_OPTIONS.find((o) => o.id === id);
+										if (next) setSelectedScope(next);
+									}}
+									ariaLabel="Scope"
+									testIdPrefix="scope-pill-create"
+									disabledTitle="Join a team to use team-scoped knowledge"
+								/>
 							</div>
 						</div>
 					</aside>

@@ -19,11 +19,12 @@
  * does not flag it because it does not use DaisyUI select classes.
  */
 
-import { SearchField, StatusChip, Tag } from "@hyperidle/design-system";
+import { Avatar, SearchField, StatusChip, Tag } from "@hyperidle/design-system";
 import { type JSX, type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 import type { Recipient } from "../hooks/useRecipients.js";
 import { useRecipients } from "../hooks/useRecipients.js";
 import { apiFetch } from "../services/api-fetch.js";
+import { deriveInitials } from "../utils/initials.js";
 
 export interface RecipientPickerProps {
 	onSelect: (recipient: { id: string; kind: "agent" | "user"; name: string }) => void;
@@ -183,10 +184,12 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 									className="flex items-center gap-[8px] px-[8px] py-[6px] rounded-[var(--r-subtle)] text-left cursor-pointer bg-transparent border-none transition-[background] duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] focus:outline-none focus:bg-[var(--surface-container)]"
 									onClick={() => handleSelectRecipient(recipient)}
 								>
-									{/* Avatar initials chip */}
-									<span className="flex-shrink-0 inline-flex items-center justify-center w-[28px] h-[28px] rounded-full bg-[var(--surface-container)] text-[var(--text-secondary)] text-[11px] font-medium uppercase">
-										{recipient.name.slice(0, 2)}
-									</span>
+									{/* AI5: shared Avatar primitive (initials now uppercased via deriveInitials). */}
+									<Avatar
+										initials={deriveInitials(recipient.name)}
+										size="sm"
+										className="flex-shrink-0"
+									/>
 									<span className="flex-1 min-w-0">
 										<span className="flex items-center gap-[6px]">
 											<span className="text-[13px] text-[var(--text-primary)] font-medium truncate">
@@ -216,9 +219,8 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 			{(pickerState === "selected" || pickerState === "sending") && selected && (
 				<>
 					<div className="flex items-center gap-[8px] mb-[4px]">
-						<span className="flex-shrink-0 inline-flex items-center justify-center w-[28px] h-[28px] rounded-full bg-[var(--surface-container)] text-[var(--text-secondary)] text-[11px] font-medium uppercase">
-							{selected.name.slice(0, 2)}
-						</span>
+						{/* AI5: shared Avatar primitive. */}
+						<Avatar initials={deriveInitials(selected.name)} size="sm" className="flex-shrink-0" />
 						<span className="text-[13px] text-[var(--text-primary)] font-medium">
 							{selected.name}
 						</span>

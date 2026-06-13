@@ -248,7 +248,7 @@ describe("AF13 §4A — ScopeChangeDialog renders 3 labeled options (not raw enu
 		vi.clearAllMocks();
 	});
 
-	it("select contains Shared, Team, Private — not factory/practice/bet/task", () => {
+	it("renders 3 labeled scope pills — Shared, Team, Private — not factory/practice/bet/task", () => {
 		render(
 			<MemoryRouter>
 				<ScopeChangeDialog
@@ -262,10 +262,10 @@ describe("AF13 §4A — ScopeChangeDialog renders 3 labeled options (not raw enu
 			</MemoryRouter>,
 		);
 
-		// After §4A fix: select replaced with 3 labeled SCOPE_CREATE_OPTIONS
-		// Currently fails because SCOPE_KINDS.map renders 7 raw enum option values
-		const selectEl = screen.getByLabelText("Scope kind");
-		const optionTexts = Array.from(selectEl.querySelectorAll("option")).map(
+		// AI5: the Select was replaced by the canonical ScopePicker pill group.
+		// Behaviour preserved: 3 labeled options, no raw enum vocabulary.
+		const group = screen.getByRole("radiogroup", { name: "Scope kind" });
+		const optionTexts = Array.from(group.querySelectorAll('[role="radio"]')).map(
 			(o) => o.textContent ?? "",
 		);
 
@@ -279,7 +279,7 @@ describe("AF13 §4A — ScopeChangeDialog renders 3 labeled options (not raw enu
 		expect(optionTexts).not.toContain("task");
 		expect(optionTexts).not.toContain("product");
 
-		// Exactly 3 options (no phantom extras)
+		// Exactly 3 pills (no phantom extras)
 		expect(optionTexts.filter((t) => t.length > 0)).toHaveLength(3);
 	});
 });
@@ -316,10 +316,8 @@ describe("AF13 §4A SUGGESTION — default-option resolution: factory and practi
 			</MemoryRouter>,
 		);
 
-		const selectEl = screen.getByLabelText("Scope kind") as HTMLSelectElement;
-		// After fix: "Shared" selected when currentScopeKind is "factory"
-		// Currently fails: value is "factory" (raw enum, select not yet replaced)
-		expect(selectEl.value).toBe("Shared");
+		// AI5: factory → "Shared" pill active (data-active="true").
+		expect(screen.getByTestId("scope-pill-change-shared")).toHaveAttribute("data-active", "true");
 	});
 
 	it("when currentScopeKind is practice, the Shared option is selected (no phantom practice)", () => {
@@ -336,13 +334,12 @@ describe("AF13 §4A SUGGESTION — default-option resolution: factory and practi
 			</MemoryRouter>,
 		);
 
-		const selectEl = screen.getByLabelText("Scope kind") as HTMLSelectElement;
-		// After fix: "Shared" selected (practice maps to Shared via scopeKindToLabel)
-		// Currently fails: value is "practice"
-		expect(selectEl.value).toBe("Shared");
+		// AI5: practice maps to "Shared" via scopeKindToLabel → Shared pill active.
+		expect(screen.getByTestId("scope-pill-change-shared")).toHaveAttribute("data-active", "true");
 
-		// No phantom "practice" option in the select
-		const optionTexts = Array.from(selectEl.querySelectorAll("option")).map(
+		// No phantom "practice" pill in the group.
+		const group = screen.getByRole("radiogroup", { name: "Scope kind" });
+		const optionTexts = Array.from(group.querySelectorAll('[role="radio"]')).map(
 			(o) => o.textContent ?? "",
 		);
 		expect(optionTexts).not.toContain("practice");
@@ -379,12 +376,8 @@ describe("AF13 §6 — ScopeChangeDialog Team option gated by hasTeam (parity wi
 			</MemoryRouter>,
 		);
 
-		const selectEl = screen.getByLabelText("Scope kind");
-		const teamOption = Array.from(selectEl.querySelectorAll("option")).find((o) =>
-			o.textContent?.includes("Team"),
-		);
-		expect(teamOption).toBeDefined();
-		expect(teamOption?.disabled).toBe(true);
+		// AI5: Team pill disabled when the user has no teamId.
+		expect(screen.getByTestId("scope-pill-change-team")).toBeDisabled();
 	});
 
 	it("Team option is enabled when user has a teamId", async () => {
@@ -408,11 +401,7 @@ describe("AF13 §6 — ScopeChangeDialog Team option gated by hasTeam (parity wi
 			</MemoryRouter>,
 		);
 
-		const selectEl = screen.getByLabelText("Scope kind");
-		const teamOption = Array.from(selectEl.querySelectorAll("option")).find(
-			(o) => o.textContent?.trim() === "Team",
-		);
-		expect(teamOption).toBeDefined();
-		expect(teamOption?.disabled).toBe(false);
+		// AI5: Team pill enabled when the user has a teamId.
+		expect(screen.getByTestId("scope-pill-change-team")).not.toBeDisabled();
 	});
 });

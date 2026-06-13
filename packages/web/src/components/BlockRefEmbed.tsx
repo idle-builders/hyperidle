@@ -15,7 +15,7 @@
  * point is ThreadShell's renderRefEmbeds render prop which calls into this component.
  */
 
-import { renderPayload } from "@hyperidle/design-system";
+import { ErrorState, renderPayload, Skeleton } from "@hyperidle/design-system";
 import type { BlockHostKind } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { useBlockResolution } from "../hooks/useBlockResolution.js";
@@ -37,12 +37,12 @@ export function BlockRefEmbed({ blockId, hostKind, hostId }: BlockRefEmbedProps)
 	);
 
 	if (status === "loading") {
+		// AI5: shared Skeleton single bar (skeleton-pulse, not animate-pulse).
 		return (
-			<div
-				data-testid="block-ref-embed-loading"
-				aria-busy="true"
-				aria-label="Loading block reference"
-				className="h-[32px] rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] animate-pulse"
+			<Skeleton
+				height="32px"
+				ariaLabel="Loading block reference"
+				dataTestId="block-ref-embed-loading"
 			/>
 		);
 	}
@@ -64,18 +64,19 @@ export function BlockRefEmbed({ blockId, hostKind, hostId }: BlockRefEmbedProps)
 	}
 
 	if (status === "error") {
+		// AI5: shared compact ErrorState (inline, no shadow), preserving the
+		// original error copy + retry affordance.
 		return (
-			<div
-				data-testid="block-ref-embed-error"
-				className="border border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-3 py-2 bg-[var(--surface-container)] flex items-center justify-between gap-2"
-			>
-				<span className="text-[12px] text-[var(--text-tertiary)]">
-					{error ?? "Could not load referenced content"}
-				</span>
-				<button type="button" onClick={retry} className="btn btn-xs btn-ghost shrink-0">
-					Retry
-				</button>
-			</div>
+			<ErrorState
+				compact
+				title="Could not load reference"
+				description={error ?? "Could not load referenced content"}
+				// @lore AI5: the error state always offers retry (production
+				// useBlockResolution always returns a retry fn); guard so the
+				// affordance renders even if a caller omits it.
+				onRetry={retry ?? (() => undefined)}
+				dataTestId="block-ref-embed-error"
+			/>
 		);
 	}
 

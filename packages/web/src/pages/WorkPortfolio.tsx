@@ -7,7 +7,9 @@
  * useTeams() provides team names for pills and card labels.
  *
  * @lore U9 AC-2: "All bets" heading replaces "Portfolio".
- * "New bet" button opens BetCreateDialog.
+ * @lore AG3: "New bet" button navigates to /work/bet/new (full-page create).
+ * BetCreateDialog removed; both entry points (header button + portfolio-empty CTA)
+ * call navigate("/work/bet/new").
  *
  * @lore U9 AC-3: Team pills: one pill per team from useTeams() — bordered style.
  * Active pill: accent border + tinted bg. Inactive: border-default.
@@ -30,14 +32,13 @@
  */
 
 // hearth-internal-padding
-import { BetCard, EmptyState, SkeletonCard } from "@hyperidle/design-system";
+import { BetCard, Button, EmptyState, SkeletonCard } from "@hyperidle/design-system";
 import { BET_OUTCOME_VERDICTS, formatMoney } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useBets } from "../hooks/useBets.js";
 import { useTeams } from "../hooks/useTeams";
-import { BetCreateDialog } from "./work/BetCreateDialog.js";
 import {
 	distinctStatusBuckets,
 	distinctTeamIds,
@@ -69,9 +70,9 @@ const VERDICT_PILL_OPTIONS: ReadonlyArray<{ id: string; label: string }> = [
 ];
 
 export function WorkPortfolio(): JSX.Element {
+	const navigate = useNavigate();
 	const { data: teamsData } = useTeams();
-	const { bets, loading: betsLoading, refresh: refreshBets } = useBets();
-	const [dialogOpen, setDialogOpen] = useState(false);
+	const { bets, loading: betsLoading } = useBets();
 	const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
 	// W3 AC-13: status filter state
 	const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -241,14 +242,16 @@ export function WorkPortfolio(): JSX.Element {
 					)}
 
 					{/* "New bet" button — ALWAYS present (frame invariant, AG2 AC-4) */}
-					<button
-						type="button"
-						className="btn btn-sm btn-primary ml-auto"
-						onClick={() => setDialogOpen(true)}
+					{/* AG3: navigates to full-page /work/bet/new instead of opening dialog */}
+					<Button
+						variant="primary"
+						size="sm"
+						className="ml-auto"
+						onClick={() => navigate("/work/bet/new")}
 						data-testid="new-bet-btn"
 					>
 						New bet
-					</button>
+					</Button>
 				</div>
 
 				{/*
@@ -304,7 +307,7 @@ export function WorkPortfolio(): JSX.Element {
 											aria-pressed={isActive}
 											className={`inline-flex items-center px-[12px] py-[4px] text-[12px] font-[500] rounded-[var(--r-pill)] border-[1.5px] cursor-pointer transition-all duration-[var(--motion-default)] ${
 												isActive
-													? "border-[var(--accent-primary)] bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)]"
+													? "border-[var(--accent-primary)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
 													: "border-[var(--border-default)] bg-transparent text-[var(--text-secondary)]"
 											}`}
 											onClick={() => {
@@ -339,7 +342,7 @@ export function WorkPortfolio(): JSX.Element {
 										aria-pressed={selectedTeamId === team.id}
 										className={`inline-flex items-center px-[12px] py-[4px] text-[12px] font-[500] rounded-[var(--r-pill)] border-[1.5px] cursor-pointer transition-all duration-[var(--motion-default)] ${
 											selectedTeamId === team.id
-												? "border-[var(--accent-primary)] bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)]"
+												? "border-[var(--accent-primary)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
 												: "border-[var(--border-default)] bg-transparent text-[var(--text-secondary)]"
 										}`}
 										onClick={() => setSelectedTeamId((prev) => (prev === team.id ? null : team.id))}
@@ -403,15 +406,13 @@ export function WorkPortfolio(): JSX.Element {
 								 * action wrapper, and the CTA button label MUST be exactly "Create bet".
 								 * "Create your first bet" and "Create a bet" both FAIL /create bet/i (intervening
 								 * word breaks adjacency). R2-work-first-landing.spec.ts asserts this selector.
+								 * AG3: handler changed from setDialogOpen(true) to navigate("/work/bet/new").
+								 * Selector and label preserved per @lore AG2 CRITICAL-2/3.
 								 */
 								<div data-testid="create-bet-cta">
-									<button
-										type="button"
-										className="btn btn-sm btn-primary"
-										onClick={() => setDialogOpen(true)}
-									>
+									<Button variant="primary" size="sm" onClick={() => navigate("/work/bet/new")}>
 										Create bet
-									</button>
+									</Button>
 								</div>
 							}
 						/>
@@ -443,9 +444,9 @@ export function WorkPortfolio(): JSX.Element {
 							title="No bets match these filters"
 							description="Try adjusting or clearing your filters to see more bets."
 							action={
-								<button type="button" className="btn btn-sm btn-ghost" onClick={clearFilters}>
+								<Button variant="ghost" size="sm" onClick={clearFilters}>
 									Clear filters
-								</button>
+								</Button>
 							}
 						/>
 					</div>
@@ -488,16 +489,7 @@ export function WorkPortfolio(): JSX.Element {
 				)}
 			</div>
 
-			{/* BetCreateDialog */}
-			<BetCreateDialog
-				open={dialogOpen}
-				onClose={() => setDialogOpen(false)}
-				onCreated={() => {
-					setDialogOpen(false);
-					refreshBets();
-				}}
-				teams={teams.map((t) => ({ id: t.id, name: t.name }))}
-			/>
+			{/* AG3: BetCreateDialog removed — bet creation now uses WorkBetCreate page at /work/bet/new */}
 		</div>
 	);
 }

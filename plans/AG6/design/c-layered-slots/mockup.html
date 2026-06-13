@@ -1,0 +1,35 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Variant C — Layered slots</title>
+<style>
+:root{--surface-page:#f5f0e6;--surface-container:#ede7db;--surface-elevated:#fff;--accent-primary:#16764f;--accent-primary-dim:rgba(22,118,79,.08);--text-primary:#2c241a;--text-secondary:#5c5345;--text-tertiary:#8a7d6a;--status-success:#16764f;--status-warning:#d97706;--status-error:#dc4a3a;--border-subtle:#e8e0d0;--border-default:#d5cbb8;--r-subtle:10px;--r-pill:9999px;--font-sans:system-ui,-apple-system,"Segoe UI",sans-serif;--font-mono:ui-monospace,"SF Mono",monospace;}
+*{box-sizing:border-box;margin:0;padding:0}body{background:var(--surface-page);font-family:var(--font-sans);color:var(--text-primary);padding:24px;font-size:14px}
+.page{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+h1{font-size:20px;font-weight:600}h2{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-tertiary);margin-bottom:8px}
+.note{font-size:12px;color:var(--text-tertiary);margin-top:4px}
+.list{border-radius:var(--r-subtle);background:var(--surface-container);padding:12px}
+.row{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 6px;cursor:pointer;border-bottom:1px solid var(--border-subtle)}
+.row:last-child{border-bottom:none}.row:hover{background:rgba(44,36,26,.02)}
+.lead{flex:none;display:inline-flex;align-items:center;gap:9px}
+.dot{width:6px;height:6px;border-radius:9999px}
+.avatar{width:28px;height:28px;border-radius:9999px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;background:var(--accent-primary-dim);color:var(--accent-primary);border:1.5px solid var(--accent-primary)}
+.main{flex:1;min-width:0}
+/* Row.Title / Row.Subtitle — typed sub-components carry the hierarchy */
+.Title{font-size:13px;font-weight:500;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.Subtitle{font-size:12px;color:var(--text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trailing{flex:none;display:flex;align-items:center;gap:9px}
+.Meta{font-size:11px;font-family:var(--font-mono);color:var(--text-tertiary)}
+.Meta.num{font-variant-numeric:tabular-nums}
+.tag{display:inline-flex;padding:3px 9px;border-radius:9999px;font-size:12px;font-weight:500;background:var(--surface-container);color:var(--text-secondary)}
+.btn{font-size:12px;padding:6px 12px;border-radius:9999px;border:none;background:transparent;color:var(--text-secondary);cursor:pointer;flex:none}.btn:hover{background:rgba(44,36,26,.06)}
+</style></head><body><div class="page">
+<div><h1>Variant C — Layered slots</h1><p class="note">Base owns chrome; Row.Title/Row.Subtitle/Row.Meta sub-components carry the 3 text levels so hierarchy can't be wrong. trailing slot is a free node (re-opens minor divergence risk).</p></div>
+
+<section><h2>Agents (lead slot, main=Title, trailing slot, actions slot)</h2><div class="list">
+  <div class="row"><span class="lead"><span class="dot" style="background:var(--status-success)"></span><span class="avatar">AT</span></span><div class="main"><div class="Title">Atlas <span style="color:var(--accent-primary);font-size:10px">— Lead</span></div></div><div class="trailing"><span class="Meta" style="color:var(--status-success)">active</span><span class="Meta">Reviewing migration plan</span><button class="btn">Customize</button></div></div>
+  <div class="row"><span class="lead"><span class="dot" style="background:var(--status-warning)"></span><span class="avatar">SC</span></span><div class="main"><div class="Title">Scout</div></div><div class="trailing"><span class="Meta">idle</span><span class="Meta">Researcher</span><button class="btn">Customize</button></div></div>
+</div></section>
+
+<section><h2>Knowledge (main=Title+Subtitle, trailing=[Tag, Meta])</h2><div class="list">
+  <div class="row"><div class="main"><div class="Title">Passkey rollout decision</div><div class="Subtitle">Decided to ship phase 1 to 10% cohort first…</div></div><div class="trailing"><span class="tag" style="background:var(--accent-primary-dim);color:var(--accent-primary)">Decision</span><span class="Meta num">2d ago</span></div></div>
+  <div class="row"><div class="main"><div class="Title">WebAuthn browser matrix</div><div class="Subtitle">Coverage across target browsers is 96.3%…</div></div><div class="trailing"><span class="Meta num">5d ago</span></div></div>
+</div></section>
+</div></body></html>

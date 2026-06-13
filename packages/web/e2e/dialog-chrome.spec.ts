@@ -87,37 +87,19 @@ test.describe("AI2 — Dialog chrome consistency (AC-6)", () => {
 		}
 	}
 
-	test("BetCreateDialog — desktop chrome: title, close-✕, footer divider", async ({ page }) => {
-		await page.goto("/work/portfolio");
-		await expect(page.locator("[data-testid='work-portfolio-page']")).toBeVisible();
-
-		const createBtn = page
-			.locator("button")
-			.filter({ hasText: /new bet|create bet|pitch/i })
-			.first();
-		if ((await createBtn.count()) === 0) {
-			test.skip(true, "No create-bet button");
-		}
-		await createBtn.click();
-		await assertDialogChrome(page);
-		await page.screenshot({ path: "test-results/ai2-chrome-bet-create-desktop.png" });
+	// AG3: BetCreateDialog deleted — bet creation is now a full-page route (/work/bet/new).
+	// These dialog-chrome tests targeted the BetCreate dialog which no longer exists.
+	// Skipped — the chrome consistency guarantee is maintained through remaining Dialog surfaces.
+	test.skip("BetCreateDialog — desktop chrome: title, close-✕, footer divider [AG3: BetCreateDialog deleted]", async ({
+		page: _page,
+	}) => {
+		// Surface deleted in AG3; see WorkBetCreate.tsx
 	});
 
-	test("BetCreateDialog — 375px chrome: same chrome at mobile", async ({ page }) => {
-		await page.setViewportSize({ width: 375, height: 667 });
-		await page.goto("/work/portfolio");
-		await expect(page.locator("[data-testid='work-portfolio-page']")).toBeVisible();
-
-		const createBtn = page
-			.locator("button")
-			.filter({ hasText: /new bet|create bet|pitch/i })
-			.first();
-		if ((await createBtn.count()) === 0) {
-			test.skip(true, "No create-bet button at mobile");
-		}
-		await createBtn.click();
-		await assertDialogChrome(page);
-		await page.screenshot({ path: "test-results/ai2-chrome-bet-create-375px.png" });
+	test.skip("BetCreateDialog — 375px chrome: same chrome at mobile [AG3: BetCreateDialog deleted]", async ({
+		page: _page,
+	}) => {
+		// Surface deleted in AG3; see WorkBetCreate.tsx
 	});
 
 	test("KnowledgeCreateDialog — desktop chrome", async ({ page }) => {
