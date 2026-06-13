@@ -40,7 +40,7 @@ import type {
 	RoutineCardSummary,
 	TeamDetail,
 } from "@hyperidle/shared";
-import { findRoleCatalogEntry, formatMoney } from "@hyperidle/shared";
+import { findRoleCatalogEntry, formatMoney, relativeShort } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -48,7 +48,6 @@ import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.
 import { useHint } from "../hooks/useHints";
 import { useTeam } from "../hooks/useTeam";
 import { useTeamAgents } from "../hooks/useTeamAgents.js";
-import { formatRelativeTime } from "../utils/format-time.js";
 import { AgentAddDialog } from "./AgentAddDialog.js";
 import { AgentEditDialog } from "./AgentEditDialog.js";
 import { RoutineCreateDialog } from "./work/RoutineCreateDialog.js";
@@ -686,7 +685,7 @@ function RoutineRow({
 					? "var(--status-info)"
 					: "var(--text-tertiary)";
 
-	const lastRunLabel = routine.lastRunAt ? formatRelativeTime(routine.lastRunAt) : "Never";
+	const lastRunLabel = routine.lastRunAt ? relativeShort(routine.lastRunAt) : "Never";
 
 	const costLabel = routine.costActual ? formatMoney(routine.costActual) : "—";
 
