@@ -2,13 +2,16 @@
  * P3 RED — Credential catalog in shared types (AC-7)
  *
  * AC coverage:
- *  - CREDENTIAL_NAMES has exactly 3 entries
+ *  - CREDENTIAL_NAMES has exactly 4 entries (AH1: openai_compatible_api_key promoted)
  *  - isCredentialName("anthropic_api_key") returns true
  *  - isCredentialName("arbitrary_key") returns false
  *  - CREDENTIAL_CATALOG entries have required fields
  *  - CredentialState type includes all expected states
- *  - CREDENTIAL_CATALOG has exactly 3 entries (one per name)
+ *  - CREDENTIAL_CATALOG has exactly 4 entries (AH1: openai_compatible_api_key added)
  *  - Each catalog entry has name, label, description, required, testable
+ *
+ * @lore AH1: openai_compatible_api_key promoted from server_config blob to CREDENTIAL_CATALOG.
+ * Count assertions updated from 3 → 4. The fourth entry covers OpenAI-compatible providers.
  */
 
 import { describe, expect, it } from "vitest";
@@ -21,8 +24,9 @@ import {
 
 describe("P3 AC-7 — Credential catalog", () => {
 	describe("CREDENTIAL_NAMES", () => {
-		it("has exactly 3 entries", () => {
-			expect(CREDENTIAL_NAMES).toHaveLength(3);
+		it("has exactly 4 entries", () => {
+			// AH1: openai_compatible_api_key promoted from server_config blob to catalog
+			expect(CREDENTIAL_NAMES).toHaveLength(4);
 		});
 
 		it("contains anthropic_api_key", () => {
@@ -35,6 +39,11 @@ describe("P3 AC-7 — Credential catalog", () => {
 
 		it("contains shared_backend_key", () => {
 			expect(CREDENTIAL_NAMES).toContain("shared_backend_key");
+		});
+
+		it("contains openai_compatible_api_key", () => {
+			// AH1: promoted from server_config blob to catalog
+			expect(CREDENTIAL_NAMES).toContain("openai_compatible_api_key");
 		});
 	});
 
@@ -49,6 +58,11 @@ describe("P3 AC-7 — Credential catalog", () => {
 
 		it("returns true for shared_backend_key", () => {
 			expect(isCredentialName("shared_backend_key")).toBe(true);
+		});
+
+		it("returns true for openai_compatible_api_key", () => {
+			// AH1: promoted from server_config blob to catalog
+			expect(isCredentialName("openai_compatible_api_key")).toBe(true);
 		});
 
 		it("returns false for arbitrary_key", () => {
@@ -69,8 +83,9 @@ describe("P3 AC-7 — Credential catalog", () => {
 	});
 
 	describe("CREDENTIAL_CATALOG", () => {
-		it("has exactly 3 entries", () => {
-			expect(CREDENTIAL_CATALOG).toHaveLength(3);
+		it("has exactly 4 entries", () => {
+			// AH1: openai_compatible_api_key promoted from server_config blob to catalog
+			expect(CREDENTIAL_CATALOG).toHaveLength(4);
 		});
 
 		it("each entry has a name field matching a valid CredentialName", () => {
@@ -103,6 +118,13 @@ describe("P3 AC-7 — Credential catalog", () => {
 			for (const entry of CREDENTIAL_CATALOG) {
 				expect(typeof entry.testable).toBe("boolean");
 			}
+		});
+
+		it("openai_compatible_api_key entry exists in catalog", () => {
+			// AH1: promoted from server_config blob
+			const entry = CREDENTIAL_CATALOG.find((e) => e.name === "openai_compatible_api_key");
+			expect(entry).toBeDefined();
+			expect(entry?.testable).toBeDefined();
 		});
 
 		it("anthropic_api_key entry is testable", () => {

@@ -10,7 +10,7 @@
  */
 
 import { CREDENTIAL_CATALOG } from "@hyperidle/shared";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CredentialsTab } from "../CredentialsTab.js";
@@ -115,7 +115,11 @@ describe("AH1 — CredentialsTab: HTTP-backed, 4-slot catalog", () => {
 		setupFetch([{ url: "/api/credentials", method: "GET", body: catalog }]);
 		render(<CredentialsTab />);
 		await waitFor(() => {
-			expect(screen.getByText(/valid/i)).toBeInTheDocument();
+			// AH1: scope to the specific row to avoid matching the "Validate" button
+			// that appears on present-state rows (/valid/i would match "Validate").
+			const row = screen.getByTestId("credential-row-anthropic_api_key");
+			const chip = within(row).getByTestId("credential-state-chip");
+			expect(within(chip).getByText(/^valid$/i)).toBeInTheDocument();
 		});
 	});
 
