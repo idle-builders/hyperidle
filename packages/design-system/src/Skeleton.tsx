@@ -29,6 +29,52 @@ const DEFAULT_ROWS = 3;
 const SKELETON_BAR =
 	"bg-[var(--surface-container)] rounded-[var(--r-default)] animate-[skeleton-pulse_1.8s_ease-in-out_infinite]";
 
+export interface SkeletonProps {
+	/** Bar width (CSS length or %). Default "100%". */
+	width?: string;
+	/** Bar height (CSS length). Default "32px". */
+	height?: string;
+	/** Required so screen readers announce the loading context. */
+	ariaLabel: string;
+	className?: string;
+	dataTestId?: string;
+}
+
+/**
+ * Single skeleton bar — AI5 E1.
+ *
+ * @lore AI5: BlockRefEmbed + ArtifactThreadsSummary hand-rolled single
+ * `animate-pulse` bars. This export reuses the shared SKELETON_BAR
+ * (the `--accent`-free `skeleton-pulse` animation), giving them one
+ * loading family per AC3. NOT `animate-pulse` (Tailwind's default).
+ */
+export function Skeleton({
+	width = "100%",
+	height = "32px",
+	ariaLabel,
+	className = "",
+	dataTestId,
+}: SkeletonProps): JSX.Element {
+	return (
+		<div
+			{...dsProps("Skeleton", "2")}
+			role="status"
+			aria-label={ariaLabel}
+			data-testid={dataTestId ?? "skeleton"}
+			/*
+			 * @lore AI5 review WARNING-1: dimensions go through inline `style`, not
+			 * interpolated `h-[${height}]`/`w-[${width}]` arbitrary Tailwind classes.
+			 * Tailwind's JIT only emits CSS for *literal* class strings it can scan;
+			 * a runtime-interpolated arbitrary value (e.g. width="50%") would render
+			 * a zero-dimension bar. Inline style matches Avatar/SearchField's pattern
+			 * for dynamic dims and delivers the arbitrary dims the prop API promises.
+			 */
+			style={{ width, height }}
+			className={`${SKELETON_BAR} ${className}`}
+		/>
+	);
+}
+
 export function SkeletonList({
 	rows = DEFAULT_ROWS,
 	ariaLabel,

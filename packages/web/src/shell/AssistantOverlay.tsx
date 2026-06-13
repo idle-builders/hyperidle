@@ -352,7 +352,8 @@ export function AssistantOverlay({
 				<button
 					type="button"
 					aria-label="Close assistant"
-					className="flex items-center justify-center w-[24px] h-[24px] rounded-[var(--r-pill)] bg-transparent border-none text-[var(--text-secondary)] cursor-pointer hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]"
+					/* AI5 AQ-015: 44px touch floor ≤1024px, dense 24px ≥1280px. */
+					className="flex items-center justify-center w-[24px] h-[24px] min-h-[44px] min-w-[44px] xl:min-h-[24px] xl:min-w-[24px] rounded-[var(--r-pill)] bg-transparent border-none text-[var(--text-secondary)] cursor-pointer hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]"
 					onClick={behavior.requestDismiss}
 				>
 					<svg

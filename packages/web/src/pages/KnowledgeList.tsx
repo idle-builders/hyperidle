@@ -31,11 +31,13 @@
  * inline KnowledgeListRow replacing KnowledgeRow primitive.
  */
 import {
+	Button,
 	EmptyState,
 	ErrorState,
 	ItemList,
 	knowledgeStatusToStatus,
 	Row,
+	ScopePicker,
 	SkeletonList,
 	StatusChip,
 } from "@hyperidle/design-system";
@@ -358,37 +360,24 @@ function KnowledgeListContent({
 			{/*
 			 * AD6: Static 4-pill scope filter row.
 			 * All → no filter | Shared → factory+product+practice | Team → team | Private → user.
-			 * Replaced the old dynamic pills derived from scopeOptions.
+			 * AI5: consolidated to the shared ScopePicker primitive (filter mode).
+			 * The "All" pill (filterKinds=null) maps to value=null; selecting any
+			 * other pill resolves the id back to its SCOPE_PILL_OPTIONS entry.
 			 */}
-			<div
-				role="radiogroup"
-				className="flex items-center gap-[6px] flex-wrap px-[24px] pt-[12px]"
-				data-testid="knowledge-scope-pills"
-				aria-label="Filter by scope"
-			>
-				{SCOPE_PILL_OPTIONS.map((pill) => {
-					const isAll = pill.filterKinds === null;
-					const isActive = isAll ? selectedScopePill === null : selectedScopePill?.id === pill.id;
-					return (
-						// biome-ignore lint/a11y/useSemanticElements: button+role="radio" used for pill styling with aria-checked; <input type="radio"> cannot be styled as a pill without full custom CSS reset
-						<button
-							key={pill.id}
-							type="button"
-							role="radio"
-							aria-checked={isActive}
-							data-testid={`scope-pill-${pill.id}`}
-							data-active={isActive ? "true" : "false"}
-							className={
-								isActive
-									? "border-[1.5px] border-[var(--accent-primary)] bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)] px-[12px] py-[4px] rounded-[var(--r-pill)] text-[12px] font-[500] cursor-pointer"
-									: "border-[1.5px] border-[var(--border-default)] text-[var(--text-secondary)] px-[12px] py-[4px] rounded-[var(--r-pill)] text-[12px] font-[500] cursor-pointer bg-transparent"
-							}
-							onClick={() => onScopePillChange(isAll ? null : pill)}
-						>
-							{pill.label}
-						</button>
-					);
-				})}
+			<div className="px-[24px] pt-[12px]">
+				<ScopePicker
+					mode="filter"
+					options={SCOPE_PILL_OPTIONS}
+					value={selectedScopePill?.id ?? null}
+					onChange={(id) =>
+						onScopePillChange(
+							id === null ? null : (SCOPE_PILL_OPTIONS.find((p) => p.id === id) ?? null),
+						)
+					}
+					ariaLabel="Filter by scope"
+					testIdPrefix="scope-pill"
+					dataTestId="knowledge-scope-pills"
+				/>
 			</div>
 
 			<span data-testid="knowledge-scope-indicator" className="sr-only">
@@ -1033,13 +1022,10 @@ export function KnowledgeList({
 								outline: "none",
 							}}
 						/>
-						<button
-							type="button"
-							className="inline-flex items-center text-[12px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-none cursor-pointer"
-							onClick={() => navigate("/knowledge/new")}
-						>
+						{/* AI5: shared Button primitive. */}
+						<Button variant="primary" size="sm" onClick={() => navigate("/knowledge/new")}>
 							+ New
-						</button>
+						</Button>
 					</div>
 				)}
 			</header>
@@ -1068,13 +1054,10 @@ export function KnowledgeList({
 							}
 							iconBg="rgba(46,125,186,0.08)"
 							action={
-								<button
-									type="button"
-									className="inline-flex items-center text-[13px] font-[500] px-[18px] py-[10px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-none cursor-pointer"
-									onClick={() => navigate("/knowledge/new")}
-								>
+								/* AI5: shared Button primitive. */
+								<Button variant="primary" onClick={() => navigate("/knowledge/new")}>
 									Create first item
-								</button>
+								</Button>
 							}
 							dataTestId="knowledge-curated-empty"
 						/>

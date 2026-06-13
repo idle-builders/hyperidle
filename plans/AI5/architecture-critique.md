@@ -1,0 +1,72 @@
+# Architecture Critique: AI5
+
+ARCHITECTURE-SCORE: 6/10  rounds=1  score-line: SA:6 LI:9 AC:6 DM:7 N:9 MD:7 FMC:6 S:8 V:6
+
+Adoption/consolidation workpackage. Bar: one implementation per atom, exhaustive+verified bypass inventory, extend-not-fork, correct AG5/AG6/AG7 yields. The plan's structure, yields, and naming are strong; but **spot-checking the bypass inventory against the real tree surfaced multiple factual errors that would mislead the builder** (CC-007 spec/codebase drift — the exact class this skill exists to catch). The errors cluster on the scope-picker, which is the workpackage's sharpest AC. Two CRITICALs block.
+
+### CRITICAL
+
+- **[plan §Plan reconciliation row 1 + §E4 + §Bypass-inventory ScopePicker] The scope-fork inventory is factually wrong: it claims 2 pill rows + 2 `<Select>` dropdowns. The tree has 3 pill `radiogroup`s + 1 `<Select>`.**
+  Verified: `KnowledgeList.tsx:600` (filter pills), `KnowledgeCreate.tsx:220` (create pills), **`KnowledgeCreateDialog.tsx:192` is ALREADY a pill `radiogroup`** (not a `<Select>` — its scope block at :192–:226 is a hand-rolled pill row hardcoding `bg-[rgba(22,118,79,0.08)]` at :213, testid `scope-pill-dialog-${id}`), and only `ScopeChangeDialog.tsx:162` is a `<Select>`.
+  Impact: the plan tells the builder KnowledgeCreateDialog "uses DaisyUI `<Select>`" (§reconciliation row 1, §E4 NOTE, §yields-AG5). It does not — it is the *third* hardcoded pill fork. The plan's framing ("the 2 dialog Selects migrate to pill group") is half wrong; one dialog is already pills and is a tint-bypass to consolidate, the other is a Select.
+  Fix: rewrite §Plan-reconciliation row 1 and the §Bypass-inventory ScopePicker block to: KnowledgeList (filter pills) / KnowledgeCreate (create pills) / KnowledgeCreateDialog (create pills, testid `scope-pill-dialog`) all migrate from hardcoded pill rows; ScopeChangeDialog migrates from `<Select>`. Note KnowledgeCreateDialog already hardcodes the rgba at :213 — it is a tint-bypass site, not a dropdown.
+
+- **[plan §E4 props + §11 ScopePicker checklist] testId strategy is incomplete and will break behavioral tests. The plan enumerates only `scope-pill` and `scope-pill-create`; the tree has THREE existing prefixes and the 4th site has none.**
+  Verified prefixes in tree: `scope-pill-${id}` (KnowledgeList, asserted by `__tests__/U9-knowledge-scope-pills.test.tsx:93–135` and `KnowledgeList.af13.test.tsx`), `scope-pill-create-${id}` (KnowledgeCreate, `KnowledgeCreate.af13.test.tsx`), **`scope-pill-dialog-${id}` (KnowledgeCreateDialog:202** — the plan never mentions this prefix; `KnowledgeCreateDialog.test.tsx` may assert it). ScopeChangeDialog (the Select) has no pill testid today.
+  Impact: `testIdPrefix` is the right mechanism, but the plan's §E4 example values omit `scope-pill-dialog`. If the builder migrates KnowledgeCreateDialog with `scope-pill-create` (the plan's only "create" prefix) its tests break. The plan's "Critical: preserve existing data-testids" claim is undermined by the incomplete enumeration.
+  Fix: §E4 + §11 must list all four call-site prefixes explicitly: `scope-pill` (List filter), `scope-pill-create` (Create), `scope-pill-dialog` (CreateDialog), and a new prefix for ScopeChangeDialog (none exists — pick `scope-pill-change`). Add `KnowledgeCreateDialog.test.tsx` and `KnowledgeCreate.af13.test.tsx` to protectedTests. Confirm `data-active`/`aria-checked` attrs (present on existing pills) are preserved by ScopePicker — tests may assert them.
+
+### WARNING
+
+- **[plan §protectedTests] DS component tests omitted — `EmptyState.test.tsx` freezes the full-variant contract the `compact` prop must not break.** `web/src/__tests__/EmptyState.test.tsx:99` asserts the default icon bg is exactly `rgba(22, 118, 79, 0.08)` and (line ~91) that the 48px icon container is absent when no icon. Adding `compact` must leave both full-variant assertions green. Add `EmptyState.test.tsx` and `ErrorState.test.tsx` (if present) to §protectedTests. Stories alone don't gate this.
+
+- **[plan §AC-verification AC1 + §E-extensions] AC1 requires identity render identical incl. "presence signal" — but `Avatar` has NO presence affordance and the plan never reconciles this.** `Avatar.tsx` exposes `agent` (forest-green styling) and size, but no presence/online signal. `RecipientPicker` renders a separate "Live session" pill (`:194–203`) *outside* the avatar chip. AC1 lists presence as a dimension that must be "identical on every surface." Either (a) the spec's "presence signal" is satisfied by the existing per-surface live pills (not the Avatar) — then say so and scope presence OUT of Avatar; or (b) Avatar needs a presence dot — then it's a 4th extension the plan is missing. As written the plan migrates avatars but leaves AC1's presence clause unaddressed → AC1 cannot be proven "identical." Resolve explicitly.
+
+- **[plan §Bypass-inventory Button + §risks] WorkPortfolio pills (305,340) are mis-triaged AND hide a real tint bypass.** Verified: `WorkPortfolio.tsx:307,342` are **multi-select toggle filters** (`Set` add/delete, `aria-pressed`, not `radiogroup`) — correctly NOT ScopePicker (single-select). The plan flags them as "maybe Tag-shaped, builder judgment." But they hardcode `bg-[rgba(22,118,79,0.08)]` (the same literal `--accent-primary-dim` names) at :307 and :342. Whatever the button decision, that tint literal is an AQ-008 bypass the plan should name for the tint sweep, not leave to "builder judgment." Fix: add WorkPortfolio:307,342 (and the team-pill filter ~340) to the tint-fix list (swap `rgba(22,118,79,0.08)` → `var(--accent-primary-dim)`), independent of the Button question.
+
+- **[plan §Bypass-inventory touch-targets + §yields-AG5] KnowledgeDetail:412 overflow is an AG5 menu trigger (`aria-haspopup="menu"`) — the plan offers "or Button icon variant" which risks an AG5 boundary breach.** Verified :412 has `aria-expanded`/`aria-haspopup="menu"` → it feeds an AG5 Menu. The plan's §yields-AG5 says keep menu triggers, but the touch-target task says "→ ≥44px hit area … (or `Button` icon variant if it carries the hit-area)." For this specific site, converting to `<Button>` would touch AG5 territory. Fix: pin KnowledgeDetail:412 and WorkBet:955 to hit-area-expansion-only (no Button migration) since they are menu triggers; remove the "or Button icon variant" option for these two.
+
+- **[plan §E1 Skeleton + §protectedTests] Skeleton single-bar reuses `SKELETON_BAR` const — but that const carries `h-[42px]`/fixed heights only at call sites; verify the animation class is the `skeleton-pulse` one, not `animate-pulse`.** Verified `SKELETON_BAR` (Skeleton.tsx:29) = `animate-[skeleton-pulse_1.8s...]` — correct, distinct from the bare `animate-pulse` the holdouts use (ArtifactThreadsSummary:35, BlockRefEmbed:45). Good. But AC3's grep gate ("no bare `animate-pulse` skeleton, live-dots allowlisted") must allowlist the **three** live-dot sites the plan names in §yields-AI4 (Conversations:316, SessionActivityPanel:198, RecipientPicker:200) — verified all three are 5–6px `rounded-full` dots, not skeletons. The plan's AC3 grep says "live-dots allowlisted" but doesn't enumerate them; pin the three file:line allowlist so the gate is deterministic.
+
+### SUGGESTION
+
+- [plan §reconciliation Avatar] "Avatar 3 of 16 sites" → plan verified 3 adopted + 3 bypass = 6 identity sites, not 16. The spec's "~16" was the original review's loose count. Fine that the plan narrowed it, but state that the other ~10 spec-implied sites (Sidebar nav, NotificationPopover dots, SetupFlow) were checked and are either intentional-keep or not-an-avatar, so the reviewer of the *code* knows the inventory is closed, not abandoned. (SetupFlow was spec-named as an avatar bypass — confirm it has no identity chip; grep showed only focus-shadow rgba there, no avatar.)
+- [plan §E5 deriveInitials] `"" → "?"` and "first 1–2 chars" — `WorkBet:1146` derives initials from *word-initials* (`split(/\s+/).map(w=>w[0])`), not `slice(0,2)`. So `deriveInitials("Ada Lovelace")` must decide: "AL" (word-initials, WorkBet's current behavior) or "AD" (slice, the other 4 sites' behavior). The plan says "first 1–2 chars" = slice semantics, which **changes WorkBet's rendered initials** ("AL"→"AD"). That is a behavior/render change on a touched surface — either match per-site behavior or accept+document the WorkBet change in AC1's visual review. Pin the exact algorithm and which sites' output changes.
+
+### What's Working Well
+- The **boundary-yields table** (§13) is excellent: it correctly resolves the spec-named KnowledgeList/NotificationPopover row reimpls to AG6, scopes the AI4 live-dots out, and sanctions the ScopePicker-replaces-AG5-Select as concept-blessed (not a breach). This is exactly the cross-track discipline the track preamble demands, and it cites PR #273 / progress-file status as evidence.
+- **Naming** is load-bearing and correct: `ScopePicker` (not `ScopeSelect`/`ScopeDropdown`) cleanly fences AI5 from AG5; `deriveInitials` as a web util (not an Avatar method) keeps Avatar a dumb renderer per the concept. Layer integrity is clean — presentation-only, no data/route/secret surface (§Security N/A is correctly justified).
+
+---
+
+## Re-review (round 1)
+
+ARCHITECTURE-SCORE: 9/10  rounds=2  score-line: SA:9 LI:9 AC:9 DM:8 N:9 MD:8 FMC:9 S:8 V:9
+DESIGN-CRITIQUE: variant=approved score=9/10  rounds=2  axes: H:9 S:8 T:9 C:9 Co:9 St:8 A:9 AS:9 PP:9
+
+**Verdict: APPROVED** (architecture 9, design 9; zero CRITICAL, zero open WARNING). Both prior CRITICALs and all six WARNINGs are genuinely fixed against the tree — verified by spot-checking the revised file:line claims directly, not by trusting the summary.
+
+### CRITICAL 1 (scope inventory: 3 pill rows + 1 Select) — FIXED, verified
+- §reconciliation row 1 now reads "3 hand-rolled pill `radiogroup`s + 1 `<Select>`, NOT 2+2 (CC-007 correction)" with `KnowledgeCreateDialog:192` explicitly named as a pill row hardcoding `rgba(22,118,79,0.08)` at :213.
+- §E4 NOTE, §bypass-inventory ScopePicker, §design Decision 2, §risks all corrected to the same 3+1 framing. No surviving "2 Selects" / "KnowledgeCreateDialog uses Select" language anywhere.
+- **Tree-verified:** `KnowledgeCreateDialog.tsx:192` is `<div role="radiogroup">` with `<button role="radio">` pills, `data-testid="scope-pill-dialog-${id}"`, `data-active`, and `bg-[rgba(22,118,79,0.08)]` on the active class at :213. `ScopeChangeDialog.tsx:162` is a `<Select … aria-label="Scope kind">`. `KnowledgeList:599` and `KnowledgeCreate:220` are both `radiogroup`s. Inventory now matches the tree exactly.
+
+### CRITICAL 2 (testIdPrefix + 4-prefix map + data-active) — FIXED, verified
+- §E4 makes `testIdPrefix` REQUIRED with per-pill testid `${testIdPrefix}-${id}`, and the 4-site mapping table pins all four: `scope-pill` (List), `scope-pill-create` (Create), `scope-pill-dialog` (CreateDialog), `scope-pill-change` (ScopeChangeDialog — NEW, none today). §design Decision 2 mirrors it.
+- E4 explicitly requires ScopePicker to emit BOTH `data-testid` AND `data-active={isActive ? "true" : "false"}` unchanged ("both are asserted by existing tests").
+- **Tree-verified:** existing pills emit `scope-pill-dialog-${option.id}` + `data-active` + `aria-checked` (KnowledgeCreateDialog:202–207). All five named protectedTests files exist on disk. The "preserve every behavioral test" claim is now backed by an exhaustive prefix map.
+
+### WARNINGs — all resolved, verified
+1. **EmptyState/ErrorState protected tests** — both added to §protectedTests with the exact frozen assertions (48px icon container absent/present, default icon bg `rgba(22,118,79,0.08)`). Tree-verified: `EmptyState.test.tsx:80–96` asserts the 48px container + default green tint; `ErrorState.test.tsx` exists. Stories-don't-gate-this caveat noted.
+2. **Presence decision** — §reconciliation + AC1 row make an explicit decision: presence is OUT of Avatar's scope (Avatar stays a dumb renderer); AC1's "presence signal" is the per-surface AI4 Live pill (RecipientPicker:200, SessionActivityPanel:198), untouched. No phantom 4th Avatar extension. Clean resolution.
+3. **WorkPortfolio tint** — §tint-sweep adds `WorkPortfolio:307,342` as mandatory swaps independent of the Button-shape decision. Tree-verified: both lines hardcode `bg-[rgba(22,118,79,0.08)]` on `aria-pressed` multi-select toggles.
+4. **KnowledgeDetail/WorkBet overflow** — pinned to hit-area-only, NO `<Button>` swap, "or Button icon variant" option removed for these two. Tree-verified: both carry `aria-haspopup="menu"` (KnowledgeDetail:411, WorkBet:953) → AG5 menu triggers; the no-swap pin correctly prevents an AG5 breach.
+5. **Initials algorithm** — E5 pins canonical `slice(0,2)` with a per-site delta table; WorkBet "GT"→"GR" change flagged intentional for AC1 visual review. Tree-verified: WorkBet:1145–1146 is `.split(/\s+/).slice(0,2)` word-initials — the change is real and correctly documented.
+6. **AC3 live-dot allowlist** — enumerated to exactly 3 file:line (Conversations:316, SessionActivityPanel:198, RecipientPicker:200). Tree-verified: these are the only 3 `animate-pulse` survivors in non-test, non-story source; the 2 holdouts (ArtifactThreadsSummary:35, BlockRefEmbed:45) are correctly slated for migration. Gate is deterministic.
+7. **Focus state + touch-target mechanism** — E4 adds the `focus-visible` 2px outset ring (fixes latent `outline:none` a11y defect) and pins the `min-h-[44px] xl:min-h-[<dense>]` mechanism (not bare min-h) with the K8-gate rationale (`@lore AG5 fix-1`). Design Decision 1+2 show the same mechanism. Both prior design WARNINGs (focus, touch mechanism) resolved.
+
+### Residual (non-blocking, not WARNING)
+- `--accent-primary-dim` is theme-dependent: `tokens.css:165` = `rgba(22,118,79,0.08)` (default), but `:223`/`:283` resolve to `rgba(46,170,122,0.1)` (other themes). The swap is lossless on factory-dark and *gains* theme-portability — correct. The `EmptyState.test.tsx` assertion that freezes the literal `rgba(22,118,79,0.08)` for the icon bg is full-variant only (not touched by AI5) so it stays green. No action needed; flagged for builder awareness.
+- DM:8 / MD:8 / S:8 held just below 9 — the plan is dense and the builder must execute a long per-site checklist faithfully; that's inherent to a consolidation sweep, not a plan defect.
+
+The CC-007 class of error (spec/tree drift on the sharpest AC) that drove the round-1 6/10 is now exhaustively corrected and tree-accurate. No remaining blocker.

@@ -18,9 +18,11 @@
 
 import type { MenuItem } from "@hyperidle/design-system";
 import {
+	Avatar,
 	Block,
 	BlockActionsPopover,
 	BodyEditor,
+	Button,
 	betOutcomeVerdictToStatus,
 	betStatusToStatus,
 	Dialog,
@@ -66,6 +68,7 @@ import { HostThreadSection } from "../shell/HostThreadSection.js";
 import { TaskSheet } from "../shell/TaskSheet";
 import type { BetDetail } from "../types/bet";
 import { blockExcerptFromPayload } from "../utils/block-excerpt.js";
+import { deriveInitials } from "../utils/initials.js";
 import { KnowledgeCreateDialog } from "./knowledge/KnowledgeCreateDialog";
 
 // L17: "cost" column maps to costActual (WireMoney|null); sort by minor units.
@@ -952,7 +955,8 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 								data-testid="bet-overflow-btn"
 								aria-haspopup="menu"
 								aria-expanded={betOverflowOpen}
-								className="inline-flex items-center justify-center w-[32px] h-[32px] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] text-[16px] cursor-pointer hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)]"
+								/* AI5 AQ-015: hit-area expansion only (AG5 menu trigger stays a button). */
+								className="inline-flex items-center justify-center w-[32px] h-[32px] min-h-[44px] min-w-[44px] xl:min-h-[32px] xl:min-w-[32px] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] text-[16px] cursor-pointer hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)]"
 								onClick={() => setBetOverflowOpen((v) => !v)}
 							>
 								&#xB7;&#xB7;&#xB7;
@@ -1044,13 +1048,9 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 
 					{/* Q2: Add knowledge button — opens KnowledgeCreateDialog with bet scope locked */}
 					<div className="flex items-center gap-2">
-						<button
-							type="button"
-							className="btn btn-xs btn-ghost"
-							onClick={() => setAddKnowledgeOpen(true)}
-						>
+						<Button variant="ghost" size="sm" onClick={() => setAddKnowledgeOpen(true)}>
 							Add knowledge
-						</button>
+						</Button>
 					</div>
 
 					{/* L14: Consequence preview dialog — kill */}
@@ -1137,16 +1137,9 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 								Team
 							</span>
 							<div className="flex items-center gap-[9px] mt-[9px]">
-								<span
-									className="inline-flex w-[28px] h-[28px] items-center justify-center rounded-full bg-[var(--surface-container)] text-[var(--text-secondary)] text-[11px] font-[600] shrink-0"
-									aria-hidden="true"
-								>
-									{bet.team
-										.split(/\s+/)
-										.slice(0, 2)
-										.map((w) => w[0]?.toUpperCase() ?? "")
-										.join("")}
-								</span>
+								{/* AI5: shared Avatar primitive. Initials now derive via slice
+								    (deriveInitials) — was word-initials ("GT"), now slice ("GR"). */}
+								<Avatar initials={deriveInitials(bet.team)} size="sm" className="shrink-0" />
 								<span className="text-[13px] font-[500] text-[var(--text-primary)] truncate">
 									{bet.team}
 								</span>
@@ -1289,14 +1282,14 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 										<div className="flex flex-col gap-[12px]">
 											{/* Draft with AI button */}
 											<div className="flex items-center gap-[9px]">
-												<button
-													type="button"
-													className="btn btn-xs btn-ghost border border-[var(--border-default)]"
+												<Button
+													variant="secondary"
+													size="sm"
 													disabled={retroDrafting}
 													onClick={() => void handleRetroDraft()}
 												>
 													{retroDrafting ? "Drafting…" : "Draft with AI"}
-												</button>
+												</Button>
 												{retroDraftError && (
 													<span className="text-[12px] text-[var(--status-error)]">
 														{retroDraftError}
@@ -1367,21 +1360,22 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 									)}
 									{/* Actions */}
 									<div className="flex gap-[9px] justify-end">
-										<button
-											type="button"
-											className="btn btn-xs btn-ghost"
+										<Button
+											variant="ghost"
+											size="sm"
 											disabled={outcomeSaving}
 											onClick={() => setOutcomeEditMode("view")}
 										>
 											Cancel
-										</button>
-										<button
+										</Button>
+										<Button
 											type="submit"
-											className="btn btn-xs btn-primary"
+											variant="primary"
+											size="sm"
 											disabled={!outcomeVerdictForm || outcomeSaving}
 										>
 											{outcomeSaving ? "Saving…" : "Save"}
-										</button>
+										</Button>
 									</div>
 								</form>
 							)}

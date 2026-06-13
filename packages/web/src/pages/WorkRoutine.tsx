@@ -13,6 +13,7 @@
  */
 
 import {
+	Button,
 	EmptyState,
 	ErrorState,
 	KeyValue,
@@ -245,56 +246,58 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 						<span className="text-xs text-[var(--text-secondary)] flex-1">
 							Delete this routine? History will be preserved.
 						</span>
-						<button
-							type="button"
-							className="btn btn-ghost btn-sm min-h-[44px] text-[var(--status-error)]"
+						<Button
+							variant="destructive"
+							size="sm"
+							className="min-h-[44px]"
 							onClick={() => void handleDeleteConfirm()}
 							disabled={actionPending}
 							data-testid="routine-delete-confirm"
 						>
 							Confirm delete
-						</button>
-						<button
-							type="button"
-							className="btn btn-ghost btn-sm min-h-[44px]"
+						</Button>
+						<Button
+							variant="ghost"
+							size="sm"
+							className="min-h-[44px]"
 							onClick={() => setShowDeleteConfirm(false)}
 							disabled={actionPending}
 							data-testid="routine-delete-cancel"
 						>
 							Cancel
-						</button>
+						</Button>
 					</div>
 				) : (
 					<div className="flex gap-[9px] mt-[18px]" data-testid="routine-actions">
-						<button
-							type="button"
-							className="btn btn-ghost btn-sm"
+						<Button
+							variant="ghost"
+							size="sm"
 							onClick={handleTogglePause}
 							disabled={actionPending}
 							data-testid={currentState === "active" ? "routine-pause-btn" : "routine-resume-btn"}
 						>
 							{currentState === "active" ? "Pause" : "Resume"}
-						</button>
-						<button
-							type="button"
-							className="btn btn-primary btn-sm"
+						</Button>
+						<Button
+							variant="primary"
+							size="sm"
 							onClick={handleTriggerNow}
 							disabled={actionPending}
 							data-testid="routine-trigger-now-btn"
 						>
 							Trigger Now
-						</button>
+						</Button>
 						{/* AA2: spacer + delete button (right-aligned) */}
 						<div className="flex-1" />
-						<button
-							type="button"
-							className="btn btn-ghost btn-sm text-[var(--status-error)]"
+						<Button
+							variant="destructive"
+							size="sm"
 							onClick={() => setShowDeleteConfirm(true)}
 							disabled={actionPending}
 							data-testid="routine-delete-btn"
 						>
 							Delete
-						</button>
+						</Button>
 					</div>
 				)}
 			</section>
