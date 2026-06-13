@@ -1,10 +1,11 @@
-import { type HyperIdleDb, sessions, tasks } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, tasks, users } from "@hyperidle/db";
 import {
 	API_ERROR_CODES,
 	ConcurrencyLimitError,
 	CostCapExceededError,
 	type EventBus,
 	MissingCredentialError,
+	NoEligibleHarnessError,
 	type SessionEndedEvent,
 	type SessionOutcome,
 	type SessionStartedEvent,
@@ -19,7 +20,7 @@ import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import type { CredentialResolver } from "../services/credential-resolver.js";
-import { resolveModelTier } from "../services/model-gateway.js";
+import { resolveAgentModel, resolveModelTier } from "../services/model-gateway.js";
 import { readServerConfig } from "../services/server-config.js";
 import type { SessionActivityBuffer } from "../services/session-activity-buffer.js";
 import { startSessionProvision } from "../services/session-provisioning.js";
@@ -235,11 +236,17 @@ export function createSessionRoutes(
 
 			// ── Full provisionSession path (adapters present) ─────────────────────
 			if (deps?.adapterPool && deps.workspaceAdapter) {
-				// X4 A-IMP-1: credential pre-flight via gateway — must fail BEFORE any DB write.
-				// The gateway resolves the correct credential name based on the configured provider,
-				// replacing the hardcoded "anthropic_api_key" check. If no credentialResolver is
-				// wired (local mode), resolveModelTier uses the apiKey from the tier config directly
-				// (for openai-compatible) or falls back to a no-op resolver that always returns null.
+				// AH2: Load agent first so resolveAgentModel can pick per-agent model
+				// over the tier fallback. Agent lookup happens before DB writes.
+				const [agent] = await db
+					.select({ modelId: users.modelId, modelProvider: users.modelProvider })
+					.from(users)
+					.where(eq(users.id, body.agentId))
+					.limit(1);
+
+				// X4 A-IMP-1 / AH2: credential pre-flight via gateway — must fail BEFORE any DB write.
+				// AH2: switched from resolveModelTier to resolveAgentModel so per-agent model
+				// wins over the tier config when the agent has modelId/modelProvider set.
 				//
 				// @lore X4: In local mode (no credentialResolver), the adapter reads from process.env.
 				// The pre-flight here is a best-effort check — it catches shared-mode missing credentials
@@ -249,7 +256,9 @@ export function createSessionRoutes(
 				if (deps.credentialResolver) {
 					try {
 						const serverCfg = await readServerConfig(db);
-						resolvedModel = await resolveModelTier(
+						// AH2: resolveAgentModel uses per-agent model when set, falls back to tier.
+						resolvedModel = await resolveAgentModel(
+							{ modelId: agent?.modelId ?? null, modelProvider: agent?.modelProvider ?? null },
 							body.modelTier,
 							serverCfg.modelGateway,
 							deps.credentialResolver,
@@ -344,6 +353,12 @@ export function createSessionRoutes(
 					// failure surfaces on the POST path, not as a later crashed session.
 					if (err instanceof MissingCredentialError) {
 						return c.json({ error: err.message, code: "MISSING_CREDENTIAL" }, 500);
+					}
+					// AH2: NoEligibleHarnessError means agent's harnessType has no matching
+					// adapter in the pool (or none that supports its provider). Surfaces as
+					// 422 so the caller knows this is a configuration issue, not a server fault.
+					if (err instanceof NoEligibleHarnessError) {
+						return c.json({ error: err.message, code: "NO_ELIGIBLE_HARNESS" }, 422);
 					}
 					return c.json({ error: "Session provisioning failed", code: "INTERNAL_ERROR" }, 500);
 				}

@@ -22,6 +22,7 @@ import { createConversationRoutes } from "./routes/conversations.js";
 import { createCredentialRoutes } from "./routes/credentials.js";
 import { createDispatchQueueRoutes } from "./routes/dispatch-queue-routes.js";
 import { createGitExportRoutes } from "./routes/git-export-routes.js";
+import { createHarnessRoutes } from "./routes/harnesses.js";
 import { authHealth, health } from "./routes/health.js";
 import { createHintRoutes } from "./routes/hints.js";
 import { createKnowledgeRoutes, createTeamMembersRoutes } from "./routes/knowledge.js";
@@ -432,6 +433,8 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		// Only mounted when adapterPool is provided so kernel-only mode is unaffected.
 		if (options.adapterPool) {
 			api.route("/workers", createWorkersRoutes(options.adapterPool));
+			// AH2: GET /api/harnesses — deduped harness type list for SettingsAgents selector.
+			api.route("/harnesses", createHarnessRoutes(options.adapterPool));
 		}
 		api.route("/git-export", createGitExportRoutes(options.db));
 		api.route("/credentials", createCredentialRoutes(options.db));
