@@ -197,7 +197,7 @@ Two modes. Light-first. Switchable via `data-theme` attribute.
 Components are organized in tiers. Each tier builds on the one below.
 
 - **Tier 0 (Foundation Primitives):** Avatar, AvatarGroup, Button, Input, Select, Toggle, Checkbox, TabBar, Toast, Progress, Tooltip
-- **Tier 1 (Atoms):** StatusChip, Tag, Badge, KeyValue, NavItem, SearchField
+- **Tier 1 (Atoms):** Menu, StatusChip, Tag, Badge, KeyValue, NavItem, SearchField
 - **Tier 2 (Molecules):** BetCard, ThreadRow, CommentRow, Composer, EmptyState, ErrorState, KnowledgeRow, NotificationRow, TaskCard
 - **Tier 3 (Shell):** Sidebar, Main Panel, App Shell
 
@@ -216,6 +216,46 @@ Every component has two representations:
 - If you need a new token, add it to `tokens.css` (AI6 scope). Do not use `var(--undefined-name)` and rely on browser silent fallback.
 - `@lore` and JSDoc comments that name dead tokens by example (e.g. `/* was var(--old-name) */`) are safe — the guard strips comments before scanning.
 - Test and story files are excluded from the scan; they may reference token strings as fixture data.
+
+---
+
+## Menu (AG5)
+
+`Menu` is the canonical anchored-action-menu primitive. Every overflow/context menu in the app renders through it — `BlockActionsPopover`, WorkBet bet overflow, KnowledgeDetail overflow.
+
+**API:**
+```tsx
+<Menu
+  open={boolean}
+  onClose={() => void}
+  items={MenuItem[]}
+  label={string}           // aria-label on role=menu container
+  align="end" | "start"   // default "end"
+/>
+```
+
+**`MenuItem` shape:**
+```ts
+{ id: string; label: string; onSelect: () => void;
+  disabled?: boolean; destructive?: boolean; shortcut?: string;
+  dataAttrs?: Record<string, string> }
+```
+
+**Behavior:**
+- Returns `null` when `open=false` (no DOM presence).
+- Escape closes (document-level listener, stopPropagation).
+- Click outside closes (mousedown outside the panel).
+- ArrowUp/Down/Home/End move focus between items.
+- Enter/Space activate the focused item.
+- Disabled items are un-clickable (`aria-disabled=true`, native `disabled` attr + onClick guard).
+- Destructive items render in `--status-error` color.
+- `dataAttrs` spreads verbatim onto the button element (C4 — E2E selector preservation).
+
+**ARIA:** `role=menu` on container, `role=menuitem` + `aria-disabled` on each button.
+**DS marker:** `data-ds-component="Menu"` `data-tier="1"` (via `dsProps("Menu","1")`).
+**Single-owner rule (C1):** No other component may render its own `role=menu` anatomy. If you need a menu, use `<Menu>`.
+
+**Files:** `packages/design-system/src/Menu.tsx`, `packages/design-system/src/Menu.stories.tsx`, `packages/design-system/html/Menu.html`.
 
 ---
 

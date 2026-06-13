@@ -11,6 +11,12 @@
  *
  * @lore Q1: This is a page-level composition, not a design-system primitive.
  * It lives in packages/web/src/components/ alongside GlobalSearchPanel.
+ *
+ * @lore AG5: Not folded into Menu (AG5): a searchable entity-directory panel with
+ * browse/selected/sending states + composer, not a transient action menu.
+ * Uses role=listbox (entity directory), not role=menu (action list) — different
+ * ARIA semantics, different interaction model. The no-handrolled-select lint rule
+ * does not flag it because it does not use DaisyUI select classes.
  */
 
 import { SearchField, StatusChip, Tag } from "@hyperidle/design-system";

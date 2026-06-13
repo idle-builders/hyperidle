@@ -16,6 +16,7 @@
  * array does not include the X3 config fields (soulPrompt, harnessType, etc.).
  */
 
+import { Select } from "@hyperidle/design-system";
 import { AGENT_ROLE_CATALOG, MODEL_TIERS } from "@hyperidle/shared";
 // hearth-internal-padding
 import { Fragment, type JSX, useCallback, useEffect, useRef, useState } from "react";
@@ -352,9 +353,9 @@ export function SettingsAgents(): JSX.Element {
 														<label className="label" htmlFor={`edit-role-${agent.id}`}>
 															<span className="label-text text-[var(--text-secondary)]">Role</span>
 														</label>
-														<select
+														<Select
 															id={`edit-role-${agent.id}`}
-															className="select select-sm select-bordered"
+															size="sm"
 															value={editValues.role}
 															onChange={(e) =>
 																setEditValues((prev) =>
@@ -362,13 +363,11 @@ export function SettingsAgents(): JSX.Element {
 																)
 															}
 															aria-label="Role"
-														>
-															{AGENT_ROLE_CATALOG.map((entry) => (
-																<option key={entry.role} value={entry.role}>
-																	{entry.label}
-																</option>
-															))}
-														</select>
+															options={AGENT_ROLE_CATALOG.map((entry) => ({
+																value: entry.role,
+																label: entry.label,
+															}))}
+														/>
 													</div>
 
 													<div className="form-control flex-1 min-w-[140px]">
@@ -398,9 +397,9 @@ export function SettingsAgents(): JSX.Element {
 																Model Tier
 															</span>
 														</label>
-														<select
+														<Select
 															id={`edit-tier-${agent.id}`}
-															className="select select-sm select-bordered"
+															size="sm"
 															value={editValues.modelTierPreference}
 															onChange={(e) =>
 																setEditValues((prev) =>
@@ -408,14 +407,11 @@ export function SettingsAgents(): JSX.Element {
 																)
 															}
 															aria-label="Model Tier"
-														>
-															<option value="">Default</option>
-															{MODEL_TIERS.map((t) => (
-																<option key={t} value={t}>
-																	{t}
-																</option>
-															))}
-														</select>
+															options={[
+																{ value: "", label: "Default" },
+																...MODEL_TIERS.map((t) => ({ value: t, label: t })),
+															]}
+														/>
 													</div>
 
 													<div className="form-control flex-1 min-w-[100px]">
@@ -515,9 +511,9 @@ export function SettingsAgents(): JSX.Element {
 							<label className="label" htmlFor="add-agent-role">
 								<span className="label-text text-[var(--text-secondary)]">Role</span>
 							</label>
-							<select
+							<Select
 								id="add-agent-role"
-								className="select select-sm select-bordered"
+								size="sm"
 								value={addValues.role}
 								onChange={(e) => {
 									const newRole = e.target.value;
@@ -525,13 +521,11 @@ export function SettingsAgents(): JSX.Element {
 									void fetchTemplate(newRole);
 								}}
 								aria-label="Role"
-							>
-								{AGENT_ROLE_CATALOG.map((entry) => (
-									<option key={entry.role} value={entry.role}>
-										{entry.label}
-									</option>
-								))}
-							</select>
+								options={AGENT_ROLE_CATALOG.map((entry) => ({
+									value: entry.role,
+									label: entry.label,
+								}))}
+							/>
 						</div>
 
 						<div className="form-control flex-1 min-w-[140px]">
@@ -553,22 +547,19 @@ export function SettingsAgents(): JSX.Element {
 							<label className="label" htmlFor="add-agent-tier">
 								<span className="label-text text-[var(--text-secondary)]">Model Tier</span>
 							</label>
-							<select
+							<Select
 								id="add-agent-tier"
-								className="select select-sm select-bordered"
+								size="sm"
 								value={addValues.modelTierPreference}
 								onChange={(e) =>
 									setAddValues((prev) => ({ ...prev, modelTierPreference: e.target.value }))
 								}
 								aria-label="Model Tier"
-							>
-								<option value="">Default</option>
-								{MODEL_TIERS.map((t) => (
-									<option key={t} value={t}>
-										{t}
-									</option>
-								))}
-							</select>
+								options={[
+									{ value: "", label: "Default" },
+									...MODEL_TIERS.map((t) => ({ value: t, label: t })),
+								]}
+							/>
 						</div>
 
 						<div className="form-control flex-1 min-w-[100px]">

@@ -28,6 +28,7 @@
  * providers; other providers reject apiKey in the request body.
  */
 
+import { Select } from "@hyperidle/design-system";
 import type { ModelProvider } from "@hyperidle/shared";
 // hearth-internal-padding
 import { MODEL_PROVIDERS } from "@hyperidle/shared";
@@ -125,19 +126,14 @@ function TierRow({ tier, config, hasApiKey, onChange }: TierRowProps): JSX.Eleme
 					<label className="label" htmlFor={`${tier}-provider`}>
 						<span className="label-text text-[var(--text-secondary)] text-[12px]">Provider</span>
 					</label>
-					<select
+					<Select
 						id={`${tier}-provider`}
-						className="select select-sm select-bordered"
+						size="sm"
 						value={config.provider}
 						onChange={(e) => onChange(tier, "provider", e.target.value)}
 						aria-label="Provider"
-					>
-						{MODEL_PROVIDERS.map((p) => (
-							<option key={p} value={p}>
-								{p}
-							</option>
-						))}
-					</select>
+						options={MODEL_PROVIDERS.map((p) => ({ value: p, label: p }))}
+					/>
 				</div>
 
 				{/* Model input */}
@@ -146,19 +142,14 @@ function TierRow({ tier, config, hasApiKey, onChange }: TierRowProps): JSX.Eleme
 						<span className="label-text text-[var(--text-secondary)] text-[12px]">Model</span>
 					</label>
 					{config.provider === "anthropic" ? (
-						<select
+						<Select
 							id={`${tier}-model`}
-							className="select select-sm select-bordered"
+							size="sm"
 							value={config.model}
 							onChange={(e) => onChange(tier, "model", e.target.value)}
 							aria-label="Model"
-						>
-							{KNOWN_ANTHROPIC_MODELS.map((m) => (
-								<option key={m} value={m}>
-									{m}
-								</option>
-							))}
-						</select>
+							options={KNOWN_ANTHROPIC_MODELS.map((m) => ({ value: m, label: m }))}
+						/>
 					) : (
 						<input
 							id={`${tier}-model`}
