@@ -1,0 +1,12 @@
+{
+  "id": "AG6",
+  "title": "One shared item-row / table primitive",
+  "track": "AG",
+  "status": "in_progress",
+  "currentStep": "1-design",
+  "branch": "feat/AG6-shared-row-primitive",
+  "startedAt": "2026-06-13T00:00:00Z",
+  "attempts": 1,
+  "notes": "Pipeline run started.",
+  "pr": 279
+}
