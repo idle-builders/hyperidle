@@ -73,14 +73,22 @@ export interface CreateServerDeps {
  * `http.Server | Http2Server | Http2SecureServer`). In practice, since we
  * do not pass HTTP/2 options to `serve()`, the runtime value is always
  * `http.Server`. We store `ServerType` to avoid an unsafe `as http.Server`
- * cast — `.close()` exists on all three union members.
+ * cast — `.close()` exists on all union members.
+ *
+ * `credentialResolver` is exposed so integration tests can assert the
+ * production wiring is `instanceof DbCredentialResolver` (AH1 invariant).
  *
  * @lore N1: B1 (reviewer): do NOT use `as http.Server` cast. Use ServerType
  * directly — `.close()` exists on all union members.
+ * @lore AH1 §3: credentialResolver is in ServerHandle so the single-resolver
+ * invariant test can assert `instanceof DbCredentialResolver` without relying
+ * on indirect observable effects. This is the correct scope: the test must
+ * fail if someone reverts the wiring to EnvCredentialResolver.
  */
 export interface ServerHandle {
 	readonly httpServer: ServerType;
 	readonly dispose: () => void;
+	readonly credentialResolver: CredentialResolver;
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -202,7 +210,9 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 	// AH1 §3: DbCredentialResolver is the sole production resolver.
 	// @lore AH1 §3: EnvCredentialResolver is retained ONLY for packages/eval (CI-secret
 	// env key, no DB). Production always uses DbCredentialResolver. The single-resolver
-	// invariant is tested in server-factory.resolver.test.ts (instanceof check).
+	// invariant is tested in server-factory.resolver.test.ts via
+	// `handle.credentialResolver instanceof DbCredentialResolver` — the resolver is
+	// exposed on ServerHandle so the test can assert the production wiring directly.
 	const serverSecret = getServerSecret();
 	if (!serverSecret) {
 		// @lore AH1 §6: Boot is non-fatal but we log a warning so misconfigured deployments
@@ -369,5 +379,5 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 		}
 	};
 
-	return { httpServer, dispose };
+	return { httpServer, dispose, credentialResolver };
 }

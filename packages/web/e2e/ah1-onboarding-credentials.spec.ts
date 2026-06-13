@@ -122,7 +122,14 @@ test.describe("AH1 AC1 — onboarding key visible in Settings Credentials", () =
 		// Step 3: Submit setup form.
 		// After AH1, SetupFlow writes the key via PUT /api/credentials/anthropic_api_key
 		// (not via the desktop bridge). This requires a real API server.
+		// Wait for the button to become enabled (both name and apiKey must be set).
+		await expect(page.getByRole("button", { name: /start hyperidle/i })).toBeEnabled({
+			timeout: 5_000,
+		});
 		await page.getByRole("button", { name: /start hyperidle/i }).click();
+		// Wait for setup to complete and navigate away from /setup.
+		// SetupFlow navigates to /work/portfolio?onboarding=true on success.
+		await page.waitForURL(/\/work\/portfolio/, { timeout: 30_000 });
 
 		// Step 4: Navigate to Settings → Credentials.
 		// After setup, simulate auth returning the new user.
@@ -131,6 +138,18 @@ test.describe("AH1 AC1 — onboarding key visible in Settings Credentials", () =
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify({ id: "u-ah1-founder", name: "AH1 Founder", avatarUrl: null }),
+			});
+		});
+		// After setup, simulate teams returning a team so the app shell renders
+		// (not the setup flow). The beforeEach mock returns empty teams; this
+		// LIFO override returns a team post-setup.
+		await page.route("**/api/teams", async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					teams: [{ id: "t-ah1-post-setup", name: "AH1 Product", phase: "build", active: true }],
+				}),
 			});
 		});
 

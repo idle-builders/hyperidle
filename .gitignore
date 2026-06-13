@@ -5,6 +5,7 @@ build/
 *.tsbuildinfo
 coverage/
 playwright-report/
+playwright-report-ah1/
 test-results/
 packages/web/e2e/screenshots/
 visual-reports/
