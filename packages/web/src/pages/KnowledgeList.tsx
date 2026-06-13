@@ -33,7 +33,9 @@
 import {
 	EmptyState,
 	ErrorState,
+	ItemList,
 	knowledgeStatusToStatus,
+	Row,
 	SkeletonList,
 	StatusChip,
 } from "@hyperidle/design-system";
@@ -55,6 +57,12 @@ import { apiFetch } from "../services/api-fetch.js";
 import { SCOPE_PILL_OPTIONS, type ScopePillOption } from "../utils/scope-labels";
 
 type KnowledgeTab = "triage" | "curated";
+
+/**
+ * S1 fix: hoisted to module scope — was rebuilt per-row as new Set([...]) inside .map(),
+ * one allocation per row per render. Single const reused across both triage and curated paths.
+ */
+const KNOWLEDGE_KINDS = new Set(["pattern", "decision", "failure"]);
 
 /**
  * AF13 §3: Pure sort helper for knowledge items.
@@ -196,26 +204,6 @@ function groupByTopic(items: ApiKnowledgeItem[]): Array<{
 }
 
 /**
- * Inline knowledge row matching knowledge-list.html .knowledge-row.
- * Replaces the KnowledgeRow design-system primitive for visual parity.
- */
-interface KnowledgeListRowProps {
-	title: string;
-	preview?: string | null;
-	kind?: string;
-	status?: KnowledgeStatus;
-	timestamp: string;
-	isPrivate?: boolean;
-	onClick?: () => void;
-	// Y4: triage inline actions
-	isFocused?: boolean;
-	showActions?: boolean;
-	onValidate?: () => void;
-	onReject?: () => void;
-	onOpen?: () => void;
-}
-
-/**
  * Returns inline style for a knowledge kind badge.
  * Colors per mockup: Pattern → green, Decision → blue, Failure → red.
  * AI4 Note A: kind is NOT status — this stays local (Tag would be the ideal
@@ -241,231 +229,7 @@ function kindBadgeStyle(kind: string): { background: string; color: string } {
 	return { background: "var(--surface-container)", color: "var(--text-secondary)" };
 }
 
-// AI4 Note A2: statusBadgeStyle deleted. Status rendering now uses StatusChip
-// gated on (status === "active" || status === "archived") — same two-status
-// condition as before. KNOWLEDGE_STATUS_LABEL from @hyperidle/fabric provides
-// the "Stale" relabel for archived.
-
-function KnowledgeListRow({
-	title,
-	preview,
-	kind,
-	status,
-	timestamp,
-	isPrivate,
-	onClick,
-	isFocused = false,
-	showActions = false,
-	onValidate,
-	onReject,
-	onOpen,
-}: KnowledgeListRowProps): JSX.Element {
-	const kStyle = kind ? kindBadgeStyle(kind) : null;
-	// AI4 Note A2: sStyle removed — StatusChip gated on active/archived condition below.
-
-	if (showActions) {
-		// Y4: triage row — wraps in <li> for keyboard navigation and test selectors.
-		// Inline action buttons (validate/reject/open) are visible on hover or when focused.
-		return (
-			<li
-				data-testid="knowledge-row"
-				data-focused={isFocused ? "true" : undefined}
-				className="flex items-center gap-[12px] px-[24px] py-[12px] border-b border-[var(--border-subtle)] last:border-b-0 list-none"
-				style={{
-					background: isFocused ? "rgba(44,36,26,0.04)" : undefined,
-					transition: "background var(--motion-fast) ease",
-				}}
-			>
-				<button
-					type="button"
-					className="flex-1 min-w-0 text-left cursor-pointer bg-transparent border-none p-0"
-					onClick={onOpen ?? onClick}
-				>
-					<div className="text-[15px] text-[var(--text-primary)] truncate">{title}</div>
-					{preview && (
-						<div className="text-[13px] text-[var(--text-tertiary)] truncate mt-[2px]">
-							{preview}
-						</div>
-					)}
-				</button>
-				<div className="flex items-center gap-[6px] shrink-0">
-					{isPrivate && (
-						<span
-							className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
-							style={{ background: "var(--surface-container)", color: "var(--text-secondary)" }}
-							title="Private — only visible to you"
-							data-testid="private-badge"
-						>
-							Private
-						</span>
-					)}
-					{kind && kStyle && (
-						<span
-							className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
-							style={kStyle}
-							data-testid="kind-badge"
-						>
-							{kind}
-						</span>
-					)}
-					{/* AI4 Note A2: gated on same two-status condition; StatusChip replaces sStyle fork */}
-					{status && (status === "active" || status === "archived") && (
-						<span data-testid="status-badge">
-							<StatusChip
-								status={knowledgeStatusToStatus(status)}
-								label={KNOWLEDGE_STATUS_LABEL[status]}
-							/>
-						</span>
-					)}
-					{/* Y4: inline action buttons — validate, reject, open */}
-					{(onValidate ?? onReject ?? onOpen) && (
-						<div className="flex items-center gap-[3px]">
-							{onValidate && (
-								<button
-									type="button"
-									aria-label="Validate"
-									onClick={(e) => {
-										e.stopPropagation();
-										onValidate();
-									}}
-									className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[rgba(44,36,26,0.06)] border-none bg-transparent cursor-pointer"
-								>
-									<svg
-										width="14"
-										height="14"
-										viewBox="0 0 16 16"
-										fill="none"
-										stroke="currentColor"
-										strokeWidth="2"
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										aria-hidden="true"
-									>
-										<path d="M2 8l4 4 8-8" />
-									</svg>
-								</button>
-							)}
-							{onReject && (
-								<button
-									type="button"
-									aria-label="Reject"
-									onClick={(e) => {
-										e.stopPropagation();
-										onReject();
-									}}
-									className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[rgba(44,36,26,0.06)] border-none bg-transparent cursor-pointer"
-								>
-									<svg
-										width="14"
-										height="14"
-										viewBox="0 0 16 16"
-										fill="none"
-										stroke="currentColor"
-										strokeWidth="2"
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										aria-hidden="true"
-									>
-										<path d="M2 2l12 12M14 2L2 14" />
-									</svg>
-								</button>
-							)}
-							{onOpen && (
-								<button
-									type="button"
-									aria-label="Open"
-									onClick={(e) => {
-										e.stopPropagation();
-										onOpen();
-									}}
-									className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[rgba(44,36,26,0.06)] border-none bg-transparent cursor-pointer"
-								>
-									<svg
-										width="14"
-										height="14"
-										viewBox="0 0 16 16"
-										fill="none"
-										stroke="currentColor"
-										strokeWidth="2"
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										aria-hidden="true"
-									>
-										<path d="M3 8h10M8 3l5 5-5 5" />
-									</svg>
-								</button>
-							)}
-						</div>
-					)}
-					<span
-						data-testid="knowledge-time"
-						className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap"
-					>
-						{timestamp}
-					</span>
-				</div>
-			</li>
-		);
-	}
-
-	// Curated row: <li> inside a <ul> (rendered by KnowledgeTopicGroup) with an inner <button>
-	// for keyboard accessibility (focusable, Enter/Space activatable — WCAG 2.1.1).
-	return (
-		<li data-testid="knowledge-row" className="list-none">
-			<button
-				type="button"
-				className="flex items-center gap-[12px] px-[24px] py-[12px] border-b border-[var(--border-subtle)] cursor-pointer last:border-b-0 hover:bg-[rgba(44,36,26,0.02)] w-full text-left bg-transparent border-x-0 border-t-0"
-				style={{ transition: "background 240ms ease" }}
-				onClick={onClick}
-			>
-				<div className="flex-1 min-w-0">
-					<div className="text-[15px] text-[var(--text-primary)] truncate">{title}</div>
-					{preview && (
-						<div className="text-[13px] text-[var(--text-tertiary)] truncate mt-[2px]">
-							{preview}
-						</div>
-					)}
-				</div>
-				<div className="flex items-center gap-[6px] shrink-0">
-					{isPrivate && (
-						<span
-							className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
-							style={{ background: "var(--surface-container)", color: "var(--text-secondary)" }}
-							title="Private — only visible to you"
-							data-testid="private-badge"
-						>
-							Private
-						</span>
-					)}
-					{kind && kStyle && (
-						<span
-							className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
-							style={kStyle}
-							data-testid="kind-badge"
-						>
-							{kind}
-						</span>
-					)}
-					{/* AI4 Note A2: gated on same two-status condition; StatusChip replaces sStyle fork */}
-					{status && (status === "active" || status === "archived") && (
-						<span data-testid="status-badge">
-							<StatusChip
-								status={knowledgeStatusToStatus(status)}
-								label={KNOWLEDGE_STATUS_LABEL[status]}
-							/>
-						</span>
-					)}
-					<span
-						data-testid="knowledge-time"
-						className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap"
-					>
-						{timestamp}
-					</span>
-				</div>
-			</button>
-		</li>
-	);
-}
+// AG6: KnowledgeListRow deleted. Rows now rendered via Row + ItemList variant="flush".
 
 interface KnowledgeListContentProps {
 	tab: KnowledgeTab;
@@ -690,26 +454,160 @@ function KnowledgeListContent({
 						</div>
 					) : (
 						<>
-							<ul className="flex flex-col list-none m-0 p-0">
+							<ItemList variant="flush" as="ul" isEmpty={filteredTriageItems.length === 0}>
 								{filteredTriageItems.map((item, index) => {
 									const isPrivate = item.scopeKind === "user";
+									// AG6/AD6: kind-badge only renders for explicit knowledge-kind values.
+									// "factory","product","practice","team","user" are scope values — no badge.
+									// @lore AG6: AD6 AC-4 (kind badge removed from rows) coexists with AG6
+									// protected kind-badge testid because real scopeKind values are scope
+									// identifiers; only "pattern"/"decision"/"failure" render a kind badge.
+									const itemKind =
+										item.scopeKind && KNOWLEDGE_KINDS.has(item.scopeKind)
+											? item.scopeKind
+											: undefined;
+									const kStyle = itemKind ? kindBadgeStyle(itemKind) : null;
+									const itemStatus = toKnowledgeStatus(item.status);
 									return (
-										<KnowledgeListRow
+										<Row
 											key={item.id}
+											as="li"
+											data-testid="knowledge-row"
+											data-focused={focusedIndex === index ? "true" : undefined}
 											title={item.title}
-											preview={item.body?.slice(0, 120) || null}
-											status={toKnowledgeStatus(item.status)}
-											timestamp={relativeShort(item.updatedAt)}
-											isPrivate={isPrivate}
-											showActions
-											isFocused={focusedIndex === index}
-											onOpen={() => onNavigate(item.id)}
-											onValidate={() => onTriageAction(item.id, "active")}
-											onReject={() => onTriageAction(item.id, "archived")}
+											subtitle={item.body?.slice(0, 120) || undefined}
+											cells={[
+												...(isPrivate
+													? [
+															{
+																content: (
+																	<span
+																		className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
+																		style={{
+																			background: "var(--surface-container)",
+																			color: "var(--text-secondary)",
+																		}}
+																		title="Private — only visible to you"
+																	>
+																		Private
+																	</span>
+																),
+																"data-testid": "private-badge" as const,
+															},
+														]
+													: []),
+												...(itemKind && kStyle
+													? [
+															{
+																content: (
+																	<span
+																		className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
+																		style={kStyle}
+																	>
+																		{itemKind}
+																	</span>
+																),
+																"data-testid": "kind-badge" as const,
+															},
+														]
+													: []),
+												...(itemStatus === "active" || itemStatus === "archived"
+													? [
+															{
+																content: (
+																	<span data-testid="status-badge">
+																		<StatusChip
+																			status={knowledgeStatusToStatus(itemStatus)}
+																			label={KNOWLEDGE_STATUS_LABEL[itemStatus]}
+																		/>
+																	</span>
+																),
+															},
+														]
+													: []),
+												{
+													content: relativeShort(item.updatedAt),
+													"data-testid": "knowledge-time" as const,
+												},
+											]}
+											actions={
+												<div className="flex items-center gap-[3px]">
+													<button
+														type="button"
+														aria-label="Validate"
+														onClick={(e) => {
+															e.stopPropagation();
+															onTriageAction(item.id, "active");
+														}}
+														className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] border-none bg-transparent cursor-pointer"
+													>
+														<svg
+															width="14"
+															height="14"
+															viewBox="0 0 16 16"
+															fill="none"
+															stroke="currentColor"
+															strokeWidth="2"
+															strokeLinecap="round"
+															strokeLinejoin="round"
+															aria-hidden="true"
+														>
+															<path d="M2 8l4 4 8-8" />
+														</svg>
+													</button>
+													<button
+														type="button"
+														aria-label="Reject"
+														onClick={(e) => {
+															e.stopPropagation();
+															onTriageAction(item.id, "archived");
+														}}
+														className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] border-none bg-transparent cursor-pointer"
+													>
+														<svg
+															width="14"
+															height="14"
+															viewBox="0 0 16 16"
+															fill="none"
+															stroke="currentColor"
+															strokeWidth="2"
+															strokeLinecap="round"
+															strokeLinejoin="round"
+															aria-hidden="true"
+														>
+															<path d="M2 2l12 12M14 2L2 14" />
+														</svg>
+													</button>
+													<button
+														type="button"
+														aria-label="Open"
+														onClick={(e) => {
+															e.stopPropagation();
+															onNavigate(item.id);
+														}}
+														className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] border-none bg-transparent cursor-pointer"
+													>
+														<svg
+															width="14"
+															height="14"
+															viewBox="0 0 16 16"
+															fill="none"
+															stroke="currentColor"
+															strokeWidth="2"
+															strokeLinecap="round"
+															strokeLinejoin="round"
+															aria-hidden="true"
+														>
+															<path d="M3 8h10M8 3l5 5-5 5" />
+														</svg>
+													</button>
+												</div>
+											}
+											onClick={() => onNavigate(item.id)}
 										/>
 									);
 								})}
-							</ul>
+							</ItemList>
 							{/* Y4: keyboard hint bar — only shown when triage has items */}
 							<div
 								data-testid="triage-keyboard-hint"
@@ -789,20 +687,82 @@ function KnowledgeListContent({
 								staleCount={g.staleCount}
 								health={g.health}
 							>
-								{g.items.map((item) => {
-									const isPrivate = item.scopeKind === "user";
-									return (
-										<KnowledgeListRow
-											key={item.id}
-											title={item.title}
-											preview={item.body?.slice(0, 120) || null}
-											status={toKnowledgeStatus(item.status)}
-											timestamp={relativeShort(item.updatedAt)}
-											isPrivate={isPrivate}
-											onClick={() => onNavigate(item.id)}
-										/>
-									);
-								})}
+								<ItemList variant="flush" as="ul" isEmpty={g.items.length === 0}>
+									{g.items.map((item) => {
+										const isPrivate = item.scopeKind === "user";
+										// AG6/AD6: kind-badge only for knowledge-kind values, not scope values.
+										const itemKind =
+											item.scopeKind && KNOWLEDGE_KINDS.has(item.scopeKind)
+												? item.scopeKind
+												: undefined;
+										const kStyle = itemKind ? kindBadgeStyle(itemKind) : null;
+										const itemStatus = toKnowledgeStatus(item.status);
+										return (
+											<Row
+												key={item.id}
+												as="li"
+												data-testid="knowledge-row"
+												title={item.title}
+												subtitle={item.body?.slice(0, 120) || undefined}
+												cells={[
+													...(isPrivate
+														? [
+																{
+																	content: (
+																		<span
+																			className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
+																			style={{
+																				background: "var(--surface-container)",
+																				color: "var(--text-secondary)",
+																			}}
+																			title="Private — only visible to you"
+																		>
+																			Private
+																		</span>
+																	),
+																	"data-testid": "private-badge" as const,
+																},
+															]
+														: []),
+													...(itemKind && kStyle
+														? [
+																{
+																	content: (
+																		<span
+																			className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
+																			style={kStyle}
+																		>
+																			{itemKind}
+																		</span>
+																	),
+																	"data-testid": "kind-badge" as const,
+																},
+															]
+														: []),
+													...(itemStatus === "active" || itemStatus === "archived"
+														? [
+																{
+																	content: (
+																		<span data-testid="status-badge">
+																			<StatusChip
+																				status={knowledgeStatusToStatus(itemStatus)}
+																				label={KNOWLEDGE_STATUS_LABEL[itemStatus]}
+																			/>
+																		</span>
+																	),
+																},
+															]
+														: []),
+													{
+														content: relativeShort(item.updatedAt),
+														"data-testid": "knowledge-time" as const,
+													},
+												]}
+												onClick={() => onNavigate(item.id)}
+											/>
+										);
+									})}
+								</ItemList>
 							</KnowledgeTopicGroup>
 						))
 					)}
