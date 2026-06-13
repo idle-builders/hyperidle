@@ -28,6 +28,7 @@
 import {
 	Avatar,
 	agentOperationalStatusToStatus,
+	Breadcrumb,
 	EmptyState,
 	ErrorState,
 	KeyValue,
@@ -45,8 +46,10 @@ import {
 	relativeLong,
 } from "@hyperidle/shared";
 import type { JSX } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import { useAgentProfile } from "../hooks/useAgentProfile.js";
+import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
+import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 import { deriveInitials } from "../utils/initials.js";
 
 /** F2: Narrow string|null to SessionOutcome without an unsafe cast. */
@@ -128,6 +131,8 @@ export function AgentProfile({
 function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Element {
 	const catalogEntry = findRoleCatalogEntry(data.role);
 	const initials = deriveInitials(data.name);
+	const navigate = useNavigate();
+	const { sidebarMobile } = useViewportBreakpoint();
 
 	// A2: Derive operational status from data, not DB status column
 	const isActive = data.activeSession !== null;
@@ -136,18 +141,25 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 
 	const createdDate = absoluteDate(data.createdAt);
 
+	// @lore AB1 S4: Team agents link back to their team page; others to conversations.
+	// parentPathFor(/agents/:id) returns /conversations (generic fallback); page overrides
+	// to team-aware path when teamId is present.
+	const agentParentPath = data.teamId ? `/work/team/${data.teamId}` : "/conversations";
+	const agentParentLabel = data.teamName ?? "Agents";
+
 	return (
 		<div className="flex flex-col gap-[12px] h-full" data-testid="agent-profile-page">
-			{/* Breadcrumb — team agents link back to their team page; others link to portfolio */}
-			{/* @lore AB1 S4: The original ternary was a no-op — both branches linked to /work/portfolio.
-			    Team agents should link to /work/team/:teamId, strategy/personal to /work/portfolio. */}
+			{/* AG4: DS Breadcrumb replaces hand-rolled "← {teamName}" chip */}
 			<div className="mb-1">
-				<Link
-					to={data.teamId ? `/work/team/${data.teamId}` : "/work/portfolio"}
-					className="btn btn-ghost btn-xs"
-				>
-					← {data.teamName ?? "Agents"}
-				</Link>
+				<Breadcrumb
+					segments={[{ label: agentParentLabel, to: agentParentPath }, { label: data.name }]}
+					leading={
+						!sidebarMobile ? (
+							<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
+						) : undefined
+					}
+					LinkComponent={RRLink}
+				/>
 			</div>
 
 			{/* F2: Health banner — only shown when degraded, has role="alert" */}
@@ -213,19 +225,19 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 						{/* Active session link — /work/bet/:betId/task/:taskId (M1: was using taskId as betId) */}
 						{data.activeSession !== null && (
 							<div className="mt-[6px]" data-testid="agent-active-session">
-								<Link
+								<RRLink
 									to={`/work/bet/${encodeURIComponent(data.activeSession.betId)}/task/${encodeURIComponent(data.activeSession.taskId)}`}
 									className="text-[12px] text-[var(--accent-primary)] hover:underline"
 								>
 									↗ Active session: {data.activeSession.sessionId}
-								</Link>
+								</RRLink>
 							</div>
 						)}
 					</div>
 					{/* F1: Link to Settings — /conversations?settings=open (deep-link broken fix) */}
-					<Link to="/conversations?settings=open" className="btn btn-ghost btn-sm shrink-0">
+					<RRLink to="/conversations?settings=open" className="btn btn-ghost btn-sm shrink-0">
 						Edit in Settings
-					</Link>
+					</RRLink>
 				</div>
 			</section>
 

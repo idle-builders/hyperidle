@@ -98,7 +98,7 @@ The human interface ships as a single native macOS desktop application ("the Fac
 
 **UX-8.3** Settings accessible via gear icon in the Sidebar. Opens as an overlay (Main shows active section, Escape to close). Sections: Profile, Org Chart, Credentials, Notifications, Appearance, Products, Backend.
 
-**UX-8.4** Keyboard shortcuts: ⌘K (search), ⌘1/2/3 (switch views), J/K (next/previous in lists), A/R/X/S (verdict actions in review threads), ? (show shortcut help).
+**UX-8.4** Keyboard shortcuts: ⌘K (search), ⌘[ (back in history), ⌘] (forward in history), ⌘1 (Conversations), ⌘2 (Work), ⌘3 (Knowledge), J/K (next/previous in lists), A/R/X/S (verdict actions in review threads), ? (show shortcut help). History shortcuts (⌘[/]) do not fire while focus is in a text input, textarea, or contentEditable element. View shortcuts (⌘1/2/3) are pinned: 1 always = Conversations, 2 always = Work, 3 always = Knowledge.
 
 **UX-8.5** Thread filtering in Conversations submenu: filter by product, agent, type (review/chat), status (blocking/open/snoozed/resolved). Thread state actions: snooze with timer, archive, mute.
 

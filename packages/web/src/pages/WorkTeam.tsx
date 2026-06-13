@@ -23,6 +23,7 @@
 
 import {
 	Avatar,
+	Breadcrumb,
 	Button,
 	betStatusToStatus,
 	EmptyState,
@@ -45,11 +46,13 @@ import {
 } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
 import { useHint } from "../hooks/useHints";
 import { useTeam } from "../hooks/useTeam";
 import { useTeamAgents } from "../hooks/useTeamAgents.js";
+import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
+import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 import { AgentAddDialog } from "./AgentAddDialog.js";
 import { AgentEditDialog } from "./AgentEditDialog.js";
 import { RoutineCreateDialog } from "./work/RoutineCreateDialog.js";
@@ -205,6 +208,7 @@ function WorkTeamLoaded({
 	refetchTeam?: () => void;
 }): JSX.Element {
 	const navigate = useNavigate();
+	const { sidebarMobile } = useViewportBreakpoint();
 	// @lore U1: `team` replaces `product` in TeamDetail.
 	// @lore AA1: routines defaults to [] so pre-AA1 mock data (missing the field) doesn't crash.
 	const { team, roster, burn, activeBets, routines = [] } = data;
@@ -246,15 +250,20 @@ function WorkTeamLoaded({
 			<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
 				{/* R1 — Team header */}
 				<section aria-label="Team header">
-					{/* Breadcrumb chip (N1 design) */}
+					{/* AG4: DS Breadcrumb — team-breadcrumb-back testId preserved on first segment link */}
 					<div className="mb-1">
-						<Link
-							to="/work/portfolio"
-							data-testid="team-breadcrumb-back"
-							className="btn btn-ghost btn-xs"
-						>
-							← Portfolio
-						</Link>
+						<Breadcrumb
+							segments={[
+								{ label: "Work", to: "/work/portfolio", testId: "team-breadcrumb-back" },
+								{ label: team.name },
+							]}
+							leading={
+								!sidebarMobile ? (
+									<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
+								) : undefined
+							}
+							LinkComponent={RRLink}
+						/>
 					</div>
 					<div className="flex items-center gap-[12px] flex-wrap">
 						<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-primary)] flex-1">

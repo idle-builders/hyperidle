@@ -18,14 +18,22 @@
  * external date library is needed.
  */
 
-import { ErrorState, LiveDot, StatusChip, taskStateToStatus } from "@hyperidle/design-system";
+import {
+	Breadcrumb,
+	ErrorState,
+	LiveDot,
+	StatusChip,
+	taskStateToStatus,
+} from "@hyperidle/design-system";
 import { formatMoney, relativeLong, TASK_STATE_LABEL } from "@hyperidle/shared";
 import type { JSX } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
 import { useBet } from "../hooks/useBet.js";
 import { useTaskSessions } from "../hooks/useTaskSessions.js";
+import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
+import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 
 /**
  * @lore AI3: relativeLong replaces local formatRelativeTime.
@@ -113,6 +121,8 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 		betId: string;
 		taskId: string;
 	}>();
+	const navigate = useNavigate();
+	const { sidebarMobile } = useViewportBreakpoint();
 
 	const betId = overrideBetId ?? routeBetId;
 	const taskId = overrideTaskId ?? routeTaskId;
@@ -175,32 +185,23 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 		<div data-testid="task-detail-page" className="flex flex-col h-full">
 			{/* Fixed bordered header: breadcrumb + h2 title + status badge + overflow */}
 			<header className="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
-				{/* W3 AC-27: Breadcrumb */}
-				<nav data-testid="task-breadcrumb" aria-label="Breadcrumb">
-					<div className="flex items-center gap-[4px] text-[13px] text-[var(--text-tertiary)] mb-[6px] flex-wrap">
-						<Link
-							to="/work/portfolio"
-							className="hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]"
-						>
-							Work
-						</Link>
-						/
-						<Link
-							to="/work/portfolio"
-							className="hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)] truncate max-w-[100px]"
-						>
-							{bet.team}
-						</Link>
-						/
-						<Link
-							to={`/work/bet/${bet.id}`}
-							className="hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)] truncate max-w-[120px]"
-						>
-							{bet.title}
-						</Link>
-						/<span className="text-[var(--text-primary)] truncate max-w-[160px]">{task.title}</span>
-					</div>
-				</nav>
+				{/* AG4: Breadcrumb — DS Breadcrumb replaces hand-rolled nav */}
+				<div data-testid="task-breadcrumb" className="mb-[6px]">
+					<Breadcrumb
+						segments={[
+							{ label: "Work", to: "/work/portfolio" },
+							{ label: bet.team, to: "/work/portfolio" },
+							{ label: bet.title, to: `/work/bet/${bet.id}` },
+							{ label: task.title },
+						]}
+						leading={
+							!sidebarMobile ? (
+								<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
+							) : undefined
+						}
+						LinkComponent={RRLink}
+					/>
+				</div>
 				{/* Title row */}
 				<div className="flex items-start justify-between gap-[12px]">
 					<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] mt-[4px]">

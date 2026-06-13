@@ -117,7 +117,8 @@ describe("WorkTeam", () => {
 	it("1. renders the page H1 with the team name when the fetch resolves", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
 		expect(screen.getByTestId("work-team-page")).toBeInTheDocument();
-		expect(screen.getByText("HyperIdle Core")).toBeInTheDocument();
+		// AG4: team name now in both breadcrumb and h1; use heading role for specificity
+		expect(screen.getByRole("heading", { level: 1, name: "HyperIdle Core" })).toBeInTheDocument();
 	});
 
 	it("2. renders one BetCard row per active bet", () => {

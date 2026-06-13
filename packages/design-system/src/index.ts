@@ -37,6 +37,9 @@ export { BlockHandle } from "./BlockHandle.js";
 // ── T1: BodyEditor — TipTap WYSIWYG editor ──
 export type { BodyEditorProps } from "./BodyEditor.js";
 export { BodyEditor } from "./BodyEditor.js";
+// ── AG4: Breadcrumb — Tier 1 DS nav orientation strip ──
+export type { BreadcrumbProps, BreadcrumbSegment } from "./Breadcrumb.js";
+export { Breadcrumb } from "./Breadcrumb.js";
 export type { ButtonProps } from "./Button.js";
 export { Button } from "./Button.js";
 // T4: renderPayload exported for use in web-layer BlockRefEmbed (cannot import

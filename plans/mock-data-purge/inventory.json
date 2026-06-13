@@ -64,7 +64,7 @@
   },
   {
     "path": "packages/web/src/pages/KnowledgeDetail.tsx",
-    "line": 62,
+    "line": 63,
     "symbol": "../fixtures/knowledge-data",
     "kind": "import",
     "shape": "import",
@@ -73,7 +73,7 @@
   },
   {
     "path": "packages/web/src/pages/KnowledgeDetail.tsx",
-    "line": 117,
+    "line": 120,
     "symbol": "LEGACY_DETAILS",
     "kind": "symbol",
     "shape": "object",
@@ -82,7 +82,7 @@
   },
   {
     "path": "packages/web/src/pages/KnowledgeDetail.tsx",
-    "line": 155,
+    "line": 158,
     "symbol": "LEGACY_SOURCES",
     "kind": "symbol",
     "shape": "object",
@@ -91,7 +91,7 @@
   },
   {
     "path": "packages/web/src/pages/KnowledgeDetail.tsx",
-    "line": 161,
+    "line": 164,
     "symbol": "FALLBACK_DETAIL",
     "kind": "symbol",
     "shape": "object",

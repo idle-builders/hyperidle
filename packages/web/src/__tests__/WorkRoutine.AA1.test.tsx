@@ -114,7 +114,8 @@ describe("WorkRoutine — AA1 Detail Page", () => {
 	// AC-5: Renders routine name and status chip
 	it("renders routine name and status", () => {
 		renderPage("routine-detail-1", MOCK_ROUTINE_DETAIL);
-		expect(screen.getByText("Daily digest")).toBeInTheDocument();
+		// AG4: routine name now appears in both breadcrumb and h1; use heading role
+		expect(screen.getByRole("heading", { level: 1, name: "Daily digest" })).toBeInTheDocument();
 	});
 
 	it("renders the routine configuration section", () => {
