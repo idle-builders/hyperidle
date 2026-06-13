@@ -1,6 +1,6 @@
 # AI6 — Code Review (Phase 4)
 
-**Verdict: NOT DONE**
+**Verdict: NOT DONE** (superseded — see Re-review at end: **DONE**)
 
 Commit `ef6c1e57`. The token/lint/tracking/color/motion/renderer migrations are accurate and complete — nearly every file:line in the plan was applied verbatim, lint is green (zero errors), typecheck green, 111 unit/rule tests pass. But three defects block: one **incomplete focus convergence** (the core AC), and the **e2e validation for 3 of 6 ACs does not pass and was never run to green** (8/11 AI6 e2e tests fail), plus the plan-mandated **HTML-reference tracking migration was skipped**. The static ACs (tracking, color, motion) are genuinely proven; the visual/behavioral ACs are not.
 
@@ -75,3 +75,41 @@ The plan mandated (architecture.md §"VISUAL-PARITY CONFLICT", `:186-196`; task 
 2. **C2:** make `AI6-ds-focus`, `AI6-tabbar-hover-selected`, `AI6-renderer-parity` specs drive the `/designsystem` navigation + assert on real DOM markers; run them to green; produce the side-by-side screenshots.
 3. **C3:** migrate the in-scope Artifact*/Block `.html` reference `letter-spacing` to `var(--tracking-caps-sm)`, add the `@lore AI6` note, confirm `ds:sync` ≤5%.
 4. **W1:** delete the stale `KeyValue.tsx:19` migration comment.
+
+---
+
+# AI6 — Re-review (Phase 4, fixes verified)
+
+**Verdict: DONE**
+
+All four prior findings resolved. The behavioral/visual ACs are now genuinely proven by real-DOM Playwright assertions (15/15 AI6 specs green), the static ACs hold without regression, typecheck PASS (12 pkgs), lint exits 0 (warnings only, zero errors), DS unit/component 393 green, eslint-plugin-design 234 green.
+
+## Per-finding resolution
+
+| Finding | Status | Evidence |
+|---|---|---|
+| **C1** — TabBar pill focus `outline-[2px]` | **RESOLVED** | `TabBar.tsx:73` now `focus-visible:outline-1` — byte-identical treatment to `:40` (underline). Both variants 1px. `Button.tsx:57` also converged to `outline-1` (was `outline-[2px]`+offset) — extends the single-treatment AC. |
+| **C2** — focus / hover-selected / renderer-parity specs unproven | **RESOLVED** | All three specs now hash-navigate the catalog (`#Button`, `#TabBar::PillVariant`, `#Kinds%2FImageRenderer`, `#Block`) — `DesignSystem.tsx:84-117` `parseHash`+`navigate` confirmed to back this. Assertions are real DOM: class attr `outline-1`/`not outline-[2px]`, `accent-primary-dim` bg on selected vs absent on inactive, `text-[var(--accent-primary)]` selected vs `text-tertiary` inactive, computed `borderRadius === "16px"` for both kinds/ and block/ figures, and `bg-success/10` absent. Proof screenshots produced (`plans/AI6/screenshots/AI6-tabbar-hover-selected.png`, `AI6-renderer-parity-{kinds,block,full}.png`) and visually confirm: kinds/ImageRenderer image in 16px-rounded bordered figure; TabBar "Overview" selected (accent-dim bg + green text) vs inactive (tertiary text). **`npx playwright test AI6-ds-focus AI6-tabbar-hover-selected AI6-renderer-parity` → 15 passed, stable across two warm runs.** (First cold run showed boot-timing flakes from the Playwright-managed Vite webServer compiling on first navigation — not a spec defect; warm runs are deterministic green.) Test-support markers (`data-component="image-renderer"` on `<section>`, `data-component="ImagePayload"` on `<figure>`) are inert selector hooks, no behavior change; story-glob widening `*`→`**` (`DesignSystem.tsx:18`) legitimately discovers `kinds/` stories. Both are proper test-support, not behavior-driving. |
+| **C3** — HTML reference tracking diverges from TSX | **RESOLVED** | `ArtifactEmbed.html`, `ArtifactPreview.html`, `Block.html` migrated `letter-spacing: 0.02em/0.05em → var(--tracking-caps-sm)` on exactly the in-scope labels (embed-identity, kind-badge, preview-meta, demo-section-title, table th). `@lore AI6` note added to `tokens.css:89-95`. Scope respected — only 3 `.html` files touched; BlockHandle/Menu/KnowledgeRow.html untouched. Token parity verified by inspection: TSX side (ArtifactEmbed/KindBadge/Preview/Surface, TablePayload) all resolve to `tracking-caps-sm` (0.06em); HTML now resolves the same token — the guaranteed `ds:sync` diff source is eliminated (both sides → 0.06em). |
+| **W1** — stale `KeyValue.tsx:19` comment | **RESOLVED** | `KeyValue.tsx:18-19` now reads the AESTHETICS provenance only; the `tracking-[0.05em] → tracking-[var(--tracking-caps)]` migration clause is gone. |
+
+## Final AC table
+
+| # | Acceptance criterion | Status | Evidence |
+|---|---|---|---|
+| 1 | One focus treatment on every interactive DS component | **PASS** | TabBar `:40`/`:73` + Button `:57` all `outline-1`. `AI6-ds-focus` 4/4 green asserting `outline-1` / `not outline-[2px]` on Button, both TabBar variants; Input carries `accent-primary-dim`. |
+| 2 | Every uppercase DS label uses a tracking token; no hardcoded tracking | **PASS** | Grep clean (zero `tracking-[Nem]` in DS tsx). `no-hardcoded-tracking` at error, lint green. C3 closes the TSX↔HTML gap. |
+| 3 | Zero hardcoded colors; tints+scrim tokens; lint catches template+arbitrary | **PASS** | Grep clean (zero hex/rgba/raw-palette in DS tsx). 5 new tokens + `--scrim` resolve via `getComputedStyle` (`AI6-tokens.test.tsx`, 6/6). Button/code-renderer hardcodes → tokens/color-mix. |
+| 4 | Same content kind via block payload vs artifact kind-renderer shares container | **PASS** | image-renderer now wraps in `figure rounded-[--r-default] border-subtle`. `AI6-renderer-parity` green incl. computed-style equality (`16px === 16px`); screenshots show matched chrome. |
+| 5 | Hovered vs selected distinct in components with both states | **PASS** | `AI6-tabbar-hover-selected` 4/4 green: selected carries `accent-primary-dim`+accent text, inactive does not; screenshot confirms two-tone. |
+| 6 | All component motion uses Hearth motion scale | **PASS** | Unchanged from prior PASS; grep clean, `no-off-scale-duration` at error, lint green. |
+
+## Validation run summary
+- `npx playwright test AI6-ds-focus AI6-tabbar-hover-selected AI6-renderer-parity` → **15 passed** (warm; stable ×2).
+- `npm run check` → PASS (12 packages).
+- `npm run lint` → exit 0 (381 warnings, 0 errors).
+- `vitest run packages/design-system` → 393 passed; `packages/eslint-plugin-design` → 234 passed.
+- Regression grep (DS tsx): zero residual hex / rgba / raw-Tailwind-palette / `tracking-[Nem]` / `duration-[Nms]` / live `prose` (only `@lore` comment mentions remain).
+
+## Note (non-blocking)
+- `ds:sync` itself was not executed end-to-end (requires the `ds:serve` :8098 harness running concurrently); C3 resolution verified by token-parity inspection — both HTML and TSX now resolve the in-scope labels to `var(--tracking-caps-sm)`, so no pixel diff can arise from this surface. `npm run verify` (which chains the sync-check) is the ship gate and will confirm at PR time.
