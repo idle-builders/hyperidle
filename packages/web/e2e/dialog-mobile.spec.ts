@@ -43,6 +43,8 @@ function makeBetDetail() {
 	};
 }
 
+// AG3: makeGroupedBets was used by the BetCreateDialog test, now skipped.
+// biome-ignore lint/correctness/noUnusedVariables: kept for reference after AG3 skip
 function makeGroupedBets() {
 	return {
 		draft: [],
@@ -125,49 +127,13 @@ async function assertBottomAnchored(
 test.describe("AI2 — Mobile bottom-sheet at 375px (AC-4)", () => {
 	test.use({ viewport: VIEWPORT_MOBILE });
 
-	// Dialog 1: BetCreate
-	test("BetCreateDialog — 375px: no horizontal overflow, bottom-anchored sheet", async ({
-		page,
+	// AG3: BetCreateDialog deleted — bet creation is now a full-page route at /work/bet/new.
+	// The mobile bottom-sheet test for BetCreate no longer applies.
+	// Skipped — mobile behavior for bet create is now tested in AG3-bet-authoring.spec.ts.
+	test.skip("BetCreateDialog — 375px: no horizontal overflow, bottom-anchored sheet [AG3: BetCreateDialog deleted]", async ({
+		page: _page,
 	}) => {
-		// @lore AI2 W-2: grouped bets mock (same as dialog-dismissal.spec.ts scenario 1).
-		// { bets: [] } was the wrong shape — useBets expects { draft, active, completed, killed }.
-		// ≥1 active bet ensures the "New bet" header button renders (hidden when bets.length === 0).
-		await page.route("**/api/bets", (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeGroupedBets()),
-			}),
-		);
-		await page.route("**/api/knowledge/triage-count", (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ count: 0 }),
-			}),
-		);
-		await page.route("**/api/notifications**", (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ unseenCount: 0, rows: [] }),
-			}),
-		);
-
-		await page.goto("/work/portfolio");
-		await expect(page.locator("[data-testid='work-portfolio-page']")).toBeVisible();
-
-		const createBtn = page.locator("[data-testid='new-bet-btn']");
-		await expect(
-			createBtn,
-			"new-bet-btn must be visible — grouped bets mock must return ≥1 bet",
-		).toBeVisible();
-		await createBtn.click();
-		await expect(page.getByRole("dialog")).toBeVisible();
-
-		await assertBottomAnchored(page, VIEWPORT_MOBILE.height);
-
-		await page.screenshot({ path: "test-results/ai2-mobile-bet-create-375px.png" });
+		// Surface deleted in AG3; see WorkBetCreate.tsx
 	});
 
 	// Dialog 2: ScopeChangeDialog (replaces KnowledgeCreate which is no longer a dialog)

@@ -15,6 +15,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { WorkBetCreate } from "../pages/WorkBetCreate";
 
 // Mock BodyEditor — TipTap cannot run in JSDOM
 vi.mock("@hyperidle/design-system", async (importOriginal) => {
@@ -62,10 +63,24 @@ vi.mock("react-router-dom", async (importOriginal) => {
 	};
 });
 
-const SINGLE_TEAM = [{ id: "team-1", name: "Alpha Team" }];
+const TEAM_BASE = {
+	phase: "build",
+	status: "healthy" as const,
+	leadAgentId: null,
+	activeBets: 0,
+	shipped: 0,
+	shipRate: "—",
+	progress: { done: 0, total: 0 },
+	routineCount: 0,
+	agentCount: 0,
+	activeAgentCount: 0,
+	agentHealthWarning: false,
+};
+
+const SINGLE_TEAM = [{ id: "team-1", name: "Alpha Team", ...TEAM_BASE }];
 const MULTIPLE_TEAMS = [
-	{ id: "team-1", name: "Alpha Team" },
-	{ id: "team-2", name: "Beta Team" },
+	{ id: "team-1", name: "Alpha Team", ...TEAM_BASE },
+	{ id: "team-2", name: "Beta Team", ...TEAM_BASE },
 ];
 
 async function setupUseTeams(teams: typeof SINGLE_TEAM) {
@@ -78,9 +93,6 @@ async function setupUseTeams(teams: typeof SINGLE_TEAM) {
 }
 
 function renderPage(): ReturnType<typeof render> {
-	// WorkBetCreate is a route page — wrap in MemoryRouter
-	// Import is deferred to avoid hoisting issues with vi.mock
-	const { WorkBetCreate } = require("../pages/WorkBetCreate");
 	return render(
 		<MemoryRouter initialEntries={["/work/bet/new"]}>
 			<WorkBetCreate />
@@ -145,8 +157,8 @@ describe("AC4 — commitments aside", () => {
 		// Appetite returns to create (was removed in R2 from dialog — see @lore in WorkBetCreate.tsx)
 		const aside = screen.getByTestId("bet-create-commitments");
 		expect(aside).toBeInTheDocument();
-		// appetite group should be inside the aside
-		expect(screen.getByLabelText(/appetite/i)).toBeInTheDocument();
+		// appetite amount input should be inside the aside
+		expect(screen.getByLabelText(/appetite amount/i)).toBeInTheDocument();
 	});
 
 	it("single team: Create enabled when body non-empty (team auto-resolved)", async () => {
