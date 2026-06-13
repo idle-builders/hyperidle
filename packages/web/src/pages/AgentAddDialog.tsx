@@ -10,7 +10,7 @@
  */
 
 // hearth-internal-padding
-import { Button } from "@hyperidle/design-system";
+import { Button, Select } from "@hyperidle/design-system";
 import { AGENT_ROLE_CATALOG, findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
@@ -177,19 +177,14 @@ export function AgentAddDialog({
 							<label className="label" htmlFor="add-dialog-role">
 								<span className="label-text text-[var(--text-secondary)]">Role</span>
 							</label>
-							<select
+							<Select
 								id="add-dialog-role"
 								aria-label="Role"
-								className="select select-sm select-bordered"
+								size="sm"
 								value={formValues.role}
 								onChange={(e) => handleRoleChange(e.target.value)}
-							>
-								{TEAM_ROLES.map((entry) => (
-									<option key={entry.role} value={entry.role}>
-										{entry.label}
-									</option>
-								))}
-							</select>
+								options={TEAM_ROLES.map((entry) => ({ value: entry.role, label: entry.label }))}
+							/>
 						</div>
 						{roleDescription && (
 							<p className="text-[12px] text-[var(--text-tertiary)] mt-[6px]">{roleDescription}</p>
@@ -253,10 +248,10 @@ export function AgentAddDialog({
 							<label className="label" htmlFor="add-dialog-tier">
 								<span className="label-text text-[var(--text-secondary)]">Model tier</span>
 							</label>
-							<select
+							<Select
 								id="add-dialog-tier"
 								aria-label="Model tier"
-								className="select select-sm select-bordered"
+								size="sm"
 								value={formValues.modelTierPreference}
 								onChange={(e) =>
 									setFormValues((prev) => ({
@@ -265,14 +260,11 @@ export function AgentAddDialog({
 									}))
 								}
 								disabled={creating}
-							>
-								<option value="">Default</option>
-								{MODEL_TIERS.map((t) => (
-									<option key={t} value={t}>
-										{t}
-									</option>
-								))}
-							</select>
+								options={[
+									{ value: "", label: "Default" },
+									...MODEL_TIERS.map((t) => ({ value: t, label: t })),
+								]}
+							/>
 						</div>
 
 						<div className="form-control min-w-[100px] flex-1">

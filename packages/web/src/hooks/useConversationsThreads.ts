@@ -10,6 +10,7 @@
  * classifier already keys off `?? false` so this is forwards-compatible.
  */
 import type { HostKind } from "@hyperidle/shared";
+import { relativeShort } from "@hyperidle/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ThreadItem } from "../components/ThreadSections";
 import { apiFetch } from "../services/api-fetch.js";
@@ -92,19 +93,6 @@ function isThreadListRow(value: unknown): value is ThreadListRow {
 	);
 }
 
-function formatRelative(iso: string): string {
-	const t = Date.parse(iso);
-	if (Number.isNaN(t)) return "";
-	const diff = Date.now() - t;
-	const m = Math.floor(diff / 60_000);
-	if (m < 1) return "just now";
-	if (m < 60) return `${m}m`;
-	const h = Math.floor(m / 60);
-	if (h < 24) return `${h}h`;
-	const d = Math.floor(h / 24);
-	return `${d}d`;
-}
-
 function capitalize(s: string): string {
 	if (s.length === 0) return s;
 	// Guard: s.length > 0 proves s[0] is defined (noUncheckedIndexedAccess).
@@ -118,7 +106,7 @@ function rowToItem(row: ThreadListRow): ThreadItem {
 	// @lore L8: The L8 stub `${capitalize(hostKind)} thread ${id.slice(0,8)}`
 	// is replaced by the server-resolved title from AF14 onwards.
 	const title = row.title ?? `${capitalize(row.hostKind)} thread ${row.id.slice(0, 8)}`;
-	const relative = formatRelative(row.lastActiveAt);
+	const relative = relativeShort(row.lastActiveAt);
 	return {
 		id: row.id,
 		title,

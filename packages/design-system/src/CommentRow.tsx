@@ -9,10 +9,12 @@
 
 import type { BlockPayload, InlineRef, MentionSegment, Message } from "@hyperidle/shared";
 import {
+	clockTime,
 	derivePayloads,
 	exhaustiveAssert,
 	isRedactedPayload,
 	segmentMentions,
+	TIME_PLACEHOLDER,
 	verdictDecisionLabel,
 	verdictDecisionToStatus,
 } from "@hyperidle/shared";
@@ -211,16 +213,6 @@ function renderBody(message: Message, sanitizeHtml?: (raw: string) => string): R
 	}
 }
 
-/**
- * Format an ISO timestamp string to a short time string (e.g. "2:34 PM").
- * Returns null when the timestamp is not parseable.
- */
-function formatMessageTime(isoString: string): string | null {
-	const ts = Date.parse(isoString);
-	if (!Number.isFinite(ts)) return null;
-	return new Date(ts).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-}
-
 export function CommentRow({
 	message,
 	sender,
@@ -240,7 +232,16 @@ export function CommentRow({
 			: "rich-questionnaire"
 		: undefined;
 	const isAgent = sender.isAgent ?? false;
-	const timeString = showSenderHeader ? formatMessageTime(message.createdAt) : null;
+	/**
+	 * @lore AI3 CommentRow null-render contract: clockTime always returns a string.
+	 * When the result is TIME_PLACEHOLDER (invalid/unparseable input), we coerce
+	 * back to null so the existing {timeString ? <span> : null} render hides the chip.
+	 * This is the single AC-3 carve-out surface — all other surfaces render "—" verbatim.
+	 * Rationale: sender-header chip has no reserved cell; absence is its native "no value"
+	 * state. A dangling "—" beside a name+Agent badge reads as broken, not "no time".
+	 */
+	const timeRaw = showSenderHeader ? clockTime(message.createdAt) : null;
+	const timeString = timeRaw === TIME_PLACEHOLDER ? null : timeRaw;
 
 	const avatarClass = isAgent
 		? "inline-flex items-center justify-center w-[36px] h-[36px] rounded-full bg-[rgba(22,118,79,0.08)] text-[var(--accent-primary)] text-[13px] font-[600] border-[1.5px] border-[var(--accent-primary)] shrink-0"

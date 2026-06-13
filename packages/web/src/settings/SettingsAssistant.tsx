@@ -147,7 +147,7 @@ export function SettingsAssistant({ userId }: SettingsAssistantProps): JSX.Eleme
 					className="textarea textarea-bordered w-full font-mono text-sm resize-y"
 					style={{
 						color: "var(--text-primary)",
-						backgroundColor: "var(--surface-2)",
+						backgroundColor: "var(--surface-container)",
 						borderColor: "var(--border-subtle)",
 						fontSize: "13px",
 					}}
@@ -155,13 +155,13 @@ export function SettingsAssistant({ userId }: SettingsAssistantProps): JSX.Eleme
 			</div>
 
 			{errorMessage && (
-				<p className="text-sm" style={{ color: "var(--color-error, red)" }} role="alert">
+				<p className="text-sm" style={{ color: "var(--status-error)" }} role="alert">
 					{errorMessage}
 				</p>
 			)}
 
 			{saveState === "saved" && !errorMessage && (
-				<p className="text-sm" style={{ color: "var(--color-success, green)" }}>
+				<p className="text-sm" style={{ color: "var(--status-success)" }}>
 					Saved
 				</p>
 			)}

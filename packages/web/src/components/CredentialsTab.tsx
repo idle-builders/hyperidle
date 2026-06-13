@@ -142,7 +142,7 @@ function CatalogModeCredentials({ bridge }: CatalogModeProps): JSX.Element {
 				return (
 					<div
 						key={entry.name}
-						className="flex flex-col gap-2 py-2 border-b border-[var(--border)]"
+						className="flex flex-col gap-2 py-2 border-b border-[var(--border-default)]"
 					>
 						<div className="flex items-center justify-between gap-3">
 							<div className="flex flex-col gap-0.5">

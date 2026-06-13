@@ -15,12 +15,16 @@
  * the chronological thread view — two fetches, same data. Acceptable for v1;
  * a shared fetch surface requires a global cache layer (out of scope).
  */
+
+import type { MenuItem } from "@hyperidle/design-system";
 import {
 	Block,
 	BlockActionsPopover,
 	BodyEditor,
 	EmptyState,
 	ErrorState,
+	Menu,
+	Select,
 	SkeletonCard,
 	SkeletonList,
 } from "@hyperidle/design-system";
@@ -31,6 +35,7 @@ import {
 	deriveBlocks,
 	formatMoney,
 	isRedactedPayload,
+	relativeLong,
 	scaleForCurrency,
 } from "@hyperidle/shared";
 import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
@@ -100,24 +105,6 @@ function taskStateBadgeClass(state: string): string {
 	if (state === "blocked") return `${base} bg-[rgba(200,60,30,0.08)] text-[var(--status-error)]`;
 	if (state === "review") return `${base} bg-[rgba(217,119,6,0.08)] text-[var(--accent-secondary)]`;
 	return `${base} bg-[var(--surface-container)] text-[var(--text-secondary)]`;
-}
-
-/**
- * Format an ISO timestamp as a simple relative time label.
- * Duplicated from WorkTask for locality — both pages are self-contained.
- */
-function formatTaskRelativeTime(isoString: string | null | undefined): string {
-	if (!isoString) return "";
-	const diffMs = Date.now() - new Date(isoString).getTime();
-	if (Number.isNaN(diffMs)) return "";
-	const diffSec = Math.floor(diffMs / 1000);
-	if (diffSec < 60) return "just now";
-	const diffMin = Math.floor(diffSec / 60);
-	if (diffMin < 60) return `${diffMin}m ago`;
-	const diffH = Math.floor(diffMin / 60);
-	if (diffH < 24) return `${diffH}h ago`;
-	const diffD = Math.floor(diffH / 24);
-	return `${diffD}d ago`;
 }
 
 /**
@@ -570,19 +557,15 @@ function AppetiteDialog({
 				<label className="flex flex-col gap-1">
 					<span className="text-xs text-[var(--text-tertiary)]">New appetite</span>
 					<div className="flex gap-2">
-						<select
-							className="select select-bordered select-sm w-[88px]"
+						<Select
 							aria-label="Currency"
+							size="sm"
+							className="w-[88px]"
 							value={currency}
 							onChange={(e) => setCurrency(e.target.value)}
 							disabled={submitting}
-						>
-							{CURRENCY_CODES.map((code) => (
-								<option key={code} value={code}>
-									{code}
-								</option>
-							))}
-						</select>
+							options={CURRENCY_CODES.map((code) => ({ value: code, label: code }))}
+						/>
 						<input
 							type="number"
 							className="input input-bordered input-sm flex-1 text-base"
@@ -709,6 +692,8 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	const [appetiteDialogOpen, setAppetiteDialogOpen] = useState(false);
 	// AF12: activate-bet error surface (shown under the bet title on failure).
 	const [activateError, setActivateError] = useState<string | null>(null);
+	// AG5: Bet overflow menu open state (replaces toggleAttribute("open") DOM hack — C5).
+	const [betOverflowOpen, setBetOverflowOpen] = useState(false);
 
 	// Q2: Add knowledge dialog state.
 	const [addKnowledgeOpen, setAddKnowledgeOpen] = useState(false);
@@ -1072,70 +1057,66 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 							</span>
 						)}
 						{/* W3 AC-19: overflow action menu */}
+						{/* AG5: Bet overflow menu — caller-owned trigger (bet-overflow-btn untouched per C4),
+						    Menu component handles panel/items/Escape/click-outside/keyboard.
+						    C5: overflow-dropdown-${bet.id} id and [&[open]]:block toggle removed. */}
 						<div className="relative" data-testid="bet-overflow-menu">
 							<button
 								type="button"
 								aria-label="More actions"
 								data-testid="bet-overflow-btn"
+								aria-haspopup="menu"
+								aria-expanded={betOverflowOpen}
 								className="inline-flex items-center justify-center w-[32px] h-[32px] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] text-[16px] cursor-pointer hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)]"
-								onClick={() => {
-									const el = document.getElementById(`overflow-dropdown-${bet.id}`);
-									if (el) el.toggleAttribute("open");
-								}}
+								onClick={() => setBetOverflowOpen((v) => !v)}
 							>
 								&#xB7;&#xB7;&#xB7;
 							</button>
-							<div
-								id={`overflow-dropdown-${bet.id}`}
-								className="absolute right-0 top-full z-10 mt-1 bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)] shadow-[var(--shadow-elevated)] py-1 min-w-[140px] hidden [&[open]]:block"
-							>
-								{/* AF12: Activate a draft bet (draft-only; POSTs to /commit). */}
-								{bet.status === "draft" && (
-									<button
-										type="button"
-										data-dropdown-item
-										data-bet-action="activate"
-										className="w-full text-left px-3 py-2 text-[13px] hover:bg-[var(--accent-primary-dim)]"
-										onClick={() => handleAction("activate")}
-									>
-										Activate bet
-									</button>
-								)}
-								{/* AF12: appetite is mutable on active bets only (server allows active). */}
-								{bet.status === "active" && (
-									<button
-										type="button"
-										data-dropdown-item
-										data-bet-action="adjust-appetite"
-										className="w-full text-left px-3 py-2 text-[13px] hover:bg-[var(--accent-primary-dim)]"
-										onClick={() => handleAction("adjust-appetite")}
-									>
-										Adjust appetite
-									</button>
-								)}
-								{bet.status === "active" && (
-									<button
-										type="button"
-										data-dropdown-item
-										data-bet-action="unblock"
-										className="w-full text-left px-3 py-2 text-[13px] hover:bg-[var(--accent-primary-dim)]"
-										onClick={() => handleAction("unblock")}
-									>
-										Unblock
-									</button>
-								)}
-								{bet.status !== "completed" && bet.status !== "killed" && (
-									<button
-										type="button"
-										data-dropdown-item
-										data-bet-action="kill"
-										className="w-full text-left px-3 py-2 text-[13px] text-[var(--status-error)] hover:bg-[var(--accent-primary-dim)]"
-										onClick={() => handleAction("kill")}
-									>
-										Kill
-									</button>
-								)}
-							</div>
+							<Menu
+								open={betOverflowOpen}
+								onClose={() => setBetOverflowOpen(false)}
+								label="Bet actions"
+								align="end"
+								items={[
+									...(bet.status === "draft"
+										? [
+												{
+													id: "activate",
+													label: "Activate bet",
+													onSelect: () => handleAction("activate"),
+													dataAttrs: { "data-bet-action": "activate" },
+												} satisfies MenuItem,
+											]
+										: []),
+									...(bet.status === "active"
+										? [
+												{
+													id: "adjust-appetite",
+													label: "Adjust appetite",
+													onSelect: () => handleAction("adjust-appetite"),
+													dataAttrs: { "data-bet-action": "adjust-appetite" },
+												} satisfies MenuItem,
+												{
+													id: "unblock",
+													label: "Unblock",
+													onSelect: () => handleAction("unblock"),
+													dataAttrs: { "data-bet-action": "unblock" },
+												} satisfies MenuItem,
+											]
+										: []),
+									...(bet.status !== "completed" && bet.status !== "killed"
+										? [
+												{
+													id: "kill",
+													label: "Kill",
+													destructive: true,
+													onSelect: () => handleAction("kill"),
+													dataAttrs: { "data-bet-action": "kill" },
+												} satisfies MenuItem,
+											]
+										: []),
+								]}
+							/>
 						</div>
 					</div>
 					{/* AF12: activate failure surface (e.g. team at capacity → clean 400). */}
@@ -1437,21 +1418,19 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 												>
 													Verdict
 												</label>
-												<select
+												<Select
 													id="outcome-verdict-select"
-													className="select select-sm bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-primary)] text-[13px]"
+													size="sm"
 													value={outcomeVerdictForm}
 													onChange={(e) =>
 														setOutcomeVerdictForm(e.target.value as typeof outcomeVerdictForm)
 													}
-												>
-													<option value="">Select verdict…</option>
-													{BET_OUTCOME_VERDICTS.map((v) => (
-														<option key={v} value={v}>
-															{BET_VERDICT_LABEL[v] ?? v}
-														</option>
-													))}
-												</select>
+													placeholder="Select verdict…"
+													options={BET_OUTCOME_VERDICTS.map((v) => ({
+														value: v,
+														label: BET_VERDICT_LABEL[v] ?? v,
+													}))}
+												/>
 											</div>
 											{/* Reality / summary textarea */}
 											<div className="flex flex-col gap-[6px]">
@@ -1642,7 +1621,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 							<div className="flex flex-col">
 								{sortedTasks.map((task) => {
 									const stateLabel = TASK_STATE_LABEL[task.state] ?? task.state;
-									const relTime = formatTaskRelativeTime(task.startedAt);
+									const relTime = task.startedAt ? relativeLong(task.startedAt) : "";
 									const metaParts = [task.owner, stateLabel, relTime].filter(Boolean);
 									return (
 										<button

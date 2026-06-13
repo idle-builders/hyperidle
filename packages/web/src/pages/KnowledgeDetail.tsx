@@ -1,7 +1,9 @@
+import type { MenuItem } from "@hyperidle/design-system";
 import {
 	BlockActionsPopover,
 	BodyEditor,
 	knowledgeStatusToStatus,
+	Menu,
 	StatusChip,
 } from "@hyperidle/design-system";
 import {
@@ -52,7 +54,7 @@ import {
  */
 import type { Message, PlainPayloadWithBlockId, ScopeKind } from "@hyperidle/shared";
 import { isRedactedPayload, SCOPE_KINDS } from "@hyperidle/shared";
-import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { type JSX, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { AssistantContext } from "../contexts/AssistantContext.js";
 // eslint-disable-next-line design/no-mock-data-import -- tracked in #93
@@ -361,23 +363,47 @@ function BacklinksCard({
  * @lore AD6: Flag removed — it is an agent operation, not user-facing.
  * Archive wired to POST /api/knowledge/:id/archive (was a stub).
  */
+/**
+ * @lore AG5: KnowledgeOverflowMenu refactored to render through <Menu> (C1 single-owner).
+ * The overflowRef and the document-level click-outside/Escape effects in the parent
+ * (KnowledgeDetail lines ~485-501) are now handled by Menu internally — those effects
+ * are removed from KnowledgeDetail below.
+ * data-testid="knowledge-overflow-menu" placed on a conditional wrapper so the E2E
+ * locator disappears from DOM when closed (not.toBeVisible() passes).
+ */
 function KnowledgeOverflowMenu({
 	overflowOpen,
-	overflowRef,
 	onToggle,
+	onClose,
 	onArchive,
 	onChangeScope,
 	archiving,
 }: {
 	overflowOpen: boolean;
-	overflowRef: React.RefObject<HTMLDivElement | null>;
 	onToggle: () => void;
+	onClose: () => void;
 	onArchive: () => void;
 	onChangeScope: () => void;
 	archiving: boolean;
 }): JSX.Element {
+	const items: MenuItem[] = [
+		{
+			id: "archive",
+			label: archiving ? "Archiving…" : "Archive",
+			onSelect: onArchive,
+			disabled: archiving,
+			dataAttrs: { "data-testid": "knowledge-archive" },
+		},
+		{
+			id: "change-scope",
+			label: "Change scope",
+			onSelect: onChangeScope,
+			dataAttrs: { "data-testid": "knowledge-change-scope" },
+		},
+	];
+
 	return (
-		<div className="relative" ref={overflowRef} data-testid="knowledge-overflow-menu">
+		<div className="relative">
 			<button
 				type="button"
 				aria-label="More options"
@@ -388,28 +414,18 @@ function KnowledgeOverflowMenu({
 			>
 				···
 			</button>
+			{/* Conditional wrapper carries the testid — disappears when closed so
+			    E2E not.toBeVisible() passes (Menu renders null when open=false but
+			    we need the testid on a DOM node that appears/disappears with the menu). */}
 			{overflowOpen && (
-				<div
-					role="menu"
-					className="absolute right-0 top-full z-10 mt-1 bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)] shadow-[var(--shadow-elevated)] py-1 min-w-[160px]"
-				>
-					<button
-						type="button"
-						role="menuitem"
-						className="w-full text-left px-3 py-2 text-[13px] hover:bg-[var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed"
-						onClick={onArchive}
-						disabled={archiving}
-					>
-						{archiving ? "Archiving…" : "Archive"}
-					</button>
-					<button
-						type="button"
-						role="menuitem"
-						className="w-full text-left px-3 py-2 text-[13px] hover:bg-[var(--accent-primary-dim)]"
-						onClick={onChangeScope}
-					>
-						Change scope
-					</button>
+				<div data-testid="knowledge-overflow-menu">
+					<Menu
+						open={overflowOpen}
+						onClose={onClose}
+						label="Knowledge actions"
+						align="end"
+						items={items}
+					/>
 				</div>
 			)}
 		</div>
@@ -478,27 +494,9 @@ function KnowledgeDetailView({
 	const [archiving, setArchiving] = useState(false);
 	const [archiveError, setArchiveError] = useState<string | null>(null);
 
-	// W3 NB-4: overflow menu open state (click-outside + Escape to close)
+	// W3 NB-4: overflow menu open state.
+	// AG5: click-outside + Escape now handled by Menu internally — removed the duplicated effects.
 	const [overflowOpen, setOverflowOpen] = useState(false);
-	const overflowRef = useRef<HTMLDivElement>(null);
-
-	useEffect(() => {
-		if (!overflowOpen) return;
-		function handleDocClick(e: MouseEvent): void {
-			if (overflowRef.current && !overflowRef.current.contains(e.target as Node)) {
-				setOverflowOpen(false);
-			}
-		}
-		function handleEscape(e: KeyboardEvent): void {
-			if (e.key === "Escape") setOverflowOpen(false);
-		}
-		document.addEventListener("mousedown", handleDocClick);
-		document.addEventListener("keydown", handleEscape);
-		return () => {
-			document.removeEventListener("mousedown", handleDocClick);
-			document.removeEventListener("keydown", handleEscape);
-		};
-	}, [overflowOpen]);
 
 	const closeOverflow = useCallback((): void => setOverflowOpen(false), []);
 
@@ -722,8 +720,8 @@ function KnowledgeDetailView({
 					{!editing && (
 						<KnowledgeOverflowMenu
 							overflowOpen={overflowOpen}
-							overflowRef={overflowRef}
 							onToggle={() => setOverflowOpen((prev) => !prev)}
+							onClose={closeOverflow}
 							onArchive={() => void handleArchive()}
 							onChangeScope={() => {
 								setScopeChangeOpen(true);

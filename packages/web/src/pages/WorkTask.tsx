@@ -19,32 +19,13 @@
  */
 
 import { ErrorState } from "@hyperidle/design-system";
-import { formatMoney } from "@hyperidle/shared";
+import { formatMoney, relativeLong } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
 import { useBet } from "../hooks/useBet.js";
 import { useTaskSessions } from "../hooks/useTaskSessions.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
-
-/**
- * Format an ISO timestamp as a simple relative time label ("2 days ago", "just now", etc.).
- * No external dependency — sufficient precision for a metadata strip.
- *
- * @lore W3 AC-28: Keep this local. Adding a date library for one use case is overkill.
- */
-function formatRelativeTime(isoString: string): string {
-	const diffMs = Date.now() - new Date(isoString).getTime();
-	if (Number.isNaN(diffMs)) return "—";
-	const diffSec = Math.floor(diffMs / 1000);
-	if (diffSec < 60) return "just now";
-	const diffMin = Math.floor(diffSec / 60);
-	if (diffMin < 60) return `${diffMin}m ago`;
-	const diffH = Math.floor(diffMin / 60);
-	if (diffH < 24) return `${diffH}h ago`;
-	const diffD = Math.floor(diffH / 24);
-	return `${diffD}d ago`;
-}
 
 /**
  * LiveDot — 6px pulsing green circle shown next to active/in-progress states.
@@ -322,7 +303,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 									data-testid="task-started-at"
 									className="text-[13px] font-[500] text-[var(--text-primary)]"
 								>
-									{formatRelativeTime(task.startedAt)}
+									{relativeLong(task.startedAt)}
 								</span>
 							</div>
 						)}

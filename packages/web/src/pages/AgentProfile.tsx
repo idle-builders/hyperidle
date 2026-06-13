@@ -34,11 +34,10 @@ import {
 	Tag,
 } from "@hyperidle/design-system";
 import type { AgentProfileResponse } from "@hyperidle/shared";
-import { findRoleCatalogEntry } from "@hyperidle/shared";
+import { absoluteDate, findRoleCatalogEntry, relativeLong } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAgentProfile } from "../hooks/useAgentProfile.js";
-import { formatRelativeTime } from "../utils/format-time.js";
 
 export interface AgentProfileProps {
 	/** Override the profile data. Used by stories and tests. */
@@ -115,11 +114,7 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 	const isError = !isActive && data.healthSignals.lastSessionCrashed;
 	const operationalStatus = isActive ? "active" : isError ? "error" : "idle";
 
-	const createdDate = new Date(data.createdAt).toLocaleDateString(undefined, {
-		year: "numeric",
-		month: "short",
-		day: "numeric",
-	});
+	const createdDate = absoluteDate(data.createdAt);
 
 	return (
 		<div className="flex flex-col gap-[12px] h-full" data-testid="agent-profile-page">
@@ -243,7 +238,7 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 						<summary className="text-[12px] text-[var(--text-tertiary)] cursor-pointer hover:text-[var(--text-secondary)] select-none">
 							Soul prompt
 						</summary>
-						<pre className="mt-[6px] text-[11px] text-[var(--text-secondary)] font-mono whitespace-pre-wrap break-all bg-[var(--surface-base)] rounded-[var(--r-subtle)] p-[9px] max-h-[200px] overflow-y-auto">
+						<pre className="mt-[6px] text-[11px] text-[var(--text-secondary)] font-mono whitespace-pre-wrap break-all bg-[var(--surface-page)] rounded-[var(--r-subtle)] p-[9px] max-h-[200px] overflow-y-auto">
 							{data.soulPrompt}
 						</pre>
 					</details>
@@ -332,7 +327,7 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 									</td>
 									<td className="py-[6px] tabular-nums text-[var(--text-tertiary)]">—</td>
 									<td className="py-[6px] text-[var(--text-tertiary)]">
-										{formatRelativeTime(session.startedAt)}
+										{relativeLong(session.startedAt)}
 									</td>
 								</tr>
 							))}
@@ -389,7 +384,7 @@ function VerdictDot({ decision, createdAt }: { decision: string; createdAt: stri
 	const isRejection = decision === "reject";
 	return (
 		<span
-			title={`${decision} — ${new Date(createdAt).toLocaleDateString()}`}
+			title={`${decision} — ${absoluteDate(createdAt)}`}
 			className={`w-[9px] h-[9px] rounded-[var(--r-pill)] inline-block ${
 				isApproval
 					? "bg-[var(--accent-primary)]"
