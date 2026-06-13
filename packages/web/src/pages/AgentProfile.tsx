@@ -243,7 +243,7 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 						<summary className="text-[12px] text-[var(--text-tertiary)] cursor-pointer hover:text-[var(--text-secondary)] select-none">
 							Soul prompt
 						</summary>
-						<pre className="mt-[6px] text-[11px] text-[var(--text-secondary)] font-mono whitespace-pre-wrap break-all bg-[var(--surface-base)] rounded-[var(--r-subtle)] p-[9px] max-h-[200px] overflow-y-auto">
+						<pre className="mt-[6px] text-[11px] text-[var(--text-secondary)] font-mono whitespace-pre-wrap break-all bg-[var(--surface-page)] rounded-[var(--r-subtle)] p-[9px] max-h-[200px] overflow-y-auto">
 							{data.soulPrompt}
 						</pre>
 					</details>

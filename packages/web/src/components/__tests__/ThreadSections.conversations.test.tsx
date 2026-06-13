@@ -207,7 +207,7 @@ describe("ThreadSections component", () => {
 		const section = container.querySelector("[data-thread-section='blocking']") as HTMLElement;
 		expect(section).not.toBeNull();
 		// border-left + tinted bg are inline style.
-		expect(section.style.borderLeft).toMatch(/3px solid var\(--danger\)/);
+		expect(section.style.borderLeft).toMatch(/3px solid var\(--status-error\)/);
 		expect(section.style.background).toMatch(/color-mix/);
 		// Header has sticky positioning class.
 		const header = section.querySelector("h3") as HTMLElement;

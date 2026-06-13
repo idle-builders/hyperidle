@@ -207,6 +207,18 @@ Every component has two representations:
 
 ---
 
+## Token Enforcement Gate
+
+`npm run verify` includes `token-guard:check` (AI1), which walks all shipped CSS and TSX files under `packages/{design-system,web}/src/**` and fails if any `var(--x)` references a custom property not defined in `tokens.css`.
+
+**For contributors:**
+- Every `var(--…)` in shipped source must resolve to a name declared in `packages/design-system/src/tokens.css`.
+- If you need a new token, add it to `tokens.css` (AI6 scope). Do not use `var(--undefined-name)` and rely on browser silent fallback.
+- `@lore` and JSDoc comments that name dead tokens by example (e.g. `/* was var(--old-name) */`) are safe — the guard strips comments before scanning.
+- Test and story files are excluded from the scan; they may reference token strings as fixture data.
+
+---
+
 ## Further Reading
 
 - **PRINCIPLES.md** -- the seven universals (Clarity, Hierarchy, Restraint, Content First, Consistency, Feedback, Accessibility) + surprise principles that govern every design decision in Hearth.
