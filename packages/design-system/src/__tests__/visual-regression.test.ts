@@ -195,6 +195,7 @@ test.describe("Design System Visual Regression — TSX vs golden baselines", () 
 				// context that the viewer doesn't provide — they crash on render and
 				// produce 0 .demo-section elements. Log and skip rather than hard-fail,
 				// so one broken story doesn't block the entire visual gate.
+				// biome-ignore lint/suspicious/noConsole: test-only diagnostic output for missing story sections
 				console.warn(
 					`[AJ1] ${component}: 0 .demo-section found (component may need router/context). Skipping.`,
 				);
@@ -285,7 +286,7 @@ test.describe("Design System Visual Regression — TSX vs golden baselines", () 
 			await page.waitForTimeout(300);
 
 			const anyMarker = page.locator("[data-ds-component], [data-ds-shell]").first();
-			const hasMarker = await anyMarker.count() > 0;
+			const hasMarker = (await anyMarker.count()) > 0;
 
 			if (!hasMarker) {
 				missing.push(component);
@@ -298,6 +299,7 @@ test.describe("Design System Visual Regression — TSX vs golden baselines", () 
 		// were built before the dsProps() marker convention. Adding markers to all components
 		// is a separate cleanup task; this test tracks coverage, not enforces 100%.
 		if (missing.length > 0) {
+			// biome-ignore lint/suspicious/noConsole: test-only marker audit — diagnostic, not production
 			console.warn(
 				`[AJ1 marker audit] ${missing.length}/${catalogComponents.length} component(s) ` +
 					`lack dsProps() markers: ${missing.join(", ")}`,
