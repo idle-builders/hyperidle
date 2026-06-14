@@ -70,7 +70,7 @@ Check every component against its spec. If the spec says 4 columns, count the co
 
 ### Visual verification
 
-Look at pixels, not code. Run `cd packages/web && npm run visual:compare <reference-name>` to generate pixel diffs. Read the reference.png, implementation.png, and diff.png. Include screenshot paths and match percentages in findings.
+Look at pixels, not code. Open the component story in the live TSX viewer (`npm run ds:serve`, then navigate to `http://localhost:8098/#<ComponentName>`). For visual regression, run `npm run ds:sync` to diff against committed golden baselines. Include screenshot paths and diff evidence in findings.
 
 ---
 

@@ -281,9 +281,8 @@ Components are organized in tiers. Each tier builds on the one below.
 - **Tier 2 (Molecules):** BetCard, ThreadRow, CommentRow, Composer, EmptyState, ErrorState, KnowledgeRow, NotificationRow, TaskCard
 - **Tier 3 (Shell):** Sidebar, Main Panel, App Shell
 
-Every component has two representations:
-- **HTML** (`packages/design-system/html/`) -- the design reference, edited by the designer
-- **TSX** (`packages/design-system/src/`) -- the production implementation, must match HTML within 5% pixel diff
+Every component has a single canonical representation:
+- **TSX** (`packages/design-system/src/`) — the design source of truth and production implementation. Stories (`*.stories.tsx`) define the visual contract. (AJ1: the HTML reference tree was deleted; TSX is now the single source of truth.)
 
 ---
 
@@ -359,7 +358,7 @@ via `color-mix(in oklab, ...)`.
 **DS marker:** `data-ds-component="Menu"` `data-tier="1"` (via `dsProps("Menu","1")`).
 **Single-owner rule (C1):** No other component may render its own `role=menu` anatomy. If you need a menu, use `<Menu>`.
 
-**Files:** `packages/design-system/src/Menu.tsx`, `packages/design-system/src/Menu.stories.tsx`, `packages/design-system/html/Menu.html`.
+**Files:** `packages/design-system/src/Menu.tsx`, `packages/design-system/src/Menu.stories.tsx`.
 
 ---
 

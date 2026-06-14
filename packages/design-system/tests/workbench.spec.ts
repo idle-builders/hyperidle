@@ -1,13 +1,15 @@
 /**
  * K12 — Unified workbench Playwright smoke.
  *
- * Verifies the auto-generated catalog at `:8098`:
+ * Verifies the auto-generated catalog at `:8197`:
  *   - ≥ 29 component tiles grouped under Tier 1 / Tier 2 / Tier 3 / Utility,
- *   - clicking a Tier 3 shell (IconRail) loads in TSX mode and hides the
- *     HTML/TSX toggle (no `.html` reference exists),
+ *   - clicking a Tier 3 shell (IconRail) renders in TSX mode (no HTML toggle),
  *   - the density-tier toolbar selector applies `data-density="comfortable"`
  *     to the document root and the rendered NavItem reflects the
  *     comfortable density tokens from `tokens.css`.
+ *
+ * AJ1: HTML/TSX toggle removed — viewer is TSX-only. Assertions that the toggle
+ * is hidden are now replaced by asserting it does NOT exist at all.
  */
 import { expect, test } from "@playwright/test";
 
@@ -27,18 +29,19 @@ test.describe("design-system workbench", () => {
 		await expect(page.locator(".tier-heading", { hasText: "Utility" })).toBeVisible();
 	});
 
-	test("IconRail tile loads in TSX mode with the HTML/TSX toggle hidden", async ({ page }) => {
+	test("IconRail tile loads in TSX mode — no HTML toggle present anywhere", async ({ page }) => {
 		await page.goto("http://localhost:8197/");
 		await page.locator(".component-link", { hasText: "IconRail" }).first().click();
 
 		// Wait for navigation to settle.
 		await page.waitForFunction(() => window.location.hash.includes("IconRail"));
 
-		// HTML/TSX pill is hidden (only the theme + density pills remain).
+		// AJ1: HTML/TSX toggle no longer exists (viewer is TSX-only).
+		// Assert the HTML button is completely absent — not just hidden.
 		const htmlBtn = page.locator(".toolbar-btn", { hasText: /^HTML$/ });
 		await expect(htmlBtn).toHaveCount(0);
 
-		// Component renders inside the demo grid (TSX mode wraps each variant).
+		// Component renders inside the demo grid.
 		await expect(page.locator(".demo-section").first()).toBeVisible();
 	});
 
@@ -46,10 +49,7 @@ test.describe("design-system workbench", () => {
 		page,
 	}) => {
 		await page.goto("http://localhost:8197/#NavItem");
-		// Force TSX mode so the rendered NavItem inherits the document's data-density.
-		// (NavItem has both HTML and TSX, so the toggle is visible.)
-		await page.locator(".toolbar-btn", { hasText: /^TSX$/ }).click();
-		// Wait for TSX render — the demo grid is unique to TSX mode.
+		// AJ1: viewer is now TSX-only — no toggle needed. Demo grid is always shown.
 		await expect(page.locator(".demo-grid")).toBeVisible();
 
 		const comfortable = page.locator(".toolbar-btn", { hasText: /^Comfortable$/ });

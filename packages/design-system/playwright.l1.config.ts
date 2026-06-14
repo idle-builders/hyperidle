@@ -15,7 +15,8 @@ export default defineConfig({
 	},
 	projects: [{ name: "chromium", use: { browserName: "chromium" } }],
 	webServer: {
-		command: "bun run serve",
+		// @lore AJ1: changed from "bun run serve" to npm; bun is never in CI.
+		command: "npm run -w @hyperidle/design-system serve",
 		port: 8098,
 		reuseExistingServer: true,
 	},

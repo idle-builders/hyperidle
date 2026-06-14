@@ -20,8 +20,10 @@ export default defineConfig({
 	projects: [{ name: "chromium", use: { browserName: "chromium" } }],
 	webServer: {
 		// Use a worktree-specific port (not 8098) so this test doesn't collide
-		// with a long-running `bun run ds:serve` started from the main repo dir.
-		command: "bun run serve -- --port 8197",
+		// with a long-running `npm run ds:serve` started from the main repo dir.
+		// @lore AJ1: changed from "bun run serve -- --port 8197" to npm; bun is
+		// never installed in CI. Preserve the -- --port 8197 flag for port isolation.
+		command: "npm run -w @hyperidle/design-system serve -- -- --port 8197",
 		url: "http://localhost:8197/",
 		reuseExistingServer: true,
 		timeout: 60_000,

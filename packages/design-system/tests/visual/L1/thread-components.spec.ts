@@ -1,22 +1,17 @@
 /**
- * L1a — Visual regression specs for the six L1a-shipping DS components.
+ * L1a — TSX viewer smoke tests for the five L1a-shipping DS components.
  *
- * Each component renders both as an HTML reference (under
- * `packages/design-system/html/<Component>.html`) and as a TSX implementation
- * surfaced via the design-system viewer at :8098. The visual contract is
- * pixel parity ≤ 5% per `.claude/rules/visual-parity.md`.
+ * AJ1: HTML reference files are deleted — HTML mode is gone. This spec now
+ * asserts only that each component renders in the TSX viewer (`:8098`) and
+ * exposes the correct dsProps() data-attribute marker. The existsSync + TSX
+ * toggle-click assertions are removed (no HTML files, no toggle).
  *
- * Red phase: the HTML reference files do not exist yet and the TSX
- * implementations throw. Each test fails on the navigation step.
- *
- * `QuestionnaireAnswerBar` is L1b — explicitly skipped here.
+ * Dual selector: Tier 1/2 emit `data-ds-component`; Tier 3 shells emit
+ * `data-ds-shell` (verified: `ThreadShell` is a Tier 3 shell). Using either-or
+ * prevents false failures on shell components.
  */
 
-import { existsSync } from "node:fs";
-import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
-
-const HTML_DIR = resolve(import.meta.dirname, "../../../html");
 
 // L11 plan §6.3: ThreadHead and ReviewVerdictBar deleted; their visual
 // targets are covered by the new RichMessageCard component.
@@ -28,24 +23,27 @@ const L1_COMPONENTS = [
 	"RichMessageCard",
 ];
 
-test.describe("L1a — six DS components have HTML references and render", () => {
+test.describe("L1a — five DS components render in the TSX viewer", () => {
 	for (const name of L1_COMPONENTS) {
-		test(`${name} — HTML reference file exists at packages/design-system/html/${name}.html`, () => {
-			expect(existsSync(resolve(HTML_DIR, `${name}.html`))).toBe(true);
-		});
-
-		test(`${name} — TSX viewer renders the component`, async ({ page }) => {
+		test(`${name} — TSX viewer renders the component and exposes dsProps() marker`, async ({
+			page,
+		}) => {
 			await page.goto(`http://localhost:8098/#${name}`);
 			await page.waitForLoadState("networkidle");
-			// L1a: viewer defaults to HTML mode (iframe). Click the TSX
-			// toggle to render the production TSX component, then assert
-			// dsProps()-emitted attributes (data-ds-component for tier 1+2,
-			// data-ds-shell for tier 3 shell regions).
-			await page.getByRole("button", { name: "TSX", exact: true }).click();
+
+			// AJ1: viewer is TSX-only — no HTML toggle to click; the demo grid
+			// renders immediately. Assert dsProps()-emitted attributes.
+			// Dual selector: Tier 1/2 emit data-ds-component; Tier 3 shells emit data-ds-shell.
 			const marker = page
 				.locator(`[data-ds-component="${name}"], [data-ds-shell="${name}"]`)
 				.first();
 			await expect(marker).toBeVisible();
+		});
+
+		test(`${name} — at least one .demo-section is rendered`, async ({ page }) => {
+			await page.goto(`http://localhost:8098/#${name}`);
+			await page.waitForLoadState("networkidle");
+			await expect(page.locator(".demo-section").first()).toBeVisible();
 		});
 	}
 });

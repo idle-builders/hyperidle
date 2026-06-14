@@ -32,7 +32,7 @@ Read all of the following in one parallel batch of Read calls — these files ar
 1. The workpackage in `.pipeline/work-packages/TRACK-<letter>.md`.
 2. The per-workpackage concept output at `plans/<workpackage-id>/concept.md` and the specific `docs/<topic>/<file>.md` files it cites in its **Required reading**. The concept tells you which existing layout/component-budget files matter — do not browse `docs/` directly.
 3. `packages/design-system/PRINCIPLES.md`, `AESTHETICS.md`, `DESIGN.md`, `src/tokens.css`.
-4. `.claude/rules/aesthetic-quality.md`, `.claude/rules/visual-parity.md`.
+4. `.claude/rules/aesthetic-quality.md`, `.claude/rules/visual-regression.md`.
 5. If `plans/<workpackage-id>/design/` exists, you may be resuming.
 
 For deeper reference material on specific critique dimensions (read on demand when scoring in Phase 2 — each cross-links a section of `packages/design-system/AESTHETICS.md`):
@@ -50,7 +50,7 @@ Without these, the Phase 2 critique becomes vibes-grading. Read the relevant ref
 Before interrogation, classify the story along two axes:
 
 1. **Existing component reference** — does the spec name an existing component family (e.g. "extend `ThreadRow`", "another tab in `SessionDrawer`")?
-2. **Pattern match** — does `packages/design-system/html/` contain a similar embodied pattern (same primitive, same shape)?
+2. **Pattern match** — does a similar embodied pattern exist in the live catalog at `:8098` or in the `packages/design-system/src/*.stories.tsx` files?
 
 Both yes → `routine`. Both no → `novel`. Mixed → `routine` with low-confidence flag (see below).
 
@@ -60,14 +60,14 @@ Both yes → `routine`. Both no → `novel`. Mixed → `routine` with low-confid
 | `routine` | 1, with a "did we consider X / Y / Z?" check on the rejected directions | only on `approved.md` |
 | `routine` (low-confidence) | 2, A vs. B | per-variant + on `approved.md` |
 
-**Low-confidence trigger.** If only one of the two axes matched (e.g. spec references an existing component but `packages/design-system/html/` has nothing analogous, or vice versa), or the in-session critique on the single-variant flags Anti-slop / Hierarchy / States below 5, fall back to 2 variants. Better to spend one extra variant than to ship unexplored UI.
+**Low-confidence trigger.** If only one of the two axes matched (e.g. spec references an existing component but the live catalog has nothing analogous, or vice versa), or the in-session critique on the single-variant flags Anti-slop / Hierarchy / States below 5, fall back to 2 variants. Better to spend one extra variant than to ship unexplored UI.
 
 **Hard rule for new design-system primitives.** L1 (Thread), L2 (Block), L3 (Artifact) and any future named primitive in TRACK-L are **always `novel`** regardless of axis match. The shape itself is what's being decided.
 
 Output one machine-greppable line at the top of `brief.md`:
 
 ```
-DESIGN-CLASS: <routine|routine-low-conf|novel>  ref=<existing-component-or-none>  pattern=<html-file-or-none>
+DESIGN-CLASS: <routine|routine-low-conf|novel>  ref=<existing-component-or-none>  pattern=<story-name-or-none>
 ```
 
 ## Phase 0b — Reuse inventory (hard gate)

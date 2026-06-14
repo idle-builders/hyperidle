@@ -176,7 +176,7 @@ These checks go beyond what AST linters catch. Token/scale violations (hardcoded
 - **Same role, same treatment.** Section headers, card borders, list items, dividers, hover states — if two components serve the same visual role, they must look identical. Divergence is a finding even when both files individually pass lint.
 - **Component reuse over inline reimplementation.** The design system has primitives (Tier 1), blocks (Tier 2), regions (Tier 3), and utilities (EmptyState, ErrorState, Skeleton). Read `packages/design-system/src/` to know what exists. Reimplementing any of these inline is **CRITICAL**.
 - **Token compliance.** Every color, spacing value, radius, and font size must trace back to a design token. Read `packages/design-system/DESIGN.md` for the canonical values.
-- **Theme portability.** The design system may have multiple style variants in `packages/design-system/html/themes/`. Components must use semantic tokens (not hardcoded values) so they work across themes.
+- **Theme portability.** The design system has two theme variants (Hearth Dark, Hearth Light) defined in `packages/design-system/src/tokens.css`. Components must use semantic tokens (not hardcoded values) so they work across themes.
 
 ### Density-Tier Consistency (K10/K11)
 
