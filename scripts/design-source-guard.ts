@@ -107,19 +107,25 @@ export function checkNoHtmlFiles(repoRoot: string): string[] {
 	}
 
 	// Violation 2: any stray .html file directly under packages/design-system/
-	// EXEMPTION: viewer/index.html is the Vite SPA entry point — it must remain.
-	// @lore AJ1: viewer/index.html is not a component reference file; it's the
-	// Vite viewer shell (root: "viewer" in vite.config.ts). Only html/*.html
-	// component reference files are forbidden.
+	// EXEMPTIONS (paths relative to dsDir):
+	//   viewer/index.html — Vite SPA entry point (root: "viewer" in vite.config.ts)
+	//   playwright-report/**  — Playwright HTML report output (generated, not reference files)
+	// @lore AJ1: Only html/*.html component reference files are forbidden. Tooling
+	// artifacts (Vite shell, Playwright reports) must remain.
 	const violations: string[] = [];
-	const HTML_EXEMPTIONS = new Set(["viewer/index.html", "viewer\\index.html"]);
+	const isHtmlExempt = (entry: string): boolean => {
+		const normalized = entry.replace(/\\/g, "/");
+		return (
+			normalized === "viewer/index.html" || normalized.startsWith("playwright-report/")
+		);
+	};
 	try {
 		const entries = fs.readdirSync(dsDir, { recursive: true }) as string[];
 		for (const entry of entries) {
 			if (
 				typeof entry === "string" &&
 				entry.endsWith(".html") &&
-				!HTML_EXEMPTIONS.has(entry)
+				!isHtmlExempt(entry)
 			) {
 				violations.push(
 					`packages/design-system/${entry} — stray .html file found (all HTML reference files must be deleted)`,
