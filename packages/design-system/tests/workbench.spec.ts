@@ -3,7 +3,7 @@
  *
  * Verifies the auto-generated catalog at `:8098`:
  *   - ≥ 29 component tiles grouped under Tier 1 / Tier 2 / Tier 3 / Utility,
- *   - clicking a catalogued Tier 3 shell (ThreadShell) renders in TSX mode (no HTML toggle),
+ *   - clicking a catalogued component (StatusChip) renders in TSX mode (no HTML toggle),
  *   - the density-tier toolbar selector applies `data-density="comfortable"`
  *     to the document root and localStorage records the choice.
  *
@@ -18,7 +18,7 @@
  * port 8098 (same as the visual regression gate) with reuseExistingServer: true.
  *
  * @lore AJ1: IconRail was removed from the catalog before AJ1 shipped.
- * The test was updated to use ThreadShell (a catalogued Tier 3 shell).
+ * The test was updated to navigate to StatusChip (a Tier 2 component with demo sections).
  * The NavItem min-height assertion was removed because NavItem does not
  * consume --density-row-h (the toolbar density toggle sets data-density on
  * the html element, but NavItem's height is not token-driven). The test
@@ -42,13 +42,12 @@ test.describe("design-system workbench", () => {
 		await expect(page.locator(".tier-heading", { hasText: "Utility" })).toBeVisible();
 	});
 
-	test("ThreadShell tile loads in TSX mode — no HTML toggle present anywhere", async ({ page }) => {
-		// Use ThreadShell — a catalogued Tier 3 shell.
-		// (IconRail was removed from the catalog before AJ1 shipped.)
+	test("StatusChip tile loads in TSX mode — no HTML toggle present anywhere", async ({ page }) => {
+		// Use StatusChip — a catalogued Tier 2 component with demo sections.
+		// (IconRail was removed from the catalog before AJ1 shipped; ThreadShell is
+		// in ZERO_SECTION_ALLOWLIST so navigating there would show no demo grid.)
 		// AJ1: HTML/TSX toggle no longer exists (viewer is TSX-only).
 		// Assert the HTML button is completely absent — not just hidden.
-		// Note: ThreadShell is in ZERO_SECTION_ALLOWLIST if it has 0 demo-sections,
-		// but we still assert the no-HTML-toggle property here (independent of sections).
 		await page.goto("http://localhost:8098/#StatusChip");
 		await page.waitForFunction(() => window.location.hash.includes("StatusChip"));
 		await page.waitForTimeout(500);
