@@ -140,3 +140,57 @@ This is not a one-off flake — it is the predictable consequence of blessing on
 2. **(NICE-TO-HAVE, not blocking)** Remove the stale `playwright.l1.config.ts` entry from `knip.json:39`; fix the `workbench.spec.ts:45` test title.
 
 **Verdict: NOT DONE** — CRITICAL-2 (CI red, Mac-blessed baselines) unresolved. Everything else is genuinely fixed.
+
+---
+
+# Final review (round 3)
+
+**Reviewer:** Phase 4, round 3 (warm from rounds 1-2). Sole open blocker from round 2 was CRITICAL-2 (CI red, Mac-blessed baselines). Verified the fix and ruled on the AC4 judgment call. Did not re-litigate ACs already MET — spot-confirmed nothing regressed.
+
+## CI status — GREEN
+`gh pr checks 287`: `npm run verify` **pass** (5m21s, run 27515524088 — the "Visual regression (TSX baselines)" step passed on Linux); `release-guard` **pass** (12s). PR title is clean (`feat(AJ1): TSX is the single design source of truth`, no "WIP"). Attestation `a16460e7` is HEAD's parent-chain final verify commit; no code commits after it. Commit order honored.
+
+## CRITICAL-2 — RESOLVED
+Baselines re-blessed on Linux in commit `64c40794` ("re-bless baselines on Linux"). The round-2 offender `ai2-dialogportalroot-mount-effect.png` is now committed at **976×161px** (the Linux render) — was 160px (Mac) before, dropped from 17375→16145 bytes. 342 baselines committed under `src/__tests__/__screenshots__/`. CI's Linux visual step is green against them — the gate now matches its own render authority. `.claude/rules/visual-regression.md` ("CI/Linux is the blessing authority") is now satisfied in fact, not just in doctrine.
+
+## The AC4 judgment call — RULING: MET
+
+**Ruling: "verify passes on CI/Linux (the documented canonical platform)" satisfies AC4. The Mac local-red on sub-pixel-rounding components is an acceptable, documented tradeoff of the plan's single-baseline choice — NOT a blocker. Platform-split baselines are NOT required.**
+
+Reasoning, weighed against the spec contract:
+
+1. **The gate is non-vacuous and unweakened on the canonical platform.** AC4's load-bearing clause is "no skipped or weakened visual checks." On Linux the gate runs all 67 non-allowlisted components (allowlist=2), hard-fails on 0-section drift, and hard-fails on a 1px dimension change (precisely how it caught the Mac/Linux delta in round 2). The safety net still FAILS on unintended visual change — the spec's central contract. Nothing is skipped or weakened. This is the property AC4 exists to protect, and it holds on the authority platform.
+
+2. **The plan deliberately chose this.** The approved architecture set Linux/CI as the single baseline authority and omitted the `{platform}` token from `snapshotPathTemplate` (confirmed `playwright.config.ts:28`). `.claude/rules/visual-regression.md` documents Mac as a tolerant-consumer, not a co-authority. The Mac false-red is the *known, designed* cost of one canonical baseline set — not an undiscovered defect. Re-litigating it here would be re-litigating the Phase-2 plan, which I already critiqued and which is out of scope for code review.
+
+3. **The Mac failure is a false-red, not a missed-red.** It fires on `ai2-dialogportalroot` rendering 160px on Mac vs the 161px Linux canonical — a sub-pixel font-metric rounding difference, not a real visual regression. The dangerous failure mode for a safety net is the false-GREEN (missing a real change); AC4's "must still FAIL on unintended change" guards against exactly that, and it is preserved. A false-red on a non-authority platform is an ergonomics cost, not a correctness hole. The verify contract that gates merge runs in CI on Linux, where it is green and correct.
+
+4. **The split-baseline alternative adds cost without serving the AC.** `{platform}` + committing both Mac and Linux PNGs doubles the baseline surface, doubles the bless burden, and creates two sets that can silently diverge — for the sole benefit of green local-Mac verify on a handful of sub-pixel components. AC4 does not require local-Mac green; it requires verify to pass with a non-vacuous gate on the inverted tree, which CI/Linux delivers. The plan's single-set choice is the simpler, contract-satisfying design.
+
+**Caveat (NICE-TO-HAVE, non-blocking):** the Mac false-red should be documented for the next developer so a local red `ds:sync` on a sub-pixel component isn't mistaken for a real regression. `.claude/rules/visual-regression.md` already states "Local Mac `verify` tolerates the 5% ratio against the Linux baselines" — but that tolerance does NOT cover *dimension* mismatches (the 1px case bypasses `maxDiffPixelRatio` entirely). Add one line to that rule: "A ±1px dimension delta on Mac for a sub-pixel-rounding component is a known false-red; CI/Linux is authoritative — do not re-bless on Mac." This is a doc nicety, not a gate change, and not required for DONE.
+
+## Cosmetic fixes — both LANDED
+- `knip.json`: stale `playwright.l1.config.ts` entry gone (grep clean).
+- `workbench.spec.ts:45`: title now `"StatusChip tile loads in TSX mode — no HTML toggle present anywhere"` and the body navigates to `#StatusChip` — name matches behavior.
+
+## Coverage — NOT regressed
+- Allowlist = exactly 2 (`NotificationPopover`, `TaskSheet` — both documented `useNavigate()`-without-Router crashes); `ALLOWLIST_SIZE = 2` guard intact (`visual-regression.test.ts:111,303`); covered-floor guard `catalogCount - ALLOWLIST_SIZE` intact (`:306-316`).
+- 342 committed baselines. Allowlisted components correctly hold zero baselines.
+- `MUST_HAVE_MARKERS` hard-regression guard intact; floor `>= MUST_HAVE_MARKERS.size` (`:546`). All 7 round-1-unprotected primitives (Avatar, EmptyState, ErrorState, Skeleton, TabBar, Toast, Progress) remain covered.
+
+## Final AC table
+
+| AC | Status | Evidence (round 3) |
+|---|---|---|
+| **AC1** One TSX source of truth; no `.html` refs; no skill names HTML-as-reference | **MET** | Guard clean and broadened (round 2, unchanged). |
+| **AC2** Visual regression protects EVERY catalogued component; names the drifted component | **MET** | 67/69 covered, allowlist=2, hard-fail on drift, coverage guard intact. 342 baselines. |
+| **AC3** Viewer TSX-only; toggle gone; every component reachable | **MET** | No-toggle test + wired workbench spec pass on Linux. |
+| **AC4** `npm run verify` passes on inverted tree; no skipped/weakened visual checks | **MET** | CI verify green on Linux (the documented canonical platform); gate non-vacuous and unweakened; baselines Linux-blessed (`64c40794`); single-baseline is the approved plan's deliberate choice. Mac local false-red on sub-pixel components is a documented tradeoff, not an AC violation. |
+| **AC5** 5 skills + `design-system.md` TSX-first; `visual-parity.md` removed; `visual-regression.md` added | **MET** | Confirmed rounds 1-2, unchanged. |
+
+## What ship must know
+- CI is fully green on canonical Linux; PR #287 is merge-ready.
+- One non-blocking doc nicety remains (see AC4 caveat): note the Mac ±1px false-red in `.claude/rules/visual-regression.md`. Optional; can land in AJ3 or a follow-up — does not gate this merge.
+- No code changes requested. Builder should ship.
+
+**Verdict: DONE.**
