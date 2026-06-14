@@ -68,6 +68,21 @@ const FORBIDDEN_PATTERNS: Array<{ re: RegExp; label: string }> = [
 		re: /ds:sync.*compares HTML/i,
 		label: '"ds:sync compares HTML" (design-system.md — ds:sync now compares TSX vs golden baselines)',
 	},
+	// AJ1 WARNING-1 fix: catch mockup.html named as the design reference/variant.
+	// "The mockup IS the variant" with mockup.html is HTML-as-design-reference.
+	// We match "mockup.html" when used as a design reference artifact (not in code comments
+	// or archive docs) by checking the pattern appears in skill/rule markdown files.
+	// @lore AJ1: The /design skill previously named mockup.html as "preferred" output
+	// and "The mockup IS the variant". AJ1 neutralized this — AJ3 will add TSX variant
+	// authoring. This guard prevents the HTML-as-reference language from re-entering skills.
+	{
+		re: /mockup\.html.*preferred|The mockup IS the variant|preferred.*mockup\.html/i,
+		label: '"mockup.html (preferred)" or "The mockup IS the variant" — HTML-as-design-reference language (AJ1: TSX is the design source of truth)',
+	},
+	{
+		re: /mockup\.html.*embodies the variant|embodies.*variant.*mockup\.html/i,
+		label: '"mockup.html embodies the variant" — HTML-as-design-reference language (AJ1)',
+	},
 ];
 
 // ---------------------------------------------------------------------------

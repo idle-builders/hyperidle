@@ -32,8 +32,11 @@ export default defineConfig({
 		// bun is not installed in CI — this swap is mandatory for AC4.
 		command: "npm run -w @hyperidle/design-system serve",
 		port: 8098,
-		// Always boot a fresh server; sibling worktrees on the same port served
-		// stale source to the runner.
-		reuseExistingServer: false,
+		// In CI: always boot a fresh server (reuseExistingServer: false is enforced
+		// by the CI step ordering). Locally: reuse an existing server if one is
+		// already running on 8098 so `ds:bless` + `ds:sync` don't fight each other.
+		// @lore AJ1: changed to true so `npm run ds:bless` works when the viewer
+		// is already running (e.g. during local development or after ds:sync).
+		reuseExistingServer: !process.env["CI"],
 	},
 });

@@ -151,10 +151,10 @@ Each variant produces, in `plans/<workpackage-id>/design/<variant-slug>/`:
    - Mobile adaptation: how it maps to the three-tab mobile layout
    - The **signature** — the one thing that makes this variant unmistakably itself
    - Trade-offs: what this variant is bad at
-2. **`mockup.html`** (preferred) — a self-contained HTML file that **embodies** the variant. Imports the design system tokens (link to `packages/design-system/src/tokens.css`), uses real data shapes from the workpackage, demonstrates the primary state. The mockup IS the variant; describing motion in prose while the mockup uses default 200ms transitions = fail.
-3. **`screenshot.png`** — Playwright screenshot of `mockup.html` at desktop width. (Run `npx playwright screenshot file://<absolute-path>/mockup.html screenshot.png --wait-for-timeout=1000`.)
+2. **`variant.tsx`** — a self-contained TSX sketch that **embodies** the variant. Renders in the design-system viewer at `:8098` (add a temporary story export in `packages/design-system/src/` or `packages/web/src/`). Uses design-system tokens and real data shapes from the workpackage, demonstrates the primary state. The TSX sketch IS the variant; describing motion in prose while the render uses default 200ms transitions = fail. (AJ1: TSX is the single design source of truth — HTML mockups are retired. AJ3 will introduce a first-class TSX variant-authoring workflow.)
+3. **`screenshot.png`** — Playwright screenshot of the TSX sketch rendered in the viewer at desktop width. (Run `npx playwright screenshot "http://localhost:8098/#<ComponentName>" screenshot.png --wait-for-timeout=2000`.)
 
-If HTML mockups are too heavy for the workpackage (small primitive, well-understood shape), produce *spec + a TSX sketch in the design-system playground* instead. The hard rule is: each variant must produce a **looked-at artifact**, not just prose.
+The hard rule is: each variant must produce a **looked-at artifact**, not just prose.
 
 ## Phase 2 — Build the comparison
 
@@ -219,15 +219,15 @@ plans/<workpackage-id>/design/
 ├── brief.md                    # the interrogated brief
 ├── <variant-a-slug>/
 │   ├── spec.md
-│   ├── mockup.html
+│   ├── variant.tsx             # TSX sketch (AJ1: TSX is the design source of truth)
 │   └── screenshot.png
 ├── <variant-b-slug>/
 │   ├── spec.md
-│   ├── mockup.html
+│   ├── variant.tsx
 │   └── screenshot.png
 ├── <variant-c-slug>/
 │   ├── spec.md
-│   ├── mockup.html
+│   ├── variant.tsx
 │   └── screenshot.png
 ├── comparison.md               # side-by-side table + screenshots
 ├── synthesis.md                # which variant wins, what gets pulled in, rejection list

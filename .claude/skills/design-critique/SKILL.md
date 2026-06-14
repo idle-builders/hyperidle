@@ -35,7 +35,8 @@ Deep reference, only when the dimension is in scope: `references/hierarchy.md`, 
 Read the variants produced by `/design` at `plans/<workpackage-id>/design/<variant-slug>/`.
 
 ```
-1. Screenshot each variant's mockup.html (or read its spec.md if no mockup)
+1. Screenshot each variant's TSX sketch in the viewer at :8098 (or read its spec.md if no sketch)
+   AJ1: TSX is the design source of truth — reference variant.tsx, not mockup.html.
 2. Score it (0-10) against the 9 dimensions below
 3. List specific findings (CRITICAL / WARNING / SUGGESTION)
 4. Fix the highest-priority issue
@@ -149,20 +150,20 @@ The retro reads `rounds=<n>` to track design-quality drift over time.
 
 ## Screenshot Workflow
 
-When the dev server is running (`npm run dev` on :5173):
+The design-system viewer at `:8098` is the primary feedback surface (AJ1: TSX is the design source of truth):
 
 ```bash
-# Screenshot a specific component
-cd packages/web && npx playwright screenshot \
-  "http://localhost:5173/designsystem#ComponentName" \
+# Screenshot a catalogued component's TSX story in the viewer
+npx playwright screenshot \
+  "http://localhost:8098/#ComponentName" \
   /tmp/critique-ComponentName.png \
   --wait-for-timeout=2000
 
-# Screenshot an HTML mockup
+# Screenshot a variant TSX sketch added to the viewer for design review
 npx playwright screenshot \
-  "file://<absolute-path>/mockup.html" \
-  /tmp/critique-mockup.png \
-  --wait-for-timeout=1000
+  "http://localhost:8098/#VariantSketch" \
+  /tmp/critique-variant.png \
+  --wait-for-timeout=2000
 ```
 
 Read the screenshot. Evaluate it visually. Do not evaluate design from code alone.
