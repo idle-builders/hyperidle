@@ -1095,5 +1095,5 @@ stories:
   - id: AJ3
     title: Design variants are real TSX, reviewed and annotated in the browser
     track: AJ
-    depends: [AJ1, AJ2]
+    depends: [AJ1]
     complexity: L
