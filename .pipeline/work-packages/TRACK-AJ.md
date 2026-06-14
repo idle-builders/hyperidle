@@ -26,6 +26,8 @@ Founder direction (2026-06-13): the build pipeline is powerful but illegible and
 
 **Complexity.** L
 
+**Human design review.** No — infrastructure and source-of-truth change with no UI surface; introduces no new component and is not a redesign.
+
 **Acceptance criteria.**
 - The design system has exactly one visual source of truth — the TSX components; no `.html` reference files remain under `packages/design-system/`, and no rule, skill, or script names HTML as the design reference.
 - Visual regression still protects every catalogued component: a change that alters a component's rendered appearance is caught by a gate that screenshots the live TSX story and compares it against a committed baseline.
@@ -65,6 +67,8 @@ Founder direction (2026-06-13): the build pipeline is powerful but illegible and
 **Depends on.** None.
 
 **Complexity.** M
+
+**Human design review.** No — process/skill change with no UI surface.
 
 **Acceptance criteria.**
 - The pipeline runs in one of two modes; in autonomous mode its artifacts and behavior are unchanged from today, and in interactive mode it additionally surfaces founder touchpoints.
@@ -106,11 +110,14 @@ Founder direction (2026-06-13): the build pipeline is powerful but illegible and
 
 **Complexity.** L
 
+**Human design review.** No — builds the review tooling itself; its only UI is the viewer / annotation wiring, not a new base component or a page redesign. (This field is the convention AJ3 establishes — see ACs.)
+
 **Acceptance criteria.**
 - `/design` produces each variant as a live TSX story rendered in the component viewer, not as a standalone HTML mockup; the variant artifacts are the component code plus its spec and a screenshot of the live render.
 - A `/human-design-review` phase runs after `/design-critique` and is gated purely on stakes: it triggers for a `novel` design (a large redesign or a new essential / base component) and is skipped for routine designs — the trigger is read from the `DESIGN-CLASS` that `/design` already emits, not re-decided, and does not depend on whether a human is present.
 - When `/human-design-review` runs, the founder can open a rendered variant in the browser, attach feedback to specific elements (including positional intent such as "move this here"), and the designer agent receives that element-anchored feedback and revises the variant; the loop iterates until the founder approves.
 - A `novel` design in an autonomous run parks for human review rather than auto-shipping — the pipeline marks the workpackage awaiting-human-design-review instead of proceeding past the unreviewed design.
+- `/work-planning` (primarily) and `/concept` (where it runs) estimate at planning time whether a workpackage will need human design review — based on whether it introduces a new essential / base component or a large redesign — and record that estimate as a highlighted field in the workpackage's track documentation, so the founder sees up front which work will park for review.
 - When `/human-design-review` does not fire (routine design), `/design` selects a variant by in-session scoring and the pipeline proceeds without blocking.
 - The approved variant flows into `/architecture` and `/write-code` as real component code, with no separate HTML-to-TSX rebuild step.
 
@@ -121,10 +128,11 @@ Founder direction (2026-06-13): the build pipeline is powerful but illegible and
 - Given a `novel` design dispatched in an autonomous run, when the pipeline reaches the post-critique step, then it parks the workpackage awaiting human design review rather than shipping the unreviewed design.
 - Given the validation workpackage (AG7 or AI7) run end-to-end in interactive mode, then the founder can narrate the full loop on the high-stakes surfaces: variants rendered, annotated, revised, approved, built.
 
-**Plan calls.** Rewrite of `/design` (TSX variants) plus a new `/human-design-review` skill and the annotation-tool wiring; update `/design-critique` and `/pipeline` so the new conditional phase slots in after critique. Depends on AJ1's TSX-first viewer and AJ2's interactive-mode switch. Plan: the variant artifact shape (`.stories.tsx` location and naming); the trigger rule (read `DESIGN-CLASS` — do not invent a new classifier, do not add a presence check); the park-for-review behavior when a `novel` design lands in an autonomous run; how each variant's viewer route is served for annotation; and how the agent drains the annotation MCP queue. Prove it by running the loop on a real high-stakes UI workpackage.
+**Plan calls.** Rewrite of `/design` (TSX variants) plus a new `/human-design-review` skill and the annotation-tool wiring; update `/design-critique` and `/pipeline` so the new conditional phase slots in after critique; and update `/work-planning` (primary) and `/concept` to estimate the human-review need and emit it as a highlighted spec field in the track doc. Depends on AJ1's TSX-first viewer and AJ2's interactive-mode switch. Plan: the variant artifact shape (`.stories.tsx` location and naming); the trigger rule (read `DESIGN-CLASS` — do not invent a new classifier, do not add a presence check); the park-for-review behavior when a `novel` design lands in an autonomous run; how each variant's viewer route is served for annotation; and how the agent drains the annotation MCP queue. Prove it by running the loop on a real high-stakes UI workpackage.
 
 **Contracts / constraints.**
 - `/human-design-review` is gated purely on stakes, never on presence: it fires whenever `DESIGN-CLASS` is `novel` (large redesign or new essential / base / primitive component), and `routine` / `routine-low-conf` designs skip it. A `novel` design always gets human review — in an autonomous run it parks awaiting the founder rather than shipping unreviewed. The trigger reuses the existing `/design` classification — no parallel gate, no presence check.
+- The planning-time human-review estimate (`/work-planning`, `/concept`) is an advisory **forecast** surfaced in the track doc; the authoritative trigger remains `/design`'s `DESIGN-CLASS` at design time. The estimate highlights expected parks early — it does not replace or pre-empt the gate, and a design reclassified `novel` at `/design` time still triggers review even if planning guessed otherwise.
 - Variants are real `.stories.tsx` rendered through the existing viewer — no parallel mockup medium reintroduced.
 - The annotation tool is a standalone dev tool wired over MCP, never a dependency embedded in HyperIdle's bundle.
 - The multi-variant discipline (novel = 3, routine = 1, anti-convergence) and the 9-dimension critique gate survive the medium change.
