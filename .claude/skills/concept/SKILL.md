@@ -10,6 +10,12 @@ min_tool_calls: 18
 
 Upstream of `/design` and `/architecture`. Answers "what IS this thing?" — the layer where Thread is distinguished from Message, Block from Section, Artifact from Output, Bet from Task, Cost from Duration.
 
+**Two levels of concept.** Be explicit about which you are doing:
+- **Overall (track) concept** — what a whole worktrack does: the boundary, primitive, or load-bearing nouns its workpackages all share. This is the frame `/work-planning` requires to be *defined enough* before it registers a track's workpackages. Output: the `docs/<topic>/` ground truth + a `plans/<track>/concept.md`.
+- **Per-workpackage concept** — the concept specific to one workpackage (its own noun/shape). Run before that workpackage's `/architecture` (the pipeline gates it). Output: `plans/<workpackage-id>/concept.md` + any `docs/` ground-truth it reshapes.
+
+The phases below apply to either level — at track level the "noun" is the whole track's primitive/boundary; at WP level it's the workpackage's specific noun. A per-WP concept inherits the track concept as a fixed input and must not contradict it.
+
 **Skip when:** the concept is already locked in `docs/` and the workpackage doesn't reshape it. Read the relevant section files first; if they answer Phase 1 without contradiction, skip.
 
 ## Required reading
@@ -95,8 +101,8 @@ Each contract is one line. The designer later turns these into types, schemas, a
 
 ## Phase 5 — Write the per-workpackage concept doc and update ground truth
 
-The output is a concept doc, not a chat summary. Write to:
-- `plans/<workpackage-id>/concept.md` — the per-workpackage concept-locking output (always). This is what `/architecture` reads as a fixed input.
+The output is a concept doc, not a chat summary. **The concept file always belongs in the workpackage folder, inside the feature worktree** — never loose in the repo root or an ad-hoc path. Write to:
+- `plans/<workpackage-id>/concept.md` — the per-workpackage concept-locking output (always), at `plans/<workpackage-id>/concept.md` (for a concept that spans a whole track, use the track folder `plans/<track>/concept.md`). `plans/` is tracked, so this file is committed with the run and persists across worktrees — it is what `/architecture` reads as a fixed input. It is later retired by `/write-docs` once its essence lives in the `docs/` ground truth below.
 - A specific `docs/<topic>/<noun>.md` ground-truth file if the concept fits an existing layer (Thread → `docs/human-interface-layer/threads.md`, Block → `docs/blocks/<file>.md`, Artifact → `docs/process-layer/artifacts.md`). Update or create the specific file — do not write to a generic folder.
 - An update to the matching `docs/<topic>/canonical-shapes.md` (or sibling contract file) so downstream workpackages reference it without re-inventing.
 
