@@ -21,10 +21,10 @@
  *   AC5 — 5 skills + visual-parity.md describe TSX-first reality
  *
  * @lore AJ1: The inversion from HTML-as-truth to TSX-as-truth required a guard (not a
- * vitest test) because AC1 is a static filesystem/string property. The guard mirrors
- * the nimmly-guard.ts pattern: filesystem scan + string scan, exits 1 on violation.
- * Runs in `npm run verify` alongside nimmly-guard, demo-fixture-guard, token-guard —
- * same pattern, local-only (not in CI), consistent with its siblings.
+ * vitest test) because AC1 is a static filesystem/string property. The guard follows
+ * the same pattern as the other guard scripts: filesystem scan + string scan, exits 1
+ * on violation. Runs in `npm run verify` as part of the guard chain — local-only
+ * (not in CI), consistent with sibling guards.
  */
 
 import * as fs from "node:fs";
