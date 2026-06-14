@@ -53,7 +53,9 @@ This is how HyperIdle transitions from "founder in every loop" on day one to "fo
 
 ## Review threads use the GitHub PR model
 
-When an agent produces something needing human judgment, it creates a review thread: artifact embedded, reasoning visible, verdict affordance present.
+When an agent produces something needing judgment, it creates a review thread: artifact embedded, reasoning visible, verdict affordance present.
+
+The **Review** is dual-anchored — it pairs *what was asked* (**Intent**: the done-condition / spec / prompt, snapshotted) with *what was produced* (the **Subject**: the task's or bet's output, a set of one or more artifacts), so the verdict answers both "did it do the right thing?" and "is the output sound?". One verdict resolves the whole Subject — you do not approve twenty files one by one. The agent attaches a structured, searchable **Rationale** — the decisions it made, the alternatives it discarded, its confidence, mapped to the changes — because for agent-produced work the diff alone hides the *why*. The **Reviewer** that renders the verdict is human *or* a trusted agent team-member: a review always happens; *who* reviews is governed by the agent's autonomy level (L1–L4) and `escalate`. Inline comments bind to **block identity**, so feedback follows the content when the work changes. A review is an *experience* — examining the work and conversing about it at once — not a thread with a button; its parts and the examine-vs-converse layout are specified in the primitive. Full concept: [`../human-interface-layer/review-primitive.md`](../human-interface-layer/review-primitive.md) (locked in `plans/AL1/concept.md`, grounded in the AL1 research).
 
 **Five binding verdicts:**
 - **Approve** — ship as proposed
