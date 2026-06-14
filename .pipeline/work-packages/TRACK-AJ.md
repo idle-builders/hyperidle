@@ -81,7 +81,7 @@ Founder direction (2026-06-13): the build pipeline is powerful but illegible and
 - Given the pipeline invoked in interactive mode, when `/ship` reaches CI-green, then a readable ship summary is presented before any merge, and the merge still waits for the human.
 - Given the pipeline invoked in autonomous mode, when it runs end-to-end, then no founder prompt is emitted and the committed artifact set matches the pre-change behavior.
 
-**Plan calls.** Process/skill change across `/pipeline`, `/concept`, and `/ship` — no product code, no `/design`. Plan how the mode is selected and threaded through the orchestrator, and the exact content contract of the concept recap and the ship summary. Validation is by founder walkthrough of an interactive run plus an autonomous-parity check.
+**Plan calls.** Process/skill change across `/pipeline`, `/concept`, `/work-planning`, and `/ship` — no product code, no `/design`. Plan how the mode is selected and threaded through the orchestrator, and the exact content contract of the concept recap and the ship summary. Validation is by founder walkthrough of an interactive run plus an autonomous-parity check.
 
 **Contracts / constraints.**
 - Autonomous mode is the default; interactive touchpoints are strictly additive and never alter what gets committed.
@@ -102,7 +102,7 @@ Founder direction (2026-06-13): the build pipeline is powerful but illegible and
 
 **What exists today.** `/design` emits `plans/<wp>/design/<variant>/mockup.html` + a Playwright screenshot + `spec.md`, scored against the 9-dimension rubric, with founder choice (when reachable) via a single `AskUserQuestion`. The design-system viewer already renders `.stories.tsx` live at `:8098` (`viewer/main.tsx`, `viewer/discovery.ts`); AJ1 makes TSX the sole medium and drops the viewer's HTML path. No in-browser annotation channel exists — design feedback is markdown only. Standalone annotation tools provide element-level human→agent feedback over MCP: Vibe Annotations (Chrome extension + local MCP server on `:3846`, wired to Claude Code via `claude mcp add`), with MCP Pointer (MIT, captures React component → source file) as the fallback.
 
-**What's genuinely missing.** Two things. (1) `/design` authoring variants as `.stories.tsx` rendered in the viewer instead of HTML mockups. (2) A new **stakes-gated** pipeline phase, `/human-design-review`, that runs after `/design-critique`: the founder annotates the rendered variant in the browser, the designer agent reads the element-anchored feedback over MCP and revises the TSX, iterating until the founder approves. The single gate is stakes — it fires whenever the design is high-stakes (a `novel` `DESIGN-CLASS`: a large redesign or a new essential / base / primitive component) and is skipped for routine tweaks. It is **not** gated on whether a human happens to be present: a high-stakes design always gets human review, so in an autonomous run a `novel` design **parks** for the founder rather than auto-shipping — high-stakes design is not autonomously shippable.
+**What's genuinely missing.** Two things. (1) `/design` authoring variants as `.stories.tsx` that render **in isolation** in the viewer — the component (or a composed page-mock) mounted with **fixture data**, plus thin **mock providers** for any surface that needs routing / context / data — so a design can be prototyped, shown, and annotated with no backend, no real data, and no working system behind it. (2) A new **stakes-gated** pipeline phase, `/human-design-review`, that runs after `/design-critique`: the founder annotates the rendered variant in the browser, the designer agent reads the element-anchored feedback over MCP and revises the TSX, iterating until the founder approves. The single gate is stakes — it fires whenever the design is high-stakes (a `novel` `DESIGN-CLASS`: a large redesign or a new essential / base / primitive component) and is skipped for routine tweaks. It is **not** gated on whether a human happens to be present: a high-stakes design always gets human review, so in an autonomous run a `novel` design **parks** for the founder rather than auto-shipping — high-stakes design is not autonomously shippable.
 
 **Depends on.**
 - AJ1 — variants cannot be authored as TSX-as-truth while HTML is still the design source and the viewer still carries an HTML path; the inverted foundation must exist first.
@@ -114,6 +114,7 @@ Founder direction (2026-06-13): the build pipeline is powerful but illegible and
 
 **Acceptance criteria.**
 - `/design` produces each variant as a live TSX story rendered in the component viewer, not as a standalone HTML mockup; the variant artifacts are the component code plus its spec and a screenshot of the live render.
+- A design can be prototyped and annotated as a story that renders **in isolation with fixture data** — a page-level or data-fed surface mounts via thin mock providers, with no server, database, or real data required; the same story serves as the prototype, the annotation surface, and (post-build) the catalog entry.
 - A `/human-design-review` phase runs after `/design-critique` and is gated purely on stakes: it triggers for a `novel` design (a large redesign or a new essential / base component) and is skipped for routine designs — the trigger is read from the `DESIGN-CLASS` that `/design` already emits, not re-decided, and does not depend on whether a human is present.
 - When `/human-design-review` runs, the founder can open a rendered variant in the browser, attach feedback to specific elements (including positional intent such as "move this here"), and the designer agent receives that element-anchored feedback and revises the variant; the loop iterates until the founder approves.
 - A `novel` design in an autonomous run parks for human review rather than auto-shipping — the pipeline marks the workpackage awaiting-human-design-review instead of proceeding past the unreviewed design.
@@ -128,16 +129,58 @@ Founder direction (2026-06-13): the build pipeline is powerful but illegible and
 - Given a `novel` design dispatched in an autonomous run, when the pipeline reaches the post-critique step, then it parks the workpackage awaiting human design review rather than shipping the unreviewed design.
 - Given the validation workpackage (AG7 or AI7) run end-to-end in interactive mode, then the founder can narrate the full loop on the high-stakes surfaces: variants rendered, annotated, revised, approved, built.
 
-**Plan calls.** Rewrite of `/design` (TSX variants) plus a new `/human-design-review` skill and the annotation-tool wiring; update `/design-critique` and `/pipeline` so the new conditional phase slots in after critique; and update `/work-planning` (primary) and `/concept` to estimate the human-review need and emit it as a highlighted spec field in the track doc. Depends on AJ1's TSX-first viewer and AJ2's interactive-mode switch. Plan: the variant artifact shape (`.stories.tsx` location and naming); the trigger rule (read `DESIGN-CLASS` — do not invent a new classifier, do not add a presence check); the park-for-review behavior when a `novel` design lands in an autonomous run; how each variant's viewer route is served for annotation; and how the agent drains the annotation MCP queue. Prove it by running the loop on a real high-stakes UI workpackage.
+**Plan calls.** Rewrite of `/design` (TSX variants) plus a new `/human-design-review` skill and the annotation-tool wiring; update `/design-critique` and `/pipeline` so the new conditional phase slots in after critique; and update `/work-planning` (primary) and `/concept` to estimate the human-review need and emit it as a highlighted spec field in the track doc. Depends on AJ1's TSX-first viewer. Plan: the variant artifact shape (`.stories.tsx` location and naming); the **isolation harness** for prototyping data-/context-dependent surfaces (a shared fixtures + mock-provider layer so pages render in the viewer without a backend); the trigger rule (read `DESIGN-CLASS` — do not invent a new classifier, do not add a presence check); the park-for-review behavior when a `novel` design lands in an autonomous run; how each variant's viewer route is served for annotation; and how the agent drains the annotation MCP queue. Prove it by running the loop on a real high-stakes UI workpackage.
 
 **Contracts / constraints.**
 - `/human-design-review` is gated purely on stakes, never on presence: it fires whenever `DESIGN-CLASS` is `novel` (large redesign or new essential / base / primitive component), and `routine` / `routine-low-conf` designs skip it. A `novel` design always gets human review — in an autonomous run it parks awaiting the founder rather than shipping unreviewed. The trigger reuses the existing `/design` classification — no parallel gate, no presence check.
 - The planning-time human-review estimate (`/work-planning`, `/concept`) is an advisory **forecast** surfaced in the track doc; the authoritative trigger remains `/design`'s `DESIGN-CLASS` at design time. The estimate highlights expected parks early — it does not replace or pre-empt the gate, and a design reclassified `novel` at `/design` time still triggers review even if planning guessed otherwise.
 - Variants are real `.stories.tsx` rendered through the existing viewer — no parallel mockup medium reintroduced.
+- Variants are prototyped as stories rendering **in isolation** with fixtures (and thin mock providers where a surface needs data/context) — no design requires a working backend, routing, or real data to be shown and annotated. One story is prototype, annotation surface, and catalog entry.
 - The annotation tool is a standalone dev tool wired over MCP, never a dependency embedded in HyperIdle's bundle.
 - The multi-variant discipline (novel = 3, routine = 1, anti-convergence) and the 9-dimension critique gate survive the medium change.
 - Autonomous-mode behavior degrades gracefully with no annotation tool present.
 
-**Out of scope.** The concept and ship summaries (AJ2). Building the annotation tool itself — it is adopted, not built. Post-implementation visual polish (`/visual-polish`). Changes to product features beyond the validation workpackage.
+**Out of scope.** The concept and ship summaries (AJ2). PR / ship-time design-change screenshots (AJ4). Building the annotation tool itself — it is adopted, not built. Post-implementation visual polish (`/visual-polish`). Changes to product features beyond the validation workpackage.
 
 **Effort.** L (~2d)
+
+---
+
+### AJ4 — Design changes are always visible in the PR and ship summary
+
+**Workpackage.** As the founder reviewing a pull request, I want every design change to be visible without checking out the branch — before/after screenshots of the changed components embedded in the PR, and the after-ship summary always pointing me at the openable stories and screenshots — so I can see what a UI change actually looks like, every time, instead of reading that something changed and trusting it.
+
+**Why this matters.** A code diff shows *that* styling changed; it does not show what it now *looks like*. Today a design change is invisible in the PR unless the reviewer checks out the branch and runs the app, so visual regressions and unintended changes slip through and the founder merges UI changes blind. AJ1 already produces golden TSX screenshots per component for visual regression — the exact before/after images are computed at gate time and then discarded. Surfacing them in the PR and the ship summary costs little and closes the "I can't see what changed" gap that makes UI review unreliable. Cost of not building: design review stays text-only and the founder cannot trust that a merged UI change looks right.
+
+**What exists today.** AJ1 establishes golden TSX screenshots as the visual-regression baseline and computes a before/after diff when a component's appearance changes. AJ2 establishes the after-ship summary. The viewer renders every story and Playwright can screenshot any story on demand. Nothing surfaces these images into the PR body or links the stories from the ship summary — the evidence exists at gate time and is thrown away.
+
+**What's genuinely missing.** An automatic, always-on step: whenever a workpackage changes a component's rendered appearance, the before/after screenshots are attached to the PR and the after-ship summary lists the openable stories and their screenshots for the changed surfaces — present unconditionally for any design change, independent of interactive mode, and absent entirely when there is no design change.
+
+**Depends on.**
+- AJ1 — the before/after screenshots are sourced from AJ1's golden TSX baselines and regression diff; without that screenshot source there is nothing to surface. (AJ2 is a sibling — the interactive ship summary, when it runs, incorporates the same story/screenshot links, but AJ4's PR evidence is emitted by `/ship` unconditionally and does not require AJ2.)
+
+**Complexity.** M
+
+**Human design review.** No — surfaces existing screenshots into the PR / ship output; introduces no component and no redesign.
+
+**Acceptance criteria.**
+- When a workpackage changes a component's rendered appearance, the PR carries before/after screenshots of each changed component, sourced from the visual-regression diff — not a separate manual capture.
+- The after-ship summary, whenever the change includes a design change, always lists the openable stories and their screenshots for the changed surfaces, so the founder can open the exact story to inspect it.
+- When a change has no rendered-design impact, no screenshots are attached and the ship / PR output has no design section — the evidence appears only when there is a design change.
+- The evidence is produced automatically and is present regardless of run mode (interactive or autonomous) — it is a ship artifact, not a founder touchpoint.
+
+**Validation scenarios.**
+- Given a PR that restyles a component, when the PR is opened or updated, then before/after screenshots of that component appear in the PR.
+- Given a workpackage with a design change reaching ship, when the after-ship summary is produced, then it links the changed stories and shows their screenshots.
+- Given a backend-only workpackage with no rendered change, when it ships, then the PR carries no screenshots and the ship summary has no design section.
+
+**Plan calls.** Process change spanning `/ship` (PR body / after-ship comment) and the AJ2 ship summary, sourcing images from AJ1's visual-regression baselines and diff. Plan: how "is there a design change?" is detected (the changed-component set from the visual-regression gate); where screenshots are hosted so they render inside a GitHub PR (committed artifact vs uploaded asset); and how the ship summary links openable stories (viewer URL / story id). No `/design`.
+
+**Contracts / constraints.**
+- The design-change evidence is always present when a design change exists and absent otherwise — never optional, never a manual step.
+- Screenshots are sourced from the same TSX baselines AJ1 uses for regression — one screenshot source of truth, not a parallel capture path.
+- Independent of interactive mode — this is a ship / CI artifact, not a founder touchpoint; it appears in autonomous runs too.
+
+**Out of scope.** The interactive annotation loop (AJ3). The visual-regression gate itself (AJ1). The prose ship summary's non-design content (AJ2). Animated / interaction capture — static before/after screenshots only.
+
+**Effort.** M (~1d)

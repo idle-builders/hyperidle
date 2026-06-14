@@ -1097,3 +1097,8 @@ stories:
     track: AJ
     depends: [AJ1]
     complexity: L
+  - id: AJ4
+    title: Design changes are always visible in the PR and ship summary
+    track: AJ
+    depends: [AJ1]
+    complexity: M
