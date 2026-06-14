@@ -93,3 +93,50 @@ The "Visual regression (TSX baselines)" CI step itself **passed** (good — conf
 5. **WARNING-1 / WARNING-4:** Decide guard-scope vs AJ3 deferral; validate or remove the `-- --port` forwarding if the workbench spec is kept.
 
 **Verdict: NOT DONE.**
+
+---
+
+# Re-review (round 2)
+
+**Reviewer:** Phase 4, round 2 (verifying builder's fixes to the 2 CRITICALs + 4 WARNINGs). Reproduced each finding — did not trust the report. Ran `ds:sync`, `ds:workbench`, `design-source-guard:check` locally; pulled the live CI logs.
+
+**Verdict: NOT DONE.** One CRITICAL remains. **CRITICAL-1 is genuinely fixed and proven non-vacuous.** All four WARNINGs are resolved. But **CRITICAL-2 is NOT resolved: CI verify FAILED** (run 27513994386) at the "Visual regression (TSX baselines)" step — the baselines were blessed on **Mac, not Linux**, and a 1-pixel dimension mismatch on Linux (`976×160` expected vs `976×161` received) fails `toHaveScreenshot` outright. Dimension mismatches bypass the 5% `maxDiffPixelRatio` (the ratio only applies to same-size images), so the cross-platform tolerance the design relies on does not save it. This is the exact cross-platform risk the round-1 review flagged as "the real risk now." It also violates the project's own `.claude/rules/visual-regression.md` ("CI/Linux is the blessing authority … Do NOT commit Mac-rendered PNGs as canonical baselines") and the `@lore` in `playwright.config.ts`.
+
+## Updated AC table
+
+| AC | Status | Evidence (round 2) |
+|---|---|---|
+| **AC1** One TSX source of truth; no `.html` refs; no skill names HTML-as-reference | **MET** | `design-source-guard:check` clean. Guard now catches `mockup.html (preferred)` / `The mockup IS the variant` / `mockup.html embodies the variant` (`scripts/design-source-guard.ts:78-85`) — **verified by injecting a violation file**: guard exits non-zero and names each hit; clean again after revert. `/design` SKILL.md:154 rewritten to `variant.tsx` ("The TSX sketch IS the variant"); `/design-critique` SKILL.md:39 now says "reference variant.tsx, not mockup.html". WARNING-1 resolved — guard is now broader than AC1's text, not narrower. |
+| **AC2** Visual regression protects EVERY catalogued component; names the drifted component | **MET (non-vacuous)** | The silent `continue` is gone. `navigateAndWaitForSections` (`visual-regression.test.ts:163-185`) does a deterministic `waitFor({state:"attached"})` + full-reload-and-retry on React-crash contamination. 0-section non-allowlisted components are pushed to `failedComponents` and the test **hard-fails naming them** (`:339-360, :384-390`). Allowlist is **exactly 2** (`NotificationPopover`, `TaskSheet`) — both genuine `useNavigate()`-without-Router crashes, documented per-entry; coverage guard (`:293-318`) asserts `ALLOWLIST_SIZE === 2` and fails on silent growth. **342 committed baselines** (was 182); all 7 previously-unprotected primitives now covered (avatar 3, emptystate 8, errorstate 7, skeleton 6, tabbar 3, toast 2, progress 3). Allowlisted comps correctly have **zero** baselines. **Proven by running `ds:sync` locally: 27 passed, 2 skipped — the coverage test passed, exercising every non-allowlisted component against a real golden PNG.** The 39-zero-section race from round 1 is gone. |
+| **AC3** Viewer renders only TSX; toggle gone; every component reachable | **MET** | No-HTML-toggle test passes (`:553`). Workbench spec (now wired) re-asserts toggle absence on a component page — passes. |
+| **AC4** `npm run verify` passes on inverted tree; no skipped/weakened visual checks | **NOT MET** | **CI run 27513994386 FAILED** at "Visual regression (TSX baselines)": `ai2-dialogportalroot-mount-effect.png` — `Expected an image 976px by 160px, received 976px by 161px. 1 failed, 26 passed`. Baselines are Mac-rendered (fix commit `ea097891` has no docker/Linux blessing). The visual step never reaches the workbench or attestation step. Local Mac `ds:sync` passes only because the baselines match the Mac render they were blessed from. CRITICAL-2. (Commit order itself is correct — attestation `2e815db7` is HEAD, no commits after; PR title no longer "WIP". The blocker is the gate, not the attestation.) |
+| **AC5** 5 skills + `design-system.md` TSX-first; `visual-parity.md` removed; `visual-regression.md` added | **MET** | Confirmed round 1; round-2 spot-check of `design-system.md`, `visual-regression.md`, `/design`, `/design-critique` all TSX-first. |
+
+## CRITICAL findings (round 2)
+
+### CRITICAL-2 (UNRESOLVED) — CI red: visual baselines blessed on Mac, fail on Linux
+`CI run 27513994386`, step "Visual regression (TSX baselines)", exit 1:
+```
+Snapshot: ai2-dialogportalroot-mount-effect.png
+Expected an image 976px by 160px, received 976px by 161px.
+1 failed
+26 passed (1.9m)
+```
+Root cause: the 342 baselines were generated with `npm run ds:bless` on **macOS** (the builder's local machine), not in a Linux container. `AI2/DialogPortalRoot`'s `mount-effect` section renders **161px tall on Linux vs 160px on Mac** — a sub-pixel font/layout-metric difference. When the captured image's **dimensions** differ from the baseline, Playwright's `toHaveScreenshot` fails immediately; `maxDiffPixelRatio: 0.05` only governs per-pixel color diffs on **same-size** images. So the cross-platform tolerance the whole design leans on (one baseline set for Mac+Linux) does not absorb dimension drift.
+
+This is not a one-off flake — it is the predictable consequence of blessing on the wrong platform. Today 1 of ~330 baselines drifts by 1px; any other component whose Linux render height differs will fail the same way, and re-running will not fix it.
+
+**Fix (per `.claude/rules/visual-regression.md`, which the builder authored):** re-bless ALL baselines on Linux — `npm run ds:bless` inside `mcr.microsoft.com/playwright:v<version>` (or let CI bless), commit the Linux PNGs, then confirm CI's visual + workbench + attestation steps all go green on the final tree. Do **not** raise the ratio or special-case the one component — that masks the platform-mismatch root cause.
+
+## WARNING findings (round 2)
+
+- **WARNING-1 — RESOLVED.** Guard catches mockup-as-reference language (verified by injection). Skills reference `variant.tsx`.
+- **WARNING-2 — RESOLVED (one cosmetic residue).** `playwright.l1.config.ts` + `thread-components.spec.ts` deleted; `workbench.spec.ts` wired into `verify` (`package.json:31` `ds:workbench`) and CI (`ci.yml:72-75`). **Verified `ds:workbench` runs and passes locally (3/3).** Residue: `knip.json:39` still lists the deleted `playwright.l1.config.ts` in the design-system playwright config array — harmless (knip tolerates a missing config-list entry; `npm run knip` passes), but it is dead config; remove for cleanliness. Minor: `workbench.spec.ts:45` test title says "ThreadShell tile loads" but the body navigates to `#StatusChip` — misleading name, not load-bearing.
+- **WARNING-3 — RESOLVED.** Marker test now hard-fails if any of the 31 `MUST_HAVE_MARKERS` components loses its marker (`:534-539`) and floors `withMarkers >= 31` (`:543-548`). Not tautological — 11 components currently lack markers (down from ~40); the floor would catch a mass-strip. The hard regression guard is the meaningful part. Confirmed: none of the 11 missing are in `MUST_HAVE_MARKERS` (test passed).
+- **WARNING-4 — RESOLVED.** Workbench config uses port 8098 + `reuseExistingServer: true` (`playwright.workbench.config.ts:39-40`); the `-- --port` double-dash is gone. **Verified it boots a fresh viewer standalone and passes.**
+
+## What must change before DONE
+1. **CRITICAL-2:** Re-bless all visual baselines on **Linux** (CI container / playwright Docker image), commit the Linux PNGs, get CI fully green (visual → workbench → attestation). This is the only blocker.
+2. **(NICE-TO-HAVE, not blocking)** Remove the stale `playwright.l1.config.ts` entry from `knip.json:39`; fix the `workbench.spec.ts:45` test title.
+
+**Verdict: NOT DONE** — CRITICAL-2 (CI red, Mac-blessed baselines) unresolved. Everything else is genuinely fixed.
