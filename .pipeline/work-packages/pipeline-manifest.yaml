@@ -1102,3 +1102,37 @@ stories:
     track: AJ
     depends: [AJ1]
     complexity: M
+
+  # Track AK: Closing the Kernel Loop
+  - id: AK1
+    title: Committing a bet starts work
+    track: AK
+    depends: []
+    complexity: L
+  - id: AK2
+    title: The Assistant can draft and shape a bet
+    track: AK
+    depends: []
+    complexity: L
+  - id: AK3
+    title: Promote a knowledge item into a bet
+    track: AK
+    depends: []
+    complexity: M
+  - id: AK4
+    title: Kernel runs a task through a swappable strategy with a minimal reference strategy
+    track: AK
+    depends: []
+    complexity: L
+
+  # Track AL: Review Experience
+  - id: AL1
+    title: Competitive research dossier of review experiences
+    track: AL
+    depends: []
+    complexity: M
+  - id: AL2
+    title: Inline / anchored review comments
+    track: AL
+    depends: [AL1]
+    complexity: L
