@@ -25,8 +25,12 @@
   .panel .desc{font-size:13px;color:var(--text-secondary);margin:4px 0 0}
   .field{display:flex;flex-direction:column;gap:6px}
   .field label{font-size:13px;font-weight:500}
-  textarea.ds{width:100%;font-size:15px;line-height:1.55;padding:10px 12px;background:var(--surface-elevated);border:1.5px solid var(--border-default);border-radius:var(--r-default);color:var(--text-primary);resize:vertical;min-height:96px;outline:none}
+  /* @ah3: prose font — design contract drops font-mono. Textareas default to monospace in browsers; force inherit. */
+  textarea.ds{width:100%;font-family:inherit;font-size:15px;line-height:1.55;padding:10px 12px;background:var(--surface-elevated);border:1.5px solid var(--border-default);border-radius:var(--r-default);color:var(--text-primary);resize:vertical;min-height:96px;outline:none}
   textarea.ds:focus{border-color:var(--accent-primary);box-shadow:0 0 0 3px var(--accent-primary-dim)}
+  textarea.ds.err{border-color:var(--status-error)}
+  textarea.ds.err:focus{box-shadow:0 0 0 3px var(--status-error-dim)}
+  .hint.bad{color:var(--status-error);font-weight:500}
   .hint{font-size:12px;color:var(--text-tertiary)}
   .hint.ok{color:var(--status-success);font-weight:500}
   .row{display:flex;align-items:center;gap:12px}
@@ -63,7 +67,10 @@
 </head>
 <body>
   <div class="col">
-    <h3 class="lbl">Surface 1 — Settings → Assistant (consolidated persona, on design-system Input + Button)</h3>
+    <h3 class="lbl">Surface 1 — Settings → Assistant (consolidated persona, on design-system Input + Button) — prose font, NOT mono</h3>
+
+    <!-- saved state -->
+    <h3 class="lbl" style="margin-top:6px">state: saved</h3>
     <div class="panel">
       <div><h2>Assistant</h2><p class="desc">The persona shapes how your personal assistant responds to you. This is the only place to edit it.</p></div>
       <div class="field">
@@ -71,7 +78,31 @@
         <textarea id="p" class="ds">You are a concise, direct chief-of-staff style assistant. Prefer bullet points. Surface decisions, never do agent work for the founder.</textarea>
         <span class="hint">Shapes how your assistant responds. Edited in exactly one place.</span>
       </div>
-      <div class="row"><button class="btn primary">Save</button><span class="hint ok">Saved</span></div>
+      <div class="row"><button class="btn primary" disabled>Save</button><span class="hint ok">Saved</span></div>
+    </div>
+
+    <!-- dirty state -->
+    <h3 class="lbl">state: dirty (unsaved edits → Save enabled)</h3>
+    <div class="panel">
+      <div><h2>Assistant</h2><p class="desc">The persona shapes how your personal assistant responds to you. This is the only place to edit it.</p></div>
+      <div class="field">
+        <label>Persona instructions</label>
+        <textarea class="ds">You are a concise, direct chief-of-staff style assistant. Prefer bullet points. Surface decisions, never do agent work for the founder. Always cite the source bet.</textarea>
+        <span class="hint">Shapes how your assistant responds. Edited in exactly one place.</span>
+      </div>
+      <div class="row"><button class="btn primary">Save</button></div>
+    </div>
+
+    <!-- error state -->
+    <h3 class="lbl">state: save error (Input error border + message via --status-error)</h3>
+    <div class="panel">
+      <div><h2>Assistant</h2><p class="desc">The persona shapes how your personal assistant responds to you. This is the only place to edit it.</p></div>
+      <div class="field">
+        <label>Persona instructions</label>
+        <textarea class="ds err">You are a concise, direct chief-of-staff style assistant. Prefer bullet points. Surface decisions, never do agent work for the founder.</textarea>
+        <span class="hint bad">Couldn't save your persona. Check your connection and try again.</span>
+      </div>
+      <div class="row"><button class="btn primary">Save</button></div>
     </div>
   </div>
 

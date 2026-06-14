@@ -2,6 +2,11 @@
 
 Routine, single-variant per surface. Zero NEW design-system components. Embodied in `mockup.html` → `overview.png`. Architecture must NOT re-decide hierarchy, component vocabulary, or interaction grammar.
 
+> **Embodied-state coverage (closes design-critique W1/W2).** `overview.png` now embodies every AC2 proof target as a concrete screenshot region — the builder + Playwright assertions target these, not reverse-engineer them:
+> - Persona surface: **saved**, **dirty** (Save enabled), and **save-error** (Input error border + `--status-error` hint) — all three rendered.
+> - Overlay: streaming (thinking row), answered, `missing_key`, `missing_harness` (affordance "Open Agent settings" visible), and **`provider_error` with the Retry ghost button fully visible** (no longer cropped).
+> - **Persona text is rendered in PROSE font** (textarea `font-family: inherit`). The earlier image rendered mono because browsers default `<textarea>` to monospace; the design-system `Input` already sets the prose family, so the builder gets prose for free — do NOT add `font-mono`. The ONLY mono element is the notice `code` chip (`rate_limited`), which is intentional.
+
 ## Surface 1 — Consolidated persona surface (Settings → Assistant)
 
 **Components:** design-system `Input` (textarea mode) + `Button` (primary). Replaces the raw `<textarea className="textarea textarea-bordered">` + raw `<button className="btn">` + the dead `--color-error/success` `<p>` blocks in `SettingsAssistant.tsx`.
