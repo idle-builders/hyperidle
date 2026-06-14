@@ -47,3 +47,23 @@ Reviewer read the plan cold, then verified every load-bearing claim against the 
 **APPROVED WITH REQUIRED FIXES — overall 7/10, two CRITICALs must be resolved in the plan before the builder starts.**
 
 The plan is structurally sound, the inversion is correctly understood, and the central decision is well-reasoned. But two wiring gaps would make the gate fail to run (bun-in-CI) or fail to enumerate (discoverStories-in-Node) — both would render AC2/AC4 vacuous, the precise outcome this workpackage forbids. Neither requires a redesign; both need a named fix in the plan text (CI bun setup or swap `webServer` to `npm run serve`; replace "derive from discoverStories()" with runtime catalog-DOM enumeration). The three WARNINGs (verify-vs-CI reconciliation, canonical capture platform, interactive-state coverage) should also be folded in to prevent a Task-12 surprise. Once the two CRITICALs are addressed in the plan, this is a clean go for `/write-tests`.
+
+---
+
+## Re-critique (round 2)
+
+ARCHITECTURE-SCORE: 9/10  rounds=2  score-line: SA:9 LI:9 AC:9 DM:8 N:9 MD:8 FMC:9 S:8 V:9
+
+Reviewer re-verified every prior finding against current source (not just the plan's claims).
+
+**CRITICAL #1 (bun-in-CI) — RESOLVED.** Confirmed `serve` = `vite --config vite.config.ts` (`package.json:16`), genuinely bun-free; all three configs currently use `bun run serve` (`playwright.config.ts:15`, `workbench:24`, `l1:18`); CI is `ubuntu-latest` + `setup-node` + `npm ci`, zero bun. Plan mandates the swap to `npm run -w @hyperidle/design-system serve` in all three (§webServer fix, Task 1, File inventory 151-152).
+
+**CRITICAL #2 (discoverStories-in-Node) — RESOLVED.** Selectors verified real: `main.tsx:213` `component-link`, `:217` `component-name`={item.title}, `:244` `demo-section`. `button.component-link .component-name` → `allTextContents()` yields the full catalogued set. Plan bans `discoverStories()` and uses runtime catalog-DOM enumeration.
+
+**WARNINGs — all RESOLVED.** verify-vs-CI: explicit "which runs where" table (100-107). Canonical platform: CI/Linux blessing authority + "never raise the 5% ratio" guardrail (109-117) — cannot force permanent-red CI or a weakened threshold. Interactive states: re-captured as `toHaveScreenshot` baselines (line 80). data-ds-shell: dual selector `[data-ds-component], [data-ds-shell]` (75, 150), matching `thread-components.spec.ts:46`.
+
+**Residual notes for the builder (non-blocking):**
+- Workbench config boots `bun run serve -- --port 8197`; the npm swap must preserve the `-- --port 8197` flag. Plan says "same swap" generically.
+- Plan/round-1 say "11 INTERACTIVE_COMPONENTS"; actual count is 12 (`visual-regression.test.ts:128-149`). Harmless — plan says "port the same map," not a hardcoded 11.
+
+### Verdict: APPROVED — 9/10, no unresolved CRITICAL.
