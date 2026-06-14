@@ -1103,27 +1103,32 @@ stories:
     depends: [AJ1]
     complexity: M
 
-  # Track AK: Closing the Kernel Loop
+  # Track AK: Closing the Kernel Loop (dependency-ordered)
   - id: AK1
-    title: Committing a bet starts work
+    title: Harness-vocabulary rename rollout
     track: AK
     depends: []
     complexity: L
   - id: AK2
-    title: The Assistant can draft and shape a bet
+    title: Strategy port + minimal reference strategy
     track: AK
-    depends: []
+    depends: [AK1]
     complexity: L
   - id: AK3
+    title: Committing a bet starts work
+    track: AK
+    depends: [AK2]
+    complexity: L
+  - id: AK4
+    title: The Assistant can draft and shape a bet
+    track: AK
+    depends: [AK1]
+    complexity: L
+  - id: AK5
     title: Promote a knowledge item into a bet
     track: AK
-    depends: []
+    depends: [AK1]
     complexity: M
-  - id: AK4
-    title: Kernel runs a task through a swappable strategy with a minimal reference strategy
-    track: AK
-    depends: []
-    complexity: L
 
   # Track AL: Review Experience
   - id: AL1
