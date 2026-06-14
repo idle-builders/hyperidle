@@ -1157,12 +1157,6 @@ stories:
     track: AL
     depends: []
     complexity: M
-  - id: AL2
-    title: Inline / anchored review comments
-    track: AL
-    depends: [AL1]
-    complexity: L
-
   # Track AM: Conversation Experience
   - id: AM1
     title: Conversation experience
