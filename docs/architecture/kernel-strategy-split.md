@@ -2,7 +2,7 @@
 
 **Status:** Authoritative (founder-aligned 2026-06-14). This document is the ground truth for the kernel/strategy boundary and the harness-engineering vocabulary. It **supersedes** the older "kernel = stable / fabric = volatile" framing scattered in other docs (e.g. `technology-summary.md`'s package table) — that framing is rejected. Where another doc disagrees with this one on the boundary or the nouns, this one wins.
 
-Originating research (local, not tracked): `plans/reviews/kernel-strategy-usp-analysis.md`, `plans/AK/concept.md`. Build track: `.pipeline/work-packages/TRACK-AK.md`.
+Originating research: `plans/AK/kernel-strategy-usp-analysis.md`, `plans/AK/concept.md` (both tracked under `plans/AK/`). Build track: `.pipeline/work-packages/TRACK-AK.md`.
 
 ---
 

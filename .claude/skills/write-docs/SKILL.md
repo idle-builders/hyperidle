@@ -8,7 +8,9 @@ min_tool_calls: 15
 
 # Write Docs — Reading-Funnel-Optimized Documentation
 
-Write or revise user-facing documentation (product pages, guides, feature docs) so every page works as a **reading funnel** — capturing attention in seconds, delivering insights progressively, and converting scanners into active users.
+**What this step is.** Print the *essence of the concept and what was actually implemented* back into the docs. By the time this runs (in the pipeline, after review and fixes), the code is final and the concept is known — so this is where the durable truth lands: distil the concept (`plans/<id>/concept.md`) and the as-built implementation into `docs/` (ground truth and user-facing), reconciling the docs with what shipped. Then **retire the superseded planning artifacts** (see the final section) so `plans/` holds only live work and the lasting knowledge lives in `docs/` + code.
+
+The user-facing pages this produces must each work as a **reading funnel** — capturing attention in seconds, delivering insights progressively, and converting scanners into active users.
 
 This skill applies to writing AND reviewing documentation. It is backed by empirical research, not opinion.
 
@@ -163,6 +165,21 @@ Read each document. For each page:
 2. Identify the top 3 lowest-scoring dimensions.
 3. Revise to address those dimensions specifically.
 4. Re-score. All dimensions must be ≥3; total must be ≥35.
+
+---
+
+## Capturing the concept + retiring planning artifacts
+
+This runs after the docs are written (or confirmed unchanged). Two moves:
+
+**1. Capture the essence.** Read `plans/<id>/concept.md` and the shipped code, and make `docs/` reflect what actually exists:
+- **Ground truth** (`docs/<topic>/`, e.g. `architecture/`, `process-layer/`): update the conceptual docs so they match the as-built reality. The concept may have shifted during build, or the implementation may differ from the original plan — the docs describe what shipped, not what was planned.
+- **User-facing** (`docs/product/`, `docs/guides/user/`): write/revise the pages per the 15 principles above.
+- If the workpackage changed nothing a reader sees, reads, or does, say so in the commit message (`docs: no user-facing changes (<reason>)`) — but still do move 2.
+
+**2. Retire superseded planning artifacts.** `plans/` is tracked, so its scratch accumulates during the run. Now prune it: for each `plans/<id>/` artifact (concept, architecture, design, critiques, scans), if its durable content now lives in `docs/` or the shipped code, **delete it** — git history preserves it. Keep only what still carries unique, not-yet-captured value. Do **not** touch `/retro` output (it runs after this step) or non-workpackage cross-cutting research under `plans/reviews/`. Commit the deletions so the working tree shows only live work.
+
+Rule of thumb: after this step, a reader should find the concept and the feature explained in `docs/` + code, and `plans/<id>/` should be empty or near-empty — not a parallel, drifting copy of the docs.
 
 ---
 
