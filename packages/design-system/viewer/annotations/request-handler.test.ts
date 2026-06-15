@@ -9,8 +9,8 @@
  */
 
 import { mkdtempSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { handleAnnotationRequest } from "./request-handler.js";
 import type { AnnotationInput } from "./types.js";
@@ -235,14 +235,7 @@ describe("AC7 — POST /__annotations/round", () => {
 			target: { component: "C", dsComponent: null, element: "span" },
 		};
 		handleAnnotationRequest(tmpFile, "POST", "/__annotations", input, fixedClock, fixedIdgen);
-		handleAnnotationRequest(
-			tmpFile,
-			"POST",
-			"/__annotations/round",
-			null,
-			fixedClock,
-			fixedIdgen,
-		);
+		handleAnnotationRequest(tmpFile, "POST", "/__annotations/round", null, fixedClock, fixedIdgen);
 		const result = handleAnnotationRequest(
 			tmpFile,
 			"GET",

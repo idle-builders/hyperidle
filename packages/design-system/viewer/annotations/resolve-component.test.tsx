@@ -27,8 +27,8 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { resolveComponentTarget } from "./resolve-component.js";
 import { Button } from "../../src/Button.js";
+import { resolveComponentTarget } from "./resolve-component.js";
 
 // biome-ignore lint/style/useNamingConvention: React's flag name is fixed.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -178,9 +178,7 @@ describe("AC2 — dsComponent corroboration field", () => {
 	test("dsComponent from ancestor element (inner node case)", async () => {
 		// Inner span inside Button — dsComponent should still be "Button" from the nearest ancestor
 		await act(async () => {
-			root.render(
-				createElement(Button, { variant: "ghost" }, createElement("em", null, "Italic")),
-			);
+			root.render(createElement(Button, { variant: "ghost" }, createElement("em", null, "Italic")));
 		});
 
 		const em = container.querySelector("em");

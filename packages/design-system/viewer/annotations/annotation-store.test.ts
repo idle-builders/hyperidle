@@ -12,15 +12,15 @@
  */
 
 import { mkdtempSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import {
-	readState,
 	appendAnnotation,
-	startRound,
-	renderMarkdown,
 	mdPath,
+	readState,
+	renderMarkdown,
+	startRound,
 } from "./annotation-store.js";
 import type { AnnotationInput, AnnotationState } from "./types.js";
 
@@ -82,7 +82,7 @@ afterEach(() => {
 
 describe("AC4 — appendAnnotation", () => {
 	test("missing file → readState returns empty state with round 1", () => {
-		const state = readState(tmpFile + ".nonexistent");
+		const state = readState(`${tmpFile}.nonexistent`);
 		expect(state.currentRound).toBe(1);
 		expect(state.rounds).toHaveLength(1);
 		expect(state.rounds[0]).toMatchObject({ round: 1, annotations: [] });
@@ -187,7 +187,7 @@ describe("AC5 — startRound", () => {
 
 describe("AC6 — renderMarkdown", () => {
 	test("empty state emits a Round 1 header", () => {
-		const state = readState(tmpFile + ".nonexistent");
+		// readState on a missing file is not used directly here; we seed explicitly
 		// seed it with a startedAt timestamp
 		const seeded: AnnotationState = {
 			currentRound: 1,

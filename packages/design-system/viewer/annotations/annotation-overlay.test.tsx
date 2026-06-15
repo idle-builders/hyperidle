@@ -349,9 +349,9 @@ describe("AC8 — Save fires POST with AnnotationInput payload", () => {
 		expect(typeof body.target?.component).toBe("string");
 		expect(typeof body.target?.element).toBe("string");
 		// dsComponent is string | null
-		expect(
-			body.target?.dsComponent === null || typeof body.target?.dsComponent === "string",
-		).toBe(true);
+		expect(body.target?.dsComponent === null || typeof body.target?.dsComponent === "string").toBe(
+			true,
+		);
 	});
 });
 
