@@ -29,6 +29,7 @@
 			"entry": [
 				"src/**/*.stories.tsx",
 				"scripts/*.ts",
+				"scripts/design-evidence/*.ts",
 				"viewer/discovery.ts",
 				"viewer/tailwind.config.ts",
 				"viewer/postcss.config.ts"
