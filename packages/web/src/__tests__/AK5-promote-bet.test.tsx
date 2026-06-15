@@ -19,11 +19,11 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { BetDetail } from "../types/bet";
 import { MOCK_BETS } from "../pages/__fixtures__/work-bet-fixtures";
 import { KnowledgeDetail } from "../pages/KnowledgeDetail";
 import { WorkBet } from "../pages/WorkBet";
 import { WorkBetCreate } from "../pages/WorkBetCreate";
+import type { BetDetail } from "../types/bet";
 
 // ─── Module-level mocks ─────────────────────────────────────────────────────
 
@@ -181,9 +181,7 @@ describe("AK5 — KnowledgeDetail: Promote to bet menu item", () => {
 
 		await user.click(screen.getByRole("button", { name: /more options/i }));
 
-		expect(
-			screen.getByRole("menuitem", { name: /promote to bet/i }),
-		).toBeInTheDocument();
+		expect(screen.getByRole("menuitem", { name: /promote to bet/i })).toBeInTheDocument();
 	});
 
 	it("'Promote to bet' item has data-testid='knowledge-promote-bet'", async () => {
@@ -215,9 +213,7 @@ describe("AK5 — KnowledgeDetail: Promote to bet menu item", () => {
 		await setupSingleTeam();
 		apiFetchSpy.mockImplementation((url: string, opts?: RequestInit) => {
 			if (url === "/api/bets" && opts?.method === "POST") {
-				return Promise.resolve(
-					new Response(JSON.stringify({ id: "new-bet-1" }), { status: 201 }),
-				);
+				return Promise.resolve(new Response(JSON.stringify({ id: "new-bet-1" }), { status: 201 }));
 			}
 			return Promise.resolve(new Response("Not Found", { status: 404 }));
 		});
@@ -251,9 +247,7 @@ describe("AK5 — KnowledgeDetail: Promote to bet menu item", () => {
 		await setupSingleTeam();
 		apiFetchSpy.mockImplementation((url: string, opts?: RequestInit) => {
 			if (url === "/api/bets" && opts?.method === "POST") {
-				return Promise.resolve(
-					new Response(JSON.stringify({ id: "new-bet-42" }), { status: 201 }),
-				);
+				return Promise.resolve(new Response(JSON.stringify({ id: "new-bet-42" }), { status: 201 }));
 			}
 			return Promise.resolve(new Response("Not Found", { status: 404 }));
 		});

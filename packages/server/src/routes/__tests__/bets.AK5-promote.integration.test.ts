@@ -11,7 +11,7 @@
  * Carry-forward: .strict() preserved — unknown extra fields → 400.
  */
 
-import { bets, knowledgeItems, teamMembers, teams, type HyperIdleDb } from "@hyperidle/db";
+import { bets, type HyperIdleDb, knowledgeItems, teamMembers, teams } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -25,7 +25,9 @@ function authHeaders(): Record<string, string> {
 
 async function seedBase(db: HyperIdleDb, _eventBus: EventBus): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: "team-ak5", name: "AK5 Team", phase: "build", createdAt: now });
+	await db
+		.insert(teams)
+		.values({ id: "team-ak5", name: "AK5 Team", phase: "build", createdAt: now });
 	await db.insert(teamMembers).values({
 		id: "tm-ak5",
 		teamId: "team-ak5",
@@ -70,7 +72,8 @@ describe("AK5 — POST /bets with sourceKnowledgeItemId", () => {
 				headers: authHeaders(),
 				body: JSON.stringify({
 					teamId: "team-ak5",
-					description: "# Auth Strategy\n\nWe should use JWT with refresh tokens for all API calls.",
+					description:
+						"# Auth Strategy\n\nWe should use JWT with refresh tokens for all API calls.",
 					sourceKnowledgeItemId: "ki-ak5",
 				}),
 			});

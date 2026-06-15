@@ -191,10 +191,9 @@ export const bets = pgTable(
 		 * POST /:id/archive → status:"archived"), so RESTRICT has zero live UX downside
 		 * but guarantees provenance integrity if a hard-delete is ever added.
 		 */
-		sourceKnowledgeItemId: text("source_knowledge_item_id").references(
-			() => knowledgeItems.id,
-			{ onDelete: "restrict" },
-		),
+		sourceKnowledgeItemId: text("source_knowledge_item_id").references(() => knowledgeItems.id, {
+			onDelete: "restrict",
+		}),
 	},
 	(table) => [
 		index("bets_team_id_idx").on(table.teamId),
