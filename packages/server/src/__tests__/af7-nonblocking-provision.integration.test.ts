@@ -33,7 +33,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import { clearDeduplicationCache } from "@hyperidle/fabric";
+import { clearDeduplicationCache, fabricStrategy } from "@hyperidle/fabric";
 import type {
 	HarnessAdapter,
 	HarnessCapabilities,
@@ -47,6 +47,7 @@ import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import type { CredentialResolver } from "../services/credential-resolver.js";
+import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
 import { createTestApp } from "../test-utils.js";
 
@@ -195,9 +196,12 @@ describe("AF7 AC2: POST /api/sessions is non-blocking (202 + active row)", () =>
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "af7-nonblock-"));
 		clearDeduplicationCache();
+		// AK2 §4a: register Strategy so provisionSession routes through the Strategy Port.
+		setActiveStrategy(fabricStrategy);
 	});
 
 	afterEach(() => {
+		clearActiveStrategy();
 		vi.unstubAllEnvs();
 		fs.rmSync(tmpDir, { recursive: true, force: true });
 	});

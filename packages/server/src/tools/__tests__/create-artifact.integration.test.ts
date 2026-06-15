@@ -79,7 +79,7 @@ function makeContext(db: HyperIdleDb, eventBus: EventBus, taskId: string): ToolC
 		sessionId: "session-r6-integration",
 		taskId,
 		sandboxPath: path.join(os.tmpdir(), `hi-r6-integration-${Date.now()}`),
-		watcher: { stop: (): void => {} },
+		ingestion: { dispose: (): void => {} },
 	};
 }
 

@@ -32,8 +32,8 @@ export function makeContext(db: HyperIdleDb, overrides: MakeContextOverrides = {
 		sessionId: "session-1",
 		taskId: "task-1",
 		sandboxPath: path.join(os.tmpdir(), `hi-${label}-${Date.now()}`),
-		watcher: {
-			stop: (): void => {
+		ingestion: {
+			dispose: (): void => {
 				/* no-op */
 			},
 		},

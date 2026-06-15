@@ -16,7 +16,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import { clearDeduplicationCache } from "@hyperidle/fabric";
+import { clearDeduplicationCache, fabricStrategy } from "@hyperidle/fabric";
 import type {
 	HarnessAdapter,
 	HarnessCapabilities,
@@ -32,6 +32,7 @@ import { AdapterPool } from "../harness/adapter-pool.js";
 import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import type { ProvisionSessionDeps } from "../services/session-provisioning.js";
 import { provisionSession } from "../services/session-provisioning.js";
+import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
 
 // ── Scripted mock adapter ─────────────────────────────────────────────────────
@@ -120,9 +121,12 @@ describe("AdapterPool + provisionSession integration (AC3)", () => {
 
 	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pool-test-"));
+		// AK2 §4a: register Strategy so provisionSession routes through the Strategy Port.
+		setActiveStrategy(fabricStrategy);
 	});
 
 	afterEach(() => {
+		clearActiveStrategy();
 		fs.rmSync(tmpDir, { recursive: true, force: true });
 		// @lore PGLite: NOT calling dbHandle.close() here intentionally. close() would
 		// TRUNCATE (blocking, holds PGlite connection) after provisionSession has left
@@ -206,9 +210,12 @@ describe("AdapterPool backward compat: single adapter pool (AC8)", () => {
 
 	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pool-test-"));
+		// AK2 §4a: register Strategy so provisionSession routes through the Strategy Port.
+		setActiveStrategy(fabricStrategy);
 	});
 
 	afterEach(() => {
+		clearActiveStrategy();
 		fs.rmSync(tmpDir, { recursive: true, force: true });
 		// @lore PGLite: NOT calling dbHandle.close() here intentionally (see AC3 lore above).
 	});

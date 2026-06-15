@@ -109,7 +109,7 @@ function makeSessionContext(sessionId: string, agentId: string, taskId: string):
 		agentId,
 		taskId,
 		sandboxPath: "/tmp/test-workspace",
-		watcher: { stop: () => {} } as SessionContext["watcher"],
+		ingestion: { dispose: () => {} } as SessionContext["ingestion"],
 		traceId: "trace-test",
 	};
 }

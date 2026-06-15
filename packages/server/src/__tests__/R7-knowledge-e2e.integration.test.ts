@@ -75,7 +75,7 @@ function makeContext(db: HyperIdleDb, sandboxPath: string): ToolContext {
 		sessionId: "session-r7",
 		taskId: "task-r7",
 		sandboxPath,
-		watcher: { stop: (): void => {} },
+		ingestion: { dispose: (): void => {} },
 	};
 }
 
@@ -240,7 +240,7 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 			sessionId: "session-r7",
 			taskId: "task-r7",
 			sandboxPath,
-			watcher: { stop: (): void => {} },
+			ingestion: { dispose: (): void => {} },
 		};
 
 		// Arrange: create a draft item directly in the DB
@@ -308,7 +308,7 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 			sessionId: "session-r7",
 			taskId: "task-r7",
 			sandboxPath,
-			watcher: { stop: (): void => {} },
+			ingestion: { dispose: (): void => {} },
 		};
 
 		const { randomUUID } = await import("node:crypto");
@@ -359,7 +359,7 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 			sessionId: "session-r7",
 			taskId: "task-r7",
 			sandboxPath,
-			watcher: { stop: (): void => {} },
+			ingestion: { dispose: (): void => {} },
 		};
 		const facCtx: ToolContext = {
 			...writeCtx,

@@ -100,7 +100,7 @@ function makeContext(
 		taskId: "task-ad1",
 		teamId: TEST_TEAM_ID,
 		sandboxPath: path.join(os.tmpdir(), `hi-ad1-${Date.now()}`),
-		watcher: { stop: (): void => {} },
+		ingestion: { dispose: (): void => {} },
 		...overrides,
 	};
 }

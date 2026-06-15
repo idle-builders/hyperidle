@@ -42,6 +42,7 @@ import {
 } from "@hyperidle/db";
 import {
 	clearDeduplicationCache,
+	fabricStrategy,
 	processWriteback,
 	registerSessionReviewCreator,
 } from "@hyperidle/fabric";
@@ -68,6 +69,7 @@ import {
 	type ProvisionSessionResult,
 	provisionSession,
 } from "../services/session-provisioning.js";
+import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 
 // --- Scripted mock harness ---------------------------------------------------
 
@@ -303,9 +305,14 @@ describe("Session Provisioning (D5)", () => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "d5-session-provisioning-"));
 		workspace = new LocalSandboxAdapter();
 		clearDeduplicationCache();
+		// AK2 §4a: register Fabric Strategy so provisionSession routes through
+		// the Strategy Port (getActiveStrategy() throws if unset — fail-loud).
+		setActiveStrategy(fabricStrategy);
 	});
 
 	afterEach(async () => {
+		// AK2 §4a: clear the Strategy registration after each test.
+		clearActiveStrategy();
 		if (fs.existsSync(tmpDir)) {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		}

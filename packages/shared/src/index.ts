@@ -231,6 +231,14 @@ export type {
 	RoutineState,
 } from "./routine.js";
 export { ROUTINE_RUN_OUTCOMES, ROUTINE_STATES, SCHEDULE_PRESETS } from "./routine.js";
+// ── AK2: Strategy Port ──
+export type {
+	ContextAssemblyOutcome,
+	ContextAssemblyRequest,
+	IngestionHandle,
+	IngestionRequest,
+	Strategy,
+} from "./strategy-port.js";
 // ── Team primitive (L13, formerly Product) ──
 export type {
 	AgentHealthLevel,

@@ -56,6 +56,7 @@
 			"ignoreDependencies": ["@electric-sql/pglite", "drizzle-orm"]
 		},
 		"packages/pipeline": {},
+		"packages/strategy-minimal": {},
 		"packages/desktop": {
 			"entry": ["src/preload.ts"],
 			"ignoreBinaries": ["electron-builder"],

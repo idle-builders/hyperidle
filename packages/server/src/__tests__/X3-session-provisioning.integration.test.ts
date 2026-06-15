@@ -36,6 +36,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import { fabricStrategy } from "@hyperidle/fabric";
 import type {
 	HarnessAdapter,
 	HarnessCapabilities,
@@ -54,6 +55,7 @@ import {
 	type ProvisionSessionParams,
 	provisionSession,
 } from "../services/session-provisioning.js";
+import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
 
 // ---------------------------------------------------------------------------
@@ -179,9 +181,12 @@ describe("X3 AC-13: session provisioning reads systemPrompt from DB column", () 
 
 	beforeEach(() => {
 		sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "x3-sp-"));
+		// AK2 §4a: register Strategy so provisionSession routes through the Strategy Port.
+		setActiveStrategy(fabricStrategy);
 	});
 
 	afterEach(() => {
+		clearActiveStrategy();
 		fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 	});
 
@@ -279,9 +284,12 @@ describe("X3 AC-14: session provisioning uses modelTierPreference as default", (
 
 	beforeEach(() => {
 		sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "x3-sp-"));
+		// AK2 §4a: register Strategy so provisionSession routes through the Strategy Port.
+		setActiveStrategy(fabricStrategy);
 	});
 
 	afterEach(() => {
+		clearActiveStrategy();
 		fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 	});
 
@@ -388,9 +396,12 @@ describe("X3 AC-15: session provisioning filters adapters by harnessType", () =>
 
 	beforeEach(() => {
 		sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "x3-sp-"));
+		// AK2 §4a: register Strategy so provisionSession routes through the Strategy Port.
+		setActiveStrategy(fabricStrategy);
 	});
 
 	afterEach(() => {
+		clearActiveStrategy();
 		fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 	});
 
@@ -500,9 +511,12 @@ describe("X3 AC-17: agent config changes take effect on next session without res
 
 	beforeEach(() => {
 		sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "x3-sp-"));
+		// AK2 §4a: register Strategy so provisionSession routes through the Strategy Port.
+		setActiveStrategy(fabricStrategy);
 	});
 
 	afterEach(() => {
+		clearActiveStrategy();
 		fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 	});
 
