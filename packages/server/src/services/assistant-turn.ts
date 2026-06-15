@@ -36,10 +36,17 @@ import {
 	NoEligibleHarnessError,
 	type PlainPayload,
 	ProviderTimeoutError,
+	type SessionConfig,
 	type ThreadMessageAppendedEvent,
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import type { AdapterPool } from "../harness/adapter-pool.js";
+import {
+	BUILT_IN_GATEWAY_CONFIG,
+	resolveAgentModel,
+	resolveModelTier,
+} from "../services/model-gateway.js";
+import { readServerConfig } from "../services/server-config.js";
 
 const logger = createLogger({ pkg: "server.assistant-turn" });
 
@@ -261,12 +268,44 @@ async function runTurnInternal(
 	const soulPromptText = agentRow.soulPrompt ?? BUILTIN_SOUL_PROMPT;
 
 	// --- Step 2: Resolve model + credential ---
-	// For the builtin harness, we need an API key. Check via credential resolver if available.
+	// resolveAgentModel handles both credential resolution and per-agent model selection.
+	// When credentialResolver is absent (local env-based mode), we skip resolution and
+	// let the adapter read from process.env directly — builtin adapter still requires
+	// resolvedModel, so we fall back to BUILT_IN_GATEWAY_CONFIG without a key.
+	//
+	// @lore AH3 H1: resolveAgentModel MUST be called here. The builtin adapter's
+	// startSession throws "resolvedModel is required" when it is missing. The
+	// `as unknown` cast that shipped before masked this type error at compile time.
+	// resolvedModel is optional in SessionConfig but the builtin adapter validates it
+	// at runtime — this is the canonical fix.
+	//
+	// @lore AH3 M3: CredentialResolver.resolve() returns null (not throw) for missing
+	// keys in local mode. resolveAgentModel already throws MissingCredentialError when
+	// resolve() returns null (see model-gateway.ts resolveProvider). So calling
+	// resolveAgentModel is the correct way to detect missing_key — do NOT check
+	// resolve() directly and fall through to null.
+	let resolvedModel: import("@hyperidle/shared").ResolvedModel | undefined;
+	let resolvedFastModel: import("@hyperidle/shared").ResolvedModel | undefined;
+
 	if (deps.credentialResolver) {
 		try {
-			// Check for the credential — the builtin adapter needs ANTHROPIC_API_KEY
-			const credName = modelProvider === "anthropic" ? "anthropic_api_key" : "openrouter_api_key";
-			await deps.credentialResolver.resolve(credName);
+			const serverCfg = await readServerConfig(db);
+			resolvedModel = await resolveAgentModel(
+				{ modelId: agentRow.modelId ?? null, modelProvider: agentRow.modelProvider ?? null },
+				"workhorse",
+				serverCfg.modelGateway,
+				deps.credentialResolver,
+			);
+			// Non-fatal: fast tier failure is graceful (builtin falls back to primary)
+			try {
+				resolvedFastModel = await resolveModelTier(
+					"fast",
+					serverCfg.modelGateway,
+					deps.credentialResolver,
+				);
+			} catch {
+				// fast tier optional — builtin harness will use resolvedModel
+			}
 		} catch (err) {
 			if (err instanceof MissingCredentialError) {
 				await persistTurnFailure(db, eventBus, userId, threadId, err);
@@ -274,6 +313,27 @@ async function runTurnInternal(
 			}
 			throw err;
 		}
+	} else {
+		// No resolver: attempt to use env-based ANTHROPIC_API_KEY directly.
+		// This path only exists in test environments and local-no-DB mode.
+		// The builtin adapter will fail at startSession if the key is absent from env.
+		const apiKey = process.env.ANTHROPIC_API_KEY;
+		if (!apiKey) {
+			await persistTurnFailure(
+				db,
+				eventBus,
+				userId,
+				threadId,
+				new MissingCredentialError("anthropic_api_key (required; not in env)"),
+			);
+			return;
+		}
+		resolvedModel = {
+			provider: "anthropic",
+			model: agentRow.modelId ?? BUILT_IN_GATEWAY_CONFIG.workhorse.model,
+			apiKey,
+			baseUrl: "https://api.anthropic.com",
+		};
 	}
 
 	// --- Step 3: Select adapter ---
@@ -293,60 +353,41 @@ async function runTurnInternal(
 		return;
 	}
 
-	// --- Step 4: Load thread messages for context ---
-	const messageRows = await db.select().from(messages).where(eq(messages.threadId, threadId));
-
-	// Build conversational messages — simple role/content pairs
-	const conversationMessages = messageRows
-		.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-		.map((row) => {
-			const isAssistant = row.senderId === assistantAgentId;
-			let text = "";
-			try {
-				const parsed = JSON.parse(row.payload) as Record<string, unknown>;
-				text = typeof parsed.text === "string" ? parsed.text : "";
-			} catch {
-				text = "";
-			}
-			return {
-				role: isAssistant ? "assistant" : "user",
-				content: text,
-			} as const;
-		})
-		.filter((m) => m.content.length > 0);
+	// --- Step 4 (deferred): Thread message history injection ---
+	// @lore AH3: SessionConfig has no `messages` field; the builtin adapter manages
+	// its own conversation state starting from []. Injecting prior conversation history
+	// into the composedPrompt (system prompt) is deferred to a future story. The adapter
+	// starts fresh each turn — this is intentional for the MVP conversational assistant.
 
 	// --- Step 5: Compose persona ---
 	const { composedPrompt } = composeAssistantPrompt(soulPromptText);
 
 	// --- Step 6: Start session + drain under timeout ---
-	const assistantAgentId2 = assistantAgentId;
 	let sessionHandle: import("@hyperidle/shared").SessionHandle | null = null;
-	let startResult: Record<string, unknown> = {};
 
 	try {
-		// @lore AH3: SessionConfig has required fields (workspacePath, soulPromptPath, modelTier)
-		// that the real harness adapters expect. For the assistant conversational turn (no task/
-		// workspace), we pass placeholder values. The builtin adapter uses composedPrompt +
-		// messages; it does not read from workspacePath or soulPromptPath during a turn.
-		// This is a known deviation from the full task-session config — documented here.
-		const sessionConfig = {
+		// @lore AH3: SessionConfig workspacePath/soulPromptPath are required by the interface
+		// but not used by the builtin adapter during a conversational turn (no task workspace).
+		// We pass empty strings — the adapter uses composedPrompt + messages instead.
+		// resolvedModel is REQUIRED by the builtin adapter (throws if missing — H1 fix).
+		// No `as unknown` cast: the type system now guards all required fields.
+		const sessionConfig: SessionConfig = {
 			sessionId: crypto.randomUUID(),
 			composedPrompt,
 			workspacePath: "",
 			soulPromptPath: "",
-			modelTier: "standard",
-			tools: [] as string[],
-			messages: conversationMessages,
-		} as unknown as Parameters<typeof selected.adapter.startSession>[0];
+			modelTier: "workhorse",
+			tools: [],
+			resolvedModel,
+			resolvedFastModel,
+		};
 
 		const rawResult = await selected.adapter.startSession(sessionConfig);
 		sessionHandle = rawResult;
-		// Capture start result as a record for duck-typed streamEvents access (test stubs)
-		startResult = rawResult as unknown as Record<string, unknown>;
 
 		// Drain stream events under the timeout
 		const drainRace = await Promise.race([
-			drainStreamEvents(selected.adapter, rawResult, startResult),
+			drainStreamEvents(selected.adapter, rawResult),
 			timeoutPromise(timeoutMs),
 		]);
 
@@ -382,7 +423,7 @@ async function runTurnInternal(
 		const replyPayload: PlainPayload = { text: replyText };
 		await db.insert(messages).values({
 			id: messageId,
-			senderId: assistantAgentId2,
+			senderId: assistantAgentId,
 			threadId,
 			type: "plain",
 			payload: JSON.stringify(replyPayload),
@@ -396,7 +437,7 @@ async function runTurnInternal(
 			threadId,
 			messageId,
 			messageType: "plain",
-			senderId: assistantAgentId2,
+			senderId: assistantAgentId,
 			timestamp: Date.now(),
 		};
 		eventBus.emit(appendedEvent);
@@ -423,38 +464,19 @@ const TIMEOUT_SENTINEL = Symbol("TIMEOUT_SENTINEL");
 type DrainResult = { type: "completion"; text: string } | { type: "error"; message: string };
 
 /**
- * Get the event stream from either the adapter's streamEvents method or from
- * the session handle result (duck-typed for test stubs).
+ * Drain stream events from the adapter's streamEvents method.
  *
- * @lore AH3: The real HarnessAdapter interface has streamEvents as a method on
- * the adapter. Test stubs may embed it on the startSession result for convenience.
- * We check the handle first (duck-typed), then fall back to adapter.streamEvents.
- * This is the dual-path pattern that lets the integration tests use partial stubs.
+ * @lore AH3 S7: The prior implementation duck-typed the startSession result to
+ * support test stubs that embedded streamEvents on the handle. That coupling masked
+ * H1 (missing resolvedModel went unnoticed because stub adapters bypassed startSession
+ * validation). Test stubs must now implement the real HarnessAdapter interface —
+ * implement `streamEvents` on the adapter object, not on the session handle.
  */
-function getEventStream(
-	adapter: import("@hyperidle/shared").HarnessAdapter,
-	handle: import("@hyperidle/shared").SessionHandle,
-	startResult: Record<string, unknown>,
-): AsyncIterable<import("@hyperidle/shared").HarnessEvent> {
-	// Duck-typed: if startSession result has a streamEvents property, use it.
-	// This covers test stubs that embed the stream in the result.
-	if (
-		"streamEvents" in startResult &&
-		startResult.streamEvents !== null &&
-		startResult.streamEvents !== undefined
-	) {
-		return startResult.streamEvents as AsyncIterable<import("@hyperidle/shared").HarnessEvent>;
-	}
-	// Real interface: adapter.streamEvents(handle)
-	return adapter.streamEvents(handle);
-}
-
 async function drainStreamEvents(
 	adapter: import("@hyperidle/shared").HarnessAdapter,
 	handle: import("@hyperidle/shared").SessionHandle,
-	startResult: Record<string, unknown>,
 ): Promise<DrainResult> {
-	const stream = getEventStream(adapter, handle, startResult);
+	const stream = adapter.streamEvents(handle);
 	let completionText = "";
 
 	try {

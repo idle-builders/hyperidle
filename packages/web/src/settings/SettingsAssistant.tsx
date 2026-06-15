@@ -11,7 +11,7 @@
  */
 
 // hearth-internal-padding
-import { Button } from "@hyperidle/design-system";
+import { Button, Input } from "@hyperidle/design-system";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 
@@ -126,19 +126,13 @@ export function SettingsAssistant({ userId }: SettingsAssistantProps): JSX.Eleme
 			</div>
 
 			<div className="flex flex-col gap-3">
-				<label
-					htmlFor="soul-prompt"
-					className="text-sm font-medium"
-					style={{ color: "var(--text-primary)" }}
-				>
-					Persona instructions
-				</label>
-				{/* AH3: native textarea with Hearth --r-default radius (≤16px, not pill).
-				    DaisyUI .textarea uses --rounded-btn (~8px). The design-system Input
-				    textarea prop would require a type cast (InputProps extends input attrs).
-				    Native textarea is simpler and satisfies the E2E border-radius check. */}
-				<textarea
+				{/* AH3 D4: Migrated to design-system Input textarea. Prose font (not mono)
+				    per design approved.md W2. The Input component uses --r-default radius
+				    and design token colors — no inline style patches needed. */}
+				<Input
 					id="soul-prompt"
+					label="Persona instructions"
+					textarea
 					value={loading ? "" : soulPrompt}
 					onChange={(e) => {
 						setSoulPrompt(e.target.value);
@@ -149,14 +143,6 @@ export function SettingsAssistant({ userId }: SettingsAssistantProps): JSX.Eleme
 						loading ? "Loading soul prompt..." : "Describe how your assistant should behave..."
 					}
 					rows={10}
-					className="textarea textarea-bordered w-full font-mono resize-y"
-					style={{
-						color: "var(--text-primary)",
-						backgroundColor: "var(--surface-container)",
-						borderColor: "var(--border-subtle)",
-						fontSize: "13px",
-						borderRadius: "var(--r-default)",
-					}}
 				/>
 			</div>
 

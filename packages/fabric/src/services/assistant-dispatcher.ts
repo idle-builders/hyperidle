@@ -78,26 +78,22 @@ const logger = {
  * Register the assistant dispatcher on the event bus.
  * Returns an unsubscribe function.
  *
- * AC-3: Subscribes to thread_message_appended. When a human posts to their
- * assistant thread, logs the dispatch intent. Full session provisioning is
- * a future story — this establishes the event-driven skeleton.
- *
  * AC-6: When the assistant (AI sender) posts their first response to an
  * assistant thread, update thread.pinned=true. This is idempotent — already-
  * pinned threads are not updated again.
  *
- * @lore AD8b: The same thread_message_appended event is used for both dispatch
- * (human → triggers assistant) and pinning (AI response → thread.pinned=true).
- * Pinning happens on AI responses so the thread is "activated" after first
- * assistant interaction, not before.
+ * @lore AH3 M4: The dispatch (human → triggers assistant turn) was originally
+ * sketched here as a placeholder log. AH3 implemented the real trigger inline
+ * in threads.ts POST messages handler, which is the correct location (same
+ * request context, fire-and-forget with .catch). This dispatcher now owns ONLY
+ * the pin-on-first-response logic (AC-6). Removing the dead dispatch branch
+ * eliminates the two-subscriber ambiguity. shouldDispatchForAssistant is
+ * retained for unit tests that validate the filter predicate independently.
  */
 export function registerAssistantDispatcher(eventBus: EventBus, db: HyperIdleDb): () => void {
 	// @lore AF3 C9b: async handlers fail the EventHandler<T> overload (Promise<void>
 	// vs void). Use a sync outer wrapper + void async IIFE so the on<T> overload
 	// resolves correctly. Explicit event type annotation ensures T is inferred.
-	// @lore AF3 C9: ThreadMessageAppendedEvent has no hostId field; the log source
-	// is threadRow.hostId (threadRow loaded at :104, log-only at :133/:145, no
-	// control flow reads hostId). Swap is safe and behavior-preserving.
 	const unsubscribe = eventBus.on(
 		"thread_message_appended",
 		(event: ThreadMessageAppendedEvent) => {
@@ -141,24 +137,9 @@ export function registerAssistantDispatcher(eventBus: EventBus, db: HyperIdleDb)
 							senderId: event.senderId,
 							hostId: threadRow.hostId,
 						});
-						return;
 					}
-
-					if (!shouldDispatchForAssistant({ senderKind: senderRow.kind, thread: threadLike })) {
-						return; // Not an assistant thread or not a human sender
-					}
-
-					logger.info("assistant dispatch triggered", {
-						threadId: event.threadId,
-						senderId: event.senderId,
-						hostId: threadRow.hostId,
-					});
-
-					// @lore AD8b: Full session provisioning (connecting to the assistant
-					// agent and running a session) is deferred to a future story.
-					// This skeleton establishes the event subscription and filtering logic.
 				} catch (err) {
-					logger.error("assistant dispatch failed", {
+					logger.error("assistant dispatcher failed", {
 						error: err instanceof Error ? err.message : String(err),
 					});
 				}

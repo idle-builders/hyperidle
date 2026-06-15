@@ -24,7 +24,7 @@
  * input removed — unregistered harnesses are rejected by the API anyway.
  */
 
-import { Select } from "@hyperidle/design-system";
+import { Input, Select } from "@hyperidle/design-system";
 import { AGENT_ROLE_CATALOG, MODEL_CATALOG } from "@hyperidle/shared";
 // hearth-internal-padding
 import { Fragment, type JSX, useCallback, useEffect, useRef, useState } from "react";
@@ -457,23 +457,21 @@ export function SettingsAgents(): JSX.Element {
 					</div>
 				</div>
 
-				<div className="form-control">
-					<label className="label" htmlFor={`edit-soul-${agentId}`}>
-						<span className="label-text text-[var(--text-secondary)]">Soul Prompt</span>
-					</label>
-					{/* AH3: Explicit --r-default radius (≤16px) — DaisyUI .textarea uses --rounded-btn (~8px).
-					    Either satisfies the E2E border-radius ≤ 16px check. */}
-					<textarea
-						id={`edit-soul-${agentId}`}
-						className="textarea textarea-bordered text-sm"
-						rows={8}
-						value={values.soulPrompt}
-						onChange={(e) => setValues((prev) => ({ ...prev, soulPrompt: e.target.value }))}
-						placeholder="Soul prompt text (optional). Leave empty for no persona."
-						aria-label="Soul Prompt"
-						style={{ borderRadius: "var(--r-default)" }}
-					/>
-				</div>
+				{/* AH3 D4: Migrated to design-system Input textarea (prose font, --r-default radius). */}
+				<Input
+					id={`edit-soul-${agentId}`}
+					label="Soul Prompt"
+					textarea
+					rows={8}
+					value={values.soulPrompt}
+					onChange={(e) =>
+						setValues((prev) => ({
+							...prev,
+							soulPrompt: e.target.value,
+						}))
+					}
+					placeholder="Soul prompt text (optional). Leave empty for no persona."
+				/>
 
 				{/* AH2 DESIGN-1: Inline 422 error above Save/Cancel */}
 				{error && (
@@ -707,21 +705,21 @@ export function SettingsAgents(): JSX.Element {
 						</div>
 					</div>
 
-					<div className="form-control">
-						<label className="label" htmlFor="add-agent-soul">
-							<span className="label-text text-[var(--text-secondary)]">Soul Prompt</span>
-						</label>
-						<textarea
-							id="add-agent-soul"
-							className="textarea textarea-bordered text-sm"
-							rows={8}
-							value={addValues.soulPrompt}
-							onChange={(e) => setAddValues((prev) => ({ ...prev, soulPrompt: e.target.value }))}
-							placeholder="Soul prompt text (optional). Changes with role selection."
-							aria-label="Soul Prompt"
-							style={{ borderRadius: "var(--r-default)" }}
-						/>
-					</div>
+					{/* AH3 D4: Migrated to design-system Input textarea (prose font, --r-default radius). */}
+					<Input
+						id="add-agent-soul"
+						label="Soul Prompt"
+						textarea
+						rows={8}
+						value={addValues.soulPrompt}
+						onChange={(e) =>
+							setAddValues((prev) => ({
+								...prev,
+								soulPrompt: e.target.value,
+							}))
+						}
+						placeholder="Soul prompt text (optional). Changes with role selection."
+					/>
 
 					{/* AH2 DESIGN-1: Inline 422 error for add form */}
 					{addError && (

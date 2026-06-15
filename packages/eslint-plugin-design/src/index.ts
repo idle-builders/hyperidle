@@ -24,6 +24,7 @@ import { noOffScaleRadius } from "./rules/no-off-scale-radius.js";
 import { noOpButton } from "./rules/no-op-button.js";
 import { noRawActorFetch } from "./rules/no-raw-actor-fetch.js";
 import { noRawOverlayZ } from "./rules/no-raw-overlay-z.js";
+import { noRawSettingsTextarea } from "./rules/no-raw-settings-textarea.js";
 import { noRawTailwindColor } from "./rules/no-raw-tailwind-color.js";
 import { requireDsAttribute } from "./rules/require-ds-attribute.js";
 import { requireFocusOnInteractive } from "./rules/require-focus-on-interactive.js";
@@ -46,6 +47,7 @@ export const rules: Record<string, Rule.RuleModule> = {
 	"no-raw-tailwind-color": noRawTailwindColor,
 	"no-raw-overlay-z": noRawOverlayZ,
 	"no-dialog-boilerplate": noDialogBoilerplate,
+	"no-raw-settings-textarea": noRawSettingsTextarea,
 	"require-ds-attribute": requireDsAttribute,
 	"require-stories-sibling": requireStoriesSibling,
 	"require-focus-on-interactive": requireFocusOnInteractive,
@@ -67,6 +69,9 @@ const recommendedRules: Linter.RulesRecord = {
 	// A future raw z-[N] on an overlay or re-introduced showModal() fails lint, not warns.
 	"design/no-raw-overlay-z": "error",
 	"design/no-dialog-boilerplate": "error",
+	// AH3 D4: Prevent regression to raw DaisyUI textarea in settings pages.
+	// Must use <Input textarea> from @hyperidle/design-system.
+	"design/no-raw-settings-textarea": "error",
 	"design/require-ds-attribute": "warn",
 	"design/require-stories-sibling": "warn",
 	"design/require-focus-on-interactive": "warn",
