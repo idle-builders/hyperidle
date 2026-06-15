@@ -1,8 +1,9 @@
 /**
  * AH4 — Component tests: AgentAddDialog placement affordance.
  *
- * AC2: AgentAddDialog renders a read-only "Joins {teamName}" KeyValue
+ * AC2: AgentAddDialog renders a read-only "TEAM {teamName}" KeyValue
  * placement line when the teamName prop is provided.
+ * The label is "TEAM" (uppercase) and the value is the team name.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -25,10 +26,9 @@ function renderDialog(teamName: string, open = true): ReturnType<typeof render> 
 }
 
 describe("AH4 AC2 — AgentAddDialog placement affordance", () => {
-	it("renders 'Joins Acme' placement text when teamName is 'Acme'", () => {
+	it("renders TEAM label and team name when teamName is 'Acme'", () => {
 		renderDialog("Acme");
 		// The KeyValue label is "TEAM" (uppercase) and value is "Acme"
-		// Accept any visible text that includes the team name
 		expect(screen.getByText("Acme")).toBeInTheDocument();
 	});
 

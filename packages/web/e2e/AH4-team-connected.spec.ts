@@ -1,18 +1,22 @@
 /**
- * AH4 AC5 — Playwright E2E: Founder creates team → org chart shows founder→team edge.
+ * AH4 AC5 — Playwright E2E: Settings org chart displays a founder→team edge.
  *
- * The "org chart" is Settings → Org Chart section (the edge table from GET /api/org).
- * "Team appears connected" = a row with mechanism "team" is present in that table
- * after team creation, with no manual edge add required.
+ * SCOPE — UI RENDERING ONLY:
+ * (a) These specs verify that the org-chart table in the Settings page correctly
+ *     renders an edge row given the API shape. They do NOT stand up a real backend.
+ * (b) The real backend-side-effect proof (edge created BY team creation; org edge
+ *     written to DB; auth-context anti-spoof) is covered by the integration tests
+ *     in packages/server/src/routes/__tests__/AH4-org-edge.integration.test.ts
+ *     which run against a real Hono+PGlite server.
+ * (c) The real-path frontend→backend E2E proof for AH4's (Playwright, required)
+ *     scenarios is owned by AH5's live smoke lane (feat/AH5-live-smoke-lane).
+ *     AH4 does not stand up a parallel real-path harness per AH5's spec.
  *
- * Strategy: mock POST /api/teams to return a created team + teamMembers id;
- * mock GET /api/org to return the resulting founder→team edge; navigate to
- * Settings page; assert edge row visible.
+ * Strategy: use page.route() to mock GET /api/org returning a founder→team edge;
+ * navigate to Settings; assert edge row visible.
  *
- * Note: We use page routing to the Settings page and assert the org chart section
- * renders the edge row. The actual server-side edge creation is proven by the
- * integration test (AH4-org-edge.integration.test.ts); this E2E test proves the
- * UI reflects it correctly.
+ * @lore N2: All AH4 E2E specs use page.route() mocking — consistent with 78/90
+ * existing specs. See packages/web/playwright.config.ts @lore N2.
  */
 
 import * as path from "node:path";
@@ -20,7 +24,6 @@ import { expect, test } from "./fixtures";
 
 const FOUNDER_ID = "test-founder";
 const TEAM_MEMBERS_ID = "tm-ah4-e2e";
-const _TEAM_ID = "team-ah4-e2e";
 const TEAM_NAME = "AH4 E2E Team";
 const EDGE_ID = "edge-ah4-e2e";
 

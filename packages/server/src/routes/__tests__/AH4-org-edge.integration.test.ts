@@ -6,6 +6,7 @@
  * AC3: After team + agent creation, GET /api/org reflects real structure (no orphans).
  * AC4: Edge creation is idempotent; PUT /api/org/edges still returns 201/200 after refactor.
  * Rider FK-422: POST /api/agents with an unknown teamId returns 422 (not 500).
+ * W1: resolveFounderId path 1 (auth context) wins over body userId (anti-spoof).
  */
 
 import { orgEdges, teamMembers, teams, users } from "@hyperidle/db";
@@ -350,6 +351,68 @@ describe("AH4 — Org edge wiring", () => {
 			expect(second.status).toBe(200);
 			const secondBody = (await second.json()) as { id: string };
 			expect(secondBody.id).toBe(firstBody.id);
+		});
+	});
+
+	// ── W1: resolveFounderId path 1 (auth context) wins over body userId ───────
+
+	describe("W1 — resolveFounderId: auth-context userId wins over body userId (anti-spoof)", () => {
+		test("org edge uses auth-context userId (founder A), not body userId (founder B)", async ({
+			db,
+			app,
+		}) => {
+			/**
+			 * @lore AH4 W1: In local mode, createAuthMiddleware resolves c.get("userId")
+			 * from the first kind='human' row in the DB (ordered by DB insertion order).
+			 * By seeding founder A first, the auth middleware sets c.get("userId") = A.
+			 * The body carries userId = B. resolveFounderId() checks the auth context
+			 * (path 1) first and returns A — B is never used. This test proves the
+			 * spoofing defense: a caller cannot claim an arbitrary fromUserId via the body.
+			 */
+
+			// Seed founder A first — auth middleware will resolve this as c.get("userId")
+			await db.insert(users).values({
+				id: "ah4-w1-founder-a",
+				kind: "human",
+				name: "Founder A (auth context)",
+				role: "founder",
+				status: "active",
+				createdAt: NOW,
+			});
+
+			// Seed founder B — this is what the request body will carry
+			await db.insert(users).values({
+				id: "ah4-w1-founder-b",
+				kind: "human",
+				name: "Founder B (body spoof attempt)",
+				role: "member",
+				status: "active",
+				createdAt: NOW,
+			});
+
+			// POST /api/teams with userId = B in the body
+			const res = await app.request("/api/teams", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({ name: "W1 Anti-Spoof Team", userId: "ah4-w1-founder-b" }),
+			});
+
+			expect(res.status).toBe(201);
+			const body = (await res.json()) as {
+				team: { id: string };
+				teamMembers: { id: string };
+			};
+			const teamMembersId = body.teamMembers.id;
+
+			// The org edge must use founder A (auth context), NOT founder B (body)
+			const edges = await db
+				.select()
+				.from(orgEdges)
+				.where(and(eq(orgEdges.mechanism, "team"), eq(orgEdges.target, teamMembersId)));
+
+			expect(edges).toHaveLength(1);
+			expect(edges[0]?.fromUserId).toBe("ah4-w1-founder-a");
+			expect(edges[0]?.fromUserId).not.toBe("ah4-w1-founder-b");
 		});
 	});
 });

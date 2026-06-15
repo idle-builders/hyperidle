@@ -1,11 +1,24 @@
 /**
- * AH4 AC6 — Playwright E2E: Add-agent form shows team placement.
+ * AH4 AC6 — Playwright E2E: Add-agent placement affordance renders correctly.
  *
- * Two paths:
- * (a) Settings Agents add form — shows a Team Select populated from GET /api/org.
- * (b) WorkTeam AgentAddDialog — shows "TEAM  {name}" KeyValue (read-only).
+ * SCOPE — UI RENDERING ONLY:
+ * (a) These specs verify that the placement affordance (Team Select in Settings;
+ *     "TEAM {name}" KeyValue in WorkTeam AgentAddDialog) renders given mocked API
+ *     data. They do NOT stand up a real backend.
+ * (b) The real backend-side-effect proof (agent created with teamId sets
+ *     users.teamId; FK-422 on unknown teamId) is covered by the integration tests
+ *     in packages/server/src/routes/__tests__/AH4-org-edge.integration.test.ts
+ *     which run against a real Hono+PGlite server.
+ * (c) The real-path frontend→backend E2E proof for AH4's (Playwright, required)
+ *     scenarios is owned by AH5's live smoke lane (feat/AH5-live-smoke-lane).
+ *     AH4 does not stand up a parallel real-path harness per AH5's spec.
  *
- * After creation, the agent appears in the agent list.
+ * AC6 agent-appears-under-team: the mocked specs assert the agent name appears in
+ * the agents list after mocked creation; full team-scoped read-back is proven by
+ * the integration tests (AC2/AC3 in AH4-org-edge.integration.test.ts).
+ *
+ * @lore N2: All AH4 E2E specs use page.route() mocking — consistent with 78/90
+ * existing specs. See packages/web/playwright.config.ts @lore N2.
  */
 
 import * as path from "node:path";
@@ -240,9 +253,13 @@ test.describe("AH4 AC6 — WorkTeam AgentAddDialog shows placement KeyValue", ()
 		await expect(addAgentBtn).toBeVisible({ timeout: 5000 });
 		await addAgentBtn.click();
 
-		// The dialog must show the TEAM KeyValue with the team name
-		await expect(page.getByText("TEAM")).toBeVisible({ timeout: 5000 });
-		await expect(page.getByText(TEAM_NAME)).toBeVisible({ timeout: 5000 });
+		// The dialog must show the TEAM KeyValue with the team name.
+		// Scope to dialog-box to avoid strict-mode collision with the page's
+		// team name heading and breadcrumb which also contain "TEAM"/"Placement Test Team".
+		const dialogBox = page.getByTestId("dialog-box");
+		await expect(dialogBox).toBeVisible({ timeout: 5000 });
+		await expect(dialogBox.getByText("TEAM", { exact: true })).toBeVisible({ timeout: 5000 });
+		await expect(dialogBox.getByText(TEAM_NAME)).toBeVisible({ timeout: 5000 });
 
 		// Screenshot — dialog with placement KeyValue visible
 		const screenshotDir = path.join("plans", "AH4", "proof");
