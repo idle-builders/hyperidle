@@ -11,6 +11,22 @@ export interface McpConnectionInfo {
 	readonly token: string; // 64-char hex session token
 }
 
+/**
+ * AH3 §1.4: A single conversational turn carried from the thread transcript.
+ * Used to deliver the user's message (and prior context) to the adapter so the
+ * model answers the actual question, not a generic task-planning prompt.
+ *
+ * @lore AH3 H3: The core fix for "user's message never reaches the model."
+ * SessionConfig previously had no messages field; the builtin adapter started
+ * every session with an empty message list and injected PLANNING_PROMPT. By
+ * seeding messages from the thread transcript and branching on their presence,
+ * the adapter runs a single chat completion rather than the task-planning loop.
+ */
+export interface ConversationMessage {
+	readonly role: "user" | "assistant";
+	readonly content: string;
+}
+
 export interface SessionConfig {
 	/**
 	 * AF7 §3: The provisioning-assigned session id. This is the isolation
@@ -47,6 +63,17 @@ export interface SessionConfig {
 	 * - BuiltinHarnessAdapter calls tool registry directly (no MCP needed)
 	 */
 	readonly mcpConnectionInfo?: McpConnectionInfo;
+	/**
+	 * AH3 §1.4: Conversational message history from the thread transcript.
+	 * When present, the builtin adapter runs a single chat completion seeded with
+	 * these messages instead of the task-planning loop. The user's triggering
+	 * message is always the last entry. Absent for task sessions (planning loop).
+	 *
+	 * @lore AH3 H3: This field is the mechanism that delivers "what the user
+	 * typed" to the model. Without it, the adapter starts with messages:[] and
+	 * responds to PLANNING_PROMPT, never the user's actual question.
+	 */
+	readonly messages?: readonly ConversationMessage[];
 }
 
 export interface SessionHandle {

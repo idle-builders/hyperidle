@@ -905,3 +905,251 @@ describe("AH3 loop-guard: ast-* sender message does NOT re-trigger turn", () => 
 		expect(turnCallCount).toBe(1);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// H3: User's message actually reaches the model (SessionConfig.messages)
+// ---------------------------------------------------------------------------
+// This test FAILS if:
+//   - SessionConfig.messages is missing or empty
+//   - The user's message text is not present in the messages delivered to startSession
+//   - The adapter replies based on PLANNING_PROMPT instead of the user's question
+// A ScriptedAdapter that ignores input cannot satisfy it — the test uses a
+// capturing adapter that records what it received and echoes the user's question
+// back, then asserts the reply IS a function of the input.
+// ---------------------------------------------------------------------------
+
+describe("AH3 H3: user message reaches the model — SessionConfig.messages carries the transcript", () => {
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+	});
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test("SessionConfig.messages contains the user's question text — adapter observes it", async ({
+		db,
+		eventBus,
+	}) => {
+		await seedHumanUser(db, "u-ah3-h3a", "H3 Capturing User");
+		await seedAssistantAgent(db, "u-ah3-h3a");
+
+		const app = await createTestApp({ db, eventBus });
+		const threadId = await getOrCreateAssistantThread(app, "u-ah3-h3a");
+
+		// Insert the user's trigger message so loadThreadTranscript can find it
+		await app.request(`/api/threads/${threadId}/messages`, {
+			method: "POST",
+			headers: authHeaders({ "X-Identity": "u-ah3-h3a" }),
+			body: JSON.stringify({
+				type: "plain",
+				payload: { text: "What time is it?" },
+				clientKey: "ck-ah3-h3a-trigger",
+			}),
+		});
+
+		// Capturing adapter: records the SessionConfig it receives in startSession,
+		// then echoes the user's message in streamEvents.
+		// CRITICAL: the echo reply is a FUNCTION of the received messages — if messages is empty
+		// or missing the user's text, capturedUserContent stays null and the test fails.
+		let capturedUserContent: string | null = null;
+		const capturedConfigs = new Map<string, import("@hyperidle/shared").SessionConfig>();
+
+		const capturingAdapter = {
+			capabilities: () => ({ concurrent: true, streamTokens: false }),
+			startSession: async (
+				config: import("@hyperidle/shared").SessionConfig,
+			): Promise<import("@hyperidle/shared").SessionHandle> => {
+				capturedConfigs.set(config.sessionId, config);
+				return { sessionId: config.sessionId };
+			},
+			streamEvents: async function* (
+				handle: import("@hyperidle/shared").SessionHandle,
+			): AsyncGenerator<import("@hyperidle/shared").HarnessEvent> {
+				const config = capturedConfigs.get(handle.sessionId);
+				const msgs = config?.messages ?? [];
+				const lastUserMsg = [...msgs].reverse().find((m) => m.role === "user");
+				capturedUserContent = lastUserMsg?.content ?? null;
+				// Echo what the adapter "saw" — a function of input, not a hardcoded constant.
+				// If messages was empty/missing, this yields "NO_USER_MESSAGE_RECEIVED".
+				const replyText =
+					capturedUserContent !== null
+						? `Received: ${capturedUserContent}`
+						: "NO_USER_MESSAGE_RECEIVED";
+				yield { type: "completion", text: replyText } as import("@hyperidle/shared").HarnessEvent;
+			},
+			stopSession: async () => {},
+		};
+
+		const pool = new AdapterPool();
+		pool.register("local-capturing", capturingAdapter as never, {
+			name: "Capturing Harness",
+			kind: "local",
+			type: "builtin",
+			modelProviders: ["anthropic"],
+			maxConcurrent: 1,
+		});
+
+		const stubResolver: CredentialResolver = {
+			resolve: async (name) => (name === "anthropic_api_key" ? "sk-test-capture-key" : null),
+		};
+
+		// Fetch the thread's messages from DB to get the triggerMessageId
+		const threadMessages = await db
+			.select()
+			.from(messagesTable)
+			.where(eq(messagesTable.threadId, threadId));
+		const triggerMsg = threadMessages.find((m) => {
+			const p = JSON.parse(m.payload) as Record<string, unknown>;
+			return p.text === "What time is it?";
+		});
+		expect(triggerMsg).toBeDefined();
+
+		const deps: AssistantTurnDeps = {
+			db,
+			eventBus,
+			adapterPool: pool,
+			credentialResolver: stubResolver,
+		};
+
+		await runAssistantTurn(deps, {
+			userId: "u-ah3-h3a",
+			threadId,
+			triggerMessageId: triggerMsg!.id,
+		});
+
+		// The capturing adapter must have observed the user's question
+		expect(capturedUserContent).not.toBeNull();
+		expect(capturedUserContent).toBe("What time is it?");
+
+		// A reply must have been persisted (not just nothing)
+		const allMessages = await db
+			.select()
+			.from(messagesTable)
+			.where(eq(messagesTable.threadId, threadId));
+
+		const replyMsg = allMessages.find((m) => {
+			const p = JSON.parse(m.payload) as Record<string, unknown>;
+			return m.senderId === "ast-u-ah3-h3a" && p.notice === undefined;
+		});
+		expect(replyMsg).toBeDefined();
+		const replyPayload = JSON.parse(replyMsg!.payload) as { text: string };
+		// The reply is a function of the user's input — not a hardcoded constant
+		expect(replyPayload.text).toContain("What time is it?");
+	});
+
+	test("adapter receives messages — test FAILS if messages array is empty or missing user text", async ({
+		db,
+		eventBus,
+	}) => {
+		await seedHumanUser(db, "u-ah3-h3b", "H3 Validation User");
+		await seedAssistantAgent(db, "u-ah3-h3b");
+
+		const UNIQUE_QUESTION = "UniqueQuestionH3B-XyzAbcDef";
+
+		const app = await createTestApp({ db, eventBus });
+		const threadId = await getOrCreateAssistantThread(app, "u-ah3-h3b");
+
+		await app.request(`/api/threads/${threadId}/messages`, {
+			method: "POST",
+			headers: authHeaders({ "X-Identity": "u-ah3-h3b" }),
+			body: JSON.stringify({
+				type: "plain",
+				payload: { text: UNIQUE_QUESTION },
+				clientKey: "ck-ah3-h3b-trigger",
+			}),
+		});
+
+		// This adapter validates that messages is non-empty and contains the user's unique text.
+		// If the service passes messages:[] or messages without the user text, it emits an error.
+		let receivedMessages: readonly import("@hyperidle/shared").ConversationMessage[] = [];
+		const validatingConfigs = new Map<string, import("@hyperidle/shared").SessionConfig>();
+
+		const validatingAdapter = {
+			capabilities: () => ({ concurrent: true, streamTokens: false }),
+			startSession: async (
+				config: import("@hyperidle/shared").SessionConfig,
+			): Promise<import("@hyperidle/shared").SessionHandle> => {
+				validatingConfigs.set(config.sessionId, config);
+				return { sessionId: config.sessionId };
+			},
+			streamEvents: async function* (
+				handle: import("@hyperidle/shared").SessionHandle,
+			): AsyncGenerator<import("@hyperidle/shared").HarnessEvent> {
+				const config = validatingConfigs.get(handle.sessionId);
+				receivedMessages = config?.messages ?? [];
+				const hasUserMessage = receivedMessages.some(
+					(m) => m.role === "user" && m.content === UNIQUE_QUESTION,
+				);
+				if (!hasUserMessage) {
+					yield {
+						type: "error",
+						message: `MISSING_USER_MESSAGE: messages=${JSON.stringify(receivedMessages)}`,
+					} as import("@hyperidle/shared").HarnessEvent;
+					return;
+				}
+				yield {
+					type: "completion",
+					text: "I see your question.",
+				} as import("@hyperidle/shared").HarnessEvent;
+			},
+			stopSession: async () => {},
+		};
+
+		const pool = new AdapterPool();
+		pool.register("local-validating", validatingAdapter as never, {
+			name: "Validating Harness",
+			kind: "local",
+			type: "builtin",
+			modelProviders: ["anthropic"],
+			maxConcurrent: 1,
+		});
+
+		const stubResolver: CredentialResolver = {
+			resolve: async (name) => (name === "anthropic_api_key" ? "sk-test-validate-key" : null),
+		};
+
+		const threadMessages = await db
+			.select()
+			.from(messagesTable)
+			.where(eq(messagesTable.threadId, threadId));
+		const triggerMsg = threadMessages.find((m) => {
+			const p = JSON.parse(m.payload) as Record<string, unknown>;
+			return p.text === UNIQUE_QUESTION;
+		});
+		expect(triggerMsg).toBeDefined();
+
+		const deps: AssistantTurnDeps = {
+			db,
+			eventBus,
+			adapterPool: pool,
+			credentialResolver: stubResolver,
+		};
+
+		await runAssistantTurn(deps, {
+			userId: "u-ah3-h3b",
+			threadId,
+			triggerMessageId: triggerMsg!.id,
+		});
+
+		// Assert that the messages array was non-empty and contained the user's unique question
+		expect(receivedMessages.length).toBeGreaterThan(0);
+		const userMsg = receivedMessages.find(
+			(m) => m.role === "user" && m.content === UNIQUE_QUESTION,
+		);
+		expect(userMsg).toBeDefined();
+
+		// Assert a successful reply (not an error notice) was persisted
+		const allMessages = await db
+			.select()
+			.from(messagesTable)
+			.where(eq(messagesTable.threadId, threadId));
+		const replyMsg = allMessages.find((m) => {
+			const p = JSON.parse(m.payload) as Record<string, unknown>;
+			return m.senderId === "ast-u-ah3-h3b" && p.notice === undefined;
+		});
+		expect(replyMsg).toBeDefined();
+		const replyPayload = JSON.parse(replyMsg!.payload) as { text: string };
+		// If messages was missing, the adapter would have emitted error → notice persisted, not this
+		expect(replyPayload.text).toBe("I see your question.");
+	});
+});

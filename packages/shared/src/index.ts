@@ -124,6 +124,7 @@ export {
 } from "./format/time.js";
 export type {
 	CompletionEvent,
+	ConversationMessage,
 	CostUpdateEvent,
 	ErrorEvent,
 	HarnessAdapter,

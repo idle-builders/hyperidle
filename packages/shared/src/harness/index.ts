@@ -1,4 +1,5 @@
 export type {
+	ConversationMessage,
 	HarnessAdapter,
 	HarnessCapabilities,
 	McpConnectionInfo,

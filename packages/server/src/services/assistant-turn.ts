@@ -30,6 +30,7 @@ import { type HyperIdleDb, messages, users } from "@hyperidle/db";
 import { composeAssistantPrompt } from "@hyperidle/fabric";
 import {
 	ASSISTANT_TURN_TIMEOUT_MS,
+	type ConversationMessage,
 	createLogger,
 	type EventBus,
 	MissingCredentialError,
@@ -39,7 +40,7 @@ import {
 	type SessionConfig,
 	type ThreadMessageAppendedEvent,
 } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import {
 	BUILT_IN_GATEWAY_CONFIG,
@@ -213,7 +214,16 @@ export async function runAssistantTurn(
 
 	inFlightTurns.add(inFlightKey);
 	try {
-		await runTurnInternal(db, eventBus, adapterPool, userId, threadId, timeoutMs, deps);
+		await runTurnInternal(
+			db,
+			eventBus,
+			adapterPool,
+			userId,
+			threadId,
+			params.triggerMessageId,
+			timeoutMs,
+			deps,
+		);
 	} finally {
 		inFlightTurns.delete(inFlightKey);
 	}
@@ -225,6 +235,7 @@ async function runTurnInternal(
 	adapterPool: AdapterPool,
 	userId: string,
 	threadId: string,
+	_triggerMessageId: string,
 	timeoutMs: number,
 	deps: AssistantTurnDeps,
 ): Promise<void> {
@@ -353,11 +364,14 @@ async function runTurnInternal(
 		return;
 	}
 
-	// --- Step 4 (deferred): Thread message history injection ---
-	// @lore AH3: SessionConfig has no `messages` field; the builtin adapter manages
-	// its own conversation state starting from []. Injecting prior conversation history
-	// into the composedPrompt (system prompt) is deferred to a future story. The adapter
-	// starts fresh each turn — this is intentional for the MVP conversational assistant.
+	// --- Step 4: Build conversational message history from thread transcript ---
+	// @lore AH3 H3: This is the core fix for "user's message never reaches the model."
+	// We load the thread's plain messages in chronological order and map them to
+	// ConversationMessage[]. The triggering user message was just inserted before
+	// runAssistantTurn was called, so loading the full thread up to now includes it.
+	// The builtin adapter branches on config.messages: when non-empty it runs a single
+	// chat completion seeded with these messages instead of the task-planning loop.
+	const conversationMessages = await loadThreadTranscript(db, threadId, `ast-${userId}`);
 
 	// --- Step 5: Compose persona ---
 	const { composedPrompt } = composeAssistantPrompt(soulPromptText);
@@ -371,6 +385,7 @@ async function runTurnInternal(
 		// We pass empty strings — the adapter uses composedPrompt + messages instead.
 		// resolvedModel is REQUIRED by the builtin adapter (throws if missing — H1 fix).
 		// No `as unknown` cast: the type system now guards all required fields.
+		// messages carries the thread transcript so the adapter delivers the user's question.
 		const sessionConfig: SessionConfig = {
 			sessionId: crypto.randomUUID(),
 			composedPrompt,
@@ -380,6 +395,7 @@ async function runTurnInternal(
 			tools: [],
 			resolvedModel,
 			resolvedFastModel,
+			messages: conversationMessages,
 		};
 
 		const rawResult = await selected.adapter.startSession(sessionConfig);
@@ -452,6 +468,65 @@ async function runTurnInternal(
 			}
 		}
 		adapterPool.release(selected.id);
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Thread transcript loader
+// ---------------------------------------------------------------------------
+
+/**
+ * Load the thread's plain conversational messages in chronological order,
+ * mapped to ConversationMessage[{role, content}]. Skips notice messages and
+ * non-text content.
+ *
+ * @lore AH3 H3: Called from runTurnInternal to deliver the thread transcript
+ * to the adapter via SessionConfig.messages. Without this, the adapter starts
+ * with messages:[] and answers PLANNING_PROMPT, never the user's question.
+ */
+async function loadThreadTranscript(
+	db: HyperIdleDb,
+	threadId: string,
+	assistantAgentId: string,
+): Promise<ConversationMessage[]> {
+	try {
+		const rows = await db
+			.select({
+				senderId: messages.senderId,
+				payload: messages.payload,
+				type: messages.type,
+			})
+			.from(messages)
+			.where(eq(messages.threadId, threadId))
+			.orderBy(asc(messages.createdAt));
+
+		const result: ConversationMessage[] = [];
+		for (const row of rows) {
+			if (row.type !== "plain") continue;
+
+			let parsed: { text?: string; notice?: unknown };
+			try {
+				parsed = JSON.parse(row.payload) as { text?: string; notice?: unknown };
+			} catch {
+				continue;
+			}
+
+			// Skip notice messages (error cards — not conversational turns)
+			if (parsed.notice !== undefined) continue;
+			// Skip messages without text
+			if (typeof parsed.text !== "string" || parsed.text.trim() === "") continue;
+
+			const role: "user" | "assistant" = row.senderId === assistantAgentId ? "assistant" : "user";
+			result.push({ role, content: parsed.text });
+		}
+		return result;
+	} catch (err) {
+		logger.error("[assistant-turn] loadThreadTranscript failed — proceeding with empty history", {
+			threadId,
+			error: err instanceof Error ? err.message : String(err),
+		});
+		// Non-fatal: better to reply with persona-only than to crash the turn entirely.
+		return [];
 	}
 }
 
