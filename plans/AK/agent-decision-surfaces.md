@@ -53,7 +53,7 @@ Event bus union: 17 kernel event types (`events.ts:300-317`). Interaction surfac
 
 ## Implication for the track
 
-- **AK6** must cover *all* creation surfaces (team scaffold, add-agent, assistant, factory bootstrap), and its first job is to **emit creation events / a creation seam** — without it there's nowhere for the Strategy to own "what."
-- **AK7** must cover *all* selection surfaces and make selection knowledge-aware via one Strategy seam; `findDelegate` is the existing precedent.
+- **AK6** must cover *all* creation surfaces (team scaffold, add-agent, assistant, factory bootstrap). Emitting the creation events (`team_created` / `agent_added` / `user_created`) is **in scope for AK6** — the events *are* the seam the Strategy attaches to, so they are designed and emitted as part of AK6's separation work, not split into a separate WP.
+- **AK7** must cover *all* selection surfaces and make selection knowledge-aware via one Strategy seam; `findDelegate` is the existing precedent. The "work needing an agent" event is likewise **in scope for AK7** — same principle: the event is the seam.
 - **AK8** (decomposition) is one *application* of AK6+AK7, not the whole story.
-- Open question for `/concept`: does "emit the creation + work events" deserve its own foundational WP (AK6a) ahead of AK6, since both AK6 and AK7 depend on those events existing?
+- **Decided (founder, 2026-06-15):** events are not a separate foundational WP — each WP creates the events it needs as part of building its half of the separation. The event is the surface; building the surface is the work.
