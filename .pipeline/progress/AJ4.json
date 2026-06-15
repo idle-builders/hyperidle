@@ -1,0 +1,9 @@
+{
+  "id": "AJ4",
+  "status": "in_progress",
+  "currentStep": "3-write-tests",
+  "complexity": "M",
+  "track": "AJ",
+  "decision": "local-only Playwright screenshots for PR design evidence (founder 2026-06-15); not the CI gate, not committed PNGs",
+  "startedAt": "2026-06-15T00:00:00Z"
+}
