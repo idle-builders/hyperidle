@@ -77,6 +77,7 @@ export const Populated = (): React.JSX.Element => (
 			onSelectTeam={noop}
 			onNewBet={noop}
 			onFinishSetup={noop}
+			onRetry={noop}
 		/>
 	</div>
 );
@@ -95,6 +96,7 @@ export const Loading = (): React.JSX.Element => (
 			onSelectTeam={noop}
 			onNewBet={noop}
 			onFinishSetup={noop}
+			onRetry={noop}
 		/>
 	</div>
 );
@@ -112,6 +114,7 @@ export const ErrorStateStory = (): React.JSX.Element => (
 			onSelectTeam={noop}
 			onNewBet={noop}
 			onFinishSetup={noop}
+			onRetry={noop}
 		/>
 	</div>
 );
@@ -130,6 +133,7 @@ export const Empty = (): React.JSX.Element => (
 			onSelectTeam={noop}
 			onNewBet={noop}
 			onFinishSetup={noop}
+			onRetry={noop}
 		/>
 	</div>
 );

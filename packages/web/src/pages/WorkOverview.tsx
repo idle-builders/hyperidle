@@ -55,6 +55,11 @@ export interface WorkOverviewViewProps {
 	onNewBet: () => void;
 	/** Invoked when the empty state's "Finish setup" action is pressed. */
 	onFinishSetup: () => void;
+	/**
+	 * Retry callback — wired to ErrorState.onRetry (AC4 spec §3).
+	 * Triggers a fresh /api/teams fetch without a full page reload.
+	 */
+	onRetry: () => void;
 }
 
 /**
@@ -72,6 +77,7 @@ export function WorkOverviewView({
 	onSelectTeam,
 	onNewBet,
 	onFinishSetup,
+	onRetry,
 }: WorkOverviewViewProps): JSX.Element {
 	// Loading state
 	if (loading) {
@@ -92,11 +98,15 @@ export function WorkOverviewView({
 		);
 	}
 
-	// Error state
+	// Error state — W3: render static user-facing copy only; error.message stays off the screen.
 	if (error) {
 		return (
 			<div className="flex flex-col h-full" data-testid="work-overview-page-error">
-				<ErrorState title="Couldn't load teams" description={error.message} />
+				<ErrorState
+					title="Couldn't load teams"
+					description="Check your connection and try again."
+					onRetry={onRetry}
+				/>
 			</div>
 		);
 	}
@@ -138,7 +148,6 @@ export function WorkOverviewView({
 			</header>
 			<div className="flex-1 overflow-y-auto">
 				<div className="max-w-[800px] mx-auto w-full">
-					{/* isEmpty always false here — view is only reached with 2+ teams */}
 					<ItemList variant="flush" as="ul" isEmpty={false}>
 						{sorted.map((team) => {
 							const betCount = team.activeBets;
@@ -182,7 +191,7 @@ export function WorkOverviewView({
  */
 export function WorkOverview(): JSX.Element {
 	const navigate = useNavigate();
-	const { data, loading, error } = useTeams();
+	const { data, loading, error, refetch } = useTeams();
 	const teams = data?.teams ?? [];
 
 	// AC11: 1-team short-circuit — single chokepoint, never shows a 1-row list.
@@ -196,6 +205,7 @@ export function WorkOverview(): JSX.Element {
 			teams={teams}
 			loading={loading}
 			error={error}
+			onRetry={refetch}
 			onSelectTeam={(teamId) => navigate(`/work/team/${encodeURIComponent(teamId)}`)}
 			onNewBet={() => navigate("/work/bet/new")}
 			onFinishSetup={() => navigate("/setup")}

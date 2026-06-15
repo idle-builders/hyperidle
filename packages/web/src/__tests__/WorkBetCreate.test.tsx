@@ -89,6 +89,7 @@ async function setupUseTeams(teams: typeof SINGLE_TEAM) {
 		data: { teams },
 		loading: false,
 		error: null,
+		refetch: vi.fn(),
 	});
 }
 

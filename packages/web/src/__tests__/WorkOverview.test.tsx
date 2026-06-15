@@ -15,6 +15,7 @@ import { WorkOverview } from "../pages/WorkOverview";
 // ---------------------------------------------------------------------------
 // useTeams mock
 // ---------------------------------------------------------------------------
+const mockRefetch = vi.fn();
 const mockUseTeams = vi.fn();
 vi.mock("../hooks/useTeams", () => ({
 	useTeams: () => mockUseTeams(),
@@ -92,14 +93,14 @@ function renderInRouter(): ReturnType<typeof render> {
 // ---------------------------------------------------------------------------
 describe("AC4 — Loading state", () => {
 	it("renders SkeletonList when loading", () => {
-		mockUseTeams.mockReturnValue({ data: null, loading: true, error: null });
+		mockUseTeams.mockReturnValue({ data: null, loading: true, error: null, refetch: mockRefetch });
 		renderInRouter();
 		// SkeletonList renders with aria-label "Loading teams"
 		expect(screen.getByLabelText(/loading teams/i)).toBeInTheDocument();
 	});
 
 	it("does not render team rows when loading", () => {
-		mockUseTeams.mockReturnValue({ data: null, loading: true, error: null });
+		mockUseTeams.mockReturnValue({ data: null, loading: true, error: null, refetch: mockRefetch });
 		renderInRouter();
 		expect(screen.queryByTestId("team-row")).not.toBeInTheDocument();
 	});
@@ -114,6 +115,7 @@ describe("AC4 — Error state", () => {
 			data: null,
 			loading: false,
 			error: new Error("Network error"),
+			refetch: mockRefetch,
 		});
 		renderInRouter();
 		expect(screen.getByText(/couldn't load teams/i)).toBeInTheDocument();
@@ -124,9 +126,37 @@ describe("AC4 — Error state", () => {
 			data: null,
 			loading: false,
 			error: new Error("Network error"),
+			refetch: mockRefetch,
 		});
 		renderInRouter();
 		expect(screen.queryByTestId("team-row")).not.toBeInTheDocument();
+	});
+
+	it("renders a retry affordance in the error state (AC4 §3 spec)", () => {
+		// Spec §3: error state must offer retry → refetch. Verifies the button exists
+		// so users can recover without a full page reload.
+		mockUseTeams.mockReturnValue({
+			data: null,
+			loading: false,
+			error: new Error("Network error"),
+			refetch: mockRefetch,
+		});
+		renderInRouter();
+		// ErrorState renders a "Try again" button when onRetry is provided.
+		expect(screen.getByRole("button", { name: /^retry$/i })).toBeInTheDocument();
+	});
+
+	it("clicking retry triggers refetch (AC4 §3 spec)", async () => {
+		const user = userEvent.setup();
+		mockUseTeams.mockReturnValue({
+			data: null,
+			loading: false,
+			error: new Error("Network error"),
+			refetch: mockRefetch,
+		});
+		renderInRouter();
+		await user.click(screen.getByRole("button", { name: /^retry$/i }));
+		expect(mockRefetch).toHaveBeenCalledOnce();
 	});
 });
 
@@ -135,13 +165,23 @@ describe("AC4 — Error state", () => {
 // ---------------------------------------------------------------------------
 describe("AC4 — Empty state (0 teams)", () => {
 	it("renders EmptyState when teams array is empty", () => {
-		mockUseTeams.mockReturnValue({ data: { teams: [] }, loading: false, error: null });
+		mockUseTeams.mockReturnValue({
+			data: { teams: [] },
+			loading: false,
+			error: null,
+			refetch: mockRefetch,
+		});
 		renderInRouter();
 		expect(screen.getByText(/no teams yet/i)).toBeInTheDocument();
 	});
 
 	it("empty state has a link or button to /setup", () => {
-		mockUseTeams.mockReturnValue({ data: { teams: [] }, loading: false, error: null });
+		mockUseTeams.mockReturnValue({
+			data: { teams: [] },
+			loading: false,
+			error: null,
+			refetch: mockRefetch,
+		});
 		renderInRouter();
 		// Either a link to /setup or a button that navigates there
 		const setupLink = screen.queryByRole("link", { name: /setup|finish setup|create.*team/i });
@@ -160,6 +200,7 @@ describe("AC11 — 1-team short-circuit (WorkOverview redirects to the single te
 			data: { teams: [TEAM_A] },
 			loading: false,
 			error: null,
+			refetch: mockRefetch,
 		});
 		renderInRouter();
 		// Should redirect to team page, not show the overview
@@ -173,6 +214,7 @@ describe("AC11 — 1-team short-circuit (WorkOverview redirects to the single te
 			data: { teams: [TEAM_A] },
 			loading: false,
 			error: null,
+			refetch: mockRefetch,
 		});
 		renderInRouter();
 		await waitFor(() => {
@@ -186,6 +228,7 @@ describe("AC11 — 1-team short-circuit (WorkOverview redirects to the single te
 			data: { teams: [TEAM_A] },
 			loading: false,
 			error: null,
+			refetch: mockRefetch,
 		});
 		renderInRouter();
 		await waitFor(() => {
@@ -199,6 +242,7 @@ describe("AC11 — 1-team short-circuit (WorkOverview redirects to the single te
 			data: { teams: [TEAM_A, TEAM_B] },
 			loading: false,
 			error: null,
+			refetch: mockRefetch,
 		});
 		renderInRouter();
 		expect(screen.getByTestId("work-overview-page")).toBeInTheDocument();
@@ -215,6 +259,7 @@ describe("AC2 — Populated team list (2+ teams)", () => {
 			data: { teams: [TEAM_A, TEAM_B] },
 			loading: false,
 			error: null,
+			refetch: mockRefetch,
 		});
 		renderInRouter();
 		expect(screen.getByTestId("work-overview-page")).toBeInTheDocument();
@@ -225,6 +270,7 @@ describe("AC2 — Populated team list (2+ teams)", () => {
 			data: { teams: [TEAM_A, TEAM_B, TEAM_C] },
 			loading: false,
 			error: null,
+			refetch: mockRefetch,
 		});
 		renderInRouter();
 		const rows = screen.getAllByTestId("team-row");
@@ -236,6 +282,7 @@ describe("AC2 — Populated team list (2+ teams)", () => {
 			data: { teams: [TEAM_A, TEAM_B, TEAM_C] }, // healthy, blocked, behind
 			loading: false,
 			error: null,
+			refetch: mockRefetch,
 		});
 		renderInRouter();
 		const rows = screen.getAllByTestId("team-row");
@@ -250,23 +297,26 @@ describe("AC2 — Populated team list (2+ teams)", () => {
 			data: { teams: [TEAM_A, TEAM_B] },
 			loading: false,
 			error: null,
+			refetch: mockRefetch,
 		});
 		renderInRouter();
 		expect(screen.getByText("Alpha Team")).toBeInTheDocument();
 		expect(screen.getByText("Beta Team")).toBeInTheDocument();
 	});
 
-	it("renders active bet count in subtitle (plural)", () => {
+	it("renders active bet count as end cell (plural)", () => {
 		mockUseTeams.mockReturnValue({
 			data: { teams: [TEAM_A] }, // activeBets: 3 but we test 2 teams case
 			loading: false,
 			error: null,
+			refetch: mockRefetch,
 		});
 		// Need 2+ teams to show list
 		mockUseTeams.mockReturnValue({
 			data: { teams: [TEAM_A, TEAM_B] },
 			loading: false,
 			error: null,
+			refetch: mockRefetch,
 		});
 		renderInRouter();
 		expect(screen.getByText("3 active bets")).toBeInTheDocument();
@@ -278,6 +328,7 @@ describe("AC2 — Populated team list (2+ teams)", () => {
 			data: { teams: [TEAM_B, TEAM_A] }, // TEAM_B has 1 activeBets
 			loading: false,
 			error: null,
+			refetch: mockRefetch,
 		});
 		renderInRouter();
 		expect(screen.getByText("1 active bet")).toBeInTheDocument();
@@ -288,17 +339,19 @@ describe("AC2 — Populated team list (2+ teams)", () => {
 			data: { teams: [TEAM_A, TEAM_B] }, // TEAM_A has 3 activeBets
 			loading: false,
 			error: null,
+			refetch: mockRefetch,
 		});
 		renderInRouter();
 		expect(screen.getByText("3 active bets")).toBeInTheDocument();
 	});
 
-	it("renders 0 active bets in subtitle", () => {
+	it("renders 0 active bets as end cell", () => {
 		const zeroTeam = { ...TEAM_A, id: "zero", name: "Zero Bets", activeBets: 0 };
 		mockUseTeams.mockReturnValue({
 			data: { teams: [TEAM_B, zeroTeam] },
 			loading: false,
 			error: null,
+			refetch: mockRefetch,
 		});
 		renderInRouter();
 		expect(screen.getByText("0 active bets")).toBeInTheDocument();
@@ -309,6 +362,7 @@ describe("AC2 — Populated team list (2+ teams)", () => {
 			data: { teams: [TEAM_A, TEAM_B] },
 			loading: false,
 			error: null,
+			refetch: mockRefetch,
 		});
 		renderInRouter();
 		// StatusChip typically renders text like HEALTHY, BEHIND, BLOCKED
@@ -322,6 +376,7 @@ describe("AC2 — Populated team list (2+ teams)", () => {
 			data: { teams: [TEAM_A, TEAM_B] },
 			loading: false,
 			error: null,
+			refetch: mockRefetch,
 		});
 		renderInRouter();
 		// Click first row (Beta Team is first after sort: blocked first)
@@ -335,6 +390,7 @@ describe("AC2 — Populated team list (2+ teams)", () => {
 			data: { teams: [TEAM_A, TEAM_B] },
 			loading: false,
 			error: null,
+			refetch: mockRefetch,
 		});
 		renderInRouter();
 		expect(screen.getByText("Teams")).toBeInTheDocument();
@@ -345,6 +401,7 @@ describe("AC2 — Populated team list (2+ teams)", () => {
 			data: { teams: [TEAM_A, TEAM_B] },
 			loading: false,
 			error: null,
+			refetch: mockRefetch,
 		});
 		renderInRouter();
 		expect(screen.getByText("2 teams")).toBeInTheDocument();
@@ -355,6 +412,7 @@ describe("AC2 — Populated team list (2+ teams)", () => {
 			data: { teams: [TEAM_A, TEAM_B] },
 			loading: false,
 			error: null,
+			refetch: mockRefetch,
 		});
 		renderInRouter();
 		expect(screen.getByRole("button", { name: /new bet/i })).toBeInTheDocument();
@@ -366,6 +424,7 @@ describe("AC2 — Populated team list (2+ teams)", () => {
 			data: { teams: [TEAM_A, TEAM_B] },
 			loading: false,
 			error: null,
+			refetch: mockRefetch,
 		});
 		renderInRouter();
 		await user.click(screen.getByRole("button", { name: /new bet/i }));

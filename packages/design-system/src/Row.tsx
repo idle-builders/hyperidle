@@ -258,12 +258,20 @@ export function Row({
 		// Separator classes stay on <li>; all layout/padding/hover move to the inner div.
 		const liSeparatorClass = "border-b border-[var(--border-subtle)] last:border-b-0";
 
+		// @lore AD9 W1 (review fix): The inner div must NOT inherit the separator classes
+		// (border-b / last:border-b-0) from baseClasses — those stay on the <li> only.
+		// clickable?.className = baseClasses + FOCUS_CLASSES, so building innerClickableClass
+		// from it leaks the separator onto the inner div AND duplicates flex/gap/px/min-h.
+		// Fix: build innerClickableClass by calling clickableProps with only the layout classes
+		// (no separator) so the inner div = w-full layout + FOCUS_CLASSES only.
+		const liInnerLayoutWithActions = `flex-1 min-w-0 flex items-center gap-[12px] ${px} min-h-[44px]`;
+		const liInnerLayout = `w-full flex items-center gap-[12px] ${px} min-h-[44px]`;
+
 		if (onClick && hasActions) {
 			// li + click + actions → li wraps inner div[role=button] + action slot.
 			// AD9 fix: inner div is w-full + carries px padding + min-h so hover is edge-to-edge.
-			const innerClickableClass = clickable?.className
-				? `${clickable.className} flex-1 min-w-0 flex items-center gap-[12px] ${px} min-h-[44px]`
-				: `flex-1 min-w-0 flex items-center gap-[12px] ${px} min-h-[44px]`;
+			const innerClickableClass =
+				clickableProps(onClick, liInnerLayoutWithActions).className ?? liInnerLayoutWithActions;
 			return (
 				<li
 					{...dsProps("Row", "2")}
@@ -308,9 +316,8 @@ export function Row({
 			// interactive element). Tests and E2E that query by testid will therefore
 			// find the div[role=button] which actually handles the click — clicking it
 			// triggers onClick. The li keeps only dsProps + aria-current + listitem role.
-			const innerClickableClass = clickable?.className
-				? `${clickable.className} w-full flex items-center gap-[12px] ${px} min-h-[44px]`
-				: `w-full flex items-center gap-[12px] ${px} min-h-[44px]`;
+			// @lore AD9 W1 (review fix): use liInnerLayout (no separator) — see W1 lore above.
+			const innerClickableClass = clickableProps(onClick, liInnerLayout).className ?? liInnerLayout;
 			return (
 				<li
 					{...dsProps("Row", "2")}
