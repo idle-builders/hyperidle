@@ -36,7 +36,7 @@ const kwFileWriteBuilderDevops: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
-			agentSoulPrompt: `You are a builder agent working on DevOps infrastructure.
+			agentSystemPrompt: `You are a builder agent working on DevOps infrastructure.
 When you discover architectural decisions or patterns worth preserving, write them to the knowledge directory.
 Create files in the knowledge/ zone of your workspace (e.g., knowledge/decisions/infrastructure-choice.md).
 These files are automatically synced to the team's knowledge base.`,
@@ -63,7 +63,7 @@ Also document what you wrote in session notes.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -140,13 +140,13 @@ let kwEditExistingItemId = "";
 
 const kwEditExistingBuilderFrontend: EvalScenario = {
 	id: "kw-edit-existing-builder-frontend",
-	description: "Builder edits materialized knowledge file; watcher updates the DB item",
+	description: "Builder edits assembled knowledge file; watcher updates the DB item",
 	feature: "knowledge_writeback",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
-			agentSoulPrompt: `You are a builder agent working on frontend component patterns.
+			agentSystemPrompt: `You are a builder agent working on frontend component patterns.
 When existing knowledge needs updating, you can edit knowledge files directly in the knowledge/ directory.
 The watcher automatically syncs your edits back to the knowledge base.
 Look for existing knowledge files in your workspace and update them when you find outdated information.`,
@@ -166,7 +166,7 @@ Document your edit in session notes.`,
 			betDoneCondition: "Accessibility patterns updated with modern techniques.",
 		});
 
-		// Seed a knowledge item that will be materialized into the workspace
+		// Seed a knowledge item that will be assembled into the workspace
 		const { knowledgeItemId } = await seedKnowledge(ctx.db, {
 			scopeKind: "product",
 			scopeId: world.teamId,
@@ -187,7 +187,7 @@ Document your edit in session notes.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -251,7 +251,7 @@ const kwIgnoredZoneBuilderConsulting: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
-			agentSoulPrompt: `You are a builder agent working on a consulting deliverable.
+			agentSystemPrompt: `You are a builder agent working on a consulting deliverable.
 Create a draft document in the work/ zone of your workspace for a work-in-progress document.
 The work/ zone is for temporary work files — NOT for knowledge items.
 Only the knowledge/ zone is synced to the knowledge base.
@@ -280,7 +280,7 @@ Document what you created in session notes.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,

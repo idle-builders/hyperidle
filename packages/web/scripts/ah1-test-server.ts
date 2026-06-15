@@ -39,7 +39,7 @@ const AH1_API_PORT = Number(process.env.AH1_API_PORT ?? "3099");
 process.env.HYPERIDLE_API_KEY = process.env.HYPERIDLE_API_KEY ?? "ah1-e2e-test-key";
 process.env.HYPERIDLE_CREDENTIAL_KEY =
 	process.env.HYPERIDLE_CREDENTIAL_KEY ?? "ah1-e2e-cred-key-32-chars!!!!!";
-// laptop profile: allows LocalWorkspaceAdapter in test (no real agent runs in E2E).
+// laptop profile: allows LocalSandboxAdapter in test (no real agent runs in E2E).
 process.env.HYPERIDLE_PROFILE = "laptop";
 
 // Migrations folder: packages/web/scripts/ → go up two dirs → packages/ → db/drizzle.
@@ -57,7 +57,7 @@ const db = rawDb as unknown as HyperIdleDb;
 //    Passing deps.db skips createServer's own DB construction (file-path branch).
 const handle = await createServer(AH1_API_PORT, {
 	db,
-	workspaceBasePath: "/tmp/ah1-e2e-workspaces",
+	sandboxBasePath: "/tmp/ah1-e2e-workspaces",
 });
 
 // 3. Signal readiness — playwright.ah1.config.ts waits for this line.

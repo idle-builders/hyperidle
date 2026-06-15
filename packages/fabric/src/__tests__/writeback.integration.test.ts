@@ -15,7 +15,7 @@ import {
 } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
-import type { Manifest } from "../materialization.js";
+import type { Manifest } from "../context-assembly.js";
 import {
 	getRelativePath,
 	isKnowledgePath,
@@ -160,7 +160,7 @@ describe("processWriteback", () => {
 
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
-			materialized_at: new Date().toISOString(),
+			assembled_at: new Date().toISOString(),
 			items: {},
 		};
 		writeTestManifest(workspace, manifest);
@@ -172,7 +172,7 @@ describe("processWriteback", () => {
 		function makeConfig(): WritebackConfig {
 			return {
 				db,
-				workspacePath: workspace,
+				sandboxPath: workspace,
 				sessionId: sessionData.sessionId,
 				manifestPath: path.join(workspace, ".fabric/manifest.json"),
 			};
@@ -231,7 +231,7 @@ describe("processWriteback", () => {
 
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
-			materialized_at: now,
+			assembled_at: now,
 			items: {
 				[itemId]: {
 					version: 1,
@@ -249,7 +249,7 @@ describe("processWriteback", () => {
 		function makeConfig(): WritebackConfig {
 			return {
 				db,
-				workspacePath: workspace,
+				sandboxPath: workspace,
 				sessionId: sessionData.sessionId,
 				manifestPath: path.join(workspace, ".fabric/manifest.json"),
 			};
@@ -302,7 +302,7 @@ describe("processWriteback", () => {
 
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
-			materialized_at: now,
+			assembled_at: now,
 			items: {
 				[itemId]: {
 					version: 1,
@@ -316,7 +316,7 @@ describe("processWriteback", () => {
 		function makeConfig(): WritebackConfig {
 			return {
 				db,
-				workspacePath: workspace,
+				sandboxPath: workspace,
 				sessionId: sessionData.sessionId,
 				manifestPath: path.join(workspace, ".fabric/manifest.json"),
 			};
@@ -376,7 +376,7 @@ describe("processWriteback", () => {
 		// Manifest thinks version is 1 (stale)
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
-			materialized_at: now,
+			assembled_at: now,
 			items: {
 				[itemId]: {
 					version: 1,
@@ -393,7 +393,7 @@ describe("processWriteback", () => {
 		function makeConfig(): WritebackConfig {
 			return {
 				db,
-				workspacePath: workspace,
+				sandboxPath: workspace,
 				sessionId: sessionData.sessionId,
 				manifestPath: path.join(workspace, ".fabric/manifest.json"),
 			};
@@ -424,7 +424,7 @@ describe("processWriteback", () => {
 
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
-			materialized_at: new Date().toISOString(),
+			assembled_at: new Date().toISOString(),
 			items: {},
 		};
 		writeTestManifest(workspace, manifest);
@@ -435,7 +435,7 @@ describe("processWriteback", () => {
 		function makeConfig(): WritebackConfig {
 			return {
 				db,
-				workspacePath: workspace,
+				sandboxPath: workspace,
 				sessionId: sessionData.sessionId,
 				manifestPath: path.join(workspace, ".fabric/manifest.json"),
 			};
@@ -463,7 +463,7 @@ describe("processWriteback", () => {
 
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
-			materialized_at: new Date().toISOString(),
+			assembled_at: new Date().toISOString(),
 			items: {},
 		};
 		writeTestManifest(workspace, manifest);
@@ -474,7 +474,7 @@ describe("processWriteback", () => {
 		function makeConfig(): WritebackConfig {
 			return {
 				db,
-				workspacePath: workspace,
+				sandboxPath: workspace,
 				sessionId: sessionData.sessionId,
 				manifestPath: path.join(workspace, ".fabric/manifest.json"),
 			};
@@ -527,7 +527,7 @@ describe("processWriteback", () => {
 		// Manifest tracks version 1
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
-			materialized_at: now,
+			assembled_at: now,
 			items: {
 				[itemId]: {
 					version: 1,
@@ -551,7 +551,7 @@ describe("processWriteback", () => {
 		function makeConfig(): WritebackConfig {
 			return {
 				db,
-				workspacePath: workspace,
+				sandboxPath: workspace,
 				sessionId: sessionData.sessionId,
 				manifestPath: path.join(workspace, ".fabric/manifest.json"),
 			};
@@ -588,7 +588,7 @@ describe("processWriteback", () => {
 
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
-			materialized_at: new Date().toISOString(),
+			assembled_at: new Date().toISOString(),
 			items: {},
 		};
 		writeTestManifest(workspace, manifest);
@@ -599,7 +599,7 @@ describe("processWriteback", () => {
 		function makeConfig(): WritebackConfig {
 			return {
 				db,
-				workspacePath: workspace,
+				sandboxPath: workspace,
 				sessionId: sessionData.sessionId,
 				manifestPath: path.join(workspace, ".fabric/manifest.json"),
 			};
@@ -625,7 +625,7 @@ describe("processWriteback", () => {
 
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
-			materialized_at: new Date().toISOString(),
+			assembled_at: new Date().toISOString(),
 			items: {},
 		};
 		writeTestManifest(workspace, manifest);
@@ -633,7 +633,7 @@ describe("processWriteback", () => {
 		function makeConfig(): WritebackConfig {
 			return {
 				db,
-				workspacePath: workspace,
+				sandboxPath: workspace,
 				sessionId: sessionData.sessionId,
 				manifestPath: path.join(workspace, ".fabric/manifest.json"),
 			};
@@ -655,7 +655,7 @@ describe("processWriteback", () => {
 
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
-			materialized_at: new Date().toISOString(),
+			assembled_at: new Date().toISOString(),
 			items: {},
 		};
 		writeTestManifest(workspace, manifest);
@@ -667,7 +667,7 @@ describe("processWriteback", () => {
 		function makeConfig(): WritebackConfig {
 			return {
 				db,
-				workspacePath: workspace,
+				sandboxPath: workspace,
 				sessionId: sessionData.sessionId,
 				manifestPath: path.join(workspace, ".fabric/manifest.json"),
 			};
@@ -691,7 +691,7 @@ describe("processWriteback", () => {
 
 		const manifest: Manifest = {
 			session_id: sessionData.sessionId,
-			materialized_at: new Date().toISOString(),
+			assembled_at: new Date().toISOString(),
 			items: {},
 		};
 		writeTestManifest(workspace, manifest);
@@ -714,7 +714,7 @@ describe("processWriteback", () => {
 		function makeConfig(): WritebackConfig {
 			return {
 				db,
-				workspacePath: workspace,
+				sandboxPath: workspace,
 				sessionId: sessionData.sessionId,
 				manifestPath: path.join(workspace, ".fabric/manifest.json"),
 			};

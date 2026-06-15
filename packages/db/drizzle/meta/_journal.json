@@ -232,6 +232,13 @@
 			"when": 1784300000000,
 			"tag": "0032_wild_nova",
 			"breakpoints": true
+		},
+		{
+			"idx": 33,
+			"version": "7",
+			"when": 1784400000000,
+			"tag": "0033_AK1_harness_vocab_rename",
+			"breakpoints": true
 		}
 	]
 }

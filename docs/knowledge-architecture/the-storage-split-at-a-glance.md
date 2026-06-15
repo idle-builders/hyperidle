@@ -14,7 +14,7 @@ L1         task state, failures       session.toon pack      Work view (sampled)
 L0         working context            session.toon pack      not shown
 ```
 
-**Same data, two projections.** Agents get token-efficient TOON packs and plain files they can grep. Humans get a rich web UI with inline editing. The Knowledge Fabric syncs continuously — materialization at session start, then a file watcher writes back changes incrementally as the agent works.
+**Same data, two projections.** Agents get token-efficient TOON packs and plain files they can grep. Humans get a rich web UI with inline editing. The Knowledge Fabric syncs continuously — context assembly at session start, then a file watcher writes back changes incrementally as the agent works.
 
 **If a file is human-readable, that means a human will actually read it.** Not "could theoretically read." Will. If no human will ever read it, it has no business being markdown — that's just token waste and version-control noise.
 

@@ -2,7 +2,7 @@
  * AF17 — AC1 + AC2: Factory Bootstrap
  *
  * AC1: Fresh environment has complete factory layer (system identities, facilitators,
- *      soul templates, factory principle) without manual step.
+ *      system prompt templates, factory principle) without manual step.
  *
  * AC2: Re-applying factory bootstrap is idempotent — row counts and values are
  *      identical after the second call.
@@ -66,23 +66,23 @@ describe("AF17 AC1: applyFactoryBootstrap creates the complete factory layer", (
 		}
 	});
 
-	test("soul_template:product_manager key exists in factory_settings", async ({ db }) => {
+	test("system_template:product_manager key exists in factory_settings", async ({ db }) => {
 		await applyFactoryBootstrap(db);
 
 		const rows = await queryRows<{ key: string; value: string }>(
 			db,
-			"SELECT key, value FROM factory_settings WHERE key = 'soul_template:product_manager'",
+			"SELECT key, value FROM factory_settings WHERE key = 'system_template:product_manager'",
 		);
 		expect(rows).toHaveLength(1);
 		expect(rows[0]?.value.length).toBeGreaterThan(50);
 	});
 
-	test("soul_template:facilitator key exists in factory_settings", async ({ db }) => {
+	test("system_template:facilitator key exists in factory_settings", async ({ db }) => {
 		await applyFactoryBootstrap(db);
 
 		const rows = await queryRows<{ key: string; value: string }>(
 			db,
-			"SELECT key, value FROM factory_settings WHERE key = 'soul_template:facilitator'",
+			"SELECT key, value FROM factory_settings WHERE key = 'system_template:facilitator'",
 		);
 		expect(rows).toHaveLength(1);
 		expect(rows[0]?.value.length).toBeGreaterThan(50);
@@ -211,17 +211,17 @@ describe("AF17 AC2: applyFactoryBootstrap is idempotent", () => {
 		await expect(applyFactoryBootstrap(db)).resolves.not.toThrow();
 	});
 
-	test("soul_template values are identical after second run", async ({ db }) => {
+	test("system_template values are identical after second run", async ({ db }) => {
 		await applyFactoryBootstrap(db);
 		const rows1 = await queryRows<{ key: string; value: string }>(
 			db,
-			"SELECT key, value FROM factory_settings WHERE key LIKE 'soul_template:%' ORDER BY key",
+			"SELECT key, value FROM factory_settings WHERE key LIKE 'system_template:%' ORDER BY key",
 		);
 
 		await applyFactoryBootstrap(db);
 		const rows2 = await queryRows<{ key: string; value: string }>(
 			db,
-			"SELECT key, value FROM factory_settings WHERE key LIKE 'soul_template:%' ORDER BY key",
+			"SELECT key, value FROM factory_settings WHERE key LIKE 'system_template:%' ORDER BY key",
 		);
 
 		expect(rows2).toEqual(rows1);

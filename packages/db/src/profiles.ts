@@ -1,13 +1,14 @@
 export type DeploymentProfile = "laptop" | "vps" | "cloud";
 
 export type DbDriver = "pglite" | "postgres";
-export type WorkspaceAdapterKind = "local" | "docker" | "e2b";
+/** @lore AK1: Renamed per AK1 harness-vocab plan. */
+export type SandboxAdapterKind = "local" | "docker" | "e2b";
 
 export interface ProfileDefaults {
 	readonly profile: DeploymentProfile;
 	readonly dbDriver: DbDriver;
 	readonly dbUrlDefault: string;
-	readonly workspaceAdapter: WorkspaceAdapterKind;
+	readonly sandboxAdapter: SandboxAdapterKind;
 	readonly requiresDockerCompose: boolean;
 	readonly ports: { readonly server: number; readonly web: number };
 }
@@ -19,7 +20,7 @@ export const PROFILE_DEFAULTS: Record<DeploymentProfile, ProfileDefaults> = {
 		profile: "laptop",
 		dbDriver: "pglite",
 		dbUrlDefault: "./hyperidle-pg",
-		workspaceAdapter: "local",
+		sandboxAdapter: "local",
 		requiresDockerCompose: false,
 		ports: DEFAULT_PORTS,
 	},
@@ -27,7 +28,7 @@ export const PROFILE_DEFAULTS: Record<DeploymentProfile, ProfileDefaults> = {
 		profile: "vps",
 		dbDriver: "postgres",
 		dbUrlDefault: "postgres://hyperidle:hyperidle@postgres:5432/hyperidle",
-		workspaceAdapter: "docker",
+		sandboxAdapter: "docker",
 		requiresDockerCompose: true,
 		ports: DEFAULT_PORTS,
 	},
@@ -35,7 +36,7 @@ export const PROFILE_DEFAULTS: Record<DeploymentProfile, ProfileDefaults> = {
 		profile: "cloud",
 		dbDriver: "postgres",
 		dbUrlDefault: "",
-		workspaceAdapter: "e2b",
+		sandboxAdapter: "e2b",
 		requiresDockerCompose: false,
 		ports: DEFAULT_PORTS,
 	},

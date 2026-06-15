@@ -6,7 +6,7 @@
 
 **Why not OT (Operational Transform)?** OT requires a persistent connection between clients and server during editing. Agent sessions are disconnected — the agent works on local files, syncs at boundaries. OT doesn't fit the session model.
 
-**Why materialization over FUSE?** See §4.2. The short version: FUSE doesn't work in containers, turns file reads into DB queries, and breaks when the daemon crashes. Materialization is boring and correct.
+**Why context assembly over FUSE?** See §4.2. The short version: FUSE doesn't work in containers, turns file reads into DB queries, and breaks when the daemon crashes. Context assembly is boring and correct.
 
 **Why three workspace zones instead of one?** Without the `context/` vs `knowledge/` vs `work/` split, the writeback can't distinguish "the agent read this file and happened to modify it while experimenting" from "the agent intentionally proposes this knowledge change." The zones make intent explicit, which makes the writeback reliable.
 

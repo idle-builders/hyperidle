@@ -95,7 +95,7 @@ Three-layer system with strict downward dependency: Human Interface → Meta Lay
 - `deployment/` — laptop, VPS, cloud, Postgres migration
 - `guides/developer/` — onboarding, project structure, commands, conventions
 - `guides/user/` — end-user guide: interface, views, agents, daily rhythms
-- `souls/` — agent personas
+- `system-prompts/` — agent system prompt templates
 - `archive/` — superseded docs
 
 Each folder has an `index.md` with section links. `/concept` and `/architecture` identify which docs are relevant for a workpackage — downstream skills read the plan, not docs directly.
@@ -121,7 +121,7 @@ Node.js, npm, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React 
 
 ## Monorepo
 
-`packages/db` (schema, migrations), `packages/server` (Hono API), `packages/web` (React frontend), `packages/fabric` (knowledge materialization), `packages/shared` (types, constants, TOON codec).
+`packages/db` (schema, migrations), `packages/server` (Hono API), `packages/web` (React frontend), `packages/fabric` (knowledge fabric / context assembly), `packages/shared` (types, constants, TOON codec).
 
 ---
 

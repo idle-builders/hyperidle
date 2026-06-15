@@ -3,7 +3,7 @@
  *
  * AC1: Thread-detail IDOR guard — participant-scope thread not readable by
  *      non-participant; host-scope thread readable by any authenticated principal.
- * AC2: Soul-prompt guard from Principal, not header — X-Identity cannot spoof
+ * AC2: System-prompt guard from Principal, not header — X-Identity cannot spoof
  *      access to another user's assistant.
  * AC3: Worker token confinement — worker token rejected by /api/credentials and
  *      /api/workers.
@@ -191,10 +191,10 @@ describe("AC1: GET /api/threads/:id — participant-scope IDOR guard", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC2 — Soul-prompt guard from Principal, not header (Hard Rule 2)
+// AC2 — System-prompt guard from Principal, not header (Hard Rule 2)
 // ---------------------------------------------------------------------------
 
-describe("AC2: Soul-prompt — authorization from Principal, not X-Identity header", () => {
+describe("AC2: System-prompt — authorization from Principal, not X-Identity header", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});
@@ -287,11 +287,11 @@ describe("AC2: Soul-prompt — authorization from Principal, not X-Identity head
 			createdAt: now,
 		});
 
-		// Auth as u-patchA, supply X-Identity: u-patchB, target u-patchB's soul prompt
+		// Auth as u-patchA, supply X-Identity: u-patchB, target u-patchB's system prompt
 		const res = await app.request("/api/users/u-patchB/assistant", {
 			method: "PATCH",
 			headers: authHeaders({ "X-Identity": "u-patchB" }),
-			body: JSON.stringify({ soulPrompt: "Hacked prompt" }),
+			body: JSON.stringify({ systemPrompt: "Hacked prompt" }),
 		});
 
 		expect(res.status).toBe(403);

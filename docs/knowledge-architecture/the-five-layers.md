@@ -16,9 +16,9 @@ An agent spinning up for a specific task. Minutes to hours.
 
 Borrows from how Letta/MemGPT treats the context window like RAM in an operating system — the agent explicitly manages what's in its working set rather than stuffing everything in upfront. We don't need to implement Letta; we take the idea: **load what you need, nothing more.**
 
-- **Storage**: ephemeral. Rebuilt every session by the Knowledge Fabric's materialization engine (§5).
+- **Storage**: ephemeral. Rebuilt every session by the Knowledge Fabric's context assembly engine (§5).
 - **Format**: TOON-style compact pack loaded from L1/L2/L3. TOON gives ~40% fewer tokens than JSON for structured data with minimal parsing loss. This is the difference between an agent that can hold a whole product's context vs. one that burns its window on boilerplate.
-- **Materialization budget**: the Knowledge Fabric applies relevance scoring and a token budget to decide what gets loaded. Not everything — just what this task needs (§7).
+- **Context assembly budget**: the Knowledge Fabric applies relevance scoring and a token budget to decide what gets loaded. Not everything — just what this task needs (§7).
 - **Human touch**: none.
 
 ### L1: Task — the unit of work
@@ -47,7 +47,7 @@ These are beautiful, short, and stable. A human authors them. An agent reads the
 - `BRAND.md` — voice, positioning
 - `PRINCIPLES.md` — the hard rules for this product, distilled over time from what works
 
-These are the product's **soul**. If the files disappear, the product doesn't know who it is.
+These are the product's **core identity**. If the files disappear, the product doesn't know who it is.
 
 **The agent-native part** (rows in `knowledge_items` with `layer='L2'` and `scope_id` = product name):
 

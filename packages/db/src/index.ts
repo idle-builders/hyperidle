@@ -21,7 +21,7 @@ export {
 	type ProfileDefaults,
 	type ResolveOptions,
 	resolveProfile,
-	type WorkspaceAdapterKind,
+	type SandboxAdapterKind,
 } from "./profiles.js";
 export * as schema from "./schema.js";
 export {

@@ -35,7 +35,7 @@ const caCodeDiffBuilderDevops: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
-			agentSoulPrompt: `You are a builder agent implementing DevOps infrastructure changes.
+			agentSystemPrompt: `You are a builder agent implementing DevOps infrastructure changes.
 When you complete implementation work, you MUST record the output as an artifact using create_artifact.
 For code changes, use kind="code_diff" and provide a structured preview showing the file and changes made.`,
 			taskTitle: "Refactor Kubernetes deployment manifest",
@@ -57,7 +57,7 @@ Document your changes in session notes.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -135,7 +135,7 @@ const caDecisionPmHealthcare: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "product_manager",
-			agentSoulPrompt: `You are a product manager in the healthcare domain.
+			agentSystemPrompt: `You are a product manager in the healthcare domain.
 When making significant product decisions, record them as decision artifacts using create_artifact.
 Healthcare decisions require thorough rationale citing regulatory constraints (HIPAA, HL7 FHIR).
 Use kind="decision" with a structured preview that includes your claim and rationale.`,
@@ -163,7 +163,7 @@ Your decision should cite specific regulatory requirements.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -221,7 +221,7 @@ const caVerificationBuilderFrontend: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
-			agentSoulPrompt: `You are a builder agent implementing frontend components.
+			agentSystemPrompt: `You are a builder agent implementing frontend components.
 After verifying your work with tests, record the verification results as an artifact using create_artifact.
 Use kind="verification" with a preview showing the test suite name, total tests, passed count, and failed count.`,
 			taskTitle: "Verify accessible modal component test suite",
@@ -244,7 +244,7 @@ Also write session notes summarizing the verification outcome.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -318,7 +318,7 @@ const caDesignArtifactDesignerFrontend: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "designer",
-			agentSoulPrompt: `You are a product designer on the frontend team.
+			agentSystemPrompt: `You are a product designer on the frontend team.
 You own the user experience. When you complete a component specification, record it as a design artifact.
 Use create_artifact with kind="design" and a preview describing the component name, interaction states, and key interactions.
 You do NOT write application code. Shape the interaction model and hand off to the Builder.`,
@@ -347,7 +347,7 @@ Document the design rationale in session notes.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -438,7 +438,7 @@ const caRunbookOpsDevops: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "ops",
-			agentSoulPrompt: `You are an ops agent responsible for production reliability.
+			agentSystemPrompt: `You are an ops agent responsible for production reliability.
 When you complete an operational procedure, document it as an artifact for future reference.
 Use create_artifact with kind="comm_draft" to record runbook-style operational documentation.
 The preview should include the procedure steps, prerequisites, and rollback procedure.
@@ -475,7 +475,7 @@ Document the test outcome in session notes.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,

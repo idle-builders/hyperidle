@@ -402,7 +402,7 @@ export function createUserRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 		},
 	);
 
-	// AD8b Task 8 — soul prompt CRUD: GET + PATCH /api/users/:userId/assistant
+	// AD8b Task 8 — system prompt CRUD: GET + PATCH /api/users/:userId/assistant
 	// @lore AD8b: Mounted BEFORE the generic /:id handler if there is one.
 	// In this router the /:id handler is a GET, so we mount /:userId/assistant
 	// explicitly. Hono routes by registration order — the more specific path

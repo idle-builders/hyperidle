@@ -2,7 +2,7 @@
  * AF16 T16 (Z8-097) — Retention reaper.
  *
  * Periodic TTL sweep for 5 tables with temporal columns. Mirrors the
- * workspace-reaper pattern: `reapRetentionOnce(db, opts)` for a deterministic
+ * sandbox-reaper pattern: `reapRetentionOnce(db, opts)` for a deterministic
  * single pass + `startRetentionReaper(db, opts): () => void` for the 6-hour
  * scheduled interval.
  *
@@ -188,9 +188,9 @@ export async function reapRetentionOnce(
 
 /**
  * Start the retention reaper on a 6-hour interval. Returns a disposer.
- * Mirrors `startWorkspaceReaper`.
+ * Mirrors `startSandboxReaper`.
  *
- * @lore AF16 T17: wired in bootstrap.ts alongside startWorkspaceReaper /
+ * @lore AF16 T17: wired in bootstrap.ts alongside startSandboxReaper /
  * startNotificationDrain. This is the in-process scheduler (not BullMQ).
  */
 export function startRetentionReaper(db: HyperIdleDb, opts?: RetentionReaperOptions): () => void {

@@ -31,7 +31,7 @@ const htToAgentBuilderDevops: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMultiAgentWorld(ctx.db, {
 			agentRole: "builder",
-			agentSoulPrompt: `You are a builder agent working on infrastructure migration.
+			agentSystemPrompt: `You are a builder agent working on infrastructure migration.
 When you need to transfer work to a specific teammate, use handoff_to with their agentId.
 Include: contextId (your current task), status, reason, artifacts, and remaining work.
 Good handoffs give the receiver everything they need to continue without questions.`,
@@ -69,7 +69,7 @@ Use handoff_to with:
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -147,7 +147,7 @@ const htToRoleBuilderConsulting: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMultiAgentWorld(ctx.db, {
 			agentRole: "builder",
-			agentSoulPrompt: `You are a builder agent working on consulting analysis.
+			agentSystemPrompt: `You are a builder agent working on consulting analysis.
 When your analysis is complete and needs stakeholder communication, hand off to a product manager.
 Use handoff_to with toRole="product_manager" to route to the right person.
 The system will find an available PM on your team automatically.`,
@@ -179,7 +179,7 @@ Hand off to the team product manager for stakeholder communication using handoff
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -238,7 +238,7 @@ const htToHumanBuilderHealthcare: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
-			agentSoulPrompt: `You are a builder agent working on a healthcare patient data system.
+			agentSystemPrompt: `You are a builder agent working on a healthcare patient data system.
 When you encounter a question requiring human judgment on patient privacy or HIPAA compliance,
 escalate to a human reviewer using handoff_to with toHuman=true and status="blocked".
 HIPAA interpretation questions require human legal or compliance expertise — never guess.`,
@@ -270,7 +270,7 @@ This creates a review item for a human compliance expert.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -351,7 +351,7 @@ const htContextQualityPmFinance: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMultiAgentWorld(ctx.db, {
 			agentRole: "product_manager",
-			agentSoulPrompt: `You are a product manager coordinating a financial audit engagement.
+			agentSystemPrompt: `You are a product manager coordinating a financial audit engagement.
 When handing off work, provide complete context so the receiver can continue without questions.
 Your handoffs must include: what you completed, what artifacts were produced, and what remains.
 Poor handoffs waste time — always be specific and comprehensive.`,
@@ -389,7 +389,7 @@ Use handoff_to with:
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -461,7 +461,7 @@ const htToBuilderDesignerFrontend: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMultiAgentWorld(ctx.db, {
 			agentRole: "designer",
-			agentSoulPrompt: `You are a product designer on the frontend team.
+			agentSystemPrompt: `You are a product designer on the frontend team.
 When your design specification is complete, hand off to the builder for implementation.
 Use handoff_to with the builder's agentId and include:
 - Design rationale: why these design decisions were made
@@ -501,7 +501,7 @@ Hand off using handoff_to:
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -559,7 +559,7 @@ const htToBuilderOpsDevops: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMultiAgentWorld(ctx.db, {
 			agentRole: "ops",
-			agentSoulPrompt: `You are an ops agent responsible for production reliability.
+			agentSystemPrompt: `You are an ops agent responsible for production reliability.
 When you investigate a production incident and determine the root cause is application code (not infrastructure),
 escalate to the Builder with your full diagnosis.
 Use handoff_to with status="blocked" because ops cannot fix application code — that's the Builder's domain.
@@ -598,7 +598,7 @@ Hand off to the builder using handoff_to:
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,

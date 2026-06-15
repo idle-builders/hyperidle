@@ -25,12 +25,8 @@ import {
 	type McpBridgeInstance,
 	toolResultToCallToolResult,
 } from "../mcp/mcp-bridge.js";
-import {
-	buildToolRegistry,
-	type ToolContext,
-	type ToolRegistry,
-} from "../skill-tools/tool-registry.js";
-import type { ToolResult } from "../skill-tools/tool-result.js";
+import { buildToolRegistry, type ToolContext, type ToolRegistry } from "../tools/tool-registry.js";
+import type { ToolResult } from "../tools/tool-result.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -43,7 +39,7 @@ function makeContext(db: import("@hyperidle/db").HyperIdleDb, eventBus: EventBus
 		agentId: "agent-test",
 		sessionId: "session-test",
 		taskId: "task-test",
-		workspacePath: path.join(os.tmpdir(), `x2-bridge-test-${Date.now()}`),
+		sandboxPath: path.join(os.tmpdir(), `x2-bridge-test-${Date.now()}`),
 		watcher: { stop: (): void => {} },
 	};
 }

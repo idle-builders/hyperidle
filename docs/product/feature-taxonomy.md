@@ -106,7 +106,7 @@ Product group > product > feature. Code-verified June 2026.
 
 ### Agents
 - Agent profile (identity, skills, activity, health signals) | WORKS
-- Edit soul prompt (templates for 8 of 15 roles) | WORKS
+- Edit system prompt (templates for 8 of 15 roles) | WORKS
 - Set harness type, model tier, max concurrent sessions | WORKS
 - Create agent with role from catalog | WORKS
 - Retire agent (soft-delete) | WORKS

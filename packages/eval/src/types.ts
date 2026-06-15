@@ -31,8 +31,8 @@ export interface ScenarioSeedResult {
 	readonly agentId: string;
 	readonly taskId: string;
 	readonly betId: string;
-	/** Workspace base path for LocalWorkspaceAdapter. */
-	readonly workspaceBasePath: string;
+	/** Sandbox base path for LocalSandboxAdapter. */
+	readonly sandboxBasePath: string;
 }
 
 /** Context provided to trigger functions. */

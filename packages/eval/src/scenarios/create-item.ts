@@ -37,7 +37,7 @@ const ciEscalationBuilderFinance: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
-			agentSoulPrompt: `You are a builder agent working on financial systems.
+			agentSystemPrompt: `You are a builder agent working on financial systems.
 When you encounter a compliance blocker that exceeds your authority to resolve, escalate it.
 Use create_item with kind="escalation", riskTier="high", blocking=true, and your reasoning.
 Finance compliance issues must always be flagged as high risk and blocking.`,
@@ -66,7 +66,7 @@ Use create_item to escalate this compliance blocker:
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -148,7 +148,7 @@ const ciKnowledgeProposalBuilderConsulting: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
-			agentSoulPrompt: `You are a builder agent working on consulting deliverables.
+			agentSystemPrompt: `You are a builder agent working on consulting deliverables.
 When you discover a reusable pattern or insight during your work, propose it for the knowledge base.
 Use create_item with kind="knowledge" and verb="propose" to surface it for facilitator review.
 Include a clear body that explains the pattern and why it's reusable.`,
@@ -177,7 +177,7 @@ This routes the item to the knowledge view for facilitator review.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -235,7 +235,7 @@ const ciReviewRequestBuilderFrontend: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
-			agentSoulPrompt: `You are a builder agent implementing frontend accessibility improvements.
+			agentSystemPrompt: `You are a builder agent implementing frontend accessibility improvements.
 When you make changes that could affect users with disabilities, request a human review.
 Use create_item with kind="review" and riskTier="high" for accessibility-critical changes.
 Include specific changes made and why they need expert review in the body.`,
@@ -264,7 +264,7 @@ Request a human review using create_item:
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -325,7 +325,7 @@ const ciWorkItemPmDevops: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "product_manager",
-			agentSoulPrompt: `You are a product manager overseeing infrastructure reliability.
+			agentSystemPrompt: `You are a product manager overseeing infrastructure reliability.
 When you discover a critical infrastructure issue that requires a new bet (significant commitment), create a work item.
 Use create_item with kind="work", verb="bet", and blocking=true for critical infrastructure issues.
 Include the technical issue and business impact in the body.`,
@@ -355,7 +355,7 @@ Create a work item to escalate this as a bet using create_item:
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -425,7 +425,7 @@ const ciChatGrowthMarketing: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "growth",
-			agentSoulPrompt: `You are a growth agent working on marketing campaigns.
+			agentSystemPrompt: `You are a growth agent working on marketing campaigns.
 When you need a quick human check on campaign messaging before publishing, create a chat item.
 Use create_item with kind="chat" and verb="review" for lightweight human-in-the-loop checks.
 Chat items are for quick questions and feedback, not formal escalations.`,
@@ -455,7 +455,7 @@ This routes to conversations for a quick check.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -513,7 +513,7 @@ const ciReviewRequestDesignerHealthcare: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "designer",
-			agentSoulPrompt: `You are a product designer on the healthcare team.
+			agentSystemPrompt: `You are a product designer on the healthcare team.
 When you design interactions that affect patient safety, request a clinical expert review.
 Use create_item with kind="review" and riskTier="high" for any UX flow involving medication, dosage, or clinical decisions.
 Healthcare UX errors can harm patients — flag them immediately and include specific risk reasoning.
@@ -544,7 +544,7 @@ Request a clinical UX review using create_item:
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -618,7 +618,7 @@ const ciBugEscalationQaFrontend: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "qa_engineer",
-			agentSoulPrompt: `You are a QA engineer responsible for quality assurance on the frontend team.
+			agentSystemPrompt: `You are a QA engineer responsible for quality assurance on the frontend team.
 When you find a regression in a release candidate, escalate it immediately using create_item.
 Use kind="escalation" and riskTier="high" for regressions that block release.
 Your escalation must include: what you found, how to reproduce it, affected component, and severity assessment.
@@ -660,7 +660,7 @@ Escalate using create_item:
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,

@@ -25,15 +25,18 @@ import type {
 	SessionResult,
 } from "@hyperidle/shared";
 
-/** Template variable names used in args and envMap. */
-type TemplateVar = "{{workspace}}" | "{{model}}" | "{{apiKey}}" | "{{baseUrl}}" | "{{mcpUrl}}";
+/**
+ * Template variable names used in args and envMap.
+ * @lore AK1: {{workspace}} renamed to {{sandbox}} in AK1 harness-vocab rename.
+ */
+type TemplateVar = "{{sandbox}}" | "{{model}}" | "{{apiKey}}" | "{{baseUrl}}" | "{{mcpUrl}}";
 
 export interface CliAdapterConfig {
 	/** Executable name or absolute path. */
 	readonly binary: string;
 	/**
 	 * CLI arguments with template variables:
-	 * {{workspace}}, {{model}}, {{apiKey}}, {{baseUrl}}, {{mcpUrl}}.
+	 * {{sandbox}}, {{model}}, {{apiKey}}, {{baseUrl}}, {{mcpUrl}}.
 	 */
 	readonly args: readonly string[];
 	/**
@@ -167,7 +170,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 	async startSession(config: SessionConfig): Promise<SessionHandle> {
 		// Build template variable map
 		const templateVars: Record<TemplateVar, string> = {
-			"{{workspace}}": config.workspacePath,
+			"{{sandbox}}": config.sandboxPath,
 			"{{model}}": config.resolvedModel?.model ?? "",
 			"{{apiKey}}": config.resolvedModel?.apiKey ?? "",
 			"{{baseUrl}}": config.resolvedModel?.baseUrl ?? "",
@@ -189,7 +192,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		// Spawn the child process
 		// @lore X5 W1: args ARRAY form is the security boundary — no shell: true
 		const child = this.spawnFn(this.config.binary, resolvedArgs, {
-			cwd: config.workspacePath,
+			cwd: config.sandboxPath,
 			env: sandboxedEnv,
 			stdio: ["pipe", "pipe", "pipe"],
 		});

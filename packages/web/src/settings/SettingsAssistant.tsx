@@ -1,9 +1,9 @@
 /**
  * AD8b Task 10 — SettingsAssistant component.
  *
- * AC-2: The user can view and edit their assistant's soul prompt in settings.
+ * AC-2: The user can view and edit their assistant's system prompt in settings.
  *
- * - Loads the soul prompt via GET /api/users/:userId/assistant
+ * - Loads the system prompt via GET /api/users/:userId/assistant
  * - Saves via PATCH /api/users/:userId/assistant
  * - Save button disabled when clean; enabled when dirty
  * - Shows "Saving..." while in flight; "Saved" briefly after success
@@ -17,7 +17,7 @@ import { apiFetch } from "../services/api-fetch.js";
 interface AssistantData {
 	id: string;
 	name: string;
-	soulPrompt: string | null;
+	systemPrompt: string | null;
 }
 
 interface SettingsAssistantProps {
@@ -28,11 +28,11 @@ interface SettingsAssistantProps {
 type SaveState = "idle" | "saving" | "saved" | "error";
 
 /**
- * Soul prompt editor for the user's personal assistant agent.
+ * System prompt editor for the user's personal assistant agent.
  */
 export function SettingsAssistant({ userId }: SettingsAssistantProps): JSX.Element {
 	const [loading, setLoading] = useState(true);
-	const [soulPrompt, setSoulPrompt] = useState("");
+	const [systemPrompt, setSystemPrompt] = useState("");
 	const [savedPrompt, setSavedPrompt] = useState("");
 	const [saveState, setSaveState] = useState<SaveState>("idle");
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -55,8 +55,8 @@ export function SettingsAssistant({ userId }: SettingsAssistantProps): JSX.Eleme
 				}
 				const data = (await res.json()) as AssistantData;
 				if (!cancelled) {
-					const prompt = data.soulPrompt ?? "";
-					setSoulPrompt(prompt);
+					const prompt = data.systemPrompt ?? "";
+					setSystemPrompt(prompt);
 					setSavedPrompt(prompt);
 					setLoading(false);
 				}
@@ -73,7 +73,7 @@ export function SettingsAssistant({ userId }: SettingsAssistantProps): JSX.Eleme
 		};
 	}, [userId]);
 
-	const isDirty = soulPrompt !== savedPrompt;
+	const isDirty = systemPrompt !== savedPrompt;
 
 	const handleSave = useCallback(async () => {
 		setSaveState("saving");
@@ -86,28 +86,28 @@ export function SettingsAssistant({ userId }: SettingsAssistantProps): JSX.Eleme
 					"Content-Type": "application/json",
 					"X-Identity": userId,
 				},
-				body: JSON.stringify({ soulPrompt }),
+				body: JSON.stringify({ systemPrompt }),
 			});
 
 			if (!res.ok) {
 				setSaveState("error");
-				setErrorMessage("Could not save soul prompt. Please try again.");
+				setErrorMessage("Could not save system prompt. Please try again.");
 				return;
 			}
 
 			const data = (await res.json()) as AssistantData;
-			const saved = data.soulPrompt ?? "";
+			const saved = data.systemPrompt ?? "";
 			setSavedPrompt(saved);
-			setSoulPrompt(saved);
+			setSystemPrompt(saved);
 			setSaveState("saved");
 
 			// Reset to idle after 2 seconds
 			setTimeout(() => setSaveState("idle"), 2000);
 		} catch {
 			setSaveState("error");
-			setErrorMessage("Could not save soul prompt. Please try again.");
+			setErrorMessage("Could not save system prompt. Please try again.");
 		}
-	}, [userId, soulPrompt]);
+	}, [userId, systemPrompt]);
 
 	const isSaving = saveState === "saving";
 	const saveButtonLabel = isSaving ? "Saving..." : saveState === "saved" ? "Saved" : "Save";
@@ -119,29 +119,29 @@ export function SettingsAssistant({ userId }: SettingsAssistantProps): JSX.Eleme
 					Assistant
 				</h2>
 				<p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-					The soul prompt shapes how your personal assistant responds to you. Edit it to give your
+					The system prompt shapes how your personal assistant responds to you. Edit it to give your
 					assistant a custom persona or set of instructions.
 				</p>
 			</div>
 
 			<div className="flex flex-col gap-3">
 				<label
-					htmlFor="soul-prompt"
+					htmlFor="system-prompt"
 					className="text-sm font-medium"
 					style={{ color: "var(--text-primary)" }}
 				>
 					Persona instructions
 				</label>
 				<textarea
-					id="soul-prompt"
-					value={loading ? "" : soulPrompt}
+					id="system-prompt"
+					value={loading ? "" : systemPrompt}
 					onChange={(e) => {
-						setSoulPrompt(e.target.value);
+						setSystemPrompt(e.target.value);
 						if (saveState === "saved" || saveState === "error") setSaveState("idle");
 					}}
 					disabled={loading || isSaving}
 					placeholder={
-						loading ? "Loading soul prompt..." : "Describe how your assistant should behave..."
+						loading ? "Loading system prompt..." : "Describe how your assistant should behave..."
 					}
 					rows={10}
 					className="textarea textarea-bordered w-full font-mono text-sm resize-y"

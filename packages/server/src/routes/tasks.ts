@@ -242,16 +242,16 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 			}
 
 			// Build a minimal SessionContext for handoff.
-			// @lore I6: workspacePath must be non-empty or endSession's fs.promises.rm()
+			// @lore I6: sandboxPath must be non-empty or endSession's fs.promises.rm()
 			// would attempt to rm(""), which is dangerous. Use a safe sentinel that
 			// points to a non-existent path so rm() fails silently (force: true).
 			const resolvedWorkspacePath =
-				session.workspaceSnapshot?.trim() || `/tmp/.hyperidle-noop-${session.id}`;
+				session.sandboxSnapshot?.trim() || `/tmp/.hyperidle-noop-${session.id}`;
 			const sessionContext: SessionContext = {
 				sessionId: session.id,
 				agentId: session.agentId,
 				taskId,
-				workspacePath: resolvedWorkspacePath,
+				sandboxPath: resolvedWorkspacePath,
 				watcher: {
 					stop: (): void => {
 						/* no-op */

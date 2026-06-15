@@ -51,7 +51,7 @@ reads, no deletes); don't widen RBAC to make a deploy easier.
 
 The **factory bootstrap** is the team-agnostic baseline row-set every HyperIdle
 instance needs to function: the `system:propagation` identity, the system-assistant
-singleton, the per-community **facilitator** agents, the `soul_template:<role>`
+singleton, the per-community **facilitator** agents, the `system_template:<role>`
 settings, factory cost settings, and the `scope_kind="factory"` principle. It is
 **idempotent** (safe to re-run) and **carries no user-facing `team_id`**. It runs
 after table migrations on every deploy (a bootstrap step alongside the migrate

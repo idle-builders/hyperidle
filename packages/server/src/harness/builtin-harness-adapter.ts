@@ -6,7 +6,7 @@
  *
  * @lore X6: We inject the registry rather than taking it in the constructor
  * because the registry is session-scoped (bound to a specific ToolContext
- * with sessionId, agentId, taskId, workspacePath, watcher). The adapter
+ * with sessionId, agentId, taskId, sandboxPath, watcher). The adapter
  * is registered in the pool once; registries are created per-session by
  * the provisioning orchestrator.
  */
@@ -26,7 +26,7 @@ import type {
 // @lore X6: ModelTier is exported twice from @hyperidle/shared — once as ModelTier from types.ts
 // and once as MoneyModelTier from types/money.ts (same type, different alias). We import
 // ModelTier (not MoneyModelTier) for consistency with the rest of the codebase.
-import type { ToolRegistry } from "../skill-tools/tool-registry.js";
+import type { ToolRegistry } from "../tools/tool-registry.js";
 import { contextWindowForModel, isAboveThreshold } from "./context-window.js";
 import { callLlm } from "./llm-client.js";
 import type {
@@ -423,7 +423,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			model: resolvedModel,
 			messages: session.messages,
 			tools: session.toolDefs,
-			system: config.composedPrompt,
+			system: config.assembledPrompt,
 			maxTokens: this.options.maxOutputTokens,
 		});
 
@@ -474,7 +474,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			model: resolvedModel,
 			messages: session.messages,
 			tools: session.toolDefs,
-			system: config.composedPrompt,
+			system: config.assembledPrompt,
 			maxTokens: this.options.maxOutputTokens,
 		});
 
@@ -562,7 +562,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			model: resolvedModel,
 			messages: session.messages,
 			// No tools during wrap-up
-			system: config.composedPrompt,
+			system: config.assembledPrompt,
 			maxTokens: this.options.maxOutputTokens,
 		});
 
@@ -661,7 +661,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			model: resolvedModel,
 			messages: session.messages,
 			tools: session.toolDefs,
-			system: config.composedPrompt,
+			system: config.assembledPrompt,
 			maxTokens: this.options.maxOutputTokens,
 		});
 

@@ -14,7 +14,7 @@ import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import type { AdapterPool } from "../harness/adapter-pool.js";
-import type { WorkspaceAdapter } from "../harness/workspace-adapter.js";
+import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
 import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
@@ -68,8 +68,8 @@ const updateSessionSchema = z.object({
  */
 export interface SessionRouteDeps {
 	readonly adapterPool?: AdapterPool;
-	readonly workspaceAdapter?: WorkspaceAdapter;
-	readonly workspaceBasePath?: string;
+	readonly workspaceAdapter?: SandboxAdapter;
+	readonly sandboxBasePath?: string;
 	readonly credentialResolver?: CredentialResolver;
 	/** X2: MCP bridge registry. When present, a per-session bridge is created. */
 	readonly mcpBridgeRegistry?: McpBridgeRegistry;
@@ -223,7 +223,7 @@ export function createSessionRoutes(
 
 	// @lore R1: When `deps.harnessAdapter` and `deps.workspaceAdapter` are both
 	// present, the route runs the full 11-phase `provisionSession` orchestrator
-	// (credential pre-flight → workspace → materialize → harness → teardown) and
+	// (credential pre-flight → sandbox → context assembly → harness → teardown) and
 	// returns 200 with the completed session row. When adapters are absent it
 	// falls back to the legacy bare DB insert returning 201 — this preserves
 	// backward compat for tests and deployments that haven't wired the harness.
@@ -300,7 +300,7 @@ export function createSessionRoutes(
 					return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 				}
 
-				const workspaceBasePath = deps.workspaceBasePath ?? "/tmp/hyperidle-workspaces";
+				const sandboxBasePath = deps.sandboxBasePath ?? "/tmp/hyperidle-workspaces";
 
 				try {
 					// AF7 §2 (Z8-047): admit the session synchronously (phases 1-7) and
@@ -324,7 +324,7 @@ export function createSessionRoutes(
 							// @lore U1: `teamId` replaces `productId` (tasks.productId column dropped).
 							productId: task.teamId,
 							modelTier: body.modelTier,
-							workspaceBasePath,
+							sandboxBasePath,
 							// X4: Pass resolved model so adapter uses the correct provider.
 							resolvedModel,
 							// X6: Pass resolved fast-tier model for builtin harness summarization.

@@ -112,7 +112,7 @@ Define only: base color, accent color, and contrast level. Derive all other toke
 
 ### S4. Warm Neutrals for Long Sessions — This IS Hearth (Linear)
 
-Cool blue-grays become fatiguing during extended use. Warm grays feel crisp but inviting. Too warm becomes muddy. This temperature calibration is subtle but critical for dark-mode productivity tools where users spend hours. **S4 is not just a surprise principle for HyperIdle — it is the materialization of Hearth.** The entire Hearth palette (warm cream surfaces, forest green accent, warm earth text) is the production expression of this principle. See Hearth Principle 1: Warmth signals trust.
+Cool blue-grays become fatiguing during extended use. Warm grays feel crisp but inviting. Too warm becomes muddy. This temperature calibration is subtle but critical for dark-mode productivity tools where users spend hours. **S4 is not just a surprise principle for HyperIdle — it is the living expression of Hearth.** The entire Hearth palette (warm cream surfaces, forest green accent, warm earth text) is the production expression of this principle. See Hearth Principle 1: Warmth signals trust.
 
 ### S5. Opinionated Beats Flexible (Linear, Atlassian)
 

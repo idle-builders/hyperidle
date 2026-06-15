@@ -171,7 +171,7 @@ The product story documents (`docs/product/`) are written at an aspirational/des
 
 **What the docs say:** `docs/product/how-knowledge-compounds.md` describes "Four files: `PRINCIPLES.md`, `FOCUS.md`, `PORTFOLIO.md`, `REFLECTIONS/`." The git export feature (`packages/fabric/src/services/git-export.ts`) does export L4 items as `factory/PRINCIPLES.md` etc.
 
-**What the system does:** L4 content is stored as rows in `knowledge_items` with `scopeKind = "factory"`. The git export materializes them as markdown files. The product doc implies these are the *primary* storage format; the implementation uses them as export projections.
+**What the system does:** L4 content is stored as rows in `knowledge_items` with `scopeKind = "factory"`. The git export assembles context them as markdown files. The product doc implies these are the *primary* storage format; the implementation uses them as export projections.
 
 **Severity:** Minor — the system works correctly but the mental model differs. The docs suggest file-first storage; the implementation is DB-first with file export.
 
@@ -205,9 +205,9 @@ The product story documents (`docs/product/`) are written at an aspirational/des
 
 ### N6 — The architecture describes an agent/product roster that does not match the schema
 
-**What the docs say:** `docs/architecture/components.md` §2.1 schema shows `agents (id, name, soul_prompt_path, team_id, ...)` and `products (id, name, phase, ...)` as separate tables.
+**What the docs say:** `docs/architecture/components.md` §2.1 schema shows `agents (id, name, system_prompt_path, team_id, ...)` and `products (id, name, phase, ...)` as separate tables.
 
-**What the system does:** There is no separate `agents` table. Agents are rows in the `users` table with `kind = "ai"`. There is no `products` table (renamed to `teams`). The `users` table uses `soulPromptPath` (now deprecated in favor of inline `soulPrompt`).
+**What the system does:** There is no separate `agents` table. Agents are rows in the `users` table with `kind = "ai"`. There is no `products` table (renamed to `teams`). The `users` table uses `systemPromptPath` (column renamed in AK1).
 
 **Severity:** Minor — the architecture doc schema is a simplified illustration, but it's close enough to mislead. A developer building a migration or a new integration would look for an `agents` table that does not exist.
 
@@ -325,7 +325,7 @@ The product story documents (`docs/product/`) are written at an aspirational/des
 | **Weekly practice meetings UI** | `docs/product/how-knowledge-compounds.md` Propose/React/Synthesize | Service exists (`practice-meeting.ts`); no UI surface. |
 | **pgvector semantic search** | `docs/architecture/components.md` §2.4 "Postgres + pgvector" | Only FTS (full-text search) is implemented via `fts.ts`. No vector embeddings. |
 | **Global cross-entity search API** | Implied by GlobalSearchPanel component calling `/api/search` | The hook calls `/api/search` which does not exist. Only `/api/knowledge/search` is implemented. |
-| **TOON workspace projection** | `docs/product/how-knowledge-compounds.md` "Formatted in TOON (uses ~40% fewer tokens than JSON)" | TOON codec exists in `packages/shared/src/toon-codec.ts` and works for encoding/decoding. However, workspace materialization and git-export produce markdown files, not TOON-encoded packs. |
+| **TOON workspace projection** | `docs/product/how-knowledge-compounds.md` "Formatted in TOON (uses ~40% fewer tokens than JSON)" | TOON codec exists in `packages/shared/src/toon-codec.ts` and works for encoding/decoding. However, workspace context assembly and git-export produce markdown files, not TOON-encoded packs. |
 | **Model tier selection by task risk** | `docs/architecture/components.md` §2.3 Scheduler model tier selector | `packages/server/src/services/model-gateway.ts` exists; not clear if risk-based automatic tier selection is wired end-to-end. |
 | **Ambient awareness right sidebar** | `docs/product/what-is-hyperidle.md` previously described a right sidebar | Removed in U6. API endpoint works; no UI consumer. ✓ Docs updated in AE1 to describe current ambient surfaces. |
 
@@ -336,7 +336,7 @@ The product story documents (`docs/product/`) are written at an aspirational/des
 | Feature | Location | Notes |
 |---------|----------|-------|
 | **Git export** | `packages/fabric/src/services/git-export.ts`, `packages/server/src/routes/git-export-routes.ts` | Exports knowledge items to a git repo as markdown files. Not mentioned in product docs. |
-| **MCP bridge (X2)** | `packages/server/src/mcp/` | Exposes HyperIdle skill-tools to external harnesses via Model Context Protocol. Not in product docs. |
+| **MCP bridge (X2)** | `packages/server/src/mcp/` | Exposes HyperIdle tools to external harnesses via Model Context Protocol. Not in product docs. |
 | **PGlite embedded database** | `packages/db/src/connection.ts` | The laptop profile uses PGlite (WASM PostgreSQL) instead of SQLite. Architecture docs still say SQLite/better-sqlite3. |
 | **Invite code / login session auth** | `packages/db/src/schema.ts`, `packages/server/src/routes/auth.ts` | Login session tokens and invite codes support multi-user shared mode. Architecture docs only mention API keys. |
 | **Org chart edges (P2)** | `packages/db/src/schema.ts` `orgEdges`, `packages/server/src/routes/org.ts` | Review routing via founder-to-agent relationships. Not described in product docs. |
@@ -497,7 +497,7 @@ to:
 **What to fix:** Add brief mentions in the appropriate product docs:
 - `docs/product/how-knowledge-compounds.md` — add a note about git export (knowledge can be synced to a git repository)
 - `docs/product/human-ai-collaboration.md` — mention the session dial-in feature (founders can observe live agent sessions)
-- `docs/architecture/what-this-architecture-does-not-include.md` — note that MCP servers are included via the X2 bridge (this is already partially there: "Exception: X2 MCP Bridge exposes HyperIdle's skill-tools TO external harnesses via MCP")
+- `docs/architecture/what-this-architecture-does-not-include.md` — note that MCP servers are included via the X2 bridge (this is already partially there: "Exception: X2 MCP Bridge exposes HyperIdle's tools TO external harnesses via MCP")
 
 **Files:**
 - `docs/product/how-knowledge-compounds.md`

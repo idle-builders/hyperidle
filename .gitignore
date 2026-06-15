@@ -53,3 +53,7 @@ scripts/token-resolution-guard.js
 scripts/token-resolution-guard.js.map
 scripts/token-resolution-guard.d.ts
 scripts/token-resolution-guard.d.ts.map
+scripts/harness-vocab-guard.js
+scripts/harness-vocab-guard.js.map
+scripts/harness-vocab-guard.d.ts
+scripts/harness-vocab-guard.d.ts.map

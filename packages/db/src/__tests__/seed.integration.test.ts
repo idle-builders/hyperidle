@@ -7,14 +7,14 @@ import { seedDemoWorld } from "../demo-fixture.js";
 import { applyFactoryBootstrap } from "../factory-bootstrap.js";
 import { seed } from "../seed.js";
 
-// @lore AD8a: chief_of_staff soul file deleted (docs/souls/chief-of-staff.md removed).
+// @lore AD8a: chief_of_staff system prompt file deleted (docs/system-prompts/chief-of-staff.md removed).
 // @lore AD8b: chief_of_staff role renamed to assistant.
 // @lore AD8c: practice_facilitator role renamed to facilitator.
-// AC2 tests only check facilitator and product_manager for soul_prompt_path.
+// AC2 tests only check facilitator and product_manager for system_prompt_path.
 // @lore AD8b/AD8c: The 3-role set was ["assistant", "facilitator", "product_manager"].
 // chief_of_staff → assistant (AD8b), practice_facilitator → facilitator (AD8c).
-// Only roles that still have soul files after AD8a and AD8c
-const SOUL_FILE_ROLES = ["facilitator", "product_manager"] as const;
+// Only roles that still have system prompt files after AD8a and AD8c
+const SYSTEM_PROMPT_FILE_ROLES = ["facilitator", "product_manager"] as const;
 
 /** Resolve the repo root from this test file's location. */
 function repoRoot(): string {
@@ -139,61 +139,61 @@ describe("A2: Seed script", () => {
 		expect(Number(pmRows[0]?.count)).toBeGreaterThanOrEqual(1);
 	});
 
-	// --- G1 AC2: every facilitator with a soul file carries a non-empty soul_prompt_path ---
-	// @lore AD8a: chief_of_staff excluded — docs/souls/chief-of-staff.md deleted; soulPromptPath is null.
-	// @lore AD8c: practice_facilitator renamed to facilitator; soul file renamed to facilitator.md.
-	test("seeded facilitator and product_manager have non-empty soul_prompt_path (AC2)", async ({
+	// --- G1 AC2: every facilitator with a system prompt file carries a non-empty system_prompt_path ---
+	// @lore AD8a: chief_of_staff excluded — docs/system-prompts/chief-of-staff.md deleted; systemPromptPath is null.
+	// @lore AD8c: practice_facilitator renamed to facilitator; system prompt file renamed to facilitator.md.
+	test("seeded facilitator and product_manager have non-empty system_prompt_path (AC2)", async ({
 		db,
 	}) => {
 		await seed(db);
 
-		const rolesList = SOUL_FILE_ROLES.map((r) => `'${r}'`).join(", ");
+		const rolesList = SYSTEM_PROMPT_FILE_ROLES.map((r) => `'${r}'`).join(", ");
 		// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case column names
-		const rows = await queryRows<{ id: string; role: string; soul_prompt_path: string | null }>(
+		const rows = await queryRows<{ id: string; role: string; system_prompt_path: string | null }>(
 			db,
-			`SELECT id, role, soul_prompt_path FROM users WHERE role IN (${rolesList})`,
+			`SELECT id, role, system_prompt_path FROM users WHERE role IN (${rolesList})`,
 		);
 		expect(rows.length).toBeGreaterThanOrEqual(2);
 		for (const row of rows) {
-			expect(row.soul_prompt_path, `${row.id} soul_prompt_path must be set`).toBeTruthy();
-			expect(row.soul_prompt_path?.endsWith(".md")).toBe(true);
+			expect(row.system_prompt_path, `${row.id} system_prompt_path must be set`).toBeTruthy();
+			expect(row.system_prompt_path?.endsWith(".md")).toBe(true);
 		}
 	});
 
-	// @lore AD8a: chief_of_staff excluded — its soul file was deleted.
+	// @lore AD8a: chief_of_staff excluded — its system prompt file was deleted.
 	// @lore AD8c: facilitator.md replaces practice-facilitator.md.
-	test("soul_prompt_path files exist on disk for facilitator and product_manager", async ({
+	test("system_prompt_path files exist on disk for facilitator and product_manager", async ({
 		db,
 	}) => {
 		await seed(db);
 
-		const rolesList = SOUL_FILE_ROLES.map((r) => `'${r}'`).join(", ");
+		const rolesList = SYSTEM_PROMPT_FILE_ROLES.map((r) => `'${r}'`).join(", ");
 		// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case column names
-		const rows = await queryRows<{ id: string; soul_prompt_path: string | null }>(
+		const rows = await queryRows<{ id: string; system_prompt_path: string | null }>(
 			db,
-			`SELECT id, soul_prompt_path FROM users WHERE role IN (${rolesList})`,
+			`SELECT id, system_prompt_path FROM users WHERE role IN (${rolesList})`,
 		);
 		expect(rows.length).toBeGreaterThanOrEqual(2);
 		const root = repoRoot();
 		for (const row of rows) {
-			expect(row.soul_prompt_path).toBeTruthy();
-			const resolved = path.resolve(root, row.soul_prompt_path ?? "");
+			expect(row.system_prompt_path).toBeTruthy();
+			const resolved = path.resolve(root, row.system_prompt_path ?? "");
 			expect(
 				fs.existsSync(resolved),
-				`${row.id} soul_prompt_path must resolve to an existing file: ${resolved}`,
+				`${row.id} system_prompt_path must resolve to an existing file: ${resolved}`,
 			).toBe(true);
 		}
 	});
 
-	// --- AD8c AC2: soul_template:facilitator key exists (renamed from practice_facilitator) ---
-	test("factory_settings has soul_template:facilitator key and NOT soul_template:practice_facilitator (AD8c AC2)", async ({
+	// --- AD8c AC2: system_template:facilitator key exists (renamed from practice_facilitator) ---
+	test("factory_settings has system_template:facilitator key and NOT system_template:practice_facilitator (AD8c AC2)", async ({
 		db,
 	}) => {
 		await seed(db);
 
 		const facilitatorRows = await queryRows<{ key: string; value: string }>(
 			db,
-			"SELECT key, value FROM factory_settings WHERE key = 'soul_template:facilitator'",
+			"SELECT key, value FROM factory_settings WHERE key = 'system_template:facilitator'",
 		);
 		expect(facilitatorRows).toHaveLength(1);
 		expect(facilitatorRows[0]?.value).toBeTruthy();
@@ -202,7 +202,7 @@ describe("A2: Seed script", () => {
 		// @lore AD8c: old key must not exist
 		const oldRows = await queryRows<{ key: string }>(
 			db,
-			"SELECT key FROM factory_settings WHERE key = 'soul_template:practice_facilitator'",
+			"SELECT key FROM factory_settings WHERE key = 'system_template:practice_facilitator'",
 		);
 		expect(oldRows).toHaveLength(0);
 	});

@@ -30,8 +30,8 @@ import {
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createItemTool } from "../skill-tools/create-item.js";
-import type { ToolContext } from "../skill-tools/tool-registry.js";
+import { createItemTool } from "../tools/create-item.js";
+import type { ToolContext } from "../tools/tool-registry.js";
 
 const NOW = new Date().toISOString();
 const TEST_TEAM_ID = "team-ad1";
@@ -99,7 +99,7 @@ function makeContext(
 		sessionId: "session-ad1",
 		taskId: "task-ad1",
 		teamId: TEST_TEAM_ID,
-		workspacePath: path.join(os.tmpdir(), `hi-ad1-${Date.now()}`),
+		sandboxPath: path.join(os.tmpdir(), `hi-ad1-${Date.now()}`),
 		watcher: { stop: (): void => {} },
 		...overrides,
 	};

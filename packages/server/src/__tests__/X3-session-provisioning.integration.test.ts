@@ -1,22 +1,22 @@
 /**
  * X3 — Session Provisioning: updated behavior tests (RED phase)
  *
- * AC-13: Session provisioning reads soulPrompt from DB (not file)
+ * AC-13: Session provisioning reads systemPrompt from DB (not file)
  * AC-14: Session provisioning uses modelTierPreference as default
  * AC-15: Session provisioning filters adapters by harnessType
  * AC-17: Agent configuration changes take effect on next session (no restart)
  *
  * These tests FAIL until:
  *  - session-provisioning.ts removes validateSoulPromptPath
- *  - session-provisioning.ts reads agent.soulPrompt (not soulPromptPath)
+ *  - session-provisioning.ts reads agent.systemPrompt (not systemPromptPath)
  *  - session-provisioning.ts uses agent.modelTierPreference as default tier
  *  - session-provisioning.ts passes harnessType to adapterPool.select()
  *  - adapter-pool.ts supports harnessType filter in SelectRequirements
- *  - schema.ts has soulPrompt, harnessType, modelTierPreference columns on users
+ *  - schema.ts has systemPrompt, harnessType, modelTierPreference columns on users
  *
  * Implementation notes:
  *  - Uses ScriptedHarnessAdapter pattern from session-provisioning.test.ts
- *  - AC-13 checks composePrompt is called with soulPromptText (not soulPromptPath)
+ *  - AC-13 checks assemblePrompt is called with systemPromptText (not systemPromptPath)
  *    by inspecting the started session config for the composed prompt
  *  - AC-14 checks the session row's modelTier column after provisioning
  *  - AC-15 registers two typed adapters and verifies the right one is selected
@@ -48,7 +48,7 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import type { AdapterMeta } from "../harness/adapter-pool.js";
 import { AdapterPool } from "../harness/adapter-pool.js";
-import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
+import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import {
 	type ProvisionSessionDeps,
 	type ProvisionSessionParams,
@@ -171,37 +171,37 @@ function makePool(adapter: HarnessAdapter, meta?: Partial<AdapterMeta>, id = "lo
 }
 
 // ---------------------------------------------------------------------------
-// AC-13: Session provisioning reads soulPrompt from DB (not file)
+// AC-13: Session provisioning reads systemPrompt from DB (not file)
 // ---------------------------------------------------------------------------
 
-describe("X3 AC-13: session provisioning reads soulPrompt from DB column", () => {
-	let workspaceBasePath: string;
+describe("X3 AC-13: session provisioning reads systemPrompt from DB column", () => {
+	let sandboxBasePath: string;
 
 	beforeEach(() => {
-		workspaceBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "x3-sp-"));
+		sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "x3-sp-"));
 	});
 
 	afterEach(() => {
-		fs.rmSync(workspaceBasePath, { recursive: true, force: true });
+		fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 	});
 
-	test("provisions session successfully when agent has soulPrompt set (not a file path)", async ({
+	test("provisions session successfully when agent has systemPrompt set (not a file path)", async ({
 		db,
 		eventBus,
 	}) => {
 		const { agentId, taskId, teamId } = await seedDomain(db, {
-			soulPrompt: "# Test Persona\n\nYou are a test agent for {{product}}.",
+			systemPrompt: "# Test Persona\n\nYou are a test agent for {{product}}.",
 		});
 
 		const adapter = new CapturingHarnessAdapter();
 		const pool = makePool(adapter);
-		const workspace = new LocalWorkspaceAdapter();
+		const workspace = new LocalSandboxAdapter();
 		const deps: ProvisionSessionDeps = { db, eventBus, adapterPool: pool, workspace };
 		const params: ProvisionSessionParams = {
 			taskId,
 			agentId,
 			productId: teamId,
-			workspaceBasePath,
+			sandboxBasePath,
 		};
 
 		// Should succeed without trying to read a file from disk
@@ -210,23 +210,23 @@ describe("X3 AC-13: session provisioning reads soulPrompt from DB column", () =>
 		expect(result.outcome).toBe("completed");
 	});
 
-	test("provisions session successfully when agent has null soulPrompt (empty persona)", async ({
+	test("provisions session successfully when agent has null systemPrompt (empty persona)", async ({
 		db,
 		eventBus,
 	}) => {
 		const { agentId, taskId, teamId } = await seedDomain(db, {
-			soulPrompt: null,
+			systemPrompt: null,
 		});
 
 		const adapter = new CapturingHarnessAdapter();
 		const pool = makePool(adapter);
-		const workspace = new LocalWorkspaceAdapter();
+		const workspace = new LocalSandboxAdapter();
 		const deps: ProvisionSessionDeps = { db, eventBus, adapterPool: pool, workspace };
 		const params: ProvisionSessionParams = {
 			taskId,
 			agentId,
 			productId: teamId,
-			workspaceBasePath,
+			sandboxBasePath,
 		};
 
 		// Should succeed with empty persona (no file read required)
@@ -234,32 +234,32 @@ describe("X3 AC-13: session provisioning reads soulPrompt from DB column", () =>
 		expect(result.sessionId).toBeTruthy();
 	});
 
-	test("composed prompt is passed via SessionConfig.composedPrompt (not soulPromptPath)", async ({
+	test("composed prompt is passed via SessionConfig.composedPrompt (not systemPromptPath)", async ({
 		db,
 		eventBus,
 	}) => {
 		const { agentId, taskId, teamId } = await seedDomain(db, {
-			soulPrompt: "# Builder\n\nYou are the builder.",
+			systemPrompt: "# Builder\n\nYou are the builder.",
 		});
 
 		const adapter = new CapturingHarnessAdapter();
 		const pool = makePool(adapter);
-		const workspace = new LocalWorkspaceAdapter();
+		const workspace = new LocalSandboxAdapter();
 		const deps: ProvisionSessionDeps = { db, eventBus, adapterPool: pool, workspace };
 		const params: ProvisionSessionParams = {
 			taskId,
 			agentId,
 			productId: teamId,
-			workspaceBasePath,
+			sandboxBasePath,
 		};
 
 		await provisionSession(deps, params);
 
 		// The harness should have been started. The composedPrompt is passed in SessionConfig.
-		// composedPrompt should be non-empty (includes identity from soulPrompt).
+		// composedPrompt should be non-empty (includes identity from systemPrompt).
 		expect(adapter.capturedConfigs).toHaveLength(1);
-		// soulPromptPath in SessionConfig should be empty (deprecated field, not used)
-		expect(adapter.capturedConfigs[0]?.soulPromptPath).toBe("");
+		// systemPromptPath in SessionConfig should be empty (deprecated field, not used)
+		expect(adapter.capturedConfigs[0]?.systemPromptPath).toBe("");
 	});
 
 	test("validateSoulPromptPath is NOT exported from session-provisioning (function removed)", async () => {
@@ -275,14 +275,14 @@ describe("X3 AC-13: session provisioning reads soulPrompt from DB column", () =>
 // ---------------------------------------------------------------------------
 
 describe("X3 AC-14: session provisioning uses modelTierPreference as default", () => {
-	let workspaceBasePath: string;
+	let sandboxBasePath: string;
 
 	beforeEach(() => {
-		workspaceBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "x3-sp-"));
+		sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "x3-sp-"));
 	});
 
 	afterEach(() => {
-		fs.rmSync(workspaceBasePath, { recursive: true, force: true });
+		fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 	});
 
 	test("uses agent modelTierPreference='reasoning' when no explicit modelTier param", async ({
@@ -295,13 +295,13 @@ describe("X3 AC-14: session provisioning uses modelTierPreference as default", (
 
 		const adapter = new CapturingHarnessAdapter();
 		const pool = makePool(adapter);
-		const workspace = new LocalWorkspaceAdapter();
+		const workspace = new LocalSandboxAdapter();
 		const deps: ProvisionSessionDeps = { db, eventBus, adapterPool: pool, workspace };
 		const params: ProvisionSessionParams = {
 			taskId,
 			agentId,
 			productId: teamId,
-			workspaceBasePath,
+			sandboxBasePath,
 			// No modelTier param — should use agent's preference
 		};
 
@@ -327,13 +327,13 @@ describe("X3 AC-14: session provisioning uses modelTierPreference as default", (
 
 		const adapter = new CapturingHarnessAdapter();
 		const pool = makePool(adapter);
-		const workspace = new LocalWorkspaceAdapter();
+		const workspace = new LocalSandboxAdapter();
 		const deps: ProvisionSessionDeps = { db, eventBus, adapterPool: pool, workspace };
 		const params: ProvisionSessionParams = {
 			taskId,
 			agentId,
 			productId: teamId,
-			workspaceBasePath,
+			sandboxBasePath,
 			modelTier: "fast", // Explicit override
 		};
 
@@ -358,13 +358,13 @@ describe("X3 AC-14: session provisioning uses modelTierPreference as default", (
 
 		const adapter = new CapturingHarnessAdapter();
 		const pool = makePool(adapter);
-		const workspace = new LocalWorkspaceAdapter();
+		const workspace = new LocalSandboxAdapter();
 		const deps: ProvisionSessionDeps = { db, eventBus, adapterPool: pool, workspace };
 		const params: ProvisionSessionParams = {
 			taskId,
 			agentId,
 			productId: teamId,
-			workspaceBasePath,
+			sandboxBasePath,
 		};
 
 		await provisionSession(deps, params);
@@ -384,14 +384,14 @@ describe("X3 AC-14: session provisioning uses modelTierPreference as default", (
 // ---------------------------------------------------------------------------
 
 describe("X3 AC-15: session provisioning filters adapters by harnessType", () => {
-	let workspaceBasePath: string;
+	let sandboxBasePath: string;
 
 	beforeEach(() => {
-		workspaceBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "x3-sp-"));
+		sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "x3-sp-"));
 	});
 
 	afterEach(() => {
-		fs.rmSync(workspaceBasePath, { recursive: true, force: true });
+		fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 	});
 
 	test("selects the adapter matching agent harnessType='aider'", async ({ db, eventBus }) => {
@@ -418,13 +418,13 @@ describe("X3 AC-15: session provisioning filters adapters by harnessType", () =>
 			maxConcurrent: 4,
 		});
 
-		const workspace = new LocalWorkspaceAdapter();
+		const workspace = new LocalSandboxAdapter();
 		const deps: ProvisionSessionDeps = { db, eventBus, adapterPool: pool, workspace };
 		const params: ProvisionSessionParams = {
 			taskId,
 			agentId,
 			productId: teamId,
-			workspaceBasePath,
+			sandboxBasePath,
 		};
 
 		await provisionSession(deps, params);
@@ -445,13 +445,13 @@ describe("X3 AC-15: session provisioning filters adapters by harnessType", () =>
 
 		const adapter = new CapturingHarnessAdapter();
 		const pool = makePool(adapter, { type: "claude-code" });
-		const workspace = new LocalWorkspaceAdapter();
+		const workspace = new LocalSandboxAdapter();
 		const deps: ProvisionSessionDeps = { db, eventBus, adapterPool: pool, workspace };
 		const params: ProvisionSessionParams = {
 			taskId,
 			agentId,
 			productId: teamId,
-			workspaceBasePath,
+			sandboxBasePath,
 		};
 
 		const result = await provisionSession(deps, params);
@@ -476,13 +476,13 @@ describe("X3 AC-15: session provisioning filters adapters by harnessType", () =>
 			maxConcurrent: 4,
 		});
 
-		const workspace = new LocalWorkspaceAdapter();
+		const workspace = new LocalSandboxAdapter();
 		const deps: ProvisionSessionDeps = { db, eventBus, adapterPool: pool, workspace };
 		const params: ProvisionSessionParams = {
 			taskId,
 			agentId,
 			productId: teamId,
-			workspaceBasePath,
+			sandboxBasePath,
 		};
 
 		// AH2: NoEligibleHarnessError thrown when agent.harnessType has no matching adapter.
@@ -496,14 +496,14 @@ describe("X3 AC-15: session provisioning filters adapters by harnessType", () =>
 // ---------------------------------------------------------------------------
 
 describe("X3 AC-17: agent config changes take effect on next session without restart", () => {
-	let workspaceBasePath: string;
+	let sandboxBasePath: string;
 
 	beforeEach(() => {
-		workspaceBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "x3-sp-"));
+		sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "x3-sp-"));
 	});
 
 	afterEach(() => {
-		fs.rmSync(workspaceBasePath, { recursive: true, force: true });
+		fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 	});
 
 	test("updated modelTierPreference is reflected in the next session", async ({ db, eventBus }) => {
@@ -517,12 +517,12 @@ describe("X3 AC-17: agent config changes take effect on next session without res
 
 		const adapter = new CapturingHarnessAdapter();
 		const pool = makePool(adapter);
-		const workspace = new LocalWorkspaceAdapter();
+		const workspace = new LocalSandboxAdapter();
 
 		// Session 1: workhorse default
 		await provisionSession(
 			{ db, eventBus, adapterPool: pool, workspace },
-			{ taskId: taskId1, agentId, productId: teamId, workspaceBasePath },
+			{ taskId: taskId1, agentId, productId: teamId, sandboxBasePath },
 		);
 
 		const session1Rows = await db
@@ -563,7 +563,7 @@ describe("X3 AC-17: agent config changes take effect on next session without res
 
 		await provisionSession(
 			{ db, eventBus, adapterPool: pool, workspace },
-			{ taskId: taskId2, agentId, productId: teamId, workspaceBasePath },
+			{ taskId: taskId2, agentId, productId: teamId, sandboxBasePath },
 		);
 
 		const allSessions = await db

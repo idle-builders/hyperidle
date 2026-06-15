@@ -3,13 +3,16 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { type HyperIdleDb, knowledgeConflicts, sessions } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
+import type { Manifest, ManifestEntry } from "./context-assembly.js";
 import { VersionConflictError } from "./errors.js";
 import * as repo from "./knowledge-repository.js";
-import type { Manifest, ManifestEntry } from "./materialization.js";
 
 export interface WritebackConfig {
 	db: HyperIdleDb;
-	workspacePath: string;
+	/**
+	 * @lore AK1: Renamed per harness-vocab plan (AK1).
+	 */
+	sandboxPath: string;
 	sessionId: string;
 	manifestPath: string;
 }
@@ -52,9 +55,9 @@ function findItemByPath(
 	return null;
 }
 
-/** Determine the relative path of a file within the workspace. */
-export function getRelativePath(workspacePath: string, fullPath: string): string {
-	return path.relative(workspacePath, fullPath);
+/** Determine the relative path of a file within the sandbox. */
+export function getRelativePath(sandboxPath: string, fullPath: string): string {
+	return path.relative(sandboxPath, fullPath);
 }
 
 /** Check if a path is in the knowledge/ zone. */
