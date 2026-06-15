@@ -12,7 +12,7 @@
  *   3. totalCostCents <= AH5_MAX_COST_CENTS (budget cap)
  *   4. A `write_session_notes` tool_call event was emitted with notes === "AH5-SMOKE-OK"
  *
- * Writes ah5-cost.json to playwright-report-ah5/ for the CI budget-assert step.
+ * Writes ah5-cost.json to playwright-report-ah5/ for the local budget-assert step.
  *
  * @lore AH5: This probe drives provisionSession DIRECTLY (no HTTP, no Hono).
  * It mirrors how packages/eval/src/provision-harness.ts runs eval scenarios.
@@ -86,10 +86,9 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 
 const MAX_COST_CENTS = Number(process.env.AH5_MAX_COST_CENTS ?? "5");
 // @lore AH5 W2: Cost report lives in packages/web/playwright-report-ah5/ so the
-// CI artifact upload (path: packages/web/playwright-report-ah5/) and the
-// budget-assert script (COST_FILE resolved from packages/web/scripts/) both
-// point to the same file. Using packages/playwright-report-ah5/ (one dir up)
-// caused a silent mismatch — the upload step never found the file.
+// local lane report directory and the budget-assert script (COST_FILE resolved from
+// packages/web/scripts/) both point to the same file. Using packages/playwright-report-ah5/
+// (one dir up) caused a silent mismatch — the budget-assert step never found the file.
 const COST_REPORT_PATH = path.resolve(scriptDir, "../playwright-report-ah5/ah5-cost.json");
 
 // Env guards

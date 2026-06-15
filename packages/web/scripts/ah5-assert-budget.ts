@@ -1,8 +1,8 @@
 /**
  * AH5: Budget assertion script — reads ah5-cost.json and fails closed.
  *
- * Run as a CI step AFTER the lane (if: always()) so budget overflow fails CI
- * even if the test harness mis-handles the assertion.
+ * Run as a local lane step AFTER the probe (step 7 of `npm run smoke:ah5`) so
+ * budget overflow fails the lane even if the probe mis-handles the assertion.
  *
  * Fail-closed contract:
  *   - If ah5-cost.json is MISSING → exit 1 (a missing report is not "no cost").
@@ -13,17 +13,17 @@
  * @lore AH5: "Fail closed on absence" is the critical invariant. If the lane
  * crashes before writing the cost file (e.g. model selection returned empty
  * ranked[], or the test server failed to start), the budget step MUST still
- * redden CI. A missing file is NOT evidence of zero cost.
+ * fail the local lane. A missing file is NOT evidence of zero cost.
  */
 
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-// @lore AH5 W2: Must match the path the probe writes and the CI upload path.
+// @lore AH5 W2: Must match the path the probe writes and the local lane report dir.
 // probe: packages/web/scripts/ah5-real-turn-probe.ts → ../playwright-report-ah5/
-// CI upload: packages/web/playwright-report-ah5/
-// All three resolve to the same directory: packages/web/playwright-report-ah5/
+// local lane report: packages/web/playwright-report-ah5/
+// Both resolve to the same directory: packages/web/playwright-report-ah5/
 const COST_FILE = path.resolve(
 	path.dirname(fileURLToPath(import.meta.url)),
 	"../playwright-report-ah5/ah5-cost.json",
