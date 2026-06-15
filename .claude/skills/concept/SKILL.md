@@ -57,7 +57,7 @@ The seven essential probes (adapt; don't ask all of them — pick what's actuall
 
 Stop probing when the concept is sharp, not when you run out of questions. Three to seven branches is typical for a new primitive; one or two for a reshape.
 
-If the founder is reachable, surface each probe with one AskUserQuestion (never batch). In autonomous mode, propose your answer in the concept doc and let `/architecture`'s in-session spec-alignment scoring catch it later if you got it wrong.
+If the founder is reachable, surface each probe with one AskUserQuestion (never batch). In autonomous mode, propose your answer in the concept doc and let `/architecture`'s in-session spec-alignment scoring catch it later if you got it wrong. Note: the per-probe `AskUserQuestion` branch here is the *probe-time* interaction; the *post-lock* recap gate (see "## Recap gate" below) is separate — it fires once, after lock, governed by the canonical `PIPELINE_INTERACTIVE` rule, not by per-probe reachability.
 
 ## Phase 2 — Probe the rejection list
 
@@ -143,6 +143,39 @@ Address critical issues. Max 1 round.
 
 The concept is now **locked**. The downstream skills with the concept as fixed input — they explore *inside* the concept, never reshape it.
 
+## Recap gate — post-lock founder confirm (interactive mode only)
+
+**Canonical `PIPELINE_INTERACTIVE` rule** — interactive mode is on if and only if `PIPELINE_INTERACTIVE` is exactly the literal string `1`. Every other value — unset, empty, `0`, `true`, `yes`, anything else — is autonomous mode. This is the second authoritative copy of the rule (the first lives in `pipeline/SKILL.md`); `/concept` runs standalone upstream of the pipeline and must be self-contained.
+
+**This section is NOT Phase 7.** It is named "Recap gate" to avoid colliding with the pipeline's canonical 6-phase axis. It fires at the END of the `/concept` flow — after Phase 6 (in-session self-critique) completes and the concept doc is written and committed (the "locked" moment) — and BEFORE `/concept` returns control to the founder, who only then invokes `/pipeline`. The pipeline does not run `/concept`; this gate is entirely upstream of the pipeline run.
+
+### If not interactive (default)
+
+When `PIPELINE_INTERACTIVE` is not exactly `1`: skip this section entirely. Write the concept doc, commit, and return — **no recap emitted, no `AskUserQuestion`, no bound to enforce.** This is the existing behavior made explicit.
+
+### If interactive (`PIPELINE_INTERACTIVE` == `1`)
+
+After the concept doc is locked (Phase 6 complete, doc committed):
+
+**1. Emit the recap** — plain-language prose surfaced in chat, derived from the just-locked `concept.md`. The recap must contain three beats:
+
+1. **What the noun IS** — one to two sentences in plain language (from the concept doc's Definition + essential properties).
+2. **What the noun is NOT** — the rejection list, plainly stated (from the concept doc's "What it is not").
+3. **What it commits to** — the contracts the concept locks (from the concept doc's Contracts section — cardinality, closure, mutability, identity, hard rules), stated as "this commits us to …".
+
+**Multi-noun collapse rule.** If the concept introduces multiple nouns (as AJ2 itself does): lead with the central noun's three beats in full, then for each satellite noun emit exactly **one line** naming the noun + its single most load-bearing commitment (drawn from that noun's Contracts "Hard rules" field, or if none, its Definition). Cap satellite lines at the count of New/Reshaped nouns. Never emit a full three-beat block per satellite — that buries the decision the founder must make.
+
+The recap is chat prose, never a new artifact file. It is a view of `concept.md`, not a parallel source of truth.
+
+**2. Gate: single `AskUserQuestion` with two options:**
+
+- **Confirm** — "The locked concept is right. Proceed." → `/concept` returns normally; the founder may now invoke `/pipeline`, which reads the confirmed concept as fixed input.
+- **Redirect** — "The locked concept is wrong. Go back." → `/concept` **returns to concept work** (re-enters Phases 1–5 to produce a revised locked doc, seeded by the founder's free-text response in the `AskUserQuestion` reply — that response text is the redirect note, no new channel needed), then re-emits the recap + gate. It does NOT return control for the pipeline to proceed on the rejected concept.
+
+**Bound (CRITICAL): cap at 3 redirect rounds.** After a 3rd redirect without a Confirm, mark the concept **`blocked: concept-contested`** (a chat verdict — not a progress-file write; `/concept` has no progress-JSON machinery) and stop. Do NOT return a "proceed" verdict. A `blocked: concept-contested` concept must not be handed to `/pipeline` — if the founder invokes `/pipeline` on it anyway, the pipeline's existing `concept-missing`/misalignment fail-fast applies. This bound mirrors the pipeline's universal max-3 loop discipline (`pipeline/SKILL.md` lines 234–237). Three rounds without confirm means the concept is contested; the founder retains the final say, but the loop terminates deterministically.
+
+**What redirect does NOT do:** it does not hand-edit the recap or the concept doc inline. Redirect routes back into concept work, which produces a new locked doc. "Redirect" means "the locked concept is wrong, go back" — not "edit this line in the recap."
+
 ## Output of `/concept` end-to-end
 
 ```
@@ -154,6 +187,10 @@ docs/<topic>/canonical-shapes.md      # Phase 5 may add a canonical-shapes entry
 ## What this skill does NOT do
 
 - It does not design, define an architecture or write tests or code. That's `/design`, `/architecture`, `/write-tests`, `/write-code`.
+- The recap (in "## Recap gate") is chat prose, never a new artifact file. No `recap.md` to write or commit.
+- Redirect re-runs concept work; it does not hand-edit the locked doc or the recap text inline.
+- The redirect loop is bounded at 3 rounds; after 3 without a Confirm, the concept is `blocked: concept-contested` — do not continue looping.
+- `blocked: concept-contested` is a chat verdict, not a progress-file write. `/concept` has no progress-JSON machinery; the verdict gates whether the founder hands the concept to the pipeline.
 
 Concepts are the part that is *expensive to change*; they ripple through every downstream variant in design and every contract in architecture. Get them right, then let design and architecture explore freely within them.
 
@@ -165,6 +202,9 @@ Concepts are the part that is *expensive to change*; they ripple through every d
 - Vibes-only definitions.
 - Re-litigating the concept in `/design` or `/architecture`.
 - Padding the probe list — ask only what's unsettled, then issue survivors as one batch, not seven separate round-trips.
+- Writing the recap as a new artifact file. It lives in chat only.
+- Emitting the recap in autonomous mode (when `PIPELINE_INTERACTIVE` is not exactly `1`). Autonomous mode: write doc, return — no recap, no gate.
+- Continuing to redirect after 3 rounds. After the 3rd, stop with `blocked: concept-contested`.
 
 ## Target
 
