@@ -34,7 +34,7 @@ const saOverridePmHealthcare: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "product_manager",
-			agentSoulPrompt: `You are a product manager responsible for knowledge prioritization in the healthcare domain.
+			agentSystemPrompt: `You are a product manager responsible for knowledge prioritization in the healthcare domain.
 Use score_attention to set the attention score on knowledge items that need higher or lower visibility.
 Patient privacy and HIPAA knowledge should always have a high attention score (0.9 or above).
 Use target="knowledge_item" and mode="override" with score between 0.0 and 1.0.`,
@@ -73,7 +73,7 @@ Document your prioritization decision in session notes.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -142,7 +142,7 @@ const saRecomputePfDevops: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "facilitator", // @lore AD8c: renamed from practice_facilitator
-			agentSoulPrompt: `You are a practice facilitator for the DevOps community.
+			agentSystemPrompt: `You are a practice facilitator for the DevOps community.
 Use score_attention in "recompute" mode to refresh the attention engine scores for knowledge items.
 Recompute mode does NOT require a score argument — the engine computes it automatically.
 Use target="knowledge_item", mode="recompute", and omit the score field.`,
@@ -180,7 +180,7 @@ Document what you did in session notes.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -229,7 +229,7 @@ const saItemNoopCosMarketing: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "assistant",
-			agentSoulPrompt: `You are a system agent managing portfolio items.
+			agentSystemPrompt: `You are a system agent managing portfolio items.
 You can use score_attention on items, but note that the items.attentionScore column was removed in an O2 migration.
 Using score_attention on target="item" is currently a graceful no-op — the tool returns ok but no DB write occurs.
 Try it on a marketing item and document the outcome in session notes.`,
@@ -274,7 +274,7 @@ Document this behavior in session notes — note that item scoring is currently 
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,

@@ -3,18 +3,18 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { bets, type HyperIdleDb, routines, sessions, tasks, users } from "@hyperidle/db";
 import {
+	assembleContext,
+	assemblePrompt,
+	assembleRoutinePrompt,
 	buildRoutineSessionContextData,
 	buildSessionContextData,
 	checkCostCap,
-	composePrompt,
-	composeRoutinePrompt,
 	type FileWatcher,
 	type FileWatcherConfig,
-	materialize,
 	recordCostAndCheck,
 	startWatcher,
 	type ToolSummary,
-	writeWorkspaceCLAUDEmd,
+	writeSandboxAgentsMd,
 } from "@hyperidle/fabric";
 import {
 	ConcurrencyLimitError,
@@ -35,19 +35,19 @@ import {
 import { and, eq, sql } from "drizzle-orm";
 import type { AdapterPool, SelectedEntry } from "../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
-import type { WorkspaceAdapter, WorkspaceHandle } from "../harness/workspace-adapter.js";
+import type { SandboxAdapter, SandboxHandle } from "../harness/sandbox-adapter.js";
 import { createMcpBridge } from "../mcp/mcp-bridge.js";
 import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
-import { buildToolRegistry, type ToolContext, toolsForRole } from "../skill-tools/tool-registry.js";
+import { buildToolRegistry, type ToolContext, toolsForRole } from "../tools/tool-registry.js";
 import { summarizeToolArgs } from "./observability/dispatcher.js";
 import { crashSession, endSession, type SessionContext } from "./session-lifecycle.js";
 import { sessionRunRegistry } from "./session-run-registry.js";
 import type { StateTransitionAuditEntry, TaskAuditEntry } from "./task-audit.js";
 import { transitionTask } from "./task-state-machine.js";
 
-// @lore X3: validateSoulPromptPath and SOUL_PROMPT_DIR_RELATIVE removed.
-// The path traversal attack surface is eliminated by X3 — soul prompts are now
-// stored inline in the DB (agent.soulPrompt) rather than as file paths. No file
+// @lore X3: validateSystemPromptPath and SYSTEM_PROMPT_DIR_RELATIVE removed.
+// The path traversal attack surface is eliminated by X3 — system prompts are now
+// stored inline in the DB (agent.systemPrompt) rather than as file paths. No file
 // read happens during session provisioning. The old file-read approach required
 // a path traversal guard; the new inline-text approach has no such attack vector.
 
@@ -167,7 +167,7 @@ export interface ProvisionSessionDeps {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
 	readonly adapterPool: AdapterPool;
-	readonly workspace: WorkspaceAdapter;
+	readonly workspace: SandboxAdapter;
 	/** X2: MCP bridge registry. When present, a bridge is created per session. */
 	readonly mcpBridgeRegistry?: McpBridgeRegistry;
 	/** X2: Base URL for MCP bridge (e.g., "http://localhost:3001"). */
@@ -179,7 +179,7 @@ export interface ProvisionSessionParams {
 	readonly agentId: string;
 	/** @lore U1: field name kept for backward compat; value is now a teams.id (formerly products.id). */
 	readonly productId: string;
-	readonly workspaceBasePath: string;
+	readonly sandboxBasePath: string;
 	readonly factoryCap?: number;
 	readonly factorySpend?: number;
 	readonly reviewThreadId?: string;
@@ -231,10 +231,10 @@ export interface AdmittedSession {
 	readonly sessionContext: SessionContext;
 	readonly agentRole: UserRole;
 	readonly teamId: string | undefined;
-	readonly soulPromptText: string;
+	readonly systemPromptText: string;
 	readonly modelTier: ModelTier;
-	readonly workspaceHandle: WorkspaceHandle;
-	readonly workspacePath: string;
+	readonly sandboxHandle: SandboxHandle;
+	readonly sandboxPath: string;
 	readonly watcher: FileWatcher;
 	readonly selectedAdapter: SelectedEntry;
 	readonly harness: HarnessAdapter;
@@ -248,7 +248,7 @@ export interface AdmittedSession {
  * Runs the HTTP-observable prefix: load agent, cost pre-flight (P2), adapter
  * select + concurrency check (P3), **resolvedModel presence guard (WARNING-2,
  * pre-P5)**, task transition, workspace spawn (P4), session row insert (P5),
- * materialize (P6), start watcher (P7), emit `session_started`. ALL admission
+ * context assembly (P6), start watcher (P7), emit `session_started`. ALL admission
  * failures (CostCapExceeded 422 / ConcurrencyLimit 429 / MissingCredential 500)
  * throw BEFORE the P5 row insert — the detach boundary — so they map to HTTP
  * status on the POST path and never leave a doomed row.
@@ -284,8 +284,8 @@ export async function admitSession(
 	const agentRole = agent.role;
 	const teamId = agent.teamId ?? undefined;
 
-	// X3: Read soul prompt inline from DB column. No file read required.
-	const soulPromptText = agent.soulPrompt ?? "";
+	// X3: Read system prompt inline from DB column. No file read required.
+	const systemPromptText = agent.systemPrompt ?? "";
 
 	// X3: Model tier priority: explicit param > agent preference > default "workhorse".
 	// Runtime validation: modelTierPreference is a text column — validate before casting.
@@ -392,18 +392,18 @@ export async function admitSession(
 	}
 
 	// ── Phases 4-7 (wrapped): spawn workspace → insert session row →
-	// materialize → start watcher. If any step throws before the session row
+	// context assembly → start watcher. If any step throws before the session row
 	// is committed AND before the harness starts, we revert the task back to
 	// `accepted` so a transient failure (disk full, path collision, EMFILE)
 	// does not permanently strand the task in `in_progress`.
 	let sessionId: string;
-	let workspaceHandle: WorkspaceHandle;
-	let workspacePath: string;
+	let sandboxHandle: SandboxHandle;
+	let sandboxPath: string;
 	let watcher: FileWatcher;
 	try {
-		// ── Phase 4: spawn workspace via adapter.
-		workspaceHandle = await workspace.spawn(params.workspaceBasePath);
-		workspacePath = workspaceHandle.path;
+		// ── Phase 4: spawn sandbox via adapter.
+		sandboxHandle = await workspace.spawn(params.sandboxBasePath);
+		sandboxPath = sandboxHandle.path;
 
 		// ── Phase 5: insert session row.
 		sessionId = randomUUID();
@@ -415,14 +415,14 @@ export async function admitSession(
 			modelTier,
 			startedAt,
 			state: "active",
-			workspaceSnapshot: workspacePath,
+			sandboxSnapshot: sandboxPath,
 			// AA2: populate routineId when this is a routine session.
 			...(params.routineId ? { routineId: params.routineId } : {}),
 		});
 
-		// ── Phase 6: materialize knowledge into the workspace.
-		await materialize(db, {
-			workspacePath,
+		// ── Phase 6: assemble context into the sandbox.
+		await assembleContext(db, {
+			sandboxPath,
 			sessionId,
 			taskId: params.taskId,
 			agentId: params.agentId,
@@ -431,10 +431,10 @@ export async function admitSession(
 		});
 
 		// ── Phase 7: start the file watcher.
-		const manifestPath = path.join(workspacePath, ".fabric/manifest.json");
+		const manifestPath = path.join(sandboxPath, ".fabric/manifest.json");
 		const watcherConfig: FileWatcherConfig = {
 			db,
-			workspacePath,
+			sandboxPath,
 			sessionId,
 			manifestPath,
 		};
@@ -459,7 +459,7 @@ export async function admitSession(
 		sessionId,
 		agentId: params.agentId,
 		taskId: params.taskId,
-		workspacePath,
+		sandboxPath,
 		watcher,
 		// @lore AF4/§5: traceId correlates observability events for this session
 		// (H3). The provisioning path owns the session, so it mints the id (the
@@ -487,10 +487,10 @@ export async function admitSession(
 		sessionContext,
 		agentRole,
 		teamId,
-		soulPromptText,
+		systemPromptText,
 		modelTier,
-		workspaceHandle,
-		workspacePath,
+		sandboxHandle,
+		sandboxPath,
 		watcher,
 		selectedAdapter,
 		harness,
@@ -532,10 +532,10 @@ export async function runSession(
 		sessionContext,
 		agentRole,
 		teamId,
-		soulPromptText,
+		systemPromptText,
 		modelTier,
-		workspaceHandle,
-		workspacePath,
+		sandboxHandle,
+		sandboxPath,
 		watcher,
 		selectedAdapter,
 		harness,
@@ -557,7 +557,7 @@ export async function runSession(
 		sessionId,
 		taskId: params.taskId,
 		teamId,
-		workspacePath,
+		sandboxPath,
 		watcher,
 	};
 	const registry = buildToolRegistry(toolContext, { role: agentRole });
@@ -576,7 +576,7 @@ export async function runSession(
 
 	// ── Phase 8.5: compose prompt and write CLAUDE.md.
 	//
-	// @lore X1: spec says "written during Phase 6 (materialization)" but we
+	// @lore X1: spec says "written during Phase 6 (context assembly)" but we
 	// place it here because the composed prompt requires tool definitions from
 	// Phase 8. The spec's intent (CLAUDE.md exists before harness start) is
 	// preserved — Phase 8.5 runs before Phase 9 (harness start).
@@ -590,7 +590,7 @@ export async function runSession(
 		description: d.description,
 	}));
 
-	let composedPrompt: string;
+	let assembledPrompt: string;
 	if (params.routineId) {
 		// Routine session: read routine + agent + team context (no task/bet).
 		const routineContextData = await buildRoutineSessionContextData(db, {
@@ -600,11 +600,11 @@ export async function runSession(
 			agentRole,
 			teamId: params.productId,
 		});
-		({ composedPrompt } = await composeRoutinePrompt({
-			soulPromptText,
+		({ assembledPrompt } = await assembleRoutinePrompt({
+			systemPromptText,
 			context: routineContextData,
 			tools: toolSummaries,
-			workspacePath,
+			sandboxPath,
 		}));
 	} else {
 		// Normal task session: read task + bet + agent + team context.
@@ -615,15 +615,15 @@ export async function runSession(
 			agentRole,
 			productId: params.productId,
 		});
-		({ composedPrompt } = await composePrompt({
-			soulPromptText,
+		({ assembledPrompt } = await assemblePrompt({
+			systemPromptText,
 			context: sessionContextData,
 			tools: toolSummaries,
-			workspacePath,
+			sandboxPath,
 		}));
 	}
 
-	writeWorkspaceCLAUDEmd(workspacePath, composedPrompt);
+	writeSandboxAgentsMd(sandboxPath, assembledPrompt);
 
 	// ── Phase 8b: create MCP bridge (if registry is configured).
 	//
@@ -642,8 +642,8 @@ export async function runSession(
 			const bridge = await createMcpBridge({ sessionId, registry });
 			mcpBridgeRegistry.register(bridge);
 			mcpBridgeToken = bridge.token;
-			// Write .mcp.json to workspace for harness auto-discovery.
-			const mcpJsonPath = path.join(workspacePath, ".mcp.json");
+			// Write .mcp.json to sandbox for harness auto-discovery.
+			const mcpJsonPath = path.join(sandboxPath, ".mcp.json");
 			const mcpConfig = {
 				mcpServers: {
 					hyperidle: {
@@ -686,9 +686,9 @@ export async function runSession(
 			// binds the registry pre-registered under this exact id (no map-scan
 			// reconcile). Matches the setSessionToolRegistry(sessionId, ...) call above.
 			sessionId,
-			workspacePath,
-			soulPromptPath: "", // @deprecated X3: soul prompt now composed from inline text (soulPromptText)
-			composedPrompt,
+			sandboxPath,
+			systemPromptPath: "", // @deprecated X3: system prompt assembled from inline DB text
+			assembledPrompt,
 			modelTier,
 			tools: allowedToolNames,
 			// X4: Pass resolved model from gateway so adapter uses correct provider/model/key.
@@ -898,7 +898,7 @@ export async function runSession(
 	if (budgetExhausted) {
 		await endSession(db, eventBus, sessionContext, totalCostCents, 0, "budget_exhausted");
 		await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens);
-		await workspace.destroy(workspaceHandle);
+		await workspace.destroy(sandboxHandle);
 		return {
 			sessionId,
 			outcome: "budget_exhausted",
@@ -912,7 +912,7 @@ export async function runSession(
 	// Also destroy the workspace via the adapter to keep its internal map
 	// consistent. `rm({ force: true })` is a no-op on the already-removed
 	// directory, so no additional error handling is needed.
-	await workspace.destroy(workspaceHandle);
+	await workspace.destroy(sandboxHandle);
 
 	return {
 		sessionId,

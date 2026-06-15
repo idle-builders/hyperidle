@@ -31,11 +31,11 @@ import { clearDeduplicationCache, recordCostAndCheck } from "@hyperidle/fabric";
 import type { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { createTaskTool } from "../skill-tools/create-task.js";
-import { readInboxTool } from "../skill-tools/read-inbox.js";
-import { submitReviewTool } from "../skill-tools/submit-review.js";
-import type { ToolContext } from "../skill-tools/tool-registry.js";
 import { test } from "../test-fixtures.js";
+import { createTaskTool } from "../tools/create-task.js";
+import { readInboxTool } from "../tools/read-inbox.js";
+import { submitReviewTool } from "../tools/submit-review.js";
+import type { ToolContext } from "../tools/tool-registry.js";
 
 const TEST_API_KEY = "test-key-r5-agent-loop";
 const NOW = new Date().toISOString();
@@ -104,7 +104,7 @@ function makeContext(db: HyperIdleDb, eventBus: EventBus): ToolContext {
 		agentId: "agent-a",
 		sessionId: "session-1",
 		taskId: "task-1",
-		workspacePath: path.join(os.tmpdir(), `hi-r5-integration-${Date.now()}`),
+		sandboxPath: path.join(os.tmpdir(), `hi-r5-integration-${Date.now()}`),
 		watcher: { stop: (): void => {} },
 	};
 }

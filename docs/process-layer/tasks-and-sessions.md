@@ -38,7 +38,7 @@ Each session is bounded — it has a start, an end, an outcome, and a cost. Sess
 
 Every session has a three-phase lifecycle managed by the Knowledge Fabric (see KNOWLEDGE_ARCHITECTURE.md §4–5):
 
-**1. Materialization (session start).** The Knowledge Fabric queries `knowledge_items` for the slice of knowledge this agent needs — based on task, role, product, and relevance scoring — and writes it as files into the agent's workspace. Three zones: `context/` (read-only reference material: product docs, practices as TOON packs, factory principles), `work/` (session scratch space), `knowledge/` (where the agent can propose changes to the knowledge base). A hidden manifest tracks the version of every materialized item.
+**1. Context assembly (session start).** The Knowledge Fabric queries `knowledge_items` for the slice of knowledge this agent needs — based on task, role, product, and relevance scoring — and writes it as files into the agent's workspace. Three zones: `context/` (read-only reference material: product docs, practices as TOON packs, factory principles), `work/` (session scratch space), `knowledge/` (where the agent can propose changes to the knowledge base). A hidden manifest tracks the version of every assembled item.
 
 **2. Execution (the session).** The agent works normally — reads files, writes files, calls tools, produces artifacts. No sync daemon, no special protocol. The agent doesn't know about SQLite or versions. It just sees a directory of files.
 
@@ -58,7 +58,7 @@ Three consequences fall out of this:
 - **Where the harness supports it, a pre-compaction trigger fires.** This is part of the Harness Adapter's contract: when the adapter detects context compaction is imminent (via token counting or harness-specific signals), it triggers a final note-writing pass before the session ends. Not all harnesses expose this — for those that don't, the continuous note-writing habit is the fallback.
 - **The task object is the real long-term memory of the work.** L2 (the agent's private memory) holds the agent's identity and accumulated style; the task object holds the *current state of this specific job*. Anything not written to the task before compaction is lost from this work stream.
 
-**What matters in session notes is the flight level and description, not the structure.** LLMs are good at writing prose; if we use notes as text (which we do — they're materialized as markdown for the next session to read), then any reasonable way the agent writes them is fine. Don't enforce a rigid template. What matters is guiding the agent on *what* to write about: what was the goal, what happened, what changed, what's next, what should the next session be careful about. The skill package provides defaults for this guidance, but the process layer doesn't parse the notes structurally.
+**What matters in session notes is the flight level and description, not the structure.** LLMs are good at writing prose; if we use notes as text (which we do — they're assembled as markdown for the next session to read), then any reasonable way the agent writes them is fine. Don't enforce a rigid template. What matters is guiding the agent on *what* to write about: what was the goal, what happened, what changed, what's next, what should the next session be careful about. The skill package provides defaults for this guidance, but the process layer doesn't parse the notes structurally.
 
 There's no need for a session-length cap beyond the natural one: when context compaction is imminent, the session ends. Different harnesses with different context sizes will produce different natural session lengths, and that's fine.
 
@@ -66,7 +66,7 @@ There's no need for a session-length cap beyond the natural one: when context co
 
 Three layers of memory bridge sessions on the same task, all mediated by the Knowledge Fabric:
 
-- **L2 (agent's private memory)** — the agent's own notes about what it's doing and what it believes. Stored in `knowledge_items` (`layer='L2'`, `scope_id` = product name). Materialized into `context/` at session start. Survives across sessions for the same agent.
+- **L2 (agent's private memory)** — the agent's own notes about what it's doing and what it believes. Stored in `knowledge_items` (`layer='L2'`, `scope_id` = product name). Assembled into `context/` at session start. Survives across sessions for the same agent.
 - **The task's notes** — written continuously during the session (synced back via the Knowledge Fabric's file watcher) by whoever was working it. Any session by any agent can read them. This is how agent B picks up where agent A left off, and how agent A picks up tomorrow what it did today.
 - **The task's thread** (when it exists) — the conversation around the work. Comments, questions, review feedback. Read on demand, not by default.
 

@@ -28,7 +28,7 @@ import type {
 async function seed(ctx: SeedContext): Promise<ScenarioSeedResult> {
 	return await seedMinimalWorld(ctx.db, {
 		agentRole: "builder",
-		agentSoulPrompt: `You are a builder agent in an agentic operating system.
+		agentSystemPrompt: `You are a builder agent in an agentic operating system.
 Your job is to complete assigned tasks using the available tools.
 
 IMPORTANT: When you complete a task:
@@ -65,7 +65,7 @@ async function trigger(ctx: TriggerContext): Promise<TriggerResult> {
 			eventBus: ctx.eventBus,
 			resolvedModel: ctx.resolvedModel,
 			resolvedFastModel: ctx.resolvedFastModel,
-			workspaceBasePath: ctx.seedResult.workspaceBasePath,
+			sandboxBasePath: ctx.seedResult.sandboxBasePath,
 		},
 		{
 			taskId: ctx.seedResult.taskId,

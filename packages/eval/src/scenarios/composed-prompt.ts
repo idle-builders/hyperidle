@@ -1,7 +1,7 @@
 /**
  * X8: Composed prompt scenarios (interaction 18).
  *
- * Tests prompt composition: soul prompt identity delivery, task comprehension, template vars.
+ * Tests context assembly: system prompt identity delivery, task comprehension, template vars.
  */
 
 import { sessions } from "@hyperidle/db";
@@ -29,13 +29,13 @@ import type {
 
 const cpIdentityBrandvoiceMarketing: EvalScenario = {
 	id: "cp-identity-brandvoice-marketing",
-	description: "Brand voice agent adheres to detailed soul prompt tone guidelines in output",
+	description: "Brand voice agent adheres to detailed system prompt tone guidelines in output",
 	feature: "composed_prompt",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "brand_voice",
-			agentSoulPrompt: `You are Aria, the brand voice guardian for Luminary Creative Agency.
+			agentSystemPrompt: `You are Aria, the brand voice guardian for Luminary Creative Agency.
 
 BRAND PERSONALITY:
 - Warm but professional: never stiff or corporate
@@ -72,7 +72,7 @@ End your session notes with "Made with intention." (our standard sign-off).`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -129,7 +129,7 @@ const cpTaskComprehensionPmLegal: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "product_manager",
-			agentSoulPrompt: `You are a product manager responsible for legal and compliance initiatives.
+			agentSystemPrompt: `You are a product manager responsible for legal and compliance initiatives.
 You work at the intersection of product development and legal constraints.
 Your job is to ensure the team understands compliance requirements and translates them into actionable work.
 Always read task done conditions carefully — they define success precisely.`,
@@ -157,7 +157,7 @@ Explicitly note which done conditions you have addressed and how.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -206,13 +206,13 @@ Explicitly note which done conditions you have addressed and how.`,
 
 const cpTemplateVarsPfDevops: EvalScenario = {
 	id: "cp-template-vars-pf-devops",
-	description: "PF soul prompt template variables substituted and community name referenced",
+	description: "PF system prompt template variables substituted and community name referenced",
 	feature: "composed_prompt",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "facilitator", // @lore AD8c: renamed from practice_facilitator
-			agentSoulPrompt: `You are the practice facilitator for the Platform Engineering community.
+			agentSystemPrompt: `You are the practice facilitator for the Platform Engineering community.
 
 Your community: Platform Engineering
 Your community's focus: Developer productivity, internal tooling, and platform reliability.
@@ -241,7 +241,7 @@ This confirms that template variable substitution correctly set your community i
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,

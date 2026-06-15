@@ -7,8 +7,8 @@ Click the **Settings** button in the Sidebar to open Settings. Sections stack ve
 | **Profile** | Your name, email, avatar |
 | **Org chart** | Reporting lines between humans (direct / function / team relationships) |
 | **Models** | AI model tier selection (reasoning, workhorse, fast) and API credentials |
-| **Agents** | Per-agent model and harness, autonomy levels, pause/resume, soul prompt |
-| **Assistant** | Your personal AI assistant soul prompt and settings |
+| **Agents** | Per-agent model and harness, autonomy levels, pause/resume, system prompt |
+| **Assistant** | Your personal AI assistant system prompt and settings |
 | **Appearance** | Theme (light / dark / system) |
 | **Credentials** | Desktop app: saved credentials and API keys |
 | **Notifications** | Per-type toggles, quiet hours |

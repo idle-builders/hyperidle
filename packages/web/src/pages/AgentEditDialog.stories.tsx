@@ -22,7 +22,7 @@ const TEAM_AGENT: AgentConfig = {
 	id: "agent-builder-1",
 	name: "Atlas Builder",
 	role: "builder",
-	soulPrompt: "You are a meticulous builder who values clean code and thorough documentation.",
+	systemPrompt: "You are a meticulous builder who values clean code and thorough documentation.",
 	harnessType: "claude-code",
 	modelTierPreference: "workhorse",
 	// AH2: per-agent model fields
@@ -38,7 +38,7 @@ const STRATEGY_AGENT: AgentConfig = {
 	id: "agent-scout-1",
 	name: "Scout Agent",
 	role: "scout",
-	soulPrompt: null,
+	systemPrompt: null,
 	harnessType: null,
 	modelTierPreference: null,
 	// AH2: per-agent model fields
@@ -52,7 +52,7 @@ const STRATEGY_AGENT: AgentConfig = {
 
 export default { title: "Page: Work/AgentEditDialog" };
 
-/** Dialog open for a team agent with soul prompt. */
+/** Dialog open for a team agent with system prompt. */
 export const TeamAgent = (): JSX.Element => (
 	<WithToast>
 		<AgentEditDialog agent={TEAM_AGENT} rosterMember={null} onClose={noop} onSaved={noop} />
@@ -66,11 +66,11 @@ export const StrategyAgent = (): JSX.Element => (
 	</WithToast>
 );
 
-/** Dialog open for an agent with no soul prompt (shows template button). */
+/** Dialog open for an agent with no system prompt (shows template button). */
 export const NoSoul = (): JSX.Element => (
 	<WithToast>
 		<AgentEditDialog
-			agent={{ ...TEAM_AGENT, soulPrompt: null }}
+			agent={{ ...TEAM_AGENT, systemPrompt: null }}
 			rosterMember={null}
 			onClose={noop}
 			onSaved={noop}

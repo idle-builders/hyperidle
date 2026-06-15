@@ -46,7 +46,7 @@ export interface SessionContextData {
 
 /**
  * Query the DB and assemble structured SessionContextData without encoding.
- * X1: extracted from buildSessionContext so prompt composition can use the
+ * X1: extracted from buildSessionContext so context assembly can use the
  * typed data directly without a second DB query or TOON decoding.
  */
 export async function buildSessionContextData(

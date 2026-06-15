@@ -11,13 +11,13 @@
  * - Fetches registered harnesses from GET /api/harnesses on mount
  * - Table: Name | Role | Harness | Model | Sessions | Actions
  * - Inline edit row: expands below selected agent with form
- * - Add form: below table, role change fetches template to pre-fill soul prompt
+ * - Add form: below table, role change fetches template to pre-fill system prompt
  * - Delete: two-click confirmation with 3-second timeout to revert
  *
  * @lore X3: SettingsAgents follows the SettingsOrgChart pattern — fetch on
  * mount, table display, inline expand for editing. No useSettings hook —
  * uses its own GET /api/agents fetch because the settings response `users`
- * array does not include the X3 config fields (soulPrompt, harnessType, etc.).
+ * array does not include the X3 config fields (systemPrompt, harnessType, etc.).
  *
  * @lore AH2: Harness Select is populated from GET /api/harnesses (registry-driven).
  * Model Select is populated from MODEL_CATALOG (closed catalog). Free-text harness
@@ -58,7 +58,7 @@ interface OrgTeam {
 interface EditFormValues {
 	name: string;
 	role: string;
-	soulPrompt: string;
+	systemPrompt: string;
 	harnessType: string;
 	modelId: string;
 	maxConcurrentSessions: number;
@@ -68,7 +68,7 @@ function agentToEditValues(agent: AgentConfig): EditFormValues {
 	return {
 		name: agent.name,
 		role: agent.role,
-		soulPrompt: agent.soulPrompt ?? "",
+		systemPrompt: agent.systemPrompt ?? "",
 		harnessType: agent.harnessType ?? "",
 		modelId: agent.modelId ?? "",
 		maxConcurrentSessions: agent.maxConcurrentSessions,
@@ -116,7 +116,7 @@ export function SettingsAgents(): JSX.Element {
 	const [addValues, setAddValues] = useState<EditFormValues>({
 		name: "",
 		role: "builder",
-		soulPrompt: "",
+		systemPrompt: "",
 		harnessType: "",
 		modelId: "",
 		maxConcurrentSessions: 1,
@@ -199,7 +199,7 @@ export function SettingsAgents(): JSX.Element {
 			});
 			if (!res.ok) return;
 			const json = (await res.json()) as { role: string; content: string };
-			setAddValues((prev) => ({ ...prev, soulPrompt: json.content }));
+			setAddValues((prev) => ({ ...prev, systemPrompt: json.content }));
 		} catch (err) {
 			if (err instanceof Error && err.name === "AbortError") return;
 		} finally {
@@ -233,7 +233,7 @@ export function SettingsAgents(): JSX.Element {
 				body: JSON.stringify({
 					name: editValues.name,
 					role: editValues.role,
-					soulPrompt: editValues.soulPrompt || null,
+					systemPrompt: editValues.systemPrompt || null,
 					harnessType: editValues.harnessType || null,
 					modelId: editValues.modelId || null,
 					maxConcurrentSessions: editValues.maxConcurrentSessions,
@@ -273,7 +273,7 @@ export function SettingsAgents(): JSX.Element {
 				body: JSON.stringify({
 					name: addValues.name,
 					role: addValues.role,
-					soulPrompt: addValues.soulPrompt || null,
+					systemPrompt: addValues.systemPrompt || null,
 					harnessType: addValues.harnessType || null,
 					modelId: addValues.modelId || null,
 					maxConcurrentSessions: addValues.maxConcurrentSessions,
@@ -299,7 +299,7 @@ export function SettingsAgents(): JSX.Element {
 			setAddValues({
 				name: "",
 				role: "builder",
-				soulPrompt: "",
+				systemPrompt: "",
 				harnessType: "",
 				modelId: "",
 				maxConcurrentSessions: 1,
@@ -487,17 +487,17 @@ export function SettingsAgents(): JSX.Element {
 				</div>
 
 				<div className="form-control">
-					<label className="label" htmlFor={`edit-soul-${agentId}`}>
-						<span className="label-text text-[var(--text-secondary)]">Soul Prompt</span>
+					<label className="label" htmlFor={`edit-system-prompt-${agentId}`}>
+						<span className="label-text text-[var(--text-secondary)]">System prompt</span>
 					</label>
 					<textarea
-						id={`edit-soul-${agentId}`}
+						id={`edit-system-prompt-${agentId}`}
 						className="textarea textarea-bordered text-sm"
 						rows={8}
-						value={values.soulPrompt}
-						onChange={(e) => setValues((prev) => ({ ...prev, soulPrompt: e.target.value }))}
-						placeholder="Soul prompt text (optional). Leave empty for no persona."
-						aria-label="Soul Prompt"
+						value={values.systemPrompt}
+						onChange={(e) => setValues((prev) => ({ ...prev, systemPrompt: e.target.value }))}
+						placeholder="System prompt text (optional). Leave empty for no persona."
+						aria-label="System prompt"
 					/>
 				</div>
 
@@ -674,7 +674,7 @@ export function SettingsAgents(): JSX.Element {
 								value={addValues.role}
 								onChange={(e) => {
 									const newRole = e.target.value;
-									setAddValues((prev) => ({ ...prev, role: newRole, soulPrompt: "" }));
+									setAddValues((prev) => ({ ...prev, role: newRole, systemPrompt: "" }));
 									void fetchTemplate(newRole);
 								}}
 								aria-label="Role"
@@ -746,17 +746,17 @@ export function SettingsAgents(): JSX.Element {
 					</div>
 
 					<div className="form-control">
-						<label className="label" htmlFor="add-agent-soul">
-							<span className="label-text text-[var(--text-secondary)]">Soul Prompt</span>
+						<label className="label" htmlFor="add-agent-system-prompt">
+							<span className="label-text text-[var(--text-secondary)]">System prompt</span>
 						</label>
 						<textarea
-							id="add-agent-soul"
+							id="add-agent-system-prompt"
 							className="textarea textarea-bordered text-sm"
 							rows={8}
-							value={addValues.soulPrompt}
-							onChange={(e) => setAddValues((prev) => ({ ...prev, soulPrompt: e.target.value }))}
-							placeholder="Soul prompt text (optional). Changes with role selection."
-							aria-label="Soul Prompt"
+							value={addValues.systemPrompt}
+							onChange={(e) => setAddValues((prev) => ({ ...prev, systemPrompt: e.target.value }))}
+							placeholder="System prompt text (optional). Changes with role selection."
+							aria-label="System prompt"
 						/>
 					</div>
 
@@ -777,7 +777,7 @@ export function SettingsAgents(): JSX.Element {
 								setAddValues({
 									name: "",
 									role: "builder",
-									soulPrompt: "",
+									systemPrompt: "",
 									harnessType: "",
 									modelId: "",
 									maxConcurrentSessions: 1,

@@ -15,10 +15,10 @@ function makeHandle() {
 
 function makeSessionConfig() {
 	return {
-		workspacePath: "/workspace/test",
+		sandboxPath: "/workspace/test",
 		sessionId: "test-session",
-		soulPromptPath: "",
-		composedPrompt: "Do the task.",
+		systemPromptPath: "",
+		assembledPrompt: "Do the task.",
 		modelTier: "workhorse" as const,
 		tools: ["Read"],
 	};

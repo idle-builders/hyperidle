@@ -3,9 +3,9 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { type HyperIdleDb, routineRuns, routines, sessions, users } from "@hyperidle/db";
 import {
+	assembleContext,
 	type FileWatcher,
 	type FileWatcherConfig,
-	materialize,
 	releaseSessionDedup,
 	startWatcher,
 } from "@hyperidle/fabric";
@@ -24,14 +24,14 @@ export interface CreateSessionParams {
 	/** @lore U1: formerly `productId` — now references `teams.id`. */
 	productId: string;
 	modelTier: ModelTier;
-	workspaceBasePath: string;
+	sandboxBasePath: string;
 }
 
 export interface SessionContext {
 	sessionId: string;
 	agentId: string;
 	taskId: string;
-	workspacePath: string;
+	sandboxPath: string;
 	watcher: FileWatcher;
 	/** Correlates every observability event for this session (H3). */
 	traceId: string;
@@ -128,7 +128,7 @@ async function updateRoutineRunOnSessionEnd(
 
 /**
  * Create a new agent session: check concurrency, set up workspace,
- * materialize knowledge, start file watcher, emit event.
+ * assemble context, start file watcher, emit event.
  */
 export async function createSession(
 	db: HyperIdleDb,
@@ -152,11 +152,11 @@ export async function createSession(
 		throw new ConcurrencyLimitError(params.agentId, agent.maxConcurrentSessions);
 	}
 
-	// 2. Generate session ID and workspace path
+	// 2. Generate session ID and sandbox path
 	const sessionId = crypto.randomUUID();
 	const traceId = crypto.randomUUID();
-	const workspacePath = path.join(params.workspaceBasePath, sessionId);
-	fs.mkdirSync(workspacePath, { recursive: true });
+	const sandboxPath = path.join(params.sandboxBasePath, sessionId);
+	fs.mkdirSync(sandboxPath, { recursive: true });
 
 	// 3. Insert session row
 	// @lore O2: cost, costMinor, costCurrency, traceId columns stripped from
@@ -169,12 +169,12 @@ export async function createSession(
 		modelTier: params.modelTier,
 		startedAt: now,
 		state: "active",
-		workspaceSnapshot: workspacePath,
+		sandboxSnapshot: sandboxPath,
 	});
 
-	// 4. Materialize workspace
-	await materialize(db, {
-		workspacePath,
+	// 4. Assemble context into sandbox
+	await assembleContext(db, {
+		sandboxPath,
 		sessionId,
 		taskId: params.taskId,
 		agentId: params.agentId,
@@ -183,10 +183,10 @@ export async function createSession(
 	});
 
 	// 5. Start file watcher
-	const manifestPath = path.join(workspacePath, ".fabric/manifest.json");
+	const manifestPath = path.join(sandboxPath, ".fabric/manifest.json");
 	const watcherConfig: FileWatcherConfig = {
 		db,
-		workspacePath,
+		sandboxPath,
 		sessionId,
 		manifestPath,
 	};
@@ -207,7 +207,7 @@ export async function createSession(
 		sessionId,
 		agentId: params.agentId,
 		taskId: params.taskId,
-		workspacePath,
+		sandboxPath,
 		watcher,
 		traceId,
 	};
@@ -292,7 +292,7 @@ export async function endSession(
 	// @lore I6: use async fs.promises.rm() instead of sync fs.rmSync() to avoid
 	// blocking the event loop during large workspace cleanup.
 	try {
-		await fs.promises.rm(context.workspacePath, { recursive: true, force: true });
+		await fs.promises.rm(context.sandboxPath, { recursive: true, force: true });
 	} catch {
 		// Directory may already be gone — safe to ignore.
 	}

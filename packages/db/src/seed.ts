@@ -4,7 +4,7 @@
  * seedDemoWorld() for demo/test fixtures.
  *
  * @lore AF17: Seed split. The original seed() inserted both the factory
- * layer (system identities, facilitators, soul templates) and the demo world
+ * layer (system identities, facilitators, system prompt templates) and the demo world
  * (Acme team, human founder, demo agents, daily-digest trio, builtin routines).
  * These are now separated into applyFactoryBootstrap (factory-bootstrap.ts)
  * and seedDemoWorld (demo-fixture.ts). This wrapper calls both for backward

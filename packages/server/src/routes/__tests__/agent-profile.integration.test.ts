@@ -88,7 +88,7 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		maxConcurrentSessions: 2,
 		teamId: "ab1-tm",
 		harnessType: "claude-code",
-		soulPrompt: "You are a builder agent.",
+		systemPrompt: "You are a builder agent.",
 		modelTierPreference: "workhorse",
 		createdAt: NOW,
 	});
@@ -153,7 +153,7 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		expect(body).toHaveProperty("teamName");
 		expect(body).toHaveProperty("createdAt");
 		// Config fields
-		expect(body).toHaveProperty("soulPrompt");
+		expect(body).toHaveProperty("systemPrompt");
 		expect(body).toHaveProperty("harnessType");
 		expect(body).toHaveProperty("modelTierPreference");
 		expect(body).toHaveProperty("maxConcurrentSessions");
@@ -182,7 +182,7 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		expect(body.name).toBe("AB1 Builder Bot");
 		expect(body.role).toBe("builder");
 		expect(body.harnessType).toBe("claude-code");
-		expect(body.soulPrompt).toBe("You are a builder agent.");
+		expect(body.systemPrompt).toBe("You are a builder agent.");
 		expect(body.modelTierPreference).toBe("workhorse");
 		expect(body.maxConcurrentSessions).toBe(2);
 	});

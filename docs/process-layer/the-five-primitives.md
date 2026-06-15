@@ -87,7 +87,7 @@ Session {
   started_at
   ended_at?
   state              # active | paused | done | crashed
-  workspace_snapshot # pointer to the workspace state at session start
+  sandbox_snapshot # pointer to the workspace state at session start
   events             # event stream for this session (for durability replay if enabled)
   cost               # Money — what this session spent (see canonical-shapes.md)
   tokens             # TokenUsage — prompt/completion split per tier used in this session

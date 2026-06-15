@@ -10,7 +10,7 @@
  * 1. Breadcrumb
  * 2. Health Banner (conditional — only when degraded, role="alert")
  * 3. Header: Avatar + Name + StatusChip + Tag(category) + role + created + active session + settings link
- * 4. Section 1 — Configuration: KeyValue grid + collapsed soul prompt
+ * 4. Section 1 — Configuration: KeyValue grid + collapsed system prompt
  * 5. Section 2 — Harness Capabilities: badge row
  * 6. Section 3 — Skills: table with overflow-x-auto
  * 7. Section 4 — Recent Activity: table
@@ -259,13 +259,13 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 					<KeyValue label="Max sessions" value={String(data.maxConcurrentSessions)} />
 					<KeyValue label="Created" value={createdDate} />
 				</div>
-				{data.soulPrompt && (
+				{data.systemPrompt && (
 					<details className="mt-[12px]">
 						<summary className="text-[12px] text-[var(--text-tertiary)] cursor-pointer hover:text-[var(--text-secondary)] select-none">
-							Soul prompt
+							System prompt
 						</summary>
 						<pre className="mt-[6px] text-[11px] text-[var(--text-secondary)] font-mono whitespace-pre-wrap break-all bg-[var(--surface-page)] rounded-[var(--r-subtle)] p-[9px] max-h-[200px] overflow-y-auto">
-							{data.soulPrompt}
+							{data.systemPrompt}
 						</pre>
 					</details>
 				)}

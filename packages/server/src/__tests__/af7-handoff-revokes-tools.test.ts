@@ -66,9 +66,9 @@ function makeConfig(sessionId: string): SessionConfig {
 	// guard and isolation share the same contract. RED until the green phase.
 	return {
 		sessionId,
-		workspacePath: `/workspace/${sessionId}`,
-		soulPromptPath: "",
-		composedPrompt: "You are a helpful assistant.",
+		sandboxPath: `/workspace/${sessionId}`,
+		systemPromptPath: "",
+		assembledPrompt: "You are a helpful assistant.",
 		modelTier: "workhorse",
 		tools: ["first_tool", "second_tool"],
 		resolvedModel: RESOLVED_MODEL,

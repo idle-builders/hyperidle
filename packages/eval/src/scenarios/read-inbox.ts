@@ -35,7 +35,7 @@ const riCheckAndRespondPmConsulting: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMultiAgentWorld(ctx.db, {
 			agentRole: "product_manager",
-			agentSoulPrompt: `You are a product manager coordinating a consulting engagement.
+			agentSystemPrompt: `You are a product manager coordinating a consulting engagement.
 At the start of each session, check your inbox using read_inbox to see if teammates have questions.
 If you find a question, respond to it using send_message. Always address what was asked.`,
 			secondAgentRole: "builder",
@@ -73,7 +73,7 @@ Your response should directly address the timeline question asked.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -114,7 +114,7 @@ const riEmptyInboxBuilderDevops: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
-			agentSoulPrompt: `You are a builder agent working on infrastructure tasks.
+			agentSystemPrompt: `You are a builder agent working on infrastructure tasks.
 At the start of each session, check your inbox using read_inbox.
 If the inbox is empty, proceed with your assigned task.
 Never create items or tasks when there are no messages requiring action.`,
@@ -133,7 +133,7 @@ Do NOT create any tasks or items if the inbox is empty — just do your assigned
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -181,7 +181,7 @@ const riMultipleThreadsBuilderFrontend: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMultiAgentWorld(ctx.db, {
 			agentRole: "builder",
-			agentSoulPrompt: `You are a builder agent implementing frontend components.
+			agentSystemPrompt: `You are a builder agent implementing frontend components.
 Check your inbox using read_inbox when you start your session.
 When you find messages, prioritize the one directly related to your current task.
 Respond using send_message to the sender who asked about your current task.`,
@@ -237,7 +237,7 @@ Ignore unrelated threads (e.g., general team updates).`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
