@@ -65,6 +65,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import { fabricStrategy } from "@hyperidle/fabric";
 import { AdapterPool } from "@hyperidle/server/harness/adapter-pool";
 import { BuiltinHarnessAdapter } from "@hyperidle/server/harness/builtin-harness-adapter";
 import { LocalSandboxAdapter } from "@hyperidle/server/harness/local-sandbox-adapter";
@@ -76,6 +77,7 @@ import { DbCredentialResolver } from "@hyperidle/server/services/credential-reso
 import { resolveModelTier } from "@hyperidle/server/services/model-gateway";
 import { readServerConfig, updateServerConfig } from "@hyperidle/server/services/server-config";
 import { provisionSession } from "@hyperidle/server/services/session-provisioning";
+import { setActiveStrategy } from "@hyperidle/server/services/strategy-registry";
 import type { ResolvedModel } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
 import { drizzle } from "drizzle-orm/pglite";
@@ -87,7 +89,11 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 // Configuration
 // ---------------------------------------------------------------------------
 
-const MAX_COST_CENTS = Number(process.env.AH5_MAX_COST_CENTS ?? "5");
+// @lore AH5 Fix: Default cap raised from 5 to 10 cents. A single probe run costs
+// 3-7 cents depending on model chattiness (maxIterations=2 bounds this). The
+// overall lane budget (per task spec) is ~20¢; 10¢ per probe leaves room.
+// AH5_MAX_COST_CENTS env override still respected for tighter local budgets.
+const MAX_COST_CENTS = Number(process.env.AH5_MAX_COST_CENTS ?? "10");
 // @lore AH5 W2: Cost report lives in packages/web/playwright-report-ah5/ so the
 // local lane report directory and the budget-assert script (COST_FILE resolved from
 // packages/web/scripts/) both point to the same file. Using packages/playwright-report-ah5/
@@ -231,8 +237,13 @@ await db.insert(tasks).values({
 // ---------------------------------------------------------------------------
 
 const pool = new AdapterPool();
-// maxIterations: 3 for the probe — prescriptive prompt should complete in 1 turn
-const builtinAdapter = new BuiltinHarnessAdapter({ maxIterations: 3 });
+// maxIterations: 2 for the probe — 1 for the prescriptive tool call, 1 for follow-up if needed.
+// The prescriptive prompt says "emit only the tool call" so 1 iteration is expected,
+// but 2 is kept as a safety net.
+// @lore AH5: maxIterations was previously 3 — the model sometimes ran all 3 turns,
+// calling write_session_notes twice + log_task, exceeding the 5-cent budget cap.
+// Reduced to 2 to stay within budget while still allowing a single follow-up.
+const builtinAdapter = new BuiltinHarnessAdapter({ maxIterations: 2 });
 pool.register("ah5-probe-builtin", builtinAdapter, {
 	name: "AH5 Probe Builtin",
 	kind: "local",
@@ -282,6 +293,17 @@ const toolCallEvents: ToolCallRecordedEvent[] = [];
 eventBus.on("tool_call_recorded", (event) => {
 	toolCallEvents.push(event as ToolCallRecordedEvent);
 });
+
+// ---------------------------------------------------------------------------
+// Register Strategy Port (AK2 §4a requirement)
+// ---------------------------------------------------------------------------
+
+// @lore AH5 Fix5: AK2 introduced the Strategy Port. provisionSession now calls
+// getActiveStrategy() (which throws if unregistered) before assembling context.
+// The server registers fabricStrategy at boot (server-factory.ts:265). The probe
+// bypasses server-factory so it must register manually — same as the integration
+// tests (AD2, AH3 gate tests). Without this, provisionSession throws at Phase 6.
+setActiveStrategy(fabricStrategy);
 
 // ---------------------------------------------------------------------------
 // Run the real turn

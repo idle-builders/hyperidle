@@ -49,6 +49,11 @@ export default defineConfig({
 		baseURL: `http://localhost:${AH5_VITE_PORT}`,
 		trace: "on",
 		screenshot: "on",
+		// @lore AH5 Fix5: AC1 test hits /api/credentials/* which requires X-API-Key.
+		// Set it for all requests so the credential check works without per-test headers.
+		extraHTTPHeaders: {
+			"X-API-Key": AH5_API_KEY,
+		},
 	},
 	projects: [
 		{
