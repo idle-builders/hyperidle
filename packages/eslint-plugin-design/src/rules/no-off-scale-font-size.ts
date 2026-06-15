@@ -38,9 +38,7 @@ export const noOffScaleFontSize: Rule.RuleModule = createRule({
 						? node.name.name
 						: null;
 				if (name !== "className") return;
-				const literal = getClassNameLiteral(
-					node as unknown as { value?: { type?: string; value?: unknown } | null },
-				);
+				const literal = getClassNameLiteral(node);
 				if (literal === null) return;
 				for (const match of literal.matchAll(ARBITRARY_FONT_SIZE)) {
 					const n = Number(match[1]);

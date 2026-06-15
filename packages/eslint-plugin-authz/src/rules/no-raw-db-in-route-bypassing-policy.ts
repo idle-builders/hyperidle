@@ -183,10 +183,9 @@ export const noRawDbInRouteBypassingPolicy: Rule.RuleModule = {
 	create(context) {
 		// Only applies to files under packages/server/src/routes/
 		// @lore AF11: ESLint 10 flat-config removed context.getFilename(). Use context.filename (property, not method).
-		const filename =
-			context.filename ??
-			(context as unknown as { getFilename?: () => string }).getFilename?.() ??
-			"";
+		// @lore refactor/no-unknown-cast-eslint-plugins: context.filename is typed as string in Rule.RuleContext
+		// (via CoreRuleContext from @eslint/core). The getFilename() fallback was dead code — removed.
+		const filename = context.filename ?? "";
 		if (!filename.includes("routes/")) return {};
 
 		return {

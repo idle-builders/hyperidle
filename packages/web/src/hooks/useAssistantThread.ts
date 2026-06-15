@@ -54,9 +54,14 @@ function decodeAssistantThreadResponse(value: unknown): AssistantThreadData {
 			...(typeof v.role === "string" ? { role: v.role } : {}),
 		};
 	}
+	// `value.thread` is narrowed to Record<string,unknown> by the isObject guard.
+	// We widen to `object` (an honest upcast — all objects satisfy `object`) then
+	// narrow to Thread (structurally plausible to TS). No `unknown` intermediary:
+	// `unknown` loses all type information while `object` retains the non-primitive
+	// constraint. Server validates via zod so the runtime shape is correct.
 	return {
-		thread: value.thread as unknown as Thread,
-		messages: value.messages as unknown as ReadonlyArray<Message>,
+		thread: value.thread as object as Thread,
+		messages: value.messages as ReadonlyArray<Message>,
 		identities,
 	};
 }

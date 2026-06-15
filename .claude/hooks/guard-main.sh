@@ -23,9 +23,21 @@ if echo "$LEAD" | grep -qE '^\s*git\s+worktree\s+add\b'; then
   fi
 fi
 
-# --- Guard 2: no commits on main ---
-if echo "$LEAD" | grep -qE '^\s*git\s+commit\b'; then
-  CURRENT_BRANCH=$(git -C "${CLAUDE_PROJECT_DIR:-.}" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+# --- Guard 2: no commits on main (worktree-aware) ---
+# Block only when the commit actually TARGETS a checkout that is on 'main'.
+# Resolve the repo the commit runs against from the command itself, not from
+# CLAUDE_PROJECT_DIR — otherwise a worktree commit (on a feature branch) gets
+# blocked just because the primary checkout happens to be on main, which is the
+# bug that forced the "detach main during pipeline" workaround. Precedence:
+#   1. explicit `git -C <dir>` in the command
+#   2. the tool's working directory (`.cwd` from the hook payload)
+#   3. CLAUDE_PROJECT_DIR / cwd as a last resort
+if echo "$LEAD" | grep -qE '^[[:space:]]*git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?commit\b'; then
+  TARGET_DIR=$(echo "$LEAD" | grep -oE '[[:space:]]-C[[:space:]]+[^[:space:]]+' | head -1 | sed -E 's/^.*-C[[:space:]]+//' || true)
+  if [ -z "$TARGET_DIR" ]; then
+    TARGET_DIR=$(echo "$INPUT" | jq -r '.cwd // empty')
+  fi
+  CURRENT_BRANCH=$(git -C "${TARGET_DIR:-${CLAUDE_PROJECT_DIR:-.}}" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
   if [ "$CURRENT_BRANCH" = "main" ]; then
     echo "BLOCKED: cannot commit to 'main'. You are on branch 'main' — switch to a feature branch first: git checkout -b <type>/<id>-<desc> then commit there. All work must go through a PR."
     exit 2

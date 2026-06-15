@@ -10,7 +10,7 @@ min_tool_calls: 40
 
 Target: **<target>**
 
-You are autonomous. There is NO human. Never pause, never ask, never stop until every workpackage you were given is done or blocked.
+You are autonomous. There is NO human. Never pause, never ask, never stop until every workpackage you were given is done or blocked. This autonomous stance is the **default**; when `PIPELINE_INTERACTIVE` is exactly `1` (the canonical rule — see "## Run modes" below), the run additionally surfaces the **ship-summary** founder touchpoint before the human merge — and *only* that, *only* in interactive mode. The default-off autonomous stance is unchanged. (The concept recap is upstream founder work in `/concept`, not a pipeline behavior.)
 
 **NEVER end your turn without a tool call** unless every workpackage you were given is done/blocked.
 
@@ -35,6 +35,20 @@ Cross-track or cross-complexity batches are NEVER dispatched. If you receive a m
 `.pipeline/work-packages/TRACK-<letter>.md` and `.pipeline/work-packages/dependency-graph.md` remain your reference for spec and dependency graph.
 
 Record session start time.
+
+---
+
+## Run modes
+
+**Canonical `PIPELINE_INTERACTIVE` rule** — interactive mode is on if and only if `PIPELINE_INTERACTIVE` is exactly the literal string `1`. Every other value — unset, empty, `0`, `true`, `yes`, anything else — is autonomous mode. This rule is stated once here and is the single source of truth; every consumer (`/concept`, `/ship`) references it rather than re-deriving its own truthiness check.
+
+Read once at run start. The run mode governs exactly **one** pipeline-owned touchpoint: the **ship-summary check** (before the human merge, in the Ship phase — see "Ship-summary check" in the dispatch block; it is its own accountability check on top of the CI-green gate, not a recap of `/ship`). In autonomous mode (the default), no touchpoints fire.
+
+**The concept recap is NOT a pipeline touchpoint.** It lives in `/concept`, which the founder runs upstream before invoking the pipeline (see "## Pre-condition" — the pipeline does not run `/concept`). By the time `/pipeline` starts, the concept is already confirmed (or `blocked: concept-contested`). The pipeline never owns, dispatches, or re-runs the concept recap.
+
+**Orthogonality:** `PIPELINE_AB_MODE=1` is an independent flag for PR-replay. A/B runs stay autonomous — interactive mode stays OFF under A/B. Cron/unattended runs always run autonomous (signal absent). The two flags are independent; A/B never implies interactive.
+
+**Hard rule:** interactive mode never alters the committed artifact set, phase order, persona separation, or the ship gate. Enabling it adds a chat-surfaced ship summary; it removes, reorders, and adds nothing to what gets committed.
 
 ---
 
@@ -90,6 +104,10 @@ Stories touching authentication, schema migrations, or `packages/server/src/agen
 
 **Squash before flipping ready.** Builder squashes the persona-prose commits before `/ship` flips `gh pr ready`. Implementation commits stay atomic; prose commits collapse into one `chore(<id>): pipeline artifacts`. Squash at ship time, not before — the retro (Phase 6) still needs the per-phase history to extract cost signals.
 
+**Commit at task boundaries in the green phase.** A large L/M full-stack green phase routinely exceeds one builder session (observed: U1, S1, AF8, AH5). The builder commits at every completed task boundary (`feat(<id>): task N — <desc>`), not only once at full green, so a session timeout never strands uncommitted work in the tree. For L workpackages whose task list is clearly larger than a single green-phase budget, split the green phase across builders by design — don't bank on one session.
+
+**Builder-timeout resume protocol.** If a builder session times out mid-green, do NOT restart from scratch and do NOT finish its work yourself (orchestrator stays in role). Spawn builder #2 with: "Assess working-tree state (`git status`, `git log --oneline origin/main..HEAD`); the last `feat(<id>): task N` commit is your resume point; continue from task N+1; do not redo committed tasks." Builder #2 runs verify and continues the phase.
+
 ### Ship (after retro)
 
 Ship runs AFTER retro so that the retro prose commit is included in the verified tree. If ship runs before retro, the retro commit invalidates the attestation (check-attestation rejects "source files changed after verify ran").
@@ -101,7 +119,7 @@ When Reviewer's `/review` pass emits `Verdict: DONE` (after fix cycle) and retro
 3. Builder runs `/ship <id>` — this merges `origin/main`, runs `npm run verify`, commits attestation, pushes, flips draft PR ready, and **waits for CI green**.
 4. `/ship` is only complete when `gh pr checks` returns green. If CI is red, builder fixes and re-ships (max 3 attempts).
 
-In A/B mode (`PIPELINE_AB_MODE=1`), the builder still runs `/ship` but skips `gh pr ready` — the PR stays draft for replay.
+In A/B mode (`PIPELINE_AB_MODE=1`), the builder still runs `/ship` but skips `gh pr ready` — the PR stays draft for replay. In A/B mode `PIPELINE_INTERACTIVE` is absent, so the ship summary (step 7a in `/ship`) is skipped — step 8's A/B branch is byte-identical to its pre-AJ2 behavior.
 
 **Ship is the single gate.** The pipeline does not declare a workpackage done until `/ship` confirms CI green. No exceptions.
 
@@ -117,7 +135,7 @@ Then dispatch the persona sessions below, in order. Update `currentStep` in the 
 | 4 | **reviewer** + **builder** | high | `/review` + fix loop | Same reviewer from Phase 2 (warm on design/arch). 6 lenses + AC audit. Builder applies fixes; reviewer re-reviews. Reviews code, not docs (docs come next). Verdict DONE required before proceeding. |
 | 5 | **builder** | medium | `/write-docs` | Print the concept essence + as-built implementation into `docs/`, then retire superseded `plans/<id>/` artifacts. Runs after review so docs describe the final, reviewed code. |
 | 6 | **Explore** | low | `/retro` | Fresh-context retro with cost signals. Must run before ship so retro prose is included in the verified tree. |
-| ship | **builder** | medium | `/ship` | Merge main → verify → attest → push → PR ready → CI green. Not a tracked phase — the merge commit on main is proof of completion. |
+| ship | **builder** | medium | `/ship` | Merge main → verify → attest → push → PR ready → CI green. Not a tracked phase — the merge commit on main is proof of completion. (+ ship-summary check before human merge in interactive mode) |
 | — | scripts | — | CI + PR | `npm run verify --raw` runs as CI on every push. Draft PR opens at worktree setup; `/ship` flips ready + waits for CI green after retro. |
 
 **Durable agent sessions per story: 3** (designer, reviewer, builder). Spawned once each with named handles (`designer-<id>`, `reviewer-<id>`, `builder-<id>`). After initial spawn, all subsequent communication uses `SendMessage(to=<name>)` to reuse the live session — no re-spawn, no cache-creation cost. Explore agent for retro is ephemeral.
@@ -227,6 +245,36 @@ Ship (after retro — not a tracked phase):
   commits attestation, pushes, flips PR ready (unless AB mode),
   and waits for CI green. If CI red, builder fixes and re-ships
   (max 3 attempts). /ship is not done until CI green.
+
+Ship-summary check (interactive mode only — its OWN check, not a
+recap of /ship):
+  CI-green is the GATE — it answers "did the machine pass?".
+  The ship summary is a SEPARATE, pipeline-owned CHECK on top of
+  that gate — it answers "is this change accountable to a human
+  before it merges?". It runs nothing and re-verifies nothing; it
+  forces the orchestrator to confirm the change is legible and
+  complete, then surfaces that to the founder. Treat it as a pass/
+  fail check, not a courtesy briefing.
+
+  Fires only when PIPELINE_INTERACTIVE is exactly "1" (canonical
+  rule), after /ship reaches CI-green and before the human merges.
+  In autonomous mode the check is absent and the committed artifact
+  set is unchanged. The merge always waits for the human; this
+  check never merges and never blocks an autonomous run.
+
+  The builder (via /ship step 7a) emits the five beats: what
+  shipped / ACs covered / files changed / retro cost signal /
+  residual risk. The check PASSES only when:
+    - every acceptance criterion is EVIDENCED, not just listed —
+      cite the Phase-4 /review AC table, not Builder's say-so;
+    - any beat with no source reads "not recorded" (no-fabricate),
+      and "residual risk: none recorded" is a reviewable claim the
+      founder can challenge, not filler;
+    - the summary says something CI-green does not — a summary that
+      only echoes "CI is green" FAILS the check.
+  On failure (an AC can't be evidenced, or the summary is hollow),
+  surface the gap to the founder before merge — do not emit a
+  summary that launders an unaccountable change as done.
 ```
 
 ### Loop rules
@@ -237,6 +285,19 @@ Ship (after retro — not a tracked phase):
 - If Reviewer's critique (`/design-critique` or `/architecture-critique`) fails to reach ≥7 after the cap: pause, mark `blocked` with reason `concept-or-spec-misalignment`. The concept itself may need upstream `/concept` work.
 
 After ship: verify CI is green (already asserted by /ship). Move to next story.
+
+### Final summary to the human (outcome-first)
+
+When the batch is done/blocked, write ONE summary for the human. Lead with **what was built and what they can now do** — the pipeline mechanics are not the story. The human skim-reads this to know what shipped and decide what to merge.
+
+Per workpackage, 2–4 lines:
+- **What now exists / works** — user-visible outcome in plain words (not the workpackage ID/title verbatim).
+- **Key surfaces** — 3–5 files/pages/routes touched.
+- **Status** — `PR #N · CI green · ready to merge`, or `blocked: <plain reason>`.
+
+For a batch, a one-line lead ("3 of 4 shipped; AF12 blocked on …") then the per-WP lines.
+
+Do **not** report: phase numbers, persona names, critique scores, review-round counts, attestation internals, verify tool lists. Keep it scannable. (Mirrors `/ship` step 7b.)
 
 ---
 
@@ -255,6 +316,14 @@ The agent that created the design cannot objectively score it. Moving critique t
 `/ship` owns the full sequence: merge main → verify → attest → push → PR ready → CI green. It runs after retro (Phase 6) so that the retro prose commit is included in the verified tree. If ship ran before retro, the retro commit would invalidate the attestation — check-attestation rejects "source files changed after verify ran." This ordering was learned from U8 where the post-ship retro commit caused three CI failures and required a full re-verify cycle (~12 minutes).
 
 `/ship` exists as a separate skill because the sequence is error-prone (attestation conflicts from stale main, dirty tree, CI divergence) and must be followed exactly. The pipeline delegates to `/ship` rather than inlining this logic because every inline attempt has produced a different subset of the steps.
+
+### Why interactive mode is strictly additive (AJ2)
+
+The default autonomous stance (CLAUDE.md: "There is NO human. Never pause.") is sacrosanct — cron runs, A/B replays, and unattended pipelines must never block on a touchpoint. Interactive mode adds exactly two human-facing moments (concept recap upstream in `/concept`, ship summary in `/ship`) by opt-in env var (`PIPELINE_INTERACTIVE=1`). Neither touchpoint alters the committed artifact set: the same run, autonomous or interactive, commits the same files. The ship summary is its own **accountability check** — not a merge gate: it never blocks or performs the human's merge, but the pipeline must not emit a hollow one (an unevidenced AC or a bare "CI green" echo fails the check). The concept recap is a true gate, but it lives upstream in `/concept`, not inside the pipeline.
+
+The recap lives in `/concept` (not the pipeline) because the pipeline pre-condition explicitly states "the pipeline does NOT run `/concept`." By the time the pipeline starts, the concept is already confirmed (or `blocked: concept-contested`). Moving the recap into the pipeline would contradict that pre-condition — a structural change the strictly-additive contract forbids. The split (recap upstream, summary in-pipeline) is the spine of AJ2: each touchpoint lives where its owning skill already runs, so no phase order or persona boundary changes.
+
+Future agents adding a third touchpoint must: amend this concept doc, state the canonical `PIPELINE_INTERACTIVE` rule by reference (not re-derive it), gate the touchpoint with an explicit "in autonomous mode this step is absent" clause, and prove the committed artifact set is unchanged.
 
 ### Why /design's variant count is now conditional (TE-18)
 

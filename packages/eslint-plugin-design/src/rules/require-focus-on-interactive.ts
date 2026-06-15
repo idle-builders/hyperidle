@@ -44,9 +44,7 @@ export const requireFocusOnInteractive: Rule.RuleModule = createRule({
 					if (aname === "tabIndex") hasTabIndex = true;
 					if (aname === "role") hasRole = true;
 					if (aname === "className") {
-						const lit = getClassNameLiteral(
-							attr as unknown as { value?: { type?: string; value?: unknown } | null },
-						);
+						const lit = getClassNameLiteral(attr);
 						if (lit && FOCUS_VISIBLE.test(lit)) hasFocusVisible = true;
 					}
 				}
