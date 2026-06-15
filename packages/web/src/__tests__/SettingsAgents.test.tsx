@@ -151,6 +151,7 @@ describe("AH4 AC2 — SettingsAgents team placement picker", () => {
 
 		const capturedRequests: { url: string; body: unknown }[] = [];
 
+		const baseFetch = mockFetch() as (url: string, init?: RequestInit) => Promise<Response>;
 		vi.stubGlobal(
 			"fetch",
 			vi.fn().mockImplementation((url: string, init?: RequestInit) => {
@@ -160,7 +161,7 @@ describe("AH4 AC2 — SettingsAgents team placement picker", () => {
 					capturedRequests.push({ url: urlStr, body });
 					return postMock();
 				}
-				return mockFetch()([url, init].join(""), init);
+				return baseFetch(url, init);
 			}),
 		);
 

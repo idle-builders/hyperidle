@@ -15,12 +15,12 @@
  * UI reflects it correctly.
  */
 
-import { expect, test } from "./fixtures";
 import * as path from "node:path";
+import { expect, test } from "./fixtures";
 
 const FOUNDER_ID = "test-founder";
 const TEAM_MEMBERS_ID = "tm-ah4-e2e";
-const TEAM_ID = "team-ah4-e2e";
+const _TEAM_ID = "team-ah4-e2e";
 const TEAM_NAME = "AH4 E2E Team";
 const EDGE_ID = "edge-ah4-e2e";
 

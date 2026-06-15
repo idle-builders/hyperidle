@@ -214,9 +214,7 @@ describe("AH4 — Org edge wiring", () => {
 			// Founder→team edge must exist
 			const teamEdge = orgBody.edges.find(
 				(e) =>
-					e.fromUserId === "ah4-founder-3" &&
-					e.mechanism === "team" &&
-					e.target === teamMembersId,
+					e.fromUserId === "ah4-founder-3" && e.mechanism === "team" && e.target === teamMembersId,
 			);
 			expect(teamEdge).toBeDefined();
 

@@ -14,7 +14,7 @@
  */
 
 // hearth-internal-padding
-import { Button, Dialog, Select } from "@hyperidle/design-system";
+import { Button, Dialog, KeyValue, Select } from "@hyperidle/design-system";
 import { AGENT_ROLE_CATALOG, findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
@@ -24,6 +24,8 @@ export interface AgentAddDialogProps {
 	open: boolean;
 	/** team_members.id — NOT teams.id. See @lore above. */
 	teamMembersId: string;
+	/** Display name of the destination team. Shown read-only above the name field. */
+	teamName: string;
 	onClose: () => void;
 	/** Called after successful create. Triggers refetch in parent. */
 	onCreated: () => void;
@@ -53,6 +55,7 @@ const TEAM_ROLES = AGENT_ROLE_CATALOG.filter((e) => e.category === "team");
 export function AgentAddDialog({
 	open,
 	teamMembersId,
+	teamName,
 	onClose,
 	onCreated,
 }: AgentAddDialogProps): JSX.Element {
@@ -157,6 +160,11 @@ export function AgentAddDialog({
 				</>
 			}
 		>
+			{/* AH4: placement context — read-only team name shown before identity fields */}
+			<div className="mb-[12px]">
+				<KeyValue label="TEAM" value={teamName} layout="inline" />
+			</div>
+
 			{/* Header — editable name + role select */}
 			<div className="flex flex-col gap-[12px]">
 				<div className="form-control">

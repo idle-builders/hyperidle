@@ -8,8 +8,8 @@
  * After creation, the agent appears in the agent list.
  */
 
-import { expect, test } from "./fixtures";
 import * as path from "node:path";
+import { expect, test } from "./fixtures";
 
 const TEAM_ID = "team-ah4-agents";
 const TEAM_MEMBERS_ID = "tm-ah4-agents";
@@ -64,9 +64,7 @@ function makeTeamDetailResponse() {
 }
 
 test.describe("AH4 AC6 — Settings Agents add form shows team placement", () => {
-	test("Team Select is visible and populated in the Settings Agents add form", async ({
-		page,
-	}) => {
+	test("Team Select is visible and populated in the Settings Agents add form", async ({ page }) => {
 		// Mock required API endpoints
 		await page.route("**/api/agents", async (route) => {
 			if (route.request().method() === "GET") {

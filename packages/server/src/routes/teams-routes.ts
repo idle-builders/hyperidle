@@ -48,12 +48,14 @@ import type {
 	TeamListItem,
 	WireMoney,
 } from "@hyperidle/shared";
-import { AGENT_ROLE_CATALOG, defaultRoster, deriveTitle } from "@hyperidle/shared";
+import { AGENT_ROLE_CATALOG, createLogger, defaultRoster, deriveTitle } from "@hyperidle/shared";
 import { and, count, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
+import type { HyperIdleEnv } from "../middleware/auth.js";
 import { deriveInitials } from "../services/agent-utils.js";
+import { upsertOrgEdge } from "../services/org-edges.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
 import { ApiError, loadTeamMembers } from "../services/team-lookup.js";
 import {
@@ -142,13 +144,49 @@ async function maybeNotifyAgentError(
 	});
 }
 
+const teamsLogger = createLogger({ pkg: "server.teams" });
+
+/**
+ * Resolve the founder's userId for org-edge creation.
+ * Priority: auth context userId → body userId → first human user → null.
+ * Returns null only when the DB has no human users at all (e.g. unseeded test DB).
+ */
+async function resolveFounderId(
+	db: HyperIdleDb,
+	ctxUserId: string | undefined,
+	bodyUserId: string | undefined,
+): Promise<string | null> {
+	if (ctxUserId) {
+		const [u] = await db
+			.select({ id: users.id })
+			.from(users)
+			.where(eq(users.id, ctxUserId))
+			.limit(1);
+		if (u) return u.id;
+	}
+	if (bodyUserId) {
+		const [u] = await db
+			.select({ id: users.id })
+			.from(users)
+			.where(eq(users.id, bodyUserId))
+			.limit(1);
+		if (u) return u.id;
+	}
+	const [human] = await db
+		.select({ id: users.id })
+		.from(users)
+		.where(eq(users.kind, "human"))
+		.limit(1);
+	return human?.id ?? null;
+}
+
 export function createTeamRoutes(
 	db: HyperIdleDb,
 	_eventBus: EventBus,
 	/** AB2: adapter pool for resolving harness availability per agent. */
 	adapterPool?: AdapterPool,
-): Hono {
-	const router = new Hono();
+): Hono<HyperIdleEnv> {
+	const router = new Hono<HyperIdleEnv>();
 
 	// GET / — list all teams with portfolio counters
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
@@ -425,6 +463,26 @@ export function createTeamRoutes(
 
 		if (leadAgentId) {
 			await db.update(teamMembers).set({ leadAgentId }).where(eq(teamMembers.id, teamMembersId));
+		}
+
+		// AH4: upsert founder→team org edge (best-effort — failure must not 500 team creation).
+		// @lore AH4: resolveFounderId prefers c.get("userId") (auth-derived) over body userId
+		// so a caller cannot create an edge from an arbitrary user by lying in the body.
+		// The edge uses teamMembersId (just-built, known-valid) as target — no re-validation needed.
+		{
+			const founderId = await resolveFounderId(db, c.get("userId"), userId);
+			if (founderId) {
+				await upsertOrgEdge(db, {
+					fromUserId: founderId,
+					mechanism: "team",
+					target: teamMembersId,
+				});
+			} else {
+				teamsLogger.warn("AH4: founder not resolved — skipping org edge for new team", {
+					teamId,
+					teamMembersId,
+				});
+			}
 		}
 
 		// AF17: provision built-in routines for this team — owned by this team's own agents.

@@ -87,8 +87,7 @@ describe("upsertOrgEdge — idempotency", () => {
 
 		const rows = await db.select().from(orgEdges);
 		const matching = rows.filter(
-			(r) =>
-				r.fromUserId === "oe-human-2" && r.mechanism === "team" && r.target === "oe-tm-2",
+			(r) => r.fromUserId === "oe-human-2" && r.mechanism === "team" && r.target === "oe-tm-2",
 		);
 		expect(matching).toHaveLength(1);
 	});
