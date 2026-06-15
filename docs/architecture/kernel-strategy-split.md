@@ -56,7 +56,14 @@ The original boundary put "running a PM agent" and agent selection on the Kernel
 - **AK3-as-built (kernel-side default PM, round-robin assignment) becomes the Minimal Strategy's default fallback** — the simplest possible response, not the Kernel's permanent decomposition path.
 - This matches the doc's own event pattern for Strategy responsibility 3 (§2: the Strategy "subscribes to events… the Kernel does not call it; it runs alongside"). Decomposition and selection join that pattern.
 
-The build-out is **TRACK-AK / AK6 → AK7 → AK8** (roster-as-knowledge → selection seam + Kernel events → event-driven decomposition). Until those land, §4's AK3 path is the live behavior.
+**This is a class of surfaces, not just decomposition.** A codebase sweep (`plans/AK/agent-decision-surfaces.md`, 2026-06-15) found the same "Kernel triggers / Strategy decides the agent + knowledge" shape across: **team scaffolding** (creating a team's default agents), **adding an agent** to a team, **Assistant creation** at user registration, **factory bootstrap** (system + facilitator/strategy agents), **bet decomposition** (AK3), **task→session dispatch**, the **Assistant turn**, and **routine delegation**. Two structural facts make the seam absent today:
+
+- **Entity creation emits no events.** Team / agent / user creation happen *inline in routes* — there is no `team_created` / `agent_added` / `user_created` event — so there is no place for a Strategy to attach and own "what agent gets created." The "what" (roster, personas, the assistant's system prompt) is hard-coded Kernel-side.
+- **Selection is knowledge-blind.** Which agent takes a unit of work is role-eligibility + round-robin + pre-set owner, with zero Strategy/knowledge input. The only skill-aware selection anywhere is routine delegation (`findDelegate`).
+
+So AK6's first job is to **emit the creation triggers as events / a creation seam** (without it there is nothing to own), and AK7's is to **make selection consult the Strategy** (generalizing the lone `findDelegate` precedent).
+
+The build-out is **TRACK-AK / AK6 → AK7 → AK8** (agent-creation behind the Strategy + creation events → selection seam + work events → event-driven decomposition). AK6 covers *all* creation surfaces above; AK7 covers *all* selection surfaces; AK8 (decomposition) is one application of both. Until those land, §4's AK3 path is the live behavior. Full inventory + file:line citations: `plans/AK/agent-decision-surfaces.md`.
 
 ---
 
