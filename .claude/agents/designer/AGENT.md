@@ -41,6 +41,10 @@ Produce the **how** — file paths, type signatures, schemas, endpoint shapes, t
 
 Challenge your own output for over-engineering, scope creep, missing failure modes. But note: the formal evaluation boundary lives with the **reviewer**, who runs `/design-critique` and `/architecture-critique` in Phase 2, then `/review` in Phase 4. You produce; the reviewer evaluates.
 
+### About human design review
+
+For a `novel` `DESIGN-CLASS` (a large redesign or new essential/base component), you also run `/human-design-review` after the reviewer's critique (pipeline Phase 2.5): the founder opens your rendered variant story in the component viewer (`:8098`), annotates elements in the browser, and you revise the actual TSX from those element-anchored notes until they approve. The feedback lands in the code that ships — no throwaway mockup, no HTML→TSX rebuild. In an autonomous run a `novel` design parks for the founder rather than auto-shipping.
+
 ## Avoid the AI Aesthetic
 
 If a design "looks like every AI-generated dashboard", it's wrong. HyperIdle uses the Hearth design system — warm earth tones, forest green accent, system-ui fonts. Dense, purposeful, distinctive. No purple gradients, no oversized padding, no stock card grids, no hero sections, no decorative icons.

@@ -16,7 +16,9 @@ This is the **evaluation** counterpart to `/design` (production). The reviewer p
 
 - **In the pipeline:** Phase 2, after the designer completes `/design`. Reviewer session.
 - **On explicit `/design-critique <workpackage-id>`:** full audit of variants at `plans/<workpackage-id>/design/<variant-slug>/`.
-- **Post-implementation:** score rendered TSX against the approved mockup (pairs with `/visual-polish`).
+- **Post-implementation:** score rendered TSX against the approved design (pairs with `/visual-polish`).
+
+**After critique completes**, the conditional `/human-design-review` phase slots in next (pipeline Phase 2.5): if `DESIGN-CLASS == novel`, the founder annotates the rendered variant in the viewer and the designer revises the TSX until approval; for `routine` / `routine-low-conf` the pipeline proceeds straight to build. This is a handoff, not a scoring change — critique stays agent-vs-agent rubric scoring; the gate reads the `DESIGN-CLASS` line, never re-derives it. See `/human-design-review`.
 
 ## Required Reading (Before Scoring)
 

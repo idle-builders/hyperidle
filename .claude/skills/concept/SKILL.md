@@ -39,6 +39,8 @@ For each noun, classify it:
 
 Only New + Reshaped nouns enter the rest of this skill. Stable nouns are inputs.
 
+**Refine the human-design-review forecast (advisory).** Concept is where new nouns/components first surface, so it is the right place to *refine* the planning-time **Human design review.** forecast field in the WP's track doc (`/work-planning` sets it initially). If Phase 0 classifies a noun as a **New primitive** or an essential / base component, refine that field to `Yes` in the track doc. Keep it advisory — this is a forecast, not the gate; `/design`'s `DESIGN-CLASS` at design time remains authoritative (a `Yes` forecast does not force review if `/design` classifies `routine`, and a `No` forecast does not suppress it if `/design` classifies `novel`).
+
 ## Phase 1 — Probe the essence
 
 For each New / Reshaped noun, walk the decision tree. Pick only the probes that are actually unsettled — skip the ones where the spec or existing concept docs already pin the answer. For each remaining probe, propose your read with the evidence you have, then ask the human (or in autonomous mode the reviewer) to confirm, override, or dig deeper. Issue all probes for a noun in one parallel batch — independent probes don't need separate round-trips, and the cost adds up across seven essentials × N nouns.

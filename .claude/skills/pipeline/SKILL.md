@@ -131,6 +131,7 @@ Then dispatch the persona sessions below, in order. Update `currentStep` in the 
 |---|---|---|---|---|
 | 1 | **designer** | high | `/concept` → `/design` → `/architecture` | Production only. Concept doc + variant exploration + technical plan. |
 | 2 | **reviewer** + **designer** | high | `/design-critique` → `/architecture-critique` → designer revision loop | Evaluates designer output. If CRITICAL/WARNING findings, designer revises, reviewer re-critiques (max 3 rounds). Builder receives a clean, approved plan. Context carries to Phase 4. |
+| 2.5 | **designer** (or orchestrator park) | conditional | `/human-design-review` | **Stakes-gated, conditional.** Runs only when `designReviewDecision(DESIGN-CLASS) == "run"` (`novel`). Interactive + tool present → founder annotates the rendered variant, designer revises TSX to approval. Autonomous / no tool → **park** (`status: awaiting-human-design-review`). `routine` / `routine-low-conf` → skipped silently. |
 | 3 | **builder** | medium | `/write-tests` → `/write-code` | TDD red then green. Implementation only — no docs here. Must pass `npm run verify` before pushing. |
 | 4 | **reviewer** + **builder** | high | `/review` + fix loop | Same reviewer from Phase 2 (warm on design/arch). 6 lenses + AC audit. Builder applies fixes; reviewer re-reviews. Reviews code, not docs (docs come next). Verdict DONE required before proceeding. |
 | 5 | **builder** | medium | `/write-docs` | Print the concept essence + as-built implementation into `docs/`, then retire superseded `plans/<id>/` artifacts. Runs after review so docs describe the final, reviewed code. |
@@ -175,6 +176,32 @@ Phase 2 — reviewer + designer (critique loop):
 
   Commit critique output (approved.md, critique doc) and push [skip ci].
   DO NOT let the reviewer exit — it will be reused in Phase 4.
+
+Phase 2.5 — human-design-review (conditional, stakes-gated):
+  Only relevant when the WP had a UI surface (a /design run happened).
+  Read the DESIGN-CLASS line /design emitted (Phase 0a, in brief.md).
+  decision = designReviewDecision(DESIGN-CLASS)   // @hyperidle/shared, unit-tested
+  ├─ decision == "skip"  (routine | routine-low-conf):
+  │      → SKIP silently. Proceed to Phase 3. No prompt, no park.
+  └─ decision == "run"   (novel):
+       ├─ Interactive run WITH annotation tool
+       │  (PIPELINE_INTERACTIVE == "1", founder reachable, MCP tool registered):
+       │    → SendMessage(to="designer-<id>") with /human-design-review.
+       │      Designer runs the annotate → drain-MCP → revise-TSX → re-render
+       │      loop until the founder approves, then commits the revised story +
+       │      refreshed approved.md and pushes [skip ci]. Proceed to Phase 3.
+       └─ Autonomous run, OR no annotation tool reachable:
+            → PARK. Write .pipeline/progress/<id>.json:
+                status        = "awaiting-human-design-review",
+                currentStep   = "human-design-review",
+                reason        = "novel design requires founder review",
+                parkedAt      = <now>.
+            → STOP this WP's pipeline progression (do NOT dispatch write-tests,
+              write-code, review, docs, retro, or ship). Other WPs in the batch
+              proceed independently.
+  The gate is purely DESIGN-CLASS-driven via designReviewDecision (the stakes
+  half). Whether a "run" becomes the interactive loop or a park is the
+  orchestrator's mode + tool decision — never folded into the helper.
 
 Phase 3 — builder (TDD):
   Rebase check before coding: `git fetch origin main && git merge origin/main --no-edit`.
@@ -277,6 +304,14 @@ recap of /ship):
   summary that launders an unaccountable change as done.
 ```
 
+### Park-for-review contract (Phase 2.5)
+
+- **Status value:** `awaiting-human-design-review` is a **`status`**, NOT a `blocked` reason. It is intentional (working as designed — a high-stakes design correctly held for a human), and its resolution is "the founder runs `/human-design-review`," not a bugfix. Folding it into `blocked` would lose that signal. It is distinct from `done` and from `blocked` in the final summary.
+- **Who writes it:** the pipeline orchestrator, to `.pipeline/progress/<id>.json` (the orchestrator's owned file), at the Phase 2.5 gate.
+- **Effect:** the WP does not advance to build/ship; sibling WPs in the batch proceed independently. The gate-rule mapping (`DESIGN-CLASS → run | skip`) is the unit-tested `designReviewDecision` (`@hyperidle/shared`) — the doc references it as the source of truth so the rule cannot silently drift; the orchestrator owns only the mode + tool decision of run-vs-park.
+
+**Why park, not ship.** The pipeline's default stance is "no human, never pause." Park is the **one** deliberate exception: a `novel` design must not auto-ship unreviewed — high-stakes design is not autonomously shippable (TRACK-AJ § AJ3). Do not "optimize" the park away to keep an unattended run green. This is stakes-gating, not presence-gating: the canonical `PIPELINE_INTERACTIVE` rule (defined once under "## Run modes") governs only whether the *novel* branch loops or parks — it never makes the gate itself fire or skip. `PIPELINE_AB_MODE` is orthogonal; an A/B run is autonomous, so a `novel` design parks there too.
+
 ### Loop rules
 
 - If Builder raises BLOCKER: surface to Designer for plan amendment, then re-enter Phase 3. Max 3 attempts per story.
@@ -293,9 +328,9 @@ When the batch is done/blocked, write ONE summary for the human. Lead with **wha
 Per workpackage, 2–4 lines:
 - **What now exists / works** — user-visible outcome in plain words (not the workpackage ID/title verbatim).
 - **Key surfaces** — 3–5 files/pages/routes touched.
-- **Status** — `PR #N · CI green · ready to merge`, or `blocked: <plain reason>`.
+- **Status** — `PR #N · CI green · ready to merge`, or `blocked: <plain reason>`, or `parked: awaiting human design review` (a `novel` design that needs the founder — distinct from both `done` and `blocked`).
 
-For a batch, a one-line lead ("3 of 4 shipped; AF12 blocked on …") then the per-WP lines.
+For a batch, a one-line lead ("3 of 4 shipped; AF12 blocked on …; AG7 parked for design review") then the per-WP lines.
 
 Do **not** report: phase numbers, persona names, critique scores, review-round counts, attestation internals, verify tool lists. Keep it scannable. (Mirrors `/ship` step 7b.)
 
