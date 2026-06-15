@@ -33,3 +33,43 @@ All claims below were checked against the actual branch (`feat/AK4-assistant-dra
 ### What's Working Well
 - The core architectural decision is correct and well-defended: a bounded tool-use loop *inside the conversational path* reusing `executeToolCalls`, with a task-free `ToolContext` and no `provisionSession` — this honors concept hard-rule #4 (one runtime) and the AH3 @lore §A task-free design. Design-it-twice B (B1 vs routing through the task path) is a real tradeoff, not theatre.
 - Plan reconciliation correctly identified the AC1-already-shipped reality and the `tools: []` gap at the right line. The draft-only `edit_bet` guard (Task 5) and the no-DB-migration conclusion are both correct against the actual schema and `edit-bet.ts` (which today has zero status check — guard genuinely needed).
+
+---
+
+## Round 2
+
+ARCHITECTURE-SCORE: 8/10  rounds=2  score-line: SA:9 LI:8 AC:8 DM:9 N:8 MD:7 FMC:8 S:7 V:8
+
+Verdict: **APPROVED.** Overall 8, both round-1 CRITICALs fixed for real (verified against branch code, not the plan's prose), all five WARNINGs resolved, both SUGGESTIONs addressed. No unaddressed CRITICAL remains. The plan is buildable as written.
+
+Every fix below was re-checked against `feat/AK4-assistant-drafts-bet` source — not taken on the designer's word.
+
+### CRITICAL-1 — `edit_bet` registration — FIXED (verified)
+- Branch reality confirmed: `tool-registry.ts` `ALL_TOOL_DEFINITIONS` registers only `wrapForRegistry(createBetTool, ["assistant"])` (L218); `editBetTool` is NOT present — it lives only in dead `assistant-tools.ts` (`toolsForAssistant`, imported by nothing in production). Round-1 claim was correct.
+- Plan Task 0 + §Types/contracts correctly add `wrapForRegistry(editBetTool, ["assistant"])` beside `createBetTool`. Both `createBetTool` and `editBetTool` are `AssistantToolShape` (`create-bet.ts` L61, `edit-bet.ts` L56), so the SAME `wrapForRegistry` adapter applies — the registration is type-correct. The plan's unit test (`toolsForRole("assistant")` includes both names) is the right static proof.
+- Scope decision (register ONLY `create_bet`+`edit_bet`, NOT `update_task_status`/`edit_block`) is correct and bounded.
+
+### CRITICAL-2 — 2-tool-only registry via setSessionToolRegistry, not dead SessionConfig.tools — FIXED (verified)
+- Branch reality confirmed: `runChatTurn` hardcodes `tools: []` (L449); `runPlanningTurn`/`runExecuteTurn` use `tools: session.toolDefs` (L479/L530/L717); `session.toolDefs = toolDefsFromRegistry(registry)` populated by `setSessionToolRegistry` (L165-178). `SessionConfig.tools` has NO consumer anywhere in `builtin-harness-adapter.ts`. The dead-field claim is true; injecting `buildToolRegistry(...,{role:'assistant'})` WOULD leak the full role surface (`create_team`/`add_agent`/`create_routine`/`submit_review`/`handoff_to`/`send_message`/`create_task`/`create_artifact` are all `roles:undefined` or assistant-scoped — confirmed in `ALL_TOOL_DEFINITIONS`).
+- Plan §design-it-twice B1 + Task 2 correctly introduce `buildAssistantDraftRegistry(ctx, params)` returning EXACTLY `[create_bet, edit_bet]`, injected via `setSessionToolRegistry` before `startSession`, with `SessionConfig.tools` left `[]` and documented dead. B2 (the trap) is explicitly marked rejected — not straw-manned, it names the exact dead-field mechanism. This is a real authority boundary, not theatre.
+- AC3b reframed correctly: a STATIC unit assertion that `registry.definitions.map(d=>d.name).sort()` deep-equals `["create_bet","edit_bet"]`, plus a structural assertion that no `commit_bet`/`ship_bet`/`kill_bet` exists in `ALL_TOOL_DEFINITIONS`. Targets the injected conversational registry (the live artifact), not dead `toolsForAssistant()`. Correct.
+
+### WARNINGs — all resolved (verified)
+- **Transcript-based draft binding (no bet FK):** Confirmed against `schema.ts` (L121-185) — `bets` has `teamId`, `description`, `doneCondition`, `hypothesis`, `status`, `createdAt`, indexes; NO `threadId`, NO `createdBy`/`authorId`. "Authored by ast-${userId} in this conversation" is genuinely not queryable from `bets`. Plan §C correctly sources the binding from the thread transcript (scan prior `payload.toolCalls` for newest `create_bet`/`edit_bet` ok `betId`), validates liveness (rebind only if `status='draft'`), and handles none-found + committed-drop. Reuses the existing `loadThreadTranscript` query (`assistant-turn.ts` L490), widened to read `payload.toolCalls`. Cardinality tradeoff (newest draft wins; `inFlightTurns` serializes) stated explicitly.
+- **Never-silent loop-bound + test:** Plan §AC4-loop-bound + Task 1 specify cap-exhaustion emits a non-empty completion (last text or fallback copy) — never empty — with a test (`tool_use` every call → ≤3 executions AND non-empty reply persisted). NOTE for the builder: today `runChatTurn` L457 only emits a completion `if (text)`, and `drainStreamEvents` (L578) defaults an empty stream to `{type:'completion', text:''}` which would persist an empty reply. Task 1's explicit fallback is what closes this; the builder MUST implement it (the never-silent invariant is not free in the current code path). Flagged so it isn't dropped during green.
+- **Hard teamId injection via resolveDraftTeamId:** Confirmed two-hop schema (`users.teamId` → `team_members.id` (L47); `teamMembers.teamId` → `teams.id` (L102); `bets.teamId` → `teams.id` (L128)). `create_bet` (L40) only checks the team EXISTS — cross-team injection is real. Plan §Types/contracts + Task 2 hard-inject the resolved `teams.id`, overriding any model `teamId`; undefined → honest no-draft error. Team-inject unit test (wrong model teamId still writes resolved team) is the right proof.
+- **Named LLM-mock seam drives REAL runChatTurn:** Confirmed the seam exists — `builtin-harness-adapter.test.ts` L28-34 (`vi.mock("../llm-client.js")`, `makeToolCallResponse`/`makeTextResponse`, `setSessionToolRegistry` + real `startSession`). The plan names it precisely and forbids the AH3 stub-adapter bypass (which skips `startSession` — confirmed `@lore AH3 S7` at L547). AC2/AC4 explicitly run through the real loop. This is the correct seam, not a bypass stub.
+
+### SUGGESTIONs — addressed
+- Snapshot-net correction: plan §Risks + Task 8 correctly state `AssistantOverlay` is `packages/web` (not catalogued), `BetCard` unchanged → no re-bless expected. Correct.
+- protectedTests: `builtin-harness-adapter.test.ts` is listed (Task 1 sits next to the task loop — `runPlanningTurn`/`runExecuteTurn`/`executeToolCalls` must not regress). Correct.
+
+### Residual (non-blocking, for the builder — not CRITICAL)
+- **MD:7 / S:7** — `CompletionEvent.toolCalls?` additive field + `drainStreamEvents` returning `{text, toolCalls}` is the right minimal-blast-radius choice, but it adds a second responsibility to `CompletionEvent` (text + captured tool results). Acceptable: it's optional, populated only by `runChatTurn`, ignored elsewhere. Watch that the field stays internal to the conversational path and does not grow into a general event-correlation mechanism.
+- **Never-silent in current code** (above): the builder must implement Task 1's fallback explicitly; the existing `if (text)` + empty-default drain do NOT preserve never-silent for the loop. Test it (AC4-loop-bound + AC1 empty-completion).
+- `edit_bet`'s draft-only guard (Task 5) is defense-in-depth behind the §C liveness check — good. Keep both; the binding can drift if a draft is committed mid-turn.
+
+### What's Working Well
+- Both CRITICALs are fixed at the correct seam with the correct mechanism, and every load-bearing claim about the existing code now matches the branch byte-for-byte. The dedicated 2-tool registry as an explicit authority boundary (verified statically) is exactly right for User Sovereignty — the conversational turn provably cannot create teams, hand off, or commit.
+- Design-it-twice B1/B2/B3 are genuine tradeoffs with the rejected options naming the exact failure mode (dead `SessionConfig.tools`, task-path pollution), not straw men.
+- Verifiability rose from 5→8: the LLM-mock seam is named, the real-loop requirement is explicit, AC3b is a clean static assertion, and protectedTests guards the shared harness file.

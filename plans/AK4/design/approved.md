@@ -46,3 +46,19 @@ Editing + commit happen in the existing `WorkBet` page (AG3 `BodyEditor`, human-
 
 ## Rejected (locked — see synthesis.md)
 In-overlay editor; pre-creation approval modal; draft pane/split view; full inline AG3 blocks in the reply; in-thread Approve/Reject verdict. Do not reintroduce.
+
+---
+
+## Architecture decision — APPROVED (reviewer, round 2, 2026-06-15)
+
+The plan at `plans/AK4/architecture.md` is **APPROVED** (architecture-critique round 2: 8/10, no unaddressed CRITICAL). It is the locked technical contract for `/write-tests` + `/write-code`. The design contract above is unchanged. This section records how the plan resolves the five "Open questions for the architect" so the builder reads one consolidated approved plan.
+
+1. **Surfacing the draft to the client** → Option (a). `runChatTurn` accumulates `CapturedToolCall[]` (name, input, output=JSON of tool result incl. `betId`, status) across the loop and surfaces them on a NEW additive optional field `CompletionEvent.toolCalls?` (`packages/shared/src/harness/harness-events.ts`). `runAssistantTurn` maps each 1:1 to the existing `ToolCallSummary` and sets `payload.toolCalls` on the persisted `plain` reply. Web parses `betId` from the `output` JSON and renders `BetCard` via the existing `useBet(betId)` hook. NO new message type, NO new shared field on `PlainPayload`/`ToolCallSummary`. (Concept closure honored.)
+2. **"Which draft to edit" binding** → transcript-sourced (bets have no `threadId`/`createdBy` — confirmed against schema). Server resolves `currentDraftBetId` BEFORE the turn (`resolveCurrentDraftBetId`): scan prior assistant `payload.toolCalls` for the newest `create_bet`/`edit_bet` ok `betId`, then validate it is still `status='draft'` (drop if committed/killed/deleted). `edit_bet`'s `betId` is server-FORCED to this bound id (model-supplied `betId` ignored). One living draft per conversation; newest wins; `inFlightTurns` serializes.
+3. **Tool wiring into the conversational turn** → bounded tool-use loop inside `runChatTurn` (`MAX_TOOL_ITERATIONS=3`), reusing `executeToolCalls`, with a task-free `ToolContext` (synthetic sessionId, empty taskId/sandboxPath) and a dedicated `buildAssistantDraftRegistry` injected via `setSessionToolRegistry` BEFORE `startSession`. NO `provisionSession`, NO planning/reflection prompt, NO sandbox (concept hard-rule #4: one runtime). Cap-exhaustion emits a non-empty reply (never silent).
+4. **`teamId` for the draft** → resolved server-side via `resolveDraftTeamId(db, userId)` (two-hop `users.teamId → teamMembers.teamId = teams.id`) and HARD-INJECTED by the `create_bet` wrapper; the model cannot redirect the team. No team → honest no-draft plain reply (never silent), no notice card.
+5. **Status-gated Assistant edits** → both belt and suspenders: (a) `edit-bet.ts` gains a draft-only guard (reject when `status !== 'draft'`), and (b) the conversational binding never re-targets a committed bet (liveness check in §C). The `edit_bet` betId is server-bound, so no cross-bet edit is possible.
+
+**Authority boundary (the load-bearing decision):** the conversational turn injects a registry of EXACTLY `[create_bet, edit_bet]` — verified by a static unit assertion (AC3b). It provably cannot `create_team`/`add_agent`/`create_routine`/`submit_review`/`handoff_to`/`send_message`/commit/ship/kill. This is the User Sovereignty line in code.
+
+**Builder must-not-drop:** never-silent on cap exhaustion and on empty completion is NOT free in the current `runChatTurn` (`if (text)` + empty-default drain). Implement the explicit fallback (Task 1) and test it (AC4-loop-bound + AC1 empty-completion). Run AC2/AC4 through the REAL `startSession → runChatTurn` loop via the `vi.mock("../llm-client.js")` seam — NOT a stub adapter that bypasses `startSession`.
