@@ -228,12 +228,10 @@ export function AnnotationOverlay({
 				e.preventDefault();
 				last?.focus();
 			}
-		} else {
+		} else if (active === last) {
 			// Tab: if on last, wrap to first
-			if (active === last) {
-				e.preventDefault();
-				first?.focus();
-			}
+			e.preventDefault();
+			first?.focus();
 		}
 	}, []);
 
@@ -358,7 +356,13 @@ export function AnnotationOverlay({
 
 			{/* Note popover — fixed above pill, only when element selected */}
 			{selected !== null && (
-				<div ref={popoverRef} className="anno-popover" role="dialog" aria-modal="true" onKeyDown={handlePopoverKeyDown}>
+				<div
+					ref={popoverRef}
+					className="anno-popover"
+					role="dialog"
+					aria-modal="true"
+					onKeyDown={handlePopoverKeyDown}
+				>
 					{/* Target echo — verbatim including "unknown" or data-ds-only weak labels */}
 					<div className="anno-target" title={`${selected.component} · ${selected.element}`}>
 						<span className="anno-target-component">{selected.component}</span> &middot;{" "}

@@ -571,7 +571,9 @@ describe("W1 — Outline class application", () => {
 		});
 
 		const armToggle = container.querySelector(".anno-arm") as HTMLButtonElement | null;
-		await act(async () => { armToggle?.click(); });
+		await act(async () => {
+			armToggle?.click();
+		});
 
 		await act(async () => {
 			targetEl.dispatchEvent(
@@ -582,10 +584,12 @@ describe("W1 — Outline class application", () => {
 		expect(targetEl.classList.contains("anno-selected")).toBe(true);
 
 		// Click Cancel
-		const cancelBtn = Array.from(container.querySelectorAll<HTMLButtonElement>(".toolbar-btn")).find(
-			(b) => b.textContent === "Cancel",
-		);
-		await act(async () => { cancelBtn?.click(); });
+		const cancelBtn = Array.from(
+			container.querySelectorAll<HTMLButtonElement>(".toolbar-btn"),
+		).find((b) => b.textContent === "Cancel");
+		await act(async () => {
+			cancelBtn?.click();
+		});
 
 		expect(targetEl.classList.contains("anno-selected")).toBe(false);
 	});
@@ -620,7 +624,9 @@ describe("W1 — Outline class application", () => {
 		});
 
 		const armToggle = container.querySelector(".anno-arm") as HTMLButtonElement | null;
-		await act(async () => { armToggle?.click(); });
+		await act(async () => {
+			armToggle?.click();
+		});
 
 		await act(async () => {
 			targetEl.dispatchEvent(
@@ -640,7 +646,9 @@ describe("W1 — Outline class application", () => {
 		});
 
 		const saveBtn = container.querySelector(".anno-save") as HTMLButtonElement | null;
-		await act(async () => { saveBtn?.click(); });
+		await act(async () => {
+			saveBtn?.click();
+		});
 
 		// After save: .anno-selected removed, .anno-saved added
 		expect(targetEl.classList.contains("anno-selected")).toBe(false);
@@ -742,7 +750,9 @@ describe("W2 — Focus trap in popover", () => {
 			const last = focusable[focusable.length - 1]!;
 
 			// Put focus on the first focusable (textarea)
-			await act(async () => { first.focus(); });
+			await act(async () => {
+				first.focus();
+			});
 			expect(document.activeElement).toBe(first);
 
 			// Fire Shift+Tab from first — should wrap to last (Cancel)

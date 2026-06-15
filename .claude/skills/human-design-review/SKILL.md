@@ -60,7 +60,7 @@ http://localhost:8098/#<URL-encoded story module title>
 
 For a story whose module `title` is `"Page: Work/WorkBetCreate"`, the route is `http://localhost:8098/#Page:%20Work/WorkBetCreate` (the browser URL-encodes the space and the colon as typed; the viewer URL-decodes before matching). The empty hash shows the catalog index. The story `title` — not the export name — is the route key.
 
-The agent filters `read_annotations` by that exact viewer URL so it only drains notes for the variant under review (not stale notes from other tabs).
+The agent reads `.annotations/annotations.md` in full — all rounds are present in the file; the component name and story reference in each bullet identify which variant each note belongs to. Notes from other components are skipped by reading the component name in the bullet prefix.
 
 ## The loop (interactive — founder present)
 
