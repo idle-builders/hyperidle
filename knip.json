@@ -5,7 +5,8 @@
 		"docs/product/.vitepress/**",
 		"packages/design-system/html/**",
 		"packages/eslint-plugin-design/test-fixtures/**",
-		"packages/design-system/scripts/feedback-overlay.js"
+		"packages/design-system/scripts/feedback-overlay.js",
+		"plans/**"
 	],
 	"ignoreExportsUsedInFile": true,
 	"exclude": ["duplicates"],
