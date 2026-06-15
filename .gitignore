@@ -6,6 +6,7 @@ build/
 coverage/
 playwright-report/
 playwright-report-ah1/
+playwright-report-ah5/
 test-results/
 packages/web/e2e/screenshots/
 visual-reports/

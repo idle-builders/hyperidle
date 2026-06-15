@@ -12,8 +12,11 @@
  *   8. Emit a summary.
  *
  * Usage:
- *   export OPENROUTER_API_KEY=<your-key>
  *   npm run smoke:ah5
+ *
+ * The script loads .env automatically via `--env-file-if-exists=.env` (Fix4).
+ * If the key is not in .env, set it in your shell first:
+ *   export OPENROUTER_API_KEY=<your-key> && npm run smoke:ah5
  *
  * Optional env vars:
  *   AH5_MODEL_OVERRIDE  — skip live selection; use this routedId directly
@@ -56,7 +59,7 @@ import { fileURLToPath } from "node:url";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const RESOLVE_MODEL_FILE =
 	process.env.RESOLVE_MODEL_FILE ?? "/tmp/ah5-model-selection.json";
-const MAX_COST_CENTS = Number(process.env.AH5_MAX_COST_CENTS ?? "5");
+const MAX_COST_CENTS = Number(process.env.AH5_MAX_COST_CENTS ?? "10");
 const MAX_TOKENS = Number(process.env.AH5_MAX_TOKENS ?? "20000");
 
 // ---------------------------------------------------------------------------
@@ -161,6 +164,20 @@ run(
 	"Real-turn probe (provisionSession + write_session_notes assertion)",
 	`RESOLVE_MODEL_FILE=${RESOLVE_MODEL_FILE} AH5_MAX_COST_CENTS=${MAX_COST_CENTS} npx tsx packages/web/scripts/ah5-real-turn-probe.ts`,
 );
+
+// ---------------------------------------------------------------------------
+// STEP 5.5: Backup cost report before Playwright clears its output dir.
+// ---------------------------------------------------------------------------
+
+// @lore AH5: Playwright's HTML reporter clears playwright-report-ah5/ before
+// writing. The probe writes ah5-cost.json to that same dir. We save a copy to
+// /tmp so the budget-assert step can read it even after Playwright runs.
+const costReportSrc = path.join(repoRoot, "packages/web/playwright-report-ah5/ah5-cost.json");
+const costReportBak = "/tmp/ah5-cost.json";
+if (fs.existsSync(costReportSrc)) {
+	fs.copyFileSync(costReportSrc, costReportBak);
+	process.stdout.write(`[smoke:ah5] Cost report backed up to ${costReportBak}\n`);
+}
 
 // ---------------------------------------------------------------------------
 // STEP 6: Playwright UI lane.

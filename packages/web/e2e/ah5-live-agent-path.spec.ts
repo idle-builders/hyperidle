@@ -81,12 +81,17 @@ async function setupShellMocks(page: Parameters<typeof test>[1]["page"]): Promis
 test.describe("AH5 AC1 — credential pre-seeded by test-server", () => {
 	test("server_credentials row exists after test-server boot", async ({ request }) => {
 		// The test-server seeds openrouter_api_key at boot.
-		// Verify via the credentials API — no UI needed for this assertion.
-		const res = await request.get("/api/credentials/openrouter_api_key");
-		// Returns 200 with the credential metadata (not the plaintext value).
+		// Verify via the credentials list API — GET /api/credentials returns all catalog entries.
+		// @lore AH5: The API has no single-item GET /api/credentials/:name endpoint;
+		// only a list endpoint. The test was wrong to call /api/credentials/openrouter_api_key.
+		const res = await request.get("/api/credentials");
+		// Returns 200 with the credential metadata list (not plaintext values).
 		expect(res.status()).toBe(200);
-		const body = (await res.json()) as { name?: string; validationState?: string };
-		expect(body.name).toBe("openrouter_api_key");
+		// Response shape: { name, state, lastValidatedAt }[] (see credentials.ts buildStatusResponse)
+		const body = (await res.json()) as Array<{ name?: string; state?: string }>;
+		const openrouterEntry = body.find((entry) => entry.name === "openrouter_api_key");
+		expect(openrouterEntry).toBeDefined();
+		expect(openrouterEntry?.state).toBe("present_untested");
 	});
 });
 

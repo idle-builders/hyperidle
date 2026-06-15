@@ -88,12 +88,17 @@ export async function fetchSmokeCatalog(apiKey: string): Promise<readonly OpenRo
 /**
  * Fetch per-provider endpoint data for a single model.
  * Requires authentication to populate throughput/latency fields.
+ *
+ * @lore AH5 Fix1: encodeURIComponent(modelId) encodes the "/" in "author/slug"
+ * as "%2F", making every /endpoints lookup 404. OpenRouter treats author/slug
+ * as real path segments — encode each segment independently to preserve the slash.
  */
 export async function fetchModelEndpoints(
 	apiKey: string,
 	modelId: string,
 ): Promise<ModelEndpoints> {
-	const res = await fetch(`${BASE_URL}/models/${encodeURIComponent(modelId)}/endpoints`, {
+	const endpointPath = modelId.split("/").map(encodeURIComponent).join("/");
+	const res = await fetch(`${BASE_URL}/models/${endpointPath}/endpoints`, {
 		headers: {
 			Authorization: `Bearer ${apiKey}`,
 			"Content-Type": "application/json",
