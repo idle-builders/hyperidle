@@ -114,18 +114,13 @@ export function SettingsAssistant({ userId }: SettingsAssistantProps): JSX.Eleme
 	const saveButtonLabel = isSaving ? "Saving..." : saveState === "saved" ? "Saved" : "Save";
 
 	return (
-		<div className="flex flex-col gap-6">
-			<div>
-				<h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
-					Assistant
-				</h2>
-				<p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-					The system prompt shapes how your personal assistant responds to you. Edit it to give your
-					assistant a custom persona or set of instructions.
-				</p>
-			</div>
+		<div className="flex flex-col gap-[18px]">
+			<p className="text-[13px] text-[var(--text-secondary)]">
+				The system prompt shapes how your personal assistant responds to you. Edit it to give your
+				assistant a custom persona or set of instructions.
+			</p>
 
-			<div className="flex flex-col gap-3">
+			<div className="flex flex-col gap-[12px]">
 				{/* AH3 D4: Migrated to design-system Input textarea. Prose font (not mono)
 				    per design approved.md W2. The Input component uses --r-default radius
 				    and design token colors — no inline style patches needed. */}
@@ -147,18 +142,18 @@ export function SettingsAssistant({ userId }: SettingsAssistantProps): JSX.Eleme
 			</div>
 
 			{errorMessage && (
-				<p className="text-sm" style={{ color: "var(--status-error)" }} role="alert">
+				<p className="text-[12px] text-[var(--status-error)]" role="alert">
 					{errorMessage}
 				</p>
 			)}
 
 			{saveState === "saved" && !errorMessage && (
-				<p className="text-sm" style={{ color: "var(--status-success)" }}>
+				<p className="text-[13px] text-[var(--status-success)]">
 					Saved
 				</p>
 			)}
 
-			<div className="flex items-center gap-3">
+			<div className="flex items-center gap-[12px]">
 				{/* AH3: Use design-system Button */}
 				<Button
 					onClick={handleSave}
