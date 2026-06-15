@@ -79,16 +79,16 @@ Each persona phase **commits its output and pushes** before returning:
 | 2 — reviewer /architecture-critique | critique doc | `[skip ci]` |
 | 3 — builder /write-tests (red) | test files | run |
 | 3 — builder /write-code (green) | implementation (verified) | run |
-| 3 — builder doc check | user-facing docs (if applicable) | run |
 | 4 — builder (apply review fixes) | one commit per applied finding batch | run |
-| 5 — Explore agent /retro | prose | `[skip ci]` |
+| 5 — builder /write-docs | docs (concept essence + as-built) + `plans/` retirement | `[skip ci]` |
+| 6 — Explore agent /retro | prose | `[skip ci]` |
 | ship — builder /ship | attestation + progress file | run |
 
 Local `npm run verify` is the gate. Builder runs it (check, lint:biome, lint:eslint, test, e2e — identical tools to CI) and must pass before pushing. On green, verify writes `.verify-attestation.json` (HMAC-signed with `~/.config/hyperidle/verify-secret`). Builder commits the attestation as the last commit before pushing. CI validates the attestation signature (~30s) instead of re-running the full suite (~10min). See `/ship` for the complete commit → verify → attestation → push flow.
 
 Stories touching authentication, schema migrations, or `packages/server/src/agent-runtime/` set `gate: ci-required` in the workpackage spec; Reviewer holds the ready-flip until CI is green. Default for everything else is `gate: local-green`.
 
-**Squash before flipping ready.** Builder squashes the persona-prose commits before `/ship` flips `gh pr ready`. Implementation commits stay atomic; prose commits collapse into one `chore(<id>): pipeline artifacts`. Squash at ship time, not before — the retro (Phase 5) still needs the per-phase history to extract cost signals.
+**Squash before flipping ready.** Builder squashes the persona-prose commits before `/ship` flips `gh pr ready`. Implementation commits stay atomic; prose commits collapse into one `chore(<id>): pipeline artifacts`. Squash at ship time, not before — the retro (Phase 6) still needs the per-phase history to extract cost signals.
 
 ### Ship (after retro)
 
@@ -113,9 +113,10 @@ Then dispatch the persona sessions below, in order. Update `currentStep` in the 
 |---|---|---|---|---|
 | 1 | **designer** | high | `/concept` → `/design` → `/architecture` | Production only. Concept doc + variant exploration + technical plan. |
 | 2 | **reviewer** + **designer** | high | `/design-critique` → `/architecture-critique` → designer revision loop | Evaluates designer output. If CRITICAL/WARNING findings, designer revises, reviewer re-critiques (max 3 rounds). Builder receives a clean, approved plan. Context carries to Phase 4. |
-| 3 | **builder** | medium | `/write-tests` → `/write-code` → doc check | TDD red then green. Doc check: if user-facing changes exist, apply `/write-docs`; otherwise justify skip. Must pass `npm run verify` before pushing. |
-| 4 | **reviewer** + **builder** | high | `/review` (+`/write-docs` rubric if docs changed) | Same reviewer from Phase 2 (warm on design/arch). 6 lenses + AC audit + doc funnel scoring if applicable. Builder applies fixes. Verdict DONE required before proceeding. |
-| 5 | **Explore** | low | `/retro` | Fresh-context retro with cost signals. Must run before ship so retro prose is included in the verified tree. |
+| 3 | **builder** | medium | `/write-tests` → `/write-code` | TDD red then green. Implementation only — no docs here. Must pass `npm run verify` before pushing. |
+| 4 | **reviewer** + **builder** | high | `/review` + fix loop | Same reviewer from Phase 2 (warm on design/arch). 6 lenses + AC audit. Builder applies fixes; reviewer re-reviews. Reviews code, not docs (docs come next). Verdict DONE required before proceeding. |
+| 5 | **builder** | medium | `/write-docs` | Print the concept essence + as-built implementation into `docs/`, then retire superseded `plans/<id>/` artifacts. Runs after review so docs describe the final, reviewed code. |
+| 6 | **Explore** | low | `/retro` | Fresh-context retro with cost signals. Must run before ship so retro prose is included in the verified tree. |
 | ship | **builder** | medium | `/ship` | Merge main → verify → attest → push → PR ready → CI green. Not a tracked phase — the merge commit on main is proof of completion. |
 | — | scripts | — | CI + PR | `npm run verify --raw` runs as CI on every push. Draft PR opens at worktree setup; `/ship` flips ready + waits for CI green after retro. |
 
@@ -168,33 +169,19 @@ Phase 3 — builder (TDD):
 
   SEND: SendMessage(to="builder-<id>") with /write-code.
   Builder reads the plan + failing tests; writes minimum code to pass.
-  If the implementation changes behavior described in docs/, builder
-  updates the relevant doc sections in the same commit (doc sync).
   Runs npm run verify — must pass before pushing.
+  Implementation ONLY — no documentation work in this phase. Docs are
+  Phase 5 (after review), so they describe the final, reviewed code.
   If Builder hits a plan-vs-reality conflict, it raises a BLOCKER rather
   than redesigning in-flight (TE-22).
 
-  Doc check (after /write-code, before pushing):
-  Builder answers: "Does this workpackage change what the user sees,
-  reads, or does?" If YES — new feature, changed behavior, new
-  primitive, new API surface — builder applies /write-docs to write
-  or update user-facing docs in docs/product/ (or docs/guides/user/).
-  The /write-docs skill's 15 principles and funnel model apply.
-  If NO — builder commits a one-line justification in the commit
-  message: "docs: no user-facing doc changes needed (<reason>)".
-  Skipping without justification is a review finding.
-
-Phase 4 — review:
+Phase 4 — review (code) + fix loop:
   SEND: SendMessage(to="reviewer-<id>") — reuses Phase 2 session.
   Same reviewer runs /review (warm on design/arch context).
     Six lenses: 3 positive (architecture, design, security) +
     3 negative (adversarial, simplification, slop) + AC completeness.
     Design lens skipped silently if no UI files.
-    If docs were written or updated in Phase 3 (doc check = YES),
-    reviewer also scores them against the /write-docs rubric
-    (10 dimensions, total ≥35 required, all dimensions ≥3).
-    If doc check = NO, reviewer verifies the skip justification
-    is reasonable — flags if user-facing changes lack docs.
+    Reviews CODE, not docs — docs are written next (Phase 5).
     Emits DONE | NOT DONE with AC table + findings.
 
   If NOT DONE:
@@ -202,9 +189,25 @@ Phase 4 — review:
     Builder applies findings; commits + pushes; runs npm run verify.
     SEND back to reviewer for re-review. Max 3 attempts.
 
-  If DONE: proceed to Phase 5 (retro), then ship.
+  If DONE: proceed to Phase 5 (write-docs).
 
-Phase 5 — retro:
+Phase 5 — write-docs (builder):
+  SEND: SendMessage(to="builder-<id>") with /write-docs.
+  Builder prints the essence of the concept (plans/<id>/concept.md) and
+  the AS-BUILT implementation back into docs/:
+    - ground truth (docs/<topic>/) updated to match what shipped;
+    - user-facing pages (docs/product/, docs/guides/user/) written per
+      the /write-docs 15 principles, when the WP changed what a user
+      sees/reads/does. If nothing user-facing changed, say so in the
+      commit message — but still do the retirement below.
+  Then RETIRE superseded planning artifacts: delete plans/<id>/ files
+  whose durable content now lives in docs/ or the shipped code (git
+  history preserves them). Do NOT touch retro output (Phase 6, not yet
+  written) or non-WP research under plans/reviews/.
+  Commits + pushes [skip ci]. Runs after review so docs reflect the
+  final reviewed code.
+
+Phase 6 — retro:
   Launch Explore agent with /retro (ephemeral, no reuse needed).
   Writes plans/<id>/retro.md with cost signals the A/B harness reads.
   Commits and pushes with [skip ci].
@@ -229,7 +232,7 @@ Ship (after retro — not a tracked phase):
 ### Loop rules
 
 - If Builder raises BLOCKER: surface to Designer for plan amendment, then re-enter Phase 3. Max 3 attempts per story.
-- If Reviewer verdict is NOT DONE: re-enter Phase 3 to fix the cited gaps. Max 3 attempts per story.
+- If Reviewer verdict is NOT DONE: Builder applies the cited fixes in the Phase 4 loop, reviewer re-reviews. Max 3 attempts per story.
 - If CI fails after a Builder push: Builder fixes locally and pushes again. Max 3 attempts per push series.
 - If Reviewer's critique (`/design-critique` or `/architecture-critique`) fails to reach ≥7 after the cap: pause, mark `blocked` with reason `concept-or-spec-misalignment`. The concept itself may need upstream `/concept` work.
 
@@ -249,7 +252,7 @@ The agent that created the design cannot objectively score it. Moving critique t
 
 ### Why /ship runs after retro
 
-`/ship` owns the full sequence: merge main → verify → attest → push → PR ready → CI green. It runs after retro (Phase 5) so that the retro prose commit is included in the verified tree. If ship ran before retro, the retro commit would invalidate the attestation — check-attestation rejects "source files changed after verify ran." This ordering was learned from U8 where the post-ship retro commit caused three CI failures and required a full re-verify cycle (~12 minutes).
+`/ship` owns the full sequence: merge main → verify → attest → push → PR ready → CI green. It runs after retro (Phase 6) so that the retro prose commit is included in the verified tree. If ship ran before retro, the retro commit would invalidate the attestation — check-attestation rejects "source files changed after verify ran." This ordering was learned from U8 where the post-ship retro commit caused three CI failures and required a full re-verify cycle (~12 minutes).
 
 `/ship` exists as a separate skill because the sequence is error-prone (attestation conflicts from stale main, dirty tree, CI divergence) and must be followed exactly. The pipeline delegates to `/ship` rather than inlining this logic because every inline attempt has produced a different subset of the steps.
 
