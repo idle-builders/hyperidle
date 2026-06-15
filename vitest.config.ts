@@ -27,6 +27,7 @@ export default defineConfig({
 			"packages/api-contract",
 			"packages/db",
 			"packages/desktop",
+			"packages/eval",
 			"packages/server",
 			"packages/fabric",
 			"packages/shared",

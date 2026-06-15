@@ -8,7 +8,9 @@
 		"build": "vite build",
 		"check": "tsc --noEmit",
 		"test:e2e": "playwright test",
-		"test:e2e:ah1": "playwright test --config playwright.ah1.config.ts"
+		"test:e2e:ah1": "playwright test --config playwright.ah1.config.ts",
+		"test:e2e:ah5": "playwright test --config playwright.ah5.config.ts",
+		"visual:compare": "npx tsx scripts/visual-compare.ts"
 	},
 	"dependencies": {
 		"@hyperidle/design-system": "*",

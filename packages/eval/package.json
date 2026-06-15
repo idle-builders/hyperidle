@@ -4,7 +4,8 @@
 	"private": true,
 	"type": "module",
 	"exports": {
-		".": "./src/types.ts"
+		".": "./src/types.ts",
+		"./smoke": "./src/smoke/index.ts"
 	},
 	"scripts": {
 		"eval": "tsx src/cli.ts"
@@ -18,6 +19,7 @@
 		"drizzle-orm": "^0.39.0"
 	},
 	"devDependencies": {
-		"tsx": "^4.21.0"
+		"tsx": "^4.21.0",
+		"vitest": "^3.2.4"
 	}
 }
