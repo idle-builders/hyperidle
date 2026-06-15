@@ -337,23 +337,24 @@ export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): H
 			return c.json({ error: "Cannot modify system agents", code: "FORBIDDEN" }, 403);
 		}
 
-		// AH3 §4: MANDATORY server-side reject of soulPrompt writes to ast-* agents.
+		// AH3 §4: MANDATORY server-side reject of systemPrompt writes to ast-* agents.
 		// The canonical edit surface is PATCH /api/users/:id/assistant.
 		// UI omission alone is insufficient — a raw API call could bypass it.
 		//
 		// @lore AH3 §4: We check the body BEFORE full parse to catch this early.
-		// We need to read the body to check for soulPrompt, then re-use it below.
+		// We need to read the body to check for systemPrompt, then re-use it below.
 		// We do this check inside the parsed data block below.
 		if (id.startsWith("ast-")) {
-			// We must parse the body first to check if soulPrompt is being written.
-			// Parse it here and check; if soulPrompt is present, reject.
+			// We must parse the body first to check if systemPrompt is being written.
+			// Parse it here and check; if systemPrompt is present, reject.
 			let earlyBody: unknown;
 			try {
 				earlyBody = await c.req.json();
 			} catch {
 				return c.json({ error: "Invalid JSON", code: "VALIDATION_ERROR" }, 400);
 			}
-			if (typeof earlyBody === "object" && earlyBody !== null && "soulPrompt" in earlyBody) {
+			// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
+			if (typeof earlyBody === "object" && earlyBody !== null && "systemPrompt" in earlyBody) {
 				return c.json(
 					{
 						error:
@@ -363,7 +364,7 @@ export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): H
 					403,
 				);
 			}
-			// Non-soulPrompt fields: allow through (other config changes ok)
+			// Non-systemPrompt fields: allow through (other config changes ok)
 			// Re-parse with schema
 			const parsed = patchAgentSchema.safeParse(earlyBody);
 			if (!parsed.success) {
@@ -411,7 +412,7 @@ export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): H
 				name: updated.name,
 				role: updated.role,
 				agentCategory: updated.agentCategory ?? null,
-				// @lore AK1: systemPrompt replaces soulPrompt per AK1 harness-vocab rename.
+				// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
 				systemPrompt: updated.systemPrompt ?? null,
 				harnessType: updated.harnessType ?? null,
 				modelTierPreference: updated.modelTierPreference ?? null,

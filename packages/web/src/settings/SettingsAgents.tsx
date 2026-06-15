@@ -488,7 +488,7 @@ export function SettingsAgents(): JSX.Element {
 
 				{/* AH3 D4: Migrated to design-system Input textarea (prose font, --r-default radius). */}
 				<Input
-					id={`edit-soul-${agentId}`}
+					id={`edit-system-prompt-${agentId}`}
 					label="System prompt"
 					textarea
 					rows={8}
@@ -752,7 +752,7 @@ export function SettingsAgents(): JSX.Element {
 
 					{/* AH3 D4: Migrated to design-system Input textarea (prose font, --r-default radius). */}
 					<Input
-						id="add-agent-soul"
+						id="add-agent-system-prompt"
 						label="System prompt"
 						textarea
 						rows={8}

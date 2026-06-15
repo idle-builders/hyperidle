@@ -313,8 +313,8 @@ export interface AssistantPromptResult {
  * @lore AH3: composeAssistantPrompt is intentionally synchronous (vs assemblePrompt's async)
  * because it does no I/O — no sandbox files to read, no token-budget checks against DB.
  * Kept synchronous to avoid unnecessary Promise overhead in the hot path of every turn.
- * @lore AK1: Parameter renamed from soulPromptText to systemPromptText per AK1 harness-vocab
- * rename. Behaviour identical.
+ * @lore AK1: systemPromptText is the post-rename persona parameter (harness-vocab rename).
+ * Behaviour identical.
  */
 export function composeAssistantPrompt(systemPromptText: string): AssistantPromptResult {
 	const parts: string[] = ["# Assistant Instructions", ""];

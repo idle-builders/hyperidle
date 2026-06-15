@@ -271,7 +271,7 @@ test.describe("AH3: rectangular textareas in Settings (not pills)", () => {
 					body: JSON.stringify({
 						id: "ast-test-founder",
 						name: "Assistant",
-						soulPrompt: "You are a helpful assistant.",
+						systemPrompt: "You are a helpful assistant.",
 					}),
 				});
 			} else {
@@ -290,7 +290,7 @@ test.describe("AH3: rectangular textareas in Settings (not pills)", () => {
 							id: "agent-builder-1",
 							name: "Builder Agent",
 							role: "builder",
-							soulPrompt: "You are a builder.",
+							systemPrompt: "You are a builder.",
 							harnessType: "builtin",
 							modelId: "claude-sonnet-4-6",
 							modelProvider: "anthropic",
@@ -343,7 +343,7 @@ test.describe("AH3: rectangular textareas in Settings (not pills)", () => {
 		expect(radiusPx).toBeLessThanOrEqual(16);
 	});
 
-	test("Settings → Agents soul textarea is rectangular (border-radius ≤ --r-default, not pill)", async ({
+	test("Settings → Agents system prompt textarea is rectangular (border-radius ≤ --r-default, not pill)", async ({
 		page,
 	}) => {
 		await page.goto("/");
@@ -351,14 +351,14 @@ test.describe("AH3: rectangular textareas in Settings (not pills)", () => {
 		await page.getByRole("button", { name: /settings/i }).click();
 		await page.getByRole("tab", { name: /agents/i }).click();
 
-		// There should be a soul prompt textarea for the builder agent
+		// There should be a system prompt textarea for the builder agent
 		// It must be rectangular
-		const soulTextareas = page.locator("textarea");
-		const count = await soulTextareas.count();
+		const systemPromptTextareas = page.locator("textarea");
+		const count = await systemPromptTextareas.count();
 		expect(count).toBeGreaterThan(0);
 
 		// Check at least one textarea is rectangular
-		const firstRadius = await soulTextareas.first().evaluate((el) => {
+		const firstRadius = await systemPromptTextareas.first().evaluate((el) => {
 			return window.getComputedStyle(el as HTMLElement).borderRadius;
 		});
 		const radiusPx = Number.parseFloat(firstRadius);

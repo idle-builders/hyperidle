@@ -2,7 +2,7 @@
  * AH3 RED — composeAssistantPrompt unit tests + byte-equality persona invariant.
  *
  * AC3 (persona consolidation):
- *   - composeAssistantPrompt(soulPromptText) → { composedPrompt: string }
+ *   - composeAssistantPrompt(systemPromptText) → { composedPrompt: string }
  *   - persona text passes through (after frontmatter strip) into composedPrompt
  *   - byte-equality: same string consumed by builtin adapter config AND written
  *     to CLAUDE.md for the SDK adapter
@@ -16,8 +16,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
-// @lore AK1: Import path updated from prompt-composition.js to context-assembly-prompt.js
-// (AK1 harness-vocab rename). writeSandboxAgentsMd → writeSandboxAgentsMd.
+// @lore AK1: Import path updated to context-assembly-prompt.js (harness-vocab rename, AK1).
 import { composeAssistantPrompt, writeSandboxAgentsMd } from "../context-assembly-prompt.js";
 
 describe("AH3: composeAssistantPrompt", () => {
@@ -29,25 +28,25 @@ describe("AH3: composeAssistantPrompt", () => {
 	});
 
 	test("persona text appears in composedPrompt (after frontmatter strip)", () => {
-		const soul = "You are a helpful assistant focused on product development.";
-		const result = composeAssistantPrompt(soul);
-		expect(result.composedPrompt).toContain(soul);
+		const persona = "You are a helpful assistant focused on product development.";
+		const result = composeAssistantPrompt(persona);
+		expect(result.composedPrompt).toContain(persona);
 	});
 
 	test("YAML frontmatter is stripped before inclusion", () => {
-		const soulWithFrontmatter = `---
+		const personaWithFrontmatter = `---
 title: Assistant Persona
 ---
 You are a helpful assistant.`;
-		const result = composeAssistantPrompt(soulWithFrontmatter);
+		const result = composeAssistantPrompt(personaWithFrontmatter);
 		expect(result.composedPrompt).not.toContain("---");
 		expect(result.composedPrompt).toContain("You are a helpful assistant.");
 	});
 
-	test("empty soul prompt returns a valid composedPrompt (identity section omitted)", () => {
+	test("empty system prompt returns a valid composedPrompt (identity section omitted)", () => {
 		const result = composeAssistantPrompt("");
 		expect(typeof result.composedPrompt).toBe("string");
-		// No persona section header when soul is empty
+		// No persona section header when system prompt is empty
 		expect(result.composedPrompt).not.toContain("## Identity");
 	});
 });
@@ -65,8 +64,8 @@ describe("AH3: byte-equality persona invariant (§4)", () => {
 	});
 
 	test("composedPrompt equals CLAUDE.md content written by writeSandboxAgentsMd (SDK side byte-equality)", () => {
-		const soul = "You are a precise and helpful assistant.";
-		const expected = composeAssistantPrompt(soul).composedPrompt;
+		const persona = "You are a precise and helpful assistant.";
+		const expected = composeAssistantPrompt(persona).composedPrompt;
 
 		// Simulate what the SDK adapter path does:
 		// it writes CLAUDE.md from composeAssistantPrompt output
@@ -82,8 +81,8 @@ describe("AH3: byte-equality persona invariant (§4)", () => {
 	test("builtin adapter receives exact composedPrompt (config.composedPrompt side byte-equality)", () => {
 		// The builtin adapter reads composedPrompt from its config.
 		// Here we simulate the builtin adapter config assignment and assert equality.
-		const soul = "You are concise and technical.";
-		const result = composeAssistantPrompt(soul);
+		const persona = "You are concise and technical.";
+		const result = composeAssistantPrompt(persona);
 
 		// Simulate builtin harness config — it receives the string directly
 		const builtinAdapterConfig = { composedPrompt: result.composedPrompt };
@@ -92,12 +91,12 @@ describe("AH3: byte-equality persona invariant (§4)", () => {
 		expect(builtinAdapterConfig.composedPrompt).toBe(result.composedPrompt);
 	});
 
-	test("byte-equality holds across both adapter paths for the same soul (cross-harness invariant)", () => {
-		const soul = "# My Persona\n\nI am a thoughtful assistant.\n";
-		const expected = composeAssistantPrompt(soul).composedPrompt;
+	test("byte-equality holds across both adapter paths for the same persona (cross-harness invariant)", () => {
+		const persona = "# My Persona\n\nI am a thoughtful assistant.\n";
+		const expected = composeAssistantPrompt(persona).composedPrompt;
 
 		// Builtin side
-		const builtinComposedPrompt = composeAssistantPrompt(soul).composedPrompt;
+		const builtinComposedPrompt = composeAssistantPrompt(persona).composedPrompt;
 
 		// SDK side — write to file, read back
 		tmpDir = mkdtempSync(join(tmpdir(), "ah3-xharn-"));

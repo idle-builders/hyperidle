@@ -5,7 +5,7 @@
  *   1. Load assistant agent (lazy-create with defaults if absent)
  *   2. Resolve model + credential (MissingCredentialError → missing_key notice)
  *   3. Select adapter (NoEligibleHarnessError → missing_harness notice)
- *   4. Build conversational context (no task/bet, no workspace materialization)
+ *   4. Build conversational context (no task/bet, no sandbox context assembly)
  *   5. Compose persona via composeAssistantPrompt (byte-equal across both adapter paths)
  *   6. Start harness session + drain events under ASSISTANT_TURN_TIMEOUT_MS
  *      - completion → persist plain reply message
@@ -52,10 +52,10 @@ import { readServerConfig } from "../services/server-config.js";
 const logger = createLogger({ pkg: "server.assistant-turn" });
 
 /**
- * Builtin soul prompt for new assistant agents.
- * Used when an assistant agent is lazy-created with no existing soulPrompt.
+ * Builtin system prompt for new assistant agents.
+ * Used when an assistant agent is lazy-created with no existing systemPrompt.
  */
-const BUILTIN_SOUL_PROMPT =
+const BUILTIN_SYSTEM_PROMPT =
 	"You are a helpful AI assistant. Be concise, direct, and thoughtful in your responses.";
 
 /**
@@ -256,8 +256,8 @@ async function runTurnInternal(
 			harnessType: "builtin",
 			modelId: "claude-sonnet-4-6",
 			modelProvider: "anthropic",
-			// @lore AK1: systemPrompt replaces soulPrompt per AK1 harness-vocab rename.
-			systemPrompt: BUILTIN_SOUL_PROMPT,
+			// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
+			systemPrompt: BUILTIN_SYSTEM_PROMPT,
 			maxConcurrentSessions: 1,
 			createdAt: now,
 		});
@@ -277,8 +277,8 @@ async function runTurnInternal(
 
 	const harnessType = agentRow.harnessType ?? "builtin";
 	const modelProvider = agentRow.modelProvider ?? "anthropic";
-	// @lore AK1: systemPrompt replaces soulPrompt per AK1 harness-vocab rename.
-	const soulPromptText = agentRow.systemPrompt ?? BUILTIN_SOUL_PROMPT;
+	// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
+	const systemPromptText = agentRow.systemPrompt ?? BUILTIN_SYSTEM_PROMPT;
 
 	// --- Step 2: Resolve model + credential ---
 	// resolveAgentModel handles both credential resolution and per-agent model selection.
@@ -376,7 +376,7 @@ async function runTurnInternal(
 	const conversationMessages = await loadThreadTranscript(db, threadId, `ast-${userId}`);
 
 	// --- Step 5: Compose persona ---
-	const { composedPrompt } = composeAssistantPrompt(soulPromptText);
+	const { composedPrompt } = composeAssistantPrompt(systemPromptText);
 
 	// --- Step 6: Start session + drain under timeout ---
 	let sessionHandle: import("@hyperidle/shared").SessionHandle | null = null;
@@ -388,8 +388,7 @@ async function runTurnInternal(
 		// resolvedModel is REQUIRED by the builtin adapter (throws if missing — H1 fix).
 		// No `as unknown` cast: the type system now guards all required fields.
 		// messages carries the thread transcript so the adapter delivers the user's question.
-		// @lore AK1: composedPrompt→assembledPrompt, workspacePath→sandboxPath,
-		// soulPromptPath→systemPromptPath per AK1 harness-vocab rename.
+		// @lore AK1: assembledPrompt/sandboxPath/systemPromptPath are the post-rename session config fields (harness-vocab rename).
 		const sessionConfig: SessionConfig = {
 			sessionId: crypto.randomUUID(),
 			assembledPrompt: composedPrompt,

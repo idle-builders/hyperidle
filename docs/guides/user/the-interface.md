@@ -59,4 +59,4 @@ The **Assistant** button in the bottom-right corner opens your personal AI assis
 
 **Thinking indicator** — After you send a message, the overlay shows "Assistant is thinking…" while waiting for a reply. If the assistant hasn't responded after 2 minutes (a crash), the thinking indicator is replaced with a **Retry** button so you can re-send without waiting forever.
 
-**Customizing the assistant** — Go to **Settings → Assistant** to edit your assistant's persona instructions (soul prompt). Changes take effect on the next message.
+**Customizing the assistant** — Go to **Settings → Assistant** to edit your assistant's persona instructions (system prompt). Changes take effect on the next message.

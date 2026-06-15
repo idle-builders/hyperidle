@@ -12,18 +12,18 @@
  *   - provider_error → hung provider that never emits (timeout, §1.7a)
  *   - no secret material in persisted notice copy
  *
- * AC3 (partial): direct PATCH to ast-* agent soulPrompt via Agents API is
+ * AC3 (partial): direct PATCH to ast-* agent systemPrompt via Agents API is
  *   rejected 403 ASSISTANT_SOUL_EDIT_FORBIDDEN.
  *
  * AC5: newly-registered assistant agent has non-null harnessType, modelId,
- *   modelProvider, and soulPrompt (defaults).
+ *   modelProvider, and systemPrompt (defaults).
  *
  * These tests FAIL until:
  *   - runAssistantTurn service exists at packages/server/src/services/assistant-turn.ts
  *   - PlainPayload.notice optional field is added
  *   - createThreadRoutes gains assistantTurnDeps option
- *   - agents.ts rejects ast-* soulPrompt writes with 403
- *   - users.ts registration inserts assistant agent with harness/model/soul defaults
+ *   - agents.ts rejects ast-* systemPrompt writes with 403
+ *   - users.ts registration inserts assistant agent with harness/model/systemPrompt defaults
  */
 
 import { type HyperIdleDb, messages as messagesTable, users } from "@hyperidle/db";
@@ -82,7 +82,7 @@ async function seedHumanUser(db: HyperIdleDb, id: string, name: string): Promise
 }
 
 async function seedAssistantAgent(db: HyperIdleDb, userId: string): Promise<void> {
-	// @lore AK1: systemPrompt replaces soulPrompt per AK1 harness-vocab rename.
+	// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
 	await db.insert(users).values({
 		id: `ast-${userId}`,
 		kind: "ai",
@@ -424,10 +424,10 @@ describe("AH3 AC2: error surface — notice classes, no secret leak", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC3: Server-side reject of ast-* soul writes via Agents API
+// AC3: Server-side reject of ast-* systemPrompt writes via Agents API
 // ---------------------------------------------------------------------------
 
-describe("AH3 AC3: PATCH to ast-* agent soulPrompt via Agents API is rejected 403", () => {
+describe("AH3 AC3: PATCH to ast-* agent systemPrompt via Agents API is rejected 403", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});
@@ -435,11 +435,11 @@ describe("AH3 AC3: PATCH to ast-* agent soulPrompt via Agents API is rejected 40
 		vi.unstubAllEnvs();
 	});
 
-	test("PATCH /api/agents/ast-{userId} with soulPrompt returns 403 ASSISTANT_SOUL_EDIT_FORBIDDEN", async ({
+	test("PATCH /api/agents/ast-{userId} with systemPrompt returns 403 ASSISTANT_SOUL_EDIT_FORBIDDEN", async ({
 		db,
 		eventBus,
 	}) => {
-		await seedHumanUser(db, "u-ah3-a1", "Soul Reject User");
+		await seedHumanUser(db, "u-ah3-a1", "System Reject User");
 		await seedAssistantAgent(db, "u-ah3-a1");
 
 		const app = await createTestApp({ db, eventBus, adapterPool: makePool() });
@@ -447,7 +447,7 @@ describe("AH3 AC3: PATCH to ast-* agent soulPrompt via Agents API is rejected 40
 		const res = await app.request("/api/agents/ast-u-ah3-a1", {
 			method: "PATCH",
 			headers: authHeaders({ "X-Identity": "u-ah3-a1" }),
-			body: JSON.stringify({ soulPrompt: "Injected persona via Agents API" }),
+			body: JSON.stringify({ systemPrompt: "Injected persona via Agents API" }),
 		});
 
 		expect(res.status).toBe(403);
@@ -459,10 +459,10 @@ describe("AH3 AC3: PATCH to ast-* agent soulPrompt via Agents API is rejected 40
 		db,
 		eventBus,
 	}) => {
-		await seedHumanUser(db, "u-ah3-a2", "Soul Update User");
+		await seedHumanUser(db, "u-ah3-a2", "System Update User");
 		const app = await createTestApp({ db, eventBus });
 
-		// @lore AK1: wire field renamed from soulPrompt to systemPrompt (AK1 harness-vocab rename).
+		// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
 		const res = await app.request("/api/users/u-ah3-a2/assistant", {
 			method: "PATCH",
 			headers: authHeaders({ "X-Identity": "u-ah3-a2" }),
@@ -476,7 +476,7 @@ describe("AH3 AC3: PATCH to ast-* agent soulPrompt via Agents API is rejected 40
 });
 
 // ---------------------------------------------------------------------------
-// AC5: Assistant agent defaults — harness, model, soulPrompt non-null
+// AC5: Assistant agent defaults — harness, model, systemPrompt non-null
 // ---------------------------------------------------------------------------
 
 describe("AH3 AC5: assistant agent defaults at registration", () => {
@@ -509,7 +509,7 @@ describe("AH3 AC5: assistant agent defaults at registration", () => {
 		const assistant = (await assistantRes.json()) as Record<string, unknown>;
 
 		// All four fields must be non-null after registration
-		// @lore AK1: field renamed from soulPrompt to systemPrompt per AK1 harness-vocab rename.
+		// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
 		expect(assistant.harnessType).toBeDefined();
 		expect(assistant.harnessType).not.toBeNull();
 		expect(assistant.modelId).toBeDefined();
@@ -642,8 +642,7 @@ describe("AH3 H1: happy-path completion — scripted adapter stub → reply pers
 		// runAssistantTurn now always builds resolvedModel before calling startSession.
 		// We verify that BuiltinHarnessAdapter.startSession throws without resolvedModel.
 		const builtin = new BuiltinHarnessAdapter();
-		// @lore AK1: composedPrompt→assembledPrompt, workspacePath→sandboxPath,
-		// soulPromptPath→systemPromptPath per AK1 harness-vocab rename.
+		// @lore AK1: assembledPrompt/sandboxPath/systemPromptPath are the post-rename session config fields (harness-vocab rename).
 		const badConfig = {
 			sessionId: "test-no-model",
 			assembledPrompt: "System",
