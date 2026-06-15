@@ -1,6 +1,11 @@
 # AI7 — Design critique (reviewer, Phase 2)
 
-**Verdict: 8.0 / 10 — APPROVED for the design substance.** This is a consolidation/ratification WP; judged as such. The scroll rule is correctly grounded in the verified `overflow-hidden` host fact, the primitive APIs cover every primary page's real header, and the rejected-directions list is disciplined. One WARNING on slot sufficiency edge cases; the gate-scope problems are architecture-layer (carried into the architecture critique, not design).
+**Verdict (revised, commit `294e97ee`): 8.5 / 10 — APPROVED.** W1 (the KnowledgeCreate closure contradiction) is resolved by the exported `pageTitleClassName` const — the editable `<input>` composes the primitive's title treatment by reference, so the treatment is still owned by the primitive (the AI7 thesis holds) and the gate cannot see a literal fork (verified at the AST level in the architecture critique). Primitive-API-sufficiency rises 7→8. W2 (subtitle slot for rich meta) addressed in approved.md §PageHeader states + the architecture's subtitle-vs-actions guidance; remaining items are nits. Score: was 8.0.
+
+---
+
+## ORIGINAL VERDICT (superseded) — 8.0 / 10
+This is a consolidation/ratification WP; judged as such. The scroll rule is correctly grounded in the verified `overflow-hidden` host fact, the primitive APIs cover every primary page's real header, and the rejected-directions list is disciplined. One WARNING on slot sufficiency edge cases; the gate-scope problems are architecture-layer (carried into the architecture critique, not design). Original scores + findings retained below for the audit trail.
 
 DESIGN-CLASS: routine (single ratified variant). Bar = "faithfully encode the de-facto standard, settle scroll cleanly, give an API every page can adopt without fighting it." Met.
 
@@ -46,3 +51,15 @@ Concept says default `h2`; approved.md + architecture say default `h3` (PageHead
 
 ## Bottom line
 Design substance is sound and faithfully consolidates. W1 is the one that can bite implementation (gate contradicts the KnowledgeCreate migration). W2/N2 are clarifications. None block the build provided architecture resolves the gate exemption (it does not yet — see architecture-critique CRITICAL C1).
+
+---
+
+# RESOLUTION (revised pass, commit `294e97ee`)
+
+**W1 — RESOLVED.** approved.md §KnowledgeCreate + the Open-Questions section now route the editable `<input>` through the exported `pageTitleClassName` const: `className={`${pageTitleClassName} bg-transparent border-none outline-none flex-1 p-0`}`, inline `style` font props dropped. The title treatment lives in the primitive and is shared by reference, not forked as a literal. The closure guarantee is preserved (the input imports the treatment from the DS) AND the gate cannot fire — verified in the architecture critique that the shared class-collector (`util.ts:302`) extracts only static template quasis, never the `${pageTitleClassName}` identifier, so the combo is never seen as a literal. This is the affordance W1 asked for, chosen over a per-file lint exemption. Dimension 3 (primitive-API sufficiency) 7→8.
+
+**W2 — addressed.** approved.md states the subtitle renders as a single tertiary-text line and rich meta (chips/avatars) belongs in `actions`/`leading`; the architecture's PageHeader contract documents the slot roles. No rich node inherits the subtitle wrapper's tertiary styling unintentionally. Adequate for build; confirm in the snapshot variants.
+
+**N1 / N2 — unchanged nits.** `divider` default-off and `as="h3"` default are internally consistent across approved.md + architecture; builder follows architecture. Cosmetic.
+
+**Revised score: 8.5 / 10 — APPROVED.** No design blockers.

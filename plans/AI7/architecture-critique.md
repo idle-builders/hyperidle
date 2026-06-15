@@ -1,6 +1,11 @@
 # AI7 — Architecture critique (reviewer, Phase 2)
 
-**Verdict: 6.5 / 10 — NOT YET APPROVED. One CRITICAL (gate scope breaks `npm run lint`) must be fixed before build.** The plan is otherwise strong: correct token reconciliation, correct AC5 re-grounding, sound task ordering (gates-after-migration), real precedent reuse. But the two proposed lint gates, as scoped, will fire on out-of-scope files and turn `npm run lint` red — which AI7 cannot fix without scope creep into AG7/onboarding/AG-AH component territory. That is a hard blocker for a track whose rule is "verify must pass after every WP."
+**Verdict (revised, commit `294e97ee`): 8.5 / 10 — APPROVED, proceed to build.** All three blockers (C1, C2, W1) are genuinely resolved — verified against the codebase, not just reworded. W2 + W3 addressed. The gate-scoping that broke `npm run lint` is fixed by the correct, codebase-established mechanism (error-in-`pages/**` + warn-elsewhere, where `--quiet` suppresses warnings; self-gated `tracking-wider` arm via `context.filename`; two-file `ignores`; identifier-reference escape hatch that the shared class-collector cannot see as a literal). See revised findings below.
+
+---
+
+## ORIGINAL VERDICT (superseded) — 6.5 / 10, one CRITICAL
+The plan was otherwise strong: correct token reconciliation, correct AC5 re-grounding, sound task ordering (gates-after-migration), real precedent reuse. But the two proposed lint gates, as scoped, would fire on out-of-scope files and turn `npm run lint` red — a hard blocker for a track whose rule is "verify must pass after every WP." The original per-dimension scores and findings below are retained for the audit trail; the resolution verification follows.
 
 ## Ground-truth verification of plan claims
 
@@ -77,3 +82,55 @@ The design and the plan's substance are right. The blocker is purely the **gate 
 3. Give PageHeader an editable-title affordance (or a precise exemption) so KnowledgeCreate doesn't write the forbidden combo.
 
 With those three fixes the plan is build-ready (would score ~8.5).
+
+---
+
+# RESOLUTION VERIFICATION (revised pass, commit `294e97ee`)
+
+Re-scored after the designer's revision. Every claimed fix verified against the live codebase in `.worktrees/AI7`. **Verdict: 8.5 / 10 — APPROVED.**
+
+## Revised per-dimension scores
+
+| # | Dimension | Was | Now | Why |
+|---|---|---|---|---|
+| 5 | Static-gate soundness | 4 | **9** | Both gates now scoped so lint stays green on every out-of-scope file. Mechanism verified (below). |
+| 7 | Migration completeness | 6 | **8** | W2 fixed: AC2 + tasks 18–20 now require EVERY return branch (loading/error/not-found/populated) to root the scaffold; branch counts (WorkTeam 5, WorkRoutine 4, AgentProfile 4) match the code. |
+| 8 | Risk register honesty | 8 | **9** | R2 now enumerates all three concrete false-positive surfaces (combo-uniqueness, Settings/SetupFlow `ignores`, KnowledgeCreate identifier) with the resolution for each. |
+
+Other dimensions unchanged (1:9, 2:8, 3:8→9, 4:7, 6:8, 9:9). Composite ≈ 8.5.
+
+## C1 — `no-undefined-font-heading`: RESOLVED (verified)
+The fix splits the rule into two arms with two config registrations:
+- **`font-heading` arm** fires regardless of path, registered at **error in `pages/**`** and **warn in `packages/web/src/**`**.
+- **`tracking-wider` arm** self-gates on `context.filename` containing `/pages/` (task 7) — the established precedent mechanism: `no-handrolled-select.ts:26` (`isInWebSrc`) and `no-local-status-builder.ts:35` (`isWebSrcFile`) both gate on `filename.includes(...)`. So `tracking-wider` never even evaluates outside `pages/**`.
+
+**Will lint be clean on the ~8 out-of-scope files?** YES — load-bearing fact verified: `package.json:27` runs `npx eslint . --quiet`. `--quiet` reports ONLY errors; warnings never fail lint. Confirmed by the existing in-repo precedent — the K6/AF16 `no-op-button` block (eslint.config.ts ≈131) is documented verbatim: *"fails lint, not just warns silently under `--quiet`."* So `font-heading` at warn on ArtifactSection/ArtifactThreadsSummary/TaskSheet/DesignSystem (8 files confirmed via `git grep`) is reported-but-not-failing. Lint stays green. Genuine resolution, not a reword.
+
+**SetupFlow `tracking-wider`?** The original critique cited SetupFlow as an intentional `tracking-wider` user. `git grep tracking-wider packages/web/src/pages/SetupFlow.tsx` now returns **nothing** — SetupFlow has no `tracking-wider`. That C1 sub-concern was moot; it does not threaten the fix either way. The only `tracking-wider` left in `pages/` will be on the 3 migrated anomaly pages, which the migration removes (task 21 greps to confirm zero).
+
+## C2 — `no-handrolled-page-header`: RESOLVED (sound)
+Error on `pages/**` with `SettingsPage.tsx` + `SetupFlow.tsx` in the block `ignores` (task 10). Verified both carry the exact gated combo and are out of AI7's 10-page list:
+- `SettingsPage.tsx:43` — `text-[20px] font-[600] tracking-[-0.01em]` (AG7's).
+- `SetupFlow.tsx:237` — `text-[20px] font-[600] ... tracking-[-0.01em]` (onboarding). `SetupFlow.tsx:225` is `font-[700]` — correctly excluded by the combo requirement.
+
+I greped every `text-[20px]` site in `pages/`: all other combo-bearing sites (Conversations 385/503, KnowledgeDetail 656, KnowledgeList 956, WorkBet 936, WorkPortfolio 164/198, WorkTask 207) are on the 10 migrated pages. `WorkTeam.tsx:707` is `text-[20px] font-semibold tabular-nums` — NOT the combo (no `font-[600]`, no tracking) → won't trip. No un-exempted out-of-scope page carries the combo. The `ignores`-vs-allowlist rationale (don't couple `eslint.config.ts` to the migration list) is correct. Sound.
+
+## W1 — `pageTitleClassName` const: CLEAN, not a hidden escape hatch (verified at the AST level)
+The concern was whether composing the exported const creates coupling the gate can't see. Verified the shared collector the rule is mandated to use (`collectClassStringsFromJSXAttribute` → `collectClassStringsFromExpression`, `util.ts:302`):
+- For KnowledgeCreate's `` className={`${pageTitleClassName} bg-transparent border-none outline-none flex-1 p-0`} ``, the `TemplateLiteral` case extracts ONLY the static quasi text (`" bg-transparent border-none outline-none flex-1 p-0"`). The `${pageTitleClassName}` is an `Identifier` expression and **`walk()` has no `Identifier` case** → it contributes nothing. The combo `text-[20px] font-[600] tracking-[-0.01em]` is never surfaced as a literal fragment.
+
+So the gate does not fire on the input, and this is NOT a bespoke hole: it is the same literal-only collector every sibling adoption rule uses (no-handrolled-select composes it identically). The escape hatch is the absence of identifier resolution — a documented, intentional, codebase-wide property, not an AI7 special case. The plan correctly forbids the rule from resolving the identifier (task 8). The only residual coupling is the legitimate one AI7 wants: KnowledgeCreate `import`s `pageTitleClassName` from the design system, so the title treatment is still owned by the primitive (the AI7 thesis holds). This is cleaner than a per-file `ignores` and survives future editable-title pages. Genuinely resolved.
+
+One builder-time note (not a blocker): the gate must build on `collectClassStringsFromJSXAttribute` (as task 8 + Required-reading specify). If the builder instead hand-rolls a fragment scanner that string-matches the raw attribute source, `${pageTitleClassName}` text wouldn't match the combo anyway — but the test-case in task 8 (negative case: identifier reference passes) pins this. Keep that negative RuleTester case.
+
+## W2 — every return branch roots the scaffold: ADEQUATE
+AC2 reworded to "every primary page AND every return branch (loading/error/not-found/populated)." Tasks 18–20 now enumerate the branches with line refs that match the code: WorkTeam 5 branches (`git grep` confirms 5 returns rooted `flex-1 overflow-y-auto`, currently headerless), WorkRoutine 4, AgentProfile 4. The instruction "loading/error branches get a minimal `<PageHeader title=…/>` inside the scaffold, state in the scrolling body" is explicit and correct. AC2 verification still leans partly on diff review (the structural property is hard to unit-test across every branch without per-page renders) but the per-anomaly-page tests that already render loading/error branches (WorkRoutine.AA1, AppShell.*) plus the PageHeader `shrink-0` component test give a real-enough net for a presentational change. Adequate.
+
+## W3 — snapshot count sites: RESOLVED
+All four count sites enumerated in task 6 and AC5(b): two numeric guards (`:73`, `:223` → `>=58`), the assertion message template (`:71` "≥58 / 51 root + 7 kinds"), the test-name string (`:222`), plus the doc comments (`:4`, `:16`). 49 root + 2 new = 51, + 7 kinds = 58. Correct (modules, not variants — the two new files are `PageHeader.stories.tsx` + `SectionLabel.stories.tsx`). The message template no longer lies after the bump. Resolved.
+
+## NIT N1 (negative-em allowlist) — still a red-phase precheck, correctly captured
+Task 0 keeps the builder confirming `tracking-[-0.01em]` is on `no-hardcoded-tracking`'s negative-em allowlist before writing the primitive. Low risk (the literal already ships in the tree de-facto). Adequately gated by the red phase.
+
+## Bottom line (revised)
+All three CRITICAL/WARNING blockers are genuinely resolved, verified at the codebase + AST level — not reworded. The gate-scoping is now done by the correct established mechanism. **8.5 / 10 — APPROVED, proceed to build.** No remaining blockers. Builder must preserve: (1) the warn-elsewhere config block for `font-heading` (it is what keeps lint green under `--quiet`); (2) the `context.filename` `/pages/` self-gate on the `tracking-wider` arm; (3) the two-file `ignores` for `no-handrolled-page-header`; (4) the literal-only collector (no identifier resolution) + the KnowledgeCreate negative RuleTester case; (5) every return branch rooting the scaffold.
