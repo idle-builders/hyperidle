@@ -57,3 +57,18 @@ All AC2/AC4 proofs run through the REAL `startSession → runChatTurn → execut
 1. **CRITICAL:** Run `npm run lint:fix` to format `tool-registry-role.integration.test.ts:89`; confirm `npm run lint` exits clean; commit. (Optionally fold in the WARNING's top-level `bets` import while touching the area.)
 
 No other blockers. After fix 1, all gates green → DONE.
+
+---
+
+## Round 2
+
+**Verdict: DONE.** Round-1's single CRITICAL (lint RED) and the WARNING (in-loop `await import`) are both resolved by `5ecfc5cf`. Re-review confirmed the fixes are real and behavior-neutral.
+
+- **Lint clean.** `npm run lint` → EXIT=0, 0 errors (397 warnings + 110 infos are all pre-existing, non-blocking). Round-1 CRITICAL gone.
+- **Test-file change = formatting only.** Round-2 only wrapped the `test(...)` destructured arg `({ db })` across lines. Count was ALREADY `21` / `toHaveLength(21)` as of round-1 `dc96611a` — the assertion, the count, and the `+ 1 AK4 draft tool: edit_bet = 21` comment are byte-identical. No assertion/logic/count change.
+- **Import hoist = behavior-neutral.** `bets` moved from per-iteration `await import("@hyperidle/db")` (inside the nested scan loop of `resolveCurrentDraftBetId`) to the top-level static import, joining `teamMembers, users`. Same exported symbol, same `eq(bets.id, betId)` / `bets.status` liveness query. Only when the reference resolves changes (module load vs per-iteration); query semantics unchanged.
+- **ACs intact.** Affected files' tests: 16/16 pass (`tool-registry-role` + `AK4-assistant-draft`), including AC4 (create→edit same betId, count stays 1) and AC4-loop-bound (≤3 executions, non-empty reply persists) — all through the real `runChatTurn → executeToolCalls` loop. All round-1 carry-forward verifications (registry = exactly `[create_bet, edit_bet]`, no commit/kill path, `teamId` hard-injected, transcript draft-binding, never-silent cap) still hold — nothing else changed.
+
+Round-2 commit `5ecfc5cf` touched exactly the 2 expected files (`4 insertions(+), 3 deletions(-)`). No scope creep, no regression. NITs from round-1 (CAP_FALLBACK copy on empty end_turn; BetCard `budgetLabel` omission) remain accepted-as-is — non-blocking.
+
+All gates green → **DONE.**
