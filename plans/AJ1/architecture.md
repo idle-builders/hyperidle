@@ -1,176 +1,260 @@
-# AJ1 — TSX is the single design source of truth — Architecture
+# AJ1 REDO — TSX source of truth + vitest DOM-snapshot regression net — Architecture
 
 **Workpackage:** AJ1 (Track AJ). Complexity L. Depends on: none.
-**Phase:** designer production. No `/design` (no UI surface — infra + source-of-truth inversion).
+**Phase:** designer production. No `/design` (infra + source-of-truth inversion, no UI surface).
+**Status of decision:** the visual-regression approach is **LOCKED — Option A (plain vitest DOM-snapshot net)** per `plans/AJ1/visual-regression-options.md`. This plan is implementation-only; it does NOT re-litigate the choice.
 
-## Concept check (no-op)
+> **This rewrite supersedes the prior screenshot-based AJ1 architecture.** The previous plan (Playwright `toHaveScreenshot` + committed golden PNGs, wired into `verify`) shipped (PR #287) and was reverted (#298) because it broke the core invariant **`verify` must run locally on macOS with zero Docker** (Linux-canonical golden PNGs go permanently red on macOS via sub-pixel AA). The screenshot machinery was then *restored* onto this branch and must now be **ripped out** and replaced with the vitest DOM-snapshot net.
 
-AJ1 introduces **no new primitive, domain concept, or load-bearing noun**. It inverts which medium is authoritative (HTML → TSX) and replaces the regression mechanism. "Golden baseline" is a generic testing term, not a HyperIdle domain noun. Concept-locking is a no-op. No `concept-missing`.
+---
+
+## What this workpackage is (one line)
+
+Invert the design source of truth to **TSX** (KEEP — already done), **delete every screenshot/Playwright-visual artifact**, and replace the regression gate with a **deterministic vitest DOM-snapshot net** that renders every catalogued `.stories.tsx` variant in jsdom, serializes the DOM (markup + `className` + inline style + markers, with nondeterministic ids normalized) to committed `.snap` text, runs inside `npm run test` → `npm run verify`, and is git-text-diffable with no Docker, no browser, no PNGs.
+
+---
+
+## De-risk spike — RESULT (run on this branch, recorded, then deleted)
+
+A throwaway `_spike-glob.test.tsx` was written, run via `npx vitest run --project design-system`, and removed. Findings:
+
+1. **`import.meta.glob` enumerates the SAME story set from a vitest test file as the viewer does. ✅ CONFIRMED.**
+   - `import.meta.glob("../*.stories.tsx", { eager: true })` from `src/__tests__/` returned **49** modules — exactly the design-system root story count the viewer sees (`viewer/main.tsx:26` globs `"../src/*.stories.tsx"`, same 49).
+   - `import.meta.glob("../kinds/*.stories.tsx", { eager: true })` returned **7** (the `src/kinds/` block-renderer stories). Total **56** design-system stories — matches `find packages/design-system/src -name '*.stories.tsx' | wc -l` = 56.
+   - **Mechanism is real:** vitest runs on Vite, so `import.meta.glob` transforms at collect time exactly as in the viewer. (This is why the *retired Playwright* test could NOT use it — Playwright runs in plain Node, no Vite transform, glob returns `{}`. The vitest net does not have that problem.)
+   - **Glob-root caveat (load-bearing):** the viewer also globs `packages/web/src/shell/*.stories.tsx` and `packages/web/src/components/*.stories.tsx`. **A vitest test living in `packages/design-system` can only glob design-system stories** — it must not reach across package boundaries into `@hyperidle/web` (would couple the DS test to web, and Vite project roots differ). **Scope decision:** the snapshot net covers the **design-system catalog** (the 56 DS stories = the catalogued Tier-1/2/3 + utility components that live in `packages/design-system`, which is what "catalogued components" means for AC2). Web shell/page stories are out of the design-system net's scope (they are app composites, not catalogued design-system components; they already have their own `*.test.tsx` + e2e coverage). State this honestly in the coverage statement.
+
+2. **react-aria / React `useId` nondeterminism is real and MUST be normalized. ✅ CONFIRMED, fix known.**
+   - React 19.2.6 `useId()` emits ids of the form **`_r_N_`** (e.g. `_r_0_`). Rendering `RichMessageCard` (uses `useId` → `titleId` → `aria-labelledby`) produced `aria-labelledby="_r_0_"` / `id="_r_0_"`.
+   - The counter is **tree-position dependent**: rendering many variants in one test file advances `N` per mount, so the same component can serialize as `_r_3_` one run and `_r_7_` the next if file/test order shifts → snapshot churn / flake **unless normalized**.
+   - Also affected: `Input.tsx` (`inputId` → `htmlFor`, `aria-describedby="${inputId}-hint"/"-error"`), `Select.tsx` (`selectId`), `Checkbox.tsx` (`htmlFor={id}`). All route a generated id into `id` / `for` / `aria-*`.
+   - **Fix (in the serializer):** regex-replace the React id token `/_r_[0-9a-z]+_/g` → `__id__` (and the legacy `:rN:` form `/:r[0-9a-z]+:/g` → `__id__` for safety across React minor versions) in serialized attribute values BEFORE snapshotting. Because the same token is replaced everywhere, `aria-labelledby` and its target `id` stay referentially consistent in the snapshot (both become `__id__`), so the snapshot still proves the wiring exists without pinning the volatile counter.
+   - `@testing-library/react`'s `prettyDOM` is available (`typeof prettyDOM === "function"`) and is the DOM-serializer building block; the custom serializer wraps/normalizes its output (or walks the node directly — see serializer design).
+
+**Spike verdict: Option A is de-risked. Both unknowns resolved. No blocker.**
 
 ---
 
 ## Required reading (for the builder)
 
-- `packages/design-system/viewer/main.tsx` — HTML-mode code paths to remove.
-- `packages/design-system/viewer/discovery.ts` — story discovery (KEEP, unchanged; remove only the `order` "HTML demo section order" doc-comment).
-- `packages/design-system/src/__tests__/visual-regression.test.ts` — the gate to **replace**.
-- `packages/design-system/playwright.config.ts`, `playwright.l1.config.ts`, `playwright.workbench.config.ts` — config rationalization. **All three boot the viewer with `webServer.command: "bun run serve"` — bun is NOT installed in CI; the swap to `npm run -w @hyperidle/design-system serve` is mandatory (see "webServer / bun fix").**
-- `packages/design-system/tests/workbench.spec.ts`, `tests/visual/L1/thread-components.spec.ts` — specs asserting HTML-mode behavior, to rewrite.
-- `packages/design-system/vite.config.ts` — `publicDir: "../html"` to remove.
-- `packages/design-system/package.json` + root `package.json` — script changes + verify wiring.
-- `.github/workflows/ci.yml` — how the attested test path reaches CI (see "Wiring" below).
-- `scripts/verify-attest.ts` — `ATTESTED_COMMAND = "npm run test:all"`; the gate must be reachable from the attested command OR added to verify explicitly.
-- `.claude/rules/visual-parity.md` + 5 skill files.
+- `plans/AJ1/visual-regression-options.md` — the LOCKED-choice dossier (Option A, §3 + §5). Read the coverage trade in §1/§5.
+- `packages/design-system/viewer/discovery.ts` — `discoverStories(...globSources)` + `StoryModule { title, tier, uses, variants: [{name, render}] }`. The snapshot net reuses this exact shape (pass it the test-side glob).
+- `packages/design-system/viewer/main.tsx:26-36` — how the viewer globs stories (the net mirrors the DS globs only).
+- `packages/design-system/src/__tests__/W2-primitives.test.tsx` — the existing `createRoot` + `act()` render-in-jsdom pattern the net follows.
+- `packages/design-system/src/__tests__/visual-regression.test.ts` — the screenshot net to **DELETE**.
+- `packages/design-system/playwright.config.ts`, `playwright.workbench.config.ts` — to **DELETE**.
+- `packages/design-system/tests/workbench.spec.ts` — Playwright catalog smoke; **DELETE** (replaced by a vitest catalog test — see Task 6).
+- `packages/design-system/src/__tests__/__screenshots__/` — **342 golden PNGs to DELETE**.
+- `packages/design-system/vitest.config.ts` — note the `**/visual-regression*` and `tests/**` excludes (must be removed/updated once those files are gone).
+- `package.json` (root) — `verify` chain (`ds:sync`, `ds:workbench`), `ds:*` scripts.
+- `packages/design-system/package.json` — `test:visual`, `test:visual:update`, `sync-check`, `test:workbench` scripts + `@playwright/test` devDep.
+- `packages/web/package.json` — `visual:compare` script (dead; AC1 string-scan target — see below).
+- `.github/workflows/ci.yml:64-76` — the `Install Playwright (chromium)` + `Visual regression` + `Workbench smoke` CI steps to **DELETE**.
+- `knip.json:27-50` — design-system `playwright` config entries to update.
+- `scripts/design-source-guard.ts` — AC1 guard (KEEP; one pattern addition — see Task 9).
+- `.claude/rules/visual-regression.md`, `.claude/rules/design-system.md`, `.claude/rules/aesthetic-quality.md`, `.claude/skills/{design,design-critique,review,product-deep-review,visual-polish}/SKILL.md` — TSX+snapshot rewording targets.
 
 ---
 
 ## Plan reconciliation (spec ⇆ reality)
 
-Every spec assumption verified against the tree. Disagreements:
+Verified against the worktree (`feat/AJ1-tsx-redo`). This branch is **post HTML→TSX migration** (html/ already deleted, viewer already TSX-only, design-source-guard already exists) **with the screenshot machinery restored**. Disagreements vs. the task brief / prior plan:
 
-| Spec assumption | Reality | Plan handles by |
+| Assumption | Reality | Plan handles by |
 |---|---|---|
-| "~49 HTML reference files in `html/`" | **65 files** under `html/`: 46 `*.html` component refs + `_catalog.html` + `_tokens.css` + 4 L11 `mockup.html` + 14 `screens/*.html` + `themes/` (2 css + `_switcher.js`). | Delete the entire `packages/design-system/html/` tree (65 files). Count is higher than spec's "~49" — spec said "plus L11 subdirs"; screens/ + themes/ are also part of the layer. |
-| "Visual regression diffs TSX vs HTML at ≤5%" via `playwright.config.ts` | TRUE — `src/__tests__/visual-regression.test.ts` screenshots `/{Component}.html` vs `/#{Component}` TSX-mode, pixelmatch <5%. 25 components. | Replace with TSX-story-vs-golden-PNG gate (same 25 components). |
-| "`visual-compare.ts` / `visual-compare-map.ts` diff TSX renders against HTML references" | **FALSE.** Those scripts diff the **live web app (`:5173`) against `plans/design-synthesis/` React prototypes** — a different, app-level comparison. **`plans/design-synthesis/` does not exist** → these scripts are already dead/broken. They still name HTML-as-reference language. | Delete both scripts + the `visual:compare` web script + remove from 4 skills. Not part of the component-parity gate, but in-scope for AC1/AC5 (skills name `visual:compare`). |
-| AC4: "`npm run verify` … no skipped/weakened visual checks" implies verify runs a visual check today | **FALSE — load-bearing.** `npm run verify` runs check/lint/knip/guards/build + attestation. **No Playwright, no `ds:sync`, no visual gate.** CI re-runs fast checks + validates attestation; `verify-attest` runs `npm run test:all` (vitest only — Playwright configs are NOT vitest). **The visual gate is currently orphaned** (`ds:sync` is manual-only). | **The inversion must WIRE the new TSX-baseline gate into `verify` (and therefore CI).** This is the central correctness gap: deleting the old gate and not wiring the new one would *satisfy* AC4 trivially but *violate* AC2 + the "replaced, never deleted" constraint. See "Wiring decision" below. |
-| `playwright.l1.config.ts` runs `tests/visual/L1/thread-components.spec.ts` | TRUE — asserts `html/<C>.html` exists via `existsSync` + clicks "TSX" toggle. Both assumptions die in the inversion. | Rewrite spec (drop existsSync + TSX-toggle click) and fold into the single visual config, or delete L1 config and merge components into the main gate's component list. |
-| `playwright.workbench.config.ts` asserts HTML/TSX toggle + density toggle | TRUE — `workbench.spec.ts` asserts toggle is hidden for shells; density toggle behavior. | Rewrite: toggle assertions removed (toggle no longer exists); keep catalog/tier/render smoke. Density toggle is **out of scope** (MEMORY: density removal is a separate effort) — leave density assertions as-is unless they break. |
-| Viewer "feature-detects HTML availability" | TRUE — `htmlGlobs = import.meta.glob("../html/*.html")`, `HTML_AVAILABLE_TITLES`, `isHtmlAvailable`, `RenderMode`, `HtmlComponentView`, `Toolbar` HTML/TSX pill, `mode` state, force-TSX effect. | Remove all of it (see "Viewer simplification"). |
-| `serve.ts` / `serve:static` serves html | TRUE — `scripts/serve.ts` is a static server for `html/`; `serve:static` script points at it. | Delete `serve.ts` + `serve:static` script. (`serve` = `vite` stays — that's the TSX viewer.) |
-| `k13-capture.ts` references html | Captures workbench + web-app screenshots into `research/`; one-off K13 artifact tool, hardcoded absolute path to a dead worktree. | Delete (dead one-off; also names HTML workbench). Confirm not referenced by any live script (it is not). |
+| "the old screenshot machinery must be ripped out" | TRUE. `visual-regression.test.ts` (screenshot version, ~25KB), `playwright.config.ts`, `playwright.workbench.config.ts`, `tests/workbench.spec.ts`, **342** PNGs under `__screenshots__/`, `ds:sync`/`ds:bless`/`ds:workbench` scripts + their `verify` wiring, and CI steps 64–76 are all present. | Full removal inventory below. |
+| "golden PNGs under `__screenshots__/`" + brief mention of a `.test.ts-snapshots/` dir | `__screenshots__/` holds **342 `.png`** (single flat dir). `visual-regression.test.ts-snapshots/` does **NOT** exist (prior plan named it but the restored tree uses `__screenshots__/` via `snapshotPathTemplate`). | Delete `__screenshots__/` entirely (342 PNGs). New `.snap` files live in `src/__tests__/__snapshots__/` (vitest default). |
+| "Playwright configs (3)" incl. `playwright.l1.config.ts` | Only **2** DS Playwright configs exist (`playwright.config.ts`, `playwright.workbench.config.ts`). `playwright.l1.config.ts` and `tests/visual/L1/*` are **already gone** (L1 merged earlier). | Delete the 2 that exist; no L1 config to remove. |
+| HTML→TSX migration still pending | **Already done & KEPT.** `html/` deleted, viewer TSX-only (no `RenderMode`/`HtmlComponentView`/toggle), `design-source-guard.ts` exists and is wired into `verify`. | KEEP all of it (see "What is KEPT"). No viewer changes needed. |
+| `@playwright/test` removable from the repo | **NO.** `packages/web` still uses Playwright for e2e (`playwright.config.ts`, `playwright.ah1/ah5.config.ts`, `e2e/*.spec.ts`). | Remove `@playwright/test` from **`packages/design-system`** devDeps only; it stays in `packages/web`. |
+| `web/visual:compare` script | Present (`packages/web/package.json:13` → `npx tsx scripts/visual-compare.ts`); the referenced `scripts/visual-compare.ts` is already deleted (dead script entry). | Remove the dead `visual:compare` script entry; it is also an AC1/AC5 string-scan target. `serve.ts`/`k13-capture.ts`/`visual-compare-map.ts` are already gone. |
+| `verify` runs a visual gate today | TRUE on this branch: `verify` chain includes `npm run ds:sync && npm run ds:workbench`. | Remove both from the chain; the new net runs via `npm run test` (already in `test:all`, which `verify-attest` attests). |
+| Skill "screenshot" references are all the screenshot net | **FALSE — load-bearing.** Most `npx playwright screenshot` references in `/review`, `/product-deep-review`, `/design`, `/design-critique`, `/visual-polish` are **manual "look at pixels" review acts** (drive the running app at `:5173` or eyeball one story) — legitimate, NOT the regression net. **Only** the *golden-baseline regression* references (`ds:sync` as a pixel gate, `ds:bless`, "golden PNG baselines", the visual-regression rule) describe the deleted net. | Edit only the regression-net language; leave manual screenshot-review acts intact (they remain valid for catching the snapshot net's pure-paint blind spot). |
+| `vitest.config.ts` excludes `**/visual-regression*` + `tests/**` | TRUE — these excludes existed to keep the Playwright files out of vitest. | Remove the `**/visual-regression*` exclude (file deleted; new snapshot file must be INCLUDED) and the `tests/**` exclude (workbench.spec deleted). |
 
-**Grep false-positives ruled out:** `src/Progress.tsx`, `Button.tsx`, `kinds/html-renderer.tsx` etc. match `\.html` only via `dangerouslySetInnerHTML` / `html-renderer` substrings — production code, not references, **untouched**. `U8-hearth-restyle.test.tsx:247` is a code comment ("BetCard.html mockup uses…") — update the comment text only (AC5-adjacent, low priority), no logic change.
+**No `docs/` canonical-shape contradiction.** AJ1 touches tooling/skills/design-system infra; no `/concept` gap (no new primitive — "snapshot baseline" is a generic testing term).
 
 ---
 
-## Central decision: the replacement regression mechanism
+## What is KEPT (do NOT touch)
 
-### Design-it-twice
+1. **HTML→TSX inversion** — `packages/design-system/html/` stays deleted; viewer is TSX-only (no `RenderMode`, `HtmlComponentView`, HTML/TSX toggle); `vite.config.ts` has no `publicDir: "../html"`. No viewer changes in this WP.
+2. **`design-source-guard.ts` (AC1)** — KEEP. The filesystem + string-scan guard that enforces "no HTML reference files / no HTML-as-design-reference language." Wired into `verify`. **One pattern addition** (Task 9) so it also fails if the deleted screenshot scripts/strings reappear; otherwise unchanged.
+3. **The `.stories.tsx` catalog contract** — `default { title, tier?, uses?, order? }` + named exports as variant components; auto-discovered via `import.meta.glob`; `discoverStories()` shape. The snapshot net is a **consumer** of this contract; it does not change it.
+4. **All 27 existing `*.test.tsx`/`*.test.ts` component tests** (W2-primitives, ds-attrs, AI6-tokens, etc.) — unchanged. The snapshot net is additive.
+5. **5 skills + `.claude/rules/*` are TSX-first** — KEEP the TSX-first framing; only swap *screenshot-regression* wording for *vitest-snapshot* wording (Task 11). `visual-parity.md` stays gone.
+6. **`packages/web` Playwright e2e** — untouched.
 
-**Option A — Playwright built-in `toHaveScreenshot()` golden baselines.**
-Replace the custom pixelmatch test with `await expect(page).toHaveScreenshot('<Component>-<variant>.png')`. Playwright stores baselines under `<spec>-snapshots/<name>-<project>-<platform>.png`, auto-diffs, and re-blesses with `--update-snapshots`. Threshold via `maxDiffPixelRatio` / `maxDiffPixels` in config.
-- *Trade-off:* Baselines are **platform-suffixed** (`-darwin`, `-linux`) — a Mac-captured baseline won't match a Linux CI render unless captured on Linux. Anti-aliasing/font-rendering differs across OS.
-- *Reject reason on its own:* Without pinning the capture environment, CI (Linux) fails against Mac-blessed baselines. BUT this is solvable and is the boring, well-understood path.
+---
 
-**Option B — keep the custom pixelmatch harness, swap the "expected" source from HTML page to a committed PNG.**
-Keep `visual-regression.test.ts`'s screenshot+pixelmatch code; instead of screenshotting `/{C}.html`, read a committed `baselines/<C>/<section>.png` from disk and diff the live TSX section against it. Bless = run a `--update` flag that overwrites the PNGs.
-- *Trade-off:* We own ~150 lines of pixelmatch/crop/report code forever; must hand-roll the bless workflow and platform handling.
-- *Reject reason:* Reinvents exactly what `toHaveScreenshot` ships, against ETHOS "Search Before Building" and "boring technology."
+## Removal inventory (exact, complete)
 
-**Decision: Option A — Playwright `toHaveScreenshot`**, with the cross-platform problem solved by **committing to CI/Linux as the single canonical baseline platform** (CI is the merge-blocking gate, so it is the source of truth) + a platform-agnostic `snapshotPathTemplate` + 5% ratio so local Mac `verify` tolerates the Linux baselines. The full bless workflow and rationale are in "Canonical capture platform" under the Wiring decision below — do NOT pin to the developer's machine; pin to Linux/CI.
+### DELETE — files (346 paths)
 
-⚠️ **Resolve the platform question concretely (builder must verify against current Playwright docs https://playwright.dev/docs/test-snapshots):**
-- Set `snapshotPathTemplate` to a **platform-agnostic** path (drop the `{platform}` token) so one baseline set serves all environments, AND set a tolerant `maxDiffPixelRatio: 0.05` (5%, matching the retired gate's non-negotiable threshold) + `threshold: 0.2` (per-pixel). 5% absorbs cross-platform AA jitter while still catching real visual change (a restyle moves far more than 5%).
-- This mirrors how the old gate already tolerated 5% — it is **not** a weakening (AC4): the retired HTML-diff gate used the *same* 5% ceiling (`DIFF_THRESHOLD_PERCENT = 5`).
-- Builder MUST verify the chosen `maxDiffPixelRatio` actually catches a deliberate restyle in the red phase (validation scenario 2: "names the component whose baseline drifted").
+| Path | What | Why |
+|---|---|---|
+| `packages/design-system/src/__tests__/visual-regression.test.ts` | the screenshot/`toHaveScreenshot` Playwright test (~25KB) | replaced by the vitest snapshot net |
+| `packages/design-system/src/__tests__/__screenshots__/` | **342 golden `*.png`** (whole dir) | no more pixel baselines (H1) |
+| `packages/design-system/playwright.config.ts` | DS visual-regression Playwright config | no Playwright in the DS net |
+| `packages/design-system/playwright.workbench.config.ts` | DS workbench Playwright config | workbench smoke moves to vitest |
+| `packages/design-system/tests/workbench.spec.ts` | Playwright catalog smoke | replaced by a vitest catalog test |
+| `packages/design-system/tests/` (the now-empty dir) | leftover dir | remove if empty after the spec is deleted |
 
-### Mechanism spec
+*(`playwright.l1.config.ts`, `tests/visual/L1/*`, `scripts/serve.ts`, `scripts/k13-capture.ts`, `packages/web/scripts/visual-compare*.ts` are already absent on this branch — confirmed by `ls`/grep. No action.)*
 
-| Concern | Decision |
+### DELETE — scripts (root `package.json`)
+
+| Script | Current value | Action |
+|---|---|---|
+| `ds:sync` | `npm run -w @hyperidle/design-system sync-check` | **DELETE** (was the Playwright pixel gate) |
+| `ds:bless` | `npm run -w @hyperidle/design-system test:visual:update` | **DELETE** (was `--update-snapshots` for PNGs) |
+| `ds:workbench` | `npm run -w @hyperidle/design-system test:workbench` | **DELETE** (Playwright workbench) |
+| `verify` | `… && npm run ds:sync && npm run ds:workbench && npm run build …` | **EDIT** — remove `&& npm run ds:sync && npm run ds:workbench` |
+
+`ds:serve` (= `npm run -w @hyperidle/design-system serve`) **STAYS** (the live TSX viewer — review/critique surface, not the net).
+
+### DELETE — scripts (`packages/design-system/package.json`)
+
+| Script | Action |
 |---|---|
-| **Tool** | Playwright `expect(locator).toHaveScreenshot(name)` against the live TSX story rendered in the viewer at `:8098`. **The viewer is booted by `webServer` via `npm run -w @hyperidle/design-system serve` — NOT `bun run serve` (see "webServer / bun fix" below; bun is never installed in CI).** |
-| **What is screenshotted** | Each `.demo-section` of each component's TSX story (same granularity the old gate used), clipped to component content area. One baseline PNG per `<Component>/<section>`. Reuse the existing `screenshotSections` clip logic to define the locator/region, but assert via `toHaveScreenshot` (or pass the captured buffer through Playwright's snapshot assertion). |
-| **Component set (runtime catalog-DOM enumeration — NOT `discoverStories()`)** | The set is **every catalogued component with a story** (AC2 "every catalogued component"): the current 25 in `COMPONENTS` + the 5 L1 components (`ThreadHostBanner`, `CommentRow`, `Composer`, `ThreadShell`, `RichMessageCard`). **Do NOT call `discoverStories()` from the Playwright test.** `discoverStories()` consumes `import.meta.glob` (Vite-only); the Playwright spec runs in Node via `@playwright/test`, outside Vite — the glob returns nothing there, which is exactly why the retired test hardcoded `COMPONENTS`. **Enumerate at runtime by reading the live viewer catalog DOM instead:** in a `beforeAll`, navigate to the catalog (`:8098/#`), then `page.locator("button.component-link .component-name")` → `allTextContents()` to collect every catalogued component name (verified: `viewer/main.tsx:210-217` renders one `button.component-link` per `StoryModule`, with the title in `.component-name`). Then for each name, navigate to `#<Component>` and screenshot each `.demo-section`. This keeps "every catalogued component" automatic (a new story adds a catalog link → the gate picks it up next run) with no hand-maintained array and no Vite import. **Marker note:** the catalog lists both Tier 1/2 components (emit `data-ds-component`) and Tier 3 shells (emit `data-ds-shell`) — the enumeration treats them identically (it reads catalog links, not markers), but the marker-presence assertion below must check **both** selectors (see Marker presence row). |
-| **Marker presence (dual selector)** | The TSX-only marker test asserts each opened component exposes its `dsProps()` marker. Tier 1/2 emit `data-ds-component="<name>"`; **Tier 3 shells (e.g. `ThreadShell`) emit `data-ds-shell="<name>"`, NOT `data-ds-component`** (verified `thread-components.spec.ts:46`). Assert presence of `[data-ds-component="<name>"], [data-ds-shell="<name>"]` (either matches) so shells are not false-failed. |
-| **Baseline location** | `packages/design-system/src/__tests__/visual-regression.test.ts-snapshots/` (Playwright default, committed to git). **Un-ignore** them: `.gitignore` currently ignores `sync-reports/`/`visual-reports/` (those stay ignored — they were diff *output*, not baselines). Add the snapshots dir to git (it is not currently ignored). |
-| **Threshold** | `maxDiffPixelRatio: 0.05`, `threshold: 0.2`. Documented as "same 5% ceiling as the retired HTML gate — not a weakening." |
-| **Bless / update workflow** | `npm run -w @hyperidle/design-system test:visual:update` → `playwright test --config playwright.config.ts --update-snapshots`. Document in `visual-parity.md`'s replacement (now `visual-regression.md`): "Intentional visual change → review the diff, then re-bless with `npm run ds:bless`; commit the updated PNGs in the same PR as the component change." Add root alias `ds:bless`. |
-| **Capture determinism** | Keep `FREEZE_CSS` (kills animation/caret), fixed `1024×900` viewport, `colorScheme: dark`, `fullyParallel:false`, `workers:1` — all already in `playwright.config.ts`. Wait for fonts ready before capture. |
-| **Interactive hover/focus states (RE-CAPTURED, not dropped)** | The retired gate ran ~22 interactive-state pixel diffs (hover + focus) for 11 `INTERACTIVE_COMPONENTS` (verified `visual-regression.test.ts:361-477`). **"Equivalent coverage" is a stated constraint — these are RE-CAPTURED, not dropped.** Port the same 11-component map (keep its `sectionIndex` + selector metadata, but use the **TSX viewer story selector**, dropping the `htmlSelector`/HTML-page half). For each, force the state on the live TSX element — `locator.hover({ force: true })` for hover, `locator.focus()` (or `evaluate(el => el.focus())`) for focus — then assert `toHaveScreenshot('<Component>-<state>.png')`. These hover/focus PNGs are committed baselines alongside the default-state ones. Components where no interactive target is found are skipped explicitly (same as the old gate's `count()===0` skip). |
+| `test:visual` (`playwright test --config playwright.config.ts`) | DELETE |
+| `test:visual:update` (`… --update-snapshots`) | DELETE |
+| `sync-check` (`playwright test --config playwright.config.ts`) | DELETE |
+| `test:workbench` (`playwright test --config playwright.workbench.config.ts`) | DELETE |
+| `serve` (`vite --config vite.config.ts`) | KEEP |
+| `test` (`vitest run`) | KEEP — now also runs the snapshot net |
 
-### webServer / bun fix (CRITICAL — bun is never in CI)
+### DELETE — scripts (`packages/web/package.json`)
 
-All three Playwright configs boot the viewer with `webServer.command: "bun run serve"` (`playwright.config.ts:15`, `playwright.l1.config.ts:18`, `playwright.workbench.config.ts:24`). **CI (`ci.yml`) runs `ubuntu-latest` with only `setup-node` + `npm ci` — there is no `bun` on the runner.** Left as-is, the webServer dies with `bun: command not found`, the gate never runs, and AC4 ("verify passes with NO skipped visual checks") is silently vacuous in CI — the exact failure this workpackage exists to prevent.
+| Script | Action |
+|---|---|
+| `visual:compare` (`npx tsx scripts/visual-compare.ts` — dead, file gone) | DELETE |
 
-**Fix (chosen): swap the launcher to npm, no new CI toolchain.** Change every `webServer.command` from `"bun run serve"` to `"npm run -w @hyperidle/design-system serve"`. Verified: the `serve` script is `vite --config vite.config.ts` (`packages/design-system/package.json:16`) — vite is the actual runtime; bun was only the launcher. After this swap the gate boots on plain Node + npm (already present in CI) with **zero bun dependency**. This is the cleaner inversion (removes bun as the last non-portable dependency of the gate); rejected the alternative of adding `oven-sh/setup-bun` to CI (adds a toolchain solely to launch vite). Builder applies this swap in all three configs as part of Task 1.
+### DELETE — dependency
 
----
+- `@playwright/test` from **`packages/design-system/package.json`** devDependencies (last DS consumer removed). Keep it in `packages/web`. *(No `pixelmatch`/`pngjs` present on this branch — the restored test uses Playwright's built-in `toHaveScreenshot`, not the old custom pixelmatch harness — so nothing to remove there.)*
 
-## Wiring decision (AC4 — load-bearing)
+### DELETE — CI steps (`.github/workflows/ci.yml:64-76`)
 
-The new gate is a Playwright suite; `verify-attest` only attests `npm run test:all` (vitest). **Three options:**
+- `Install Playwright (chromium)` (`npx playwright install --with-deps chromium`)
+- `Visual regression (TSX baselines)` (`npm run ds:sync`)
+- `Workbench smoke (…)` (`npm run ds:workbench`)
 
-- **(W1) Add the visual gate to `verify` as its own step** and to CI as its own job. Most explicit; CI gets a real Playwright run (needs `npx playwright install chromium` in CI).
-- **(W2) Fold into the attested test path** — make `test:all` depend on the visual gate. Couples slow Playwright into every `npm run test:all`; rejected (test:all must stay fast per CLAUDE.md test taxonomy).
-- **(W3) Add a dedicated `ds:sync` step to `npm run verify`** (between guards and build) + a CI step `npm run ds:sync` after build with `playwright install`.
+All three deleted. The snapshot net needs **no CI step** — it runs inside `npm run test:all`, which CI already trusts via the signed attestation (`scripts/verify-attest.ts` runs `test:all` and records the real exit code; `check-attestation.ts` validates). (CI gets no new live step; the existing fast-check live re-run + attestation path covers it.)
 
-**Decision: W3.** Add `npm run ds:sync` (re-pointed to the new TSX-baseline config) to the `verify` chain AND a separate CI step. Rationale: keeps Playwright out of `test:all` (preserves fast unit/component runs), makes the visual gate a first-class `verify` citizen, and CI runs it live (not attested — visual baselines are deterministic enough to re-run, unlike the DB-heavy suite). `ds:sync` already exists as the script name → re-point it from the HTML-diff config to the TSX-baseline config; semantics preserved, name reused.
+### EDIT — config
 
-**Two distinct gates — which runs where (no conflation):**
+- `packages/design-system/vitest.config.ts` — remove `"**/visual-regression*"` and `"tests/**"` from `exclude` (those files are gone; the new `*.snapshot.test.tsx` must be picked up by the default `**/*.test.tsx` include). Keep `pool: "forks"`, `setupFiles`, the `node_modules`/`dist`/`integration` excludes.
+- `knip.json` — remove the `packages/design-system` `playwright.config` entries (lines ~36-37: `"playwright": { "config": ["playwright.config.ts", "playwright.workbench.config.ts"] }`). Leave `packages/web`'s playwright config block. Leave the `src/**/*.stories.tsx` entry-pattern (stories stay).
 
-| Gate | Runs locally via | Runs in CI via | Notes |
-|---|---|---|---|
-| **Visual regression (AC2/AC4)** — `ds:sync` Playwright TSX-baseline suite | the `verify` chain (insert `npm run ds:sync` before `build`) | a **separate, explicit CI step** added to `ci.yml` | **CI does NOT run `npm run verify`** — verified: `ci.yml` lists steps individually (check, lint, knip, mock-inventory, build×2, validate-attestation) and the attested path is `npm run test:all` (vitest only). So the visual gate reaches CI **only** via the new explicit CI step, never via the verify chain. AC4 is satisfied on **two independent paths**: local `verify` (now includes `ds:sync`) AND the CI step. State this plainly in any DoD: "AC4-local = `verify` chain runs `ds:sync`; AC4-CI = the new `Visual regression` CI step." |
-| **AC1 design-source guard** — filesystem + string scan (`design-source-guard:check`) | the `verify` chain (alongside `nimmly-guard:check`, `demo-fixture-guard:check`, `token-guard:check`) | **local-only — NOT in CI** | Verified: the existing guards (`nimmly-guard`, `demo-fixture-guard`, `token-guard`) run in `verify` but are **not** wired into CI. The new `design-source-guard` follows that exact pattern — local-only, like its siblings. This is intentional and consistent; the plan does **not** claim CI enforces AC1's guard. (CI does re-run check/lint/knip live, but not the project-specific guards.) |
+### Grep-sweep (run at build time; nothing must dangle)
 
-CI: add to `ci.yml` after "Build (desktop)" (`run: npm run -w @hyperidle/desktop build`, line 61): step `Install Playwright (chromium)` → `npx playwright install --with-deps chromium`, then step `Visual regression (TSX baselines)` → `npm run ds:sync`. ⚠️ Builder verify on the feature branch before merge (MEMORY: test CI before merge) — confirm Linux baselines match (the platform risk; see "Canonical capture platform" below).
-
-### Canonical capture platform — CI/Linux is the blessing authority
-
-Mac-blessed PNGs vs Linux-CI render may exceed 5% AA/font jitter, and a Mac-only baseline would leave CI permanently red (or force someone to weaken the 5% ratio). **Commit to ONE canonical capture platform: CI/Linux is the blessing authority**, because CI is the gate that blocks merge. Baselines are Linux-rendered; local `verify` on a Mac tolerates the 5% ratio against the Linux baselines (and vice-versa). Concrete bless workflow:
-
-1. **Author the visual change** on any platform; run the gate locally to eyeball the diff.
-2. **Regenerate canonical (Linux) baselines via CI**, NOT by committing Mac PNGs. The bless command is `npm run ds:bless` (→ `playwright test --config playwright.config.ts --update-snapshots`). To produce **Linux** baselines a contributor runs it inside the same Linux environment CI uses — either (a) trigger the gate on the feature branch, download the CI run's updated-snapshot artifact (the `Visual regression` step uploads `*-snapshots/` as an artifact when invoked with `--update-snapshots`), and commit those PNGs; or (b) run `npm run ds:bless` in a Linux container matching CI (`mcr.microsoft.com/playwright:v<version>` per the `@playwright/test` version, currently `^1.59.1`). Option (a) is preferred (no local Docker needed).
-3. **Commit the Linux PNGs in the same PR** as the component change. Never commit Mac-rendered PNGs as canonical, and never raise the 5% ratio to absorb a platform delta.
-
-This removes the Task-12 surprise: the builder blesses on/for Linux from the start, so CI is green by construction and no one is forced to weaken the threshold. (Builder may add a `--update-snapshots` mode to the CI step gated behind a manual `workflow_dispatch` input to make option (a) one click; if that is more than the WP needs, option (b)'s container command is the fallback and must be documented in `visual-regression.md`.)
+Builder runs, expecting **zero** hits after the work:
+```
+grep -rn 'ds:sync\|ds:bless\|ds:workbench\|toHaveScreenshot\|__screenshots__\|test:visual\|sync-check\|test:workbench\|visual:compare' \
+  package.json packages/*/package.json .github/workflows knip.json .claude/rules .claude/skills packages/design-system
+```
+*(Exception: the AC1 guard's FORBIDDEN_PATTERNS legitimately contain `visual:compare` as a string to ban — that hit is allowed in `scripts/design-source-guard.ts` only.)*
 
 ---
 
-## Viewer simplification (`viewer/main.tsx`)
+## The new snapshot net (design)
 
-Remove (HTML-mode code paths):
-- `htmlGlobs`, `HTML_AVAILABLE_TITLES`, `isHtmlAvailable` (lines ~96-119).
-- `type RenderMode`, `HtmlComponentView` component (lines ~254-310).
-- `Toolbar` props `mode`, `onModeChange`, `showModeToggle` + the HTML/TSX `toolbar-pill` block (lines ~335-352).
-- In `App`: `mode`/`setMode` state, `htmlAvailable`, `showModeToggle`, `effectiveMode`, the force-TSX `useEffect` (lines ~404-420). The `isComponentPage` branch always renders `<TsxComponentView>`.
-- The K12 `@lore` block describing HTML feature-detect (lines ~96-106) — replace with one line noting HTML mode was removed in AJ1.
+### File
 
-Keep unchanged: `discoverStories`, `useHashRoute`, `useTheme`, `Catalog`, `CatalogTier`, `TsxComponentView`, `pascalToTitle`, theme/density toolbar pills. **Density toggle stays** (out of AJ1 scope; MEMORY density-removal is a separate effort — do not touch).
+`packages/design-system/src/__tests__/catalog-snapshot.test.tsx` — a single `*.test.tsx` in design-system, picked up by `npm run test` (vitest, jsdom, `pool: forks`).
 
-`vite.config.ts`: remove `publicDir: "../html"` (nothing left to serve statically).
+> Naming: `catalog-snapshot.test.tsx` (not `visual-regression.test.tsx`) — the new file is a vitest DOM-snapshot test, not a visual-regression screenshot test; a fresh name avoids confusing it with the deleted Playwright file in git history and grep.
 
-`discovery.ts`: `StoryMeta.order` jsdoc says "matching the HTML demo section order" — reword to "explicit variant display order." No logic change.
+### Enumeration (auto-covers the whole DS catalog — no hand-listing)
+
+```ts
+import { discoverStories, type StoryModule } from "../../viewer/discovery.js";
+
+const dsRootGlobs = import.meta.glob<Record<string, unknown>>("../*.stories.tsx", { eager: true });
+const dsKindsGlobs = import.meta.glob<Record<string, unknown>>("../kinds/*.stories.tsx", { eager: true });
+const modules: StoryModule[] = discoverStories(dsRootGlobs as never, dsKindsGlobs as never);
+// 56 modules → one describe per module title, one test per variant.
+```
+- Reuses `discoverStories()` (the viewer's own enumerator) so the net and the viewer agree by construction. A new `.stories.tsx` in `src/` or `src/kinds/` is picked up next run with **zero edits** (AC2 "every catalogued component… without hand-listing").
+- ⚠️ UNVERIFIED (builder confirm in red phase): `discoverStories` is imported from `viewer/discovery.ts` into a `src/__tests__/` test — verify the relative path + `.js` ESM specifier resolve under the DS vitest project (the spike imported globs directly; importing `discoverStories` is the same package, expected fine).
+
+### Render path (mirrors W2-primitives.test.tsx)
+
+For each `module.variants[i] = { name, render }`:
+1. `createRoot` on a fresh detached `<div>`, `act(() => root.render(createElement(render)))`.
+2. Serialize the container's child subtree to normalized text.
+3. `expect(serialized).toMatchSnapshot()` — snapshot key = `"<title> > <variantName>"` (vitest derives the key from the `describe`/`test` names, so a failing diff **names the component + variant** → AC2 "naming the component").
+4. `root.unmount()` + remove the node (afterEach, like the existing tests).
+
+`@vitest-environment jsdom`; set `IS_REACT_ACT_ENVIRONMENT = true` (same as W2). `pool: forks` already isolates files (prevents cross-file React id-counter leakage).
+
+### Serializer (the determinism layer)
+
+A custom serializer `serializeStoryDom(root: Element): string` (a small helper in the test file, or a sibling `catalog-snapshot.serializer.ts`):
+
+1. **Source markup** via `prettyDOM(node, Infinity, { highlight: false })` from `@testing-library/react` (already a DS dep) OR a hand-walk emitting `tag + sorted-attrs + children` — prefer the hand-walk for full control over normalization (prettyDOM truncates and colorizes; we want raw, stable text). Recommended: a minimal recursive walk that emits, per element:
+   - tag name,
+   - **`class`** attribute verbatim (carries the Tailwind/token text — the load-bearing signal; do NOT sort class tokens unless churn proves it necessary — class order is stable from the component source, and sorting hides real reorderings),
+   - **inline `style`** (token vars written as inline style, if any),
+   - **`data-ds-*`** markers (`data-ds-component`, `data-ds-shell`, `data-tier`, `data-uses`, `data-daisyui`),
+   - **role / aria-* / type / `for` / `id`** (structural + a11y signal),
+   - text content (trimmed; whitespace-collapsed) for leaf text nodes.
+   - **Drop** noise attributes that don't carry design intent and can flake: none expected, but `tabindex` from focus libs is fine to keep (stable).
+2. **Normalize nondeterminism** (regex on the serialized string, post-walk):
+   - React `useId`: `/_r_[0-9a-z]+_/g` → `__id__`; legacy `/:r[0-9a-z]+:/g` → `__id__` (spike-confirmed format `_r_N_`). Applied uniformly so `id`↔`aria-labelledby`/`htmlFor` references stay matched.
+   - Any `${id}-hint` / `${id}-error` derived ids collapse to `__id__-hint` / `__id__-error` automatically (the `_r_N_` prefix is what's replaced).
+   - (No dates/timestamps render in DS stories; if a future story injects `Date.now()`, add a `/\d{13}/`→`__ts__` rule then. Not needed now.)
+3. **Token inlining (OPTIONAL — default OFF).** Tokens are already captured as literal text inside `className` (`bg-[var(--accent-primary)]`), so a class change *is* the token-change signal — no resolution needed. Resolving `var(--accent-primary)` → its computed value is a **trap in jsdom** (`getComputedStyle` does not apply the Tailwind/`<style>` cascade — dossier §2.5, jsdom #3318/#2485/#2986) and would produce empty/false values. **Decision: do NOT inline resolved token values.** The class text is the deterministic, cross-platform token signal. (If a future need arises to snapshot *resolved* values, that requires a browser → H1 violation → out of scope. Documented as a deliberate non-goal.)
+
+### Where `.snap` files live
+
+`packages/design-system/src/__tests__/__snapshots__/catalog-snapshot.test.tsx.snap` (vitest default colocated `__snapshots__/`), **committed to git** (text, ~one block per variant). Cross-platform stable (no AA, no fonts, no layout — pure serialized DOM text), so the same `.snap` passes on macOS and Linux/CI identically — **no canonical-platform problem** (the entire reason the screenshot net died).
+
+### How an intended change is accepted
+
+1. Author the component/story change.
+2. `npm run test` fails, naming `"<Component> > <Variant>"` with a **plain-text diff** (old class/markup vs new).
+3. Review the text diff (it is reviewable, unlike a binary PNG).
+4. Re-bless: `npx vitest run -u` (or `npm run test -- -u`) — updates the `.snap` text.
+5. Commit the updated `.snap` in the **same PR** as the component change; reviewer reads the `.snap` diff.
+
+No new bless script is strictly required (`vitest -u` is the idiom), but add a convenience root script `ds:bless` → `vitest run -u` **only the snapshot file** so muscle memory survives the screenshot→snapshot transition:
+`"ds:bless": "vitest run -u packages/design-system/src/__tests__/catalog-snapshot.test.tsx"`. *(Optional — if knip flags it as unused, drop it; `vitest -u` is the documented path.)*
 
 ---
 
-## File inventory
+## Design-it-twice — two sub-decisions
 
-### DELETE (67 files + dirs)
-- `packages/design-system/html/` — entire tree: **65 files** (46 `*.html` + `_catalog.html` + `_tokens.css` + 4 `L11-*/mockup.html` + 14 `screens/*.html` + `themes/{hearth-dark.css,hearth-light.css,_switcher.js}`).
-- `packages/design-system/scripts/serve.ts` (static HTML server).
-- `packages/design-system/scripts/k13-capture.ts` (dead one-off; HTML workbench capture).
-- `packages/web/scripts/visual-compare.ts` (dead — targets nonexistent `plans/design-synthesis/`; names HTML reference).
-- `packages/web/scripts/visual-compare-map.ts` (dead — same).
-- `.claude/rules/visual-parity.md` (HTML-as-truth rule) — *or* rewrite (see below; plan = **rewrite to `visual-regression.md`**, delete `visual-parity.md`).
-- `packages/design-system/playwright.l1.config.ts` (fold L1 components into main gate) — **conditional**: keep if builder prefers separate L1 run; default = delete + merge.
+**(a) Serializer: `prettyDOM` output vs. custom DOM walk.**
+- *prettyDOM:* one-liner, well-known. Trade-off: colorizes (must pass `highlight:false`), truncates large trees by default (`Infinity` fixes), and emits a format we don't fully control (future RTL upgrade could shift formatting → mass re-bless). Reject as the *primary*: too much hidden coupling to RTL's printer.
+- *Custom walk:* ~40 lines, full control over which attributes/normalizations are in scope; stable across RTL upgrades; emits exactly the "design intent" subset (class + style + markers + a11y). Trade-off: we own ~40 lines. **PICK custom walk** — boring, explicit, churn-proof; the normalization (id regex) lives in one place. (prettyDOM stays available as a debugging aid.)
 
-### MODIFY
-- `packages/design-system/src/__tests__/visual-regression.test.ts` — **rewrite**: drop HTML page screenshot + HTML-mode toggle clicks; screenshot live TSX story; assert via `toHaveScreenshot` vs committed baseline. **Marker-presence test: dual selector `[data-ds-component="<name>"], [data-ds-shell="<name>"]`** (Tier 3 shells emit `data-ds-shell`, not `data-ds-component` — `ThreadShell` would false-fail on a single-selector check), TSX viewer only (remove HTML half). **Component list: enumerate at runtime from the catalog DOM** (`beforeAll`: navigate `:8098/#`, `page.locator("button.component-link .component-name").allTextContents()`) — **do NOT call `discoverStories()`** (Vite-only `import.meta.glob`, returns nothing in the Node/Playwright runtime). **Re-capture interactive hover/focus states** (port the 11-component `INTERACTIVE_COMPONENTS` map, TSX-side selectors only, `hover({force:true})`/`focus()`, assert `toHaveScreenshot('<C>-<state>.png')`). Update the file-header `@lore`.
-- `packages/design-system/playwright.config.ts` — add `expect.toHaveScreenshot` config (`maxDiffPixelRatio: 0.05`, `threshold: 0.2`), `snapshotPathTemplate` (platform-agnostic, no `{platform}` token). **Change `webServer.command` from `"bun run serve"` → `"npm run -w @hyperidle/design-system serve"` (bun is never in CI).** Keep viewport/workers.
-- `packages/design-system/playwright.workbench.config.ts` + `packages/design-system/playwright.l1.config.ts` (if kept) — **same `webServer.command` swap `bun run serve` → `npm run -w @hyperidle/design-system serve`.** (All three configs currently use bun; all must swap so any config bootable in CI uses Node.)
-- `packages/design-system/playwright.workbench.config.ts` + `tests/workbench.spec.ts` — remove the "IconRail loads in TSX mode with HTML/TSX toggle hidden" assertions about the toggle (toggle is gone — rewrite to assert component renders in demo grid, no toggle present at all). Keep catalog/tier smoke + density (untouched).
-- `packages/design-system/tests/visual/L1/thread-components.spec.ts` — remove `existsSync(html/<C>.html)` tests and the `getByRole("button",{name:"TSX"}).click()`; assert the TSX render + markers directly. (Or delete and merge into main gate.)
-- `packages/design-system/viewer/main.tsx` — viewer simplification (above).
-- `packages/design-system/viewer/discovery.ts` — jsdoc wording only.
-- `packages/design-system/vite.config.ts` — remove `publicDir`.
-- `packages/design-system/package.json` — `scripts`: remove `serve:static`; re-point `sync-check`/`test:visual` to the TSX-baseline config (same config file, new test body); add `test:visual:update` (`playwright test --config playwright.config.ts --update-snapshots`).
-- `package.json` (root) — `ds:sync` re-pointed (already → `-w design-system sync-check`, stays); add to `verify` chain (insert `npm run ds:sync` before `npm run build`); add `ds:bless` → `-w @hyperidle/design-system test:visual:update`. Remove `visual:compare` is in **web** package — remove `packages/web/package.json` `visual:compare` script.
-- `packages/web/package.json` — remove `visual:compare` script.
-- `.github/workflows/ci.yml` — add `Install Playwright (chromium)` + `Visual regression (TSX baselines)` steps after Build.
-- `.claude/skills/design/SKILL.md` — lines 53,63,154,155,222,226,230,239: `mockup.html`/`html/` reference language. **Scope caution:** AJ3 rewrites `/design` to author TSX variants. AJ1's edit is *minimal*: only remove "HTML-as-design-reference" claims and the `packages/design-system/html/` pattern-match path (line 53,63). Do NOT rewrite the mockup-authoring workflow (that's AJ3). Reword line 53/63 pattern-match to reference live stories/catalog instead of `html/`.
-- `.claude/skills/design-critique/SKILL.md` — line 179: `html/themes/` → `src/tokens.css` theme variants. (mockup.html screenshot lines 38,161-163 = AJ3 scope; leave.)
-- `.claude/skills/review/SKILL.md` — line 73,175: `npm run visual:compare <reference>` → the new TSX-baseline gate (`npm run ds:sync` / open the story in the viewer). Remove the dead `visual:compare` instruction.
-- `.claude/skills/product-deep-review/SKILL.md` — line 60: `npm run visual:compare <reference>` → TSX-baseline / story-open instruction.
-- `.claude/skills/visual-polish/SKILL.md` — lines 24-31,77,81-83: `visual:compare` + `visual-compare-map.ts` + `plans/design-synthesis/` reference machinery. Re-point to the TSX viewer story + the new gate; remove dead `visual-compare-map.ts` mapping reference.
-- `.claude/rules/design-system.md` — "Dual representation: each component has a `.tsx` and `.html`"; "`html/themes/`"; "`npm run ds:sync` compares HTML vs TSX"; "served on `:8098` via `ds:serve`". Rewrite to TSX-only reality (single `.tsx` source; `ds:sync` = TSX-vs-golden-baseline; viewer serves TSX stories). **This rule file also names HTML-as-truth (AC1/AC5-adjacent) — must be edited even though spec lists only 5 skills + visual-parity.** Flag for reviewer.
-- `CLAUDE.md` / `.worktrees/AJ1/CLAUDE.md` design-system section: check for `:8098` HTML-mode language (grep found none beyond rules). No change unless grep at build time finds HTML-as-reference text.
-- `packages/design-system/src/__tests__/U8-hearth-restyle.test.tsx:247` — comment text only ("BetCard.html mockup" → "BetCard story/baseline"). Cosmetic.
+**(b) Enumeration: reuse `discoverStories()` vs. raw `import.meta.glob` keys.**
+- *Raw glob keys:* iterate `Object.entries(glob)`, treat every non-`default` export as a variant. Trade-off: re-implements the CSF-object handling (`{name, render}` vs bare function), tier/title resolution → drift from the viewer.
+- *Reuse `discoverStories()`:* the viewer's own normalizer → net and viewer enumerate **identically** by construction; CSF handling, title, variant ordering all shared. Trade-off: a test imports from `viewer/` (a non-`src` dir) — acceptable (same package, `discovery.ts` was deliberately extracted to be importable from vitest per its `@lore K12`). **PICK `discoverStories()`.**
 
-### CREATE
-- `.claude/rules/visual-regression.md` — replaces `visual-parity.md`. Content: "TSX is the single design source of truth. The visual-regression gate (`npm run ds:sync`) screenshots each live TSX story and diffs against committed golden PNG baselines under `…test.ts-snapshots/` at ≤5%. Intentional change → review diff, re-bless with `npm run ds:bless`, commit baselines in the same PR. Never raise the 5% ratio to make a diff pass — fix the component or bless deliberately."
-- `packages/design-system/src/__tests__/visual-regression.test.ts-snapshots/` — committed golden PNGs (generated by first `--update-snapshots` run). One per component/section.
+---
+
+## Honest coverage statement (load-bearing — for the reviewer and DoD)
+
+**What the snapshot net CATCHES (deterministically, cheaply, naming the component+variant):**
+- DOM elements added / removed / reordered in any catalogued DS component's rendered output.
+- `className` composition changes — which, in this codebase, **is** the design-token / spacing / radius / variant signal (tokens are written literally into class, e.g. `bg-[var(--accent-primary)] py-[7px] rounded-[var(--r-default)]`). Any intended Tailwind/token edit moves text here.
+- inline `style` changes (token vars set inline).
+- `data-ds-*` marker regressions (component/shell/tier/uses/daisyui).
+- role / aria / `for` / structural-id-wiring regressions (ids normalized but presence + cross-reference preserved).
+
+**What the snapshot net does NOT catch (the honest blind spot):**
+- **Pure-paint regressions with UNCHANGED DOM/class/style text** — e.g. a Tailwind-config or `tokens.css` change that re-resolves what `--accent-primary` *paints* (the class string is identical, only the resolved color moves), a browser font-rendering shift, CSS cascade/specificity bugs between stylesheets, real layout geometry. jsdom does not lay out or apply the cascade, and a class-text snapshot is blind to a value re-mapping behind an unchanged class. **A screenshot would catch these; the snapshot net will not. This is the accepted trade for "no Docker, runs in vitest."**
+
+**Which existing nets cover the gap:**
+- **`tokens.css` value re-mapping** → `AI6-tokens.test.tsx` + `npm run token-guard:check` (`scripts/token-resolution-guard.ts`, in `verify`) — guards that token *definitions/resolutions* don't silently change. This closes the single biggest residual (token re-mapping behind an unchanged class).
+- **Off-grid/off-scale/cool-gray/AI-aesthetic restyles** → `eslint-plugin-design` (AQ-001…AQ-110) via `npm run lint` — catches a large class of "bad restyle" statically, before render.
+- **Removed/renamed variant or prop** → TypeScript strict (`npm run check`).
+- **Font / cascade / layout / final painted pixels** → the **live TSX viewer at `:8098`** (`npm run ds:serve`) + the human **`/design` design-critique** gate + manual `npx playwright screenshot` review acts in `/review` and `/product-deep-review` (which drive the *running app* and read PNGs — deliberately KEPT). These are the human backstop for the snapshot net's pure-paint blind spot.
+
+Net: the snapshot net is the automated floor for *structural/class/marker* regression; the viewer + critique + lint + token-guard + types collectively cover what jsdom-text cannot. No single net claims to catch painted pixels — that capability was vetoed (H1).
 
 ---
 
@@ -178,28 +262,35 @@ Keep unchanged: `discoverStories`, `useHashRoute`, `useTheme`, `Catalog`, `Catal
 
 | AC | Verification method |
 |---|---|
-| **AC1** One TSX source of truth; no `.html` refs; no rule/skill/script names HTML-as-reference | **Lint/build check (static property):** add a guard (extend an existing guard script pattern, e.g. a `design-source-guard.ts` mirroring `nimmly-guard.ts`) that fails if any `*.html` exists under `packages/design-system/` OR if `packages/design-system/html/` dir exists OR if `visual:compare`/`pixel-for-pixel`/HTML-as-truth strings remain in `.claude/skills|rules`. Wire into `verify`. (Not a vitest test — it's a filesystem property → guard script per CLAUDE.md.) |
-| **AC2** Visual regression catches rendered-appearance change against a committed baseline, names the component | **Playwright gate** (`ds:sync`). Red-phase proof: builder deliberately restyles one component, runs gate, asserts it FAILS naming that component (validation scenario 2). Baseline mismatch → Playwright reports the failing snapshot name. |
-| **AC3** Viewer renders only TSX; no HTML mode/toggle/iframe; every component reachable + renders | **Playwright workbench spec** (`workbench.spec.ts`, rewritten): assert no `.toolbar-btn` with text `^HTML$` exists anywhere; assert each catalogued component (**enumerated from the catalog DOM at runtime, not `discoverStories()`**) opens and shows `.demo-section`. |
-| **AC4** `npm run verify` passes on inverted tree, no skipped/weakened visual checks | **Two independent paths (no conflation — see Wiring table):** (1) **local** — `npm run verify` (now includes `ds:sync`) green; builder runs full `verify` foreground on the branch (MEMORY). (2) **CI** — CI does NOT run `verify`; the gate runs via the new explicit `Visual regression (TSX baselines)` CI step (after Build), which boots the viewer via `npm run -w @hyperidle/design-system serve` (no bun) and runs `ds:sync` against canonical Linux baselines. The 5% ratio = the retired gate's ceiling → not weakened; not raised to absorb platform jitter (Linux is canonical). |
-| **AC5** 5 skills + visual-parity.md describe TSX-first reality | **Guard (static):** the AC1 guard's string-scan covers the skills + rules. Plus manual read in `/review`. `visual-parity.md` deleted, `visual-regression.md` created. |
+| **AC1** One TSX source of truth; no `.html` reference files under `packages/design-system/`; no rule/skill/script names HTML-as-reference | **Guard (static property):** `npm run design-source-guard:check` (already wired into `verify`) — `checkNoHtmlFiles` (no `html/` dir, no stray `.html` except viewer/index.html + playwright-report) + `checkNoHtmlAsReference` (string-scan of `.claude/skills|rules`). KEPT; unchanged except the Task-9 pattern addition. |
+| **AC2** Visual regression protects catalogued DS components via the snapshot net; a rendered-appearance change is caught, naming the component | **Vitest snapshot net** (`catalog-snapshot.test.tsx`, runs in `npm run test`). Red-phase proof: builder deliberately edits one component's class (e.g. `Button` `bg-[var(--accent-primary)]` → a different token), runs `npm run test`, asserts the snapshot test FAILS with a text diff whose key names `Button > AllVariants`; revert. Auto-enumeration proof: a separate assertion `expect(modules.length).toBeGreaterThanOrEqual(56)` (and `> 0`) guards that enumeration didn't silently empty out (a glob that returns `{}` would otherwise make the net vacuously green — the exact failure mode that disqualified Playwright's glob). |
+| **AC3** Viewer renders only TSX; no HTML mode/toggle; every component reachable + renders | **KEPT from prior merge** (viewer already TSX-only). Re-verified by: (a) `design-source-guard` (no HTML); (b) a **vitest catalog test** (`catalog.test.tsx`, Task 6) replacing the deleted Playwright workbench smoke — asserts `discoverStories(dsGlobs).length >= 29`, every module has ≥1 variant, and each variant renders without throwing in jsdom (`expect(() => render).not.toThrow` is banned by testing rules as the *sole* assertion, so assert the container has ≥1 child element after render). No HTML-toggle assertion needed (toggle no longer exists in source). |
+| **AC4** `npm run verify` passes locally on macOS with no Docker; no skipped/weakened visual checks | **One path, macOS-clean:** `npm run verify` → `… && npm run build && … && verify-attest` where `verify-attest` runs `npm run test:all` which includes the snapshot net (vitest). No `ds:sync`/`ds:workbench`/Playwright in the chain → no browser, no PNG, no Docker. Builder runs full `verify` **foreground** on the branch (MEMORY: foreground verify) and confirms green on macOS. The snapshot net IS the visual check — not skipped, not weakened (it is the LOCKED replacement, deterministic cross-platform). |
+| **AC5** 5 skills + `.claude/rules/*` describe the TSX + **vitest-snapshot** reality (not screenshots) | **Guard string-scan + manual read:** `design-source-guard` already bans HTML-as-reference strings; **add patterns** (Task 9) so reintroducing `ds:sync`/`toHaveScreenshot`/"golden PNG baseline" regression language in skills/rules fails the guard. Plus `/review` manual read. `visual-regression.md` rewritten to describe the snapshot net; `design-system.md` gate paragraph rewritten; `visual-parity.md` stays deleted. |
 
 ---
 
-## Ordered task list (builder, top-to-bottom)
+## Ordered task list (builder, top-to-bottom; each → AC)
 
-1. **(AC2,AC4) Rewrite the gate config + fix the bun launcher.** Edit `playwright.config.ts`: add `expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.05, threshold: 0.2 } }`, `snapshotPathTemplate` (no platform token). **Swap `webServer.command` `"bun run serve"` → `"npm run -w @hyperidle/design-system serve"` in `playwright.config.ts`, `playwright.workbench.config.ts`, and `playwright.l1.config.ts` (if kept) — bun is never installed in CI, so the gate must launch the viewer via npm/vite.** Verify config shape against https://playwright.dev/docs/test-snapshots. → AC2, AC4.
-2. **(AC2) Rewrite `visual-regression.test.ts`.** Screenshot live TSX story sections (reuse `screenshotSections` clip math); assert each via `toHaveScreenshot('<Component>-<section>.png')`. **Enumerate the component set at runtime from the catalog DOM** (`beforeAll`: goto `:8098/#`, `page.locator("button.component-link .component-name").allTextContents()`) — **NOT `discoverStories()`** (Vite-only, dead in Node). **Marker-presence: dual selector `[data-ds-component], [data-ds-shell]`** so shells pass. **Re-capture interactive hover/focus states** for the 11 `INTERACTIVE_COMPONENTS` (TSX selectors, `hover({force:true})`/`focus()`, `toHaveScreenshot('<C>-<state>.png')`). Remove all HTML page navigation + TSX-toggle clicks. → AC2.
-3. **(AC2) Bless initial baselines — on/for Linux (canonical).** Generate baselines on the canonical Linux platform (CI artifact or `mcr.microsoft.com/playwright:v<version>` container running `npm run ds:bless`), NOT Mac PNGs — Linux/CI is the blessing authority. Commit the Linux PNGs. These ARE the golden = current appearance (constraint: no restyle). Includes default + hover/focus state baselines. → AC2.
-4. **(AC2) Red-phase proof.** Temporarily restyle one component, run `ds:sync`, confirm failure names it, revert. (Do NOT commit the restyle.) → AC2 / validation scenario 2.
-5. **(AC3) Simplify viewer** `main.tsx` + `vite.config.ts` `publicDir` removal + `discovery.ts` jsdoc. → AC3.
-6. **(AC3) Rewrite workbench + L1 specs** to drop toggle/existsSync/HTML-toggle-click; assert TSX-only render + markers + "no HTML button." → AC3.
-7. **(AC1) Delete the HTML tree** `packages/design-system/html/` (65 files). → AC1.
-8. **(AC1) Delete dead scripts** `serve.ts`, `k13-capture.ts`, `packages/web/scripts/visual-compare*.ts`; remove `serve:static` (ds pkg) + `visual:compare` (web pkg) scripts. → AC1.
-9. **(AC1,AC5) Add AC1 guard** `scripts/design-source-guard.ts` (filesystem + string scan) mirroring `nimmly-guard.ts`; add `design-source-guard:check` to `verify`. → AC1, AC5.
-10. **(AC4) Wire visual gate into verify + CI (two distinct paths — see Wiring table).** Root `package.json`: insert `npm run ds:sync` into the `verify` chain before `build` (local path); add `ds:bless` → `-w @hyperidle/design-system test:visual:update`. Add `test:visual:update` + re-point `sync-check`/`test:visual` in ds `package.json`. `ci.yml` (CI path — CI does NOT run `verify`, so the gate reaches CI ONLY here): after "Build (desktop)" (line 61) add step `Install Playwright (chromium)` → `npx playwright install --with-deps chromium`, then step `Visual regression (TSX baselines)` → `npm run ds:sync`. Note: AC1's `design-source-guard:check` is wired into `verify` only (local), matching its sibling guards which are not in CI. → AC4.
-11. **(AC5) Rewrite docs/skills.** Delete `visual-parity.md`, create `visual-regression.md` (include the canonical-Linux bless workflow + "never raise the 5% ratio"); edit `.claude/rules/design-system.md`; edit the 5 skills (minimal — only HTML-as-truth + `visual:compare` language, NOT AJ3's mockup-authoring rewrite); fix U8 comment. **Also sweep `packages/design-system/*.md` for dangling `html/` paths** (`THEMES.md` documents `html/themes/` which is deleted; `DESIGN.md`/`FEEDBACK.md`/`AESTHETICS.md` may reference `html/` + `ds:serve`-of-html) — reword to TSX reality so no doc points at a deleted path. → AC5.
-12. **(AC4) Full `npm run verify` foreground** on branch (local visual path). Then push branch + confirm CI green via the new explicit CI visual step (MEMORY: test CI before merge — the Playwright-in-CI step is new and untested; validate canonical Linux baselines match in CI, not on Mac). → AC4.
+1. **(AC2 red) Write the snapshot net test — RED first.** Create `packages/design-system/src/__tests__/catalog-snapshot.test.tsx`: enumerate via `discoverStories(import.meta.glob("../*.stories.tsx",{eager:true}), import.meta.glob("../kinds/*.stories.tsx",{eager:true}))`; `describe(title)` / `test(variant.name)`; render via `createRoot`+`act`; serialize via the custom walk + id-normalization; `toMatchSnapshot()`. Add the `modules.length >= 56` + `> 0` enumeration guard. **No `.snap` committed yet → first run WRITES snapshots (green on write).** Confirm it picks up all 56 stories and produces deterministic output across two consecutive runs (run twice, `git diff` the `.snap` = empty). → AC2.
+2. **(AC2) Bless initial snapshots = current appearance.** Commit `__snapshots__/catalog-snapshot.test.tsx.snap`. These are the baseline (constraint: no restyle — they capture the tree as-is). Cross-platform stable → no Linux/Mac fork needed. → AC2.
+3. **(AC2) Red-phase proof.** Temporarily change one component's class, `npm run test`, confirm the snapshot test fails naming `<Component> > <Variant>` with a readable text diff; **revert** (do not commit the restyle). → AC2 / validation.
+4. **(AC1,AC2) Delete the screenshot test + PNGs.** Delete `src/__tests__/visual-regression.test.ts` and the entire `src/__tests__/__screenshots__/` dir (342 PNGs). → removal.
+5. **(AC1) Delete Playwright configs + workbench spec.** Delete `playwright.config.ts`, `playwright.workbench.config.ts`, `tests/workbench.spec.ts` (and the `tests/` dir if empty). → removal.
+6. **(AC3) Add the vitest catalog test** `packages/design-system/src/__tests__/catalog.test.tsx` replacing the deleted Playwright workbench smoke: assert `discoverStories(...).length >= 29`, every module has ≥1 variant, each variant renders ≥1 DOM element in jsdom. (No HTML-toggle assertion — gone from source.) → AC3.
+7. **(AC4) Fix vitest config.** `packages/design-system/vitest.config.ts`: remove `"**/visual-regression*"` and `"tests/**"` from `exclude` so the new `*.test.tsx` files run and no longer reference deleted paths. → AC4.
+8. **(AC1,AC4) Strip scripts + deps + verify chain.** Root `package.json`: delete `ds:sync`, `ds:workbench`; re-point or delete `ds:bless` (→ `vitest run -u <snapshot file>`, or delete); remove `&& npm run ds:sync && npm run ds:workbench` from `verify`. DS `package.json`: delete `test:visual`, `test:visual:update`, `sync-check`, `test:workbench`; remove `@playwright/test` from DS devDeps. Web `package.json`: delete `visual:compare`. `knip.json`: remove DS `playwright.config` entries. → AC1, AC4.
+9. **(AC1,AC5) Extend the AC1 guard.** In `scripts/design-source-guard.ts` `FORBIDDEN_PATTERNS`, add regexes so screenshot-regression language can't return to skills/rules: `/golden (png|baseline)/i`, `/toHaveScreenshot/`, `/ds:sync.*(screenshot|pixel|baseline)/i`, `/__screenshots__/`. (Keep existing HTML patterns.) Do NOT ban the words "screenshot"/"Playwright" wholesale — manual screenshot-review acts in `/review` and `/product-deep-review` are legitimate and must survive. → AC1, AC5.
+10. **(AC1,AC4) Delete CI steps.** `.github/workflows/ci.yml`: remove `Install Playwright (chromium)`, `Visual regression (TSX baselines)`, `Workbench smoke` (lines 64–76). Snapshot net needs no CI step (covered by `test:all` attestation). → AC4.
+11. **(AC5) Rewrite skill + rule wording (snapshot reality).** Edit:
+    - `.claude/rules/visual-regression.md` — **rewrite** to describe the vitest snapshot net (file path, `discoverStories` enumeration, custom serializer + id normalization, `__snapshots__/*.snap` committed, re-bless via `vitest -u`, the honest coverage statement). Remove ALL Playwright/golden-PNG/canonical-Linux/ds:sync/ds:bless-as-PNG language.
+    - `.claude/rules/design-system.md` (line 28 gate paragraph) — "Visual regression gate: the vitest DOM-snapshot net (`packages/design-system/src/__tests__/catalog-snapshot.test.tsx`, runs in `npm run test`) renders every catalogued story and snapshots normalized DOM+class text; intended change → re-bless with `vitest -u`. See `.claude/rules/visual-regression.md`."
+    - `.claude/skills/review/SKILL.md:73` — replace "run `npm run ds:sync` to diff against committed golden baselines" with "the vitest DOM-snapshot net (`npm run test`) catches class/markup/marker regression; for *painted-pixel* review open the story in the live viewer (`npm run ds:serve` → `:8098/#<Component>`) and look." (Keep the manual `npx playwright screenshot` of the running app at :5173 — it covers the snapshot blind spot.)
+    - `.claude/skills/product-deep-review/SKILL.md:60` — same swap: `ds:sync` golden-baseline → snapshot net + live viewer; keep the running-app screenshots.
+    - `.claude/skills/visual-polish/SKILL.md` — replace the `ds:sync`/`ds:bless`/"golden PNG baselines at ≤5%" regression references (lines 3,51,54,67,72,76,79) with "the vitest snapshot net (`npm run test`) flags structural/class drift; re-bless with `vitest -u`." Keep the manual `npx playwright screenshot` of the story for *visual* polish iteration (that's the human-pixel loop, not the regression net).
+    - `.claude/skills/design/SKILL.md` + `.claude/skills/design-critique/SKILL.md` — these reference `npx playwright screenshot` for **manual critique only** (no `ds:sync`/golden-baseline regression language present). **No change needed** unless a build-time grep finds golden-baseline regression wording; the manual screenshot-for-critique acts stay.
+    Run the AC1 guard after editing — expect clean. → AC5.
+12. **(AC4) Full `npm run verify` foreground on macOS.** Run the entire `verify` chain foreground (MEMORY). Confirm: zero check/lint/knip errors, snapshot net green inside `test:all`, no Playwright/Docker invoked, build passes, attestation signs. Then push; CI runs the (now Playwright-free) chain + attestation. → AC4.
 
 ---
 
@@ -209,44 +300,36 @@ Keep unchanged: `discoverStories`, `useHashRoute`, `useTheme`, `Catalog`, `Catal
 |---|---|
 | Rate-limit on POST/PATCH | **N/A** — no endpoints touched. |
 | Input-trust / agent-authored fields | **N/A** — no user/agent input surface. |
-| Secret handling | **N/A** — no new credentials. (`VERIFY_SECRET` attestation flow untouched.) |
-| Path traversal | **N/A** — no path input; snapshot paths are static config. |
+| Secret handling | **N/A** — no new credentials (`VERIFY_SECRET` attestation flow untouched; removing CI visual steps does not touch it). |
+| Path traversal | **N/A** — no path input; snapshot paths are fixed (`__snapshots__/`). |
 | SSRF | **N/A** — no outbound URLs. |
-| CI integrity | **Addressed** — visual gate runs LIVE in CI (not attested), so it cannot be bypassed via a forged attestation (consistent with the Z8-166 fix: fast/deterministic checks run live). |
-
----
-
-## Migrations (renamed/removed symbols → call sites)
-
-| Symbol removed | Call sites to update |
-|---|---|
-| `html/*.html` files | `visual-regression.test.ts` (rewritten), `thread-components.spec.ts` (rewritten), `vite.config.ts publicDir` (removed), `serve.ts` (deleted). No production import — `html/` was never imported by shipping code. |
-| `serve:static` script | grep confirms only in ds `package.json`. No CI/doc refs. |
-| `visual:compare` script | `packages/web/package.json`; referenced in `/review`, `/product-deep-review`, `/visual-polish` skills → reroute/remove. |
-| `RenderMode`, `HtmlComponentView`, `isHtmlAvailable`, `HTML_AVAILABLE_TITLES`, `htmlGlobs` | Only in `viewer/main.tsx` (local). `workbench.spec.ts` asserts on the rendered toggle → rewritten. |
-| `ds:sync` semantics (HTML-diff → TSX-baseline) | Same script name; body changes. Doc refs in `.claude/rules/design-system.md` reworded. |
+| CI integrity | **Addressed** — the snapshot net runs inside `test:all`, whose real exit code is recorded by `verify-attest` and validated by `check-attestation.ts` (the Z8-166 fix). It cannot be bypassed by a forged attestation. Removing the live Playwright CI steps does NOT weaken this: the net moved from a live CI step into the attested test suite, which CI still validates. |
 
 ## route-checklist
-N/A — no HTTP routes / middleware in this workpackage.
+N/A — no HTTP routes / middleware.
 
 ## protectedTests
-None frozen — the visual-regression suite is intentionally rewritten (its assertions MUST change: HTML-diff → TSX-baseline). All non-visual vitest suites (`*.test.ts(x)` under `src/__tests__/` except `visual-regression.test.ts`) must keep passing unchanged; DoD audits `git diff --name-only` shows no edits to component `.tsx` source (constraint: no restyle) except the deliberate-then-reverted red-phase change.
+- All 27 existing `*.test.tsx` / `*.test.ts` under `packages/design-system/src/__tests__/` **except** `visual-regression.test.ts` (deleted) — their assertions must NOT change (constraint: no component restyle). DoD audits `git diff --name-only` shows no edits to those test files and no edits to component `.tsx` source (except the deliberate-then-reverted red-phase change in Task 3).
+- The committed `__snapshots__/catalog-snapshot.test.tsx.snap` is the new baseline; after Task 2 it must not change in this PR (no restyle ⇒ no re-bless).
 
 ## sharedFiles
-- `package.json` (root) — verify chain + scripts (other WPs may add guards).
+- `package.json` (root) — `verify` chain + `ds:*` scripts (other WPs may add guards/scripts → merge-order risk).
+- `packages/design-system/package.json`, `packages/design-system/vitest.config.ts` — DS scripts/config.
+- `packages/web/package.json` — `visual:compare` removal.
 - `.github/workflows/ci.yml` — CI steps.
-- `.claude/skills/{design,design-critique,review,product-deep-review,visual-polish}/SKILL.md` — **AJ3 also edits `/design`, `/design-critique`** → merge-order risk; AJ1 must land first (AJ3 depends on AJ1). Keep AJ1's skill edits minimal to reduce conflict surface.
-- `.claude/rules/design-system.md`, `.claude/rules/visual-parity.md`.
+- `knip.json` — DS playwright config entries.
+- `.claude/skills/{design,design-critique,review,product-deep-review,visual-polish}/SKILL.md`, `.claude/rules/{visual-regression,design-system}.md` — **AJ3 also edits `/design` + `/design-critique`** → AJ1 must land first; keep AJ1's skill edits surgical (regression-net wording only, NOT mockup-authoring workflow) to minimize conflict surface.
+- `scripts/design-source-guard.ts` — AC1 guard (pattern addition).
 
 ---
 
 ## Risks / blockers
 
-1. **Cross-platform baseline drift (highest — now mitigated by canonical-platform decision).** Mac-blessed PNGs vs Linux CI render: AA/font jitter may exceed 5%. *Resolution (no longer left open):* **Linux/CI is the canonical blessing authority** (see "Canonical capture platform"). Baselines are Linux-rendered (via CI artifact or `mcr.microsoft.com/playwright` container); local Mac `verify` tolerates them via the 5% ratio + platform-agnostic `snapshotPathTemplate`. Builder blesses on/for Linux from the start, so CI is green by construction. Builder MUST still validate CI green on-branch before merge (MEMORY: test CI before merge) — but recovery is defined (re-bless on Linux), never "weaken the 5% ratio."
-2. **`verify` runtime grows.** Adding Playwright to `verify` adds ~30-90s + `playwright install` in CI. Acceptable (visual gate is the point); keep it out of `test:all` so unit runs stay fast.
-3. **Scope bleed into AJ3.** `/design` + `/design-critique` skills are AJ3 territory. AJ1 edits must be surgical (HTML-as-truth removal only). Over-editing the mockup-authoring workflow now = rework when AJ3 lands. Flagged in tasks 11.
-4. **`.claude/rules/design-system.md` is not in the spec's "5 skills + visual-parity" list** but it explicitly names HTML-as-truth ("dual representation… `.html`"). Leaving it violates AC1 ("no rule names HTML as the design reference"). Plan includes it; reviewer should confirm the spec's list was non-exhaustive.
-5. **L1/workbench config consolidation** is a judgment call (delete L1 config + merge, vs keep separate). Default = merge into the single gate so "every catalogued component" is covered by one auto-derived list; avoids a second hand-maintained component array.
+1. **Snapshot churn discipline (the LOCKED-choice's known cost).** Every *intended* class edit needs a reviewed `vitest -u` re-bless. Mitigation: text diffs are readable (unlike PNGs); the serializer is scoped to *structure + class + markers* (not full prose), so churn is proportional to real design change. If agents blindly `-u` without reading, the net degrades to noise (MEMORY: tests must not drive behavior) — `/review` must read `.snap` diffs. Documented in `visual-regression.md`.
+2. **`discoverStories` import path from a test file** (⚠️ UNVERIFIED — Task 1 confirms). The spike verified `import.meta.glob` enumeration; importing `discoverStories` from `../../viewer/discovery.js` into `src/__tests__/` is same-package and expected to resolve, but builder confirms in red phase. Fallback: inline the trivial CSF-extraction (`Object.entries` minus `default`, treat function/`{render}` as variant) directly in the test — the spike already used raw globs successfully.
+3. **Enumeration silently empties.** If a glob-root path is wrong, `discoverStories` returns `[]` and the net is vacuously green. Mitigated by the explicit `modules.length >= 56` guard assertion (Task 1) — fails loudly if the catalog disappears.
+4. **Coverage blind spot (accepted, not a bug).** Pure-paint regressions (token *value* re-map, font/cascade/layout) are not caught by jsdom text — see the honest coverage statement. This is the founder-accepted trade for H1–H4. Covered by token-guard + lint + the live viewer + design-critique. Reviewer must accept this trade explicitly, not flag it as a gap.
+5. **Web shell/page stories out of scope.** The DS net covers `packages/design-system` stories (56). Web composites (`packages/web/src/{shell,components,pages}/*.stories.tsx`) are NOT in this net (cross-package glob coupling avoided). They have their own `*.test.tsx` + e2e. If "catalogued components" is later read to include web shells, a *separate* web-package snapshot net is a follow-up — flagged, out of AJ1 scope.
 
 ## Doc cross-check
-No `docs/` canonical-shape contradiction — AJ1 touches tooling/skills/design-system infra only; `docs/ui-design/` describes tokens/components (unaffected — no restyle). No `/concept` gap.
+No `docs/` canonical-shape contradiction — AJ1 touches tooling/skills/design-system infra only. No `/concept` gap (no new primitive; "snapshot baseline" is a generic testing term).
