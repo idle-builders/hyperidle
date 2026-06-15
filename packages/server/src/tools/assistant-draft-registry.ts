@@ -17,7 +17,7 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { teamMembers, users } from "@hyperidle/db";
+import { bets, teamMembers, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { createBetTool } from "./create-bet.js";
@@ -117,7 +117,6 @@ export async function resolveCurrentDraftBetId(
 				if (!betId) continue;
 
 				// Liveness check: validate bet is still status='draft'
-				const { bets } = await import("@hyperidle/db");
 				const [bet] = await db
 					.select({ status: bets.status })
 					.from(bets)
