@@ -15,4 +15,3 @@ Check off rows as they are closed in M3.
 - [ ] `packages/web/src/pages/KnowledgeDetail.tsx:LEGACY_DETAILS` (borderline)
 - [ ] `packages/web/src/pages/KnowledgeDetail.tsx:LEGACY_SOURCES` (borderline)
 - [ ] `packages/web/src/pages/KnowledgeDetail.tsx:FALLBACK_DETAIL` (borderline)
-- [ ] `packages/web/src/pages/WorkBetCreate.tsx:../fixtures/knowledge-data` (borderline)

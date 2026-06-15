@@ -97,14 +97,5 @@
     "shape": "object",
     "importerCount": 0,
     "triageHint": "borderline"
-  },
-  {
-    "path": "packages/web/src/pages/WorkBetCreate.tsx",
-    "line": 31,
-    "symbol": "../fixtures/knowledge-data",
-    "kind": "import",
-    "shape": "import",
-    "importerCount": 0,
-    "triageHint": "borderline"
   }
 ]

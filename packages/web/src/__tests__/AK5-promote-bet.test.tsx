@@ -62,9 +62,10 @@ vi.mock("../services/api-fetch.js", () => ({
 	apiFetch: vi.fn(),
 }));
 
-// Mock useKnowledgeItem — KnowledgeDetail live fetch hook
+// Mock useKnowledgeItem — KnowledgeDetail live fetch hook.
+// Must be vi.fn() so individual tests can override for async-path assertions.
 vi.mock("../hooks/useKnowledgeItem.js", () => ({
-	useKnowledgeItem: () => ({ data: null, isLoading: false, error: null }),
+	useKnowledgeItem: vi.fn(() => ({ data: null, isLoading: false, error: null })),
 }));
 
 // Mock useAutoSave — KnowledgeDetail auto-save
@@ -356,27 +357,109 @@ describe("AK5 — WorkBetCreate: ?fromKnowledge= pre-fill (multi-team path)", ()
 		vi.restoreAllMocks();
 	});
 
-	it("WorkBetCreate with ?fromKnowledge=ki-ak5 pre-seeds body from the knowledge item", async () => {
-		// The mock for useKnowledgeItem must return the item body when fromKnowledge is set.
-		// AK5 task 7: WorkBetCreate reads ?fromKnowledge= and calls useKnowledgeItem.
-		// This test will fail (red) until task 7 is implemented.
-		// We need the component to pre-fill the BodyEditor with the item body.
+	it("WorkBetCreate with ?fromKnowledge=k1 pre-seeds body from the knowledge item", async () => {
+		// Fixture fallback was removed from WorkBetCreate (reviewer critical finding #3).
+		// The component now relies solely on useKnowledgeItem, so this test must mock it.
+		const { useKnowledgeItem } = await import("../hooks/useKnowledgeItem.js");
+		vi.mocked(useKnowledgeItem).mockReturnValue({
+			data: {
+				id: "k1",
+				title: "Architecture Decision: Auth Strategy",
+				body: "JWT-based authentication with refresh tokens. Access tokens expire in 15 minutes.",
+				format: "markdown",
+				status: "active",
+				version: 1,
+				updatedBy: "agent-1",
+				scopeKind: "practice",
+				scopeId: null,
+				topic: "Architecture",
+				createdAt: "2024-01-01T00:00:00Z",
+				updatedAt: "2024-01-01T00:00:00Z",
+			},
+			isLoading: false,
+			error: null,
+		});
 
-		// For this test we use a known fixture item "k1" whose body is accessible from fixture data.
 		renderWorkBetCreate("?fromKnowledge=k1");
 
-		// When fromKnowledge is set, the BodyEditor should have an initialContent matching
-		// the knowledge item body. The mock body-editor exposes it via defaultValue.
-		// This test will be red until the pre-fill is implemented.
+		// When fromKnowledge is set and useKnowledgeItem resolves immediately (isLoading: false),
+		// the BodyEditor renders with the knowledge body as initialContent.
 		await waitFor(() => {
 			const editor = screen.getByTestId("body-editor-textarea");
-			// The textarea's value should contain some content from the knowledge item
-			// (the exact text depends on fixture k1's body). It must NOT be empty.
-			// When not implemented, it will be "" → test fails (red).
-			// Note: toHaveValue() does not support asymmetric matchers in jest-dom (compareAsSet
-			// uses ===, not this.equals). Use not.toHaveValue("") — semantically identical.
-			expect(editor).not.toHaveValue("");
+			expect(editor).toHaveValue(
+				"JWT-based authentication with refresh tokens. Access tokens expire in 15 minutes.",
+			);
 		});
+	});
+
+	it("WorkBetCreate async-path: editor shows body when fetch resolves after mount", async () => {
+		// This test proves the CRITICAL reviewer bug is fixed. The old code mounted BodyEditor
+		// with body="" (fetch not yet resolved), and TipTap never re-synced (lore T1).
+		// The fix: defer BodyEditor mount until the knowledge fetch settles so TipTap
+		// captures the correct initialContent on first mount.
+		//
+		// Strategy: start mock in loading state → render shows "Loading..." → update mock to
+		// settled state with body → rerender → BodyEditor now mounts with correct content.
+		const { useKnowledgeItem } = await import("../hooks/useKnowledgeItem.js");
+
+		// Phase 1: loading state — BodyEditor must NOT be rendered yet
+		vi.mocked(useKnowledgeItem).mockReturnValue({
+			data: null,
+			isLoading: true,
+			error: null,
+		});
+
+		const { rerender } = render(
+			<MemoryRouter initialEntries={["/work/bet/new?fromKnowledge=ki-async-test"]}>
+				<Routes>
+					<Route path="/work/bet/new" element={<WorkBetCreate />} />
+				</Routes>
+			</MemoryRouter>,
+		);
+
+		// Loading gate: BodyEditor must not mount while fetch is in flight
+		expect(screen.getByTestId("bet-create-knowledge-loading")).toBeInTheDocument();
+		expect(screen.queryByTestId("body-editor-textarea")).not.toBeInTheDocument();
+
+		// Phase 2: fetch resolves — update mock to settled state with body
+		vi.mocked(useKnowledgeItem).mockReturnValue({
+			data: {
+				id: "ki-async-test",
+				title: "Async Knowledge Item",
+				body: "# Async Knowledge\n\nThis is the fetched body.",
+				format: "markdown",
+				status: "active",
+				version: 1,
+				updatedBy: "u1",
+				scopeKind: "practice",
+				scopeId: null,
+				topic: "Architecture",
+				createdAt: "2024-01-01T00:00:00Z",
+				updatedAt: "2024-01-01T00:00:00Z",
+			},
+			isLoading: false,
+			error: null,
+		});
+
+		// Trigger re-render with updated mock — simulates React updating when hook resolves
+		rerender(
+			<MemoryRouter initialEntries={["/work/bet/new?fromKnowledge=ki-async-test"]}>
+				<Routes>
+					<Route path="/work/bet/new" element={<WorkBetCreate />} />
+				</Routes>
+			</MemoryRouter>,
+		);
+
+		// BodyEditor must now be mounted with the fetched body as initialContent
+		await waitFor(() => {
+			const editor = screen.getByTestId("body-editor-textarea");
+			// The mock BodyEditor uses defaultValue={initialContent} — RTL's toHaveValue reads
+			// the actual textarea value. After the fix, initialContent = knowledgeBody (non-empty).
+			expect(editor).toHaveValue("# Async Knowledge\n\nThis is the fetched body.");
+		});
+
+		// Loading indicator must be gone
+		expect(screen.queryByTestId("bet-create-knowledge-loading")).not.toBeInTheDocument();
 	});
 
 	it("WorkBetCreate with ?fromKnowledge= carries sourceKnowledgeItemId in the POST payload", async () => {
