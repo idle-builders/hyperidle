@@ -13,7 +13,7 @@
 
 import type { Rule } from "eslint";
 import type { JSXAttribute } from "estree-jsx";
-import { collectClassStringsFromJSXAttribute, createRule } from "../util.js";
+import { asReportNode, collectClassStringsFromJSXAttribute, createRule } from "../util.js";
 
 // DaisyUI textarea class markers — signal a bypassed design-system primitive
 const FORBIDDEN_PATTERNS = ["textarea-bordered", "textarea textarea", "textarea-sm"];
@@ -54,7 +54,7 @@ export const noRawSettingsTextarea: Rule.RuleModule = createRule({
 					for (const forbidden of FORBIDDEN_PATTERNS) {
 						if (text.includes(forbidden)) {
 							context.report({
-								node: node as unknown as Rule.Node,
+								node: asReportNode(node),
 								messageId: "rawTextarea",
 								data: { cls: forbidden },
 							});

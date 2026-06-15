@@ -27,9 +27,10 @@
  * The ROUNDED_2XL_3XL regex is narrowed to match only rounded-3xl.
  */
 
-import type { Rule } from "eslint";
+import type { JSSyntaxElement, Rule } from "eslint";
 import type { JSXAttribute, JSXText } from "estree-jsx";
 import {
+	asReportNode,
 	collectClassStringsFromExpression,
 	collectClassStringsFromJSXAttribute,
 	createRule,
@@ -120,8 +121,8 @@ export const noAiAesthetic: Rule.RuleModule = createRule({
 		const filename = context.filename;
 		const isOverlayFile = isShadowOverlayFile(filename);
 
-		function checkClassString(text: string, node: unknown): void {
-			const reportNode = node as Rule.Node;
+		function checkClassString(text: string, node: { type: string }): void {
+			const reportNode: JSSyntaxElement = asReportNode(node);
 			const m1 = ROUNDED_3XL.exec(text);
 			if (m1) {
 				context.report({
@@ -192,7 +193,7 @@ export const noAiAesthetic: Rule.RuleModule = createRule({
 				) {
 					return;
 				}
-				if (isInsideClassNameAttribute(node as unknown as { parent?: unknown })) {
+				if (isInsideClassNameAttribute(node)) {
 					return;
 				}
 				const collected = collectClassStringsFromExpression(node);
@@ -210,7 +211,7 @@ export const noAiAesthetic: Rule.RuleModule = createRule({
 				const mLorem = LOREM_IPSUM.exec(trimmed);
 				if (mLorem) {
 					context.report({
-						node: node as unknown as Rule.Node,
+						node: asReportNode(node),
 						messageId: "loremIpsum",
 						data: { value: mLorem[0] },
 					});
@@ -218,14 +219,14 @@ export const noAiAesthetic: Rule.RuleModule = createRule({
 				const mMarketing = MARKETING_COPY.exec(trimmed);
 				if (mMarketing) {
 					context.report({
-						node: node as unknown as Rule.Node,
+						node: asReportNode(node),
 						messageId: "marketingCopy",
 						data: { value: mMarketing[0] },
 					});
 				}
 				if (LEADING_EMOJI.test(trimmed)) {
 					context.report({
-						node: node as unknown as Rule.Node,
+						node: asReportNode(node),
 						messageId: "leadingEmoji",
 					});
 				}
@@ -234,13 +235,13 @@ export const noAiAesthetic: Rule.RuleModule = createRule({
 			// — same lorem/marketing checks as JSX text.
 			Literal(node) {
 				if (typeof node.value !== "string") return;
-				const parent = (node as unknown as { parent?: { type?: string } }).parent;
+				const parent = (node as { parent?: { type?: string } }).parent;
 				if (!parent || parent.type !== "JSXExpressionContainer") return;
 				const text = node.value as string;
 				const mLorem = LOREM_IPSUM.exec(text);
 				if (mLorem) {
 					context.report({
-						node: node as unknown as Rule.Node,
+						node: asReportNode(node),
 						messageId: "loremIpsum",
 						data: { value: mLorem[0] },
 					});
@@ -248,7 +249,7 @@ export const noAiAesthetic: Rule.RuleModule = createRule({
 				const mMarketing = MARKETING_COPY.exec(text);
 				if (mMarketing) {
 					context.report({
-						node: node as unknown as Rule.Node,
+						node: asReportNode(node),
 						messageId: "marketingCopy",
 						data: { value: mMarketing[0] },
 					});
