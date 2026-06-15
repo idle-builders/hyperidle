@@ -5,14 +5,19 @@ export type Status = "healthy" | "behind" | "blocked" | "paused" | "done" | "err
 
 export interface StatusChipProps {
 	/**
-	 * Runtime value. Typed as `Status` at the call site for compile-time
-	 * safety, but at runtime we tolerate `undefined` / unknown strings
-	 * (e.g. server/web version skew where a new shared status hasn't been
-	 * mapped yet) and render a neutral "unknown" chip instead of letting
-	 * an undefined class leak into the DOM as `badge undefined`.
+	 * The chip status. Accepts all named statuses plus the explicit sentinel
+	 * `"unknown"` for call sites where absence of a value is not an error
+	 * (e.g. "No credential" in SettingsModels). At runtime we also tolerate
+	 * `undefined` / unrecognised strings (server/web version skew) and
+	 * render a neutral grey chip — see `KNOWN_STATUSES` + `safeStatus`.
 	 * See I4 adversary W4.
+	 *
+	 * @lore AG7 W1: widened from `Status` to `Status | "unknown"` so call
+	 * sites that legitimately mean "no value yet" don't need an `as` cast.
+	 * `"unknown"` is NOT added to `KNOWN_STATUSES` — the runtime escape hatch
+	 * (unknown strings → neutral grey) routes through the same code path.
 	 */
-	status: Status;
+	status: Status | "unknown";
 	/**
 	 * AI4 Decision 1 / Decision 1a — Casing contract:
 	 * When provided, renders the string VERBATIM into the DOM — no JS

@@ -33,7 +33,6 @@ import {
 	Input,
 	Select,
 	SkeletonList,
-	type Status,
 	StatusChip,
 } from "@hyperidle/design-system";
 import type { ModelProvider } from "@hyperidle/shared";
@@ -177,7 +176,7 @@ function TierRow({ tier, config, hasApiKey, onChange }: TierRowProps): JSX.Eleme
 				{hasCredentialStatus && (
 					<div className="self-end pb-[6px]">
 						<StatusChip
-							status={hasApiKey ? "healthy" : ("unknown" as Status)}
+							status={hasApiKey ? "healthy" : "unknown"}
 							label={hasApiKey ? "Credential set" : "No credential"}
 						/>
 					</div>
